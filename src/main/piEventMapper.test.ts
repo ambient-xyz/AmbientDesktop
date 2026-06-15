@@ -1257,6 +1257,28 @@ describe("normalizePiEvent", () => {
     });
   });
 
+  it("marks raw tool-call delta text as an appendable content delta", () => {
+    expect(
+      normalizePiEvent({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_delta",
+          contentIndex: 0,
+          delta: "\"content",
+          partial: {
+            content: [{ type: "toolCall", id: "call-delta", name: "write", arguments: "{\"path\":\"index.html\"," }],
+          },
+        },
+      }),
+    ).toEqual({
+      kind: "tool-input-update",
+      toolCallId: "call-delta",
+      label: "write",
+      content: "\"content",
+      contentDelta: true,
+    });
+  });
+
   it("labels routed ambient tool calls with the wrapped tool name", () => {
     const content = "x".repeat(700);
     const streamed = normalizePiEvent({

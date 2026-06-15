@@ -35,7 +35,11 @@ export function runtimeToolInputEventModel(
   input: RuntimeToolInputEvent,
   previous: PreviousRuntimeToolInputEventState = {},
 ): RuntimeToolInputEventModel {
-  const inputContent = input.content.trim() ? input.content : (previous.previousInputContent ?? "");
+  const inputContent = input.content.trim()
+    ? input.kind === "tool-input-update" && input.contentDelta && input.input === undefined
+      ? `${previous.previousInputContent ?? ""}${input.content}`
+      : input.content
+    : (previous.previousInputContent ?? "");
   const recoveryCapture = serializeToolInputForInterruptedRecovery(input.input, inputContent);
   const longformInputPreview = input.longformInputPreview ?? previous.previousLongformInputPreview;
   const editInputPreview = input.editInputPreview ?? previous.previousEditInputPreview;
