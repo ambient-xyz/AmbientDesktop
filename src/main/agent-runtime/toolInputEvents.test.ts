@@ -80,6 +80,53 @@ describe("toolInputEvents", () => {
     });
   });
 
+  it("accumulates raw streamed delta chunks before progress and recovery capture", () => {
+    expect(runtimeToolInputEventModel({
+      kind: "tool-input-update",
+      toolCallId: "tool-call-delta",
+      label: "write",
+      content: "tent",
+      contentDelta: true,
+    }, {
+      previousInputContent: "{\"path\":\"index.html\",\"con",
+    })).toEqual({
+      toolCallId: "tool-call-delta",
+      label: "write",
+      statusLabel: "preparing",
+      argumentEventType: "toolcall_delta",
+      inputContent: "{\"path\":\"index.html\",\"content",
+      shouldEmitRunningToolEvent: false,
+      recoveryCapture: {
+        text: "{\"path\":\"index.html\",\"content",
+        source: "visible_tool_input",
+      },
+    });
+  });
+
+  it("uses parsed cumulative tool input instead of appending delta text", () => {
+    expect(runtimeToolInputEventModel({
+      kind: "tool-input-update",
+      toolCallId: "tool-call-parsed",
+      label: "write",
+      content: "{\"path\":\"index.html\"}",
+      contentDelta: true,
+      input: { path: "index.html" },
+    }, {
+      previousInputContent: "partial-prefix",
+    })).toEqual({
+      toolCallId: "tool-call-parsed",
+      label: "write",
+      statusLabel: "preparing",
+      argumentEventType: "toolcall_delta",
+      inputContent: "{\"path\":\"index.html\"}",
+      shouldEmitRunningToolEvent: false,
+      recoveryCapture: {
+        text: "{\n  \"path\": \"index.html\"\n}",
+        source: "raw_tool_input",
+      },
+    });
+  });
+
   it("models a tool input end using incoming previews over previous previews", () => {
     expect(runtimeToolInputEventModel({
       kind: "tool-input-end",
