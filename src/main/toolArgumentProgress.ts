@@ -82,6 +82,23 @@ export class ToolArgumentProgressTracker {
     state.lastEventType = input.eventType;
     state.phase = state.executionStartedAt ? "execution" : "argument_stream";
 
+    const longformChars = longformInputChars(input.longformInputPreview);
+    let longformDeltaChars = 0;
+    if (longformChars !== undefined) {
+      longformDeltaChars = Math.max(0, longformChars - (state.longformInputChars ?? 0));
+      state.longformInputDeltaChars = longformDeltaChars;
+      state.longformInputChars = longformChars;
+      state.observedArgumentChars = Math.max(state.observedArgumentChars, longformChars);
+    }
+    const contentChars = contentFieldChars(input.longformInputPreview);
+    let contentDeltaChars = 0;
+    if (contentChars !== undefined) {
+      contentDeltaChars = Math.max(0, contentChars - (state.contentFieldChars ?? 0));
+      state.contentFieldDeltaChars = contentDeltaChars;
+      state.contentFieldChars = contentChars;
+      state.observedArgumentChars = Math.max(state.observedArgumentChars, contentChars);
+    }
+
     if (input.eventType === "toolcall_start") {
       state.toolcallStartAt = state.toolcallStartAt ?? now;
     } else if (input.eventType === "toolcall_delta") {
@@ -94,23 +111,10 @@ export class ToolArgumentProgressTracker {
       state.argumentComplete = true;
     }
 
-    if (deltaChars > 0) {
+    if (Math.max(deltaChars, longformDeltaChars, contentDeltaChars) > 0) {
       state.meaningfulGrowthCount += 1;
       state.lastMeaningfulGrowthMs = nowMs;
       state.lastMeaningfulGrowthAt = now;
-    }
-
-    const longformChars = longformInputChars(input.longformInputPreview);
-    if (longformChars !== undefined) {
-      state.longformInputDeltaChars = Math.max(0, longformChars - (state.longformInputChars ?? 0));
-      state.longformInputChars = longformChars;
-      state.observedArgumentChars = Math.max(state.observedArgumentChars, longformChars);
-    }
-    const contentChars = contentFieldChars(input.longformInputPreview);
-    if (contentChars !== undefined) {
-      state.contentFieldDeltaChars = Math.max(0, contentChars - (state.contentFieldChars ?? 0));
-      state.contentFieldChars = contentChars;
-      state.observedArgumentChars = Math.max(state.observedArgumentChars, contentChars);
     }
 
     this.active.set(input.toolCallId, state);
@@ -135,33 +139,38 @@ export class ToolArgumentProgressTracker {
         nowMs,
       });
     state.toolName = input.toolName || state.toolName;
+    let deltaChars = 0;
     if (input.inputContent !== undefined) {
       const inputChars = input.inputContent.length;
-      const deltaChars = Math.max(0, inputChars - state.inputChars);
+      deltaChars = Math.max(0, inputChars - state.inputChars);
       state.inputChars = Math.max(state.inputChars, inputChars);
       state.observedArgumentChars = Math.max(state.observedArgumentChars, state.inputChars);
       state.lastDeltaChars = deltaChars;
       state.totalDeltaChars += deltaChars;
       state.maxDeltaChars = Math.max(state.maxDeltaChars, deltaChars);
-      if (deltaChars > 0) {
-        state.meaningfulGrowthCount += 1;
-        state.lastMeaningfulGrowthMs = nowMs;
-        state.lastMeaningfulGrowthAt = now;
-      }
     } else {
       state.lastDeltaChars = 0;
     }
     const longformChars = longformInputChars(input.longformInputPreview);
+    let longformDeltaChars = 0;
     if (longformChars !== undefined) {
-      state.longformInputDeltaChars = Math.max(0, longformChars - (state.longformInputChars ?? 0));
+      longformDeltaChars = Math.max(0, longformChars - (state.longformInputChars ?? 0));
+      state.longformInputDeltaChars = longformDeltaChars;
       state.longformInputChars = longformChars;
       state.observedArgumentChars = Math.max(state.observedArgumentChars, longformChars);
     }
     const contentChars = contentFieldChars(input.longformInputPreview);
+    let contentDeltaChars = 0;
     if (contentChars !== undefined) {
-      state.contentFieldDeltaChars = Math.max(0, contentChars - (state.contentFieldChars ?? 0));
+      contentDeltaChars = Math.max(0, contentChars - (state.contentFieldChars ?? 0));
+      state.contentFieldDeltaChars = contentDeltaChars;
       state.contentFieldChars = contentChars;
       state.observedArgumentChars = Math.max(state.observedArgumentChars, contentChars);
+    }
+    if (Math.max(deltaChars, longformDeltaChars, contentDeltaChars) > 0) {
+      state.meaningfulGrowthCount += 1;
+      state.lastMeaningfulGrowthMs = nowMs;
+      state.lastMeaningfulGrowthAt = now;
     }
     state.argumentCompletedMs = state.argumentCompletedMs ?? nowMs;
     state.argumentComplete = true;

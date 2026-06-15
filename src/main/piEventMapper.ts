@@ -116,6 +116,7 @@ export type NormalizedPiEvent =
       toolCallId: string;
       label: string;
       content: string;
+      contentDelta?: boolean;
       input?: unknown;
       longformInputPreview?: ToolLongformInputPreview;
       editInputPreview?: ToolEditInputPreview;
@@ -1426,10 +1427,12 @@ function normalizeToolCallStreamEvent(update: any): NormalizedPiEvent | undefine
   const toolCallId = firstString(toolCall?.id, update.toolCallId, update.id) ?? `toolcall-${contentIndex ?? rawLabel}`;
   const args = normalizeToolArguments(toolCall?.arguments ?? update.arguments);
   const label = routedToolDisplayLabel(rawLabel, args, update);
+  const delta = firstString(update.delta);
   const content =
     args && typeof args === "object"
       ? formatToolArgs(args)
-      : firstString(update.delta, update.partialJson, update.arguments) ?? "";
+      : firstString(delta, update.partialJson, update.arguments) ?? "";
+  const contentDelta = type === "toolcall_delta" && !(args && typeof args === "object") && delta !== undefined && content === delta;
   const longformInputPreview = args && typeof args === "object" ? buildToolLongformInputPreview(label, args) : undefined;
   const editInputPreview = args && typeof args === "object" ? buildToolEditInputPreview(label, args) : undefined;
 
@@ -1460,6 +1463,7 @@ function normalizeToolCallStreamEvent(update: any): NormalizedPiEvent | undefine
     toolCallId,
     label,
     content,
+    ...(contentDelta ? { contentDelta: true } : {}),
     ...toolCaptureInput(label, args),
     ...(longformInputPreview ? { longformInputPreview } : {}),
     ...(editInputPreview ? { editInputPreview } : {}),

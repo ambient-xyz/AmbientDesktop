@@ -271,4 +271,116 @@ describe("ToolArgumentProgressTracker", () => {
       uiStatus: "write is streaming a large argument (25,000 chars).",
     });
   });
+
+  it("treats bounded longform content growth as meaningful progress", () => {
+    const tracker = new ToolArgumentProgressTracker();
+    const boundedInput = '{ "path": "plan.md", "content": "aaaaaaaaaa..." }';
+
+    tracker.recordArgumentEvent({
+      toolCallId: "call-growing-longform",
+      toolName: "write",
+      eventType: "toolcall_start",
+      inputContent: boundedInput,
+      longformInputPreview: {
+        kind: "longform-input",
+        summary: "plan.md",
+        items: [
+          {
+            label: "File",
+            fieldPath: "content",
+            path: "plan.md",
+            preview: "a".repeat(80),
+            chars: 1_000,
+            truncated: true,
+          },
+        ],
+      },
+      nowMs: t0,
+    });
+    const snapshot = tracker.recordArgumentEvent({
+      toolCallId: "call-growing-longform",
+      toolName: "write",
+      eventType: "toolcall_delta",
+      inputContent: boundedInput,
+      longformInputPreview: {
+        kind: "longform-input",
+        summary: "plan.md",
+        items: [
+          {
+            label: "File",
+            fieldPath: "content",
+            path: "plan.md",
+            preview: "a".repeat(80),
+            chars: 5_000,
+            truncated: true,
+          },
+        ],
+      },
+      nowMs: t0 + 29_000,
+    });
+
+    expect(snapshot).toMatchObject({
+      deltaChars: 0,
+      contentFieldChars: 5_000,
+      contentFieldDeltaChars: 4_000,
+      longformInputChars: 5_000,
+      longformInputDeltaChars: 4_000,
+      meaningfulGrowthCount: 2,
+      lastMeaningfulGrowthMsAgo: 0,
+    });
+    expect(tracker.stalledActiveArgument(30_000, t0 + 58_999)).toBeUndefined();
+    expect(tracker.stalledActiveArgument(30_000, t0 + 59_000)).toMatchObject({
+      toolCallId: "call-growing-longform",
+      lastMeaningfulGrowthMsAgo: 30_000,
+    });
+  });
+
+  it("does not refresh the stall timer for repeated bounded longform previews", () => {
+    const tracker = new ToolArgumentProgressTracker();
+    const boundedInput = '{ "path": "plan.md", "content": "aaaaaaaaaa..." }';
+    const preview = {
+      kind: "longform-input" as const,
+      summary: "plan.md",
+      items: [
+        {
+          label: "File",
+          fieldPath: "content",
+          path: "plan.md",
+          preview: "a".repeat(80),
+          chars: 5_000,
+          truncated: true,
+        },
+      ],
+    };
+
+    tracker.recordArgumentEvent({
+      toolCallId: "call-repeated-longform",
+      toolName: "write",
+      eventType: "toolcall_delta",
+      inputContent: boundedInput,
+      longformInputPreview: preview,
+      nowMs: t0 + 1_000,
+    });
+    const keepAlive = tracker.recordArgumentEvent({
+      toolCallId: "call-repeated-longform",
+      toolName: "write",
+      eventType: "toolcall_delta",
+      inputContent: boundedInput,
+      longformInputPreview: preview,
+      nowMs: t0 + 20_000,
+    });
+
+    expect(keepAlive).toMatchObject({
+      deltaChars: 0,
+      contentFieldDeltaChars: 0,
+      longformInputDeltaChars: 0,
+      meaningfulGrowthCount: 1,
+      lastMeaningfulGrowthMsAgo: 19_000,
+    });
+    expect(tracker.stalledActiveArgument(30_000, t0 + 30_999)).toBeUndefined();
+    expect(tracker.stalledActiveArgument(30_000, t0 + 31_000)).toMatchObject({
+      toolCallId: "call-repeated-longform",
+      lastMeaningfulGrowthMsAgo: 30_000,
+    });
+  });
 });
