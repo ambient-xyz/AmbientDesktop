@@ -48,9 +48,9 @@ const report = buildLocalDeepResearchReleaseGateReport({
     settings: await readTexts([
       "src/renderer/src/App.tsx",
       "src/renderer/src/RightPanel.tsx",
-      "src/renderer/src/RightPanelSettingsPane.tsx",
       "src/renderer/src/RightPanelSettingsRuntime.tsx",
       "src/renderer/src/RightPanelSettingsWebResearch.tsx",
+      "src/renderer/src/RightPanelSettingsPane.tsx",
       "src/renderer/src/localDeepResearchUiModel.ts",
     ]),
     preload: await readText("src/preload/index.ts"),
