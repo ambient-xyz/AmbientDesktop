@@ -15207,7 +15207,7 @@ describe("AgentRuntime project host concurrency", () => {
         context: [],
       });
       for (let attempt = 0; attempt < 20 && session.steer.mock.calls.length === 0; attempt += 1) await delay(0);
-      expect(session.steer).toHaveBeenCalledWith(queuedText);
+      expect(session.steer).toHaveBeenCalledWith(queuedText, undefined);
 
       releasePrompt?.();
       await sendPromise;
