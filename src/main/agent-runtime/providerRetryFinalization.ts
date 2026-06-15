@@ -1,0 +1,62 @@
+import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
+
+export interface PreOutputStreamStallRetryFinalizationInput {
+  retryAttempt: number;
+  maxRetries: number;
+  retryDelayMs: number;
+  receivedAnyText: boolean;
+  streamInterruptionDiagnostic: ChatStreamInterruptionDiagnostic;
+}
+
+export interface ProviderErrorBeforeToolRetryFinalizationInput {
+  retryAttempt: number;
+  maxRetries: number;
+  retryDelayMs: number;
+  streamInterruptionDiagnostic: ChatStreamInterruptionDiagnostic;
+}
+
+export interface ProviderRetryFinalizationMessageModel {
+  content: string;
+  metadata: Record<string, unknown>;
+}
+
+export function preOutputStreamStallRetryFinalizationMessage(
+  input: PreOutputStreamStallRetryFinalizationInput,
+): ProviderRetryFinalizationMessageModel {
+  return {
+    content: `Ambient/Pi stream stalled before assistant output. Retrying assistant finalization attempt ${input.retryAttempt}/${input.maxRetries} with a fresh session.`,
+    metadata: {
+      status: "done",
+      runtime: "pi",
+      provider: "ambient",
+      retryingStreamStall: true,
+      piStreamTimeout: {
+        ...input.streamInterruptionDiagnostic,
+        retryScheduled: true,
+        retryUsesFreshSession: true,
+        retryAttempt: input.retryAttempt,
+        maxRetries: input.maxRetries,
+        retryReason: "pre_output_stream_stall",
+        retryDelayMs: input.retryDelayMs,
+        receivedAnyText: input.receivedAnyText,
+      },
+    },
+  };
+}
+
+export function providerErrorBeforeToolRetryFinalizationMessage(
+  input: ProviderErrorBeforeToolRetryFinalizationInput,
+): ProviderRetryFinalizationMessageModel {
+  return {
+    content: `Ambient/Pi provider failed before any tool executed. Retrying attempt ${input.retryAttempt}/${input.maxRetries} with a fresh session.`,
+    metadata: {
+      status: "done",
+      runtime: "pi",
+      provider: "ambient",
+      retryingProviderError: true,
+      piStreamInterruption: {
+        ...input.streamInterruptionDiagnostic,
+      },
+    },
+  };
+}

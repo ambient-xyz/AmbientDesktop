@@ -380,12 +380,12 @@ async function agentRuntimeBudgetOverrunFixture(input: { roleId: "explorer" | "r
   (runtime as any).subagentChildExecutions.set(running.id, {
     childThreadId: running.childThreadId,
     promise: new Promise<void>(() => undefined),
-    startedAt: "2026-06-05T00:00:00.000Z",
+    startedAt: new Date().toISOString(),
   });
 
   const waited = await (runtime as any).waitForResolvedSubagentChildRun({
     run: running,
-    timeoutMs: 60_000,
+    timeoutMs: 1,
     emitEvent: (event: any) => {
       const persisted = appendMappedSubagentRuntimeEvent(store, {
         run: running,
@@ -1726,99 +1726,43 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
     }
   });
 
-  it("settles runtime-budget overruns as aborted partial results when the role allows partial output", async () => {
+  it("does not abort an active child only because the role runtime budget elapsed when partial output is allowed", async () => {
     const fixture = await agentRuntimeBudgetOverrunFixture({ roleId: "explorer", allowPartialResult: true });
     try {
       expect(fixture.waited).toMatchObject({
         timedOut: true,
         run: {
-          status: "aborted_partial",
+          status: "running",
         },
       });
       expect(fixture.run).toMatchObject({
-        status: "aborted_partial",
-        resultArtifact: expect.objectContaining({
-          status: "aborted_partial",
-          partial: true,
-          artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
-          summary: expect.stringContaining("role runtime budget"),
-        }),
+        status: "running",
       });
-      expect(fixture.abort).toHaveBeenCalledTimes(1);
-      expect((fixture.runtime as any).activeRuns.has(fixture.running.childThreadId)).toBe(false);
-      expect(fixture.runtimeEvents).toEqual([
+      expect(fixture.run.resultArtifact).toBeUndefined();
+      expect(fixture.abort).not.toHaveBeenCalled();
+      expect((fixture.runtime as any).activeRuns.has(fixture.running.childThreadId)).toBe(true);
+      expect(fixture.runtimeEvents).toEqual(expect.arrayContaining([
         expect.objectContaining({
           type: "status",
-          source: "child_runtime",
-          status: "aborted_partial",
-          artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
+          source: "wait_agent",
+          status: "running",
+          message: "wait_agent timed out before the child run reached a terminal status; child runtime remains active.",
           details: expect.objectContaining({
-            reason: "runtime_budget_exceeded",
-            maxRuntimeMs: 0,
-            elapsedMs: expect.any(Number),
-          }),
-        }),
-      ]);
-      expect(fixture.store.listSubagentMailboxEvents(fixture.running.id)).toEqual([
-        expect.objectContaining({
-          direction: "child_to_parent",
-          type: "subagent.result",
-          payload: expect.objectContaining({
-            status: "aborted_partial",
-            partial: true,
-            reason: "runtime_budget_exceeded",
-            artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
-          }),
-        }),
-      ]);
-      expect(fixture.store.listSubagentRunEvents(fixture.running.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.runtime_budget_exceeded",
-          preview: expect.objectContaining({
-            status: "aborted_partial",
-            partial: true,
-            maxRuntimeMs: 0,
-            elapsedMs: expect.any(Number),
-            artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
+            childRunId: fixture.running.id,
+            childThreadId: fixture.running.childThreadId,
+            waitTimeoutMs: 1,
+            childIdleTimeoutMs: 600_000,
+            childHardTimeoutMs: 600_000,
+            lastChildActivityAt: expect.any(String),
+            lastChildActivitySource: expect.any(String),
           }),
         }),
       ]));
-      expect(fixture.store.listSubagentParentMailboxEventsForParentRun(fixture.running.parentRunId)).toEqual([
-        expect.objectContaining({
-          parentMessageId: fixture.assistant.id,
-          type: "subagent.lifecycle_interrupted",
-          payload: expect.objectContaining({
-            schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
-            parentMessageId: fixture.assistant.id,
-            childRunId: fixture.running.id,
-            childThreadId: fixture.running.childThreadId,
-            previousStatus: "running",
-            status: "aborted_partial",
-            source: "runtime_budget_exceeded",
-            waitBarrierIds: [fixture.waitBarrier.id],
-            resultArtifact: expect.objectContaining({
-              status: "aborted_partial",
-              partial: true,
-              artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
-            }),
-          }),
-        }),
-      ]);
-      expect(fixture.emitted).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent-parent-mailbox-event-updated",
-          mailboxEvent: expect.objectContaining({
-            parentMessageId: fixture.assistant.id,
-            type: "subagent.lifecycle_interrupted",
-          }),
-          workspacePath: fixture.workspacePath,
-        }),
-        expect.objectContaining({
-          type: "run-status",
-          threadId: fixture.running.childThreadId,
-          status: "idle",
-          workspacePath: fixture.workspacePath,
-        }),
+      expect(fixture.store.listSubagentMailboxEvents(fixture.running.id)).toEqual([]);
+      expect(fixture.store.listSubagentParentMailboxEventsForParentRun(fixture.running.parentRunId)).toEqual([]);
+      expect(fixture.emitted).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: "subagent-parent-mailbox-event-updated" }),
+        expect.objectContaining({ type: "run-status", threadId: fixture.running.childThreadId, status: "idle" }),
       ]));
     } finally {
       await fixture.close();
@@ -1930,7 +1874,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
             type: "status",
             source: "wait_agent",
             status: "running",
-            message: "wait_agent timed out before the child run reached a terminal status.",
+            message: "wait_agent timed out before the child run reached a terminal status; child runtime remains active.",
           }),
         ]));
       } finally {
@@ -1942,73 +1886,203 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
     }
   });
 
-  it("settles runtime-budget overruns as failures when the role forbids partial output", async () => {
+  it("does not abort an active child only because the role runtime budget elapsed when partial output is forbidden", async () => {
     const fixture = await agentRuntimeBudgetOverrunFixture({ roleId: "reviewer", allowPartialResult: false });
     try {
       expect(fixture.waited).toMatchObject({
         timedOut: true,
         run: {
-          status: "failed",
+          status: "running",
         },
       });
       expect(fixture.run).toMatchObject({
-        status: "failed",
-        resultArtifact: expect.objectContaining({
-          status: "failed",
-          partial: false,
-          artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
-          summary: expect.stringContaining("does not allow partial success"),
-        }),
+        status: "running",
       });
-      expect(fixture.abort).toHaveBeenCalledTimes(1);
-      expect(fixture.runtimeEvents).toEqual([
+      expect(fixture.run.resultArtifact).toBeUndefined();
+      expect(fixture.abort).not.toHaveBeenCalled();
+      expect((fixture.runtime as any).activeRuns.has(fixture.running.childThreadId)).toBe(true);
+      expect(fixture.runtimeEvents).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: "status",
+          source: "wait_agent",
+          status: "running",
+          message: "wait_agent timed out before the child run reached a terminal status; child runtime remains active.",
+          details: expect.objectContaining({
+            childRunId: fixture.running.id,
+            childThreadId: fixture.running.childThreadId,
+            waitTimeoutMs: 1,
+            childIdleTimeoutMs: 600_000,
+            childHardTimeoutMs: 600_000,
+            lastChildActivityAt: expect.any(String),
+            lastChildActivitySource: expect.any(String),
+          }),
+        }),
+      ]));
+      expect(fixture.store.listSubagentMailboxEvents(fixture.running.id)).toEqual([]);
+      expect(fixture.store.listSubagentParentMailboxEventsForParentRun(fixture.running.parentRunId)).toEqual([]);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("settles a child only after the child activity idle timeout elapses with liveness evidence", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-05T00:00:00.000Z"));
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-idle-timeout-"));
+    const store = new ProjectStore();
+    try {
+      store.openWorkspace(workspacePath);
+      store.setFeatureFlagSettings({ subagents: true });
+      const parent = store.createThread("parent with idle child");
+      const assistant = store.addMessage({
+        threadId: parent.id,
+        role: "assistant",
+        content: "",
+        metadata: { status: "streaming", runtime: "pi" },
+      });
+      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
+      const featureFlags = resolveAmbientFeatureFlags({
+        settings: store.getFeatureFlagSettings(),
+        generatedAt: "2026-06-05T00:00:00.000Z",
+      });
+      const baseRoleProfile = getDefaultSubagentRoleProfile("reviewer");
+      const roleProfileSnapshot = {
+        ...baseRoleProfile,
+        guardPolicy: {
+          ...baseRoleProfile.guardPolicy,
+          maxRuntimeMs: 20 * 60_000,
+          allowPartialResult: false,
+        },
+      };
+      const created = store.createSubagentRun({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        parentMessageId: assistant.id,
+        title: "Idle child",
+        roleId: "reviewer",
+        roleProfileSnapshot,
+        canonicalTaskPath: "root/0:reviewer",
+        featureFlagSnapshot: featureFlags,
+        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
+        dependencyMode: "required",
+      });
+      const running = store.markSubagentRunStatus(created.id, "running");
+      store.createSubagentWaitBarrier({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        childRunIds: [running.id],
+        dependencyMode: "required_all",
+        failurePolicy: "ask_user",
+        timeoutMs: 12 * 60_000,
+      });
+      const abort = vi.fn(async () => undefined);
+      const runtimeEvents: any[] = [];
+      const runtime = new AgentRuntime(
+        store,
+        {} as any,
+        {} as any,
+        () => undefined,
+        {
+          request: vi.fn(),
+          denyThread: () => undefined,
+        },
+      );
+      (runtime as any).activeRuns.set(running.childThreadId, {
+        abort,
+        detach: vi.fn(),
+        queue: vi.fn(),
+      });
+      (runtime as any).subagentChildExecutions.set(running.id, {
+        childThreadId: running.childThreadId,
+        promise: new Promise<void>(() => undefined),
+        startedAt: "2026-06-05T00:00:00.000Z",
+      });
+
+      const waitedPromise = (runtime as any).waitForResolvedSubagentChildRun({
+        run: running,
+        timeoutMs: 12 * 60_000,
+        emitEvent: (event: any) => {
+          const persisted = appendMappedSubagentRuntimeEvent(store, {
+            run: store.getSubagentRun(running.id),
+            source: "wait_agent",
+            event,
+          });
+          runtimeEvents.push(persisted.runtimeEvent);
+          return persisted.runEvent;
+        },
+      });
+
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      const waited = await waitedPromise;
+
+      expect(waited).toMatchObject({
+        timedOut: true,
+        run: {
+          id: running.id,
+          status: "failed",
+        },
+      });
+      expect(abort).toHaveBeenCalledTimes(1);
+      expect(runtimeEvents).toEqual(expect.arrayContaining([
         expect.objectContaining({
           type: "error",
           source: "child_runtime",
           status: "failed",
-          artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
+          artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
           details: expect.objectContaining({
-            reason: "runtime_budget_exceeded",
-            maxRuntimeMs: 0,
-            elapsedMs: expect.any(Number),
+            reason: "runtime_idle_timeout",
+            maxRuntimeMs: 600_000,
+            idleElapsedMs: 600_000,
+            elapsedMs: 600_000,
+            lastChildActivityAt: "2026-06-05T00:00:00.000Z",
+            lastChildActivitySource: expect.any(String),
           }),
         }),
-      ]);
-      expect(fixture.store.listSubagentMailboxEvents(fixture.running.id)).toEqual([
+      ]));
+      expect(store.listSubagentMailboxEvents(running.id)).toEqual([
         expect.objectContaining({
           direction: "child_to_parent",
           type: "subagent.failed",
           payload: expect.objectContaining({
             status: "failed",
             partial: false,
-            reason: "runtime_budget_exceeded",
-            artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
+            reason: "runtime_idle_timeout",
+            idleElapsedMs: 600_000,
+            artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
           }),
         }),
       ]);
-      expect(fixture.store.listSubagentParentMailboxEventsForParentRun(fixture.running.parentRunId)).toEqual([
+      expect(store.listSubagentRunEvents(running.id)).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          parentMessageId: fixture.assistant.id,
+          type: "subagent.runtime_idle_timeout",
+          preview: expect.objectContaining({
+            status: "failed",
+            partial: false,
+            reason: "runtime_idle_timeout",
+            maxRuntimeMs: 600_000,
+            idleElapsedMs: 600_000,
+            artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
+          }),
+        }),
+      ]));
+      expect(store.listSubagentParentMailboxEventsForParentRun(running.parentRunId)).toEqual([
+        expect.objectContaining({
+          parentMessageId: assistant.id,
           type: "subagent.lifecycle_interrupted",
           payload: expect.objectContaining({
             schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
-            parentMessageId: fixture.assistant.id,
-            childRunId: fixture.running.id,
-            childThreadId: fixture.running.childThreadId,
+            childRunId: running.id,
+            childThreadId: running.childThreadId,
             previousStatus: "running",
             status: "failed",
-            source: "runtime_budget_exceeded",
-            waitBarrierIds: [fixture.waitBarrier.id],
-            resultArtifact: expect.objectContaining({
-              status: "failed",
-              partial: false,
-              artifactPath: `ambient://threads/${fixture.running.childThreadId}/transcript`,
-            }),
+            source: "runtime_idle_timeout",
           }),
         }),
       ]);
     } finally {
-      await fixture.close();
+      vi.useRealTimers();
+      store.close();
+      await rm(workspacePath, { recursive: true, force: true });
     }
   });
 
@@ -7223,8 +7297,8 @@ describeNative("AgentRuntime messaging gateway tools", () => {
       managed: true,
       pid: 12345,
       command: "pnpm",
-      args: ["--dir", "/Users/example/ambientAgent", "telegram:bridge"],
-      cwd: "/Users/example/ambientAgent",
+      args: ["--dir", "/path/to/ambientAgent", "telegram:bridge"],
+      cwd: "/path/to/ambientAgent",
       bridgeBaseUrl: "http://127.0.0.1:8091",
       stateRoot: `${workspacePath}/.ambient-agent-state/telegram`,
       envKeys: ["AMBIENT_AGENT_TELEGRAM_API_HASH", "AMBIENT_AGENT_TELEGRAM_API_ID"],

@@ -505,10 +505,10 @@ async function readAmbientApiKey() {
     join(dirname(dirname(process.cwd())), "ambient_api_key.txt"),
     join(homedir(), "ambient_api_key_u.txt"),
     join(homedir(), "ambient_api_key.txt"),
-    "/Users/example/Documents/AmbientDesktop/ambient_api_key_u.txt",
-    "/Users/example/Documents/AmbientDesktop/ambient_api_key.txt",
-    "/Users/example/Documents/New project 3/ambient_api_key_u.txt",
-    "/Users/example/Documents/New project 3/ambient_api_key.txt",
+    "/path/to/AmbientDesktop/ambient_api_key_u.txt",
+    "/path/to/AmbientDesktop/ambient_api_key.txt",
+    "/path/to/project/ambient_api_key_u.txt",
+    "/path/to/project/ambient_api_key.txt",
   ].filter(Boolean);
   for (const candidate of candidates) {
     try {

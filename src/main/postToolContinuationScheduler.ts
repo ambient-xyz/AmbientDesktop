@@ -52,6 +52,22 @@ export interface PostToolContinuationValidation {
   diagnostic?: PostToolContinuationValidationDiagnostic;
 }
 
+export interface PostToolContinuationPlanInput {
+  messages: ChatMessage[];
+  lastCompletedTool: CompletedToolSnapshot | undefined;
+  runId: string;
+  attempt: number;
+  idleMs: number;
+  currentEventSeq: number;
+}
+
+export interface PostToolContinuationPlan {
+  latestTranscriptTool?: CompletedToolSnapshot;
+  continuationSnapshot?: CompletedToolSnapshot;
+  request: InternalContinuationRequest;
+  validation: PostToolContinuationValidation;
+}
+
 export type PostToolContinuationTrigger = "post-tool-idle" | "prompt-resolved-after-tool";
 
 export interface PostToolContinuationActivityInput {
@@ -158,6 +174,32 @@ export function shouldDeliverPostToolContinuation(input: {
     currentRunId: input.currentRunId,
     currentEventSeq: input.currentEventSeq,
   }).deliver;
+}
+
+export function planPostToolContinuation(input: PostToolContinuationPlanInput): PostToolContinuationPlan {
+  const latestTranscriptTool = latestCompletedToolSnapshotFromMessages(input.messages);
+  const continuationSnapshot =
+    latestTranscriptTool?.toolCallId && latestTranscriptTool.toolCallId === input.lastCompletedTool?.toolCallId
+      ? { ...input.lastCompletedTool, ...latestTranscriptTool }
+      : input.lastCompletedTool;
+  const request = createPostToolContinuationRequest({
+    runId: input.runId,
+    attempt: input.attempt,
+    idleMs: input.idleMs,
+    eventSeqAtSchedule: input.currentEventSeq,
+    snapshot: continuationSnapshot,
+  });
+  return {
+    ...(latestTranscriptTool ? { latestTranscriptTool } : {}),
+    ...(continuationSnapshot ? { continuationSnapshot } : {}),
+    request,
+    validation: validatePostToolContinuationRequest({
+      request,
+      latestTranscriptTool,
+      currentRunId: input.runId,
+      currentEventSeq: input.currentEventSeq,
+    }),
+  };
 }
 
 export function postToolContinuationActivity(input: PostToolContinuationActivityInput): RuntimeStreamActivity {

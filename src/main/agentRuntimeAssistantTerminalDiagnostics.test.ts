@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assistantTerminalCleanupActivity,
+  assistantTerminalCleanupDiagnostic,
   assistantTerminalEventDiagnostic,
 } from "./agentRuntimeAssistantTerminalDiagnostics";
 
@@ -102,6 +103,39 @@ describe("agentRuntimeAssistantTerminalDiagnostics", () => {
       idleTimeoutMs: 30000,
       message: "Ambient observed final assistant output before the Pi prompt promise resolved; finalizing the visible turn.",
       diagnostic,
+    });
+  });
+
+  it("builds assistant terminal cleanup diagnostics with bounded prompt pending time", () => {
+    expect(assistantTerminalCleanupDiagnostic({
+      nowMs: 1_000,
+      promptStartedAtMs: 1_250,
+      assistantTerminalGraceMs: 500,
+      outputChars: 42,
+      thinkingChars: 9,
+      receivedAnyText: true,
+      currentAssistantReceivedText: false,
+      currentAssistantFinalTextChars: 17,
+      sessionFile: "/tmp/session.jsonl",
+      lastAssistantTerminalEvent: {
+        eventType: "message_end",
+        finalTextChars: 17,
+      },
+    })).toEqual({
+      reason: "assistant-terminal-before-prompt-resolved",
+      cleanupAction: "abort-and-dispose-session",
+      promptPendingMs: 0,
+      assistantTerminalGraceMs: 500,
+      outputChars: 42,
+      thinkingChars: 9,
+      receivedAnyText: true,
+      currentAssistantReceivedText: false,
+      currentAssistantFinalTextChars: 17,
+      sessionFile: "/tmp/session.jsonl",
+      lastAssistantTerminalEvent: {
+        eventType: "message_end",
+        finalTextChars: 17,
+      },
     });
   });
 });

@@ -81,6 +81,58 @@ export interface PluginMcpDescriptorInput {
   parameters: unknown;
 }
 
+export const productContextToolDescriptors: DesktopToolDescriptor[] = [
+  {
+    name: "ambient_product_context",
+    label: "Ambient Product Context",
+    description:
+      "Return canonical local Ambient product identity context for Ambient Desktop, Ambient/Pi, Ambient Network, and official Ambient websites.",
+    promptSnippet:
+      "ambient_product_context: Read-only canonical Ambient Desktop and Ambient Network identity facts with official source URLs.",
+    promptGuidelines: [
+      "Use this before answering detailed questions about what Ambient Desktop, Ambient/Pi, Ambient, or the Ambient Network is.",
+      "Use this when public web search returns conflicting Ambient-branded products or when the user asks for official Ambient website references.",
+      "This tool is read-only and uses Desktop-owned canonical product context. It does not browse the web or inspect user files.",
+      "Preserve maturity labels: Ambient Desktop is Developer Preview; Network Client and Local Model Routing are In Development; Ambient Mini Mining is Roadmap.",
+      "Do not claim live wallet flows, on-network transactions, fixed mining rewards, or finalized token economics are available in Desktop unless newer public docs or user-provided evidence says so.",
+    ],
+    inputSchema: {
+      type: "object",
+      properties: {
+        topic: {
+          type: "string",
+          enum: ["identity", "desktop", "ambient", "network", "sources", "all"],
+          description: "Optional product context topic. Defaults to identity.",
+        },
+        query: {
+          type: "string",
+          description: "Optional natural-language focus such as 'what is Ambient Network' or 'official websites'.",
+        },
+      },
+      additionalProperties: false,
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        topic: { type: "string" },
+        facts: { type: "array" },
+        sources: { type: "array" },
+        maturityNotes: { type: "array" },
+      },
+      required: ["topic", "facts", "sources", "maturityNotes"],
+      additionalProperties: true,
+    },
+    source: "first-party",
+    sideEffects: "none",
+    permissionScope: "ambient-product-context-read",
+    supportsDryRun: true,
+    supportsUndo: false,
+    idempotency: "required",
+    defaultTimeoutMs: 5_000,
+    runtimeSupport: ["chat"],
+  },
+];
+
 const ambientCapabilityRoutingGuidelines = [
   "For ambiguous install, add, use-this-package, setup, provider, MCP, Pi marketplace, or wrapper requests, call ambient_install_route_plan first before choosing MCP, Ambient CLI package install, Pi marketplace wrapper, privileged action, or shell setup.",
   "Capability routing order after route planning: first use built-in and installed Ambient capabilities, then installed Ambient CLI packages via ambient_cli_search, then reviewed Ambient CLI Pi marketplace wrappers, then generated Ambient wrappers through Capability Builder, then privileged Pi review/install only as an explicit exceptional path.",
@@ -416,7 +468,7 @@ export const bashToolDescriptor: DesktopToolDescriptor = {
     "When creating task scratch files, drafts, feedback, scores, generated source, or intermediate artifacts, keep them inside the active workspace, such as .ambient/tmp/ or another workspace-relative path; do not use /tmp for user-task artifacts unless the user explicitly approves outside-workspace access.",
     "Use short timeout values only for quick probes. For first page loads, dev servers, installs, builds, or dependency repairs, allow enough time for compilation and inspect logs if a listening server returns no bytes.",
     "If a bash timeout says the process tree was killed with zero output bytes, do not keep retrying the same short timeout; check process state, server logs, runtime architecture, or rerun with a justified longer timeout.",
-    "When reporting user-facing absolute local files such as Downloads, Desktop, or Documents results, format them as Markdown file links with file:// URLs, for example [Keynote Presentation(2).pptx](file:///Users/example/Downloads/Keynote%20Presentation(2).pptx), so Ambient Desktop can preview or open them.",
+    "When reporting user-facing absolute local files such as Downloads, Desktop, or Documents results, format them as Markdown file links with file:// URLs, for example [Keynote Presentation(2).pptx](file:///path/to/Downloads/Keynote%20Presentation(2).pptx), so Ambient Desktop can preview or open them.",
     "When bash writes an image, audio, or video artifact and the result says Ambient Desktop rendered an inline media preview, treat the artifact as displayed in the visible chat; do not claim inline media rendering is unsupported.",
   ],
   inputSchema: {
@@ -9121,6 +9173,7 @@ export function firstPartyDesktopToolDescriptors(): DesktopToolDescriptor[] {
     ...localDeepResearchToolDescriptors,
     ...localRuntimeToolDescriptors,
     ...managedDownloadToolDescriptors,
+    ...productContextToolDescriptors,
     ...installRouteToolDescriptors,
     ...gitToolDescriptors,
     ...providerCatalogToolDescriptors,
@@ -9132,6 +9185,12 @@ export function firstPartyDesktopToolDescriptors(): DesktopToolDescriptor[] {
     ...pluginInstallToolDescriptors,
     ...googleWorkspaceSetupToolDescriptors,
   ];
+}
+
+export function productContextToolDescriptor(name: string): DesktopToolDescriptor {
+  const descriptor = productContextToolDescriptors.find((tool) => tool.name === name);
+  if (!descriptor) throw new Error(`Unknown product context tool descriptor: ${name}`);
+  return descriptor;
 }
 
 export function mediaToolDescriptor(name: string): DesktopToolDescriptor {

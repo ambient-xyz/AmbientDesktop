@@ -12,7 +12,7 @@ const lifecycleScript = join(scriptDir, "minicpm-v-runtime-lifecycle-smoke.mjs")
 const manifestPath = "resources/ambient-cli-packages/ambient-minicpm-v-vision/runtime-release-manifest.prototype.json";
 const defaultArtifactId = "llama-cpp-windows-x64-cpu";
 const defaultOutputRoot = "test-results/minicpm-v/windows-runtime-smoke";
-const defaultImage = "resources/welcome-onboarding/screenshots/01-main-shell.png";
+const defaultImage = "test/visual-baselines/01-main-shell.png";
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help) {

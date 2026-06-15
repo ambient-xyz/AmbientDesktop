@@ -115,6 +115,12 @@ describe("App composer submit actions", () => {
     expect(controller.draft.value).toBe("");
     expect(controller.contextAttachments.value).toEqual([]);
     expect(controller.pendingWorkflowRecordingEditContext.value).toBeUndefined();
+    expect(controller.registerPendingSubmittedPrompt).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      content: "Edit: add a retry step",
+      delivery: "prompt",
+    });
+    expect(controller.removePendingSubmittedPrompt).not.toHaveBeenCalled();
     expect(controller.resetRunActivityLines).toHaveBeenCalledWith("Prompt sent to Ambient.");
     expect(controller.runStatus.value).toBe("starting");
     expect(controller.threadRunStatuses.value).toEqual({ "thread-1": "starting" });
@@ -145,6 +151,7 @@ describe("App composer submit actions", () => {
     await controller.actions.submitDraft("prompt");
 
     expect(controller.setError).toHaveBeenCalledWith("send failed");
+    expect(controller.removePendingSubmittedPrompt).toHaveBeenCalledWith("pending-submitted-1");
     expect(controller.draft.value).toBe("Edit: add a retry step");
     expect(controller.contextAttachments.value).toEqual(context);
     expect(controller.pendingWorkflowRecordingEditContext.value).toEqual(pending);
@@ -205,6 +212,8 @@ function createController({
   const appendRunActivityLine = vi.fn();
   const compactActiveThread = vi.fn(async () => undefined);
   const openAmbientCliSecretDialog = vi.fn();
+  const registerPendingSubmittedPrompt = vi.fn(() => "pending-submitted-1");
+  const removePendingSubmittedPrompt = vi.fn();
   const resetPromptHistory = vi.fn();
   const resetRunActivityLines = vi.fn();
   const setError = vi.fn();
@@ -220,8 +229,10 @@ function createController({
       goalModeArmed,
       localDeepResearchModeArmedRef,
       openAmbientCliSecretDialog,
+      registerPendingSubmittedPrompt,
       pendingWorkflowRecordingEditContext,
       resetPromptHistory,
+      removePendingSubmittedPrompt,
       resetRunActivityLines,
       running,
       setComposerDraft: (value) => {
@@ -251,6 +262,8 @@ function createController({
     goalModeArmed: goalModeArmedState,
     openAmbientCliSecretDialog,
     pendingWorkflowRecordingEditContext: pendingWorkflowRecordingEditContextState,
+    registerPendingSubmittedPrompt,
+    removePendingSubmittedPrompt,
     resetPromptHistory,
     resetRunActivityLines,
     runStatus,

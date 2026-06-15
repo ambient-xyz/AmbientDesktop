@@ -16,7 +16,7 @@ import {
 import { runtimePiStreamFailureKind, runtimePiStreamTimeoutMessage } from "./agentRuntimeStreamState";
 import { getAmbientProviderStatus } from "./providerStatus";
 
-interface ChatStreamInterruptionDiagnostic {
+export interface ChatStreamInterruptionDiagnostic {
   kind: AmbientStreamFailureKind;
   message: string;
   retryScheduled: boolean;

@@ -34,6 +34,9 @@ describe("subagent delegated tool authority audit", () => {
       "edit",
       "long_context_process",
       "read",
+      "web_research_fetch",
+      "web_research_search",
+      "web_research_status",
       "write",
     ]);
   });
@@ -68,6 +71,8 @@ describe("subagent delegated tool authority audit", () => {
     const workflow = surface("callable-workflow-tools");
     const directMcp = surface("direct-connector-and-mcp-bridges");
     const localRuntime = surface("local-runtime-lifecycle-tools");
+    const browserParentSession = surface("browser-parent-session-tools");
+    const webResearch = surface("web-research-broker-tools");
     const media = surface("media-download-tools");
     const visual = surface("visual-runtime-tools");
 
@@ -85,6 +90,19 @@ describe("subagent delegated tool authority audit", () => {
       "ambient_local_model_runtime_stop",
       "ambient_local_model_runtime_restart",
     ]);
+    expect(browserParentSession.childVisibility).toBe("not_child_visible");
+    expect(browserParentSession.adapter).toBe("browser-parent-session-boundary");
+    expect(browserParentSession.toolNames).toEqual([
+      "browser_local_preview",
+      "browser_click",
+      "browser_get_value",
+      "browser_wait_for",
+      "browser_assert",
+    ]);
+    expect(webResearch.childVisibility).toBe("built_in_child_visible");
+    expect(webResearch.adapter).toBe("web-research-provider-broker");
+    expect(webResearch.categoryIds).toEqual(["connector.read"]);
+    expect(webResearch.liveProof).toBe("test:subagents:live:web-research-no-browser-fallback");
     expect(media.childVisibility).toBe("not_child_visible");
     expect(media.adapter).toBe("media-download-boundary");
     expect(media.toolNames).toEqual(["media_download"]);
@@ -98,6 +116,11 @@ describe("subagent delegated tool authority audit", () => {
       "ambient_local_model_runtime_stop",
       "ambient_visual_analyze",
       "ambient_visual_minicpm_setup",
+      "browser_assert",
+      "browser_click",
+      "browser_get_value",
+      "browser_local_preview",
+      "browser_wait_for",
       "media_download",
     ]);
     expect(missingSubagentDelegatedAuthorityAuditToolNames([
@@ -107,6 +130,11 @@ describe("subagent delegated tool authority audit", () => {
       "ambient_local_model_runtime_stop",
       "ambient_visual_analyze",
       "ambient_visual_minicpm_setup",
+      "browser_assert",
+      "browser_click",
+      "browser_get_value",
+      "browser_local_preview",
+      "browser_wait_for",
       "media_download",
     ])).toEqual([]);
   });
@@ -131,9 +159,9 @@ describe("subagent delegated tool authority audit", () => {
       schemaVersion: "ambient-subagent-delegated-tool-authority-audit-v1",
       status: "passed",
       surfaceCount: SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES.length,
-      builtInChildToolCount: 12,
+      builtInChildToolCount: 15,
       exactGrantSurfaceCount: 2,
-      nonVisibleSurfaceCount: 4,
+      nonVisibleSurfaceCount: 5,
       coveredBuiltInChildToolNames: [
         "ambient_git_status",
         "bash",
@@ -146,6 +174,9 @@ describe("subagent delegated tool authority audit", () => {
         "edit",
         "long_context_process",
         "read",
+        "web_research_fetch",
+        "web_research_search",
+        "web_research_status",
         "write",
       ],
       issues: [],

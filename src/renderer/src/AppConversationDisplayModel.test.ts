@@ -9,6 +9,8 @@ import {
   appConversationArtifactWorkspacePath,
   appConversationDisplayModel,
   appConversationPlannerArtifactByMessageId,
+  messagesWithPendingSubmittedPrompts,
+  pendingSubmittedPromptHasPersistedMatch,
 } from "./AppConversationDisplayModel";
 
 describe("AppConversationDisplayModel", () => {
@@ -43,6 +45,7 @@ describe("AppConversationDisplayModel", () => {
     const artifact = { id: "plan-1", sourceMessageId: "assistant-error" } as PlannerPlanArtifact;
 
     const model = appConversationDisplayModel({
+      activeThreadId: "thread-1",
       activeRunActivityLines: activityLines,
       activeWorkspacePath: "/workspace/current",
       messages,
@@ -59,6 +62,41 @@ describe("AppConversationDisplayModel", () => {
     expect(model.streamingAssistantId).toBe("assistant-streaming");
     expect(model.plannerArtifactByMessageId.get("assistant-error")).toBe(artifact);
     expect(model.promptHistory).toEqual(["Retry this", "First prompt"]);
+  });
+
+  it("keeps a submitted prompt visible until the persisted user message appears", () => {
+    const messages = [
+      message({ id: "user-1", role: "user", content: "Repeatable prompt" }),
+      message({ id: "assistant-1", role: "assistant", content: "Done" }),
+    ];
+    const pending = {
+      id: "pending-submitted-1",
+      threadId: "thread-1",
+      content: "Repeatable prompt",
+      delivery: "prompt" as const,
+      createdAt: "2026-06-13T00:01:00.000Z",
+      afterMessageId: "assistant-1",
+    };
+
+    expect(pendingSubmittedPromptHasPersistedMatch(pending, messages)).toBe(false);
+    expect(messagesWithPendingSubmittedPrompts({
+      activeThreadId: "thread-1",
+      messages,
+      pendingSubmittedPrompts: [pending],
+    }).map((item) => item.id)).toEqual(["user-1", "assistant-1", "pending-submitted-1"]);
+
+    const persisted = message({
+      id: "user-2",
+      role: "user",
+      content: "Repeatable prompt",
+      createdAt: "2026-06-13T00:01:01.000Z",
+    });
+    expect(pendingSubmittedPromptHasPersistedMatch(pending, [...messages, persisted])).toBe(true);
+    expect(messagesWithPendingSubmittedPrompts({
+      activeThreadId: "thread-1",
+      messages: [...messages, persisted],
+      pendingSubmittedPrompts: [pending],
+    }).map((item) => item.id)).toEqual(["user-1", "assistant-1", "user-2"]);
   });
 });
 

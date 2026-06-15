@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "screenshots": [
+    {
+      "scenario": "01-sandboxed-installed",
+      "file": "01-sandboxed-installed.png",
+      "bytes": 221447,
+      "width": 1440,
+      "height": 900,
+      "sha256": "3d1a2b6a7a1f9399225e43541fd5e2cab73f9f18abeff505c8eaf5acc9fdfe52"
+    },
+    {
+      "scenario": "02-sandboxed-uninstalled-empty",
+      "file": "02-sandboxed-uninstalled-empty.png",
+      "bytes": 209983,
+      "width": 1440,
+      "height": 900,
+      "sha256": "3697e6bedc49be4ea0ec34dc9a41e5f903de25261ae7f437fd4dccdf9f37e496"
+    },
+    {
+      "scenario": "03-sandbox-fallback-privileged-scan",
+      "file": "03-sandbox-fallback-privileged-scan.png",
+      "bytes": 247175,
+      "width": 1440,
+      "height": 900,
+      "sha256": "0ff97dc0de06da574f85dabfd02071d07561f931a9c4b371fad4937ba139e848"
+    },
+    {
+      "scenario": "04-privileged-installed-disabled",
+      "file": "04-privileged-installed-disabled.png",
+      "bytes": 238124,
+      "width": 1440,
+      "height": 900,
+      "sha256": "e49a6d3fe8b82405cef223e07880c4cb64a4494e56a7aa004cd70ea6e87b5158"
+    },
+    {
+      "scenario": "05-privileged-uninstalled-empty",
+      "file": "05-privileged-uninstalled-empty.png",
+      "bytes": 211564,
+      "width": 1440,
+      "height": 900,
+      "sha256": "50765c18aa554f094514eaf1afdb7b48ca648102f7a1dd79c37ff4555a157b8f"
+    },
+    {
+      "scenario": "06-open-panel-fallback-event-refresh",
+      "file": "06-open-panel-fallback-event-refresh.png",
+      "bytes": 211697,
+      "width": 1440,
+      "height": 900,
+      "sha256": "2d01fb8d4eb7af54b4a7396eb10029d8f6981c456d04f1387a13623baa54f1e6"
+    }
+  ]
+}

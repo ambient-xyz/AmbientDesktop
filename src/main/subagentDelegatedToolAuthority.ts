@@ -14,9 +14,11 @@ export type SubagentDelegatedToolAuthorityAdapter =
   | "ambient-git-status"
   | "ambient-bash-authority"
   | "subagent-browser-authority"
+  | "web-research-provider-broker"
   | "callable-workflow-child-bridge"
   | "plugin-mcp-exact-grant"
   | "local-runtime-lease-inventory"
+  | "browser-parent-session-boundary"
   | "media-download-boundary"
   | "visual-runtime-boundary"
   | "launch-policy-denial";
@@ -138,6 +140,41 @@ export const SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES: readonly SubagentDelega
       "src/main/agentRuntimeToolCallPermission.test.ts",
     ],
     notes: "Interactive browser tools share the browser authority profile but carry browser-control risk.",
+  },
+  {
+    schemaVersion: SUBAGENT_DELEGATED_TOOL_AUTHORITY_AUDIT_SCHEMA_VERSION,
+    surfaceId: "browser-parent-session-tools",
+    categoryIds: ["browser.read", "browser.interactive"],
+    toolNames: [
+      "browser_local_preview",
+      "browser_click",
+      "browser_get_value",
+      "browser_wait_for",
+      "browser_assert",
+    ],
+    childVisibility: "not_child_visible",
+    adapter: "browser-parent-session-boundary",
+    proofTests: [
+      "src/main/subagentChildActiveTools.test.ts",
+      "src/main/subagentDelegatedToolAuthority.test.ts",
+    ],
+    notes: "Local preview and targeted browser action tools operate on parent-owned browser sessions; keep them parent-only until Ambient adds child session ownership, authority routing, and approval bubbling for these controls.",
+  },
+  {
+    schemaVersion: SUBAGENT_DELEGATED_TOOL_AUTHORITY_AUDIT_SCHEMA_VERSION,
+    surfaceId: "web-research-broker-tools",
+    categoryIds: ["connector.read"],
+    toolNames: ["web_research_status", "web_research_search", "web_research_fetch"],
+    childVisibility: "built_in_child_visible",
+    adapter: "web-research-provider-broker",
+    childIdentityProvider: "thread.kind/subagentRunId plus child tool-scope categories passed into provider fallback planning",
+    proofTests: [
+      "src/main/subagentChildActiveTools.test.ts",
+      "src/main/subagentDelegatedToolAuthority.test.ts",
+      "src/main/agentRuntimeWebResearchProviderPlan.test.ts",
+    ],
+    liveProof: "test:subagents:live:web-research-no-browser-fallback",
+    notes: "Ordinary child web research must use the brokered provider stack. Ambient disables browser fallback for child web-research calls unless the child launch explicitly includes browser authority.",
   },
   {
     schemaVersion: SUBAGENT_DELEGATED_TOOL_AUTHORITY_AUDIT_SCHEMA_VERSION,
@@ -416,6 +453,7 @@ function validateNonVisibleSurface(
   if (![
     "launch-policy-denial",
     "local-runtime-lease-inventory",
+    "browser-parent-session-boundary",
     "media-download-boundary",
     "visual-runtime-boundary",
   ].includes(surface.adapter)) {

@@ -67,6 +67,23 @@ describe("agentRuntimeWebResearchProviderPlan", () => {
     expect(result.skippedProviders).toEqual([]);
   });
 
+  it("can force browser fallback out of child web-research provider plans", async () => {
+    const result = await webResearchProviderPlanForInput({
+      workspace: workspace(),
+      input: {},
+      role: "search",
+      allowBrowserFallback: false,
+    }, options());
+
+    expect(result.providerOrder).toEqual([WEB_RESEARCH_PROVIDER_IDS.exa]);
+    expect(result.skippedProviders).toEqual([
+      {
+        providerId: WEB_RESEARCH_PROVIDER_IDS.browser,
+        reason: "Ambient Browser fallback is disabled in web research settings.",
+      },
+    ]);
+  });
+
   it("uses Local Deep Research snapshot order and provider metadata over input overrides", async () => {
     const snapshot = localDeepResearchSnapshot();
 

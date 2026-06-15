@@ -343,7 +343,10 @@ export function resolveSubagentToolScope(input: {
   const requestedFanout = Boolean(input.task?.requestedFanout);
   const requested = input.task?.requestedCategories?.length ? new Set(input.task.requestedCategories.map((id) => requireCategory(id).id)) : undefined;
   const hasSourceRequest = requestedSources.length > 0 || requestedFanout;
-  const candidates = requested ?? (hasSourceRequest ? new Set<SubagentToolCategoryId>() : allowedByRole);
+  const defaultByRole = input.role.defaultToolCategories?.length
+    ? new Set(input.role.defaultToolCategories.map((id) => requireCategory(id).id))
+    : allowedByRole;
+  const candidates = requested ?? (hasSourceRequest ? new Set<SubagentToolCategoryId>() : defaultByRole);
   const loadedCategories: SubagentToolCategoryId[] = [];
   const piVisibleCategories: SubagentToolCategoryId[] = [];
   const deniedCategories: SubagentToolScopeResolution["deniedCategories"] = [];

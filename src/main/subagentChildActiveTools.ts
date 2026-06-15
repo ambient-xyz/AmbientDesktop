@@ -1,15 +1,28 @@
 import type { SubagentToolCategoryId } from "../shared/subagentToolScope";
 import type { SubagentToolScopeSnapshotSummary, ThreadSummary } from "../shared/types";
 import {
-  AMBIENT_DIRECT_BROWSER_TOOL_NAMES,
   AMBIENT_TOOL_CALL,
   AMBIENT_TOOL_DESCRIBE,
   AMBIENT_TOOL_SEARCH,
 } from "./ambientToolRouter";
 
-const CHILD_BROWSER_READ_TOOL_NAMES = AMBIENT_DIRECT_BROWSER_TOOL_NAMES.filter((toolName) =>
-  toolName !== "browser_eval" && toolName !== "browser_keypress",
-);
+const CHILD_BROWSER_READ_TOOL_NAMES = [
+  "browser_search",
+  "browser_nav",
+  "browser_content",
+  "browser_screenshot",
+] as const;
+
+const CHILD_BROWSER_INTERACTIVE_TOOL_NAMES = [
+  "browser_eval",
+  "browser_keypress",
+] as const;
+
+const CHILD_WEB_RESEARCH_READ_TOOL_NAMES = [
+  "web_research_status",
+  "web_research_search",
+  "web_research_fetch",
+] as const;
 
 const CHILD_ACTIVE_TOOL_NAMES_BY_CATEGORY: Record<SubagentToolCategoryId, readonly string[]> = {
   "workspace.read": ["read", "ambient_git_status"],
@@ -18,9 +31,9 @@ const CHILD_ACTIVE_TOOL_NAMES_BY_CATEGORY: Record<SubagentToolCategoryId, readon
   "artifact.read": [],
   "artifact.write": [],
   "browser.read": CHILD_BROWSER_READ_TOOL_NAMES,
-  "browser.interactive": ["browser_eval", "browser_keypress"],
+  "browser.interactive": CHILD_BROWSER_INTERACTIVE_TOOL_NAMES,
   "long-context.read": ["long_context_process"],
-  "connector.read": [],
+  "connector.read": CHILD_WEB_RESEARCH_READ_TOOL_NAMES,
   "connector.write": [],
   "mcp.direct": [],
   "secrets.read": [],

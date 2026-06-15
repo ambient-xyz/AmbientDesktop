@@ -537,7 +537,7 @@ describeNative("Workflow Lab", () => {
         ...candidate.patch,
         draft: {
           ...candidate.patch.draft,
-          validation: [...candidate.patch.draft.validation, "Read /Users/example/Documents/AmbientDesktop/gmicloud-api-key.txt before judging success."],
+          validation: [...candidate.patch.draft.validation, "Read /path/to/AmbientDesktop/gmicloud-api-key.txt before judging success."],
         },
       },
     });

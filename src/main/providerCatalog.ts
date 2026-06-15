@@ -728,6 +728,8 @@ export const providerCatalogEntries: ProviderCatalogEntry[] = [
     docs: [
       { label: "Qwen3-ASR model card", url: "https://huggingface.co/Qwen/Qwen3-ASR-1.7B", lastReviewed: reviewedAt },
       { label: "Qwen ASR package assets", url: "resources/ambient-cli-packages/ambient-qwen3-asr/assets/qwen3-asr-assets.json", lastReviewed: reviewedAt },
+      { label: "STT spike plan", url: "STTSpikePlan.md", lastReviewed: reviewedAt },
+      { label: "STT implementation plan", url: "sttImplementationPlan.md", lastReviewed: reviewedAt },
     ],
   },
   {
@@ -811,6 +813,7 @@ export const providerCatalogEntries: ProviderCatalogEntry[] = [
       { label: "faster-whisper clean-cache validation", url: "scripts/stt-faster-whisper-clean-cache-validation.mjs", lastReviewed: reviewedAt },
       { label: "faster-whisper tiny smoke provider config", url: "scripts/stt-spike/providers.faster-whisper-tiny-smoke.json", lastReviewed: reviewedAt },
       { label: "faster-whisper STT live product-path dogfood", url: "src/main/pluginDogfood.test.ts", lastReviewed: reviewedAt },
+      { label: "STT spike plan", url: "STTSpikePlan.md", lastReviewed: reviewedAt },
     ],
   },
   {

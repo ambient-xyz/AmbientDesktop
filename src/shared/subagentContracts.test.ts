@@ -170,10 +170,39 @@ describe("sub-agent shared contracts", () => {
     expect(resolution.piVisibleCategories).toEqual(["workspace.read", "artifact.read", "long-context.read"]);
     expect(resolution.deniedCategories).toEqual(expect.arrayContaining([
       {
-        id: "browser.read",
+        id: "connector.read",
         reason: "Denied by child task intent file_read; allowed categories: workspace.read, artifact.read, long-context.read.",
       },
     ]));
+  });
+
+  it("keeps browser read explicitly requestable but out of explorer defaults", () => {
+    const role = getDefaultSubagentRoleProfile("explorer");
+    const model = resolveAmbientModelRuntimeProfile();
+    const workspacePolicy = {
+      hardDeniedCategories: [],
+      approvalMode: "interactive" as const,
+      worktreeIsolated: false,
+      allowNestedFanout: false,
+    };
+
+    expect(resolveSubagentToolScope({
+      role,
+      model,
+      workspacePolicy,
+    }).piVisibleCategories).toEqual([
+      "workspace.read",
+      "artifact.read",
+      "long-context.read",
+      "connector.read",
+    ]);
+
+    expect(resolveSubagentToolScope({
+      role,
+      model,
+      task: { requestedCategories: ["browser.read"] },
+      workspacePolicy,
+    }).piVisibleCategories).toEqual(["browser.read"]);
   });
 
   it("denies toolful scopes for models without tool support", () => {

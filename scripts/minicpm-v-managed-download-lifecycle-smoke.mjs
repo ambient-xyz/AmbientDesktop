@@ -5,7 +5,7 @@ import { chmod, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
-const DEFAULT_IMAGE = "resources/welcome-onboarding/screenshots/01-main-shell.png";
+const DEFAULT_IMAGE = "test/visual-baselines/01-main-shell.png";
 const DEFAULT_MANIFEST = "resources/ambient-cli-packages/ambient-minicpm-v-vision/runtime-release-manifest.prototype.json";
 const DEFAULT_LIFECYCLE_SCRIPT = "scripts/minicpm-v-runtime-lifecycle-smoke.mjs";
 const DEFAULT_OUTPUT_DIR = "test-results/minicpm-v/managed-download-lifecycle-smoke";

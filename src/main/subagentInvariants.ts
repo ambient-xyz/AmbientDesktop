@@ -470,6 +470,8 @@ const SUBAGENT_LOCAL_TEXT_CHILD_RUN_EVENT_TYPES = [
   "subagent.local_text_release_after_cancel",
   "subagent.local_text_release_after_partial",
   "subagent.runtime_budget_exceeded",
+  "subagent.runtime_hard_cap_exceeded",
+  "subagent.runtime_idle_timeout",
 ] as const;
 
 function validateSubagentLocalTextRunEventAttribution(input: {

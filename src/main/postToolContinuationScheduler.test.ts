@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   browserUserActionContinuationLinesFromToolContent,
   createPostToolContinuationRequest,
+  planPostToolContinuation,
   postToolContinuationActivity,
   postToolIdleContinuationPrompt,
   privilegedContinuationLinesFromToolContent,
@@ -85,6 +86,108 @@ describe("postToolContinuationScheduler", () => {
       currentRunId: "run-1",
       currentEventSeq: 41,
     })).toBe(true);
+  });
+
+  it("plans a continuation request from the latest matching tool transcript", () => {
+    expect(planPostToolContinuation({
+      runId: "run-1",
+      attempt: 3,
+      idleMs: 15_000,
+      currentEventSeq: 9,
+      lastCompletedTool: {
+        runId: "run-1",
+        toolCallId: "tool-bash-1",
+        eventSeqAtEnd: 9,
+        label: "bash",
+        status: "done",
+      },
+      messages: [
+        {
+          id: "message-tool-1",
+          threadId: "thread-1",
+          role: "tool",
+          content: "bash completed\nContinuation:\n- next: summarize result",
+          metadata: {
+            status: "done",
+            toolName: "bash",
+            toolCallId: "tool-bash-1",
+          },
+          createdAt: "2026-05-25T22:00:00.000Z",
+        },
+      ],
+    })).toMatchObject({
+      latestTranscriptTool: {
+        toolCallId: "tool-bash-1",
+        messageId: "message-tool-1",
+        continuationLines: ["- next: summarize result"],
+      },
+      continuationSnapshot: {
+        runId: "run-1",
+        toolCallId: "tool-bash-1",
+        messageId: "message-tool-1",
+        eventSeqAtEnd: 9,
+      },
+      request: {
+        id: "post-tool-continuation:run-1:3:9",
+        attempt: 3,
+        idleMs: 15_000,
+        eventSeqAtSchedule: 9,
+      },
+      validation: {
+        deliver: true,
+        snapshot: {
+          toolCallId: "tool-bash-1",
+          messageId: "message-tool-1",
+        },
+      },
+    });
+  });
+
+  it("reports a stale continuation plan when the latest transcript tool no longer matches", () => {
+    expect(planPostToolContinuation({
+      runId: "run-1",
+      attempt: 1,
+      idleMs: 15_000,
+      currentEventSeq: 12,
+      lastCompletedTool: {
+        runId: "run-1",
+        toolCallId: "tool-old",
+        messageId: "message-old",
+        eventSeqAtEnd: 12,
+        label: "bash",
+        status: "done",
+      },
+      messages: [
+        {
+          id: "message-new",
+          threadId: "thread-1",
+          role: "tool",
+          content: "read_file completed",
+          metadata: {
+            status: "done",
+            toolName: "read_file",
+            toolCallId: "tool-new",
+          },
+          createdAt: "2026-05-25T22:01:00.000Z",
+        },
+      ],
+    })).toMatchObject({
+      latestTranscriptTool: {
+        toolCallId: "tool-new",
+        messageId: "message-new",
+      },
+      request: {
+        id: "post-tool-continuation:run-1:1:12",
+      },
+      validation: {
+        deliver: false,
+        diagnostic: {
+          reason: "tool-mismatch",
+          snapshotToolCallId: "tool-old",
+          latestToolCallId: "tool-new",
+        },
+      },
+    });
   });
 
   it("builds post-tool continuation activity messages", () => {

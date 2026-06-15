@@ -19,6 +19,7 @@ export interface WebResearchProviderPlanRequest {
   role: WebResearchProviderRole;
   signal?: AbortSignal;
   providerSnapshot?: LocalDeepResearchProviderSnapshot;
+  allowBrowserFallback?: boolean;
 }
 
 export interface WebResearchProviderPlanOptions {
@@ -38,7 +39,10 @@ export async function webResearchProviderPlanForInput(
   const catalog = await options.discoverAmbientCliPackages(request.workspace.path, { includeHealth: true }).catch(() => ({ packages: [], errors: [] }));
   const mcpTools = await options.discoverMcpProviderTools(request.signal);
   const settings = webResearchSettingsWithDynamicProviderCatalogs(baseSettings, { ambientCliCatalog: catalog, mcpTools });
-  const plannedSettings = request.providerSnapshot ? searchSettingsWithLocalDeepResearchProviderSnapshot(settings, request.providerSnapshot) : settings;
+  const plannedSettings = webResearchSettingsWithBrowserFallbackOverride(
+    request.providerSnapshot ? searchSettingsWithLocalDeepResearchProviderSnapshot(settings, request.providerSnapshot) : settings,
+    request.allowBrowserFallback,
+  );
   return planWebResearchProviderOrder({
     settings: plannedSettings,
     role: request.role,
@@ -69,6 +73,23 @@ export function searchSettingsWithLocalDeepResearchProviderSnapshot(
       },
       fallbackPolicy: { ...snapshot.fallbackPolicy },
       updatedAt: snapshot.capturedAt,
+    },
+  };
+}
+
+function webResearchSettingsWithBrowserFallbackOverride(
+  settings: SearchRoutingSettings,
+  allowBrowserFallback: boolean | undefined,
+): SearchRoutingSettings {
+  if (allowBrowserFallback !== false) return settings;
+  const stack = normalizeSearchRoutingSettingsWithWebResearch(settings).webResearch;
+  return {
+    webResearch: {
+      ...stack,
+      fallbackPolicy: {
+        ...stack.fallbackPolicy,
+        allowBrowserFallback: false,
+      },
     },
   };
 }

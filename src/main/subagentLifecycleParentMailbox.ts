@@ -10,6 +10,8 @@ export type SubagentLifecycleInterruptionSource =
   | "direct_child_stop"
   | "desktop_restart"
   | "runtime_budget_exceeded"
+  | "runtime_hard_cap_exceeded"
+  | "runtime_idle_timeout"
   | "max_turns_exceeded";
 
 export interface SubagentLifecycleInterruptionParentMailboxPayloadInput {

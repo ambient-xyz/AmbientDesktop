@@ -65,7 +65,13 @@ describe("resolveAgentRuntimeActiveToolNamesForThread", () => {
 describe("resolveSubagentChildActiveToolNames", () => {
   it("identifies exact built-in child tools from the same table used for activation", () => {
     expect(subagentChildActivatableBuiltInToolNamesForCategory("workspace.read")).toEqual(["read", "ambient_git_status"]);
+    expect(subagentChildActivatableBuiltInToolNamesForCategory("connector.read")).toEqual([
+      "web_research_status",
+      "web_research_search",
+      "web_research_fetch",
+    ]);
     expect(isSubagentChildActivatableBuiltInTool({ toolName: "read", categoryId: "workspace.read" })).toBe(true);
+    expect(isSubagentChildActivatableBuiltInTool({ toolName: "web_research_search", categoryId: "connector.read" })).toBe(true);
     expect(isSubagentChildActivatableBuiltInTool({ toolName: "ambient_tool_call", categoryId: "workspace.read" })).toBe(false);
     expect(isSubagentChildActivatableBuiltInTool({ toolName: "bash", categoryId: "test.run" })).toBe(false);
   });
@@ -93,6 +99,30 @@ describe("resolveSubagentChildActiveToolNames", () => {
     expect(activeTools).not.toContain("ambient_workflow_symphony_map_reduce");
     expect(activeTools).not.toContain("plugin_mcp");
     expect(activeTools).not.toContain("project_task");
+    expect(activeTools).not.toContain("browser_local_preview");
+    expect(activeTools).not.toContain("browser_click");
+    expect(activeTools).not.toContain("browser_get_value");
+    expect(activeTools).not.toContain("browser_wait_for");
+    expect(activeTools).not.toContain("browser_assert");
+  });
+
+  it("uses brokered web research for connector-read child scopes without preference mutation tools", () => {
+    const activeTools = resolveSubagentChildActiveToolNames({
+      subagentToolScopeSnapshots: [
+        snapshot(["connector.read"]),
+      ],
+    });
+
+    expect(activeTools).toEqual([
+      "web_research_status",
+      "web_research_search",
+      "web_research_fetch",
+    ]);
+    expect(activeTools).not.toContain("web_research_preferences_update");
+    expect(activeTools).not.toContain("web_research_provider_search");
+    expect(activeTools).not.toContain("web_research_provider_describe");
+    expect(activeTools).not.toContain("browser_search");
+    expect(activeTools).not.toContain("browser_content");
   });
 
   it("does not activate callable workflow tools from child snapshots unless registered for the child launch", () => {

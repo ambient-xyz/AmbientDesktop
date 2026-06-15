@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ambient Security Repro Runner</title>
+  <style>
+    :root {
+      --bg: #f5f7f9;
+      --panel: #fff;
+      --ink: #1d232b;
+      --muted: #5f6975;
+      --line: #dce2e8;
+      --critical: #9f1d1d;
+      --critical-bg: #fff0f0;
+      --high: #975a16;
+      --high-bg: #fff7e8;
+      --medium: #255e8f;
+      --medium-bg: #edf6ff;
+      --ok: #267047;
+      --ok-bg: #ecf8f0;
+      --unknown: #576170;
+      --unknown-bg: #f1f3f5;
+      --shadow: 0 12px 30px rgba(31, 42, 55, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button {
+      border: 0;
+      border-radius: 7px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 750;
+      padding: 9px 12px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    header {
+      align-items: flex-start;
+      display: flex;
+      gap: 24px;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.05;
+      margin: 0 0 10px;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 17px;
+      margin: 0;
+      max-width: 820px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      min-width: 250px;
+    }
+
+    .primary {
+      background: #1f5f8b;
+      color: #fff;
+    }
+
+    .secondary {
+      background: #e8edf2;
+      color: #233142;
+    }
+
+    .notice {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 5px solid #34495e;
+      box-shadow: var(--shadow);
+      margin: 18px 0 22px;
+      padding: 15px 17px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0 24px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 27px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-head {
+      align-items: flex-start;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr auto;
+      padding: 16px 18px;
+    }
+
+    .title-row {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+
+    h2 {
+      font-size: 19px;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 6px 8px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .critical {
+      background: var(--critical-bg);
+      border-color: #f0c2c2;
+      color: var(--critical);
+    }
+
+    .high {
+      background: var(--high-bg);
+      border-color: #edd09d;
+      color: var(--high);
+    }
+
+    .medium {
+      background: var(--medium-bg);
+      border-color: #badbf4;
+      color: var(--medium);
+    }
+
+    .vulnerable {
+      background: var(--critical-bg);
+      border-color: #f0c2c2;
+      color: var(--critical);
+    }
+
+    .not-reproduced {
+      background: var(--ok-bg);
+      border-color: #bfe6cb;
+      color: var(--ok);
+    }
+
+    .inconclusive,
+    .not-run {
+      background: var(--unknown-bg);
+      border-color: #d7dde3;
+      color: var(--unknown);
+    }
+
+    .error {
+      background: var(--high-bg);
+      border-color: #edd09d;
+      color: var(--high);
+    }
+
+    .body {
+      display: grid;
+      gap: 0;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .cell {
+      border-bottom: 1px solid var(--line);
+      padding: 14px 18px;
+    }
+
+    .cell:nth-child(odd) {
+      border-right: 1px solid var(--line);
+    }
+
+    .cell.full {
+      grid-column: 1 / -1;
+    }
+
+    .cell h3 {
+      color: #3c4652;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      margin: 0 0 7px;
+      text-transform: uppercase;
+    }
+
+    .cell p {
+      margin: 0;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    li + li {
+      margin-top: 5px;
+    }
+
+    code {
+      background: #f1f3f5;
+      border: 1px solid #e0e4e8;
+      border-radius: 5px;
+      font: 0.92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      padding: 1px 5px;
+    }
+
+    .statusline {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 820px) {
+      header {
+        display: grid;
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+
+      .summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .card-head,
+      .body {
+        grid-template-columns: 1fr;
+      }
+
+      .cell:nth-child(odd) {
+        border-right: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <h1>Security Repro Runner</h1>
+        <p class="lead">Run safe local repro checks for the Ambient Desktop production security findings. The backend uses only fixed, allowlisted checks with fake sentinel data.</p>
+      </div>
+      <div class="actions">
+        <button class="secondary" id="refresh">Refresh</button>
+        <button class="primary" id="run-all">Run all repros</button>
+      </div>
+    </header>
+
+    <div class="notice">
+      These checks are designed to avoid real secrets and destructive operations. Some repros are static or release-gate probes because a live exploit would be unnecessary or unsafe.
+      <div class="small" id="repo-root"></div>
+    </div>
+
+    <section class="summary" aria-label="Run summary">
+      <div class="stat"><strong id="count-total">0</strong><span>Total</span></div>
+      <div class="stat"><strong id="count-vulnerable">0</strong><span>Reproduced</span></div>
+      <div class="stat"><strong id="count-not-reproduced">0</strong><span>Not reproduced</span></div>
+      <div class="stat"><strong id="count-other">0</strong><span>Other</span></div>
+    </section>
+
+    <section class="grid" id="cards" aria-label="Security repros"></section>
+  </main>
+
+  <script>
+    const cardsEl = document.getElementById("cards");
+    const runAllButton = document.getElementById("run-all");
+    const refreshButton = document.getElementById("refresh");
+    const repoRootEl = document.getElementById("repo-root");
+    let repros = [];
+    let running = false;
+
+    refreshButton.addEventListener("click", load);
+    runAllButton.addEventListener("click", runAll);
+
+    load();
+
+    async function load() {
+      setRunning(true);
+      try {
+        const data = await api("/api/repros");
+        repros = data.repros;
+        repoRootEl.textContent = `Repo root: ${data.repoRoot}`;
+        render();
+      } catch (error) {
+        cardsEl.innerHTML = `<div class="notice">Unable to load repro metadata: ${escapeHtml(error.message)}</div>`;
+      } finally {
+        setRunning(false);
+      }
+    }
+
+    async function runOne(id) {
+      setRunning(true);
+      updateCardRunning(id);
+      try {
+        const data = await api(`/api/repros/${id}/run`, { method: "POST" });
+        repros = repros.map((repro) => repro.id === id ? { ...repro, lastResult: data.result } : repro);
+        render();
+      } catch (error) {
+        repros = repros.map((repro) => repro.id === id ? {
+          ...repro,
+          lastResult: {
+            id,
+            title: repro.title,
+            status: "error",
+            summary: error.message,
+            evidence: [],
+            notes: [],
+            fix: repro.fix,
+          },
+        } : repro);
+        render();
+      } finally {
+        setRunning(false);
+      }
+    }
+
+    async function runAll() {
+      setRunning(true);
+      cardsEl.querySelectorAll("[data-status]").forEach((el) => {
+        el.textContent = "Running";
+        el.className = "pill inconclusive";
+      });
+      try {
+        const data = await api("/api/run-all", { method: "POST" });
+        const byId = new Map(data.results.map((result) => [result.id, result]));
+        repros = repros.map((repro) => ({ ...repro, lastResult: byId.get(repro.id) || repro.lastResult }));
+        render();
+      } catch (error) {
+        alert(`Run all failed: ${error.message}`);
+      } finally {
+        setRunning(false);
+      }
+    }
+
+    function setRunning(value) {
+      running = value;
+      runAllButton.disabled = value;
+      refreshButton.disabled = value;
+      cardsEl.querySelectorAll("button[data-run]").forEach((button) => {
+        button.disabled = value;
+      });
+    }
+
+    function updateCardRunning(id) {
+      const status = cardsEl.querySelector(`[data-status="${id}"]`);
+      if (status) {
+        status.textContent = "Running";
+        status.className = "pill inconclusive";
+      }
+    }
+
+    function render() {
+      const results = repros.map((repro) => repro.lastResult).filter(Boolean);
+      const reproduced = results.filter((result) => result.status === "vulnerable").length;
+      const notReproduced = results.filter((result) => result.status === "not-reproduced").length;
+      const other = results.filter((result) => !["vulnerable", "not-reproduced"].includes(result.status)).length;
+      document.getElementById("count-total").textContent = String(repros.length);
+      document.getElementById("count-vulnerable").textContent = String(reproduced);
+      document.getElementById("count-not-reproduced").textContent = String(notReproduced);
+      document.getElementById("count-other").textContent = String(other);
+      cardsEl.innerHTML = repros.map(cardHtml).join("");
+      cardsEl.querySelectorAll("button[data-run]").forEach((button) => {
+        button.addEventListener("click", () => runOne(button.dataset.run));
+        button.disabled = running;
+      });
+    }
+
+    function cardHtml(repro) {
+      const result = repro.lastResult;
+      const status = result?.status || "not-run";
+      const summary = result?.summary || "Not run yet.";
+      const evidence = result?.evidence?.length ? result.evidence : ["No evidence yet."];
+      const notes = result?.notes?.length ? result.notes : [];
+      const duration = result?.durationMs == null ? "" : `Duration: ${result.durationMs} ms`;
+      return `
+        <article class="card" id="${escapeHtml(repro.id)}">
+          <div class="card-head">
+            <div>
+              <div class="title-row">
+                <span class="pill ${severityClass(repro.severity)}">${escapeHtml(repro.id)}</span>
+                <span class="pill ${severityClass(repro.severity)}">${escapeHtml(repro.severity)}</span>
+                <span class="pill">${escapeHtml(repro.category)}</span>
+              </div>
+              <h2>${escapeHtml(repro.title)}</h2>
+              <p class="meta">${escapeHtml(repro.verdict)} · Docs: ${escapeHtml(repro.docs.join(", "))}</p>
+            </div>
+            <button class="secondary" data-run="${escapeHtml(repro.id)}">Run repro</button>
+          </div>
+          <div class="body">
+            <div class="cell">
+              <h3>Status</h3>
+              <div class="statusline">
+                <span class="pill ${statusClass(status)}" data-status="${escapeHtml(repro.id)}">${escapeHtml(statusLabel(status))}</span>
+                <span class="small">${escapeHtml(duration)}</span>
+              </div>
+            </div>
+            <div class="cell">
+              <h3>Summary</h3>
+              <p>${escapeHtml(summary)}</p>
+            </div>
+            <div class="cell">
+              <h3>Proposed fix</h3>
+              <p>${escapeHtml(result?.fix || repro.fix)}</p>
+            </div>
+            <div class="cell">
+              <h3>Repro type</h3>
+              <p>${escapeHtml(repro.category)}. ${escapeHtml(repro.category === "Gate test" ? "Validated as a release or dependency gate." : "Validated with a safe local proof or static boundary probe.")}</p>
+            </div>
+            <div class="cell full">
+              <h3>Evidence</h3>
+              <ul>${evidence.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+              ${notes.length ? `<h3 style="margin-top:14px;">Notes</h3><ul>${notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function severityClass(severity) {
+      if (severity === "critical") return "critical";
+      if (severity === "high") return "high";
+      return "medium";
+    }
+
+    function statusClass(status) {
+      if (status === "vulnerable") return "vulnerable";
+      if (status === "not-reproduced") return "not-reproduced";
+      if (status === "error") return "error";
+      return "inconclusive";
+    }
+
+    function statusLabel(status) {
+      if (status === "vulnerable") return "Reproduced";
+      if (status === "not-reproduced") return "Not reproduced";
+      if (status === "inconclusive") return "Inconclusive";
+      if (status === "error") return "Error";
+      return "Not run";
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: { "content-type": "application/json", ...(options.headers || {}) },
+      });
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!response.ok) throw new Error(data.error || response.statusText);
+      return data;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+  </script>
+</body>
+</html>

@@ -189,7 +189,7 @@ async function attempt(name, fn) {
 }
 
 await attempt("read explicit host secret path", () => readFileSync(${JSON.stringify(paths.hostSecretPath)}, "utf8"));
-await attempt("read likely project ambient key", () => readFileSync("/Users/example/Documents/New project 3/ambient_api_key.txt", "utf8"));
+await attempt("read likely project ambient key", () => readFileSync("/path/to/project/ambient_api_key.txt", "utf8"));
 await attempt("read container passwd", () => readFileSync("/etc/passwd", "utf8").slice(0, 160));
 await attempt("write explicit host escape path", () => {
   mkdirSync(dirname(${JSON.stringify(paths.hostEscapePath)}), { recursive: true });

@@ -32,6 +32,19 @@ export interface AssistantTerminalCleanupDiagnostic {
   lastAssistantTerminalEvent?: AssistantTerminalEventDiagnostic;
 }
 
+export interface AssistantTerminalCleanupDiagnosticInput {
+  nowMs: number;
+  promptStartedAtMs: number;
+  assistantTerminalGraceMs: number;
+  outputChars: number;
+  thinkingChars: number;
+  receivedAnyText: boolean;
+  currentAssistantReceivedText: boolean;
+  currentAssistantFinalTextChars: number;
+  sessionFile?: string | undefined;
+  lastAssistantTerminalEvent?: AssistantTerminalEventDiagnostic | undefined;
+}
+
 export interface AssistantTerminalCleanupActivityInput {
   threadId: string;
   outputChars: number;
@@ -65,6 +78,24 @@ export function assistantTerminalEventDiagnostic(event: any, finalText?: string,
       : {}),
   };
   return diagnostic;
+}
+
+export function assistantTerminalCleanupDiagnostic(
+  input: AssistantTerminalCleanupDiagnosticInput,
+): AssistantTerminalCleanupDiagnostic {
+  return {
+    reason: "assistant-terminal-before-prompt-resolved",
+    cleanupAction: "abort-and-dispose-session",
+    promptPendingMs: Math.max(0, input.nowMs - input.promptStartedAtMs),
+    assistantTerminalGraceMs: input.assistantTerminalGraceMs,
+    outputChars: input.outputChars,
+    thinkingChars: input.thinkingChars,
+    receivedAnyText: input.receivedAnyText,
+    currentAssistantReceivedText: input.currentAssistantReceivedText,
+    currentAssistantFinalTextChars: input.currentAssistantFinalTextChars,
+    ...(input.sessionFile ? { sessionFile: input.sessionFile } : {}),
+    ...(input.lastAssistantTerminalEvent ? { lastAssistantTerminalEvent: input.lastAssistantTerminalEvent } : {}),
+  };
 }
 
 export function assistantTerminalCleanupActivity(input: AssistantTerminalCleanupActivityInput): RuntimeStreamActivity {

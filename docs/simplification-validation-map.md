@@ -1,0 +1,27 @@
+# Simplification Validation Map
+
+Use this map while executing `simplificationPlan.html` phase by phase. Pick the smallest validation set that covers the files changed, then add live checks only when a real Ambient/Pi or provider loop is affected.
+
+## Baseline Safety Rails
+
+- IPC contract parity: `pnpm run test:simplification-phase0`
+- Complexity inventory: `pnpm run complexity:inventory -- --limit=20`
+- TypeScript changes: `pnpm run typecheck`
+
+## Domain Validation
+
+| Change area | Local validation | Live/provider validation |
+| --- | --- | --- |
+| Renderer extraction | Targeted renderer Vitest, then `pnpm run test:ui-model` when layout or interaction surfaces move. | Only run live UI dogfood when the moved surface starts, steers, or resumes a provider-backed run. |
+| Main IPC split | `pnpm run test:simplification-phase0` plus focused tests for the moved domain. | Use `AMBIENT_PROVIDER=gmi-cloud` for channels that start live Ambient/Pi work during the provider outage. |
+| ProjectStore helper extraction | `pnpm exec vitest run src/main/projectStore.test.ts` plus affected project-board import/export tests. | Run the smallest project-board live smoke only when persisted planner/session state changes. |
+| AgentRuntime tool extraction | `pnpm exec vitest run src/main/agentRuntime.test.ts src/main/piSessionToolActivation.test.ts src/main/workflowToolBridge.test.ts` as applicable. | Use `AMBIENT_PROVIDER=gmi-cloud` for affected provider/tool-loop smoke tests. |
+| Project-board prompt contract consolidation | `pnpm exec vitest run src/main/projectBoardSynthesisProvider.test.ts src/main/projectBoardPlanningContract.test.ts src/main/projectBoardProofScope.test.ts`. | Use the smallest GMI-backed project-board planner smoke that exercises the changed prompt path. |
+| Workflow compiler prompt or runtime changes | Focused workflow compiler/runtime tests for the touched module. | Prefer GMI-backed live workflow tests while Ambient provider outage guidance is active. |
+
+## Guardrails
+
+- Preserve unrelated local changes.
+- Do not expose or print local API keys, credential files, or snapshot secrets.
+- Do not add or modify `.github/workflows` for simplification validation.
+- Keep provider-specific behavior in adapters or descriptors; do not widen global prompts to fix local contract problems.

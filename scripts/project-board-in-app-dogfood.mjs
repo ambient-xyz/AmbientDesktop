@@ -3335,8 +3335,8 @@ async function readAmbientApiKey() {
     join(dirname(repoRoot), "ambient_api_key.txt"),
     join(dirname(dirname(repoRoot)), "ambient_api_key.txt"),
     join(homedir(), "ambient_api_key.txt"),
-    "/Users/example/Documents/AmbientDesktop/ambient_api_key.txt",
-    "/Users/example/Documents/New project 3/ambient_api_key.txt",
+    "/path/to/AmbientDesktop/ambient_api_key.txt",
+    "/path/to/project/ambient_api_key.txt",
   ].filter(Boolean);
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;

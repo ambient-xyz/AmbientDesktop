@@ -34,7 +34,6 @@ import { resolveAgentHarnessVariant } from "./agentHarnessVariant";
 import { ToolArgumentProgressTracker } from "./toolArgumentProgress";
 import { providerInterruptionContinuationRetryBudget } from "./providerInterruptionContinuation";
 import {
-  buildInterruptedToolCallRecoveryNotice,
   InterruptedToolCallRecoveryTracker,
   interruptedToolCallRecoveryThresholdFromEnv,
   serializeToolInputForInterruptedRecovery,
@@ -150,25 +149,23 @@ import {
   contextUsageCompactionStatsFromEntries,
 } from "./agentRuntimeContextUsageSnapshot";
 import { runPromptPreflightBeforePrompt } from "./agentRuntimePromptPreflight";
-import type { ProjectStore, RunRecord } from "./projectStore";
+import type { ProjectStore } from "./projectStore";
 import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "./providerStatus";
 import { readAmbientApiKey } from "./credentialStore";
 import { abortSessionRun as abortPiSessionRun } from "./sessionAbort";
 import { createPiStreamWatchdog } from "./piStreamWatchdog";
 import { createPostToolFinalizationTracker, type PromptCompletion } from "./postToolFinalization";
 import {
-  createPostToolContinuationRequest,
-  latestCompletedToolSnapshotFromMessages,
+  planPostToolContinuation,
   postToolContinuationActivity,
   postToolIdleContinuationPrompt,
   stalePostToolContinuationActivity,
   toolContinuationLinesFromToolContent,
-  validatePostToolContinuationRequest,
   type CompletedToolSnapshot,
   type InternalContinuationRequest,
 } from "./postToolContinuationScheduler";
 import { normalizePiEvent } from "./piEventMapper";
-import { createAssistantVisibleTextFilter, stripAssistantReasoningTags } from "./assistantVisibleText";
+import { createAssistantVisibleTextFilter } from "./assistantVisibleText";
 import { recordAgentRuntimeVoiceDispatch } from "./agentRuntimeVoiceDispatch";
 import { completeAgentRuntimeRegisteredVoiceProviderSetup } from "./agentRuntimeVoiceProviderSetup";
 import { dogfoodAgentRuntimeSelectedVoiceProvider } from "./agentRuntimeVoiceProviderDogfood";
@@ -327,6 +324,7 @@ import {
 } from "./agentRuntimePlannerFinalizationPrompt";
 import {
   assistantTerminalCleanupActivity,
+  assistantTerminalCleanupDiagnostic as buildAssistantTerminalCleanupDiagnostic,
   assistantTerminalEventDiagnostic,
   type AssistantTerminalCleanupDiagnostic,
   type AssistantTerminalEventDiagnostic,
@@ -415,11 +413,9 @@ import {
   type CallableWorkflowParentBlockingBlock,
 } from "./callableWorkflowParentBlocking";
 import {
-  callableWorkflowFinalizationBlockedActivity,
   callableWorkflowFinalizationBlock as resolveCallableWorkflowFinalizationBlock,
   recordCallableWorkflowFinalizationBlockedParentMailbox as recordCallableWorkflowFinalizationBlockedParentMailboxEvent,
   recordSubagentFinalizationBlockedParentMailbox as recordSubagentFinalizationBlockedParentMailboxEvents,
-  subagentFinalizationBlockedActivity,
   subagentFinalizationBarrierBlock as resolveSubagentFinalizationBarrierBlock,
   type SubagentFinalizationBarrierBlock,
 } from "./agentRuntimeFinalizationBlocking";
@@ -459,6 +455,7 @@ import {
   webResearchRuntimeSummaryForWorkspace as buildWebResearchRuntimeSummary,
   type WebResearchRuntimeSummary,
 } from "./agentRuntimeWebResearchRuntimeSummary";
+import { createAmbientProductContextExtension } from "./agentRuntimeProductContextTools";
 import { createProviderCatalogToolExtension } from "./agentRuntimeProviderCatalogTools";
 import { createMediaToolExtension } from "./agentRuntimeMediaTools";
 import { createLocalRuntimeToolExtension } from "./agentRuntimeLocalRuntimeTools";
@@ -719,7 +716,6 @@ import {
 import { buildToolIntentSnapshot } from "./agentRuntimeToolIntentSnapshot";
 import {
   buildProviderInterruptionContinuationInput,
-  buildProviderInterruptionContinuationNotice,
   type ProviderInterruptionToolSnapshot,
 } from "./agentRuntimeProviderContinuationHelpers";
 import {
@@ -729,6 +725,53 @@ import {
 import { runtimeToolResultMessageUpdate } from "./agent-runtime/toolResultUpdates";
 import { runtimeToolInputMessageUpsert } from "./agent-runtime/toolMessageUpserts";
 import { runtimeToolInputEventModel } from "./agent-runtime/toolInputEvents";
+import { runtimeToolStartEventModel } from "./agent-runtime/toolStartEvents";
+import { runtimeToolUpdateEventModel } from "./agent-runtime/toolUpdateEvents";
+import { runtimeToolEndEventModel } from "./agent-runtime/toolEndEvents";
+import {
+  runtimeCompactionEventModel,
+  type RuntimeCompactionEvent,
+} from "./agent-runtime/compactionEvents";
+import {
+  runtimeThinkingEventModel,
+  type RuntimeThinkingEvent,
+} from "./agent-runtime/thinkingEvents";
+import {
+  runtimeAssistantUpdateEventModel,
+  type RuntimeAssistantUpdateEvent,
+} from "./agent-runtime/assistantUpdateEvents";
+import {
+  runtimeAssistantEndEventModel,
+  type RuntimeAssistantEndEvent,
+} from "./agent-runtime/assistantEndEvents";
+import {
+  runtimeAgentEndEventModel,
+} from "./agent-runtime/agentEndEvents";
+import { finalizeSuccessfulRuntimeRun } from "./agent-runtime/runtimeSuccessfulRunFinalization";
+import { finalizeRuntimeSessionDispositionAfterRun } from "./agent-runtime/runtimeSessionDispositionAfterRun";
+import { interruptedToolCallRecoveryFinalizationMessage } from "./agent-runtime/interruptedToolCallRecoveryFinalization";
+import {
+  providerInterruptionFinalizationMessage,
+  providerInterruptionRecoveryFailureFinalizationMessage,
+} from "./agent-runtime/providerInterruptionFinalization";
+import {
+  preOutputStreamStallRetryFinalizationMessage,
+  providerErrorBeforeToolRetryFinalizationMessage,
+} from "./agent-runtime/providerRetryFinalization";
+import { streamWatchdogFinalizationMessage } from "./agent-runtime/streamWatchdogFinalization";
+import { terminalProviderFailureFinalizationMessage } from "./agent-runtime/terminalProviderFailureFinalization";
+import {
+  runtimeSendFollowUpSleep,
+  scheduleRuntimeSendFollowUps,
+} from "./agent-runtime/runtimeSendFollowUps";
+import {
+  finalizeRuntimeGoalContinuationAfterRun,
+  type AccountFinishedGoalRunInput,
+} from "./agent-runtime/runtimeGoalContinuationAfterRun";
+import {
+  runtimeProviderRetryEventModel,
+  type RuntimeProviderRetryEvent,
+} from "./agent-runtime/providerRetryEvents";
 import { createRuntimeProviderContinuationState } from "./agent-runtime/providerContinuationState";
 import { runtimeOpenProviderInterruptionToolSnapshots } from "./agent-runtime/providerInterruptionToolSnapshots";
 import { persistPreparedProviderInterruptionToolArguments } from "./agentRuntimeProviderInterruptionArguments";
@@ -751,10 +794,6 @@ import {
   runtimeProviderRetryFinishedActivity,
   runtimeProviderRetryStartingActivity,
 } from "./agentRuntimeProviderRetryActivity";
-import {
-  runtimeCompactionFinishedActivity,
-  runtimeCompactionStartingActivity,
-} from "./agentRuntimeCompactionActivity";
 import { emptyAssistantStallRuntimeActivity } from "./agentRuntimeEmptyAssistantStallActivity";
 import { resolveAgentRuntimeToolCallPermission } from "./agentRuntimeToolCallPermission";
 import { runtimePermissionWaitActivity, runtimePermissionWaitToolResult } from "./agentRuntimePermissionMessages";
@@ -983,6 +1022,59 @@ export interface AgentRuntimeFeatures {
 
 const MAX_SUBAGENT_POST_TOOL_FINALIZATION_FOLLOWUPS = 3;
 const SUBAGENT_WAIT_HEARTBEAT_INTERVAL_MS = 15_000;
+const SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS = 10 * 60_000;
+const SUBAGENT_CHILD_MIN_HARD_TIMEOUT_MS = 10 * 60_000;
+
+interface SubagentChildExecutionRecord {
+  childThreadId: string;
+  promise: Promise<void>;
+  startedAt: string;
+}
+
+interface SubagentChildActivitySnapshot {
+  atMs: number;
+  at: string;
+  source: string;
+  detail?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function timestampMs(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function activitySnapshotFromIso(
+  value: string | undefined,
+  source: string,
+  detail: string,
+  fallbackMs: number,
+): SubagentChildActivitySnapshot {
+  const atMs = timestampMs(value) ?? fallbackMs;
+  return {
+    atMs,
+    at: new Date(atMs).toISOString(),
+    source,
+    detail,
+  };
+}
+
+function normalizedSubagentChildRuntimeHardTimeoutMs(run: SubagentRunSummary): number {
+  const roleLimitMs = run.roleProfileSnapshot.guardPolicy.maxRuntimeMs;
+  if (!Number.isFinite(roleLimitMs) || roleLimitMs < 0) return SUBAGENT_CHILD_MIN_HARD_TIMEOUT_MS;
+  return Math.max(SUBAGENT_CHILD_MIN_HARD_TIMEOUT_MS, Math.floor(roleLimitMs));
+}
+
+function delaySubagentChildWaitTick(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(resolve, Math.max(0, Math.floor(ms)));
+    if (typeof timeout === "object" && "unref" in timeout && typeof timeout.unref === "function") timeout.unref();
+  });
+}
 
 type SubagentChildTurnCompletion =
   | { status: "terminal" }
@@ -1179,7 +1271,7 @@ interface RuntimeSendLoopContext {
 export class AgentRuntime {
   private activeRuns = new Map<string, ActiveRun>();
   private activeRunIds = new Map<string, string>();
-  private subagentChildExecutions = new Map<string, { childThreadId: string; promise: Promise<void>; startedAt: string }>();
+  private subagentChildExecutions = new Map<string, SubagentChildExecutionRecord>();
   private callableWorkflowTaskAbortControllers = new Map<string, AbortController>();
   private callableWorkflowRunTaskIds = new Map<string, string>();
   private workflowPlanEditIntentByThreadId = new Map<string, WorkflowPlanEditIntentKind>();
@@ -2563,10 +2655,148 @@ export class AgentRuntime {
       let pendingPostToolContinuation: InternalContinuationRequest | undefined;
       let lastAssistantTerminalEvent: AssistantTerminalEventDiagnostic | undefined;
       let assistantTerminalCleanupDiagnostic: AssistantTerminalCleanupDiagnostic | undefined;
-      let discardSessionFileAfterRun: string | undefined;
-      let emptyResponseRetryUsesFreshSession = false;
       let providerRetryBeforeVisibleOutput = false;
       let providerRetryRecovered = false;
+      const applyRuntimeAssistantEndEvent = (event: RuntimeAssistantEndEvent, rawEvent: unknown, trailingVisibleText?: string) => {
+        const cleanupAbort = shouldIgnoreAssistantTerminalCleanupError(event.error);
+        const assistantEnd = runtimeAssistantEndEventModel(event, {
+          cleanupAbort,
+          trailingVisibleText,
+          receivedAnyText,
+          currentAssistantReceivedText,
+          currentAssistantFinalText,
+          assistantOutputChars,
+          assistantTextObservedAfterLastToolEnd,
+          hasLastCompletedTool: Boolean(lastCompletedTool),
+          hasLastAssistantTerminalEvent: Boolean(lastAssistantTerminalEvent),
+        });
+        if (assistantEnd.runtimeError.kind === "set") runtimeError = assistantEnd.runtimeError.message;
+        if (assistantEnd.shouldRecordTerminalDiagnostic) {
+          lastAssistantTerminalEvent = assistantTerminalEventDiagnostic(rawEvent, event.finalText ?? "", event.error);
+        }
+        receivedAnyText = assistantEnd.receivedAnyText;
+        currentAssistantReceivedText = assistantEnd.currentAssistantReceivedText;
+        currentAssistantFinalText = assistantEnd.currentAssistantFinalText;
+        assistantOutputChars = assistantEnd.assistantOutputChars;
+        assistantTextObservedAfterLastToolEnd = assistantEnd.assistantTextObservedAfterLastToolEnd;
+        if (assistantEnd.markFirstAssistantVisibleText) firstAssistantVisibleTextAt = firstAssistantVisibleTextAt ?? new Date().toISOString();
+        if (assistantEnd.primaryMessageOperation.kind === "replace") {
+          const updated = this.store.replaceMessage(
+            currentAssistantMessageId,
+            assistantEnd.primaryMessageOperation.content,
+            assistantEnd.primaryMessageOperation.metadata,
+          );
+          emitRunEvent({ type: "message-updated", message: updated });
+        } else {
+          finishCurrentAssistantMessage(assistantEnd.primaryMessageOperation.status);
+        }
+        if (assistantEnd.trailingMessageOperation) {
+          const messageId = ensureAssistantMessage();
+          this.store.appendToMessage(messageId, assistantEnd.trailingMessageOperation.delta);
+          emitRunEvent({ type: "message-delta", messageId, delta: assistantEnd.trailingMessageOperation.delta, threadId: input.threadId });
+        }
+        scheduleAssistantTerminalCompletion(ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS);
+      };
+      const applyRuntimeAssistantUpdateEvent = (event: RuntimeAssistantUpdateEvent, visibleDelta?: string) => {
+        const assistantUpdate = runtimeAssistantUpdateEventModel(event, {
+          cleanupAbort: shouldIgnoreAssistantTerminalCleanupError(event.error),
+          visibleDelta,
+          receivedAnyText,
+          currentAssistantReceivedText,
+          currentAssistantFinalText,
+          assistantOutputChars,
+          assistantTextObservedAfterLastToolEnd,
+          hasLastCompletedTool: Boolean(lastCompletedTool),
+        });
+        if (assistantUpdate.runtimeError.kind === "set") runtimeError = assistantUpdate.runtimeError.message;
+        receivedAnyText = assistantUpdate.receivedAnyText;
+        currentAssistantReceivedText = assistantUpdate.currentAssistantReceivedText;
+        currentAssistantFinalText = assistantUpdate.currentAssistantFinalText;
+        assistantOutputChars = assistantUpdate.assistantOutputChars;
+        assistantTextObservedAfterLastToolEnd = assistantUpdate.assistantTextObservedAfterLastToolEnd;
+        if (assistantUpdate.markFirstAssistantVisibleText) firstAssistantVisibleTextAt = firstAssistantVisibleTextAt ?? new Date().toISOString();
+        if (assistantUpdate.messageOperation?.kind === "append") {
+          const messageId = ensureAssistantMessage();
+          this.store.appendToMessage(messageId, assistantUpdate.messageOperation.delta);
+          emitRunEvent({ type: "message-delta", messageId, delta: assistantUpdate.messageOperation.delta, threadId: input.threadId });
+        }
+        if (assistantUpdate.markPiStreamActivity) markPiStreamActivity();
+        if (assistantUpdate.activeRunStatus) setActiveRunStatus(assistantUpdate.activeRunStatus);
+      };
+      const applyRuntimeThinkingEvent = (event: RuntimeThinkingEvent) => {
+        const thinkingEvent = runtimeThinkingEventModel(event, {
+          currentThinkingReceivedText,
+          currentThinkingFinalText,
+          thinkingOutputChars,
+        });
+        currentThinkingReceivedText = thinkingEvent.currentThinkingReceivedText;
+        currentThinkingFinalText = thinkingEvent.currentThinkingFinalText;
+        thinkingOutputChars = thinkingEvent.thinkingOutputChars;
+        if (thinkingEvent.messageOperation?.kind === "ensure") {
+          ensureThinkingMessage();
+        } else if (thinkingEvent.messageOperation?.kind === "append") {
+          const messageId = ensureThinkingMessage();
+          this.store.appendToMessage(messageId, thinkingEvent.messageOperation.delta);
+          emitRunEvent({ type: "message-delta", messageId, delta: thinkingEvent.messageOperation.delta, threadId: input.threadId });
+        } else if (thinkingEvent.messageOperation?.kind === "replace") {
+          const messageId = ensureThinkingMessage();
+          const updated = this.store.replaceMessage(
+            messageId,
+            thinkingEvent.messageOperation.content,
+            thinkingEvent.messageOperation.metadata,
+          );
+          emitRunEvent({ type: "message-updated", message: updated });
+        }
+        if (thinkingEvent.markPiStreamActivity) markPiStreamActivity();
+        if (thinkingEvent.activeRunStatus) setActiveRunStatus(thinkingEvent.activeRunStatus);
+        if (thinkingEvent.finish) finishCurrentThinkingMessage();
+      };
+      const applyRuntimeCompactionEvent = (event: RuntimeCompactionEvent) => {
+        const compactionEvent = runtimeCompactionEventModel(event, {
+          threadId: input.threadId,
+        });
+        if (compactionEvent.kind === "start") setActiveRunStatus(compactionEvent.activeRunStatus);
+        if (session) this.recordContextUsageSnapshot(input.threadId, session, compactionEvent.snapshotMessage);
+        emitRunEvent({
+          type: "runtime-activity",
+          activity: compactionEvent.activity,
+        });
+        if (compactionEvent.kind === "end") {
+          if (compactionEvent.runtimeError.kind === "set") runtimeError = compactionEvent.runtimeError.message;
+          if (compactionEvent.activeRunStatus) setActiveRunStatus(compactionEvent.activeRunStatus);
+        }
+      };
+      const applyRuntimeProviderRetryEvent = (event: RuntimeProviderRetryEvent) => {
+        const retryEvent = runtimeProviderRetryEventModel(event, {
+          threadId: input.threadId,
+          providerRetryAttemptCount,
+          providerRetryLastError,
+          providerRetryBeforeVisibleOutput,
+          providerRetryRecovered,
+          receivedAnyText,
+          assistantOutputChars,
+          thinkingOutputChars,
+          activeToolMessageCount: toolMessageIds.size,
+        });
+        providerRetryAttemptCount = retryEvent.providerRetryAttemptCount;
+        providerRetryLastError = retryEvent.providerRetryLastError;
+        providerRetryBeforeVisibleOutput = retryEvent.providerRetryBeforeVisibleOutput;
+        providerRetryRecovered = retryEvent.providerRetryRecovered;
+        if (retryEvent.kind === "start") {
+          if (retryEvent.runtimeError.kind === "clear") runtimeError = undefined;
+          setActiveRunStatus(retryEvent.activeRunStatus);
+        } else if (retryEvent.runtimeError.kind === "clear") {
+          runtimeError = undefined;
+        }
+        emitRunEvent({
+          type: "runtime-activity",
+          activity: retryEvent.activity,
+        });
+        if (retryEvent.kind === "end") {
+          if (retryEvent.runtimeError.kind === "set") runtimeError = retryEvent.runtimeError.message;
+          if (retryEvent.activeRunStatus) setActiveRunStatus(retryEvent.activeRunStatus);
+        }
+      };
       const shouldIgnoreAssistantTerminalCleanupError = (error: string | undefined): boolean => {
         if (!error || !assistantTerminalCleanupInProgress || !receivedAnyText) return false;
         return /\b(?:request was aborted|ambient request aborted|run aborted|aborted|abort|canceled|cancelled)\b/i.test(error);
@@ -2674,221 +2904,64 @@ export class AgentRuntime {
           return;
         }
 
-        if (normalized.kind === "compaction-start") {
+        if (normalized.kind === "compaction-start" || normalized.kind === "compaction-end") {
           clearEmptyAssistantStallWatchdog();
-          setActiveRunStatus("compacting");
-          if (session) this.recordContextUsageSnapshot(input.threadId, session, "Compaction started.");
-          emitRunEvent({
-            type: "runtime-activity",
-            activity: runtimeCompactionStartingActivity({
-              threadId: input.threadId,
-              reason: normalized.reason,
-            }),
-          });
+          applyRuntimeCompactionEvent(normalized);
           return;
         }
 
-        if (normalized.kind === "compaction-end") {
+        if (normalized.kind === "auto-retry-start" || normalized.kind === "auto-retry-end") {
           clearEmptyAssistantStallWatchdog();
-          if (session) this.recordContextUsageSnapshot(input.threadId, session, normalized.error);
-          emitRunEvent({
-            type: "runtime-activity",
-            activity: runtimeCompactionFinishedActivity({
-              threadId: input.threadId,
-              reason: normalized.reason,
-              aborted: normalized.aborted,
-              willRetry: normalized.willRetry,
-              message: normalized.error,
-            }),
-          });
-          if (normalized.error && !normalized.willRetry && !normalized.aborted) runtimeError = normalized.error;
-          if (!normalized.aborted) setActiveRunStatus("streaming");
+          applyRuntimeProviderRetryEvent(normalized);
           return;
         }
 
-        if (normalized.kind === "auto-retry-start") {
+        if (
+          normalized.kind === "thinking-start" ||
+          normalized.kind === "thinking-update" ||
+          normalized.kind === "thinking-end"
+        ) {
           clearEmptyAssistantStallWatchdog();
-          runtimeError = undefined;
-          providerRetryAttemptCount = Math.max(providerRetryAttemptCount, normalized.attempt);
-          providerRetryLastError = normalized.error;
-          if (!receivedAnyText && assistantOutputChars === 0 && thinkingOutputChars === 0 && toolMessageIds.size === 0) {
-            providerRetryBeforeVisibleOutput = true;
-          }
-          setActiveRunStatus("retrying");
-          emitRunEvent({
-            type: "runtime-activity",
-            activity: runtimeProviderRetryStartingActivity({
-              threadId: input.threadId,
-              attempt: normalized.attempt,
-              maxAttempts: normalized.maxAttempts,
-              delayMs: normalized.delayMs,
-              message: normalized.error,
-            }),
-          });
-          return;
-        }
-
-        if (normalized.kind === "auto-retry-end") {
-          clearEmptyAssistantStallWatchdog();
-          providerRetryAttemptCount = Math.max(providerRetryAttemptCount, normalized.attempt);
-          if (normalized.error) providerRetryLastError = normalized.error;
-          if (normalized.success) {
-            providerRetryRecovered = true;
-            runtimeError = undefined;
-          }
-          emitRunEvent({
-            type: "runtime-activity",
-            activity: runtimeProviderRetryFinishedActivity({
-              threadId: input.threadId,
-              success: normalized.success,
-              attempt: normalized.attempt,
-              message: normalized.error,
-            }),
-          });
-          if (!normalized.success && normalized.error) runtimeError = normalized.error;
-          if (normalized.success) setActiveRunStatus("streaming");
-          return;
-        }
-
-        if (normalized.kind === "thinking-start") {
-          clearEmptyAssistantStallWatchdog();
-          ensureThinkingMessage();
-          setActiveRunStatus("streaming");
-          return;
-        }
-
-        if (normalized.kind === "thinking-update") {
-          clearEmptyAssistantStallWatchdog();
-          if (normalized.delta) {
-            currentThinkingReceivedText = true;
-            currentThinkingFinalText += normalized.delta;
-            thinkingOutputChars += normalized.delta.length;
-            const messageId = ensureThinkingMessage();
-            this.store.appendToMessage(messageId, normalized.delta);
-            emitRunEvent({ type: "message-delta", messageId, delta: normalized.delta, threadId: input.threadId });
-            markPiStreamActivity();
-          } else if (normalized.finalText && !currentThinkingReceivedText) {
-            currentThinkingFinalText = normalized.finalText;
-            thinkingOutputChars = Math.max(thinkingOutputChars, normalized.finalText.length);
-            const messageId = ensureThinkingMessage();
-            const updated = this.store.replaceMessage(messageId, normalized.finalText, {
-              status: "thinking",
-              runtime: "pi",
-              provider: "ambient",
-              kind: "thinking",
-            });
-            emitRunEvent({ type: "message-updated", message: updated });
-          }
-          setActiveRunStatus("streaming");
-          return;
-        }
-
-        if (normalized.kind === "thinking-end") {
-          clearEmptyAssistantStallWatchdog();
-          if (normalized.finalText && !currentThinkingReceivedText) {
-            currentThinkingFinalText = normalized.finalText;
-            thinkingOutputChars = Math.max(thinkingOutputChars, normalized.finalText.length);
-            const messageId = ensureThinkingMessage();
-            const updated = this.store.replaceMessage(messageId, normalized.finalText, {
-              status: "thinking",
-              runtime: "pi",
-              provider: "ambient",
-              kind: "thinking",
-            });
-            emitRunEvent({ type: "message-updated", message: updated });
-          }
-          finishCurrentThinkingMessage();
+          applyRuntimeThinkingEvent(normalized);
           return;
         }
 
         if (normalized.kind === "assistant-update") {
           if (normalized.error) clearEmptyAssistantStallWatchdog();
-          if (normalized.error && !shouldIgnoreAssistantTerminalCleanupError(normalized.error)) runtimeError = normalized.error;
+          let visibleDelta: string | undefined;
           if (normalized.delta) {
             clearEmptyAssistantStallWatchdog();
-            const visibleDelta = assistantVisibleTextFilter.push(normalized.delta);
-            if (!visibleDelta) {
-              markPiStreamActivity();
-              setActiveRunStatus("streaming");
-              return;
-            }
-            const messageId = ensureAssistantMessage();
-            receivedAnyText = true;
-            currentAssistantReceivedText = true;
-            if (lastCompletedTool) assistantTextObservedAfterLastToolEnd = true;
-            firstAssistantVisibleTextAt = firstAssistantVisibleTextAt ?? new Date().toISOString();
-            currentAssistantFinalText += visibleDelta;
-            assistantOutputChars += visibleDelta.length;
-            this.store.appendToMessage(messageId, visibleDelta);
-            emitRunEvent({ type: "message-delta", messageId, delta: visibleDelta, threadId: input.threadId });
-            markPiStreamActivity();
-            setActiveRunStatus("streaming");
-            return;
+            visibleDelta = assistantVisibleTextFilter.push(normalized.delta);
           }
-
           if (normalized.finalText && !currentAssistantReceivedText) {
             clearEmptyAssistantStallWatchdog();
-            currentAssistantFinalText = stripAssistantReasoningTags(normalized.finalText);
-            if (currentAssistantFinalText.trim() && lastCompletedTool) assistantTextObservedAfterLastToolEnd = true;
-            assistantOutputChars = Math.max(assistantOutputChars, currentAssistantFinalText.length);
           }
+          applyRuntimeAssistantUpdateEvent(normalized, visibleDelta);
           return;
         }
 
         if (normalized.kind === "assistant-end") {
           clearEmptyAssistantStallWatchdog();
-          const cleanupAbort = shouldIgnoreAssistantTerminalCleanupError(normalized.error);
-          if (normalized.error && !cleanupAbort) runtimeError = normalized.error;
-          if (!cleanupAbort || !lastAssistantTerminalEvent) {
-            lastAssistantTerminalEvent = assistantTerminalEventDiagnostic(event, normalized.finalText ?? "", normalized.error);
-          }
-          if (normalized.finalText && !currentAssistantReceivedText) {
-            currentAssistantFinalText = stripAssistantReasoningTags(normalized.finalText);
-            receivedAnyText = Boolean(currentAssistantFinalText.trim());
-            currentAssistantReceivedText = Boolean(currentAssistantFinalText.trim());
-            if (currentAssistantReceivedText && lastCompletedTool) assistantTextObservedAfterLastToolEnd = true;
-            if (currentAssistantReceivedText) firstAssistantVisibleTextAt = firstAssistantVisibleTextAt ?? new Date().toISOString();
-            assistantOutputChars = Math.max(assistantOutputChars, currentAssistantFinalText.length);
-            const updated = this.store.replaceMessage(currentAssistantMessageId, currentAssistantFinalText, {
-              status: normalized.error && !cleanupAbort ? "error" : "done",
-              runtime: "pi",
-              provider: "ambient",
-            });
-            emitRunEvent({ type: "message-updated", message: updated });
-          } else {
-            finishCurrentAssistantMessage(normalized.error && !cleanupAbort ? "error" : "done");
-          }
           const trailingVisibleText = assistantVisibleTextFilter.flush();
-          if (trailingVisibleText) {
-            const messageId = ensureAssistantMessage();
-            receivedAnyText = true;
-            currentAssistantReceivedText = true;
-            if (lastCompletedTool) assistantTextObservedAfterLastToolEnd = true;
-            currentAssistantFinalText += trailingVisibleText;
-            assistantOutputChars += trailingVisibleText.length;
-            this.store.appendToMessage(messageId, trailingVisibleText);
-            emitRunEvent({ type: "message-delta", messageId, delta: trailingVisibleText, threadId: input.threadId });
-          }
-          scheduleAssistantTerminalCompletion(ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS);
+          applyRuntimeAssistantEndEvent(normalized, event, trailingVisibleText);
           return;
         }
 
         if (normalized.kind === "agent-end") {
           clearEmptyAssistantStallWatchdog();
           postToolFinalization.markAgentEnd();
-          lastAssistantTerminalEvent = {
-            eventType: String(event?.type ?? "agent_end"),
-            ...(Array.isArray(event?.messages) ? { contentBlockCount: event.messages.length } : {}),
-            finalTextChars: normalized.finalTexts.join("").length,
-            ...(normalized.errors.length ? { error: normalized.errors.join("; ").slice(0, 240) } : {}),
-          };
-          for (const error of normalized.errors) {
-            if (!shouldIgnoreAssistantTerminalCleanupError(error)) runtimeError = error;
-          }
-          for (const text of normalized.finalTexts) {
-            if (text && !receivedAnyText) currentAssistantFinalText = stripAssistantReasoningTags(text);
-            if (text.trim() && lastCompletedTool) assistantTextObservedAfterLastToolEnd = true;
-          }
+          const agentEnd = runtimeAgentEndEventModel(normalized, {
+            rawEvent: event,
+            shouldIgnoreError: shouldIgnoreAssistantTerminalCleanupError,
+            receivedAnyText,
+            currentAssistantFinalText,
+            assistantTextObservedAfterLastToolEnd,
+            hasLastCompletedTool: Boolean(lastCompletedTool),
+          });
+          lastAssistantTerminalEvent = agentEnd.terminalDiagnostic;
+          if (agentEnd.runtimeError.kind === "set") runtimeError = agentEnd.runtimeError.message;
+          currentAssistantFinalText = agentEnd.currentAssistantFinalText;
+          assistantTextObservedAfterLastToolEnd = agentEnd.assistantTextObservedAfterLastToolEnd;
           scheduleAssistantTerminalCompletion(ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS);
           return;
         }
@@ -2961,35 +3034,32 @@ export class AgentRuntime {
           postToolFinalization.markToolStart(normalized.toolCallId);
           startedToolCallIds.add(normalized.toolCallId);
           firstToolExecutionStartedAt = firstToolExecutionStartedAt ?? new Date().toISOString();
-          const longformInputPreview = normalized.longformInputPreview ?? toolMessageLongformInputPreviews.get(normalized.toolCallId);
-          const editInputPreview = normalized.editInputPreview ?? toolMessageEditInputPreviews.get(normalized.toolCallId);
-          rememberToolIntent(normalized.toolCallId, normalized.label, undefined, normalized.content);
-          let argumentProgress = toolArgumentProgress.markExecutionStart({
-            toolCallId: normalized.toolCallId,
-            toolName: normalized.label,
-            inputContent: normalized.content,
-            ...(longformInputPreview ? { longformInputPreview } : {}),
+          const startEvent = runtimeToolStartEventModel(normalized, {
+            previousLongformInputPreview: toolMessageLongformInputPreviews.get(normalized.toolCallId),
+            previousEditInputPreview: toolMessageEditInputPreviews.get(normalized.toolCallId),
           });
+          rememberToolIntent(startEvent.toolCallId, startEvent.label, undefined, startEvent.inputContent);
+          let argumentProgress = toolArgumentProgress.markExecutionStart(startEvent.argumentProgressInput);
           argumentProgress = markInterruptedToolCallNoLongerRecoverable(normalized.toolCallId, argumentProgress);
           persistToolArgumentDiagnostics(true);
           scheduleToolArgumentWatchdog();
           const toolMessage = upsertToolInputMessage(
-            normalized.toolCallId,
-            normalized.label,
-            "running",
-            normalized.content,
-            longformInputPreview,
-            editInputPreview,
+            startEvent.toolCallId,
+            startEvent.label,
+            startEvent.statusLabel,
+            startEvent.inputContent,
+            startEvent.longformInputPreview,
+            startEvent.editInputPreview,
             argumentProgress,
           );
           setActiveRunStatus("tool");
-          const details = chatToolEventDetails(normalized.details, thread.permissionMode, "running", normalized.label, argumentProgress);
+          const details = chatToolEventDetails(normalized.details, thread.permissionMode, startEvent.toolEventStatus, startEvent.label, argumentProgress);
           const artifactPath = stringMetadata(toolMessage.metadata?.artifactPath);
           emitRunEvent({
             type: "tool-event",
             threadId: input.threadId,
-            label: toolEventLabel(normalized.label, details),
-            status: "running",
+            label: toolEventLabel(startEvent.label, details),
+            status: startEvent.toolEventStatus,
             ...(artifactPath ? { artifactPath } : {}),
             details,
           });
@@ -3002,32 +3072,19 @@ export class AgentRuntime {
           markToolExecutionWatchdogActivity(normalized.toolCallId, normalized.label);
           if (normalized.longformInputPreview) toolMessageLongformInputPreviews.set(normalized.toolCallId, normalized.longformInputPreview);
           if (normalized.editInputPreview) toolMessageEditInputPreviews.set(normalized.toolCallId, normalized.editInputPreview);
-          const messageId = toolMessageIds.get(normalized.toolCallId);
-          if (!messageId) return;
-          if (!normalized.content) return;
-          const inputContent = toolMessageInputs.get(normalized.toolCallId) ?? "";
-          const longformInputPreview = normalized.longformInputPreview ?? toolMessageLongformInputPreviews.get(normalized.toolCallId);
-          const editInputPreview = normalized.editInputPreview ?? toolMessageEditInputPreviews.get(normalized.toolCallId);
-          const argumentProgress = toolArgumentProgress.current(normalized.toolCallId);
-          const resultUpdate = runtimeToolResultMessageUpdate({
-            toolCallId: normalized.toolCallId,
-            label: normalized.label,
-            inputContent,
-            resultContent: normalized.content,
+          const updateEvent = runtimeToolUpdateEventModel(normalized, {
             workspacePath: thread.workspacePath,
             permissionMode: thread.permissionMode,
-            messageStatus: "running",
-            statusLabel: "running",
-            eventStatus: "running",
-            existingMessageId: messageId,
-            details: normalized.details,
-            resultDetails: normalized.resultDetails,
-            longformInputPreview,
-            editInputPreview,
-            argumentProgress,
+            messageId: toolMessageIds.get(normalized.toolCallId),
+            previousInputContent: toolMessageInputs.get(normalized.toolCallId),
+            previousLongformInputPreview: toolMessageLongformInputPreviews.get(normalized.toolCallId),
+            previousEditInputPreview: toolMessageEditInputPreviews.get(normalized.toolCallId),
+            argumentProgress: toolArgumentProgress.current(normalized.toolCallId),
           });
+          if (!updateEvent.shouldUpdateMessage) return;
+          const resultUpdate = runtimeToolResultMessageUpdate(updateEvent.resultUpdateInput);
           const updated = this.store.replaceMessage(
-            messageId,
+            updateEvent.messageId,
             resultUpdate.content,
             resultUpdate.metadata,
           );
@@ -3036,7 +3093,7 @@ export class AgentRuntime {
             type: "tool-event",
             threadId: input.threadId,
             label: resultUpdate.toolEventLabel,
-            status: "running",
+            status: updateEvent.toolEventStatus,
             artifactPath: resultUpdate.artifactPath,
             details: resultUpdate.toolEventDetails,
           });
@@ -3048,17 +3105,7 @@ export class AgentRuntime {
           clearAssistantTerminalCompletion();
           finishToolExecutionWatchdog(normalized.toolCallId);
           postToolFinalization.markToolEnd(normalized.toolCallId);
-          const terminalStatus = normalized.status === "error" ? "error" : "done";
           const eventSeqAtEnd = runEventSeq;
-          lastCompletedTool = {
-            label: normalized.label,
-            status: terminalStatus,
-            runId: run.id,
-            toolCallId: normalized.toolCallId,
-            eventSeqAtEnd,
-            continuationLines: toolContinuationLinesFromToolContent(normalized.content),
-          };
-          assistantTextObservedAfterLastToolEnd = false;
           const messageId = toolMessageIds.get(normalized.toolCallId);
           const inputContent = toolMessageInputs.get(normalized.toolCallId) ?? "";
           if (normalized.longformInputPreview) toolMessageLongformInputPreviews.set(normalized.toolCallId, normalized.longformInputPreview);
@@ -3072,31 +3119,33 @@ export class AgentRuntime {
           argumentProgress = markInterruptedToolCallNoLongerRecoverable(normalized.toolCallId, argumentProgress);
           persistToolArgumentDiagnostics(true);
           scheduleToolArgumentWatchdog();
-          const statusLabel = terminalStatus === "error" ? "failed" : "completed";
-          const resultUpdate = runtimeToolResultMessageUpdate({
-            toolCallId: normalized.toolCallId,
-            label: normalized.label,
-            inputContent,
-            resultContent: normalized.content,
+          const endEvent = runtimeToolEndEventModel(normalized, {
             workspacePath: thread.workspacePath,
             permissionMode: thread.permissionMode,
-            messageStatus: terminalStatus,
-            statusLabel,
-            eventStatus: terminalStatus === "done" ? "completed" : "error",
-            ...(messageId ? { existingMessageId: messageId } : {}),
-            details: normalized.details,
-            resultDetails: normalized.resultDetails,
-            longformInputPreview,
-            editInputPreview,
+            messageId,
+            previousInputContent: inputContent,
+            previousLongformInputPreview: longformInputPreview,
+            previousEditInputPreview: editInputPreview,
             argumentProgress,
           });
+          const completedTool: CompletedToolSnapshot = {
+            label: endEvent.label,
+            status: endEvent.terminalStatus,
+            runId: run.id,
+            toolCallId: endEvent.toolCallId,
+            eventSeqAtEnd,
+            continuationLines: toolContinuationLinesFromToolContent(endEvent.resultContent),
+          };
+          lastCompletedTool = completedTool;
+          assistantTextObservedAfterLastToolEnd = false;
+          const resultUpdate = runtimeToolResultMessageUpdate(endEvent.resultUpdateInput);
           if (resultUpdate.existingMessageId) {
             const updated = this.store.replaceMessage(
               resultUpdate.existingMessageId,
               resultUpdate.content,
               resultUpdate.metadata,
             );
-            lastCompletedTool.messageId = updated.id;
+            completedTool.messageId = updated.id;
             emitRunEvent({ type: "message-updated", message: updated });
           } else {
             const toolMessage = this.store.addMessage({
@@ -3105,7 +3154,7 @@ export class AgentRuntime {
               content: resultUpdate.content,
               metadata: resultUpdate.metadata,
             });
-            lastCompletedTool.messageId = toolMessage.id;
+            completedTool.messageId = toolMessage.id;
             emitRunEvent({ type: "message-created", message: toolMessage });
           }
           toolMessageInputs.delete(normalized.toolCallId);
@@ -3118,18 +3167,18 @@ export class AgentRuntime {
             type: "tool-event",
             threadId: input.threadId,
             label: resultUpdate.toolEventLabel,
-            status: terminalStatus,
+            status: endEvent.terminalStatus,
             artifactPath: resultUpdate.artifactPath,
             details: resultUpdate.toolEventDetails,
           });
-          if (terminalStatus === "done") {
+          if (endEvent.terminalStatus === "done") {
             const controlIntent = subagentParentControlAbortIntentFromToolEnd(normalized, event);
             if (controlIntent) {
               requestSubagentParentControlAbort(controlIntent);
               return;
             }
           }
-          if (terminalStatus === "done" && resultUpdate.artifactPath) {
+          if (endEvent.terminalStatus === "done" && resultUpdate.artifactPath) {
             void this.refreshBrowsersForArtifactChange(input.threadId, thread.workspacePath, resultUpdate.artifactPath);
           }
         }
@@ -3151,19 +3200,18 @@ export class AgentRuntime {
           throw error;
         });
       const finalizeAssistantTerminalRun = async (pendingCompletion?: Promise<unknown>) => {
-        assistantTerminalCleanupDiagnostic = {
-          reason: "assistant-terminal-before-prompt-resolved",
-          cleanupAction: "abort-and-dispose-session",
-          promptPendingMs: Math.max(0, Date.now() - promptStartedAt),
+        assistantTerminalCleanupDiagnostic = buildAssistantTerminalCleanupDiagnostic({
+          nowMs: Date.now(),
+          promptStartedAtMs: promptStartedAt,
           assistantTerminalGraceMs,
           outputChars: assistantOutputChars,
           thinkingChars: thinkingOutputChars,
           receivedAnyText,
           currentAssistantReceivedText,
           currentAssistantFinalTextChars: currentAssistantFinalText.length,
-          ...(session?.sessionFile ? { sessionFile: session.sessionFile } : {}),
-          ...(lastAssistantTerminalEvent ? { lastAssistantTerminalEvent } : {}),
-        };
+          sessionFile: session?.sessionFile,
+          lastAssistantTerminalEvent,
+        });
         emitRunEvent({
           type: "runtime-activity",
           activity: assistantTerminalCleanupActivity({
@@ -3212,24 +3260,16 @@ export class AgentRuntime {
           postToolIdleContinuationAttempts < postToolIdleContinuationAttemptLimit
             ? POST_TOOL_CONTINUATION_IDLE_MS
             : POST_TOOL_FINALIZATION_IDLE_MS;
-        const latestTranscriptTool = latestCompletedToolSnapshotFromMessages(this.store.listMessages(input.threadId));
-        const continuationSnapshot =
-          latestTranscriptTool?.toolCallId && latestTranscriptTool.toolCallId === lastCompletedTool?.toolCallId
-            ? { ...lastCompletedTool, ...latestTranscriptTool }
-            : lastCompletedTool;
-        pendingPostToolContinuation = createPostToolContinuationRequest({
+        const continuationPlan = planPostToolContinuation({
+          messages: this.store.listMessages(input.threadId),
+          lastCompletedTool,
           runId: run.id,
           attempt: postToolIdleContinuationAttempts,
           idleMs: postToolFinalizationIdleMs,
-          eventSeqAtSchedule: runEventSeq,
-          snapshot: continuationSnapshot,
-        });
-        const continuationValidation = validatePostToolContinuationRequest({
-          request: pendingPostToolContinuation,
-          latestTranscriptTool,
-          currentRunId: run.id,
           currentEventSeq: runEventSeq,
         });
+        pendingPostToolContinuation = continuationPlan.request;
+        const continuationValidation = continuationPlan.validation;
         if (!continuationValidation.deliver) {
           emitRunEvent({
             type: "runtime-activity",
@@ -3369,8 +3409,6 @@ export class AgentRuntime {
       this.recordContextUsageSnapshot(input.threadId, session);
 
       const currentAssistantVisibleContent = currentRuntimeMessageContent(currentAssistantMessageId, currentAssistantFinalText);
-      const currentAssistantHasVisibleText = Boolean(currentAssistantVisibleContent.trim());
-      const awaitingInputAfterTools = finalizedAfterToolIdle && !currentAssistantHasVisibleText;
       const assistantTerminalCleanupInterrupted = Boolean(
         assistantTerminalCleanupDiagnostic &&
         (
@@ -3379,235 +3417,115 @@ export class AgentRuntime {
           lastAssistantTerminalEvent?.error
         ),
       );
-      const emptyAssistantResponse =
-        !abortRequested &&
-        !awaitingInputAfterTools &&
-        !currentAssistantHasVisibleText;
       const emptyAssistantRetryReason: AssistantFinalizationRetryReason = "empty_assistant_response";
-      const emptyAssistantRetryAttemptsUsed = assistantFinalizationRetryAttemptsUsedFor(emptyAssistantRetryReason);
-      const emptyAssistantRetryNextAttempt = assistantFinalizationRetryNextAttemptFor(emptyAssistantRetryReason);
-      const retryEmptyAssistantResponse = emptyAssistantResponse && canScheduleAssistantFinalizationRetryFor(emptyAssistantRetryReason);
-      if (retryEmptyAssistantResponse && retrySourceUserMessageId) {
-        emptyResponseRetryUsesFreshSession = !receivedAnyText && toolMessageIds.size === 0 && !currentAssistantFinalText.trim();
-        if (emptyResponseRetryUsesFreshSession) discardSessionFileAfterRun = session.sessionFile;
+      const current = this.store.getThread(input.threadId);
+      const sessionDisposition = finalizeRuntimeSessionDispositionAfterRun({
+        abortRequested,
+        finalizedAfterToolIdle,
+        currentAssistantVisibleContent,
+        receivedAnyText,
+        currentAssistantFinalTextChars: currentAssistantFinalText.length,
+        activeToolMessageCount: toolMessageIds.size,
+        canScheduleEmptyAssistantRetry: canScheduleAssistantFinalizationRetryFor(emptyAssistantRetryReason),
+        emptyAssistantRetryAttemptsUsed: assistantFinalizationRetryAttemptsUsedFor(emptyAssistantRetryReason),
+        emptyAssistantRetryNextAttempt: assistantFinalizationRetryNextAttemptFor(emptyAssistantRetryReason),
+        maxRetries: assistantFinalizationRetryMaxRetries,
+        retryDelayMs: pendingEmptyResponseRetryDelayMs,
+        activeRetryReason: activeAssistantFinalizationRetry?.reason,
+        retrySourceUserMessageId,
+        sessionFile: session.sessionFile,
+        lastAssistantTerminalEvent,
+        providerRetryBeforeVisibleOutput,
+        providerRetryRecovered,
+        usesDedicatedReviewSession,
+        currentThreadPiSessionFile: current.piSessionFile,
+      });
+      const {
+        emptyAssistantFinalization,
+        awaitingInputAfterTools,
+        emptyAssistantResponse,
+        retryEmptyAssistantResponse,
+        emptyResponseText,
+        discardProviderRetrySession,
+      } = sessionDisposition;
+      if (sessionDisposition.shouldDisposeSessionForEmptyResponseRetry || sessionDisposition.shouldDisposeSessionForProviderRetry) {
         if (activeSessions.get(input.threadId) === session) activeSessions.delete(input.threadId);
         try {
           session.dispose();
         } catch {
-          // Best-effort cleanup before retrying with a fresh Pi session.
+          // Best-effort cleanup before retrying or rebuilding from the visible transcript.
         }
+      }
+      if (sessionDisposition.shouldCreateEmptyResponseRetry) {
         pendingEmptyResponseRetry = createAssistantFinalizationRetryInput("empty_assistant_response");
       }
-      const discardProviderRetrySession =
-        providerRetryBeforeVisibleOutput &&
-        providerRetryRecovered &&
-        !abortRequested &&
-        !emptyAssistantResponse &&
-        Boolean(session.sessionFile);
-      if (discardProviderRetrySession) {
-        discardSessionFileAfterRun = session.sessionFile;
-        if (activeSessions.get(input.threadId) === session) activeSessions.delete(input.threadId);
-        try {
-          session.dispose();
-        } catch {
-          // Best-effort cleanup; the next turn can rebuild from visible transcript
-          // instead of reusing a Pi session polluted by hidden retry attempts.
-        }
-      }
-      const current = this.store.getThread(input.threadId);
-      if (!usesDedicatedReviewSession && discardSessionFileAfterRun && current.piSessionFile === discardSessionFileAfterRun) {
+      if (sessionDisposition.sessionFileDisposition?.kind === "clear") {
         emitRunEvent({
           type: "thread-updated",
           thread: this.store.updateThreadSettings(input.threadId, { piSessionFile: null }),
         });
-      } else if (!usesDedicatedReviewSession && !discardSessionFileAfterRun && session.sessionFile && session.sessionFile !== current.piSessionFile) {
+      } else if (sessionDisposition.sessionFileDisposition?.kind === "commit") {
         await this.commitThreadPiSessionFile({
           threadId: input.threadId,
-          sessionFile: session.sessionFile,
-          currentPiSessionFile: current.piSessionFile,
-          reason: "run-finished",
+          sessionFile: sessionDisposition.sessionFileDisposition.sessionFile,
+          currentPiSessionFile: sessionDisposition.sessionFileDisposition.currentPiSessionFile,
+          reason: sessionDisposition.sessionFileDisposition.reason,
           emit: emitRunEvent,
         });
       }
-      const emptyResponseText = retryEmptyAssistantResponse
-        ? emptyResponseRetryUsesFreshSession
-          ? `Ambient/Pi returned no assistant text. Retrying assistant finalization attempt ${emptyAssistantRetryNextAttempt}/${assistantFinalizationRetryMaxRetries} with a fresh session.`
-          : `Ambient/Pi returned no assistant text. Retrying assistant finalization attempt ${emptyAssistantRetryNextAttempt}/${assistantFinalizationRetryMaxRetries} after resetting the live session.`
-        : `Ambient/Pi returned no assistant text after ${emptyAssistantRetryAttemptsUsed}/${assistantFinalizationRetryMaxRetries} assistant finalization retries.`;
       const abortMessage = subagentParentControlAbortIntent?.message ?? "Run stopped.";
-      const subagentFinalizationBlock =
-        !abortRequested && !assistantTerminalCleanupInterrupted && !emptyAssistantResponse
-          ? this.subagentFinalizationBarrierBlock(input.threadId, run.id)
-          : undefined;
-      const callableWorkflowFinalizationBlock =
-        !abortRequested && !assistantTerminalCleanupInterrupted && !emptyAssistantResponse
-          ? this.callableWorkflowFinalizationBlock(input.threadId, run.id)
-          : undefined;
-      const parentFinalizationBlocked = Boolean(subagentFinalizationBlock || callableWorkflowFinalizationBlock);
-      const subagentFinalizationParentMailboxEvents = subagentFinalizationBlock
-        ? this.recordSubagentFinalizationBlockedParentMailbox(input.threadId, run.id, subagentFinalizationBlock)
-        : [];
-      const callableWorkflowFinalizationParentMailboxEvent = callableWorkflowFinalizationBlock
-        ? this.recordCallableWorkflowFinalizationBlockedParentMailbox(input.threadId, run.id, callableWorkflowFinalizationBlock)
-        : undefined;
-      const parentFinalizationBlockMessage = [
-        subagentFinalizationBlock?.message,
-        callableWorkflowFinalizationBlock?.message,
-      ].filter((message): message is string => Boolean(message)).join("\n\n");
-      const finalStatus =
-        abortRequested
-          ? "aborted"
-          : assistantTerminalCleanupInterrupted
-            ? "aborted"
-            : (emptyAssistantResponse && !retryEmptyAssistantResponse) || parentFinalizationBlocked
-            ? "error"
-            : awaitingInputAfterTools
-              ? "awaiting-input"
-              : "done";
-      const finalizationErrorText = parentFinalizationBlockMessage || emptyResponseText;
-      const finalMessage = this.store.replaceMessage(
+      const successfulFinalization = await finalizeSuccessfulRuntimeRun({
+        threadId: input.threadId,
+        runId: run.id,
+        workspacePath: runWorkspacePath,
         currentAssistantMessageId,
-        parentFinalizationBlockMessage ||
-          currentAssistantVisibleContent ||
-          (abortRequested
-            ? abortMessage
-            : emptyAssistantResponse
-              ? emptyResponseText
-              : awaitingInputAfterTools
-                ? "Tool calls completed. Ambient is awaiting your next instruction."
-                : receivedAnyText
-                  ? ""
-                  : "Ambient finished without assistant text."),
-        {
-          status: finalStatus,
-          runtime: "pi",
-          provider: "ambient",
-          finalizedAfterToolIdle,
-          awaitingInputAfterTools,
-          ...(subagentParentControlAbortIntent ? { subagentParentControlAbort: subagentParentControlAbortIntent } : {}),
-          ...(assistantTerminalCleanupInterrupted ? { terminalCleanupInterrupted: true } : {}),
-          ...(assistantTerminalCleanupDiagnostic ? { piTerminalCleanup: assistantTerminalCleanupDiagnostic } : {}),
-          ...(emptyAssistantResponse
-            ? {
-                piEmptyAssistantResponse: {
-                  retryScheduled: retryEmptyAssistantResponse,
-                  retryUsesFreshSession: retryEmptyAssistantResponse ? emptyResponseRetryUsesFreshSession : false,
-                  retryAttempt: retryEmptyAssistantResponse ? emptyAssistantRetryNextAttempt : emptyAssistantRetryAttemptsUsed,
-                  maxRetries: assistantFinalizationRetryMaxRetries,
-                  retryReason: activeAssistantFinalizationRetry?.reason ?? "empty_assistant_response",
-                  retryDelayMs: retryEmptyAssistantResponse ? pendingEmptyResponseRetryDelayMs : 0,
-                  receivedAnyText,
-                  currentAssistantFinalTextChars: currentAssistantFinalText.length,
-                  ...(session.sessionFile ? { sessionFile: session.sessionFile } : {}),
-                  ...(lastAssistantTerminalEvent ? { lastAssistantTerminalEvent } : {}),
-                },
-              }
-            : {}),
-          ...(retryEmptyAssistantResponse ? { retryingEmptyAssistantResponse: true } : {}),
-          ...(subagentFinalizationBlock
-            ? {
-                subagentFinalizationBlocked: {
-                  reason: "required_wait_barrier_not_satisfied",
-                  barrierIds: subagentFinalizationBlock.barrierIds,
-                  childRunIds: subagentFinalizationBlock.childRunIds,
-                  barriers: subagentFinalizationBlock.barriers,
-                  parentMailboxEventIds: subagentFinalizationParentMailboxEvents.map((event) => event.id),
-                },
-              }
-            : {}),
-          ...(callableWorkflowFinalizationBlock
-            ? {
-                callableWorkflowFinalizationBlocked: {
-                  reason: callableWorkflowFinalizationBlock.reason,
-                  taskIds: callableWorkflowFinalizationBlock.taskIds,
-                  launchIds: callableWorkflowFinalizationBlock.launchIds,
-                  workflowArtifactIds: callableWorkflowFinalizationBlock.workflowArtifactIds,
-                  workflowRunIds: callableWorkflowFinalizationBlock.workflowRunIds,
-                  waitingTaskIds: callableWorkflowFinalizationBlock.waitingTaskIds,
-                  attentionTaskIds: callableWorkflowFinalizationBlock.attentionTaskIds,
-                  tasks: callableWorkflowFinalizationBlock.tasks,
-                  parentMailboxEventId: callableWorkflowFinalizationParentMailboxEvent?.id,
-                },
-              }
-            : {}),
-          ...(providerRetryBeforeVisibleOutput
-            ? {
-                piProviderRetry: {
-                  beforeVisibleOutput: true,
-                  recovered: providerRetryRecovered,
-                  attemptCount: providerRetryAttemptCount,
-                  sessionDiscarded: discardProviderRetrySession,
-                  ...(session.sessionFile ? { sessionFile: session.sessionFile } : {}),
-                  ...(providerRetryLastError ? { lastError: providerRetryLastError.slice(0, 240) } : {}),
-                },
-              }
-            : {}),
-        },
-      );
-      const plannerArtifactResult =
-        !abortRequested && !awaitingInputAfterTools && !emptyAssistantResponse && !parentFinalizationBlocked
-          ? await this.createPlannerPlanArtifactFromMessage(finalMessage)
-          : undefined;
-      if (finalStatus === "error") {
-        finishPlannerFinalizationSources("failed", { error: finalizationErrorText, workflowState: "failed" });
-      } else if (!plannerArtifactResult && plannerFinalizationSources.length > 0) {
-        finishPlannerFinalizationSources("failed", {
-          error: "Planner finalization response did not produce a durable plan artifact.",
-          workflowState: "failed",
-        });
+        currentAssistantVisibleContent,
+        abortRequested,
+        abortMessage,
+        receivedAnyText,
+        finalizedAfterToolIdle,
+        awaitingInputAfterTools,
+        emptyAssistantResponse,
+        retryEmptyAssistantResponse,
+        emptyResponseText,
+        emptyAssistantResponseMetadata: emptyAssistantFinalization.metadata,
+        assistantTerminalCleanupInterrupted,
+        assistantTerminalCleanupDiagnostic,
+        subagentParentControlAbortIntent,
+        providerRetryBeforeVisibleOutput,
+        providerRetryRecovered,
+        providerRetryAttemptCount,
+        discardProviderRetrySession,
+        providerRetrySessionFile: session.sessionFile,
+        providerRetryLastError,
+        hasPlannerFinalizationSources: plannerFinalizationSources.length > 0,
+        resolveSubagentFinalizationBlock: () => this.subagentFinalizationBarrierBlock(input.threadId, run.id),
+        resolveCallableWorkflowFinalizationBlock: () => this.callableWorkflowFinalizationBlock(input.threadId, run.id),
+        recordSubagentFinalizationBlockedParentMailbox: (block) =>
+          this.recordSubagentFinalizationBlockedParentMailbox(input.threadId, run.id, block),
+        recordCallableWorkflowFinalizationBlockedParentMailbox: (block) =>
+          this.recordCallableWorkflowFinalizationBlockedParentMailbox(input.threadId, run.id, block),
+        replaceAssistantMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
+        createPlannerPlanArtifactFromMessage: (message) => this.createPlannerPlanArtifactFromMessage(message),
+        finishPlannerFinalizationSources,
+        finishParentRun,
+        recordVoiceDispatch: (message) => this.recordVoiceDispatch(message),
+        getThread: () => this.store.getThread(input.threadId),
+        emitRunEvent,
+      });
+      if (successfulFinalization.plannerRepairPrompt) {
+        const repairThread = this.store.getThread(input.threadId);
+        pendingPlannerRepairFollowUp = {
+          threadId: input.threadId,
+          content: successfulFinalization.plannerRepairPrompt,
+          permissionMode: repairThread.permissionMode,
+          collaborationMode: "planner",
+          model: repairThread.model,
+          thinkingLevel: repairThread.thinkingLevel,
+          delivery: "follow-up",
+          preserveActiveThread: true,
+        };
       }
-      finishParentRun(
-        finalStatus === "aborted" ? "aborted" : finalStatus === "error" ? "error" : "done",
-        finalStatus === "error" ? finalizationErrorText : undefined,
-      );
-      if (plannerArtifactResult) {
-        for (const relatedArtifact of plannerArtifactResult.relatedArtifacts ?? []) {
-          emitRunEvent({ type: "planner-plan-artifact-updated", artifact: relatedArtifact });
-        }
-        emitRunEvent({
-          type: plannerArtifactResult.eventType === "updated" ? "planner-plan-artifact-updated" : "planner-plan-artifact-created",
-          artifact: plannerArtifactResult.artifact,
-        });
-        if (plannerArtifactResult.repairPrompt) {
-          const repairThread = this.store.getThread(input.threadId);
-          pendingPlannerRepairFollowUp = {
-            threadId: input.threadId,
-            content: plannerArtifactResult.repairPrompt,
-            permissionMode: repairThread.permissionMode,
-            collaborationMode: "planner",
-            model: repairThread.model,
-            thinkingLevel: repairThread.thinkingLevel,
-            delivery: "follow-up",
-            preserveActiveThread: true,
-          };
-        }
-      }
-      const visibleFinalMessage = plannerArtifactResult?.message ?? finalMessage;
-      if (!abortRequested && !awaitingInputAfterTools && !emptyAssistantResponse && !parentFinalizationBlocked) this.recordVoiceDispatch(visibleFinalMessage);
-      emitRunEvent({ type: "message-updated", message: visibleFinalMessage });
-      emitRunEvent({ type: "thread-updated", thread: this.store.getThread(input.threadId) });
-      emitRunEvent({ type: "run-status", threadId: input.threadId, status: finalStatus === "error" ? "error" : "idle" });
-      if (subagentFinalizationBlock) {
-        emitRunEvent({
-          type: "runtime-activity",
-          activity: subagentFinalizationBlockedActivity({
-            threadId: input.threadId,
-            outputChars: currentAssistantVisibleContent.length,
-            block: subagentFinalizationBlock,
-          }),
-        });
-      }
-      if (callableWorkflowFinalizationBlock) {
-        emitRunEvent({
-          type: "runtime-activity",
-          activity: callableWorkflowFinalizationBlockedActivity({
-            threadId: input.threadId,
-            outputChars: currentAssistantVisibleContent.length,
-            block: callableWorkflowFinalizationBlock,
-          }),
-        });
-      }
-      if (finalStatus === "error") emitRunEvent({ type: "error", message: finalizationErrorText, threadId: input.threadId, workspacePath: runWorkspacePath });
     } catch (error) {
       if (!isRunStoreActive()) return;
       await consumeSubagentParentControlAbort();
@@ -3651,26 +3569,18 @@ export class AgentRuntime {
           ),
         );
         finishCurrentThinkingMessage("done");
-        const fallback = this.store.replaceMessage(
-          currentAssistantMessageId,
-          `Ambient/Pi stream stalled before assistant output. Retrying assistant finalization attempt ${preOutputStreamStallRetryNextAttempt}/${assistantFinalizationRetryMaxRetries} with a fresh session.`,
-          {
-            status: "done",
-            runtime: "pi",
-            provider: "ambient",
-            retryingStreamStall: true,
-            piStreamTimeout: {
-              ...chatStreamInterruptionDiagnostic(message, { retryScheduled: true, replaySafe: true, providerErrorDiagnostic }),
-              retryScheduled: true,
-              retryUsesFreshSession: true,
-              retryAttempt: preOutputStreamStallRetryNextAttempt,
-              maxRetries: assistantFinalizationRetryMaxRetries,
-              retryReason: "pre_output_stream_stall",
-              retryDelayMs: pendingEmptyResponseRetryDelayMs,
-              receivedAnyText,
-            },
-          },
-        );
+        const retryFinalization = preOutputStreamStallRetryFinalizationMessage({
+          retryAttempt: preOutputStreamStallRetryNextAttempt,
+          maxRetries: assistantFinalizationRetryMaxRetries,
+          retryDelayMs: pendingEmptyResponseRetryDelayMs,
+          receivedAnyText,
+          streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, {
+            retryScheduled: true,
+            replaySafe: true,
+            providerErrorDiagnostic,
+          }),
+        });
+        const fallback = this.store.replaceMessage(currentAssistantMessageId, retryFinalization.content, retryFinalization.metadata);
         finishParentRun("done");
         emitRunEvent({ type: "message-updated", message: fallback });
         emitRunEvent({ type: "run-status", threadId: input.threadId, status: "idle" });
@@ -3740,34 +3650,21 @@ export class AgentRuntime {
           emitRunEvent({ type: "message-updated", message: updated });
         }
         persistToolArgumentDiagnostics(true);
-        const recoveryNotice = buildInterruptedToolCallRecoveryNotice(message, recoverableInterruptedToolCalls);
-        const recoveryContent = willContinue
-          ? `${recoveryNotice}\n\nAmbient is starting a continuation turn with the saved partial arguments.`
-          : `${recoveryNotice}\n\nAmbient did not auto-continue because the continuation retry budget was already used.`;
-        const fallback = this.store.replaceMessage(currentAssistantMessageId, recoveryContent, {
-          status: willContinue ? "done" : "error",
-          runtime: "pi",
-          provider: "ambient",
-          recoveringInterruptedToolCall: willContinue,
-          providerContinuationState: continuationState,
-          piStreamInterruption: {
-            ...chatStreamInterruptionDiagnostic(message, {
-              kind: failureKind,
-              retryScheduled: willContinue,
-              replaySafe: true,
-              providerErrorDiagnostic,
-            }),
+        const recoveryFinalization = interruptedToolCallRecoveryFinalizationMessage({
+          message,
+          snapshots: recoverableInterruptedToolCalls,
+          willContinue,
+          continuationState,
+          streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, {
+            kind: failureKind,
             retryScheduled: willContinue,
             replaySafe: true,
-            retryReason: "interrupted_tool_call_recovery",
-            retryAttempt: willContinue ? interruptedToolCallRecoveryAttemptsUsed + 1 : interruptedToolCallRecoveryAttemptsUsed,
-            maxRetries: interruptedToolCallRecoveryMaxRetries,
-            interruptedToolCallRecovery: {
-              scheduled: willContinue,
-              snapshots: recoverableInterruptedToolCalls,
-            },
-          },
+            providerErrorDiagnostic,
+          }),
+          retryAttempt: willContinue ? interruptedToolCallRecoveryAttemptsUsed + 1 : interruptedToolCallRecoveryAttemptsUsed,
+          maxRetries: interruptedToolCallRecoveryMaxRetries,
         });
+        const fallback = this.store.replaceMessage(currentAssistantMessageId, recoveryFinalization.content, recoveryFinalization.metadata);
         if (!willContinue) {
           finishPlannerFinalizationSources("failed", { error: message, workflowState: "failed" });
         }
@@ -3825,30 +3722,24 @@ export class AgentRuntime {
             message: `Provider failed before tool execution: ${message}`,
           }),
         });
-        const fallback = this.store.replaceMessage(
-          currentAssistantMessageId,
-          `Ambient/Pi provider failed before any tool executed. Retrying attempt ${providerErrorRetryNextAttempt}/${assistantFinalizationRetryMaxRetries} with a fresh session.`,
-          {
-            status: "done",
-            runtime: "pi",
-            provider: "ambient",
-            retryingProviderError: true,
-            piStreamInterruption: {
-              ...chatStreamInterruptionDiagnostic(message, {
-                kind: "provider_error_event",
-                retryScheduled: true,
-                replaySafe: true,
-                retryUsesFreshSession: true,
-                retryAttempt: providerErrorRetryNextAttempt,
-                maxRetries: assistantFinalizationRetryMaxRetries,
-                retryReason: "provider_error_before_tool_execution",
-                retryDelayMs: pendingEmptyResponseRetryDelayMs,
-                providerErrorDiagnostic,
-                receivedAnyText,
-              }),
-            },
-          },
-        );
+        const retryFinalization = providerErrorBeforeToolRetryFinalizationMessage({
+          retryAttempt: providerErrorRetryNextAttempt,
+          maxRetries: assistantFinalizationRetryMaxRetries,
+          retryDelayMs: pendingEmptyResponseRetryDelayMs,
+          streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, {
+            kind: "provider_error_event",
+            retryScheduled: true,
+            replaySafe: true,
+            retryUsesFreshSession: true,
+            retryAttempt: providerErrorRetryNextAttempt,
+            maxRetries: assistantFinalizationRetryMaxRetries,
+            retryReason: "provider_error_before_tool_execution",
+            retryDelayMs: pendingEmptyResponseRetryDelayMs,
+            providerErrorDiagnostic,
+            receivedAnyText,
+          }),
+        });
+        const fallback = this.store.replaceMessage(currentAssistantMessageId, retryFinalization.content, retryFinalization.metadata);
         finishParentRun("done");
         emitRunEvent({ type: "message-updated", message: fallback });
         emitRunEvent({ type: "run-status", threadId: input.threadId, status: "idle" });
@@ -3976,55 +3867,39 @@ export class AgentRuntime {
             });
           }
           const currentAssistantVisibleContent = currentRuntimeMessageContent(currentAssistantMessageId, currentAssistantFinalText);
-          const continuationNotice = buildProviderInterruptionContinuationNotice({
-            message: continuationSetupError ? `${message}\nContinuation setup failed: ${continuationSetupError}` : message,
+          const providerInterruptionFinalization = providerInterruptionFinalizationMessage({
+            currentAssistantVisibleContent,
+            message,
             diagnostic: providerErrorDiagnostic,
             tools: openToolCalls,
             completedToolMessageCount,
             attempt: willContinue ? providerInterruptionRetryNextAttempt : providerInterruptionAttemptsUsed,
             maxRetries: retryBudget.maxRetries,
-            continuationScheduled: willContinue,
+            willContinue,
+            continuationSetupError,
+            retryBudgetReason: retryBudget.reason,
+            continuationState,
+            streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, {
+              kind: failureKind,
+              retryScheduled: willContinue,
+              replaySafe: replaySafeOpenToolCalls,
+              continuationSafe: willContinue,
+              retryUsesFreshSession: false,
+              retryAttempt: willContinue ? providerInterruptionRetryNextAttempt : providerInterruptionAttemptsUsed,
+              maxRetries: retryBudget.maxRetries,
+              retryReason: "provider_interruption_continuation",
+              retryDelayMs: 0,
+              providerErrorDiagnostic,
+              interruptedToolCalls: openToolCalls,
+              completedToolMessageCount,
+              receivedAnyText,
+            }),
           });
-          const continuationBudgetNotice = !willContinue
-            ? [
-                "",
-                continuationSetupError
-                  ? `Ambient could not schedule the provider continuation: ${continuationSetupError}`
-                  : "Ambient stopped instead of retrying again because the provider repeatedly stalled before completing tool arguments.",
-                !continuationSetupError && retryBudget.reason === "incomplete_tool_argument_stream"
-                  ? "The interrupted tool calls only reached incomplete argument streams, so replaying the same continuation is unlikely to make forward progress."
-                  : undefined,
-              ].filter(Boolean).join("\n")
-            : "";
-          const fallbackContent = currentAssistantVisibleContent.trim()
-            ? `${currentAssistantVisibleContent}\n\n${continuationNotice}${continuationBudgetNotice}`
-            : `${continuationNotice}${continuationBudgetNotice}`;
-          const fallback = this.store.replaceMessage(currentAssistantMessageId, fallbackContent, {
-            status: willContinue ? "done" : "error",
-            runtime: "pi",
-            provider: "ambient",
-            retryingProviderError: willContinue,
-            providerInterruptionContinuation: true,
-            providerContinuationState: continuationState,
-            piStreamInterruption: {
-              ...chatStreamInterruptionDiagnostic(message, {
-                kind: failureKind,
-                retryScheduled: willContinue,
-                replaySafe: replaySafeOpenToolCalls,
-                continuationSafe: willContinue,
-                retryUsesFreshSession: false,
-                retryAttempt: willContinue ? providerInterruptionRetryNextAttempt : providerInterruptionAttemptsUsed,
-                maxRetries: retryBudget.maxRetries,
-                retryReason: "provider_interruption_continuation",
-                retryDelayMs: 0,
-                providerErrorDiagnostic,
-                interruptedToolCalls: openToolCalls,
-                completedToolMessageCount,
-                receivedAnyText,
-              }),
-              ...(continuationSetupError ? { continuationSetupError } : {}),
-            },
-          });
+          const fallback = this.store.replaceMessage(
+            currentAssistantMessageId,
+            providerInterruptionFinalization.content,
+            providerInterruptionFinalization.metadata,
+          );
           if (!willContinue) {
             finishPlannerFinalizationSources("failed", { error: continuationSetupError ? `${message}; ${continuationSetupError}` : message, workflowState: "failed" });
           }
@@ -4048,16 +3923,16 @@ export class AgentRuntime {
           let fallback;
           try {
             const currentAssistantVisibleContent = currentRuntimeMessageContent(currentAssistantMessageId, currentAssistantFinalText);
-            const fallbackContent = currentAssistantVisibleContent.trim()
-              ? `${currentAssistantVisibleContent}\n\n${chatStreamInterruptionNotice(fallbackMessage)}`
-              : chatStreamInterruptionNotice(fallbackMessage);
-            fallback = this.store.replaceMessage(currentAssistantMessageId, fallbackContent, {
-              status: "error",
-              runtime: "pi",
-              provider: "ambient",
-              providerInterruptionContinuation: true,
-              piStreamInterruption: chatStreamInterruptionDiagnostic(fallbackMessage, { providerErrorDiagnostic }),
+            const recoveryFailureFinalization = providerInterruptionRecoveryFailureFinalizationMessage({
+              currentAssistantVisibleContent,
+              interruptionNotice: chatStreamInterruptionNotice(fallbackMessage),
+              streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(fallbackMessage, { providerErrorDiagnostic }),
             });
+            fallback = this.store.replaceMessage(
+              currentAssistantMessageId,
+              recoveryFailureFinalization.content,
+              recoveryFailureFinalization.metadata,
+            );
           } catch (messageError) {
             console.warn(`Failed to write provider interruption fallback message: ${messageError instanceof Error ? messageError.message : String(messageError)}`);
           }
@@ -4078,16 +3953,17 @@ export class AgentRuntime {
         finishCurrentThinkingMessage(status);
         markOpenToolMessagesFailed(abortRequested ? "Run stopped before this tool completed." : "Ambient/Pi stream interrupted before this tool completed.");
         const currentAssistantVisibleContent = currentRuntimeMessageContent(currentAssistantMessageId, currentAssistantFinalText);
-        const interruptionText = chatStreamInterruptionNotice(message);
-        const fallbackContent = currentAssistantVisibleContent.trim()
-          ? `${currentAssistantVisibleContent}\n\n${interruptionText}`
-          : interruptionText;
-        const fallback = this.store.replaceMessage(currentAssistantMessageId, fallbackContent, {
+        const streamWatchdogFinalization = streamWatchdogFinalizationMessage({
           status,
-          runtime: "pi",
-          provider: "ambient",
-          piStreamInterruption: chatStreamInterruptionDiagnostic(message, { providerErrorDiagnostic }),
+          currentAssistantVisibleContent,
+          interruptionNotice: chatStreamInterruptionNotice(message),
+          streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, { providerErrorDiagnostic }),
         });
+        const fallback = this.store.replaceMessage(
+          currentAssistantMessageId,
+          streamWatchdogFinalization.content,
+          streamWatchdogFinalization.metadata,
+        );
         finishPlannerFinalizationSources("failed", { error: abortRequested ? "Run stopped." : message, workflowState: "failed" });
         finishParentRun(status, abortRequested ? undefined : message);
         emitRunEvent({ type: "message-updated", message: fallback });
@@ -4105,16 +3981,19 @@ export class AgentRuntime {
             kind: error instanceof AmbientStreamFailureError ? error.kind : "provider_error_event",
             providerErrorDiagnostic,
           });
+      const terminalProviderFailureFinalization = terminalProviderFailureFinalizationMessage({
+        status,
+        abortRequested,
+        abortMessage,
+        providerErrorContent: abortRequested ? "" : formatAgentRuntimeError(message, providerErrorDiagnostic),
+        providerErrorDiagnostic,
+        streamInterruptionDiagnostic: finalProviderInterruption,
+        subagentParentControlAbortIntent,
+      });
       const fallback = this.store.replaceMessage(
         currentAssistantMessageId,
-        abortRequested ? abortMessage : formatAgentRuntimeError(message, providerErrorDiagnostic),
-        {
-          status,
-          runtime: "pi",
-          provider: "ambient",
-          ...(subagentParentControlAbortIntent ? { subagentParentControlAbort: subagentParentControlAbortIntent } : {}),
-          ...(abortRequested ? {} : { providerErrorDiagnostic, piStreamInterruption: finalProviderInterruption }),
-        },
+        terminalProviderFailureFinalization.content,
+        terminalProviderFailureFinalization.metadata,
       );
       finishPlannerFinalizationSources("failed", { error: abortRequested ? abortMessage : message, workflowState: "failed" });
       finishParentRun(status, abortRequested ? undefined : message);
@@ -4140,52 +4019,22 @@ export class AgentRuntime {
         this.workflowPlanEditWorkflowThreadByThreadId.delete(input.threadId);
       }
       if (shouldEmitQueueClear) emitRunEvent({ type: "queue-updated", queue: emptyQueueState(input.threadId) });
-      if (shouldEmitQueueClear && pendingPlannerRepairFollowUp) {
-        this.schedulePlannerDurableRepairFollowUp(pendingPlannerRepairFollowUp, runWorkspacePath);
-      }
-      if (shouldEmitQueueClear && pendingInterruptedToolCallRecoveryFollowUp) {
-        const recovery = pendingInterruptedToolCallRecoveryFollowUp;
-        setTimeout(() => {
-          void this.send(recovery).catch((error) => {
-            const message = error instanceof Error ? error.message : String(error);
-            this.emit({
-              type: "error",
-              message: `Interrupted tool-call recovery follow-up failed: ${message}`,
-              threadId: input.threadId,
-              workspacePath: runWorkspacePath,
-            });
-          });
-        }, 0);
-      }
-      if (shouldEmitQueueClear && pendingProviderInterruptionContinuation) {
-        const continuation = pendingProviderInterruptionContinuation;
-        setTimeout(() => {
-          void this.send(continuation).catch((error) => {
-            const message = error instanceof Error ? error.message : String(error);
-            this.emit({
-              type: "error",
-              message: `Provider interruption continuation failed: ${message}`,
-              threadId: input.threadId,
-              workspacePath: runWorkspacePath,
-            });
-          });
-        }, 0);
-      }
-      if (shouldEmitQueueClear && pendingEmptyResponseRetry) {
-        const retry = pendingEmptyResponseRetry;
-        const retryDelayMs = pendingEmptyResponseRetryDelayMs;
-        if (hooks.awaitInternalRetryCompletion) {
-          if (retryDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-          await this.send(retry, { awaitInternalRetryCompletion: true });
-        } else {
-          setTimeout(() => {
-            void this.send(retry).catch((error) => {
-              const message = error instanceof Error ? error.message : String(error);
-              this.emit({ type: "error", message: `Assistant retry failed: ${message}`, threadId: input.threadId, workspacePath: runWorkspacePath });
-            });
-          }, retryDelayMs);
-        }
-      }
+      const scheduledFollowUps = await scheduleRuntimeSendFollowUps({
+        shouldEmitQueueClear,
+        threadId: input.threadId,
+        workspacePath: runWorkspacePath,
+        plannerRepairFollowUp: pendingPlannerRepairFollowUp,
+        interruptedToolCallRecoveryFollowUp: pendingInterruptedToolCallRecoveryFollowUp,
+        providerInterruptionContinuation: pendingProviderInterruptionContinuation,
+        emptyResponseRetry: pendingEmptyResponseRetry,
+        emptyResponseRetryDelayMs: pendingEmptyResponseRetryDelayMs,
+        awaitInternalRetryCompletion: Boolean(hooks.awaitInternalRetryCompletion),
+        schedulePlannerDurableRepairFollowUp: (followUp, workspacePath) => this.schedulePlannerDurableRepairFollowUp(followUp, workspacePath),
+        send: (followUp, followUpHooks) => this.send(followUp, followUpHooks),
+        emitError: (message, threadId, workspacePath) => this.emit({ type: "error", message, threadId, workspacePath }),
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+        sleep: runtimeSendFollowUpSleep,
+      });
       const pendingProjectSwitch = this.pendingProjectSwitchByThreadId.get(input.threadId);
       this.pendingProjectSwitchByThreadId.delete(input.threadId);
       finalizeMessagingRemoteSurfaceCommandPendingProjectSwitchAfterRun({
@@ -4208,54 +4057,30 @@ export class AgentRuntime {
           return undefined;
         }
       })();
-      let goalAfterRun: ThreadGoal | undefined;
-      if (shouldEmitQueueClear && runGoalId) {
-        goalAfterRun = this.accountFinishedGoalRun({
-          threadId: input.threadId,
-          goalId: runGoalId,
-          startedAtMs: runGoalStartedAtMs,
-          promptChars: promptContent.length,
-          assistantChars: currentAssistantFinalText.length + assistantOutputChars,
-          thinkingChars: currentThinkingFinalText.length + thinkingOutputChars,
-          toolMessageCount: toolMessageIds.size,
-          abortRequested,
-          runStatus: runRecord?.status,
-          runErrorMessage: runRecord?.errorMessage,
-        });
-      }
-      const hasPendingInternalFollowUp =
-        Boolean(pendingPlannerRepairFollowUp) ||
-        Boolean(pendingInterruptedToolCallRecoveryFollowUp) ||
-        Boolean(pendingProviderInterruptionContinuation) ||
-        Boolean(pendingEmptyResponseRetry) ||
-        Boolean(pendingProjectSwitch);
+      const hasPendingInternalFollowUp = scheduledFollowUps.hasPendingInternalFollowUp || Boolean(pendingProjectSwitch);
       const hasQueuedUserInput = queuedUserMessages.some((message) => message.status === "queued" || message.status === "sent");
-      if (
-        shouldEmitQueueClear &&
-        goalAfterRun?.status === "active" &&
-        runRecord?.status === "done" &&
-        !abortRequested &&
-        !hasQueuedUserInput &&
-        !hasPendingInternalFollowUp
-      ) {
-        this.scheduleGoalContinuation(input.threadId, goalAfterRun.goalId, 0);
-      }
+      finalizeRuntimeGoalContinuationAfterRun({
+        shouldEmitQueueClear,
+        threadId: input.threadId,
+        runGoalId,
+        runGoalStartedAtMs,
+        promptChars: promptContent.length,
+        assistantChars: currentAssistantFinalText.length + assistantOutputChars,
+        thinkingChars: currentThinkingFinalText.length + thinkingOutputChars,
+        toolMessageCount: toolMessageIds.size,
+        abortRequested,
+        runStatus: runRecord?.status,
+        runErrorMessage: runRecord?.errorMessage,
+        hasPendingInternalFollowUp,
+        hasQueuedUserInput,
+        accountFinishedGoalRun: (accountInput) => this.accountFinishedGoalRun(accountInput),
+        scheduleGoalContinuation: (threadId, goalId, delayMs) => this.scheduleGoalContinuation(threadId, goalId, delayMs),
+      });
       resolveActiveRunSettled?.();
     }
   }
 
-  private accountFinishedGoalRun(input: {
-    threadId: string;
-    goalId: string;
-    startedAtMs: number;
-    promptChars: number;
-    assistantChars: number;
-    thinkingChars: number;
-    toolMessageCount: number;
-    abortRequested: boolean;
-    runStatus?: RunRecord["status"];
-    runErrorMessage?: string;
-  }): ThreadGoal | undefined {
+  private accountFinishedGoalRun(input: AccountFinishedGoalRunInput): ThreadGoal | undefined {
     const seconds = Math.max(0, Math.ceil((Date.now() - input.startedAtMs) / 1000));
     const tokenEstimate = Math.max(1, Math.ceil((input.promptChars + input.assistantChars + input.thinkingChars) / 4));
     const noProgress = input.toolMessageCount === 0 && input.assistantChars < 40;
@@ -5473,6 +5298,7 @@ export class AgentRuntime {
       ],
       extensionFactories: [
         createAmbientProviderExtension(model),
+        createAmbientProductContextExtension(),
         this.createAmbientCompactionSummaryExtension(thread.id, workspace, model, apiKey),
         this.createContextAccountingExtension(thread.id, model),
         ...(tencentMemoryExtension ? [tencentMemoryExtension] : []),
@@ -6730,82 +6556,165 @@ export class AgentRuntime {
       emitEvent: input.emitEvent,
     });
     if (initialApprovalWait) return initialApprovalWait;
-    const remainingRuntimeBudgetMs = this.remainingSubagentRuntimeBudgetMs(input.run, execution.startedAt);
-    if (remainingRuntimeBudgetMs !== undefined && remainingRuntimeBudgetMs <= 0) {
-      return {
-        run: await this.settleSubagentChildRuntimeBudgetExceeded({
-          run: input.run,
-          execution,
-          emitEvent: input.emitEvent,
-        }),
-        timedOut: true,
-      };
-    }
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    const timedOut = Symbol("subagent-wait-timeout");
-    const timeoutMs = Math.max(
-      0,
-      remainingRuntimeBudgetMs === undefined ? input.timeoutMs : Math.min(input.timeoutMs, remainingRuntimeBudgetMs),
-    );
-    const timeoutPromise = new Promise<typeof timedOut>((resolve) => {
-      timeout = setTimeout(() => resolve(timedOut), timeoutMs);
-      if (typeof timeout === "object" && "unref" in timeout && typeof timeout.unref === "function") timeout.unref();
-    });
     const waitStartedAtMs = Date.now();
-    const heartbeatMs = Math.min(
+    const waitTimeoutMs = Math.max(0, Math.floor(input.timeoutMs));
+    const waitDeadlineMs = waitStartedAtMs + waitTimeoutMs;
+    const executionStartedMs = timestampMs(execution.startedAt) ?? waitStartedAtMs;
+    const hardTimeoutMs = normalizedSubagentChildRuntimeHardTimeoutMs(input.run);
+    let nextHeartbeatAtMs = waitStartedAtMs + Math.min(
       SUBAGENT_WAIT_HEARTBEAT_INTERVAL_MS,
-      Math.max(1_000, Math.max(1, timeoutMs)),
+      Math.max(1_000, Math.max(1, waitTimeoutMs)),
     );
-    const heartbeat = setInterval(() => {
+    const childCompleted = Symbol("subagent-child-completed");
+    const waitTick = Symbol("subagent-wait-tick");
+    const childCompletion = execution.promise.then(() => childCompleted);
+    while (true) {
       const latest = this.store.getSubagentRun(input.run.id);
-      input.emitEvent({
-        type: "status",
-        source: "wait_agent",
-        status: latest.status,
-        message: "wait_agent is still waiting on the live child runtime.",
-        details: {
-          childRunId: latest.id,
-          childThreadId: latest.childThreadId,
-          waitElapsedMs: Date.now() - waitStartedAtMs,
-        },
+      const approvalWait = this.resolveSubagentChildPendingApprovalWait({
+        run: latest,
+        emitEvent: input.emitEvent,
       });
-    }, heartbeatMs);
-    if (typeof heartbeat === "object" && "unref" in heartbeat && typeof heartbeat.unref === "function") heartbeat.unref();
-    try {
-      const result = await Promise.race([execution.promise.then(() => undefined), timeoutPromise]);
-      const latest = this.store.getSubagentRun(input.run.id);
-      const didTimeOut = result === timedOut;
-      if (didTimeOut) {
-        const latestRemainingRuntimeBudgetMs = this.remainingSubagentRuntimeBudgetMs(latest, execution.startedAt);
-        if (latestRemainingRuntimeBudgetMs !== undefined && latestRemainingRuntimeBudgetMs <= 0) {
-          return {
-            run: await this.settleSubagentChildRuntimeBudgetExceeded({
-              run: latest,
-              execution,
-              emitEvent: input.emitEvent,
-            }),
-            timedOut: true,
-          };
-        }
-        const approvalWait = this.resolveSubagentChildPendingApprovalWait({
-          run: latest,
-          emitEvent: input.emitEvent,
-        });
-        if (approvalWait) return approvalWait;
+      if (approvalWait) return approvalWait;
+      const nowMs = Date.now();
+      const activity = this.latestSubagentChildActivity(latest, execution, executionStartedMs);
+      const childIdleElapsedMs = Math.max(0, nowMs - activity.atMs);
+      const childHardElapsedMs = Math.max(0, nowMs - executionStartedMs);
+      if (childHardElapsedMs >= hardTimeoutMs) {
+        return {
+          run: await this.settleSubagentChildRuntimeBudgetExceeded({
+            run: latest,
+            execution,
+            emitEvent: input.emitEvent,
+            reason: "runtime_hard_cap_exceeded",
+            limitMs: hardTimeoutMs,
+            lastActivity: activity,
+            idleElapsedMs: childIdleElapsedMs,
+            elapsedMs: childHardElapsedMs,
+          }),
+          timedOut: true,
+        };
+      }
+      if (childIdleElapsedMs >= SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS) {
+        return {
+          run: await this.settleSubagentChildRuntimeBudgetExceeded({
+            run: latest,
+            execution,
+            emitEvent: input.emitEvent,
+            reason: "runtime_idle_timeout",
+            limitMs: SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS,
+            lastActivity: activity,
+            idleElapsedMs: childIdleElapsedMs,
+            elapsedMs: childHardElapsedMs,
+          }),
+          timedOut: true,
+        };
+      }
+      const waitRemainingMs = waitDeadlineMs - nowMs;
+      if (waitRemainingMs <= 0) {
         input.emitEvent({
           type: "status",
+          source: "wait_agent",
           status: latest.status,
-          message: "wait_agent timed out before the child run reached a terminal status.",
+          message: "wait_agent timed out before the child run reached a terminal status; child runtime remains active.",
+          details: {
+            childRunId: latest.id,
+            childThreadId: latest.childThreadId,
+            waitElapsedMs: nowMs - waitStartedAtMs,
+            waitTimeoutMs,
+            lastChildActivityAt: activity.at,
+            lastChildActivitySource: activity.source,
+            ...(activity.detail ? { lastChildActivityDetail: activity.detail } : {}),
+            childIdleElapsedMs,
+            childIdleTimeoutMs: SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS,
+            childHardElapsedMs,
+            childHardTimeoutMs: hardTimeoutMs,
+          },
         });
+        return {
+          run: latest,
+          timedOut: true,
+        };
       }
-      return {
-        run: latest,
-        timedOut: didTimeOut,
-      };
-    } finally {
-      if (timeout) clearTimeout(timeout);
-      clearInterval(heartbeat);
+      if (nowMs >= nextHeartbeatAtMs) {
+        input.emitEvent({
+          type: "status",
+          source: "wait_agent",
+          status: latest.status,
+          message: "wait_agent is still waiting on the live child runtime.",
+          details: {
+            childRunId: latest.id,
+            childThreadId: latest.childThreadId,
+            waitElapsedMs: nowMs - waitStartedAtMs,
+            waitTimeoutMs,
+            lastChildActivityAt: activity.at,
+            lastChildActivitySource: activity.source,
+            ...(activity.detail ? { lastChildActivityDetail: activity.detail } : {}),
+            childIdleElapsedMs,
+            childIdleTimeoutMs: SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS,
+            childHardElapsedMs,
+            childHardTimeoutMs: hardTimeoutMs,
+          },
+        });
+        nextHeartbeatAtMs = nowMs + SUBAGENT_WAIT_HEARTBEAT_INTERVAL_MS;
+      }
+      const sleepMs = Math.max(
+        1,
+        Math.min(
+          waitDeadlineMs - nowMs,
+          nextHeartbeatAtMs - nowMs,
+          SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS - childIdleElapsedMs,
+          hardTimeoutMs - childHardElapsedMs,
+        ),
+      );
+      const completion = await Promise.race([
+        childCompletion,
+        delaySubagentChildWaitTick(sleepMs).then(() => waitTick),
+      ]);
+      if (completion === childCompleted) {
+        return {
+          run: this.store.getSubagentRun(input.run.id),
+          timedOut: false,
+        };
+      }
     }
+  }
+
+  private latestSubagentChildActivity(
+    run: SubagentRunSummary,
+    execution: SubagentChildExecutionRecord,
+    fallbackMs: number,
+  ): SubagentChildActivitySnapshot {
+    let latest = activitySnapshotFromIso(execution.startedAt, "child_runtime", "execution started", fallbackMs);
+    for (const value of [run.startedAt, run.updatedAt, run.createdAt]) {
+      const candidate = activitySnapshotFromIso(value, "subagent_run", "run status changed", fallbackMs);
+      if (candidate.atMs > latest.atMs) latest = candidate;
+    }
+    for (const message of this.store.listMessages(run.childThreadId)) {
+      if (!message.content.trim() && message.role !== "tool") continue;
+      const candidate = activitySnapshotFromIso(message.createdAt, `message:${message.role}`, `message ${message.id}`, fallbackMs);
+      if (candidate.atMs > latest.atMs) latest = candidate;
+    }
+    for (const event of this.store.listSubagentRunEvents(run.id)) {
+      const preview = event.preview;
+      if (isRecord(preview) && preview.schemaVersion === "ambient-subagent-runtime-event-v1") {
+        const source = typeof preview.source === "string" ? preview.source : undefined;
+        if (source === "wait_agent" || source === "cancel_agent") continue;
+        const eventType = typeof preview.type === "string" ? preview.type : undefined;
+        const candidate = activitySnapshotFromIso(
+          event.createdAt,
+          source ? `runtime_event:${source}` : "runtime_event",
+          eventType ? `${eventType} event ${event.sequence}` : `runtime event ${event.sequence}`,
+          fallbackMs,
+        );
+        if (candidate.atMs > latest.atMs) latest = candidate;
+        continue;
+      }
+      if (event.type === "subagent.runtime_event") continue;
+      if (event.type.includes("wait_barrier") || event.type.includes("wait_agent")) continue;
+      const candidate = activitySnapshotFromIso(event.createdAt, `run_event:${event.type}`, `run event ${event.sequence}`, fallbackMs);
+      if (candidate.atMs > latest.atMs) latest = candidate;
+    }
+    return latest;
   }
 
   private resolveSubagentChildPendingApprovalWait(input: {
@@ -6843,18 +6752,15 @@ export class AgentRuntime {
       .map((request) => subagentApprovalRequestFromPermissionRequest(run, request));
   }
 
-  private remainingSubagentRuntimeBudgetMs(run: SubagentRunSummary, startedAt: string): number | undefined {
-    const maxRuntimeMs = run.roleProfileSnapshot.guardPolicy.maxRuntimeMs;
-    if (!Number.isFinite(maxRuntimeMs) || maxRuntimeMs < 0) return undefined;
-    const startedMs = Date.parse(startedAt);
-    if (!Number.isFinite(startedMs)) return undefined;
-    return Math.max(0, Math.floor(maxRuntimeMs) - Math.max(0, Date.now() - startedMs));
-  }
-
   private async settleSubagentChildRuntimeBudgetExceeded(input: {
     run: SubagentRunSummary;
-    execution: { childThreadId: string; promise: Promise<void>; startedAt: string };
+    execution: SubagentChildExecutionRecord;
     emitEvent: SubagentRuntimeEventEmitter;
+    reason?: "runtime_budget_exceeded" | "runtime_hard_cap_exceeded" | "runtime_idle_timeout";
+    limitMs?: number;
+    elapsedMs?: number;
+    idleElapsedMs?: number;
+    lastActivity?: SubagentChildActivitySnapshot;
   }): Promise<SubagentRunSummary> {
     const current = this.store.getSubagentRun(input.run.id);
     if (["completed", "failed", "stopped", "cancelled", "timed_out", "aborted_partial"].includes(current.status)) {
@@ -6863,13 +6769,20 @@ export class AgentRuntime {
     const role = current.roleProfileSnapshot;
     const partial = role.guardPolicy.allowPartialResult;
     const status = partial ? "aborted_partial" : "failed";
-    const maxRuntimeMs = role.guardPolicy.maxRuntimeMs;
+    const reason = input.reason ?? "runtime_budget_exceeded";
+    const maxRuntimeMs = input.limitMs ?? role.guardPolicy.maxRuntimeMs;
     const startedMs = Date.parse(input.execution.startedAt);
-    const elapsedMs = Number.isFinite(startedMs) ? Math.max(0, Date.now() - startedMs) : undefined;
+    const elapsedMs = input.elapsedMs ?? (Number.isFinite(startedMs) ? Math.max(0, Date.now() - startedMs) : undefined);
     const transcriptPath = subagentTranscriptPath(current.childThreadId);
+    const limitLabel =
+      reason === "runtime_idle_timeout"
+        ? `${maxRuntimeMs}ms child idle timeout`
+        : reason === "runtime_hard_cap_exceeded"
+          ? `${maxRuntimeMs}ms child runtime hard cap`
+          : `${maxRuntimeMs}ms role runtime budget`;
     const summary = partial
-      ? `Child exceeded its ${maxRuntimeMs}ms role runtime budget before completing. Partial transcript is retained at ${transcriptPath}.`
-      : `Child exceeded its ${maxRuntimeMs}ms role runtime budget and this role does not allow partial success. Transcript is retained at ${transcriptPath}.`;
+      ? `Child exceeded its ${limitLabel} before completing. Partial transcript is retained at ${transcriptPath}.`
+      : `Child exceeded its ${limitLabel} and this role does not allow partial success. Transcript is retained at ${transcriptPath}.`;
     const resultArtifact = {
       schemaVersion: "ambient-subagent-result-artifact-v1" as const,
       runId: current.id,
@@ -6884,14 +6797,20 @@ export class AgentRuntime {
     });
     input.emitEvent({
       type: partial ? "status" : "error",
-      source: "child_runtime",
       status,
+      source: "child_runtime",
       message: summary,
       artifactPath: transcriptPath,
       details: {
-        reason: "runtime_budget_exceeded",
+        reason,
         maxRuntimeMs,
         ...(elapsedMs !== undefined ? { elapsedMs } : {}),
+        ...(input.idleElapsedMs !== undefined ? { idleElapsedMs: input.idleElapsedMs } : {}),
+        ...(input.lastActivity ? {
+          lastChildActivityAt: input.lastActivity.at,
+          lastChildActivitySource: input.lastActivity.source,
+          ...(input.lastActivity.detail ? { lastChildActivityDetail: input.lastActivity.detail } : {}),
+        } : {}),
         startedAt: input.execution.startedAt,
       },
     });
@@ -6904,20 +6823,33 @@ export class AgentRuntime {
         summary,
         childThreadId: settled.childThreadId,
         artifactPath: transcriptPath,
-        reason: "runtime_budget_exceeded",
+        reason,
         maxRuntimeMs,
         ...(elapsedMs !== undefined ? { elapsedMs } : {}),
+        ...(input.idleElapsedMs !== undefined ? { idleElapsedMs: input.idleElapsedMs } : {}),
+        ...(input.lastActivity ? {
+          lastChildActivityAt: input.lastActivity.at,
+          lastChildActivitySource: input.lastActivity.source,
+          ...(input.lastActivity.detail ? { lastChildActivityDetail: input.lastActivity.detail } : {}),
+        } : {}),
       },
     });
     this.store.appendSubagentRunEvent(settled.id, {
-      type: "subagent.runtime_budget_exceeded",
+      type: `subagent.${reason}`,
       preview: {
         childRunId: settled.id,
         childThreadId: settled.childThreadId,
         status,
         partial,
+        reason,
         maxRuntimeMs,
         ...(elapsedMs !== undefined ? { elapsedMs } : {}),
+        ...(input.idleElapsedMs !== undefined ? { idleElapsedMs: input.idleElapsedMs } : {}),
+        ...(input.lastActivity ? {
+          lastChildActivityAt: input.lastActivity.at,
+          lastChildActivitySource: input.lastActivity.source,
+          ...(input.lastActivity.detail ? { lastChildActivityDetail: input.lastActivity.detail } : {}),
+        } : {}),
         startedAt: input.execution.startedAt,
         artifactPath: transcriptPath,
       },
@@ -6925,14 +6857,14 @@ export class AgentRuntime {
     const parentMailboxEvent = this.store.appendSubagentLifecycleInterruptionParentMailboxEvent({
       run: settled,
       previousStatus: current.status,
-      source: "runtime_budget_exceeded",
+      source: reason,
       reason: summary,
       resultArtifact,
       waitBarrierIds: this.store
         .listSubagentWaitBarriersForParentRun(settled.parentRunId)
         .filter((barrier) => barrier.status === "waiting_on_children" && barrier.childRunIds.includes(settled.id))
         .map((barrier) => barrier.id),
-      idempotencyKey: "runtime_budget_exceeded",
+      idempotencyKey: reason,
     });
     this.emitSubagentParentMailboxEventUpdated(parentMailboxEvent);
     await this.abort(input.execution.childThreadId).catch((error) => {
@@ -7583,6 +7515,7 @@ export class AgentRuntime {
       }),
       extensionFactories: [
         createAmbientProviderExtension(model),
+        createAmbientProductContextExtension(),
         this.createContextAccountingExtension(thread.id, model),
       ],
     });
@@ -8449,7 +8382,10 @@ export class AgentRuntime {
       discoverAmbientCliPackages,
       discoverMcpProviderTools: (signal) => this.discoverWebResearchMcpProviderTools(workspace, signal),
       webResearchRuntimeSummary: (signal) => this.webResearchRuntimeSummary(workspace, signal),
-      webResearchProviderPlanForInput: (input, role, signal) => this.webResearchProviderPlanForInput(workspace, input, role, signal),
+      webResearchProviderPlanForInput: (input, role, signal) =>
+        this.webResearchProviderPlanForInput(workspace, input, role, signal, undefined, {
+          allowBrowserFallback: this.webResearchBrowserFallbackAllowedForThread(threadId),
+        }),
       webResearchExaApiKey: () => webResearchExaApiKeyFromEnv(this.features.mcp?.env),
       prepareBrowserToolProfile: (input, sourceThreadId, onUpdate) => this.prepareBrowserToolProfile(input, sourceThreadId, onUpdate),
       browserSearch: (input) => this.browser.search(input),
@@ -8469,6 +8405,7 @@ export class AgentRuntime {
     role: WebResearchProviderRole,
     signal?: AbortSignal,
     providerSnapshot?: LocalDeepResearchProviderSnapshot,
+    options: { allowBrowserFallback?: boolean } = {},
   ) {
     return buildWebResearchProviderPlanForInput({
       workspace,
@@ -8476,11 +8413,23 @@ export class AgentRuntime {
       role,
       signal,
       providerSnapshot,
+      allowBrowserFallback: options.allowBrowserFallback,
     }, {
       readSettings: () => this.features.search?.readSettings(),
       discoverAmbientCliPackages,
       discoverMcpProviderTools: (planSignal) => this.discoverWebResearchMcpProviderTools(workspace, planSignal),
     });
+  }
+
+  private webResearchBrowserFallbackAllowedForThread(threadId: string): boolean | undefined {
+    const thread = this.store.getThread(threadId);
+    if (thread.kind !== "subagent_child") return undefined;
+    if (!thread.subagentRunId) return false;
+    const latestScope = this.store.listSubagentToolScopeSnapshots(thread.subagentRunId).at(-1)?.scope;
+    const visibleCategories = new Set(latestScope?.piVisibleCategories ?? []);
+    return visibleCategories.has("browser.read") || visibleCategories.has("browser.interactive")
+      ? undefined
+      : false;
   }
 
   private async discoverWebResearchMcpProviderTools(workspace: WorkspaceState, signal?: AbortSignal) {

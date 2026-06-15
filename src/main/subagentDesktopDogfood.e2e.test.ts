@@ -2473,9 +2473,12 @@ async function inspectStandaloneChildThread(
     const parentBarrier = inspector?.querySelector<HTMLElement>(".subagent-thread-parent-barrier");
     const parentAction = inspector?.querySelector<HTMLButtonElement>(".subagent-thread-open-parent");
     const messageScroll = document.querySelector<HTMLElement>(".messages");
+    const inspectorDock = inspector?.closest<HTMLElement>(".subagent-thread-inspector-dock") ?? inspector;
+    const conversationChildren = [...(messageScroll?.parentElement?.children ?? [])] as HTMLElement[];
     const transcriptText = messageScroll?.innerText ?? document.body.innerText;
     const messageScrollChildren = [...(messageScroll?.children ?? [])] as HTMLElement[];
-    const inspectorChildIndex = messageScrollChildren.findIndex((element) => element.classList.contains("subagent-thread-inspector"));
+    const messageScrollChildIndex = conversationChildren.findIndex((element) => element === messageScroll);
+    const inspectorChildIndex = conversationChildren.findIndex((element) => element === inspectorDock);
     const transcriptChildIndex = messageScrollChildren.findIndex((element) =>
       element.classList.contains("message") &&
       element.innerText.includes(expected.expectedAssistantText)
@@ -2537,10 +2540,12 @@ async function inspectStandaloneChildThread(
         (parentAction?.getAttribute("aria-label") ?? "").includes(expected.parentThreadId),
       transcriptVisible: transcriptText.includes(expected.expectedAssistantText),
       childAssistantVisible: transcriptText.includes(expected.expectedAssistantText),
-      transcriptPrecedesInspector: transcriptChildIndex >= 0 && inspectorChildIndex >= 0 && transcriptChildIndex < inspectorChildIndex,
+      transcriptPrecedesInspector: transcriptChildIndex >= 0 && messageScrollChildIndex >= 0 && inspectorChildIndex >= 0 &&
+        messageScrollChildIndex < inspectorChildIndex,
       transcriptVerticallyPrecedesInspector: Boolean(transcriptRect && inspectorRect && transcriptRect.top < inspectorRect.top),
       transcriptInspectorOverlapFree: transcriptInspectorOverlap === 0,
       transcriptChildIndex,
+      messageScrollChildIndex,
       inspectorChildIndex,
       siblingSummaryNotLeaked: expected.forbiddenText ? !transcriptText.includes(expected.forbiddenText) : true,
       horizontalOverflowFree: document.documentElement.scrollWidth <= window.innerWidth + 2,

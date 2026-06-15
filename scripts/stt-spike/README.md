@@ -1,6 +1,6 @@
 # STT Spike Harness
 
-This harness runs a small STT corpus through one or more configured providers, preserves full stdout/stderr artifacts, and writes JSONL plus a markdown summary.
+This harness is the first implementation slice from `STTSpikePlan.md`. It runs a small STT corpus through one or more configured providers, preserves full stdout/stderr artifacts, and writes JSONL plus a markdown summary.
 
 It is intentionally outside the product runtime. Use it to decide whether Qwen3-ASR deserves a first-party `stt-provider` installer shape.
 

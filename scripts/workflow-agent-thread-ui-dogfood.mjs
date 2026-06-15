@@ -276,16 +276,16 @@ const scenarios = {
       const downloadsDir = join(root, "Downloads");
       await mkdir(downloadsDir, { recursive: true });
       const fixtures = [
-        ["resources/welcome-onboarding/screenshots/02-planner-mode.png", "image-01-workflow-discovery.png"],
-        ["resources/welcome-onboarding/screenshots/03-calculator-board.png", "image-02-workflow-diagram.png"],
-        ["resources/welcome-onboarding/screenshots/04-calculator-draft-inbox.png", "image-03-compile-progress.png"],
-        ["resources/welcome-onboarding/screenshots/05-calculator-map.png", "image-04-recovery-cards.png"],
-        ["resources/welcome-onboarding/screenshots/06-git-summary.png", "image-05-revision-diff.png"],
-        ["resources/welcome-onboarding/screenshots/08-settings-search.png", "image-06-schedule-targeting.png"],
-        ["resources/welcome-onboarding/screenshots/06-git-summary.png", "image-07-git-summary.png"],
-        ["resources/welcome-onboarding/screenshots/07-plugin-manager.png", "image-08-plugin-import.png"],
-        ["resources/welcome-onboarding/screenshots/03-calculator-board.png", "image-09-project-board.png"],
-        ["resources/welcome-onboarding/screenshots/08-settings-search.png", "image-10-browser-picker.png"],
+        ["test/visual-baselines/05a-workflow-discovery.png", "image-01-workflow-discovery.png"],
+        ["test/visual-baselines/05b-workflow-agent-diagram.png", "image-02-workflow-diagram.png"],
+        ["test/visual-baselines/05c-workflow-compile-progress.png", "image-03-compile-progress.png"],
+        ["test/visual-baselines/05e-workflow-recovery-cards.png", "image-04-recovery-cards.png"],
+        ["test/visual-baselines/05f-workflow-revision-diff.png", "image-05-revision-diff.png"],
+        ["test/visual-baselines/05g-workflow-schedule-targeting.png", "image-06-schedule-targeting.png"],
+        ["test/visual-baselines/04-git-summary.png", "image-07-git-summary.png"],
+        ["test/visual-baselines/05-plugin-import-candidate.png", "image-08-plugin-import.png"],
+        ["test/visual-baselines/01a-project-board.png", "image-09-project-board.png"],
+        ["test/visual-baselines/08-browser-picker-active.png", "image-10-browser-picker.png"],
       ];
       for (const [source, target] of fixtures) {
         await cp(join(process.cwd(), source), join(downloadsDir, target), { force: true });

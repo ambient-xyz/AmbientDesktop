@@ -14,7 +14,7 @@ maybeDescribe("MiniCPM-V vision provider live adapter smoke", () => {
       throw new Error(`MiniCPM-V default managed runtime download live smoke is scoped to macOS/Linux, not ${platform()}.`);
     }
     const imagePath = process.env.AMBIENT_MINICPM_VISION_PROVIDER_LIVE_IMAGE?.trim()
-      || join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png");
+      || join(process.cwd(), "test", "visual-baselines", "01-main-shell.png");
     if (!existsSync(imagePath)) throw new Error(`MiniCPM-V live image fixture was not found: ${imagePath}`);
 
     const workspace = await mkdtemp(join(tmpdir(), "ambient-minicpm-managed-download-live-"));
@@ -67,7 +67,7 @@ maybeDescribe("MiniCPM-V vision provider live adapter smoke", () => {
     if (!existsSync(runtimeArchivePath)) throw new Error(`MiniCPM-V live runtime archive was not found: ${runtimeArchivePath}`);
 
     const imagePath = process.env.AMBIENT_MINICPM_VISION_PROVIDER_LIVE_IMAGE?.trim()
-      || join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png");
+      || join(process.cwd(), "test", "visual-baselines", "01-main-shell.png");
     if (!existsSync(imagePath)) throw new Error(`MiniCPM-V live image fixture was not found: ${imagePath}`);
 
     const workspace = await mkdtemp(join(tmpdir(), "ambient-minicpm-managed-archive-live-"));
@@ -130,7 +130,7 @@ maybeDescribe("MiniCPM-V vision provider live adapter smoke", () => {
 
   it("analyzes a real image through the first-party typed adapter", async () => {
     const runtimeBinaryPath = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER?.trim()
-      || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+      || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
     if (!existsSync(runtimeBinaryPath)) throw new Error(`MiniCPM-V live runtime binary was not found: ${runtimeBinaryPath}`);
 
     const workspace = await mkdtemp(join(tmpdir(), "ambient-minicpm-adapter-live-"));
@@ -167,11 +167,11 @@ maybeDescribe("MiniCPM-V vision provider live adapter smoke", () => {
 
   it("compares two real screenshot references through the typed adapter", async () => {
     const runtimeBinaryPath = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER?.trim()
-      || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+      || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
     if (!existsSync(runtimeBinaryPath)) throw new Error(`MiniCPM-V live runtime binary was not found: ${runtimeBinaryPath}`);
 
-    const current = join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png");
-    const reference = join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "03-calculator-board.png");
+    const current = join(process.cwd(), "test", "visual-baselines", "01-main-shell.png");
+    const reference = join(process.cwd(), "test", "visual-baselines", "01a-project-board.png");
     if (!existsSync(current) || !existsSync(reference)) throw new Error("MiniCPM-V comparison live fixtures are missing.");
 
     const workspace = await mkdtemp(join(tmpdir(), "ambient-minicpm-compare-live-"));
@@ -201,10 +201,10 @@ maybeDescribe("MiniCPM-V vision provider live adapter smoke", () => {
 
   it("samples a real short video frame through the typed adapter", async () => {
     const runtimeBinaryPath = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER?.trim()
-      || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+      || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
     if (!existsSync(runtimeBinaryPath)) throw new Error(`MiniCPM-V live runtime binary was not found: ${runtimeBinaryPath}`);
 
-    const current = join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png");
+    const current = join(process.cwd(), "test", "visual-baselines", "01-main-shell.png");
     if (!existsSync(current)) throw new Error("MiniCPM-V video live fixture is missing.");
 
     const workspace = await mkdtemp(join(tmpdir(), "ambient-minicpm-video-live-"));

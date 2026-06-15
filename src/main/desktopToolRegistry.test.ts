@@ -74,6 +74,7 @@ describe("firstPartyDesktopToolDescriptors", () => {
       "ambient_download_status",
       "ambient_download_wait",
       "ambient_download_cancel",
+      "ambient_product_context",
       "ambient_install_route_plan",
       "ambient_git_status",
       "ambient_git_commit",

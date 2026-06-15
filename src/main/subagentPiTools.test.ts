@@ -276,8 +276,8 @@ describe("ambient_subagent Pi tool", () => {
         runId: run.id,
         sequence: 1,
         scope: {
-          loadedCategories: ["workspace.read", "artifact.read", "browser.read", "long-context.read", "connector.read"],
-          piVisibleCategories: ["workspace.read", "artifact.read", "browser.read", "long-context.read", "connector.read"],
+          loadedCategories: ["workspace.read", "artifact.read", "long-context.read", "connector.read"],
+          piVisibleCategories: ["workspace.read", "artifact.read", "long-context.read", "connector.read"],
           deniedCategories: [],
           fanoutAvailable: false,
         },
@@ -293,8 +293,8 @@ describe("ambient_subagent Pi tool", () => {
       expect((spawned.details as any).toolScopeSnapshot).toMatchObject({
         runId: run.id,
         sequence: 1,
-        loadedCategories: ["workspace.read", "artifact.read", "browser.read", "long-context.read", "connector.read"],
-        piVisibleCategories: ["workspace.read", "artifact.read", "browser.read", "long-context.read", "connector.read"],
+        loadedCategories: ["workspace.read", "artifact.read", "long-context.read", "connector.read"],
+        piVisibleCategories: ["workspace.read", "artifact.read", "long-context.read", "connector.read"],
       });
       expect((spawned.details as any).run.effectiveRole).toMatchObject({
         baseRole: "explorer",

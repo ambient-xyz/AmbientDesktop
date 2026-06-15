@@ -5,7 +5,7 @@ import { miniWindowHeaderPaddingLeft, renderThreadMiniWindowHtml } from "./threa
 const thread: ThreadSummary = {
   id: "thread-1",
   title: "Flying Goats Starry Night Sky",
-  workspacePath: "/Users/example/moreExperimentalFollies",
+  workspacePath: "/path/to/project",
   createdAt: "2026-05-01T00:00:00.000Z",
   updatedAt: "2026-05-01T00:00:00.000Z",
   lastMessagePreview: "",

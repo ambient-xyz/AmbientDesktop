@@ -2,7 +2,7 @@ param(
   [string]$ArtifactId = "llama-cpp-windows-x64-cpu",
   [string]$OutputDir = "test-results/minicpm-v/windows-runtime-smoke",
   [string]$RunId = "",
-  [string]$Image = "resources/welcome-onboarding/screenshots/01-main-shell.png",
+  [string]$Image = "test/visual-baselines/01-main-shell.png",
   [string]$Model = "",
   [int]$StartupTimeoutMs = 900000,
   [int]$RequestTimeoutMs = 900000,

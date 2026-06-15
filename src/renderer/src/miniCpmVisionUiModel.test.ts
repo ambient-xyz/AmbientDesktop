@@ -85,7 +85,7 @@ function setupResult(status: MiniCpmVisionSetupResult["status"]): MiniCpmVisionS
         status: "active",
         runtime: "llama.cpp llama-server",
         runtimeCacheRoot: ".ambient/vision/minicpm-v/runtime",
-        modelCacheRoots: ["/Users/example/Library/Caches/llama.cpp"],
+        modelCacheRoots: ["/path/to/llama.cpp/cache"],
         modelAssets: ["openbmb/MiniCPM-V-4_5-gguf:q4_k_m"],
         installPlan: ["Use a user-managed llama-server binary."],
         preflight: [

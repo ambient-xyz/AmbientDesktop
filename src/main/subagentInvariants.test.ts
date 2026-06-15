@@ -476,6 +476,16 @@ describe("subagentInvariants", () => {
         runtime: "local_text",
       },
     })).toEqual([]);
+    expect(validateSubagentRunEventAttribution({
+      runId: "child-run",
+      eventType: "subagent.runtime_idle_timeout",
+      preview: {
+        childRunId: "child-run",
+        childThreadId: "child-thread",
+        status: "failed",
+        reason: "runtime_idle_timeout",
+      },
+    })).toEqual([]);
 
     expect(validateSubagentParentMailboxEventAttribution({
       parentRunId: "parent-run",

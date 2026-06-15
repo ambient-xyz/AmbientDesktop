@@ -20,12 +20,14 @@ function main() {
   const packageJson = readJson("package.json");
   const descriptor = readJson(qwenDescriptorPath);
   const assetManifest = readJson(qwenAssetManifestPath);
+  const plan = readText("sttImplementationPlan.md");
 
   auditPackageScripts(packageJson);
   auditQwenProviderDescriptor(descriptor);
   auditQwenAssetManifest(assetManifest);
   auditProductScaffolding();
   auditTestCoverage();
+  auditPlan(plan);
   auditDogfoodCommands(packageJson);
 
   const summary = buildSummary();
@@ -342,6 +344,53 @@ function auditTestCoverage() {
       evidence: missing.length ? missing : [...new Set(item.files.map(([path]) => path))],
     });
   }
+}
+
+function auditPlan(plan) {
+  const requiredPhrases = [
+    "Qwen installer works on macOS and Linux",
+    "Windows validation is complete or Windows is clearly marked pending",
+    "Push-to-talk UI is stable",
+    "`silenceFinalizeSeconds` is configurable and honored",
+    "No-speech gate prevents silence messages",
+    "Utterance queue preserves visible turn order",
+    "Transcription failures are recoverable",
+    "Tests cover fake provider, no-speech, queueing, and settings",
+  ];
+  const missingCriteria = requiredPhrases.filter((phrase) => !plan.includes(phrase));
+  addCheck({
+    id: "plan.ship-criteria",
+    area: "plan",
+    status: missingCriteria.length === 0 ? "pass" : "fail",
+    label: "Phase 12 ship criteria are written in the implementation plan",
+    evidence: missingCriteria.length ? missingCriteria.map((phrase) => `missing: ${phrase}`) : ["sttImplementationPlan.md Phase 12"],
+  });
+  const doNotClaim = [
+    "continuous live captions",
+    "realtime partial transcription",
+    "hidden agent steering",
+    "faster-whisper-level multilingual quality",
+  ];
+  const missingClaims = doNotClaim.filter((phrase) => !plan.includes(phrase));
+  addCheck({
+    id: "plan.do-not-claim",
+    area: "plan",
+    status: missingClaims.length === 0 ? "pass" : "fail",
+    label: "release notes explicitly exclude unsupported STT claims",
+    evidence: missingClaims.length ? missingClaims.map((phrase) => `missing: ${phrase}`) : doNotClaim,
+  });
+  addCheck({
+    id: "plan.platform-evidence",
+    area: "platforms",
+    status:
+      /macos-metal-human-normal-long-20260510/.test(plan) &&
+      /drone-linux-human-normal-long-20260510/.test(plan) &&
+      /drone-linux-cuda-cpu-final-20260510/.test(plan)
+        ? "pass"
+        : "fail",
+    label: "plan records real macOS Metal and Linux CUDA/CPU validation evidence",
+    evidence: ["macos-metal-human-normal-long-20260510", "drone-linux-human-normal-long-20260510", "drone-linux-cuda-cpu-final-20260510"],
+  });
 }
 
 function auditDogfoodCommands(packageJson) {

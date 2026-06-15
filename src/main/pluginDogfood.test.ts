@@ -7186,7 +7186,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V vision through Ambient CLI during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V Ambient CLI dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
     await stat(llamaServer).catch(() => {
       throw new Error(`Set AMBIENT_MINICPM_V_LLAMA_SERVER to a runnable llama-server binary for live MiniCPM-V dogfood. Missing: ${llamaServer}`);
     });
@@ -7208,7 +7208,7 @@ describeNative("Plugin chat dogfood", () => {
     const stateDir = ".ambient/minicpm-v-dogfood-state";
     await cp(join(process.cwd(), "resources", "ambient-cli-packages", "ambient-minicpm-v-vision"), source, { recursive: true, force: true });
     await mkdir(imageDir, { recursive: true });
-    await cp(join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png"), imagePath, { force: true });
+    await cp(join(process.cwd(), "test", "visual-baselines", "01-main-shell.png"), imagePath, { force: true });
 
     const thread = store.createThread("MiniCPM-V Ambient CLI dogfood");
     runtime = new AgentRuntime(
@@ -7338,7 +7338,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V vision through the typed Ambient visual tool during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V typed visual dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
@@ -7352,7 +7352,7 @@ describeNative("Plugin chat dogfood", () => {
     const imagePath = join(imageDir, "ambient-main-shell.png");
     const artifactPath = ".ambient/minicpm-v-dogfood/typed-main-shell-analysis.json";
     await mkdir(imageDir, { recursive: true });
-    await cp(join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png"), imagePath, { force: true });
+    await cp(join(process.cwd(), "test", "visual-baselines", "01-main-shell.png"), imagePath, { force: true });
 
     const thread = store.createThread("MiniCPM-V typed visual dogfood");
     runtime = new AgentRuntime(
@@ -7459,7 +7459,7 @@ describeNative("Plugin chat dogfood", () => {
     const artifactPath = ".ambient/minicpm-v-dogfood/typed-managed-main-shell-analysis.json";
     const validationPath = join(workspacePath, ".ambient", "vision", "minicpm-v", "validation.json");
     await mkdir(imageDir, { recursive: true });
-    await cp(join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png"), imagePath, { force: true });
+    await cp(join(process.cwd(), "test", "visual-baselines", "01-main-shell.png"), imagePath, { force: true });
 
     const thread = store.createThread("MiniCPM-V managed runtime typed visual dogfood");
     runtime = new AgentRuntime(
@@ -7582,7 +7582,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V comparison through structured visual references during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V structured visual dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
@@ -7597,8 +7597,8 @@ describeNative("Plugin chat dogfood", () => {
     const referencePath = join(imageDir, "ambient-project-board.png");
     const artifactPath = ".ambient/minicpm-v-dogfood/typed-comparison-analysis.json";
     await mkdir(imageDir, { recursive: true });
-    await cp(join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png"), currentPath, { force: true });
-    await cp(join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "03-calculator-board.png"), referencePath, { force: true });
+    await cp(join(process.cwd(), "test", "visual-baselines", "01-main-shell.png"), currentPath, { force: true });
+    await cp(join(process.cwd(), "test", "visual-baselines", "01a-project-board.png"), referencePath, { force: true });
 
     const thread = store.createThread("MiniCPM-V structured visual comparison dogfood");
     runtime = new AgentRuntime(
@@ -7674,7 +7674,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V sampled video frames through the typed Ambient visual tool during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V typed video dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
@@ -7688,7 +7688,7 @@ describeNative("Plugin chat dogfood", () => {
     const videoPath = join(videoDir, "ambient-main-shell.mp4");
     const artifactPath = ".ambient/minicpm-v-dogfood/typed-video-frame-analysis.json";
     await mkdir(videoDir, { recursive: true });
-    await renderMiniCpmFixtureVideo(join(process.cwd(), "resources", "welcome-onboarding", "screenshots", "01-main-shell.png"), videoPath);
+    await renderMiniCpmFixtureVideo(join(process.cwd(), "test", "visual-baselines", "01-main-shell.png"), videoPath);
 
     const thread = store.createThread("MiniCPM-V typed video frame dogfood");
     runtime = new AgentRuntime(

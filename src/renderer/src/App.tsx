@@ -794,7 +794,11 @@ import {
   isGoalCompletionMessage,
   messageKindForActivity,
 } from "./AppMessages";
-import { useAppConversationDisplayModel } from "./AppConversationDisplayModel";
+import {
+  pendingSubmittedPromptHasPersistedMatch,
+  useAppConversationDisplayModel,
+  type PendingSubmittedPrompt,
+} from "./AppConversationDisplayModel";
 import { createAppConversationMessagesProps } from "./AppConversationMessagesProps";
 import { useAppChatFindControls } from "./AppChatFindControls";
 import { useAppVoiceThreadControls } from "./AppVoiceThreadControls";
@@ -1207,6 +1211,7 @@ export function App() {
   const promptHistoryRef = useRef<string[]>([]);
   const localDeepResearchModeArmedRef = useRef(false);
   const localRuntimeInventorySettingsRefreshKeyRef = useRef<string | undefined>(undefined);
+  const [pendingSubmittedPrompts, setPendingSubmittedPrompts] = useState<PendingSubmittedPrompt[]>([]);
   const [pendingProjectComposerDraft, setPendingProjectComposerDraft] = useState<{ value: string; nonce: number } | undefined>();
   const [pendingWorkflowRecordingEditContext, setPendingWorkflowRecordingEditContext] = useState<PendingWorkflowRecordingEditContext | undefined>();
   const apiKeyInputRef = useRef<HTMLInputElement>(null);
@@ -2345,15 +2350,33 @@ export function App() {
     visibleChatMessages,
     visibleRunActivityLines,
   } = useAppConversationDisplayModel({
+    activeThreadId: state?.activeThreadId,
     activeRunActivityLines,
     activeWorkspacePath: state?.activeWorkspace.path,
     messages: state?.messages,
+    pendingSubmittedPrompts,
     plannerPlanArtifacts: state?.plannerPlanArtifacts,
     running,
     thinkingDisplayMode,
     workspacePath: state?.workspace.path,
   });
   promptHistoryRef.current = promptHistory;
+
+  useEffect(() => {
+    if (!state) return;
+    const now = Date.now();
+    setPendingSubmittedPrompts((current) => {
+      const next = current.filter((prompt) => {
+        const createdAt = Date.parse(prompt.createdAt);
+        if (Number.isFinite(createdAt) && now - createdAt > 5 * 60 * 1000) return false;
+        if (prompt.threadId !== state.activeThreadId) return true;
+        if (!running && pendingSubmittedPromptHasPersistedMatch(prompt, state.messages)) return false;
+        return true;
+      });
+      return next.length === current.length ? current : next;
+    });
+  }, [running, state]);
+
   const {
     selectedAutomationFolder,
     selectedAutomationThread,
@@ -2771,6 +2794,28 @@ export function App() {
     }
   }
 
+  function registerPendingSubmittedPrompt(input: { threadId: string; content: string; delivery: MessageDelivery }): string | undefined {
+    if (!input.content.trim()) return undefined;
+    const id = `pending-submitted-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const prompt: PendingSubmittedPrompt = {
+      id,
+      threadId: input.threadId,
+      content: input.content,
+      delivery: input.delivery,
+      createdAt: new Date().toISOString(),
+      ...(state?.activeThreadId === input.threadId && state.messages.length > 0
+        ? { afterMessageId: state.messages[state.messages.length - 1]?.id }
+        : {}),
+    };
+    setPendingSubmittedPrompts((current) => [...current, prompt].slice(-10));
+    return id;
+  }
+
+  function removePendingSubmittedPrompt(id: string | undefined): void {
+    if (!id) return;
+    setPendingSubmittedPrompts((current) => current.filter((prompt) => prompt.id !== id));
+  }
+
   const {
     submitComposerDraft,
     submitDraft,
@@ -2783,8 +2828,10 @@ export function App() {
     goalModeArmed,
     localDeepResearchModeArmedRef,
     openAmbientCliSecretDialog,
+    registerPendingSubmittedPrompt,
     pendingWorkflowRecordingEditContext,
     resetPromptHistory,
+    removePendingSubmittedPrompt,
     resetRunActivityLines,
     running,
     setComposerDraft,

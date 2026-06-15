@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
 export const DEFAULT_WORKFLOW_UI_DOGFOOD_SHARED_SNAPSHOT_ROOT =
-  "/Users/example/.ambient-hardening/snapshots/shared-secrets/example-shared-secrets-snapshot";
+  "/path/to/ambient-hardening/snapshots/shared-secrets";
 const DEFAULT_WORKFLOW_UI_DOGFOOD_SHARED_SNAPSHOT_NAME = basename(DEFAULT_WORKFLOW_UI_DOGFOOD_SHARED_SNAPSHOT_ROOT);
 const WORKFLOW_UI_DOGFOOD_SNAPSHOT_ROOT_ENV_VARS = [
   "AMBIENT_WORKFLOW_UI_DOGFOOD_SNAPSHOT_ROOT",

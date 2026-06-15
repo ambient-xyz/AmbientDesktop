@@ -45,7 +45,11 @@ pnpm install
 pnpm run dev
 ```
 
-Provider-dependent validation requires local credentials. Keep API keys in ignored local files or environment variables; never paste them into chat, commits, logs, issues, or artifacts.
+During the temporary Ambient provider outage, contributors who need provider-dependent local validation should use the GMI Cloud override documented in `Agents.md`:
+
+```bash
+pnpm run dev:gmi-cloud
+```
 
 Build packaged artifacts on the target platform:
 
@@ -59,8 +63,11 @@ Common validation commands:
 
 ```bash
 pnpm run typecheck
-pnpm run validate:curated-marketplace
+pnpm run docs:build
+pnpm run docs:check
 ```
+
+Many live tests intentionally call real providers and may require local credentials. Do not paste API keys into chat, commits, logs, issues, or artifacts.
 
 ## Repository Hygiene
 

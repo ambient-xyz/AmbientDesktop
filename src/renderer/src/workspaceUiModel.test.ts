@@ -19,8 +19,8 @@ describe("isPreparedLocalTaskWorkspace", () => {
   it("matches orchestration prepared local task workspaces", () => {
     expect(
       isPreparedLocalTaskWorkspace(
-        "/Users/example/Documents/project",
-        "/Users/example/Documents/project/.ambient-codex/orchestration/workspaces/task-123",
+        "/path/to/project",
+        "/path/to/project/.ambient-codex/orchestration/workspaces/task-123",
       ),
     ).toBe(true);
   });
@@ -28,18 +28,18 @@ describe("isPreparedLocalTaskWorkspace", () => {
   it("does not match ordinary thread git worktrees", () => {
     expect(
       isPreparedLocalTaskWorkspace(
-        "/Users/example/Documents/alexDemo",
-        "/Users/example/Documents/alexDemo/.ambient-codex/worktrees/77bbe97a-01ff-40e9-bf1b-1c5e0c41a731",
+        "/path/to/project",
+        "/path/to/project/.ambient-codex/worktrees/77bbe97a-01ff-40e9-bf1b-1c5e0c41a731",
       ),
     ).toBe(false);
   });
 
   it("does not match the project root or sibling paths with a similar prefix", () => {
-    expect(isPreparedLocalTaskWorkspace("/Users/example/Documents/project", "/Users/example/Documents/project")).toBe(false);
+    expect(isPreparedLocalTaskWorkspace("/path/to/project", "/path/to/project")).toBe(false);
     expect(
       isPreparedLocalTaskWorkspace(
-        "/Users/example/Documents/project",
-        "/Users/example/Documents/project-copy/.ambient-codex/orchestration/workspaces/task-123",
+        "/path/to/project",
+        "/path/to/project-copy/.ambient-codex/orchestration/workspaces/task-123",
       ),
     ).toBe(false);
   });

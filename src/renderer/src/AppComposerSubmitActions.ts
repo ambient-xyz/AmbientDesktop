@@ -81,8 +81,10 @@ export function createAppComposerSubmitActions({
   goalModeArmed,
   localDeepResearchModeArmedRef,
   openAmbientCliSecretDialog,
+  registerPendingSubmittedPrompt,
   pendingWorkflowRecordingEditContext,
   resetPromptHistory,
+  removePendingSubmittedPrompt,
   resetRunActivityLines,
   running,
   setComposerDraft,
@@ -108,8 +110,10 @@ export function createAppComposerSubmitActions({
   goalModeArmed: boolean;
   localDeepResearchModeArmedRef: MutableRefObject<boolean>;
   openAmbientCliSecretDialog: (input: { packageName?: string; envName?: string }) => void;
+  registerPendingSubmittedPrompt: (input: { threadId: string; content: string; delivery: MessageDelivery }) => string | undefined;
   pendingWorkflowRecordingEditContext: PendingWorkflowRecordingEditContext | undefined;
   resetPromptHistory: () => void;
+  removePendingSubmittedPrompt: (id: string | undefined) => void;
   resetRunActivityLines: (initialText?: string, threadId?: string) => void;
   running: boolean;
   setComposerDraft: (value: string, options?: { focusEnd?: boolean }) => void;
@@ -240,6 +244,11 @@ export function createAppComposerSubmitActions({
         });
       return;
     }
+    const pendingSubmittedPromptId = registerPendingSubmittedPrompt({
+      threadId: state.activeThreadId,
+      content,
+      delivery,
+    });
     setComposerDraft("");
     setSttDraftMetadata(undefined);
     setPendingWorkflowRecordingEditContext(undefined);
@@ -274,6 +283,7 @@ export function createAppComposerSubmitActions({
       })
       .catch((err) => {
         setError(errorMessage(err));
+        removePendingSubmittedPrompt(pendingSubmittedPromptId);
         restoreSubmittedDraftIfComposerEmpty(draft);
         if (workflowRecordingEditContext) setPendingWorkflowRecordingEditContext(workflowRecordingEditContext);
         setContextAttachments((current) => mergeContextAttachments(context, current));

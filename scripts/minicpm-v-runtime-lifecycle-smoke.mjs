@@ -7,7 +7,7 @@ import { constants } from "node:fs";
 import { arch, cpus, freemem, platform, release, totalmem } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
-const DEFAULT_IMAGE = "resources/welcome-onboarding/screenshots/01-main-shell.png";
+const DEFAULT_IMAGE = "test/visual-baselines/01-main-shell.png";
 const DEFAULT_PACKAGE_SCRIPT = "resources/ambient-cli-packages/ambient-minicpm-v-vision/scripts/run.mjs";
 const DEFAULT_OUTPUT_DIR = "test-results/minicpm-v/runtime-lifecycle-smoke";
 

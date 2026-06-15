@@ -2091,7 +2091,7 @@ function ensureAmbientApiKeyEnv(): void {
     join(dirname(repoRoot()), "ambient_api_key.txt"),
     join(dirname(dirname(repoRoot())), "ambient_api_key.txt"),
     join(homedir(), "ambient_api_key.txt"),
-    "/Users/example/Documents/AmbientDesktop/ambient_api_key.txt",
+    "/path/to/AmbientDesktop/ambient_api_key.txt",
   ].find((filePath): filePath is string => Boolean(filePath && existsSync(filePath)));
   if (!keyFile) {
     throw new Error("Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ambient_api_key.txt near the repo.");

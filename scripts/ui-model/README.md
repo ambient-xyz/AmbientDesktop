@@ -68,7 +68,7 @@ The report server binds only to `127.0.0.1`, serves files only from the configur
 
 Reports include a Finding Groups table whenever violations are present. Groups combine repeated findings by surface, component, rule type, gate, and impact so shared component regressions are visible before drilling into individual selectors. Reports also include an Annotation Inventory table for explicit UI-model contracts such as intentional truncation, compressed controls, alignment groups, scroll containers, and overflow intent. The inventory is diagnostic context; it does not create blanket allowlists.
 
-Use this harness as the local layout and accessibility preflight before relying on screenshot review.
+See `docs/headless-ui-qa-handoff.md` for the handoff brief and `adoptMaxUIFixSuggestions.md` for the staged plan to expand this into the broader headless UI QA suite.
 
 The default UI-model workspace is `test-results/ui-model-fixture/workspace`, not the repo root. Set `AMBIENT_UI_MODEL_WORKSPACE=/path/to/workspace` only when a scenario intentionally needs a real workspace state.
 
