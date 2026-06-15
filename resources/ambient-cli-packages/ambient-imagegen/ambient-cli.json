@@ -1,0 +1,59 @@
+{
+  "name": "ambient-imagegen",
+  "version": "0.1.0",
+  "description": "Thin Ambient adapter for hosted image-generation APIs that writes image artifacts into the workspace.",
+  "skills": "./SKILL.md",
+  "env": [
+    {
+      "name": "OPENAI_API_KEY",
+      "description": "OpenAI API key for GPT Image generation.",
+      "required": false
+    },
+    {
+      "name": "GEMINI_API_KEY",
+      "description": "Google Gemini API key for Nano Banana image models.",
+      "required": false
+    },
+    {
+      "name": "GOOGLE_API_KEY",
+      "description": "Alternate Google API key env name for Gemini/Nano Banana image models.",
+      "required": false
+    },
+    {
+      "name": "FAL_KEY",
+      "description": "fal API key for hosted image models including FLUX routes.",
+      "required": false
+    },
+    {
+      "name": "REPLICATE_API_TOKEN",
+      "description": "Replicate API token for hosted image model predictions.",
+      "required": false
+    },
+    {
+      "name": "STABILITY_API_KEY",
+      "description": "Stability AI API key for Stable Image / Stable Diffusion hosted generation.",
+      "required": false
+    },
+    {
+      "name": "IDEOGRAM_API_KEY",
+      "description": "Ideogram API key for Ideogram hosted image generation.",
+      "required": false
+    }
+  ],
+  "commands": {
+    "hosted_image_doctor": {
+      "description": "List supported hosted image providers, required secret env names, defaults, and configured-secret presence without calling provider APIs.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "doctor"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--json"]
+    },
+    "hosted_image_generate": {
+      "description": "Generate one hosted image from a prompt, store the image plus metadata in the workspace, and print bounded JSON.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "generate"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--json"]
+    }
+  }
+}

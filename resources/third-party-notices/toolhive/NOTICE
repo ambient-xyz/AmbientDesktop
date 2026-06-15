@@ -1,0 +1,16 @@
+ToolHive
+Copyright ToolHive contributors.
+
+Ambient Desktop bundles the ToolHive thv command-line binary from:
+https://github.com/stacklok/toolhive
+
+Bundled release: v0.28.2
+Bundled assets:
+- toolhive_0.28.2_darwin_arm64.tar.gz
+  Archive SHA-256: e5f4d084fafb353fc7c376ea8e90ea16464957c410a1825f251387b0b6c50a78
+- toolhive_0.28.2_linux_amd64.tar.gz
+  Archive SHA-256: 208bb2fb1ab3870a248b3ab8814849c47eac5d08c023c50a1f8a6c2ba54993cb
+- toolhive_0.28.2_windows_amd64.zip
+  Archive SHA-256: 4f60f8ee17823d24566420c545fc8abf02410686b4cd18cd8feedb17a4349a2c
+
+ToolHive is licensed under the Apache License, Version 2.0. The license text is included next to this notice.

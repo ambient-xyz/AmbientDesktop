@@ -1,0 +1,40 @@
+import { readFileSync } from "node:fs";
+
+export const SUBAGENT_LIVE_EVIDENCE_LANES_SCHEMA_VERSION = "ambient-subagent-live-evidence-lanes-v1";
+
+const laneData = JSON.parse(readFileSync(new URL("../src/shared/subagentLiveEvidenceLanes.json", import.meta.url), "utf8"));
+
+export const SUBAGENT_LIVE_EVIDENCE_LANES = Object.freeze((Array.isArray(laneData.lanes) ? laneData.lanes : []).map((lane) => Object.freeze({
+  field: lane.field,
+  label: lane.label,
+})));
+
+export const SUBAGENT_LIVE_EVIDENCE_LABELS = Object.freeze(SUBAGENT_LIVE_EVIDENCE_LANES.map((lane) => lane.label));
+
+export const SUBAGENT_LIVE_EVIDENCE_DECISIONS = Object.freeze(SUBAGENT_LIVE_EVIDENCE_LANES.map((lane) => Object.freeze([
+  lane.field,
+  lane.label,
+])));
+
+export function validateSubagentLiveEvidenceLaneDefinitions(lanes = SUBAGENT_LIVE_EVIDENCE_LANES) {
+  const issues = [];
+  if (laneData.schemaVersion !== SUBAGENT_LIVE_EVIDENCE_LANES_SCHEMA_VERSION) {
+    issues.push(`Live evidence lane schema is ${laneData.schemaVersion ?? "missing"}.`);
+  }
+  if (!lanes.length) issues.push("At least one live evidence lane is required.");
+  const fieldCounts = new Map();
+  const labelCounts = new Map();
+  for (const lane of lanes) {
+    if (!lane.field) issues.push("Live evidence lane field is missing.");
+    if (!lane.label) issues.push("Live evidence lane label is missing.");
+    fieldCounts.set(lane.field, (fieldCounts.get(lane.field) ?? 0) + 1);
+    labelCounts.set(lane.label, (labelCounts.get(lane.label) ?? 0) + 1);
+  }
+  for (const [field, count] of fieldCounts) {
+    if (field && count > 1) issues.push(`Live evidence lane field ${field} is duplicated.`);
+  }
+  for (const [label, count] of labelCounts) {
+    if (label && count > 1) issues.push(`Live evidence lane label ${label} is duplicated.`);
+  }
+  return issues;
+}

@@ -1,0 +1,27 @@
+{
+  "description": "Tiny public human-speech smoke corpus for the STT spike. These are benchmark fixtures, not product assets.",
+  "samples": [
+    {
+      "id": "hf-asr-dummy-1-en",
+      "url": "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/8d141c84e3f84c54cd7bbaa851d24edd0f559734/1.flac",
+      "extension": ".flac",
+      "language": "English",
+      "description": "Short English human speech fixture from the Hugging Face Narsil/asr_dummy dataset.",
+      "expectedSizeBytes": 183318,
+      "sha256": "30885601173f96b0d8ddd020dc959b055c6c1582b85a33e3fcab8c4b08ed94c2",
+      "normalize": true,
+      "license": "Dataset repository does not declare a license in Hub metadata; use for local spike smoke testing only."
+    },
+    {
+      "id": "hf-asr-dummy-hindi",
+      "url": "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/8d141c84e3f84c54cd7bbaa851d24edd0f559734/hindi.ogg",
+      "extension": ".ogg",
+      "language": "Hindi",
+      "description": "Short Hindi human speech fixture from the Hugging Face Narsil/asr_dummy dataset.",
+      "expectedSizeBytes": 9704,
+      "sha256": "c0f8f865c82676e4cfaa30061e0db20a85d6581fca84d4884696e77e319f5e6e",
+      "normalize": true,
+      "license": "Dataset repository does not declare a license in Hub metadata; use for local spike smoke testing only."
+    }
+  ]
+}

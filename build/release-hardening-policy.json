@@ -1,0 +1,35 @@
+{
+  "updateFeeds": {
+    "productionBaseUrl": "https://updates.ambient.xyz/desktop",
+    "allowedProductionChannels": ["stable", "beta"],
+    "packagedRuntimeEnvOverrides": "disabled",
+    "publishRequiresExplicitTarget": true,
+    "publishManifests": ["release.json", "SHA256SUMS"]
+  },
+  "signing": {
+    "releaseRequiresSignedNotarizedArtifacts": true,
+    "localUnsignedBuilds": "allowed-before-release-cut",
+    "owner": "Desktop Release",
+    "reviewBy": "2026-08-31"
+  },
+  "macEntitlements": {
+    "com.apple.security.cs.allow-jit": {
+      "allowed": true,
+      "owner": "Desktop Runtime",
+      "reviewBy": "2026-08-31",
+      "rationale": "Electron's Chromium/V8 runtime requires JIT for normal renderer and preload execution under the hardened runtime."
+    },
+    "com.apple.security.cs.allow-unsigned-executable-memory": {
+      "allowed": true,
+      "owner": "Desktop Runtime",
+      "reviewBy": "2026-08-31",
+      "rationale": "Electron and native Node modules can require unsigned executable memory during runtime initialization; removal must be validated against packaged smoke coverage."
+    },
+    "com.apple.security.cs.disable-library-validation": {
+      "allowed": true,
+      "owner": "Desktop Runtime",
+      "reviewBy": "2026-08-31",
+      "rationale": "Packaged native modules such as better-sqlite3 and node-pty are loaded from app resources; this remains allowed until a signed helper or stricter native-module packaging path replaces it."
+    }
+  }
+}

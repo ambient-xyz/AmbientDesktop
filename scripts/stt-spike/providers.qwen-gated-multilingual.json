@@ -1,0 +1,34 @@
+{
+  "providers": [
+    {
+      "id": "qwen3-asr-0.6b-forced-language-gated",
+      "label": "Qwen3-ASR 0.6B GGUF forced language + no-speech gate",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "The audio language is {language}. Transcribe the speech in {language}. Do not translate. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "512",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0",
+      "noSpeechGate": {
+        "type": "rms-dbfs",
+        "action": "skip",
+        "thresholdDbfs": -55,
+        "sampleRate": 16000
+      },
+      "notes": "Product-boundary candidate: classify no-speech before invoking Qwen, then use the simpler forced-language prompt only for speech."
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+import type {
+  ChatMessage,
+  CollaborationMode,
+  MessageVoiceState,
+  PermissionMode,
+  SubagentRunStatus,
+  ThinkingLevel,
+  ThreadKind,
+  ThreadSummary,
+  ThreadWorktreeSummary,
+  WorkspaceSearchResult,
+  WorkspaceSearchScope,
+  WorkflowRecordingState,
+} from "../shared/types";
+import { normalizeAmbientModelId } from "../shared/ambientModels";
+import { formatThreadPreview } from "./threadPreview";
+
+export interface ThreadRow {
+  id: string;
+  title: string;
+  workspace_path: string;
+  kind: ThreadKind;
+  parent_thread_id: string | null;
+  parent_message_id: string | null;
+  parent_run_id: string | null;
+  subagent_run_id: string | null;
+  canonical_task_path: string | null;
+  child_order: number | null;
+  collapsed_by_default: number | null;
+  child_status: SubagentRunStatus | null;
+  created_at: string;
+  updated_at: string;
+  last_read_at: string | null;
+  last_message_preview: string;
+  permission_mode: PermissionMode;
+  collaboration_mode: CollaborationMode;
+  model: string;
+  thinking_level: ThinkingLevel;
+  memory_enabled?: number | null;
+  pi_session_file: string | null;
+  archived_at: string | null;
+  pinned: number | null;
+  workflow_recording_json: string | null;
+}
+
+export interface MessageRow {
+  id: string;
+  thread_id: string;
+  role: ChatMessage["role"];
+  content: string;
+  created_at: string;
+  metadata_json: string | null;
+}
+
+export interface SearchThreadRow {
+  id: string;
+  title: string;
+  last_message_preview: string;
+  updated_at: string;
+}
+
+export interface SearchMessageRow {
+  id: string;
+  thread_id: string;
+  role: ChatMessage["role"];
+  content: string;
+  created_at: string;
+  thread_title: string;
+}
+
+export interface ThreadWorktreeRow {
+  thread_id: string;
+  project_root: string;
+  worktree_path: string;
+  branch_name: string;
+  base_ref: string | null;
+  upstream: string | null;
+  worktree_status: ThreadWorktreeSummary["status"];
+  created_at: string;
+  updated_at: string;
+  last_checkpoint_id: string | null;
+  error: string | null;
+}
+
+export interface MessageVoiceStateRow {
+  message_id: string;
+  thread_id: string;
+  status: MessageVoiceState["status"];
+  source: MessageVoiceState["source"];
+  source_message_id: string;
+  provider_capability_id: string | null;
+  provider_id: string | null;
+  voice_id: string | null;
+  spoken_text: string | null;
+  spoken_text_chars: number;
+  source_text_chars: number;
+  audio_path: string | null;
+  last_audio_path: string | null;
+  media_url: string | null;
+  mime_type: string | null;
+  duration_ms: number | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function mapThreadRow(row: ThreadRow, options: { gitWorktree?: ThreadWorktreeSummary } = {}): ThreadSummary {
+  return {
+    id: row.id,
+    title: row.title,
+    workspacePath: row.workspace_path,
+    kind: row.kind === "subagent_child" ? "subagent_child" : "chat",
+    parentThreadId: row.parent_thread_id ?? undefined,
+    parentMessageId: row.parent_message_id ?? undefined,
+    parentRunId: row.parent_run_id ?? undefined,
+    subagentRunId: row.subagent_run_id ?? undefined,
+    canonicalTaskPath: row.canonical_task_path ?? undefined,
+    childOrder: row.child_order ?? undefined,
+    collapsedByDefault: Boolean(row.collapsed_by_default),
+    childStatus: row.child_status ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at ?? undefined,
+    lastReadAt: row.last_read_at ?? undefined,
+    lastMessagePreview: row.last_message_preview,
+    permissionMode: row.permission_mode,
+    collaborationMode: row.collaboration_mode === "planner" ? "planner" : "agent",
+    model: normalizeAmbientModelId(row.model),
+    thinkingLevel: row.thinking_level,
+    memoryEnabled: Boolean(row.memory_enabled),
+    piSessionFile: row.pi_session_file ?? undefined,
+    gitWorktree: options.gitWorktree,
+    pinned: Boolean(row.pinned),
+    workflowRecording: row.workflow_recording_json
+      ? parseJsonObject<WorkflowRecordingState | undefined>(row.workflow_recording_json, undefined)
+      : undefined,
+  };
+}
+
+export function mapWorkspaceSearchThreadRow(
+  row: SearchThreadRow,
+  input: { workspacePath: string; projectName: string; scope: Exclude<WorkspaceSearchScope, "all-projects"> },
+): WorkspaceSearchResult {
+  return {
+    id: `thread:${row.id}`,
+    kind: "thread",
+    threadId: row.id,
+    workspacePath: input.workspacePath,
+    projectName: input.projectName,
+    title: row.title,
+    excerpt: row.last_message_preview,
+    createdAt: row.updated_at,
+    scope: input.scope,
+  };
+}
+
+export function mapWorkspaceSearchMessageRow(
+  row: SearchMessageRow,
+  input: { workspacePath: string; projectName: string; scope: Exclude<WorkspaceSearchScope, "all-projects"> },
+): WorkspaceSearchResult {
+  return {
+    id: `message:${row.id}`,
+    kind: "message",
+    threadId: row.thread_id,
+    workspacePath: input.workspacePath,
+    projectName: input.projectName,
+    title: row.thread_title,
+    excerpt: formatThreadPreview(row.content),
+    createdAt: row.created_at,
+    role: row.role,
+    scope: input.scope,
+  };
+}
+
+export function mapThreadWorktreeRow(row: ThreadWorktreeRow): ThreadWorktreeSummary {
+  return {
+    threadId: row.thread_id,
+    projectRoot: row.project_root,
+    worktreePath: row.worktree_path,
+    branchName: row.branch_name,
+    baseRef: row.base_ref ?? undefined,
+    upstream: row.upstream ?? undefined,
+    status: row.worktree_status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    lastCheckpointId: row.last_checkpoint_id ?? undefined,
+    error: row.error ?? undefined,
+  };
+}
+
+export function mapMessageRow(row: MessageRow): ChatMessage {
+  return {
+    id: row.id,
+    threadId: row.thread_id,
+    role: row.role,
+    content: row.content,
+    createdAt: row.created_at,
+    metadata: row.metadata_json ? parseMetadata(row.metadata_json) : undefined,
+  };
+}
+
+export function mapMessageVoiceStateRow(row: MessageVoiceStateRow): MessageVoiceState {
+  return {
+    messageId: row.message_id,
+    threadId: row.thread_id,
+    status: row.status,
+    source: row.source,
+    sourceMessageId: row.source_message_id,
+    providerCapabilityId: row.provider_capability_id ?? undefined,
+    providerId: row.provider_id ?? undefined,
+    voiceId: row.voice_id ?? undefined,
+    spokenText: row.spoken_text ?? undefined,
+    spokenTextChars: row.spoken_text_chars,
+    sourceTextChars: row.source_text_chars,
+    audioPath: row.audio_path ?? undefined,
+    lastAudioPath: row.last_audio_path ?? undefined,
+    mediaUrl: row.media_url ?? undefined,
+    mimeType: row.mime_type ?? undefined,
+    durationMs: row.duration_ms ?? undefined,
+    error: row.error ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function parseMetadata(metadataJson: string | null): Record<string, unknown> {
+  if (!metadataJson) return {};
+  try {
+    return JSON.parse(metadataJson) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function parseJsonObject<T>(json: string, fallback: T): T {
+  try {
+    const parsed = JSON.parse(json);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}

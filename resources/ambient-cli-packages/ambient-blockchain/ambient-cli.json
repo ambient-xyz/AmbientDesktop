@@ -1,0 +1,248 @@
+{
+  "name": "ambient-blockchain",
+  "version": "0.1.16",
+  "description": "Ambient adapter for safe Ambient Blockchain observation, Tool Oracle/x402 planning, program workbench readiness, and local live-test evidence.",
+  "skills": "./SKILL.md",
+  "env": [
+    {
+      "name": "AMBIENT_BLOCKCHAIN_RPC_URL",
+      "description": "Optional Ambient RPC override. Defaults to https://rpc.ambient.xyz.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_BLOCKCHAIN_WS_URL",
+      "description": "Optional Ambient websocket override for future oracle/program observation lanes.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_BLOCKCHAIN_KEYPAIR_FILE",
+      "description": "Optional local signer keypair file. The current bundled commands only report whether it is configured; funded execution remains approval-gated.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_X402_KEYPAIR_FILE",
+      "description": "Optional x402 signer keypair file for approved payment lanes. Never expose key material in chat or artifacts.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_BLOCKCHAIN_MAX_LAMPORTS",
+      "description": "Optional per-operation lamport cap used by planning and future funded lanes.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_X402_MAX_MICRO_USDC",
+      "description": "Optional x402 payment cap in micro-USDC used by quote planning and approved paid request execution.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_X402_PAYMENT_HEADER_FILE",
+      "description": "Optional workspace-local file containing a one-use x402 payment header for approved paid request execution. The header value is never printed or written to artifacts.",
+      "required": false
+    }
+  ],
+  "commands": {
+    "ambient_chain_doctor": {
+      "description": "Report deterministic package readiness, pinned Ambient contracts, configured env booleans, and optional live read-only RPC reachability.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "doctor"],
+      "cwd": "package",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_chain_rpc": {
+      "description": "Call an allowlisted read-only Solana-compatible Ambient JSON-RPC method and materialize the full response as evidence.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "rpc"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_chain_account": {
+      "description": "Fetch balance and account metadata for an Ambient address through read-only RPC, with full response artifacting.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "account"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_chain_transaction": {
+      "description": "Fetch a transaction by signature with log summary, or list recent signatures for an address, through read-only RPC.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "transaction"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_chain_program_observe": {
+      "description": "Observe program accounts through read-only getProgramAccounts with bounded data slices, filters, summaries, and full artifacts.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-observe"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_keypair_status": {
+      "description": "Validate configured chain/x402 keypair bindings without printing paths, private key bytes, or secret values.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "keypair-status"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_approval_verify": {
+      "description": "Verify a plan artifact approval digest, caps, and optional signer binding before any submit/payment/deploy/upgrade/authority command may run.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "approval-verify"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_auction_inspect": {
+      "description": "Inspect pinned Auction/Tool Oracle contract metadata and optionally verify one account owner through read-only RPC.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "auction-inspect"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_oracle_request_plan": {
+      "description": "Create a non-mutating funded Tool Oracle request plan with caps, prompt hash, signer requirements, and evidence artifact.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "oracle-plan"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_oracle_request_submit": {
+      "description": "Submit an approved Tool Oracle request through an explicit oracle client command template, with cap replay, signer binding checks, and redacted evidence.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "oracle-submit"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_oracle_request_wait": {
+      "description": "Poll a Tool Oracle request account through read-only RPC, preserving each observation and decoded terminal-state evidence.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "oracle-wait"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_oracle_response_decode": {
+      "description": "Decode preserved Tool Oracle account data from a wait/account artifact or base64 payload into bounded response evidence.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "oracle-decode"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_oracle_reclaim_plan": {
+      "description": "Create a non-mutating cleanup plan for reclaiming lamports from a completed or failed Tool Oracle request account.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "oracle-reclaim-plan"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_oracle_reclaim_execute": {
+      "description": "Execute an approved Tool Oracle reclaim through an explicit oracle client command template, with signer binding and redacted cleanup evidence.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "oracle-reclaim-execute"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_x402_quote": {
+      "description": "Prepare or optionally probe an x402 quote request without submitting payment; funded x402 execution remains separately gated.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "x402-quote"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_x402_request_execute": {
+      "description": "Execute an approved x402 paid HTTP request using a one-use payment header file, with cap replay, signer binding checks, receipt capture, and secret redaction.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "x402-request-execute"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_doctor": {
+      "description": "Check local Solana/Anchor/Rust program toolchain readiness without installing dependencies or deploying anything.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-doctor"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_scaffold": {
+      "description": "Scaffold a local Ambient program workbench project from native Rust, Anchor, Tool Oracle client, or Auction CPI templates.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-scaffold"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_build": {
+      "description": "Run cargo build for a local Ambient program project and preserve full stdout/stderr in an evidence artifact.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-build"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_test": {
+      "description": "Run cargo test for a local Ambient program project and preserve full stdout/stderr in an evidence artifact.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-test"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_deploy_plan": {
+      "description": "Hash a local program artifact and produce a non-mutating Ambient deployment plan with signer and lamport gates.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-deploy-plan"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_deploy_execute": {
+      "description": "Execute an approved Solana CLI program deploy after approval verification; writes full logs and redacted evidence.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-deploy-execute"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_upgrade_plan": {
+      "description": "Hash a local program artifact and produce a non-mutating upgrade plan for an existing Ambient program id.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-upgrade-plan"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_upgrade_execute": {
+      "description": "Execute an approved Solana CLI program upgrade after approval verification, binary hash replay, and signer binding checks.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-upgrade-execute"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_authority_plan": {
+      "description": "Produce a non-mutating upgrade-authority change plan for an Ambient program, including final authority removal plans.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-authority-plan"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_program_authority_execute": {
+      "description": "Execute an approved Solana CLI program upgrade-authority change with approval, cap, and signer replay checks.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "program-authority-execute"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_local_validator_gate": {
+      "description": "Check or opt-in run a bounded local solana-test-validator lifecycle with full logs, skip/setup evidence, and redacted ledger paths.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "validator-gate"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_desktop_pi_dogfood": {
+      "description": "Run deterministic Desktop/Pi discovery dogfood against the bundled Ambient Blockchain package without network, secrets, signing, or spend.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "desktop-pi-dogfood"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_blockchain_live_gate": {
+      "description": "Run the local Ambient Blockchain release gate, including optional Desktop/Pi dogfood, live read, Tool Oracle plan/funded lifecycle evidence, x402 quote/paid request evidence, program workbench lifecycle/deploy evidence, and local-validator lanes.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "live-gate"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    }
+  }
+}

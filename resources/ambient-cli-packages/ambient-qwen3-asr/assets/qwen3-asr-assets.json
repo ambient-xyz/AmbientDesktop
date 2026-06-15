@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "ambient-stt-qwen3-asr-assets-v1",
+  "provider": "qwen3-asr",
+  "packageName": "ambient-qwen3-asr",
+  "version": "2026-05-10.1",
+  "source": {
+    "verifiedAt": "2026-05-10T00:00:00.000Z",
+    "huggingFaceApi": "https://huggingface.co/api/models/ggml-org/Qwen3-ASR-0.6B-GGUF?blobs=true"
+  },
+  "downloadPolicy": {
+    "directModelDownloadsEnabled": true,
+    "directModelDownloadsRequireSha256": true,
+    "directRuntimeDownloadsEnabled": false,
+    "directRuntimeDownloadsRequireSha256": true
+  },
+  "models": [
+    {
+      "id": "qwen3-asr-0.6b-q8_0",
+      "default": true,
+      "label": "Qwen3-ASR 0.6B Q8_0",
+      "huggingFace": {
+        "repo": "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "revision": "928ab958557df9aa2ef1c93e0e83c7ad0933fae2",
+        "legacyRef": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0"
+      },
+      "files": [
+        {
+          "role": "model",
+          "filename": "Qwen3-ASR-0.6B-Q8_0.gguf",
+          "sizeBytes": 804749248,
+          "sha256": "bca259818b50ca7c4c05e9bdb35a5dc04fa039653a6d6f3f0f331f96f6aa1971",
+          "url": "https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/928ab958557df9aa2ef1c93e0e83c7ad0933fae2/Qwen3-ASR-0.6B-Q8_0.gguf"
+        },
+        {
+          "role": "mmproj",
+          "filename": "mmproj-Qwen3-ASR-0.6B-Q8_0.gguf",
+          "sizeBytes": 214392480,
+          "sha256": "41a342b5e4c514e968cb756de6cd1b7be39eff43c44c57a2ef5fc6522e36603d",
+          "url": "https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/928ab958557df9aa2ef1c93e0e83c7ad0933fae2/mmproj-Qwen3-ASR-0.6B-Q8_0.gguf"
+        }
+      ]
+    },
+    {
+      "id": "qwen3-asr-0.6b-bf16",
+      "default": false,
+      "label": "Qwen3-ASR 0.6B bf16",
+      "huggingFace": {
+        "repo": "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "revision": "928ab958557df9aa2ef1c93e0e83c7ad0933fae2",
+        "legacyRef": "ggml-org/Qwen3-ASR-0.6B-GGUF:bf16"
+      },
+      "files": [
+        {
+          "role": "model",
+          "filename": "Qwen3-ASR-0.6B-bf16.gguf",
+          "sizeBytes": 1509343168,
+          "sha256": "12b2894d9a7c98cd8f26670f5a47ab738f42bcc98df21e109be493870c71ba50",
+          "url": "https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/928ab958557df9aa2ef1c93e0e83c7ad0933fae2/Qwen3-ASR-0.6B-bf16.gguf"
+        },
+        {
+          "role": "mmproj",
+          "filename": "mmproj-Qwen3-ASR-0.6B-bf16.gguf",
+          "sizeBytes": 378575520,
+          "sha256": "dae36c855f9a82a8916bea2238b24bda69a39d8da8b2f46dee7c103775656039",
+          "url": "https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/928ab958557df9aa2ef1c93e0e83c7ad0933fae2/mmproj-Qwen3-ASR-0.6B-bf16.gguf"
+        }
+      ]
+    }
+  ],
+  "runtimeLanes": [
+    {
+      "id": "macos-arm64-metal",
+      "platform": "darwin",
+      "arch": "arm64",
+      "manager": "homebrew",
+      "packageName": "llama.cpp",
+      "binaryName": "llama-mtmd-cli",
+      "directDownload": {
+        "enabled": false,
+        "reason": "Use Homebrew or an explicitly bound local runtime until first-party runtime archives are checksum-pinned per platform."
+      }
+    },
+    {
+      "id": "linux-x64-nvidia-cuda",
+      "platform": "linux",
+      "arch": "x64",
+      "accelerator": "nvidia-cuda",
+      "binaryName": "llama-mtmd-cli",
+      "directDownload": {
+        "enabled": false,
+        "reason": "Linux CUDA runtime archive selection remains validation-only until a checksum-pinned binary source is approved."
+      }
+    },
+    {
+      "id": "windows-x64-unvalidated",
+      "platform": "win32",
+      "arch": "x64",
+      "binaryName": "llama-mtmd-cli.exe",
+      "directDownload": {
+        "enabled": false,
+        "reason": "Windows is explicitly pending real-machine validation and checksum-pinned runtime archives."
+      }
+    }
+  ]
+}

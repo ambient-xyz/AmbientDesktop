@@ -1,0 +1,148 @@
+{
+  "providers": [
+    {
+      "id": "qwen3-asr-0.6b-auto",
+      "label": "Qwen3-ASR 0.6B GGUF auto prompt",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "Transcribe the audio. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "256",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0",
+      "notes": "Baseline prompt used in the public smoke benchmark."
+    },
+    {
+      "id": "qwen3-asr-0.6b-force-hindi",
+      "label": "Qwen3-ASR 0.6B GGUF forced Hindi prompt",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "The audio language is Hindi. Transcribe the speech in Hindi. Do not translate. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "256",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0",
+      "notes": "Tests whether a normal English instruction can steer the GGUF/llama.cpp route toward Hindi."
+    },
+    {
+      "id": "qwen3-asr-0.6b-devanagari",
+      "label": "Qwen3-ASR 0.6B GGUF Devanagari prompt",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "The audio language is Hindi. Transcribe the speech in Devanagari Hindi. Do not translate into another language. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "256",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0",
+      "notes": "Tests whether asking for the target script affects the detected language or transcript."
+    },
+    {
+      "id": "qwen3-asr-0.6b-hindi-instruction",
+      "label": "Qwen3-ASR 0.6B GGUF Hindi instruction prompt",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "इस ऑडियो को हिंदी में लिखें। केवल प्रतिलेख लौटाएँ।",
+        "-t",
+        "{threads}",
+        "-n",
+        "256",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0",
+      "notes": "Tests whether a native Hindi instruction helps the model/runtime follow the intended language."
+    },
+    {
+      "id": "qwen3-asr-1.7b-auto",
+      "label": "Qwen3-ASR 1.7B GGUF auto prompt",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-1.7B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "Transcribe the audio. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "512",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-1.7B-GGUF:Q8_0",
+      "notes": "Larger-model control for the same Hindi fixture."
+    },
+    {
+      "id": "qwen3-asr-1.7b-force-hindi",
+      "label": "Qwen3-ASR 1.7B GGUF forced Hindi prompt",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-1.7B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "The audio language is Hindi. Transcribe the speech in Hindi. Do not translate. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "512",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-1.7B-GGUF:Q8_0",
+      "notes": "Checks whether the larger GGUF model plus explicit prompt fixes the Hindi failure mode."
+    }
+  ]
+}

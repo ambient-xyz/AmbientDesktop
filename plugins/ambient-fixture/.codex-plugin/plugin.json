@@ -1,0 +1,31 @@
+{
+  "name": "ambient-fixture",
+  "version": "0.1.0",
+  "description": "Fixture plugin for Ambient Desktop Codex plugin compatibility tests.",
+  "author": {
+    "name": "Ambient Desktop",
+    "email": "devnull@ambient.local",
+    "url": "https://app.ambient.xyz"
+  },
+  "homepage": "https://app.ambient.xyz",
+  "repository": "https://github.com/badlogic/pi-mono",
+  "license": "MIT",
+  "keywords": ["ambient", "fixture", "codex-plugin"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Ambient Fixture",
+    "shortDescription": "Exercises skill and MCP discovery.",
+    "longDescription": "Fixture plugin used by Ambient Desktop to validate Codex plugin package parsing.",
+    "developerName": "Ambient Desktop",
+    "category": "Productivity",
+    "capabilities": ["Skill", "MCP"],
+    "websiteURL": "https://app.ambient.xyz",
+    "privacyPolicyURL": "https://app.ambient.xyz",
+    "termsOfServiceURL": "https://app.ambient.xyz",
+    "defaultPrompt": [
+      "Use the fixture skill to inspect this workspace."
+    ],
+    "brandColor": "#4A93B2"
+  }
+}

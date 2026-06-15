@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "ambient-mcp-default-catalog-v1",
+  "serverId": "io.github.stacklok/context7",
+  "title": "Context7",
+  "description": "Up-to-date code documentation lookup for LLM coding agents.",
+  "source": {
+    "type": "toolhive-registry",
+    "registryId": "io.github.stacklok/context7",
+    "repositoryUrl": "https://github.com/upstash/context7",
+    "upstreamServerJsonUrl": "https://raw.githubusercontent.com/upstash/context7/master/server.json",
+    "upstreamServerName": "io.github.upstash/context7",
+    "license": "MIT",
+    "reviewedAt": "2026-05-22T20:00:00.000Z",
+    "reviewedBy": "Ambient",
+    "evidenceRefs": [
+      "context7-toolhive-registry",
+      "context7-upstream-server-json",
+      "context7-license"
+    ]
+  },
+  "promotion": {
+    "reviewStatus": "reviewed",
+    "promotionReason": "Context7 is the first documentation-lookup default candidate and registry/provenance canary because it is registry-backed, declares optional secret-backed behavior, and has a narrow documentation-query tool surface.",
+    "smokeTest": {
+      "status": "passed",
+      "summary": "Live ToolHive registry/provenance canary has installed Context7 when registry verification is available, discovered resolve-library-id/query-docs style tools, schema-validated bad arguments, called one tool, snapshotted descriptors globally, and removed the workload.",
+      "evidenceRefs": [
+        "mcpToolBridge.live.test.ts"
+      ]
+    },
+    "riskNotes": [
+      "Remote documentation service traffic must remain visible to the user.",
+      "CONTEXT7_API_KEY is optional and must be entered through Ambient-managed secret flows, never chat or command arguments.",
+      "Descriptor drift remains guarded by the MCP tool snapshot review flow after install."
+    ]
+  },
+  "registryInfo": {
+    "name": "io.github.stacklok/context7",
+    "title": "Context7",
+    "description": "Up-to-date documentation lookup for LLM coding agents.",
+    "tier": "community",
+    "status": "active",
+    "transport": "stdio",
+    "tools": [
+      "resolve-library-id",
+      "query-docs"
+    ],
+    "repository_url": "https://github.com/upstash/context7",
+    "tags": [
+      "documentation",
+      "knowledge"
+    ],
+    "image": "ghcr.io/stacklok/dockyard/npx/context7:2.1.8",
+    "permissions": {
+      "network": {
+        "outbound": {
+          "allow_host": [
+            "context7.com"
+          ],
+          "allow_port": [
+            443
+          ]
+        }
+      }
+    },
+    "env_vars": [
+      {
+        "name": "CONTEXT7_API_KEY",
+        "description": "Optional Context7 API key for higher limits.",
+        "required": false,
+        "secret": true
+      }
+    ]
+  }
+}

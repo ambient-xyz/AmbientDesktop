@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-label="MiniCPM visual understanding UI fixture">
+  <rect width="640" height="360" fill="#f5f7fb"/>
+  <rect x="36" y="34" width="568" height="292" rx="18" fill="#ffffff" stroke="#c9d2e3" stroke-width="2"/>
+  <rect x="36" y="34" width="568" height="58" rx="18" fill="#263347"/>
+  <rect x="36" y="74" width="568" height="18" fill="#263347"/>
+  <circle cx="72" cy="63" r="9" fill="#ff6b6b"/>
+  <circle cx="102" cy="63" r="9" fill="#ffd166"/>
+  <circle cx="132" cy="63" r="9" fill="#4cc38a"/>
+  <text x="180" y="69" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#ffffff">Ambient Visual QA</text>
+  <rect x="72" y="124" width="214" height="154" rx="10" fill="#dce8ff" stroke="#87a7e8" stroke-width="2"/>
+  <rect x="96" y="148" width="166" height="18" rx="9" fill="#6e8fd4"/>
+  <rect x="96" y="186" width="118" height="14" rx="7" fill="#98b2ea"/>
+  <rect x="96" y="216" width="144" height="14" rx="7" fill="#98b2ea"/>
+  <rect x="96" y="246" width="92" height="14" rx="7" fill="#98b2ea"/>
+  <rect x="330" y="124" width="238" height="154" rx="10" fill="#fff2cc" stroke="#e0b84f" stroke-width="2"/>
+  <text x="358" y="168" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#57420f">Warning</text>
+  <text x="358" y="202" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#57420f">Button text is cramped</text>
+  <rect x="358" y="226" width="152" height="34" rx="8" fill="#2f6fed"/>
+  <text x="376" y="249" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#ffffff">Review layout</text>
+  <rect x="72" y="294" width="132" height="18" rx="9" fill="#cfd8e8"/>
+  <rect x="222" y="294" width="94" height="18" rx="9" fill="#cfd8e8"/>
+  <rect x="334" y="294" width="168" height="18" rx="9" fill="#cfd8e8"/>
+</svg>

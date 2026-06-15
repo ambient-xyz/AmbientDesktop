@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "ambient-subagent-live-evidence-lanes-v1",
+  "lanes": [
+    {
+      "field": "liveSkipped",
+      "label": "Ambient/Pi smoke"
+    },
+    {
+      "field": "liveConfidenceSkipped",
+      "label": "Sub-agent confidence"
+    },
+    {
+      "field": "liveAuthorityConfidenceSkipped",
+      "label": "Child authority confidence"
+    },
+    {
+      "field": "liveWorkflowConfidenceSkipped",
+      "label": "Workflow/Symphony confidence"
+    },
+    {
+      "field": "liveWorkflowBroaderConfidenceSkipped",
+      "label": "Broader Workflow/Symphony confidence"
+    },
+    {
+      "field": "liveLocalRuntimeConfidenceSkipped",
+      "label": "Local runtime confidence"
+    },
+    {
+      "field": "liveRestartRepairConfidenceSkipped",
+      "label": "Restart repair confidence"
+    },
+    {
+      "field": "liveLifecycleEdgeConfidenceSkipped",
+      "label": "Lifecycle edge confidence"
+    },
+    {
+      "field": "liveDesktopDogfoodConfidenceSkipped",
+      "label": "Desktop dogfood confidence"
+    },
+    {
+      "field": "desktopDogfoodSkipped",
+      "label": "Desktop dogfood"
+    }
+  ]
+}

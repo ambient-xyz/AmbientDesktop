@@ -1,0 +1,38 @@
+{
+  "providers": [
+    {
+      "id": "faster-whisper-tiny-en-cpu",
+      "label": "faster-whisper tiny.en CPU smoke",
+      "enabled": true,
+      "command": "uv",
+      "cwd": "../..",
+      "args": [
+        "run",
+        "--python",
+        "3.12",
+        "--with",
+        "faster-whisper==1.1.1",
+        "--with",
+        "requests",
+        "python",
+        "scripts/stt-spike/faster_whisper_runner.py",
+        "--audio",
+        "{audio}",
+        "--language",
+        "{language}",
+        "--model",
+        "tiny.en",
+        "--device",
+        "cpu",
+        "--compute-type",
+        "int8",
+        "--beam-size",
+        "1"
+      ],
+      "parseStdout": "json",
+      "mode": "offline",
+      "model": "tiny.en",
+      "notes": "Small local faster-whisper control smoke. Uses uv and an explicit requests dependency because the faster-whisper 1.1.1 environment did not import cleanly without it in live macOS dogfood."
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://ambient.xyz/schemas/dependency-advisory-policy.v1.json",
+  "auditCommand": "pnpm audit --prod --json",
+  "requiredPackageDependencies": {
+    "@mariozechner/pi-ai": "^0.73.1"
+  },
+  "requiredPackageOverrides": {
+    "@anthropic-ai/sdk": "0.91.1",
+    "fast-xml-builder": "1.2.0",
+    "fast-xml-parser": "5.7.3"
+  },
+  "acceptedAdvisories": {
+    "GHSA-848j-6mx2-7j84": {
+      "module": "elliptic",
+      "severity": "low",
+      "cves": ["CVE-2025-14505"],
+      "paths": [
+        ".>@rivet-dev/agent-os-core>@secure-exec/nodejs>node-stdlib-browser>crypto-browserify>browserify-sign>elliptic"
+      ],
+      "patchedVersions": "<0.0.0",
+      "owner": "Desktop Security",
+      "reviewBy": "2026-08-31",
+      "rationale": "The vulnerable package is reachable only through the node-stdlib-browser crypto-browserify browserify-sign browser polyfill chain pulled by @secure-exec/nodejs under @rivet-dev/agent-os-core. Ambient Desktop does not use this browser polyfill path to create ECDSA signatures or persist signing keys in product flows. Upstream reports no patched elliptic release, so we accept the current transitive low-severity exposure while tracking removal or replacement.",
+      "requiredAction": "Replace or remove the node-stdlib-browser crypto-browserify chain, or pin a patched elliptic release if upstream ships one; revisit before reviewBy."
+    }
+  }
+}

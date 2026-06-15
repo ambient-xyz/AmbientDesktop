@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "signatureAlgorithm": "ed25519",
+  "keyId": "ambient-curated-fixture-2026-05",
+  "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApB74kBsAYpOdlpTywcqJfCefo1yjLzV80pfoidj1CfI=\n-----END PUBLIC KEY-----\n",
+  "marketplaceName": "ambient-curated",
+  "marketplaceSha256": "sha256:a556e9167cc13d4a90376f476c139347431ed413e24c73dce98d4d036a29d0c7",
+  "pluginCount": 6,
+  "generatedAt": "2026-05-01T00:00:00.000Z",
+  "signature": "LjpKTx8cUl8M6BpxAfLUyFeAMM/vt4QG9PWNCiF9mn3PsVVjYdSo7MLMows20S2GickFm3DjyJ119exf69jbBg=="
+}

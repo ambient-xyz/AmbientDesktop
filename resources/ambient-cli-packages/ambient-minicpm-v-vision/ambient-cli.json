@@ -1,0 +1,75 @@
+{
+  "name": "ambient-minicpm-v-vision",
+  "version": "0.1.2",
+  "description": "Local MiniCPM-V visual-understanding provider wrapper for Ambient screenshot and image evidence.",
+  "skills": "./SKILL.md",
+  "env": [
+    {
+      "name": "AMBIENT_MINICPM_V_LLAMA_SERVER",
+      "description": "Optional approved llama-server command or absolute path. Desktop can bind a user-managed binary, install a user-approved pinned archive, or use the default managed macOS arm64/Linux x64 runtime download after archive/binary checksum verification. The manifest keeps Windows default download disabled and records macOS signing/Gatekeeper facts for the managed copy.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_MINICPM_V_MODEL",
+      "description": "Optional llama.cpp -hf model ref. Defaults to openbmb/MiniCPM-V-4_5-gguf:q4_k_m.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_MINICPM_V_EXPERIMENTAL_MODEL",
+      "description": "Optional comparison model ref. Defaults to openbmb/MiniCPM-V-4.6-gguf:q4_k_m.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_MINICPM_V_STATE_DIR",
+      "description": "Optional workspace-local runtime state directory. Defaults to .ambient/minicpm-v.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_MINICPM_V_PORT",
+      "description": "Optional local llama-server port. Defaults to 39217.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_MINICPM_V_ENDPOINT",
+      "description": "Optional approved local OpenAI-compatible MiniCPM endpoint URL such as http://127.0.0.1:39217. Remote endpoints are intentionally rejected by the wrapper until the hosted-endpoint security review covers allowed hosts, consent, media privacy, secrets, redaction, retention, egress controls, and UI copy.",
+      "required": false
+    }
+  ],
+  "commands": {
+    "minicpm_vision_status": {
+      "description": "Report MiniCPM-V runtime, model, local endpoint, and install readiness without starting the server.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "status"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "status"]
+    },
+    "minicpm_vision_verify_runtime_manifest": {
+      "description": "Validate the blocked MiniCPM-V llama-server release manifest/checksum contract without downloading or executing runtime artifacts.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "verify-runtime-manifest"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "verify-runtime-manifest"]
+    },
+    "minicpm_vision_start": {
+      "description": "Start a local llama-server MiniCPM-V daemon on 127.0.0.1 using the default 4.5 Q4_K_M model unless overridden.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "start"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "status"]
+    },
+    "minicpm_vision_stop": {
+      "description": "Stop the workspace-local MiniCPM-V llama-server daemon started by this package.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "stop"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "status"]
+    },
+    "minicpm_vision_analyze": {
+      "description": "Analyze one bounded local image, or a two-image current/reference comparison, through the MiniCPM-V endpoint and write full JSON artifacts.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "analyze"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "status"]
+    }
+  }
+}

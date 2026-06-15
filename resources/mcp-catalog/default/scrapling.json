@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "ambient-mcp-default-catalog-v1",
+  "serverId": "io.github.d4vinci/scrapling",
+  "title": "Scrapling",
+  "description": "Default isolated web extraction capability for public web research and browser-backed scraping.",
+  "source": {
+    "type": "ambient-default-oci",
+    "repositoryUrl": "https://github.com/D4Vinci/Scrapling",
+    "upstreamServerJsonUrl": "https://raw.githubusercontent.com/D4Vinci/Scrapling/main/server.json",
+    "upstreamServerName": "scrapling-github-server-json",
+    "license": "BSD-3-Clause",
+    "reviewedAt": "2026-05-23T20:00:00.000Z",
+    "reviewedBy": "Ambient",
+    "evidenceRefs": [
+      "scrapling-plan-v2",
+      "scrapling-upstream-server-json",
+      "scrapling-container-image"
+    ]
+  },
+  "defaultCapability": {
+    "capabilityId": "scrapling",
+    "workloadName": "ambient-scrapling",
+    "autoInstall": true
+  },
+  "promotion": {
+    "reviewStatus": "reviewed",
+    "promotionReason": "Scrapling is a default web research capability because exploratory autowire proved too brittle for browser-backed scraping. Ambient owns the descriptor, pinned image, ToolHive workload name, and permission profile so Pi does not choose install mechanics.",
+    "smokeTest": {
+      "status": "passed",
+      "summary": "macOS arm64 live smoke installs the Ambient-owned pinned OCI image through ToolHive, discovers get/fetch/screenshot, calls get against example.com, records trusted descriptor review state, and cleans up the workload. Linux and Windows repeats remain required before release.",
+      "evidenceRefs": [
+        "scraplingPlanV2.html",
+        "dockerInstallPlan.html",
+        "mcpDefaultCapabilityInstaller.live.test.ts",
+        "mcp-default-runtime-release-gate:live"
+      ]
+    },
+    "riskNotes": [
+      "Scrapling can make task-dependent outbound public web requests and must remain isolated through ToolHive.",
+      "Browser-backed fetching can execute and render untrusted pages inside the workload, so browser security updates are managed by Ambient's runtime lane.",
+      "Localhost, private IPs, intranet hosts, and file URLs require a separate local-network or filesystem approval lane.",
+      "No workspace filesystem mount and no Ambient-managed secrets are granted by default."
+    ]
+  },
+  "registryInfo": {
+    "name": "io.github.d4vinci/scrapling",
+    "title": "Scrapling",
+    "description": "Default isolated public web extraction capability backed by Scrapling and ToolHive.",
+    "tier": "ambient-default",
+    "status": "active",
+    "transport": "stdio",
+    "tools": [
+      "get",
+      "bulk_get",
+      "fetch",
+      "bulk_fetch",
+      "stealthy_fetch",
+      "bulk_stealthy_fetch",
+      "open_session",
+      "close_session",
+      "list_sessions",
+      "screenshot"
+    ],
+    "repository_url": "https://github.com/D4Vinci/Scrapling",
+    "tags": [
+      "scrapling",
+      "web",
+      "scraping",
+      "browser",
+      "fetch",
+      "public-web",
+      "ambient-default"
+    ],
+    "image": "ghcr.io/d4vinci/scrapling@sha256:bc71e9132fe4289b97da720dabb626599d090892b5eae7378bf9204918c0e9a3",
+    "imageVerificationPolicy": "ambient-reviewed",
+    "server_args": [
+      "mcp"
+    ],
+    "permissions": {
+      "network": {
+        "outbound": {
+          "insecure_allow_all": true,
+          "allow_port": [
+            80,
+            443
+          ],
+          "justification": "Scrapling target hosts are user-task dependent; Ambient policy must classify URLs before calls and block local/private targets without separate approval."
+        }
+      },
+      "filesystem": {
+        "workspace_read": false,
+        "workspace_write": false
+      }
+    },
+    "env_vars": []
+  }
+}

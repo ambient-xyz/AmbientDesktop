@@ -1,0 +1,43 @@
+{
+  "name": "ambient-hyperframes",
+  "version": "0.1.0",
+  "description": "Ambient adapter for deterministic HTML/CSS/JS authored-motion video with HyperFrames.",
+  "skills": "./SKILL.md",
+  "commands": {
+    "hyperframes_doctor": {
+      "description": "Check Node, npx, FFmpeg, FFprobe, browser runtime, and HyperFrames CLI readiness without installing host dependencies.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "doctor"],
+      "cwd": "package",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "hyperframes_setup_plan": {
+      "description": "Return approval-gated setup actions for missing HyperFrames dependencies without running installers.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "setup-plan"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "hyperframes_init": {
+      "description": "Scaffold a non-interactive HyperFrames composition project in the workspace.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "init"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "hyperframes_inspect": {
+      "description": "Inspect a HyperFrames composition source and return structural metadata without rendering.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "inspect"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "hyperframes_render": {
+      "description": "Lint, inspect, render, verify, and report HyperFrames video artifact metadata.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "render"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    }
+  }
+}

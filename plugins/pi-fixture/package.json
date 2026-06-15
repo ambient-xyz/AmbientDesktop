@@ -1,0 +1,14 @@
+{
+  "name": "ambient-pi-fixture",
+  "version": "0.1.0",
+  "description": "Fixture Pi package for Ambient Desktop plugin compatibility tests.",
+  "keywords": ["pi-package", "ambient-fixture"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./extensions/index.ts"],
+    "skills": ["./skills/workspace-review"],
+    "prompts": ["./prompts/review.md"],
+    "themes": ["./themes/ambient.json"],
+    "image": "https://example.test/pi-fixture.png"
+  }
+}

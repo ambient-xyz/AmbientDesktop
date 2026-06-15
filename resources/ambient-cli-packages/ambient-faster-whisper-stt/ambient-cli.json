@@ -1,0 +1,53 @@
+{
+  "name": "ambient-faster-whisper-stt",
+  "version": "0.1.0",
+  "description": "Adapter-only local faster-whisper speech-to-text provider for Ambient STT product-path validation.",
+  "skills": "./SKILL.md",
+  "env": [
+    {
+      "name": "AMBIENT_FASTER_WHISPER_MODEL",
+      "description": "Optional faster-whisper model id. Defaults to tiny.en for the small local control path.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_FASTER_WHISPER_DEVICE",
+      "description": "Optional faster-whisper device. Defaults to cpu.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_FASTER_WHISPER_COMPUTE_TYPE",
+      "description": "Optional faster-whisper compute type. Defaults to int8.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_FASTER_WHISPER_UV",
+      "description": "Optional uv command or absolute path. Defaults to uv on PATH.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_FASTER_WHISPER_VERSION",
+      "description": "Optional faster-whisper package version. Defaults to 1.1.1.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_FASTER_WHISPER_PYTHON",
+      "description": "Optional uv Python version. Defaults to 3.12.",
+      "required": false
+    }
+  ],
+  "commands": {
+    "faster_whisper_transcribe": {
+      "description": "Transcribe a normalized WAV utterance to Ambient STT JSON using faster-whisper tiny.en.",
+      "command": "node",
+      "args": ["./scripts/run.mjs"],
+      "cwd": "package",
+      "healthCheck": ["node", "./scripts/run.mjs", "--health"],
+      "sttProvider": {
+        "label": "faster-whisper tiny.en Local",
+        "languages": ["English"],
+        "defaultLanguage": "English",
+        "local": true
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "name": "ambient-qwen3-asr",
+  "version": "0.1.0",
+  "description": "Local Qwen3-ASR speech-to-text provider for Ambient push-to-talk.",
+  "skills": "./SKILL.md",
+  "env": [
+    {
+      "name": "AMBIENT_QWEN3_ASR_BINARY",
+      "description": "Optional llama-mtmd-cli command or absolute path. Ambient can bind this during STT provider repair.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_QWEN3_ASR_MODEL",
+      "description": "Optional custom llama.cpp -hf model ref for explicit experiments. Defaults use the bundled checksum-pinned asset manifest.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_QWEN3_ASR_ASSET_DIR",
+      "description": "Optional cache root for verified Qwen3-ASR model and projector assets.",
+      "required": false
+    },
+    {
+      "name": "AMBIENT_QWEN3_ASR_THREADS",
+      "description": "Optional llama.cpp thread count.",
+      "required": false
+    }
+  ],
+  "commands": {
+    "qwen3_asr_transcribe": {
+      "description": "Transcribe a normalized WAV utterance to Ambient STT JSON using Qwen3-ASR 0.6B.",
+      "command": "node",
+      "args": ["./scripts/run.mjs"],
+      "cwd": "package",
+      "healthCheck": ["node", "./scripts/run.mjs", "--health"],
+      "sttProvider": {
+        "label": "Qwen3-ASR Local",
+        "languages": [
+          "Arabic",
+          "Chinese",
+          "Dutch",
+          "English",
+          "French",
+          "German",
+          "Hindi",
+          "Italian",
+          "Japanese",
+          "Korean",
+          "Polish",
+          "Portuguese",
+          "Russian",
+          "Spanish",
+          "Turkish"
+        ],
+        "defaultLanguage": "English",
+        "local": true
+      }
+    }
+  }
+}

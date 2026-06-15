@@ -1,0 +1,8 @@
+{
+  "name": "Ambient Fixture",
+  "colors": {
+    "background": "#111827",
+    "foreground": "#f9fafb",
+    "accent": "#38bdf8"
+  }
+}

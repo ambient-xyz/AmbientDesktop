@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ambient-fixture": {
+      "command": "node",
+      "args": ["./scripts/fixture-mcp.js"],
+      "env": {
+        "AMBIENT_FIXTURE": "1"
+      }
+    }
+  }
+}

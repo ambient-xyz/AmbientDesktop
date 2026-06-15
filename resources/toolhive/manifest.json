@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "ambient-toolhive-bundle-manifest-v1",
+  "toolhiveVersion": "v0.28.2",
+  "sourceRepository": "https://github.com/stacklok/toolhive",
+  "releaseUrl": "https://github.com/stacklok/toolhive/releases/tag/v0.28.2",
+  "assets": [
+    {
+      "platform": "darwin",
+      "arch": "arm64",
+      "platformId": "darwin-arm64",
+      "binaryPath": "darwin-arm64/thv",
+      "archivePath": "darwin-arm64/toolhive_0.28.2_darwin_arm64.tar.gz",
+      "archiveName": "toolhive_0.28.2_darwin_arm64.tar.gz",
+      "archiveSha256": "e5f4d084fafb353fc7c376ea8e90ea16464957c410a1825f251387b0b6c50a78",
+      "binarySha256": "fa0872cb018f6c4d46dc052e0d69c18c7b0c6c1ead7a41aa9f5c9f9bf957c49f"
+    },
+    {
+      "platform": "linux",
+      "arch": "x64",
+      "platformId": "linux-x64",
+      "binaryPath": "linux-x64/thv",
+      "archivePath": "linux-x64/toolhive_0.28.2_linux_amd64.tar.gz",
+      "archiveName": "toolhive_0.28.2_linux_amd64.tar.gz",
+      "archiveSha256": "208bb2fb1ab3870a248b3ab8814849c47eac5d08c023c50a1f8a6c2ba54993cb",
+      "binarySha256": "124d38be0a48c94aa5c74f14fae55af5b86886b0a6de641e9759f9aa24bb4222"
+    },
+    {
+      "platform": "win32",
+      "arch": "x64",
+      "platformId": "win32-x64",
+      "binaryPath": "win32-x64/thv.exe",
+      "archivePath": "win32-x64/toolhive_0.28.2_windows_amd64.zip",
+      "archiveName": "toolhive_0.28.2_windows_amd64.zip",
+      "archiveSha256": "4f60f8ee17823d24566420c545fc8abf02410686b4cd18cd8feedb17a4349a2c",
+      "binarySha256": "c8d8430d96ef8b7d91ab7808fb21d4e3fb34f6ab7c07658e1938f76436c2ef2f"
+    }
+  ]
+}

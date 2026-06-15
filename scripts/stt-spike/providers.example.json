@@ -1,0 +1,84 @@
+{
+  "providers": [
+    {
+      "id": "qwen3-asr-0.6b-llamacpp",
+      "label": "Qwen3-ASR 0.6B GGUF via llama.cpp",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "Transcribe the audio. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "256",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0",
+      "notes": "Primary spike target. Verify whether -hf resolves the multimodal projector deterministically on each platform."
+    },
+    {
+      "id": "qwen3-asr-1.7b-llamacpp",
+      "label": "Qwen3-ASR 1.7B GGUF via llama.cpp",
+      "enabled": false,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-1.7B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "Transcribe the audio. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "512",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-1.7B-GGUF:Q8_0",
+      "notes": "Quality/performance stretch target for stronger hardware."
+    },
+    {
+      "id": "faster-whisper-large-v3-turbo",
+      "label": "faster-whisper large-v3-turbo baseline",
+      "enabled": false,
+      "command": "uv",
+      "cwd": "../..",
+      "args": [
+        "run",
+        "--python",
+        "3.12",
+        "--with",
+        "faster-whisper==1.1.1",
+        "--with",
+        "requests",
+        "python",
+        "scripts/stt-spike/faster_whisper_runner.py",
+        "--audio",
+        "{audio}",
+        "--language",
+        "{language}",
+        "--model",
+        "large-v3-turbo",
+        "--device",
+        "auto",
+        "--compute-type",
+        "default"
+      ],
+      "parseStdout": "json",
+      "mode": "offline",
+      "model": "large-v3-turbo",
+      "notes": "Control baseline through a repo-owned JSON wrapper. Uses uv so the baseline does not depend on an ambient global faster-whisper CLI."
+    }
+  ]
+}

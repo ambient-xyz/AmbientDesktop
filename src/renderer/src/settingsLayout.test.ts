@@ -1,0 +1,117 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const diagnosticsControllerSource = readFileSync(new URL("./RightPanelDiagnosticsController.ts", import.meta.url), "utf8");
+const settingsPaneSource = readFileSync(new URL("./RightPanelSettingsPane.tsx", import.meta.url), "utf8");
+const settingsRuntimeSource = readFileSync(new URL("./RightPanelSettingsRuntime.tsx", import.meta.url), "utf8");
+const settingsWebResearchSource = readFileSync(new URL("./RightPanelSettingsWebResearch.tsx", import.meta.url), "utf8");
+const settingsSystemSource = readFileSync(new URL("./RightPanelSettingsSystem.tsx", import.meta.url), "utf8");
+const settingsSearchSource = readFileSync(new URL("./RightPanelSettingsSearchModel.ts", import.meta.url), "utf8");
+const settingsCoreSource = readFileSync(new URL("./RightPanelSettingsCore.tsx", import.meta.url), "utf8");
+const stylesSource = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
+
+describe("settings layout", () => {
+  it("keeps Search & Web provider controls full-width and responsive", () => {
+    expect(settingsWebResearchSource).toContain('className="web-research-settings-row"');
+    expect(settingsWebResearchSource).toContain('className="settings-mini-row web-research-provider-row"');
+    expect(stylesSource).toContain(".settings-row.web-research-settings-row");
+    expect(stylesSource).toContain("justify-items: stretch;");
+    expect(stylesSource).toContain(".settings-row.web-research-settings-row .settings-row-control > *");
+    expect(stylesSource).toContain("width: 100%;");
+    expect(stylesSource).toContain("max-width: 100%;");
+    expect(stylesSource).toContain(".settings-row-control > .permission-toggle");
+    expect(stylesSource).toContain(".settings-row-control > .permission-toggle button");
+    expect(stylesSource).toContain(".web-research-settings-row .provider-catalog-settings-grid");
+    expect(stylesSource).toContain("repeat(auto-fit, minmax(min(100%, 210px), 1fr))");
+    expect(stylesSource).toContain(".settings-mini-row.web-research-provider-row");
+    expect(stylesSource).toContain("@container (min-width: 760px)");
+    expect(stylesSource).toContain("flex-wrap: wrap;");
+    expect(stylesSource).toContain(".settings-section-header > div:first-child");
+  });
+
+  it("keeps Settings and Plugins cards width-contained when panes are resized", () => {
+    expect(stylesSource).toContain(".settings-shell");
+    expect(stylesSource).toContain(".settings-section");
+    expect(stylesSource).toContain("box-sizing: border-box;");
+    expect(stylesSource).toContain(".provider-catalog-settings-card-header");
+    expect(stylesSource).toContain(".provider-catalog-settings-card-header > .panel-button");
+    expect(stylesSource).toContain(".plugin-row-header");
+    expect(stylesSource).toContain(".plugin-row-header > :first-child");
+    expect(stylesSource).toContain(".plugin-row-actions");
+    expect(stylesSource).toContain(".plugin-badges span");
+    expect(stylesSource).toContain(".plugin-source-entry");
+    expect(stylesSource).toContain(".pi-package-install-row");
+    expect(stylesSource).toContain("repeat(auto-fit, minmax(min(100%, 118px), 1fr))");
+    expect(stylesSource).toContain("overflow-wrap: anywhere;");
+    expect(stylesSource).toContain("white-space: normal;");
+  });
+
+  it("surfaces sub-agent maturity gates in settings and diagnostics", () => {
+    expect(settingsRuntimeSource).toContain("function SubagentMaturityDiagnostics");
+    expect(settingsRuntimeSource).toContain("function SubagentRepairDiagnostics");
+    expect(settingsRuntimeSource).toContain("function SubagentReplayEvidenceDiagnostics");
+    expect(settingsRuntimeSource).toContain("function LocalRuntimeEvidenceDiagnostics");
+    expect(settingsRuntimeSource).toContain("function DiagnosticExportHistory");
+    expect(settingsRuntimeSource).toContain("subagentMaturityLiveHistoryModel");
+    expect(settingsRuntimeSource).toContain("subagentMaturityWorkflowJitterReleaseProfileModel");
+    expect(settingsRuntimeSource).toContain("subagent-maturity-diagnostics");
+    expect(settingsRuntimeSource).toContain("subagent-replay-evidence-group");
+    expect(settingsRuntimeSource).toContain("local-runtime-evidence-group");
+    expect(settingsRuntimeSource).toContain("diagnostic-export-history-row");
+    expect(settingsCoreSource).toContain('label="Experimental sub-agents"');
+    expect(settingsSystemSource).toContain('label="Sub-agent maturity"');
+    expect(settingsSystemSource).toContain('label="Sub-agent repair"');
+    expect(settingsSystemSource).toContain('label="Sub-agent replay"');
+    expect(settingsSystemSource).toContain('label="Local runtime evidence"');
+    expect(settingsSystemSource).toContain('label="Diagnostic export history"');
+    expect(settingsSystemSource).toContain('"diagnostics.subagent-maturity"');
+    expect(settingsSystemSource).toContain('"diagnostics.subagent-repair"');
+    expect(settingsSystemSource).toContain('"diagnostics.subagent-replay"');
+    expect(settingsSystemSource).toContain('"diagnostics.local-runtime-evidence"');
+    expect(settingsSystemSource).toContain('"diagnostics.export-history"');
+    expect(settingsSearchSource).toContain("feature flag graduation");
+    expect(settingsSearchSource).toContain("restart repair");
+    expect(settingsSearchSource).toContain("replay evidence");
+    expect(settingsPaneSource).toContain("state.subagentMaturity");
+    expect(settingsPaneSource).toContain("state.subagentMaturityEvidence");
+    expect(settingsPaneSource).toContain("state.subagentRepairDiagnostics");
+    expect(diagnosticsControllerSource).toContain("recordDiagnosticExportHistory");
+    expect(diagnosticsControllerSource).toContain("selectedDiagnosticExport?.subagents?.replayEvidence");
+    expect(diagnosticsControllerSource).toContain("selectedDiagnosticExport?.localRuntimes?.evidence");
+    expect(settingsRuntimeSource).toContain("subagentMaturityDesktopDogfoodHistoryModel");
+    expect(settingsSearchSource).toContain("workflow jitter release profile");
+    expect(diagnosticsControllerSource).toContain("onImportDiagnostics");
+    expect(diagnosticsControllerSource).toContain("diagnosticImportStatusMessage");
+    expect(diagnosticsControllerSource).toContain("Import canceled.");
+    expect(settingsSearchSource).toContain("open diagnostic bundle");
+    expect(diagnosticsControllerSource).toContain("DIAGNOSTIC_EXPORT_HISTORY_STORAGE_KEY");
+    expect(diagnosticsControllerSource).toContain("readInitialDiagnosticExportHistory");
+    expect(diagnosticsControllerSource).toContain("persistDiagnosticExportHistory");
+    expect(settingsSystemSource).toContain("Recent saved and imported diagnostic bundles from this app profile.");
+    expect(diagnosticsControllerSource).toContain("subagentReplayEvidenceInspectorModel");
+    expect(diagnosticsControllerSource).toContain("localRuntimeEvidenceInspectorModel");
+    expect(settingsRuntimeSource).toContain("Maturity evidence");
+    expect(settingsRuntimeSource).toContain("Live history:");
+    expect(settingsRuntimeSource).toContain("Desktop dogfood history:");
+    expect(settingsRuntimeSource).toContain("Workflow jitter release profile:");
+    expect(settingsRuntimeSource).toContain("No maturity evidence recorded.");
+    expect(settingsRuntimeSource).toContain("No repair issues recorded.");
+    expect(settingsRuntimeSource).toContain("Export diagnostics to inspect child replay timelines.");
+    expect(settingsRuntimeSource).toContain("Export diagnostics to inspect local runtime leases, blockers, and memory evidence.");
+    expect(stylesSource).toContain(".subagent-replay-evidence-group");
+    expect(stylesSource).toContain(".local-runtime-evidence-group");
+    expect(stylesSource).toContain(".diagnostic-export-history-row.selected");
+  });
+
+  it("surfaces experimental agent memory diagnostics in settings", () => {
+    expect(settingsCoreSource).toContain("Refresh diagnostics");
+    expect(settingsCoreSource).toContain("AgentMemoryDiagnosticsSummary");
+    expect(settingsCoreSource).toContain("AGENT_MEMORY_PRIVACY_DISCLOSURE_LINES");
+    expect(settingsCoreSource).toContain("Memory privacy");
+    expect(settingsCoreSource).toContain("Embeddings endpoint");
+    expect(settingsCoreSource).toContain("onRunAgentMemoryEmbeddingLifecycleAction");
+    expect(settingsCoreSource).toContain("Raw memory content");
+    expect(settingsPaneSource).toContain("agentMemoryDiagnostics");
+    expect(settingsSearchSource).toContain("agent memory");
+  });
+});

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "ambient-blockchain-contracts-v1",
+  "updatedAt": "2026-06-13",
+  "network": {
+    "name": "ambient",
+    "runtime": "Solana-compatible",
+    "defaultRpcUrl": "https://rpc.ambient.xyz",
+    "defaultWsUrl": "wss://rpc.ambient.xyz"
+  },
+  "programs": {
+    "toolOracle": {
+      "programId": "721QWDeUzVL77UCzCFHsVGCMBVup8GsAMPaD2YvWvw97",
+      "purpose": "Funded AI/oracle request execution on Ambient.",
+      "repo": "https://github.com/ambientlabsdev/oracle-program-types",
+      "pinnedSha": "42d9b33916e7e8dafba2aa1bce07cbde40658284",
+      "notes": [
+        "Funded requests must be approval-gated and capped before any transaction is signed.",
+        "Submit and reclaim lanes are adapter-backed through explicit client command templates until the in-package instruction builder is stabilized.",
+        "Wait and decode lanes use read-only RPC evidence and preserve raw account observations."
+      ]
+    },
+    "auction": {
+      "programId": "Auction111111111111111111111111111111111111",
+      "purpose": "Ambient auction API/program interface for oracle-related market operation.",
+      "repo": "https://github.com/ambientlabsdev/auction-api",
+      "pinnedSha": "a34e8b0b57bd2f4e0061de1a88b9e019f47d6d82",
+      "interfaceRepo": "https://github.com/ambientlabsdev/auction-interface",
+      "interfacePinnedSha": "84e1ff38ec17b70c34f8c9f249e14eb88972412c"
+    },
+    "oracleCryptoTickerExample": {
+      "repo": "https://github.com/ambientlabsdev/oracle-crypto-ticker-app",
+      "pinnedSha": "e18cfb6a27d021bc9e86943875ed504f7a497f61",
+      "purpose": "Reference app shape for Tool Oracle request/response integration."
+    }
+  },
+  "x402": {
+    "defaultEndpoint": "https://jumpgate.ambient.xyz/paid/chat/v2",
+    "notes": [
+      "Quote/probe flows must not submit payment.",
+      "Payment flows require explicit spend caps, signer binding, immutable evidence, and user approval.",
+      "Approved paid request execution accepts a one-use payment header file and redacts payment material from stdout and artifacts."
+    ]
+  },
+  "liveTestLanes": [
+    {
+      "id": "safe-read",
+      "description": "Live read-only RPC methods such as getHealth, getVersion, and getSlot.",
+      "funded": false,
+      "default": true
+    },
+    {
+      "id": "desktop-pi",
+      "description": "Ambient Desktop/Pi discovery and tool invocation against the bundled package.",
+      "funded": false,
+      "default": false,
+      "status": "deterministic-discovery-dogfood-supported"
+    },
+    {
+      "id": "oracle-funded",
+      "description": "Tool Oracle funded request submit and observe lane.",
+      "funded": true,
+      "default": false,
+      "status": "adapter-submit-wait-decode-reclaim-live-gate-supported"
+    },
+    {
+      "id": "x402-funded",
+      "description": "x402 paid endpoint quote, payment authorization, request, and evidence lane.",
+      "funded": true,
+      "default": false,
+      "status": "approved-request-execute-and-live-gate-supported"
+    },
+    {
+      "id": "program-workbench",
+      "description": "Local build/readiness, deploy/upgrade/authority plans, approved execution, observe, and teardown evidence lane.",
+      "funded": true,
+      "default": false,
+      "status": "lifecycle-approved-deploy-and-observe-live-gate-supported"
+    },
+    {
+      "id": "local-validator",
+      "description": "Bounded local solana-test-validator readiness and opt-in lifecycle evidence lane.",
+      "funded": false,
+      "default": false,
+      "status": "bounded-lifecycle-supported"
+    }
+  ],
+  "safety": {
+    "defaultMutationPolicy": "read-only",
+    "blockedRpcMethods": ["sendTransaction", "sendRawTransaction", "requestAirdrop", "simulateTransaction"],
+    "artifactRoot": ".ambient/blockchain",
+    "secretPolicy": "Report configured booleans only. Never print, log, or artifact keypair contents or secret values."
+  }
+}

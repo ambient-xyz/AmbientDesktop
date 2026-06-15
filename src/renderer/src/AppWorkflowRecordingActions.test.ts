@@ -1,0 +1,270 @@
+import type { Dispatch, SetStateAction } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type {
+  DesktopState,
+  RunStatus,
+  ThreadSummary,
+  WorkflowRecordingLibraryEntry,
+  WorkflowRecordingState,
+} from "../../shared/types";
+import {
+  activeThreadHasWorkflowRecordingStatus,
+  activeWorkflowRecordingForState,
+  createAppWorkflowRecordingActions,
+  workflowRecordingInitialGoalMessageInput,
+  workflowRecordingArchiveConfirmation,
+  workflowRecordingArchiveInput,
+  workflowRecordingGoalFromInput,
+  workflowRecordingRunStatusesWithStarting,
+  workflowRecordingStartInput,
+  workflowRecordingVersionInput,
+} from "./AppWorkflowRecordingActions";
+
+describe("App workflow recording actions", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("trims optional start goals while preserving workspace path", () => {
+    expect(workflowRecordingGoalFromInput("  build a workflow  ")).toBe("build a workflow");
+    expect(workflowRecordingGoalFromInput("   ")).toBeUndefined();
+    expect(workflowRecordingStartInput("  build a workflow  ", "/repo")).toEqual({
+      goal: "build a workflow",
+      workspacePath: "/repo",
+    });
+    expect(workflowRecordingStartInput("   ", "/repo")).toEqual({ workspacePath: "/repo" });
+  });
+
+  it("builds the initial message for a new workflow recording chat", () => {
+    const state = desktopState({ activeThreadId: "recording-thread" });
+
+    expect(workflowRecordingInitialGoalMessageInput(state, "Make the weekly report")).toEqual({
+      threadId: "recording-thread",
+      content: "Make the weekly report",
+      permissionMode: "workspace",
+      collaborationMode: "agent",
+      model: "ambient",
+      thinkingLevel: "medium",
+      delivery: "prompt",
+      context: [],
+    });
+    expect(workflowRecordingRunStatusesWithStarting({ other: "idle" }, "recording-thread")).toEqual({
+      other: "idle",
+      "recording-thread": "starting",
+    });
+  });
+
+  it("starts a workflow recording and immediately submits the goal to the new Workflow Chat", async () => {
+    const next = desktopState({ activeThreadId: "recording-thread" });
+    const startWorkflowRecording = vi.fn(async () => next);
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { startWorkflowRecording, sendMessage } });
+    const controller = createController();
+
+    await controller.actions.startWorkflowRecording("  Make the weekly report  ");
+
+    expect(startWorkflowRecording).toHaveBeenCalledWith({
+      goal: "Make the weekly report",
+      workspacePath: "/repo",
+    });
+    expect(controller.applyCreatedThreadState).toHaveBeenCalledWith(next, "/repo");
+    expect(controller.resetPromptHistory).toHaveBeenCalledOnce();
+    expect(controller.resetRunActivityLines).toHaveBeenCalledWith(
+      "Workflow recording prompt sent to Ambient.",
+      "recording-thread",
+    );
+    expect(controller.runStatus.value).toBe("starting");
+    expect(controller.threadRunStatuses.value).toEqual({ "recording-thread": "starting" });
+    expect(sendMessage).toHaveBeenCalledWith({
+      threadId: "recording-thread",
+      content: "Make the weekly report",
+      permissionMode: "workspace",
+      collaborationMode: "agent",
+      model: "ambient",
+      thinkingLevel: "medium",
+      delivery: "prompt",
+      context: [],
+    });
+    expect(controller.scheduleComposerDraftFocus).not.toHaveBeenCalled();
+  });
+
+  it("restores the workflow goal to the composer when immediate submission fails", async () => {
+    const next = desktopState({ activeThreadId: "recording-thread" });
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        startWorkflowRecording: vi.fn(async () => next),
+        sendMessage: vi.fn(async () => {
+          throw new Error("send failed");
+        }),
+      },
+    });
+    const controller = createController();
+
+    await controller.actions.startWorkflowRecording("Make the weekly report");
+
+    expect(controller.setError).toHaveBeenLastCalledWith("send failed");
+    expect(controller.runStatus.value).toBe("error");
+    expect(controller.scheduleComposerDraftFocus).toHaveBeenCalledWith("Make the weekly report");
+  });
+
+  it("finds the active recording from a returned desktop state", () => {
+    const recording = workflowRecording({ status: "stopped" });
+    expect(activeWorkflowRecordingForState(desktopState({
+      activeThreadId: "thread-2",
+      threads: [
+        thread({ id: "thread-1" }),
+        thread({ id: "thread-2", workflowRecording: recording }),
+      ],
+    }))).toBe(recording);
+  });
+
+  it("checks active-thread recording status before issuing lifecycle actions", () => {
+    expect(activeThreadHasWorkflowRecordingStatus(thread({ workflowRecording: workflowRecording({ status: "recording" }) }), "recording")).toBe(true);
+    expect(activeThreadHasWorkflowRecordingStatus(thread({ workflowRecording: workflowRecording({ status: "stopped" }) }), "recording")).toBe(false);
+    expect(activeThreadHasWorkflowRecordingStatus(undefined, "recording")).toBe(false);
+  });
+
+  it("keeps archive and version request shapes stable", () => {
+    const playbook = workflowPlaybook({ id: "playbook-1", title: "Review invoices", version: 7 });
+    expect(workflowRecordingArchiveConfirmation(playbook)).toBe(
+      "Archive \"Review invoices\"? It will be hidden from default workflow search and suggestions, but its package and versions will be kept.",
+    );
+    expect(workflowRecordingArchiveInput(playbook)).toEqual({
+      id: "playbook-1",
+      baseVersion: 7,
+      reason: "Archived from Workflow Recordings.",
+    });
+    expect(workflowRecordingVersionInput(playbook)).toEqual({
+      id: "playbook-1",
+      baseVersion: 7,
+    });
+  });
+});
+
+function workflowRecording(overrides: Partial<WorkflowRecordingState> = {}): WorkflowRecordingState {
+  return {
+    status: overrides.status ?? "recording",
+    startedAt: "2026-06-13T00:00:00.000Z",
+    stoppedAt: overrides.stoppedAt,
+    goal: overrides.goal,
+    review: overrides.review,
+    ...overrides,
+  };
+}
+
+function createController({ state = desktopState() }: { state?: DesktopState | undefined } = {}) {
+  const runStatus = statefulSetter<RunStatus>("idle");
+  const threadRunStatuses = statefulSetter<Record<string, RunStatus>>({});
+  const applyCreatedThreadState = vi.fn();
+  const applyRunStatusDesktopState = vi.fn();
+  const closeProjectBoard = vi.fn();
+  const refreshWorkflowRecordingLibraryOverride = vi.fn(async () => undefined);
+  const resetPromptHistory = vi.fn();
+  const resetRunActivityLines = vi.fn();
+  const scheduleComposerDraftFocus = vi.fn();
+  const sendWorkflowRecordingReviewPromptForState = vi.fn(async () => undefined);
+  const setError = vi.fn();
+  const setSelectedWorkflowRecordingId = vi.fn();
+  const setSidebarArea = vi.fn();
+
+  return {
+    actions: createAppWorkflowRecordingActions({
+      activeThread: undefined,
+      applyCreatedThreadState,
+      applyRunStatusDesktopState,
+      closeProjectBoard,
+      refreshWorkflowRecordingLibraryOverride,
+      resetPromptHistory,
+      resetRunActivityLines,
+      scheduleComposerDraftFocus,
+      sendWorkflowRecordingReviewPromptForState,
+      setError,
+      setRunStatus: runStatus.set,
+      setSelectedWorkflowRecordingId,
+      setSidebarArea,
+      setThreadRunStatuses: threadRunStatuses.set,
+      state,
+      workflowLibraryIncludeArchived: false,
+    }),
+    applyCreatedThreadState,
+    applyRunStatusDesktopState,
+    closeProjectBoard,
+    refreshWorkflowRecordingLibraryOverride,
+    resetPromptHistory,
+    resetRunActivityLines,
+    runStatus,
+    scheduleComposerDraftFocus,
+    sendWorkflowRecordingReviewPromptForState,
+    setError,
+    setSelectedWorkflowRecordingId,
+    setSidebarArea,
+    threadRunStatuses,
+  };
+}
+
+function statefulSetter<T>(initial: T): {
+  set: Dispatch<SetStateAction<T>>;
+  value: T;
+} {
+  const state = { value: initial };
+  return {
+    get value() {
+      return state.value;
+    },
+    set(next) {
+      state.value = typeof next === "function" ? (next as (current: T) => T)(state.value) : next;
+    },
+  };
+}
+
+function thread(overrides: Partial<ThreadSummary> = {}): ThreadSummary {
+  return {
+    id: overrides.id ?? "thread",
+    title: overrides.title ?? "Thread",
+    createdAt: overrides.createdAt ?? "2026-06-13T00:00:00.000Z",
+    updatedAt: overrides.updatedAt ?? "2026-06-13T00:00:00.000Z",
+    workspacePath: overrides.workspacePath ?? "/repo",
+    lastMessagePreview: overrides.lastMessagePreview ?? "",
+    permissionMode: overrides.permissionMode ?? "workspace",
+    collaborationMode: overrides.collaborationMode ?? "agent",
+    model: overrides.model ?? "ambient",
+    thinkingLevel: overrides.thinkingLevel ?? "medium",
+    ...overrides,
+  };
+}
+
+function desktopState(overrides: Partial<DesktopState> = {}): DesktopState {
+  return {
+    activeThreadId: overrides.activeThreadId ?? "thread",
+    activeWorkspace: overrides.activeWorkspace ?? ({ path: "/repo" } as DesktopState["activeWorkspace"]),
+    settings: overrides.settings ?? ({
+      collaborationMode: "agent",
+      model: "ambient",
+      permissionMode: "workspace",
+      thinkingLevel: "medium",
+    } as DesktopState["settings"]),
+    threads: overrides.threads ?? [],
+    workspace: overrides.workspace ?? ({ path: "/repo" } as DesktopState["workspace"]),
+    ...overrides,
+  } as DesktopState;
+}
+
+function workflowPlaybook(overrides: Partial<WorkflowRecordingLibraryEntry> = {}): WorkflowRecordingLibraryEntry {
+  return {
+    id: overrides.id ?? "playbook",
+    title: overrides.title ?? "Playbook",
+    version: overrides.version ?? 1,
+    enabled: overrides.enabled ?? true,
+    savedAt: overrides.savedAt ?? "2026-06-13T00:00:00.000Z",
+    manifestPath: overrides.manifestPath ?? "/repo/playbook/manifest.json",
+    markdownPath: overrides.markdownPath ?? "/repo/playbook/playbook.md",
+    sidecarPath: overrides.sidecarPath ?? "/repo/playbook/sidecar.json",
+    transcriptPath: overrides.transcriptPath ?? "/repo/playbook/transcript.jsonl",
+    summary: overrides.summary ?? "Summary",
+    toolNames: overrides.toolNames ?? [],
+    outputShape: overrides.outputShape ?? [],
+    versions: overrides.versions ?? [],
+    ...overrides,
+  };
+}

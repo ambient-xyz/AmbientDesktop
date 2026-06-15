@@ -1,0 +1,85 @@
+{
+  "providers": [
+    {
+      "id": "qwen3-asr-0.6b-auto",
+      "label": "Qwen3-ASR 0.6B GGUF auto prompt",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "Transcribe the audio. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "512",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0",
+      "notes": "Auto-language baseline for the broader multilingual smoke corpus."
+    },
+    {
+      "id": "qwen3-asr-0.6b-forced-language",
+      "label": "Qwen3-ASR 0.6B GGUF forced sample language",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-0.6B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "The audio language is {language}. Transcribe the speech in {language}. Do not translate. If there is no speech, return an empty transcript. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "512",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0",
+      "notes": "Tests whether explicit language prompting generalizes beyond the earlier Hindi fixture, including a no-speech guard."
+    },
+    {
+      "id": "faster-whisper-large-v3-turbo",
+      "label": "faster-whisper large-v3-turbo forced sample language",
+      "enabled": true,
+      "command": "uv",
+      "cwd": "../..",
+      "args": [
+        "run",
+        "--python",
+        "3.12",
+        "--with",
+        "faster-whisper==1.1.1",
+        "--with",
+        "requests",
+        "python",
+        "scripts/stt-spike/faster_whisper_runner.py",
+        "--audio",
+        "{audio}",
+        "--language",
+        "{language}",
+        "--model",
+        "large-v3-turbo",
+        "--device",
+        "auto",
+        "--compute-type",
+        "default",
+        "--vad-filter"
+      ],
+      "parseStdout": "json",
+      "mode": "offline",
+      "model": "large-v3-turbo",
+      "notes": "Control baseline using the same sample language metadata as the forced Qwen prompt, with VAD enabled for the silence fixture."
+    }
+  ]
+}

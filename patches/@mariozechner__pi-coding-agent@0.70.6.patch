@@ -1,0 +1,111 @@
+diff --git a/dist/core/agent-session.d.ts b/dist/core/agent-session.d.ts
+index 0a2dd5f3f006f693eb4700d37fbd393b34d34d4c..bbdbc854e281630c4e6ea123706e3edac3c0a61c 100644
+--- a/dist/core/agent-session.d.ts
++++ b/dist/core/agent-session.d.ts
+@@ -88,6 +88,12 @@ export interface AgentSessionConfig {
+     initialActiveToolNames?: string[];
+     /** Optional allowlist of tool names. When provided, only these tool names are exposed. */
+     allowedToolNames?: string[];
++    /**
++     * Whether extension/custom tools should all become active automatically.
++     *
++     * Defaults to true for legacy Pi behavior.
++     */
++    includeAllExtensionTools?: boolean;
+     /**
+      * Override base tools (useful for custom runtimes).
+      *
+@@ -180,6 +186,7 @@ export declare class AgentSession {
+     private _extensionRunnerRef?;
+     private _initialActiveToolNames?;
+     private _allowedToolNames?;
++    private _includeAllExtensionTools;
+     private _baseToolsOverride?;
+     private _sessionStartEvent;
+     private _extensionUIContext?;
+diff --git a/dist/core/agent-session.js b/dist/core/agent-session.js
+index 23c607812599037629c3086f6aabc32e06d56ebd..0bed3ed1d6ccca8acfa759271b8ce894fb4de66e 100644
+--- a/dist/core/agent-session.js
++++ b/dist/core/agent-session.js
+@@ -97,6 +97,7 @@ export class AgentSession {
+     _extensionRunnerRef;
+     _initialActiveToolNames;
+     _allowedToolNames;
++    _includeAllExtensionTools;
+     _baseToolsOverride;
+     _sessionStartEvent;
+     _extensionUIContext;
+@@ -126,6 +127,7 @@ export class AgentSession {
+         this._extensionRunnerRef = config.extensionRunnerRef;
+         this._initialActiveToolNames = config.initialActiveToolNames;
+         this._allowedToolNames = config.allowedToolNames ? new Set(config.allowedToolNames) : undefined;
++        this._includeAllExtensionTools = config.includeAllExtensionTools ?? true;
+         this._baseToolsOverride = config.baseToolsOverride;
+         this._sessionStartEvent = config.sessionStartEvent ?? { type: "session_start", reason: "startup" };
+         // Always subscribe to agent events for internal handling
+@@ -134,7 +136,7 @@ export class AgentSession {
+         this._installAgentToolHooks();
+         this._buildRuntime({
+             activeToolNames: this._initialActiveToolNames,
+-            includeAllExtensionTools: true,
++            includeAllExtensionTools: this._includeAllExtensionTools,
+         });
+     }
+     /** Model registry for API key resolution and model discovery */
+@@ -1900,7 +1902,7 @@ export class AgentSession {
+         this._buildRuntime({
+             activeToolNames: this.getActiveToolNames(),
+             flagValues: previousFlagValues,
+-            includeAllExtensionTools: true,
++            includeAllExtensionTools: this._includeAllExtensionTools,
+         });
+         const hasBindings = this._extensionUIContext ||
+             this._extensionCommandContextActions ||
+diff --git a/dist/core/sdk.d.ts b/dist/core/sdk.d.ts
+index 11ae913f92ae1bab232c656893f7da214946f432..ebd85491f1cb6d59ef19b52676f95ff51a4360c4 100644
+--- a/dist/core/sdk.d.ts
++++ b/dist/core/sdk.d.ts
+@@ -42,6 +42,20 @@ export interface CreateAgentSessionOptions {
+      * When provided, only the listed tool names are enabled.
+      */
+     tools?: string[];
++    /**
++     * Initial active tool names without constraining the full tool registry.
++     *
++     * Unlike `tools`, this does not act as an allowlist. Extensions and custom
++     * tools remain registered and discoverable through the session registry.
++     */
++    activeTools?: string[];
++    /**
++     * Whether extension/custom tools should all become active automatically.
++     *
++     * Defaults to true for existing Pi behavior. Set false when the host wants
++     * explicit discovery/router tools to decide which registered tools to use.
++     */
++    includeAllExtensionTools?: boolean;
+     /** Custom tools to register (in addition to built-in tools). */
+     customTools?: ToolDefinition[];
+     /** Resource loader. When omitted, DefaultResourceLoader is used. */
+diff --git a/dist/core/sdk.js b/dist/core/sdk.js
+index 8189de4dc49586313af11f0bbb8aefd6629e3eb2..ecd2f3378efdc53e1738e4bf546975608a206dc8 100644
+--- a/dist/core/sdk.js
++++ b/dist/core/sdk.js
+@@ -144,7 +144,9 @@ export async function createAgentSession(options = {}) {
+     }
+     const defaultActiveToolNames = ["read", "bash", "edit", "write"];
+     const allowedToolNames = options.tools ?? (options.noTools === "all" ? [] : undefined);
+-    const initialActiveToolNames = options.tools
++    const initialActiveToolNames = options.activeTools
++        ? [...options.activeTools]
++        : options.tools
+         ? [...options.tools]
+         : options.noTools
+             ? []
+@@ -263,6 +265,7 @@ export async function createAgentSession(options = {}) {
+         modelRegistry,
+         initialActiveToolNames,
+         allowedToolNames,
++        includeAllExtensionTools: options.includeAllExtensionTools,
+         extensionRunnerRef,
+         sessionStartEvent: options.sessionStartEvent,
+     });

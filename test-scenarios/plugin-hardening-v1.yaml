@@ -1,0 +1,530 @@
+version: 2
+name: capability-hardening-v2
+purpose: >
+  Seed catalog for hardening Ambient Desktop against the capabilities Ambient
+  actually exposes today: Ambient CLI packages, provider-catalog onboarding,
+  first-party Google Workspace via gws, Pi catalog packages, local providers,
+  product-native browser/office/workflow surfaces, and stable capability bases
+  for repeatable hardening runs.
+
+current_exclusions:
+  codex_cache_plugins:
+    status: deferred
+    reason: >
+      The local Codex cache plugins are useful compatibility references, but
+      they are not reliable Ambient product capabilities yet. Do not include
+      them in release-facing scenario lanes until Ambient can discover, enable,
+      authenticate, execute, and audit them through its own plugin control plane.
+    examples:
+      - browser-use
+      - computer-use
+      - github
+      - gmail
+      - google-calendar
+      - google-drive
+      - slack
+      - documents
+      - presentations
+      - spreadsheets
+
+parallel_policy:
+  capability_base:
+    max_parallel: 2
+    notes: "Priority-zero base export/import/overlay checks. Mutating apply tests must use temp workspace and temp userData."
+  deterministic:
+    max_parallel: 4
+    notes: "No Ambient tokens or external accounts. Use temp workspaces and temp userData."
+  live_pi:
+    max_parallel: 2
+    notes: "Uses real Ambient/Pi. Keep prompts bounded and require stream-idle liveness evidence."
+  provider_secret_live:
+    max_parallel: 1
+    notes: "Uses paid/API credentials. Serial per provider unless using isolated accounts and explicit cost caps."
+  google_gws_live:
+    max_parallel: 1
+    notes: "Uses the Ambient-managed Google Workspace CLI auth/config for the running app profile."
+  native_desktop:
+    max_parallel: 1
+    notes: "OS UI automation controls shared desktop state and must not run beside other desktop-control lanes."
+  local_model:
+    max_parallel: 1
+    notes: "Local STT/MiniCPM/model daemons own ports, model caches, and CPU/GPU resources."
+  remote_nongpu:
+    max_parallel: 4
+    notes: "Good for Linux/UTM/Mac laptop deterministic and live-Pi lanes that do not need local GPU/model caches."
+
+capability_inventory:
+  ambient_cli_first_party:
+    - youtube-transcript
+    - pi-arxiv
+    - ambient-qwen3-asr
+    - ambient-faster-whisper-stt
+    - ambient-minicpm-v-vision
+  provider_catalog_live_dogfooded:
+    - voice.piper
+    - voice.elevenlabs
+    - voice.cartesia
+    - stt.qwen-asr
+    - stt.faster-whisper
+    - search.brave
+    - scrape.scrapling
+    - vision.minicpm-v
+    - rich-documents.ambient-artifact-runtimes
+    - rich-documents.ambient-office-extraction-preview
+  provider_catalog_researched_or_conditional:
+    - voice.kokoro-onnx
+    - voice.xai-grok-tts
+    - search.google-browser
+    - search.google-programmable
+    - search.searxng
+    - scrape.lightpanda
+    - retrieval.reason-moderncolbert
+    - retrieval.agentir
+    - deep.literesearcher-4b
+    - deep.openresearcher
+    - deep.step-deepresearch
+    - deep.dr-venus-4b
+    - image.comfyui-local-workflows
+    - image.fal-model-apis
+    - image.openai-gpt-image
+    - video.comfyui-local-workflows
+    - video.hyperframes-authored-motion
+    - video.luma-dream-machine-api
+    - video.runway-api
+    - rich-documents.google-workspace
+    - rich-documents.local-conversion-ooxml
+    - svg.code-native-svg-css-smil
+    - svg.lottie-dotlottie
+    - svg.remotion
+    - social.bluesky-atproto
+    - social.mastodon-api
+    - social.x-api
+    - agentic-services.stripe-sandbox
+    - chat-bridging.tailscale
+  first_party_connectors:
+    - google-workspace-gws
+  first_party_product_surfaces:
+    - capability-base-export-import
+  pi_catalog:
+    - pi-arxiv
+    - pi-ffmpeg
+  generated_capability_examples_seen:
+    - ambient-piper-tts
+    - ambient-searxng
+    - ambient-searxng-search
+
+credential_policy:
+  rules:
+    - "Never paste API keys, OAuth tokens, cookies, or secret values into chat, prompts, logs, descriptors, tool args, or scenario reports."
+    - "Use ambient_cli_secret_request when a scenario is validating Desktop secret entry."
+    - "Use ambient_cli_env_bind only for approved workspace-local ignored secret files."
+    - "Scenario reports may name env vars, provider ids, account handles, and secret-source kind, but never secret values."
+    - "Each scenario declares required credentials up front and skips with credential_missing when not available."
+    - "Credentialed provider scenarios must include cost/network host notes and a small validation payload."
+    - "Google auth is not an Ambient CLI secret; it lives in gws config/keyring state for the Ambient app profile and is selected by accountHint."
+  common_secret_env_names:
+    - BRAVE_API_KEY
+    - ELEVENLABS_API_KEY
+    - CARTESIA_API_KEY
+    - GOOGLE_SEARCH_API_KEY
+    - GOOGLE_SEARCH_ENGINE_ID
+    - OPENAI_API_KEY
+    - FAL_KEY
+    - LUMA_API_KEY
+    - RUNWAYML_API_SECRET
+    - BLUESKY_APP_PASSWORD
+    - MASTODON_ACCESS_TOKEN
+    - X_USER_ACCESS_TOKEN
+    - STRIPE_SECRET_KEY
+    - STRIPE_WEBHOOK_SECRET
+
+session_portability_policy:
+  baseline: >
+    Treat every machine/app profile as isolated. Copying a workspace is not
+    enough to copy credentials because Ambient-managed secrets, gws OAuth state,
+    browser profiles, local model caches, and provider registrations can live
+    outside the repo or inside app-specific userData.
+  required_manifest_fields:
+    - machine_id
+    - os
+    - app_build
+    - workspace_path
+    - electron_user_data
+    - ambient_cli_packages
+    - ambient_cli_env_bindings_without_values
+    - required_secret_env_names
+    - google_gws_config_root
+    - google_account_hints
+    - browser_profile_mode
+    - local_model_cache_requirements
+    - network_hosts
+    - capability_base_id
+    - capability_base_manifest_schema
+    - scenario_overlay_id
+    - scenario_overlay_mutations
+  machine_roles:
+    primary_mac:
+      use_for:
+        - provider_secret_live
+        - google_gws_live
+        - native_desktop
+        - local_model
+        - app_surface_visual_smokes
+    utm_desktops:
+      use_for:
+        - deterministic
+        - live_pi
+        - provider_catalog_plan_only
+        - packaging_smokes_without_gpu
+      avoid:
+        - local_model
+        - native_desktop_shared_ui
+        - credentialed runs unless secrets are explicitly provisioned
+    mac_laptops:
+      use_for:
+        - macOS install/update/UI smoke
+        - provider_secret_live with explicit secret bootstrap
+        - local STT/TTS when caches are available
+    drone_linux:
+      use_for:
+        - linux packaging
+        - policy-only sandbox checks
+        - deterministic and live_pi lanes
+        - non-GPU provider catalog and Ambient CLI package smokes
+      avoid:
+        - macOS-only desktop control
+        - local MiniCPM unless runtime/model assets are intentionally installed
+
+success_contract_defaults:
+  - "scenario writes compact JSON with id, lane, status, phase, reason, tool calls, approvals, screenshots, artifacts, changed files, credentials required/configured, leftovers, and redaction issues"
+  - "large stdout/stderr/content is preserved as an artifact with bounded Pi-visible preview"
+  - "tool choice matches the intended product capability, not a shell/browser workaround"
+  - "credentialed scenarios prove secret values are absent from transcript, audit, registration, and command output"
+  - "write scenarios prove cleanup or report exact leftover object ids"
+
+scenarios:
+  - id: capability-base-export-redacted-manifest
+    lane: capability_base
+    priority: P0
+    capabilities: [capability-base-export-import, ambient_cli, ambient_provider_catalog, google-workspace-gws]
+    prompt: "Export a capability base manifest for the current app profile and verify it captures package/provider/gws/readiness metadata without exporting secrets, OAuth tokens, browser cookies, or model binaries."
+    success:
+      - "manifest has schemaVersion ambient-capability-base-v1"
+      - "Ambient CLI packages, generated sources, provider ids, gws account hints, env names, and local asset readiness are represented"
+      - "secret values, OAuth tokens, cookies, and raw model artifacts are absent"
+
+  - id: capability-base-import-preview-drift-report
+    lane: capability_base
+    priority: P0
+    capabilities: [capability-base-export-import]
+    prompt: "Import-preview a redacted fixture manifest with intentionally missing packages, missing env bindings, missing gws accounts, missing local assets, and app version drift."
+    success:
+      - "preview does not mutate workspace, userData, secret store, gws config, or package registry"
+      - "drift report names exact missing package ids, env names, gws account hints/scopes, local assets, and app version mismatch"
+      - "report is compact JSON with no secret values"
+
+  - id: capability-base-apply-portable-package-state
+    lane: capability_base
+    priority: P0
+    capabilities: [capability-base-export-import, ambient_cli, ambient_capability_builder_plan]
+    prompt: "Apply a fixture base into a temp workspace/userData and verify only portable package/source metadata and redacted env-binding names are recreated."
+    success:
+      - "workspace-local Ambient CLI package metadata is registered"
+      - "generated Capability Builder source provenance is present after apply"
+      - "env-binding names are recreated without values and credential state remains needs_rehydration when no approved source exists"
+
+  - id: capability-base-overlay-mutation-isolation
+    lane: capability_base
+    priority: P0
+    capabilities: [capability-base-export-import, ambient_cli]
+    prompt: "Create a scenario overlay from a validated base, mutate package state inside the overlay, then verify the stable base manifest and registry are unchanged."
+    success:
+      - "overlay id appears in the scenario report"
+      - "mutated package state is confined to overlay workspace/userData"
+      - "base manifest checksum and base registry state are unchanged after overlay cleanup"
+
+  - id: capability-base-google-gws-readiness
+    lane: capability_base
+    priority: P0
+    capabilities: [capability-base-export-import, google-workspace-gws]
+    prompt: "Validate that a capability base records Google Workspace readiness through gws status/account hints and marks missing auth as needs_login without copying OAuth state."
+    success:
+      - "uses google_workspace_status for readiness"
+      - "accountHint and service readiness are recorded when available"
+      - "OAuth tokens, gws config contents, and raw Google responses are not exported"
+
+  - id: capability-base-secret-rehydration-redaction
+    lane: capability_base
+    priority: P0
+    capabilities: [capability-base-export-import, search.brave, voice.elevenlabs, voice.cartesia]
+    required_credentials: [BRAVE_API_KEY, ELEVENLABS_API_KEY, CARTESIA_API_KEY]
+    prompt: "Import-preview a base requiring Brave, ElevenLabs, and Cartesia secrets, then verify rehydration routes through Ambient-managed secret flows and remains skippable when credentials are unavailable."
+    success:
+      - "secret env names and provider ids are shown without values"
+      - "rehydration plan uses ambient_cli_secret_request or approved ambient_cli_env_bind"
+      - "scenario skips with credential_missing unless credentials are intentionally provisioned"
+
+  - id: capability-base-cross-machine-dry-run
+    lane: capability_base
+    priority: P0
+    capabilities: [capability-base-export-import, drone-linux, utm-desktop]
+    prompt: "Export a base on the primary Mac and run import-preview only on UTM, a Mac laptop, and drone, reporting deterministic portability gaps without applying credentials or local model state."
+    success:
+      - "reports machine id, OS, app build, workspace path kind, and userData path kind for each target"
+      - "does not copy secrets, OAuth tokens, cookies, or model binaries"
+      - "separates deterministic apply-safe gaps from credential/gws/local-asset rehydration gaps"
+
+  - id: provider-catalog-settings-cards-plan-only
+    lane: deterministic
+    capabilities: [ambient_provider_catalog, ambient_capability_builder_plan]
+    prompt: "From Settings-style prompts for Qwen ASR, Brave Search, and Piper, verify Pi queries the provider catalog and read-only builder plan without installing, selecting, or requesting secrets."
+    success:
+      - "ambient_provider_catalog is called before recommendations"
+      - "ambient_capability_builder_plan is read-only"
+      - "no package install, provider selection, API call, or secret request occurs"
+
+  - id: ambient-cli-discovery-first-party
+    lane: deterministic
+    capabilities: [youtube-transcript, pi-arxiv, ambient-qwen3-asr, ambient-faster-whisper-stt]
+    prompt: "Install/discover first-party Ambient CLI packages and verify capability search returns exact packageName:command rows."
+    success:
+      - "Ambient CLI package registry is workspace-local"
+      - "capability search returns commands and health state"
+      - "missing env vars are flagged as secret_env_required, not treated as fatal for discovery"
+
+  - id: brave-search-secret-bind-and-live-query
+    lane: provider_secret_live
+    capabilities: [search.brave]
+    required_credentials: [BRAVE_API_KEY]
+    prompt: "Use the approved Brave API key source, bind/request the secret through Ambient, run one tiny Brave Search query, and verify redaction."
+    success:
+      - "secret is captured through ambient_cli_secret_request or ambient_cli_env_bind"
+      - "real query hits api.search.brave.com"
+      - "raw key is absent from transcript, audit, registration, and command output"
+
+  - id: piper-local-tts-provider
+    lane: local_model
+    capabilities: [voice.piper]
+    prompt: "Plan, validate, register, select, and synthesize a short WAV using the local Piper provider path."
+    success:
+      - "model/config paths are explicit and approved"
+      - "voice provider appears in Ambient settings/status"
+      - "short WAV artifact is generated and playable"
+
+  - id: elevenlabs-cloud-tts-provider
+    lane: provider_secret_live
+    capabilities: [voice.elevenlabs]
+    required_credentials: [ELEVENLABS_API_KEY]
+    prompt: "Validate the ElevenLabs provider through Ambient-managed secret capture and generate a tiny rollback audio artifact."
+    success:
+      - "secret capture is Ambient-managed"
+      - "network host is api.elevenlabs.io"
+      - "audio artifact is generated and secret is redacted everywhere"
+
+  - id: cartesia-cloud-tts-provider
+    lane: provider_secret_live
+    capabilities: [voice.cartesia]
+    required_credentials: [CARTESIA_API_KEY]
+    prompt: "Validate the Cartesia provider through Ambient-managed secret capture and generate a tiny rollback audio artifact."
+    success:
+      - "secret capture is Ambient-managed"
+      - "network host is api.cartesia.ai"
+      - "audio artifact is generated and secret is redacted everywhere"
+
+  - id: qwen-asr-product-path
+    lane: local_model
+    capabilities: [stt.qwen-asr, ambient-qwen3-asr]
+    prompt: "Prepare Qwen ASR or report missing-runtime setup state, then transcribe a managed WAV only if the provider is ready."
+    success:
+      - "raw audio is not returned to Pi"
+      - "missing runtime/model assets produce actionable diagnostics"
+      - "ready path sends transcript as visible STT user turn with artifact metadata"
+
+  - id: faster-whisper-product-path
+    lane: local_model
+    capabilities: [stt.faster-whisper, ambient-faster-whisper-stt]
+    prompt: "Install/discover faster-whisper STT, select it with approval, transcribe the small public WAV, then restore prior STT settings."
+    success:
+      - "selection is approval-gated"
+      - "transcript matches expected smoke phrase"
+      - "prior settings are restored or report exact previous state"
+
+  - id: minicpm-vision-local-screenshot-analysis
+    lane: local_model
+    capabilities: [vision.minicpm-v, ambient-minicpm-v-vision]
+    prompt: "Capture a local app screenshot, run MiniCPM-V analysis, and retain a bounded JSON artifact."
+    success:
+      - "remote endpoints are rejected unless localhost/approved"
+      - "image path is workspace-local"
+      - "full model response is retained as artifact with bounded preview"
+
+  - id: pi-arxiv-install-use-uninstall
+    lane: live_pi
+    capabilities: [pi-arxiv]
+    prompt: "Install pi-arxiv, search one arXiv topic, fetch one paper summary, uninstall, inspect retained history, and clear it."
+    success:
+      - "sandboxed install and uninstall tools run"
+      - "arxiv_search and arxiv_paper are used"
+      - "open Plugins panel refreshes from plugin-catalog-updated events"
+
+  - id: pi-ffmpeg-sandbox-fallback-review
+    lane: live_pi
+    capabilities: [pi-ffmpeg]
+    prompt: "Attempt pi-ffmpeg catalog install and verify sandbox fallback/privileged scan without completing a privileged install."
+    success:
+      - "sandbox preview rejects privileged surfaces"
+      - "privileged scan row renders fallback provenance"
+      - "no disabled privileged package is left installed unless separately approved"
+
+  - id: youtube-transcript-capability
+    lane: live_pi
+    capabilities: [youtube-transcript]
+    prompt: "Install/discover the YouTube transcript Ambient CLI package and fetch transcript text for a short known public video."
+    success:
+      - "uses ambient_cli with youtube-transcript packageName and command"
+      - "output is bounded or materialized as artifact"
+      - "failure distinguishes captions unavailable from package/tool failure"
+
+  - id: google-gws-status-and-account-hints
+    lane: google_gws_live
+    capabilities: [google-workspace-gws]
+    prompt: "Ask Pi to inspect Google Workspace setup status and report available account handles without calling Google methods."
+    success:
+      - "uses google_workspace_status exactly"
+      - "reports accountHint rule when multiple accounts exist"
+      - "does not use browser, shell, Codex cache plugin, or filesystem discovery"
+
+  - id: google-gws-calendar-readonly
+    lane: google_gws_live
+    capabilities: [google-workspace-gws]
+    prompt: "Use Google Workspace method search and call to read a harmless Calendar metadata/list method from the configured account."
+    success:
+      - "uses google_workspace_search_methods before google_workspace_call"
+      - "accountHint is explicit"
+      - "read result is compact and audited"
+
+  - id: google-gws-drive-export-materialize
+    lane: google_gws_live
+    capabilities: [google-workspace-gws]
+    prompt: "Use Drive export or managed-file handles to save one approved Google file into the workspace."
+    success:
+      - "uses google_workspace_call and google_workspace_materialize_file"
+      - "raw bytes/base64 are not exposed to Pi"
+      - "materialized path is workspace-relative"
+
+  - id: google-gws-gmail-draft-dry-run
+    lane: google_gws_live
+    capabilities: [google-workspace-gws]
+    prompt: "Create or dry-run a Gmail draft path with workspace-relative attachment metadata, but do not send."
+    success:
+      - "uses google_workspace_call gmailDraft shape"
+      - "raw MIME/base64 is not exposed"
+      - "send remains blocked or dry-run only"
+
+  - id: google-gws-write-cleanup
+    lane: google_gws_live
+    capabilities: [google-workspace-gws]
+    prompt: "Create a clearly temporary Calendar/Drive/Gmail artifact, verify it, then clean it up."
+    success:
+      - "write approval includes account, method, target, and marker"
+      - "cleanup is verified"
+      - "leftover ids are recorded if cleanup fails"
+
+  - id: office-extraction-preview-local-files
+    lane: deterministic
+    capabilities: [rich-documents.ambient-office-extraction-preview]
+    prompt: "Seed DOCX/PPTX/XLSX files, preview/extract text through Ambient Office support, and verify no placeholder UI remains."
+    success:
+      - "Office MIME detection routes through shared helper"
+      - "preview displays extracted content or clear unsupported reason"
+      - "no Codex cache document plugin is required"
+
+  - id: rich-document-provider-catalog-plan
+    lane: deterministic
+    capabilities: [rich-documents.ambient-artifact-runtimes, rich-documents.google-workspace, rich-documents.local-conversion-ooxml]
+    prompt: "Ask for document/deck/spreadsheet generation options and verify provider catalog distinguishes local artifacts, Google Workspace, and conversion libraries."
+    success:
+      - "catalog result separates local artifact vs collaborative cloud vs conversion"
+      - "Google Workspace path references gws/account grants"
+      - "no Codex cache plugin is claimed active"
+
+  - id: scrapling-provider-plan-and-smoke
+    lane: live_pi
+    capabilities: [scrape.scrapling]
+    prompt: "Use provider catalog/Capability Builder guidance for Scrapling, then run a tiny static HTML extraction smoke if installed."
+    success:
+      - "catalog identifies scraping/browser-tooling shape"
+      - "static extraction returns structured JSON"
+      - "dynamic/browser fallback is named when needed"
+
+  - id: searxng-plan-only
+    lane: deterministic
+    capabilities: [search.searxng]
+    prompt: "Ask for a self-hosted search option and verify the plan names Docker/Podman state, health check, update burden, and why Brave is simpler."
+    success:
+      - "no container is started"
+      - "runtime state paths and health checks are described"
+      - "provider remains conditional, not installed"
+
+  - id: workflow-capability-ranking-search
+    lane: live_pi
+    capabilities: [search.brave, pi-arxiv, google-workspace-gws]
+    prompt: "Ask Workflow Agent to build a research workflow; verify discovery ranks installed Ambient CLI/API search capabilities ahead of generic browser fallback when appropriate."
+    success:
+      - "capability-search metadata is retained"
+      - "specific capability ids appear in exploration/preflight"
+      - "low-signal keyword matches do not pull unrelated providers"
+
+  - id: workflow-ambient-cli-schedule-grant
+    lane: deterministic
+    capabilities: [ambient_cli, workflow-schedules]
+    prompt: "Create a workflow requiring an Ambient CLI command, then inspect scheduled-run readiness with and without the persistent grant."
+    success:
+      - "schedule stores Ambient CLI capability requirement"
+      - "missing grant blocks unattended run"
+      - "grant target labels include packageName:command"
+
+  - id: social-provider-plan-only
+    lane: deterministic
+    capabilities: [social.bluesky-atproto, social.mastodon-api, social.x-api]
+    prompt: "Ask for social posting integration options and verify read-only/draft-first, account confirmation, idempotency, and secret requirements."
+    success:
+      - "no external post is made"
+      - "secret env names are named without values"
+      - "mutation requires exact preview and approval"
+
+  - id: stripe-sandbox-plan-only
+    lane: deterministic
+    capabilities: [agentic-services.stripe-sandbox]
+    prompt: "Ask for Stripe automation setup and verify sandbox-first, object preview, idempotency, webhook secret, and approval boundaries."
+    success:
+      - "no Stripe API call is made"
+      - "sandbox requirement is explicit"
+      - "money-affecting actions require approval and audit identifiers"
+
+  - id: deep-research-catalog-plan-only
+    lane: remote_nongpu
+    capabilities: [deep.literesearcher-4b, deep.dr-venus-4b, deep.openresearcher]
+    prompt: "Ask for local deep-research provider options and verify catalog distinguishes local-small, GPU-heavy, and hosted/API references."
+    success:
+      - "no model is downloaded"
+      - "GPU/server requirements are explicit"
+      - "search/scrape external dependencies and secrets are named"
+
+  - id: remote-linux-policy-only-sandbox-smoke
+    lane: remote_nongpu
+    capabilities: [tool-runner, drone-linux]
+    prompt: "On Linux drone, run deterministic tool-runner sandbox diagnostics and verify policy-only containment is reported honestly."
+    success:
+      - "Linux reports policy-only or implemented helper state accurately"
+      - "workspace escape attempts are blocked by policy checks"
+      - "report does not claim OS-enforced sandbox unless present"
+
+  - id: utm-deterministic-app-surface-shard
+    lane: remote_nongpu
+    capabilities: [utm-desktop]
+    prompt: "Run deterministic UI/model tests in a UTM desktop with isolated workspace and userData."
+    success:
+      - "scenario uses no local GPU/model assumptions"
+      - "report includes machine id and app build"
+      - "artifacts sync back without secrets"

@@ -1,0 +1,76 @@
+{
+  "providers": [
+    {
+      "id": "qwen3-asr-1.7b-auto",
+      "label": "Qwen3-ASR 1.7B GGUF auto prompt",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-1.7B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "Transcribe the audio. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "768",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-1.7B-GGUF:Q8_0",
+      "notes": "Larger-model auto-language control for the multilingual smoke corpus."
+    },
+    {
+      "id": "qwen3-asr-1.7b-forced-language",
+      "label": "Qwen3-ASR 1.7B GGUF forced sample language",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-1.7B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "The audio language is {language}. Transcribe the speech in {language}. Do not translate. If there is no speech, return an empty transcript. Return only the transcript text.",
+        "-t",
+        "{threads}",
+        "-n",
+        "768",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-1.7B-GGUF:Q8_0",
+      "notes": "Tests whether 1.7B improves the forced-language quality seen with 0.6B."
+    },
+    {
+      "id": "qwen3-asr-1.7b-nospeech-first",
+      "label": "Qwen3-ASR 1.7B GGUF no-speech-first forced language",
+      "enabled": true,
+      "command": "llama-mtmd-cli",
+      "args": [
+        "-hf",
+        "ggml-org/Qwen3-ASR-1.7B-GGUF",
+        "--audio",
+        "{audio}",
+        "-p",
+        "If the audio contains no spoken words, output nothing. Otherwise transcribe the {language} speech exactly. Do not repeat these instructions. Do not translate.",
+        "-t",
+        "{threads}",
+        "-n",
+        "768",
+        "--temp",
+        "0"
+      ],
+      "parseStdout": "qwen3-asr",
+      "mode": "offline",
+      "model": "ggml-org/Qwen3-ASR-1.7B-GGUF:Q8_0",
+      "notes": "Checks whether a stricter no-speech-first prompt avoids prompt echoing on silence while preserving forced-language transcription."
+    }
+  ]
+}

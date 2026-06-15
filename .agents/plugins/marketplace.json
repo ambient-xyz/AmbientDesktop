@@ -1,0 +1,20 @@
+{
+  "name": "ambient-desktop-fixtures",
+  "interface": {
+    "displayName": "Ambient Desktop Fixtures"
+  },
+  "plugins": [
+    {
+      "name": "ambient-fixture",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ambient-fixture"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

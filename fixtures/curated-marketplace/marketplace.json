@@ -1,0 +1,251 @@
+{
+  "name": "ambient-curated",
+  "interface": {
+    "displayName": "Ambient Curated Marketplace"
+  },
+  "plugins": [
+    {
+      "name": "documents-fixture",
+      "version": "0.1.0",
+      "description": "License-cleared skill-only document workflow fixture.",
+      "source": {
+        "source": "git-subdir",
+        "path": "./plugins/documents-fixture",
+        "url": "https://github.com/AmbientCrypto/ambient-codex-plugin-fixtures.git",
+        "sha": "1111111111111111111111111111111111111111"
+      },
+      "publisher": "Ambient",
+      "license": "MIT",
+      "category": "Productivity",
+      "interface": {
+        "displayName": "Documents Fixture",
+        "category": "Productivity"
+      },
+      "manifest": {
+        "skills": "./skills/"
+      },
+      "ambient": {
+        "marketplace": {
+          "publisher": "Ambient",
+          "license": "MIT",
+          "checksum": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "capabilitySummary": [
+            "Skill-only artifact",
+            "Document workflow helper"
+          ],
+          "compatibility": {
+            "status": "Ambient verified fixture",
+            "tier": "supported",
+            "supportLabels": [
+              "License cleared",
+              "No executable server"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "github-app-fixture",
+      "version": "0.1.0",
+      "description": "Connector metadata fixture for app authorization states.",
+      "source": {
+        "source": "git-subdir",
+        "path": "./plugins/github-app-fixture",
+        "url": "https://github.com/AmbientCrypto/ambient-codex-plugin-fixtures.git",
+        "sha": "2222222222222222222222222222222222222222"
+      },
+      "publisher": "Ambient",
+      "license": "MIT",
+      "category": "Connector",
+      "interface": {
+        "displayName": "GitHub App Fixture",
+        "category": "Connector"
+      },
+      "policy": {
+        "authentication": "ON_INSTALL"
+      },
+      "manifest": {
+        "apps": "./.app.json"
+      },
+      "ambient": {
+        "marketplace": {
+          "publisher": "Ambient",
+          "license": "MIT",
+          "checksum": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "capabilitySummary": [
+            "App connector descriptor",
+            "OAuth state fixture"
+          ],
+          "compatibility": {
+            "status": "Ambient connector bridge fixture",
+            "tier": "partial",
+            "supportLabels": [
+              "License cleared",
+              "Requires account connection"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "mcp-tool-fixture",
+      "version": "0.1.0",
+      "description": "Hermetic MCP tool server fixture.",
+      "source": {
+        "source": "git-subdir",
+        "path": "./plugins/mcp-tool-fixture",
+        "url": "https://github.com/AmbientCrypto/ambient-codex-plugin-fixtures.git",
+        "sha": "3333333333333333333333333333333333333333"
+      },
+      "publisher": "Ambient",
+      "license": "MIT",
+      "category": "Tools",
+      "interface": {
+        "displayName": "MCP Tool Fixture",
+        "category": "Tools"
+      },
+      "manifest": {
+        "mcpServers": "./.mcp.json"
+      },
+      "ambient": {
+        "marketplace": {
+          "publisher": "Ambient",
+          "license": "MIT",
+          "checksum": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "capabilitySummary": [
+            "MCP tool server",
+            "Hermetic local process"
+          ],
+          "compatibility": {
+            "status": "Ambient verified MCP fixture",
+            "tier": "supported",
+            "supportLabels": [
+              "License cleared",
+              "Requires trust before execution"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "browser-control-fixture",
+      "version": "0.1.0",
+      "description": "Browser/control skill fixture modeled after browser automation plugins.",
+      "source": {
+        "source": "git-subdir",
+        "path": "./plugins/browser-control-fixture",
+        "url": "https://github.com/AmbientCrypto/ambient-codex-plugin-fixtures.git",
+        "sha": "4444444444444444444444444444444444444444"
+      },
+      "publisher": "Ambient",
+      "license": "MIT",
+      "category": "Browser",
+      "interface": {
+        "displayName": "Browser Control Fixture",
+        "category": "Browser"
+      },
+      "manifest": {
+        "skills": "./skills/"
+      },
+      "ambient": {
+        "marketplace": {
+          "publisher": "Ambient",
+          "license": "MIT",
+          "checksum": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "capabilitySummary": [
+            "Browser/control skill",
+            "Interactive runtime fixture"
+          ],
+          "compatibility": {
+            "status": "Ambient browser-control fixture",
+            "tier": "partial",
+            "supportLabels": [
+              "License cleared",
+              "Runtime policy required"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "native-mcp-fixture",
+      "version": "0.1.0",
+      "description": "High-risk native MCP helper fixture for policy tests.",
+      "source": {
+        "source": "git-subdir",
+        "path": "./plugins/native-mcp-fixture",
+        "url": "https://github.com/AmbientCrypto/ambient-codex-plugin-fixtures.git",
+        "sha": "5555555555555555555555555555555555555555"
+      },
+      "publisher": "Ambient",
+      "license": "MIT",
+      "category": "Native",
+      "interface": {
+        "displayName": "Native MCP Fixture",
+        "category": "Native"
+      },
+      "manifest": {
+        "mcpServers": "./.mcp.json"
+      },
+      "ambient": {
+        "marketplace": {
+          "publisher": "Ambient",
+          "license": "MIT",
+          "checksum": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "capabilitySummary": [
+            "Native helper MCP tool",
+            "High-risk execution policy fixture"
+          ],
+          "compatibility": {
+            "status": "Ambient high-risk fixture",
+            "tier": "partial",
+            "supportLabels": [
+              "License cleared",
+              "Requires sandbox before unattended execution"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "binary-dependency-fixture",
+      "version": "0.1.0",
+      "description": "Binary/dependency plugin fixture for install-policy tests.",
+      "source": {
+        "source": "git-subdir",
+        "path": "./plugins/binary-dependency-fixture",
+        "url": "https://github.com/AmbientCrypto/ambient-codex-plugin-fixtures.git",
+        "sha": "6666666666666666666666666666666666666666"
+      },
+      "publisher": "Ambient",
+      "license": "MIT",
+      "category": "Dependencies",
+      "interface": {
+        "displayName": "Binary Dependency Fixture",
+        "category": "Dependencies"
+      },
+      "manifest": {
+        "mcpServers": "./.mcp.json"
+      },
+      "ambient": {
+        "marketplace": {
+          "publisher": "Ambient",
+          "license": "MIT",
+          "checksum": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "capabilitySummary": [
+            "Binary dependency package",
+            "Dependency install policy fixture"
+          ],
+          "compatibility": {
+            "status": "Ambient dependency fixture",
+            "tier": "partial",
+            "supportLabels": [
+              "License cleared",
+              "Requires explicit dependency install"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

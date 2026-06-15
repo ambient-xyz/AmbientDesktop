@@ -1,0 +1,24 @@
+{
+  "samples": [
+    {
+      "id": "en-short-clean",
+      "path": "fixtures/stt/en-short-clean.wav",
+      "language": "English",
+      "description": "Short clean English microphone sample.",
+      "durationMs": 8000,
+      "normalize": true,
+      "sourceUrl": "local fixture",
+      "license": "recorded or selected for Ambient STT spike use"
+    },
+    {
+      "id": "non-en-latin",
+      "path": "fixtures/stt/non-en-latin.wav",
+      "language": "Spanish",
+      "description": "Short non-English Latin-script sample.",
+      "durationMs": 12000,
+      "normalize": true,
+      "sourceUrl": "replace with public fixture URL",
+      "license": "replace with source license"
+    }
+  ]
+}
