@@ -449,7 +449,7 @@ async function runDockerNetworkDisabledBridgeLivePiSmoke() {
 }
 
 async function runLivePiBridgePlanner({ service, pending, apiKey }) {
-  const modelId = process.env.AMBIENT_AGENTOS_MCP_BRIDGE_LIVE_MODEL || "zai-org/GLM-5.1-FP8";
+  const modelId = process.env.AMBIENT_AGENTOS_MCP_BRIDGE_LIVE_MODEL || "moonshotai/kimi-k2.7-code";
   const sessionId = `ambient-sandbox-mcp-bridge-live-${Date.now()}`;
   const workbookPath = "/tmp/ambient-sandbox-mcp-bridge-live-pi/live-pi-workbook.xlsx";
   const tool = sandboxMcpBridgeTool();

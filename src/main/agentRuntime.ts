@@ -103,6 +103,7 @@ import type {
   ProviderStatus,
 } from "../shared/types";
 import {
+  normalizeAmbientModelId,
   resolveAmbientModelRuntimeProfile,
   type AmbientModelRuntimeProfile,
 } from "../shared/ambientModels";
@@ -1314,6 +1315,25 @@ export class AgentRuntime {
     });
   }
 
+  private async switchSessionToThreadModel(thread: ThreadSummary, session: PiSession): Promise<void> {
+    const provider = getAmbientProviderStatus(thread.model);
+    const model = ambientModel(thread.model, normalizeAmbientBaseUrl(provider.baseUrl));
+    if (normalizeAmbientModelId(session.model?.id) !== normalizeAmbientModelId(thread.model)) {
+      await session.setModel(model);
+    }
+    session.setThinkingLevel(thread.thinkingLevel);
+    this.staleRuntimeSettingsThreads.delete(thread.id);
+    if (session.sessionFile) {
+      await this.commitThreadPiSessionFile({
+        threadId: thread.id,
+        sessionFile: session.sessionFile,
+        currentPiSessionFile: this.store.getThread(thread.id).piSessionFile,
+        reason: "model-changed",
+        emit: (event) => this.emit(event),
+      });
+    }
+  }
+
   private recordRemoteSurfaceRuntimeEvent(
     input: AgentRuntimeRemoteSurfaceRuntimeEventCreateInput,
   ): MessagingGatewayRemoteSurfaceRuntimeEvent {
@@ -1634,6 +1654,7 @@ export class AgentRuntime {
       getPermissionMode: () => this.store.getThread(input.threadId).permissionMode,
       getCurrentSessionFile: () => session?.sessionFile,
       getCurrentThreadPiSessionFile: () => this.store.getThread(input.threadId).piSessionFile,
+      shouldUseCurrentSessionForRetry: () => normalizeAmbientModelId(this.store.getThread(input.threadId).model) === normalizeAmbientModelId(runtimeModel),
       commitThreadPiSessionFile: (commitInput) => this.commitThreadPiSessionFile(commitInput),
       emit: emitRunEvent,
     });
@@ -1850,6 +1871,7 @@ export class AgentRuntime {
       streamActivity: piStreamActivity,
       streamTraceState,
       getPermissionMode: () => this.store.getThread(input.threadId).permissionMode,
+      getModel: () => this.store.getThread(input.threadId).model,
       getRetrySourceUserMessageId: () => retrySourceUserMessageId,
       getSessionFile: () => session?.sessionFile,
       chatStreamSemanticOutputSeen,
@@ -2552,6 +2574,7 @@ export class AgentRuntime {
     const thread = hasRuntimeThreadSettingsUpdate(threadSettingsUpdate)
       ? this.store.updateThreadSettings(input.threadId, threadSettingsUpdate)
       : this.store.getThread(input.threadId);
+    if (input.model !== undefined) await this.applyThreadModelSettings(input.threadId);
     const imageInputs = await resolveAgentRuntimeImageInputs({
       sendInput: input,
       workspacePath: thread.workspacePath,
@@ -2715,6 +2738,22 @@ export class AgentRuntime {
         childRunId: run.id,
         reason,
         idempotencyKey: `direct-child-stop:${run.id}`,
+      },
+    });
+    for (const barrier of waitBarriers) this.emitSubagentWaitBarrierUpdated(barrier);
+  }
+
+  private resolveTerminalChildWaitBarriers(run: SubagentRunSummary, reason: string): void {
+    const waitBarriers = resolveActiveSubagentWaitBarriersForRun({
+      store: this.store,
+      run,
+      evidence: {
+        schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+        kind: run.status === "timed_out" ? "child_runtime_timeout" : "child_terminal",
+        source: "child_runtime",
+        childRunId: run.id,
+        reason,
+        idempotencyKey: `child-terminal:${run.id}:${run.status}:${run.updatedAt ?? ""}`,
       },
     });
     for (const barrier of waitBarriers) this.emitSubagentWaitBarrierUpdated(barrier);
@@ -2894,6 +2933,44 @@ export class AgentRuntime {
       this.tencentMemoryRuntimeSnapshots.delete(threadId);
     }
     return plan.result;
+  }
+
+  async applyThreadModelSettings(threadId: string): Promise<{
+    switchedSessions: number;
+    deferredSessions: number;
+    switchedThreadIds: string[];
+    deferredThreadIds: string[];
+  }> {
+    const thread = this.store.getThread(threadId);
+    const session = activeSessions.get(threadId);
+    const result = {
+      switchedSessions: 0,
+      deferredSessions: 0,
+      switchedThreadIds: [] as string[],
+      deferredThreadIds: [] as string[],
+    };
+    if (!session) {
+      this.staleRuntimeSettingsThreads.delete(threadId);
+      return result;
+    }
+
+    if (normalizeAmbientModelId(session.model?.id) === normalizeAmbientModelId(thread.model)) {
+      session.setThinkingLevel(thread.thinkingLevel);
+      this.staleRuntimeSettingsThreads.delete(threadId);
+      return result;
+    }
+
+    if (this.activeRuns.has(threadId)) {
+      this.staleRuntimeSettingsThreads.add(threadId);
+      result.deferredSessions = 1;
+      result.deferredThreadIds.push(threadId);
+      return result;
+    }
+
+    await this.switchSessionToThreadModel(thread, session);
+    result.switchedSessions = 1;
+    result.switchedThreadIds.push(threadId);
+    return result;
   }
 
   applyThreadMemorySettings(threadId: string): {
@@ -3428,6 +3505,9 @@ export class AgentRuntime {
         existing.dispose();
         activeSessions.delete(thread.id);
       } else {
+        if (normalizeAmbientModelId(existing.model?.id) !== normalizeAmbientModelId(thread.model)) {
+          await this.switchSessionToThreadModel(thread, existing);
+        }
         existing.setThinkingLevel(thread.thinkingLevel);
         return existing;
       }
@@ -3884,6 +3964,7 @@ export class AgentRuntime {
   }
 
   private subagentFinalizationBarrierBlock(parentThreadId: string, parentRunId: string): SubagentFinalizationBarrierBlock | undefined {
+    this.reconcileParentRunWaitBarriersForFinalization(parentThreadId, parentRunId);
     return resolveSubagentFinalizationBarrierBlock({
       parentThreadId,
       parentRunId,
@@ -3892,6 +3973,30 @@ export class AgentRuntime {
       listSubagentRunEvents: (runId) => this.store.listSubagentRunEvents(runId),
       listSubagentMailboxEvents: (runId) => this.store.listSubagentMailboxEvents(runId),
     });
+  }
+
+  private reconcileParentRunWaitBarriersForFinalization(parentThreadId: string, parentRunId: string): void {
+    const reconciledRunIds = new Set<string>();
+    const barriers = this.store
+      .listSubagentWaitBarriersForParentRun(parentRunId)
+      .filter((barrier) =>
+        barrier.parentThreadId === parentThreadId &&
+        barrier.status === "waiting_on_children" &&
+        barrier.dependencyMode !== "optional_background");
+    for (const barrier of barriers) {
+      for (const childRunId of barrier.childRunIds) {
+        if (reconciledRunIds.has(childRunId)) continue;
+        let run: SubagentRunSummary;
+        try {
+          run = this.store.getSubagentRun(childRunId);
+        } catch {
+          continue;
+        }
+        if (!isSubagentTerminalStatus(run.status)) continue;
+        reconciledRunIds.add(childRunId);
+        this.resolveTerminalChildWaitBarriers(run, `finalization_reconciliation:${run.status}`);
+      }
+    }
   }
 
   private callableWorkflowFinalizationBlock(
@@ -5062,10 +5167,11 @@ export class AgentRuntime {
     if (["completed", "failed", "stopped", "cancelled", "timed_out", "aborted_partial"].includes(current.status)) {
       return current;
     }
-    const role = current.roleProfileSnapshot;
-    const partial = role.guardPolicy.allowPartialResult;
-    const status = partial ? "aborted_partial" : "failed";
     const reason = input.reason ?? "runtime_budget_exceeded";
+    const runtimeTimeout = reason === "runtime_idle_timeout" || reason === "runtime_hard_cap_exceeded";
+    const role = current.roleProfileSnapshot;
+    const partial = runtimeTimeout ? false : role.guardPolicy.allowPartialResult;
+    const status = runtimeTimeout ? "timed_out" : partial ? "aborted_partial" : "failed";
     const maxRuntimeMs = input.limitMs ?? role.guardPolicy.maxRuntimeMs;
     const startedMs = Date.parse(input.execution.startedAt);
     const elapsedMs = input.elapsedMs ?? (Number.isFinite(startedMs) ? Math.max(0, Date.now() - startedMs) : undefined);
@@ -5150,6 +5256,7 @@ export class AgentRuntime {
         artifactPath: transcriptPath,
       },
     });
+    this.resolveTerminalChildWaitBarriers(settled, reason);
     const parentMailboxEvent = this.store.appendSubagentLifecycleInterruptionParentMailboxEvent({
       run: settled,
       previousStatus: current.status,
@@ -5681,6 +5788,7 @@ export class AgentRuntime {
       },
     });
     this.recordSubagentGroupedCompletionIfNeeded(result, disposition.summary);
+    this.resolveTerminalChildWaitBarriers(result, disposition.status);
     return { status: "terminal" };
   }
 

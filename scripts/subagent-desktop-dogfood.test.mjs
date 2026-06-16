@@ -27,12 +27,21 @@ describe("sub-agent Desktop dogfood harness wiring", () => {
     const e2e = await readText("src/main/subagentDesktopDogfood.e2e.test.ts");
 
     expect(supervisor).toContain("verifyHarnessCheckout");
+    expect(supervisor).toContain("DEFAULT_DOGFOOD_PROVIDER = \"ambient\"");
+    expect(supervisor).toContain("DEFAULT_DOGFOOD_MODEL = \"moonshotai/kimi-k2.7-code\"");
+    expect(supervisor).toContain("dogfoodLaunchEnv");
+    expect(supervisor).toContain("providerSnapshot(launchEnv ?? dogfoodLaunchEnv(process.env))");
     expect(supervisor).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_PORT");
     expect(supervisor).toContain("getAvailablePort");
     expect(supervisor).toContain("electron-dogfood-latest.manifest.json");
     expect(supervisor).toContain("staleElectronProcessPids");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_RUNTIME_PID");
+    expect(runner).toContain("DEFAULT_DOGFOOD_PROVIDER = \"ambient\"");
+    expect(runner).toContain("DEFAULT_DOGFOOD_MODEL = \"moonshotai/kimi-k2.7-code\"");
+    expect(runner).toContain("dogfoodProviderEnv(process.env)");
+    expect(runner).toContain("GMI_CLOUD_MODEL: modelId");
+    expect(runner).toContain("AMBIENT_LIVE_MODEL: modelId");
     expect(runner).toContain("scripts/llama-server-placeholder.mjs");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_PID");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_ID");

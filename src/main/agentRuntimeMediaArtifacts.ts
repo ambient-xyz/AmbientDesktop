@@ -201,7 +201,7 @@ export function ambientCliMediaArtifactPathFromResult(result: string): string | 
     if (match?.[1]) return resolveAmbientCliResultArtifactPath(match[1], result);
   }
 
-  const mediaPath = new RegExp(`\\b(${MEDIA_ARTIFACT_PATH_PATTERN})\\b`, "gi");
+  const mediaPath = new RegExp(`(${MEDIA_ARTIFACT_PATH_PATTERN})`, "gi");
   const matches = [...result.matchAll(mediaPath)]
     .map((match) => cleanToolPath(match[1]))
     .filter((path): path is string => Boolean(path));
@@ -210,22 +210,79 @@ export function ambientCliMediaArtifactPathFromResult(result: string): string | 
 }
 
 function ambientCliJsonMediaArtifactPathFromResult(result: string): string | undefined {
-  const pathKeys = ["artifactPath", "artifact_path", "audioPath", "audio_path", "output", "outputFile", "output_file", "path"];
-  for (const line of result.split(/\r?\n/).reverse()) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) continue;
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
-      for (const key of pathKeys) {
-        const value = (parsed as Record<string, unknown>)[key];
-        if (typeof value === "string" && mediaArtifactKindFromPath(value)) return value;
-      }
-    } catch {
-      continue;
-    }
+  for (const parsed of jsonObjectsFromText(result).reverse()) {
+    const path = mediaPathField(parsed);
+    if (path) return path;
   }
   return undefined;
+}
+
+function mediaPathField(record: Record<string, unknown>): string | undefined {
+  const pathKeys = [
+    "artifactPath",
+    "artifact_path",
+    "outputPath",
+    "output_path",
+    "audioPath",
+    "audio_path",
+    "imagePath",
+    "image_path",
+    "videoPath",
+    "video_path",
+    "output",
+    "outputFile",
+    "output_file",
+    "path",
+  ];
+  for (const key of pathKeys) {
+    const value = record[key];
+    if (typeof value === "string" && mediaArtifactKindFromPath(value)) return value;
+  }
+  return undefined;
+}
+
+function jsonObjectsFromText(text: string): Array<Record<string, unknown>> {
+  const objects: Array<Record<string, unknown>> = [];
+  for (let start = 0; start < text.length; start += 1) {
+    if (text[start] !== "{") continue;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < text.length; index += 1) {
+      const char = text[index];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === "\\") {
+          escaped = true;
+        } else if (char === "\"") {
+          inString = false;
+        }
+        continue;
+      }
+      if (char === "\"") {
+        inString = true;
+        continue;
+      }
+      if (char === "{") depth += 1;
+      if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            const parsed = JSON.parse(text.slice(start, index + 1)) as unknown;
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+              objects.push(parsed as Record<string, unknown>);
+            }
+          } catch {
+            // Keep scanning; tool output often mixes logs and JSON snippets.
+          }
+          start = index;
+          break;
+        }
+      }
+    }
+  }
+  return objects;
 }
 
 export function mediaArtifactKindFromPath(path: string): "image" | "audio" | "video" | undefined {

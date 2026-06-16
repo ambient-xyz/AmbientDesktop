@@ -75,6 +75,32 @@ function batchArtifact(runId: string, status: SubagentResultArtifact["status"], 
   };
 }
 
+function waitBarrierResolutionArtifact(input: {
+  childRunIds: string[];
+  childStatuses?: Array<{ childRunId: string; status: string }>;
+  synthesisAllowed: boolean;
+  transitionKind: string;
+  transitionSource?: string;
+  reason?: string;
+  extra?: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+    childRunIds: input.childRunIds,
+    ...(input.childStatuses ? { childStatuses: input.childStatuses } : {}),
+    synthesisAllowed: input.synthesisAllowed,
+    transitionEvidence: {
+      schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+      kind: input.transitionKind,
+      source: input.transitionSource ?? "wait_agent",
+      childRunIds: input.childRunIds,
+      ...(input.childRunIds.length === 1 ? { childRunId: input.childRunIds[0] } : {}),
+      ...(input.reason ? { reason: input.reason } : {}),
+    },
+    ...(input.extra ?? {}),
+  };
+}
+
 describe("ProjectStore sub-agent foundation settings", () => {
   it("persists feature flag settings and preserves unknown model ids", async () => {
     const workspacePath = await tempWorkspace();
@@ -441,11 +467,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
         timeoutMs: 30_000,
       });
       const resolvedBarrier = store.updateSubagentWaitBarrierStatus(waitBarrier.id, "satisfied", {
-        resolutionArtifact: {
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+        resolutionArtifact: waitBarrierResolutionArtifact({
           childRunIds: [run.id],
           synthesisAllowed: true,
-        },
+          transitionKind: "child_terminal",
+          reason: "completed",
+        }),
         now: "2026-06-05T00:00:28.000Z",
       });
       expect(resolvedBarrier).toMatchObject({
@@ -458,6 +485,56 @@ describe("ProjectStore sub-agent foundation settings", () => {
         },
       });
       expect(store.listSubagentWaitBarriersForParentRun("parent-run").map((barrier) => barrier.id)).toEqual([waitBarrier.id]);
+
+      const missingEvidenceBarrier = store.createSubagentWaitBarrier({
+        parentThreadId: parent.id,
+        parentRunId: "parent-run",
+        childRunIds: [run.id],
+        dependencyMode: "required_all",
+        failurePolicy: "ask_user",
+      });
+      expect(() => store.updateSubagentWaitBarrierStatus(missingEvidenceBarrier.id, "satisfied", {
+        resolutionArtifact: {
+          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+          childRunIds: [run.id],
+          synthesisAllowed: true,
+        },
+      })).toThrow(/requires durable transitionEvidence/);
+
+      const progressEvidenceBarrier = store.createSubagentWaitBarrier({
+        parentThreadId: parent.id,
+        parentRunId: "parent-run",
+        childRunIds: [run.id],
+        dependencyMode: "required_all",
+        failurePolicy: "ask_user",
+      });
+      expect(() => store.updateSubagentWaitBarrierStatus(progressEvidenceBarrier.id, "timed_out", {
+        resolutionArtifact: waitBarrierResolutionArtifact({
+          childRunIds: [run.id],
+          synthesisAllowed: false,
+          transitionKind: "progress_return",
+          transitionSource: "parent_wait_session",
+          reason: "parent_wait_window_elapsed",
+        }),
+      })).toThrow(/cannot use progress_return as terminal evidence/);
+
+      const mismatchedEvidenceBarrier = store.createSubagentWaitBarrier({
+        parentThreadId: parent.id,
+        parentRunId: "parent-run",
+        childRunIds: [run.id],
+        dependencyMode: "required_all",
+        failurePolicy: "ask_user",
+      });
+      expect(() => store.updateSubagentWaitBarrierStatus(mismatchedEvidenceBarrier.id, "satisfied", {
+        resolutionArtifact: waitBarrierResolutionArtifact({
+          childRunIds: [run.id],
+          childStatuses: [{ childRunId: run.id, status: "timed_out" }],
+          synthesisAllowed: false,
+          transitionKind: "child_runtime_timeout",
+          transitionSource: "child_runtime",
+          reason: "runtime_idle_timeout",
+        }),
+      })).toThrow(/status satisfied cannot use transition evidence kind child_runtime_timeout/);
 
       const backgroundRunA = store.createSubagentRun({
         parentThreadId: parent.id,
@@ -637,11 +714,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
 
       store.updateSubagentWaitBarrierStatus(barrier.id, "satisfied", {
         now: "2026-06-05T00:00:20.000Z",
-        resolutionArtifact: {
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+        resolutionArtifact: waitBarrierResolutionArtifact({
           childRunIds: [original.id],
           synthesisAllowed: true,
-        },
+          transitionKind: "child_terminal",
+          reason: "completed",
+        }),
       });
       expect(() => store.assertSubagentCanonicalTaskPathAvailableForSpawn({
         parentThreadId: parent.id,
@@ -1763,20 +1841,24 @@ describe("ProjectStore sub-agent foundation settings", () => {
       });
       store.updateSubagentWaitBarrierStatus(barrier.id, "cancelled", {
         now: "2026-06-05T00:00:12.000Z",
-        resolutionArtifact: {
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+        resolutionArtifact: waitBarrierResolutionArtifact({
           childRunIds: [child.id],
           childStatuses: [{ childRunId: child.id, status: "cancelled" }],
           synthesisAllowed: false,
-          parentCancellationRequested: true,
-          userDecision: {
-            schemaVersion: "ambient-subagent-user-decision-v1",
-            decision: "cancel_parent",
-            userDecision: "Stop the parent task.",
-            decidedAt: "2026-06-05T00:00:12.000Z",
-            idempotencyKey: "barrier:cancel-parent",
+          transitionKind: "child_cancelled",
+          transitionSource: "barrier_controller",
+          reason: "Stop the parent task.",
+          extra: {
+            parentCancellationRequested: true,
+            userDecision: {
+              schemaVersion: "ambient-subagent-user-decision-v1",
+              decision: "cancel_parent",
+              userDecision: "Stop the parent task.",
+              decidedAt: "2026-06-05T00:00:12.000Z",
+              idempotencyKey: "barrier:cancel-parent",
+            },
           },
-        },
+        }),
       });
 
       const summary = store.reconcileSubagentRestartState({
@@ -2342,6 +2424,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
       });
       store.updateSubagentWaitBarrierStatus(satisfied.id, "satisfied", {
         now: "2026-06-05T00:00:14.000Z",
+        resolutionArtifact: waitBarrierResolutionArtifact({
+          childRunIds: [run.id],
+          synthesisAllowed: true,
+          transitionKind: "child_terminal",
+          reason: "completed",
+        }),
       });
       const cancelled = store.createSubagentWaitBarrier({
         parentThreadId: parent.id,
@@ -2353,6 +2441,14 @@ describe("ProjectStore sub-agent foundation settings", () => {
       });
       store.updateSubagentWaitBarrierStatus(cancelled.id, "cancelled", {
         now: "2026-06-05T00:00:23.000Z",
+        resolutionArtifact: waitBarrierResolutionArtifact({
+          childRunIds: [run.id],
+          childStatuses: [{ childRunId: run.id, status: "cancelled" }],
+          synthesisAllowed: false,
+          transitionKind: "child_cancelled",
+          transitionSource: "barrier_controller",
+          reason: "cancelled",
+        }),
       });
       store.upsertSubagentGroupedCompletionNotification({
         parentThreadId: parent.id,

@@ -8,10 +8,7 @@ import type {
   OrchestrationRun,
   PermissionAuditEntry,
   PermissionMode,
-  PlannerDecisionQuestion,
   PlannerPlanArtifact,
-  PlannerPlanArtifactStatus,
-  PlannerPlanWorkflowState,
   ProjectBoardCard,
   ProjectBoardCardProofReview,
   ProjectBoardDecisionDraftRefreshSuggestion,
@@ -53,7 +50,7 @@ import {
   type ProjectBoardStoreRow,
   type ProjectBoardSynthesisProposalStoreRow,
   type ProjectBoardSynthesisRunStoreRow,
-} from "./projectBoardStoreMappers";
+} from "./projectStore/projectBoardMappers";
 import type { ProjectBoardSynthesisCardInput } from "./projectBoardSynthesis";
 
 export const PROJECT_STATE_DIR = LEGACY_PROJECT_STATE_DIR;
@@ -324,11 +321,6 @@ export interface AutomationThreadFolderRow {
 }
 
 export type PermissionAuditInput = Omit<PermissionAuditEntry, "id" | "createdAt">;
-export type PlannerPlanArtifactInput = Omit<PlannerPlanArtifact, "id" | "status" | "workflowState" | "createdAt" | "updatedAt" | "decisionQuestions"> & {
-  status?: PlannerPlanArtifactStatus;
-  workflowState?: PlannerPlanWorkflowState;
-  decisionQuestions?: PlannerDecisionQuestion[];
-};
 export type ProjectBoardSourceInput = Omit<ProjectBoardSource, "id" | "boardId" | "createdAt" | "updatedAt">;
 export type ProjectBoardSourceClassificationInput = ProjectBoardSourceClassificationMapperInput;
 export type ProjectBoardEventInput = Omit<ProjectBoardEvent, "id" | "createdAt" | "metadata"> & {

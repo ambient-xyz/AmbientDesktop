@@ -68,11 +68,12 @@ export const ChatComposerInput = forwardRef<
   ChatComposerInputHandle,
   {
     placeholder: string;
+    disabled?: boolean;
     onChange: (value: string) => void;
     onPaste: (event: ReactClipboardEvent<HTMLTextAreaElement>) => void;
     onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
   }
->(function ChatComposerInput({ placeholder, onChange, onPaste, onKeyDown }, ref) {
+>(function ChatComposerInput({ placeholder, disabled = false, onChange, onPaste, onKeyDown }, ref) {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -105,6 +106,7 @@ export const ChatComposerInput = forwardRef<
       onPaste={onPaste}
       onKeyDown={onKeyDown}
       placeholder={placeholder}
+      disabled={disabled}
       rows={1}
     />
   );

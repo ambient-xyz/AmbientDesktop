@@ -31,6 +31,7 @@ export interface RuntimeAssistantRetryPlanningInput {
   getPermissionMode: () => PermissionMode;
   getCurrentSessionFile: () => string | undefined;
   getCurrentThreadPiSessionFile: () => string | null | undefined;
+  shouldUseCurrentSessionForRetry?: (() => boolean) | undefined;
   commitThreadPiSessionFile: (input: {
     threadId: string;
     sessionFile: string;
@@ -97,7 +98,9 @@ export function createRuntimeAssistantRetryPlanning(
     reason: string,
     providerContinuationStateId?: string,
   ): RuntimeSessionRecoveryContext => {
-    const previousSessionFile = input.getCurrentSessionFile();
+    const previousSessionFile = input.shouldUseCurrentSessionForRetry?.() === false
+      ? undefined
+      : input.getCurrentSessionFile();
     return buildRuntimeSessionRecoveryContext({
       kind,
       reason,

@@ -31,6 +31,7 @@ export interface RuntimeProviderContinuationSetupInput {
   streamActivity: RuntimeStreamActivityTracker;
   streamTraceState: RuntimeStreamTraceState;
   getPermissionMode: RuntimeProviderContinuationContextInput["getPermissionMode"];
+  getModel: RuntimeProviderContinuationContextInput["getModel"];
   getRetrySourceUserMessageId: RuntimeProviderContinuationContextInput["getRetrySourceUserMessageId"];
   getSessionFile: RuntimeProviderContinuationContextInput["getSessionFile"];
   chatStreamSemanticOutputSeen: RuntimeProviderContinuationContextInput["chatStreamSemanticOutputSeen"];
@@ -59,6 +60,7 @@ export function createRuntimeProviderContinuationSetup(
     startedToolCallIds: input.startedToolCallIds,
     toolIntents: input.toolIntents,
     getPermissionMode: input.getPermissionMode,
+    getModel: input.getModel,
     getRetrySourceUserMessageId: input.getRetrySourceUserMessageId,
     getCurrentAssistantMessageId: input.runtimeMessages.currentAssistantMessageId,
     getSessionFile: input.getSessionFile,

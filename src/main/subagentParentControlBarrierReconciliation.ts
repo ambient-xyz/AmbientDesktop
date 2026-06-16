@@ -1,4 +1,8 @@
 import type { SubagentWaitBarrierSummary } from "../shared/types";
+import {
+  SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+  type SubagentWaitBarrierTransitionEvidence,
+} from "./subagentWaitBarrierResolution";
 
 export const SUBAGENT_PARENT_CONTROL_RECONCILIATION_SCHEMA_VERSION =
   "ambient-subagent-parent-control-reconciliation-v1" as const;
@@ -47,6 +51,11 @@ export function buildSubagentParentControlBarrierReconciliationArtifact(input: {
     ...artifact,
     synthesisAllowed: false,
     parentCancellationRequested: true,
+    transitionEvidence: artifact?.transitionEvidence ?? buildSubagentParentControlReconciliationTransitionEvidence({
+      waitBarrier: input.waitBarrier,
+      source: input.source,
+      now: input.now,
+    }),
     parentControlReconciledAt: input.now,
     parentControlReconciledSource: input.source,
     parentControlReconciliation: {
@@ -64,6 +73,37 @@ export function buildSubagentParentControlBarrierReconciliationArtifact(input: {
       ...(artifact?.transitionEvidence ? { terminalTransitionEvidence: artifact.transitionEvidence } : {}),
     },
   };
+}
+
+function buildSubagentParentControlReconciliationTransitionEvidence(input: {
+  waitBarrier: SubagentWaitBarrierSummary;
+  source: SubagentParentControlReconciliationSource;
+  now: string;
+}): SubagentWaitBarrierTransitionEvidence {
+  return {
+    schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+    kind: transitionKindForBarrierStatus(input.waitBarrier.status),
+    source: "barrier_controller",
+    childRunIds: input.waitBarrier.childRunIds,
+    reason: `Parent control reconciliation (${input.source}) annotated a terminal barrier without prior transition evidence.`,
+    idempotencyKey: `parent-control-reconcile:${input.source}:${input.waitBarrier.id}:transition-evidence`,
+    details: {
+      waitBarrierId: input.waitBarrier.id,
+      parentThreadId: input.waitBarrier.parentThreadId,
+      parentRunId: input.waitBarrier.parentRunId,
+      barrierStatus: input.waitBarrier.status,
+      reconciledAt: input.now,
+    },
+  };
+}
+
+function transitionKindForBarrierStatus(
+  status: SubagentWaitBarrierSummary["status"],
+): SubagentWaitBarrierTransitionEvidence["kind"] {
+  if (status === "satisfied") return "explicit_partial";
+  if (status === "timed_out") return "child_runtime_timeout";
+  if (status === "cancelled") return "parent_stopped";
+  return "explicit_failure";
 }
 
 function recordValue(value: unknown): Record<string, unknown> {

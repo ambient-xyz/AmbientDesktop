@@ -189,6 +189,7 @@ async function generateImage(options) {
   const image = generated.image;
   const mimeType = detectedImageMimeType(image) ?? normalizeImageMimeType(generated.mimeType) ?? mimeTypeForFormat(format);
   const outputPath = outputPathForMimeType(requestedOutputPath, mimeType);
+  const outputPathChanged = outputPath !== requestedOutputPath;
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, image);
   const dimensions = imageDimensions(image, mimeType);
@@ -212,6 +213,7 @@ async function generateImage(options) {
       size: stringOption(options.size),
       aspectRatio: stringOption(options.aspectRatio),
       format,
+      ...(outputPathChanged ? { requestedOutputPath } : {}),
       quality: stringOption(options.quality),
       negativePromptBytes: options.negativePrompt ? Buffer.byteLength(String(options.negativePrompt)) : 0,
       seed: stringOption(options.seed),
@@ -291,7 +293,8 @@ async function callOpenAi(provider, key, options) {
 }
 
 async function callGoogle(provider, key, options) {
-  const response = await fetchJson(`https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(options.model)}:generateContent`, {
+  const generationConfig = buildGoogleGenerationConfig(options);
+  const response = await fetchJson(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}:generateContent`, {
     method: "POST",
     headers: {
       "x-goog-api-key": key,
@@ -299,6 +302,7 @@ async function callGoogle(provider, key, options) {
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: options.prompt }] }],
+      ...(generationConfig ? { generationConfig } : {}),
     }),
     timeoutMs: options.timeoutMs,
   });
@@ -312,6 +316,29 @@ async function callGoogle(provider, key, options) {
       outputKind: payload.kind,
     },
   });
+}
+
+function buildGoogleGenerationConfig(options) {
+  const imageConfig = {};
+  const size = stringOption(options.size);
+  if (size) {
+    const upper = size.toUpperCase();
+    if (["1K", "2K", "4K"].includes(upper)) {
+      imageConfig.imageSize = upper;
+    } else if (size === "512") {
+      imageConfig.imageSize = "512";
+    } else {
+      const parsed = parseSize(size);
+      if (parsed) {
+        const maxDim = Math.max(parsed.width, parsed.height);
+        if (maxDim >= 3072) imageConfig.imageSize = "4K";
+        else if (maxDim >= 1536) imageConfig.imageSize = "2K";
+        else if (maxDim >= 768) imageConfig.imageSize = "1K";
+        else imageConfig.imageSize = "512";
+      }
+    }
+  }
+  return Object.keys(imageConfig).length > 0 ? { imageConfig } : undefined;
 }
 
 async function callFal(provider, key, options) {
@@ -857,6 +884,7 @@ function normalizeImageMimeType(value) {
   if (!value) return undefined;
   const normalized = String(value).split(";")[0].trim().toLowerCase();
   if (normalized === "image/jpg") return "image/jpeg";
+  if (normalized === "image/apng") return "image/png";
   if (["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"].includes(normalized)) return normalized;
   return undefined;
 }

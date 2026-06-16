@@ -99,11 +99,12 @@ export function InlineArtifactMedia({
   if (playbackError) return <InlineMediaError message={playbackError} artifactPath={artifactPath} onPreviewPath={onPreviewPath} />;
   if (!file) return <div className="inline-media-loading">Loading media preview...</div>;
 
-  if (mediaKind === "image" && file.kind === "image" && file.dataUrl) {
+  const imageSrc = file.kind === "image" ? file.dataUrl ?? file.mediaUrl : undefined;
+  if (mediaKind === "image" && file.kind === "image" && imageSrc) {
     return (
       <>
         <button type="button" className="inline-media-preview image" onClick={() => onOpenMediaModal(artifactPath, "image")} title={`Preview ${artifactPath}`}>
-          <img src={file.dataUrl} alt={file.name} onError={() => setPlaybackError(mediaPreviewUnavailableMessage("image"))} />
+          <img src={imageSrc} alt={file.name} onError={() => setPlaybackError(mediaPreviewUnavailableMessage("image"))} />
         </button>
         <InlineMediaMetadata file={file} />
       </>

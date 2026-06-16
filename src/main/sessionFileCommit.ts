@@ -8,6 +8,7 @@ export type PiSessionFileCommitReason =
   | "run-finished"
   | "compaction-finished"
   | "visible-transcript-recovery"
+  | "model-changed"
   | "provider-continuation";
 
 export interface PiSessionFileCommitWaitResult {

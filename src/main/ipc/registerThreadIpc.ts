@@ -241,6 +241,7 @@ export interface ThreadUpdateSettingsHost<Store extends ThreadUpdateSettingsStor
   store: Store;
   runtime?: {
     applyThreadMemorySettings(threadId: string): unknown;
+    applyThreadModelSettings?(threadId: string): MaybePromise<unknown>;
   };
 }
 
@@ -573,10 +574,11 @@ export function registerThreadUpdateSettingsIpc<
   parseThreadSettingsUpdate,
   requireProjectRuntimeHostForThread,
 }: RegisterThreadUpdateSettingsIpcDependencies<Thread, Store, Host>): void {
-  handleIpc("thread:update-settings", (_event, raw: UpdateThreadSettingsInput) => {
+  handleIpc("thread:update-settings", async (_event, raw: UpdateThreadSettingsInput) => {
     const input = parseThreadSettingsUpdate(raw);
     const host = requireProjectRuntimeHostForThread(input.threadId);
     const thread = host.store.updateThreadSettings(input.threadId, input);
+    if (input.model !== undefined) await host.runtime?.applyThreadModelSettings?.(input.threadId);
     if (typeof input.memoryEnabled === "boolean") host.runtime?.applyThreadMemorySettings(input.threadId);
     return thread;
   });

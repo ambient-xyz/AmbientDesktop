@@ -130,6 +130,7 @@ export function AppComposerShell({
   sttComposerShortcutLabel,
   sttComposerTitle,
   localDeepResearchReady,
+  localDeepResearchRunActive,
   localDeepResearchModeArmed,
   localDeepResearchRunBudget,
   goalModeArmed,
@@ -229,6 +230,7 @@ export function AppComposerShell({
   sttComposerShortcutLabel?: string;
   sttComposerTitle: string;
   localDeepResearchReady: boolean;
+  localDeepResearchRunActive: boolean;
   localDeepResearchModeArmed: boolean;
   localDeepResearchRunBudget: LocalDeepResearchRunBudget;
   goalModeArmed: boolean;
@@ -311,6 +313,10 @@ export function AppComposerShell({
   }, [localDeepResearchModeArmed]);
 
   useEffect(() => {
+    if (localDeepResearchRunActive) setLocalDeepResearchEffortOpen(false);
+  }, [localDeepResearchRunActive]);
+
+  useEffect(() => {
     if (!localDeepResearchEffortOpen) setLocalDeepResearchCustomDraft(String(localDeepResearchRunBudget.maxToolCalls));
   }, [localDeepResearchEffortOpen, localDeepResearchRunBudget.maxToolCalls]);
 
@@ -342,6 +348,14 @@ export function AppComposerShell({
     if (Number.isFinite(parsed) && parsed > 0) onLocalDeepResearchCustomMaxToolCallsChange(parsed);
   }
 
+  const composerPlaceholder = localDeepResearchRunActive
+    ? "Local Deep Research is running in this thread"
+    : workflowRecordingReviewFeedbackActive
+      ? "Reply with Ambient Review feedback before confirming the playbook"
+      : state.settings.collaborationMode === "planner"
+        ? "Ask Ambient to plan in this project"
+        : "Ask Ambient to work in this project";
+
   return (
     <>
       <form className="composer" onSubmit={onSubmit}>
@@ -350,13 +364,8 @@ export function AppComposerShell({
           onChange={onComposerChange}
           onPaste={onComposerPaste}
           onKeyDown={onComposerKeyDown}
-          placeholder={
-            workflowRecordingReviewFeedbackActive
-              ? "Reply with Ambient Review feedback before confirming the playbook"
-              : state.settings.collaborationMode === "planner"
-                ? "Ask Ambient to plan in this project"
-                : "Ask Ambient to work in this project"
-          }
+          disabled={localDeepResearchRunActive}
+          placeholder={composerPlaceholder}
         />
         {symphonyBuilderModel && (
           <SymphonyWorkflowBuilderPanel
@@ -472,6 +481,7 @@ export function AppComposerShell({
               className="icon-button subtle"
               data-tooltip="Attach files to the next message."
               aria-label="Attach files"
+              disabled={localDeepResearchRunActive}
               onClick={onAttachComposerFiles}
             >
               <Paperclip size={17} />
@@ -500,7 +510,7 @@ export function AppComposerShell({
                 }
                 aria-label={localDeepResearchModeArmed ? "Disable Local Deep Research" : "Enable Local Deep Research"}
                 aria-pressed={localDeepResearchModeArmed}
-                disabled={state.settings.collaborationMode === "planner"}
+                disabled={localDeepResearchRunActive || state.settings.collaborationMode === "planner"}
                 onClick={onToggleLocalDeepResearchMode}
               >
                 <BookOpenText size={17} />
@@ -515,6 +525,7 @@ export function AppComposerShell({
                   aria-label={`Local Deep Research ${localDeepResearchEffortLabelText}`}
                   aria-haspopup="menu"
                   aria-expanded={localDeepResearchEffortOpen}
+                  disabled={localDeepResearchRunActive}
                   onClick={() => setLocalDeepResearchEffortOpen((open) => !open)}
                 >
                   <Gauge size={14} />
@@ -762,7 +773,7 @@ export function AppComposerShell({
                 className="icon-button subtle stt-composer-button"
                 data-tooltip={sttComposerTitle}
                 aria-label="Push to talk"
-                disabled={sttComposerDisabled}
+                disabled={sttComposerDisabled || localDeepResearchRunActive}
                 onClick={onStartSttComposerRecording}
               >
                 {sttComposerBusy ? <LoaderCircle size={15} className="spin" /> : <Mic size={15} />}
@@ -802,7 +813,7 @@ export function AppComposerShell({
                 data-tooltip="Send this message to Ambient."
                 aria-label="Send message"
                 data-ui-required-action="composer-send"
-                disabled={!composerCanSubmit}
+                disabled={!composerCanSubmit || localDeepResearchRunActive}
               >
                 <Send size={16} />
               </button>

@@ -3381,6 +3381,134 @@ describe("ambient_subagent Pi tool", () => {
     }
   });
 
+  it("shows every active required_all blocker in Pi-visible wait text", async () => {
+    const workspacePath = await tempWorkspace();
+    const store = new ProjectStore();
+    try {
+      store.openWorkspace(workspacePath);
+      const parent = store.createThread("Parent");
+      const assistant = store.addMessage({ threadId: parent.id, role: "assistant", content: "" });
+      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
+      const completed = store.createSubagentRun({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        parentMessageId: assistant.id,
+        title: "Completed child",
+        roleId: "explorer",
+        canonicalTaskPath: "root/0:explorer",
+        featureFlagSnapshot: enabledFlags,
+        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model),
+        dependencyMode: "required",
+      });
+      const runningA = store.createSubagentRun({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        parentMessageId: assistant.id,
+        title: "Route research",
+        roleId: "explorer",
+        canonicalTaskPath: "root/1:route",
+        featureFlagSnapshot: enabledFlags,
+        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model),
+        dependencyMode: "required",
+      });
+      const runningB = store.createSubagentRun({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        parentMessageId: assistant.id,
+        title: "Hotel research",
+        roleId: "explorer",
+        canonicalTaskPath: "root/2:hotel",
+        featureFlagSnapshot: enabledFlags,
+        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model),
+        dependencyMode: "required",
+      });
+      store.markSubagentRunStatus(completed.id, "completed", {
+        now: "2026-06-06T00:00:04.000Z",
+        resultArtifact: explorerResultArtifact(completed.id, completed.childThreadId, "Completed child result."),
+      });
+      store.markSubagentRunStatus(runningA.id, "running", { now: "2026-06-06T00:00:05.000Z" });
+      store.markSubagentRunStatus(runningB.id, "running", { now: "2026-06-06T00:00:06.000Z" });
+      store.appendSubagentRunEvent(runningA.id, {
+        type: "subagent.runtime_event",
+        preview: {
+          schemaVersion: "ambient-subagent-runtime-event-v1",
+          type: "assistant_delta",
+          runId: runningA.id,
+          parentThreadId: parent.id,
+          parentRunId: parentRun.id,
+          childThreadId: runningA.childThreadId,
+          canonicalTaskPath: runningA.canonicalTaskPath,
+          message: "Checking drive timing.",
+        },
+        createdAt: "2026-06-17T00:00:07.000Z",
+      });
+      store.appendSubagentRunEvent(runningB.id, {
+        type: "subagent.runtime_event",
+        preview: {
+          schemaVersion: "ambient-subagent-runtime-event-v1",
+          type: "tool_call",
+          runId: runningB.id,
+          parentThreadId: parent.id,
+          parentRunId: parentRun.id,
+          childThreadId: runningB.childThreadId,
+          canonicalTaskPath: runningB.canonicalTaskPath,
+          message: "Checking lodging constraints.",
+        },
+        createdAt: "2026-06-17T00:00:08.000Z",
+      });
+      const barrier = store.createSubagentWaitBarrier({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        childRunIds: [completed.id, runningA.id, runningB.id],
+        dependencyMode: "required_all",
+        failurePolicy: "ask_user",
+      });
+      const [tool] = createSubagentPiToolDefinitions({
+        store,
+        threadId: parent.id,
+        getFeatureFlagSnapshot: () => enabledFlags,
+        getParentRun: () => ({ id: parentRun.id, assistantMessageId: assistant.id }),
+      });
+
+      const waited = await executeTool(tool, "wait-required-all-visible-blockers", {
+        action: "wait_agent",
+        childRunId: completed.id,
+        waitBarrierId: barrier.id,
+      });
+      const text = (waited.content[0] as any).text as string;
+
+      expect(text).toContain("waitBarrierStatus: waiting_on_children");
+      expect(text).toContain("waitBarrierState: still_waiting");
+      expect(text).toContain("waitBarrierBlockers: 2");
+      expect(text).toContain(`waitBarrierBlocker: root/1:route childRunId=${runningA.id}`);
+      expect(text).toContain("lastActivityAt=2026-06-17T00:00:07.000Z");
+      expect(text).toContain("lastActivitySource=run_event:subagent.runtime_event");
+      expect(text).toContain("lastActivityDetail=run event 4");
+      expect(text).toContain(`waitBarrierBlocker: root/2:hotel childRunId=${runningB.id}`);
+      expect(text).toContain("lastActivityAt=2026-06-17T00:00:08.000Z");
+      expect((waited.details as any).waitBarrierBlockers).toEqual([
+        expect.objectContaining({
+          childRunId: runningA.id,
+          canonicalTaskPath: "root/1:route",
+          blockingState: "active",
+          lastActivityAt: "2026-06-17T00:00:07.000Z",
+        }),
+        expect.objectContaining({
+          childRunId: runningB.id,
+          canonicalTaskPath: "root/2:hotel",
+          blockingState: "active",
+          lastActivityAt: "2026-06-17T00:00:08.000Z",
+        }),
+      ]);
+      expect(store.getSubagentWaitBarrier(barrier.id)).toMatchObject({
+        status: "waiting_on_children",
+        resolutionArtifact: undefined,
+      });
+    } finally {
+      store.close();
+    }
+  });
+
   it("allows required_any barriers from one validated child while preserving unsafe sibling provenance", async () => {
     const workspacePath = await tempWorkspace();
     const store = new ProjectStore();
@@ -3906,6 +4034,14 @@ describe("ambient_subagent Pi tool", () => {
           childRunIds: [child.id],
           childStatuses: [{ childRunId: child.id, status: "failed" }],
           synthesisAllowed: false,
+          transitionEvidence: {
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "child_terminal",
+            source: "wait_agent",
+            childRunId: child.id,
+            childRunIds: [child.id],
+            reason: "child failed",
+          },
         },
       });
       const [tool] = createSubagentPiToolDefinitions({
@@ -4060,6 +4196,14 @@ describe("ambient_subagent Pi tool", () => {
             childRunIds: [child.id],
             childStatuses: [{ childRunId: child.id, status: "failed" }],
             synthesisAllowed: false,
+            transitionEvidence: {
+              schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+              kind: "child_terminal",
+              source: "wait_agent",
+              childRunId: child.id,
+              childRunIds: [child.id],
+              reason: "child failed",
+            },
           },
         });
 
@@ -4139,6 +4283,14 @@ describe("ambient_subagent Pi tool", () => {
           childRunIds: [child.id],
           childStatuses: [{ childRunId: child.id, status: "failed" }],
           synthesisAllowed: false,
+          transitionEvidence: {
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "child_terminal",
+            source: "wait_agent",
+            childRunId: child.id,
+            childRunIds: [child.id],
+            reason: "judge failed",
+          },
         },
       });
       const [tool] = createSubagentPiToolDefinitions({
@@ -4226,6 +4378,15 @@ describe("ambient_subagent Pi tool", () => {
           childStatuses: [{ childRunId: detachedChild.id, status: "running" }],
           timedOut: true,
           synthesisAllowed: false,
+          transitionEvidence: {
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "child_runtime_timeout",
+            source: "child_runtime",
+            childRunId: detachedChild.id,
+            childRunIds: [detachedChild.id],
+            reason: "runtime_idle_timeout",
+            timeoutKind: "idle",
+          },
         },
       });
 
@@ -4297,6 +4458,15 @@ describe("ambient_subagent Pi tool", () => {
           childStatuses: [{ childRunId: cancelledChild.id, status: "running" }],
           timedOut: true,
           synthesisAllowed: false,
+          transitionEvidence: {
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "child_runtime_timeout",
+            source: "child_runtime",
+            childRunId: cancelledChild.id,
+            childRunIds: [cancelledChild.id],
+            reason: "runtime_idle_timeout",
+            timeoutKind: "idle",
+          },
         },
       });
 

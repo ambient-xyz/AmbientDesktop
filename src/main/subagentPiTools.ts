@@ -788,6 +788,7 @@ async function runStatus(
     waitBarrierEvaluation,
     waitBarrierBlockers,
     waitBarrier,
+    waitChildRuns,
     approvalRequestRecords,
     supervisorRequestRecords,
     groupedCompletionNotification,
@@ -802,6 +803,7 @@ async function runStatus(
   } = execution;
   return toolResult(buildSubagentStatusText({
     run,
+    waitChildRuns,
     events,
     mailboxEvents,
     notice: waitNotice,
@@ -817,6 +819,7 @@ async function runStatus(
     status: run.status,
     parentThreadId: parentThread.id,
     run: compactRun(run),
+    ...(waitChildRuns.length > 1 ? { waitChildRuns: waitChildRuns.map(compactRun) } : {}),
     eventCount: events.length,
     mailboxEventCount: mailboxEvents.length,
     orchestrationStarted: Boolean(run.startedAt),

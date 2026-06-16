@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { projectBoardKickoffDefaultContextFingerprint } from "../shared/projectBoardKickoffDefaults";
-import type { ProjectBoardDecisionImpactPreview } from "../shared/projectBoardDecisionImpact";
-import type { BoardEventArtifact, ProposalManifestArtifact, RunHandoffArtifact, RunManifestArtifact, RunProofArtifact } from "./projectBoardArtifacts";
-import type { ProjectBoardTaskToolAction } from "./projectBoardTaskTools";
-import type { ProjectBoardSynthesisDraft } from "./projectBoardSynthesis";
-import { defaultProjectBoardClaimAgentId } from "./projectBoardClaims";
-import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, GENERATED_REPORT_SOURCE_AUTHORITY_REASON } from "./projectBoardSourceIdentity";
+import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/projectBoardKickoffDefaults";
+import type { ProjectBoardDecisionImpactPreview } from "../../shared/projectBoardDecisionImpact";
+import type { BoardEventArtifact, ProposalManifestArtifact, RunHandoffArtifact, RunManifestArtifact, RunProofArtifact } from "../projectBoardArtifacts";
+import type { ProjectBoardTaskToolAction } from "../projectBoardTaskTools";
+import type { ProjectBoardSynthesisDraft } from "../projectBoardSynthesis";
+import { defaultProjectBoardClaimAgentId } from "../projectBoardClaims";
+import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, GENERATED_REPORT_SOURCE_AUTHORITY_REASON } from "../projectBoardSourceIdentity";
 import type {
   OrchestrationRun,
   OrchestrationTask,
@@ -18,7 +18,7 @@ import type {
   ProjectBoardEvent,
   ProjectBoardQuestion,
   ProjectBoardSource,
-} from "../shared/types";
+} from "../../shared/types";
 
 import {
   buildProjectBoardCharterProjectSummary,
@@ -225,7 +225,7 @@ import {
   type ProjectBoardProofReviewDraft,
   type ProjectBoardStoreRow,
   type ProjectBoardSourceUpdateImpactMetadata,
-} from "./projectBoardStoreMappers";
+} from "./projectBoardMappers";
 
 describe("project board store mappers", () => {
   const boardEventArtifact = (
@@ -974,7 +974,7 @@ describe("project board store mappers", () => {
           status: "completed",
           workspacePath: "/workspace/app",
           proofOfWork: {
-            changedFiles: ["src/main/projectBoardStoreMappers.ts"],
+            changedFiles: ["src/main/projectStore/projectBoardMappers.ts"],
           },
         } as unknown as OrchestrationRun,
       ),
@@ -1001,7 +1001,7 @@ describe("project board store mappers", () => {
           workspacePath: "/workspace/app",
           proofOfWork: {
             projectBoardStatus: "done",
-            changedFiles: ["src/main/projectBoardStoreMappers.ts"],
+            changedFiles: ["src/main/projectStore/projectBoardMappers.ts"],
           },
         } as unknown as OrchestrationRun,
       ),
@@ -1085,7 +1085,7 @@ describe("project board store mappers", () => {
       remaining: [],
       risks: [],
       commands: ["pnpm test"],
-      changedFiles: ["src/main/projectBoardStoreMappers.ts"],
+      changedFiles: ["src/main/projectStore/projectBoardMappers.ts"],
       screenshots: [],
       browserTraces: [],
       visualChecks: [],
@@ -1279,7 +1279,7 @@ describe("project board store mappers", () => {
       remaining: [],
       risks: [],
       commands: ["pnpm test"],
-      changedFiles: ["src/main/projectBoardStoreMappers.ts"],
+      changedFiles: ["src/main/projectStore/projectBoardMappers.ts"],
       screenshots: [],
       browserTraces: [],
       visualChecks: [],
@@ -1369,7 +1369,7 @@ describe("project board store mappers", () => {
       remaining: [],
       risks: [],
       commands: ["pnpm test"],
-      changedFiles: ["src/main/projectBoardStoreMappers.ts"],
+      changedFiles: ["src/main/projectStore/projectBoardMappers.ts"],
       screenshots: [],
       browserTraces: [],
       visualChecks: [],
@@ -2510,7 +2510,7 @@ describe("project board store mappers", () => {
       remaining: [],
       risks: [],
       commands: ["pnpm test"],
-      changedFiles: ["src/main/projectBoardStoreMappers.ts"],
+      changedFiles: ["src/main/projectStore/projectBoardMappers.ts"],
       screenshots: [],
       browserTraces: [],
       visualChecks: [],

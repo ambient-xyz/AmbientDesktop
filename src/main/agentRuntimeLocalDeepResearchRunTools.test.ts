@@ -31,6 +31,7 @@ type RunToolOptions = Parameters<typeof registerLocalDeepResearchRunTools>[1];
 
 describe("registerLocalDeepResearchRunTools", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
   });
 
@@ -49,6 +50,7 @@ describe("registerLocalDeepResearchRunTools", () => {
     expect(run).not.toHaveBeenCalled();
     expect(updates).toEqual([
       "Preparing Local Deep Research run.",
+      "Checking Local Deep Research setup, provider routing, and local runtime inventory.",
       "Local Deep Research setup is not ready to run.",
     ]);
     expect(toolText(result)).toContain("Local Deep Research is not ready to run.");
@@ -93,6 +95,7 @@ describe("registerLocalDeepResearchRunTools", () => {
 
     expect(updates).toEqual([
       "Preparing Local Deep Research run.",
+      "Checking Local Deep Research setup, provider routing, and local runtime inventory.",
       "Local Deep Research setup is ready; checking local resource pressure.",
       "Starting LiteResearcher through Ambient Local Deep Research.",
     ]);
@@ -175,6 +178,51 @@ describe("registerLocalDeepResearchRunTools", () => {
         error: expect.stringContaining("timed out after 1ms"),
       },
     });
+  });
+
+  it("emits readiness heartbeats while setup readiness is still pending", async () => {
+    vi.useFakeTimers();
+    const readiness = setupReadiness(true);
+    const readReadiness = vi.fn(() => new Promise<LocalDeepResearchRunReadiness>((resolve) => {
+      setTimeout(() => resolve(readiness), 25_000);
+    }));
+    const run = vi.fn(async (input: LocalDeepResearchRunRequest) => runResult(input));
+    const { tool } = registerRunHarness({ readReadiness, run });
+    const updates: AgentToolResult<Record<string, unknown>>[] = [];
+
+    const resultPromise = tool.execute(
+      "run-readiness-heartbeat",
+      { question: "Research slow readiness." },
+      undefined,
+      (update: AgentToolResult<Record<string, unknown>>) => updates.push(update),
+    );
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(updates.at(-1)?.details).toMatchObject({
+      runtime: "ambient-local-deep-research",
+      status: "running",
+      localDeepResearchStatus: {
+        schemaVersion: "ambient-local-deep-research-status-v1",
+        stage: "readiness",
+        state: "running",
+        heartbeatCount: 1,
+        message: "Checking Local Deep Research setup, provider routing, and local runtime inventory.",
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(updates.at(-1)?.details).toMatchObject({
+      localDeepResearchStatus: {
+        stage: "readiness",
+        heartbeatCount: 2,
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    const result = await resultPromise;
+
+    expect(run).toHaveBeenCalledOnce();
+    expect(toolText(result)).toContain("Local Deep Research completed.");
   });
 });
 

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureRoot = resolve(process.env.AMBIENT_PROJECT_BOARD_FIXTURE || join(repoRoot, "fixtures", "project-board-spaceship"));
-const model = process.env.AMBIENT_PROJECT_BOARD_MODEL || process.env.AMBIENT_LIVE_MODEL || "zai-org/GLM-5.1-FP8";
+const model = process.env.AMBIENT_PROJECT_BOARD_MODEL || process.env.AMBIENT_LIVE_MODEL || "moonshotai/kimi-k2.7-code";
 const baseUrl = normalizeAmbientBaseUrl(process.env.AMBIENT_BASE_URL || process.env.AMBIENT_AGENT_AMBIENT_BASE_URL);
 const runRefinement = process.argv.includes("--refine") || process.env.AMBIENT_PROJECT_BOARD_SYNTHESIS_REFINEMENT === "1";
 const outputPath = resolve(

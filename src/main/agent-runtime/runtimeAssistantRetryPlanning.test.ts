@@ -108,6 +108,23 @@ describe("createRuntimeAssistantRetryPlanning", () => {
     });
   });
 
+  it("omits previous session recovery when the current session should not be reused", () => {
+    const retryPlanning = planner({
+      getCurrentSessionFile: () => "/tmp/current-session.json",
+      shouldUseCurrentSessionForRetry: () => false,
+    });
+
+    expect(retryPlanning.sessionRecoveryForCurrentSession(
+      "provider_interruption_continuation",
+      "Continue with the selected model.",
+      "state-1",
+    )).toEqual({
+      kind: "provider_interruption_continuation",
+      reason: "Continue with the selected model.",
+      providerContinuationStateId: "state-1",
+    });
+  });
+
   it("persists a changed current session pointer for retry", async () => {
     const commitThreadPiSessionFile = vi.fn(async () => undefined);
     const emit = vi.fn((event: DesktopEvent) => event);

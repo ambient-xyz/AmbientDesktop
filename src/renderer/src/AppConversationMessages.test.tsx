@@ -133,6 +133,9 @@ describe("AppConversationMessages", () => {
     expect(markup).toContain("data-child-runtime-events-open=\"true\"");
     expect(markup).toContain("data-child-mailbox-events-open=\"true\"");
     expect(markup).toContain("data-child-transcript-stream-live=\"true\"");
+    expect(markup).toContain("data-child-transcript-layout=\"transcript-first\"");
+    expect(markup).toContain("data-child-summary-follows=\"true\"");
+    expect(markup).toContain("data-child-blocker-panel=\"after-transcript\"");
     expect(markup).toContain("<details class=\"subagent-parent-cluster-child-runtime-events\"");
     expect(markup).toContain("open=\"\"");
     expect(markup).toContain("Child transcript rendered inline for Reviewer.");
@@ -148,7 +151,16 @@ describe("AppConversationMessages", () => {
     expect(markup).toContain("Parent follow-up remains visible inside the child timeline.");
     expect(markup).not.toContain("Bootstrap task stays out of the visible child mailbox timeline.");
     expect(markup.indexOf("Child transcript rendered inline for Reviewer.")).toBeLessThan(
-      markup.indexOf("Child mailbox"),
+      markup.indexOf("data-child-blocker-panel=\"after-transcript\""),
+    );
+    expect(markup.indexOf("Child tool result rendered with parent tool-card chrome.")).toBeLessThan(
+      markup.indexOf("data-child-blocker-panel=\"after-transcript\""),
+    );
+    expect(markup.indexOf("Child mailbox")).toBeLessThan(
+      markup.indexOf("data-child-blocker-panel=\"after-transcript\""),
+    );
+    expect(markup.indexOf("Parent follow-up remains visible inside the child timeline.")).toBeLessThan(
+      markup.indexOf("data-child-blocker-panel=\"after-transcript\""),
     );
   });
 

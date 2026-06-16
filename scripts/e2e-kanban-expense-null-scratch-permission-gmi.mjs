@@ -111,7 +111,7 @@ try {
     outsideReadPromptText,
     screenshots: { board: boardScreenshotPath, proof: proofScreenshotPath },
     assertions: [
-      "Desktop launched with the GMI Cloud provider against a temp copy of Documents/AmbientDesktopArchive",
+      "Desktop launched with the GMI Cloud provider against a temp copy of Documents/ambientCoderArchive",
       "A CSV expense Local Task was prepared and started through visible Board UI controls",
       "The worker ran a proof command with output redirected to /dev/null without a false outside-workspace prompt",
       "The worker wrote a workspace-local temporary scratch proof file under tmp/",

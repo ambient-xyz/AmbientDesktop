@@ -14,7 +14,7 @@ import {
   type AutomationFolderRow,
   type AutomationScheduleExceptionRow,
   type AutomationScheduleRow,
-} from "./projectStoreAutomationMappers";
+} from "./automationMappers";
 import type {
   AutomationFolderSummary,
   AutomationThreadSummary,
@@ -23,7 +23,7 @@ import type {
   WorkflowArtifactSummary,
   WorkflowRunEvent,
   WorkflowRunSummary,
-} from "../shared/types";
+} from "../../shared/types";
 
 describe("project store automation mappers", () => {
   it("maps automation folder rows without store state", () => {

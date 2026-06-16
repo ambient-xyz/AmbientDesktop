@@ -6,9 +6,14 @@ import {
   plannerPlanWorkflowStateForQuestions,
   type PlannerDecisionQuestionRow,
   type PlannerPlanArtifactRow,
-} from "./projectStorePlannerMappers";
+} from "./plannerMappers";
+import { mapPlannerPlanArtifactRow as legacyMapPlannerPlanArtifactRow } from "../projectStorePlannerMappers";
 
 describe("project store planner mappers", () => {
+  it("keeps the legacy mapper import path as a re-export", () => {
+    expect(legacyMapPlannerPlanArtifactRow).toBe(mapPlannerPlanArtifactRow);
+  });
+
   it("maps planner decision question rows without store state", () => {
     const row: PlannerDecisionQuestionRow = {
       id: "question-1",

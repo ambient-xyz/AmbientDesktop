@@ -9,7 +9,7 @@ import type { ChatMessage, PermissionMode, ProjectBoardCard, SendMessageInput } 
 import { AMBIENT_DEFAULT_MODEL } from "../shared/ambientModels";
 import type { AgentRuntime } from "./agentRuntime";
 import { defaultOrchestrationProjectPath, type ProjectStore } from "./projectStore";
-import { projectBoardDependencyArtifactPromptSection } from "./projectBoardStoreMappers";
+import { projectBoardDependencyArtifactPromptSection } from "./projectStore/projectBoardMappers";
 import { getWorkspaceDiff } from "./workspaceFiles";
 import { loadWorkflowFile, renderWorkflowPrompt, type WorkflowConfig } from "./workflow";
 import { runWorkflowHook } from "./orchestrationHooks";

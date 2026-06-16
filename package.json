@@ -1,6 +1,6 @@
 {
   "name": "ambient-desktop",
-  "version": "0.1.68",
+  "version": "0.1.69",
   "description": "A local-first developer workstation for durable, inspectable agentic work.",
   "author": "Mechanus Labs Inc.",
   "license": "MIT",
@@ -34,6 +34,7 @@
     "test": "pnpm run prepare:node-native && vitest run",
     "test:subagents:replay-diagnostics": "node scripts/subagent-replay-diagnostics.mjs",
     "test:subagents:replay-diagnostics:unit": "pnpm exec vitest run scripts/subagent-replay-diagnostics.test.mjs",
+    "test:subagent-wait-stabilization": "node scripts/subagent-wait-stabilization-gate.mjs",
     "test:callable-workflow-dogfood:proof": "pnpm run prepare:node-native && AMBIENT_CALLABLE_WORKFLOW_DOGFOOD_EVIDENCE_OUT=test-results/callable-workflow-dogfood/latest.json pnpm exec vitest run src/main/callableWorkflowDogfoodEvidence.test.ts -t \"builds mutating child workflow dogfood evidence with restart repair proof\"",
     "test:callable-workflow-rehydration:proof": "pnpm run prepare:node-native && AMBIENT_CALLABLE_WORKFLOW_REHYDRATION_EVIDENCE_OUT=test-results/callable-workflow-rehydration/latest.json pnpm exec vitest run src/main/callableWorkflowRehydrationEvidence.test.ts -t \"builds restart rehydration evidence for linked task artifacts, runs, progress, and usage\"",
     "test:subagents:lifecycle-edges:proof": "AMBIENT_SUBAGENT_LIFECYCLE_EDGE_EVIDENCE_OUT=test-results/subagent-lifecycle-edges/latest.json pnpm exec vitest run src/main/subagentLifecycleEdgeEvidence.test.ts -t \"builds lifecycle edge evidence for restart, stop, detach, cancel, retry, timeout, and partial results\"",

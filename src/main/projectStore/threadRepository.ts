@@ -145,8 +145,12 @@ export class ProjectStoreThreadRepository {
   updateThreadSettings(threadId: string, input: UpdateProjectStoreThreadSettingsInput): ThreadSummary {
     const current = this.getThread(threadId);
     const now = new Date().toISOString();
+    const nextModel = normalizeAmbientModelId(input.model ?? current.model);
+    const modelChanged = nextModel !== normalizeAmbientModelId(current.model);
     const nextPiSessionFile = Object.hasOwn(input, "piSessionFile")
       ? (input.piSessionFile ?? null)
+      : modelChanged
+        ? null
       : (current.piSessionFile ?? null);
     this.db
       .prepare(
@@ -157,7 +161,7 @@ export class ProjectStoreThreadRepository {
       .run(
         input.permissionMode ?? current.permissionMode,
         input.collaborationMode ?? current.collaborationMode,
-        normalizeAmbientModelId(input.model ?? current.model),
+        nextModel,
         input.thinkingLevel ?? current.thinkingLevel,
         (input.memoryEnabled ?? current.memoryEnabled) ? 1 : 0,
         nextPiSessionFile,

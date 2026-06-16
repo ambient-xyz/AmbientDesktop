@@ -10,7 +10,7 @@ const repoRoot = resolve(scriptDir, "..");
 
 const DEFAULT_OUTPUT_DIR = join(repoRoot, "test-results", "workflow-model-tolerance-lab");
 const DEFAULT_GMI_CLOUD_BASE_URL = "https://api.gmi-serving.com";
-const DEFAULT_MODEL = "zai-org/GLM-5.1-FP8";
+const DEFAULT_MODEL = "moonshotai/kimi-k2.7-code";
 const DEFAULT_SEEDS = 10;
 const DEFAULT_TIMEOUT_MS = 45_000;
 const DEFAULT_MAX_TOKENS = 1800;

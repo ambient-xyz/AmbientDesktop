@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AMBIENT_DEFAULT_MODEL,
+  AMBIENT_GLM_5_1_FP8_MODEL,
   AMBIENT_KIMI_K2_7_CODE_MODEL,
   AMBIENT_LOCAL_TEXT_MODEL,
   AMBIENT_PROVIDER_AMBIENT,
@@ -28,29 +29,30 @@ describe("modelRuntimeRegistry", () => {
       supportsStreaming: true,
     });
     expect(registry.resolveProfile("glm-5.1")).toMatchObject({
-      modelId: AMBIENT_DEFAULT_MODEL,
+      modelId: AMBIENT_GLM_5_1_FP8_MODEL,
       selectableAsSubagent: true,
       available: true,
     });
     expect(registry.listSelectableMainProfiles().map((profile) => profile.modelId)).toEqual([
       AMBIENT_DEFAULT_MODEL,
-      AMBIENT_KIMI_K2_7_CODE_MODEL,
+      AMBIENT_GLM_5_1_FP8_MODEL,
     ]);
     expect(registry.listSelectableSubagentProfiles().map((profile) => profile.modelId)).toEqual([
       AMBIENT_DEFAULT_MODEL,
-      AMBIENT_KIMI_K2_7_CODE_MODEL,
+      AMBIENT_GLM_5_1_FP8_MODEL,
     ]);
+    expect(AMBIENT_DEFAULT_MODEL).toBe(AMBIENT_KIMI_K2_7_CODE_MODEL);
     expect(registry.validate()).toEqual([]);
     expect(registry.toCatalog("2026-06-05T02:30:00.000Z")).toMatchObject({
       schemaVersion: "ambient-model-runtime-catalog-v1",
       generatedAt: "2026-06-05T02:30:00.000Z",
       selectableMainModelOptions: [
         expect.objectContaining({ id: AMBIENT_DEFAULT_MODEL }),
-        expect.objectContaining({ id: AMBIENT_KIMI_K2_7_CODE_MODEL }),
+        expect.objectContaining({ id: AMBIENT_GLM_5_1_FP8_MODEL }),
       ],
       selectableSubagentProfiles: [
         expect.objectContaining({ modelId: AMBIENT_DEFAULT_MODEL }),
-        expect.objectContaining({ modelId: AMBIENT_KIMI_K2_7_CODE_MODEL }),
+        expect.objectContaining({ modelId: AMBIENT_GLM_5_1_FP8_MODEL }),
       ],
       validationIssues: [],
     });
@@ -136,11 +138,11 @@ describe("modelRuntimeRegistry", () => {
     ]);
     expect(catalog.selectableMainModelOptions.map((option) => option.id)).toEqual([
       AMBIENT_DEFAULT_MODEL,
-      AMBIENT_KIMI_K2_7_CODE_MODEL,
+      AMBIENT_GLM_5_1_FP8_MODEL,
     ]);
     expect(catalog.selectableSubagentProfiles.map((profile) => profile.modelId)).toEqual([
       AMBIENT_DEFAULT_MODEL,
-      AMBIENT_KIMI_K2_7_CODE_MODEL,
+      AMBIENT_GLM_5_1_FP8_MODEL,
       AMBIENT_LOCAL_TEXT_MODEL,
     ]);
   });

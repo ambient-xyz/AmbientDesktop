@@ -1250,7 +1250,8 @@ export function MediaPreviewModal({
   }, [onClose]);
 
   const title = file?.name ?? fileBaseName(request.path);
-  const canRenderImage = request.mediaKind === "image" && file?.kind === "image" && file.dataUrl;
+  const imageSrc = file?.kind === "image" ? file.dataUrl ?? file.mediaUrl : undefined;
+  const canRenderImage = request.mediaKind === "image" && Boolean(imageSrc);
   const canRenderVideo = request.mediaKind === "video" && file?.kind === "video" && file.mediaUrl;
 
   return (
@@ -1283,8 +1284,8 @@ export function MediaPreviewModal({
             <MediaModalError message={playbackError} path={request.path} onOpenInFiles={onOpenInFiles} />
           ) : !file ? (
             <div className="inline-media-loading">Loading media preview...</div>
-          ) : canRenderImage ? (
-            <img src={file.dataUrl} alt={file.name} onError={() => setPlaybackError(mediaPreviewUnavailableMessage("image"))} />
+          ) : canRenderImage && file?.kind === "image" && imageSrc ? (
+            <img src={imageSrc} alt={file.name} onError={() => setPlaybackError(mediaPreviewUnavailableMessage("image"))} />
           ) : canRenderVideo ? (
             <video
               key={`${file.path}:${file.mtimeMs ?? file.size}`}

@@ -187,6 +187,61 @@ describe("subagentAgentStatus", () => {
     ].join("\n"));
   });
 
+  it("includes every aggregate wait child result in Pi-visible status text", () => {
+    const fieldNotes = completedExplorerRun({
+      id: "field-notes",
+      childThreadId: "thread-field",
+      canonicalTaskPath: "root/0:explorer",
+      file: "docs/field-notes.md",
+      findings: [
+        "Project owner: Priya Shah.",
+        "Budget: $42,000.",
+      ],
+    });
+    const vendorMemo = completedExplorerRun({
+      id: "vendor-memo",
+      childThreadId: "thread-vendor",
+      canonicalTaskPath: "root/1:explorer",
+      file: "docs/vendor-memo.pdf",
+      findings: [
+        "Project owner: Priya Shah.",
+        "Budget: $45,000.",
+      ],
+    });
+    const financeSummary = completedExplorerRun({
+      id: "finance-summary",
+      childThreadId: "thread-finance",
+      canonicalTaskPath: "root/2:explorer",
+      file: "docs/finance-summary.docx",
+      findings: [
+        "Project owner: Marco Lee.",
+        "Budget: $42,000.",
+      ],
+    });
+
+    const text = buildSubagentStatusText({
+      run: fieldNotes,
+      waitChildRuns: [fieldNotes, vendorMemo, financeSummary],
+      events: [],
+      mailboxEvents: [],
+      waitBarrier: waitBarrier({ id: "barrier-all", status: "satisfied" }),
+      parentResolution: {
+        action: "synthesize",
+        canSynthesize: true,
+        instruction: "Synthesize from all waited child results.",
+      },
+    });
+
+    expect(text).toContain("waitChildResults: 3");
+    expect(text).toContain("waitChildResult 1: root/0:explorer childRunId=field-notes childThreadId=thread-field status=completed");
+    expect(text).toContain("waitChildResult 2: root/1:explorer childRunId=vendor-memo childThreadId=thread-vendor status=completed");
+    expect(text).toContain("waitChildResult 3: root/2:explorer childRunId=finance-summary childThreadId=thread-finance status=completed");
+    expect(text).toContain("waitChildResult 2 findingsPreview:");
+    expect(text).toContain("Budget: $45,000.");
+    expect(text).toContain("waitChildResult 3 findingsPreview:");
+    expect(text).toContain("Project owner: Marco Lee.");
+  });
+
   it("tells Pi to resolve failed required barriers before retrying child work", () => {
     const child = run({
       id: "review-child",
@@ -425,6 +480,48 @@ function run(overrides: {
     ...(overrides.closedAt ? { closedAt: overrides.closedAt } : {}),
     ...(overrides.resultArtifact !== undefined ? { resultArtifact: overrides.resultArtifact } : {}),
   };
+}
+
+function completedExplorerRun(input: {
+  id: string;
+  childThreadId: string;
+  canonicalTaskPath: string;
+  file: string;
+  findings: string[];
+}): SubagentRunSummary {
+  return run({
+    id: input.id,
+    childThreadId: input.childThreadId,
+    canonicalTaskPath: input.canonicalTaskPath,
+    roleId: "explorer",
+    status: "completed",
+    completedAt: "2026-06-06T12:03:00.000Z",
+    resultArtifact: {
+      schemaVersion: "ambient-subagent-result-artifact-v1",
+      runId: input.id,
+      status: "completed",
+      partial: false,
+      summary: `Extracted fields from ${input.file}.`,
+      childThreadId: input.childThreadId,
+      structuredOutput: {
+        schemaVersion: "ambient-subagent-structured-result-v1",
+        roleId: "explorer",
+        status: "complete",
+        summary: `Extracted fields from ${input.file}.`,
+        evidence: [`Read ${input.file}.`],
+        artifacts: [],
+        risks: [],
+        nextActions: [],
+        roleOutput: {
+          findings: input.findings.map((summary) => ({
+            summary,
+            provenance: [input.file],
+          })),
+          openQuestions: [],
+        },
+      },
+    },
+  });
 }
 
 function waitBarrier(overrides: Partial<SubagentWaitBarrierSummary> = {}): SubagentWaitBarrierSummary {

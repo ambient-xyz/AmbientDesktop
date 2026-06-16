@@ -325,6 +325,7 @@ async function readResolvedFile(input: {
     const contentBuffer = buffer.subarray(0, bytesRead);
     const imagePreviewMismatch = preview.kind === "image" ? invalidImagePreview(contentBuffer, preview.mimeType) : undefined;
     const detectedImageMimeType = imagePreviewMismatch ? sniffRasterImageMimeType(contentBuffer) : undefined;
+    const effectiveMimeType = detectedImageMimeType ?? preview.mimeType;
     const binary = imagePreviewMismatch ? isBinaryBuffer(contentBuffer) : binaryPreview || isBinaryBuffer(contentBuffer);
     const previewTruncated = fileStat.size > bytesToRead;
     const pdfContent = pdfText?.status === "available" ? pdfText.text ?? "" : "";
@@ -385,9 +386,9 @@ async function readResolvedFile(input: {
       truncated,
       binary,
       kind: binaryPreview ? preview.kind : binary ? "binary" : preview.kind,
-      mimeType: preview.mimeType,
+      mimeType: effectiveMimeType,
       language: preview.kind === "pdf" && pdfText?.status === "available" ? "text" : preview.language,
-      dataUrl: binaryPreview && !previewTruncated ? dataUrl(contentBuffer, preview.mimeType) : undefined,
+      dataUrl: binaryPreview && !previewTruncated ? dataUrl(contentBuffer, effectiveMimeType) : undefined,
       ...(pdfText ? { pdfText } : {}),
       mediaUrl:
         preview.kind === "image"
@@ -397,7 +398,7 @@ async function readResolvedFile(input: {
               relativePath: displayPath,
               ...(input.realPath ? { realPath: input.realPath } : {}),
               allowExternal: allowExternalMedia,
-              mimeType: preview.mimeType,
+              mimeType: effectiveMimeType,
               size: fileStat.size,
               mtimeMs: fileStat.mtimeMs,
             })

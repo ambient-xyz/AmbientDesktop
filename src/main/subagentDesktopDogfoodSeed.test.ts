@@ -555,6 +555,23 @@ async function seedLifecycleEdgeCluster(
   });
   const timedOutBarrier = store.updateSubagentWaitBarrierStatus(timeoutBarrier.id, "timed_out", {
     now: "2026-06-11T12:02:04.000Z",
+    resolutionArtifact: {
+      schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+      childRunIds: [timeoutRun.id],
+      childStatuses: [{ childRunId: timeoutRun.id, status: "timed_out" }],
+      timedOut: true,
+      synthesisAllowed: false,
+      transitionEvidence: {
+        schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+        kind: "child_runtime_timeout",
+        source: "child_runtime",
+        childRunId: timeoutRun.id,
+        childRunIds: [timeoutRun.id],
+        reason: "runtime_idle_timeout",
+        timeoutKind: "idle",
+      },
+      resultArtifact: timedOutRun.resultArtifact ?? null,
+    },
   });
   const timeoutParentResolution = resolveSubagentParentPolicyForWait({
     run: timedOutRun,
@@ -669,6 +686,21 @@ async function seedLifecycleEdgeCluster(
   });
   store.updateSubagentWaitBarrierStatus(retryBarrier.id, "failed", {
     now: "2026-06-11T12:02:11.000Z",
+    resolutionArtifact: {
+      schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+      childRunIds: [retryRun.id],
+      childStatuses: [{ childRunId: retryRun.id, status: "failed" }],
+      timedOut: false,
+      synthesisAllowed: false,
+      transitionEvidence: {
+        schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+        kind: "child_terminal",
+        source: "wait_agent",
+        childRunId: retryRun.id,
+        childRunIds: [retryRun.id],
+        reason: "First retryable attempt failed",
+      },
+    },
   });
   const retryDecision = await executeSubagentBarrierDecision({
     store,

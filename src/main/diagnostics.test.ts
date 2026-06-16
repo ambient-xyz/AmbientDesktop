@@ -738,6 +738,20 @@ describe("diagnostics", () => {
       });
       store.updateSubagentWaitBarrierStatus(barrier.id, "satisfied", {
         now: "2026-06-05T00:00:12.000Z",
+        resolutionArtifact: {
+          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+          childRunIds: [run.id],
+          childStatuses: [{ childRunId: run.id, status: "completed" }],
+          synthesisAllowed: true,
+          transitionEvidence: {
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "child_terminal",
+            source: "wait_agent",
+            childRunId: run.id,
+            childRunIds: [run.id],
+            reason: "diagnostic fixture completed child work",
+          },
+        },
       });
       store.upsertSubagentGroupedCompletionNotification({
         parentThreadId: parent.id,

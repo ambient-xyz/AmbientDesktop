@@ -22,10 +22,14 @@ describe("settings layout", () => {
     expect(stylesSource).toContain(".settings-row-control > .permission-toggle");
     expect(stylesSource).toContain(".settings-row-control > .permission-toggle button");
     expect(stylesSource).toContain(".web-research-settings-row .provider-catalog-settings-grid");
+    expect(stylesSource).toContain("repeat(auto-fit, minmax(min(100%, 420px), 1fr))");
+    expect(stylesSource).toContain("container-type: inline-size;");
     expect(stylesSource).toContain("repeat(auto-fit, minmax(min(100%, 210px), 1fr))");
     expect(stylesSource).toContain(".settings-mini-row.web-research-provider-row");
     expect(stylesSource).toContain("@container (min-width: 760px)");
     expect(stylesSource).toContain("flex-wrap: wrap;");
+    expect(stylesSource).toContain(".settings-mini-row.web-research-provider-row small");
+    expect(stylesSource).toContain("overflow-wrap: normal;");
     expect(stylesSource).toContain(".settings-section-header > div:first-child");
   });
 

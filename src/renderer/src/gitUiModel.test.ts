@@ -39,14 +39,14 @@ describe("gitPullRequestActionState", () => {
   it("requires a supported remote and pushed branch when needed", () => {
     expect(
       gitPullRequestActionState({
-        review: { remote: "git@github.com:ambient-xyz/AmbientDesktop.git", compareUrl: "https://github.com/x/y/compare/z", ahead: 0, behind: 0, upstream: "origin/main", provider: "github" },
+        review: { remote: "git@github.com:AmbientCrypto/ambientCoder.git", compareUrl: "https://github.com/x/y/compare/z", ahead: 0, behind: 0, upstream: "origin/main", provider: "github" },
       }),
     ).toEqual({ disabled: false });
     expect(gitPullRequestActionState({ review: { remote: undefined, compareUrl: undefined, ahead: 0, behind: 0, upstream: undefined, provider: undefined } }).reason).toContain("remote");
     expect(gitPullRequestActionState({ review: { remote: "ssh://host/repo", compareUrl: undefined, ahead: 0, behind: 0, upstream: "origin/main", provider: "unknown" } }).reason).toContain("GitHub");
     expect(
       gitPullRequestActionState({
-        review: { remote: "git@github.com:ambient-xyz/AmbientDesktop.git", compareUrl: "https://github.com/x/y/compare/z", ahead: 2, behind: 0, upstream: undefined, provider: "github" },
+        review: { remote: "git@github.com:AmbientCrypto/ambientCoder.git", compareUrl: "https://github.com/x/y/compare/z", ahead: 2, behind: 0, upstream: undefined, provider: "github" },
       }).reason,
     ).toContain("Push");
   });
@@ -54,7 +54,7 @@ describe("gitPullRequestActionState", () => {
   it("describes pull request readiness actions", () => {
     expect(
       gitPullRequestReadiness({
-        remote: "git@github.com:ambient-xyz/AmbientDesktop.git",
+        remote: "git@github.com:AmbientCrypto/ambientCoder.git",
         compareUrl: "https://github.com/x/y/compare/z",
         ahead: 1,
         behind: 0,
@@ -64,7 +64,7 @@ describe("gitPullRequestActionState", () => {
     ).toMatchObject({ label: "Push required", action: "push", tone: "warning" });
     expect(
       gitPullRequestReadiness({
-        remote: "git@github.com:ambient-xyz/AmbientDesktop.git",
+        remote: "git@github.com:AmbientCrypto/ambientCoder.git",
         compareUrl: "https://github.com/x/y/compare/z",
         ahead: 0,
         behind: 1,

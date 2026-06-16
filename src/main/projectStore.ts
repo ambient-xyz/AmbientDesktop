@@ -5,15 +5,10 @@ import { basename, dirname, join } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import type {
   AutomationFolderSummary,
-  AutomationRunSummary,
-  AutomationScheduleExceptionKind,
-  AutomationScheduleExceptionStatus,
   AutomationScheduleExceptionSummary,
   AutomationScheduleOccurrenceActionInput,
   AutomationScheduleOccurrenceActionResult,
   AutomationScheduleSummary,
-  AutomationScheduleTargetKind,
-  AutomationThreadKind,
   AmbientCompactionSettings,
   AmbientFeatureFlagSnapshot,
   CallableWorkflowTaskRestartReconciliationSummary,
@@ -79,9 +74,7 @@ import type {
   ProjectBoardPmReviewReport,
   ProjectBoardPlanningDepthAssessment,
   ProjectBoardPlanningSnapshot,
-  ProjectBoardPlanningSnapshotCard,
   ProjectBoardPlanningSnapshotKind,
-  ProjectBoardPlanningSnapshotSourceHash,
   ProjectBoardSplitDecisionAction,
   ProjectBoardQuestion,
   ProjectBoardSource,
@@ -93,16 +86,13 @@ import type {
   ProjectBoardSynthesisProposal,
   ProjectBoardSynthesisProposalCardReviewStatus,
   ProjectBoardSynthesisRun,
-  ProjectBoardSynthesisRunEvent,
   ProjectBoardSynthesisRunProgressiveRecord,
   ProjectBoardSynthesisRunStage,
   ProjectBoardSynthesisRunStatus,
   ProjectBoardSummary,
-  PlannerDecisionQuestion,
   PlannerDurableArtifactValidationResult,
   PlannerPlanArtifact,
   PlannerPlanArtifactStatus,
-  PlannerPlanFinalizationAttempt,
   PlannerPlanFinalizationAttemptStatus,
   PlannerPlanWorkflowState,
   PermissionRisk,
@@ -143,7 +133,6 @@ import type {
   WorkflowRecordingLibraryEntry,
   WorkflowRecordingPlaybookDraft,
   WorkflowRecordingReviewDraftUpdate,
-  WorkflowRecordingSavedPlaybook,
   WorkflowRecordingState,
   WorkflowLabCandidatePatch,
   WorkflowLabEvaluationResult,
@@ -170,10 +159,8 @@ import type {
   WorkflowModelCallRecord,
   WorkflowRecoveryContext,
   WorkflowRunEvent,
-  WorkflowRunLimitOverrides,
   WorkflowRunProviderHealth,
   WorkflowRunRetryMetadata,
-  WorkflowRunScheduleSummary,
   WorkflowRunStatus,
   WorkflowRunSummary,
   WorkflowRevisionSummary,
@@ -294,48 +281,13 @@ import {
 } from "./subagentGroupJoin";
 import { cancelPendingParentToChildMailboxEvents } from "./subagentMailbox";
 import {
-  applyWorkflowRecordingSummaryState,
-  assertWorkflowRecordingReviewDraftReusable,
-  confirmWorkflowRecordingReviewState,
-  startWorkflowRecordingState,
-  stopWorkflowRecordingState,
-  updateWorkflowRecordingReviewDraftState,
-  workflowRecordingApplyReviewValidationIssues,
-  WorkflowRecordingReviewValidationError,
-  workflowRecordingTitle,
-} from "../shared/workflowRecorder";
-import {
-  workflowRecordingArchiveLifecyclePatch,
-  workflowRecordingAssertBaseVersion,
-  workflowRecordingApplyLibraryLifecycleUpdate,
-  workflowRecordingApplyRestoredPlaybookState,
-  workflowRecordingApplySavedPlaybookLifecycle,
-  workflowRecordingApplySavedPlaybookReviewState,
   workflowRecordingFindLibraryRecord,
-  workflowRecordingFindSummaryMessage,
-  workflowRecordingIndexWithEntry,
-  workflowRecordingLibraryDescription,
-  workflowRecordingLibraryIndexPaths,
   workflowRecordingLibraryVersions,
-  workflowRecordingListLibraryEntries,
   workflowRecordingNextSavedPlaybook,
   workflowRecordingPlaybookId,
-  workflowRecordingPreparePlaybookEdit,
-  workflowRecordingReadLibraryIndexes,
-  workflowRecordingReadRestorableVersionSource,
-  workflowRecordingRequireLibraryEntry,
-  workflowRecordingRequireLibraryRecord,
   workflowRecordingRequireLibraryVersion,
-  workflowRecordingRequireStoppedReviewDraft,
-  workflowRecordingSaveConfirmedPlaybook,
   workflowRecordingSavedPlaybookForWorkspace,
-  workflowRecordingThreadReference,
-  workflowRecordingUnarchiveLifecyclePatch,
-  workflowRecordingWriteEditedPlaybookPackageWithIndex,
   workflowRecordingWritePlaybookPackageWithIndex,
-  workflowRecordingWriteRestoredPlaybookPackageWithIndex,
-  type WorkflowRecordingLifecyclePatch,
-  type WorkflowRecordingLibraryIndex,
 } from "./workflowRecordingLibrary";
 import {
   applyProjectStoreBootstrapSchema,
@@ -362,75 +314,58 @@ import type {
   TerminalPersistedRunStatus,
 } from "./projectStore/runMappers";
 import {
-  mapOrchestrationRunRow,
-  mapOrchestrationTaskRow,
   type OrchestrationRunRow,
-  type OrchestrationTaskRow,
-} from "./projectStoreOrchestrationMappers";
+} from "./projectStore/orchestrationMappers";
+import { latestWorkflowRunForArtifact } from "./projectStore/automationMappers";
 import {
-  automationThreadId,
-  compareAutomationFolders,
-  compareAutomationThreads,
-  latestOrchestrationRunForTask,
-  latestWorkflowRunForArtifact,
-  mapAutomationFolderRow,
-  mapAutomationOrchestrationTaskThread,
-  mapAutomationScheduleExceptionRow,
-  mapAutomationScheduleRow,
-  mapAutomationWorkflowArtifactThread,
-  parseAutomationThreadId,
-  type AutomationFolderRow,
-  type AutomationScheduleExceptionRow,
-  type AutomationScheduleRow,
-} from "./projectStoreAutomationMappers";
-import {
-  mapPlannerDecisionQuestionRow,
-  mapPlannerPlanArtifactRow,
-  parsePlannerDecisionOptions,
   plannerPlanWorkflowStateForQuestions,
-  type PlannerDecisionQuestionRow,
   type PlannerPlanArtifactRow,
-} from "./projectStorePlannerMappers";
+} from "./projectStore/plannerMappers";
 import { ProjectStoreArtifactDraftRepository } from "./projectStoreArtifactDraftRepository";
+import { ProjectStorePlannerArtifactRepository, type PlannerPlanArtifactInput } from "./projectStore/plannerArtifactRepository";
 import { ProjectStoreMessageRepository } from "./projectStore/messageRepository";
 import { ProjectStoreMessageVoiceRepository } from "./projectStore/messageVoiceRepository";
 import { ProjectStoreRunRepository } from "./projectStore/runRepository";
 import { ProjectStoreThreadRepository } from "./projectStore/threadRepository";
 import { ProjectStoreThreadGoalRepository } from "./projectStore/threadGoalRepository";
+import { ProjectStoreWorkflowArtifactRepository } from "./projectStore/workflowArtifactRepository";
+import { ProjectStoreWorkflowRunRepository } from "./projectStore/workflowRunRepository";
+import { ProjectStoreProjectBoardReadRepository } from "./projectStore/projectBoardReadRepository";
+import { ProjectStoreProjectBoardCardMutationRepository } from "./projectStore/projectBoardCardMutationRepository";
+import { ProjectStoreProjectBoardLifecycleRepository } from "./projectStore/projectBoardLifecycleRepository";
+import { ProjectStoreProjectBoardSourceRepository } from "./projectStore/projectBoardSourceRepository";
+import { ProjectStoreProjectBoardPlanningSnapshotRepository } from "./projectStore/projectBoardPlanningSnapshotRepository";
+import { ProjectStoreProjectBoardSynthesisApplyRepository } from "./projectStore/projectBoardSynthesisApplyRepository";
+import { ProjectStoreProjectBoardSynthesisProposalRepository } from "./projectStore/projectBoardSynthesisProposalRepository";
+import { ProjectStoreProjectBoardSynthesisRunRepository } from "./projectStore/projectBoardSynthesisRunRepository";
+import { ProjectStoreOrchestrationRepository } from "./projectStore/orchestrationRepository";
+import { ProjectStoreAutomationRepository } from "./projectStore/automationRepository";
+import { ProjectStoreWorkflowRecordingRepository } from "./projectStore/workflowRecordingRepository";
 import {
   callableWorkflowTaskFinishState,
   callableWorkflowTaskProgressSnapshot,
   callableWorkflowTaskUsageSnapshot,
   compareWorkflowAgentFolders,
   compareWorkflowAgentThreads,
-  mapCallableWorkflowTaskRow,
   mapWorkflowAgentFolderRow,
   mapWorkflowAgentThreadRow,
-  mapWorkflowArtifactRow,
   mapWorkflowDiscoveryQuestionRow,
   mapWorkflowExplorationTraceRow,
   mapWorkflowGraphSnapshotRow,
   mapWorkflowModelCallRow,
   mapWorkflowRevisionRow,
-  mapWorkflowRunRow,
-  mapWorkflowRunEventRow,
-  mapWorkflowRunScheduleSummaryRow,
   mapWorkflowVersionRow,
   workflowAgentPhaseForArtifactStatus,
-  type CallableWorkflowTaskRow,
   type WorkflowAgentFolderRow,
   type WorkflowAgentThreadRow,
-  type WorkflowArtifactRow,
   type WorkflowDiscoveryQuestionRow,
   type WorkflowExplorationTraceRow,
   type WorkflowGraphSnapshotRow,
   type WorkflowModelCallRow,
   type WorkflowRevisionRow,
-  type WorkflowRunRow,
-  type WorkflowRunEventRow,
-  type WorkflowRunScheduleEventRow,
   type WorkflowVersionRow,
 } from "./projectStoreWorkflowMappers";
+import { ProjectStoreCallableWorkflowTaskRepository } from "./projectStore/callableWorkflowTaskRepository";
 import {
   compactSubagentCapacityLeasePreview,
   compactSubagentMailboxEventForPreview,
@@ -478,6 +413,7 @@ import {
 } from "./projectStoreSubagentMappers";
 import { resolveSubagentParentStopWaitBarrier } from "./subagentParentStopWaitBarrier";
 import { resolveSubagentParentControlBarrierReconciliation } from "./subagentParentControlBarrierReconciliation";
+import { SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION } from "./subagentWaitBarrierResolution";
 import { ProjectStoreContextUsageRepository } from "./projectStore/contextUsageRepository";
 import { ProjectStorePermissionRepository } from "./projectStore/permissionRepository";
 import {
@@ -490,23 +426,14 @@ import {
   projectBoardPlanDisplayTitle,
   projectBoardPlanTitleIsGeneric,
 } from "../shared/projectBoardPlanIdentity";
-import { stableBoardArtifactId } from "./projectBoardArtifacts";
-import type { ProjectBoardArtifactProjection, ProjectBoardRunArtifactProjection } from "./projectBoardArtifactImport";
+import type { ProjectBoardArtifactProjection } from "./projectBoardArtifactImport";
 import {
-  dedupeProjectBoardSynthesisRunProgressiveRecords,
   evaluateProjectBoardCardProof,
-  mapProjectBoardCardRow,
   mapProjectBoardCharterRow,
   mapProjectBoardEventRow,
-  mapProjectBoardExecutionArtifactRow,
   mapProjectBoardQuestionRow,
-  mapProjectBoardRow,
-  mapProjectBoardSourceRow,
-  mapProjectBoardSynthesisProposalRow,
-  mapProjectBoardSynthesisRunRow,
   normalizeCardTextList,
   objectiveProvenanceJson,
-  normalizeProjectBoardSourceInputs,
   normalizeProjectBoardCardRunFeedback,
   normalizeProjectBoardCardRunFeedbackSource,
   normalizeProjectBoardCardExecutionSessionPolicy,
@@ -515,12 +442,9 @@ import {
   normalizeProjectBoardClarificationDecisions,
   normalizeProjectBoardClarificationQuestions,
   normalizeProjectBoardClarificationSuggestions,
-  normalizeProjectBoardPlanningSnapshot,
   normalizeProjectBoardProofFollowUpSuggestion,
   normalizeProjectBoardSynthesisClarificationFields,
   normalizeProjectBoardSynthesisRunEvent,
-  normalizeProjectBoardSynthesisRunProgressiveRecord,
-  normalizeRunFollowUps,
   normalizeRuntimeBudgetCriteria,
   normalizeProjectBoardUiMockRole,
   normalizeTaskState,
@@ -539,7 +463,6 @@ import {
   parseProjectBoardStringList,
   mergeProjectBoardTaskToolActionsForProof,
   projectBoardCardProofCount,
-  projectBoardCardBlockedByOpenUxMockGate,
   projectBoardCardIsUxMockGate,
   projectBoardCardMatchesRef,
   projectBoardCardMissingRequiredUxMockGate,
@@ -564,32 +487,18 @@ import {
   projectBoardExecutionArtifactUpdatedAt,
   projectBoardAfterRunHookSucceeded,
   projectBoardCardTaskDescription,
-  projectBoardCardPendingPiUpdateFromSynthesisCard,
   projectBoardHasDecisionImpactFeedback,
   projectBoardHasImplementationEvidence,
   projectBoardHasSourceImpactFeedback,
   projectBoardClaimBlockedTaskIdsForRows,
   projectBoardOpenUxMockGateBlocker,
   projectBoardQuestionMatchesAnyVariant,
-  projectBoardProofFollowUpOptionsFromSuggestion,
-  projectBoardProofEvidenceText,
   projectBoardProofOfWorkForRun,
   projectBoardProofObject,
-  projectBoardProofReviewApplicationBlocker,
   projectBoardPromptList,
   projectBoardPromptSummary,
   projectBoardProofRevisionRunFeedback,
-  projectBoardProofReviewClosureModelForApplication,
   projectBoardProofReviewFromDraft,
-  projectBoardRequiresUiMockApprovalForSynthesisCard,
-  projectBoardRuntimeBudgetCompletedCriteria,
-  projectBoardRuntimeBudgetExceeded,
-  projectBoardRuntimeBudgetFollowUpClarificationQuestion,
-  projectBoardRuntimeBudgetFollowUpDescription,
-  projectBoardRuntimeBudgetHasMeaningfulProgress,
-  projectBoardRuntimeBudgetRemainingCriteria,
-  projectBoardRuntimeBudgetReviewForApplication,
-  projectBoardRuntimeBudgetSplitOutcomeForReview,
   projectBoardRuntimeBudgetTrustworthyTaskActions,
   projectBoardRunStatusCanCopySession,
   projectBoardRunHasReviewableProof,
@@ -599,31 +508,16 @@ import {
   projectBoardMissingProofItems,
   buildProjectBoardCharterProjectSummary,
   compileProjectBoardCharter,
-  projectBoardCardsWithClaimSummaries,
   projectBoardClaimSummaryFromEvents,
   projectBoardClosedParentForRunFollowUp,
   projectBoardDependencyArtifactKey,
-  splitProjectBoardCardDescription,
   projectBoardDescriptionWithSourceImpactRefresh,
   projectBoardStatusForTask,
   projectBoardSourceInputFromExisting,
-  projectBoardSourceRefreshEventMetadata,
-  projectBoardSourceKindCounts,
-  projectBoardSourceClassificationUpdates,
-  projectBoardSourceRefreshSummary,
-  projectBoardSourceRefreshStats,
-  projectBoardSourceRefreshSources,
-  projectBoardSourceRefreshStoreRow,
-  projectBoardSynthesisDraftWithSourceIdNamespace,
-  projectBoardSynthesisMarkdown,
-  projectBoardSynthesisProposalCardsFromDraft,
-  projectBoardTaskStateForProofReview,
   projectBoardTestPolicyRequiresProofSpec,
-  projectBoardUiMockRoleForSynthesisCard,
   projectBoardUnansweredClarificationQuestions,
   projectBoardUxMockRejectionRunFeedback,
   projectBoardUxMockGateSatisfied,
-  projectBoardPlanningStableHash,
   projectBoardPlanningStableJson,
   projectBoardSourceDraftRefreshEventMetadata,
   projectBoardSourceDraftRefreshNote,
@@ -632,44 +526,31 @@ import {
   projectBoardSourceImpactDurablePlanPrimary,
   projectBoardSourceImpactIncluded,
   projectBoardSourceImpactMetadataFromEvent,
-  projectBoardSourceUpdateImpactMetadata,
-  projectBoardSourceUserClassificationUpdate,
-  projectBoardSynthesisCardRowProtectedFromDraftReplacement,
-  projectBoardSynthesisStartFreshCardSnapshot,
-  projectBoardSynthesisProposalCardReviewStatus,
   projectBoardResolveInside,
   resolveProjectBoardTaskBlockers,
   sourceRefArtifactStrings,
   stringsFromProjectBoardUnknownArray,
-  summarizeProjectBoardSynthesisRunProgressiveRecords,
   type ProjectBoardCardStoreRow,
   type ProjectBoardCharterStoreRow,
   type ProjectBoardEventStoreRow,
   type ProjectBoardExecutionArtifactStoreRow,
-  type ProjectBoardProofReviewDraft,
   type ProjectBoardQuestionStoreRow,
   type ProjectBoardStoreRow,
-  type ProjectBoardSourceClassificationInput as ProjectBoardSourceClassificationMapperInput,
   type ProjectBoardSourceDraftRefreshRecord,
-  type ProjectBoardSourceStoreRow,
-  type ProjectBoardSynthesisProposalStoreRow,
   type ProjectBoardSynthesisRunStoreRow,
-  type ProjectBoardSourceUpdateImpactMetadata,
   type ProjectBoardRunFollowUpCandidate,
-  type ProjectBoardRunFollowUpInsertOptions,
   type ProjectBoardCardDependencyExecutionContext,
   type ProjectBoardCardDependencyExecutionEntry,
   type ProjectBoardDependencyArtifactImport,
   type ProjectBoardDependencyArtifactImportResult,
-} from "./projectBoardStoreMappers";
-export { projectBoardDependencyArtifactPromptSection } from "./projectBoardStoreMappers";
-export type { ProjectBoardDependencyArtifactImport, ProjectBoardDependencyArtifactImportResult } from "./projectBoardStoreMappers";
+} from "./projectStore/projectBoardMappers";
+export { projectBoardDependencyArtifactPromptSection } from "./projectStore/projectBoardMappers";
+export type { ProjectBoardDependencyArtifactImport, ProjectBoardDependencyArtifactImportResult } from "./projectStore/projectBoardMappers";
 export type { RunRecord } from "./projectStore/runMappers";
 import {
   AMBIENT_LEGACY_MODEL_IDS,
 } from "../shared/ambientModels";
 import { workflowGraphFromSpec } from "../shared/workflowAgentGraph";
-import { computeAutomationScheduleNextRunAt, normalizeAutomationScheduleCronExpression } from "./automationSchedules";
 import type { SchedulerRuntimeState } from "./orchestrationScheduler";
 import {
   INTERRUPTED_RUN_MESSAGE,
@@ -678,9 +559,7 @@ import {
   isRecoverableMessageMetadata,
 } from "./runRecovery";
 import {
-  isRestartInterruptedOrchestrationRun,
   RESTART_INTERRUPTED_LOCAL_TASK_ERROR,
-  restartInterruptedAutoContinueProofOfWork,
   restartInterruptedRunProofOfWork,
 } from "./orchestrationRecovery";
 import {
@@ -696,8 +575,7 @@ import {
   projectBoardTaskToolManualChecks,
   projectBoardTaskToolProofSummary,
 } from "./projectBoardTaskTools";
-import { normalizeProjectBoardPmReviewReport, type ProjectBoardSynthesisCardInput, type ProjectBoardSynthesisDraft } from "./projectBoardSynthesis";
-import { projectBoardSynthesisPartialStatus } from "../shared/projectBoardSynthesisRecovery";
+import { type ProjectBoardSynthesisCardInput, type ProjectBoardSynthesisDraft } from "./projectBoardSynthesis";
 import { dedupeProjectBoardQuestions, projectBoardQuestionsAreNearDuplicates } from "../shared/projectBoardQuestionDedupe";
 import { projectBoardOpenClarificationQuestions } from "../shared/projectBoardClarificationDecisions";
 import type {
@@ -734,12 +612,9 @@ import { extractPlannerPlanArtifactFields } from "./plannerMode";
 import { LEGACY_PROJECT_STATE_DIR, prepareWorkspaceAuthorityState } from "./workspaceAuthorityState";
 import { parseJsonArray, parseJsonObject, parseMetadata, parseStringList, stringFromRecord } from "./projectStoreJson";
 import { ProjectStoreSettingsRepository } from "./projectStore/settingsRepository";
-import { stringifyWorkflowRunLimitOverrides } from "./workflowRunLimitOverrides";
 
 import {
-  AUTOMATION_HOME_FOLDER_ID,
   DEFAULT_PROJECT_BOARD_QUESTIONS,
-  MAX_PROJECT_BOARD_SYNTHESIS_CARDS,
   PROJECT_STATE_DIR,
   WORKFLOW_AGENT_HOME_FOLDER_ID,
   WORKFLOW_DEBUG_TRACE_RETENTION_DAYS,
@@ -750,15 +625,12 @@ import {
   emptyToNull,
   plannerPlanArtifactSourceContent,
   projectBoardCanAdoptPlannerBoardTitle,
-  projectBoardPlanningScopeFromRunEvents,
   projectBoardSourceInputExcludedByDurablePlan,
   projectBoardSourceLikeArtifactId,
   projectBoardSourceLikeId,
   projectBoardSourceLikeMessageId,
   projectBoardSourceLikeSourceKey,
   projectBoardSourceLikeThreadId,
-  projectBoardSynthesisCardAllowedForBoardSources,
-  projectBoardSynthesisCardThreadId,
   readManagedBoardPlanContent,
   repairProjectBoardSynthesisCardsWithExcludedSourceRefs,
   symphonyWorkflowRecipePlaybook,
@@ -766,12 +638,10 @@ import {
   symphonyWorkflowRecipeTranscript,
 } from "./projectStoreFacadeHelpers";
 import type {
-  AutomationThreadFolderRow,
   ContextUsageSnapshotInput,
   CreateThreadOptions,
   OrchestrationTaskUpdateInput,
   PermissionAuditInput,
-  PlannerPlanArtifactInput,
   ProjectBoardCharterRow,
   ProjectBoardCardRow,
   ProjectBoardEventInput,
@@ -782,10 +652,7 @@ import type {
   ProjectBoardRow,
   ProjectBoardSourceClassificationInput,
   ProjectBoardSourceInput,
-  ProjectBoardSourceRow,
   ProjectBoardSynthesisApplyOptions,
-  ProjectBoardSynthesisProposalRow,
-  ProjectBoardSynthesisRunRow,
   StageProjectBoardDecisionDraftPiUpdatesInput,
   StageProjectBoardSourceDraftPiUpdatesInput,
   ThreadWorktreeInput,
@@ -803,12 +670,12 @@ export type {
   CreateThreadOptions,
   OrchestrationTaskUpdateInput,
   PermissionAuditInput,
-  PlannerPlanArtifactInput,
   ProjectBoardProofReviewContext,
   ProjectBoardSourceClassificationInput,
   ProjectBoardSourceInput,
   ThreadWorktreeInput,
 } from "./projectStoreFacadeHelpers";
+export type { PlannerPlanArtifactInput } from "./projectStore/plannerArtifactRepository";
 
 export class ProjectStore {
   private db?: Database.Database;
@@ -831,7 +698,7 @@ export class ProjectStore {
     this.migrate();
     this.backfillProjectBoardClarificationDecisions();
     this.ensureDefaultSettings();
-    this.ensureDefaultAutomationFolder();
+    this.automations().ensureDefaultAutomationFolder();
     this.ensureDefaultThread();
     if (options.recoverActiveRuns ?? false) this.interruptActiveRuns();
     if (options.recoverOrchestrationRuns ?? false) this.stallActiveOrchestrationRuns();
@@ -976,37 +843,15 @@ export class ProjectStore {
   }
 
   getProjectBoardForPath(projectPath: string, sourceThreadId?: string): ProjectBoardSummary | undefined {
-    const trimmedThreadId = sourceThreadId?.trim();
-    let row = trimmedThreadId
-      ? (this.requireDb()
-          .prepare(
-            `SELECT * FROM project_boards
-             WHERE project_path = ?
-               AND source_thread_id = ?
-               AND status IN ('draft', 'active', 'paused')
-             ORDER BY updated_at DESC, rowid DESC
-             LIMIT 1`,
-          )
-          .get(projectPath, trimmedThreadId) as ProjectBoardRow | undefined)
-      : undefined;
-    row ??= this.requireDb()
-      .prepare(
-        `SELECT * FROM project_boards
-         WHERE project_path = ?
-           AND status IN ('draft', 'active', 'paused')
-           AND (? IS NULL OR source_thread_id IS NULL)
-         ORDER BY updated_at DESC, rowid DESC
-         LIMIT 1`,
-      )
-      .get(projectPath, trimmedThreadId ?? null) as ProjectBoardRow | undefined;
+    let row = this.projectBoards().findActiveProjectBoardRow(projectPath, sourceThreadId);
     if (row && this.reconcileCompactPlannerPlanDraftBoard(row)) {
-      row = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(row.id) as ProjectBoardRow | undefined;
+      row = this.projectBoards().getProjectBoardRow(row.id);
     }
     return row ? this.mapProjectBoard(row) : undefined;
   }
 
   getProjectBoard(boardId: string): ProjectBoardSummary | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardRow | undefined;
+    const row = this.projectBoards().getProjectBoardRow(boardId);
     return row ? this.mapProjectBoard(row) : undefined;
   }
 
@@ -1565,7 +1410,7 @@ export class ProjectStore {
           event.createdAt,
         );
       }
-      this.materializeProjectBoardPulledHandoffFollowUps(boardId, projection.runArtifacts);
+      this.projectBoardCardMutations().materializeProjectBoardPulledHandoffFollowUps(boardId, projection.runArtifacts);
     });
 
     transaction();
@@ -1575,92 +1420,7 @@ export class ProjectStore {
   }
 
   createProjectBoard(input: { title?: string; summary?: string; replaceActive?: boolean; sourceThreadId?: string } = {}): ProjectBoardSummary {
-    const project = this.getWorkspace();
-    const sourceThreadId = input.sourceThreadId?.trim() || undefined;
-    const existing = this.getActiveProjectBoard(sourceThreadId);
-    if (existing && !input.replaceActive) return existing;
-
-    const now = new Date().toISOString();
-    const boardId = randomUUID();
-    const charterId = randomUUID();
-    const title = input.title?.trim() || `${project.name} board`;
-    const summary = input.summary?.trim() || "Project board kickoff draft.";
-    const markdown = [
-      `# ${title}`,
-      "",
-      "## Vision",
-      "",
-      "Draft charter created by Build Board. The kickoff interview will fill this in before cards are executed.",
-      "",
-      "## Scope",
-      "",
-      "- Confirm project goal",
-      "- Identify background artifacts and plans",
-      "- Ticketize validated work with dependencies and test expectations",
-    ].join("\n");
-
-    try {
-      const transaction = this.requireDb().transaction(() => {
-        if (existing && input.replaceActive) {
-          this.requireDb().prepare("UPDATE project_boards SET status = 'archived', updated_at = ? WHERE id = ?").run(now, existing.id);
-        }
-        this.requireDb()
-          .prepare(
-            `INSERT INTO project_boards
-            (id, project_path, source_thread_id, status, title, summary, charter_id, active_draft_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .run(boardId, project.path, sourceThreadId ?? null, "draft", title, summary, charterId, null, now, now);
-        this.requireDb()
-          .prepare(
-            `INSERT INTO project_board_charters
-            (id, board_id, version, status, goal, current_state, target_user, non_goals_json, quality_bar,
-             test_policy_json, decision_policy_json, dependency_policy_json, budget_policy_json, source_policy_json,
-             markdown, project_summary_json, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .run(
-            charterId,
-            boardId,
-            1,
-            "draft",
-            "",
-            "",
-            "",
-            JSON.stringify([]),
-            "",
-            JSON.stringify({ unit: true, integration: true, visual: true, liveSmoke: "recommended" }),
-            JSON.stringify({ default: "ask_when_ambiguous", fallback: "document_assumption" }),
-            JSON.stringify({ ordering: "blockers_first", parallelism: "safe_independent_cards" }),
-            JSON.stringify({ maxPassesPerCard: 6, maxRuntimeMsPerCard: 1_200_000, pauseOnTerminalBlocker: true }),
-            JSON.stringify({ includeThreads: true, includeMarkdown: true, requireUserApproval: true }),
-            markdown,
-            null,
-            now,
-            now,
-          );
-        this.appendProjectBoardEvent({
-          boardId,
-          kind: "board_created",
-          title: "Board created",
-          summary: `Created kickoff draft for ${title}.`,
-          entityKind: "project_board",
-          entityId: boardId,
-          metadata: { status: "draft", charterId },
-          createdAt: now,
-        });
-      });
-      transaction();
-      this.ensureProjectBoardQuestions(boardId);
-    } catch (error) {
-      const raced = this.getActiveProjectBoard(sourceThreadId);
-      if (raced && !input.replaceActive) return raced;
-      throw error;
-    }
-
-    const created = this.getProjectBoardForPath(project.path, sourceThreadId);
-    if (!created) throw new Error("Project board was not created.");
-    return created;
+    return this.projectBoardLifecycle().createProjectBoard(input);
   }
 
   /** The compact durable-plan card covering this board's whole scope, if it is
@@ -1704,435 +1464,7 @@ export class ProjectStore {
     synthesis: ProjectBoardSynthesisDraft,
     options: ProjectBoardSynthesisApplyOptions = {},
   ): ProjectBoardSummary {
-    synthesis = projectBoardSynthesisDraftWithSourceIdNamespace(synthesis, options.sourceIdNamespace);
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${boardId}`);
-    if (board.status === "archived") throw new Error("Archived project boards cannot be synthesized.");
-    this.ensureProjectBoardQuestions(boardId);
-
-    const now = new Date().toISOString();
-    const existingSynthesisRows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_cards
-         WHERE board_id = ? AND source_kind = 'board_synthesis'`,
-      )
-      .all(boardId) as ProjectBoardCardRow[];
-    const claimSummary = options.replaceExistingDraft ? projectBoardClaimSummaryFromEvents(this.listProjectBoardEvents(boardId)) : undefined;
-    const protectedClaimCardIds = new Set([
-      ...(claimSummary?.active.map((claim) => claim.cardId) ?? []),
-      ...(claimSummary?.conflicts.map((claim) => claim.cardId) ?? []),
-    ]);
-    const existingSynthesisRowsBySourceId = new Map(existingSynthesisRows.map((row) => [row.source_id, row]));
-    const isProtectedExistingSynthesisCard = (row: ProjectBoardCardRow) =>
-      projectBoardSynthesisCardRowProtectedFromDraftReplacement(row, protectedClaimCardIds);
-    const protectedExistingCardRows = options.replaceExistingDraft
-      ? existingSynthesisRows.filter(isProtectedExistingSynthesisCard)
-      : existingSynthesisRows;
-    const protectedExistingCardSourceIds = new Set(protectedExistingCardRows.map((row) => row.source_id));
-    const replaceableExistingCardRows = options.replaceExistingDraft
-      ? existingSynthesisRows.filter((row) => !isProtectedExistingSynthesisCard(row))
-      : [];
-    const replaceableExistingRowsBySourceId = new Map(replaceableExistingCardRows.map((row) => [row.source_id, row]));
-    const boardSourceThreadId = board.source_thread_id?.trim() || undefined;
-    const boardSources = this.listProjectBoardSources(boardId);
-    const pendingPiUpdates = options.replaceExistingDraft
-      ? synthesis.cards
-          .filter((card) => projectBoardSynthesisCardAllowedForBoardSources({ card, sources: boardSources, boardSourceThreadId }))
-          .map((card) => {
-            const existing = existingSynthesisRowsBySourceId.get(card.sourceId.trim());
-            if (!existing || !isProtectedExistingSynthesisCard(existing)) return undefined;
-            const update = projectBoardCardPendingPiUpdateFromSynthesisCard(existing, card, now);
-            return update ? { cardId: existing.id, update } : undefined;
-          })
-          .filter((entry): entry is { cardId: string; update: ProjectBoardCardPendingPiUpdate } => Boolean(entry))
-      : [];
-    const candidateCards = synthesis.cards
-      .filter((card) =>
-        card.title.trim() &&
-        card.sourceId.trim() &&
-        !protectedExistingCardSourceIds.has(card.sourceId.trim()) &&
-        projectBoardSynthesisCardAllowedForBoardSources({ card, sources: boardSources, boardSourceThreadId })
-      )
-      .slice(0, MAX_PROJECT_BOARD_SYNTHESIS_CARDS);
-    const candidateCardSourceIds = new Set(candidateCards.map((card) => card.sourceId.trim()));
-    const cardsToUpdate = options.replaceExistingDraft
-      ? candidateCards
-          .flatMap((card): { existing: ProjectBoardCardRow; update: ProjectBoardCardPendingPiUpdate | undefined }[] => {
-            const existing = replaceableExistingRowsBySourceId.get(card.sourceId.trim());
-            if (!existing) return [];
-            return [{
-              existing,
-              update: projectBoardCardPendingPiUpdateFromSynthesisCard(existing, card, now),
-            }];
-          })
-      : [];
-    const cardsToInsert = candidateCards.filter((card) => !replaceableExistingRowsBySourceId.has(card.sourceId.trim()));
-    const deleteStaleDraftCards = options.replaceExistingDraft ? (options.deleteStaleDraftCards ?? true) : false;
-    const staleReplaceableDraftCardIds = deleteStaleDraftCards
-      ? replaceableExistingCardRows.filter((row) => !candidateCardSourceIds.has(row.source_id)).map((row) => row.id)
-      : [];
-    const existingQuestions = this.listProjectBoardQuestions(boardId);
-    const existingQuestionTexts = existingQuestions.map((question) => question.question.trim());
-    const questionsToInsert =
-      options.insertQuestions === false
-        ? []
-        : dedupeProjectBoardQuestions(synthesis.questions, 8)
-            .filter((question) => !existingQuestionTexts.some((existing) => projectBoardQuestionsAreNearDuplicates(existing, question)))
-            .slice(0, 8);
-    const summaryQuestions: ProjectBoardQuestion[] = [
-      ...existingQuestions,
-      ...questionsToInsert.map((question, index) => ({
-        id: `pending-synthesis-question-${index + 1}`,
-        boardId,
-        question,
-        required: true,
-        createdAt: now,
-        updatedAt: now,
-      })),
-    ];
-    const maxOrder = this.requireDb()
-      .prepare("SELECT COALESCE(MAX(question_order), -1) AS question_order FROM project_board_questions WHERE board_id = ?")
-      .get(boardId) as { question_order: number };
-    const insertedCardIds: string[] = [];
-    const updatedCardIds: string[] = [];
-    const preservedDraftCardIds = new Set<string>();
-    const coveredPlannerPlanCardIds: string[] = [];
-    const insertedQuestionIds: string[] = [];
-    const protectedPiUpdateCardIds: string[] = [];
-    const protectedPiUpdateSourceIds: string[] = [];
-    const markdown = projectBoardSynthesisMarkdown(board, synthesis);
-    const activeCharterRow = board.charter_id
-      ? (this.requireDb().prepare("SELECT * FROM project_board_charters WHERE id = ?").get(board.charter_id) as ProjectBoardCharterRow | undefined)
-      : undefined;
-    const existingBudgetPolicy = activeCharterRow ? parseJsonObject<Record<string, unknown>>(activeCharterRow.budget_policy_json, {}) : {};
-    const synthesizedBudgetPolicy = {
-      maxPassesPerCard: 6,
-      maxRuntimeMsPerCard: 1_200_000,
-      pauseOnTerminalBlocker: true,
-    };
-    const mergedBudgetPolicy = {
-      ...synthesizedBudgetPolicy,
-      ...existingBudgetPolicy,
-    };
-    const synthesizedSourcePolicy = {
-      includeThreads: true,
-      includeMarkdown: true,
-      requireUserApproval: true,
-      synthesizedAt: now,
-      sourceNotes: synthesis.sourceNotes,
-    };
-    const synthesizedCharterSummary = buildProjectBoardCharterProjectSummary({
-      board,
-      questions: summaryQuestions,
-      sources: boardSources,
-      compiled: {
-        goal: synthesis.goal.trim().slice(0, 2000),
-        currentState: synthesis.currentState.trim().slice(0, 2000),
-        targetUser: synthesis.targetUser.trim().slice(0, 1000),
-        nonGoals: [],
-        qualityBar: synthesis.qualityBar.trim().slice(0, 2000),
-        testPolicy: {
-          defaultProof: synthesis.qualityBar,
-          requireProofSpec: true,
-          unit: true,
-          integration: true,
-          visual: true,
-          manual: true,
-          proofScopeWarningPolicy: "advisory",
-          synthesizedAt: now,
-        },
-        decisionPolicy: { default: "ask_when_ambiguous", assumptions: synthesis.assumptions },
-        dependencyPolicy: { ordering: "blockers_first", source: "board_synthesis", explicitBlockers: true },
-        budgetPolicy: mergedBudgetPolicy,
-        sourcePolicy: synthesizedSourcePolicy,
-        summary: synthesis.summary.trim().slice(0, 500),
-        markdown,
-      },
-      generatedAt: now,
-    });
-    const transaction = this.requireDb().transaction(() => {
-      if (pendingPiUpdates.length > 0) {
-        const updatePendingPi = this.requireDb().prepare(
-          `UPDATE project_board_cards
-           SET pending_pi_update_json = ?,
-               updated_at = ?
-           WHERE id = ?`,
-        );
-        for (const entry of pendingPiUpdates) {
-          const result = updatePendingPi.run(JSON.stringify(entry.update), now, entry.cardId);
-          if (result.changes <= 0) continue;
-          protectedPiUpdateCardIds.push(entry.cardId);
-          protectedPiUpdateSourceIds.push(entry.update.sourceId);
-          this.appendProjectBoardEvent({
-            boardId,
-            kind: "card_updated",
-            title: "Pi update available",
-            summary: `Pi proposed updates to a protected card (${entry.update.changedFields.join(", ")}).`,
-            entityKind: "project_board_card",
-            entityId: entry.cardId,
-            metadata: { cardId: entry.cardId, sourceId: entry.update.sourceId, changedFields: entry.update.changedFields, protectedPiUpdate: true },
-            createdAt: now,
-          });
-        }
-      }
-      if (staleReplaceableDraftCardIds.length > 0) {
-        const placeholders = staleReplaceableDraftCardIds.map(() => "?").join(", ");
-        this.requireDb()
-          .prepare(`DELETE FROM project_board_cards WHERE id IN (${placeholders})`)
-          .run(...staleReplaceableDraftCardIds);
-      }
-      if (board.charter_id) {
-        this.requireDb()
-          .prepare(
-            `UPDATE project_board_charters
-             SET goal = ?,
-                 current_state = ?,
-                 target_user = ?,
-                 non_goals_json = ?,
-                 quality_bar = ?,
-                 test_policy_json = ?,
-                 decision_policy_json = ?,
-                 dependency_policy_json = ?,
-                 budget_policy_json = ?,
-                 source_policy_json = ?,
-                 markdown = ?,
-                 project_summary_json = ?,
-                 updated_at = ?
-             WHERE id = ?`,
-          )
-          .run(
-            synthesis.goal.trim().slice(0, 2000),
-            synthesis.currentState.trim().slice(0, 2000),
-            synthesis.targetUser.trim().slice(0, 1000),
-            JSON.stringify([]),
-            synthesis.qualityBar.trim().slice(0, 2000),
-            JSON.stringify({
-              defaultProof: synthesis.qualityBar,
-              requireProofSpec: true,
-              unit: true,
-              integration: true,
-              visual: true,
-              manual: true,
-              proofScopeWarningPolicy: "advisory",
-              synthesizedAt: now,
-            }),
-            JSON.stringify({ default: "ask_when_ambiguous", assumptions: synthesis.assumptions }),
-            JSON.stringify({ ordering: "blockers_first", source: "board_synthesis", explicitBlockers: true }),
-            JSON.stringify(mergedBudgetPolicy),
-            JSON.stringify(synthesizedSourcePolicy),
-            markdown,
-            JSON.stringify(synthesizedCharterSummary),
-            now,
-            board.charter_id,
-          );
-      }
-
-      const insertQuestion = this.requireDb().prepare(
-        `INSERT INTO project_board_questions
-         (id, board_id, question_order, question, required, answer, answered_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      questionsToInsert.forEach((question, index) => {
-        const questionId = randomUUID();
-        insertedQuestionIds.push(questionId);
-        insertQuestion.run(questionId, boardId, maxOrder.question_order + index + 1, question, 1, null, null, now, now);
-      });
-
-      const insertCard = this.requireDb().prepare(
-        `INSERT OR IGNORE INTO project_board_cards
-        (id, board_id, title, description, status, candidate_status, priority, phase, labels_json, blocked_by_json,
-         acceptance_criteria_json, test_plan_json, source_refs_json, clarification_questions_json, clarification_suggestions_json, clarification_decisions_json,
-         source_kind, source_id, source_thread_id,
-         source_message_id, orchestration_task_id, objective_provenance_json, ui_mock_role, requires_ui_mock_approval, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const updateReplaceableCard = this.requireDb().prepare(
-        `UPDATE project_board_cards
-         SET title = ?,
-             description = ?,
-             candidate_status = ?,
-             priority = ?,
-             phase = ?,
-             labels_json = ?,
-             blocked_by_json = ?,
-             acceptance_criteria_json = ?,
-             test_plan_json = ?,
-             source_refs_json = ?,
-             clarification_questions_json = ?,
-             clarification_suggestions_json = ?,
-             clarification_decisions_json = ?,
-             objective_provenance_json = ?,
-             ui_mock_role = ?,
-             requires_ui_mock_approval = ?,
-             pending_pi_update_json = NULL,
-             updated_at = ?
-         WHERE id = ?
-           AND board_id = ?
-           AND status = 'draft'
-           AND source_kind = 'board_synthesis'
-           AND orchestration_task_id IS NULL`,
-      );
-      for (const entry of cardsToUpdate) {
-        preservedDraftCardIds.add(entry.existing.id);
-        if (!entry.update) continue;
-        const result = updateReplaceableCard.run(
-          entry.update.title,
-          entry.update.description,
-          entry.update.candidateStatus,
-          entry.update.priority ?? null,
-          entry.update.phase ?? null,
-          JSON.stringify(entry.update.labels),
-          JSON.stringify(entry.update.blockedBy),
-          JSON.stringify(entry.update.acceptanceCriteria),
-          JSON.stringify(entry.update.testPlan),
-          JSON.stringify(entry.update.sourceRefs),
-          JSON.stringify(entry.update.clarificationQuestions),
-          JSON.stringify(normalizeProjectBoardClarificationSuggestions(entry.update.clarificationSuggestions ?? [], [])),
-          JSON.stringify(entry.update.clarificationDecisions ?? []),
-          objectiveProvenanceJson(entry.update.objectiveProvenance),
-          normalizeProjectBoardUiMockRole(entry.update.uiMockRole) ?? null,
-          entry.update.requiresUiMockApproval ? 1 : 0,
-          now,
-          entry.existing.id,
-          boardId,
-        );
-        if (result.changes > 0) updatedCardIds.push(entry.existing.id);
-      }
-      for (const card of cardsToInsert) {
-        const cardId = randomUUID();
-        const clarification = normalizeProjectBoardSynthesisClarificationFields({
-          clarificationQuestions: card.clarificationQuestions,
-          clarificationSuggestions: card.clarificationSuggestions,
-          clarificationDecisions: card.clarificationDecisions,
-          createdAt: now,
-          updatedAt: now,
-        });
-        const result = insertCard.run(
-          cardId,
-          boardId,
-          card.title.trim().slice(0, 180),
-          card.description.trim().slice(0, 4000),
-          "draft",
-          card.candidateStatus,
-          typeof card.priority === "number" ? Math.max(1, Math.round(card.priority)) : null,
-          card.phase?.trim().slice(0, 120) || null,
-          JSON.stringify(normalizeTaskLabels(card.labels)),
-          JSON.stringify(normalizeTaskReferences(card.blockedBy)),
-          JSON.stringify(normalizeCardTextList(card.acceptanceCriteria, 30)),
-          JSON.stringify(normalizeProjectBoardCardTestPlan(card.testPlan)),
-          JSON.stringify(normalizeCardTextList(card.sourceRefs, 20)),
-          JSON.stringify(clarification.clarificationQuestions),
-          JSON.stringify(clarification.clarificationSuggestions),
-          JSON.stringify(clarification.clarificationDecisions),
-          "board_synthesis",
-          card.sourceId.trim(),
-          projectBoardSynthesisCardThreadId({ card, sources: boardSources, boardSourceThreadId }),
-          null,
-          null,
-          objectiveProvenanceJson(card.objectiveProvenance),
-          projectBoardUiMockRoleForSynthesisCard(card) ?? null,
-          projectBoardRequiresUiMockApprovalForSynthesisCard(card) ? 1 : 0,
-          now,
-          now,
-        );
-        if (result.changes > 0) insertedCardIds.push(cardId);
-      }
-      if (
-        options.coverPlannerPlanDrafts &&
-        (insertedCardIds.length + updatedCardIds.length > 0 || existingSynthesisRows.length > 0)
-      ) {
-        const plannerPlanRows = this.requireDb()
-          .prepare(
-            `SELECT id, title FROM project_board_cards
-             WHERE board_id = ?
-               AND status = 'draft'
-               AND source_kind = 'planner_plan'
-               AND orchestration_task_id IS NULL
-               AND candidate_status NOT IN ('evidence', 'duplicate', 'rejected')
-               AND user_touched_at IS NULL
-               AND (user_touched_fields_json IS NULL OR user_touched_fields_json = '[]')`,
-          )
-          .all(boardId) as Array<{ id: string; title: string }>;
-        const markCovered = this.requireDb().prepare("UPDATE project_board_cards SET candidate_status = 'evidence', updated_at = ? WHERE id = ?");
-        for (const row of plannerPlanRows) {
-          const result = markCovered.run(now, row.id);
-          if (result.changes <= 0) continue;
-          coveredPlannerPlanCardIds.push(row.id);
-          this.appendProjectBoardEvent({
-            boardId,
-            kind: "card_updated",
-            title: "Planner plan covered by synthesis",
-            summary: `${row.title} was marked covered because Ambient/Pi created actionable board-synthesis candidate cards from the plan source.`,
-            entityKind: "project_board_card",
-            entityId: row.id,
-            metadata: { cardId: row.id, candidateStatus: "evidence", coveredBySynthesisCardIds: [...updatedCardIds, ...insertedCardIds] },
-            createdAt: now,
-          });
-        }
-      }
-
-      this.requireDb()
-        .prepare("UPDATE project_boards SET summary = ?, updated_at = ? WHERE id = ?")
-        .run((synthesis.summary || board.summary).trim().slice(0, 500), now, boardId);
-      this.appendProjectBoardEvent({
-        boardId,
-        kind: "board_synthesized",
-        title: "Board synthesis applied",
-        summary: `${insertedCardIds.length + updatedCardIds.length} candidate card${insertedCardIds.length + updatedCardIds.length === 1 ? "" : "s"} and ${insertedQuestionIds.length} kickoff question${insertedQuestionIds.length === 1 ? "" : "s"} applied from project sources.`,
-        entityKind: "project_board",
-        entityId: boardId,
-        metadata: {
-          cardIds: insertedCardIds,
-          updatedCardIds,
-          appliedCardIds: [...updatedCardIds, ...insertedCardIds],
-          questionIds: insertedQuestionIds,
-          skippedDuplicateCards: cardsToInsert.length - insertedCardIds.length,
-          replacedDraftCardCount: staleReplaceableDraftCardIds.length,
-          staleDraftDeletionSkipped: options.replaceExistingDraft === true && !deleteStaleDraftCards,
-          updatedDraftCardCount: updatedCardIds.length,
-          coveredPlannerPlanCardIds,
-          coveredPlannerPlanCardCount: coveredPlannerPlanCardIds.length,
-          preservedDraftCardIds: Array.from(preservedDraftCardIds),
-          preservedDraftCardCount: preservedDraftCardIds.size,
-          protectedPiUpdateCardIds,
-          protectedPiUpdateSourceIds,
-          protectedPiUpdateCount: protectedPiUpdateCardIds.length,
-          sourceNotes: synthesis.sourceNotes,
-          assumptions: synthesis.assumptions,
-          cardSources: synthesis.cards.map((card) => ({ sourceId: card.sourceId, sourceRefs: card.sourceRefs })),
-          cardClarificationQuestions: synthesis.cards.map((card) => ({ sourceId: card.sourceId, clarificationQuestions: card.clarificationQuestions ?? [] })),
-        },
-        createdAt: now,
-      });
-    });
-    transaction();
-    const updated = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardRow | undefined;
-    if (!updated) throw new Error(`Project board not found after synthesis: ${boardId}`);
-    let summary = this.mapProjectBoard(updated);
-    if (options.snapshotRunId) {
-      this.appendProjectBoardPlanningSnapshotForRun(options.snapshotRunId, options.snapshotKind ?? "manual");
-      summary = this.getProjectBoard(boardId) ?? summary;
-    }
-    return summary;
-  }
-
-  private appendProjectBoardPlanningSnapshotForProposal(
-    boardId: string,
-    proposalId: string,
-  ): { runId: string; snapshot: ProjectBoardPlanningSnapshot } | undefined {
-    const row = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_synthesis_runs
-         WHERE board_id = ?
-           AND proposal_id = ?
-           AND status IN ('paused', 'succeeded')
-         ORDER BY updated_at DESC, started_at DESC, rowid DESC
-         LIMIT 1`,
-      )
-      .get(boardId, proposalId) as ProjectBoardSynthesisRunRow | undefined;
-    if (!row) return undefined;
-    const snapshot = this.appendProjectBoardPlanningSnapshotForRun(row.id, row.status === "paused" ? "paused" : "final");
-    return snapshot ? { runId: row.id, snapshot } : undefined;
+    return this.projectBoardSynthesisApply().applyProjectBoardSynthesis(boardId, synthesis, options);
   }
 
   createProjectBoardSynthesisProposal(input: {
@@ -2142,80 +1474,7 @@ export class ProjectStore {
     model?: string;
     durationMs?: number;
   }): ProjectBoardSynthesisProposal {
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(input.boardId) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    if (board.status === "archived") throw new Error("Archived project boards cannot be refined.");
-    const now = new Date().toISOString();
-    const proposalId = randomUUID();
-    const cards = projectBoardSynthesisProposalCardsFromDraft(input.synthesis);
-    const reviewReport = input.reviewReport ? normalizeProjectBoardPmReviewReport(input.reviewReport) : undefined;
-    if (cards.length === 0 && !reviewReport) throw new Error("Project board synthesis proposal must include at least one card or a PM review report.");
-
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb()
-        .prepare(
-          `UPDATE project_board_synthesis_proposals
-           SET status = 'superseded', updated_at = ?
-           WHERE board_id = ? AND status = 'pending'`,
-        )
-        .run(now, input.boardId);
-      this.requireDb()
-        .prepare(
-          `INSERT INTO project_board_synthesis_proposals
-           (id, board_id, status, summary, goal, current_state, target_user, quality_bar,
-            assumptions_json, questions_json, answers_json, source_notes_json, cards_json, review_report_json, model, duration_ms, created_at, updated_at, applied_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          proposalId,
-          input.boardId,
-          "pending",
-          input.synthesis.summary.trim().slice(0, 500),
-          input.synthesis.goal.trim().slice(0, 2000),
-          input.synthesis.currentState.trim().slice(0, 2000),
-          input.synthesis.targetUser.trim().slice(0, 1000),
-          input.synthesis.qualityBar.trim().slice(0, 2000),
-          JSON.stringify(normalizeCardTextList(input.synthesis.assumptions, 20)),
-          JSON.stringify(normalizeCardTextList(input.synthesis.questions, 12)),
-          JSON.stringify([]),
-          JSON.stringify(normalizeCardTextList(input.synthesis.sourceNotes, 20)),
-          JSON.stringify(cards),
-          reviewReport ? JSON.stringify(reviewReport) : null,
-          input.model?.trim() || null,
-          typeof input.durationMs === "number" && Number.isFinite(input.durationMs) ? Math.max(0, Math.round(input.durationMs)) : null,
-          now,
-          now,
-          null,
-        );
-      this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, input.boardId);
-      this.appendProjectBoardEvent({
-        boardId: input.boardId,
-        kind: "synthesis_proposal_created",
-        title: reviewReport ? "Pi charter review ready" : "Pi synthesis proposal ready",
-        summary: reviewReport
-          ? `A lightweight PM review report is ready with ${input.synthesis.questions.length} blocking question${input.synthesis.questions.length === 1 ? "" : "s"} and zero generated cards.`
-          : `${cards.length} candidate card${cards.length === 1 ? "" : "s"} and ${input.synthesis.questions.length} question${input.synthesis.questions.length === 1 ? "" : "s"} are ready for PM review.`,
-        entityKind: "project_board_synthesis_proposal",
-        entityId: proposalId,
-        metadata: {
-          proposalId,
-          model: input.model,
-          durationMs: input.durationMs,
-          cardCount: cards.length,
-          questionCount: input.synthesis.questions.length,
-          reviewReport: Boolean(reviewReport),
-          readiness: reviewReport?.readiness,
-          supersededPending: true,
-        },
-        createdAt: now,
-      });
-    });
-    transaction();
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    if (!row) throw new Error(`Project board synthesis proposal not found after create: ${proposalId}`);
-    return this.mapProjectBoardSynthesisProposal(row);
+    return this.projectBoardSynthesisProposals().createProjectBoardSynthesisProposal(input);
   }
 
   updateProjectBoardSynthesisProposal(input: {
@@ -2225,105 +1484,15 @@ export class ProjectStore {
     model?: string;
     durationMs?: number;
   }): ProjectBoardSynthesisProposal {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(input.proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    if (!row) throw new Error(`Project board synthesis proposal not found: ${input.proposalId}`);
-    if (row.status !== "pending") throw new Error(`Project board synthesis proposal is ${row.status}, not pending.`);
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(row.board_id) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${row.board_id}`);
-    if (board.status === "archived") throw new Error("Archived project boards cannot be refined.");
-    const existingProposal = this.mapProjectBoardSynthesisProposal(row);
-    const cards = projectBoardSynthesisProposalCardsFromDraft(input.synthesis, existingProposal.cards);
-    const reviewReport = input.reviewReport ? normalizeProjectBoardPmReviewReport(input.reviewReport) : undefined;
-    if (cards.length === 0 && !reviewReport) throw new Error("Project board synthesis proposal must include at least one card or a PM review report.");
-    const now = new Date().toISOString();
-
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb()
-        .prepare(
-          `UPDATE project_board_synthesis_proposals
-           SET summary = ?,
-               goal = ?,
-               current_state = ?,
-               target_user = ?,
-               quality_bar = ?,
-               assumptions_json = ?,
-               questions_json = ?,
-               source_notes_json = ?,
-               cards_json = ?,
-               review_report_json = ?,
-               model = COALESCE(?, model),
-               duration_ms = COALESCE(?, duration_ms),
-               updated_at = ?
-           WHERE id = ?`,
-        )
-        .run(
-          input.synthesis.summary.trim().slice(0, 500),
-          input.synthesis.goal.trim().slice(0, 2000),
-          input.synthesis.currentState.trim().slice(0, 2000),
-          input.synthesis.targetUser.trim().slice(0, 1000),
-          input.synthesis.qualityBar.trim().slice(0, 2000),
-          JSON.stringify(normalizeCardTextList(input.synthesis.assumptions, 20)),
-          JSON.stringify(normalizeCardTextList(input.synthesis.questions, 12)),
-          JSON.stringify(normalizeCardTextList(input.synthesis.sourceNotes, 20)),
-          JSON.stringify(cards),
-          reviewReport ? JSON.stringify(reviewReport) : null,
-          input.model?.trim() || null,
-          typeof input.durationMs === "number" && Number.isFinite(input.durationMs) ? Math.max(0, Math.round(input.durationMs)) : null,
-          now,
-          input.proposalId,
-        );
-      this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, row.board_id);
-      this.appendProjectBoardEvent({
-        boardId: row.board_id,
-        kind: "synthesis_proposal_created",
-        title: reviewReport ? "Pi charter review updated" : "Pi synthesis proposal updated",
-        summary: reviewReport
-          ? `A lightweight PM review report is ready with ${input.synthesis.questions.length} blocking question${input.synthesis.questions.length === 1 ? "" : "s"} and zero generated cards.`
-          : `${cards.length} candidate card${cards.length === 1 ? "" : "s"} and ${input.synthesis.questions.length} question${
-              input.synthesis.questions.length === 1 ? "" : "s"
-            } are available for PM review.`,
-        entityKind: "project_board_synthesis_proposal",
-        entityId: input.proposalId,
-        metadata: {
-          proposalId: input.proposalId,
-          model: input.model,
-          durationMs: input.durationMs,
-          cardCount: cards.length,
-          questionCount: input.synthesis.questions.length,
-          reviewReport: Boolean(reviewReport),
-          readiness: reviewReport?.readiness,
-          progressiveUpdate: true,
-        },
-        createdAt: now,
-      });
-    });
-    transaction();
-    const updated = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(input.proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    if (!updated) throw new Error(`Project board synthesis proposal not found after update: ${input.proposalId}`);
-    return this.mapProjectBoardSynthesisProposal(updated);
+    return this.projectBoardSynthesisProposals().updateProjectBoardSynthesisProposal(input);
   }
 
   getProjectBoardSynthesisProposal(proposalId: string): ProjectBoardSynthesisProposal | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    return row ? this.mapProjectBoardSynthesisProposal(row) : undefined;
+    return this.projectBoardSynthesisProposals().getProjectBoardSynthesisProposal(proposalId);
   }
 
   getLatestPendingProjectBoardSynthesisProposal(boardId: string): ProjectBoardSynthesisProposal | undefined {
-    const row = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_synthesis_proposals
-         WHERE board_id = ? AND status = 'pending'
-         ORDER BY created_at DESC, rowid DESC
-         LIMIT 1`,
-      )
-      .get(boardId) as ProjectBoardSynthesisProposalRow | undefined;
-    return row ? this.mapProjectBoardSynthesisProposal(row) : undefined;
+    return this.projectBoardSynthesisProposals().getLatestPendingProjectBoardSynthesisProposal(boardId);
   }
 
   createProjectBoardSynthesisRun(input: {
@@ -2338,165 +1507,30 @@ export class ProjectStore {
     includedSourceCount?: number;
     sourceCharCount?: number;
   }): ProjectBoardSynthesisRun {
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(input.boardId) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    const now = new Date().toISOString();
-    const runId = randomUUID();
-    const initialStage = input.initialStage ?? "source_scan";
-    const events: ProjectBoardSynthesisRunEvent[] = [
-      {
-        stage: initialStage,
-        title: (input.initialTitle ?? "Synthesis run started").trim().slice(0, 180),
-        summary: (input.initialSummary ?? "Preparing to scan project sources for a Pi PM review proposal.").trim().slice(0, 1000),
-        metadata: input.initialMetadata ?? { model: input.model, retryOfRunId: input.retryOfRunId },
-        createdAt: now,
-      },
-    ];
-    this.requireDb()
-      .prepare(
-        `INSERT INTO project_board_synthesis_runs
-         (id, board_id, proposal_id, retry_of_run_id, status, stage, model, source_count, included_source_count,
-          source_char_count, prompt_char_count, response_char_count, card_count, question_count, warning_count, error,
-          events_json, progressive_records_json, planning_snapshots_json, started_at, updated_at, completed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        runId,
-        input.boardId,
-        null,
-        input.retryOfRunId?.trim() || null,
-        "running",
-        initialStage,
-        input.model?.trim() || null,
-        typeof input.sourceCount === "number" && Number.isFinite(input.sourceCount) ? Math.max(0, Math.round(input.sourceCount)) : 0,
-        typeof input.includedSourceCount === "number" && Number.isFinite(input.includedSourceCount) ? Math.max(0, Math.round(input.includedSourceCount)) : 0,
-        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount) ? Math.max(0, Math.round(input.sourceCharCount)) : 0,
-        null,
-        null,
-        null,
-        null,
-        0,
-        null,
-        JSON.stringify(events),
-        "[]",
-        "[]",
-        now,
-        now,
-        null,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, input.boardId);
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as ProjectBoardSynthesisRunRow | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found after create: ${runId}`);
-    return this.mapProjectBoardSynthesisRun(row);
+    return this.projectBoardSynthesisRuns().createProjectBoardSynthesisRun(input);
   }
 
   getProjectBoardSynthesisRun(runId: string): ProjectBoardSynthesisRun | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    return row ? this.mapProjectBoardSynthesisRun(row) : undefined;
+    return this.projectBoardSynthesisRuns().getProjectBoardSynthesisRun(runId);
   }
 
   getRunningProjectBoardSynthesisRun(
     boardId: string,
     input: { excludeStages?: ProjectBoardSynthesisRunStage[] } = {},
   ): ProjectBoardSynthesisRun | undefined {
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_synthesis_runs
-         WHERE board_id = ? AND status IN ('running', 'pause_requested')
-         ORDER BY updated_at DESC, started_at DESC, rowid DESC
-         LIMIT 20`,
-      )
-      .all(boardId) as ProjectBoardSynthesisRunRow[];
-    const excluded = new Set(input.excludeStages ?? []);
-    for (const row of rows) {
-      const run = this.mapProjectBoardSynthesisRun(row);
-      if (!excluded.has(run.stage)) return run;
-    }
-    return undefined;
+    return this.projectBoardSynthesisRuns().getRunningProjectBoardSynthesisRun(boardId, input);
   }
 
   failStaleProjectBoardSynthesisRuns(input: { boardId: string; staleBefore: string; reason: string }): ProjectBoardSynthesisRun[] {
-    const board = this.requireDb().prepare("SELECT id FROM project_boards WHERE id = ?").get(input.boardId) as { id: string } | undefined;
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    if (!Number.isFinite(Date.parse(input.staleBefore))) throw new Error(`Invalid project board synthesis stale cutoff: ${input.staleBefore}`);
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_synthesis_runs
-         WHERE board_id = ? AND status IN ('running', 'pause_requested') AND updated_at < ?
-         ORDER BY updated_at ASC, started_at ASC, rowid ASC`,
-      )
-      .all(input.boardId, input.staleBefore) as ProjectBoardSynthesisRunRow[];
-    return rows.map((row) =>
-      this.recordProjectBoardSynthesisRunEvent(row.id, {
-        stage: "failed",
-        title: "Synthesis run marked stale",
-        summary: input.reason,
-        metadata: { staleBefore: input.staleBefore, previousStage: row.stage, previousUpdatedAt: row.updated_at },
-        status: "failed",
-        error: input.reason,
-        completedAt: new Date().toISOString(),
-      }),
-    );
+    return this.projectBoardSynthesisRuns().failStaleProjectBoardSynthesisRuns(input);
   }
 
   markProjectBoardSynthesisRunStalled(input: { boardId: string; runId: string; reason?: string }): ProjectBoardSynthesisRun {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(input.runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${input.runId}`);
-    if (row.board_id !== input.boardId) throw new Error(`Project board synthesis run ${input.runId} does not belong to board ${input.boardId}`);
-    const run = this.mapProjectBoardSynthesisRun(row);
-    if (run.status !== "running") throw new Error(`Only a running project-board synthesis run can be marked stalled: ${input.runId}`);
-    const partial = projectBoardSynthesisPartialStatus(run);
-    const reason = input.reason?.trim() || "No visible project-board synthesis progress is being received.";
-    const reusableCount = partial.completedCount;
-    return this.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: "failed",
-      title: "Synthesis run marked stalled",
-      summary: `${reason} Retry will reuse ${reusableCount} completed or reused section record${reusableCount === 1 ? "" : "s"} where possible and resume uncovered work.`,
-      metadata: {
-        decision: "retry_stalled_run",
-        retryable: true,
-        previousStage: row.stage,
-        previousUpdatedAt: row.updated_at,
-        completedSectionCount: partial.completedCount,
-        reusedSectionCount: partial.reusedCount,
-        failedSectionCount: partial.failedCount,
-        sectionCount: partial.sectionCount,
-      },
-      status: "failed",
-      error: reason,
-      completedAt: new Date().toISOString(),
-    });
+    return this.projectBoardSynthesisRuns().markProjectBoardSynthesisRunStalled(input);
   }
 
   requestProjectBoardSynthesisRunPause(input: { boardId: string; runId: string; reason?: string }): ProjectBoardSynthesisRun {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(input.runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${input.runId}`);
-    if (row.board_id !== input.boardId) throw new Error(`Project board synthesis run ${input.runId} does not belong to board ${input.boardId}`);
-    const run = this.mapProjectBoardSynthesisRun(row);
-    if (run.status === "paused") return run;
-    if (run.status === "pause_requested") return run;
-    if (run.status !== "running") throw new Error(`Only a running project-board synthesis run can be paused: ${input.runId}`);
-    const reason = input.reason?.trim() || "Pause requested from the project-board progress panel.";
-    return this.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: run.stage,
-      title: "Pause requested",
-      summary: "Ambient will stop at the next safe planner checkpoint, flush validated records, and leave the run resumable.",
-      metadata: {
-        decision: "pause_planning",
-        reason,
-        previousStatus: run.status,
-        previousStage: run.stage,
-        previousUpdatedAt: run.updatedAt,
-        checkpointPolicy: "safe_planner_boundary",
-      },
-      status: "pause_requested",
-    });
+    return this.projectBoardSynthesisRuns().requestProjectBoardSynthesisRunPause(input);
   }
 
   markProjectBoardSynthesisRunPaused(input: {
@@ -2505,60 +1539,11 @@ export class ProjectStore {
     reason?: string;
     metadata?: Record<string, unknown>;
   }): ProjectBoardSynthesisRun {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(input.runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${input.runId}`);
-    if (row.board_id !== input.boardId) throw new Error(`Project board synthesis run ${input.runId} does not belong to board ${input.boardId}`);
-    const run = this.mapProjectBoardSynthesisRun(row);
-    if (run.status === "paused") return run;
-    if (run.status !== "running" && run.status !== "pause_requested") {
-      throw new Error(`Only an active project-board synthesis run can be marked paused: ${input.runId}`);
-    }
-    const reason = input.reason?.trim() || "Planning paused at a safe checkpoint.";
-    return this.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: "paused",
-      title: "Planning paused",
-      summary: `${reason} Resume will reuse validated planner records and ask Ambient/Pi only for remaining cards.`,
-      metadata: {
-        decision: "planning_paused",
-        previousStatus: run.status,
-        previousStage: run.stage,
-        previousUpdatedAt: run.updatedAt,
-        retryable: true,
-        checkpointPolicy: "validated_progressive_records",
-        ...(input.metadata ?? {}),
-      },
-      status: "paused",
-      completedAt: new Date().toISOString(),
-    });
+    return this.projectBoardSynthesisRuns().markProjectBoardSynthesisRunPaused(input);
   }
 
   abandonProjectBoardSynthesisRunPause(input: { boardId: string; runId: string; reason?: string }): ProjectBoardSynthesisRun {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(input.runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${input.runId}`);
-    if (row.board_id !== input.boardId) throw new Error(`Project board synthesis run ${input.runId} does not belong to board ${input.boardId}`);
-    const run = this.mapProjectBoardSynthesisRun(row);
-    if (run.status === "abandoned") return run;
-    if (run.status !== "paused") throw new Error(`Only a paused project-board synthesis run can be abandoned: ${input.runId}`);
-    const reason = input.reason?.trim() || "Start Fresh requested from the paused project-board synthesis run.";
-    return this.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: "paused",
-      title: "Paused planning abandoned",
-      summary: `${reason} A fresh synthesis run will start from the current board and source context without reusing this paused checkpoint.`,
-      metadata: {
-        decision: "abandon_paused_planning",
-        previousStatus: run.status,
-        previousStage: run.stage,
-        previousUpdatedAt: run.updatedAt,
-        retryable: false,
-        checkpointPolicy: "start_fresh",
-      },
-      status: "abandoned",
-      completedAt: new Date().toISOString(),
-    });
+    return this.projectBoardSynthesisRuns().abandonProjectBoardSynthesisRunPause(input);
   }
 
   supersedeProjectBoardSynthesisCardsForStartFresh(input: { boardId: string; runId: string; reason?: string }): {
@@ -2566,110 +1551,7 @@ export class ProjectStore {
     demotedPreservedCardIds: string[];
     preservedCardIds: string[];
   } {
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(input.boardId) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_cards
-         WHERE board_id = ?
-           AND source_kind = 'board_synthesis'
-           AND status != 'archived'`,
-      )
-      .all(input.boardId) as ProjectBoardCardRow[];
-    if (rows.length === 0) return { supersededDraftCardIds: [], demotedPreservedCardIds: [], preservedCardIds: [] };
-
-    const claimSummary = projectBoardClaimSummaryFromEvents(this.listProjectBoardEvents(input.boardId));
-    const protectedClaimCardIds = new Set([
-      ...claimSummary.active.map((claim) => claim.cardId),
-      ...claimSummary.conflicts.map((claim) => claim.cardId),
-    ]);
-    const artifactRows = this.requireDb()
-      .prepare("SELECT DISTINCT card_id FROM project_board_execution_artifacts WHERE board_id = ?")
-      .all(input.boardId) as Array<{ card_id: string }>;
-    const executionArtifactCardIds = new Set(artifactRows.map((row) => row.card_id));
-    const isReplaceable = (row: ProjectBoardCardRow): boolean =>
-      !projectBoardSynthesisCardRowProtectedFromDraftReplacement(row, protectedClaimCardIds) &&
-      !row.execution_thread_id &&
-      !row.proof_review_json &&
-      !row.split_outcome_json &&
-      !executionArtifactCardIds.has(row.id);
-    const replaceableRows = rows.filter(isReplaceable);
-    const preservedRows = rows.filter((row) => !isReplaceable(row));
-    const demotableRows = preservedRows.filter(
-      (row) =>
-        row.status === "ready" ||
-        row.status === "in_progress" ||
-        row.status === "blocked" ||
-        Boolean(row.orchestration_task_id) ||
-        Boolean(row.execution_thread_id) ||
-        row.candidate_status === "ready_to_create",
-    );
-    const supersededDraftCardIds = replaceableRows.map((row) => row.id);
-    const preservedCardIds = preservedRows.map((row) => row.id);
-    const demotedPreservedCardIds = demotableRows.map((row) => row.id);
-    const detachedTaskIds = demotableRows.map((row) => row.orchestration_task_id).filter((value): value is string => Boolean(value));
-    const now = new Date().toISOString();
-    const reason = input.reason?.trim() || "Start Fresh requested from a paused project-board synthesis run.";
-    const archiveReplaceable = this.requireDb().prepare(
-      `UPDATE project_board_cards
-       SET status = 'archived',
-           candidate_status = 'duplicate',
-           clarification_questions_json = '[]',
-           clarification_answers_json = '[]',
-           clarification_decisions_json = '[]',
-           pending_pi_update_json = NULL,
-           updated_at = ?
-       WHERE id = ?`,
-    );
-    const demotePreserved = this.requireDb().prepare(
-      `UPDATE project_board_cards
-       SET status = 'draft',
-           candidate_status = CASE WHEN candidate_status = 'ready_to_create' THEN 'needs_clarification' ELSE candidate_status END,
-           orchestration_task_id = NULL,
-           execution_thread_id = NULL,
-           pending_pi_update_json = NULL,
-           updated_at = ?
-       WHERE id = ?`,
-    );
-    const transaction = this.requireDb().transaction(() => {
-      for (const row of replaceableRows) archiveReplaceable.run(now, row.id);
-      for (const row of demotableRows) demotePreserved.run(now, row.id);
-      this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, input.boardId);
-      this.appendProjectBoardEvent({
-        boardId: input.boardId,
-        kind: "card_updated",
-        title: "Start Fresh cleared draft synthesis cards",
-        summary: [
-          supersededDraftCardIds.length
-            ? `Superseded ${supersededDraftCardIds.length} untouched draft synthesis card${supersededDraftCardIds.length === 1 ? "" : "s"}.`
-            : "No untouched draft synthesis cards needed superseding.",
-          demotedPreservedCardIds.length
-            ? `Moved ${demotedPreservedCardIds.length} preserved card${demotedPreservedCardIds.length === 1 ? "" : "s"} back to non-active review.`
-            : "",
-        ]
-          .filter(Boolean)
-          .join(" "),
-        entityKind: "project_board_synthesis_run",
-        entityId: input.runId,
-        metadata: {
-          decision: "start_fresh_supersede_drafts",
-          abandonedRunId: input.runId,
-          reason,
-          supersededDraftCardIds,
-          supersededDraftCardCount: supersededDraftCardIds.length,
-          supersededDraftCards: replaceableRows.slice(0, 80).map(projectBoardSynthesisStartFreshCardSnapshot),
-          preservedCardIds,
-          preservedCardCount: preservedCardIds.length,
-          preservedCards: preservedRows.slice(0, 80).map(projectBoardSynthesisStartFreshCardSnapshot),
-          demotedPreservedCardIds,
-          demotedPreservedCardCount: demotedPreservedCardIds.length,
-          detachedTaskIds,
-        },
-        createdAt: now,
-      });
-    });
-    transaction();
-    return { supersededDraftCardIds, demotedPreservedCardIds, preservedCardIds };
+    return this.projectBoardSynthesisApply().supersedeProjectBoardSynthesisCardsForStartFresh(input);
   }
 
   recordProjectBoardSynthesisRunEvent(
@@ -2695,76 +1577,7 @@ export class ProjectStore {
       skipPlanningSnapshot?: boolean;
     },
   ): ProjectBoardSynthesisRun {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${runId}`);
-    const now = new Date().toISOString();
-    const events = [
-      ...parseJsonArray<ProjectBoardSynthesisRunEvent>(row.events_json),
-      {
-        stage: input.stage,
-        title: input.title.trim().slice(0, 180),
-        summary: input.summary.trim().slice(0, 1000),
-        metadata: input.metadata ?? {},
-        createdAt: now,
-      },
-    ];
-    this.requireDb()
-      .prepare(
-        `UPDATE project_board_synthesis_runs
-         SET proposal_id = COALESCE(?, proposal_id),
-             status = COALESCE(?, status),
-             stage = ?,
-             model = COALESCE(?, model),
-             source_count = COALESCE(?, source_count),
-             included_source_count = COALESCE(?, included_source_count),
-             source_char_count = COALESCE(?, source_char_count),
-             prompt_char_count = COALESCE(?, prompt_char_count),
-             response_char_count = COALESCE(?, response_char_count),
-             card_count = COALESCE(?, card_count),
-             question_count = COALESCE(?, question_count),
-             warning_count = COALESCE(?, warning_count),
-             error = COALESCE(?, error),
-             events_json = ?,
-             updated_at = ?,
-             completed_at = COALESCE(?, completed_at)
-         WHERE id = ?`,
-      )
-      .run(
-        input.proposalId?.trim() || null,
-        input.status ?? null,
-        input.stage,
-        input.model?.trim() || null,
-        typeof input.sourceCount === "number" && Number.isFinite(input.sourceCount) ? Math.max(0, Math.round(input.sourceCount)) : null,
-        typeof input.includedSourceCount === "number" && Number.isFinite(input.includedSourceCount)
-          ? Math.max(0, Math.round(input.includedSourceCount))
-          : null,
-        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount) ? Math.max(0, Math.round(input.sourceCharCount)) : null,
-        typeof input.promptCharCount === "number" && Number.isFinite(input.promptCharCount) ? Math.max(0, Math.round(input.promptCharCount)) : null,
-        typeof input.responseCharCount === "number" && Number.isFinite(input.responseCharCount) ? Math.max(0, Math.round(input.responseCharCount)) : null,
-        typeof input.cardCount === "number" && Number.isFinite(input.cardCount) ? Math.max(0, Math.round(input.cardCount)) : null,
-        typeof input.questionCount === "number" && Number.isFinite(input.questionCount) ? Math.max(0, Math.round(input.questionCount)) : null,
-        typeof input.warningCount === "number" && Number.isFinite(input.warningCount) ? Math.max(0, Math.round(input.warningCount)) : null,
-        input.error?.trim().slice(0, 1000) || null,
-        JSON.stringify(events),
-        now,
-        input.completedAt ?? null,
-        runId,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, row.board_id);
-    let updated = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!updated) throw new Error(`Project board synthesis run not found after update: ${runId}`);
-    if ((input.status === "paused" || input.status === "succeeded") && input.skipPlanningSnapshot !== true) {
-      this.appendProjectBoardPlanningSnapshotForRun(runId, input.status === "paused" ? "paused" : "final");
-      updated = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-        | ProjectBoardSynthesisRunRow
-        | undefined;
-      if (!updated) throw new Error(`Project board synthesis run not found after snapshot: ${runId}`);
-    }
-    return this.mapProjectBoardSynthesisRun(updated);
+    return this.projectBoardSynthesisRuns().recordProjectBoardSynthesisRunEvent(runId, input);
   }
 
   updateProjectBoardSynthesisRunProgress(
@@ -2782,9 +1595,7 @@ export class ProjectStore {
       warningCount?: number;
     },
   ): ProjectBoardSynthesisRun {
-    const updated = this.tryUpdateProjectBoardSynthesisRunProgress(runId, input);
-    if (!updated) throw new Error(`Project board synthesis run not found: ${runId}`);
-    return updated;
+    return this.projectBoardSynthesisRuns().updateProjectBoardSynthesisRunProgress(runId, input);
   }
 
   tryUpdateProjectBoardSynthesisRunProgress(
@@ -2802,49 +1613,7 @@ export class ProjectStore {
       warningCount?: number;
     },
   ): ProjectBoardSynthesisRun | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!row) return undefined;
-    if (row.status !== "running" && row.status !== "pause_requested") return this.mapProjectBoardSynthesisRun(row);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `UPDATE project_board_synthesis_runs
-         SET stage = COALESCE(?, stage),
-             model = COALESCE(?, model),
-             source_count = COALESCE(?, source_count),
-             included_source_count = COALESCE(?, included_source_count),
-             source_char_count = COALESCE(?, source_char_count),
-             prompt_char_count = COALESCE(?, prompt_char_count),
-             response_char_count = COALESCE(?, response_char_count),
-             card_count = COALESCE(?, card_count),
-             question_count = COALESCE(?, question_count),
-             warning_count = COALESCE(?, warning_count),
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        input.stage ?? null,
-        input.model?.trim() || null,
-        typeof input.sourceCount === "number" && Number.isFinite(input.sourceCount) ? Math.max(0, Math.round(input.sourceCount)) : null,
-        typeof input.includedSourceCount === "number" && Number.isFinite(input.includedSourceCount)
-          ? Math.max(0, Math.round(input.includedSourceCount))
-          : null,
-        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount) ? Math.max(0, Math.round(input.sourceCharCount)) : null,
-        typeof input.promptCharCount === "number" && Number.isFinite(input.promptCharCount) ? Math.max(0, Math.round(input.promptCharCount)) : null,
-        typeof input.responseCharCount === "number" && Number.isFinite(input.responseCharCount) ? Math.max(0, Math.round(input.responseCharCount)) : null,
-        typeof input.cardCount === "number" && Number.isFinite(input.cardCount) ? Math.max(0, Math.round(input.cardCount)) : null,
-        typeof input.questionCount === "number" && Number.isFinite(input.questionCount) ? Math.max(0, Math.round(input.questionCount)) : null,
-        typeof input.warningCount === "number" && Number.isFinite(input.warningCount) ? Math.max(0, Math.round(input.warningCount)) : null,
-        now,
-        runId,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, row.board_id);
-    const updated = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    return updated ? this.mapProjectBoardSynthesisRun(updated) : undefined;
+    return this.projectBoardSynthesisRuns().tryUpdateProjectBoardSynthesisRunProgress(runId, input);
   }
 
   recordProjectBoardSynthesisRunProgressiveRecords(
@@ -2852,207 +1621,19 @@ export class ProjectStore {
     records: ProjectBoardSynthesisRunProgressiveRecord[],
     input: { title?: string; summary?: string } = {},
   ): ProjectBoardSynthesisRun {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${runId}`);
-    const sanitizedRecords = records.flatMap(normalizeProjectBoardSynthesisRunProgressiveRecord);
-    if (sanitizedRecords.length === 0) return this.mapProjectBoardSynthesisRun(row);
-    const existingRecords = parseJsonArray<ProjectBoardSynthesisRunProgressiveRecord>(row.progressive_records_json ?? "[]").flatMap(
-      normalizeProjectBoardSynthesisRunProgressiveRecord,
-    );
-    const nextRecords = dedupeProjectBoardSynthesisRunProgressiveRecords([...existingRecords, ...sanitizedRecords]);
-    const summary = summarizeProjectBoardSynthesisRunProgressiveRecords(nextRecords);
-    const now = new Date().toISOString();
-    const eventSummary =
-      input.summary?.trim() ||
-      [
-        summary.candidateCardCount
-          ? `${summary.candidateCardCount} candidate card${summary.candidateCardCount === 1 ? "" : "s"}`
-          : "",
-        summary.questionCount ? `${summary.questionCount} question${summary.questionCount === 1 ? "" : "s"}` : "",
-        summary.sourceCoverageCount
-          ? `${summary.sourceCoverageCount} source coverage record${summary.sourceCoverageCount === 1 ? "" : "s"}`
-          : "",
-        summary.dependencyEdgeCount ? `${summary.dependencyEdgeCount} dependency edge${summary.dependencyEdgeCount === 1 ? "" : "s"}` : "",
-        summary.warningCount ? `${summary.warningCount} warning${summary.warningCount === 1 ? "" : "s"}` : "",
-      ]
-        .filter(Boolean)
-        .join(", ");
-    const events = [
-      ...parseJsonArray<ProjectBoardSynthesisRunEvent>(row.events_json),
-      {
-        stage: "schema_validation" as const,
-        title: (input.title?.trim() || "Persisted progressive planning records").slice(0, 180),
-        summary: (eventSummary || `Persisted ${summary.recordCount} progressive planning record${summary.recordCount === 1 ? "" : "s"}.`).slice(
-          0,
-          1000,
-        ),
-        metadata: { progressiveSummary: summary },
-        createdAt: now,
-      },
-    ];
-    this.requireDb()
-      .prepare(
-        `UPDATE project_board_synthesis_runs
-         SET stage = ?,
-             card_count = COALESCE(?, card_count),
-             question_count = COALESCE(?, question_count),
-             warning_count = COALESCE(?, warning_count),
-             events_json = ?,
-             progressive_records_json = ?,
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        "schema_validation",
-        summary.candidateCardCount > 0 ? summary.candidateCardCount : null,
-        summary.questionCount > 0 ? summary.questionCount : null,
-        summary.warningCount > 0 ? summary.warningCount : null,
-        JSON.stringify(events),
-        JSON.stringify(nextRecords),
-        now,
-        runId,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, row.board_id);
-    const updated = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!updated) throw new Error(`Project board synthesis run not found after progressive update: ${runId}`);
-    return this.mapProjectBoardSynthesisRun(updated);
+    return this.projectBoardSynthesisRuns().recordProjectBoardSynthesisRunProgressiveRecords(runId, records, input);
   }
 
   recordProjectBoardPlanningSnapshotForRun(runId: string, kind: ProjectBoardPlanningSnapshotKind = "manual"): ProjectBoardPlanningSnapshot | undefined {
-    return this.appendProjectBoardPlanningSnapshotForRun(runId, kind);
+    return this.projectBoardPlanningSnapshots().recordProjectBoardPlanningSnapshotForRun(runId, kind);
   }
 
   private appendProjectBoardPlanningSnapshotForRun(runId: string, kind: ProjectBoardPlanningSnapshotKind): ProjectBoardPlanningSnapshot | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
-      | ProjectBoardSynthesisRunRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${runId}`);
-    const board = this.getProjectBoard(row.board_id);
-    if (!board) throw new Error(`Project board not found for synthesis run: ${row.board_id}`);
-    const cards = board.cards
-      .filter((card) => card.sourceKind === "board_synthesis" && card.status !== "archived")
-      .sort((left, right) => left.sourceId.localeCompare(right.sourceId) || left.id.localeCompare(right.id));
-    if (cards.length === 0) return undefined;
-    const sourceHashes: ProjectBoardPlanningSnapshotSourceHash[] = board.sources
-      .map((source) => ({
-        sourceId: source.id,
-        kind: source.kind,
-        ...(source.sourceKey ? { sourceKey: source.sourceKey } : {}),
-        ...(source.path ? { path: source.path } : {}),
-        ...(source.contentHash ? { contentHash: source.contentHash } : {}),
-        ...(source.changeState ? { changeState: source.changeState } : {}),
-        ...(typeof source.includeInSynthesis === "boolean" ? { includeInSynthesis: source.includeInSynthesis } : {}),
-      }))
-      .sort(
-        (left, right) =>
-          (left.path ?? "").localeCompare(right.path ?? "") ||
-          (left.sourceKey ?? "").localeCompare(right.sourceKey ?? "") ||
-          left.sourceId.localeCompare(right.sourceId),
-      );
-    const snapshotCards: ProjectBoardPlanningSnapshotCard[] = cards.map((card) => {
-      const basis = {
-        cardId: card.id,
-        sourceId: card.sourceId,
-        sourceKind: card.sourceKind,
-        title: card.title,
-        description: card.description,
-        status: card.status,
-        candidateStatus: card.candidateStatus,
-        labels: card.labels,
-        blockedBy: card.blockedBy,
-        acceptanceCriteria: card.acceptanceCriteria,
-        testPlan: card.testPlan,
-        sourceRefs: card.sourceRefs ?? [],
-        clarificationQuestionCount: card.clarificationQuestions?.length ?? 0,
-        orchestrationTaskId: card.orchestrationTaskId ?? null,
-      };
-      return {
-        cardId: card.id,
-        sourceId: card.sourceId,
-        sourceKind: card.sourceKind,
-        title: card.title,
-        status: card.status,
-        candidateStatus: card.candidateStatus,
-        sourceRefs: card.sourceRefs ?? [],
-        blockedBy: card.blockedBy,
-        renderFingerprint: projectBoardPlanningStableHash("planning-card", basis),
-        ...(card.orchestrationTaskId ? { orchestrationTaskId: card.orchestrationTaskId } : {}),
-      };
-    });
-    const now = new Date().toISOString();
-    const runEvents = parseJsonArray<ProjectBoardSynthesisRunEvent>(row.events_json);
-    const planningScope = projectBoardPlanningScopeFromRunEvents(runEvents);
-    const snapshotBasis = {
-      boardId: row.board_id,
-      runId,
-      planningStatus: row.status,
-      planningStage: row.stage,
-      sourceHashes,
-      cards: snapshotCards,
-      scopeContract: planningScope.scopeContract,
-      planningDepth: planningScope.planningDepth,
-    };
-    const snapshot: ProjectBoardPlanningSnapshot = {
-      id: randomUUID(),
-      boardId: row.board_id,
-      runId,
-      kind,
-      planningStatus: row.status,
-      planningStage: row.stage,
-      createdAt: now,
-      cardCount: snapshotCards.length,
-      readyCandidateCount: cards.filter((card) => card.status === "draft" && !card.orchestrationTaskId && card.candidateStatus === "ready_to_create").length,
-      ticketizedCount: cards.filter((card) => Boolean(card.orchestrationTaskId)).length,
-      sourceHashes,
-      ...(planningScope.scopeContract ? { scopeContract: planningScope.scopeContract } : {}),
-      ...(planningScope.planningDepth ? { planningDepth: planningScope.planningDepth } : {}),
-      cardIds: snapshotCards.map((card) => card.cardId),
-      cards: snapshotCards,
-      renderFingerprint: projectBoardPlanningStableHash("planning-snapshot", snapshotBasis),
-    };
-    const existing = parseJsonArray<ProjectBoardPlanningSnapshot>(row.planning_snapshots_json ?? "[]").flatMap((entry) =>
-      normalizeProjectBoardPlanningSnapshot(entry, row.updated_at),
-    );
-    const latest = existing.at(-1);
-    if (
-      latest &&
-      latest.kind === snapshot.kind &&
-      latest.planningStatus === snapshot.planningStatus &&
-      latest.renderFingerprint === snapshot.renderFingerprint
-    ) {
-      return latest;
-    }
-    const next = [...existing, snapshot].slice(-50);
-    this.requireDb()
-      .prepare("UPDATE project_board_synthesis_runs SET planning_snapshots_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(next), now, runId);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, row.board_id);
-    return snapshot;
+    return this.projectBoardPlanningSnapshots().appendProjectBoardPlanningSnapshotForRun(runId, kind);
   }
 
   private latestStableProjectBoardPlanningSnapshot(boardId: string): { runId: string; snapshot: ProjectBoardPlanningSnapshot } | undefined {
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_synthesis_runs
-         WHERE board_id = ? AND status IN ('paused', 'succeeded')
-         ORDER BY updated_at DESC, started_at DESC, rowid DESC
-         LIMIT 20`,
-      )
-      .all(boardId) as ProjectBoardSynthesisRunRow[];
-    for (const row of rows) {
-      const snapshots = parseJsonArray<ProjectBoardPlanningSnapshot>(row.planning_snapshots_json ?? "[]").flatMap((entry) =>
-        normalizeProjectBoardPlanningSnapshot(entry, row.updated_at),
-      );
-      const stable = [...snapshots]
-        .reverse()
-        .find((snapshot) => snapshot.planningStatus === "paused" || snapshot.planningStatus === "succeeded");
-      if (stable) return { runId: row.id, snapshot: stable };
-    }
-    return undefined;
+    return this.projectBoardPlanningSnapshots().latestStableProjectBoardPlanningSnapshot(boardId);
   }
 
   answerProjectBoardSynthesisProposalQuestion(input: {
@@ -3060,43 +1641,7 @@ export class ProjectStore {
     questionIndex: number;
     answer: string;
   }): ProjectBoardSynthesisProposal {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(input.proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    if (!row) throw new Error(`Project board synthesis proposal not found: ${input.proposalId}`);
-    if (row.status !== "pending") throw new Error(`Project board synthesis proposal is ${row.status}, not pending.`);
-    const proposal = this.mapProjectBoardSynthesisProposal(row);
-    if (!Number.isInteger(input.questionIndex) || input.questionIndex < 0 || input.questionIndex >= proposal.questions.length) {
-      throw new Error(`Project board synthesis proposal question not found: ${input.questionIndex}`);
-    }
-    const answer = input.answer.trim();
-    if (!answer) throw new Error("Project board synthesis proposal answer cannot be empty.");
-    const now = new Date().toISOString();
-    const question = proposal.questions[input.questionIndex];
-    const answers = [
-      ...proposal.answers.filter((candidate) => candidate.questionIndex !== input.questionIndex),
-      { questionIndex: input.questionIndex, question, answer: answer.slice(0, 4000), answeredAt: now },
-    ].sort((left, right) => left.questionIndex - right.questionIndex);
-
-    this.requireDb()
-      .prepare("UPDATE project_board_synthesis_proposals SET answers_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(answers), now, input.proposalId);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, proposal.boardId);
-    this.appendProjectBoardEvent({
-      boardId: proposal.boardId,
-      kind: "synthesis_proposal_answered",
-      title: "Pi proposal question answered",
-      summary: question.slice(0, 1000),
-      entityKind: "project_board_synthesis_proposal",
-      entityId: proposal.id,
-      metadata: { proposalId: proposal.id, questionIndex: input.questionIndex, question, answer: answer.slice(0, 1000) },
-      createdAt: now,
-    });
-    const updated = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(input.proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    if (!updated) throw new Error(`Project board synthesis proposal not found after answer: ${input.proposalId}`);
-    return this.mapProjectBoardSynthesisProposal(updated);
+    return this.projectBoardSynthesisProposals().answerProjectBoardSynthesisProposalQuestion(input);
   }
 
   reviewProjectBoardSynthesisProposalCard(input: {
@@ -3106,392 +1651,27 @@ export class ProjectStore {
     reason?: string;
     mergeTargetCardId?: string;
   }): ProjectBoardSynthesisProposal {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(input.proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    if (!row) throw new Error(`Project board synthesis proposal not found: ${input.proposalId}`);
-    if (row.status !== "pending") throw new Error(`Project board synthesis proposal is ${row.status}, not pending.`);
-    if (!projectBoardSynthesisProposalCardReviewStatus(input.reviewStatus)) {
-      throw new Error(`Unsupported proposal card review status: ${input.reviewStatus}`);
-    }
-    const proposal = this.mapProjectBoardSynthesisProposal(row);
-    const index = proposal.cards.findIndex((card) => card.sourceId === input.sourceId);
-    if (index < 0) throw new Error(`Project board synthesis proposal card not found: ${input.sourceId}`);
-
-    const mergeTargetCardId = input.reviewStatus === "merged" ? input.mergeTargetCardId?.trim() : undefined;
-    if (input.reviewStatus === "merged") {
-      if (!mergeTargetCardId) throw new Error("Merged proposal cards require a target draft card.");
-      const target = this.requireDb()
-        .prepare("SELECT * FROM project_board_cards WHERE id = ?")
-        .get(mergeTargetCardId) as ProjectBoardCardRow | undefined;
-      if (!target || target.board_id !== proposal.boardId || target.status !== "draft" || target.orchestration_task_id) {
-        throw new Error("Merged proposal cards require an unlinked draft card on the same board.");
-      }
-    }
-
-    const now = new Date().toISOString();
-    const reason = input.reason?.trim().slice(0, 1000) || undefined;
-    const cards = proposal.cards.map((card, cardIndex) =>
-      cardIndex === index
-        ? {
-            ...card,
-            reviewStatus: input.reviewStatus,
-            reviewReason: reason,
-            mergeTargetCardId,
-            reviewedAt: now,
-          }
-        : card,
-    );
-    this.requireDb()
-      .prepare("UPDATE project_board_synthesis_proposals SET cards_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(cards), now, input.proposalId);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, proposal.boardId);
-    this.appendProjectBoardEvent({
-      boardId: proposal.boardId,
-      kind: "synthesis_proposal_card_reviewed",
-      title: "Pi proposal card reviewed",
-      summary: `${proposal.cards[index].title} marked ${input.reviewStatus}.`,
-      entityKind: "project_board_synthesis_proposal",
-      entityId: proposal.id,
-      metadata: { proposalId: proposal.id, sourceId: input.sourceId, reviewStatus: input.reviewStatus, reason, mergeTargetCardId },
-      createdAt: now,
-    });
-    const updated = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(input.proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    if (!updated) throw new Error(`Project board synthesis proposal not found after card review: ${input.proposalId}`);
-    return this.mapProjectBoardSynthesisProposal(updated);
+    return this.projectBoardSynthesisProposals().reviewProjectBoardSynthesisProposalCard(input);
   }
 
   applyProjectBoardSynthesisProposal(input: { proposalId: string; replaceExistingDraft?: boolean }): ProjectBoardSummary {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(input.proposalId) as ProjectBoardSynthesisProposalRow | undefined;
-    if (!row) throw new Error(`Project board synthesis proposal not found: ${input.proposalId}`);
-    if (row.status !== "pending") throw new Error(`Project board synthesis proposal is ${row.status}, not pending.`);
-    const proposal = this.mapProjectBoardSynthesisProposal(row);
-    if (proposal.reviewReport && proposal.cards.length === 0) {
-      throw new Error("Lightweight PM review reports do not apply cards. Generate a draft board from the recommendation first.");
-    }
-    const pendingCards = proposal.cards.filter((card) => card.reviewStatus === "pending");
-    if (pendingCards.length > 0) {
-      throw new Error("Review every proposal card before applying accepted cards.");
-    }
-    const acceptedCards = proposal.cards.filter((card) => card.reviewStatus === "accepted");
-    const mergedCards = proposal.cards.filter((card) => card.reviewStatus === "merged" && card.mergeTargetCardId);
-    if (acceptedCards.length + mergedCards.length === 0) {
-      throw new Error("Accept or merge at least one proposal card before applying.");
-    }
-    for (const card of mergedCards) {
-      const target = this.requireDb()
-        .prepare("SELECT id FROM project_board_cards WHERE id = ? AND board_id = ? AND status = 'draft' AND orchestration_task_id IS NULL")
-        .get(card.mergeTargetCardId, proposal.boardId) as { id: string } | undefined;
-      if (!target) throw new Error(`Merge target card is no longer an unlinked draft card: ${card.mergeTargetCardId}`);
-    }
-    const synthesis: ProjectBoardSynthesisDraft = {
-      summary: proposal.summary,
-      goal: proposal.goal,
-      currentState: proposal.currentState,
-      targetUser: proposal.targetUser,
-      qualityBar: proposal.qualityBar,
-      assumptions: proposal.assumptions,
-      questions: proposal.questions,
-      sourceNotes: proposal.sourceNotes,
-      cards: acceptedCards.map((card) => ({
-        sourceId: card.sourceId,
-        title: card.title,
-        description: card.description,
-        candidateStatus: card.candidateStatus,
-        priority: card.priority,
-        phase: card.phase,
-        labels: card.labels,
-        blockedBy: card.blockedBy,
-        acceptanceCriteria: card.acceptanceCriteria,
-        testPlan: card.testPlan,
-        sourceRefs: card.sourceRefs,
-        clarificationQuestions: card.clarificationQuestions ?? [],
-        clarificationSuggestions: card.clarificationSuggestions ?? [],
-        clarificationDecisions: card.clarificationDecisions ?? [],
-        objectiveProvenance: card.objectiveProvenance,
-        uiMockRole: card.uiMockRole,
-        requiresUiMockApproval: card.requiresUiMockApproval,
-      })),
-    };
-
-    // Cover planner-plan drafts here too: the board-build path already demotes the
-    // originating durable-plan card to evidence once synthesis cards exist, but this
-    // PM-review apply path forgot to, leaving a whole-app plan card sitting
-    // ready_to_create next to the step cards, where bulk ticketization would happily
-    // dispatch it as duplicate work.
-    this.applyProjectBoardSynthesis(proposal.boardId, synthesis, {
-      replaceExistingDraft: false,
-      coverPlannerPlanDrafts: true,
-    });
-    const now = new Date().toISOString();
-    const updateMergedCard = this.requireDb().prepare(
-      `UPDATE project_board_cards
-       SET title = ?,
-           description = ?,
-           candidate_status = ?,
-           priority = ?,
-           phase = ?,
-           labels_json = ?,
-           blocked_by_json = ?,
-           acceptance_criteria_json = ?,
-           test_plan_json = ?,
-           source_refs_json = ?,
-           clarification_questions_json = ?,
-           clarification_suggestions_json = ?,
-           clarification_decisions_json = ?,
-           objective_provenance_json = COALESCE(?, objective_provenance_json),
-           ui_mock_role = ?,
-           requires_ui_mock_approval = ?,
-           updated_at = ?
-       WHERE id = ? AND board_id = ? AND status = 'draft' AND orchestration_task_id IS NULL`,
-    );
-    const mergedCardIds: string[] = [];
-    for (const card of mergedCards) {
-      const clarification = normalizeProjectBoardSynthesisClarificationFields({
-        clarificationQuestions: card.clarificationQuestions,
-        clarificationSuggestions: card.clarificationSuggestions,
-        clarificationDecisions: card.clarificationDecisions,
-        createdAt: now,
-        updatedAt: now,
-      });
-      const result = updateMergedCard.run(
-        card.title.trim().slice(0, 180),
-        card.description.trim().slice(0, 4000),
-        card.candidateStatus,
-        typeof card.priority === "number" ? Math.max(1, Math.round(card.priority)) : null,
-        card.phase?.trim().slice(0, 120) || null,
-        JSON.stringify(normalizeTaskLabels(card.labels)),
-        JSON.stringify(normalizeTaskReferences(card.blockedBy)),
-        JSON.stringify(normalizeCardTextList(card.acceptanceCriteria, 30)),
-        JSON.stringify(normalizeProjectBoardCardTestPlan(card.testPlan)),
-        JSON.stringify(normalizeCardTextList(card.sourceRefs, 20)),
-        JSON.stringify(clarification.clarificationQuestions),
-        JSON.stringify(clarification.clarificationSuggestions),
-        JSON.stringify(clarification.clarificationDecisions),
-        objectiveProvenanceJson(card.objectiveProvenance),
-        normalizeProjectBoardUiMockRole(card.uiMockRole) ?? null,
-        card.requiresUiMockApproval ? 1 : 0,
-        now,
-        card.mergeTargetCardId,
-        proposal.boardId,
-      );
-      if (result.changes > 0 && card.mergeTargetCardId) mergedCardIds.push(card.mergeTargetCardId);
-    }
-    this.requireDb()
-      .prepare("UPDATE project_board_synthesis_proposals SET status = 'applied', updated_at = ?, applied_at = ? WHERE id = ?")
-      .run(now, now, input.proposalId);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, proposal.boardId);
-    const appliedPlanningSnapshot = this.appendProjectBoardPlanningSnapshotForProposal(proposal.boardId, proposal.id);
-    this.appendProjectBoardEvent({
-      boardId: proposal.boardId,
-      kind: "synthesis_proposal_applied",
-      title: "Pi proposal accepted cards applied",
-      summary: `${acceptedCards.length} accepted card${acceptedCards.length === 1 ? "" : "s"} applied and ${mergedCardIds.length} proposal card${mergedCardIds.length === 1 ? "" : "s"} merged.`,
-      entityKind: "project_board_synthesis_proposal",
-      entityId: proposal.id,
-      metadata: {
-        proposalId: proposal.id,
-        acceptedSourceIds: acceptedCards.map((card) => card.sourceId),
-        mergedSourceIds: mergedCards.map((card) => card.sourceId),
-        mergedCardIds,
-        deferredSourceIds: proposal.cards.filter((card) => card.reviewStatus === "deferred").map((card) => card.sourceId),
-        rejectedSourceIds: proposal.cards.filter((card) => card.reviewStatus === "rejected").map((card) => card.sourceId),
-        ...(appliedPlanningSnapshot
-          ? {
-              planningSnapshotId: appliedPlanningSnapshot.snapshot.id,
-              planningSnapshotRunId: appliedPlanningSnapshot.runId,
-              planningSnapshotKind: appliedPlanningSnapshot.snapshot.kind,
-              planningSnapshotFingerprint: appliedPlanningSnapshot.snapshot.renderFingerprint,
-              planningSnapshotCardIds: appliedPlanningSnapshot.snapshot.cardIds,
-            }
-          : {}),
-      },
-      createdAt: now,
-    });
-    const boardRow = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(proposal.boardId) as ProjectBoardRow | undefined;
-    if (!boardRow) throw new Error(`Project board not found after proposal apply: ${proposal.boardId}`);
-    return this.mapProjectBoard(boardRow);
+    return this.projectBoardSynthesisApply().applyProjectBoardSynthesisProposal(input);
   }
 
   updateProjectBoardStatus(boardId: string, status: ProjectBoardStatus): ProjectBoardSummary {
-    const current = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardRow | undefined;
-    if (!current) throw new Error(`Project board not found: ${boardId}`);
-    const now = new Date().toISOString();
-    const result = this.requireDb()
-      .prepare("UPDATE project_boards SET status = ?, updated_at = ? WHERE id = ?")
-      .run(status, now, boardId);
-    if (result.changes === 0) throw new Error(`Project board not found: ${boardId}`);
-    if (current.status !== status) {
-      this.appendProjectBoardEvent({
-        boardId,
-        kind: "status_changed",
-        title: "Board status changed",
-        summary: `Board moved from ${current.status} to ${status}.`,
-        entityKind: "project_board",
-        entityId: boardId,
-        metadata: { from: current.status, to: status },
-        createdAt: now,
-      });
-    }
-    const row = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardRow | undefined;
-    if (!row) throw new Error(`Project board not found: ${boardId}`);
-    return this.mapProjectBoard(row);
+    return this.projectBoardLifecycle().updateProjectBoardStatus(boardId, status);
   }
 
   resetProjectBoard(boardId: string): void {
-    const board = this.requireDb().prepare("SELECT id FROM project_boards WHERE id = ?").get(boardId) as { id: string } | undefined;
-    if (!board) throw new Error(`Project board not found: ${boardId}`);
-
-    const transaction = this.requireDb().transaction(() => {
-      for (const table of [
-        "project_board_synthesis_runs",
-        "project_board_synthesis_proposals",
-        "project_board_execution_artifacts",
-        "project_board_events",
-        "project_board_questions",
-        "project_board_sources",
-        "project_board_cards",
-        "project_board_charters",
-      ]) {
-        this.requireDb().prepare(`DELETE FROM ${table} WHERE board_id = ?`).run(boardId);
-      }
-      const result = this.requireDb().prepare("DELETE FROM project_boards WHERE id = ?").run(boardId);
-      if (result.changes === 0) throw new Error(`Project board not found: ${boardId}`);
-    });
-    transaction();
+    this.projectBoardLifecycle().resetProjectBoard(boardId);
   }
 
   startProjectBoardRevision(input: { boardId: string; reason?: string }): ProjectBoardSummary {
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(input.boardId) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    if (board.status === "archived") throw new Error("Archived project boards cannot be revised.");
-    const currentCharter = board.charter_id
-      ? (this.requireDb().prepare("SELECT * FROM project_board_charters WHERE id = ?").get(board.charter_id) as ProjectBoardCharterRow | undefined)
-      : undefined;
-    if (board.status === "draft" && currentCharter?.status === "draft") {
-      return this.mapProjectBoard(board);
-    }
-    this.ensureProjectBoardQuestions(board.id);
-    const latest = this.requireDb()
-      .prepare("SELECT MAX(version) AS version FROM project_board_charters WHERE board_id = ?")
-      .get(board.id) as { version: number | null } | undefined;
-    const version = (latest?.version ?? 0) + 1;
-    const now = new Date().toISOString();
-    const charterId = randomUUID();
-    const reason = input.reason?.trim() || "Board revision started for major project changes.";
-    const markdown = [
-      `# ${board.title}`,
-      "",
-      `## Revision ${version}`,
-      "",
-      reason,
-      "",
-      currentCharter?.markdown || "Answer the kickoff interview to update the project charter.",
-    ].join("\n");
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb()
-        .prepare("UPDATE project_board_charters SET status = 'superseded', updated_at = ? WHERE board_id = ? AND status IN ('active', 'draft')")
-        .run(now, board.id);
-      this.requireDb()
-        .prepare(
-          `INSERT INTO project_board_charters
-          (id, board_id, version, status, goal, current_state, target_user, non_goals_json, quality_bar,
-           test_policy_json, decision_policy_json, dependency_policy_json, budget_policy_json, source_policy_json,
-           markdown, project_summary_json, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          charterId,
-          board.id,
-          version,
-          "draft",
-          currentCharter?.goal ?? "",
-          currentCharter?.current_state ?? "",
-          currentCharter?.target_user ?? "",
-          currentCharter?.non_goals_json ?? JSON.stringify([]),
-          currentCharter?.quality_bar ?? "",
-          currentCharter?.test_policy_json ??
-            JSON.stringify({ unit: true, integration: true, visual: true, liveSmoke: "recommended", proofScopeWarningPolicy: "advisory" }),
-          currentCharter?.decision_policy_json ?? JSON.stringify({ default: "ask_when_ambiguous", fallback: "document_assumption" }),
-          currentCharter?.dependency_policy_json ?? JSON.stringify({ ordering: "blockers_first", parallelism: "safe_independent_cards" }),
-          currentCharter?.budget_policy_json ?? JSON.stringify({ maxPassesPerCard: 6, maxRuntimeMsPerCard: 1_200_000, pauseOnTerminalBlocker: true }),
-          currentCharter?.source_policy_json ?? JSON.stringify({ includeThreads: true, includeMarkdown: true, requireUserApproval: true }),
-          markdown,
-          null,
-          now,
-          now,
-        );
-      this.requireDb()
-        .prepare("UPDATE project_boards SET status = 'draft', charter_id = ?, summary = ?, updated_at = ? WHERE id = ?")
-        .run(charterId, reason.slice(0, 500), now, board.id);
-      this.appendProjectBoardEvent({
-        boardId: board.id,
-        kind: "board_revision_started",
-        title: "Board revision started",
-        summary: reason.slice(0, 500),
-        entityKind: "project_board_charter",
-        entityId: charterId,
-        metadata: { charterId, previousCharterId: currentCharter?.id, version },
-        createdAt: now,
-      });
-    });
-    transaction();
-    const row = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(board.id) as ProjectBoardRow | undefined;
-    if (!row) throw new Error(`Project board not found after revision: ${board.id}`);
-    return this.mapProjectBoard(row);
+    return this.projectBoardLifecycle().startProjectBoardRevision(input);
   }
 
   cancelProjectBoardRevision(boardId: string): ProjectBoardSummary {
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${boardId}`);
-    if (board.status !== "draft") return this.mapProjectBoard(board);
-    const draftCharter = board.charter_id
-      ? (this.requireDb().prepare("SELECT * FROM project_board_charters WHERE id = ?").get(board.charter_id) as ProjectBoardCharterRow | undefined)
-      : undefined;
-    if (!draftCharter || draftCharter.version <= 1) return this.mapProjectBoard(board);
-    const revisionEvent = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_events
-         WHERE board_id = ? AND event_kind = 'board_revision_started' AND entity_id = ?
-         ORDER BY created_at DESC, rowid DESC
-         LIMIT 1`,
-      )
-      .get(board.id, draftCharter.id) as ProjectBoardEventRow | undefined;
-    const previousCharterId = revisionEvent
-      ? parseJsonObject<{ previousCharterId?: string }>(revisionEvent.metadata_json, {}).previousCharterId
-      : undefined;
-    const previousCharter = previousCharterId
-      ? (this.requireDb().prepare("SELECT * FROM project_board_charters WHERE id = ?").get(previousCharterId) as ProjectBoardCharterRow | undefined)
-      : (this.requireDb()
-          .prepare("SELECT * FROM project_board_charters WHERE board_id = ? AND id != ? ORDER BY version DESC, updated_at DESC")
-          .get(board.id, draftCharter.id) as ProjectBoardCharterRow | undefined);
-    if (!previousCharter) return this.mapProjectBoard(board);
-    const now = new Date().toISOString();
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb().prepare("UPDATE project_board_charters SET status = 'superseded', updated_at = ? WHERE id = ?").run(now, draftCharter.id);
-      this.requireDb().prepare("UPDATE project_board_charters SET status = 'active', updated_at = ? WHERE id = ?").run(now, previousCharter.id);
-      this.requireDb()
-        .prepare("UPDATE project_boards SET status = 'active', charter_id = ?, summary = ?, updated_at = ? WHERE id = ?")
-        .run(previousCharter.id, previousCharter.goal || board.summary, now, board.id);
-      this.appendProjectBoardEvent({
-        boardId: board.id,
-        kind: "board_revision_started",
-        title: "Board revision canceled",
-        summary: "Restored the previous active project charter.",
-        entityKind: "project_board_charter",
-        entityId: previousCharter.id,
-        metadata: { restoredCharterId: previousCharter.id, canceledCharterId: draftCharter.id },
-        createdAt: now,
-      });
-    });
-    transaction();
-    const row = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(board.id) as ProjectBoardRow | undefined;
-    if (!row) throw new Error(`Project board not found after canceling revision: ${board.id}`);
-    return this.mapProjectBoard(row);
+    return this.projectBoardLifecycle().cancelProjectBoardRevision(boardId);
   }
 
   promotePlannerPlanToBoard(artifactId: string): ProjectBoardCard {
@@ -3621,25 +1801,15 @@ export class ProjectStore {
   }
 
   getProjectBoardCard(cardId: string): ProjectBoardCard {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_cards WHERE id = ?").get(cardId) as
-      | ProjectBoardCardRow
-      | undefined;
-    if (!row) throw new Error(`Project board card not found: ${cardId}`);
-    return this.mapProjectBoardCard(row, this.listOrchestrationTasks());
+    return this.projectBoards().getProjectBoardCard(cardId);
   }
 
   private tryGetProjectBoardCard(cardId: string): ProjectBoardCard | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM project_board_cards WHERE id = ?").get(cardId) as
-      | ProjectBoardCardRow
-      | undefined;
-    return row ? this.mapProjectBoardCard(row, this.listOrchestrationTasks()) : undefined;
+    return this.projectBoards().tryGetProjectBoardCard(cardId);
   }
 
   getProjectBoardCardForOrchestrationTask(taskId: string): ProjectBoardCard | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_cards WHERE orchestration_task_id = ? AND status != 'archived' ORDER BY updated_at DESC LIMIT 1")
-      .get(taskId) as ProjectBoardCardRow | undefined;
-    return row ? this.mapProjectBoardCard(row, this.listOrchestrationTasks()) : undefined;
+    return this.projectBoards().getProjectBoardCardForOrchestrationTask(taskId);
   }
 
   refreshProjectBoardTaskDescriptionForTask(taskId: string): OrchestrationTask | undefined {
@@ -3655,10 +1825,7 @@ export class ProjectStore {
   }
 
   getProjectBoardCardForExecutionThread(threadId: string): ProjectBoardCard | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_cards WHERE execution_thread_id = ? AND status != 'archived' ORDER BY updated_at DESC LIMIT 1")
-      .get(threadId) as ProjectBoardCardRow | undefined;
-    return row ? this.mapProjectBoardCard(row, this.listOrchestrationTasks()) : undefined;
+    return this.projectBoards().getProjectBoardCardForExecutionThread(threadId);
   }
 
   getProjectBoardDependencyWorkspacePathsForExecutionThread(threadId: string): string[] {
@@ -3792,12 +1959,8 @@ export class ProjectStore {
 
   getProjectBoardProofReviewContextForRun(runId: string): ProjectBoardProofReviewContext | undefined {
     const run = this.getOrchestrationRun(runId);
-    const parent = this.requireDb()
-      .prepare("SELECT * FROM project_board_cards WHERE orchestration_task_id = ? AND status != 'archived' ORDER BY updated_at DESC LIMIT 1")
-      .get(run.taskId) as ProjectBoardCardRow | undefined;
-    if (!parent) return undefined;
-    const card = this.mapProjectBoardCard(parent, this.listOrchestrationTasks());
-    const boardRow = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(parent.board_id) as ProjectBoardRow | undefined;
+    const card = this.getProjectBoardCardForOrchestrationTask(run.taskId);
+    if (!card) return undefined;
     const draft = evaluateProjectBoardCardProof(card, run);
     const scopedRun = {
       ...run,
@@ -3805,7 +1968,7 @@ export class ProjectStore {
     };
     return {
       card,
-      board: boardRow ? this.mapProjectBoard(boardRow) : undefined,
+      board: this.getProjectBoard(card.boardId),
       run: scopedRun,
       deterministicReview: projectBoardProofReviewFromDraft({ ...draft, reviewer: "deterministic" }, scopedRun, new Date().toISOString()),
     };
@@ -3901,29 +2064,8 @@ export class ProjectStore {
     return updated;
   }
 
-  private projectBoardProofReviewApplicationBlocker(
-    parent: ProjectBoardCardRow,
-    run: Pick<OrchestrationRun, "id" | "taskId">,
-    requireCurrentReview: boolean,
-  ): string | undefined {
-    const latestRun = this.requireDb()
-      .prepare("SELECT id FROM orchestration_runs WHERE task_id = ? ORDER BY started_at DESC, attempt_number DESC LIMIT 1")
-      .get(run.taskId) as { id: string } | undefined;
-    return projectBoardProofReviewApplicationBlocker({
-      latestRunId: latestRun?.id,
-      runId: run.id,
-      proofReviewJson: parent.proof_review_json,
-      requireCurrentReview,
-    });
-  }
-
   isProjectBoardProofReviewRunCurrent(runId: string, requireCurrentReview = false): boolean {
-    const run = this.getOrchestrationRun(runId);
-    const parent = this.requireDb()
-      .prepare("SELECT * FROM project_board_cards WHERE orchestration_task_id = ? AND status != 'archived' ORDER BY updated_at DESC LIMIT 1")
-      .get(run.taskId) as ProjectBoardCardRow | undefined;
-    if (!parent) return false;
-    return !this.projectBoardProofReviewApplicationBlocker(parent, run, requireCurrentReview);
+    return this.projectBoardCardMutations().isProjectBoardProofReviewRunCurrent(runId, requireCurrentReview);
   }
 
   applyProjectBoardCardProofReview(input: {
@@ -3932,157 +2074,7 @@ export class ProjectStore {
     requireCurrentReview?: boolean;
     allowStaleRun?: boolean;
   }): ProjectBoardCard | undefined {
-    const run = this.getOrchestrationRun(input.runId);
-    const parent = this.requireDb()
-      .prepare("SELECT * FROM project_board_cards WHERE orchestration_task_id = ? AND status != 'archived' ORDER BY updated_at DESC LIMIT 1")
-      .get(run.taskId) as ProjectBoardCardRow | undefined;
-    if (!parent) return undefined;
-    const parentCard = this.mapProjectBoardCard(parent, this.listOrchestrationTasks());
-    const staleReason = input.allowStaleRun ? undefined : this.projectBoardProofReviewApplicationBlocker(parent, run, input.requireCurrentReview === true);
-    if (staleReason) {
-      this.appendProjectBoardEvent({
-        boardId: parent.board_id,
-        kind: "card_proof_review_ignored",
-        title: "Stale proof review ignored",
-        summary: `${parent.title} received a proof judgment for an old or superseded run; the current card state was left unchanged.`,
-        entityKind: "project_board_card",
-        entityId: parent.id,
-        metadata: {
-          cardId: parent.id,
-          runId: run.id,
-          status: input.review.status,
-          recommendedAction: input.review.recommendedAction,
-          reviewer: input.review.reviewer ?? "deterministic",
-          staleReason,
-        },
-        createdAt: new Date().toISOString(),
-      });
-      return this.getProjectBoardCard(parent.id);
-    }
-    const proof = projectBoardProofOfWorkForRun(run.proofOfWork, run, parentCard);
-    const proofText = projectBoardProofEvidenceText(run.error, proof);
-    const inputReview = projectBoardProofReviewClosureModelForApplication(
-      projectBoardRuntimeBudgetReviewForApplication(input.review, proof, proofText, run.workspacePath),
-      projectBoardMissingProofItems(parentCard, proofText, proof, run.workspacePath),
-    );
-    const runtimeBudgetSplit =
-      projectBoardRuntimeBudgetExceeded(proof) &&
-      inputReview.status === "needs_follow_up" &&
-      projectBoardRuntimeBudgetHasMeaningfulProgress(proof, proofText, inputReview.satisfied, run.workspacePath);
-    const runtimeBudgetRemaining = runtimeBudgetSplit
-      ? projectBoardRuntimeBudgetRemainingCriteria(parentCard, proof, input.review)
-      : [];
-    const runtimeBudgetCompleted = runtimeBudgetSplit
-      ? projectBoardRuntimeBudgetCompletedCriteria(proof, input.review.satisfied, run.workspacePath)
-      : [];
-    const hasExplicitFollowUps = normalizeRunFollowUps(run.proofOfWork?.followUps).length > 0;
-    const runtimeBudgetFollowUpOptions: ProjectBoardRunFollowUpInsertOptions | undefined = runtimeBudgetSplit
-      ? {
-          blockByParent: false,
-          labels: ["runtime-split-follow-up", "derived-from-parent"],
-          clarificationQuestions: [projectBoardRuntimeBudgetFollowUpClarificationQuestion(parent.title)],
-        }
-      : undefined;
-    const proofFollowUpSuggestionOptions = runtimeBudgetSplit
-      ? undefined
-      : projectBoardProofFollowUpOptionsFromSuggestion(inputReview.followUpSuggestion);
-    const explicitFollowUpIds = this.createProjectBoardFollowUpCandidatesForRun(run, parent, runtimeBudgetFollowUpOptions);
-    const proofFollowUpIds = inputReview.status === "needs_follow_up" && !hasExplicitFollowUps
-      ? this.createProjectBoardProofFollowUpForRun(
-          run,
-          parent,
-          {
-            status: inputReview.status,
-            summary: inputReview.summary,
-            satisfied: inputReview.satisfied,
-            missing: inputReview.missing,
-          },
-          runtimeBudgetSplit
-            ? {
-                blockByParent: false,
-                labels: ["runtime-split-follow-up", "derived-from-parent"],
-                title: `Continue ${parent.title}`.slice(0, 180),
-                description: projectBoardRuntimeBudgetFollowUpDescription(parent.title, input.review, runtimeBudgetCompleted, runtimeBudgetRemaining),
-                acceptanceCriteria: runtimeBudgetRemaining,
-                clarificationQuestions: [projectBoardRuntimeBudgetFollowUpClarificationQuestion(parent.title)],
-                sourceIdSuffix: "runtime-split",
-              }
-            : proofFollowUpSuggestionOptions,
-        )
-      : [];
-    const now = new Date().toISOString();
-    const review: ProjectBoardCardProofReview = {
-      ...inputReview,
-      followUpCardIds: [...new Set([...inputReview.followUpCardIds, ...explicitFollowUpIds, ...proofFollowUpIds])],
-      runId: run.id,
-      reviewedAt: now,
-    };
-    const splitOutcome = runtimeBudgetSplit
-      ? projectBoardRuntimeBudgetSplitOutcomeForReview(parentCard, run, review, review.followUpCardIds, now)
-      : undefined;
-    const nextCardStatus: ProjectBoardCardStatus =
-      review.status === "done" ? "done" : review.status === "ready_for_review" ? "review" : "blocked";
-    this.requireDb()
-      .prepare("UPDATE project_board_cards SET status = ?, proof_review_json = ?, split_outcome_json = ?, updated_at = ? WHERE id = ?")
-      .run(nextCardStatus, JSON.stringify(review), splitOutcome ? JSON.stringify(splitOutcome) : parent.split_outcome_json, now, parent.id);
-    this.requireDb()
-      .prepare("UPDATE orchestration_tasks SET state = ?, updated_at = ? WHERE id = ?")
-      .run(projectBoardTaskStateForProofReview(review.status), now, run.taskId);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, parent.board_id);
-    this.appendProjectBoardEvent({
-      boardId: parent.board_id,
-      kind: "card_proof_reviewed",
-      title: review.reviewer === "ambient_pi" ? "Card proof reviewed by Pi" : "Card proof reviewed",
-      summary: review.summary,
-      entityKind: "project_board_card",
-      entityId: parent.id,
-      metadata: {
-        cardId: parent.id,
-        runId: run.id,
-        status: review.status,
-        missing: review.missing,
-        satisfied: review.satisfied,
-        followUpCardIds: review.followUpCardIds,
-        reviewer: review.reviewer ?? "deterministic",
-        model: review.model,
-        confidence: review.confidence,
-        evidenceQuality: review.evidenceQuality,
-        recommendedAction: review.recommendedAction,
-        deterministicStatus: review.deterministicStatus,
-        followUpSuggestionUsed: proofFollowUpIds.length > 0 && Boolean(proofFollowUpSuggestionOptions),
-        followUpSuggestionTitle: proofFollowUpSuggestionOptions?.title,
-        splitOutcome: splitOutcome
-          ? {
-              source: splitOutcome.source,
-              status: splitOutcome.status,
-              childCardIds: splitOutcome.childCardIds,
-              completedCriteria: splitOutcome.completedCriteria.length,
-              remainingCriteria: splitOutcome.remainingCriteria.length,
-            }
-          : undefined,
-      },
-      createdAt: now,
-    });
-    if (splitOutcome) {
-      this.appendProjectBoardEvent({
-        boardId: parent.board_id,
-        kind: "card_split",
-        title: "Runtime-budget split proposed",
-        summary: `${parent.title} timed out after meaningful progress; ${splitOutcome.childCardIds.length} follow-up card${splitOutcome.childCardIds.length === 1 ? "" : "s"} now represent the remaining scope.`,
-        entityKind: "project_board_card",
-        entityId: parent.id,
-        metadata: {
-          cardId: parent.id,
-          runId: run.id,
-          reason: splitOutcome.reason,
-          completedCriteria: splitOutcome.completedCriteria,
-          remainingCriteria: splitOutcome.remainingCriteria,
-          childCardIds: splitOutcome.childCardIds,
-        },
-        createdAt: now,
-      });
-    }
-    return this.getProjectBoardCard(parent.id);
+    return this.projectBoardCardMutations().applyProjectBoardCardProofReview(input);
   }
 
   beginProjectBoardCardRun(input: { runId: string }): ProjectBoardCard | undefined {
@@ -5369,105 +3361,11 @@ export class ProjectStore {
   }
 
   approveProjectBoardCard(cardId: string): ProjectBoardCard {
-    const current = this.getProjectBoardCard(cardId);
-    if (current.status !== "draft" && current.status !== "blocked") return current;
-    if (current.candidateStatus !== "ready_to_create") {
-      throw new Error("Only ready-to-create board candidates can be approved.");
-    }
-    this.assertProjectBoardCardProofReady(current);
-    this.assertProjectBoardCardClarificationsResolved(current);
-    this.assertProjectBoardCardClaimAllowsLocalTicketization(current);
-    this.assertProjectBoardRunFollowUpStillActionable(current);
-    this.assertProjectBoardUxMockGateOpen(current, this.listProjectBoardCards(current.boardId));
-    const now = new Date().toISOString();
-    const taskId = current.orchestrationTaskId ?? this.createTaskForProjectBoardCard(current).id;
-    this.requireDb()
-      .prepare("UPDATE project_board_cards SET status = 'ready', orchestration_task_id = ?, updated_at = ? WHERE id = ?")
-      .run(taskId, now, cardId);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.boardId);
-    this.appendProjectBoardEvent({
-      boardId: current.boardId,
-      kind: "card_ticketized",
-      title: "Card ticketized",
-      summary: `${current.title} was approved into a ready Local Task.`,
-      entityKind: "project_board_card",
-      entityId: current.id,
-      metadata: { cardId: current.id, taskId, sourceKind: current.sourceKind, sourceId: current.sourceId },
-      createdAt: now,
-    });
-    this.syncProjectBoardTaskBlockers(current.boardId);
-    this.syncProjectBoardCardsForLinkedTasks();
-    return this.getProjectBoardCard(cardId);
+    return this.projectBoardCardMutations().approveProjectBoardCard(cardId);
   }
 
   createReadyProjectBoardTasks(boardId: string): ProjectBoardCard[] {
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${boardId}`);
-    if (board.status === "archived") throw new Error("Archived project boards cannot create ready tasks.");
-    if (board.status !== "active") throw new Error("Project board charter must be active before creating ready tasks.");
-    const runningSynthesis = this.getRunningProjectBoardSynthesisRun(boardId);
-    if (runningSynthesis) {
-      throw new Error("Project board planning is still running; wait for it to finish or pause before creating ready tasks.");
-    }
-    const boardCards = this.listProjectBoardCards(boardId);
-    const eligible = boardCards.filter(
-      (card) => card.status === "draft" && !card.orchestrationTaskId && card.candidateStatus === "ready_to_create",
-    ).filter(
-      (card) => !projectBoardCardBlockedByOpenUxMockGate(card, boardCards),
-    ).filter(
-      (card) => !projectBoardClosedParentForRunFollowUp(card, boardCards),
-    );
-    if (eligible.length === 0) return [];
-    eligible.forEach((card) => {
-      this.assertProjectBoardCardProofReady(card);
-      this.assertProjectBoardCardClarificationsResolved(card);
-      // Asserted up front with the other gates: claim checks used to run per card
-      // inside the (non-transactional) approve loop, so a claimed card mid-list threw
-      // after earlier cards were already ticketized — partial work plus an error.
-      this.assertProjectBoardCardClaimAllowsLocalTicketization(card);
-    });
-    const planningSnapshot = this.latestStableProjectBoardPlanningSnapshot(boardId);
-    const synthesisEligible = eligible.filter((card) => card.sourceKind === "board_synthesis");
-    if (synthesisEligible.length > 0) {
-      if (!planningSnapshot) {
-        throw new Error("Board synthesis cards require a completed or paused planning snapshot before creating ready tasks.");
-      }
-      const snapshotCardIds = new Set(planningSnapshot.snapshot.cardIds);
-      const missingSnapshotCards = synthesisEligible.filter((card) => !snapshotCardIds.has(card.id));
-      if (missingSnapshotCards.length > 0) {
-        throw new Error(
-          `${missingSnapshotCards.length} ready synthesis card${missingSnapshotCards.length === 1 ? " is" : "s are"} not part of the latest stable planning snapshot; pause or complete planning before creating ready tasks.`,
-        );
-      }
-    }
-    const ticketized = eligible.map((card) => this.approveProjectBoardCard(card.id));
-    this.syncProjectBoardTaskBlockers(boardId);
-    this.syncProjectBoardCardsForLinkedTasks();
-    const now = new Date().toISOString();
-    this.appendProjectBoardEvent({
-      boardId,
-      kind: "ready_tasks_created",
-      title: "Ready tasks created",
-      summary: `${ticketized.length} ready candidate card${ticketized.length === 1 ? "" : "s"} became Local Tasks.`,
-      entityKind: "project_board",
-      entityId: boardId,
-      metadata: {
-        cardIds: ticketized.map((card) => card.id),
-        taskIds: ticketized.map((card) => card.orchestrationTaskId).filter(Boolean),
-        ...(planningSnapshot
-          ? {
-              planningSnapshotId: planningSnapshot.snapshot.id,
-              planningSnapshotRunId: planningSnapshot.runId,
-              planningSnapshotKind: planningSnapshot.snapshot.kind,
-              planningSnapshotFingerprint: planningSnapshot.snapshot.renderFingerprint,
-              planningSnapshotCardIds: planningSnapshot.snapshot.cardIds,
-            }
-          : {}),
-      },
-      createdAt: now,
-    });
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, boardId);
-    return ticketized.map((card) => this.getProjectBoardCard(card.id));
+    return this.projectBoardCardMutations().createReadyProjectBoardTasks(boardId);
   }
 
   private assertProjectBoardCardClaimAllowsLocalTicketization(card: ProjectBoardCard): void {
@@ -5486,217 +3384,15 @@ export class ProjectStore {
   }
 
   splitProjectBoardCard(cardId: string): ProjectBoardCard[] {
-    const current = this.getProjectBoardCard(cardId);
-    if (current.orchestrationTaskId || current.status !== "draft") {
-      throw new Error("Only unticketized draft board candidates can be split.");
-    }
-    const criteria = normalizeCardTextList(current.acceptanceCriteria, 12);
-    if (criteria.length < 2) throw new Error("A candidate needs at least two acceptance criteria before it can be split.");
-    const existing = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_cards
-         WHERE board_id = ? AND source_kind = ? AND source_id LIKE ?
-         ORDER BY created_at ASC`,
-      )
-      .all(current.boardId, current.sourceKind, `${current.sourceId}#split:%`) as ProjectBoardCardRow[];
-    if (existing.length > 0) return existing.map((row) => this.mapProjectBoardCard(row));
-
-    const now = new Date().toISOString();
-    const createdIds: string[] = [];
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb()
-        .prepare("UPDATE project_board_cards SET candidate_status = 'duplicate', updated_at = ? WHERE id = ?")
-        .run(now, current.id);
-      const insert = this.requireDb().prepare(
-        `INSERT INTO project_board_cards
-          (id, board_id, title, description, status, candidate_status, priority, phase, labels_json, blocked_by_json,
-           acceptance_criteria_json, test_plan_json, source_refs_json, clarification_questions_json, clarification_decisions_json, source_kind, source_id, source_thread_id,
-           source_message_id, orchestration_task_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      criteria.forEach((criterion, index) => {
-        const id = randomUUID();
-        createdIds.push(id);
-        const clarificationQuestions = normalizeProjectBoardClarificationQuestions(current.clarificationQuestions ?? [], 8);
-        const clarificationDecisions = normalizeProjectBoardClarificationDecisions(current.clarificationDecisions, {
-          clarificationQuestions,
-          clarificationSuggestions: current.clarificationSuggestions,
-          clarificationAnswers: current.clarificationAnswers,
-          createdAt: now,
-          updatedAt: now,
-        });
-        insert.run(
-          id,
-          current.boardId,
-          criterion.slice(0, 180),
-          splitProjectBoardCardDescription(current, criterion),
-          "draft",
-          current.candidateStatus === "ready_to_create" ? "ready_to_create" : "needs_clarification",
-          current.priority ?? null,
-          current.phase ?? null,
-          JSON.stringify(normalizeTaskLabels([...current.labels, "split"])),
-          JSON.stringify(current.blockedBy),
-          JSON.stringify([criterion]),
-          JSON.stringify(current.testPlan),
-          JSON.stringify(normalizeCardTextList(current.sourceRefs ?? [], 20)),
-          JSON.stringify(clarificationQuestions),
-          JSON.stringify(clarificationDecisions),
-          current.sourceKind,
-          `${current.sourceId}#split:${index + 1}`,
-          current.sourceThreadId ?? null,
-          current.sourceMessageId ?? null,
-          null,
-          now,
-          now,
-        );
-      });
-      this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.boardId);
-      this.appendProjectBoardEvent({
-        boardId: current.boardId,
-        kind: "card_split",
-        title: "Candidate split",
-        summary: `${current.title} was split into ${createdIds.length} draft cards.`,
-        entityKind: "project_board_card",
-        entityId: current.id,
-        metadata: { parentCardId: current.id, childCardIds: createdIds },
-        createdAt: now,
-      });
-    });
-    transaction();
-    return createdIds.map((id) => this.getProjectBoardCard(id));
+    return this.projectBoardCardMutations().splitProjectBoardCard(cardId);
   }
 
   createProjectBoardManualCard(input: { boardId: string; title?: string; description?: string }): ProjectBoardCard {
-    const board = this.requireDb().prepare("SELECT * FROM project_boards WHERE id = ?").get(input.boardId) as ProjectBoardRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    if (board.status === "archived") throw new Error("Archived project boards cannot accept new cards.");
-    const now = new Date().toISOString();
-    const id = randomUUID();
-    const title = input.title?.trim() || "New draft card";
-    const description =
-      input.description?.trim() ||
-      "Manual draft card. Fill in scope, dependencies, acceptance criteria, and proof before ticketization.";
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb()
-        .prepare(
-          `INSERT INTO project_board_cards
-          (id, board_id, title, description, status, candidate_status, priority, phase, labels_json, blocked_by_json,
-           acceptance_criteria_json, test_plan_json, source_kind, source_id, source_thread_id, source_message_id, orchestration_task_id,
-           created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          id,
-          board.id,
-          title.slice(0, 180),
-          description.slice(0, 4000),
-          "draft",
-          "needs_clarification",
-          null,
-          null,
-          JSON.stringify(["manual"]),
-          JSON.stringify([]),
-          JSON.stringify(["Define the intended outcome before ticketization."]),
-          JSON.stringify({ unit: [], integration: [], visual: [], manual: [] }),
-          "manual",
-          `manual:${id}`,
-          null,
-          null,
-          null,
-          now,
-          now,
-        );
-      this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, board.id);
-      this.appendProjectBoardEvent({
-        boardId: board.id,
-        kind: "manual_card_created",
-        title: "Manual draft card created",
-        summary: title.slice(0, 180),
-        entityKind: "project_board_card",
-        entityId: id,
-        metadata: { cardId: id, sourceKind: "manual" },
-        createdAt: now,
-      });
-    });
-    transaction();
-    return this.getProjectBoardCard(id);
+    return this.projectBoardCardMutations().createManualCard(input);
   }
 
   attachLocalTaskToProjectBoard(input: { taskId: string; mode: "attach" | "evidence" }): ProjectBoardCard {
-    const board = this.getActiveProjectBoard();
-    if (!board) throw new Error("Build a project board before attaching Local Tasks.");
-    const task = this.getOrchestrationTask(input.taskId);
-    const existing = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_cards
-         WHERE board_id = ?
-           AND (
-             orchestration_task_id = ?
-             OR (source_kind = 'local_task_import' AND source_id = ?)
-           )
-         ORDER BY updated_at DESC
-         LIMIT 1`,
-      )
-      .get(board.id, task.id, task.id) as ProjectBoardCardRow | undefined;
-    if (existing) return this.mapProjectBoardCard(existing, this.listOrchestrationTasks());
-
-    const now = new Date().toISOString();
-    const id = randomUUID();
-    const attachMode = input.mode === "attach";
-    const allTasks = this.listOrchestrationTasks();
-    const status: ProjectBoardCardStatus = attachMode ? projectBoardStatusForTask(task, allTasks) : "draft";
-    const candidateStatus: ProjectBoardCardCandidateStatus = attachMode ? "ready_to_create" : "evidence";
-    const description =
-      task.description?.trim() ||
-      (attachMode ? "Existing Local Task attached to this project board." : "Existing Local Task imported as completed board evidence.");
-    const acceptanceCriteria = attachMode
-      ? [`Complete Local Task ${task.identifier}: ${task.title}`]
-      : [`Record Local Task ${task.identifier} as evidence for already-scoped work.`];
-    const testPlan: ProjectBoardCardTestPlan = attachMode
-      ? { unit: [], integration: [], visual: [], manual: ["Review the existing Local Task proof before closing the board card."] }
-      : { unit: [], integration: [], visual: [], manual: ["Review imported Local Task history as completed evidence."] };
-    this.requireDb()
-      .prepare(
-        `INSERT INTO project_board_cards
-        (id, board_id, title, description, status, candidate_status, priority, phase, labels_json, blocked_by_json,
-         acceptance_criteria_json, test_plan_json, source_kind, source_id, source_thread_id, source_message_id, orchestration_task_id,
-         created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        board.id,
-        task.title,
-        description,
-        status,
-        candidateStatus,
-        task.priority ?? null,
-        null,
-        JSON.stringify(normalizeTaskLabels(["local-task", ...task.labels])),
-        JSON.stringify(task.blockedBy),
-        JSON.stringify(acceptanceCriteria),
-        JSON.stringify(testPlan),
-        "local_task_import",
-        task.id,
-        null,
-        null,
-        attachMode ? task.id : null,
-        now,
-        now,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, board.id);
-    this.appendProjectBoardEvent({
-      boardId: board.id,
-      kind: attachMode ? "local_task_attached" : "local_task_imported_as_evidence",
-      title: attachMode ? "Local Task attached" : "Local Task imported as evidence",
-      summary: `${task.identifier}: ${task.title}`,
-      entityKind: "orchestration_task",
-      entityId: task.id,
-      metadata: { taskId: task.id, identifier: task.identifier, mode: input.mode, cardId: id },
-      createdAt: now,
-    });
-    this.syncProjectBoardCardsForLinkedTasks();
-    return this.getProjectBoardCard(id);
+    return this.projectBoardCardMutations().attachLocalTaskToProjectBoard(input);
   }
 
   updateProjectBoardCard(input: {
@@ -5716,176 +3412,7 @@ export class ProjectStore {
     clarificationAnswers?: ProjectBoardCardClarificationAnswer[];
     clarificationDecisions?: ProjectBoardCardClarificationDecision[];
   }): ProjectBoardCard {
-    const current = this.getProjectBoardCard(input.cardId);
-    if (current.orchestrationTaskId || current.status !== "draft") {
-      throw new Error("Project board candidates can only be edited before ticketization.");
-    }
-    const title = input.title === undefined ? current.title : input.title.trim();
-    if (!title) throw new Error("Project board card title cannot be empty.");
-    const now = new Date().toISOString();
-    const description = input.description === undefined ? current.description : input.description.trim().slice(0, 4000);
-    let candidateStatus = input.candidateStatus ?? current.candidateStatus;
-    const priority = input.priority === undefined ? (current.priority ?? null) : input.priority === null ? null : Math.max(0, Math.min(100, Math.round(input.priority)));
-    const phase = input.phase === undefined ? (current.phase ?? null) : input.phase?.trim() ? input.phase.trim().slice(0, 80) : null;
-    const labels = input.labels === undefined ? current.labels : normalizeTaskLabels(input.labels);
-    const blockedBy = input.blockedBy === undefined ? current.blockedBy : normalizeTaskReferences(input.blockedBy);
-    const acceptanceCriteria =
-      input.acceptanceCriteria === undefined ? current.acceptanceCriteria : normalizeCardTextList(input.acceptanceCriteria, 30);
-    const testPlan = input.testPlan === undefined ? current.testPlan : normalizeProjectBoardCardTestPlan(input.testPlan);
-    const sourceRefs = input.sourceRefs === undefined ? (current.sourceRefs ?? []) : normalizeCardTextList(input.sourceRefs, 20);
-    const clarificationQuestions =
-      input.clarificationQuestions === undefined
-        ? normalizeProjectBoardClarificationQuestions(current.clarificationQuestions ?? [], 8)
-        : normalizeProjectBoardClarificationQuestions(input.clarificationQuestions, 8);
-    const clarificationSuggestions =
-      input.clarificationSuggestions === undefined
-        ? current.clarificationSuggestions ?? []
-        : normalizeProjectBoardClarificationSuggestions(input.clarificationSuggestions, []);
-    const clarificationAnswers =
-      input.clarificationAnswers === undefined
-        ? current.clarificationAnswers ?? []
-        : normalizeProjectBoardClarificationAnswers(input.clarificationAnswers);
-    const clarificationInputsChanged =
-      input.clarificationQuestions !== undefined ||
-      input.clarificationSuggestions !== undefined ||
-      input.clarificationAnswers !== undefined ||
-      input.clarificationDecisions !== undefined ||
-      input.description !== undefined ||
-      input.acceptanceCriteria !== undefined;
-    const clarificationDecisions =
-      input.clarificationDecisions !== undefined
-        ? normalizeProjectBoardClarificationDecisions(input.clarificationDecisions, {
-            clarificationQuestions,
-            clarificationSuggestions,
-            clarificationAnswers,
-            createdAt: current.createdAt,
-            updatedAt: now,
-          })
-        : clarificationInputsChanged
-          ? normalizeProjectBoardClarificationDecisions(current.clarificationDecisions, {
-              clarificationQuestions,
-              clarificationSuggestions,
-              clarificationAnswers,
-              createdAt: current.createdAt,
-              updatedAt: now,
-            })
-          : current.clarificationDecisions ?? [];
-    if (
-      input.candidateStatus === undefined &&
-      candidateStatus === "needs_clarification" &&
-      (!this.projectBoardRequiresProofSpec(current.boardId) || projectBoardCardProofCount({ ...current, testPlan }) > 0) &&
-      projectBoardOpenClarificationQuestions({
-        clarificationDecisions,
-        clarificationQuestions,
-        clarificationSuggestions,
-        clarificationAnswers,
-        includeInlineQuestions: false,
-        limit: 8,
-      }).length === 0
-    ) {
-      candidateStatus = "ready_to_create";
-    }
-    if (candidateStatus === "ready_to_create") {
-      const nextForGates = { ...current, blockedBy, testPlan, clarificationQuestions, clarificationSuggestions, clarificationAnswers, clarificationDecisions };
-      this.assertProjectBoardCardProofReady(nextForGates);
-      this.assertProjectBoardCardClarificationsResolved(nextForGates);
-      this.assertProjectBoardRunFollowUpStillActionable(nextForGates);
-    }
-    const changedFields = [
-      title !== current.title ? "title" : undefined,
-      description !== current.description ? "description" : undefined,
-      candidateStatus !== current.candidateStatus ? "candidateStatus" : undefined,
-      priority !== (current.priority ?? null) ? "priority" : undefined,
-      phase !== (current.phase ?? null) ? "phase" : undefined,
-      JSON.stringify(labels) !== JSON.stringify(current.labels) ? "labels" : undefined,
-      JSON.stringify(blockedBy) !== JSON.stringify(current.blockedBy) ? "dependencies" : undefined,
-      JSON.stringify(acceptanceCriteria) !== JSON.stringify(current.acceptanceCriteria) ? "acceptanceCriteria" : undefined,
-      JSON.stringify(testPlan) !== JSON.stringify(current.testPlan) ? "testPlan" : undefined,
-      JSON.stringify(sourceRefs) !== JSON.stringify(current.sourceRefs ?? []) ? "sourceRefs" : undefined,
-      JSON.stringify(clarificationQuestions) !== JSON.stringify(current.clarificationQuestions ?? []) ? "clarificationQuestions" : undefined,
-      JSON.stringify(clarificationSuggestions) !== JSON.stringify(current.clarificationSuggestions ?? []) ? "clarificationSuggestions" : undefined,
-      JSON.stringify(clarificationAnswers) !== JSON.stringify(current.clarificationAnswers ?? []) ? "clarificationAnswers" : undefined,
-      JSON.stringify(clarificationDecisions) !== JSON.stringify(current.clarificationDecisions ?? []) ? "clarificationDecisions" : undefined,
-    ].filter((field): field is ProjectBoardCardTouchedField => Boolean(field));
-    const touchedFields =
-      changedFields.length > 0 ? [...new Set([...(current.userTouchedFields ?? []), ...changedFields])] : current.userTouchedFields ?? [];
-    const touchedAt = changedFields.length > 0 ? now : current.userTouchedAt ?? null;
-    const changedClarificationAnswer = changedFields.includes("clarificationAnswers")
-      ? projectBoardChangedClarificationAnswer(current.clarificationAnswers ?? [], clarificationAnswers)
-      : undefined;
-    const decisionImpact = changedClarificationAnswer
-      ? projectBoardDecisionImpactPreview(this.getProjectBoard(current.boardId), {
-          question: changedClarificationAnswer.question,
-          answer: changedClarificationAnswer.answer,
-          answeredCardId: current.id,
-        })
-      : undefined;
-    this.requireDb()
-      .prepare(
-        `UPDATE project_board_cards
-         SET title = ?,
-             description = ?,
-             candidate_status = ?,
-             priority = ?,
-             phase = ?,
-             labels_json = ?,
-             blocked_by_json = ?,
-             acceptance_criteria_json = ?,
-             test_plan_json = ?,
-             source_refs_json = ?,
-             clarification_questions_json = ?,
-             clarification_suggestions_json = ?,
-             clarification_answers_json = ?,
-             clarification_decisions_json = ?,
-             user_touched_fields_json = ?,
-             user_touched_at = ?,
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        title.slice(0, 180),
-        description,
-        candidateStatus,
-        priority,
-        phase,
-        JSON.stringify(labels),
-        JSON.stringify(blockedBy),
-        JSON.stringify(acceptanceCriteria),
-        JSON.stringify(testPlan),
-        JSON.stringify(sourceRefs),
-        JSON.stringify(clarificationQuestions),
-        JSON.stringify(clarificationSuggestions),
-        JSON.stringify(clarificationAnswers),
-        JSON.stringify(clarificationDecisions),
-        JSON.stringify(touchedFields),
-        touchedAt,
-        now,
-        input.cardId,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.boardId);
-    if (changedFields.length > 0) {
-      this.appendProjectBoardEvent({
-        boardId: current.boardId,
-        kind: "card_updated",
-        title: decisionImpact ? "Clarification decision answered" : "Candidate card updated",
-        summary: decisionImpact
-          ? projectBoardClarificationDecisionImpactEventSummary(current.title, decisionImpact)
-          : `${current.title} updated ${changedFields.join(", ")}.`,
-        entityKind: "project_board_card",
-        entityId: current.id,
-        metadata: {
-          cardId: current.id,
-          changedFields,
-          ...(decisionImpact ? { decisionImpact: projectBoardDecisionImpactEventMetadata(decisionImpact) } : {}),
-        },
-        createdAt: now,
-      });
-    }
-    if (changedFields.includes("candidateStatus") || changedFields.includes("dependencies")) {
-      this.syncProjectBoardTaskBlockers(current.boardId);
-      this.syncProjectBoardCardsForLinkedTasks();
-    }
-    return this.getProjectBoardCard(input.cardId);
+    return this.projectBoardCardMutations().updateCard(input);
   }
 
   updateProjectBoardCardCandidateStatus(
@@ -5893,244 +3420,15 @@ export class ProjectStore {
     candidateStatus: ProjectBoardCardCandidateStatus,
     options: { actor?: "user" | "system"; reason?: string; relatedCardId?: string } = {},
   ): ProjectBoardCard {
-    const current = this.getProjectBoardCard(cardId);
-    if (current.orchestrationTaskId || current.status !== "draft") {
-      throw new Error("Candidate status can only be changed before a board card is ticketized.");
-    }
-    if (candidateStatus === "ready_to_create") {
-      this.assertProjectBoardCardProofReady(current);
-      this.assertProjectBoardCardClarificationsResolved(current);
-      this.assertProjectBoardRunFollowUpStillActionable(current);
-    }
-    const now = new Date().toISOString();
-    const changed = current.candidateStatus !== candidateStatus;
-    // System-driven changes (e.g. the post-planning consolidation pass) must not claim
-    // the user-touched protection that shields fields from later automated updates.
-    const touchedByUser = changed && options.actor !== "system";
-    const touchedFields = touchedByUser ? [...new Set([...(current.userTouchedFields ?? []), "candidateStatus" satisfies ProjectBoardCardTouchedField])] : current.userTouchedFields ?? [];
-    const touchedAt = touchedByUser ? now : current.userTouchedAt ?? null;
-    this.requireDb()
-      .prepare(
-        `UPDATE project_board_cards
-         SET candidate_status = ?,
-             user_touched_fields_json = ?,
-             user_touched_at = ?,
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(candidateStatus, JSON.stringify(touchedFields), touchedAt, now, cardId);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.boardId);
-    if (changed) {
-      this.appendProjectBoardEvent({
-        boardId: current.boardId,
-        kind: "candidate_status_changed",
-        title: "Candidate status changed",
-        summary: `${current.title} moved from ${current.candidateStatus} to ${candidateStatus}.`,
-        entityKind: "project_board_card",
-        entityId: current.id,
-        metadata: {
-          cardId: current.id,
-          from: current.candidateStatus,
-          to: candidateStatus,
-          ...(options.actor ? { actor: options.actor } : {}),
-          ...(options.reason ? { reason: options.reason } : {}),
-          ...(options.relatedCardId ? { relatedCardId: options.relatedCardId } : {}),
-        },
-        createdAt: now,
-      });
-      this.syncProjectBoardTaskBlockers(current.boardId);
-      this.syncProjectBoardCardsForLinkedTasks();
-    }
-    return this.getProjectBoardCard(cardId);
+    return this.projectBoardCardMutations().updateCardCandidateStatus(cardId, candidateStatus, options);
   }
 
   resolveProjectBoardCardPiUpdate(input: { cardId: string; action: "apply" | "ignore" }): ProjectBoardCard {
-    const current = this.getProjectBoardCard(input.cardId);
-    if (!current.pendingPiUpdate) return current;
-    if (current.orchestrationTaskId || current.status !== "draft") {
-      throw new Error("Pi update suggestions can only be resolved before ticketization.");
-    }
-    const now = new Date().toISOString();
-    if (input.action === "ignore") {
-      this.requireDb()
-        .prepare("UPDATE project_board_cards SET pending_pi_update_json = NULL, updated_at = ? WHERE id = ?")
-        .run(now, input.cardId);
-      this.appendProjectBoardEvent({
-        boardId: current.boardId,
-        kind: "card_updated",
-        title: "Pi update ignored",
-        summary: `${current.title} kept the user-owned card fields.`,
-        entityKind: "project_board_card",
-        entityId: current.id,
-        metadata: { cardId: current.id, sourceId: current.pendingPiUpdate.sourceId, action: "ignore" },
-        createdAt: now,
-      });
-      return this.getProjectBoardCard(input.cardId);
-    }
-
-    const update = current.pendingPiUpdate;
-    const title = update.title ?? current.title;
-    const description = update.description ?? current.description;
-    const priority = update.priority ?? current.priority ?? null;
-    const phase = update.phase ?? current.phase ?? null;
-    const labels = update.labels ?? current.labels;
-    const blockedBy = update.blockedBy ?? current.blockedBy;
-    const acceptanceCriteria = update.acceptanceCriteria ?? current.acceptanceCriteria;
-    const testPlan = update.testPlan ?? current.testPlan;
-    const sourceRefs = update.sourceRefs ?? current.sourceRefs ?? [];
-    const clarificationAnswers = normalizeProjectBoardClarificationAnswers(update.clarificationAnswers ?? current.clarificationAnswers ?? []);
-    const normalizedClarification = normalizeProjectBoardSynthesisClarificationFields({
-      clarificationQuestions: update.clarificationQuestions ?? current.clarificationQuestions ?? [],
-      clarificationSuggestions: update.clarificationSuggestions ?? current.clarificationSuggestions ?? [],
-      clarificationAnswers,
-      clarificationDecisions: update.clarificationDecisions ?? current.clarificationDecisions,
-      createdAt: current.createdAt,
-      updatedAt: now,
-    });
-    const clarificationQuestions = normalizedClarification.clarificationQuestions;
-    const clarificationSuggestions = normalizedClarification.clarificationSuggestions;
-    const clarificationDecisions = normalizedClarification.clarificationDecisions;
-    const candidateStatus = update.candidateStatus
-      ? projectBoardCandidateStatusForSynthesisUpdate(update.candidateStatus, current.candidateStatus, clarificationDecisions)
-      : current.candidateStatus;
-    const objectiveProvenance = update.objectiveProvenance ?? current.objectiveProvenance;
-    const uiMockRole = update.uiMockRole ?? current.uiMockRole;
-    const requiresUiMockApproval = update.requiresUiMockApproval ?? current.requiresUiMockApproval ?? false;
-    if (candidateStatus === "ready_to_create") {
-      this.assertProjectBoardCardProofReady({ ...current, testPlan });
-      this.assertProjectBoardCardClarificationsResolved({
-        ...current,
-        clarificationQuestions,
-        clarificationSuggestions,
-        clarificationAnswers,
-        clarificationDecisions,
-        candidateStatus,
-      });
-    }
-    const touchedFields = [...new Set([...(current.userTouchedFields ?? []), ...update.changedFields])];
-    this.requireDb()
-      .prepare(
-        `UPDATE project_board_cards
-         SET title = ?,
-             description = ?,
-             candidate_status = ?,
-             priority = ?,
-             phase = ?,
-             labels_json = ?,
-             blocked_by_json = ?,
-             acceptance_criteria_json = ?,
-             test_plan_json = ?,
-             source_refs_json = ?,
-             clarification_questions_json = ?,
-             clarification_suggestions_json = ?,
-             clarification_answers_json = ?,
-             clarification_decisions_json = ?,
-             objective_provenance_json = ?,
-             ui_mock_role = ?,
-             requires_ui_mock_approval = ?,
-             user_touched_fields_json = ?,
-             user_touched_at = ?,
-             pending_pi_update_json = NULL,
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        title.trim().slice(0, 180),
-        description.trim().slice(0, 4000),
-        candidateStatus,
-        priority,
-        phase?.trim() ? phase.trim().slice(0, 80) : null,
-        JSON.stringify(normalizeTaskLabels(labels)),
-        JSON.stringify(normalizeTaskReferences(blockedBy)),
-        JSON.stringify(normalizeCardTextList(acceptanceCriteria, 30)),
-        JSON.stringify(normalizeProjectBoardCardTestPlan(testPlan)),
-        JSON.stringify(normalizeCardTextList(sourceRefs, 20)),
-        JSON.stringify(normalizeProjectBoardClarificationQuestions(clarificationQuestions, 8)),
-        JSON.stringify(normalizeProjectBoardClarificationSuggestions(clarificationSuggestions, [])),
-        JSON.stringify(normalizeProjectBoardClarificationAnswers(clarificationAnswers)),
-        JSON.stringify(clarificationDecisions),
-        objectiveProvenanceJson(objectiveProvenance),
-        normalizeProjectBoardUiMockRole(uiMockRole) ?? null,
-        requiresUiMockApproval ? 1 : 0,
-        JSON.stringify(touchedFields),
-        now,
-        now,
-        input.cardId,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.boardId);
-    this.appendProjectBoardEvent({
-      boardId: current.boardId,
-      kind: "card_updated",
-      title: "Pi update applied",
-      summary: `${current.title} accepted Pi updates for ${update.changedFields.join(", ")}.`,
-      entityKind: "project_board_card",
-      entityId: current.id,
-      metadata: { cardId: current.id, sourceId: update.sourceId, action: "apply", changedFields: update.changedFields },
-      createdAt: now,
-    });
-    return this.getProjectBoardCard(input.cardId);
+    return this.projectBoardCardMutations().resolvePiUpdate(input);
   }
 
   addProjectBoardCardRunFeedback(input: AddProjectBoardCardRunFeedbackInput): ProjectBoardCard {
-    const current = this.getProjectBoardCard(input.cardId);
-    if (!current.orchestrationTaskId || current.status === "draft") {
-      throw new Error("Run feedback can only be added after a card has been approved into a Local Task.");
-    }
-    if (current.status === "done" || current.status === "archived") {
-      throw new Error("Completed or archived cards cannot receive next-run feedback.");
-    }
-    if (current.status === "in_progress") {
-      throw new Error("Wait for the active Local Task run to finish before adding next-run feedback.");
-    }
-    const feedbackText = input.feedback.trim();
-    if (!feedbackText) throw new Error("Run feedback cannot be empty.");
-    const now = new Date().toISOString();
-    const feedback: ProjectBoardCardRunFeedback = {
-      id: randomUUID(),
-      feedback: feedbackText.slice(0, 1500),
-      source: normalizeProjectBoardCardRunFeedbackSource(input.source),
-      decisionQuestion: input.decisionQuestion?.trim() ? input.decisionQuestion.trim().slice(0, 500) : undefined,
-      decisionAnswer: input.decisionAnswer?.trim() ? input.decisionAnswer.trim().slice(0, 1500) : undefined,
-      sourceImpactEventId: input.sourceImpactEventId?.trim() ? input.sourceImpactEventId.trim().slice(0, 120) : undefined,
-      sourceImpactEventIds: normalizeTaskReferences(input.sourceImpactEventIds ?? []),
-      sourceIds: normalizeTaskReferences(input.sourceIds ?? []),
-      createdAt: now,
-      createdBy: "ambient-desktop",
-    };
-    const runFeedback = normalizeProjectBoardCardRunFeedback([...(current.runFeedback ?? []), feedback]);
-    this.requireDb()
-      .prepare("UPDATE project_board_cards SET run_feedback_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(runFeedback), now, current.id);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.boardId);
-    const updated = this.getProjectBoardCard(current.id);
-    this.updateOrchestrationTask({
-      id: current.orchestrationTaskId,
-      description: this.projectBoardCardTaskDescription(updated),
-    });
-    this.appendProjectBoardEvent({
-      boardId: current.boardId,
-      kind: "card_updated",
-      title: "Run feedback added",
-      summary: `${current.title} received additive next-run feedback. The approved card fields were not rewritten.`,
-      entityKind: "project_board_card",
-      entityId: current.id,
-      metadata: {
-        cardId: current.id,
-        taskId: current.orchestrationTaskId,
-        runFeedback: {
-          id: feedback.id,
-          source: feedback.source,
-          decisionQuestion: feedback.decisionQuestion,
-          decisionAnswer: feedback.decisionAnswer,
-          sourceImpactEventId: feedback.sourceImpactEventId,
-          sourceImpactEventIds: feedback.sourceImpactEventIds,
-          sourceIds: feedback.sourceIds,
-          modelCallRequired: false,
-        },
-      },
-      createdAt: now,
-    });
-    return this.getProjectBoardCard(current.id);
+    return this.projectBoardCardMutations().addRunFeedback(input);
   }
 
   private recordProjectBoardClarificationAnswerMetadata(
@@ -6986,227 +4284,23 @@ export class ProjectStore {
   }
 
   replaceProjectBoardSources(boardId: string, sources: ProjectBoardSourceInput[]): ProjectBoardSource[] {
-    const board = this.requireDb().prepare("SELECT id, source_thread_id FROM project_boards WHERE id = ?").get(boardId) as
-      | { id: string; source_thread_id: string | null }
-      | undefined;
-    if (!board) throw new Error(`Project board not found: ${boardId}`);
-    const now = new Date().toISOString();
-    const bounded = normalizeProjectBoardSourceInputs(sources);
-    const inferredSourceThreadId =
-      bounded.find((source) => source.kind === "plan_artifact" && source.threadId?.trim())?.threadId?.trim() ??
-      bounded.find((source) => source.kind === "implementation_plan" && source.threadId?.trim())?.threadId?.trim() ??
-      bounded.find((source) => source.threadId?.trim())?.threadId?.trim();
-    const previousSources = this.listProjectBoardSources(boardId);
-    const nextSources = projectBoardSourceRefreshSources({
-      previousSources,
-      sources: bounded,
-      now,
-      createId: randomUUID,
-    });
-    const refreshStats = projectBoardSourceRefreshStats({ previousSources, nextSources });
-    const {
-      preservedClassificationCount,
-      newCount,
-      changedCount,
-      unchangedCount,
-      removedCount,
-    } = refreshStats;
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb().prepare("DELETE FROM project_board_sources WHERE board_id = ?").run(boardId);
-      const insert = this.requireDb().prepare(
-        `INSERT INTO project_board_sources
-        (id, board_id, source_kind, source_key, content_hash, change_state, title, summary, excerpt, path, thread_id, artifact_id, message_id,
-         byte_size, mtime, classification_reason, classified_by, classification_confidence, authority_role, include_in_synthesis, relevance, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      for (const source of nextSources) {
-        const row = projectBoardSourceRefreshStoreRow({ source, boardId, updatedAt: now });
-        insert.run(
-          row.id,
-          row.board_id,
-          row.source_kind,
-          row.source_key,
-          row.content_hash,
-          row.change_state,
-          row.title,
-          row.summary,
-          row.excerpt,
-          row.path,
-          row.thread_id,
-          row.artifact_id,
-          row.message_id,
-          row.byte_size,
-          row.mtime,
-          row.classification_reason,
-          row.classified_by,
-          row.classification_confidence,
-          row.authority_role,
-          row.include_in_synthesis,
-          row.relevance,
-          row.created_at,
-          row.updated_at,
-        );
-      }
-      if (!board.source_thread_id && inferredSourceThreadId) {
-        this.requireDb().prepare("UPDATE project_boards SET source_thread_id = ?, updated_at = ? WHERE id = ?").run(inferredSourceThreadId, now, boardId);
-      } else {
-        this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, boardId);
-      }
-      this.appendProjectBoardEvent({
-        boardId,
-        kind: "sources_refreshed",
-        title: "Sources refreshed",
-        summary: projectBoardSourceRefreshSummary({
-          nextCount: nextSources.length,
-          newCount,
-          changedCount,
-          unchangedCount,
-          removedCount,
-          preservedClassificationCount,
-        }),
-        entityKind: "project_board",
-        entityId: boardId,
-        metadata: projectBoardSourceRefreshEventMetadata({ previousSources, nextSources, stats: refreshStats }),
-        createdAt: now,
-      });
-    });
-    transaction();
-    return this.listProjectBoardSources(boardId);
+    return this.projectBoardSources().replaceProjectBoardSources(boardId, sources);
   }
 
   getProjectBoardSource(sourceId: string): ProjectBoardSource {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_sources WHERE id = ?")
-      .get(sourceId) as ProjectBoardSourceRow | undefined;
-    if (!row) throw new Error(`Project board source not found: ${sourceId}`);
-    return mapProjectBoardSourceRow(row);
+    return this.projectBoardSources().getProjectBoardSource(sourceId);
   }
 
   updateProjectBoardSource(input: { sourceId: string; kind: ProjectBoardSourceKind; includeInSynthesis?: boolean }): ProjectBoardSource {
-    const current = this.requireDb()
-      .prepare("SELECT * FROM project_board_sources WHERE id = ?")
-      .get(input.sourceId) as ProjectBoardSourceRow | undefined;
-    if (!current) throw new Error(`Project board source not found: ${input.sourceId}`);
-    const previousSource = mapProjectBoardSourceRow(current);
-    const now = new Date().toISOString();
-    const update = projectBoardSourceUserClassificationUpdate({
-      previousKind: current.source_kind,
-      previousRelevance: current.relevance,
-      kind: input.kind,
-      includeInSynthesis: input.includeInSynthesis,
-    });
-    this.requireDb()
-      .prepare(
-        `UPDATE project_board_sources
-         SET source_kind = ?, relevance = ?, classified_by = ?, classification_confidence = ?, classification_reason = ?,
-             authority_role = ?, include_in_synthesis = ?, updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        update.kind,
-        update.relevance,
-        update.classifiedBy,
-        update.classificationConfidence,
-        update.classificationReason,
-        update.authorityRole,
-        update.includeInSynthesis ? 1 : 0,
-        now,
-        input.sourceId,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.board_id);
-    const row = this.requireDb().prepare("SELECT * FROM project_board_sources WHERE id = ?").get(input.sourceId) as ProjectBoardSourceRow | undefined;
-    if (!row) throw new Error(`Project board source not found after update: ${input.sourceId}`);
-    const nextSource = mapProjectBoardSourceRow(row);
-    if (current.source_kind !== update.kind || current.include_in_synthesis !== (update.includeInSynthesis ? 1 : 0)) {
-      const sourceImpact = this.projectBoardSourceUpdateImpact(previousSource, nextSource);
-      this.appendProjectBoardEvent({
-        boardId: current.board_id,
-        kind: "source_updated",
-        title: current.source_kind !== update.kind ? "Source reclassified" : "Source inclusion updated",
-        summary:
-          current.source_kind !== update.kind
-            ? `${current.title} moved from ${current.source_kind} to ${update.kind}.`
-            : `${current.title} ${update.includeInSynthesis ? "included in" : "excluded from"} project-board synthesis.`,
-        entityKind: "project_board_source",
-        entityId: current.id,
-        metadata: {
-          sourceId: current.id,
-          from: current.source_kind,
-          to: update.kind,
-          includeInSynthesis: update.includeInSynthesis,
-          sourceImpact,
-        },
-        createdAt: now,
-      });
-    }
-    return nextSource;
-  }
-
-  private projectBoardSourceUpdateImpact(
-    previousSource: ProjectBoardSource,
-    nextSource: ProjectBoardSource,
-  ): ProjectBoardSourceUpdateImpactMetadata {
-    return projectBoardSourceUpdateImpactMetadata({
-      previousSource,
-      nextSource,
-      sources: this.listProjectBoardSources(nextSource.boardId),
-      cards: this.listProjectBoardCards(nextSource.boardId),
-    });
+    return this.projectBoardSources().updateProjectBoardSource(input);
   }
 
   applyProjectBoardSourceClassifications(boardId: string, inputs: ProjectBoardSourceClassificationInput[]): ProjectBoardSource[] {
-    const board = this.requireDb().prepare("SELECT id FROM project_boards WHERE id = ?").get(boardId) as { id: string } | undefined;
-    if (!board) throw new Error(`Project board not found: ${boardId}`);
-    if (inputs.length === 0) return this.listProjectBoardSources(boardId);
+    return this.projectBoardSources().applyProjectBoardSourceClassifications(boardId, inputs);
+  }
 
-    const currentSources = this.listProjectBoardSources(boardId);
-    const updates = projectBoardSourceClassificationUpdates(currentSources, inputs);
-    if (updates.length === 0) return this.listProjectBoardSources(boardId);
-
-    const now = new Date().toISOString();
-    const transaction = this.requireDb().transaction(() => {
-      const update = this.requireDb().prepare(
-        `UPDATE project_board_sources
-         SET source_kind = ?, relevance = ?, classified_by = ?, classification_confidence = ?, classification_reason = ?,
-             authority_role = ?, include_in_synthesis = ?, updated_at = ?
-         WHERE id = ? AND board_id = ?`,
-      );
-      for (const item of updates) {
-        update.run(
-          item.kind,
-          item.relevance,
-          "ambient_pi",
-          item.confidence,
-          item.reason,
-          item.authorityRole,
-          item.includeInSynthesis ? 1 : 0,
-          now,
-          item.source.id,
-          boardId,
-        );
-      }
-      this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, boardId);
-      const sourceKinds = projectBoardSourceKindCounts(updates);
-      this.appendProjectBoardEvent({
-        boardId,
-        kind: "source_updated",
-        title: "Sources classified by Pi",
-        summary: `Ambient/Pi classified ${updates.length} project source${updates.length === 1 ? "" : "s"} for board synthesis.`,
-        entityKind: "project_board",
-        entityId: boardId,
-        metadata: {
-          classifiedBy: "ambient_pi",
-          classificationCount: updates.length,
-          sourceIds: updates.map((item) => item.source.id),
-          sourceKeys: updates.map((item) => item.source.sourceKey ?? projectBoardSourceKey(item.source)),
-          sourceKinds,
-          model: updates.map((item) => item.model).find(Boolean),
-        },
-        createdAt: now,
-      });
-    });
-    transaction();
-    return this.listProjectBoardSources(boardId);
+  private projectBoardSourceUpdateImpact(previousSource: ProjectBoardSource, nextSource: ProjectBoardSource) {
+    return this.projectBoardSources().projectBoardSourceUpdateImpact(previousSource, nextSource);
   }
 
   ensureProjectBoardQuestions(boardId: string): ProjectBoardQuestion[] {
@@ -8722,9 +5816,7 @@ export class ProjectStore {
     const now = options.now ?? new Date().toISOString();
     const subagentRuns = this.listAllSubagentRuns();
     const subagentRunEvents = subagentRuns.flatMap((run) => this.listSubagentRunEvents(run.id));
-    const workflowRunRows = this.requireDb()
-      .prepare("SELECT * FROM workflow_runs ORDER BY started_at ASC, id ASC")
-      .all() as WorkflowRunRow[];
+    const workflowRuns = this.workflowRuns().listWorkflowRunsForRestart();
     const parentRunRows = this.requireDb()
       .prepare("SELECT id, thread_id AS threadId FROM runs ORDER BY started_at ASC, id ASC")
       .all() as Array<{ id: string; threadId: string }>;
@@ -8746,7 +5838,7 @@ export class ProjectStore {
           threads: this.listThreads(),
           parentRuns: parentRunRows,
           workflowArtifacts: this.listWorkflowArtifacts(),
-          workflowRuns: workflowRunRows.map(this.mapWorkflowRun),
+          workflowRuns,
           createdAt: now,
         }),
       },
@@ -9100,6 +6192,14 @@ export class ProjectStore {
   ): SubagentWaitBarrierSummary {
     const current = this.getSubagentWaitBarrier(id);
     const now = options.now ?? new Date().toISOString();
+    const resolutionArtifact = options.resolutionArtifact === undefined
+      ? current.resolutionArtifact
+      : options.resolutionArtifact;
+    assertSubagentWaitBarrierTerminalTransition({
+      id,
+      status,
+      resolutionArtifact,
+    });
     const resolvedAt = status === "waiting_on_children" ? null : (current.resolvedAt ?? now);
     this.requireDb()
       .prepare(
@@ -9111,9 +6211,7 @@ export class ProjectStore {
         status,
         now,
         resolvedAt,
-        options.resolutionArtifact === undefined
-          ? (current.resolutionArtifact === undefined ? null : JSON.stringify(current.resolutionArtifact))
-          : JSON.stringify(options.resolutionArtifact),
+        resolutionArtifact === undefined ? null : JSON.stringify(resolutionArtifact),
         id,
       );
     return this.getSubagentWaitBarrier(id);
@@ -9206,47 +6304,19 @@ export class ProjectStore {
   }
 
   createWorkflowRecordingThread(input: { goal?: string; workspacePath?: string } = {}): ThreadSummary {
-    const thread = this.createThread(workflowRecordingTitle(input.goal), input.workspacePath ?? this.getWorkspace().path);
-    return this.startWorkflowRecording(thread.id, { goal: input.goal });
+    return this.workflowRecordings().createWorkflowRecordingThread(input);
   }
 
   startWorkflowRecording(threadId: string, input: { goal?: string } = {}): ThreadSummary {
-    this.getThread(threadId);
-    const recording = startWorkflowRecordingState(input);
-    this.requireDb()
-      .prepare("UPDATE threads SET workflow_recording_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(recording), recording.startedAt, threadId);
-    return this.getThread(threadId);
+    return this.workflowRecordings().startWorkflowRecording(threadId, input);
   }
 
   stopWorkflowRecording(threadId: string): WorkflowRecordingState {
-    const thread = this.getThread(threadId);
-    const messages = this.listMessages(threadId);
-    const recording = stopWorkflowRecordingState({
-      current: thread.workflowRecording,
-      messages,
-    });
-    this.requireDb()
-      .prepare("UPDATE threads SET workflow_recording_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(recording), recording.stoppedAt ?? new Date().toISOString(), threadId);
-    return recording;
+    return this.workflowRecordings().stopWorkflowRecording(threadId);
   }
 
   confirmWorkflowRecordingReview(threadId: string): WorkflowRecordingState {
-    const thread = this.getThread(threadId);
-    const current = workflowRecordingRequireStoppedReviewDraft(
-      thread.workflowRecording,
-      "Stop the workflow recording before confirming its playbook review.",
-    );
-    this.assertWorkflowRecordingDraftReusable(threadId, current, current.review.draft);
-    const now = new Date().toISOString();
-    const recording = confirmWorkflowRecordingReviewState({ current, now });
-    const savedPlaybook = workflowRecordingSaveConfirmedPlaybook({ thread, recording, savedAt: now });
-    const savedRecording = workflowRecordingApplySavedPlaybookReviewState(recording, savedPlaybook);
-    this.requireDb()
-      .prepare("UPDATE threads SET workflow_recording_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(savedRecording), now, threadId);
-    return savedRecording;
+    return this.workflowRecordings().confirmWorkflowRecordingReview(threadId);
   }
 
   updateWorkflowRecordingReviewDraft(
@@ -9254,67 +6324,22 @@ export class ProjectStore {
     draft: WorkflowRecordingReviewDraftUpdate,
     options: { source?: WorkflowRecordingPlaybookDraft["source"] } = {},
   ): WorkflowRecordingState {
-    const thread = this.getThread(threadId);
-    const current = workflowRecordingRequireStoppedReviewDraft(
-      thread.workflowRecording,
-      "Stop the workflow recording before editing its playbook review.",
-    );
-    const now = new Date().toISOString();
-    const recording = updateWorkflowRecordingReviewDraftState({ current, draft, now, source: options.source });
-    this.assertWorkflowRecordingDraftReusable(threadId, current, recording.review!.draft);
-    this.requireDb()
-      .prepare("UPDATE threads SET workflow_recording_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(recording), now, threadId);
-    return recording;
-  }
-
-  private assertWorkflowRecordingDraftReusable(
-    threadId: string,
-    current: WorkflowRecordingState,
-    draft: WorkflowRecordingReviewDraftUpdate | WorkflowRecordingPlaybookDraft,
-  ): void {
-    try {
-      assertWorkflowRecordingReviewDraftReusable({ current, draft });
-    } catch (error) {
-      if (error instanceof WorkflowRecordingReviewValidationError) {
-        this.updateWorkflowRecordingReviewValidationIssues(threadId, current, error.issues);
-      }
-      throw error;
-    }
-  }
-
-  private updateWorkflowRecordingReviewValidationIssues(
-    threadId: string,
-    current: WorkflowRecordingState,
-    issues: WorkflowRecordingReviewValidationError["issues"],
-  ): void {
-    const now = new Date().toISOString();
-    const next = workflowRecordingApplyReviewValidationIssues({ current, issues, now });
-    if (!next) return;
-    this.requireDb()
-      .prepare("UPDATE threads SET workflow_recording_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(next), now, threadId);
+    return this.workflowRecordings().updateWorkflowRecordingReviewDraft(threadId, draft, options);
   }
 
   listWorkflowRecordingLibrary(input: SearchWorkflowRecordingsInput = {}): WorkflowRecordingLibraryEntry[] {
-    return workflowRecordingListLibraryEntries(this.workflowRecordingLibraryIndexes(), input);
+    return this.workflowRecordings().listWorkflowRecordingLibrary(input);
   }
 
   describeWorkflowRecording(
     id: string,
     input: Pick<SearchWorkflowRecordingsInput, "includeArchived"> = {},
   ): WorkflowRecordingLibraryDescription {
-    const entry = workflowRecordingRequireLibraryEntry(this.workflowRecordingLibraryIndexes(), id, { includeDisabled: true, ...input });
-    return workflowRecordingLibraryDescription(entry);
+    return this.workflowRecordings().describeWorkflowRecording(id, input);
   }
 
   setWorkflowRecordingEnabled(id: string, enabled: boolean): WorkflowRecordingLibraryDescription {
-    const found = workflowRecordingRequireLibraryRecord(this.workflowRecordingLibraryIndexes(), id, { includeDisabled: true, includeArchived: true });
-    const { record } = found;
-    const updatedAt = new Date().toISOString();
-    const entry = workflowRecordingApplyLibraryLifecycleUpdate(found, { enabled, updatedAt });
-    if (record.threadId) this.updateWorkflowRecordingThreadSavedPlaybookLifecycle(record.threadId, id, { enabled, updatedAt });
-    return workflowRecordingLibraryDescription(entry);
+    return this.workflowRecordings().setWorkflowRecordingEnabled(id, enabled);
   }
 
   updateWorkflowRecordingPlaybook(
@@ -9325,37 +6350,7 @@ export class ProjectStore {
       title?: string;
     },
   ): WorkflowRecordingLibraryDescription {
-    const found = workflowRecordingRequireLibraryRecord(this.workflowRecordingLibraryIndexes(), id, { includeDisabled: true, includeArchived: true });
-    const { indexPath, record } = found;
-    workflowRecordingAssertBaseVersion({ record, baseVersion: input.baseVersion, action: "edit" });
-    const currentDescription = workflowRecordingLibraryDescription(found.entry);
-    const updatedAt = new Date().toISOString();
-    const { confirmed, title } = workflowRecordingPreparePlaybookEdit({
-      id,
-      record,
-      currentPlaybook: currentDescription.playbook,
-      draft: input.draft,
-      updatedAt,
-      title: input.title,
-    });
-    const versions = workflowRecordingLibraryVersions(indexPath, record);
-    const savedPlaybook = workflowRecordingNextSavedPlaybook({
-      id,
-      title,
-      savedAt: updatedAt,
-      indexPath,
-      record,
-      versions,
-    });
-    const thread = workflowRecordingThreadReference(record, title, (threadId) => this.getThread(threadId));
-    workflowRecordingWriteEditedPlaybookPackageWithIndex({
-      savedPlaybook,
-      confirmed,
-      sourceTranscriptPath: currentDescription.transcriptPath,
-      thread,
-    });
-    if (record.threadId) this.updateWorkflowRecordingThreadRestoredPlaybook(record.threadId, savedPlaybook, confirmed, updatedAt);
-    return this.describeWorkflowRecording(id, { includeArchived: true });
+    return this.workflowRecordings().updateWorkflowRecordingPlaybook(id, input);
   }
 
   saveSymphonyWorkflowRecipe(
@@ -9389,7 +6384,7 @@ export class ProjectStore {
       now,
     });
     const id = workflowRecordingPlaybookId(thread.id, confirmed.intent);
-    const existing = workflowRecordingFindLibraryRecord(this.workflowRecordingLibraryIndexes(), id, {
+    const existing = workflowRecordingFindLibraryRecord(this.workflowRecordings().libraryIndexes(), id, {
       includeDisabled: true,
       includeArchived: true,
     });
@@ -9432,143 +6427,19 @@ export class ProjectStore {
 
   archiveWorkflowRecording(id: string, input: { baseVersion: number; reason?: string }):
     WorkflowRecordingLibraryDescription {
-    const found = workflowRecordingRequireLibraryRecord(this.workflowRecordingLibraryIndexes(), id, { includeDisabled: true, includeArchived: true });
-    const { record } = found;
-    workflowRecordingAssertBaseVersion({ record, baseVersion: input.baseVersion, action: "archive" });
-    const updatedAt = new Date().toISOString();
-    const patch = workflowRecordingArchiveLifecyclePatch(record, { updatedAt, reason: input.reason });
-    const entry = workflowRecordingApplyLibraryLifecycleUpdate(found, patch);
-    if (record.threadId) this.updateWorkflowRecordingThreadSavedPlaybookLifecycle(record.threadId, id, patch);
-    return workflowRecordingLibraryDescription(entry);
+    return this.workflowRecordings().archiveWorkflowRecording(id, input);
   }
 
   unarchiveWorkflowRecording(id: string, input: { baseVersion: number }): WorkflowRecordingLibraryDescription {
-    const found = workflowRecordingRequireLibraryRecord(this.workflowRecordingLibraryIndexes(), id, { includeDisabled: true, includeArchived: true });
-    const { record } = found;
-    workflowRecordingAssertBaseVersion({ record, baseVersion: input.baseVersion, action: "unarchive" });
-    const updatedAt = new Date().toISOString();
-    const patch = workflowRecordingUnarchiveLifecyclePatch(updatedAt);
-    const entry = workflowRecordingApplyLibraryLifecycleUpdate(found, patch);
-    if (record.threadId) this.updateWorkflowRecordingThreadSavedPlaybookLifecycle(record.threadId, id, patch);
-    return workflowRecordingLibraryDescription(entry);
+    return this.workflowRecordings().unarchiveWorkflowRecording(id, input);
   }
 
   restoreWorkflowRecordingVersion(id: string, version: number): WorkflowRecordingLibraryDescription {
-    const found = workflowRecordingRequireLibraryRecord(this.workflowRecordingLibraryIndexes(), id, { includeDisabled: true, includeArchived: true });
-    const { indexPath, record } = found;
-    const versions = workflowRecordingLibraryVersions(indexPath, record);
-    const sourceVersion = workflowRecordingRequireLibraryVersion(id, versions, version);
-    const source = workflowRecordingReadRestorableVersionSource(id, sourceVersion);
-    const restoredAt = new Date().toISOString();
-    const title = sourceVersion.title || record.title;
-    const savedPlaybook = workflowRecordingNextSavedPlaybook({
-      id,
-      title,
-      savedAt: restoredAt,
-      indexPath,
-      record,
-      versions,
-    });
-    const thread = workflowRecordingThreadReference(record, title, (threadId) => this.getThread(threadId));
-    workflowRecordingWriteRestoredPlaybookPackageWithIndex({
-      savedPlaybook,
-      playbook: source.playbook,
-      sourceSidecarRecord: source.sourceSidecarRecord,
-      sourceMarkdown: source.sourceMarkdown,
-      transcript: source.transcript,
-      thread,
-      restoredFromVersion: version,
-    });
-    if (record.threadId) this.updateWorkflowRecordingThreadRestoredPlaybook(record.threadId, savedPlaybook, source.playbook, restoredAt);
-    return this.describeWorkflowRecording(id);
-  }
-
-  private workflowRecordingLibraryIndexes(): WorkflowRecordingLibraryIndex[] {
-    return workflowRecordingReadLibraryIndexes(this.workflowRecordingLibraryIndexPaths());
-  }
-
-  private workflowRecordingLibraryIndexPaths(): string[] {
-    const workspacePaths: string[] = [this.getWorkspace().path];
-    try {
-      const rows = this.requireDb()
-        .prepare("SELECT DISTINCT workspace_path FROM threads WHERE workspace_path IS NOT NULL AND workspace_path != ''")
-        .all() as Array<{ workspace_path?: string }>;
-      for (const row of rows) {
-        if (typeof row.workspace_path === "string" && row.workspace_path.trim()) workspacePaths.push(row.workspace_path);
-      }
-    } catch {
-      // If the thread table is unavailable, the active workspace catalog remains the fallback.
-    }
-    try {
-      const rows = this.requireDb()
-        .prepare("SELECT workflow_recording_json FROM threads WHERE workflow_recording_json IS NOT NULL AND workflow_recording_json != ''")
-        .all() as Array<{ workflow_recording_json?: string }>;
-      return workflowRecordingLibraryIndexPaths({
-        workspacePaths,
-        workflowRecordingJsonValues: rows.map((row) => row.workflow_recording_json),
-      });
-    } catch {
-      return workflowRecordingLibraryIndexPaths({ workspacePaths });
-    }
-  }
-
-  private updateWorkflowRecordingThreadSavedPlaybookLifecycle(
-    threadId: string,
-    workflowId: string,
-    patch: WorkflowRecordingLifecyclePatch,
-  ): void {
-    try {
-      const thread = this.getThread(threadId);
-      const next = workflowRecordingApplySavedPlaybookLifecycle(thread.workflowRecording, workflowId, patch);
-      if (!next) return;
-      this.requireDb()
-        .prepare("UPDATE threads SET workflow_recording_json = ?, updated_at = ? WHERE id = ?")
-        .run(JSON.stringify(next), patch.updatedAt ?? new Date().toISOString(), threadId);
-    } catch {
-      return;
-    }
-  }
-
-  private updateWorkflowRecordingThreadRestoredPlaybook(
-    threadId: string,
-    savedPlaybook: WorkflowRecordingSavedPlaybook,
-    playbook: WorkflowRecordingPlaybookDraft,
-    updatedAt: string,
-  ): void {
-    try {
-      const thread = this.getThread(threadId);
-      const next = workflowRecordingApplyRestoredPlaybookState(thread.workflowRecording, savedPlaybook, playbook);
-      if (!next) return;
-      this.requireDb()
-        .prepare("UPDATE threads SET workflow_recording_json = ?, updated_at = ? WHERE id = ?")
-        .run(JSON.stringify(next), updatedAt, threadId);
-    } catch {
-      return;
-    }
+    return this.workflowRecordings().restoreWorkflowRecordingVersion(id, version);
   }
 
   applyWorkflowRecordingSummary(threadId: string, messageId?: string): WorkflowRecordingState {
-    const thread = this.getThread(threadId);
-    const current = workflowRecordingRequireStoppedReviewDraft(
-      thread.workflowRecording,
-      "Stop the workflow recording before applying a Pi summary.",
-    );
-    const messages = this.listMessages(threadId);
-    const summaryMessage = workflowRecordingFindSummaryMessage(messages, messageId);
-    if (!summaryMessage) {
-      throw new Error("No structured Pi workflow summary was found in this thread.");
-    }
-    const now = new Date().toISOString();
-    const recording = applyWorkflowRecordingSummaryState({
-      current,
-      markdown: summaryMessage.content,
-      now,
-    });
-    this.assertWorkflowRecordingDraftReusable(threadId, current, recording.review!.draft);
-    this.requireDb()
-      .prepare("UPDATE threads SET workflow_recording_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(recording), now, threadId);
-    return recording;
+    return this.workflowRecordings().applyWorkflowRecordingSummary(threadId, messageId);
   }
 
   updateThreadSettings(
@@ -9971,143 +6842,33 @@ export class ProjectStore {
   }
 
   createPlannerPlanArtifact(input: PlannerPlanArtifactInput): PlannerPlanArtifact {
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    const status = input.status ?? "ready";
-    const decisionQuestions = input.decisionQuestions ?? [];
-    const workflowState = input.workflowState ?? plannerPlanWorkflowStateForQuestions(decisionQuestions);
-    const db = this.requireDb();
-    const insert = db.transaction(() => {
-      if (status === "ready") {
-        db.prepare(
-          "UPDATE planner_plan_artifacts SET status = 'superseded', updated_at = ? WHERE thread_id = ? AND status = 'ready'",
-        ).run(now, input.threadId);
-      }
-      db.prepare(
-        `INSERT INTO planner_plan_artifacts
-          (id, thread_id, source_message_id, status, workflow_state, finalization_attempt_json, durable_artifact_path, durable_artifact_generated_at, durable_artifact_validation_json, title, summary, content, steps_json, open_questions_json, risks_json, verification_json, diagrams_json, warnings_json, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
-        id,
-        input.threadId,
-        input.sourceMessageId,
-        status,
-        workflowState,
-        null,
-        null,
-        null,
-        null,
-        input.title,
-        input.summary,
-        input.content,
-        JSON.stringify(input.steps),
-        JSON.stringify(input.openQuestions),
-        JSON.stringify(input.risks),
-        JSON.stringify(input.verification),
-        JSON.stringify(input.diagrams ?? []),
-        JSON.stringify(input.warnings ?? []),
-        now,
-        now,
-      );
-      const insertQuestion = db.prepare(
-        `INSERT INTO planner_decision_questions
-          (id, artifact_id, question_order, question, recommended_option_id, required, options_json, answer_kind, answer_option_id, answer_custom_text, answered_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      decisionQuestions.forEach((question, index) => {
-        insertQuestion.run(
-          question.id,
-          id,
-          index,
-          question.question,
-          question.recommendedOptionId,
-          question.required ? 1 : 0,
-          JSON.stringify(question.options),
-          question.answer?.kind ?? null,
-          question.answer?.kind === "option" ? question.answer.optionId : null,
-          question.answer?.kind === "custom" ? question.answer.customText : null,
-          question.answer?.answeredAt ?? null,
-          now,
-          now,
-        );
-      });
-    });
-    insert();
-    return this.getPlannerPlanArtifact(id);
+    return this.plannerArtifacts().createPlannerPlanArtifact(input);
   }
 
   getPlannerPlanArtifact(artifactId: string): PlannerPlanArtifact {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM planner_plan_artifacts WHERE id = ?")
-      .get(artifactId) as PlannerPlanArtifactRow | undefined;
-    if (!row) throw new Error(`Planner plan artifact not found: ${artifactId}`);
-    return this.mapPlannerPlanArtifact(row);
+    return this.plannerArtifacts().getPlannerPlanArtifact(artifactId);
   }
 
   listPlannerPlanArtifacts(threadId: string): PlannerPlanArtifact[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM planner_plan_artifacts WHERE thread_id = ? ORDER BY created_at DESC, rowid DESC")
-      .all(threadId) as PlannerPlanArtifactRow[];
-    return rows.map(this.mapPlannerPlanArtifact);
+    return this.plannerArtifacts().listPlannerPlanArtifacts(threadId);
   }
 
   updatePlannerPlanArtifact(
     artifactId: string,
     input: { status?: PlannerPlanArtifactStatus; workflowState?: PlannerPlanWorkflowState },
   ): PlannerPlanArtifact {
-    if (!input.status && !input.workflowState) return this.getPlannerPlanArtifact(artifactId);
-    const current = this.getPlannerPlanArtifact(artifactId);
-    const now = new Date().toISOString();
-    let finalizationAttempt = current.finalizationAttempt;
-    if (input.workflowState === "finalizing" && finalizationAttempt?.status !== "running") {
-      finalizationAttempt = {
-        id: randomUUID(),
-        status: "running",
-        startedAt: now,
-      };
-    } else if (input.workflowState === "failed" && finalizationAttempt?.status === "running") {
-      finalizationAttempt = {
-        ...finalizationAttempt,
-        status: "failed",
-        completedAt: now,
-      };
-    }
-    this.requireDb()
-      .prepare("UPDATE planner_plan_artifacts SET status = ?, workflow_state = ?, finalization_attempt_json = ?, updated_at = ? WHERE id = ?")
-      .run(
-        input.status ?? current.status,
-        input.workflowState ?? current.workflowState,
-        finalizationAttempt ? JSON.stringify(finalizationAttempt) : null,
-        now,
-        artifactId,
-      );
-    return this.getPlannerPlanArtifact(artifactId);
+    return this.plannerArtifacts().updatePlannerPlanArtifact(artifactId, input);
   }
 
   updatePlannerPlanArtifactStatus(artifactId: string, status: PlannerPlanArtifactStatus): PlannerPlanArtifact {
-    return this.updatePlannerPlanArtifact(artifactId, { status });
+    return this.plannerArtifacts().updatePlannerPlanArtifactStatus(artifactId, status);
   }
 
   finishPlannerPlanFinalizationAttempt(
     artifactId: string,
     input: { status: Exclude<PlannerPlanFinalizationAttemptStatus, "running">; workflowState?: PlannerPlanWorkflowState; error?: string },
   ): PlannerPlanArtifact {
-    const current = this.getPlannerPlanArtifact(artifactId);
-    if (current.finalizationAttempt?.status !== "running") return current;
-    const now = new Date().toISOString();
-    const workflowState =
-      input.workflowState ??
-      (input.status === "failed" ? "failed" : current.workflowState === "finalizing" ? "answers_complete" : current.workflowState);
-    const finalizationAttempt: PlannerPlanFinalizationAttempt = {
-      ...current.finalizationAttempt,
-      status: input.status,
-      completedAt: now,
-      ...(input.error ? { error: input.error } : {}),
-    };
-    this.requireDb()
-      .prepare("UPDATE planner_plan_artifacts SET workflow_state = ?, finalization_attempt_json = ?, updated_at = ? WHERE id = ?")
-      .run(workflowState, JSON.stringify(finalizationAttempt), now, artifactId);
-    return this.getPlannerPlanArtifact(artifactId);
+    return this.plannerArtifacts().finishPlannerPlanFinalizationAttempt(artifactId, input);
   }
 
   updatePlannerPlanArtifactContent(
@@ -10117,66 +6878,14 @@ export class ProjectStore {
       "sourceMessageId" | "title" | "summary" | "content" | "steps" | "openQuestions" | "risks" | "verification" | "warnings" | "diagrams"
     > & { workflowState?: PlannerPlanWorkflowState },
   ): PlannerPlanArtifact {
-    const current = this.getPlannerPlanArtifact(artifactId);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `UPDATE planner_plan_artifacts
-         SET source_message_id = ?, title = ?, summary = ?, content = ?, steps_json = ?, open_questions_json = ?,
-             risks_json = ?, verification_json = ?, diagrams_json = ?, warnings_json = ?, workflow_state = ?,
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        input.sourceMessageId,
-        input.title,
-        input.summary,
-        input.content,
-        JSON.stringify(input.steps),
-        JSON.stringify(input.openQuestions),
-        JSON.stringify(input.risks),
-        JSON.stringify(input.verification),
-        JSON.stringify(input.diagrams ?? []),
-        JSON.stringify(input.warnings ?? []),
-        input.workflowState ?? current.workflowState,
-        now,
-        artifactId,
-      );
-    return this.getPlannerPlanArtifact(artifactId);
+    return this.plannerArtifacts().updatePlannerPlanArtifactContent(artifactId, input);
   }
 
   setPlannerPlanDurableArtifact(
     artifactId: string,
     input: { path: string; generatedAt: string; validation?: PlannerDurableArtifactValidationResult; workflowState?: PlannerPlanWorkflowState },
   ): PlannerPlanArtifact {
-    const current = this.getPlannerPlanArtifact(artifactId);
-    const now = new Date().toISOString();
-    const finalizationAttempt =
-      current.finalizationAttempt?.status === "running"
-        ? JSON.stringify({
-            ...current.finalizationAttempt,
-            status: "completed",
-            completedAt: now,
-          })
-        : current.finalizationAttempt
-          ? JSON.stringify(current.finalizationAttempt)
-          : null;
-    this.requireDb()
-      .prepare(
-        `UPDATE planner_plan_artifacts
-         SET durable_artifact_path = ?, durable_artifact_generated_at = ?, durable_artifact_validation_json = ?, workflow_state = ?, finalization_attempt_json = ?, updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        input.path,
-        input.generatedAt,
-        input.validation ? JSON.stringify(input.validation) : null,
-        input.workflowState ?? "durable_ready",
-        finalizationAttempt,
-        now,
-        artifactId,
-      );
-    return this.getPlannerPlanArtifact(artifactId);
+    return this.plannerArtifacts().setPlannerPlanDurableArtifact(artifactId, input);
   }
 
   setPlannerPlanDurableArtifactValidation(
@@ -10184,15 +6893,7 @@ export class ProjectStore {
     validation: PlannerDurableArtifactValidationResult,
     workflowState?: PlannerPlanWorkflowState,
   ): PlannerPlanArtifact {
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `UPDATE planner_plan_artifacts
-         SET durable_artifact_validation_json = ?, workflow_state = COALESCE(?, workflow_state), updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(JSON.stringify(validation), workflowState ?? null, now, artifactId);
-    return this.getPlannerPlanArtifact(artifactId);
+    return this.plannerArtifacts().setPlannerPlanDurableArtifactValidation(artifactId, validation, workflowState);
   }
 
   private projectBoardHasProtectedWorkFromDifferentThread(board: ProjectBoardSummary, threadId: string): boolean {
@@ -10312,42 +7013,7 @@ export class ProjectStore {
     questionId: string,
     answer: { kind: "option"; optionId: string } | { kind: "custom"; customText: string },
   ): PlannerPlanArtifact {
-    const db = this.requireDb();
-    const row = db
-      .prepare("SELECT * FROM planner_decision_questions WHERE artifact_id = ? AND id = ?")
-      .get(artifactId, questionId) as PlannerDecisionQuestionRow | undefined;
-    if (!row) throw new Error(`Planner decision question not found: ${artifactId}/${questionId}`);
-    const options = parsePlannerDecisionOptions(row.options_json);
-    if (answer.kind === "option" && !options.some((option) => option.id === answer.optionId)) {
-      throw new Error(`Planner decision option not found: ${questionId}/${answer.optionId}`);
-    }
-    if (answer.kind === "custom" && !answer.customText.trim()) {
-      throw new Error("Planner decision custom answer cannot be empty.");
-    }
-    const now = new Date().toISOString();
-    db.transaction(() => {
-      db.prepare(
-        `UPDATE planner_decision_questions
-           SET answer_kind = ?, answer_option_id = ?, answer_custom_text = ?, answered_at = ?, updated_at = ?
-         WHERE artifact_id = ? AND id = ?`,
-      ).run(
-        answer.kind,
-        answer.kind === "option" ? answer.optionId : null,
-        answer.kind === "custom" ? answer.customText.trim() : null,
-        now,
-        now,
-        artifactId,
-        questionId,
-      );
-      db.prepare("UPDATE planner_plan_artifacts SET updated_at = ? WHERE id = ?").run(now, artifactId);
-    })();
-    const artifact = this.getPlannerPlanArtifact(artifactId);
-    const workflowState = plannerPlanWorkflowStateForQuestions(artifact.decisionQuestions);
-    if (artifact.workflowState !== workflowState) {
-      db.prepare("UPDATE planner_plan_artifacts SET workflow_state = ?, updated_at = ? WHERE id = ?").run(workflowState, now, artifactId);
-      return this.getPlannerPlanArtifact(artifactId);
-    }
-    return artifact;
+    return this.plannerArtifacts().answerPlannerDecisionQuestion(artifactId, questionId, answer);
   }
 
   isPluginEnabled(pluginId: string): boolean {
@@ -10942,310 +7608,52 @@ export class ProjectStore {
   }
 
   listAutomationFolders(): AutomationFolderSummary[] {
-    this.ensureAutomationThreadLinks();
-    const project = this.getWorkspace();
-    const folders = this.listAutomationFolderRows();
-    const folderSummaries = new Map<string, AutomationFolderSummary>();
-    for (const folder of folders) {
-      folderSummaries.set(folder.id, mapAutomationFolderRow(folder));
-    }
-    const home = folderSummaries.get(AUTOMATION_HOME_FOLDER_ID) ?? {
-      id: AUTOMATION_HOME_FOLDER_ID,
-      name: "Home",
-      kind: "home" as const,
-      createdAt: new Date(0).toISOString(),
-      updatedAt: new Date(0).toISOString(),
-      threads: [],
-    };
-    folderSummaries.set(home.id, home);
-
-    const folderForSource = new Map(
-      this.requireDb()
-        .prepare("SELECT * FROM automation_thread_folders")
-        .all()
-        .map((row) => {
-          const item = row as AutomationThreadFolderRow;
-          return [automationThreadId(item.source_kind, item.source_id), item.folder_id] as const;
-        }),
-    );
-    const orchestrationRuns = this.listOrchestrationRuns(200);
-    const workflowRuns = this.listWorkflowRuns(undefined, 200);
-
-    for (const task of this.listOrchestrationTasks()) {
-      const latestRun = latestOrchestrationRunForTask(orchestrationRuns, task.id);
-      const thread = mapAutomationOrchestrationTaskThread(task, {
-        folderId: AUTOMATION_HOME_FOLDER_ID,
-        latestRun,
-        projectName: project.name,
-        projectPath: project.path,
-      });
-      const folder = folderSummaries.get(folderForSource.get(thread.id) ?? "") ?? home;
-      folder.threads.push({ ...thread, folderId: folder.id });
-    }
-    for (const artifact of this.listWorkflowArtifacts()) {
-      const latestRun = latestWorkflowRunForArtifact(workflowRuns, artifact.id);
-      const latestRunEvents = latestRun ? this.listWorkflowRunEvents(latestRun.id) : [];
-      const thread = mapAutomationWorkflowArtifactThread(artifact, {
-        folderId: AUTOMATION_HOME_FOLDER_ID,
-        latestRun,
-        latestRunEvents,
-        projectName: project.name,
-        projectPath: project.path,
-      });
-      const folder = folderSummaries.get(folderForSource.get(thread.id) ?? "") ?? home;
-      folder.threads.push({ ...thread, folderId: folder.id });
-    }
-
-    return [...folderSummaries.values()]
-      .map((folder) => ({
-        ...folder,
-        threads: folder.threads.sort(compareAutomationThreads),
-      }))
-      .sort(compareAutomationFolders);
+    return this.automations().listAutomationFolders();
   }
 
   createAutomationFolder(input: CreateAutomationFolderInput): AutomationFolderSummary[] {
-    const name = input.name.trim();
-    if (!name) throw new Error("Automation folder name is required.");
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare("INSERT INTO automation_folders (id, name, folder_kind, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
-      .run(randomUUID(), name, "custom", now, now);
-    return this.listAutomationFolders();
+    return this.automations().createAutomationFolder(input);
   }
 
   moveAutomationThread(input: MoveAutomationThreadInput): AutomationFolderSummary[] {
-    const folder = this.requireAutomationFolder(input.folderId);
-    const source = parseAutomationThreadId(input.threadId);
-    this.requireAutomationSource(source.kind, source.id);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO automation_thread_folders (source_kind, source_id, folder_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(source_kind, source_id) DO UPDATE SET folder_id = excluded.folder_id, updated_at = excluded.updated_at`,
-      )
-      .run(source.kind, source.id, folder.id, now, now);
-    this.requireDb().prepare("UPDATE automation_folders SET updated_at = ? WHERE id = ?").run(now, folder.id);
-    return this.listAutomationFolders();
+    return this.automations().moveAutomationThread(input);
   }
 
   listAutomationSchedules(): AutomationScheduleSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM automation_schedules ORDER BY updated_at DESC, created_at DESC, rowid DESC")
-      .all() as AutomationScheduleRow[];
-    return rows.map(this.mapAutomationSchedule);
+    return this.automations().listAutomationSchedules();
   }
 
   listAutomationScheduleExceptions(input: { scheduleId?: string } = {}): AutomationScheduleExceptionSummary[] {
-    const db = this.requireDb();
-    const rows = input.scheduleId
-      ? (db
-          .prepare(
-            `SELECT * FROM automation_schedule_exceptions
-             WHERE schedule_id = ?
-             ORDER BY occurrence_at DESC, created_at DESC, rowid DESC`,
-          )
-          .all(input.scheduleId) as AutomationScheduleExceptionRow[])
-      : (db
-          .prepare(
-            `SELECT * FROM automation_schedule_exceptions
-             ORDER BY updated_at DESC, occurrence_at DESC, rowid DESC`,
-          )
-          .all() as AutomationScheduleExceptionRow[]);
-    return rows.map(this.mapAutomationScheduleException);
+    return this.automations().listAutomationScheduleExceptions(input);
   }
 
   createAutomationSchedule(input: CreateAutomationScheduleInput, nowDate = new Date()): AutomationScheduleSummary[] {
-    const targetVersion = this.automationScheduleTargetVersion(input.targetKind, input.targetId, input.targetVersion);
-    this.requireAutomationScheduleTarget(input.targetKind, input.targetId, targetVersion ?? undefined);
-    const blocker = this.automationScheduleCreationBlockReason(input.targetKind, input.targetId, targetVersion ?? undefined);
-    if (blocker) throw new Error(blocker);
-    const now = nowDate.toISOString();
-    const preset = input.preset;
-    const cronExpression = normalizeAutomationScheduleCronExpression(preset, input.cronExpression);
-    const enabled = input.enabled ?? true;
-    const nextRunAt = computeAutomationScheduleNextRunAt({ preset, cronExpression, enabled, now: nowDate });
-    const createdTargetVersionId = this.automationScheduleCreatedTargetVersionId(input.targetKind, input.targetId, targetVersion ?? undefined);
-    const dedicatedThreadId = this.automationScheduleDedicatedThreadId(input.targetKind, input.targetId, targetVersion ?? undefined);
-    const runLimitsJson = stringifyWorkflowRunLimitOverrides(input.runLimits);
-    this.requireDb()
-      .prepare(
-        `INSERT INTO automation_schedules
-        (id, target_kind, target_id, target_version, created_target_version_id, dedicated_thread_id, preset, cron_expression, timezone, enabled, skip_if_active, concurrency_policy, next_run_at, last_run_at, run_limits_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        randomUUID(),
-        input.targetKind,
-        input.targetId,
-        targetVersion,
-        createdTargetVersionId,
-        dedicatedThreadId,
-        preset,
-        cronExpression ?? null,
-        input.timezone?.trim() || "local",
-        enabled ? 1 : 0,
-        input.skipIfActive === false ? 0 : 1,
-        "skip_if_active",
-        nextRunAt ?? null,
-        null,
-        runLimitsJson,
-        now,
-        now,
-      );
-    return this.listAutomationSchedules();
+    return this.automations().createAutomationSchedule(input, nowDate);
   }
 
   updateAutomationSchedule(input: UpdateAutomationScheduleInput, nowDate = new Date()): AutomationScheduleSummary[] {
-    const current = this.requireDb().prepare("SELECT * FROM automation_schedules WHERE id = ?").get(input.id) as
-      | AutomationScheduleRow
-      | undefined;
-    if (!current) throw new Error(`Automation schedule not found: ${input.id}`);
-    const editScope = input.editScope ?? "all_occurrences";
-    if (editScope === "this_occurrence") {
-      throw new Error("Use Skip next occurrence or Reschedule next occurrence for one-off schedule changes.");
-    }
-    const scopedOccurrenceAt =
-      editScope === "this_and_following"
-        ? this.normalizeAutomationScheduleOccurrenceAt(input.occurrenceAt ?? current.next_run_at ?? nowDate.toISOString(), "schedule occurrence")
-        : undefined;
-    const targetKind = input.targetKind ?? current.target_kind;
-    const targetId = input.targetId ?? current.target_id;
-    const requestedTargetVersion =
-      input.targetVersion ?? (targetKind === current.target_kind && targetKind === "workflow_playbook" ? current.target_version ?? undefined : undefined);
-    const targetVersion = this.automationScheduleTargetVersion(targetKind, targetId, requestedTargetVersion);
-    this.requireAutomationScheduleTarget(targetKind, targetId, targetVersion ?? undefined);
-    const blocker = this.automationScheduleCreationBlockReason(targetKind, targetId, targetVersion ?? undefined);
-    if (blocker) throw new Error(blocker);
-    const preset = input.preset ?? current.preset;
-    const cronExpression = normalizeAutomationScheduleCronExpression(preset, input.cronExpression ?? current.cron_expression ?? undefined);
-    const enabled = input.enabled ?? (current.enabled === 1);
-    const nextRunAt = computeAutomationScheduleNextRunAt({ preset, cronExpression, enabled, now: nowDate });
-    const createdTargetVersionId = this.automationScheduleCreatedTargetVersionId(targetKind, targetId, targetVersion ?? undefined);
-    const dedicatedThreadId = this.automationScheduleDedicatedThreadId(targetKind, targetId, targetVersion ?? undefined, current.dedicated_thread_id ?? undefined);
-    const runLimitsJson = input.runLimits === undefined ? current.run_limits_json : stringifyWorkflowRunLimitOverrides(input.runLimits);
-    const now = nowDate.toISOString();
-    this.requireDb()
-      .prepare(
-        `UPDATE automation_schedules
-         SET target_kind = ?, target_id = ?, target_version = ?, created_target_version_id = ?, dedicated_thread_id = ?, preset = ?, cron_expression = ?, timezone = ?, enabled = ?,
-             skip_if_active = ?, concurrency_policy = ?, next_run_at = ?, run_limits_json = ?, updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        targetKind,
-        targetId,
-        targetVersion,
-        createdTargetVersionId,
-        dedicatedThreadId,
-        preset,
-        cronExpression ?? null,
-        input.timezone?.trim() || current.timezone || "local",
-        enabled ? 1 : 0,
-        input.skipIfActive === undefined ? current.skip_if_active : input.skipIfActive ? 1 : 0,
-        "skip_if_active",
-        nextRunAt ?? null,
-        runLimitsJson,
-        now,
-        input.id,
-      );
-    if (scopedOccurrenceAt) {
-      this.insertAutomationScheduleException({
-        scheduleId: input.id,
-        occurrenceAt: scopedOccurrenceAt,
-        exceptionKind: "series_update",
-        status: "consumed",
-        replacementRunAt: nextRunAt ?? undefined,
-        reason: "Schedule series updated from this occurrence forward.",
-        consumedAt: now,
-        now,
-      });
-    }
-    return this.listAutomationSchedules();
+    return this.automations().updateAutomationSchedule(input, nowDate);
   }
 
   skipAutomationScheduleOccurrence(
     input: AutomationScheduleOccurrenceActionInput,
     nowDate = new Date(),
   ): AutomationScheduleOccurrenceActionResult {
-    const schedule = this.requireAutomationScheduleRow(input.scheduleId);
-    const occurrenceAt = this.normalizeAutomationScheduleOccurrenceAt(input.occurrenceAt ?? schedule.next_run_at, "schedule occurrence");
-    const now = nowDate.toISOString();
-    const isCurrentNext = schedule.next_run_at === occurrenceAt;
-    this.insertAutomationScheduleException({
-      scheduleId: schedule.id,
-      occurrenceAt,
-      exceptionKind: "skip",
-      status: isCurrentNext ? "consumed" : "pending",
-      reason: input.reason,
-      consumedAt: isCurrentNext ? now : undefined,
-      now,
-    });
-    if (isCurrentNext) {
-      this.advanceAutomationScheduleNextRun(schedule, new Date(occurrenceAt), now, { markLastRun: false });
-    }
-    return {
-      schedules: this.listAutomationSchedules(),
-      exceptions: this.listAutomationScheduleExceptions({ scheduleId: schedule.id }),
-    };
+    return this.automations().skipAutomationScheduleOccurrence(input, nowDate);
   }
 
   rescheduleAutomationScheduleOccurrence(
     input: AutomationScheduleOccurrenceActionInput,
     nowDate = new Date(),
   ): AutomationScheduleOccurrenceActionResult {
-    const schedule = this.requireAutomationScheduleRow(input.scheduleId);
-    const occurrenceAt = this.normalizeAutomationScheduleOccurrenceAt(input.occurrenceAt ?? schedule.next_run_at, "schedule occurrence");
-    const replacementRunAt = this.normalizeAutomationScheduleOccurrenceAt(input.replacementRunAt, "replacement occurrence");
-    const replacementTime = new Date(replacementRunAt).getTime();
-    if (Number.isFinite(replacementTime) && replacementTime <= nowDate.getTime()) {
-      throw new Error("Replacement occurrence must be in the future.");
-    }
-    const now = nowDate.toISOString();
-    const isCurrentNext = schedule.next_run_at === occurrenceAt;
-    this.insertAutomationScheduleException({
-      scheduleId: schedule.id,
-      occurrenceAt,
-      exceptionKind: "reschedule",
-      status: isCurrentNext ? "consumed" : "pending",
-      replacementRunAt,
-      reason: input.reason,
-      consumedAt: isCurrentNext ? now : undefined,
-      now,
-    });
-    if (isCurrentNext) {
-      this.requireDb()
-        .prepare("UPDATE automation_schedules SET next_run_at = ?, updated_at = ? WHERE id = ?")
-        .run(replacementRunAt, now, schedule.id);
-    }
-    return {
-      schedules: this.listAutomationSchedules(),
-      exceptions: this.listAutomationScheduleExceptions({ scheduleId: schedule.id }),
-    };
+    return this.automations().rescheduleAutomationScheduleOccurrence(input, nowDate);
   }
 
   updateAutomationScheduleOccurrenceRunLimits(
     input: AutomationScheduleOccurrenceActionInput,
     nowDate = new Date(),
   ): AutomationScheduleOccurrenceActionResult {
-    if (!input.runLimits) throw new Error("Run limits are required for a schedule occurrence run-limit edit.");
-    const schedule = this.requireAutomationScheduleRow(input.scheduleId);
-    const occurrenceAt = this.normalizeAutomationScheduleOccurrenceAt(input.occurrenceAt ?? schedule.next_run_at, "schedule occurrence");
-    const now = nowDate.toISOString();
-    this.insertAutomationScheduleException({
-      scheduleId: schedule.id,
-      occurrenceAt,
-      exceptionKind: "run_limits",
-      status: "pending",
-      runLimits: input.runLimits,
-      reason: input.reason,
-      now,
-    });
-    return {
-      schedules: this.listAutomationSchedules(),
-      exceptions: this.listAutomationScheduleExceptions({ scheduleId: schedule.id }),
-    };
+    return this.automations().updateAutomationScheduleOccurrenceRunLimits(input, nowDate);
   }
 
   consumePendingAutomationScheduleOccurrenceException(
@@ -11253,56 +7661,19 @@ export class ProjectStore {
     occurrenceAt: string | undefined,
     nowDate = new Date(),
   ): AutomationScheduleExceptionSummary | undefined {
-    if (!occurrenceAt) return undefined;
-    const row = this.requireDb()
-      .prepare(
-        `SELECT * FROM automation_schedule_exceptions
-         WHERE schedule_id = ? AND occurrence_at = ? AND status = 'pending' AND exception_kind IN ('skip', 'reschedule', 'run_limits')
-         ORDER BY created_at DESC, rowid DESC
-         LIMIT 1`,
-      )
-      .get(scheduleId, occurrenceAt) as AutomationScheduleExceptionRow | undefined;
-    if (!row) return undefined;
-    const now = nowDate.toISOString();
-    this.requireDb()
-      .prepare("UPDATE automation_schedule_exceptions SET status = 'consumed', consumed_at = ?, updated_at = ? WHERE id = ?")
-      .run(now, now, row.id);
-    if (row.exception_kind === "reschedule" && row.replacement_run_at) {
-      this.requireDb()
-        .prepare("UPDATE automation_schedules SET next_run_at = ?, updated_at = ? WHERE id = ?")
-        .run(row.replacement_run_at, now, scheduleId);
-    }
-    return this.mapAutomationScheduleException({
-      ...row,
-      status: "consumed",
-      consumed_at: now,
-      updated_at: now,
-    });
+    return this.automations().consumePendingAutomationScheduleOccurrenceException(scheduleId, occurrenceAt, nowDate);
   }
 
   listDueAutomationSchedules(nowDate = new Date()): AutomationScheduleSummary[] {
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM automation_schedules
-         WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?
-         ORDER BY next_run_at ASC, created_at ASC`,
-      )
-      .all(nowDate.toISOString()) as AutomationScheduleRow[];
-    return rows.map(this.mapAutomationSchedule);
+    return this.automations().listDueAutomationSchedules(nowDate);
   }
 
   advanceAutomationSchedule(scheduleId: string, nowDate = new Date()): AutomationScheduleSummary {
-    const now = nowDate.toISOString();
-    const row = this.requireAutomationScheduleRow(scheduleId);
-    this.advanceAutomationScheduleNextRun(row, nowDate, now, { markLastRun: true });
-    return this.mapAutomationSchedule(this.requireDb().prepare("SELECT * FROM automation_schedules WHERE id = ?").get(scheduleId) as AutomationScheduleRow);
+    return this.automations().advanceAutomationSchedule(scheduleId, nowDate);
   }
 
   listAutomationThreadChatIds(): string[] {
-    const rows = this.requireDb()
-      .prepare("SELECT DISTINCT thread_id FROM orchestration_runs WHERE thread_id IS NOT NULL")
-      .all() as Array<{ thread_id: string }>;
-    return rows.map((row) => row.thread_id);
+    return this.automations().listAutomationThreadChatIds();
   }
 
   listWorkflowAgentThreadChatIds(): string[] {
@@ -11313,108 +7684,35 @@ export class ProjectStore {
   }
 
   listOrchestrationBoard(): OrchestrationBoard {
-    return {
-      tasks: this.listOrchestrationTasks(),
-      runs: this.listOrchestrationRuns(),
-    };
+    return this.orchestration().listOrchestrationBoard();
   }
 
   listOrchestrationTasks(): OrchestrationTask[] {
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM orchestration_tasks
-         ORDER BY priority IS NULL, priority ASC, created_at ASC, identifier ASC`,
-      )
-      .all() as OrchestrationTaskRow[];
-    return rows.map(this.mapOrchestrationTask);
+    return this.orchestration().listOrchestrationTasks();
   }
 
   listOrchestrationRuns(limit = 50): OrchestrationRun[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM orchestration_runs ORDER BY started_at DESC LIMIT ?")
-      .all(limit) as OrchestrationRunRow[];
-    return rows.map(this.mapOrchestrationRun);
+    return this.orchestration().listOrchestrationRuns(limit);
   }
 
   getOrchestrationRun(runId: string): OrchestrationRun {
-    const row = this.requireDb().prepare("SELECT * FROM orchestration_runs WHERE id = ?").get(runId) as
-      | OrchestrationRunRow
-      | undefined;
-    if (!row) throw new Error(`Orchestration run not found: ${runId}`);
-    return this.mapOrchestrationRun(row);
+    return this.orchestration().getOrchestrationRun(runId);
   }
 
   getOrchestrationTask(taskId: string): OrchestrationTask {
-    const row = this.requireDb().prepare("SELECT * FROM orchestration_tasks WHERE id = ?").get(taskId) as
-      | OrchestrationTaskRow
-      | undefined;
-    if (!row) throw new Error(`Orchestration task not found: ${taskId}`);
-    return this.mapOrchestrationTask(row);
+    return this.orchestration().getOrchestrationTask(taskId);
   }
 
   createOrchestrationTask(input: CreateOrchestrationTaskInput): OrchestrationTask {
-    const now = new Date().toISOString();
-    const id = randomUUID();
-    const identifier = this.nextLocalTaskIdentifier();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO orchestration_tasks
-        (id, identifier, title, description, state, priority, labels_json, blocked_by_json, project_path, source_kind, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        identifier,
-        input.title.trim(),
-        emptyToNull(input.description),
-        normalizeTaskState(input.state ?? "todo"),
-        input.priority ?? null,
-        JSON.stringify(normalizeTaskLabels(input.labels ?? [])),
-        JSON.stringify(normalizeTaskReferences(input.blockedBy ?? [])),
-        emptyToNull(input.projectPath) ?? defaultOrchestrationProjectPath(this.getWorkspace().path),
-        "local",
-        now,
-        now,
-      );
-    return this.getOrchestrationTask(id);
+    return this.orchestration().createOrchestrationTask(input);
   }
 
   updateOrchestrationTask(input: OrchestrationTaskUpdateInput): OrchestrationTask {
-    const current = this.getOrchestrationTask(input.id);
-    const requestedState = input.state ? normalizeTaskState(input.state) : current.state;
-    const next = {
-      title: input.title?.trim() || current.title,
-      description: Object.hasOwn(input, "description") ? emptyToNull(input.description) : (current.description ?? null),
-      state: requestedState !== "done" && this.projectBoardTaskHasClosedDoneCard(current.id) ? "done" : requestedState,
-      priority: Object.hasOwn(input, "priority") ? (input.priority ?? null) : (current.priority ?? null),
-      labels: input.labels ? normalizeTaskLabels(input.labels) : current.labels,
-      blockedBy: Object.hasOwn(input, "blockedBy") ? normalizeTaskReferences(input.blockedBy ?? []) : current.blockedBy,
-    };
-    this.requireDb()
-      .prepare(
-        `UPDATE orchestration_tasks
-         SET title = ?, description = ?, state = ?, priority = ?, labels_json = ?, blocked_by_json = ?, updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        next.title,
-        next.description,
-        next.state,
-        next.priority,
-        JSON.stringify(next.labels),
-        JSON.stringify(next.blockedBy),
-        new Date().toISOString(),
-        input.id,
-      );
-    this.syncProjectBoardCardsForLinkedTasks();
-    return this.getOrchestrationTask(input.id);
+    return this.orchestration().updateOrchestrationTask(input);
   }
 
   setOrchestrationTaskWorkspace(input: { id: string; workspacePath: string; branchName?: string }): OrchestrationTask {
-    this.requireDb()
-      .prepare("UPDATE orchestration_tasks SET workspace_path = ?, branch_name = ?, updated_at = ? WHERE id = ?")
-      .run(input.workspacePath, input.branchName ?? null, new Date().toISOString(), input.id);
-    return this.getOrchestrationTask(input.id);
+    return this.orchestration().setOrchestrationTaskWorkspace(input);
   }
 
   recordPreparedOrchestrationRun(input: {
@@ -11422,25 +7720,7 @@ export class ProjectStore {
     workspacePath: string;
     proofOfWork?: Record<string, unknown>;
   }): OrchestrationRun {
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO orchestration_runs
-        (id, task_id, attempt_number, status, workspace_path, started_at, last_event_at, proof_of_work_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.taskId,
-        this.nextOrchestrationAttemptNumber(input.taskId),
-        "prepared",
-        input.workspacePath,
-        now,
-        now,
-        input.proofOfWork ? JSON.stringify(input.proofOfWork) : null,
-      );
-    return this.getOrchestrationRun(id);
+    return this.orchestration().recordPreparedOrchestrationRun(input);
   }
 
   updateOrchestrationRun(input: {
@@ -11453,62 +7733,15 @@ export class ProjectStore {
     finish?: boolean;
     reviewProjectBoardProof?: boolean;
   }): OrchestrationRun {
-    const current = this.getOrchestrationRun(input.id);
-    if (this.projectBoardTaskHasClosedDoneCard(current.taskId)) {
-      return current;
-    }
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `UPDATE orchestration_runs
-         SET status = ?, thread_id = ?, pi_session_file = ?, last_event_at = ?, finished_at = ?, error = ?, proof_of_work_json = ?
-         WHERE id = ?`,
-      )
-      .run(
-        input.status,
-        input.threadId ?? current.threadId ?? null,
-        Object.hasOwn(input, "piSessionFile") ? (input.piSessionFile ?? null) : (current.piSessionFile ?? null),
-        now,
-        input.finish ? now : ["claimed", "prepared", "preparing", "running"].includes(input.status) ? null : (current.finishedAt ?? null),
-        Object.hasOwn(input, "error") ? (input.error ?? null) : (current.error ?? null),
-        input.proofOfWork ? JSON.stringify(input.proofOfWork) : current.proofOfWork ? JSON.stringify(current.proofOfWork) : null,
-        input.id,
-      );
-    const updated = this.getOrchestrationRun(input.id);
-    if (input.finish && input.reviewProjectBoardProof !== false) this.reviewProjectBoardCardProofForRun(updated);
-    return updated;
+    return this.orchestration().updateOrchestrationRun(input);
   }
 
   recordRestartInterruptedAutoContinueAttempt(runId: string, now = new Date()): OrchestrationRun {
-    const run = this.getOrchestrationRun(runId);
-    if (!isRestartInterruptedOrchestrationRun(run)) {
-      throw new Error(`Orchestration run is not restart-interrupted: ${runId}`);
-    }
-    return this.updateOrchestrationRun({
-      id: run.id,
-      status: run.status,
-      proofOfWork: restartInterruptedAutoContinueProofOfWork(run.proofOfWork, now.toISOString()),
-      reviewProjectBoardProof: false,
-    });
+    return this.orchestration().recordRestartInterruptedAutoContinueAttempt(runId, now);
   }
 
   getOrchestrationSchedulerRuntimeState(): SchedulerRuntimeState {
-    const rows = this.requireDb()
-      .prepare("SELECT task_id, status FROM orchestration_runs WHERE status IN ('claimed', 'prepared', 'preparing', 'running', 'retry_queued')")
-      .all() as Array<{ task_id: string; status: string }>;
-    const claimBlockedTaskIds = this.projectBoardClaimBlockedTaskIds();
-    return {
-      claimedTaskIds: [
-        ...new Set([
-          ...rows
-            .filter((row) => row.status === "claimed" || row.status === "prepared" || row.status === "preparing")
-            .map((row) => row.task_id),
-          ...claimBlockedTaskIds,
-        ]),
-      ],
-      runningTaskIds: rows.filter((row) => row.status === "running").map((row) => row.task_id),
-      retryQueuedTaskIds: rows.filter((row) => row.status === "retry_queued").map((row) => row.task_id),
-    };
+    return this.orchestration().getOrchestrationSchedulerRuntimeState();
   }
 
   private projectBoardClaimBlockedTaskIds(): string[] {
@@ -11526,82 +7759,40 @@ export class ProjectStore {
   }
 
   createWorkflowArtifact(input: CreateWorkflowArtifactInput): WorkflowArtifactSummary {
-    const now = new Date().toISOString();
-    const id = input.id ?? randomUUID();
     const workflowThreadId = input.workflowThreadId ?? this.createWorkflowAgentThreadRecord({
       title: input.title,
       initialRequest: input.spec.goal,
       phase: workflowAgentPhaseForArtifactStatus(input.status ?? "draft"),
     }).id;
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_artifacts
-        (id, workflow_thread_id, title, status, manifest_json, spec_json, source_path, state_path, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        workflowThreadId,
-        input.title.trim(),
-        input.status ?? "draft",
-        JSON.stringify(input.manifest),
-        JSON.stringify(input.spec),
-        input.sourcePath,
-        input.statePath,
-        now,
-        now,
-      );
+    const artifact = this.workflowArtifacts().createWorkflowArtifact({ ...input, workflowThreadId });
     if (input.activate !== false) {
       this.requireDb()
         .prepare("UPDATE workflow_agent_threads SET active_artifact_id = ?, phase = ?, updated_at = ? WHERE id = ?")
-        .run(id, workflowAgentPhaseForArtifactStatus(input.status ?? "draft"), now, workflowThreadId);
+        .run(artifact.id, workflowAgentPhaseForArtifactStatus(artifact.status), artifact.updatedAt, workflowThreadId);
     } else {
-      this.requireDb().prepare("UPDATE workflow_agent_threads SET updated_at = ? WHERE id = ?").run(now, workflowThreadId);
+      this.requireDb().prepare("UPDATE workflow_agent_threads SET updated_at = ? WHERE id = ?").run(artifact.updatedAt, workflowThreadId);
     }
-    return this.getWorkflowArtifact(id);
+    return artifact;
   }
 
   listWorkflowArtifacts(): WorkflowArtifactSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM workflow_artifacts ORDER BY updated_at DESC, created_at DESC")
-      .all() as WorkflowArtifactRow[];
-    return rows.map(this.mapWorkflowArtifact);
+    return this.workflowArtifacts().listWorkflowArtifacts();
   }
 
   getWorkflowArtifact(artifactId: string): WorkflowArtifactSummary {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_artifacts WHERE id = ?").get(artifactId) as
-      | WorkflowArtifactRow
-      | undefined;
-    if (!row) throw new Error(`Workflow artifact not found: ${artifactId}`);
-    return this.mapWorkflowArtifact(row);
+    return this.workflowArtifacts().getWorkflowArtifact(artifactId);
   }
 
   updateWorkflowArtifact(input: UpdateWorkflowArtifactInput): WorkflowArtifactSummary {
-    const current = this.getWorkflowArtifact(input.id);
-    this.requireDb()
-      .prepare(
-        `UPDATE workflow_artifacts
-         SET workflow_thread_id = ?, title = ?, status = ?, manifest_json = ?, spec_json = ?, source_path = ?, state_path = ?, updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        input.workflowThreadId ?? current.workflowThreadId ?? null,
-        input.title?.trim() || current.title,
-        input.status ?? current.status,
-        JSON.stringify(input.manifest ?? current.manifest),
-        JSON.stringify(input.spec ?? current.spec),
-        input.sourcePath ?? current.sourcePath,
-        input.statePath ?? current.statePath,
-        new Date().toISOString(),
-        input.id,
-      );
+    const current = this.workflowArtifacts().getWorkflowArtifact(input.id);
+    const artifact = this.workflowArtifacts().updateWorkflowArtifact(input);
     const threadId = input.workflowThreadId ?? current.workflowThreadId;
     if (threadId) {
       this.requireDb()
         .prepare("UPDATE workflow_agent_threads SET active_artifact_id = ?, phase = ?, updated_at = ? WHERE id = ?")
-        .run(input.id, workflowAgentPhaseForArtifactStatus(input.status ?? current.status), new Date().toISOString(), threadId);
+        .run(artifact.id, workflowAgentPhaseForArtifactStatus(artifact.status), artifact.updatedAt, threadId);
     }
-    return this.getWorkflowArtifact(input.id);
+    return artifact;
   }
 
   startWorkflowRun(input: {
@@ -11613,26 +7804,7 @@ export class ProjectStore {
     retryMetadata?: WorkflowRunRetryMetadata;
   }): WorkflowRunSummary {
     this.getWorkflowArtifact(input.artifactId);
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_runs
-        (id, artifact_id, status, started_at, updated_at, graph_snapshot_id, provider_health_json, retry_metadata_json, recovery_context_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.artifactId,
-        input.status ?? "created",
-        now,
-        now,
-        input.graphSnapshotId ?? null,
-        input.providerHealth ? JSON.stringify(input.providerHealth) : null,
-        input.retryMetadata ? JSON.stringify(input.retryMetadata) : null,
-        input.recoveryContext ? JSON.stringify(input.recoveryContext) : null,
-      );
-    return this.getWorkflowRun(id);
+    return this.workflowRuns().startWorkflowRun(input);
   }
 
   updateWorkflowRun(input: {
@@ -11646,33 +7818,7 @@ export class ProjectStore {
     retryMetadata?: WorkflowRunRetryMetadata;
     recoveryContext?: WorkflowRecoveryContext | null;
   }): WorkflowRunSummary {
-    const current = this.getWorkflowRun(input.id);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `UPDATE workflow_runs
-         SET status = ?, updated_at = ?, completed_at = ?, error = ?, report_path = ?,
-             graph_snapshot_id = CASE WHEN ? THEN ? ELSE graph_snapshot_id END,
-             provider_health_json = COALESCE(?, provider_health_json),
-             retry_metadata_json = COALESCE(?, retry_metadata_json),
-             recovery_context_json = CASE WHEN ? THEN ? ELSE recovery_context_json END
-         WHERE id = ?`,
-      )
-      .run(
-        input.status,
-        now,
-        input.finish || ["succeeded", "failed", "canceled"].includes(input.status) ? now : (current.completedAt ?? null),
-        Object.hasOwn(input, "error") ? (input.error ?? null) : (current.error ?? null),
-        Object.hasOwn(input, "reportPath") ? (input.reportPath ?? null) : (current.reportPath ?? null),
-        Object.hasOwn(input, "graphSnapshotId") ? 1 : 0,
-        input.graphSnapshotId ?? null,
-        input.providerHealth ? JSON.stringify(input.providerHealth) : null,
-        input.retryMetadata ? JSON.stringify(input.retryMetadata) : null,
-        Object.hasOwn(input, "recoveryContext") ? 1 : 0,
-        input.recoveryContext ? JSON.stringify(input.recoveryContext) : null,
-        input.id,
-      );
-    return this.getWorkflowRun(input.id);
+    return this.workflowRuns().updateWorkflowRun(input);
   }
 
   updateWorkflowRunDurability(input: {
@@ -11682,52 +7828,19 @@ export class ProjectStore {
     retryMetadata?: WorkflowRunRetryMetadata;
     recoveryContext?: WorkflowRecoveryContext | null;
   }): WorkflowRunSummary {
-    this.getWorkflowRun(input.id);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `UPDATE workflow_runs
-         SET updated_at = ?,
-             graph_snapshot_id = CASE WHEN ? THEN ? ELSE graph_snapshot_id END,
-             provider_health_json = COALESCE(?, provider_health_json),
-             retry_metadata_json = COALESCE(?, retry_metadata_json),
-             recovery_context_json = CASE WHEN ? THEN ? ELSE recovery_context_json END
-         WHERE id = ?`,
-      )
-      .run(
-        now,
-        Object.hasOwn(input, "graphSnapshotId") ? 1 : 0,
-        input.graphSnapshotId ?? null,
-        input.providerHealth ? JSON.stringify(input.providerHealth) : null,
-        input.retryMetadata ? JSON.stringify(input.retryMetadata) : null,
-        Object.hasOwn(input, "recoveryContext") ? 1 : 0,
-        input.recoveryContext ? JSON.stringify(input.recoveryContext) : null,
-        input.id,
-      );
-    return this.getWorkflowRun(input.id);
+    return this.workflowRuns().updateWorkflowRunDurability(input);
   }
 
   getWorkflowRun(runId: string): WorkflowRunSummary {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_runs WHERE id = ?").get(runId) as WorkflowRunRow | undefined;
-    if (!row) throw new Error(`Workflow run not found: ${runId}`);
-    return this.mapWorkflowRun(row);
+    return this.workflowRuns().getWorkflowRun(runId);
   }
 
   private tryGetWorkflowRun(runId: string): WorkflowRunSummary | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_runs WHERE id = ?").get(runId) as WorkflowRunRow | undefined;
-    return row ? this.mapWorkflowRun(row) : undefined;
+    return this.workflowRuns().tryGetWorkflowRun(runId);
   }
 
   listWorkflowRuns(artifactId?: string, limit = 50): WorkflowRunSummary[] {
-    const boundedLimit = Math.max(1, Math.min(limit, 200));
-    const rows = artifactId
-      ? (this.requireDb()
-          .prepare("SELECT * FROM workflow_runs WHERE artifact_id = ? ORDER BY started_at DESC, rowid DESC LIMIT ?")
-          .all(artifactId, boundedLimit) as WorkflowRunRow[])
-      : (this.requireDb()
-          .prepare("SELECT * FROM workflow_runs ORDER BY started_at DESC, rowid DESC LIMIT ?")
-          .all(boundedLimit) as WorkflowRunRow[]);
-    return rows.map(this.mapWorkflowRun);
+    return this.workflowRuns().listWorkflowRuns(artifactId, limit);
   }
 
   appendWorkflowRunEvent(input: {
@@ -11740,42 +7853,11 @@ export class ProjectStore {
     createdAt?: string;
     data?: Record<string, unknown>;
   }): WorkflowRunEvent {
-    const run = this.getWorkflowRun(input.runId);
-    const id = randomUUID();
-    const now = input.createdAt ?? new Date().toISOString();
-    const seqRow = this.requireDb()
-      .prepare("SELECT COALESCE(MAX(seq), 0) + 1 AS next_seq FROM workflow_run_events WHERE run_id = ?")
-      .get(input.runId) as { next_seq: number };
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_run_events
-        (id, run_id, artifact_id, seq, event_type, created_at, message, graph_node_id, graph_edge_id, item_key, data_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.runId,
-        run.artifactId,
-        seqRow.next_seq,
-        input.type,
-        now,
-        input.message ?? null,
-        input.graphNodeId ?? stringFromRecord(input.data, "graphNodeId") ?? null,
-        input.graphEdgeId ?? stringFromRecord(input.data, "graphEdgeId") ?? null,
-        input.itemKey ?? stringFromRecord(input.data, "itemKey") ?? null,
-        input.data ? JSON.stringify(input.data) : null,
-      );
-    this.requireDb().prepare("UPDATE workflow_runs SET updated_at = ? WHERE id = ?").run(now, input.runId);
-    return this.mapWorkflowRunEvent(
-      this.requireDb().prepare("SELECT * FROM workflow_run_events WHERE id = ?").get(id) as WorkflowRunEventRow,
-    );
+    return this.workflowRuns().appendWorkflowRunEvent(input);
   }
 
   listWorkflowRunEvents(runId: string): WorkflowRunEvent[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM workflow_run_events WHERE run_id = ? ORDER BY seq ASC")
-      .all(runId) as WorkflowRunEventRow[];
-    return rows.map(this.mapWorkflowRunEvent);
+    return this.workflowRuns().listWorkflowRunEvents(runId);
   }
 
   enqueueCallableWorkflowTask(input: {
@@ -11802,74 +7884,23 @@ export class ProjectStore {
     const now = input.createdAt ?? input.executionPlan.createdAt ?? new Date().toISOString();
     const parentMessageId = draft.parentMessageId ?? parentRun.assistantMessageId;
     const patternGraphSnapshot = input.patternGraphSnapshot ?? draft.patternGraphSnapshot;
-    this.requireDb()
-      .prepare(
-        `INSERT INTO callable_workflow_tasks
-         (id, launch_id, parent_thread_id, parent_run_id, parent_message_id, tool_call_id, tool_id, tool_name, source_kind,
-          title, status, status_label, blocking, default_collapsed, progress_visible, token_cost_tracking, pause_resume_cancel,
-          cancel_handle, runner_target, runner_deferred_reason, workflow_artifact_id, workflow_run_id, error_message,
-          pattern_graph_snapshot_json, execution_plan_json, created_at, updated_at, started_at, completed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        draft.id,
-        draft.launchId,
-        draft.parentThreadId,
-        draft.parentRunId,
-        parentMessageId,
-        draft.toolCallId,
-        draft.toolId,
-        draft.toolName,
-        draft.sourceKind,
-        draft.title,
-        draft.status,
-        draft.statusLabel,
-        draft.blocking ? 1 : 0,
-        draft.defaultCollapsed ? 1 : 0,
-        draft.progressVisible ? 1 : 0,
-        draft.tokenCostTracking ? 1 : 0,
-        draft.pauseResumeCancel ? 1 : 0,
-        draft.cancelHandle,
-        draft.runnerTarget,
-        draft.runnerDeferredReason,
-        null,
-        null,
-        null,
-        patternGraphSnapshot ? JSON.stringify(patternGraphSnapshot) : null,
-        JSON.stringify(draft.executionPlan),
-        now,
-        now,
-        null,
-        null,
-      );
-    return this.getCallableWorkflowTask(draft.id);
+    return this.callableWorkflowTasks().createQueuedTask({ draft, parentMessageId, patternGraphSnapshot, now });
   }
 
   getCallableWorkflowTask(id: string): CallableWorkflowTaskSummary {
-    const row = this.requireDb().prepare("SELECT * FROM callable_workflow_tasks WHERE id = ?").get(id) as CallableWorkflowTaskRow | undefined;
-    if (!row) throw new Error(`Callable workflow task not found: ${id}`);
-    return this.mapCallableWorkflowTask(row);
+    return this.callableWorkflowTasks().getCallableWorkflowTask(id);
   }
 
   listCallableWorkflowTasksForParentRun(parentRunId: string): CallableWorkflowTaskSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM callable_workflow_tasks WHERE parent_run_id = ? ORDER BY created_at ASC, id ASC")
-      .all(parentRunId) as CallableWorkflowTaskRow[];
-    return rows.map(this.mapCallableWorkflowTask);
+    return this.callableWorkflowTasks().listCallableWorkflowTasksForParentRun(parentRunId);
   }
 
   listCallableWorkflowTasksForParentThread(parentThreadId: string): CallableWorkflowTaskSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM callable_workflow_tasks WHERE parent_thread_id = ? ORDER BY created_at ASC, id ASC")
-      .all(parentThreadId) as CallableWorkflowTaskRow[];
-    return rows.map(this.mapCallableWorkflowTask);
+    return this.callableWorkflowTasks().listCallableWorkflowTasksForParentThread(parentThreadId);
   }
 
   listCallableWorkflowTasks(): CallableWorkflowTaskSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM callable_workflow_tasks ORDER BY created_at ASC, id ASC")
-      .all() as CallableWorkflowTaskRow[];
-    return rows.map(this.mapCallableWorkflowTask);
+    return this.callableWorkflowTasks().listCallableWorkflowTasks();
   }
 
   bindCallableWorkflowTaskPatternGraphChild(input: CallableWorkflowPatternGraphChildBindingRequest): CallableWorkflowTaskSummary {
@@ -11887,22 +7918,16 @@ export class ProjectStore {
       ...(input.blockingParent !== undefined ? { blockingParent: input.blockingParent } : {}),
       updatedAt: now,
     });
-    this.requireDb()
-      .prepare(
-        `UPDATE callable_workflow_tasks
-         SET pattern_graph_snapshot_json = ?,
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(JSON.stringify(patternGraphSnapshot), now, task.id);
-    return this.getCallableWorkflowTask(task.id);
+    return this.callableWorkflowTasks().bindPatternGraphSnapshot({
+      id: task.id,
+      patternGraphSnapshot,
+      updatedAt: now,
+    });
   }
 
   reconcileCallableWorkflowTaskRestartState(options: { now?: string } = {}): CallableWorkflowTaskRestartReconciliationSummary {
     const now = options.now ?? new Date().toISOString();
-    const workflowRunRows = this.requireDb()
-      .prepare("SELECT * FROM workflow_runs ORDER BY started_at ASC, id ASC")
-      .all() as WorkflowRunRow[];
+    const workflowRuns = this.workflowRuns().listWorkflowRunsForRestart();
     const parentRunRows = this.requireDb()
       .prepare("SELECT id, thread_id AS threadId FROM runs ORDER BY started_at ASC, id ASC")
       .all() as Array<{ id: string; threadId: string }>;
@@ -11911,7 +7936,7 @@ export class ProjectStore {
       threads: this.listThreads(),
       parentRuns: parentRunRows,
       workflowArtifacts: this.listWorkflowArtifacts(),
-      workflowRuns: workflowRunRows.map(this.mapWorkflowRun),
+      workflowRuns,
       createdAt: now,
     });
 
@@ -12368,10 +8393,7 @@ export class ProjectStore {
   }
 
   private tryGetWorkflowArtifact(artifactId: string): WorkflowArtifactSummary | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_artifacts WHERE id = ?").get(artifactId) as
-      | WorkflowArtifactRow
-      | undefined;
-    return row ? this.mapWorkflowArtifact(row) : undefined;
+    return this.workflowArtifacts().tryGetWorkflowArtifact(artifactId);
   }
 
   private tryGetWorkflowGraphSnapshot(snapshotId: string): WorkflowGraphSnapshot | undefined {
@@ -12565,246 +8587,8 @@ export class ProjectStore {
     this.settings().ensureDefaultSettings();
   }
 
-  private ensureDefaultAutomationFolder(): void {
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT OR IGNORE INTO automation_folders (id, name, folder_kind, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(AUTOMATION_HOME_FOLDER_ID, "Home", "home", now, now);
-  }
-
-  private ensureAutomationThreadLinks(): void {
-    this.ensureDefaultAutomationFolder();
-    const now = new Date().toISOString();
-    const insert = this.requireDb().prepare(
-      `INSERT OR IGNORE INTO automation_thread_folders (source_kind, source_id, folder_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-    );
-    for (const task of this.listOrchestrationTasks()) {
-      insert.run("orchestration_task", task.id, AUTOMATION_HOME_FOLDER_ID, now, now);
-    }
-    for (const artifact of this.listWorkflowArtifacts()) {
-      insert.run("workflow_artifact", artifact.id, AUTOMATION_HOME_FOLDER_ID, now, now);
-    }
-  }
-
-  private listAutomationFolderRows(): AutomationFolderRow[] {
-    this.ensureDefaultAutomationFolder();
-    return this.requireDb().prepare("SELECT * FROM automation_folders").all() as AutomationFolderRow[];
-  }
-
-  private requireAutomationFolder(folderId: string): AutomationFolderRow {
-    const row = this.requireDb().prepare("SELECT * FROM automation_folders WHERE id = ?").get(folderId) as
-      | AutomationFolderRow
-      | undefined;
-    if (!row) throw new Error(`Automation folder not found: ${folderId}`);
-    return row;
-  }
-
-  private requireAutomationSource(kind: AutomationThreadKind, id: string): void {
-    if (kind === "orchestration_task") {
-      this.getOrchestrationTask(id);
-      return;
-    }
-    this.getWorkflowArtifact(id);
-  }
-
-  private requireAutomationScheduleTarget(kind: AutomationScheduleTargetKind, id: string, targetVersion?: number): void {
-    if (!id.trim()) throw new Error("Automation schedule target is required.");
-    if (kind === "local_task") {
-      this.getOrchestrationTask(id);
-      return;
-    }
-    if (kind === "workflow_playbook") {
-      this.requireWorkflowRecordingScheduleTarget(id, targetVersion);
-      return;
-    }
-    if (kind === "workflow_artifact") {
-      this.getWorkflowArtifact(id);
-      return;
-    }
-    if (kind === "workflow_thread") {
-      this.requireWorkflowAgentThread(id);
-      return;
-    }
-    if (kind === "workflow_version") {
-      this.getWorkflowVersion(id);
-      return;
-    }
-    this.requireAutomationFolder(id);
-  }
-
-  private requireAutomationScheduleRow(scheduleId: string): AutomationScheduleRow {
-    const row = this.requireDb().prepare("SELECT * FROM automation_schedules WHERE id = ?").get(scheduleId) as AutomationScheduleRow | undefined;
-    if (!row) throw new Error(`Automation schedule not found: ${scheduleId}`);
-    return row;
-  }
-
-  private normalizeAutomationScheduleOccurrenceAt(value: string | null | undefined, label: string): string {
-    const trimmed = value?.trim();
-    if (!trimmed) throw new Error(`${label} is required.`);
-    const date = new Date(trimmed);
-    if (!Number.isFinite(date.getTime())) throw new Error(`${label} must be a valid date/time.`);
-    return date.toISOString();
-  }
-
-  private insertAutomationScheduleException(input: {
-    scheduleId: string;
-    occurrenceAt: string;
-    exceptionKind: AutomationScheduleExceptionKind;
-    status: AutomationScheduleExceptionStatus;
-    replacementRunAt?: string;
-    runLimits?: WorkflowRunLimitOverrides;
-    reason?: string;
-    consumedAt?: string;
-    now: string;
-  }): void {
-    this.requireDb()
-      .prepare(
-        `INSERT INTO automation_schedule_exceptions
-         (id, schedule_id, occurrence_at, exception_kind, status, replacement_run_at, run_limits_json, reason, consumed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        randomUUID(),
-        input.scheduleId,
-        input.occurrenceAt,
-        input.exceptionKind,
-        input.status,
-        input.replacementRunAt ?? null,
-        stringifyWorkflowRunLimitOverrides(input.runLimits),
-        input.reason?.trim() || null,
-        input.consumedAt ?? null,
-        input.now,
-        input.now,
-      );
-  }
-
-  private advanceAutomationScheduleNextRun(
-    schedule: AutomationScheduleRow,
-    occurrenceDate: Date,
-    updatedAt: string,
-    options: { markLastRun: boolean },
-  ): void {
-    const nextRunAt = computeAutomationScheduleNextRunAt({
-      preset: schedule.preset,
-      cronExpression: schedule.cron_expression ?? undefined,
-      enabled: schedule.enabled === 1,
-      now: occurrenceDate,
-    });
-    this.requireDb()
-      .prepare(`UPDATE automation_schedules SET next_run_at = ?, last_run_at = COALESCE(?, last_run_at), updated_at = ? WHERE id = ?`)
-      .run(nextRunAt ?? null, options.markLastRun ? occurrenceDate.toISOString() : null, updatedAt, schedule.id);
-  }
-
-  private automationScheduleTargetVersion(kind: AutomationScheduleTargetKind, id: string, targetVersion?: number): number | null {
-    if (targetVersion !== undefined && kind !== "workflow_playbook") {
-      throw new Error("Pinned schedule target versions are only supported for workflow playbook schedules.");
-    }
-    if (kind !== "workflow_playbook" || targetVersion === undefined) return null;
-    if (!Number.isInteger(targetVersion) || targetVersion < 1) throw new Error("Workflow playbook schedule target version must be a positive integer.");
-    this.requireWorkflowRecordingScheduleTarget(id, targetVersion);
-    return targetVersion;
-  }
-
-  private requireWorkflowRecordingScheduleTarget(id: string, targetVersion?: number): WorkflowRecordingLibraryDescription {
-    const playbook = this.describeWorkflowRecording(id);
-    if (targetVersion !== undefined) workflowRecordingRequireLibraryVersion(id, playbook.versions, targetVersion);
-    return playbook;
-  }
-
   ensureAutomationScheduleDedicatedThread(scheduleId: string): ThreadSummary {
-    const row = this.requireAutomationScheduleRow(scheduleId);
-    if (row.target_kind !== "workflow_playbook") throw new Error("Only workflow playbook schedules have dedicated chat threads.");
-    if (row.dedicated_thread_id) {
-      try {
-        return this.getThread(row.dedicated_thread_id);
-      } catch {
-        // Fall through and create a replacement thread for schedules restored from older state.
-      }
-    }
-    const threadId = this.automationScheduleDedicatedThreadId(row.target_kind, row.target_id, row.target_version ?? undefined);
-    if (!threadId) throw new Error(`Could not create a dedicated thread for schedule ${scheduleId}.`);
-    this.requireDb()
-      .prepare("UPDATE automation_schedules SET dedicated_thread_id = ?, updated_at = ? WHERE id = ?")
-      .run(threadId, new Date().toISOString(), scheduleId);
-    return this.getThread(threadId);
-  }
-
-  private automationScheduleCreationBlockReason(kind: AutomationScheduleTargetKind, id: string, targetVersion?: number): string | undefined {
-    if (kind === "workflow_playbook") {
-      const playbook = this.requireWorkflowRecordingScheduleTarget(id, targetVersion);
-      return playbook.enabled ? undefined : "Workflow playbook is disabled and cannot be scheduled.";
-    }
-    if (kind === "workflow_artifact") {
-      const artifact = this.getWorkflowArtifact(id);
-      return artifact.status === "approved" ? undefined : `Workflow artifact is ${artifact.status} and cannot be scheduled until approved.`;
-    }
-    if (kind === "workflow_thread") {
-      return this.getLatestApprovedWorkflowVersion(id) ? undefined : "Workflow Agent has no approved version to schedule.";
-    }
-    if (kind === "workflow_version") {
-      const version = this.getWorkflowVersion(id);
-      if (version.status !== "approved") return `Pinned workflow version is ${version.status} and cannot be scheduled until approved.`;
-      const artifact = this.getWorkflowArtifact(version.artifactId);
-      return artifact.status === "approved" ? undefined : `Workflow artifact is ${artifact.status} and cannot be scheduled until approved.`;
-    }
-    return undefined;
-  }
-
-  private automationScheduleCreatedTargetVersionId(kind: AutomationScheduleTargetKind, id: string, targetVersion?: number): string | null {
-    if (kind === "workflow_playbook") return String(targetVersion ?? this.describeWorkflowRecording(id).version);
-    if (kind === "workflow_thread") return this.getLatestApprovedWorkflowVersion(id)?.id ?? null;
-    if (kind === "workflow_version") return this.getWorkflowVersion(id).id;
-    return null;
-  }
-
-  private automationScheduleDedicatedThreadId(
-    kind: AutomationScheduleTargetKind,
-    id: string,
-    targetVersion?: number,
-    existingThreadId?: string,
-  ): string | null {
-    if (kind !== "workflow_playbook") return null;
-    if (existingThreadId) {
-      try {
-        this.getThread(existingThreadId);
-        return existingThreadId;
-      } catch {
-        // The schedule is valid, but the old dedicated thread was removed.
-      }
-    }
-    const playbook = this.requireWorkflowRecordingScheduleTarget(id, targetVersion);
-    const suffix = targetVersion ? ` v${targetVersion}` : " (current)";
-    return this.createThread(`Scheduled: ${playbook.title}${suffix}`, this.getWorkspace().path).id;
-  }
-
-  private automationScheduleTargetLabel(kind: AutomationScheduleTargetKind, id: string, targetVersion?: number): string {
-    try {
-      if (kind === "local_task") {
-        const task = this.getOrchestrationTask(id);
-        return `${task.identifier}: ${task.title}`;
-      }
-      if (kind === "workflow_playbook") {
-        const playbook = this.describeWorkflowRecording(id);
-        const versionLabel = targetVersion ? `v${targetVersion} (pinned)` : `current v${playbook.version}`;
-        return `${playbook.title} (${versionLabel})`;
-      }
-      if (kind === "workflow_thread") {
-        return `${this.getWorkflowAgentThreadSummary(id).title} (latest approved)`;
-      }
-      if (kind === "workflow_version") {
-        const version = this.getWorkflowVersion(id);
-        const thread = this.getWorkflowAgentThreadSummary(version.workflowThreadId);
-        return `${thread.title} v${version.version} (pinned)`;
-      }
-      if (kind === "workflow_artifact") return this.getWorkflowArtifact(id).title;
-      return this.requireAutomationFolder(id).name;
-    } catch {
-      return `Missing ${kind} ${id}`;
-    }
+    return this.automations().ensureAutomationScheduleDedicatedThread(scheduleId);
   }
 
   private ensureDefaultThread(): void {
@@ -12973,34 +8757,7 @@ export class ProjectStore {
     startedAt?: string;
     completedAt?: string;
   }): CallableWorkflowTaskSummary {
-    const current = this.getCallableWorkflowTask(input.id);
-    this.requireDb()
-      .prepare(
-        `UPDATE callable_workflow_tasks
-         SET status = ?,
-             status_label = ?,
-             runner_deferred_reason = ?,
-             workflow_artifact_id = ?,
-             workflow_run_id = ?,
-             error_message = ?,
-             updated_at = ?,
-             started_at = ?,
-             completed_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        input.status ?? current.status,
-        input.statusLabel ?? current.statusLabel,
-        input.runnerDeferredReason ?? current.runnerDeferredReason,
-        input.workflowArtifactId ?? current.workflowArtifactId ?? null,
-        input.workflowRunId ?? current.workflowRunId ?? null,
-        input.errorMessage ?? current.errorMessage ?? null,
-        input.updatedAt,
-        input.startedAt ?? current.startedAt ?? null,
-        input.completedAt ?? current.completedAt ?? null,
-        input.id,
-      );
-    return this.getCallableWorkflowTask(input.id);
+    return this.callableWorkflowTasks().updateCallableWorkflowTaskRow(input);
   }
 
   private appendCallableWorkflowTaskStartedEventIfNeeded(
@@ -13142,10 +8899,7 @@ export class ProjectStore {
   }
 
   private findCallableWorkflowTaskByLaunchId(launchId: string): CallableWorkflowTaskSummary | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM callable_workflow_tasks WHERE launch_id = ?")
-      .get(launchId) as CallableWorkflowTaskRow | undefined;
-    return row ? this.mapCallableWorkflowTask(row) : undefined;
+    return this.callableWorkflowTasks().findCallableWorkflowTaskByLaunchId(launchId);
   }
 
   private findSubagentMaturityEvidenceByKey(kind: SubagentMaturityEvidenceKind, evidenceKey: string): SubagentMaturityEvidence | undefined {
@@ -13201,6 +8955,27 @@ export class ProjectStore {
     return new ProjectStoreArtifactDraftRepository(this.requireDb(), this.getWorkspace().path);
   }
 
+  private plannerArtifacts(): ProjectStorePlannerArtifactRepository {
+    return new ProjectStorePlannerArtifactRepository(this.requireDb());
+  }
+
+  private workflowArtifacts(): ProjectStoreWorkflowArtifactRepository {
+    return new ProjectStoreWorkflowArtifactRepository(this.requireDb());
+  }
+
+  private workflowRuns(): ProjectStoreWorkflowRunRepository {
+    return new ProjectStoreWorkflowRunRepository(this.requireDb());
+  }
+
+  private workflowRecordings(): ProjectStoreWorkflowRecordingRepository {
+    return new ProjectStoreWorkflowRecordingRepository(this.requireDb(), {
+      workspacePath: () => this.getWorkspace().path,
+      createThread: (title, workspacePath) => this.createThread(title, workspacePath),
+      getThread: (threadId) => this.getThread(threadId),
+      listMessages: (threadId) => this.listMessages(threadId),
+    });
+  }
+
   private settings(): ProjectStoreSettingsRepository {
     return new ProjectStoreSettingsRepository(this.requireDb());
   }
@@ -13213,138 +8988,163 @@ export class ProjectStore {
     return new ProjectStorePermissionRepository(this.requireDb());
   }
 
-  private mapPlannerPlanArtifact = (row: PlannerPlanArtifactRow): PlannerPlanArtifact => {
-    return mapPlannerPlanArtifactRow(row, this.listPlannerDecisionQuestions(row.id));
-  };
-
-  private listPlannerDecisionQuestions(artifactId: string): PlannerDecisionQuestion[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM planner_decision_questions WHERE artifact_id = ? ORDER BY question_order ASC, rowid ASC")
-      .all(artifactId) as PlannerDecisionQuestionRow[];
-    return rows.map((row, index) => mapPlannerDecisionQuestionRow(row, index));
+  private automations(): ProjectStoreAutomationRepository {
+    return new ProjectStoreAutomationRepository(this.requireDb(), {
+      getWorkspace: () => this.getWorkspace(),
+      listOrchestrationTasks: () => this.listOrchestrationTasks(),
+      listOrchestrationRuns: (limit) => this.listOrchestrationRuns(limit),
+      getOrchestrationTask: (taskId) => this.getOrchestrationTask(taskId),
+      listWorkflowArtifacts: () => this.listWorkflowArtifacts(),
+      getWorkflowArtifact: (artifactId) => this.getWorkflowArtifact(artifactId),
+      listWorkflowRuns: (artifactId, limit) => this.listWorkflowRuns(artifactId, limit),
+      listWorkflowRunEvents: (runId) => this.listWorkflowRunEvents(runId),
+      requireWorkflowRecordingScheduleTarget: (id, targetVersion) => {
+        const playbook = this.describeWorkflowRecording(id);
+        if (targetVersion !== undefined) workflowRecordingRequireLibraryVersion(id, playbook.versions, targetVersion);
+        return playbook;
+      },
+      getLatestApprovedWorkflowVersion: (workflowThreadId) => this.getLatestApprovedWorkflowVersion(workflowThreadId),
+      getWorkflowVersion: (versionId) => this.getWorkflowVersion(versionId),
+      getWorkflowAgentThreadSummary: (threadId) => this.getWorkflowAgentThreadSummary(threadId),
+      createThread: (title, workspacePath) => this.createThread(title, workspacePath),
+      getThread: (threadId) => this.getThread(threadId),
+    });
   }
 
-  private mapProjectBoard = (row: ProjectBoardRow): ProjectBoardSummary => {
-    const events = this.listProjectBoardEvents(row.id);
-    const claims = projectBoardClaimSummaryFromEvents(events);
-    const cards = projectBoardCardsWithClaimSummaries(this.listProjectBoardCards(row.id), claims);
-    return mapProjectBoardRow({
-      row,
-      charter: row.charter_id ? this.getProjectBoardCharter(row.charter_id) : undefined,
-      cards,
-      sources: this.listProjectBoardSources(row.id),
-      questions: this.listProjectBoardQuestions(row.id),
-      proposals: this.listProjectBoardSynthesisProposals(row.id),
-      synthesisRuns: this.listProjectBoardSynthesisRuns(row.id),
-      executionArtifacts: this.listProjectBoardExecutionArtifacts(row.id),
-      events,
-      claims,
+  private callableWorkflowTasks(): ProjectStoreCallableWorkflowTaskRepository {
+    return new ProjectStoreCallableWorkflowTaskRepository(this.requireDb(), {
+      workflowThreadIdForArtifact: (artifactId) => this.tryGetWorkflowArtifact(artifactId)?.workflowThreadId,
+      hydrateRunTelemetry: (task) => this.hydrateCallableWorkflowTaskRunTelemetry(task),
     });
-  };
+  }
+
+  private orchestration(): ProjectStoreOrchestrationRepository {
+    return new ProjectStoreOrchestrationRepository(this.requireDb(), {
+      defaultProjectPath: defaultOrchestrationProjectPath(this.getWorkspace().path),
+      projectBoardTaskHasClosedDoneCard: (taskId) => this.projectBoardTaskHasClosedDoneCard(taskId),
+      projectBoardClaimBlockedTaskIds: () => this.projectBoardClaimBlockedTaskIds(),
+      syncProjectBoardCardsForLinkedTasks: () => this.syncProjectBoardCardsForLinkedTasks(),
+      reviewProjectBoardCardProofForRun: (run) => this.reviewProjectBoardCardProofForRun(run),
+    });
+  }
+
+  private projectBoards(): ProjectStoreProjectBoardReadRepository {
+    return new ProjectStoreProjectBoardReadRepository(this.requireDb(), {
+      getProjectBoardCharter: (charterId) => this.getProjectBoardCharter(charterId),
+      listOrchestrationTasks: () => this.listOrchestrationTasks(),
+    });
+  }
+
+  private projectBoardLifecycle(): ProjectStoreProjectBoardLifecycleRepository {
+    return new ProjectStoreProjectBoardLifecycleRepository(this.requireDb(), {
+      getWorkspace: () => this.getWorkspace(),
+      getActiveProjectBoard: (sourceThreadId) => this.getActiveProjectBoard(sourceThreadId),
+      getProjectBoardForPath: (projectPath, sourceThreadId) => this.getProjectBoardForPath(projectPath, sourceThreadId),
+      mapProjectBoard: (row) => this.mapProjectBoard(row),
+      ensureProjectBoardQuestions: (boardId) => this.ensureProjectBoardQuestions(boardId),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
+  private projectBoardSources(): ProjectStoreProjectBoardSourceRepository {
+    return new ProjectStoreProjectBoardSourceRepository(this.requireDb(), {
+      listProjectBoardSources: (boardId) => this.listProjectBoardSources(boardId),
+      listProjectBoardCards: (boardId) => this.listProjectBoardCards(boardId),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
+  private projectBoardPlanningSnapshots(): ProjectStoreProjectBoardPlanningSnapshotRepository {
+    return new ProjectStoreProjectBoardPlanningSnapshotRepository(this.requireDb(), {
+      getProjectBoard: (boardId) => this.getProjectBoard(boardId),
+    });
+  }
+
+  private projectBoardSynthesisProposals(): ProjectStoreProjectBoardSynthesisProposalRepository {
+    return new ProjectStoreProjectBoardSynthesisProposalRepository(this.requireDb(), {
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
+  private projectBoardSynthesisApply(): ProjectStoreProjectBoardSynthesisApplyRepository {
+    return new ProjectStoreProjectBoardSynthesisApplyRepository(this.requireDb(), {
+      ensureProjectBoardQuestions: (boardId) => this.ensureProjectBoardQuestions(boardId),
+      listProjectBoardEvents: (boardId) => this.listProjectBoardEvents(boardId),
+      listProjectBoardSources: (boardId) => this.listProjectBoardSources(boardId),
+      listProjectBoardQuestions: (boardId) => this.listProjectBoardQuestions(boardId),
+      mapProjectBoard: (row) => this.mapProjectBoard(row),
+      getProjectBoard: (boardId) => this.getProjectBoard(boardId),
+      appendProjectBoardPlanningSnapshotForRun: (runId, kind) => this.appendProjectBoardPlanningSnapshotForRun(runId, kind ?? "manual"),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
+  private projectBoardSynthesisRuns(): ProjectStoreProjectBoardSynthesisRunRepository {
+    return new ProjectStoreProjectBoardSynthesisRunRepository(this.requireDb(), {
+      appendProjectBoardPlanningSnapshotForRun: (runId, kind) => this.appendProjectBoardPlanningSnapshotForRun(runId, kind),
+    });
+  }
+
+  private projectBoardCardMutations(): ProjectStoreProjectBoardCardMutationRepository {
+    return new ProjectStoreProjectBoardCardMutationRepository(this.requireDb(), {
+      listOrchestrationTasks: () => this.listOrchestrationTasks(),
+      getActiveProjectBoard: () => this.getActiveProjectBoard(),
+      getProjectBoard: (boardId) => this.getProjectBoard(boardId),
+      getRunningProjectBoardSynthesisRun: (boardId) => this.getRunningProjectBoardSynthesisRun(boardId),
+      listProjectBoardCards: (boardId) => this.listProjectBoardCards(boardId),
+      latestStableProjectBoardPlanningSnapshot: (boardId) => this.latestStableProjectBoardPlanningSnapshot(boardId),
+      projectBoardRequiresProofSpec: (boardId) => this.projectBoardRequiresProofSpec(boardId),
+      assertProjectBoardCardProofReady: (card) => this.assertProjectBoardCardProofReady(card),
+      assertProjectBoardCardClarificationsResolved: (card) => this.assertProjectBoardCardClarificationsResolved(card),
+      assertProjectBoardCardClaimAllowsLocalTicketization: (card) => this.assertProjectBoardCardClaimAllowsLocalTicketization(card),
+      assertProjectBoardRunFollowUpStillActionable: (card) => this.assertProjectBoardRunFollowUpStillActionable(card),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+      syncProjectBoardTaskBlockers: (boardId) => this.syncProjectBoardTaskBlockers(boardId),
+      syncProjectBoardCardsForLinkedTasks: () => this.syncProjectBoardCardsForLinkedTasks(),
+      createOrchestrationTask: (input) => this.createOrchestrationTask(input),
+      getOrchestrationTask: (taskId) => this.getOrchestrationTask(taskId),
+      getOrchestrationRun: (runId) => this.getOrchestrationRun(runId),
+      mapOrchestrationTask: (row) => this.orchestration().mapOrchestrationTask(row),
+      updateOrchestrationTaskDescription: (taskId, description) => {
+        this.updateOrchestrationTask({ id: taskId, description });
+      },
+      projectBoardCardTaskDescription: (card) => this.projectBoardCardTaskDescription(card),
+      assertProjectBoardUxMockGateOpen: (card, boardCards) => this.assertProjectBoardUxMockGateOpen(card, boardCards),
+    });
+  }
+
+  private mapProjectBoard = (row: ProjectBoardRow): ProjectBoardSummary => this.projectBoards().mapProjectBoard(row);
 
   private listProjectBoardCards(boardId: string): ProjectBoardCard[] {
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_cards
-         WHERE board_id = ? AND status != 'archived'
-         ORDER BY
-           CASE status
-             WHEN 'blocked' THEN 0
-             WHEN 'draft' THEN 1
-             WHEN 'ready' THEN 2
-             WHEN 'in_progress' THEN 3
-             WHEN 'review' THEN 4
-             WHEN 'done' THEN 5
-             ELSE 6
-           END,
-           priority IS NULL,
-           priority ASC,
-           updated_at DESC`,
-      )
-      .all(boardId) as ProjectBoardCardRow[];
-    const tasks = rows.some((row) => row.orchestration_task_id) ? this.listOrchestrationTasks() : [];
-    return rows.map((row) => this.mapProjectBoardCard(row, tasks));
+    return this.projectBoards().listProjectBoardCards(boardId);
   }
 
   private listProjectBoardSources(boardId: string): ProjectBoardSource[] {
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_sources
-         WHERE board_id = ?
-         ORDER BY relevance DESC, updated_at DESC, title ASC`,
-      )
-      .all(boardId) as ProjectBoardSourceRow[];
-    return rows.map(mapProjectBoardSourceRow);
+    return this.projectBoards().listProjectBoardSources(boardId);
   }
 
   private listProjectBoardQuestions(boardId: string): ProjectBoardQuestion[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM project_board_questions WHERE board_id = ? ORDER BY question_order ASC, rowid ASC")
-      .all(boardId) as ProjectBoardQuestionRow[];
-    const sources = rows.some((row) => row.suggestion_context_fingerprint) ? this.listProjectBoardSources(boardId) : undefined;
-    return rows.map((row) => mapProjectBoardQuestionRow(row, sources));
+    return this.projectBoards().listProjectBoardQuestions(boardId);
   }
 
   private listProjectBoardEvents(boardId: string, limit = 80): ProjectBoardEvent[] {
-    const boundedLimit = Math.max(1, Math.min(limit, 200));
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM project_board_events WHERE board_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?")
-      .all(boardId, boundedLimit) as ProjectBoardEventRow[];
-    return rows.map(mapProjectBoardEventRow);
+    return this.projectBoards().listProjectBoardEvents(boardId, limit);
   }
 
   private listProjectBoardSynthesisProposals(boardId: string, limit = 20): ProjectBoardSynthesisProposal[] {
-    const boundedLimit = Math.max(1, Math.min(limit, 50));
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_synthesis_proposals
-         WHERE board_id = ?
-         ORDER BY
-           CASE status
-             WHEN 'pending' THEN 0
-             WHEN 'applied' THEN 1
-             WHEN 'superseded' THEN 2
-             ELSE 3
-           END,
-           created_at DESC,
-           rowid DESC
-         LIMIT ?`,
-      )
-      .all(boardId, boundedLimit) as ProjectBoardSynthesisProposalRow[];
-    return rows.map(this.mapProjectBoardSynthesisProposal);
+    return this.projectBoards().listProjectBoardSynthesisProposals(boardId, limit);
   }
 
   private listProjectBoardSynthesisRuns(boardId: string, limit = 10): ProjectBoardSynthesisRun[] {
-    const boundedLimit = Math.max(1, Math.min(limit, 30));
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_synthesis_runs
-         WHERE board_id = ?
-         ORDER BY started_at DESC, rowid DESC
-         LIMIT ?`,
-      )
-      .all(boardId, boundedLimit) as ProjectBoardSynthesisRunRow[];
-    return rows.map(this.mapProjectBoardSynthesisRun);
+    return this.projectBoards().listProjectBoardSynthesisRuns(boardId, limit);
   }
 
   private listProjectBoardExecutionArtifacts(boardId: string, limit = 40): ProjectBoardExecutionArtifact[] {
-    const boundedLimit = Math.max(1, Math.min(limit, 200));
-    const rows = this.requireDb()
-      .prepare(
-        `SELECT * FROM project_board_execution_artifacts
-         WHERE board_id = ?
-         ORDER BY updated_at DESC, rowid DESC
-         LIMIT ?`,
-      )
-      .all(boardId, boundedLimit) as ProjectBoardExecutionArtifactRow[];
-    return rows.map(mapProjectBoardExecutionArtifactRow);
+    return this.projectBoards().listProjectBoardExecutionArtifacts(boardId, limit);
   }
 
-  private mapProjectBoardSynthesisRun = mapProjectBoardSynthesisRunRow;
-
-  private mapProjectBoardSynthesisProposal = mapProjectBoardSynthesisProposalRow;
-
-  private mapProjectBoardCard = mapProjectBoardCardRow;
+  private mapProjectBoardCard = (row: ProjectBoardCardRow, tasks: OrchestrationTask[] = []): ProjectBoardCard =>
+    this.projectBoards().mapProjectBoardCard(row, tasks);
 
   private syncProjectBoardCardsForLinkedTasks(): void {
     const rows = this.requireDb()
@@ -13409,277 +9209,6 @@ export class ProjectStore {
     const context = this.getProjectBoardProofReviewContextForRun(run.id);
     if (!context) return;
     this.applyProjectBoardCardProofReview({ runId: run.id, review: context.deterministicReview });
-  }
-
-  private materializeProjectBoardPulledHandoffFollowUps(boardId: string, runArtifacts: ProjectBoardRunArtifactProjection[]): string[] {
-    const artifactsWithFollowUps = runArtifacts.filter((artifact) => artifact.handoff?.followUps.length);
-    if (artifactsWithFollowUps.length === 0) return [];
-
-    const parentById = new Map(
-      (this.requireDb()
-        .prepare("SELECT * FROM project_board_cards WHERE board_id = ? AND status != 'archived'")
-        .all(boardId) as ProjectBoardCardRow[]).map((row) => [row.id, row]),
-    );
-    const existing = this.requireDb().prepare("SELECT id FROM project_board_cards WHERE board_id = ? AND source_kind = 'run_follow_up' AND source_id = ?");
-    const insert = this.requireDb().prepare(
-      `INSERT OR IGNORE INTO project_board_cards
-       (id, board_id, title, description, status, candidate_status, priority, phase, labels_json, blocked_by_json,
-        acceptance_criteria_json, test_plan_json, source_kind, source_id, source_thread_id, source_message_id, orchestration_task_id,
-        created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const insertEvent = this.requireDb().prepare(
-      `INSERT OR IGNORE INTO project_board_events
-       (id, board_id, event_kind, title, summary, entity_kind, entity_id, metadata_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const updateBoard = this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?");
-    const insertedIds: string[] = [];
-    let latestCreatedAt: string | undefined;
-
-    for (const runArtifact of artifactsWithFollowUps) {
-      const handoff = runArtifact.handoff;
-      if (!handoff) continue;
-      const runId = runArtifact.manifest?.runId ?? runArtifact.proof?.runId ?? handoff.runId ?? runArtifact.runPathId;
-      const parentCardId = projectBoardExecutionArtifactCardId(runArtifact.manifest, runArtifact.proof, handoff);
-      if (!parentCardId) continue;
-      const parent = parentById.get(parentCardId);
-      if (!parent) continue;
-
-      const parentLabels = parseStringList(parent.labels_json);
-      const labels = [...new Set(["run-follow-up", "pulled-handoff", ...parentLabels])];
-      const runInsertedIds: string[] = [];
-      handoff.followUps.forEach((followUp, index) => {
-        const sourceId = `${runId}#follow-up:${index + 1}`;
-        const existingCard = existing.get(boardId, sourceId) as { id: string } | undefined;
-        if (existingCard) return;
-        const cardId = stableBoardArtifactId("card", [boardId, "run_follow_up", sourceId]);
-        const blockers = [...new Set([parent.id, ...followUp.blockedBy.filter((ref) => ref !== parent.id)])];
-        const reason = followUp.reason.trim();
-        const description = reason
-          ? `Pulled handoff follow-up from ${parent.title}.\n\n${reason}`.slice(0, 4000)
-          : `Pulled handoff follow-up from ${parent.title}.`;
-        const acceptanceCriteria = reason
-          ? [`Resolve follow-up: ${followUp.title}`, `Address handoff reason: ${reason}`]
-          : [`Resolve follow-up: ${followUp.title}`];
-        const testPlan: ProjectBoardCardTestPlan = {
-          unit: [],
-          integration: [],
-          visual: [],
-          manual: ["Review the pulled run handoff, confirm the follow-up scope, and attach proof before closing."],
-        };
-        const createdAt = handoff.createdAt;
-        insert.run(
-          cardId,
-          boardId,
-          followUp.title,
-          description,
-          "draft",
-          "needs_clarification",
-          parent.priority === null ? null : parent.priority + index + 1,
-          parent.phase,
-          JSON.stringify(labels),
-          JSON.stringify(blockers),
-          JSON.stringify(acceptanceCriteria),
-          JSON.stringify(testPlan),
-          "run_follow_up",
-          sourceId,
-          parent.source_thread_id,
-          null,
-          null,
-          createdAt,
-          createdAt,
-        );
-        insertedIds.push(cardId);
-        runInsertedIds.push(cardId);
-        latestCreatedAt = !latestCreatedAt || createdAt.localeCompare(latestCreatedAt) > 0 ? createdAt : latestCreatedAt;
-      });
-
-      if (runInsertedIds.length > 0) {
-        insertEvent.run(
-          stableBoardArtifactId("event", [boardId, "run_follow_up_created", runId]),
-          boardId,
-          "run_follow_up_created",
-          "Pulled handoff follow-ups proposed",
-          `${runInsertedIds.length} pulled handoff follow-up card${runInsertedIds.length === 1 ? "" : "s"} entered the draft inbox.`,
-          "run",
-          runId,
-          JSON.stringify({ runId, parentCardId: parent.id, followUpCardIds: runInsertedIds, source: "pulled_handoff" }),
-          handoff.createdAt,
-        );
-      }
-    }
-
-    if (insertedIds.length > 0) updateBoard.run(latestCreatedAt ?? new Date().toISOString(), boardId);
-    return insertedIds;
-  }
-
-  private createProjectBoardFollowUpCandidatesForRun(
-    run: OrchestrationRun,
-    parentRow?: ProjectBoardCardRow,
-    options: ProjectBoardRunFollowUpInsertOptions = {},
-  ): string[] {
-    const followUps = normalizeRunFollowUps(run.proofOfWork?.followUps);
-    if (followUps.length === 0) return [];
-    const parent =
-      parentRow ??
-      (this.requireDb()
-        .prepare("SELECT * FROM project_board_cards WHERE orchestration_task_id = ? AND status != 'archived' ORDER BY updated_at DESC LIMIT 1")
-        .get(run.taskId) as ProjectBoardCardRow | undefined);
-    if (!parent) return [];
-
-    const now = new Date().toISOString();
-    const insert = this.requireDb().prepare(
-      `INSERT INTO project_board_cards
-       (id, board_id, title, description, status, candidate_status, priority, phase, labels_json, blocked_by_json,
-        acceptance_criteria_json, test_plan_json, clarification_questions_json, clarification_decisions_json, source_kind, source_id, source_thread_id, source_message_id,
-        orchestration_task_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const existing = this.requireDb().prepare("SELECT id FROM project_board_cards WHERE board_id = ? AND source_kind = 'run_follow_up' AND source_id = ?");
-    const updateBoard = this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?");
-    const labels = [...new Set(["run-follow-up", ...(options.labels ?? []), ...parseStringList(parent.labels_json)])];
-    const blockByParent = options.blockByParent !== false;
-    const clarificationQuestions = options.clarificationQuestions?.length
-      ? normalizeProjectBoardClarificationQuestions(options.clarificationQuestions, 8)
-      : [];
-    const clarificationDecisions = normalizeProjectBoardClarificationDecisions(undefined, {
-      clarificationQuestions,
-      createdAt: now,
-      updatedAt: now,
-    });
-    let insertedIds: string[] = [];
-    const transaction = this.requireDb().transaction(() => {
-      insertedIds = [];
-      followUps.forEach((followUp, index) => {
-        const sourceId = `${run.id}#follow-up:${index + 1}`;
-        if (existing.get(parent.board_id, sourceId)) return;
-        const cardId = randomUUID();
-        insert.run(
-          cardId,
-          parent.board_id,
-          followUp.title,
-          followUp.description,
-          "draft",
-          "needs_clarification",
-          parent.priority === null ? null : parent.priority + index + 1,
-          parent.phase,
-          JSON.stringify(labels),
-          JSON.stringify(blockByParent ? [parent.id] : []),
-          JSON.stringify(followUp.acceptanceCriteria),
-          JSON.stringify(followUp.testPlan),
-          JSON.stringify(clarificationQuestions),
-          JSON.stringify(clarificationDecisions),
-          "run_follow_up",
-          sourceId,
-          run.threadId ?? parent.source_thread_id,
-          null,
-          null,
-          now,
-          now,
-        );
-        insertedIds.push(cardId);
-      });
-      if (insertedIds.length > 0) {
-        updateBoard.run(now, parent.board_id);
-        this.appendProjectBoardEvent({
-          boardId: parent.board_id,
-          kind: "run_follow_up_created",
-          title: "Run follow-ups proposed",
-          summary: `${insertedIds.length} follow-up card${insertedIds.length === 1 ? "" : "s"} entered the draft inbox.`,
-          entityKind: "orchestration_run",
-          entityId: run.id,
-          metadata: {
-            runId: run.id,
-            parentCardId: parent.id,
-            followUpCardIds: insertedIds,
-            derivedFromParent: !blockByParent,
-            labels: options.labels ?? [],
-          },
-          createdAt: now,
-        });
-      }
-    });
-    transaction();
-    return insertedIds;
-  }
-
-  private createProjectBoardProofFollowUpForRun(
-    run: OrchestrationRun,
-    parent: ProjectBoardCardRow,
-    review: ProjectBoardProofReviewDraft,
-    options: ProjectBoardRunFollowUpInsertOptions = {},
-  ): string[] {
-    const now = new Date().toISOString();
-    const sourceId = `${run.id}#${options.sourceIdSuffix ?? "proof-review"}`;
-    const existing = this.requireDb()
-      .prepare("SELECT id FROM project_board_cards WHERE board_id = ? AND source_kind = 'run_follow_up' AND source_id = ?")
-      .get(parent.board_id, sourceId) as { id: string } | undefined;
-    if (existing) return [existing.id];
-    const cardId = randomUUID();
-    const labels = [...new Set(["proof-follow-up", ...(options.labels ?? []), ...parseStringList(parent.labels_json)])];
-    const title = options.title ?? `Complete proof for ${parent.title}`.slice(0, 180);
-    const description = options.description ?? review.missing.join("\n").slice(0, 4000);
-    const acceptanceCriteria = options.acceptanceCriteria?.length
-      ? normalizeCardTextList(options.acceptanceCriteria, 30)
-      : review.missing.length ? review.missing : ["Resolve missing proof before closing the parent card."];
-    const clarificationQuestions = options.clarificationQuestions?.length
-      ? normalizeProjectBoardClarificationQuestions(options.clarificationQuestions, 8)
-      : [];
-    const testPlan =
-      options.testPlan ?? { unit: [], integration: [], visual: [], manual: ["Review the parent run proof packet and add the missing evidence."] };
-    this.requireDb()
-      .prepare(
-        `INSERT INTO project_board_cards
-         (id, board_id, title, description, status, candidate_status, priority, phase, labels_json, blocked_by_json,
-          acceptance_criteria_json, test_plan_json, clarification_questions_json, clarification_decisions_json, source_kind, source_id, source_thread_id, source_message_id,
-          orchestration_task_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        cardId,
-        parent.board_id,
-        title,
-        description,
-        "draft",
-        "needs_clarification",
-        parent.priority === null ? null : parent.priority + 1,
-        parent.phase,
-        JSON.stringify(labels),
-        JSON.stringify(options.blockByParent === false ? [] : [parent.id]),
-        JSON.stringify(acceptanceCriteria),
-        JSON.stringify(testPlan),
-        JSON.stringify(clarificationQuestions),
-        JSON.stringify(normalizeProjectBoardClarificationDecisions(undefined, { clarificationQuestions, createdAt: now, updatedAt: now })),
-        "run_follow_up",
-        sourceId,
-        run.threadId ?? parent.source_thread_id,
-        null,
-        null,
-        now,
-        now,
-      );
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, parent.board_id);
-    this.appendProjectBoardEvent({
-      boardId: parent.board_id,
-      kind: "run_follow_up_created",
-      title: "Proof follow-up proposed",
-      summary: "Missing proof created a follow-up card in the draft inbox.",
-      entityKind: "orchestration_run",
-      entityId: run.id,
-      metadata: {
-        runId: run.id,
-        parentCardId: parent.id,
-        followUpCardIds: [cardId],
-        proofReviewStatus: review.status,
-        derivedFromParent: options.blockByParent === false,
-        labels: options.labels ?? [],
-        piSuggestedFollowUp: Boolean(options.labels?.includes("pi-suggested-follow-up")),
-        suggestedTitle: options.title,
-      },
-      createdAt: now,
-    });
-    return [cardId];
   }
 
   private appendProjectBoardEvent(input: ProjectBoardEventInput): void {
@@ -13786,80 +9315,14 @@ export class ProjectStore {
   }
 
   private latestOrchestrationRunForTask(taskId: string): OrchestrationRun | undefined {
-    const row = this.requireDb()
-      .prepare(
-        `SELECT * FROM orchestration_runs
-         WHERE task_id = ?
-         ORDER BY proof_of_work_json IS NULL,
-                  COALESCE(last_event_at, finished_at, started_at) DESC,
-                  attempt_number DESC,
-                  started_at DESC,
-                  id DESC
-         LIMIT 1`,
-      )
-      .get(taskId) as OrchestrationRunRow | undefined;
-    return row ? this.mapOrchestrationRun(row) : undefined;
+    return this.orchestration().latestOrchestrationRunForTask(taskId);
   }
 
   private latestDependencyArtifactRunForTask(taskId: string): OrchestrationRun | undefined {
-    const row = this.requireDb()
-      .prepare(
-        `SELECT * FROM orchestration_runs
-         WHERE task_id = ?
-           AND status = 'completed'
-           AND proof_of_work_json IS NOT NULL
-         ORDER BY COALESCE(finished_at, last_event_at, started_at) DESC,
-                  attempt_number DESC,
-                  started_at DESC,
-                  id DESC
-         LIMIT 1`,
-      )
-      .get(taskId) as OrchestrationRunRow | undefined;
-    return row ? this.mapOrchestrationRun(row) : undefined;
+    return this.orchestration().latestDependencyArtifactRunForTask(taskId);
   }
 
-  private createTaskForProjectBoardCard(card: ProjectBoardCard): OrchestrationTask {
-    const sourceUrl = `project-board-card:${card.id}`;
-    const existing = this.requireDb()
-      .prepare("SELECT * FROM orchestration_tasks WHERE source_kind = 'project_board_card' AND source_url = ? ORDER BY updated_at DESC LIMIT 1")
-      .get(sourceUrl) as OrchestrationTaskRow | undefined;
-    if (existing) return this.mapOrchestrationTask(existing);
-    const description = this.projectBoardCardTaskDescription(card);
-    const boardCards = this.listProjectBoardCards(card.boardId);
-    const blockedBy = resolveProjectBoardTaskBlockers(card, boardCards, this.listOrchestrationTasks());
-    const task = this.createOrchestrationTask({
-      title: card.title,
-      description,
-      state: "ready",
-      priority: card.priority,
-      labels: normalizeTaskLabels(["project-board", ...card.labels]),
-      blockedBy,
-    });
-    this.requireDb()
-      .prepare("UPDATE orchestration_tasks SET source_kind = ?, source_url = ?, updated_at = ? WHERE id = ?")
-      .run("project_board_card", sourceUrl, new Date().toISOString(), task.id);
-    return this.getOrchestrationTask(task.id);
-  }
-
-  private nextOrchestrationAttemptNumber(taskId: string): number {
-    const row = this.requireDb()
-      .prepare("SELECT MAX(attempt_number) AS max_attempt FROM orchestration_runs WHERE task_id = ?")
-      .get(taskId) as { max_attempt: number | null };
-    return (row.max_attempt ?? -1) + 1;
-  }
-
-  private nextLocalTaskIdentifier(): string {
-    const row = this.requireDb()
-      .prepare(
-        "SELECT MAX(CAST(SUBSTR(identifier, 7) AS INTEGER)) AS max_number FROM orchestration_tasks WHERE identifier LIKE 'LOCAL-%'",
-      )
-      .get() as { max_number: number | null };
-    return `LOCAL-${(row.max_number ?? 0) + 1}`;
-  }
-
-  private mapOrchestrationTask = mapOrchestrationTaskRow;
-
-  private mapOrchestrationRun = mapOrchestrationRunRow;
+  private mapOrchestrationRun = (row: OrchestrationRunRow): OrchestrationRun => this.orchestration().mapOrchestrationRun(row);
 
   private workflowAgentThreadFromRow(
     row: WorkflowAgentThreadRow,
@@ -13940,32 +9403,6 @@ export class ProjectStore {
 
   private mapWorkflowDiscoveryQuestion = mapWorkflowDiscoveryQuestionRow;
 
-  private mapAutomationSchedule = (row: AutomationScheduleRow): AutomationScheduleSummary =>
-    mapAutomationScheduleRow(row, this.automationScheduleTargetLabel(row.target_kind, row.target_id, row.target_version ?? undefined));
-
-  private mapAutomationScheduleException = mapAutomationScheduleExceptionRow;
-
-  private mapWorkflowArtifact = mapWorkflowArtifactRow;
-
-  private mapWorkflowRun = (row: WorkflowRunRow): WorkflowRunSummary =>
-    mapWorkflowRunRow(row, { scheduledBy: this.workflowRunScheduleSummary(row.id) });
-
-  private workflowRunScheduleSummary(runId: string): WorkflowRunScheduleSummary | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT event_type, data_json FROM workflow_run_events WHERE run_id = ? AND event_type IN ('workflow.schedule.started', 'workflow.schedule.skipped') ORDER BY seq ASC LIMIT 1")
-      .get(runId) as WorkflowRunScheduleEventRow | undefined;
-    return mapWorkflowRunScheduleSummaryRow(row);
-  }
-
-  private mapWorkflowRunEvent = mapWorkflowRunEventRow;
-
-  private mapCallableWorkflowTask = (row: CallableWorkflowTaskRow): CallableWorkflowTaskSummary => {
-    const task = mapCallableWorkflowTaskRow(row, {
-      workflowThreadId: row.workflow_artifact_id ? this.tryGetWorkflowArtifact(row.workflow_artifact_id)?.workflowThreadId : undefined,
-    });
-    return this.hydrateCallableWorkflowTaskRunTelemetry(task);
-  };
-
   private hydrateCallableWorkflowTaskRunTelemetry(task: CallableWorkflowTaskSummary): CallableWorkflowTaskSummary {
     if (!task.workflowRunId) return task;
     const run = this.tryGetWorkflowRun(task.workflowRunId);
@@ -13986,4 +9423,49 @@ export class ProjectStore {
     const content = interruptedMessageContent(row.content, row.role, runMessage);
     this.replaceMessage(row.id, content, metadata);
   }
+}
+
+const terminalBarrierEvidenceKindsByStatus: Record<
+  Exclude<SubagentWaitBarrierStatus, "waiting_on_children">,
+  Set<string>
+> = {
+  satisfied: new Set(["child_terminal", "explicit_partial"]),
+  failed: new Set(["child_terminal", "child_detached", "explicit_failure", "failed_spawn"]),
+  timed_out: new Set(["child_runtime_timeout"]),
+  cancelled: new Set(["child_cancelled", "parent_stopped"]),
+};
+
+function assertSubagentWaitBarrierTerminalTransition(input: {
+  id: string;
+  status: SubagentWaitBarrierStatus;
+  resolutionArtifact: unknown;
+}): void {
+  if (input.status === "waiting_on_children") return;
+  const artifact = recordFromUnknown(input.resolutionArtifact);
+  if (!artifact) {
+    throw new Error(`Terminal sub-agent wait barrier ${input.id} requires a resolution artifact.`);
+  }
+  const transitionEvidence = recordFromUnknown(artifact.transitionEvidence);
+  if (!transitionEvidence) {
+    throw new Error(`Terminal sub-agent wait barrier ${input.id} requires durable transitionEvidence.`);
+  }
+  if (transitionEvidence.schemaVersion !== SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION) {
+    throw new Error(`Terminal sub-agent wait barrier ${input.id} has invalid transitionEvidence schema.`);
+  }
+  const kind = typeof transitionEvidence.kind === "string" ? transitionEvidence.kind : "";
+  if (kind === "progress_return") {
+    throw new Error(`Terminal sub-agent wait barrier ${input.id} cannot use progress_return as terminal evidence.`);
+  }
+  const allowedKinds = terminalBarrierEvidenceKindsByStatus[input.status];
+  if (!allowedKinds.has(kind)) {
+    throw new Error(
+      `Terminal sub-agent wait barrier ${input.id} status ${input.status} cannot use transition evidence kind ${kind || "(missing)"}.`,
+    );
+  }
+}
+
+function recordFromUnknown(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
 }

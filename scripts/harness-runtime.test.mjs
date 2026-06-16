@@ -15,8 +15,29 @@ describe("harness runtime contracts", () => {
       .toBe("harness_environment_failed");
     expect(classifyHarnessFailure({ phase: "test", stderr: "Ambient/Pi stream stalled after 30000 ms" }))
       .toBe("provider_failed");
+    expect(classifyHarnessFailure({ phase: "test", stdout: "Error: 429 No workers are currently available." }))
+      .toBe("provider_failed");
+    expect(classifyHarnessFailure({ phase: "test", stderr: "model temporarily unavailable" }))
+      .toBe("provider_failed");
     expect(classifyHarnessFailure({ phase: "dogfood", stderr: "Timed out waiting for Electron CDP" }))
       .toBe("harness_failed");
+    expect(classifyHarnessFailure({
+      phase: "test",
+      stdout: "native module ok: better-sqlite3\nnative module ok: node-pty",
+      stderr: "AssertionError: expected child threads to be greater than or equal to 3",
+      exitCode: 1,
+    })).toBe("product_failed");
+    expect(classifyHarnessFailure({
+      phase: "test",
+      stdout: "The scenario workspace is temporary and the file is the requested artifact.",
+      stderr: "AssertionError: expected child sessions to be greater than or equal to 3",
+      exitCode: 1,
+    })).toBe("product_failed");
+    expect(classifyHarnessFailure({
+      phase: "test",
+      stderr: "AssertionError: expected child threads\n ❯ assertScenarioPassed src/main/subagentScenarioDogfood.live.test.ts:560:91",
+      exitCode: 1,
+    })).toBe("product_failed");
     expect(classifyHarnessFailure({ phase: "test", stderr: "expected child run status completed", exitCode: 1 }))
       .toBe("product_failed");
   });

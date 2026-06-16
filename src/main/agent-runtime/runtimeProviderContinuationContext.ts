@@ -61,6 +61,7 @@ export interface RuntimeProviderContinuationContextInput {
   startedToolCallIds: ReadonlySet<string>;
   toolIntents: ReadonlyMap<string, ToolIntentSnapshot>;
   getPermissionMode: () => PermissionMode;
+  getModel: () => string;
   getRetrySourceUserMessageId: () => string | undefined;
   getCurrentAssistantMessageId: () => string;
   getSessionFile: () => string | undefined;
@@ -181,6 +182,7 @@ export function createRuntimeProviderContinuationContext(
   ) => buildProviderInterruptionContinuationInput({
     baseInput: input.baseInput,
     permissionMode: input.getPermissionMode(),
+    model: input.getModel(),
     retrySourceUserMessageId: input.getRetrySourceUserMessageId()!,
     attempt: input.assistantFinalizationRetryNextAttemptFor(
       "provider_interruption_continuation",

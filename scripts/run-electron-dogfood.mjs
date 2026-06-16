@@ -12,6 +12,8 @@ const args = parseArgs(process.argv.slice(2));
 const manifestPath = resolve(args.manifestOut || process.env.AMBIENT_HARNESS_MANIFEST_OUT || "test-results/harness/electron-dogfood-latest.manifest.json");
 const stdoutPath = manifestPath.replace(/\.manifest\.json$/i, ".stdout.txt").replace(/\.json$/i, ".stdout.txt");
 const stderrPath = manifestPath.replace(/\.manifest\.json$/i, ".stderr.txt").replace(/\.json$/i, ".stderr.txt");
+const DEFAULT_DOGFOOD_PROVIDER = "ambient";
+const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
 const startedAt = new Date().toISOString();
 let checkout;
 let exitCode = 1;
@@ -21,6 +23,7 @@ let phase = "preflight";
 let cdpPort;
 let staleProcessPids = [];
 let failure;
+let launchEnv;
 
 try {
   checkout = await verifyHarnessCheckout({ cwd: repoRoot });
@@ -32,12 +35,13 @@ try {
   phase = "launch";
   cdpPort = await getAvailablePort();
   const command = scenarioCommand(args.scenario, args.scenarioArgs);
-  const result = await runCommand(command.executable, command.args, {
+  launchEnv = dogfoodLaunchEnv({
     ...process.env,
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_PORT: String(cdpPort),
     AMBIENT_HARNESS_CDP_PORT: String(cdpPort),
     AMBIENT_HARNESS_HEADFUL: "1",
   });
+  const result = await runCommand(command.executable, command.args, launchEnv);
   stdout = result.stdout;
   stderr = result.stderr;
   exitCode = result.exitCode;
@@ -63,7 +67,7 @@ try {
     exitCode,
     summary: failure ? failure.message : undefined,
     checkout,
-    provider: providerSnapshot(process.env),
+    provider: providerSnapshot(launchEnv ?? dogfoodLaunchEnv(process.env)),
     desktop: {
       headful: true,
       cdpPort,
@@ -180,10 +184,22 @@ async function writeText(path, text) {
 
 function providerSnapshot(env) {
   return {
-    providerId: env.AMBIENT_PROVIDER || "ambient",
+    providerId: env.AMBIENT_PROVIDER || DEFAULT_DOGFOOD_PROVIDER,
     modelId: env.AMBIENT_LIVE_MODEL || env.GMI_CLOUD_MODEL || env.AMBIENT_MODEL,
     usingGmiFailover: env.AMBIENT_PROVIDER === "gmi-cloud",
   };
+}
+
+function dogfoodLaunchEnv(env) {
+  const providerId = env.AMBIENT_PROVIDER || DEFAULT_DOGFOOD_PROVIDER;
+  const modelId = env.AMBIENT_LIVE_MODEL || env.GMI_CLOUD_MODEL || env.AMBIENT_MODEL || DEFAULT_DOGFOOD_MODEL;
+  const next = { ...env, AMBIENT_PROVIDER: providerId };
+  if (providerId === "gmi-cloud") {
+    next.GMI_CLOUD_MODEL = modelId;
+  } else {
+    next.AMBIENT_LIVE_MODEL = modelId;
+  }
+  return next;
 }
 
 function cleanChildEnv(env) {

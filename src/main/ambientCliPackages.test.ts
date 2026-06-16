@@ -831,7 +831,7 @@ describe("Ambient CLI packages", () => {
       await expect(readFile(payload.outputPath)).resolves.toHaveLength(payload.image.bytes);
       await expect(readFile(payload.metadataPath, "utf8")).resolves.toContain("secretValuesIncluded");
 
-      const correctedExtension = await runAmbientCliPackageCommand(workspace, {
+      const reconciled = await runAmbientCliPackageCommand(workspace, {
         packageName: "ambient-imagegen",
         command: "hosted_image_generate",
         args: [
@@ -848,11 +848,23 @@ describe("Ambient CLI packages", () => {
           "--json",
         ],
       });
-      const correctedPayload = JSON.parse(correctedExtension.stdout ?? "{}");
-      expect(correctedPayload.outputPath).toMatch(/requested-jpeg\.png$/);
-      expect(correctedPayload.metadataPath).toMatch(/requested-jpeg\.png\.json$/);
-      expect(correctedPayload.image.mimeType).toBe("image/png");
-      await expect(readFile(correctedPayload.outputPath)).resolves.toHaveLength(correctedPayload.image.bytes);
+      const reconciledPayload = JSON.parse(reconciled.stdout ?? "{}");
+      expect(reconciledPayload).toMatchObject({
+        packageName: "ambient-imagegen",
+        status: "generated",
+        fake: true,
+        image: {
+          mimeType: "image/png",
+        },
+        outputPath: expect.stringMatching(/requested-jpeg\.png$/),
+        metadataPath: expect.stringMatching(/requested-jpeg\.png\.json$/),
+      });
+      const reconciledMetadata = JSON.parse(await readFile(reconciledPayload.metadataPath, "utf8"));
+      expect(reconciledMetadata.request).toMatchObject({
+        format: "jpeg",
+        requestedOutputPath: expect.stringMatching(/requested-jpeg\.jpg$/),
+      });
+      await expect(readFile(reconciledPayload.outputPath)).resolves.toHaveLength(reconciledPayload.image.bytes);
     } finally {
       if (previousFakeGeneration === undefined) {
         delete process.env.AMBIENT_HOSTED_IMAGE_FAKE_GENERATION;

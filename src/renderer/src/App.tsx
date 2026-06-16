@@ -787,6 +787,7 @@ import { useAppShellGlobalEffects } from "./AppShellGlobalEffects";
 import {
   beginAppRightPanelResize,
   beginAppSidebarResize,
+  beginAppWorkflowRecorderReviewResize,
 } from "./AppShellResize";
 import { useAppStatusSubscriptions } from "./AppStatusSubscriptions";
 import { AppWorkspaceRouter } from "./AppWorkspaceRouter";
@@ -828,6 +829,7 @@ import {
   createAppComposerSubmitActions,
   type PendingWorkflowRecordingEditContext,
 } from "./AppComposerSubmitActions";
+import { activeThreadHasRunningLocalDeepResearch } from "./AppLocalDeepResearchRunState";
 import { createAppComposerRetryActions } from "./AppComposerRetryActions";
 import { createAppMessageVoiceActions } from "./AppMessageVoiceActions";
 import { createAppPromptHistoryControls } from "./AppPromptHistoryControls";
@@ -914,6 +916,7 @@ export function App() {
   const [sidebarArea, setSidebarArea] = useState<SidebarArea>("projects");
   const [rightPanel, setRightPanel] = useState<UtilityPanel | undefined>();
   const [rightPanelWidth, setRightPanelWidth] = useState(520);
+  const [workflowRecorderReviewPanelWidth, setWorkflowRecorderReviewPanelWidth] = useState(420);
   const [settingsFocusRequest, setSettingsFocusRequest] = useState<SettingsFocusRequest | undefined>();
   const [searchRoutingHydrating, setSearchRoutingHydrating] = useState(false);
   const [searchRoutingHydrationError, setSearchRoutingHydrationError] = useState<string | undefined>();
@@ -2355,6 +2358,10 @@ export function App() {
     setProjectBoardOpen(false);
   }
   const localDeepResearchReady = localDeepResearchSetup.result?.setupStatus === "ready";
+  const localDeepResearchRunActive = useMemo(
+    () => activeThreadHasRunningLocalDeepResearch(state?.messages),
+    [state?.messages],
+  );
   const localDeepResearchRunBudget = useMemo(
     () => resolveLocalDeepResearchRunBudget(state?.settings.localDeepResearch.runBudget, localDeepResearchBudgetOverride),
     [
@@ -2588,6 +2595,10 @@ export function App() {
 
   function beginRightPanelResize(event: ReactMouseEvent<HTMLDivElement>) {
     beginAppRightPanelResize(event, setRightPanelWidth);
+  }
+
+  function beginWorkflowRecorderReviewResize(event: ReactMouseEvent<HTMLDivElement>) {
+    beginAppWorkflowRecorderReviewResize(event, setWorkflowRecorderReviewPanelWidth);
   }
 
   function openMediaPreviewModal(path: string, mediaKind: "image" | "video") {
@@ -2857,6 +2868,7 @@ export function App() {
     contextAttachments,
     getComposerDraft,
     goalModeArmed,
+    localDeepResearchRunActive,
     localDeepResearchModeArmedRef,
     localDeepResearchRunBudgetRef,
     openAmbientCliSecretDialog,
@@ -3498,6 +3510,8 @@ export function App() {
               automationsProps={automationsWorkspaceProps}
               projectBoardProps={projectBoardWorkspaceProps}
               conversationReviewPanelDocked={conversationReviewPanelDocked}
+              workflowRecorderReviewPanelWidth={workflowRecorderReviewPanelWidth}
+              onBeginWorkflowRecorderReviewResize={beginWorkflowRecorderReviewResize}
               conversationMessagesProps={conversationMessagesProps}
               composerProps={{
                 state: state,
@@ -3527,6 +3541,7 @@ export function App() {
                 sttComposerShortcutLabel: sttComposerShortcutLabel,
                 sttComposerTitle: sttComposerTitle,
                 localDeepResearchReady: localDeepResearchReady,
+                localDeepResearchRunActive: localDeepResearchRunActive,
                 localDeepResearchModeArmed: localDeepResearchModeArmed,
                 localDeepResearchRunBudget: localDeepResearchRunBudget,
                 goalModeArmed: goalModeArmed,

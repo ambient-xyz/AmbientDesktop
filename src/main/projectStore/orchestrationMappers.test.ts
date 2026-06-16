@@ -4,7 +4,7 @@ import {
   mapOrchestrationTaskRow,
   type OrchestrationRunRow,
   type OrchestrationTaskRow,
-} from "./projectStoreOrchestrationMappers";
+} from "./orchestrationMappers";
 
 describe("project store orchestration mappers", () => {
   it("maps orchestration task rows without store state", () => {

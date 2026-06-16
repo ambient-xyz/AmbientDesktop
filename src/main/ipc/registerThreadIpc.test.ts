@@ -103,6 +103,7 @@ type FakeMessage = ChatMessage;
 type FakeRuntime = ThreadGoalRuntime & {
   continueGoalIfIdle: ReturnType<typeof vi.fn<(threadId: string, goalId: string) => void>>;
   applyThreadMemorySettings: ReturnType<typeof vi.fn<(threadId: string) => void>>;
+  applyThreadModelSettings: ReturnType<typeof vi.fn<(threadId: string) => Promise<void>>>;
 };
 
 describe("registerThreadCreateIpc", () => {
@@ -614,15 +615,16 @@ describe("registerThreadUpdateSettingsIpc", () => {
     expect(deps.parseThreadSettingsUpdate).toHaveBeenCalledWith(rawInput);
     expect(deps.requireProjectRuntimeHostForThread).toHaveBeenCalledWith("thread-1");
     expect(host.store.updateThreadSettings).toHaveBeenCalledWith("thread-1", parsedInput);
+    expect(host.runtime.applyThreadModelSettings).toHaveBeenCalledWith("thread-1");
     expect(host.runtime.applyThreadMemorySettings).toHaveBeenCalledWith("thread-1");
   });
 
-  it("rejects invalid thread settings input before calling dependencies", () => {
+  it("rejects invalid thread settings input before calling dependencies", async () => {
     const { deps, host, invoke } = registerUpdateSettingsWithFakes({
       parseError: new Error("Invalid thread settings"),
     });
 
-    expect(() => invoke("thread:update-settings", { threadId: "" })).toThrow("Invalid thread settings");
+    await expect(invoke("thread:update-settings", { threadId: "" })).rejects.toThrow("Invalid thread settings");
     expect(deps.requireProjectRuntimeHostForThread).not.toHaveBeenCalled();
     expect(host.store.updateThreadSettings).not.toHaveBeenCalled();
   });
@@ -1337,6 +1339,7 @@ function createFakeHost(
     runtime: {
       continueGoalIfIdle: vi.fn(),
       applyThreadMemorySettings: vi.fn(),
+      applyThreadModelSettings: vi.fn(async () => undefined),
     },
     activeThreadId: options.activeThreadId ?? "thread-1",
   };

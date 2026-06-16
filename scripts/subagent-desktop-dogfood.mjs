@@ -14,6 +14,8 @@ const seedPath = join(scratchRoot, "seed.json");
 const staleLatestArtifactPath = join(repoRoot, "test-results", "subagent-desktop-dogfood", "latest.json");
 const untrackedRuntimeModelPath = join(scratchRoot, "manual-untracked-model.gguf");
 const untrackedRuntimePort = 44222;
+const DEFAULT_DOGFOOD_PROVIDER = "ambient";
+const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
 
 let exitCode = 0;
 let untrackedRuntimeProcess;
@@ -87,7 +89,7 @@ process.exit(exitCode);
 function buildDogfoodEnv() {
   return cleanChildEnv({
     ...process.env,
-    AMBIENT_PROVIDER: process.env.AMBIENT_PROVIDER || "gmi-cloud",
+    ...dogfoodProviderEnv(process.env),
     AMBIENT_LEGACY_WORKFLOW_COMPILER: process.env.AMBIENT_LEGACY_WORKFLOW_COMPILER || "1",
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD: "1",
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_GIT_COMMIT: gitValue(["rev-parse", "HEAD"]),
@@ -104,6 +106,14 @@ function buildDogfoodEnv() {
     AMBIENT_DESKTOP_WORKSPACE: workspacePath,
     AMBIENT_E2E_USER_DATA: userDataPath,
   });
+}
+
+function dogfoodProviderEnv(env) {
+  const providerId = env.AMBIENT_PROVIDER || DEFAULT_DOGFOOD_PROVIDER;
+  const modelId = env.AMBIENT_LIVE_MODEL || env.GMI_CLOUD_MODEL || env.AMBIENT_MODEL || DEFAULT_DOGFOOD_MODEL;
+  return providerId === "gmi-cloud"
+    ? { AMBIENT_PROVIDER: providerId, GMI_CLOUD_MODEL: modelId }
+    : { AMBIENT_PROVIDER: providerId, AMBIENT_LIVE_MODEL: modelId };
 }
 
 async function seedBraveSearchWorkspaceSecret() {

@@ -192,7 +192,7 @@ describe("subagent test fixtures", () => {
         },
       },
       modelRuntimeSnapshot: {
-        profile: expect.objectContaining({ modelId: "zai-org/GLM-5.1-FP8" }),
+        profile: expect.objectContaining({ modelId: "moonshotai/kimi-k2.7-code" }),
       },
       capacityLeaseSnapshot: {
         schemaVersion: "ambient-subagent-capacity-lease-v1",

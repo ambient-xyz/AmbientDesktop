@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { redactArtifactText } from "./harness-eval.mjs";
 
-const DEFAULT_MODEL = "zai-org/GLM-5.1-FP8";
+const DEFAULT_MODEL = "moonshotai/kimi-k2.7-code";
 const DEFAULT_BASE_URL = "https://api.ambient.xyz/v1";
 const MAX_TEXT_PREVIEW_CHARS = 4000;
 const MAX_CONCERNS = 8;
@@ -674,7 +674,7 @@ function printUsage() {
 Options:
   --run-root <path>       Harness run directory containing results.jsonl.
   --limit <n>             Judge only the first n result rows.
-  --model <model>         Ambient judge model. Defaults to GLM-5.1 FP8.
+  --model <model>         Ambient judge model. Defaults to Kimi K2.7 Code.
   --base-url <url>        Ambient API base URL.
   --output <file>         Output JSON file name under run root.
   --dry-run               Build packets and placeholder judge results without calling Ambient.

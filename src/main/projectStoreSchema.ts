@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { AMBIENT_DEFAULT_MODEL } from "../shared/ambientModels";
 
 export const PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL = `
       PRAGMA journal_mode = WAL;
@@ -26,7 +27,7 @@ export const PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL = `
           last_message_preview TEXT NOT NULL DEFAULT '',
           permission_mode TEXT NOT NULL DEFAULT 'workspace',
           collaboration_mode TEXT NOT NULL DEFAULT 'agent',
-          model TEXT NOT NULL DEFAULT 'zai-org/GLM-5.1-FP8',
+          model TEXT NOT NULL DEFAULT '${AMBIENT_DEFAULT_MODEL}',
           thinking_level TEXT NOT NULL DEFAULT 'xhigh',
           memory_enabled INTEGER NOT NULL DEFAULT 0,
           pi_session_file TEXT,

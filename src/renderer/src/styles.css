@@ -1038,11 +1038,37 @@ button {
 
 .conversation-review-layout.with-review-panel {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) minmax(380px, 460px);
+  grid-template-columns: minmax(420px, 1fr) 10px minmax(360px, var(--workflow-recorder-review-width, 420px));
 }
 
 .conversation-review-layout.with-review-panel .conversation {
   min-height: 0;
+}
+
+.workflow-recorder-review-resize-handle {
+  width: 10px;
+  display: grid;
+  align-items: stretch;
+  justify-items: center;
+  cursor: col-resize;
+  user-select: none;
+}
+
+.workflow-recorder-review-resize-handle span {
+  width: 2px;
+  min-height: 100%;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.workflow-recorder-review-resize-handle:hover span,
+.resizing-workflow-recorder-review .workflow-recorder-review-resize-handle span {
+  background: var(--ambient-cyan);
+}
+
+.resizing-workflow-recorder-review {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .project-board-workspace {
@@ -14931,6 +14957,10 @@ button.inline-media-preview {
     grid-template-columns: 1fr;
   }
 
+  .workflow-recorder-review-resize-handle {
+    display: none;
+  }
+
   .symphony-builder-columns {
     grid-template-columns: 1fr;
   }
@@ -16337,13 +16367,14 @@ button.inline-media-preview {
 }
 
 .web-research-settings-row .provider-catalog-settings-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
 }
 
 .provider-catalog-settings-card {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  container-type: inline-size;
   display: grid;
   gap: 7px;
   border: 1px solid var(--line);
@@ -16539,6 +16570,12 @@ button.inline-media-preview {
 .settings-mini-row.web-research-provider-row .panel-button,
 .settings-mini-row.web-research-provider-row .setting-toggle {
   flex: 0 0 auto;
+}
+
+.settings-mini-row.web-research-provider-row small,
+.web-research-provider-heading strong {
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .web-research-provider-heading {

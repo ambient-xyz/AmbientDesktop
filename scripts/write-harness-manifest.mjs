@@ -17,10 +17,10 @@ export function classifyHarnessFailure(input = {}) {
   const output = `${input.stdout ?? ""}\n${input.stderr ?? ""}\n${input.error ?? ""}`;
   if (input.phase && input.phase !== "test" && input.phase !== "dogfood") return "harness_environment_failed";
   if (input.exitCode === 0 && !input.error) return "passed";
-  if (/(nested worktree|nested node_modules|native module|ABI|wrong architecture|architecture mismatch|better_sqlite3\.node|better-sqlite3|node-pty)/i.test(output)) {
+  if (/(nested worktree|nested node_modules|native module verification failed|ABI mismatch|wrong architecture|architecture mismatch|better_sqlite3\.node|(?:better-sqlite3|node-pty).*(?:failed|missing|wrong architecture|architecture mismatch))/i.test(output)) {
     return "harness_environment_failed";
   }
-  if (/(GMI_CLOUD_API_KEY|GMI_API_KEY|api key|credential|auth denied|401|403|model unavailable|provider outage|stream stalled|did not start streaming|rate limit)/i.test(output)) {
+  if (/(GMI_CLOUD_API_KEY|GMI_API_KEY|api key|credential|auth denied|401|403|model unavailable|provider outage|no workers|upstream|temporar(?:ily|y) unavailable|temporary provider|temporary outage|stream stalled|did not start streaming|rate limit|too many requests|(?:HTTP|status|response|provider)[^\n]{0,80}\b(?:429|5\d\d)\b|\b(?:429|5\d\d)\b[^\n]{0,80}(?:rate limit|too many|no workers|upstream|provider|server error|bad gateway|unavailable))/i.test(output)) {
     return "provider_failed";
   }
   if (/(CDP|screenshot|manifest|artifact freshness|Electron exited before CDP|Timed out waiting for Electron CDP|EADDRINUSE)/i.test(output)) {

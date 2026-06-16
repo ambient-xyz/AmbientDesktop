@@ -522,6 +522,62 @@ describe("tool message UI model", () => {
     });
   });
 
+  it("keeps Local Deep Research argument streaming separate from run status progress", () => {
+    const parsed = parseToolMessage(
+      [
+        "ambient_local_deep_research_run running",
+        "",
+        "Input",
+        JSON.stringify({ question: "Research authorial voice." }, null, 2),
+        "",
+        "Result",
+        "Preparing Local Deep Research run.",
+      ].join("\n"),
+      "ambient_local_deep_research_run",
+      "/workspace",
+      {
+        toolArgumentProgress: {
+          version: 1,
+          phase: "execution",
+          eventType: "toolcall_delta",
+          toolCallId: "call-1",
+          toolName: "ambient_local_deep_research_run",
+          uiStatus: "ambient_local_deep_research_run is executing (354 chars).",
+          argumentStartedAt: "2026-06-16T12:30:00.000Z",
+          argumentUpdatedAt: "2026-06-16T12:33:00.000Z",
+          argumentElapsedMs: 2000,
+          executionStartedAt: "2026-06-16T12:30:00.000Z",
+          executionElapsedMs: 180_000,
+          argumentComplete: true,
+          inputChars: 354,
+          argumentEventCount: 77,
+        },
+        toolResultDetails: {
+          runtime: "ambient-local-deep-research",
+          toolName: "ambient_local_deep_research_run",
+          status: "running",
+          stage: "preparing",
+          elapsedMs: 0,
+          localDeepResearchStatus: {
+            schemaVersion: "ambient-local-deep-research-status-v1",
+            stage: "preparing",
+            state: "running",
+            message: "Preparing Local Deep Research run.",
+            elapsedMs: 0,
+          },
+        },
+      },
+    );
+
+    expect(parsed.progressPreview).toMatchObject({
+      rows: expect.arrayContaining([
+        { key: "elapsed", label: "Elapsed", value: "3m" },
+        { key: "argument-updates", label: "Argument updates", value: "77" },
+      ]),
+    });
+    expect(parsed.progressPreview?.rows).not.toContainEqual({ key: "updates", label: "Updates", value: "77" });
+  });
+
   it("prefers explicit progress metrics over heartbeat result text length", () => {
     const parsed = parseToolMessage(
       [
@@ -849,15 +905,15 @@ describe("tool message UI model", () => {
   });
 
   it("resolves absolute workspace paths in inline code as artifact links", () => {
-    const workspacePath = "/Users/travis/Documents/AmbientDesktopArchive";
+    const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
 
-    expect(resolveInlineArtifactPath("/Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
-    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/AmbientDesktopArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
+    expect(resolveInlineArtifactPath("/Users/travis/Documents/ambientCoderArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
+    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/ambientCoderArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
     expect(resolveInlineArtifactPath("/Users/travis/Downloads/outside-summary.html", undefined, workspacePath)).toBeUndefined();
   });
 
   it("resolves explicit workspace-relative inline code paths as artifact links", () => {
-    const workspacePath = "/Users/travis/Documents/AmbientDesktopArchive";
+    const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
 
     expect(resolveInlineArtifactPath(".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md", undefined, workspacePath)).toBe(
       ".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md",
@@ -941,7 +997,7 @@ describe("tool message UI model", () => {
       {
         toolResultDetails: {
           mediaArtifact: {
-            artifactPath: `Users/Neo/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread/.ambient/hosted-images/google-2026-06-16T05-18-43-439Z.png`,
+            artifactPath: `Users/Neo/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread/.ambient/hosted-images/google-2026-06-16T05-18-43-439Z.png`,
             mediaKind: "image",
             mimeType: "image/jpeg",
             bytes: 2048,
@@ -1042,6 +1098,55 @@ describe("tool message UI model", () => {
 
     expect(parsed.artifactPath).toBe(".ambient/cli-packages/imported/ambient-neutts-0.1.0/neutts-cant-believe.wav");
     expect(artifactMediaKindFromPath(parsed.artifactPath!)).toBe("audio");
+  });
+
+  it("recognizes pretty-printed ambient cli JSON output paths without dropping absolute path roots", () => {
+    const workspacePath = "/path/to/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread-1";
+    const parsed = parseToolMessage(
+      [
+        "ambient_cli completed",
+        "",
+        "Result",
+        "Ambient CLI completed",
+        "Package: ambient-imagegen",
+        "Command: hosted_image_generate",
+        `Cwd: ${workspacePath}`,
+        "Duration: 27744ms",
+        "Stdout:",
+        JSON.stringify({
+          packageName: "ambient-imagegen",
+          status: "generated",
+          outputPath: `${workspacePath}/.ambient/hosted-images/google-4k.jpg`,
+          metadataPath: `${workspacePath}/.ambient/hosted-images/google-4k.jpg.json`,
+          image: { mimeType: "image/jpeg", bytes: 10371871, width: 5632, height: 3072 },
+        }, null, 2),
+      ].join("\n"),
+      "ambient_cli",
+      workspacePath,
+    );
+
+    expect(parsed.artifactPath).toBe(".ambient/hosted-images/google-4k.jpg");
+  });
+
+  it("repairs stored artifact metadata that lost the leading slash from an absolute workspace path", () => {
+    const workspacePath = "/path/to/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread-1";
+    const parsed = parseToolMessage(
+      [
+        "ambient_cli completed",
+        "",
+        "Result",
+        "Ambient CLI completed",
+        "Stdout:",
+        JSON.stringify({ status: "generated" }),
+      ].join("\n"),
+      "ambient_cli",
+      workspacePath,
+      {
+        artifactPath: "Users/Neo/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1/.ambient/hosted-images/google-4k.jpg",
+      },
+    );
+
+    expect(parsed.artifactPath).toBe(".ambient/hosted-images/google-4k.jpg");
   });
 
   it("recognizes ambient cli audioPath JSON stdout without duplicating absolute workspace paths", () => {

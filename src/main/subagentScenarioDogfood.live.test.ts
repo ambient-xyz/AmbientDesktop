@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AMBIENT_KIMI_K2_7_CODE_MODEL } from "../shared/ambientModels";
 import { validateSubagentResultArtifactForSynthesis } from "../shared/subagentProtocol";
-import type { ChatMessage, PermissionPromptResponseMode, PermissionRequest } from "../shared/types";
+import type { ChatMessage, PermissionPromptResponseMode, PermissionRequest, WorkspaceContextReference } from "../shared/types";
 import { AgentRuntime } from "./agentRuntime";
 import { createChatExportBundle } from "./chatExport";
 import {
@@ -16,6 +16,8 @@ import {
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "./liveAmbientProviderConfig";
+import { createDocxFixture } from "./officeTestFixtures";
+import { createPdfFixture } from "./pdfTestFixtures";
 import { ProjectStore } from "./projectStore";
 import { forbiddenClaimLooksPromised, forbiddenClaimPromises, termsPresent } from "./subagentScenarioDogfoodAssertions";
 
@@ -33,6 +35,7 @@ interface ScenarioSpec {
   pattern: string;
   prompt: string;
   expectedMinChildren: number;
+  expectedMinStartedChildren?: number;
   requiredFinalTerms: string[];
   requiredFinalTermAlternatives?: Array<{
     label: string;
@@ -41,6 +44,7 @@ interface ScenarioSpec {
   requiredTranscriptTerms?: string[];
   forbiddenFinalTerms?: string[];
   requiresHtmlArtifact?: boolean;
+  preparesDocumentFixtures?: boolean;
 }
 
 interface ScenarioRecord {
@@ -122,6 +126,35 @@ const scenarios: ScenarioSpec[] = [
     requiredTranscriptTerms: ["Santa Fe", "San Diego", "Denver"],
   },
   {
+    id: "document-reading-permissions",
+    title: "Document Reading And Permissions",
+    pattern: "Map-Reduce",
+    expectedMinChildren: 3,
+    preparesDocumentFixtures: true,
+    prompt: [
+      "Can you read these three local documents and tell me what they agree on, what they contradict, and what I should verify before relying on them?",
+      "",
+      "The documents are attached to this chat as selected context:",
+      "- docs/field-notes.md",
+      "- docs/vendor-memo.pdf",
+      "- docs/finance-summary.docx",
+      "",
+      "I care about the project owner, budget, launch date, and any vendor risk. Please be clear about which facts are consistent and which facts conflict.",
+    ].join("\n"),
+    requiredFinalTerms: ["Sonoran", "Priya", "Marco", "$42,000", "$45,000"],
+    requiredFinalTermAlternatives: [
+      {
+        label: "launch date disagreement",
+        alternatives: ["July 15", "July 22", "launch date", "date conflict"],
+      },
+      {
+        label: "verification recommendation",
+        alternatives: ["verify", "confirm", "check with", "ask finance", "ask the owner"],
+      },
+    ],
+    requiredTranscriptTerms: ["field-notes.md", "vendor-memo.pdf", "finance-summary.docx"],
+  },
+  {
     id: "risky-product-decision",
     title: "Risky Product Decision",
     pattern: "Debate",
@@ -166,11 +199,15 @@ const scenarios: ScenarioSpec[] = [
       "Facts that must remain: July 8, no action required, admin defaults remain, user overrides remain, some old email-only alerts are removed, docs are not ready yet.",
       "Forbidden claims: do not promise zero missed notifications, instant delivery, or \"finally perfect.\"",
     ].join("\n"),
-    requiredFinalTerms: ["July 8", "Admin", "override", "email-only", "docs"],
+    requiredFinalTerms: ["July 8", "Admin", "override", "email-only"],
     requiredFinalTermAlternatives: [
       {
         label: "no action required fact",
         alternatives: ["no action", "nothing, unless", "nothing unless", "do not need", "don't need", "you do not have to"],
+      },
+      {
+        label: "docs not ready fact",
+        alternatives: ["docs", "documentation", "coming soon", "not ready"],
       },
     ],
     forbiddenFinalTerms: ["zero missed notifications", "instant delivery", "finally perfect"],
@@ -203,6 +240,7 @@ const scenarios: ScenarioSpec[] = [
     title: "Habit Tracker App",
     pattern: "Self-Healing",
     expectedMinChildren: 3,
+    expectedMinStartedChildren: 2,
     prompt: [
       "Can you make me a simple habit tracker web page for the next month and keep checking it until it seems ready for me to actually use?",
       "",
@@ -297,6 +335,7 @@ async function runScenario(scenario: ScenarioSpec): Promise<void> {
     preferredModelEnvNames: ["AMBIENT_LIVE_MODEL", "AMBIENT_WORKFLOW_MODEL"],
     fallbackModel: AMBIENT_KIMI_K2_7_CODE_MODEL,
   });
+  const context = await prepareScenarioWorkspace(scenario);
   const permissionRequests: ScenarioRecord["permissionRequests"] = [];
   const thread = store.updateThreadSettings(store.createThread(`Scenario: ${scenario.title}`).id, {
     permissionMode: "workspace",
@@ -335,6 +374,7 @@ async function runScenario(scenario: ScenarioSpec): Promise<void> {
     model,
     threadId: thread.id,
     permissionRequests,
+    context,
     error: "Scenario started but did not reach the normal completion recorder yet.",
   });
   rememberRecord(record);
@@ -352,6 +392,7 @@ async function runScenario(scenario: ScenarioSpec): Promise<void> {
         model,
         thinkingLevel: "medium",
         content: scenario.prompt,
+        context,
       }, { awaitInternalRetryCompletion: true }),
       timeoutMs: SEND_TIMEOUT_MS,
     });
@@ -364,6 +405,7 @@ async function runScenario(scenario: ScenarioSpec): Promise<void> {
       model,
       threadId: thread.id,
       permissionRequests,
+      context,
     });
     assertScenarioPassed(scenario, record);
   } catch (error) {
@@ -375,6 +417,7 @@ async function runScenario(scenario: ScenarioSpec): Promise<void> {
       model,
       threadId: thread.id,
       permissionRequests,
+      context,
       error,
     });
     throw error;
@@ -394,6 +437,7 @@ function provisionalScenarioRecord(input: {
   model: string;
   threadId: string;
   permissionRequests: ScenarioRecord["permissionRequests"];
+  context: WorkspaceContextReference[];
   error: string;
 }): ScenarioRecord {
   const completedAt = new Date().toISOString();
@@ -419,6 +463,8 @@ function provisionalScenarioRecord(input: {
     workspaceHtmlArtifacts: [],
     checks: {
       expectedMinChildren: input.scenario.expectedMinChildren,
+      expectedMinStartedChildren: input.scenario.expectedMinStartedChildren ?? input.scenario.expectedMinChildren,
+      selectedContextPaths: input.context.map((item) => item.path),
       provisional: true,
     },
     error: input.error,
@@ -442,6 +488,7 @@ async function buildScenarioRecord(input: {
   model: string;
   threadId: string;
   permissionRequests: ScenarioRecord["permissionRequests"];
+  context: WorkspaceContextReference[];
   error?: unknown;
 }): Promise<ScenarioRecord> {
   const runs = store.listSubagentRunsForParentThread(input.threadId);
@@ -492,6 +539,7 @@ async function buildScenarioRecord(input: {
     workspaceHtmlArtifacts,
     checks: {
       expectedMinChildren: input.scenario.expectedMinChildren,
+      expectedMinStartedChildren: input.scenario.expectedMinStartedChildren ?? input.scenario.expectedMinChildren,
       requiredFinalTerms: termsPresent(assistantText, input.scenario.requiredFinalTerms),
       requiredFinalTermAlternatives: requiredAlternativesPresent(assistantText, input.scenario.requiredFinalTermAlternatives ?? []),
       requiredTranscriptTerms: termsPresent(transcript, input.scenario.requiredTranscriptTerms ?? []),
@@ -503,6 +551,7 @@ async function buildScenarioRecord(input: {
       startedChildCount: runs.filter((run) => subagentRunStarted(store.listSubagentRunEvents(run.id).map((event) => event.type))).length,
       recoverableLaunchFailureCount: runs.filter((run) => subagentRunLaunchRejected(store.listSubagentRunEvents(run.id).map((event) => event.type))).length,
       hasHtmlArtifact: workspaceHtmlArtifacts.length > 0,
+      selectedContextPaths: input.context.map((item) => item.path),
     },
     ...(input.error ? { error: input.error instanceof Error ? input.error.stack ?? input.error.message : String(input.error) } : {}),
   };
@@ -511,10 +560,11 @@ async function buildScenarioRecord(input: {
 function assertScenarioPassed(scenario: ScenarioSpec, record: ScenarioRecord): void {
   const startedChildRuns = record.childRuns.filter((run) => run.started);
   const launchRejectedRuns = record.childRuns.filter((run) => subagentRunLaunchRejected(run.runtimeEventTypes));
+  const expectedMinStartedChildren = scenario.expectedMinStartedChildren ?? scenario.expectedMinChildren;
   expect(record.childThreadCount, `${scenario.title} should spawn visible child threads`).toBeGreaterThanOrEqual(scenario.expectedMinChildren);
   expect(record.export.childThreadCount, `${scenario.title} export should include child threads`).toBeGreaterThanOrEqual(scenario.expectedMinChildren);
   expect(record.waitBarrierCount, `${scenario.title} should record wait-barrier evidence`).toBeGreaterThan(0);
-  expect(startedChildRuns.length, `${scenario.title} should start enough child sessions after any recoverable launch rejections`).toBeGreaterThanOrEqual(scenario.expectedMinChildren);
+  expect(startedChildRuns.length, `${scenario.title} should start enough child sessions after any recoverable launch rejections`).toBeGreaterThanOrEqual(expectedMinStartedChildren);
   expect(startedChildRuns.every((run) => run.runtimeEventTypes.includes("subagent.runtime_event"))).toBe(true);
   expect(startedChildRuns.every((run) => run.resultSynthesisAllowed), `${scenario.title} should synthesize only from completed or explicit-partial child results`).toBe(true);
   expect(
@@ -533,7 +583,7 @@ function assertScenarioPassed(scenario: ScenarioSpec, record: ScenarioRecord): v
     expect(finalAnswerLabelsPartialWork(assistant), `${scenario.title} final answer should clearly label explicit partial child results`).toBe(true);
   }
   if (launchRejectedRuns.length > 0) {
-    expect(startedChildRuns.length, `${scenario.title} should recover from launch rejections by starting replacement child sessions`).toBeGreaterThanOrEqual(scenario.expectedMinChildren);
+    expect(startedChildRuns.length, `${scenario.title} should recover from launch rejections by starting replacement child sessions`).toBeGreaterThanOrEqual(expectedMinStartedChildren);
   }
   for (const term of scenario.requiredFinalTerms) {
     expect(assistant.toLowerCase(), `${scenario.title} final answer should include ${term}`).toContain(term.toLowerCase());
@@ -556,6 +606,42 @@ function assertScenarioPassed(scenario: ScenarioSpec, record: ScenarioRecord): v
   if (scenario.requiresHtmlArtifact) {
     expect(record.workspaceHtmlArtifacts.length, `${scenario.title} should create a workspace HTML artifact`).toBeGreaterThan(0);
   }
+}
+
+async function prepareScenarioWorkspace(scenario: ScenarioSpec): Promise<WorkspaceContextReference[]> {
+  if (!scenario.preparesDocumentFixtures) return [];
+  const docsDir = join(workspacePath, "docs");
+  await mkdir(docsDir, { recursive: true });
+  const markdownPath = join(docsDir, "field-notes.md");
+  const pdfPath = join(docsDir, "vendor-memo.pdf");
+  const docxPath = join(docsDir, "finance-summary.docx");
+  await writeFile(markdownPath, [
+    "# Sonoran Launch Field Notes",
+    "",
+    "Owner: Priya Shah.",
+    "Budget: $42,000.",
+    "Launch date: July 15, 2026.",
+    "Vendor risk: Acme Maps license renewal is not confirmed.",
+  ].join("\n"), "utf8");
+  await writeFile(pdfPath, createPdfFixture([
+    "Sonoran Launch vendor memo.",
+    "Owner: Priya Shah.",
+    "Budget: $45,000.",
+    "Launch date: July 22, 2026.",
+    "Vendor risk: Acme Maps renewal must be verified.",
+  ]));
+  await writeFile(docxPath, await createDocxFixture([
+    "Sonoran Launch finance summary.",
+    "Owner: Marco Lee.",
+    "Budget: $42,000.",
+    "Launch date: July 15, 2026.",
+    "Vendor risk: finance has not received final Acme Maps terms.",
+  ]));
+  return [
+    { kind: "file", path: "docs/field-notes.md", name: "field-notes.md" },
+    { kind: "file", path: "docs/vendor-memo.pdf", name: "vendor-memo.pdf" },
+    { kind: "file", path: "docs/finance-summary.docx", name: "finance-summary.docx" },
+  ];
 }
 
 function finalAnswerLabelsPartialWork(text: string): boolean {

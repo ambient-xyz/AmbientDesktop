@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AMBIENT_DEFAULT_MODEL,
+  AMBIENT_GLM_5_1_FP8_MODEL,
   AMBIENT_KIMI_K2_7_CODE_MODEL,
   AMBIENT_LOCAL_TEXT_MODEL,
   AMBIENT_MODEL_OPTIONS,
@@ -20,16 +21,16 @@ describe("ambient model options", () => {
     expect(AMBIENT_MODEL_OPTIONS).toEqual([
       expect.objectContaining({
         id: AMBIENT_DEFAULT_MODEL,
-        label: "GLM-5.1 FP8",
+        label: "Kimi K2.7 Code",
         profileId: `ambient:${AMBIENT_DEFAULT_MODEL}`,
         providerId: "ambient",
         locality: "cloud",
         privacyLabel: "Ambient managed cloud model",
       }),
       expect.objectContaining({
-        id: AMBIENT_KIMI_K2_7_CODE_MODEL,
-        label: "Kimi K2.7 Code",
-        profileId: `ambient:${AMBIENT_KIMI_K2_7_CODE_MODEL}`,
+        id: AMBIENT_GLM_5_1_FP8_MODEL,
+        label: "GLM-5.1 FP8",
+        profileId: `ambient:${AMBIENT_GLM_5_1_FP8_MODEL}`,
         providerId: "ambient",
         locality: "cloud",
         privacyLabel: "Ambient managed cloud model",
@@ -111,6 +112,7 @@ describe("ambient model options", () => {
   });
 
   it("registers live-qualified Ambient alternatives as sub-agent schema-capable profiles", () => {
+    expect(AMBIENT_DEFAULT_MODEL).toBe(AMBIENT_KIMI_K2_7_CODE_MODEL);
     expect(resolveAmbientModelRuntimeProfile(AMBIENT_KIMI_K2_7_CODE_MODEL)).toMatchObject({
       providerId: "ambient",
       modelId: AMBIENT_KIMI_K2_7_CODE_MODEL,
@@ -140,10 +142,10 @@ describe("ambient model options", () => {
 
   it("normalizes removed model ids while preserving unknown model ids", () => {
     expect(normalizeAmbientModelId()).toBe(AMBIENT_DEFAULT_MODEL);
-    expect(normalizeAmbientModelId("glm-5.1")).toBe(AMBIENT_DEFAULT_MODEL);
-    expect(normalizeAmbientModelId("glm-5")).toBe(AMBIENT_DEFAULT_MODEL);
-    expect(normalizeAmbientModelId("ambient/large")).toBe(AMBIENT_DEFAULT_MODEL);
-    expect(normalizeAmbientModelId("zai-org/GLM-5-FP8")).toBe(AMBIENT_DEFAULT_MODEL);
+    expect(normalizeAmbientModelId("glm-5.1")).toBe(AMBIENT_GLM_5_1_FP8_MODEL);
+    expect(normalizeAmbientModelId("glm-5")).toBe(AMBIENT_GLM_5_1_FP8_MODEL);
+    expect(normalizeAmbientModelId("ambient/large")).toBe(AMBIENT_GLM_5_1_FP8_MODEL);
+    expect(normalizeAmbientModelId("zai-org/GLM-5-FP8")).toBe(AMBIENT_GLM_5_1_FP8_MODEL);
     expect(normalizeAmbientModelId("custom/model")).toBe("custom/model");
   });
 

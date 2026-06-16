@@ -91,6 +91,18 @@ describe("ProjectStoreThreadRepository", () => {
     expect(repository.listThreadsForStateInspection().map((thread) => thread.id)).toEqual(expect.arrayContaining([first.id, second.id]));
   });
 
+  it("clears persisted Pi session files when the thread model changes", () => {
+    const thread = repository.createThread("Model switch", "/workspace", { model: "zai-org/GLM-5.1-FP8" }, defaults);
+    const sessionBacked = repository.updateThreadSettings(thread.id, { piSessionFile: "/tmp/glm-session.jsonl" });
+
+    expect(sessionBacked.piSessionFile).toBe("/tmp/glm-session.jsonl");
+
+    const modelChanged = repository.updateThreadSettings(thread.id, { model: "moonshotai/kimi-k2.7-code" });
+
+    expect(modelChanged.model).toBe("moonshotai/kimi-k2.7-code");
+    expect(modelChanged.piSessionFile).toBeUndefined();
+  });
+
   it("validates active-thread settings and reusable empty thread discovery", () => {
     const thread = repository.createThread("New chat", "/workspace", {}, defaults);
 

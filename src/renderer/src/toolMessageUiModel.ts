@@ -694,8 +694,14 @@ function localDeepResearchProgressPreview(
   const stage = textField(status, ["stage"]) ?? details?.stage;
   const state = textField(status, ["state"]) ?? details?.status;
   const message = textField(status, ["activityMessage", "message"]) ?? details?.activityMessage ?? details?.statusMessage;
-  const elapsedMs = numberField(status, ["elapsedMs"]) ?? details?.elapsedMs ?? argumentProgress?.executionElapsedMs ?? argumentProgress?.argumentElapsedMs;
+  const elapsedMs = maxFiniteNumber(
+    numberField(status, ["elapsedMs"]),
+    details?.elapsedMs,
+    argumentProgress?.executionElapsedMs,
+    argumentProgress?.argumentElapsedMs,
+  );
   const heartbeatCount = numberField(status, ["heartbeatCount"]) ?? details?.heartbeatCount;
+  const argumentUpdateCount = argumentProgress?.argumentEventCount;
   const turn = recordValue(status?.turn);
   const retrieval = recordValue(status?.retrieval);
   const memory = recordValue(status?.memory);
@@ -727,7 +733,8 @@ function localDeepResearchProgressPreview(
   addProgressRow(rows, "swap", "Swap used", formatBytes(numberField(memory, ["swapUsedBytes"])));
   addProgressRow(rows, "compressed", "Compressed", formatBytes(numberField(memory, ["compressedMemoryBytes"])));
   addProgressRow(rows, "elapsed", "Elapsed", formatProgressDuration(elapsedMs));
-  addProgressRow(rows, "updates", "Updates", heartbeatCount !== undefined ? heartbeatCount.toLocaleString() : argumentProgress?.argumentEventCount?.toLocaleString());
+  addProgressRow(rows, "updates", "Updates", heartbeatCount !== undefined ? heartbeatCount.toLocaleString() : undefined);
+  addProgressRow(rows, "argument-updates", "Argument updates", heartbeatCount === undefined && argumentUpdateCount !== undefined ? argumentUpdateCount.toLocaleString() : undefined);
   addProgressRow(rows, "artifacts", "Artifacts", localDeepResearchArtifactValue(artifacts));
   addProgressRow(rows, "error", "Error", error);
   if (!rows.length) return undefined;
@@ -833,6 +840,11 @@ function localDeepResearchArtifactValue(artifacts: Record<string, unknown> | und
 function addProgressRow(rows: ToolProgressPreviewRow[], key: string, label: string, value: string | undefined): void {
   if (!value) return;
   rows.push({ key, label, value });
+}
+
+function maxFiniteNumber(...values: Array<number | undefined>): number | undefined {
+  const finite = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  return finite.length ? Math.max(...finite) : undefined;
 }
 
 function progressCharsLabel(value: number | undefined): string | undefined {
@@ -2443,7 +2455,7 @@ function extractAmbientCliMediaArtifactPath(result: string): string | undefined 
     if (match?.[1]) return resolveAmbientCliResultPath(match[1], result);
   }
 
-  const mediaPath = new RegExp(`\\b(${MEDIA_ARTIFACT_PATH_PATTERN})\\b`, "gi");
+  const mediaPath = new RegExp(`(${MEDIA_ARTIFACT_PATH_PATTERN})`, "gi");
   const matches = [...result.matchAll(mediaPath)]
     .map((match) => cleanArtifactPath(match[1]))
     .filter((path): path is string => Boolean(path));
@@ -2452,22 +2464,79 @@ function extractAmbientCliMediaArtifactPath(result: string): string | undefined 
 }
 
 function extractAmbientCliJsonMediaArtifactPath(result: string): string | undefined {
-  const pathKeys = ["artifactPath", "artifact_path", "audioPath", "audio_path", "output", "outputFile", "output_file", "path"];
-  for (const line of result.split(/\r?\n/).reverse()) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) continue;
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
-      for (const key of pathKeys) {
-        const value = (parsed as Record<string, unknown>)[key];
-        if (typeof value === "string" && artifactMediaKindFromPath(value)) return value;
-      }
-    } catch {
-      continue;
-    }
+  for (const parsed of jsonObjectsFromText(result).reverse()) {
+    const path = mediaPathField(parsed);
+    if (path) return path;
   }
   return undefined;
+}
+
+function mediaPathField(record: Record<string, unknown>): string | undefined {
+  const pathKeys = [
+    "artifactPath",
+    "artifact_path",
+    "outputPath",
+    "output_path",
+    "audioPath",
+    "audio_path",
+    "imagePath",
+    "image_path",
+    "videoPath",
+    "video_path",
+    "output",
+    "outputFile",
+    "output_file",
+    "path",
+  ];
+  for (const key of pathKeys) {
+    const value = record[key];
+    if (typeof value === "string" && artifactMediaKindFromPath(value)) return value;
+  }
+  return undefined;
+}
+
+function jsonObjectsFromText(text: string): Array<Record<string, unknown>> {
+  const objects: Array<Record<string, unknown>> = [];
+  for (let start = 0; start < text.length; start += 1) {
+    if (text[start] !== "{") continue;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < text.length; index += 1) {
+      const char = text[index];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === "\\") {
+          escaped = true;
+        } else if (char === "\"") {
+          inString = false;
+        }
+        continue;
+      }
+      if (char === "\"") {
+        inString = true;
+        continue;
+      }
+      if (char === "{") depth += 1;
+      if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            const parsed = JSON.parse(text.slice(start, index + 1)) as unknown;
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+              objects.push(parsed as Record<string, unknown>);
+            }
+          } catch {
+            // Tool output can contain prose and logs around JSON payloads.
+          }
+          start = index;
+          break;
+        }
+      }
+    }
+  }
+  return objects;
 }
 
 function resolveAmbientCliResultPath(path: string, result: string): string | undefined {

@@ -158,6 +158,23 @@ describe("App composer submit actions", () => {
     expect(controller.localDeepResearchModeArmedRef.current).toBe(false);
   });
 
+  it("blocks chat submission while Local Deep Research is running in the thread", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { sendMessage } });
+    const controller = createController({
+      draft: "Can you add a note?",
+      localDeepResearchRunActive: true,
+      running: true,
+    });
+
+    await controller.actions.submitComposerDraft("prompt");
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(controller.contextError.value).toBe("Local Deep Research is running in this thread. Stop it or wait for it to finish before sending another message.");
+    expect(controller.draft.value).toBe("Can you add a note?");
+    expect(controller.appendRunActivityLine).not.toHaveBeenCalled();
+  });
+
   it("restores draft, context, STT metadata, and workflow edit context after send failure", async () => {
     vi.stubGlobal("window", {
       ambientDesktop: {
@@ -214,6 +231,7 @@ function createController({
   draft = "Hello",
   goalModeArmed = false,
   localDeepResearchModeArmed = false,
+  localDeepResearchRunActive = false,
   localDeepResearchRunBudget = resolveLocalDeepResearchRunBudget(undefined),
   pendingWorkflowRecordingEditContext = undefined,
   running = false,
@@ -226,6 +244,7 @@ function createController({
   draft?: string;
   goalModeArmed?: boolean;
   localDeepResearchModeArmed?: boolean;
+  localDeepResearchRunActive?: boolean;
   localDeepResearchRunBudget?: LocalDeepResearchRunBudget;
   pendingWorkflowRecordingEditContext?: PendingWorkflowRecordingEditContext;
   running?: boolean;
@@ -261,6 +280,7 @@ function createController({
       contextAttachments,
       getComposerDraft: () => draftState.value,
       goalModeArmed,
+      localDeepResearchRunActive,
       localDeepResearchModeArmedRef,
       localDeepResearchRunBudgetRef,
       openAmbientCliSecretDialog,

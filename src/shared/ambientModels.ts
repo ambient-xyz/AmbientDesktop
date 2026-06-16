@@ -1,5 +1,6 @@
-export const AMBIENT_DEFAULT_MODEL = "zai-org/GLM-5.1-FP8";
 export const AMBIENT_KIMI_K2_7_CODE_MODEL = "moonshotai/kimi-k2.7-code";
+export const AMBIENT_GLM_5_1_FP8_MODEL = "zai-org/GLM-5.1-FP8";
+export const AMBIENT_DEFAULT_MODEL = AMBIENT_KIMI_K2_7_CODE_MODEL;
 
 export const AMBIENT_PROVIDER_AMBIENT = "ambient" as const;
 export const AMBIENT_PROVIDER_GMI_CLOUD = "gmi-cloud" as const;
@@ -98,10 +99,10 @@ export interface AmbientModelRuntimeCatalog {
 }
 
 export const AMBIENT_LEGACY_MODEL_IDS = [
-  ["glm-5.1", AMBIENT_DEFAULT_MODEL],
-  ["glm-5", AMBIENT_DEFAULT_MODEL],
-  ["ambient/large", AMBIENT_DEFAULT_MODEL],
-  ["zai-org/GLM-5-FP8", AMBIENT_DEFAULT_MODEL],
+  ["glm-5.1", AMBIENT_GLM_5_1_FP8_MODEL],
+  ["glm-5", AMBIENT_GLM_5_1_FP8_MODEL],
+  ["ambient/large", AMBIENT_GLM_5_1_FP8_MODEL],
+  ["zai-org/GLM-5-FP8", AMBIENT_GLM_5_1_FP8_MODEL],
 ] as const;
 
 const legacyModelMap = new Map<string, string>(AMBIENT_LEGACY_MODEL_IDS);
@@ -142,29 +143,6 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
     profileId: `${AMBIENT_PROVIDER_AMBIENT}:${AMBIENT_DEFAULT_MODEL}`,
     providerId: AMBIENT_PROVIDER_AMBIENT,
     modelId: AMBIENT_DEFAULT_MODEL,
-    label: "GLM-5.1 FP8",
-    selectableAsMain: true,
-    selectableAsSubagent: true,
-    available: true,
-    contextWindowTokens: 200_000,
-    maxOutputTokens: 32_000,
-    supportsStreaming: true,
-    toolUse: "ambient-tools",
-    structuredOutput: "schema",
-    supportsVision: false,
-    supportsAudio: false,
-    locality: "cloud",
-    costClass: "included",
-    trustClass: "ambient-managed",
-    privacyLabel: "Ambient managed cloud model",
-    memoryClass: "remote",
-    providerQuirks: ["Uses Ambient/Pi streaming and timeout semantics."],
-  },
-  {
-    schemaVersion: "ambient-model-runtime-profile-v1",
-    profileId: `${AMBIENT_PROVIDER_AMBIENT}:${AMBIENT_KIMI_K2_7_CODE_MODEL}`,
-    providerId: AMBIENT_PROVIDER_AMBIENT,
-    modelId: AMBIENT_KIMI_K2_7_CODE_MODEL,
     label: "Kimi K2.7 Code",
     selectableAsMain: true,
     selectableAsSubagent: true,
@@ -186,6 +164,29 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
       "OpenRouter Ambient metadata reports max_completion_tokens=262144 and structured output/tool parameters.",
       "Supports image input through the Ambient/Pi OpenAI-compatible image_url content path.",
     ],
+  },
+  {
+    schemaVersion: "ambient-model-runtime-profile-v1",
+    profileId: `${AMBIENT_PROVIDER_AMBIENT}:${AMBIENT_GLM_5_1_FP8_MODEL}`,
+    providerId: AMBIENT_PROVIDER_AMBIENT,
+    modelId: AMBIENT_GLM_5_1_FP8_MODEL,
+    label: "GLM-5.1 FP8",
+    selectableAsMain: true,
+    selectableAsSubagent: true,
+    available: true,
+    contextWindowTokens: 200_000,
+    maxOutputTokens: 32_000,
+    supportsStreaming: true,
+    toolUse: "ambient-tools",
+    structuredOutput: "schema",
+    supportsVision: false,
+    supportsAudio: false,
+    locality: "cloud",
+    costClass: "included",
+    trustClass: "ambient-managed",
+    privacyLabel: "Ambient managed cloud model",
+    memoryClass: "remote",
+    providerQuirks: ["Uses Ambient/Pi streaming and timeout semantics."],
   },
   {
     schemaVersion: "ambient-model-runtime-profile-v1",

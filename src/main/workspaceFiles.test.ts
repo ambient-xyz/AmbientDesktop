@@ -165,6 +165,31 @@ describe("readWorkspaceFile", () => {
     }
   });
 
+  it("streams large images and uses detected MIME when image bytes do not match the extension", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-large-image-files-"));
+    try {
+      const largeJpeg = Buffer.alloc(8_000_001, 0xff);
+      largeJpeg[0] = 0xff;
+      largeJpeg[1] = 0xd8;
+      largeJpeg[2] = 0xff;
+      await writeFile(join(workspace, "google-4k.png"), largeJpeg);
+
+      const file = await readWorkspaceFile(workspace, "google-4k.png", {
+        createMediaUrl: (input) => `ambient-media://workspace/test-token/${input.relativePath}:${input.mimeType}`,
+      });
+
+      expect(file).toMatchObject({
+        kind: "image",
+        mimeType: "image/jpeg",
+        mediaUrl: "ambient-media://workspace/test-token/google-4k.png:image/jpeg",
+        truncated: true,
+      });
+      expect(file.dataUrl).toBeUndefined();
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("rejects file previews when a workspace symlink resolves outside the workspace", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-files-"));
     const outside = await mkdtemp(join(tmpdir(), "ambient-files-outside-"));

@@ -237,6 +237,7 @@ export function buildProviderInterruptionContinuationInput(input: {
   completedToolMessageCount: number;
   hadVisibleAssistantOutput: boolean;
   continuationState: ProviderContinuationState;
+  model?: string | undefined;
 }): ProviderInterruptionContinuationSendInput {
   const content = buildProviderInterruptionContinuationPrompt({
     message: input.message,
@@ -250,6 +251,7 @@ export function buildProviderInterruptionContinuationInput(input: {
     ...input.baseInput,
     internal: true,
     permissionMode: input.permissionMode,
+    ...(input.model ? { model: input.model } : {}),
     retryOfMessageId: input.retrySourceUserMessageId,
     delivery: "prompt",
     preserveActiveThread: true,

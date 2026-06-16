@@ -83,6 +83,7 @@ export function createAppComposerSubmitActions({
   contextAttachments,
   getComposerDraft,
   goalModeArmed,
+  localDeepResearchRunActive,
   localDeepResearchModeArmedRef,
   localDeepResearchRunBudgetRef,
   openAmbientCliSecretDialog,
@@ -113,6 +114,7 @@ export function createAppComposerSubmitActions({
   contextAttachments: WorkspaceContextReference[];
   getComposerDraft: () => string;
   goalModeArmed: boolean;
+  localDeepResearchRunActive: boolean;
   localDeepResearchModeArmedRef: MutableRefObject<boolean>;
   localDeepResearchRunBudgetRef: MutableRefObject<LocalDeepResearchRunBudget>;
   openAmbientCliSecretDialog: (input: { packageName?: string; envName?: string }) => void;
@@ -167,6 +169,11 @@ export function createAppComposerSubmitActions({
         setContextError("Enter a research question to use Local Deep Research.");
         setComposerDraft(draft, { focusEnd: true });
       }
+      return;
+    }
+    if (localDeepResearchRunActive) {
+      setContextError("Local Deep Research is running in this thread. Stop it or wait for it to finish before sending another message.");
+      setComposerDraft(draft, { focusEnd: true });
       return;
     }
     const secretCommand = parseSecretSlashCommand(draft);

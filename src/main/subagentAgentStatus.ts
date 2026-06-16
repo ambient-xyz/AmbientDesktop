@@ -82,6 +82,7 @@ export function buildSubagentListAgentsText(runs: readonly SubagentRunSummary[])
 
 export function buildSubagentStatusText(input: {
   run: SubagentRunSummary;
+  waitChildRuns?: readonly SubagentRunSummary[];
   events: readonly SubagentRunEventSummary[];
   mailboxEvents: readonly SubagentMailboxEventSummary[];
   notice?: string;
@@ -95,6 +96,7 @@ export function buildSubagentStatusText(input: {
     blockingState: string;
     lastActivityAt: string;
     lastActivitySource: string;
+    lastActivityDetail?: string;
     reason?: string;
   }[];
   turnBudgetState?: Pick<SubagentTurnBudgetState, "state" | "observedTurnCount" | "remainingTurns" | "shouldSteerWrapUp" | "exhausted" | "instruction">;
@@ -108,6 +110,7 @@ export function buildSubagentStatusText(input: {
     ...(input.parentResolution && !input.parentResolution.canSynthesize
       ? blockedSubagentResultPreviewLines(input.run)
       : subagentResultPreviewLines(input.run)),
+    ...waitChildResultLines(input),
     `events: ${input.events.length}`,
     `mailboxEvents: ${input.mailboxEvents.length}`,
     input.turnBudgetState ? `turnBudget: ${input.turnBudgetState.state} observed=${input.turnBudgetState.observedTurnCount} remaining=${input.turnBudgetState.remainingTurns}` : undefined,
@@ -123,6 +126,31 @@ export function buildSubagentStatusText(input: {
   ].filter(Boolean).join("\n");
 }
 
+function waitChildResultLines(input: {
+  run: SubagentRunSummary;
+  waitChildRuns?: readonly SubagentRunSummary[];
+  parentResolution?: Pick<SubagentParentPolicyResolution, "canSynthesize">;
+}): string[] {
+  const runs = uniqueRuns(input.waitChildRuns ?? []);
+  if (runs.length <= 1) return [];
+  return [
+    `waitChildResults: ${runs.length}`,
+    ...runs.flatMap((run, index) => [
+      `waitChildResult ${index + 1}: ${run.canonicalTaskPath} childRunId=${run.id} childThreadId=${run.childThreadId} status=${run.status}`,
+      ...(input.parentResolution && !input.parentResolution.canSynthesize
+        ? blockedSubagentResultPreviewLines(run)
+        : subagentResultPreviewLines(run)
+      ).map((line) => `waitChildResult ${index + 1} ${line}`),
+    ]),
+  ];
+}
+
+function uniqueRuns(runs: readonly SubagentRunSummary[]): SubagentRunSummary[] {
+  const byId = new Map<string, SubagentRunSummary>();
+  for (const run of runs) byId.set(run.id, run);
+  return [...byId.values()];
+}
+
 function waitBarrierBlockerLines(
   blockers: readonly {
     childRunId: string;
@@ -132,6 +160,7 @@ function waitBarrierBlockerLines(
     blockingState: string;
     lastActivityAt: string;
     lastActivitySource: string;
+    lastActivityDetail?: string;
     reason?: string;
   }[] | undefined,
 ): string[] {
@@ -139,7 +168,7 @@ function waitBarrierBlockerLines(
   return [
     `waitBarrierBlockers: ${blockers.length}`,
     ...blockers.slice(0, 8).map((blocker) =>
-      `waitBarrierBlocker: ${blocker.canonicalTaskPath} childRunId=${blocker.childRunId} childThreadId=${blocker.childThreadId} status=${blocker.status} state=${blocker.blockingState} lastActivityAt=${blocker.lastActivityAt} lastActivitySource=${blocker.lastActivitySource}${blocker.reason ? ` reason=${previewText(blocker.reason, 220)}` : ""}`
+      `waitBarrierBlocker: ${blocker.canonicalTaskPath} childRunId=${blocker.childRunId} childThreadId=${blocker.childThreadId} status=${blocker.status} state=${blocker.blockingState} lastActivityAt=${blocker.lastActivityAt} lastActivitySource=${blocker.lastActivitySource}${blocker.lastActivityDetail ? ` lastActivityDetail=${previewText(blocker.lastActivityDetail, 160)}` : ""}${blocker.reason ? ` reason=${previewText(blocker.reason, 220)}` : ""}`
     ),
     blockers.length > 8 ? `waitBarrierBlockersOmitted: ${blockers.length - 8}` : undefined,
   ].filter((line): line is string => Boolean(line));
@@ -156,6 +185,9 @@ function waitBarrierStatusLines(
     `waitBarrierDependencyMode: ${waitBarrier.dependencyMode}`,
     `waitBarrierFailurePolicy: ${waitBarrier.failurePolicy}`,
   ];
+  if (parentResolution && !parentResolution.canSynthesize && waitBarrier.status === "waiting_on_children") {
+    lines.push("waitBarrierState: still_waiting");
+  }
   if (parentResolution && !parentResolution.canSynthesize && waitBarrier.status !== "waiting_on_children") {
     lines.push(
       `waitBarrierRecovery: This barrier is terminal. To recover or retry, call ambient_subagent with action resolve_barrier, waitBarrierId ${waitBarrier.id}, and an explicit decision such as retry_child, fail_parent, detach_child, cancel_parent, or continue_with_partial when partial output is allowed. Do not spawn a separate replacement child manually; the original barrier will keep blocking final synthesis until resolve_barrier records the decision.`,

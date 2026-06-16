@@ -241,7 +241,11 @@ export function SubagentParentCluster({
                 />
               </summary>
               <div className="subagent-parent-cluster-child-transcript">
-                <div className="subagent-parent-cluster-child-transcript-heading">
+                <div
+                  className="subagent-parent-cluster-child-transcript-heading"
+                  data-child-transcript-layout="transcript-first"
+                  data-child-summary-follows={child.parentBlocker ? "true" : "false"}
+                >
                   <strong>Child transcript</strong>
                   <span>{child.childThreadId}</span>
                 </div>
@@ -636,7 +640,12 @@ function SubagentParentClusterChildBlockerPanel({
   onResolveBarrierAction: (action: SubagentParentClusterMailboxActionModel) => void;
 }) {
   return (
-    <section className={`subagent-parent-cluster-child-blocker-panel tone-${blocker.statusTone}`} aria-label={`Parent blocker for ${child.title}`}>
+    <section
+      className={`subagent-parent-cluster-child-blocker-panel tone-${blocker.statusTone}`}
+      aria-label={`Parent blocker for ${child.title}`}
+      data-child-blocker-panel="after-transcript"
+      data-child-run-id={child.runId}
+    >
       <div className="subagent-parent-cluster-child-blocker-panel-copy">
         <strong>{blocker.label}</strong>
         <span>{blocker.detail}</span>

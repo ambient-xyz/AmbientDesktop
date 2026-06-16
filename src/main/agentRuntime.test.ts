@@ -2320,9 +2320,14 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
 
       expect(waited).toMatchObject({
         timedOut: true,
+        outcome: { kind: "child_runtime_timeout", reason: "runtime_idle_timeout" },
         run: {
           id: running.id,
-          status: "failed",
+          status: "timed_out",
+          resultArtifact: expect.objectContaining({
+            status: "timed_out",
+            partial: false,
+          }),
         },
       });
       expect(abort).toHaveBeenCalledTimes(1);
@@ -2330,7 +2335,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         expect.objectContaining({
           type: "error",
           source: "child_runtime",
-          status: "failed",
+          status: "timed_out",
           artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
           details: expect.objectContaining({
             reason: "runtime_idle_timeout",
@@ -2347,7 +2352,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           direction: "child_to_parent",
           type: "subagent.failed",
           payload: expect.objectContaining({
-            status: "failed",
+            status: "timed_out",
             partial: false,
             reason: "runtime_idle_timeout",
             idleElapsedMs: 600_000,
@@ -2359,7 +2364,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         expect.objectContaining({
           type: "subagent.runtime_idle_timeout",
           preview: expect.objectContaining({
-            status: "failed",
+            status: "timed_out",
             partial: false,
             reason: "runtime_idle_timeout",
             maxRuntimeMs: 600_000,
@@ -2377,7 +2382,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
             childRunId: running.id,
             childThreadId: running.childThreadId,
             previousStatus: "running",
-            status: "failed",
+            status: "timed_out",
             source: "runtime_idle_timeout",
           }),
         }),
@@ -2491,7 +2496,11 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         outcome: { kind: "child_runtime_timeout", reason: "runtime_hard_cap_exceeded" },
         run: {
           id: running.id,
-          status: "failed",
+          status: "timed_out",
+          resultArtifact: expect.objectContaining({
+            status: "timed_out",
+            partial: false,
+          }),
         },
       });
       expect(abort).toHaveBeenCalledTimes(1);
@@ -2499,7 +2508,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         expect.objectContaining({
           type: "error",
           source: "child_runtime",
-          status: "failed",
+          status: "timed_out",
           artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
           details: expect.objectContaining({
             reason: "runtime_hard_cap_exceeded",
@@ -2517,7 +2526,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           direction: "child_to_parent",
           type: "subagent.failed",
           payload: expect.objectContaining({
-            status: "failed",
+            status: "timed_out",
             partial: false,
             reason: "runtime_hard_cap_exceeded",
             elapsedMs: 600_000,
@@ -2532,7 +2541,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         expect.objectContaining({
           type: "subagent.runtime_hard_cap_exceeded",
           preview: expect.objectContaining({
-            status: "failed",
+            status: "timed_out",
             partial: false,
             reason: "runtime_hard_cap_exceeded",
             maxRuntimeMs: 600_000,
@@ -2553,7 +2562,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
             childRunId: running.id,
             childThreadId: running.childThreadId,
             previousStatus: "running",
-            status: "failed",
+            status: "timed_out",
             source: "runtime_hard_cap_exceeded",
           }),
         }),
@@ -11940,7 +11949,7 @@ describe("AgentRuntime terminal cleanup", () => {
           }),
         }),
       });
-      expect((store as any).getRun(parentRunId)).toMatchObject({
+      expect(store.getRunRecord(parentRunId)).toMatchObject({
         status: "error",
         errorMessage: expect.stringContaining("Parent final answer blocked because required sub-agent work is not safe for synthesis."),
       });
@@ -12061,6 +12070,14 @@ describe("AgentRuntime terminal cleanup", () => {
               childRunIds: [child.id],
               childStatuses: [{ childRunId: child.id, status: "failed" }],
               synthesisAllowed: false,
+              transitionEvidence: {
+                schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+                kind: "child_terminal",
+                source: "wait_agent",
+                childRunId: child.id,
+                childRunIds: [child.id],
+                reason: "child failed",
+              },
             },
           });
           emit({ type: "message_start", message: { role: "assistant" } });
@@ -12137,7 +12154,7 @@ describe("AgentRuntime terminal cleanup", () => {
           }),
         }),
       });
-      expect((store as any).getRun(parentRunId)).toMatchObject({
+      expect(store.getRunRecord(parentRunId)).toMatchObject({
         status: "error",
         errorMessage: expect.stringContaining("Parent final answer blocked because required sub-agent work is not safe for synthesis."),
       });
@@ -12304,7 +12321,7 @@ describe("AgentRuntime terminal cleanup", () => {
           }),
         }),
       });
-      expect((store as any).getRun(parentRunId)).toMatchObject({
+      expect(store.getRunRecord(parentRunId)).toMatchObject({
         status: "error",
         errorMessage: expect.stringContaining("Parent final answer blocked because blocking callable workflow work is not safe for synthesis."),
       });
@@ -12343,7 +12360,7 @@ describe("AgentRuntime terminal cleanup", () => {
     }
   });
 
-  it("does not satisfy waiting barriers during parent finalization even when child results are now safe", async () => {
+  it("reconciles stale waiting barriers during parent finalization when child results are now safe", async () => {
     const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-readonly-finalization-"));
     const store = new ProjectStore();
     try {
@@ -12410,22 +12427,25 @@ describe("AgentRuntime terminal cleanup", () => {
 
       const block = (runtime as any).subagentFinalizationBarrierBlock(parent.id, parentRun.id);
 
-      expect(block).toMatchObject({
-        barrierIds: [barrier.id],
-        childRunIds: [child.id],
-        barriers: [
-          expect.objectContaining({
-            id: barrier.id,
-            status: "waiting_on_children",
-          }),
-        ],
-      });
-      expect(block?.message).toContain(`${child.id} (completed)`);
+      expect(block).toBeUndefined();
       expect(store.getSubagentWaitBarrier(barrier.id)).toMatchObject({
-        status: "waiting_on_children",
+        status: "satisfied",
         childRunIds: [child.id],
+        resolutionArtifact: expect.objectContaining({
+          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+          synthesisAllowed: true,
+          transitionEvidence: expect.objectContaining({
+            kind: "child_terminal",
+            source: "child_runtime",
+            childRunId: child.id,
+            reason: "finalization_reconciliation:completed",
+          }),
+          waitBarrierEvaluation: expect.objectContaining({
+            synthesisAllowed: true,
+            validSynthesisCount: 1,
+          }),
+        }),
       });
-      expect(store.getSubagentWaitBarrier(barrier.id).resolutionArtifact).toBeUndefined();
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });
@@ -12485,6 +12505,14 @@ describe("AgentRuntime terminal cleanup", () => {
           childStatuses: [{ childRunId: child.id, status: "failed" }],
           synthesisAllowed: true,
           explicitPartial: true,
+          transitionEvidence: {
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "explicit_partial",
+            source: "barrier_controller",
+            childRunIds: [child.id],
+            reason: "User approved a partial parent answer.",
+            idempotencyKey: "barrier:partial",
+          },
           resultArtifact: null,
           userDecision: {
             schemaVersion: "ambient-subagent-user-decision-v1",

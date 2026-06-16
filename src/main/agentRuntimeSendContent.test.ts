@@ -56,6 +56,17 @@ describe("modelContentForAgentRuntimeSendInput", () => {
     expect(content).toContain("Do not install or require jsdom");
   });
 
+  it("adds self-healing sub-agent verification guidance for generated HTML repair loops", () => {
+    const content = modelContentForAgentRuntimeSendInput({
+      content: "Can you make me a habit tracker HTML app and keep checking it until it seems ready to actually use? Check tester edge cases and repair failures.",
+    }, defaultDeps());
+
+    expect(content).toContain("Generated HTML app verification reminder:");
+    expect(content).toContain("Self-healing sub-agent verification contract:");
+    expect(content).toContain("use visible read-only reviewer/tester children");
+    expect(content).toContain("must still spawn and wait on reviewer/tester children");
+  });
+
   it("does not add HTML app verification guidance to unrelated HTML discussion", () => {
     const content = modelContentForAgentRuntimeSendInput({
       content: "Summarize this HTML article and explain the markup style.",
@@ -63,6 +74,51 @@ describe("modelContentForAgentRuntimeSendInput", () => {
 
     expect(content).not.toContain("Generated HTML app verification reminder:");
     expect(content).not.toContain("browser_local_preview");
+  });
+
+  it("adds selected-context sub-agent guidance for multi-file comparison tasks", () => {
+    const content = modelContentForAgentRuntimeSendInput({
+      content: "Read these documents and compare what they agree on, contradict, and what I should verify.",
+      context: [
+        { kind: "file", name: "alpha.md", path: "docs/alpha.md" },
+        { kind: "file", name: "beta.pdf", path: "docs/beta.pdf" },
+        { kind: "file", name: "gamma.docx", path: "docs/gamma.docx" },
+      ],
+    }, defaultDeps());
+
+    expect(content).toContain("Selected-context sub-agent delegation contract:");
+    expect(content).toContain("use a visible map-reduce shape");
+    expect(content).toContain("should not directly read/process every selected file");
+    expect(content).toContain("wait on all required children with wait_agent");
+    expect(content).toContain("taskIntent file_read");
+    expect(content).toContain("readPaths limited to the exact selected file path");
+    expect(content).toContain("docs/alpha.md, docs/beta.pdf, docs/gamma.docx");
+  });
+
+  it("does not add selected-context sub-agent guidance when subagents are disabled", () => {
+    const content = modelContentForAgentRuntimeSendInput({
+      content: "Read these documents and compare what they agree on, contradict, and what I should verify.",
+      context: [
+        { kind: "file", name: "alpha.md", path: "docs/alpha.md" },
+        { kind: "file", name: "beta.pdf", path: "docs/beta.pdf" },
+        { kind: "file", name: "gamma.docx", path: "docs/gamma.docx" },
+      ],
+    }, defaultDeps({
+      isSubagentsEnabled: () => false,
+    }));
+
+    expect(content).not.toContain("Selected-context sub-agent delegation contract:");
+  });
+
+  it("does not add selected-context sub-agent guidance for a single selected file", () => {
+    const content = modelContentForAgentRuntimeSendInput({
+      content: "Read this document and tell me what to verify.",
+      context: [
+        { kind: "file", name: "alpha.md", path: "docs/alpha.md" },
+      ],
+    }, defaultDeps());
+
+    expect(content).not.toContain("Selected-context sub-agent delegation hint:");
   });
 
   it("rejects Symphony composer intents when subagents are disabled", () => {

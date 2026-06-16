@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { AMBIENT_DEFAULT_MODEL, AMBIENT_KIMI_K2_7_CODE_MODEL } from "../shared/ambientModels";
+import {
+  AMBIENT_DEFAULT_MODEL,
+  AMBIENT_GLM_5_1_FP8_MODEL,
+} from "../shared/ambientModels";
 import { ambientModel, createAmbientProviderExtension } from "./agentRuntimeAmbientProvider";
 
 describe("agentRuntimeAmbientProvider", () => {
   it("builds the Ambient Pi model descriptor", () => {
     expect(ambientModel("glm-5.1", "https://ambient.example/v1")).toEqual({
-      id: AMBIENT_DEFAULT_MODEL,
+      id: AMBIENT_GLM_5_1_FP8_MODEL,
       name: "GLM-5.1 FP8",
       api: "openai-completions",
       provider: "ambient",
@@ -29,8 +32,8 @@ describe("agentRuntimeAmbientProvider", () => {
   });
 
   it("advertises image input only for vision-capable Ambient models", () => {
-    expect(ambientModel(AMBIENT_DEFAULT_MODEL, "https://ambient.example/v1").input).toEqual(["text"]);
-    expect(ambientModel(AMBIENT_KIMI_K2_7_CODE_MODEL, "https://ambient.example/v1").input).toEqual(["text", "image"]);
+    expect(ambientModel(AMBIENT_DEFAULT_MODEL, "https://ambient.example/v1").input).toEqual(["text", "image"]);
+    expect(ambientModel(AMBIENT_GLM_5_1_FP8_MODEL, "https://ambient.example/v1").input).toEqual(["text"]);
   });
 
   it("registers the Ambient provider with Pi", () => {

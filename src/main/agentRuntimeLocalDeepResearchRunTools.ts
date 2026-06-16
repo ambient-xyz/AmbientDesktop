@@ -78,7 +78,17 @@ export function registerLocalDeepResearchRunTools(
         stage: "preparing",
         message: "Preparing Local Deep Research run.",
       });
-      const { contract, managedAssets } = await options.readReadiness(workspace, { q8Override: input.q8Override }, signal);
+      statusEmitter.emit({
+        stage: "readiness",
+        message: "Checking Local Deep Research setup, provider routing, and local runtime inventory.",
+      });
+      const { contract, managedAssets } = await withLocalDeepResearchToolHeartbeat(
+        "ambient_local_deep_research_run",
+        () => options.readReadiness(workspace, { q8Override: input.q8Override }, signal),
+        { signal, timeoutMs: localDeepResearchRunTimeoutMs(), heartbeatMs: 10_000 },
+        onUpdate,
+        statusEmitter.heartbeat,
+      );
       const hostPressure = await sampleLocalDeepResearchHostPressure().catch(() => undefined);
       statusEmitter.emit({
         stage: contract.status === "ready" ? "readiness" : "blocked",

@@ -33,6 +33,29 @@ describe("AgentRuntime media artifact helpers", () => {
     )).toBe("exports/voice.wav");
 
     expect(workspaceArtifactPathFromTool(
+      "ambient_cli",
+      "",
+      [
+        "Ambient CLI completed",
+        `Cwd: ${workspacePath}`,
+        "Stdout:",
+        JSON.stringify({
+          status: "generated",
+          outputPath: `${workspacePath}/.ambient/hosted-images/google-4k.jpg`,
+          metadataPath: `${workspacePath}/.ambient/hosted-images/google-4k.jpg.json`,
+        }, null, 2),
+      ].join("\n"),
+      workspacePath,
+    )).toBe(".ambient/hosted-images/google-4k.jpg");
+
+    expect(workspaceArtifactPathFromTool(
+      "ambient_cli",
+      "",
+      "Saved output file: /tmp/ambient-workspace/renders/demo.webp",
+      workspacePath,
+    )).toBe("renders/demo.webp");
+
+    expect(workspaceArtifactPathFromTool(
       "write",
       JSON.stringify({ path: `${workspacePath}/public/generated.webp` }),
       "",
@@ -44,6 +67,7 @@ describe("AgentRuntime media artifact helpers", () => {
     const workspacePath = "/tmp/ambient-workspace";
 
     expect(normalizeWorkspaceArtifactPath(`${workspacePath}/assets/photo.jpg`, workspacePath)).toBe("assets/photo.jpg");
+    expect(normalizeWorkspaceArtifactPath(`tmp/ambient-workspace/assets/photo.jpg`, workspacePath)).toBe("assets/photo.jpg");
     expect(normalizeWorkspaceArtifactPath(`Wrote ${workspacePath}/assets/photo.jpg`, workspacePath)).toBe("assets/photo.jpg");
     expect(normalizeWorkspaceArtifactPath("tmp/Users/example/ambient-workspace/assets/photo.jpg", "/Users/example/ambient-workspace")).toBe("assets/photo.jpg");
     expect(mediaArtifactKindFromPath("assets/photo.jpg")).toBe("image");
