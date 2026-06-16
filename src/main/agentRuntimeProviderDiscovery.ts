@@ -127,12 +127,11 @@ export async function listEmbeddingProvidersForTools(
   _workspacePath: string,
 ): Promise<EmbeddingProviderCandidate[]> {
   const listProviders = options.listEmbeddingProviders ?? options.discoverEmbeddingProviders ?? defaultDiscoverEmbeddingProviders;
-  const includeManagedMemoryProvider = !options.listEmbeddingProviders && !options.discoverEmbeddingProviders;
   const providers: EmbeddingProviderCandidate[] = [];
   const seen = new Set<string>();
   for (const providerWorkspacePath of agentRuntimeProviderDiscoveryWorkspacePaths(options)) {
     const workspaceProviders = [
-      ...(includeManagedMemoryProvider ? await defaultDiscoverManagedMemoryEmbeddingProviders(providerWorkspacePath).catch(() => []) : []),
+      ...await defaultDiscoverManagedMemoryEmbeddingProviders(providerWorkspacePath).catch(() => []),
       ...await listProviders(providerWorkspacePath),
     ];
     for (const provider of workspaceProviders) {

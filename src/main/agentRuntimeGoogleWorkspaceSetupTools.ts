@@ -50,6 +50,7 @@ export interface AgentRuntimeGoogleWorkspaceTools {
   validate: (input: GoogleWorkspaceValidationInput) => Promise<GoogleWorkspaceValidationResult>;
   searchMethods: (input: GoogleWorkspaceSearchMethodsInput) => GoogleWorkspaceSearchMethodsResult | Promise<GoogleWorkspaceSearchMethodsResult>;
   describeMethod: (input: GoogleWorkspaceDescribeMethodInput) => Promise<GoogleWorkspaceMethodSummary>;
+  resolveAccountHint?: (accountHint?: string) => string;
   call: (input: GoogleWorkspaceCallInput & { workspacePath?: string }) => Promise<GoogleWorkspaceCallResult>;
   materializeFile: (input: GoogleWorkspaceMaterializeFileInput & { workspacePath: string }) => Promise<GoogleWorkspaceMaterializeFileResult>;
 }

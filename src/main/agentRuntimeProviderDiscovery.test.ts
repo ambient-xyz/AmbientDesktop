@@ -95,7 +95,7 @@ describe("agent runtime provider discovery", () => {
     ]);
   });
 
-  it("dedupes embedding providers across runtime workspaces", async () => {
+  it("dedupes embedding providers across runtime workspaces while preserving the managed memory provider", async () => {
     const result = await listEmbeddingProvidersForTools(options({
       rootWorkspacePath: "/workspace/root",
       threadWorkspacePaths: ["/workspace/a"],
@@ -104,7 +104,12 @@ describe("agent runtime provider discovery", () => {
         : [embeddingProvider("embedding:shared"), embeddingProvider("embedding:a")],
     }), "/workspace/root");
 
-    expect(result.map((provider) => provider.capabilityId)).toEqual(["embedding:shared", "embedding:root", "embedding:a"]);
+    expect(result.map((provider) => provider.capabilityId)).toEqual([
+      AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+      "embedding:shared",
+      "embedding:root",
+      "embedding:a",
+    ]);
   });
 
   it("adds the first-party managed memory embedding provider when using default embedding discovery", async () => {

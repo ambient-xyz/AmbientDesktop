@@ -32,7 +32,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_BASE_URL = "https://api.ambient.xyz/v1"
 DEFAULT_MODEL = "zai-org/GLM-5.1-FP8"
 DEFAULT_SESSION_LOG = pathlib.Path(
-    "/path/to/ambient-hardening/bases/core-no-secrets/"
+    "/Users/example/.ambient-hardening/bases/example-core-no-secrets-2026-05-13/"
     "workspace/.ambient-codex/sessions/fb1c7ffc-732d-421c-a429-c66c4628bf60/"
     "2026-05-14T23-55-00-533Z_019e28ea-3e35-71f1-a6f9-5233bcce0cac.jsonl"
 )
@@ -48,8 +48,8 @@ def read_api_key() -> str:
         os.environ.get("AMBIENT_API_KEY_FILE", ""),
         str(REPO_ROOT / "ambient_api_key.txt"),
         str(REPO_ROOT.parent / "ambient_api_key.txt"),
-        "/path/to/AmbientDesktop/ambient_api_key.txt",
-        "/path/to/project/ambient_api_key.txt",
+        "/Users/example/Documents/AmbientDesktop/ambient_api_key.txt",
+        "/Users/example/Documents/AmbientDesktop/ambient_api_key.txt",
         str(pathlib.Path.home() / "ambient_api_key.txt"),
     ]
     for raw in candidates:

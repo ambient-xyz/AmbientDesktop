@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
+import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import type { SendMessageInput } from "../../shared/types";
 import {
   messageSendIpcChannels,
@@ -84,7 +85,7 @@ describe("registerMessageSendIpc", () => {
         updatedAt: "2026-06-06T00:00:01.000Z",
       },
       goalMode: { enabled: true, tokenBudget: 1000 },
-      composerIntent: { kind: "local-deep-research" },
+      composerIntent: { kind: "local-deep-research", localDeepResearch: resolveLocalDeepResearchRunBudget(undefined) },
     };
 
     await expect(invoke("message:send", input)).resolves.toBeUndefined();

@@ -255,6 +255,62 @@ describe("local model resource registry", () => {
     expect(snapshot.activeActualResidentMemoryBytes).toBe(1280 * 1024 * 1024);
   });
 
+  it("dedupes untracked llama process rows when a managed embedding provider reports the same runtime", async () => {
+    const snapshot = await buildLocalModelResourceRegistry({
+      workspacePath: "/workspace",
+      residentProcesses: [
+        {
+          capability: "local-text",
+          id: "untracked-llama:1774",
+          pid: 1774,
+          running: true,
+          statePath: "process:1774",
+          trackingStatus: "untracked",
+          endpointUrl: "http://127.0.0.1:57110",
+          port: 57110,
+          modelId: "embeddinggemma-300m-qat-Q8_0.gguf",
+          actualResidentMemoryBytes: 9 * 1024 ** 2,
+          memorySampledAt: "2026-06-15T23:02:00.000Z",
+        },
+      ],
+      additionalEntries: [
+        {
+          capability: "embeddings",
+          id: "embeddings:ambient-memory-embeddinggemma-300m-q8_0",
+          providerId: "ambient:memory:embeddings:embeddinggemma-300m-q8_0",
+          runtimeId: "ambient-memory-embeddinggemma-300m-q8_0",
+          modelId: "embeddinggemma-300m-q8_0",
+          profileId: "embeddinggemma-300m-q8_0",
+          pid: 1774,
+          running: true,
+          statePath: ".ambient/memory/tencentdb/embeddings/llama-server/embeddinggemma-300m-q8_0/server-state.json",
+          trackingStatus: "managed",
+          endpointUrl: "http://127.0.0.1:57110",
+          estimatedResidentMemoryBytes: 768 * 1024 * 1024,
+        },
+      ],
+      now: () => new Date("2026-06-15T23:03:00.000Z"),
+    });
+
+    expect(snapshot.entries).toHaveLength(1);
+    expect(snapshot.entries[0]).toMatchObject({
+      capability: "embeddings",
+      id: "embeddings:ambient-memory-embeddinggemma-300m-q8_0",
+      trackingStatus: "managed",
+      providerId: "ambient:memory:embeddings:embeddinggemma-300m-q8_0",
+      runtimeId: "ambient-memory-embeddinggemma-300m-q8_0",
+      modelId: "embeddinggemma-300m-q8_0",
+      pid: 1774,
+      endpointUrl: "http://127.0.0.1:57110",
+      estimatedResidentMemoryBytes: 768 * 1024 * 1024,
+      actualResidentMemoryBytes: 9 * 1024 ** 2,
+      memorySampledAt: "2026-06-15T23:02:00.000Z",
+    });
+    expect(snapshot.activeCount).toBe(1);
+    expect(snapshot.activeEstimatedResidentMemoryBytes).toBe(768 * 1024 * 1024);
+    expect(snapshot.activeActualResidentMemoryBytes).toBe(9 * 1024 ** 2);
+  });
+
   it("discovers Ambient-managed local text runtime state through detector options", async () => {
     const root = await mkdtemp(join(tmpdir(), "ambient-local-text-registry-"));
     try {

@@ -214,10 +214,60 @@ describe("subagentAgentStatus", () => {
       "waitBarrierStatus: failed",
       "waitBarrierDependencyMode: required_all",
       "waitBarrierFailurePolicy: ask_user",
-      "waitBarrierRecovery: To retry this required child work, call ambient_subagent with action resolve_barrier, waitBarrierId barrier-review, and decision retry_child. Do not spawn a separate replacement child manually; the original failed barrier will keep blocking final synthesis until resolve_barrier records the retry decision.",
+      "waitBarrierRecovery: This barrier is terminal. To recover or retry, call ambient_subagent with action resolve_barrier, waitBarrierId barrier-review, and an explicit decision such as retry_child, fail_parent, detach_child, cancel_parent, or continue_with_partial when partial output is allowed. Do not spawn a separate replacement child manually; the original barrier will keep blocking final synthesis until resolve_barrier records the decision.",
       "parentAction: ask_user",
       "canSynthesize: false",
       "parentInstruction: Do not synthesize child work.",
+    ].join("\n"));
+  });
+
+  it("lists active wait-barrier blockers in status text", () => {
+    const child = run({
+      id: "child-running-a",
+      childThreadId: "child-running-a-thread",
+      canonicalTaskPath: "root/1:explorer",
+      status: "running",
+    });
+
+    expect(buildSubagentStatusText({
+      run: child,
+      events: [],
+      mailboxEvents: [],
+      waitBarrier: waitBarrier({
+        id: "barrier-travel",
+        status: "waiting_on_children",
+        childRunIds: ["child-safe", "child-running-a", "child-running-b"],
+      }),
+      waitBarrierBlockers: [
+        {
+          childRunId: "child-running-a",
+          childThreadId: "child-running-a-thread",
+          canonicalTaskPath: "root/1:explorer",
+          status: "running",
+          blockingState: "active",
+          lastActivityAt: "2026-06-06T00:00:05.000Z",
+          lastActivitySource: "run_event:subagent.runtime_event",
+        },
+        {
+          childRunId: "child-running-b",
+          childThreadId: "child-running-b-thread",
+          canonicalTaskPath: "root/2:explorer",
+          status: "running",
+          blockingState: "active",
+          lastActivityAt: "2026-06-06T00:00:07.000Z",
+          lastActivitySource: "run_event:subagent.runtime_event",
+          reason: "Child is still working.",
+        },
+      ],
+      parentResolution: {
+        action: "wait_for_child",
+        canSynthesize: false,
+        instruction: "Do not synthesize child work.",
+      },
+    })).toContain([
+      "waitBarrierBlockers: 2",
+      "waitBarrierBlocker: root/1:explorer childRunId=child-running-a childThreadId=child-running-a-thread status=running state=active lastActivityAt=2026-06-06T00:00:05.000Z lastActivitySource=run_event:subagent.runtime_event",
+      "waitBarrierBlocker: root/2:explorer childRunId=child-running-b childThreadId=child-running-b-thread status=running state=active lastActivityAt=2026-06-06T00:00:07.000Z lastActivitySource=run_event:subagent.runtime_event reason=Child is still working.",
     ].join("\n"));
   });
 
@@ -312,7 +362,7 @@ describe("subagentAgentStatus", () => {
       mailboxEvents: [],
       waitBarrier: waitBarrier({
         id: "barrier-feedback",
-        status: "waiting_on_children",
+        status: "failed",
         childRunIds: ["feedback-child"],
       }),
       parentResolution: {
@@ -326,7 +376,7 @@ describe("subagentAgentStatus", () => {
     expect(text).toContain("resultStatus: failed partial=false");
     expect(text).not.toContain("Tempting but invalid feedback idea");
     expect(text).not.toContain("reviewOutputPreview");
-    expect(text).toContain("waitBarrierRecovery: To retry this required child work, call ambient_subagent with action resolve_barrier");
+    expect(text).toContain("waitBarrierRecovery: This barrier is terminal. To recover or retry, call ambient_subagent with action resolve_barrier");
   });
 });
 

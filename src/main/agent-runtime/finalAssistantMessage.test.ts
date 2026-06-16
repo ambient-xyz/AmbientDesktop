@@ -183,12 +183,36 @@ describe("finalAssistantMessage", () => {
       message: "Subagent work is still blocked.",
       barrierIds: ["barrier-1"],
       childRunIds: ["child-run-1"],
+      childBlockers: [{
+        childRunId: "child-run-1",
+        childThreadId: "child-thread-1",
+        canonicalTaskPath: "root/1:explorer",
+        roleId: "explorer",
+        status: "running",
+        dependencyMode: "required_all",
+        barrierIds: ["barrier-1"],
+        lastActivityAt: "2026-06-15T00:00:01.000Z",
+        lastActivitySource: "run_event:assistant_delta",
+        lastActivityDetail: "run event 2",
+      }],
       barriers: [{
         id: "barrier-1",
         dependencyMode: "required_all",
         status: "waiting_on_children",
         failurePolicy: "fail_parent",
         childRunIds: ["child-run-1"],
+        childBlockers: [{
+          childRunId: "child-run-1",
+          childThreadId: "child-thread-1",
+          canonicalTaskPath: "root/1:explorer",
+          roleId: "explorer",
+          status: "running",
+          dependencyMode: "required_all",
+          barrierIds: ["barrier-1"],
+          lastActivityAt: "2026-06-15T00:00:01.000Z",
+          lastActivitySource: "run_event:assistant_delta",
+          lastActivityDetail: "run event 2",
+        }],
       }],
     };
     const callableWorkflowFinalizationBlock: CallableWorkflowParentBlockingBlock = {
@@ -245,6 +269,13 @@ describe("finalAssistantMessage", () => {
           reason: "required_wait_barrier_not_satisfied",
           barrierIds: ["barrier-1"],
           childRunIds: ["child-run-1"],
+          childBlockers: [
+            expect.objectContaining({
+              childRunId: "child-run-1",
+              canonicalTaskPath: "root/1:explorer",
+              lastActivitySource: "run_event:assistant_delta",
+            }),
+          ],
           parentMailboxEventIds: ["mailbox-1"],
         },
         callableWorkflowFinalizationBlocked: {

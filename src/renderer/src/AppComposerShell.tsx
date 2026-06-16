@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ClipboardPaste,
   Download,
+  Gauge,
   Kanban,
   LoaderCircle,
   MessageCircle,
@@ -18,6 +19,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type {
   ClipboardEvent as ReactClipboardEvent,
   Dispatch,
@@ -27,11 +29,18 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
+import {
+  LOCAL_DEEP_RESEARCH_EFFORT_ORDER,
+  LOCAL_DEEP_RESEARCH_EFFORT_PRESETS,
+  localDeepResearchEffortLabel,
+} from "../../shared/localDeepResearchBudget";
 
 import type {
   CollaborationMode,
   DesktopState,
   GitReviewSummary,
+  LocalDeepResearchEffort,
+  LocalDeepResearchRunBudget,
   PermissionMode,
   PlannerPlanArtifact,
   SttTranscriptionState,
@@ -122,6 +131,7 @@ export function AppComposerShell({
   sttComposerTitle,
   localDeepResearchReady,
   localDeepResearchModeArmed,
+  localDeepResearchRunBudget,
   goalModeArmed,
   goalBusy,
   showRevisePlanControl,
@@ -163,6 +173,8 @@ export function AppComposerShell({
   onAttachComposerFiles,
   onToggleSymphonyBuilder,
   onToggleLocalDeepResearchMode,
+  onSelectLocalDeepResearchEffort,
+  onLocalDeepResearchCustomMaxToolCallsChange,
   onCompactActiveThread,
   onExportActiveChat,
   onCollaborationModeChange,
@@ -218,6 +230,7 @@ export function AppComposerShell({
   sttComposerTitle: string;
   localDeepResearchReady: boolean;
   localDeepResearchModeArmed: boolean;
+  localDeepResearchRunBudget: LocalDeepResearchRunBudget;
   goalModeArmed: boolean;
   goalBusy: boolean;
   showRevisePlanControl: boolean;
@@ -259,6 +272,8 @@ export function AppComposerShell({
   onAttachComposerFiles: () => void;
   onToggleSymphonyBuilder: () => void;
   onToggleLocalDeepResearchMode: () => void;
+  onSelectLocalDeepResearchEffort: (effort: LocalDeepResearchEffort) => void;
+  onLocalDeepResearchCustomMaxToolCallsChange: (maxToolCalls: number) => void;
   onCompactActiveThread: () => void;
   onExportActiveChat: () => void;
   onCollaborationModeChange: (collaborationMode: CollaborationMode) => void;
@@ -286,6 +301,47 @@ export function AppComposerShell({
   onSetGoalBudget: () => void;
   onClearGoal: () => void;
 }) {
+  const [localDeepResearchEffortOpen, setLocalDeepResearchEffortOpen] = useState(false);
+  const [localDeepResearchCustomDraft, setLocalDeepResearchCustomDraft] = useState(() => String(localDeepResearchRunBudget.maxToolCalls));
+  const localDeepResearchEffortRef = useRef<HTMLDivElement | null>(null);
+  const localDeepResearchEffortLabelText = `Effort: ${localDeepResearchEffortLabel(localDeepResearchRunBudget.effort)}`;
+
+  useEffect(() => {
+    if (!localDeepResearchModeArmed) setLocalDeepResearchEffortOpen(false);
+  }, [localDeepResearchModeArmed]);
+
+  useEffect(() => {
+    if (!localDeepResearchEffortOpen) setLocalDeepResearchCustomDraft(String(localDeepResearchRunBudget.maxToolCalls));
+  }, [localDeepResearchEffortOpen, localDeepResearchRunBudget.maxToolCalls]);
+
+  useEffect(() => {
+    if (!localDeepResearchEffortOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!localDeepResearchEffortRef.current?.contains(event.target as Node)) setLocalDeepResearchEffortOpen(false);
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setLocalDeepResearchEffortOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [localDeepResearchEffortOpen]);
+
+  function selectLocalDeepResearchEffort(effort: LocalDeepResearchEffort) {
+    onSelectLocalDeepResearchEffort(effort);
+    setLocalDeepResearchCustomDraft(String(effort === "custom" ? localDeepResearchRunBudget.maxToolCalls : LOCAL_DEEP_RESEARCH_EFFORT_PRESETS[effort].maxToolCalls));
+    setLocalDeepResearchEffortOpen(false);
+  }
+
+  function changeLocalDeepResearchCustomMaxToolCalls(value: string) {
+    setLocalDeepResearchCustomDraft(value);
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed > 0) onLocalDeepResearchCustomMaxToolCallsChange(parsed);
+  }
+
   return (
     <>
       <form className="composer" onSubmit={onSubmit}>
@@ -449,6 +505,56 @@ export function AppComposerShell({
               >
                 <BookOpenText size={17} />
               </button>
+            )}
+            {localDeepResearchReady && localDeepResearchModeArmed && (
+              <div className="local-deep-research-effort-picker" ref={localDeepResearchEffortRef}>
+                <button
+                  type="button"
+                  className="local-deep-research-effort-chip"
+                  data-tooltip={`Local Deep Research effort: ${localDeepResearchRunBudget.maxToolCalls.toLocaleString()} tool calls.`}
+                  aria-label={`Local Deep Research ${localDeepResearchEffortLabelText}`}
+                  aria-haspopup="menu"
+                  aria-expanded={localDeepResearchEffortOpen}
+                  onClick={() => setLocalDeepResearchEffortOpen((open) => !open)}
+                >
+                  <Gauge size={14} />
+                  <span>{localDeepResearchEffortLabelText}</span>
+                  <ChevronDown size={13} />
+                </button>
+                {localDeepResearchEffortOpen && (
+                  <div className="local-deep-research-effort-menu" role="menu" aria-label="Research effort">
+                    <div className="local-deep-research-effort-menu-heading">Research effort</div>
+                    {LOCAL_DEEP_RESEARCH_EFFORT_ORDER.map((effort) => {
+                      const selected = localDeepResearchRunBudget.effort === effort;
+                      return (
+                        <button
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={selected}
+                          className={`local-deep-research-effort-option ${selected ? "active" : ""}`}
+                          key={effort}
+                          onClick={() => selectLocalDeepResearchEffort(effort)}
+                        >
+                          <span>{localDeepResearchEffortLabel(effort)}</span>
+                          <small>{LOCAL_DEEP_RESEARCH_EFFORT_PRESETS[effort].maxToolCalls.toLocaleString()} tool calls</small>
+                        </button>
+                      );
+                    })}
+                    <label className="local-deep-research-custom-budget">
+                      <span>Custom max tool calls</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={500}
+                        step={1}
+                        value={localDeepResearchCustomDraft}
+                        onChange={(event) => changeLocalDeepResearchCustomMaxToolCalls(event.target.value)}
+                        onBlur={() => setLocalDeepResearchCustomDraft(String(localDeepResearchRunBudget.maxToolCalls))}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
             )}
             <ContextUsageIndicator snapshot={state.contextUsage} settings={state.settings.compaction} />
             <button

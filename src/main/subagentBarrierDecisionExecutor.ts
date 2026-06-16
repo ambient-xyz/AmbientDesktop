@@ -10,9 +10,9 @@ import type {
 } from "./piChildSessionAdapter";
 import {
   buildSubagentBarrierDecisionChildThreadMessage,
-  buildSubagentBarrierDecisionResolutionArtifact,
   buildSubagentBarrierDecisionRunEventPreview,
-  subagentBarrierDecisionNextStatus,
+  resolveSubagentBarrierDecisionWaitBarrier,
+  type SubagentBarrierDecisionWaitBarrierStore,
 } from "./subagentBarrierDecision";
 import { recordSubagentBarrierDecisionParentMailbox } from "./subagentBarrierDecisionRecorder";
 import {
@@ -29,18 +29,13 @@ import {
 export const SUBAGENT_BARRIER_DECISION_EXECUTOR_SCHEMA_VERSION =
   "ambient-subagent-barrier-decision-executor-v1" as const;
 
-export interface SubagentBarrierDecisionExecutorStore extends SubagentBarrierControlExecutorStore {
+export interface SubagentBarrierDecisionExecutorStore extends SubagentBarrierControlExecutorStore, SubagentBarrierDecisionWaitBarrierStore {
   getSubagentWaitBarrier(id: string): SubagentWaitBarrierSummary;
   listSubagentRunEvents(runId: string): SubagentRunEventSummary[];
   appendSubagentRunEvent(
     runId: string,
     input: { type: string; preview?: unknown; artifactPath?: string; createdAt?: string },
   ): SubagentRunEventSummary;
-  updateSubagentWaitBarrierStatus(
-    id: string,
-    status: SubagentWaitBarrierSummary["status"],
-    options?: { resolutionArtifact?: unknown; now?: string },
-  ): SubagentWaitBarrierSummary;
   appendSubagentParentMailboxEvent(input: {
     parentThreadId: string;
     parentRunId: string;
@@ -142,7 +137,8 @@ export async function executeSubagentBarrierDecision(input: {
     createRuntimeRetryEventEmitter: input.createRuntimeRetryEventEmitter,
   });
   const childRunsAfterDecision = controlResult.childRuns;
-  const resolutionArtifact = buildSubagentBarrierDecisionResolutionArtifact({
+  const { barrier: resolvedBarrier, resolutionArtifact } = resolveSubagentBarrierDecisionWaitBarrier({
+    store: input.store,
     barrier: input.barrier,
     childRuns: childRunsAfterDecision,
     decision: input.decision,
@@ -152,11 +148,6 @@ export async function executeSubagentBarrierDecision(input: {
     toolCallId: input.toolCallId,
     idempotencyKey: input.idempotencyKey,
     controlState: controlResult,
-  });
-  const nextStatus = subagentBarrierDecisionNextStatus(input.decision);
-  const resolvedBarrier = input.store.updateSubagentWaitBarrierStatus(input.barrier.id, nextStatus, {
-    now,
-    resolutionArtifact,
   });
   const runEvents = childRunsAfterDecision.map((run) => {
     const runEvent = input.store.appendSubagentRunEvent(run.id, {

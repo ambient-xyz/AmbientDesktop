@@ -50,6 +50,7 @@ export interface ResolveSubagentWaitContextInput {
   parentThread: Pick<ThreadSummary, "id">;
   request: Record<string, unknown>;
   timeoutMs: number;
+  resolveTimeoutMs?: (dependencyMode: SubagentWaitBarrierMode) => number;
   resolveTargetRun(request: Record<string, unknown>): SubagentRunSummary;
   resolveTargetWaitBarrier(request: Record<string, unknown>): SubagentWaitBarrierSummary;
 }
@@ -83,7 +84,7 @@ export function resolveSubagentWaitContext(input: ResolveSubagentWaitContextInpu
 }
 
 export function ensureSubagentWaitBarrierForRuns(
-  input: Pick<ResolveSubagentWaitContextInput, "store" | "parentThread" | "request" | "timeoutMs">,
+  input: Pick<ResolveSubagentWaitContextInput, "store" | "parentThread" | "request" | "timeoutMs" | "resolveTimeoutMs">,
   runs: SubagentRunSummary[],
 ): SubagentWaitBarrierSummary {
   validateSubagentWaitChildRuns(input.parentThread.id, runs);
@@ -113,12 +114,12 @@ export function ensureSubagentWaitBarrierForRuns(
     dependencyMode,
     failurePolicy,
     ...(quorumThreshold !== undefined ? { quorumThreshold } : {}),
-    timeoutMs: input.timeoutMs,
+    timeoutMs: subagentWaitContextTimeoutMs(input, dependencyMode),
   });
 }
 
 export function ensureSubagentWaitBarrierForRun(
-  input: Pick<ResolveSubagentWaitContextInput, "store" | "parentThread" | "timeoutMs">,
+  input: Pick<ResolveSubagentWaitContextInput, "store" | "parentThread" | "timeoutMs" | "resolveTimeoutMs">,
   run: SubagentRunSummary,
 ): SubagentWaitBarrierSummary {
   const barriers = input.store
@@ -126,14 +127,22 @@ export function ensureSubagentWaitBarrierForRun(
     .filter((barrier) => barrier.childRunIds.includes(run.id));
   const existing = barriers.find((barrier) => barrier.status === "waiting_on_children") ?? barriers.at(-1);
   if (existing) return existing;
+  const dependencyMode = run.dependencyMode === "optional_background" ? "optional_background" : "required_all";
   return input.store.createSubagentWaitBarrier({
     parentThreadId: input.parentThread.id,
     parentRunId: run.parentRunId,
     childRunIds: [run.id],
-    dependencyMode: run.dependencyMode === "optional_background" ? "optional_background" : "required_all",
+    dependencyMode,
     failurePolicy: run.dependencyMode === "optional_background" ? "degrade_partial" : "ask_user",
-    timeoutMs: input.timeoutMs,
+    timeoutMs: subagentWaitContextTimeoutMs(input, dependencyMode),
   });
+}
+
+function subagentWaitContextTimeoutMs(
+  input: Pick<ResolveSubagentWaitContextInput, "timeoutMs" | "resolveTimeoutMs">,
+  dependencyMode: SubagentWaitBarrierMode,
+): number {
+  return input.resolveTimeoutMs?.(dependencyMode) ?? input.timeoutMs;
 }
 
 export function findSubagentWaitBarrierForRuns(

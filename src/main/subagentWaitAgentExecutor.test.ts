@@ -82,6 +82,43 @@ describe("subagentWaitAgentExecutor", () => {
     expect(store.appendSubagentParentMailboxEvent).not.toHaveBeenCalled();
   });
 
+  it("inspects a terminal barrier without attaching to the child runtime or reopening the wait", async () => {
+    const active = run({ status: "running" });
+    const barrier = waitBarrier({ status: "timed_out" });
+    const store = new FakeWaitAgentStore([active], [barrier]);
+    const waitForChildRun = vi.fn(async () => ({
+      run: active,
+      timedOut: false,
+    }));
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: active,
+      waitBarrier: barrier,
+      waitChildRuns: [active],
+      timeoutMs: 1000,
+      waitForChildRun,
+      createRuntimeWaitEventEmitter: () => vi.fn(),
+    });
+
+    expect(waitForChildRun).not.toHaveBeenCalled();
+    expect(result.waitBarrierTerminalInspection).toBe(true);
+    expect(result.waitOutcome).toBeUndefined();
+    expect(result.waitTimedOut).toBe(false);
+    expect(result.waitSessionExpired).toBe(false);
+    expect(result.waitSatisfied).toBe(true);
+    expect(result.waitBarrier).toMatchObject({ id: "barrier", status: "timed_out" });
+    expect(result.waitNotice).toContain("already-terminal wait barrier");
+    expect(result.parentResolution).toMatchObject({
+      status: "blocked",
+      action: "ask_user",
+      canSynthesize: false,
+      barrierStatus: "timed_out",
+    });
+    expect(store.waitBarriers.get("barrier")).toEqual(barrier);
+  });
+
   it("records durable turn-budget wrap-up steering while a required child is still running", async () => {
     const active = run({ status: "running" });
     const barrier = waitBarrier({ status: "waiting_on_children" });
@@ -530,6 +567,442 @@ describe("subagentWaitAgentExecutor", () => {
     expect(result.events.map((event) => event.type)).toContain("subagent.wait_completed");
     expect(result.mailboxEvents.map((event) => event.type)).toContain("subagent.wait_completed");
     expect(store.appendSubagentParentMailboxEvent).not.toHaveBeenCalled();
+  });
+
+  it("treats parent wait-window expiry as a progress return without resolving the barrier", async () => {
+    const active = run({ status: "running" });
+    const barrier = waitBarrier({ status: "waiting_on_children" });
+    const store = new FakeWaitAgentStore([active], [barrier]);
+    const waitForChildRun = vi.fn(({ run: waitedRun }) => ({
+      run: waitedRun,
+      timedOut: false,
+      outcome: { kind: "progress_return" as const, reason: "parent_wait_window_elapsed" },
+    }));
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: active,
+      waitBarrier: barrier,
+      waitChildRuns: [active],
+      timeoutMs: 2500,
+      explicitIdempotencyKey: "wait:progress",
+      waitForChildRun,
+      createRuntimeWaitEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(active.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.waitOutcome).toEqual({ kind: "progress_return", reason: "parent_wait_window_elapsed" });
+    expect(result.waitSessionExpired).toBe(true);
+    expect(result.waitTimedOut).toBe(false);
+    expect(result.waitSatisfied).toBe(false);
+    expect(result.parentSynthesisAllowed).toBe(false);
+    expect(result.waitNotice).toBe("wait_agent returned a progress update while the child runtime remains active; the parent remains blocked on this child.");
+    expect(result.waitBarrier).toMatchObject({
+      id: "barrier",
+      status: "waiting_on_children",
+    });
+    expect(result.parentResolution).toMatchObject({
+      status: "blocked",
+      action: "wait_for_child",
+      canSynthesize: false,
+      requiresUserInput: false,
+    });
+    expect(result.waitCompletionMailbox).toBeUndefined();
+    expect(result.waitBarrierAttentionParentMailbox).toBeUndefined();
+    expect(store.waitBarriers.get("barrier")).toEqual(barrier);
+  });
+
+  it("keeps result-contract repair-pending children as active barrier blockers", async () => {
+    const active = run({ status: "running" });
+    const barrier = waitBarrier({ status: "waiting_on_children" });
+    const store = new FakeWaitAgentStore([active], [barrier]);
+    store.appendSubagentRunEvent(active.id, {
+      type: "subagent.result_contract_followup_required",
+      createdAt: "2026-06-06T00:00:06.000Z",
+      preview: {
+        reason: "Structured result roleId must match child role explorer.",
+        hadAssistantText: true,
+      },
+    });
+    store.appendSubagentRunEvent(active.id, {
+      type: "subagent.internal_post_tool_followup_started",
+      createdAt: "2026-06-06T00:00:07.000Z",
+      preview: {
+        attempt: 1,
+        maxAttempts: 2,
+        reason: "Structured result roleId must match child role explorer.",
+      },
+    });
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: active,
+      waitBarrier: barrier,
+      waitChildRuns: [active],
+      timeoutMs: 2500,
+    });
+
+    expect(result.waitSatisfied).toBe(false);
+    expect(result.waitBarrier).toMatchObject({ id: "barrier", status: "waiting_on_children" });
+    expect(result.parentResolution).toMatchObject({
+      status: "blocked",
+      action: "wait_for_child",
+      canSynthesize: false,
+    });
+    expect(result.waitBarrierEvaluation).toMatchObject({
+      synthesisAllowed: false,
+      activeChildRunIds: [active.id],
+      terminalUnsafeChildRunIds: [],
+    });
+    expect(result.waitBarrierBlockers).toEqual([
+      expect.objectContaining({
+        childRunId: active.id,
+        status: "running",
+        blockingState: "active",
+        lastActivityAt: "2026-06-06T00:00:07.000Z",
+        lastActivitySource: "run_event:subagent.internal_post_tool_followup_started",
+        resultRepairState: {
+          schemaVersion: "ambient-subagent-result-repair-state-v1",
+          state: "result_contract_repair_pending",
+          reason: "Structured result roleId must match child role explorer.",
+          detectedAt: "2026-06-06T00:00:06.000Z",
+          eventSequence: 1,
+          hadAssistantText: true,
+          latestInternalFollowupAt: "2026-06-06T00:00:07.000Z",
+          latestInternalFollowupSequence: 2,
+          latestInternalFollowupAttempt: 1,
+          maxAttempts: 2,
+        },
+      }),
+    ]);
+    expect(store.waitBarriers.get("barrier")).toBe(barrier);
+  });
+
+  it("treats child runtime timeout as terminal barrier evidence", async () => {
+    const active = run({ status: "running" });
+    const timedOut = run({ status: "timed_out" });
+    const barrier = waitBarrier({ status: "waiting_on_children" });
+    const store = new FakeWaitAgentStore([active], [barrier]);
+    const waitForChildRun = vi.fn(() => {
+      store.setRun(timedOut);
+      return {
+        run: timedOut,
+        timedOut: true,
+        outcome: {
+          kind: "child_runtime_timeout" as const,
+          reason: "runtime_idle_timeout",
+          details: {
+            lastChildActivityAt: "2026-06-06T00:00:05.000Z",
+            lastChildActivitySource: "run_event:subagent.runtime_event",
+            childIdleElapsedMs: 600_001,
+            childIdleTimeoutMs: 600_000,
+          },
+        },
+      };
+    });
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: active,
+      waitBarrier: barrier,
+      waitChildRuns: [active],
+      timeoutMs: 2500,
+      explicitIdempotencyKey: "wait:child-timeout",
+      waitForChildRun,
+      createRuntimeWaitEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(timedOut.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.waitOutcome).toMatchObject({
+      kind: "child_runtime_timeout",
+      reason: "runtime_idle_timeout",
+      details: {
+        lastChildActivityAt: "2026-06-06T00:00:05.000Z",
+        childIdleElapsedMs: 600_001,
+        childIdleTimeoutMs: 600_000,
+      },
+    });
+    expect(result.waitSessionExpired).toBe(false);
+    expect(result.waitTimedOut).toBe(true);
+    expect(result.waitSatisfied).toBe(true);
+    expect(result.parentSynthesisAllowed).toBe(false);
+    expect(result.waitNotice).toBe("wait_agent timed out before the child reached a terminal status.");
+    expect(result.waitBarrier).toMatchObject({
+      id: "barrier",
+      status: "timed_out",
+      resolutionArtifact: expect.objectContaining({
+        schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+        timedOut: true,
+        transitionEvidence: expect.objectContaining({
+          schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+          kind: "child_runtime_timeout",
+          source: "child_runtime",
+          childRunId: timedOut.id,
+          reason: "runtime_idle_timeout",
+          details: {
+            lastChildActivityAt: "2026-06-06T00:00:05.000Z",
+            lastChildActivitySource: "run_event:subagent.runtime_event",
+            childIdleElapsedMs: 600_001,
+            childIdleTimeoutMs: 600_000,
+          },
+        }),
+        synthesisAllowed: false,
+      }),
+    });
+    expect(result.parentResolution).toMatchObject({
+      status: "blocked",
+      action: "ask_user",
+      canSynthesize: false,
+      requiresUserInput: true,
+    });
+    expect(result.waitCompletionMailbox).toMatchObject({
+      type: "subagent.wait_completed",
+      deliveryState: "delivered",
+      payload: expect.objectContaining({
+        idempotencyKey: "wait:child-timeout",
+        waitTimedOut: true,
+        status: "timed_out",
+        synthesisAllowed: false,
+      }),
+    });
+  });
+
+  it("reports every active required-all blocker instead of only the focused child", async () => {
+    const completed = run({
+      id: "child-safe",
+      status: "completed",
+      resultArtifact: completedArtifact("child-safe"),
+      completedAt: "2026-06-06T00:00:04.000Z",
+    });
+    const runningA = run({
+      id: "child-running-a",
+      status: "running",
+      canonicalTaskPath: "root/1:explorer",
+    });
+    const runningB = run({
+      id: "child-running-b",
+      status: "running",
+      canonicalTaskPath: "root/2:explorer",
+    });
+    const barrier = waitBarrier({
+      status: "waiting_on_children",
+      childRunIds: ["child-safe", "child-running-a", "child-running-b"],
+    });
+    const store = new FakeWaitAgentStore([completed, runningA, runningB], [barrier]);
+    store.appendSubagentRunEvent(runningA.id, {
+      type: "subagent.runtime_event",
+      preview: { type: "assistant_delta" },
+      createdAt: "2026-06-06T00:00:05.000Z",
+    });
+    store.appendSubagentRunEvent(runningB.id, {
+      type: "subagent.runtime_event",
+      preview: { type: "tool_call" },
+      createdAt: "2026-06-06T00:00:07.000Z",
+    });
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: runningA,
+      waitBarrier: barrier,
+      waitChildRuns: [completed, runningA, runningB],
+      timeoutMs: 2500,
+      waitForChildRun: ({ run: waitedRun }) => ({
+        run: waitedRun,
+        timedOut: false,
+        outcome: { kind: "progress_return", reason: "parent_wait_window_elapsed" },
+      }),
+      createRuntimeWaitEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(runningA.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.waitSatisfied).toBe(false);
+    expect(result.waitBarrier).toMatchObject({ status: "waiting_on_children" });
+    expect(result.waitBarrierEvaluation).toMatchObject({
+      requiredSynthesisCount: 3,
+      validSynthesisCount: 1,
+      activeChildRunIds: ["child-running-a", "child-running-b"],
+    });
+    expect(result.waitBarrierBlockers).toEqual([
+      expect.objectContaining({
+        childRunId: "child-running-a",
+        childThreadId: "child-running-a-thread",
+        canonicalTaskPath: "root/1:explorer",
+        status: "running",
+        blockingState: "active",
+        lastActivityAt: "2026-06-06T00:00:05.000Z",
+        lastActivitySource: "run_event:subagent.runtime_event",
+      }),
+      expect.objectContaining({
+        childRunId: "child-running-b",
+        childThreadId: "child-running-b-thread",
+        canonicalTaskPath: "root/2:explorer",
+        status: "running",
+        blockingState: "active",
+        lastActivityAt: "2026-06-06T00:00:07.000Z",
+        lastActivitySource: "run_event:subagent.runtime_event",
+      }),
+    ]);
+  });
+
+  it("waits on an active barrier sibling when the focused child is already terminal", async () => {
+    const completed = run({
+      id: "child-safe",
+      status: "completed",
+      resultArtifact: completedArtifact("child-safe"),
+      completedAt: "2026-06-06T00:00:04.000Z",
+    });
+    const runningA = run({
+      id: "child-running-a",
+      status: "running",
+      canonicalTaskPath: "root/1:explorer",
+    });
+    const runningB = run({
+      id: "child-running-b",
+      status: "running",
+      canonicalTaskPath: "root/2:explorer",
+    });
+    const barrier = waitBarrier({
+      status: "waiting_on_children",
+      childRunIds: ["child-safe", "child-running-a", "child-running-b"],
+    });
+    const store = new FakeWaitAgentStore([completed, runningA, runningB], [barrier]);
+    const waitForChildRun = vi.fn(({ run: waitedRun }) => ({
+      run: waitedRun,
+      timedOut: false,
+      outcome: { kind: "progress_return" as const, reason: "parent_wait_window_elapsed" },
+    }));
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: completed,
+      waitBarrier: barrier,
+      waitChildRuns: [completed, runningA, runningB],
+      timeoutMs: 2500,
+      waitForChildRun,
+      createRuntimeWaitEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(runningA.id, { type: "runtime", preview: event }),
+    });
+
+    expect(waitForChildRun).toHaveBeenCalledWith(expect.objectContaining({
+      run: expect.objectContaining({ id: "child-running-a" }),
+      timeoutMs: 2500,
+    }));
+    expect(result.run.id).toBe("child-running-a");
+    expect(result.waitChildRuns.map((child) => child.id)).toEqual([
+      "child-safe",
+      "child-running-a",
+      "child-running-b",
+    ]);
+    expect(result.waitOutcome).toMatchObject({
+      kind: "progress_return",
+      reason: "parent_wait_window_elapsed",
+    });
+    expect(result.waitSatisfied).toBe(false);
+    expect(result.waitBarrier).toMatchObject({ status: "waiting_on_children" });
+    expect(result.waitBarrierEvaluation).toMatchObject({
+      requiredSynthesisCount: 3,
+      validSynthesisCount: 1,
+      activeChildRunIds: ["child-running-a", "child-running-b"],
+    });
+    expect(store.waitBarriers.get("barrier")).toMatchObject({ status: "waiting_on_children" });
+  });
+
+  it("continues waiting across active barrier siblings until required-all is satisfied", async () => {
+    const runningA = run({
+      id: "child-running-a",
+      status: "running",
+      canonicalTaskPath: "root/1:explorer",
+    });
+    const runningB = run({
+      id: "child-running-b",
+      status: "running",
+      canonicalTaskPath: "root/2:explorer",
+    });
+    const barrier = waitBarrier({
+      status: "waiting_on_children",
+      childRunIds: ["child-running-a", "child-running-b"],
+    });
+    const store = new FakeWaitAgentStore([runningA, runningB], [barrier]);
+    const waitForChildRun = vi.fn(({ run: waitedRun }) => {
+      const completedRun: SubagentRunSummary = {
+        ...waitedRun,
+        status: "completed",
+        completedAt: waitedRun.id === "child-running-a"
+          ? "2026-06-06T00:00:05.000Z"
+          : "2026-06-06T00:00:06.000Z",
+        updatedAt: waitedRun.id === "child-running-a"
+          ? "2026-06-06T00:00:05.000Z"
+          : "2026-06-06T00:00:06.000Z",
+        resultArtifact: completedArtifact(waitedRun.id),
+      };
+      store.setRun(completedRun);
+      store.appendSubagentRunEvent(completedRun.id, {
+        type: "subagent.runtime_event",
+        preview: { type: "assistant_delta" },
+        createdAt: completedRun.completedAt,
+      });
+      return {
+        run: completedRun,
+        timedOut: false,
+        outcome: { kind: "child_terminal" as const },
+      };
+    });
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: runningA,
+      waitBarrier: barrier,
+      waitChildRuns: [runningA, runningB],
+      timeoutMs: 2500,
+      waitForChildRun,
+      createRuntimeWaitEventEmitter: (emittedRun) => (event) =>
+        store.appendSubagentRunEvent(emittedRun.id, { type: "runtime", preview: event }),
+    });
+
+    expect(waitForChildRun).toHaveBeenCalledTimes(2);
+    expect(waitForChildRun).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      run: expect.objectContaining({ id: "child-running-a" }),
+      timeoutMs: 2500,
+    }));
+    expect(waitForChildRun).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      run: expect.objectContaining({ id: "child-running-b" }),
+      timeoutMs: expect.any(Number),
+    }));
+    const secondTimeout = waitForChildRun.mock.calls[1]?.[0].timeoutMs;
+    expect(secondTimeout).toBeGreaterThan(0);
+    expect(secondTimeout).toBeLessThanOrEqual(2500);
+    expect(result.run.id).toBe("child-running-b");
+    expect(result.waitChildRuns.map((child) => [child.id, child.status])).toEqual([
+      ["child-running-a", "completed"],
+      ["child-running-b", "completed"],
+    ]);
+    expect(result.waitOutcome).toEqual({ kind: "child_terminal" });
+    expect(result.waitSatisfied).toBe(true);
+    expect(result.parentSynthesisAllowed).toBe(true);
+    expect(result.waitBarrier).toMatchObject({
+      id: "barrier",
+      status: "satisfied",
+      resolutionArtifact: expect.objectContaining({
+        synthesisAllowed: true,
+        transitionEvidence: expect.objectContaining({
+          kind: "child_terminal",
+          childRunId: "child-running-b",
+        }),
+        waitBarrierEvaluation: expect.objectContaining({
+          requiredSynthesisCount: 2,
+          validSynthesisCount: 2,
+          activeChildRunIds: [],
+        }),
+      }),
+    });
+    expect(result.waitBarrierBlockers).toEqual([]);
+    expect(store.waitBarriers.get("barrier")).toMatchObject({ status: "satisfied" });
   });
 
   it("records child approval requests and leaves the parent blocked on the child wait barrier", async () => {
@@ -1143,21 +1616,26 @@ class FakeWaitAgentStore implements SubagentWaitAgentExecutorStore {
 const explorerRole = getDefaultSubagentRoleProfile("explorer");
 
 function run(input: {
+  id?: string;
   status: SubagentRunSummary["status"];
   resultArtifact?: unknown;
   dependencyMode?: SubagentRunSummary["dependencyMode"];
   completedAt?: string;
   role?: SubagentRoleProfile;
+  childThreadId?: string;
+  canonicalTaskPath?: string;
 }): SubagentRunSummary {
   const role = input.role ?? explorerRole;
+  const id = input.id ?? "child-run";
+  const childThreadId = input.childThreadId ?? (id === "child-run" ? "child-thread" : `${id}-thread`);
   return {
-    id: "child-run",
+    id,
     protocolVersion: "ambient-subagent-v1",
     parentThreadId: "parent-thread",
     parentRunId: "parent-run",
     parentMessageId: "assistant-message",
-    childThreadId: "child-thread",
-    canonicalTaskPath: `root/0:${role.id}`,
+    childThreadId,
+    canonicalTaskPath: input.canonicalTaskPath ?? `root/0:${role.id}`,
     roleId: role.id,
     roleProfileSnapshot: role,
     roleProfileSnapshotSource: "resolved",
@@ -1175,12 +1653,13 @@ function run(input: {
 
 function waitBarrier(input: {
   status: SubagentWaitBarrierSummary["status"];
+  childRunIds?: string[];
 }): SubagentWaitBarrierSummary {
   return {
     id: "barrier",
     parentThreadId: "parent-thread",
     parentRunId: "parent-run",
-    childRunIds: ["child-run"],
+    childRunIds: input.childRunIds ?? ["child-run"],
     dependencyMode: "required_all",
     status: input.status,
     failurePolicy: "ask_user",
@@ -1190,15 +1669,15 @@ function waitBarrier(input: {
   };
 }
 
-function completedArtifact(): Record<string, unknown> {
+function completedArtifact(runId = "child-run"): Record<string, unknown> {
   const structuredOutput = subagentStructuredResultTemplate(explorerRole);
   return {
     schemaVersion: "ambient-subagent-result-artifact-v1",
-    runId: "child-run",
+    runId,
     status: "completed",
     partial: false,
     summary: "Child result is ready.",
-    childThreadId: "child-thread",
+    childThreadId: runId === "child-run" ? "child-thread" : `${runId}-thread`,
     structuredOutput: {
       ...structuredOutput,
       summary: "Child result is ready.",

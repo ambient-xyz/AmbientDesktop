@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { LocalDeepResearchSettings, WorkspaceState } from "../shared/types";
+import { normalizeLocalDeepResearchRunBudgetSettings } from "../shared/localDeepResearchBudget";
 import { defaultLocalModelResourceSettings, normalizeLocalDeepResearchSettings } from "./localDeepResearchProviderStack";
 import { registerLocalDeepResearchProviderTools } from "./agentRuntimeLocalDeepResearchProviderTools";
 
@@ -31,6 +32,7 @@ describe("registerLocalDeepResearchProviderTools", () => {
         },
       },
       localModelResources: defaultLocalModelResourceSettings(),
+      runBudget: normalizeLocalDeepResearchRunBudgetSettings(undefined),
     };
     const registeredTools: RegisteredTool[] = [];
 

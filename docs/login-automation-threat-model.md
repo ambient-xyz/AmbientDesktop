@@ -2,9 +2,11 @@
 
 Updated: 2026-05-01
 
+Provider note, 2026-06-16: GLM 5.1 is currently degraded. Current live login validation must use the Ambient provider with Kimi (`AMBIENT_PROVIDER=ambient`, `AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code`).
+
 ## Repro Set
 
-Use `pnpm run test:browser-login:live` for the live GLM 5.1 comparison. The script starts an isolated Ambient Desktop app, a local HTTP login fixture, and a fresh app data directory so it can run while other Ambient Desktop and Chrome instances are open.
+Use `pnpm run test:browser-login:live` for the live Ambient+Kimi comparison. The script starts an isolated Ambient Desktop app, a local HTTP login fixture, and a fresh app data directory so it can run while other Ambient Desktop and Chrome instances are open.
 
 The live comparison records these cases:
 

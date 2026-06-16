@@ -2,8 +2,8 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 const repoRoot = process.cwd();
@@ -18,11 +18,14 @@ const untrackedRuntimePort = 44222;
 let exitCode = 0;
 let untrackedRuntimeProcess;
 let dogfoodEnv;
+let braveSearchSeeded = false;
 
 try {
   await rm(staleLatestArtifactPath, { force: true });
   await mkdir(workspacePath, { recursive: true });
   await mkdir(userDataPath, { recursive: true });
+  braveSearchSeeded = await seedBraveSearchWorkspaceSecret();
+  await seedBraveSearchPreference({ enabled: braveSearchSeeded });
   untrackedRuntimeProcess = spawn(process.execPath, [
     "scripts/llama-server-placeholder.mjs",
     "--model",
@@ -97,9 +100,123 @@ function buildDogfoodEnv() {
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_ID: untrackedRuntimeProcess?.pid ? `untracked-llama:${untrackedRuntimeProcess.pid}` : "",
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_ENDPOINT: `http://127.0.0.1:${untrackedRuntimePort}`,
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_MODEL: untrackedRuntimeModelPath,
+    AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_BRAVE_SEARCH: braveSearchSeeded ? "1" : "0",
     AMBIENT_DESKTOP_WORKSPACE: workspacePath,
     AMBIENT_E2E_USER_DATA: userDataPath,
   });
+}
+
+async function seedBraveSearchWorkspaceSecret() {
+  const sourcePath = await firstExistingFile(braveSearchKeyCandidates());
+  if (!sourcePath) return false;
+  const workspaceKeyPath = join(workspacePath, "brave_api_key.txt");
+  await copyFile(sourcePath, workspaceKeyPath);
+  await chmod(workspaceKeyPath, 0o600);
+  const bindingsPath = join(workspacePath, ".ambient", "cli-packages", "env-bindings.json");
+  await mkdir(join(workspacePath, ".ambient", "cli-packages"), { recursive: true });
+  const existing = await readJsonIfExists(bindingsPath);
+  const bindings = Array.isArray(existing?.bindings) ? existing.bindings : [];
+  const nextBindings = [
+    ...bindings.filter((binding) => binding?.envName !== "BRAVE_API_KEY" || !["brave-search", "ambient-brave-search"].includes(binding?.packageName)),
+    { packageName: "brave-search", envName: "BRAVE_API_KEY", filePath: "./brave_api_key.txt" },
+    { packageName: "ambient-brave-search", envName: "BRAVE_API_KEY", filePath: "./brave_api_key.txt" },
+  ];
+  await writeFile(bindingsPath, `${JSON.stringify({ bindings: nextBindings }, null, 2)}\n`, "utf8");
+  return true;
+}
+
+async function seedBraveSearchPreference({ enabled }) {
+  const preferencesPath = join(userDataPath, "preferences.json");
+  const existing = await readJsonIfExists(preferencesPath);
+  const searchProviders = [
+    {
+      providerId: "brave-search",
+      label: "Brave Search",
+      kind: "ambient-cli",
+      roles: ["search"],
+      status: enabled ? "enabled" : "disabled",
+      optionalSecretRefs: ["BRAVE_API_KEY"],
+      privacyLabel: "Queries may be sent to Brave Search.",
+      ambientCli: {
+        packageId: "ambient-cli:brave-search",
+        packageName: "brave-search",
+        commandName: "search",
+        capabilityId: "ambient-cli:brave-search:tool:search",
+      },
+    },
+    {
+      providerId: "exa-mcp-default",
+      label: "Exa Search",
+      kind: "remote-mcp",
+      roles: ["search", "fetch"],
+      status: "enabled",
+      optionalSecretRefs: ["EXA_API_KEY"],
+      privacyLabel: "Queries and fetched public URLs may be sent to Exa.",
+    },
+    {
+      providerId: "scrapling-mcp-default",
+      label: "Scrapling",
+      kind: "toolhive-mcp",
+      roles: ["fetch"],
+      status: "enabled",
+      privacyLabel: "Public pages are fetched through the local ToolHive-isolated Scrapling workload.",
+    },
+    {
+      providerId: "ambient-browser",
+      label: "Ambient Browser",
+      kind: "built-in-browser",
+      roles: ["search", "fetch", "interactive_browser"],
+      status: "enabled",
+      privacyLabel: "Browser fallback uses Ambient's managed browser session and may need user-visible interaction.",
+    },
+  ];
+  const preferences = {
+    search: ["brave-search", "exa-mcp-default", "ambient-browser"],
+    fetch: ["scrapling-mcp-default", "exa-mcp-default", "ambient-browser"],
+    interactive_browser: ["ambient-browser"],
+  };
+  await writeFile(preferencesPath, `${JSON.stringify({
+    ...(existing ?? {}),
+    search: {
+      webResearch: {
+        schemaVersion: "ambient-web-research-provider-stack-v1",
+        providers: searchProviders,
+        preferences,
+        fallbackPolicy: { allowBrowserFallback: true },
+        updatedAt: new Date().toISOString(),
+      },
+    },
+  }, null, 2)}\n`, "utf8");
+}
+
+function braveSearchKeyCandidates() {
+  return [
+    process.env.BRAVE_API_KEY_FILE,
+    join(repoRoot, "brave_api_key.txt"),
+    join(homedir(), "brave_api_key.txt"),
+    join(homedir(), "Documents", "brave_api_key.txt"),
+    join(homedir(), "Library", "Mobile Documents", "com~apple~CloudDocs", "brave_api_key.txt"),
+  ].filter((value) => typeof value === "string" && value.trim());
+}
+
+async function firstExistingFile(paths) {
+  for (const path of paths) {
+    try {
+      await access(path);
+      return path;
+    } catch {
+      // Try the next known secret file location.
+    }
+  }
+  return undefined;
+}
+
+async function readJsonIfExists(path) {
+  try {
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    return undefined;
+  }
 }
 
 function gitValue(args) {

@@ -12,7 +12,7 @@ describe("downloadMediaArtifact", () => {
     await Promise.all(tempWorkspaces.splice(0).map((workspace) => rm(workspace, { recursive: true, force: true })));
   });
 
-  it("writes validated PNG bytes and sidecar metadata before reporting inline display", async () => {
+  it("writes validated PNG bytes and sidecar metadata before reporting preview eligibility", async () => {
     const workspace = await tempWorkspace();
     const png = minimalPng({ width: 500, height: 730 });
 
@@ -39,13 +39,13 @@ describe("downloadMediaArtifact", () => {
       height: 730,
       sourceUrl: "https://example.test/source",
       licenseNote: "CC0 test fixture",
-      renderedInline: true,
+      inlinePreviewEligible: true,
       metadataPath: "downloads/bunny.png.ambient-media.json",
       finalUrl: "https://cdn.example.test/bunny.png",
     });
     await expect(readFile(join(workspace, "downloads/bunny.png"))).resolves.toEqual(png);
     await expect(readFile(join(workspace, result.metadataPath), "utf8")).resolves.toContain('"validationStatus": "valid"');
-    expect(mediaDownloadResultText(result)).toContain("Ambient Desktop has rendered an inline media preview");
+    expect(mediaDownloadResultText(result)).toContain("Ambient Desktop will attempt to render an inline media preview");
   });
 
   it("rejects HTML masquerading as an image without leaving the target artifact", async () => {

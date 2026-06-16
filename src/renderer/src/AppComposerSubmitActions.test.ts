@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   DesktopState,
+  LocalDeepResearchRunBudget,
   RunStatus,
   SttMessageMetadata,
   ThreadGoal,
   WorkspaceContextReference,
 } from "../../shared/types";
+import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import {
   createAppComposerSubmitActions,
   localDeepResearchSubmitOptions,
@@ -24,12 +26,19 @@ describe("App composer submit actions", () => {
   });
 
   it("models Local Deep Research delivery and goal arming decisions", () => {
-    expect(localDeepResearchSubmitOptions(false)).toEqual({
-      composerIntent: { kind: "local-deep-research" },
+    const budget = resolveLocalDeepResearchRunBudget(undefined);
+    expect(localDeepResearchSubmitOptions(false, budget)).toEqual({
+      composerIntent: {
+        kind: "local-deep-research",
+        localDeepResearch: budget,
+      },
       activityLine: "Local Deep Research request sent to Ambient.",
     });
-    expect(localDeepResearchSubmitOptions(true)).toEqual({
-      composerIntent: { kind: "local-deep-research" },
+    expect(localDeepResearchSubmitOptions(true, budget)).toEqual({
+      composerIntent: {
+        kind: "local-deep-research",
+        localDeepResearch: budget,
+      },
       activityLine: "Queued Local Deep Research for the current run.",
     });
     expect(submittedComposerDelivery({
@@ -127,6 +136,28 @@ describe("App composer submit actions", () => {
     expect(controller.goalModeArmed.value).toBe(false);
   });
 
+  it("snapshots the selected Local Deep Research budget into the sent composer intent", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { sendMessage } });
+    const budget = resolveLocalDeepResearchRunBudget(undefined, { effort: "deep", maxToolCalls: 60 });
+    const controller = createController({
+      draft: "Compare local research paths.",
+      localDeepResearchModeArmed: true,
+      localDeepResearchRunBudget: budget,
+    });
+
+    await controller.actions.submitComposerDraft("prompt");
+
+    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      content: "Compare local research paths.",
+      composerIntent: {
+        kind: "local-deep-research",
+        localDeepResearch: budget,
+      },
+    }));
+    expect(controller.localDeepResearchModeArmedRef.current).toBe(false);
+  });
+
   it("restores draft, context, STT metadata, and workflow edit context after send failure", async () => {
     vi.stubGlobal("window", {
       ambientDesktop: {
@@ -183,6 +214,7 @@ function createController({
   draft = "Hello",
   goalModeArmed = false,
   localDeepResearchModeArmed = false,
+  localDeepResearchRunBudget = resolveLocalDeepResearchRunBudget(undefined),
   pendingWorkflowRecordingEditContext = undefined,
   running = false,
   state = desktopState(),
@@ -194,6 +226,7 @@ function createController({
   draft?: string;
   goalModeArmed?: boolean;
   localDeepResearchModeArmed?: boolean;
+  localDeepResearchRunBudget?: LocalDeepResearchRunBudget;
   pendingWorkflowRecordingEditContext?: PendingWorkflowRecordingEditContext;
   running?: boolean;
   state?: DesktopState | undefined;
@@ -209,6 +242,7 @@ function createController({
   const sttDraftMetadataState = statefulSetter<SttDraftMetadataState | undefined>(sttDraftMetadata);
   const threadRunStatuses = statefulSetter<Record<string, RunStatus>>({});
   const localDeepResearchModeArmedRef = { current: localDeepResearchModeArmed };
+  const localDeepResearchRunBudgetRef = { current: localDeepResearchRunBudget };
   const appendRunActivityLine = vi.fn();
   const compactActiveThread = vi.fn(async () => undefined);
   const openAmbientCliSecretDialog = vi.fn();
@@ -228,6 +262,7 @@ function createController({
       getComposerDraft: () => draftState.value,
       goalModeArmed,
       localDeepResearchModeArmedRef,
+      localDeepResearchRunBudgetRef,
       openAmbientCliSecretDialog,
       registerPendingSubmittedPrompt,
       pendingWorkflowRecordingEditContext,
@@ -260,6 +295,7 @@ function createController({
     contextError,
     draft: draftState,
     goalModeArmed: goalModeArmedState,
+    localDeepResearchModeArmedRef,
     openAmbientCliSecretDialog,
     pendingWorkflowRecordingEditContext: pendingWorkflowRecordingEditContextState,
     registerPendingSubmittedPrompt,

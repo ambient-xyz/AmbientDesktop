@@ -25,7 +25,10 @@ import {
   workflowAmbientCliScheduleTargetLabel,
   workflowArtifactScheduleAmbientCliGrantUses,
   workflowArtifactScheduleBlockReason,
+  workflowScheduleConnectorGrantMatches,
+  workflowScheduleConnectorGrantRequirements,
   workflowScheduleMissingAmbientCliGrants,
+  type WorkflowScheduleConnectorGrantRequirement,
 } from "../../shared/workflowSchedulePolicy";
 import { workflowRunLiveness } from "../../shared/workflowRunLiveness";
 import {
@@ -205,6 +208,7 @@ export interface WorkflowThreadScheduleGrantAction {
   operation?: string;
   accountId?: string;
   targetLabel: string;
+  targetIdentity?: string;
   scopeKind: Extract<PermissionGrantScopeKind, "workflow_thread">;
   reason: string;
 }
@@ -964,11 +968,13 @@ function workflowScheduleGrantRowsForConnector(
     workspacePath?: string;
   },
 ): WorkflowScheduleGrantReadinessRow[] {
-  const operations = connector.operations.length ? connector.operations : [undefined];
-  return operations.map((operation) => {
-    const targetLabel = operation ? `${connector.connectorId}:${operation}` : connector.connectorId;
-    const labels = [connector.connectorId, targetLabel];
-    const grants = (input.permissionGrants ?? []).filter((grant) => connectorGrantMatches(grant, labels, input));
+  const requirements = workflowScheduleConnectorGrantRequirements({
+    manifest: { connectors: [connector] },
+  } as Pick<WorkflowArtifactSummary, "manifest">);
+  return requirements.map((requirement) => {
+    const operation = requirement.operation;
+    const targetLabel = requirement.targetLabel;
+    const grants = (input.permissionGrants ?? []).filter((grant) => connectorGrantMatches(grant, requirement, input));
     const activeGrant = grants.find((grant) => !grant.revokedAt && !grantExpired(grant) && !grant.conditions?.discoveryOnly);
     const revokedGrant = grants.find((grant) => grant.revokedAt);
     const expiredGrant = grants.find((grant) => !grant.revokedAt && grantExpired(grant));
@@ -982,6 +988,7 @@ function workflowScheduleGrantRowsForConnector(
             operation,
             accountId: connector.accountId,
             targetLabel,
+            targetIdentity: requirement.targetIdentity,
             scopeKind: "workflow_thread",
             reason: `Allow scheduled workflow runs to read ${targetLabel}.`,
           }
@@ -1000,23 +1007,6 @@ function workflowScheduleGrantRowsForConnector(
         tone: "blocked",
         expiryLabel: "No grant",
         recentUseLabel: "No reuse audit",
-        riskLabel: scheduleGrantRiskLabel(input.artifact.manifest),
-      };
-    }
-    if (input.permissionMode === "full-access") {
-      return {
-        id: `${targetLabel}:full-access`,
-        kind: "connector",
-        connectorId: connector.connectorId,
-        operation,
-        accountLabel,
-        targetLabel,
-        status: "full_access",
-        statusLabel: "Full Access bypass",
-        detail: "Full Access allows this scheduled read without creating a persistent grant.",
-        tone: "review",
-        expiryLabel: "No persistent grant",
-        recentUseLabel: "Full Access receipt only",
         riskLabel: scheduleGrantRiskLabel(input.artifact.manifest),
       };
     }
@@ -1330,33 +1320,26 @@ function scheduleConnectorGrantState(input: {
   const missingAmbientCliGrants = workflowScheduleMissingAmbientCliGrants(artifactWithThread, input);
   const ambientCliGrantUses = workflowArtifactScheduleAmbientCliGrantUses(artifactWithThread, input);
   if (!connectors.length && !missingAmbientCliGrants.length && !ambientCliGrantUses.length) return {};
-  if (input.permissionMode === "full-access") {
-    return {
-      label: "Full Access bypass",
-      detail: "Persistent connector and Ambient CLI grants are not required while scheduled workflows run with Full Access.",
-    };
-  }
   const runtimeGrants = (input.permissionGrants ?? []).filter((grant) => !grant.revokedAt && !grantExpired(grant) && !grant.conditions?.discoveryOnly);
-  const connectorStates = connectors.map((connector) => {
-    const labels = [connector.connectorId, ...connector.operations.map((operation) => `${connector.connectorId}:${operation}`)];
-    const grant = runtimeGrants.find((candidate) => connectorGrantMatches(candidate, labels, input));
-    return { connector, labels, grant };
+  const connectorStates = workflowScheduleConnectorGrantRequirements(artifactWithThread).map((requirement) => {
+    const grant = runtimeGrants.find((candidate) => connectorGrantMatches(candidate, requirement, input));
+    return { requirement, grant };
   });
-  const missing = connectorStates.find((state) => !state.grant && state.connector.accountId?.trim());
+  const missing = connectorStates.find((state) => !state.grant && state.requirement.accountId?.trim());
   if (missing) {
-    const operation = missing.connector.operations[0];
-    const targetLabel = operation ? `${missing.connector.connectorId}:${operation}` : missing.connector.connectorId;
+    const { requirement } = missing;
     return {
       label: "Persistent grant needed",
-      detail: `Create a workflow-scoped scheduled-read grant for ${targetLabel}${missing.connector.accountId ? ` on ${missing.connector.accountId}` : ""}.`,
+      detail: `Create a workflow-scoped scheduled-read grant for ${requirement.targetLabel}${requirement.accountId ? ` on ${requirement.accountId}` : ""}.`,
       action: {
         label: "Allow scheduled reads",
-        connectorId: missing.connector.connectorId,
-        operation,
-        accountId: missing.connector.accountId,
-        targetLabel,
+        connectorId: requirement.connectorId,
+        operation: requirement.operation,
+        accountId: requirement.accountId,
+        targetLabel: requirement.targetLabel,
+        targetIdentity: requirement.targetIdentity,
         scopeKind: "workflow_thread",
-        reason: `Allow scheduled workflow runs to read ${targetLabel}.`,
+        reason: `Allow scheduled workflow runs to read ${requirement.targetLabel}.`,
       },
     };
   }
@@ -1382,12 +1365,12 @@ function scheduleConnectorGrantState(input: {
   const grants = connectorStates.map((state) => state.grant).filter((grant): grant is AmbientPermissionGrant => Boolean(grant));
   if (!grants.length) return {};
   const grant = grants[0];
-  const connector = connectorStates.find((state) => state.grant?.id === grant.id)?.connector;
+  const requirement = connectorStates.find((state) => state.grant?.id === grant.id)?.requirement;
   const audit = latestAuditForGrant(input.permissionAudit ?? [], grant.id);
   return {
     label: `Grant: ${formatScheduleGrantScope(grant.scopeKind)} ${grant.targetLabel}`,
     detail: [
-      connector?.accountId ? `Account ${connector.accountId}` : undefined,
+      requirement?.accountId ? `Account ${requirement.accountId}` : undefined,
       audit ? `Last reuse ${audit.createdAt}` : "No visible reuse audit yet",
       grants.length > 1 ? `${grants.length} grants satisfy this schedule` : undefined,
     ]
@@ -1398,11 +1381,10 @@ function scheduleConnectorGrantState(input: {
 
 function connectorGrantMatches(
   grant: AmbientPermissionGrant,
-  labels: string[],
+  requirement: WorkflowScheduleConnectorGrantRequirement,
   input: { workflowThreadId: string; threadId?: string; projectPath?: string; workspacePath?: string },
 ): boolean {
-  if (grant.actionKind !== "connector_content_read" || grant.targetKind !== "connector") return false;
-  if (!labels.includes(grant.targetLabel)) return false;
+  if (!workflowScheduleConnectorGrantMatches(grant, requirement, { id: "", workflowThreadId: input.workflowThreadId }, input)) return false;
   if (grant.scopeKind === "thread") return Boolean(input.threadId && grant.threadId === input.threadId);
   if (grant.scopeKind === "workflow_thread") return grant.workflowThreadId === input.workflowThreadId;
   if (grant.scopeKind === "project") return Boolean(input.projectPath && grant.projectPath === input.projectPath);

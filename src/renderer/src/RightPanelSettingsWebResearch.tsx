@@ -1,10 +1,17 @@
 import { ChevronLeft, ChevronRight, Download, KeyRound, LoaderCircle, Play, Plug, RefreshCw, RotateCcw } from "lucide-react";
 import type { RefObject } from "react";
+import {
+  LOCAL_DEEP_RESEARCH_EFFORT_ORDER,
+  localDeepResearchEffortLabel,
+  localDeepResearchMaxToolCallsForEffort,
+} from "../../shared/localDeepResearchBudget";
 import type {
   AmbientMcpContainerRuntimeStatus,
   AmbientMcpDefaultCapabilitySummary,
   AmbientMcpInstalledServerSummary,
   DesktopState,
+  LocalDeepResearchBudgetExhaustionBehavior,
+  LocalDeepResearchEffort,
   LocalDeepResearchRunHistoryEntry,
   ManagedDevServerSummary,
   ProviderCatalogSettingsCard,
@@ -93,6 +100,7 @@ export type RightPanelSearchWebSettingsSectionProps = {
   onSetupLocalDeepResearch: (action: LocalDeepResearchSetupAction) => void;
   onLocalDeepResearchQ8OverrideChange: (value: boolean) => void;
   updateLocalModelResourceSettings: (patch: Partial<DesktopState["settings"]["localDeepResearch"]["localModelResources"]>) => void;
+  updateLocalDeepResearchRunBudgetSettings: (patch: Partial<DesktopState["settings"]["localDeepResearch"]["runBudget"]>) => void;
   onLoadLocalDeepResearchRunHistory: () => void;
   startProviderCatalogCardOnboarding: (card: ProviderCatalogSettingsCard) => MaybePromise;
 };
@@ -136,9 +144,16 @@ export function RightPanelSearchWebSettingsSection({
   onSetupLocalDeepResearch,
   onLocalDeepResearchQ8OverrideChange,
   updateLocalModelResourceSettings,
+  updateLocalDeepResearchRunBudgetSettings,
   onLoadLocalDeepResearchRunHistory,
   startProviderCatalogCardOnboarding,
 }: RightPanelSearchWebSettingsSectionProps) {
+  const localDeepResearchRunBudget = state.settings.localDeepResearch.runBudget;
+  const localDeepResearchDefaultToolCalls = localDeepResearchMaxToolCallsForEffort(
+    localDeepResearchRunBudget.defaultEffort,
+    localDeepResearchRunBudget.customMaxToolCalls,
+  );
+
   return (
 <SettingsSection
           id="search-web"
@@ -422,6 +437,59 @@ export function RightPanelSearchWebSettingsSection({
                 {localDeepResearchQ8.label}
               </small>
             )}
+            <div className="settings-mini-row local-deep-research-budget-row">
+              <span>
+                <strong>Default research effort</strong>
+                <small>
+                  {localDeepResearchEffortLabel(localDeepResearchRunBudget.defaultEffort)} · {localDeepResearchDefaultToolCalls.toLocaleString()} tool calls
+                </small>
+              </span>
+              <span className="button-row">
+                <select
+                  className="settings-select compact"
+                  value={localDeepResearchRunBudget.defaultEffort}
+                  aria-label="Default Local Deep Research effort"
+                  onChange={(event) => updateLocalDeepResearchRunBudgetSettings({
+                    defaultEffort: event.target.value as LocalDeepResearchEffort,
+                  })}
+                >
+                  {LOCAL_DEEP_RESEARCH_EFFORT_ORDER.map((effort) => (
+                    <option key={effort} value={effort}>
+                      {localDeepResearchEffortLabel(effort)}
+                    </option>
+                  ))}
+                  <option value="custom">Custom</option>
+                </select>
+                <input
+                  className="settings-memory-input"
+                  type="number"
+                  min={1}
+                  max={500}
+                  step={1}
+                  value={localDeepResearchRunBudget.customMaxToolCalls ?? ""}
+                  placeholder="Custom calls"
+                  aria-label="Default custom Local Deep Research max tool calls"
+                  onChange={(event) => {
+                    const parsed = Number.parseInt(event.target.value, 10);
+                    updateLocalDeepResearchRunBudgetSettings({
+                      defaultEffort: "custom",
+                      customMaxToolCalls: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined,
+                    });
+                  }}
+                />
+                <select
+                  className="settings-select compact"
+                  value={localDeepResearchRunBudget.onExhausted}
+                  aria-label="Local Deep Research budget exhaustion behavior"
+                  onChange={(event) => updateLocalDeepResearchRunBudgetSettings({
+                    onExhausted: event.target.value as LocalDeepResearchBudgetExhaustionBehavior,
+                  })}
+                >
+                  <option value="ask_to_continue">Ask</option>
+                  <option value="summarize">Summarize</option>
+                </select>
+              </span>
+            </div>
             <div className="settings-mini-row local-model-resource-row">
               <span>
                 <strong>Local model memory policy</strong>

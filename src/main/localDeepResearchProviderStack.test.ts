@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { normalizeLocalDeepResearchRunBudgetSettings } from "../shared/localDeepResearchBudget";
 import {
   buildLocalDeepResearchProviderDiscovery,
   buildLocalDeepResearchProviderStackStatus,
@@ -44,6 +45,7 @@ describe("localDeepResearchProviderStack", () => {
         },
       },
       localModelResources: defaultLocalModelResourceSettings(),
+      runBudget: normalizeLocalDeepResearchRunBudgetSettings(undefined),
     };
     const status = buildLocalDeepResearchProviderStackStatus({ settings: current });
     expect(status.activeProvider).toMatchObject({ providerId: "local.deep-research.fixture" });
@@ -82,6 +84,7 @@ describe("localDeepResearchProviderStack", () => {
         },
       },
       localModelResources: defaultLocalModelResourceSettings(),
+      runBudget: normalizeLocalDeepResearchRunBudgetSettings(undefined),
     };
 
     const plan = planLocalDeepResearchProviderPreferenceUpdate(
@@ -130,6 +133,7 @@ describe("localDeepResearchProviderStack", () => {
         },
       },
       localModelResources: defaultLocalModelResourceSettings(),
+      runBudget: normalizeLocalDeepResearchRunBudgetSettings(undefined),
     };
 
     const plan = planLocalDeepResearchProviderPreferenceUpdate(

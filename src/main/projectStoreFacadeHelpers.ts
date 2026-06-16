@@ -671,7 +671,3 @@ export interface ProjectBoardProofReviewContext {
   run: OrchestrationRun;
   deterministicReview: ProjectBoardCardProofReview;
 }
-
-export function piPackageSettingId(packageId: string): string {
-  return `pi-package:${packageId}`;
-}

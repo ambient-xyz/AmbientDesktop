@@ -7186,7 +7186,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V vision through Ambient CLI during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V Ambient CLI dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
     await stat(llamaServer).catch(() => {
       throw new Error(`Set AMBIENT_MINICPM_V_LLAMA_SERVER to a runnable llama-server binary for live MiniCPM-V dogfood. Missing: ${llamaServer}`);
     });
@@ -7338,7 +7338,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V vision through the typed Ambient visual tool during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V typed visual dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
@@ -7582,7 +7582,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V comparison through structured visual references during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V structured visual dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
@@ -7674,7 +7674,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V sampled video frames through the typed Ambient visual tool during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V typed video dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/local-runtimes/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;

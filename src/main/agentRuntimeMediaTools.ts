@@ -49,7 +49,7 @@ function mediaArtifactResultDetails(result: MediaArtifactResult): MediaArtifactR
     artifactPath: result.artifactPath,
     mediaKind: result.mediaKind,
     bytes: result.bytes,
-    renderedInline: true,
+    inlinePreviewEligible: true,
     displayInstruction: result.displayInstruction,
     ...(result.mimeType ? { mimeType: result.mimeType } : {}),
     ...(result.width !== undefined ? { width: result.width } : {}),

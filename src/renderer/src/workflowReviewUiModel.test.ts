@@ -809,7 +809,7 @@ describe("workflowReviewUiModel", () => {
           startedAt: "2026-05-02T16:00:00.000Z",
           updatedAt: "2026-05-02T16:00:01.000Z",
           completedAt: "2026-05-02T16:00:01.000Z",
-          error: "Workflow schedule requires persistent connector grant for gmail.mail.",
+          error: "Workflow schedule requires persistent connector grant for gmail.mail:search.",
           scheduledBy: {
             scheduleId: "schedule-latest",
             outcome: "skipped",
@@ -844,7 +844,7 @@ describe("workflowReviewUiModel", () => {
             expect.objectContaining({
               id: "run-skipped",
               statusLabel: "Schedule skipped",
-              detail: "Completed 2026-05-02T16:00:01.000Z · Workflow schedule requires persistent connector grant for gmail.mail. · version version-1",
+              detail: "Completed 2026-05-02T16:00:01.000Z · Workflow schedule requires persistent connector grant for gmail.mail:search. · version version-1",
               tone: "neutral",
             }),
           ],
@@ -1115,11 +1115,18 @@ describe("workflowReviewUiModel", () => {
         workspacePath: "/tmp/workspace",
       }).schedules[0],
     ).toMatchObject({
-      dispatchLabel: "Dispatchable",
-      dispatchTone: "ready",
-      grantLabel: "Full Access bypass",
-      grantDetail: "Persistent connector and Ambient CLI grants are not required while scheduled workflows run with Full Access.",
-      grantAction: undefined,
+      dispatchLabel: "Blocked: persistent connector grant needed for gmail.mail:search",
+      dispatchTone: "blocked",
+      grantLabel: "Persistent grant needed",
+      grantDetail: "Create a workflow-scoped scheduled-read grant for gmail.mail:search on primary.",
+      grantAction: {
+        label: "Allow scheduled reads",
+        connectorId: "gmail.mail",
+        operation: "search",
+        accountId: "primary",
+        targetLabel: "gmail.mail:search",
+        scopeKind: "workflow_thread",
+      },
     });
 
     expect(
@@ -1134,7 +1141,7 @@ describe("workflowReviewUiModel", () => {
         workspacePath: "/tmp/workspace",
       }).schedules[0],
     ).toMatchObject({
-      dispatchLabel: "Blocked: persistent connector grant needed for gmail.mail",
+      dispatchLabel: "Blocked: persistent connector grant needed for gmail.mail:search",
       dispatchTone: "blocked",
       grantLabel: "Persistent grant needed",
       grantDetail: "Create a workflow-scoped scheduled-read grant for gmail.mail:search on primary.",
@@ -1190,7 +1197,7 @@ describe("workflowReviewUiModel", () => {
         workspacePath: "/tmp/workspace",
       }).schedules[0],
     ).toMatchObject({
-      dispatchLabel: "Blocked: persistent connector grant needed for gmail.mail",
+      dispatchLabel: "Blocked: persistent connector grant needed for gmail.mail:search",
       dispatchTone: "blocked",
     });
   });

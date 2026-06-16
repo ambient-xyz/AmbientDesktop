@@ -140,19 +140,114 @@ describe("subagentWaitBarrierEvaluation", () => {
   it("resolves unsatisfied timed-out barriers as timed_out", () => {
     const evaluation = evaluateSubagentWaitBarrierForSynthesis({
       barrier: barrier({ dependencyMode: "required_all", childRunIds: ["a", "b"] }),
-      timedOut: true,
+      terminalEvidence: childRuntimeTimeoutEvidence("b", "runtime_idle_timeout"),
       childResults: [
         child({ childRunId: "a", synthesisAllowed: true }),
-        child({ childRunId: "b", status: "running", synthesisAllowed: false }),
+        child({ childRunId: "b", status: "timed_out", synthesisAllowed: false }),
       ],
     });
 
     expect(evaluation).toMatchObject({
       timedOut: true,
+      terminalEvidence: {
+        kind: "child_runtime_timeout",
+        childRunId: "b",
+        reason: "runtime_idle_timeout",
+        timeoutKind: "idle",
+      },
+      runtimeTimeoutKind: "idle",
       synthesisAllowed: false,
       reason: "required_all barrier timed out with 1/2 synthesis-safe child results.",
     });
     expect(waitBarrierStatusFromEvaluation(evaluation)).toBe("timed_out");
+  });
+
+  it("preserves hard-cap timeout evidence distinctly from idle timeout evidence", () => {
+    const evaluation = evaluateSubagentWaitBarrierForSynthesis({
+      barrier: barrier({ dependencyMode: "required_all", childRunIds: ["hard-cap"] }),
+      terminalEvidence: childRuntimeTimeoutEvidence("hard-cap", "runtime_hard_cap_exceeded"),
+      childResults: [
+        child({ childRunId: "hard-cap", status: "failed", synthesisAllowed: false }),
+      ],
+    });
+
+    expect(evaluation).toMatchObject({
+      timedOut: true,
+      runtimeTimeoutKind: "hard_cap",
+      terminalEvidence: {
+        kind: "child_runtime_timeout",
+        childRunId: "hard-cap",
+        reason: "runtime_hard_cap_exceeded",
+        timeoutKind: "hard_cap",
+      },
+      impossible: true,
+      activeChildRunIds: [],
+      terminalUnsafeChildRunIds: ["hard-cap"],
+      reason: "required_all barrier timed out with 0/1 synthesis-safe child results.",
+    });
+    expect(waitBarrierStatusFromEvaluation(evaluation)).toBe("timed_out");
+  });
+
+  it("keeps any/quorum barriers waiting when timeout evidence does not make synthesis impossible", () => {
+    const requiredAny = evaluateSubagentWaitBarrierForSynthesis({
+      barrier: barrier({ dependencyMode: "required_any", childRunIds: ["timed-out", "running"] }),
+      terminalEvidence: childRuntimeTimeoutEvidence("timed-out", "runtime_idle_timeout"),
+      childResults: [
+        child({ childRunId: "timed-out", status: "timed_out", synthesisAllowed: false }),
+        child({ childRunId: "running", status: "running", synthesisAllowed: false }),
+      ],
+    });
+    const quorum = evaluateSubagentWaitBarrierForSynthesis({
+      barrier: barrier({
+        dependencyMode: "quorum",
+        quorumThreshold: 2,
+        childRunIds: ["safe", "timed-out", "running"],
+      }),
+      terminalEvidence: childRuntimeTimeoutEvidence("timed-out", "runtime_idle_timeout"),
+      childResults: [
+        child({ childRunId: "safe", synthesisAllowed: true }),
+        child({ childRunId: "timed-out", status: "timed_out", synthesisAllowed: false }),
+        child({ childRunId: "running", status: "running", synthesisAllowed: false }),
+      ],
+    });
+
+    expect(requiredAny).toMatchObject({
+      timedOut: true,
+      terminalEvidence: {
+        kind: "child_runtime_timeout",
+        childRunId: "timed-out",
+        reason: "runtime_idle_timeout",
+        timeoutKind: "idle",
+      },
+      runtimeTimeoutKind: "idle",
+      requiredSynthesisCount: 1,
+      validSynthesisCount: 0,
+      potentialSynthesisCount: 1,
+      impossible: false,
+      activeChildRunIds: ["running"],
+      terminalUnsafeChildRunIds: ["timed-out"],
+      reason: "required_any barrier recorded child timeout evidence but is still waiting for child work; 0/1 synthesis-safe results are available and 1 child run may still finish.",
+    });
+    expect(waitBarrierStatusFromEvaluation(requiredAny)).toBe("waiting_on_children");
+
+    expect(quorum).toMatchObject({
+      timedOut: true,
+      terminalEvidence: {
+        kind: "child_runtime_timeout",
+        childRunId: "timed-out",
+        reason: "runtime_idle_timeout",
+        timeoutKind: "idle",
+      },
+      runtimeTimeoutKind: "idle",
+      requiredSynthesisCount: 2,
+      validSynthesisCount: 1,
+      potentialSynthesisCount: 2,
+      impossible: false,
+      activeChildRunIds: ["running"],
+      terminalUnsafeChildRunIds: ["timed-out"],
+      reason: "quorum barrier recorded child timeout evidence but is still waiting for child work; 1/2 synthesis-safe results are available and 1 child run may still finish.",
+    });
+    expect(waitBarrierStatusFromEvaluation(quorum)).toBe("waiting_on_children");
   });
 });
 
@@ -168,6 +263,19 @@ function barrier(overrides: Partial<SubagentWaitBarrierSummary> = {}): SubagentW
     createdAt: "2026-06-05T12:00:00.000Z",
     updatedAt: "2026-06-05T12:00:00.000Z",
     ...overrides,
+  };
+}
+
+function childRuntimeTimeoutEvidence(childRunId: string, reason: string) {
+  return {
+    kind: "child_runtime_timeout" as const,
+    childRunId,
+    reason,
+    timeoutKind: reason === "runtime_hard_cap_exceeded"
+      ? "hard_cap" as const
+      : reason === "runtime_idle_timeout"
+        ? "idle" as const
+        : "unknown" as const,
   };
 }
 

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const mainSource = readSource("src/main/index.ts");
 const mainHandleSources = readMainHandleSources();
 const ambientIpcSource = readSource("src/main/ipc/registerAmbientIpc.ts");
+const diagnosticsExportDomainIpcSource = readSource("src/main/ipc/registerDiagnosticsExportDomainIpc.ts");
 const workflowIpcSource = readSource("src/main/ipc/registerWorkflowIpc.ts");
 const preloadSource = readSource("src/preload/index.ts");
 const desktopTypesSource = readSource("src/shared/desktopTypes.ts");
@@ -89,7 +90,7 @@ describe("IPC authority boundary", () => {
     expect(diagnosticSource).not.toMatch(/\bruntime\./);
     expect(diagnosticSource).not.toContain("pluginStateReader()");
 
-    const diagnosticExport = sourceBetween(mainHandleSources, "registerDiagnosticsIpc({", "\n    registerThreadExportChatIpc({");
+    const diagnosticExport = sourceBetween(diagnosticsExportDomainIpcSource, "registerDiagnosticsIpc({", "\n  registerThreadExportChatIpc({");
     expect(diagnosticExport).toContain("const host = requireActiveProjectRuntimeHost();");
     expect(diagnosticExport).toContain("createMainDiagnosticSource(host)");
     expect(diagnosticExport).toContain("importDiagnosticBundle: async");
@@ -129,7 +130,7 @@ describe("IPC authority boundary", () => {
     const projectResetHelper = sourceBetween(mainSource, "function resetProjectRuntimeAndPluginServers", "\nfunction disposeProjectRuntimeHost");
     expect(projectResetHelper).toContain("workspacePathsForProjectRuntimeHost(host)");
 
-    const pluginMutationRegion = sourceBetween(mainHandleSources, "registerPluginSetEnabledIpc({", "\n    registerPluginSetTrustedIpc({");
+    const pluginMutationRegion = sourceBetween(mainHandleSources, "registerPluginSetEnabledIpc({", "\n  registerPluginSetTrustedIpc({");
     expect(pluginMutationRegion).toContain("resetProjectRuntimeAndPluginServers(host)");
     expect(pluginMutationRegion).not.toContain("resetRuntimeAndPluginServers()");
   });

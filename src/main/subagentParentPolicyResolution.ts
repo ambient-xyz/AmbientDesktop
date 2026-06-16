@@ -1,6 +1,5 @@
 import type { SubagentRunStatus } from "../shared/subagentProtocol";
 import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../shared/types";
-import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "./subagentWaitBarrierEvaluation";
 
 export const SUBAGENT_PARENT_POLICY_RESOLUTION_SCHEMA_VERSION = "ambient-subagent-parent-policy-resolution-v1" as const;
 export const SUBAGENT_BARRIER_DECISIONS = ["continue_with_partial", "fail_parent", "retry_child", "detach_child", "cancel_parent"] as const;
@@ -112,18 +111,6 @@ export function resolveSubagentParentPolicyForWait(input: {
         ? "Child wait timed out before the barrier resolved."
         : input.validationReason ?? "Child is not terminal and has no synthesis-safe result artifact yet.",
       instruction: "Do not synthesize child work. Wait again, send follow-up guidance, or cancel the child explicitly.",
-    };
-  }
-  if (input.waitTimedOut && !SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES.has(input.run.status)) {
-    return {
-      ...base,
-      status: "blocked",
-      action: "wait_for_child",
-      canSynthesize: false,
-      requiresUserInput: false,
-      requiresExplicitPartial: false,
-      reason: "Child wait timed out, but the child is still running and may still produce a synthesis-safe result.",
-      instruction: "Do not synthesize child work. Wait again with a longer timeout, send follow-up guidance, or cancel the child explicitly.",
     };
   }
   const blockedReason = input.waitTimedOut

@@ -1,8 +1,20 @@
+import type {
+  SubagentDependencyMode,
+  SubagentWaitBarrierMode,
+} from "../shared/subagentProtocol";
+
 export const SUBAGENT_PI_TOOL_INPUT_SCHEMA_VERSION =
   "ambient-subagent-pi-tool-input-v1" as const;
 
-export const DEFAULT_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS = 60_000;
-export const MAX_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS = 10 * 60_000;
+export const DEFAULT_OPTIONAL_BACKGROUND_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS = 60_000;
+export const MIN_REQUIRED_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS = 10 * 60_000;
+export const DEFAULT_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS = MIN_REQUIRED_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS;
+export const MAX_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS = 60 * 60_000;
+
+export interface ResolveSubagentPiToolWaitTimeoutOptions {
+  waitBarrierMode?: SubagentWaitBarrierMode | SubagentDependencyMode;
+  env?: NodeJS.ProcessEnv;
+}
 
 export interface ResolvedSubagentPiToolInput<Action extends string> {
   input: Record<string, unknown>;
@@ -20,11 +32,30 @@ export function resolveSubagentPiToolInput<Action extends readonly string[]>(
   };
 }
 
-export function resolveSubagentPiToolWaitTimeoutMs(input: Record<string, unknown>): number {
+export function resolveSubagentPiToolWaitTimeoutMs(
+  input: Record<string, unknown>,
+  options: ResolveSubagentPiToolWaitTimeoutOptions = {},
+): number {
   const wait = objectInput(input.wait);
   const raw = typeof wait.timeoutMs === "number" ? wait.timeoutMs : undefined;
-  if (raw === undefined || !Number.isFinite(raw)) return DEFAULT_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS;
-  return Math.max(0, Math.min(MAX_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS, Math.floor(raw)));
+  const optionalBackground = options.waitBarrierMode === "optional_background";
+  const requiredFloorMs = optionalBackground
+    ? 0
+    : resolveRequiredSubagentPiToolWaitTimeoutFloorMs(options.env);
+  const defaultTimeoutMs = optionalBackground
+    ? DEFAULT_OPTIONAL_BACKGROUND_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS
+    : requiredFloorMs;
+  if (raw === undefined || !Number.isFinite(raw)) return defaultTimeoutMs;
+  const maxTimeoutMs = Math.max(requiredFloorMs, MAX_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS);
+  return Math.max(requiredFloorMs, Math.min(maxTimeoutMs, Math.floor(raw)));
+}
+
+export function resolveRequiredSubagentPiToolWaitTimeoutFloorMs(
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  const raw = Number(env.AMBIENT_SUBAGENT_REQUIRED_WAIT_TIMEOUT_FLOOR_MS);
+  if (!Number.isFinite(raw)) return MIN_REQUIRED_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS;
+  return Math.max(1, Math.floor(raw));
 }
 
 export function objectInput(value: unknown): Record<string, unknown> {

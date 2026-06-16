@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { resolveLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 import type { WorkflowAgentThreadSummary } from "../shared/types";
 import { modelContentForAgentRuntimeSendInput } from "./agentRuntimeSendContent";
 
@@ -34,11 +35,12 @@ describe("modelContentForAgentRuntimeSendInput", () => {
   it("wraps Local Deep Research composer intents around the formatted user request", () => {
     const content = modelContentForAgentRuntimeSendInput({
       content: "Compare local search agents.",
-      composerIntent: { kind: "local-deep-research" },
+      composerIntent: { kind: "local-deep-research", localDeepResearch: resolveLocalDeepResearchRunBudget(undefined) },
     }, defaultDeps());
 
     expect(content).toContain("Composer action: Local Deep Research.");
     expect(content).toContain("ambient_local_deep_research_run");
+    expect(content).toContain("\"maxToolCalls\": 25");
     expect(content).toContain("Research query:\nCompare local search agents.");
   });
 

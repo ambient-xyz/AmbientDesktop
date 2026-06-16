@@ -59,7 +59,10 @@ describe("agentRuntimeLocalDeepResearchWebBroker", () => {
       args: ["ambient"],
       signal,
     });
-    expect(updates).toEqual(['Searching with Brave Search for "ambient".']);
+    expect(updates).toEqual([
+      'Searching with Brave Search for "ambient".',
+      'Brave Search search returned output for "ambient".',
+    ]);
     expect(result).toMatchObject({
       text: "Brave result",
       selectedProvider: "ambient-brave-search",
@@ -121,6 +124,46 @@ describe("agentRuntimeLocalDeepResearchWebBroker", () => {
       ],
       metadata: {
         textOutput: textOutputArtifact,
+      },
+    });
+  });
+
+  it("emits structured retrieval status for fetch wrappers", async () => {
+    const updates: AgentToolResult<Record<string, unknown>>[] = [];
+    const textOutputArtifact = textOutput("Scrapling text", ".ambient/artifacts/scrapling.txt");
+    const broker = createLocalDeepResearchWebBroker(runtime({ onUpdate: (update) => updates.push(update) }), options({
+      webResearchProviderPlanForInput: vi.fn(async () => providerPlan([], [WEB_RESEARCH_PROVIDER_IDS.scrapling])),
+      tryRouteBrowserContentThroughScrapling: vi.fn(async () => ({
+        result: toolResult("Scrapling text", {
+          targetToolName: "scrape",
+          textOutput: textOutputArtifact,
+        }),
+      })),
+    }));
+
+    await broker.visit({ url: "example.test/article", maxCharacters: 4096 });
+
+    expect(updates.at(0)?.details).toMatchObject({
+      runtime: "ambient-local-deep-research",
+      stage: "retrieval",
+      localDeepResearchStatus: {
+        stage: "retrieval",
+        retrieval: {
+          role: "fetch",
+          status: "starting",
+          providerId: WEB_RESEARCH_PROVIDER_IDS.scrapling,
+          providerLabel: "Scrapling MCP",
+          url: "https://example.test/article",
+        },
+      },
+    });
+    expect(updates.at(-1)?.details).toMatchObject({
+      localDeepResearchStatus: {
+        retrieval: {
+          status: "succeeded",
+          outputChars: "Scrapling text".length,
+          textOutputPath: ".ambient/artifacts/scrapling.txt",
+        },
       },
     });
   });

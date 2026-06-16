@@ -5,6 +5,7 @@ import type {
   DesktopState,
   MessageDelivery,
   RunStatus,
+  LocalDeepResearchRunBudget,
   SendMessageComposerIntent,
   ThreadGoal,
   ThreadSummary,
@@ -36,9 +37,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function localDeepResearchSubmitOptions(running: boolean): SubmitDraftOptions {
+export function localDeepResearchSubmitOptions(running: boolean, budget: LocalDeepResearchRunBudget): SubmitDraftOptions {
   return {
-    composerIntent: { kind: "local-deep-research" },
+    composerIntent: {
+      kind: "local-deep-research",
+      localDeepResearch: budget,
+    },
     activityLine: running ? "Queued Local Deep Research for the current run." : "Local Deep Research request sent to Ambient.",
   };
 }
@@ -80,6 +84,7 @@ export function createAppComposerSubmitActions({
   getComposerDraft,
   goalModeArmed,
   localDeepResearchModeArmedRef,
+  localDeepResearchRunBudgetRef,
   openAmbientCliSecretDialog,
   registerPendingSubmittedPrompt,
   pendingWorkflowRecordingEditContext,
@@ -109,6 +114,7 @@ export function createAppComposerSubmitActions({
   getComposerDraft: () => string;
   goalModeArmed: boolean;
   localDeepResearchModeArmedRef: MutableRefObject<boolean>;
+  localDeepResearchRunBudgetRef: MutableRefObject<LocalDeepResearchRunBudget>;
   openAmbientCliSecretDialog: (input: { packageName?: string; envName?: string }) => void;
   registerPendingSubmittedPrompt: (input: { threadId: string; content: string; delivery: MessageDelivery }) => string | undefined;
   pendingWorkflowRecordingEditContext: PendingWorkflowRecordingEditContext | undefined;
@@ -149,7 +155,7 @@ export function createAppComposerSubmitActions({
   async function submitComposerDraft(requestedDelivery: MessageDelivery, followUpModifier = false): Promise<void> {
     const localDeepResearchModeRequested = localDeepResearchModeArmedRef.current;
     await submitDraft(requestedDelivery, followUpModifier, {
-      ...(localDeepResearchModeRequested ? localDeepResearchSubmitOptions(running) : {}),
+      ...(localDeepResearchModeRequested ? localDeepResearchSubmitOptions(running, localDeepResearchRunBudgetRef.current) : {}),
     });
   }
 

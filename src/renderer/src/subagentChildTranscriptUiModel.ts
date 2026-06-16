@@ -282,7 +282,7 @@ function terminalSummaryDetail(detail: string): string {
 function eventTone(type: string): SubagentChildTranscriptTone {
   const normalized = type.toLowerCase().replace(/[._:-]+/g, " ");
   if (/\bretry\b/.test(normalized)) return "active";
-  if (/\b(fail|failed|error|crash|cancel|denied|timeout|interrupted)\b/.test(normalized)) return "danger";
+  if (/\b(fail|failed|error|crash|cancel|denied|timeout|interrupted|exhausted)\b/.test(normalized)) return "danger";
   if (/\b(approval|blocked|wait|attention|reconcile|missing)\b/.test(normalized)) return "warning";
   if (/\b(complete|completed|satisfied|released|success)\b/.test(normalized)) return "success";
   if (/\b(start|starting|running|progress|delta|stream|queued)\b/.test(normalized)) return "active";
@@ -334,6 +334,8 @@ const friendlyEventLabels: Record<string, string> = {
   "subagent.child_session_completed": "Child session completed",
   "subagent.child_session_failed": "Child session failed",
   "subagent.child_runtime_refused": "Child runtime refused",
+  "subagent.result_contract_repair_exhausted": "Result repair exhausted",
+  "subagent.post_tool_followup_exhausted": "Post-tool follow-up exhausted",
 };
 
 const friendlyMailboxEventLabels: Record<string, string> = {

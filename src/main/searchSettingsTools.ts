@@ -499,15 +499,31 @@ function appendDynamicProvidersBeforeBrowser(
   const defaultOrder = WEB_RESEARCH_DEFAULT_PREFERENCES[role];
   const existing = currentSearchOrder.length ? currentSearchOrder : defaultOrder.filter((providerId) => providerMap.has(providerId));
   const defaultProviderIds = new Set(defaultOrder);
-  const dynamicProviderIds = providers
+  const existingPreferredDynamicProviderIds = role === "search"
+    ? existing.filter((providerId) => {
+      const provider = providerMap.get(providerId);
+      return provider && !defaultProviderIds.has(providerId) && isPreferredDynamicSearchProvider(provider);
+    })
+    : [];
+  const existingWithoutPreferredDynamic = existing.filter((providerId) => !existingPreferredDynamicProviderIds.includes(providerId));
+  const dynamicProviders = providers
     .filter((provider) =>
       provider.roles.includes(role) &&
       provider.status === "enabled" &&
       !existing.includes(provider.providerId)
       && !defaultProviderIds.has(provider.providerId)
-    )
+    );
+  const preferredDynamicProviderIds = role === "search"
+    ? dynamicProviders.filter(isPreferredDynamicSearchProvider).map((provider) => provider.providerId)
+    : [];
+  const dynamicProviderIds = dynamicProviders
+    .filter((provider) => !preferredDynamicProviderIds.includes(provider.providerId))
     .map((provider) => provider.providerId);
-  const result = [...existing];
+  const result = [
+    ...existingPreferredDynamicProviderIds,
+    ...preferredDynamicProviderIds,
+    ...existingWithoutPreferredDynamic,
+  ];
   const browserIndex = result.indexOf(WEB_RESEARCH_PROVIDER_IDS.browser);
   for (const providerId of dynamicProviderIds) {
     if (!providerMap.get(providerId)?.roles.includes(role)) continue;
@@ -633,7 +649,34 @@ function preferredAmbientCliSearchProviderId(settings: SearchRoutingSettings): s
 
 function defaultCanonicalSearchOrder(providers: WebResearchProviderConfig[]): string[] {
   const providerIds = new Set(providers.map((provider) => provider.providerId));
-  return [WEB_RESEARCH_PROVIDER_IDS.exa, WEB_RESEARCH_PROVIDER_IDS.browser].filter((providerId) => providerIds.has(providerId));
+  const preferredDynamicProviderIds = providers
+    .filter((provider) =>
+      provider.status === "enabled" &&
+      provider.roles.includes("search") &&
+      !WEB_RESEARCH_DEFAULT_PREFERENCES.search.includes(provider.providerId) &&
+      isPreferredDynamicSearchProvider(provider)
+    )
+    .map((provider) => provider.providerId);
+  return [
+    ...preferredDynamicProviderIds,
+    ...[WEB_RESEARCH_PROVIDER_IDS.exa, WEB_RESEARCH_PROVIDER_IDS.browser].filter((providerId) => providerIds.has(providerId)),
+  ].filter((providerId, index, list) => list.indexOf(providerId) === index);
+}
+
+function isPreferredDynamicSearchProvider(provider: WebResearchProviderConfig): boolean {
+  const haystack = [
+    provider.providerId,
+    provider.label,
+    provider.privacyLabel,
+    provider.ambientCli?.packageId,
+    provider.ambientCli?.packageName,
+    provider.ambientCli?.commandName,
+    provider.ambientCli?.capabilityId,
+    provider.mcp?.serverId,
+    provider.mcp?.workloadName,
+    provider.mcp?.toolName,
+  ].filter(Boolean).join(" ").toLowerCase();
+  return /\bbrave\b/.test(haystack) || haystack.includes("brave-search");
 }
 
 function searchSettingsSummary(settings: SearchRoutingSettings): string {

@@ -1,0 +1,236 @@
+import type { IpcMain, IpcMainInvokeEvent } from "electron";
+import { describe, expect, it, vi } from "vitest";
+
+import { diagnosticsIpcChannels } from "./registerDiagnosticsIpc";
+import {
+  diagnosticsExportDomainIpcChannels,
+  registerDiagnosticsExportDomainIpc,
+  type ChatExportPayload,
+  type DiagnosticBundlePayload,
+} from "./registerDiagnosticsExportDomainIpc";
+import { threadExportChatIpcChannels } from "./registerThreadIpc";
+
+type IpcListener = Parameters<IpcMain["handle"]>[1];
+
+describe("registerDiagnosticsExportDomainIpc", () => {
+  it("registers diagnostics and thread export channels in the previous main registrar order", () => {
+    const { handlers } = registerWithFakes();
+
+    expect([...handlers.keys()]).toEqual([...diagnosticsExportDomainIpcChannels]);
+    expect([...diagnosticsExportDomainIpcChannels]).toEqual([
+      ...diagnosticsIpcChannels,
+      ...threadExportChatIpcChannels,
+    ]);
+  });
+
+  it("exports diagnostics to the E2E path without opening a save dialog", async () => {
+    const { deps, diagnosticPayload, invoke } = registerWithFakes({
+      env: {
+        AMBIENT_E2E: "1",
+        AMBIENT_E2E_DIAGNOSTICS_PATH: "/tmp/e2e-diagnostics.json",
+      },
+    });
+    const expectedBody = `${JSON.stringify(diagnosticPayload.bundle, null, 2)}\n`;
+
+    await expect(invoke("diagnostics:export")).resolves.toEqual({
+      path: "/tmp/e2e-diagnostics.json",
+      bytes: Buffer.byteLength(expectedBody),
+      createdAt: diagnosticPayload.bundle.createdAt,
+      summary: undefined,
+      subagents: {
+        replayEvidence: undefined,
+      },
+    });
+
+    expect(deps.requireActiveProjectRuntimeHost).toHaveBeenCalledOnce();
+    expect(deps.createMainDiagnosticSource).toHaveBeenCalledWith(deps.activeHost);
+    expect(deps.createDiagnosticBundle).toHaveBeenCalledWith(deps.diagnosticSource, deps.logs, {
+      appName: "Ambient Test",
+      appVersion: "1.2.3",
+      now: expect.any(Date),
+    });
+    expect(deps.writeFile).toHaveBeenCalledWith("/tmp/e2e-diagnostics.json", expectedBody, "utf8");
+    expect(deps.dialog.showSaveDialog).not.toHaveBeenCalled();
+  });
+
+  it("exports diagnostics through the save dialog when E2E export is not configured", async () => {
+    const { deps, diagnosticPayload, invoke, mainWindow } = registerWithFakes({
+      saveDialogResult: {
+        canceled: false,
+        filePath: "/downloads/exported-diagnostics.json",
+      },
+    });
+    const expectedBody = `${JSON.stringify(diagnosticPayload.bundle, null, 2)}\n`;
+
+    await expect(invoke("diagnostics:export")).resolves.toEqual({
+      path: "/downloads/exported-diagnostics.json",
+      bytes: Buffer.byteLength(expectedBody),
+      createdAt: diagnosticPayload.bundle.createdAt,
+      summary: undefined,
+      subagents: {
+        replayEvidence: undefined,
+      },
+    });
+
+    expect(deps.dialog.showSaveDialog).toHaveBeenCalledWith(mainWindow, {
+      title: "Export Diagnostic Bundle",
+      defaultPath: "/downloads/ambient-diagnostics.json",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    expect(deps.writeFile).toHaveBeenCalledWith("/downloads/exported-diagnostics.json", expectedBody, "utf8");
+  });
+
+  it("imports diagnostics from the selected JSON bundle", async () => {
+    const { deps, diagnosticResult, invoke, mainWindow } = registerWithFakes({
+      openDialogResult: {
+        canceled: false,
+        filePaths: ["/downloads/imported-diagnostics.json"],
+      },
+    });
+
+    await expect(invoke("diagnostics:import")).resolves.toEqual(diagnosticResult);
+
+    expect(deps.dialog.showOpenDialog).toHaveBeenCalledWith(mainWindow, {
+      title: "Import Diagnostic Bundle",
+      properties: ["openFile"],
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    expect(deps.importDiagnosticBundleFromFile).toHaveBeenCalledWith("/downloads/imported-diagnostics.json");
+  });
+
+  it("exports chat archives to the E2E path without opening a save dialog", async () => {
+    const { chatPayload, deps, invoke } = registerWithFakes({
+      env: {
+        AMBIENT_E2E: "1",
+        AMBIENT_E2E_CHAT_EXPORT_PATH: "/tmp/e2e-chat.zip",
+      },
+    });
+
+    await expect(invoke("thread:export-chat", { threadId: "thread-1" })).resolves.toEqual({
+      path: "/tmp/e2e-chat.zip",
+      bytes: chatPayload.archive.byteLength,
+      createdAt: chatPayload.createdAt,
+      source: chatPayload.source,
+      fallbackReason: chatPayload.fallbackReason,
+    });
+
+    expect(deps.requireProjectRuntimeHostForThread).toHaveBeenCalledWith("thread-1");
+    expect(deps.createChatExportBundle).toHaveBeenCalledWith(deps.threadHost.store, "thread-1", {
+      appName: "Ambient Test",
+      appVersion: "1.2.3",
+    });
+    expect(deps.writeFile).toHaveBeenCalledWith("/tmp/e2e-chat.zip", chatPayload.archive);
+    expect(deps.dialog.showSaveDialog).not.toHaveBeenCalled();
+  });
+
+  it("exports chat archives through the save dialog when E2E export is not configured", async () => {
+    const { chatPayload, deps, invoke, mainWindow } = registerWithFakes({
+      saveDialogResult: {
+        canceled: false,
+        filePath: "/downloads/thread-export.zip",
+      },
+    });
+
+    await expect(invoke("thread:export-chat", { threadId: "thread-1", extra: "ignored" })).resolves.toEqual({
+      path: "/downloads/thread-export.zip",
+      bytes: chatPayload.archive.byteLength,
+      createdAt: chatPayload.createdAt,
+      source: chatPayload.source,
+      fallbackReason: chatPayload.fallbackReason,
+    });
+
+    expect(deps.dialog.showSaveDialog).toHaveBeenCalledWith(mainWindow, {
+      title: "Export Chat",
+      defaultPath: "/downloads/thread-export.zip",
+      filters: [{ name: "Zip Archive", extensions: ["zip"] }],
+    });
+    expect(deps.writeFile).toHaveBeenCalledWith("/downloads/thread-export.zip", chatPayload.archive);
+  });
+});
+
+function registerWithFakes({
+  env = {},
+  openDialogResult = { canceled: true, filePaths: [] },
+  saveDialogResult = { canceled: true },
+}: {
+  env?: NodeJS.ProcessEnv;
+  openDialogResult?: { canceled: boolean; filePaths: string[] };
+  saveDialogResult?: { canceled: boolean; filePath?: string };
+} = {}) {
+  const handlers = new Map<string, IpcListener>();
+  const mainWindow = { id: "main-window" };
+  const activeHost = { store: { id: "active-store" } };
+  const threadHost = { store: { id: "thread-store" } };
+  const diagnosticSource = { id: "diagnostic-source" };
+  const logs = [{ level: "info", message: "hello" }];
+  const diagnosticPayload = sampleDiagnosticBundlePayload();
+  const diagnosticResult = {
+    path: "/downloads/imported-diagnostics.json",
+    bytes: 512,
+    createdAt: "2026-06-16T00:00:00.000Z",
+  };
+  const chatPayload = sampleChatExportPayload();
+  const deps = {
+    activeHost,
+    app: {
+      getName: vi.fn(() => "Ambient Test"),
+      getVersion: vi.fn(() => "1.2.3"),
+      getPath: vi.fn(() => "/downloads"),
+    },
+    createChatExportBundle: vi.fn(async () => chatPayload),
+    createDiagnosticBundle: vi.fn(async () => diagnosticPayload),
+    createMainDiagnosticSource: vi.fn(() => diagnosticSource),
+    diagnosticSource,
+    dialog: {
+      showOpenDialog: vi.fn(async () => openDialogResult),
+      showSaveDialog: vi.fn(async () => saveDialogResult),
+    },
+    env,
+    getAppLogs: vi.fn(() => logs),
+    handleIpc: (channel: string, listener: IpcListener) => handlers.set(channel, listener),
+    importDiagnosticBundleFromFile: vi.fn(async () => diagnosticResult),
+    join: vi.fn((...parts: string[]) => parts.join("/").replace(/\/+/g, "/")),
+    logs,
+    mainWindow,
+    requireActiveProjectRuntimeHost: vi.fn(() => activeHost),
+    requireProjectRuntimeHostForThread: vi.fn(() => threadHost),
+    threadHost,
+    writeFile: vi.fn(),
+  };
+
+  registerDiagnosticsExportDomainIpc(deps);
+
+  return {
+    chatPayload,
+    deps,
+    diagnosticPayload,
+    diagnosticResult,
+    handlers,
+    invoke: (channel: string, ...args: unknown[]) => {
+      const handler = handlers.get(channel);
+      if (!handler) throw new Error(`Missing handler for ${channel}`);
+      return Promise.resolve(handler({} as IpcMainInvokeEvent, ...args));
+    },
+    mainWindow,
+  };
+}
+
+function sampleDiagnosticBundlePayload(): DiagnosticBundlePayload {
+  return {
+    fileName: "ambient-diagnostics.json",
+    bundle: {
+      createdAt: "2026-06-16T00:00:00.000Z",
+      subagents: {},
+    },
+  };
+}
+
+function sampleChatExportPayload(): ChatExportPayload {
+  return {
+    fileName: "thread-export.zip",
+    archive: Buffer.from("zip-bytes"),
+    createdAt: "2026-06-16T00:00:00.000Z",
+    source: "pi-session",
+    fallbackReason: "none",
+  };
+}

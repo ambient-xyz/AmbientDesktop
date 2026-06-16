@@ -3,6 +3,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import type {
   LocalDeepResearchProviderSnapshot,
+  LocalDeepResearchRunBudget,
   LocalDeepResearchRunHistoryEntry,
   LocalDeepResearchRunHistoryInput,
   LocalDeepResearchRunHistoryResult,
@@ -18,8 +19,17 @@ import {
   localDeepResearchEvidencePacket,
   localDeepResearchObservedEvidenceUrls,
   runLocalDeepResearch,
+  type LocalDeepResearchRunProgressEvent,
   type LocalDeepResearchRunResult,
 } from "./localDeepResearchRunner";
+import {
+  localDeepResearchLlamaServerStatus,
+  localDeepResearchMemoryStatus,
+  sampleLocalDeepResearchHostPressure,
+  sampleLocalDeepResearchLlamaServerStatus,
+  type LocalDeepResearchRetrievalStatus,
+  type LocalDeepResearchStatusSnapshotInput,
+} from "./localDeepResearchStatus";
 import type { LocalDeepResearchBroker } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
@@ -42,12 +52,19 @@ export interface LocalDeepResearchRunRequest {
   supervisor?: LocalLlamaServerSupervisor;
   serverOptions?: Partial<Pick<LocalLlamaServerAcquireInput, "host" | "port" | "gpuLayers" | "startupTimeoutMs" | "idleTimeoutMs" | "offline" | "extraArgs" | "env">>;
   chatOptions?: Partial<Omit<LocalDeepResearchLlamaChatClientOptions, "endpointUrl">>;
+  localResearchBudget?: LocalDeepResearchRunBudget;
   maxToolCalls?: number;
   maxTurns?: number;
   finalSynthesis?: Partial<LocalDeepResearchFinalSynthesisConfig>;
   now?: () => Date;
   signal?: AbortSignal;
+  onProgress?: (progress: LocalDeepResearchRunServiceProgressEvent) => void;
 }
+
+export type LocalDeepResearchRunServiceProgressEvent = Omit<
+  LocalDeepResearchStatusSnapshotInput,
+  "startedAtMs" | "startedAt" | "nowMs" | "heartbeatCount"
+>;
 
 export interface LocalDeepResearchRunArtifactSummary {
   jsonPath: string;
@@ -83,6 +100,12 @@ export interface LocalDeepResearchRunServiceResult {
 
 export async function runLocalDeepResearchWithManagedLlama(input: LocalDeepResearchRunRequest): Promise<LocalDeepResearchRunServiceResult> {
   throwIfAborted(input.signal);
+  const hostPressure = await sampleLocalDeepResearchHostPressure().catch(() => undefined);
+  input.onProgress?.({
+    stage: "resource-policy",
+    message: localDeepResearchResourcePolicyMessage(input.setup.localModelResources.policyDecision.outcome),
+    memory: localDeepResearchMemoryStatus(input.setup.localModelResources, input.setup.warnings, hostPressure),
+  });
   const localModelResourcePreflight = await enforceLocalModelResourceLaunchPolicy({
     registry: input.setup.localModelResources,
     approveExceed: input.approveResourceLimitExceed,
@@ -92,6 +115,11 @@ export async function runLocalDeepResearchWithManagedLlama(input: LocalDeepResea
     throw new Error(localModelResourcePreflight.reason);
   }
   const supervisor = input.supervisor ?? new LocalLlamaServerSupervisor();
+  input.onProgress?.({
+    stage: "acquiring-server",
+    message: "Acquiring managed Local Deep Research llama.cpp server.",
+    memory: localDeepResearchMemoryStatus(input.setup.localModelResources, input.setup.warnings, hostPressure),
+  });
   const lease = await supervisor.acquire(buildLocalDeepResearchLlamaServerAcquireInput({
     workspacePath: input.workspacePath,
     setup: input.setup,
@@ -100,6 +128,12 @@ export async function runLocalDeepResearchWithManagedLlama(input: LocalDeepResea
     ...input.serverOptions,
   }));
   try {
+    input.onProgress?.({
+      stage: "server-ready",
+      message: `Using managed llama.cpp server pid ${lease.state.pid} at ${lease.state.endpointUrl}.`,
+      llamaServer: await sampleLocalDeepResearchLlamaServerStatus(lease.state).catch(() => localDeepResearchLlamaServerStatus(lease.state)),
+      memory: localDeepResearchMemoryStatus(input.setup.localModelResources, input.setup.warnings, hostPressure),
+    });
     throwIfAborted(input.signal);
     const chat = createLocalDeepResearchLlamaChatClient({
       endpointUrl: lease.state.endpointUrl,
@@ -114,9 +148,17 @@ export async function runLocalDeepResearchWithManagedLlama(input: LocalDeepResea
       setup: input.setup,
       chat,
       broker: input.broker,
+      localResearchBudget: input.localResearchBudget,
       maxToolCalls: input.maxToolCalls,
       maxTurns: input.maxTurns,
       finalSynthesis: input.finalSynthesis,
+      onProgress: (progress) => input.onProgress?.(localDeepResearchRunProgressToStatus(progress)),
+    });
+    input.onProgress?.({
+      stage: "artifact-write",
+      message: `Writing Local Deep Research ${run.status} artifacts.`,
+      llamaServer: localDeepResearchLlamaServerStatus(lease.state),
+      memory: localDeepResearchMemoryStatus(input.setup.localModelResources, input.setup.warnings, hostPressure),
     });
     const artifacts = await persistLocalDeepResearchRunArtifacts(input.workspacePath, {
       run,
@@ -126,6 +168,19 @@ export async function runLocalDeepResearchWithManagedLlama(input: LocalDeepResea
       now: input.now,
     });
     await lease.release();
+    input.onProgress?.({
+      stage: run.status === "completed" || run.status === "synthesis-deferred" ? "completed" : "failed",
+      state: run.status === "completed" || run.status === "synthesis-deferred" ? "completed" : "failed",
+      message: run.status === "completed"
+        ? "Local Deep Research completed."
+        : run.status === "synthesis-deferred"
+          ? "Local Deep Research gathered evidence and deferred final synthesis."
+          : `Local Deep Research finished with ${run.status}.`,
+      artifacts,
+      llamaServer: localDeepResearchLlamaServerStatus(lease.state),
+      memory: localDeepResearchMemoryStatus(input.setup.localModelResources, input.setup.warnings, hostPressure),
+      ...(run.error ? { error: run.error } : {}),
+    });
     return {
       schemaVersion: "ambient-local-deep-research-service-result-v1",
       status: run.status,
@@ -140,6 +195,14 @@ export async function runLocalDeepResearchWithManagedLlama(input: LocalDeepResea
       },
     };
   } catch (error) {
+    input.onProgress?.({
+      stage: "failed",
+      state: "failed",
+      message: "Local Deep Research failed while the managed llama.cpp server was running.",
+      error: error instanceof Error ? error.message : String(error),
+      llamaServer: localDeepResearchLlamaServerStatus(lease.state),
+      memory: localDeepResearchMemoryStatus(input.setup.localModelResources, input.setup.warnings, hostPressure),
+    });
     try {
       await lease.release();
     } catch {
@@ -147,6 +210,68 @@ export async function runLocalDeepResearchWithManagedLlama(input: LocalDeepResea
     }
     throw error;
   }
+}
+
+function localDeepResearchRunProgressToStatus(
+  progress: LocalDeepResearchRunProgressEvent,
+): LocalDeepResearchRunServiceProgressEvent {
+  const turn = progress.turn !== undefined
+    ? {
+        turn: progress.turn,
+        maxTurns: progress.maxTurns,
+        toolCalls: progress.toolCalls,
+        maxToolCalls: progress.maxToolCalls,
+        ...(progress.outputChars !== undefined ? { outputChars: progress.outputChars } : {}),
+      }
+    : undefined;
+  const retrieval = localDeepResearchRetrievalStatus(progress);
+  const terminalState = progress.status
+    ? progress.status === "completed" || progress.status === "synthesis-deferred" ? "completed" : progress.status === "blocked" ? "blocked" : "failed"
+    : undefined;
+  return {
+    stage: localDeepResearchRunProgressStage(progress),
+    ...(terminalState ? { state: terminalState } : {}),
+    message: progress.message,
+    ...(turn ? { turn } : {}),
+    ...(retrieval ? { retrieval } : {}),
+    ...(progress.error ? { error: progress.error } : {}),
+  };
+}
+
+function localDeepResearchRunProgressStage(
+  progress: LocalDeepResearchRunProgressEvent,
+): LocalDeepResearchRunServiceProgressEvent["stage"] {
+  if (progress.stage === "model-turn-started") return "model-turn";
+  if (progress.stage === "model-turn-completed") return "model-response";
+  if (progress.stage === "tool-dispatch") return "tool-dispatch";
+  if (progress.stage === "tool-completed") return "tool-complete";
+  if (progress.stage === "started") return "model-turn";
+  if (progress.stage === "final-answer-draft" || progress.stage === "final-synthesis-repair" || progress.stage === "citation-repair") return "final-synthesis";
+  if (progress.stage === "synthesis-deferred" || progress.stage === "completed") return "completed";
+  if (progress.stage === "blocked") return "blocked";
+  return "failed";
+}
+
+function localDeepResearchRetrievalStatus(
+  progress: LocalDeepResearchRunProgressEvent,
+): LocalDeepResearchRetrievalStatus | undefined {
+  if (!progress.toolName) return undefined;
+  const role = progress.toolName === "search" ? "search" : "fetch";
+  return {
+    role,
+    status: progress.stage === "tool-completed" ? "succeeded" : "starting",
+    ...(progress.providerId ? { providerId: progress.providerId } : {}),
+    ...(progress.query ? { query: progress.query } : {}),
+    ...(progress.url ? { url: progress.url } : {}),
+    ...(progress.outputChars !== undefined ? { outputChars: progress.outputChars } : {}),
+    ...(progress.durationMs !== undefined ? { durationMs: progress.durationMs } : {}),
+    ...(progress.repeatedTargetCount !== undefined ? { repeatedVisitCount: progress.repeatedTargetCount } : {}),
+  };
+}
+
+function localDeepResearchResourcePolicyMessage(outcome: string): string {
+  if (outcome === "unlimited" || outcome === "within-limit") return "Local Deep Research memory policy is within limits.";
+  return `Local Deep Research memory policy is ${outcome}; keeping resource warning visible during the run.`;
 }
 
 export async function persistLocalDeepResearchRunArtifacts(
@@ -194,6 +319,8 @@ export function localDeepResearchRunText(result: LocalDeepResearchRunServiceResu
     `Research provider order: ${result.run.providerSnapshot.providerOrder.join(" -> ") || "none"}.`,
     `Model: ${result.run.modelProfileId}; context: ${result.run.contextTokens}.`,
     `Final synthesis: ${result.run.finalSynthesis.mode}.`,
+    `Final synthesis reserve: ${result.run.finalSynthesisReserveTurns} turn(s).`,
+    `Tool budget: ${result.run.toolBudget.usedToolCalls}/${result.run.toolBudget.maxToolCalls} used; ${result.run.toolBudget.remainingToolCalls} remaining; effort ${result.run.toolBudget.effort}.`,
     `Local model resource policy: ${result.localModelResourcePreflight.outcome}. ${result.localModelResourcePreflight.reason}`,
     `Search route snapshot: ${result.run.providerSnapshot.searchOrder.join(" -> ") || "none"}.`,
     `Fetch route snapshot: ${result.run.providerSnapshot.fetchOrder.join(" -> ") || "none"}.`,
@@ -247,6 +374,8 @@ function localDeepResearchRunMarkdown(input: {
     `Model: ${input.run.modelProfileId}`,
     `Context: ${input.run.contextTokens}`,
     `Final synthesis: ${input.run.finalSynthesis.mode}`,
+    `Final synthesis reserve: ${input.run.finalSynthesisReserveTurns} turn(s)`,
+    `Tool budget: ${input.run.toolBudget.usedToolCalls}/${input.run.toolBudget.maxToolCalls} used; remaining ${input.run.toolBudget.remainingToolCalls}; effort ${input.run.toolBudget.effort}; exhausted ${input.run.toolBudget.exhausted ? "yes" : "no"}`,
     "",
     "## Question",
     "",

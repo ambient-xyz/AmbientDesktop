@@ -239,6 +239,7 @@ export function compactSubagentWaitBarrierEvaluationForParentMailbox(
     synthesisAllowed: evaluation.synthesisAllowed,
     partial: evaluation.partial,
     timedOut: evaluation.timedOut,
+    ...(evaluation.terminalEvidence ? { terminalEvidence: evaluation.terminalEvidence } : {}),
     impossible: evaluation.impossible,
     activeChildRunIds: evaluation.activeChildRunIds,
     terminalUnsafeChildRunIds: evaluation.terminalUnsafeChildRunIds,

@@ -2,9 +2,11 @@ import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agen
 
 import type {
   LocalDeepResearchFinalSynthesisMode,
+  LocalDeepResearchRunBudget,
   LocalModelResourcePolicyDecision,
   WorkspaceState,
 } from "../shared/types";
+import { normalizeLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 import { localDeepResearchToolDescriptor } from "./desktopToolRegistry";
 import { registerDesktopTool } from "./desktopToolRegistration";
 import type { LocalDeepResearchBroker } from "./localDeepResearchAdapter";
@@ -14,6 +16,7 @@ import {
   localDeepResearchRunText,
   runLocalDeepResearchWithManagedLlama,
   type LocalDeepResearchRunRequest,
+  type LocalDeepResearchRunServiceProgressEvent,
   type LocalDeepResearchRunServiceResult,
 } from "./localDeepResearchRunService";
 import {
@@ -22,6 +25,14 @@ import {
   type LocalDeepResearchSetupContract,
   type LocalDeepResearchSetupInput,
 } from "./localDeepResearchSetup";
+import {
+  localDeepResearchMemoryStatus,
+  localDeepResearchStatusSnapshot,
+  localDeepResearchToolUpdate,
+  refreshLocalDeepResearchLlamaServerStatus,
+  sampleLocalDeepResearchHostPressure,
+  type LocalDeepResearchStatusSnapshot,
+} from "./localDeepResearchStatus";
 
 type LocalDeepResearchToolUpdate = AgentToolResult<Record<string, unknown>>;
 type LocalDeepResearchToolUpdateHandler = (update: LocalDeepResearchToolUpdate) => void;
@@ -62,8 +73,22 @@ export function registerLocalDeepResearchRunTools(
     executionMode: "sequential",
     execute: async (_toolCallId, params, signal, onUpdate?: LocalDeepResearchToolUpdateHandler) => {
       const input = localDeepResearchRunToolInput(params);
-      onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", "Preparing Local Deep Research run."));
+      const statusEmitter = createLocalDeepResearchRunStatusEmitter("ambient_local_deep_research_run", onUpdate);
+      statusEmitter.emit({
+        stage: "preparing",
+        message: "Preparing Local Deep Research run.",
+      });
       const { contract, managedAssets } = await options.readReadiness(workspace, { q8Override: input.q8Override }, signal);
+      const hostPressure = await sampleLocalDeepResearchHostPressure().catch(() => undefined);
+      statusEmitter.emit({
+        stage: contract.status === "ready" ? "readiness" : "blocked",
+        state: contract.status === "ready" ? "running" : "blocked",
+        message: contract.status === "ready"
+          ? "Local Deep Research setup is ready; checking local resource pressure."
+          : "Local Deep Research setup is not ready to run.",
+        memory: localDeepResearchMemoryStatus(contract.localModelResources, contract.warnings, hostPressure),
+        ...(contract.status !== "ready" ? { error: contract.blockers.join("\n") || "Local Deep Research setup is not ready." } : {}),
+      });
       if (contract.status !== "ready") {
         return localDeepResearchToolResult([
           "Local Deep Research is not ready to run.",
@@ -83,6 +108,7 @@ export function registerLocalDeepResearchRunTools(
           warnings: contract.warnings,
           blockers: contract.blockers,
           nextActions: contract.nextActions,
+          localDeepResearchStatus: statusEmitter.latest(),
         });
       }
       const activeProvider = contract.providerSnapshot.activeProvider;
@@ -102,14 +128,18 @@ export function registerLocalDeepResearchRunTools(
           localRuntimeInventory: contract.localRuntimeInventory,
           blockers: ["Active Local Deep Research provider has no loaded runtime adapter."],
           nextActions: ["Reset Local Deep Research provider defaults or install/configure a runtime adapter for the selected provider."],
+          localDeepResearchStatus: statusEmitter.latest(),
         });
       }
       const broker = options.createBroker({ threadId, workspace, providerSnapshot: contract.providerSnapshot, signal, onUpdate });
-      onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Starting ${activeProvider?.label ?? "LiteResearcher"} through Ambient Local Deep Research.`));
+      statusEmitter.emit({
+        stage: "resource-policy",
+        message: `Starting ${activeProvider?.label ?? "LiteResearcher"} through Ambient Local Deep Research.`,
+        memory: localDeepResearchMemoryStatus(contract.localModelResources, contract.warnings, hostPressure),
+      });
       const run = options.run ?? runLocalDeepResearchWithManagedLlama;
       const result = await withLocalDeepResearchToolHeartbeat(
         "ambient_local_deep_research_run",
-        "Local Deep Research is still running with the managed llama.cpp server.",
         () => run({
           workspacePath: workspace.path,
           question: input.question,
@@ -118,13 +148,16 @@ export function registerLocalDeepResearchRunTools(
           broker,
           ownerThreadId: threadId,
           approveResourceLimitExceed: options.approveResourceLimitExceed,
-          maxToolCalls: input.maxToolCalls,
+          localResearchBudget: input.localResearchBudget,
+          maxToolCalls: input.localResearchBudget?.maxToolCalls ?? input.maxToolCalls,
           maxTurns: input.maxTurns,
           finalSynthesis: input.finalSynthesisMode ? { mode: input.finalSynthesisMode } : undefined,
           signal,
+          onProgress: statusEmitter.emit,
         }),
         { signal, timeoutMs: localDeepResearchRunTimeoutMs(), heartbeatMs: 10_000 },
         onUpdate,
+        statusEmitter.heartbeat,
       );
       return localDeepResearchToolResult(localDeepResearchRunText(result), {
         toolName: "ambient_local_deep_research_run",
@@ -137,6 +170,9 @@ export function registerLocalDeepResearchRunTools(
         contextTokens: result.run.contextTokens,
         providerSnapshot: result.run.providerSnapshot,
         finalSynthesis: result.run.finalSynthesis,
+        finalSynthesisReserveTurns: result.run.finalSynthesisReserveTurns,
+        localResearchBudget: input.localResearchBudget,
+        toolBudget: result.run.toolBudget,
         localModelResources: contract.localModelResources,
         localRuntimeInventory: contract.localRuntimeInventory,
         localModelResourcePreflight: result.localModelResourcePreflight,
@@ -146,6 +182,8 @@ export function registerLocalDeepResearchRunTools(
         artifacts: result.artifacts,
         llamaServer: result.llamaServer,
         release: result.release,
+        statusMessage: statusEmitter.latest()?.message,
+        localDeepResearchStatus: statusEmitter.latest(),
       });
     },
   });
@@ -157,31 +195,36 @@ function localDeepResearchRunTimeoutMs(env: NodeJS.ProcessEnv = process.env): nu
   return 30 * 60_000;
 }
 
-function localDeepResearchToolUpdate(toolName: string, text: string): LocalDeepResearchToolUpdate {
-  return {
-    content: [{ type: "text", text }],
-    details: {
-      runtime: "ambient-local-deep-research",
-      toolName,
-      status: "running",
-    },
-  };
-}
-
 async function withLocalDeepResearchToolHeartbeat<T>(
   toolName: string,
-  message: string,
   operation: () => Promise<T> | T,
   options: { signal?: AbortSignal; timeoutMs?: number; heartbeatMs?: number } = {},
   onUpdate?: (update: AgentToolResult<Record<string, unknown>>) => void,
+  heartbeat?: (heartbeatCount: number) => Promise<LocalDeepResearchStatusSnapshot | undefined> | LocalDeepResearchStatusSnapshot | undefined,
 ): Promise<T> {
   let timer: ReturnType<typeof setInterval> | undefined;
   let timeout: ReturnType<typeof setTimeout> | undefined;
+  let heartbeatCount = 0;
   const heartbeatMs = Math.max(1, Math.floor(options.heartbeatMs ?? 10_000));
   const timeoutMs = Math.max(1, Math.floor(options.timeoutMs ?? localDeepResearchRunTimeoutMs()));
   if (onUpdate) {
     timer = setInterval(() => {
-      onUpdate(localDeepResearchToolUpdate(toolName, message));
+      heartbeatCount += 1;
+      Promise.resolve(heartbeat?.(heartbeatCount))
+        .then((snapshot) => {
+          onUpdate(localDeepResearchToolUpdate(toolName, snapshot ?? localDeepResearchStatusSnapshot({
+            stage: "heartbeat",
+            message: "Local Deep Research is still running with the managed llama.cpp server.",
+            heartbeatCount,
+          })));
+        })
+        .catch(() => {
+          onUpdate(localDeepResearchToolUpdate(toolName, localDeepResearchStatusSnapshot({
+            stage: "heartbeat",
+            message: "Local Deep Research is still running with the managed llama.cpp server.",
+            heartbeatCount,
+          })));
+        });
     }, heartbeatMs);
   }
   try {
@@ -200,7 +243,14 @@ async function withLocalDeepResearchToolHeartbeat<T>(
       }
       options.signal?.addEventListener("abort", abort, { once: true });
       timeout = setTimeout(() => {
-        settle(() => reject(new Error(`${toolName} timed out after ${timeoutMs}ms while Local Deep Research was running.`)));
+        const error = new Error(`${toolName} timed out after ${timeoutMs}ms while Local Deep Research was running.`);
+        onUpdate?.(localDeepResearchToolUpdate(toolName, localDeepResearchStatusSnapshot({
+          stage: "failed",
+          state: "failed",
+          message: `Local Deep Research timed out after ${timeoutMs}ms.`,
+          error: error.message,
+        })));
+        settle(() => reject(error));
       }, timeoutMs);
       Promise.resolve()
         .then(() => operation())
@@ -213,6 +263,57 @@ async function withLocalDeepResearchToolHeartbeat<T>(
     if (timer) clearInterval(timer);
     if (timeout) clearTimeout(timeout);
   }
+}
+
+function createLocalDeepResearchRunStatusEmitter(
+  toolName: string,
+  onUpdate?: LocalDeepResearchToolUpdateHandler,
+): {
+  emit: (progress: LocalDeepResearchRunServiceProgressEvent) => void;
+  heartbeat: (heartbeatCount: number) => Promise<LocalDeepResearchStatusSnapshot>;
+  latest: () => LocalDeepResearchStatusSnapshot | undefined;
+} {
+  const startedAtMs = Date.now();
+  const startedAt = new Date(startedAtMs).toISOString();
+  let latestProgress: LocalDeepResearchRunServiceProgressEvent = {
+    stage: "preparing",
+    message: "Preparing Local Deep Research run.",
+  };
+  let latestSnapshot: LocalDeepResearchStatusSnapshot | undefined;
+  const snapshot = (progress: LocalDeepResearchRunServiceProgressEvent, heartbeatCount?: number): LocalDeepResearchStatusSnapshot => localDeepResearchStatusSnapshot({
+    ...progress,
+    startedAtMs,
+    startedAt,
+    ...(heartbeatCount !== undefined ? { heartbeatCount } : {}),
+  });
+  const emit = (progress: LocalDeepResearchRunServiceProgressEvent): void => {
+    latestProgress = progress;
+    latestSnapshot = snapshot(progress);
+    onUpdate?.(localDeepResearchToolUpdate(toolName, latestSnapshot));
+  };
+  return {
+    emit,
+    heartbeat: async (heartbeatCount: number) => {
+      const llamaServer = latestProgress.llamaServer
+        ? await refreshLocalDeepResearchLlamaServerStatus(latestProgress.llamaServer).catch(() => latestProgress.llamaServer)
+        : undefined;
+      const hostPressure = latestProgress.memory ? await sampleLocalDeepResearchHostPressure().catch(() => undefined) : undefined;
+      const memory = latestProgress.memory && hostPressure
+        ? {
+            ...latestProgress.memory,
+            ...(hostPressure.swapUsedBytes !== undefined ? { swapUsedBytes: hostPressure.swapUsedBytes } : {}),
+            ...(hostPressure.compressedMemoryBytes !== undefined ? { compressedMemoryBytes: hostPressure.compressedMemoryBytes } : {}),
+          }
+        : latestProgress.memory;
+      latestSnapshot = snapshot({
+        ...latestProgress,
+        ...(llamaServer ? { llamaServer } : {}),
+        ...(memory ? { memory } : {}),
+      }, heartbeatCount);
+      return latestSnapshot;
+    },
+    latest: () => latestSnapshot,
+  };
 }
 
 function localDeepResearchToolResult(text: string, details: Record<string, unknown>): AgentToolResult<Record<string, unknown>> {
@@ -228,6 +329,7 @@ function localDeepResearchToolResult(text: string, details: Record<string, unkno
 function localDeepResearchRunToolInput(params: unknown): {
   question: string;
   q8Override?: boolean;
+  localResearchBudget?: LocalDeepResearchRunBudget;
   maxToolCalls?: number;
   maxTurns?: number;
   finalSynthesisMode?: LocalDeepResearchFinalSynthesisMode;
@@ -235,10 +337,18 @@ function localDeepResearchRunToolInput(params: unknown): {
   const input = objectRecord(params);
   const finalSynthesisMode = optionalString(input.finalSynthesisMode);
   if (finalSynthesisMode && !["local", "evidence_only"].includes(finalSynthesisMode)) throw new Error("finalSynthesisMode must be local or evidence_only.");
+  const maxToolCalls = optionalNumber(input.maxToolCalls);
+  const localResearchBudget = input.localResearchBudget !== undefined
+    ? normalizeLocalDeepResearchRunBudget(input.localResearchBudget, {
+        ...(maxToolCalls !== undefined ? { maxToolCalls } : {}),
+        source: "tool_input",
+      })
+    : undefined;
   return {
     question: requiredString(input, "question").trim(),
     ...(input.q8Override === true ? { q8Override: true } : {}),
-    ...(optionalNumber(input.maxToolCalls) !== undefined ? { maxToolCalls: optionalNumber(input.maxToolCalls) } : {}),
+    ...(localResearchBudget ? { localResearchBudget } : {}),
+    ...(maxToolCalls !== undefined ? { maxToolCalls } : {}),
     ...(optionalNumber(input.maxTurns) !== undefined ? { maxTurns: optionalNumber(input.maxTurns) } : {}),
     ...(finalSynthesisMode ? { finalSynthesisMode: finalSynthesisMode as LocalDeepResearchFinalSynthesisMode } : {}),
   };

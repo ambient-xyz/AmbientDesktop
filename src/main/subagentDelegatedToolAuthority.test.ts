@@ -71,6 +71,8 @@ describe("subagent delegated tool authority audit", () => {
     const workflow = surface("callable-workflow-tools");
     const directMcp = surface("direct-connector-and-mcp-bridges");
     const localRuntime = surface("local-runtime-lifecycle-tools");
+    const browserRead = surface("browser-read-tools");
+    const browserInteractive = surface("browser-interactive-tools");
     const browserParentSession = surface("browser-parent-session-tools");
     const webResearch = surface("web-research-broker-tools");
     const media = surface("media-download-tools");
@@ -89,6 +91,20 @@ describe("subagent delegated tool authority audit", () => {
       "ambient_local_model_runtime_start",
       "ambient_local_model_runtime_stop",
       "ambient_local_model_runtime_restart",
+    ]);
+    expect(browserRead.childVisibility).toBe("not_child_visible");
+    expect(browserRead.adapter).toBe("launch-policy-denial");
+    expect(browserRead.toolNames).toEqual([]);
+    expect(browserInteractive.childVisibility).toBe("built_in_child_visible");
+    expect(browserInteractive.adapter).toBe("subagent-browser-authority");
+    expect(browserInteractive.categoryIds).toEqual(["browser.interactive"]);
+    expect(browserInteractive.toolNames).toEqual([
+      "browser_search",
+      "browser_nav",
+      "browser_content",
+      "browser_screenshot",
+      "browser_eval",
+      "browser_keypress",
     ]);
     expect(browserParentSession.childVisibility).toBe("not_child_visible");
     expect(browserParentSession.adapter).toBe("browser-parent-session-boundary");
@@ -161,7 +177,7 @@ describe("subagent delegated tool authority audit", () => {
       surfaceCount: SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES.length,
       builtInChildToolCount: 15,
       exactGrantSurfaceCount: 2,
-      nonVisibleSurfaceCount: 5,
+      nonVisibleSurfaceCount: 6,
       coveredBuiltInChildToolNames: [
         "ambient_git_status",
         "bash",

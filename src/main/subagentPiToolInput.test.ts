@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_OPTIONAL_BACKGROUND_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS,
   DEFAULT_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS,
   enumValue,
   MAX_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS,
+  MIN_REQUIRED_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS,
   objectInput,
   optionalString,
   requiredString,
+  resolveRequiredSubagentPiToolWaitTimeoutFloorMs,
   resolveSubagentPiToolInput,
   resolveSubagentPiToolWaitTimeoutMs,
   SUBAGENT_PI_TOOL_INPUT_SCHEMA_VERSION,
@@ -37,12 +40,30 @@ describe("subagentPiToolInput", () => {
     );
   });
 
-  it("clamps wait timeouts to the bounded Pi-visible wait contract", () => {
+  it("uses a ten-minute required-child default and floor for Pi-visible waits", () => {
     expect(resolveSubagentPiToolWaitTimeoutMs({})).toBe(DEFAULT_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS);
     expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: Number.NaN } })).toBe(DEFAULT_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS);
-    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: -20 } })).toBe(0);
-    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: 12.9 } })).toBe(12);
-    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: 900_000 } })).toBe(MAX_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS);
+    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: -20 } })).toBe(MIN_REQUIRED_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS);
+    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: 12.9 } })).toBe(MIN_REQUIRED_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS);
+    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: 900_000 } })).toBe(900_000);
+    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: 90 * 60_000 } })).toBe(MAX_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS);
+  });
+
+  it("allows shorter optional-background progress waits", () => {
+    const options = { waitBarrierMode: "optional_background" as const };
+    expect(resolveSubagentPiToolWaitTimeoutMs({}, options)).toBe(DEFAULT_OPTIONAL_BACKGROUND_SUBAGENT_PI_TOOL_WAIT_TIMEOUT_MS);
+    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: -20 } }, options)).toBe(0);
+    expect(resolveSubagentPiToolWaitTimeoutMs({ wait: { timeoutMs: 12.9 } }, options)).toBe(12);
+  });
+
+  it("keeps the required floor configurable for deterministic tests", () => {
+    expect(resolveRequiredSubagentPiToolWaitTimeoutFloorMs({
+      AMBIENT_SUBAGENT_REQUIRED_WAIT_TIMEOUT_FLOOR_MS: "250",
+    })).toBe(250);
+    expect(resolveSubagentPiToolWaitTimeoutMs(
+      { wait: { timeoutMs: 1 } },
+      { env: { AMBIENT_SUBAGENT_REQUIRED_WAIT_TIMEOUT_FLOOR_MS: "250" } },
+    )).toBe(250);
   });
 
   it("coerces non-object inputs to empty records without preserving arrays", () => {

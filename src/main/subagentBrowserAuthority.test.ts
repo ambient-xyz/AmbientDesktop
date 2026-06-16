@@ -165,8 +165,8 @@ function snapshot(input: {
     },
     scope: {
       schemaVersion: "ambient-subagent-tool-scope-v1",
-      loadedCategories: ["browser.read"],
-      piVisibleCategories: ["browser.read"],
+      loadedCategories: ["browser.interactive"],
+      piVisibleCategories: ["browser.interactive"],
       deniedCategories: [],
       loadedTools: [],
       piVisibleTools: [],

@@ -14,6 +14,7 @@ import {
   DEFAULT_LOCAL_RUNTIME_MAX_PROJECTED_MEMORY_UTILIZATION,
   DEFAULT_LOCAL_RUNTIME_MIN_FREE_MEMORY_RATIO_AFTER_LAUNCH,
 } from "../shared/localRuntimeMemoryPolicy";
+import { normalizeLocalDeepResearchRunBudgetSettings } from "../shared/localDeepResearchBudget";
 import { getProviderCatalogEntries, providerSelectionGuidanceForProvider, type ProviderCatalogEntry } from "./providerCatalog";
 import {
   buildProviderStackStatus,
@@ -159,6 +160,7 @@ export function defaultLocalDeepResearchSettings(): LocalDeepResearchSettings {
   return {
     providerStack: defaultLocalDeepResearchProviderStackSettings(),
     localModelResources: defaultLocalModelResourceSettings(),
+    runBudget: normalizeLocalDeepResearchRunBudgetSettings(undefined),
   };
 }
 
@@ -167,6 +169,7 @@ export function normalizeLocalDeepResearchSettings(value: unknown): LocalDeepRes
   return {
     providerStack: normalizeLocalDeepResearchProviderStackSettings(record.providerStack ?? record.providers),
     localModelResources: normalizeLocalModelResourceSettings(record.localModelResources ?? record.resources),
+    runBudget: normalizeLocalDeepResearchRunBudgetSettings(record.runBudget ?? record.budget ?? record.localResearchBudget),
   };
 }
 
@@ -435,6 +438,7 @@ export function planLocalDeepResearchProviderPreferenceUpdate(
     const nextSettings: LocalDeepResearchSettings = {
       providerStack: nextStack,
       localModelResources: previousSettings.localModelResources,
+      runBudget: previousSettings.runBudget,
     };
     return {
       action,
@@ -469,6 +473,7 @@ export function planLocalDeepResearchProviderPreferenceUpdate(
   const nextSettings: LocalDeepResearchSettings = {
     providerStack: nextStack,
     localModelResources: previousSettings.localModelResources,
+    runBudget: previousSettings.runBudget,
   };
   return {
     action,

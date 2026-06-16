@@ -1,4 +1,9 @@
-import type { AmbientPermissionGrant, PermissionMode, WorkflowAmbientCliCapabilityGrant, WorkflowArtifactSummary } from "./types";
+import type { AmbientPermissionGrant, PermissionMode, WorkflowAmbientCliCapabilityGrant, WorkflowArtifactSummary, WorkflowConnectorManifestGrant } from "./types";
+import {
+  googleWorkspaceConnectorGrantTarget,
+  googleWorkspaceGrantMatchesTarget,
+  type GoogleWorkspaceGrantTarget,
+} from "./googleWorkspaceGrantTargets";
 
 export interface WorkflowArtifactScheduleBlockOptions {
   permissionMode?: PermissionMode;
@@ -13,7 +18,17 @@ export interface WorkflowScheduleConnectorGrantUse {
   connectorId: string;
   operation?: string;
   targetLabel: string;
+  targetIdentity?: string;
   grant: AmbientPermissionGrant;
+}
+
+export interface WorkflowScheduleConnectorGrantRequirement {
+  connectorId: string;
+  operation?: string;
+  accountId?: string;
+  targetLabel: string;
+  targetIdentity?: string;
+  googleTarget?: GoogleWorkspaceGrantTarget;
 }
 
 export interface WorkflowScheduleAmbientCliGrantUse {
@@ -78,38 +93,97 @@ function workflowScheduleMissingConnectorGrants(
   artifact: Pick<WorkflowArtifactSummary, "id" | "workflowThreadId" | "manifest">,
   options: WorkflowArtifactScheduleBlockOptions,
 ): string[] {
-  if (options.permissionMode === "full-access") return [];
   if (!options.permissionGrants) return [];
-  return (artifact.manifest.connectors ?? [])
-    .filter((connector) => !matchingConnectorGrantUse(artifact, options, connector.connectorId))
-    .map((connector) => connector.connectorId);
+  return workflowScheduleConnectorGrantRequirements(artifact)
+    .filter((requirement) => !matchingConnectorGrantUseForRequirement(artifact, options, requirement))
+    .map((requirement) => requirement.targetLabel);
 }
 
 export function workflowArtifactScheduleConnectorGrantUses(
   artifact: Pick<WorkflowArtifactSummary, "id" | "workflowThreadId" | "manifest">,
   options: WorkflowArtifactScheduleBlockOptions,
 ): WorkflowScheduleConnectorGrantUse[] {
-  if (options.permissionMode === "full-access" || !options.permissionGrants) return [];
-  return (artifact.manifest.connectors ?? [])
-    .map((connector) => matchingConnectorGrantUse(artifact, options, connector.connectorId))
+  if (!options.permissionGrants) return [];
+  return workflowScheduleConnectorGrantRequirements(artifact)
+    .map((requirement) => matchingConnectorGrantUseForRequirement(artifact, options, requirement))
     .filter((use): use is WorkflowScheduleConnectorGrantUse => Boolean(use));
 }
 
-function matchingConnectorGrantUse(
+export function workflowScheduleMatchingConnectorGrantUse(
   artifact: Pick<WorkflowArtifactSummary, "id" | "workflowThreadId" | "manifest">,
   options: WorkflowArtifactScheduleBlockOptions,
   connectorId: string,
+  operation?: string,
 ): WorkflowScheduleConnectorGrantUse | undefined {
   const connector = (artifact.manifest.connectors ?? []).find((candidate) => candidate.connectorId === connectorId);
   if (!connector) return undefined;
-  const runtimeGrants = (options.permissionGrants ?? []).filter((grant) => !grant.revokedAt && !isExpired(grant) && !isDiscoveryOnlyGrant(grant));
-  const labels = unique([connector.connectorId, ...connector.operations.map((operation) => `${connector.connectorId}:${operation}`)]);
-  const grant = runtimeGrants.find((candidate) => connectorGrantMatches(candidate, labels, artifact, options));
-  if (!grant) return undefined;
+  const requirement = workflowScheduleConnectorGrantRequirement(connector, operation);
+  return requirement ? matchingConnectorGrantUseForRequirement(artifact, options, requirement) : undefined;
+}
+
+export function workflowScheduleConnectorGrantRequirements(
+  artifact: Pick<WorkflowArtifactSummary, "manifest">,
+): WorkflowScheduleConnectorGrantRequirement[] {
+  return uniqueRequirements(
+    (artifact.manifest.connectors ?? []).flatMap((connector) => {
+      const operations = connector.operations.length ? connector.operations : [undefined];
+      return operations
+        .map((operation) => workflowScheduleConnectorGrantRequirement(connector, operation))
+        .filter((requirement): requirement is WorkflowScheduleConnectorGrantRequirement => Boolean(requirement));
+    }),
+  );
+}
+
+export function workflowScheduleConnectorGrantRequirement(
+  connector: Pick<WorkflowConnectorManifestGrant, "connectorId" | "accountId" | "operations">,
+  operation?: string,
+): WorkflowScheduleConnectorGrantRequirement | undefined {
+  const googleTarget = googleWorkspaceConnectorGrantTarget({
+    connectorId: connector.connectorId,
+    operation,
+    accountId: connector.accountId,
+  });
+  if (googleTarget) {
+    return {
+      connectorId: connector.connectorId,
+      operation,
+      accountId: connector.accountId,
+      targetLabel: googleTarget.label,
+      targetIdentity: googleTarget.identity,
+      googleTarget,
+    };
+  }
+  const targetLabel = operation ? `${connector.connectorId}:${operation}` : connector.connectorId;
   return {
     connectorId: connector.connectorId,
-    operation: connector.operations.find((operation) => grant.targetLabel === `${connector.connectorId}:${operation}`),
+    operation,
+    accountId: connector.accountId,
+    targetLabel,
+  };
+}
+
+export function workflowScheduleConnectorGrantMatches(
+  grant: AmbientPermissionGrant,
+  requirement: WorkflowScheduleConnectorGrantRequirement,
+  artifact: Pick<WorkflowArtifactSummary, "id" | "workflowThreadId">,
+  options: WorkflowArtifactScheduleBlockOptions,
+): boolean {
+  return connectorGrantMatches(grant, requirement, artifact, options);
+}
+
+function matchingConnectorGrantUseForRequirement(
+  artifact: Pick<WorkflowArtifactSummary, "id" | "workflowThreadId">,
+  options: WorkflowArtifactScheduleBlockOptions,
+  requirement: WorkflowScheduleConnectorGrantRequirement,
+): WorkflowScheduleConnectorGrantUse | undefined {
+  const runtimeGrants = (options.permissionGrants ?? []).filter((grant) => !grant.revokedAt && !isExpired(grant) && !isDiscoveryOnlyGrant(grant));
+  const grant = runtimeGrants.find((candidate) => connectorGrantMatches(candidate, requirement, artifact, options));
+  if (!grant) return undefined;
+  return {
+    connectorId: requirement.connectorId,
+    operation: requirement.operation,
     targetLabel: grant.targetLabel,
+    targetIdentity: requirement.targetIdentity,
     grant,
   };
 }
@@ -145,12 +219,16 @@ function ambientCliGrantMatches(
 
 function connectorGrantMatches(
   grant: AmbientPermissionGrant,
-  labels: string[],
+  requirement: WorkflowScheduleConnectorGrantRequirement,
   artifact: Pick<WorkflowArtifactSummary, "id" | "workflowThreadId">,
   options: WorkflowArtifactScheduleBlockOptions,
 ): boolean {
   if (grant.actionKind !== "connector_content_read" || grant.targetKind !== "connector") return false;
-  if (!labels.includes(grant.targetLabel)) return false;
+  if (requirement.googleTarget) {
+    if (!googleWorkspaceGrantMatchesTarget(grant, requirement.googleTarget)) return false;
+  } else if (grant.targetLabel !== requirement.targetLabel && grant.targetLabel !== requirement.connectorId) {
+    return false;
+  }
   return permissionGrantScopeMatches(grant, artifact, options);
 }
 
@@ -176,6 +254,11 @@ function isDiscoveryOnlyGrant(grant: AmbientPermissionGrant): boolean {
   return Boolean(grant.conditions && typeof grant.conditions === "object" && (grant.conditions as Record<string, unknown>).discoveryOnly === true);
 }
 
-function unique(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))];
+function uniqueRequirements(requirements: WorkflowScheduleConnectorGrantRequirement[]): WorkflowScheduleConnectorGrantRequirement[] {
+  const byIdentity = new Map<string, WorkflowScheduleConnectorGrantRequirement>();
+  for (const requirement of requirements) {
+    const key = requirement.targetIdentity ?? `${requirement.connectorId}\0${requirement.operation ?? ""}\0${requirement.targetLabel}`;
+    if (!byIdentity.has(key)) byIdentity.set(key, requirement);
+  }
+  return [...byIdentity.values()];
 }

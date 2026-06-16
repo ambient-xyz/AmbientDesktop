@@ -62,8 +62,8 @@ describe("searchWebSettingsModel", () => {
       }),
     ]));
     expect(webResearchProvidersForRole(stack, "search").map((provider) => provider.providerId)).toEqual([
-      "exa-mcp-default",
       "ambient-brave-search",
+      "exa-mcp-default",
       "ambient-browser",
     ]);
     expect(webResearchProvidersForRole(stack, "fetch").map((provider) => provider.providerId)).toEqual([

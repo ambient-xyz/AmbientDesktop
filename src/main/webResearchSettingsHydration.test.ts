@@ -40,8 +40,8 @@ describe("hydrateWebResearchSettings", () => {
       expect.objectContaining({ providerId: "mcp:io.example/page-reader/fetch_page", kind: "toolhive-mcp" }),
     ]));
     expect(settings.webResearch?.preferences.search).toEqual([
-      "exa-mcp-default",
       "ambient-brave-search",
+      "exa-mcp-default",
       "mcp:io.example/tavily/search",
       "ambient-browser",
     ]);
@@ -91,6 +91,17 @@ function braveCatalog(): AmbientCliPackageCatalog {
         envRequirements: [],
         errors: [],
         healthChecks: [],
+        generated: {
+          schemaVersion: "ambient-capability-builder-v1",
+          status: "registered",
+          goal: "Create a Brave Search provider.",
+          installerShape: "search-provider",
+          kind: "cloud-api",
+          provider: "Brave Search",
+          outputArtifactTypes: [],
+          locality: "network",
+          refs: {},
+        },
       },
     ],
     errors: [],

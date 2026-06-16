@@ -23,7 +23,7 @@ export function modelContentForAgentRuntimeSendInput(
     input.workflowRecordingEditContext,
   );
   const userRequest = appendGeneratedHtmlAppVerificationGuidance(formattedUserRequest, input.content);
-  if (input.composerIntent?.kind === "local-deep-research") return localDeepResearchComposerPrompt(userRequest);
+  if (input.composerIntent?.kind === "local-deep-research") return localDeepResearchComposerPrompt(userRequest, input.composerIntent);
   if (input.composerIntent?.kind === "symphony-workflow") {
     if (!deps.isSubagentsEnabled()) {
       throw new Error("Symphony workflow composer intents are disabled while ambient.subagents is off.");

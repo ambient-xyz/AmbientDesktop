@@ -2942,8 +2942,10 @@ async function inspectLifecycleEdgeVisibility(
       partialChildVisible: Boolean(partialRow?.text.includes("Aborted Partial") || partialRow?.titleText.includes("Aborted Partial")),
       retryChildVisible: Boolean(
         retryRow &&
-        (retryRow.text.includes("Blocking: child") || retryRow.titleText.includes("Required all")) &&
-        ["Running", "Stopped", "Failed"].some((status) => retryRow.text.includes(status) || retryRow.titleText.includes(status))
+        (retryRow.text.includes("Blocking: child") ||
+          retryRow.text.includes("Blocking: needs steering") ||
+          retryRow.titleText.includes("Required all")) &&
+        ["Running", "Needs attention", "Stopped", "Failed"].some((status) => retryRow.text.includes(status) || retryRow.titleText.includes(status))
       ),
       detachedChildVisible: Boolean(detachedRow?.text.includes("Detached") || detachedRow?.titleText.includes("Detached")),
       timeoutAttentionVisible: Boolean(timeoutAttention),

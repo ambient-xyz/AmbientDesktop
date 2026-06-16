@@ -274,6 +274,7 @@ export function resolveSubagentChildAuthorityProfile(input: {
   const request = input.requestedToolScope.childAuthority;
   const taskIntent = request?.taskIntent ?? "role_default";
   const piVisible = new Set(input.scope.piVisibleCategories);
+  const browserVisible = piVisible.has("browser.read") || piVisible.has("browser.interactive");
   const readRoots = authorityReadRoots(request, input.parentThread.workspacePath);
   const writeDecision = authorityWriteDecision(request, piVisible, input.workspacePolicy);
   const writeRootBase = writeDecision === "allow_isolated_worktree"
@@ -312,7 +313,7 @@ export function resolveSubagentChildAuthorityProfile(input: {
       },
       browser: {
         domains: dedupeAuthorityStrings(request?.browserDomains),
-        networkDecision: request?.network ?? (piVisible.has("browser.read") || piVisible.has("browser.interactive") ? "ask_parent" : "deny"),
+        networkDecision: browserVisible ? request?.network ?? "ask_parent" : "deny",
       },
       connectors: {
         methods: dedupeAuthorityStrings(request?.connectorMethods),
@@ -409,7 +410,8 @@ function nestedFanoutAuthorityDecision(
 
 function defaultChildAuthorityRationale(taskIntent: SubagentChildAuthorityProfile["taskIntent"]): string {
   if (taskIntent === "file_read") return "Read-only child task; grant only file/artifact/long-context read authority needed for delegated reading.";
-  if (taskIntent === "analysis") return "Analysis child task; allow non-mutating evidence gathering within the parent authority envelope.";
+  if (taskIntent === "analysis") return "Analysis child task; allow non-mutating evidence gathering within the parent authority envelope without browser control.";
+  if (taskIntent === "web_research") return "Brokered web-research child task; use web_research provider tools and keep managed browser fallback disabled unless explicitly granted.";
   if (taskIntent === "mutation") return "Mutation-capable child task; require isolated worktree and explicit approval evidence before writes.";
   if (taskIntent === "workflow") return "Workflow child task; use role-gated workflow and nested fanout policy.";
   if (taskIntent === "connector") return "Connector child task; use exact connector methods and parent approval routing.";

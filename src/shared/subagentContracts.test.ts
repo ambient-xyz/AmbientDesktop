@@ -205,6 +205,50 @@ describe("sub-agent shared contracts", () => {
     }).piVisibleCategories).toEqual(["browser.read"]);
   });
 
+  it("requires explicit child browser authority for explorer interactive browser tools", () => {
+    const role = getDefaultSubagentRoleProfile("explorer");
+    const model = resolveAmbientModelRuntimeProfile();
+    const workspacePolicy = {
+      hardDeniedCategories: [],
+      approvalMode: "interactive" as const,
+      worktreeIsolated: false,
+      allowNestedFanout: false,
+    };
+
+    const denied = resolveSubagentToolScope({
+      role,
+      model,
+      task: { requestedCategories: ["browser.interactive"] },
+      workspacePolicy,
+    });
+
+    expect(denied.loadedCategories).toEqual([]);
+    expect(denied.deniedCategories).toEqual([
+      {
+        id: "browser.interactive",
+        reason: "Interactive browser tools require explicit child browser network authority.",
+      },
+    ]);
+
+    const allowed = resolveSubagentToolScope({
+      role,
+      model,
+      task: {
+        requestedCategories: ["browser.interactive"],
+        childAuthority: {
+          taskIntent: "analysis",
+          network: "ask_parent",
+          mutation: "deny",
+        },
+      },
+      workspacePolicy,
+    });
+
+    expect(allowed.loadedCategories).toEqual(["browser.interactive"]);
+    expect(allowed.piVisibleCategories).toEqual(["browser.interactive"]);
+    expect(allowed.deniedCategories).toEqual([]);
+  });
+
   it("denies toolful scopes for models without tool support", () => {
     const role = getDefaultSubagentRoleProfile("explorer");
     const model = resolveAmbientModelRuntimeProfile("custom/model");

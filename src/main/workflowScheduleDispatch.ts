@@ -229,17 +229,9 @@ function resolveWorkflowScheduleTarget(
 function workflowScheduleGrantDecision(
   artifact: WorkflowArtifactSummary,
   grantUses: ReturnType<typeof workflowArtifactScheduleConnectorGrantUses>,
-  permissionMode: WorkflowArtifactScheduleBlockOptions["permissionMode"],
+  _permissionMode: WorkflowArtifactScheduleBlockOptions["permissionMode"],
 ): WorkflowScheduleGrantDecision {
   const connectorTargets = workflowScheduleConnectorTargets(artifact);
-  if (permissionMode === "full-access" && connectorTargets.length > 0) {
-    return {
-      source: "full_access_bypass",
-      connectorTargets,
-      grantIds: [],
-      grantTargets: [],
-    };
-  }
   if (grantUses.length > 0) {
     return {
       source: "persistent_grant",

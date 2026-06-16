@@ -53,9 +53,19 @@ const symphonyBuilderAnswersSchema = z.record(
   }),
 );
 
+const localDeepResearchRunBudgetSchema = z.object({
+  schemaVersion: z.literal("ambient-local-deep-research-run-budget-v1"),
+  enabled: z.literal(true),
+  effort: z.enum(["quick", "balanced", "deep", "exhaustive", "custom"]),
+  maxToolCalls: z.number().int().min(1).max(500),
+  source: z.enum(["user_default", "run_override", "tool_input"]),
+  onExhausted: z.enum(["summarize", "ask_to_continue"]),
+});
+
 const composerIntentSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("local-deep-research"),
+    localDeepResearch: localDeepResearchRunBudgetSchema,
   }),
   z.object({
     kind: z.literal("symphony-workflow"),

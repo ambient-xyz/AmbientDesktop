@@ -179,22 +179,63 @@ describe("SubagentChildTranscriptLive", () => {
     expect(markup).toContain("Workspace Read returned invoice total.");
     expect(markup).toContain("Ambient");
     expect(markup).toContain("The invoice total appears to be $42.00.");
+    expect(markup).not.toContain("data-child-terminal-summary=\"true\"");
   });
 
-  it("renders a terminal synthesis-safe child result with an end cap", () => {
+  it("renders a terminal synthesis-safe child result with an end cap below the transcript", () => {
     const child = fixtureChild(1);
-    const markup = renderChildTranscript(child, { runStatus: "idle" });
+    const markup = renderChildTranscript(child, {
+      messages: [
+        message({
+          id: "child-tool-terminal-1",
+          role: "tool",
+          content: [
+            "Workspace Read done",
+            "",
+            "Input",
+            "{\"path\":\"trip-notes.md\"}",
+            "",
+            "Result",
+            "Child verified the notes and extracted three destination candidates.",
+          ].join("\n"),
+          metadata: { toolName: "Workspace Read", status: "done" },
+        }),
+        message({
+          id: "child-assistant-terminal-1",
+          role: "assistant",
+          content: "I found three viable destinations and preserved the source notes for the parent.",
+          metadata: { status: "done" },
+        }),
+      ],
+      runtimeEvents: [
+        event(1, "subagent.session.started", { summary: "Child session started." }),
+        event(2, "subagent.result.ready", { summary: "Child result is ready for synthesis." }),
+      ],
+      runStatus: "idle",
+    });
 
     expect(markup).toContain("data-child-run-id=\"child-run-2\"");
     expect(markup).toContain("data-child-terminal=\"true\"");
     expect(markup).toContain("data-child-synthesis-safe=\"true\"");
+    expect(markup).toContain("data-child-message-count=\"2\"");
+    expect(markup).toContain("data-child-transcript-primary=\"true\"");
+    expect(markup).toContain("data-child-tool-message-count=\"1\"");
+    expect(markup).toContain("data-child-renderer=\"message-bubble+tool-card\"");
     expect(markup).toContain("data-child-run-activity-visible=\"false\"");
     expect(markup).toContain("terminal end cap below");
     expect(markup).toContain("data-child-terminal-summary=\"true\"");
     expect(markup).toContain("data-child-transcript-stream-live=\"false\"");
+    expect(markup).toContain("Child verified the notes and extracted three destination candidates.");
+    expect(markup).toContain("I found three viable destinations");
     expect(markup).toContain("Completion summary");
     expect(markup).toContain("Summary retained for parent synthesis.");
+    expect(markup).not.toContain("No child transcript messages have arrived yet.");
     expect(markup).not.toContain("Child is running");
+    expectInOrder(markup, "class=\"subagent-parent-cluster-child-transcript-stream\"", "data-child-terminal-summary=\"true\"");
+    expectInOrder(markup, "Child verified the notes", "data-child-terminal-summary=\"true\"");
+    expectInOrder(markup, "I found three viable destinations", "data-child-terminal-summary=\"true\"");
+    expectInOrder(markup, "Runtime timeline", "data-child-terminal-summary=\"true\"");
+    expectInOrder(markup, "data-child-terminal-summary=\"true\"", "Summary retained for parent synthesis.");
   });
 });
 
@@ -310,6 +351,14 @@ function activityLine(id: string, kind: RunActivityLine["kind"], text: string): 
     text,
     timestamp: 1,
   };
+}
+
+function expectInOrder(markup: string, earlier: string, later: string): void {
+  const earlierIndex = markup.indexOf(earlier);
+  const laterIndex = markup.indexOf(later);
+  expect(earlierIndex, `Expected markup to include ${earlier}`).toBeGreaterThanOrEqual(0);
+  expect(laterIndex, `Expected markup to include ${later}`).toBeGreaterThanOrEqual(0);
+  expect(earlierIndex, `Expected ${earlier} to render before ${later}`).toBeLessThan(laterIndex);
 }
 
 function callbackProps() {

@@ -421,6 +421,23 @@ describe("readWorkspaceFile", () => {
       await rm(workspace, { recursive: true, force: true });
     }
   });
+
+  it("sniffs valid raster image bytes when the filename extension is wrong", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-mismatched-image-files-"));
+    try {
+      const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0xff, 0xd9]);
+      await writeFile(join(workspace, "provider-output.png"), jpeg);
+
+      await expect(readWorkspaceFile(workspace, "provider-output.png")).resolves.toMatchObject({
+        kind: "image",
+        mimeType: "image/jpeg",
+        binary: true,
+        dataUrl: expect.stringMatching(/^data:image\/jpeg;base64,/),
+      });
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("listWorkspaceFiles", () => {

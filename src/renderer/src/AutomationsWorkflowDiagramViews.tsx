@@ -1,5 +1,5 @@
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, getBezierPath, Handle, Position, ReactFlow, ReactFlowProvider, useReactFlow, type EdgeProps } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   WorkflowAgentThreadSummary,
@@ -39,6 +39,8 @@ export const workflowAgentNodeTypes = {
 export const workflowAgentEdgeTypes = {
   workflowAgent: WorkflowAgentEdge,
 };
+
+const EMPTY_WORKFLOW_RUN_EVENTS: WorkflowRunEvent[] = [];
 
 
 export function WorkflowAgentNode({ data }: { data: WorkflowAgentDiagramNode["data"] }) {
@@ -125,7 +127,7 @@ export function WorkflowAgentEdge({
 export function WorkflowAgentDiagramPane({
   thread,
   artifact,
-  events = [],
+  events = EMPTY_WORKFLOW_RUN_EVENTS,
   detail,
   selectedNodeId,
   activeNodeIdOverride,
@@ -149,24 +151,44 @@ export function WorkflowAgentDiagramPane({
   onRecover?: (card: WorkflowGraphEventCard, action: WorkflowRecoveryAction) => void;
   onDebugRewrite?: (card: WorkflowGraphEventCard) => void;
 }) {
-  const baseSnapshot = thread?.graph ? workflowGraphWithRunEvents(thread.graph, events) : undefined;
-  const activeNodeId = activeNodeIdOverride ?? workflowLatestRuntimeGraphNodeId(events, baseSnapshot);
-  const snapshot = baseSnapshot && activeNodeIdOverride ? workflowGraphSnapshotWithActiveNode(baseSnapshot, activeNodeIdOverride) : baseSnapshot;
+  const baseSnapshot = useMemo(
+    () => (thread?.graph ? workflowGraphWithRunEvents(thread.graph, events) : undefined),
+    [thread?.graph, events],
+  );
+  const activeNodeId = useMemo(
+    () => activeNodeIdOverride ?? workflowLatestRuntimeGraphNodeId(events, baseSnapshot),
+    [activeNodeIdOverride, events, baseSnapshot],
+  );
+  const snapshot = useMemo(
+    () => (baseSnapshot && activeNodeIdOverride ? workflowGraphSnapshotWithActiveNode(baseSnapshot, activeNodeIdOverride) : baseSnapshot),
+    [baseSnapshot, activeNodeIdOverride],
+  );
   const unansweredQuestionCount = thread?.discoveryQuestions.filter((question) => !question.answer).length ?? 0;
   const pendingAccessRequestCount =
     thread?.discoveryQuestions.reduce(
       (count, question) => count + (question.accessRequests?.filter((request) => request.status === "pending").length ?? 0),
       0,
     ) ?? 0;
-  const draftOverlay = workflowGraphDraftOverlayModel({
-    snapshot,
-    unansweredQuestionCount,
-    pendingAccessRequestCount,
-    artifactStatus: detail?.artifact.status ?? artifact?.status,
-  });
-  const changeFocus = thread ? workflowLatestDiscoveryGraphChange(thread.discoveryQuestions) : undefined;
-  const eventCards = workflowGraphEventCards(events, snapshot, { modelCalls: detail?.modelCalls, checkpoints: detail?.checkpoints });
-  const selectedNode = snapshot?.nodes.find((node) => node.id === selectedNodeId);
+  const artifactStatus = detail?.artifact.status ?? artifact?.status;
+  const draftOverlay = useMemo(
+    () =>
+      workflowGraphDraftOverlayModel({
+        snapshot,
+        unansweredQuestionCount,
+        pendingAccessRequestCount,
+        artifactStatus,
+      }),
+    [snapshot, unansweredQuestionCount, pendingAccessRequestCount, artifactStatus],
+  );
+  const changeFocus = useMemo(
+    () => (thread ? workflowLatestDiscoveryGraphChange(thread.discoveryQuestions) : undefined),
+    [thread?.discoveryQuestions],
+  );
+  const eventCards = useMemo(
+    () => workflowGraphEventCards(events, snapshot, { modelCalls: detail?.modelCalls, checkpoints: detail?.checkpoints }),
+    [events, snapshot, detail?.modelCalls, detail?.checkpoints],
+  );
+  const selectedNode = useMemo(() => snapshot?.nodes.find((node) => node.id === selectedNodeId), [snapshot?.nodes, selectedNodeId]);
   if (!thread) return null;
   const selectedNodeReview = selectedNode
     ? workflowGraphNodeReviewModel({
@@ -396,13 +418,20 @@ export function WorkflowAgentDiagramCanvas({
   );
   const initialViewportNodeIds = useMemo(() => workflowDiagramInitialViewportNodeIds(nodes), [nodes]);
   const flow = useReactFlow();
-  const [zoomPercent, setZoomPercent] = useState("100");
+  const [zoomPercent, setZoomPercentState] = useState("100");
+  const zoomPercentRef = useRef("100");
   const [followExecution, setFollowExecution] = useState(false);
   const changeFocusKey = `${changeFocus?.questionId ?? "none"}:${changeFocus?.nodeIds.join(",") ?? ""}`;
   const lastAutoFitSnapshotIdRef = useRef<string | undefined>(undefined);
   const lastChangeFocusKeyRef = useRef<string | undefined>(undefined);
   const userAdjustedViewportRef = useRef(false);
   const programmaticViewportChangeRef = useRef(false);
+
+  const setZoomPercent = useCallback((nextZoomPercent: string) => {
+    if (zoomPercentRef.current === nextZoomPercent) return;
+    zoomPercentRef.current = nextZoomPercent;
+    setZoomPercentState(nextZoomPercent);
+  }, []);
 
   function runViewportCommand(command: () => void) {
     programmaticViewportChangeRef.current = true;

@@ -432,7 +432,6 @@ function isUnsafeRequiredSubagentWaitBarrier(
     const evaluation = evaluateSubagentWaitBarrierForStore({
       store,
       waitBarrier: barrier,
-      timedOut: false,
     });
     return !evaluation.synthesisAllowed &&
       (evaluation.impossible || evaluation.terminalUnsafeChildRunIds.length > 0);

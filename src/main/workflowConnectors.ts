@@ -129,6 +129,9 @@ export type WorkflowConnectorApprovalDecisionResolver = (
   approvalId: string,
   changeSet: Record<string, unknown>,
 ) => Promise<WorkflowApprovalStatus | undefined> | WorkflowApprovalStatus | undefined;
+export type WorkflowConnectorReviewGrantResolver = (
+  input: WorkflowConnectorAuthorizationInput & { auditPolicy: WorkflowConnectorAuditPolicy },
+) => Promise<{ grantId: string; targetLabel: string; reason: string } | undefined> | { grantId: string; targetLabel: string; reason: string } | undefined;
 
 export interface WorkflowConnectorBridgeOptions {
   manifest: WorkflowManifest;
@@ -137,6 +140,7 @@ export interface WorkflowConnectorBridgeOptions {
   eventSink?: WorkflowEventSink;
   accountAuthorizer?: WorkflowConnectorAccountAuthorizer;
   connectorApprovalDecision?: WorkflowConnectorApprovalDecisionResolver;
+  connectorReviewGrantResolver?: WorkflowConnectorReviewGrantResolver;
   approvalScope?: {
     artifactId?: string;
     sourceHash?: string;
@@ -144,7 +148,7 @@ export interface WorkflowConnectorBridgeOptions {
   };
 }
 
-interface WorkflowConnectorAuditPolicy {
+export interface WorkflowConnectorAuditPolicy {
   dataRetention: WorkflowConnectorDataRetention;
   personalData: boolean;
 }
@@ -569,6 +573,28 @@ async function enforceConnectorReview(input: {
   if (!connectorCallNeedsReview(input.operation, input.grant, input.auditPolicy)) return;
   const changeSet = connectorReviewChangeSet(input);
   const approvalId = connectorReviewApprovalId(input.options.approvalScope, changeSet);
+  const grantDecision = await input.options.connectorReviewGrantResolver?.({
+    descriptor: input.descriptor,
+    operation: input.operation,
+    grant: input.grant,
+    callInput: input.callInput,
+    auditPolicy: input.auditPolicy,
+  });
+  if (grantDecision) {
+    await input.options.eventSink?.append({
+      type: "connector.review.approved",
+      message: approvalId,
+      data: {
+        id: approvalId,
+        changeSet,
+        source: "persistent_grant",
+        grantId: grantDecision.grantId,
+        targetLabel: grantDecision.targetLabel,
+        reason: grantDecision.reason,
+      },
+    });
+    return;
+  }
   const decision = await input.options.connectorApprovalDecision?.(approvalId, changeSet);
   if (decision === "approved") {
     await input.options.eventSink?.append({

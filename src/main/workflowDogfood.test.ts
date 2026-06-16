@@ -39,6 +39,7 @@ import { readWorkflowRunDetail, resolveWorkflowApproval, reviewWorkflowArtifact 
 import { GoogleWorkspaceCliAdapter } from "./googleWorkspaceCliAdapter";
 import { resolveGoogleWorkspaceLiveDogfoodRuntime } from "./googleWorkspaceLiveDogfood";
 import { googleWorkspaceConnectorDescriptors, googleWorkspaceConnectorRegistrations, type GoogleWorkspaceConnectorDescriptorOptions } from "./googleWorkspaceConnectors";
+import { googleWorkspaceConnectorGrantTarget, googleWorkspaceGrantConditions } from "../shared/googleWorkspaceGrantTargets";
 import { fixtureWorkflowConnector } from "./workflowConnectors";
 import { permissionGrantTargetHash } from "./permissionGrants";
 import { buildPluginMcpToolRegistrations } from "./pluginMcpSupervisor";
@@ -5370,15 +5371,20 @@ export default async function run({ workflow }) {
     const blocked = await runDueWorkflowArtifactSchedules(store, firstDueAt, async () => {
       throw new Error("Scheduled Calendar workflow should not run before a persistent connector grant exists.");
     });
+    const calendarReadTarget = googleWorkspaceConnectorGrantTarget({
+      connectorId: "google.calendar",
+      operation: "listEvents",
+      accountId: accountHint,
+    })!;
     const grant = store.createPermissionGrant({
       permissionModeAtCreation: "workspace",
       scopeKind: "workflow_thread",
       workflowThreadId: thread.id,
       actionKind: "connector_content_read",
       targetKind: "connector",
-      targetHash: permissionGrantTargetHash("connector_content_read", "connector", "google.calendar:listEvents"),
-      targetLabel: "google.calendar:listEvents",
-      conditions: { scheduledWorkflow: true, accountId: accountHint },
+      targetHash: permissionGrantTargetHash("connector_content_read", "connector", calendarReadTarget.identity),
+      targetLabel: calendarReadTarget.label,
+      conditions: googleWorkspaceGrantConditions(calendarReadTarget, { scheduledWorkflow: true, accountId: accountHint }),
       source: "permission_prompt",
       reason: "Allow this scheduled workflow to read Google Calendar events.",
     });
@@ -5504,7 +5510,7 @@ export default async function run({ workflow }) {
             targetVersionId: approvedVersion?.id,
             grantDecisionSource: "persistent_grant",
             grantIds: [grant.id],
-            grantTargets: ["google.calendar:listEvents"],
+            grantTargets: [calendarReadTarget.label],
           }),
         }),
       ]),

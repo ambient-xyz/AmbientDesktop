@@ -2391,6 +2391,7 @@ describe("ambient_subagent Pi tool", () => {
       const startedRunIds: string[] = [];
       const runtimeToolScopeSnapshotSequences: number[] = [];
       const runtimeUpdates: unknown[] = [];
+      const runtimeWaitTimeouts: number[] = [];
       const [tool] = createSubagentPiToolDefinitions({
         store,
         threadId: parent.id,
@@ -2408,7 +2409,8 @@ describe("ambient_subagent Pi tool", () => {
             });
             return { started: true, run: store.markSubagentRunStatus(run.id, "running") };
           },
-          waitForChildRun: ({ run, emitEvent }) => {
+          waitForChildRun: ({ run, timeoutMs, emitEvent }) => {
+            runtimeWaitTimeouts.push(timeoutMs);
             emitEvent({
               type: "assistant_delta",
               textPreview: "Working note from child runtime.",
@@ -2481,6 +2483,7 @@ describe("ambient_subagent Pi tool", () => {
         dependencyMode: "optional_background",
         status: "satisfied",
       });
+      expect(runtimeWaitTimeouts).toEqual([1]);
       expect((waited.details as any).groupedCompletionNotification).toMatchObject({
         parentRunId: parentRun.id,
         parentMessageId: assistant.id,
@@ -2997,6 +3000,7 @@ describe("ambient_subagent Pi tool", () => {
       const parent = store.createThread("Parent");
       const assistant = store.addMessage({ threadId: parent.id, role: "assistant", content: "" });
       const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
+      const runtimeWaitTimeouts: number[] = [];
       const [tool] = createSubagentPiToolDefinitions({
         store,
         threadId: parent.id,
@@ -3004,19 +3008,22 @@ describe("ambient_subagent Pi tool", () => {
         getParentRun: () => ({ id: parentRun.id, assistantMessageId: assistant.id }),
         runtime: {
           startChildRun: ({ run }) => ({ started: true, run: store.markSubagentRunStatus(run.id, "running") }),
-          waitForChildRun: ({ run }) => ({
-            timedOut: false,
-            run: store.markSubagentRunStatus(run.id, "failed", {
-              resultArtifact: {
-                schemaVersion: "ambient-subagent-result-artifact-v1",
-                runId: run.id,
-                status: "failed",
-                partial: false,
-                summary: "child failed",
-                childThreadId: run.childThreadId,
-              },
-            }),
-          }),
+          waitForChildRun: ({ run, timeoutMs }) => {
+            runtimeWaitTimeouts.push(timeoutMs);
+            return {
+              timedOut: false,
+              run: store.markSubagentRunStatus(run.id, "failed", {
+                resultArtifact: {
+                  schemaVersion: "ambient-subagent-result-artifact-v1",
+                  runId: run.id,
+                  status: "failed",
+                  partial: false,
+                  summary: "child failed",
+                  childThreadId: run.childThreadId,
+                },
+              }),
+            };
+          },
         },
       });
 
@@ -3033,6 +3040,7 @@ describe("ambient_subagent Pi tool", () => {
         childRunId: runId,
         wait: { timeoutMs: 1 },
       });
+      expect(runtimeWaitTimeouts).toEqual([600_000]);
 
       expect((waited.details as any).status).toBe("failed");
       expect((waited.details as any).waitSatisfied).toBe(true);
@@ -3054,6 +3062,105 @@ describe("ambient_subagent Pi tool", () => {
         status: "failed",
       });
       expect(store.listSubagentWaitBarriersForParentRun(parentRun.id)).toHaveLength(1);
+    } finally {
+      store.close();
+    }
+  });
+
+  it("reports terminal barriers without reattaching wait_agent to the child runtime", async () => {
+    const workspacePath = await tempWorkspace();
+    const store = new ProjectStore();
+    try {
+      store.openWorkspace(workspacePath);
+      const parent = store.createThread("Parent");
+      const assistant = store.addMessage({ threadId: parent.id, role: "assistant", content: "" });
+      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
+      const child = store.createSubagentRun({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        parentMessageId: assistant.id,
+        title: "Explorer",
+        roleId: "explorer",
+        canonicalTaskPath: "root/0:explorer",
+        featureFlagSnapshot: enabledFlags,
+        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model),
+        dependencyMode: "required",
+      });
+      store.markSubagentRunStatus(child.id, "running");
+      const barrier = store.createSubagentWaitBarrier({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        childRunIds: [child.id],
+        dependencyMode: "required_all",
+        failurePolicy: "ask_user",
+      });
+      store.updateSubagentWaitBarrierStatus(barrier.id, "timed_out", {
+        resolutionArtifact: {
+          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+          childRunIds: [child.id],
+          childStatuses: [{ childRunId: child.id, status: "running" }],
+          synthesisAllowed: false,
+          transitionEvidence: {
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "child_runtime_timeout",
+            source: "child_runtime",
+            childRunId: child.id,
+          },
+        },
+      });
+      const waitForChildRun = vi.fn(({ run }) => ({ run, timedOut: false }));
+      const [tool] = createSubagentPiToolDefinitions({
+        store,
+        threadId: parent.id,
+        getFeatureFlagSnapshot: () => enabledFlags,
+        getParentRun: () => ({ id: parentRun.id, assistantMessageId: assistant.id }),
+        runtime: { waitForChildRun },
+      });
+
+      const status = await executeTool(tool, "status-terminal-barrier", {
+        action: "status_agent",
+        waitBarrierId: barrier.id,
+      });
+      expect((status.details as any).waitBarrier).toMatchObject({
+        id: barrier.id,
+        status: "timed_out",
+        childRunIds: [child.id],
+      });
+      expect((status.details as any).parentResolution).toMatchObject({
+        status: "blocked",
+        action: "ask_user",
+        canSynthesize: false,
+        barrierStatus: "timed_out",
+      });
+      expect((status.content[0] as any).text).toContain("waitBarrierRecovery: This barrier is terminal.");
+      expect(waitForChildRun).not.toHaveBeenCalled();
+
+      const waited = await executeTool(tool, "wait-terminal-barrier", {
+        action: "wait_agent",
+        childRunId: child.id,
+      });
+      expect(waitForChildRun).not.toHaveBeenCalled();
+      expect((waited.details as any)).toMatchObject({
+        waitBarrierTerminalInspection: true,
+        waitTimedOut: false,
+        waitSessionExpired: false,
+        waitSatisfied: true,
+        synthesisAllowed: false,
+        waitBarrier: {
+          id: barrier.id,
+          status: "timed_out",
+          childRunIds: [child.id],
+        },
+        parentResolution: {
+          status: "blocked",
+          action: "ask_user",
+          canSynthesize: false,
+          barrierStatus: "timed_out",
+        },
+      });
+      expect((waited.details as any).waitNotice).toContain("already-terminal wait barrier");
+      expect(store.listSubagentWaitBarriersForParentRun(parentRun.id)).toHaveLength(1);
+      expect(store.getSubagentWaitBarrier(barrier.id).status).toBe("timed_out");
     } finally {
       store.close();
     }
@@ -3692,7 +3799,11 @@ describe("ambient_subagent Pi tool", () => {
         getFeatureFlagSnapshot: () => enabledFlags,
         getParentRun: () => ({ id: parentRun.id, assistantMessageId: assistant.id }),
         runtime: {
-          waitForChildRun: ({ run }) => ({ timedOut: true, run }),
+          waitForChildRun: ({ run }) => ({
+            timedOut: true,
+            run: store.markSubagentRunStatus(run.id, "timed_out"),
+            outcome: { kind: "child_runtime_timeout", reason: "runtime_idle_timeout" },
+          }),
         },
       });
 
@@ -3709,10 +3820,10 @@ describe("ambient_subagent Pi tool", () => {
       });
       expect((waited.details as any).parentResolution).toMatchObject({
         status: "blocked",
-        action: "wait_for_child",
+        action: "ask_user",
         canSynthesize: false,
-        requiresUserInput: false,
-        requiresExplicitPartial: false,
+        requiresUserInput: true,
+        requiresExplicitPartial: true,
         barrierStatus: "timed_out",
       });
       expect((waited.details as any).waitBarrierAttentionParentMailbox).toMatchObject({
@@ -3730,9 +3841,9 @@ describe("ambient_subagent Pi tool", () => {
             barrierStatus: "timed_out",
             failurePolicy: "degrade_partial",
             allowedUserChoices: expect.arrayContaining([
-              expect.objectContaining({ id: "wait_again" }),
-              expect.objectContaining({ id: "send_child_steering" }),
-              expect.objectContaining({ id: "cancel_parent" }),
+              expect.objectContaining({ id: "continue_with_partial", toolAction: "resolve_barrier" }),
+              expect.objectContaining({ id: "retry_child", toolAction: "resolve_barrier" }),
+              expect.objectContaining({ id: "cancel_parent", toolAction: "resolve_barrier" }),
             ]),
           }),
         }),

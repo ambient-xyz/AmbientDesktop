@@ -45,6 +45,7 @@ describe("AgentRuntime media artifact helpers", () => {
 
     expect(normalizeWorkspaceArtifactPath(`${workspacePath}/assets/photo.jpg`, workspacePath)).toBe("assets/photo.jpg");
     expect(normalizeWorkspaceArtifactPath(`Wrote ${workspacePath}/assets/photo.jpg`, workspacePath)).toBe("assets/photo.jpg");
+    expect(normalizeWorkspaceArtifactPath("tmp/Users/example/ambient-workspace/assets/photo.jpg", "/Users/example/ambient-workspace")).toBe("assets/photo.jpg");
     expect(mediaArtifactKindFromPath("assets/photo.jpg")).toBe("image");
     expect(mediaArtifactKindFromPath("audio/output.mp3")).toBe("audio");
     expect(mediaArtifactKindFromPath("video/clip.webm?download=1")).toBe("video");
@@ -81,7 +82,7 @@ describe("AgentRuntime media artifact helpers", () => {
       expect(mediaArtifact).toMatchObject({
         artifactPath: "out/image.png",
         mediaKind: "image",
-        renderedInline: true,
+        inlinePreviewEligible: true,
         bytes: 9,
       });
       expect(mediaArtifactNotice(mediaArtifact!)).toContain("Generated media artifact: out/image.png");
@@ -94,10 +95,10 @@ describe("AgentRuntime media artifact helpers", () => {
       expect(result.details).toMatchObject({
         status: "done",
         artifactPath: "out/image.png",
-        renderedInline: true,
+        inlinePreviewEligible: true,
         mediaArtifact: { mediaKind: "image", bytes: 9 },
       });
-      expect(result.content.at(-1)?.text).toContain("Ambient Desktop has rendered an inline media preview");
+      expect(result.content.at(-1)?.text).toContain("Ambient Desktop will attempt to render an inline media preview");
     } finally {
       await rm(workspacePath, { recursive: true, force: true });
     }

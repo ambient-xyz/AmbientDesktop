@@ -5,12 +5,12 @@ import type {
 } from "../shared/types";
 import {
   evaluateSubagentWaitBarrierForSynthesis as evaluateSubagentWaitBarrierForSynthesisFromResults,
-  SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES,
+  subagentRuntimeTimeoutKindFromReason,
   waitBarrierStatusFromEvaluation,
+  type SubagentWaitBarrierTerminalEvidence,
   type SubagentWaitBarrierChildResult,
   type SubagentWaitBarrierEvaluation,
 } from "./subagentWaitBarrierEvaluation";
-import { explicitSubagentBarrierUserDecision } from "./subagentParentPolicyResolution";
 import {
   validateSubagentResultForRun,
   type SubagentResultValidation,
@@ -18,6 +18,32 @@ import {
 
 export const SUBAGENT_WAIT_BARRIER_RESOLUTION_SCHEMA_VERSION =
   "ambient-subagent-wait-barrier-resolution-v1" as const;
+export const SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION =
+  "ambient-subagent-wait-barrier-transition-evidence-v1" as const;
+
+export type SubagentWaitBarrierTransitionEvidenceKind =
+  | "progress_return"
+  | "child_terminal"
+  | "child_runtime_timeout"
+  | "child_cancelled"
+  | "child_detached"
+  | "parent_stopped"
+  | "explicit_partial"
+  | "explicit_failure"
+  | "failed_spawn"
+  | "retry_child";
+
+export interface SubagentWaitBarrierTransitionEvidence {
+  schemaVersion: typeof SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION;
+  kind: SubagentWaitBarrierTransitionEvidenceKind;
+  source: "parent_wait_session" | "wait_agent" | "child_runtime" | "cancel_agent" | "barrier_controller";
+  childRunId?: string;
+  childRunIds?: string[];
+  reason?: string;
+  timeoutKind?: SubagentWaitBarrierTerminalEvidence["timeoutKind"];
+  idempotencyKey?: string;
+  details?: Record<string, unknown>;
+}
 
 export interface SubagentWaitBarrierResolutionStore {
   getSubagentRun(runId: string): SubagentRunSummary;
@@ -36,12 +62,12 @@ export type SubagentWaitBarrierStoreEvaluation =
 export function evaluateSubagentWaitBarrierForStore(input: {
   store: Pick<SubagentWaitBarrierResolutionStore, "getSubagentRun" | "listSubagentRunEvents">;
   waitBarrier: SubagentWaitBarrierSummary;
-  timedOut?: boolean;
+  terminalEvidence?: SubagentWaitBarrierTerminalEvidence;
 }): SubagentWaitBarrierStoreEvaluation {
   return evaluateSubagentWaitBarrierForSynthesisFromResults({
     barrier: input.waitBarrier,
     childResults: subagentWaitBarrierChildResultsForStore(input.store, input.waitBarrier),
-    ...(input.timedOut !== undefined ? { timedOut: input.timedOut } : {}),
+    ...(input.terminalEvidence ? { terminalEvidence: input.terminalEvidence } : {}),
   });
 }
 
@@ -68,6 +94,7 @@ export function buildSubagentWaitBarrierResolutionArtifact(input: {
   waitBarrier: SubagentWaitBarrierSummary;
   run: Pick<SubagentRunSummary, "id" | "resultArtifact">;
   timedOut: boolean;
+  evidence: SubagentWaitBarrierTransitionEvidence;
   waitBarrierEvaluation: SubagentWaitBarrierStoreEvaluation;
   resultValidation: SubagentResultValidation;
 }): Record<string, unknown> {
@@ -76,6 +103,7 @@ export function buildSubagentWaitBarrierResolutionArtifact(input: {
     childRunIds: input.waitBarrier.childRunIds,
     childStatuses: input.waitBarrierEvaluation.childStatuses,
     timedOut: input.timedOut,
+    transitionEvidence: input.evidence,
     synthesisAllowed: input.waitBarrierEvaluation.synthesisAllowed,
     waitBarrierEvaluation: input.waitBarrierEvaluation,
     resultValidation: input.resultValidation,
@@ -89,13 +117,25 @@ export function resolveSubagentWaitBarrierForRun(input: {
   store: SubagentWaitBarrierResolutionStore;
   waitBarrier: SubagentWaitBarrierSummary;
   run: SubagentRunSummary;
-  timedOut: boolean;
+  evidence: SubagentWaitBarrierTransitionEvidence;
+}): SubagentWaitBarrierSummary {
+  return resolveSubagentWaitBarrierWithEvidence(input);
+}
+
+export function resolveSubagentWaitBarrierWithEvidence(input: {
+  store: SubagentWaitBarrierResolutionStore;
+  waitBarrier: SubagentWaitBarrierSummary;
+  run: SubagentRunSummary;
+  evidence: SubagentWaitBarrierTransitionEvidence;
 }): SubagentWaitBarrierSummary {
   if (input.waitBarrier.status !== "waiting_on_children") return input.waitBarrier;
+  if (input.evidence.kind === "progress_return") return input.waitBarrier;
+  const terminalEvidence = terminalEvidenceFromTransitionEvidence(input.evidence);
+  const timedOut = terminalEvidence?.kind === "child_runtime_timeout";
   const waitBarrierEvaluation = evaluateSubagentWaitBarrierForStore({
     store: input.store,
     waitBarrier: input.waitBarrier,
-    timedOut: input.timedOut,
+    ...(terminalEvidence ? { terminalEvidence } : {}),
   });
   const resultValidation = waitBarrierEvaluation.childResults.find((child) => child.childRunId === input.run.id)?.resultValidation ??
     validateSubagentResultForRun(input.run, input.store.listSubagentRunEvents(input.run.id));
@@ -105,7 +145,8 @@ export function resolveSubagentWaitBarrierForRun(input: {
     resolutionArtifact: buildSubagentWaitBarrierResolutionArtifact({
       waitBarrier: input.waitBarrier,
       run: input.run,
-      timedOut: input.timedOut,
+      timedOut,
+      evidence: input.evidence,
       waitBarrierEvaluation,
       resultValidation,
     }),
@@ -115,7 +156,7 @@ export function resolveSubagentWaitBarrierForRun(input: {
 export function resolveActiveSubagentWaitBarriersForRun(input: {
   store: SubagentWaitBarrierResolutionStore;
   run: SubagentRunSummary;
-  timedOut: boolean;
+  evidence: SubagentWaitBarrierTransitionEvidence;
 }): SubagentWaitBarrierSummary[] {
   return input.store
     .listSubagentWaitBarriersForParentRun(input.run.parentRunId)
@@ -124,102 +165,19 @@ export function resolveActiveSubagentWaitBarriersForRun(input: {
       store: input.store,
       waitBarrier,
       run: input.run,
-      timedOut: input.timedOut,
+      evidence: input.evidence,
     }));
 }
 
-export function satisfySubagentWaitBarrierIfCurrentResultsAllowSynthesis(input: {
-  store: SubagentWaitBarrierResolutionStore;
-  waitBarrier: SubagentWaitBarrierSummary;
-}): SubagentWaitBarrierSummary {
-  if (input.waitBarrier.status !== "waiting_on_children" && input.waitBarrier.status !== "timed_out") {
-    return input.waitBarrier;
-  }
-  const waitBarrierEvaluation = evaluateSubagentWaitBarrierForStore({
-    store: input.store,
-    waitBarrier: input.waitBarrier,
-    timedOut: input.waitBarrier.status === "timed_out",
-  });
-  if (!waitBarrierEvaluation.synthesisAllowed) {
-    const partialBridge = explicitPartialBridgeForStaleBarrier({
-      store: input.store,
-      waitBarrier: input.waitBarrier,
-      waitBarrierEvaluation,
-    });
-    if (!partialBridge) return input.waitBarrier;
-    return input.store.updateSubagentWaitBarrierStatus(input.waitBarrier.id, "satisfied", {
-      resolutionArtifact: {
-        schemaVersion: SUBAGENT_WAIT_BARRIER_RESOLUTION_SCHEMA_VERSION,
-        childRunIds: input.waitBarrier.childRunIds,
-        childStatuses: waitBarrierEvaluation.childStatuses,
-        timedOut: input.waitBarrier.status === "timed_out",
-        synthesisAllowed: true,
-        explicitPartial: true,
-        resultArtifact: null,
-        waitBarrierEvaluation,
-        partialInheritedFromWaitBarrierIds: partialBridge.sourceBarrierIds,
-        partialInheritedUnsafeChildRunIds: partialBridge.unsafeChildRunIds,
-        userDecision: partialBridge.userDecision ?? null,
-      },
-    });
-  }
-  const resultChild = waitBarrierEvaluation.childResults.find((child) => child.synthesisAllowed) ??
-    waitBarrierEvaluation.childResults[0];
-  if (!resultChild) return input.waitBarrier;
-  const run = input.store.getSubagentRun(resultChild.childRunId);
-  return input.store.updateSubagentWaitBarrierStatus(input.waitBarrier.id, "satisfied", {
-    resolutionArtifact: buildSubagentWaitBarrierResolutionArtifact({
-      waitBarrier: input.waitBarrier,
-      run,
-      timedOut: input.waitBarrier.status === "timed_out",
-      waitBarrierEvaluation,
-      resultValidation: resultChild.resultValidation,
-    }),
-  });
-}
-
-function explicitPartialBridgeForStaleBarrier(input: {
-  store: Pick<SubagentWaitBarrierResolutionStore, "listSubagentWaitBarriersForParentRun">;
-  waitBarrier: SubagentWaitBarrierSummary;
-  waitBarrierEvaluation: SubagentWaitBarrierStoreEvaluation;
-}): { sourceBarrierIds: string[]; unsafeChildRunIds: string[]; userDecision?: unknown } | undefined {
-  const unsafeChildren = input.waitBarrierEvaluation.childResults.filter((child) => !child.synthesisAllowed);
-  if (!unsafeChildren.length) return undefined;
-  if (unsafeChildren.some((child) => !SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES.has(child.status))) return undefined;
-  const siblingBarriers = input.store
-    .listSubagentWaitBarriersForParentRun(input.waitBarrier.parentRunId)
-    .filter((barrier) => barrier.id !== input.waitBarrier.id && barrier.parentThreadId === input.waitBarrier.parentThreadId);
-  const sourceBarriers: SubagentWaitBarrierSummary[] = [];
-  for (const child of unsafeChildren) {
-    const source = siblingBarriers.find((barrier) =>
-      barrier.childRunIds.includes(child.childRunId) &&
-      isExplicitPartialContinuationBarrier(barrier)
-    );
-    if (!source) return undefined;
-    sourceBarriers.push(source);
-  }
+function terminalEvidenceFromTransitionEvidence(
+  evidence: SubagentWaitBarrierTransitionEvidence,
+): SubagentWaitBarrierTerminalEvidence | undefined {
+  if (evidence.kind !== "child_runtime_timeout") return undefined;
   return {
-    sourceBarrierIds: [...new Set(sourceBarriers.map((barrier) => barrier.id))],
-    unsafeChildRunIds: unsafeChildren.map((child) => child.childRunId),
-    userDecision: userDecisionFromBarrier(sourceBarriers[0]),
+    kind: "child_runtime_timeout",
+    ...(evidence.childRunId ? { childRunId: evidence.childRunId } : {}),
+    ...(evidence.reason ? { reason: evidence.reason } : {}),
+    timeoutKind: evidence.timeoutKind ?? subagentRuntimeTimeoutKindFromReason(evidence.reason),
+    ...(evidence.details ? { details: evidence.details } : {}),
   };
-}
-
-function isExplicitPartialContinuationBarrier(barrier: SubagentWaitBarrierSummary): boolean {
-  if (barrier.status !== "satisfied") return false;
-  const decision = explicitSubagentBarrierUserDecision(barrier);
-  return decision?.decision === "continue_with_partial" &&
-    decision.synthesisAllowed &&
-    decision.explicitPartial;
-}
-
-function userDecisionFromBarrier(barrier: SubagentWaitBarrierSummary | undefined): unknown {
-  const artifact = recordValue(barrier?.resolutionArtifact);
-  return recordValue(artifact?.userDecision);
-}
-
-function recordValue(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined;
 }

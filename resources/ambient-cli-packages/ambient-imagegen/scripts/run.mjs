@@ -153,7 +153,7 @@ async function generateImage(options) {
   const model = stringOption(options.model) ?? provider.defaultModel;
   const format = normalizeFormat(stringOption(options.format) ?? provider.defaultFormat);
   const timeoutMs = positiveInteger(options.timeoutMs, "timeout-ms", defaultTimeoutMs);
-  const outputPath = resolveOutputPath(options.output, provider, format);
+  const requestedOutputPath = resolveOutputPath(options.output, provider, format);
   const plan = {
     packageName,
     capabilityId,
@@ -163,7 +163,7 @@ async function generateImage(options) {
     model,
     networkHosts: provider.networkHosts,
     requiredEnvNames: provider.envNames,
-    outputPath,
+    outputPath: requestedOutputPath,
     format,
     size: stringOption(options.size),
     aspectRatio: stringOption(options.aspectRatio),
@@ -187,7 +187,8 @@ async function generateImage(options) {
     : await callHostedProvider(provider, { ...options, prompt, model, format, timeoutMs });
 
   const image = generated.image;
-  const mimeType = generated.mimeType ?? mimeTypeForFormat(format);
+  const mimeType = detectedImageMimeType(image) ?? normalizeImageMimeType(generated.mimeType) ?? mimeTypeForFormat(format);
+  const outputPath = outputPathForMimeType(requestedOutputPath, mimeType);
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, image);
   const dimensions = imageDimensions(image, mimeType);
@@ -715,6 +716,16 @@ function resolveOutputPath(output, provider, format) {
   return ensureInsideWorkspace(resolved);
 }
 
+function outputPathForMimeType(outputPath, mimeType) {
+  const extension = extensionForMimeType(mimeType);
+  if (!extension) return outputPath;
+  const currentExtension = extname(outputPath);
+  if (!currentExtension) return `${outputPath}.${extension}`;
+  const current = currentExtension.slice(1).toLowerCase();
+  if (current === extension || (extension === "jpg" && current === "jpeg")) return outputPath;
+  return `${outputPath.slice(0, -currentExtension.length)}.${extension}`;
+}
+
 function metadataPathFor(outputPath) {
   return `${outputPath}.json`;
 }
@@ -830,6 +841,36 @@ function mimeTypeForFormat(format) {
 
 function extensionForFormat(format) {
   return format === "jpeg" ? "jpg" : format;
+}
+
+function extensionForMimeType(mimeType) {
+  const normalized = normalizeImageMimeType(mimeType);
+  if (normalized === "image/jpeg") return "jpg";
+  if (normalized === "image/png") return "png";
+  if (normalized === "image/webp") return "webp";
+  if (normalized === "image/gif") return "gif";
+  if (normalized === "image/avif") return "avif";
+  return undefined;
+}
+
+function normalizeImageMimeType(value) {
+  if (!value) return undefined;
+  const normalized = String(value).split(";")[0].trim().toLowerCase();
+  if (normalized === "image/jpg") return "image/jpeg";
+  if (["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"].includes(normalized)) return normalized;
+  return undefined;
+}
+
+function detectedImageMimeType(buffer) {
+  if (buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) return "image/png";
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "image/jpeg";
+  if (buffer.length >= 6) {
+    const header = buffer.toString("ascii", 0, 6);
+    if (header === "GIF87a" || header === "GIF89a") return "image/gif";
+  }
+  if (buffer.length >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP") return "image/webp";
+  if (buffer.length >= 12 && buffer.toString("ascii", 4, 8) === "ftyp" && ["avif", "avis"].includes(buffer.toString("ascii", 8, 12))) return "image/avif";
+  return undefined;
 }
 
 function numericString(value) {

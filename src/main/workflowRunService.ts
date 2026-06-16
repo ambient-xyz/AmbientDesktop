@@ -4,6 +4,7 @@ import { AMBIENT_DEFAULT_MODEL, normalizeAmbientModelId } from "../shared/ambien
 import type {
   PermissionMode,
   PermissionRequest,
+  AmbientPermissionGrant,
   AmbientPluginRegistry,
   WorkflowApprovalStatus,
   WorkflowDashboard,
@@ -21,6 +22,7 @@ import type {
   WorkflowRunSummary,
   WorkflowUserInputResponse,
 } from "../shared/types";
+import { workflowScheduleMatchingConnectorGrantUse } from "../shared/workflowSchedulePolicy";
 import type { WorkflowBrowserAdapter, WorkflowDesktopToolBridgeOptions } from "./workflowDesktopTools";
 import type { PluginMcpToolRegistration } from "./plugins/pluginHost";
 import type { ProjectStore } from "./projectStore";
@@ -95,6 +97,13 @@ export interface RunWorkflowArtifactInput {
   connectorRegistrations?: WorkflowConnectorRegistration[];
   connectorAccountAuthorizer?: WorkflowConnectorAccountAuthorizer;
   connectorApprovalDecision?: WorkflowConnectorApprovalDecisionResolver;
+  scheduledConnectorGrantContext?: {
+    threadId?: string;
+    workflowThreadId?: string;
+    projectPath?: string;
+    workspacePath?: string;
+    permissionGrants?: AmbientPermissionGrant[];
+  };
   retryPolicy?: AmbientRetryPolicy;
   onRunStarted?: (runId: string) => void;
   onEvent?: () => void;
@@ -287,6 +296,30 @@ export async function runWorkflowArtifact(input: RunWorkflowArtifactInput): Prom
       eventSink,
       accountAuthorizer: input.connectorAccountAuthorizer,
       connectorApprovalDecision: (approvalId, changeSet) => input.connectorApprovalDecision?.(approvalId, changeSet) ?? approvalDecisions.get(approvalId),
+      connectorReviewGrantResolver: input.scheduledConnectorGrantContext
+        ? ({ operation, grant }) => {
+            const context = input.scheduledConnectorGrantContext!;
+            const use = workflowScheduleMatchingConnectorGrantUse(
+              { id: artifact.id, workflowThreadId: artifact.workflowThreadId, manifest: artifact.manifest },
+              {
+                permissionGrants: context.permissionGrants ?? input.store.listPermissionGrants(),
+                threadId: context.threadId,
+                workflowThreadId: context.workflowThreadId ?? artifact.workflowThreadId,
+                projectPath: context.projectPath ?? input.workspacePath,
+                workspacePath: context.workspacePath ?? input.workspacePath,
+              },
+              grant.connectorId,
+              operation.name,
+            );
+            return use
+              ? {
+                  grantId: use.grant.id,
+                  targetLabel: use.targetLabel,
+                  reason: "Scheduled workflow connector review satisfied by a persistent connector grant.",
+                }
+              : undefined;
+          }
+        : undefined,
       approvalScope: { artifactId: artifact.id, sourceHash, manifestHash },
     });
     const model = normalizeAmbientModelId(input.model ?? AMBIENT_DEFAULT_MODEL);

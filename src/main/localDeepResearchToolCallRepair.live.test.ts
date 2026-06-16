@@ -6,7 +6,10 @@ import {
   createLocalDeepResearchBenchmarkBroker,
   type LocalDeepResearchProfileBenchmarkTask,
 } from "./localDeepResearchProfileBenchmark";
-import { runLocalDeepResearchWithManagedLlama } from "./localDeepResearchRunService";
+import {
+  runLocalDeepResearchWithManagedLlama,
+  type LocalDeepResearchRunServiceProgressEvent,
+} from "./localDeepResearchRunService";
 import { buildLocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 
 const runLive = process.env.AMBIENT_LOCAL_DEEP_RESEARCH_TOOL_CALL_REPAIR_LIVE === "1";
@@ -87,6 +90,7 @@ describeLive("Local Deep Research tool-call repair live", () => {
     expect(managedAssets.runtime.status).toBe("present");
     expect(setup.status).toBe("ready");
 
+    const progressEvents: LocalDeepResearchRunServiceProgressEvent[] = [];
     const result = await runLocalDeepResearchWithManagedLlama({
       workspacePath,
       question: styleResearchTask.question,
@@ -103,10 +107,13 @@ describeLive("Local Deep Research tool-call repair live", () => {
         temperature: 0,
         requestTimeoutMs: Number(process.env.AMBIENT_LOCAL_DEEP_RESEARCH_TOOL_CALL_REPAIR_REQUEST_TIMEOUT_MS ?? 240_000),
       },
+      onProgress: (progress) => progressEvents.push(progress),
     });
 
     const searchCalls = result.run.toolExecutions.filter((execution) => execution.call.name === "search").length;
     const visitCalls = result.run.toolExecutions.filter((execution) => execution.call.name === "visit").length;
+    const terminalProgressIndex = progressEvents.findIndex((event) => event.stage === "completed" || event.stage === "failed");
+    const preCompletionEvents = terminalProgressIndex >= 0 ? progressEvents.slice(0, terminalProgressIndex) : progressEvents;
 
     expect(result.status).toBe("completed");
     expect(searchCalls).toBeGreaterThanOrEqual(1);
@@ -114,12 +121,30 @@ describeLive("Local Deep Research tool-call repair live", () => {
     expect(result.finalText).toContain("Sources:");
     expect(result.finalText).not.toContain("<think>");
     expect(result.run.citationValidation?.status).toBe("passed");
+    expect(preCompletionEvents.some((event) => event.stage === "resource-policy" && event.memory?.policyOutcome)).toBe(true);
+    expect(preCompletionEvents.some((event) => event.stage === "server-ready" && event.llamaServer?.pid && event.llamaServer.endpointUrl)).toBe(true);
+    expect(preCompletionEvents.some((event) => event.stage === "model-turn" && event.turn?.maxTurns)).toBe(true);
+    expect(preCompletionEvents.some((event) => event.stage === "tool-dispatch" && event.retrieval?.role)).toBe(true);
+    expect(preCompletionEvents.some((event) => event.stage === "tool-complete" && event.retrieval?.outputChars !== undefined)).toBe(true);
 
     console.log(JSON.stringify({
       status: result.status,
       toolCalls: result.run.toolExecutions.map((execution) => execution.call),
       citationValidation: result.run.citationValidation,
       artifacts: result.artifacts,
+      progress: progressEvents.map((event) => ({
+        stage: event.stage,
+        message: event.message,
+        turn: event.turn,
+        retrieval: event.retrieval,
+        memoryPolicy: event.memory?.policyOutcome,
+        llamaServer: event.llamaServer ? {
+          pid: event.llamaServer.pid,
+          endpointUrl: event.llamaServer.endpointUrl,
+          healthy: event.llamaServer.healthy,
+          rssBytes: event.llamaServer.rssBytes,
+        } : undefined,
+      })),
     }, null, 2));
   }, Number(process.env.AMBIENT_LOCAL_DEEP_RESEARCH_TOOL_CALL_REPAIR_TIMEOUT_MS ?? 20 * 60_000));
 });

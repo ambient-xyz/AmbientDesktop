@@ -51,6 +51,17 @@ describe("subagentBarrierDecisionExecutor", () => {
         schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
         synthesisAllowed: true,
         explicitPartial: true,
+        transitionEvidence: expect.objectContaining({
+          schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+          kind: "explicit_partial",
+          source: "barrier_controller",
+          idempotencyKey: "barrier:partial",
+          details: expect.objectContaining({
+            decision: "continue_with_partial",
+            waitBarrierId: "barrier-a",
+            toolCallId: "tool-partial",
+          }),
+        }),
         userDecision: expect.objectContaining({
           decision: "continue_with_partial",
           userDecision: "User approved a partial parent answer.",
@@ -237,6 +248,17 @@ describe("subagentBarrierDecisionExecutor", () => {
         retryRequestedRunIds: ["child-a"],
         retryAcceptedRunIds: ["child-a"],
         retryMailboxEventIds: ["mailbox-1"],
+        transitionEvidence: expect.objectContaining({
+          kind: "retry_child",
+          source: "barrier_controller",
+          idempotencyKey: "barrier:retry",
+          details: expect.objectContaining({
+            decision: "retry_child",
+            retryRequestedRunIds: ["child-a"],
+            retryAcceptedRunIds: ["child-a"],
+            retryMailboxEventIds: ["mailbox-1"],
+          }),
+        }),
         userDecision: expect.objectContaining({
           decision: "retry_child",
           userDecision: "Retry the failed child before continuing.",
@@ -349,6 +371,16 @@ describe("subagentBarrierDecisionExecutor", () => {
         cancelledRunIds: ["child-a"],
         cancelledMailboxEventIds: ["mailbox-queued"],
         parentCancellationRequested: true,
+        transitionEvidence: expect.objectContaining({
+          kind: "child_cancelled",
+          source: "barrier_controller",
+          idempotencyKey: "barrier:cancel-parent",
+          details: expect.objectContaining({
+            decision: "cancel_parent",
+            cancelledRunIds: ["child-a"],
+            cancelledMailboxEventIds: ["mailbox-queued"],
+          }),
+        }),
       }),
     }));
     expect(result).toMatchObject({

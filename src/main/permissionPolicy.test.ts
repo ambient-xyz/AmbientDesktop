@@ -1559,8 +1559,15 @@ describe("classifyToolPermission", () => {
       expect(decision.request.title).toContain("content read");
       expect(decision.request.reusableScopes).toEqual(["thread", "project", "workspace"]);
       expect(decision.request.grantActionKind).toBe("connector_content_read");
-      expect(decision.request.grantTargetLabel).toContain("gmail.users.messages.list");
+      expect(decision.request.grantTargetKind).toBe("connector");
+      expect(decision.request.grantTargetLabel).toBe("Gmail metadata search (travis@example.test)");
+      expect(decision.request.grantConditions).toMatchObject({
+        googleWorkspaceConnectorId: "google.gmail",
+        googleWorkspaceAccountId: "travis@example.test",
+        googleWorkspaceAccess: "metadata_search",
+      });
       expect(decision.request.detail).toContain("Account: travis@example.test");
+      expect(decision.request.detail).toContain("Method: gmail.users.messages.list");
       expect(decision.request.detail).toContain("Side effect: personal_content_read");
       expect(decision.request.detail).not.toContain("ada@example.com");
     }
@@ -1589,6 +1596,45 @@ describe("classifyToolPermission", () => {
         },
       }),
     ).resolves.toEqual({ action: "allow" });
+  });
+
+  it("uses resolved Google Workspace account ids for reusable call grants", async () => {
+    const decision = await classifyToolPermission({
+      ...base,
+      permissionMode: "workspace",
+      toolName: "google_workspace_call",
+      toolInput: {
+        accountHint: "default",
+        resolvedAccountHint: "travis@example.test",
+        methodId: "calendar.events.list",
+        method: {
+          id: "calendar.events.list",
+          service: "calendar",
+          resource: "events",
+          method: "list",
+          label: "List events",
+          description: "List calendar events.",
+          httpMethod: "GET",
+          path: "calendar/v3/calendars/{calendarId}/events",
+          scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
+          sideEffect: "personal_content_read",
+          dryRunSupported: false,
+        },
+      },
+    });
+
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request.grantTargetKind).toBe("connector");
+      expect(decision.request.grantTargetLabel).toBe("Google Calendar read access (travis@example.test)");
+      expect(decision.request.grantConditions).toMatchObject({
+        googleWorkspaceConnectorId: "google.calendar",
+        googleWorkspaceAccountId: "travis@example.test",
+        requestedAccountHint: "default",
+        resolvedAccountHint: "travis@example.test",
+      });
+      expect(decision.request.detail).toContain("Account: travis@example.test");
+    }
   });
 
   it("prompts before materializing a managed Google Workspace file in workspace mode", async () => {

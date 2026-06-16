@@ -2,7 +2,20 @@ import { execFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { localDeepResearchEstimatedResidentMemoryBytes, localDeepResearchProfileById } from "./localDeepResearchModelProfiles";
-import { readLocalLlamaServerStateFromDir, type LocalLlamaServerState } from "./localLlamaServerSupervisor";
+import { managedInstallWorkspacePath } from "./managedInstallPaths";
+import {
+  readLocalLlamaServerState,
+  readLocalLlamaServerStateFromDir,
+  type LocalLlamaServerState,
+} from "./localLlamaServerSupervisor";
+import {
+  AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+  AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+  AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+  AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+  ambientMemoryEmbeddingModelProfile,
+  ambientMemoryEmbeddingServerStateRoot,
+} from "./memory/tencentdb/managedEmbeddingRuntimeMetadata";
 
 const gib = 1024 ** 3;
 const localDeepResearchServerRoot = ".ambient/local-deep-research/server";
@@ -10,7 +23,7 @@ const miniCpmServerStatePath = ".ambient/vision/minicpm-v/state/server-state.jso
 const localTextRuntimeRoot = ".ambient/local-model-runtime";
 const miniCpmEstimatedResidentMemoryBytes = 7 * gib;
 
-export type LocalLlamaResidentCapability = "local-deep-research" | "minicpm-v" | "local-text";
+export type LocalLlamaResidentCapability = "local-deep-research" | "minicpm-v" | "local-text" | "embeddings";
 
 export interface LocalLlamaResidentProcess {
   capability: LocalLlamaResidentCapability;
@@ -50,6 +63,7 @@ export interface DetectLocalLlamaResidentProcessesInput {
   localDeepResearchStateRootPath?: string;
   miniCpmStatePath?: string;
   localTextStateRootPath?: string;
+  memoryEmbeddingStateRootPath?: string;
 }
 
 export interface LocalLlamaResidentMemorySample {
@@ -75,6 +89,7 @@ export async function detectLocalLlamaResidentProcesses(
     ...await detectLocalDeepResearchResidents(workspacePath, { ...input, processAlive, processMemorySampler }),
     ...await detectMiniCpmResidents(workspacePath, { ...input, processAlive, processMemorySampler }),
     ...await detectLocalTextResidents(workspacePath, { ...input, processAlive, processMemorySampler }),
+    ...await detectAmbientMemoryEmbeddingResidents(workspacePath, { ...input, processAlive, processMemorySampler }),
   ];
   const untrackedResidents = input.includeUntracked === false
     ? []
@@ -235,6 +250,45 @@ async function detectLocalTextResidents(
     });
   }
   return residents;
+}
+
+async function detectAmbientMemoryEmbeddingResidents(
+  workspacePath: string,
+  input: DetectLocalLlamaResidentProcessesInput & {
+    processAlive: (pid: number) => boolean;
+    processMemorySampler?: (pid: number) => Promise<LocalLlamaResidentMemorySample | undefined>;
+  },
+): Promise<LocalLlamaResidentProcess[]> {
+  const stateRootPath = resolve(
+    input.memoryEmbeddingStateRootPath ?? ambientMemoryEmbeddingServerStateRoot(managedInstallWorkspacePath(workspacePath)),
+  );
+  const state = await readLocalLlamaServerState(stateRootPath, AMBIENT_MEMORY_EMBEDDING_PROFILE_ID).catch(() => undefined);
+  if (!state?.pid) return [];
+  const running = input.processAlive(state.pid);
+  const memory = running ? await input.processMemorySampler?.(state.pid).catch(() => undefined) : undefined;
+  return [{
+    capability: "embeddings",
+    id: `embeddings:${AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID}`,
+    pid: state.pid,
+    running,
+    statePath: join(state.stateDir, "server-state.json"),
+    providerId: AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+    runtimeId: AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+    trackingStatus: "managed",
+    ...(state.ownerThreadId ? { ownerThreadId: state.ownerThreadId } : {}),
+    ownerDisplayName: "Ambient memory embeddings",
+    endpointUrl: state.endpointUrl,
+    port: state.port,
+    modelId: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+    profileId: AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+    contextTokens: state.contextTokens,
+    estimatedResidentMemoryBytes: ambientMemoryEmbeddingModelProfile.estimatedResidentMemoryBytes,
+    ...(memory ? { actualResidentMemoryBytes: memory.residentMemoryBytes, memorySampledAt: memory.sampledAt } : {}),
+    startedAt: state.startedAt,
+    lastUsedAt: state.lastUsedAt,
+    logPath: state.logPath,
+    stderrPath: state.stderrPath,
+  }];
 }
 
 async function detectUntrackedLlamaResidents(

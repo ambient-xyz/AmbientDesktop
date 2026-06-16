@@ -51,6 +51,7 @@ export function createAgentRuntimeSubagentEventingStore(
     getSubagentRun: (runId) => store.getSubagentRun(runId),
     getSubagentWaitBarrier: (id) => store.getSubagentWaitBarrier(id),
     listSubagentRunsForParentThread: (parentThreadId) => store.listSubagentRunsForParentThread(parentThreadId),
+    assertSubagentCanonicalTaskPathAvailableForSpawn: (input) => store.assertSubagentCanonicalTaskPathAvailableForSpawn(input),
     listSubagentRunEvents: (runId) => store.listSubagentRunEvents(runId),
     appendSubagentRunEvent: (runId, input) => {
       const event = store.appendSubagentRunEvent(runId, input);

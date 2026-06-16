@@ -14,6 +14,7 @@ export interface PermissionToolInputLocalDeepResearchReadiness {
 
 export interface PermissionToolInputGoogleWorkspace {
   describeMethod(input: { methodId: string }): Promise<unknown> | unknown;
+  resolveAccountHint?(accountHint?: string): string;
 }
 
 export interface PermissionToolInputBrowserCredentials {
@@ -60,6 +61,14 @@ export async function permissionToolInput(
       record.method = await Promise.resolve(dependencies.googleWorkspace.describeMethod({ methodId })).catch((error) => ({
         error: error instanceof Error ? error.message : String(error),
       }));
+    }
+    if (dependencies.googleWorkspace?.resolveAccountHint) {
+      const accountHint = typeof record.accountHint === "string" ? record.accountHint : undefined;
+      const resolvedAccountHint = await Promise.resolve(dependencies.googleWorkspace.resolveAccountHint(accountHint)).catch((error) => {
+        record.accountHintResolutionError = error instanceof Error ? error.message : String(error);
+        return undefined;
+      });
+      if (resolvedAccountHint) record.resolvedAccountHint = resolvedAccountHint;
     }
     return record;
   }

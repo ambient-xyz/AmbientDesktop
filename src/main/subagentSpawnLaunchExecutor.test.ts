@@ -161,6 +161,136 @@ describe("subagentSpawnLaunchExecutor", () => {
     expect(store.runEventsFor(run.id).map((event) => event.type)).toContain("subagent.spawn_requested");
   });
 
+  it("materializes brokered web research launches without browser authority", async () => {
+    const role = getDefaultSubagentRoleProfile("explorer");
+    const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+    const modelScope = modelScopeFor(role);
+    const run = childRun({ role, model });
+    const store = new FakeSpawnLaunchStore(run);
+    const startedRun = { ...run, status: "running" as const, startedAt: "2026-06-06T00:00:10.000Z" };
+    const startChildRun = vi.fn(async () => {
+      store.setRun(startedRun);
+      return { started: true, run: startedRun, message: "started" };
+    });
+
+    const result = await executeSubagentSpawnLaunch({
+      store,
+      runtime: "ambient-subagents",
+      phase: "phase-2-pi-tool-surface",
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+      run,
+      task: "Research current public sources with brokered search providers.",
+      toolCallId: "tool-call",
+      requestedRoleId: "explorer",
+      roleId: "explorer",
+      role,
+      modelId: model.modelId,
+      model,
+      modelScope,
+      dependencyMode: "required",
+      forkMode: "recent_turns",
+      promptMode: role.promptMode,
+      retentionPolicy: role.retentionDefault,
+      idempotencyKey: "spawn:web-research",
+      requestedToolScope: {
+        requestedCategories: ["workspace.read", "connector.read"],
+        childAuthority: {
+          taskIntent: "web_research",
+          rationale: "Use brokered search/fetch providers only.",
+          network: "ask_parent",
+          mutation: "deny",
+          nestedFanout: "deny",
+        },
+      },
+      startChildRun,
+      createRuntimeSpawnEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.spawnBlockDecision.blocked).toBe(false);
+    expect(result.toolScopeSnapshot.scope).toMatchObject({
+      loadedCategories: ["workspace.read", "connector.read"],
+      piVisibleCategories: ["workspace.read", "connector.read"],
+      deniedCategories: [],
+    });
+    expect(result.toolScopeSnapshot.resolverInputs).toMatchObject({
+      requestedChildAuthority: {
+        taskIntent: "web_research",
+        network: "ask_parent",
+      },
+      childAuthorityProfile: {
+        taskIntent: "web_research",
+        resourceScopes: {
+          browser: {
+            networkDecision: "deny",
+          },
+          connectors: {
+            decision: "ask_parent",
+          },
+        },
+      },
+    });
+    expect(startChildRun).toHaveBeenCalledOnce();
+  });
+
+  it("blocks accidental browser broadening for brokered web research before child launch", async () => {
+    const role = getDefaultSubagentRoleProfile("explorer");
+    const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+    const modelScope = modelScopeFor(role);
+    const run = childRun({ role, model });
+    const store = new FakeSpawnLaunchStore(run);
+    const startChildRun = vi.fn();
+
+    const result = await executeSubagentSpawnLaunch({
+      store,
+      runtime: "ambient-subagents",
+      phase: "phase-2-pi-tool-surface",
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+      run,
+      task: "Search the public web with brokered providers.",
+      toolCallId: "tool-call",
+      requestedRoleId: "explorer",
+      roleId: "explorer",
+      role,
+      modelId: model.modelId,
+      model,
+      modelScope,
+      dependencyMode: "required",
+      forkMode: "recent_turns",
+      promptMode: role.promptMode,
+      retentionPolicy: role.retentionDefault,
+      idempotencyKey: "spawn:web-research-too-broad",
+      requestedToolScope: {
+        requestedCategories: ["workspace.read", "connector.read", "browser.read"],
+      },
+      startChildRun,
+      createRuntimeSpawnEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+    });
+
+    expect(startChildRun).not.toHaveBeenCalled();
+    expect(result.spawnBlockDecision).toMatchObject({
+      blocked: true,
+      failureStage: "tool_scope",
+      toolScopeBlocked: true,
+      launchDenialKind: "requested_scope_denied",
+    });
+    expect(result.toolScopeSnapshot.scope).toMatchObject({
+      loadedCategories: ["workspace.read", "connector.read"],
+      piVisibleCategories: ["workspace.read", "connector.read"],
+      deniedCategories: [
+        {
+          id: "browser.read",
+          reason: "Browser read is denied for ordinary brokered web research; use connector.read/web_research tools unless the parent explicitly grants child browser network authority.",
+        },
+      ],
+    });
+    expect(result.currentRun.status).toBe("failed");
+    expect(result.taskMailboxEvent).toBeUndefined();
+  });
+
   it("records blocked post-reservation launches without creating required wait barriers", async () => {
     const role = getDefaultSubagentRoleProfile("worker");
     const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);

@@ -237,6 +237,11 @@ export interface SubagentPiToolStore {
   getSubagentRun(runId: string): SubagentRunSummary;
   getSubagentWaitBarrier(id: string): SubagentWaitBarrierSummary;
   listSubagentRunsForParentThread(parentThreadId: string): SubagentRunSummary[];
+  assertSubagentCanonicalTaskPathAvailableForSpawn(input: {
+    parentThreadId: string;
+    parentRunId: string;
+    canonicalTaskPath: string;
+  }): void;
   listSubagentRunEvents(runId: string): SubagentRunEventSummary[];
   appendSubagentRunEvent(runId: string, input: { type: string; preview?: unknown; artifactPath?: string; createdAt?: string }): SubagentRunEventSummary;
   recordSubagentToolScopeSnapshot(runId: string, input: {
@@ -366,7 +371,8 @@ export function createSubagentPiToolDefinitions(options: CreateSubagentPiToolDef
       "For reducer, evaluator, or verifier children, include all required upstream child summaries or artifact handles in the task/message. If the necessary upstream output is missing, wait, retry, or ask; do not ask the child to search for invisible sibling context.",
       "Keep intermediate child outputs compact enough for later handoff: prefer structured summaries, constraints checked, risks, decisions, and next-stage inputs over very long prose embedded inside JSON unless the user needs the full draft.",
       "Use roleId worker only for children that mutate files or artifacts in an isolated worktree; use drafter for non-mutating copy, proposals, plans, and textual artifacts.",
-      "For read-only explorer, reviewer, drafter, or reducer work, usually omit toolScope and let Ambient apply the role defaults. If you narrow toolScope, request only capabilities the role already allows. Explorer/reviewer children may request connector.read for exact read-only connector or web-research work; do not request connector.write, browser.interactive, workspace.write, or mutation scopes unless the child task explicitly requires them and the role/isolation policy permits them.",
+      "For read-only explorer, reviewer, drafter, or reducer work, usually omit toolScope and let Ambient apply the role defaults. If you narrow toolScope, request only capabilities the role already allows. For ordinary public web research, use connector.read with childAuthority.taskIntent web_research so the child uses web_research provider tools rather than managed browser search. Do not request browser.read for ordinary search/fetch work; browser.read is policy vocabulary and does not activate child browser tools. Request browser.interactive only when the child truly needs a browser page/session and the parent should review browser authority.",
+      "Explorer/reviewer children may request connector.read for exact read-only connector or brokered web-research work; do not request connector.write, browser.interactive, workspace.write, or mutation scopes unless the child task explicitly requires them and the role/isolation policy permits them.",
       "Set dependencyMode required whenever the parent needs the child's result before it can answer; optional_background is only for ignorable background work.",
       "After spawn_agent for required child work, read the returned childRunId and call wait_agent for that child before synthesizing the parent answer.",
       "Treat returned childRunId and canonicalTaskPath as the stable handles for later wait_agent, send_agent, followup_agent, resolve_barrier, cancel_agent, and close_agent calls.",
@@ -520,6 +526,11 @@ async function spawnAgent(
       orchestrationStarted: false,
     });
   }
+  options.store.assertSubagentCanonicalTaskPathAvailableForSpawn({
+    parentThreadId: parentThread.id,
+    parentRunId: parentRun.id,
+    canonicalTaskPath,
+  });
   const unavailableExtensionTools = unavailableRequestedExtensionToolNames(requestedToolScope, options.availableExtensionToolNames);
   if (unavailableExtensionTools.length) {
     const names = unavailableExtensionTools
@@ -742,16 +753,19 @@ async function runStatus(
   action: Extract<SubagentAction, "status_agent" | "wait_agent">,
   onUpdate: SubagentToolOnUpdate,
 ): Promise<AgentToolResult<Record<string, unknown>>> {
-  const waitContext = action === "wait_agent"
+  const waitContext = action === "wait_agent" || optionalString(input.waitBarrierId)
     ? resolveWaitContext(options, parentThread, input)
     : undefined;
+  const timeoutMs = resolveSubagentPiToolWaitTimeoutMs(input, {
+    waitBarrierMode: waitContext?.waitBarrier.dependencyMode,
+  });
   const execution = await executeSubagentWaitAgent({
     store: options.store,
     action,
     run: waitContext?.run ?? resolveSubagentTargetRun({ store: options.store, parentThreadId: parentThread.id, request: input }),
     ...(waitContext?.waitBarrier ? { waitBarrier: waitContext.waitBarrier } : {}),
     ...(waitContext?.childRuns ? { waitChildRuns: waitContext.childRuns } : {}),
-    timeoutMs: resolveSubagentPiToolWaitTimeoutMs(input),
+    timeoutMs,
     explicitIdempotencyKey: optionalString(input.idempotencyKey),
     waitForChildRun: options.runtime?.waitForChildRun,
     resolveChildApprovalResponse: options.runtime?.resolveChildApprovalResponse,
@@ -765,10 +779,14 @@ async function runStatus(
     waitNotice,
     parentResolution,
     waitTimedOut,
+    waitSessionExpired,
+    waitBarrierTerminalInspection,
+    waitOutcome,
     waitSatisfied,
     parentSynthesisAllowed,
     resultValidation,
     waitBarrierEvaluation,
+    waitBarrierBlockers,
     waitBarrier,
     approvalRequestRecords,
     supervisorRequestRecords,
@@ -789,6 +807,7 @@ async function runStatus(
     notice: waitNotice,
     parentResolution,
     waitBarrier,
+    waitBarrierBlockers,
     turnBudgetState,
   }), {
     runtime: SUBAGENT_RUNTIME,
@@ -803,6 +822,9 @@ async function runStatus(
     orchestrationStarted: Boolean(run.startedAt),
     waitSatisfied,
     waitTimedOut,
+    waitSessionExpired,
+    waitBarrierTerminalInspection,
+    ...(waitOutcome ? { waitOutcome } : {}),
     turnBudgetState: compactSubagentTurnBudgetStateForPi(turnBudgetState),
     ...(turnBudgetExhaustionSettlement ? {
       turnBudgetExhaustionSettlement: compactSubagentTurnBudgetExhaustionSettlementRecord(turnBudgetExhaustionSettlement),
@@ -822,6 +844,7 @@ async function runStatus(
     synthesisAllowed: parentSynthesisAllowed,
     resultValidation,
     ...(waitBarrierEvaluation ? { waitBarrierEvaluation } : {}),
+    ...(waitBarrierBlockers.length ? { waitBarrierBlockers } : {}),
     ...(resultValidation.structuredOutputValidation ? { structuredOutputValidation: resultValidation.structuredOutputValidation } : {}),
     ...(resultValidation.completionGuardValidation ? { completionGuardValidation: resultValidation.completionGuardValidation } : {}),
     ...(parentResolution ? { parentResolution } : {}),
@@ -1394,8 +1417,8 @@ function subagentToolParameters(roleIds: readonly SubagentRoleId[] = DEFAULT_SUB
             properties: {
               taskIntent: {
                 type: "string",
-                enum: ["file_read", "analysis", "mutation", "workflow", "connector", "custom"],
-                description: "The narrow intent for this child. file_read limits visible defaults to workspace/artifact/long-context reads unless broader tools are explicitly requested and allowed.",
+                enum: ["file_read", "analysis", "web_research", "mutation", "workflow", "connector", "custom"],
+                description: "The narrow intent for this child. file_read limits visible defaults to workspace/artifact/long-context reads. web_research uses brokered web_research tools and excludes managed browser fallback unless browser authority is explicitly granted.",
               },
               rationale: {
                 type: "string",
@@ -1572,6 +1595,7 @@ function resolveWaitContext(
     parentThread,
     request: input,
     timeoutMs: resolveSubagentPiToolWaitTimeoutMs(input),
+    resolveTimeoutMs: (waitBarrierMode) => resolveSubagentPiToolWaitTimeoutMs(input, { waitBarrierMode }),
     resolveTargetRun: (request) => resolveSubagentTargetRun({ store: options.store, parentThreadId: parentThread.id, request }),
     resolveTargetWaitBarrier: (request) => resolveSubagentTargetWaitBarrier({ store: options.store, parentThreadId: parentThread.id, request }),
   });

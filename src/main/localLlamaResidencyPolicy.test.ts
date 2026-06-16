@@ -3,6 +3,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { detectLocalLlamaResidentProcesses } from "./localLlamaResidencyPolicy";
+import {
+  AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+  AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+  AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+  AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+  ambientMemoryEmbeddingModelProfile,
+} from "./memory/tencentdb/managedEmbeddingRuntimeMetadata";
 
 describe("local llama residency policy", () => {
   it("detects active Local Deep Research and MiniCPM managed llama-server state", async () => {
@@ -317,6 +324,82 @@ describe("local llama residency policy", () => {
           pid: 4202,
         }),
       ]);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("detects Ambient-managed memory embeddings before the untracked llama.cpp fallback", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-local-llama-memory-embedding-"));
+    try {
+      const stateRoot = join(workspace, ".ambient/memory/tencentdb/embeddings/llama-server");
+      const stateDir = join(stateRoot, AMBIENT_MEMORY_EMBEDDING_PROFILE_ID);
+      await mkdir(stateDir, { recursive: true });
+      await writeFile(join(stateDir, "server-state.json"), `${JSON.stringify({
+        schemaVersion: "ambient-local-llama-server-state-v1",
+        profileId: AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+        pid: 1774,
+        endpointUrl: "http://127.0.0.1:57110",
+        host: "127.0.0.1",
+        port: 57110,
+        runtimeBinaryPath: "/runtime/llama-server",
+        modelPath: "/models/embeddinggemma-300m-qat-Q8_0.gguf",
+        contextTokens: 2048,
+        gpuLayers: 99,
+        idleTimeoutMs: 0,
+        startedAt: "2026-06-15T23:00:00.000Z",
+        lastUsedAt: "2026-06-15T23:01:00.000Z",
+        stateDir,
+        logPath: join(stateDir, "llama-server.log"),
+        stdoutPath: join(stateDir, "llama-server.stdout.log"),
+        stderrPath: join(stateDir, "llama-server.stderr.log"),
+        command: [
+          "/runtime/llama-server",
+          "--embedding",
+          "--alias",
+          AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+          "--model",
+          "/models/embeddinggemma-300m-qat-Q8_0.gguf",
+          "--port",
+          "57110",
+        ],
+      }, null, 2)}\n`);
+
+      const residents = await detectLocalLlamaResidentProcesses(workspace, {
+        memoryEmbeddingStateRootPath: stateRoot,
+        processAlive: (pid) => pid === 1774,
+        listProcesses: async () => [
+          {
+            pid: 1774,
+            command: "/runtime/llama-server",
+            args: "/runtime/llama-server --embedding --alias embeddinggemma-300m-q8_0 --model /models/embeddinggemma-300m-qat-Q8_0.gguf --host 127.0.0.1 --port 57110",
+          },
+        ],
+        processMemorySampler: async () => ({
+          residentMemoryBytes: 9 * 1024 ** 2,
+          sampledAt: "2026-06-15T23:02:00.000Z",
+        }),
+      });
+
+      expect(residents).toEqual([
+        expect.objectContaining({
+          capability: "embeddings",
+          id: `embeddings:${AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID}`,
+          pid: 1774,
+          running: true,
+          providerId: AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+          runtimeId: AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+          trackingStatus: "managed",
+          endpointUrl: "http://127.0.0.1:57110",
+          port: 57110,
+          modelId: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+          profileId: AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+          estimatedResidentMemoryBytes: ambientMemoryEmbeddingModelProfile.estimatedResidentMemoryBytes,
+          actualResidentMemoryBytes: 9 * 1024 ** 2,
+          memorySampledAt: "2026-06-15T23:02:00.000Z",
+        }),
+      ]);
+      expect(residents.map((resident) => resident.id)).not.toContain("untracked-llama:1774");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

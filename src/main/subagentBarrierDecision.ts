@@ -1,6 +1,11 @@
 import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../shared/types";
 import type { SubagentBarrierDecision, SubagentParentPolicyResolution } from "./subagentParentPolicyResolution";
 import { compactSubagentWaitBarrier } from "./subagentWaitMailbox";
+import {
+  SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+  type SubagentWaitBarrierTransitionEvidence,
+  type SubagentWaitBarrierTransitionEvidenceKind,
+} from "./subagentWaitBarrierResolution";
 
 export const SUBAGENT_WAIT_BARRIER_DECISION_PARENT_MAILBOX_TYPE = "subagent.wait_barrier_decision" as const;
 export const SUBAGENT_WAIT_BARRIER_DECISION_SCHEMA_VERSION = "ambient-subagent-wait-barrier-decision-v1" as const;
@@ -31,6 +36,19 @@ export interface SubagentBarrierDecisionParentMailboxDraft {
   };
 }
 
+export interface SubagentBarrierDecisionWaitBarrierStore {
+  updateSubagentWaitBarrierStatus(
+    id: string,
+    status: SubagentWaitBarrierSummary["status"],
+    options?: { resolutionArtifact?: unknown; now?: string },
+  ): SubagentWaitBarrierSummary;
+}
+
+export interface SubagentBarrierDecisionWaitBarrierResolution {
+  barrier: SubagentWaitBarrierSummary;
+  resolutionArtifact: Record<string, unknown>;
+}
+
 export function subagentBarrierDecisionNextStatus(decision: SubagentBarrierDecision): SubagentWaitBarrierSummary["status"] {
   return decision === "continue_with_partial"
     ? "satisfied"
@@ -59,13 +77,26 @@ export function buildSubagentBarrierDecisionResolutionArtifact(input: {
   const retryRequestedRunIds = input.decision === "retry_child"
     ? (controlRetryRequestedRunIds.length ? controlRetryRequestedRunIds : input.barrier.childRunIds)
     : controlRetryRequestedRunIds;
+  const childStatuses = input.childRuns.map((run) => ({ childRunId: run.id, status: run.status }));
   return {
     schemaVersion: SUBAGENT_WAIT_BARRIER_RESOLUTION_SCHEMA_VERSION,
     childRunIds: input.barrier.childRunIds,
-    childStatuses: input.childRuns.map((run) => ({ childRunId: run.id, status: run.status })),
+    childStatuses,
     synthesisAllowed: input.decision === "continue_with_partial",
     explicitPartial: input.decision === "continue_with_partial",
     resultArtifact: null,
+    transitionEvidence: buildSubagentBarrierDecisionTransitionEvidence({
+      barrier: input.barrier,
+      childStatuses,
+      decision: input.decision,
+      userDecision: input.userDecision,
+      partialSummary: input.partialSummary,
+      now: input.now,
+      toolCallId: input.toolCallId,
+      idempotencyKey: input.idempotencyKey,
+      controlState,
+      retryRequestedRunIds,
+    }),
     ...(retryRequestedRunIds.length ? { retryRequestedRunIds } : {}),
     ...(controlState.retryAcceptedRunIds?.length ? { retryAcceptedRunIds: controlState.retryAcceptedRunIds } : {}),
     ...(controlState.retryMailboxEventIds?.length ? { retryMailboxEventIds: controlState.retryMailboxEventIds } : {}),
@@ -84,6 +115,101 @@ export function buildSubagentBarrierDecisionResolutionArtifact(input: {
       idempotencyKey: input.idempotencyKey,
     },
   };
+}
+
+export function resolveSubagentBarrierDecisionWaitBarrier(input: {
+  store: SubagentBarrierDecisionWaitBarrierStore;
+  barrier: SubagentWaitBarrierSummary;
+  childRuns: SubagentRunSummary[];
+  decision: SubagentBarrierDecision;
+  userDecision?: string;
+  partialSummary?: string;
+  now: string;
+  toolCallId: string;
+  idempotencyKey: string;
+  controlState?: SubagentBarrierControlState;
+}): SubagentBarrierDecisionWaitBarrierResolution {
+  const resolutionArtifact = buildSubagentBarrierDecisionResolutionArtifact({
+    barrier: input.barrier,
+    childRuns: input.childRuns,
+    decision: input.decision,
+    userDecision: input.userDecision,
+    partialSummary: input.partialSummary,
+    now: input.now,
+    toolCallId: input.toolCallId,
+    idempotencyKey: input.idempotencyKey,
+    controlState: input.controlState,
+  });
+  const barrier = input.store.updateSubagentWaitBarrierStatus(
+    input.barrier.id,
+    subagentBarrierDecisionNextStatus(input.decision),
+    {
+      now: input.now,
+      resolutionArtifact,
+    },
+  );
+  return { barrier, resolutionArtifact };
+}
+
+export function buildSubagentBarrierDecisionTransitionEvidence(input: {
+  barrier: SubagentWaitBarrierSummary;
+  childStatuses: Array<{ childRunId: string; status: SubagentRunSummary["status"] }>;
+  decision: SubagentBarrierDecision;
+  userDecision?: string;
+  partialSummary?: string;
+  now: string;
+  toolCallId: string;
+  idempotencyKey: string;
+  controlState: SubagentBarrierControlState;
+  retryRequestedRunIds: string[];
+}): SubagentWaitBarrierTransitionEvidence {
+  const details: Record<string, unknown> = {
+    waitBarrierId: input.barrier.id,
+    parentThreadId: input.barrier.parentThreadId,
+    parentRunId: input.barrier.parentRunId,
+    dependencyMode: input.barrier.dependencyMode,
+    failurePolicy: input.barrier.failurePolicy,
+    decision: input.decision,
+    decidedAt: input.now,
+    toolCallId: input.toolCallId,
+    childStatuses: input.childStatuses,
+  };
+  if (input.userDecision) details.userDecision = input.userDecision;
+  if (input.partialSummary) details.partialSummary = input.partialSummary;
+  if (input.retryRequestedRunIds.length) details.retryRequestedRunIds = input.retryRequestedRunIds;
+  if (input.controlState.retryAcceptedRunIds?.length) details.retryAcceptedRunIds = input.controlState.retryAcceptedRunIds;
+  if (input.controlState.retryMailboxEventIds?.length) details.retryMailboxEventIds = input.controlState.retryMailboxEventIds;
+  if (input.controlState.detachedRunIds.length) details.detachedRunIds = input.controlState.detachedRunIds;
+  if (input.controlState.cancelledRunIds.length) details.cancelledRunIds = input.controlState.cancelledRunIds;
+  if (input.controlState.unchangedRunIds.length) details.unchangedRunIds = input.controlState.unchangedRunIds;
+  if (input.controlState.cancelledMailboxEventIds.length) details.cancelledMailboxEventIds = input.controlState.cancelledMailboxEventIds;
+  return {
+    schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+    kind: subagentBarrierDecisionTransitionKind(input.decision),
+    source: "barrier_controller",
+    childRunIds: input.barrier.childRunIds,
+    reason: input.userDecision ?? subagentBarrierDecisionTransitionReason(input.decision),
+    idempotencyKey: input.idempotencyKey,
+    details,
+  };
+}
+
+function subagentBarrierDecisionTransitionKind(
+  decision: SubagentBarrierDecision,
+): SubagentWaitBarrierTransitionEvidenceKind {
+  if (decision === "continue_with_partial") return "explicit_partial";
+  if (decision === "retry_child") return "retry_child";
+  if (decision === "detach_child") return "child_detached";
+  if (decision === "cancel_parent") return "child_cancelled";
+  return "explicit_failure";
+}
+
+function subagentBarrierDecisionTransitionReason(decision: SubagentBarrierDecision): string {
+  if (decision === "continue_with_partial") return "User explicitly allowed partial parent synthesis.";
+  if (decision === "retry_child") return "User or policy requested child retry before parent synthesis.";
+  if (decision === "detach_child") return "User detached required child work from this parent barrier.";
+  if (decision === "cancel_parent") return "User cancelled the parent path while resolving this wait barrier.";
+  return "User or policy chose to fail the parent path for this barrier.";
 }
 
 export function buildSubagentBarrierDecisionRunEventPreview(input: {

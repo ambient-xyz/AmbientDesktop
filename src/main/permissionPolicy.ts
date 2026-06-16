@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, resolve } from "node:path";
 import type { CollaborationMode, PermissionGrantActionKind, PermissionGrantScopeKind, PermissionMode, PermissionRequest } from "../shared/types";
 import type { GoogleWorkspaceCallInput, GoogleWorkspaceMethodSideEffect, GoogleWorkspaceMethodSummary } from "../shared/types";
+import { googleWorkspaceGrantConditions, googleWorkspaceMethodGrantTarget } from "../shared/googleWorkspaceGrantTargets";
 import { googleWorkspaceMethodApprovalDetail, googleWorkspaceMethodGrantIdentity } from "./googleWorkspaceMethodBroker";
 import { isDotEnvPath, isEnvTemplatePath } from "./pathSensitivity";
 import { classifyPlannerToolPermission } from "./plannerMode";
@@ -866,11 +867,13 @@ function classifyGoogleWorkspaceSetupPermission(input: PermissionPolicyInput): P
     const sideEffect = method?.sideEffect ?? googleWorkspaceSideEffectFromToolInput(input.toolInput);
     if (input.permissionMode === "full-access" && sideEffect === "metadata_read") return { action: "allow" };
     const accountHint = getStringField(input.toolInput, "accountHint");
+    const resolvedAccountHint = getStringField(input.toolInput, "resolvedAccountHint");
+    const grantAccountHint = resolvedAccountHint ?? accountHint;
     const methodId = getStringField(input.toolInput, "methodId") ?? method?.id ?? "unknown";
     const detail = method
       ? googleWorkspaceMethodApprovalDetail(method, {
           methodId,
-          ...(accountHint ? { accountHint } : {}),
+          ...(grantAccountHint ? { accountHint: grantAccountHint } : {}),
           params: getObjectField(input.toolInput, "params"),
           body: getUnknownField(input.toolInput, "body"),
           upload: getGoogleWorkspaceUploadField(input.toolInput),
@@ -879,17 +882,23 @@ function classifyGoogleWorkspaceSetupPermission(input: PermissionPolicyInput): P
           idempotencyKey: getStringField(input.toolInput, "idempotencyKey"),
         })
       : [
-          `Account: ${accountHint ?? "default"}`,
+          `Account: ${grantAccountHint ?? "default"}`,
           `Method: ${methodId}`,
           `Side effect: ${sideEffect ?? "unknown"}`,
           `Method metadata: ${googleWorkspaceMethodErrorFromToolInput(input.toolInput) ?? "unavailable"}`,
         ].join("\n");
-    const actionKind = sideEffect === "metadata_read" || sideEffect === "personal_content_read" ? "connector_content_read" : "remote_mutation";
-    const targetKind = "tool";
-    const targetLabel = `Google Workspace ${methodId} (${accountHint ?? "default"})`;
-    const targetIdentity = method
-      ? googleWorkspaceMethodGrantIdentity(method, { methodId, ...(accountHint ? { accountHint } : {}) })
-      : `google.workspace.call\0${accountHint ?? "default"}\0${methodId}\0${sideEffect ?? "unknown"}`;
+    const googleTarget = method
+      ? googleWorkspaceMethodGrantTarget(method, {
+          ...(accountHint ? { accountHint } : {}),
+          ...(resolvedAccountHint ? { resolvedAccountHint } : {}),
+        })
+      : undefined;
+    const actionKind = googleTarget?.actionKind ?? (sideEffect === "metadata_read" || sideEffect === "personal_content_read" ? "connector_content_read" : "remote_mutation");
+    const targetKind = googleTarget?.targetKind ?? "tool";
+    const targetLabel = googleTarget?.label ?? `Google Workspace ${methodId} (${grantAccountHint ?? "default"})`;
+    const targetIdentity = googleTarget?.identity ?? (method
+      ? googleWorkspaceMethodGrantIdentity(method, { methodId, ...(grantAccountHint ? { accountHint: grantAccountHint } : {}) })
+      : `google.workspace.call\0${grantAccountHint ?? "default"}\0${methodId}\0${sideEffect ?? "unknown"}`);
     return {
       action: "prompt",
       request: {
@@ -904,9 +913,15 @@ function classifyGoogleWorkspaceSetupPermission(input: PermissionPolicyInput): P
         grantTargetKind: targetKind,
         grantTargetLabel: targetLabel,
         grantTargetHash: permissionGrantHash(actionKind, targetKind, targetIdentity),
-        grantConditions: {
+        grantConditions: googleTarget ? googleWorkspaceGrantConditions(googleTarget, {
+          operation: "method_call",
+          methodId,
+          sideEffect: sideEffect ?? "unknown",
+          requestedAccountHint: accountHint ?? "default",
+          resolvedAccountHint: resolvedAccountHint ?? grantAccountHint ?? "default",
+        }) : {
           provider: "google.workspace.cli",
-          accountHint: accountHint ?? "default",
+          accountHint: grantAccountHint ?? "default",
           methodId,
           sideEffect: sideEffect ?? "unknown",
         },

@@ -90,9 +90,24 @@ export interface SubagentChildRuntimeApprovalRequest extends SubagentApprovalReq
 
 export type SubagentChildRuntimeSupervisorRequest = SubagentSupervisorRequestInput;
 
+export type SubagentChildRuntimeWaitOutcomeKind =
+  | "progress_return"
+  | "child_terminal"
+  | "approval_wait"
+  | "supervisor_attention"
+  | "child_runtime_timeout"
+  | "runtime_detached";
+
+export interface SubagentChildRuntimeWaitOutcome {
+  kind: SubagentChildRuntimeWaitOutcomeKind;
+  reason?: string;
+  details?: Record<string, unknown>;
+}
+
 export interface SubagentChildRuntimeWaitResult {
   run: SubagentRunSummary;
   timedOut: boolean;
+  outcome?: SubagentChildRuntimeWaitOutcome;
   approvalRequests?: readonly SubagentChildRuntimeApprovalRequest[];
   supervisorRequests?: readonly SubagentChildRuntimeSupervisorRequest[];
 }

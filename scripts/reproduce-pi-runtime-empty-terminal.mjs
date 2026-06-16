@@ -17,7 +17,7 @@ import { Type } from "@mariozechner/pi-ai";
 
 const repoRoot = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const defaultSessionLog =
-  "/path/to/ambient-hardening/bases/core-no-secrets/workspace/.ambient-codex/sessions/fb1c7ffc-732d-421c-a429-c66c4628bf60/2026-05-14T23-55-00-533Z_019e28ea-3e35-71f1-a6f9-5233bcce0cac.jsonl";
+  "/Users/example/.ambient-hardening/bases/example-core-no-secrets-2026-05-13/workspace/.ambient-codex/sessions/fb1c7ffc-732d-421c-a429-c66c4628bf60/2026-05-14T23-55-00-533Z_019e28ea-3e35-71f1-a6f9-5233bcce0cac.jsonl";
 const continuationPrefix = "Ambient completed the most recent tool call, but no assistant-visible response followed.";
 
 function parseArgs(argv) {
@@ -105,7 +105,7 @@ async function readApiKey() {
     join(repoRoot, "ambient_api_key.txt"),
     join(dirname(repoRoot), "ambient_api_key.txt"),
     "/path/to/AmbientDesktop/ambient_api_key.txt",
-    "/path/to/project/ambient_api_key.txt",
+    "/path/to/AmbientDesktop/ambient_api_key.txt",
     join(homedir(), "ambient_api_key.txt"),
   ].filter(Boolean);
   for (const candidate of candidates) {

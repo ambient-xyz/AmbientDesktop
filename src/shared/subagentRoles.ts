@@ -57,7 +57,7 @@ export const DEFAULT_SUBAGENT_ROLE_PROFILES: SubagentRoleProfile[] = [
     defaultModelId: AMBIENT_DEFAULT_MODEL,
     allowedForkModes: ["full_history", "recent_turns"],
     defaultForkMode: "recent_turns",
-    allowedToolCategories: ["workspace.read", "browser.read", "artifact.read", "long-context.read", "connector.read"],
+    allowedToolCategories: ["workspace.read", "browser.read", "browser.interactive", "artifact.read", "long-context.read", "connector.read"],
     defaultToolCategories: ["workspace.read", "artifact.read", "long-context.read", "connector.read"],
     deniedToolCategories: ["workspace.write", "secrets.read", "workflow.call", "subagent.spawn"],
     nestedFanout: "disabled",

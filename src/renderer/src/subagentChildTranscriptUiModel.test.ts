@@ -150,6 +150,10 @@ describe("subagentChildTranscriptUiModel", () => {
         approvalId: "approval-1",
         toolName: "Workspace Read",
       }),
+      event(4, "subagent.result_contract_repair_exhausted", {
+        reason: "Structured result roleId must match child role explorer.",
+        maxAttempts: 3,
+      }),
     ]);
 
     expect(rows).toEqual([
@@ -167,6 +171,11 @@ describe("subagentChildTranscriptUiModel", () => {
         label: "Approval response delivered",
         detail: "Approval ID: approval-1 / Tool name: Workspace Read",
         tone: "warning",
+      }),
+      expect.objectContaining({
+        label: "Result repair exhausted",
+        detail: "Structured result roleId must match child role explorer.",
+        tone: "danger",
       }),
     ]);
     expect(rows[0]?.detail).not.toContain("idempotencyKey");

@@ -113,6 +113,7 @@ describe("project store schema bootstrap", () => {
       ["threads", "archived_at", "TEXT"],
       ["threads", "pinned", "INTEGER NOT NULL DEFAULT 0"],
       ["threads", "workflow_recording_json", "TEXT"],
+      ["threads", "memory_enabled", "INTEGER NOT NULL DEFAULT 0"],
       ["threads", "kind", "TEXT NOT NULL DEFAULT 'chat'"],
       ["threads", "parent_thread_id", "TEXT"],
       ["threads", "parent_message_id", "TEXT"],

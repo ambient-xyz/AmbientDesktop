@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 import type { QueuedMessageSnapshot } from "../shared/messageDelivery";
 import type { SendMessageInput } from "../shared/types";
 import { agentRuntimeQueuedMessageMetadata, agentRuntimeUserMessageMetadata } from "./agentRuntimeUserMessageMetadata";
@@ -23,7 +24,7 @@ describe("agentRuntimeUserMessageMetadata", () => {
         sidecarPath: ".ambient/workflows/nightly/sidecar.json",
         transcriptPath: ".ambient/workflows/nightly/transcript.jsonl",
       },
-      composerIntent: { kind: "local-deep-research" },
+      composerIntent: { kind: "local-deep-research", localDeepResearch: resolveLocalDeepResearchRunBudget(undefined) },
       stt: {
         source: "stt",
         utteranceId: "utterance-1",
@@ -113,7 +114,7 @@ function sendInput(): Pick<
       sidecarPath: ".ambient/workflows/nightly/sidecar.json",
       transcriptPath: ".ambient/workflows/nightly/transcript.jsonl",
     },
-    composerIntent: { kind: "local-deep-research" },
+    composerIntent: { kind: "local-deep-research", localDeepResearch: resolveLocalDeepResearchRunBudget(undefined) },
     stt: {
       source: "stt",
       utteranceId: "utterance-1",

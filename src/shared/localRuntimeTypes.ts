@@ -45,6 +45,39 @@ export interface LocalDeepResearchFinalSynthesisConfig {
   evidencePreviewChars: number;
 }
 
+export type LocalDeepResearchEffort = "quick" | "balanced" | "deep" | "exhaustive" | "custom";
+
+export type LocalDeepResearchBudgetSource = "user_default" | "run_override" | "tool_input";
+
+export type LocalDeepResearchBudgetExhaustionBehavior = "summarize" | "ask_to_continue";
+
+export interface LocalDeepResearchRunBudgetSettings {
+  schemaVersion: "ambient-local-deep-research-run-budget-v1";
+  defaultEffort: LocalDeepResearchEffort;
+  customMaxToolCalls?: number;
+  onExhausted: LocalDeepResearchBudgetExhaustionBehavior;
+}
+
+export interface LocalDeepResearchRunBudget {
+  schemaVersion: "ambient-local-deep-research-run-budget-v1";
+  enabled: true;
+  effort: LocalDeepResearchEffort;
+  maxToolCalls: number;
+  source: LocalDeepResearchBudgetSource;
+  onExhausted: LocalDeepResearchBudgetExhaustionBehavior;
+}
+
+export interface LocalDeepResearchToolBudgetState {
+  schemaVersion: "ambient-local-deep-research-tool-budget-v1";
+  effort: LocalDeepResearchEffort;
+  maxToolCalls: number;
+  usedToolCalls: number;
+  remainingToolCalls: number;
+  exhausted: boolean;
+  source: LocalDeepResearchBudgetSource;
+  onExhausted: LocalDeepResearchBudgetExhaustionBehavior;
+}
+
 export interface LocalDeepResearchProviderConfig {
   providerId: string;
   label: string;
@@ -80,6 +113,7 @@ export interface LocalModelResourceSettings {
 export interface LocalDeepResearchSettings {
   providerStack: LocalDeepResearchProviderStackSettings;
   localModelResources: LocalModelResourceSettings;
+  runBudget: LocalDeepResearchRunBudgetSettings;
 }
 
 export type LocalModelResourceCapability =
