@@ -183,6 +183,19 @@ interface ChatExportChildEvidenceSummaryIndex {
   };
   childThreadCount: number;
   approvalBridgeEventCount: number;
+  waitEvidence: {
+    waitBarrierCount: number;
+    waitSessionCount: number;
+    progressReturnCount: number;
+    barrierTransitionCount: number;
+    runtimeTimeoutTransitionCount: number;
+    runtimeTimeoutKindCounts: Record<string, number>;
+    finalizationBlockCount: number;
+    rawToolArgumentMessageCount: number;
+    childrenWithProgressReturns: string[];
+    childrenWithRuntimeTimeouts: string[];
+    childrenWithFinalizationBlocks: string[];
+  };
   children: ChatExportChildEvidenceSummary[];
 }
 
@@ -244,8 +257,22 @@ interface ChatExportChildEvidenceSummary {
     failurePolicy: string;
     timeoutMs?: number;
     resolvedAt?: string;
+    transitionKind?: string;
+    timeoutKind?: string;
+    runtimeTimeoutKind?: string;
     resolutionArtifactPresent: boolean;
   }>;
+  waitEvidence: {
+    rawToolArguments: ChatExportRawToolArgumentEvidence[];
+    waitSessions: ChatExportWaitSessionEvidence[];
+    progressReturns: ChatExportProgressReturnEvidence[];
+    barrierTransitions: ChatExportBarrierTransitionEvidence[];
+    livenessSnapshots: ChatExportLivenessEvidence[];
+    waitCompletionEvents: ChatExportEventPointer[];
+    attentionEvents: ChatExportEventPointer[];
+    decisionEvents: ChatExportEventPointer[];
+    finalizationBlocks: ChatExportEventPointer[];
+  };
   resultArtifact: {
     present: boolean;
     status?: string;
@@ -255,6 +282,72 @@ interface ChatExportChildEvidenceSummary {
   };
   patternGraphLinks: ChatExportPatternGraphChildTranscriptLink[];
   evidenceGaps: string[];
+}
+
+interface ChatExportEventPointer {
+  source: "parent_mailbox" | "child_mailbox" | "child_run_event" | "parent_transcript" | "child_transcript" | "wait_barrier";
+  id: string;
+  type?: string;
+  createdAt?: string;
+  waitBarrierId?: string;
+  childRunIds?: string[];
+  path: string;
+}
+
+interface ChatExportRawToolArgumentEvidence extends ChatExportEventPointer {
+  messageId: string;
+  threadId: string;
+  role: ChatMessage["role"];
+  messageVisibleInTranscript: boolean;
+  toolName?: string;
+  toolCallId?: string;
+  action?: string;
+  inputSource: string;
+  inputChars: number;
+  inputPreview: string;
+  inputTruncated: boolean;
+  rawInput: unknown;
+}
+
+interface ChatExportWaitSessionEvidence {
+  sourceMessageId: string;
+  createdAt: string;
+  toolName?: string;
+  toolCallId?: string;
+  action?: string;
+  waitBarrierId?: string;
+  childRunIds: string[];
+  timeoutMs?: number;
+  idempotencyKey?: string;
+  rawToolArgumentIndex: number;
+  path: string;
+}
+
+interface ChatExportProgressReturnEvidence extends ChatExportEventPointer {
+  reason?: string;
+  waitOutcome?: unknown;
+}
+
+interface ChatExportBarrierTransitionEvidence extends ChatExportEventPointer {
+  status: string;
+  resolvedAt?: string;
+  transitionKind?: string;
+  transitionReason?: string;
+  timeoutKind?: string;
+  runtimeTimeoutKind?: string;
+  waitBarrierEvaluation?: unknown;
+  terminalEvidence?: unknown;
+  details?: unknown;
+  transitionEvidence?: unknown;
+  userDecision?: unknown;
+  synthesisAllowed?: boolean;
+}
+
+interface ChatExportLivenessEvidence {
+  source: string;
+  at: string;
+  detail?: string;
+  path: string;
 }
 
 export async function createChatExportBundle(
@@ -275,7 +368,14 @@ export async function createChatExportBundle(
   const parentMailboxEvents = store.listSubagentParentMailboxEventsForParentThread?.(thread.id) ?? [];
   const callableWorkflowTasks = store.listCallableWorkflowTasksForParentThread?.(thread.id) ?? [];
   const patternGraphRecords = collectPatternGraphExportRecords(callableWorkflowTasks, childThreadBundles);
-  const childEvidenceSummary = buildChildEvidenceSummaryIndex(thread, childThreadBundles, parentMailboxEvents, patternGraphRecords);
+  const childEvidenceSummary = buildChildEvidenceSummaryIndex(
+    thread,
+    rawMessages,
+    messages,
+    childThreadBundles,
+    parentMailboxEvents,
+    patternGraphRecords,
+  );
   const source: ChatExportSource = piSession.content === undefined ? "visible-chat-fallback" : "pi-session";
   const includedFiles = ["manifest.json", "visible-transcript.json", "visible-transcript.md", "artifacts.json"];
   if (contextUsage) includedFiles.push("context-usage.json");
@@ -604,12 +704,15 @@ function patternGraphChildTranscriptLinks(
 
 function buildChildEvidenceSummaryIndex(
   parentThread: ThreadSummary,
+  parentRawMessages: ChatMessage[],
+  parentMessages: ChatMessage[],
   childThreadBundles: ChatExportChildThreadBundle[],
   parentMailboxEvents: SubagentParentMailboxEventSummary[],
   patternGraphRecords: ChatExportPatternGraphRecord[],
 ): ChatExportChildEvidenceSummaryIndex {
+  const visibleParentMessageIds = new Set(parentMessages.map((message) => message.id));
   const children = childThreadBundles.map((child) =>
-    buildChildEvidenceSummary(child, parentMailboxEvents, patternGraphRecords)
+    buildChildEvidenceSummary(child, parentRawMessages, visibleParentMessageIds, parentMailboxEvents, patternGraphRecords)
   );
   return {
     schemaVersion: 1,
@@ -619,12 +722,36 @@ function buildChildEvidenceSummaryIndex(
     },
     childThreadCount: children.length,
     approvalBridgeEventCount: children.reduce((sum, child) => sum + child.approvals.parentApprovalBridgeEventCount, 0),
+    waitEvidence: {
+      waitBarrierCount: children.reduce((sum, child) => sum + child.barriers.length, 0),
+      waitSessionCount: children.reduce((sum, child) => sum + child.waitEvidence.waitSessions.length, 0),
+      progressReturnCount: children.reduce((sum, child) => sum + child.waitEvidence.progressReturns.length, 0),
+      barrierTransitionCount: children.reduce((sum, child) => sum + child.waitEvidence.barrierTransitions.length, 0),
+      runtimeTimeoutTransitionCount: children.reduce(
+        (sum, child) => sum + child.waitEvidence.barrierTransitions.filter((transition) => transition.transitionKind === "child_runtime_timeout").length,
+        0,
+      ),
+      runtimeTimeoutKindCounts: timeoutKindCounts(children.flatMap((child) => child.waitEvidence.barrierTransitions)),
+      finalizationBlockCount: children.reduce((sum, child) => sum + child.waitEvidence.finalizationBlocks.length, 0),
+      rawToolArgumentMessageCount: children.reduce((sum, child) => sum + child.waitEvidence.rawToolArguments.length, 0),
+      childrenWithProgressReturns: children
+        .filter((child) => child.waitEvidence.progressReturns.length > 0)
+        .map((child) => child.runId),
+      childrenWithRuntimeTimeouts: children
+        .filter((child) => child.waitEvidence.barrierTransitions.some((transition) => transition.transitionKind === "child_runtime_timeout"))
+        .map((child) => child.runId),
+      childrenWithFinalizationBlocks: children
+        .filter((child) => child.waitEvidence.finalizationBlocks.length > 0)
+        .map((child) => child.runId),
+    },
     children,
   };
 }
 
 function buildChildEvidenceSummary(
   child: ChatExportChildThreadBundle,
+  parentRawMessages: ChatMessage[],
+  visibleParentMessageIds: Set<string>,
   parentMailboxEvents: SubagentParentMailboxEventSummary[],
   patternGraphRecords: ChatExportPatternGraphRecord[],
 ): ChatExportChildEvidenceSummary {
@@ -634,6 +761,7 @@ function buildChildEvidenceSummary(
   );
   const resultArtifact = resultArtifactSummary(child.run.resultArtifact);
   const visibleStats = visibleExportStats(child.rawMessages, child.messages, child.artifacts);
+  const waitEvidence = buildChildWaitEvidence(child, parentRawMessages, visibleParentMessageIds, parentMailboxEvents);
   return {
     runId: child.run.id,
     childThreadId: child.thread.id,
@@ -684,8 +812,10 @@ function buildChildEvidenceSummary(
       failurePolicy: barrier.failurePolicy,
       ...(barrier.timeoutMs !== undefined ? { timeoutMs: barrier.timeoutMs } : {}),
       ...(barrier.resolvedAt ? { resolvedAt: barrier.resolvedAt } : {}),
+      ...barrierResolutionClassification(barrier),
       resolutionArtifactPresent: barrier.resolutionArtifact !== undefined,
     })),
+    waitEvidence,
     resultArtifact,
     patternGraphLinks: patternGraphRecords.flatMap((graph) =>
       graph.childTranscriptLinks.filter((link) =>
@@ -694,6 +824,476 @@ function buildChildEvidenceSummary(
     ),
     evidenceGaps: childEvidenceGaps({ child, resultArtifact }),
   };
+}
+
+function buildChildWaitEvidence(
+  child: ChatExportChildThreadBundle,
+  parentRawMessages: ChatMessage[],
+  visibleParentMessageIds: Set<string>,
+  parentMailboxEvents: SubagentParentMailboxEventSummary[],
+): ChatExportChildEvidenceSummary["waitEvidence"] {
+  const parentMessagesForChild = parentRawMessages.filter((message) =>
+    messageReferencesChild(message, child) || parentAmbientSubagentToolMessageLikelyReferencesChild(message, child)
+  );
+  const parentEventsForChild = parentMailboxEvents.filter((event) => parentMailboxEventReferencesChild(event, child));
+  const rawToolArguments = [
+    ...rawToolArgumentEvidenceFromMessages({
+      messages: parentMessagesForChild,
+      visibleMessageIds: visibleParentMessageIds,
+      source: "parent_transcript",
+      path: "visible-transcript.json",
+      hiddenPath: "child-threads/evidence-summary.json",
+    }),
+    ...rawToolArgumentEvidenceFromMessages({
+      messages: child.rawMessages,
+      visibleMessageIds: new Set(child.messages.map((message) => message.id)),
+      source: "child_transcript",
+      path: `${child.dir}/full-transcript.json`,
+    }).filter((item) => messageReferencesChildIdOrThread(item.rawInput, child)),
+  ];
+  const waitSessions = rawToolArguments
+    .map((evidence, rawToolArgumentIndex) => waitSessionEvidenceFromRawToolArgument(evidence, rawToolArgumentIndex))
+    .filter((evidence): evidence is ChatExportWaitSessionEvidence => Boolean(evidence));
+  const waitCompletionEvents = [
+    ...child.mailboxEvents
+      .filter((event) => event.type === "subagent.wait_completed")
+      .map((event) => mailboxEventPointer(event, "child_mailbox", `${child.dir}/mailbox-events.json`)),
+    ...child.runEvents
+      .filter((event) => event.type === "subagent.wait_completed")
+      .map((event) => runEventPointer(event, `${child.dir}/run-events.json`)),
+  ];
+  const attentionEvents = parentEventsForChild
+    .filter((event) => event.type === "subagent.wait_barrier_attention")
+    .map((event) => parentMailboxEventPointer(event, "child-threads/parent-mailbox-events.json"));
+  const decisionEvents = parentEventsForChild
+    .filter((event) => event.type === "subagent.wait_barrier_decision")
+    .map((event) => parentMailboxEventPointer(event, "child-threads/parent-mailbox-events.json"));
+  const finalizationBlocks = parentEventsForChild
+    .filter((event) => parentMailboxEventIsFinalizationBlock(event))
+    .map((event) => parentMailboxEventPointer(event, "child-threads/parent-mailbox-events.json"));
+  return {
+    rawToolArguments,
+    waitSessions,
+    progressReturns: dedupeProgressReturnEvidence([
+      ...progressReturnEvidenceFromMessages(parentMessagesForChild, "parent_transcript", "visible-transcript.json"),
+      ...progressReturnEvidenceFromMessages(child.rawMessages, "child_transcript", `${child.dir}/full-transcript.json`),
+      ...parentEventsForChild
+        .filter((event) => structuredValueContainsString(event.payload, "progress_return"))
+        .map((event) => progressReturnEvidenceFromParentMailbox(event, "child-threads/parent-mailbox-events.json")),
+      ...child.mailboxEvents
+        .filter((event) => structuredValueContainsString(event.payload, "progress_return"))
+        .map((event) => progressReturnEvidenceFromMailbox(event, "child_mailbox", `${child.dir}/mailbox-events.json`)),
+      ...child.runEvents
+        .filter((event) => structuredValueContainsString(event.preview, "progress_return"))
+        .map((event) => progressReturnEvidenceFromRunEvent(event, `${child.dir}/run-events.json`)),
+    ]),
+    barrierTransitions: child.waitBarriers.flatMap((barrier) => barrierTransitionEvidenceFromBarrier(barrier, `${child.dir}/wait-barriers.json`)),
+    livenessSnapshots: [latestChildLivenessEvidence(child)],
+    waitCompletionEvents,
+    attentionEvents,
+    decisionEvents,
+    finalizationBlocks,
+  };
+}
+
+function rawToolArgumentEvidenceFromMessages(input: {
+  messages: ChatMessage[];
+  visibleMessageIds: Set<string>;
+  source: "parent_transcript" | "child_transcript";
+  path: string;
+  hiddenPath?: string;
+}): ChatExportRawToolArgumentEvidence[] {
+  return input.messages.flatMap((message) => {
+    const metadata = recordValue(message.metadata);
+    const toolName = stringValue(metadata?.toolName);
+    const toolCallId = stringValue(metadata?.toolCallId);
+    if (!toolName && !toolCallId) return [];
+    const rawInput = rawToolInputFromMetadata(metadata);
+    if (!rawInput) return [];
+    const inputText = rawInput.text;
+    const messageVisibleInTranscript = input.visibleMessageIds.has(message.id);
+    return [{
+      source: input.source,
+      id: message.id,
+      type: "tool_arguments",
+      createdAt: message.createdAt,
+      path: messageVisibleInTranscript ? input.path : input.hiddenPath ?? input.path,
+      messageId: message.id,
+      threadId: message.threadId,
+      role: message.role,
+      messageVisibleInTranscript,
+      ...(toolName ? { toolName } : {}),
+      ...(toolCallId ? { toolCallId } : {}),
+      ...(actionFromToolInput(rawInput.value) ? { action: actionFromToolInput(rawInput.value) } : {}),
+      inputSource: rawInput.source,
+      inputChars: inputText.length,
+      inputPreview: truncateSummary(inputText, 1000),
+      inputTruncated: inputText.length > 1000,
+      rawInput: rawInput.value,
+      ...(waitBarrierIdFromValue(rawInput.value) ? { waitBarrierId: waitBarrierIdFromValue(rawInput.value) } : {}),
+      ...(childRunIdsFromValue(rawInput.value).length ? { childRunIds: childRunIdsFromValue(rawInput.value) } : {}),
+    }];
+  });
+}
+
+function rawToolInputFromMetadata(
+  metadata: Record<string, unknown> | undefined,
+): { source: string; value: unknown; text: string } | undefined {
+  if (!metadata) return undefined;
+  const candidates: Array<{ source: string; value: unknown }> = [
+    { source: "inputContent", value: metadata.inputContent },
+    { source: "rawInput", value: metadata.rawInput },
+    { source: "toolInput", value: metadata.toolInput },
+    { source: "input", value: metadata.input },
+    { source: "arguments", value: metadata.arguments },
+    { source: "params", value: metadata.params },
+  ];
+  const details = recordValue(metadata.toolResultDetails);
+  if (details) {
+    candidates.push(
+      { source: "toolResultDetails.inputContent", value: details.inputContent },
+      { source: "toolResultDetails.rawInput", value: details.rawInput },
+      { source: "toolResultDetails.toolInput", value: details.toolInput },
+      { source: "toolResultDetails.arguments", value: details.arguments },
+    );
+  }
+  for (const candidate of candidates) {
+    if (candidate.value === undefined || candidate.value === null) continue;
+    const value = typeof candidate.value === "string" ? parsePossiblyJson(candidate.value) : candidate.value;
+    return {
+      source: candidate.source,
+      value,
+      text: typeof candidate.value === "string" ? candidate.value : JSON.stringify(candidate.value, null, 2),
+    };
+  }
+  return undefined;
+}
+
+function waitSessionEvidenceFromRawToolArgument(
+  evidence: ChatExportRawToolArgumentEvidence,
+  rawToolArgumentIndex: number,
+): ChatExportWaitSessionEvidence | undefined {
+  const action = actionFromToolInput(evidence.rawInput) ?? evidence.action;
+  if (action !== "wait_agent") return undefined;
+  return {
+    sourceMessageId: evidence.messageId,
+    createdAt: evidence.createdAt ?? "",
+    ...(evidence.toolName ? { toolName: evidence.toolName } : {}),
+    ...(evidence.toolCallId ? { toolCallId: evidence.toolCallId } : {}),
+    action,
+    ...(evidence.waitBarrierId ? { waitBarrierId: evidence.waitBarrierId } : {}),
+    childRunIds: childRunIdsFromValue(evidence.rawInput),
+    ...(numberFieldDeep(evidence.rawInput, "timeoutMs") !== undefined ? { timeoutMs: numberFieldDeep(evidence.rawInput, "timeoutMs") } : {}),
+    ...(stringFieldDeep(evidence.rawInput, "idempotencyKey") ? { idempotencyKey: stringFieldDeep(evidence.rawInput, "idempotencyKey") } : {}),
+    rawToolArgumentIndex,
+    path: evidence.path,
+  };
+}
+
+function progressReturnEvidenceFromMessages(
+  messages: ChatMessage[],
+  source: "parent_transcript" | "child_transcript",
+  path: string,
+): ChatExportProgressReturnEvidence[] {
+  return messages
+    .filter((message) => structuredValueContainsString({ content: message.content, metadata: message.metadata }, "progress_return"))
+    .map((message) => {
+      const waitOutcome = valueForKeyDeep({ content: message.content, metadata: message.metadata }, "waitOutcome");
+      return {
+        source,
+        id: message.id,
+        type: "progress_return",
+        createdAt: message.createdAt,
+        path,
+        ...(waitBarrierIdFromValue({ content: message.content, metadata: message.metadata }) ? {
+          waitBarrierId: waitBarrierIdFromValue({ content: message.content, metadata: message.metadata }),
+        } : {}),
+        ...(childRunIdsFromValue({ content: message.content, metadata: message.metadata }).length ? {
+          childRunIds: childRunIdsFromValue({ content: message.content, metadata: message.metadata }),
+        } : {}),
+        ...(stringFieldDeep(waitOutcome, "reason") ?? stringFieldDeep(message.metadata, "reason") ? {
+          reason: stringFieldDeep(waitOutcome, "reason") ?? stringFieldDeep(message.metadata, "reason"),
+        } : {}),
+        ...(waitOutcome ? { waitOutcome } : {}),
+      };
+    });
+}
+
+function progressReturnEvidenceFromParentMailbox(
+  event: SubagentParentMailboxEventSummary,
+  path: string,
+): ChatExportProgressReturnEvidence {
+  return {
+    ...parentMailboxEventPointer(event, path),
+    type: event.type,
+    ...(stringFieldDeep(event.payload, "reason") ? { reason: stringFieldDeep(event.payload, "reason") } : {}),
+    ...(valueForKeyDeep(event.payload, "waitOutcome") ? { waitOutcome: valueForKeyDeep(event.payload, "waitOutcome") } : {}),
+  };
+}
+
+function progressReturnEvidenceFromMailbox(
+  event: SubagentMailboxEventSummary,
+  source: "child_mailbox",
+  path: string,
+): ChatExportProgressReturnEvidence {
+  return {
+    ...mailboxEventPointer(event, source, path),
+    type: event.type,
+    ...(stringFieldDeep(event.payload, "reason") ? { reason: stringFieldDeep(event.payload, "reason") } : {}),
+    ...(valueForKeyDeep(event.payload, "waitOutcome") ? { waitOutcome: valueForKeyDeep(event.payload, "waitOutcome") } : {}),
+  };
+}
+
+function progressReturnEvidenceFromRunEvent(
+  event: SubagentRunEventSummary,
+  path: string,
+): ChatExportProgressReturnEvidence {
+  return {
+    ...runEventPointer(event, path),
+    type: event.type,
+    ...(stringFieldDeep(event.preview, "reason") ? { reason: stringFieldDeep(event.preview, "reason") } : {}),
+    ...(valueForKeyDeep(event.preview, "waitOutcome") ? { waitOutcome: valueForKeyDeep(event.preview, "waitOutcome") } : {}),
+  };
+}
+
+function barrierTransitionEvidenceFromBarrier(
+  barrier: SubagentWaitBarrierSummary,
+  path: string,
+): ChatExportBarrierTransitionEvidence[] {
+  const artifact = recordValue(barrier.resolutionArtifact);
+  const transitionEvidence = recordValue(artifact?.transitionEvidence);
+  const waitBarrierEvaluation = recordValue(artifact?.waitBarrierEvaluation);
+  const terminalEvidence = waitBarrierEvaluation?.terminalEvidence;
+  const userDecision = artifact?.userDecision;
+  if (barrier.status === "waiting_on_children" && !transitionEvidence && !userDecision) return [];
+  const transitionKind = stringValue(transitionEvidence?.kind);
+  const transitionReason = stringValue(transitionEvidence?.reason) ?? stringValue(waitBarrierEvaluation?.reason);
+  const timeoutKind = stringValue(transitionEvidence?.timeoutKind) ?? stringFieldDeep(terminalEvidence, "timeoutKind");
+  const runtimeTimeoutKind = stringValue(waitBarrierEvaluation?.runtimeTimeoutKind) ?? timeoutKind;
+  const details = transitionEvidence?.details ?? recordValue(terminalEvidence)?.details;
+  return [{
+    source: "wait_barrier",
+    id: barrier.id,
+    type: "wait_barrier_transition",
+    createdAt: barrier.updatedAt,
+    waitBarrierId: barrier.id,
+    childRunIds: barrier.childRunIds,
+    path,
+    status: barrier.status,
+    ...(barrier.resolvedAt ? { resolvedAt: barrier.resolvedAt } : {}),
+    ...(transitionKind ? { transitionKind } : {}),
+    ...(transitionReason ? { transitionReason } : {}),
+    ...(timeoutKind ? { timeoutKind } : {}),
+    ...(runtimeTimeoutKind ? { runtimeTimeoutKind } : {}),
+    ...(waitBarrierEvaluation ? { waitBarrierEvaluation } : {}),
+    ...(terminalEvidence ? { terminalEvidence } : {}),
+    ...(details ? { details } : {}),
+    ...(transitionEvidence ? { transitionEvidence } : {}),
+    ...(userDecision ? { userDecision } : {}),
+    ...(typeof artifact?.synthesisAllowed === "boolean" ? { synthesisAllowed: artifact.synthesisAllowed } : {}),
+  }];
+}
+
+function barrierResolutionClassification(barrier: SubagentWaitBarrierSummary): {
+  transitionKind?: string;
+  timeoutKind?: string;
+  runtimeTimeoutKind?: string;
+} {
+  const artifact = recordValue(barrier.resolutionArtifact);
+  const transitionEvidence = recordValue(artifact?.transitionEvidence);
+  const waitBarrierEvaluation = recordValue(artifact?.waitBarrierEvaluation);
+  const terminalEvidence = waitBarrierEvaluation?.terminalEvidence;
+  const transitionKind = stringValue(transitionEvidence?.kind);
+  const timeoutKind = stringValue(transitionEvidence?.timeoutKind) ?? stringFieldDeep(terminalEvidence, "timeoutKind");
+  const runtimeTimeoutKind = stringValue(waitBarrierEvaluation?.runtimeTimeoutKind) ?? timeoutKind;
+  return {
+    ...(transitionKind ? { transitionKind } : {}),
+    ...(timeoutKind ? { timeoutKind } : {}),
+    ...(runtimeTimeoutKind ? { runtimeTimeoutKind } : {}),
+  };
+}
+
+function timeoutKindCounts(transitions: ChatExportBarrierTransitionEvidence[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const transition of transitions) {
+    const key = transition.runtimeTimeoutKind ?? transition.timeoutKind;
+    if (!key) continue;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function latestChildLivenessEvidence(child: ChatExportChildThreadBundle): ChatExportLivenessEvidence {
+  let latest: ChatExportLivenessEvidence = {
+    at: child.run.updatedAt ?? child.run.createdAt,
+    source: "subagent_run",
+    detail: "run updated",
+    path: `${child.dir}/manifest.json`,
+  };
+  for (const value of [child.run.completedAt, child.run.closedAt, child.run.startedAt, child.run.createdAt]) {
+    latest = newerLiveness(latest, value, "subagent_run", value === child.run.completedAt ? "run completed" : "run timestamp", `${child.dir}/manifest.json`);
+  }
+  for (const event of child.runEvents) {
+    latest = newerLiveness(latest, event.createdAt, `run_event:${event.type}`, `run event ${event.sequence}`, `${child.dir}/run-events.json`);
+  }
+  for (const mailbox of child.mailboxEvents) {
+    latest = newerLiveness(latest, mailbox.deliveredAt ?? mailbox.createdAt, `mailbox:${mailbox.type}`, mailbox.deliveryState, `${child.dir}/mailbox-events.json`);
+  }
+  return latest;
+}
+
+function newerLiveness(
+  current: ChatExportLivenessEvidence,
+  at: string | undefined,
+  source: string,
+  detail: string,
+  path: string,
+): ChatExportLivenessEvidence {
+  if (!at) return current;
+  const currentMs = Date.parse(current.at);
+  const nextMs = Date.parse(at);
+  if (!Number.isFinite(nextMs)) return current;
+  if (!Number.isFinite(currentMs) || nextMs >= currentMs) return { at, source, detail, path };
+  return current;
+}
+
+function parentMailboxEventPointer(event: SubagentParentMailboxEventSummary, path: string): ChatExportEventPointer {
+  return {
+    source: "parent_mailbox",
+    id: event.id,
+    type: event.type,
+    createdAt: event.createdAt,
+    path,
+    ...(waitBarrierIdFromValue(event.payload) ? { waitBarrierId: waitBarrierIdFromValue(event.payload) } : {}),
+    ...(childRunIdsFromValue(event.payload).length ? { childRunIds: childRunIdsFromValue(event.payload) } : {}),
+  };
+}
+
+function mailboxEventPointer(
+  event: SubagentMailboxEventSummary,
+  source: "child_mailbox",
+  path: string,
+): ChatExportEventPointer {
+  return {
+    source,
+    id: event.id,
+    type: event.type,
+    createdAt: event.createdAt,
+    path,
+    ...(waitBarrierIdFromValue(event.payload) ? { waitBarrierId: waitBarrierIdFromValue(event.payload) } : {}),
+    ...(childRunIdsFromValue(event.payload).length ? { childRunIds: childRunIdsFromValue(event.payload) } : {}),
+  };
+}
+
+function runEventPointer(event: SubagentRunEventSummary, path: string): ChatExportEventPointer {
+  return {
+    source: "child_run_event",
+    id: `${event.runId}:${event.sequence}`,
+    type: event.type,
+    createdAt: event.createdAt,
+    path,
+    ...(waitBarrierIdFromValue(event.preview) ? { waitBarrierId: waitBarrierIdFromValue(event.preview) } : {}),
+    ...(childRunIdsFromValue(event.preview).length ? { childRunIds: childRunIdsFromValue(event.preview) } : {}),
+  };
+}
+
+function parentMailboxEventIsFinalizationBlock(event: SubagentParentMailboxEventSummary): boolean {
+  return event.type === "callable_workflow.parent_finalization_blocked" ||
+    Boolean(recordValue(event.payload)?.parentFinalizationBlocked);
+}
+
+function messageReferencesChild(message: ChatMessage, child: ChatExportChildThreadBundle): boolean {
+  return messageReferencesChildIdOrThread({ content: message.content, metadata: message.metadata }, child);
+}
+
+function messageReferencesChildIdOrThread(value: unknown, child: ChatExportChildThreadBundle): boolean {
+  return structuredValueContainsString(value, child.run.id) ||
+    structuredValueContainsString(value, child.thread.id) ||
+    structuredValueContainsString(value, child.run.canonicalTaskPath);
+}
+
+function parentAmbientSubagentToolMessageLikelyReferencesChild(
+  message: ChatMessage,
+  child: ChatExportChildThreadBundle,
+): boolean {
+  const metadata = recordValue(message.metadata);
+  const toolName = stringValue(metadata?.toolName);
+  if (toolName !== "ambient_subagent") return false;
+  const rawInput = rawToolInputFromMetadata(metadata);
+  if (!rawInput) return false;
+  return messageReferencesChildIdOrThread(rawInput.value, child);
+}
+
+function actionFromToolInput(value: unknown): string | undefined {
+  return stringFieldDeep(value, "action");
+}
+
+function waitBarrierIdFromValue(value: unknown): string | undefined {
+  const direct = stringFieldDeep(value, "waitBarrierId") ?? stringFieldDeep(value, "barrierId");
+  if (direct) return direct;
+  const nestedWaitBarrier = recordValue(valueForKeyDeep(value, "waitBarrier"));
+  return stringValue(nestedWaitBarrier?.id);
+}
+
+function childRunIdsFromValue(value: unknown): string[] {
+  const direct = stringArrayFieldDeep(value, "childRunIds");
+  const single = stringFieldDeep(value, "childRunId") ?? stringFieldDeep(value, "runId");
+  return [...new Set([...direct, ...(single ? [single] : [])])];
+}
+
+function stringFieldDeep(value: unknown, key: string): string | undefined {
+  const found = valueForKeyDeep(value, key);
+  return stringValue(found);
+}
+
+function numberFieldDeep(value: unknown, key: string): number | undefined {
+  const found = valueForKeyDeep(value, key);
+  return numberValue(found);
+}
+
+function stringArrayFieldDeep(value: unknown, key: string): string[] {
+  const found = valueForKeyDeep(value, key);
+  if (Array.isArray(found)) return found.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  const single = stringValue(found);
+  return single ? [single] : [];
+}
+
+function valueForKeyDeep(value: unknown, key: string): unknown {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = valueForKeyDeep(item, key);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  }
+  const record = recordValue(value);
+  if (!record) return undefined;
+  if (Object.prototype.hasOwnProperty.call(record, key)) return record[key];
+  for (const entry of Object.values(record)) {
+    const found = valueForKeyDeep(entry, key);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+function parsePossiblyJson(value: string): unknown {
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function dedupeProgressReturnEvidence(items: ChatExportProgressReturnEvidence[]): ChatExportProgressReturnEvidence[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = [item.source, item.id, item.waitBarrierId ?? "", item.reason ?? ""].join("\0");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function effectiveRoleEvidence(snapshot: NonNullable<SubagentRunSummary["effectiveRoleSnapshot"]>) {

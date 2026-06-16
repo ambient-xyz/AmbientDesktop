@@ -4,6 +4,7 @@ import type {
   LocalDeepResearchSmokeResult,
   LocalDeepResearchSmokeStatus,
 } from "../shared/types";
+import { localDeepResearchToolBudgetState, resolveLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 import {
   enforceLocalModelResourceLaunchPolicy,
   type LocalModelResourceLaunchPreflightResult,
@@ -99,6 +100,7 @@ export async function runLocalDeepResearchRealAssetSmoke(input: LocalDeepResearc
     const completion = await chat.complete({
       setup: input.setup,
       toolCallCount: 0,
+      toolBudget: localDeepResearchToolBudgetState(resolveLocalDeepResearchRunBudget(undefined), 0),
       messages: [
         {
           role: "system",

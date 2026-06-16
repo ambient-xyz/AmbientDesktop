@@ -6,14 +6,13 @@ import {
   AMBIENT_TOOL_SEARCH,
 } from "./ambientToolRouter";
 
-const CHILD_BROWSER_READ_TOOL_NAMES = [
+const CHILD_BROWSER_READ_TOOL_NAMES = [] as const;
+
+const CHILD_BROWSER_INTERACTIVE_TOOL_NAMES = [
   "browser_search",
   "browser_nav",
   "browser_content",
   "browser_screenshot",
-] as const;
-
-const CHILD_BROWSER_INTERACTIVE_TOOL_NAMES = [
   "browser_eval",
   "browser_keypress",
 ] as const;

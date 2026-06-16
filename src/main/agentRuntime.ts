@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 import type { BrowserWindow } from "electron";
@@ -12,7 +12,6 @@ import {
   type ExtensionFactory,
   type AgentToolResult,
 } from "@mariozechner/pi-coding-agent";
-import { emptyQueueState } from "../shared/messageDelivery";
 import {
   DEFAULT_MODEL_RUNTIME_PROVIDER_PRE_STREAM_TIMEOUT_MS,
   DEFAULT_MODEL_RUNTIME_PROVIDER_STREAM_IDLE_TIMEOUT_MS,
@@ -26,13 +25,6 @@ import type {
 import { classifyWorkflowPlanEditIntent, type WorkflowPlanEditIntentKind } from "../shared/workflowThreadPlanEdit";
 import { applyAgentBootstrapToPrompt, buildAgentBootstrapContext } from "./agentBootstrapContext";
 import { resolveAgentHarnessVariant } from "./agentHarnessVariant";
-import { ToolArgumentProgressTracker } from "./toolArgumentProgress";
-import { providerInterruptionContinuationRetryBudget } from "./providerInterruptionContinuation";
-import {
-  InterruptedToolCallRecoveryTracker,
-  interruptedToolCallRecoveryThresholdFromEnv,
-  serializeToolInputForInterruptedRecovery,
-} from "./interruptedToolCallRecovery";
 import { LocalPreviewServerManager } from "./localPreviewServer";
 import { createPrivilegedActionAdapter, privilegedActionAdapterSelectionFromEnv, type PrivilegedActionAdapter } from "./privilegedActionAdapter";
 import type { PiSessionFileCommitReason } from "./sessionFileCommit";
@@ -63,9 +55,6 @@ import type {
   ResumeCallableWorkflowTaskInput,
   ThreadGoal,
   ThreadSummary,
-  ToolArgumentProgressSnapshot,
-  ProviderContinuationState,
-  ToolIntentSnapshot,
   WorkspaceState,
   BrowserProfileMode,
   BrowserRuntimeKind,
@@ -130,8 +119,7 @@ import {
 } from "../shared/featureFlags";
 import { isAgentMemoryActiveForThread } from "../shared/agentMemorySettings";
 import type { AgentMemoryRuntimeSnapshot } from "../shared/agentMemoryDiagnostics";
-import { AmbientStreamFailureError, ambientRetryPolicyFromSettings, isRetryableAmbientProviderError } from "./aggressiveRetries";
-import type { AmbientStreamFailureKind } from "./aggressiveRetries";
+import { ambientRetryPolicyFromSettings } from "./aggressiveRetries";
 import { createManualCompactionEventHandler } from "./agentRuntimeManualCompactionEvents";
 import {
   buildActiveContextUsageSnapshot,
@@ -143,10 +131,6 @@ import type { ProjectStore } from "./projectStore";
 import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "./providerStatus";
 import { readAmbientApiKey } from "./credentialStore";
 import { abortSessionRun as abortPiSessionRun } from "./sessionAbort";
-import type { PromptCompletion } from "./postToolFinalization";
-import type { CompletedToolSnapshot } from "./postToolContinuationScheduler";
-import { normalizePiEvent } from "./piEventMapper";
-import { createAssistantVisibleTextFilter } from "./assistantVisibleText";
 import { recordAgentRuntimeVoiceDispatch } from "./agentRuntimeVoiceDispatch";
 import { completeAgentRuntimeRegisteredVoiceProviderSetup } from "./agentRuntimeVoiceProviderSetup";
 import { dogfoodAgentRuntimeSelectedVoiceProvider } from "./agentRuntimeVoiceProviderDogfood";
@@ -242,16 +226,11 @@ import {
   resolvePostToolContinuationIdleMs,
   resolvePostToolFinalizationTickMs,
   resolveWorkflowRecordingReviewStreamIdleTimeoutMs,
-  withTimeout,
 } from "./agentRuntimeTimeouts";
-import {
-  createRuntimeSendStreamDiagnostics,
-  type PiStreamTraceEvent,
-} from "./agentRuntimeSendStreamDiagnostics";
+import { createRuntimeSendStreamDiagnostics } from "./agentRuntimeSendStreamDiagnostics";
 import { runtimeActiveSessionResetPlan } from "./agentRuntimeActiveSessionReset";
 import {
   runtimeSubagentDirectChildStoppedActivity,
-  runtimeSubagentParentControlAbortActivity,
   runtimeSubagentParentStopCascadeActivity,
 } from "./agentRuntimeSubagentParentControlActivity";
 import { piAssistantMessageMetadata } from "./agentRuntimeAssistantMessageMetadata";
@@ -291,7 +270,6 @@ import {
   type PlannerPlanArtifactContentUpdate,
 } from "./agentRuntimePlannerFinalizationPrompt";
 import {
-  assistantTerminalEventDiagnostic,
   type AssistantTerminalCleanupDiagnostic,
   type AssistantTerminalEventDiagnostic,
 } from "./agentRuntimeAssistantTerminalDiagnostics";
@@ -389,6 +367,10 @@ import {
   resolveAgentRuntimeActiveToolNamesForThread,
   subagentChildCallableWorkflowToolNamesFromSnapshots,
 } from "./subagentChildActiveTools";
+import {
+  resolveActiveSubagentWaitBarriersForRun,
+  SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+} from "./subagentWaitBarrierResolution";
 import type {
   SubagentChildRuntimeAdapter,
   SubagentChildRuntimeApprovalResponseInput,
@@ -414,7 +396,6 @@ import {
   classifySubagentAssistantResult,
 } from "./subagentPromptRuntime";
 import { subagentTranscriptPath } from "./subagentLifecycleHooks";
-import { satisfySubagentWaitBarrierIfCurrentResultsAllowSynthesis } from "./subagentWaitBarrierResolution";
 import { tryRouteBrowserContentThroughScrapling as routeBrowserContentThroughScrapling } from "./agentRuntimeScraplingBrowserRoute";
 import {
   webResearchExaApiKeyFromEnv,
@@ -484,7 +465,6 @@ import { registerMessagingRemoteSurfaceCommandPreviewTools } from "./agentRuntim
 import {
   completeMessagingRemoteSurfaceCommandPendingProjectSwitch,
   createMessagingRemoteSurfaceCommandApplyResolver,
-  finalizeMessagingRemoteSurfaceCommandPendingProjectSwitchAfterRun,
   type MessagingRemoteSurfaceCommandPendingProjectSwitch,
   registerMessagingRemoteSurfaceCommandApplyTools,
 } from "./agentRuntimeMessagingRemoteSurfaceCommandApplyTools";
@@ -666,137 +646,83 @@ import {
   normalizeWorkspaceArtifactPath,
 } from "./agentRuntimeMediaArtifacts";
 import {
-  formatToolTranscript,
   subagentMutationCategoryForChildTool,
   subagentToolInputPathFromMessage,
 } from "./agentRuntimeToolTranscript";
 import {
   stringMetadata,
-  toolMessageMetadata,
   type SubagentParentControlAbortIntent,
 } from "./agentRuntimeToolMessageMetadata";
-import { buildToolIntentSnapshot } from "./agentRuntimeToolIntentSnapshot";
-import {
-  buildProviderInterruptionContinuationInput,
-  type ProviderInterruptionToolSnapshot,
-} from "./agentRuntimeProviderContinuationHelpers";
 import {
   type RuntimeOpenToolFailureReason,
 } from "./agent-runtime/openToolFailureUpdates";
-import {
-  runtimeCompactionEventModel,
-  type RuntimeCompactionEvent,
-} from "./agent-runtime/compactionEvents";
-import {
-  runtimeThinkingEventModel,
-  type RuntimeThinkingEvent,
-} from "./agent-runtime/thinkingEvents";
-import {
-  runtimeAssistantUpdateEventModel,
-  type RuntimeAssistantUpdateEvent,
-} from "./agent-runtime/assistantUpdateEvents";
-import {
-  runtimeAssistantEndEventModel,
-  type RuntimeAssistantEndEvent,
-} from "./agent-runtime/assistantEndEvents";
-import {
-  runtimeAgentEndEventModel,
-} from "./agent-runtime/agentEndEvents";
-import {
-  handleRuntimeActiveRunHandoff,
-  type RuntimeActiveRunHandoffActiveRun,
-} from "./agent-runtime/runtimeActiveRunHandoff";
+import { handleRuntimeActiveRunHandoff } from "./agent-runtime/runtimeActiveRunHandoff";
 import { createRuntimeAssistantRetryPlanning } from "./agent-runtime/runtimeAssistantRetryPlanning";
 import {
-  createRuntimePermissionWaitController,
   type RuntimePermissionWaitControl,
   type RuntimePermissionWaitFinish,
   type RuntimePermissionWaitStart,
 } from "./agent-runtime/runtimePermissionWaitController";
+import { createRuntimePermissionWaitSetup } from "./agent-runtime/runtimePermissionWaitSetup";
 import {
   createRuntimeQueuedMessageController,
-  type RuntimeQueuedMessageSnapshot,
 } from "./agent-runtime/runtimeQueuedMessageController";
 import { createRuntimeRunEventScope } from "./agent-runtime/runtimeRunEventScope";
-import { finalizeSuccessfulRuntimeRun } from "./agent-runtime/runtimeSuccessfulRunFinalization";
-import { finalizeRuntimeSessionDispositionAfterRun } from "./agent-runtime/runtimeSessionDispositionAfterRun";
+import {
+  handleRuntimePromptSuccess,
+  type RuntimePromptSuccessHandlerInput,
+} from "./agent-runtime/runtimePromptSuccessHandler";
 import { finalizeRuntimeSubagentPreflightBlock } from "./agent-runtime/runtimeSubagentPreflightBlock";
-import { interruptedToolCallRecoveryFinalizationMessage } from "./agent-runtime/interruptedToolCallRecoveryFinalization";
+import { finalizeRuntimeSendAfterRun } from "./agent-runtime/runtimeSendAfterRun";
 import {
-  providerInterruptionFinalizationMessage,
-  providerInterruptionRecoveryFailureFinalizationMessage,
-} from "./agent-runtime/providerInterruptionFinalization";
-import {
-  preOutputStreamStallRetryFinalizationMessage,
-  providerErrorBeforeToolRetryFinalizationMessage,
-} from "./agent-runtime/providerRetryFinalization";
-import { streamWatchdogFinalizationMessage } from "./agent-runtime/streamWatchdogFinalization";
-import { terminalProviderFailureFinalizationMessage } from "./agent-runtime/terminalProviderFailureFinalization";
-import {
-  runtimeSendFollowUpSleep,
-  scheduleRuntimeSendFollowUps,
-} from "./agent-runtime/runtimeSendFollowUps";
-import {
-  finalizeRuntimeGoalContinuationAfterRun,
   type AccountFinishedGoalRunInput,
 } from "./agent-runtime/runtimeGoalContinuationAfterRun";
 import {
-  runtimeProviderRetryEventModel,
-  type RuntimeProviderRetryEvent,
-} from "./agent-runtime/providerRetryEvents";
-import { createRuntimeProviderContinuationState } from "./agent-runtime/providerContinuationState";
-import { runtimeOpenProviderInterruptionToolSnapshots } from "./agent-runtime/providerInterruptionToolSnapshots";
-import {
-  createRuntimeAssistantTerminalCompletion,
   type RuntimeAssistantTerminalCompletion,
 } from "./agent-runtime/runtimeAssistantTerminalCompletion";
 import {
-  createRuntimeEmptyAssistantStallWatchdog,
   type RuntimeEmptyAssistantStallWatchdog,
 } from "./agent-runtime/runtimeEmptyAssistantStallWatchdog";
 import {
-  createRuntimeToolArgumentWatchdog,
   type RuntimeToolArgumentWatchdog,
 } from "./agent-runtime/runtimeToolArgumentWatchdog";
 import {
-  createRuntimeToolExecutionWatchdog,
   type RuntimeToolExecutionWatchdog,
 } from "./agent-runtime/runtimeToolExecutionWatchdog";
-import {
-  createRuntimeStreamWatchdogController,
-  type RuntimeStreamWatchdogController,
-} from "./agent-runtime/runtimeStreamWatchdogController";
+import type { RuntimeStreamWatchdogController } from "./agent-runtime/runtimeStreamWatchdogController";
 import { createRuntimeStreamActivityTracker } from "./agent-runtime/runtimeStreamActivityTracker";
 import {
-  createRuntimePostToolContinuationController,
   type RuntimePostToolContinuationController,
 } from "./agent-runtime/runtimePostToolContinuationController";
-import {
-  runRuntimePromptCompletionLoop,
-  type RuntimePromptCompletion,
-} from "./agent-runtime/runtimePromptCompletionLoop";
-import { finalizeRuntimeAssistantTerminalCleanup } from "./agent-runtime/runtimeAssistantTerminalCleanup";
 import { cleanupRuntimeSession } from "./agent-runtime/runtimeSessionCleanup";
 import { createRuntimeAssistantMessageController } from "./agent-runtime/runtimeAssistantMessageController";
-import { createRuntimeToolMessageController } from "./agent-runtime/runtimeToolMessageController";
-import { createRuntimeToolEventDispatcher } from "./agent-runtime/runtimeToolEventDispatcher";
-import { persistPreparedProviderInterruptionToolArguments } from "./agentRuntimeProviderInterruptionArguments";
+import type { RuntimeToolMessageController } from "./agent-runtime/runtimeToolMessageController";
+import { createRuntimeToolEventDispatcherSetup } from "./agent-runtime/runtimeToolEventDispatcherSetup";
+import { handleRuntimePromptFailure } from "./agent-runtime/runtimePromptFailureHandler";
+import { createRuntimeToolContextSetup } from "./agent-runtime/runtimeToolContextSetup";
+import { createRuntimeProviderContinuationSetup } from "./agent-runtime/runtimeProviderContinuationSetup";
+import { createRuntimeAbortContextSetup } from "./agent-runtime/runtimeAbortContextSetup";
+import type { RuntimeAbortContextActiveRun } from "./agent-runtime/runtimeAbortContext";
+import { createRuntimeTextOutputState } from "./agent-runtime/runtimeTextOutputState";
+import { createRuntimeProviderRetryState } from "./agent-runtime/runtimeProviderRetryState";
+import { createRuntimeStreamTraceState } from "./agent-runtime/runtimeStreamTraceState";
+import { createRuntimeSendPendingFollowUps } from "./agent-runtime/runtimeSendPendingFollowUps";
+import { createRuntimePromptControlState } from "./agent-runtime/runtimePromptControlState";
+import { createRuntimePromptLifecycleControls } from "./agent-runtime/runtimePromptLifecycleControls";
+import { subscribeRuntimePromptEvents } from "./agent-runtime/runtimePromptEventSubscription";
+import { createRuntimePromptExecutionSetup } from "./agent-runtime/runtimePromptExecutionSetup";
+import { runRuntimePromptCompletionSetup } from "./agent-runtime/runtimePromptCompletionSetup";
+import { createRuntimePromptControllerSetup } from "./agent-runtime/runtimePromptControllerSetup";
+import { createRuntimePromptStreamDispatcherSetup } from "./agent-runtime/runtimePromptStreamDispatcherSetup";
 import {
-  countJsonlEntries,
   isAmbientProviderAuthFailure,
-  isContinuableAmbientProviderInterruption,
-  runtimeProviderErrorDiagnostic,
   truncateDiagnosticText,
-  type PiStreamTraceReference,
-  type RuntimeProviderErrorDiagnostic,
 } from "./agentRuntimeProviderDiagnostics";
 import {
   formatRuntimeError as formatAgentRuntimeError,
-  shouldOpenApiKeyDialogForRuntimeError,
 } from "./agentRuntimeErrorFormatting";
 import {
   runtimeProviderRetryFinishedActivity,
-  runtimeProviderRetryStartingActivity,
 } from "./agentRuntimeProviderRetryActivity";
 import { resolveAgentRuntimeToolCallPermission } from "./agentRuntimeToolCallPermission";
 import {
@@ -830,11 +756,7 @@ type PiSession = Awaited<ReturnType<typeof createAgentSession>>["session"];
 
 export type { AgentRuntimeGoogleWorkspaceTools } from "./agentRuntimeGoogleWorkspaceSetupTools";
 
-interface ActiveRun extends RuntimeActiveRunHandoffActiveRun {
-  abort: () => Promise<void>;
-  detach: () => void;
-  queue: (message: RuntimeQueuedMessageSnapshot) => Promise<void>;
-}
+interface ActiveRun extends RuntimeAbortContextActiveRun {}
 
 export interface AgentRuntimeSendHooks {
   onActivity?: () => void;
@@ -1074,7 +996,7 @@ function delaySubagentChildWaitTick(ms: number): Promise<void> {
 
 type SubagentChildTurnCompletion =
   | { status: "terminal" }
-  | { status: "needs_followup"; message: string; reason: string };
+  | { status: "needs_followup"; message: string; reason: string; followupKind: "post_tool" | "result_contract" };
 
 function latestAssistantMessageAfterLastToolForMessages(messages: ChatMessage[]): ChatMessage | undefined {
   const lastToolIndex = findLastMessageIndex(messages, (message) => message.role === "tool");
@@ -1139,7 +1061,9 @@ function subagentResultContractFailureIsRecoverable(reason: string): boolean {
     reason.startsWith("Structured-output role result is missing") ||
     reason.startsWith("Structured-output role result status") ||
     reason.startsWith("Structured sub-agent result is invalid") ||
+    reason.startsWith("Structured result ") ||
     reason.includes("must match result status") ||
+    reason.includes("must be an array of strings") ||
     reason.includes("must be an array of plain strings") ||
     reason.includes("roleOutput")
   );
@@ -1242,6 +1166,74 @@ interface RuntimeSendLoopContext {
   interruptedToolCallRecoveryMaxRetries: number;
   interruptedToolCallRecoveryAttemptsUsed: number;
   canScheduleInterruptedToolCallRecovery: boolean;
+}
+
+interface FinalizeAgentRuntimeSendAfterRunInput {
+  sendInput: SendMessageInput;
+  hooks: AgentRuntimeSendHooks;
+  runId: string;
+  runWorkspacePath: string;
+  runGoalId?: string | undefined;
+  runGoalStartedAtMs: number;
+  promptContent: string;
+  currentAssistantFinalText: string;
+  assistantOutputChars: number;
+  currentThinkingFinalText: string;
+  thinkingOutputChars: number;
+  abortRequested: boolean;
+  pendingPlannerRepairFollowUp?: SendMessageInput | undefined;
+  pendingEmptyResponseRetry?: SendMessageInput | undefined;
+  pendingInterruptedToolCallRecoveryFollowUp?: SendMessageInput | undefined;
+  pendingProviderInterruptionContinuation?: SendMessageInput | undefined;
+  pendingEmptyResponseRetryDelayMs: number;
+  usesDedicatedReviewSession: boolean;
+  session?: PiSession | undefined;
+  hasWorkflowPlanEditIntent: boolean;
+  isRunStoreActive: () => boolean;
+  cleanupCurrentSession: () => void;
+  emitRunEvent: (event: DesktopEvent) => void;
+  toolArgumentWatchdog?: RuntimeToolArgumentWatchdog | undefined;
+  toolExecutionWatchdog?: RuntimeToolExecutionWatchdog | undefined;
+  queuedMessages: ReturnType<typeof createRuntimeQueuedMessageController>;
+  toolMessages: RuntimeToolMessageController;
+  resolveActiveRunSettled?: (() => void) | undefined;
+}
+
+interface HandleAgentRuntimePromptSuccessInput {
+  sendInput: SendMessageInput;
+  runId: string;
+  runWorkspacePath: string;
+  session: PiSession;
+  runtimeMessages: ReturnType<typeof createRuntimeAssistantMessageController>;
+  toolMessages: RuntimeToolMessageController;
+  plannerFinalizationSources: PlannerPlanArtifact[];
+  runtimeError?: string | undefined;
+  abortRequested: boolean;
+  finalizedAfterToolIdle: boolean;
+  currentThinkingFinalText: string;
+  currentAssistantFinalText: string;
+  receivedAnyText: boolean;
+  pendingEmptyResponseRetryDelayMs: number;
+  activeRetryReason?: AssistantFinalizationRetryReason | undefined;
+  retrySourceUserMessageId?: string | undefined;
+  lastAssistantTerminalEvent?: AssistantTerminalEventDiagnostic | undefined;
+  assistantTerminalCleanupDiagnostic?: AssistantTerminalCleanupDiagnostic | undefined;
+  subagentParentControlAbortIntent?: SubagentParentControlAbortIntent | undefined;
+  providerRetryBeforeVisibleOutput: boolean;
+  providerRetryRecovered: boolean;
+  providerRetryAttemptCount: number;
+  providerRetryLastError?: string | undefined;
+  usesDedicatedReviewSession: boolean;
+  assistantFinalizationRetryMaxRetries: number;
+  canScheduleAssistantFinalizationRetryFor: (reason: AssistantFinalizationRetryReason) => boolean;
+  assistantFinalizationRetryAttemptsUsedFor: (reason: AssistantFinalizationRetryReason) => number;
+  assistantFinalizationRetryNextAttemptFor: (reason: AssistantFinalizationRetryReason) => number;
+  createAssistantFinalizationRetryInput: (reason: AssistantFinalizationRetryReason) => RuntimeSendMessageInput;
+  consumeSubagentParentControlAbort: () => Promise<void>;
+  cleanupCurrentSession: () => void;
+  finishPlannerFinalizationSources: RuntimePromptSuccessHandlerInput["finishPlannerFinalizationSources"];
+  finishParentRun: RuntimePromptSuccessHandlerInput["finishParentRun"];
+  emitRunEvent: (event: DesktopEvent) => void;
 }
 
 export class AgentRuntime {
@@ -1606,16 +1598,22 @@ export class AgentRuntime {
     this.activeRunIds.set(input.threadId, run.id);
     this.emit({ type: "message-created", message: assistantMessage });
     this.emit({ type: "run-status", threadId: input.threadId, status: "starting" });
-    let lastEmittedRunStatus: RunStatus = "starting";
 
     const runStartedAt = new Date().toISOString();
     const runGoal = this.store.getThreadGoal(input.threadId);
     const runGoalId = runGoal?.status === "active" ? runGoal.goalId : undefined;
     const runGoalStartedAtMs = Date.now();
-    let abortRequested = false;
-    let subagentParentControlAbortIntent: SubagentParentControlAbortIntent | undefined;
-    let subagentParentControlAbortConsumed = false;
     let session: PiSession | undefined;
+    const promptLifecycleControls = createRuntimePromptLifecycleControls({
+      threadId: input.threadId,
+      runId: run.id,
+      initialStatus: "starting",
+      isRunStoreActive,
+      updateRunStatus: (runId, status) => {
+        this.store.updateRunStatus(runId, status);
+      },
+      emitRunEvent,
+    });
     const {
       assistantFinalizationRetryAttemptsUsedFor,
       assistantFinalizationRetryNextAttemptFor,
@@ -1639,50 +1637,24 @@ export class AgentRuntime {
       commitThreadPiSessionFile: (commitInput) => this.commitThreadPiSessionFile(commitInput),
       emit: emitRunEvent,
     });
-    let queueReady = false;
-    let currentAssistantReceivedText = false;
-    let currentAssistantFinalText = "";
-    let receivedAnyText = false;
-    let currentThinkingReceivedText = false;
-    let currentThinkingFinalText = "";
-    let assistantVisibleTextFilter = createAssistantVisibleTextFilter();
+    const promptControlState = createRuntimePromptControlState();
+    const outputState = createRuntimeTextOutputState();
     let streamWatchdog: RuntimeStreamWatchdogController | undefined;
-    let streamWatchdogTimedOut = false;
     let toolArgumentWatchdog: RuntimeToolArgumentWatchdog | undefined;
     let toolExecutionWatchdog: RuntimeToolExecutionWatchdog | undefined;
     let emptyAssistantStallWatchdog: RuntimeEmptyAssistantStallWatchdog;
     let assistantTerminalCompletion: RuntimeAssistantTerminalCompletion;
-    let assistantOutputChars = 0;
-    let thinkingOutputChars = 0;
-    const piStreamRecentEvents: PiStreamTraceEvent[] = [];
-    let piStreamTraceReference: PiStreamTraceReference | undefined;
-    let piPromptStartLine: number | undefined;
-    let piPromptUserLine: number | undefined;
-    let promptContentSha256: string | undefined;
-    let firstAssistantVisibleTextAt: string | undefined;
-    let firstToolArgumentAt: string | undefined;
-    let firstToolExecutionStartedAt: string | undefined;
-    let providerRetryAttemptCount = 0;
-    let providerRetryLastError: string | undefined;
-    let pendingPlannerRepairFollowUp: SendMessageInput | undefined;
-    let pendingEmptyResponseRetry: RuntimeSendMessageInput | undefined;
-    let pendingInterruptedToolCallRecoveryFollowUp: RuntimeSendMessageInput | undefined;
-    let pendingProviderInterruptionContinuation: RuntimeSendMessageInput | undefined;
-    let pendingEmptyResponseRetryDelayMs = ASSISTANT_FINALIZATION_RETRY_DELAY_MS;
-    let runEventSeq = 0;
+    const streamTraceState = createRuntimeStreamTraceState();
+    const providerRetryState = createRuntimeProviderRetryState();
+    const pendingFollowUps = createRuntimeSendPendingFollowUps({
+      emptyResponseRetryDelayMs: ASSISTANT_FINALIZATION_RETRY_DELAY_MS,
+    });
     const runtimeMessages = createRuntimeAssistantMessageController({
       threadId: input.threadId,
       initialAssistantMessage: assistantMessage,
       markRunActivity,
-      resetAssistantStreamState: () => {
-        currentAssistantReceivedText = false;
-        currentAssistantFinalText = "";
-        assistantVisibleTextFilter = createAssistantVisibleTextFilter();
-      },
-      resetThinkingStreamState: () => {
-        currentThinkingReceivedText = false;
-        currentThinkingFinalText = "";
-      },
+      resetAssistantStreamState: outputState.resetAssistantStreamState,
+      resetThinkingStreamState: outputState.resetThinkingStreamState,
       listMessages: () => this.store.listMessages(input.threadId),
       addAssistantMessage: (messageInput) => this.store.addMessage({
         threadId: messageInput.threadId,
@@ -1700,10 +1672,8 @@ export class AgentRuntime {
       isRunStoreActive,
       markRunActivity,
       getSession: () => session,
-      isQueueReady: () => queueReady,
-      incrementRunEventSeq: () => {
-        runEventSeq += 1;
-      },
+      isQueueReady: promptControlState.isQueueReady,
+      incrementRunEventSeq: promptControlState.incrementRunEventSeq,
       replaceMessage: (messageId, content, metadata) =>
         this.store.replaceMessage(messageId, content, metadata),
       emitRunEvent,
@@ -1713,8 +1683,8 @@ export class AgentRuntime {
       idleTimeoutMs: piStreamIdleTimeoutMs,
       progressThrottleMs: CHAT_PI_STREAM_PROGRESS_THROTTLE_MS,
       progressCharDelta: CHAT_PI_STREAM_PROGRESS_CHAR_DELTA,
-      getOutputChars: () => assistantOutputChars,
-      getThinkingChars: () => thinkingOutputChars,
+      getOutputChars: outputState.assistantOutputChars,
+      getThinkingChars: outputState.thinkingOutputChars,
       resetStreamWatchdog: () => {
         streamWatchdog?.reset();
       },
@@ -1726,7 +1696,6 @@ export class AgentRuntime {
       },
       emitRunEvent,
     });
-    let streamWatchdogTimeoutMessage: string | undefined;
     let resolveActiveRunSettled: (() => void) | undefined;
     const activeRunSettled = new Promise<void>((resolve) => {
       resolveActiveRunSettled = resolve;
@@ -1744,33 +1713,33 @@ export class AgentRuntime {
       runId: run.id,
       threadId: input.threadId,
       recentEventLimit: CHAT_PI_STREAM_TRACE_RECENT_EVENT_LIMIT,
-      recentEvents: piStreamRecentEvents,
+      recentEvents: streamTraceState.recentEvents(),
       getWorkspaceStatePath: () => this.store.getWorkspace().statePath,
-      getTraceReference: () => piStreamTraceReference,
-      setTraceReference: (reference) => {
-        piStreamTraceReference = reference;
-      },
+      getTraceReference: streamTraceState.traceReference,
+      setTraceReference: streamTraceState.setTraceReference,
       updateRunDiagnostics: (diagnostics) => this.store.updateRunDiagnostics(run.id, diagnostics),
       getState: () => {
         const streamActivity = piStreamActivity.snapshot();
+        const output = outputState.snapshot();
+        const providerRetry = providerRetryState.snapshot();
         return {
           piStreamEventCount: streamActivity.eventCount,
-          streamWatchdogTimeoutMessage,
+          streamWatchdogTimeoutMessage: promptControlState.streamWatchdogTimeoutMessage(),
           piPreStreamTimeoutMs,
           piStreamIdleTimeoutMs,
           runStartedAt,
-          assistantOutputChars,
-          thinkingOutputChars,
-          currentAssistantFinalText,
-          currentThinkingFinalText,
-          receivedAnyText,
-          currentAssistantReceivedText,
-          currentThinkingReceivedText,
+          assistantOutputChars: output.assistantOutputChars,
+          thinkingOutputChars: output.thinkingOutputChars,
+          currentAssistantFinalText: output.currentAssistantFinalText,
+          currentThinkingFinalText: output.currentThinkingFinalText,
+          receivedAnyText: output.receivedAnyText,
+          currentAssistantReceivedText: output.currentAssistantReceivedText,
+          currentThinkingReceivedText: output.currentThinkingReceivedText,
           toolMessageCount: toolMessages.size(),
           sessionFile: session?.sessionFile,
-          piPromptStartLine,
-          piPromptUserLine,
-          promptContentSha256,
+          piPromptStartLine: streamTraceState.piPromptStartLine(),
+          piPromptUserLine: streamTraceState.piPromptUserLine(),
+          promptContentSha256: streamTraceState.promptContentSha256(),
           promptContentLength: promptContent.length,
           currentAssistantMessageId: runtimeMessages.currentAssistantMessageId(),
           runtimeModel,
@@ -1779,23 +1748,23 @@ export class AgentRuntime {
           firstPiStreamEventType: streamActivity.firstEventType,
           lastPiStreamEventAt: streamActivity.lastEventAt,
           lastPiStreamEventType: streamActivity.lastEventType,
-          firstAssistantVisibleTextAt,
-          firstToolArgumentAt,
-          firstToolExecutionStartedAt,
-          providerRetryAttemptCount,
-          providerRetryLastError,
+          firstAssistantVisibleTextAt: output.firstAssistantVisibleTextAt,
+          firstToolArgumentAt: streamTraceState.firstToolArgumentAt(),
+          firstToolExecutionStartedAt: streamTraceState.firstToolExecutionStartedAt(),
+          providerRetryAttemptCount: providerRetry.providerRetryAttemptCount,
+          providerRetryLastError: providerRetry.providerRetryLastError,
         };
       },
     });
-    const toolIntentSnapshots = new Map<string, ToolIntentSnapshot>();
-    const toolArgumentProgress = new ToolArgumentProgressTracker();
-    const startedToolCallIds = new Set<string>();
-    const toolMessages = createRuntimeToolMessageController({
+    const toolContext = createRuntimeToolContextSetup({
       threadId: input.threadId,
       workspacePath: thread.workspacePath,
       permissionMode: thread.permissionMode,
-      progressForToolCall: (toolCallId) => toolArgumentProgress.current(toolCallId),
-      startedToolCallIds,
+      runId: run.id,
+      outputState,
+      visibleUserContent,
+      isRunStoreActive,
+      retrySourceUserMessageId: () => retrySourceUserMessageId,
       listMessages: () => this.store.listMessages(input.threadId),
       addToolMessage: (messageInput) => this.store.addMessage({
         threadId: messageInput.threadId,
@@ -1804,168 +1773,56 @@ export class AgentRuntime {
         metadata: messageInput.metadata,
       }),
       replaceMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
+      updateRunDiagnostics: (diagnostics) => this.store.updateRunDiagnostics(run.id, diagnostics),
       emitRunEvent,
     });
-    const interruptedToolCallRecovery = new InterruptedToolCallRecoveryTracker({
-      workspacePath: thread.workspacePath,
-      runId: run.id,
-      thresholdChars: interruptedToolCallRecoveryThresholdFromEnv(),
-    });
-    let lastToolArgumentDiagnosticsPersistAt = 0;
-    const persistToolArgumentDiagnostics = (force = false) => {
-      if (!isRunStoreActive()) return;
-      const now = Date.now();
-      if (!force && now - lastToolArgumentDiagnosticsPersistAt < 1_000) return;
-      lastToolArgumentDiagnosticsPersistAt = now;
-      this.store.updateRunDiagnostics(run.id, {
-        toolArgumentStreams: toolArgumentProgress.diagnostics(now),
-        interruptedToolCallRecovery: interruptedToolCallRecovery.diagnostics(now),
-      });
-    };
-    const trackInterruptedToolCallRecovery = (
-      toolCallId: string,
-      toolName: string,
-      rawInput: unknown,
-      visibleInput: string,
-      argumentProgress: ToolArgumentProgressSnapshot,
-    ): ToolArgumentProgressSnapshot => {
-      const hasRawInput = rawInput !== undefined;
-      if (
-        argumentProgress.observedArgumentChars < interruptedToolCallRecovery.thresholdChars &&
-        visibleInput.length < interruptedToolCallRecovery.thresholdChars
-      ) {
-        return argumentProgress;
-      }
-      if (!hasRawInput && visibleInput.length < interruptedToolCallRecovery.thresholdChars) return argumentProgress;
-      const capture = serializeToolInputForInterruptedRecovery(rawInput, visibleInput);
-      const recovery = interruptedToolCallRecovery.observe({
-        toolCallId,
-        toolName,
-        inputText: capture.text,
-        source: capture.source,
-        progress: argumentProgress,
-        intent: toolIntentSnapshots.get(toolCallId),
-      });
-      return recovery ? { ...argumentProgress, interruptedToolCallRecovery: recovery } : argumentProgress;
-    };
-    const markInterruptedToolCallNoLongerRecoverable = (
-      toolCallId: string,
-      argumentProgress: ToolArgumentProgressSnapshot,
-    ): ToolArgumentProgressSnapshot => {
-      const recovery = interruptedToolCallRecovery.markExecutionStarted(toolCallId);
-      return recovery ? { ...argumentProgress, interruptedToolCallRecovery: recovery } : argumentProgress;
-    };
-    const forceInterruptedToolCallRecovery = (
-      argumentProgress: ToolArgumentProgressSnapshot,
-    ): ToolArgumentProgressSnapshot => {
-      const inputText = toolMessages.recoveryInput(argumentProgress.toolCallId) ??
-        toolMessages.inputContent(argumentProgress.toolCallId) ??
-        "";
-      if (!inputText.trim()) return argumentProgress;
-      const recovery = interruptedToolCallRecovery.observe({
-        toolCallId: argumentProgress.toolCallId,
-        toolName: argumentProgress.toolName,
-        inputText,
-        source: toolMessages.recoveryInputSource(argumentProgress.toolCallId) ?? "visible_tool_input",
-        progress: argumentProgress,
-        intent: toolIntentSnapshots.get(argumentProgress.toolCallId),
-        force: true,
-      });
-      return recovery ? { ...argumentProgress, interruptedToolCallRecovery: recovery } : argumentProgress;
-    };
-    const rememberToolIntent = (toolCallId: string, toolName: string, rawInput: unknown, visibleInput: string): ToolIntentSnapshot => {
-      const existing = toolIntentSnapshots.get(toolCallId);
-      if (existing) return existing;
-      const snapshot = buildToolIntentSnapshot({
-        toolCallId,
-        toolName,
-        rawInput,
-        visibleInput,
-        sourceUserMessageId: retrySourceUserMessageId,
-        turnGoal: visibleUserContent,
-        assistantLeadIn: currentAssistantFinalText,
-      });
-      toolIntentSnapshots.set(toolCallId, snapshot);
-      return snapshot;
-    };
+    const { toolArgumentProgress, startedToolCallIds, toolMessages, toolRecovery } = toolContext;
+    const {
+      interruptedToolCallRecovery,
+      toolIntentSnapshots,
+      persistToolArgumentDiagnostics,
+      forceInterruptedToolCallRecovery,
+    } = toolRecovery;
 
-    let subagentParentControlBarrierReconciled = false;
-    const markSubagentParentControlBarrierReconciled = () => {
-      const waitBarrierId = subagentParentControlAbortIntent?.waitBarrierId;
-      if (!waitBarrierId || subagentParentControlBarrierReconciled || !isRunStoreActive()) return;
-      try {
-        const barrier = this.store.markSubagentParentControlBarrierReconciled({
-          waitBarrierId,
-          source: "runtime_parent_abort",
-        });
-        subagentParentControlBarrierReconciled = true;
-        emitRunEvent({ type: "subagent-wait-barrier-updated", barrier });
-      } catch {
-        // Best-effort marker; startup reconciliation can still recover from the persisted barrier.
-      }
-    };
-    const finishParentRun = (
-      status: "done" | "error" | "aborted" | "interrupted",
-      errorMessage?: string,
-    ) => {
-      const record = this.store.finishRun(run.id, status, errorMessage);
-      if (subagentParentControlAbortIntent) markSubagentParentControlBarrierReconciled();
-      return record;
-    };
-
-    const activeRunHandle: ActiveRun = {
-      abort: async () => {
-        abortRequested = true;
-        queuedMessages.markQueuedMessagesAborted();
-        this.permissions.denyThread(input.threadId);
-        if (isRunStoreActive()) finishParentRun("aborted");
-        if (session) await abortSessionRun(session, input.threadId);
-      },
-      detach: () => {
-        abortRequested = true;
-        queuedMessages.markQueuedMessagesAborted();
-        this.permissions.denyThread(input.threadId);
-        runEventScope.detachFromWorkspace();
-        if (session) void abortSessionRun(session, input.threadId).catch(() => undefined);
-      },
-      queue: (queuedMessage) => queuedMessages.enqueue(queuedMessage),
-      settled: activeRunSettled,
-      dedicatedSessionKind: runtimeInput.dedicatedSessionKind,
-      addActivityListener: runEventScope.addActivityListener,
-    };
-    this.activeRuns.set(input.threadId, activeRunHandle);
-
-    const permissionWaits = createRuntimePermissionWaitController({
+    const abortContext = createRuntimeAbortContextSetup<PiSession>({
       threadId: input.threadId,
-      getActiveToolExecution: () => toolExecutionWatchdog?.active(),
-      getActiveToolExecutionCount: () => toolExecutionWatchdog?.count() ?? 0,
-      getToolMessageId: (toolCallId) => toolMessages.messageId(toolCallId),
-      getToolInputContent: (toolCallId) => toolMessages.inputContent(toolCallId),
-      getToolLongformInputPreview: (toolCallId) => toolMessages.longformInputPreview(toolCallId),
-      getToolEditInputPreview: (toolCallId) => toolMessages.editInputPreview(toolCallId),
-      getToolArgumentProgress: (toolCallId) => toolArgumentProgress.current(toolCallId),
+      runId: run.id,
+      dedicatedSessionKind: runtimeInput.dedicatedSessionKind,
+      activeRunSettled,
+      runEventScope,
+      queuedMessages,
+      outputState,
+      promptLifecycleControls,
+      isRunStoreActive,
+      finishRun: (runId, status, errorMessage) => {
+        this.store.finishRun(runId, status, errorMessage);
+      },
+      denyThread: (threadId) => this.permissions.denyThread(threadId),
+      getSession: () => session,
+      abortSessionRun,
+      markSubagentParentControlBarrierReconciled: (reconcileInput) =>
+        this.store.markSubagentParentControlBarrierReconciled(reconcileInput),
+      cascadeSubagentsForStoppedParentRun: (threadId, runId, reason) =>
+        this.cascadeSubagentsForStoppedParentRun(threadId, runId, reason),
+      emitRunEvent,
+    });
+    const {
+      abortRequested: isAbortRequested,
+      subagentParentControlAbortIntent: currentSubagentParentControlAbortIntent,
+      finishParentRun,
+      consumeSubagentParentControlAbort,
+      requestSubagentParentControlAbort,
+    } = abortContext;
+    this.activeRuns.set(input.threadId, abortContext.activeRun as ActiveRun);
+
+    const permissionWaits = createRuntimePermissionWaitSetup({
+      threadId: input.threadId,
+      toolMessages,
+      toolArgumentProgress,
+      getToolExecutionWatchdog: () => toolExecutionWatchdog,
+      getToolArgumentWatchdog: () => toolArgumentWatchdog,
+      getStreamWatchdog: () => streamWatchdog,
       markRunActivity,
-      markToolExecutionActivity: (toolCallId, toolName) => {
-        toolExecutionWatchdog?.mark(toolCallId, toolName);
-      },
-      pauseStreamWatchdog: () => {
-        streamWatchdog?.pause();
-      },
-      resumeStreamWatchdog: () => {
-        streamWatchdog?.resume();
-      },
-      clearToolArgumentWatchdog: () => {
-        toolArgumentWatchdog?.clear();
-      },
-      scheduleToolArgumentWatchdog: () => {
-        toolArgumentWatchdog?.schedule();
-      },
-      clearToolExecutionWatchdog: () => {
-        toolExecutionWatchdog?.clear();
-      },
-      scheduleToolExecutionWatchdog: () => {
-        toolExecutionWatchdog?.schedule();
-      },
       replaceMessage: (messageId, content, metadata) =>
         this.store.replaceMessage(messageId, content, metadata),
       emitRunEvent,
@@ -1974,113 +1831,42 @@ export class AgentRuntime {
 
     let markOpenToolMessagesFailed: (reason: RuntimeOpenToolFailureReason) => void = () => undefined;
 
-    const collectOpenProviderInterruptionToolSnapshots = (): ProviderInterruptionToolSnapshot[] =>
-      runtimeOpenProviderInterruptionToolSnapshots({
-        toolCallIds: toolMessages.toolCallIds(),
-        workspacePath: thread.workspacePath,
-        runId: run.id,
-        progressForToolCall: (toolCallId) => toolArgumentProgress.current(toolCallId),
-        toolInputs: toolMessages.inputs(),
-        toolRecoveryInputs: toolMessages.recoveryInputs(),
-        toolLabels: toolMessages.labels(),
-        startedToolCallIds,
-        toolIntents: toolIntentSnapshots,
-        persistPreparedArguments: persistPreparedProviderInterruptionToolArguments,
-      });
-
-    const createProviderContinuationState = (inputPayload: {
-      message: string;
-      kind: AmbientStreamFailureKind;
-      retryScheduled: boolean;
-      replaySafe: boolean;
-      continuationSafe?: boolean;
-      retryUsesFreshSession?: boolean;
-      retryAttempt?: number;
-      maxRetries?: number;
-      retryReason?: string;
-      retryDelayMs?: number;
-      openToolCalls?: ProviderInterruptionToolSnapshot[];
-      completedToolMessageCount: number;
-      receivedAnyText?: boolean;
-      stateId?: string;
-    }): ProviderContinuationState => {
-      const nowMs = Date.now();
-      const streamActivity = piStreamActivity.snapshot();
-      return createRuntimeProviderContinuationState({
-        ...inputPayload,
-        nowMs,
-        run: {
-          runId: run.id,
-          threadId: input.threadId,
-          assistantMessageId: runtimeMessages.currentAssistantMessageId(),
-          model: runtimeModel,
-          ...(session?.sessionFile ? { sessionFile: session.sessionFile } : {}),
-        },
-        stream: {
-          eventCount: streamActivity.eventCount,
-          approximatePayloadBytes: streamActivity.approximatePayloadBytes,
-          preStreamTimeoutMs: piPreStreamTimeoutMs,
-          streamIdleTimeoutMs: piStreamIdleTimeoutMs,
-          ...(streamActivity.firstEventAt ? { firstEventAt: streamActivity.firstEventAt } : {}),
-          ...(streamActivity.firstEventType ? { firstEventType: streamActivity.firstEventType } : {}),
-          ...(streamActivity.lastEventAt ? { lastEventAt: streamActivity.lastEventAt } : {}),
-          ...(streamActivity.lastEventType ? { lastEventType: streamActivity.lastEventType } : {}),
-          idleSource: currentPiStreamIdleSource(inputPayload.kind),
-          ...(firstAssistantVisibleTextAt ? { firstVisibleTextAt: firstAssistantVisibleTextAt } : {}),
-          ...(firstToolArgumentAt ? { firstToolArgumentAt } : {}),
-          ...(firstToolExecutionStartedAt ? { firstToolExecutionStartedAt } : {}),
-          assistantOutputChars,
-          thinkingOutputChars,
-          currentAssistantFinalTextChars: currentAssistantFinalText.length,
-          semanticOutputSeen: chatStreamSemanticOutputSeen(),
-          receivedAnyText,
-          ...(piStreamTraceReference ? { trace: piStreamTraceReference } : {}),
-        },
-        toolDiagnostics: toolArgumentProgress.diagnostics(nowMs),
-        interruptedToolCallRecoveryDiagnostics: interruptedToolCallRecovery.diagnostics(nowMs),
-        toolInputs: toolMessages.inputs(),
-        toolIntents: toolIntentSnapshots,
-        toolMetadataFor: toolMessages.metadataFor,
-      });
-    };
-
-    const persistProviderContinuationState = (state: ProviderContinuationState): ProviderContinuationState => {
-      this.store.updateRunDiagnostics(run.id, { providerContinuationState: state });
-      return state;
-    };
-
-    const createProviderInterruptionContinuationInput = (inputPayload: {
-      message: string;
-      diagnostic: RuntimeProviderErrorDiagnostic;
-      tools: ProviderInterruptionToolSnapshot[];
-      completedToolMessageCount: number;
-      continuationState: ProviderContinuationState;
-    }): RuntimeSendMessageInput => buildProviderInterruptionContinuationInput({
+    const providerContinuation = createRuntimeProviderContinuationSetup({
       baseInput: input,
-      permissionMode: this.store.getThread(input.threadId).permissionMode,
-      retrySourceUserMessageId: retrySourceUserMessageId!,
-      attempt: assistantFinalizationRetryNextAttemptFor("provider_interruption_continuation", inputPayload.continuationState.stateId),
-      maxRetries: assistantFinalizationRetryMaxRetries,
-      sessionRecovery: sessionRecoveryForCurrentSession(
-        "provider_interruption_continuation",
-        "Continuing after Ambient/Pi provider interruption using the existing Pi session file when available.",
-        inputPayload.continuationState.stateId,
-      ),
-      message: inputPayload.message,
-      diagnostic: inputPayload.diagnostic,
-      tools: inputPayload.tools,
-      completedToolMessageCount: inputPayload.completedToolMessageCount,
-      hadVisibleAssistantOutput: chatStreamSemanticOutputSeen(),
-      continuationState: inputPayload.continuationState,
+      workspacePath: thread.workspacePath,
+      runId: run.id,
+      threadId: input.threadId,
+      runtimeModel,
+      piPreStreamTimeoutMs,
+      piStreamIdleTimeoutMs,
+      assistantFinalizationRetryMaxRetries,
+      toolMessages,
+      toolArgumentProgress,
+      interruptedToolCallRecovery,
+      startedToolCallIds,
+      toolIntents: toolIntentSnapshots,
+      runtimeMessages,
+      outputState,
+      streamActivity: piStreamActivity,
+      streamTraceState,
+      getPermissionMode: () => this.store.getThread(input.threadId).permissionMode,
+      getRetrySourceUserMessageId: () => retrySourceUserMessageId,
+      getSessionFile: () => session?.sessionFile,
+      chatStreamSemanticOutputSeen,
+      currentPiStreamIdleSource,
+      assistantFinalizationRetryNextAttemptFor,
+      sessionRecoveryForCurrentSession,
+      updateRunDiagnostics: (diagnostics) => this.store.updateRunDiagnostics(run.id, diagnostics),
     });
+    const {
+      collectOpenProviderInterruptionToolSnapshots,
+      createProviderContinuationState,
+      persistProviderContinuationState,
+      createProviderInterruptionContinuationInput,
+    } = providerContinuation;
 
     const reconcileQueueUpdate = (steering: string[], followUp: string[]) => {
       queuedMessages.reconcileQueueUpdate(steering, followUp);
-    };
-    const consumeSubagentParentControlAbort = async () => {
-      if (!subagentParentControlAbortIntent || subagentParentControlAbortConsumed || !isRunStoreActive()) return;
-      subagentParentControlAbortConsumed = true;
-      await this.cascadeSubagentsForStoppedParentRun(input.threadId, run.id, subagentParentControlAbortIntent.reason);
     };
     const cleanupCurrentSession = (options: { clearPersistedSessionFileIfCurrent?: boolean } = {}) => cleanupRuntimeSession({
       session,
@@ -2108,36 +1894,25 @@ export class AgentRuntime {
         ? await this.createWorkflowRecordingReviewSession(thread)
         : await this.getSession(thread, runtimeInput.sessionRecovery);
       if (!isRunStoreActive()) return;
-      if (abortRequested) {
+      if (isAbortRequested()) {
         await abortSessionRun(session, input.threadId);
         throw new Error("Run stopped.");
       }
 
-      const setActiveRunStatus = (status: Exclude<RunStatus, "idle" | "error">) => {
-        if (!isRunStoreActive()) return;
-        if (lastEmittedRunStatus === status) return;
-        lastEmittedRunStatus = status;
-        if (status === "starting" || status === "streaming" || status === "tool") {
-          this.store.updateRunStatus(run.id, status);
-        }
-        emitRunEvent({ type: "run-status", threadId: input.threadId, status });
+      let finalizeAssistantTerminalRun: (pendingCompletion?: Promise<unknown>) => Promise<void> = async () => {
+        throw new Error("Assistant terminal finalization requested before prompt start.");
       };
-      let resolveStreamWatchdogCompletion: ((completion: RuntimePromptCompletion) => void) | undefined;
-      const streamWatchdogCompletion = new Promise<RuntimePromptCompletion>((resolve) => {
-        resolveStreamWatchdogCompletion = resolve;
-      });
-      const signalStreamWatchdogTimeout = () => {
-        resolveStreamWatchdogCompletion?.("stream-timeout");
-      };
-      const signalToolExecutionTimeout = () => {
-        resolveStreamWatchdogCompletion?.("tool-timeout");
-      };
-      const signalParentControlAbort = () => {
-        resolveStreamWatchdogCompletion?.("parent-control-abort");
-      };
-      const activeToolExecutionWatchdog = createRuntimeToolExecutionWatchdog({
+      const promptControllers = createRuntimePromptControllerSetup({
         threadId: input.threadId,
-        defaultIdleTimeoutMs: defaultToolExecutionIdleTimeoutMs,
+        runId: run.id,
+        defaultToolExecutionIdleTimeoutMs,
+        toolArgumentIdleTimeoutMs: piStreamIdleTimeoutMs,
+        emptyAssistantStallTimeoutMs,
+        assistantTerminalGraceMs: ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS,
+        postToolContinuationIdleMs: POST_TOOL_CONTINUATION_IDLE_MS,
+        postToolFinalizationIdleMs: POST_TOOL_FINALIZATION_IDLE_MS,
+        postToolFinalizationTickMs: POST_TOOL_FINALIZATION_TICK_MS,
+        assistantFinalizationRetryMaxRetries,
         isRunStoreActive,
         isPermissionWaiting: () => permissionWaits.isWaiting(),
         pauseStreamWatchdog: () => {
@@ -2146,275 +1921,81 @@ export class AgentRuntime {
         resumeStreamWatchdog: () => {
           streamWatchdog?.resume();
         },
-        abortSessionRun: () => {
-          if (session) void abortSessionRun(session, input.threadId).catch(() => undefined);
-        },
-        signalToolExecutionTimeout,
-        emitRunEvent,
-      });
-      toolExecutionWatchdog = activeToolExecutionWatchdog;
-      const activeToolArgumentWatchdog = createRuntimeToolArgumentWatchdog({
-        threadId: input.threadId,
-        idleTimeoutMs: piStreamIdleTimeoutMs,
-        progress: toolArgumentProgress,
-        isRunStoreActive,
-        isPermissionWaiting: () => permissionWaits.isWaiting(),
-        isToolExecutionActive: () => activeToolExecutionWatchdog.isActive(),
-        isStreamTimedOut: () => streamWatchdogTimedOut,
-        isToolExecutionTimedOut: () => activeToolExecutionWatchdog.isTimedOut(),
-        markStreamTimedOut: () => {
-          streamWatchdogTimedOut = true;
-        },
-        setStreamTimeoutMessage: (message) => {
-          streamWatchdogTimeoutMessage = message;
-        },
-        forceInterruptedToolCallRecovery,
-        persistPiStreamTrace,
-        getState: () => ({
-          outputChars: assistantOutputChars,
-          thinkingChars: thinkingOutputChars,
-          streamEventCount: piStreamActivity.snapshot().eventCount,
-        }),
-        abortSessionRun: () => {
-          if (session) void abortSessionRun(session, input.threadId).catch(() => undefined);
-        },
-        signalStreamWatchdogTimeout,
-        emitRunEvent,
-      });
-      toolArgumentWatchdog = activeToolArgumentWatchdog;
-      const requestSubagentParentControlAbort = (intent: SubagentParentControlAbortIntent) => {
-        if (subagentParentControlAbortIntent) return;
-        subagentParentControlAbortIntent = intent;
-        abortRequested = true;
-        queuedMessages.markQueuedMessagesAborted();
-        this.permissions.denyThread(input.threadId);
-        emitRunEvent({
-          type: "runtime-activity",
-          activity: runtimeSubagentParentControlAbortActivity({
-            threadId: input.threadId,
-            outputChars: assistantOutputChars,
-            thinkingChars: thinkingOutputChars,
-            intent,
-          }),
-        });
-        if (session) void abortSessionRun(session, input.threadId).catch(() => undefined);
-        signalParentControlAbort();
-      };
-      emptyAssistantStallWatchdog = createRuntimeEmptyAssistantStallWatchdog({
-        threadId: input.threadId,
-        idleTimeoutMs: emptyAssistantStallTimeoutMs,
-        isRunStoreActive,
-        isStreamTimedOut: () => streamWatchdogTimedOut,
-        markStreamTimedOut: () => {
-          streamWatchdogTimedOut = true;
-        },
-        setStreamTimeoutMessage: (message) => {
-          streamWatchdogTimeoutMessage = message;
-        },
-        persistPiStreamTrace,
-        getState: () => ({
-          outputChars: assistantOutputChars,
-          thinkingChars: thinkingOutputChars,
-          assistantStartCount: runtimeMessages.assistantStartCount(),
-          receivedAnyText,
-          currentAssistantReceivedText,
-          currentAssistantFinalText,
-          streamEventCount: piStreamActivity.snapshot().eventCount,
-          ...(session?.sessionFile ? { sessionFile: session.sessionFile } : {}),
-        }),
-        abortSessionRun: () => {
-          if (session) void abortSessionRun(session, input.threadId).catch(() => undefined);
-        },
-        signalStreamWatchdogTimeout,
-        emitRunEvent,
-      });
-      assistantTerminalCompletion = createRuntimeAssistantTerminalCompletion({
-        defaultGraceMs: ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS,
-        hasAssistantText: () => receivedAnyText || Boolean(currentAssistantFinalText.trim()),
-      });
-      const markPiStreamActivity = (forceProgress = false, event?: unknown) => {
-        piStreamActivity.markActivity(forceProgress, event);
-      };
-      await this.preflightBeforePrompt(thread, session, promptContent, setActiveRunStatus, isRunStoreActive, emitRunEvent);
-      if (!isRunStoreActive()) return;
-      let runtimeError: string | undefined;
-      let finalizedAfterToolIdle = false;
-      let assistantTerminalCleanupInProgress = false;
-      let postToolContinuation: RuntimePostToolContinuationController;
-      let lastCompletedTool: CompletedToolSnapshot | undefined;
-      let assistantTextObservedAfterLastToolEnd = false;
-      let lastAssistantTerminalEvent: AssistantTerminalEventDiagnostic | undefined;
-      let assistantTerminalCleanupDiagnostic: AssistantTerminalCleanupDiagnostic | undefined;
-      let providerRetryBeforeVisibleOutput = false;
-      let providerRetryRecovered = false;
-      let finalizeAssistantTerminalRun: (pendingCompletion?: Promise<unknown>) => Promise<void> = async () => {
-        throw new Error("Assistant terminal finalization requested before prompt start.");
-      };
-      postToolContinuation = createRuntimePostToolContinuationController({
-        threadId: input.threadId,
-        runId: run.id,
-        continuationIdleMs: POST_TOOL_CONTINUATION_IDLE_MS,
-        finalizationIdleMs: POST_TOOL_FINALIZATION_IDLE_MS,
-        tickMs: POST_TOOL_FINALIZATION_TICK_MS,
-        streamIdleTimeoutMs: piStreamIdleTimeoutMs,
-        maxAttempts: assistantFinalizationRetryMaxRetries,
-        getOutputChars: () => assistantOutputChars,
-        getThinkingChars: () => thinkingOutputChars,
-        getMessages: () => this.store.listMessages(input.threadId),
-        getLastCompletedTool: () => lastCompletedTool,
-        getRunEventSeq: () => runEventSeq,
         resetStreamWatchdog: () => {
           streamWatchdog?.reset();
         },
-        assistantTerminalCompletion: assistantTerminalCompletion.completion,
-        streamWatchdogCompletion,
-        isStreamTimedOut: () => streamWatchdogTimedOut,
+        abortSessionRun: () => {
+          if (session) void abortSessionRun(session, input.threadId).catch(() => undefined);
+        },
+        signalToolExecutionTimeout: promptLifecycleControls.signalToolExecutionTimeout,
+        signalStreamWatchdogTimeout: promptLifecycleControls.signalStreamWatchdogTimeout,
+        streamWatchdogCompletion: promptLifecycleControls.streamWatchdogCompletion,
+        isStreamTimedOut: promptControlState.isStreamTimedOut,
+        markStreamTimedOut: promptControlState.markStreamTimedOut,
+        setStreamTimeoutMessage: promptControlState.setStreamWatchdogTimeoutMessage,
         streamTimeoutMessage: currentPiStreamTimeoutMessage,
-        isToolExecutionTimedOut: () => activeToolExecutionWatchdog.isTimedOut(),
-        toolExecutionTimeoutMessage: () => activeToolExecutionWatchdog.timeoutMessage(),
+        persistPiStreamTrace,
+        toolArgumentProgress,
+        forceInterruptedToolCallRecovery,
+        getOutputChars: outputState.assistantOutputChars,
+        getThinkingChars: outputState.thinkingOutputChars,
+        hasAssistantText: outputState.hasAssistantText,
+        getAssistantStartCount: runtimeMessages.assistantStartCount,
+        getReceivedAnyText: outputState.receivedAnyText,
+        getCurrentAssistantReceivedText: outputState.currentAssistantReceivedText,
+        getCurrentAssistantFinalText: outputState.currentAssistantFinalText,
+        getStreamEventCount: () => piStreamActivity.snapshot().eventCount,
+        getSessionFile: () => session?.sessionFile,
+        getMessages: () => this.store.listMessages(input.threadId),
+        getRunEventSeq: promptControlState.runEventSeq,
         steerContinuation: (prompt) => session!.steer(prompt),
         finalizeAssistantTerminalRun: (pendingCompletion) => finalizeAssistantTerminalRun(pendingCompletion),
         emitRunEvent,
       });
-      const applyRuntimeAssistantEndEvent = (event: RuntimeAssistantEndEvent, rawEvent: unknown, trailingVisibleText?: string) => {
-        const cleanupAbort = shouldIgnoreAssistantTerminalCleanupError(event.error);
-        const assistantEnd = runtimeAssistantEndEventModel(event, {
-          cleanupAbort,
-          trailingVisibleText,
-          receivedAnyText,
-          currentAssistantReceivedText,
-          currentAssistantFinalText,
-          assistantOutputChars,
-          assistantTextObservedAfterLastToolEnd,
-          hasLastCompletedTool: Boolean(lastCompletedTool),
-          hasLastAssistantTerminalEvent: Boolean(lastAssistantTerminalEvent),
-        });
-        if (assistantEnd.runtimeError.kind === "set") runtimeError = assistantEnd.runtimeError.message;
-        if (assistantEnd.shouldRecordTerminalDiagnostic) {
-          lastAssistantTerminalEvent = assistantTerminalEventDiagnostic(rawEvent, event.finalText ?? "", event.error);
-        }
-        receivedAnyText = assistantEnd.receivedAnyText;
-        currentAssistantReceivedText = assistantEnd.currentAssistantReceivedText;
-        currentAssistantFinalText = assistantEnd.currentAssistantFinalText;
-        assistantOutputChars = assistantEnd.assistantOutputChars;
-        assistantTextObservedAfterLastToolEnd = assistantEnd.assistantTextObservedAfterLastToolEnd;
-        if (assistantEnd.markFirstAssistantVisibleText) firstAssistantVisibleTextAt = firstAssistantVisibleTextAt ?? new Date().toISOString();
-        if (assistantEnd.primaryMessageOperation.kind === "replace") {
-          const updated = runtimeMessages.replaceCurrentAssistant(
-            assistantEnd.primaryMessageOperation.content,
-            assistantEnd.primaryMessageOperation.metadata,
-          );
-          emitRunEvent({ type: "message-updated", message: updated });
-        } else {
-          runtimeMessages.finishCurrentAssistantMessage(assistantEnd.primaryMessageOperation.status, currentAssistantFinalText);
-        }
-        if (assistantEnd.trailingMessageOperation) {
-          runtimeMessages.appendAssistantDelta(assistantEnd.trailingMessageOperation.delta);
-        }
-        assistantTerminalCompletion.schedule(ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS);
+      const activeToolExecutionWatchdog = promptControllers.toolExecutionWatchdog;
+      toolExecutionWatchdog = activeToolExecutionWatchdog;
+      const activeToolArgumentWatchdog = promptControllers.toolArgumentWatchdog;
+      toolArgumentWatchdog = activeToolArgumentWatchdog;
+      emptyAssistantStallWatchdog = promptControllers.emptyAssistantStallWatchdog;
+      assistantTerminalCompletion = promptControllers.assistantTerminalCompletion;
+      const markPiStreamActivity = (forceProgress = false, event?: unknown) => {
+        piStreamActivity.markActivity(forceProgress, event);
       };
-      const applyRuntimeAssistantUpdateEvent = (event: RuntimeAssistantUpdateEvent, visibleDelta?: string) => {
-        const assistantUpdate = runtimeAssistantUpdateEventModel(event, {
-          cleanupAbort: shouldIgnoreAssistantTerminalCleanupError(event.error),
-          visibleDelta,
-          receivedAnyText,
-          currentAssistantReceivedText,
-          currentAssistantFinalText,
-          assistantOutputChars,
-          assistantTextObservedAfterLastToolEnd,
-          hasLastCompletedTool: Boolean(lastCompletedTool),
-        });
-        if (assistantUpdate.runtimeError.kind === "set") runtimeError = assistantUpdate.runtimeError.message;
-        receivedAnyText = assistantUpdate.receivedAnyText;
-        currentAssistantReceivedText = assistantUpdate.currentAssistantReceivedText;
-        currentAssistantFinalText = assistantUpdate.currentAssistantFinalText;
-        assistantOutputChars = assistantUpdate.assistantOutputChars;
-        assistantTextObservedAfterLastToolEnd = assistantUpdate.assistantTextObservedAfterLastToolEnd;
-        if (assistantUpdate.markFirstAssistantVisibleText) firstAssistantVisibleTextAt = firstAssistantVisibleTextAt ?? new Date().toISOString();
-        if (assistantUpdate.messageOperation?.kind === "append") {
-          runtimeMessages.appendAssistantDelta(assistantUpdate.messageOperation.delta);
-        }
-        if (assistantUpdate.markPiStreamActivity) markPiStreamActivity();
-        if (assistantUpdate.activeRunStatus) setActiveRunStatus(assistantUpdate.activeRunStatus);
-      };
-      const applyRuntimeThinkingEvent = (event: RuntimeThinkingEvent) => {
-        const thinkingEvent = runtimeThinkingEventModel(event, {
-          currentThinkingReceivedText,
-          currentThinkingFinalText,
-          thinkingOutputChars,
-        });
-        currentThinkingReceivedText = thinkingEvent.currentThinkingReceivedText;
-        currentThinkingFinalText = thinkingEvent.currentThinkingFinalText;
-        thinkingOutputChars = thinkingEvent.thinkingOutputChars;
-        if (thinkingEvent.messageOperation?.kind === "ensure") {
-          runtimeMessages.ensureThinkingMessage();
-        } else if (thinkingEvent.messageOperation?.kind === "append") {
-          runtimeMessages.appendThinkingDelta(thinkingEvent.messageOperation.delta);
-        } else if (thinkingEvent.messageOperation?.kind === "replace") {
-          const updated = runtimeMessages.replaceCurrentThinking(
-            thinkingEvent.messageOperation.content,
-            thinkingEvent.messageOperation.metadata,
-          );
-          emitRunEvent({ type: "message-updated", message: updated });
-        }
-        if (thinkingEvent.markPiStreamActivity) markPiStreamActivity();
-        if (thinkingEvent.activeRunStatus) setActiveRunStatus(thinkingEvent.activeRunStatus);
-        if (thinkingEvent.finish) runtimeMessages.finishCurrentThinkingMessage("done", currentThinkingFinalText);
-      };
-      const applyRuntimeCompactionEvent = (event: RuntimeCompactionEvent) => {
-        const compactionEvent = runtimeCompactionEventModel(event, {
-          threadId: input.threadId,
-        });
-        if (compactionEvent.kind === "start") setActiveRunStatus(compactionEvent.activeRunStatus);
-        if (session) this.recordContextUsageSnapshot(input.threadId, session, compactionEvent.snapshotMessage);
-        emitRunEvent({
-          type: "runtime-activity",
-          activity: compactionEvent.activity,
-        });
-        if (compactionEvent.kind === "end") {
-          if (compactionEvent.runtimeError.kind === "set") runtimeError = compactionEvent.runtimeError.message;
-          if (compactionEvent.activeRunStatus) setActiveRunStatus(compactionEvent.activeRunStatus);
-        }
-      };
-      const applyRuntimeProviderRetryEvent = (event: RuntimeProviderRetryEvent) => {
-        const retryEvent = runtimeProviderRetryEventModel(event, {
-          threadId: input.threadId,
-          providerRetryAttemptCount,
-          providerRetryLastError,
-          providerRetryBeforeVisibleOutput,
-          providerRetryRecovered,
-          receivedAnyText,
-          assistantOutputChars,
-          thinkingOutputChars,
-          activeToolMessageCount: toolMessages.size(),
-        });
-        providerRetryAttemptCount = retryEvent.providerRetryAttemptCount;
-        providerRetryLastError = retryEvent.providerRetryLastError;
-        providerRetryBeforeVisibleOutput = retryEvent.providerRetryBeforeVisibleOutput;
-        providerRetryRecovered = retryEvent.providerRetryRecovered;
-        if (retryEvent.kind === "start") {
-          if (retryEvent.runtimeError.kind === "clear") runtimeError = undefined;
-          setActiveRunStatus(retryEvent.activeRunStatus);
-        } else if (retryEvent.runtimeError.kind === "clear") {
-          runtimeError = undefined;
-        }
-        emitRunEvent({
-          type: "runtime-activity",
-          activity: retryEvent.activity,
-        });
-        if (retryEvent.kind === "end") {
-          if (retryEvent.runtimeError.kind === "set") runtimeError = retryEvent.runtimeError.message;
-          if (retryEvent.activeRunStatus) setActiveRunStatus(retryEvent.activeRunStatus);
-        }
-      };
-      const shouldIgnoreAssistantTerminalCleanupError = (error: string | undefined): boolean => {
-        if (!error || !assistantTerminalCleanupInProgress || !receivedAnyText) return false;
-        return /\b(?:request was aborted|ambient request aborted|run aborted|aborted|abort|canceled|cancelled)\b/i.test(error);
-      };
+      await this.preflightBeforePrompt(
+        thread,
+        session,
+        promptContent,
+        promptLifecycleControls.setActiveRunStatus,
+        isRunStoreActive,
+        emitRunEvent,
+      );
+      if (!isRunStoreActive()) return;
+      const promptRunState = promptControllers.promptRunState;
+      const postToolContinuation = promptControllers.postToolContinuation;
+      const streamEventDispatcher = createRuntimePromptStreamDispatcherSetup({
+        threadId: input.threadId,
+        assistantTerminalGraceMs: ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS,
+        outputState,
+        promptRunState,
+        providerRetryState,
+        runtimeMessages,
+        emptyAssistantStallWatchdog,
+        assistantTerminalCompletion,
+        postToolContinuation,
+        toolMessages,
+        markPiStreamActivity: () => markPiStreamActivity(),
+        setActiveRunStatus: promptLifecycleControls.setActiveRunStatus,
+        reconcileQueueUpdate,
+        recordContextUsageSnapshot: (snapshotMessage) => {
+          if (session) this.recordContextUsageSnapshot(input.threadId, session, snapshotMessage);
+        },
+        emitRunEvent,
+      });
       markOpenToolMessagesFailed = (reason: RuntimeOpenToolFailureReason) => {
         if (toolMessages.markOpenToolMessagesFailed(reason) > 0) persistToolArgumentDiagnostics(true);
       };
-      const toolEventDispatcher = createRuntimeToolEventDispatcher({
+      const toolEventDispatcher = createRuntimeToolEventDispatcherSetup({
+        threadId: input.threadId,
         runId: run.id,
         workspacePath: thread.workspacePath,
         permissionMode: thread.permissionMode,
@@ -2424,334 +2005,276 @@ export class AgentRuntime {
         toolExecutionWatchdog: activeToolExecutionWatchdog,
         postToolContinuation,
         startedToolCallIds,
-        clearEmptyAssistantStallWatchdog: () => emptyAssistantStallWatchdog.clear(),
-        clearAssistantTerminalCompletion: () => assistantTerminalCompletion.clear(),
-        markFirstToolArgumentObserved: () => {
-          firstToolArgumentAt = firstToolArgumentAt ?? new Date().toISOString();
-        },
-        markFirstToolExecutionObserved: () => {
-          firstToolExecutionStartedAt = firstToolExecutionStartedAt ?? new Date().toISOString();
-        },
-        rememberToolIntent,
-        trackInterruptedToolCallRecovery,
-        markInterruptedToolCallNoLongerRecoverable,
-        persistToolArgumentDiagnostics,
-        setActiveRunToolStatus: () => setActiveRunStatus("tool"),
-        setLastCompletedTool: (completedTool) => {
-          lastCompletedTool = completedTool;
-        },
-        markAssistantTextNotObservedAfterLastToolEnd: () => {
-          assistantTextObservedAfterLastToolEnd = false;
-        },
+        emptyAssistantStallWatchdog,
+        assistantTerminalCompletion,
+        streamTraceState,
+        toolRecovery,
+        promptLifecycleControls,
+        promptRunState,
         requestSubagentParentControlAbort,
-        refreshBrowsersForArtifactChange: (artifactPath) => {
-          void this.refreshBrowsersForArtifactChange(input.threadId, thread.workspacePath, artifactPath);
+        refreshBrowsersForArtifactChange: (threadId, workspacePath, artifactPath) =>
+          this.refreshBrowsersForArtifactChange(threadId, workspacePath, artifactPath),
+      });
+
+      const unsubscribe = subscribeRuntimePromptEvents({
+        subscribe: (handler) => session!.subscribe(handler as (event: any) => void),
+        markRunActivity,
+        incrementRunEventSeq: promptControlState.incrementRunEventSeq,
+        markPostToolEvent: postToolContinuation.markEvent,
+        recordPiStreamTraceEvent,
+        markPiStreamActivity,
+        streamEventDispatcher,
+        toolEventDispatcher,
+      });
+
+      const promptExecution = createRuntimePromptExecutionSetup({
+        threadId: input.threadId,
+        session,
+        promptContent,
+        images: promptImageInputs.images,
+        promptControlState,
+        streamTimeoutMessage: currentPiStreamTimeoutMessage,
+        streamTraceState,
+        assistantTerminalCompletion,
+        outputState,
+        streamIdleTimeoutMs: piStreamIdleTimeoutMs,
+        abortGraceMs: POST_TOOL_ABORT_GRACE_MS,
+        promptRunState,
+        abortSessionRun: (cleanupSession, threadId) => abortSessionRun(cleanupSession as PiSession, threadId),
+        removeActiveSessionIfCurrent: (cleanupSession) => {
+          if (activeSessions.get(input.threadId) === cleanupSession) activeSessions.delete(input.threadId);
         },
+        emitRunEvent,
       });
-
-      const unsubscribe = session.subscribe((event: any) => {
-        if (!markRunActivity()) return;
-        runEventSeq += 1;
-        postToolContinuation.markEvent();
-        const normalized = normalizePiEvent(event);
-        const assistantStartEvent = event?.type === "message_start" && event.message?.role === "assistant";
-        if (normalized.kind !== "unknown" || assistantStartEvent) {
-          recordPiStreamTraceEvent(event, assistantStartEvent && normalized.kind === "unknown" ? { kind: "assistant-start" } : normalized);
-          markPiStreamActivity(false, event);
-        }
-
-        if (assistantStartEvent) {
-          runtimeMessages.startAssistantMessage();
-          emptyAssistantStallWatchdog.schedule();
-          return;
-        }
-
-        if (normalized.kind === "queue-update") {
-          emptyAssistantStallWatchdog.clear();
-          reconcileQueueUpdate(normalized.steering, normalized.followUp);
-          return;
-        }
-
-        if (normalized.kind === "compaction-start" || normalized.kind === "compaction-end") {
-          emptyAssistantStallWatchdog.clear();
-          applyRuntimeCompactionEvent(normalized);
-          return;
-        }
-
-        if (normalized.kind === "auto-retry-start" || normalized.kind === "auto-retry-end") {
-          emptyAssistantStallWatchdog.clear();
-          applyRuntimeProviderRetryEvent(normalized);
-          return;
-        }
-
-        if (
-          normalized.kind === "thinking-start" ||
-          normalized.kind === "thinking-update" ||
-          normalized.kind === "thinking-end"
-        ) {
-          emptyAssistantStallWatchdog.clear();
-          applyRuntimeThinkingEvent(normalized);
-          return;
-        }
-
-        if (normalized.kind === "assistant-update") {
-          if (normalized.error) emptyAssistantStallWatchdog.clear();
-          let visibleDelta: string | undefined;
-          if (normalized.delta) {
-            emptyAssistantStallWatchdog.clear();
-            visibleDelta = assistantVisibleTextFilter.push(normalized.delta);
-          }
-          if (normalized.finalText && !currentAssistantReceivedText) {
-            emptyAssistantStallWatchdog.clear();
-          }
-          applyRuntimeAssistantUpdateEvent(normalized, visibleDelta);
-          return;
-        }
-
-        if (normalized.kind === "assistant-end") {
-          emptyAssistantStallWatchdog.clear();
-          const trailingVisibleText = assistantVisibleTextFilter.flush();
-          applyRuntimeAssistantEndEvent(normalized, event, trailingVisibleText);
-          return;
-        }
-
-        if (normalized.kind === "agent-end") {
-          emptyAssistantStallWatchdog.clear();
-          postToolContinuation.markAgentEnd();
-          const agentEnd = runtimeAgentEndEventModel(normalized, {
-            rawEvent: event,
-            shouldIgnoreError: shouldIgnoreAssistantTerminalCleanupError,
-            receivedAnyText,
-            currentAssistantFinalText,
-            assistantTextObservedAfterLastToolEnd,
-            hasLastCompletedTool: Boolean(lastCompletedTool),
-          });
-          lastAssistantTerminalEvent = agentEnd.terminalDiagnostic;
-          if (agentEnd.runtimeError.kind === "set") runtimeError = agentEnd.runtimeError.message;
-          currentAssistantFinalText = agentEnd.currentAssistantFinalText;
-          assistantTextObservedAfterLastToolEnd = agentEnd.assistantTextObservedAfterLastToolEnd;
-          assistantTerminalCompletion.schedule(ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS);
-          return;
-        }
-
-        if (toolEventDispatcher.handle(normalized, event, runEventSeq)) return;
-      });
-
-      piPromptStartLine = session.sessionFile ? countJsonlEntries(session.sessionFile) : undefined;
-      piPromptUserLine = piPromptStartLine === undefined ? undefined : piPromptStartLine + 1;
-      promptContentSha256 = createHash("sha256").update(promptContent).digest("hex");
-      const promptStartedAt = Date.now();
-      const promptPromise = session
-        .prompt(promptContent, {
-          ...(promptImageInputs.images.length ? { images: promptImageInputs.images } : {}),
-          streamingBehavior: session.isStreaming ? "steer" : undefined,
-          source: { type: "user" },
-        } as any)
-        .then((): PromptCompletion => "prompt")
-        .catch((error) => {
-          if (streamWatchdogTimedOut) throw new Error(currentPiStreamTimeoutMessage());
-          throw error;
-        });
-      finalizeAssistantTerminalRun = async (pendingCompletion?: Promise<unknown>) => {
-        const terminalSession = session!;
-        const cleanup = await finalizeRuntimeAssistantTerminalCleanup({
-          threadId: input.threadId,
-          promptStartedAtMs: promptStartedAt,
-          assistantTerminalGraceMs: assistantTerminalCompletion.graceMs(),
-          outputChars: assistantOutputChars,
-          thinkingChars: thinkingOutputChars,
-          receivedAnyText,
-          currentAssistantReceivedText,
-          currentAssistantFinalTextChars: currentAssistantFinalText.length,
-          streamIdleTimeoutMs: piStreamIdleTimeoutMs,
-          abortGraceMs: POST_TOOL_ABORT_GRACE_MS,
-          session: terminalSession,
-          lastAssistantTerminalEvent,
-          promptCompletion: promptPromise,
-          pendingCompletion,
-          markCleanupInProgress: () => {
-            assistantTerminalCleanupInProgress = true;
-          },
-          abortSessionRun: (cleanupSession, threadId) => abortSessionRun(cleanupSession as typeof terminalSession, threadId),
-          removeActiveSessionIfCurrent: (cleanupSession) => {
-            if (activeSessions.get(input.threadId) === cleanupSession) activeSessions.delete(input.threadId);
-          },
-          emitRunEvent,
-        });
-        assistantTerminalCleanupDiagnostic = cleanup.diagnostic;
-      };
-      streamWatchdog = createRuntimeStreamWatchdogController({
+      finalizeAssistantTerminalRun = promptExecution.finalizeAssistantTerminalRun;
+      const promptCompletionLoop = await runRuntimePromptCompletionSetup<PiSession>({
         threadId: input.threadId,
         preStreamTimeoutMs: piPreStreamTimeoutMs,
         idleTimeoutMs: piStreamIdleTimeoutMs,
+        session,
         isRunStoreActive,
-        shouldPauseForExternalActivity: () => permissionWaits.isWaiting() || activeToolExecutionWatchdog.isActive(),
-        markStreamTimedOut: () => {
-          streamWatchdogTimedOut = true;
-        },
-        setStreamTimeoutMessage: (message) => {
-          streamWatchdogTimeoutMessage = message;
-        },
+        permissionWaits,
+        toolExecutionWatchdog: activeToolExecutionWatchdog,
+        toolArgumentWatchdog: activeToolArgumentWatchdog,
+        emptyAssistantStallWatchdog,
+        promptControlState,
         persistPiStreamTrace,
-        getState: () => ({
-          outputChars: assistantOutputChars,
-          thinkingChars: thinkingOutputChars,
-          streamEventCount: piStreamActivity.snapshot().eventCount,
-        }),
-        abortSessionRun: () => {
-          if (session) void abortSessionRun(session, input.threadId).catch(() => undefined);
-        },
-        signalStreamWatchdogTimeout,
+        outputState,
+        streamActivity: piStreamActivity,
+        abortSessionRun,
+        promptLifecycleControls,
         emitRunEvent,
-      });
-      streamWatchdog.pauseIfNeeded();
-      queueReady = true;
-      await queuedMessages.flushPending();
-      const promptCompletionLoop = await runRuntimePromptCompletionLoop({
-        promptCompletion: promptPromise,
-        postToolContinuation,
-        assistantTerminalCompletion: assistantTerminalCompletion.completion,
-        streamWatchdogCompletion,
-        hasLastCompletedTool: () => Boolean(lastCompletedTool),
-        assistantTextObservedAfterLastToolEnd: () => assistantTextObservedAfterLastToolEnd,
-        isStreamTimedOut: () => streamWatchdogTimedOut,
-        streamTimeoutMessage: currentPiStreamTimeoutMessage,
-        isToolExecutionTimedOut: () => activeToolExecutionWatchdog.isTimedOut(),
-        toolExecutionTimeoutMessage: () => activeToolExecutionWatchdog.timeoutMessage(),
-        finalizeAssistantTerminalRun: () => finalizeAssistantTerminalRun(),
-        abortSessionRun: () => abortSessionRun(session!, input.threadId),
-        waitForPromptAfterAbort: () => withTimeout(
-          promptPromise.catch(() => "prompt" as PromptCompletion),
-          POST_TOOL_ABORT_GRACE_MS,
-        ),
-        cleanup: () => {
-          assistantTerminalCompletion.clear();
-          emptyAssistantStallWatchdog.clear();
-          activeToolArgumentWatchdog.clear();
-          activeToolExecutionWatchdog.clear();
-          streamWatchdog?.stop();
-          postToolContinuation.stop();
-          unsubscribe();
+        setStreamWatchdog: (controller) => {
+          streamWatchdog = controller;
         },
+        queuedMessages,
+        promptExecution,
+        postToolContinuation,
+        assistantTerminalCompletion,
+        promptRunState,
+        streamTimeoutMessage: currentPiStreamTimeoutMessage,
+        finalizeAssistantTerminalRun: () => finalizeAssistantTerminalRun(),
+        unsubscribePromptEvents: unsubscribe,
       });
-      finalizedAfterToolIdle = promptCompletionLoop.finalizedAfterToolIdle;
+      promptRunState.setFinalizedAfterToolIdle(promptCompletionLoop.finalizedAfterToolIdle);
       if (!isRunStoreActive()) return;
 
-      await consumeSubagentParentControlAbort();
-
-      if (runtimeError && !finalizedAfterToolIdle) {
-        throw new Error(runtimeError);
-      }
-
-      runtimeMessages.finishCurrentThinkingMessage(abortRequested ? "aborted" : "done", currentThinkingFinalText);
-
-      this.recordContextUsageSnapshot(input.threadId, session);
-
-      const currentAssistantVisibleContent = runtimeMessages.currentMessageContent(runtimeMessages.currentAssistantMessageId(), currentAssistantFinalText);
-      const assistantTerminalCleanupInterrupted = Boolean(
-        assistantTerminalCleanupDiagnostic &&
-        (
-          lastAssistantTerminalEvent?.stopReason === "aborted" ||
-          lastAssistantTerminalEvent?.stopReason === "error" ||
-          lastAssistantTerminalEvent?.error
-        ),
-      );
-      const emptyAssistantRetryReason: AssistantFinalizationRetryReason = "empty_assistant_response";
-      const current = this.store.getThread(input.threadId);
-      const sessionDisposition = finalizeRuntimeSessionDispositionAfterRun({
-        abortRequested,
-        finalizedAfterToolIdle,
-        currentAssistantVisibleContent,
-        receivedAnyText,
-        currentAssistantFinalTextChars: currentAssistantFinalText.length,
-        activeToolMessageCount: toolMessages.size(),
-        canScheduleEmptyAssistantRetry: canScheduleAssistantFinalizationRetryFor(emptyAssistantRetryReason),
-        emptyAssistantRetryAttemptsUsed: assistantFinalizationRetryAttemptsUsedFor(emptyAssistantRetryReason),
-        emptyAssistantRetryNextAttempt: assistantFinalizationRetryNextAttemptFor(emptyAssistantRetryReason),
-        maxRetries: assistantFinalizationRetryMaxRetries,
-        retryDelayMs: pendingEmptyResponseRetryDelayMs,
+      const providerRetry = providerRetryState.snapshot();
+      const promptRun = promptRunState.snapshot();
+      const promptSuccess = await this.handlePromptSuccess({
+        sendInput: input,
+        runId: run.id,
+        runWorkspacePath,
+        session,
+        runtimeMessages,
+        toolMessages,
+        plannerFinalizationSources,
+        runtimeError: promptRun.runtimeError,
+        abortRequested: isAbortRequested(),
+        finalizedAfterToolIdle: promptRun.finalizedAfterToolIdle,
+        currentThinkingFinalText: outputState.currentThinkingFinalText(),
+        currentAssistantFinalText: outputState.currentAssistantFinalText(),
+        receivedAnyText: outputState.receivedAnyText(),
+        pendingEmptyResponseRetryDelayMs: pendingFollowUps.pendingEmptyResponseRetryDelayMs(),
         activeRetryReason: activeAssistantFinalizationRetry?.reason,
         retrySourceUserMessageId,
-        sessionFile: session.sessionFile,
-        lastAssistantTerminalEvent,
-        providerRetryBeforeVisibleOutput,
-        providerRetryRecovered,
+        lastAssistantTerminalEvent: promptRun.lastAssistantTerminalEvent,
+        assistantTerminalCleanupDiagnostic: promptRun.assistantTerminalCleanupDiagnostic,
+        subagentParentControlAbortIntent: currentSubagentParentControlAbortIntent(),
+        providerRetryBeforeVisibleOutput: providerRetry.providerRetryBeforeVisibleOutput,
+        providerRetryRecovered: providerRetry.providerRetryRecovered,
+        providerRetryAttemptCount: providerRetry.providerRetryAttemptCount,
+        providerRetryLastError: providerRetry.providerRetryLastError,
         usesDedicatedReviewSession,
-        currentThreadPiSessionFile: current.piSessionFile,
-      });
-      const {
-        emptyAssistantFinalization,
-        awaitingInputAfterTools,
-        emptyAssistantResponse,
-        retryEmptyAssistantResponse,
-        emptyResponseText,
-        discardProviderRetrySession,
-      } = sessionDisposition;
-      if (sessionDisposition.shouldDisposeSessionForEmptyResponseRetry || sessionDisposition.shouldDisposeSessionForProviderRetry) {
-        cleanupCurrentSession();
-      }
-      if (sessionDisposition.shouldCreateEmptyResponseRetry) {
-        pendingEmptyResponseRetry = createAssistantFinalizationRetryInput("empty_assistant_response");
-      }
-      if (sessionDisposition.sessionFileDisposition?.kind === "clear") {
-        emitRunEvent({
-          type: "thread-updated",
-          thread: this.store.updateThreadSettings(input.threadId, { piSessionFile: null }),
-        });
-      } else if (sessionDisposition.sessionFileDisposition?.kind === "commit") {
-        await this.commitThreadPiSessionFile({
-          threadId: input.threadId,
-          sessionFile: sessionDisposition.sessionFileDisposition.sessionFile,
-          currentPiSessionFile: sessionDisposition.sessionFileDisposition.currentPiSessionFile,
-          reason: sessionDisposition.sessionFileDisposition.reason,
-          emit: emitRunEvent,
-        });
-      }
-      const abortMessage = subagentParentControlAbortIntent?.message ?? "Run stopped.";
-      const successfulFinalization = await finalizeSuccessfulRuntimeRun({
-        threadId: input.threadId,
-        runId: run.id,
-        workspacePath: runWorkspacePath,
-        currentAssistantMessageId: runtimeMessages.currentAssistantMessageId(),
-        currentAssistantVisibleContent,
-        abortRequested,
-        abortMessage,
-        receivedAnyText,
-        finalizedAfterToolIdle,
-        awaitingInputAfterTools,
-        emptyAssistantResponse,
-        retryEmptyAssistantResponse,
-        emptyResponseText,
-        emptyAssistantResponseMetadata: emptyAssistantFinalization.metadata,
-        assistantTerminalCleanupInterrupted,
-        assistantTerminalCleanupDiagnostic,
-        subagentParentControlAbortIntent,
-        providerRetryBeforeVisibleOutput,
-        providerRetryRecovered,
-        providerRetryAttemptCount,
-        discardProviderRetrySession,
-        providerRetrySessionFile: session.sessionFile,
-        providerRetryLastError,
-        hasPlannerFinalizationSources: plannerFinalizationSources.length > 0,
-        resolveSubagentFinalizationBlock: () => this.subagentFinalizationBarrierBlock(input.threadId, run.id),
-        resolveCallableWorkflowFinalizationBlock: () => this.callableWorkflowFinalizationBlock(input.threadId, run.id),
-        recordSubagentFinalizationBlockedParentMailbox: (block) =>
-          this.recordSubagentFinalizationBlockedParentMailbox(input.threadId, run.id, block),
-        recordCallableWorkflowFinalizationBlockedParentMailbox: (block) =>
-          this.recordCallableWorkflowFinalizationBlockedParentMailbox(input.threadId, run.id, block),
-        replaceAssistantMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
-        createPlannerPlanArtifactFromMessage: (message) => this.createPlannerPlanArtifactFromMessage(message),
+        assistantFinalizationRetryMaxRetries,
+        canScheduleAssistantFinalizationRetryFor,
+        assistantFinalizationRetryAttemptsUsedFor,
+        assistantFinalizationRetryNextAttemptFor,
+        createAssistantFinalizationRetryInput,
+        consumeSubagentParentControlAbort,
+        cleanupCurrentSession,
         finishPlannerFinalizationSources,
         finishParentRun,
-        recordVoiceDispatch: (message) => this.recordVoiceDispatch(message),
-        getThread: () => this.store.getThread(input.threadId),
         emitRunEvent,
       });
-      if (successfulFinalization.plannerRepairPrompt) {
-        const repairThread = this.store.getThread(input.threadId);
-        pendingPlannerRepairFollowUp = {
-          threadId: input.threadId,
-          content: successfulFinalization.plannerRepairPrompt,
+      pendingFollowUps.applyPromptSuccess(promptSuccess);
+    } catch (error) {
+      await handleRuntimePromptFailure({
+        error,
+        threadId: input.threadId,
+        workspacePath: runWorkspacePath,
+        usesDedicatedReviewSession,
+        activeAssistantFinalizationRetry,
+        assistantFinalizationRetryMaxRetries,
+        interruptedToolCallRecoveryAttemptsUsed,
+        interruptedToolCallRecoveryMaxRetries,
+        canScheduleInterruptedToolCallRecovery,
+        pendingEmptyResponseRetryDelayMs: pendingFollowUps.pendingEmptyResponseRetryDelayMs(),
+        retrySourceUserMessageId,
+        runtimeMessages,
+        toolMessages,
+        toolArgumentProgress,
+        interruptedToolCallRecovery,
+        startedToolCallIds,
+        abortRequested: isAbortRequested,
+        streamWatchdogTimedOut: promptControlState.isStreamTimedOut,
+        currentPiStreamFailureKind,
+        currentAssistantFinalText: outputState.currentAssistantFinalText,
+        currentThinkingFinalText: outputState.currentThinkingFinalText,
+        receivedAnyText: outputState.receivedAnyText,
+        subagentParentControlAbortIntent: currentSubagentParentControlAbortIntent,
+        isRunStoreActive,
+        consumeSubagentParentControlAbort,
+        persistPiStreamTrace,
+        canScheduleAssistantFinalizationRetryFor,
+        assistantFinalizationRetryAttemptsUsedFor,
+        assistantFinalizationRetryNextAttemptFor,
+        sessionRecoveryForCurrentSession,
+        createAssistantFinalizationRetryInput,
+        createInterruptedToolCallRecoveryInput,
+        collectOpenProviderInterruptionToolSnapshots,
+        createProviderContinuationState,
+        persistProviderContinuationState,
+        persistCurrentSessionPointerForRetry,
+        createProviderInterruptionContinuationInput,
+        setPendingEmptyResponseRetry: pendingFollowUps.setPendingEmptyResponseRetry,
+        setPendingInterruptedToolCallRecoveryFollowUp: pendingFollowUps.setPendingInterruptedToolCallRecoveryFollowUp,
+        setPendingProviderInterruptionContinuation: pendingFollowUps.setPendingProviderInterruptionContinuation,
+        providerRetryAttemptCount: providerRetryState.providerRetryAttemptCount,
+        setProviderRetryAttemptCount: providerRetryState.setProviderRetryAttemptCount,
+        setProviderRetryLastError: providerRetryState.setProviderRetryLastError,
+        cleanupCurrentSession,
+        markOpenToolMessagesFailed,
+        persistToolArgumentDiagnostics,
+        replaceToolMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
+        finishPlannerFinalizationSources,
+        finishParentRun,
+        chatStreamInterruptionDiagnostic,
+        chatStreamInterruptionNotice,
+        emitRunEvent,
+      });
+    } finally {
+      const pendingFollowUpsSnapshot = pendingFollowUps.snapshot();
+      await this.finalizeSendAfterRun({
+        sendInput: input,
+        hooks,
+        runId: run.id,
+        runWorkspacePath,
+        runGoalId,
+        runGoalStartedAtMs,
+        promptContent,
+        currentAssistantFinalText: outputState.currentAssistantFinalText(),
+        assistantOutputChars: outputState.assistantOutputChars(),
+        currentThinkingFinalText: outputState.currentThinkingFinalText(),
+        thinkingOutputChars: outputState.thinkingOutputChars(),
+        abortRequested: isAbortRequested(),
+        pendingPlannerRepairFollowUp: pendingFollowUpsSnapshot.pendingPlannerRepairFollowUp,
+        pendingEmptyResponseRetry: pendingFollowUpsSnapshot.pendingEmptyResponseRetry,
+        pendingInterruptedToolCallRecoveryFollowUp: pendingFollowUpsSnapshot.pendingInterruptedToolCallRecoveryFollowUp,
+        pendingProviderInterruptionContinuation: pendingFollowUpsSnapshot.pendingProviderInterruptionContinuation,
+        pendingEmptyResponseRetryDelayMs: pendingFollowUpsSnapshot.pendingEmptyResponseRetryDelayMs,
+        usesDedicatedReviewSession,
+        session,
+        hasWorkflowPlanEditIntent,
+        isRunStoreActive,
+        cleanupCurrentSession,
+        emitRunEvent,
+        toolArgumentWatchdog,
+        toolExecutionWatchdog,
+        queuedMessages,
+        toolMessages,
+        resolveActiveRunSettled,
+      });
+    }
+  }
+
+  private async handlePromptSuccess(
+    input: HandleAgentRuntimePromptSuccessInput,
+  ): Promise<{
+    pendingEmptyResponseRetry?: RuntimeSendMessageInput | undefined;
+    pendingPlannerRepairFollowUp?: SendMessageInput | undefined;
+  }> {
+    const emptyAssistantRetryReason: AssistantFinalizationRetryReason = "empty_assistant_response";
+    const currentThread = this.store.getThread(input.sendInput.threadId);
+    const result = await handleRuntimePromptSuccess({
+      threadId: input.sendInput.threadId,
+      runId: input.runId,
+      workspacePath: input.runWorkspacePath,
+      currentAssistantMessageId: input.runtimeMessages.currentAssistantMessageId(),
+      runtimeError: input.runtimeError,
+      abortRequested: input.abortRequested,
+      finalizedAfterToolIdle: input.finalizedAfterToolIdle,
+      currentThinkingFinalText: input.currentThinkingFinalText,
+      currentAssistantFinalText: input.currentAssistantFinalText,
+      currentAssistantVisibleContent: input.runtimeMessages.currentMessageContent(
+        input.runtimeMessages.currentAssistantMessageId(),
+        input.currentAssistantFinalText,
+      ),
+      receivedAnyText: input.receivedAnyText,
+      activeToolMessageCount: input.toolMessages.size(),
+      pendingEmptyResponseRetryDelayMs: input.pendingEmptyResponseRetryDelayMs,
+      activeRetryReason: input.activeRetryReason,
+      retrySourceUserMessageId: input.retrySourceUserMessageId,
+      sessionFile: input.session.sessionFile,
+      lastAssistantTerminalEvent: input.lastAssistantTerminalEvent,
+      assistantTerminalCleanupDiagnostic: input.assistantTerminalCleanupDiagnostic,
+      subagentParentControlAbortIntent: input.subagentParentControlAbortIntent,
+      providerRetryBeforeVisibleOutput: input.providerRetryBeforeVisibleOutput,
+      providerRetryRecovered: input.providerRetryRecovered,
+      providerRetryAttemptCount: input.providerRetryAttemptCount,
+      providerRetryLastError: input.providerRetryLastError,
+      usesDedicatedReviewSession: input.usesDedicatedReviewSession,
+      currentThreadPiSessionFile: currentThread.piSessionFile,
+      hasPlannerFinalizationSources: input.plannerFinalizationSources.length > 0,
+      assistantFinalizationRetryMaxRetries: input.assistantFinalizationRetryMaxRetries,
+      canScheduleEmptyAssistantRetry: input.canScheduleAssistantFinalizationRetryFor(emptyAssistantRetryReason),
+      emptyAssistantRetryAttemptsUsed: input.assistantFinalizationRetryAttemptsUsedFor(emptyAssistantRetryReason),
+      emptyAssistantRetryNextAttempt: input.assistantFinalizationRetryNextAttemptFor(emptyAssistantRetryReason),
+      consumeSubagentParentControlAbort: input.consumeSubagentParentControlAbort,
+      finishCurrentThinkingMessage: input.runtimeMessages.finishCurrentThinkingMessage,
+      recordContextUsageSnapshot: () => this.recordContextUsageSnapshot(input.sendInput.threadId, input.session),
+      cleanupCurrentSession: input.cleanupCurrentSession,
+      createEmptyAssistantRetry: () => input.createAssistantFinalizationRetryInput(emptyAssistantRetryReason),
+      clearThreadPiSessionFile: () => {
+        input.emitRunEvent({
+          type: "thread-updated",
+          thread: this.store.updateThreadSettings(input.sendInput.threadId, { piSessionFile: null }),
+        });
+      },
+      commitThreadPiSessionFile: async (commitInput) => {
+        await this.commitThreadPiSessionFile({
+          threadId: input.sendInput.threadId,
+          sessionFile: commitInput.sessionFile,
+          currentPiSessionFile: commitInput.currentPiSessionFile,
+          reason: commitInput.reason,
+          emit: input.emitRunEvent,
+        });
+      },
+      createPlannerRepairFollowUp: (prompt) => {
+        const repairThread = this.store.getThread(input.sendInput.threadId);
+        return {
+          threadId: input.sendInput.threadId,
+          content: prompt,
           permissionMode: repairThread.permissionMode,
           collaborationMode: "planner",
           model: repairThread.model,
@@ -2759,509 +2282,100 @@ export class AgentRuntime {
           delivery: "follow-up",
           preserveActiveThread: true,
         };
-      }
-    } catch (error) {
-      if (!isRunStoreActive()) return;
-      await consumeSubagentParentControlAbort();
-      const providerErrorDiagnostic = runtimeProviderErrorDiagnostic(error);
-      if (shouldOpenApiKeyDialogForRuntimeError(providerErrorDiagnostic)) {
-        emitRunEvent({ type: "open-api-key-dialog" });
-      }
-      const message = providerErrorDiagnostic.message;
-      const preOutputStreamStallRetryReason: AssistantFinalizationRetryReason = "pre_output_stream_stall";
-      if (streamWatchdogTimedOut || error instanceof AmbientStreamFailureError) {
-        persistPiStreamTrace(message);
-      }
-      const retryPreOutputStreamStall =
-        streamWatchdogTimedOut &&
-        canScheduleAssistantFinalizationRetryFor(preOutputStreamStallRetryReason) &&
-        !receivedAnyText &&
-        toolMessages.size() === 0 &&
-        !currentAssistantFinalText.trim();
-      if (retryPreOutputStreamStall && retrySourceUserMessageId) {
-        const preOutputStreamStallRetryNextAttempt = assistantFinalizationRetryNextAttemptFor(preOutputStreamStallRetryReason);
-        cleanupCurrentSession({ clearPersistedSessionFileIfCurrent: true });
-        pendingEmptyResponseRetry = createAssistantFinalizationRetryInput(
-          preOutputStreamStallRetryReason,
-          sessionRecoveryForCurrentSession(
-            "fresh_session_after_pre_output_stream_stall",
-            "Ambient/Pi stalled before any assistant output or tool activity, so Ambient retried with a fresh Pi session.",
-          ),
-        );
-        runtimeMessages.finishCurrentThinkingMessage("done", currentThinkingFinalText);
-        const retryFinalization = preOutputStreamStallRetryFinalizationMessage({
-          retryAttempt: preOutputStreamStallRetryNextAttempt,
-          maxRetries: assistantFinalizationRetryMaxRetries,
-          retryDelayMs: pendingEmptyResponseRetryDelayMs,
-          receivedAnyText,
-          streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, {
-            retryScheduled: true,
-            replaySafe: true,
-            providerErrorDiagnostic,
-          }),
-        });
-        const fallback = runtimeMessages.replaceCurrentAssistant(retryFinalization.content, retryFinalization.metadata);
-        finishParentRun("done");
-        emitRunEvent({ type: "message-updated", message: fallback });
-        emitRunEvent({ type: "run-status", threadId: input.threadId, status: "idle" });
-        return;
-      }
-      const recoverableInterruptedToolCalls = !abortRequested ? interruptedToolCallRecovery.recoverable() : [];
-      if (recoverableInterruptedToolCalls.length > 0) {
-        const failureKind: AmbientStreamFailureKind = streamWatchdogTimedOut
-          ? currentPiStreamFailureKind()
-          : error instanceof AmbientStreamFailureError
-            ? error.kind
-            : "provider_error_event";
-        const willContinue = canScheduleInterruptedToolCallRecovery;
-        const openToolCalls = collectOpenProviderInterruptionToolSnapshots();
-        const completedToolMessageCount = Math.max(0, toolMessages.size() - openToolCalls.length);
-        const continuationState = persistProviderContinuationState(createProviderContinuationState({
-          message,
-          kind: failureKind,
-          retryScheduled: willContinue,
-          replaySafe: true,
-          retryAttempt: willContinue ? interruptedToolCallRecoveryAttemptsUsed + 1 : interruptedToolCallRecoveryAttemptsUsed,
-          maxRetries: interruptedToolCallRecoveryMaxRetries,
-          retryReason: "interrupted_tool_call_recovery",
-          openToolCalls,
-          completedToolMessageCount,
-          receivedAnyText,
-        }));
-        if (willContinue) {
-          pendingInterruptedToolCallRecoveryFollowUp = createInterruptedToolCallRecoveryInput(recoverableInterruptedToolCalls);
-        }
-        cleanupCurrentSession();
-        runtimeMessages.finishCurrentThinkingMessage("done", currentThinkingFinalText);
-        for (const snapshot of recoverableInterruptedToolCalls) {
-          const messageId = toolMessages.messageId(snapshot.toolCallId);
-          if (!messageId) continue;
-          const inputContent = toolMessages.inputContent(snapshot.toolCallId) ?? "";
-          const longformInputPreview = toolMessages.longformInputPreview(snapshot.toolCallId);
-          const editInputPreview = toolMessages.editInputPreview(snapshot.toolCallId);
-          const progress = toolArgumentProgress.current(snapshot.toolCallId);
-          const progressWithRecovery = progress ? { ...progress, interruptedToolCallRecovery: snapshot } : undefined;
-          const updated = this.store.replaceMessage(
-            messageId,
-            formatToolTranscript(
-              snapshot.toolName,
-              "interrupted",
-              inputContent,
-              `Stream interrupted before execution. Partial arguments saved at ${snapshot.workspaceRelativeArgumentPath}.`,
-            ),
-            toolMessageMetadata(
-              "error",
-              snapshot.toolCallId,
-              snapshot.toolName,
-              snapshot.argumentPath,
-              undefined,
-              longformInputPreview,
-              editInputPreview,
-              progressWithRecovery,
-            ),
-          );
-          emitRunEvent({ type: "message-updated", message: updated });
-        }
-        persistToolArgumentDiagnostics(true);
-        const recoveryFinalization = interruptedToolCallRecoveryFinalizationMessage({
-          message,
-          snapshots: recoverableInterruptedToolCalls,
-          willContinue,
-          continuationState,
-          streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, {
-            kind: failureKind,
-            retryScheduled: willContinue,
-            replaySafe: true,
-            providerErrorDiagnostic,
-          }),
-          retryAttempt: willContinue ? interruptedToolCallRecoveryAttemptsUsed + 1 : interruptedToolCallRecoveryAttemptsUsed,
-          maxRetries: interruptedToolCallRecoveryMaxRetries,
-        });
-        const fallback = runtimeMessages.replaceCurrentAssistant(recoveryFinalization.content, recoveryFinalization.metadata);
-        if (!willContinue) {
-          finishPlannerFinalizationSources("failed", { error: message, workflowState: "failed" });
-        }
-        finishParentRun(willContinue ? "done" : "error", willContinue ? undefined : message);
-        emitRunEvent({ type: "message-updated", message: fallback });
-        emitRunEvent({ type: "run-status", threadId: input.threadId, status: willContinue ? "idle" : "error" });
-        if (!willContinue) emitRunEvent({ type: "error", message, threadId: input.threadId, workspacePath: runWorkspacePath });
-        return;
-      }
-      const providerErrorRetryReason: AssistantFinalizationRetryReason = "provider_error_before_tool_execution";
-      const retryProviderErrorBeforeToolExecution =
-        !abortRequested &&
-        !streamWatchdogTimedOut &&
-        canScheduleAssistantFinalizationRetryFor(providerErrorRetryReason) &&
-        isRetryableAmbientProviderError(error) &&
-        !receivedAnyText &&
-        !currentAssistantFinalText.trim() &&
-        toolMessages.size() === 0 &&
-        startedToolCallIds.size === 0;
-      if (retryProviderErrorBeforeToolExecution && retrySourceUserMessageId) {
-        const providerErrorRetryNextAttempt = assistantFinalizationRetryNextAttemptFor(providerErrorRetryReason);
-        cleanupCurrentSession({ clearPersistedSessionFileIfCurrent: true });
-        pendingEmptyResponseRetry = createAssistantFinalizationRetryInput(
-          providerErrorRetryReason,
-          sessionRecoveryForCurrentSession(
-            "fresh_session_after_provider_error_before_tool_execution",
-            "Ambient/Pi failed before assistant output or tool execution, so Ambient retried with a fresh Pi session.",
-          ),
-        );
-        providerRetryAttemptCount = Math.max(providerRetryAttemptCount, providerErrorRetryNextAttempt);
-        providerRetryLastError = message;
-        runtimeMessages.finishCurrentThinkingMessage("done", currentThinkingFinalText);
-        markOpenToolMessagesFailed("Ambient/Pi stream failed before this tool executed. Retrying the request with a fresh session.");
-        emitRunEvent({
-          type: "runtime-activity",
-          activity: runtimeProviderRetryStartingActivity({
-            threadId: input.threadId,
-            attempt: providerErrorRetryNextAttempt,
-            maxAttempts: assistantFinalizationRetryMaxRetries,
-            delayMs: pendingEmptyResponseRetryDelayMs,
-            message: `Provider failed before tool execution: ${message}`,
-          }),
-        });
-        const retryFinalization = providerErrorBeforeToolRetryFinalizationMessage({
-          retryAttempt: providerErrorRetryNextAttempt,
-          maxRetries: assistantFinalizationRetryMaxRetries,
-          retryDelayMs: pendingEmptyResponseRetryDelayMs,
-          streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, {
-            kind: "provider_error_event",
-            retryScheduled: true,
-            replaySafe: true,
-            retryUsesFreshSession: true,
-            retryAttempt: providerErrorRetryNextAttempt,
-            maxRetries: assistantFinalizationRetryMaxRetries,
-            retryReason: "provider_error_before_tool_execution",
-            retryDelayMs: pendingEmptyResponseRetryDelayMs,
-            providerErrorDiagnostic,
-            receivedAnyText,
-          }),
-        });
-        const fallback = runtimeMessages.replaceCurrentAssistant(retryFinalization.content, retryFinalization.metadata);
-        finishParentRun("done");
-        emitRunEvent({ type: "message-updated", message: fallback });
-        emitRunEvent({ type: "run-status", threadId: input.threadId, status: "idle" });
-        return;
-      }
-      const providerInterruptionRetryReason: AssistantFinalizationRetryReason = "provider_interruption_continuation";
-      const providerInterruptionStateId =
-        activeAssistantFinalizationRetry?.reason === providerInterruptionRetryReason && activeAssistantFinalizationRetry.recoveryStateId
-          ? activeAssistantFinalizationRetry.recoveryStateId
-          : `provider-continuation-${randomUUID()}`;
-      const handleProviderInterruption =
-        !abortRequested &&
-        Boolean(retrySourceUserMessageId) &&
-        isContinuableAmbientProviderInterruption(error) &&
-        !usesDedicatedReviewSession;
-      if (handleProviderInterruption && retrySourceUserMessageId) {
+      },
+      resolveSubagentFinalizationBlock: () => this.subagentFinalizationBarrierBlock(input.sendInput.threadId, input.runId),
+      resolveCallableWorkflowFinalizationBlock: () => this.callableWorkflowFinalizationBlock(input.sendInput.threadId, input.runId),
+      recordSubagentFinalizationBlockedParentMailbox: (block) =>
+        this.recordSubagentFinalizationBlockedParentMailbox(input.sendInput.threadId, input.runId, block),
+      recordCallableWorkflowFinalizationBlockedParentMailbox: (block) =>
+        this.recordCallableWorkflowFinalizationBlockedParentMailbox(input.sendInput.threadId, input.runId, block),
+      replaceAssistantMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
+      createPlannerPlanArtifactFromMessage: (message) => this.createPlannerPlanArtifactFromMessage(message),
+      finishPlannerFinalizationSources: input.finishPlannerFinalizationSources,
+      finishParentRun: input.finishParentRun,
+      recordVoiceDispatch: (message) => this.recordVoiceDispatch(message),
+      getThread: () => this.store.getThread(input.sendInput.threadId),
+      emitRunEvent: input.emitRunEvent,
+    });
+    return {
+      pendingEmptyResponseRetry: result.pendingEmptyResponseRetry as RuntimeSendMessageInput | undefined,
+      pendingPlannerRepairFollowUp: result.pendingPlannerRepairFollowUp,
+    };
+  }
+
+  private async finalizeSendAfterRun(input: FinalizeAgentRuntimeSendAfterRunInput): Promise<void> {
+    await finalizeRuntimeSendAfterRun({
+      threadId: input.sendInput.threadId,
+      workspacePath: input.runWorkspacePath,
+      runGoalId: input.runGoalId,
+      runGoalStartedAtMs: input.runGoalStartedAtMs,
+      promptChars: input.promptContent.length,
+      assistantChars: input.currentAssistantFinalText.length + input.assistantOutputChars,
+      thinkingChars: input.currentThinkingFinalText.length + input.thinkingOutputChars,
+      toolMessageCount: input.toolMessages.size(),
+      abortRequested: input.abortRequested,
+      pendingPlannerRepairFollowUp: input.pendingPlannerRepairFollowUp,
+      pendingInterruptedToolCallRecoveryFollowUp: input.pendingInterruptedToolCallRecoveryFollowUp,
+      pendingProviderInterruptionContinuation: input.pendingProviderInterruptionContinuation,
+      pendingEmptyResponseRetry: input.pendingEmptyResponseRetry,
+      pendingEmptyResponseRetryDelayMs: input.pendingEmptyResponseRetryDelayMs,
+      awaitInternalRetryCompletion: Boolean(input.hooks.awaitInternalRetryCompletion),
+      hasWorkflowPlanEditIntent: input.hasWorkflowPlanEditIntent,
+      hasDedicatedReviewSession: input.usesDedicatedReviewSession && Boolean(input.session),
+      isRunStoreActive: input.isRunStoreActive,
+      clearActiveRun: () => {
+        this.activeRuns.delete(input.sendInput.threadId);
+      },
+      clearActiveRunId: () => {
+        this.activeRunIds.delete(input.sendInput.threadId);
+      },
+      clearPermissionWaitControl: () => {
+        this.permissionWaitControls.delete(input.sendInput.threadId);
+      },
+      clearToolArgumentWatchdog: () => {
+        input.toolArgumentWatchdog?.clear();
+      },
+      clearToolExecutionWatchdog: () => {
+        input.toolExecutionWatchdog?.clear();
+      },
+      cleanupDedicatedReviewSession: input.cleanupCurrentSession,
+      clearWorkflowPlanEditIntent: () => {
+        this.workflowPlanEditIntentByThreadId.delete(input.sendInput.threadId);
+        this.workflowPlanEditWorkflowThreadByThreadId.delete(input.sendInput.threadId);
+      },
+      takePendingProjectSwitch: () => {
+        const pendingProjectSwitch = this.pendingProjectSwitchByThreadId.get(input.sendInput.threadId);
+        this.pendingProjectSwitchByThreadId.delete(input.sendInput.threadId);
+        return pendingProjectSwitch;
+      },
+      updateRuntimeEvent: (eventId, patch) => this.remoteSurfaceRuntimeEvents.update(eventId, patch),
+      scheduleProjectSwitchCompletion: (projectSwitch) => {
+        setTimeout(() => {
+          void this.completePendingRemoteProjectSwitch(projectSwitch, {
+            threadId: input.sendInput.threadId,
+            workspacePath: input.runWorkspacePath,
+          });
+        }, 0);
+      },
+      getRunRecord: () => {
         try {
-          const failureKind: AmbientStreamFailureKind = streamWatchdogTimedOut
-            ? currentPiStreamFailureKind()
-            : error instanceof AmbientStreamFailureError
-              ? error.kind
-              : "provider_error_event";
-          const openToolCalls = collectOpenProviderInterruptionToolSnapshots();
-          const retryBudget = providerInterruptionContinuationRetryBudget({
-            configuredMaxRetries: assistantFinalizationRetryMaxRetries,
-            tools: openToolCalls,
-          });
-          const providerInterruptionAttemptsUsed = assistantFinalizationRetryAttemptsUsedFor(
-            providerInterruptionRetryReason,
-            providerInterruptionStateId,
-          );
-          const providerInterruptionRetryNextAttempt = providerInterruptionAttemptsUsed + 1;
-          let willContinue = providerInterruptionAttemptsUsed < retryBudget.maxRetries;
-          let continuationSetupError: string | undefined;
-          const completedToolMessageCount = Math.max(0, toolMessages.size() - openToolCalls.length);
-          const replaySafeOpenToolCalls =
-            openToolCalls.length > 0 && openToolCalls.every((tool) => !tool.executionStarted && tool.argumentComplete);
-          let continuationState = persistProviderContinuationState(createProviderContinuationState({
-            message,
-            kind: failureKind,
-            retryScheduled: willContinue,
-            replaySafe: replaySafeOpenToolCalls,
-            continuationSafe: true,
-            retryUsesFreshSession: false,
-            retryAttempt: willContinue ? providerInterruptionRetryNextAttempt : providerInterruptionAttemptsUsed,
-            maxRetries: retryBudget.maxRetries,
-            retryReason: "provider_interruption_continuation",
-            retryDelayMs: 0,
-            openToolCalls,
-            completedToolMessageCount,
-            receivedAnyText,
-            stateId: providerInterruptionStateId,
-          }));
-          if (willContinue) {
-            try {
-              await persistCurrentSessionPointerForRetry("provider-continuation");
-              pendingProviderInterruptionContinuation = createProviderInterruptionContinuationInput({
-                message,
-                diagnostic: providerErrorDiagnostic,
-                tools: openToolCalls,
-                completedToolMessageCount,
-                continuationState,
-              });
-            } catch (setupError) {
-              continuationSetupError = setupError instanceof Error ? setupError.message : String(setupError);
-              willContinue = false;
-              pendingProviderInterruptionContinuation = undefined;
-              continuationState = persistProviderContinuationState(createProviderContinuationState({
-                message: `${message}\nContinuation setup failed: ${continuationSetupError}`,
-                kind: failureKind,
-                retryScheduled: false,
-                replaySafe: replaySafeOpenToolCalls,
-                continuationSafe: false,
-                retryUsesFreshSession: false,
-                retryAttempt: providerInterruptionAttemptsUsed,
-                maxRetries: retryBudget.maxRetries,
-                retryReason: "provider_interruption_continuation",
-                retryDelayMs: 0,
-                openToolCalls,
-                completedToolMessageCount,
-                receivedAnyText,
-                stateId: providerInterruptionStateId,
-              }));
-            }
-          }
-          providerRetryAttemptCount = Math.max(
-            providerRetryAttemptCount,
-            willContinue ? providerInterruptionRetryNextAttempt : providerInterruptionAttemptsUsed,
-          );
-          providerRetryLastError = continuationSetupError ? `${message}; continuation setup failed: ${continuationSetupError}` : message;
-          cleanupCurrentSession();
-          runtimeMessages.finishCurrentThinkingMessage(willContinue ? "done" : "error", currentThinkingFinalText);
-          try {
-            markOpenToolMessagesFailed(({ executionStarted }) =>
-              executionStarted
-                ? willContinue
-                  ? "Ambient/Pi provider failed after this tool may have started. Ambient is continuing from the transcript so Pi can verify state before retrying."
-                  : "Ambient/Pi provider failed after this tool may have started. Ambient stopped this turn so the transcript can be inspected."
-                : willContinue
-                  ? "Ambient/Pi provider failed before this tool executed. Ambient is continuing from the transcript."
-                  : continuationSetupError
-                    ? `Ambient/Pi provider failed before this tool executed. Ambient could not schedule continuation: ${continuationSetupError}`
-                    : "Ambient/Pi provider failed before this tool executed. Ambient exhausted the bounded continuation budget for incomplete tool arguments.",
-            );
-          } catch (toolMarkError) {
-            console.warn(`Failed to mark open tool messages interrupted: ${toolMarkError instanceof Error ? toolMarkError.message : String(toolMarkError)}`);
-          }
-          if (willContinue) {
-            emitRunEvent({
-              type: "runtime-activity",
-              activity: runtimeProviderRetryStartingActivity({
-                threadId: input.threadId,
-                attempt: providerInterruptionRetryNextAttempt,
-                maxAttempts: retryBudget.maxRetries,
-                delayMs: 0,
-                message: `Provider interrupted the stream; continuing from transcript: ${message}`,
-              }),
-            });
-          }
-          const currentAssistantVisibleContent = runtimeMessages.currentMessageContent(runtimeMessages.currentAssistantMessageId(), currentAssistantFinalText);
-          const providerInterruptionFinalization = providerInterruptionFinalizationMessage({
-            currentAssistantVisibleContent,
-            message,
-            diagnostic: providerErrorDiagnostic,
-            tools: openToolCalls,
-            completedToolMessageCount,
-            attempt: willContinue ? providerInterruptionRetryNextAttempt : providerInterruptionAttemptsUsed,
-            maxRetries: retryBudget.maxRetries,
-            willContinue,
-            continuationSetupError,
-            retryBudgetReason: retryBudget.reason,
-            continuationState,
-            streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, {
-              kind: failureKind,
-              retryScheduled: willContinue,
-              replaySafe: replaySafeOpenToolCalls,
-              continuationSafe: willContinue,
-              retryUsesFreshSession: false,
-              retryAttempt: willContinue ? providerInterruptionRetryNextAttempt : providerInterruptionAttemptsUsed,
-              maxRetries: retryBudget.maxRetries,
-              retryReason: "provider_interruption_continuation",
-              retryDelayMs: 0,
-              providerErrorDiagnostic,
-              interruptedToolCalls: openToolCalls,
-              completedToolMessageCount,
-              receivedAnyText,
-            }),
-          });
-          const fallback = runtimeMessages.replaceCurrentAssistant(
-            providerInterruptionFinalization.content,
-            providerInterruptionFinalization.metadata,
-          );
-          if (!willContinue) {
-            finishPlannerFinalizationSources("failed", { error: continuationSetupError ? `${message}; ${continuationSetupError}` : message, workflowState: "failed" });
-          }
-          finishParentRun(willContinue ? "done" : "error", willContinue ? undefined : continuationSetupError ? `${message}; ${continuationSetupError}` : message);
-          emitRunEvent({ type: "message-updated", message: fallback });
-          emitRunEvent({ type: "run-status", threadId: input.threadId, status: willContinue ? "idle" : "error" });
-          if (!willContinue) emitRunEvent({ type: "error", message: continuationSetupError ? `${message}; ${continuationSetupError}` : message, threadId: input.threadId, workspacePath: runWorkspacePath });
-        } catch (recoveryError) {
-          const recoveryMessage = recoveryError instanceof Error ? recoveryError.message : String(recoveryError);
-          const fallbackMessage = `${message}\nProvider interruption recovery failed: ${recoveryMessage}`;
-          try {
-            runtimeMessages.finishCurrentThinkingMessage("error", currentThinkingFinalText);
-          } catch {
-            // Keep timeout finalization moving even if a secondary message update fails.
-          }
-          try {
-            markOpenToolMessagesFailed(`Ambient/Pi stream interrupted, and recovery finalization failed: ${recoveryMessage}`);
-          } catch (toolMarkError) {
-            console.warn(`Failed to mark open tool messages after recovery failure: ${toolMarkError instanceof Error ? toolMarkError.message : String(toolMarkError)}`);
-          }
-          let fallback;
-          try {
-            const currentAssistantVisibleContent = runtimeMessages.currentMessageContent(runtimeMessages.currentAssistantMessageId(), currentAssistantFinalText);
-            const recoveryFailureFinalization = providerInterruptionRecoveryFailureFinalizationMessage({
-              currentAssistantVisibleContent,
-              interruptionNotice: chatStreamInterruptionNotice(fallbackMessage),
-              streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(fallbackMessage, { providerErrorDiagnostic }),
-            });
-            fallback = runtimeMessages.replaceCurrentAssistant(
-              recoveryFailureFinalization.content,
-              recoveryFailureFinalization.metadata,
-            );
-          } catch (messageError) {
-            console.warn(`Failed to write provider interruption fallback message: ${messageError instanceof Error ? messageError.message : String(messageError)}`);
-          }
-          finishPlannerFinalizationSources("failed", { error: fallbackMessage, workflowState: "failed" });
-          try {
-            finishParentRun("error", fallbackMessage);
-          } catch (finishError) {
-            console.warn(`Failed to finish provider interruption run: ${finishError instanceof Error ? finishError.message : String(finishError)}`);
-          }
-          if (fallback) emitRunEvent({ type: "message-updated", message: fallback });
-          emitRunEvent({ type: "run-status", threadId: input.threadId, status: "error" });
-          emitRunEvent({ type: "error", message: fallbackMessage, threadId: input.threadId, workspacePath: runWorkspacePath });
-        }
-        return;
-      }
-      if (streamWatchdogTimedOut) {
-        const status = abortRequested ? "aborted" : "error";
-        runtimeMessages.finishCurrentThinkingMessage(status, currentThinkingFinalText);
-        markOpenToolMessagesFailed(abortRequested ? "Run stopped before this tool completed." : "Ambient/Pi stream interrupted before this tool completed.");
-        const currentAssistantVisibleContent = runtimeMessages.currentMessageContent(runtimeMessages.currentAssistantMessageId(), currentAssistantFinalText);
-        const streamWatchdogFinalization = streamWatchdogFinalizationMessage({
-          status,
-          currentAssistantVisibleContent,
-          interruptionNotice: chatStreamInterruptionNotice(message),
-          streamInterruptionDiagnostic: chatStreamInterruptionDiagnostic(message, { providerErrorDiagnostic }),
-        });
-        const fallback = runtimeMessages.replaceCurrentAssistant(
-          streamWatchdogFinalization.content,
-          streamWatchdogFinalization.metadata,
-        );
-        finishPlannerFinalizationSources("failed", { error: abortRequested ? "Run stopped." : message, workflowState: "failed" });
-        finishParentRun(status, abortRequested ? undefined : message);
-        emitRunEvent({ type: "message-updated", message: fallback });
-        emitRunEvent({ type: "run-status", threadId: input.threadId, status: abortRequested ? "idle" : "error" });
-        if (!abortRequested) emitRunEvent({ type: "error", message, threadId: input.threadId, workspacePath: runWorkspacePath });
-        return;
-      }
-      const status = abortRequested ? "aborted" : "error";
-      runtimeMessages.finishCurrentThinkingMessage(status, currentThinkingFinalText);
-      markOpenToolMessagesFailed(abortRequested ? "Run stopped before this tool completed." : "Ambient/Pi provider failed before this tool completed.");
-      const abortMessage = subagentParentControlAbortIntent?.message ?? "Run stopped.";
-      const finalProviderInterruption = abortRequested
-        ? undefined
-        : chatStreamInterruptionDiagnostic(message, {
-            kind: error instanceof AmbientStreamFailureError ? error.kind : "provider_error_event",
-            providerErrorDiagnostic,
-          });
-      const terminalProviderFailureFinalization = terminalProviderFailureFinalizationMessage({
-        status,
-        abortRequested,
-        abortMessage,
-        providerErrorContent: abortRequested ? "" : formatAgentRuntimeError(message, providerErrorDiagnostic),
-        providerErrorDiagnostic,
-        streamInterruptionDiagnostic: finalProviderInterruption,
-        subagentParentControlAbortIntent,
-      });
-      const fallback = runtimeMessages.replaceCurrentAssistant(
-        terminalProviderFailureFinalization.content,
-        terminalProviderFailureFinalization.metadata,
-      );
-      finishPlannerFinalizationSources("failed", { error: abortRequested ? abortMessage : message, workflowState: "failed" });
-      finishParentRun(status, abortRequested ? undefined : message);
-      emitRunEvent({ type: "message-updated", message: fallback });
-      emitRunEvent({ type: "run-status", threadId: input.threadId, status: abortRequested ? "idle" : "error" });
-      if (!abortRequested) emitRunEvent({ type: "error", message, threadId: input.threadId, workspacePath: runWorkspacePath });
-    } finally {
-      const shouldEmitQueueClear = isRunStoreActive();
-      this.activeRuns.delete(input.threadId);
-      this.activeRunIds.delete(input.threadId);
-      this.permissionWaitControls.delete(input.threadId);
-      toolArgumentWatchdog?.clear();
-      toolExecutionWatchdog?.clear();
-      if (usesDedicatedReviewSession && session) {
-        cleanupCurrentSession();
-      }
-      if (hasWorkflowPlanEditIntent) {
-        this.workflowPlanEditIntentByThreadId.delete(input.threadId);
-        this.workflowPlanEditWorkflowThreadByThreadId.delete(input.threadId);
-      }
-      if (shouldEmitQueueClear) emitRunEvent({ type: "queue-updated", queue: emptyQueueState(input.threadId) });
-      const scheduledFollowUps = await scheduleRuntimeSendFollowUps({
-        shouldEmitQueueClear,
-        threadId: input.threadId,
-        workspacePath: runWorkspacePath,
-        plannerRepairFollowUp: pendingPlannerRepairFollowUp,
-        interruptedToolCallRecoveryFollowUp: pendingInterruptedToolCallRecoveryFollowUp,
-        providerInterruptionContinuation: pendingProviderInterruptionContinuation,
-        emptyResponseRetry: pendingEmptyResponseRetry,
-        emptyResponseRetryDelayMs: pendingEmptyResponseRetryDelayMs,
-        awaitInternalRetryCompletion: Boolean(hooks.awaitInternalRetryCompletion),
-        schedulePlannerDurableRepairFollowUp: (followUp, workspacePath) => this.schedulePlannerDurableRepairFollowUp(followUp, workspacePath),
-        send: (followUp, followUpHooks) => this.send(followUp, followUpHooks),
-        emitError: (message, threadId, workspacePath) => this.emit({ type: "error", message, threadId, workspacePath }),
-        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
-        sleep: runtimeSendFollowUpSleep,
-      });
-      const pendingProjectSwitch = this.pendingProjectSwitchByThreadId.get(input.threadId);
-      this.pendingProjectSwitchByThreadId.delete(input.threadId);
-      finalizeMessagingRemoteSurfaceCommandPendingProjectSwitchAfterRun({
-        ...(pendingProjectSwitch ? { projectSwitch: pendingProjectSwitch } : {}),
-        shouldEmitQueueClear,
-        updateRuntimeEvent: (eventId, patch) => this.remoteSurfaceRuntimeEvents.update(eventId, patch),
-        scheduleCompletion: (projectSwitch) => {
-          setTimeout(() => {
-            void this.completePendingRemoteProjectSwitch(projectSwitch, {
-              threadId: input.threadId,
-              workspacePath: runWorkspacePath,
-            });
-          }, 0);
-        },
-      });
-      const runRecord = (() => {
-        try {
-          return this.store.getRunRecord(run.id);
+          return this.store.getRunRecord(input.runId);
         } catch {
           return undefined;
         }
-      })();
-      const hasPendingInternalFollowUp = scheduledFollowUps.hasPendingInternalFollowUp || Boolean(pendingProjectSwitch);
-      const hasQueuedUserInput = queuedMessages.hasQueuedOrSentInput();
-      finalizeRuntimeGoalContinuationAfterRun({
-        shouldEmitQueueClear,
-        threadId: input.threadId,
-        runGoalId,
-        runGoalStartedAtMs,
-        promptChars: promptContent.length,
-        assistantChars: currentAssistantFinalText.length + assistantOutputChars,
-        thinkingChars: currentThinkingFinalText.length + thinkingOutputChars,
-        toolMessageCount: toolMessages.size(),
-        abortRequested,
-        runStatus: runRecord?.status,
-        runErrorMessage: runRecord?.errorMessage,
-        hasPendingInternalFollowUp,
-        hasQueuedUserInput,
-        accountFinishedGoalRun: (accountInput) => this.accountFinishedGoalRun(accountInput),
-        scheduleGoalContinuation: (threadId, goalId, delayMs) => this.scheduleGoalContinuation(threadId, goalId, delayMs),
-      });
-      resolveActiveRunSettled?.();
-    }
+      },
+      hasQueuedUserInput: () => input.queuedMessages.hasQueuedOrSentInput(),
+      accountFinishedGoalRun: (accountInput) => this.accountFinishedGoalRun(accountInput),
+      scheduleGoalContinuation: (threadId, goalId, delayMs) => this.scheduleGoalContinuation(threadId, goalId, delayMs),
+      schedulePlannerDurableRepairFollowUp: (followUp, workspacePath) =>
+        this.schedulePlannerDurableRepairFollowUp(followUp, workspacePath),
+      send: (followUp, followUpHooks) => this.send(followUp, followUpHooks),
+      emitError: (message, threadId, workspacePath) => this.emit({ type: "error", message, threadId, workspacePath }),
+      emitRunEvent: input.emitRunEvent,
+      resolveActiveRunSettled: () => {
+        input.resolveActiveRunSettled?.();
+      },
+    });
   }
 
   private accountFinishedGoalRun(input: AccountFinishedGoalRunInput): ThreadGoal | undefined {
@@ -3591,26 +2705,19 @@ export class AgentRuntime {
   }
 
   private resolveCancelledDirectChildWaitBarriers(run: SubagentRunSummary, reason: string): void {
-    const waitBarriers = this.store
-      .listSubagentWaitBarriersForParentRun(run.parentRunId)
-      .filter((barrier) => barrier.status === "waiting_on_children" && barrier.childRunIds.includes(run.id));
-    for (const barrier of waitBarriers) {
-      const updated = this.store.updateSubagentWaitBarrierStatus(barrier.id, "cancelled", {
-        resolutionArtifact: {
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
-          childRunIds: barrier.childRunIds,
-          childStopped: true,
-          reason,
-          synthesisAllowed: false,
-          childStatuses: barrier.childRunIds.map((childRunId) => ({
-            childRunId,
-            status: childRunId === run.id ? "cancelled" : this.store.getSubagentRun(childRunId).status,
-          })),
-          resultArtifact: run.resultArtifact ?? null,
-        },
-      });
-      this.emitSubagentWaitBarrierUpdated(updated);
-    }
+    const waitBarriers = resolveActiveSubagentWaitBarriersForRun({
+      store: this.store,
+      run,
+      evidence: {
+        schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+        kind: "child_cancelled",
+        source: "cancel_agent",
+        childRunId: run.id,
+        reason,
+        idempotencyKey: `direct-child-stop:${run.id}`,
+      },
+    });
+    for (const barrier of waitBarriers) this.emitSubagentWaitBarrierUpdated(barrier);
   }
 
   private async cascadeSubagentsForStoppedParentRun(threadId: string, parentRunId: string, reason: string): Promise<void> {
@@ -4777,18 +3884,13 @@ export class AgentRuntime {
   }
 
   private subagentFinalizationBarrierBlock(parentThreadId: string, parentRunId: string): SubagentFinalizationBarrierBlock | undefined {
-    for (const waitBarrier of this.store.listSubagentWaitBarriersForParentRun(parentRunId)) {
-      const refreshed = satisfySubagentWaitBarrierIfCurrentResultsAllowSynthesis({
-        store: this.store,
-        waitBarrier,
-      });
-      if (refreshed.status !== waitBarrier.status) this.emitSubagentWaitBarrierUpdated(refreshed);
-    }
     return resolveSubagentFinalizationBarrierBlock({
       parentThreadId,
       parentRunId,
       listSubagentWaitBarriersForParentRun: (runId) => this.store.listSubagentWaitBarriersForParentRun(runId),
       getSubagentRun: (runId) => this.store.getSubagentRun(runId),
+      listSubagentRunEvents: (runId) => this.store.listSubagentRunEvents(runId),
+      listSubagentMailboxEvents: (runId) => this.store.listSubagentMailboxEvents(runId),
     });
   }
 
@@ -5733,7 +4835,11 @@ export class AgentRuntime {
   private async waitForSubagentChildRun(input: SubagentChildRuntimeWaitInput): Promise<SubagentChildRuntimeWaitResult> {
     const execution = this.subagentChildExecutions.get(input.run.id);
     if (!execution) {
-      return { run: this.store.getSubagentRun(input.run.id), timedOut: false };
+      return {
+        run: this.store.getSubagentRun(input.run.id),
+        timedOut: false,
+        outcome: { kind: "runtime_detached", reason: "no_child_execution_attached" },
+      };
     }
     const initialApprovalWait = this.resolveSubagentChildPendingApprovalWait({
       run: input.run,
@@ -5763,6 +4869,19 @@ export class AgentRuntime {
       const activity = this.latestSubagentChildActivity(latest, execution, executionStartedMs);
       const childIdleElapsedMs = Math.max(0, nowMs - activity.atMs);
       const childHardElapsedMs = Math.max(0, nowMs - executionStartedMs);
+      const waitOutcomeDetails = {
+        childRunId: latest.id,
+        childThreadId: latest.childThreadId,
+        waitElapsedMs: nowMs - waitStartedAtMs,
+        waitTimeoutMs,
+        lastChildActivityAt: activity.at,
+        lastChildActivitySource: activity.source,
+        ...(activity.detail ? { lastChildActivityDetail: activity.detail } : {}),
+        childIdleElapsedMs,
+        childIdleTimeoutMs: SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS,
+        childHardElapsedMs,
+        childHardTimeoutMs: hardTimeoutMs,
+      };
       if (childHardElapsedMs >= hardTimeoutMs) {
         return {
           run: await this.settleSubagentChildRuntimeBudgetExceeded({
@@ -5776,6 +4895,11 @@ export class AgentRuntime {
             elapsedMs: childHardElapsedMs,
           }),
           timedOut: true,
+          outcome: {
+            kind: "child_runtime_timeout",
+            reason: "runtime_hard_cap_exceeded",
+            details: waitOutcomeDetails,
+          },
         };
       }
       if (childIdleElapsedMs >= SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS) {
@@ -5791,6 +4915,11 @@ export class AgentRuntime {
             elapsedMs: childHardElapsedMs,
           }),
           timedOut: true,
+          outcome: {
+            kind: "child_runtime_timeout",
+            reason: "runtime_idle_timeout",
+            details: waitOutcomeDetails,
+          },
         };
       }
       const waitRemainingMs = waitDeadlineMs - nowMs;
@@ -5800,23 +4929,16 @@ export class AgentRuntime {
           source: "wait_agent",
           status: latest.status,
           message: "wait_agent timed out before the child run reached a terminal status; child runtime remains active.",
-          details: {
-            childRunId: latest.id,
-            childThreadId: latest.childThreadId,
-            waitElapsedMs: nowMs - waitStartedAtMs,
-            waitTimeoutMs,
-            lastChildActivityAt: activity.at,
-            lastChildActivitySource: activity.source,
-            ...(activity.detail ? { lastChildActivityDetail: activity.detail } : {}),
-            childIdleElapsedMs,
-            childIdleTimeoutMs: SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS,
-            childHardElapsedMs,
-            childHardTimeoutMs: hardTimeoutMs,
-          },
+          details: waitOutcomeDetails,
         });
         return {
           run: latest,
-          timedOut: true,
+          timedOut: false,
+          outcome: {
+            kind: "progress_return",
+            reason: "parent_wait_window_elapsed",
+            details: waitOutcomeDetails,
+          },
         };
       }
       if (nowMs >= nextHeartbeatAtMs) {
@@ -5825,19 +4947,7 @@ export class AgentRuntime {
           source: "wait_agent",
           status: latest.status,
           message: "wait_agent is still waiting on the live child runtime.",
-          details: {
-            childRunId: latest.id,
-            childThreadId: latest.childThreadId,
-            waitElapsedMs: nowMs - waitStartedAtMs,
-            waitTimeoutMs,
-            lastChildActivityAt: activity.at,
-            lastChildActivitySource: activity.source,
-            ...(activity.detail ? { lastChildActivityDetail: activity.detail } : {}),
-            childIdleElapsedMs,
-            childIdleTimeoutMs: SUBAGENT_CHILD_ACTIVITY_IDLE_TIMEOUT_MS,
-            childHardElapsedMs,
-            childHardTimeoutMs: hardTimeoutMs,
-          },
+          details: waitOutcomeDetails,
         });
         nextHeartbeatAtMs = nowMs + SUBAGENT_WAIT_HEARTBEAT_INTERVAL_MS;
       }
@@ -5858,6 +4968,7 @@ export class AgentRuntime {
         return {
           run: this.store.getSubagentRun(input.run.id),
           timedOut: false,
+          outcome: { kind: "child_terminal" },
         };
       }
     }
@@ -5924,6 +5035,7 @@ export class AgentRuntime {
     return {
       run: needsAttention,
       timedOut: false,
+      outcome: { kind: "approval_wait" },
       approvalRequests,
     };
   }
@@ -6210,6 +5322,10 @@ export class AgentRuntime {
         });
       }
       if (completion.status === "needs_followup") {
+        this.recordSubagentChildFollowupExhausted({
+          run: this.store.getSubagentRun(running.id),
+          completion,
+        });
         throw new Error(`${completion.reason} Ambient exhausted automatic child post-tool finalization follow-ups.`);
       }
     } catch (error) {
@@ -6347,6 +5463,10 @@ export class AgentRuntime {
         });
       }
       if (completion.status === "needs_followup") {
+        this.recordSubagentChildFollowupExhausted({
+          run: this.store.getSubagentRun(input.run.id),
+          completion,
+        });
         throw new Error(`${completion.reason} Ambient exhausted automatic child post-tool finalization follow-ups.`);
       }
     } catch (error) {
@@ -6393,6 +5513,24 @@ export class AgentRuntime {
     }
   }
 
+  private recordSubagentChildFollowupExhausted(input: {
+    run: SubagentRunSummary;
+    completion: Extract<SubagentChildTurnCompletion, { status: "needs_followup" }>;
+  }): void {
+    const preview = {
+      reason: input.completion.reason,
+      followupKind: input.completion.followupKind,
+      maxAttempts: MAX_SUBAGENT_POST_TOOL_FINALIZATION_FOLLOWUPS,
+      terminalStatus: "failed",
+    };
+    this.store.appendSubagentRunEvent(input.run.id, {
+      type: input.completion.followupKind === "result_contract"
+        ? "subagent.result_contract_repair_exhausted"
+        : "subagent.post_tool_followup_exhausted",
+      preview,
+    });
+  }
+
   private completeSubagentChildTurnAfterSend(input: {
     run: SubagentRunSummary;
     role: SubagentRunSummary["roleProfileSnapshot"];
@@ -6427,6 +5565,7 @@ export class AgentRuntime {
         status: "needs_followup",
         reason: postToolFollowup.reason,
         message: postToolFollowup.message,
+        followupKind: "post_tool",
       };
     }
     const latestAssistantMessage =
@@ -6469,6 +5608,7 @@ export class AgentRuntime {
         status: "needs_followup",
         reason: resultContractFollowup.reason,
         message: resultContractFollowup.message,
+        followupKind: "result_contract",
       };
     }
     if (disposition.status === "needs_attention") {

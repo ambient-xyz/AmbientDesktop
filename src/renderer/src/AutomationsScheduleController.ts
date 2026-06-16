@@ -12,6 +12,7 @@ import type {
   WorkflowRunLimitOverrides,
   WorkflowVersionSummary,
 } from "../../shared/types";
+import { googleWorkspaceGrantTargetIdentityCondition } from "../../shared/googleWorkspaceGrantTargets";
 import {
   type AutomationScheduleTargetSources,
   defaultScheduleReplacementLocal,
@@ -421,7 +422,8 @@ export function useAutomationScheduleController({
     setScheduleBusy(true);
     setScheduleError(undefined);
     try {
-      const targetHash = await createPermissionGrantTargetHash("connector_content_read", "connector", action.targetLabel);
+      const targetIdentity = action.targetIdentity ?? action.targetLabel;
+      const targetHash = await createPermissionGrantTargetHash("connector_content_read", "connector", targetIdentity);
       const input: CreateAmbientPermissionGrantInput = {
         permissionModeAtCreation: "workspace",
         scopeKind: action.scopeKind,
@@ -438,6 +440,7 @@ export function useAutomationScheduleController({
           connectorId: action.connectorId,
           operation: action.operation,
           accountId: action.accountId,
+          ...(action.targetIdentity ? { [googleWorkspaceGrantTargetIdentityCondition]: action.targetIdentity } : {}),
         },
         source: "workflow_review",
         reason: action.reason,

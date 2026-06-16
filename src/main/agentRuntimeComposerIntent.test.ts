@@ -1,13 +1,19 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { resolveLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 import { localDeepResearchComposerPrompt, symphonyWorkflowComposerPrompt } from "./agentRuntime";
 
 describe("agent runtime composer intents", () => {
   it("routes Local Deep Research composer prompts to the first-party run tool", () => {
-    const prompt = localDeepResearchComposerPrompt("Compare local search agents.");
+    const prompt = localDeepResearchComposerPrompt("Compare local search agents.", {
+      kind: "local-deep-research",
+      localDeepResearch: resolveLocalDeepResearchRunBudget(undefined, { effort: "deep", maxToolCalls: 60 }),
+    });
 
     expect(prompt).toContain("ambient_local_deep_research_run");
     expect(prompt).toContain("ambient_local_deep_research_setup");
+    expect(prompt).toContain("\"effort\": \"deep\"");
+    expect(prompt).toContain("\"maxToolCalls\": 60");
     expect(prompt).toContain("Do not answer from general knowledge");
     expect(prompt).toContain("Research query:\nCompare local search agents.");
   });
@@ -78,6 +84,7 @@ describe("agent runtime composer intents", () => {
     expect(schemaStart).toBeGreaterThan(-1);
     expect(schemaEnd).toBeGreaterThan(schemaStart);
     expect(schemaSource).toContain('kind: z.literal("local-deep-research")');
+    expect(schemaSource).toContain("localDeepResearchRunBudgetSchema");
     expect(schemaSource).toContain('kind: z.literal("symphony-workflow")');
     expect(schemaSource).toContain('action: z.enum(["run-once", "save-recipe"])');
     expect(schemaSource).toContain('"self_healing_loop"');

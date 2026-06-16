@@ -3,7 +3,7 @@ import {
   missingRequiredSymphonyMetricTemplateLabels,
   requiredSymphonyMetricTemplateErrorMessage,
 } from "../shared/symphonyWorkflowRecipes";
-import type { SendMessageSymphonyComposerIntent } from "../shared/types";
+import type { SendMessageLocalDeepResearchComposerIntent, SendMessageSymphonyComposerIntent } from "../shared/types";
 import { callableWorkflowToolName } from "./callableWorkflowRegistry";
 
 interface SymphonyWorkflowComposerBuilderSelection {
@@ -24,11 +24,22 @@ interface SymphonyWorkflowComposerMetricCriterion {
   value: string;
 }
 
-export function localDeepResearchComposerPrompt(userRequest: string): string {
+export function localDeepResearchComposerPrompt(
+  userRequest: string,
+  intent: SendMessageLocalDeepResearchComposerIntent,
+): string {
+  const runInput = {
+    question: userRequest,
+    maxToolCalls: intent.localDeepResearch.maxToolCalls,
+    localResearchBudget: intent.localDeepResearch,
+  };
   return [
     "Composer action: Local Deep Research.",
     "Use the first-party ambient_local_deep_research_run tool for the user's research query below.",
+    "Call ambient_local_deep_research_run with this exact run budget contract:",
+    JSON.stringify(runInput, null, 2),
     "If readiness is uncertain or the run tool reports blocked, inspect setup with ambient_local_deep_research_setup and explain the blocker or next action.",
+    "If the run tool reports the budget exhausted, summarize the gathered evidence or ask whether to continue according to localResearchBudget.onExhausted.",
     "Do not answer from general knowledge before attempting the Local Deep Research run.",
     "",
     "Research query:",

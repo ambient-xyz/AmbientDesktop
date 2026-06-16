@@ -22,7 +22,7 @@ const DEFAULT_SEED_DIRECTORY_LIMIT = "50";
 const DEFAULT_POLL_LIMIT = "24";
 const DEFAULT_GUIDED_WAIT_SECONDS = "180";
 const DEFAULT_GUIDED_POLL_INTERVAL_MS = "5000";
-const DEFAULT_AMBIENT_AGENT_ROOT = "/path/to/ambientAgent";
+const DEFAULT_AMBIENT_AGENT_ROOT = "/Users/example/ambientAgent";
 const TEST_ARGS = [
   "exec",
   "vitest",

@@ -96,6 +96,16 @@ describe("subagentToolScopeRequest", () => {
     expect(() => resolveSubagentToolScopeRequest({
       builtInTools: [{ id: "bash", categoryId: "test.run" }],
     })).toThrow("No exact built-in child tools are currently activatable for test.run");
+
+    expect(() => resolveSubagentToolScopeRequest({
+      builtInTools: [{ id: "browser_search", categoryId: "browser.read" }],
+    })).toThrow("No exact built-in child tools are currently activatable for browser.read");
+
+    expect(resolveSubagentToolScopeRequest({
+      builtInTools: [{ id: "browser_search", categoryId: "browser.interactive" }],
+    })).toEqual({
+      requestedSources: [{ source: "built_in", id: "browser_search", categoryId: "browser.interactive" }],
+    });
   });
 
   it("reports only unavailable Pi-visible surfaced extension tools", () => {
@@ -119,6 +129,24 @@ describe("subagentToolScopeRequest", () => {
       approvalMode: "always",
     })).toEqual({
       requestedCategories: ["workspace.read"],
+    });
+  });
+
+  it("accepts brokered web research as a narrow child authority intent", () => {
+    expect(resolveSubagentToolScopeRequest({
+      requestedCategories: ["connector.read"],
+      childAuthority: {
+        taskIntent: "web_research",
+        network: "ask_parent",
+        mutation: "deny",
+      },
+    })).toEqual({
+      requestedCategories: ["connector.read"],
+      childAuthority: {
+        taskIntent: "web_research",
+        network: "ask_parent",
+        mutation: "deny",
+      },
     });
   });
 

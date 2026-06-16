@@ -561,7 +561,7 @@ describeNative("workflow schedule dispatch", () => {
         artifactId: artifact.id,
         versionId: version.id,
         outcome: "skipped",
-        reason: "Workflow schedule requires persistent connector grant for gmail.mail.",
+	        reason: "Workflow schedule requires persistent connector grant for gmail.mail:search.",
       }),
     ]);
 
@@ -651,14 +651,14 @@ describeNative("workflow schedule dispatch", () => {
       expect.objectContaining({
         scheduleId: schedule.id,
         outcome: "skipped",
-        reason: "Workflow schedule requires persistent connector grant for gmail.mail.",
+	        reason: "Workflow schedule requires persistent connector grant for gmail.mail:search.",
       }),
     ]);
     expect(store.listPermissionGrants()).toEqual([]);
     expect(store.listPermissionGrants({ includeRevoked: true })).toEqual([expect.objectContaining({ id: grant.id, revokedAt: expect.any(String) })]);
   });
 
-  it("allows full-access schedules to bypass persistent connector grants", async () => {
+  it("blocks full-access schedules until a persistent connector grant exists", async () => {
     const artifact = createArtifact("approved", {
       tools: ["gmail.search"],
       connectors: [
@@ -693,15 +693,8 @@ describeNative("workflow schedule dispatch", () => {
     const results = await runDueWorkflowArtifactSchedules(
       store,
       new Date(2026, 0, 1, 10, 0, 0, 0),
-      async ({ grantDecision }) => {
-        expect(grantDecision).toEqual({
-          source: "full_access_bypass",
-          connectorTargets: ["gmail.mail:search"],
-          grantIds: [],
-          grantTargets: [],
-        });
-        const run = store.startWorkflowRun({ artifactId: artifact.id, status: "succeeded" });
-        return { runId: run.id };
+      async () => {
+        throw new Error("Full Access should not bypass scheduled connector grants.");
       },
       { permissionMode: "full-access" },
     );
@@ -711,7 +704,8 @@ describeNative("workflow schedule dispatch", () => {
         scheduleId: schedule.id,
         artifactId: artifact.id,
         versionId: version.id,
-        outcome: "started",
+        outcome: "skipped",
+        reason: "Workflow schedule requires persistent connector grant for gmail.mail:search.",
       }),
     ]);
   });

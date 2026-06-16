@@ -17,8 +17,9 @@ import {
   evaluateSubagentWaitBarrierForStore,
   resolveActiveSubagentWaitBarriersForRun,
   resolveSubagentWaitBarrierForRun,
-  satisfySubagentWaitBarrierIfCurrentResultsAllowSynthesis,
   SUBAGENT_WAIT_BARRIER_RESOLUTION_SCHEMA_VERSION,
+  SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+  type SubagentWaitBarrierTransitionEvidence,
   type SubagentWaitBarrierResolutionStore,
 } from "./subagentWaitBarrierResolution";
 
@@ -41,17 +42,18 @@ describe("subagentWaitBarrierResolution", () => {
     const evaluation = evaluateSubagentWaitBarrierForStore({
       store,
       waitBarrier: waitingBarrier,
-      timedOut: false,
     });
     const resolved = resolveSubagentWaitBarrierForRun({
       store,
       waitBarrier: waitingBarrier,
       run: store.getSubagentRun("child-complete"),
-      timedOut: false,
+      evidence: childTerminalEvidence("child-complete", "completed"),
     });
 
     expect(SUBAGENT_WAIT_BARRIER_RESOLUTION_SCHEMA_VERSION)
       .toBe("ambient-subagent-wait-barrier-resolution-v1");
+    expect(SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION)
+      .toBe("ambient-subagent-wait-barrier-transition-evidence-v1");
     expect(evaluation).toMatchObject({
       waitBarrierId: "barrier-required",
       requiredSynthesisCount: 2,
@@ -61,6 +63,31 @@ describe("subagentWaitBarrierResolution", () => {
       activeChildRunIds: ["child-running"],
       reason: "required_all barrier is still waiting for child work; 1/2 synthesis-safe results are available and 1 child run may still finish.",
     });
+    expect(resolved).toBe(waitingBarrier);
+    expect(store.updateSubagentWaitBarrierStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects progress-return evidence as terminal barrier evidence", () => {
+    const waitingBarrier = barrier({
+      id: "barrier-progress",
+      childRunIds: ["child-running"],
+      dependencyMode: "required_all",
+      status: "waiting_on_children",
+    });
+    const store = fakeStore({
+      runs: [
+        run({ id: "child-running", roleId: "explorer", status: "running" }),
+      ],
+      waitBarriers: [waitingBarrier],
+    });
+
+    const resolved = resolveSubagentWaitBarrierForRun({
+      store,
+      waitBarrier: waitingBarrier,
+      run: store.getSubagentRun("child-running"),
+      evidence: progressReturnEvidence("child-running"),
+    });
+
     expect(resolved).toBe(waitingBarrier);
     expect(store.updateSubagentWaitBarrierStatus).not.toHaveBeenCalled();
   });
@@ -83,7 +110,7 @@ describe("subagentWaitBarrierResolution", () => {
       store,
       waitBarrier: waitingBarrier,
       run: store.getSubagentRun("child-failed"),
-      timedOut: false,
+      evidence: childTerminalEvidence("child-failed", "failed"),
     });
 
     expect(store.updateSubagentWaitBarrierStatus).toHaveBeenCalledWith(
@@ -95,6 +122,13 @@ describe("subagentWaitBarrierResolution", () => {
           childRunIds: ["child-failed"],
           childStatuses: [{ childRunId: "child-failed", status: "failed" }],
           timedOut: false,
+          transitionEvidence: expect.objectContaining({
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "child_terminal",
+            source: "wait_agent",
+            childRunId: "child-failed",
+            reason: "failed",
+          }),
           synthesisAllowed: false,
           waitBarrierEvaluation: expect.objectContaining({
             impossible: true,
@@ -130,7 +164,7 @@ describe("subagentWaitBarrierResolution", () => {
     });
     const store = fakeStore({
       runs: [
-        run({ id: "child-running", roleId: "explorer", status: "running" }),
+        run({ id: "child-running", roleId: "explorer", status: "timed_out" }),
       ],
       waitBarriers: [waitingBarrier],
     });
@@ -139,7 +173,7 @@ describe("subagentWaitBarrierResolution", () => {
       store,
       waitBarrier: waitingBarrier,
       run: store.getSubagentRun("child-running"),
-      timedOut: true,
+      evidence: childRuntimeTimeoutEvidence("child-running", "runtime_idle_timeout"),
     });
 
     expect(resolved).toMatchObject({
@@ -147,18 +181,153 @@ describe("subagentWaitBarrierResolution", () => {
       status: "timed_out",
       resolutionArtifact: expect.objectContaining({
         timedOut: true,
+        transitionEvidence: expect.objectContaining({
+          schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+          kind: "child_runtime_timeout",
+          source: "child_runtime",
+          childRunId: "child-running",
+          reason: "runtime_idle_timeout",
+          timeoutKind: "idle",
+        }),
         synthesisAllowed: false,
         resultArtifact: null,
         waitBarrierEvaluation: expect.objectContaining({
           timedOut: true,
-          activeChildRunIds: ["child-running"],
+          runtimeTimeoutKind: "idle",
+          terminalEvidence: {
+            kind: "child_runtime_timeout",
+            childRunId: "child-running",
+            reason: "runtime_idle_timeout",
+            timeoutKind: "idle",
+          },
+          activeChildRunIds: [],
           reason: "required_all barrier timed out with 0/1 synthesis-safe child results.",
         }),
       }),
     });
   });
 
-  it("satisfies stale timed-out barriers once child results become synthesis-safe", () => {
+  it("records hard-cap timeout kind and liveness details in durable barrier evidence", () => {
+    const waitingBarrier = barrier({
+      id: "barrier-hard-cap",
+      childRunIds: ["child-hard-cap"],
+      dependencyMode: "required_all",
+      status: "waiting_on_children",
+    });
+    const store = fakeStore({
+      runs: [
+        run({ id: "child-hard-cap", roleId: "explorer", status: "failed" }),
+      ],
+      waitBarriers: [waitingBarrier],
+    });
+
+    const resolved = resolveSubagentWaitBarrierForRun({
+      store,
+      waitBarrier: waitingBarrier,
+      run: store.getSubagentRun("child-hard-cap"),
+      evidence: childRuntimeTimeoutEvidence("child-hard-cap", "runtime_hard_cap_exceeded", {
+        childHardElapsedMs: 600_000,
+        childHardTimeoutMs: 600_000,
+        childIdleElapsedMs: 1_000,
+        lastChildActivityAt: "2026-06-06T00:09:59.000Z",
+        lastChildActivitySource: "message:assistant",
+      }),
+    });
+
+    expect(resolved).toMatchObject({
+      id: "barrier-hard-cap",
+      status: "timed_out",
+      resolutionArtifact: expect.objectContaining({
+        timedOut: true,
+        transitionEvidence: expect.objectContaining({
+          kind: "child_runtime_timeout",
+          source: "child_runtime",
+          childRunId: "child-hard-cap",
+          reason: "runtime_hard_cap_exceeded",
+          timeoutKind: "hard_cap",
+          details: {
+            childHardElapsedMs: 600_000,
+            childHardTimeoutMs: 600_000,
+            childIdleElapsedMs: 1_000,
+            lastChildActivityAt: "2026-06-06T00:09:59.000Z",
+            lastChildActivitySource: "message:assistant",
+          },
+        }),
+        waitBarrierEvaluation: expect.objectContaining({
+          timedOut: true,
+          runtimeTimeoutKind: "hard_cap",
+          terminalEvidence: {
+            kind: "child_runtime_timeout",
+            childRunId: "child-hard-cap",
+            reason: "runtime_hard_cap_exceeded",
+            timeoutKind: "hard_cap",
+            details: {
+              childHardElapsedMs: 600_000,
+              childHardTimeoutMs: 600_000,
+              childIdleElapsedMs: 1_000,
+              lastChildActivityAt: "2026-06-06T00:09:59.000Z",
+              lastChildActivitySource: "message:assistant",
+            },
+          },
+          activeChildRunIds: [],
+          reason: "required_all barrier timed out with 0/1 synthesis-safe child results.",
+        }),
+      }),
+    });
+  });
+
+  it("keeps aggregate barriers waiting when one child timeout still leaves enough active potential", () => {
+    const waitingBarrier = barrier({
+      id: "barrier-any-timeout",
+      childRunIds: ["child-timeout", "child-running"],
+      dependencyMode: "required_any",
+      status: "waiting_on_children",
+    });
+    const store = fakeStore({
+      runs: [
+        run({ id: "child-timeout", roleId: "explorer", status: "timed_out" }),
+        run({ id: "child-running", roleId: "explorer", status: "running" }),
+      ],
+      waitBarriers: [waitingBarrier],
+    });
+
+    const resolved = resolveSubagentWaitBarrierForRun({
+      store,
+      waitBarrier: waitingBarrier,
+      run: store.getSubagentRun("child-timeout"),
+      evidence: childRuntimeTimeoutEvidence("child-timeout", "runtime_idle_timeout"),
+    });
+
+    expect(resolved).toBe(waitingBarrier);
+    expect(store.updateSubagentWaitBarrierStatus).not.toHaveBeenCalled();
+    expect(evaluateSubagentWaitBarrierForStore({
+      store,
+      waitBarrier: waitingBarrier,
+      terminalEvidence: {
+        kind: "child_runtime_timeout",
+        childRunId: "child-timeout",
+        reason: "runtime_idle_timeout",
+        timeoutKind: "idle",
+      },
+    })).toMatchObject({
+      timedOut: true,
+      runtimeTimeoutKind: "idle",
+      terminalEvidence: {
+        kind: "child_runtime_timeout",
+        childRunId: "child-timeout",
+        reason: "runtime_idle_timeout",
+        timeoutKind: "idle",
+      },
+      requiredSynthesisCount: 1,
+      potentialSynthesisCount: 1,
+      impossible: false,
+      activeChildRunIds: ["child-running"],
+      terminalUnsafeChildRunIds: ["child-timeout"],
+      reason: "required_any barrier recorded child timeout evidence but is still waiting for child work; 0/1 synthesis-safe results are available and 1 child run may still finish.",
+    });
+  });
+
+  it("does not reopen timed-out barriers when late child results become synthesis-safe", () => {
     const timedOutBarrier = barrier({
       id: "barrier-late-result",
       childRunIds: ["child-complete"],
@@ -172,37 +341,19 @@ describe("subagentWaitBarrierResolution", () => {
       waitBarriers: [timedOutBarrier],
     });
 
-    const resolved = satisfySubagentWaitBarrierIfCurrentResultsAllowSynthesis({
+    const resolved = resolveSubagentWaitBarrierForRun({
       store,
       waitBarrier: timedOutBarrier,
+      run: store.getSubagentRun("child-complete"),
+      evidence: childTerminalEvidence("child-complete", "completed"),
     });
 
-    expect(store.updateSubagentWaitBarrierStatus).toHaveBeenCalledWith(
-      "barrier-late-result",
-      "satisfied",
-      {
-        resolutionArtifact: expect.objectContaining({
-          timedOut: true,
-          synthesisAllowed: true,
-          waitBarrierEvaluation: expect.objectContaining({
-            synthesisAllowed: true,
-            validSynthesisCount: 1,
-          }),
-          resultArtifact: expect.objectContaining({
-            runId: "child-complete",
-            status: "completed",
-          }),
-        }),
-      },
-    );
-    expect(resolved).toMatchObject({
-      id: "barrier-late-result",
-      status: "satisfied",
-    });
+    expect(resolved).toBe(timedOutBarrier);
+    expect(store.updateSubagentWaitBarrierStatus).not.toHaveBeenCalled();
   });
 
-  it("satisfies stale aggregate barriers from explicit partial child decisions", () => {
-    const aggregate = barrier({
+  it("does not satisfy aggregate barriers by inheriting a sibling partial decision", () => {
+    const waitingAggregate = barrier({
       id: "barrier-aggregate",
       childRunIds: ["judge-complete", "feedback-failed"],
       dependencyMode: "required_all",
@@ -236,45 +387,41 @@ describe("subagentWaitBarrierResolution", () => {
         run({ id: "judge-complete", roleId: "explorer", status: "completed", resultArtifact: completedArtifact("judge-complete") }),
         run({ id: "feedback-failed", roleId: "reviewer", status: "failed", resultArtifact: failedArtifact("feedback-failed") }),
       ],
-      waitBarriers: [aggregate, explicitPartial],
+      waitBarriers: [waitingAggregate, explicitPartial],
     });
 
-    const resolved = satisfySubagentWaitBarrierIfCurrentResultsAllowSynthesis({
+    const resolved = resolveSubagentWaitBarrierForRun({
       store,
-      waitBarrier: aggregate,
+      waitBarrier: waitingAggregate,
+      run: store.getSubagentRun("judge-complete"),
+      evidence: childTerminalEvidence("judge-complete", "completed"),
     });
 
     expect(store.updateSubagentWaitBarrierStatus).toHaveBeenCalledWith(
       "barrier-aggregate",
-      "satisfied",
+      "failed",
       {
         resolutionArtifact: expect.objectContaining({
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
-          synthesisAllowed: true,
-          explicitPartial: true,
-          partialInheritedFromWaitBarrierIds: ["barrier-feedback-partial"],
-          partialInheritedUnsafeChildRunIds: ["feedback-failed"],
-          childStatuses: [
-            { childRunId: "judge-complete", status: "completed" },
-            { childRunId: "feedback-failed", status: "failed" },
-          ],
+          synthesisAllowed: false,
+          transitionEvidence: expect.objectContaining({
+            kind: "child_terminal",
+            source: "wait_agent",
+            childRunId: "judge-complete",
+          }),
           waitBarrierEvaluation: expect.objectContaining({
             synthesisAllowed: false,
             impossible: true,
             terminalUnsafeChildRunIds: ["feedback-failed"],
-          }),
-          userDecision: expect.objectContaining({
-            decision: "continue_with_partial",
-            partialSummary: "Feedback child failed after the judge already triggered the plateau stop.",
           }),
         }),
       },
     );
     expect(resolved).toMatchObject({
       id: "barrier-aggregate",
-      status: "satisfied",
-      resolutionArtifact: expect.objectContaining({
+      status: "failed",
+      resolutionArtifact: expect.not.objectContaining({
         explicitPartial: true,
+        partialInheritedFromWaitBarrierIds: expect.any(Array),
       }),
     });
   });
@@ -309,7 +456,7 @@ describe("subagentWaitBarrierResolution", () => {
     expect(resolveActiveSubagentWaitBarriersForRun({
       store,
       run: store.getSubagentRun("child-failed"),
-      timedOut: false,
+      evidence: childTerminalEvidence("child-failed", "failed"),
     })).toEqual([
       expect.objectContaining({ id: "barrier-active", status: "failed" }),
     ]);
@@ -351,6 +498,49 @@ function fakeStore(input: {
       return [...waitBarriers.values()].filter((candidate) => candidate.parentRunId === parentRunId);
     },
     updateSubagentWaitBarrierStatus,
+  };
+}
+
+function progressReturnEvidence(childRunId: string): SubagentWaitBarrierTransitionEvidence {
+  return {
+    schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+    kind: "progress_return",
+    source: "parent_wait_session",
+    childRunId,
+    reason: "parent_wait_window_elapsed",
+  };
+}
+
+function childTerminalEvidence(
+  childRunId: string,
+  reason: SubagentRunSummary["status"],
+): SubagentWaitBarrierTransitionEvidence {
+  return {
+    schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+    kind: "child_terminal",
+    source: "wait_agent",
+    childRunId,
+    reason,
+  };
+}
+
+function childRuntimeTimeoutEvidence(
+  childRunId: string,
+  reason: string,
+  details?: Record<string, unknown>,
+): SubagentWaitBarrierTransitionEvidence {
+  return {
+    schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+    kind: "child_runtime_timeout",
+    source: "child_runtime",
+    childRunId,
+    reason,
+    timeoutKind: reason === "runtime_hard_cap_exceeded"
+      ? "hard_cap"
+      : reason === "runtime_idle_timeout"
+        ? "idle"
+        : "unknown",
+    ...(details ? { details } : {}),
   };
 }
 

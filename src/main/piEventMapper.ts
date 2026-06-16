@@ -1353,7 +1353,8 @@ function languageFromPath(path: string): string | undefined {
 function mediaArtifactResult(value: unknown): MediaArtifactResult | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const record = value as Record<string, unknown>;
-  if (record.renderedInline !== true) return undefined;
+  const previewEligible = record.inlinePreviewEligible === true || record.renderedInline === true;
+  if (!previewEligible) return undefined;
   const artifactPath = stringField(record, "artifactPath");
   const mediaKind = stringField(record, "mediaKind");
   const bytes = numberField(record, "bytes");
@@ -1368,7 +1369,8 @@ function mediaArtifactResult(value: unknown): MediaArtifactResult | undefined {
     artifactPath,
     mediaKind,
     bytes,
-    renderedInline: true,
+    ...(record.inlinePreviewEligible === true ? { inlinePreviewEligible: true } : {}),
+    ...(record.renderedInline === true ? { renderedInline: true } : {}),
     displayInstruction,
     ...(mimeType ? { mimeType } : {}),
     ...(width !== undefined ? { width } : {}),

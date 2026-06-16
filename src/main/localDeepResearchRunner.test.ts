@@ -53,17 +53,20 @@ describe("Local Deep Research runner", () => {
   it("runs search and visit calls through the broker before final synthesis", async () => {
     const setup = readySetup();
     const broker = brokerFixture();
+    const chat = chatSequence([
+      '<tool_call>{"name":"search","arguments":{"query":"local deep research agent LiteResearcher","maxResults":3}}</tool_call>',
+      '<tool_call>{"name":"visit","arguments":{"url":"https://example.com/literesearcher"}}</tool_call>',
+      "<answer>LiteResearcher is the selected local candidate.\n\nSources: https://example.com/literesearcher</answer>",
+    ]);
+    const progress: string[] = [];
 
     const result = await runLocalDeepResearch({
       question: "Compare current local research agent options.",
       setup,
-      chat: chatSequence([
-        '<tool_call>{"name":"search","arguments":{"query":"local deep research agent LiteResearcher","maxResults":3}}</tool_call>',
-        '<tool_call>{"name":"visit","arguments":{"url":"https://example.com/literesearcher"}}</tool_call>',
-        "<answer>LiteResearcher is the selected local candidate.\n\nSources: https://example.com/literesearcher</answer>",
-      ]),
+      chat,
       broker,
       maxToolCalls: 4,
+      onProgress: (event) => progress.push(`${event.stage}:${event.toolName ?? ""}:${event.toolCalls}/${event.maxToolCalls}`),
     });
 
     expect(result.status).toBe("completed");
@@ -81,14 +84,45 @@ describe("Local Deep Research runner", () => {
     ]);
     expect(result.messages[3]?.content).toContain("<tool_response>");
     expect(result.messages[3]?.content).toContain("Tool: search");
+    expect(result.messages[3]?.content).toContain("<budget_state>");
+    expect(result.messages[3]?.content).toContain('"remainingToolCalls":3');
     expect(result.messages[5]?.content).toContain("<tool_response>");
     expect(result.messages[5]?.content).toContain("Tool: visit");
+    expect(result.messages[5]?.content).toContain('"remainingToolCalls":2');
+    expect(chat.complete).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      toolBudget: expect.objectContaining({
+        maxToolCalls: 4,
+        usedToolCalls: 0,
+        remainingToolCalls: 4,
+      }),
+    }));
+    expect(chat.complete).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      toolBudget: expect.objectContaining({
+        usedToolCalls: 1,
+        remainingToolCalls: 3,
+      }),
+    }));
     expect(result.citationValidation).toMatchObject({
       status: "passed",
       citationUrls: ["https://example.com/literesearcher"],
       unobservedCitationUrls: [],
       hasSourcesLine: true,
     });
+    expect(progress).toEqual([
+      "started::0/4",
+      "model-turn-started::0/4",
+      "model-turn-completed::0/4",
+      "tool-dispatch:search:0/4",
+      "tool-completed:search:1/4",
+      "model-turn-started::1/4",
+      "model-turn-completed::1/4",
+      "tool-dispatch:visit:1/4",
+      "tool-completed:visit:2/4",
+      "model-turn-started::2/4",
+      "model-turn-completed::2/4",
+      "final-answer-draft::2/4",
+      "completed::2/4",
+    ]);
   });
 
   it("rejects final citations that were not observed in successful tool evidence", async () => {
@@ -250,24 +284,83 @@ describe("Local Deep Research runner", () => {
     expect(result.messages.map((message) => message.role)).toEqual(["system", "user", "assistant"]);
   });
 
-  it("enforces the tool budget before executing another broker call", async () => {
+  it("uses reserved final synthesis instead of executing another broker call after the evidence budget", async () => {
     const setup = readySetup();
     const broker = brokerFixture();
+    const chat = chatSequence([
+      '{"name":"search","arguments":{"query":"one"}}',
+      '{"name":"search","arguments":{"query":"two"}}',
+      "Budgeted final synthesis from gathered evidence.\n\nSources: https://example.com/literesearcher",
+    ]);
+    const progress: Array<{ stage: string; toolCalls: number; maxTurns: number; error?: string }> = [];
 
     const result = await runLocalDeepResearch({
       question: "Find sources.",
       setup,
-      chat: chatSequence([
-        '{"name":"search","arguments":{"query":"one"}}',
-        '{"name":"search","arguments":{"query":"two"}}',
-      ]),
+      chat,
+      broker,
+      maxToolCalls: 1,
+      maxTurns: 1,
+      onProgress: (event) => progress.push({ stage: event.stage, toolCalls: event.toolCalls, maxTurns: event.maxTurns, error: event.error }),
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.finalSynthesisReserveTurns).toBe(3);
+    expect(result.finalText).toBe("Budgeted final synthesis from gathered evidence.\n\nSources: https://example.com/literesearcher");
+    expect(result.toolExecutions).toHaveLength(1);
+    expect(result.toolBudget).toMatchObject({
+      maxToolCalls: 1,
+      usedToolCalls: 1,
+      remainingToolCalls: 0,
+      exhausted: true,
+    });
+    expect(broker.search).toHaveBeenCalledTimes(1);
+    expect(chat.complete).toHaveBeenCalledTimes(3);
+    expect(progress[0]).toMatchObject({
+      stage: "started",
+      maxTurns: 4,
+    });
+    expect(progress.map((event) => event.stage)).toContain("final-synthesis-repair");
+    expect(progress.at(-1)).toMatchObject({
+      stage: "completed",
+      toolCalls: 1,
+    });
+  });
+
+  it("returns a synthesis-deferred evidence packet when reserved final synthesis attempts fail", async () => {
+    const setup = readySetup();
+    const broker = brokerFixture();
+    const chat = chatSequence([
+      '{"name":"search","arguments":{"query":"one"}}',
+      '{"name":"search","arguments":{"query":"two"}}',
+      '{"name":"search","arguments":{"query":"three"}}',
+      '{"name":"search","arguments":{"query":"four"}}',
+      '{"name":"search","arguments":{"query":"five"}}',
+    ]);
+
+    const result = await runLocalDeepResearch({
+      question: "Find sources.",
+      setup,
+      chat,
       broker,
       maxToolCalls: 1,
     });
 
-    expect(result.status).toBe("tool-budget-exceeded");
-    expect(result.toolExecutions).toHaveLength(1);
+    expect(result).toMatchObject({
+      status: "synthesis-deferred",
+      finalSynthesisReserveTurns: 3,
+      toolBudget: {
+        maxToolCalls: 1,
+        usedToolCalls: 1,
+        remainingToolCalls: 0,
+        exhausted: true,
+      },
+      citationValidation: { status: "passed" },
+    });
+    expect(result.finalText).toContain("# Local Deep Research Evidence Packet");
+    expect(result.finalText).toContain("Reserved local final synthesis did not produce a valid cited answer.");
     expect(broker.search).toHaveBeenCalledTimes(1);
+    expect(chat.complete).toHaveBeenCalledTimes(5);
   });
 
   it("asks once for a clean final answer when LiteResearcher returns scratch thinking as final output", async () => {
@@ -315,6 +408,7 @@ describe("Local Deep Research runner", () => {
       setup,
       chat: chatSequence([
         "<think>\nWe have one relevant source and should answer now.",
+        "<think>\nStill not a user-facing answer.",
       ]),
       broker: brokerFixture(),
       maxToolCalls: 4,

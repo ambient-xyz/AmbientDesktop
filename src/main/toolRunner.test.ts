@@ -287,8 +287,8 @@ describe("normalizeToolRunnerRuntimeEnv", () => {
   it("prefers native Homebrew Node for Pi bash on Apple Silicon", () => {
     const env = normalizeToolRunnerRuntimeEnv(
       {
-        PATH: ["/path/to/user/.pi/agent/bin", "/usr/local/bin", "/opt/homebrew/bin", "/usr/bin"].join(delimiter),
-        HOME: "/path/to/user",
+        PATH: ["/Users/example/.pi/agent/bin", "/usr/local/bin", "/opt/homebrew/bin", "/usr/bin"].join(delimiter),
+        HOME: "/Users/example",
       },
       { permissionMode: "full-access", workspacePath: "/workspace", subject: "pi-bash" },
       {
@@ -300,7 +300,7 @@ describe("normalizeToolRunnerRuntimeEnv", () => {
       },
     );
 
-    expect(env.PATH?.split(delimiter).slice(0, 4)).toEqual(["/opt/homebrew/bin", "/opt/homebrew/sbin", "/path/to/user/.pi/agent/bin", "/usr/local/bin"]);
+    expect(env.PATH?.split(delimiter).slice(0, 4)).toEqual(["/opt/homebrew/bin", "/opt/homebrew/sbin", "/Users/example/.pi/agent/bin", "/usr/local/bin"]);
     expect(env.PATH?.split(delimiter).filter((entry) => entry === "/opt/homebrew/bin")).toHaveLength(1);
     expect(env.npm_node_execpath).toBe("/opt/homebrew/bin/node");
     expect(env.NODE).toBe("/opt/homebrew/bin/node");
@@ -308,7 +308,7 @@ describe("normalizeToolRunnerRuntimeEnv", () => {
   });
 
   it("does not force native Node for plugin MCP processes or non-arm64 hosts", () => {
-    const base = { PATH: "/path/to/user/.pi/agent/bin:/usr/local/bin" };
+    const base = { PATH: "/Users/example/.pi/agent/bin:/usr/local/bin" };
     const host = {
       platform: "darwin" as const,
       arch: "arm64" as const,

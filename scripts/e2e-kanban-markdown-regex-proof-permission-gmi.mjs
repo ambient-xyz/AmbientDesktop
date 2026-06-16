@@ -98,7 +98,7 @@ try {
     permissionAudit,
     screenshots: { board: boardScreenshotPath, proof: proofScreenshotPath },
     assertions: [
-      "Desktop launched with the GMI Cloud provider against a temp copy of Documents/ambientCoderArchive",
+      "Desktop launched with the GMI Cloud provider against a temp copy of Documents/AmbientDesktopArchive",
       "A Markdown link-checker Local Task was prepared through the visible Board UI",
       "The worker ran an inline Node proof command containing a regex beginning /##",
       "The regex proof command produced link-check-report.md and link-check-report.json artifacts with zero broken links",

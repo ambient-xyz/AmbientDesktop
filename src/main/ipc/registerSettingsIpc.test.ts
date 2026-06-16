@@ -440,6 +440,27 @@ describe("registerSettingsIpc", () => {
     expect(deps.listLocalDeepResearchRunsForSettings).not.toHaveBeenCalled();
   });
 
+  it("parses Local Deep Research run budget settings before calling the dependency", async () => {
+    const { deps, invoke } = registerWithFakes();
+    const input = {
+      runBudget: {
+        defaultEffort: "deep",
+        customMaxToolCalls: 80,
+        onExhausted: "summarize",
+      },
+    };
+
+    await expect(invoke("local-deep-research:update-settings", input)).resolves.toEqual(input);
+    expect(deps.updateLocalDeepResearchSettings).toHaveBeenCalledWith(input);
+
+    await expect(invoke("local-deep-research:update-settings", {
+      runBudget: {
+        defaultEffort: "unbounded",
+      },
+    })).rejects.toThrow();
+    expect(deps.updateLocalDeepResearchSettings).toHaveBeenCalledTimes(1);
+  });
+
   it("saves STT test audio through the active workspace context", async () => {
     const { deps, invoke } = registerWithFakes();
     const input = sampleSttTestAudioInput();

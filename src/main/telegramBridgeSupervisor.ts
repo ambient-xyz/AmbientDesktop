@@ -9,7 +9,7 @@ import { redactString } from "./diagnostics";
 
 const PROVIDER_ID = "telegram-tdlib";
 const DEFAULT_PORT = "8091";
-const DEFAULT_AMBIENT_AGENT_ROOT = "/path/to/ambientAgent";
+const DEFAULT_AMBIENT_AGENT_ROOT = "/Users/example/ambientAgent";
 const MAX_LOG_LINES = 20;
 
 export interface TelegramBridgeSupervisorOptions {

@@ -1,7 +1,9 @@
 import type {
   CallableWorkflowTaskSummary,
   RuntimeActivity,
+  SubagentMailboxEventSummary,
   SubagentParentMailboxEventSummary,
+  SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
 } from "../shared/types";
@@ -12,19 +14,39 @@ import {
   resolveCallableWorkflowParentBlocking,
   type CallableWorkflowParentBlockingBlock,
 } from "./callableWorkflowParentBlocking";
+import {
+  subagentResultRepairStateForRun,
+  type SubagentResultRepairState,
+} from "./subagentResultRepairState";
 
 type RuntimeStreamActivity = Extract<RuntimeActivity, { kind: "stream" }>;
+
+export interface SubagentFinalizationBarrierChildBlocker {
+  childRunId: string;
+  childThreadId?: string;
+  canonicalTaskPath?: string;
+  roleId?: string;
+  status: SubagentRunSummary["status"] | "missing";
+  dependencyMode: SubagentWaitBarrierSummary["dependencyMode"];
+  barrierIds: string[];
+  lastActivityAt: string;
+  lastActivitySource: string;
+  lastActivityDetail?: string;
+  resultRepairState?: SubagentResultRepairState;
+}
 
 export interface SubagentFinalizationBarrierBlock {
   message: string;
   barrierIds: string[];
   childRunIds: string[];
+  childBlockers: SubagentFinalizationBarrierChildBlocker[];
   barriers: Array<{
     id: string;
     dependencyMode: SubagentWaitBarrierSummary["dependencyMode"];
     status: SubagentWaitBarrierSummary["status"];
     failurePolicy: SubagentWaitBarrierSummary["failurePolicy"];
     childRunIds: string[];
+    childBlockers: SubagentFinalizationBarrierChildBlocker[];
   }>;
 }
 
@@ -71,6 +93,11 @@ export function recordSubagentFinalizationBlockedParentMailbox(input: {
     const primaryRun = childRuns[0];
     const childRunId = primaryRun?.id ?? barrier.childRunIds[0];
     if (!childRunId) continue;
+    const childBlockers = childBlockersForBarrier({
+      childBlockers: input.block.childBlockers,
+      barrier,
+      childRuns,
+    });
     const parentResolution = subagentFinalizationBlockParentResolution(barrier, primaryRun, input.block.message);
     const event = input.appendSubagentParentMailboxEvent({
       parentThreadId: input.parentThreadId,
@@ -96,6 +123,7 @@ export function recordSubagentFinalizationBlockedParentMailbox(input: {
         failurePolicy: barrier.failurePolicy,
         childRunIds: barrier.childRunIds,
         childStatuses: childRuns.map((run) => ({ childRunId: run.id, status: run.status })),
+        childBlockers,
         waitTimedOut: barrier.status === "timed_out",
         parentFinalizationBlocked: true,
         parentResolution,
@@ -108,6 +136,7 @@ export function recordSubagentFinalizationBlockedParentMailbox(input: {
           dependencyMode: barrier.dependencyMode,
           failurePolicy: barrier.failurePolicy,
           childRunIds: barrier.childRunIds,
+          childBlockers,
           ...(barrier.quorumThreshold ? { quorumThreshold: barrier.quorumThreshold } : {}),
           ...(barrier.timeoutMs ? { timeoutMs: barrier.timeoutMs } : {}),
         },
@@ -162,6 +191,19 @@ export function subagentFinalizationBlockedActivity(
       reason: "required_wait_barrier_not_satisfied",
       barrierIds: input.block.barrierIds,
       childRunIds: input.block.childRunIds,
+      childBlockers: input.block.childBlockers.map((blocker) => ({
+        childRunId: blocker.childRunId,
+        status: blocker.status,
+        dependencyMode: blocker.dependencyMode,
+        barrierIds: blocker.barrierIds,
+        lastActivityAt: blocker.lastActivityAt,
+        lastActivitySource: blocker.lastActivitySource,
+        ...(blocker.childThreadId ? { childThreadId: blocker.childThreadId } : {}),
+        ...(blocker.canonicalTaskPath ? { canonicalTaskPath: blocker.canonicalTaskPath } : {}),
+        ...(blocker.roleId ? { roleId: blocker.roleId } : {}),
+        ...(blocker.lastActivityDetail ? { lastActivityDetail: blocker.lastActivityDetail } : {}),
+        ...(blocker.resultRepairState ? { resultRepairState: blocker.resultRepairState } : {}),
+      })),
     },
   };
 }
@@ -258,6 +300,8 @@ export function subagentFinalizationBarrierBlock(input: {
   parentRunId: string;
   listSubagentWaitBarriersForParentRun: (parentRunId: string) => SubagentWaitBarrierSummary[];
   getSubagentRun: (runId: string) => SubagentRunSummary;
+  listSubagentRunEvents?: (runId: string) => SubagentRunEventSummary[];
+  listSubagentMailboxEvents?: (runId: string) => SubagentMailboxEventSummary[];
 }): SubagentFinalizationBarrierBlock | undefined {
   const barriers = input.listSubagentWaitBarriersForParentRun(input.parentRunId)
     .filter((barrier) =>
@@ -266,33 +310,201 @@ export function subagentFinalizationBarrierBlock(input: {
       barrier.dependencyMode !== "optional_background");
   if (barriers.length === 0) return undefined;
   const childRunIds = [...new Set(barriers.flatMap((barrier) => barrier.childRunIds))];
-  const childFacts = childRunIds.map((childRunId) => {
-    try {
-      const run = input.getSubagentRun(childRunId);
-      return `${run.id} (${run.status})`;
-    } catch {
-      return `${childRunId} (missing)`;
-    }
-  });
   const compactBarriers = barriers.map((barrier) => ({
     id: barrier.id,
     dependencyMode: barrier.dependencyMode,
     status: barrier.status,
     failurePolicy: barrier.failurePolicy,
     childRunIds: barrier.childRunIds,
+    childBlockers: barrier.childRunIds.map((childRunId) =>
+      subagentFinalizationBarrierChildBlocker({
+        barrier,
+        childRunId,
+        getSubagentRun: input.getSubagentRun,
+        listSubagentRunEvents: input.listSubagentRunEvents,
+        listSubagentMailboxEvents: input.listSubagentMailboxEvents,
+      })
+    ),
   }));
+  const childBlockers = dedupeFinalizationChildBlockers(compactBarriers.flatMap((barrier) => barrier.childBlockers));
+  const childFacts = childBlockers.map((blocker) => childBlockerFact(blocker));
   const message = [
     "Parent final answer blocked because required sub-agent work is not safe for synthesis.",
     `Blocking barriers: ${compactBarriers.map((barrier) => `${barrier.id} (${barrier.dependencyMode}, ${barrier.status}, ${barrier.failurePolicy})`).join(", ")}.`,
-    `Child runs: ${childFacts.join(", ")}.`,
+    `Child statuses: ${childBlockers.map((blocker) => `${blocker.childRunId} (${blocker.status})`).join(", ")}.`,
+    `Child blockers: ${childFacts.join(", ")}.`,
     "Use the barrier failure policy: wait for a valid child result, retry the child, ask the user, fail the parent, or continue only with an explicit partial result artifact.",
   ].join("\n");
   return {
     message,
     barrierIds: barriers.map((barrier) => barrier.id),
     childRunIds,
+    childBlockers,
     barriers: compactBarriers,
   };
+}
+
+function childBlockersForBarrier(input: {
+  childBlockers: SubagentFinalizationBarrierChildBlocker[];
+  barrier: SubagentWaitBarrierSummary;
+  childRuns: SubagentRunSummary[];
+}): SubagentFinalizationBarrierChildBlocker[] {
+  return input.barrier.childRunIds.map((childRunId) => {
+    const existing = input.childBlockers.find((blocker) => blocker.childRunId === childRunId);
+    const run = input.childRuns.find((candidate) => candidate.id === childRunId);
+    if (!run) {
+      return existing ?? missingFinalizationChildBlocker({ barrier: input.barrier, childRunId });
+    }
+    return {
+      ...existing,
+      childRunId: run.id,
+      childThreadId: run.childThreadId,
+      canonicalTaskPath: run.canonicalTaskPath,
+      roleId: run.roleId,
+      status: run.status,
+      dependencyMode: input.barrier.dependencyMode,
+      barrierIds: [...new Set([...(existing?.barrierIds ?? []), input.barrier.id])],
+      lastActivityAt: existing?.lastActivityAt ?? run.updatedAt ?? run.createdAt,
+      lastActivitySource: existing?.lastActivitySource ?? "subagent_run",
+      lastActivityDetail: existing?.lastActivityDetail ?? "run updated",
+      ...(existing?.resultRepairState ? { resultRepairState: existing.resultRepairState } : {}),
+    };
+  });
+}
+
+function subagentFinalizationBarrierChildBlocker(input: {
+  barrier: SubagentWaitBarrierSummary;
+  childRunId: string;
+  getSubagentRun: (runId: string) => SubagentRunSummary;
+  listSubagentRunEvents?: (runId: string) => SubagentRunEventSummary[];
+  listSubagentMailboxEvents?: (runId: string) => SubagentMailboxEventSummary[];
+}): SubagentFinalizationBarrierChildBlocker {
+  let run: SubagentRunSummary;
+  try {
+    run = input.getSubagentRun(input.childRunId);
+  } catch {
+    return missingFinalizationChildBlocker({ barrier: input.barrier, childRunId: input.childRunId });
+  }
+  const runEvents = safeList(() => input.listSubagentRunEvents?.(run.id));
+  const mailboxEvents = safeList(() => input.listSubagentMailboxEvents?.(run.id));
+  const activity = latestSubagentFinalizationBlockerActivity({
+    run,
+    runEvents,
+    mailboxEvents,
+  });
+  const resultRepairState = subagentResultRepairStateForRun({ run, events: runEvents });
+  return {
+    childRunId: run.id,
+    childThreadId: run.childThreadId,
+    canonicalTaskPath: run.canonicalTaskPath,
+    roleId: run.roleId,
+    status: run.status,
+    dependencyMode: input.barrier.dependencyMode,
+    barrierIds: [input.barrier.id],
+    lastActivityAt: activity.at,
+    lastActivitySource: activity.source,
+    ...(activity.detail ? { lastActivityDetail: activity.detail } : {}),
+    ...(resultRepairState ? { resultRepairState } : {}),
+  };
+}
+
+function missingFinalizationChildBlocker(input: {
+  barrier: SubagentWaitBarrierSummary;
+  childRunId: string;
+}): SubagentFinalizationBarrierChildBlocker {
+  return {
+    childRunId: input.childRunId,
+    status: "missing",
+    dependencyMode: input.barrier.dependencyMode,
+    barrierIds: [input.barrier.id],
+    lastActivityAt: input.barrier.updatedAt ?? input.barrier.createdAt,
+    lastActivitySource: "wait_barrier",
+    lastActivityDetail: "child run missing from store",
+  };
+}
+
+function dedupeFinalizationChildBlockers(
+  blockers: SubagentFinalizationBarrierChildBlocker[],
+): SubagentFinalizationBarrierChildBlocker[] {
+  const byRunId = new Map<string, SubagentFinalizationBarrierChildBlocker>();
+  for (const blocker of blockers) {
+    const existing = byRunId.get(blocker.childRunId);
+    if (!existing) {
+      byRunId.set(blocker.childRunId, blocker);
+      continue;
+    }
+    byRunId.set(blocker.childRunId, {
+      ...newerFinalizationBlocker(existing, blocker),
+      barrierIds: [...new Set([...existing.barrierIds, ...blocker.barrierIds])],
+    });
+  }
+  return [...byRunId.values()];
+}
+
+function latestSubagentFinalizationBlockerActivity(input: {
+  run: SubagentRunSummary;
+  runEvents: SubagentRunEventSummary[];
+  mailboxEvents: SubagentMailboxEventSummary[];
+}): { at: string; source: string; detail?: string } {
+  let latest: { at: string; source: string; detail?: string } = {
+    at: input.run.updatedAt ?? input.run.createdAt,
+    source: "subagent_run",
+    detail: "run updated",
+  };
+  for (const value of [input.run.completedAt, input.run.closedAt, input.run.startedAt, input.run.createdAt]) {
+    latest = newerActivity(latest, value, "subagent_run", value === input.run.completedAt ? "run completed" : "run timestamp");
+  }
+  for (const event of input.runEvents) {
+    latest = newerActivity(latest, event.createdAt, `run_event:${event.type}`, `run event ${event.sequence}`);
+  }
+  for (const mailbox of input.mailboxEvents) {
+    latest = newerActivity(latest, mailbox.deliveredAt ?? mailbox.createdAt, `mailbox:${mailbox.type}`, mailbox.deliveryState);
+  }
+  return latest;
+}
+
+function newerActivity(
+  current: { at: string; source: string; detail?: string },
+  at: string | undefined,
+  source: string,
+  detail?: string,
+): { at: string; source: string; detail?: string } {
+  if (!at) return current;
+  const currentMs = Date.parse(current.at);
+  const nextMs = Date.parse(at);
+  if (!Number.isFinite(nextMs)) return current;
+  if (!Number.isFinite(currentMs) || nextMs >= currentMs) {
+    return { at, source, ...(detail ? { detail } : {}) };
+  }
+  return current;
+}
+
+function newerFinalizationBlocker(
+  a: SubagentFinalizationBarrierChildBlocker,
+  b: SubagentFinalizationBarrierChildBlocker,
+): SubagentFinalizationBarrierChildBlocker {
+  const aMs = Date.parse(a.lastActivityAt);
+  const bMs = Date.parse(b.lastActivityAt);
+  if (!Number.isFinite(bMs)) return a;
+  if (!Number.isFinite(aMs) || bMs >= aMs) return b;
+  return a;
+}
+
+function safeList<T>(read: () => T[] | undefined): T[] {
+  try {
+    return read() ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function childBlockerFact(blocker: SubagentFinalizationBarrierChildBlocker): string {
+  const path = blocker.canonicalTaskPath ? `, path ${blocker.canonicalTaskPath}` : "";
+  const thread = blocker.childThreadId ? `, thread ${blocker.childThreadId}` : "";
+  const repair = blocker.resultRepairState
+    ? `, repair pending: ${blocker.resultRepairState.reason}`
+    : "";
+  return `${blocker.childRunId} (${blocker.status}${path}${thread}, last activity ${blocker.lastActivityAt} via ${blocker.lastActivitySource}${repair})`;
 }
 
 export function callableWorkflowFinalizationBlock(input: {

@@ -101,11 +101,22 @@ export function moveWebResearchProvider(stack: WebResearchProviderStackSettings,
 }
 
 export function resetWebResearchRole(stack: WebResearchProviderStackSettings, role: WebResearchProviderRole): WebResearchProviderStackSettings {
+  const preferredDynamicProviderIds = role === "search"
+    ? stack.providers
+      .filter((provider) =>
+        provider.status === "enabled" &&
+        provider.roles.includes("search") &&
+        !WEB_RESEARCH_UI_DEFAULT_PREFERENCES.search.includes(provider.providerId) &&
+        isPreferredDynamicSearchProvider(provider)
+      )
+      .map((provider) => provider.providerId)
+    : [];
   return {
     ...stack,
     preferences: {
       ...stack.preferences,
-      [role]: [...WEB_RESEARCH_UI_DEFAULT_PREFERENCES[role]],
+      [role]: [...preferredDynamicProviderIds, ...WEB_RESEARCH_UI_DEFAULT_PREFERENCES[role]]
+        .filter((providerId, index, list) => list.indexOf(providerId) === index),
     },
     updatedAt: new Date().toISOString(),
   };
@@ -380,11 +391,42 @@ function webResearchRoleOrderWithDefaults(
   providers: WebResearchProviderConfig[],
 ): string[] {
   const requested = (stack.preferences[role] ?? []).filter((providerId) => providerIds.has(providerId));
-  const dynamic = providers
-    .filter((provider) => provider.roles.includes(role) && !requested.includes(provider.providerId) && !WEB_RESEARCH_UI_DEFAULT_PREFERENCES[role].includes(provider.providerId))
+  const defaultProviderIds = new Set(WEB_RESEARCH_UI_DEFAULT_PREFERENCES[role]);
+  const providerMap = new Map(providers.map((provider) => [provider.providerId, provider]));
+  const requestedPreferredDynamic = role === "search"
+    ? requested.filter((providerId) => {
+      const provider = providerMap.get(providerId);
+      return provider && !defaultProviderIds.has(providerId) && isPreferredDynamicSearchProvider(provider);
+    })
+    : [];
+  const requestedRest = requested.filter((providerId) => !requestedPreferredDynamic.includes(providerId));
+  const dynamicProviders = providers
+    .filter((provider) => provider.roles.includes(role) && !requested.includes(provider.providerId) && !defaultProviderIds.has(provider.providerId));
+  const preferredDynamic = role === "search"
+    ? dynamicProviders.filter(isPreferredDynamicSearchProvider).map((provider) => provider.providerId)
+    : [];
+  const dynamic = dynamicProviders
+    .filter((provider) => !preferredDynamic.includes(provider.providerId))
     .map((provider) => provider.providerId);
   const defaults = WEB_RESEARCH_UI_DEFAULT_PREFERENCES[role].filter((providerId) => providerIds.has(providerId) && !requested.includes(providerId));
-  return [...requested, ...dynamic, ...defaults];
+  return [...requestedPreferredDynamic, ...preferredDynamic, ...requestedRest, ...dynamic, ...defaults]
+    .filter((providerId, index, list) => list.indexOf(providerId) === index);
+}
+
+function isPreferredDynamicSearchProvider(provider: WebResearchProviderConfig): boolean {
+  const haystack = [
+    provider.providerId,
+    provider.label,
+    provider.privacyLabel,
+    provider.ambientCli?.packageId,
+    provider.ambientCli?.packageName,
+    provider.ambientCli?.commandName,
+    provider.ambientCli?.capabilityId,
+    provider.mcp?.serverId,
+    provider.mcp?.workloadName,
+    provider.mcp?.toolName,
+  ].filter(Boolean).join(" ").toLowerCase();
+  return /\bbrave\b/.test(haystack) || haystack.includes("brave-search");
 }
 
 function cloneWebResearchProvider(provider: WebResearchProviderConfig): WebResearchProviderConfig {

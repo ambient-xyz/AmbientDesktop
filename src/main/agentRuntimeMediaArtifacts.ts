@@ -132,8 +132,8 @@ export function appendMediaArtifactResult<T>(result: T, artifactPath: string, wo
     artifactPath,
     mediaKind: "image",
     bytes: 0,
-    renderedInline: true,
-    displayInstruction: "Ambient Desktop rendered this media inline in the visible chat.",
+    inlinePreviewEligible: true,
+    displayInstruction: "Ambient Desktop will attempt to render this media inline in the visible chat.",
   });
 
   if (typeof result === "string") return `${result}\n${notice}` as T;
@@ -144,7 +144,7 @@ export function appendMediaArtifactResult<T>(result: T, artifactPath: string, wo
     const nextDetails = {
       ...details,
       artifactPath: mediaArtifact?.artifactPath ?? artifactPath,
-      renderedInline: true,
+      inlinePreviewEligible: true,
       ...(mediaArtifact ? { mediaArtifact } : {}),
     };
     if (Array.isArray(record.content)) {
@@ -156,15 +156,15 @@ export function appendMediaArtifactResult<T>(result: T, artifactPath: string, wo
     }
     return { ...record, details: nextDetails, content: [{ type: "text", text: notice }] } as T;
   }
-  return { content: [{ type: "text", text: notice }], details: { artifactPath, renderedInline: true, ...(mediaArtifact ? { mediaArtifact } : {}) } } as T;
+  return { content: [{ type: "text", text: notice }], details: { artifactPath, inlinePreviewEligible: true, ...(mediaArtifact ? { mediaArtifact } : {}) } } as T;
 }
 
 export function mediaArtifactNotice(result: MediaArtifactResult): string {
   return [
     "",
     `Generated media artifact: ${result.artifactPath}`,
-    `Ambient Desktop has rendered an inline media preview for ${result.artifactPath} in the visible chat.`,
-    "In your final answer, say the media is displayed above or attached and include the artifact path. Do not say this interface, model, chat, or environment cannot render or display images/audio/video inline.",
+    `Ambient Desktop will attempt to render an inline media preview for ${result.artifactPath} in the visible chat.`,
+    "In your final answer, include the artifact path and refer to the preview only if it is visibly present above. Do not say this interface, model, chat, or environment cannot render or display images/audio/video inline.",
     "Do not read image/audio/video bytes just to display the artifact; report the artifact path to the user instead.",
   ].join("\n").trim();
 }
@@ -183,8 +183,8 @@ export function mediaArtifactResultForPath(workspacePath: string, artifactPath: 
     artifactPath: normalizedPath,
     mediaKind,
     bytes,
-    renderedInline: true,
-    displayInstruction: "Ambient Desktop rendered this media inline in the visible chat. Do not claim inline media display is unsupported.",
+    inlinePreviewEligible: true,
+    displayInstruction: "Ambient Desktop will attempt to render this media inline in the visible chat. Do not claim inline media display is unsupported.",
   };
 }
 
@@ -271,8 +271,14 @@ export function normalizeWorkspaceArtifactPath(path: string | undefined, workspa
   const prefix = `${workspace}/`;
   if (cleaned === workspace) return ".";
   if (cleaned.startsWith(prefix)) return cleaned.slice(prefix.length);
+  const slashlessWorkspace = workspace.replace(/^\/+/, "");
+  const slashlessPrefix = `${slashlessWorkspace}/`;
+  if (cleaned === slashlessWorkspace) return ".";
+  if (cleaned.startsWith(slashlessPrefix)) return cleaned.slice(slashlessPrefix.length);
   const embeddedWorkspaceIndex = cleaned.indexOf(prefix);
   if (embeddedWorkspaceIndex >= 0) return cleaned.slice(embeddedWorkspaceIndex + prefix.length);
+  const embeddedSlashlessWorkspaceIndex = cleaned.indexOf(slashlessPrefix);
+  if (embeddedSlashlessWorkspaceIndex >= 0) return cleaned.slice(embeddedSlashlessWorkspaceIndex + slashlessPrefix.length);
   return cleaned;
 }
 

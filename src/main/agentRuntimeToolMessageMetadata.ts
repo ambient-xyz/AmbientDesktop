@@ -33,7 +33,13 @@ export function toolMessageMetadata(
     toolCallId,
     toolName,
     ...(mediaArtifact?.artifactPath || artifactPath ? { artifactPath: mediaArtifact?.artifactPath ?? artifactPath } : {}),
-    ...(mediaArtifact ? { mediaArtifact, renderedInline: mediaArtifact.renderedInline } : {}),
+    ...(mediaArtifact
+      ? {
+          mediaArtifact,
+          ...(mediaArtifact.renderedInline === true ? { renderedInline: true } : {}),
+          ...(mediaArtifact.inlinePreviewEligible === true ? { inlinePreviewEligible: true } : {}),
+        }
+      : {}),
     ...(resultDetails ? { toolResultDetails: resultDetails } : {}),
     ...(longformInputPreview ? { toolLongformInputPreview: longformInputPreview } : {}),
     ...(editInputPreview ? { toolEditInputPreview: editInputPreview } : {}),

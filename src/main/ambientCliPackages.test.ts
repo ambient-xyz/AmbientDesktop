@@ -830,6 +830,29 @@ describe("Ambient CLI packages", () => {
       expect(payload.image.bytes).toBeGreaterThan(0);
       await expect(readFile(payload.outputPath)).resolves.toHaveLength(payload.image.bytes);
       await expect(readFile(payload.metadataPath, "utf8")).resolves.toContain("secretValuesIncluded");
+
+      const correctedExtension = await runAmbientCliPackageCommand(workspace, {
+        packageName: "ambient-imagegen",
+        command: "hosted_image_generate",
+        args: [
+          "--provider",
+          "google-nano-banana-pro",
+          "--prompt",
+          "Tiny extension correction fixture.",
+          "--size",
+          "2x2",
+          "--format",
+          "jpeg",
+          "--output",
+          ".ambient/hosted-images/requested-jpeg.jpg",
+          "--json",
+        ],
+      });
+      const correctedPayload = JSON.parse(correctedExtension.stdout ?? "{}");
+      expect(correctedPayload.outputPath).toMatch(/requested-jpeg\.png$/);
+      expect(correctedPayload.metadataPath).toMatch(/requested-jpeg\.png\.json$/);
+      expect(correctedPayload.image.mimeType).toBe("image/png");
+      await expect(readFile(correctedPayload.outputPath)).resolves.toHaveLength(correctedPayload.image.bytes);
     } finally {
       if (previousFakeGeneration === undefined) {
         delete process.env.AMBIENT_HOSTED_IMAGE_FAKE_GENERATION;

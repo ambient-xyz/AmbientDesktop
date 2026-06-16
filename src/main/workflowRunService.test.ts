@@ -15,6 +15,7 @@ import type { WorkflowAmbientProvider } from "./workflowAmbientClient";
 import { fixtureWorkflowConnector, validateWorkflowConnectorDescriptor, type WorkflowConnectorDescriptor } from "./workflowConnectors";
 import type { ToolRunnerRunShellOptions } from "./toolRunner";
 import { runWorkflowArtifact } from "./workflowRunService";
+import { permissionGrantTargetHash } from "./permissionGrants";
 import {
   liveAmbientDirectHelperProfile,
   liveAmbientProviderBaseUrl,
@@ -1568,6 +1569,76 @@ export default async function run({ workflow, connectors }) {
     expect(report).toContain("[redacted]");
     expect(`${events}\n${report}`).not.toContain("ada@example.com");
     expect(`${events}\n${report}`).not.toContain("Launch plan");
+  });
+
+  it("uses scheduled connector grants to satisfy personal-data connector review", async () => {
+    const artifactRoot = join(store.getWorkspace().statePath, "workflows", "scheduled-connector-grant");
+    await mkdir(artifactRoot, { recursive: true });
+    const sourcePath = join(artifactRoot, "main.ts");
+    await writeFile(
+      sourcePath,
+      `
+export default async function run({ workflow, connectors }) {
+  const page = await connectors.call({ connectorId: "personal.mail", operation: "listMessages", input: { query: "from:ada@example.com" } });
+  await workflow.checkpoint("messageCount", page.messages.length);
+}
+`,
+      "utf8",
+    );
+    const workflowThreadId = "workflow-thread-scheduled";
+    const artifact = store.createWorkflowArtifact({
+      title: "Scheduled connector grant fixture",
+      status: "ready_for_preview",
+      workflowThreadId,
+      manifest: {
+        tools: [],
+        mutationPolicy: "read_only",
+        connectors: [
+          {
+            connectorId: "personal.mail",
+            accountId: "primary",
+            scopes: ["mail.messages.read"],
+            operations: ["listMessages"],
+            dataRetention: "redacted_audit",
+          },
+        ],
+        maxConnectorCalls: 1,
+      },
+      spec: { goal: "Read personal connector summaries from a scheduled grant." },
+      sourcePath,
+      statePath: join(artifactRoot, "state.json"),
+    });
+    const grant = store.createPermissionGrant({
+      permissionModeAtCreation: "workspace",
+      scopeKind: "workflow_thread",
+      workflowThreadId,
+      actionKind: "connector_content_read",
+      targetKind: "connector",
+      targetHash: permissionGrantTargetHash("connector_content_read", "connector", "personal.mail:listMessages"),
+      targetLabel: "personal.mail:listMessages",
+      source: "workflow_review",
+      reason: "Allow scheduled personal mail reads.",
+    });
+
+    const dashboard = await runWorkflowArtifact({
+      store,
+      artifactId: artifact.id,
+      workspacePath,
+      permissionMode: "workspace",
+      connectorRegistrations: [personalConnector()],
+      scheduledConnectorGrantContext: {
+        workflowThreadId,
+        workspacePath,
+        projectPath: workspacePath,
+        permissionGrants: [grant],
+      },
+    });
+
+    expect(dashboard.runs[0]).toMatchObject({ artifactId: artifact.id, status: "succeeded" });
+    const eventTypes = store.listWorkflowRunEvents(dashboard.runs[0].id).map((event) => event.type);
+    expect(eventTypes).toContain("connector.review.approved");
+    expect(eventTypes).not.toContain("connector.review.required");
+    expect(eventTypes).not.toContain("workflow.paused");
   });
 
   it("records a blocked connector readiness preflight when a configured connector account is unavailable", async () => {

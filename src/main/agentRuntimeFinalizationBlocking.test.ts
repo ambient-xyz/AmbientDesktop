@@ -42,6 +42,29 @@ describe("agent runtime finalization blocking helpers", () => {
       message: expect.stringContaining("Parent final answer blocked because required sub-agent work is not safe for synthesis."),
       barrierIds: ["barrier-waiting"],
       childRunIds: ["child-run-1", "missing-run"],
+      childBlockers: [
+        {
+          childRunId: "child-run-1",
+          childThreadId: "child-thread",
+          canonicalTaskPath: "Task",
+          roleId: "worker",
+          status: "running",
+          dependencyMode: "required_all",
+          barrierIds: ["barrier-waiting"],
+          lastActivityAt: "2026-06-11T00:00:01.000Z",
+          lastActivitySource: "subagent_run",
+          lastActivityDetail: "run updated",
+        },
+        {
+          childRunId: "missing-run",
+          status: "missing",
+          dependencyMode: "required_all",
+          barrierIds: ["barrier-waiting"],
+          lastActivityAt: "2026-06-11T00:00:01.000Z",
+          lastActivitySource: "wait_barrier",
+          lastActivityDetail: "child run missing from store",
+        },
+      ],
       barriers: [
         {
           id: "barrier-waiting",
@@ -49,10 +72,255 @@ describe("agent runtime finalization blocking helpers", () => {
           status: "waiting_on_children",
           failurePolicy: "ask_user",
           childRunIds: ["child-run-1", "missing-run"],
+          childBlockers: [
+            expect.objectContaining({
+              childRunId: "child-run-1",
+              canonicalTaskPath: "Task",
+              lastActivitySource: "subagent_run",
+            }),
+            expect.objectContaining({
+              childRunId: "missing-run",
+              status: "missing",
+              lastActivitySource: "wait_barrier",
+            }),
+          ],
         },
       ],
     });
-    expect(block?.message).toContain("child-run-1 (running), missing-run (missing)");
+    expect(block?.message).toContain("Child blockers: child-run-1 (running, path Task, thread child-thread, last activity 2026-06-11T00:00:01.000Z via subagent_run)");
+    expect(block?.message).toContain("missing-run (missing, last activity 2026-06-11T00:00:01.000Z via wait_barrier)");
+  });
+
+  it("keeps timed-out required barriers blocked even when a child later completes", () => {
+    const barrier = waitBarrier({
+      id: "barrier-timed-out",
+      status: "timed_out",
+      failurePolicy: "degrade_partial",
+      childRunIds: ["child-run-1"],
+    });
+    const child = subagentRun({
+      id: "child-run-1",
+      status: "completed",
+      resultArtifact: {
+        schemaVersion: "ambient-subagent-result-v1",
+        runId: "child-run-1",
+        status: "completed",
+        summary: "Late child result.",
+      },
+    });
+
+    const block = subagentFinalizationBarrierBlock({
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      listSubagentWaitBarriersForParentRun: () => [barrier],
+      getSubagentRun: () => child,
+    });
+
+    expect(block).toMatchObject({
+      barrierIds: ["barrier-timed-out"],
+      childRunIds: ["child-run-1"],
+      childBlockers: [
+        expect.objectContaining({
+          childRunId: "child-run-1",
+          status: "completed",
+        }),
+      ],
+      barriers: [
+        expect.objectContaining({
+          id: "barrier-timed-out",
+          status: "timed_out",
+          failurePolicy: "degrade_partial",
+        }),
+      ],
+    });
+    expect(subagentFinalizationBlockParentResolution(barrier, child, "blocked")).toMatchObject({
+      action: "ask_user",
+      canSynthesize: false,
+      requiresExplicitPartial: true,
+    });
+  });
+
+  it("uses runtime and mailbox activity as finalization blocker liveness evidence", () => {
+    const block = subagentFinalizationBarrierBlock({
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      listSubagentWaitBarriersForParentRun: () => [
+        waitBarrier({ id: "barrier-active", childRunIds: ["child-run-1"] }),
+      ],
+      getSubagentRun: () => subagentRun({
+        id: "child-run-1",
+        status: "running",
+        canonicalTaskPath: "root/2:researcher",
+        updatedAt: "2026-06-11T00:00:01.000Z",
+      }),
+      listSubagentRunEvents: () => [{
+        runId: "child-run-1",
+        sequence: 7,
+        type: "subagent.runtime_event",
+        createdAt: "2026-06-11T00:00:05.000Z",
+        preview: { type: "assistant_delta" },
+      }],
+      listSubagentMailboxEvents: () => [{
+        id: "mailbox-approval",
+        runId: "child-run-1",
+        direction: "parent_to_child",
+        type: "subagent.approval_response",
+        payload: { approvalId: "approval-1" },
+        deliveryState: "delivered",
+        createdAt: "2026-06-11T00:00:06.000Z",
+        deliveredAt: "2026-06-11T00:00:07.000Z",
+      }],
+    });
+
+    expect(block?.childBlockers).toEqual([
+      expect.objectContaining({
+        childRunId: "child-run-1",
+        canonicalTaskPath: "root/2:researcher",
+        status: "running",
+        lastActivityAt: "2026-06-11T00:00:07.000Z",
+        lastActivitySource: "mailbox:subagent.approval_response",
+        lastActivityDetail: "delivered",
+      }),
+    ]);
+    expect(block?.barriers[0]?.childBlockers[0]).toMatchObject({
+      childRunId: "child-run-1",
+      lastActivitySource: "mailbox:subagent.approval_response",
+    });
+    expect(block?.message).toContain("child-run-1 (running, path root/2:researcher, thread child-thread, last activity 2026-06-11T00:00:07.000Z via mailbox:subagent.approval_response)");
+  });
+
+  it("carries result-contract repair pending state through finalization blockers", () => {
+    const barrier = waitBarrier({ id: "barrier-repair", childRunIds: ["child-run-1"] });
+    const run = subagentRun({
+      id: "child-run-1",
+      status: "running",
+      canonicalTaskPath: "root/1:explorer",
+      roleId: "explorer",
+    });
+    const runEvents = [
+      {
+        runId: "child-run-1",
+        sequence: 3,
+        type: "subagent.result_contract_followup_required",
+        createdAt: "2026-06-11T00:00:05.000Z",
+        preview: {
+          reason: "Structured result roleId must match child role explorer.",
+          hadAssistantText: true,
+        },
+      },
+      {
+        runId: "child-run-1",
+        sequence: 4,
+        type: "subagent.internal_post_tool_followup_started",
+        createdAt: "2026-06-11T00:00:06.000Z",
+        preview: {
+          attempt: 1,
+          maxAttempts: 2,
+          reason: "Structured result roleId must match child role explorer.",
+        },
+      },
+    ];
+    const block = subagentFinalizationBarrierBlock({
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      listSubagentWaitBarriersForParentRun: () => [barrier],
+      getSubagentRun: () => run,
+      listSubagentRunEvents: () => runEvents,
+      listSubagentMailboxEvents: () => [],
+    });
+
+    expect(block).toMatchObject({
+      barrierIds: ["barrier-repair"],
+      childRunIds: ["child-run-1"],
+      childBlockers: [
+        expect.objectContaining({
+          childRunId: "child-run-1",
+          status: "running",
+          lastActivityAt: "2026-06-11T00:00:06.000Z",
+          lastActivitySource: "run_event:subagent.internal_post_tool_followup_started",
+          resultRepairState: {
+            schemaVersion: "ambient-subagent-result-repair-state-v1",
+            state: "result_contract_repair_pending",
+            reason: "Structured result roleId must match child role explorer.",
+            detectedAt: "2026-06-11T00:00:05.000Z",
+            eventSequence: 3,
+            hadAssistantText: true,
+            latestInternalFollowupAt: "2026-06-11T00:00:06.000Z",
+            latestInternalFollowupSequence: 4,
+            latestInternalFollowupAttempt: 1,
+            maxAttempts: 2,
+          },
+        }),
+      ],
+      barriers: [
+        expect.objectContaining({
+          id: "barrier-repair",
+          status: "waiting_on_children",
+          childBlockers: [
+            expect.objectContaining({
+              resultRepairState: expect.objectContaining({
+                state: "result_contract_repair_pending",
+              }),
+            }),
+          ],
+        }),
+      ],
+    });
+    expect(block?.message).toContain("repair pending: Structured result roleId must match child role explorer.");
+
+    const activity = subagentFinalizationBlockedActivity({
+      threadId: "parent-thread",
+      outputChars: 99,
+      block: block!,
+    });
+    const diagnostic = activity.diagnostic as { childBlockers: Array<Record<string, unknown>> };
+    expect(diagnostic.childBlockers).toEqual([
+      expect.objectContaining({
+        childRunId: "child-run-1",
+        resultRepairState: expect.objectContaining({
+          state: "result_contract_repair_pending",
+          reason: "Structured result roleId must match child role explorer.",
+        }),
+      }),
+    ]);
+
+    const appended: unknown[] = [];
+    recordSubagentFinalizationBlockedParentMailbox({
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      block: block!,
+      getSubagentWaitBarrier: () => barrier,
+      getSubagentRun: () => run,
+      appendSubagentParentMailboxEvent: (event) => {
+        appended.push(event);
+        return parentMailboxEvent(event);
+      },
+      emitSubagentParentMailboxEventUpdated: () => undefined,
+    });
+    expect(appended[0]).toMatchObject({
+      payload: {
+        childBlockers: [
+          expect.objectContaining({
+            childRunId: "child-run-1",
+            resultRepairState: expect.objectContaining({
+              state: "result_contract_repair_pending",
+              reason: "Structured result roleId must match child role explorer.",
+            }),
+          }),
+        ],
+        waitBarrier: {
+          id: "barrier-repair",
+          status: "waiting_on_children",
+          childBlockers: [
+            expect.objectContaining({
+              resultRepairState: expect.objectContaining({
+                state: "result_contract_repair_pending",
+              }),
+            }),
+          ],
+        },
+      },
+    });
   });
 
   it("creates parent-resolution policy and allowed choices for subagent barriers", () => {
@@ -101,6 +369,9 @@ describe("agent runtime finalization blocking helpers", () => {
         reason: "required_wait_barrier_not_satisfied",
         barrierIds: ["barrier-1", "barrier-2"],
         childRunIds: ["child-run-1", "child-run-2"],
+        childBlockers: [
+          expect.objectContaining({ childRunId: "child-run-1" }),
+        ],
       },
     });
 
@@ -150,6 +421,7 @@ describe("agent runtime finalization blocking helpers", () => {
         status: barrier.status,
         failurePolicy: barrier.failurePolicy,
         childRunIds: barrier.childRunIds,
+        childBlockers: [],
       }] }),
       getSubagentWaitBarrier: (barrierId) => {
         expect(barrierId).toBe("barrier-1");
@@ -180,12 +452,30 @@ describe("agent runtime finalization blocking helpers", () => {
         childRunId: "child-run-1",
         childThreadId: "child-thread",
         waitBarrierId: "barrier-1",
+        childBlockers: [
+          expect.objectContaining({
+            childRunId: "child-run-1",
+            childThreadId: "child-thread",
+            canonicalTaskPath: "Task",
+            status: "failed",
+            lastActivityAt: "2026-06-11T00:00:01.000Z",
+          }),
+          expect.objectContaining({
+            childRunId: "missing-run",
+            status: "missing",
+            lastActivitySource: "wait_barrier",
+          }),
+        ],
         waitTimedOut: true,
         parentFinalizationBlocked: true,
         allowedUserChoices: [expect.objectContaining({ id: "continue_with_partial" }), expect.any(Object), expect.any(Object), expect.any(Object), expect.any(Object), expect.any(Object)],
         waitBarrier: {
           quorumThreshold: 2,
           timeoutMs: 1000,
+          childBlockers: [
+            expect.objectContaining({ childRunId: "child-run-1" }),
+            expect.objectContaining({ childRunId: "missing-run", status: "missing" }),
+          ],
         },
       },
     });
@@ -286,6 +576,18 @@ function finalizationBlock(overrides: Partial<SubagentFinalizationBarrierBlock> 
     message: "Parent final answer blocked because required sub-agent work is not safe for synthesis.",
     barrierIds: ["barrier-1"],
     childRunIds: ["child-run-1"],
+    childBlockers: [{
+      childRunId: "child-run-1",
+      childThreadId: "child-thread",
+      canonicalTaskPath: "Task",
+      roleId: "worker",
+      status: "running",
+      dependencyMode: "required_all",
+      barrierIds: ["barrier-1"],
+      lastActivityAt: "2026-06-11T00:00:01.000Z",
+      lastActivitySource: "subagent_run",
+      lastActivityDetail: "run updated",
+    }],
     barriers: [
       {
         id: "barrier-1",
@@ -293,6 +595,18 @@ function finalizationBlock(overrides: Partial<SubagentFinalizationBarrierBlock> 
         status: "waiting_on_children",
         failurePolicy: "ask_user",
         childRunIds: ["child-run-1"],
+        childBlockers: [{
+          childRunId: "child-run-1",
+          childThreadId: "child-thread",
+          canonicalTaskPath: "Task",
+          roleId: "worker",
+          status: "running",
+          dependencyMode: "required_all",
+          barrierIds: ["barrier-1"],
+          lastActivityAt: "2026-06-11T00:00:01.000Z",
+          lastActivitySource: "subagent_run",
+          lastActivityDetail: "run updated",
+        }],
       },
     ],
     ...overrides,

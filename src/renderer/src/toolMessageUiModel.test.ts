@@ -431,6 +431,97 @@ describe("tool message UI model", () => {
     expect(parsed.longformInputPreview).toBeUndefined();
   });
 
+  it("renders Local Deep Research status snapshots as meaningful progress", () => {
+    const parsed = parseToolMessage(
+      [
+        "ambient_local_deep_research_run running",
+        "",
+        "Input",
+        JSON.stringify({ question: "Research authorial voice." }, null, 2),
+        "",
+        "Result",
+        "Local Deep Research is still running.",
+      ].join("\n"),
+      "ambient_local_deep_research_run",
+      "/workspace",
+      {
+        toolResultDetails: {
+          runtime: "ambient-local-deep-research",
+          toolName: "ambient_local_deep_research_run",
+          status: "running",
+          stage: "model-turn",
+          activityMessage: "LiteResearcher model turn 2/6 is running.",
+          elapsedMs: 75_000,
+          heartbeatCount: 7,
+          localDeepResearchStatus: {
+            schemaVersion: "ambient-local-deep-research-status-v1",
+            stage: "model-turn",
+            state: "running",
+            message: "LiteResearcher model turn 2/6 is running.",
+            elapsedMs: 75_000,
+            heartbeatCount: 7,
+            turn: {
+              turn: 2,
+              maxTurns: 6,
+              toolCalls: 3,
+              maxToolCalls: 6,
+            },
+            retrieval: {
+              role: "fetch",
+              status: "succeeded",
+              providerLabel: "Scrapling MCP",
+              url: "https://example.com/voice",
+              outputChars: 4321,
+              durationMs: 1800,
+              repeatedVisitCount: 2,
+            },
+            llamaServer: {
+              pid: 1234,
+              endpointUrl: "http://127.0.0.1:57188",
+              profileId: "literesearcher-4b-q4-k-m",
+              healthy: true,
+              healthLatencyMs: 42,
+              rssBytes: 9_900_000_000,
+            },
+            memory: {
+              policyOutcome: "warn",
+              policyReason: "Projected local-model launch over policy.",
+              activeLocalModelCount: 2,
+              activeEstimatedResidentMemoryBytes: 16_106_127_360,
+              activeActualResidentMemoryBytes: 8_375_000_000,
+              projectedSystemMemoryUtilization: 1,
+              maxProjectedMemoryUtilization: 0.8,
+              projectedFreeMemoryBytes: 0,
+              hostFreeMemoryBytes: 2_147_483_648,
+              swapUsedBytes: 3_758_096_384,
+              compressedMemoryBytes: 1_412_050_944,
+              warnings: ["Projected local-model launch over policy."],
+            },
+            artifacts: {
+              markdownPath: ".ambient/local-deep-research/runs/latest.md",
+            },
+          },
+        },
+      },
+    );
+
+    expect(parsed.progressPreview).toMatchObject({
+      title: "Progress",
+      summary: expect.stringContaining("LiteResearcher model turn 2/6 is running."),
+      rows: expect.arrayContaining([
+        { key: "turn", label: "Turn", value: "2/6 · 3/6 tools" },
+        { key: "retrieval", label: "Retrieval", value: "Fetch · Succeeded · repeat 2" },
+        { key: "provider", label: "Provider", value: "Scrapling MCP" },
+        { key: "server", label: "llama.cpp", value: expect.stringContaining("healthy") },
+        { key: "rss", label: "Server RSS", value: expect.stringContaining("GiB") },
+        { key: "memory-policy", label: "Memory policy", value: expect.stringContaining("Warn") },
+        { key: "projected-use", label: "Projected use", value: expect.stringContaining("100% projected") },
+        { key: "swap", label: "Swap used", value: expect.stringContaining("GiB") },
+        { key: "artifacts", label: "Artifacts", value: ".ambient/local-deep-research/runs/latest.md" },
+      ]),
+    });
+  });
+
   it("prefers explicit progress metrics over heartbeat result text length", () => {
     const parsed = parseToolMessage(
       [
@@ -758,15 +849,15 @@ describe("tool message UI model", () => {
   });
 
   it("resolves absolute workspace paths in inline code as artifact links", () => {
-    const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
+    const workspacePath = "/Users/travis/Documents/AmbientDesktopArchive";
 
-    expect(resolveInlineArtifactPath("/Users/travis/Documents/ambientCoderArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
-    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/ambientCoderArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
+    expect(resolveInlineArtifactPath("/Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
+    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/AmbientDesktopArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
     expect(resolveInlineArtifactPath("/Users/travis/Downloads/outside-summary.html", undefined, workspacePath)).toBeUndefined();
   });
 
   it("resolves explicit workspace-relative inline code paths as artifact links", () => {
-    const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
+    const workspacePath = "/Users/travis/Documents/AmbientDesktopArchive";
 
     expect(resolveInlineArtifactPath(".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md", undefined, workspacePath)).toBe(
       ".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md",
@@ -826,14 +917,42 @@ describe("tool message UI model", () => {
             mediaKind: "image",
             mimeType: "image/jpeg",
             bytes: 2048,
-            renderedInline: true,
-            displayInstruction: "Ambient Desktop rendered this media inline in the visible chat.",
+            inlinePreviewEligible: true,
+            displayInstruction: "Ambient Desktop will attempt to render this media inline in the visible chat.",
           },
         },
       },
     );
 
     expect(parsed.artifactPath).toBe("bunny.jpg");
+  });
+
+  it("normalizes workspace media artifact paths that lost the leading absolute slash", () => {
+    const workspacePath = "/path/to/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread";
+    const parsed = parseToolMessage(
+      [
+        "media_download completed",
+        "",
+        "Result",
+        "Generated media artifact: google-2026-06-16T05-18-43-439Z.png",
+      ].join("\n"),
+      "media_download",
+      workspacePath,
+      {
+        toolResultDetails: {
+          mediaArtifact: {
+            artifactPath: `Users/Neo/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread/.ambient/hosted-images/google-2026-06-16T05-18-43-439Z.png`,
+            mediaKind: "image",
+            mimeType: "image/jpeg",
+            bytes: 2048,
+            inlinePreviewEligible: true,
+            displayInstruction: "Ambient Desktop will attempt to render this media inline in the visible chat.",
+          },
+        },
+      },
+    );
+
+    expect(parsed.artifactPath).toBe(".ambient/hosted-images/google-2026-06-16T05-18-43-439Z.png");
   });
 
   it("recognizes structured browser screenshot media metadata", () => {
@@ -857,8 +976,8 @@ describe("tool message UI model", () => {
           bytes: 4096,
           width: 1280,
           height: 720,
-          renderedInline: true,
-          displayInstruction: "Ambient Desktop rendered this browser screenshot inline in the visible chat.",
+          inlinePreviewEligible: true,
+          displayInstruction: "Ambient Desktop will attempt to render this browser screenshot inline in the visible chat.",
         },
       },
     );
@@ -926,7 +1045,7 @@ describe("tool message UI model", () => {
   });
 
   it("recognizes ambient cli audioPath JSON stdout without duplicating absolute workspace paths", () => {
-    const workspacePath = "/path/to/ambient-hardening/bases/core-no-secrets/workspace";
+    const workspacePath = "/Users/example/.ambient-hardening/bases/example-core-no-secrets-2026-05-13/workspace";
     const packageRoot = `${workspacePath}/.ambient/cli-packages/imported/ambient-cartesia-0.1.0`;
     const parsed = parseToolMessage(
       [

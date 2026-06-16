@@ -2,13 +2,17 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const appComposerSubmitActionsSource = readFileSync(new URL("./AppComposerSubmitActions.ts", import.meta.url), "utf8");
 const appComposerShellSource = readFileSync(new URL("./AppComposerShell.tsx", import.meta.url), "utf8");
 const appComposerControlsSource = readFileSync(new URL("./AppComposerControls.tsx", import.meta.url), "utf8");
+const appConversationMessagesSource = readFileSync(new URL("./AppConversationMessages.tsx", import.meta.url), "utf8");
 const appDialogsSource = readFileSync(new URL("./AppDialogs.tsx", import.meta.url), "utf8");
 const appGitControlsSource = readFileSync(new URL("./AppGitControls.tsx", import.meta.url), "utf8");
 const appMessagesSource = readFileSync(new URL("./AppMessages.tsx", import.meta.url), "utf8");
+const appLocalRuntimeActionsSource = readFileSync(new URL("./AppLocalRuntimeActions.ts", import.meta.url), "utf8");
 const goalControlsSource = readFileSync(new URL("./AppGoalControls.tsx", import.meta.url), "utf8");
 const rightPanelSource = readFileSync(new URL("./RightPanel.tsx", import.meta.url), "utf8");
+const rightPanelPluginHostSource = readFileSync(new URL("./RightPanelPluginHost.tsx", import.meta.url), "utf8");
 const stylesSource = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
 const symphonySource = readFileSync(new URL("./SymphonyWorkflowBuilder.tsx", import.meta.url), "utf8");
 
@@ -35,7 +39,8 @@ describe("composer toolbar layout", () => {
     expect(appComposerShellSource).toContain("data-tooltip=\"Attach files to the next message.\"");
     expect(appComposerShellSource).toContain('"Enable Local Deep Research"');
     expect(appComposerShellSource).toContain(': "Local Deep Research"');
-    expect(appSource).toContain("composerIntent: { kind: \"local-deep-research\" }");
+    expect(appComposerSubmitActionsSource).toContain("localDeepResearchSubmitOptions(running, localDeepResearchRunBudgetRef.current)");
+    expect(appComposerSubmitActionsSource).toContain("localDeepResearch: budget");
     expect(appComposerShellSource).toContain("Choose whether assistant thinking is hidden, temporary, or retained.");
     expect(stylesSource).toContain(".composer [data-tooltip]::after");
     expect(stylesSource).toContain(".topbar [data-tooltip]::after");
@@ -70,15 +75,27 @@ describe("composer toolbar layout", () => {
     expect(appSource).toContain("function toggleLocalDeepResearchMode()");
     expect(appComposerShellSource).toContain("onClick={onToggleLocalDeepResearchMode}");
     expect(appComposerShellSource).toContain("aria-pressed={localDeepResearchModeArmed}");
-    expect(appSource).toContain("const localDeepResearchModeRequested = localDeepResearchModeArmedRef.current;");
+    expect(appComposerSubmitActionsSource).toContain("const localDeepResearchModeRequested = localDeepResearchModeArmedRef.current;");
     expect(appSource).toContain("void submitComposerDraft(\"prompt\"");
     expect(appSource).not.toContain("submitLocalDeepResearchDraft");
     expect(stylesSource).toContain(".composer-controls .icon-button.subtle.local-deep-research-composer-button.active");
   });
 
+  it("shows the Local Deep Research effort chip only while the mode is armed", () => {
+    expect(appComposerShellSource).toContain("localDeepResearchModeArmed &&");
+    expect(appComposerShellSource).toContain('className="local-deep-research-effort-chip"');
+    expect(appComposerShellSource).toContain("Effort:");
+    expect(appComposerShellSource).toContain("localDeepResearchEffortOpen");
+    expect(appComposerShellSource).toContain("LOCAL_DEEP_RESEARCH_EFFORT_ORDER.map");
+    expect(appComposerShellSource).toContain("onSelectLocalDeepResearchEffort(effort)");
+    expect(appComposerShellSource).toContain("onLocalDeepResearchCustomMaxToolCallsChange");
+    expect(stylesSource).toContain(".local-deep-research-effort-chip");
+    expect(stylesSource).toContain(".local-deep-research-effort-menu");
+  });
+
   it("does not show Local Deep Research install follow-up when setup is already ready", () => {
-    expect(appSource).toContain("async function openLocalDeepResearchFollowupIfSetupNeeded()");
-    expect(appSource).toContain('if (!result || result.setupStatus !== "ready") setLocalDeepResearchFollowupOpen(true);');
+    expect(appLocalRuntimeActionsSource).toContain("async function openLocalDeepResearchFollowupIfSetupNeeded()");
+    expect(appLocalRuntimeActionsSource).toContain('if (!result || result.setupStatus !== "ready") setLocalDeepResearchFollowupOpen(true);');
     expect(appSource).toContain("void openLocalDeepResearchFollowupIfSetupNeeded();");
     expect(appDialogsSource).toContain('const setupReady = setup.result?.setupStatus === "ready";');
     expect(appDialogsSource).toContain('setupReady ? "Local Deep Research Is Ready" : "Add Local Deep Research"');
@@ -87,14 +104,14 @@ describe("composer toolbar layout", () => {
   });
 
   it("refreshes MCP runtime status before opening startup runtime setup", () => {
-    const setupEventStart = rightPanelSource.indexOf('event.type !== "mcp-container-runtime-setup-needed"');
-    const setupEventEnd = rightPanelSource.indexOf("}, [state.workspace.path]);", setupEventStart);
+    const setupEventStart = rightPanelSource.indexOf('panel === "plugins"');
+    const setupEventEnd = rightPanelSource.indexOf("}, [panel, state.workspace.path]);", setupEventStart);
     const setupEventSource = rightPanelSource.slice(setupEventStart, setupEventEnd);
 
     expect(setupEventStart).toBeGreaterThan(-1);
-    expect(setupEventSource).not.toContain("setMcpContainerRuntimeModalOpen(true);");
-    expect(setupEventSource).toContain("refreshMcpContainerRuntimeStatus(true, { continueDefaultCapabilitySetup: false })");
-    expect(rightPanelSource).toContain("if (openWhenNeedsAction && handoffCandidate && !mcpContainerRuntimeModalDismissed)");
+    expect(setupEventSource).not.toContain("setContainerRuntimeModalOpen(true);");
+    expect(setupEventSource).toContain("mcpPane.refreshContainerRuntimeStatus(true, { continueDefaultCapabilitySetup: true })");
+    expect(rightPanelPluginHostSource).toContain("onOpenRuntimeReview={() => setMcpContainerRuntimeModalOpen(true)}");
   });
 
   it("compacts settings without using the old whole-toolbar container query", () => {
@@ -115,6 +132,22 @@ describe("composer toolbar layout", () => {
     expect(stylesSource).toContain("min-width: calc((var(--composer-compact-control-size) * 2) + 2px);");
     expect(stylesSource).toContain(".composer .permission-toggle button > svg");
     expect(stylesSource).toContain("min-width: 14px;");
+  });
+
+  it("keeps the model picker labeled through desktop compact breakpoints", () => {
+    const mediumViewportBlock = stylesSource.slice(
+      stylesSource.indexOf("@media (max-width: 1100px)"),
+      stylesSource.indexOf("@container composer-settings-controls (max-width: 820px)"),
+    );
+    const desktopCompactBlock = stylesSource.slice(
+      stylesSource.indexOf("@container composer-settings-controls (max-width: 820px)"),
+      stylesSource.indexOf("@container composer-settings-controls (max-width: 480px)"),
+    );
+
+    expect(stylesSource).toContain(".model-picker-button {\n  min-width: 128px;");
+    expect(stylesSource).toContain("@container composer-settings-controls (max-width: 480px)");
+    expect(mediumViewportBlock).not.toContain("model-picker-button span");
+    expect(desktopCompactBlock).not.toContain("model-picker-button span");
   });
 
   it("uses the goal-mode green selected styling for paired composer modes", () => {
@@ -157,7 +190,7 @@ describe("composer toolbar layout", () => {
     expect(goalControlsSource).toContain("function ThreadGoalStatusIcon");
     expect(goalControlsSource).toContain('goal.status === "paused"');
     expect(appSource).toContain("runtimeActivityVisibleForThreadGoal(activity, state.activeThreadGoal)");
-    expect(appSource).toContain("goalMode: { enabled: true }");
+    expect(appComposerSubmitActionsSource).toContain("goalMode: { enabled: true }");
     expect(appSource).toContain('"thread-goal-updated"');
     expect(appSource).toContain('event.type === "thread-goal-updated"');
     expect(statusbarSource).toContain("<GoalStatusControl");
@@ -171,7 +204,7 @@ describe("composer toolbar layout", () => {
     expect(appMessagesSource).toContain('const GOAL_COMPLETION_MESSAGE_KIND = "goal-completion";');
     expect(appMessagesSource).toContain("function isGoalCompletionMessage");
     expect(appSource).toContain("triggerGoalCompletionCelebration(event.message.id)");
-    expect(appSource).toContain("<GoalCompletionConfetti");
+    expect(appConversationMessagesSource).toContain("<GoalCompletionConfetti");
     expect(goalControlsSource).toContain("function GoalCompletionConfetti");
     expect(goalControlsSource).toContain('goal.status === "complete" ? "Clear completed goal"');
     expect(stylesSource).toContain(".message.goal-completion-message .message-content");

@@ -23,6 +23,17 @@ export interface SubagentWaitBarrierChildResult<ResultValidation = unknown> {
   resultValidation: ResultValidation;
 }
 
+export type SubagentWaitBarrierTerminalEvidenceKind = "child_runtime_timeout";
+export type SubagentWaitBarrierRuntimeTimeoutKind = "idle" | "hard_cap" | "budget" | "unknown";
+
+export interface SubagentWaitBarrierTerminalEvidence {
+  kind: SubagentWaitBarrierTerminalEvidenceKind;
+  childRunId?: string;
+  reason?: string;
+  timeoutKind?: SubagentWaitBarrierRuntimeTimeoutKind;
+  details?: Record<string, unknown>;
+}
+
 export interface SubagentWaitBarrierEvaluation<ResultValidation = unknown> {
   schemaVersion: typeof SUBAGENT_WAIT_BARRIER_EVALUATION_SCHEMA_VERSION;
   waitBarrierId: string;
@@ -36,6 +47,8 @@ export interface SubagentWaitBarrierEvaluation<ResultValidation = unknown> {
   synthesisAllowed: boolean;
   partial: boolean;
   timedOut: boolean;
+  runtimeTimeoutKind?: SubagentWaitBarrierRuntimeTimeoutKind;
+  terminalEvidence?: SubagentWaitBarrierTerminalEvidence;
   impossible: boolean;
   activeChildRunIds: string[];
   terminalUnsafeChildRunIds: string[];
@@ -46,7 +59,7 @@ export interface SubagentWaitBarrierEvaluation<ResultValidation = unknown> {
 export function evaluateSubagentWaitBarrierForSynthesis<ResultValidation = unknown>(input: {
   barrier: SubagentWaitBarrierSummary;
   childResults: Array<SubagentWaitBarrierChildResult<ResultValidation>>;
-  timedOut?: boolean;
+  terminalEvidence?: SubagentWaitBarrierTerminalEvidence;
 }): SubagentWaitBarrierEvaluation<ResultValidation> {
   const requiredSynthesisCount = requiredSynthesisCountForBarrier(input.barrier, input.childResults.length);
   const synthesisSafeChildren = input.childResults.filter((child) => child.synthesisAllowed);
@@ -66,7 +79,11 @@ export function evaluateSubagentWaitBarrierForSynthesis<ResultValidation = unkno
     synthesisSafeChildren,
     nonPartialSafeCount,
   });
-  const timedOut = input.timedOut === true;
+  const terminalEvidence = input.terminalEvidence;
+  const timedOut = terminalEvidence?.kind === "child_runtime_timeout";
+  const runtimeTimeoutKind = timedOut
+    ? terminalEvidence.timeoutKind ?? subagentRuntimeTimeoutKindFromReason(terminalEvidence.reason)
+    : undefined;
   return {
     schemaVersion: SUBAGENT_WAIT_BARRIER_EVALUATION_SCHEMA_VERSION,
     waitBarrierId: input.barrier.id,
@@ -80,6 +97,8 @@ export function evaluateSubagentWaitBarrierForSynthesis<ResultValidation = unkno
     synthesisAllowed,
     partial,
     timedOut,
+    ...(runtimeTimeoutKind ? { runtimeTimeoutKind } : {}),
+    ...(terminalEvidence ? { terminalEvidence } : {}),
     impossible,
     activeChildRunIds,
     terminalUnsafeChildRunIds: terminalUnsafeChildren.map((child) => child.childRunId),
@@ -96,6 +115,15 @@ export function evaluateSubagentWaitBarrierForSynthesis<ResultValidation = unkno
       terminalUnsafeCount: terminalUnsafeChildren.length,
     }),
   };
+}
+
+export function subagentRuntimeTimeoutKindFromReason(
+  reason?: string,
+): SubagentWaitBarrierRuntimeTimeoutKind {
+  if (reason === "runtime_idle_timeout") return "idle";
+  if (reason === "runtime_hard_cap_exceeded") return "hard_cap";
+  if (reason === "runtime_budget_exceeded") return "budget";
+  return "unknown";
 }
 
 export function requiredSynthesisCountForBarrier(
@@ -121,8 +149,8 @@ export function waitBarrierStatusFromEvaluation(
   >,
 ): SubagentWaitBarrierSummary["status"] {
   if (evaluation.synthesisAllowed) return "satisfied";
-  if (evaluation.timedOut) return "timed_out";
   if (!evaluation.impossible) return "waiting_on_children";
+  if (evaluation.timedOut) return "timed_out";
   const terminalUnsafeChildren = evaluation.childResults.filter((child) =>
     evaluation.terminalUnsafeChildRunIds.includes(child.childRunId)
   );
@@ -145,11 +173,14 @@ export function waitBarrierEvaluationReason(input: {
   if (input.synthesisAllowed) {
     return `${input.dependencyMode} barrier has ${input.validSynthesisCount}/${input.requiredSynthesisCount} synthesis-safe child result${input.validSynthesisCount === 1 ? "" : "s"}.`;
   }
-  if (input.timedOut) {
+  if (input.timedOut && input.impossible) {
     return `${input.dependencyMode} barrier timed out with ${input.validSynthesisCount}/${input.requiredSynthesisCount} synthesis-safe child results.`;
   }
   if (input.impossible) {
     return `${input.dependencyMode} barrier cannot reach ${input.requiredSynthesisCount} synthesis-safe child results; ${input.terminalUnsafeCount} child result${input.terminalUnsafeCount === 1 ? "" : "s"} are terminal and unsafe for synthesis.`;
+  }
+  if (input.timedOut) {
+    return `${input.dependencyMode} barrier recorded child timeout evidence but is still waiting for child work; ${input.validSynthesisCount}/${input.requiredSynthesisCount} synthesis-safe results are available and ${input.activeCount} child run${input.activeCount === 1 ? "" : "s"} may still finish.`;
   }
   return `${input.dependencyMode} barrier is still waiting for child work; ${input.validSynthesisCount}/${input.requiredSynthesisCount} synthesis-safe results are available and ${input.activeCount} child run${input.activeCount === 1 ? "" : "s"} may still finish.`;
 }

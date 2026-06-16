@@ -38,6 +38,14 @@ describe("sub-agent Desktop dogfood harness wiring", () => {
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_ID");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_ENDPOINT");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_MODEL");
+    expect(runner).toContain("seedBraveSearchWorkspaceSecret");
+    expect(runner).toContain("seedBraveSearchPreference");
+    expect(runner).toContain("brave_api_key.txt");
+    expect(runner).toContain("com~apple~CloudDocs");
+    expect(runner).toContain("BRAVE_API_KEY");
+    expect(runner).toContain("brave-search");
+    expect(runner).toContain("\"brave-search\", \"exa-mcp-default\", \"ambient-browser\"");
+    expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_BRAVE_SEARCH");
     expect(runner).toContain("AMBIENT_LEGACY_WORKFLOW_COMPILER");
     expect(runner).toContain("src/main/subagentDesktopDogfoodSeed.test.ts");
     expect(runner).toContain("AMBIENT_E2E_USER_DATA");

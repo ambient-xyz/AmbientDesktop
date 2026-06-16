@@ -411,10 +411,10 @@ describe("firstPartyDesktopToolDescriptors", () => {
     );
   });
 
-  it("tells Pi that media artifacts render inline in Desktop", () => {
+  it("tells Pi that media artifacts are eligible for Desktop inline preview", () => {
     expect(bashToolDescriptor.promptGuidelines).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("Ambient Desktop rendered an inline media preview"),
+        expect.stringContaining("Ambient Desktop will attempt an inline media preview"),
       ]),
     );
     expect(mediaToolDescriptor("media_download")).toMatchObject({
@@ -428,7 +428,7 @@ describe("firstPartyDesktopToolDescriptors", () => {
         expect.stringContaining("browser_search or a known source page"),
         expect.stringContaining("sourceUrl plus a concise licenseNote"),
         expect.stringContaining("instead of bash/curl"),
-        expect.stringContaining("rendered an inline media preview"),
+        expect.stringContaining("will attempt an inline media preview"),
         expect.stringContaining("do not claim inline image display is unsupported"),
       ]),
     );

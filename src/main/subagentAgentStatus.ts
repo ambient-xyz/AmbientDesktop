@@ -87,6 +87,16 @@ export function buildSubagentStatusText(input: {
   notice?: string;
   parentResolution?: Pick<SubagentParentPolicyResolution, "action" | "canSynthesize" | "instruction">;
   waitBarrier?: Pick<SubagentWaitBarrierSummary, "id" | "status" | "dependencyMode" | "failurePolicy">;
+  waitBarrierBlockers?: readonly {
+    childRunId: string;
+    childThreadId: string;
+    canonicalTaskPath: string;
+    status: string;
+    blockingState: string;
+    lastActivityAt: string;
+    lastActivitySource: string;
+    reason?: string;
+  }[];
   turnBudgetState?: Pick<SubagentTurnBudgetState, "state" | "observedTurnCount" | "remainingTurns" | "shouldSteerWrapUp" | "exhausted" | "instruction">;
 }): string {
   return [
@@ -105,11 +115,34 @@ export function buildSubagentStatusText(input: {
     input.turnBudgetState?.exhausted ? "turnBudgetAction: exhausted" : undefined,
     input.turnBudgetState?.instruction ? `turnBudgetInstruction: ${input.turnBudgetState.instruction}` : undefined,
     ...waitBarrierStatusLines(input.waitBarrier, input.parentResolution),
+    ...waitBarrierBlockerLines(input.waitBarrierBlockers),
     input.notice,
     input.parentResolution ? `parentAction: ${input.parentResolution.action}` : undefined,
     input.parentResolution ? `canSynthesize: ${input.parentResolution.canSynthesize}` : undefined,
     input.parentResolution ? `parentInstruction: ${input.parentResolution.instruction}` : undefined,
   ].filter(Boolean).join("\n");
+}
+
+function waitBarrierBlockerLines(
+  blockers: readonly {
+    childRunId: string;
+    childThreadId: string;
+    canonicalTaskPath: string;
+    status: string;
+    blockingState: string;
+    lastActivityAt: string;
+    lastActivitySource: string;
+    reason?: string;
+  }[] | undefined,
+): string[] {
+  if (!blockers?.length) return [];
+  return [
+    `waitBarrierBlockers: ${blockers.length}`,
+    ...blockers.slice(0, 8).map((blocker) =>
+      `waitBarrierBlocker: ${blocker.canonicalTaskPath} childRunId=${blocker.childRunId} childThreadId=${blocker.childThreadId} status=${blocker.status} state=${blocker.blockingState} lastActivityAt=${blocker.lastActivityAt} lastActivitySource=${blocker.lastActivitySource}${blocker.reason ? ` reason=${previewText(blocker.reason, 220)}` : ""}`
+    ),
+    blockers.length > 8 ? `waitBarrierBlockersOmitted: ${blockers.length - 8}` : undefined,
+  ].filter((line): line is string => Boolean(line));
 }
 
 function waitBarrierStatusLines(
@@ -123,9 +156,9 @@ function waitBarrierStatusLines(
     `waitBarrierDependencyMode: ${waitBarrier.dependencyMode}`,
     `waitBarrierFailurePolicy: ${waitBarrier.failurePolicy}`,
   ];
-  if (parentResolution?.action === "ask_user" && !parentResolution.canSynthesize) {
+  if (parentResolution && !parentResolution.canSynthesize && waitBarrier.status !== "waiting_on_children") {
     lines.push(
-      `waitBarrierRecovery: To retry this required child work, call ambient_subagent with action resolve_barrier, waitBarrierId ${waitBarrier.id}, and decision retry_child. Do not spawn a separate replacement child manually; the original failed barrier will keep blocking final synthesis until resolve_barrier records the retry decision.`,
+      `waitBarrierRecovery: This barrier is terminal. To recover or retry, call ambient_subagent with action resolve_barrier, waitBarrierId ${waitBarrier.id}, and an explicit decision such as retry_child, fail_parent, detach_child, cancel_parent, or continue_with_partial when partial output is allowed. Do not spawn a separate replacement child manually; the original barrier will keep blocking final synthesis until resolve_barrier records the decision.`,
     );
   }
   return lines;

@@ -2254,7 +2254,7 @@ function mailboxTypeLabel(type: string): string {
 function lifecycleSourceLabel(source: string | undefined): string | undefined {
   if (source === "parent_cancel_request") return "Cancelled by parent";
   if (source === "direct_child_stop") return "Stopped in child thread";
-  if (source === "desktop_restart") return "Stopped during restart reconciliation";
+  if (source === "desktop_restart") return "Needs restart reconciliation";
   if (source === "runtime_budget_exceeded") return "Runtime budget exceeded";
   return undefined;
 }

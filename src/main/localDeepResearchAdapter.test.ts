@@ -25,6 +25,7 @@ describe("Local Deep Research adapter", () => {
     expect(prompt).toContain("<tool_call>");
     expect(prompt).toContain("<answer>...</answer>");
     expect(prompt).toContain("Tool budget: 6 calls.");
+    expect(prompt).toContain("Final synthesis reserve: 3 no-tools model turn(s)");
     expect(prompt).toContain("Sources line containing the exact citation URLs");
   });
 

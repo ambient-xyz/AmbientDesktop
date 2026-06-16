@@ -671,10 +671,10 @@ describe("AgentRuntime sub-agent Pi tool live smoke", () => {
         "Do not complete unless browser_search returns or Ambient explicitly reports the browser action was denied.",
       ].join("\n"),
       toolScope: {
-        requestedCategories: ["browser.read"],
+        requestedCategories: ["browser.interactive"],
         childAuthority: {
           taskIntent: "analysis",
-          rationale: "Live validation that a full-access parent can launch a narrower browser-read child that pauses for parent approval.",
+          rationale: "Live validation that a full-access parent can launch a narrower browser-interactive child that pauses for parent approval.",
           network: "ask_parent",
           mutation: "deny",
           nestedFanout: "deny",
@@ -1472,36 +1472,26 @@ describe("AgentRuntime sub-agent Pi tool live smoke", () => {
         }),
       ]));
       expect(latest).toMatchObject({
-        status: "stopped",
-        resultArtifact: {
-          schemaVersion: "ambient-subagent-result-artifact-v1",
-          status: "stopped",
-          partial: false,
-          summary: expect.stringContaining("Ambient restarted"),
-        },
+        status: "needs_attention",
       });
+      expect(latest.resultArtifact).toBeUndefined();
       expect(store.getThread(latest.childThreadId)).toMatchObject({
         kind: "subagent_child",
         parentThreadId: thread.id,
-        childStatus: "stopped",
+        childStatus: "needs_attention",
         collapsedByDefault: true,
       });
       expect(waitBarriers).toEqual([
         expect.objectContaining({
           childRunIds: [runId],
           dependencyMode: "required_all",
-          status: "failed",
-          resolutionArtifact: expect.objectContaining({
-            restartReconciled: true,
-            synthesisAllowed: false,
-            stoppedChildRunIds: [runId],
-          }),
+          status: "waiting_on_children",
+          resolutionArtifact: undefined,
         }),
       ]);
       expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(expect.arrayContaining([
         "subagent.child_session_started",
         "subagent.restart_reconciled",
-        "subagent.lifecycle_stopped",
       ]));
       expect(parentMailboxEvents).toEqual([
         expect.objectContaining({
@@ -1512,8 +1502,9 @@ describe("AgentRuntime sub-agent Pi tool live smoke", () => {
             childRunId: runId,
             childThreadId: latest.childThreadId,
             previousStatus: "running",
-            status: "stopped",
+            status: "needs_attention",
             source: "desktop_restart",
+            waitBarrierIds: [waitBarriers[0]?.id],
           }),
         }),
       ]);

@@ -84,10 +84,10 @@ export async function buildLocalModelResourceRegistry(
   const settings = normalizeLocalModelResourceSettings(input.settings);
   const residents = input.residentProcesses ?? await detectLocalLlamaResidentProcesses(input.workspacePath, input.residentDetection).catch(() => []);
   const activeLeases = activeLocalModelResourceLeases(input.leases, localModelResourceLeaseFreshness(input, capturedAt));
-  const entries = localModelResourceEntriesWithActiveLeases([
+  const entries = dedupeLocalModelResourceEntries(localModelResourceEntriesWithActiveLeases([
     ...residents.map((resident) => localModelResourceEntry(resident, now)),
     ...normalizeAdditionalEntries(input.additionalEntries ?? []),
-  ], activeLeases);
+  ], activeLeases));
   const activeEntries = entries.filter((entry) => entry.running);
   const activeEstimatedResidentMemoryBytes = sumDefined(activeEntries.map((entry) => entry.estimatedResidentMemoryBytes)) ?? 0;
   const activeActualResidentMemoryBytes = sumDefined(activeEntries.map((entry) => entry.actualResidentMemoryBytes));
@@ -223,6 +223,101 @@ function localDeepResearchQuantizationForProfile(profileId: string): Pick<LocalM
   } catch {
     return {};
   }
+}
+
+function dedupeLocalModelResourceEntries(
+  entries: LocalModelResourceRegistryEntry[],
+): LocalModelResourceRegistryEntry[] {
+  const deduped: LocalModelResourceRegistryEntry[] = [];
+  for (const entry of entries) {
+    const existingIndex = deduped.findIndex((candidate) => localModelResourceEntriesShareRuntime(candidate, entry));
+    if (existingIndex < 0) {
+      deduped.push(entry);
+      continue;
+    }
+    const existing = deduped[existingIndex];
+    const preferred = preferredLocalModelResourceEntry(existing, entry);
+    const secondary = preferred === existing ? entry : existing;
+    deduped[existingIndex] = mergeLocalModelResourceEntryFacts(preferred, secondary);
+  }
+  return deduped;
+}
+
+function localModelResourceEntriesShareRuntime(
+  left: LocalModelResourceRegistryEntry,
+  right: LocalModelResourceRegistryEntry,
+): boolean {
+  if (left.pid !== undefined && right.pid !== undefined && left.pid === right.pid) return true;
+  if (left.endpointUrl && right.endpointUrl && left.endpointUrl === right.endpointUrl) {
+    if (left.pid === undefined || right.pid === undefined || left.pid === right.pid) return true;
+    return localModelResourceAuthoritativeEndpointMatch(left, right);
+  }
+  if (left.runtimeId && right.runtimeId && left.runtimeId === right.runtimeId) return true;
+  if (left.id && right.runtimeId && left.id === right.runtimeId) return true;
+  if (right.id && left.runtimeId && right.id === left.runtimeId) return true;
+  return false;
+}
+
+function localModelResourceAuthoritativeEndpointMatch(
+  left: LocalModelResourceRegistryEntry,
+  right: LocalModelResourceRegistryEntry,
+): boolean {
+  return (localModelResourceEntryIsUntracked(left) || localModelResourceEntryIsUntracked(right)) &&
+    (localModelResourceEntryHasProviderIdentity(left) || localModelResourceEntryHasProviderIdentity(right));
+}
+
+function localModelResourceEntryIsUntracked(entry: LocalModelResourceRegistryEntry): boolean {
+  return entry.trackingStatus === "untracked";
+}
+
+function localModelResourceEntryHasProviderIdentity(entry: LocalModelResourceRegistryEntry): boolean {
+  return Boolean(entry.providerId || entry.runtimeId);
+}
+
+function preferredLocalModelResourceEntry(
+  left: LocalModelResourceRegistryEntry,
+  right: LocalModelResourceRegistryEntry,
+): LocalModelResourceRegistryEntry {
+  const leftRank = localModelResourceEntryAuthorityRank(left);
+  const rightRank = localModelResourceEntryAuthorityRank(right);
+  if (rightRank > leftRank) return right;
+  if (leftRank > rightRank) return left;
+  if (!left.providerLifecycle && right.providerLifecycle) return right;
+  return left;
+}
+
+function localModelResourceEntryAuthorityRank(entry: LocalModelResourceRegistryEntry): number {
+  const trackingStatus = entry.trackingStatus ?? "managed";
+  if (trackingStatus === "managed") return 3;
+  if (trackingStatus === "tracked") return 2;
+  return 1;
+}
+
+function mergeLocalModelResourceEntryFacts(
+  preferred: LocalModelResourceRegistryEntry,
+  secondary: LocalModelResourceRegistryEntry,
+): LocalModelResourceRegistryEntry {
+  const activeLeaseIds = uniqueStrings([...(secondary.activeLeaseIds ?? []), ...(preferred.activeLeaseIds ?? [])]);
+  return {
+    ...secondary,
+    ...preferred,
+    ...(activeLeaseIds ? { activeLeaseIds } : {}),
+    ...(preferred.actualResidentMemoryBytes !== undefined
+      ? { actualResidentMemoryBytes: preferred.actualResidentMemoryBytes }
+      : secondary.actualResidentMemoryBytes !== undefined
+      ? { actualResidentMemoryBytes: secondary.actualResidentMemoryBytes }
+      : {}),
+    ...(preferred.memorySampledAt
+      ? { memorySampledAt: preferred.memorySampledAt }
+      : secondary.memorySampledAt
+      ? { memorySampledAt: secondary.memorySampledAt }
+      : {}),
+  };
+}
+
+function uniqueStrings(values: string[]): string[] | undefined {
+  const unique = [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  return unique.length ? unique : undefined;
 }
 
 export function localDeepResearchRequestedLaunch(input: {

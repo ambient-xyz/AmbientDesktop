@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SubagentRunStatus } from "../shared/subagentProtocol";
 import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../shared/types";
 import type { SubagentParentPolicyResolution } from "./subagentParentPolicyResolution";
@@ -9,6 +9,7 @@ import {
   buildSubagentBarrierDecisionResolutionArtifact,
   buildSubagentBarrierDecisionRunEventPreview,
   buildSubagentBarrierDecisionText,
+  resolveSubagentBarrierDecisionWaitBarrier,
   subagentBarrierDecisionNextStatus,
   SUBAGENT_USER_DECISION_SCHEMA_VERSION,
   SUBAGENT_WAIT_BARRIER_DECISION_PARENT_MAILBOX_TYPE,
@@ -58,6 +59,23 @@ describe("subagentBarrierDecision", () => {
       synthesisAllowed: true,
       explicitPartial: true,
       resultArtifact: null,
+      transitionEvidence: expect.objectContaining({
+        schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+        kind: "explicit_partial",
+        source: "barrier_controller",
+        childRunIds: ["child-a", "child-b"],
+        reason: "Use only the completed child evidence.",
+        idempotencyKey: "barrier:partial",
+        details: expect.objectContaining({
+          waitBarrierId: "barrier",
+          parentThreadId: "parent-thread",
+          parentRunId: "parent-run",
+          decision: "continue_with_partial",
+          toolCallId: "tool-1",
+          decidedAt: "2026-06-06T12:00:00.000Z",
+          partialSummary: "Reviewer failed; summarizer completed.",
+        }),
+      }),
       userDecision: {
         schemaVersion: SUBAGENT_USER_DECISION_SCHEMA_VERSION,
         decision: "continue_with_partial",
@@ -67,6 +85,58 @@ describe("subagentBarrierDecision", () => {
         toolCallId: "tool-1",
         idempotencyKey: "barrier:partial",
       },
+    });
+  });
+
+  it("routes explicit decisions through the barrier-decision wait-barrier resolver", () => {
+    const waitBarrier = barrier({ id: "barrier-controller", childRunIds: ["child-a"] });
+    const updateSubagentWaitBarrierStatus = vi.fn((
+      id: string,
+      status: SubagentWaitBarrierSummary["status"],
+      options?: { resolutionArtifact?: unknown; now?: string },
+    ): SubagentWaitBarrierSummary => ({
+      ...waitBarrier,
+      id,
+      status,
+      ...(options?.now ? { updatedAt: options.now } : {}),
+      ...(status !== "waiting_on_children" ? { resolvedAt: options?.now ?? waitBarrier.resolvedAt } : {}),
+      ...(options?.resolutionArtifact !== undefined ? { resolutionArtifact: options.resolutionArtifact } : {}),
+    }));
+
+    const resolved = resolveSubagentBarrierDecisionWaitBarrier({
+      store: { updateSubagentWaitBarrierStatus },
+      barrier: waitBarrier,
+      childRuns: [run({ id: "child-a", status: "failed" })],
+      decision: "continue_with_partial",
+      userDecision: "Use the parent context without failed child evidence.",
+      partialSummary: "Child failed before producing evidence.",
+      now: "2026-06-06T12:00:00.000Z",
+      toolCallId: "tool-controller",
+      idempotencyKey: "barrier:controller",
+    });
+
+    expect(updateSubagentWaitBarrierStatus).toHaveBeenCalledWith("barrier-controller", "satisfied", {
+      now: "2026-06-06T12:00:00.000Z",
+      resolutionArtifact: expect.objectContaining({
+        synthesisAllowed: true,
+        explicitPartial: true,
+        transitionEvidence: expect.objectContaining({
+          kind: "explicit_partial",
+          source: "barrier_controller",
+          idempotencyKey: "barrier:controller",
+          details: expect.objectContaining({
+            waitBarrierId: "barrier-controller",
+            decision: "continue_with_partial",
+            toolCallId: "tool-controller",
+          }),
+        }),
+      }),
+    });
+    expect(resolved).toMatchObject({
+      barrier: expect.objectContaining({ id: "barrier-controller", status: "satisfied" }),
+      resolutionArtifact: expect.objectContaining({
+        userDecision: expect.objectContaining({ decision: "continue_with_partial" }),
+      }),
     });
   });
 
@@ -94,6 +164,20 @@ describe("subagentBarrierDecision", () => {
       unchangedRunIds: ["child-b"],
       cancelledMailboxEventIds: ["mailbox-1"],
       parentCancellationRequested: true,
+      transitionEvidence: expect.objectContaining({
+        schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+        kind: "child_cancelled",
+        source: "barrier_controller",
+        childRunIds: ["child-a", "child-b"],
+        reason: "Stop the parent path.",
+        idempotencyKey: "barrier:cancel",
+        details: expect.objectContaining({
+          decision: "cancel_parent",
+          cancelledRunIds: ["child-a"],
+          unchangedRunIds: ["child-b"],
+          cancelledMailboxEventIds: ["mailbox-1"],
+        }),
+      }),
       userDecision: expect.objectContaining({ decision: "cancel_parent" }),
     });
   });
@@ -123,6 +207,19 @@ describe("subagentBarrierDecision", () => {
       synthesisAllowed: false,
       explicitPartial: false,
       retryRequestedRunIds: ["child-failed"],
+      transitionEvidence: expect.objectContaining({
+        schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+        kind: "retry_child",
+        source: "barrier_controller",
+        childRunIds: ["child-failed"],
+        reason: "Retry this child instead of letting the parent continue.",
+        idempotencyKey: "barrier:retry",
+        details: expect.objectContaining({
+          waitBarrierId: "barrier-retry",
+          decision: "retry_child",
+          retryRequestedRunIds: ["child-failed"],
+        }),
+      }),
       userDecision: expect.objectContaining({
         decision: "retry_child",
         userDecision: "Retry this child instead of letting the parent continue.",

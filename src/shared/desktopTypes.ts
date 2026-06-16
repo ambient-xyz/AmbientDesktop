@@ -43,6 +43,7 @@ import type { DiagnosticExportResult } from "./diagnosticTypes";
 import type { AmbientFeatureFlagSettings, AmbientFeatureFlagSnapshot, UpdateFeatureFlagSettingsInput } from "./featureFlags";
 import type {
   LocalDeepResearchInstallProgress,
+  LocalDeepResearchRunBudget,
   LocalDeepResearchRunHistoryInput,
   LocalDeepResearchRunHistoryResult,
   LocalDeepResearchSettings,
@@ -400,6 +401,7 @@ export interface SendMessageGoalMode {
 
 export interface SendMessageLocalDeepResearchComposerIntent {
   kind: "local-deep-research";
+  localDeepResearch: LocalDeepResearchRunBudget;
 }
 
 export type SendMessageSymphonyComposerAction = "run-once" | "save-recipe";
@@ -878,7 +880,8 @@ export interface MediaArtifactResult {
   height?: number;
   sourceUrl?: string;
   licenseNote?: string;
-  renderedInline: true;
+  inlinePreviewEligible?: true;
+  renderedInline?: true;
   displayInstruction: string;
 }
 

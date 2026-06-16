@@ -178,6 +178,9 @@ type LocalDeepResearchSearchState = {
   progressTitle?: string;
   progressDetail?: string;
   q8Label?: string;
+  runBudgetLabel?: string;
+  runBudgetToolCalls?: number;
+  runBudgetOnExhausted?: string;
   runHistoryMessage?: string;
   runs: Array<{
     status: string;
@@ -515,12 +518,20 @@ export function rightPanelSettingsSearchTargets({
         "llama.cpp",
         "q4",
         "q8",
+        "effort",
+        "tool calls",
+        "budget",
+        "max tool calls",
+        "exhaustion",
         "deep research",
         localDeepResearch.setupMessage,
         localDeepResearch.setupStatusLabel,
         localDeepResearch.progressTitle,
         localDeepResearch.progressDetail,
         localDeepResearch.q8Label,
+        localDeepResearch.runBudgetLabel,
+        localDeepResearch.runBudgetToolCalls,
+        localDeepResearch.runBudgetOnExhausted,
         localDeepResearch.runHistoryMessage,
         localDeepResearch.runs.map((run) => `${run.status} ${run.question} ${run.modelProfileId ?? ""}`).join(" "),
         localDeepResearch.diagnostics.map((diagnostic) => `${diagnostic.code} ${diagnostic.title}`).join(" "),

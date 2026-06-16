@@ -7,6 +7,7 @@ import {
 } from "./localDeepResearchLlamaClient";
 import { buildLocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import type { LocalDeepResearchChatCompletionInput, LocalDeepResearchChatMessage } from "./localDeepResearchRunner";
+import { localDeepResearchToolBudgetState, resolveLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 
 const gib = 1024 ** 3;
 
@@ -31,7 +32,7 @@ describe("Local Deep Research llama.cpp client", () => {
     ];
 
     const request = buildLocalDeepResearchLlamaChatRequest(
-      { messages, setup, toolCallCount: 1 },
+      { messages, setup, toolCallCount: 1, toolBudget: localDeepResearchToolBudgetState(resolveLocalDeepResearchRunBudget(undefined), 1) },
       { modelId: "custom-model", temperature: 0.7, maxTokens: 4096 },
     );
 
@@ -142,6 +143,7 @@ function chatInput(setup: ReturnType<typeof readySetup>): LocalDeepResearchChatC
   return {
     setup,
     toolCallCount: 0,
+    toolBudget: localDeepResearchToolBudgetState(resolveLocalDeepResearchRunBudget(undefined), 0),
     messages: [
       { role: "system", content: "system prompt" },
       { role: "user", content: "What changed?" },

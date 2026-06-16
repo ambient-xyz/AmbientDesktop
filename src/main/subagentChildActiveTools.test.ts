@@ -70,8 +70,19 @@ describe("resolveSubagentChildActiveToolNames", () => {
       "web_research_search",
       "web_research_fetch",
     ]);
+    expect(subagentChildActivatableBuiltInToolNamesForCategory("browser.read")).toEqual([]);
+    expect(subagentChildActivatableBuiltInToolNamesForCategory("browser.interactive")).toEqual([
+      "browser_search",
+      "browser_nav",
+      "browser_content",
+      "browser_screenshot",
+      "browser_eval",
+      "browser_keypress",
+    ]);
     expect(isSubagentChildActivatableBuiltInTool({ toolName: "read", categoryId: "workspace.read" })).toBe(true);
     expect(isSubagentChildActivatableBuiltInTool({ toolName: "web_research_search", categoryId: "connector.read" })).toBe(true);
+    expect(isSubagentChildActivatableBuiltInTool({ toolName: "browser_search", categoryId: "browser.read" })).toBe(false);
+    expect(isSubagentChildActivatableBuiltInTool({ toolName: "browser_search", categoryId: "browser.interactive" })).toBe(true);
     expect(isSubagentChildActivatableBuiltInTool({ toolName: "ambient_tool_call", categoryId: "workspace.read" })).toBe(false);
     expect(isSubagentChildActivatableBuiltInTool({ toolName: "bash", categoryId: "test.run" })).toBe(false);
   });
@@ -86,10 +97,6 @@ describe("resolveSubagentChildActiveToolNames", () => {
     expect(activeTools).toEqual([
       "read",
       "ambient_git_status",
-      "browser_search",
-      "browser_nav",
-      "browser_content",
-      "browser_screenshot",
       "long_context_process",
     ]);
     expect(activeTools).not.toContain("bash");
@@ -104,6 +111,27 @@ describe("resolveSubagentChildActiveToolNames", () => {
     expect(activeTools).not.toContain("browser_get_value");
     expect(activeTools).not.toContain("browser_wait_for");
     expect(activeTools).not.toContain("browser_assert");
+  });
+
+  it("requires explicit browser interactive scope for browser-backed child tools", () => {
+    expect(resolveSubagentChildActiveToolNames({
+      subagentToolScopeSnapshots: [
+        snapshot(["browser.read"]),
+      ],
+    })).toEqual([]);
+
+    expect(resolveSubagentChildActiveToolNames({
+      subagentToolScopeSnapshots: [
+        snapshot(["browser.read", "browser.interactive"]),
+      ],
+    })).toEqual([
+      "browser_search",
+      "browser_nav",
+      "browser_content",
+      "browser_screenshot",
+      "browser_eval",
+      "browser_keypress",
+    ]);
   });
 
   it("uses brokered web research for connector-read child scopes without preference mutation tools", () => {
@@ -243,6 +271,7 @@ describe("resolveSubagentChildActiveToolNames", () => {
           grants: [
             builtInGrant("ambient_git_status", "workspace.read"),
             builtInGrant("ambient_tool_call", "workspace.read"),
+            builtInGrant("browser_search", "browser.read"),
             builtInGrant("browser_eval", "browser.interactive"),
             builtInGrant("bash", "test.run"),
           ],
@@ -252,8 +281,39 @@ describe("resolveSubagentChildActiveToolNames", () => {
 
     expect(activeTools).toEqual(["read", "ambient_git_status"]);
     expect(activeTools).not.toContain("ambient_tool_call");
+    expect(activeTools).not.toContain("browser_search");
     expect(activeTools).not.toContain("browser_eval");
     expect(activeTools).not.toContain("bash");
+  });
+
+  it("does not let exact browser-read grants activate CAPTCHA-prone browser tools", () => {
+    expect(resolveSubagentChildActiveToolNames({
+      subagentToolScopeSnapshots: [
+        snapshot(["browser.read"], {
+          grants: [
+            builtInGrant("browser_search", "browser.read"),
+            builtInGrant("browser_content", "browser.read"),
+          ],
+        }),
+      ],
+    })).toEqual([]);
+
+    expect(resolveSubagentChildActiveToolNames({
+      subagentToolScopeSnapshots: [
+        snapshot(["browser.interactive"], {
+          grants: [
+            builtInGrant("browser_search", "browser.interactive"),
+          ],
+        }),
+      ],
+    })).toEqual([
+      "browser_search",
+      "browser_nav",
+      "browser_content",
+      "browser_screenshot",
+      "browser_eval",
+      "browser_keypress",
+    ]);
   });
 
   it("activates snapshotted extension tools only when registered for the child launch", () => {

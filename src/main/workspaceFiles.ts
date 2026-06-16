@@ -324,11 +324,38 @@ async function readResolvedFile(input: {
     const { bytesRead } = await handle.read(buffer, 0, bytesToRead, 0);
     const contentBuffer = buffer.subarray(0, bytesRead);
     const imagePreviewMismatch = preview.kind === "image" ? invalidImagePreview(contentBuffer, preview.mimeType) : undefined;
+    const detectedImageMimeType = imagePreviewMismatch ? sniffRasterImageMimeType(contentBuffer) : undefined;
     const binary = imagePreviewMismatch ? isBinaryBuffer(contentBuffer) : binaryPreview || isBinaryBuffer(contentBuffer);
     const previewTruncated = fileStat.size > bytesToRead;
     const pdfContent = pdfText?.status === "available" ? pdfText.text ?? "" : "";
     const content = preview.kind === "pdf" ? pdfContent : binary ? "" : contentBuffer.toString("utf8");
     const truncated = preview.kind === "pdf" ? previewTruncated || pdfText?.truncated === true : previewTruncated;
+    if (imagePreviewMismatch && detectedImageMimeType) {
+      return {
+        path: displayPath,
+        name: basename(absolutePath),
+        source,
+        ...(source === "local" ? { absolutePath, fileUrl: pathToFileURL(accessPath).href } : {}),
+        content: "",
+        size: fileStat.size,
+        mtimeMs: fileStat.mtimeMs,
+        truncated,
+        binary: true,
+        kind: "image",
+        mimeType: detectedImageMimeType,
+        dataUrl: !previewTruncated ? dataUrl(contentBuffer, detectedImageMimeType) : undefined,
+        mediaUrl: options.createMediaUrl?.({
+          workspacePath,
+          absolutePath,
+          relativePath: displayPath,
+          ...(input.realPath ? { realPath: input.realPath } : {}),
+          allowExternal: allowExternalMedia,
+          mimeType: detectedImageMimeType,
+          size: fileStat.size,
+          mtimeMs: fileStat.mtimeMs,
+        }),
+      };
+    }
     if (imagePreviewMismatch) {
       const detectedText = binary ? undefined : textPreviewForContent(content);
       return {
@@ -690,6 +717,26 @@ function invalidImagePreview(buffer: Buffer, expectedMimeType?: string): boolean
     return !text.startsWith("<svg") && !(text.startsWith("<?xml") && text.includes("<svg"));
   }
   return false;
+}
+
+function sniffRasterImageMimeType(buffer: Buffer): string | undefined {
+  if (buffer.byteLength >= 4 && buffer.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) {
+    return "image/png";
+  }
+  if (buffer.byteLength >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (buffer.byteLength >= 6) {
+    const header = buffer.toString("ascii", 0, 6);
+    if (header === "GIF87a" || header === "GIF89a") return "image/gif";
+  }
+  if (buffer.byteLength >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP") {
+    return "image/webp";
+  }
+  if (buffer.byteLength >= 12 && buffer.toString("ascii", 4, 8) === "ftyp" && ["avif", "avis"].includes(buffer.toString("ascii", 8, 12))) {
+    return "image/avif";
+  }
+  return undefined;
 }
 
 function textPreviewForContent(content: string): { kind: WorkspaceFilePreviewKind; mimeType: string; language?: string } {

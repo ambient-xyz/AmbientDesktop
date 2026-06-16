@@ -29,6 +29,7 @@ import {
 } from "./subagentMailbox";
 import {
   resolveActiveSubagentWaitBarriersForRun,
+  SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
   type SubagentWaitBarrierResolutionStore,
 } from "./subagentWaitBarrierResolution";
 
@@ -138,7 +139,14 @@ export async function executeSubagentCancelAgent(input: {
   const waitBarriers = resolveActiveSubagentWaitBarriersForRun({
     store: input.store,
     run: cancelled,
-    timedOut: false,
+    evidence: {
+      schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+      kind: "child_cancelled",
+      source: "cancel_agent",
+      childRunId: cancelled.id,
+      reason,
+      idempotencyKey,
+    },
   });
   const cancelledMailbox = cancelled.status === "cancelled"
     ? cancelPendingParentToChildMailboxEvents(input.store, {

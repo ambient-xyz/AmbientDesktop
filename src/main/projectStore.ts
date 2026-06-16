@@ -200,7 +200,6 @@ import {
 import {
   analyzeSubagentRestartState,
   createSubagentRepairDiagnosticsReport,
-  interruptedSubagentResultArtifact,
   uniqueSubagentRepairIds,
 } from "./subagentRepair";
 import {
@@ -351,25 +350,17 @@ import {
   replaceProjectStoreLegacyModelId,
 } from "./projectStoreSchema";
 import {
-  mapMessageRow,
-  mapMessageVoiceStateRow,
-  mapThreadRow,
-  mapThreadWorktreeRow,
   mapWorkspaceSearchMessageRow,
   mapWorkspaceSearchThreadRow,
   type MessageRow,
-  type MessageVoiceStateRow,
   type SearchMessageRow,
   type ThreadRow,
-  type ThreadWorktreeRow,
 } from "./projectStoreThreadMappers";
-import {
-  mapRunRow,
-  type ActivePersistedRunStatus,
-  type RunRecord,
-  type RunRow,
-  type TerminalPersistedRunStatus,
-} from "./projectStoreRunMappers";
+import type {
+  ActivePersistedRunStatus,
+  RunRecord,
+  TerminalPersistedRunStatus,
+} from "./projectStore/runMappers";
 import {
   mapOrchestrationRunRow,
   mapOrchestrationTaskRow,
@@ -401,6 +392,11 @@ import {
   type PlannerPlanArtifactRow,
 } from "./projectStorePlannerMappers";
 import { ProjectStoreArtifactDraftRepository } from "./projectStoreArtifactDraftRepository";
+import { ProjectStoreMessageRepository } from "./projectStore/messageRepository";
+import { ProjectStoreMessageVoiceRepository } from "./projectStore/messageVoiceRepository";
+import { ProjectStoreRunRepository } from "./projectStore/runRepository";
+import { ProjectStoreThreadRepository } from "./projectStore/threadRepository";
+import { ProjectStoreThreadGoalRepository } from "./projectStore/threadGoalRepository";
 import {
   callableWorkflowTaskFinishState,
   callableWorkflowTaskProgressSnapshot,
@@ -480,20 +476,10 @@ import {
   type SubagentToolScopeSnapshotRow,
   type SubagentWaitBarrierRow,
 } from "./projectStoreSubagentMappers";
-import {
-  mapPermissionGrantRow,
-  mapPermissionAuditRow,
-  type AmbientPermissionGrantRow,
-  type PermissionAuditRow,
-} from "./projectStorePermissionMappers";
-import {
-  mapThreadGoalRow,
-  type ThreadGoalRow,
-} from "./projectStoreGoalMappers";
-import {
-  mapContextUsageSnapshotRow,
-  type ContextUsageSnapshotRow,
-} from "./projectStoreContextMappers";
+import { resolveSubagentParentStopWaitBarrier } from "./subagentParentStopWaitBarrier";
+import { resolveSubagentParentControlBarrierReconciliation } from "./subagentParentControlBarrierReconciliation";
+import { ProjectStoreContextUsageRepository } from "./projectStore/contextUsageRepository";
+import { ProjectStorePermissionRepository } from "./projectStore/permissionRepository";
 import {
   DURABLE_PLAN_SOURCE_AUTHORITY_REASON,
   hashProjectBoardSourceContent,
@@ -678,15 +664,13 @@ import {
 } from "./projectBoardStoreMappers";
 export { projectBoardDependencyArtifactPromptSection } from "./projectBoardStoreMappers";
 export type { ProjectBoardDependencyArtifactImport, ProjectBoardDependencyArtifactImportResult } from "./projectBoardStoreMappers";
-export type { RunRecord } from "./projectStoreRunMappers";
+export type { RunRecord } from "./projectStore/runMappers";
 import {
   AMBIENT_LEGACY_MODEL_IDS,
-  normalizeAmbientModelId,
 } from "../shared/ambientModels";
 import { workflowGraphFromSpec } from "../shared/workflowAgentGraph";
 import { computeAutomationScheduleNextRunAt, normalizeAutomationScheduleCronExpression } from "./automationSchedules";
 import type { SchedulerRuntimeState } from "./orchestrationScheduler";
-import { formatThreadPreview } from "./threadPreview";
 import {
   INTERRUPTED_RUN_MESSAGE,
   interruptedMessageContent,
@@ -749,7 +733,7 @@ import type { ProjectBoardProofSuggestion } from "./projectBoardProofSuggestionP
 import { extractPlannerPlanArtifactFields } from "./plannerMode";
 import { LEGACY_PROJECT_STATE_DIR, prepareWorkspaceAuthorityState } from "./workspaceAuthorityState";
 import { parseJsonArray, parseJsonObject, parseMetadata, parseStringList, stringFromRecord } from "./projectStoreJson";
-import { ProjectStoreSettingsRepository } from "./projectStoreSettingsRepository";
+import { ProjectStoreSettingsRepository } from "./projectStore/settingsRepository";
 import { stringifyWorkflowRunLimitOverrides } from "./workflowRunLimitOverrides";
 
 import {
@@ -764,10 +748,7 @@ import {
   defaultProjectArtifactWorkspacePath,
   durablePlanSourceExcerptForBoardSource,
   emptyToNull,
-  normalizedOptionalText,
-  piPackageSettingId,
   plannerPlanArtifactSourceContent,
-  positiveIntegerOrNull,
   projectBoardCanAdoptPlannerBoardTitle,
   projectBoardPlanningScopeFromRunEvents,
   projectBoardSourceInputExcludedByDurablePlan,
@@ -783,7 +764,6 @@ import {
   symphonyWorkflowRecipePlaybook,
   symphonyWorkflowRecipeTitle,
   symphonyWorkflowRecipeTranscript,
-  terminalThreadGoalStatuses,
 } from "./projectStoreFacadeHelpers";
 import type {
   AutomationThreadFolderRow,
@@ -856,7 +836,7 @@ export class ProjectStore {
     if (options.recoverActiveRuns ?? false) this.interruptActiveRuns();
     if (options.recoverOrchestrationRuns ?? false) this.stallActiveOrchestrationRuns();
     this.repairPlannerPlanQuestionBlocks();
-    this.repairThreadPreviews();
+    this.messages().repairThreadPreviews();
     this.pruneRedundantEmptyThreads();
     return this.workspace;
   }
@@ -7592,186 +7572,48 @@ export class ProjectStore {
 
   getLastActiveThreadId(): string | undefined {
     const value = this.settings().getSetting("lastActiveThreadId", "");
-    if (typeof value !== "string" || !value.trim()) return undefined;
-    const row = this.requireDb()
-      .prepare("SELECT id FROM threads WHERE id = ? AND (archived_at IS NULL OR archived_at = '')")
-      .get(value) as { id: string } | undefined;
-    return row?.id;
+    return this.threads().getLastActiveThreadId(value);
   }
 
   setLastActiveThreadId(threadId: string): void {
-    const row = this.requireDb().prepare("SELECT id FROM threads WHERE id = ?").get(threadId) as { id: string } | undefined;
-    if (!row) return;
+    if (!this.threads().hasThread(threadId)) return;
     this.settings().setSetting("lastActiveThreadId", threadId);
   }
 
   listThreads(): ThreadSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM threads WHERE archived_at IS NULL OR archived_at = '' ORDER BY pinned DESC, updated_at DESC")
-      .all() as ThreadRow[];
-    return rows.map(this.mapThread);
+    return this.threads().listThreads();
   }
 
   private listThreadsForSubagentStateInspection(): ThreadSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM threads ORDER BY pinned DESC, updated_at DESC")
-      .all() as ThreadRow[];
-    return rows.map(this.mapThread);
+    return this.threads().listThreadsForStateInspection();
   }
 
   findReusableEmptyThread(): ThreadSummary | undefined {
-    const row = this.requireDb()
-      .prepare(
-        `SELECT * FROM threads
-         WHERE title = 'New chat'
-           AND (archived_at IS NULL OR archived_at = '')
-           AND (
-             workspace_path = ?
-             OR EXISTS (
-               SELECT 1 FROM thread_worktrees
-               WHERE thread_worktrees.thread_id = threads.id
-                 AND thread_worktrees.project_root = ?
-             )
-           )
-           AND last_message_preview = ''
-           AND (pi_session_file IS NULL OR pi_session_file = '')
-           AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.thread_id = threads.id)
-           AND NOT EXISTS (SELECT 1 FROM runs WHERE runs.thread_id = threads.id)
-           AND NOT EXISTS (SELECT 1 FROM orchestration_runs WHERE orchestration_runs.thread_id = threads.id)
-           AND NOT EXISTS (SELECT 1 FROM context_usage_snapshots WHERE context_usage_snapshots.thread_id = threads.id)
-         ORDER BY updated_at DESC, created_at DESC
-         LIMIT 1`,
-      )
-      .get(this.getWorkspace().path, this.getWorkspace().path) as ThreadRow | undefined;
-    return row ? this.mapThread(row) : undefined;
+    return this.threads().findReusableEmptyThread();
   }
 
   getThread(threadId: string): ThreadSummary {
-    const row = this.requireDb().prepare("SELECT * FROM threads WHERE id = ?").get(threadId) as ThreadRow | undefined;
-    if (!row) throw new Error(`Thread not found: ${threadId}`);
-    return this.mapThread(row);
+    return this.threads().getThread(threadId);
   }
 
   getThreadGoal(threadId: string): ThreadGoal | undefined {
-    this.getThread(threadId);
-    const row = this.requireDb().prepare("SELECT * FROM thread_goals WHERE thread_id = ?").get(threadId) as ThreadGoalRow | undefined;
-    return row ? this.mapThreadGoal(row) : undefined;
+    return this.threadGoals().getThreadGoal(threadId);
   }
 
   setThreadGoal(input: ThreadGoalSetInput): ThreadGoal {
-    const thread = this.getThread(input.threadId);
-    const current = this.getThreadGoal(input.threadId);
-    if (input.expectedGoalId && current?.goalId !== input.expectedGoalId) {
-      throw new Error("Thread goal changed before this update could be applied.");
-    }
-    const objective = input.objective?.trim() ?? current?.objective;
-    if (!objective) throw new Error("Goal objective is required.");
-    const status = input.status ?? current?.status ?? "active";
-    const resumedFromInactive = Boolean(current && current.status !== "active" && status === "active");
-    const now = new Date().toISOString();
-    const tokenBudget = Object.hasOwn(input, "tokenBudget")
-      ? positiveIntegerOrNull(input.tokenBudget ?? null)
-      : (current?.tokenBudget ?? null);
-    const statusReason = Object.hasOwn(input, "statusReason")
-      ? normalizedOptionalText(input.statusReason ?? null)
-      : resumedFromInactive
-        ? null
-        : (current?.statusReason ?? null);
-    const completedAt = status === "complete"
-      ? (current?.completedAt ?? now)
-      : terminalThreadGoalStatuses.has(status)
-        ? current?.completedAt ?? null
-        : null;
-
-    if (current) {
-      this.requireDb()
-        .prepare(
-          `UPDATE thread_goals
-           SET objective = ?, status = ?, token_budget = ?, no_progress_turns = ?,
-               status_reason = ?, updated_at = ?, completed_at = ?
-           WHERE thread_id = ?`,
-        )
-        .run(
-          objective,
-          status,
-          tokenBudget,
-          resumedFromInactive ? 0 : current.noProgressTurns,
-          statusReason,
-          now,
-          completedAt,
-          input.threadId,
-        );
-    } else {
-      this.requireDb()
-        .prepare(
-          `INSERT INTO thread_goals
-          (thread_id, goal_id, objective, status, token_budget, tokens_used, time_used_seconds,
-           continuation_turns, no_progress_turns, status_reason, created_at, updated_at, completed_at, last_continued_at)
-           VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?, ?, ?, NULL)`,
-        )
-        .run(thread.id, randomUUID(), objective, status, tokenBudget, statusReason, now, now, completedAt);
-    }
-    return this.getThreadGoal(input.threadId)!;
+    return this.threadGoals().setThreadGoal(input);
   }
 
   createThreadGoalIfAbsent(input: ThreadGoalCreateInput): ThreadGoal {
-    if (this.getThreadGoal(input.threadId)) throw new Error("Thread already has a goal.");
-    return this.setThreadGoal({
-      threadId: input.threadId,
-      objective: input.objective,
-      status: "active",
-      tokenBudget: input.tokenBudget ?? null,
-    });
+    return this.threadGoals().createThreadGoalIfAbsent(input);
   }
 
   clearThreadGoal(threadId: string, expectedGoalId?: string): ThreadGoal | undefined {
-    const current = this.getThreadGoal(threadId);
-    if (!current) return undefined;
-    if (expectedGoalId && current.goalId !== expectedGoalId) {
-      throw new Error("Thread goal changed before it could be cleared.");
-    }
-    this.requireDb().prepare("DELETE FROM thread_goals WHERE thread_id = ?").run(threadId);
-    return current;
+    return this.threadGoals().clearThreadGoal(threadId, expectedGoalId);
   }
 
   accountThreadGoalUsage(input: ThreadGoalAccountInput): ThreadGoal | undefined {
-    const current = this.getThreadGoal(input.threadId);
-    if (!current || current.goalId !== input.goalId) return current;
-    const tokensUsedDelta = Math.max(0, Math.floor(input.tokensUsedDelta ?? 0));
-    const timeUsedSecondsDelta = Math.max(0, Math.floor(input.timeUsedSecondsDelta ?? 0));
-    const continuationTurnDelta = Math.max(0, Math.floor(input.continuationTurnDelta ?? 0));
-    const noProgressTurnDelta = Math.max(0, Math.floor(input.noProgressTurnDelta ?? 0));
-    const tokensUsed = current.tokensUsed + tokensUsedDelta;
-    const nextStatus = current.tokenBudget !== undefined && tokensUsed >= current.tokenBudget && current.status === "active"
-      ? "budget_limited"
-      : current.status;
-    const statusReason = nextStatus === "budget_limited"
-      ? "Goal token budget reached."
-      : Object.hasOwn(input, "statusReason")
-        ? normalizedOptionalText(input.statusReason ?? null)
-        : (current.statusReason ?? null);
-    const now = new Date().toISOString();
-    const lastContinuedAt = continuationTurnDelta > 0 ? now : (current.lastContinuedAt ?? null);
-    this.requireDb()
-      .prepare(
-        `UPDATE thread_goals
-         SET tokens_used = ?, time_used_seconds = ?, continuation_turns = ?, no_progress_turns = ?,
-             status = ?, status_reason = ?, updated_at = ?, last_continued_at = ?
-         WHERE thread_id = ? AND goal_id = ?`,
-      )
-      .run(
-        tokensUsed,
-        current.timeUsedSeconds + timeUsedSecondsDelta,
-        current.continuationTurns + continuationTurnDelta,
-        current.noProgressTurns + noProgressTurnDelta,
-        nextStatus,
-        statusReason,
-        now,
-        lastContinuedAt,
-        input.threadId,
-        input.goalId,
-      );
-    return this.getThreadGoal(input.threadId);
+    return this.threadGoals().accountThreadGoalUsage(input);
   }
 
   markThreadGoalStatus(
@@ -7779,61 +7621,27 @@ export class ProjectStore {
     status: ThreadGoalStatus,
     options: { expectedGoalId?: string; statusReason?: string | null } = {},
   ): ThreadGoal {
-    return this.setThreadGoal({
-      threadId,
-      status,
-      expectedGoalId: options.expectedGoalId,
-      statusReason: options.statusReason ?? null,
-    });
+    return this.threadGoals().markThreadGoalStatus(threadId, status, options);
   }
 
   private tryGetThread(threadId: string): ThreadSummary | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM threads WHERE id = ?").get(threadId) as ThreadRow | undefined;
-    return row ? this.mapThread(row) : undefined;
+    return this.threads().tryGetThread(threadId);
   }
 
   createThread(title = "New chat", workspacePath = this.getWorkspace().path, options: CreateThreadOptions = {}): ThreadSummary {
-    const now = new Date().toISOString();
     const settings = this.getDefaultSettings();
-    const permissionMode = options.permissionMode ?? settings.permissionMode;
-    const collaborationMode = options.collaborationMode ?? settings.collaborationMode;
-    const model = options.model ?? settings.model;
-    const thinkingLevel = options.thinkingLevel ?? settings.thinkingLevel;
-    const memoryEnabled = settings.memory.defaultThreadEnabled;
-    const kind = options.kind ?? "chat";
-    const id = randomUUID();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO threads
-        (id, title, workspace_path, kind, parent_thread_id, parent_message_id, parent_run_id, subagent_run_id,
-         canonical_task_path, child_order, collapsed_by_default, child_status,
-         created_at, updated_at, last_read_at, last_message_preview, permission_mode, collaboration_mode, model, thinking_level, memory_enabled)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        title,
-        workspacePath,
-        kind,
-        options.parentThreadId ?? null,
-        options.parentMessageId ?? null,
-        options.parentRunId ?? null,
-        options.subagentRunId ?? null,
-        options.canonicalTaskPath ?? null,
-        options.childOrder ?? null,
-        options.collapsedByDefault ? 1 : 0,
-        options.childStatus ?? null,
-        now,
-        now,
-        now,
-        "",
-        permissionMode,
-        collaborationMode,
-        model,
-        thinkingLevel,
-        memoryEnabled ? 1 : 0,
-      );
-    return this.getThread(id);
+    return this.threads().createThread(
+      title,
+      workspacePath,
+      options,
+      {
+        permissionMode: settings.permissionMode,
+        collaborationMode: settings.collaborationMode,
+        model: settings.model,
+        thinkingLevel: settings.thinkingLevel,
+        memoryDefaultThreadEnabled: settings.memory.defaultThreadEnabled,
+      },
+    );
   }
 
   createSubagentRun(input: CreateSubagentRunInput): SubagentRunSummary {
@@ -7856,6 +7664,11 @@ export class ProjectStore {
     }
     let childThread: ThreadSummary | undefined;
     const insertRun = this.requireDb().transaction(() => {
+      this.assertSubagentCanonicalTaskPathAvailableForSpawn({
+        parentThreadId: input.parentThreadId,
+        parentRunId: input.parentRunId,
+        canonicalTaskPath: input.canonicalTaskPath,
+      });
       childThread = this.createThread(input.title, parent.workspacePath, {
         kind: "subagent_child",
         parentThreadId: input.parentThreadId,
@@ -7986,6 +7799,22 @@ export class ProjectStore {
       .prepare("SELECT * FROM subagent_runs ORDER BY created_at ASC")
       .all() as SubagentRunRow[];
     return rows.map(this.mapSubagentRun);
+  }
+
+  assertSubagentCanonicalTaskPathAvailableForSpawn(input: {
+    parentThreadId: string;
+    parentRunId: string;
+    canonicalTaskPath: string;
+  }): void {
+    const blocker = this.findUnresolvedRequiredSubagentCanonicalPathBlocker(input);
+    if (!blocker) return;
+    throw new Error(
+      [
+        `Sub-agent canonical task path ${input.canonicalTaskPath} is already owned by child run ${blocker.run.id}.`,
+        `Unresolved required wait barrier ${blocker.barrier.id} still references that child.`,
+        "Use the existing child run, wait for the barrier, or resolve the barrier before spawning replacement child work.",
+      ].join(" "),
+    );
   }
 
   upsertSubagentBatchJobPlan(
@@ -8425,22 +8254,16 @@ export class ProjectStore {
     }));
     const cancelledWaitBarrierIds = this.listSubagentWaitBarriersForParentRun(input.parentRunId)
       .filter((barrier) => barrier.parentThreadId === input.parentThreadId && barrier.status === "waiting_on_children")
-      .map((barrier) => this.updateSubagentWaitBarrierStatus(barrier.id, "cancelled", {
+      .map((barrier) => resolveSubagentParentStopWaitBarrier({
+        store: this,
+        waitBarrier: barrier,
+        parentThreadId: input.parentThreadId,
+        parentRunId: input.parentRunId,
+        reason: input.reason,
+        featureFlagSnapshot: input.featureFlagSnapshot,
+        subagentsDisabledSafetyCascade,
+        childStatuses: childStatuses.filter((child) => barrier.childRunIds.includes(child.childRunId)),
         now,
-        resolutionArtifact: {
-          ...(barrier.resolutionArtifact && typeof barrier.resolutionArtifact === "object" && !Array.isArray(barrier.resolutionArtifact)
-            ? barrier.resolutionArtifact as Record<string, unknown>
-            : {}),
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
-          childRunIds: barrier.childRunIds,
-          parentStopped: true,
-          parentCancellationRequested: true,
-          reason: input.reason,
-          synthesisAllowed: false,
-          featureFlagSnapshot: input.featureFlagSnapshot,
-          ...(subagentsDisabledSafetyCascade ? { subagentsDisabledSafetyCascade } : {}),
-          childStatuses: childStatuses.filter((child) => barrier.childRunIds.includes(child.childRunId)),
-        },
       }).id);
 
     let parentMailboxEventId: string | undefined;
@@ -9114,43 +8937,53 @@ export class ProjectStore {
       waitBarriers: this.listSubagentWaitBarriers(),
       createdAt: now,
     });
+    const recreatedBarrierIds: string[] = [];
     for (const runId of summary.repairedRunIds) {
       const run = this.getSubagentRun(runId);
-      const stopped = this.markSubagentRunStatus(runId, "stopped", {
+      const needsReconciliation = this.markSubagentRunStatus(runId, "needs_attention", {
         now,
-        resultArtifact: interruptedSubagentResultArtifact({ run }),
       });
-      this.appendSubagentRunEvent(stopped.id, {
+      const existingWaitBarrierIds = summary.repairedBarrierIds.filter((barrierId) => {
+        const barrier = this.getSubagentWaitBarrier(barrierId);
+        return barrier.childRunIds.includes(runId);
+      });
+      const recreatedBarrier = this.recreateRequiredSubagentWaitBarrierIfMissing({
+        run: needsReconciliation,
+        existingWaitBarrierIds,
+        now,
+      });
+      if (recreatedBarrier) recreatedBarrierIds.push(recreatedBarrier.id);
+      const affectedWaitBarrierIds = [
+        ...existingWaitBarrierIds,
+        ...(recreatedBarrier ? [recreatedBarrier.id] : []),
+      ];
+      this.appendSubagentRunEvent(needsReconciliation.id, {
         type: "subagent.restart_reconciled",
         preview: {
           previousStatus: run.status,
-          status: stopped.status,
+          status: needsReconciliation.status,
           reason: "desktop_restart",
+          parentBlockingState: "needs_reconciliation",
+          waitBarrierIds: affectedWaitBarrierIds,
+          ...(recreatedBarrier ? {
+            recreatedWaitBarrier: {
+              id: recreatedBarrier.id,
+              dependencyMode: recreatedBarrier.dependencyMode,
+              failurePolicy: recreatedBarrier.failurePolicy,
+              timeoutMs: recreatedBarrier.timeoutMs,
+            },
+          } : {}),
         },
         createdAt: now,
       });
       this.appendSubagentLifecycleInterruptionParentMailboxEvent({
-        run: stopped,
+        run: needsReconciliation,
         previousStatus: run.status,
         source: "desktop_restart",
-        reason: "Ambient restarted before this child run finished.",
-        resultArtifact: stopped.resultArtifact,
+        reason: "Ambient restarted before this child run finished. The child needs explicit retry, cancellation, detachment, or user steering before the parent can continue.",
+        waitBarrierIds: affectedWaitBarrierIds,
         idempotencyKey: "desktop_restart",
         createdAt: now,
-      });
-    }
-    for (const barrierId of summary.repairedBarrierIds) {
-      const barrier = this.getSubagentWaitBarrier(barrierId);
-      this.updateSubagentWaitBarrierStatus(barrier.id, "failed", {
-        now,
-        resolutionArtifact: {
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
-          childRunIds: barrier.childRunIds,
-          stoppedChildRunIds: barrier.childRunIds.filter((childRunId) => summary.repairedRunIds.includes(childRunId)),
-          timedOut: false,
-          synthesisAllowed: false,
-          restartReconciled: true,
-        },
       });
     }
     for (const barrierId of summary.repairedParentControlBarrierIds) {
@@ -9202,10 +9035,35 @@ export class ProjectStore {
     return {
       ...summary,
       repairedRunIds: summary.repairedRunIds,
-      repairedBarrierIds: summary.repairedBarrierIds,
+      repairedBarrierIds: uniqueSubagentRepairIds([...summary.repairedBarrierIds, ...recreatedBarrierIds]),
       repairedParentControlBarrierIds: summary.repairedParentControlBarrierIds,
       diagnosticRunIds: summary.diagnosticRunIds,
     };
+  }
+
+  private recreateRequiredSubagentWaitBarrierIfMissing(input: {
+    run: SubagentRunSummary;
+    existingWaitBarrierIds: readonly string[];
+    now: string;
+  }): SubagentWaitBarrierSummary | undefined {
+    if (input.run.dependencyMode !== "required") return undefined;
+    if (input.existingWaitBarrierIds.length > 0) return undefined;
+    const existing = this.listSubagentWaitBarriersForParentRun(input.run.parentRunId).find((barrier) =>
+      barrier.parentThreadId === input.run.parentThreadId &&
+      barrier.status === "waiting_on_children" &&
+      barrier.childRunIds.includes(input.run.id) &&
+      ["required_all", "required_any", "quorum"].includes(barrier.dependencyMode)
+    );
+    if (existing) return undefined;
+    return this.createSubagentWaitBarrier({
+      parentThreadId: input.run.parentThreadId,
+      parentRunId: input.run.parentRunId,
+      childRunIds: [input.run.id],
+      dependencyMode: "required_all",
+      failurePolicy: input.run.roleProfileSnapshot.guardPolicy.allowPartialResult ? "degrade_partial" : "ask_user",
+      timeoutMs: input.run.roleProfileSnapshot.guardPolicy.maxRuntimeMs,
+      createdAt: input.now,
+    });
   }
 
   markSubagentParentControlBarrierReconciled(input: {
@@ -9214,26 +9072,12 @@ export class ProjectStore {
     now?: string;
   }): SubagentWaitBarrierSummary {
     const barrier = this.getSubagentWaitBarrier(input.waitBarrierId);
-    const artifact = barrier.resolutionArtifact && typeof barrier.resolutionArtifact === "object" && !Array.isArray(barrier.resolutionArtifact)
-      ? { ...(barrier.resolutionArtifact as Record<string, unknown>) }
-      : {};
-    if (artifact.parentCancellationRequested !== true && input.source !== "runtime_parent_abort") return barrier;
     const now = input.now ?? new Date().toISOString();
-    return this.updateSubagentWaitBarrierStatus(barrier.id, barrier.status, {
+    return resolveSubagentParentControlBarrierReconciliation({
+      store: this,
+      waitBarrier: barrier,
+      source: input.source,
       now,
-      resolutionArtifact: {
-        ...artifact,
-        synthesisAllowed: false,
-        parentCancellationRequested: true,
-        parentControlReconciledAt: now,
-        parentControlReconciledSource: input.source,
-        parentControlReconciliation: {
-          schemaVersion: "ambient-subagent-parent-control-reconciliation-v1",
-          action: "cancel_parent",
-          source: input.source,
-          reconciledAt: now,
-        },
-      },
     });
   }
 
@@ -9733,64 +9577,27 @@ export class ProjectStore {
       piSessionFile?: string | null;
     },
   ): ThreadSummary {
-    const current = this.getThread(threadId);
-    const now = new Date().toISOString();
-    const nextPiSessionFile = Object.hasOwn(input, "piSessionFile")
-      ? (input.piSessionFile ?? null)
-      : (current.piSessionFile ?? null);
-    this.requireDb()
-      .prepare(
-        `UPDATE threads
-         SET permission_mode = ?, collaboration_mode = ?, model = ?, thinking_level = ?, memory_enabled = ?, pi_session_file = ?, updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        input.permissionMode ?? current.permissionMode,
-        input.collaborationMode ?? current.collaborationMode,
-        normalizeAmbientModelId(input.model ?? current.model),
-        input.thinkingLevel ?? current.thinkingLevel,
-        (input.memoryEnabled ?? current.memoryEnabled) ? 1 : 0,
-        nextPiSessionFile,
-        now,
-        threadId,
-      );
-    return this.getThread(threadId);
+    return this.threads().updateThreadSettings(threadId, input);
   }
 
   updateThreadTitle(threadId: string, title: string): ThreadSummary {
-    const trimmed = title.trim();
-    if (!trimmed) return this.getThread(threadId);
-    this.requireDb()
-      .prepare("UPDATE threads SET title = ? WHERE id = ?")
-      .run(trimmed, threadId);
-    return this.getThread(threadId);
+    return this.threads().updateThreadTitle(threadId, title);
   }
 
   setThreadPinned(threadId: string, pinned: boolean): ThreadSummary {
-    this.requireDb().prepare("UPDATE threads SET pinned = ? WHERE id = ?").run(pinned ? 1 : 0, threadId);
-    return this.getThread(threadId);
+    return this.threads().setThreadPinned(threadId, pinned);
   }
 
   markThreadRead(threadId: string, readAt = new Date().toISOString()): ThreadSummary {
-    this.requireDb().prepare("UPDATE threads SET last_read_at = ? WHERE id = ?").run(readAt, threadId);
-    return this.getThread(threadId);
+    return this.threads().markThreadRead(threadId, readAt);
   }
 
   markThreadUnread(threadId: string): ThreadSummary {
-    const thread = this.getThread(threadId);
-    const updatedMs = Date.parse(thread.updatedAt);
-    const readAt = Number.isFinite(updatedMs) && updatedMs > 0
-      ? new Date(updatedMs - 1).toISOString()
-      : "1970-01-01T00:00:00.000Z";
-    return this.markThreadRead(threadId, readAt);
+    return this.threads().markThreadUnread(threadId);
   }
 
   updateThreadWorkspacePath(threadId: string, workspacePath: string): ThreadSummary {
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare("UPDATE threads SET workspace_path = ?, updated_at = ? WHERE id = ?")
-      .run(workspacePath, now, threadId);
-    return this.getThread(threadId);
+    return this.threads().updateThreadWorkspacePath(threadId, workspacePath);
   }
 
   listWorkflowLabRuns(input: ListWorkflowLabRunsInput = {}): WorkflowLabRun[] {
@@ -9981,123 +9788,35 @@ export class ProjectStore {
   }
 
   getThreadWorktree(threadId: string): ThreadWorktreeSummary | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM thread_worktrees WHERE thread_id = ?").get(threadId) as
-      | ThreadWorktreeRow
-      | undefined;
-    return row ? this.mapThreadWorktree(row) : undefined;
+    return this.threads().getThreadWorktree(threadId);
   }
 
   updateThreadWorktreeCheckpoint(threadId: string, checkpointId: string): void {
-    this.requireDb()
-      .prepare("UPDATE thread_worktrees SET last_checkpoint_id = ?, updated_at = ? WHERE thread_id = ?")
-      .run(checkpointId, new Date().toISOString(), threadId);
+    this.threads().updateThreadWorktreeCheckpoint(threadId, checkpointId);
   }
 
   listMessages(threadId: string): ChatMessage[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM messages WHERE thread_id = ? ORDER BY created_at ASC")
-      .all(threadId) as MessageRow[];
-    return rows.map(this.mapMessage);
+    return this.messages().listMessages(threadId);
   }
 
   listMessageVoiceStates(threadId: string): MessageVoiceState[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM message_voice_states WHERE thread_id = ? ORDER BY updated_at ASC")
-      .all(threadId) as MessageVoiceStateRow[];
-    return rows.map(this.mapMessageVoiceState);
+    return this.messageVoices().listMessageVoiceStates(threadId);
   }
 
   getMessageVoiceState(messageId: string): MessageVoiceState | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM message_voice_states WHERE message_id = ?").get(messageId) as
-      | MessageVoiceStateRow
-      | undefined;
-    return row ? this.mapMessageVoiceState(row) : undefined;
+    return this.messageVoices().getMessageVoiceState(messageId);
   }
 
   clearMessageVoiceArtifact(messageId: string, error = "Voice artifact cleared."): MessageVoiceState {
-    const current = this.getMessageVoiceState(messageId);
-    if (!current) throw new Error(`Voice state not found for message: ${messageId}`);
-    return this.setMessageVoiceState({
-      messageId: current.messageId,
-      threadId: current.threadId,
-      status: "canceled",
-      source: current.source,
-      sourceMessageId: current.sourceMessageId,
-      providerCapabilityId: current.providerCapabilityId,
-      providerId: current.providerId,
-      voiceId: current.voiceId,
-      spokenText: current.spokenText,
-      spokenTextChars: current.spokenTextChars,
-      sourceTextChars: current.sourceTextChars,
-      lastAudioPath: current.audioPath ?? current.lastAudioPath,
-      error,
-    });
+    return this.messageVoices().clearMessageVoiceArtifact(messageId, error);
   }
 
   setMessageVoiceState(input: Omit<MessageVoiceState, "createdAt" | "updatedAt">): MessageVoiceState {
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO message_voice_states
-          (message_id, thread_id, status, source, source_message_id, provider_capability_id, provider_id, voice_id, spoken_text,
-           spoken_text_chars, source_text_chars, audio_path, last_audio_path, media_url, mime_type, duration_ms, error, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(message_id) DO UPDATE SET
-           thread_id = excluded.thread_id,
-           status = excluded.status,
-           source = excluded.source,
-           source_message_id = excluded.source_message_id,
-           provider_capability_id = excluded.provider_capability_id,
-           provider_id = excluded.provider_id,
-           voice_id = excluded.voice_id,
-           spoken_text = excluded.spoken_text,
-           spoken_text_chars = excluded.spoken_text_chars,
-           source_text_chars = excluded.source_text_chars,
-           audio_path = excluded.audio_path,
-           last_audio_path = excluded.last_audio_path,
-           media_url = excluded.media_url,
-           mime_type = excluded.mime_type,
-           duration_ms = excluded.duration_ms,
-           error = excluded.error,
-           updated_at = excluded.updated_at`,
-      )
-      .run(
-        input.messageId,
-        input.threadId,
-        input.status,
-        input.source,
-        input.sourceMessageId,
-        input.providerCapabilityId ?? null,
-        input.providerId ?? null,
-        input.voiceId ?? null,
-        input.spokenText ?? null,
-        input.spokenTextChars,
-        input.sourceTextChars,
-        input.audioPath ?? null,
-        input.lastAudioPath ?? input.audioPath ?? null,
-        input.mediaUrl ?? null,
-        input.mimeType ?? null,
-        input.durationMs ?? null,
-        input.error ?? null,
-        now,
-        now,
-      );
-    return this.getMessageVoiceState(input.messageId)!;
+    return this.messageVoices().setMessageVoiceState(input);
   }
 
   deleteMessagesAfter(threadId: string, messageId: string): ChatMessage[] {
-    const messages = this.listMessages(threadId);
-    const index = messages.findIndex((message) => message.id === messageId);
-    if (index < 0) throw new Error(`Message not found in thread: ${messageId}`);
-    const removeIds = messages.slice(index + 1).map((message) => message.id);
-    if (removeIds.length > 0) {
-      const placeholders = removeIds.map(() => "?").join(", ");
-      this.requireDb().prepare(`DELETE FROM messages WHERE id IN (${placeholders})`).run(...removeIds);
-    }
-    const remaining = messages.slice(0, index + 1);
-    const preview = [...remaining].reverse().find((message) => message.role !== "tool" && message.content.trim())?.content ?? "";
-    this.touchThread(threadId, preview);
-    return remaining;
+    return this.messages().deleteMessagesAfter(threadId, messageId);
   }
 
   searchWorkspace(
@@ -10179,217 +9898,76 @@ export class ProjectStore {
     content: string;
     metadata?: Record<string, unknown>;
   }): ChatMessage {
-    const now = new Date().toISOString();
-    const id = randomUUID();
-    this.requireDb()
-      .prepare(
-        "INSERT INTO messages (id, thread_id, role, content, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?)",
-      )
-      .run(
-        id,
-        input.threadId,
-        input.role,
-        input.content,
-        now,
-        input.metadata ? JSON.stringify(input.metadata) : null,
-      );
-    this.touchThread(input.threadId, input.content);
-    return this.getMessage(id);
+    return this.messages().addMessage(input);
   }
 
   appendToMessage(messageId: string, delta: string): ChatMessage {
-    this.requireDb().prepare("UPDATE messages SET content = content || ? WHERE id = ?").run(delta, messageId);
-    return this.getMessage(messageId);
+    return this.messages().appendToMessage(messageId, delta);
   }
 
   replaceMessage(messageId: string, content: string, metadata?: Record<string, unknown>): ChatMessage {
-    this.requireDb()
-      .prepare("UPDATE messages SET content = ?, metadata_json = ? WHERE id = ?")
-      .run(content, metadata ? JSON.stringify(metadata) : null, messageId);
-    const message = this.getMessage(messageId);
-    this.touchThread(message.threadId, content);
-    return message;
+    return this.messages().replaceMessage(messageId, content, metadata);
   }
 
   startRun(input: { threadId: string; assistantMessageId: string }): RunRecord {
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO runs
-        (id, thread_id, assistant_message_id, status, started_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)`,
-      )
-      .run(id, input.threadId, input.assistantMessageId, "starting", now, now);
-    return this.getRun(id);
+    return this.runs().startRun(input);
   }
 
   updateRunStatus(runId: string, status: ActivePersistedRunStatus): RunRecord {
-    this.requireDb()
-      .prepare("UPDATE runs SET status = ?, updated_at = ? WHERE id = ? AND completed_at IS NULL")
-      .run(status, new Date().toISOString(), runId);
-    return this.getRun(runId);
+    return this.runs().updateRunStatus(runId, status);
   }
 
   updateRunDiagnostics(runId: string, diagnostics: RunDiagnostics): RunRecord {
-    const current = this.getRun(runId);
-    const nextDiagnostics: RunDiagnostics = { ...(current.diagnostics ?? {}), ...diagnostics };
-    this.requireDb()
-      .prepare("UPDATE runs SET diagnostics_json = ?, updated_at = ? WHERE id = ?")
-      .run(JSON.stringify(nextDiagnostics), new Date().toISOString(), runId);
-    return this.getRun(runId);
+    return this.runs().updateRunDiagnostics(runId, diagnostics);
   }
 
   getRunRecord(runId: string): RunRecord {
-    return this.getRun(runId);
+    return this.runs().getRun(runId);
   }
 
   finishRun(runId: string, status: TerminalPersistedRunStatus, errorMessage?: string): RunRecord {
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare("UPDATE runs SET status = ?, updated_at = ?, completed_at = ?, error_message = ? WHERE id = ?")
-      .run(status, now, now, errorMessage ?? null, runId);
-    return this.getRun(runId);
+    return this.runs().finishRun(runId, status, errorMessage);
   }
 
   listActiveRuns(): RunRecord[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM runs WHERE completed_at IS NULL AND status IN ('starting', 'streaming', 'tool') ORDER BY updated_at DESC")
-      .all() as RunRow[];
-    return rows.map(this.mapRun);
+    return this.runs().listActiveRuns();
   }
 
   recordContextUsageSnapshot(input: ContextUsageSnapshotInput): ContextUsageSnapshot {
     this.getThread(input.threadId);
-    const now = input.updatedAt ?? new Date().toISOString();
-    const id = randomUUID();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO context_usage_snapshots
-        (id, thread_id, source, tokens, context_window, percent, latest_compaction_at, compaction_count, updated_at, diagnostics_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.threadId,
-        input.source,
-        input.tokens ?? null,
-        input.contextWindow ?? null,
-        input.percent ?? null,
-        input.latestCompactionAt ?? null,
-        input.compactionCount,
-        now,
-        input.diagnostics ? JSON.stringify(input.diagnostics) : null,
-      );
-    const snapshot = this.mapContextUsageSnapshot(
-      this.requireDb().prepare("SELECT * FROM context_usage_snapshots WHERE id = ?").get(id) as ContextUsageSnapshotRow,
-    );
-    return snapshot;
+    return this.contextUsage().recordContextUsageSnapshot(input);
   }
 
   getLatestContextUsageSnapshot(threadId: string): ContextUsageSnapshot | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM context_usage_snapshots WHERE thread_id = ? ORDER BY updated_at DESC, rowid DESC LIMIT 1")
-      .get(threadId) as ContextUsageSnapshotRow | undefined;
-    return row ? this.mapContextUsageSnapshot(row) : undefined;
+    return this.contextUsage().getLatestContextUsageSnapshot(threadId);
   }
 
   listContextUsageSnapshots(limit = 100): ContextUsageSnapshot[] {
-    const boundedLimit = Math.max(1, Math.min(limit, 500));
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM context_usage_snapshots ORDER BY updated_at DESC, rowid DESC LIMIT ?")
-      .all(boundedLimit) as ContextUsageSnapshotRow[];
-    return rows.map(this.mapContextUsageSnapshot);
+    return this.contextUsage().listContextUsageSnapshots(limit);
   }
 
   addPermissionAudit(input: PermissionAuditInput): PermissionAuditEntry {
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO permission_audit
-        (id, run_id, thread_id, created_at, permission_mode, tool_name, risk, decision, detail, reason, decision_source, grant_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.runId ?? null,
-        input.threadId,
-        now,
-        input.permissionMode,
-        input.toolName,
-        input.risk,
-        input.decision,
-        input.detail ?? null,
-        input.reason,
-        input.decisionSource ?? null,
-        input.grantId ?? null,
-      );
-    return this.mapPermissionAudit(
-      this.requireDb().prepare("SELECT * FROM permission_audit WHERE id = ?").get(id) as PermissionAuditRow,
-    );
+    return this.permissions().addPermissionAudit(input);
   }
 
   listPermissionAudit(limit = 50): PermissionAuditEntry[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM permission_audit ORDER BY created_at DESC LIMIT ?")
-      .all(limit) as PermissionAuditRow[];
-    return rows.map(this.mapPermissionAudit);
+    return this.permissions().listPermissionAudit(limit);
   }
 
   createPermissionGrant(input: CreateAmbientPermissionGrantInput): AmbientPermissionGrant {
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO permission_grants
-        (id, created_at, updated_at, expires_at, revoked_at, created_by, permission_mode_at_creation, scope_kind, thread_id, workflow_thread_id, project_path, workspace_path, action_kind, target_kind, target_hash, target_label, conditions_json, source, reason)
-        VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        now,
-        now,
-        input.expiresAt ?? null,
-        input.createdBy ?? "user",
-        input.permissionModeAtCreation,
-        input.scopeKind,
-        input.threadId ?? null,
-        input.workflowThreadId ?? null,
-        input.projectPath ?? null,
-        input.workspacePath ?? null,
-        input.actionKind,
-        input.targetKind,
-        input.targetHash,
-        input.targetLabel,
-        input.conditions ? JSON.stringify(input.conditions) : null,
-        input.source ?? "permission_prompt",
-        input.reason,
-      );
-    return this.getPermissionGrant(id);
+    return this.permissions().createPermissionGrant(input);
   }
 
   getPermissionGrant(id: string): AmbientPermissionGrant {
-    const row = this.requireDb().prepare("SELECT * FROM permission_grants WHERE id = ?").get(id) as AmbientPermissionGrantRow | undefined;
-    if (!row) throw new Error(`Permission grant not found: ${id}`);
-    return this.mapPermissionGrant(row);
+    return this.permissions().getPermissionGrant(id);
   }
 
   listPermissionGrants(input: { includeRevoked?: boolean } = {}): AmbientPermissionGrant[] {
-    const rows = this.requireDb()
-      .prepare(
-        input.includeRevoked
-          ? "SELECT * FROM permission_grants ORDER BY updated_at DESC, created_at DESC"
-          : "SELECT * FROM permission_grants WHERE revoked_at IS NULL ORDER BY updated_at DESC, created_at DESC",
-      )
-      .all() as AmbientPermissionGrantRow[];
-    return rows.map(this.mapPermissionGrant);
+    return this.permissions().listPermissionGrants(input);
   }
 
   revokePermissionGrant(id: string): AmbientPermissionGrant {
-    const now = new Date().toISOString();
-    this.requireDb().prepare("UPDATE permission_grants SET revoked_at = COALESCE(revoked_at, ?), updated_at = ? WHERE id = ?").run(now, now, id);
-    return this.getPermissionGrant(id);
+    return this.permissions().revokePermissionGrant(id);
   }
 
   createPlannerPlanArtifact(input: PlannerPlanArtifactInput): PlannerPlanArtifact {
@@ -10773,64 +10351,31 @@ export class ProjectStore {
   }
 
   isPluginEnabled(pluginId: string): boolean {
-    const row = this.requireDb().prepare("SELECT enabled FROM plugin_settings WHERE plugin_id = ?").get(pluginId) as
-      | { enabled: number }
-      | undefined;
-    return row ? row.enabled === 1 : true;
+    return this.settings().isPluginEnabled(pluginId);
   }
 
   setPluginEnabled(pluginId: string, enabled: boolean): void {
-    this.requireDb()
-      .prepare(
-        `INSERT INTO plugin_settings (plugin_id, enabled, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(plugin_id) DO UPDATE SET enabled = excluded.enabled, updated_at = excluded.updated_at`,
-      )
-      .run(pluginId, enabled ? 1 : 0, new Date().toISOString());
+    this.settings().setPluginEnabled(pluginId, enabled);
   }
 
   isPluginTrusted(pluginId: string, pluginFingerprint?: string): boolean {
-    const row = this.requireDb().prepare("SELECT plugin_id, fingerprint FROM plugin_trust WHERE plugin_id = ?").get(pluginId) as
-      | { plugin_id: string; fingerprint: string | null }
-      | undefined;
-    if (!row) return false;
-    if (pluginFingerprint === undefined) return true;
-    return row.fingerprint === pluginFingerprint;
+    return this.settings().isPluginTrusted(pluginId, pluginFingerprint);
   }
 
   setPluginTrusted(pluginId: string, trusted: boolean, pluginFingerprint?: string): void {
-    if (!trusted) {
-      this.requireDb().prepare("DELETE FROM plugin_trust WHERE plugin_id = ?").run(pluginId);
-      return;
-    }
-    this.requireDb()
-      .prepare(
-        `INSERT INTO plugin_trust (plugin_id, fingerprint, trusted_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(plugin_id) DO UPDATE SET fingerprint = excluded.fingerprint, trusted_at = excluded.trusted_at`,
-      )
-      .run(pluginId, pluginFingerprint ?? null, new Date().toISOString());
+    this.settings().setPluginTrusted(pluginId, trusted, pluginFingerprint);
   }
 
   isPiPackageEnabled(packageId: string): boolean {
-    const row = this.requireDb().prepare("SELECT enabled FROM plugin_settings WHERE plugin_id = ?").get(piPackageSettingId(packageId)) as
-      | { enabled: number }
-      | undefined;
-    return row ? row.enabled === 1 : false;
+    return this.settings().isPiPackageEnabled(packageId);
   }
 
   setPiPackageEnabled(packageId: string, enabled: boolean): void {
-    this.requireDb()
-      .prepare(
-        `INSERT INTO plugin_settings (plugin_id, enabled, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(plugin_id) DO UPDATE SET enabled = excluded.enabled, updated_at = excluded.updated_at`,
-      )
-      .run(piPackageSettingId(packageId), enabled ? 1 : 0, new Date().toISOString());
+    this.settings().setPiPackageEnabled(packageId, enabled);
   }
 
   clearPiPackageEnabled(packageId: string): void {
-    this.requireDb().prepare("DELETE FROM plugin_settings WHERE plugin_id = ?").run(piPackageSettingId(packageId));
+    this.settings().clearPiPackageEnabled(packageId);
   }
 
   listWorkflowAgentFolders(): WorkflowAgentFolderSummary[] {
@@ -12906,42 +12451,6 @@ export class ProjectStore {
     return stalled;
   }
 
-  private getMessage(messageId: string): ChatMessage {
-    const row = this.requireDb().prepare("SELECT * FROM messages WHERE id = ?").get(messageId) as MessageRow | undefined;
-    if (!row) throw new Error(`Message not found: ${messageId}`);
-    return this.mapMessage(row);
-  }
-
-  private getRun(runId: string): RunRecord {
-    const row = this.requireDb().prepare("SELECT * FROM runs WHERE id = ?").get(runId) as RunRow | undefined;
-    if (!row) throw new Error(`Run not found: ${runId}`);
-    return this.mapRun(row);
-  }
-
-  private touchThread(threadId: string, preview: string): void {
-    this.requireDb()
-      .prepare("UPDATE threads SET updated_at = ?, last_message_preview = ? WHERE id = ?")
-      .run(new Date().toISOString(), formatThreadPreview(preview), threadId);
-  }
-
-  private repairThreadPreviews(): void {
-    const db = this.requireDb();
-    const threads = db.prepare("SELECT id FROM threads").all() as Array<{ id: string }>;
-    const latestNonTool = db.prepare(
-      "SELECT content FROM messages WHERE thread_id = ? AND role != 'tool' AND trim(content) != '' ORDER BY created_at DESC LIMIT 1",
-    );
-    const latestMessage = db.prepare(
-      "SELECT content FROM messages WHERE thread_id = ? AND trim(content) != '' ORDER BY created_at DESC LIMIT 1",
-    );
-    const update = db.prepare("UPDATE threads SET last_message_preview = ? WHERE id = ?");
-
-    for (const thread of threads) {
-      const nonTool = latestNonTool.get(thread.id) as { content: string } | undefined;
-      const fallback = latestMessage.get(thread.id) as { content: string } | undefined;
-      update.run(formatThreadPreview(nonTool?.content ?? fallback?.content ?? ""), thread.id);
-    }
-  }
-
   private repairPlannerPlanQuestionBlocks(): void {
     const db = this.requireDb();
     const rows = db
@@ -13324,13 +12833,43 @@ export class ProjectStore {
     return this.db;
   }
 
-  private mapThread = (row: ThreadRow): ThreadSummary => mapThreadRow(row, { gitWorktree: this.getThreadWorktree(row.id) });
-
   private nextSubagentChildOrder(parentThreadId: string): number {
     const row = this.requireDb()
       .prepare("SELECT COALESCE(MAX(child_order), -1) + 1 AS next_order FROM threads WHERE parent_thread_id = ?")
       .get(parentThreadId) as { next_order?: number } | undefined;
     return Math.max(0, Math.floor(row?.next_order ?? 0));
+  }
+
+  private findUnresolvedRequiredSubagentCanonicalPathBlocker(input: {
+    parentThreadId: string;
+    parentRunId: string;
+    canonicalTaskPath: string;
+  }): { run: SubagentRunSummary; barrier: SubagentWaitBarrierSummary } | undefined {
+    const matchingRunRows = this.requireDb()
+      .prepare(
+        `SELECT * FROM subagent_runs
+         WHERE parent_thread_id = ? AND parent_run_id = ? AND canonical_task_path = ?
+         ORDER BY created_at ASC, id ASC`,
+      )
+      .all(input.parentThreadId, input.parentRunId, input.canonicalTaskPath) as SubagentRunRow[];
+    if (matchingRunRows.length === 0) return undefined;
+    const matchingRunIds = new Set(matchingRunRows.map((row) => row.id));
+    const barrierRows = this.requireDb()
+      .prepare(
+        `SELECT * FROM subagent_wait_barriers
+         WHERE parent_thread_id = ?
+           AND parent_run_id = ?
+           AND status = 'waiting_on_children'
+           AND dependency_mode IN ('required_all', 'required_any', 'quorum')
+         ORDER BY created_at ASC, id ASC`,
+      )
+      .all(input.parentThreadId, input.parentRunId) as SubagentWaitBarrierRow[];
+    for (const barrierRow of barrierRows) {
+      const barrier = this.mapSubagentWaitBarrier(barrierRow);
+      const blockedRunRow = matchingRunRows.find((row) => matchingRunIds.has(row.id) && barrier.childRunIds.includes(row.id));
+      if (blockedRunRow) return { run: this.mapSubagentRun(blockedRunRow), barrier };
+    }
+    return undefined;
   }
 
   private appendSubagentRunEventInternal(
@@ -13638,13 +13177,25 @@ export class ProjectStore {
 
   private mapSubagentBatchResultReport = mapSubagentBatchResultReportRow;
 
-  private mapThreadWorktree = mapThreadWorktreeRow;
+  private threads(): ProjectStoreThreadRepository {
+    return new ProjectStoreThreadRepository(this.requireDb(), this.getWorkspace().path);
+  }
 
-  private mapMessage = mapMessageRow;
+  private threadGoals(): ProjectStoreThreadGoalRepository {
+    return new ProjectStoreThreadGoalRepository(this.requireDb());
+  }
 
-  private mapMessageVoiceState = mapMessageVoiceStateRow;
+  private messages(): ProjectStoreMessageRepository {
+    return new ProjectStoreMessageRepository(this.requireDb());
+  }
 
-  private mapRun = mapRunRow;
+  private messageVoices(): ProjectStoreMessageVoiceRepository {
+    return new ProjectStoreMessageVoiceRepository(this.requireDb());
+  }
+
+  private runs(): ProjectStoreRunRepository {
+    return new ProjectStoreRunRepository(this.requireDb());
+  }
 
   private artifactDrafts(): ProjectStoreArtifactDraftRepository {
     return new ProjectStoreArtifactDraftRepository(this.requireDb(), this.getWorkspace().path);
@@ -13654,13 +13205,13 @@ export class ProjectStore {
     return new ProjectStoreSettingsRepository(this.requireDb());
   }
 
-  private mapContextUsageSnapshot = mapContextUsageSnapshotRow;
+  private contextUsage(): ProjectStoreContextUsageRepository {
+    return new ProjectStoreContextUsageRepository(this.requireDb());
+  }
 
-  private mapThreadGoal = mapThreadGoalRow;
-
-  private mapPermissionAudit = mapPermissionAuditRow;
-
-  private mapPermissionGrant = mapPermissionGrantRow;
+  private permissions(): ProjectStorePermissionRepository {
+    return new ProjectStorePermissionRepository(this.requireDb());
+  }
 
   private mapPlannerPlanArtifact = (row: PlannerPlanArtifactRow): PlannerPlanArtifact => {
     return mapPlannerPlanArtifactRow(row, this.listPlannerDecisionQuestions(row.id));

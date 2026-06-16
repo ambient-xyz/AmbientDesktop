@@ -4,6 +4,7 @@ import {
   evaluateLocalDeepResearchProfileBenchmarkRun,
   localDeepResearchMixedSourceBenchmarkTask,
 } from "./localDeepResearchProfileBenchmark";
+import { localDeepResearchToolBudgetState, resolveLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 import type { LocalDeepResearchRunServiceResult } from "./localDeepResearchRunService";
 
 describe("Local Deep Research profile benchmark", () => {
@@ -92,6 +93,11 @@ function runResult(input: { finalText: string }): LocalDeepResearchRunServiceRes
         sourceLimit: 12,
         evidencePreviewChars: 1200,
       },
+      finalSynthesisReserveTurns: 3,
+      toolBudget: localDeepResearchToolBudgetState(resolveLocalDeepResearchRunBudget(undefined, {
+        effort: "custom",
+        maxToolCalls: 3,
+      }), 3),
       messages: [],
       toolExecutions: [
         {

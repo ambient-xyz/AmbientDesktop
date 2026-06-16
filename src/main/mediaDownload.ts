@@ -132,9 +132,9 @@ export async function downloadMediaArtifact(
     ...(detected.height !== undefined ? { height: detected.height } : {}),
     ...(input.sourceUrl ? { sourceUrl: input.sourceUrl } : {}),
     ...(input.licenseNote ? { licenseNote: input.licenseNote } : {}),
-    renderedInline: true,
+    inlinePreviewEligible: true,
     displayInstruction:
-      "Ambient Desktop rendered this media inline in the visible chat. Do not claim inline media display is unsupported.",
+      "Ambient Desktop will attempt to render this media inline in the visible chat. Do not claim inline media display is unsupported.",
     metadataPath,
     finalUrl: response.url || url,
   };
@@ -144,7 +144,7 @@ export function mediaDownloadResultText(result: MediaDownloadResult): string {
   const dimensions = result.width && result.height ? `, ${result.width}x${result.height}` : "";
   const lines = [
     `Generated media artifact: ${result.artifactPath}`,
-    `Ambient Desktop has rendered an inline media preview for ${result.artifactPath} in the visible chat.`,
+    `Ambient Desktop will attempt to render an inline media preview for ${result.artifactPath} in the visible chat.`,
     `Media kind: ${result.mediaKind}`,
     `MIME type: ${result.mimeType}`,
     `Size: ${result.bytes} bytes${dimensions}`,
@@ -153,7 +153,7 @@ export function mediaDownloadResultText(result: MediaDownloadResult): string {
   if (result.sourceUrl) lines.push(`Source URL: ${result.sourceUrl}`);
   if (result.licenseNote) lines.push(`License note: ${result.licenseNote}`);
   lines.push(
-    "In your final answer, say the media is displayed above or attached and include the artifact path. Do not say this interface, model, chat, or environment cannot render or display images inline.",
+    "In your final answer, include the artifact path and refer to the preview only if it is visibly present above. Do not say this interface, model, chat, or environment cannot render or display images inline.",
   );
   return lines.join("\n");
 }

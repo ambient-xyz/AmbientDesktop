@@ -61,6 +61,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { isAmbientSubagentsEnabled } from "../../shared/featureFlags";
+import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import {
   projectBoardActiveCardDetail,
   projectBoardActiveCardOverviewModel,
@@ -294,7 +295,9 @@ import type {
   MessageDelivery,
   MiniCpmVisionAnalyzeInput,
   MiniCpmVisionAnalysisResult,
+  LocalDeepResearchEffort,
   LocalDeepResearchInstallProgress,
+  LocalDeepResearchRunBudget,
   ManagedDevServerSummary,
   SttProviderCandidate,
   SttProviderSetupResult,
@@ -884,6 +887,20 @@ import { createAppPlannerActions } from "./AppPlannerActions";
 import { createAppLocalRuntimeActions } from "./AppLocalRuntimeActions";
 import { createAppSubagentParentClusterActions } from "./AppSubagentParentClusterActions";
 
+function toolEventActivityMessage(details: unknown): string | undefined {
+  const record = details && typeof details === "object" && !Array.isArray(details) ? details as Record<string, unknown> : undefined;
+  const direct = typeof record?.activityMessage === "string" && record.activityMessage.trim() ? record.activityMessage.trim() : undefined;
+  if (direct) return direct;
+  const status = record?.localDeepResearchStatus && typeof record.localDeepResearchStatus === "object" && !Array.isArray(record.localDeepResearchStatus)
+    ? record.localDeepResearchStatus as Record<string, unknown>
+    : undefined;
+  for (const key of ["activityMessage", "message"]) {
+    const value = status?.[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
 export function App() {
   const [state, setState] = useState<DesktopState | undefined>();
   const [composerCanSubmit, setComposerCanSubmit] = useState(false);
@@ -997,6 +1014,7 @@ export function App() {
   const [contextAttachments, setContextAttachments] = useState<WorkspaceContextReference[]>([]);
   const [contextError, setContextError] = useState<string | undefined>();
   const [localDeepResearchModeArmed, setLocalDeepResearchModeArmedState] = useState(false);
+  const [localDeepResearchBudgetOverride, setLocalDeepResearchBudgetOverride] = useState<Partial<Pick<LocalDeepResearchRunBudget, "effort" | "maxToolCalls" | "onExhausted">> | undefined>();
   const [symphonyBuilderDraft, setSymphonyBuilderDraft] = useState<SymphonyWorkflowBuilderDraft>({});
   const [symphonyBuilderActionBusy, setSymphonyBuilderActionBusy] = useState<"run-once" | "save-recipe" | undefined>();
   const [goalModeArmed, setGoalModeArmed] = useState(false);
@@ -1210,6 +1228,7 @@ export function App() {
   const composerDraftStore = useMemo(() => createComposerDraftStore(), []);
   const promptHistoryRef = useRef<string[]>([]);
   const localDeepResearchModeArmedRef = useRef(false);
+  const localDeepResearchRunBudgetRef = useRef<LocalDeepResearchRunBudget>(resolveLocalDeepResearchRunBudget(undefined));
   const localRuntimeInventorySettingsRefreshKeyRef = useRef<string | undefined>(undefined);
   const [pendingSubmittedPrompts, setPendingSubmittedPrompts] = useState<PendingSubmittedPrompt[]>([]);
   const [pendingProjectComposerDraft, setPendingProjectComposerDraft] = useState<{ value: string; nonce: number } | undefined>();
@@ -1885,7 +1904,8 @@ export function App() {
       const baseLabel = event.details?.pluginName && event.details.toolName ? `${event.details.pluginName}: ${event.details.toolName}` : event.label || "tool";
       const label = event.artifactPath ? `${baseLabel} for ${event.artifactPath}` : baseLabel;
       const argumentStatus = event.details?.toolArgumentProgress?.uiStatus;
-      if (event.status === "running") appendRunActivityLine(argumentStatus ?? `Running ${label}.`, "tool", {}, event.threadId);
+      const toolActivityMessage = toolEventActivityMessage(event.details);
+      if (event.status === "running") appendRunActivityLine(toolActivityMessage ?? argumentStatus ?? `Running ${label}.`, "tool", {}, event.threadId);
       if (event.status === "done") appendRunActivityLine(`${label} completed.`, "tool", {}, event.threadId);
       if (event.status === "error") appendRunActivityLine(`${label} failed.`, "error", {}, event.threadId);
       if (event.status === "done" || event.status === "error") {
@@ -2335,6 +2355,16 @@ export function App() {
     setProjectBoardOpen(false);
   }
   const localDeepResearchReady = localDeepResearchSetup.result?.setupStatus === "ready";
+  const localDeepResearchRunBudget = useMemo(
+    () => resolveLocalDeepResearchRunBudget(state?.settings.localDeepResearch.runBudget, localDeepResearchBudgetOverride),
+    [
+      state?.settings.localDeepResearch.runBudget.defaultEffort,
+      state?.settings.localDeepResearch.runBudget.customMaxToolCalls,
+      state?.settings.localDeepResearch.runBudget.onExhausted,
+      localDeepResearchBudgetOverride,
+    ],
+  );
+  localDeepResearchRunBudgetRef.current = localDeepResearchRunBudget;
   useAppLocalDeepResearchReadinessLifecycleEffect({
     localDeepResearchReady,
     setLocalDeepResearchModeArmed,
@@ -2757,6 +2787,7 @@ export function App() {
 
   function setLocalDeepResearchModeArmed(next: boolean) {
     localDeepResearchModeArmedRef.current = next;
+    if (!next) setLocalDeepResearchBudgetOverride(undefined);
     setLocalDeepResearchModeArmedState(next);
   }
 
@@ -2827,6 +2858,7 @@ export function App() {
     getComposerDraft,
     goalModeArmed,
     localDeepResearchModeArmedRef,
+    localDeepResearchRunBudgetRef,
     openAmbientCliSecretDialog,
     registerPendingSubmittedPrompt,
     pendingWorkflowRecordingEditContext,
@@ -2929,6 +2961,14 @@ export function App() {
     setLocalDeepResearchModeArmed(next);
     if (next) setGoalModeArmed(false);
     window.setTimeout(() => composerInputRef.current?.focusEnd(), 0);
+  }
+
+  function selectLocalDeepResearchEffort(effort: LocalDeepResearchEffort) {
+    setLocalDeepResearchBudgetOverride({ effort });
+  }
+
+  function setLocalDeepResearchCustomMaxToolCalls(maxToolCalls: number) {
+    setLocalDeepResearchBudgetOverride({ effort: "custom", maxToolCalls });
   }
 
   function submit(event: FormEvent) {
@@ -3488,6 +3528,7 @@ export function App() {
                 sttComposerTitle: sttComposerTitle,
                 localDeepResearchReady: localDeepResearchReady,
                 localDeepResearchModeArmed: localDeepResearchModeArmed,
+                localDeepResearchRunBudget: localDeepResearchRunBudget,
                 goalModeArmed: goalModeArmed,
                 goalBusy: goalBusy,
                 showRevisePlanControl: Boolean(latestDurablePlannerPlanArtifact),
@@ -3529,6 +3570,8 @@ export function App() {
                 onAttachComposerFiles: () => void attachComposerFiles(),
                 onToggleSymphonyBuilder: toggleSymphonyBuilder,
                 onToggleLocalDeepResearchMode: toggleLocalDeepResearchMode,
+                onSelectLocalDeepResearchEffort: selectLocalDeepResearchEffort,
+                onLocalDeepResearchCustomMaxToolCallsChange: setLocalDeepResearchCustomMaxToolCalls,
                 onCompactActiveThread: () => void compactActiveThread(),
                 onExportActiveChat: () => void exportActiveChat(),
                 onCollaborationModeChange: (collaborationMode) => void updateThreadSettings({ collaborationMode }),

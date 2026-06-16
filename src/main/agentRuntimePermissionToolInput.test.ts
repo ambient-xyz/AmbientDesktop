@@ -56,6 +56,28 @@ describe("permissionToolInput", () => {
     });
   });
 
+  it("adds resolved Google Workspace account hints for permission grants", async () => {
+    const describeMethod = vi.fn().mockResolvedValue({ id: "calendar.events.list", mutating: false });
+    const resolveAccountHint = vi.fn(() => "travis@example.test");
+
+    const result = await permissionToolInput(
+      "google_workspace_call",
+      {
+        accountHint: "default",
+        methodId: "calendar.events.list",
+      },
+      workspace,
+      dependencies({ googleWorkspace: { describeMethod, resolveAccountHint } }),
+    );
+
+    expect(resolveAccountHint).toHaveBeenCalledWith("default");
+    expect(result).toMatchObject({
+      accountHint: "default",
+      resolvedAccountHint: "travis@example.test",
+      method: { id: "calendar.events.list" },
+    });
+  });
+
   it("records Google Workspace method description failures in permission input", async () => {
     const result = await permissionToolInput(
       "google_workspace_call",

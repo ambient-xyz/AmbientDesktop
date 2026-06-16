@@ -68,6 +68,43 @@ describe("subagentWaitContextResolver", () => {
     });
   });
 
+  it("uses mode-aware timeout resolution when creating wait barriers", () => {
+    const store = new FakeWaitStore([
+      run({ id: "child-required", dependencyMode: "required" }),
+      run({ id: "child-bg", dependencyMode: "optional_background" }),
+    ]);
+
+    const required = resolveSubagentWaitContext({
+      store,
+      parentThread: { id: "parent-thread" },
+      request: { childRunId: "child-required" },
+      timeoutMs: 60_000,
+      resolveTimeoutMs: (mode) => mode === "optional_background" ? 5_000 : 600_000,
+      resolveTargetRun: targetRunResolver(store),
+      resolveTargetWaitBarrier: targetWaitBarrierResolver(store),
+    });
+    const optional = resolveSubagentWaitContext({
+      store,
+      parentThread: { id: "parent-thread" },
+      request: { childRunId: "child-bg" },
+      timeoutMs: 60_000,
+      resolveTimeoutMs: (mode) => mode === "optional_background" ? 5_000 : 600_000,
+      resolveTargetRun: targetRunResolver(store),
+      resolveTargetWaitBarrier: targetWaitBarrierResolver(store),
+    });
+
+    expect(required.waitBarrier).toMatchObject({
+      childRunIds: ["child-required"],
+      dependencyMode: "required_all",
+      timeoutMs: 600_000,
+    });
+    expect(optional.waitBarrier).toMatchObject({
+      childRunIds: ["child-bg"],
+      dependencyMode: "optional_background",
+      timeoutMs: 5_000,
+    });
+  });
+
   it("reuses matching aggregate barriers and preserves explicit quorum policy", () => {
     const store = new FakeWaitStore([
       run({ id: "child-a" }),
@@ -146,6 +183,33 @@ describe("subagentWaitContextResolver", () => {
     expect(context.run.id).toBe("child-b");
     expect(context.childRuns.map((child) => child.id)).toEqual(["child-a", "child-b"]);
     expect(context.waitBarrier).toBe(barrier);
+    expect(store.createdBarriers).toEqual([]);
+  });
+
+  it("returns the latest terminal child barrier for inspection instead of creating an implicit retry barrier", () => {
+    const store = new FakeWaitStore([
+      run({ id: "child-a" }),
+    ]);
+    const terminal = store.addBarrier({
+      id: "timed-out-barrier",
+      childRunIds: ["child-a"],
+      dependencyMode: "required_all",
+      failurePolicy: "ask_user",
+      status: "timed_out",
+      createdAt: "2026-06-06T02:00:00.000Z",
+    });
+
+    const context = resolveSubagentWaitContext({
+      store,
+      parentThread: { id: "parent-thread" },
+      request: { childRunId: "child-a" },
+      timeoutMs: 42,
+      resolveTargetRun: targetRunResolver(store),
+      resolveTargetWaitBarrier: targetWaitBarrierResolver(store),
+    });
+
+    expect(context.waitBarrier).toBe(terminal);
+    expect(context.waitBarrier.status).toBe("timed_out");
     expect(store.createdBarriers).toEqual([]);
   });
 

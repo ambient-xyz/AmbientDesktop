@@ -73,7 +73,7 @@ describe("MCP permission policy service", () => {
         metadataUrl: "http://169.254.169.254/latest/meta-data",
         privateUrl: "https://192.168.1.10/admin",
         publicHttp: "http://example.com/",
-        fileUrl: "file:///path/to/.ssh/id_rsa",
+        fileUrl: "file:///Users/example/.ssh/id_rsa",
         socketUrl: "unix:///var/run/docker.sock",
         pipePath: "\\\\.\\pipe\\docker_engine",
         apiKey: "sk-test-secret-value-1234567890",

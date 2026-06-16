@@ -250,6 +250,7 @@ import type {
   VoiceSettingsAuditSource,
   VoiceSettings,
   VoiceProviderCandidate,
+  EmbeddingProviderCandidate,
   WorkspaceSearchInput,
   WorkspaceFileContent,
   WorkflowAgentFolderSummary,
@@ -415,6 +416,7 @@ import {
   inspectTencentDbMemoryDiagnostics,
 } from "./memory/tencentdb/diagnostics";
 import {
+  discoverAmbientMemoryEmbeddingProviders,
   runAmbientMemoryEmbeddingLifecycleAction,
 } from "./memory/tencentdb/managedEmbeddingProvider";
 import { createChatExportBundle } from "./chatExport";
@@ -506,6 +508,7 @@ import { ambientLegacyUserDataPaths, hasRestorableWorkspaceState, migrateAmbient
 import { renderThreadMiniWindowHtml } from "./threadMiniWindowHtml";
 import {
   discoverAmbientCliPackages,
+  discoverAmbientCliEmbeddingProviders,
   discoverAmbientCliSttProviders,
   discoverAmbientCliVoiceProviders,
   runAmbientCliPackageCommand,
@@ -563,18 +566,6 @@ const threadActionSchema = z.object({
   threadId: z.string().min(1),
   projectId: projectIdSchema.optional(),
 });
-const cancelCallableWorkflowTaskSchema = z.object({
-  taskId: z.string().min(1),
-  reason: z.string().trim().max(1000).optional(),
-});
-const pauseCallableWorkflowTaskSchema = z.object({
-  taskId: z.string().min(1),
-  reason: z.string().trim().max(1000).optional(),
-});
-const resumeCallableWorkflowTaskSchema = z.object({
-  taskId: z.string().min(1),
-});
-
 const workspacePathSchema = z.string().min(1).max(4096);
 const localPathSchema = z.string().min(1).max(4096);
 const workspaceSearchSchema = z.union([
@@ -1019,6 +1010,7 @@ function createAgentRuntimeFeatures(context?: RuntimeFeatureHostContext): AgentR
       validate: (input) => googleWorkspaceSetupService.validate(input),
       searchMethods: (input) => googleWorkspaceMethodBroker.searchMethods(input),
       describeMethod: (input) => googleWorkspaceMethodBroker.describeMethod(input),
+      resolveAccountHint: (accountHint) => googleWorkspaceSetupService.resolveAccountHintForCall(accountHint),
       call: (input) => googleWorkspaceMethodBroker.call(input),
       materializeFile: (input) => googleWorkspaceMethodBroker.materializeFile(input),
     },
@@ -7644,6 +7636,13 @@ async function runAutoDispatchTick(host: ProjectRuntimeHost = requireActiveProje
           pluginCaller: (plan, invocation, options) => pluginHost.callCodexPluginMcpTool(plan, invocation, options),
           connectorRegistrations: firstPartyWorkflowConnectorRegistrations(),
           connectorAccountAuthorizer: firstPartyWorkflowConnectorAccountAuthorizer(),
+          scheduledConnectorGrantContext: {
+            threadId: hostActiveThreadId,
+            workflowThreadId: scheduleInput.workflowThreadId ?? artifact.workflowThreadId,
+            projectPath: thread.workspacePath,
+            workspacePath: thread.workspacePath,
+            permissionGrants: hostStore.listPermissionGrants(),
+          },
           model: thread.model,
           baseUrl: provider.baseUrl,
           mode: "execute",
@@ -8040,6 +8039,16 @@ async function updateMemorySettings(input: UpdateAgentMemorySettingsInput, host 
   const targetStore = host.store;
   const next = targetStore.setMemorySettings(input);
   host.runtime.applyMemorySettings();
+  if (!next.enabled || !next.embeddings.enabled) {
+    await runAmbientMemoryEmbeddingLifecycleAction({
+      workspacePath: targetStore.getWorkspace().path,
+      action: "stop",
+      sendDimensions: next.embeddings.sendDimensions,
+      timeoutMs: next.embeddings.timeoutMs,
+    }).catch((error) => {
+      console.warn(`Failed to stop Ambient-managed memory embeddings after disabling memory: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
   emitProjectStateIfActive(host);
   return next;
 }
@@ -8281,6 +8290,23 @@ async function listVoiceProvidersWithCachedVoices(targetStore: ProjectStore = st
   return providers;
 }
 
+async function listEmbeddingProvidersForSettings(targetStore: ProjectStore = store) {
+  const providers: EmbeddingProviderCandidate[] = [];
+  const seen = new Set<string>();
+  for (const workspacePath of voiceProviderWorkspacePaths(targetStore)) {
+    const workspaceProviders = [
+      ...await discoverAmbientMemoryEmbeddingProviders(workspacePath).catch(() => []),
+      ...await discoverAmbientCliEmbeddingProviders(workspacePath).catch(() => []),
+    ];
+    for (const provider of workspaceProviders) {
+      if (seen.has(provider.capabilityId)) continue;
+      seen.add(provider.capabilityId);
+      providers.push(provider);
+    }
+  }
+  return providers;
+}
+
 function voiceProviderWorkspacePaths(targetStore: ProjectStore = store): string[] {
   return Array.from(new Set([
     targetStore.getWorkspace().path,
@@ -8459,6 +8485,7 @@ async function readLocalDeepResearchReadinessForSettings(
     residentProcesses,
     hostMemory: sampleLocalModelHostMemorySnapshot(),
     voiceProviders: await listVoiceProvidersWithCachedVoices().catch(() => []),
+    embeddingProviders: await listEmbeddingProvidersForSettings().catch(() => []),
     requestedLaunch: localDeepResearchRequestedLaunch({
       modelId: preliminaryContract.modelInstall.filename,
       profileId: preliminaryContract.modelInstall.selectedProfileId,
@@ -9755,7 +9782,6 @@ function registerIpc(): void {
     buildWorkflowDebugRewriteContext,
     buildWorkflowDebugRewritePromptSection,
     buildWorkflowRecoveryPlan,
-    cancelCallableWorkflowTaskSchema,
     cancelSttTranscription,
     claimProjectBoardGitCardArtifacts,
     classifyToolPermission,
@@ -9848,7 +9874,6 @@ function registerIpc(): void {
     installPiPrivilegedPackage,
     invokeWorkflowNativeTool,
     isActiveProjectRuntimeHost,
-    isAmbientSubagentsEnabled,
     isGoogleWorkspaceSetupUrl,
     isLoopbackWebUrl,
     join,
@@ -9877,7 +9902,6 @@ function registerIpc(): void {
     parseExternalOpenUrl,
     parseThreadPermissionModeChange,
     parseThreadSettingsUpdate,
-    pauseCallableWorkflowTaskSchema,
     pauseProjectBoardSynthesisForProjectHost,
     permanentWorktreeBranchName,
     permissionGrantTargetHash,
@@ -9980,7 +10004,6 @@ function registerIpc(): void {
     restartProjectRuntimeMcpRuntime,
     restoreLatestGitCheckpoint,
     restoreWorkflowVersion,
-    resumeCallableWorkflowTaskSchema,
     retryProjectBoardSynthesisForProjectHost,
     revalidateWorkflowArtifact,
     revealMessageVoiceArtifact,

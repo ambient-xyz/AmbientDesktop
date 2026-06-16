@@ -51,6 +51,11 @@ import {
 } from "./webResearchProviderStack";
 import type { LocalDeepResearchBroker, LocalDeepResearchBrokerResult } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchProviderSnapshot } from "./localDeepResearchSetup";
+import {
+  localDeepResearchStatusSnapshot,
+  localDeepResearchToolUpdate,
+  type LocalDeepResearchRetrievalStatus,
+} from "./localDeepResearchStatus";
 
 type LocalDeepResearchWebBrokerUpdate = AgentToolResult<Record<string, unknown>>;
 type LocalDeepResearchWebBrokerUpdateHandler = (update: LocalDeepResearchWebBrokerUpdate) => void;
@@ -224,7 +229,14 @@ export async function localDeepResearchWebSearch(
   const providerById = new Map(providerPlan.providers.map((provider) => [provider.providerId, provider]));
   for (const providerId of providerPlan.providerOrder) {
     if (providerId === WEB_RESEARCH_PROVIDER_IDS.exa) {
-      runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Searching with Exa MCP for "${input.query}".`));
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "search",
+        status: "starting",
+        providerId,
+        providerLabel: "Exa MCP",
+        query: input.query,
+        message: `Searching with Exa MCP for "${input.query}".`,
+      });
       try {
         const result = await callExaSearch({
           workspacePath: runtime.workspace.path,
@@ -234,19 +246,47 @@ export async function localDeepResearchWebSearch(
           apiKey: options.webResearchExaApiKey(),
         });
         attempts.push({ providerId, status: "succeeded", tool: result.tool, durationMs: result.durationMs });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "search",
+          status: "succeeded",
+          providerId,
+          providerLabel: "Exa MCP",
+          query: input.query,
+          durationMs: result.durationMs,
+          outputChars: result.text.length,
+          textOutputPath: result.output.artifactPath,
+          message: `Exa MCP search returned ${result.text.length.toLocaleString()} chars for "${input.query}".`,
+        });
         return { text: result.text, selectedProvider: providerId, attempts, textOutputPath: result.output.artifactPath, metadata: { textOutput: result.output } };
       } catch (error) {
+        const reason = `${isLikelyExaRateLimitError(error) ? "rate-limited: " : ""}${options.formatErrorMessage(error, 1_000)}`;
         attempts.push({
           providerId,
           status: "failed",
           tool: "web_search_exa",
-          reason: `${isLikelyExaRateLimitError(error) ? "rate-limited: " : ""}${options.formatErrorMessage(error, 1_000)}`,
+          reason,
+        });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "search",
+          status: "failed",
+          providerId,
+          providerLabel: "Exa MCP",
+          query: input.query,
+          failureReason: reason,
+          message: `Exa MCP search failed for "${input.query}".`,
         });
       }
       continue;
     }
     if (providerId === WEB_RESEARCH_PROVIDER_IDS.browser) {
-      runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Searching with Ambient Browser for "${input.query}".`));
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "search",
+        status: "starting",
+        providerId,
+        providerLabel: "Ambient Browser",
+        query: input.query,
+        message: `Searching with Ambient Browser for "${input.query}".`,
+      });
       const { profileMode, runtime: browserRuntime } = await options.prepareBrowserToolProfile(rawInput, runtime.threadId, runtime.onUpdate);
       const startedAt = Date.now();
       const results = await options.withBrowserToolHeartbeat(
@@ -268,21 +308,49 @@ export async function localDeepResearchWebSearch(
       ).catch((error) => browserToolFallback(error));
       await options.emitBrowserState();
       if (!Array.isArray(results)) {
+        const reason = options.truncateDiagnosticText(isBrowserUnavailableFallback(results) ? browserUnavailableText(results) : options.formatBrowserUserAction(results), 1_000);
         attempts.push({
           providerId,
           status: "failed",
-          reason: options.truncateDiagnosticText(isBrowserUnavailableFallback(results) ? browserUnavailableText(results) : options.formatBrowserUserAction(results), 1_000),
+          reason,
+        });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "search",
+          status: "failed",
+          providerId,
+          providerLabel: "Ambient Browser",
+          query: input.query,
+          failureReason: reason,
+          message: `Ambient Browser search failed for "${input.query}".`,
         });
         continue;
       }
       attempts.push({ providerId, status: "succeeded", tool: "browser_search", durationMs: Date.now() - startedAt });
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "search",
+        status: "succeeded",
+        providerId,
+        providerLabel: "Ambient Browser",
+        query: input.query,
+        durationMs: Date.now() - startedAt,
+        resultCount: results.length,
+        outputChars: formatBrowserSearch(results).length,
+        message: `Ambient Browser search returned ${results.length.toLocaleString()} result(s) for "${input.query}".`,
+      });
       options.recordBrowserSearchAudit({ threadId: runtime.threadId, profileMode, query: input.query });
       return { text: formatBrowserSearch(results), selectedProvider: providerId, attempts, metadata: { profileMode, runtime: browserRuntime, results } };
     }
     const ambientCliProvider = providerById.get(providerId);
     if (ambientCliProvider?.kind === "ambient-cli" && ambientCliProvider.ambientCli) {
       const binding = ambientCliProvider.ambientCli;
-      runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Searching with ${ambientCliProvider.label} for "${input.query}".`));
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "search",
+        status: "starting",
+        providerId,
+        providerLabel: ambientCliProvider.label,
+        query: input.query,
+        message: `Searching with ${ambientCliProvider.label} for "${input.query}".`,
+      });
       try {
         const result = await runAmbientCli(runtime.workspace.path, {
           packageName: binding.packageName,
@@ -291,6 +359,17 @@ export async function localDeepResearchWebSearch(
           signal: runtime.signal,
         });
         attempts.push({ providerId, status: "succeeded", tool: `ambient_cli:${result.packageName}:${result.commandName}`, durationMs: result.durationMs });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "search",
+          status: "succeeded",
+          providerId,
+          providerLabel: ambientCliProvider.label,
+          query: input.query,
+          durationMs: result.durationMs,
+          outputChars: (result.stdout?.trim() ? result.stdout : formatAmbientCli(result)).length,
+          textOutputPath: result.stdoutOutput?.artifactPath,
+          message: `${ambientCliProvider.label} search returned output for "${input.query}".`,
+        });
         return {
           text: result.stdout?.trim() ? result.stdout : formatAmbientCli(result),
           selectedProvider: providerId,
@@ -299,13 +378,30 @@ export async function localDeepResearchWebSearch(
           metadata: { provider: ambientCliProvider.label, stdoutOutput: result.stdoutOutput, stderrOutput: result.stderrOutput },
         };
       } catch (error) {
-        attempts.push({ providerId, status: "failed", tool: `ambient_cli:${binding.packageName}:${binding.commandName}`, reason: options.formatErrorMessage(error, 1_000) });
+        const reason = options.formatErrorMessage(error, 1_000);
+        attempts.push({ providerId, status: "failed", tool: `ambient_cli:${binding.packageName}:${binding.commandName}`, reason });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "search",
+          status: "failed",
+          providerId,
+          providerLabel: ambientCliProvider.label,
+          query: input.query,
+          failureReason: reason,
+          message: `${ambientCliProvider.label} search failed for "${input.query}".`,
+        });
       }
       continue;
     }
     const mcpProvider = providerById.get(providerId);
     if (isWebResearchMcpProvider(mcpProvider, "search")) {
-      runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Searching with ${mcpProvider.label}.`));
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "search",
+        status: "starting",
+        providerId,
+        providerLabel: mcpProvider.label,
+        query: input.query,
+        message: `Searching with ${mcpProvider.label}.`,
+      });
       const startedAt = Date.now();
       const mcpRoute = await options.tryCallWebResearchMcpProvider({
         threadId: runtime.threadId,
@@ -319,6 +415,17 @@ export async function localDeepResearchWebSearch(
       });
       if (mcpRoute.result) {
         attempts.push({ providerId, status: "succeeded", tool: mcpRoute.result.descriptor.toolRef, durationMs: Date.now() - startedAt });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "search",
+          status: "succeeded",
+          providerId,
+          providerLabel: mcpProvider.label,
+          query: input.query,
+          durationMs: Date.now() - startedAt,
+          outputChars: mcpRoute.result.text.length,
+          textOutputPath: mcpRoute.result.output.artifactPath,
+          message: `${mcpProvider.label} search returned ${mcpRoute.result.text.length.toLocaleString()} chars.`,
+        });
         return {
           text: mcpRoute.result.text,
           selectedProvider: providerId,
@@ -327,7 +434,17 @@ export async function localDeepResearchWebSearch(
           metadata: { textOutput: mcpRoute.result.output },
         };
       }
-      attempts.push({ providerId, status: "failed", reason: options.truncateDiagnosticText(mcpRoute.fallbackReason ?? "MCP provider did not return a result.", 1_000) });
+      const reason = options.truncateDiagnosticText(mcpRoute.fallbackReason ?? "MCP provider did not return a result.", 1_000);
+      attempts.push({ providerId, status: "failed", reason });
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "search",
+        status: "failed",
+        providerId,
+        providerLabel: mcpProvider.label,
+        query: input.query,
+        failureReason: reason,
+        message: `${mcpProvider.label} search did not return a result.`,
+      });
       continue;
     }
     attempts.push({ providerId, status: "skipped", reason: "Provider is registered for search, but no Local Deep Research broker adapter is available yet." });
@@ -353,7 +470,14 @@ export async function localDeepResearchWebFetch(
   const providerById = new Map(providerPlan.providers.map((provider) => [provider.providerId, provider]));
   for (const providerId of providerPlan.providerOrder) {
     if (providerId === WEB_RESEARCH_PROVIDER_IDS.scrapling) {
-      runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Reading ${url} with Scrapling MCP.`));
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "fetch",
+        status: "starting",
+        providerId,
+        providerLabel: "Scrapling MCP",
+        url,
+        message: `Reading ${url} with Scrapling MCP.`,
+      });
       const startedAt = Date.now();
       const scraplingRoute = await options.tryRouteBrowserContentThroughScrapling({
         threadId: runtime.threadId,
@@ -367,13 +491,41 @@ export async function localDeepResearchWebFetch(
         const text = textFromToolResult(scraplingRoute.result);
         attempts.push({ providerId, status: "succeeded", tool: String(scraplingRoute.result.details?.targetToolName ?? "scrapling"), durationMs: Date.now() - startedAt });
         const textOutput = scraplingRoute.result.details?.textOutput as MaterializedTextOutput | undefined;
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "fetch",
+          status: "succeeded",
+          providerId,
+          providerLabel: "Scrapling MCP",
+          url,
+          durationMs: Date.now() - startedAt,
+          outputChars: text.length,
+          textOutputPath: textOutput?.artifactPath,
+          message: `Scrapling MCP read ${text.length.toLocaleString()} chars from ${url}.`,
+        });
         return { text, selectedProvider: providerId, attempts, textOutputPath: textOutput?.artifactPath, metadata: { textOutput } };
       }
-      attempts.push({ providerId, status: "failed", reason: options.truncateDiagnosticText(scraplingRoute.fallbackReason ?? "Scrapling did not return a result.", 1_000) });
+      const reason = options.truncateDiagnosticText(scraplingRoute.fallbackReason ?? "Scrapling did not return a result.", 1_000);
+      attempts.push({ providerId, status: "failed", reason });
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "fetch",
+        status: "failed",
+        providerId,
+        providerLabel: "Scrapling MCP",
+        url,
+        failureReason: reason,
+        message: `Scrapling MCP did not return a result for ${url}.`,
+      });
       continue;
     }
     if (providerId === WEB_RESEARCH_PROVIDER_IDS.exa) {
-      runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Reading ${url} with Exa MCP fetch.`));
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "fetch",
+        status: "starting",
+        providerId,
+        providerLabel: "Exa MCP",
+        url,
+        message: `Reading ${url} with Exa MCP fetch.`,
+      });
       try {
         const result = await callExaFetch({
           workspacePath: runtime.workspace.path,
@@ -383,19 +535,47 @@ export async function localDeepResearchWebFetch(
           apiKey: options.webResearchExaApiKey(),
         });
         attempts.push({ providerId, status: "succeeded", tool: result.tool, durationMs: result.durationMs });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "fetch",
+          status: "succeeded",
+          providerId,
+          providerLabel: "Exa MCP",
+          url,
+          durationMs: result.durationMs,
+          outputChars: result.text.length,
+          textOutputPath: result.output.artifactPath,
+          message: `Exa MCP fetch read ${result.text.length.toLocaleString()} chars from ${url}.`,
+        });
         return { text: result.text, selectedProvider: providerId, attempts, textOutputPath: result.output.artifactPath, metadata: { textOutput: result.output } };
       } catch (error) {
+        const reason = `${isLikelyExaRateLimitError(error) ? "rate-limited: " : ""}${options.formatErrorMessage(error, 1_000)}`;
         attempts.push({
           providerId,
           status: "failed",
           tool: "web_fetch_exa",
-          reason: `${isLikelyExaRateLimitError(error) ? "rate-limited: " : ""}${options.formatErrorMessage(error, 1_000)}`,
+          reason,
+        });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "fetch",
+          status: "failed",
+          providerId,
+          providerLabel: "Exa MCP",
+          url,
+          failureReason: reason,
+          message: `Exa MCP fetch failed for ${url}.`,
         });
       }
       continue;
     }
     if (providerId === WEB_RESEARCH_PROVIDER_IDS.browser) {
-      runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Reading ${url} with Ambient Browser.`));
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "fetch",
+        status: "starting",
+        providerId,
+        providerLabel: "Ambient Browser",
+        url,
+        message: `Reading ${url} with Ambient Browser.`,
+      });
       const { profileMode, runtime: browserRuntime } = await options.prepareBrowserToolProfile(rawInput, runtime.threadId, runtime.onUpdate);
       const startedAt = Date.now();
       const content = await options.withBrowserToolHeartbeat(
@@ -407,12 +587,33 @@ export async function localDeepResearchWebFetch(
       ).catch((error) => browserToolFallback(error));
       await options.emitBrowserState();
       if (isBrowserUnavailableFallback(content) || isBrowserUserActionState(content)) {
-        attempts.push({ providerId, status: "failed", reason: options.truncateDiagnosticText(isBrowserUnavailableFallback(content) ? browserUnavailableText(content) : options.formatBrowserUserAction(content), 1_000) });
+        const reason = options.truncateDiagnosticText(isBrowserUnavailableFallback(content) ? browserUnavailableText(content) : options.formatBrowserUserAction(content), 1_000);
+        attempts.push({ providerId, status: "failed", reason });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "fetch",
+          status: "failed",
+          providerId,
+          providerLabel: "Ambient Browser",
+          url,
+          failureReason: reason,
+          message: `Ambient Browser could not read ${url}.`,
+        });
         continue;
       }
       attempts.push({ providerId, status: "succeeded", tool: "browser_content", durationMs: Date.now() - startedAt });
       options.recordBrowserFetchAudit({ threadId: runtime.threadId, profileMode, url: content.url ?? url });
       const materialized = await options.materializeBrowserPageContent(runtime.workspace.path, "local-deep-research-fetch", content);
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "fetch",
+        status: "succeeded",
+        providerId,
+        providerLabel: "Ambient Browser",
+        url: content.url ?? url,
+        durationMs: Date.now() - startedAt,
+        outputChars: content.text.length,
+        textOutputPath: materialized.textOutput?.artifactPath,
+        message: `Ambient Browser read ${content.text.length.toLocaleString()} chars from ${content.url ?? url}.`,
+      });
       return {
         text: options.formatBrowserContent(materialized),
         selectedProvider: providerId,
@@ -423,7 +624,14 @@ export async function localDeepResearchWebFetch(
     }
     const mcpProvider = providerById.get(providerId);
     if (isWebResearchMcpProvider(mcpProvider, "fetch")) {
-      runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", `Reading ${url} with ${mcpProvider.label}.`));
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "fetch",
+        status: "starting",
+        providerId,
+        providerLabel: mcpProvider.label,
+        url,
+        message: `Reading ${url} with ${mcpProvider.label}.`,
+      });
       const startedAt = Date.now();
       const mcpRoute = await options.tryCallWebResearchMcpProvider({
         threadId: runtime.threadId,
@@ -437,6 +645,17 @@ export async function localDeepResearchWebFetch(
       });
       if (mcpRoute.result) {
         attempts.push({ providerId, status: "succeeded", tool: mcpRoute.result.descriptor.toolRef, durationMs: Date.now() - startedAt });
+        emitLocalDeepResearchRetrievalUpdate(runtime, {
+          role: "fetch",
+          status: "succeeded",
+          providerId,
+          providerLabel: mcpProvider.label,
+          url,
+          durationMs: Date.now() - startedAt,
+          outputChars: mcpRoute.result.text.length,
+          textOutputPath: mcpRoute.result.output.artifactPath,
+          message: `${mcpProvider.label} read ${mcpRoute.result.text.length.toLocaleString()} chars from ${url}.`,
+        });
         return {
           text: mcpRoute.result.text,
           selectedProvider: providerId,
@@ -445,7 +664,17 @@ export async function localDeepResearchWebFetch(
           metadata: { textOutput: mcpRoute.result.output },
         };
       }
-      attempts.push({ providerId, status: "failed", reason: options.truncateDiagnosticText(mcpRoute.fallbackReason ?? "MCP provider did not return a result.", 1_000) });
+      const reason = options.truncateDiagnosticText(mcpRoute.fallbackReason ?? "MCP provider did not return a result.", 1_000);
+      attempts.push({ providerId, status: "failed", reason });
+      emitLocalDeepResearchRetrievalUpdate(runtime, {
+        role: "fetch",
+        status: "failed",
+        providerId,
+        providerLabel: mcpProvider.label,
+        url,
+        failureReason: reason,
+        message: `${mcpProvider.label} did not return content for ${url}.`,
+      });
       continue;
     }
     attempts.push({ providerId, status: "skipped", reason: "Provider is registered for URL fetch, but no Local Deep Research broker adapter is available yet." });
@@ -453,15 +682,28 @@ export async function localDeepResearchWebFetch(
   return { text: webResearchNoProviderText("fetch", attempts), attempts };
 }
 
-function localDeepResearchToolUpdate(toolName: string, text: string): AgentToolResult<Record<string, unknown>> {
-  return {
-    content: [{ type: "text", text }],
-    details: {
-      runtime: "ambient-local-deep-research",
-      toolName,
-      status: "running",
+function emitLocalDeepResearchRetrievalUpdate(
+  runtime: LocalDeepResearchWebBrokerInput,
+  input: LocalDeepResearchRetrievalStatus & { message: string },
+): void {
+  runtime.onUpdate?.(localDeepResearchToolUpdate("ambient_local_deep_research_run", localDeepResearchStatusSnapshot({
+    stage: "retrieval",
+    message: input.message,
+    retrieval: {
+      role: input.role,
+      status: input.status,
+      ...(input.providerId ? { providerId: input.providerId } : {}),
+      ...(input.providerLabel ? { providerLabel: input.providerLabel } : {}),
+      ...(input.query ? { query: input.query } : {}),
+      ...(input.url ? { url: input.url } : {}),
+      ...(input.resultCount !== undefined ? { resultCount: input.resultCount } : {}),
+      ...(input.outputChars !== undefined ? { outputChars: input.outputChars } : {}),
+      ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
+      ...(input.repeatedVisitCount !== undefined ? { repeatedVisitCount: input.repeatedVisitCount } : {}),
+      ...(input.failureReason ? { failureReason: input.failureReason } : {}),
+      ...(input.textOutputPath ? { textOutputPath: input.textOutputPath } : {}),
     },
-  };
+  })));
 }
 
 function normalizeWebResearchUrl(url: string): string {

@@ -23,8 +23,8 @@ describe("agentRuntimeToolMessageMetadata", () => {
         mediaKind: "image",
         mimeType: "image/png",
         bytes: 42,
-        renderedInline: true,
-        displayInstruction: "Show rendered image.",
+        inlinePreviewEligible: true,
+        displayInstruction: "Show image preview when available.",
       },
     };
     const longformInputPreview: ToolLongformInputPreview = {
@@ -75,7 +75,7 @@ describe("agentRuntimeToolMessageMetadata", () => {
       toolName: "custom_image",
       artifactPath: "artifacts/rendered.png",
       mediaArtifact: resultDetails.mediaArtifact,
-      renderedInline: true,
+      inlinePreviewEligible: true,
       toolResultDetails: resultDetails,
       toolLongformInputPreview: longformInputPreview,
       toolEditInputPreview: editInputPreview,

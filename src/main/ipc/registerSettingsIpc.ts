@@ -311,6 +311,12 @@ const updateLocalDeepResearchSettingsSchema = z.object({
     maxResidentMemoryBytes: z.number().int().positive().optional(),
     memoryLimitBehavior: z.enum(["warn", "refuse", "unload-idle", "ask-to-exceed"]).optional(),
   }).optional(),
+  runBudget: z.object({
+    schemaVersion: z.string().optional(),
+    defaultEffort: z.enum(["quick", "balanced", "deep", "exhaustive", "custom"]).optional(),
+    customMaxToolCalls: z.number().int().positive().max(500).optional(),
+    onExhausted: z.enum(["summarize", "ask_to_continue"]).optional(),
+  }).optional(),
 }).passthrough();
 const localDeepResearchSetupSchema = z.object({
   action: z.enum(["status", "install", "repair", "validate", "smoke"]).optional(),

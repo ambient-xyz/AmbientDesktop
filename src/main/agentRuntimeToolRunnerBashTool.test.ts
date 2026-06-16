@@ -21,7 +21,7 @@ describe("agentRuntimeToolRunnerBashTool", () => {
       const toolResult = result as AgentToolResult<Record<string, unknown>>;
       return {
         ...toolResult,
-        details: { ...(toolResult.details ?? {}), artifactPath, renderedInline: true },
+        details: { ...(toolResult.details ?? {}), artifactPath, inlinePreviewEligible: true },
       } as T;
     };
     try {
@@ -55,7 +55,7 @@ describe("agentRuntimeToolRunnerBashTool", () => {
         artifactPath: "generated.png",
         workspacePath: workspace,
       }]);
-      expect(result.details).toMatchObject({ artifactPath: "generated.png", renderedInline: true });
+      expect(result.details).toMatchObject({ artifactPath: "generated.png", inlinePreviewEligible: true });
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

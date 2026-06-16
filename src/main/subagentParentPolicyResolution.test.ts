@@ -55,7 +55,7 @@ describe("subagentParentPolicyResolution", () => {
     });
   });
 
-  it("treats timed-out waits for still-running children as wait-again work", () => {
+  it("requires explicit recovery decisions for terminal timed-out barriers", () => {
     const resolution = resolveSubagentParentPolicyForWait({
       run: run({ status: "running" }),
       waitBarrier: barrier({ status: "timed_out", failurePolicy: "ask_user" }),
@@ -67,13 +67,14 @@ describe("subagentParentPolicyResolution", () => {
 
     expect(resolution).toMatchObject({
       status: "blocked",
-      action: "wait_for_child",
+      action: "ask_user",
       canSynthesize: false,
-      requiresUserInput: false,
-      reason: "Child wait timed out, but the child is still running and may still produce a synthesis-safe result.",
+      requiresUserInput: true,
+      reason: "Child wait timed out before producing a synthesis-safe result.",
     });
     expect(allowedUserChoicesForSubagentWaitBarrier(resolution)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "wait_again", toolAction: "wait_agent" }),
+      expect.objectContaining({ id: "retry_child", toolAction: "resolve_barrier", decision: "retry_child" }),
+      expect.objectContaining({ id: "fail_parent", toolAction: "resolve_barrier", decision: "fail_parent" }),
     ]));
   });
 

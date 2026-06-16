@@ -19,6 +19,7 @@ export const SUBAGENT_TOOL_SCOPE_REQUEST_APPROVAL_MODES = ["interactive", "non_i
 export const SUBAGENT_CHILD_AUTHORITY_TASK_INTENTS = [
   "file_read",
   "analysis",
+  "web_research",
   "mutation",
   "workflow",
   "connector",

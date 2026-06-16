@@ -284,13 +284,18 @@ export function createLocalTextSubagentRuntimeAdapter(
   const waitForChildRun = async (input: SubagentChildRuntimeWaitInput): Promise<SubagentChildRuntimeWaitResult> => {
     const execution = executions.get(input.run.id);
     if (!execution) {
-      return { run: options.store.getSubagentRun(input.run.id), timedOut: false };
+      return {
+        run: options.store.getSubagentRun(input.run.id),
+        timedOut: false,
+        outcome: { kind: "runtime_detached", reason: "no_child_execution_attached" },
+      };
     }
     const remainingRuntimeBudgetMs = remainingLocalTextRuntimeBudgetMs(input.run, execution);
     if (remainingRuntimeBudgetMs !== undefined && remainingRuntimeBudgetMs <= 0) {
       return {
         run: settleLocalTextRuntimeBudgetExceeded(options, input, execution),
         timedOut: true,
+        outcome: { kind: "child_runtime_timeout", reason: "runtime_budget_exceeded" },
       };
     }
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -313,6 +318,7 @@ export function createLocalTextSubagentRuntimeAdapter(
           return {
             run: settleLocalTextRuntimeBudgetExceeded(options, input, execution),
             timedOut: true,
+            outcome: { kind: "child_runtime_timeout", reason: "runtime_budget_exceeded" },
           };
         }
         input.emitEvent({
@@ -323,7 +329,10 @@ export function createLocalTextSubagentRuntimeAdapter(
       }
       return {
         run: latest,
-        timedOut: didTimeOut,
+        timedOut: false,
+        outcome: didTimeOut
+          ? { kind: "progress_return", reason: "parent_wait_window_elapsed" }
+          : { kind: "child_terminal" },
       };
     } finally {
       if (timeout) clearTimeout(timeout);

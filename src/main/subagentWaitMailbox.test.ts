@@ -176,7 +176,11 @@ describe("subagentWaitMailbox", () => {
     });
     const waitBarrierEvaluation = evaluateSubagentWaitBarrierForSynthesis({
       barrier: waitBarrier,
-      timedOut: true,
+      terminalEvidence: {
+        kind: "child_runtime_timeout",
+        childRunId: run.id,
+        reason: "runtime_idle_timeout",
+      },
       childResults: [{
         childRunId: run.id,
         childThreadId: run.childThreadId,
@@ -231,6 +235,11 @@ describe("subagentWaitMailbox", () => {
     expect(payload.instruction.length).toBeLessThanOrEqual(600);
     expect(payload.waitBarrierEvaluation).toMatchObject({
       timedOut: true,
+      terminalEvidence: {
+        kind: "child_runtime_timeout",
+        childRunId: run.id,
+        reason: "runtime_idle_timeout",
+      },
       terminalUnsafeChildRunIds: [run.id],
       reason: "required_all barrier timed out with 0/1 synthesis-safe child results.",
     });

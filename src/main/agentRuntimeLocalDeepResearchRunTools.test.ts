@@ -1,10 +1,11 @@
 import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   LocalDeepResearchFinalSynthesisMode,
   WorkspaceState,
 } from "../shared/types";
+import { localDeepResearchToolBudgetState, normalizeLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 import type { LocalDeepResearchBroker } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import type { LocalDeepResearchModelProfileId } from "./localDeepResearchModelProfiles";
@@ -29,6 +30,10 @@ interface RegisteredTool {
 type RunToolOptions = Parameters<typeof registerLocalDeepResearchRunTools>[1];
 
 describe("registerLocalDeepResearchRunTools", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("blocks run when setup readiness is not ready", async () => {
     const readiness = setupReadiness(false);
     const readReadiness = vi.fn(() => readiness);
@@ -42,7 +47,10 @@ describe("registerLocalDeepResearchRunTools", () => {
 
     expect(readReadiness).toHaveBeenCalledWith(workspace(), {}, undefined);
     expect(run).not.toHaveBeenCalled();
-    expect(updates).toEqual(["Preparing Local Deep Research run."]);
+    expect(updates).toEqual([
+      "Preparing Local Deep Research run.",
+      "Local Deep Research setup is not ready to run.",
+    ]);
     expect(toolText(result)).toContain("Local Deep Research is not ready to run.");
     expect(result.details).toMatchObject({
       runtime: "ambient-local-deep-research",
@@ -51,6 +59,11 @@ describe("registerLocalDeepResearchRunTools", () => {
       setupStatus: readiness.contract.status,
       managedAssets: {
         schemaVersion: "ambient-local-deep-research-managed-assets-v1",
+      },
+      localDeepResearchStatus: {
+        schemaVersion: "ambient-local-deep-research-status-v1",
+        stage: "blocked",
+        state: "blocked",
       },
     });
   });
@@ -69,12 +82,18 @@ describe("registerLocalDeepResearchRunTools", () => {
       maxToolCalls: 3,
       maxTurns: 4,
       finalSynthesisMode: "evidence_only",
+      localResearchBudget: normalizeLocalDeepResearchRunBudget(undefined, {
+        effort: "custom",
+        maxToolCalls: 3,
+        source: "tool_input",
+      }),
     }, undefined, (update: AgentToolResult<Record<string, unknown>>) => {
       updates.push(toolText(update));
     });
 
     expect(updates).toEqual([
       "Preparing Local Deep Research run.",
+      "Local Deep Research setup is ready; checking local resource pressure.",
       "Starting LiteResearcher through Ambient Local Deep Research.",
     ]);
     expect(createBroker).toHaveBeenCalledWith(expect.objectContaining({
@@ -90,6 +109,10 @@ describe("registerLocalDeepResearchRunTools", () => {
       managedAssets: readiness.managedAssets,
       broker,
       ownerThreadId: "thread-local-deep-research-run",
+      localResearchBudget: expect.objectContaining({
+        maxToolCalls: 3,
+        source: "tool_input",
+      }),
       maxToolCalls: 3,
       maxTurns: 4,
       finalSynthesis: { mode: "evidence_only" },
@@ -106,6 +129,50 @@ describe("registerLocalDeepResearchRunTools", () => {
       artifacts: {
         jsonPath: ".ambient/local-deep-research/runs/test.json",
         markdownPath: ".ambient/local-deep-research/runs/test.md",
+      },
+      localResearchBudget: {
+        maxToolCalls: 3,
+        source: "tool_input",
+      },
+      toolBudget: {
+        maxToolCalls: 3,
+        remainingToolCalls: 3,
+      },
+      localDeepResearchStatus: {
+        schemaVersion: "ambient-local-deep-research-status-v1",
+        stage: "resource-policy",
+        memory: {
+          policyOutcome: "unlimited",
+        },
+      },
+    });
+  });
+
+  it("emits failed Local Deep Research status when the outer run timeout fires", async () => {
+    vi.stubEnv("AMBIENT_LOCAL_DEEP_RESEARCH_RUN_TIMEOUT_MS", "1");
+    const readiness = setupReadiness(true);
+    const run = vi.fn(() => new Promise<LocalDeepResearchRunServiceResult>(() => undefined));
+    const { tool } = registerRunHarness({ readReadiness: vi.fn(() => readiness), run });
+    const updates: AgentToolResult<Record<string, unknown>>[] = [];
+
+    await expect(tool.execute(
+      "run-timeout",
+      { question: "Research a timeout path." },
+      undefined,
+      (update: AgentToolResult<Record<string, unknown>>) => updates.push(update),
+    )).rejects.toThrow("timed out");
+
+    expect(updates.at(-1)?.details).toMatchObject({
+      runtime: "ambient-local-deep-research",
+      status: "failed",
+      stage: "failed",
+      statusMessage: "Local Deep Research timed out after 1ms.",
+      localDeepResearchStatus: {
+        schemaVersion: "ambient-local-deep-research-status-v1",
+        stage: "failed",
+        state: "failed",
+        message: "Local Deep Research timed out after 1ms.",
+        error: expect.stringContaining("timed out after 1ms"),
       },
     });
   });
@@ -222,6 +289,11 @@ function brokerFixture(): LocalDeepResearchBroker {
 
 function runResult(input: LocalDeepResearchRunRequest): LocalDeepResearchRunServiceResult {
   const mode = input.finalSynthesis?.mode as LocalDeepResearchFinalSynthesisMode | undefined;
+  const localResearchBudget = normalizeLocalDeepResearchRunBudget(input.localResearchBudget, {
+    effort: "custom",
+    maxToolCalls: input.maxToolCalls,
+    source: input.localResearchBudget ? input.localResearchBudget.source : "tool_input",
+  });
   return {
     schemaVersion: "ambient-local-deep-research-service-result-v1",
     status: "completed",
@@ -240,6 +312,8 @@ function runResult(input: LocalDeepResearchRunRequest): LocalDeepResearchRunServ
         sourceLimit: 12,
         evidencePreviewChars: 1200,
       },
+      finalSynthesisReserveTurns: 3,
+      toolBudget: localDeepResearchToolBudgetState(localResearchBudget, 0),
       messages: [],
       toolExecutions: [],
       finalText: "Local synthesis with citation https://example.com/source",

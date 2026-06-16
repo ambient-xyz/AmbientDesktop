@@ -30,6 +30,7 @@ export type SubagentToolScopeSource =
 export type SubagentChildAuthorityTaskIntent =
   | "file_read"
   | "analysis"
+  | "web_research"
   | "mutation"
   | "workflow"
   | "connector"
@@ -153,7 +154,8 @@ const CALLABLE_WORKFLOW_CHILD_BRIDGE_PI_VISIBLE_SOURCE_REASON =
   "Callable workflow tools are not Pi-callable in child sessions until Ambient provides an explicit child-safe workflow bridge; keep the exact workflow non-visible or run it from the parent.";
 const TASK_INTENT_ALLOWED_CATEGORY_IDS: Partial<Record<SubagentChildAuthorityTaskIntent, readonly SubagentToolCategoryId[]>> = {
   file_read: ["workspace.read", "artifact.read", "long-context.read"],
-  analysis: ["workspace.read", "test.run", "artifact.read", "browser.read", "long-context.read", "connector.read"],
+  analysis: ["workspace.read", "test.run", "artifact.read", "long-context.read", "connector.read"],
+  web_research: ["workspace.read", "artifact.read", "connector.read"],
   workflow: ["workspace.read", "artifact.read", "long-context.read", "workflow.call", "subagent.spawn"],
   connector: ["artifact.read", "connector.read", "connector.write"],
 };
@@ -174,6 +176,7 @@ function categoryDenyReason(input: {
   model: AmbientModelRuntimeProfile;
   workspacePolicy: SubagentWorkspaceToolPolicy;
   childAuthority?: SubagentChildAuthorityRequest;
+  candidateCategories?: ReadonlySet<SubagentToolCategoryId>;
   allowedByRole: Set<SubagentToolCategoryId>;
   deniedByRole: Set<SubagentToolCategoryId>;
   hardDenied: Set<SubagentToolCategoryId>;
@@ -183,10 +186,17 @@ function categoryDenyReason(input: {
   if (input.deniedByRole.has(category.id)) return "Denied by the selected sub-agent role.";
   if (!input.allowedByRole.has(category.id)) return "Requested task capability is outside the selected role.";
   if (category.requiresToolUse && input.model.toolUse === "none") return "Selected model profile does not support tool use.";
-  if (category.mutatesState && input.role.mutationPolicy === "forbidden") return "Selected role forbids mutation.";
-  if (category.mutatesState && input.role.mutationPolicy === "read_only") return "Selected role is read-only.";
-  if (category.mutatesState && input.role.mutationPolicy === "requires_isolated_worktree" && !input.workspacePolicy.worktreeIsolated) {
-    return "Mutating child requires an approved isolated worktree.";
+  const explicitBrowserInteractiveAuthority = category.id === "browser.interactive"
+    && childAuthorityExplicitlyRequestsBrowserNetwork(input.childAuthority);
+  if (category.id === "browser.interactive" && !explicitBrowserInteractiveAuthority) {
+    return "Interactive browser tools require explicit child browser network authority.";
+  }
+  if (!explicitBrowserInteractiveAuthority) {
+    if (category.mutatesState && input.role.mutationPolicy === "forbidden") return "Selected role forbids mutation.";
+    if (category.mutatesState && input.role.mutationPolicy === "read_only") return "Selected role is read-only.";
+    if (category.mutatesState && input.role.mutationPolicy === "requires_isolated_worktree" && !input.workspacePolicy.worktreeIsolated) {
+      return "Mutating child requires an approved isolated worktree.";
+    }
   }
   if (
     category.requiresApproval
@@ -195,8 +205,16 @@ function categoryDenyReason(input: {
   ) {
     return "Capability requires interactive approval, but this launch is non-interactive.";
   }
-  const taskIntentReason = taskIntentCategoryDenyReason(category, input.childAuthority?.taskIntent);
+  const taskIntentReason = explicitBrowserInteractiveAuthority
+    ? undefined
+    : taskIntentCategoryDenyReason(category, input.childAuthority?.taskIntent);
   if (taskIntentReason) return taskIntentReason;
+  const brokeredWebResearchReason = brokeredWebResearchBrowserDenyReason({
+    category,
+    childAuthority: input.childAuthority,
+    candidateCategories: input.candidateCategories,
+  });
+  if (brokeredWebResearchReason) return brokeredWebResearchReason;
   if ((category.id === "subagent.spawn" || category.id === "workflow.call") &&
     (input.role.nestedFanout === "disabled" || !input.workspacePolicy.allowNestedFanout)) {
     return category.id === "workflow.call"
@@ -228,6 +246,26 @@ function taskIntentCategoryDenyReason(
   const allowed = TASK_INTENT_ALLOWED_CATEGORY_IDS[taskIntent];
   if (!allowed || allowed.includes(category.id)) return undefined;
   return `Denied by child task intent ${taskIntent}; allowed categories: ${allowed.join(", ")}.`;
+}
+
+function brokeredWebResearchBrowserDenyReason(input: {
+  category: SubagentToolCategory;
+  childAuthority?: SubagentChildAuthorityRequest;
+  candidateCategories?: ReadonlySet<SubagentToolCategoryId>;
+}): string | undefined {
+  if (input.category.id !== "browser.read") return undefined;
+  if (!input.candidateCategories?.has("connector.read")) return undefined;
+  if (childAuthorityExplicitlyRequestsBrowserNetwork(input.childAuthority)) return undefined;
+  return "Browser read is denied for ordinary brokered web research; use connector.read/web_research tools unless the parent explicitly grants child browser network authority.";
+}
+
+function childAuthorityExplicitlyRequestsBrowserNetwork(
+  childAuthority: SubagentChildAuthorityRequest | undefined,
+): boolean {
+  if (!childAuthority || childAuthority.network === "deny") return false;
+  if (childAuthority.network === "allow" || childAuthority.network === "ask_parent") return true;
+  if (childAuthority.taskIntent === "custom") return true;
+  return Boolean(childAuthority.browserDomains?.length);
 }
 
 function sourceDefaultPiVisible(source: SubagentToolScopeSource, category?: SubagentToolCategory): boolean {
@@ -409,6 +447,7 @@ export function resolveSubagentToolScope(input: {
       model: input.model,
       workspacePolicy: input.workspacePolicy,
       childAuthority: input.task?.childAuthority,
+      candidateCategories: candidates,
       allowedByRole,
       deniedByRole,
       hardDenied,
@@ -456,6 +495,7 @@ export function resolveSubagentToolScope(input: {
       model: input.model,
       workspacePolicy: input.workspacePolicy,
       childAuthority: input.task?.childAuthority,
+      candidateCategories: candidates,
       allowedByRole,
       deniedByRole,
       hardDenied,
@@ -494,6 +534,7 @@ export function resolveSubagentToolScope(input: {
           model: input.model,
           workspacePolicy: input.workspacePolicy,
           childAuthority: input.task?.childAuthority,
+          candidateCategories: candidates,
           allowedByRole,
           deniedByRole,
           hardDenied,

@@ -2,6 +2,8 @@
 
 Updated: 2026-05-01
 
+Provider note, 2026-06-16: GLM 5.1 is currently degraded. Current live rollout validation must use the Ambient provider with Kimi (`AMBIENT_PROVIDER=ambient`, `AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code`).
+
 ## Rollout Switch
 
 Brokered browser login is enabled by default. Launch Ambient with:
@@ -31,7 +33,7 @@ pnpm run test:browser-login
 pnpm run test:browser-login:live
 ```
 
-`test:browser-login` runs a local managed-Chrome fixture without Ambient tokens. `test:browser-login:live` spends Ambient tokens and verifies GLM 5.1 can choose `browser_login` for a local stored credential without leaking the fixture password.
+`test:browser-login` runs a local managed-Chrome fixture without Ambient tokens. `test:browser-login:live` spends Ambient tokens and verifies Kimi on Ambient can choose `browser_login` for a local stored credential without leaking the fixture password.
 
 ## Connector Direction
 

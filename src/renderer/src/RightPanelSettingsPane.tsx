@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { DesktopState } from "../../shared/types";
+import { localDeepResearchEffortLabel, localDeepResearchMaxToolCallsForEffort } from "../../shared/localDeepResearchBudget";
 import type { RightPanelProps } from "./RightPanel";
 import type { RightPanelDiagnosticsController } from "./RightPanelDiagnosticsController";
 import type { RightPanelMcpController } from "./RightPanelMcpController";
@@ -405,6 +406,16 @@ export function RightPanelSettingsPane({
         },
       });
     };
+    const updateLocalDeepResearchRunBudgetSettings = (patch: Partial<DesktopState["settings"]["localDeepResearch"]["runBudget"]>) => {
+      onLocalDeepResearchSettingsChange({
+        ...state.settings.localDeepResearch,
+        runBudget: {
+          ...state.settings.localDeepResearch.runBudget,
+          ...patch,
+          schemaVersion: "ambient-local-deep-research-run-budget-v1",
+        },
+      });
+    };
     const localDeepResearchQ8 = localDeepResearchSetupModel?.q8Override;
     const localDeepResearchProgress = localDeepResearchSetup.progress
       ? localDeepResearchInstallProgressModel(localDeepResearchSetup.progress)
@@ -581,6 +592,12 @@ export function RightPanelSettingsPane({
         progressTitle: localDeepResearchProgress?.title,
         progressDetail: localDeepResearchProgress?.detail,
         q8Label: localDeepResearchQ8?.label,
+        runBudgetLabel: localDeepResearchEffortLabel(state.settings.localDeepResearch.runBudget.defaultEffort),
+        runBudgetToolCalls: localDeepResearchMaxToolCallsForEffort(
+          state.settings.localDeepResearch.runBudget.defaultEffort,
+          state.settings.localDeepResearch.runBudget.customMaxToolCalls,
+        ),
+        runBudgetOnExhausted: state.settings.localDeepResearch.runBudget.onExhausted,
         runHistoryMessage: localDeepResearchRunHistory.message,
         runs: localDeepResearchRuns,
         diagnostics: localDeepResearchDiagnostics,
@@ -825,6 +842,7 @@ export function RightPanelSettingsPane({
             onSetupLocalDeepResearch={onSetupLocalDeepResearch}
             onLocalDeepResearchQ8OverrideChange={onLocalDeepResearchQ8OverrideChange}
             updateLocalModelResourceSettings={updateLocalModelResourceSettings}
+            updateLocalDeepResearchRunBudgetSettings={updateLocalDeepResearchRunBudgetSettings}
             onLoadLocalDeepResearchRunHistory={onLoadLocalDeepResearchRunHistory}
             startProviderCatalogCardOnboarding={settingsPane.startProviderCatalogCardOnboarding}
           />

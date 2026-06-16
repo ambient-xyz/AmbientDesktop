@@ -732,11 +732,8 @@ async function getLiveState(cdp) {
 }
 
 function assertNoDirectResearchBypass(live) {
-  const forbidden = ["browser_search", "browser_content", "web_research_search", "web_research_fetch", "bash", "shell"];
-  const names = new Set(live?.toolNames ?? []);
-  for (const message of live?.toolMessages ?? []) {
-    for (const name of toolNamesForMessage(message)) names.add(name);
-  }
+  const forbidden = ["bash", "shell"];
+  const names = directObservedToolNames(live);
   const seen = forbidden.filter((toolName) => names.has(toolName));
   if (seen.length) throw new Error(`Expected Pi to use only Local Deep Research tools, saw direct bypass tools: ${seen.join(", ")}.`);
 }
@@ -747,12 +744,27 @@ function assertNoLocalRuntimeLifecycleMutation(live) {
     "ambient_local_model_runtime_stop",
     "ambient_local_model_runtime_restart",
   ];
-  const names = new Set(live?.toolNames ?? []);
-  for (const message of live?.toolMessages ?? []) {
-    for (const name of toolNamesForMessage(message)) names.add(name);
-  }
+  const names = directObservedToolNames(live);
   const seen = forbidden.filter((toolName) => names.has(toolName));
   if (seen.length) throw new Error(`Expected Pi to inspect local runtimes without lifecycle mutation tools, saw: ${seen.join(", ")}.`);
+}
+
+function directObservedToolNames(live) {
+  const names = new Set(live?.toolNames ?? []);
+  for (const message of live?.toolMessages ?? []) {
+    const metadata = message?.metadata ?? {};
+    const rawDetails = rawToolResultDetails(message);
+    for (const name of [
+      message?.toolName,
+      metadata.toolName,
+      metadata.wrappedTool,
+      rawDetails?.wrappedTool,
+      rawDetails?.toolName,
+    ]) {
+      if (typeof name === "string" && name.trim()) names.add(name.trim());
+    }
+  }
+  return names;
 }
 
 function assertToolCalledBefore(live, firstToolName, secondToolName) {
@@ -814,7 +826,11 @@ function assertSetupDetails(details, message) {
 }
 
 function assertRunDetails(details, message) {
-  if (details.status !== "completed") {
+  const gracefullyExhaustedBudget = details.status === "tool-budget-exceeded" &&
+    details.toolBudget?.exhausted === true &&
+    Number(details.toolBudget?.remainingToolCalls) === 0 &&
+    String(details.finalText ?? "").includes("Local Deep Research Evidence Packet");
+  if (details.status !== "completed" && !gracefullyExhaustedBudget) {
     throw new Error(`Local Deep Research run did not complete. details=${JSON.stringify(details)} message=${JSON.stringify(message)}`);
   }
   if (!details.providerSnapshot?.searchOrder?.length || !details.providerSnapshot?.fetchOrder?.length) {

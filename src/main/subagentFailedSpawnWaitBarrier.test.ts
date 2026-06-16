@@ -36,6 +36,30 @@ describe("subagentFailedSpawnWaitBarrier", () => {
           childStatuses: [{ childRunId: "child-run", status: "failed" }],
           timedOut: false,
           synthesisAllowed: false,
+          transitionEvidence: expect.objectContaining({
+            schemaVersion: "ambient-subagent-wait-barrier-transition-evidence-v1",
+            kind: "failed_spawn",
+            source: "barrier_controller",
+            childRunId: "child-run",
+            childRunIds: ["child-run"],
+            reason: "Sub-agent launch failed before model execution: capacity unavailable.",
+            idempotencyKey: "failed-spawn:parent-run:barrier-1:child-run",
+            details: expect.objectContaining({
+              waitBarrierId: "barrier-1",
+              parentThreadId: "parent-thread",
+              parentRunId: "parent-run",
+              dependencyMode: "required_all",
+              failurePolicy: "ask_user",
+              childStatuses: [{ childRunId: "child-run", status: "failed" }],
+              resultValidation: expect.objectContaining({
+                synthesisAllowed: false,
+              }),
+              resultArtifact: expect.objectContaining({
+                runId: "child-run",
+                status: "failed",
+              }),
+            }),
+          }),
           resultValidation: expect.objectContaining({
             valid: true,
             synthesisAllowed: false,
@@ -79,14 +103,24 @@ describe("subagentFailedSpawnWaitBarrier", () => {
   it("builds a compact resolution artifact that never allows parent synthesis", () => {
     const run = failedRun({ omitResultArtifact: true });
     expect(buildSubagentFailedSpawnWaitBarrierResolutionArtifact({
+      waitBarrier: waitBarrier({ status: "waiting_on_children" }),
       run,
       resultValidation: { valid: false, reason: "missing artifact" },
-    })).toEqual({
+    })).toMatchObject({
       schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
       childRunIds: ["child-run"],
       childStatuses: [{ childRunId: "child-run", status: "failed" }],
       timedOut: false,
       synthesisAllowed: false,
+      transitionEvidence: expect.objectContaining({
+        kind: "failed_spawn",
+        source: "barrier_controller",
+        reason: "missing artifact",
+        details: expect.objectContaining({
+          resultArtifact: null,
+          resultValidation: { valid: false, reason: "missing artifact" },
+        }),
+      }),
       resultValidation: { valid: false, reason: "missing artifact" },
       resultArtifact: null,
     });

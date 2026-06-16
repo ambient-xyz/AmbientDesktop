@@ -129,8 +129,8 @@ describe("searchSettingsTools", () => {
       expect.objectContaining({ providerId: "ambient-brave-search", kind: "ambient-cli" }),
     ]));
     expect(settings.webResearch?.preferences.search).toEqual([
-      "exa-mcp-default",
       "ambient-brave-search",
+      "exa-mcp-default",
       "ambient-browser",
     ]);
   });
@@ -188,8 +188,8 @@ describe("searchSettingsTools", () => {
       }),
     ]));
     expect(settings.webResearch?.preferences.search).toEqual([
-      "exa-mcp-default",
       "mcp:io.example/brave-mcp/web_search",
+      "exa-mcp-default",
       "ambient-browser",
     ]);
     expect(settings.webResearch?.preferences.fetch).toEqual([
@@ -318,7 +318,7 @@ describe("searchSettingsTools", () => {
     );
 
     expect(plan.hasChanges).toBe(true);
-    expect(plan.nextSettings.webResearch?.preferences.search).toEqual(["exa-mcp-default", "ambient-browser"]);
+    expect(plan.nextSettings.webResearch?.preferences.search).toEqual(["ambient-brave-search", "exa-mcp-default", "ambient-browser"]);
     expect(plan.nextSettings.webResearch?.fallbackPolicy).toEqual({ allowBrowserFallback: true });
   });
 
@@ -329,7 +329,7 @@ describe("searchSettingsTools", () => {
       braveCatalog(),
     );
 
-    expect(legacyClear.nextSettings.webResearch?.preferences.search).toEqual(["exa-mcp-default", "ambient-browser"]);
+    expect(legacyClear.nextSettings.webResearch?.preferences.search).toEqual(["ambient-brave-search", "exa-mcp-default", "ambient-browser"]);
     expect(() => planSearchPreferenceUpdate({}, {}, braveCatalog())).toThrow("action=reset_search_defaults");
   });
 

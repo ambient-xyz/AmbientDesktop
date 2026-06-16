@@ -56,8 +56,10 @@ export function buildLocalDeepResearchSystemPrompt(input: {
   setup: LocalDeepResearchSetupContract;
   providerSnapshot?: LocalDeepResearchProviderSnapshot;
   maxToolCalls?: number;
+  finalSynthesisReserveTurns?: number;
 }): string {
   const snapshot = input.providerSnapshot ?? input.setup.providerSnapshot;
+  const finalSynthesisReserveTurns = Math.max(1, Math.floor(input.finalSynthesisReserveTurns ?? 3));
   return [
     "You are LiteResearcher running as Ambient Local Deep Research.",
     "Use only the provided tools for current public evidence. Do not invent search or scraping providers.",
@@ -66,6 +68,8 @@ export function buildLocalDeepResearchSystemPrompt(input: {
     `Visit provider order: ${snapshot.fetchOrder.length ? snapshot.fetchOrder.join(" -> ") : "none"}.`,
     `Browser fallback: ${snapshot.fallbackPolicy.allowBrowserFallback ? "allowed" : "blocked"}.`,
     `Tool budget: ${Math.max(1, Math.floor(input.maxToolCalls ?? 12))} calls.`,
+    `Final synthesis reserve: ${finalSynthesisReserveTurns} no-tools model turn(s) after evidence collection.`,
+    "After each tool response, Ambient may include a <budget_state>{...}</budget_state> block with usedToolCalls and remainingToolCalls. Plan to answer before remainingToolCalls reaches 0; Ambient will close tools and force final synthesis when the evidence budget is exhausted.",
     "You may use <think>...</think> scratch, but every actionable response must include exactly one <tool_call>...</tool_call> or one <answer>...</answer> block.",
     "When you need web evidence, return exactly one <tool_call> JSON block and no answer.",
     'Search tool call shape: <tool_call>{"name":"search","arguments":{"query":"...","maxResults":5}}</tool_call>',

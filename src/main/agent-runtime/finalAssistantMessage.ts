@@ -89,6 +89,7 @@ export function finalAssistantMessageModel(input: FinalAssistantMessageInput): F
               reason: "required_wait_barrier_not_satisfied",
               barrierIds: input.subagentFinalizationBlock.barrierIds,
               childRunIds: input.subagentFinalizationBlock.childRunIds,
+              childBlockers: input.subagentFinalizationBlock.childBlockers,
               barriers: input.subagentFinalizationBlock.barriers,
               parentMailboxEventIds: input.subagentFinalizationParentMailboxEventIds,
             },

@@ -128,6 +128,44 @@ describe("subagentSpawnPreRunPlanner", () => {
     });
   });
 
+  it("plans explicit browser-interactive child authority without widening explorer defaults", () => {
+    const plan = resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Use browser search only if the parent approves child browser network access.",
+        roleId: "explorer",
+        dependencyMode: "required",
+        forkMode: "recent_turns",
+        promptMode: "fresh",
+        toolScope: {
+          requestedCategories: ["browser.interactive"],
+          childAuthority: {
+            taskIntent: "analysis",
+            network: "ask_parent",
+            mutation: "deny",
+          },
+        },
+        idempotencyKey: "spawn:browser-approval-roundtrip",
+      },
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    });
+
+    expect(plan.roleId).toBe("explorer");
+    expect(plan.requestedToolScope).toEqual({
+      requestedCategories: ["browser.interactive"],
+      childAuthority: {
+        taskIntent: "analysis",
+        network: "ask_parent",
+        mutation: "deny",
+      },
+    });
+    expect(plan.idempotencyKey).toBe("spawn:browser-approval-roundtrip");
+    expect(plan.role.defaultToolCategories).not.toContain("browser.interactive");
+  });
+
   it("rejects malformed effective role launch contracts before run creation", () => {
     const baseInput = {
       parentThread: parentThread(),

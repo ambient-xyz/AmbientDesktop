@@ -1,5 +1,5 @@
 import { LoaderCircle } from "lucide-react";
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import type { RunStatus, RuntimeActivity } from "../../shared/types";
@@ -115,7 +115,7 @@ export function useAppRunActivityControls({
   appendThinkingDeltaLine: (messageId: string, delta: string) => void;
   resetRunActivityLines: (initialText?: string, threadId?: string) => void;
 } {
-  function createRunActivityLine(text: string, kind: RunActivityLine["kind"]): RunActivityLine {
+  const createRunActivityLine = useCallback((text: string, kind: RunActivityLine["kind"]): RunActivityLine => {
     runActivityCounterRef.current += 1;
     const timestamp = Date.now();
     return createRunActivityLineFromCounter({
@@ -124,9 +124,9 @@ export function useAppRunActivityControls({
       text,
       timestamp,
     });
-  }
+  }, [runActivityCounterRef]);
 
-  function resetRunActivityLines(initialText?: string, threadId = activeThreadIdRef.current) {
+  const resetRunActivityLines = useCallback((initialText?: string, threadId = activeThreadIdRef.current) => {
     if (!threadId) return;
     thinkingDeltaBuffersRef.current = {};
     runActivityLastEventAtRef.current = Date.now();
@@ -141,14 +141,24 @@ export function useAppRunActivityControls({
     const nextLines = initialText ? [createRunActivityLine(initialText, "state")] : [];
     runActivityLinesByThreadRef.current = { ...runActivityLinesByThreadRef.current, [threadId]: nextLines };
     setRunActivityLinesByThread((current) => ({ ...current, [threadId]: nextLines }));
-  }
+  }, [
+    activeThreadIdRef,
+    createRunActivityLine,
+    requestMessageTail,
+    runActivityHeartbeatIndexRef,
+    runActivityLastEventAtRef,
+    runActivityLinesByThreadRef,
+    setRetryStatsByThread,
+    setRunActivityLinesByThread,
+    thinkingDeltaBuffersRef,
+  ]);
 
-  function appendRunActivityLine(
+  const appendRunActivityLine = useCallback((
     text: string,
     kind: RunActivityLine["kind"] = "state",
     options: { dedupe?: boolean } = {},
     threadId = activeThreadIdRef.current,
-  ) {
+  ) => {
     if (!threadId) return;
     const normalized = normalizeRunActivityLineText(text);
     const currentLines = runActivityLinesByThreadRef.current[threadId] ?? [];
@@ -165,13 +175,19 @@ export function useAppRunActivityControls({
       runActivityLinesByThreadRef.current = nextState;
       return nextState;
     });
-  }
+  }, [
+    activeThreadIdRef,
+    createRunActivityLine,
+    runActivityLastEventAtRef,
+    runActivityLinesByThreadRef,
+    setRunActivityLinesByThread,
+  ]);
 
-  function appendThinkingDeltaLine(messageId: string, delta: string) {
+  const appendThinkingDeltaLine = useCallback((messageId: string, delta: string) => {
     const { completedLines, remainder } = runActivityThinkingDeltaUpdate(thinkingDeltaBuffersRef.current[messageId], delta);
     for (const line of completedLines) appendRunActivityLine(line, "thinking");
     thinkingDeltaBuffersRef.current[messageId] = remainder;
-  }
+  }, [appendRunActivityLine, thinkingDeltaBuffersRef]);
 
   return {
     appendRunActivityLine,

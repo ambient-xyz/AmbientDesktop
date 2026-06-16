@@ -522,7 +522,7 @@ Added focused validation:
 
 - `src/main/projectBoardSectionedPlanning.test.ts` covers heading-based source sections, long unheaded chunking, and sectioned-planning threshold behavior;
 - `src/main/projectBoardSynthesisProvider.test.ts` covers section-by-section provider calls, per-section progressive record callbacks, and final draft assembly from accumulated records;
-- `src/main/projectBoardSynthesisProvider.live.test.ts` includes a live sectioned planning smoke against `/path/to/testStarshipGame/GAME_DESIGN_DOCUMENT.md`.
+- `src/main/projectBoardSynthesisProvider.live.test.ts` includes a live sectioned planning smoke against `/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md`.
 
 Validation run:
 
@@ -568,7 +568,7 @@ Validation run:
 - `pnpm exec vitest run src/main/projectBoardArtifactExport.test.ts src/main/projectBoardArtifactImport.test.ts src/main/projectBoardProgressivePlanning.test.ts`
 - `bash scripts/test-node-native.sh src/main/projectStore.test.ts`
 - `pnpm run typecheck`
-- `AMBIENT_PROJECT_BOARD_PROVIDER_LIVE=1 AMBIENT_API_KEY_FILE=/path/to/AmbientDesktop/ambient_api_key.txt pnpm exec vitest run src/main/projectBoardSynthesisProvider.live.test.ts -t "sectioned planning"` passed against `/path/to/testStarshipGame/GAME_DESIGN_DOCUMENT.md` in 143.85s.
+- `AMBIENT_PROJECT_BOARD_PROVIDER_LIVE=1 AMBIENT_API_KEY_FILE=/path/to/AmbientDesktop/ambient_api_key.txt pnpm exec vitest run src/main/projectBoardSynthesisProvider.live.test.ts -t "sectioned planning"` passed against `/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md` in 143.85s.
 
 ### Completed On 2026-05-04: Phase 5E Section Retry UX And Planner-Action Protocol Hardening
 
@@ -599,7 +599,7 @@ Validation run:
 - `pnpm exec vitest run src/main/projectBoardPlannerActions.test.ts src/main/projectBoardArtifactExport.test.ts src/main/projectBoardArtifactImport.test.ts src/main/projectBoardSynthesisProvider.test.ts src/main/projectBoardSectionedPlanning.test.ts src/main/projectBoardProgressivePlanning.test.ts`
 - `bash scripts/test-node-native.sh src/main/projectStore.test.ts`
 - `pnpm run typecheck`
-- `AMBIENT_PROJECT_BOARD_PROVIDER_LIVE=1 AMBIENT_API_KEY_FILE=/path/to/AmbientDesktop/ambient_api_key.txt pnpm exec vitest run src/main/projectBoardSynthesisProvider.live.test.ts -t "sectioned planning"` passed against `/path/to/testStarshipGame/GAME_DESIGN_DOCUMENT.md` in 208.98s.
+- `AMBIENT_PROJECT_BOARD_PROVIDER_LIVE=1 AMBIENT_API_KEY_FILE=/path/to/AmbientDesktop/ambient_api_key.txt pnpm exec vitest run src/main/projectBoardSynthesisProvider.live.test.ts -t "sectioned planning"` passed against `/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md` in 208.98s.
 
 ### Completed On 2026-05-04: Phase 5F Partial Proposal Controls And Direct Section Retry Commands
 
@@ -635,7 +635,7 @@ Validation run:
 
 - `pnpm exec vitest run src/shared/projectBoardSynthesisRecovery.test.ts src/main/projectBoardSynthesisProvider.test.ts`
 - `pnpm run typecheck`
-- `AMBIENT_PROJECT_BOARD_PROVIDER_LIVE=1 AMBIENT_API_KEY_FILE=/path/to/AmbientDesktop/ambient_api_key.txt pnpm exec vitest run src/main/projectBoardSynthesisProvider.live.test.ts -t "sectioned planning imports progressive records"` passed against `/path/to/testStarshipGame/GAME_DESIGN_DOCUMENT.md` after rebasing in 148.60s.
+- `AMBIENT_PROJECT_BOARD_PROVIDER_LIVE=1 AMBIENT_API_KEY_FILE=/path/to/AmbientDesktop/ambient_api_key.txt pnpm exec vitest run src/main/projectBoardSynthesisProvider.live.test.ts -t "sectioned planning imports progressive records"` passed against `/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md` after rebasing in 148.60s.
 
 ### Completed On 2026-05-04: Phase 5G Durable Progressive Proposal Import
 
@@ -666,7 +666,7 @@ Validation run:
 - `pnpm exec vitest run src/main/projectBoardProgressivePlanning.test.ts src/main/projectBoardSynthesisProvider.test.ts`
 - `bash scripts/test-node-native.sh src/main/projectStore.test.ts`
 - `pnpm run typecheck`
-- `AMBIENT_PROJECT_BOARD_PROVIDER_LIVE=1 AMBIENT_API_KEY_FILE=/path/to/AmbientDesktop/ambient_api_key.txt pnpm exec vitest run src/main/projectBoardSynthesisProvider.live.test.ts -t "sectioned planning imports progressive records"` passed against `/path/to/testStarshipGame/GAME_DESIGN_DOCUMENT.md` in 227.05s.
+- `AMBIENT_PROJECT_BOARD_PROVIDER_LIVE=1 AMBIENT_API_KEY_FILE=/path/to/AmbientDesktop/ambient_api_key.txt pnpm exec vitest run src/main/projectBoardSynthesisProvider.live.test.ts -t "sectioned planning imports progressive records"` passed against `/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md` in 227.05s.
 
 ### Completed On 2026-05-04: Phase 6A Explicit Git Board Sync
 
@@ -1792,7 +1792,7 @@ Tests:
 - JSONL tail/import unit tests.
 - Partial failure and retry tests.
 - Provider mock tests for streamed partial artifacts.
-- Live Ambient/Pi dogfood on `/path/to/testStarshipGame/GAME_DESIGN_DOCUMENT.md`.
+- Live Ambient/Pi dogfood on `/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md`.
 
 ### Phase 6: Git Board Sync Without Collaboration Claims
 

@@ -60,7 +60,7 @@ describe("permission grants", () => {
   });
 
   it("limits sensitive grants to thread-level scopes by default", () => {
-    const secret = enrichPermissionRequest(request({ risk: "secret-path", detail: "/path/to/.ssh/id_rsa" }), baseContext);
+    const secret = enrichPermissionRequest(request({ risk: "secret-path", detail: "/Users/example/.ssh/id_rsa" }), baseContext);
     const login = enrichPermissionRequest(request({ risk: "browser-login", detail: "https://example.com" }), baseContext);
     const privileged = enrichPermissionRequest(request({ risk: "privileged-action", toolName: "ambient_privileged_action_request" }), baseContext);
 
