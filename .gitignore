@@ -13,6 +13,9 @@ reasoningTestResults/
 .ambient/
 .playwright-mcp/
 *.log
+.env
+.env.*
+!.env.example
 runtime-smoke*.txt
 pong.html
 ambient_api_key.txt
