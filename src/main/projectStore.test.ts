@@ -8330,6 +8330,65 @@ Work on Local Task {{ task.identifier }}.`;
     });
   });
 
+  it("records workflow creation events without spamming duplicate board history", () => {
+    const board = store.createProjectBoard({ title: "Workflow creation board" });
+    const workflowPath = join(workspacePath, "WORKFLOW.md");
+
+    const first = store.recordProjectBoardWorkflowCreated({
+      boardId: board.id,
+      workflowPath,
+      workflowHash: "hash-1",
+      source: "auto_dispatch",
+      workspaceStrategy: "git-worktree",
+      autoDispatch: true,
+      maxConcurrentAgents: 3,
+    });
+    const duplicate = store.recordProjectBoardWorkflowCreated({
+      boardId: board.id,
+      workflowPath,
+      workflowHash: "hash-1",
+      source: "auto_dispatch",
+      workspaceStrategy: "git-worktree",
+      autoDispatch: true,
+      maxConcurrentAgents: 3,
+    });
+    const changed = store.recordProjectBoardWorkflowCreated({
+      boardId: board.id,
+      workflowPath,
+      workflowHash: "hash-2",
+      source: "manual_prepare",
+      workspaceStrategy: "directory",
+      autoDispatch: false,
+      maxConcurrentAgents: 1,
+    });
+
+    expect(first.recorded).toBe(true);
+    expect(duplicate.recorded).toBe(false);
+    expect(changed.recorded).toBe(true);
+    const events = store.getActiveProjectBoard()?.events?.filter((event) => event.kind === "workflow_created") ?? [];
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      metadata: {
+        source: "manual_prepare",
+        workflowPath,
+        workflowHash: "hash-2",
+        workspaceStrategy: "directory",
+        autoDispatch: false,
+        maxConcurrentAgents: 1,
+      },
+    });
+    expect(events[1]).toMatchObject({
+      metadata: {
+        source: "auto_dispatch",
+        workflowPath,
+        workflowHash: "hash-1",
+        workspaceStrategy: "git-worktree",
+        autoDispatch: true,
+        maxConcurrentAgents: 3,
+      },
+    });
+  });
+
   it("surfaces expired remote claims without blocking ready task creation", () => {
     const board = store.createProjectBoard({ title: "Expired claim board" });
     const card = store.createProjectBoardManualCard({

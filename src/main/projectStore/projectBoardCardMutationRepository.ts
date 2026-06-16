@@ -10,13 +10,19 @@ import type {
   ProjectBoardCardClarificationDecision,
   ProjectBoardCardClarificationSuggestion,
   ProjectBoardCardPendingPiUpdate,
+  ProjectBoardCardProofRecommendedAction,
   ProjectBoardCardProofReview,
+  ProjectBoardCardProofReviewStatus,
   ProjectBoardCardRunFeedback,
+  ProjectBoardCardSplitOutcome,
+  ProjectBoardCardSplitOutcomeStatus,
   ProjectBoardCardStatus,
   ProjectBoardCardTestPlan,
   ProjectBoardCardTouchedField,
   ProjectBoardEvent,
   ProjectBoardPlanningSnapshot,
+  ProjectBoardProofDecisionAction,
+  ProjectBoardSplitDecisionAction,
   ProjectBoardSynthesisRun,
   ProjectBoardSummary,
 } from "../../shared/projectBoardTypes";
@@ -42,6 +48,7 @@ import {
   objectiveProvenanceJson,
   projectBoardCandidateStatusForSynthesisUpdate,
   projectBoardCardBlockedByOpenUxMockGate,
+  projectBoardCardIsUxMockGate,
   projectBoardCardProofCount,
   projectBoardStatusForTask,
   projectBoardChangedClarificationAnswer,
@@ -53,6 +60,7 @@ import {
   projectBoardProofEvidenceText,
   projectBoardProofFollowUpOptionsFromSuggestion,
   projectBoardProofOfWorkForRun,
+  projectBoardProofRevisionRunFeedback,
   projectBoardProofReviewApplicationBlocker,
   projectBoardProofReviewClosureModelForApplication,
   projectBoardRuntimeBudgetCompletedCriteria,
@@ -63,9 +71,11 @@ import {
   projectBoardRuntimeBudgetRemainingCriteria,
   projectBoardRuntimeBudgetReviewForApplication,
   projectBoardRuntimeBudgetSplitOutcomeForReview,
+  projectBoardRunHasReviewableProof,
   splitProjectBoardCardDescription,
   resolveProjectBoardTaskBlockers,
   projectBoardTaskStateForProofReview,
+  projectBoardUxMockRejectionRunFeedback,
   type ProjectBoardCardStoreRow,
   type ProjectBoardProofReviewDraft,
   type ProjectBoardRunFollowUpInsertOptions,
@@ -92,6 +102,7 @@ export interface ProjectStoreProjectBoardCardMutationRepositoryDeps {
   appendProjectBoardEvent(input: ProjectBoardCardMutationEventInput): void;
   syncProjectBoardTaskBlockers(boardId: string): void;
   syncProjectBoardCardsForLinkedTasks(): void;
+  listOrchestrationRuns(limit?: number): OrchestrationRun[];
   createOrchestrationTask(input: CreateOrchestrationTaskInput): OrchestrationTask;
   getOrchestrationTask(taskId: string): OrchestrationTask;
   getOrchestrationRun(runId: string): OrchestrationRun;
@@ -774,6 +785,326 @@ export class ProjectStoreProjectBoardCardMutationRepository {
     return this.getProjectBoardCard(parent.id);
   }
 
+  resolveProjectBoardProofDecision(input: { cardId: string; action: ProjectBoardProofDecisionAction; reason?: string }): ProjectBoardCard {
+    const current = this.getProjectBoardCard(input.cardId);
+    if (!current.orchestrationTaskId) {
+      throw new Error("Proof decisions require a ticketized project board card.");
+    }
+    const task = this.deps.getOrchestrationTask(current.orchestrationTaskId);
+    const taskRuns = this.deps.listOrchestrationRuns(200).filter((run) => run.taskId === task.id);
+    const activeRun = taskRuns.find((run) => ["claimed", "prepared", "preparing", "running", "retry_queued"].includes(run.status));
+    if (activeRun) {
+      throw new Error("Wait for the active card run to finish before resolving proof.");
+    }
+    const latestRun = taskRuns[0];
+    const previousReview = current.proofReview;
+    const alreadyDone = current.status === "done" || task.state.trim().toLowerCase().replace(/\s+/g, "_") === "done";
+    if (alreadyDone && input.action === "retry") {
+      throw new Error("Done project board cards cannot be sent back to Ready.");
+    }
+    const reviewableFinishedRun = Boolean(latestRun && projectBoardRunHasReviewableProof(latestRun, current));
+    if (!previousReview && current.status !== "done" && !reviewableFinishedRun) {
+      throw new Error("Run the card until a proof packet or PM proof review is ready before resolving proof.");
+    }
+
+    const now = new Date().toISOString();
+    const reason = input.reason?.trim().slice(0, 1000);
+    const previousSummary = previousReview?.summary ? ` Previous review: ${previousReview.summary}` : "";
+    const proofRevisionFeedback = input.action === "retry" ? projectBoardProofRevisionRunFeedback(previousReview, reason, now) : undefined;
+    const uxMockRejectionFeedback =
+      input.action === "mark_blocked" && projectBoardCardIsUxMockGate(current)
+        ? projectBoardUxMockRejectionRunFeedback(previousReview, reason, now)
+        : undefined;
+    const decisionFeedback = [proofRevisionFeedback, uxMockRejectionFeedback].filter(
+      (feedback): feedback is ProjectBoardCardRunFeedback => Boolean(feedback),
+    );
+    const runFeedback =
+      decisionFeedback.length > 0
+        ? normalizeProjectBoardCardRunFeedback([...(current.runFeedback ?? []), ...decisionFeedback])
+        : normalizeProjectBoardCardRunFeedback(current.runFeedback ?? []);
+    const makeReview = (
+      status: ProjectBoardCardProofReviewStatus,
+      summary: string,
+      recommendedAction: ProjectBoardCardProofRecommendedAction,
+    ): ProjectBoardCardProofReview => ({
+      status,
+      summary,
+      satisfied:
+        status === "done"
+          ? [...new Set([...(previousReview?.satisfied ?? []), "Accepted by user PM decision."])]
+          : (previousReview?.satisfied ?? []),
+      missing:
+        status === "terminally_blocked"
+          ? [...new Set([...(previousReview?.missing ?? []), reason || "Manual PM decision marked this card blocked."])]
+          : [],
+      followUpCardIds: previousReview?.followUpCardIds ?? [],
+      runId: previousReview?.runId ?? "",
+      reviewedAt: now,
+      reviewer: previousReview?.reviewer,
+      model: previousReview?.model,
+      confidence: previousReview?.confidence,
+      evidenceQuality: previousReview?.evidenceQuality,
+      recommendedAction,
+      deterministicStatus: previousReview?.deterministicStatus,
+      deterministicSummary: previousReview?.deterministicSummary,
+      judgeDurationMs: previousReview?.judgeDurationMs,
+    });
+
+    const next =
+      input.action === "accept_done"
+        ? {
+            cardStatus: "done" as ProjectBoardCardStatus,
+            taskState: "done",
+            proofReviewJson: JSON.stringify(
+              makeReview(
+                "done",
+                `Accepted as done by user PM decision.${reason ? ` Reason: ${reason}` : ""}${previousSummary}`,
+                "close",
+              ),
+            ),
+            eventTitle: "Proof accepted as done",
+            eventSummary: `${current.title} was manually accepted as done.`,
+          }
+        : input.action === "retry"
+          ? {
+              cardStatus: "ready" as ProjectBoardCardStatus,
+              taskState: "ready",
+              proofReviewJson: null,
+              eventTitle: "Proof sent back for revision",
+              eventSummary: `${current.title} was returned to Ready with next-run proof feedback.`,
+            }
+          : {
+              cardStatus: "blocked" as ProjectBoardCardStatus,
+              taskState: "terminal_blocker",
+              proofReviewJson: JSON.stringify(
+                makeReview(
+                  "terminally_blocked",
+                  `Marked blocked by user PM decision.${reason ? ` Reason: ${reason}` : ""}${previousSummary}`,
+                  "block",
+                ),
+              ),
+              eventTitle: "Proof marked blocked",
+              eventSummary: `${current.title} was manually marked blocked.`,
+            };
+
+    this.db
+      .prepare("UPDATE project_board_cards SET status = ?, proof_review_json = ?, run_feedback_json = ?, updated_at = ? WHERE id = ?")
+      .run(next.cardStatus, next.proofReviewJson, JSON.stringify(runFeedback), now, current.id);
+    this.db
+      .prepare("UPDATE orchestration_tasks SET state = ?, updated_at = ? WHERE id = ?")
+      .run(next.taskState, now, task.id);
+    this.touchBoard(current.boardId, now);
+    if (decisionFeedback.length > 0) {
+      const updated = this.getProjectBoardCard(current.id);
+      this.deps.updateOrchestrationTaskDescription(task.id, this.deps.projectBoardCardTaskDescription(updated));
+    }
+    this.deps.appendProjectBoardEvent({
+      boardId: current.boardId,
+      kind: "card_updated",
+      title: next.eventTitle,
+      summary: next.eventSummary,
+      entityKind: "project_board_card",
+      entityId: current.id,
+      metadata: {
+        cardId: current.id,
+        taskId: task.id,
+        action: input.action,
+        reason,
+        previousProofReviewStatus: previousReview?.status,
+        previousRecommendedAction: previousReview?.recommendedAction,
+        previousRunId: previousReview?.runId,
+        runFeedback:
+          decisionFeedback[0]
+            ? {
+                id: decisionFeedback[0].id,
+                source: decisionFeedback[0].source,
+                decisionQuestion: decisionFeedback[0].decisionQuestion,
+                modelCallRequired: false,
+              }
+            : undefined,
+        runFeedbackItems:
+          decisionFeedback.length > 1
+            ? decisionFeedback.map((feedback) => ({
+                id: feedback.id,
+                source: feedback.source,
+                decisionQuestion: feedback.decisionQuestion,
+                modelCallRequired: false,
+              }))
+            : undefined,
+      },
+      createdAt: now,
+    });
+    this.deps.syncProjectBoardCardsForLinkedTasks();
+    return this.getProjectBoardCard(current.id);
+  }
+
+  resolveProjectBoardSplitDecision(input: { cardId: string; action: ProjectBoardSplitDecisionAction; reason?: string }): ProjectBoardCard {
+    const current = this.getProjectBoardCard(input.cardId);
+    const splitOutcome = current.splitOutcome;
+    if (!splitOutcome) throw new Error("This project board card does not have a split outcome to resolve.");
+    const task = current.orchestrationTaskId ? this.deps.getOrchestrationTask(current.orchestrationTaskId) : undefined;
+    const activeRun = task
+      ? this.deps.listOrchestrationRuns(200).find((run) => run.taskId === task.id && ["claimed", "prepared", "preparing", "running", "retry_queued"].includes(run.status))
+      : undefined;
+    if (activeRun) throw new Error("Wait for the active card run to finish before resolving this split.");
+    if (current.status === "done" || task?.state === "done") throw new Error("This split has already been closed.");
+
+    const now = new Date().toISOString();
+    const reason = input.reason?.trim().slice(0, 1000);
+    const childCards = splitOutcome.childCardIds.map((id) => this.tryGetProjectBoardCard(id)).filter((card): card is ProjectBoardCard => Boolean(card));
+    const childIds = childCards.map((card) => card.id);
+    const rejectDraftChildren = () => {
+      if (childIds.length === 0) return;
+      const placeholders = childIds.map(() => "?").join(", ");
+      this.db
+        .prepare(
+          `UPDATE project_board_cards
+           SET candidate_status = 'rejected', updated_at = ?
+           WHERE id IN (${placeholders}) AND orchestration_task_id IS NULL AND status = 'draft'`,
+        )
+        .run(now, ...childIds);
+    };
+    const updateTaskState = (state: string) => {
+      if (!task) throw new Error("This split decision requires a ticketized project board card.");
+      this.db.prepare("UPDATE orchestration_tasks SET state = ?, updated_at = ? WHERE id = ?").run(state, now, task.id);
+    };
+    const updatedOutcome = (status: ProjectBoardCardSplitOutcomeStatus): ProjectBoardCardSplitOutcome => ({
+      ...splitOutcome,
+      status,
+      updatedAt: now,
+    });
+    const closureReview = (
+      status: ProjectBoardCardSplitOutcomeStatus,
+      summary: string,
+      recommendedAction: ProjectBoardCardProofRecommendedAction = "close",
+    ): ProjectBoardCardProofReview => ({
+      status: "done",
+      summary,
+      satisfied: [
+        ...new Set([
+          ...(current.proofReview?.satisfied ?? []),
+          status === "done_via_split" ? "Split follow-ups were completed before the parent was closed." : "Parent was replaced by split follow-up cards.",
+        ]),
+      ],
+      missing: [],
+      followUpCardIds: splitOutcome.childCardIds,
+      runId: current.proofReview?.runId ?? splitOutcome.sourceRunId,
+      reviewedAt: now,
+      reviewer: current.proofReview?.reviewer,
+      model: current.proofReview?.model,
+      confidence: current.proofReview?.confidence,
+      evidenceQuality: current.proofReview?.evidenceQuality,
+      recommendedAction,
+      deterministicStatus: current.proofReview?.deterministicStatus,
+      deterministicSummary: current.proofReview?.deterministicSummary,
+      judgeDurationMs: current.proofReview?.judgeDurationMs,
+    });
+    const childIsTerminal = (child: ProjectBoardCard): boolean =>
+      child.status === "done" || child.candidateStatus === "evidence" || child.candidateStatus === "duplicate";
+
+    let nextCardStatus: ProjectBoardCardStatus = current.status;
+    let nextProofReviewJson: string | null = current.proofReview ? JSON.stringify(current.proofReview) : null;
+    let nextSplitOutcome = splitOutcome;
+    let eventTitle = "Split decision recorded";
+    let eventSummary = `${current.title} split decision was updated.`;
+
+    if (input.action === "approve_split") {
+      nextSplitOutcome = updatedOutcome("approved");
+      eventTitle = "Split follow-ups approved";
+      eventSummary = `${current.title} follow-up split was approved for separate execution.`;
+    } else if (input.action === "reject_split") {
+      rejectDraftChildren();
+      nextSplitOutcome = updatedOutcome("rejected");
+      eventTitle = "Split follow-ups rejected";
+      eventSummary = `${current.title} follow-up split was rejected; unticketized split children were moved out of execution.`;
+    } else if (input.action === "retry_original") {
+      updateTaskState("ready");
+      rejectDraftChildren();
+      nextCardStatus = "ready";
+      nextProofReviewJson = null;
+      nextSplitOutcome = updatedOutcome("rejected");
+      eventTitle = "Original card queued for retry";
+      eventSummary = `${current.title} returned to Ready and split follow-ups were rejected.`;
+    } else if (input.action === "merge_followups") {
+      updateTaskState("ready");
+      rejectDraftChildren();
+      const mergedCriteria = normalizeCardTextList(
+        [
+          ...current.acceptanceCriteria,
+          ...splitOutcome.remainingCriteria,
+          ...childCards.flatMap((child) => child.acceptanceCriteria),
+        ],
+        30,
+      );
+      const mergedLabels = normalizeTaskLabels([...current.labels, ...childCards.flatMap((child) => child.labels), "merged-follow-up"]);
+      this.db
+        .prepare("UPDATE project_board_cards SET acceptance_criteria_json = ?, labels_json = ? WHERE id = ?")
+        .run(JSON.stringify(mergedCriteria), JSON.stringify(mergedLabels), current.id);
+      nextCardStatus = "ready";
+      nextProofReviewJson = null;
+      nextSplitOutcome = updatedOutcome("rejected");
+      eventTitle = "Split follow-ups merged into parent";
+      eventSummary = `${current.title} returned to Ready with follow-up criteria merged back into the original card.`;
+    } else if (input.action === "mark_replaced") {
+      updateTaskState("done");
+      nextCardStatus = "done";
+      nextSplitOutcome = updatedOutcome("replaced");
+      nextProofReviewJson = JSON.stringify(
+        closureReview(
+          "replaced",
+          `${current.title} was closed as replaced by split follow-up cards.${reason ? ` Reason: ${reason}` : ""}`,
+        ),
+      );
+      eventTitle = "Parent closed as replaced";
+      eventSummary = `${current.title} was marked replaced by split follow-up cards.`;
+    } else {
+      if (childCards.length === 0 || childCards.length !== splitOutcome.childCardIds.length) {
+        throw new Error("All split follow-up cards must be present before closing the parent as done via split.");
+      }
+      const openChildren = childCards.filter((child) => !childIsTerminal(child));
+      if (openChildren.length > 0) {
+        throw new Error(`Finish or mark represented split follow-up cards before closing the parent: ${openChildren.map((child) => child.title).join(", ")}`);
+      }
+      updateTaskState("done");
+      nextCardStatus = "done";
+      nextSplitOutcome = updatedOutcome("done_via_split");
+      nextProofReviewJson = JSON.stringify(
+        closureReview(
+          "done_via_split",
+          `${current.title} was closed after its split follow-up cards reached terminal states.${reason ? ` Reason: ${reason}` : ""}`,
+        ),
+      );
+      eventTitle = "Parent closed via split";
+      eventSummary = `${current.title} was closed because its split follow-up cards are complete or represented.`;
+    }
+
+    this.db
+      .prepare("UPDATE project_board_cards SET status = ?, proof_review_json = ?, split_outcome_json = ?, updated_at = ? WHERE id = ?")
+      .run(nextCardStatus, nextProofReviewJson, JSON.stringify(nextSplitOutcome), now, current.id);
+    this.touchBoard(current.boardId, now);
+    this.deps.appendProjectBoardEvent({
+      boardId: current.boardId,
+      kind: "card_split",
+      title: eventTitle,
+      summary: eventSummary,
+      entityKind: "project_board_card",
+      entityId: current.id,
+      metadata: {
+        cardId: current.id,
+        taskId: task?.id,
+        action: input.action,
+        reason,
+        splitOutcomeStatus: nextSplitOutcome.status,
+        sourceRunId: splitOutcome.sourceRunId,
+        childCardIds: splitOutcome.childCardIds,
+      },
+      createdAt: now,
+    });
+    this.deps.syncProjectBoardTaskBlockers(current.boardId);
+    this.deps.syncProjectBoardCardsForLinkedTasks();
+    return this.getProjectBoardCard(current.id);
+  }
+
   updateCard(input: UpdateProjectBoardCardMutationInput): ProjectBoardCard {
     const current = this.getProjectBoardCard(input.cardId);
     if (current.orchestrationTaskId || current.status !== "draft") {
@@ -1318,6 +1649,13 @@ export class ProjectStoreProjectBoardCardMutationRepository {
       | undefined;
     if (!row) throw new Error(`Project board card not found: ${cardId}`);
     return mapProjectBoardCardRow(row, this.deps.listOrchestrationTasks());
+  }
+
+  private tryGetProjectBoardCard(cardId: string): ProjectBoardCard | undefined {
+    const row = this.db.prepare("SELECT * FROM project_board_cards WHERE id = ?").get(cardId) as
+      | ProjectBoardCardStoreRow
+      | undefined;
+    return row ? mapProjectBoardCardRow(row, this.deps.listOrchestrationTasks()) : undefined;
   }
 
   private touchBoard(boardId: string, updatedAt: string): void {

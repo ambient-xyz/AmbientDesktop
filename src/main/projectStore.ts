@@ -55,13 +55,8 @@ import type {
   ProjectBoardCardClarificationDecision,
   ProjectBoardCardClarificationSuggestion,
   ProjectBoardCardExecutionSessionPolicy,
-  ProjectBoardCardProofRecommendedAction,
   ProjectBoardCardProofReview,
-  ProjectBoardCardProofReviewStatus,
-  ProjectBoardCardSplitOutcome,
-  ProjectBoardCardSplitOutcomeStatus,
   ProjectBoardCardPendingPiUpdate,
-  ProjectBoardCardRunFeedback,
   ProjectBoardCardStatus,
   ProjectBoardCardTestPlan,
   ProjectBoardCardTouchedField,
@@ -335,6 +330,11 @@ import { ProjectStoreProjectBoardCardMutationRepository } from "./projectStore/p
 import { ProjectStoreProjectBoardLifecycleRepository } from "./projectStore/projectBoardLifecycleRepository";
 import { ProjectStoreProjectBoardSourceRepository } from "./projectStore/projectBoardSourceRepository";
 import { ProjectStoreProjectBoardPlanningSnapshotRepository } from "./projectStore/projectBoardPlanningSnapshotRepository";
+import { ProjectStoreProjectBoardDeliverableIntegrationRepository } from "./projectStore/projectBoardDeliverableIntegrationRepository";
+import { ProjectStoreProjectBoardCardExecutionSessionRepository } from "./projectStore/projectBoardCardExecutionSessionRepository";
+import { ProjectStoreProjectBoardSessionCopyRepository } from "./projectStore/projectBoardSessionCopyRepository";
+import { ProjectStoreProjectBoardExecutionReadinessRepository } from "./projectStore/projectBoardExecutionReadinessRepository";
+import { ProjectStoreProjectBoardWorkflowRepository } from "./projectStore/projectBoardWorkflowRepository";
 import { ProjectStoreProjectBoardSynthesisApplyRepository } from "./projectStore/projectBoardSynthesisApplyRepository";
 import { ProjectStoreProjectBoardSynthesisProposalRepository } from "./projectStore/projectBoardSynthesisProposalRepository";
 import { ProjectStoreProjectBoardSynthesisRunRepository } from "./projectStore/projectBoardSynthesisRunRepository";
@@ -436,7 +436,6 @@ import {
   objectiveProvenanceJson,
   normalizeProjectBoardCardRunFeedback,
   normalizeProjectBoardCardRunFeedbackSource,
-  normalizeProjectBoardCardExecutionSessionPolicy,
   normalizeProjectBoardCardTestPlan,
   normalizeProjectBoardClarificationAnswers,
   normalizeProjectBoardClarificationDecisions,
@@ -463,7 +462,6 @@ import {
   parseProjectBoardStringList,
   mergeProjectBoardTaskToolActionsForProof,
   projectBoardCardProofCount,
-  projectBoardCardIsUxMockGate,
   projectBoardCardMatchesRef,
   projectBoardCardMissingRequiredUxMockGate,
   projectBoardCardRowIsClosedDone,
@@ -497,11 +495,8 @@ import {
   projectBoardProofObject,
   projectBoardPromptList,
   projectBoardPromptSummary,
-  projectBoardProofRevisionRunFeedback,
   projectBoardProofReviewFromDraft,
   projectBoardRuntimeBudgetTrustworthyTaskActions,
-  projectBoardRunStatusCanCopySession,
-  projectBoardRunHasReviewableProof,
   projectBoardRunStageFromArtifactProgress,
   projectBoardRunStageFromManifest,
   projectBoardRunStatusFromProposalManifest,
@@ -516,7 +511,6 @@ import {
   projectBoardSourceInputFromExisting,
   projectBoardTestPolicyRequiresProofSpec,
   projectBoardUnansweredClarificationQuestions,
-  projectBoardUxMockRejectionRunFeedback,
   projectBoardUxMockGateSatisfied,
   projectBoardPlanningStableJson,
   projectBoardSourceDraftRefreshEventMetadata,
@@ -2500,159 +2494,7 @@ export class ProjectStore {
   }
 
   resolveProjectBoardProofDecision(input: { cardId: string; action: ProjectBoardProofDecisionAction; reason?: string }): ProjectBoardCard {
-    const current = this.getProjectBoardCard(input.cardId);
-    if (!current.orchestrationTaskId) {
-      throw new Error("Proof decisions require a ticketized project board card.");
-    }
-    const task = this.getOrchestrationTask(current.orchestrationTaskId);
-    const taskRuns = this.listOrchestrationRuns(200).filter((run) => run.taskId === task.id);
-    const activeRun = taskRuns.find((run) => ["claimed", "prepared", "preparing", "running", "retry_queued"].includes(run.status));
-    if (activeRun) {
-      throw new Error("Wait for the active card run to finish before resolving proof.");
-    }
-    const latestRun = taskRuns[0];
-    const previousReview = current.proofReview;
-    const alreadyDone = current.status === "done" || task.state.trim().toLowerCase().replace(/\s+/g, "_") === "done";
-    if (alreadyDone && input.action === "retry") {
-      throw new Error("Done project board cards cannot be sent back to Ready.");
-    }
-    const reviewableFinishedRun = Boolean(latestRun && projectBoardRunHasReviewableProof(latestRun, current));
-    if (!previousReview && current.status !== "done" && !reviewableFinishedRun) {
-      throw new Error("Run the card until a proof packet or PM proof review is ready before resolving proof.");
-    }
-
-    const now = new Date().toISOString();
-    const reason = input.reason?.trim().slice(0, 1000);
-    const previousSummary = previousReview?.summary ? ` Previous review: ${previousReview.summary}` : "";
-    const proofRevisionFeedback = input.action === "retry" ? projectBoardProofRevisionRunFeedback(previousReview, reason, now) : undefined;
-    const uxMockRejectionFeedback =
-      input.action === "mark_blocked" && projectBoardCardIsUxMockGate(current)
-        ? projectBoardUxMockRejectionRunFeedback(previousReview, reason, now)
-        : undefined;
-    const decisionFeedback = [proofRevisionFeedback, uxMockRejectionFeedback].filter(
-      (feedback): feedback is ProjectBoardCardRunFeedback => Boolean(feedback),
-    );
-    const runFeedback =
-      decisionFeedback.length > 0
-        ? normalizeProjectBoardCardRunFeedback([...(current.runFeedback ?? []), ...decisionFeedback])
-        : normalizeProjectBoardCardRunFeedback(current.runFeedback ?? []);
-    const makeReview = (
-      status: ProjectBoardCardProofReviewStatus,
-      summary: string,
-      recommendedAction: ProjectBoardCardProofRecommendedAction,
-    ): ProjectBoardCardProofReview => ({
-      status,
-      summary,
-      satisfied:
-        status === "done"
-          ? [...new Set([...(previousReview?.satisfied ?? []), "Accepted by user PM decision."])]
-          : (previousReview?.satisfied ?? []),
-      missing:
-        status === "terminally_blocked"
-          ? [...new Set([...(previousReview?.missing ?? []), reason || "Manual PM decision marked this card blocked."])]
-          : [],
-      followUpCardIds: previousReview?.followUpCardIds ?? [],
-      runId: previousReview?.runId ?? "",
-      reviewedAt: now,
-      reviewer: previousReview?.reviewer,
-      model: previousReview?.model,
-      confidence: previousReview?.confidence,
-      evidenceQuality: previousReview?.evidenceQuality,
-      recommendedAction,
-      deterministicStatus: previousReview?.deterministicStatus,
-      deterministicSummary: previousReview?.deterministicSummary,
-      judgeDurationMs: previousReview?.judgeDurationMs,
-    });
-
-    const next =
-      input.action === "accept_done"
-        ? {
-            cardStatus: "done" as ProjectBoardCardStatus,
-            taskState: "done",
-            proofReviewJson: JSON.stringify(
-              makeReview(
-                "done",
-                `Accepted as done by user PM decision.${reason ? ` Reason: ${reason}` : ""}${previousSummary}`,
-                "close",
-              ),
-            ),
-            eventTitle: "Proof accepted as done",
-            eventSummary: `${current.title} was manually accepted as done.`,
-          }
-        : input.action === "retry"
-          ? {
-              cardStatus: "ready" as ProjectBoardCardStatus,
-              taskState: "ready",
-              proofReviewJson: null,
-              eventTitle: "Proof sent back for revision",
-              eventSummary: `${current.title} was returned to Ready with next-run proof feedback.`,
-            }
-          : {
-              cardStatus: "blocked" as ProjectBoardCardStatus,
-              taskState: "terminal_blocker",
-              proofReviewJson: JSON.stringify(
-                makeReview(
-                  "terminally_blocked",
-                  `Marked blocked by user PM decision.${reason ? ` Reason: ${reason}` : ""}${previousSummary}`,
-                  "block",
-                ),
-              ),
-              eventTitle: "Proof marked blocked",
-              eventSummary: `${current.title} was manually marked blocked.`,
-            };
-
-    this.requireDb()
-      .prepare("UPDATE project_board_cards SET status = ?, proof_review_json = ?, run_feedback_json = ?, updated_at = ? WHERE id = ?")
-      .run(next.cardStatus, next.proofReviewJson, JSON.stringify(runFeedback), now, current.id);
-    this.requireDb()
-      .prepare("UPDATE orchestration_tasks SET state = ?, updated_at = ? WHERE id = ?")
-      .run(next.taskState, now, task.id);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.boardId);
-    if (decisionFeedback.length > 0) {
-      const updated = this.getProjectBoardCard(current.id);
-      this.updateOrchestrationTask({
-        id: task.id,
-        description: this.projectBoardCardTaskDescription(updated),
-      });
-    }
-    this.appendProjectBoardEvent({
-      boardId: current.boardId,
-      kind: "card_updated",
-      title: next.eventTitle,
-      summary: next.eventSummary,
-      entityKind: "project_board_card",
-      entityId: current.id,
-      metadata: {
-        cardId: current.id,
-        taskId: task.id,
-        action: input.action,
-        reason,
-        previousProofReviewStatus: previousReview?.status,
-        previousRecommendedAction: previousReview?.recommendedAction,
-        previousRunId: previousReview?.runId,
-        runFeedback:
-          decisionFeedback[0]
-            ? {
-                id: decisionFeedback[0].id,
-                source: decisionFeedback[0].source,
-                decisionQuestion: decisionFeedback[0].decisionQuestion,
-                modelCallRequired: false,
-              }
-            : undefined,
-        runFeedbackItems:
-          decisionFeedback.length > 1
-            ? decisionFeedback.map((feedback) => ({
-                id: feedback.id,
-                source: feedback.source,
-                decisionQuestion: feedback.decisionQuestion,
-                modelCallRequired: false,
-              }))
-            : undefined,
-      },
-      createdAt: now,
-    });
-    this.syncProjectBoardCardsForLinkedTasks();
-    return this.getProjectBoardCard(current.id);
+    return this.projectBoardCardMutations().resolveProjectBoardProofDecision(input);
   }
 
   async resolveProjectBoardDeliverableIntegration(input: {
@@ -2661,362 +2503,19 @@ export class ProjectStore {
     action: ProjectBoardDeliverableIntegrationAction;
     reason?: string;
   }): Promise<void> {
-    const board = this.getProjectBoard(input.boardId);
-    if (!board) throw new Error("Project board not found.");
-    const run = this.getOrchestrationRun(input.runId);
-    const card = board.cards.find((candidate) => candidate.orchestrationTaskId === run.taskId);
-    if (!card) throw new Error("Deliverable integration requires a project board card linked to the Local Task run.");
-    const manifest = projectBoardDeliverableManifestFromRun(run, { cardId: card.id, cardTitle: card.title });
-    const materialFiles = manifest.materialFiles.map((file) => file.path);
-    if (input.action !== "defer" && materialFiles.length === 0) {
-      throw new Error("No material deliverable files are available to integrate for this run.");
-    }
-
-    const now = new Date().toISOString();
-    const reason = input.reason?.trim().slice(0, 1000);
-    let exportPath: string | undefined;
-    let appliedFiles: string[] = [];
-    const skippedFiles: string[] = [];
-
-    const copyMaterialFiles = async (destinationRoot: string): Promise<string[]> => {
-      const copied: string[] = [];
-      for (const file of manifest.materialFiles) {
-        const source = projectBoardResolveInside(run.workspacePath, file.path);
-        const destination = projectBoardResolveInside(destinationRoot, file.path);
-        try {
-          const sourceStats = await stat(source);
-          if (!sourceStats.isFile()) {
-            skippedFiles.push(file.path);
-            continue;
-          }
-          await mkdir(dirname(destination), { recursive: true });
-          await copyFile(source, destination);
-          copied.push(file.path);
-        } catch {
-          skippedFiles.push(file.path);
-        }
-      }
-      return copied;
-    };
-
-    if (input.action === "apply_to_root") {
-      appliedFiles = await copyMaterialFiles(board.projectPath);
-      if (appliedFiles.length === 0) throw new Error("No material deliverable files could be copied from the task workspace.");
-    } else if (input.action === "export_bundle") {
-      exportPath = join(board.projectPath, ".ambient", "project-board", "deliverable-bundles", run.id);
-      await mkdir(exportPath, { recursive: true });
-      appliedFiles = await copyMaterialFiles(join(exportPath, "files"));
-      if (appliedFiles.length === 0) throw new Error("No material deliverable files could be exported from the task workspace.");
-      await writeFile(
-        join(exportPath, "manifest.json"),
-        `${JSON.stringify({ ...manifest, integration: { action: input.action, exportedAt: now, filesRoot: join(exportPath, "files") } }, null, 2)}\n`,
-        "utf8",
-      );
-    }
-
-    const status =
-      input.action === "apply_to_root" ? "integrated" : input.action === "export_bundle" ? "exported" : "deferred";
-    this.appendProjectBoardEvent({
-      boardId: board.id,
-      kind: "deliverable_integration_resolved",
-      title:
-        input.action === "apply_to_root"
-          ? "Deliverables applied to project root"
-          : input.action === "export_bundle"
-            ? "Deliverables exported as artifact bundle"
-            : "Deliverable integration deferred",
-      summary:
-        input.action === "defer"
-          ? `${card.title} deliverables were deferred${reason ? `: ${reason}` : "."}`
-          : `${appliedFiles.length} material deliverable file${appliedFiles.length === 1 ? "" : "s"} ${
-              input.action === "apply_to_root" ? "applied to the project root" : "exported to an artifact bundle"
-            }.`,
-      entityKind: "orchestration_run",
-      entityId: run.id,
-      metadata: {
-        action: input.action,
-        status,
-        boardId: board.id,
-        cardId: card.id,
-        taskId: run.taskId,
-        runId: run.id,
-        workspacePath: run.workspacePath,
-        projectPath: board.projectPath,
-        exportPath,
-        reason,
-        materialFiles,
-        excludedFiles: manifest.excludedFiles.map((file) => file.path),
-        appliedFiles,
-        skippedFiles,
-        commands: manifest.commands,
-        commits: manifest.commits,
-        dependencyImports: manifest.dependencyImports,
-      },
-      createdAt: now,
-    });
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, board.id);
+    return this.projectBoardDeliverableIntegrations().resolveProjectBoardDeliverableIntegration(input);
   }
 
   resolveProjectBoardSplitDecision(input: { cardId: string; action: ProjectBoardSplitDecisionAction; reason?: string }): ProjectBoardCard {
-    const current = this.getProjectBoardCard(input.cardId);
-    const splitOutcome = current.splitOutcome;
-    if (!splitOutcome) throw new Error("This project board card does not have a split outcome to resolve.");
-    const task = current.orchestrationTaskId ? this.getOrchestrationTask(current.orchestrationTaskId) : undefined;
-    const activeRun = task
-      ? this.listOrchestrationRuns(200).find((run) => run.taskId === task.id && ["claimed", "prepared", "preparing", "running", "retry_queued"].includes(run.status))
-      : undefined;
-    if (activeRun) throw new Error("Wait for the active card run to finish before resolving this split.");
-    if (current.status === "done" || task?.state === "done") throw new Error("This split has already been closed.");
-
-    const now = new Date().toISOString();
-    const reason = input.reason?.trim().slice(0, 1000);
-    const childCards = splitOutcome.childCardIds.map((id) => this.tryGetProjectBoardCard(id)).filter((card): card is ProjectBoardCard => Boolean(card));
-    const childIds = childCards.map((card) => card.id);
-    const rejectDraftChildren = () => {
-      if (childIds.length === 0) return;
-      const placeholders = childIds.map(() => "?").join(", ");
-      this.requireDb()
-        .prepare(
-          `UPDATE project_board_cards
-           SET candidate_status = 'rejected', updated_at = ?
-           WHERE id IN (${placeholders}) AND orchestration_task_id IS NULL AND status = 'draft'`,
-        )
-        .run(now, ...childIds);
-    };
-    const updateTaskState = (state: string) => {
-      if (!task) throw new Error("This split decision requires a ticketized project board card.");
-      this.requireDb().prepare("UPDATE orchestration_tasks SET state = ?, updated_at = ? WHERE id = ?").run(state, now, task.id);
-    };
-    const updatedOutcome = (status: ProjectBoardCardSplitOutcomeStatus): ProjectBoardCardSplitOutcome => ({
-      ...splitOutcome,
-      status,
-      updatedAt: now,
-    });
-    const closureReview = (
-      status: ProjectBoardCardSplitOutcomeStatus,
-      summary: string,
-      recommendedAction: ProjectBoardCardProofRecommendedAction = "close",
-    ): ProjectBoardCardProofReview => ({
-      status: "done",
-      summary,
-      satisfied: [
-        ...new Set([
-          ...(current.proofReview?.satisfied ?? []),
-          status === "done_via_split" ? "Split follow-ups were completed before the parent was closed." : "Parent was replaced by split follow-up cards.",
-        ]),
-      ],
-      missing: [],
-      followUpCardIds: splitOutcome.childCardIds,
-      runId: current.proofReview?.runId ?? splitOutcome.sourceRunId,
-      reviewedAt: now,
-      reviewer: current.proofReview?.reviewer,
-      model: current.proofReview?.model,
-      confidence: current.proofReview?.confidence,
-      evidenceQuality: current.proofReview?.evidenceQuality,
-      recommendedAction,
-      deterministicStatus: current.proofReview?.deterministicStatus,
-      deterministicSummary: current.proofReview?.deterministicSummary,
-      judgeDurationMs: current.proofReview?.judgeDurationMs,
-    });
-    const childIsTerminal = (child: ProjectBoardCard): boolean =>
-      child.status === "done" || child.candidateStatus === "evidence" || child.candidateStatus === "duplicate";
-
-    let nextCardStatus: ProjectBoardCardStatus = current.status;
-    let nextProofReviewJson: string | null = current.proofReview ? JSON.stringify(current.proofReview) : null;
-    let nextSplitOutcome = splitOutcome;
-    let eventTitle = "Split decision recorded";
-    let eventSummary = `${current.title} split decision was updated.`;
-
-    if (input.action === "approve_split") {
-      nextSplitOutcome = updatedOutcome("approved");
-      eventTitle = "Split follow-ups approved";
-      eventSummary = `${current.title} follow-up split was approved for separate execution.`;
-    } else if (input.action === "reject_split") {
-      rejectDraftChildren();
-      nextSplitOutcome = updatedOutcome("rejected");
-      eventTitle = "Split follow-ups rejected";
-      eventSummary = `${current.title} follow-up split was rejected; unticketized split children were moved out of execution.`;
-    } else if (input.action === "retry_original") {
-      updateTaskState("ready");
-      rejectDraftChildren();
-      nextCardStatus = "ready";
-      nextProofReviewJson = null;
-      nextSplitOutcome = updatedOutcome("rejected");
-      eventTitle = "Original card queued for retry";
-      eventSummary = `${current.title} returned to Ready and split follow-ups were rejected.`;
-    } else if (input.action === "merge_followups") {
-      updateTaskState("ready");
-      rejectDraftChildren();
-      const mergedCriteria = normalizeCardTextList(
-        [
-          ...current.acceptanceCriteria,
-          ...splitOutcome.remainingCriteria,
-          ...childCards.flatMap((child) => child.acceptanceCriteria),
-        ],
-        30,
-      );
-      const mergedLabels = normalizeTaskLabels([...current.labels, ...childCards.flatMap((child) => child.labels), "merged-follow-up"]);
-      this.requireDb()
-        .prepare("UPDATE project_board_cards SET acceptance_criteria_json = ?, labels_json = ? WHERE id = ?")
-        .run(JSON.stringify(mergedCriteria), JSON.stringify(mergedLabels), current.id);
-      nextCardStatus = "ready";
-      nextProofReviewJson = null;
-      nextSplitOutcome = updatedOutcome("rejected");
-      eventTitle = "Split follow-ups merged into parent";
-      eventSummary = `${current.title} returned to Ready with follow-up criteria merged back into the original card.`;
-    } else if (input.action === "mark_replaced") {
-      updateTaskState("done");
-      nextCardStatus = "done";
-      nextSplitOutcome = updatedOutcome("replaced");
-      nextProofReviewJson = JSON.stringify(
-        closureReview(
-          "replaced",
-          `${current.title} was closed as replaced by split follow-up cards.${reason ? ` Reason: ${reason}` : ""}`,
-        ),
-      );
-      eventTitle = "Parent closed as replaced";
-      eventSummary = `${current.title} was marked replaced by split follow-up cards.`;
-    } else {
-      if (childCards.length === 0 || childCards.length !== splitOutcome.childCardIds.length) {
-        throw new Error("All split follow-up cards must be present before closing the parent as done via split.");
-      }
-      const openChildren = childCards.filter((child) => !childIsTerminal(child));
-      if (openChildren.length > 0) {
-        throw new Error(`Finish or mark represented split follow-up cards before closing the parent: ${openChildren.map((child) => child.title).join(", ")}`);
-      }
-      updateTaskState("done");
-      nextCardStatus = "done";
-      nextSplitOutcome = updatedOutcome("done_via_split");
-      nextProofReviewJson = JSON.stringify(
-        closureReview(
-          "done_via_split",
-          `${current.title} was closed after its split follow-up cards reached terminal states.${reason ? ` Reason: ${reason}` : ""}`,
-        ),
-      );
-      eventTitle = "Parent closed via split";
-      eventSummary = `${current.title} was closed because its split follow-up cards are complete or represented.`;
-    }
-
-    this.requireDb()
-      .prepare("UPDATE project_board_cards SET status = ?, proof_review_json = ?, split_outcome_json = ?, updated_at = ? WHERE id = ?")
-      .run(nextCardStatus, nextProofReviewJson, JSON.stringify(nextSplitOutcome), now, current.id);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, current.boardId);
-    this.appendProjectBoardEvent({
-      boardId: current.boardId,
-      kind: "card_split",
-      title: eventTitle,
-      summary: eventSummary,
-      entityKind: "project_board_card",
-      entityId: current.id,
-      metadata: {
-        cardId: current.id,
-        taskId: task?.id,
-        action: input.action,
-        reason,
-        splitOutcomeStatus: nextSplitOutcome.status,
-        sourceRunId: splitOutcome.sourceRunId,
-        childCardIds: splitOutcome.childCardIds,
-      },
-      createdAt: now,
-    });
-    this.syncProjectBoardTaskBlockers(current.boardId);
-    this.syncProjectBoardCardsForLinkedTasks();
-    return this.getProjectBoardCard(current.id);
+    return this.projectBoardCardMutations().resolveProjectBoardSplitDecision(input);
   }
 
   ensureProjectBoardCardExecutionThreadForTask(input: { taskId: string; workspacePath: string }): ThreadSummary | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM project_board_cards WHERE orchestration_task_id = ? AND status != 'archived' ORDER BY updated_at DESC LIMIT 1")
-      .get(input.taskId) as ProjectBoardCardRow | undefined;
-    if (!row) return undefined;
-
-    const policy = normalizeProjectBoardCardExecutionSessionPolicy(row.execution_session_policy);
-    if (policy === "reuse_card_session" && row.execution_thread_id) {
-      const existing = this.tryGetThread(row.execution_thread_id);
-      if (existing) return existing;
-    }
-
-    const task = this.getOrchestrationTask(input.taskId);
-    const previousThreadId = row.execution_thread_id ?? undefined;
-    const thread = this.createThread(`${task.identifier}: ${row.title}`, input.workspacePath);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare("UPDATE project_board_cards SET execution_thread_id = ?, execution_session_policy = ?, updated_at = ? WHERE id = ?")
-      .run(thread.id, policy, now, row.id);
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, row.board_id);
-    this.appendProjectBoardEvent({
-      boardId: row.board_id,
-      kind: "card_execution_session_assigned",
-      title: "Card execution session assigned",
-      summary:
-        policy === "reuse_card_session"
-          ? `${row.title} will reuse one Pi session across retries and focus passes.`
-          : `${row.title} will start fresh Pi context for each prepared run.`,
-      entityKind: "project_board_card",
-      entityId: row.id,
-      metadata: { cardId: row.id, taskId: input.taskId, executionThreadId: thread.id, previousThreadId, executionSessionPolicy: policy },
-      createdAt: now,
-    });
-    return thread;
+    return this.projectBoardCardExecutionSessions().ensureProjectBoardCardExecutionThreadForTask(input);
   }
 
   copyProjectBoardSessionToThread(input: CopyProjectBoardSessionToThreadInput): ThreadSummary {
-    const card = this.getProjectBoardCard(input.cardId);
-    if (!card.orchestrationTaskId) {
-      throw new Error("Only ticketized project-board cards can copy Pi sessions into local threads.");
-    }
-    const run = this.getOrchestrationRun(input.runId);
-    if (run.taskId !== card.orchestrationTaskId) {
-      throw new Error("This Pi session run does not belong to the selected board card.");
-    }
-    if (!run.threadId) {
-      throw new Error("This Pi session run has no transcript thread to copy.");
-    }
-    if (!projectBoardRunStatusCanCopySession(run.status)) {
-      throw new Error("Copy Session to Thread is available only after a Pi session is paused, stopped, failed, stalled, canceled, or completed.");
-    }
-
-    const sourceThread = this.getThread(run.threadId);
-    const fork = this.forkThread(sourceThread.id, this.getWorkspace().path);
-    const title = `Session copy: ${card.title}`;
-    this.updateThreadTitle(fork.id, title);
-    const now = new Date().toISOString();
-    this.addMessage({
-      threadId: fork.id,
-      role: "system",
-      content:
-        `Copied from project-board card "${card.title}" after run ${run.id} reached ${run.status}. ` +
-        "This is a local project thread; the original Pi session remains attached to the board run.",
-      metadata: {
-        kind: "project_board_session_copy",
-        cardId: card.id,
-        boardId: card.boardId,
-        runId: run.id,
-        taskId: run.taskId,
-        sourceThreadId: sourceThread.id,
-        copiedAt: now,
-      },
-    });
-    const copied = this.getThread(fork.id);
-    this.appendProjectBoardEvent({
-      boardId: card.boardId,
-      kind: "card_run_handoff_created",
-      title: "Pi session copied to local thread",
-      summary: `${card.title} now has a local follow-up thread copied from its ${run.status} Pi session.`,
-      entityKind: "orchestration_run",
-      entityId: run.id,
-      metadata: {
-        cardId: card.id,
-        taskId: run.taskId,
-        runId: run.id,
-        sourceThreadId: sourceThread.id,
-        copiedThreadId: copied.id,
-        copiedAt: now,
-      },
-      createdAt: now,
-    });
-    this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, card.boardId);
-    return copied;
+    return this.projectBoardSessionCopies().copyProjectBoardSessionToThread(input);
   }
 
   recordProjectBoardExecutionReadinessBlocker(input: {
@@ -3030,43 +2529,7 @@ export class ProjectStore {
     metadata?: Record<string, unknown>;
     createdAt?: string;
   }): { board: ProjectBoardSummary; recorded: boolean } {
-    const board = this.getProjectBoard(input.boardId);
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    const now = input.createdAt ?? new Date().toISOString();
-    const error = input.error?.trim().slice(0, 1_000) || undefined;
-    const dedupeKey = [
-      input.source,
-      input.blocker,
-      input.workflowPath?.trim() || "",
-      error ?? input.summary.trim().slice(0, 500),
-    ].join(":");
-    const latest = this.listProjectBoardEvents(input.boardId, 1)[0];
-    if (latest?.kind === "execution_readiness_blocked" && latest.metadata?.dedupeKey === dedupeKey) {
-      return { board, recorded: false };
-    }
-
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, input.boardId);
-      this.appendProjectBoardEvent({
-        boardId: input.boardId,
-        kind: "execution_readiness_blocked",
-        title: input.title,
-        summary: input.summary,
-        entityKind: "project_board",
-        entityId: input.boardId,
-        metadata: {
-          ...input.metadata,
-          source: input.source,
-          blocker: input.blocker,
-          workflowPath: input.workflowPath,
-          error,
-          dedupeKey,
-        },
-        createdAt: now,
-      });
-    });
-    transaction();
-    return { board: this.getProjectBoard(input.boardId) ?? board, recorded: true };
+    return this.projectBoardExecutionReadiness().recordProjectBoardExecutionReadinessBlocker(input);
   }
 
   recordProjectBoardWorkflowCreated(input: {
@@ -3079,39 +2542,7 @@ export class ProjectStore {
     maxConcurrentAgents?: number;
     createdAt?: string;
   }): { board: ProjectBoardSummary; recorded: boolean } {
-    const board = this.getProjectBoard(input.boardId);
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    const now = input.createdAt ?? new Date().toISOString();
-    const workflowPath = input.workflowPath.trim();
-    const dedupeKey = [input.source, workflowPath].join(":");
-    const latest = this.listProjectBoardEvents(input.boardId, 1)[0];
-    if (latest?.kind === "workflow_created" && latest.metadata?.dedupeKey === dedupeKey) {
-      return { board, recorded: false };
-    }
-
-    const transaction = this.requireDb().transaction(() => {
-      this.requireDb().prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, input.boardId);
-      this.appendProjectBoardEvent({
-        boardId: input.boardId,
-        kind: "workflow_created",
-        title: "Default WORKFLOW.md created",
-        summary: `Ambient created ${workflowPath} with ${input.workspaceStrategy ?? "default"} workspace strategy for Local Task dispatch.`,
-        entityKind: "project_board",
-        entityId: input.boardId,
-        metadata: {
-          source: input.source,
-          workflowPath,
-          workflowHash: input.workflowHash,
-          workspaceStrategy: input.workspaceStrategy,
-          autoDispatch: input.autoDispatch,
-          maxConcurrentAgents: input.maxConcurrentAgents,
-          dedupeKey,
-        },
-        createdAt: now,
-      });
-    });
-    transaction();
-    return { board: this.getProjectBoard(input.boardId) ?? board, recorded: true };
+    return this.projectBoardWorkflows().recordProjectBoardWorkflowCreated(input);
   }
 
   recordProjectBoardWorkflowRepair(input: {
@@ -9060,6 +8491,52 @@ export class ProjectStore {
     });
   }
 
+  private projectBoardDeliverableIntegrations(): ProjectStoreProjectBoardDeliverableIntegrationRepository {
+    return new ProjectStoreProjectBoardDeliverableIntegrationRepository(this.requireDb(), {
+      getProjectBoard: (boardId) => this.getProjectBoard(boardId),
+      getOrchestrationRun: (runId) => this.getOrchestrationRun(runId),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
+  private projectBoardCardExecutionSessions(): ProjectStoreProjectBoardCardExecutionSessionRepository {
+    return new ProjectStoreProjectBoardCardExecutionSessionRepository(this.requireDb(), {
+      tryGetThread: (threadId) => this.tryGetThread(threadId),
+      createThread: (title, workspacePath) => this.createThread(title, workspacePath),
+      getOrchestrationTask: (taskId) => this.getOrchestrationTask(taskId),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
+  private projectBoardSessionCopies(): ProjectStoreProjectBoardSessionCopyRepository {
+    return new ProjectStoreProjectBoardSessionCopyRepository(this.requireDb(), {
+      getProjectBoardCard: (cardId) => this.getProjectBoardCard(cardId),
+      getOrchestrationRun: (runId) => this.getOrchestrationRun(runId),
+      getWorkspacePath: () => this.getWorkspace().path,
+      getThread: (threadId) => this.getThread(threadId),
+      forkThread: (threadId, workspacePath) => this.forkThread(threadId, workspacePath),
+      updateThreadTitle: (threadId, title) => this.updateThreadTitle(threadId, title),
+      addMessage: (input) => this.addMessage(input),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
+  private projectBoardExecutionReadiness(): ProjectStoreProjectBoardExecutionReadinessRepository {
+    return new ProjectStoreProjectBoardExecutionReadinessRepository(this.requireDb(), {
+      getProjectBoard: (boardId) => this.getProjectBoard(boardId),
+      listProjectBoardEvents: (boardId, limit) => this.listProjectBoardEvents(boardId, limit),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
+  private projectBoardWorkflows(): ProjectStoreProjectBoardWorkflowRepository {
+    return new ProjectStoreProjectBoardWorkflowRepository(this.requireDb(), {
+      getProjectBoard: (boardId) => this.getProjectBoard(boardId),
+      listProjectBoardEvents: (boardId, limit) => this.listProjectBoardEvents(boardId, limit),
+      appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
+    });
+  }
+
   private projectBoardSynthesisProposals(): ProjectStoreProjectBoardSynthesisProposalRepository {
     return new ProjectStoreProjectBoardSynthesisProposalRepository(this.requireDb(), {
       appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
@@ -9101,6 +8578,7 @@ export class ProjectStore {
       appendProjectBoardEvent: (input) => this.appendProjectBoardEvent(input),
       syncProjectBoardTaskBlockers: (boardId) => this.syncProjectBoardTaskBlockers(boardId),
       syncProjectBoardCardsForLinkedTasks: () => this.syncProjectBoardCardsForLinkedTasks(),
+      listOrchestrationRuns: (limit) => this.listOrchestrationRuns(limit),
       createOrchestrationTask: (input) => this.createOrchestrationTask(input),
       getOrchestrationTask: (taskId) => this.getOrchestrationTask(taskId),
       getOrchestrationRun: (runId) => this.getOrchestrationRun(runId),
