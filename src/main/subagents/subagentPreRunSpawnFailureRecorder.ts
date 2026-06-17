@@ -5,7 +5,7 @@ import type {
   ThreadSummary,
 } from "../../shared/types";
 import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../piChildSessionAdapter";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import {
   buildScheduledSubagentSpawnFailureParentMailboxInput,
   buildSubagentPreRunSpawnFailureParentMailboxInput,

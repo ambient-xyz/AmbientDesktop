@@ -9,7 +9,7 @@ import type {
   ProjectBoardSummary,
 } from "../../shared/projectBoardTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import { parseJsonObject, parseStringList } from "../projectStoreJson";
+import { parseJsonObject, parseStringList } from "./projectStoreJson";
 import type {
   ProjectBoardCharterStoreRow,
   ProjectBoardEventStoreRow,

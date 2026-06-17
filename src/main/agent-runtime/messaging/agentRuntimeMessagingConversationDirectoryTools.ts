@@ -2,15 +2,15 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messagingBindings";
-import type { MessagingConversationDirectoryAdapterRegistry } from "../../messagingConversationDirectoryAdapters";
+import type { MessagingBindingStore } from "../../messaging/messagingBindings";
+import type { MessagingConversationDirectoryAdapterRegistry } from "../../messaging/messagingConversationDirectoryAdapters";
 import {
   buildMessagingConversationDirectoryPreview,
   messagingConversationDirectoryInput,
   messagingConversationDirectoryPreviewText,
   type MessagingConversationDirectoryProviderRegistryLike,
-} from "../../messagingConversationDirectory";
-import type { MessagingGatewayRunner } from "../../messagingGatewayRunner";
+} from "../../messaging/messagingConversationDirectory";
+import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
 
 export interface MessagingConversationDirectoryToolRegistrationOptions {
   registry: MessagingConversationDirectoryProviderRegistryLike;

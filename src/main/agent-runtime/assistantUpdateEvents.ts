@@ -1,5 +1,5 @@
 import { stripAssistantReasoningTags } from "../assistantVisibleText";
-import type { NormalizedPiEvent } from "../piEventMapper";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 
 export type RuntimeAssistantUpdateEvent = Extract<NormalizedPiEvent, { kind: "assistant-update" }>;
 

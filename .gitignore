@@ -33,7 +33,6 @@ windowsCredentials/
 resources/toolhive/*/thv
 resources/toolhive/*/thv.exe
 
-# Local environment files
 .env
 .env.*
 !.env.example

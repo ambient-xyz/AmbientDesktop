@@ -8,9 +8,9 @@ import {
   registerTelegramRemoteSurfaceTools,
   type TelegramRemoteSurfaceToolPermissionRequest,
 } from "./agentRuntimeTelegramRemoteSurfaceTools";
-import { createMessagingBindingStore } from "../../messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messagingGatewayRunner";
+import { createMessagingBindingStore } from "../../messaging/messagingBindings";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
 
 describe("registerTelegramRemoteSurfaceTools", () => {
   it("registers and executes the Telegram Remote Ambient Surface preview tool", async () => {
@@ -70,7 +70,7 @@ describe("registerTelegramRemoteSurfaceTools", () => {
       }, {
         threadId: "thread-1",
         workspace: {
-          name: "ambientCoder",
+          name: "AmbientDesktop",
           path: "/workspace",
           statePath: stateRoot,
           sessionPath: join(stateRoot, "sessions"),

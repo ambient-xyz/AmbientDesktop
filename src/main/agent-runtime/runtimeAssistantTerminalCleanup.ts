@@ -4,8 +4,8 @@ import {
   assistantTerminalCleanupDiagnostic,
   type AssistantTerminalCleanupDiagnostic,
   type AssistantTerminalEventDiagnostic,
-} from "../agentRuntimeAssistantTerminalDiagnostics";
-import { withTimeout } from "../agentRuntimeTimeouts";
+} from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
+import { withTimeout } from "../agent-runtime/agentRuntimeTimeouts";
 
 export interface RuntimeAssistantTerminalCleanupSession {
   sessionFile?: string;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { AssistantTerminalCleanupDiagnostic } from "../agentRuntimeAssistantTerminalDiagnostics";
-import type { CompletedToolSnapshot } from "../postToolContinuationScheduler";
+import type { AssistantTerminalCleanupDiagnostic } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
+import type { CompletedToolSnapshot } from "./post-tool/postToolContinuationScheduler";
 import { createRuntimePromptRunState } from "./runtimePromptRunState";
 
 describe("createRuntimePromptRunState", () => {

@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { registerMessagingOverviewTools } from "./agentRuntimeMessagingOverviewTools";
-import { createMessagingBindingStore } from "../../messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messagingGatewayRunner";
-import { TelegramBridgePollingRunner } from "../../telegramBridgePolling";
+import { createMessagingBindingStore } from "../../messaging/messagingBindings";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { TelegramBridgePollingRunner } from "../../telegram/telegramBridgePolling";
 
 describe("registerMessagingOverviewTools", () => {
   it("registers and executes the read-only messaging overview tools", async () => {

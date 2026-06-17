@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AMBIENT_DEFAULT_MODEL } from "../shared/ambientModels";
 import type { SlashCommandSelection } from "../shared/types";
-import { AgentRuntime } from "./agentRuntime";
+import { AgentRuntime } from "./agent-runtime/agentRuntime";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "./liveAmbientProviderConfig";
-import { ProjectStore } from "./projectStore";
+import { ProjectStore } from "./projectStore/projectStore";
 
 const itLive = process.env.AMBIENT_SLASH_COMMAND_LIVE === "1" ? it : it.skip;
 

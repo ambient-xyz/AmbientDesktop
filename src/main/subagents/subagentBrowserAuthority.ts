@@ -1,7 +1,7 @@
 import type { PermissionRequest, ThreadSummary } from "../../shared/types";
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
-import { permissionGrantTargetHash } from "../permissionGrants";
-import type { PermissionDecision } from "../permissionPolicy";
+import { permissionGrantTargetHash } from "../permissions/permissionGrants";
+import type { PermissionDecision } from "../permissions/permissionPolicy";
 
 type BrowserDecision = "allow" | "ask_parent" | "deny";
 type BrowserRisk = "browser-network" | "browser-control" | "browser-profile" | "browser-login";

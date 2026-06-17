@@ -7,7 +7,7 @@ import type {
   WorkspaceState,
 } from "../../../shared/types";
 import type { LocalPreviewSession } from "../../localPreviewServer";
-import type { MaterializedTextOutput } from "../../toolOutputArtifacts";
+import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 import {
   browserToolRecoverableFailure,
   browserUnavailableText,
@@ -16,7 +16,7 @@ import {
   isBrowserUserActionState,
   type BrowserToolRecoverableError,
   type BrowserUnavailableFallback,
-} from "../../agentBrowserRuntime";
+} from "../../agent/agentBrowserRuntime";
 import { browserToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
 import {

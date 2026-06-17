@@ -533,7 +533,7 @@ export function RightPanelSettingsPane({
         : "Off";
     const memoryFlagDescription = memoryFeatureFlag?.source === "startup_arg_disable"
       ? "A startup argument is forcing Tencent memory off for this app session."
-      : "Enables the experimental TencentDB Agent Memory adapter controls. Memory stays inactive unless the global and thread toggles are also on.";
+      : "Internal rollout gate for TencentDB Agent Memory. Use the Agent Memory starter to configure memory, embeddings, and thread scope together.";
     const activeThread = state.threads.find((thread) => thread.id === state.activeThreadId);
     const subagentMaturity = state.subagentMaturity;
     const subagentMaturityEvidence = state.subagentMaturityEvidence;
@@ -755,12 +755,21 @@ export function RightPanelSettingsPane({
             agentMemoryEmbeddingActionLoading={agentMemoryEmbeddingActionLoading}
             agentMemoryEmbeddingActionResult={agentMemoryEmbeddingActionResult}
             agentMemoryEmbeddingActionError={agentMemoryEmbeddingActionError}
+            agentMemoryStarterStatus={settingsPane.agentMemoryStarterStatus}
+            agentMemoryStarterLoading={settingsPane.agentMemoryStarterLoading}
+            agentMemoryStarterError={settingsPane.agentMemoryStarterError}
+            agentMemoryStarterOperationLoading={settingsPane.agentMemoryStarterOperationLoading}
+            agentMemoryStarterOperationResult={settingsPane.agentMemoryStarterOperationResult}
             subagentMaturity={subagentMaturity}
             subagentMaturityEvidence={subagentMaturityEvidence}
             setModelProviderInstallDraft={settingsPane.setModelProviderInstallDraft}
             setModelProviderCredentialValue={settingsPane.setModelProviderCredentialValue}
             saveModelProviderCredentialFromSettings={settingsPane.saveModelProviderCredentialFromSettings}
             installModelProviderEndpointFromSettings={settingsPane.installModelProviderEndpointFromSettings}
+            loadAgentMemoryStarterStatus={settingsPane.loadAgentMemoryStarterStatus}
+            enableAgentMemoryStarterFromSettings={settingsPane.enableAgentMemoryStarterFromSettings}
+            repairAgentMemoryStarterFromSettings={settingsPane.repairAgentMemoryStarterFromSettings}
+            disableAgentMemoryStarterFromSettings={settingsPane.disableAgentMemoryStarterFromSettings}
             onThinkingDisplaySettingsChange={onThinkingDisplaySettingsChange}
             onFeatureFlagSettingsChange={onFeatureFlagSettingsChange}
             onMemorySettingsChange={onMemorySettingsChange}

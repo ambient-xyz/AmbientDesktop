@@ -15,13 +15,13 @@ import {
   type AmbientCliRunResult,
   type RunAmbientCliInput,
   runAmbientCliPackageCommand,
-} from "../ambientCliPackages";
+} from "../ambient-cli/ambientCliPackages";
 import {
   browserToolFallback,
   browserUnavailableText,
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
-} from "../agentBrowserRuntime";
+} from "../agent/agentBrowserRuntime";
 import { ambientCliRunText } from "../agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageRunTools";
 import {
   browserAuditRisk,
@@ -33,9 +33,9 @@ import { browserSearchText } from "../agent-runtime/browser-tools/agentRuntimeBr
 import {
   isWebResearchMcpProvider,
   webResearchNoProviderText,
-} from "../agentRuntimeWebResearchToolFormatting";
-import type { McpToolCallResult } from "../mcpToolBridge";
-import type { MaterializedTextOutput } from "../toolOutputArtifacts";
+} from "../agent-runtime/web-research/agentRuntimeWebResearchToolFormatting";
+import type { McpToolCallResult } from "../mcp/mcpToolBridge";
+import type { MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
 import {
   callExaWebFetch,
   callExaWebSearch,
@@ -44,11 +44,11 @@ import {
   type ExaWebSearchInput,
   isLikelyExaRateLimitError,
   type WebResearchProviderAttempt,
-} from "../webResearchBroker";
+} from "../web-research/webResearchBroker";
 import {
   WEB_RESEARCH_PROVIDER_IDS,
   type WebResearchProviderRequestPlan,
-} from "../webResearchProviderStack";
+} from "../web-research/webResearchProviderStack";
 import type { LocalDeepResearchBroker, LocalDeepResearchBrokerResult } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchProviderSnapshot } from "./localDeepResearchSetup";
 import {

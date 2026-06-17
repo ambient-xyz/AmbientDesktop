@@ -1,11 +1,11 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import {
   automationThreadId,
   mapAutomationScheduleRow,
 } from "./automationMappers";
-import { mapAutomationScheduleRow as legacyMapAutomationScheduleRow } from "../projectStoreAutomationMappers";
+import { mapAutomationScheduleRow as legacyMapAutomationScheduleRow } from "./projectStoreAutomationMappers";
 import { ProjectStoreAutomationRepository, type ProjectStoreAutomationRepositoryDeps } from "./automationRepository";
 
 type TestOrchestrationTask = ReturnType<ProjectStoreAutomationRepositoryDeps["getOrchestrationTask"]>;

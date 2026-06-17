@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
+import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 import {
   preOutputStreamStallRetryFinalizationMessage,
   providerErrorBeforeToolRetryFinalizationMessage,

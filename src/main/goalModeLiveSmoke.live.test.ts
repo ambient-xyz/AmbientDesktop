@@ -3,14 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../shared/ambientModels";
-import { AgentRuntime } from "./agentRuntime";
+import { AgentRuntime } from "./agent-runtime/agentRuntime";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "./liveAmbientProviderConfig";
-import { ProjectStore } from "./projectStore";
+import { ProjectStore } from "./projectStore/projectStore";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 const itLive = process.env.AMBIENT_GOAL_MODE_LIVE === "1" ? it : it.skip;

@@ -28,9 +28,9 @@ const completedAt = new Date().toISOString();
 const report = buildPlannerModeReleaseGateReport({
   packageJson,
   files: {
-    plannerDogfoodTest: await readText("src/main/plannerDogfood.test.ts"),
-    agentRuntime: await readText("src/main/agentRuntime.ts"),
-    projectStore: await readText("src/main/projectStore.ts"),
+    plannerDogfoodTest: await readText("src/main/planner/plannerDogfood.test.ts"),
+    agentRuntime: await readText("src/main/agent-runtime/agentRuntime.ts"),
+    projectStore: await readText("src/main/projectStore/projectStore.ts"),
     planningModeEnhancements: await readText("planningModeEnhancements.md"),
   },
   liveResults,

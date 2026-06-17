@@ -31,7 +31,7 @@ import type {
   AmbientCliCapabilitySearchResponse,
   AmbientCliCapabilitySearchResult,
   AmbientCliCapabilitySearchSkillResult,
-} from "./ambientCliPackages";
+} from "./ambient-cli/ambientCliPackages";
 import type {
   CallableWorkflowCatalogEntry,
   CallableWorkflowCatalogStatus,

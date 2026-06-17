@@ -7,8 +7,8 @@ import type {
   ToolEditInputPreview,
   ToolLongformInputPreview,
 } from "../../shared/types";
-import { chatToolEventDetails, toolEventLabel } from "../agentRuntimeToolTranscript";
-import { stringMetadata } from "../agentRuntimeToolMessageMetadata";
+import { chatToolEventDetails, toolEventLabel } from "./tools/agentRuntimeToolTranscript";
+import { stringMetadata } from "./tools/agentRuntimeToolMessageMetadata";
 import {
   runtimeOpenToolFailureUpdates,
   type RuntimeOpenToolFailureReason,

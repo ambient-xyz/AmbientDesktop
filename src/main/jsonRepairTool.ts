@@ -4,7 +4,7 @@ import {
   callWorkflowPiJson,
   WorkflowPiJsonValidationError,
   type WorkflowPiTextCallInput,
-} from "./workflowPiTransport";
+} from "./workflow/workflowPiTransport";
 
 export const JSON_REPAIR_TOOL_MAX_INVALID_JSON_CHARS = 32_000;
 export const JSON_REPAIR_TOOL_MAX_SCHEMA_CHARS = 24_000;

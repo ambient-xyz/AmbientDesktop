@@ -3,13 +3,13 @@ import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { WorkspaceState } from "../../../shared/types";
-import type { CodexPluginInstallPreview } from "../../codexPlugins";
+import type { CodexPluginInstallPreview } from "../codex/codexPlugins";
 import {
   installRouteToolDescriptor,
   pluginInstallToolDescriptor,
 } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
-import { discoverAmbientCliPackages } from "../../ambientCliPackages";
+import { discoverAmbientCliPackages } from "../../ambient-cli/ambientCliPackages";
 import {
   ambientInstallRoutePlanInput,
   ambientInstallRoutePlanText,
@@ -17,19 +17,19 @@ import {
   ambientInstallRouteTelemetry,
   planAmbientInstallRoute,
   type AmbientInstallRoutePlan,
-} from "../../installRoutePlanner";
+} from "../../install-route/installRoutePlanner";
 import {
   runSetupRuntimePreflight,
   setupRuntimePreflightText,
   type SetupRuntimePackageManagerChoice,
   type SetupRuntimePreflightResult,
-} from "../../setupRuntimePreflight";
+} from "../../setup/setupRuntimePreflight";
 import {
   describeSetupRecipe,
   setupRecipeDescribeText,
   type SetupRecipeDescribeResult,
   type SetupRecipeId,
-} from "../../setupRecipeService";
+} from "../../setup/setupRecipeService";
 
 type ToolUpdateHandler = (update: AgentToolResult<Record<string, unknown>>) => void;
 

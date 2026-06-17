@@ -8,7 +8,7 @@ import type {
   PluginMcpToolInvocationResult,
   PluginMcpToolRegistration,
 } from "../pluginHost";
-import { buildToolLongformInputPreview } from "../../toolLongformInputPreview";
+import { buildToolLongformInputPreview } from "../../tool-runtime/toolLongformInputPreview";
 
 export interface PluginMcpToolExtensionOptions {
   workspace: Pick<WorkspaceState, "path">;

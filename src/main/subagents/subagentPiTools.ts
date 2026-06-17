@@ -56,7 +56,7 @@ import type {
   SubagentChildRuntimeWaitResult,
   SubagentChildWorktreePrepareInput,
   SubagentRuntimeEventEmitter,
-} from "../piChildSessionAdapter";
+} from "../pi/piChildSessionAdapter";
 import {
   prepareSubagentChildWorktreeForLaunch,
 } from "./subagentChildWorktreePreparer";
@@ -79,12 +79,12 @@ import {
 import {
   piChildRuntimeEventUpdateDetails,
   piChildRuntimeEventUpdateText,
-} from "../piEventMapper";
+} from "../pi/piEventMapper";
 import { appendMappedSubagentRuntimeEvent } from "./subagentRuntimeEventPersistence";
 import {
   createDefaultAgentRoleRegistry,
   type AgentRoleRegistry,
-} from "../agentRoleRegistry";
+} from "../agent/agentRoleRegistry";
 import {
   compactSubagentToolScopeSnapshot,
 } from "./subagentToolScopeSnapshot";

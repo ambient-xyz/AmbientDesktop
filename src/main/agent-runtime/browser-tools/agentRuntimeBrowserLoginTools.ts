@@ -8,7 +8,7 @@ import type {
   BrowserRuntimeKind,
   BrowserUserActionState,
 } from "../../../shared/types";
-import { isBrowserUserActionState } from "../../agentBrowserRuntime";
+import { isBrowserUserActionState } from "../../agent/agentBrowserRuntime";
 import { browserToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
@@ -16,7 +16,7 @@ import {
   browserToolUpdate,
   type BrowserToolTextResult,
 } from "./agentRuntimeBrowserToolFormatting";
-import { normalizeBrowserCredentialOrigin } from "../../browserCredentialStore";
+import { normalizeBrowserCredentialOrigin } from "../../browser/browserCredentialStore";
 
 type BrowserLoginToolUpdate = BrowserToolTextResult;
 type BrowserLoginToolUpdateHandler = (update: BrowserLoginToolUpdate) => void;

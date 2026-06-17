@@ -8,7 +8,7 @@ import {
   probeLocalLlamaServerHealth,
   type LocalLlamaServerHealthProbe,
   type LocalLlamaServerState,
-} from "../localLlamaServerSupervisor";
+} from "../local-llama/localLlamaServerSupervisor";
 
 const execFile = promisify(execFileCallback);
 

@@ -5,9 +5,9 @@ import {
   registerSignalRemoteSurfaceTools,
   type SignalRemoteSurfaceToolPermissionRequest,
 } from "./agentRuntimeSignalRemoteSurfaceTools";
-import { createEmptyMessagingBindingRegistry } from "../../messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messagingGatewayRunner";
+import { createEmptyMessagingBindingRegistry } from "../../messaging/messagingBindings";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
 
 describe("registerSignalRemoteSurfaceTools", () => {
   it("registers and executes the Signal remote surface preview tool", async () => {
@@ -70,7 +70,7 @@ describe("registerSignalRemoteSurfaceTools", () => {
     }, {
       threadId: "thread-1",
       workspace: {
-        name: "ambientCoder",
+        name: "AmbientDesktop",
         path: "/workspace",
         statePath: "/tmp/ambient-state",
         sessionPath: "/tmp/ambient-state/sessions",

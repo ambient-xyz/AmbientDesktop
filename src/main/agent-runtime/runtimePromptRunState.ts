@@ -1,8 +1,8 @@
 import type {
   AssistantTerminalCleanupDiagnostic,
   AssistantTerminalEventDiagnostic,
-} from "../agentRuntimeAssistantTerminalDiagnostics";
-import type { CompletedToolSnapshot } from "../postToolContinuationScheduler";
+} from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
+import type { CompletedToolSnapshot } from "./post-tool/postToolContinuationScheduler";
 
 const ASSISTANT_TERMINAL_CLEANUP_ABORT_ERROR_PATTERN =
   /\b(?:request was aborted|ambient request aborted|run aborted|aborted|abort|canceled|cancelled)\b/i;

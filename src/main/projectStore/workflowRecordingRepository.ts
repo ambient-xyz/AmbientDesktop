@@ -47,7 +47,7 @@ import {
   workflowRecordingWriteRestoredPlaybookPackageWithIndex,
   type WorkflowRecordingLifecyclePatch,
   type WorkflowRecordingLibraryIndex,
-} from "../workflowRecordingLibrary";
+} from "../workflow-recording/workflowRecordingLibrary";
 
 export interface ProjectStoreWorkflowRecordingRepositoryDeps {
   workspacePath(): string;

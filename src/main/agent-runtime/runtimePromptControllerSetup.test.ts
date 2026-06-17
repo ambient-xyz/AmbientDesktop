@@ -13,7 +13,7 @@ import type {
   RuntimePostToolContinuationResult,
 } from "./runtimePostToolContinuationController";
 import type { RuntimePromptRunState } from "./runtimePromptRunState";
-import type { PromptCompletion } from "../postToolFinalization";
+import type { PromptCompletion } from "./post-tool/postToolFinalization";
 
 function pendingPromise<T>(): Promise<T> {
   return new Promise<T>(() => undefined);

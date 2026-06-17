@@ -3,9 +3,9 @@ import type {
   ToolEditInputPreview,
   ToolLongformInputPreview,
 } from "../../shared/types";
-import { workspaceArtifactPathFromTool } from "../agentRuntimeMediaArtifacts";
-import { formatToolTranscript } from "../agentRuntimeToolTranscript";
-import { toolMessageMetadata } from "../agentRuntimeToolMessageMetadata";
+import { workspaceArtifactPathFromTool } from "../agent-runtime/agentRuntimeMediaArtifacts";
+import { formatToolTranscript } from "./tools/agentRuntimeToolTranscript";
+import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";
 
 export interface RuntimeToolInputMessageUpsertInput {
   toolCallId: string;

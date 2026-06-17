@@ -7,9 +7,9 @@ import type {
   ToolEditInputPreview,
   ToolLongformInputPreview,
 } from "../../shared/types";
-import { runtimePermissionWaitActivity, runtimePermissionWaitToolResult } from "../agentRuntimePermissionMessages";
-import { toolMessageMetadata } from "../agentRuntimeToolMessageMetadata";
-import { formatToolTranscript } from "../agentRuntimeToolTranscript";
+import { runtimePermissionWaitActivity, runtimePermissionWaitToolResult } from "../agent-runtime/agentRuntimePermissionMessages";
+import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";
+import { formatToolTranscript } from "./tools/agentRuntimeToolTranscript";
 
 export interface RuntimePermissionWaitStart {
   toolName: string;

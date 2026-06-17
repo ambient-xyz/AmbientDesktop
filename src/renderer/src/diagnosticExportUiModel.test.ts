@@ -311,6 +311,15 @@ describe("diagnostic export UI model", () => {
       },
     }))).toBe("Saved ambient-diagnostics.json (2.0 KB). TencentDB Agent Memory is enabled but the reviewed core module is unavailable. (2 memory files, 1 runtime snapshot)");
   });
+
+  it("surfaces memory starter repair states after saving the bundle", () => {
+    expect(diagnosticExportStatusMessage(result({
+      summary: {
+        subagents: healthySubagents(),
+        agentMemoryStarter: agentMemoryStarterSummary("needs_repair"),
+      },
+    }))).toBe("Saved ambient-diagnostics.json (2.0 KB). Agent memory starter needs repair (next: repair, open_logs, 1 blocker).");
+  });
 });
 
 function result(input: Pick<DiagnosticExportResult, "summary">): DiagnosticExportResult {
@@ -399,5 +408,88 @@ function healthyReplayEvidence(): NonNullable<DiagnosticExportResult["summary"]>
     callableWorkflowTaskCount: 0,
     truncated: false,
     errorMessages: [],
+  };
+}
+
+function agentMemoryStarterSummary(
+  state: NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemoryStarter"]>["state"],
+): NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemoryStarter"]> {
+  return {
+    schemaVersion: "ambient-agent-memory-starter-status-v1",
+    checkedAt: "2026-06-13T00:00:00.000Z",
+    state,
+    settings: {
+      featureFlags: { tencentDbMemory: true },
+      memory: {
+        enabled: true,
+        defaultThreadEnabled: false,
+        adapter: "tencentdb",
+        shortTermOffloadEnabled: false,
+        embeddings: {
+          enabled: true,
+          providerMode: "ambient-managed",
+          autoStartProvider: true,
+          modelId: "embeddinggemma-300m",
+          dimensions: 768,
+          sendDimensions: false,
+          maxInputChars: 512,
+          timeoutMs: 10_000,
+          preflightEnabled: true,
+        },
+        storageScope: "workspace",
+      },
+    },
+    threadScope: {
+      activeThreadId: "thread-1",
+      activeThreadMemoryEnabled: true,
+      defaultThreadEnabled: false,
+      enabledThreadCount: 1,
+      activeThreadCount: 1,
+    },
+    assets: {
+      model: {
+        state: "present",
+        artifactId: "embeddinggemma-300m",
+      },
+      runtime: {
+        state: "missing",
+        artifactId: "llama.cpp-darwin-arm64",
+      },
+    },
+    runtime: {
+      state: "stopped",
+    },
+    embedding: {
+      enabled: true,
+      status: "unavailable",
+      message: "Embedding runtime is not running.",
+      providerMode: "ambient-managed",
+      modelId: "embeddinggemma-300m",
+      runtimeStatus: "stopped",
+      running: false,
+      autoStartProvider: true,
+      preflightEnabled: true,
+      sendDimensions: false,
+      maxInputChars: 512,
+      timeoutMs: 10_000,
+      reindexStatus: "unknown",
+    },
+    nativePreflight: {
+      schemaVersion: "ambient-agent-memory-native-preflight-v1",
+      checkedAt: "2026-06-13T00:00:00.000Z",
+      platform: "darwin",
+      arch: "arm64",
+      coreModuleConfigured: false,
+      status: "unavailable",
+      message: "Reviewed TencentDB Agent Memory core module is not configured.",
+      dependencies: [],
+      errors: [],
+    },
+    blockers: [{
+      code: "runtime_missing",
+      message: "Shared embedding runtime is missing.",
+      retryable: true,
+    }],
+    nextActions: ["repair", "open_logs"],
   };
 }

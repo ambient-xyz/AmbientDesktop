@@ -1,6 +1,6 @@
-import { piAssistantMessageMetadata } from "../agentRuntimeAssistantMessageMetadata";
+import { piAssistantMessageMetadata } from "../agent-runtime/agentRuntimeAssistantMessageMetadata";
 import { stripAssistantReasoningTags } from "../assistantVisibleText";
-import type { NormalizedPiEvent } from "../piEventMapper";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 
 export type RuntimeAssistantEndEvent = Extract<NormalizedPiEvent, { kind: "assistant-end" }>;
 

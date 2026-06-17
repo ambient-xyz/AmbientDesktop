@@ -28,7 +28,7 @@ import { generateWorkflowProgramSource } from "./workflowProgramCodegen";
 import { dryRunWorkflowProgramOutput, WorkflowProgramDryRunError, type WorkflowProgramDryRunResult } from "./workflowProgramDryRun";
 import { parseWorkflowProgramIr } from "./workflowProgramIr";
 import { workflowProgramKnownOutputFields } from "./workflowProgramOutputContracts";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 export type { WorkflowProgramAmbientCliCapability, WorkflowProgramDiagnostic } from "./workflowProgramCapabilityResolver";
 export type { WorkflowProgramIncrementalValidationMetrics } from "./workflowProgramTypecheck";
 export type { WorkflowProgramDryRunCall } from "./workflowProgramDryRun";

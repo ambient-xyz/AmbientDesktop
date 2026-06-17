@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProjectBoardEvent } from "../../shared/projectBoardTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { OrchestrationTask } from "../../shared/workflowTypes";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import {
   ProjectStoreProjectBoardCardExecutionSessionRepository,
   type ProjectBoardCardExecutionSessionEventInput,

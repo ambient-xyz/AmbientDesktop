@@ -46,10 +46,21 @@ export interface AmbientTencentMemoryEmbeddingStartResult {
   release?: () => Promise<void>;
 }
 
+export interface AmbientTencentMemoryEmbeddingPrepareInput {
+  runtimeId?: string;
+  provider: EmbeddingProviderCandidate;
+}
+
+export interface AmbientTencentMemoryEmbeddingPrepareResult {
+  status: "ready" | "installed" | "already-installed" | "partial" | "failed" | "skipped";
+  reason?: string;
+}
+
 export interface ResolveAmbientTencentMemoryEmbeddingProviderInput {
   memorySettings: AgentMemorySettings;
   workspacePath: string;
   listEmbeddingProviders?: (workspacePath: string) => Promise<EmbeddingProviderCandidate[]> | EmbeddingProviderCandidate[];
+  prepareEmbeddingProviderRuntime?: (input: AmbientTencentMemoryEmbeddingPrepareInput) => Promise<AmbientTencentMemoryEmbeddingPrepareResult> | AmbientTencentMemoryEmbeddingPrepareResult;
   startEmbeddingProviderRuntime?: (input: AmbientTencentMemoryEmbeddingStartInput) => Promise<AmbientTencentMemoryEmbeddingStartResult> | AmbientTencentMemoryEmbeddingStartResult;
   fetchImpl?: typeof fetch;
   logger?: TencentMemoryLogger;
@@ -107,6 +118,20 @@ export async function resolveAmbientTencentMemoryEmbeddingProvider(
   }
 
   let selected = selectEmbeddingProvider(providers, embeddingSettings.providerCapabilityId);
+  if (embeddingSettings.autoStartProvider) {
+    const prepared = await prepareManagedEmbeddingProviderIfNeeded({
+      baseDiagnostics,
+      input,
+      providers,
+      selected,
+      providerCapabilityId: embeddingSettings.providerCapabilityId,
+    });
+    if (prepared.result) return prepared.result;
+    if (prepared.providers) {
+      providers = prepared.providers;
+      selected = prepared.selected;
+    }
+  }
   if (!selected) {
     return fallback(baseDiagnostics, embeddingSettings.providerCapabilityId
       ? `No Ambient embedding provider matched ${embeddingSettings.providerCapabilityId}.`
@@ -271,6 +296,72 @@ function fallback(
       reindexStatus: "not_required",
     },
   };
+}
+
+async function prepareManagedEmbeddingProviderIfNeeded(input: {
+  baseDiagnostics: AgentMemoryEmbeddingDiagnostics;
+  input: ResolveAmbientTencentMemoryEmbeddingProviderInput;
+  providers: EmbeddingProviderCandidate[];
+  selected?: SelectedEmbeddingProvider;
+  providerCapabilityId?: string;
+}): Promise<{
+  providers?: EmbeddingProviderCandidate[];
+  selected?: SelectedEmbeddingProvider;
+  result?: AmbientTencentMemoryEmbeddingResolution;
+}> {
+  const selected = input.selected
+    ?? selectRepairableManagedEmbeddingProvider(input.providers, input.providerCapabilityId);
+  if (!selected || !shouldPrepareManagedProvider(selected.provider)) return {};
+  if (!input.input.prepareEmbeddingProviderRuntime) {
+    return {
+      result: fallback(
+        providerDiagnostics(input.baseDiagnostics, selected.provider, selected.runtimeId),
+        "Selected embedding provider requires managed asset repair but this runtime cannot install it.",
+      ),
+    };
+  }
+  const prepareResult = await Promise.resolve(input.input.prepareEmbeddingProviderRuntime({
+    runtimeId: selected.runtimeId,
+    provider: selected.provider,
+  })).catch((error) => ({ status: "failed" as const, reason: errorMessage(error) }));
+  if (!isSuccessfulPrepareStatus(prepareResult.status)) {
+    return {
+      result: fallback(
+        providerDiagnostics(input.baseDiagnostics, selected.provider, selected.runtimeId),
+        `Selected embedding provider could not be prepared: ${prepareResult.reason ?? prepareResult.status}.`,
+      ),
+    };
+  }
+  const providers = await Promise.resolve(input.input.listEmbeddingProviders?.(input.input.workspacePath) ?? input.providers)
+    .catch(() => input.providers);
+  return {
+    providers,
+    selected: selectEmbeddingProvider(providers, input.providerCapabilityId)
+      ?? selectRepairableManagedEmbeddingProvider(providers, input.providerCapabilityId),
+  };
+}
+
+function isSuccessfulPrepareStatus(status: AmbientTencentMemoryEmbeddingPrepareResult["status"]): boolean {
+  return status === "ready" || status === "installed" || status === "already-installed";
+}
+
+function selectRepairableManagedEmbeddingProvider(
+  providers: EmbeddingProviderCandidate[],
+  providerCapabilityId?: string,
+): SelectedEmbeddingProvider | undefined {
+  const candidates = providers
+    .map((provider) => ({ provider, runtimeId: embeddingRuntimeId(provider) }))
+    .filter(({ provider }) => isManagedMemoryEmbeddingProvider(provider))
+    .filter(({ provider }) => !providerCapabilityId || provider.capabilityId === providerCapabilityId || provider.providerId === providerCapabilityId);
+  return candidates[0];
+}
+
+function shouldPrepareManagedProvider(provider: EmbeddingProviderCandidate): boolean {
+  return isManagedMemoryEmbeddingProvider(provider) && !provider.available;
+}
+
+function isManagedMemoryEmbeddingProvider(provider: EmbeddingProviderCandidate): boolean {
+  return provider.providerId === AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID || provider.capabilityId === AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID;
 }
 
 function stringValue(value: unknown): string | undefined {

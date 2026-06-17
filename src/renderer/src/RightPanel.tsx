@@ -577,6 +577,7 @@ export function RightPanel({
     panel,
     running,
     activeThreadId: state.activeThreadId,
+    activeThreadMemoryEnabled: Boolean(state.threads.find((thread) => thread.id === state.activeThreadId)?.memoryEnabled),
     workspacePath: state.workspace.path,
     activeWorkspacePath: state.activeWorkspace.path,
     permissionAuditRevision,

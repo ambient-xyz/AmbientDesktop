@@ -1,6 +1,6 @@
 import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
-import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
-import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
+import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
+import type { SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
 
 export interface TerminalProviderFailureFinalizationInput {
   status: "aborted" | "error";

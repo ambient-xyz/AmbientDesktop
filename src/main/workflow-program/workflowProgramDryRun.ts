@@ -4,7 +4,7 @@ import type { WorkflowCompilerOutput } from "../workflow-compiler/workflowCompil
 import { connectorOperationDescriptor, type WorkflowProgramDiagnostic } from "./workflowProgramCapabilityResolver";
 import type { WorkflowProgramLoweredOperationPlan } from "./workflowProgramLowering";
 import { validateWorkflowProgramJsonSchemaValue, workflowProgramSchemaObjectKeys } from "./workflowProgramTypecheck";
-import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflowConnectors";
+import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflow/workflowConnectors";
 
 export interface WorkflowProgramDryRunCall {
   kind: "tool" | "connector" | "model" | "checkpoint" | "step" | "document" | "mutation" | "review" | "approval" | "emit";

@@ -2,8 +2,8 @@ import type { ChatMessage, DesktopEvent } from "../../shared/types";
 import {
   piAssistantMessageMetadata,
   piThinkingMessageMetadata,
-} from "../agentRuntimeAssistantMessageMetadata";
-import { runtimeMessageContentOrFallback } from "../agentRuntimeMessageContent";
+} from "../agent-runtime/agentRuntimeAssistantMessageMetadata";
+import { runtimeMessageContentOrFallback } from "../agent-runtime/agentRuntimeMessageContent";
 
 type AssistantStatus = "done" | "error" | "aborted";
 type ThinkingStatus = "done" | "error" | "aborted";

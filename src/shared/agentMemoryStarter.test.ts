@@ -23,12 +23,14 @@ describe("agent memory starter contracts", () => {
       "feature_disabled",
       "global_memory_disabled",
       "thread_memory_disabled",
+      "storage_unhealthy",
       "managed_embeddings_disabled",
       "model_missing",
       "runtime_missing",
       "resident_runtime_conflict",
       "native_preflight_failed",
       "embedding_preflight_failed",
+      "stop_failed",
     ]));
     expect(AGENT_MEMORY_STARTER_NEXT_ACTIONS).toEqual([
       "enable",

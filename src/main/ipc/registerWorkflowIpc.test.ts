@@ -51,7 +51,7 @@ import type {
   WorkflowThreadExplorationResult,
   WorkflowVersionSummary,
 } from "../../shared/types";
-import type { WorkflowDiscoveryPolicyContext } from "../workflowDiscoveryPolicy";
+import type { WorkflowDiscoveryPolicyContext } from "../workflow-discovery/workflowDiscoveryPolicy";
 import {
   registerWorkflowAgentCapabilityIpc,
   registerWorkflowAgentDiscoveryAnswerIpc,
@@ -123,10 +123,10 @@ import {
   type RegisterWorkflowRunArtifactIpcDependencies,
 } from "./registerWorkflowIpc";
 import type { CompileWorkflowArtifactInput } from "../workflow-compiler/workflowCompilerService";
-import type { WorkflowRecoveryPlan } from "../workflowRecovery";
-import type { RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput } from "../workflowRunService";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
-import type { WorkflowDebugRewriteContext } from "../workflowDebugRewrite";
+import type { WorkflowRecoveryPlan } from "../workflow/workflowRecovery";
+import type { RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput } from "../workflow/workflowRunService";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { WorkflowDebugRewriteContext } from "../workflow/workflowDebugRewrite";
 
 type IpcListener = Parameters<IpcMain["handle"]>[1];
 

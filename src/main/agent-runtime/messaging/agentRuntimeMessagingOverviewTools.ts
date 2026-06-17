@@ -3,13 +3,13 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
 import { buildHeadlessRuntimeUxInventory, headlessRuntimeUxInventoryText } from "../../headlessRuntimeInventory";
-import type { MessagingBindingStore } from "../../messagingBindings";
+import type { MessagingBindingStore } from "../../messaging/messagingBindings";
 import {
   messagingProviderListText,
   messagingProviderStatusText,
   type MessagingProviderRegistry,
-} from "../../messagingGatewayRegistry";
-import type { MessagingGatewayRunner } from "../../messagingGatewayRunner";
+} from "../../messaging/messagingGatewayRegistry";
+import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
 import {
   buildMessagingRemoteSurfaceActivationPlan,
   buildMessagingRemoteSurfaceProviderSupportPlan,
@@ -18,8 +18,8 @@ import {
   messagingRemoteSurfaceActivationPlanText,
   messagingRemoteSurfaceProviderSupportPlanInput,
   messagingRemoteSurfaceProviderSupportPlanText,
-} from "../../messagingRemoteSurfaceActivationPlan";
-import type { TelegramBridgePollingRunner } from "../../telegramBridgePolling";
+} from "../../messaging/messagingRemoteSurfaceActivationPlan";
+import type { TelegramBridgePollingRunner } from "../../telegram/telegramBridgePolling";
 
 export interface MessagingOverviewToolRegistrationOptions {
   registry: MessagingProviderRegistry;

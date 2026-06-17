@@ -8,7 +8,7 @@ import {
   type WorkflowCompilerExtensionKind,
 } from "./workflowCompilerExtensionGuide";
 import { buildWorkflowProgramIrPromptParts } from "./workflowCompilerService";
-import { fixtureWorkflowConnector } from "../workflowConnectors";
+import { fixtureWorkflowConnector } from "../workflow/workflowConnectors";
 import {
   buildWorkflowCompilerPolicyPromptRules,
   workflowCompilerPromptRuleInventory,

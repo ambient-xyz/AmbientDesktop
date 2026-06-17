@@ -8,7 +8,7 @@ import type {
 import {
   mapSubagentMailboxEventRow,
   type SubagentMailboxEventRow,
-} from "../projectStoreSubagentMappers";
+} from "./projectStoreSubagentMappers";
 
 export interface AppendSubagentMailboxEventInput {
   direction: SubagentMailboxDirection;

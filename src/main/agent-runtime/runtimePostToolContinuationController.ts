@@ -3,7 +3,7 @@ import {
   createPostToolFinalizationTracker,
   type PostToolFinalizationTracker,
   type PromptCompletion,
-} from "../postToolFinalization";
+} from "./post-tool/postToolFinalization";
 import {
   planPostToolContinuation,
   postToolContinuationActivity,
@@ -11,7 +11,7 @@ import {
   stalePostToolContinuationActivity,
   type CompletedToolSnapshot,
   type PostToolContinuationTrigger,
-} from "../postToolContinuationScheduler";
+} from "./post-tool/postToolContinuationScheduler";
 
 export type RuntimePostToolContinuationCompletion =
   | PromptCompletion

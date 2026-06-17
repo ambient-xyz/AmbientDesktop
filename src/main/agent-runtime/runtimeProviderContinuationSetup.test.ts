@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ToolIntentSnapshot } from "../../shared/types";
 import { InterruptedToolCallRecoveryTracker } from "../interruptedToolCallRecovery";
-import { ToolArgumentProgressTracker } from "../toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import type {
   RuntimeProviderContinuationContext,

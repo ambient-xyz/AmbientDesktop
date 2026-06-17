@@ -1,5 +1,5 @@
-import type { AssistantFinalizationRetryReason } from "../agentRuntimeAssistantRetryInput";
-import type { AssistantTerminalEventDiagnostic } from "../agentRuntimeAssistantTerminalDiagnostics";
+import type { AssistantFinalizationRetryReason } from "../agent-runtime/agentRuntimeAssistantRetryInput";
+import type { AssistantTerminalEventDiagnostic } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
 
 export interface EmptyAssistantFinalizationInput {
   abortRequested: boolean;

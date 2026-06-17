@@ -15,7 +15,7 @@ import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   messagingGatewayLifecycleApplyResultText,
   messagingGatewayLifecyclePreviewText,
-} from "../../messagingGatewayRunner";
+} from "../../messaging/messagingGatewayRunner";
 import {
   messagingGatewayLifecyclePreviewInput,
   type MessagingGatewayLifecyclePreviewInput,

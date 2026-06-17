@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { registerMessagingConversationDirectoryTools } from "./agentRuntimeMessagingConversationDirectoryTools";
-import { createMessagingBindingStore } from "../../messagingBindings";
-import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "../../messagingConversationDirectoryAdapters";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messagingGatewayRunner";
+import { createMessagingBindingStore } from "../../messaging/messagingBindings";
+import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "../../messaging/messagingConversationDirectoryAdapters";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
 
 describe("registerMessagingConversationDirectoryTools", () => {
   it("registers and executes the generic conversation directory preview tool", async () => {

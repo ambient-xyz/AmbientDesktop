@@ -8,13 +8,13 @@ import type {
   ThreadSummary,
 } from "../../shared/types";
 import type { CallableWorkflowParentBlockingBlock } from "../callable-workflow/callableWorkflowParentBlocking";
-import type { AssistantTerminalCleanupDiagnostic } from "../agentRuntimeAssistantTerminalDiagnostics";
+import type { AssistantTerminalCleanupDiagnostic } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
 import {
   callableWorkflowFinalizationBlockedActivity,
   type SubagentFinalizationBarrierBlock,
   subagentFinalizationBlockedActivity,
-} from "../agentRuntimeFinalizationBlocking";
-import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
+} from "../agent-runtime/agentRuntimeFinalizationBlocking";
+import type { SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
 import {
   finalAssistantMessageModel,
   type FinalAssistantMessageStatus,

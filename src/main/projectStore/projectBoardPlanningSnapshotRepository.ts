@@ -8,8 +8,8 @@ import type {
   ProjectBoardSynthesisRunEvent,
   ProjectBoardSummary,
 } from "../../shared/projectBoardTypes";
-import { parseJsonArray } from "../projectStoreJson";
-import { projectBoardPlanningScopeFromRunEvents } from "../projectStoreFacadeHelpers";
+import { parseJsonArray } from "./projectStoreJson";
+import { projectBoardPlanningScopeFromRunEvents } from "./projectStoreFacadeHelpers";
 import {
   normalizeProjectBoardPlanningSnapshot,
   projectBoardPlanningStableHash,

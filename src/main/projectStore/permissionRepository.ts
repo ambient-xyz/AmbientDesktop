@@ -5,7 +5,7 @@ import type {
   CreateAmbientPermissionGrantInput,
   PermissionAuditEntry,
 } from "../../shared/types";
-import type { PermissionAuditInput } from "../projectStoreFacadeHelpers";
+import type { PermissionAuditInput } from "./projectStoreFacadeHelpers";
 import {
   mapPermissionAuditRow,
   mapPermissionGrantRow,

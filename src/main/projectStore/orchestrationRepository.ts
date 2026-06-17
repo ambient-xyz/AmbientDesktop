@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import {
   isRestartInterruptedOrchestrationRun,
   restartInterruptedAutoContinueProofOfWork,
-} from "../orchestrationRecovery";
-import type { SchedulerRuntimeState } from "../orchestrationScheduler";
-import { emptyToNull } from "../projectStoreFacadeHelpers";
+} from "../orchestration/orchestrationRecovery";
+import type { SchedulerRuntimeState } from "../orchestration/orchestrationScheduler";
+import { emptyToNull } from "./projectStoreFacadeHelpers";
 import {
   normalizeTaskLabels,
   normalizeTaskReferences,

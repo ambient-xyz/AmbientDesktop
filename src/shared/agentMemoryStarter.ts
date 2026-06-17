@@ -18,6 +18,7 @@ export const AGENT_MEMORY_STARTER_BLOCKER_CODES = [
   "feature_disabled",
   "global_memory_disabled",
   "thread_memory_disabled",
+  "storage_unhealthy",
   "managed_embeddings_disabled",
   "model_missing",
   "model_mismatch",
@@ -28,6 +29,7 @@ export const AGENT_MEMORY_STARTER_BLOCKER_CODES = [
   "embedding_preflight_failed",
   "install_failed",
   "start_failed",
+  "stop_failed",
 ] as const;
 
 export type AgentMemoryStarterBlockerCode = typeof AGENT_MEMORY_STARTER_BLOCKER_CODES[number];
@@ -50,6 +52,18 @@ export type AgentMemoryStarterOperationKind =
   | "enable"
   | "repair"
   | "disable";
+
+export interface AgentMemoryStarterEnableInput {
+  enableCurrentThread?: boolean;
+  enableNewThreads?: boolean;
+}
+
+export interface AgentMemoryStarterRepairInput {
+  enableCurrentThread?: boolean;
+  enableNewThreads?: boolean;
+}
+
+export type AgentMemoryStarterDisableInput = Record<string, never>;
 
 export interface AgentMemoryStarterBlocker {
   code: AgentMemoryStarterBlockerCode;

@@ -11,7 +11,7 @@ import {
   registerAgentRuntimeMcpServerTools,
   type AgentRuntimeMcpPermissionRequest,
   type AgentRuntimeMcpServerToolsOptions,
-} from "../../agentRuntimeMcpServerTools";
+} from "../../agent-runtime/mcp/agentRuntimeMcpServerTools";
 import {
   registerPluginInstallApplyTools,
   type PluginInstallApplyPermissionRequest,
@@ -26,11 +26,11 @@ import {
 import {
   registerSetupFinalReportTool,
   type SetupFinalReportToolRegistrationOptions,
-} from "../../agentRuntimeSetupFinalReportTools";
+} from "../../agent-runtime/agentRuntimeSetupFinalReportTools";
 import {
   registerJsonRepairTool,
   type JsonRepairToolRegistrationOptions,
-} from "../../agentRuntimeJsonRepairTools";
+} from "../../agent-runtime/agentRuntimeJsonRepairTools";
 
 export interface AgentRuntimePluginInstallCoreToolOptions {
   threadId: string;

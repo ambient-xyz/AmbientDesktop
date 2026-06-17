@@ -2,7 +2,7 @@ import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agen
 
 import { pluginInstallToolDescriptor } from "../desktopToolRegistry";
 import { registerDesktopTool } from "../desktopToolRegistration";
-import type { AmbientInstallRoutePlan } from "../installRoutePlanner";
+import type { AmbientInstallRoutePlan } from "../install-route/installRoutePlanner";
 
 export interface CapabilityBuilderPlanToolInput {
   goal: string;

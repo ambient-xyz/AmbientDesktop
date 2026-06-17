@@ -10,7 +10,7 @@ import type {
   ProjectBoardSynthesisRunStatus,
 } from "../../shared/projectBoardTypes";
 import { projectBoardSynthesisPartialStatus } from "../../shared/projectBoardSynthesisRecovery";
-import { parseJsonArray } from "../projectStoreJson";
+import { parseJsonArray } from "./projectStoreJson";
 import {
   dedupeProjectBoardSynthesisRunProgressiveRecords,
   mapProjectBoardSynthesisRunRow,

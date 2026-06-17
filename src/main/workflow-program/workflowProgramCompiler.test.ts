@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
-import { googleWorkspaceConnectorDescriptors } from "../googleWorkspaceConnectors";
-import { fixtureWorkflowConnector } from "../workflowConnectors";
+import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
+import { fixtureWorkflowConnector } from "../workflow/workflowConnectors";
 import { workflowGraphWithSourceMappings } from "../workflow-compiler/workflowCompiler";
 import { compileWorkflowProgramIr, createWorkflowProgramCompileCache, WorkflowProgramCompileError, type WorkflowProgramAmbientCliCapability } from "./workflowProgramCompiler";
 
@@ -3913,7 +3913,7 @@ describe("compileWorkflowProgramIr", () => {
               id: "bind-secret",
               kind: "mutation.stage",
               tool: "ambient_cli_env_bind",
-              args: { packageName: "pi-arxiv", envName: "ARXIV_API_KEY", filePath: "/Users/example/.secrets/arxiv.txt" },
+              args: { packageName: "pi-arxiv", envName: "ARXIV_API_KEY", filePath: "/path/to/user/.secrets/arxiv.txt" },
             },
           ],
         },

@@ -12,7 +12,7 @@ import {
   mapSubagentBatchResultReportRow,
   type SubagentBatchJobRow,
   type SubagentBatchResultReportRow,
-} from "../projectStoreSubagentMappers";
+} from "./projectStoreSubagentMappers";
 
 export interface ProjectStoreSubagentBatchRepositoryDependencies {
   upsertProgressNotification(record: SubagentBatchJobRecord, createdAt: string): void;

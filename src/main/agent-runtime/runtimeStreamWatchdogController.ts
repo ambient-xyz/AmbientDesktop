@@ -1,11 +1,11 @@
 import type { DesktopEvent } from "../../shared/types";
 import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
-import { runtimePiStreamTimeoutActivity } from "../agentRuntimeStreamState";
+import { runtimePiStreamTimeoutActivity } from "../agent-runtime/agentRuntimeStreamState";
 import {
   piStreamStallTimeoutMessage,
   piStreamStartTimeoutMessage,
-} from "../agentRuntimeTimeouts";
-import { createPiStreamWatchdog, type PiStreamWatchdog } from "../piStreamWatchdog";
+} from "../agent-runtime/agentRuntimeTimeouts";
+import { createPiStreamWatchdog, type PiStreamWatchdog } from "../pi/piStreamWatchdog";
 
 export interface RuntimeStreamWatchdogState {
   outputChars: number;

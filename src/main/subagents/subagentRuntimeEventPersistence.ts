@@ -1,6 +1,6 @@
 import type { SubagentRuntimeEvent, SubagentRuntimeEventInput, SubagentRuntimeEventSource } from "../../shared/subagentProtocol";
 import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/types";
-import { mapPiChildRuntimeEvent } from "../piEventMapper";
+import { mapPiChildRuntimeEvent } from "../pi/piEventMapper";
 
 export interface SubagentRuntimeEventPersistenceStore {
   appendSubagentRunEvent(runId: string, input: {

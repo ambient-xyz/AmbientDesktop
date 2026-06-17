@@ -5,12 +5,12 @@ import type {
   ToolIntentSnapshot,
   ToolLongformInputPreview,
 } from "../../shared/types";
-import { subagentParentControlAbortIntentFromToolEnd, type SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
-import type { NormalizedPiEvent } from "../piEventMapper";
+import { subagentParentControlAbortIntentFromToolEnd, type SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 import {
   toolContinuationLinesFromToolContent,
   type CompletedToolSnapshot,
-} from "../postToolContinuationScheduler";
+} from "./post-tool/postToolContinuationScheduler";
 import { runtimeToolInputEventModel, type RuntimeToolInputEvent } from "./toolInputEvents";
 import { runtimeToolStartEventModel, type RuntimeToolStartEvent } from "./toolStartEvents";
 import { runtimeToolUpdateEventModel, type RuntimeToolUpdateEvent } from "./toolUpdateEvents";

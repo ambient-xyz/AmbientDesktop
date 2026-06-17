@@ -13,7 +13,7 @@ import type {
 } from "../../shared/types";
 import type { SubagentTurnBudgetPolicy } from "../../shared/subagentTurnBudget";
 import { compactSubagentTurnBudgetPolicyForPi } from "../../shared/subagentTurnBudget";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../piChildSessionAdapter";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
 import { compactSubagentCapacityLeaseForPi } from "./subagentAgentStatus";
 import {

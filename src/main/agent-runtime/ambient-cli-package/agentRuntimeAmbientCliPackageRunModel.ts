@@ -5,9 +5,9 @@ import type {
   AmbientCliPackageSummary,
   AmbientCliRunResult,
   RunAmbientCliInput,
-} from "../../ambientCliPackages";
+} from "../../ambient-cli/ambientCliPackages";
 import { ambientCliDescribeText } from "./agentRuntimeAmbientCliPackageDescribeModel";
-import { materializedTextNotice } from "../../toolOutputArtifacts";
+import { materializedTextNotice } from "../../tool-runtime/toolOutputArtifacts";
 
 export function ambientCliRunInput(input: Record<string, unknown>): RunAmbientCliInput {
   const packageId = optionalString(input.packageId);

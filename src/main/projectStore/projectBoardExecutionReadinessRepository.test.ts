@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProjectBoardSummary } from "../../shared/projectBoardTypes";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import {
   ProjectStoreProjectBoardExecutionReadinessRepository,
   type ProjectBoardExecutionReadinessEventInput,

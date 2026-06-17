@@ -19,9 +19,9 @@ import {
   buildLocalDeepResearchLlamaServerAcquireInput,
 } from "./localDeepResearchServerSupervisor";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { LocalLlamaServerSupervisor, type LocalLlamaServerAcquireInput, type LocalLlamaServerLease } from "../localLlamaServerSupervisor";
+import { LocalLlamaServerSupervisor, type LocalLlamaServerAcquireInput, type LocalLlamaServerLease } from "../local-llama/localLlamaServerSupervisor";
 import type { LocalDeepResearchChatClient } from "./localDeepResearchRunner";
-import { writeWorkspaceTextFile } from "../workspaceFiles";
+import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
 
 const smokeRoot = ".ambient/local-deep-research/smoke";
 const smokePrompt = "Reply with one short sentence containing the exact token LOCAL_DEEP_RESEARCH_SMOKE_OK.";

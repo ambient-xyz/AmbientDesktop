@@ -3,7 +3,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { MessagingGatewayLifecyclePreview } from "../../../shared/messagingGateway";
 import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
-import { messagingGatewayLifecyclePreviewText } from "../../messagingGatewayRunner";
+import { messagingGatewayLifecyclePreviewText } from "../../messaging/messagingGatewayRunner";
 
 export interface MessagingGatewayLifecyclePreviewInput {
   action: "start" | "stop";

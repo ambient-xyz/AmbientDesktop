@@ -8,6 +8,7 @@ export type {
   UpdateAgentMemorySettingsInput,
 } from "./agentMemorySettings";
 export type * from "./agentMemoryDiagnostics";
+export type * from "./agentMemoryStarter";
 export type {
   AmbientModelRuntimeCatalog,
   AmbientModelRuntimeProfile,

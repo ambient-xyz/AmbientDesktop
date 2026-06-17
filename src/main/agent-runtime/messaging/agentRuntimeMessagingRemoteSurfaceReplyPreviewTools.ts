@@ -5,11 +5,11 @@ import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   signalBridgeReplyPreviewText,
   type SignalBridgeReplyPreview,
-} from "../../signalBridgeReply";
+} from "../signal/signalBridgeReply";
 import {
   telegramBridgeReplyPreviewText,
   type TelegramBridgeReplyPreview,
-} from "../../telegramBridgeOutbound";
+} from "../../telegram/telegramBridgeOutbound";
 
 export interface MessagingRemoteSurfaceReplyInput {
   runtimeEventId: string;

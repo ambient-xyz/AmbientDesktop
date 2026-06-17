@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { WORKFLOW_DEBUG_TRACE_RETENTION_DAYS } from "../projectStoreFacadeHelpers";
+import { WORKFLOW_DEBUG_TRACE_RETENTION_DAYS } from "./projectStoreFacadeHelpers";
 
 export interface CompactExpiredWorkflowTraceDataInput {
   now?: string;

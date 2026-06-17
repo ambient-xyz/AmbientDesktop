@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
-import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor, type WorkflowConnectorDescriptor } from "../workflowConnectors";
+import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor, type WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import {
   compileWorkflowProgramIr,
   WorkflowProgramCompileError,

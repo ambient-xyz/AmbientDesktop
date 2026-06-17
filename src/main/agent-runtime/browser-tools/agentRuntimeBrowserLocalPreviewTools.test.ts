@@ -4,9 +4,9 @@ import type {
   BrowserPageContent,
   BrowserUserActionState,
 } from "../../../shared/types";
-import { BrowserUnavailableError } from "../../browserService";
+import { BrowserUnavailableError } from "../../browser/browserService";
 import { localPreviewSummary, type LocalPreviewSession } from "../../localPreviewServer";
-import type { MaterializedTextOutput } from "../../toolOutputArtifacts";
+import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 import {
   registerBrowserLocalPreviewTool,
   type BrowserLocalPreviewToolRegistrationOptions,

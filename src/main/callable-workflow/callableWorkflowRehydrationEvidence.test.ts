@@ -19,7 +19,7 @@ import {
   type CallableWorkflowRehydrationEvidence,
   validateCallableWorkflowRehydrationEvidence,
 } from "./callableWorkflowRehydrationEvidence";
-import { ProjectStore } from "../projectStore";
+import { ProjectStore } from "../projectStore/projectStore";
 
 const roots: string[] = [];
 const enabledFlags = resolveAmbientFeatureFlags({

@@ -21,7 +21,7 @@ import type {
   SignalRemoteSurfaceBindingPlan,
   SignalRemoteSurfaceBindingRevokeInput,
   SignalRemoteSurfaceBindingRevokePlan,
-} from "../../signalRemoteSurfaceBinding";
+} from "../signal/signalRemoteSurfaceBinding";
 import {
   buildSignalRemoteSurfaceBindingPlan,
   buildSignalRemoteSurfaceBindingRevokePlan,
@@ -38,7 +38,7 @@ import {
   signalRemoteSurfaceBindingInput,
   signalRemoteSurfaceBindingRevokeInput,
   signalRemoteSurfaceBindingText,
-} from "../../signalRemoteSurfaceBinding";
+} from "../signal/signalRemoteSurfaceBinding";
 
 const SIGNAL_PROVIDER_ID = "signal-cli";
 

@@ -6,7 +6,7 @@ import {
   uninstallAmbientCliPackageSource,
   type AmbientCliPackageCatalog,
   type UninstallAmbientCliPackageInput,
-} from "../../ambientCliPackages";
+} from "../../ambient-cli/ambientCliPackages";
 import {
   ambientCliPackageUninstallApprovalDetail,
   ambientCliPackageUninstallGrantIdentity,

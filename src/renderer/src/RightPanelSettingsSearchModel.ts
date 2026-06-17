@@ -470,6 +470,10 @@ export function rightPanelSettingsSearchTargets({
       terms: [
         "experimental Tencent memory",
         "agent memory",
+        "agent memory starter",
+        "enable feature",
+        "repair memory",
+        "memory setup",
         "tencentdb",
         "TencentCloud",
         "ambient.memory.tencentdb",

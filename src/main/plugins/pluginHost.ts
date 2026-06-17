@@ -26,7 +26,7 @@ import type {
   UninstallCodexPluginInput,
   UninstallPiPackageInput,
 } from "../../shared/types";
-import { discoverAmbientCliPackages, type DiscoverAmbientCliPackagesOptions } from "../ambientCliPackages";
+import { discoverAmbientCliPackages, type DiscoverAmbientCliPackagesOptions } from "../ambient-cli/ambientCliPackages";
 import {
   addCodexMarketplaceSource,
   previewCodexPluginInstallSource,
@@ -40,8 +40,8 @@ import {
   type CodexPluginInstallPreview,
   type CommitCodexPluginInstallInput,
   type PreviewCodexPluginInstallInput,
-} from "../codexPlugins";
-import { discoverPiPackages, installPiPackageSource, previewPiPackageInstallSource, uninstallPiPackageSource } from "../piPackages";
+} from "./codex/codexPlugins";
+import { discoverPiPackages, installPiPackageSource, previewPiPackageInstallSource, uninstallPiPackageSource } from "../pi/piPackages";
 import {
   codexPluginRuntimeFingerprint,
   PluginMcpSupervisor,

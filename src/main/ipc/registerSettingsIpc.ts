@@ -22,6 +22,11 @@ import type {
   LocalModelRuntimeLifecycleActionResult,
   AgentMemoryEmbeddingLifecycleActionInput,
   AgentMemoryEmbeddingLifecycleActionResult,
+  AgentMemoryStarterDisableInput,
+  AgentMemoryStarterEnableInput,
+  AgentMemoryStarterOperationResult,
+  AgentMemoryStarterRepairInput,
+  AgentMemoryStarterStatus,
   AgentMemoryStorageDiagnostics,
   AgentMemorySettings,
   AgentMemoryClearResult,
@@ -87,6 +92,10 @@ export const settingsIpcChannels = [
   "model-runtime:lifecycle-action",
   "feature-flags:update-settings",
   "memory:update-settings",
+  "memory:starter-status",
+  "memory:starter-enable",
+  "memory:starter-repair",
+  "memory:starter-disable",
   "memory:diagnostics",
   "memory:embedding-lifecycle-action",
   "memory:clear",
@@ -148,6 +157,10 @@ export interface RegisterSettingsIpcDependencies<
   runLocalModelRuntimeLifecycleAction(input: LocalModelRuntimeLifecycleActionInput): MaybePromise<LocalModelRuntimeLifecycleActionResult>;
   updateFeatureFlagSettings(input: UpdateFeatureFlagSettingsInput): MaybePromise<AmbientFeatureFlagSettings>;
   updateMemorySettings(input: UpdateAgentMemorySettingsInput): MaybePromise<AgentMemorySettings>;
+  getAgentMemoryStarterStatus(): MaybePromise<AgentMemoryStarterStatus>;
+  enableAgentMemoryStarter(input: AgentMemoryStarterEnableInput): MaybePromise<AgentMemoryStarterOperationResult>;
+  repairAgentMemoryStarter(input: AgentMemoryStarterRepairInput): MaybePromise<AgentMemoryStarterOperationResult>;
+  disableAgentMemoryStarter(input: AgentMemoryStarterDisableInput): MaybePromise<AgentMemoryStarterOperationResult>;
   getAgentMemoryDiagnostics(): MaybePromise<AgentMemoryStorageDiagnostics>;
   runAgentMemoryEmbeddingLifecycleAction(input: AgentMemoryEmbeddingLifecycleActionInput): MaybePromise<AgentMemoryEmbeddingLifecycleActionResult>;
   clearAgentMemory(): MaybePromise<AgentMemoryClearResult>;
@@ -298,6 +311,12 @@ const updateMemorySettingsSchema = z.object({
 const agentMemoryEmbeddingLifecycleActionSchema = z.object({
   action: z.enum(["check", "start", "stop", "restart"]),
 }).strict();
+const agentMemoryStarterEnableSchema = z.object({
+  enableCurrentThread: z.boolean().optional(),
+  enableNewThreads: z.boolean().optional(),
+}).strict();
+const agentMemoryStarterRepairSchema = agentMemoryStarterEnableSchema;
+const agentMemoryStarterDisableSchema = z.object({}).strict();
 const updatePlannerSettingsSchema = z.object({
   autoFinalize: z.boolean(),
 });
@@ -508,6 +527,10 @@ export function registerSettingsIpc<
   runLocalModelRuntimeLifecycleAction,
   updateFeatureFlagSettings,
   updateMemorySettings,
+  getAgentMemoryStarterStatus,
+  enableAgentMemoryStarter,
+  repairAgentMemoryStarter,
+  disableAgentMemoryStarter,
   getAgentMemoryDiagnostics,
   runAgentMemoryEmbeddingLifecycleAction,
   clearAgentMemory,
@@ -577,6 +600,19 @@ export function registerSettingsIpc<
   handleIpc("memory:update-settings", async (_event, raw: UpdateAgentMemorySettingsInput) => {
     const input = updateMemorySettingsSchema.parse(raw);
     return updateMemorySettings(input);
+  });
+  handleIpc("memory:starter-status", async () => getAgentMemoryStarterStatus());
+  handleIpc("memory:starter-enable", async (_event, raw: AgentMemoryStarterEnableInput | undefined) => {
+    const input = agentMemoryStarterEnableSchema.parse(raw ?? {});
+    return enableAgentMemoryStarter(input);
+  });
+  handleIpc("memory:starter-repair", async (_event, raw: AgentMemoryStarterRepairInput | undefined) => {
+    const input = agentMemoryStarterRepairSchema.parse(raw ?? {});
+    return repairAgentMemoryStarter(input);
+  });
+  handleIpc("memory:starter-disable", async (_event, raw: AgentMemoryStarterDisableInput | undefined) => {
+    const input = agentMemoryStarterDisableSchema.parse(raw ?? {});
+    return disableAgentMemoryStarter(input);
   });
   handleIpc("memory:diagnostics", async () => getAgentMemoryDiagnostics());
   handleIpc("memory:embedding-lifecycle-action", async (_event, raw: AgentMemoryEmbeddingLifecycleActionInput) => {

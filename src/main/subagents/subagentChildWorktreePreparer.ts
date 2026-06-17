@@ -3,7 +3,7 @@ import type {
   ThreadSummary,
   ThreadWorktreeSummary,
 } from "../../shared/types";
-import type { SubagentChildWorktreePrepareInput } from "../piChildSessionAdapter";
+import type { SubagentChildWorktreePrepareInput } from "../pi/piChildSessionAdapter";
 import { compactSubagentThreadWorktreeForPi } from "./subagentSpawnFailure";
 
 export const SUBAGENT_CHILD_WORKTREE_PREPARER_SCHEMA_VERSION =

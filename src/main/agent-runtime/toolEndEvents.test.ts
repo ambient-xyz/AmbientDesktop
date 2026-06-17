@@ -5,7 +5,7 @@ import type {
   ToolEditInputPreview,
   ToolLongformInputPreview,
 } from "../../shared/types";
-import type { ToolResultDetails } from "../piEventMapper";
+import type { ToolResultDetails } from "../pi/piEventMapper";
 import { runtimeToolEndEventModel } from "./toolEndEvents";
 
 const previousLongformInputPreview: ToolLongformInputPreview = {

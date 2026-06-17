@@ -1,5 +1,6 @@
 import type { AmbientFeatureFlagSnapshot } from "./featureFlags";
 import type { AgentMemoryStorageDiagnostics } from "./agentMemoryDiagnostics";
+import type { AgentMemoryStarterStatus } from "./agentMemoryStarter";
 import type {
   LocalModelResourceRegistryEntry,
   LocalRuntimeLeaseStatus,
@@ -27,6 +28,7 @@ export interface DiagnosticExportResult {
   summary?: DiagnosticExportSummary;
   agentMemory?: {
     diagnostics?: AgentMemoryStorageDiagnostics;
+    starterStatus?: AgentMemoryStarterStatus;
   };
   subagents?: {
     replayEvidence?: DiagnosticExportSubagentReplayEvidence;
@@ -471,6 +473,7 @@ export interface DiagnosticExportLocalRuntimeEvidence {
 export interface DiagnosticExportSummary {
   featureFlags?: AmbientFeatureFlagSnapshot;
   agentMemory?: AgentMemoryStorageDiagnostics;
+  agentMemoryStarter?: AgentMemoryStarterStatus;
   subagents: DiagnosticExportSubagentSummary;
   localRuntimes?: DiagnosticExportLocalRuntimeSummary;
 }

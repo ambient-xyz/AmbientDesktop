@@ -7,20 +7,20 @@ import { promisify } from "node:util";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../shared/ambientModels";
-import { AgentRuntime } from "./agentRuntime";
-import { BrowserCredentialStore } from "./browserCredentialStore";
-import { BrowserService } from "./browserService";
-import { createMessagingBindingStore } from "./messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "./messagingGatewayRegistry";
-import { ProjectStore } from "./projectStore";
-import { deterministicWavFixtureVoiceRunner } from "./voiceRuntime";
+import { AgentRuntime } from "./agent-runtime/agentRuntime";
+import { BrowserCredentialStore } from "./browser/browserCredentialStore";
+import { BrowserService } from "./browser/browserService";
+import { createMessagingBindingStore } from "./messaging/messagingBindings";
+import { createDefaultMessagingProviderRegistry } from "./messaging/messagingGatewayRegistry";
+import { ProjectStore } from "./projectStore/projectStore";
+import { deterministicWavFixtureVoiceRunner } from "./voice/voiceRuntime";
 import { AmbientPluginHost, codexPluginTrustFingerprint } from "./plugins/pluginHost";
-import { ensureFirstPartyAmbientCliPackages, installAmbientCliPackageSource, runAmbientCliPackageCommand, saveAmbientCliPackageEnvSecret } from "./ambientCliPackages";
-import { discoverPiExtensionSandboxPackages } from "./piExtensionSandboxPackages";
-import { discoverPiPrivilegedPackages } from "./piPrivilegedPackages";
+import { ensureFirstPartyAmbientCliPackages, installAmbientCliPackageSource, runAmbientCliPackageCommand, saveAmbientCliPackageEnvSecret } from "./ambient-cli/ambientCliPackages";
+import { discoverPiExtensionSandboxPackages } from "./agent-runtime/pi-package-tools/piExtensionSandboxPackages";
+import { discoverPiPrivilegedPackages } from "./agent-runtime/pi-package-tools/piPrivilegedPackages";
 import { registerCapabilityBuilderPackage, saveCapabilityBuilderEnvSecret, scaffoldCapabilityBuilderPackage, unregisterCapabilityBuilderPackage, validateCapabilityBuilderPackage } from "./capability-builder/capabilityBuilder";
-import { setupQwen3AsrProvider } from "./sttProviderInstaller";
-import { writeVoiceDiscoveryCacheEntry } from "./voiceDiscoveryCache";
+import { setupQwen3AsrProvider } from "./stt/sttProviderInstaller";
+import { writeVoiceDiscoveryCacheEntry } from "./voice/voiceDiscoveryCache";
 import type { CodexPluginSummary, DesktopEvent, MediaPlaybackSettings, PermissionPromptResolution, PermissionPromptResponseMode, PermissionRequest, ProjectSummary, SearchRoutingSettings, SttSettings, VoiceProviderCandidate, VoiceSettings } from "../shared/types";
 import {
   buildFirstRunCapabilityOnboardingPrompt,
@@ -29,7 +29,7 @@ import {
   buildGeneratedCapabilityRemovalPlanPrompt,
   buildGeneratedCapabilityUpdatePlanPrompt,
 } from "../renderer/src/pluginUiModel";
-import { providerCatalogSettingsState } from "./providerCatalog";
+import { providerCatalogSettingsState } from "./provider/providerCatalog";
 
 const execFileAsync = promisify(execFile);
 
@@ -7221,7 +7221,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V vision through Ambient CLI during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V Ambient CLI dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/user/RCLI/deps/llama.cpp/build/bin/llama-server";
     await stat(llamaServer).catch(() => {
       throw new Error(`Set AMBIENT_MINICPM_V_LLAMA_SERVER to a runnable llama-server binary for live MiniCPM-V dogfood. Missing: ${llamaServer}`);
     });
@@ -7373,7 +7373,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V vision through the typed Ambient visual tool during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V typed visual dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/user/RCLI/deps/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
@@ -7617,7 +7617,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V comparison through structured visual references during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V structured visual dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/user/RCLI/deps/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
@@ -7709,7 +7709,7 @@ describeNative("Plugin chat dogfood", () => {
   itMiniCpmLive("dogfoods MiniCPM-V sampled video frames through the typed Ambient visual tool during a live Ambient/Pi chat turn", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
     if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live MiniCPM-V typed video dogfood.");
-    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/Users/example/RCLI/deps/llama.cpp/build/bin/llama-server";
+    const llamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER || "/path/to/user/RCLI/deps/llama.cpp/build/bin/llama-server";
     const previousApiKey = process.env.AMBIENT_API_KEY;
     const previousLlamaServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;

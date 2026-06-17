@@ -7,21 +7,21 @@ import type {
 } from "../../../shared/messagingGateway";
 import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messagingBindings";
-import { messagingGatewayRuntimeStatusText } from "../../messagingGatewayRunner";
+import type { MessagingBindingStore } from "../../messaging/messagingBindings";
+import { messagingGatewayRuntimeStatusText } from "../../messaging/messagingGatewayRunner";
 import {
   type SignalRealPollingRuntimeStatus,
   signalRealPollingStatusText,
-} from "../../signalRealPolling";
+} from "../signal/signalRealPolling";
 import {
   buildSignalBridgeReplyStatus,
   type SignalBridgeReplyStatus,
   signalBridgeReplyStatusText,
-} from "../../signalBridgeReply";
+} from "../signal/signalBridgeReply";
 import {
   type TelegramBridgePollingRuntimeStatus,
   telegramBridgePollingStatusText,
-} from "../../telegramBridgePolling";
+} from "../../telegram/telegramBridgePolling";
 
 export interface MessagingGatewayStatusToolRegistrationOptions {
   bindings: Pick<MessagingBindingStore, "list">;

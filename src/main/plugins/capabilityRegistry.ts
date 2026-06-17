@@ -20,8 +20,8 @@ import type {
   AmbientCliPackageCommand,
   AmbientCliPackageHealthCheckResult,
   AmbientCliPackageSummary,
-} from "../ambientCliPackages";
-import { ambientCliCapabilityId, ambientCliRegistryPluginId } from "../ambientCliPackages";
+} from "../ambient-cli/ambientCliPackages";
+import { ambientCliCapabilityId, ambientCliRegistryPluginId } from "../ambient-cli/ambientCliPackages";
 import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktopToolRegistry";
 
 const ambientBuiltInPluginId = "ambient-built-in:desktop-tools";

@@ -13,6 +13,7 @@ import {
 import type { IpcMainInvokeEvent } from "electron";
 import electronUpdater from "electron-updater";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { existsSync, mkdirSync } from "node:fs";
@@ -23,7 +24,7 @@ import {
   AgentRuntime,
   RUNTIME_RESET_INTERRUPTED_RUN_MESSAGE,
   type AgentRuntimeFeatures,
-} from "./agentRuntime";
+} from "./agent-runtime/agentRuntime";
 import {
   archiveAmbientWorkflowPlaybook,
   describeAmbientWorkflowPlaybook,
@@ -41,11 +42,11 @@ import {
   type AmbientWorkflowsSearchResponse,
   type AmbientWorkflowsUnarchiveInput,
   type AmbientWorkflowsUpdateInput,
-} from "./ambientWorkflows";
-import { AmbientWorkflowLabJudgeProvider, runWorkflowLab } from "./workflowLab";
+} from "./ambient/ambientWorkflows";
+import { AmbientWorkflowLabJudgeProvider, runWorkflowLab } from "./workflow/workflowLab";
 import { ambientRetryPolicyFromSettings } from "./aggressiveRetries";
-import { ambientChatCompletionTransportTimeoutsFromEnv } from "./ambientChatCompletionRetry";
-import { getAppLogs, installAppLogCapture } from "./appLogs";
+import { ambientChatCompletionTransportTimeoutsFromEnv } from "./ambient/ambientChatCompletionRetry";
+import { getAppLogs, installAppLogCapture } from "./diagnostics/appLogs";
 import { parseAmbientLaunchArgs } from "./launchArgs";
 import { localTextSubagentStartupFeatureFromEnv } from "./local-runtime/localTextSubagentStartupConfig";
 import { isAmbientSubagentsEnabled, resolveAmbientFeatureFlags } from "../shared/featureFlags";
@@ -122,17 +123,17 @@ import {
   type AmbientProjectBoardSynthesisProgressiveBatch,
   type ProjectBoardSynthesisReasoning,
 } from "./project-board/projectBoardSynthesisProvider";
-import { ProjectStore } from "./projectStore";
+import { ProjectStore } from "./projectStore/projectStore";
 import {
   listWorkflowAgentFoldersAcrossStores,
   listWorkflowRecordingLibraryAcrossStores,
   searchAmbientWorkflowPlaybooksAcrossStores,
   type WorkflowRecordingLibraryStore,
-} from "./workflowRecordingGlobalLibrary";
+} from "./workflow-recording/workflowRecordingGlobalLibrary";
 import { ProjectRegistry, archiveProjectChats, normalizeWorkspacePath, projectIdFromWorkspacePath, readProjectSearchResults } from "./projectRegistry";
 import { ensureWelcomeOnboardingProject, resolveWelcomeOnboardingAssetsPath } from "./welcomeOnboarding";
-import { providerCatalogSettingsState } from "./providerCatalog";
-import { getAmbientProviderStatus } from "./providerStatus";
+import { providerCatalogSettingsState } from "./provider/providerCatalog";
+import { getAmbientProviderStatus } from "./provider/providerStatus";
 import { saveModelProviderCredentialForSettings } from "./model-provider/modelProviderCredentialStore";
 import { installModelProviderEndpointForSettings } from "./model-provider/modelProviderSettingsInstall";
 import { projectBoardDecisionImpactPreview } from "../shared/projectBoardDecisionImpact";
@@ -145,8 +146,8 @@ import { isLoopbackWebUrl, parseExternalOpenUrl } from "./externalUrlPolicy";
 import { LocalPreviewServerManager } from "./localPreviewServer";
 import { redactSensitiveText } from "./secretRedaction";
 import { readSecretReference } from "./secretReferenceStore";
-import { saveMcpServerEnvSecret } from "./mcpSecretReferences";
-import { selectStartupWorkspacePath } from "./workspaceDefaults";
+import { saveMcpServerEnvSecret } from "./mcp/mcpSecretReferences";
+import { selectStartupWorkspacePath } from "./workspace/workspaceDefaults";
 import type {
   AmbientPermissionGrant,
   AmbientMcpInstallPreview,
@@ -223,10 +224,18 @@ import type {
   ThemePreference,
   GeneratePlannerDurableArtifactInput,
   UpdateMediaPlaybackSettingsInput,
+  AgentMemoryStarterDisableInput,
+  AgentMemoryStarterEnableInput,
+  AgentMemoryStarterOperationLogEntry,
+  AgentMemoryStarterOperationResult,
+  AgentMemoryStarterRepairInput,
+  AgentMemoryStarterRuntimeStatus,
+  AgentMemoryStarterStatus,
   UpdateAgentMemorySettingsInput,
   AgentMemoryEmbeddingDiagnostics,
   AgentMemoryEmbeddingLifecycleActionInput,
   AgentMemoryEmbeddingLifecycleActionResult,
+  AgentMemoryStorageDiagnostics,
   AgentMemorySettings,
   UpdateFeatureFlagSettingsInput,
   UpdateModelRuntimeSettingsInput,
@@ -290,10 +299,10 @@ import {
   readWorkspaceFile,
   resolveWorkspacePath,
   resolveWorkspacePathForOpen,
-} from "./workspaceFiles";
-import { isPathInside } from "./sessionPaths";
-import { registerWorkspaceMediaProtocol, WorkspaceMediaServer } from "./workspaceMedia";
-import { OfficePreviewService, type OfficePreviewRenderResult } from "./officePreviewService";
+} from "./workspace/workspaceFiles";
+import { isPathInside } from "./session/sessionPaths";
+import { registerWorkspaceMediaProtocol, WorkspaceMediaServer } from "./workspace/workspaceMedia";
+import { OfficePreviewService, type OfficePreviewRenderResult } from "./office/officePreviewService";
 import {
   commitGit,
   commitGitPaths,
@@ -311,22 +320,22 @@ import {
   switchWorkspaceBranch,
   unstageAllGitFiles,
   unstageGitFile,
-} from "./workspaceGit";
-import { createGitCheckpoint, latestGitCheckpoint, restoreLatestGitCheckpoint } from "./gitCheckpoints";
-import { attachExistingThreadWorktree, createPermanentWorktree, prepareThreadWorktree } from "./gitWorktrees";
-import { TerminalService } from "./terminalService";
-import { listManagedDevServers, stopManagedDevServer } from "./toolRunner";
-import { TerminalStartTokenStore } from "./terminalSessionTokens";
-import { PermissionPromptService } from "./permissionPrompts";
-import { PrivilegedCredentialPromptService } from "./privilegedCredentialPrompts";
+} from "./workspace/workspaceGit";
+import { createGitCheckpoint, latestGitCheckpoint, restoreLatestGitCheckpoint } from "./git/gitCheckpoints";
+import { attachExistingThreadWorktree, createPermanentWorktree, prepareThreadWorktree } from "./git/gitWorktrees";
+import { TerminalService } from "./terminal/terminalService";
+import { listManagedDevServers, stopManagedDevServer } from "./tool-runtime/toolRunner";
+import { TerminalStartTokenStore } from "./terminal/terminalSessionTokens";
+import { PermissionPromptService } from "./permissions/permissionPrompts";
+import { PrivilegedCredentialPromptService } from "./privileged-action/privilegedCredentialPrompts";
 import { SecureInputPromptService } from "./secureInputPrompts";
-import { permissionGrantTargetHash, resolvePermissionWithGrants } from "./permissionGrants";
-import { classifyToolPermission } from "./permissionPolicy";
+import { permissionGrantTargetHash, resolvePermissionWithGrants } from "./permissions/permissionGrants";
+import { classifyToolPermission } from "./permissions/permissionPolicy";
 import {
   parseThreadPermissionModeChange,
   parseThreadSettingsUpdate,
   permissionModeChangeAuditDetail,
-} from "./threadSettingsAuthority";
+} from "./thread/threadSettingsAuthority";
 import {
   AmbientPluginHost,
   codexPluginTrustFingerprint,
@@ -342,45 +351,44 @@ import {
   mcpRegistryInstallPreviewText,
   type McpInstalledServerSummary,
   type McpRegistryInstallPreview,
-} from "./mcpInstallCatalog";
-import { loadDefaultMcpCatalog, mcpDefaultCatalogDescriptorHash } from "./mcpDefaultCatalog";
+} from "./mcp/mcpInstallCatalog";
+import { loadDefaultMcpCatalog, mcpDefaultCatalogDescriptorHash } from "./mcp/mcpDefaultCatalog";
 import {
   isMcpDefaultCapabilityInstalledServerAvailable,
   reconcileMcpDefaultCapabilities,
   writeMcpDefaultCapabilitySummary,
   type McpDefaultCapabilitySummary,
-} from "./mcpDefaultCapabilityReconciler";
+} from "./mcp/mcpDefaultCapabilityReconciler";
 import {
   adoptExistingMcpDefaultCapability,
   defaultCapabilityImageResolutionText,
   installMcpDefaultCapability,
   type InstallMcpDefaultCapabilityResult,
   type McpDefaultCapabilityInstallProgress,
-} from "./mcpDefaultCapabilityInstaller";
+} from "./mcp/mcpDefaultCapabilityInstaller";
 import {
   evaluateMcpInstallGate,
   mcpDefaultCapabilityStatePathForUserData,
   mcpInstallGateSummary,
-} from "./mcpInstallGate";
-import { mcpServerInstallApprovalDetail, mcpServerUninstallApprovalDetail } from "./mcpServerPiTools";
-import { containerRuntimeProbeSummary, probeContainerRuntime, type ContainerRuntimeProbeResult } from "./containerRuntimeProbeService";
+} from "./mcp/mcpInstallGate";
+import { mcpServerInstallApprovalDetail, mcpServerUninstallApprovalDetail } from "./mcp/mcpServerPiTools";
+import { containerRuntimeProbeSummary, probeContainerRuntime, type ContainerRuntimeProbeResult } from "./container-runtime/containerRuntimeProbeService";
 import {
   buildContainerRuntimeInstallPlanFromProbe,
   launchContainerRuntimeInstallAction,
-} from "./containerRuntimeInstallLauncher";
-import { executeContainerRuntimeManagedInstallAction } from "./containerRuntimeManagedInstaller";
-import { createPrivilegedActionAdapter, privilegedActionAdapterSelectionFromEnv } from "./privilegedActionAdapter";
-import { writeContainerRuntimeManagedInstallRedactedLog, writePrivilegedActionRedactedLog } from "./privilegedActionLogs";
+} from "./container-runtime/containerRuntimeInstallLauncher";
+import { executeContainerRuntimeManagedInstallAction } from "./container-runtime/containerRuntimeManagedInstaller";
+import { createPrivilegedActionAdapter, privilegedActionAdapterSelectionFromEnv } from "./privileged-action/privilegedActionAdapter";
+import { writeContainerRuntimeManagedInstallRedactedLog, writePrivilegedActionRedactedLog } from "./privileged-action/privilegedActionLogs";
 import {
   containerRuntimeSetupPromptState,
   recordContainerRuntimeDeferred,
   recordContainerRuntimeInstallLaunched,
   recordContainerRuntimeProbeState,
   type ContainerRuntimeSetupPromptState,
-} from "./containerRuntimeSetupState";
-import { ToolHiveRuntimeService, type ToolHiveCommandResult } from "./toolHiveRuntimeService";
-import { McpToolBridge } from "./mcpToolBridge";
-import { PluginAuthService } from "./plugins/pluginAuthService";
+} from "./container-runtime/containerRuntimeSetupState";
+import { ToolHiveRuntimeService, type ToolHiveCommandResult } from "./tool-runtime/toolHiveRuntimeService";
+import { McpToolBridge } from "./mcp/mcpToolBridge";
 import {
   clearPiExtensionSandboxHistory,
   discoverPiExtensionSandboxPackages,
@@ -388,18 +396,19 @@ import {
   previewPiExtensionSandboxInstall,
   uninstallPiExtensionSandboxPackage,
   type PiExtensionSandboxInstallPreview,
-} from "./piExtensionSandboxPackages";
-import { clearPiPrivilegedPackageHistory, disablePiPrivilegedPackage, discoverPiPrivilegedPackages, installPiPrivilegedPackage, scanPiPrivilegedPackage, uninstallPiPrivilegedPackage, type PiPrivilegedSecurityScan } from "./piPrivilegedPackages";
+} from "./agent-runtime/pi-package-tools/piExtensionSandboxPackages";
+import { clearPiPrivilegedPackageHistory, disablePiPrivilegedPackage, discoverPiPrivilegedPackages, installPiPrivilegedPackage, scanPiPrivilegedPackage, uninstallPiPrivilegedPackage, type PiPrivilegedSecurityScan } from "./agent-runtime/pi-package-tools/piPrivilegedPackages";
+import { PluginAuthService } from "./plugins/pluginAuthService";
 import {
   ensureProjectBoardWorkflowForDispatch,
   listAutoContinuableRestartInterruptedRuns,
   listAutoStartablePreparedOrchestrationRuns,
   prepareAndRecordDueScheduledLocalTaskRuns,
   prepareAndRecordNextOrchestrationRuns,
-} from "./orchestrationDispatch";
-import { startPreparedOrchestrationRun } from "./orchestrationRunner";
-import { readOrchestrationBoardWithWorkflowReadiness, readOrchestrationWorkflowReadiness } from "./orchestrationWorkflowReadiness";
-import { loadWorkflowFile } from "./workflow";
+} from "./orchestration/orchestrationDispatch";
+import { startPreparedOrchestrationRun } from "./orchestration/orchestrationRunner";
+import { readOrchestrationBoardWithWorkflowReadiness, readOrchestrationWorkflowReadiness } from "./orchestration/orchestrationWorkflowReadiness";
+import { loadWorkflowFile } from "./workflow/workflow";
 import {
   createWorkflowSampleArtifact,
   readWorkflowDashboard,
@@ -409,22 +418,31 @@ import {
   revalidateWorkflowArtifact,
   updateWorkflowArtifactSource,
   updateWorkflowConnectorGrant,
-} from "./workflowDashboard";
-import { createDiagnosticBundle, type DiagnosticDataSource } from "./diagnostics";
-import { importDiagnosticBundleFromFile } from "./diagnosticBundleImport";
+} from "./workflow/workflowDashboard";
+import { createDiagnosticBundle, type DiagnosticDataSource } from "./diagnostics/diagnostics";
+import { importDiagnosticBundleFromFile } from "./diagnostics/diagnosticBundleImport";
 import {
   clearTencentDbMemoryStorage,
   inspectTencentDbMemoryDiagnostics,
 } from "./memory/tencentdb/diagnostics";
 import {
+  detectAmbientMemoryEmbeddingAssets,
   discoverAmbientMemoryEmbeddingProviders,
   runAmbientMemoryEmbeddingLifecycleAction,
 } from "./memory/tencentdb/managedEmbeddingProvider";
-import { createChatExportBundle } from "./chatExport";
-import { createChatPdfExport, createElectronPrintToPdfRenderer } from "./chatPdfExport";
+import { installAmbientMemoryEmbeddingAssets } from "./memory/tencentdb/managedEmbeddingInstaller";
+import {
+  agentMemoryStarterAssetSnapshotFromDetection,
+  agentMemoryStarterAssetSnapshotFromError,
+  agentMemoryStarterDisableMemoryPatch,
+  agentMemoryStarterEnableMemoryPatch,
+  agentMemoryStarterStatusFromDiagnostics,
+} from "./memory/tencentdb/starter";
+import { createChatExportBundle } from "./chat-export/chatExport";
+import { createChatPdfExport, createElectronPrintToPdfRenderer } from "./chat-export/chatPdfExport";
 import { listWorkspaceOpenTargets, openWorkspaceTarget } from "./externalEditors";
-import { BrowserService, managedChromeRevealBoundsForWorkArea, type ManagedChromeWindowBounds } from "./browserService";
-import { BrowserCredentialStore } from "./browserCredentialStore";
+import { BrowserService, managedChromeRevealBoundsForWorkArea, type ManagedChromeWindowBounds } from "./browser/browserService";
+import { BrowserCredentialStore } from "./browser/browserCredentialStore";
 import { InternalBrowserHost } from "./internalBrowserHost";
 import { compileWorkflowArtifact } from "./workflow-compiler/workflowCompilerService";
 import {
@@ -432,36 +450,36 @@ import {
   buildWorkflowDebugRewritePromptSection,
   createWorkflowDebugRewriteRevision,
   workflowDebugRewriteUserRequest,
-} from "./workflowDebugRewrite";
+} from "./workflow/workflowDebugRewrite";
 import {
   answerWorkflowDiscoveryQuestion,
   resolveWorkflowDiscoveryAccessRequest,
   startWorkflowDiscovery,
   startWorkflowRevisionDiscovery,
-} from "./workflowDiscoveryService";
-import { AmbientWorkflowDiscoveryProvider } from "./workflowDiscoveryProvider";
-import { describeWorkflowDiscoveryCapability, searchWorkflowDiscoveryCapabilities } from "./workflowDiscoveryCapabilitySearch";
-import { buildWorkflowDiscoveryPolicyContext } from "./workflowDiscoveryPolicy";
-import { workspaceInventoryConnector, workspaceInventoryConnectorDescriptor } from "./workflowConnectors";
-import { AmbientWorkflowExplorationProvider, runWorkflowThreadExploration } from "./workflowExplorationService";
-import { workflowToolDescriptorsFromPluginRegistry } from "./workflowPluginCapabilities";
-import { invokeWorkflowNativeTool } from "./workflowNativeTools";
+} from "./workflow-discovery/workflowDiscoveryService";
+import { AmbientWorkflowDiscoveryProvider } from "./workflow-discovery/workflowDiscoveryProvider";
+import { describeWorkflowDiscoveryCapability, searchWorkflowDiscoveryCapabilities } from "./workflow-discovery/workflowDiscoveryCapabilitySearch";
+import { buildWorkflowDiscoveryPolicyContext } from "./workflow-discovery/workflowDiscoveryPolicy";
+import { workspaceInventoryConnector, workspaceInventoryConnectorDescriptor } from "./workflow/workflowConnectors";
+import { AmbientWorkflowExplorationProvider, runWorkflowThreadExploration } from "./workflow/workflowExplorationService";
+import { workflowToolDescriptorsFromPluginRegistry } from "./workflow/workflowPluginCapabilities";
+import { invokeWorkflowNativeTool } from "./workflow/workflowNativeTools";
 import { discoverCapabilityBuilderHistory, saveCapabilityBuilderEnvSecret } from "./capability-builder/capabilityBuilder";
-import { runWorkflowArtifact } from "./workflowRunService";
-import { buildWorkflowRecoveryPlan } from "./workflowRecovery";
-import { markStaleWorkflowRunForRecoveryIfNeeded } from "./workflowStaleRunRecovery";
-import { runDueWorkflowArtifactSchedules, workflowScheduleRunStartedEventData } from "./workflowScheduleDispatch";
-import { runDueWorkflowPlaybookSchedules } from "./workflowPlaybookScheduleDispatch";
-import { compactExpiredWorkflowTraceData, WORKFLOW_TRACE_RETENTION_SWEEP_MS } from "./workflowTraceRetention";
-import { SafeStorageWorkflowConnectorTokenVault } from "./workflowConnectorAuth";
+import { runWorkflowArtifact } from "./workflow/workflowRunService";
+import { buildWorkflowRecoveryPlan } from "./workflow/workflowRecovery";
+import { markStaleWorkflowRunForRecoveryIfNeeded } from "./workflow/workflowStaleRunRecovery";
+import { runDueWorkflowArtifactSchedules, workflowScheduleRunStartedEventData } from "./workflow/workflowScheduleDispatch";
+import { runDueWorkflowPlaybookSchedules } from "./workflow/workflowPlaybookScheduleDispatch";
+import { compactExpiredWorkflowTraceData, WORKFLOW_TRACE_RETENTION_SWEEP_MS } from "./workflow/workflowTraceRetention";
+import { SafeStorageWorkflowConnectorTokenVault } from "./workflow/workflowConnectorAuth";
 import { googleWorkspaceOAuthProvidersFromEnv } from "./googleOAuthProvider";
-import { googleWorkspaceConnectorDescriptors, googleWorkspaceConnectorRegistrations, type GoogleWorkspaceConnectorDescriptorOptions } from "./googleWorkspaceConnectors";
+import { googleWorkspaceConnectorDescriptors, googleWorkspaceConnectorRegistrations, type GoogleWorkspaceConnectorDescriptorOptions } from "./google-workspace/googleWorkspaceConnectors";
 import { GoogleSidecarSupervisor } from "./googleSidecarSupervisor";
-import { GoogleWorkspaceCliAdapter } from "./googleWorkspaceCliAdapter";
-import { GoogleWorkspaceCliInstaller } from "./googleWorkspaceCliInstaller";
-import { GoogleWorkspaceSetupService } from "./googleWorkspaceSetupService";
-import { GoogleWorkspaceMethodBroker } from "./googleWorkspaceMethodBroker";
-import { restoreWorkflowVersion } from "./workflowVersionRestore";
+import { GoogleWorkspaceCliAdapter } from "./google-workspace/googleWorkspaceCliAdapter";
+import { GoogleWorkspaceCliInstaller } from "./google-workspace/googleWorkspaceCliInstaller";
+import { GoogleWorkspaceSetupService } from "./google-workspace/googleWorkspaceSetupService";
+import { GoogleWorkspaceMethodBroker } from "./google-workspace/googleWorkspaceMethodBroker";
+import { restoreWorkflowVersion } from "./workflow/workflowVersionRestore";
 import {
   AMBIENT_KEYS_URL,
   clearSavedAmbientApiKey,
@@ -507,7 +525,7 @@ import {
   DEFAULT_VOICE_SETTINGS,
 } from "./appAppearance";
 import { ambientLegacyUserDataPaths, hasRestorableWorkspaceState, migrateAmbientUserData } from "./userDataMigration";
-import { renderThreadMiniWindowHtml } from "./threadMiniWindowHtml";
+import { renderThreadMiniWindowHtml } from "./thread/threadMiniWindowHtml";
 import {
   discoverAmbientCliPackages,
   discoverAmbientCliEmbeddingProviders,
@@ -517,20 +535,20 @@ import {
   saveAmbientCliPackageEnvSecret,
   searchAmbientCliCapabilities,
   type AmbientCliPackageSummary,
-} from "./ambientCliPackages";
-import { hydrateWebResearchSettings } from "./webResearchSettingsHydration";
-import { regenerateMessageVoiceState } from "./voiceRuntime";
+} from "./ambient-cli/ambientCliPackages";
+import { hydrateWebResearchSettings } from "./web-research/webResearchSettingsHydration";
+import { regenerateMessageVoiceState } from "./voice/voiceRuntime";
 import {
   clearManagedVoiceArtifacts,
   clearManagedVoiceArtifactsSync,
   inspectVoiceArtifactRetention,
   pruneManagedVoiceArtifactsToBudget,
   pruneVoiceArtifactOrphans,
-} from "./voiceArtifacts";
-import { collectVoiceOnboardingHostFacts } from "./voiceOnboardingHostFacts";
-import { mergeVoiceProvidersWithCachedVoices, readVoiceDiscoveryCache, refreshVoiceProviderVoices } from "./voiceDiscoveryCache";
-import { mergeSttProvidersWithValidation, readQwen3AsrValidationMetadata, setupQwen3AsrProvider } from "./sttProviderInstaller";
-import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "./miniCpmVisionProvider";
+} from "./voice/voiceArtifacts";
+import { collectVoiceOnboardingHostFacts } from "./voice/voiceOnboardingHostFacts";
+import { mergeVoiceProvidersWithCachedVoices, readVoiceDiscoveryCache, refreshVoiceProviderVoices } from "./voice/voiceDiscoveryCache";
+import { mergeSttProvidersWithValidation, readQwen3AsrValidationMetadata, setupQwen3AsrProvider } from "./stt/sttProviderInstaller";
+import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "./mini-cpm/miniCpmVisionProvider";
 import { detectLocalDeepResearchManagedAssets } from "./local-deep-research/localDeepResearchManagedAssets";
 import {
   installLocalDeepResearchManagedAssets,
@@ -540,7 +558,7 @@ import {
 } from "./local-deep-research/localDeepResearchInstallService";
 import { listLocalDeepResearchRunHistory } from "./local-deep-research/localDeepResearchRunService";
 import { runLocalDeepResearchRealAssetSmoke } from "./local-deep-research/localDeepResearchSmoke";
-import { detectLocalLlamaResidentProcesses } from "./localLlamaResidencyPolicy";
+import { detectLocalLlamaResidentProcesses } from "./local-llama/localLlamaResidencyPolicy";
 import { localDeepResearchRequestedLaunch, sampleLocalModelHostMemorySnapshot } from "./local-runtime/localModelResourceRegistry";
 import { buildLocalModelRuntimeStatusSnapshot } from "./local-runtime/localModelRuntimeStatus";
 import { type LocalDeepResearchModelProfileId } from "./local-deep-research/localDeepResearchModelProfiles";
@@ -550,13 +568,13 @@ import {
   type LocalDeepResearchSetupInput as LocalDeepResearchSetupContractInput,
 } from "./local-deep-research/localDeepResearchSetup";
 import { validateLocalDeepResearchSetup } from "./local-deep-research/localDeepResearchValidation";
-import { webResearchSettingsWithDynamicProviderCatalogs } from "./searchSettingsTools";
-import { saveSttTestAudio } from "./sttTestAudio";
-import { SttRuntime } from "./sttRuntime";
-import { SttDiagnosticRecorder, sttSetupDiagnosticSummary, sttTranscriptionDiagnosticSummary } from "./sttDiagnostics";
-import { validatePlannerDurableHtmlFileInBrowser } from "./plannerDurableBrowserValidation";
-import { PlannerDurableHtmlValidationError, writePlannerDurableHtmlArtifact } from "./plannerDurableHtml";
-import { plannerDurableFallbackWarnings } from "./plannerDurableRepair";
+import { webResearchSettingsWithDynamicProviderCatalogs } from "./web-research/searchSettingsTools";
+import { saveSttTestAudio } from "./stt/sttTestAudio";
+import { SttRuntime } from "./stt/sttRuntime";
+import { SttDiagnosticRecorder, sttSetupDiagnosticSummary, sttTranscriptionDiagnosticSummary } from "./stt/sttDiagnostics";
+import { validatePlannerDurableHtmlFileInBrowser } from "./planner/plannerDurableBrowserValidation";
+import { PlannerDurableHtmlValidationError, writePlannerDurableHtmlArtifact } from "./planner/plannerDurableHtml";
+import { plannerDurableFallbackWarnings } from "./planner/plannerDurableRepair";
 import { registerMainIpc } from "./ipc/registerMainIpc";
 
 installAppLogCapture();
@@ -988,6 +1006,8 @@ export interface ProjectRuntimeHost {
   terminals: TerminalService;
   activeThreadId: string;
   autoDispatch: ProjectAutoDispatchState;
+  agentMemoryEmbeddingRuntimeLeaseId?: string;
+  agentMemoryEmbeddingRuntimeRelease?: () => Promise<void>;
 }
 
 interface ProjectAutoDispatchState {
@@ -2233,6 +2253,7 @@ function createMainDiagnosticSource(host: ProjectRuntimeHost = requireActiveProj
     listOrchestrationBoard: () => targetStore.listOrchestrationBoard(),
     getFeatureFlagSnapshot: () => currentFeatureFlagSnapshot(targetStore),
     getAgentMemoryDiagnostics: () => getAgentMemoryDiagnostics(host),
+    getAgentMemoryStarterStatus: () => getAgentMemoryStarterStatus(host),
     getSubagentRepairDiagnostics: (options) => targetStore.getSubagentRepairDiagnostics(options),
     getLocalModelRuntimeStatus: () => targetRuntime.readLocalModelRuntimeStatus(targetStore.getWorkspace().path),
     getPluginDiagnostics: async () => {
@@ -2977,6 +2998,7 @@ function disposeProjectRuntimeHost(workspacePath: string, reason: string): void 
   host.runtime.interruptActiveRuns(reason);
   host.runtime.resetSessions();
   disposeSttRuntimeForWorkspace(normalized, reason);
+  releaseAgentMemoryEmbeddingRuntimeForHost(host, reason);
   void host.browserService.shutdown().catch((error) => {
     console.warn(`Project browser shutdown failed: ${error instanceof Error ? error.message : String(error)}`);
   });
@@ -2991,6 +3013,7 @@ function disposeAllProjectRuntimeHosts(reason: string): void {
     host.runtime.interruptActiveRuns(reason);
     host.runtime.resetSessions();
     disposeSttRuntimeForWorkspace(host.workspacePath, reason);
+    releaseAgentMemoryEmbeddingRuntimeForHost(host, reason);
     void host.browserService.shutdown().catch((error) => {
       console.warn(`Project browser shutdown failed: ${error instanceof Error ? error.message : String(error)}`);
     });
@@ -8191,6 +8214,298 @@ async function getAgentMemoryDiagnostics(host = requireActiveProjectRuntimeHost(
   });
 }
 
+const activeAgentMemoryStarterOperations = new Map<string, {
+  operation: "enable" | "repair" | "disable";
+  requestKey: string;
+  promise: Promise<AgentMemoryStarterOperationResult>;
+}>();
+
+async function getAgentMemoryStarterStatus(
+  host = requireActiveProjectRuntimeHost(),
+  operationId?: string,
+): Promise<AgentMemoryStarterStatus> {
+  return readAgentMemoryStarterStatus(host, operationId);
+}
+
+async function enableAgentMemoryStarter(
+  input: AgentMemoryStarterEnableInput = {},
+  host = requireActiveProjectRuntimeHost(),
+): Promise<AgentMemoryStarterOperationResult> {
+  return runAgentMemoryStarterOperationWithLock(host, "enable", input, () => runAgentMemoryStarterSetupOperation("enable", input, host));
+}
+
+async function repairAgentMemoryStarter(
+  input: AgentMemoryStarterRepairInput = {},
+  host = requireActiveProjectRuntimeHost(),
+): Promise<AgentMemoryStarterOperationResult> {
+  return runAgentMemoryStarterOperationWithLock(host, "repair", input, () => runAgentMemoryStarterSetupOperation("repair", input, host));
+}
+
+async function disableAgentMemoryStarter(
+  input: AgentMemoryStarterDisableInput = {},
+  host = requireActiveProjectRuntimeHost(),
+): Promise<AgentMemoryStarterOperationResult> {
+  return runAgentMemoryStarterOperationWithLock(host, "disable", input, () => runAgentMemoryStarterDisableOperation(host));
+}
+
+async function runAgentMemoryStarterOperationWithLock(
+  host: ProjectRuntimeHost,
+  operation: "enable" | "repair" | "disable",
+  input: AgentMemoryStarterEnableInput | AgentMemoryStarterRepairInput | AgentMemoryStarterDisableInput,
+  run: () => Promise<AgentMemoryStarterOperationResult>,
+): Promise<AgentMemoryStarterOperationResult> {
+  const workspacePath = host.store.getWorkspace().path;
+  const active = activeAgentMemoryStarterOperations.get(workspacePath);
+  const requestKey = agentMemoryStarterOperationRequestKey(input);
+  if (active) {
+    if (active.operation === operation && active.requestKey === requestKey) return active.promise;
+    throw new Error(`Agent Memory starter ${active.operation} operation is already in progress for this workspace.`);
+  }
+  const promise = run().finally(() => {
+    if (activeAgentMemoryStarterOperations.get(workspacePath)?.promise === promise) {
+      activeAgentMemoryStarterOperations.delete(workspacePath);
+    }
+  });
+  activeAgentMemoryStarterOperations.set(workspacePath, { operation, requestKey, promise });
+  return promise;
+}
+
+async function runAgentMemoryStarterDisableOperation(
+  host: ProjectRuntimeHost,
+): Promise<AgentMemoryStarterOperationResult> {
+  const operationId = randomUUID();
+  const startedAt = new Date().toISOString();
+  const log: AgentMemoryStarterOperationLogEntry[] = [];
+  let runtimeOverride: AgentMemoryStarterRuntimeStatus | undefined;
+  appendAgentMemoryStarterLog(log, "disable", "started", "Disabling Agent Memory.");
+  await updateMemorySettings(agentMemoryStarterDisableMemoryPatch(), host);
+  appendAgentMemoryStarterLog(log, "settings", "passed", "Global memory and managed embeddings are disabled; stored memories are preserved.");
+  try {
+    const stopped = await runAgentMemoryEmbeddingLifecycleAction({ action: "stop" }, host);
+    appendAgentMemoryStarterLog(
+      log,
+      "stop-embeddings",
+      stopped.status === "failed" ? "failed" : stopped.status === "blocked" ? "blocked" : "passed",
+      stopped.message,
+    );
+    if (stopped.status === "failed" || stopped.status === "blocked") {
+      runtimeOverride = {
+        state: stopped.status === "blocked" ? "blocked" : "failed",
+        message: stopped.message,
+      };
+    }
+  } catch (error) {
+    const message = agentMemoryStarterErrorMessage(error);
+    runtimeOverride = {
+      state: "failed",
+      message,
+    };
+    appendAgentMemoryStarterLog(log, "stop-embeddings", "failed", message, "stop_failed");
+  }
+  const status = await readAgentMemoryStarterStatus(host, operationId, undefined, runtimeOverride);
+  return {
+    schemaVersion: "ambient-agent-memory-starter-operation-result-v1",
+    operationId,
+    operation: "disable",
+    startedAt,
+    completedAt: new Date().toISOString(),
+    status,
+    log,
+  };
+}
+
+async function runAgentMemoryStarterSetupOperation(
+  operation: "enable" | "repair",
+  input: AgentMemoryStarterEnableInput | AgentMemoryStarterRepairInput,
+  host: ProjectRuntimeHost,
+): Promise<AgentMemoryStarterOperationResult> {
+  const operationId = randomUUID();
+  const startedAt = new Date().toISOString();
+  const log: AgentMemoryStarterOperationLogEntry[] = [];
+  appendAgentMemoryStarterLog(log, operation, "started", `${operation === "repair" ? "Repairing" : "Enabling"} Agent Memory.`);
+  await updateFeatureFlagSettings({ tencentDbMemory: true }, host);
+  appendAgentMemoryStarterLog(log, "feature-flag", "passed", "TencentDB Agent Memory feature gate is enabled for this workspace.");
+  await updateMemorySettings(agentMemoryStarterEnableMemoryPatch(input, {
+    enableNewThreadsDefault: operation === "enable" ? true : undefined,
+  }), host);
+  appendAgentMemoryStarterLog(log, "settings", "passed", "Global memory, managed embeddings, and embedding auto-start are enabled.");
+
+  const threadId = activeThreadIdForHost(host);
+  if (input.enableCurrentThread === false) {
+    appendAgentMemoryStarterLog(log, "active-thread", "skipped", "Active thread memory was left unchanged by request.");
+  } else {
+    const activeThread = host.store.getThread(threadId);
+    if (activeThread.memoryEnabled) {
+      appendAgentMemoryStarterLog(log, "active-thread", "skipped", `Agent Memory was already enabled for thread ${threadId}.`);
+    } else {
+      host.store.updateThreadSettings(threadId, { memoryEnabled: true });
+      host.runtime.applyThreadMemorySettings(threadId);
+      appendAgentMemoryStarterLog(log, "active-thread", "passed", `Agent Memory is enabled for thread ${threadId}.`);
+      emitProjectStateIfActive(host, threadId);
+    }
+  }
+
+  let assetsReadyForStart = false;
+  try {
+    const install = await installAmbientMemoryEmbeddingAssets({
+      workspacePath: host.store.getWorkspace().path,
+      action: operation === "repair" ? "repair" : "install",
+    });
+    const modelStatus = install.modelInstall?.status ?? "skipped";
+    appendAgentMemoryStarterLog(
+      log,
+      "install-model",
+      modelStatus === "failed" ? "failed" : modelStatus === "skipped" ? "skipped" : "passed",
+      install.modelInstall?.error ?? `EmbeddingGemma model install ${modelStatus}.`,
+      modelStatus === "failed" ? "install_failed" : undefined,
+      install.modelInstall?.cachePath,
+    );
+    const runtimeStatus = install.runtimeInstall?.status ?? "skipped";
+    appendAgentMemoryStarterLog(
+      log,
+      "install-runtime",
+      runtimeStatus === "failed" || runtimeStatus === "unsupported" ? "failed" : runtimeStatus === "skipped" ? "skipped" : "passed",
+      install.runtimeInstall?.error ?? `Shared llama.cpp runtime install ${runtimeStatus}.`,
+      runtimeStatus === "failed" || runtimeStatus === "unsupported" ? "install_failed" : undefined,
+      install.runtimeInstall?.receiptPath ?? install.runtimeInstall?.binaryPath,
+    );
+    assetsReadyForStart = install.managedAssets.model.status === "present" && install.managedAssets.runtime.status === "present";
+    if (!assetsReadyForStart) {
+      appendAgentMemoryStarterLog(
+        log,
+        "install-assets",
+        install.status === "failed" ? "failed" : "blocked",
+        install.nextActions[0] ?? "Agent Memory managed embedding assets are not ready.",
+        "install_failed",
+      );
+    }
+  } catch (error) {
+    appendAgentMemoryStarterLog(log, "install-assets", "failed", agentMemoryStarterErrorMessage(error), "install_failed");
+  }
+
+  let lifecycleDiagnostics: AgentMemoryStorageDiagnostics | undefined;
+  if (assetsReadyForStart) {
+    try {
+      const started = await runAgentMemoryEmbeddingLifecycleAction({ action: "start" }, host);
+      lifecycleDiagnostics = started.diagnostics;
+      appendAgentMemoryStarterLog(
+        log,
+        "start-embeddings",
+        started.status === "failed" ? "failed" : started.status === "blocked" ? "blocked" : "passed",
+        started.message,
+      );
+    } catch (error) {
+      appendAgentMemoryStarterLog(log, "start-embeddings", "failed", agentMemoryStarterErrorMessage(error), "start_failed");
+    }
+  } else {
+    appendAgentMemoryStarterLog(log, "start-embeddings", "skipped", "Embedding runtime start skipped until managed assets are installed.");
+  }
+
+  const status = await readAgentMemoryStarterStatus(host, operationId, lifecycleDiagnostics);
+  if (status.state !== "ready" && status.blockers[0]) {
+    const blocker = status.blockers[0];
+    appendAgentMemoryStarterLog(log, "final-status", "blocked", blocker.message, blocker.code);
+  } else if (status.state !== "ready") {
+    appendAgentMemoryStarterLog(log, "final-status", "blocked", `Agent Memory starter is ${status.state}; next action: ${status.nextActions[0] ?? "inspect diagnostics"}.`);
+  } else {
+    appendAgentMemoryStarterLog(log, "final-status", "passed", "Agent Memory starter status is ready.");
+  }
+  return {
+    schemaVersion: "ambient-agent-memory-starter-operation-result-v1",
+    operationId,
+    operation,
+    startedAt,
+    completedAt: new Date().toISOString(),
+    status,
+    log,
+  };
+}
+
+async function readAgentMemoryStarterStatus(
+  host: ProjectRuntimeHost,
+  operationId?: string,
+  diagnosticsOverride?: AgentMemoryStorageDiagnostics,
+  runtimeOverride?: AgentMemoryStarterRuntimeStatus,
+): Promise<AgentMemoryStarterStatus> {
+  const workspace = host.store.getWorkspace();
+  const activeThread = host.store.getThread(activeThreadIdForHost(host));
+  const [baseDiagnostics, assets] = await Promise.all([
+    diagnosticsOverride ? Promise.resolve(diagnosticsOverride) : getAgentMemoryDiagnostics(host),
+    detectAmbientMemoryEmbeddingAssets(workspace.path)
+      .then(agentMemoryStarterAssetSnapshotFromDetection)
+      .catch(agentMemoryStarterAssetSnapshotFromError),
+  ]);
+  const diagnostics = diagnosticsOverride
+    ? baseDiagnostics
+    : await agentMemoryStarterDiagnosticsWithEmbeddingCheck(host, baseDiagnostics);
+  return agentMemoryStarterStatusFromDiagnostics({
+    settings: {
+      featureFlags: { tencentDbMemory: diagnostics.featureEnabled },
+      memory: host.store.getMemorySettings(),
+    },
+    diagnostics,
+    assets,
+    ...(runtimeOverride ? { runtimeOverride } : {}),
+    activeThread,
+    operationId,
+  });
+}
+
+async function agentMemoryStarterDiagnosticsWithEmbeddingCheck(
+  host: ProjectRuntimeHost,
+  diagnostics: AgentMemoryStorageDiagnostics,
+): Promise<AgentMemoryStorageDiagnostics> {
+  const settings = host.store.getMemorySettings();
+  if (!settings.enabled || !settings.embeddings.enabled || settings.embeddings.providerMode !== "ambient-managed") {
+    return diagnostics;
+  }
+  try {
+    const lifecycle = await runAmbientMemoryEmbeddingLifecycleAction({
+      workspacePath: host.store.getWorkspace().path,
+      action: "check",
+      sendDimensions: settings.embeddings.sendDimensions,
+      timeoutMs: settings.embeddings.timeoutMs,
+    });
+    return {
+      ...diagnostics,
+      embedding: agentMemoryEmbeddingDiagnosticsFromLifecycle(settings, lifecycle),
+    };
+  } catch {
+    return diagnostics;
+  }
+}
+
+function appendAgentMemoryStarterLog(
+  log: AgentMemoryStarterOperationLogEntry[],
+  step: string,
+  status: AgentMemoryStarterOperationLogEntry["status"],
+  message: string,
+  blockerCode?: AgentMemoryStarterOperationLogEntry["blockerCode"],
+  artifactPath?: string,
+): void {
+  log.push({
+    at: new Date().toISOString(),
+    step,
+    status,
+    message,
+    ...(blockerCode ? { blockerCode } : {}),
+    ...(artifactPath ? { artifactPath } : {}),
+  });
+}
+
+function agentMemoryStarterOperationRequestKey(
+  input: AgentMemoryStarterEnableInput | AgentMemoryStarterRepairInput | AgentMemoryStarterDisableInput,
+): string {
+  return JSON.stringify(Object.keys(input).sort().reduce<Record<string, unknown>>((result, key) => {
+    result[key] = (input as Record<string, unknown>)[key];
+    return result;
+  }, {}));
+}
+
+function agentMemoryStarterErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function runAgentMemoryEmbeddingLifecycleAction(
   input: AgentMemoryEmbeddingLifecycleActionInput,
   host = requireActiveProjectRuntimeHost(),
@@ -8203,6 +8518,7 @@ async function runAgentMemoryEmbeddingLifecycleAction(
     sendDimensions: settings.embeddings.sendDimensions,
     timeoutMs: settings.embeddings.timeoutMs,
   });
+  retainAgentMemoryEmbeddingRuntimeLease(host, input.action, lifecycle);
   if (
     input.action !== "check" &&
     ["ready", "started", "stopped", "restarted"].includes(lifecycle.status)
@@ -8223,6 +8539,40 @@ async function runAgentMemoryEmbeddingLifecycleAction(
   };
 }
 
+function retainAgentMemoryEmbeddingRuntimeLease(
+  host: ProjectRuntimeHost,
+  action: AgentMemoryEmbeddingLifecycleActionInput["action"],
+  lifecycle: Awaited<ReturnType<typeof runAmbientMemoryEmbeddingLifecycleAction>>,
+): void {
+  if (
+    (action === "start" || action === "restart") &&
+    lifecycle.release &&
+    lifecycle.leaseId &&
+    ["started", "restarted"].includes(lifecycle.status)
+  ) {
+    if (host.agentMemoryEmbeddingRuntimeLeaseId && host.agentMemoryEmbeddingRuntimeLeaseId !== lifecycle.leaseId) {
+      releaseAgentMemoryEmbeddingRuntimeForHost(host, "Agent Memory embedding runtime lease replaced.");
+    }
+    host.agentMemoryEmbeddingRuntimeLeaseId = lifecycle.leaseId;
+    host.agentMemoryEmbeddingRuntimeRelease = lifecycle.release;
+    return;
+  }
+  if (action === "stop" && ["stopped", "not-found"].includes(lifecycle.status)) {
+    releaseAgentMemoryEmbeddingRuntimeForHost(host, "Agent Memory embedding runtime stopped.");
+  }
+}
+
+function releaseAgentMemoryEmbeddingRuntimeForHost(host: ProjectRuntimeHost, reason: string): void {
+  const release = host.agentMemoryEmbeddingRuntimeRelease;
+  const leaseId = host.agentMemoryEmbeddingRuntimeLeaseId;
+  delete host.agentMemoryEmbeddingRuntimeLeaseId;
+  delete host.agentMemoryEmbeddingRuntimeRelease;
+  if (!release) return;
+  void release().catch((error) => {
+    console.warn(`Agent Memory embedding runtime lease release failed${leaseId ? ` (${leaseId})` : ""} after ${reason}: ${error instanceof Error ? error.message : String(error)}`);
+  });
+}
+
 function agentMemoryEmbeddingDiagnosticsFromLifecycle(
   settings: AgentMemorySettings,
   lifecycle: Awaited<ReturnType<typeof runAmbientMemoryEmbeddingLifecycleAction>>,
@@ -8231,6 +8581,9 @@ function agentMemoryEmbeddingDiagnosticsFromLifecycle(
   const runtime = provider.diagnostics?.runtimeState;
   const ready = lifecycle.status === "ready" || lifecycle.status === "started" || lifecycle.status === "restarted";
   const stopped = lifecycle.status === "stopped" || lifecycle.status === "not-found";
+  const runtimeStatus = lifecycle.status === "blocked" || lifecycle.status === "failed"
+    ? lifecycle.status
+    : runtime?.status;
   const status: AgentMemoryEmbeddingDiagnostics["status"] = ready
     ? "ready"
     : lifecycle.status === "failed"
@@ -8251,7 +8604,7 @@ function agentMemoryEmbeddingDiagnosticsFromLifecycle(
     ...(provider.dimensions !== undefined ? { dimensions: provider.dimensions } : {}),
     ...(runtime?.endpoint ? { endpoint: runtime.endpoint } : {}),
     ...(runtime?.modelRuntimeId ? { runtimeId: `embeddings:${runtime.modelRuntimeId}` } : {}),
-    ...(runtime?.status ? { runtimeStatus: runtime.status } : {}),
+    ...(runtimeStatus ? { runtimeStatus } : {}),
     ...(runtime ? { running: runtime.running } : {}),
     autoStartProvider: settings.embeddings.autoStartProvider,
     preflightEnabled: settings.embeddings.preflightEnabled,
@@ -9914,7 +10267,11 @@ function registerIpc(): void {
     claimProjectBoardGitCardArtifacts,
     classifyToolPermission,
     clearAgentMemory,
+    disableAgentMemoryStarter,
+    enableAgentMemoryStarter,
     getAgentMemoryDiagnostics,
+    getAgentMemoryStarterStatus,
+    repairAgentMemoryStarter,
     runAgentMemoryEmbeddingLifecycleAction,
     clearMessageVoiceArtifact,
     clearPiExtensionSandboxHistory,

@@ -168,9 +168,9 @@ hardening helper for machine-local prepared bases:
 
 ```bash
 pnpm run hardening:snapshot -- create \
-  --source-base /Users/example/.ambient-hardening/bases/core-no-secrets-snapshot-2026-05-13 \
+  --source-base /path/to/user/.ambient-hardening/bases/local-test-state-2026-05-13 \
   --group shared-secrets \
-  --name shared-secrets-snapshot \
+  --name local-test-secrets \
   --contains-secrets \
   --expect-ambient-api-key \
   --expect-google-workspace \

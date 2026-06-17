@@ -2,7 +2,7 @@ import type { AmbientPermissionGrant } from "../../../shared/types";
 import {
   mcpPermissionGrantIdsForDescriptorDrift,
   type McpDescriptorDriftGrantInvalidationInput,
-} from "../../mcpPermissionPolicyService";
+} from "../../mcp/mcpPermissionPolicyService";
 
 export interface PermissionGrantRevocationStore {
   listPermissionGrants(): AmbientPermissionGrant[];

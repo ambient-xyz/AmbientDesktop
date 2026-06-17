@@ -3,9 +3,9 @@ import { arch as hostArch, platform as hostPlatform } from "node:os";
 import { resolve } from "node:path";
 import type { MiniCpmVisionRuntimeReleaseManifest } from "../../shared/types";
 import { managedInstallWorkspacePath } from "../managedInstallPaths";
-import { isPathInside } from "../sessionPaths";
-import { selectLocalLlamaRuntimeArtifact } from "../localLlamaRuntimeManifest";
-import { miniCpmRuntimeReleaseManifestPrototype } from "../miniCpmRuntimeManifest";
+import { isPathInside } from "../session/sessionPaths";
+import { selectLocalLlamaRuntimeArtifact } from "../local-llama/localLlamaRuntimeManifest";
+import { miniCpmRuntimeReleaseManifestPrototype } from "../mini-cpm/miniCpmRuntimeManifest";
 import {
   localDeepResearchProfileById,
   type LocalDeepResearchModelProfile,

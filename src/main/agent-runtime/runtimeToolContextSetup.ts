@@ -2,7 +2,7 @@ import type { ChatMessage, DesktopEvent, PermissionMode } from "../../shared/typ
 import {
   interruptedToolCallRecoveryThresholdFromEnv,
 } from "../interruptedToolCallRecovery";
-import { ToolArgumentProgressTracker } from "../toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 import type { RuntimeTextOutputState } from "./runtimeTextOutputState";
 import {
   createRuntimeToolMessageController,

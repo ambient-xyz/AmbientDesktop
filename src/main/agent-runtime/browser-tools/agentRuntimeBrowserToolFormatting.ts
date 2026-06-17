@@ -1,7 +1,7 @@
 import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 
 import type { ToolLongformInputPreview } from "../../../shared/types";
-import { materializeTextOutput, materializedTextNotice } from "../../toolOutputArtifacts";
+import { materializeTextOutput, materializedTextNotice } from "../../tool-runtime/toolOutputArtifacts";
 
 export interface BrowserToolTextContent {
   type: "text";

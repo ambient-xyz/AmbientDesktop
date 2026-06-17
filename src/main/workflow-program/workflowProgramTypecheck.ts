@@ -6,7 +6,7 @@ import {
   type WorkflowProgramAmbientCliCapability,
   type WorkflowProgramDiagnostic,
 } from "./workflowProgramCapabilityResolver";
-import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflowConnectors";
+import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflow/workflowConnectors";
 import {
   workflowProgramKnownOutputPathList,
   workflowProgramNodeOutputSummary,

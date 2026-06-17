@@ -27,8 +27,8 @@ import type {
   WorkspaceState,
 } from "../../shared/types";
 import { computeAutomationScheduleNextRunAt, normalizeAutomationScheduleCronExpression } from "../automationSchedules";
-import { AUTOMATION_HOME_FOLDER_ID } from "../projectStoreFacadeHelpers";
-import { stringifyWorkflowRunLimitOverrides } from "../workflowRunLimitOverrides";
+import { AUTOMATION_HOME_FOLDER_ID } from "./projectStoreFacadeHelpers";
+import { stringifyWorkflowRunLimitOverrides } from "../workflow/workflowRunLimitOverrides";
 import {
   automationThreadId,
   compareAutomationFolders,

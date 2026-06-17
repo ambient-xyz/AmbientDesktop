@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
 import { arch, platform } from "node:os";
 import { join, resolve } from "node:path";
-import { redactString } from "./diagnostics";
+import { redactString } from "./diagnostics/diagnostics";
 
 export interface GoogleSidecarRequest {
   method: string;

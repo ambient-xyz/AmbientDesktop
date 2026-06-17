@@ -1,6 +1,6 @@
 import type { DesktopEvent } from "../../shared/types";
-import { withTimeout } from "../agentRuntimeTimeouts";
-import type { PromptCompletion } from "../postToolFinalization";
+import { withTimeout } from "../agent-runtime/agentRuntimeTimeouts";
+import type { PromptCompletion } from "./post-tool/postToolFinalization";
 import {
   finalizeRuntimeAssistantTerminalCleanup,
   type RuntimeAssistantTerminalCleanupInput,

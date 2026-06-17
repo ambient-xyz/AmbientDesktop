@@ -5,8 +5,8 @@ import type {
   BrowserPageContent,
   BrowserUserActionState,
 } from "../../../shared/types";
-import type { MaterializedTextOutput } from "../../toolOutputArtifacts";
-import { BrowserUnavailableError } from "../../browserService";
+import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
+import { BrowserUnavailableError } from "../../browser/browserService";
 import {
   registerBrowserContentTool,
   type BrowserContentToolRegistrationOptions,

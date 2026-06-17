@@ -1,9 +1,13 @@
-import { Activity, Brain, Monitor, Moon, Play, Plug, Plus, RefreshCw, RotateCw, Square, Sun, Zap } from "lucide-react";
+import { Activity, Brain, ChevronDown, Monitor, Moon, Play, Plug, Plus, RefreshCw, RotateCw, Square, Sun, Wrench, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
   AgentMemoryEmbeddingLifecycleActionKind,
   AgentMemoryEmbeddingLifecycleActionResult,
   AgentMemoryOperationStatus,
+  AgentMemoryStarterOperationKind,
+  AgentMemoryStarterOperationResult,
+  AgentMemoryStarterNextAction,
+  AgentMemoryStarterStatus,
   AgentMemoryStorageDiagnostics,
   ContextUsageSnapshot,
   DesktopState,
@@ -38,6 +42,7 @@ import { SettingsRow, SettingsSection } from "./RightPanelSettingsPrimitives";
 
 type SettingsRowVisible = (sectionId: string, rowId: string) => boolean;
 type MaybePromise<T = unknown> = T | Promise<T>;
+const AGENT_MEMORY_SETUP_ACTIONS: AgentMemoryStarterNextAction[] = ["enable", "repair", "install", "start", "retry_preflight"];
 
 export const thinkingDisplayOptions: ThinkingDisplayMode[] = ["off", "transient", "full"];
 
@@ -295,12 +300,21 @@ export type RightPanelModelModeSettingsSectionProps = {
   agentMemoryEmbeddingActionLoading?: AgentMemoryEmbeddingLifecycleActionKind;
   agentMemoryEmbeddingActionResult?: AgentMemoryEmbeddingLifecycleActionResult;
   agentMemoryEmbeddingActionError?: string;
+  agentMemoryStarterStatus?: AgentMemoryStarterStatus;
+  agentMemoryStarterLoading: boolean;
+  agentMemoryStarterError?: string;
+  agentMemoryStarterOperationLoading?: AgentMemoryStarterOperationKind;
+  agentMemoryStarterOperationResult?: AgentMemoryStarterOperationResult;
   subagentMaturity: DesktopState["subagentMaturity"];
   subagentMaturityEvidence: DesktopState["subagentMaturityEvidence"];
   setModelProviderInstallDraft: (draft: ModelProviderEndpointInstallDraft) => void;
   setModelProviderCredentialValue: (value: string) => void;
   saveModelProviderCredentialFromSettings: () => MaybePromise;
   installModelProviderEndpointFromSettings: () => MaybePromise;
+  loadAgentMemoryStarterStatus: () => MaybePromise;
+  enableAgentMemoryStarterFromSettings: () => MaybePromise;
+  repairAgentMemoryStarterFromSettings: () => MaybePromise;
+  disableAgentMemoryStarterFromSettings: () => MaybePromise;
   onThinkingDisplaySettingsChange: (thinkingDisplay: DesktopState["settings"]["thinkingDisplay"]) => void;
   onFeatureFlagSettingsChange: (featureFlags: DesktopState["settings"]["featureFlags"]) => void;
   onMemorySettingsChange: (memory: DesktopState["settings"]["memory"]) => void;
@@ -343,6 +357,109 @@ function AgentMemoryDiagnosticsSummary({ diagnostics }: { diagnostics: AgentMemo
       </ul>
     </div>
   );
+}
+
+function AgentMemoryStarterCard({
+  status,
+  loading,
+  error,
+  operationLoading,
+  operationResult,
+  fallbackEnabled,
+  disabled,
+  onRefresh,
+  onEnable,
+  onRepair,
+  onDisable,
+}: {
+  status?: AgentMemoryStarterStatus;
+  loading: boolean;
+  error?: string;
+  operationLoading?: AgentMemoryStarterOperationKind;
+  operationResult?: AgentMemoryStarterOperationResult;
+  fallbackEnabled: boolean;
+  disabled: boolean;
+  onRefresh: () => MaybePromise;
+  onEnable: () => MaybePromise;
+  onRepair: () => MaybePromise;
+  onDisable: () => MaybePromise;
+}) {
+  const busy = loading || Boolean(operationLoading);
+  const checked = status ? status.state !== "off" : fallbackEnabled;
+  const tone = error
+    ? "error"
+    : status?.state === "ready"
+      ? "success"
+      : status?.state === "needs_repair" || status?.state === "setup_required"
+        ? "warning"
+        : "info";
+  const primaryLabel = checked ? "Enabled" : "Off";
+  const setupAction = agentMemoryStarterSetupAction(status);
+  const setupOperation: AgentMemoryStarterOperationKind = setupAction === "enable" ? "enable" : "repair";
+  const setupButtonLabel = operationLoading === setupOperation ? "Working" : agentMemoryStarterSetupActionLabel(setupAction);
+  return (
+    <div className={`voice-provider-diagnostics ${tone}`}>
+      <div className="voice-provider-diagnostics-header">
+        <strong>Agent Memory</strong>
+        <span>{loading ? "Checking" : agentMemoryStarterStateLabel(status?.state)}</span>
+      </div>
+      <label className="setting-toggle">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled || busy}
+          onChange={(event) => {
+            if (event.target.checked) void onEnable();
+            else void onDisable();
+          }}
+        />
+        <span>{operationLoading === "enable" ? "Enabling" : operationLoading === "disable" ? "Disabling" : primaryLabel}</span>
+      </label>
+      <small>{agentMemoryStarterMessage(status, error)}</small>
+      {status && (
+        <ul>
+          <li>Model: {agentMemoryStarterAssetLabel(status.assets.model)}</li>
+          <li>Runtime: {agentMemoryStarterAssetLabel(status.assets.runtime)} · {status.runtime.state}{status.runtime.endpoint ? ` · ${status.runtime.endpoint}` : ""}</li>
+          <li>Scope: global {status.settings.memory.enabled ? "on" : "off"}, thread {status.threadScope.activeThreadMemoryEnabled ? "on" : "off"}, new threads {status.threadScope.defaultThreadEnabled ? "on" : "off"}</li>
+          {status.blockers[0] && <li>Blocker: {status.blockers[0].message}</li>}
+          {status.nextActions[0] && <li>Next: {agentMemoryStarterActionLabel(status.nextActions[0])}</li>}
+        </ul>
+      )}
+      <div className="panel-action-row compact">
+        <button type="button" className="panel-button mini" disabled={busy} aria-label="Refresh Agent Memory starter status" onClick={() => void onRefresh()}>
+          <RefreshCw size={14} />
+          {loading ? "Refreshing" : "Refresh"}
+        </button>
+        <button
+          type="button"
+          className="panel-button mini"
+          disabled={disabled || busy || !setupAction}
+          aria-label={setupAction ? `${agentMemoryStarterActionLabel(setupAction)} Agent Memory setup` : "Continue Agent Memory setup"}
+          onClick={() => void (setupAction === "enable" ? onEnable() : onRepair())}
+        >
+          {operationLoading === "repair" ? <RefreshCw size={14} /> : <Wrench size={14} />}
+          {setupButtonLabel}
+        </button>
+      </div>
+      {operationResult && (
+        <small>
+          Last {agentMemoryStarterOperationLabel(operationResult.operation).toLowerCase()}: {agentMemoryStarterStateLabel(operationResult.status.state)} · {formatTimelineTime(operationResult.completedAt)}
+        </small>
+      )}
+    </div>
+  );
+}
+
+function agentMemoryStarterSetupAction(status?: AgentMemoryStarterStatus): AgentMemoryStarterNextAction | undefined {
+  return status?.nextActions.find((action) => AGENT_MEMORY_SETUP_ACTIONS.includes(action));
+}
+
+function agentMemoryStarterSetupActionLabel(action?: AgentMemoryStarterNextAction): string {
+  if (action === "enable") return "Enable";
+  if (action === "install") return "Install";
+  if (action === "start") return "Start";
+  if (action === "retry_preflight") return "Retry";
+  return "Repair";
 }
 
 function AgentMemoryEmbeddingHealthCard({
@@ -427,6 +544,52 @@ function EmbeddingLifecycleButton({
   );
 }
 
+function agentMemoryStarterStateLabel(state: AgentMemoryStarterStatus["state"] | undefined): string {
+  if (state === "off") return "Off";
+  if (state === "setup_required") return "Setup required";
+  if (state === "installing") return "Setting up";
+  if (state === "starting") return "Starting";
+  if (state === "ready") return "Ready";
+  if (state === "needs_repair") return "Needs repair";
+  if (state === "disabling") return "Disabling";
+  return "Unknown";
+}
+
+function agentMemoryStarterMessage(status: AgentMemoryStarterStatus | undefined, error: string | undefined): string {
+  if (error) return error;
+  if (!status) return "Starter status has not been loaded yet.";
+  if (status.blockers[0]) return status.blockers[0].message;
+  if (status.state === "ready") return "Memory and managed embeddings are ready.";
+  if (status.state === "off") return "Agent Memory is off.";
+  return status.nextActions[0] ? `Next action: ${agentMemoryStarterActionLabel(status.nextActions[0])}.` : "Agent Memory setup is in progress.";
+}
+
+function agentMemoryStarterAssetLabel(asset: AgentMemoryStarterStatus["assets"]["model"]): string {
+  return asset.state === "present"
+    ? "present"
+    : asset.message
+      ? `${asset.state} · ${asset.message}`
+      : asset.state;
+}
+
+function agentMemoryStarterActionLabel(action: AgentMemoryStarterStatus["nextActions"][number]): string {
+  if (action === "enable") return "Enable";
+  if (action === "install") return "Install assets";
+  if (action === "repair") return "Repair";
+  if (action === "start") return "Start endpoint";
+  if (action === "retry_preflight") return "Retry preflight";
+  if (action === "open_logs") return "Open logs";
+  if (action === "disable") return "Disable";
+  return "Clear memory";
+}
+
+function agentMemoryStarterOperationLabel(operation: AgentMemoryStarterOperationKind): string {
+  if (operation === "enable") return "Enable";
+  if (operation === "repair") return "Repair";
+  if (operation === "disable") return "Disable";
+  return "Status";
+}
+
 function latestAgentMemoryOperation(
   diagnostics: AgentMemoryStorageDiagnostics,
   key: "lastRecall" | "lastCapture" | "lastSearch",
@@ -490,12 +653,21 @@ export function RightPanelModelModeSettingsSection({
   agentMemoryEmbeddingActionLoading,
   agentMemoryEmbeddingActionResult,
   agentMemoryEmbeddingActionError,
+  agentMemoryStarterStatus,
+  agentMemoryStarterLoading,
+  agentMemoryStarterError,
+  agentMemoryStarterOperationLoading,
+  agentMemoryStarterOperationResult,
   subagentMaturity,
   subagentMaturityEvidence,
   setModelProviderInstallDraft,
   setModelProviderCredentialValue,
   saveModelProviderCredentialFromSettings,
   installModelProviderEndpointFromSettings,
+  loadAgentMemoryStarterStatus,
+  enableAgentMemoryStarterFromSettings,
+  repairAgentMemoryStarterFromSettings,
+  disableAgentMemoryStarterFromSettings,
   onThinkingDisplaySettingsChange,
   onFeatureFlagSettingsChange,
   onMemorySettingsChange,
@@ -623,95 +795,23 @@ export function RightPanelModelModeSettingsSection({
       )}
       {settingsRowVisible("model-mode", "model-mode.agent-memory") && (
         <SettingsRow
-          label="Experimental Tencent memory"
-          value={memoryFlagValue}
-          description={memoryFlagDescription}
+          label="Agent Memory"
+          value={agentMemoryStarterStateLabel(agentMemoryStarterStatus?.state)}
+          description="Sets up local TencentDB Agent Memory, managed embeddings, and active thread scope."
         >
-          <label className="setting-toggle">
-            <input
-              type="checkbox"
-              checked={persistentMemoryFeatureEnabled}
-              onChange={(event) =>
-                onFeatureFlagSettingsChange({
-                  ...state.settings.featureFlags,
-                  tencentDbMemory: event.target.checked,
-                })
-              }
-            />
-            <span>Feature flag</span>
-          </label>
-          <label className="setting-toggle">
-            <input
-              type="checkbox"
-              checked={state.settings.memory.enabled}
-              onChange={(event) =>
-                onMemorySettingsChange({
-                  ...state.settings.memory,
-                  enabled: event.target.checked,
-                })
-              }
-            />
-            <span>Global memory</span>
-          </label>
-          <label className="setting-toggle">
-            <input
-              type="checkbox"
-              checked={state.settings.memory.defaultThreadEnabled}
-              onChange={(event) =>
-                onMemorySettingsChange({
-                  ...state.settings.memory,
-                  defaultThreadEnabled: event.target.checked,
-                })
-              }
-            />
-            <span>New threads</span>
-          </label>
-          <label className="setting-toggle">
-            <input
-              type="checkbox"
-              checked={state.settings.memory.shortTermOffloadEnabled}
-              onChange={(event) =>
-                onMemorySettingsChange({
-                  ...state.settings.memory,
-                  shortTermOffloadEnabled: event.target.checked,
-                })
-              }
-            />
-            <span>Short-term offload</span>
-          </label>
-          <label className="setting-toggle">
-            <input
-              type="checkbox"
-              checked={state.settings.memory.embeddings.enabled}
-              onChange={(event) =>
-                onMemorySettingsChange({
-                  ...state.settings.memory,
-                  embeddings: {
-                    ...state.settings.memory.embeddings,
-                    enabled: event.target.checked,
-                  },
-                })
-              }
-            />
-            <span>Managed embeddings</span>
-          </label>
-          <AgentMemoryEmbeddingHealthCard
-            diagnostics={agentMemoryDiagnostics}
-            embeddingsEnabled={state.settings.memory.embeddings.enabled}
-            actionLoading={agentMemoryEmbeddingActionLoading}
-            actionResult={agentMemoryEmbeddingActionResult}
-            actionError={agentMemoryEmbeddingActionError}
-            onAction={onRunAgentMemoryEmbeddingLifecycleAction}
+          <AgentMemoryStarterCard
+            status={agentMemoryStarterStatus}
+            loading={agentMemoryStarterLoading}
+            error={agentMemoryStarterError}
+            operationLoading={agentMemoryStarterOperationLoading}
+            operationResult={agentMemoryStarterOperationResult}
+            fallbackEnabled={persistentMemoryFeatureEnabled && state.settings.memory.enabled}
+            disabled={memoryFlagValue === "Forced off"}
+            onRefresh={loadAgentMemoryStarterStatus}
+            onEnable={enableAgentMemoryStarterFromSettings}
+            onRepair={repairAgentMemoryStarterFromSettings}
+            onDisable={disableAgentMemoryStarterFromSettings}
           />
-          <label className="setting-toggle">
-            <input
-              type="checkbox"
-              checked={activeThreadMemoryEnabled}
-              disabled={activeThreadMemoryToggleDisabled}
-              onChange={(event) => onActiveThreadMemoryEnabledChange(event.target.checked)}
-            />
-            <span>This thread</span>
-          </label>
           <div className="voice-provider-diagnostics info">
             <div className="voice-provider-diagnostics-header">
               <strong>Memory privacy</strong>
@@ -722,6 +822,103 @@ export function RightPanelModelModeSettingsSection({
               ))}
             </ul>
           </div>
+          <details className="settings-disclosure">
+            <summary>
+              <span className="settings-disclosure-title">
+                <ChevronDown size={14} />
+                <strong>Advanced controls</strong>
+              </span>
+              <small>{memoryFlagValue}</small>
+            </summary>
+            <div className="settings-disclosure-body">
+              <small>{memoryFlagDescription}</small>
+              <label className="setting-toggle">
+                <input
+                  type="checkbox"
+                  checked={persistentMemoryFeatureEnabled}
+                  onChange={(event) =>
+                    onFeatureFlagSettingsChange({
+                      ...state.settings.featureFlags,
+                      tencentDbMemory: event.target.checked,
+                    })
+                  }
+                />
+                <span>Feature flag</span>
+              </label>
+              <label className="setting-toggle">
+                <input
+                  type="checkbox"
+                  checked={state.settings.memory.enabled}
+                  onChange={(event) =>
+                    onMemorySettingsChange({
+                      ...state.settings.memory,
+                      enabled: event.target.checked,
+                    })
+                  }
+                />
+                <span>Global memory</span>
+              </label>
+              <label className="setting-toggle">
+                <input
+                  type="checkbox"
+                  checked={state.settings.memory.defaultThreadEnabled}
+                  onChange={(event) =>
+                    onMemorySettingsChange({
+                      ...state.settings.memory,
+                      defaultThreadEnabled: event.target.checked,
+                    })
+                  }
+                />
+                <span>New threads</span>
+              </label>
+              <label className="setting-toggle">
+                <input
+                  type="checkbox"
+                  checked={state.settings.memory.shortTermOffloadEnabled}
+                  onChange={(event) =>
+                    onMemorySettingsChange({
+                      ...state.settings.memory,
+                      shortTermOffloadEnabled: event.target.checked,
+                    })
+                  }
+                />
+                <span>Short-term offload</span>
+              </label>
+              <label className="setting-toggle">
+                <input
+                  type="checkbox"
+                  checked={state.settings.memory.embeddings.enabled}
+                  onChange={(event) =>
+                    onMemorySettingsChange({
+                      ...state.settings.memory,
+                      embeddings: {
+                        ...state.settings.memory.embeddings,
+                        enabled: event.target.checked,
+                      },
+                    })
+                  }
+                />
+                <span>Managed embeddings</span>
+              </label>
+              <label className="setting-toggle">
+                <input
+                  type="checkbox"
+                  checked={activeThreadMemoryEnabled}
+                  disabled={activeThreadMemoryToggleDisabled}
+                  onChange={(event) => onActiveThreadMemoryEnabledChange(event.target.checked)}
+                />
+                <span>This thread</span>
+              </label>
+              <AgentMemoryEmbeddingHealthCard
+                diagnostics={agentMemoryDiagnostics}
+                embeddingsEnabled={state.settings.memory.embeddings.enabled}
+                actionLoading={agentMemoryEmbeddingActionLoading}
+                actionResult={agentMemoryEmbeddingActionResult}
+                actionError={agentMemoryEmbeddingActionError}
+                onAction={onRunAgentMemoryEmbeddingLifecycleAction}
+              />
+            </div>
+          </details>
           <div className="panel-action-row">
             <button type="button" className="panel-button mini" disabled={agentMemoryDiagnosticsLoading} onClick={onRefreshAgentMemoryDiagnostics}>
               {agentMemoryDiagnosticsLoading ? "Refreshing" : "Refresh diagnostics"}

@@ -4,7 +4,7 @@ import type {
   PlannerPlanFinalizationAttemptStatus,
   PlannerPlanWorkflowState,
 } from "../../shared/types";
-import { piAssistantMessageMetadata } from "../agentRuntimeAssistantMessageMetadata";
+import { piAssistantMessageMetadata } from "../agent-runtime/agentRuntimeAssistantMessageMetadata";
 
 export interface RuntimeSubagentPreflightBlockInput {
   threadId: string;

@@ -9,7 +9,7 @@ import {
   validateJsonAgainstSchemaStrict,
   type JsonRepairToolInput,
 } from "./jsonRepairTool";
-import type { WorkflowPiTextCallInput } from "./workflowPiTransport";
+import type { WorkflowPiTextCallInput } from "./workflow/workflowPiTransport";
 
 const repairSchema = {
   type: "object",

@@ -4,12 +4,12 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowCompileProgress } from "../../shared/types";
-import { installAmbientCliPackageSource } from "../ambientCliPackages";
+import { installAmbientCliPackageSource } from "../ambient-cli/ambientCliPackages";
 import { bashToolDescriptor, firstPartyDesktopToolDescriptors, pluginMcpToolDescriptor } from "../desktopToolRegistry";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
-import { ProjectStore } from "../projectStore";
-import { readWorkflowRunDetail } from "../workflowDashboard";
+import { ProjectStore } from "../projectStore/projectStore";
+import { readWorkflowRunDetail } from "../workflow/workflowDashboard";
 import {
   AmbientWorkflowCompilerProvider,
   WORKFLOW_COMPILER_CALLABLE_INVOCATION_CONTEXT_SCHEMA_VERSION,
@@ -21,9 +21,9 @@ import {
 } from "./workflowCompilerService";
 import { WorkflowProgramIrRepairRejectedError } from "./workflowCompilerIrRepair";
 import { WorkflowProgramCompileError } from "../workflow-program/workflowProgramCompiler";
-import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor } from "../workflowConnectors";
-import { googleWorkspaceConnectorDescriptors } from "../googleWorkspaceConnectors";
-import type { WorkflowPiTextCallInput } from "../workflowPiTransport";
+import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor } from "../workflow/workflowConnectors";
+import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
+import type { WorkflowPiTextCallInput } from "../workflow/workflowPiTransport";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

@@ -8,7 +8,7 @@ describe("createAgentRuntimeMessagingSurfaceSnapshot", () => {
     let voiceSettingsRead = false;
     const snapshot = createAgentRuntimeMessagingSurfaceSnapshot({
       workspace: {
-        name: "ambientCoder",
+        name: "AmbientDesktop",
         path: "/workspace",
         statePath: "/tmp/ambient-state",
         sessionPath: "/tmp/ambient-state/sessions",
@@ -57,7 +57,7 @@ describe("createAgentRuntimeMessagingSurfaceSnapshot", () => {
       listProjects: () => [
         {
           id: "/workspace",
-          name: "ambientCoder",
+          name: "AmbientDesktop",
           path: "/workspace",
           statePath: "/tmp/ambient-state",
           sessionPath: "/tmp/ambient-state/sessions",
@@ -83,12 +83,12 @@ describe("createAgentRuntimeMessagingSurfaceSnapshot", () => {
     expect(auditLimit).toBe(10);
     expect(snapshot).toMatchObject({
       workspace: {
-        name: "ambientCoder",
+        name: "AmbientDesktop",
         path: "/workspace",
       },
       activeChatId: "thread-1",
       projects: [{
-        name: "ambientCoder",
+        name: "AmbientDesktop",
         path: "/workspace",
         active: true,
       }],

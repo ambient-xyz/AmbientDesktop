@@ -5,7 +5,7 @@ import {
   providerLocalityOptions,
   providerPlatformOptions,
   providerSourcePreferenceOptions,
-} from "./providerCatalog";
+} from "./provider/providerCatalog";
 import { miniCpmRemoteEndpointReviewChecklistText } from "../shared/miniCpmRemoteEndpointSecurity";
 
 export type DesktopToolSource = "first-party" | "plugin-mcp" | "pi-builtin";
@@ -468,7 +468,7 @@ export const bashToolDescriptor: DesktopToolDescriptor = {
     "When creating task scratch files, drafts, feedback, scores, generated source, or intermediate artifacts, keep them inside the active workspace, such as .ambient/tmp/ or another workspace-relative path; do not use /tmp for user-task artifacts unless the user explicitly approves outside-workspace access.",
     "Use short timeout values only for quick probes. For first page loads, dev servers, installs, builds, or dependency repairs, allow enough time for compilation and inspect logs if a listening server returns no bytes.",
     "If a bash timeout says the process tree was killed with zero output bytes, do not keep retrying the same short timeout; check process state, server logs, runtime architecture, or rerun with a justified longer timeout.",
-    "When reporting user-facing absolute local files such as Downloads, Desktop, or Documents results, format them as Markdown file links with file:// URLs, for example [Keynote Presentation(2).pptx](file:///Users/example/Downloads/Keynote%20Presentation(2).pptx), so Ambient Desktop can preview or open them.",
+    "When reporting user-facing absolute local files such as Downloads, Desktop, or Documents results, format them as Markdown file links with file:// URLs, for example [Keynote Presentation(2).pptx](file:///path/to/user/Downloads/Keynote%20Presentation(2).pptx), so Ambient Desktop can preview or open them.",
     "When bash writes an image, audio, or video artifact and the result says Ambient Desktop will attempt an inline media preview, include the artifact path and refer to the preview only if it is visibly present; do not claim inline media rendering is unsupported.",
   ],
   inputSchema: {

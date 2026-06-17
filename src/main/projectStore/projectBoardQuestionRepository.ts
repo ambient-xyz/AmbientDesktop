@@ -4,7 +4,7 @@ import type { ProjectBoardEvent, ProjectBoardQuestion, ProjectBoardSource, Proje
 import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/projectBoardKickoffDefaults";
 import { projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
 import type { ProjectBoardKickoffDefaultSuggestion } from "../project-board/projectBoardKickoffDefaultProvider";
-import { DEFAULT_PROJECT_BOARD_QUESTIONS } from "../projectStoreFacadeHelpers";
+import { DEFAULT_PROJECT_BOARD_QUESTIONS } from "./projectStoreFacadeHelpers";
 import { mapProjectBoardQuestionRow, type ProjectBoardQuestionStoreRow } from "./projectBoardMappers";
 
 export type ProjectBoardQuestionEventInput = Omit<ProjectBoardEvent, "id" | "createdAt"> & {

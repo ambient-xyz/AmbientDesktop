@@ -7,7 +7,7 @@ import {
   buildMessagingRemoteSurfaceCommandPreview,
   messagingRemoteSurfaceCommandInput,
   type MessagingRemoteSurfaceCommandPreview,
-} from "../../messagingRemoteSurfaceCommands";
+} from "../../messaging/messagingRemoteSurfaceCommands";
 
 export interface MessagingRemoteSurfaceCommandPreviewBindingsLike {
   list(input: { includeInactive: false }): MessagingBindingListResult;

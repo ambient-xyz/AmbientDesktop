@@ -10,7 +10,7 @@ import {
   readProjectBoardPlannerWorkspaceRecords,
   type ProjectBoardPlannerWorkspace,
 } from "./projectBoardPlannerWorkspace";
-import type { WorkflowPiToolExecutionResult, WorkflowPiToolProgress } from "../workflowPiTransport";
+import type { WorkflowPiToolExecutionResult, WorkflowPiToolProgress } from "../workflow/workflowPiTransport";
 
 export const PROJECT_BOARD_PLANNER_TOOL_NAMES = [
   "planner_source_manifest",

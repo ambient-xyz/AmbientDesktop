@@ -8,7 +8,7 @@ import type {
   WorkflowRunStatus,
   WorkflowRunSummary,
 } from "../../shared/types";
-import { parseJsonValue, parseMetadata, stringFromRecord } from "../projectStoreJson";
+import { parseJsonValue, parseMetadata, stringFromRecord } from "./projectStoreJson";
 
 export type {
   WorkflowRecoveryContext,

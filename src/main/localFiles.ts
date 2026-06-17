@@ -4,7 +4,7 @@ import { basename, extname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { OfficeTextExtraction, PdfTextExtraction } from "../shared/types";
 import { isEnvTemplatePath } from "./pathSensitivity";
-import { readLocalFilePreview } from "./workspaceFiles";
+import { readLocalFilePreview } from "./workspace/workspaceFiles";
 
 const DEFAULT_MAX_LOCAL_DIRECTORY_ENTRIES = 200;
 const MAX_LOCAL_DIRECTORY_ENTRIES = 500;

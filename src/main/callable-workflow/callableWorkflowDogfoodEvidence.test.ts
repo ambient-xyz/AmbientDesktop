@@ -25,7 +25,7 @@ import {
   validateCallableWorkflowDogfoodEvidence,
 } from "./callableWorkflowDogfoodEvidence";
 import { executeCallableWorkflowTask } from "./callableWorkflowRunner";
-import { ProjectStore } from "../projectStore";
+import { ProjectStore } from "../projectStore/projectStore";
 import {
   resolveSubagentLaunchWorkspaceToolPolicy,
   resolveSubagentToolScopeLaunchDenial,

@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
-import { normalizeAmbientBaseUrl } from "../providerStatus";
+import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import { projectBoardTaskToolActionIntegrityIssues, projectBoardTaskToolActionsFromText, projectBoardTaskToolPromptSection } from "./projectBoardTaskTools";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_TASK_ACTIONS_LIVE === "1";
@@ -148,7 +148,7 @@ function readLiveAmbientApiKey(): string {
     join(repoRoot, "ambient_api_key.txt"),
     join(dirname(repoRoot), "ambient_api_key.txt"),
     join(dirname(dirname(repoRoot)), "ambient_api_key.txt"),
-    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
+    "/path/to/user/Documents/AmbientDesktop/ambient_api_key.txt",
   ].filter((candidate): candidate is string => Boolean(candidate));
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;

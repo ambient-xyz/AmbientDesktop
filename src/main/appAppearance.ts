@@ -14,7 +14,7 @@ import type {
   VoiceSettings,
 } from "../shared/types";
 import { normalizeLocalDeepResearchSettings } from "./local-deep-research/localDeepResearchProviderStack";
-import { normalizeSearchRoutingSettingsWithWebResearch } from "./webResearchProviderStack";
+import { normalizeSearchRoutingSettingsWithWebResearch } from "./web-research/webResearchProviderStack";
 
 export const DEFAULT_THEME_PREFERENCE: ThemePreference = "system";
 export const DEFAULT_MEDIA_PLAYBACK_SETTINGS: MediaPlaybackSettings = {

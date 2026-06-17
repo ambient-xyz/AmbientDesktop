@@ -5,15 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../shared/ambientModels";
-import { AgentRuntime } from "./agentRuntime";
-import { ensureFirstPartyAmbientCliPackages } from "./ambientCliPackages";
+import { AgentRuntime } from "./agent-runtime/agentRuntime";
+import { ensureFirstPartyAmbientCliPackages } from "./ambient-cli/ambientCliPackages";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "./liveAmbientProviderConfig";
-import { ProjectStore } from "./projectStore";
+import { ProjectStore } from "./projectStore/projectStore";
 
 const itLive = process.env.AMBIENT_TINYSTYLER_LIVE === "1" ? it : it.skip;
 const kimiModel = "moonshotai/kimi-k2.7-code";

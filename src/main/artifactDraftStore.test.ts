@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ProjectStore } from "./projectStore";
+import { ProjectStore } from "./projectStore/projectStore";
 
 describe("artifact draft project store", () => {
   it("creates a durable workspace draft layout and reloads it after reopening the store", async () => {

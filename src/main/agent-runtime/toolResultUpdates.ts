@@ -5,10 +5,10 @@ import type {
   ToolEventDetails,
   ToolLongformInputPreview,
 } from "../../shared/types";
-import { workspaceArtifactPathFromTool } from "../agentRuntimeMediaArtifacts";
-import { chatToolEventDetails, formatToolTranscript, toolEventLabel } from "../agentRuntimeToolTranscript";
-import { toolMessageMetadata } from "../agentRuntimeToolMessageMetadata";
-import type { ToolResultDetails } from "../piEventMapper";
+import { workspaceArtifactPathFromTool } from "../agent-runtime/agentRuntimeMediaArtifacts";
+import { chatToolEventDetails, formatToolTranscript, toolEventLabel } from "./tools/agentRuntimeToolTranscript";
+import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";
+import type { ToolResultDetails } from "../pi/piEventMapper";
 
 export type RuntimeToolResultMessageStatus = "running" | "done" | "error";
 export type RuntimeToolResultEventStatus = "running" | "completed" | "error";

@@ -6,7 +6,7 @@ import type {
   SubagentParentMailboxEventSummary,
   ThreadSummary,
 } from "../../shared/types";
-import type { SubagentFinalizationBarrierBlock } from "../agentRuntimeFinalizationBlocking";
+import type { SubagentFinalizationBarrierBlock } from "../agent-runtime/agentRuntimeFinalizationBlocking";
 import {
   finalizeSuccessfulRuntimeRun,
   type RuntimeSuccessfulRunFinalizationInput,

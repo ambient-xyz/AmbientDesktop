@@ -4,7 +4,7 @@ import type { WorkspaceState } from "../../../shared/types";
 import {
   hydrateAmbientCliPackageSummaries,
   type AmbientCliPackageSummaryHydrationResult,
-} from "../../ambientCliPackages";
+} from "../../ambient-cli/ambientCliPackages";
 import { completeAmbientText } from "../../lambdaRlm";
 
 type AmbientCliSummaryHydrationEnv = Partial<Pick<

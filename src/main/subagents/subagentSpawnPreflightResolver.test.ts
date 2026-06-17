@@ -6,7 +6,7 @@ import type {
 } from "../../shared/types";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../piChildSessionAdapter";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import {
   buildSubagentSpawnCapacityLeaseInput,
   buildSubagentSpawnRuntimePreflightInput,

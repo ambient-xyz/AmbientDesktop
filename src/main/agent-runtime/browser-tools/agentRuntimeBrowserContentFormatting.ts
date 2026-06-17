@@ -3,7 +3,7 @@ import type {
   BrowserProfileMode,
   BrowserUserActionState,
 } from "../../../shared/types";
-import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../../toolOutputArtifacts";
+import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 
 export type MaterializedBrowserPageContent = BrowserPageContent & { textOutput?: MaterializedTextOutput };
 

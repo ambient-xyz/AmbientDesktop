@@ -21,11 +21,11 @@ import type {
   WorkflowDiscoveryCapabilitySearch,
 } from "../../shared/types";
 import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
-import { searchAmbientCliCapabilities } from "../ambientCliPackages";
+import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
 import type { DesktopToolDescriptor } from "../desktopToolRegistry";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
-import type { ProjectStore } from "../projectStore";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { ProjectStore } from "../projectStore/projectStore";
 import { readAmbientApiKey } from "../credentialStore";
 import type { AmbientRetryPolicy } from "../aggressiveRetries";
 import {
@@ -43,12 +43,12 @@ import {
   type WorkflowCompilerRequiredBuiltinToolIntent,
   type WorkflowCompilerOutput,
 } from "./workflowCompiler";
-import { readWorkflowDashboard } from "../workflowDashboard";
-import { enrichWorkflowManifestWithPluginCapabilities } from "../workflowPluginCapabilities";
-import { commitWorkflowVersionRepo } from "../workflowVersioning";
-import { buildWorkflowSourceDiff } from "../workflowDebugRewrite";
-import { callWorkflowPiJson, callWorkflowPiText, type WorkflowPiProgress } from "../workflowPiTransport";
-import { workflowPromptParts, type WorkflowPromptParts } from "../workflowPromptCache";
+import { readWorkflowDashboard } from "../workflow/workflowDashboard";
+import { enrichWorkflowManifestWithPluginCapabilities } from "../workflow/workflowPluginCapabilities";
+import { commitWorkflowVersionRepo } from "../workflow/workflowVersioning";
+import { buildWorkflowSourceDiff } from "../workflow/workflowDebugRewrite";
+import { callWorkflowPiJson, callWorkflowPiText, type WorkflowPiProgress } from "../workflow/workflowPiTransport";
+import { workflowPromptParts, type WorkflowPromptParts } from "../workflow/workflowPromptCache";
 import {
   applyWorkflowProgramIrPatch,
   buildWorkflowProgramIrRepairPrompt,
@@ -85,13 +85,13 @@ import {
   parseWorkflowPlanDsl,
   workflowPlanDslPromptSchemaExample,
   type WorkflowPlanDsl,
-} from "../workflowPlanDsl";
-import { buildWorkflowDiscoveryPolicyContext, type WorkflowDiscoveryAmbientCliCapability } from "../workflowDiscoveryPolicy";
+} from "../workflow/workflowPlanDsl";
+import { buildWorkflowDiscoveryPolicyContext, type WorkflowDiscoveryAmbientCliCapability } from "../workflow-discovery/workflowDiscoveryPolicy";
 import {
   describeWorkflowDiscoveryCapability,
   searchWorkflowDiscoveryCapabilities,
   workflowDiscoveryCapabilityAwarePolicySummary,
-} from "../workflowDiscoveryCapabilitySearch";
+} from "../workflow-discovery/workflowDiscoveryCapabilitySearch";
 import type { CallableWorkflowSourceContext } from "../callable-workflow/callableWorkflowRegistry";
 import {
   callableWorkflowExecutionPlanFromTask,

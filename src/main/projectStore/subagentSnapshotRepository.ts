@@ -9,7 +9,7 @@ import {
   mapSubagentToolScopeSnapshotRow,
   type SubagentPromptSnapshotRow,
   type SubagentToolScopeSnapshotRow,
-} from "../projectStoreSubagentMappers";
+} from "./projectStoreSubagentMappers";
 
 export interface RecordSubagentPromptSnapshotInput {
   prompt: string;

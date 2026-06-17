@@ -3,7 +3,7 @@ import electronUpdater from "electron-updater";
 import { mkdirSync } from "node:fs";
 import { DesktopUpdateService, desktopUpdateConfigFromEnv, type DesktopUpdateConfig } from "./updateService";
 import { fetchBootstrapRecoveryPolicy, type BootstrapRecoveryDecision } from "./updaterBootstrapPolicy";
-import { WORKSPACE_MEDIA_SCHEME } from "./workspaceMedia";
+import { WORKSPACE_MEDIA_SCHEME } from "./workspace/workspaceMedia";
 
 const { autoUpdater } = electronUpdater;
 

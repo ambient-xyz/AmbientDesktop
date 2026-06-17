@@ -8,17 +8,17 @@ import type {
 } from "../../../shared/agentMemoryDiagnostics";
 import type { EmbeddingProviderCandidate, EmbeddingProviderRuntimeState } from "../../../shared/localRuntimeTypes";
 import { managedInstallWorkspacePath } from "../../managedInstallPaths";
-import { miniCpmRuntimeReleaseManifestPrototype } from "../../miniCpmRuntimeManifest";
-import { selectLocalLlamaRuntimeArtifact } from "../../localLlamaRuntimeManifest";
+import { miniCpmRuntimeReleaseManifestPrototype } from "../../mini-cpm/miniCpmRuntimeManifest";
+import { selectLocalLlamaRuntimeArtifact } from "../../local-llama/localLlamaRuntimeManifest";
 import {
   LocalLlamaServerSupervisor,
   readLocalLlamaServerState,
   type LocalLlamaServerLease,
-} from "../../localLlamaServerSupervisor";
+} from "../../local-llama/localLlamaServerSupervisor";
 import {
   detectLocalLlamaResidentProcesses,
   type LocalLlamaResidentProcess,
-} from "../../localLlamaResidencyPolicy";
+} from "../../local-llama/localLlamaResidencyPolicy";
 import {
   normalizeOpenAiEmbeddingBaseUrl,
   preflightOpenAiCompatibleEmbeddingEndpoint,
@@ -65,6 +65,7 @@ export interface AmbientMemoryEmbeddingAssetDetection {
     status: "present" | "missing" | "unsupported";
     binaryPath?: string;
     artifactId?: string;
+    receiptPath?: string;
     reason?: string;
   };
   stateRootPath: string;
@@ -108,6 +109,7 @@ export interface RunAmbientMemoryEmbeddingLifecycleActionResult {
   reason: string;
   provider: EmbeddingProviderCandidate;
   leaseId?: string;
+  release?: () => Promise<void>;
 }
 
 export async function detectAmbientMemoryEmbeddingAssets(
@@ -166,7 +168,7 @@ export async function startAmbientMemoryEmbeddingRuntime(
 
   const existingLease = activeMemoryEmbeddingLeases.get(input.workspacePath);
   if (existingLease) {
-    return { status: "ready", leaseId: existingLease.leaseId, release: releaseMemoryEmbeddingLease(input.workspacePath, existingLease.leaseId), provider };
+    return { status: "ready", leaseId: existingLease.leaseId, provider };
   }
 
   const residents = await Promise.resolve((input.detectResidents ?? detectLocalLlamaResidentProcesses)(input.workspacePath)).catch(() => []);
@@ -234,6 +236,7 @@ async function startMemoryEmbeddingLifecycle(
       reason: result.status === "ready" ? "Ambient-managed memory embeddings are already running." : "Ambient-managed memory embeddings started.",
       provider,
       ...(result.leaseId ? { leaseId: result.leaseId } : {}),
+      ...(result.release ? { release: result.release } : {}),
     });
   }
   return lifecycleResult({
@@ -329,6 +332,7 @@ async function restartMemoryEmbeddingLifecycle(
       reason: "Ambient-managed memory embeddings restarted.",
       provider,
       ...(started.leaseId ? { leaseId: started.leaseId } : {}),
+      ...(started.release ? { release: started.release } : {}),
     });
   }
   return lifecycleResult({
@@ -489,6 +493,7 @@ async function detectRuntime(
   artifact: typeof miniCpmRuntimeReleaseManifestPrototype.artifacts[number],
 ): Promise<AmbientMemoryEmbeddingAssetDetection["runtime"]> {
   const binaryPath = resolve(managedRoot, ".ambient/vision/minicpm-v/runtime", artifact.cacheSubdir, artifact.binaryRelativePath);
+  const receiptPath = resolve(managedRoot, ".ambient/vision/minicpm-v/runtime", artifact.cacheSubdir, "ambient-runtime-install.json");
   const details = await stat(binaryPath).catch((error: unknown) => {
     if (isErrno(error, "ENOENT")) return undefined;
     throw error;
@@ -498,6 +503,7 @@ async function detectRuntime(
       status: "missing",
       artifactId: artifact.id,
       binaryPath,
+      receiptPath,
       reason: "Shared llama.cpp runtime binary is not present in Ambient-managed state.",
     };
   }
@@ -506,6 +512,7 @@ async function detectRuntime(
       status: "missing",
       artifactId: artifact.id,
       binaryPath,
+      receiptPath,
       reason: "Shared llama.cpp runtime cache path exists but is not a file.",
     };
   }
@@ -513,6 +520,7 @@ async function detectRuntime(
     status: "present",
     artifactId: artifact.id,
     binaryPath,
+    receiptPath,
   };
 }
 

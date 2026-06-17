@@ -5,7 +5,7 @@ import type {
   ProjectBoardSourceKind,
 } from "../../shared/types";
 import { type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries } from "../ambientChatCompletionRetry";
+import { callAmbientChatCompletionTextWithRetries } from "../ambient/ambientChatCompletionRetry";
 import { readAmbientApiKey } from "../credentialStore";
 import { buildProjectBoardPlanningContract } from "./projectBoardPlanningContract";
 import {

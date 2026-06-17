@@ -14,6 +14,8 @@ import { AmbientTencentMemoryLlmRunnerFactory, type AmbientTencentMemoryLlmDeleg
 import {
   resolveAmbientTencentMemoryEmbeddingProvider,
   type AmbientTencentMemoryEmbeddingResolution,
+  type AmbientTencentMemoryEmbeddingPrepareInput,
+  type AmbientTencentMemoryEmbeddingPrepareResult,
   type AmbientTencentMemoryEmbeddingStartInput,
   type AmbientTencentMemoryEmbeddingStartResult,
 } from "./ambientEmbeddingProvider";
@@ -69,6 +71,7 @@ export interface CreateTencentDbMemoryRuntimeInput {
   loadCoreConstructor?: TencentMemoryCoreConstructorLoader;
   runWithAmbientPi?: AmbientTencentMemoryLlmDelegate;
   listEmbeddingProviders?: (workspacePath: string) => Promise<EmbeddingProviderCandidate[]> | EmbeddingProviderCandidate[];
+  prepareEmbeddingProviderRuntime?: (input: AmbientTencentMemoryEmbeddingPrepareInput) => Promise<AmbientTencentMemoryEmbeddingPrepareResult> | AmbientTencentMemoryEmbeddingPrepareResult;
   startEmbeddingProviderRuntime?: (input: AmbientTencentMemoryEmbeddingStartInput) => Promise<AmbientTencentMemoryEmbeddingStartResult> | AmbientTencentMemoryEmbeddingStartResult;
   fetchEmbedding?: typeof fetch;
   defaultModelRef?: string;
@@ -108,6 +111,7 @@ export function createTencentDbMemoryRuntimeForThread(
     loadCoreConstructor: input.loadCoreConstructor ?? loadAmbientReviewedTencentMemoryCore,
     runWithAmbientPi: input.runWithAmbientPi ?? unavailableAmbientPiMemoryRunner,
     listEmbeddingProviders: input.listEmbeddingProviders,
+    prepareEmbeddingProviderRuntime: input.prepareEmbeddingProviderRuntime,
     startEmbeddingProviderRuntime: input.startEmbeddingProviderRuntime,
     fetchEmbedding: input.fetchEmbedding,
     defaultModelRef: input.defaultModelRef ?? input.thread.model,
@@ -160,6 +164,7 @@ export interface AmbientTencentDbMemoryRuntimeOptions {
   loadCoreConstructor: TencentMemoryCoreConstructorLoader;
   runWithAmbientPi: AmbientTencentMemoryLlmDelegate;
   listEmbeddingProviders?: (workspacePath: string) => Promise<EmbeddingProviderCandidate[]> | EmbeddingProviderCandidate[];
+  prepareEmbeddingProviderRuntime?: (input: AmbientTencentMemoryEmbeddingPrepareInput) => Promise<AmbientTencentMemoryEmbeddingPrepareResult> | AmbientTencentMemoryEmbeddingPrepareResult;
   startEmbeddingProviderRuntime?: (input: AmbientTencentMemoryEmbeddingStartInput) => Promise<AmbientTencentMemoryEmbeddingStartResult> | AmbientTencentMemoryEmbeddingStartResult;
   fetchEmbedding?: typeof fetch;
   defaultModelRef?: string;
@@ -480,6 +485,7 @@ export class AmbientTencentDbMemoryRuntime {
       memorySettings: this.options.memorySettings,
       workspacePath: this.options.workspacePath,
       listEmbeddingProviders: this.options.listEmbeddingProviders,
+      prepareEmbeddingProviderRuntime: this.options.prepareEmbeddingProviderRuntime,
       startEmbeddingProviderRuntime: this.options.startEmbeddingProviderRuntime,
       fetchImpl: this.options.fetchEmbedding,
       logger: this.options.logger,

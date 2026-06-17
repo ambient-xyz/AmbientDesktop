@@ -9,7 +9,7 @@ import type {
 import {
   mapWorkflowVersionRow,
   type WorkflowVersionRow,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 export interface ProjectStoreWorkflowVersionRepositoryDeps {
   getWorkflowArtifact(artifactId: string): unknown;

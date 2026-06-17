@@ -8,7 +8,7 @@ import type {
 import {
   mapWorkflowExplorationTraceRow,
   type WorkflowExplorationTraceRow,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 export class ProjectStoreWorkflowExplorationTraceRepository {
   constructor(private readonly db: Database.Database) {}

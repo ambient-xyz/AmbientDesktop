@@ -5,7 +5,7 @@ import type {
   ToolIntentSnapshot,
 } from "../../shared/types";
 import type { AmbientStreamFailureKind } from "../aggressiveRetries";
-import type { RuntimeSessionRecoveryContext } from "../agentRuntimeAssistantRetryInput";
+import type { RuntimeSessionRecoveryContext } from "../agent-runtime/agentRuntimeAssistantRetryInput";
 import type {
   PiStreamTraceReference,
   RuntimeProviderErrorDiagnostic,
@@ -18,7 +18,7 @@ import {
   persistPreparedProviderInterruptionToolArguments,
 } from "./provider-continuation/agentRuntimeProviderInterruptionArguments";
 import type { InterruptedToolCallRecoveryTracker } from "../interruptedToolCallRecovery";
-import type { ToolArgumentProgressTracker } from "../toolArgumentProgress";
+import type { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 import {
   createRuntimeProviderContinuationState,
 } from "./providerContinuationState";

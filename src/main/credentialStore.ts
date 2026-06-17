@@ -183,9 +183,9 @@ function currentGmiCloudApiKey(): string | undefined {
     readApiKeyFileCandidates([
       join(process.cwd(), gmiCloudDefaultApiKeyFile),
       join(dirname(process.cwd()), gmiCloudDefaultApiKeyFile),
-      join(dirname(process.cwd()), "ambientCoder", gmiCloudDefaultApiKeyFile),
-      join(homedir(), "ambientCoder", gmiCloudDefaultApiKeyFile),
-      join(homedir(), "Documents", "ambientCoder", gmiCloudDefaultApiKeyFile),
+      join(dirname(process.cwd()), "AmbientDesktop", gmiCloudDefaultApiKeyFile),
+      join(homedir(), "AmbientDesktop", gmiCloudDefaultApiKeyFile),
+      join(homedir(), "Documents", "AmbientDesktop", gmiCloudDefaultApiKeyFile),
     ]) ||
     startupGmiCloudApiKey
   );

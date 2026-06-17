@@ -74,7 +74,7 @@ import {
   SUBAGENT_DESKTOP_DOGFOOD_WORKFLOW_TOOL_CALL_ID,
   type SubagentDesktopDogfoodSeedResult,
 } from "./subagentDesktopDogfoodScenario";
-import { ProjectStore } from "../projectStore";
+import { ProjectStore } from "../projectStore/projectStore";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS } from "../../shared/symphonyWorkflowRecipes";
 import { buildPatternGraphSnapshot, effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph";
 

@@ -8,7 +8,7 @@ import type {
   WorkflowArtifactSummary,
 } from "../../shared/types";
 import { mapWorkflowArtifactRow, type WorkflowArtifactRow } from "./workflowArtifactMappers";
-import { workflowAgentPhaseForArtifactStatus } from "../projectStoreWorkflowMappers";
+import { workflowAgentPhaseForArtifactStatus } from "./projectStoreWorkflowMappers";
 
 export interface ProjectStoreWorkflowArtifactRepositoryDeps {
   createWorkflowAgentThreadRecord(input: CreateWorkflowAgentThreadInput): { id: string };

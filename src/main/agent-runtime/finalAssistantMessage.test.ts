@@ -5,7 +5,7 @@ import {
   CALLABLE_WORKFLOW_PARENT_BLOCKING_SCHEMA_VERSION,
   type CallableWorkflowParentBlockingBlock,
 } from "../callable-workflow/callableWorkflowParentBlocking";
-import type { SubagentFinalizationBarrierBlock } from "../agentRuntimeFinalizationBlocking";
+import type { SubagentFinalizationBarrierBlock } from "../agent-runtime/agentRuntimeFinalizationBlocking";
 import type { FinalAssistantMessageInput } from "./finalAssistantMessage";
 import { finalAssistantMessageModel } from "./finalAssistantMessage";
 

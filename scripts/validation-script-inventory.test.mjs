@@ -45,7 +45,7 @@ describe("validation script inventory", () => {
         "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/project-board/projectBoardSynthesisProvider.test.ts",
         "test:project-board-release-gate:phase8": "node scripts/project-board-phase8-release-gate.mjs",
         "test:workflow-local-file:live":
-          "GMI_CLOUD_API_KEY_FILE=${GMI_CLOUD_API_KEY_FILE:-$(node scripts/resolve-gmi-cloud-key-file.mjs)} AMBIENT_PROVIDER=gmi-cloud bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts",
+          "GMI_CLOUD_API_KEY_FILE=${GMI_CLOUD_API_KEY_FILE:-$(node scripts/resolve-gmi-cloud-key-file.mjs)} AMBIENT_PROVIDER=gmi-cloud bash scripts/test-node-native.sh src/main/workflow/workflowDogfood.test.ts",
         "simplification:v3:scorecard:check": "node scripts/simplification-v3-scorecard.mjs --check",
         "build:google-sidecar": "node scripts/build-google-sidecar.mjs",
       },
@@ -143,7 +143,7 @@ describe("validation script inventory", () => {
   it("matches individual entries with the same composable filters used by the CLI", () => {
     const entry = {
       name: "test:workflow-local-file:live",
-      command: "AMBIENT_PROVIDER=gmi-cloud bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts",
+      command: "AMBIENT_PROVIDER=gmi-cloud bash scripts/test-node-native.sh src/main/workflow/workflowDogfood.test.ts",
       domain: "workflow",
       cost: "live-provider",
       liveProvider: "gmi-cloud",
@@ -204,8 +204,8 @@ describe("validation script inventory", () => {
         "test:project-board-kanban-health-report-artifact-promotion:gmi": "node scripts/e2e-kanban-health-report-artifact-promotion-gmi.mjs",
         "test:project-board-release-gate:phase8": "node scripts/project-board-phase8-release-gate.mjs",
         "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/project-board/projectBoardSynthesisProvider.test.ts",
-        "test:workflow-local-file:live": "AMBIENT_PROVIDER=gmi-cloud bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts",
-        "test:workflow-dogfood": "bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts",
+        "test:workflow-local-file:live": "AMBIENT_PROVIDER=gmi-cloud bash scripts/test-node-native.sh src/main/workflow/workflowDogfood.test.ts",
+        "test:workflow-dogfood": "bash scripts/test-node-native.sh src/main/workflow/workflowDogfood.test.ts",
       },
     });
 
@@ -231,7 +231,7 @@ describe("validation script inventory", () => {
   });
 
   it("keeps the core heuristics stable", () => {
-    expect(classifyScriptDomain("test:mcp-live-pi-smoke:gmi-live", "AMBIENT_PROVIDER=gmi-cloud pnpm exec vitest run src/main/mcpLivePiSmoke.live.test.ts")).toBe("mcp");
+    expect(classifyScriptDomain("test:mcp-live-pi-smoke:gmi-live", "AMBIENT_PROVIDER=gmi-cloud pnpm exec vitest run src/main/mcp/mcpLivePiSmoke.live.test.ts")).toBe("mcp");
     expect(classifyScriptDomain("test:visual:composer-controls", "AMBIENT_PROVIDER=gmi-cloud node scripts/e2e-composer-controls-visual-smoke.mjs")).toBe(
       "renderer-visual",
     );
@@ -242,7 +242,7 @@ describe("validation script inventory", () => {
       "gmi-cloud",
     );
     expect(classifyScriptCost("pack", "pnpm run build && electron-builder --dir --publish=never")).toBe("local-heavy");
-    expect(classifyScriptCost("test:workflow-dogfood", "bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts")).toBe("local-medium");
+    expect(classifyScriptCost("test:workflow-dogfood", "bash scripts/test-node-native.sh src/main/workflow/workflowDogfood.test.ts")).toBe("local-medium");
     expect(isValidationScriptName("simplification:v2:scorecard:check")).toBe(true);
   });
 });

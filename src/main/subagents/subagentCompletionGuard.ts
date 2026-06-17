@@ -1,7 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
 import type { SubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/types";
-import { isPathInside } from "../sessionPaths";
+import { isPathInside } from "../session/sessionPaths";
 
 export interface SubagentCompletionGuardValidation {
   valid: boolean;

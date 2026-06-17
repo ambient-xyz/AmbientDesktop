@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { registerMessagingRemoteSurfaceReplyPreviewTools } from "./agentRuntimeMessagingRemoteSurfaceReplyPreviewTools";
-import type { SignalBridgeReplyPreview } from "../../signalBridgeReply";
-import type { TelegramBridgeReplyPreview } from "../../telegramBridgeOutbound";
+import type { SignalBridgeReplyPreview } from "../signal/signalBridgeReply";
+import type { TelegramBridgeReplyPreview } from "../../telegram/telegramBridgeOutbound";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
 

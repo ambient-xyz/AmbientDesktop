@@ -12,11 +12,11 @@ import {
 import {
   signalBridgeReplyResultText,
   type SignalBridgeReplyResult,
-} from "../../signalBridgeReply";
+} from "../signal/signalBridgeReply";
 import {
   telegramBridgeReplyResultText,
   type TelegramBridgeReplyResult,
-} from "../../telegramBridgeOutbound";
+} from "../../telegram/telegramBridgeOutbound";
 
 export interface MessagingRemoteSurfaceReplyApplyToolRegistrationOptions {
   inputForParams: (params: unknown) => MessagingRemoteSurfaceReplyInput;

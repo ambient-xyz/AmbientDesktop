@@ -3,9 +3,9 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { MessagingInboundEvent } from "../../../shared/messagingGateway";
 import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messagingBindings";
-import type { MessagingGatewayRunner } from "../../messagingGatewayRunner";
-import { messagingProjectionText } from "../../messagingGatewayProjection";
+import type { MessagingBindingStore } from "../../messaging/messagingBindings";
+import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { messagingProjectionText } from "../../messaging/messagingGatewayProjection";
 import type { RuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
 
 export interface MessagingSyntheticRouteToolRegistrationOptions {

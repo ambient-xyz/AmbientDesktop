@@ -1,5 +1,5 @@
 import type { DesktopToolDescriptor } from "../desktopToolRegistry";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { WorkflowProgramAmbientCliCapability, WorkflowProgramDiagnostic } from "../workflow-program/workflowProgramCompiler";
 
 export type WorkflowProgramIrPatchOperation =

@@ -5,7 +5,7 @@ import type {
   ProjectBoardPlanningSnapshotKind,
   ProjectBoardSynthesisRunProgressiveRecord,
 } from "../../shared/projectBoardTypes";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import { ProjectStoreProjectBoardSynthesisRunRepository } from "./projectBoardSynthesisRunRepository";
 
 describe("ProjectStoreProjectBoardSynthesisRunRepository", () => {

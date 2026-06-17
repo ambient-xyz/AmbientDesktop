@@ -47,7 +47,7 @@ import {
   registerBrowserSearchTool,
   type BrowserSearchToolRegistrationOptions,
 } from "./agentRuntimeBrowserSearchTools";
-import { mediaArtifactNotice } from "../../agentRuntimeMediaArtifacts";
+import { mediaArtifactNotice } from "../agentRuntimeMediaArtifacts";
 
 export type AgentRuntimeBrowserToolOptions =
   & BrowserSearchToolRegistrationOptions

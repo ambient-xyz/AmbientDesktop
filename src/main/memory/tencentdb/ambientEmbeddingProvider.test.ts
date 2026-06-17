@@ -225,6 +225,124 @@ describe("Ambient Tencent memory embedding provider resolver", () => {
     });
   });
 
+  it("prepares missing first-party managed EmbeddingGemma assets before auto-starting", async () => {
+    const missing = managedEmbeddingProvider({
+      available: false,
+      installed: false,
+      availabilityReason: "EmbeddingGemma model and shared runtime are missing.",
+      diagnostics: {
+        healthStatus: "unknown",
+        missingHints: ["Install managed memory embedding assets."],
+        runtimeState: {
+          schemaVersion: "ambient-embedding-provider-runtime-state-v1",
+          status: "unavailable",
+          running: false,
+          modelRuntimeId: AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+          modelProfileId: AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+          modelId: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+        },
+      },
+    });
+    const stopped = managedEmbeddingProvider({
+      diagnostics: {
+        healthStatus: "passed",
+        missingHints: [],
+        runtimeState: {
+          schemaVersion: "ambient-embedding-provider-runtime-state-v1",
+          status: "stopped",
+          running: false,
+          modelRuntimeId: AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+          modelProfileId: AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+          modelId: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+        },
+      },
+    });
+    const running = managedEmbeddingProvider({
+      diagnostics: {
+        healthStatus: "passed",
+        missingHints: [],
+        runtimeState: {
+          schemaVersion: "ambient-embedding-provider-runtime-state-v1",
+          status: "running",
+          running: true,
+          modelRuntimeId: AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+          modelProfileId: AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+          modelId: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+          endpoint: "http://127.0.0.1:61234",
+        },
+      },
+    });
+    const listEmbeddingProviders = vi.fn()
+      .mockResolvedValueOnce([missing])
+      .mockResolvedValueOnce([stopped])
+      .mockResolvedValueOnce([running]);
+    const prepareEmbeddingProviderRuntime = vi.fn(async () => ({ status: "ready" as const, reason: "assets installed" }));
+    const startEmbeddingProviderRuntime = vi.fn(async () => ({ status: "started", reason: "started" }));
+
+    const result = await resolveAmbientTencentMemoryEmbeddingProvider({
+      memorySettings: memorySettings({ enabled: true, autoStartProvider: true, preflightEnabled: false }),
+      workspacePath: "/workspace",
+      listEmbeddingProviders,
+      prepareEmbeddingProviderRuntime,
+      startEmbeddingProviderRuntime,
+    });
+
+    expect(prepareEmbeddingProviderRuntime).toHaveBeenCalledWith({
+      runtimeId: `embeddings:${AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID}`,
+      provider: missing,
+    });
+    expect(startEmbeddingProviderRuntime).toHaveBeenCalledWith({
+      runtimeId: `embeddings:${AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID}`,
+      provider: stopped,
+    });
+    expect(result.config).toMatchObject({
+      baseUrl: "http://127.0.0.1:61234/v1",
+      model: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+      dimensions: 768,
+    });
+    expect(result.diagnostics).toMatchObject({
+      status: "ready",
+      providerId: AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+    });
+  });
+
+  it("keeps keyword fallback when first-party managed asset preparation is blocked", async () => {
+    const missing = managedEmbeddingProvider({
+      available: false,
+      installed: false,
+      availabilityReason: "EmbeddingGemma model and shared runtime are missing.",
+      diagnostics: {
+        healthStatus: "unknown",
+        missingHints: ["Install managed memory embedding assets."],
+        runtimeState: {
+          schemaVersion: "ambient-embedding-provider-runtime-state-v1",
+          status: "unavailable",
+          running: false,
+          modelRuntimeId: AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+          modelProfileId: AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+          modelId: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+        },
+      },
+    });
+    const startEmbeddingProviderRuntime = vi.fn();
+
+    const result = await resolveAmbientTencentMemoryEmbeddingProvider({
+      memorySettings: memorySettings({ enabled: true, autoStartProvider: true, preflightEnabled: false }),
+      workspacePath: "/workspace",
+      listEmbeddingProviders: async () => [missing],
+      prepareEmbeddingProviderRuntime: async () => ({ status: "partial", reason: "runtime download failed" }),
+      startEmbeddingProviderRuntime,
+    });
+
+    expect(result.config).toBeUndefined();
+    expect(result.diagnostics).toMatchObject({
+      status: "keyword_fallback",
+      providerId: AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+      message: "Selected embedding provider could not be prepared: runtime download failed.",
+    });
+    expect(startEmbeddingProviderRuntime).not.toHaveBeenCalled();
+  });
+
   it("does not enable vector config when preflight fails", async () => {
     const result = await resolveAmbientTencentMemoryEmbeddingProvider({
       memorySettings: memorySettings({ enabled: true }),
@@ -298,6 +416,36 @@ function embeddingProvider(overrides: Partial<EmbeddingProviderCandidate> = {}):
     },
     ...overrides,
   };
+}
+
+function managedEmbeddingProvider(overrides: Partial<EmbeddingProviderCandidate> = {}): EmbeddingProviderCandidate {
+  return embeddingProvider({
+    packageId: "ambient:first-party:memory-embeddings",
+    packageName: "Ambient Managed Memory Embeddings",
+    command: "embeddinggemma_300m_q8_0",
+    capabilityId: AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+    providerId: AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
+    label: "EmbeddingGemma 300M Q8_0",
+    modelId: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+    dimensions: 768,
+    local: true,
+    installed: true,
+    available: true,
+    availabilityReason: "EmbeddingGemma model and shared llama.cpp runtime are present in Ambient-managed state.",
+    diagnostics: {
+      healthStatus: "passed",
+      missingHints: [],
+      runtimeState: {
+        schemaVersion: "ambient-embedding-provider-runtime-state-v1",
+        status: "stopped",
+        running: false,
+        modelRuntimeId: AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+        modelProfileId: AMBIENT_MEMORY_EMBEDDING_PROFILE_ID,
+        modelId: AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
+      },
+    },
+    ...overrides,
+  });
 }
 
 function embeddingFetch(dimensions: number): typeof fetch {

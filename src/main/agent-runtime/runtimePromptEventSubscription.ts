@@ -1,4 +1,4 @@
-import { normalizePiEvent, type NormalizedPiEvent } from "../piEventMapper";
+import { normalizePiEvent, type NormalizedPiEvent } from "../pi/piEventMapper";
 
 export type RuntimePromptTraceEvent = NormalizedPiEvent | { kind: "assistant-start" };
 

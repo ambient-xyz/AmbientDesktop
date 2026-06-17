@@ -15,7 +15,7 @@ import {
   isBrowserUnavailableFallback,
   type BrowserToolRecoverableError,
   type BrowserUnavailableFallback,
-} from "../../agentBrowserRuntime";
+} from "../../agent/agentBrowserRuntime";
 import { browserToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
 import {

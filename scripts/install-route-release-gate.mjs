@@ -5,13 +5,14 @@ const root = resolve(new URL("..", import.meta.url).pathname);
 
 const files = {
   packageJson: read("package.json"),
-  planner: read("src/main/installRoutePlanner.ts"),
-  plannerTest: read("src/main/installRoutePlanner.test.ts"),
-  matrixTest: read("src/main/installRoutePlannerMatrix.test.ts"),
-  liveTest: read("src/main/installRoutePlanner.live.test.ts"),
-  router: read("src/main/ambientToolRouter.ts"),
+  planner: read("src/main/install-route/installRoutePlanner.ts"),
+  plannerTest: read("src/main/install-route/installRoutePlanner.test.ts"),
+  matrixTest: read("src/main/install-route/installRoutePlannerMatrix.test.ts"),
+  liveTest: read("src/main/install-route/installRoutePlanner.live.test.ts"),
+  router: read("src/main/ambient/ambientToolRouter.ts"),
   registry: read("src/main/desktopToolRegistry.ts"),
-  agentRuntime: read("src/main/agentRuntime.ts"),
+  agentRuntime: read("src/main/agent-runtime/agentRuntime.ts"),
+  installReadOnlyTools: read("src/main/plugins/runtime-tools/agentRuntimePluginInstallReadOnlyTools.ts"),
   rendererModel: read("src/renderer/src/toolMessageUiModel.ts"),
 };
 
@@ -19,14 +20,14 @@ const checks = [
   [
     "route planner tool is registered and exposed as a direct active tool",
     files.registry.includes('name: "ambient_install_route_plan"') &&
-      files.agentRuntime.includes('toolName: "ambient_install_route_plan"'),
+      files.installReadOnlyTools.includes('toolName: "ambient_install_route_plan"'),
   ],
   [
     "route planner emits redacted summary and telemetry metadata",
     files.planner.includes("ambientInstallRouteSummary") &&
       files.planner.includes("ambientInstallRouteTelemetry") &&
-      files.agentRuntime.includes("installRouteSummary") &&
-      files.agentRuntime.includes("installRouteTelemetry"),
+      files.installReadOnlyTools.includes("installRouteSummary") &&
+      files.installReadOnlyTools.includes("installRouteTelemetry"),
   ],
   [
     "renderer has a dedicated install route transcript preview",

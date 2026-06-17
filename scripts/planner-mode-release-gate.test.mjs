@@ -75,10 +75,10 @@ function staticInput() {
   return {
     packageJson: {
       scripts: {
-        "test:planner-dogfood": "bash scripts/test-node-native.sh src/main/plannerDogfood.test.ts",
-        "test:planner-dogfood:live": "AMBIENT_PLANNER_DOGFOOD_LIVE=1 bash scripts/test-node-native.sh src/main/plannerDogfood.test.ts",
-        "test:planner-dogfood:repair-live": "AMBIENT_PLANNER_DOGFOOD_REPAIR_LIVE=1 bash scripts/test-node-native.sh src/main/plannerDogfood.test.ts",
-        "test:planner-dogfood:medium-live": "AMBIENT_PLANNER_DOGFOOD_MEDIUM_LIVE=1 bash scripts/test-node-native.sh src/main/plannerDogfood.test.ts",
+        "test:planner-dogfood": "bash scripts/test-node-native.sh src/main/planner/plannerDogfood.test.ts",
+        "test:planner-dogfood:live": "AMBIENT_PLANNER_DOGFOOD_LIVE=1 bash scripts/test-node-native.sh src/main/planner/plannerDogfood.test.ts",
+        "test:planner-dogfood:repair-live": "AMBIENT_PLANNER_DOGFOOD_REPAIR_LIVE=1 bash scripts/test-node-native.sh src/main/planner/plannerDogfood.test.ts",
+        "test:planner-dogfood:medium-live": "AMBIENT_PLANNER_DOGFOOD_MEDIUM_LIVE=1 bash scripts/test-node-native.sh src/main/planner/plannerDogfood.test.ts",
         "test:planner-release-gate": "node scripts/planner-mode-release-gate.mjs",
         "test:planner-release-gate:live": "node scripts/planner-mode-release-gate.mjs --run-live --require-live",
         typecheck: "tsc --noEmit",

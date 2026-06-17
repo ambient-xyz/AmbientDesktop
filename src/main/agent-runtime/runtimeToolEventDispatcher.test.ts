@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage, DesktopEvent, ToolIntentSnapshot } from "../../shared/types";
-import { ToolArgumentProgressTracker } from "../toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 import { createRuntimeToolEventDispatcher } from "./runtimeToolEventDispatcher";
 import { createRuntimeToolMessageController } from "./runtimeToolMessageController";
 

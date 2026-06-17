@@ -7,7 +7,7 @@ import type {
   SendMessageInput,
   ToolIntentSnapshot,
 } from "../../../shared/types";
-import type { AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../../agentRuntimeAssistantRetryInput";
+import type { AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agentRuntimeAssistantRetryInput";
 
 const RECOVERY_APPLY_WRITE_SUFFIX_TOOL_NAME = "recovery_apply_interrupted_write_suffix";
 

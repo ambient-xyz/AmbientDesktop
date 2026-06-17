@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CodexPluginSummary, ThreadSummary, WorkspaceState } from "../../../shared/types";
-import type { CodexPluginInstallPreview } from "../../codexPlugins";
+import type { CodexPluginInstallPreview } from "../codex/codexPlugins";
 import {
   pluginActivationApprovalDetail,
   pluginActivationDetails,

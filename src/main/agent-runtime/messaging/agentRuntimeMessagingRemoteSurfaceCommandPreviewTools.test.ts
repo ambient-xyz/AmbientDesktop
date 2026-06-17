@@ -8,10 +8,10 @@ import {
   messagingRemoteSurfaceCommandPreviewForParams,
 } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewPlan";
 import { registerMessagingRemoteSurfaceCommandPreviewTools } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewTools";
-import { createMessagingBindingStore } from "../../messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messagingGatewayRunner";
-import type { MessagingRemoteSurfaceCommandPreview } from "../../messagingRemoteSurfaceCommands";
+import { createMessagingBindingStore } from "../../messaging/messagingBindings";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import type { MessagingRemoteSurfaceCommandPreview } from "../../messaging/messagingRemoteSurfaceCommands";
 import { buildRuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
@@ -77,7 +77,7 @@ describe("registerMessagingRemoteSurfaceCommandPreviewTools", () => {
     });
     const registeredTools: RegisteredTool[] = [];
     const workspace = {
-      name: "ambientCoder",
+      name: "AmbientDesktop",
       path: "/workspace",
       statePath: stateRoot,
       sessionPath: join(stateRoot, "sessions"),
@@ -92,7 +92,7 @@ describe("registerMessagingRemoteSurfaceCommandPreviewTools", () => {
       } as any],
       workflowFolders: [],
       projects: [{
-        name: "ambientCoder",
+        name: "AmbientDesktop",
         path: "/workspace",
         updatedAt: "2026-05-28T00:00:00.000Z",
         pinned: true,

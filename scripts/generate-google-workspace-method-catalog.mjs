@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const outputPath = resolve(repoRoot, "src/main/googleWorkspaceMethodCatalog.generated.ts");
+const outputPath = resolve(repoRoot, "src/main/google-workspace/googleWorkspaceMethodCatalog.generated.ts");
 const gwsBinary = process.env.AMBIENT_GWS_CLI_PATH || process.env.GOOGLE_WORKSPACE_CLI_PATH || "gws";
 const catalogVersion = "gws-v0.22.3-generated-help-schema-1";
 

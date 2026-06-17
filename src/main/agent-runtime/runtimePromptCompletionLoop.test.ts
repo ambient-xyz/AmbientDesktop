@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PromptCompletion } from "../postToolFinalization";
+import type { PromptCompletion } from "./post-tool/postToolFinalization";
 import {
   runRuntimePromptCompletionLoop,
   type RuntimePromptCompletion,

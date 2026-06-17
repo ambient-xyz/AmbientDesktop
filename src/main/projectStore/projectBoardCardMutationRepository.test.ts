@@ -10,7 +10,7 @@ import type {
 import type { CreateOrchestrationTaskInput, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import { PROJECT_BOARD_ARTIFACT_SCHEMA_VERSION } from "../project-board/projectBoardArtifacts";
 import type { ProjectBoardRunArtifactProjection } from "../project-board/projectBoardArtifactImport";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import {
   ProjectStoreProjectBoardCardMutationRepository,
   type ProjectBoardCardMutationEventInput,

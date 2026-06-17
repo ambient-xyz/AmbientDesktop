@@ -4,7 +4,7 @@ import {
   AMBIENT_TOOL_CALL,
   AMBIENT_TOOL_DESCRIBE,
   AMBIENT_TOOL_SEARCH,
-} from "../ambientToolRouter";
+} from "../ambient/ambientToolRouter";
 
 const CHILD_BROWSER_READ_TOOL_NAMES = [] as const;
 

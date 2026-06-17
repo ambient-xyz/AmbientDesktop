@@ -5,7 +5,7 @@ import type {
   ToolLongformInputPreview,
 } from "../../shared/types";
 import { serializeToolInputForInterruptedRecovery } from "../interruptedToolCallRecovery";
-import type { NormalizedPiEvent } from "../piEventMapper";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 
 export type RuntimeToolInputEventKind = "tool-input-start" | "tool-input-update" | "tool-input-end";
 export type RuntimeToolInputEvent = Extract<NormalizedPiEvent, { kind: RuntimeToolInputEventKind }>;

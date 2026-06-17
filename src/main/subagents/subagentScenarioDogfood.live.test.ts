@@ -8,17 +8,17 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_KIMI_K2_7_CODE_MODEL } from "../../shared/ambientModels";
 import { validateSubagentResultArtifactForSynthesis } from "../../shared/subagentProtocol";
 import type { ChatMessage, PermissionPromptResponseMode, PermissionRequest, WorkspaceContextReference } from "../../shared/types";
-import { AgentRuntime } from "../agentRuntime";
-import { createChatExportBundle } from "../chatExport";
+import { AgentRuntime } from "../agent-runtime/agentRuntime";
+import { createChatExportBundle } from "../chat-export/chatExport";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "../liveAmbientProviderConfig";
-import { createDocxFixture } from "../officeTestFixtures";
+import { createDocxFixture } from "../office/officeTestFixtures";
 import { createPdfFixture } from "../pdfTestFixtures";
-import { ProjectStore } from "../projectStore";
+import { ProjectStore } from "../projectStore/projectStore";
 import { forbiddenClaimLooksPromised, forbiddenClaimPromises, termsPresent } from "./subagentScenarioDogfoodAssertions";
 
 const itScenario = process.env.AMBIENT_SUBAGENT_SCENARIO_DOGFOOD === "1" ? it : it.skip;

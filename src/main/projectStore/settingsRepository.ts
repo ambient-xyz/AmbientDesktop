@@ -34,8 +34,8 @@ import type {
 } from "../../shared/types";
 import { defaultLocalDeepResearchSettings } from "../local-deep-research/localDeepResearchProviderStack";
 import { createModelRuntimeCatalog } from "../modelRuntimeRegistry";
-import { migrateProjectStorePermissionModeDefaultsToWorkspace } from "../projectStoreSchema";
-import { DEFAULT_COMPACTION_SETTINGS, normalizeCompactionSettings } from "../projectStoreSettings";
+import { migrateProjectStorePermissionModeDefaultsToWorkspace } from "./projectStoreSchema";
+import { DEFAULT_COMPACTION_SETTINGS, normalizeCompactionSettings } from "./projectStoreSettings";
 
 export class ProjectStoreSettingsRepository {
   constructor(private readonly db: Database.Database) {}

@@ -2,8 +2,8 @@ import type { DesktopEvent } from "../../shared/types";
 import {
   assistantTerminalEventDiagnostic,
   type AssistantTerminalEventDiagnostic,
-} from "../agentRuntimeAssistantTerminalDiagnostics";
-import type { NormalizedPiEvent } from "../piEventMapper";
+} from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 import { runtimeAgentEndEventModel, type RuntimeAgentEndEvent } from "./agentEndEvents";
 import { runtimeAssistantEndEventModel, type RuntimeAssistantEndEvent } from "./assistantEndEvents";
 import { runtimeAssistantUpdateEventModel, type RuntimeAssistantUpdateEvent } from "./assistantUpdateEvents";

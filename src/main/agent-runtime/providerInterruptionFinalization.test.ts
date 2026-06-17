@@ -5,7 +5,7 @@ import type {
   ProviderInterruptionDiagnostic,
   ProviderInterruptionToolSnapshot,
 } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
-import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
+import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 import {
   providerInterruptionFinalizationMessage,
   providerInterruptionRecoveryFailureFinalizationMessage,

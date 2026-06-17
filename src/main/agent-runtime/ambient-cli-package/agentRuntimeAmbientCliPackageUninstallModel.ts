@@ -1,5 +1,5 @@
 import type { WorkspaceState } from "../../../shared/types";
-import type { AmbientCliPackageSummary } from "../../ambientCliPackages";
+import type { AmbientCliPackageSummary } from "../../ambient-cli/ambientCliPackages";
 
 export interface AmbientCliPackageUninstallToolOutput {
   content: Array<{ type: "text"; text: string }>;

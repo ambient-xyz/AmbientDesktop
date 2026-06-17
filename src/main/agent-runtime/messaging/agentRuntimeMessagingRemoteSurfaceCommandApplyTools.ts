@@ -28,7 +28,7 @@ import type {
 import type {
   AmbientCliPackageCatalog,
   DiscoverAmbientCliPackagesOptions,
-} from "../../ambientCliPackages";
+} from "../../ambient-cli/ambientCliPackages";
 import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
@@ -54,24 +54,24 @@ import {
   type MessagingRemoteSurfaceSettingUpdateResult,
   type MessagingRemoteSurfaceWorkflowActionRequest,
   type MessagingRemoteSurfaceWorkflowActionResult,
-} from "../../messagingRemoteSurfaceCommands";
+} from "../../messaging/messagingRemoteSurfaceCommands";
 import {
   planSearchPreferenceUpdate,
   searchPreferenceUpdateText,
   type SearchPreferenceUpdateInput,
-} from "../../searchSettingsTools";
+} from "../../web-research/searchSettingsTools";
 import {
   planSttPolicyUpdate,
   sttPolicyNoopText,
   sttPolicyText,
   type SttPolicyInput,
-} from "../../sttSettingsTools";
+} from "../../stt/sttSettingsTools";
 import {
   planVoicePolicyUpdate,
   voicePolicyNoopText,
   voicePolicyText,
   type VoicePolicyInput,
-} from "../../voiceSettingsTools";
+} from "../../voice/voiceSettingsTools";
 
 export interface MessagingRemoteSurfaceCommandApplyToolRegistrationOptions {
   applyForParams: (params: unknown) => Promise<any>;

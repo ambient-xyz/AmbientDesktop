@@ -5,6 +5,8 @@ import type {
   AppAppearance,
   AgentMemoryClearResult,
   AgentMemoryEmbeddingLifecycleActionResult,
+  AgentMemoryStarterOperationResult,
+  AgentMemoryStarterStatus,
   AgentMemoryStorageDiagnostics,
   AgentMemorySettings,
   AmbientFeatureFlagSettings,
@@ -59,6 +61,10 @@ describe("registerSettingsIpc", () => {
     await invoke("thinking-display:update-settings", { mode: "transient" });
     await invoke("feature-flags:update-settings", { subagents: true, tencentDbMemory: true, slashCommands: true });
     await invoke("memory:update-settings", { enabled: true, defaultThreadEnabled: true });
+    await expect(invoke("memory:starter-status")).resolves.toMatchObject({ state: "setup_required" });
+    await expect(invoke("memory:starter-enable", { enableCurrentThread: true, enableNewThreads: false })).resolves.toMatchObject({ operation: "enable" });
+    await expect(invoke("memory:starter-repair", { enableCurrentThread: false })).resolves.toMatchObject({ operation: "repair" });
+    await expect(invoke("memory:starter-disable", {})).resolves.toMatchObject({ operation: "disable" });
     await expect(invoke("memory:diagnostics")).resolves.toMatchObject({ adapter: "tencentdb" });
     await expect(invoke("memory:embedding-lifecycle-action", { action: "check" })).resolves.toMatchObject({ status: "ready" });
     await invoke("memory:clear");
@@ -68,6 +74,10 @@ describe("registerSettingsIpc", () => {
     expect(deps.updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "transient", showRunStatusCard: false });
     expect(deps.updateFeatureFlagSettings).toHaveBeenCalledWith({ subagents: true, tencentDbMemory: true, slashCommands: true });
     expect(deps.updateMemorySettings).toHaveBeenCalledWith({ enabled: true, defaultThreadEnabled: true });
+    expect(deps.getAgentMemoryStarterStatus).toHaveBeenCalledOnce();
+    expect(deps.enableAgentMemoryStarter).toHaveBeenCalledWith({ enableCurrentThread: true, enableNewThreads: false });
+    expect(deps.repairAgentMemoryStarter).toHaveBeenCalledWith({ enableCurrentThread: false });
+    expect(deps.disableAgentMemoryStarter).toHaveBeenCalledWith({});
     expect(deps.getAgentMemoryDiagnostics).toHaveBeenCalledOnce();
     expect(deps.runAgentMemoryEmbeddingLifecycleAction).toHaveBeenCalledWith({ action: "check" });
     expect(deps.clearAgentMemory).toHaveBeenCalledOnce();
@@ -570,6 +580,10 @@ function registerWithFakes() {
       },
       storageScope: input.storageScope ?? "workspace",
     })),
+    getAgentMemoryStarterStatus: vi.fn(async () => sampleAgentMemoryStarterStatus()),
+    enableAgentMemoryStarter: vi.fn(async () => sampleAgentMemoryStarterOperationResult("enable")),
+    repairAgentMemoryStarter: vi.fn(async () => sampleAgentMemoryStarterOperationResult("repair")),
+    disableAgentMemoryStarter: vi.fn(async () => sampleAgentMemoryStarterOperationResult("disable")),
     getAgentMemoryDiagnostics: vi.fn(async () => sampleAgentMemoryDiagnostics()),
     runAgentMemoryEmbeddingLifecycleAction: vi.fn(async (input): Promise<AgentMemoryEmbeddingLifecycleActionResult> => ({
       schemaVersion: "ambient-agent-memory-embedding-lifecycle-action-v1",
@@ -643,6 +657,98 @@ function sampleAgentMemoryClearResult(): AgentMemoryClearResult {
       disposedThreadIds: ["thread-1"],
       deferredThreadIds: [],
     },
+  };
+}
+
+function sampleAgentMemoryStarterOperationResult(
+  operation: AgentMemoryStarterOperationResult["operation"],
+): AgentMemoryStarterOperationResult {
+  return {
+    schemaVersion: "ambient-agent-memory-starter-operation-result-v1",
+    operationId: `starter-${operation}`,
+    operation,
+    startedAt: "2026-06-13T00:00:00.000Z",
+    completedAt: "2026-06-13T00:00:01.000Z",
+    status: sampleAgentMemoryStarterStatus(),
+    log: [{
+      at: "2026-06-13T00:00:00.000Z",
+      step: operation,
+      status: "passed",
+      message: "Agent Memory starter operation completed.",
+    }],
+  };
+}
+
+function sampleAgentMemoryStarterStatus(): AgentMemoryStarterStatus {
+  const diagnostics = sampleAgentMemoryDiagnostics();
+  return {
+    schemaVersion: "ambient-agent-memory-starter-status-v1",
+    checkedAt: diagnostics.checkedAt,
+    state: "setup_required",
+    settings: {
+      featureFlags: { tencentDbMemory: true },
+      memory: {
+        enabled: true,
+        defaultThreadEnabled: false,
+        adapter: "tencentdb",
+        shortTermOffloadEnabled: false,
+        embeddings: {
+          enabled: true,
+          providerMode: "ambient-managed",
+          autoStartProvider: true,
+          sendDimensions: false,
+          maxInputChars: 512,
+          timeoutMs: 10_000,
+          preflightEnabled: true,
+        },
+        storageScope: "workspace",
+      },
+    },
+    threadScope: {
+      activeThreadId: "thread-1",
+      activeThreadMemoryEnabled: true,
+      defaultThreadEnabled: false,
+      activeThreadCount: 1,
+      enabledThreadCount: 1,
+    },
+    assets: {
+      model: {
+        state: "missing",
+        path: "/tmp/ambient-managed/embeddinggemma.gguf",
+        message: "EmbeddingGemma GGUF is not present in Ambient-managed state.",
+      },
+      runtime: {
+        state: "present",
+        path: "/tmp/ambient-managed/llama-server",
+      },
+    },
+    runtime: {
+      state: "stopped",
+      message: "Ambient-managed memory embedding assets are installed, but the endpoint is not running.",
+    },
+    embedding: {
+      enabled: true,
+      status: "keyword_fallback",
+      message: "TencentDB memory embeddings are enabled but no active runtime has resolved an embedding provider yet.",
+    },
+    nativePreflight: {
+      schemaVersion: "ambient-agent-memory-native-preflight-v1",
+      checkedAt: diagnostics.checkedAt,
+      platform: "darwin",
+      arch: "arm64",
+      coreModuleConfigured: true,
+      coreModuleSpecifier: "@ambient/tencent-memory",
+      status: "healthy",
+      message: "TencentDB Agent Memory native dependency package metadata resolved.",
+      dependencies: [],
+      errors: [],
+    },
+    blockers: [{
+      code: "model_missing",
+      message: "EmbeddingGemma GGUF is not present in Ambient-managed state.",
+      retryable: true,
+    }],
+    nextActions: ["install", "disable"],
   };
 }
 

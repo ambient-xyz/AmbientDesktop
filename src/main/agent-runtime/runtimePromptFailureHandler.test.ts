@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage, DesktopEvent, ProviderContinuationState, SendMessageInput } from "../../shared/types";
-import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
+import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 import { handleRuntimePromptFailure, type RuntimePromptFailureHandlerInput } from "./runtimePromptFailureHandler";
 import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import type { RuntimeToolMessageController } from "./runtimeToolMessageController";

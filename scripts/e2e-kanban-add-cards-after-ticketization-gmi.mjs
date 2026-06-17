@@ -23,7 +23,7 @@ const cdpPort = Number(process.env.AMBIENT_KANBAN_ADD_CARDS_AFTER_TICKETIZATION_
 const addCardsMaxElapsedMs = Number(process.env.AMBIENT_KANBAN_ADD_CARDS_AFTER_TICKETIZATION_MAX_TIMEOUT_MS || 0) || 900_000;
 const addCardsIdleMs = Number(process.env.AMBIENT_KANBAN_ADD_CARDS_AFTER_TICKETIZATION_IDLE_TIMEOUT_MS || 0) || 240_000;
 const defaultRepoKeyFile = join(repoRoot, "gmicloud-api-key.txt");
-const defaultHomeCheckoutKeyFile = join(homedir(), "ambientCoder", "gmicloud-api-key.txt");
+const defaultHomeCheckoutKeyFile = join(homedir(), "AmbientDesktop", "gmicloud-api-key.txt");
 const keyFile = resolve(
   process.env.GMI_CLOUD_API_KEY_FILE ||
     (existsSync(defaultRepoKeyFile) ? defaultRepoKeyFile : defaultHomeCheckoutKeyFile),

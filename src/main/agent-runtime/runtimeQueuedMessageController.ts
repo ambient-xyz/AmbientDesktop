@@ -6,7 +6,7 @@ import {
   type QueuedMessageSnapshot,
 } from "../../shared/messageDelivery";
 import type { ChatMessage, DesktopEvent } from "../../shared/types";
-import { agentRuntimeQueuedMessageMetadata } from "../agentRuntimeUserMessageMetadata";
+import { agentRuntimeQueuedMessageMetadata } from "../agent-runtime/agentRuntimeUserMessageMetadata";
 
 export type RuntimeQueuedMessageSnapshot = QueuedMessageSnapshot & {
   imageInputs?: ImageContent[];

@@ -1,5 +1,5 @@
 import { freemem, totalmem } from "node:os";
-import type { WebResearchProviderAttempt } from "../webResearchBroker";
+import type { WebResearchProviderAttempt } from "../web-research/webResearchBroker";
 import type { LocalDeepResearchBroker, LocalDeepResearchBrokerResult } from "./localDeepResearchAdapter";
 import { detectLocalDeepResearchManagedAssets, type LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import {
@@ -15,7 +15,7 @@ import {
 } from "./localDeepResearchRunService";
 import { validateLocalDeepResearchCitations } from "./localDeepResearchRunner";
 import { buildLocalDeepResearchSetupContract, type LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { writeWorkspaceTextFile } from "../workspaceFiles";
+import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
 
 const gib = 1024 ** 3;
 const benchmarkRoot = ".ambient/local-deep-research/profile-benchmarks";

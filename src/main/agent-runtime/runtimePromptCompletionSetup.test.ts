@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DesktopEvent } from "../../shared/types";
-import type { PromptCompletion } from "../postToolFinalization";
+import type { PromptCompletion } from "./post-tool/postToolFinalization";
 import type { RuntimePostToolContinuationResult } from "./runtimePostToolContinuationController";
 import {
   runRuntimePromptCompletionSetup,

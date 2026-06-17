@@ -11,7 +11,7 @@ import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbient
 import { createProjectBoardPlannerWorkspace } from "./projectBoardPlannerWorkspace";
 import { projectBoardPlannerWorkspaceToolExecutor } from "./projectBoardPlannerWorkspaceTools";
 import type { ProjectBoardSynthesisSource } from "./projectBoardSynthesis";
-import { callWorkflowPiText } from "../workflowPiTransport";
+import { callWorkflowPiText } from "../workflow/workflowPiTransport";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_PROVIDER_LIVE === "1";
 const liveIt = runLive ? it : it.skip;
@@ -379,7 +379,7 @@ describe("AmbientProjectBoardSynthesisProvider live", () => {
     "elaborates additive cards from the actual Last Vector spaceship game design document",
     async () => {
       const apiKey = readLiveAmbientApiKey();
-      const designDocPath = "/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
+      const designDocPath = "/path/to/user/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
       expect(existsSync(designDocPath)).toBe(true);
       const designDoc = readFileSync(designDocPath, "utf8");
       const progress: string[] = [];
@@ -1168,7 +1168,7 @@ describe("AmbientProjectBoardSynthesisProvider live", () => {
     "sectioned planning imports progressive records from the actual Last Vector design document",
     async () => {
       const apiKey = readLiveAmbientApiKey();
-      const designDocPath = "/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
+      const designDocPath = "/path/to/user/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
       expect(existsSync(designDocPath)).toBe(true);
       const designDoc = readFileSync(designDocPath, "utf8");
       const progress: string[] = [];
@@ -1212,7 +1212,7 @@ describe("AmbientProjectBoardSynthesisProvider live", () => {
     "compares sectioned planning quality with normal and capped reasoning on the actual Last Vector design document",
     async () => {
       const apiKey = readLiveAmbientApiKey();
-      const designDocPath = "/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
+      const designDocPath = "/path/to/user/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
       expect(existsSync(designDocPath)).toBe(true);
       const designDoc = readFileSync(designDocPath, "utf8");
       const sources: ProjectBoardSynthesisSource[] = [

@@ -4,7 +4,7 @@ import type {
   BrowserSearchResult,
   BrowserUserActionState,
 } from "../../../shared/types";
-import { BrowserUnavailableError } from "../../browserService";
+import { BrowserUnavailableError } from "../../browser/browserService";
 import {
   browserSearchText,
   registerBrowserSearchTool,

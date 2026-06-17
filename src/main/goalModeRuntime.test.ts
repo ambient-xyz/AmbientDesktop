@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { AgentRuntime } from "./agentRuntime";
-import { ProjectStore } from "./projectStore";
+import { AgentRuntime } from "./agent-runtime/agentRuntime";
+import { ProjectStore } from "./projectStore/projectStore";
 
 async function withRuntime<T>(
   callback: (input: { store: ProjectStore; runtime: AgentRuntime; threadId: string }) => Promise<T> | T,

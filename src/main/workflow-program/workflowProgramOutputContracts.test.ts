@@ -6,7 +6,7 @@ import {
   workflowProgramOutputContractCompleteness,
   workflowProgramRefPathExists,
 } from "./workflowProgramOutputContracts";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { WorkflowProgramConnectorCallNode, WorkflowProgramNode, WorkflowProgramToolCallNode } from "../../shared/workflowProgramIr";
 
 describe("workflowProgramOutputContracts", () => {

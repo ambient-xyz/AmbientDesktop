@@ -5,16 +5,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { PermissionPromptResponseMode, PermissionRequest } from "../../shared/types";
-import { AgentRuntime } from "../agentRuntime";
+import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "../liveAmbientProviderConfig";
-import { createDocxFixture } from "../officeTestFixtures";
+import { createDocxFixture } from "../office/officeTestFixtures";
 import { createPdfFixture } from "../pdfTestFixtures";
-import { ProjectStore } from "../projectStore";
+import { ProjectStore } from "../projectStore/projectStore";
 import { resolveSubagentApprovalDecision } from "./subagentApprovalDecision";
 import { recordSubagentLiveApprovalAuthorityEvidence, recordSubagentLiveSmokeEvidence } from "./subagentLiveSmokeEvidence";
 import { recordSubagentRestartRecoveryEvidence } from "./subagentReviewedMaturityEvidence";

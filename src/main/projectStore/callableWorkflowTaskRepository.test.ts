@@ -1,9 +1,9 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { CallableWorkflowQueuedTaskDraft } from "../callable-workflow/callableWorkflowTaskQueue";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import { mapCallableWorkflowTaskRow } from "./callableWorkflowTaskMappers";
-import { mapCallableWorkflowTaskRow as legacyMapCallableWorkflowTaskRow } from "../projectStoreWorkflowMappers";
+import { mapCallableWorkflowTaskRow as legacyMapCallableWorkflowTaskRow } from "./projectStoreWorkflowMappers";
 import { ProjectStoreCallableWorkflowTaskRepository } from "./callableWorkflowTaskRepository";
 
 describe("ProjectStoreCallableWorkflowTaskRepository", () => {

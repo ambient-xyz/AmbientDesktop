@@ -1,5 +1,5 @@
 import type { DesktopToolDescriptor } from "../desktopToolRegistry";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { WorkflowProgramDiagnostic } from "./workflowProgramCapabilityResolver";
 import { workflowProgramKnownOutputFields } from "./workflowProgramOutputContracts";
 import type { WorkflowProgramIR, WorkflowProgramNode } from "../../shared/workflowProgramIr";

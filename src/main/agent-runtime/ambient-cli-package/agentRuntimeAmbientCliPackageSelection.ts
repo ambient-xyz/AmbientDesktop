@@ -1,4 +1,4 @@
-import type { AmbientCliPackageSummary } from "../../ambientCliPackages";
+import type { AmbientCliPackageSummary } from "../../ambient-cli/ambientCliPackages";
 
 export function selectAmbientCliPackageForRuntime(
   packages: AmbientCliPackageSummary[],

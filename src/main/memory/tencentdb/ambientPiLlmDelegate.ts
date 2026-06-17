@@ -10,9 +10,9 @@ import {
 } from "@mariozechner/pi-coding-agent";
 
 import type { AmbientTencentMemoryLlmDelegate, AmbientTencentMemoryLlmRequest } from "./ambientLlmRunner";
-import { createAmbientProviderExtension } from "../../agentRuntimeAmbientProvider";
-import { enableAtomicPiSessionPersistence } from "../../piSessionAtomicPersistence";
-import { normalizePiEvent } from "../../piEventMapper";
+import { createAmbientProviderExtension } from "../../agent-runtime/agentRuntimeAmbientProvider";
+import { enableAtomicPiSessionPersistence } from "../../pi/piSessionAtomicPersistence";
+import { normalizePiEvent } from "../../pi/piEventMapper";
 
 export interface CreateAmbientTencentMemoryPiLlmDelegateInput {
   workspacePath: string;

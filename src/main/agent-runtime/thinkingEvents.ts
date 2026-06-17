@@ -1,5 +1,5 @@
-import { piThinkingMessageMetadata } from "../agentRuntimeAssistantMessageMetadata";
-import type { NormalizedPiEvent } from "../piEventMapper";
+import { piThinkingMessageMetadata } from "../agent-runtime/agentRuntimeAssistantMessageMetadata";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 
 export type RuntimeThinkingEvent = Extract<
   NormalizedPiEvent,

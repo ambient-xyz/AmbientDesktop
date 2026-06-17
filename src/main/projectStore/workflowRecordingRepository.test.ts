@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import { ProjectStoreMessageRepository } from "./messageRepository";
 import { ProjectStoreThreadRepository, type CreateProjectStoreThreadDefaults } from "./threadRepository";
 import { ProjectStoreWorkflowRecordingRepository } from "./workflowRecordingRepository";

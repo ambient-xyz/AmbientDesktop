@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { registerMessagingRemoteSurfaceEventTools } from "./agentRuntimeMessagingRemoteSurfaceEventTools";
-import { createMessagingBindingStore } from "../../messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
+import { createMessagingBindingStore } from "../../messaging/messagingBindings";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
 import { buildRuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
 
 describe("registerMessagingRemoteSurfaceEventTools", () => {
@@ -19,7 +19,7 @@ describe("registerMessagingRemoteSurfaceEventTools", () => {
     });
     const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
     const workspace = {
-      name: "ambientCoder",
+      name: "AmbientDesktop",
       path: "/workspace",
       statePath: stateRoot,
       sessionPath: join(stateRoot, "sessions"),
@@ -47,7 +47,7 @@ describe("registerMessagingRemoteSurfaceEventTools", () => {
           threads: [],
           workflowFolders: [],
           projects: [{
-            name: "ambientCoder",
+            name: "AmbientDesktop",
             path: "/workspace",
             updatedAt: "2026-05-15T00:00:00.000Z",
             pinned: true,

@@ -228,7 +228,7 @@ describe("credentialStore", () => {
 
   it("finds ignored GMI Cloud key files from a sibling primary checkout when running in a temp worktree", async () => {
     if (!testCwd) throw new Error("missing test cwd");
-    const siblingCheckout = join(dirname(testCwd), "ambientCoder");
+    const siblingCheckout = join(dirname(testCwd), "AmbientDesktop");
     await mkdir(siblingCheckout, { recursive: true });
     await writeFile(join(siblingCheckout, "gmicloud-api-key.txt"), "gmi-sibling-key\n", "utf8");
     delete process.env.AMBIENT_API_KEY;

@@ -3,7 +3,7 @@ import type {
   ProviderContinuationState,
 } from "../../shared/types";
 import { buildInterruptedToolCallRecoveryNotice } from "../interruptedToolCallRecovery";
-import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
+import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 
 export interface InterruptedToolCallRecoveryFinalizationInput {
   message: string;

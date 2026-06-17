@@ -21,7 +21,7 @@ import {
   formatMutationPolicy,
   workflowRunAutomationStatus,
   workflowRunAutomationSummary,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 export interface AutomationFolderRow {
   id: string;

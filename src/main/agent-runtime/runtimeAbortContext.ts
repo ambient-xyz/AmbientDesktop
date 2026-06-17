@@ -2,8 +2,8 @@ import type {
   DesktopEvent,
   SubagentWaitBarrierSummary,
 } from "../../shared/types";
-import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
-import { runtimeSubagentParentControlAbortActivity } from "../agentRuntimeSubagentParentControlActivity";
+import type { SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
+import { runtimeSubagentParentControlAbortActivity } from "./subagents/agentRuntimeSubagentParentControlActivity";
 import type { RuntimeActiveRunHandoffActiveRun } from "./runtimeActiveRunHandoff";
 import type { RuntimeQueuedMessageSnapshot } from "./runtimeQueuedMessageController";
 

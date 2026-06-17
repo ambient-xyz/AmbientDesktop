@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { WorkflowProgramIR } from "../../shared/workflowProgramIr";
 import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
-import { googleWorkspaceConnectorDescriptors } from "../googleWorkspaceConnectors";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
+import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import { compileWorkflowProgramIr, type WorkflowProgramAmbientCliCapability } from "../workflow-program/workflowProgramCompiler";
 
 function arxivCapability(overrides: Partial<WorkflowProgramAmbientCliCapability> = {}): WorkflowProgramAmbientCliCapability {

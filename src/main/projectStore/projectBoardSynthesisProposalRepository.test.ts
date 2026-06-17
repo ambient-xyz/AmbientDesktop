@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProjectBoardSynthesisCardInput } from "../project-board/projectBoardSynthesis";
 import type { ProjectBoardSynthesisDraft } from "../project-board/projectBoardSynthesis";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import {
   ProjectStoreProjectBoardSynthesisProposalRepository,
   type ProjectBoardSynthesisProposalEventInput,

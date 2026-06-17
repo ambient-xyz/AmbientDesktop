@@ -10,7 +10,7 @@ import {
   mapSubagentWaitBarrierRow,
   resolveSubagentWaitBarrierQuorumThreshold,
   type SubagentWaitBarrierRow,
-} from "../projectStoreSubagentMappers";
+} from "./projectStoreSubagentMappers";
 import { SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION } from "../subagents/subagentWaitBarrierResolution";
 
 export interface SubagentWaitBarrierChildRun {

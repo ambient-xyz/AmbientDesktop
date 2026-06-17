@@ -7,7 +7,7 @@ import {
   type PlannerDecisionQuestionRow,
   type PlannerPlanArtifactRow,
 } from "./plannerMappers";
-import { mapPlannerPlanArtifactRow as legacyMapPlannerPlanArtifactRow } from "../projectStorePlannerMappers";
+import { mapPlannerPlanArtifactRow as legacyMapPlannerPlanArtifactRow } from "./projectStorePlannerMappers";
 
 describe("project store planner mappers", () => {
   it("keeps the legacy mapper import path as a re-export", () => {

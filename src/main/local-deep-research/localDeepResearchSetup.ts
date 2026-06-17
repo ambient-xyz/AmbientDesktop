@@ -11,7 +11,7 @@ import type {
 } from "../../shared/types";
 import { normalizeLocalModelResourceSettings } from "./localDeepResearchProviderStack";
 import type { MiniCpmVisionRuntimeReleaseManifest, MiniCpmVisionRuntimeReleaseManifestVerification } from "../../shared/types";
-import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "../miniCpmRuntimeManifest";
+import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "../mini-cpm/miniCpmRuntimeManifest";
 import {
   detectLocalDeepResearchMachineFacts,
   localDeepResearchEstimatedResidentMemoryBytes,
@@ -23,7 +23,7 @@ import {
   normalizeSearchRoutingSettingsWithWebResearch,
   planWebResearchProviderOrder,
   type WebResearchProviderRequestPlan,
-} from "../webResearchProviderStack";
+} from "../web-research/webResearchProviderStack";
 import { buildLocalDeepResearchProviderStackStatus } from "./localDeepResearchProviderStack";
 import { buildLocalRuntimeInventory } from "../local-runtime/localRuntimeInventory";
 

@@ -1,4 +1,4 @@
-import type { AmbientCliPackageDescription, DescribeAmbientCliPackageInput } from "../../ambientCliPackages";
+import type { AmbientCliPackageDescription, DescribeAmbientCliPackageInput } from "../../ambient-cli/ambientCliPackages";
 
 export function ambientCliDescribeInput(input: Record<string, unknown>): DescribeAmbientCliPackageInput {
   return {

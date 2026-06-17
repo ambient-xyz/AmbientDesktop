@@ -8,7 +8,7 @@ const deterministicSteps = [
   {
     label: "stream watchdog and Ambient stream transport",
     command: "pnpm",
-    args: ["exec", "vitest", "run", "src/main/piStreamWatchdog.test.ts", "src/main/ambientStreamTransport.test.ts"],
+    args: ["exec", "vitest", "run", "src/main/pi/piStreamWatchdog.test.ts", "src/main/ambient/ambientStreamTransport.test.ts"],
   },
   {
     label: "post-tool continuation and session file persistence guards",
@@ -17,15 +17,15 @@ const deterministicSteps = [
       "exec",
       "vitest",
       "run",
-      "src/main/postToolContinuationScheduler.test.ts",
-      "src/main/sessionFileCommit.test.ts",
-      "src/main/piSessionAtomicPersistence.test.ts",
+      "src/main/agent-runtime/post-tool/postToolContinuationScheduler.test.ts",
+      "src/main/session/sessionFileCommit.test.ts",
+      "src/main/pi/piSessionAtomicPersistence.test.ts",
     ],
   },
   {
     label: "tool runner liveness and managed dev-server controls",
     command: "pnpm",
-    args: ["exec", "vitest", "run", "src/main/toolRunner.test.ts"],
+    args: ["exec", "vitest", "run", "src/main/tool-runtime/toolRunner.test.ts"],
   },
   {
     label: "retry accounting and provider diagnostics",
@@ -34,7 +34,7 @@ const deterministicSteps = [
       "exec",
       "vitest",
       "run",
-      "src/main/agentRuntime.test.ts",
+      "src/main/agent-runtime/agentRuntime.test.ts",
       "--testNamePattern",
       "assistant finalization retry accounting|runtime provider diagnostics",
     ],

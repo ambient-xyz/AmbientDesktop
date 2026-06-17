@@ -2,8 +2,8 @@ import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/projectBoardKickoffDefaults";
 import type { ProjectBoardEvent, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSummary } from "../../shared/projectBoardTypes";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
-import { DEFAULT_PROJECT_BOARD_QUESTIONS } from "../projectStoreFacadeHelpers";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
+import { DEFAULT_PROJECT_BOARD_QUESTIONS } from "./projectStoreFacadeHelpers";
 import {
   mapProjectBoardQuestionRow,
   mapProjectBoardSourceRow,

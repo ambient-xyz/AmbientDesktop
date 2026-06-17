@@ -47,7 +47,7 @@ import {
   keypressKeyResult,
   userCodeExpression,
   type InternalBrowserBackend,
-} from "./browserService";
+} from "./browser/browserService";
 import { assertAllowedInternalBrowserUrl, isAllowedInternalBrowserUrl } from "./externalUrlPolicy";
 
 const HIDDEN_TOOL_VIEWPORT: Rectangle = { x: -10_000, y: -10_000, width: 1280, height: 720 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktopToolRegistry";
 import { validateWorkflowProgramStatic, type WorkflowProgramNodeValidationCacheEntry } from "./workflowProgramTypecheck";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { WorkflowProgramIR } from "../../shared/workflowProgramIr";
 
 function validate(program: WorkflowProgramIR, cache?: Map<string, WorkflowProgramNodeValidationCacheEntry>) {

@@ -5,9 +5,9 @@ import type {
   ToolEventDetails,
   ToolLongformInputPreview,
 } from "../../shared/types";
-import { workspaceArtifactPathFromTool } from "../agentRuntimeMediaArtifacts";
-import { chatToolEventDetails, formatToolTranscript, toolEventLabel } from "../agentRuntimeToolTranscript";
-import { toolMessageMetadata } from "../agentRuntimeToolMessageMetadata";
+import { workspaceArtifactPathFromTool } from "../agent-runtime/agentRuntimeMediaArtifacts";
+import { chatToolEventDetails, formatToolTranscript, toolEventLabel } from "./tools/agentRuntimeToolTranscript";
+import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";
 
 export interface RuntimeOpenToolFailureContext {
   toolCallId: string;

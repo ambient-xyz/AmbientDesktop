@@ -4,7 +4,7 @@ import {
   type ProviderInterruptionDiagnostic,
   type ProviderInterruptionToolSnapshot,
 } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
-import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
+import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 
 export interface ProviderInterruptionFinalizationInput {
   currentAssistantVisibleContent: string;

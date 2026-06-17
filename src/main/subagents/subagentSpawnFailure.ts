@@ -9,7 +9,7 @@ import type {
   ThreadSummary,
   ThreadWorktreeSummary,
 } from "../../shared/types";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../piChildSessionAdapter";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
 import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
 import { compactSubagentCapacityLeaseForPi } from "./subagentAgentStatus";

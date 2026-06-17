@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { CreateWorkflowAgentThreadInput } from "../../shared/types";
 import { mapWorkflowArtifactRow } from "./workflowArtifactMappers";
 import { ProjectStoreWorkflowArtifactRepository } from "./workflowArtifactRepository";
-import { mapWorkflowArtifactRow as legacyMapWorkflowArtifactRow } from "../projectStoreWorkflowMappers";
+import { mapWorkflowArtifactRow as legacyMapWorkflowArtifactRow } from "./projectStoreWorkflowMappers";
 
 describe("ProjectStoreWorkflowArtifactRepository", () => {
   let db: Database.Database;

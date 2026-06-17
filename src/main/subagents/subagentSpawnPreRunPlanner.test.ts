@@ -15,7 +15,7 @@ import {
   SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
 } from "../../shared/symphonyFineGrainedContracts";
 import type { SubagentRunSummary, ThreadSummary } from "../../shared/types";
-import { createDefaultAgentRoleRegistry } from "../agentRoleRegistry";
+import { createDefaultAgentRoleRegistry } from "../agent/agentRoleRegistry";
 import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
 import {
   resolveSubagentSpawnPreRunPlan,

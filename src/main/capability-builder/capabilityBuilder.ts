@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { appendFile, chmod, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import { isPathInside } from "../sessionPaths";
+import { isPathInside } from "../session/sessionPaths";
 import {
   discoverAmbientCliPackages,
   discoverAmbientCliVoiceProviders,
@@ -14,7 +14,7 @@ import {
   uninstallAmbientCliPackageSource,
   type AmbientCliPackageCatalog,
   type AmbientCliPackageSummary,
-} from "../ambientCliPackages";
+} from "../ambient-cli/ambientCliPackages";
 import type {
   ToolLargeOutputPreview,
   ToolLargeOutputPreviewItem,

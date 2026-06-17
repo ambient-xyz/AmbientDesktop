@@ -40,7 +40,7 @@ import type {
   SubagentChildRuntimeLaunchPreflightInput,
   SubagentChildRuntimeWaitInput,
   SubagentChildRuntimeWaitResult,
-} from "../piChildSessionAdapter";
+} from "../pi/piChildSessionAdapter";
 import {
   completeLocalTextDelegation,
   isLocalTextDelegationRuntimeFailureError,

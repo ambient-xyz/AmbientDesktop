@@ -40,7 +40,7 @@ const report = buildLocalDeepResearchReleaseGateReport({
   packageJson,
   files: {
     agentRuntime: await readTexts([
-      "src/main/agentRuntime.ts",
+      "src/main/agent-runtime/agentRuntime.ts",
       "src/main/local-deep-research/agentRuntimeLocalDeepResearchRunTools.ts",
       "src/main/local-deep-research/agentRuntimeLocalDeepResearchSetupTools.ts",
       "src/main/desktopToolRegistry.ts",
@@ -54,7 +54,7 @@ const report = buildLocalDeepResearchReleaseGateReport({
       "src/renderer/src/localDeepResearchUiModel.ts",
     ]),
     preload: await readText("src/preload/index.ts"),
-    providerCatalog: await readText("src/main/providerCatalog.ts"),
+    providerCatalog: await readText("src/main/provider/providerCatalog.ts"),
     plan: await readText("llamaResearchImplementation.html"),
   },
   artifacts,

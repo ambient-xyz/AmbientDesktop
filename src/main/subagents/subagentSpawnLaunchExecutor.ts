@@ -40,7 +40,7 @@ import type {
   SubagentChildRuntimeStartInput,
   SubagentChildRuntimeStartResult,
   SubagentRuntimeEventEmitter,
-} from "../piChildSessionAdapter";
+} from "../pi/piChildSessionAdapter";
 import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
 import { recordSubagentLaunchRejection } from "./subagentLaunchRejectionRecorder";
 import { resolveSubagentSpawnBlockDecision, type SubagentSpawnBlockDecision } from "./subagentSpawnBlockDecision";
@@ -58,7 +58,7 @@ import {
   buildSubagentTaskMailboxEventInput,
   type SubagentSpawnRequestContractInput,
 } from "./subagentSpawnRequest";
-import { isPathInside } from "../sessionPaths";
+import { isPathInside } from "../session/sessionPaths";
 
 export const SUBAGENT_SPAWN_LAUNCH_EXECUTOR_SCHEMA_VERSION =
   "ambient-subagent-spawn-launch-executor-v1" as const;

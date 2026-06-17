@@ -20,26 +20,26 @@ import type {
   WorkflowAgentFolderSummary,
   WorkspaceState,
 } from "../../../shared/types";
-import type { AgentRuntimeFeatures } from "../../agentRuntime";
-import { discoverAmbientCliPackages } from "../../ambientCliPackages";
+import type { AgentRuntimeFeatures } from "../agentRuntime";
+import { discoverAmbientCliPackages } from "../../ambient-cli/ambientCliPackages";
 import { registerMessagingOverviewTools } from "./agentRuntimeMessagingOverviewTools";
-import { registerTelegramSessionTools } from "../../agentRuntimeTelegramSessionTools";
-import { registerSignalSessionTools } from "../../agentRuntimeSignalSessionTools";
+import { registerTelegramSessionTools } from "../telegram/agentRuntimeTelegramSessionTools";
+import { registerSignalSessionTools } from "../signal/agentRuntimeSignalSessionTools";
 import { registerMessagingBindingTools } from "./agentRuntimeMessagingBindingTools";
-import { registerTelegramOwnerLoopTools } from "../../agentRuntimeTelegramOwnerLoopTools";
+import { registerTelegramOwnerLoopTools } from "../telegram/agentRuntimeTelegramOwnerLoopTools";
 import { registerMessagingConversationDirectoryTools } from "./agentRuntimeMessagingConversationDirectoryTools";
-import { registerTelegramConversationDirectoryTools } from "../../agentRuntimeTelegramConversationDirectoryTools";
-import { registerTelegramOwnerHandoffTools } from "../../agentRuntimeTelegramOwnerHandoffTools";
-import { registerSignalConversationDirectoryTools } from "../../agentRuntimeSignalConversationDirectoryTools";
-import { registerSignalUnreadWindowTools } from "../../agentRuntimeSignalUnreadWindowTools";
-import { registerSignalRealPollingTools } from "../../agentRuntimeSignalRealPollingTools";
-import { registerSignalBridgeReplyTools } from "../../agentRuntimeSignalBridgeReplyTools";
+import { registerTelegramConversationDirectoryTools } from "../telegram/agentRuntimeTelegramConversationDirectoryTools";
+import { registerTelegramOwnerHandoffTools } from "../telegram/agentRuntimeTelegramOwnerHandoffTools";
+import { registerSignalConversationDirectoryTools } from "../signal/agentRuntimeSignalConversationDirectoryTools";
+import { registerSignalUnreadWindowTools } from "../signal/agentRuntimeSignalUnreadWindowTools";
+import { registerSignalRealPollingTools } from "../signal/agentRuntimeSignalRealPollingTools";
+import { registerSignalBridgeReplyTools } from "../signal/agentRuntimeSignalBridgeReplyTools";
 import {
   createSignalBridgeReplyResolvers,
   signalBridgeReplyApprovalRequest,
-} from "../../agentRuntimeSignalBridgeReplyPlan";
-import { registerSignalBindingReadinessTools } from "../../agentRuntimeSignalBindingReadinessTools";
-import { registerSignalOwnerHandoffTools } from "../../agentRuntimeSignalOwnerHandoffTools";
+} from "../signal/agentRuntimeSignalBridgeReplyPlan";
+import { registerSignalBindingReadinessTools } from "../signal/agentRuntimeSignalBindingReadinessTools";
+import { registerSignalOwnerHandoffTools } from "../signal/agentRuntimeSignalOwnerHandoffTools";
 import {
   createSignalRemoteSurfacePlanResolvers,
   registerSignalRemoteSurfaceTools,
@@ -50,24 +50,24 @@ import {
   createTelegramRemoteSurfacePlanResolvers,
   registerTelegramRemoteSurfaceTools,
 } from "./agentRuntimeTelegramRemoteSurfaceTools";
-import { registerRuntimeSurfaceTools } from "../../agentRuntimeRuntimeSurfaceTools";
+import { registerRuntimeSurfaceTools } from "../agentRuntimeRuntimeSurfaceTools";
 import { registerMessagingSyntheticRouteTools } from "./agentRuntimeMessagingSyntheticRouteTools";
-import { registerTelegramBridgeEventTools } from "../../agentRuntimeTelegramBridgeEventTools";
-import { registerTelegramBridgePollPreviewTools } from "../../agentRuntimeTelegramBridgePollPreviewTools";
-import { registerTelegramBridgePollApplyTools } from "../../agentRuntimeTelegramBridgePollApplyTools";
+import { registerTelegramBridgeEventTools } from "../telegram/agentRuntimeTelegramBridgeEventTools";
+import { registerTelegramBridgePollPreviewTools } from "../telegram/agentRuntimeTelegramBridgePollPreviewTools";
+import { registerTelegramBridgePollApplyTools } from "../telegram/agentRuntimeTelegramBridgePollApplyTools";
 import {
   createTelegramBridgePollResolvers,
   createTelegramBridgePollingResolvers,
-} from "../../agentRuntimeTelegramBridgePollPlan";
-import { registerTelegramBridgePollingStatusTools } from "../../agentRuntimeTelegramBridgePollingStatusTools";
-import { registerTelegramBridgePollingPreviewTools } from "../../agentRuntimeTelegramBridgePollingPreviewTools";
-import { registerTelegramBridgePollingApplyTools } from "../../agentRuntimeTelegramBridgePollingApplyTools";
-import { registerTelegramBridgeReplyPreviewTools } from "../../agentRuntimeTelegramBridgeReplyPreviewTools";
-import { registerTelegramBridgeReplyApplyTools } from "../../agentRuntimeTelegramBridgeReplyApplyTools";
+} from "../telegram/agentRuntimeTelegramBridgePollPlan";
+import { registerTelegramBridgePollingStatusTools } from "../telegram/agentRuntimeTelegramBridgePollingStatusTools";
+import { registerTelegramBridgePollingPreviewTools } from "../telegram/agentRuntimeTelegramBridgePollingPreviewTools";
+import { registerTelegramBridgePollingApplyTools } from "../telegram/agentRuntimeTelegramBridgePollingApplyTools";
+import { registerTelegramBridgeReplyPreviewTools } from "../telegram/agentRuntimeTelegramBridgeReplyPreviewTools";
+import { registerTelegramBridgeReplyApplyTools } from "../telegram/agentRuntimeTelegramBridgeReplyApplyTools";
 import {
   createTelegramBridgeReplyResolvers,
   telegramBridgeReplyApprovalRequest,
-} from "../../agentRuntimeTelegramBridgeReplyPlan";
+} from "../telegram/agentRuntimeTelegramBridgeReplyPlan";
 import { registerMessagingRemoteSurfaceReplyPreviewTools } from "./agentRuntimeMessagingRemoteSurfaceReplyPreviewTools";
 import { registerMessagingRemoteSurfaceReplyApplyTools } from "./agentRuntimeMessagingRemoteSurfaceReplyApplyTools";
 import {
@@ -82,26 +82,26 @@ import {
   type MessagingRemoteSurfaceCommandApplyResolverOptions,
 } from "./agentRuntimeMessagingRemoteSurfaceCommandApplyTools";
 import { createMessagingRemoteSurfaceCommandPreviewResolver } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewPlan";
-import { registerTelegramRelayDiagnosticsTools } from "../../agentRuntimeTelegramRelayDiagnosticsTools";
-import { registerSignalRelayDiagnosticsTools } from "../../agentRuntimeSignalRelayDiagnosticsTools";
-import { createMessagingRelayDiagnosticsResolvers } from "../../agentRuntimeRelayDiagnosticsResolvers";
+import { registerTelegramRelayDiagnosticsTools } from "../telegram/agentRuntimeTelegramRelayDiagnosticsTools";
+import { registerSignalRelayDiagnosticsTools } from "../signal/agentRuntimeSignalRelayDiagnosticsTools";
+import { createMessagingRelayDiagnosticsResolvers } from "../agentRuntimeRelayDiagnosticsResolvers";
 import * as messagingGatewayStatusTools from "./agentRuntimeMessagingGatewayStatusTools";
 import {
   registerMessagingGatewayLifecyclePreviewTools,
 } from "./agentRuntimeMessagingGatewayLifecyclePreviewTools";
 import { registerMessagingGatewayLifecycleApplyTools } from "./agentRuntimeMessagingGatewayLifecycleApplyTools";
 import { createMessagingGatewayLifecycleResolvers } from "./agentRuntimeMessagingGatewayLifecycleResolvers";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messagingGatewayRunner";
-import { TelegramBridgeSupervisor } from "../../telegramBridgeSupervisor";
-import { readinessProbesFromAdapters } from "../../messagingProviderReadiness";
-import { createSignalMessagingReadinessAdapter } from "../../signalMessagingReadiness";
-import { createTelegramMessagingReadinessAdapter } from "../../telegramMessagingReadiness";
-import { createMessagingBindingStore } from "../../messagingBindings";
-import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "../../messagingConversationDirectoryAdapters";
-import { SignalRealPollingRunner } from "../../signalRealPolling";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { TelegramBridgeSupervisor } from "../../telegram/telegramBridgeSupervisor";
+import { readinessProbesFromAdapters } from "../../messaging/messagingProviderReadiness";
+import { createSignalMessagingReadinessAdapter } from "../signal/signalMessagingReadiness";
+import { createTelegramMessagingReadinessAdapter } from "../../telegram/telegramMessagingReadiness";
+import { createMessagingBindingStore } from "../../messaging/messagingBindings";
+import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "../../messaging/messagingConversationDirectoryAdapters";
+import { SignalRealPollingRunner } from "../signal/signalRealPolling";
 import { createAgentRuntimeMessagingSurfaceSnapshot } from "./agentRuntimeMessagingSurfaceSnapshot";
-import { TelegramBridgePollingRunner } from "../../telegramBridgePolling";
+import { TelegramBridgePollingRunner } from "../../telegram/telegramBridgePolling";
 import type {
   AgentRuntimeRemoteSurfaceRuntimeEventStore,
   AgentRuntimeRemoteSurfaceRuntimeEventRelayMarkInput,

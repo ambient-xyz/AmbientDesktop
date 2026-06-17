@@ -22,12 +22,12 @@ const DEFAULT_SEED_DIRECTORY_LIMIT = "50";
 const DEFAULT_POLL_LIMIT = "24";
 const DEFAULT_GUIDED_WAIT_SECONDS = "180";
 const DEFAULT_GUIDED_POLL_INTERVAL_MS = "5000";
-const DEFAULT_AMBIENT_AGENT_ROOT = "/Users/example/ambientAgent";
+const DEFAULT_AMBIENT_AGENT_ROOT = "/path/to/user/ambientAgent";
 const TEST_ARGS = [
   "exec",
   "vitest",
   "run",
-  "src/main/agentRuntime.test.ts",
+  "src/main/agent-runtime/agentRuntime.test.ts",
   "-t",
   "manual real Telegram owner loop smoke",
 ];
@@ -35,7 +35,7 @@ const DIRECTORY_LIST_TEST_ARGS = [
   "exec",
   "vitest",
   "run",
-  "src/main/agentRuntime.test.ts",
+  "src/main/agent-runtime/agentRuntime.test.ts",
   "-t",
   "manual real Telegram metadata-only directory list smoke",
 ];
@@ -43,7 +43,7 @@ const OWNER_HANDOFF_CHECK_TEST_ARGS = [
   "exec",
   "vitest",
   "run",
-  "src/main/agentRuntime.test.ts",
+  "src/main/agent-runtime/agentRuntime.test.ts",
   "-t",
   "manual real Telegram owner handoff check smoke",
 ];
@@ -51,7 +51,7 @@ const GUIDED_OWNER_LOOP_TEST_ARGS = [
   "exec",
   "vitest",
   "run",
-  "src/main/agentRuntime.test.ts",
+  "src/main/agent-runtime/agentRuntime.test.ts",
   "-t",
   "manual guided Telegram owner loop smoke",
 ];

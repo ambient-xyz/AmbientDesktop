@@ -50,15 +50,15 @@ import { registerWorkflowAutomationDomainIpc } from "./registerWorkflowAutomatio
 import { registerWorkspaceGitDomainIpc } from "./registerWorkspaceGitDomainIpc";
 
 import type { ProjectRuntimeHost } from "../index";
-import type { ProjectStore } from "../projectStore";
+import type { ProjectStore } from "../projectStore/projectStore";
 import { assertSlashCommandSelectionInvocable } from "../slashCommandCatalog";
 
 type ProjectRuntimeHostLookup = (...args: any[]) => ProjectRuntimeHost;
 
 export interface RegisterMainIpcDependencies extends SettingsDomainServices, Record<string, any> {
-  AmbientWorkflowExplorationProvider: typeof import("../workflowExplorationService").AmbientWorkflowExplorationProvider;
-  AmbientWorkflowLabJudgeProvider: typeof import("../workflowLab").AmbientWorkflowLabJudgeProvider;
-  runWorkflowLab: typeof import("../workflowLab").runWorkflowLab;
+  AmbientWorkflowExplorationProvider: typeof import("../workflow/workflowExplorationService").AmbientWorkflowExplorationProvider;
+  AmbientWorkflowLabJudgeProvider: typeof import("../workflow/workflowLab").AmbientWorkflowLabJudgeProvider;
+  runWorkflowLab: typeof import("../workflow/workflowLab").runWorkflowLab;
   requireActiveProjectRuntimeHost: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForAutomationSchedule: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForAutomationScheduleTarget: ProjectRuntimeHostLookup;

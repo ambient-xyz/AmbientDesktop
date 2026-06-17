@@ -12,7 +12,7 @@ import type {
   ProjectBoardSummary,
   RefreshProjectBoardSourceDraftsInput,
 } from "../../shared/projectBoardTypes";
-import type { StageProjectBoardSourceDraftPiUpdatesInput } from "../projectStoreFacadeHelpers";
+import type { StageProjectBoardSourceDraftPiUpdatesInput } from "./projectStoreFacadeHelpers";
 import { projectBoardSourceKey } from "../project-board/projectBoardSourceIdentity";
 import {
   mapProjectBoardSourceRow,

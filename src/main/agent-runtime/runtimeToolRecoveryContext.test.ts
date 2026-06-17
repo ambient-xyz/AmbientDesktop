@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ToolArgumentProgressTracker } from "../toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 import {
   createRuntimeToolRecoveryContext,
   type RuntimeToolRecoveryDiagnosticsPatch,

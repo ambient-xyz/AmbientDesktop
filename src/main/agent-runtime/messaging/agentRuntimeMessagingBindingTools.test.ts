@@ -7,8 +7,8 @@ import {
   registerMessagingBindingTools,
   type MessagingBindingToolPermissionRequest,
 } from "./agentRuntimeMessagingBindingTools";
-import { createMessagingBindingStore } from "../../messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
+import { createMessagingBindingStore } from "../../messaging/messagingBindings";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
 
 describe("registerMessagingBindingTools", () => {
   it("registers the read-only binding list tool with provider, purpose, and inactive filters", async () => {
@@ -48,7 +48,7 @@ describe("registerMessagingBindingTools", () => {
       }, {
         threadId: "thread-1",
         workspace: {
-          name: "ambientCoder",
+          name: "AmbientDesktop",
           path: "/workspace",
           statePath: stateRoot,
           sessionPath: join(stateRoot, "sessions"),

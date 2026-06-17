@@ -11,14 +11,14 @@ import type {
   WorkflowSourceRangeKind,
   WorkflowSpec,
 } from "../../shared/types";
-import type { AmbientCliCapabilitySearchResponse } from "../ambientCliPackages";
+import type { AmbientCliCapabilitySearchResponse } from "../ambient-cli/ambientCliPackages";
 import type { DesktopToolDescriptor } from "../desktopToolRegistry";
 import {
   validateWorkflowConnectorManifest,
   workflowConnectorCompilerSection,
   type WorkflowConnectorDescriptor,
-} from "../workflowConnectors";
-import { MAX_WORKFLOW_SOURCE_CHARS, validateWorkflowSourceIsolation } from "../workflowSourceValidation";
+} from "../workflow/workflowConnectors";
+import { MAX_WORKFLOW_SOURCE_CHARS, validateWorkflowSourceIsolation } from "../workflow/workflowSourceValidation";
 
 export interface WorkflowCompilerToolSelectionInput {
   userRequest: string;

@@ -2,7 +2,7 @@ import type { WorkspaceState } from "../../../shared/types";
 import type {
   AmbientCliPackageEnvStatus,
   AmbientCliPackageSummary,
-} from "../../ambientCliPackages";
+} from "../../ambient-cli/ambientCliPackages";
 
 export interface AmbientCliEnvBindInput {
   packageId?: string;

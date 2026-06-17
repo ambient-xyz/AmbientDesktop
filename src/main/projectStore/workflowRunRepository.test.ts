@@ -10,7 +10,7 @@ import {
   mapWorkflowRunEventRow as legacyMapWorkflowRunEventRow,
   mapWorkflowRunRow as legacyMapWorkflowRunRow,
   mapWorkflowRunScheduleSummaryRow as legacyMapWorkflowRunScheduleSummaryRow,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 describe("ProjectStoreWorkflowRunRepository", () => {
   let db: Database.Database;

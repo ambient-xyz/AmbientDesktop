@@ -5,7 +5,7 @@ import {
   type DesktopToolDescriptor,
   type PiToolRegistrationFields,
 } from "./desktopToolRegistry";
-import { normalizeToolArgumentsForTool } from "./toolArgumentNormalization";
+import { normalizeToolArgumentsForTool } from "./tool-runtime/toolArgumentNormalization";
 
 export type DescriptorToolRegistration<TDetails = unknown, TState = any> = Omit<
   ToolDefinition<any, TDetails, TState>,

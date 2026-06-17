@@ -33,9 +33,9 @@ import {
 import type { LocalDeepResearchBroker } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { LocalLlamaServerSupervisor, type LocalLlamaServerLease } from "../localLlamaServerSupervisor";
-import type { LocalLlamaServerAcquireInput } from "../localLlamaServerSupervisor";
-import { writeWorkspaceTextFile } from "../workspaceFiles";
+import { LocalLlamaServerSupervisor, type LocalLlamaServerLease } from "../local-llama/localLlamaServerSupervisor";
+import type { LocalLlamaServerAcquireInput } from "../local-llama/localLlamaServerSupervisor";
+import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
 import type { LocalDeepResearchFinalSynthesisConfig } from "../../shared/types";
 
 const localDeepResearchRunArtifactsRoot = ".ambient/local-deep-research/runs";

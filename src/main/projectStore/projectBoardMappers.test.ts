@@ -782,7 +782,7 @@ describe("project board store mappers", () => {
       },
     } as ProjectBoardCard;
     const proof = {
-      changedFiles: ["src/main/projectStore.ts"],
+      changedFiles: ["src/main/projectStore/projectStore.ts"],
       afterRunHook: { ok: true },
       screenshots: ["screenshot.png"],
       manualChecks: ["Manual review confirmed the behavior."],
@@ -861,7 +861,7 @@ describe("project board store mappers", () => {
     expect(projectBoardRuntimeBudgetHasMeaningfulProgress(undefined, "", [], "/workspace/app")).toBe(false);
     expect(projectBoardRuntimeBudgetHasMeaningfulProgress({}, "", ["Unit proof recorded."], "/workspace/app")).toBe(false);
     expect(
-      projectBoardRuntimeBudgetHasMeaningfulProgress({ changedFiles: ["src/main/projectStore.ts"] }, "", [], "/workspace/app"),
+      projectBoardRuntimeBudgetHasMeaningfulProgress({ changedFiles: ["src/main/projectStore/projectStore.ts"] }, "", [], "/workspace/app"),
     ).toBe(true);
     expect(projectBoardRuntimeBudgetReason(projectBoardBudget)).toBe("Runtime budget exceeded after 125s: Split the remaining work.");
     expect(projectBoardRuntimeBudgetReason({})).toBe(
@@ -1045,7 +1045,7 @@ describe("project board store mappers", () => {
     expect(
       projectBoardRuntimeBudgetReviewForApplication(
         review,
-        { projectBoardRuntimeBudget: runtimeBudget, changedFiles: ["src/main/projectStore.ts"] },
+        { projectBoardRuntimeBudget: runtimeBudget, changedFiles: ["src/main/projectStore/projectStore.ts"] },
         "",
         "/workspace/app",
       ),
@@ -1098,7 +1098,7 @@ describe("project board store mappers", () => {
         review,
         {
           projectBoardRuntimeBudget: { exceeded: true },
-          changedFiles: ["src/main/projectStore.ts"],
+          changedFiles: ["src/main/projectStore/projectStore.ts"],
           taskToolActions: [trustedCompletion],
         },
         "",
@@ -1159,7 +1159,7 @@ describe("project board store mappers", () => {
           elapsedMs: 130_500,
           recommendedNextAction: "Split the remaining work.",
         },
-        changedFiles: ["src/main/projectStore.ts"],
+        changedFiles: ["src/main/projectStore/projectStore.ts"],
         handoff: {
           summary: "Handoff summary.",
           completed: ["Handoff completed."],
@@ -1202,7 +1202,7 @@ describe("project board store mappers", () => {
     expect(
       projectBoardRuntimeBudgetSplitOutcomeForReview(
         card,
-        { ...baseRun, proofOfWork: { projectBoardRuntimeBudget: { exceeded: false }, changedFiles: ["src/main/projectStore.ts"] } } as unknown as OrchestrationRun,
+        { ...baseRun, proofOfWork: { projectBoardRuntimeBudget: { exceeded: false }, changedFiles: ["src/main/projectStore/projectStore.ts"] } } as unknown as OrchestrationRun,
         review,
         ["child-1"],
         "2026-01-01T00:04:00.000Z",
@@ -1306,7 +1306,7 @@ describe("project board store mappers", () => {
     expect(
       projectBoardRuntimeBudgetCompletedCriteria(
         {
-          changedFiles: ["src/main/projectStore.ts"],
+          changedFiles: ["src/main/projectStore/projectStore.ts"],
           handoff: { completed: ["Handoff completed."] },
           completed: ["Proof completed."],
           taskToolActions: [trustedCompletion, copiedSampleCompletion],
@@ -2428,7 +2428,7 @@ describe("project board store mappers", () => {
       metadata: { transport: "native_tool" },
       summary: "Scoped proof.",
       commands: ["pnpm test"],
-      changedFiles: ["src/main/projectStore.ts"],
+      changedFiles: ["src/main/projectStore/projectStore.ts"],
       screenshots: [],
       browserTraces: [],
       visualChecks: [],
@@ -2584,7 +2584,7 @@ describe("project board store mappers", () => {
 
     expect(projectBoardRunHasReviewableProof(runWithProof(undefined), card)).toBe(false);
     expect(projectBoardRunHasReviewableProof(runWithProof({ lastAssistantText: "Proof collected." }), card)).toBe(true);
-    expect(projectBoardRunHasReviewableProof(runWithProof({ changedFiles: ["src/main/projectStore.ts"] }), card)).toBe(true);
+    expect(projectBoardRunHasReviewableProof(runWithProof({ changedFiles: ["src/main/projectStore/projectStore.ts"] }), card)).toBe(true);
     expect(projectBoardRunHasReviewableProof(runWithProof({ taskToolActions: [scopedCompletion] }), card)).toBe(true);
     expect(
       projectBoardRunHasReviewableProof(

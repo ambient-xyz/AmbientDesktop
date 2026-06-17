@@ -70,8 +70,8 @@ function ensureAmbientCredentialEnv() {
   const candidates = [
     join(repoRoot, "ambient_api_key_u.txt"),
     join(repoRoot, "ambient_api_key.txt"),
-    "/Users/example/Documents/ambientCoder/ambient_api_key_u.txt",
-    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
+    "/path/to/user/Documents/AmbientDesktop/ambient_api_key_u.txt",
+    "/path/to/user/Documents/AmbientDesktop/ambient_api_key.txt",
   ];
   const keyFile = candidates.find((candidate) => existsSync(candidate));
   if (keyFile) {
@@ -85,7 +85,7 @@ function ensureGmiCredentialEnv() {
   if (process.env.GMI_CLOUD_API_KEY || process.env.GMI_API_KEY || process.env.GMI_CLOUD_API_KEY_FILE) return;
   const candidates = [
     join(repoRoot, "gmicloud-api-key.txt"),
-    "/Users/example/Documents/ambientCoder/gmicloud-api-key.txt",
+    "/path/to/user/Documents/AmbientDesktop/gmicloud-api-key.txt",
   ];
   const keyFile = candidates.find((candidate) => existsSync(candidate));
   if (keyFile) {

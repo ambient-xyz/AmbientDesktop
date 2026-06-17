@@ -5,7 +5,7 @@ import {
   searchAmbientCliCapabilities,
   type AmbientCliCapabilitySearchInput,
   type AmbientCliCapabilitySearchResponse,
-} from "../../ambientCliPackages";
+} from "../../ambient-cli/ambientCliPackages";
 import { ambientCliSearchDetails, ambientCliSearchInput, ambientCliSearchText } from "./agentRuntimeAmbientCliPackageSearchModel";
 import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";

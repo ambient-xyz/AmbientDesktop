@@ -17,7 +17,7 @@ import type {
   SubagentChildRuntimeWaitInput,
   SubagentChildRuntimeWaitOutcome,
   SubagentChildRuntimeWaitResult,
-} from "../piChildSessionAdapter";
+} from "../pi/piChildSessionAdapter";
 import {
   SUBAGENT_APPROVAL_DECISIONS,
   SUBAGENT_APPROVAL_RESPONSE_MAILBOX_TYPE,

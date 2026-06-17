@@ -9,15 +9,15 @@ import type {
 } from "../../shared/types";
 import { AmbientStreamFailureError, isRetryableAmbientProviderError } from "../aggressiveRetries";
 import type { AmbientStreamFailureKind } from "../aggressiveRetries";
-import type { AssistantFinalizationRetryReason, AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agentRuntimeAssistantRetryInput";
-import { shouldOpenApiKeyDialogForRuntimeError, formatRuntimeError as formatAgentRuntimeError } from "../agentRuntimeErrorFormatting";
+import type { AssistantFinalizationRetryReason, AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agent-runtime/agentRuntimeAssistantRetryInput";
+import { shouldOpenApiKeyDialogForRuntimeError, formatRuntimeError as formatAgentRuntimeError } from "../agent-runtime/agentRuntimeErrorFormatting";
 import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { isContinuableAmbientProviderInterruption, runtimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { type ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import { runtimeProviderRetryStartingActivity } from "./provider-continuation/agentRuntimeProviderRetryActivity";
-import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
-import { formatToolTranscript } from "../agentRuntimeToolTranscript";
-import { toolMessageMetadata, type SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
+import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
+import { formatToolTranscript } from "./tools/agentRuntimeToolTranscript";
+import { toolMessageMetadata, type SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
 import type { InterruptedToolCallRecoveryTracker } from "../interruptedToolCallRecovery";
 import { providerInterruptionContinuationRetryBudget } from "./provider-continuation/providerInterruptionContinuation";
 import { interruptedToolCallRecoveryFinalizationMessage } from "./interruptedToolCallRecoveryFinalization";
@@ -32,7 +32,7 @@ import {
 } from "./providerRetryFinalization";
 import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import type { RuntimeToolMessageController } from "./runtimeToolMessageController";
-import type { PiSessionFileCommitReason } from "../sessionFileCommit";
+import type { PiSessionFileCommitReason } from "../session/sessionFileCommit";
 import { streamWatchdogFinalizationMessage } from "./streamWatchdogFinalization";
 import { terminalProviderFailureFinalizationMessage } from "./terminalProviderFailureFinalization";
 

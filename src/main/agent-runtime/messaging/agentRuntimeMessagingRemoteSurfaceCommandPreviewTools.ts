@@ -5,7 +5,7 @@ import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   messagingRemoteSurfaceCommandPreviewText,
   type MessagingRemoteSurfaceCommandPreview,
-} from "../../messagingRemoteSurfaceCommands";
+} from "../../messaging/messagingRemoteSurfaceCommands";
 
 export interface MessagingRemoteSurfaceCommandPreviewToolRegistrationOptions {
   previewForParams: (params: unknown) => MessagingRemoteSurfaceCommandPreview;

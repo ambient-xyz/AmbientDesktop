@@ -27,7 +27,7 @@ import {
   telegramRemoteSurfaceBindingText,
   type TelegramRemoteSurfaceBindingPlan,
   type TelegramRemoteSurfaceBindingToolInput,
-} from "../../telegramRemoteSurfaceBinding";
+} from "../../telegram/telegramRemoteSurfaceBinding";
 
 const TELEGRAM_PROVIDER_ID = "telegram-tdlib";
 

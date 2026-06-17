@@ -5,12 +5,12 @@ import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { SearchWorkflowRecordingsInput, WorkflowRecordingLibraryEntry } from "../../shared/types";
 import type {
   AmbientCliCapabilitySearchResponse,
-} from "../ambientCliPackages";
-import { searchAmbientCliCapabilities } from "../ambientCliPackages";
+} from "../ambient-cli/ambientCliPackages";
+import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
 import { registerSlashCommandIpc } from "./registerSlashCommandIpc";
 
-vi.mock("../ambientCliPackages", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../ambientCliPackages")>();
+vi.mock("../ambient-cli/ambientCliPackages", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ambient-cli/ambientCliPackages")>();
   return {
     ...actual,
     searchAmbientCliCapabilities: vi.fn(),

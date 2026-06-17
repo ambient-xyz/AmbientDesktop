@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { projectBoardArtifactExportFromSummary, writeProjectBoardArtifactExport } from "./projectBoardArtifactExport";
 import { createOrAdoptProjectBoard } from "./projectBoardBootstrap";
-import { ProjectStore } from "../projectStore";
+import { ProjectStore } from "../projectStore/projectStore";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 const execFileAsync = promisify(execFile);

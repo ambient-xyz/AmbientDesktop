@@ -11,7 +11,7 @@ import {
   normalizeSubagentMaturityEvidenceKind,
   normalizeSubagentMaturityEvidenceStatus,
   type SubagentMaturityEvidenceRow,
-} from "../projectStoreSubagentMappers";
+} from "./projectStoreSubagentMappers";
 
 export interface SubagentMaturityEvidenceRunRef {
   id: string;

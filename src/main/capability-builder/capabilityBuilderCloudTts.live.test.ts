@@ -3,14 +3,14 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { discoverAmbientCliVoiceProviders, runAmbientCliPackageCommand } from "../ambientCliPackages";
+import { discoverAmbientCliVoiceProviders, runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
 import {
   registerCapabilityBuilderPackage,
   saveCapabilityBuilderEnvSecret,
   scaffoldCapabilityBuilderPackage,
   validateCapabilityBuilderPackage,
 } from "./capabilityBuilder";
-import { listVoiceProviderVoices, readVoiceDiscoveryCache, refreshVoiceProviderVoices } from "../voiceDiscoveryCache";
+import { listVoiceProviderVoices, readVoiceDiscoveryCache, refreshVoiceProviderVoices } from "../voice/voiceDiscoveryCache";
 
 const liveEnabled = process.env.AMBIENT_LIVE_TTS_DOGFOOD === "1";
 const maybeDescribe = liveEnabled ? describe : describe.skip;

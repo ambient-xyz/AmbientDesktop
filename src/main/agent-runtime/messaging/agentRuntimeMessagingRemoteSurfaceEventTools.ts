@@ -2,13 +2,13 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
 import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messagingBindings";
+import type { MessagingBindingStore } from "../../messaging/messagingBindings";
 import {
   buildMessagingRemoteSurfaceEventPreview,
   messagingRemoteSurfaceEventPreviewInput,
   messagingRemoteSurfaceEventPreviewText,
   type MessagingRemoteSurfaceProviderRegistryLike,
-} from "../../messagingRemoteSurfaceProviderPreview";
+} from "../../messaging/messagingRemoteSurfaceProviderPreview";
 import type { RuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
 
 export interface MessagingRemoteSurfaceEventToolRegistrationOptions {

@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ProjectRegistry } from "./projectRegistry";
-import { ProjectStore } from "./projectStore";
-import { AUTHORITY_STATE_ROOT_ENV } from "./workspaceAuthorityState";
+import { ProjectStore } from "./projectStore/projectStore";
+import { AUTHORITY_STATE_ROOT_ENV } from "./workspace/workspaceAuthorityState";
 import { WELCOME_ONBOARDING_METADATA_KIND, WELCOME_ONBOARDING_SEED_VERSION } from "../shared/welcomeOnboarding";
 import {
   ensureWelcomeOnboardingProject,

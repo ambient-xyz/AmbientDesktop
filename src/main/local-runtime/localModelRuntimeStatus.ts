@@ -16,7 +16,7 @@ import {
   detectLocalLlamaResidentProcesses,
   type DetectLocalLlamaResidentProcessesInput,
   type LocalLlamaResidentProcess,
-} from "../localLlamaResidencyPolicy";
+} from "../local-llama/localLlamaResidencyPolicy";
 import {
   buildLocalModelResourceRegistry,
   embeddingProviderRuntimeRegistryEntries,

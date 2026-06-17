@@ -8,7 +8,7 @@ import type {
   ProjectBoardSourceDraftRefreshSuggestion,
 } from "../../shared/types";
 import { AmbientStreamFailureError, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambientChatCompletionRetry";
+import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambient/ambientChatCompletionRetry";
 import { readAmbientApiKey } from "../credentialStore";
 
 export interface AmbientProjectBoardSourceDraftRefreshTelemetry {

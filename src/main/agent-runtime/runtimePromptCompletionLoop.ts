@@ -1,4 +1,4 @@
-import type { PromptCompletion } from "../postToolFinalization";
+import type { PromptCompletion } from "./post-tool/postToolFinalization";
 import type {
   RuntimePostToolContinuationController,
   RuntimePostToolContinuationResult,

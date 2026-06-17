@@ -18,7 +18,7 @@ import {
   runLambdaRlmModelCallWithTimeout,
   splitLambdaText,
 } from "./lambdaRlm";
-import { createPptxFixture, createXlsxFixture } from "./officeTestFixtures";
+import { createPptxFixture, createXlsxFixture } from "./office/officeTestFixtures";
 import { createPdfFixture } from "./pdfTestFixtures";
 
 describe("Lambda-RLM exact port constants", () => {

@@ -6,7 +6,7 @@ import {
   validateWorkflowProgramNodeCapabilities,
   type WorkflowProgramAmbientCliCapability,
 } from "./workflowProgramCapabilityResolver";
-import { fixtureWorkflowConnector } from "../workflowConnectors";
+import { fixtureWorkflowConnector } from "../workflow/workflowConnectors";
 
 function toolsByName() {
   return new Map(firstPartyDesktopToolDescriptors().map((tool) => [tool.name, tool]));

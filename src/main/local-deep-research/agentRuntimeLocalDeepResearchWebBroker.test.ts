@@ -9,7 +9,7 @@ import type {
   WorkspaceState,
 } from "../../shared/types";
 import type { LocalDeepResearchProviderSnapshot } from "./localDeepResearchSetup";
-import type { MaterializedTextOutput } from "../toolOutputArtifacts";
+import type { MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
 import {
   createAgentRuntimeLocalDeepResearchWebBroker,
   createLocalDeepResearchWebBroker,
@@ -18,7 +18,7 @@ import {
 import {
   WEB_RESEARCH_PROVIDER_IDS,
   type WebResearchProviderRequestPlan,
-} from "../webResearchProviderStack";
+} from "../web-research/webResearchProviderStack";
 
 describe("agentRuntimeLocalDeepResearchWebBroker", () => {
   it("routes search through Ambient CLI with skipped provider metadata", async () => {

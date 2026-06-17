@@ -3,7 +3,7 @@ import {
   approximateDiagnosticPayloadBytes,
   normalizedPiEventType,
 } from "./provider-continuation/agentRuntimeProviderDiagnostics";
-import { runtimePiStreamProgressActivity } from "../agentRuntimeStreamState";
+import { runtimePiStreamProgressActivity } from "../agent-runtime/agentRuntimeStreamState";
 
 export interface RuntimeStreamActivitySnapshot {
   eventCount: number;

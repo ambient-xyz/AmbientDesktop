@@ -9,7 +9,7 @@ import type {
 import {
   type WorkflowAgentFolderRow,
   type WorkflowAgentThreadRow,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 export const WORKFLOW_AGENT_HOME_FOLDER_ID = "workflow-agent-home";
 

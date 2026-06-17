@@ -8,7 +8,7 @@ import { assertSubagentParentMailboxEventAttribution } from "../subagents/subage
 import {
   mapSubagentParentMailboxEventRow,
   type SubagentParentMailboxEventRow,
-} from "../projectStoreSubagentMappers";
+} from "./projectStoreSubagentMappers";
 
 export interface AppendSubagentParentMailboxEventInput {
   parentThreadId: string;

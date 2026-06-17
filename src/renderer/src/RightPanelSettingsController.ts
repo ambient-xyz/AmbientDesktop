@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 import type {
+  AgentMemoryStarterOperationKind,
+  AgentMemoryStarterOperationResult,
+  AgentMemoryStarterStatus,
   DesktopState,
   InstallModelProviderEndpointInput,
   InstallModelProviderEndpointResult,
@@ -49,6 +52,7 @@ type UseRightPanelSettingsControllerInput = {
   panel: string;
   running: boolean;
   activeThreadId: string;
+  activeThreadMemoryEnabled: boolean;
   workspacePath: string;
   activeWorkspacePath: string;
   permissionAuditRevision: number;
@@ -76,10 +80,34 @@ function readInitialFirstRunCapabilityOnboardingDismissed(): boolean {
   }
 }
 
+function agentMemoryStarterSettingsRefreshKey(settings: DesktopState["settings"]): string {
+  const memory = settings.memory;
+  const embeddings = memory.embeddings;
+  return [
+    settings.featureFlags?.tencentDbMemory ?? "default",
+    memory.enabled,
+    memory.defaultThreadEnabled,
+    memory.adapter,
+    memory.shortTermOffloadEnabled,
+    memory.storageScope,
+    embeddings.enabled,
+    embeddings.providerMode,
+    embeddings.providerCapabilityId ?? "",
+    embeddings.autoStartProvider,
+    embeddings.modelId ?? "",
+    embeddings.dimensions ?? "",
+    embeddings.sendDimensions,
+    embeddings.maxInputChars,
+    embeddings.timeoutMs,
+    embeddings.preflightEnabled,
+  ].join("|");
+}
+
 export function useRightPanelSettingsController({
   panel,
   running,
   activeThreadId,
+  activeThreadMemoryEnabled,
   workspacePath,
   activeWorkspacePath,
   permissionAuditRevision,
@@ -107,6 +135,11 @@ export function useRightPanelSettingsController({
   const [modelProviderInstallStatus, setModelProviderInstallStatus] = useState<ApiKeyStatus | undefined>();
   const [localRuntimeLifecycleBusyId, setLocalRuntimeLifecycleBusyId] = useState<string | undefined>();
   const [localRuntimeLifecycleStatus, setLocalRuntimeLifecycleStatus] = useState<ApiKeyStatus | undefined>();
+  const [agentMemoryStarterStatus, setAgentMemoryStarterStatus] = useState<AgentMemoryStarterStatus | undefined>();
+  const [agentMemoryStarterLoading, setAgentMemoryStarterLoading] = useState(false);
+  const [agentMemoryStarterError, setAgentMemoryStarterError] = useState<string | undefined>();
+  const [agentMemoryStarterOperationLoading, setAgentMemoryStarterOperationLoading] = useState<AgentMemoryStarterOperationKind | undefined>();
+  const [agentMemoryStarterOperationResult, setAgentMemoryStarterOperationResult] = useState<AgentMemoryStarterOperationResult | undefined>();
   const [capabilityOnboardingDismissed, setCapabilityOnboardingDismissed] = useState(readInitialFirstRunCapabilityOnboardingDismissed);
   const [capabilityOnboardingStarting, setCapabilityOnboardingStarting] = useState(false);
   const [voiceArtifactRetention, setVoiceArtifactRetention] = useState<VoiceArtifactRetentionSummary | undefined>();
@@ -123,6 +156,7 @@ export function useRightPanelSettingsController({
 
   const modelProviderEndpointInstall = modelProviderEndpointInstallDraftModel(modelProviderInstallDraft);
   const modelProviderCredentialSave = modelProviderCredentialSaveDraftModel(modelProviderInstallDraft, modelProviderCredentialValue);
+  const agentMemoryStarterSettingsKey = agentMemoryStarterSettingsRefreshKey(settings);
 
   useEffect(() => {
     setVoiceSearchQuery("");
@@ -251,6 +285,36 @@ export function useRightPanelSettingsController({
     }
   }
 
+  async function loadAgentMemoryStarterStatus() {
+    setAgentMemoryStarterLoading(true);
+    setAgentMemoryStarterError(undefined);
+    try {
+      setAgentMemoryStarterStatus(await window.ambientDesktop.getAgentMemoryStarterStatus());
+    } catch (error) {
+      setAgentMemoryStarterError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAgentMemoryStarterLoading(false);
+    }
+  }
+
+  async function runAgentMemoryStarterOperation(operation: AgentMemoryStarterOperationKind) {
+    setAgentMemoryStarterOperationLoading(operation);
+    setAgentMemoryStarterError(undefined);
+    try {
+      const result = operation === "enable"
+        ? await window.ambientDesktop.enableAgentMemoryStarter({ enableCurrentThread: true, enableNewThreads: true })
+        : operation === "repair"
+          ? await window.ambientDesktop.repairAgentMemoryStarter({ enableCurrentThread: true })
+          : await window.ambientDesktop.disableAgentMemoryStarter({});
+      setAgentMemoryStarterOperationResult(result);
+      setAgentMemoryStarterStatus(result.status);
+    } catch (error) {
+      setAgentMemoryStarterError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAgentMemoryStarterOperationLoading((current) => current === operation ? undefined : current);
+    }
+  }
+
   useEffect(() => {
     if (panel === "settings") {
       void onLoadPermissionAudit();
@@ -262,6 +326,10 @@ export function useRightPanelSettingsController({
       void mcp.loadManagedDevServers();
     }
   }, [panel, workspacePath, permissionAuditRevision]);
+
+  useEffect(() => {
+    if (panel === "settings") void loadAgentMemoryStarterStatus();
+  }, [panel, workspacePath, activeThreadId, activeThreadMemoryEnabled, agentMemoryStarterSettingsKey]);
 
   useEffect(() => {
     if (panel === "settings") void loadVoiceArtifactRetention();
@@ -417,6 +485,11 @@ export function useRightPanelSettingsController({
     modelProviderCredentialSave,
     localRuntimeLifecycleBusyId,
     localRuntimeLifecycleStatus,
+    agentMemoryStarterStatus,
+    agentMemoryStarterLoading,
+    agentMemoryStarterError,
+    agentMemoryStarterOperationLoading,
+    agentMemoryStarterOperationResult,
     firstRunCapabilityOnboardingDismissed: capabilityOnboardingDismissed,
     firstRunCapabilityOnboardingStarting: capabilityOnboardingStarting,
     voiceArtifactRetention,
@@ -441,6 +514,10 @@ export function useRightPanelSettingsController({
     resumeFirstRunCapabilityOnboarding,
     loadVoiceArtifactRetention,
     pruneVoiceArtifactRetention,
+    loadAgentMemoryStarterStatus,
+    enableAgentMemoryStarterFromSettings: () => runAgentMemoryStarterOperation("enable"),
+    repairAgentMemoryStarterFromSettings: () => runAgentMemoryStarterOperation("repair"),
+    disableAgentMemoryStarterFromSettings: () => runAgentMemoryStarterOperation("disable"),
     saveModelProviderCredentialFromSettings,
     installModelProviderEndpointFromSettings,
     runLocalRuntimeLifecycleActionFromSettings,

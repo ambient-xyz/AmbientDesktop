@@ -12,7 +12,7 @@ import type {
 import type { ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import { compactToolInputPreview } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
-import { stringMetadata } from "../agentRuntimeToolMessageMetadata";
+import { stringMetadata } from "./tools/agentRuntimeToolMessageMetadata";
 
 export type RuntimeProviderContinuationToolMaps = {
   toolInputs: ReadonlyMap<string, string>;

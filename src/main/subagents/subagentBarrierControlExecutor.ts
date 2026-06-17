@@ -6,7 +6,7 @@ import type {
 import type {
   SubagentChildRuntimeAdapter,
   SubagentRuntimeEventEmitter,
-} from "../piChildSessionAdapter";
+} from "../pi/piChildSessionAdapter";
 import {
   buildSubagentBarrierRetryMailboxPayload,
   buildSubagentBarrierCancelledMailboxPayload,

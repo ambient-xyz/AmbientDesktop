@@ -9,7 +9,7 @@ import {
   type WelcomeOnboardingPageKind,
 } from "../shared/welcomeOnboarding";
 import type { ProjectRegistry } from "./projectRegistry";
-import { ProjectStore } from "./projectStore";
+import { ProjectStore } from "./projectStore/projectStore";
 
 export const WELCOME_ONBOARDING_PROJECT_NAME = "Welcome Folder";
 export const WELCOME_ONBOARDING_WORKSPACE_DIR = "welcome-folder";

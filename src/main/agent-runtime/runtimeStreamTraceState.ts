@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { PiStreamTraceEvent } from "../agentRuntimeSendStreamDiagnostics";
+import type { PiStreamTraceEvent } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 import {
   countJsonlEntries,
   type PiStreamTraceReference,

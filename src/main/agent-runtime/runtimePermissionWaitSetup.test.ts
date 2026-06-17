@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/types";
-import { ToolArgumentProgressTracker } from "../toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 import type {
   RuntimePermissionWaitController,
   RuntimePermissionWaitControllerInput,

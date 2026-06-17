@@ -12,7 +12,7 @@ import type {
   ProjectBoardProofFollowUpSuggestion,
 } from "../../shared/types";
 import { AmbientStreamFailureError, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries } from "../ambientChatCompletionRetry";
+import { callAmbientChatCompletionTextWithRetries } from "../ambient/ambientChatCompletionRetry";
 import { readAmbientApiKey } from "../credentialStore";
 import {
   projectBoardTaskToolActionIntegrityIssues,

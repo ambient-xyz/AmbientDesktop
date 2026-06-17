@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import type { AgentRuntime, AgentRuntimeSendHooks } from "../agentRuntime";
-import { startPreparedOrchestrationRun } from "../orchestrationRunner";
-import { ProjectStore } from "../projectStore";
+import type { AgentRuntime, AgentRuntimeSendHooks } from "../agent-runtime/agentRuntime";
+import { startPreparedOrchestrationRun } from "../orchestration/orchestrationRunner";
+import { ProjectStore } from "../projectStore/projectStore";
 import type { SendMessageInput } from "../../shared/types";
 
 const execFileAsync = promisify(execFile);

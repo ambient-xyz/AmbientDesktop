@@ -111,7 +111,7 @@ import {
   projectBoardTaskToolVisualChecks,
 } from "../project-board/projectBoardTaskTools";
 import { defaultProjectBoardClaimAgentId, projectBoardClaimProjectionFromProjectBoardEvents } from "../project-board/projectBoardClaims";
-import { normalizePlannerOpenQuestions } from "../plannerMode";
+import { normalizePlannerOpenQuestions } from "../planner/plannerMode";
 
 export interface ProjectBoardStoreRow {
   id: string;

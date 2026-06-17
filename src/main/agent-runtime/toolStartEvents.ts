@@ -2,7 +2,7 @@ import type {
   ToolLongformInputPreview,
   ToolEditInputPreview,
 } from "../../shared/types";
-import type { NormalizedPiEvent } from "../piEventMapper";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 
 export type RuntimeToolStartEvent = Extract<NormalizedPiEvent, { kind: "tool-start" }>;
 

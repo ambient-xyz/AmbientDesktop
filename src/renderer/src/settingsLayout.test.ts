@@ -6,8 +6,10 @@ const settingsPaneSource = readFileSync(new URL("./RightPanelSettingsPane.tsx", 
 const settingsRuntimeSource = readFileSync(new URL("./RightPanelSettingsRuntime.tsx", import.meta.url), "utf8");
 const settingsWebResearchSource = readFileSync(new URL("./RightPanelSettingsWebResearch.tsx", import.meta.url), "utf8");
 const settingsSystemSource = readFileSync(new URL("./RightPanelSettingsSystem.tsx", import.meta.url), "utf8");
+const settingsControllerSource = readFileSync(new URL("./RightPanelSettingsController.ts", import.meta.url), "utf8");
 const settingsSearchSource = readFileSync(new URL("./RightPanelSettingsSearchModel.ts", import.meta.url), "utf8");
 const settingsCoreSource = readFileSync(new URL("./RightPanelSettingsCore.tsx", import.meta.url), "utf8");
+const rightPanelSource = readFileSync(new URL("./RightPanel.tsx", import.meta.url), "utf8");
 const stylesSource = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
 
 describe("settings layout", () => {
@@ -108,6 +110,17 @@ describe("settings layout", () => {
   });
 
   it("surfaces experimental agent memory diagnostics in settings", () => {
+    expect(settingsCoreSource).toContain("AgentMemoryStarterCard");
+    expect(settingsCoreSource).toContain("Advanced controls");
+    expect(settingsControllerSource).toContain("loadAgentMemoryStarterStatus");
+    expect(settingsControllerSource).toContain("agentMemoryStarterSettingsRefreshKey");
+    expect(settingsControllerSource).toContain("[panel, workspacePath, activeThreadId, activeThreadMemoryEnabled, agentMemoryStarterSettingsKey]");
+    expect(settingsControllerSource).not.toContain("settings.memory]");
+    expect(rightPanelSource).toContain("activeThreadMemoryEnabled: Boolean(state.threads.find((thread) => thread.id === state.activeThreadId)?.memoryEnabled)");
+    expect(settingsCoreSource).toContain('const AGENT_MEMORY_SETUP_ACTIONS: AgentMemoryStarterNextAction[] = ["enable", "repair", "install", "start", "retry_preflight"]');
+    expect(settingsCoreSource).toContain("agentMemoryStarterSetupAction(status)");
+    expect(settingsCoreSource).toContain("agentMemoryStarterSetupActionLabel(setupAction)");
+    expect(settingsCoreSource).toContain('setupAction === "enable" ? onEnable() : onRepair()');
     expect(settingsCoreSource).toContain("Refresh diagnostics");
     expect(settingsCoreSource).toContain("AgentMemoryDiagnosticsSummary");
     expect(settingsCoreSource).toContain("AGENT_MEMORY_PRIVACY_DISCLOSURE_LINES");

@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import type { MessageRole, ProjectSummary, ThreadSummary, WorkspaceSearchResult } from "../shared/types";
 import { normalizeAmbientModelId } from "../shared/ambientModels";
-import { formatThreadPreview } from "./threadPreview";
-import { workspaceAuthorityId, workspaceAuthorityStatePaths } from "./workspaceAuthorityState";
+import { formatThreadPreview } from "./thread/threadPreview";
+import { workspaceAuthorityId, workspaceAuthorityStatePaths } from "./workspace/workspaceAuthorityState";
 
 const REGISTRY_VERSION = 1;
 

@@ -7,6 +7,13 @@ import type {
   AgentMemoryStorageDiagnostics,
 } from "./agentMemoryDiagnostics";
 import type {
+  AgentMemoryStarterDisableInput,
+  AgentMemoryStarterEnableInput,
+  AgentMemoryStarterOperationResult,
+  AgentMemoryStarterRepairInput,
+  AgentMemoryStarterStatus,
+} from "./agentMemoryStarter";
+import type {
   AutomationFolderSummary,
   AutomationScheduleExceptionSummary,
   AutomationScheduleOccurrenceActionInput,
@@ -986,6 +993,10 @@ export interface AmbientDesktopApi {
   runLocalModelRuntimeLifecycleAction(input: LocalModelRuntimeLifecycleActionInput): Promise<LocalModelRuntimeLifecycleActionResult>;
   updateFeatureFlagSettings(input: UpdateFeatureFlagSettingsInput): Promise<AmbientFeatureFlagSettings>;
   updateMemorySettings(input: UpdateAgentMemorySettingsInput): Promise<AgentMemorySettings>;
+  getAgentMemoryStarterStatus(): Promise<AgentMemoryStarterStatus>;
+  enableAgentMemoryStarter(input?: AgentMemoryStarterEnableInput): Promise<AgentMemoryStarterOperationResult>;
+  repairAgentMemoryStarter(input?: AgentMemoryStarterRepairInput): Promise<AgentMemoryStarterOperationResult>;
+  disableAgentMemoryStarter(input?: AgentMemoryStarterDisableInput): Promise<AgentMemoryStarterOperationResult>;
   getAgentMemoryDiagnostics(): Promise<AgentMemoryStorageDiagnostics>;
   runAgentMemoryEmbeddingLifecycleAction(input: AgentMemoryEmbeddingLifecycleActionInput): Promise<AgentMemoryEmbeddingLifecycleActionResult>;
   clearAgentMemory(): Promise<AgentMemoryClearResult>;

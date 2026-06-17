@@ -304,7 +304,7 @@ async function runF001() {
 
     const ambientCli = await sourceHit("src/main/ambientCliPackages.ts", /saveAmbientCliPackageEnvSecret[\s\S]{0,900}writeFile|const secretsRoot = resolve\(workspacePath,\s*"\.ambient",\s*"cli-packages",\s*"secrets"\)/);
     const capability = await sourceHit("src/main/capability-builder/capabilityBuilder.ts", /saveCapabilityBuilderEnvSecret[\s\S]{0,900}writeFile|const secretsRoot = resolve\(workspace,\s*"\.ambient",\s*"capability-builder",\s*"secrets"\)/);
-    const permission = await readRepoFile("src/main/permissionPolicy.ts");
+    const permission = await readRepoFile("src/main/permissions/permissionPolicy.ts");
     const explicitSecretDeny = /\.secret|\*\.secret|ambient\/.*secrets/.test(permission);
     const legacyWorkspaceSecretWriter = ambientCli.matched || capability.matched;
 
@@ -334,7 +334,7 @@ async function runF002() {
     timeoutMs: 5_000,
   });
   const credentialStore = await sourceHit("src/main/credentialStore.ts", /process\.env(?:\.|\[['"])(?:AMBIENT_API_KEY|AMBIENT_AGENT_AMBIENT_API_KEY)['"]?\]?\s*=/);
-  const toolRunner = await sourceHit("src/main/toolRunner.ts", /\.\.\.process\.env|env:\s*process\.env/);
+  const toolRunner = await sourceHit("src/main/tool-runtime/toolRunner.ts", /\.\.\.process\.env|env:\s*process\.env/);
   const runtimePath = await sourceHit("src/main/runtimePath.ts", /\.\.\.process\.env/);
   const inherited = child.stdout === sentinel;
   const broadSourceLeak = credentialStore.matched || toolRunner.matched || runtimePath.matched;
@@ -362,9 +362,9 @@ async function runF003() {
     await writeFile(statePath, "thread=demo\npermission_mode=workspace\n", "utf8");
     await writeFile(statePath, "thread=demo\npermission_mode=full-access\n", "utf8");
     const changed = await readFile(statePath, "utf8");
-    const authorityState = await sourceHit("src/main/workspaceAuthorityState.ts", /authority-state|workspaceAuthorityStatePaths|AUTHORITY_STATE_ROOT/);
-    const projectStore = await sourceHit("src/main/projectStore.ts", /prepareWorkspaceAuthorityState/);
-    const permissionPolicy = await sourceHit("src/main/permissionPolicy.ts", /isManagedAuthorityPath|Blocked Ambient authority state path|state\.sqlite/);
+    const authorityState = await sourceHit("src/main/workspace/workspaceAuthorityState.ts", /authority-state|workspaceAuthorityStatePaths|AUTHORITY_STATE_ROOT/);
+    const projectStore = await sourceHit("src/main/projectStore/projectStore.ts", /prepareWorkspaceAuthorityState/);
+    const permissionPolicy = await sourceHit("src/main/permissions/permissionPolicy.ts", /isManagedAuthorityPath|Blocked Ambient authority state path|state\.sqlite/);
     const remediated = changed.includes("full-access") && authorityState.matched && projectStore.matched && permissionPolicy.matched;
 
     return {
@@ -407,9 +407,9 @@ async function runF004() {
     const parsed = JSON.parse(await readFile(credentialPath, "utf8"));
     const encryptedUnchanged = parsed.credentials[0].encryptedPassword === before.credentials[0].encryptedPassword;
     const originChanged = parsed.credentials[0].origin !== before.credentials[0].origin;
-    const store = await sourceHit("src/main/browserCredentialStore.ts", /encryptedPayload|metadata failed integrity validation|integrity-bound/);
-    const authorityState = await sourceHit("src/main/workspaceAuthorityState.ts", /authority-state|workspaceAuthorityStatePaths|AUTHORITY_STATE_ROOT/);
-    const permissionPolicy = await sourceHit("src/main/permissionPolicy.ts", /browser\/credentials\.json|Blocked Ambient authority state path/);
+    const store = await sourceHit("src/main/browser/browserCredentialStore.ts", /encryptedPayload|metadata failed integrity validation|integrity-bound/);
+    const authorityState = await sourceHit("src/main/workspace/workspaceAuthorityState.ts", /authority-state|workspaceAuthorityStatePaths|AUTHORITY_STATE_ROOT/);
+    const permissionPolicy = await sourceHit("src/main/permissions/permissionPolicy.ts", /browser\/credentials\.json|Blocked Ambient authority state path/);
     const remediated = encryptedUnchanged && originChanged && store.matched && authorityState.matched && permissionPolicy.matched;
 
     return {
@@ -440,19 +440,19 @@ async function runF005() {
     const lexicalInside = isInside(workspace, resolved);
     const readBack = await readFile(resolved, "utf8");
     const resolver = await sourceHit(
-      "src/main/workspacePathResolver.ts",
+      "src/main/workspace/workspacePathResolver.ts",
       /resolveWorkspacePathForRead|lstat\(|realpath\(|NOFOLLOW_OPEN_FLAG/,
     );
     const workspaceFiles = await sourceHit(
-      "src/main/workspaceFiles.ts",
+      "src/main/workspace/workspaceFiles.ts",
       /resolveWorkspacePathForRead|prepareWorkspacePathForWrite|NOFOLLOW_OPEN_FLAG/,
     );
     const workspaceMedia = await sourceHit(
-      "src/main/workspaceMedia.ts",
+      "src/main/workspace/workspaceMedia.ts",
       /resolveWorkspacePathForRead|NOFOLLOW_OPEN_FLAG|realPath/,
     );
     const unsafeWorkspaceFiles = await sourceHit(
-      "src/main/workspaceFiles.ts",
+      "src/main/workspace/workspaceFiles.ts",
       /stat\(absolutePath\)|open\(absolutePath,\s*["']r["']\)|writeFile\(absolutePath/,
     );
     const remediated =
@@ -498,13 +498,13 @@ async function runF006() {
 }
 
 async function runF007() {
-  const projectStore = await readRepoFile("src/main/projectStore.ts");
+  const projectStore = await readRepoFile("src/main/projectStore/projectStore.ts");
   const legacyDefaultPattern =
     /permissionMode:\s*this\.getSetting\(\s*["']permissionMode["']\s*,\s*["']full-access["']\s*\)/.test(projectStore) ||
     /permissionMode:\s*["']full-access["']\s*,/.test(projectStore) ||
     /permission_mode\s+TEXT\s+NOT\s+NULL\s+DEFAULT\s+["']full-access["']/.test(projectStore);
   const projectStoreDefault = await sourceHit(
-    "src/main/projectStore.ts",
+    "src/main/projectStore/projectStore.ts",
     /permissionMode:\s*this\.getSetting\(\s*["']permissionMode["']\s*,\s*["']full-access["']\s*\)|permissionMode:\s*["']full-access["']\s*,|permission_mode\s+TEXT\s+NOT\s+NULL\s+DEFAULT\s+["']full-access["']/,
   );
   const privilegedInstall = await sourceHit("src/main/index.ts", /permissionMode\s*===\s*["']full-access["']|full-access[\s\S]{0,160}privileged/i);
@@ -550,7 +550,7 @@ async function runF009() {
     /scheduleWorkflowVmMicrotaskPump[\s\S]{0,1600}resuming workflow after host call/,
   );
   const asyncRaceGuard = await sourceHit("src/main/workflow-program/workflowProgramLoader.ts", /raceWorkflowVmResult[\s\S]{0,500}timeoutPromise/);
-  const validation = await sourceHit("src/main/workflowSourceValidation.ts", /unbounded while loop|unbounded for loop/);
+  const validation = await sourceHit("src/main/workflow/workflowSourceValidation.ts", /unbounded while loop|unbounded for loop/);
   const hardKillGatePassed =
     hardKillGate.code === 0 &&
     !hardKillGate.timedOut &&
@@ -659,8 +659,8 @@ async function runF013() {
     /terminal:submit-command[\s\S]{0,900}reviewTerminalCommand[\s\S]{0,900}terminals\.write/,
   );
   const legacyWriteHandler = await sourceHit("src/main/index.ts", /terminal:write/);
-  const sessionTokenGate = await sourceHit("src/main/terminalService.ts", /sessionToken[\s\S]{0,1500}Terminal session token is invalid/);
-  const shellSpawn = await sourceHit("src/main/terminalService.ts", /spawn|process\.env|shell/);
+  const sessionTokenGate = await sourceHit("src/main/terminal/terminalService.ts", /sessionToken[\s\S]{0,1500}Terminal session token is invalid/);
+  const shellSpawn = await sourceHit("src/main/terminal/terminalService.ts", /spawn|process\.env|shell/);
   const remediated =
     !rawWritePreload.matched &&
     !legacyWriteHandler.matched &&
@@ -698,8 +698,8 @@ async function runF014() {
   const dedicatedPreloadHit = await sourceHit("src/preload/index.ts", /requestThreadPermissionModeChange/);
   const handlerHit = await sourceHit("src/main/index.ts", /thread:update-settings[\s\S]{0,260}parseThreadSettingsUpdate/);
   const dedicatedHandlerHit = await sourceHit("src/main/index.ts", /thread:request-permission-mode-change[\s\S]{0,800}permission-mode-change/);
-  const strictSchemaHit = await sourceHit("src/main/threadSettingsAuthority.ts", /updateThreadSettingsSchema[\s\S]{0,360}\.strict\(\)/);
-  const storeHit = await sourceHit("src/main/projectStore.ts", /updateThreadSettings[\s\S]{0,500}permissionMode/);
+  const strictSchemaHit = await sourceHit("src/main/thread/threadSettingsAuthority.ts", /updateThreadSettingsSchema[\s\S]{0,360}\.strict\(\)/);
+  const storeHit = await sourceHit("src/main/projectStore/projectStore.ts", /updateThreadSettings[\s\S]{0,500}permissionMode/);
   const remediated =
     !genericTypeHit.matched &&
     dedicatedTypeHit.matched &&

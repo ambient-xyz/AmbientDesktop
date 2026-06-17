@@ -492,7 +492,7 @@ export function renderExperimentMarkdown(manifest) {
 function primeAmbientApiKey({ apiKeyFile, env, cwd }) {
   if (env.AMBIENT_API_KEY?.trim() || env.AMBIENT_AGENT_AMBIENT_API_KEY?.trim()) return "env";
   const root = cwd || process.cwd();
-  const candidates = [apiKeyFile, join(root, "ambient_api_key.txt"), join(root, "..", "ambientCoder", "ambient_api_key.txt")].filter(Boolean);
+  const candidates = [apiKeyFile, join(root, "ambient_api_key.txt"), join(root, "..", "AmbientDesktop", "ambient_api_key.txt")].filter(Boolean);
   for (const file of candidates) {
     try {
       if (!existsSync(file)) continue;

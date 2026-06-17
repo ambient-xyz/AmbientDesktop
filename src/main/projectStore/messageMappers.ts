@@ -3,8 +3,8 @@ import type {
   WorkspaceSearchResult,
   WorkspaceSearchScope,
 } from "../../shared/types";
-import { parseMetadata } from "../projectStoreJson";
-import { formatThreadPreview } from "../threadPreview";
+import { parseMetadata } from "./projectStoreJson";
+import { formatThreadPreview } from "../thread/threadPreview";
 
 export interface MessageRow {
   id: string;

@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProjectBoardCard, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import type { OrchestrationRun } from "../../shared/workflowTypes";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import {
   ProjectStoreProjectBoardWorkflowRepository,
   type ProjectBoardWorkflowEventInput,

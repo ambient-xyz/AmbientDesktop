@@ -21,7 +21,7 @@ import {
   pushProjectBoardGitArtifacts,
   readProjectBoardGitArtifactProjection,
 } from "./projectBoardGitSync";
-import { ProjectStore } from "../projectStore";
+import { ProjectStore } from "../projectStore/projectStore";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 const now = "2026-05-05T12:00:00.000Z";

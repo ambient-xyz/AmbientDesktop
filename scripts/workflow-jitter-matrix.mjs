@@ -726,9 +726,9 @@ export function resolveGmiCloudKeyFileForChildEnv(input = {}) {
   const candidates = [
     join(root, "gmicloud-api-key.txt"),
     join(dirname(root), "gmicloud-api-key.txt"),
-    join(dirname(root), "ambientCoder", "gmicloud-api-key.txt"),
-    join(home, "ambientCoder", "gmicloud-api-key.txt"),
-    join(home, "Documents", "ambientCoder", "gmicloud-api-key.txt"),
+    join(dirname(root), "AmbientDesktop", "gmicloud-api-key.txt"),
+    join(home, "AmbientDesktop", "gmicloud-api-key.txt"),
+    join(home, "Documents", "AmbientDesktop", "gmicloud-api-key.txt"),
   ];
   return candidates.find((candidate) => fileExists(candidate)) ?? join(root, "gmicloud-api-key.txt");
 }
@@ -1219,7 +1219,7 @@ function suggestedWorkflowJitterMatrixFixturePath(task) {
   const suffix = safeFilePart(task.id).replace(/-/g, "_");
   if (task.axis === "ui_state") return `src/renderer/src/workflowJitterRegression.${suffix}.test.ts`;
   if (task.axis === "prompt") return `scripts/workflow-model-tolerance-lab.test.mjs`;
-  return `src/main/workflowJitterRegression.${suffix}.test.ts`;
+  return `src/main/workflow/workflowJitterRegression.${suffix}.test.ts`;
 }
 
 function safeFilePart(value) {

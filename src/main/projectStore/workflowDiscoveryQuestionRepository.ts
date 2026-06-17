@@ -10,7 +10,7 @@ import {
   mapWorkflowDiscoveryQuestionRow,
   type WorkflowAgentThreadRow,
   type WorkflowDiscoveryQuestionRow,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 export interface CreateWorkflowDiscoveryQuestionInput {
   workflowThreadId: string;

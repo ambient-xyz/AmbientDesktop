@@ -1,10 +1,10 @@
 import type { DesktopEvent, SendMessageInput } from "../../shared/types";
-import type { AssistantFinalizationRetryReason } from "../agentRuntimeAssistantRetryInput";
+import type { AssistantFinalizationRetryReason } from "../agent-runtime/agentRuntimeAssistantRetryInput";
 import type {
   AssistantTerminalCleanupDiagnostic,
   AssistantTerminalEventDiagnostic,
-} from "../agentRuntimeAssistantTerminalDiagnostics";
-import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
+} from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
+import type { SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
 import {
   finalizeRuntimeSessionDispositionAfterRun,
 } from "./runtimeSessionDispositionAfterRun";

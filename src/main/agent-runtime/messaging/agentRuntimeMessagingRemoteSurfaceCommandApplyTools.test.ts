@@ -38,7 +38,7 @@ import {
 import type {
   MessagingRemoteSurfaceCommandPreview,
   MessagingRemoteSurfaceCommandResult,
-} from "../../messagingRemoteSurfaceCommands";
+} from "../../messaging/messagingRemoteSurfaceCommands";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 
@@ -97,7 +97,7 @@ describe("registerMessagingRemoteSurfaceCommandApplyTools", () => {
       },
       threadId: "thread-1",
       workspace: {
-        name: "ambientCoder",
+        name: "AmbientDesktop",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -2044,7 +2044,7 @@ function bindingList(binding: MessagingBindingDescriptor = activeBinding()): Mes
 function runtimeSurface(): RuntimeSurfaceSnapshot {
   return {
     workspace: {
-      name: "ambientCoder",
+      name: "AmbientDesktop",
       path: "/workspace",
     },
     projects: [{

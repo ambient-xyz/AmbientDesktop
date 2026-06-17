@@ -1,5 +1,5 @@
 import type { ThreadGoal } from "../../shared/types";
-import type { PersistedRunStatus } from "../projectStoreRunMappers";
+import type { PersistedRunStatus } from "../projectStore/projectStoreRunMappers";
 
 export type RuntimeGoalRunStatus = PersistedRunStatus;
 

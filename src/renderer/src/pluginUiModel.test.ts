@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { providerCatalogSettingsState } from "../../main/providerCatalog";
+import { providerCatalogSettingsState } from "../../main/provider/providerCatalog";
 import type {
   AmbientMcpContainerRuntimeStatus,
   AmbientMcpDefaultCapabilitySummary,

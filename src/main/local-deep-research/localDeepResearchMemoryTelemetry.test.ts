@@ -8,7 +8,7 @@ import {
   runLocalDeepResearchMemoryTelemetry,
   targetPhysicalMemoryClasses,
 } from "./localDeepResearchMemoryTelemetry";
-import type { LocalLlamaResidentProcess } from "../localLlamaResidencyPolicy";
+import type { LocalLlamaResidentProcess } from "../local-llama/localLlamaResidencyPolicy";
 
 const gib = 1024 ** 3;
 

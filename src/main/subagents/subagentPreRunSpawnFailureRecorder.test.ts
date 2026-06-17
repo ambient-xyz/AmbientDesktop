@@ -5,7 +5,7 @@ import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentParentMailboxEventSummary } from "../../shared/types";
 import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../piChildSessionAdapter";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import {
   recordScheduledSubagentSpawnPolicyFailure,
   recordSubagentPreRunSpawnFailure,

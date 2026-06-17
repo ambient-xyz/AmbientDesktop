@@ -2,7 +2,7 @@ import { parseProjectBoardLlmJson } from "./projectBoardLlmJson";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import type { ProjectBoardCard, ProjectBoardCardTestPlan, ProjectBoardCharter } from "../../shared/types";
 import { AmbientStreamFailureError, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambientChatCompletionRetry";
+import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambient/ambientChatCompletionRetry";
 import { readAmbientApiKey } from "../credentialStore";
 import { projectBoardProofOwnershipForCard, projectBoardProofScopePromptRules, type ProjectBoardProofOwnership } from "./projectBoardProofScope";
 

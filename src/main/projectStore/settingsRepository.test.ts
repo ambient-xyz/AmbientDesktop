@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ProjectStoreSettingsRepository } from "./settingsRepository";
-import { ProjectStoreSettingsRepository as LegacyProjectStoreSettingsRepository } from "../projectStoreSettingsRepository";
+import { ProjectStoreSettingsRepository as LegacyProjectStoreSettingsRepository } from "./projectStoreSettingsRepository";
 
 describe("ProjectStoreSettingsRepository", () => {
   let db: Database.Database;

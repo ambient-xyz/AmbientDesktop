@@ -4,8 +4,8 @@ import type {
   BrowserScreenshotResult,
   BrowserUserActionState,
 } from "../../../shared/types";
-import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "../../ambientToolRouter";
-import { BrowserUnavailableError } from "../../browserService";
+import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "../../ambient/ambientToolRouter";
+import { BrowserUnavailableError } from "../../browser/browserService";
 import {
   browserScreenshotMediaArtifact,
   browserScreenshotVisualAnalysisAvailability,

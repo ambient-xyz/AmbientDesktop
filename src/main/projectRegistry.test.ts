@@ -2,9 +2,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ProjectStore } from "./projectStore";
+import { ProjectStore } from "./projectStore/projectStore";
 import { ProjectRegistry, archiveProjectChats, projectIdFromWorkspacePath } from "./projectRegistry";
-import { AUTHORITY_STATE_ROOT_ENV } from "./workspaceAuthorityState";
+import { AUTHORITY_STATE_ROOT_ENV } from "./workspace/workspaceAuthorityState";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 const originalAuthorityStateRoot = process.env[AUTHORITY_STATE_ROOT_ENV];

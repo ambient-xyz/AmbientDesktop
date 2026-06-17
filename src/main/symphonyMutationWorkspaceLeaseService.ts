@@ -16,8 +16,8 @@ import type {
   ThreadSummary,
   ThreadWorktreeSummary,
 } from "../shared/types";
-import { isGitRepository } from "./gitWorktrees";
-import { isPathInside } from "./sessionPaths";
+import { isGitRepository } from "./git/gitWorktrees";
+import { isPathInside } from "./session/sessionPaths";
 
 export const SYMPHONY_MUTATION_WORKSPACE_LEASE_SERVICE_SCHEMA_VERSION =
   "ambient-symphony-mutation-workspace-lease-service-v1" as const;

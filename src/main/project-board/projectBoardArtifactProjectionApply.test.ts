@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { serializeBoardArtifact } from "./projectBoardArtifacts";
 import { projectBoardArtifactExportFromSummary, type ProjectBoardArtifactFile } from "./projectBoardArtifactExport";
 import { compareProjectBoardSummaryToArtifactProjection, projectBoardArtifactProjectionFromFiles } from "./projectBoardArtifactImport";
-import { ProjectStore } from "../projectStore";
+import { ProjectStore } from "../projectStore/projectStore";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

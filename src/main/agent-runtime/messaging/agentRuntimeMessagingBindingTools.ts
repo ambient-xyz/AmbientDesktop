@@ -16,7 +16,7 @@ import {
   bindingLifecyclePreviewText,
   messagingBindingListText,
   type MessagingBindingStore,
-} from "../../messagingBindings";
+} from "../../messaging/messagingBindings";
 
 type MessagingBindingLifecycleToolInput =
   | { action: "create"; create: MessagingBindingCreateInput }

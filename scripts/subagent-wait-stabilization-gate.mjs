@@ -28,7 +28,7 @@ const steps = [
       "exec",
       "vitest",
       "run",
-      "src/main/agentRuntime.test.ts",
+      "src/main/agent-runtime/agentRuntime.test.ts",
       "--testNamePattern",
       [
         "does not abort an active child only because the role runtime budget elapsed",
@@ -51,8 +51,8 @@ const steps = [
       "src/main/subagents/subagentApprovalBridge.test.ts",
       "src/main/subagents/subagentStructuredOutput.test.ts",
       "src/main/subagents/subagentStartupReconciliation.test.ts",
-      "src/main/chatExport.test.ts",
-      "src/main/agentRuntimeWebResearchProviderPlan.test.ts",
+      "src/main/chat-export/chatExport.test.ts",
+      "src/main/agent-runtime/web-research/agentRuntimeWebResearchProviderPlan.test.ts",
     ],
   },
   {
@@ -62,7 +62,7 @@ const steps = [
       "exec",
       "vitest",
       "run",
-      "src/main/agentRuntimeFinalizationBlocking.test.ts",
+      "src/main/agent-runtime/agentRuntimeFinalizationBlocking.test.ts",
       "src/main/agent-runtime/runtimeSuccessfulRunFinalization.test.ts",
       "src/main/agent-runtime/finalAssistantMessage.test.ts",
     ],

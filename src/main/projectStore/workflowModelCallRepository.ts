@@ -7,7 +7,7 @@ import type {
 import {
   mapWorkflowModelCallRow,
   type WorkflowModelCallRow,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 export interface ProjectStoreWorkflowModelCallRepositoryDeps {
   getWorkflowRun(runId: string): { artifactId: string };

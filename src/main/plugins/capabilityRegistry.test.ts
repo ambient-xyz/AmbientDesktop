@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AmbientPluginAppAuthSummary, CodexPluginCatalog, PiPackageCatalog } from "../../shared/types";
-import { ambientCliCapabilityId, ambientCliRegistryPluginId, type AmbientCliPackageCatalog } from "../ambientCliPackages";
+import { ambientCliCapabilityId, ambientCliRegistryPluginId, type AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
 import {
   buildAmbientPluginRegistry,
   getAmbientPluginCapabilityDiagnostics,

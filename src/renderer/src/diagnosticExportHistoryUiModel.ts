@@ -1,4 +1,5 @@
 import type {
+  AgentMemoryStarterStatus,
   AgentMemoryStorageDiagnostics,
   AmbientFeatureFlagSnapshot,
   DiagnosticExportHealthStatus,
@@ -20,6 +21,11 @@ import {
   AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
   type AmbientFeatureFlagId,
 } from "../../shared/featureFlags";
+import {
+  AGENT_MEMORY_STARTER_BLOCKER_CODES,
+  AGENT_MEMORY_STARTER_NEXT_ACTIONS,
+  AGENT_MEMORY_STARTER_STATES,
+} from "../../shared/agentMemoryStarter";
 
 export const DIAGNOSTIC_EXPORT_HISTORY_STORAGE_KEY = "ambient.diagnosticExportHistory.v1";
 
@@ -59,6 +65,9 @@ const SUBAGENT_REPAIR_ISSUE_KINDS = new Set<SubagentRepairIssueKind>([
   "dangling_wait_barrier_child",
   "parent_cancel_control_unreconciled",
 ]);
+const AGENT_MEMORY_STARTER_STATE_VALUES = new Set<string>(AGENT_MEMORY_STARTER_STATES);
+const AGENT_MEMORY_STARTER_BLOCKER_CODE_VALUES = new Set<string>(AGENT_MEMORY_STARTER_BLOCKER_CODES);
+const AGENT_MEMORY_STARTER_NEXT_ACTION_VALUES = new Set<string>(AGENT_MEMORY_STARTER_NEXT_ACTIONS);
 
 export interface DiagnosticExportHistoryModel {
   summary: string;
@@ -169,13 +178,15 @@ function diagnosticExportResultFromStorage(input: unknown): DiagnosticExportResu
   const replaySummary = diagnosticReplaySummaryFromStorage(objectValue(objectValue(value.summary)?.subagents)?.replayEvidence);
   const localRuntimeSummary = diagnosticLocalRuntimeSummaryFromStorage(objectValue(value.summary)?.localRuntimes);
   const agentMemory = diagnosticAgentMemoryFromStorage(objectValue(value.summary)?.agentMemory);
+  const agentMemoryStarter = diagnosticAgentMemoryStarterFromStorage(objectValue(value.summary)?.agentMemoryStarter);
   const featureFlags = diagnosticFeatureFlagSnapshotFromStorage(objectValue(value.summary)?.featureFlags);
   const replayEvidence = diagnosticReplayEvidenceFromStorage(objectValue(objectValue(value.subagents)?.replayEvidence));
   const localRuntimeEvidence = diagnosticLocalRuntimeEvidenceFromStorage(objectValue(objectValue(value.localRuntimes)?.evidence));
-  const summary = replaySummary || localRuntimeSummary || agentMemory || featureFlags
+  const summary = replaySummary || localRuntimeSummary || agentMemory || agentMemoryStarter || featureFlags
     ? {
         ...(featureFlags ? { featureFlags } : {}),
         ...(agentMemory ? { agentMemory } : {}),
+        ...(agentMemoryStarter ? { agentMemoryStarter } : {}),
         subagents: {
           ...(replaySummary ? { replayEvidence: replaySummary } : {}),
         },
@@ -363,6 +374,159 @@ function diagnosticAgentMemoryFromStorage(input: unknown): AgentMemoryStorageDia
       return parsed ? [parsed] : [];
     }).slice(0, 50),
     errors: boundedStringArray(value.errors, MAX_ERROR_MESSAGES, MAX_SUMMARY_MESSAGE_CHARS),
+  };
+}
+
+function diagnosticAgentMemoryStarterFromStorage(input: unknown): AgentMemoryStarterStatus | undefined {
+  const value = objectValue(input);
+  if (!value || value.schemaVersion !== "ambient-agent-memory-starter-status-v1") return undefined;
+  const checkedAt = boundedString(value.checkedAt, MAX_SUMMARY_MESSAGE_CHARS);
+  const operationId = boundedString(value.operationId, MAX_EVIDENCE_STRING_CHARS);
+  const state = agentMemoryStarterState(value.state);
+  const settings = diagnosticAgentMemoryStarterSettingsFromStorage(value.settings);
+  const threadScope = diagnosticAgentMemoryStarterThreadScopeFromStorage(value.threadScope);
+  const model = diagnosticAgentMemoryStarterAssetFromStorage(objectValue(value.assets)?.model);
+  const runtimeAsset = diagnosticAgentMemoryStarterAssetFromStorage(objectValue(value.assets)?.runtime);
+  const runtime = diagnosticAgentMemoryStarterRuntimeFromStorage(value.runtime);
+  const embedding = diagnosticAgentMemoryEmbeddingFromStorage(value.embedding);
+  const nativePreflight = diagnosticAgentMemoryNativePreflightFromStorage(value.nativePreflight);
+  if (!checkedAt || !state || !settings || !threadScope || !model || !runtimeAsset || !runtime || !embedding || !nativePreflight) {
+    return undefined;
+  }
+  return {
+    schemaVersion: "ambient-agent-memory-starter-status-v1",
+    checkedAt,
+    ...(operationId ? { operationId } : {}),
+    state,
+    settings,
+    threadScope,
+    assets: {
+      model,
+      runtime: runtimeAsset,
+    },
+    runtime,
+    embedding,
+    nativePreflight,
+    blockers: arrayValue(value.blockers).flatMap((blocker) => {
+      const parsed = diagnosticAgentMemoryStarterBlockerFromStorage(blocker);
+      return parsed ? [parsed] : [];
+    }).slice(0, MAX_ERROR_MESSAGES),
+    nextActions: arrayValue(value.nextActions).flatMap((action) => {
+      const parsed = agentMemoryStarterNextAction(action);
+      return parsed ? [parsed] : [];
+    }).slice(0, 8),
+  };
+}
+
+function diagnosticAgentMemoryStarterSettingsFromStorage(input: unknown): AgentMemoryStarterStatus["settings"] | undefined {
+  const value = objectValue(input);
+  const featureFlags = objectValue(value?.featureFlags);
+  const memory = objectValue(value?.memory);
+  const embeddings = objectValue(memory?.embeddings);
+  if (
+    typeof featureFlags?.tencentDbMemory !== "boolean" ||
+    typeof memory?.enabled !== "boolean" ||
+    typeof memory.defaultThreadEnabled !== "boolean" ||
+    memory.adapter !== "tencentdb" ||
+    typeof memory.shortTermOffloadEnabled !== "boolean" ||
+    memory.storageScope !== "workspace" ||
+    typeof embeddings?.enabled !== "boolean" ||
+    embeddings.providerMode !== "ambient-managed" ||
+    typeof embeddings.autoStartProvider !== "boolean" ||
+    typeof embeddings.sendDimensions !== "boolean" ||
+    nonNegativeInteger(embeddings.maxInputChars) === undefined ||
+    nonNegativeInteger(embeddings.timeoutMs) === undefined ||
+    typeof embeddings.preflightEnabled !== "boolean"
+  ) {
+    return undefined;
+  }
+  const dimensions = nonNegativeInteger(embeddings.dimensions);
+  return {
+    featureFlags: {
+      tencentDbMemory: featureFlags.tencentDbMemory,
+    },
+    memory: {
+      enabled: memory.enabled,
+      defaultThreadEnabled: memory.defaultThreadEnabled,
+      adapter: "tencentdb",
+      shortTermOffloadEnabled: memory.shortTermOffloadEnabled,
+      embeddings: {
+        enabled: embeddings.enabled,
+        providerMode: "ambient-managed",
+        ...(boundedString(embeddings.providerCapabilityId, MAX_EVIDENCE_STRING_CHARS)
+          ? { providerCapabilityId: boundedString(embeddings.providerCapabilityId, MAX_EVIDENCE_STRING_CHARS) }
+          : {}),
+        autoStartProvider: embeddings.autoStartProvider,
+        ...(boundedString(embeddings.modelId, MAX_EVIDENCE_STRING_CHARS)
+          ? { modelId: boundedString(embeddings.modelId, MAX_EVIDENCE_STRING_CHARS) }
+          : {}),
+        ...(dimensions !== undefined ? { dimensions } : {}),
+        sendDimensions: embeddings.sendDimensions,
+        maxInputChars: nonNegativeInteger(embeddings.maxInputChars) ?? 0,
+        timeoutMs: nonNegativeInteger(embeddings.timeoutMs) ?? 0,
+        preflightEnabled: embeddings.preflightEnabled,
+      },
+      storageScope: "workspace",
+    },
+  };
+}
+
+function diagnosticAgentMemoryStarterThreadScopeFromStorage(input: unknown): AgentMemoryStarterStatus["threadScope"] | undefined {
+  const value = objectValue(input);
+  if (typeof value?.activeThreadMemoryEnabled !== "boolean" || typeof value.defaultThreadEnabled !== "boolean") return undefined;
+  const enabledThreadCount = nonNegativeInteger(value.enabledThreadCount);
+  const activeThreadCount = nonNegativeInteger(value.activeThreadCount);
+  return {
+    ...(boundedString(value.activeThreadId, MAX_EVIDENCE_STRING_CHARS) ? { activeThreadId: boundedString(value.activeThreadId, MAX_EVIDENCE_STRING_CHARS) } : {}),
+    activeThreadMemoryEnabled: value.activeThreadMemoryEnabled,
+    defaultThreadEnabled: value.defaultThreadEnabled,
+    ...(enabledThreadCount !== undefined ? { enabledThreadCount } : {}),
+    ...(activeThreadCount !== undefined ? { activeThreadCount } : {}),
+  };
+}
+
+function diagnosticAgentMemoryStarterAssetFromStorage(input: unknown): AgentMemoryStarterStatus["assets"]["model"] | undefined {
+  const value = objectValue(input);
+  const state = agentMemoryStarterAssetState(value?.state);
+  if (!state) return undefined;
+  const expectedBytes = nonNegativeInteger(value?.expectedBytes);
+  const actualBytes = nonNegativeInteger(value?.actualBytes);
+  return {
+    state,
+    ...(boundedString(value?.path, MAX_SUMMARY_MESSAGE_CHARS) ? { path: boundedString(value?.path, MAX_SUMMARY_MESSAGE_CHARS) } : {}),
+    ...(expectedBytes !== undefined ? { expectedBytes } : {}),
+    ...(actualBytes !== undefined ? { actualBytes } : {}),
+    ...(boundedString(value?.expectedSha256, MAX_EVIDENCE_STRING_CHARS) ? { expectedSha256: boundedString(value?.expectedSha256, MAX_EVIDENCE_STRING_CHARS) } : {}),
+    ...(boundedString(value?.artifactId, MAX_EVIDENCE_STRING_CHARS) ? { artifactId: boundedString(value?.artifactId, MAX_EVIDENCE_STRING_CHARS) } : {}),
+    ...(boundedString(value?.receiptPath, MAX_SUMMARY_MESSAGE_CHARS) ? { receiptPath: boundedString(value?.receiptPath, MAX_SUMMARY_MESSAGE_CHARS) } : {}),
+    ...(boundedString(value?.message, MAX_SUMMARY_MESSAGE_CHARS) ? { message: boundedString(value?.message, MAX_SUMMARY_MESSAGE_CHARS) } : {}),
+  };
+}
+
+function diagnosticAgentMemoryStarterRuntimeFromStorage(input: unknown): AgentMemoryStarterStatus["runtime"] | undefined {
+  const value = objectValue(input);
+  const state = agentMemoryStarterRuntimeState(value?.state);
+  if (!state) return undefined;
+  return {
+    state,
+    ...(boundedString(value?.runtimeId, MAX_EVIDENCE_STRING_CHARS) ? { runtimeId: boundedString(value?.runtimeId, MAX_EVIDENCE_STRING_CHARS) } : {}),
+    ...(boundedString(value?.leaseId, MAX_EVIDENCE_STRING_CHARS) ? { leaseId: boundedString(value?.leaseId, MAX_EVIDENCE_STRING_CHARS) } : {}),
+    ...(boundedString(value?.endpoint, MAX_SUMMARY_MESSAGE_CHARS) ? { endpoint: boundedString(value?.endpoint, MAX_SUMMARY_MESSAGE_CHARS) } : {}),
+    ...(boundedString(value?.ownerThreadId, MAX_EVIDENCE_STRING_CHARS) ? { ownerThreadId: boundedString(value?.ownerThreadId, MAX_EVIDENCE_STRING_CHARS) } : {}),
+    ...(boundedString(value?.message, MAX_SUMMARY_MESSAGE_CHARS) ? { message: boundedString(value?.message, MAX_SUMMARY_MESSAGE_CHARS) } : {}),
+  };
+}
+
+function diagnosticAgentMemoryStarterBlockerFromStorage(input: unknown): AgentMemoryStarterStatus["blockers"][number] | undefined {
+  const value = objectValue(input);
+  const code = agentMemoryStarterBlockerCode(value?.code);
+  const message = boundedString(value?.message, MAX_SUMMARY_MESSAGE_CHARS);
+  if (!code || !message || typeof value?.retryable !== "boolean") return undefined;
+  return {
+    code,
+    message,
+    ...(boundedString(value?.detail, MAX_SUMMARY_MESSAGE_CHARS) ? { detail: boundedString(value?.detail, MAX_SUMMARY_MESSAGE_CHARS) } : {}),
+    retryable: value.retryable,
   };
 }
 
@@ -1400,12 +1564,20 @@ function diagnosticExportHistoryRow(
   const replay = result.summary?.subagents.replayEvidence;
   const localRuntime = result.summary?.localRuntimes;
   const agentMemory = result.summary?.agentMemory;
+  const agentMemoryStarter = result.summary?.agentMemoryStarter;
   const featureFlagStatus = diagnosticFeatureFlagStatus(result.summary?.featureFlags);
   const agentMemoryStatus = agentMemory
     ? [
         agentMemory.status === "healthy" ? "Agent memory healthy" : `Agent memory ${agentMemory.status.replace(/_/g, " ")}`,
         agentMemory.fileCount > 0 ? countLabel(agentMemory.fileCount, "memory file") : undefined,
         agentMemory.runtimeSnapshots.length > 0 ? countLabel(agentMemory.runtimeSnapshots.length, "runtime snapshot") : undefined,
+      ].filter(Boolean).join(" / ")
+    : undefined;
+  const agentMemoryStarterStatus = agentMemoryStarter
+    ? [
+        agentMemoryStarter.state === "ready" ? "Agent memory starter ready" : `Agent memory starter ${agentMemoryStarter.state.replace(/_/g, " ")}`,
+        agentMemoryStarter.nextActions.length > 0 ? `next ${agentMemoryStarter.nextActions.join(", ")}` : undefined,
+        agentMemoryStarter.blockers.length > 0 ? countLabel(agentMemoryStarter.blockers.length, "starter blocker") : undefined,
       ].filter(Boolean).join(" / ")
     : undefined;
   const replayStatus = replay
@@ -1438,7 +1610,7 @@ function diagnosticExportHistoryRow(
     result.createdAt,
     formatDiagnosticExportSize(result.bytes),
     featureFlagStatus,
-    loadedEvidence || (replay || localRuntime || agentMemory ? "summary only" : undefined),
+    loadedEvidence || (replay || localRuntime || agentMemory || agentMemoryStarter ? "summary only" : undefined),
   ].filter(Boolean).join(" / ");
   const replayEvidence = result.subagents?.replayEvidence;
   const localRuntimeEvidence = result.localRuntimes?.evidence;
@@ -1451,6 +1623,8 @@ function diagnosticExportHistoryRow(
     replay?.message,
     agentMemoryStatus,
     agentMemory ? diagnosticAgentMemorySearchText(agentMemory) : undefined,
+    agentMemoryStarterStatus,
+    agentMemoryStarter ? diagnosticAgentMemoryStarterSearchText(agentMemoryStarter) : undefined,
     localRuntimeStatus,
     localRuntime ? diagnosticLocalRuntimeSearchText(localRuntime) : undefined,
     replayEvidence ? diagnosticReplayEvidenceSearchText(replayEvidence) : undefined,
@@ -1512,6 +1686,39 @@ function diagnosticAgentMemorySearchText(summary: AgentMemoryStorageDiagnostics)
       snapshot.lastContextInjection ? `context injection ${snapshot.lastContextInjection.totalInjectedChars} chars` : undefined,
       snapshot.lastContextInjection ? `offload ${snapshot.lastContextInjection.offloadContextChars} chars` : undefined,
     ].filter(Boolean).join(" ")).join(" "),
+  ].filter(Boolean).join(" ");
+}
+
+function diagnosticAgentMemoryStarterSearchText(summary: AgentMemoryStarterStatus): string {
+  return [
+    `memory starter ${summary.state}`,
+    summary.settings.featureFlags.tencentDbMemory ? "starter feature enabled" : "starter feature disabled",
+    summary.settings.memory.enabled ? "starter global memory enabled" : "starter global memory disabled",
+    summary.settings.memory.defaultThreadEnabled ? "starter new threads enabled" : "starter new threads disabled",
+    summary.threadScope.activeThreadMemoryEnabled ? "starter active thread enabled" : "starter active thread disabled",
+    summary.threadScope.activeThreadId,
+    `starter enabled threads ${summary.threadScope.enabledThreadCount ?? 0}`,
+    `starter active threads ${summary.threadScope.activeThreadCount ?? 0}`,
+    `starter model asset ${summary.assets.model.state}`,
+    summary.assets.model.artifactId,
+    summary.assets.model.message,
+    `starter runtime asset ${summary.assets.runtime.state}`,
+    summary.assets.runtime.artifactId,
+    summary.assets.runtime.message,
+    `starter runtime ${summary.runtime.state}`,
+    summary.runtime.runtimeId,
+    summary.runtime.message,
+    `starter embeddings ${summary.embedding.status}`,
+    summary.embedding.modelId,
+    summary.embedding.providerId,
+    `starter native preflight ${summary.nativePreflight.status}`,
+    summary.nativePreflight.message,
+    summary.blockers.map((blocker) => [
+      blocker.code,
+      blocker.message,
+      blocker.retryable ? "retryable" : "not retryable",
+    ].filter(Boolean).join(" ")).join(" "),
+    summary.nextActions.map((action) => `starter action ${action}`).join(" "),
   ].filter(Boolean).join(" ");
 }
 
@@ -1869,6 +2076,38 @@ function boundedStringArray(value: unknown, limit: number, stringLimit: number):
 
 function healthStatusValue(value: unknown): DiagnosticExportHealthStatus | undefined {
   return value === "healthy" || value === "needs_attention" || value === "error" || value === "unavailable"
+    ? value
+    : undefined;
+}
+
+function agentMemoryStarterState(value: unknown): AgentMemoryStarterStatus["state"] | undefined {
+  return typeof value === "string" && AGENT_MEMORY_STARTER_STATE_VALUES.has(value)
+    ? value as AgentMemoryStarterStatus["state"]
+    : undefined;
+}
+
+function agentMemoryStarterBlockerCode(value: unknown): AgentMemoryStarterStatus["blockers"][number]["code"] | undefined {
+  return typeof value === "string" && AGENT_MEMORY_STARTER_BLOCKER_CODE_VALUES.has(value)
+    ? value as AgentMemoryStarterStatus["blockers"][number]["code"]
+    : undefined;
+}
+
+function agentMemoryStarterNextAction(value: unknown): AgentMemoryStarterStatus["nextActions"][number] | undefined {
+  return typeof value === "string" && AGENT_MEMORY_STARTER_NEXT_ACTION_VALUES.has(value)
+    ? value as AgentMemoryStarterStatus["nextActions"][number]
+    : undefined;
+}
+
+function agentMemoryStarterAssetState(value: unknown): AgentMemoryStarterStatus["assets"]["model"]["state"] | undefined {
+  return value === "unknown" || value === "missing" || value === "mismatch" || value === "installing" ||
+    value === "present" || value === "unsupported"
+    ? value
+    : undefined;
+}
+
+function agentMemoryStarterRuntimeState(value: unknown): AgentMemoryStarterStatus["runtime"]["state"] | undefined {
+  return value === "unknown" || value === "stopped" || value === "starting" || value === "running" ||
+    value === "blocked" || value === "failed"
     ? value
     : undefined;
 }

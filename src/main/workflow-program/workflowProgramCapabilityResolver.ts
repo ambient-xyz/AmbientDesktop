@@ -1,6 +1,6 @@
 import type { DesktopToolDescriptor } from "../desktopToolRegistry";
-import { GOOGLE_WORKSPACE_METHOD_CATALOG, GOOGLE_WORKSPACE_METHOD_CATALOG_VERSION, normalizeMethodId } from "../googleWorkspaceMethodBroker";
-import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflowConnectors";
+import { GOOGLE_WORKSPACE_METHOD_CATALOG, GOOGLE_WORKSPACE_METHOD_CATALOG_VERSION, normalizeMethodId } from "../google-workspace/googleWorkspaceMethodBroker";
+import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflow/workflowConnectors";
 import { isWorkflowProgramLoopMapToolCall } from "../../shared/workflowProgramIr";
 import type {
   WorkflowProgramBrowserInterventionNode,

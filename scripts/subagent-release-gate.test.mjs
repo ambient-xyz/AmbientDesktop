@@ -476,7 +476,7 @@ describe("sub-agent release gate", () => {
   it("fails when the deterministic release suite omits finalization blocking helpers", () => {
     const input = staticInput();
     input.packageJson.scripts["test:subagents:deterministic"] = input.packageJson.scripts["test:subagents:deterministic"].replace(
-      "src/main/agentRuntimeFinalizationBlocking.test.ts ",
+      "src/main/agent-runtime/agentRuntimeFinalizationBlocking.test.ts ",
       "",
     );
 
@@ -484,7 +484,7 @@ describe("sub-agent release gate", () => {
 
     expect(report.status).toBe("attention");
     expect(report.releaseDecision.blockingIssues).toEqual(expect.arrayContaining([
-      "Deterministic sub-agent suite is missing src/main/agentRuntimeFinalizationBlocking.test.ts.",
+      "Deterministic sub-agent suite is missing src/main/agent-runtime/agentRuntimeFinalizationBlocking.test.ts.",
     ]));
   });
 
@@ -3109,7 +3109,7 @@ function packageJson() {
       "test:subagents:scenario-dogfood": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=${AMBIENT_LIVE_MODEL:-moonshotai/kimi-k2.7-code} AMBIENT_SUBAGENT_SCENARIO_DOGFOOD=1 node scripts/run-live-node-test.mjs -- vitest run src/main/subagents/subagentScenarioDogfood.live.test.ts",
       "test:subagents:release-gate:live": "pnpm run test:callable-workflow-dogfood:proof && pnpm run test:callable-workflow-rehydration:proof && pnpm run test:subagents:lifecycle-edges:proof && pnpm run test:subagents:live-confidence -- --allow-blocked && pnpm run test:subagents:live-confidence:authority -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow-broader -- --allow-blocked && pnpm run test:subagents:live-confidence:local-runtime -- --allow-blocked && pnpm run test:subagents:live-confidence:restart-repair -- --allow-blocked && pnpm run test:subagents:live-confidence:lifecycle-edges -- --allow-blocked && pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked && pnpm run test:subagents:deterministic && node scripts/subagent-release-gate.mjs --require-live",
       "test:subagents:release-gate:graduation": "pnpm run test:callable-workflow-dogfood:proof && pnpm run test:callable-workflow-rehydration:proof && pnpm run test:subagents:lifecycle-edges:proof && pnpm run test:subagents:live-confidence -- --allow-blocked && pnpm run test:subagents:live-confidence:authority -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow-broader -- --allow-blocked && pnpm run test:subagents:live-confidence:local-runtime -- --allow-blocked && pnpm run test:subagents:live-confidence:restart-repair -- --allow-blocked && pnpm run test:subagents:live-confidence:lifecycle-edges -- --allow-blocked && pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked && pnpm run test:subagents:desktop-dogfood-repeat -- --require-ready && pnpm run test:workflow-jitter-release-gate:release-profile && pnpm run subagents:live-history-report -- --require-ready && pnpm run test:subagents:deterministic && node scripts/subagent-release-gate.mjs --require-live --require-maturity-history",
-      "test:workflow-local-file:live": "GMI_CLOUD_API_KEY_FILE=${GMI_CLOUD_API_KEY_FILE:-$(node scripts/resolve-gmi-cloud-key-file.mjs)} AMBIENT_PROVIDER=gmi-cloud AMBIENT_WORKFLOW_LIVE=1 bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts -t \"local-file report workflow with a live Ambient runtime call\"",
+      "test:workflow-local-file:live": "GMI_CLOUD_API_KEY_FILE=${GMI_CLOUD_API_KEY_FILE:-$(node scripts/resolve-gmi-cloud-key-file.mjs)} AMBIENT_PROVIDER=gmi-cloud AMBIENT_WORKFLOW_LIVE=1 bash scripts/test-node-native.sh src/main/workflow/workflowDogfood.test.ts -t \"local-file report workflow with a live Ambient runtime call\"",
       "test:workflow-ui-dogfood:phase1-live:credentialed": "pnpm run prepare:electron-native && AMBIENT_PROVIDER=gmi-cloud AMBIENT_WORKFLOW_UI_DOGFOOD_USE_SHARED_SNAPSHOT=1 node scripts/workflow-agent-thread-ui-dogfood-matrix.mjs --suite=phase1-live",
       "test:workflow-jitter-matrix:release-profile": "AMBIENT_PROVIDER=gmi-cloud node scripts/workflow-jitter-matrix.mjs --profile=release --require-live --promotion-gate --retries=1",
       "test:workflow-jitter-release-gate:release-profile": "AMBIENT_PROVIDER=gmi-cloud node scripts/workflow-jitter-release-profile-gate.mjs",
@@ -3131,7 +3131,7 @@ function deterministicSubagentTestScript() {
     "src/shared/subagentCapacity.test.ts",
     "src/shared/subagentTurnBudget.test.ts",
     "src/main/callable-workflow/callableWorkflowRegistry.test.ts",
-    "src/main/projectStoreSymphonyWorkflowRecipe.test.ts",
+    "src/main/projectStore/projectStoreSymphonyWorkflowRecipe.test.ts",
     "src/main/callable-workflow/callableWorkflowPiTools.test.ts",
     "src/main/callable-workflow/callableWorkflowExecutionPlan.test.ts",
     "src/main/callable-workflow/callableWorkflowTaskQueue.test.ts",
@@ -3140,12 +3140,12 @@ function deterministicSubagentTestScript() {
     "src/main/callable-workflow/callableWorkflowRehydrationEvidence.test.ts",
     "src/main/subagents/subagentLifecycleEdgeEvidence.test.ts",
     "src/main/workflow-compiler/workflowCompilerService.test.ts",
-    "src/main/agentRuntimeCallableWorkflowBridge.test.ts",
-    "src/main/agentRuntimeCallableWorkflowTools.test.ts",
-    "src/main/agentRuntimeAmbientWorkflowReadOnlyTools.test.ts",
+    "src/main/agent-runtime/agentRuntimeCallableWorkflowBridge.test.ts",
+    "src/main/agent-runtime/agentRuntimeCallableWorkflowTools.test.ts",
+    "src/main/agent-runtime/ambient-workflow/agentRuntimeAmbientWorkflowReadOnlyTools.test.ts",
     "src/main/callable-workflow/callableWorkflowParentBlocking.test.ts",
-    "src/main/agentRuntimeFinalizationBlocking.test.ts",
-    "src/main/workflowAgentRuntime.test.ts",
+    "src/main/agent-runtime/agentRuntimeFinalizationBlocking.test.ts",
+    "src/main/workflow/workflowAgentRuntime.test.ts",
     "src/main/modelRuntimeRegistry.test.ts",
     "src/main/model-provider/modelProviderCapabilityProbe.test.ts",
     "src/main/model-provider/modelProviderCapabilityProbeRunner.test.ts",
@@ -3157,8 +3157,8 @@ function deterministicSubagentTestScript() {
     "src/main/subagents/subagentInvariants.test.ts",
     "src/main/subagents/subagentObservability.test.ts",
     "src/main/subagents/subagentIdempotency.test.ts",
-    "src/main/piChildSessionAdapter.test.ts",
-    "src/main/piEventMapper.test.ts",
+    "src/main/pi/piChildSessionAdapter.test.ts",
+    "src/main/pi/piEventMapper.test.ts",
     "src/main/subagents/subagentRuntimeEventPersistence.test.ts",
     "src/main/subagents/subagentContextFilter.test.ts",
     "src/main/subagents/subagentPromptRuntime.test.ts",
@@ -3176,14 +3176,14 @@ function deterministicSubagentTestScript() {
     "src/main/ipc/registerSettingsIpc.test.ts",
     "src/main/subagents/subagentReviewedMaturityEvidence.test.ts",
     "src/main/subagents/subagentLiveSmokeEvidence.test.ts",
-    "src/main/chatExport.test.ts",
+    "src/main/chat-export/chatExport.test.ts",
     "src/main/subagents/subagentLiveHistoryEvidence.test.ts",
     "src/main/subagents/subagentDesktopDogfoodEvidence.test.ts",
     "src/main/subagents/subagentLiveConfidenceEvidence.test.ts",
     "src/main/subagents/subagentLiveConfidenceMaturityEvidence.test.ts",
     "src/main/subagents/subagentMaturity.test.ts",
     "src/main/subagents/subagentThreatModel.test.ts",
-    "src/main/projectStoreSubagentFoundation.test.ts",
+    "src/main/projectStore/projectStoreSubagentFoundation.test.ts",
     "src/main/subagents/subagentPiTools.test.ts",
     "src/main/subagents/subagentPiToolInput.test.ts",
     "src/main/subagents/subagentPiToolResult.test.ts",
@@ -3240,8 +3240,8 @@ function deterministicSubagentTestScript() {
     "src/main/local-runtime/agentRuntimeLocalRuntimeTools.test.ts",
     "src/main/local-runtime/localModelResourceRegistry.test.ts",
     "src/main/local-runtime/localTextSubagentStartupConfig.test.ts",
-    "src/main/diagnostics.test.ts",
-    "src/main/diagnosticBundleImport.test.ts",
+    "src/main/diagnostics/diagnostics.test.ts",
+    "src/main/diagnostics/diagnosticBundleImport.test.ts",
     "src/renderer/src/modelRuntimeCatalogUiModel.test.ts",
     "src/renderer/src/modelProviderOnboardingUiModel.test.ts",
     "src/renderer/src/symphonyWorkflowBuilderUiModel.test.ts",

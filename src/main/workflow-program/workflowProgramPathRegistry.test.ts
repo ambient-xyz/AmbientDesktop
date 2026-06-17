@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
-import { fixtureWorkflowConnector } from "../workflowConnectors";
+import { fixtureWorkflowConnector } from "../workflow/workflowConnectors";
 import { buildWorkflowProgramPathRegistry, lowerWorkflowProgramHandleReferences } from "./workflowProgramPathRegistry";
 import type { WorkflowProgramIR, WorkflowProgramNode, WorkflowProgramValue } from "../../shared/workflowProgramIr";
 

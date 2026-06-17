@@ -7,7 +7,7 @@ import type {
   SubagentChildRuntimeAdapter,
   SubagentChildRuntimeFollowupResult,
   SubagentRuntimeEventEmitter,
-} from "../piChildSessionAdapter";
+} from "../pi/piChildSessionAdapter";
 import { findSubagentRunEventByIdempotencyKey } from "./subagentIdempotency";
 import {
   buildSubagentChildMailboxEventInput,

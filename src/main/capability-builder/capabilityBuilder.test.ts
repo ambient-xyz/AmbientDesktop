@@ -36,7 +36,7 @@ import {
   validateCapabilityBuilderPackage,
   writeCapabilityBuilderFile,
 } from "./capabilityBuilder";
-import { runAmbientCliPackageCommand } from "../ambientCliPackages";
+import { runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
 import { MANAGED_INSTALL_ROOT_ENV } from "../managedInstallPaths";
 
 describe("Capability Builder scaffold", () => {

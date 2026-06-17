@@ -4,7 +4,7 @@ import type {
   PermissionMode,
   SendMessageInput,
 } from "../../shared/types";
-import type { PiSessionFileCommitReason } from "../sessionFileCommit";
+import type { PiSessionFileCommitReason } from "../session/sessionFileCommit";
 import {
   assistantFinalizationRetryAttemptsUsedForReason,
   buildAssistantFinalizationRetryInput,
@@ -13,11 +13,11 @@ import {
   type AssistantFinalizationRetrySendInput,
   type AssistantFinalizationRetryState,
   type RuntimeSessionRecoveryContext,
-} from "../agentRuntimeAssistantRetryInput";
+} from "../agent-runtime/agentRuntimeAssistantRetryInput";
 import {
   buildInterruptedToolCallRecoveryInput,
   type InterruptedToolCallRecoverySendInput,
-} from "../agentRuntimeInterruptedToolRecoveryInput";
+} from "../agent-runtime/agentRuntimeInterruptedToolRecoveryInput";
 
 export interface RuntimeAssistantRetryPlanningInput {
   baseInput: SendMessageInput;

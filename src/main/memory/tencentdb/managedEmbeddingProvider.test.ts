@@ -16,9 +16,9 @@ import {
   startAmbientMemoryEmbeddingRuntime,
 } from "./managedEmbeddingProvider";
 import { managedInstallWorkspacePath } from "../../managedInstallPaths";
-import { miniCpmRuntimeReleaseManifestPrototype } from "../../miniCpmRuntimeManifest";
-import { selectLocalLlamaRuntimeArtifact } from "../../localLlamaRuntimeManifest";
-import type { LocalLlamaServerAcquireInput, LocalLlamaServerLease, LocalLlamaServerState } from "../../localLlamaServerSupervisor";
+import { miniCpmRuntimeReleaseManifestPrototype } from "../../mini-cpm/miniCpmRuntimeManifest";
+import { selectLocalLlamaRuntimeArtifact } from "../../local-llama/localLlamaRuntimeManifest";
+import type { LocalLlamaServerAcquireInput, LocalLlamaServerLease, LocalLlamaServerState } from "../../local-llama/localLlamaServerSupervisor";
 
 describe("managed Tencent memory embedding provider", () => {
   it("reports missing managed EmbeddingGemma assets without starting anything", async () => {
@@ -100,6 +100,61 @@ describe("managed Tencent memory embedding provider", () => {
     });
 
     await result.release?.();
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates the releasable memory lease through lifecycle start", async () => {
+    const workspace = await tempWorkspace("lifecycle-start-release");
+    await installSparseModel(workspace);
+    await installRuntime(workspace);
+    const release = vi.fn(async () => undefined);
+    const acquire = vi.fn(async (input: LocalLlamaServerAcquireInput): Promise<LocalLlamaServerLease> => ({
+      leaseId: "lease-memory-embedding-lifecycle",
+      state: llamaState(workspace, input),
+      release,
+    }));
+    const stopProfile = vi.fn();
+
+    const result = await runAmbientMemoryEmbeddingLifecycleAction({
+      workspacePath: workspace,
+      action: "start",
+      supervisor: { acquire, stopProfile },
+      detectResidents: () => [],
+    });
+
+    expect(result.status).toBe("started");
+    expect(result.leaseId).toBe("lease-memory-embedding-lifecycle");
+    await result.release?.();
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not expose a release handle when reusing an existing workspace lease", async () => {
+    const workspace = await tempWorkspace("existing-lease-no-release");
+    await installSparseModel(workspace);
+    await installRuntime(workspace);
+    const release = vi.fn(async () => undefined);
+    const acquire = vi.fn(async (input: LocalLlamaServerAcquireInput): Promise<LocalLlamaServerLease> => ({
+      leaseId: "lease-memory-embedding-existing",
+      state: llamaState(workspace, input),
+      release,
+    }));
+
+    const first = await startAmbientMemoryEmbeddingRuntime({
+      workspacePath: workspace,
+      supervisor: { acquire },
+      detectResidents: () => [],
+    });
+    const second = await startAmbientMemoryEmbeddingRuntime({
+      workspacePath: workspace,
+      supervisor: { acquire },
+      detectResidents: () => [],
+    });
+
+    expect(first.status).toBe("started");
+    expect(second.status).toBe("ready");
+    expect(second.leaseId).toBe("lease-memory-embedding-existing");
+    expect(second.release).toBeUndefined();
+    await first.release?.();
     expect(release).toHaveBeenCalledTimes(1);
   });
 

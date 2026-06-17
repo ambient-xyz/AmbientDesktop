@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { RESTART_INTERRUPTED_LOCAL_TASK_ERROR } from "../orchestrationRecovery";
-import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
+import { RESTART_INTERRUPTED_LOCAL_TASK_ERROR } from "../orchestration/orchestrationRecovery";
+import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import {
   mapOrchestrationRunRow,
   mapOrchestrationTaskRow,
@@ -9,7 +9,7 @@ import {
 import {
   mapOrchestrationRunRow as legacyMapOrchestrationRunRow,
   mapOrchestrationTaskRow as legacyMapOrchestrationTaskRow,
-} from "../projectStoreOrchestrationMappers";
+} from "./projectStoreOrchestrationMappers";
 import { ProjectStoreOrchestrationRepository } from "./orchestrationRepository";
 
 describe("ProjectStoreOrchestrationRepository", () => {

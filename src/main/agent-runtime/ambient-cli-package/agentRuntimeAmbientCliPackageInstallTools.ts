@@ -12,7 +12,7 @@ import {
   type AmbientCliPiCatalogInstallPreview,
   type InstallAmbientCliPackageInput,
   type PreviewAmbientCliPackageInput,
-} from "../../ambientCliPackages";
+} from "../../ambient-cli/ambientCliPackages";
 import {
   ambientCliPackageInstallApprovalDetail,
   ambientCliPackageInstallInput,

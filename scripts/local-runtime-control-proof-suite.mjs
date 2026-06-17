@@ -31,7 +31,7 @@ function proofSteps() {
   return [
     {
       label: "MiniCPM non-destructive Stop",
-      vitestArgs: ["src/main/miniCpmVisionProvider.test.ts", "-t", "stops MiniCPM-V without uninstalling"],
+      vitestArgs: ["src/main/mini-cpm/miniCpmVisionProvider.test.ts", "-t", "stops MiniCPM-V without uninstalling"],
     },
     {
       label: "active sub-agent Stop blocker",

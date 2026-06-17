@@ -16,7 +16,7 @@ import {
   detectLocalLlamaResidentProcesses,
   type DetectLocalLlamaResidentProcessesInput,
   type LocalLlamaResidentProcess,
-} from "../localLlamaResidencyPolicy";
+} from "../local-llama/localLlamaResidencyPolicy";
 import { normalizeLocalModelResourceSettings } from "../local-deep-research/localDeepResearchProviderStack";
 import {
   isActiveLocalRuntimeLease,

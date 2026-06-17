@@ -7,7 +7,7 @@ import {
 import { projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
 import type { ProjectBoardKickoffContextBrief, ProjectBoardQuestion, ProjectBoardSource } from "../../shared/types";
 import { AmbientStreamFailureError, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambientChatCompletionRetry";
+import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambient/ambientChatCompletionRetry";
 import { readAmbientApiKey } from "../credentialStore";
 import { buildProjectBoardPlanningContract } from "./projectBoardPlanningContract";
 import { projectBoardSourceIncludedInSynthesis, projectBoardSourceKey } from "./projectBoardSourceIdentity";

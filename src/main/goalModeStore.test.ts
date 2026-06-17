@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ProjectStore } from "./projectStore";
+import { ProjectStore } from "./projectStore/projectStore";
 
 async function withStore<T>(callback: (store: ProjectStore, threadId: string) => Promise<T> | T): Promise<T> {
   const workspacePath = await mkdtemp(join(tmpdir(), "ambient-goal-store-"));

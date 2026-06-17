@@ -7,7 +7,7 @@ import type {
   MiniCpmVisionRuntimeInstallResult,
   MiniCpmVisionRuntimeReleaseManifest,
 } from "../../shared/types";
-import { installMiniCpmManagedRuntimeFromDownload } from "../miniCpmVisionProvider";
+import { installMiniCpmManagedRuntimeFromDownload } from "../mini-cpm/miniCpmVisionProvider";
 import {
   detectLocalDeepResearchManagedAssets,
   localDeepResearchModelCachePath,
@@ -20,7 +20,7 @@ import {
 } from "./localDeepResearchModelProfiles";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import { managedInstallWorkspacePath } from "../managedInstallPaths";
-import { isPathInside } from "../sessionPaths";
+import { isPathInside } from "../session/sessionPaths";
 
 export interface LocalDeepResearchModelInstallResult {
   attempted: boolean;

@@ -11,7 +11,7 @@ import {
   workflowGraphWithSourceMappings,
   type WorkflowCompilerOutput,
 } from "./workflowCompiler";
-import { fixtureWorkflowConnector } from "../workflowConnectors";
+import { fixtureWorkflowConnector } from "../workflow/workflowConnectors";
 
 const descriptors = firstPartyDesktopToolDescriptors();
 const connectorDescriptors = [fixtureWorkflowConnector().descriptor];

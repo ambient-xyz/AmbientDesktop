@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fakeOAuthConnectorProvider } from "../workflowConnectorAuth";
+import { fakeOAuthConnectorProvider } from "../workflow/workflowConnectorAuth";
 import { AmbientPluginHost } from "./pluginHost";
 
 function withPluginDiscoveryEnv<T>(action: () => Promise<T>): Promise<T> {

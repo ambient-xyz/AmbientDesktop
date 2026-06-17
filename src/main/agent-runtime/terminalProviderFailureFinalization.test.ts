@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
-import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
-import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
+import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
+import type { SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
 import { terminalProviderFailureFinalizationMessage } from "./terminalProviderFailureFinalization";
 
 const providerErrorDiagnostic: RuntimeProviderErrorDiagnostic = {

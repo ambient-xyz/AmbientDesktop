@@ -3,7 +3,7 @@ import { AMBIENT_DEFAULT_MODEL, resolveAmbientModelRuntimeProfile } from "../../
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import type { SubagentToolScopeSnapshotSummary, SubagentWaitBarrierSummary, ThreadWorktreeSummary } from "../../shared/types";
 import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../piChildSessionAdapter";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import {
   buildSubagentSpawnRequestedRunEventInput,
   buildSubagentTaskMailboxEventInput,

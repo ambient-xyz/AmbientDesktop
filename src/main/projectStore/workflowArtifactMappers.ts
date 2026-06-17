@@ -4,7 +4,7 @@ import type {
   WorkflowManifest,
   WorkflowSpec,
 } from "../../shared/types";
-import { parseJsonObject } from "../projectStoreJson";
+import { parseJsonObject } from "./projectStoreJson";
 
 export interface WorkflowArtifactRow {
   id: string;

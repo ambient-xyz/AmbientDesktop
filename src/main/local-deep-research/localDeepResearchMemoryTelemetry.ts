@@ -14,8 +14,8 @@ import {
 import {
   detectLocalLlamaResidentProcesses,
   type LocalLlamaResidentProcess,
-} from "../localLlamaResidencyPolicy";
-import { writeWorkspaceTextFile } from "../workspaceFiles";
+} from "../local-llama/localLlamaResidencyPolicy";
+import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
 
 const gib = 1024 ** 3;
 const telemetryRoot = ".ambient/local-deep-research/memory-telemetry";

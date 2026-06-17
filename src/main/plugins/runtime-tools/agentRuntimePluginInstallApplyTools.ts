@@ -13,7 +13,7 @@ import type {
   CodexPluginInstallPreview,
   CommitCodexPluginInstallInput,
   PreviewCodexPluginInstallInput,
-} from "../../codexPlugins";
+} from "../codex/codexPlugins";
 import {
   pluginActivationApprovalDetail,
   pluginActivationDependencyInstallInput,

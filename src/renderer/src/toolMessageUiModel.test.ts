@@ -984,7 +984,7 @@ describe("tool message UI model", () => {
   });
 
   it("normalizes workspace media artifact paths that lost the leading absolute slash", () => {
-    const workspacePath = "/Users/example/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread";
+    const workspacePath = "/path/to/user/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread";
     const parsed = parseToolMessage(
       [
         "media_download completed",
@@ -1101,7 +1101,7 @@ describe("tool message UI model", () => {
   });
 
   it("recognizes pretty-printed ambient cli JSON output paths without dropping absolute path roots", () => {
-    const workspacePath = "/Users/example/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1";
+    const workspacePath = "/path/to/user/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread-1";
     const parsed = parseToolMessage(
       [
         "ambient_cli completed",
@@ -1129,7 +1129,7 @@ describe("tool message UI model", () => {
   });
 
   it("repairs stored artifact metadata that lost the leading slash from an absolute workspace path", () => {
-    const workspacePath = "/Users/example/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1";
+    const workspacePath = "/path/to/user/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread-1";
     const parsed = parseToolMessage(
       [
         "ambient_cli completed",
@@ -1150,7 +1150,7 @@ describe("tool message UI model", () => {
   });
 
   it("recognizes ambient cli audioPath JSON stdout without duplicating absolute workspace paths", () => {
-    const workspacePath = "/Users/example/.ambient-hardening/bases/core-no-secrets-snapshot-2026-05-13/workspace";
+    const workspacePath = "/path/to/user/.ambient-hardening/bases/local-test-state-2026-05-13/workspace";
     const packageRoot = `${workspacePath}/.ambient/cli-packages/imported/ambient-cartesia-0.1.0`;
     const parsed = parseToolMessage(
       [

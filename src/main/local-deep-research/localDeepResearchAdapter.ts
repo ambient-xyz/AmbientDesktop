@@ -1,4 +1,4 @@
-import type { WebResearchProviderAttempt } from "../webResearchBroker";
+import type { WebResearchProviderAttempt } from "../web-research/webResearchBroker";
 import type { LocalDeepResearchProviderSnapshot, LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import { parse as parseYaml } from "yaml";
 

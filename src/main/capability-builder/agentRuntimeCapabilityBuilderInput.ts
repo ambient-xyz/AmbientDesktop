@@ -15,8 +15,8 @@ import type {
   CapabilityBuilderValidateInput,
   CapabilityBuilderWriteFileInput,
 } from "./capabilityBuilder";
-import type { AmbientInstallRoutePlan } from "../installRoutePlanner";
-import { getProviderCatalogEntries, providerSelectionGuidanceForProvider, type ProviderCatalogEntry } from "../providerCatalog";
+import type { AmbientInstallRoutePlan } from "../install-route/installRoutePlanner";
+import { getProviderCatalogEntries, providerSelectionGuidanceForProvider, type ProviderCatalogEntry } from "../provider/providerCatalog";
 
 function requiredString(input: Record<string, unknown>, key: string): string {
   const value = input[key];

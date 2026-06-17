@@ -4,7 +4,7 @@ import type {
   ToolEditInputPreview,
   ToolLongformInputPreview,
 } from "../../shared/types";
-import type { NormalizedPiEvent } from "../piEventMapper";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 import type {
   RuntimeToolResultEventStatus,
   RuntimeToolResultMessageUpdateInput,

@@ -1,6 +1,6 @@
 import type { DesktopToolDescriptor } from "../desktopToolRegistry";
 import { connectorOperationDescriptor } from "./workflowProgramCapabilityResolver";
-import type { WorkflowConnectorDescriptor } from "../workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type {
   WorkflowProgramConnectorCallNode,
   WorkflowProgramConnectorPaginateNode,

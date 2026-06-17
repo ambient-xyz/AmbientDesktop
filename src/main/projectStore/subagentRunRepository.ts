@@ -15,7 +15,7 @@ import {
   type SubagentRunEventRow,
   type SubagentRunRow,
   type SubagentSpawnEdgeRow,
-} from "../projectStoreSubagentMappers";
+} from "./projectStoreSubagentMappers";
 
 export interface CreateReservedSubagentRunInput {
   runId: string;

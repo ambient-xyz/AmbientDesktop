@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { registerMessagingSyntheticRouteTools } from "./agentRuntimeMessagingSyntheticRouteTools";
-import { createMessagingBindingStore } from "../../messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messagingGatewayRunner";
+import { createMessagingBindingStore } from "../../messaging/messagingBindings";
+import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
 import { buildRuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
@@ -33,7 +33,7 @@ describe("registerMessagingSyntheticRouteTools", () => {
     });
     const registeredTools: RegisteredTool[] = [];
     const workspace = {
-      name: "ambientCoder",
+      name: "AmbientDesktop",
       path: "/workspace",
       statePath: stateRoot,
       sessionPath: join(stateRoot, "sessions"),
@@ -61,7 +61,7 @@ describe("registerMessagingSyntheticRouteTools", () => {
           threads: [],
           workflowFolders: [],
           projects: [{
-            name: "ambientCoder",
+            name: "AmbientDesktop",
             path: "/workspace",
             updatedAt: "2026-05-18T00:00:00.000Z",
             pinned: true,

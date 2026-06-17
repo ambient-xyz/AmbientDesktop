@@ -112,6 +112,7 @@ describe("diagnostic export history UI model", () => {
       path: "/Users/travis/Downloads/ambient-diagnostics-memory.json",
       createdAt: "2026-06-13T00:00:00.000Z",
       includeAgentMemory: true,
+      includeAgentMemoryStarter: true,
       agentMemoryStatus: "needs_attention",
       agentMemoryMessage: "TencentDB Agent Memory is enabled but the reviewed core module is unavailable.",
       agentMemoryFileCount: 2,
@@ -119,6 +120,9 @@ describe("diagnostic export history UI model", () => {
     });
     if (selected.summary?.agentMemory) {
       (selected.summary.agentMemory as typeof selected.summary.agentMemory & { rawMemorySecret?: string }).rawMemorySecret = "do not persist raw memory";
+    }
+    if (selected.summary?.agentMemoryStarter) {
+      (selected.summary.agentMemoryStarter as typeof selected.summary.agentMemoryStarter & { rawStarterLog?: string }).rawStarterLog = "do not persist raw starter";
     }
 
     const decoded = decodeDiagnosticExportHistoryStorage(encodeDiagnosticExportHistoryStorage({
@@ -133,9 +137,19 @@ describe("diagnostic export history UI model", () => {
       fileCount: 2,
       rawContentIncluded: false,
     });
+    expect(decoded.history[0]?.summary?.agentMemoryStarter).toMatchObject({
+      schemaVersion: "ambient-agent-memory-starter-status-v1",
+      state: "needs_repair",
+      blockers: [{ code: "runtime_missing" }],
+      nextActions: ["repair", "open_logs"],
+    });
     expect(JSON.stringify(decoded)).not.toContain("do not persist raw memory");
+    expect(JSON.stringify(decoded)).not.toContain("do not persist raw starter");
     expect(model?.rows[0]?.detail).toContain("summary only");
     expect(model?.searchText).toContain("Agent memory needs attention");
+    expect(model?.searchText).toContain("Agent memory starter needs repair");
+    expect(model?.searchText).toContain("runtime_missing");
+    expect(model?.searchText).toContain("starter action repair");
     expect(model?.searchText).toContain("raw memory content omitted");
     expect(model?.searchText).toContain("native preflight unavailable");
     expect(model?.searchText).toContain("context injection 512 chars");
@@ -579,10 +593,12 @@ function exportResult(input: {
   slashCommandFeatureFlagSource?: NonNullable<NonNullable<DiagnosticExportResult["summary"]>["featureFlags"]>["flags"]["ambient.subagents"]["source"];
   slashCommandFeatureFlagSettingsEnabled?: boolean;
   includeAgentMemory?: boolean;
+  includeAgentMemoryStarter?: boolean;
   agentMemoryStatus?: NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemory"]>["status"];
   agentMemoryMessage?: string;
   agentMemoryFileCount?: number;
   agentMemoryRuntimeSnapshotCount?: number;
+  agentMemoryStarterState?: NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemoryStarter"]>["state"];
 }): DiagnosticExportResult {
   const replayStatus = input.replayStatus ?? "healthy";
   const runCount = input.runCount ?? 0;
@@ -702,6 +718,11 @@ function exportResult(input: {
               })),
               errors: [],
             },
+          }
+        : {}),
+      ...(input.includeAgentMemoryStarter
+        ? {
+            agentMemoryStarter: agentMemoryStarterSummary(input.createdAt, input.agentMemoryStarterState ?? "needs_repair"),
           }
         : {}),
       subagents: {
@@ -922,6 +943,94 @@ function exportResult(input: {
           },
         }
       : {}),
+  };
+}
+
+function agentMemoryStarterSummary(
+  checkedAt: string,
+  state: NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemoryStarter"]>["state"],
+): NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemoryStarter"]> {
+  return {
+    schemaVersion: "ambient-agent-memory-starter-status-v1",
+    checkedAt,
+    operationId: "starter-op-1",
+    state,
+    settings: {
+      featureFlags: { tencentDbMemory: true },
+      memory: {
+        enabled: true,
+        defaultThreadEnabled: false,
+        adapter: "tencentdb",
+        shortTermOffloadEnabled: false,
+        embeddings: {
+          enabled: true,
+          providerMode: "ambient-managed",
+          autoStartProvider: true,
+          modelId: "embeddinggemma-300m",
+          dimensions: 768,
+          sendDimensions: false,
+          maxInputChars: 512,
+          timeoutMs: 10_000,
+          preflightEnabled: true,
+        },
+        storageScope: "workspace",
+      },
+    },
+    threadScope: {
+      activeThreadId: "thread-1",
+      activeThreadMemoryEnabled: true,
+      defaultThreadEnabled: false,
+      enabledThreadCount: 1,
+      activeThreadCount: 1,
+    },
+    assets: {
+      model: {
+        state: "present",
+        artifactId: "embeddinggemma-300m",
+        path: "/tmp/ambient-memory/model.gguf",
+      },
+      runtime: {
+        state: "missing",
+        artifactId: "llama.cpp-darwin-arm64",
+        message: "Shared embedding runtime is missing.",
+      },
+    },
+    runtime: {
+      state: "stopped",
+      message: "Embedding runtime is not running.",
+    },
+    embedding: {
+      enabled: true,
+      status: "unavailable",
+      message: "Embedding runtime is not running.",
+      providerMode: "ambient-managed",
+      modelId: "embeddinggemma-300m",
+      runtimeStatus: "stopped",
+      running: false,
+      autoStartProvider: true,
+      preflightEnabled: true,
+      sendDimensions: false,
+      maxInputChars: 512,
+      timeoutMs: 10_000,
+      reindexStatus: "unknown",
+    },
+    nativePreflight: {
+      schemaVersion: "ambient-agent-memory-native-preflight-v1",
+      checkedAt,
+      platform: "darwin",
+      arch: "arm64",
+      coreModuleConfigured: false,
+      status: "unavailable",
+      message: "Reviewed TencentDB Agent Memory core module is not configured.",
+      dependencies: [],
+      errors: [],
+    },
+    blockers: [{
+      code: "runtime_missing",
+      message: "Shared embedding runtime is missing.",
+      retryable: true,
+    }],
+    nextActions: ["repair", "open_logs"],
   };
 }
 

@@ -2,8 +2,8 @@ import type { RuntimeActivity } from "../../shared/types";
 import {
   runtimeCompactionFinishedActivity,
   runtimeCompactionStartingActivity,
-} from "../agentRuntimeCompactionActivity";
-import type { NormalizedPiEvent } from "../piEventMapper";
+} from "../agent-runtime/agentRuntimeCompactionActivity";
+import type { NormalizedPiEvent } from "../pi/piEventMapper";
 
 type RuntimeCompactionActivity = Extract<RuntimeActivity, { kind: "compaction" }>;
 export type RuntimeCompactionEvent = Extract<NormalizedPiEvent, { kind: "compaction-start" | "compaction-end" }>;

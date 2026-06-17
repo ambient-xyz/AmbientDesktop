@@ -108,7 +108,7 @@ const staticPromptRuleInventory: WorkflowCompilerPromptRule[] = [
     risk: "high",
     summary: "Retired global recovery prose; selected recovery recipes and dry-run checks own this behavior.",
     text: "Recovery fan-out rule: for workflows that must demonstrate retry/skip/partial coverage, use loop.map or connector.map over item records with stable id/key fields.",
-    duplicatedIn: ["src/main/workflowDogfood.test.ts"],
+    duplicatedIn: ["src/main/workflow/workflowDogfood.test.ts"],
     validatorRefs: ["workflowCompilerRecipes:browser_item_recovery", "dryRunWorkflowProgramOutput", "validateWorkflowProgramStatic"],
     migrationBlockers: [],
   }),
@@ -235,7 +235,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired local-directory skipped-metadata policy; local_directory_list workflow guidance and static validation own this behavior.",
     exemplarText:
       'Local directory skipped-metadata rule: local_directory_list returns entries plus skipped metadata for hidden, secret-like, and unreadable paths. For any directory inventory, categorization, or report workflow, preserve {fromNode:"<list-node>", path:"skipped"} plus truncated/totalKnownEntries in checkpoint.write, model.call input, document.render input, and output.final; report skipped counts/reasons as metadata only and never read skipped file contents.',
-    duplicatedIn: ["scripts/workflow-agent-thread-ui-dogfood.mjs", "src/main/workflowDogfood.test.ts"],
+    duplicatedIn: ["scripts/workflow-agent-thread-ui-dogfood.mjs", "src/main/workflow/workflowDogfood.test.ts"],
     validatorRefs: ["local_directory_list.workflowGuidance", "validateWorkflowProgramStatic", "audit.local_directory_skipped_metadata_required"],
     migrationBlockers: [],
   }),
@@ -310,7 +310,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired visual loop-map prompt; selected ambient_visual_analyze capability guidance owns this behavior.",
     exemplarText:
       'Nested loop.map tool-call shape: {"kind":"loop.map","items":{"fromNode":"list-images","path":"entries"},"itemName":"item","maxItems":10,"maxConcurrency":4,"map":{"kind":"tool.call","tool":"ambient_visual_analyze","args":{"image":{"path":{"fromItem":"item","path":"absolutePath"},"absolute":true,"source":"external_file","label":{"fromItem":"item","path":"name"}},"task":"image_description","allowExternalMediaPaths":true}}}.',
-    duplicatedIn: ["src/main/workflow-program/workflowProgramCompiler.test.ts", "src/main/workflowDogfood.test.ts"],
+    duplicatedIn: ["src/main/workflow-program/workflowProgramCompiler.test.ts", "src/main/workflow/workflowDogfood.test.ts"],
     validatorRefs: ["ambient_visual_analyze.workflowGuidance", "validateWorkflowProgramStatic"],
     migrationBlockers: [],
   }),
@@ -333,7 +333,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
       "Retired Google transcript action-item prompt pattern; selected google_meeting_transcript_action_items recipe owns this behavior.",
     exemplarText:
       "Google transcript action-item pattern: use connector.paginate for google.calendar listEvents over an explicit timeMin/timeMax/timeZone window, connector.paginate for google.drive search, bounded connector.map google.drive readFile for candidate transcript files, long_context_process over the readFile results plus event provenance, and a final model.call over the long_context_process response and counts only.",
-    duplicatedIn: ["src/main/workflowDogfood.test.ts"],
+    duplicatedIn: ["src/main/workflow/workflowDogfood.test.ts"],
     validatorRefs: [
       "workflowCompilerRecipes:google_meeting_transcript_action_items",
       "validateWorkflowConnectorManifest",
@@ -446,7 +446,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired visual-evidence prompt; selected ambient_visual_analyze capability guidance owns this behavior.",
     exemplarText:
       "Visual-analysis rule: when the user asks to inspect, categorize, classify, compare, OCR, or summarize images/screenshots/video frames, use ambient_visual_analyze for visual evidence. Do not substitute a model.call over filenames or metadata for actual visual inspection.",
-    duplicatedIn: ["src/main/workflowDogfood.test.ts", "scripts/workflow-agent-thread-ui-dogfood.mjs"],
+    duplicatedIn: ["src/main/workflow/workflowDogfood.test.ts", "scripts/workflow-agent-thread-ui-dogfood.mjs"],
     validatorRefs: ["ambient_visual_analyze.workflowGuidance", "workflow visual dogfood gates"],
     migrationBlockers: [],
   }),
@@ -457,7 +457,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired visual fan-out prompt; selected ambient_visual_analyze capability guidance owns this behavior.",
     exemplarText:
       'Visual fan-out rule: for multiple local images, list the folder with local_directory_list, select the bounded image entries, then use loop.map with map.kind:"tool.call" and tool:"ambient_visual_analyze". Keep maxItems explicit and maxConcurrency at 4 unless a lower value is needed.',
-    duplicatedIn: ["src/main/workflow-program/workflowProgramCompiler.test.ts", "src/main/workflowDogfood.test.ts"],
+    duplicatedIn: ["src/main/workflow-program/workflowProgramCompiler.test.ts", "src/main/workflow/workflowDogfood.test.ts"],
     validatorRefs: ["ambient_visual_analyze.workflowGuidance", "validateWorkflowProgramStatic"],
     migrationBlockers: [],
   }),
@@ -468,7 +468,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired visual synthesis prompt; selected ambient_visual_analyze capability guidance owns this behavior.",
     exemplarText:
       "Model-role rule: after visual evidence is collected, use model.call for the selected Ambient Desktop model to categorize or synthesize that evidence. Do not ask the user to choose a random cloud/local LLM provider in the workflow.",
-    duplicatedIn: ["src/main/workflowDogfood.test.ts"],
+    duplicatedIn: ["src/main/workflow/workflowDogfood.test.ts"],
     validatorRefs: ["ambient_visual_analyze.workflowGuidance"],
     migrationBlockers: [],
   }),
@@ -511,7 +511,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired Gmail metadata-first detail-gate prompt; selected metadata-first recipe and Gmail descriptor own this behavior.",
     exemplarText:
       "Gmail metadata-first detail gate rule: when a large Gmail request asks to use metadata first or to ask before reading full bodies, the first workflow should stay metadata-only with google.gmail search pagination, then add a review.input gate or final follow-up recommendation for any bounded future detail-read batch. Do not include google.gmail readThread/readAttachment before that explicit review gate, and never include Gmail write operations for read-only categorization.",
-    duplicatedIn: ["src/main/workflowStressTest.md", "src/main/workflowDogfood.test.ts"],
+    duplicatedIn: ["src/main/workflow/workflowStressTest.md", "src/main/workflow/workflowDogfood.test.ts"],
     validatorRefs: [
       "workflowCompilerRecipes:metadata_first_personal_data_review",
       "google.gmail.search descriptor metadata",

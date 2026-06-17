@@ -2,8 +2,8 @@ import type { DesktopEvent } from "../../shared/types";
 import {
   runtimeToolExecutionRunningActivity,
   runtimeToolExecutionTimeoutActivity,
-} from "../agentRuntimeToolExecutionActivity";
-import { agentRuntimeToolExecutionIdleTimeoutMsForTool } from "../agentRuntimeToolTimeouts";
+} from "./tools/agentRuntimeToolExecutionActivity";
+import { agentRuntimeToolExecutionIdleTimeoutMsForTool } from "./tools/agentRuntimeToolTimeouts";
 
 export interface RuntimeActiveToolExecution {
   toolCallId: string;

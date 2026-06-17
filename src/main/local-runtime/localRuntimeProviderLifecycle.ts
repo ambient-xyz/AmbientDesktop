@@ -7,7 +7,7 @@ import {
   runAmbientCliPackageCommand,
   type AmbientCliRunResult,
   type RunAmbientCliInput,
-} from "../ambientCliPackages";
+} from "../ambient-cli/ambientCliPackages";
 
 export type LocalRuntimeProviderLifecycleStatus =
   | "started"

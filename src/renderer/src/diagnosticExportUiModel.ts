@@ -28,10 +28,12 @@ function diagnosticBundleStatusMessage(
   const replayEvidence = result.summary?.subagents.replayEvidence;
   const localRuntimes = result.summary?.localRuntimes;
   const agentMemory = result.summary?.agentMemory;
+  const agentMemoryStarter = result.summary?.agentMemoryStarter;
   const featureFlags = result.summary?.featureFlags;
   const notices = [
     featureFlags ? diagnosticFeatureFlagNotice(featureFlags) : undefined,
     agentMemory ? diagnosticAgentMemoryNotice(agentMemory) : undefined,
+    agentMemoryStarter ? diagnosticAgentMemoryStarterNotice(agentMemoryStarter) : undefined,
     repair ? diagnosticRepairNotice(repair) : undefined,
     observability ? diagnosticObservabilityNotice(observability) : undefined,
     attribution ? diagnosticAttributionNotice(attribution) : undefined,
@@ -47,6 +49,7 @@ type AttributionSummary = NonNullable<DiagnosticExportResult["summary"]>["subage
 type ReplayEvidenceSummary = NonNullable<DiagnosticExportResult["summary"]>["subagents"]["replayEvidence"];
 type LocalRuntimeSummary = NonNullable<NonNullable<DiagnosticExportResult["summary"]>["localRuntimes"]>;
 type AgentMemorySummary = NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemory"]>;
+type AgentMemoryStarterSummary = NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemoryStarter"]>;
 type FeatureFlagsSummary = NonNullable<NonNullable<DiagnosticExportResult["summary"]>["featureFlags"]>;
 
 function diagnosticFeatureFlagNotice(featureFlags: FeatureFlagsSummary): string | undefined {
@@ -82,6 +85,15 @@ function diagnosticAgentMemoryNotice(agentMemory: AgentMemorySummary): string | 
     agentMemory.errors.length > 0 ? `${agentMemory.errors.length} error${agentMemory.errors.length === 1 ? "" : "s"}` : undefined,
   ].filter(Boolean).join(", ");
   return `${agentMemory.message}${details ? ` (${details})` : ""}`;
+}
+
+function diagnosticAgentMemoryStarterNotice(starter: AgentMemoryStarterSummary): string | undefined {
+  if (starter.state === "ready" || starter.state === "off") return undefined;
+  const details = [
+    starter.nextActions.length > 0 ? `next: ${starter.nextActions.join(", ")}` : undefined,
+    starter.blockers.length > 0 ? `${starter.blockers.length} blocker${starter.blockers.length === 1 ? "" : "s"}` : undefined,
+  ].filter(Boolean).join(", ");
+  return `Agent memory starter ${starter.state.replace(/_/g, " ")}${details ? ` (${details})` : ""}.`;
 }
 
 function diagnosticObservabilityNotice(observability: ObservabilitySummary): string | undefined {

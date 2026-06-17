@@ -11,8 +11,8 @@ import type {
 } from "../../shared/types";
 import { pluginMcpToolDescriptor, type DesktopToolDescriptor } from "../desktopToolRegistry";
 import { redactSensitiveText } from "../secretRedaction";
-import { spawnToolProcess } from "../toolRunner";
-import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../toolOutputArtifacts";
+import { spawnToolProcess } from "../tool-runtime/toolRunner";
+import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
 
 export type { PluginMcpRuntimeSnapshot, PluginMcpRuntimeStatus };
 

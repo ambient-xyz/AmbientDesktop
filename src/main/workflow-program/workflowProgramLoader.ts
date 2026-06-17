@@ -18,8 +18,8 @@ import type {
   WorkflowRuntimePrimitives,
   WorkflowToolHandler,
   WorkflowToolHandlers,
-} from "../workflowAgentRuntime";
-import { stripWorkflowSourceLiteralsAndComments, validateWorkflowSourceIsolation } from "../workflowSourceValidation";
+} from "../workflow/workflowAgentRuntime";
+import { stripWorkflowSourceLiteralsAndComments, validateWorkflowSourceIsolation } from "../workflow/workflowSourceValidation";
 
 const DEFAULT_WORKFLOW_VM_SYNC_TIMEOUT_MS = 1_000;
 const EXPORT_DEFAULT_RUN = /\bexport\s+default\s+(async\s+)?function\s+run\s*\(/;

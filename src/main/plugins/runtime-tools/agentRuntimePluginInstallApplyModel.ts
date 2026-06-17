@@ -11,7 +11,7 @@ import type {
   CodexPluginInstallCommitResult,
   CodexPluginInstallPreview,
   PreviewCodexPluginInstallInput,
-} from "../../codexPlugins";
+} from "../codex/codexPlugins";
 
 export interface PluginInstallApplyToolUpdate {
   content: Array<{ type: "text"; text: string }>;

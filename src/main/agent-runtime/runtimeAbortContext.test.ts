@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopEvent, SubagentWaitBarrierSummary } from "../../shared/types";
-import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
+import type { SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
 import { createRuntimeAbortContext } from "./runtimeAbortContext";
 
 interface Session {

@@ -10,7 +10,7 @@ import type {
 } from "../../shared/types";
 import { getDefaultSubagentRoleProfile, type SubagentRoleProfile } from "../../shared/subagentRoles";
 import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
-import type { SubagentChildWorktreePrepareInput } from "../piChildSessionAdapter";
+import type { SubagentChildWorktreePrepareInput } from "../pi/piChildSessionAdapter";
 import {
   prepareSubagentChildWorktreeForLaunch,
   SUBAGENT_CHILD_WORKTREE_PREPARER_SCHEMA_VERSION,

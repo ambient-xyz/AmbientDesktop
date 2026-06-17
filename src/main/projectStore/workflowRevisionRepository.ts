@@ -14,7 +14,7 @@ import {
   workflowAgentPhaseForArtifactStatus,
   type WorkflowAgentThreadRow,
   type WorkflowRevisionRow,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 export interface ProjectStoreWorkflowRevisionRepositoryDeps {
   getWorkflowVersion(versionId: string): WorkflowVersionSummary;

@@ -1,7 +1,7 @@
 import type { DesktopEvent } from "../../shared/types";
-import { emptyAssistantStallRuntimeActivity } from "../agentRuntimeEmptyAssistantStallActivity";
+import { emptyAssistantStallRuntimeActivity } from "../agent-runtime/agentRuntimeEmptyAssistantStallActivity";
 import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
-import { piStreamStallTimeoutMessage } from "../agentRuntimeTimeouts";
+import { piStreamStallTimeoutMessage } from "../agent-runtime/agentRuntimeTimeouts";
 
 export interface RuntimeEmptyAssistantStallWatchdogState {
   outputChars: number;

@@ -7,7 +7,7 @@ import type {
 import {
   mapWorkflowGraphSnapshotRow,
   type WorkflowGraphSnapshotRow,
-} from "../projectStoreWorkflowMappers";
+} from "./projectStoreWorkflowMappers";
 
 export class ProjectStoreWorkflowGraphSnapshotRepository {
   constructor(private readonly db: Database.Database) {}
