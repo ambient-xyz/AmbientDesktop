@@ -680,6 +680,7 @@ type FirstPartyAmbientCliPackage =
       packageDir: string;
       autoInstall?: boolean;
     };
+type BundledFirstPartyAmbientCliPackage = Extract<FirstPartyAmbientCliPackage, { kind: "bundled" }>;
 
 const firstPartyAmbientCliPackages: FirstPartyAmbientCliPackage[] = [
   {
@@ -720,6 +721,13 @@ const firstPartyAmbientCliPackages: FirstPartyAmbientCliPackage[] = [
     source: "bundled:ambient-imagegen",
     kind: "bundled",
     packageDir: "ambient-imagegen",
+  },
+  {
+    packageName: "ambient-tinystyler",
+    source: "bundled:ambient-tinystyler",
+    kind: "bundled",
+    packageDir: "ambient-tinystyler",
+    autoInstall: false,
   },
   {
     packageName: "ambient-blockchain",
@@ -893,11 +901,13 @@ async function installBundledAmbientCliPackageSource(
   workspacePath: string,
   firstParty: Extract<FirstPartyAmbientCliPackage, { kind: "bundled" }>,
   options: EnsureFirstPartyAmbientCliPackagesOptions,
+  sourcePathOverride?: string,
 ): Promise<AmbientCliPackageSummary> {
   const installWorkspace = await ensureAmbientCliManagedInstallWorkspace(workspacePath);
-  const sourcePath = resolveBundledAmbientCliPackageRoot(firstParty.packageDir, options);
+  const sourcePath = sourcePathOverride ?? resolveBundledAmbientCliPackageRoot(firstParty.packageDir, options);
   const inspected = await inspectAmbientCliPackage(workspacePath, sourcePath, firstParty.source);
   if (inspected.errors.length) throw new Error(`Ambient CLI package is invalid: ${inspected.errors.join("; ")}`);
+  if (inspected.name !== firstParty.packageName) throw new Error(`Bundled Ambient CLI package identity mismatch: expected "${firstParty.packageName}", got "${inspected.name}".`);
   if (!inspected.commands.length) throw new Error("Ambient CLI package descriptor does not declare any commands.");
 
   const importName = safeName(`${inspected.name}-${inspected.version ?? "bundled"}-${shortHash(sourcePath)}`);
@@ -909,6 +919,7 @@ async function installBundledAmbientCliPackageSource(
     await cp(sourcePath, destination, { recursive: true, force: true, dereference: false });
     const relativeSource = `./${relative(installWorkspace, destination).split(sep).join("/")}`;
     const imported = await inspectAmbientCliPackage(workspacePath, destination, relativeSource);
+    if (imported.name !== firstParty.packageName) throw new Error(`Bundled Ambient CLI package identity mismatch after import: expected "${firstParty.packageName}", got "${imported.name}".`);
     const health = await checkAmbientCliPackageHealth(imported, { workspacePath });
     const hardFailed = health.find((check) => !check.passed);
     if (hardFailed) throw new Error(`Ambient CLI package health check failed for "${hardFailed.commandName}": ${hardFailed.error ?? hardFailed.stderr ?? "unknown error"}`);
@@ -930,14 +941,25 @@ export async function installAmbientCliPackageSource(
   workspacePath: string,
   input: InstallAmbientCliPackageInput,
 ): Promise<AmbientCliPackageSummary> {
-  if (input.sha) return installAmbientCliPackageGitSource(workspacePath, input);
+  const normalized = normalizeInstallInput(input);
+  const bundled = resolveFirstPartyBundledAmbientCliPackage(normalized.source);
+  if (bundled) {
+    const unsupported = bundledAmbientCliInstallUnsupportedFields(normalized);
+    if (unsupported.length) throw new Error(`Bundled Ambient CLI package installs do not accept ${unsupported.join(", ")}.`);
+    const sourcePath = resolveReviewedBundledAmbientCliPackageRoot(bundled);
+    return installBundledAmbientCliPackageSource(workspacePath, bundled, {}, sourcePath);
+  }
+  if (isBundledAmbientCliInstallSource(normalized.source)) {
+    throw new Error(`Unknown bundled Ambient CLI package source: ${normalized.source}`);
+  }
+  if (normalized.sha) return installAmbientCliPackageGitSource(workspacePath, normalized);
   const installWorkspace = await ensureAmbientCliManagedInstallWorkspace(workspacePath);
-  const sourcePath = resolveAmbientCliInstallSourcePath(workspacePath, installWorkspace, input.source.trim());
+  const sourcePath = resolveAmbientCliInstallSourcePath(workspacePath, installWorkspace, normalized.source);
   if (!isPathInside(resolve(workspacePath), sourcePath) && !isPathInside(installWorkspace, sourcePath)) {
     throw new Error("Ambient CLI package source must be inside the workspace or Ambient-managed install state.");
   }
   if (!existsSync(sourcePath)) throw new Error("Ambient CLI package source was not found.");
-  const inspected = await inspectAmbientCliPackage(workspacePath, sourcePath, input.source.trim(), input.descriptor);
+  const inspected = await inspectAmbientCliPackage(workspacePath, sourcePath, normalized.source, normalized.descriptor);
   if (inspected.errors.length) throw new Error(`Ambient CLI package is invalid: ${inspected.errors.join("; ")}`);
   if (!inspected.commands.length) throw new Error("Ambient CLI package descriptor does not declare any commands.");
 
@@ -948,8 +970,8 @@ export async function installAmbientCliPackageSource(
   await mkdir(dirname(destination), { recursive: true });
   try {
     await cp(sourcePath, destination, { recursive: true, force: true, dereference: false });
-    await writeDescriptorOverlay(destination, input.descriptor);
-    if (input.installDependencies) {
+    await writeDescriptorOverlay(destination, normalized.descriptor);
+    if (normalized.installDependencies) {
       const dependencyInstall = await installAmbientCliPackageDependencies(destination);
       if (!dependencyInstall.passed) throw new Error(`Ambient CLI package dependency install failed: ${dependencyInstall.error ?? dependencyInstall.stderr ?? dependencyInstall.reason ?? "unknown error"}`);
     }
@@ -971,6 +993,22 @@ export async function previewAmbientCliPackageInstallSource(
   input: PreviewAmbientCliPackageInput,
 ): Promise<AmbientCliPackageInstallPreview> {
   const normalized = normalizeInstallInput(input);
+  const bundled = resolveFirstPartyBundledAmbientCliPackage(normalized.source);
+  if (bundled) {
+    const unsupported = bundledAmbientCliInstallUnsupportedFields(normalized);
+    if (unsupported.length) {
+      return { ...normalized, envStatus: [], healthChecks: [], installable: false, errors: [`Bundled Ambient CLI package previews do not accept ${unsupported.join(", ")}.`] };
+    }
+    try {
+      const sourcePath = resolveReviewedBundledAmbientCliPackageRoot(bundled);
+      return previewPreparedAmbientCliPackage(workspacePath, sourcePath, bundled.source, normalized, bundled.packageName);
+    } catch (error) {
+      return { ...normalized, envStatus: [], healthChecks: [], installable: false, errors: [errorMessage(error)] };
+    }
+  }
+  if (isBundledAmbientCliInstallSource(normalized.source)) {
+    return { ...normalized, envStatus: [], healthChecks: [], installable: false, errors: [`Unknown bundled Ambient CLI package source: ${normalized.source}`] };
+  }
   if (!normalized.sha) {
     const installWorkspace = await ensureAmbientCliManagedInstallWorkspace(workspacePath);
     const sourcePath = resolveAmbientCliInstallSourcePath(workspacePath, installWorkspace, normalized.source);
@@ -1102,15 +1140,20 @@ async function previewPreparedAmbientCliPackage(
   packageRoot: string,
   source: string,
   input: NormalizedInstallInput,
+  expectedPackageName?: string,
 ): Promise<AmbientCliPackageInstallPreview> {
   const candidate = await inspectAmbientCliPackage(workspacePath, packageRoot, source, input.descriptor);
-  const dependencyInstall = input.installDependencies && candidate.errors.length === 0 ? await installAmbientCliPackageDependencies(packageRoot) : undefined;
+  const identityErrors = expectedPackageName && candidate.name !== expectedPackageName
+    ? [`Bundled Ambient CLI package identity mismatch: expected "${expectedPackageName}", got "${candidate.name}".`]
+    : [];
+  const dependencyInstall = input.installDependencies && candidate.errors.length === 0 && identityErrors.length === 0 ? await installAmbientCliPackageDependencies(packageRoot) : undefined;
   const envStatus = await resolveAmbientCliEnvStatus(workspacePath, candidate);
-  const healthChecks = candidate.errors.length || (dependencyInstall && !dependencyInstall.passed)
+  const healthChecks = candidate.errors.length || identityErrors.length || (dependencyInstall && !dependencyInstall.passed)
     ? []
     : await checkAmbientCliPackageHealth(candidate, { workspacePath });
   const errors = [
     ...candidate.errors,
+    ...identityErrors,
     ...envStatus.filter((env) => env.error).map((env) => `env: ${env.name}: ${env.error}`),
     ...(dependencyInstall && !dependencyInstall.passed
       ? [`dependencies: ${dependencyInstall.error ?? dependencyInstall.stderr ?? dependencyInstall.reason ?? "failed"}`]
@@ -2776,6 +2819,55 @@ function resolveBundledAmbientCliPackageRoot(packageDir: string, options: Ensure
   return found;
 }
 
+function reviewedBundledAmbientCliPackageRootCandidates(packageDir: string): string[] {
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  const resourcesPath = process.resourcesPath;
+  const candidates = [
+    ...(resourcesPath ? [resolve(resourcesPath, "ambient-cli-packages", packageDir)] : []),
+    resolve(moduleDir, "..", "resources", "ambient-cli-packages", packageDir),
+    resolve(moduleDir, "..", "..", "resources", "ambient-cli-packages", packageDir),
+    resolve(moduleDir, "..", "..", "..", "resources", "ambient-cli-packages", packageDir),
+  ];
+  return [...new Set(candidates)];
+}
+
+function resolveReviewedBundledAmbientCliPackageRoot(firstParty: BundledFirstPartyAmbientCliPackage): string {
+  const candidates = reviewedBundledAmbientCliPackageRootCandidates(firstParty.packageDir);
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) {
+    throw new Error(`Reviewed bundled Ambient CLI package "${firstParty.packageName}" was not found. Checked trusted locations: ${candidates.join(", ")}`);
+  }
+  return found;
+}
+
+function isBundledAmbientCliInstallSource(source: string): boolean {
+  return source.trim().startsWith("bundled:");
+}
+
+function resolveFirstPartyBundledAmbientCliPackage(source: string): BundledFirstPartyAmbientCliPackage | undefined {
+  const trimmed = source.trim();
+  if (!isBundledAmbientCliInstallSource(trimmed)) return undefined;
+  const name = trimmed.slice("bundled:".length).trim();
+  const found = firstPartyAmbientCliPackages.find((pkg) =>
+    pkg.kind === "bundled" && (
+      pkg.source === trimmed ||
+      pkg.packageName === name ||
+      pkg.packageDir === name
+    ),
+  );
+  return found?.kind === "bundled" ? found : undefined;
+}
+
+function bundledAmbientCliInstallUnsupportedFields(input: NormalizedInstallInput): string[] {
+  return [
+    input.path ? "path" : undefined,
+    input.ref ? "ref" : undefined,
+    input.sha ? "sha" : undefined,
+    input.descriptor !== undefined ? "descriptor" : undefined,
+    input.installDependencies ? "installDependencies" : undefined,
+  ].filter((value): value is string => Boolean(value));
+}
+
 function normalizeInstallInput(input: InstallAmbientCliPackageInput): NormalizedInstallInput {
   return {
     source: input.source.trim(),
@@ -3582,6 +3674,7 @@ function ambientCliTestHookEnvNames(packageName: string): string[] {
   if (packageName === "ambient-faster-whisper-stt") return ["AMBIENT_FASTER_WHISPER_FAKE_TRANSCRIPT"];
   if (packageName === "ambient-hyperframes") return ["AMBIENT_HYPERFRAMES_FAKE_RENDER"];
   if (packageName === "ambient-imagegen") return ["AMBIENT_HOSTED_IMAGE_FAKE_GENERATION"];
+  if (packageName === "ambient-tinystyler") return ["AMBIENT_TINYSTYLER_FAKE_RUNTIME"];
   if (packageName === "ambient-minicpm-v-vision") return ["AMBIENT_MINICPM_V_FAKE_ANALYSIS"];
   return [];
 }

@@ -241,6 +241,12 @@ describe("Ambient install route planner", () => {
         expectedNextTool: "ambient_cli_package_preview",
       },
       {
+        name: "Ambient CLI bundled source",
+        request: "Install bundled:ambient-tinystyler for TinyStyler style transfer.",
+        expectedLane: "ambient-cli-package",
+        expectedNextTool: "ambient_cli_package_preview",
+      },
+      {
         name: "Ambient CLI local source kind",
         request: "Install this local package.",
         localPath: "./fixtures/generated-cli",

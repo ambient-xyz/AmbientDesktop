@@ -1,6 +1,10 @@
-import { app, Menu, shell, type BrowserWindow, type MenuItemConstructorOptions } from "electron";
+import { Menu, shell, type BrowserWindow, type MenuItemConstructorOptions } from "electron";
 import { AMBIENT_KEYS_URL } from "./credentialStore";
 import type { MenuCommand } from "../shared/types";
+
+export interface AppMenuOptions {
+  onCheckForUpdates?: () => void;
+}
 
 function openApiKeyDialog(window: BrowserWindow | undefined): void {
   window?.webContents.send("desktop:event", { type: "open-api-key-dialog" });
@@ -10,14 +14,22 @@ function sendCommand(window: BrowserWindow | undefined, command: MenuCommand): v
   window?.webContents.send("desktop:event", { type: "menu-command", command });
 }
 
-export function installAppMenu(getWindow: () => BrowserWindow | undefined): void {
-  const template: MenuItemConstructorOptions[] = [
-    ...(process.platform === "darwin"
+export function buildAppMenuTemplate(
+  getWindow: () => BrowserWindow | undefined,
+  options: AppMenuOptions = {},
+  platform = process.platform,
+): MenuItemConstructorOptions[] {
+  return [
+    ...(platform === "darwin"
       ? [
           {
             label: "Ambient Desktop",
             submenu: [
               { role: "about" as const },
+              {
+                label: "Check for Updates...",
+                click: () => options.onCheckForUpdates?.(),
+              },
               { type: "separator" as const },
               {
                 label: "Set Ambient API Key...",
@@ -114,6 +126,10 @@ export function installAppMenu(getWindow: () => BrowserWindow | undefined): void
       ],
     },
   ];
+}
+
+export function installAppMenu(getWindow: () => BrowserWindow | undefined, options: AppMenuOptions = {}): void {
+  const template = buildAppMenuTemplate(getWindow, options);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

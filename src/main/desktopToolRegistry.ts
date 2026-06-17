@@ -7854,10 +7854,11 @@ export const pluginInstallToolDescriptors: DesktopToolDescriptor[] = [
   {
     name: "ambient_cli_package_preview",
     label: "CLI Package Preview",
-    description: "Preview a local or pinned Git-backed Ambient CLI package without installing it.",
-    promptSnippet: "ambient_cli_package_preview: Inspect a local directory or pinned Git source for an Ambient CLI package descriptor.",
+    description: "Preview a local, reviewed bundled, or pinned Git-backed Ambient CLI package without installing it.",
+    promptSnippet: "ambient_cli_package_preview: Inspect a local directory, reviewed bundled source, or pinned Git source for an Ambient CLI package descriptor.",
     promptGuidelines: [
       "Use ambient_cli_package_preview before installing CLI packages from URL or Git references.",
+      "For reviewed first-party bundled packages, use the exact bundled:<package-name> source, for example bundled:ambient-tinystyler.",
       "For Git sources, include sha and optional path; unpinned Git installs are not supported.",
       "This tool is read-only except for temporary clone/cache work that is deleted before returning.",
       "Summarize commands, skills, health checks, and errors before asking for install approval.",
@@ -7865,7 +7866,7 @@ export const pluginInstallToolDescriptors: DesktopToolDescriptor[] = [
     inputSchema: {
       type: "object",
       properties: {
-        source: { type: "string", description: "Workspace-local package directory or Git URL/path to inspect." },
+        source: { type: "string", description: "Workspace-local package directory, reviewed bundled:<package-name> source, or Git URL/path to inspect." },
         path: { type: "string", description: "Optional package subdirectory inside a Git repository." },
         ref: { type: "string", description: "Optional Git ref for preview context." },
         sha: { type: "string", description: "Pinned Git commit SHA. Required for Git-backed install." },
@@ -7893,10 +7894,11 @@ export const pluginInstallToolDescriptors: DesktopToolDescriptor[] = [
   {
     name: "ambient_cli_package_install",
     label: "CLI Package Install",
-    description: "Install a local or pinned Git-backed descriptor-backed Ambient CLI package into Ambient-owned workspace state.",
-    promptSnippet: "ambient_cli_package_install: With approval, install a local or pinned Git-backed Ambient CLI package that declares skills and commands.",
+    description: "Install a local, reviewed bundled, or pinned Git-backed descriptor-backed Ambient CLI package into Ambient-owned workspace state.",
+    promptSnippet: "ambient_cli_package_install: With approval, install a local, reviewed bundled, or pinned Git-backed Ambient CLI package that declares skills and commands.",
     promptGuidelines: [
       "Use ambient_cli_package_install when the user asks Ambient to install a local CLI skill package.",
+      "For reviewed first-party bundled packages, use the exact bundled:<package-name> source, for example bundled:ambient-tinystyler.",
       "Do not use this tool as the primary path for user-generated capabilities. For create/build/add capability requests, use the Capability Builder plan/scaffold/preview/validate/register flow instead.",
       "For Git sources, include sha and optional path; unpinned Git installs are not supported.",
       "Only descriptor-backed packages with ambient-cli.json or package.json ambient.cli are executable.",
@@ -7910,7 +7912,7 @@ export const pluginInstallToolDescriptors: DesktopToolDescriptor[] = [
     inputSchema: {
       type: "object",
       properties: {
-        source: { type: "string", description: "Workspace-local package directory or Git URL/path to copy into Ambient-managed CLI package state." },
+        source: { type: "string", description: "Workspace-local package directory, reviewed bundled:<package-name> source, or Git URL/path to copy into Ambient-managed CLI package state." },
         path: { type: "string", description: "Optional package subdirectory inside a Git repository." },
         ref: { type: "string", description: "Optional Git ref for preview context." },
         sha: { type: "string", description: "Pinned Git commit SHA. Required for Git-backed install." },

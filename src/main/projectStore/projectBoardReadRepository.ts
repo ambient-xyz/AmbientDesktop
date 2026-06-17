@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import {
   mapProjectBoardCardRow,
+  mapProjectBoardCharterRow,
   mapProjectBoardEventRow,
   mapProjectBoardExecutionArtifactRow,
   mapProjectBoardQuestionRow,
@@ -14,6 +15,7 @@ import {
   type ProjectBoardCard,
   type ProjectBoardCardStoreRow,
   type ProjectBoardCharter,
+  type ProjectBoardCharterStoreRow,
   type ProjectBoardEvent,
   type ProjectBoardEventStoreRow,
   type ProjectBoardExecutionArtifact,
@@ -31,7 +33,6 @@ import {
 } from "./projectBoardMappers";
 
 export interface ProjectStoreProjectBoardReadRepositoryDeps {
-  getProjectBoardCharter(charterId: string): ProjectBoardCharter;
   listOrchestrationTasks(): OrchestrationTask[];
 }
 
@@ -72,13 +73,21 @@ export class ProjectStoreProjectBoardReadRepository {
     return this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardStoreRow | undefined;
   }
 
+  getProjectBoardCharter(charterId: string): ProjectBoardCharter {
+    const row = this.db.prepare("SELECT * FROM project_board_charters WHERE id = ?").get(charterId) as
+      | ProjectBoardCharterStoreRow
+      | undefined;
+    if (!row) throw new Error(`Project board charter not found: ${charterId}`);
+    return mapProjectBoardCharterRow(row);
+  }
+
   mapProjectBoard(row: ProjectBoardStoreRow): ProjectBoardSummary {
     const events = this.listProjectBoardEvents(row.id);
     const claims = projectBoardClaimSummaryFromEvents(events);
     const cards = projectBoardCardsWithClaimSummaries(this.listProjectBoardCards(row.id), claims);
     return mapProjectBoardRow({
       row,
-      charter: row.charter_id ? this.deps.getProjectBoardCharter(row.charter_id) : undefined,
+      charter: row.charter_id ? this.getProjectBoardCharter(row.charter_id) : undefined,
       cards,
       sources: this.listProjectBoardSources(row.id),
       questions: this.listProjectBoardQuestions(row.id),

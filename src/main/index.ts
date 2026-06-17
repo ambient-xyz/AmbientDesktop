@@ -160,6 +160,7 @@ import type {
   CodexPluginCatalog,
   DesktopEvent,
   DesktopState,
+  DesktopUpdateState,
   FirstPartyGoogleIntegrationState,
   GitReviewSummary,
   OrchestrationAutoDispatchStartedRun,
@@ -850,6 +851,132 @@ const desktopUpdateService = new DesktopUpdateService(
   }),
   (update) => emitMainWindowDesktopEvent({ type: "update-status", update }),
 );
+
+async function checkForUpdatesFromAppMenu(): Promise<void> {
+  try {
+    const update = await desktopUpdateService.checkForUpdates("manual");
+    await showAppMenuUpdateCheckResult(update);
+  } catch (error) {
+    await showAppMenuUpdateCheckError(error);
+  }
+}
+
+async function showAppMenuUpdateCheckResult(update: DesktopUpdateState): Promise<void> {
+  switch (update.status) {
+    case "available":
+      await showAppMenuUpdateDialog({
+        type: "info",
+        message: "An Ambient Desktop update is available.",
+        detail: updateDialogDetail([
+          update.availableVersion ? `Available version: ${update.availableVersion}` : undefined,
+          `Installed version: ${update.currentVersion}`,
+          "Open Ambient Desktop to download and install the update.",
+        ]),
+      });
+      return;
+    case "downloading":
+      await showAppMenuUpdateDialog({
+        type: "info",
+        message: "Ambient Desktop is downloading an update.",
+        detail: updateDialogDetail([
+          update.availableVersion ? `Version: ${update.availableVersion}` : undefined,
+          update.progress ? `Progress: ${Math.round(update.progress.percent)}%` : undefined,
+        ]),
+      });
+      return;
+    case "downloaded":
+      await showAppMenuUpdateDialog({
+        type: "info",
+        message: "An Ambient Desktop update is ready to install.",
+        detail: updateDialogDetail([
+          update.availableVersion ? `Version: ${update.availableVersion}` : undefined,
+          "Open Ambient Desktop to restart and install the update.",
+        ]),
+      });
+      return;
+    case "installing":
+      await showAppMenuUpdateDialog({
+        type: "info",
+        message: "Ambient Desktop will install the update while restarting.",
+        detail: updateDialogDetail([update.availableVersion ? `Version: ${update.availableVersion}` : undefined]),
+      });
+      return;
+    case "not-available":
+      await showAppMenuUpdateDialog({
+        type: "info",
+        message: "Ambient Desktop is up to date.",
+        detail: updateDialogDetail([
+          `Installed version: ${update.currentVersion}`,
+          `Channel: ${update.channel}`,
+          update.lastCheckedAt ? `Last checked: ${update.lastCheckedAt}` : undefined,
+        ]),
+      });
+      return;
+    case "checking":
+      await showAppMenuUpdateDialog({
+        type: "info",
+        message: "Ambient Desktop is already checking for updates.",
+        detail: updateDialogDetail([`Installed version: ${update.currentVersion}`, `Channel: ${update.channel}`]),
+      });
+      return;
+    case "disabled":
+      await showAppMenuUpdateDialog({
+        type: "info",
+        message: "Updates are not active.",
+        detail: update.disabledReason ?? "Ambient Desktop updates are not configured for this build.",
+      });
+      return;
+    case "error":
+      await showAppMenuUpdateDialog({
+        type: "error",
+        message: "Could not check for updates.",
+        detail: update.error ?? "Ambient Desktop could not complete the update check.",
+      });
+      return;
+    case "idle":
+      await showAppMenuUpdateDialog({
+        type: "info",
+        message: "Ambient Desktop did not start a new update check.",
+        detail: updateDialogDetail([`Installed version: ${update.currentVersion}`, `Channel: ${update.channel}`]),
+      });
+  }
+}
+
+function updateDialogDetail(lines: Array<string | undefined>): string {
+  return lines.filter((line): line is string => Boolean(line)).join("\n");
+}
+
+async function showAppMenuUpdateCheckError(error: unknown): Promise<void> {
+  await showAppMenuUpdateDialog({
+    type: "error",
+    message: "Could not check for updates.",
+    detail: error instanceof Error ? error.message : String(error),
+  });
+}
+
+async function showAppMenuUpdateDialog(options: {
+  type: "info" | "error";
+  message: string;
+  detail: string;
+}): Promise<void> {
+  const dialogOptions = {
+    type: options.type,
+    buttons: ["OK"],
+    defaultId: 0,
+    cancelId: 0,
+    title: "Ambient Desktop Updates",
+    message: options.message,
+    detail: options.detail,
+    noLink: true,
+  };
+  const window = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  if (window) {
+    await dialog.showMessageBox(window, dialogOptions);
+  } else {
+    await dialog.showMessageBox(dialogOptions);
+  }
+}
+
 export interface ProjectRuntimeHost {
   workspacePath: string;
   store: ProjectStore;
@@ -10211,9 +10338,13 @@ async function startApp(): Promise<void> {
   setDockIcon(resolveAppIconPath());
   registerIpc();
   registerWorkspaceMediaProtocol(protocol, workspaceMediaServer);
-  installAppMenu(() => mainWindow);
   await createWindow();
   desktopUpdateService.start();
+  installAppMenu(() => mainWindow, {
+    onCheckForUpdates: () => {
+      void checkForUpdatesFromAppMenu();
+    },
+  });
   void reconcileMcpContainerRuntimeOnStartup().catch((error) => {
     console.warn(`[mcp-container-runtime] startup reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
   });

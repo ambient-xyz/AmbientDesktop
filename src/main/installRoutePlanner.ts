@@ -306,7 +306,7 @@ export function planAmbientInstallRoute(input: AmbientInstallRoutePlanInput, con
       evidence: [...evidence, { kind: "manifest", summary: "Ambient CLI package source or descriptor language detected." }],
       nextTools: [
         { name: "ambient_cli_package_preview", purpose: "Preview manifest, declared commands, health checks, and installability without executing package code." },
-        { name: "ambient_cli_package_install", purpose: "Install only after preview confirms a descriptor-backed package and the user approves.", requiredBefore: ["ambient_cli_search"] },
+        { name: "ambient_cli_package_install", purpose: "Install only after preview confirms a descriptor-backed local, bundled, or pinned Git package and the user approves.", requiredBefore: ["ambient_cli_search"] },
         { name: "ambient_cli_search", purpose: "Find installed package commands after install." },
         { name: "ambient_cli_describe", purpose: "Inspect command contract before first execution.", requiredBefore: ["ambient_cli"] },
       ],
@@ -505,6 +505,7 @@ function isAmbientCliPackage(text: string, input: AmbientInstallRoutePlanInput, 
   return text.includes("ambient-cli.json") ||
     text.includes("ambient cli package") ||
     text.includes("descriptor-backed") ||
+    /\bbundled:[a-z0-9._-]+\b/.test(text) ||
     /\binstall.{0,40}\bambient\s+cli\b/.test(text);
 }
 

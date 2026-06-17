@@ -100,6 +100,18 @@ describe("desktopUpdateConfigFromEnv", () => {
     expect(config.feedUrl).toBe("https://updates.ambient.xyz/desktop/beta");
   });
 
+  it("checks for updates every half hour by default", () => {
+    const config = desktopUpdateConfigFromEnv({
+      currentVersion: "0.1.0",
+      isPackaged: true,
+      releaseChannel: "release",
+      env: {},
+    });
+
+    expect(config.startupDelayMs).toBe(10_000);
+    expect(config.checkIntervalMs).toBe(30 * 60 * 1000);
+  });
+
   it("ignores arbitrary update feed overrides in packaged production builds", () => {
     const config = desktopUpdateConfigFromEnv({
       currentVersion: "0.1.0",

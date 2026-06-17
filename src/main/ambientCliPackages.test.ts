@@ -875,6 +875,138 @@ describe("Ambient CLI packages", () => {
     }
   }, 15_000);
 
+  it("installs bundled TinyStyler and runs its deterministic contract path", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-first-party-tinystyler-"));
+    const previousPwd = process.env.PWD;
+    try {
+      const shadowRoot = join(workspace, "shadow-launch-cwd");
+      const shadowPackageRoot = join(shadowRoot, "resources", "ambient-cli-packages", "ambient-tinystyler");
+      await mkdir(shadowPackageRoot, { recursive: true });
+      await writeFile(join(shadowPackageRoot, "ambient-cli.json"), JSON.stringify({
+        name: "ambient-tinystyler-shadow",
+        version: "9.9.9",
+        commands: {
+          shadow: {
+            command: "python3",
+            args: ["-c", "raise SystemExit(99)"],
+          },
+        },
+      }), "utf8");
+      process.env.PWD = shadowRoot;
+
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "bundled:ambient-tinystyler",
+      });
+      expect(preview).toMatchObject({
+        source: "bundled:ambient-tinystyler",
+        installable: true,
+        candidate: expect.objectContaining({ name: "ambient-tinystyler" }),
+      });
+
+      const installed = await installAmbientCliPackageSource(workspace, {
+        source: "bundled:ambient-tinystyler",
+      });
+      expect(installed).toMatchObject({
+        name: "ambient-tinystyler",
+        source: expect.stringMatching(/^\.\/\.ambient\/cli-packages\/imported\/ambient-tinystyler-/),
+        installed: true,
+      });
+
+      const search = await searchAmbientCliCapabilities(workspace, { query: "TinyStyler writing style transfer profile examples", limit: 5 });
+      const tinystylerSearch = search.results.find((result) => result.packageName === "ambient-tinystyler");
+      expect(tinystylerSearch).toMatchObject({
+        packageName: "ambient-tinystyler",
+        availability: "available",
+        commands: expect.arrayContaining([
+          expect.objectContaining({ name: "tinystyler_doctor", health: "passed" }),
+          expect.objectContaining({ name: "tinystyler_profile" }),
+          expect.objectContaining({ name: "tinystyler_transfer" }),
+        ]),
+        skills: [expect.objectContaining({ name: "ambient-tinystyler" })],
+      });
+      expect(tinystylerSearch?.commands.find((command) => command.name === "tinystyler_profile")?.health).not.toBe("passed");
+      expect(tinystylerSearch?.commands.find((command) => command.name === "tinystyler_transfer")?.health).not.toBe("passed");
+
+      const description = await describeAmbientCliPackage(workspace, {
+        packageName: "ambient-tinystyler",
+        includeSkill: true,
+      });
+      expect(description.package).toMatchObject({
+        name: "ambient-tinystyler",
+        availability: "available",
+      });
+      expect(description.commands.map((command) => command.name)).toEqual([
+        "tinystyler_doctor",
+        "tinystyler_profile",
+        "tinystyler_transfer",
+      ]);
+      expect(description.skills[0]?.text).toContain("reusable TinyStyler style profiles");
+
+      const doctor = await runAmbientCliPackageCommand(workspace, {
+        packageName: "ambient-tinystyler",
+        command: "tinystyler_doctor",
+        args: ["--json"],
+      });
+      expect(JSON.parse(doctor.stdout ?? "{}")).toMatchObject({
+        packageName: "ambient-tinystyler",
+        status: "contract_ready",
+        ready: false,
+        realRuntimeImplemented: false,
+        revisions: {
+          tinystyler: "2a879107b2ec342e57170b82cdc344d5179fa32b",
+        },
+      });
+
+      const examplesPath = join(workspace, "examples.txt");
+      const sourcePath = join(workspace, "source.txt");
+      const profilePath = join(workspace, ".ambient", "tinystyler", "profiles", "support.json");
+      const outputPath = join(workspace, ".ambient", "tinystyler", "outputs", "styled.txt");
+      await writeFile(examplesPath, "Thanks for the careful report.\n\nI can help with that next step.\n", "utf8");
+      await writeFile(sourcePath, "Please inspect the logs and suggest the next action.", "utf8");
+
+      const profile = await runAmbientCliPackageCommand(workspace, {
+        packageName: "ambient-tinystyler",
+        command: "tinystyler_profile",
+        args: ["--examples-file", examplesPath, "--output-profile", profilePath, "--profile-name", "support-replies", "--seed", "11", "--fake", "--json"],
+      });
+      expect(JSON.parse(profile.stdout ?? "{}")).toMatchObject({
+        packageName: "ambient-tinystyler",
+        status: "profile_created",
+        fake: true,
+        profileName: "support-replies",
+      });
+      const savedProfile = JSON.parse(await readFile(profilePath, "utf8"));
+      expect(savedProfile.embedding.values).toHaveLength(768);
+      expect(savedProfile.sourceSummary.rawTextPersisted).toBe(false);
+      expect(savedProfile.sourceSummary.exactSourceVerifiersPersisted).toBe(false);
+      expect(savedProfile.sourceSummary).not.toHaveProperty("sourceHashes");
+      expect(JSON.stringify(savedProfile)).not.toContain("careful report");
+
+      const transfer = await runAmbientCliPackageCommand(workspace, {
+        packageName: "ambient-tinystyler",
+        command: "tinystyler_transfer",
+        args: ["--input-file", sourcePath, "--profile", profilePath, "--output-file", outputPath, "--seed", "11", "--fake", "--json"],
+      });
+      expect(JSON.parse(transfer.stdout ?? "{}")).toMatchObject({
+        packageName: "ambient-tinystyler",
+        status: "transfer_created",
+        fake: true,
+        profileName: "support-replies",
+      });
+      expect(JSON.parse(transfer.stdout ?? "{}")).not.toHaveProperty("textPreview");
+      await expect(readFile(outputPath, "utf8")).resolves.toContain("support-replies style transfer");
+      expect(transfer.stdout).not.toContain("careful report");
+      expect(transfer.stdout).not.toContain("inspect the logs");
+    } finally {
+      if (previousPwd === undefined) {
+        delete process.env.PWD;
+      } else {
+        process.env.PWD = previousPwd;
+      }
+      await rm(workspace, { recursive: true, force: true });
+    }
+  }, 15_000);
+
   it("installs the bundled MiniCPM-V vision package only when explicitly requested", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-first-party-minicpm-v-vision-"));
     const previousFakeAnalysis = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;

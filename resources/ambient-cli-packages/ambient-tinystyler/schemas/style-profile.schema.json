@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ambient.local/schemas/tinystyler/style-profile.schema.json",
+  "title": "Ambient TinyStyler Style Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "profileName",
+    "createdAt",
+    "sourceSummary",
+    "createdWith",
+    "embedding",
+    "generationDefaults",
+    "safety"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "ambient.tinystyler.profile.v1" },
+    "profileName": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "sourceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "rawTextPersisted": { "const": false } },
+            "required": ["rawTextPersisted"]
+          },
+          "then": {
+            "not": { "required": ["sourceExamples"] }
+          }
+        },
+        {
+          "if": {
+            "properties": { "rawTextPersisted": { "const": true } },
+            "required": ["rawTextPersisted"]
+          },
+          "then": {
+            "required": ["sourceExamples"]
+          }
+        }
+      ],
+      "required": ["exampleCount", "charCount", "rawTextPersisted", "exactSourceVerifiersPersisted"],
+      "properties": {
+        "exampleCount": { "type": "integer", "minimum": 1 },
+        "charCount": { "type": "integer", "minimum": 1 },
+        "rawTextPersisted": { "type": "boolean" },
+        "exactSourceVerifiersPersisted": { "type": "boolean", "const": false },
+        "sourceExamples": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "createdWith": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageVersion", "tinystylerRevision", "styleEmbeddingRevision"],
+      "properties": {
+        "packageVersion": { "type": "string", "minLength": 1 },
+        "tinystylerRevision": { "type": "string", "minLength": 1 },
+        "styleEmbeddingRevision": { "type": "string", "minLength": 1 },
+        "t5Revision": { "type": "string", "minLength": 1 },
+        "runtimeMode": { "type": "string", "minLength": 1 }
+      }
+    },
+    "embedding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "dimension", "pooling", "dtype", "values"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "dimension": { "const": 768 },
+        "pooling": { "type": "string", "minLength": 1 },
+        "dtype": { "type": "string", "minLength": 1 },
+        "values": {
+          "type": "array",
+          "minItems": 768,
+          "maxItems": 768,
+          "items": { "type": "number" }
+        }
+      }
+    },
+    "generationDefaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "temperature", "topP", "maxNewTokens"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "temperature": { "type": "number", "minimum": 0 },
+        "topP": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maxNewTokens": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impersonationWarningShown", "intendedUse"],
+      "properties": {
+        "impersonationWarningShown": { "type": "boolean" },
+        "intendedUse": { "type": "string", "minLength": 1 },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

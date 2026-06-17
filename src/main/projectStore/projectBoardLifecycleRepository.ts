@@ -1,13 +1,21 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import type { ProjectBoardEvent, ProjectBoardStatus, ProjectBoardSummary } from "../../shared/projectBoardTypes";
+import type {
+  ProjectBoardCharterProjectSummary,
+  ProjectBoardEvent,
+  ProjectBoardQuestion,
+  ProjectBoardSource,
+  ProjectBoardStatus,
+  ProjectBoardSummary,
+} from "../../shared/projectBoardTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import { parseJsonObject } from "../projectStoreJson";
+import { parseJsonObject, parseStringList } from "../projectStoreJson";
 import type {
   ProjectBoardCharterStoreRow,
   ProjectBoardEventStoreRow,
   ProjectBoardStoreRow,
 } from "./projectBoardMappers";
+import { buildProjectBoardCharterProjectSummary, compileProjectBoardCharter } from "./projectBoardMappers";
 
 export type ProjectBoardLifecycleEventInput = Omit<ProjectBoardEvent, "id" | "createdAt"> & {
   createdAt?: string;
@@ -19,6 +27,8 @@ export interface ProjectStoreProjectBoardLifecycleRepositoryDeps {
   getProjectBoardForPath(projectPath: string, sourceThreadId?: string): ProjectBoardSummary | undefined;
   mapProjectBoard(row: ProjectBoardStoreRow): ProjectBoardSummary;
   ensureProjectBoardQuestions(boardId: string): void;
+  listProjectBoardQuestions(boardId: string): ProjectBoardQuestion[];
+  listProjectBoardSources(boardId: string): ProjectBoardSource[];
   appendProjectBoardEvent(input: ProjectBoardLifecycleEventInput): void;
 }
 
@@ -140,6 +150,164 @@ export class ProjectStoreProjectBoardLifecycleRepository {
     const row = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardStoreRow | undefined;
     if (!row) throw new Error(`Project board not found: ${boardId}`);
     return this.deps.mapProjectBoard(row);
+  }
+
+  finalizeProjectBoardKickoff(boardId: string): ProjectBoardSummary {
+    const boardRow = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardStoreRow | undefined;
+    if (!boardRow) throw new Error(`Project board not found: ${boardId}`);
+    const questions = this.deps.listProjectBoardQuestions(boardId);
+    const unanswered = questions.filter((question) => question.required && !question.answer?.trim());
+    if (unanswered.length > 0) throw new Error("Answer required kickoff questions before finalizing the project board.");
+    const charterId = boardRow.charter_id;
+    if (!charterId) throw new Error("Project board has no charter to finalize.");
+    const charterRow = this.db.prepare("SELECT * FROM project_board_charters WHERE id = ?").get(charterId) as
+      | ProjectBoardCharterStoreRow
+      | undefined;
+    if (!charterRow) throw new Error(`Project board charter not found: ${charterId}`);
+    const sources = this.deps.listProjectBoardSources(boardId);
+    const now = new Date().toISOString();
+    const compiled = compileProjectBoardCharter(boardRow, questions, sources);
+    const projectSummary = buildProjectBoardCharterProjectSummary({
+      board: boardRow,
+      questions,
+      sources,
+      compiled,
+      generatedAt: now,
+    });
+    const transaction = this.db.transaction(() => {
+      this.db
+        .prepare("UPDATE project_board_charters SET status = 'superseded', updated_at = ? WHERE board_id = ? AND id != ? AND status IN ('active', 'draft')")
+        .run(now, boardId, charterId);
+      this.db
+        .prepare(
+          `UPDATE project_board_charters
+           SET status = 'active',
+               goal = ?,
+               current_state = ?,
+               target_user = ?,
+               non_goals_json = ?,
+               quality_bar = ?,
+               test_policy_json = ?,
+               decision_policy_json = ?,
+               dependency_policy_json = ?,
+               budget_policy_json = ?,
+               source_policy_json = ?,
+               markdown = ?,
+               project_summary_json = ?,
+               updated_at = ?
+           WHERE id = ?`,
+        )
+        .run(
+          compiled.goal,
+          compiled.currentState,
+          compiled.targetUser,
+          JSON.stringify(compiled.nonGoals),
+          compiled.qualityBar,
+          JSON.stringify(compiled.testPolicy),
+          JSON.stringify(compiled.decisionPolicy),
+          JSON.stringify(compiled.dependencyPolicy),
+          JSON.stringify(compiled.budgetPolicy),
+          JSON.stringify(compiled.sourcePolicy),
+          compiled.markdown,
+          JSON.stringify(projectSummary),
+          now,
+          charterId,
+        );
+      this.db
+        .prepare("UPDATE project_boards SET status = 'active', summary = ?, updated_at = ? WHERE id = ?")
+        .run(compiled.summary, now, boardId);
+      this.deps.appendProjectBoardEvent({
+        boardId,
+        kind: "charter_finalized",
+        title: "Charter finalized",
+        summary: compiled.goal,
+        entityKind: "project_board_charter",
+        entityId: charterId,
+        metadata: { charterId, version: charterRow.version, sourceCount: sources.length, projectSummaryGenerator: projectSummary.generator },
+        createdAt: now,
+      });
+    });
+    transaction();
+    const updated = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardStoreRow | undefined;
+    if (!updated) throw new Error(`Project board not found after finalization: ${boardId}`);
+    return this.deps.mapProjectBoard(updated);
+  }
+
+  buildActiveProjectBoardCharterProjectSummary(
+    boardId: string,
+    generatedAt = new Date().toISOString(),
+  ): ProjectBoardCharterProjectSummary {
+    const boardRow = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardStoreRow | undefined;
+    if (!boardRow) throw new Error(`Project board not found: ${boardId}`);
+    const charterId = boardRow.charter_id;
+    if (!charterId) throw new Error("Project board has no active charter.");
+    const charterRow = this.db.prepare("SELECT * FROM project_board_charters WHERE id = ?").get(charterId) as
+      | ProjectBoardCharterStoreRow
+      | undefined;
+    if (!charterRow) throw new Error(`Project board charter not found: ${charterId}`);
+    const questions = this.deps.listProjectBoardQuestions(boardId);
+    const sources = this.deps.listProjectBoardSources(boardId);
+    return buildProjectBoardCharterProjectSummary({
+      board: boardRow,
+      questions,
+      sources,
+      compiled: {
+        goal: charterRow.goal,
+        currentState: charterRow.current_state,
+        targetUser: charterRow.target_user,
+        nonGoals: parseStringList(charterRow.non_goals_json),
+        qualityBar: charterRow.quality_bar,
+        testPolicy: parseJsonObject<Record<string, unknown>>(charterRow.test_policy_json, {}),
+        decisionPolicy: parseJsonObject<Record<string, unknown>>(charterRow.decision_policy_json, {}),
+        dependencyPolicy: parseJsonObject<Record<string, unknown>>(charterRow.dependency_policy_json, {}),
+        budgetPolicy: parseJsonObject<Record<string, unknown>>(charterRow.budget_policy_json, {}),
+        sourcePolicy: parseJsonObject<Record<string, unknown>>(charterRow.source_policy_json, {}),
+        summary: charterRow.goal.slice(0, 500),
+        markdown: charterRow.markdown,
+      },
+      generatedAt,
+    });
+  }
+
+  updateProjectBoardCharterProjectSummary(input: {
+    boardId: string;
+    summary: ProjectBoardCharterProjectSummary;
+    title?: string;
+    eventSummary?: string;
+    metadata?: Record<string, unknown>;
+    createdAt?: string;
+  }): ProjectBoardSummary {
+    const boardRow = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(input.boardId) as ProjectBoardStoreRow | undefined;
+    if (!boardRow) throw new Error(`Project board not found: ${input.boardId}`);
+    const charterId = boardRow.charter_id;
+    if (!charterId) throw new Error("Project board has no active charter.");
+    const now = input.createdAt ?? new Date().toISOString();
+    const transaction = this.db.transaction(() => {
+      const result = this.db
+        .prepare("UPDATE project_board_charters SET project_summary_json = ?, updated_at = ? WHERE id = ?")
+        .run(JSON.stringify(input.summary), now, charterId);
+      if (result.changes <= 0) throw new Error(`Project board charter not found: ${charterId}`);
+      this.db.prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, input.boardId);
+      this.deps.appendProjectBoardEvent({
+        boardId: input.boardId,
+        kind: "charter_summary_refreshed",
+        title: input.title?.trim() || "Charter project summary refreshed",
+        summary: input.eventSummary?.trim() || `Updated active charter project summary using ${input.summary.generator}.`,
+        entityKind: "project_board_charter",
+        entityId: charterId,
+        metadata: {
+          generator: input.summary.generator,
+          sourceChecksumCount: input.summary.sourceChecksumSet.length,
+          charterAnswerChecksum: input.summary.charterAnswerChecksum,
+          ...(input.metadata ?? {}),
+        },
+        createdAt: now,
+      });
+    });
+    transaction();
+    const updated = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(input.boardId) as ProjectBoardStoreRow | undefined;
+    if (!updated) throw new Error(`Project board not found after charter summary update: ${input.boardId}`);
+    return this.deps.mapProjectBoard(updated);
   }
 
   resetProjectBoard(boardId: string): void {

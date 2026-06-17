@@ -1259,6 +1259,10 @@ describeNative("ProjectStore orchestration tasks (requires Node ABI better-sqlit
 
   it("persists the last active thread id across workspace reopen", () => {
     const thread = store.createThread("Last used");
+
+    store.setLastActiveThreadId("missing-thread");
+    expect(store.getLastActiveThreadId()).toBeUndefined();
+
     store.setLastActiveThreadId(thread.id);
 
     store.close();
@@ -1583,6 +1587,57 @@ describeNative("ProjectStore orchestration tasks (requires Node ABI better-sqlit
       title: "Charter finalized",
       entityId: finalized.charterId,
       metadata: expect.objectContaining({ sourceCount: 2, projectSummaryGenerator: "fallback_heuristic" }),
+    });
+  });
+
+  it("refreshes active charter project summary snapshots", () => {
+    const board = store.createProjectBoard({ title: "Charter summary board", summary: "Coordinate summary refresh." });
+    store.replaceProjectBoardSources(board.id, [
+      {
+        kind: "functional_spec",
+        title: "Product spec",
+        summary: "Spec covers persistence, source authority, and validation.",
+        path: "product.md",
+        relevance: 95,
+      },
+    ]);
+    const answers = [
+      "Ship the active charter summary refresh.",
+      "Use product.md as the source authority.",
+      "Ask for product scope changes.",
+      "Require focused persistence proof.",
+      "Refresh summaries after source changes.",
+    ];
+    for (const [index, question] of store.getActiveProjectBoard()!.questions.entries()) {
+      store.answerProjectBoardQuestion(question.id, answers[index]);
+    }
+    store.finalizeProjectBoardKickoff(board.id);
+
+    const summary = store.buildActiveProjectBoardCharterProjectSummary(board.id, "2026-06-16T01:00:00.000Z");
+    const refreshed = store.updateProjectBoardCharterProjectSummary({
+      boardId: board.id,
+      summary,
+      title: "Summary refreshed",
+      eventSummary: "Refreshed active charter summary.",
+      metadata: { reason: "source-refresh" },
+      createdAt: "2026-06-16T01:01:00.000Z",
+    });
+
+    expect(refreshed.charter?.projectSummary).toMatchObject({
+      generator: "fallback_heuristic",
+      generatedAt: "2026-06-16T01:00:00.000Z",
+      charterAnswerChecksum: summary.charterAnswerChecksum,
+    });
+    expect(refreshed.events?.find((event) => event.kind === "charter_summary_refreshed")).toMatchObject({
+      kind: "charter_summary_refreshed",
+      title: "Summary refreshed",
+      summary: "Refreshed active charter summary.",
+      entityId: refreshed.charterId,
+      metadata: expect.objectContaining({
+        sourceChecksumCount: 1,
+        charterAnswerChecksum: summary.charterAnswerChecksum,
+        reason: "source-refresh",
+      }),
     });
   });
 

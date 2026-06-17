@@ -1,6 +1,6 @@
 {
   "name": "ambient-desktop",
-  "version": "0.1.69",
+  "version": "0.1.70",
   "description": "A local-first developer workstation for durable, inspectable agentic work.",
   "author": "Mechanus Labs Inc.",
   "license": "MIT",

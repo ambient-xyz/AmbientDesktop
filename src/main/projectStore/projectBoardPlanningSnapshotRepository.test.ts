@@ -14,9 +14,6 @@ describe("ProjectStoreProjectBoardPlanningSnapshotRepository", () => {
     applyProjectStoreBootstrapSchema(db);
     insertBoard(db, "board-1");
     const readRepository = new ProjectStoreProjectBoardReadRepository(db, {
-      getProjectBoardCharter: (charterId) => {
-        throw new Error(`Unexpected charter lookup in planning snapshot test: ${charterId}`);
-      },
       listOrchestrationTasks: () => [],
     });
     repository = new ProjectStoreProjectBoardPlanningSnapshotRepository(db, {

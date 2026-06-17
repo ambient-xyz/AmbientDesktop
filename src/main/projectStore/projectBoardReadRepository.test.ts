@@ -17,9 +17,6 @@ describe("ProjectStoreProjectBoardReadRepository", () => {
     db = new Database(":memory:");
     applyProjectStoreBootstrapSchema(db);
     repository = new ProjectStoreProjectBoardReadRepository(db, {
-      getProjectBoardCharter: (charterId) => {
-        throw new Error(`Unexpected charter lookup: ${charterId}`);
-      },
       listOrchestrationTasks: () => [],
     });
   });
@@ -114,6 +111,51 @@ describe("ProjectStoreProjectBoardReadRepository", () => {
     expect(board.events?.map((event) => event.id)).toEqual(["event-new", "event-old"]);
   });
 
+  it("owns charter lookup and board charter hydration", () => {
+    insertBoard(db, {
+      id: "board-charter",
+      projectPath: "/workspace",
+      title: "Chartered board",
+      charterId: "charter-1",
+      updatedAt: "2026-06-06T20:00:00.000Z",
+    });
+    insertCharter(db, {
+      id: "charter-1",
+      boardId: "board-charter",
+      goal: "Ship the chartered board.",
+      projectSummaryJson: JSON.stringify({
+        generator: "fallback_heuristic",
+        summary: "Ship the chartered board.",
+        majorSystems: ["State and persistence"],
+        sourceCoverage: [],
+        risks: [],
+        dependencyHints: [],
+        unresolvedDecisions: [],
+        citations: [],
+        coverageGaps: [],
+        sourceChecksumSet: [],
+        charterAnswerChecksum: "checksum-1",
+        kickoffContextBrief: { includedSourceCount: 0, ignoredSourceCount: 0, sourceNotes: [], generatedAt: "2026-06-06T20:00:00.000Z" },
+        generatedAt: "2026-06-06T20:00:00.000Z",
+      }),
+    });
+
+    expect(repository.getProjectBoardCharter("charter-1")).toMatchObject({
+      id: "charter-1",
+      boardId: "board-charter",
+      goal: "Ship the chartered board.",
+      projectSummary: expect.objectContaining({ charterAnswerChecksum: "checksum-1" }),
+    });
+    expect(repository.mapProjectBoard(repository.getProjectBoardRow("board-charter")!)).toMatchObject({
+      id: "board-charter",
+      charter: expect.objectContaining({
+        id: "charter-1",
+        goal: "Ship the chartered board.",
+      }),
+    });
+    expect(() => repository.getProjectBoardCharter("missing-charter")).toThrow("Project board charter not found: missing-charter");
+  });
+
   it("respects source-thread precedence and card lookup behavior", () => {
     insertBoard(db, {
       id: "board-global",
@@ -153,15 +195,36 @@ function insertBoard(
     projectPath: string;
     title: string;
     sourceThreadId?: string;
+    charterId?: string;
     status?: string;
     updatedAt: string;
   },
 ): void {
   db.prepare(
     `INSERT INTO project_boards
-      (id, project_path, source_thread_id, status, title, summary, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, '', ?, ?)`,
-  ).run(input.id, input.projectPath, input.sourceThreadId ?? null, input.status ?? "active", input.title, input.updatedAt, input.updatedAt);
+      (id, project_path, source_thread_id, status, title, summary, charter_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, '', ?, ?, ?)`,
+  ).run(input.id, input.projectPath, input.sourceThreadId ?? null, input.status ?? "active", input.title, input.charterId ?? null, input.updatedAt, input.updatedAt);
+}
+
+function insertCharter(
+  db: Database.Database,
+  input: {
+    id: string;
+    boardId: string;
+    goal: string;
+    projectSummaryJson?: string;
+  },
+): void {
+  db.prepare(
+    `INSERT INTO project_board_charters
+      (id, board_id, version, status, goal, current_state, target_user, non_goals_json, quality_bar,
+       test_policy_json, decision_policy_json, dependency_policy_json, budget_policy_json, source_policy_json,
+       markdown, project_summary_json, created_at, updated_at)
+     VALUES (?, ?, 1, 'active', ?, 'Current state', 'Target user', '[]', 'Quality bar',
+       '{"unit":true}', '{"defaultPolicy":"ask"}', '{"ordering":"blockers_first"}', '{"maxPassesPerCard":6}', '{"policy":"source"}',
+       '# Charter', ?, '2026-06-06T20:00:00.000Z', '2026-06-06T20:00:00.000Z')`,
+  ).run(input.id, input.boardId, input.goal, input.projectSummaryJson ?? null);
 }
 
 function insertCard(

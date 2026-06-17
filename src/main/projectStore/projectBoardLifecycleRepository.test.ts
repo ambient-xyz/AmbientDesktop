@@ -1,12 +1,19 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ProjectBoardSummary } from "../../shared/projectBoardTypes";
+import type { ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
 import {
   ProjectStoreProjectBoardLifecycleRepository,
   type ProjectBoardLifecycleEventInput,
 } from "./projectBoardLifecycleRepository";
-import type { ProjectBoardCharterStoreRow, ProjectBoardStoreRow } from "./projectBoardMappers";
+import {
+  mapProjectBoardQuestionRow,
+  mapProjectBoardSourceRow,
+  type ProjectBoardCharterStoreRow,
+  type ProjectBoardQuestionStoreRow,
+  type ProjectBoardSourceStoreRow,
+  type ProjectBoardStoreRow,
+} from "./projectBoardMappers";
 
 describe("ProjectStoreProjectBoardLifecycleRepository", () => {
   let db: Database.Database;
@@ -27,6 +34,8 @@ describe("ProjectStoreProjectBoardLifecycleRepository", () => {
       ensureProjectBoardQuestions: (boardId) => {
         ensuredQuestions.push(boardId);
       },
+      listProjectBoardQuestions: (boardId) => listQuestions(db, boardId),
+      listProjectBoardSources: (boardId) => listSources(db, boardId),
       appendProjectBoardEvent: (event) => {
         events.push(event);
         db.prepare(
@@ -147,6 +156,113 @@ describe("ProjectStoreProjectBoardLifecycleRepository", () => {
       metadata: expect.objectContaining({ restoredCharterId: originalCharterId, canceledCharterId: revision.charterId }),
     });
   });
+
+  it("finalizes kickoff answers into active charter rows and lifecycle eventing", () => {
+    const board = repository.createProjectBoard({ title: "Charter lifecycle board", summary: "Coordinate the launch." });
+    insertQuestion(db, { boardId: board.id, id: "q-1", questionOrder: 0, question: "Goal?", answer: "Ship a reliable project board." });
+    insertQuestion(db, { boardId: board.id, id: "q-2", questionOrder: 1, question: "Sources?", answer: "Use architecture.md as source authority." });
+    insertQuestion(db, { boardId: board.id, id: "q-3", questionOrder: 2, question: "Decisions?", answer: "Ask when scope is ambiguous." });
+    insertQuestion(db, { boardId: board.id, id: "q-4", questionOrder: 3, question: "Proof?", answer: "Require focused unit and integration proof." });
+    insertQuestion(db, { boardId: board.id, id: "q-5", questionOrder: 4, question: "Execution?", answer: undefined });
+
+    expect(() => repository.finalizeProjectBoardKickoff(board.id)).toThrow("Answer required kickoff questions");
+    db.prepare("UPDATE project_board_questions SET answer = ?, answered_at = ? WHERE id = ?").run(
+      "Work dependency-ready cards first.",
+      "2026-06-16T00:00:00.000Z",
+      "q-5",
+    );
+    insertSource(db, {
+      boardId: board.id,
+      id: "source-1",
+      kind: "architecture_artifact",
+      title: "System architecture",
+      summary: "Durable architecture notes.",
+      path: "architecture.md",
+      relevance: 92,
+    });
+
+    const finalized = repository.finalizeProjectBoardKickoff(board.id);
+    const charter = getCharter(db, board.charterId!)!;
+    const projectSummary = JSON.parse(charter.project_summary_json ?? "{}") as Record<string, unknown>;
+
+    expect(finalized).toMatchObject({
+      id: board.id,
+      status: "active",
+      summary: "Ship a reliable project board.",
+    });
+    expect(charter).toMatchObject({
+      status: "active",
+      goal: "Ship a reliable project board.",
+      quality_bar: "Require focused unit and integration proof.",
+    });
+    expect(charter.markdown).toContain("System architecture (architecture_artifact: architecture.md)");
+    expect(projectSummary).toMatchObject({
+      generator: "fallback_heuristic",
+      summary: expect.stringContaining("Ship a reliable project board."),
+    });
+    expect(events.at(-1)).toMatchObject({
+      kind: "charter_finalized",
+      title: "Charter finalized",
+      entityId: board.charterId,
+      metadata: expect.objectContaining({ sourceCount: 1, projectSummaryGenerator: "fallback_heuristic" }),
+    });
+  });
+
+  it("builds and persists active charter project summary refreshes", () => {
+    const board = repository.createProjectBoard({ title: "Summary refresh board", summary: "Coordinate the summary." });
+    insertQuestion(db, { boardId: board.id, id: "summary-q-1", questionOrder: 0, question: "Goal?", answer: "Ship the summary refresh path." });
+    insertQuestion(db, { boardId: board.id, id: "summary-q-2", questionOrder: 1, question: "Sources?", answer: "Use product.md as source authority." });
+    insertQuestion(db, { boardId: board.id, id: "summary-q-3", questionOrder: 2, question: "Decisions?", answer: "Ask for product scope changes." });
+    insertQuestion(db, { boardId: board.id, id: "summary-q-4", questionOrder: 3, question: "Proof?", answer: "Require focused persistence proof." });
+    insertQuestion(db, { boardId: board.id, id: "summary-q-5", questionOrder: 4, question: "Execution?", answer: "Refresh summaries after source changes." });
+    insertSource(db, {
+      boardId: board.id,
+      id: "summary-source-1",
+      kind: "functional_spec",
+      title: "Product spec",
+      summary: "Spec covers persistence, source authority, and validation.",
+      path: "product.md",
+      relevance: 95,
+    });
+    repository.finalizeProjectBoardKickoff(board.id);
+
+    const summary = repository.buildActiveProjectBoardCharterProjectSummary(board.id, "2026-06-16T01:00:00.000Z");
+    const updated = repository.updateProjectBoardCharterProjectSummary({
+      boardId: board.id,
+      summary,
+      title: "Summary refreshed",
+      eventSummary: "Refreshed summary after source scan.",
+      metadata: { reason: "test-refresh" },
+      createdAt: "2026-06-16T01:01:00.000Z",
+    });
+    const charter = getCharter(db, board.charterId!)!;
+    const persistedSummary = JSON.parse(charter.project_summary_json ?? "{}") as Record<string, unknown>;
+
+    expect(summary).toMatchObject({
+      generator: "fallback_heuristic",
+      generatedAt: "2026-06-16T01:00:00.000Z",
+      summary: expect.stringContaining("Ship the summary refresh path."),
+      sourceCoverage: expect.arrayContaining([expect.stringContaining("product.md")]),
+    });
+    expect(updated).toMatchObject({ id: board.id, status: "active" });
+    expect(persistedSummary).toMatchObject({
+      generator: "fallback_heuristic",
+      generatedAt: "2026-06-16T01:00:00.000Z",
+      charterAnswerChecksum: summary.charterAnswerChecksum,
+    });
+    expect(events.at(-1)).toMatchObject({
+      kind: "charter_summary_refreshed",
+      title: "Summary refreshed",
+      summary: "Refreshed summary after source scan.",
+      entityId: board.charterId,
+      metadata: expect.objectContaining({
+        generator: "fallback_heuristic",
+        sourceChecksumCount: 1,
+        charterAnswerChecksum: summary.charterAnswerChecksum,
+        reason: "test-refresh",
+      }),
+    });
+  });
 });
 
 function mapBoard(row: ProjectBoardStoreRow): ProjectBoardSummary {
@@ -206,4 +322,60 @@ function listCharterVersions(db: Database.Database, boardId: string): Array<{ id
   return db
     .prepare("SELECT id, version, status FROM project_board_charters WHERE board_id = ? ORDER BY version ASC")
     .all(boardId) as Array<{ id: string; version: number; status: string }>;
+}
+
+function insertQuestion(
+  db: Database.Database,
+  input: {
+    boardId: string;
+    id: string;
+    questionOrder: number;
+    question: string;
+    answer?: string;
+  },
+): void {
+  db.prepare(
+    `INSERT INTO project_board_questions
+      (id, board_id, question_order, question, required, answer, answered_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 1, ?, ?, '2026-06-16T00:00:00.000Z', '2026-06-16T00:00:00.000Z')`,
+  ).run(input.id, input.boardId, input.questionOrder, input.question, input.answer ?? null, input.answer ? "2026-06-16T00:00:00.000Z" : null);
+}
+
+function listQuestions(db: Database.Database, boardId: string): ProjectBoardQuestion[] {
+  const rows = db
+    .prepare("SELECT * FROM project_board_questions WHERE board_id = ? ORDER BY question_order ASC, rowid ASC")
+    .all(boardId) as ProjectBoardQuestionStoreRow[];
+  return rows.map((row) => mapProjectBoardQuestionRow(row));
+}
+
+function insertSource(
+  db: Database.Database,
+  input: {
+    boardId: string;
+    id: string;
+    kind: ProjectBoardSource["kind"];
+    title: string;
+    summary: string;
+    path?: string;
+    relevance: number;
+  },
+): void {
+  db.prepare(
+    `INSERT INTO project_board_sources
+      (id, board_id, source_kind, source_key, content_hash, change_state, title, summary, excerpt, path, thread_id, artifact_id, message_id,
+       byte_size, mtime, classification_reason, classified_by, classification_confidence, authority_role, include_in_synthesis, relevance, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'new', ?, ?, '', ?, NULL, NULL, NULL, NULL, NULL, '', 'user', 1, 'primary', 1, ?,
+       '2026-06-16T00:00:00.000Z', '2026-06-16T00:00:00.000Z')`,
+  ).run(input.id, input.boardId, input.kind, `${input.kind}:${input.path ?? input.id}`, `${input.title}:hash`, input.title, input.summary, input.path ?? null, input.relevance);
+}
+
+function listSources(db: Database.Database, boardId: string): ProjectBoardSource[] {
+  const rows = db
+    .prepare(
+      `SELECT * FROM project_board_sources
+       WHERE board_id = ?
+       ORDER BY relevance DESC, updated_at DESC, title ASC`,
+    )
+    .all(boardId) as ProjectBoardSourceStoreRow[];
+  return rows.map(mapProjectBoardSourceRow);
 }

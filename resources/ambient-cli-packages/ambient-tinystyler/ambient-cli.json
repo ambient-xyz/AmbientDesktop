@@ -1,0 +1,65 @@
+{
+  "name": "ambient-tinystyler",
+  "version": "0.1.0",
+  "description": "Local TinyStyler few-shot text style transfer through reusable style profiles.",
+  "skills": "./SKILL.md",
+  "networkHosts": [
+    "huggingface.co",
+    "cdn-lfs.huggingface.co",
+    "pypi.org",
+    "files.pythonhosted.org"
+  ],
+  "modelAssets": [
+    {
+      "name": "tinystyler-transfer-weights",
+      "url": "https://huggingface.co/tinystyler/tinystyler/resolve/2a879107b2ec342e57170b82cdc344d5179fa32b/tinystyler_model_weights.pt",
+      "cachePath": "models/tinystyler_model_weights.pt",
+      "expectedSizeBytes": 3136036422,
+      "sha256": "8b60d2c32bb46fc0ffe3329a48c3664a794f1c195257365d5dc3753732ea6acd",
+      "license": "MIT model card. PyTorch pickle weights must be loaded only from this reviewed, declared cache path."
+    },
+    {
+      "name": "t5-v1_1-large-backbone",
+      "url": "https://huggingface.co/google/t5-v1_1-large/resolve/a98b0fcd0b8137ded40cdf0c0cf0ee884e7c9726/pytorch_model.bin",
+      "cachePath": "models/google-t5-v1_1-large/pytorch_model.bin",
+      "expectedSizeBytes": 3132858253,
+      "sha256": "329243624cf70001991b9f0410d222a618bd33188eadc9890259b60cbc78f944",
+      "license": "Apache-2.0 upstream model terms; needed by TinyStyler inference before applying TinyStyler weights."
+    },
+    {
+      "name": "style-embedding-model-weights",
+      "url": "https://huggingface.co/AnnaWegmann/Style-Embedding/resolve/d7d0f5ca829316a8f5695e49dfce80b86db5e76c/pytorch_model.bin",
+      "cachePath": "models/style-embedding/pytorch_model.bin",
+      "expectedSizeBytes": 498669047,
+      "sha256": "3186cd80660a7169a911bace4d54416cf5771a319a22f84c3a79a961ecb0c6f5",
+      "license": "Hugging Face model asset used to compute style embeddings from user-provided examples."
+    }
+  ],
+  "artifacts": {
+    "outputTypes": ["JSON", "TXT"]
+  },
+  "commands": {
+    "tinystyler_doctor": {
+      "description": "Report TinyStyler package contract, host/runtime facts, declared model assets, and real-runtime implementation status without downloads.",
+      "command": "python3",
+      "args": ["./scripts/tinystyler_cli.py", "doctor"],
+      "cwd": "package",
+      "healthCheck": ["python3", "./scripts/tinystyler_cli.py", "doctor", "--json"],
+      "responseFormats": ["json"]
+    },
+    "tinystyler_profile": {
+      "description": "Create a reusable TinyStyler style profile JSON from example texts. Slice 1 supports deterministic fake-runtime contract tests; real embedding extraction lands in the profile slice.",
+      "command": "python3",
+      "args": ["./scripts/tinystyler_cli.py", "profile"],
+      "cwd": "package",
+      "responseFormats": ["json"]
+    },
+    "tinystyler_transfer": {
+      "description": "Rewrite source text using a TinyStyler style profile or example texts. Slice 1 supports deterministic fake-runtime contract tests; real generation lands in the transfer slice.",
+      "command": "python3",
+      "args": ["./scripts/tinystyler_cli.py", "transfer"],
+      "cwd": "package",
+      "responseFormats": ["json", "text"]
+    }
+  }
+}

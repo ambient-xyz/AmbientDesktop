@@ -73,7 +73,7 @@ export function desktopUpdateConfigFromEnv(input: DesktopUpdateRuntimeInput): De
     feedUrl,
     disabledReason,
     startupDelayMs: numberFromEnv(env.AMBIENT_DESKTOP_UPDATE_STARTUP_DELAY_MS, 10_000),
-    checkIntervalMs: numberFromEnv(env.AMBIENT_DESKTOP_UPDATE_CHECK_INTERVAL_MS, 6 * 60 * 60 * 1000),
+    checkIntervalMs: numberFromEnv(env.AMBIENT_DESKTOP_UPDATE_CHECK_INTERVAL_MS, 30 * 60 * 1000),
     now: () => new Date(),
   };
 }
