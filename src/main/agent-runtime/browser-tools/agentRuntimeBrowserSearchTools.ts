@@ -7,7 +7,7 @@ import type {
   BrowserSearchResult,
   BrowserUserActionState,
   WorkspaceState,
-} from "../shared/types";
+} from "../../../shared/types";
 import {
   browserToolRecoverableFailure,
   browserUnavailableText,
@@ -15,9 +15,9 @@ import {
   isBrowserUnavailableFallback,
   type BrowserToolRecoverableError,
   type BrowserUnavailableFallback,
-} from "./agentBrowserRuntime";
-import { browserToolDescriptor } from "./desktopToolRegistry";
-import { registerDesktopTool } from "./desktopToolRegistration";
+} from "../../agentBrowserRuntime";
+import { browserToolDescriptor } from "../../desktopToolRegistry";
+import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   browserMaterializedToolResult,
   browserToolErrorResult,

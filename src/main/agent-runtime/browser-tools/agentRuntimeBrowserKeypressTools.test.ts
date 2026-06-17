@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   BrowserKeypressResult,
   BrowserUserActionState,
-} from "../shared/types";
-import { BrowserUnavailableError } from "./browserService";
+} from "../../../shared/types";
+import { BrowserUnavailableError } from "../../browserService";
 import {
   browserKeypressSummary,
   browserKeypressText,

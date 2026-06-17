@@ -17,7 +17,7 @@ import { registerDesktopTool } from "./desktopToolRegistration";
 import { miniCpmVisionDiagnosticsForFailure } from "../shared/miniCpmVisionDiagnostics";
 import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "./miniCpmVisionProvider";
 import type { AnalyzeMiniCpmVisionInputOptions, MiniCpmVisionProgressEvent, SetupMiniCpmVisionProviderOptions } from "./miniCpmVisionProvider";
-import type { BrowserScreenshotArtifactReference } from "./agentRuntimeBrowserScreenshotTools";
+import type { BrowserScreenshotArtifactReference } from "./agent-runtime/browser-tools/agentRuntimeBrowserScreenshotTools";
 
 export interface AgentRuntimeVisionToolExtensionOptions {
   threadId: string;

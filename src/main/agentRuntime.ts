@@ -275,12 +275,12 @@ import {
   type AssistantTerminalEventDiagnostic,
 } from "./agentRuntimeAssistantTerminalDiagnostics";
 import { ambientModel, createAmbientProviderExtension } from "./agentRuntimeAmbientProvider";
-import { browserToolUpdate } from "./agentRuntimeBrowserToolFormatting";
-import { withBrowserToolHeartbeat } from "./agentRuntimeBrowserToolHeartbeat";
-import { recordAgentRuntimeBrowserAudit } from "./agentRuntimeBrowserAudit";
-import { prepareAgentRuntimeBrowserToolProfile } from "./agentRuntimeBrowserProfileSelection";
-import { createAgentRuntimeBrowserToolExtension } from "./agentRuntimeBrowserTools";
-import type { BrowserScreenshotArtifactReference } from "./agentRuntimeBrowserScreenshotTools";
+import { browserToolUpdate } from "./agent-runtime/browser-tools/agentRuntimeBrowserToolFormatting";
+import { withBrowserToolHeartbeat } from "./agent-runtime/browser-tools/agentRuntimeBrowserToolHeartbeat";
+import { recordAgentRuntimeBrowserAudit } from "./agent-runtime/browser-tools/agentRuntimeBrowserAudit";
+import { prepareAgentRuntimeBrowserToolProfile } from "./agent-runtime/browser-tools/agentRuntimeBrowserProfileSelection";
+import { createAgentRuntimeBrowserToolExtension } from "./agent-runtime/browser-tools/agentRuntimeBrowserTools";
+import type { BrowserScreenshotArtifactReference } from "./agent-runtime/browser-tools/agentRuntimeBrowserScreenshotTools";
 import {
   registerGoogleWorkspaceSetupTools,
   type AgentRuntimeGoogleWorkspaceTools,
@@ -607,7 +607,7 @@ import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, W
 import { BrowserService } from "./browserService";
 import { BrowserCredentialStore } from "./browserCredentialStore";
 import { refreshExternalFileBrowserTabs } from "./browserRefresh";
-import { refreshAgentRuntimeBrowsersForArtifactChange } from "./agentRuntimeBrowserRefresh";
+import { refreshAgentRuntimeBrowsersForArtifactChange } from "./agent-runtime/browser-tools/agentRuntimeBrowserRefresh";
 import { createLambdaRlmToolExtension as createLambdaRlmToolsExtension } from "./agentRuntimeLambdaRlmTools";
 import {
   projectBoardNativeTaskToolDefinitions,
@@ -7290,5 +7290,5 @@ export {
   BrowserToolTimeoutError,
   browserToolTimeoutMs,
   withBrowserToolHeartbeat,
-} from "./agentRuntimeBrowserToolHeartbeat";
+} from "./agent-runtime/browser-tools/agentRuntimeBrowserToolHeartbeat";
 export { assistantFinalizationRetryAttemptsUsedForReason } from "./agentRuntimeAssistantRetryInput";

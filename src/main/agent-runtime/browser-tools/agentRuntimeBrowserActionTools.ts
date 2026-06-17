@@ -6,7 +6,7 @@ import type {
   BrowserRuntimeKind,
   BrowserUserActionState,
   WorkspaceState,
-} from "../shared/types";
+} from "../../../shared/types";
 import {
   browserToolRecoverableFailure,
   browserUnavailableText,
@@ -15,9 +15,9 @@ import {
   isBrowserUserActionState,
   type BrowserToolRecoverableError,
   type BrowserUnavailableFallback,
-} from "./agentBrowserRuntime";
-import { browserToolDescriptor } from "./desktopToolRegistry";
-import { registerDesktopTool } from "./desktopToolRegistration";
+} from "../../agentBrowserRuntime";
+import { browserToolDescriptor } from "../../desktopToolRegistry";
+import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   browserToolErrorResult,
   browserToolResult,

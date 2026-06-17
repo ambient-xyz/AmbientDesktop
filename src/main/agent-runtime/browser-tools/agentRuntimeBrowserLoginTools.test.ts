@@ -4,7 +4,7 @@ import type {
   BrowserLoginCredential,
   BrowserLoginResult,
   BrowserUserActionState,
-} from "../shared/types";
+} from "../../../shared/types";
 import {
   browserLoginAuditDetail,
   browserLoginText,

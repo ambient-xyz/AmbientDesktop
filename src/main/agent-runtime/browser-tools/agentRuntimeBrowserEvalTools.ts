@@ -6,23 +6,23 @@ import type {
   BrowserRuntimeKind,
   BrowserUserActionState,
   WorkspaceState,
-} from "../shared/types";
+} from "../../../shared/types";
 import {
   browserToolFallback,
   browserUnavailableText,
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
   type BrowserUnavailableFallback,
-} from "./agentBrowserRuntime";
-import { browserToolDescriptor } from "./desktopToolRegistry";
-import { registerDesktopTool } from "./desktopToolRegistration";
+} from "../../agentBrowserRuntime";
+import { browserToolDescriptor } from "../../desktopToolRegistry";
+import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   browserMaterializedToolResult,
   browserToolResult,
   browserToolUpdate,
   type BrowserToolTextResult,
 } from "./agentRuntimeBrowserToolFormatting";
-import { buildToolLongformInputPreview as defaultBuildToolLongformInputPreview } from "./toolLongformInputPreview";
+import { buildToolLongformInputPreview as defaultBuildToolLongformInputPreview } from "../../toolLongformInputPreview";
 
 type BrowserEvalToolUpdate = BrowserToolTextResult;
 type BrowserEvalToolUpdateHandler = (update: BrowserEvalToolUpdate) => void;

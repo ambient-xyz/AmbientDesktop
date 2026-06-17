@@ -1,5 +1,5 @@
-import type { BrowserCapabilityState, BrowserProfileMode, BrowserRuntimeKind } from "../shared/types";
-import { selectAgentBrowserRuntime } from "./agentBrowserRuntime";
+import type { BrowserCapabilityState, BrowserProfileMode, BrowserRuntimeKind } from "../../../shared/types";
+import { selectAgentBrowserRuntime } from "../../agentBrowserRuntime";
 import { browserToolUpdate } from "./agentRuntimeBrowserToolFormatting";
 
 export interface AgentRuntimeBrowserProfileSelectionDeps {

@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   BrowserPageContent,
   BrowserUserActionState,
-} from "../shared/types";
-import type { MaterializedTextOutput } from "./toolOutputArtifacts";
-import { BrowserUnavailableError } from "./browserService";
+} from "../../../shared/types";
+import type { MaterializedTextOutput } from "../../toolOutputArtifacts";
+import { BrowserUnavailableError } from "../../browserService";
 import {
   registerBrowserContentTool,
   type BrowserContentToolRegistrationOptions,

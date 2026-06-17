@@ -47,6 +47,19 @@ describe("AppConversationMessages", () => {
     expect(markup).not.toContain("Add a Ambient API key to start working.");
   });
 
+  it("anchors the jump-to-latest button above the composer boundary", () => {
+    const markup = renderToStaticMarkup(
+      <AppConversationMessages {...baseProps({ showScrollToBottom: true })}>
+        <div className="composer-sentinel">Composer</div>
+      </AppConversationMessages>,
+    );
+
+    expect(markup).toContain("class=\"scroll-to-bottom-anchor\"");
+    expect(markup).toContain("class=\"scroll-to-bottom-button\"");
+    expect(markup.indexOf("class=\"messages\"")).toBeLessThan(markup.indexOf("class=\"scroll-to-bottom-anchor\""));
+    expect(markup.indexOf("class=\"scroll-to-bottom-anchor\"")).toBeLessThan(markup.indexOf("composer-sentinel"));
+  });
+
   it("renders live child transcripts from subagent cluster state", () => {
     const markup = renderToStaticMarkup(
       <AppConversationMessages

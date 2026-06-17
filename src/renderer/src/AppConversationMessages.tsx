@@ -571,22 +571,24 @@ export function AppConversationMessages({
         )}
       </div>
 
+      {showScrollToBottom && (
+        <div className="scroll-to-bottom-anchor">
+          <button
+            type="button"
+            className="scroll-to-bottom-button"
+            title="Jump to latest"
+            aria-label="Jump to latest"
+            onClick={onJumpToLatestMessage}
+          >
+            <ChevronDown size={22} />
+          </button>
+        </div>
+      )}
+
       {activeSubagentInspector && (
         <div className="subagent-thread-inspector-dock" aria-label="Active sub-agent summary">
           <SubagentThreadInspector model={activeSubagentInspector} onOpenParentThread={onOpenSubagentParentThread} />
         </div>
-      )}
-
-      {showScrollToBottom && (
-        <button
-          type="button"
-          className="scroll-to-bottom-button"
-          title="Jump to latest"
-          aria-label="Jump to latest"
-          onClick={onJumpToLatestMessage}
-        >
-          <ChevronDown size={22} />
-        </button>
       )}
 
       {errorNeedsSessionRecovery ? (

@@ -6,7 +6,7 @@ import type {
   ThreadSummary,
   WorkspaceState,
 } from "../shared/types";
-import { browserToolResult } from "./agentRuntimeBrowserToolFormatting";
+import { browserToolResult } from "./agent-runtime/browser-tools/agentRuntimeBrowserToolFormatting";
 import { mcpRuntimePermissionBlockedMessage } from "./mcpRuntimePermissionEnforcement";
 import {
   evaluateMcpToolCallPermission,

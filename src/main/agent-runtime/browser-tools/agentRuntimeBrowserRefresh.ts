@@ -1,4 +1,4 @@
-import type { DesktopEvent } from "../shared/types";
+import type { DesktopEvent } from "../../../shared/types";
 
 export interface AgentRuntimeBrowserRefreshInput {
   threadId: string;

@@ -15,7 +15,7 @@ import {
 } from "./agentBrowserRuntime";
 import { pluginInstallToolDescriptor } from "./desktopToolRegistry";
 import { registerDesktopTool } from "./desktopToolRegistration";
-import type { BrowserToolTextResult } from "./agentRuntimeBrowserToolFormatting";
+import type { BrowserToolTextResult } from "./agent-runtime/browser-tools/agentRuntimeBrowserToolFormatting";
 import {
   buildSetupFinalReport as defaultBuildSetupFinalReport,
   setupFinalReportText as defaultSetupFinalReportText,

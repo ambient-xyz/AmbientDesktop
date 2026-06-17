@@ -8,17 +8,17 @@ import type {
   BrowserUserActionState,
   MediaArtifactResult,
   WorkspaceState,
-} from "../shared/types";
+} from "../../../shared/types";
 import {
   browserToolFallback,
   browserUnavailableText,
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
   type BrowserUnavailableFallback,
-} from "./agentBrowserRuntime";
-import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "./ambientToolRouter";
-import { browserToolDescriptor } from "./desktopToolRegistry";
-import { registerDesktopTool } from "./desktopToolRegistration";
+} from "../../agentBrowserRuntime";
+import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "../../ambientToolRouter";
+import { browserToolDescriptor } from "../../desktopToolRegistry";
+import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   browserToolResult,
   browserToolUpdate,

@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   BrowserSearchResult,
   BrowserUserActionState,
-} from "../shared/types";
-import { BrowserUnavailableError } from "./browserService";
+} from "../../../shared/types";
+import { BrowserUnavailableError } from "../../browserService";
 import {
   browserSearchText,
   registerBrowserSearchTool,

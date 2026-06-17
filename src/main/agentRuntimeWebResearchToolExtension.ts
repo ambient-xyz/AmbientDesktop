@@ -13,8 +13,8 @@ import {
   browserContentText,
   browserUserActionText,
   materializeBrowserPageContent,
-} from "./agentRuntimeBrowserContentFormatting";
-import { browserSearchText } from "./agentRuntimeBrowserSearchTools";
+} from "./agent-runtime/browser-tools/agentRuntimeBrowserContentFormatting";
+import { browserSearchText } from "./agent-runtime/browser-tools/agentRuntimeBrowserSearchTools";
 import { registerWebResearchFetchTools, type WebResearchFetchToolRegistrationOptions } from "./agentRuntimeWebResearchFetchTools";
 import { registerWebResearchProviderDescribeTools } from "./agentRuntimeWebResearchProviderDescribeTools";
 import { registerWebResearchProviderSearchTools } from "./agentRuntimeWebResearchProviderSearchTools";

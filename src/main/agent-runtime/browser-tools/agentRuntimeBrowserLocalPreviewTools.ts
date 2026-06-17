@@ -5,9 +5,9 @@ import type {
   BrowserPageContent,
   BrowserUserActionState,
   WorkspaceState,
-} from "../shared/types";
-import type { LocalPreviewSession } from "./localPreviewServer";
-import type { MaterializedTextOutput } from "./toolOutputArtifacts";
+} from "../../../shared/types";
+import type { LocalPreviewSession } from "../../localPreviewServer";
+import type { MaterializedTextOutput } from "../../toolOutputArtifacts";
 import {
   browserToolRecoverableFailure,
   browserUnavailableText,
@@ -16,16 +16,16 @@ import {
   isBrowserUserActionState,
   type BrowserToolRecoverableError,
   type BrowserUnavailableFallback,
-} from "./agentBrowserRuntime";
-import { browserToolDescriptor } from "./desktopToolRegistry";
-import { registerDesktopTool } from "./desktopToolRegistration";
+} from "../../agentBrowserRuntime";
+import { browserToolDescriptor } from "../../desktopToolRegistry";
+import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   browserToolErrorResult,
   browserToolResult,
   browserToolUpdate,
   type BrowserToolTextResult,
 } from "./agentRuntimeBrowserToolFormatting";
-import { localPreviewSummary } from "./localPreviewServer";
+import { localPreviewSummary } from "../../localPreviewServer";
 
 type BrowserLocalPreviewToolUpdate = BrowserToolTextResult;
 type BrowserLocalPreviewToolUpdateHandler = (update: BrowserLocalPreviewToolUpdate) => void;

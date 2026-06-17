@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   BrowserPageContent,
   BrowserUserActionState,
-} from "../shared/types";
-import { BrowserUnavailableError } from "./browserService";
-import { localPreviewSummary, type LocalPreviewSession } from "./localPreviewServer";
-import type { MaterializedTextOutput } from "./toolOutputArtifacts";
+} from "../../../shared/types";
+import { BrowserUnavailableError } from "../../browserService";
+import { localPreviewSummary, type LocalPreviewSession } from "../../localPreviewServer";
+import type { MaterializedTextOutput } from "../../toolOutputArtifacts";
 import {
   registerBrowserLocalPreviewTool,
   type BrowserLocalPreviewToolRegistrationOptions,

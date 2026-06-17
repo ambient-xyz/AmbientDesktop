@@ -7,16 +7,16 @@ import type {
   BrowserProfileMode,
   BrowserRuntimeKind,
   BrowserUserActionState,
-} from "../shared/types";
-import { isBrowserUserActionState } from "./agentBrowserRuntime";
-import { browserToolDescriptor } from "./desktopToolRegistry";
-import { registerDesktopTool } from "./desktopToolRegistration";
+} from "../../../shared/types";
+import { isBrowserUserActionState } from "../../agentBrowserRuntime";
+import { browserToolDescriptor } from "../../desktopToolRegistry";
+import { registerDesktopTool } from "../../desktopToolRegistration";
 import {
   browserToolResult,
   browserToolUpdate,
   type BrowserToolTextResult,
 } from "./agentRuntimeBrowserToolFormatting";
-import { normalizeBrowserCredentialOrigin } from "./browserCredentialStore";
+import { normalizeBrowserCredentialOrigin } from "../../browserCredentialStore";
 
 type BrowserLoginToolUpdate = BrowserToolTextResult;
 type BrowserLoginToolUpdateHandler = (update: BrowserLoginToolUpdate) => void;
