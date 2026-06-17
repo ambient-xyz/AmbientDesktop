@@ -8,16 +8,22 @@ import {
   Download,
   Gauge,
   Kanban,
+  ListChecks,
   LoaderCircle,
   MessageCircle,
   Mic,
+  Network,
   Paperclip,
   RefreshCw,
   Send,
   Shield,
+  Slash,
+  Sparkles,
   Square,
+  TerminalSquare,
   X,
   Zap,
+  Workflow,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -49,6 +55,11 @@ import type {
   WorkspaceContextReference,
   WorkspaceGitStatus,
 } from "../../shared/types";
+import type {
+  SlashCommandCatalogEntry,
+  SlashCommandSearchResponse,
+  SlashCommandSelection,
+} from "../../shared/slashCommandTypes";
 import { sttMessageMetadataFromTranscription } from "../../shared/sttMessageMetadata";
 import type { SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRecipes";
 import type { ProjectBoardThreadPlanActionState } from "./projectBoardUiModel";
@@ -61,6 +72,7 @@ import {
   SegmentedPermission,
   type ChatComposerInputHandle,
   type ComposerDraftStore,
+  useComposerDraftValue,
 } from "./AppComposerControls";
 import {
   GoalModeComposerToggle,
@@ -88,6 +100,13 @@ import {
   type ApiKeyStatus,
   thinkingDisplayOptions,
 } from "./RightPanel";
+import {
+  slashCommandPickerSearchInput,
+  slashCommandAvailabilityLabel,
+  slashCommandEntryIsSelectable,
+  slashCommandGroupLabel,
+  slashCommandTriggerFromDraft,
+} from "./slashCommandUiModel";
 
 export type SttComposerUiState = {
   status: "idle" | "recording" | "saving" | "transcribing" | "ready" | "no-speech" | "error";
@@ -107,6 +126,7 @@ export function AppComposerShell({
   composerInputRef,
   composerDraftStore,
   composerCanSubmit,
+  selectedSlashCommand,
   running,
   abortArmed,
   workflowRecordingReviewFeedbackActive,
@@ -154,6 +174,9 @@ export function AppComposerShell({
   onComposerChange,
   onComposerPaste,
   onComposerKeyDown,
+  onSelectSlashCommandEntry,
+  onRemoveSlashCommand,
+  onUnavailableSlashCommand,
   onSelectSymphonyPattern,
   onSelectSymphonyStepChoice,
   onChangeSymphonyStepCustomText,
@@ -207,6 +230,7 @@ export function AppComposerShell({
   composerInputRef: Ref<ChatComposerInputHandle>;
   composerDraftStore: ComposerDraftStore;
   composerCanSubmit: boolean;
+  selectedSlashCommand?: SlashCommandSelection;
   running: boolean;
   abortArmed: boolean;
   workflowRecordingReviewFeedbackActive: boolean;
@@ -254,6 +278,9 @@ export function AppComposerShell({
   onComposerChange: (value: string) => void;
   onComposerPaste: (event: ReactClipboardEvent<HTMLTextAreaElement>) => void;
   onComposerKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
+  onSelectSlashCommandEntry: (entry: SlashCommandCatalogEntry, query: string, draft: string) => void;
+  onRemoveSlashCommand: () => void;
+  onUnavailableSlashCommand: (entry: SlashCommandCatalogEntry) => void;
   onSelectSymphonyPattern: (patternId: SymphonyWorkflowPatternId) => void;
   onSelectSymphonyStepChoice: (stepId: string, choiceId: string) => void;
   onChangeSymphonyStepCustomText: (stepId: string, value: string) => void;
@@ -307,6 +334,18 @@ export function AppComposerShell({
   const [localDeepResearchCustomDraft, setLocalDeepResearchCustomDraft] = useState(() => String(localDeepResearchRunBudget.maxToolCalls));
   const localDeepResearchEffortRef = useRef<HTMLDivElement | null>(null);
   const localDeepResearchEffortLabelText = `Effort: ${localDeepResearchEffortLabel(localDeepResearchRunBudget.effort)}`;
+  const composerDraftValue = useComposerDraftValue(composerDraftStore);
+  const slashTrigger = slashCommandTriggerFromDraft(composerDraftValue, selectedSlashCommand);
+  const [slashSearchState, setSlashSearchState] = useState<{
+    status: "idle" | "loading" | "ready" | "error";
+    response?: SlashCommandSearchResponse;
+    error?: string;
+  }>({ status: "idle" });
+  const [slashActiveIndex, setSlashActiveIndex] = useState(0);
+  const [slashDismissedToken, setSlashDismissedToken] = useState("");
+  const slashRequestIdRef = useRef(0);
+  const slashPopoverOpen = slashTrigger.active && slashDismissedToken !== slashTrigger.token;
+  const slashCommandEntries = slashSearchState.response?.entries ?? [];
 
   useEffect(() => {
     if (!localDeepResearchModeArmed) setLocalDeepResearchEffortOpen(false);
@@ -319,6 +358,59 @@ export function AppComposerShell({
   useEffect(() => {
     if (!localDeepResearchEffortOpen) setLocalDeepResearchCustomDraft(String(localDeepResearchRunBudget.maxToolCalls));
   }, [localDeepResearchEffortOpen, localDeepResearchRunBudget.maxToolCalls]);
+
+  useEffect(() => {
+    if (slashDismissedToken && slashDismissedToken !== slashTrigger.token) setSlashDismissedToken("");
+  }, [slashDismissedToken, slashTrigger.token]);
+
+  useEffect(() => {
+    if (!slashPopoverOpen) {
+      setSlashSearchState({ status: "idle" });
+      setSlashActiveIndex(0);
+      return;
+    }
+    const requestId = ++slashRequestIdRef.current;
+    setSlashSearchState({ status: "loading" });
+    setSlashActiveIndex(0);
+    window.ambientDesktop.searchSlashCommands(slashCommandPickerSearchInput(slashTrigger.query)).then((response) => {
+      if (slashRequestIdRef.current !== requestId) return;
+      setSlashSearchState({ status: "ready", response });
+    }).catch((error) => {
+      if (slashRequestIdRef.current !== requestId) return;
+      setSlashSearchState({ status: "error", error: error instanceof Error ? error.message : String(error) });
+    });
+  }, [slashPopoverOpen, slashTrigger.query]);
+
+  function chooseSlashCommand(entry: SlashCommandCatalogEntry): void {
+    if (!slashCommandEntryIsSelectable(entry)) {
+      onUnavailableSlashCommand(entry);
+      return;
+    }
+    onSelectSlashCommandEntry(entry, slashTrigger.query, composerDraftValue);
+    setSlashDismissedToken(slashTrigger.token);
+  }
+
+  function handleComposerInputKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
+    if (slashPopoverOpen && slashSearchState.status !== "idle") {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSlashDismissedToken(slashTrigger.token);
+        return;
+      }
+      if ((event.key === "ArrowDown" || event.key === "ArrowUp") && slashCommandEntries.length > 0) {
+        event.preventDefault();
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        setSlashActiveIndex((index) => (index + delta + slashCommandEntries.length) % slashCommandEntries.length);
+        return;
+      }
+      if ((event.key === "Enter" || event.key === "Tab") && slashCommandEntries[slashActiveIndex]) {
+        event.preventDefault();
+        chooseSlashCommand(slashCommandEntries[slashActiveIndex]!);
+        return;
+      }
+    }
+    onComposerKeyDown(event);
+  }
 
   useEffect(() => {
     if (!localDeepResearchEffortOpen) return;
@@ -359,14 +451,42 @@ export function AppComposerShell({
   return (
     <>
       <form className="composer" onSubmit={onSubmit}>
-        <ChatComposerInput
-          ref={composerInputRef}
-          onChange={onComposerChange}
-          onPaste={onComposerPaste}
-          onKeyDown={onComposerKeyDown}
-          disabled={localDeepResearchRunActive}
-          placeholder={composerPlaceholder}
-        />
+        <div className="composer-input-wrap">
+          <ChatComposerInput
+            ref={composerInputRef}
+            onChange={onComposerChange}
+            onPaste={onComposerPaste}
+            onKeyDown={handleComposerInputKeyDown}
+            disabled={localDeepResearchRunActive}
+            placeholder={composerPlaceholder}
+          />
+          {slashPopoverOpen && (
+            <SlashCommandPopover
+              status={slashSearchState.status}
+              entries={slashCommandEntries}
+              activeIndex={slashActiveIndex}
+              error={slashSearchState.error}
+              onHoverEntry={setSlashActiveIndex}
+              onChooseEntry={chooseSlashCommand}
+            />
+          )}
+        </div>
+        {selectedSlashCommand && (
+          <div className="slash-command-chip-strip">
+            <button
+              type="button"
+              className="slash-command-chip"
+              onClick={onRemoveSlashCommand}
+              data-tooltip={`Remove ${selectedSlashCommand.title}`}
+              aria-label={`Remove ${selectedSlashCommand.title}`}
+            >
+              <SlashCommandGlyph invocationKind={selectedSlashCommand.invocationKind} />
+              <span>{selectedSlashCommand.title}</span>
+              <small>{slashCommandSelectedKindLabel(selectedSlashCommand)}</small>
+              <X size={13} aria-hidden="true" />
+            </button>
+          </div>
+        )}
         {symphonyBuilderModel && (
           <SymphonyWorkflowBuilderPanel
             model={symphonyBuilderModel}
@@ -875,4 +995,98 @@ export function AppComposerShell({
       </footer>
     </>
   );
+}
+
+function SlashCommandPopover({
+  status,
+  entries,
+  activeIndex,
+  error,
+  onHoverEntry,
+  onChooseEntry,
+}: {
+  status: "idle" | "loading" | "ready" | "error";
+  entries: SlashCommandCatalogEntry[];
+  activeIndex: number;
+  error?: string;
+  onHoverEntry: (index: number) => void;
+  onChooseEntry: (entry: SlashCommandCatalogEntry) => void;
+}) {
+  let previousGroup = "";
+  return (
+    <div className="slash-command-popover" role="listbox" aria-label="Slash commands">
+      {status === "loading" && (
+        <div className="slash-command-empty">
+          <LoaderCircle size={15} className="spin" aria-hidden="true" />
+          <span>Searching...</span>
+        </div>
+      )}
+      {status === "error" && (
+        <div className="slash-command-empty warning">
+          <AlertCircle size={15} aria-hidden="true" />
+          <span>{error || "Command search failed."}</span>
+        </div>
+      )}
+      {status === "ready" && entries.length === 0 && (
+        <div className="slash-command-empty">
+          <Slash size={15} aria-hidden="true" />
+          <span>No commands found.</span>
+        </div>
+      )}
+      {status === "ready" && entries.map((entry, index) => {
+        const group = slashCommandGroupLabel(entry);
+        const showGroup = group !== previousGroup;
+        previousGroup = group;
+        const selectable = slashCommandEntryIsSelectable(entry);
+        return (
+          <div key={entry.id}>
+            {showGroup && <div className="slash-command-group-label">{group}</div>}
+            <button
+              type="button"
+              role="option"
+              aria-selected={activeIndex === index}
+              aria-disabled={!selectable}
+              className={`slash-command-option ${activeIndex === index ? "active" : ""} ${selectable ? "" : "unavailable"}`}
+              onMouseEnter={() => onHoverEntry(index)}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => onChooseEntry(entry)}
+            >
+              <span className="slash-command-option-icon">
+                <SlashCommandGlyph invocationKind={entry.invocationKind} />
+              </span>
+              <span className="slash-command-option-copy">
+                <span>
+                  <strong>{entry.command}</strong>
+                  <em>{entry.title}</em>
+                </span>
+                {entry.description && <small>{entry.description}</small>}
+              </span>
+              <span className={`slash-command-availability ${entry.availability}`}>
+                {slashCommandAvailabilityLabel(entry.availability)}
+              </span>
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SlashCommandGlyph({ invocationKind }: { invocationKind: SlashCommandCatalogEntry["invocationKind"] | SlashCommandSelection["invocationKind"] }) {
+  if (invocationKind === "builtin-command") return <ListChecks size={15} aria-hidden="true" />;
+  if (invocationKind === "codex-plugin-skill") return <Sparkles size={15} aria-hidden="true" />;
+  if (invocationKind === "ambient-cli-skill" || invocationKind === "ambient-cli-command") return <TerminalSquare size={15} aria-hidden="true" />;
+  if (invocationKind === "workflow-playbook" || invocationKind === "callable-workflow") return <Workflow size={15} aria-hidden="true" />;
+  if (invocationKind === "symphony-recipe") return <Network size={15} aria-hidden="true" />;
+  return <Slash size={15} aria-hidden="true" />;
+}
+
+function slashCommandSelectedKindLabel(selection: SlashCommandSelection): string {
+  if (selection.invocationKind === "codex-plugin-skill") return "Skill";
+  if (selection.invocationKind === "ambient-cli-skill") return "CLI skill";
+  if (selection.invocationKind === "ambient-cli-command") return "CLI command";
+  if (selection.invocationKind === "workflow-playbook") return "Workflow";
+  if (selection.invocationKind === "symphony-recipe") return "Symphony";
+  if (selection.invocationKind === "callable-workflow") return "Callable";
+  return "Command";
 }

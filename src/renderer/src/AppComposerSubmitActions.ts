@@ -7,6 +7,7 @@ import type {
   RunStatus,
   LocalDeepResearchRunBudget,
   SendMessageComposerIntent,
+  SlashCommandSelection,
   ThreadGoal,
   ThreadSummary,
   WorkflowRecordingEditContext,
@@ -82,6 +83,7 @@ export function createAppComposerSubmitActions({
   compactActiveThread,
   contextAttachments,
   getComposerDraft,
+  getSlashCommandSelection,
   goalModeArmed,
   localDeepResearchRunActive,
   localDeepResearchModeArmedRef,
@@ -101,6 +103,7 @@ export function createAppComposerSubmitActions({
   setLocalDeepResearchModeArmed,
   setPendingWorkflowRecordingEditContext,
   setRunStatus,
+  setSlashCommandSelection,
   setSttDraftMetadata,
   setThreadRunStatuses,
   state,
@@ -113,6 +116,7 @@ export function createAppComposerSubmitActions({
   compactActiveThread: (customInstructions?: string) => Promise<void>;
   contextAttachments: WorkspaceContextReference[];
   getComposerDraft: () => string;
+  getSlashCommandSelection: () => SlashCommandSelection | undefined;
   goalModeArmed: boolean;
   localDeepResearchRunActive: boolean;
   localDeepResearchModeArmedRef: MutableRefObject<boolean>;
@@ -132,6 +136,7 @@ export function createAppComposerSubmitActions({
   setLocalDeepResearchModeArmed: (next: boolean) => void;
   setPendingWorkflowRecordingEditContext: Dispatch<SetStateAction<PendingWorkflowRecordingEditContext | undefined>>;
   setRunStatus: Dispatch<SetStateAction<RunStatus>>;
+  setSlashCommandSelection: (selection: SlashCommandSelection | undefined) => void;
   setSttDraftMetadata: Dispatch<SetStateAction<SttDraftMetadataState | undefined>>;
   setThreadRunStatuses: Dispatch<SetStateAction<Record<string, RunStatus>>>;
   state: DesktopState | undefined;
@@ -144,12 +149,25 @@ export function createAppComposerSubmitActions({
   submitComposerDraft: (requestedDelivery: MessageDelivery, followUpModifier?: boolean) => Promise<void>;
   submitDraft: (requestedDelivery: MessageDelivery, followUpModifier?: boolean, options?: SubmitDraftOptions) => Promise<void>;
 } {
-  function restoreSubmittedDraftIfComposerEmpty(draft: string): void {
-    if (getComposerDraft().trim()) return;
+  function restoreSubmittedDraftIfComposerEmpty(draft: string): boolean {
+    if (getComposerDraft().trim()) return false;
     setComposerDraft(draft, { focusEnd: true });
+    return true;
   }
 
-  function clearSubmittedComposerModes(input: { shouldArmGoal: boolean; localDeepResearchModeRequested: boolean }): void {
+  function restoreSubmittedSlashCommandSelection(
+    selection: SlashCommandSelection | undefined,
+    restoredDraft: boolean,
+  ): void {
+    if (!selection || getSlashCommandSelection()) return;
+    if (!restoredDraft && getComposerDraft().trim()) return;
+    setSlashCommandSelection(selection);
+  }
+
+  function clearSubmittedComposerModes(input: {
+    shouldArmGoal: boolean;
+    localDeepResearchModeRequested: boolean;
+  }): void {
     if (input.shouldArmGoal) setGoalModeArmed(false);
     if (input.localDeepResearchModeRequested) setLocalDeepResearchModeArmed(false);
   }
@@ -163,12 +181,31 @@ export function createAppComposerSubmitActions({
 
   async function submitDraft(requestedDelivery: MessageDelivery, followUpModifier = false, options: SubmitDraftOptions = {}): Promise<void> {
     const draft = getComposerDraft();
-    const localDeepResearchModeRequested = options.composerIntent?.kind === "local-deep-research";
-    if (!state || !draft.trim()) {
+    const slashCommandSelection = getSlashCommandSelection();
+    const slashCommandIntent: SendMessageComposerIntent | undefined = slashCommandSelection
+      ? { kind: "slash-command", selection: slashCommandSelection }
+      : undefined;
+    const composerIntent = options.composerIntent ?? slashCommandIntent;
+    const localDeepResearchModeRequested = composerIntent?.kind === "local-deep-research";
+    const hasSubmittableDraft = Boolean(draft.trim()) || Boolean(slashCommandSelection);
+    if (!state) {
+      return;
+    }
+    if (slashCommandSelection?.requiresParameters && !draft.trim()) {
+      setContextError(`Add input for ${slashCommandSelection.title} before sending this slash command.`);
+      setComposerDraft(draft, { focusEnd: true });
+      return;
+    }
+    if (!hasSubmittableDraft) {
       if (state && localDeepResearchModeRequested) {
         setContextError("Enter a research question to use Local Deep Research.");
         setComposerDraft(draft, { focusEnd: true });
       }
+      return;
+    }
+    if (options.composerIntent && slashCommandSelection) {
+      setContextError("Remove the selected slash command before using this composer action.");
+      setComposerDraft(draft, { focusEnd: true });
       return;
     }
     if (localDeepResearchRunActive) {
@@ -178,6 +215,11 @@ export function createAppComposerSubmitActions({
     }
     const secretCommand = parseSecretSlashCommand(draft);
     if (secretCommand.isSecretCommand) {
+      if (slashCommandSelection) {
+        setContextError("Remove the selected slash command before using this composer action.");
+        setComposerDraft(draft, { focusEnd: true });
+        return;
+      }
       setComposerDraft("");
       setSttDraftMetadata(undefined);
       resetPromptHistory();
@@ -188,9 +230,15 @@ export function createAppComposerSubmitActions({
       return;
     }
     const parsedCommand = parseCollaborationSlashCommand(draft, state.settings.collaborationMode);
-    const content = parsedCommand.content;
-    if (!running && (content === "/compact" || content.startsWith("/compact "))) {
-      const customInstructions = content.slice("/compact".length).trim() || undefined;
+    const parsedContent = parsedCommand.content;
+    const content = parsedContent.trim() ? parsedContent : slashCommandSelection?.command ?? parsedContent;
+    if (!running && (parsedContent === "/compact" || parsedContent.startsWith("/compact "))) {
+      if (slashCommandSelection) {
+        setContextError("Remove the selected slash command before using this composer action.");
+        setComposerDraft(draft, { focusEnd: true });
+        return;
+      }
+      const customInstructions = parsedContent.slice("/compact".length).trim() || undefined;
       setComposerDraft("");
       setSttDraftMetadata(undefined);
       resetPromptHistory();
@@ -198,6 +246,11 @@ export function createAppComposerSubmitActions({
       return;
     }
     if (parsedCommand.settingsOnly) {
+      if (slashCommandSelection) {
+        setContextError("Remove the selected slash command before using this composer action.");
+        setComposerDraft(draft, { focusEnd: true });
+        return;
+      }
       setComposerDraft("");
       setSttDraftMetadata(undefined);
       resetPromptHistory();
@@ -208,6 +261,28 @@ export function createAppComposerSubmitActions({
     if (localDeepResearchModeRequested && parsedCommand.mode === "planner") {
       setContextError("Switch to Agent mode before running Local Deep Research.");
       return;
+    }
+    if (workflowRecordingReviewFeedbackActive && slashCommandSelection) {
+      setContextError("Remove the selected slash command before sending Ambient Review feedback.");
+      setComposerDraft(draft, { focusEnd: true });
+      return;
+    }
+    if (slashCommandSelection) {
+      setComposerDraft("");
+      setSttDraftMetadata(undefined);
+      setSlashCommandSelection(undefined);
+      try {
+        await validateSlashCommandSelectionForSubmit(slashCommandSelection);
+      } catch (error) {
+        const restoredDraft = restoreSubmittedDraftIfComposerEmpty(draft);
+        restoreSubmittedSlashCommandSelection(slashCommandSelection, restoredDraft);
+        setContextError(errorMessage(error));
+        return;
+      }
+      if (getComposerDraft().trim() || getSlashCommandSelection()) {
+        setContextError("Slash command send was canceled because the composer changed. Send again when ready.");
+        return;
+      }
     }
     if (parsedCommand.mode !== state.settings.collaborationMode) {
       await updateThreadSettings({ collaborationMode: parsedCommand.mode });
@@ -264,6 +339,7 @@ export function createAppComposerSubmitActions({
     });
     setComposerDraft("");
     setSttDraftMetadata(undefined);
+    if (slashCommandSelection) setSlashCommandSelection(undefined);
     setPendingWorkflowRecordingEditContext(undefined);
     resetPromptHistory();
     setContextAttachments([]);
@@ -286,18 +362,22 @@ export function createAppComposerSubmitActions({
         thinkingLevel: state.settings.thinkingLevel,
         delivery,
         context,
-        ...(options.composerIntent ? { composerIntent: options.composerIntent } : {}),
+        ...(composerIntent ? { composerIntent } : {}),
         ...(workflowRecordingEditContext ? { workflowRecordingEditContext } : {}),
         ...(sttMetadata ? { stt: sttMetadata } : {}),
         ...(shouldArmGoal ? { goalMode: { enabled: true } } : {}),
       })
       .then(() => {
-        clearSubmittedComposerModes({ shouldArmGoal, localDeepResearchModeRequested });
+        clearSubmittedComposerModes({
+          shouldArmGoal,
+          localDeepResearchModeRequested,
+        });
       })
       .catch((err) => {
         setError(errorMessage(err));
         removePendingSubmittedPrompt(pendingSubmittedPromptId);
-        restoreSubmittedDraftIfComposerEmpty(draft);
+        const restoredDraft = restoreSubmittedDraftIfComposerEmpty(draft);
+        restoreSubmittedSlashCommandSelection(slashCommandSelection, restoredDraft);
         if (workflowRecordingEditContext) setPendingWorkflowRecordingEditContext(workflowRecordingEditContext);
         setContextAttachments((current) => mergeContextAttachments(context, current));
         if (sttDraftMetadata) setSttDraftMetadata(sttDraftMetadata);
@@ -309,4 +389,20 @@ export function createAppComposerSubmitActions({
     submitComposerDraft,
     submitDraft,
   };
+}
+
+async function validateSlashCommandSelectionForSubmit(selection: SlashCommandSelection): Promise<void> {
+  const description = await window.ambientDesktop.describeSlashCommand({
+    entryId: selection.entryId,
+    includeUnavailable: true,
+  });
+  if (description.status !== "described" || !description.entry) {
+    throw new Error("Selected slash command is no longer available.");
+  }
+  if (description.entry.availability !== "available") {
+    throw new Error(description.entry.availabilityReason ?? `${description.entry.title} is ${description.entry.availability}.`);
+  }
+  if (selection.sourceFingerprint && description.entry.sourceFingerprint && selection.sourceFingerprint !== description.entry.sourceFingerprint) {
+    throw new Error("Selected slash command changed. Select it again before sending.");
+  }
 }

@@ -281,6 +281,14 @@ export interface CapabilityBuilderValidationArtifact {
   sizeBytes: number;
 }
 
+export interface CapabilityBuilderValidationEvidence {
+  validatedAt?: string;
+  sourceGitSha?: string;
+  sourceHash?: string;
+  logPath?: string;
+  artifacts: CapabilityBuilderValidationArtifact[];
+}
+
 export interface CapabilityBuilderEnvRequirement {
   name: string;
   description?: string;
@@ -319,6 +327,8 @@ export interface CapabilityBuilderRegisterResult {
   rootPath: string;
   relativeRootPath: string;
   gitSha?: string;
+  sourceRef: CapabilityBuilderSourceRef;
+  validationEvidence: CapabilityBuilderValidationEvidence;
   registeredAt: string;
   installedPackage: AmbientCliPackageSummary;
   voiceProvider?: CapabilityBuilderRegisteredVoiceProvider;
@@ -374,6 +384,8 @@ export interface CapabilityBuilderHistoryEntry {
   lastValidatedAt?: string;
   registeredAt?: string;
   unregisteredAt?: string;
+  validationLogPath?: string;
+  validationArtifacts: CapabilityBuilderValidationArtifact[];
   refs: Record<string, string | null>;
   commandNames: string[];
   envNames: string[];
@@ -653,6 +665,7 @@ export async function writeCapabilityBuilderFile(
   await mkdir(dirname(file.absolutePath), { recursive: true });
   const created = !existsSync(file.absolutePath);
   await writeFile(file.absolutePath, input.content, "utf8");
+  await invalidateValidationManifest(preview.rootPath);
   const gitSha = await commitPackageGitRevision(preview.rootPath, `Edit ${file.path}`);
   return {
     packageName: preview.packageName,
@@ -742,6 +755,7 @@ export async function discoverCapabilityBuilderHistory(
       const preview = await previewCapabilityBuilderPackage(workspace, packageInput);
       const manifest = await readBuildManifestIfPresent(preview.rootPath);
       const summary = manifest ? summarizeBuildManifest(manifest) : undefined;
+      const validationEvidence = validationEvidenceFromManifest(manifest);
       if (input.packageName && !capabilityBuilderPackageMatches(input.packageName, child.name, preview, summary)) continue;
       const inventory = await capabilityBuilderSourceInventory(preview.rootPath);
       const status = summary?.status ?? (preview.valid ? "unknown" : "invalid");
@@ -768,6 +782,8 @@ export async function discoverCapabilityBuilderHistory(
         ...(stringField(manifest?.lastValidatedAt) ? { lastValidatedAt: stringField(manifest?.lastValidatedAt) } : {}),
         ...(stringField(manifest?.registeredAt) ? { registeredAt: stringField(manifest?.registeredAt) } : {}),
         ...(stringField(manifest?.unregisteredAt) ? { unregisteredAt: stringField(manifest?.unregisteredAt) } : {}),
+        ...(validationEvidence.logPath ? { validationLogPath: validationEvidence.logPath } : {}),
+        validationArtifacts: validationEvidence.artifacts,
         refs: summary?.refs ?? {},
         commandNames: preview.descriptor?.commandNames ?? [],
         envNames: preview.descriptor?.envNames ?? [],
@@ -1279,7 +1295,13 @@ export async function validateCapabilityBuilderPackage(
   const validatedAt = succeeded ? new Date().toISOString() : undefined;
   const providerContractCommands = results.filter((result) => result.source === "providerContract");
   const providerContractValidated = providerContractCommands.length > 0 && providerContractCommands.every((result) => result.status === "succeeded");
-  if (validatedAt) await updateValidationManifest(rootPath, validatedAt, await packageContentHash(rootPath), { providerContractValidated });
+  if (validatedAt) {
+    await updateValidationManifest(rootPath, validatedAt, await packageContentHash(rootPath), {
+      providerContractValidated,
+      logPath: toManagedInstallRelative(workspace, logPath),
+      artifacts,
+    });
+  }
   const completedAtMs = Date.now();
 
   return {
@@ -1337,6 +1359,7 @@ export async function registerCapabilityBuilderPackage(
   input: CapabilityBuilderRegisterInput,
 ): Promise<CapabilityBuilderRegisterResult> {
   const workspace = resolve(workspacePath);
+  const managedWorkspace = await ensureCapabilityBuilderManagedWorkspace(workspace);
   const preview = await previewCapabilityBuilderPackage(workspace, input);
   if (!preview.valid) throw new Error(`Capability package preview has errors: ${preview.errors.join("; ")}`);
   const manifest = await readBuildManifest(preview.rootPath);
@@ -1352,6 +1375,8 @@ export async function registerCapabilityBuilderPackage(
   if (!validatedHash) throw new Error("Capability package validation metadata is missing lastValidatedHash.");
   const currentHash = await packageContentHash(preview.rootPath);
   if (currentHash !== validatedHash) throw new Error("Capability package has changed since validation. Re-run validation before registration.");
+  const sourceRef = capabilityBuilderSourceRef(managedWorkspace, preview.rootPath, preview.packageName);
+  const validationEvidence = validationEvidenceFromManifest(manifest);
   await copyBuilderEnvBindingsToInstalledPackage(workspace, preview);
   const installedPackage = await installAmbientCliPackageSource(workspace, { source: preview.relativeRootPath });
   const registeredVoiceProvider = installerShapeFromManifest(manifest) === "tts-provider"
@@ -1379,6 +1404,8 @@ export async function registerCapabilityBuilderPackage(
     rootPath: preview.rootPath,
     relativeRootPath: preview.relativeRootPath,
     gitSha: await currentGitSha(preview.rootPath),
+    sourceRef,
+    validationEvidence,
     registeredAt,
     installedPackage,
     ...(registeredVoiceProvider ? { voiceProvider: registeredVoiceProvider } : {}),
@@ -1514,27 +1541,32 @@ export function capabilityBuilderHistoryText(result: CapabilityBuilderHistoryRes
     `Packages: ${result.entries.length}`,
     "",
     result.entries.length
-      ? result.entries.flatMap((entry, index) => [
-        `${index + 1}. ${entry.packageName}`,
-        `   status: ${entry.status}; valid: ${entry.valid ? "yes" : "no"}; installed present: ${entry.installedPresent ? "yes" : "no"}`,
-        `   path: ${entry.relativeRootPath}`,
-        `   sourcePath: ${entry.relativeRootPath}`,
-        `   git: ${entry.gitSha ?? "unavailable"}`,
-        entry.goal ? `   goal: ${entry.goal}` : undefined,
-        entry.installerShape ? `   installer shape: ${entry.installerShape}` : undefined,
-        entry.provider ? `   provider/runtime: ${entry.provider}` : undefined,
-        `   commands: ${entry.commandNames.length ? entry.commandNames.join(", ") : "none"}`,
-        `   artifacts: ${entry.artifactOutputTypes.length ? entry.artifactOutputTypes.join(", ") : "none declared"}`,
-        entry.installedPackageId ? `   installed package id: ${entry.installedPackageId}` : undefined,
-        entry.refs.lastRepair ? `   repair ref: ${entry.refs.lastRepair}` : undefined,
-        entry.refs.lastValidated ? `   validated ref: ${entry.refs.lastValidated}` : undefined,
-        entry.refs.installed ? `   installed ref: ${entry.refs.installed}` : undefined,
-        entry.unregisteredAt ? `   unregistered at: ${entry.unregisteredAt}` : undefined,
-        entry.logFiles.length ? `   logs: ${entry.logFiles.join(", ")}` : undefined,
-        entry.possibleArtifactFiles.length ? `   possible artifacts: ${entry.possibleArtifactFiles.join(", ")}` : undefined,
-        entry.errors.length ? `   errors: ${entry.errors.join("; ")}` : undefined,
-        entry.warnings.length ? `   warnings: ${entry.warnings.join("; ")}` : undefined,
-      ].filter((line): line is string => Boolean(line)))
+      ? result.entries.flatMap((entry, index) => {
+        const validationArtifacts = entry.validationArtifacts ?? [];
+        return [
+          `${index + 1}. ${entry.packageName}`,
+          `   status: ${entry.status}; valid: ${entry.valid ? "yes" : "no"}; installed present: ${entry.installedPresent ? "yes" : "no"}`,
+          `   path: ${entry.relativeRootPath}`,
+          `   sourcePath: ${entry.relativeRootPath}`,
+          `   git: ${entry.gitSha ?? "unavailable"}`,
+          entry.goal ? `   goal: ${entry.goal}` : undefined,
+          entry.installerShape ? `   installer shape: ${entry.installerShape}` : undefined,
+          entry.provider ? `   provider/runtime: ${entry.provider}` : undefined,
+          `   commands: ${entry.commandNames.length ? entry.commandNames.join(", ") : "none"}`,
+          `   artifacts: ${entry.artifactOutputTypes.length ? entry.artifactOutputTypes.join(", ") : "none declared"}`,
+          entry.installedPackageId ? `   installed package id: ${entry.installedPackageId}` : undefined,
+          entry.refs.lastRepair ? `   repair ref: ${entry.refs.lastRepair}` : undefined,
+          entry.refs.lastValidated ? `   validated ref: ${entry.refs.lastValidated}` : undefined,
+          entry.validationLogPath ? `   validation log: ${entry.validationLogPath}` : undefined,
+          validationArtifacts.length ? `   validation artifacts: ${validationArtifacts.map((artifact) => artifact.path).join(", ")}` : undefined,
+          entry.refs.installed ? `   installed ref: ${entry.refs.installed}` : undefined,
+          entry.unregisteredAt ? `   unregistered at: ${entry.unregisteredAt}` : undefined,
+          entry.logFiles.length ? `   logs: ${entry.logFiles.join(", ")}` : undefined,
+          entry.possibleArtifactFiles.length ? `   possible artifacts: ${entry.possibleArtifactFiles.join(", ")}` : undefined,
+          entry.errors.length ? `   errors: ${entry.errors.join("; ")}` : undefined,
+          entry.warnings.length ? `   warnings: ${entry.warnings.join("; ")}` : undefined,
+        ].filter((line): line is string => Boolean(line));
+      })
       : ["- no managed capability builder packages found"],
     result.errors.length ? ["", "Discovery errors:", ...result.errors.map((error) => `- ${error}`)].join("\n") : undefined,
     "",
@@ -1551,6 +1583,16 @@ export function capabilityBuilderRegisterText(result: CapabilityBuilderRegisterR
     `Canonical sourcePath: ${result.relativeRootPath}`,
     `Git SHA: ${result.gitSha ?? "unavailable"}`,
     `Registered at: ${result.registeredAt}`,
+    "",
+    "Validation evidence:",
+    `- source path: ${result.sourceRef.sourcePath}`,
+    `- validated ref: ${result.validationEvidence.sourceGitSha ?? "unavailable"}`,
+    `- source hash: ${result.validationEvidence.sourceHash ?? "unavailable"}`,
+    result.validationEvidence.validatedAt ? `- validated at: ${result.validationEvidence.validatedAt}` : undefined,
+    result.validationEvidence.logPath ? `- log: ${result.validationEvidence.logPath}` : undefined,
+    result.validationEvidence.artifacts.length
+      ? `- artifacts: ${result.validationEvidence.artifacts.map((artifact) => `${artifact.path} (${artifact.sizeBytes} bytes)`).join(", ")}`
+      : "- artifacts: none recorded",
     "",
     "Installed Ambient CLI package:",
     `- id: ${result.installedPackage.id}`,
@@ -2686,7 +2728,7 @@ async function updateValidationManifest(
   rootPath: string,
   validatedAt: string,
   validatedHash: string,
-  options: { providerContractValidated?: boolean } = {},
+  options: { providerContractValidated?: boolean; logPath?: string; artifacts?: CapabilityBuilderValidationArtifact[] } = {},
 ): Promise<void> {
   const manifestPath = join(rootPath, "capability-build.json");
   if (!existsSync(manifestPath)) return;
@@ -2696,6 +2738,8 @@ async function updateValidationManifest(
   const refs = recordField(manifest.refs);
   manifest.status = "validated";
   manifest.lastValidatedAt = validatedAt;
+  if (options.logPath) manifest.lastValidationLogPath = options.logPath;
+  manifest.lastValidationArtifacts = options.artifacts ?? [];
   manifest.refs = {
     ...refs,
     lastValidated: await currentGitSha(rootPath),
@@ -2778,7 +2822,7 @@ async function updateRepairManifest(
   if (repairedInstallerShape) manifest.installerShape = repairedInstallerShape;
   manifest.lastRepairedAt = repair.repairedAt;
   manifest.lastRepairReason = repair.reason;
-  manifest.lastValidatedAt = null;
+  clearValidationManifestFields(manifest);
   manifest.registeredAt = null;
   manifest.refs = {
     ...refs,
@@ -2790,6 +2834,29 @@ async function updateRepairManifest(
     lastRepair: repair.repairGitSha ?? refs.lastRepair ?? null,
   };
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+async function invalidateValidationManifest(rootPath: string): Promise<void> {
+  const manifestPath = join(rootPath, "capability-build.json");
+  const manifest = await readBuildManifestIfPresent(rootPath);
+  if (!manifest) return;
+  manifest.status = "draft";
+  clearValidationManifestFields(manifest);
+  const refs = recordField(manifest.refs);
+  manifest.refs = {
+    ...refs,
+    lastValidated: null,
+    lastValidatedHash: null,
+    voiceProviderContractValidatedAt: null,
+    voiceProviderContractValidatedHash: null,
+  };
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+function clearValidationManifestFields(manifest: Record<string, unknown>): void {
+  manifest.lastValidatedAt = null;
+  manifest.lastValidationLogPath = null;
+  manifest.lastValidationArtifacts = [];
 }
 
 async function inferInstallerShapeFromRepairedSource(rootPath: string): Promise<CapabilityBuilderInstallerShape | undefined> {
@@ -2856,6 +2923,32 @@ function summarizeBuildManifest(manifest: Record<string, unknown>): NonNullable<
     ...(stringField(manifest.installedSource) ? { installedSource: stringField(manifest.installedSource) } : {}),
     refs,
   };
+}
+
+function validationEvidenceFromManifest(manifest: Record<string, unknown> | undefined): CapabilityBuilderValidationEvidence {
+  if (!manifest) return { artifacts: [] };
+  const refs = recordField(manifest.refs);
+  const validatedAt = stringField(manifest.lastValidatedAt);
+  const sourceGitSha = stringField(refs.lastValidated);
+  const sourceHash = stringField(refs.lastValidatedHash);
+  if (!validatedAt || !sourceHash) return { artifacts: [] };
+  return {
+    validatedAt,
+    ...(sourceGitSha ? { sourceGitSha } : {}),
+    sourceHash,
+    ...(stringField(manifest.lastValidationLogPath) ? { logPath: stringField(manifest.lastValidationLogPath) } : {}),
+    artifacts: validationArtifactsFromManifest(manifest.lastValidationArtifacts),
+  };
+}
+
+function validationArtifactsFromManifest(value: unknown): CapabilityBuilderValidationArtifact[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = recordField(item);
+    const path = stringField(record.path);
+    const sizeBytes = typeof record.sizeBytes === "number" && Number.isFinite(record.sizeBytes) ? Math.max(0, Math.floor(record.sizeBytes)) : undefined;
+    return path && sizeBytes !== undefined ? [{ path, sizeBytes }] : [];
+  });
 }
 
 function installerShapeFromManifest(manifest: Record<string, unknown> | undefined): CapabilityBuilderInstallerShape | undefined {

@@ -7,7 +7,7 @@ import type {
   WebResearchProviderRole,
   WorkspaceState,
 } from "../shared/types";
-import { ambientCliRunText } from "./agentRuntimeAmbientCliPackageRunTools";
+import { ambientCliRunText } from "./agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageRunTools";
 import {
   browserAuditRisk,
   browserContentText,

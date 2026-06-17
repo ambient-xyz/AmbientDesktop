@@ -985,6 +985,7 @@ export function ThreadContextMenu({
   onCopyWorkingDirectory,
   onCopySessionId,
   onCopyDeeplink,
+  onExportPdf,
   onForkLocal,
   onForkWorktree,
   onOpenMiniWindow,
@@ -998,6 +999,7 @@ export function ThreadContextMenu({
   onCopyWorkingDirectory: () => void;
   onCopySessionId: () => void;
   onCopyDeeplink: () => void;
+  onExportPdf: () => void;
   onForkLocal: () => void;
   onForkWorktree: () => void;
   onOpenMiniWindow: () => void;
@@ -1043,6 +1045,10 @@ export function ThreadContextMenu({
       <button type="button" role="menuitem" onClick={onCopyDeeplink}>
         <ExternalLink size={17} />
         <span>Copy deeplink</span>
+      </button>
+      <button type="button" role="menuitem" onClick={onExportPdf}>
+        <FileText size={17} />
+        <span>Export PDF</span>
       </button>
       <div className="context-menu-separator" />
       <button type="button" role="menuitem" onClick={onForkLocal}>

@@ -38,6 +38,7 @@ import type {
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
   CallableWorkflowTaskSummary,
+  SymphonyChildLaunchContractBundle,
   ThreadWorktreeSummary,
   ThreadSummary,
 } from "../shared/types";
@@ -231,6 +232,8 @@ export interface SubagentPiToolStore {
     featureFlagSnapshot: AmbientFeatureFlagSnapshot;
     modelRuntimeSnapshot: ReturnType<typeof createAmbientModelRuntimeSnapshot>;
     capacityLeaseSnapshot?: SubagentCapacityLeaseSnapshot;
+    symphonyLaunchContracts?: SymphonyChildLaunchContractBundle;
+    symphonyMutationWorkspaceLease?: SubagentRunSummary["symphonyMutationWorkspaceLease"];
     dependencyMode?: SubagentDependencyMode;
     childOrder?: number;
   }): SubagentRunSummary;
@@ -332,6 +335,7 @@ export interface CreateSubagentPiToolDefinitionsOptions {
   getParentRun: () => SubagentPiToolParentRun | undefined;
   availableExtensionToolNames?: readonly string[];
   roleRegistry?: AgentRoleRegistry;
+  resolveSymphonyLaunchContract?: (contractId: string) => unknown;
   resolveModelRuntimeProfile?: (modelId?: string) => AmbientModelRuntimeProfile;
   resolveCapacityLease?: (input: ResolveSubagentCapacityLeaseInput) => Promise<SubagentCapacityLeaseSnapshot> | SubagentCapacityLeaseSnapshot;
   prepareChildWorktree?: (input: SubagentChildWorktreePrepareInput) => Promise<ThreadWorktreeSummary | undefined> | ThreadWorktreeSummary | undefined;
@@ -387,7 +391,9 @@ export function createSubagentPiToolDefinitions(options: CreateSubagentPiToolDef
       "Child sessions do not receive this parent-facing tool unless a later fanout policy explicitly enables constrained nested fanout.",
       "Do not pass scheduled, recurrence, cron, runAt, scheduleId, automation, or similar timing fields to spawn_agent; scheduled sub-agents are deferred to the automation layer and cannot inherit live parent context.",
     ],
-    parameters: subagentToolParameters(roleIds),
+    parameters: subagentToolParameters(roleIds, {
+      includeSymphonyLaunchContracts: Boolean(options.resolveSymphonyLaunchContract),
+    }),
     executionMode: "sequential",
     execute: async (toolCallId, params, _signal, onUpdate) => {
       const { input, action } = resolveSubagentPiToolInput(params, SUBAGENT_ACTIONS);
@@ -451,6 +457,8 @@ async function spawnAgent(
     parentThread,
     parentRun,
     request: input,
+    featureFlagSnapshot: featureFlags,
+    resolveSymphonyLaunchContract: options.resolveSymphonyLaunchContract,
     roleRegistry,
     resolveModelRuntimeProfile: options.resolveModelRuntimeProfile ?? ((modelId) => DEFAULT_MODEL_RUNTIME_REGISTRY.resolveProfile(modelId)),
     existingRuns,
@@ -469,6 +477,7 @@ async function spawnAgent(
     promptMode,
     effectiveRoleSnapshot,
     patternGraphBinding,
+    symphonyContracts,
     requestedToolScope,
     canonicalTaskPath,
     idempotencyKey,
@@ -630,6 +639,7 @@ async function spawnAgent(
     featureFlagSnapshot: featureFlags,
     modelRuntimeSnapshot: createAmbientModelRuntimeSnapshotFromProfile(modelId, model),
     capacityLeaseSnapshot: capacityLease,
+    ...(symphonyContracts ? { symphonyLaunchContracts: symphonyContracts } : {}),
     dependencyMode,
   });
   const patternGraphTask = bindSpawnPatternGraphChild(options, patternGraphBinding, run);
@@ -1221,7 +1231,22 @@ function closeAgent(
   });
 }
 
-function subagentToolParameters(roleIds: readonly SubagentRoleId[] = DEFAULT_SUBAGENT_ROLE_IDS): Record<string, unknown> {
+function subagentToolParameters(
+  roleIds: readonly SubagentRoleId[] = DEFAULT_SUBAGENT_ROLE_IDS,
+  options: { includeSymphonyLaunchContracts?: boolean } = {},
+): Record<string, unknown> {
+  const symphonyLaunchContractProperties = options.includeSymphonyLaunchContracts
+    ? {
+      symphonyMode: {
+        type: "boolean",
+        description: "Set true only for Symphony-managed child launches with a stored Symphony launch contract bundle.",
+      },
+      symphonyContractId: {
+        type: "string",
+        description: "Product-owned stored Symphony launch contract id. Ambient resolves this id to an immutable policy bundle before validating and launching the child.",
+      },
+    }
+    : {};
   return {
     type: "object",
     properties: {
@@ -1329,6 +1354,7 @@ function subagentToolParameters(roleIds: readonly SubagentRoleId[] = DEFAULT_SUB
         required: ["workflowTaskId", "roleNodeId"],
         additionalProperties: false,
       },
+      ...symphonyLaunchContractProperties,
       title: {
         type: "string",
         description: "Optional visible child-thread title. Ambient will choose a compact title when omitted.",

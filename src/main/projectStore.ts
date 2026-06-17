@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type {
   AutomationFolderSummary,
   AutomationScheduleExceptionSummary,
@@ -147,7 +147,6 @@ import type {
   WorkflowArtifactStatus,
   WorkflowArtifactSummary,
   WorkflowDiscoveryQuestion,
-  WorkflowDiscoveryQuestionCategory,
   WorkflowGraphSnapshot,
   WorkflowExplorationTraceSummary,
   WorkflowModelCallRecord,
@@ -202,10 +201,8 @@ import {
   type SubagentWorkflowJitterReleaseProfileReport,
 } from "../shared/subagentMaturity";
 import {
-  applySubagentBatchResultReport as applySubagentBatchResultReportToLedger,
   createSubagentBatchProgressParentMailboxIdempotencyKey,
   createSubagentBatchProgressParentMailboxPayload,
-  createSubagentBatchResultLedger,
   SUBAGENT_BATCH_PROGRESS_PARENT_MAILBOX_TYPE,
   type SubagentBatchJobPlan,
   type SubagentBatchJobRecord,
@@ -311,14 +308,29 @@ import { ProjectStorePlannerArtifactRepository, type PlannerPlanArtifactInput } 
 import { ProjectStoreMessageRepository } from "./projectStore/messageRepository";
 import { ProjectStoreMessageVoiceRepository } from "./projectStore/messageVoiceRepository";
 import { ProjectStoreRunRepository } from "./projectStore/runRepository";
+import { ProjectStoreSubagentBatchRepository } from "./projectStore/subagentBatchRepository";
 import { ProjectStoreSubagentMailboxRepository } from "./projectStore/subagentMailboxRepository";
+import { ProjectStoreSubagentMaturityEvidenceRepository } from "./projectStore/subagentMaturityEvidenceRepository";
 import { ProjectStoreSubagentParentMailboxRepository } from "./projectStore/subagentParentMailboxRepository";
 import { ProjectStoreSubagentRunRepository } from "./projectStore/subagentRunRepository";
+import { ProjectStoreSubagentSnapshotRepository } from "./projectStore/subagentSnapshotRepository";
+import { ProjectStoreSubagentWaitBarrierRepository } from "./projectStore/subagentWaitBarrierRepository";
 import { ProjectStoreThreadRepository, type CreateProjectStoreThreadDefaults } from "./projectStore/threadRepository";
 import { ProjectStoreThreadGoalRepository } from "./projectStore/threadGoalRepository";
 import { ProjectStoreWorkspaceSearchRepository } from "./projectStore/workspaceSearchRepository";
+import { ProjectStoreWorkflowAgentThreadRepository, WORKFLOW_AGENT_HOME_FOLDER_ID } from "./projectStore/workflowAgentThreadRepository";
 import { ProjectStoreWorkflowArtifactRepository } from "./projectStore/workflowArtifactRepository";
+import { ProjectStoreWorkflowExplorationTraceRepository } from "./projectStore/workflowExplorationTraceRepository";
+import { ProjectStoreWorkflowGraphSnapshotRepository } from "./projectStore/workflowGraphSnapshotRepository";
+import { ProjectStoreWorkflowModelCallRepository } from "./projectStore/workflowModelCallRepository";
+import {
+  ProjectStoreWorkflowDiscoveryQuestionRepository,
+  type CreateWorkflowDiscoveryQuestionInput,
+} from "./projectStore/workflowDiscoveryQuestionRepository";
+import { ProjectStoreWorkflowRevisionRepository } from "./projectStore/workflowRevisionRepository";
 import { ProjectStoreWorkflowRunRepository } from "./projectStore/workflowRunRepository";
+import { ProjectStoreWorkflowTraceRetentionRepository } from "./projectStore/workflowTraceRetentionRepository";
+import { ProjectStoreWorkflowVersionRepository } from "./projectStore/workflowVersionRepository";
 import { ProjectStoreProjectBoardReadRepository } from "./projectStore/projectBoardReadRepository";
 import { ProjectStoreProjectBoardCardMutationRepository } from "./projectStore/projectBoardCardMutationRepository";
 import { ProjectStoreProjectBoardLifecycleRepository } from "./projectStore/projectBoardLifecycleRepository";
@@ -344,38 +356,19 @@ import {
   compareWorkflowAgentThreads,
   mapWorkflowAgentFolderRow,
   mapWorkflowAgentThreadRow,
-  mapWorkflowDiscoveryQuestionRow,
-  mapWorkflowExplorationTraceRow,
-  mapWorkflowGraphSnapshotRow,
-  mapWorkflowModelCallRow,
-  mapWorkflowRevisionRow,
-  mapWorkflowVersionRow,
-  workflowAgentPhaseForArtifactStatus,
   type WorkflowAgentFolderRow,
   type WorkflowAgentThreadRow,
-  type WorkflowDiscoveryQuestionRow,
-  type WorkflowExplorationTraceRow,
-  type WorkflowGraphSnapshotRow,
-  type WorkflowModelCallRow,
-  type WorkflowRevisionRow,
-  type WorkflowVersionRow,
 } from "./projectStoreWorkflowMappers";
 import { ProjectStoreCallableWorkflowTaskRepository } from "./projectStore/callableWorkflowTaskRepository";
 import {
+  assertValidMutationWorkspaceLease,
+  materializeSymphonyChildLaunchContractBundleForRun,
+} from "../shared/symphonyFineGrainedContracts";
+import {
   compactSubagentCapacityLeasePreview,
   compactSubagentMailboxEventForPreview,
-  mapSubagentBatchJobRow,
-  mapSubagentBatchResultReportRow,
-  mapSubagentMaturityEvidenceRow,
-  mapSubagentPromptSnapshotRow,
-  mapSubagentToolScopeSnapshotRow,
-  mapSubagentWaitBarrierRow,
   latestSubagentMaturityEvidence,
-  normalizeSubagentMaturityEvidenceKind,
-  normalizeSubagentMaturityEvidenceStatus,
-  normalizeOptionalString,
   passedSubagentMaturityEvidenceCount,
-  resolveSubagentWaitBarrierQuorumThreshold,
   subagentApprovalRoutingVisibilityFromEvidence,
   subagentBugEvidenceFromAudit,
   subagentCompletionGuardVisibilityFromEvidence,
@@ -389,16 +382,9 @@ import {
   subagentToolScopeIntegrityFromEvidence,
   subagentSpawnEdgeRecordForRun,
   subagentRunStatusIsTerminal,
-  type SubagentBatchJobRow,
-  type SubagentBatchResultReportRow,
-  type SubagentMaturityEvidenceRow,
-  type SubagentPromptSnapshotRow,
-  type SubagentToolScopeSnapshotRow,
-  type SubagentWaitBarrierRow,
 } from "./projectStoreSubagentMappers";
 import { resolveSubagentParentStopWaitBarrier } from "./subagentParentStopWaitBarrier";
 import { resolveSubagentParentControlBarrierReconciliation } from "./subagentParentControlBarrierReconciliation";
-import { SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION } from "./subagentWaitBarrierResolution";
 import { ProjectStoreContextUsageRepository } from "./projectStore/contextUsageRepository";
 import { ProjectStorePermissionRepository } from "./projectStore/permissionRepository";
 import {
@@ -574,8 +560,6 @@ import { ProjectStoreSettingsRepository } from "./projectStore/settingsRepositor
 
 import {
   PROJECT_STATE_DIR,
-  WORKFLOW_AGENT_HOME_FOLDER_ID,
-  WORKFLOW_DEBUG_TRACE_RETENTION_DAYS,
   compactPlannerPlanKickoffAnswer,
   defaultOrchestrationProjectPath,
   defaultProjectArtifactWorkspacePath,
@@ -3059,6 +3043,22 @@ export class ProjectStore {
           roleId: input.roleId,
         },
       );
+      const symphonyLaunchContracts = input.symphonyLaunchContracts
+        ? materializeSymphonyChildLaunchContractBundleForRun(input.symphonyLaunchContracts, {
+          parentThreadId: input.parentThreadId,
+          parentRunId: input.parentRunId,
+          roleId: input.roleId,
+          childRunId,
+        })
+        : undefined;
+      const symphonyMutationWorkspaceLease = input.symphonyMutationWorkspaceLease
+        ? assertValidMutationWorkspaceLease({
+          ...input.symphonyMutationWorkspaceLease,
+          parentThreadId: input.parentThreadId,
+          childThreadId: childThread.id,
+          childRunId,
+        })
+        : undefined;
 
       assertSubagentRunLinkage({
         runId: childRunId,
@@ -3085,6 +3085,8 @@ export class ProjectStore {
         featureFlagSnapshot: input.featureFlagSnapshot,
         modelRuntimeSnapshot: input.modelRuntimeSnapshot,
         capacityLeaseSnapshot,
+        symphonyLaunchContracts,
+        symphonyMutationWorkspaceLease,
         createdAt: now,
       });
       this.appendSubagentRunEventInternal(childRunId, {
@@ -3101,6 +3103,13 @@ export class ProjectStore {
             }
             : undefined,
           capacityLease: compactSubagentCapacityLeasePreview(capacityLeaseSnapshot),
+          symphonyLaunch: symphonyLaunchContracts
+            ? {
+              pattern: symphonyLaunchContracts.patternSelection.pattern,
+              selectionId: symphonyLaunchContracts.patternSelection.selectionId,
+              policyId: symphonyLaunchContracts.childLaunchPolicySnapshot.policyId,
+            }
+            : undefined,
         },
         createdAt: now,
       });
@@ -3154,91 +3163,23 @@ export class ProjectStore {
       throw new Error("Sub-agent batch jobs are disabled while ambient.subagents is off.");
     }
     this.getThread(plan.parentThreadId);
-    const existing = this.getSubagentBatchJob(plan.jobId);
-    if (existing) {
-      if (JSON.stringify(existing.plan) !== JSON.stringify(plan)) {
-        throw new Error(`Sub-agent batch job ${plan.jobId} already exists with a different plan.`);
-      }
-      this.upsertSubagentBatchProgressNotificationForRecord(existing, existing.updatedAt);
-      return existing;
-    }
-    const ledger = createSubagentBatchResultLedger(plan);
-    this.requireDb()
-      .prepare(
-        `INSERT INTO subagent_batch_jobs
-        (id, parent_thread_id, parent_run_id, canonical_task_path, plan_json, ledger_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        plan.jobId,
-        plan.parentThreadId,
-        plan.parentRunId,
-        plan.canonicalTaskPath,
-        JSON.stringify(plan),
-        JSON.stringify(ledger),
-        plan.createdAt,
-        plan.createdAt,
-      );
-    const record = this.getSubagentBatchJob(plan.jobId)!;
-    this.upsertSubagentBatchProgressNotificationForRecord(record, plan.createdAt);
-    return record;
+    return this.subagentBatches().upsertSubagentBatchJobPlan(plan);
   }
 
   getSubagentBatchJob(jobId: string): SubagentBatchJobRecord | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM subagent_batch_jobs WHERE id = ?")
-      .get(jobId) as SubagentBatchJobRow | undefined;
-    return row ? this.mapSubagentBatchJob(row) : undefined;
+    return this.subagentBatches().getSubagentBatchJob(jobId);
   }
 
   listSubagentBatchJobsForParentRun(parentRunId: string): SubagentBatchJobRecord[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM subagent_batch_jobs WHERE parent_run_id = ? ORDER BY created_at ASC, id ASC")
-      .all(parentRunId) as SubagentBatchJobRow[];
-    return rows.map(this.mapSubagentBatchJob);
+    return this.subagentBatches().listSubagentBatchJobsForParentRun(parentRunId);
   }
 
   listSubagentBatchResultReports(jobId: string): SubagentBatchResultReport[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM subagent_batch_result_reports WHERE job_id = ? ORDER BY created_at ASC, report_id ASC")
-      .all(jobId) as SubagentBatchResultReportRow[];
-    return rows.map(this.mapSubagentBatchResultReport);
+    return this.subagentBatches().listSubagentBatchResultReports(jobId);
   }
 
   applySubagentBatchResultReport(report: SubagentBatchResultReport): SubagentBatchReportApplyResult {
-    const db = this.requireDb();
-    const apply = db.transaction(() => {
-      const row = db.prepare("SELECT * FROM subagent_batch_jobs WHERE id = ?").get(report.jobId) as SubagentBatchJobRow | undefined;
-      if (!row) throw new Error(`Sub-agent batch job not found: ${report.jobId}`);
-      const record = this.mapSubagentBatchJob(row);
-      const result = applySubagentBatchResultReportToLedger({
-        plan: record.plan,
-        ledger: record.ledger,
-        report,
-      });
-      if (result.outcome !== "accepted") return result;
-      db.prepare("UPDATE subagent_batch_jobs SET ledger_json = ?, updated_at = ? WHERE id = ?")
-        .run(JSON.stringify(result.ledger), report.createdAt, report.jobId);
-      db.prepare(
-        `INSERT INTO subagent_batch_result_reports
-        (job_id, report_id, item_id, child_run_id, report_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run(
-        report.jobId,
-        report.reportId,
-        report.itemId,
-        report.childRunId,
-        JSON.stringify(report),
-        report.createdAt,
-      );
-      this.upsertSubagentBatchProgressNotificationForRecord({
-        ...record,
-        ledger: result.ledger,
-        updatedAt: report.createdAt,
-      }, report.createdAt);
-      return result;
-    });
-    return apply();
+    return this.subagentBatches().applySubagentBatchResultReport(report);
   }
 
   upsertSubagentBatchProgressNotification(jobId: string, input: { createdAt?: string } = {}): SubagentParentMailboxEventSummary {
@@ -3278,78 +3219,27 @@ export class ProjectStore {
     details?: Record<string, unknown>;
     createdAt?: string;
   }): SubagentMaturityEvidence {
-    const kind = normalizeSubagentMaturityEvidenceKind(input.kind);
-    const status = normalizeSubagentMaturityEvidenceStatus(input.status);
-    const now = input.createdAt ?? new Date().toISOString();
     const run = input.runId ? this.getSubagentRun(input.runId) : undefined;
-    const evidenceKey = normalizeOptionalString(input.evidenceKey) ?? (run ? `${kind}:${run.id}` : undefined);
-    const parentRunId = normalizeOptionalString(input.parentRunId) ?? run?.parentRunId;
-    const existing = evidenceKey ? this.findSubagentMaturityEvidenceByKey(kind, evidenceKey) : undefined;
-    const detailsJson = input.details === undefined ? null : JSON.stringify(input.details);
-    if (existing) {
-      this.requireDb()
-        .prepare(
-          `UPDATE subagent_maturity_evidence
-           SET status = ?, run_id = ?, parent_run_id = ?, artifact_path = ?, reviewer = ?, notes = ?, details_json = ?, updated_at = ?
-           WHERE id = ?`,
-        )
-        .run(
-          status,
-          run?.id ?? null,
-          parentRunId ?? null,
-          normalizeOptionalString(input.artifactPath) ?? null,
-          normalizeOptionalString(input.reviewer) ?? null,
-          normalizeOptionalString(input.notes) ?? null,
-          detailsJson,
-          now,
-          existing.id,
-        );
-      return this.getSubagentMaturityEvidence(existing.id);
-    }
-    const id = randomUUID();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO subagent_maturity_evidence
-         (id, kind, evidence_key, status, run_id, parent_run_id, artifact_path, reviewer, notes, details_json, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        kind,
-        evidenceKey ?? null,
-        status,
-        run?.id ?? null,
-        parentRunId ?? null,
-        normalizeOptionalString(input.artifactPath) ?? null,
-        normalizeOptionalString(input.reviewer) ?? null,
-        normalizeOptionalString(input.notes) ?? null,
-        detailsJson,
-        now,
-        now,
-      );
-    return this.getSubagentMaturityEvidence(id);
+    return this.subagentMaturityEvidence().recordSubagentMaturityEvidence({
+      kind: input.kind,
+      status: input.status,
+      evidenceKey: input.evidenceKey,
+      run: run ? { id: run.id, parentRunId: run.parentRunId } : undefined,
+      parentRunId: input.parentRunId,
+      artifactPath: input.artifactPath,
+      reviewer: input.reviewer,
+      notes: input.notes,
+      details: input.details,
+      createdAt: input.createdAt,
+    });
   }
 
   getSubagentMaturityEvidence(id: string): SubagentMaturityEvidence {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM subagent_maturity_evidence WHERE id = ?")
-      .get(id) as SubagentMaturityEvidenceRow | undefined;
-    if (!row) throw new Error(`Sub-agent maturity evidence not found: ${id}`);
-    return this.mapSubagentMaturityEvidence(row);
+    return this.subagentMaturityEvidence().getSubagentMaturityEvidence(id);
   }
 
   listSubagentMaturityEvidence(kind?: SubagentMaturityEvidenceKind): SubagentMaturityEvidence[] {
-    if (kind) {
-      const normalizedKind = normalizeSubagentMaturityEvidenceKind(kind);
-      const rows = this.requireDb()
-        .prepare("SELECT * FROM subagent_maturity_evidence WHERE kind = ? ORDER BY created_at ASC, id ASC")
-        .all(normalizedKind) as SubagentMaturityEvidenceRow[];
-      return rows.map(this.mapSubagentMaturityEvidence);
-    }
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM subagent_maturity_evidence ORDER BY created_at ASC, id ASC")
-      .all() as SubagentMaturityEvidenceRow[];
-    return rows.map(this.mapSubagentMaturityEvidence);
+    return this.subagentMaturityEvidence().listSubagentMaturityEvidence(kind);
   }
 
   getSubagentMaturitySnapshot(input: Omit<SubagentMaturityInput, "observability" | "restartReconciliation"> = {}): SubagentMaturitySnapshot {
@@ -3781,66 +3671,22 @@ export class ProjectStore {
 
   recordSubagentPromptSnapshot(runId: string, input: { prompt: string; snapshot: unknown; createdAt?: string }): SubagentPromptSnapshotSummary {
     this.getSubagentRun(runId);
-    const row = this.requireDb()
-      .prepare("SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM subagent_prompt_snapshots WHERE run_id = ?")
-      .get(runId) as { next_sequence?: number } | undefined;
-    const sequence = row?.next_sequence ?? 1;
-    const createdAt = input.createdAt ?? new Date().toISOString();
-    const promptSha256 = createHash("sha256").update(input.prompt).digest("hex");
-    this.requireDb()
-      .prepare(
-        `INSERT INTO subagent_prompt_snapshots
-         (run_id, sequence, created_at, prompt_sha256, prompt_preview, snapshot_json)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        runId,
-        sequence,
-        createdAt,
-        promptSha256,
-        input.prompt.slice(0, 1200),
-        JSON.stringify(input.snapshot ?? null),
-      );
-    return this.listSubagentPromptSnapshots(runId).at(-1)!;
+    return this.subagentSnapshots().recordSubagentPromptSnapshot(runId, input);
   }
 
   listSubagentPromptSnapshots(runId: string): SubagentPromptSnapshotSummary[] {
     this.getSubagentRun(runId);
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM subagent_prompt_snapshots WHERE run_id = ? ORDER BY sequence ASC")
-      .all(runId) as SubagentPromptSnapshotRow[];
-    return rows.map(this.mapSubagentPromptSnapshot);
+    return this.subagentSnapshots().listSubagentPromptSnapshots(runId);
   }
 
   recordSubagentToolScopeSnapshot(runId: string, input: { scope: SubagentToolScopeSnapshotSummary["scope"]; resolverInputs?: unknown; createdAt?: string }): SubagentToolScopeSnapshotSummary {
     this.getSubagentRun(runId);
-    const row = this.requireDb()
-      .prepare("SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM subagent_tool_scope_snapshots WHERE run_id = ?")
-      .get(runId) as { next_sequence?: number } | undefined;
-    const sequence = row?.next_sequence ?? 1;
-    const createdAt = input.createdAt ?? new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO subagent_tool_scope_snapshots
-         (run_id, sequence, created_at, scope_json, resolver_inputs_json)
-         VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(
-        runId,
-        sequence,
-        createdAt,
-        JSON.stringify(input.scope),
-        JSON.stringify(input.resolverInputs ?? null),
-      );
-    return this.listSubagentToolScopeSnapshots(runId).at(-1)!;
+    return this.subagentSnapshots().recordSubagentToolScopeSnapshot(runId, input);
   }
 
   listSubagentToolScopeSnapshots(runId: string): SubagentToolScopeSnapshotSummary[] {
     this.getSubagentRun(runId);
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM subagent_tool_scope_snapshots WHERE run_id = ? ORDER BY sequence ASC")
-      .all(runId) as SubagentToolScopeSnapshotRow[];
-    return rows.map(this.mapSubagentToolScopeSnapshot);
+    return this.subagentSnapshots().listSubagentToolScopeSnapshots(runId);
   }
 
   createSubagentWaitBarrier(input: {
@@ -3855,65 +3701,28 @@ export class ProjectStore {
   }): SubagentWaitBarrierSummary {
     const childRunIds = [...new Set(input.childRunIds.filter(Boolean))];
     if (childRunIds.length === 0) throw new Error("Sub-agent wait barrier requires at least one child run.");
-    const quorumThreshold = resolveSubagentWaitBarrierQuorumThreshold({
+    return this.subagentWaitBarriers().createSubagentWaitBarrier({
+      parentThreadId: input.parentThreadId,
+      parentRunId: input.parentRunId,
+      childRunIds,
       dependencyMode: input.dependencyMode,
-      childCount: childRunIds.length,
+      failurePolicy: input.failurePolicy,
       quorumThreshold: input.quorumThreshold,
+      timeoutMs: input.timeoutMs,
+      createdAt: input.createdAt,
     });
-    for (const childRunId of childRunIds) {
-      const child = this.getSubagentRun(childRunId);
-      if (child.parentThreadId !== input.parentThreadId) {
-        throw new Error(`Sub-agent wait barrier child ${childRunId} does not belong to parent thread ${input.parentThreadId}.`);
-      }
-      if (child.parentRunId !== input.parentRunId) {
-        throw new Error(`Sub-agent wait barrier child ${childRunId} does not belong to parent run ${input.parentRunId}.`);
-      }
-    }
-    const id = randomUUID();
-    const now = input.createdAt ?? new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO subagent_wait_barriers
-         (id, parent_thread_id, parent_run_id, child_run_ids_json, dependency_mode, status, failure_policy,
-          quorum_threshold, timeout_ms, created_at, updated_at, resolved_at, resolution_artifact_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.parentThreadId,
-        input.parentRunId,
-        JSON.stringify(childRunIds),
-        input.dependencyMode,
-        "waiting_on_children",
-        input.failurePolicy,
-        quorumThreshold,
-        input.timeoutMs ?? null,
-        now,
-        now,
-        null,
-        null,
-      );
-    return this.getSubagentWaitBarrier(id);
   }
 
   getSubagentWaitBarrier(id: string): SubagentWaitBarrierSummary {
-    const row = this.requireDb().prepare("SELECT * FROM subagent_wait_barriers WHERE id = ?").get(id) as SubagentWaitBarrierRow | undefined;
-    if (!row) throw new Error(`Sub-agent wait barrier not found: ${id}`);
-    return this.mapSubagentWaitBarrier(row);
+    return this.subagentWaitBarriers().getSubagentWaitBarrier(id);
   }
 
   listSubagentWaitBarriersForParentRun(parentRunId: string): SubagentWaitBarrierSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM subagent_wait_barriers WHERE parent_run_id = ? ORDER BY created_at ASC, id ASC")
-      .all(parentRunId) as SubagentWaitBarrierRow[];
-    return rows.map(this.mapSubagentWaitBarrier);
+    return this.subagentWaitBarriers().listSubagentWaitBarriersForParentRun(parentRunId);
   }
 
   listSubagentWaitBarriers(): SubagentWaitBarrierSummary[] {
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM subagent_wait_barriers ORDER BY created_at ASC, id ASC")
-      .all() as SubagentWaitBarrierRow[];
-    return rows.map(this.mapSubagentWaitBarrier);
+    return this.subagentWaitBarriers().listSubagentWaitBarriers();
   }
 
   getSubagentRepairDiagnostics(options: {
@@ -4271,31 +4080,7 @@ export class ProjectStore {
     status: SubagentWaitBarrierStatus,
     options: { resolutionArtifact?: unknown; now?: string } = {},
   ): SubagentWaitBarrierSummary {
-    const current = this.getSubagentWaitBarrier(id);
-    const now = options.now ?? new Date().toISOString();
-    const resolutionArtifact = options.resolutionArtifact === undefined
-      ? current.resolutionArtifact
-      : options.resolutionArtifact;
-    assertSubagentWaitBarrierTerminalTransition({
-      id,
-      status,
-      resolutionArtifact,
-    });
-    const resolvedAt = status === "waiting_on_children" ? null : (current.resolvedAt ?? now);
-    this.requireDb()
-      .prepare(
-        `UPDATE subagent_wait_barriers
-         SET status = ?, updated_at = ?, resolved_at = ?, resolution_artifact_json = ?
-         WHERE id = ?`,
-      )
-      .run(
-        status,
-        now,
-        resolvedAt,
-        resolutionArtifact === undefined ? null : JSON.stringify(resolutionArtifact),
-        id,
-      );
-    return this.getSubagentWaitBarrier(id);
+    return this.subagentWaitBarriers().updateSubagentWaitBarrierStatus(id, status, options);
   }
 
   markSubagentRunStatus(runId: string, status: SubagentRunStatus, options: { resultArtifact?: unknown; now?: string } = {}): SubagentRunSummary {
@@ -5018,24 +4803,12 @@ export class ProjectStore {
   }
 
   createWorkflowAgentFolder(input: CreateWorkflowAgentFolderInput): WorkflowAgentFolderSummary[] {
-    const name = input.name.trim();
-    if (!name) throw new Error("Workflow Agent folder name is required.");
-    const now = new Date().toISOString();
-    this.ensureDefaultWorkflowAgentFolder();
-    this.requireDb()
-      .prepare("INSERT INTO workflow_agent_folders (id, name, folder_kind, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
-      .run(randomUUID(), name, "custom", now, now);
+    this.workflowAgentThreads().createWorkflowAgentFolder(input);
     return this.listWorkflowAgentFolders();
   }
 
   moveWorkflowAgentThread(input: MoveWorkflowAgentThreadInput): WorkflowAgentFolderSummary[] {
-    const folder = this.requireWorkflowAgentFolder(input.folderId);
-    const thread = this.requireWorkflowAgentThread(input.threadId);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare("UPDATE workflow_agent_threads SET folder_id = ?, updated_at = ? WHERE id = ?")
-      .run(folder.id, now, thread.id);
-    this.requireDb().prepare("UPDATE workflow_agent_folders SET updated_at = ? WHERE id = ?").run(now, folder.id);
+    this.workflowAgentThreads().moveWorkflowAgentThread(input);
     return this.listWorkflowAgentFolders();
   }
 
@@ -5055,9 +4828,7 @@ export class ProjectStore {
     if (existing) return this.getWorkflowAgentThreadSummary(threadId);
     const now = new Date().toISOString();
     const chatThread = this.createThread(`Workflow: ${row.title}`, row.project_path || this.getWorkspace().path);
-    this.requireDb()
-      .prepare("UPDATE workflow_agent_threads SET chat_thread_id = ?, updated_at = ? WHERE id = ?")
-      .run(chatThread.id, now, row.id);
+    this.workflowAgentThreads().updateWorkflowAgentThreadChatThread(row.id, chatThread.id, now);
     return this.getWorkflowAgentThreadSummary(threadId);
   }
 
@@ -5070,478 +4841,101 @@ export class ProjectStore {
   }
 
   listWorkflowGraphSnapshots(workflowThreadId: string): WorkflowGraphSnapshot[] {
-    this.requireWorkflowAgentThread(workflowThreadId);
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM workflow_graph_snapshots WHERE workflow_thread_id = ? ORDER BY snapshot_version DESC")
-      .all(workflowThreadId) as WorkflowGraphSnapshotRow[];
-    return rows.map(this.mapWorkflowGraphSnapshot);
+    return this.workflowGraphSnapshots().listWorkflowGraphSnapshots(workflowThreadId);
   }
 
   createWorkflowGraphSnapshot(input: CreateWorkflowGraphSnapshotInput): WorkflowGraphSnapshot {
-    this.requireWorkflowAgentThread(input.workflowThreadId);
-    const row = this.requireDb()
-      .prepare("SELECT COALESCE(MAX(snapshot_version), 0) + 1 AS next_version FROM workflow_graph_snapshots WHERE workflow_thread_id = ?")
-      .get(input.workflowThreadId) as { next_version: number };
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    const graphJson = JSON.stringify({ nodes: input.nodes, edges: input.edges });
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_graph_snapshots
-          (id, workflow_thread_id, snapshot_version, snapshot_source, summary, graph_json, artifact_path, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(id, input.workflowThreadId, row.next_version, input.source, input.summary, graphJson, input.artifactPath ?? null, now);
-    if (input.activate !== false) {
-      this.requireDb()
-        .prepare("UPDATE workflow_agent_threads SET active_graph_snapshot_id = ?, updated_at = ? WHERE id = ?")
-        .run(id, now, input.workflowThreadId);
-    } else {
-      this.requireDb().prepare("UPDATE workflow_agent_threads SET updated_at = ? WHERE id = ?").run(now, input.workflowThreadId);
-    }
-    return this.mapWorkflowGraphSnapshot(
-      this.requireDb().prepare("SELECT * FROM workflow_graph_snapshots WHERE id = ?").get(id) as WorkflowGraphSnapshotRow,
-    );
+    return this.workflowGraphSnapshots().createWorkflowGraphSnapshot(input);
   }
 
   createWorkflowExplorationTrace(input: CreateWorkflowExplorationTraceInput): WorkflowExplorationTraceSummary {
-    this.requireWorkflowAgentThread(input.workflowThreadId);
-    const id = input.id ?? randomUUID();
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_exploration_traces
-          (id, workflow_thread_id, exploration_id, exploration_node_id, request_text, model, capability_manifest_json, observations_json, events_json, distillation_json, run_status, graph_snapshot_id, latest_progress_json, provider_health_json, retry_metadata_json, error_message, created_at, updated_at, completed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.workflowThreadId,
-        input.explorationId,
-        input.explorationNodeId,
-        input.request,
-        input.model ?? null,
-        JSON.stringify(input.capabilityManifest),
-        JSON.stringify(input.observations),
-        JSON.stringify(input.events ?? []),
-        JSON.stringify(input.distillation),
-        input.status ?? "succeeded",
-        input.graphSnapshotId ?? null,
-        input.latestProgress ? JSON.stringify(input.latestProgress) : null,
-        input.providerHealth !== undefined ? JSON.stringify(input.providerHealth) : null,
-        input.retryMetadata !== undefined ? JSON.stringify(input.retryMetadata) : null,
-        input.error ?? null,
-        now,
-        now,
-        input.completedAt ?? (input.status === "succeeded" || input.status === "failed" || input.status === "canceled" || input.status === "fallback" ? now : null),
-      );
-    return this.mapWorkflowExplorationTrace(
-      this.requireDb().prepare("SELECT * FROM workflow_exploration_traces WHERE id = ?").get(id) as WorkflowExplorationTraceRow,
-    );
+    return this.workflowExplorationTraces().createWorkflowExplorationTrace(input);
   }
 
   updateWorkflowExplorationTrace(input: UpdateWorkflowExplorationTraceInput): WorkflowExplorationTraceSummary {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_exploration_traces WHERE id = ?").get(input.id) as WorkflowExplorationTraceRow | undefined;
-    if (!row) throw new Error(`Workflow exploration trace not found: ${input.id}`);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `UPDATE workflow_exploration_traces
-         SET run_status = COALESCE(?, run_status),
-             observations_json = COALESCE(?, observations_json),
-             events_json = COALESCE(?, events_json),
-             distillation_json = COALESCE(?, distillation_json),
-             latest_progress_json = COALESCE(?, latest_progress_json),
-             provider_health_json = COALESCE(?, provider_health_json),
-             retry_metadata_json = COALESCE(?, retry_metadata_json),
-             error_message = CASE WHEN ? THEN ? ELSE error_message END,
-             completed_at = CASE WHEN ? THEN ? ELSE completed_at END,
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        input.status ?? null,
-        input.observations !== undefined ? JSON.stringify(input.observations) : null,
-        input.events !== undefined ? JSON.stringify(input.events) : null,
-        input.distillation !== undefined ? JSON.stringify(input.distillation) : null,
-        input.latestProgress !== undefined ? JSON.stringify(input.latestProgress) : null,
-        input.providerHealth !== undefined ? JSON.stringify(input.providerHealth) : null,
-        input.retryMetadata !== undefined ? JSON.stringify(input.retryMetadata) : null,
-        input.error !== undefined ? 1 : 0,
-        input.error ?? null,
-        input.completedAt !== undefined ? 1 : 0,
-        input.completedAt ?? null,
-        now,
-        input.id,
-      );
-    return this.mapWorkflowExplorationTrace(
-      this.requireDb().prepare("SELECT * FROM workflow_exploration_traces WHERE id = ?").get(input.id) as WorkflowExplorationTraceRow,
-    );
+    return this.workflowExplorationTraces().updateWorkflowExplorationTrace(input);
   }
 
   listWorkflowExplorationTraces(workflowThreadId: string): WorkflowExplorationTraceSummary[] {
-    this.requireWorkflowAgentThread(workflowThreadId);
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM workflow_exploration_traces WHERE workflow_thread_id = ? ORDER BY created_at DESC, id DESC")
-      .all(workflowThreadId) as WorkflowExplorationTraceRow[];
-    return rows.map(this.mapWorkflowExplorationTrace);
+    return this.workflowExplorationTraces().listWorkflowExplorationTraces(workflowThreadId);
   }
 
   listWorkflowVersions(workflowThreadId: string): WorkflowVersionSummary[] {
-    this.requireWorkflowAgentThread(workflowThreadId);
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM workflow_versions WHERE workflow_thread_id = ? ORDER BY version_number DESC, created_at DESC")
-      .all(workflowThreadId) as WorkflowVersionRow[];
-    return rows.map(this.mapWorkflowVersion);
+    return this.workflowVersions().listWorkflowVersions(workflowThreadId);
   }
 
   getWorkflowVersion(versionId: string): WorkflowVersionSummary {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_versions WHERE id = ?").get(versionId) as WorkflowVersionRow | undefined;
-    if (!row) throw new Error(`Workflow version not found: ${versionId}`);
-    return this.mapWorkflowVersion(row);
+    return this.workflowVersions().getWorkflowVersion(versionId);
   }
 
   getLatestApprovedWorkflowVersion(workflowThreadId: string): WorkflowVersionSummary | undefined {
-    this.requireWorkflowAgentThread(workflowThreadId);
-    const row = this.requireDb()
-      .prepare(
-        `SELECT * FROM workflow_versions
-         WHERE workflow_thread_id = ? AND version_status = 'approved'
-         ORDER BY version_number DESC, created_at DESC LIMIT 1`,
-      )
-      .get(workflowThreadId) as WorkflowVersionRow | undefined;
-    return row ? this.mapWorkflowVersion(row) : undefined;
+    return this.workflowVersions().getLatestApprovedWorkflowVersion(workflowThreadId);
   }
 
   createWorkflowVersion(input: CreateWorkflowVersionInput): WorkflowVersionSummary {
-    this.requireWorkflowAgentThread(input.workflowThreadId);
-    this.getWorkflowArtifact(input.artifactId);
-    if (input.graphSnapshotId && !this.tryGetWorkflowGraphSnapshot(input.graphSnapshotId)) {
-      throw new Error(`Workflow graph snapshot not found: ${input.graphSnapshotId}`);
-    }
-    const row = this.requireDb()
-      .prepare("SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version FROM workflow_versions WHERE workflow_thread_id = ?")
-      .get(input.workflowThreadId) as { next_version: number };
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_versions
-          (id, workflow_thread_id, artifact_id, version_number, graph_snapshot_id, source_path, repo_path, git_commit_hash, version_status, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.workflowThreadId,
-        input.artifactId,
-        row.next_version,
-        input.graphSnapshotId ?? null,
-        input.sourcePath,
-        input.repoPath,
-        input.gitCommitHash ?? null,
-        input.status,
-        input.createdBy,
-        now,
-      );
-    this.requireDb().prepare("UPDATE workflow_agent_threads SET updated_at = ? WHERE id = ?").run(now, input.workflowThreadId);
-    return this.mapWorkflowVersion(this.requireDb().prepare("SELECT * FROM workflow_versions WHERE id = ?").get(id) as WorkflowVersionRow);
+    return this.workflowVersions().createWorkflowVersion(input);
   }
 
   updateWorkflowVersionStatusForArtifact(artifactId: string, status: WorkflowVersionStatus): WorkflowVersionSummary | undefined {
-    this.getWorkflowArtifact(artifactId);
-    const row = this.requireDb()
-      .prepare("SELECT * FROM workflow_versions WHERE artifact_id = ? ORDER BY version_number DESC, created_at DESC LIMIT 1")
-      .get(artifactId) as WorkflowVersionRow | undefined;
-    if (!row) return undefined;
-    this.requireDb().prepare("UPDATE workflow_versions SET version_status = ? WHERE id = ?").run(status, row.id);
-    const updated = this.requireDb().prepare("SELECT * FROM workflow_versions WHERE id = ?").get(row.id) as WorkflowVersionRow;
-    return this.mapWorkflowVersion(updated);
+    return this.workflowVersions().updateWorkflowVersionStatusForArtifact(artifactId, status);
   }
 
   listWorkflowRevisions(workflowThreadId: string): WorkflowRevisionSummary[] {
-    this.requireWorkflowAgentThread(workflowThreadId);
-    const rows = this.requireDb()
-      .prepare("SELECT * FROM workflow_revisions WHERE workflow_thread_id = ? ORDER BY updated_at DESC, created_at DESC, rowid DESC")
-      .all(workflowThreadId) as WorkflowRevisionRow[];
-    return rows.map(this.mapWorkflowRevision);
+    return this.workflowRevisions().listWorkflowRevisions(workflowThreadId);
   }
 
   getWorkflowRevision(revisionId: string): WorkflowRevisionSummary {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_revisions WHERE id = ?").get(revisionId) as WorkflowRevisionRow | undefined;
-    if (!row) throw new Error(`Workflow revision not found: ${revisionId}`);
-    return this.mapWorkflowRevision(row);
+    return this.workflowRevisions().getWorkflowRevision(revisionId);
   }
 
   createWorkflowRevision(input: CreateWorkflowRevisionInput): WorkflowRevisionSummary {
-    const requestedChange = input.requestedChange.trim();
-    if (!requestedChange) throw new Error("Workflow revision requested change is required.");
-    this.requireWorkflowAgentThread(input.workflowThreadId);
-    const baseVersion = input.baseVersionId ? this.getWorkflowVersion(input.baseVersionId) : undefined;
-    if (baseVersion && baseVersion.workflowThreadId !== input.workflowThreadId) {
-      throw new Error(`Workflow version ${baseVersion.id} does not belong to workflow thread ${input.workflowThreadId}.`);
-    }
-    const baseArtifact = input.baseArtifactId ? this.getWorkflowArtifact(input.baseArtifactId) : undefined;
-    if (baseArtifact?.workflowThreadId && baseArtifact.workflowThreadId !== input.workflowThreadId) {
-      throw new Error(`Workflow artifact ${baseArtifact.id} does not belong to workflow thread ${input.workflowThreadId}.`);
-    }
-    this.requireWorkflowGraphSnapshotForThread(input.proposedGraphSnapshotId, input.workflowThreadId);
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    const status = input.status ?? "draft";
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_revisions
-          (id, workflow_thread_id, base_version_id, base_artifact_id, requested_change, proposed_graph_snapshot_id, graph_diff_json, source_diff, revision_status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.workflowThreadId,
-        baseVersion?.id ?? null,
-        baseArtifact?.id ?? null,
-        requestedChange,
-        input.proposedGraphSnapshotId ?? null,
-        input.graphDiff === undefined ? null : JSON.stringify(input.graphDiff),
-        input.sourceDiff ?? null,
-        status,
-        now,
-        now,
-      );
-    this.requireDb()
-      .prepare("UPDATE workflow_agent_threads SET phase = ?, updated_at = ? WHERE id = ?")
-      .run(status === "applied" ? "planned" : "revision", now, input.workflowThreadId);
-    return this.getWorkflowRevision(id);
+    return this.workflowRevisions().createWorkflowRevision(input);
   }
 
   updateWorkflowRevision(input: UpdateWorkflowRevisionInput): WorkflowRevisionSummary {
-    const current = this.getWorkflowRevision(input.id);
-    const requestedChange = input.requestedChange === undefined ? current.requestedChange : input.requestedChange.trim();
-    if (!requestedChange) throw new Error("Workflow revision requested change is required.");
-    this.requireWorkflowGraphSnapshotForThread(input.proposedGraphSnapshotId === null ? undefined : input.proposedGraphSnapshotId, current.workflowThreadId);
-    const now = new Date().toISOString();
-    const status = input.status ?? current.status;
-    this.requireDb()
-      .prepare(
-        `UPDATE workflow_revisions
-         SET requested_change = ?,
-             proposed_graph_snapshot_id = ?,
-             graph_diff_json = ?,
-             source_diff = ?,
-             revision_status = ?,
-             updated_at = ?
-         WHERE id = ?`,
-      )
-      .run(
-        requestedChange,
-        input.proposedGraphSnapshotId === undefined ? (current.proposedGraphSnapshotId ?? null) : input.proposedGraphSnapshotId,
-        input.graphDiff === undefined ? (current.graphDiff === undefined ? null : JSON.stringify(current.graphDiff)) : JSON.stringify(input.graphDiff),
-        input.sourceDiff === undefined ? (current.sourceDiff ?? null) : input.sourceDiff,
-        status,
-        now,
-        input.id,
-      );
-    this.requireDb()
-      .prepare("UPDATE workflow_agent_threads SET phase = ?, updated_at = ? WHERE id = ?")
-      .run(status === "applied" ? "planned" : "revision", now, current.workflowThreadId);
-    return this.getWorkflowRevision(input.id);
+    return this.workflowRevisions().updateWorkflowRevision(input);
   }
 
   resolveWorkflowRevision(input: ResolveWorkflowRevisionInput): WorkflowRevisionSummary {
-    const current = this.getWorkflowRevision(input.id);
-    if (current.status === input.decision) return current;
-    if (current.status === "applied" || current.status === "rejected") {
-      throw new Error(`Workflow revision is already ${current.status}.`);
-    }
-
-    const thread = this.requireWorkflowAgentThread(current.workflowThreadId);
-    let activeArtifactId: string | null | undefined;
-    let activeGraphSnapshotId: string | null | undefined;
-    let phase: WorkflowAgentThreadPhase = "planned";
-
-    if (input.decision === "applied") {
-      const proposedVersion = this.workflowVersionForGraphSnapshot(current.proposedGraphSnapshotId);
-      if (!proposedVersion || proposedVersion.workflowThreadId !== current.workflowThreadId) {
-        throw new Error("Cannot apply workflow revision without a proposed workflow version.");
-      }
-      const proposedArtifact = this.getWorkflowArtifact(proposedVersion.artifactId);
-      activeArtifactId = proposedArtifact.id;
-      activeGraphSnapshotId = proposedVersion.graphSnapshotId ?? current.proposedGraphSnapshotId ?? null;
-      phase = workflowAgentPhaseForArtifactStatus(proposedArtifact.status);
-    } else {
-      const baseVersion = current.baseVersionId ? this.getWorkflowVersion(current.baseVersionId) : undefined;
-      const baseArtifactId = baseVersion?.artifactId ?? current.baseArtifactId;
-      const baseArtifact = baseArtifactId ? this.getWorkflowArtifact(baseArtifactId) : undefined;
-      activeArtifactId = baseArtifact?.id;
-      activeGraphSnapshotId = baseVersion?.graphSnapshotId ?? null;
-      phase = baseArtifact ? workflowAgentPhaseForArtifactStatus(baseArtifact.status) : "planned";
-    }
-
-    const now = new Date().toISOString();
-    const nextActiveArtifactId = activeArtifactId === undefined ? thread.active_artifact_id : activeArtifactId;
-    const nextActiveGraphSnapshotId = activeGraphSnapshotId === undefined ? thread.active_graph_snapshot_id : activeGraphSnapshotId;
-    const db = this.requireDb();
-    const transaction = db.transaction(() => {
-      db.prepare("UPDATE workflow_revisions SET revision_status = ?, updated_at = ? WHERE id = ?").run(input.decision, now, current.id);
-      db.prepare("UPDATE workflow_agent_threads SET active_artifact_id = ?, active_graph_snapshot_id = ?, phase = ?, updated_at = ? WHERE id = ?").run(
-        nextActiveArtifactId,
-        nextActiveGraphSnapshotId,
-        phase,
-        now,
-        current.workflowThreadId,
-      );
-    });
-    transaction();
-    return this.getWorkflowRevision(current.id);
+    return this.workflowRevisions().resolveWorkflowRevision(input);
   }
 
   listWorkflowDiscoveryQuestions(workflowThreadId: string, options: { revisionId?: string } = {}): WorkflowDiscoveryQuestion[] {
-    this.requireWorkflowAgentThread(workflowThreadId);
-    const where = options.revisionId ? "workflow_thread_id = ? AND revision_id = ?" : "workflow_thread_id = ?";
-    const params = options.revisionId ? [workflowThreadId, options.revisionId] : [workflowThreadId];
-    const rows = this.requireDb()
-      .prepare(`SELECT * FROM workflow_discovery_questions WHERE ${where} ORDER BY question_order ASC, created_at ASC`)
-      .all(...params) as WorkflowDiscoveryQuestionRow[];
-    return rows.map(this.mapWorkflowDiscoveryQuestion);
+    return this.workflowDiscoveryQuestions().listWorkflowDiscoveryQuestions(workflowThreadId, options);
   }
 
-  createWorkflowDiscoveryQuestion(input: {
-    workflowThreadId: string;
-    revisionId?: string;
-    category: WorkflowDiscoveryQuestionCategory;
-    context: string;
-    question: string;
-    choices: WorkflowDiscoveryQuestion["choices"];
-    allowFreeform: boolean;
-    graphImpact?: string;
-    provider?: WorkflowDiscoveryQuestion["provider"];
-    providerModel?: string;
-    policyContextSummary?: string;
-    capabilitySearch?: WorkflowDiscoveryQuestion["capabilitySearch"];
-    capabilityDescriptions?: WorkflowDiscoveryQuestion["capabilityDescriptions"];
-    blockedReasons?: string[];
-    accessRequests?: WorkflowDiscoveryQuestion["accessRequests"];
-    activityEvents?: WorkflowDiscoveryQuestion["activityEvents"];
-    cacheCheckpoint?: WorkflowDiscoveryQuestion["cacheCheckpoint"];
-    graphPatch?: WorkflowDiscoveryQuestion["graphPatch"];
-  }): WorkflowDiscoveryQuestion {
-    this.requireWorkflowAgentThread(input.workflowThreadId);
-    if (input.revisionId) {
-      const revision = this.getWorkflowRevision(input.revisionId);
-      if (revision.workflowThreadId !== input.workflowThreadId) {
-        throw new Error(`Workflow revision ${revision.id} does not belong to workflow thread ${input.workflowThreadId}.`);
-      }
-    }
-    const row = this.requireDb()
-      .prepare("SELECT COALESCE(MAX(question_order), 0) + 1 AS next_order FROM workflow_discovery_questions WHERE workflow_thread_id = ?")
-      .get(input.workflowThreadId) as { next_order: number };
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_discovery_questions
-          (id, workflow_thread_id, revision_id, question_order, category, context, question, choices_json, allow_freeform, answer_json, graph_impact, provider, provider_model, policy_context_summary, capability_search_json, capability_descriptions_json, blocked_reasons_json, access_requests_json, activity_events_json, cache_checkpoint_json, graph_patch_json, created_at, answered_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.workflowThreadId,
-        input.revisionId ?? null,
-        row.next_order,
-        input.category,
-        input.context,
-        input.question,
-        JSON.stringify(input.choices),
-        input.allowFreeform ? 1 : 0,
-        null,
-        input.graphImpact ?? null,
-        input.provider ?? null,
-        input.providerModel ?? null,
-        input.policyContextSummary ?? null,
-        input.capabilitySearch ? JSON.stringify(input.capabilitySearch) : null,
-        input.capabilityDescriptions?.length ? JSON.stringify(input.capabilityDescriptions) : null,
-        input.blockedReasons?.length ? JSON.stringify(input.blockedReasons) : null,
-        input.accessRequests?.length ? JSON.stringify(input.accessRequests) : null,
-        input.activityEvents?.length ? JSON.stringify(input.activityEvents) : null,
-        input.cacheCheckpoint ? JSON.stringify(input.cacheCheckpoint) : null,
-        input.graphPatch ? JSON.stringify(input.graphPatch) : null,
-        now,
-        null,
-      );
-    this.requireDb()
-      .prepare("UPDATE workflow_agent_threads SET phase = ?, updated_at = ? WHERE id = ?")
-      .run(input.revisionId ? "revision" : "discovery", now, input.workflowThreadId);
-    return this.mapWorkflowDiscoveryQuestion(
-      this.requireDb().prepare("SELECT * FROM workflow_discovery_questions WHERE id = ?").get(id) as WorkflowDiscoveryQuestionRow,
-    );
+  createWorkflowDiscoveryQuestion(input: CreateWorkflowDiscoveryQuestionInput): WorkflowDiscoveryQuestion {
+    return this.workflowDiscoveryQuestions().createWorkflowDiscoveryQuestion(input);
   }
 
   answerWorkflowDiscoveryQuestion(input: AnswerWorkflowDiscoveryQuestionInput): WorkflowDiscoveryQuestion {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_discovery_questions WHERE id = ?").get(input.questionId) as
-      | WorkflowDiscoveryQuestionRow
-      | undefined;
-    if (!row) throw new Error(`Workflow discovery question not found: ${input.questionId}`);
-    const question = this.mapWorkflowDiscoveryQuestion(row);
-    const choiceId = input.choiceId?.trim();
-    const freeform = input.freeform?.trim();
-    if (choiceId && !question.choices.some((choice) => choice.id === choiceId)) throw new Error(`Workflow discovery choice not found: ${choiceId}`);
-    if (!choiceId && !freeform) throw new Error("Workflow discovery answer requires a choice or freeform text.");
-    if (freeform && !question.allowFreeform) throw new Error("This workflow discovery question does not allow freeform answers.");
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare("UPDATE workflow_discovery_questions SET answer_json = ?, answered_at = ? WHERE id = ?")
-      .run(JSON.stringify({ choiceId: choiceId || undefined, freeform: freeform || undefined, answeredAt: now }), now, question.id);
-    this.requireDb().prepare("UPDATE workflow_agent_threads SET updated_at = ? WHERE id = ?").run(now, question.workflowThreadId);
-    return this.mapWorkflowDiscoveryQuestion(
-      this.requireDb().prepare("SELECT * FROM workflow_discovery_questions WHERE id = ?").get(question.id) as WorkflowDiscoveryQuestionRow,
-    );
+    return this.workflowDiscoveryQuestions().answerWorkflowDiscoveryQuestion(input);
   }
 
   clearWorkflowDiscoveryQuestionAnswer(questionId: string): WorkflowDiscoveryQuestion {
-    const question = this.getWorkflowDiscoveryQuestion(questionId);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare("UPDATE workflow_discovery_questions SET answer_json = NULL, answered_at = NULL WHERE id = ?")
-      .run(questionId);
-    this.requireDb().prepare("UPDATE workflow_agent_threads SET updated_at = ? WHERE id = ?").run(now, question.workflowThreadId);
-    return this.getWorkflowDiscoveryQuestion(questionId);
+    return this.workflowDiscoveryQuestions().clearWorkflowDiscoveryQuestionAnswer(questionId);
   }
 
   getWorkflowDiscoveryQuestion(questionId: string): WorkflowDiscoveryQuestion {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_discovery_questions WHERE id = ?").get(questionId) as
-      | WorkflowDiscoveryQuestionRow
-      | undefined;
-    if (!row) throw new Error(`Workflow discovery question not found: ${questionId}`);
-    return this.mapWorkflowDiscoveryQuestion(row);
+    return this.workflowDiscoveryQuestions().getWorkflowDiscoveryQuestion(questionId);
   }
 
   updateWorkflowDiscoveryAccessRequests(input: {
     questionId: string;
     accessRequests?: WorkflowDiscoveryQuestion["accessRequests"];
   }): WorkflowDiscoveryQuestion {
-    const question = this.getWorkflowDiscoveryQuestion(input.questionId);
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare("UPDATE workflow_discovery_questions SET access_requests_json = ? WHERE id = ?")
-      .run(input.accessRequests?.length ? JSON.stringify(input.accessRequests) : null, input.questionId);
-    this.requireDb().prepare("UPDATE workflow_agent_threads SET updated_at = ? WHERE id = ?").run(now, question.workflowThreadId);
-    return this.getWorkflowDiscoveryQuestion(input.questionId);
+    return this.workflowDiscoveryQuestions().updateWorkflowDiscoveryAccessRequests(input);
   }
 
   updateWorkflowDiscoveryActivityEvents(input: {
     questionId: string;
     activityEvents?: WorkflowDiscoveryQuestion["activityEvents"];
   }): WorkflowDiscoveryQuestion {
-    this.getWorkflowDiscoveryQuestion(input.questionId);
-    this.requireDb()
-      .prepare("UPDATE workflow_discovery_questions SET activity_events_json = ? WHERE id = ?")
-      .run(input.activityEvents?.length ? JSON.stringify(input.activityEvents) : null, input.questionId);
-    return this.getWorkflowDiscoveryQuestion(input.questionId);
+    return this.workflowDiscoveryQuestions().updateWorkflowDiscoveryActivityEvents(input);
   }
 
   updateWorkflowAgentThreadPhase(threadId: string, phase: WorkflowAgentThreadPhase): WorkflowAgentThreadSummary {
-    this.requireWorkflowAgentThread(threadId);
-    const now = new Date().toISOString();
-    this.requireDb().prepare("UPDATE workflow_agent_threads SET phase = ?, updated_at = ? WHERE id = ?").run(phase, now, threadId);
+    this.workflowAgentThreads().updateWorkflowAgentThreadPhase(threadId, phase);
     return this.getWorkflowAgentThreadSummary(threadId);
   }
 
@@ -5697,20 +5091,7 @@ export class ProjectStore {
   }
 
   createWorkflowArtifact(input: CreateWorkflowArtifactInput): WorkflowArtifactSummary {
-    const workflowThreadId = input.workflowThreadId ?? this.createWorkflowAgentThreadRecord({
-      title: input.title,
-      initialRequest: input.spec.goal,
-      phase: workflowAgentPhaseForArtifactStatus(input.status ?? "draft"),
-    }).id;
-    const artifact = this.workflowArtifacts().createWorkflowArtifact({ ...input, workflowThreadId });
-    if (input.activate !== false) {
-      this.requireDb()
-        .prepare("UPDATE workflow_agent_threads SET active_artifact_id = ?, phase = ?, updated_at = ? WHERE id = ?")
-        .run(artifact.id, workflowAgentPhaseForArtifactStatus(artifact.status), artifact.updatedAt, workflowThreadId);
-    } else {
-      this.requireDb().prepare("UPDATE workflow_agent_threads SET updated_at = ? WHERE id = ?").run(artifact.updatedAt, workflowThreadId);
-    }
-    return artifact;
+    return this.workflowArtifacts().createWorkflowArtifact(input);
   }
 
   listWorkflowArtifacts(): WorkflowArtifactSummary[] {
@@ -5722,15 +5103,7 @@ export class ProjectStore {
   }
 
   updateWorkflowArtifact(input: UpdateWorkflowArtifactInput): WorkflowArtifactSummary {
-    const current = this.workflowArtifacts().getWorkflowArtifact(input.id);
-    const artifact = this.workflowArtifacts().updateWorkflowArtifact(input);
-    const threadId = input.workflowThreadId ?? current.workflowThreadId;
-    if (threadId) {
-      this.requireDb()
-        .prepare("UPDATE workflow_agent_threads SET active_artifact_id = ?, phase = ?, updated_at = ? WHERE id = ?")
-        .run(artifact.id, workflowAgentPhaseForArtifactStatus(artifact.status), artifact.updatedAt, threadId);
-    }
-    return artifact;
+    return this.workflowArtifacts().updateWorkflowArtifact(input);
   }
 
   startWorkflowRun(input: {
@@ -6099,235 +5472,42 @@ export class ProjectStore {
   }
 
   recordWorkflowModelCall(input: RecordWorkflowModelCallInput): WorkflowModelCallRecord {
-    const run = input.runId ? this.getWorkflowRun(input.runId) : undefined;
-    const artifactId = input.artifactId ?? run?.artifactId;
-    if (artifactId) this.getWorkflowArtifact(artifactId);
-    const id = randomUUID();
-    const startedAt = input.startedAt ?? new Date().toISOString();
-    const completedAt = input.completedAt ?? new Date().toISOString();
-    const latencyMs = input.latencyMs ?? Math.max(0, Date.parse(completedAt) - Date.parse(startedAt));
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_model_calls
-        (id, run_id, artifact_id, task, status, input_json, output_json, cache_key, cache_checkpoint_json, model, graph_node_id, graph_edge_id, item_key, validation_error, started_at, completed_at, latency_ms)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.runId ?? null,
-        artifactId ?? null,
-        input.task,
-        input.status,
-        JSON.stringify(input.input),
-        input.output === undefined ? null : JSON.stringify(input.output),
-        input.cacheKey ?? null,
-        input.cacheCheckpoint ? JSON.stringify(input.cacheCheckpoint) : null,
-        input.model ?? null,
-        input.graphNodeId ?? null,
-        input.graphEdgeId ?? null,
-        input.itemKey ?? null,
-        input.validationError ?? null,
-        startedAt,
-        completedAt,
-        latencyMs,
-      );
-    return {
-      id,
-      runId: input.runId,
-      artifactId,
-      task: input.task,
-      status: input.status,
-      input: input.input,
-      output: input.output,
-      cacheKey: input.cacheKey,
-      cacheCheckpoint: input.cacheCheckpoint,
-      model: input.model,
-      graphNodeId: input.graphNodeId,
-      graphEdgeId: input.graphEdgeId,
-      itemKey: input.itemKey,
-      validationError: input.validationError,
-      startedAt,
-      completedAt,
-      latencyMs,
-    };
+    return this.workflowModelCalls().recordWorkflowModelCall(input);
   }
 
   getWorkflowModelCall(callId: string): WorkflowModelCallRecord {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_model_calls WHERE id = ?").get(callId) as
-      | WorkflowModelCallRow
-      | undefined;
-    if (!row) throw new Error(`Workflow model call not found: ${callId}`);
-    return this.mapWorkflowModelCall(row);
+    return this.workflowModelCalls().getWorkflowModelCall(callId);
   }
 
   listWorkflowModelCalls(input: { runId?: string; artifactId?: string } = {}): WorkflowModelCallRecord[] {
-    const rows = input.runId
-      ? (this.requireDb()
-          .prepare("SELECT * FROM workflow_model_calls WHERE run_id = ? ORDER BY started_at ASC")
-          .all(input.runId) as WorkflowModelCallRow[])
-      : input.artifactId
-        ? (this.requireDb()
-            .prepare("SELECT * FROM workflow_model_calls WHERE artifact_id = ? ORDER BY started_at ASC")
-            .all(input.artifactId) as WorkflowModelCallRow[])
-        : (this.requireDb()
-            .prepare("SELECT * FROM workflow_model_calls ORDER BY started_at ASC")
-            .all() as WorkflowModelCallRow[]);
-    return rows.map(this.mapWorkflowModelCall);
+    return this.workflowModelCalls().listWorkflowModelCalls(input);
   }
 
   compactExpiredWorkflowTraceData(input: {
     now?: string;
     debugRetentionDays?: number;
   } = {}): { cutoff: string; eventsCompacted: number; modelCallsCompacted: number } {
-    const now = input.now ?? new Date().toISOString();
-    const retentionDays = Math.max(1, Math.floor(input.debugRetentionDays ?? WORKFLOW_DEBUG_TRACE_RETENTION_DAYS));
-    const cutoffDate = new Date(Date.parse(now) - retentionDays * 24 * 60 * 60 * 1000);
-    const cutoff = Number.isFinite(cutoffDate.getTime()) ? cutoffDate.toISOString() : new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
-    const marker = JSON.stringify({
-      retention: "compacted",
-      compactedAt: now,
-      reason: "workflow_trace_retention_expired",
-    });
-
-    const eventResult = this.requireDb()
-      .prepare(
-        `UPDATE workflow_run_events
-         SET data_json = ?
-         WHERE data_json IS NOT NULL
-           AND created_at < ?
-           AND id IN (
-             SELECT event.id
-             FROM workflow_run_events event
-             JOIN workflow_runs run ON run.id = event.run_id
-             JOIN workflow_artifacts artifact ON artifact.id = run.artifact_id
-             LEFT JOIN workflow_agent_threads thread ON thread.id = artifact.workflow_thread_id
-             WHERE thread.trace_mode = 'debug' OR event.item_key IS NOT NULL
-           )`,
-      )
-      .run(marker, cutoff);
-
-    const modelCallResult = this.requireDb()
-      .prepare(
-        `UPDATE workflow_model_calls
-         SET input_json = ?,
-             output_json = CASE WHEN output_json IS NULL THEN NULL ELSE ? END
-         WHERE started_at < ?
-           AND id IN (
-             SELECT model_call.id
-             FROM workflow_model_calls model_call
-             JOIN workflow_artifacts artifact ON artifact.id = model_call.artifact_id
-             LEFT JOIN workflow_agent_threads thread ON thread.id = artifact.workflow_thread_id
-             WHERE thread.trace_mode = 'debug'
-           )`,
-      )
-      .run(marker, marker, cutoff);
-
-    return {
-      cutoff,
-      eventsCompacted: eventResult.changes,
-      modelCallsCompacted: modelCallResult.changes,
-    };
+    return this.workflowTraceRetention().compactExpiredWorkflowTraceData(input);
   }
 
   private createWorkflowAgentThreadRecord(input: CreateWorkflowAgentThreadInput): WorkflowAgentThreadRow {
-    this.ensureDefaultWorkflowAgentFolder();
-    const now = new Date().toISOString();
-    const workspace = this.getWorkspace();
-    const folderId = input.folderId && this.tryGetWorkflowAgentFolder(input.folderId) ? input.folderId : WORKFLOW_AGENT_HOME_FOLDER_ID;
-    const title = (input.title?.trim() || input.initialRequest.trim().split(/\r?\n/)[0] || "Untitled workflow").slice(0, 160);
-    const projectPath = input.projectPath?.trim() || workspace.path;
-    const chatThread = this.createThread(`Workflow: ${title}`, projectPath);
-    const id = randomUUID();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_agent_threads
-          (id, folder_id, chat_thread_id, project_path, title, phase, initial_request, active_artifact_id, active_graph_snapshot_id, trace_mode, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        folderId,
-        chatThread.id,
-        projectPath,
-        title,
-        input.phase ?? "discovery",
-        input.initialRequest.trim(),
-        null,
-        null,
-        input.traceMode ?? "production",
-        now,
-        now,
-      );
-    return this.requireWorkflowAgentThread(id);
-  }
-
-  private ensureDefaultWorkflowAgentFolder(): void {
-    const now = new Date().toISOString();
-    this.requireDb()
-      .prepare(
-        `INSERT INTO workflow_agent_folders (id, name, folder_kind, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO NOTHING`,
-      )
-      .run(WORKFLOW_AGENT_HOME_FOLDER_ID, "Home", "home", now, now);
+    return this.workflowAgentThreads().createWorkflowAgentThreadRecord(input);
   }
 
   private ensureWorkflowAgentThreadLinks(): void {
-    this.ensureDefaultWorkflowAgentFolder();
-    const now = new Date().toISOString();
-    const artifacts = this.listWorkflowArtifacts();
-    for (const artifact of artifacts) {
-      if (artifact.workflowThreadId && this.tryGetWorkflowAgentThread(artifact.workflowThreadId)) continue;
-      const thread = this.createWorkflowAgentThreadRecord({
-        title: artifact.title,
-        initialRequest: artifact.spec.goal || artifact.spec.summary || artifact.title,
-        phase: workflowAgentPhaseForArtifactStatus(artifact.status),
-      });
-      this.requireDb()
-        .prepare("UPDATE workflow_artifacts SET workflow_thread_id = ?, updated_at = ? WHERE id = ?")
-        .run(thread.id, now, artifact.id);
-      this.requireDb()
-        .prepare("UPDATE workflow_agent_threads SET active_artifact_id = ?, phase = ?, updated_at = ? WHERE id = ?")
-        .run(artifact.id, workflowAgentPhaseForArtifactStatus(artifact.status), now, thread.id);
-    }
+    this.workflowArtifacts().ensureWorkflowAgentThreadLinks();
   }
 
   private listWorkflowAgentFolderRows(): WorkflowAgentFolderRow[] {
-    this.ensureDefaultWorkflowAgentFolder();
-    return this.requireDb().prepare("SELECT * FROM workflow_agent_folders").all() as WorkflowAgentFolderRow[];
+    return this.workflowAgentThreads().listWorkflowAgentFolderRows();
   }
 
   private listWorkflowAgentThreadRows(): WorkflowAgentThreadRow[] {
-    this.ensureDefaultWorkflowAgentFolder();
-    return this.requireDb()
-      .prepare("SELECT * FROM workflow_agent_threads ORDER BY updated_at DESC, created_at DESC")
-      .all() as WorkflowAgentThreadRow[];
-  }
-
-  private requireWorkflowAgentFolder(folderId: string): WorkflowAgentFolderRow {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_agent_folders WHERE id = ?").get(folderId) as
-      | WorkflowAgentFolderRow
-      | undefined;
-    if (!row) throw new Error(`Workflow Agent folder not found: ${folderId}`);
-    return row;
-  }
-
-  private tryGetWorkflowAgentFolder(folderId: string): WorkflowAgentFolderRow | undefined {
-    return this.requireDb().prepare("SELECT * FROM workflow_agent_folders WHERE id = ?").get(folderId) as
-      | WorkflowAgentFolderRow
-      | undefined;
+    return this.workflowAgentThreads().listWorkflowAgentThreadRows();
   }
 
   private requireWorkflowAgentThread(threadId: string): WorkflowAgentThreadRow {
-    const row = this.tryGetWorkflowAgentThread(threadId);
-    if (!row) throw new Error(`Workflow Agent thread not found: ${threadId}`);
-    return row;
-  }
-
-  private tryGetWorkflowAgentThread(threadId: string): WorkflowAgentThreadRow | undefined {
-    return this.requireDb().prepare("SELECT * FROM workflow_agent_threads WHERE id = ?").get(threadId) as
-      | WorkflowAgentThreadRow
-      | undefined;
+    return this.workflowAgentThreads().requireWorkflowAgentThread(threadId);
   }
 
   private tryGetWorkflowArtifact(artifactId: string): WorkflowArtifactSummary | undefined {
@@ -6335,10 +5515,7 @@ export class ProjectStore {
   }
 
   private tryGetWorkflowGraphSnapshot(snapshotId: string): WorkflowGraphSnapshot | undefined {
-    const row = this.requireDb().prepare("SELECT * FROM workflow_graph_snapshots WHERE id = ?").get(snapshotId) as
-      | WorkflowGraphSnapshotRow
-      | undefined;
-    return row ? this.mapWorkflowGraphSnapshot(row) : undefined;
+    return this.workflowGraphSnapshots().tryGetWorkflowGraphSnapshot(snapshotId);
   }
 
   private requireWorkflowGraphSnapshotForThread(snapshotId: string | undefined, workflowThreadId: string): WorkflowGraphSnapshot | undefined {
@@ -6516,24 +5693,11 @@ export class ProjectStore {
     canonicalTaskPath: string;
   }): { run: SubagentRunSummary; barrier: SubagentWaitBarrierSummary } | undefined {
     const matchingRuns = this.subagentRuns().listSubagentRunsForCanonicalTask(input);
-    if (matchingRuns.length === 0) return undefined;
-    const matchingRunIds = new Set(matchingRuns.map((run) => run.id));
-    const barrierRows = this.requireDb()
-      .prepare(
-        `SELECT * FROM subagent_wait_barriers
-         WHERE parent_thread_id = ?
-           AND parent_run_id = ?
-           AND status = 'waiting_on_children'
-           AND dependency_mode IN ('required_all', 'required_any', 'quorum')
-         ORDER BY created_at ASC, id ASC`,
-      )
-      .all(input.parentThreadId, input.parentRunId) as SubagentWaitBarrierRow[];
-    for (const barrierRow of barrierRows) {
-      const barrier = this.mapSubagentWaitBarrier(barrierRow);
-      const blockedRun = matchingRuns.find((run) => matchingRunIds.has(run.id) && barrier.childRunIds.includes(run.id));
-      if (blockedRun) return { run: blockedRun, barrier };
-    }
-    return undefined;
+    return this.subagentWaitBarriers().findUnresolvedRequiredSubagentRunBlocker({
+      parentThreadId: input.parentThreadId,
+      parentRunId: input.parentRunId,
+      matchingRuns,
+    });
   }
 
   private appendSubagentRunEventInternal(
@@ -6746,25 +5910,6 @@ export class ProjectStore {
     return this.callableWorkflowTasks().findCallableWorkflowTaskByLaunchId(launchId);
   }
 
-  private findSubagentMaturityEvidenceByKey(kind: SubagentMaturityEvidenceKind, evidenceKey: string): SubagentMaturityEvidence | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM subagent_maturity_evidence WHERE kind = ? AND evidence_key = ?")
-      .get(kind, evidenceKey) as SubagentMaturityEvidenceRow | undefined;
-    return row ? this.mapSubagentMaturityEvidence(row) : undefined;
-  }
-
-  private mapSubagentMaturityEvidence = mapSubagentMaturityEvidenceRow;
-
-  private mapSubagentPromptSnapshot = mapSubagentPromptSnapshotRow;
-
-  private mapSubagentToolScopeSnapshot = mapSubagentToolScopeSnapshotRow;
-
-  private mapSubagentWaitBarrier = mapSubagentWaitBarrierRow;
-
-  private mapSubagentBatchJob = mapSubagentBatchJobRow;
-
-  private mapSubagentBatchResultReport = mapSubagentBatchResultReportRow;
-
   private threads(): ProjectStoreThreadRepository {
     return new ProjectStoreThreadRepository(this.requireDb(), this.getWorkspace().path);
   }
@@ -6801,6 +5946,25 @@ export class ProjectStore {
     return new ProjectStoreSubagentParentMailboxRepository(this.requireDb());
   }
 
+  private subagentSnapshots(): ProjectStoreSubagentSnapshotRepository {
+    return new ProjectStoreSubagentSnapshotRepository(this.requireDb());
+  }
+
+  private subagentWaitBarriers(): ProjectStoreSubagentWaitBarrierRepository {
+    return new ProjectStoreSubagentWaitBarrierRepository(this.requireDb());
+  }
+
+  private subagentBatches(): ProjectStoreSubagentBatchRepository {
+    return new ProjectStoreSubagentBatchRepository(this.requireDb(), {
+      upsertProgressNotification: (record, createdAt) =>
+        this.upsertSubagentBatchProgressNotificationForRecord(record, createdAt),
+    });
+  }
+
+  private subagentMaturityEvidence(): ProjectStoreSubagentMaturityEvidenceRepository {
+    return new ProjectStoreSubagentMaturityEvidenceRepository(this.requireDb());
+  }
+
   private artifactDrafts(): ProjectStoreArtifactDraftRepository {
     return new ProjectStoreArtifactDraftRepository(this.requireDb(), this.getWorkspace().path);
   }
@@ -6810,11 +5974,61 @@ export class ProjectStore {
   }
 
   private workflowArtifacts(): ProjectStoreWorkflowArtifactRepository {
-    return new ProjectStoreWorkflowArtifactRepository(this.requireDb());
+    return new ProjectStoreWorkflowArtifactRepository(this.requireDb(), {
+      createWorkflowAgentThreadRecord: (input) => this.createWorkflowAgentThreadRecord(input),
+    });
+  }
+
+  private workflowExplorationTraces(): ProjectStoreWorkflowExplorationTraceRepository {
+    return new ProjectStoreWorkflowExplorationTraceRepository(this.requireDb());
+  }
+
+  private workflowGraphSnapshots(): ProjectStoreWorkflowGraphSnapshotRepository {
+    return new ProjectStoreWorkflowGraphSnapshotRepository(this.requireDb());
+  }
+
+  private workflowModelCalls(): ProjectStoreWorkflowModelCallRepository {
+    return new ProjectStoreWorkflowModelCallRepository(this.requireDb(), {
+      getWorkflowRun: (runId) => this.getWorkflowRun(runId),
+      getWorkflowArtifact: (artifactId) => this.getWorkflowArtifact(artifactId),
+    });
+  }
+
+  private workflowAgentThreads(): ProjectStoreWorkflowAgentThreadRepository {
+    return new ProjectStoreWorkflowAgentThreadRepository(this.requireDb(), {
+      workspacePath: () => this.getWorkspace().path,
+      createThread: (title, workspacePath) => this.createThread(title, workspacePath),
+    });
+  }
+
+  private workflowDiscoveryQuestions(): ProjectStoreWorkflowDiscoveryQuestionRepository {
+    return new ProjectStoreWorkflowDiscoveryQuestionRepository(this.requireDb(), {
+      getWorkflowRevision: (revisionId) => this.getWorkflowRevision(revisionId),
+    });
+  }
+
+  private workflowRevisions(): ProjectStoreWorkflowRevisionRepository {
+    return new ProjectStoreWorkflowRevisionRepository(this.requireDb(), {
+      getWorkflowVersion: (versionId) => this.getWorkflowVersion(versionId),
+      getWorkflowArtifact: (artifactId) => this.getWorkflowArtifact(artifactId),
+      requireWorkflowGraphSnapshotForThread: (snapshotId, workflowThreadId) => this.requireWorkflowGraphSnapshotForThread(snapshotId, workflowThreadId),
+      workflowVersionForGraphSnapshot: (graphSnapshotId) => this.workflowVersionForGraphSnapshot(graphSnapshotId),
+    });
+  }
+
+  private workflowVersions(): ProjectStoreWorkflowVersionRepository {
+    return new ProjectStoreWorkflowVersionRepository(this.requireDb(), {
+      getWorkflowArtifact: (artifactId) => this.getWorkflowArtifact(artifactId),
+      tryGetWorkflowGraphSnapshot: (snapshotId) => this.tryGetWorkflowGraphSnapshot(snapshotId),
+    });
   }
 
   private workflowRuns(): ProjectStoreWorkflowRunRepository {
     return new ProjectStoreWorkflowRunRepository(this.requireDb());
+  }
+
+  private workflowTraceRetention(): ProjectStoreWorkflowTraceRetentionRepository {
+    return new ProjectStoreWorkflowTraceRetentionRepository(this.requireDb());
   }
 
   private workflowRecordings(): ProjectStoreWorkflowRecordingRepository {
@@ -7290,32 +6504,12 @@ export class ProjectStore {
   }
 
   private latestWorkflowVersionForThread(workflowThreadId: string): WorkflowVersionSummary | undefined {
-    const row = this.requireDb()
-      .prepare("SELECT * FROM workflow_versions WHERE workflow_thread_id = ? ORDER BY version_number DESC, created_at DESC LIMIT 1")
-      .get(workflowThreadId) as WorkflowVersionRow | undefined;
-    return row ? this.mapWorkflowVersion(row) : undefined;
+    return this.workflowVersions().latestWorkflowVersionForThread(workflowThreadId);
   }
 
   private workflowVersionForGraphSnapshot(graphSnapshotId: string | undefined): WorkflowVersionSummary | undefined {
-    if (!graphSnapshotId) return undefined;
-    const row = this.requireDb()
-      .prepare("SELECT * FROM workflow_versions WHERE graph_snapshot_id = ? ORDER BY version_number DESC, created_at DESC LIMIT 1")
-      .get(graphSnapshotId) as WorkflowVersionRow | undefined;
-    return row ? this.mapWorkflowVersion(row) : undefined;
+    return this.workflowVersions().workflowVersionForGraphSnapshot(graphSnapshotId);
   }
-
-  private mapWorkflowGraphSnapshot = mapWorkflowGraphSnapshotRow;
-
-  private mapWorkflowExplorationTrace = mapWorkflowExplorationTraceRow;
-
-  private mapWorkflowVersion = mapWorkflowVersionRow;
-
-  private mapWorkflowRevision = (row: WorkflowRevisionRow): WorkflowRevisionSummary => {
-    const proposedVersion = this.workflowVersionForGraphSnapshot(row.proposed_graph_snapshot_id ?? undefined);
-    return mapWorkflowRevisionRow(row, { proposedVersion });
-  };
-
-  private mapWorkflowDiscoveryQuestion = mapWorkflowDiscoveryQuestionRow;
 
   private hydrateCallableWorkflowTaskRunTelemetry(task: CallableWorkflowTaskSummary): CallableWorkflowTaskSummary {
     if (!task.workflowRunId) return task;
@@ -7330,56 +6524,9 @@ export class ProjectStore {
     };
   }
 
-  private mapWorkflowModelCall = mapWorkflowModelCallRow;
-
   private markMessageInterrupted(row: MessageRow, runMessage = INTERRUPTED_RUN_MESSAGE): void {
     const metadata = interruptedMetadata(parseMetadata(row.metadata_json));
     const content = interruptedMessageContent(row.content, row.role, runMessage);
     this.replaceMessage(row.id, content, metadata);
   }
-}
-
-const terminalBarrierEvidenceKindsByStatus: Record<
-  Exclude<SubagentWaitBarrierStatus, "waiting_on_children">,
-  Set<string>
-> = {
-  satisfied: new Set(["child_terminal", "explicit_partial"]),
-  failed: new Set(["child_terminal", "child_detached", "explicit_failure", "failed_spawn"]),
-  timed_out: new Set(["child_runtime_timeout"]),
-  cancelled: new Set(["child_cancelled", "parent_stopped"]),
-};
-
-function assertSubagentWaitBarrierTerminalTransition(input: {
-  id: string;
-  status: SubagentWaitBarrierStatus;
-  resolutionArtifact: unknown;
-}): void {
-  if (input.status === "waiting_on_children") return;
-  const artifact = recordFromUnknown(input.resolutionArtifact);
-  if (!artifact) {
-    throw new Error(`Terminal sub-agent wait barrier ${input.id} requires a resolution artifact.`);
-  }
-  const transitionEvidence = recordFromUnknown(artifact.transitionEvidence);
-  if (!transitionEvidence) {
-    throw new Error(`Terminal sub-agent wait barrier ${input.id} requires durable transitionEvidence.`);
-  }
-  if (transitionEvidence.schemaVersion !== SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION) {
-    throw new Error(`Terminal sub-agent wait barrier ${input.id} has invalid transitionEvidence schema.`);
-  }
-  const kind = typeof transitionEvidence.kind === "string" ? transitionEvidence.kind : "";
-  if (kind === "progress_return") {
-    throw new Error(`Terminal sub-agent wait barrier ${input.id} cannot use progress_return as terminal evidence.`);
-  }
-  const allowedKinds = terminalBarrierEvidenceKindsByStatus[input.status];
-  if (!allowedKinds.has(kind)) {
-    throw new Error(
-      `Terminal sub-agent wait barrier ${input.id} status ${input.status} cannot use transition evidence kind ${kind || "(missing)"}.`,
-    );
-  }
-}
-
-function recordFromUnknown(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined;
 }

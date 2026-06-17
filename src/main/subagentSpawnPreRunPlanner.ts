@@ -1,4 +1,5 @@
 import type { AmbientModelRuntimeProfile } from "../shared/ambientModels";
+import type { AmbientFeatureFlagSnapshot } from "../shared/featureFlags";
 import {
   buildSubagentCanonicalPath,
   type SubagentDependencyMode,
@@ -38,6 +39,10 @@ import {
   resolveSubagentToolScopeRequest,
   type SubagentToolScopeRequest,
 } from "./subagentToolScopeRequest";
+import {
+  assertValidSymphonyChildLaunchContractBundle,
+  type SymphonyChildLaunchContractBundle,
+} from "../shared/symphonyFineGrainedContracts";
 
 export const SUBAGENT_SPAWN_PRE_RUN_PLANNER_SCHEMA_VERSION =
   "ambient-subagent-spawn-pre-run-planner-v1" as const;
@@ -64,6 +69,8 @@ export interface ResolveSubagentSpawnPreRunPlanInput {
   parentThread: Pick<ThreadSummary, "id" | "model" | "canonicalTaskPath">;
   parentRun: { id: string };
   request: Record<string, unknown>;
+  featureFlagSnapshot?: AmbientFeatureFlagSnapshot;
+  resolveSymphonyLaunchContract?: (contractId: string) => unknown;
   roleRegistry: AgentRoleRegistry;
   resolveModelRuntimeProfile: (modelId?: string) => AmbientModelRuntimeProfile;
   existingRuns: readonly SubagentRunSummary[];
@@ -86,6 +93,8 @@ export interface SubagentSpawnPreRunPlan {
   promptMode: SubagentPromptMode;
   effectiveRoleSnapshot?: SubagentEffectiveRoleSnapshot;
   patternGraphBinding?: SubagentSpawnPatternGraphBinding;
+  symphonyContractId?: string;
+  symphonyContracts?: SymphonyChildLaunchContractBundle;
   requestedToolScope: SubagentToolScopeRequest;
   spawnIndex: number;
   canonicalTaskPath: string;
@@ -122,6 +131,15 @@ export function resolveSubagentSpawnPreRunPlan(
   const effectiveRoleSnapshot = resolveLaunchEffectiveRoleSnapshot(request.effectiveRole, roleId);
   const patternGraphBinding = resolveLaunchPatternGraphBinding(request.patternGraphBinding);
   const requestedToolScope = resolveSubagentToolScopeRequest(request.toolScope);
+  const symphonyContracts = resolveLaunchSymphonyContracts({
+    request,
+    featureFlagSnapshot: input.featureFlagSnapshot,
+    resolveSymphonyLaunchContract: input.resolveSymphonyLaunchContract,
+    parentThreadId: input.parentThread.id,
+    parentRunId: input.parentRun.id,
+    roleId,
+    requestedToolScope,
+  });
   const modelScope = resolveSubagentModelScope({
     role,
     requestedModelId: optionalString(request.modelId),
@@ -159,6 +177,7 @@ export function resolveSubagentSpawnPreRunPlan(
     promptMode,
     effectiveRoleSnapshot,
     patternGraphBinding,
+    ...(symphonyContracts ? { symphonyContractId: symphonyContracts.contractId } : {}),
     toolScope: requestedToolScope,
     retentionPolicy,
     schedulingPolicy: role.schedulingPolicy,
@@ -187,6 +206,10 @@ export function resolveSubagentSpawnPreRunPlan(
     promptMode,
     ...(effectiveRoleSnapshot ? { effectiveRoleSnapshot } : {}),
     ...(patternGraphBinding ? { patternGraphBinding } : {}),
+    ...(symphonyContracts ? {
+      symphonyContractId: symphonyContracts.contractId,
+      symphonyContracts: symphonyContracts.contracts,
+    } : {}),
     requestedToolScope,
     spawnIndex,
     canonicalTaskPath,
@@ -195,6 +218,64 @@ export function resolveSubagentSpawnPreRunPlan(
     retentionPolicy,
     title: optionalString(request.title) ?? defaultSubagentChildTitle(role, task),
   };
+}
+
+function resolveLaunchSymphonyContracts(input: {
+  request: Record<string, unknown>;
+  featureFlagSnapshot?: AmbientFeatureFlagSnapshot;
+  resolveSymphonyLaunchContract?: (contractId: string) => unknown;
+  parentThreadId: string;
+  parentRunId: string;
+  roleId: SubagentRoleId;
+  requestedToolScope: SubagentToolScopeRequest;
+}): { contractId: string; contracts: SymphonyChildLaunchContractBundle } | undefined {
+  const symphonyMode = input.request.symphonyMode === true;
+  const inlineContracts = input.request.symphony;
+  const contractId = optionalString(input.request.symphonyContractId);
+  if (!symphonyMode && !contractId && inlineContracts === undefined) return undefined;
+  if (inlineContracts !== undefined) {
+    throw new Error("Symphony-mode child spawn requires a stored symphonyContractId; inline symphony bundles are not authoritative.");
+  }
+  if (!contractId) {
+    throw new Error("Symphony-mode child spawn requires a stored symphonyContractId.");
+  }
+  if (!input.featureFlagSnapshot) {
+    throw new Error("Symphony-mode child spawn requires a feature flag snapshot before run creation.");
+  }
+  if (!input.resolveSymphonyLaunchContract) {
+    throw new Error("Symphony-mode child spawn requires a product-owned Symphony launch contract resolver.");
+  }
+  const rawContracts = input.resolveSymphonyLaunchContract(contractId);
+  if (!rawContracts) {
+    throw new Error(`Stored Symphony launch contract not found: ${contractId}`);
+  }
+  const contracts = assertValidSymphonyChildLaunchContractBundle(rawContracts, {
+    featureFlagSnapshot: input.featureFlagSnapshot,
+    parentThreadId: input.parentThreadId,
+    parentRunId: input.parentRunId,
+    launchBinding: {
+      roleId: input.roleId,
+      requestedToolCategoryIds: input.requestedToolScope.requestedCategories,
+      requestedToolIds: requestedToolIdsForBinding(input.requestedToolScope),
+      childAuthorityMutation: input.requestedToolScope.childAuthority?.mutation,
+    },
+  });
+  if (contracts.childLaunchPolicySnapshot.mutation === "lease_required") {
+    throw new Error("Symphony lease_required child launch policies require product-owned mutation workspace lease acquisition before spawn; this is unavailable in the current slice.");
+  }
+  return { contractId, contracts };
+}
+
+function requestedToolIdsForBinding(request: SubagentToolScopeRequest): Array<{ source: string; id: string; categoryId?: string }> {
+  const toolIds: Array<{ source: string; id: string; categoryId?: string }> = [];
+  for (const source of request.requestedSources ?? []) {
+    toolIds.push({
+      source: source.source,
+      id: source.id,
+      ...(source.categoryId ? { categoryId: source.categoryId } : {}),
+    });
+  }
+  return toolIds;
 }
 
 function resolveLaunchPatternGraphBinding(value: unknown): SubagentSpawnPatternGraphBinding | undefined {

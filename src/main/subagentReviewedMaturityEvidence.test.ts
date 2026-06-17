@@ -466,6 +466,12 @@ describe("reviewed sub-agent maturity evidence", () => {
               source: "default",
               defaultEnabled: false,
             },
+            "ambient.slashCommands": {
+              id: "ambient.slashCommands",
+              enabled: false,
+              source: "default",
+              defaultEnabled: false,
+            },
           },
         },
       }),

@@ -100,6 +100,41 @@ describe("sub-agent Pi tool catalog gating", () => {
     expect(guidance).toContain("cancel_parent is a final stop/cancel path");
     expect(guidance).toContain("scheduled sub-agents are deferred to the automation layer");
   });
+
+  it("hides Symphony launch contract fields unless a stored-contract resolver is present", () => {
+    const [tool] = createSubagentPiToolDefinitions({
+      store: {} as never,
+      threadId: "parent-thread",
+      getFeatureFlagSnapshot: () => enabledFlags,
+      getParentRun: () => ({ id: "parent-run" }),
+    });
+    const parameters = tool.parameters as any;
+
+    expect(parameters.additionalProperties).toBe(false);
+    expect(parameters.properties.symphonyMode).toBeUndefined();
+    expect(parameters.properties.symphonyContractId).toBeUndefined();
+    expect(parameters.properties.symphony).toBeUndefined();
+  });
+
+  it("declares stored Symphony contract id fields in the strict spawn tool schema when a resolver exists", () => {
+    const [tool] = createSubagentPiToolDefinitions({
+      store: {} as never,
+      threadId: "parent-thread",
+      getFeatureFlagSnapshot: () => enabledFlags,
+      getParentRun: () => ({ id: "parent-run" }),
+      resolveSymphonyLaunchContract: () => undefined,
+    });
+    const parameters = tool.parameters as any;
+
+    expect(parameters.additionalProperties).toBe(false);
+    expect(parameters.properties.symphonyMode).toMatchObject({
+      type: "boolean",
+    });
+    expect(parameters.properties.symphonyContractId).toMatchObject({
+      type: "string",
+    });
+    expect(parameters.properties.symphony).toBeUndefined();
+  });
 });
 
 describe("ambient_subagent Pi tool", () => {

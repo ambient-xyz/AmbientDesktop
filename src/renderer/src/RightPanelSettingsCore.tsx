@@ -281,6 +281,9 @@ export type RightPanelModelModeSettingsSectionProps = {
   subagentsFlagValue: string;
   subagentsFlagDescription: string;
   persistentSubagentsEnabled: boolean;
+  slashCommandsFlagValue: string;
+  slashCommandsFlagDescription: string;
+  persistentSlashCommandsEnabled: boolean;
   memoryFlagValue: string;
   memoryFlagDescription: string;
   persistentMemoryFeatureEnabled: boolean;
@@ -473,6 +476,9 @@ export function RightPanelModelModeSettingsSection({
   subagentsFlagValue,
   subagentsFlagDescription,
   persistentSubagentsEnabled,
+  slashCommandsFlagValue,
+  slashCommandsFlagDescription,
+  persistentSlashCommandsEnabled,
   memoryFlagValue,
   memoryFlagDescription,
   persistentMemoryFeatureEnabled,
@@ -592,6 +598,27 @@ export function RightPanelModelModeSettingsSection({
             <span>{persistentSubagentsEnabled ? "Enabled" : "Off"}</span>
           </label>
           <SubagentMaturityDiagnostics maturity={subagentMaturity} evidence={subagentMaturityEvidence} />
+        </SettingsRow>
+      )}
+      {settingsRowVisible("model-mode", "model-mode.slash-commands") && (
+        <SettingsRow
+          label="Slash command skills"
+          value={slashCommandsFlagValue}
+          description={slashCommandsFlagDescription}
+        >
+          <label className="setting-toggle">
+            <input
+              type="checkbox"
+              checked={persistentSlashCommandsEnabled}
+              onChange={(event) =>
+                onFeatureFlagSettingsChange({
+                  ...state.settings.featureFlags,
+                  slashCommands: event.target.checked,
+                })
+              }
+            />
+            <span>{persistentSlashCommandsEnabled ? "Enabled" : "Off"}</span>
+          </label>
         </SettingsRow>
       )}
       {settingsRowVisible("model-mode", "model-mode.agent-memory") && (

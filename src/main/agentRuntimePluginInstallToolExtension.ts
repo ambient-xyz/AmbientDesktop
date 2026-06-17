@@ -9,7 +9,7 @@ import {
 import {
   createAmbientCliPackageSummaryModelComplete,
   hydrateFirstPartyAmbientCliPackageSummaries,
-} from "./agentRuntimeAmbientCliPackageSummaryHydration";
+} from "./agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageSummaryHydration";
 import {
   ambientCapabilityBuilderApplyRepairInput,
   ambientCapabilityBuilderHistoryInput,

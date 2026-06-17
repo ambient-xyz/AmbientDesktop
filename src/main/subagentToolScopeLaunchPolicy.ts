@@ -103,7 +103,8 @@ export interface SubagentLaunchWorkspaceToolPolicy extends SubagentWorkspaceTool
 
 export type SubagentToolScopeLaunchDenialKind =
   | "phase4_isolation_required"
-  | "requested_scope_denied";
+  | "requested_scope_denied"
+  | "symphony_policy_mismatch";
 
 export interface SubagentToolScopeLaunchDenial {
   schemaVersion: typeof SUBAGENT_TOOL_SCOPE_LAUNCH_POLICY_SCHEMA_VERSION;

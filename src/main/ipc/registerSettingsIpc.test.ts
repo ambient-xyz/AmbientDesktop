@@ -57,7 +57,7 @@ describe("registerSettingsIpc", () => {
 
     await invoke("media:update-playback-settings", { generatedMediaAutoplay: true });
     await invoke("thinking-display:update-settings", { mode: "transient" });
-    await invoke("feature-flags:update-settings", { subagents: true, tencentDbMemory: true });
+    await invoke("feature-flags:update-settings", { subagents: true, tencentDbMemory: true, slashCommands: true });
     await invoke("memory:update-settings", { enabled: true, defaultThreadEnabled: true });
     await expect(invoke("memory:diagnostics")).resolves.toMatchObject({ adapter: "tencentdb" });
     await expect(invoke("memory:embedding-lifecycle-action", { action: "check" })).resolves.toMatchObject({ status: "ready" });
@@ -66,7 +66,7 @@ describe("registerSettingsIpc", () => {
 
     expect(deps.updateMediaPlaybackSettings).toHaveBeenCalledWith({ generatedMediaAutoplay: true });
     expect(deps.updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "transient", showRunStatusCard: false });
-    expect(deps.updateFeatureFlagSettings).toHaveBeenCalledWith({ subagents: true, tencentDbMemory: true });
+    expect(deps.updateFeatureFlagSettings).toHaveBeenCalledWith({ subagents: true, tencentDbMemory: true, slashCommands: true });
     expect(deps.updateMemorySettings).toHaveBeenCalledWith({ enabled: true, defaultThreadEnabled: true });
     expect(deps.getAgentMemoryDiagnostics).toHaveBeenCalledOnce();
     expect(deps.runAgentMemoryEmbeddingLifecycleAction).toHaveBeenCalledWith({ action: "check" });
@@ -549,6 +549,7 @@ function registerWithFakes() {
     updateFeatureFlagSettings: vi.fn(async (input): Promise<AmbientFeatureFlagSettings> => ({
       subagents: Boolean(input.subagents),
       tencentDbMemory: Boolean(input.tencentDbMemory),
+      slashCommands: Boolean(input.slashCommands),
     })),
     updateMemorySettings: vi.fn(async (input): Promise<AgentMemorySettings> => ({
       enabled: Boolean(input.enabled),

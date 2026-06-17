@@ -41,7 +41,7 @@ export function createAppDesktopStateAppliers({
   activeWorkspacePath: string | undefined;
   closeProjectBoard: () => void;
   rememberDesktopState: (next: DesktopState) => void;
-  setComposerDraft: (value: string) => void;
+  setComposerDraft: (value: string, options?: { clearSlashCommandSelection?: boolean }) => void;
   setRunStatus: Dispatch<SetStateAction<RunStatus>>;
   setSidebarArea: Dispatch<SetStateAction<SidebarArea>>;
   setState: Dispatch<SetStateAction<DesktopState | undefined>>;
@@ -71,7 +71,7 @@ export function createAppDesktopStateAppliers({
     const nextRunStatuses = applyDesktopStateBase(next);
     setSidebarArea("projects");
     setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
-    setComposerDraft("");
+    setComposerDraft("", { clearSlashCommandSelection: true });
     closeProjectBoard();
     if (appDesktopWorkspaceChanged(next, previousWorkspacePath)) {
       setWorkspaceRevision((revision) => revision + 1);
@@ -83,7 +83,7 @@ export function createAppDesktopStateAppliers({
     setSidebarArea("projects");
     setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
     if (appDesktopWorkspaceChanged(next, activeWorkspacePath)) {
-      setComposerDraft("");
+      setComposerDraft("", { clearSlashCommandSelection: true });
       setWorkspaceRevision((revision) => revision + 1);
     }
   }

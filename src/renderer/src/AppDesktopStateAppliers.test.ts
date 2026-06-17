@@ -32,10 +32,12 @@ function createRecorder() {
     runStatuses: RunStatus[];
     sidebarAreas: string[];
     states: DesktopState[];
+    composerDraftOptions: Array<{ clearSlashCommandSelection?: boolean } | undefined>;
     threadRunStatuses: Record<string, RunStatus>[];
     workspaceRevision: number;
   } = {
     composerDrafts: [],
+    composerDraftOptions: [],
     projectBoardOpen: [],
     remembered: [],
     runStatuses: [],
@@ -48,7 +50,10 @@ function createRecorder() {
     activeWorkspacePath: "/repo",
     closeProjectBoard: () => calls.projectBoardOpen.push(false),
     rememberDesktopState: (next) => calls.remembered.push(next),
-    setComposerDraft: (value) => calls.composerDrafts.push(value),
+    setComposerDraft: (value, options) => {
+      calls.composerDrafts.push(value);
+      calls.composerDraftOptions.push(options);
+    },
     setRunStatus: (value) => {
       calls.runStatuses.push(typeof value === "function" ? value("idle") : value);
     },
@@ -104,6 +109,7 @@ describe("App desktop state appliers", () => {
     expect(calls.sidebarAreas).toEqual(["projects"]);
     expect(calls.runStatuses).toEqual(["retrying"]);
     expect(calls.composerDrafts).toEqual([""]);
+    expect(calls.composerDraftOptions).toEqual([{ clearSlashCommandSelection: true }]);
     expect(calls.workspaceRevision).toBe(1);
   });
 
@@ -121,6 +127,7 @@ describe("App desktop state appliers", () => {
     expect(calls.sidebarAreas).toEqual(["projects"]);
     expect(calls.runStatuses).toEqual(["starting"]);
     expect(calls.composerDrafts).toEqual([""]);
+    expect(calls.composerDraftOptions).toEqual([{ clearSlashCommandSelection: true }]);
     expect(calls.projectBoardOpen).toEqual([false]);
     expect(calls.workspaceRevision).toBe(0);
   });

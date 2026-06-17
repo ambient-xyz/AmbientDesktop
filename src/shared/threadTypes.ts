@@ -640,6 +640,7 @@ export interface ToolExternalModelResponseArtifact {
 }
 
 export type ChatExportSource = "pi-session" | "visible-chat-fallback";
+export type ChatPdfExportSource = "visible-chat-pdf";
 
 export interface ExportChatInput {
   threadId: string;
@@ -650,5 +651,18 @@ export interface ExportChatResult {
   bytes: number;
   createdAt: string;
   source: ChatExportSource;
+  fallbackReason?: string;
+}
+
+export interface ExportChatPdfInput {
+  threadId: string;
+  projectId?: string;
+}
+
+export interface ExportChatPdfResult {
+  path: string;
+  bytes: number;
+  createdAt: string;
+  source: ChatPdfExportSource;
   fallbackReason?: string;
 }

@@ -127,6 +127,7 @@ describe("App planner actions", () => {
       delivery: "prompt",
     }));
     expect(controller.calls.composerDrafts).toEqual([""]);
+    expect(controller.calls.composerDraftOptions).toEqual([{ clearSlashCommandSelection: true }]);
   });
 
   it("keeps planner revision dialog error handling outside App", async () => {
@@ -210,9 +211,11 @@ function createController({
   const plannerDialog = statefulSetter<PlannerRevisionDialogState | undefined>(plannerRevisionDialog);
   const calls: {
     composerDrafts: string[];
+    composerDraftOptions: Array<{ clearSlashCommandSelection?: boolean } | undefined>;
     errors: Array<string | undefined>;
   } = {
     composerDrafts: [],
+    composerDraftOptions: [],
     errors: [],
   };
   const resetRunActivityLines = vi.fn();
@@ -223,7 +226,10 @@ function createController({
     plannerRevisionDialog,
     resetRunActivityLines,
     running,
-    setComposerDraft: (value) => calls.composerDrafts.push(value),
+    setComposerDraft: (value, options) => {
+      calls.composerDrafts.push(value);
+      calls.composerDraftOptions.push(options);
+    },
     setContextError: contextError.set,
     setError: (message) => calls.errors.push(message),
     setPlannerRevisionDialog: setPlannerRevisionDialog ?? plannerDialog.set,

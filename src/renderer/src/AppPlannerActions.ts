@@ -55,7 +55,7 @@ export function createAppPlannerActions({
   plannerRevisionDialog?: PlannerRevisionDialogState;
   resetRunActivityLines: (line: string) => void;
   running: boolean;
-  setComposerDraft: (value: string) => void;
+  setComposerDraft: (value: string, options?: { clearSlashCommandSelection?: boolean }) => void;
   setContextError: Dispatch<SetStateAction<string | undefined>>;
   setError: (message: string | undefined) => void;
   setPlannerRevisionDialog: Dispatch<SetStateAction<PlannerRevisionDialogState | undefined>>;
@@ -192,7 +192,7 @@ export function createAppPlannerActions({
         delivery: "prompt",
         context: [],
       });
-      if (options.clearComposer) setComposerDraft("");
+      if (options.clearComposer) setComposerDraft("", { clearSlashCommandSelection: true });
     } catch (err) {
       if (artifact.status === "ready") {
         void updatePlannerPlanWorkflowState(promptArtifact, "failed").catch(() => undefined);

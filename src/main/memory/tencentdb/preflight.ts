@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import type { AgentMemoryNativeDependencyPreflight } from "../../../shared/agentMemoryDiagnostics";
 import {
   PHASE0_TENCENT_MEMORY_PACKAGE_AUDIT,
@@ -32,8 +33,11 @@ export function inspectTencentDbMemoryNativePreflight(
   const dependencies = REQUIRED_TENCENT_MEMORY_NATIVE_DEPENDENCIES.map((name) => {
     const expectedVersion = upstreamDependencyVersion(name);
     try {
-      const packageJsonPath = requireResolve(`${name}/package.json`);
-      const packageJson = recordValue(readPackageJson(packageJsonPath));
+      const { packageJsonPath, packageJson } = resolveDependencyPackageJson({
+        name,
+        requireResolve,
+        readPackageJson,
+      });
       const version = stringValue(packageJson.version);
       return {
         name,
@@ -91,6 +95,59 @@ function upstreamDependencyVersion(name: string): string | undefined {
     ...TENCENT_MEMORY_UPSTREAM_PACKAGE_AUDIT_MANIFEST.optionalDependencies,
     ...TENCENT_MEMORY_UPSTREAM_PACKAGE_AUDIT_MANIFEST.peerDependencies,
   }[name];
+}
+
+function resolveDependencyPackageJson(input: {
+  name: string;
+  requireResolve: (specifier: string) => string;
+  readPackageJson: (path: string) => unknown;
+}): {
+  packageJsonPath: string;
+  packageJson: Record<string, unknown>;
+} {
+  try {
+    const packageJsonPath = input.requireResolve(`${input.name}/package.json`);
+    return {
+      packageJsonPath,
+      packageJson: recordValue(input.readPackageJson(packageJsonPath)),
+    };
+  } catch (directError) {
+    const entryPath = input.requireResolve(input.name);
+    const resolved = nearestPackageJsonForResolvedEntry({
+      name: input.name,
+      entryPath,
+      readPackageJson: input.readPackageJson,
+    });
+    if (resolved) return resolved;
+    throw directError;
+  }
+}
+
+function nearestPackageJsonForResolvedEntry(input: {
+  name: string;
+  entryPath: string;
+  readPackageJson: (path: string) => unknown;
+}): {
+  packageJsonPath: string;
+  packageJson: Record<string, unknown>;
+} | undefined {
+  let current = dirname(input.entryPath);
+  for (let depth = 0; depth < 8; depth += 1) {
+    const packageJsonPath = join(current, "package.json");
+    try {
+      const packageJson = recordValue(input.readPackageJson(packageJsonPath));
+      if (stringValue(packageJson.name) === input.name) {
+        return { packageJsonPath, packageJson };
+      }
+    } catch {
+      // Keep walking toward the package root; many candidate directories will
+      // not contain package metadata.
+    }
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return undefined;
 }
 
 function recordValue(value: unknown): Record<string, unknown> {

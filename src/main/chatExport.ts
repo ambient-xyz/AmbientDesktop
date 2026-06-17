@@ -41,6 +41,7 @@ export interface ChatExportOptions {
   appName: string;
   appVersion: string;
   now?: Date;
+  includePiSessionContent?: boolean;
 }
 
 export interface ChatExportPayload {
@@ -105,7 +106,7 @@ interface ChatExportArtifactIndex {
   artifacts: ChatExportArtifact[];
 }
 
-interface ChatExportArtifact {
+export interface ChatExportArtifact {
   kind: "tool-output" | "stdout" | "stderr" | "long-log" | "external-model-response";
   messageId: string;
   toolName?: string;
@@ -122,7 +123,7 @@ interface ChatExportArtifact {
   usage?: Record<string, unknown>;
 }
 
-interface ChatExportChildThreadBundle {
+export interface ChatExportChildThreadBundle {
   dir: string;
   run: SubagentRunSummary;
   thread: ThreadSummary;
@@ -139,6 +140,24 @@ interface ChatExportChildThreadBundle {
     originalPiSessionFile?: string;
     originalPiSessionFileExists: boolean;
   };
+}
+
+export interface VisibleChatExportSnapshot {
+  createdAt: string;
+  workspace: WorkspaceState;
+  thread: ThreadSummary;
+  rawMessages: ChatMessage[];
+  messages: ChatMessage[];
+  artifacts: ChatExportArtifact[];
+  contextUsage?: ContextUsageSnapshot;
+  piSession: {
+    content?: string;
+    fallbackReason?: string;
+  };
+  childThreadBundles: ChatExportChildThreadBundle[];
+  parentMailboxEvents: SubagentParentMailboxEventSummary[];
+  callableWorkflowTasks: CallableWorkflowTaskSummary[];
+  source: ChatExportSource;
 }
 
 interface ChatExportPatternGraphIndex {
@@ -356,17 +375,21 @@ export async function createChatExportBundle(
   options: ChatExportOptions,
 ): Promise<ChatExportPayload> {
   const now = options.now ?? new Date();
-  const createdAt = now.toISOString();
-  const workspace = store.getWorkspace();
-  const thread = store.getThread(threadId);
-  const rawMessages = store.listMessages(thread.id);
-  const messages = visibleExportMessages(rawMessages);
-  const artifacts = collectVisibleTranscriptArtifacts(messages);
-  const contextUsage = store.getLatestContextUsageSnapshot?.(thread.id);
-  const piSession = await readThreadPiSession(workspace, thread);
-  const childThreadBundles = await collectChildThreadBundles(store, workspace, thread);
-  const parentMailboxEvents = store.listSubagentParentMailboxEventsForParentThread?.(thread.id) ?? [];
-  const callableWorkflowTasks = store.listCallableWorkflowTasksForParentThread?.(thread.id) ?? [];
+  const snapshot = await createVisibleChatExportSnapshot(store, threadId, { ...options, now });
+  const {
+    artifacts,
+    callableWorkflowTasks,
+    childThreadBundles,
+    contextUsage,
+    createdAt,
+    messages,
+    parentMailboxEvents,
+    piSession,
+    rawMessages,
+    source,
+    thread,
+    workspace,
+  } = snapshot;
   const patternGraphRecords = collectPatternGraphExportRecords(callableWorkflowTasks, childThreadBundles);
   const childEvidenceSummary = buildChildEvidenceSummaryIndex(
     thread,
@@ -376,7 +399,6 @@ export async function createChatExportBundle(
     parentMailboxEvents,
     patternGraphRecords,
   );
-  const source: ChatExportSource = piSession.content === undefined ? "visible-chat-fallback" : "pi-session";
   const includedFiles = ["manifest.json", "visible-transcript.json", "visible-transcript.md", "artifacts.json"];
   if (contextUsage) includedFiles.push("context-usage.json");
   if (piSession.content !== undefined) includedFiles.push("pi-session.jsonl");
@@ -596,6 +618,41 @@ export async function createChatExportBundle(
   };
 }
 
+export async function createVisibleChatExportSnapshot(
+  store: ChatExportDataSource,
+  threadId: string,
+  options: ChatExportOptions,
+): Promise<VisibleChatExportSnapshot> {
+  const now = options.now ?? new Date();
+  const createdAt = now.toISOString();
+  const includePiSessionContent = options.includePiSessionContent ?? true;
+  const workspace = store.getWorkspace();
+  const thread = store.getThread(threadId);
+  const rawMessages = store.listMessages(thread.id);
+  const messages = visibleExportMessages(rawMessages);
+  const artifacts = collectVisibleTranscriptArtifacts(messages);
+  const contextUsage = store.getLatestContextUsageSnapshot?.(thread.id);
+  const piSession = includePiSessionContent ? await readThreadPiSession(workspace, thread) : {};
+  const childThreadBundles = await collectChildThreadBundles(store, workspace, thread, { includePiSessionContent });
+  const parentMailboxEvents = store.listSubagentParentMailboxEventsForParentThread?.(thread.id) ?? [];
+  const callableWorkflowTasks = store.listCallableWorkflowTasksForParentThread?.(thread.id) ?? [];
+  const source: ChatExportSource = piSession.content === undefined ? "visible-chat-fallback" : "pi-session";
+  return {
+    artifacts,
+    callableWorkflowTasks,
+    childThreadBundles,
+    contextUsage,
+    createdAt,
+    messages,
+    parentMailboxEvents,
+    piSession,
+    rawMessages,
+    source,
+    thread,
+    workspace,
+  };
+}
+
 function visibleExportMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.filter((message) => {
     if (message.metadata?.kind === "thinking") return false;
@@ -619,6 +676,7 @@ async function collectChildThreadBundles(
   store: ChatExportDataSource,
   workspace: WorkspaceState,
   parentThread: ThreadSummary,
+  options: { includePiSessionContent: boolean },
 ): Promise<ChatExportChildThreadBundle[]> {
   const runs = store.listSubagentRunsForParentThread?.(parentThread.id) ?? [];
   const bundles: ChatExportChildThreadBundle[] = [];
@@ -627,7 +685,7 @@ async function collectChildThreadBundles(
     const rawMessages = store.listMessages(thread.id);
     const messages = visibleExportMessages(rawMessages);
     const artifacts = collectVisibleTranscriptArtifacts(messages);
-    const piSession = await readThreadPiSession(workspace, thread);
+    const piSession = options.includePiSessionContent ? await readThreadPiSession(workspace, thread) : {};
     const waitBarriers = (store.listSubagentWaitBarriersForParentRun?.(run.parentRunId) ?? [])
       .filter((barrier) => barrier.childRunIds.includes(run.id) || barrier.parentRunId === run.id);
     bundles.push({

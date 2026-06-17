@@ -4,6 +4,16 @@ import {
   resolveAmbientModelRuntimeProfile,
   type AmbientModelRuntimeProfile,
 } from "../shared/ambientModels";
+import {
+  AMBIENT_SUBAGENTS_FEATURE_FLAG,
+  resolveAmbientFeatureFlags,
+} from "../shared/featureFlags";
+import {
+  SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
+  SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
+  SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
+  SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
+} from "../shared/symphonyFineGrainedContracts";
 import type { SubagentRunSummary, ThreadSummary } from "../shared/types";
 import { createDefaultAgentRoleRegistry } from "./agentRoleRegistry";
 import { createDefaultModelRuntimeRegistry } from "./modelRuntimeRegistry";
@@ -126,6 +136,240 @@ describe("subagentSpawnPreRunPlanner", () => {
         approvalMode: "non_interactive",
       },
     });
+  });
+
+  it("fails closed when Symphony mode is requested without stored launch contracts", () => {
+    expect(() => resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Run an imitate-and-verify Symphony flow.",
+        symphonyMode: true,
+      },
+      featureFlagSnapshot: enabledSubagentFeatureFlags(),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    })).toThrow("Symphony-mode child spawn requires a stored symphonyContractId.");
+  });
+
+  it("validates and preserves Symphony launch contracts before child run creation", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+    const plan = resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Verify the draft child output before synthesis.",
+        roleId: "reviewer",
+        dependencyMode: "required",
+        symphonyMode: true,
+        symphonyContractId: "contract-1",
+      },
+      featureFlagSnapshot,
+      resolveSymphonyLaunchContract: resolveStoredSymphonyContract(symphonyLaunchBundle(featureFlagSnapshot)),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    });
+
+    expect(plan.symphonyContracts).toMatchObject({
+      patternSelection: {
+        pattern: "imitate_and_verify",
+        parentRunId: "parent-run",
+      },
+      modePolicySnapshot: {
+        parentThreadId: "parent-thread",
+        directExecutionPolicy: "deny_substantive_tools",
+      },
+      childLaunchPolicySnapshot: {
+        policyId: "child-policy-1",
+        pattern: "imitate_and_verify",
+        mutation: "none",
+      },
+    });
+    expect(plan.symphonyContracts?.modePolicySnapshot.parentAllowedActions).toContain("retry_child");
+  });
+
+  it("rejects lease-required Symphony contracts before run creation until mutation leases are acquired", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+
+    expect(() => resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Mutate in an isolated child workspace.",
+        roleId: "worker",
+        dependencyMode: "required",
+        symphonyMode: true,
+        symphonyContractId: "contract-1",
+        toolScope: {
+          requestedCategories: ["workspace.write"],
+          childAuthority: {
+            taskIntent: "mutation",
+            writeRoots: ["/workspace/out"],
+            mutation: "allow_isolated_worktree",
+          },
+        },
+      },
+      featureFlagSnapshot,
+      resolveSymphonyLaunchContract: resolveStoredSymphonyContract(symphonyLaunchBundle(featureFlagSnapshot, {
+        role: "worker",
+        allowedToolIds: ["workspace.write"],
+        deniedToolIds: ["browser.interactive"],
+        writableRoots: ["/workspace"],
+        mutation: "lease_required",
+      })),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    })).toThrow("Symphony lease_required child launch policies require product-owned mutation workspace lease acquisition before spawn");
+  });
+
+  it("rejects Symphony launch contracts while ambient.subagents is disabled", () => {
+    const featureFlagSnapshot = resolveAmbientFeatureFlags({
+      settings: { subagents: false },
+      generatedAt: "2026-06-16T00:00:00.000Z",
+    });
+
+    expect(() => resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Run a gated Symphony child.",
+        symphonyMode: true,
+        symphonyContractId: "contract-1",
+      },
+      featureFlagSnapshot,
+      resolveSymphonyLaunchContract: resolveStoredSymphonyContract(symphonyLaunchBundle(featureFlagSnapshot)),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    })).toThrow("ambient.subagents is off; Symphony fine-grained contracts are unavailable.");
+  });
+
+  it("rejects Symphony launch contracts that disagree with the resolved child role", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+
+    expect(() => resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Reject a mismatched Symphony child role.",
+        roleId: "reviewer",
+        symphonyMode: true,
+        symphonyContractId: "contract-1",
+      },
+      featureFlagSnapshot,
+      resolveSymphonyLaunchContract: resolveStoredSymphonyContract(symphonyLaunchBundle(featureFlagSnapshot, { role: "verifier" })),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    })).toThrow("symphony.childLaunchPolicySnapshot.role must match resolved child role reviewer.");
+  });
+
+  it("binds Symphony launch contracts to exact tool-source category requests", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+
+    expect(() => resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Reject an exact connector tool outside the stored child policy.",
+        roleId: "reviewer",
+        symphonyMode: true,
+        symphonyContractId: "contract-1",
+        toolScope: {
+          connectorTools: [
+            { id: "gmail.search", categoryId: "connector.read" },
+          ],
+        },
+      },
+      featureFlagSnapshot,
+      resolveSymphonyLaunchContract: resolveStoredSymphonyContract(symphonyLaunchBundle(featureFlagSnapshot)),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    })).toThrow("symphony.childLaunchPolicySnapshot.allowedToolIds must include requested exact tool connector_app:gmail.search or category connector.read.");
+  });
+
+  it("allows Symphony contracts to grant an exact source without broad category authority", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+    const plan = resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Allow only one exact connector method.",
+        roleId: "reviewer",
+        symphonyMode: true,
+        symphonyContractId: "contract-1",
+        toolScope: {
+          connectorTools: [
+            { id: "gmail.search", categoryId: "connector.read" },
+          ],
+        },
+      },
+      featureFlagSnapshot,
+      resolveSymphonyLaunchContract: resolveStoredSymphonyContract(symphonyLaunchBundle(featureFlagSnapshot, { allowedToolIds: ["connector_app:gmail.search"] })),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    });
+
+    expect(plan.symphonyContracts?.childLaunchPolicySnapshot.allowedToolIds).toEqual(["connector_app:gmail.search"]);
+  });
+
+  it("does not treat bare exact tool ids as source wildcards in Symphony contracts", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+
+    expect(() => resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Reject a source-specific connector tool when only a bare operation id is allowed.",
+        roleId: "reviewer",
+        symphonyMode: true,
+        symphonyContractId: "contract-1",
+        toolScope: {
+          connectorTools: [
+            { id: "gmail.search", categoryId: "connector.read" },
+          ],
+        },
+      },
+      featureFlagSnapshot,
+      resolveSymphonyLaunchContract: resolveStoredSymphonyContract(symphonyLaunchBundle(featureFlagSnapshot, { allowedToolIds: ["gmail.search"] })),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    })).toThrow("symphony.childLaunchPolicySnapshot.allowedToolIds must include requested exact tool connector_app:gmail.search or category connector.read.");
+  });
+
+  it("rejects exact mutating source grants when Symphony policy mutation is none", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+
+    expect(() => resolveSubagentSpawnPreRunPlan({
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run" },
+      request: {
+        task: "Reject exact built-in edit authority under a no-mutation policy.",
+        roleId: "worker",
+        symphonyMode: true,
+        symphonyContractId: "contract-1",
+        toolScope: {
+          builtInTools: [
+            { id: "edit", categoryId: "workspace.write" },
+          ],
+        },
+      },
+      featureFlagSnapshot,
+      resolveSymphonyLaunchContract: resolveStoredSymphonyContract(symphonyLaunchBundle(featureFlagSnapshot, {
+        role: "worker",
+        allowedToolIds: ["built_in:edit"],
+        deniedToolIds: ["browser.interactive"],
+      })),
+      roleRegistry: createDefaultAgentRoleRegistry(),
+      resolveModelRuntimeProfile: modelResolver(),
+      existingRuns: [],
+    })).toThrow("symphony.childLaunchPolicySnapshot.allowedToolIds must not include exact mutating tool built_in:edit when mutation is none.");
   });
 
   it("plans explicit browser-interactive child authority without widening explorer defaults", () => {
@@ -296,6 +540,88 @@ function localTextConfiguredModelResolver(): (modelId?: string) => AmbientModelR
       unavailableReason: undefined,
       selectableAsSubagent: true,
     };
+  };
+}
+
+function resolveStoredSymphonyContract(contract: unknown): (contractId: string) => unknown {
+  return (contractId) => contractId === "contract-1" ? contract : undefined;
+}
+
+function enabledSubagentFeatureFlags() {
+  return resolveAmbientFeatureFlags({
+    startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+    generatedAt: "2026-06-16T00:00:00.000Z",
+  });
+}
+
+function symphonyLaunchBundle(
+  featureFlagSnapshot: ReturnType<typeof enabledSubagentFeatureFlags>,
+  options: {
+    role?: string;
+    allowedToolIds?: string[];
+    deniedToolIds?: string[];
+    writableRoots?: string[];
+    mutation?: "none" | "lease_required";
+  } = {},
+) {
+  return {
+    schemaVersion: SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
+    patternSelection: {
+      schemaVersion: SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
+      selectionId: "selection-1",
+      parentRunId: "parent-run",
+      pattern: "imitate_and_verify",
+      confidence: "high",
+      childRolePlan: [
+        { role: "drafter", count: 1, purpose: "Draft the artifact." },
+        { role: "verifier", count: 1, purpose: "Verify the draft." },
+      ],
+      requiredArtifacts: ["draft", "verification"],
+      reducerContract: "Synthesize only from child evidence.",
+      failurePolicy: "require_all",
+      tokenAndTimeBudget: { maxChildren: 2, maxMinutes: 10 },
+    },
+    modePolicySnapshot: {
+      schemaVersion: SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
+      snapshotId: "mode-policy-1",
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      enabled: true,
+      parentAllowedActions: [
+        "detect_pattern",
+        "plan",
+        "spawn_child",
+        "inspect_run_graph",
+        "inspect_child_evidence",
+        "request_decision",
+        "retry_child",
+        "synthesize",
+      ],
+      observationPolicy: "full_runtime_observability",
+      directExecutionPolicy: "deny_substantive_tools",
+      featureFlagSnapshot,
+    },
+    childLaunchPolicySnapshot: {
+      schemaVersion: SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
+      policyId: "child-policy-1",
+      childRunId: "planned-child-run",
+      role: options.role ?? "reviewer",
+      pattern: "imitate_and_verify",
+      inheritedAuthorityRoots: ["/workspace"],
+      writableRoots: options.writableRoots ?? [],
+      allowedToolIds: options.allowedToolIds ?? ["workspace.read", "test.run"],
+      deniedToolIds: options.deniedToolIds ?? ["workspace.write", "browser.interactive"],
+      webProviderOrder: {
+        search: ["brave-search"],
+        staticFetchExtract: ["scrapling-static"],
+        dynamicHeadlessBrowser: ["scrapling-dynamic"],
+        interactiveBrowser: {
+          providers: ["ambient-browser"],
+          fallback: "approval_required",
+        },
+      },
+      mutation: options.mutation ?? "none",
+    },
   };
 }
 

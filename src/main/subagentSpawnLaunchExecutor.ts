@@ -9,6 +9,7 @@ import { buildSubagentChildReservationMessage } from "./subagentSpawnFailure";
 import type { SubagentRoleId, SubagentRoleProfile } from "../shared/subagentRoles";
 import {
   resolveSubagentToolScope,
+  type SubagentToolScopeGrant,
   type SubagentToolScopeResolution,
 } from "../shared/subagentToolScope";
 import type {
@@ -21,6 +22,11 @@ import type {
   ThreadSummary,
   ThreadWorktreeSummary,
 } from "../shared/types";
+import {
+  assertValidMutationWorkspaceLease,
+  symphonyExactToolPolicyId,
+  symphonyPolicyIncludesExactTool,
+} from "../shared/symphonyFineGrainedContracts";
 import {
   resolveSubagentTurnBudgetPolicy,
   type SubagentTurnBudgetPolicy,
@@ -38,6 +44,7 @@ import {
   resolveSubagentChildAuthorityProfile,
   resolveSubagentLaunchWorkspaceToolPolicy,
   resolveSubagentToolScopeLaunchDenial,
+  SUBAGENT_TOOL_SCOPE_LAUNCH_POLICY_SCHEMA_VERSION,
   type SubagentLaunchWorkspaceToolPolicy,
   type SubagentToolScopeLaunchDenial,
 } from "./subagentToolScopeLaunchPolicy";
@@ -47,6 +54,7 @@ import {
   buildSubagentTaskMailboxEventInput,
   type SubagentSpawnRequestContractInput,
 } from "./subagentSpawnRequest";
+import { isPathInside } from "./sessionPaths";
 
 export const SUBAGENT_SPAWN_LAUNCH_EXECUTOR_SCHEMA_VERSION =
   "ambient-subagent-spawn-launch-executor-v1" as const;
@@ -172,10 +180,6 @@ export async function executeSubagentSpawnLaunch(
     task: input.requestedToolScope,
     workspacePolicy,
   });
-  const launchDenial = resolveSubagentToolScopeLaunchDenial({
-    scope: toolScope,
-    requestedToolScope: input.requestedToolScope,
-  });
   const childAuthorityProfile = resolveSubagentChildAuthorityProfile({
     parentThread: input.parentThread,
     childRun: input.run,
@@ -183,6 +187,19 @@ export async function executeSubagentSpawnLaunch(
     requestedToolScope: input.requestedToolScope,
     scope: toolScope,
     workspacePolicy,
+  });
+  const launchDenial = resolveSubagentToolScopeLaunchDenial({
+    scope: toolScope,
+    requestedToolScope: input.requestedToolScope,
+  }) ?? resolveSymphonyLaunchPolicyDenial({
+    scope: toolScope,
+    run: input.run,
+    childAuthorityProfile,
+    explicitToolRequest: Boolean(
+      input.requestedToolScope.requestedCategories?.length ||
+      input.requestedToolScope.requestedSources?.length ||
+      input.requestedToolScope.requestedFanout
+    ),
   });
   const toolScopeSnapshot = input.store.recordSubagentToolScopeSnapshot(input.run.id, {
     scope: toolScope,
@@ -359,6 +376,168 @@ function compactSubagentModelScopeForLaunch(scope: SubagentModelScopeResolution)
     blockingReasons: scope.blockingReasons,
     warnings: scope.warnings,
   };
+}
+
+function resolveSymphonyLaunchPolicyDenial(input: {
+  scope: SubagentToolScopeResolution;
+  run: SubagentRunSummary;
+  childAuthorityProfile: ReturnType<typeof resolveSubagentChildAuthorityProfile>;
+  explicitToolRequest: boolean;
+}): SubagentToolScopeLaunchDenial | undefined {
+  const policy = input.run.symphonyLaunchContracts?.childLaunchPolicySnapshot;
+  if (!policy) return undefined;
+  const allowed = new Set(policy.allowedToolIds);
+  const denied = new Set(policy.deniedToolIds);
+  const deniedCategoryIds = new Set<string>();
+  const deniedToolIds = new Set<string>();
+  const reasons: string[] = [];
+  const resolvedTools = uniqueResolvedToolGrants(input.scope);
+  const resolvedCategories = [...new Set([...input.scope.loadedCategories, ...input.scope.piVisibleCategories])];
+  const readRoots = input.childAuthorityProfile.resourceScopes.filesystem.readRoots;
+  const writeRoots = input.childAuthorityProfile.resourceScopes.filesystem.writeRoots;
+
+  const leaseReasons = symphonyMutationLeaseDenialReasons({
+    run: input.run,
+    policy,
+    writeRoots,
+  });
+  if (leaseReasons.length > 0) {
+    reasons.push(...leaseReasons);
+    for (const tool of resolvedTools) {
+      if (tool.mutatesState) deniedToolIds.add(symphonyExactToolPolicyId(tool));
+    }
+  }
+
+  for (const categoryId of resolvedCategories) {
+    if (denied.has(categoryId)) {
+      deniedCategoryIds.add(categoryId);
+      reasons.push(`${categoryId} is denied by the Symphony child launch policy`);
+      continue;
+    }
+    if (!allowed.has(categoryId) && !resolvedCategoryCoveredByExactToolGrants(categoryId, resolvedTools, policy)) {
+      deniedCategoryIds.add(categoryId);
+      reasons.push(`${categoryId} is not allowed by the Symphony child launch policy`);
+    }
+  }
+
+  for (const tool of resolvedTools) {
+    const exactToolId = symphonyExactToolPolicyId(tool);
+    const categoryAllowed = tool.categoryId ? allowed.has(tool.categoryId) : false;
+    const exactAllowed = symphonyPolicyIncludesExactTool(policy.allowedToolIds, tool);
+    const categoryDenied = tool.categoryId ? denied.has(tool.categoryId) : false;
+    const exactDenied = symphonyPolicyIncludesExactTool(policy.deniedToolIds, tool);
+    if (policy.mutation === "none" && tool.mutatesState) {
+      deniedToolIds.add(exactToolId);
+      reasons.push(`${exactToolId} mutates state but the Symphony child launch policy mutation is none`);
+      continue;
+    }
+    if (categoryDenied || exactDenied) {
+      deniedToolIds.add(exactToolId);
+      reasons.push(`${exactToolId} is denied by the Symphony child launch policy`);
+      continue;
+    }
+    if (!categoryAllowed && !exactAllowed) {
+      deniedToolIds.add(exactToolId);
+      reasons.push(`${exactToolId} is not allowed by the Symphony child launch policy`);
+    }
+  }
+
+  for (const readRoot of readRoots) {
+    if (!pathWithinAnyRoot(readRoot, policy.inheritedAuthorityRoots)) {
+      reasons.push(`${readRoot} is outside Symphony inherited authority roots`);
+    }
+  }
+  for (const writeRoot of writeRoots) {
+    if (!pathWithinAnyRoot(writeRoot, policy.writableRoots)) {
+      reasons.push(`${writeRoot} is outside Symphony writable roots`);
+    }
+  }
+
+  if (reasons.length === 0) return undefined;
+  return {
+    schemaVersion: SUBAGENT_TOOL_SCOPE_LAUNCH_POLICY_SCHEMA_VERSION,
+    kind: "symphony_policy_mismatch",
+    reason: `Symphony child launch policy does not cover resolved tool scope: ${[...new Set(reasons)].join("; ")}`,
+    explicitToolRequest: input.explicitToolRequest,
+    deniedCategoryIds: [...deniedCategoryIds] as SubagentToolScopeLaunchDenial["deniedCategoryIds"],
+    deniedToolIds: [...deniedToolIds],
+  };
+}
+
+function pathWithinAnyRoot(candidate: string, roots: readonly string[]): boolean {
+  if (!roots.length) return false;
+  return roots.some((root) => pathWithinRoot(candidate, root));
+}
+
+function symphonyMutationLeaseDenialReasons(input: {
+  run: SubagentRunSummary;
+  policy: NonNullable<SubagentRunSummary["symphonyLaunchContracts"]>["childLaunchPolicySnapshot"];
+  writeRoots: readonly string[];
+}): string[] {
+  if (input.policy.mutation !== "lease_required") return [];
+  const lease = input.run.symphonyMutationWorkspaceLease;
+  if (!lease) {
+    return ["Symphony child launch policy requires an active mutation workspace lease, but no lease is bound to this launch."];
+  }
+  let validated: NonNullable<SubagentRunSummary["symphonyMutationWorkspaceLease"]>;
+  try {
+    validated = assertValidMutationWorkspaceLease(lease);
+  } catch (error) {
+    return [`Symphony mutation workspace lease is invalid: ${error instanceof Error ? error.message : String(error)}`];
+  }
+  const reasons: string[] = [];
+  if (validated.status !== "active") {
+    reasons.push(`Symphony mutation workspace lease ${validated.leaseId} must be active before launch; current status is ${validated.status}.`);
+  }
+  if (validated.parentThreadId !== input.run.parentThreadId) {
+    reasons.push(`Symphony mutation workspace lease ${validated.leaseId} belongs to parent thread ${validated.parentThreadId}, not ${input.run.parentThreadId}.`);
+  }
+  if (validated.childThreadId !== input.run.childThreadId) {
+    reasons.push(`Symphony mutation workspace lease ${validated.leaseId} belongs to child thread ${validated.childThreadId}, not ${input.run.childThreadId}.`);
+  }
+  if (validated.childRunId !== input.run.id) {
+    reasons.push(`Symphony mutation workspace lease ${validated.leaseId} belongs to child run ${validated.childRunId}, not ${input.run.id}.`);
+  }
+  for (const leaseWritableRoot of validated.writableRoots) {
+    if (!pathWithinAnyRoot(leaseWritableRoot, input.policy.writableRoots)) {
+      reasons.push(`${leaseWritableRoot} is outside Symphony launch policy writable roots.`);
+    }
+  }
+  for (const writeRoot of input.writeRoots) {
+    if (!pathWithinAnyRoot(writeRoot, validated.writableRoots)) {
+      reasons.push(`${writeRoot} is outside active Symphony mutation workspace lease writable roots.`);
+    }
+  }
+  return reasons;
+}
+
+function pathWithinRoot(candidate: string, root: string): boolean {
+  return isPathInside(root, candidate);
+}
+
+function uniqueResolvedToolGrants(scope: SubagentToolScopeResolution): SubagentToolScopeGrant[] {
+  const grants: SubagentToolScopeGrant[] = [];
+  const seen = new Set<string>();
+  for (const tool of [...scope.loadedTools, ...scope.piVisibleTools]) {
+    const key = `${tool.source}:${tool.id}:${tool.categoryId ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    grants.push(tool);
+  }
+  return grants;
+}
+
+function resolvedCategoryCoveredByExactToolGrants(
+  categoryId: string,
+  tools: readonly SubagentToolScopeGrant[],
+  policy: NonNullable<SubagentRunSummary["symphonyLaunchContracts"]>["childLaunchPolicySnapshot"],
+): boolean {
+  const categoryTools = tools.filter((tool) => tool.categoryId === categoryId);
+  if (categoryTools.length === 0) return false;
+  return categoryTools.every((tool) => {
+    if (policy.mutation === "none" && tool.mutatesState) return false;
+    return symphonyPolicyIncludesExactTool(policy.allowedToolIds, tool);
+  });
 }
 
 function compactSubagentCapacityLeaseForLaunch(value: unknown): Record<string, unknown> | null {

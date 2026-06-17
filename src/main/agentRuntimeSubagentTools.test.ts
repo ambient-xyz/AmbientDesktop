@@ -49,6 +49,7 @@ describe("createSubagentToolExtension", () => {
       resolveChildApprovalResponse: vi.fn(),
     };
     const parentRun = { id: "run-1", assistantMessageId: "message-1" };
+    const resolveSymphonyLaunchContract = vi.fn((contractId: string) => ({ contractId }));
 
     createSubagentToolExtension({
       threadId: "thread-1",
@@ -60,6 +61,7 @@ describe("createSubagentToolExtension", () => {
       getThread: () => thread(),
       getFeatureFlagSnapshot: () => featureFlags(),
       getParentRun: () => parentRun,
+      resolveSymphonyLaunchContract,
       resolveModelRuntimeProfile: (modelId) => ({ providerId: "provider", modelId: modelId ?? "default-model" } as any),
       resolveCapacityLease: (input) => ({ leaseId: "lease-1", input } as any),
       prepareChildWorktree: (input) => ({ path: `/tmp/${input.run.id}` } as any),
@@ -84,11 +86,38 @@ describe("createSubagentToolExtension", () => {
     expect(capturedOptions?.store.getThread("thread-1")).toEqual(thread());
     expect(capturedOptions?.getFeatureFlagSnapshot()).toEqual(featureFlags());
     expect(capturedOptions?.getParentRun()).toEqual(parentRun);
+    expect(capturedOptions?.resolveSymphonyLaunchContract?.("contract-1")).toEqual({ contractId: "contract-1" });
+    expect(resolveSymphonyLaunchContract).toHaveBeenCalledWith("contract-1");
     expect(capturedOptions?.availableExtensionToolNames).toEqual(["plugin_alpha", "plugin_beta"]);
     expect(capturedOptions?.resolveModelRuntimeProfile?.("model-1")).toMatchObject({ providerId: "provider", modelId: "model-1" });
     await expect(Promise.resolve(capturedOptions?.resolveCapacityLease?.({} as any))).resolves.toMatchObject({ leaseId: "lease-1" });
     await expect(Promise.resolve(capturedOptions?.prepareChildWorktree?.({ run: { id: "child-1" } } as any))).resolves.toMatchObject({ path: "/tmp/child-1" });
     expect(capturedOptions?.runtime).toBe(runtime);
+  });
+
+  it("exposes stored Symphony launch contract fields through the production wrapper when a resolver exists", () => {
+    const registeredTools: any[] = [];
+
+    createSubagentToolExtension({
+      threadId: "thread-1",
+      store: { getThread: () => thread() } as any,
+      getThread: () => thread(),
+      getFeatureFlagSnapshot: () => featureFlags(),
+      getParentRun: () => ({ id: "run-1" }),
+      resolveSymphonyLaunchContract: () => undefined,
+      resolveModelRuntimeProfile: () => ({ providerId: "provider", modelId: "model" } as any),
+      resolveCapacityLease: () => ({ leaseId: "lease-1" } as any),
+      prepareChildWorktree: () => undefined,
+      runtime: {} as any,
+      ambientSubagentActiveToolNamesForThread: () => ["ambient_subagent"] as any,
+    })({
+      registerTool: (tool: any) => registeredTools.push(tool),
+    } as any);
+
+    expect(registeredTools).toHaveLength(1);
+    expect(registeredTools[0].parameters.properties.symphonyMode).toMatchObject({ type: "boolean" });
+    expect(registeredTools[0].parameters.properties.symphonyContractId).toMatchObject({ type: "string" });
+    expect(registeredTools[0].parameters.properties.symphony).toBeUndefined();
   });
 });
 
@@ -108,6 +137,7 @@ describe("createAgentRuntimeSubagentToolExtension", () => {
         throw new Error("missing run record");
       }),
     });
+    const resolveSymphonyLaunchContract = vi.fn((contractId: string) => ({ contractId }));
 
     createAgentRuntimeSubagentToolExtension({
       threadId: "thread-1",
@@ -116,6 +146,7 @@ describe("createAgentRuntimeSubagentToolExtension", () => {
       activeRunIds: new Map([["thread-1", "run-1"]]),
       activeRunStore,
       getFeatureFlagSnapshot: () => featureFlags(),
+      resolveSymphonyLaunchContract,
       resolveModelRuntimeProfile: (modelId) => ({ providerId: "provider", modelId: modelId ?? "default-model" } as any),
       resolveCapacityLease: (input) => ({ leaseId: "lease-1", input } as any),
       prepareChildWorktree: (input) => ({ path: `/tmp/${input.run.id}` } as any),
@@ -141,6 +172,8 @@ describe("createAgentRuntimeSubagentToolExtension", () => {
     expect(capturedOptions?.getFeatureFlagSnapshot()).toEqual(featureFlags());
     expect(capturedOptions?.getParentRun()).toEqual({ id: "run-1" });
     expect(activeRunStore.getRunRecord).toHaveBeenCalledWith("run-1");
+    expect(capturedOptions?.resolveSymphonyLaunchContract?.("contract-2")).toEqual({ contractId: "contract-2" });
+    expect(resolveSymphonyLaunchContract).toHaveBeenCalledWith("contract-2");
     expect(capturedOptions?.availableExtensionToolNames).toEqual(["plugin_alpha"]);
     expect(capturedOptions?.resolveModelRuntimeProfile?.("model-1")).toMatchObject({ providerId: "provider", modelId: "model-1" });
     await expect(Promise.resolve(capturedOptions?.resolveCapacityLease?.({} as any))).resolves.toMatchObject({ leaseId: "lease-1" });

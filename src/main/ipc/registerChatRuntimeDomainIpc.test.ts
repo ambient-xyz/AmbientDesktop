@@ -10,6 +10,7 @@ import {
   chatRuntimeDomainIpcChannels,
   registerChatRuntimeDomainIpc,
   type ChatRuntimeAgentRuntime,
+  type ChatRuntimeDomainHost,
   type ChatRuntimeStore,
 } from "./registerChatRuntimeDomainIpc";
 import { messageSendIpcChannels } from "./registerMessageIpc";
@@ -17,6 +18,7 @@ import { runAbortIpcChannels } from "./registerRunIpc";
 import type {
   ContextUsageSnapshot,
   SendMessageInput,
+  SlashCommandSelection,
   ThreadGoal,
   ThreadSummary,
   WorkspaceContextReference,
@@ -120,6 +122,25 @@ describe("registerChatRuntimeDomainIpc", () => {
     expect(host.store.markThreadRead).not.toHaveBeenCalled();
   });
 
+  it("validates slash command composer intents before mutating send state", async () => {
+    const selection = sampleSlashCommandSelection();
+    const validateSlashCommandSelection = vi.fn(async () => {
+      throw new Error("Selected slash command changed. Select it again before sending.");
+    });
+    const { deps, host, invoke } = registerWithFakes({ validateSlashCommandSelection });
+
+    await expect(invoke("message:send", {
+      ...sampleSendInput(),
+      composerIntent: { kind: "slash-command", selection },
+    })).rejects.toThrow("Selected slash command changed. Select it again before sending.");
+
+    expect(validateSlashCommandSelection).toHaveBeenCalledWith(host, selection);
+    expect(deps.setProjectHostActiveThreadId).not.toHaveBeenCalled();
+    expect(deps.prepareWorktreeForThread).not.toHaveBeenCalled();
+    expect(deps.createAndRecordCheckpoint).not.toHaveBeenCalled();
+    expect(host.runtime.send).not.toHaveBeenCalled();
+  });
+
   it("delegates run and context actions to the thread runtime host", async () => {
     const { contextSnapshot, host, invoke } = registerWithFakes();
 
@@ -147,10 +168,12 @@ function registerWithFakes({
   currentGoal,
   env = {},
   thread = sampleThread(),
+  validateSlashCommandSelection,
 }: {
   currentGoal?: ThreadGoal;
   env?: NodeJS.ProcessEnv;
   thread?: ThreadSummary;
+  validateSlashCommandSelection?: (host: ChatRuntimeDomainHost, selection: SlashCommandSelection) => Promise<void>;
 } = {}) {
   const handlers = new Map<string, IpcListener>();
   const preparedThread = { ...thread, gitWorktree: sampleThreadWorktree() };
@@ -202,6 +225,7 @@ function registerWithFakes({
     prepareWorktreeForThread: vi.fn(() => preparedThread),
     requireProjectRuntimeHostForThread: vi.fn(() => host),
     setProjectHostActiveThreadId: vi.fn(),
+    ...(validateSlashCommandSelection ? { validateSlashCommandSelection } : {}),
   };
   const rawInput = {
     ...sampleSendInput(),
@@ -237,6 +261,22 @@ function sampleSendInput(): SendMessageInput {
     collaborationMode: "agent",
     model: "ambient-test-model",
     thinkingLevel: "medium",
+  };
+}
+
+function sampleSlashCommandSelection(): SlashCommandSelection {
+  return {
+    schemaVersion: "ambient-slash-command-invocation-v1",
+    entryId: "codex-plugin-skill:reviewer",
+    command: "/reviewer",
+    title: "reviewer",
+    kind: "skill",
+    sourceKind: "codex-plugin",
+    invocationKind: "codex-plugin-skill",
+    sourceId: "plugin-reviewer",
+    sourceName: "reviewer",
+    sourceVersion: "1.0.0",
+    sourceFingerprint: "abc123",
   };
 }
 

@@ -56,7 +56,7 @@
     "createdWith": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["packageVersion", "tinystylerRevision", "styleEmbeddingRevision"],
+      "required": ["packageVersion", "tinystylerRevision", "styleEmbeddingRevision", "runtimeMode"],
       "properties": {
         "packageVersion": { "type": "string", "minLength": 1 },
         "tinystylerRevision": { "type": "string", "minLength": 1 },

@@ -7,7 +7,11 @@ import type {
   DiagnosticExportSubagentReplayEvidence,
   DiagnosticExportSummary,
 } from "../shared/types";
-import { AMBIENT_SUBAGENTS_FEATURE_FLAG, AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG } from "../shared/featureFlags";
+import {
+  AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
+  AMBIENT_SUBAGENTS_FEATURE_FLAG,
+  AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
+} from "../shared/featureFlags";
 
 export const MAX_DIAGNOSTIC_IMPORT_BYTES = 50 * 1024 * 1024;
 
@@ -415,7 +419,7 @@ const localRuntimeEvidenceSchema = z.object({
 });
 
 const featureFlagResolutionSchema = z.object({
-  id: z.enum([AMBIENT_SUBAGENTS_FEATURE_FLAG, AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]),
+  id: z.enum([AMBIENT_SUBAGENTS_FEATURE_FLAG, AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG, AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]),
   enabled: z.boolean(),
   source: z.enum([
     "default",
@@ -435,6 +439,7 @@ const featureFlagSnapshotSchema = z.object({
   flags: z.object({
     [AMBIENT_SUBAGENTS_FEATURE_FLAG]: featureFlagResolutionSchema,
     [AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]: featureFlagResolutionSchema.optional(),
+    [AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]: featureFlagResolutionSchema.optional(),
   }),
 }).transform((snapshot): AmbientFeatureFlagSnapshot => ({
   ...snapshot,
@@ -442,6 +447,12 @@ const featureFlagSnapshotSchema = z.object({
     [AMBIENT_SUBAGENTS_FEATURE_FLAG]: snapshot.flags[AMBIENT_SUBAGENTS_FEATURE_FLAG],
     [AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]: snapshot.flags[AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG] ?? {
       id: AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
+      enabled: false,
+      source: "default",
+      defaultEnabled: false,
+    },
+    [AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]: snapshot.flags[AMBIENT_SLASH_COMMANDS_FEATURE_FLAG] ?? {
+      id: AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
       enabled: false,
       source: "default",
       defaultEnabled: false,

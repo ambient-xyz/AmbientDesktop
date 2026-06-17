@@ -368,6 +368,8 @@ import type {
   RunStatus,
   SaveBrowserCredentialInput,
   RuntimeActivity,
+  SlashCommandCatalogEntry,
+  SlashCommandSelection,
   TerminalSession,
   ThemePreference,
   ThinkingDisplayMode,
@@ -865,6 +867,11 @@ import {
 } from "./AppStartupLifecycleEffects";
 import { useAppLocalDeepResearchLifecycle } from "./AppLocalDeepResearchLifecycle";
 import {
+  slashCommandComposerCanSubmit,
+  slashCommandDraftAfterSelection,
+  slashCommandSelectionFromEntry,
+} from "./slashCommandUiModel";
+import {
   useAppComposerModeThreadLifecycleEffects,
   useAppLocalDeepResearchReadinessLifecycleEffect,
   useAppSpeechProviderLifecycleEffects,
@@ -1118,6 +1125,7 @@ export function App() {
     renameThread,
     revealProject,
     revealThread,
+    threadActionInput,
     toggleProjectPinned,
     toggleThreadPinned,
   } = createAppProjectThreadActions({
@@ -1229,6 +1237,8 @@ export function App() {
   const composerInputRef = useRef<ChatComposerInputHandle>(null);
   const composerDraftRef = useRef("");
   const composerDraftStore = useMemo(() => createComposerDraftStore(), []);
+  const selectedSlashCommandRef = useRef<SlashCommandSelection | undefined>(undefined);
+  const [selectedSlashCommand, setSelectedSlashCommandState] = useState<SlashCommandSelection | undefined>();
   const promptHistoryRef = useRef<string[]>([]);
   const localDeepResearchModeArmedRef = useRef(false);
   const localDeepResearchRunBudgetRef = useRef<LocalDeepResearchRunBudget>(resolveLocalDeepResearchRunBudget(undefined));
@@ -2709,6 +2719,7 @@ export function App() {
     compactActiveThread,
     duplicateActiveThreadFromTranscript,
     exportActiveChat,
+    exportChatPdfThread,
     exportChatThread,
     exportDiagnostics,
     importDiagnostics,
@@ -2823,17 +2834,52 @@ export function App() {
     return composerInputRef.current?.getValue() ?? composerDraftRef.current;
   }
 
-  function setComposerDraft(value: string, options: { focusEnd?: boolean } = {}) {
+  function setComposerDraft(value: string, options: { focusEnd?: boolean; clearSlashCommandSelection?: boolean } = {}) {
+    const slashSelection = options.clearSlashCommandSelection ? undefined : selectedSlashCommandRef.current;
+    if (options.clearSlashCommandSelection && selectedSlashCommandRef.current) {
+      selectedSlashCommandRef.current = undefined;
+      setSelectedSlashCommandState(undefined);
+    }
     composerDraftRef.current = value;
     composerDraftStore.set(value);
     composerInputRef.current?.setValue(value);
     setComposerCanSubmit((current) => {
-      const next = Boolean(value.trim());
+      const next = slashCommandComposerCanSubmit(value, slashSelection);
       return current === next ? current : next;
     });
     if (options.focusEnd) {
       window.setTimeout(() => composerInputRef.current?.focusEnd(), 0);
     }
+  }
+
+  function setSelectedSlashCommand(next: SlashCommandSelection | undefined): void {
+    selectedSlashCommandRef.current = next;
+    setSelectedSlashCommandState(next);
+    setComposerCanSubmit((current) => {
+      const canSubmit = slashCommandComposerCanSubmit(composerDraftRef.current, next);
+      return current === canSubmit ? current : canSubmit;
+    });
+  }
+
+  function selectSlashCommandEntry(entry: SlashCommandCatalogEntry, query: string, draft: string): void {
+    if (entry.kind === "app") {
+      setSelectedSlashCommand(undefined);
+      setComposerDraft(slashCommandDraftAfterSelection(draft, entry), { focusEnd: true });
+      return;
+    }
+    setSelectedSlashCommand(slashCommandSelectionFromEntry(entry, query));
+    setComposerDraft(slashCommandDraftAfterSelection(draft, entry), { focusEnd: true });
+    if (localDeepResearchModeArmedRef.current) setLocalDeepResearchModeArmed(false);
+    setContextError(undefined);
+  }
+
+  function removeSlashCommandSelection(): void {
+    setSelectedSlashCommand(undefined);
+    window.setTimeout(() => composerInputRef.current?.focusEnd(), 0);
+  }
+
+  function showUnavailableSlashCommand(entry: SlashCommandCatalogEntry): void {
+    setContextError(entry.availabilityReason ?? `${entry.title} is ${entry.availability}.`);
   }
 
   function registerPendingSubmittedPrompt(input: { threadId: string; content: string; delivery: MessageDelivery }): string | undefined {
@@ -2867,6 +2913,7 @@ export function App() {
     compactActiveThread,
     contextAttachments,
     getComposerDraft,
+    getSlashCommandSelection: () => selectedSlashCommandRef.current,
     goalModeArmed,
     localDeepResearchRunActive,
     localDeepResearchModeArmedRef,
@@ -2886,6 +2933,7 @@ export function App() {
     setLocalDeepResearchModeArmed,
     setPendingWorkflowRecordingEditContext,
     setRunStatus,
+    setSlashCommandSelection: setSelectedSlashCommand,
     setSttDraftMetadata,
     setThreadRunStatuses,
     state,
@@ -2992,7 +3040,7 @@ export function App() {
     composerDraftRef.current = value;
     composerDraftStore.set(value);
     setComposerCanSubmit((current) => {
-      const next = Boolean(value.trim());
+      const next = slashCommandComposerCanSubmit(value, selectedSlashCommandRef.current);
       return current === next ? current : next;
     });
     if (pendingWorkflowRecordingEditContext && !value.startsWith(pendingWorkflowRecordingEditContext.draftPrefix)) {
@@ -3478,6 +3526,11 @@ export function App() {
           onCopyThreadWorkingDirectory={() => void copyThreadWorkingDirectory()}
           onCopyThreadSessionId={() => void copyThreadSessionId()}
           onCopyThreadDeeplink={() => void copyThreadDeeplink()}
+          onExportThreadPdf={() => {
+            const input = threadActionInput(threadContextMenu);
+            setThreadContextMenu(undefined);
+            void exportChatPdfThread(input);
+          }}
           onForkThread={(mode) => void forkThread(mode)}
           onOpenThreadMiniWindow={() => void openThreadMiniWindow()}
           onBeginResize={beginSidebarResize}
@@ -3518,6 +3571,7 @@ export function App() {
                 composerInputRef: composerInputRef,
                 composerDraftStore: composerDraftStore,
                 composerCanSubmit: composerCanSubmit,
+                selectedSlashCommand: selectedSlashCommand,
                 running: running,
                 abortArmed: abortArmed,
                 workflowRecordingReviewFeedbackActive: workflowRecordingReviewFeedbackActive,
@@ -3565,6 +3619,9 @@ export function App() {
                 onComposerChange: handleComposerChange,
                 onComposerPaste: handleComposerPaste,
                 onComposerKeyDown: handleComposerKeyDown,
+                onSelectSlashCommandEntry: selectSlashCommandEntry,
+                onRemoveSlashCommand: removeSlashCommandSelection,
+                onUnavailableSlashCommand: showUnavailableSlashCommand,
                 onSelectSymphonyPattern: selectSymphonyPattern,
                 onSelectSymphonyStepChoice: selectSymphonyStepChoice,
                 onChangeSymphonyStepCustomText: changeSymphonyStepCustomText,

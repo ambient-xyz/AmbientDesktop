@@ -506,6 +506,19 @@ export function RightPanelSettingsPane({
     const subagentsFlagDescription = subagentsFeatureFlag?.source === "startup_arg_disable"
       ? "A startup argument is forcing sub-agents off for this app session."
       : "Enables the hidden child-thread and model-runtime foundation for dogfood builds. Keep this off for normal single-thread runs.";
+    const slashCommandsFeatureFlag = state.featureFlagSnapshot?.flags["ambient.slashCommands"];
+    const persistentSlashCommandsEnabled = Boolean(state.settings.featureFlags?.slashCommands);
+    const slashCommandsEffectiveEnabled = Boolean(slashCommandsFeatureFlag?.enabled);
+    const slashCommandsFlagValue = slashCommandsEffectiveEnabled
+      ? persistentSlashCommandsEnabled
+        ? "Enabled"
+        : "Session override"
+      : slashCommandsFeatureFlag?.source === "startup_arg_disable"
+        ? "Forced off"
+        : "Off";
+    const slashCommandsFlagDescription = slashCommandsFeatureFlag?.source === "startup_arg_disable"
+      ? "A startup argument is forcing slash-command skills and workflows off for this app session."
+      : "Enables the composer slash picker for Codex skills, Ambient CLI capabilities, recorded workflows, Symphony recipes, and callable workflows.";
     const memoryFeatureFlag = state.featureFlagSnapshot?.flags["ambient.memory.tencentdb"];
     const persistentMemoryFeatureEnabled = Boolean(state.settings.featureFlags?.tencentDbMemory);
     const memoryEffectiveEnabled = Boolean(memoryFeatureFlag?.enabled);
@@ -724,6 +737,9 @@ export function RightPanelSettingsPane({
             subagentsFlagValue={subagentsFlagValue}
             subagentsFlagDescription={subagentsFlagDescription}
             persistentSubagentsEnabled={persistentSubagentsEnabled}
+            slashCommandsFlagValue={slashCommandsFlagValue}
+            slashCommandsFlagDescription={slashCommandsFlagDescription}
+            persistentSlashCommandsEnabled={persistentSlashCommandsEnabled}
             memoryFlagValue={memoryFlagValue}
             memoryFlagDescription={memoryFlagDescription}
             persistentMemoryFeatureEnabled={persistentMemoryFeatureEnabled}

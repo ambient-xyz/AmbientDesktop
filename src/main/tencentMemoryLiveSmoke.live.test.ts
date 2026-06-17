@@ -268,6 +268,198 @@ describe("TencentDB Agent Memory live smoke", () => {
     await writeFile(runReportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   }, Number(process.env.AMBIENT_TENCENT_MEMORY_LIVE_TEST_TIMEOUT_MS ?? 420_000));
 
+  itLive("enables Tencent memory from off and proves thread plus global recall", async () => {
+    applyLiveAmbientProviderApiKeyEnv(readLiveAmbientProviderApiKey({ purpose: "TencentDB Agent Memory feature enablement live smoke" }));
+    store.setFeatureFlagSettings({ tencentDbMemory: false });
+    store.setMemorySettings({
+      enabled: false,
+      defaultThreadEnabled: false,
+      shortTermOffloadEnabled: false,
+      embeddings: { enabled: false, autoStartProvider: false },
+    });
+    const disabledSettings = store.getDefaultSettings();
+    const preEnableThread = store.createThread("Tencent memory starter pre-enable live smoke");
+    expect(disabledSettings.featureFlags.tencentDbMemory).toBe(false);
+    expect(disabledSettings.memory).toMatchObject({
+      enabled: false,
+      defaultThreadEnabled: false,
+    });
+    expect(preEnableThread.memoryEnabled).toBe(false);
+    expect(createTencentDbMemoryRuntimeForThread({
+      thread: preEnableThread,
+      workspace: store.getWorkspace(),
+      featureFlagSnapshot: resolveAmbientFeatureFlags({
+        generatedAt: "2026-06-13T00:00:00.000Z",
+        settings: { tencentDbMemory: false },
+      }),
+      memorySettings: store.getMemorySettings(),
+    })).toBeUndefined();
+
+    const enabledFeatureFlags = store.setFeatureFlagSettings({ tencentDbMemory: true });
+    const enabledMemorySettings = store.setMemorySettings({
+      enabled: true,
+      defaultThreadEnabled: true,
+      embeddings: { enabled: false },
+    });
+    const captureThread = store.updateThreadSettings(preEnableThread.id, { memoryEnabled: true });
+    const globalRecallThread = store.createThread("Tencent memory starter global recall live smoke");
+    expect(enabledFeatureFlags.tencentDbMemory).toBe(true);
+    expect(enabledMemorySettings).toMatchObject({
+      enabled: true,
+      defaultThreadEnabled: true,
+    });
+    expect(captureThread.memoryEnabled).toBe(true);
+    expect(globalRecallThread.memoryEnabled).toBe(true);
+
+    const model = liveAmbientProviderModel({
+      preferredModelEnvNames: ["AMBIENT_TENCENT_MEMORY_LIVE_MODEL", "AMBIENT_LIVE_MODEL"],
+      fallbackModel: AMBIENT_DEFAULT_MODEL,
+    });
+    const code = `TENCENT_MEMORY_STARTER_${Date.now()}`;
+    runtime = new AgentRuntime(store, {} as any, {} as any, () => undefined, {
+      request: async (request) => {
+        throw new Error(`Unexpected permission request during Tencent memory enablement live smoke: ${request.toolName}`);
+      },
+      denyThread: () => undefined,
+    });
+
+    await sendWithTimeout({
+      runtime,
+      store,
+      threadId: captureThread.id,
+      timeoutMs: Number(process.env.AMBIENT_TENCENT_MEMORY_ENABLE_CAPTURE_LIVE_TIMEOUT_MS ?? 240_000),
+      send: runtime.send({
+        threadId: captureThread.id,
+        permissionMode: "workspace",
+        collaborationMode: "agent",
+        model,
+        thinkingLevel: "minimal",
+        content: [
+          "This is a live TencentDB Agent Memory enablement smoke test.",
+          "Do not use tools for this turn.",
+          `Please remember this durable fact: the Agent Memory starter enablement code is ${code}.`,
+          "Reply exactly: MEMORY_ENABLE_CAPTURE_DONE",
+        ].join("\n"),
+      }),
+    });
+    expect(threadAssistantText(store, captureThread.id)).toContain("MEMORY_ENABLE_CAPTURE_DONE");
+
+    runtime.applyThreadMemorySettings(captureThread.id);
+    await delay(Number(process.env.AMBIENT_TENCENT_MEMORY_LIVE_FLUSH_DELAY_MS ?? 5_000));
+
+    const threadRows = await waitForScopedL1Memory({
+      threadId: captureThread.id,
+      scope: "thread",
+      query: code,
+      timeoutMs: 180_000,
+    });
+    const workspaceRows = await waitForScopedL1Memory({
+      threadId: captureThread.id,
+      scope: "workspace",
+      query: code,
+      timeoutMs: 180_000,
+    });
+    expect(threadRows.some((row) => row.preview.includes(code) || row.content.includes(code))).toBe(true);
+    expect(workspaceRows.some((row) => row.preview.includes(code) || row.content.includes(code))).toBe(true);
+
+    await sendWithTimeout({
+      runtime,
+      store,
+      threadId: captureThread.id,
+      timeoutMs: Number(process.env.AMBIENT_TENCENT_MEMORY_ENABLE_THREAD_RECALL_LIVE_TIMEOUT_MS ?? 180_000),
+      send: runtime.send({
+        threadId: captureThread.id,
+        permissionMode: "workspace",
+        collaborationMode: "agent",
+        model,
+        thinkingLevel: "minimal",
+        content: [
+          "This is the thread recall half of the live TencentDB Agent Memory enablement smoke test.",
+          "Do not inspect files. Answer from associated memory only.",
+          "What is the Agent Memory starter enablement code?",
+          `Reply exactly: MEMORY_ENABLE_THREAD_RECALL_CODE: ${code}`,
+        ].join("\n"),
+      }),
+    });
+    const threadRecallText = threadAssistantText(store, captureThread.id);
+    expect(threadRecallText).toContain(code);
+    const threadRecallSnapshot = runtime.listAgentMemoryRuntimeSnapshots().find((snapshot) => snapshot.threadId === captureThread.id);
+    expect(threadRecallSnapshot?.lastRecall).toEqual(expect.objectContaining({ status: "ok" }));
+    expect(threadRecallSnapshot?.lastContextInjection?.recallContextChars ?? 0).toBeGreaterThan(0);
+
+    await sendWithTimeout({
+      runtime,
+      store,
+      threadId: globalRecallThread.id,
+      timeoutMs: Number(process.env.AMBIENT_TENCENT_MEMORY_ENABLE_GLOBAL_RECALL_LIVE_TIMEOUT_MS ?? 180_000),
+      send: runtime.send({
+        threadId: globalRecallThread.id,
+        permissionMode: "workspace",
+        collaborationMode: "agent",
+        model,
+        thinkingLevel: "minimal",
+        content: [
+          "This is the global recall half of the live TencentDB Agent Memory enablement smoke test.",
+          "Do not inspect files. Answer from associated workspace memory only.",
+          "What is the Agent Memory starter enablement code?",
+          `Reply exactly: MEMORY_ENABLE_GLOBAL_RECALL_CODE: ${code}`,
+        ].join("\n"),
+      }),
+    });
+    const globalRecallText = threadAssistantText(store, globalRecallThread.id);
+    expect(globalRecallText).toContain(code);
+    const globalRecallSnapshot = runtime.listAgentMemoryRuntimeSnapshots().find((snapshot) => snapshot.threadId === globalRecallThread.id);
+    expect(globalRecallSnapshot?.lastRecall).toEqual(expect.objectContaining({ status: "ok" }));
+    expect(globalRecallSnapshot?.lastContextInjection?.recallContextChars ?? 0).toBeGreaterThan(0);
+
+    const report = {
+      schemaVersion: "ambient-tencent-memory-enable-live-smoke-v1",
+      createdAt: new Date().toISOString(),
+      provider: liveAmbientProviderLabel(),
+      workspacePath,
+      code,
+      disabledSettings: {
+        featureFlags: disabledSettings.featureFlags,
+        memory: disabledSettings.memory,
+      },
+      enabledFeatureFlags,
+      enabledMemorySettings,
+      captureThread: {
+        id: captureThread.id,
+        memoryEnabled: captureThread.memoryEnabled,
+      },
+      globalRecallThread: {
+        id: globalRecallThread.id,
+        memoryEnabled: globalRecallThread.memoryEnabled,
+      },
+      threadRows: threadRows.map((row) => ({
+        id: row.id,
+        layer: row.layer,
+        type: row.type,
+        preview: row.preview,
+        updatedAt: row.updatedAt,
+      })),
+      workspaceRows: workspaceRows.map((row) => ({
+        id: row.id,
+        layer: row.layer,
+        type: row.type,
+        preview: row.preview,
+        updatedAt: row.updatedAt,
+      })),
+      threadRecallText,
+      globalRecallText,
+      threadRecallSnapshot,
+      globalRecallSnapshot,
+      runtimeSnapshots: runtime.listAgentMemoryRuntimeSnapshots(),
+    };
+    const reportRoot = join(process.cwd(), "test-results", "tencent-memory-enable-live-smoke");
+    const latestReportPath = join(reportRoot, "latest.json");
+    const runReportPath = join(reportRoot, `run-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+    await mkdir(reportRoot, { recursive: true });
+    await writeFile(latestReportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    await writeFile(runReportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  }, Number(process.env.AMBIENT_TENCENT_MEMORY_ENABLE_LIVE_TEST_TIMEOUT_MS ?? 600_000));
+
   itLive("injects short-term offload context from artifact-backed tool output", async () => {
     applyLiveAmbientProviderApiKeyEnv(readLiveAmbientProviderApiKey({ purpose: "TencentDB Agent Memory short-term offload live smoke" }));
     store.setMemorySettings({ enabled: true, defaultThreadEnabled: true, shortTermOffloadEnabled: true });
@@ -686,6 +878,15 @@ describe("TencentDB Agent Memory live smoke", () => {
     query: string;
     timeoutMs: number;
   }) {
+    return waitForScopedL1Memory({ ...input, scope: "thread" });
+  }
+
+  async function waitForScopedL1Memory(input: {
+    threadId: string;
+    scope: "thread" | "workspace";
+    query: string;
+    timeoutMs: number;
+  }) {
     const deadline = Date.now() + input.timeoutMs;
     const inspectionRuntime = createInspectionRuntime(input.threadId);
     if (!inspectionRuntime) {
@@ -701,7 +902,12 @@ describe("TencentDB Agent Memory live smoke", () => {
     }> = [];
     try {
       while (Date.now() < deadline) {
-        const inspected = await inspectionRuntime.inspectMemories({ layer: "l1", query: input.query, limit: 10 });
+        const inspected = await inspectionRuntime.inspectMemories({
+          layer: "l1",
+          scope: input.scope,
+          query: input.query,
+          limit: 10,
+        });
         latestRows = inspected?.rows ?? [];
         if (latestRows.length) return latestRows;
         await delay(2_000);
@@ -709,11 +915,20 @@ describe("TencentDB Agent Memory live smoke", () => {
     } finally {
       await inspectionRuntime.dispose();
     }
-    throw new Error(`Timed out waiting for TencentDB L1 memory containing ${input.query}. Latest rows: ${JSON.stringify(latestRows)}`);
+    throw new Error(`Timed out waiting for TencentDB ${input.scope} L1 memory containing ${input.query}. Latest rows: ${JSON.stringify(latestRows)}`);
   }
 
   async function inspectL1MemoryRows(input: {
     threadId: string;
+    query: string;
+    limit: number;
+  }) {
+    return inspectScopedL1MemoryRows({ ...input, scope: "workspace" });
+  }
+
+  async function inspectScopedL1MemoryRows(input: {
+    threadId: string;
+    scope: "thread" | "workspace";
     query: string;
     limit: number;
   }) {
@@ -724,7 +939,7 @@ describe("TencentDB Agent Memory live smoke", () => {
     try {
       const inspected = await inspectionRuntime.inspectMemories({
         layer: "l1",
-        scope: "workspace",
+        scope: input.scope,
         query: input.query,
         limit: input.limit,
       });

@@ -5,6 +5,7 @@ import type { SubagentCapacityLeaseSnapshot } from "../../shared/subagentCapacit
 import type { SubagentEffectiveRoleSnapshot } from "../../shared/subagentPatternGraph";
 import { AMBIENT_SUBAGENT_PROTOCOL_VERSION, type SubagentDependencyMode, type SubagentRunStatus } from "../../shared/subagentProtocol";
 import type { SubagentRunEventSummary, SubagentRunSummary, SubagentSpawnEdgeSummary } from "../../shared/subagentTypes";
+import type { MutationWorkspaceLease, SymphonyChildLaunchContractBundle } from "../../shared/symphonyFineGrainedContracts";
 import type { SubagentRoleProfile } from "../../shared/subagentRoles";
 import { assertSubagentRunEventAttribution } from "../subagentInvariants";
 import {
@@ -30,6 +31,8 @@ export interface CreateReservedSubagentRunInput {
   featureFlagSnapshot: AmbientFeatureFlagSnapshot;
   modelRuntimeSnapshot: AmbientModelRuntimeSnapshot;
   capacityLeaseSnapshot: SubagentCapacityLeaseSnapshot;
+  symphonyLaunchContracts?: SymphonyChildLaunchContractBundle;
+  symphonyMutationWorkspaceLease?: MutationWorkspaceLease;
   createdAt: string;
 }
 
@@ -64,9 +67,9 @@ export class ProjectStoreSubagentRunRepository {
         `INSERT INTO subagent_runs
         (id, protocol_version, parent_thread_id, parent_run_id, parent_message_id, child_thread_id,
          canonical_task_path, role_id, role_profile_snapshot_json, effective_role_snapshot_json, dependency_mode, status, feature_flag_snapshot_json,
-         model_runtime_snapshot_json, capacity_lease_snapshot_json, result_artifact_json, created_at, updated_at,
+         model_runtime_snapshot_json, capacity_lease_snapshot_json, symphony_launch_contract_json, symphony_mutation_lease_json, result_artifact_json, created_at, updated_at,
          started_at, completed_at, closed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL)`,
       )
       .run(
         input.runId,
@@ -84,6 +87,8 @@ export class ProjectStoreSubagentRunRepository {
         JSON.stringify(input.featureFlagSnapshot),
         JSON.stringify(input.modelRuntimeSnapshot),
         JSON.stringify(input.capacityLeaseSnapshot),
+        input.symphonyLaunchContracts ? JSON.stringify(input.symphonyLaunchContracts) : null,
+        input.symphonyMutationWorkspaceLease ? JSON.stringify(input.symphonyMutationWorkspaceLease) : null,
         input.createdAt,
         input.createdAt,
       );

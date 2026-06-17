@@ -421,6 +421,7 @@ import {
   runAmbientMemoryEmbeddingLifecycleAction,
 } from "./memory/tencentdb/managedEmbeddingProvider";
 import { createChatExportBundle } from "./chatExport";
+import { createChatPdfExport, createElectronPrintToPdfRenderer } from "./chatPdfExport";
 import { listWorkspaceOpenTargets, openWorkspaceTarget } from "./externalEditors";
 import { BrowserService, managedChromeRevealBoundsForWorkArea, type ManagedChromeWindowBounds } from "./browserService";
 import { BrowserCredentialStore } from "./browserCredentialStore";
@@ -9927,6 +9928,14 @@ function registerIpc(): void {
     compileWorkflowArtifact,
     createAndRecordCheckpoint,
     createChatExportBundle,
+    createChatPdfExport: (
+      store: ProjectStore,
+      threadId: string,
+      options: { appName: string; appVersion: string },
+    ) => createChatPdfExport(store, threadId, {
+      ...options,
+      renderHtmlToPdf: createElectronPrintToPdfRenderer(BrowserWindow),
+    }),
     createDiagnosticBundle,
     createGitBranch,
     createMainDiagnosticSource,

@@ -7,6 +7,8 @@ import type {
   DesktopEvent,
   DesktopState,
   ExportChatInput,
+  ExportChatPdfInput,
+  ExportChatPdfResult,
   ExportChatResult,
   ForkThreadInput,
   PermissionAuditEntry,
@@ -47,6 +49,7 @@ export const threadRevealIpcChannels = ["thread:reveal"] as const;
 export const threadForkIpcChannels = ["thread:fork"] as const;
 export const threadOpenMiniWindowIpcChannels = ["thread:open-mini-window"] as const;
 export const threadExportChatIpcChannels = ["thread:export-chat"] as const;
+export const threadExportChatPdfIpcChannels = ["thread:export-chat-pdf"] as const;
 export const threadUpdateSettingsIpcChannels = ["thread:update-settings"] as const;
 export const threadPermissionModeChangeIpcChannels = ["thread:request-permission-mode-change"] as const;
 export const threadGoalIpcChannels = [
@@ -231,6 +234,11 @@ export interface RegisterThreadExportChatIpcDependencies {
   exportChat(input: ExportChatInput): MaybePromise<ExportChatResult | undefined>;
 }
 
+export interface RegisterThreadExportChatPdfIpcDependencies {
+  handleIpc: HandleIpc;
+  exportChatPdf(input: ExportChatPdfInput): MaybePromise<ExportChatPdfResult | undefined>;
+}
+
 export type ThreadUpdateSettingsThread = Pick<ThreadSummary, "id" | "workspacePath">;
 
 export interface ThreadUpdateSettingsStore<Thread extends ThreadUpdateSettingsThread = ThreadUpdateSettingsThread> {
@@ -336,6 +344,10 @@ const forkThreadSchema = threadActionSchema.extend({
 const exportChatSchema = z.object({
   threadId: z.string().min(1),
 }) satisfies z.ZodType<ExportChatInput>;
+const exportChatPdfSchema = z.object({
+  threadId: z.string().min(1),
+  projectId: projectIdSchema.optional(),
+}) satisfies z.ZodType<ExportChatPdfInput>;
 const threadGoalStatusSchema = z.enum(["active", "paused", "blocked", "usage_limited", "budget_limited", "complete"]);
 const threadGoalGetSchema = z.object({ threadId: z.string().min(1) });
 const threadGoalSetSchema = z.object({
@@ -563,6 +575,13 @@ export function registerThreadExportChatIpc({
   exportChat,
 }: RegisterThreadExportChatIpcDependencies): void {
   handleIpc("thread:export-chat", (_event, raw: unknown) => exportChat(exportChatSchema.parse(raw)));
+}
+
+export function registerThreadExportChatPdfIpc({
+  handleIpc,
+  exportChatPdf,
+}: RegisterThreadExportChatPdfIpcDependencies): void {
+  handleIpc("thread:export-chat-pdf", (_event, raw: unknown) => exportChatPdf(exportChatPdfSchema.parse(raw)));
 }
 
 export function registerThreadUpdateSettingsIpc<

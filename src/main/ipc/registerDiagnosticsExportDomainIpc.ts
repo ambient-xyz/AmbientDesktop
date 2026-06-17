@@ -6,11 +6,15 @@ import {
 } from "./registerDiagnosticsIpc";
 import {
   registerThreadExportChatIpc,
+  registerThreadExportChatPdfIpc,
+  threadExportChatPdfIpcChannels,
   threadExportChatIpcChannels,
 } from "./registerThreadIpc";
 import type {
   DiagnosticExportResult,
   ExportChatInput,
+  ExportChatPdfInput,
+  ExportChatPdfResult,
   ExportChatResult,
 } from "../../shared/types";
 
@@ -20,11 +24,13 @@ type MaybePromise<T> = T | Promise<T>;
 export const diagnosticsExportDomainIpcChannels = [
   ...diagnosticsIpcChannels,
   ...threadExportChatIpcChannels,
+  ...threadExportChatPdfIpcChannels,
 ] as const;
 
 export interface DiagnosticsExportDialog {
   showOpenDialog(window: unknown, options: any): MaybePromise<{ canceled: boolean; filePaths: string[] }>;
   showSaveDialog(window: unknown, options: any): MaybePromise<{ canceled: boolean; filePath?: string }>;
+  showMessageBox(window: unknown, options: any): MaybePromise<{ response: number }>;
 }
 
 export interface DiagnosticsExportApp {
@@ -52,6 +58,14 @@ export interface ChatExportPayload {
   fallbackReason?: string;
 }
 
+export interface ChatPdfExportPayload {
+  fileName: string;
+  pdf: Buffer;
+  createdAt: string;
+  source: ExportChatPdfResult["source"];
+  fallbackReason?: string;
+}
+
 export interface DiagnosticsExportRuntimeHost<Store = unknown> {
   store: Store;
 }
@@ -66,6 +80,11 @@ export interface RegisterDiagnosticsExportDomainIpcDependencies<
     threadId: string,
     options: { appName: string; appVersion: string },
   ): MaybePromise<ChatExportPayload>;
+  createChatPdfExport(
+    store: ThreadHost["store"],
+    threadId: string,
+    options: { appName: string; appVersion: string },
+  ): MaybePromise<ChatPdfExportPayload>;
   createDiagnosticBundle(
     source: unknown,
     logs: unknown[],
@@ -74,6 +93,7 @@ export interface RegisterDiagnosticsExportDomainIpcDependencies<
   createMainDiagnosticSource(host: ActiveHost): unknown;
   dialog: DiagnosticsExportDialog;
   env?: NodeJS.ProcessEnv;
+  existsSync(path: string): boolean;
   getAppLogs(): unknown[];
   handleIpc: HandleIpc;
   importDiagnosticBundleFromFile(filePath: string): MaybePromise<DiagnosticExportResult>;
@@ -81,6 +101,7 @@ export interface RegisterDiagnosticsExportDomainIpcDependencies<
   mainWindow: unknown;
   requireActiveProjectRuntimeHost(): ActiveHost;
   requireProjectRuntimeHostForThread(threadId: string): ThreadHost;
+  requireProjectRuntimeHostForThreadAction(input: ExportChatPdfInput, fallbackHost: ActiveHost): ThreadHost;
   writeFile(path: string, data: string | Buffer, encoding?: BufferEncoding): MaybePromise<void>;
 }
 
@@ -90,10 +111,12 @@ export function registerDiagnosticsExportDomainIpc<
 >({
   app,
   createChatExportBundle,
+  createChatPdfExport,
   createDiagnosticBundle,
   createMainDiagnosticSource,
   dialog,
   env = process.env,
+  existsSync,
   getAppLogs,
   handleIpc,
   importDiagnosticBundleFromFile,
@@ -101,6 +124,7 @@ export function registerDiagnosticsExportDomainIpc<
   mainWindow,
   requireActiveProjectRuntimeHost,
   requireProjectRuntimeHostForThread,
+  requireProjectRuntimeHostForThreadAction,
   writeFile,
 }: RegisterDiagnosticsExportDomainIpcDependencies<ActiveHost, ThreadHost>): void {
   registerDiagnosticsIpc({
@@ -167,6 +191,41 @@ export function registerDiagnosticsExportDomainIpc<
       return chatExportResult(result.filePath, payload);
     },
   });
+
+  registerThreadExportChatPdfIpc({
+    handleIpc,
+    exportChatPdf: async (input: ExportChatPdfInput) => {
+      const host = input.projectId
+        ? requireProjectRuntimeHostForThreadAction(input, requireActiveProjectRuntimeHost())
+        : requireProjectRuntimeHostForThread(input.threadId);
+      const payload = await createChatPdfExport(host.store, input.threadId, {
+        appName: app.getName(),
+        appVersion: app.getVersion(),
+      });
+      const e2eExportPath = env.AMBIENT_E2E === "1" ? env.AMBIENT_E2E_CHAT_PDF_EXPORT_PATH : undefined;
+      if (e2eExportPath) {
+        const outputPath = normalizePdfFilePath(e2eExportPath);
+        await writeFile(outputPath, payload.pdf);
+        return chatPdfExportResult(outputPath, payload);
+      }
+
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: "Export Chat as PDF",
+        defaultPath: join(app.getPath("downloads"), payload.fileName),
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (result.canceled || !result.filePath) return undefined;
+
+      const outputPath = await confirmedNormalizedPdfFilePath(result.filePath, {
+        dialog,
+        existsSync,
+        mainWindow,
+      });
+      if (!outputPath) return undefined;
+      await writeFile(outputPath, payload.pdf);
+      return chatPdfExportResult(outputPath, payload);
+    },
+  });
 }
 
 function diagnosticExportResult(
@@ -193,4 +252,44 @@ function chatExportResult(path: string, payload: ChatExportPayload): ExportChatR
     source: payload.source,
     fallbackReason: payload.fallbackReason,
   };
+}
+
+function chatPdfExportResult(path: string, payload: ChatPdfExportPayload): ExportChatPdfResult {
+  return {
+    path,
+    bytes: payload.pdf.byteLength,
+    createdAt: payload.createdAt,
+    source: payload.source,
+    fallbackReason: payload.fallbackReason,
+  };
+}
+
+function normalizePdfFilePath(filePath: string): string {
+  return /\.pdf$/i.test(filePath) ? filePath : `${filePath}.pdf`;
+}
+
+async function confirmedNormalizedPdfFilePath(
+  filePath: string,
+  {
+    dialog,
+    existsSync,
+    mainWindow,
+  }: {
+    dialog: DiagnosticsExportDialog;
+    existsSync(path: string): boolean;
+    mainWindow: unknown;
+  },
+): Promise<string | undefined> {
+  const normalized = normalizePdfFilePath(filePath);
+  if (normalized === filePath || !existsSync(normalized)) return normalized;
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    buttons: ["Replace", "Cancel"],
+    defaultId: 1,
+    cancelId: 1,
+    title: "Replace Existing PDF?",
+    message: "A PDF already exists at the normalized export path.",
+    detail: normalized,
+  });
+  return result.response === 0 ? normalized : undefined;
 }

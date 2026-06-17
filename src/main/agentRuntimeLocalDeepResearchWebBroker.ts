@@ -22,7 +22,7 @@ import {
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
 } from "./agentBrowserRuntime";
-import { ambientCliRunText } from "./agentRuntimeAmbientCliPackageRunTools";
+import { ambientCliRunText } from "./agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageRunTools";
 import {
   browserAuditRisk,
   browserContentText,

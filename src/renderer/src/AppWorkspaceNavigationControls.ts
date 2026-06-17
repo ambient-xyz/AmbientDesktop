@@ -65,7 +65,7 @@ export function createAppWorkspaceNavigationControls({
   projectIdForWorkspacePath: (workspacePath: string) => string;
   rememberDesktopState: (next: DesktopState) => void;
   scheduleComposerFocusEnd: () => void;
-  setComposerDraft: (value: string) => void;
+  setComposerDraft: (value: string, options?: { clearSlashCommandSelection?: boolean }) => void;
   setProjectPopover: Dispatch<SetStateAction<ProjectPopover | undefined>>;
   setProjectsCollapsed: Dispatch<SetStateAction<boolean>>;
   setRunStatus: Dispatch<SetStateAction<RunStatus>>;
@@ -91,7 +91,7 @@ export function createAppWorkspaceNavigationControls({
     setState(next);
     setSidebarArea("projects");
     setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
-    setComposerDraft("");
+    setComposerDraft("", { clearSlashCommandSelection: true });
     setProjectsCollapsed(false);
     setProjectPopover(undefined);
     closeProjectBoard();
@@ -164,7 +164,7 @@ export function createAppWorkspaceNavigationControls({
     setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
     closeProjectBoard();
     if (appDesktopWorkspaceChanged(next, activeWorkspacePath)) {
-      setComposerDraft("");
+      setComposerDraft("", { clearSlashCommandSelection: true });
       setWorkspaceRevision((revision) => revision + 1);
     }
   }

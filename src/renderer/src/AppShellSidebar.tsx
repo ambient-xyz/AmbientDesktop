@@ -115,6 +115,7 @@ type AppShellSidebarProps = {
   onCopyThreadWorkingDirectory: () => void;
   onCopyThreadSessionId: () => void;
   onCopyThreadDeeplink: () => void;
+  onExportThreadPdf: () => void;
   onForkThread: (mode: "local" | "worktree") => void;
   onOpenThreadMiniWindow: () => void;
   onBeginResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
@@ -189,6 +190,7 @@ export function AppShellSidebar({
   onCopyThreadWorkingDirectory,
   onCopyThreadSessionId,
   onCopyThreadDeeplink,
+  onExportThreadPdf,
   onForkThread,
   onOpenThreadMiniWindow,
   onBeginResize,
@@ -443,6 +445,7 @@ export function AppShellSidebar({
             onCopyWorkingDirectory={onCopyThreadWorkingDirectory}
             onCopySessionId={onCopyThreadSessionId}
             onCopyDeeplink={onCopyThreadDeeplink}
+            onExportPdf={onExportThreadPdf}
             onForkLocal={() => onForkThread("local")}
             onForkWorktree={() => onForkThread("worktree")}
             onOpenMiniWindow={onOpenThreadMiniWindow}

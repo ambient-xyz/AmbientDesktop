@@ -6,6 +6,7 @@ import {
   EXPORT_CHAT_CANCELED_STATUS,
   RECOVER_CONTEXT_ACTIVITY,
   canStartActiveThreadMaintenance,
+  chatPdfExportStatusMessage,
   desktopStateWithContextUsage,
   threadRunStatusesWithStatus,
 } from "./AppThreadMaintenanceActions";
@@ -50,5 +51,11 @@ describe("App thread maintenance actions", () => {
     expect(COMPACT_CONTEXT_ACTIVITY).toBe("Compacting context.");
     expect(RECOVER_CONTEXT_ACTIVITY).toBe("Rebuilding model context from the visible transcript.");
     expect(EXPORT_CHAT_CANCELED_STATUS).toEqual({ kind: "info", message: "Export canceled." });
+    expect(chatPdfExportStatusMessage({
+      path: "/tmp/debug-chat.pdf",
+      bytes: 1024,
+      createdAt: "2026-06-17T00:00:00.000Z",
+      source: "visible-chat-pdf",
+    })).toBe("Exported visible transcript PDF: debug-chat.pdf");
   });
 });

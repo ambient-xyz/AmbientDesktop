@@ -273,6 +273,7 @@ const localModelRuntimeLifecycleActionSchema = z.object({
 const updateFeatureFlagSettingsSchema = z.object({
   subagents: z.boolean().optional(),
   tencentDbMemory: z.boolean().optional(),
+  slashCommands: z.boolean().optional(),
 }).strict();
 const updateMemoryEmbeddingSettingsSchema = z.object({
   enabled: z.boolean().optional(),

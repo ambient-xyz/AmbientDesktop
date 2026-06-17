@@ -65,6 +65,8 @@ export interface SubagentRunRow {
   feature_flag_snapshot_json: string;
   model_runtime_snapshot_json: string;
   capacity_lease_snapshot_json: string | null;
+  symphony_launch_contract_json: string | null;
+  symphony_mutation_lease_json: string | null;
   result_artifact_json: string | null;
   created_at: string;
   updated_at: string;
@@ -237,6 +239,12 @@ export function mapSubagentRunRow(row: SubagentRunRow): SubagentRunSummary {
     featureFlagSnapshot: parseJsonObject(row.feature_flag_snapshot_json, undefined)!,
     modelRuntimeSnapshot: parseJsonObject(row.model_runtime_snapshot_json, undefined)!,
     capacityLeaseSnapshot: subagentCapacityLeaseSnapshotForRow(row),
+    symphonyLaunchContracts: row.symphony_launch_contract_json
+      ? parseJsonObject(row.symphony_launch_contract_json, undefined)
+      : undefined,
+    symphonyMutationWorkspaceLease: row.symphony_mutation_lease_json
+      ? parseJsonObject(row.symphony_mutation_lease_json, undefined)
+      : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     startedAt: row.started_at ?? undefined,

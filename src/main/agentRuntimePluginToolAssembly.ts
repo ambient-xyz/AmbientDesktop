@@ -3,10 +3,10 @@ import type { ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-age
 import {
   registerAgentRuntimeAmbientCliPackageTools,
   type AgentRuntimeAmbientCliPackageToolOptions,
-} from "./agentRuntimeAmbientCliPackageTools";
+} from "./agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageTools";
 import {
   registerAmbientCliPackageUninstallTool,
-} from "./agentRuntimeAmbientCliPackageUninstallTools";
+} from "./agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageUninstallTools";
 import {
   registerAgentRuntimeAmbientWorkflowTools,
   type AgentRuntimeAmbientWorkflowToolOptions,

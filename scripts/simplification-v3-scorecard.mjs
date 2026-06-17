@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, normalize, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -274,11 +274,11 @@ export function buildAdvisoryGuardrailMetrics(complexityReport, trackedFiles = g
   const nestedMainFiles = trackedFiles.filter((file) => /^src\/main\/.+\/.+/.test(file));
   const workflowFiles = trackedFiles.filter((file) => file.startsWith(".github/workflows/"));
   const linterConfig = findConfigFile(trackedFiles, [
-    /^eslint\.config\.[cm]?[jt]s$/,
+    /^eslint\.config\.(?:[cm][jt]s|[jt]s)$/,
     /^\.eslintrc(?:\..+)?$/,
   ]);
   const formatterConfig = findConfigFile(trackedFiles, [
-    /^prettier\.config\.[cm]?[jt]s$/,
+    /^prettier\.config\.(?:[cm][jt]s|[jt]s)$/,
     /^\.prettierrc(?:\..+)?$/,
   ]);
   const importFanIn = topImportFanIn(sourceFiles);
@@ -419,6 +419,33 @@ function readComplexityReport() {
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 const RECENT_CHURN_COMMIT_WINDOW = 200;
+const ROOT_CONFIG_CANDIDATES = [
+  "eslint.config.js",
+  "eslint.config.mjs",
+  "eslint.config.cjs",
+  "eslint.config.ts",
+  "eslint.config.mts",
+  "eslint.config.cts",
+  ".eslintrc",
+  ".eslintrc.js",
+  ".eslintrc.cjs",
+  ".eslintrc.json",
+  ".eslintrc.yaml",
+  ".eslintrc.yml",
+  "prettier.config.js",
+  "prettier.config.mjs",
+  "prettier.config.cjs",
+  "prettier.config.ts",
+  "prettier.config.mts",
+  "prettier.config.cts",
+  ".prettierrc",
+  ".prettierrc.js",
+  ".prettierrc.cjs",
+  ".prettierrc.mjs",
+  ".prettierrc.json",
+  ".prettierrc.yaml",
+  ".prettierrc.yml",
+];
 
 function gitTrackedFiles() {
   const output = execFileSync("git", ["ls-files"], { cwd: repoRoot, encoding: "utf8" });
@@ -447,7 +474,10 @@ function isGeneratedOrVendored(file) {
 }
 
 function findConfigFile(trackedFiles, patterns) {
-  return trackedFiles.find((file) => patterns.some((pattern) => pattern.test(file)));
+  return (
+    trackedFiles.find((file) => patterns.some((pattern) => pattern.test(file))) ??
+    ROOT_CONFIG_CANDIDATES.find((file) => patterns.some((pattern) => pattern.test(file)) && existsSync(resolve(repoRoot, file)))
+  );
 }
 
 function topImportFanIn(sourceFiles) {

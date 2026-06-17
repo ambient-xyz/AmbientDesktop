@@ -232,6 +232,13 @@ import type {
   UpdateProjectBoardSourceInput,
   UpdateProjectBoardStatusInput,
 } from "./projectBoardTypes";
+import type {
+  SendMessageSlashCommandComposerIntent,
+  SlashCommandDescribeInput,
+  SlashCommandDescription,
+  SlashCommandSearchInput,
+  SlashCommandSearchResponse,
+} from "./slashCommandTypes";
 import type { SubagentMaturityEvidence, SubagentMaturitySnapshot } from "./subagentMaturity";
 import type {
   CancelSubagentRunInput,
@@ -265,6 +272,8 @@ import type {
   CollaborationMode,
   ContextUsageSnapshot,
   ExportChatInput,
+  ExportChatPdfInput,
+  ExportChatPdfResult,
   ExportChatResult,
   InstallModelProviderEndpointInput,
   InstallModelProviderEndpointResult,
@@ -417,7 +426,8 @@ export interface SendMessageSymphonyComposerIntent {
 
 export type SendMessageComposerIntent =
   | SendMessageLocalDeepResearchComposerIntent
-  | SendMessageSymphonyComposerIntent;
+  | SendMessageSymphonyComposerIntent
+  | SendMessageSlashCommandComposerIntent;
 
 export interface ApplyWorkflowRecordingSummaryInput extends ThreadActionInput {
   messageId?: string;
@@ -1014,6 +1024,8 @@ export interface AmbientDesktopApi {
   applyWorkflowRecordingSummary(input: ApplyWorkflowRecordingSummaryInput): Promise<DesktopState>;
   searchWorkflowRecordings(input?: SearchWorkflowRecordingsInput): Promise<WorkflowRecordingLibraryEntry[]>;
   describeWorkflowRecording(input: DescribeWorkflowRecordingInput): Promise<WorkflowRecordingLibraryDescription>;
+  searchSlashCommands(input?: SlashCommandSearchInput): Promise<SlashCommandSearchResponse>;
+  describeSlashCommand(input: SlashCommandDescribeInput): Promise<SlashCommandDescription>;
   setWorkflowRecordingEnabled(input: SetWorkflowRecordingEnabledInput): Promise<DesktopState>;
   updateWorkflowRecordingPlaybook(input: UpdateWorkflowRecordingPlaybookInput): Promise<DesktopState>;
   saveSymphonyWorkflowRecipe(input: SaveSymphonyWorkflowRecipeInput): Promise<DesktopState>;
@@ -1289,6 +1301,7 @@ export interface AmbientDesktopApi {
   exportDiagnosticBundle(): Promise<DiagnosticExportResult | undefined>;
   importDiagnosticBundle(): Promise<DiagnosticExportResult | undefined>;
   exportChat(input: ExportChatInput): Promise<ExportChatResult | undefined>;
+  exportChatPdf(input: ExportChatPdfInput): Promise<ExportChatPdfResult | undefined>;
   listPermissionAudit(): Promise<PermissionAuditEntry[]>;
   listPermissionGrants(): Promise<AmbientPermissionGrant[]>;
   listPendingPermissionRequests(): Promise<PermissionRequest[]>;

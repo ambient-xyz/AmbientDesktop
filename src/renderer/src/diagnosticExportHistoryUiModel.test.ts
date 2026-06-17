@@ -141,6 +141,32 @@ describe("diagnostic export history UI model", () => {
     expect(model?.searchText).toContain("context injection 512 chars");
   });
 
+  it("preserves saved slash-command feature flag history", () => {
+    const selected = exportResult({
+      path: "/Users/travis/Downloads/ambient-diagnostics-slash.json",
+      createdAt: "2026-06-16T00:00:00.000Z",
+      featureFlagEnabled: true,
+      featureFlagSource: "settings",
+      featureFlagSettingsEnabled: true,
+      slashCommandFeatureFlagEnabled: true,
+      slashCommandFeatureFlagSource: "settings",
+      slashCommandFeatureFlagSettingsEnabled: true,
+    });
+
+    const decoded = decodeDiagnosticExportHistoryStorage(encodeDiagnosticExportHistoryStorage({
+      history: [selected],
+      selectedId: diagnosticExportHistoryEntryId(selected),
+    }));
+
+    expect(decoded.history[0]?.summary?.featureFlags?.flags["ambient.slashCommands"]).toMatchObject({
+      id: "ambient.slashCommands",
+      enabled: true,
+      source: "settings",
+      defaultEnabled: false,
+      settingsEnabled: true,
+    });
+  });
+
   it("persists sanitized diagnostic bundle history and selected replay evidence across restarts", () => {
     const selected = exportResult({
       path: "/Users/travis/Downloads/ambient-diagnostics.json",
@@ -549,6 +575,9 @@ function exportResult(input: {
   featureFlagEnabled?: boolean;
   featureFlagSource?: NonNullable<NonNullable<DiagnosticExportResult["summary"]>["featureFlags"]>["flags"]["ambient.subagents"]["source"];
   featureFlagSettingsEnabled?: boolean;
+  slashCommandFeatureFlagEnabled?: boolean;
+  slashCommandFeatureFlagSource?: NonNullable<NonNullable<DiagnosticExportResult["summary"]>["featureFlags"]>["flags"]["ambient.subagents"]["source"];
+  slashCommandFeatureFlagSettingsEnabled?: boolean;
   includeAgentMemory?: boolean;
   agentMemoryStatus?: NonNullable<NonNullable<DiagnosticExportResult["summary"]>["agentMemory"]>["status"];
   agentMemoryMessage?: string;
@@ -588,6 +617,15 @@ function exportResult(input: {
                   enabled: false,
                   source: "default",
                   defaultEnabled: false,
+                },
+                "ambient.slashCommands": {
+                  id: "ambient.slashCommands",
+                  enabled: input.slashCommandFeatureFlagEnabled ?? false,
+                  source: input.slashCommandFeatureFlagSource ?? "default",
+                  defaultEnabled: false,
+                  ...(typeof input.slashCommandFeatureFlagSettingsEnabled === "boolean"
+                    ? { settingsEnabled: input.slashCommandFeatureFlagSettingsEnabled }
+                    : {}),
                 },
               },
             },

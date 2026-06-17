@@ -86,6 +86,18 @@ describe("project store subagent mappers", () => {
       outputContract: "bounded repair report",
     });
     row.effective_role_snapshot_json = JSON.stringify(effectiveRoleSnapshot);
+    row.symphony_launch_contract_json = JSON.stringify({
+      schemaVersion: "ambient-symphony-child-launch-contract-bundle-v1",
+      childLaunchPolicySnapshot: { childRunId: "run-1", role: "worker" },
+    });
+    row.symphony_mutation_lease_json = JSON.stringify({
+      schemaVersion: "ambient-symphony-mutation-workspace-lease-v1",
+      leaseId: "mutation-lease-1",
+      childRunId: "run-1",
+      childThreadId: "child-thread",
+      parentThreadId: "parent-thread",
+      status: "active",
+    });
 
     expect(mapSubagentRunRow(row)).toMatchObject({
       id: "run-1",
@@ -114,6 +126,18 @@ describe("project store subagent mappers", () => {
           providerId: "ambient",
           modelId: AMBIENT_DEFAULT_MODEL,
         }),
+      },
+      symphonyLaunchContracts: {
+        schemaVersion: "ambient-symphony-child-launch-contract-bundle-v1",
+        childLaunchPolicySnapshot: { childRunId: "run-1", role: "worker" },
+      },
+      symphonyMutationWorkspaceLease: {
+        schemaVersion: "ambient-symphony-mutation-workspace-lease-v1",
+        leaseId: "mutation-lease-1",
+        childRunId: "run-1",
+        childThreadId: "child-thread",
+        parentThreadId: "parent-thread",
+        status: "active",
       },
       createdAt: "2026-06-06T19:00:00.000Z",
       updatedAt: "2026-06-06T19:01:00.000Z",
@@ -1030,6 +1054,8 @@ function baseSubagentRunRow(): SubagentRunRow {
     feature_flag_snapshot_json: JSON.stringify({ subagents: true }),
     model_runtime_snapshot_json: JSON.stringify(baseModelRuntimeSnapshot()),
     capacity_lease_snapshot_json: null,
+    symphony_launch_contract_json: null,
+    symphony_mutation_lease_json: null,
     result_artifact_json: JSON.stringify({ summary: "Running" }),
     created_at: "2026-06-06T19:00:00.000Z",
     updated_at: "2026-06-06T19:01:00.000Z",

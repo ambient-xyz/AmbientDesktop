@@ -514,6 +514,7 @@ export interface AmbientCliCapabilitySearchInput {
   includeUnavailable?: boolean;
   includeHealth?: boolean;
   kind?: AmbientCliCapabilitySearchKind;
+  packageId?: string;
   packageName?: string;
   command?: string;
 }
@@ -1247,6 +1248,7 @@ export async function searchAmbientCliCapabilities(
   const limit = Math.max(1, Math.min(Math.floor(input.limit ?? 8), 20));
   const query = normalizeSearchText(input.query);
   const kind = input.kind ?? "any";
+  const requestedPackageId = input.packageId?.trim();
   const requestedPackageName = input.packageName?.trim();
   const requestedCommand = input.command?.trim();
   const catalog = await discoverAmbientCliPackages(workspacePath, { includeHealth: input.includeHealth !== false });
@@ -1255,6 +1257,7 @@ export async function searchAmbientCliCapabilities(
   for (const pkg of catalog.packages) {
     if (!pkg.installed) continue;
     if (!input.includeUnavailable && pkg.errors.length > 0) continue;
+    if (requestedPackageId && pkg.id !== requestedPackageId) continue;
     if (requestedPackageName && pkg.name !== requestedPackageName) continue;
     const envStatus = await resolveAmbientCliEnvStatus(workspacePath, pkg);
     const result = ambientCliCapabilitySearchResult(pkg, {

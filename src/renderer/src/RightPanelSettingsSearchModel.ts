@@ -301,6 +301,9 @@ export function rightPanelSettingsSearchTargets({
   const selectedSttProvider = sttProviderModel.selectedProvider;
   const persistentSubagentsEnabled = Boolean(state.settings.featureFlags?.subagents);
   const subagentsFeatureFlag = state.featureFlagSnapshot?.flags["ambient.subagents"];
+  const persistentSlashCommandsEnabled = Boolean(state.settings.featureFlags?.slashCommands);
+  const slashCommandsFeatureFlag = state.featureFlagSnapshot?.flags["ambient.slashCommands"];
+  const slashCommandsEffectiveEnabled = Boolean(slashCommandsFeatureFlag?.enabled);
   const persistentMemoryFeatureEnabled = Boolean(state.settings.featureFlags?.tencentDbMemory);
   const memoryFeatureFlag = state.featureFlagSnapshot?.flags["ambient.memory.tencentdb"];
   const memoryEffectiveEnabled = Boolean(memoryFeatureFlag?.enabled);
@@ -435,6 +438,24 @@ export function rightPanelSettingsSearchTargets({
         "maturity gates",
         "feature flag graduation",
         ...diagnostics.subagentMaturitySearchTerms,
+      ],
+    },
+    {
+      id: "model-mode.slash-commands",
+      sectionId: "model-mode",
+      terms: [
+        "slash command skills",
+        "slash commands",
+        "skills",
+        "workflows",
+        "composer picker",
+        "ambient.slashCommands",
+        "Codex skills",
+        "Ambient CLI",
+        "callable workflows",
+        persistentSlashCommandsEnabled ? "enabled" : "disabled",
+        slashCommandsFeatureFlag?.source,
+        slashCommandsEffectiveEnabled ? "effective enabled" : "effective disabled",
       ],
     },
     {

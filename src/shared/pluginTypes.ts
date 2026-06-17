@@ -909,6 +909,11 @@ export interface CapabilityBuilderHistoryInput {
   packageName?: string;
 }
 
+export interface CapabilityBuilderValidationArtifact {
+  path: string;
+  sizeBytes: number;
+}
+
 export interface CapabilityBuilderHistoryEntry {
   packageName: string;
   rootPath: string;
@@ -928,6 +933,8 @@ export interface CapabilityBuilderHistoryEntry {
   lastValidatedAt?: string;
   registeredAt?: string;
   unregisteredAt?: string;
+  validationLogPath?: string;
+  validationArtifacts: CapabilityBuilderValidationArtifact[];
   refs: Record<string, string | null>;
   commandNames: string[];
   envNames: string[];

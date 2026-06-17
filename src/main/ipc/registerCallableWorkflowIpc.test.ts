@@ -138,6 +138,12 @@ function featureFlagSnapshot(enabled: boolean): AmbientFeatureFlagSnapshot {
         source: "default",
         defaultEnabled: false,
       },
+      "ambient.slashCommands": {
+        id: "ambient.slashCommands",
+        enabled: false,
+        source: "default",
+        defaultEnabled: false,
+      },
     },
   };
 }

@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
-import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import { resolveAmbientFeatureFlags, type AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import {
   fallbackSubagentCapacityLease,
   materializeSubagentCapacityLeaseForRun,
@@ -16,25 +16,10 @@ describe("ProjectStoreSubagentRunRepository", () => {
   let repository: ProjectStoreSubagentRunRepository;
 
   const now = "2026-06-16T00:00:00.000Z";
-  const featureFlagSnapshot: AmbientFeatureFlagSnapshot = {
-    schemaVersion: "ambient-feature-flags-v1",
+  const featureFlagSnapshot: AmbientFeatureFlagSnapshot = resolveAmbientFeatureFlags({
     generatedAt: now,
-    flags: {
-      "ambient.subagents": {
-        id: "ambient.subagents",
-        enabled: true,
-        source: "settings",
-        defaultEnabled: false,
-        settingsEnabled: true,
-      },
-      "ambient.memory.tencentdb": {
-        id: "ambient.memory.tencentdb",
-        enabled: false,
-        source: "default",
-        defaultEnabled: false,
-      },
-    },
-  };
+    settings: { subagents: true },
+  });
 
   beforeEach(() => {
     db = new Database(":memory:");
@@ -55,6 +40,8 @@ describe("ProjectStoreSubagentRunRepository", () => {
         feature_flag_snapshot_json TEXT NOT NULL,
         model_runtime_snapshot_json TEXT NOT NULL,
         capacity_lease_snapshot_json TEXT,
+        symphony_launch_contract_json TEXT,
+        symphony_mutation_lease_json TEXT,
         result_artifact_json TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,

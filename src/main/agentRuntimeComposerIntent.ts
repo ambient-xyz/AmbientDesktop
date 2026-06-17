@@ -3,7 +3,11 @@ import {
   missingRequiredSymphonyMetricTemplateLabels,
   requiredSymphonyMetricTemplateErrorMessage,
 } from "../shared/symphonyWorkflowRecipes";
-import type { SendMessageLocalDeepResearchComposerIntent, SendMessageSymphonyComposerIntent } from "../shared/types";
+import type {
+  SendMessageLocalDeepResearchComposerIntent,
+  SendMessageSlashCommandComposerIntent,
+  SendMessageSymphonyComposerIntent,
+} from "../shared/types";
 import { callableWorkflowToolName } from "./callableWorkflowRegistry";
 
 interface SymphonyWorkflowComposerBuilderSelection {
@@ -93,6 +97,74 @@ export function symphonyWorkflowComposerPrompt(
     "Recipe draft input:",
     JSON.stringify(toolInput, null, 2),
   ].join("\n");
+}
+
+export function slashCommandComposerPrompt(
+  userRequest: string,
+  intent: SendMessageSlashCommandComposerIntent,
+): string {
+  const selection = intent.selection;
+  const selectionSummary = {
+    entryId: selection.entryId,
+    command: selection.command,
+    title: selection.title,
+    kind: selection.kind,
+    sourceKind: selection.sourceKind,
+    invocationKind: selection.invocationKind,
+    sourceId: selection.sourceId,
+    sourceName: selection.sourceName,
+    sourceVersion: selection.sourceVersion,
+  };
+  return [
+    `Composer action: Slash command ${selection.command}.`,
+    "Ambient Desktop validated this slash-command selection immediately before sending. Treat the selection as run-scoped guidance only; do not persist it to future turns unless the user asks.",
+    "Selection:",
+    JSON.stringify(selectionSummary, null, 2),
+    ...slashCommandInvocationGuidance(selection),
+    "",
+    "User request:",
+    userRequest,
+  ].join("\n");
+}
+
+function slashCommandInvocationGuidance(selection: SendMessageSlashCommandComposerIntent["selection"]): string[] {
+  if (selection.invocationKind === "codex-plugin-skill") {
+    return [
+      "Use the selected Codex skill for this run if it is mounted in the current Pi session.",
+      "If the skill instructions are unavailable, state that the skill could not be loaded instead of substituting a different skill.",
+      "Respect the normal permission mode and tool approval boundaries for any work the skill asks you to perform.",
+    ];
+  }
+  if (selection.invocationKind === "ambient-cli-skill") {
+    return [
+      "This is an Ambient CLI lazy skill. Inspect the package with ambient_cli_search or ambient_cli_describe before attempting related execution.",
+      "Ambient CLI skills are not mounted eagerly; use the read-only description tools for exact package guidance.",
+      "Any process execution must go through ambient_cli and its normal preflight/approval path.",
+    ];
+  }
+  if (selection.invocationKind === "ambient-cli-command") {
+    return [
+      "This is an Ambient CLI command selection. Call ambient_cli_describe for the selected package/command before any execution.",
+      "If execution remains appropriate after the preflight description, use ambient_cli so Ambient Desktop can enforce approval, env, and artifact boundaries.",
+    ];
+  }
+  if (selection.invocationKind === "workflow-playbook") {
+    return [
+      "Use the selected recorded workflow playbook as bounded guidance for this run.",
+      "Do not bypass normal tool permissions, connector grants, or workspace restrictions from the original recording.",
+      "If the playbook needs current details, inspect the workflow catalog before applying it.",
+    ];
+  }
+  if (selection.invocationKind === "symphony-recipe" || selection.invocationKind === "callable-workflow") {
+    return [
+      "Use the callable workflow catalog tools to describe the selected entry, then invoke the parent-visible callable workflow only if its preflight still matches the user request.",
+      "The callable workflow owns visible background execution, launch-card risk, pause/resume/cancel, token/cost tracking, and parent blocking semantics.",
+      "Do not manually recreate child fanout in the parent unless the callable workflow is unavailable and you explain that fallback.",
+    ];
+  }
+  return [
+    "This slash command is not invocable as a model-run skill or workflow. Explain the limitation instead of guessing.",
+  ];
 }
 
 function symphonyWorkflowComposerScope(

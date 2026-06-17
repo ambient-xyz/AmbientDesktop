@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
   AMBIENT_SUBAGENTS_FEATURE_FLAG,
   AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
   applyAmbientFeatureFlagSettingsPatch,
+  isAmbientSlashCommandsEnabled,
   isAmbientSubagentsEnabled,
   isAmbientTencentDbMemoryEnabled,
   normalizeAmbientFeatureFlagSettings,
@@ -16,12 +18,18 @@ describe("ambient feature flags", () => {
 
     expect(isAmbientSubagentsEnabled(snapshot)).toBe(false);
     expect(isAmbientTencentDbMemoryEnabled(snapshot)).toBe(false);
+    expect(isAmbientSlashCommandsEnabled(snapshot)).toBe(false);
     expect(snapshot.flags[AMBIENT_SUBAGENTS_FEATURE_FLAG]).toMatchObject({
       enabled: false,
       source: "default",
       defaultEnabled: false,
     });
     expect(snapshot.flags[AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]).toMatchObject({
+      enabled: false,
+      source: "default",
+      defaultEnabled: false,
+    });
+    expect(snapshot.flags[AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]).toMatchObject({
       enabled: false,
       source: "default",
       defaultEnabled: false,
@@ -47,23 +55,28 @@ describe("ambient feature flags", () => {
     expect(parseAmbientFeatureFlagLaunchArgs([
       "--enable-feature=ambient.subagents,unknown.flag",
       "--disable-feature",
-      "ambient.subagents,ambient.memory.tencentdb",
+      "ambient.subagents,ambient.memory.tencentdb,ambient.slashCommands",
     ])).toEqual({
       enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG],
-      disabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG, AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG],
+      disabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG, AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG, AMBIENT_SLASH_COMMANDS_FEATURE_FLAG],
       ignored: ["unknown.flag"],
     });
   });
 
   it("normalizes and patches persistent settings", () => {
-    expect(normalizeAmbientFeatureFlagSettings()).toEqual({ subagents: false, tencentDbMemory: false });
+    expect(normalizeAmbientFeatureFlagSettings()).toEqual({
+      subagents: false,
+      tencentDbMemory: false,
+      slashCommands: false,
+    });
     expect(applyAmbientFeatureFlagSettingsPatch(
-      { subagents: false, tencentDbMemory: false },
-      { subagents: true, tencentDbMemory: true },
-    )).toEqual({ subagents: true, tencentDbMemory: true });
-    expect(applyAmbientFeatureFlagSettingsPatch({ subagents: true, tencentDbMemory: false }, {})).toEqual({
+      { subagents: false, tencentDbMemory: false, slashCommands: false },
+      { subagents: true, tencentDbMemory: true, slashCommands: true },
+    )).toEqual({ subagents: true, tencentDbMemory: true, slashCommands: true });
+    expect(applyAmbientFeatureFlagSettingsPatch({ subagents: true, tencentDbMemory: false, slashCommands: true }, {})).toEqual({
       subagents: true,
       tencentDbMemory: false,
+      slashCommands: true,
     });
   });
 });

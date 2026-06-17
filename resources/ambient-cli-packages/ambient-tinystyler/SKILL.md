@@ -12,13 +12,13 @@ Use this package when the user wants local few-shot writing-style transfer from 
 - Find this package with `ambient_cli_search` using terms like `TinyStyler`, `style transfer`, `style profile`, `rewrite in this style`, or `writing style examples`.
 - Call `ambient_cli_describe` before first use so model assets, command contracts, current implementation status, and artifact behavior are visible.
 - Run `tinystyler_doctor --json` before profile or transfer. It is non-mutating and does not download models.
-- Real model execution requires approved dependency/model setup in later slices. The current contract package supports deterministic fake-runtime validation through `--fake`, or through `AMBIENT_TINYSTYLER_FAKE_RUNTIME=1` in local wrapper tests.
+- Profile creation uses local Style-Embedding assets when the approved Python dependencies and model cache are present. Transfer generation uses local TinyStyler/T5 assets when approved dependencies and caches are present. Use `--fake` only for deterministic local validation.
 
 ## Commands
 
 - `tinystyler_doctor --json`: reports Python/platform facts, declared Hugging Face revisions, required model assets, cache state, and safety boundaries.
-- `tinystyler_profile --examples-file <path> --output-profile <path> --profile-name <name> --fake --json`: creates a profile artifact. In this slice, use only for fake-runtime contract tests.
-- `tinystyler_transfer --input-file <path>` or `--text <text>` plus `--profile <path>` or `--examples-file <path>` and `--output-file <path> --fake --json`: writes transfer text plus bounded JSON metadata. In this slice, use only for fake-runtime contract tests.
+- `tinystyler_profile --examples-file <path> --output-profile <path> --profile-name <name> --json`: creates a profile artifact using local Style-Embedding assets. Use `--fake` only for deterministic local validation, not for user-facing style profiles.
+- `tinystyler_transfer --input-file <path>` or `--text <text>` plus `--profile <path>` or `--examples-file <path>` and `--output-file <path> --json`: writes transfer text plus bounded JSON metadata. Use `--fake` only for deterministic local validation, not user-facing transfer.
 
 Prefer file inputs when text contains punctuation, whitespace, quotes, or user-provided examples. Do not pass long user samples as CLI arguments.
 

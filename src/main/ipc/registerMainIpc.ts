@@ -38,6 +38,11 @@ import { registerLifecycleDomainIpc } from "./registerLifecycleDomainIpc";
 
 import { registerShellIntegrationDomainIpc } from "./registerShellIntegrationDomainIpc";
 
+import {
+  describeSlashCommandForProjectHost,
+  registerSlashCommandIpc,
+} from "./registerSlashCommandIpc";
+
 import { registerWorkflowRecordingLabDomainIpc } from "./registerWorkflowRecordingLabDomainIpc";
 
 import { registerWorkflowAutomationDomainIpc } from "./registerWorkflowAutomationDomainIpc";
@@ -46,6 +51,7 @@ import { registerWorkspaceGitDomainIpc } from "./registerWorkspaceGitDomainIpc";
 
 import type { ProjectRuntimeHost } from "../index";
 import type { ProjectStore } from "../projectStore";
+import { assertSlashCommandSelectionInvocable } from "../slashCommandCatalog";
 
 type ProjectRuntimeHostLookup = (...args: any[]) => ProjectRuntimeHost;
 
@@ -129,6 +135,7 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     compileWorkflowArtifact,
     createAndRecordCheckpoint,
     createChatExportBundle,
+    createChatPdfExport,
     createDiagnosticBundle,
     createGitBranch,
     createMainDiagnosticSource,
@@ -813,9 +820,11 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     registerDiagnosticsExportDomainIpc({
       app,
       createChatExportBundle,
+      createChatPdfExport,
       createDiagnosticBundle,
       createMainDiagnosticSource,
       dialog,
+      existsSync,
       getAppLogs,
       handleIpc,
       importDiagnosticBundleFromFile,
@@ -823,6 +832,7 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
       mainWindow,
       requireActiveProjectRuntimeHost,
       requireProjectRuntimeHostForThread,
+      requireProjectRuntimeHostForThreadAction,
       writeFile,
     });
 
@@ -847,6 +857,15 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
       saveCapabilityBuilderEnvSecret,
       saveMcpServerEnvSecret,
       selectAmbientCliPackageForSecret,
+    });
+
+    registerSlashCommandIpc<ProjectRuntimeHost>({
+      handleIpc,
+      getFeatureFlagSnapshot: currentFeatureFlagSnapshot,
+      listGlobalWorkflowRecordingLibrary,
+      readCodexPluginCatalog,
+      requireActiveProjectRuntimeHost,
+      requireProjectRuntimeHostForWorkflowRecording,
     });
 
     registerTerminalDomainIpc<ProjectRuntimeHost>({
@@ -878,6 +897,19 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
       prepareWorktreeForThread,
       requireProjectRuntimeHostForThread,
       setProjectHostActiveThreadId,
+      validateSlashCommandSelection: async (host, selection) => {
+        const description = await describeSlashCommandForProjectHost(
+          host,
+          { entryId: selection.entryId, includeUnavailable: true },
+          {
+            requireProjectRuntimeHostForWorkflowRecording,
+            readCodexPluginCatalog,
+            listGlobalWorkflowRecordingLibrary,
+            getFeatureFlagSnapshot: currentFeatureFlagSnapshot,
+          },
+        );
+        assertSlashCommandSelectionInvocable(selection, description);
+      },
     });
 
     registerE2eDomainIpc({

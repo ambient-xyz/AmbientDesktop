@@ -91,6 +91,19 @@ describe("simplification V3 scorecard", () => {
     );
   });
 
+  it("detects local report-mode guardrail configuration files", () => {
+    const scorecard = buildV3Scorecard(fixtureComplexityReport());
+    const readiness = scorecard.advisoryGuardrails.find((entry) => entry.id === "local-guardrail-readiness");
+
+    expect(readiness.details).toMatchObject({
+      eslintConfig: "eslint.config.mjs",
+      prettierConfig: "prettier.config.mjs",
+      workflowFiles: 0,
+    });
+    expect(readiness.displayValue).toContain("ESLint present");
+    expect(readiness.displayValue).toContain("Prettier present");
+  });
+
   it("renders current, baseline, budget, validation, parity command, and extraction target", () => {
     const markdown = renderV3ScorecardMarkdown(buildV3Scorecard(fixtureComplexityReport()));
 

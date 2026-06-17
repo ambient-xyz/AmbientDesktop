@@ -6,9 +6,10 @@ import {
   diagnosticsExportDomainIpcChannels,
   registerDiagnosticsExportDomainIpc,
   type ChatExportPayload,
+  type ChatPdfExportPayload,
   type DiagnosticBundlePayload,
 } from "./registerDiagnosticsExportDomainIpc";
-import { threadExportChatIpcChannels } from "./registerThreadIpc";
+import { threadExportChatIpcChannels, threadExportChatPdfIpcChannels } from "./registerThreadIpc";
 
 type IpcListener = Parameters<IpcMain["handle"]>[1];
 
@@ -20,6 +21,7 @@ describe("registerDiagnosticsExportDomainIpc", () => {
     expect([...diagnosticsExportDomainIpcChannels]).toEqual([
       ...diagnosticsIpcChannels,
       ...threadExportChatIpcChannels,
+      ...threadExportChatPdfIpcChannels,
     ]);
   });
 
@@ -146,14 +148,148 @@ describe("registerDiagnosticsExportDomainIpc", () => {
     });
     expect(deps.writeFile).toHaveBeenCalledWith("/downloads/thread-export.zip", chatPayload.archive);
   });
+
+  it("exports chat PDFs to the E2E path without opening a save dialog", async () => {
+    const { chatPdfPayload, deps, invoke } = registerWithFakes({
+      env: {
+        AMBIENT_E2E: "1",
+        AMBIENT_E2E_CHAT_PDF_EXPORT_PATH: "/tmp/e2e-chat",
+      },
+    });
+
+    await expect(invoke("thread:export-chat-pdf", { threadId: "thread-1" })).resolves.toEqual({
+      path: "/tmp/e2e-chat.pdf",
+      bytes: chatPdfPayload.pdf.byteLength,
+      createdAt: chatPdfPayload.createdAt,
+      source: chatPdfPayload.source,
+    });
+
+    expect(deps.requireProjectRuntimeHostForThread).toHaveBeenCalledWith("thread-1");
+    expect(deps.createChatPdfExport).toHaveBeenCalledWith(deps.threadHost.store, "thread-1", {
+      appName: "Ambient Test",
+      appVersion: "1.2.3",
+    });
+    expect(deps.writeFile).toHaveBeenCalledWith("/tmp/e2e-chat.pdf", chatPdfPayload.pdf);
+    expect(deps.dialog.showSaveDialog).not.toHaveBeenCalled();
+  });
+
+  it("exports chat PDFs through the save dialog and normalizes the PDF extension", async () => {
+    const { chatPdfPayload, deps, invoke, mainWindow } = registerWithFakes({
+      saveDialogResult: {
+        canceled: false,
+        filePath: "/downloads/thread-export",
+      },
+    });
+
+    await expect(invoke("thread:export-chat-pdf", { threadId: "thread-1", extra: "ignored" })).resolves.toEqual({
+      path: "/downloads/thread-export.pdf",
+      bytes: chatPdfPayload.pdf.byteLength,
+      createdAt: chatPdfPayload.createdAt,
+      source: chatPdfPayload.source,
+    });
+
+    expect(deps.dialog.showSaveDialog).toHaveBeenCalledWith(mainWindow, {
+      title: "Export Chat as PDF",
+      defaultPath: "/downloads/thread-export.pdf",
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    });
+    expect(deps.writeFile).toHaveBeenCalledWith("/downloads/thread-export.pdf", chatPdfPayload.pdf);
+    expect(deps.dialog.showMessageBox).not.toHaveBeenCalled();
+  });
+
+  it("confirms before replacing an existing normalized PDF target", async () => {
+    const { chatPdfPayload, deps, invoke, mainWindow } = registerWithFakes({
+      existingPaths: new Set(["/downloads/thread-export.pdf"]),
+      messageBoxResult: { response: 0 },
+      saveDialogResult: {
+        canceled: false,
+        filePath: "/downloads/thread-export",
+      },
+    });
+
+    await expect(invoke("thread:export-chat-pdf", { threadId: "thread-1" })).resolves.toMatchObject({
+      path: "/downloads/thread-export.pdf",
+    });
+
+    expect(deps.dialog.showMessageBox).toHaveBeenCalledWith(mainWindow, {
+      type: "warning",
+      buttons: ["Replace", "Cancel"],
+      defaultId: 1,
+      cancelId: 1,
+      title: "Replace Existing PDF?",
+      message: "A PDF already exists at the normalized export path.",
+      detail: "/downloads/thread-export.pdf",
+    });
+    expect(deps.writeFile).toHaveBeenCalledWith("/downloads/thread-export.pdf", chatPdfPayload.pdf);
+  });
+
+  it("does not write a chat PDF when normalized PDF replacement is canceled", async () => {
+    const { deps, invoke } = registerWithFakes({
+      existingPaths: new Set(["/downloads/thread-export.pdf"]),
+      messageBoxResult: { response: 1 },
+      saveDialogResult: {
+        canceled: false,
+        filePath: "/downloads/thread-export",
+      },
+    });
+
+    await expect(invoke("thread:export-chat-pdf", { threadId: "thread-1" })).resolves.toBeUndefined();
+
+    expect(deps.dialog.showMessageBox).toHaveBeenCalledOnce();
+    expect(deps.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("resolves chat PDF exports through the project-scoped thread action host when project context is provided", async () => {
+    const { deps, invoke, mainWindow } = registerWithFakes({
+      saveDialogResult: {
+        canceled: false,
+        filePath: "/downloads/thread-export.pdf",
+      },
+    });
+
+    await expect(invoke("thread:export-chat-pdf", { threadId: "thread-1", projectId: "project-1" })).resolves.toMatchObject({
+      path: "/downloads/thread-export.pdf",
+    });
+
+    expect(deps.requireActiveProjectRuntimeHost).toHaveBeenCalledOnce();
+    expect(deps.requireProjectRuntimeHostForThreadAction).toHaveBeenCalledWith(
+      { threadId: "thread-1", projectId: "project-1" },
+      deps.activeHost,
+    );
+    expect(deps.createChatPdfExport).toHaveBeenCalledWith(deps.threadHost.store, "thread-1", {
+      appName: "Ambient Test",
+      appVersion: "1.2.3",
+    });
+    expect(deps.dialog.showSaveDialog).toHaveBeenCalledWith(mainWindow, expect.objectContaining({
+      title: "Export Chat as PDF",
+    }));
+  });
+
+  it("does not write a chat PDF when the save dialog is canceled", async () => {
+    const { deps, invoke } = registerWithFakes({
+      saveDialogResult: {
+        canceled: true,
+        filePath: "/downloads/ignored.pdf",
+      },
+    });
+
+    await expect(invoke("thread:export-chat-pdf", { threadId: "thread-1" })).resolves.toBeUndefined();
+
+    expect(deps.createChatPdfExport).toHaveBeenCalledOnce();
+    expect(deps.writeFile).not.toHaveBeenCalled();
+  });
 });
 
 function registerWithFakes({
   env = {},
+  existingPaths = new Set<string>(),
+  messageBoxResult = { response: 1 },
   openDialogResult = { canceled: true, filePaths: [] },
   saveDialogResult = { canceled: true },
 }: {
   env?: NodeJS.ProcessEnv;
+  existingPaths?: Set<string>;
+  messageBoxResult?: { response: number };
   openDialogResult?: { canceled: boolean; filePaths: string[] };
   saveDialogResult?: { canceled: boolean; filePath?: string };
 } = {}) {
@@ -170,6 +306,7 @@ function registerWithFakes({
     createdAt: "2026-06-16T00:00:00.000Z",
   };
   const chatPayload = sampleChatExportPayload();
+  const chatPdfPayload = sampleChatPdfExportPayload();
   const deps = {
     activeHost,
     app: {
@@ -178,14 +315,17 @@ function registerWithFakes({
       getPath: vi.fn(() => "/downloads"),
     },
     createChatExportBundle: vi.fn(async () => chatPayload),
+    createChatPdfExport: vi.fn(async () => chatPdfPayload),
     createDiagnosticBundle: vi.fn(async () => diagnosticPayload),
     createMainDiagnosticSource: vi.fn(() => diagnosticSource),
     diagnosticSource,
     dialog: {
+      showMessageBox: vi.fn(async () => messageBoxResult),
       showOpenDialog: vi.fn(async () => openDialogResult),
       showSaveDialog: vi.fn(async () => saveDialogResult),
     },
     env,
+    existsSync: vi.fn((path: string) => existingPaths.has(path)),
     getAppLogs: vi.fn(() => logs),
     handleIpc: (channel: string, listener: IpcListener) => handlers.set(channel, listener),
     importDiagnosticBundleFromFile: vi.fn(async () => diagnosticResult),
@@ -194,6 +334,7 @@ function registerWithFakes({
     mainWindow,
     requireActiveProjectRuntimeHost: vi.fn(() => activeHost),
     requireProjectRuntimeHostForThread: vi.fn(() => threadHost),
+    requireProjectRuntimeHostForThreadAction: vi.fn(() => threadHost),
     threadHost,
     writeFile: vi.fn(),
   };
@@ -202,6 +343,7 @@ function registerWithFakes({
 
   return {
     chatPayload,
+    chatPdfPayload,
     deps,
     diagnosticPayload,
     diagnosticResult,
@@ -232,5 +374,14 @@ function sampleChatExportPayload(): ChatExportPayload {
     createdAt: "2026-06-16T00:00:00.000Z",
     source: "pi-session",
     fallbackReason: "none",
+  };
+}
+
+function sampleChatPdfExportPayload(): ChatPdfExportPayload {
+  return {
+    fileName: "thread-export.pdf",
+    pdf: Buffer.from("pdf-bytes"),
+    createdAt: "2026-06-16T00:00:00.000Z",
+    source: "visible-chat-pdf",
   };
 }

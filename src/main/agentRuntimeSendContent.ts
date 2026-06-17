@@ -1,16 +1,20 @@
 import { formatPromptWithContext, formatWorkflowRecordingEditPrompt } from "../shared/contextFormatting";
+import { isAmbientSlashCommandsEnabled } from "../shared/featureFlags";
 import type {
+  AmbientFeatureFlagSnapshot,
   SendMessageInput,
   WorkflowAgentThreadSummary,
 } from "../shared/types";
 import { workflowThreadPlanEditPrompt } from "../shared/workflowThreadPlanEdit";
 import {
   localDeepResearchComposerPrompt,
+  slashCommandComposerPrompt,
   symphonyWorkflowComposerPrompt,
 } from "./agentRuntimeComposerIntent";
 
 export interface AgentRuntimeSendContentDeps {
   isSubagentsEnabled: () => boolean;
+  getFeatureFlagSnapshot: () => AmbientFeatureFlagSnapshot;
   getWorkflowAgentThreadSummary: (workflowThreadId: string) => WorkflowAgentThreadSummary;
 }
 
@@ -28,6 +32,12 @@ export function modelContentForAgentRuntimeSendInput(
     deps,
   );
   if (input.composerIntent?.kind === "local-deep-research") return localDeepResearchComposerPrompt(userRequest, input.composerIntent);
+  if (input.composerIntent?.kind === "slash-command") {
+    if (!isAmbientSlashCommandsEnabled(deps.getFeatureFlagSnapshot())) {
+      throw new Error("Slash command composer intents are disabled while ambient.slashCommands is off.");
+    }
+    return slashCommandComposerPrompt(userRequest, input.composerIntent);
+  }
   if (input.composerIntent?.kind === "symphony-workflow") {
     if (!deps.isSubagentsEnabled()) {
       throw new Error("Symphony workflow composer intents are disabled while ambient.subagents is off.");

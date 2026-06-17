@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { resolveAmbientModelRuntimeProfile } from "./ambientModels";
+import {
+  AMBIENT_SUBAGENTS_FEATURE_FLAG,
+  resolveAmbientFeatureFlags,
+} from "./featureFlags";
 import { DEFAULT_SUBAGENT_ROLE_PROFILES, getDefaultSubagentRoleProfile } from "./subagentRoles";
 import {
   buildSubagentCanonicalPath,
@@ -8,6 +12,20 @@ import {
   validateSubagentResultArtifactForSynthesis,
 } from "./subagentProtocol";
 import { resolveSubagentToolScope } from "./subagentToolScope";
+import {
+  SYMPHONY_CHILD_DECISION_OPTIONS,
+  SYMPHONY_CHILD_DECISION_REQUEST_SCHEMA_VERSION,
+  SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
+  SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
+  SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
+  SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
+  SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
+  SYMPHONY_WEB_CAPABILITY_PROFILE_SCHEMA_VERSION,
+  assertValidChildDecisionRequest,
+  assertValidMutationWorkspaceLease,
+  assertValidSymphonyChildLaunchContractBundle,
+  assertValidWebCapabilityProfile,
+} from "./symphonyFineGrainedContracts";
 
 describe("sub-agent shared contracts", () => {
   it("builds stable canonical child paths", () => {
@@ -102,6 +120,242 @@ describe("sub-agent shared contracts", () => {
       textPreview: "Child streamed a useful update.",
       tokenCount: 12,
     });
+  });
+
+  it("validates Symphony fine-grained launch, web, lease, and decision contracts", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+    const bundle = symphonyLaunchBundle(featureFlagSnapshot);
+
+    expect(assertValidSymphonyChildLaunchContractBundle(bundle, {
+      featureFlagSnapshot,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toEqual(bundle);
+
+    expect(assertValidWebCapabilityProfile({
+      schemaVersion: SYMPHONY_WEB_CAPABILITY_PROFILE_SCHEMA_VERSION,
+      providerId: "brave-search",
+      supportedKinds: ["search"],
+      probeStatus: "passed",
+      probeEvidenceRefs: ["test-results/web/brave.json"],
+      userPreferenceRank: { search: 1 },
+    })).toMatchObject({
+      providerId: "brave-search",
+      supportedKinds: ["search"],
+      probeStatus: "passed",
+    });
+
+    expect(assertValidMutationWorkspaceLease({
+      schemaVersion: SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
+      leaseId: "lease-1",
+      parentThreadId: "parent-thread",
+      childThreadId: "child-thread",
+      childRunId: "child-run",
+      kind: "scratch_overlay",
+      rootPath: "/tmp/symphony/lease-1",
+      sourceRoots: ["/workspace"],
+      readOnlyBaseRoots: ["/workspace"],
+      writableRoots: ["/tmp/symphony/lease-1/out"],
+      status: "active",
+      acquiredAt: "2026-06-16T00:00:00.000Z",
+      lastHeartbeatAt: "2026-06-16T00:00:01.000Z",
+    })).toMatchObject({
+      leaseId: "lease-1",
+      kind: "scratch_overlay",
+      writableRoots: ["/tmp/symphony/lease-1/out"],
+    });
+
+    expect(assertValidChildDecisionRequest({
+      schemaVersion: SYMPHONY_CHILD_DECISION_REQUEST_SCHEMA_VERSION,
+      requestId: "decision-1",
+      barrierId: "barrier-1",
+      parentRunId: "parent-run",
+      childRunIds: ["child-run"],
+      reason: "tool_scope_denied",
+      options: ["retry_child", "accept_partial", "exit_symphony_mode"],
+      recommendedOption: "retry_child",
+      evidenceRefs: ["artifact://barrier-1"],
+    })).toMatchObject({
+      recommendedOption: "retry_child",
+      options: ["retry_child", "accept_partial", "exit_symphony_mode"],
+    });
+  });
+
+  it("rejects mutation workspace leases with unsafe path boundaries", () => {
+    const lease = {
+      schemaVersion: SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
+      leaseId: "lease-1",
+      parentThreadId: "parent-thread",
+      childThreadId: "child-thread",
+      childRunId: "child-run",
+      kind: "scratch_overlay",
+      rootPath: "/tmp/symphony/lease-1",
+      sourceRoots: ["/workspace"],
+      readOnlyBaseRoots: ["/workspace"],
+      writableRoots: ["/tmp/symphony/lease-1/out"],
+      status: "active",
+      acquiredAt: "2026-06-16T00:00:00.000Z",
+      lastHeartbeatAt: "2026-06-16T00:00:01.000Z",
+    };
+
+    expect(() => assertValidMutationWorkspaceLease({
+      ...lease,
+      rootPath: "../lease-1",
+    })).toThrow("mutationWorkspaceLease.rootPath must be an absolute path.");
+
+    expect(() => assertValidMutationWorkspaceLease({
+      ...lease,
+      sourceRoots: ["/workspace/../other"],
+    })).toThrow("mutationWorkspaceLease.sourceRoots[0] must not contain . or .. path segments.");
+
+    expect(() => assertValidMutationWorkspaceLease({
+      ...lease,
+      writableRoots: ["/tmp/symphony/outside"],
+    })).toThrow("mutationWorkspaceLease.writableRoots must stay inside mutationWorkspaceLease.rootPath; /tmp/symphony/outside is outside /tmp/symphony/lease-1.");
+  });
+
+  it("keeps Symphony fine-grained contracts unreachable while ambient.subagents is off", () => {
+    const disabled = resolveAmbientFeatureFlags({
+      settings: { subagents: false },
+      generatedAt: "2026-06-16T00:00:00.000Z",
+    });
+    const bundle = symphonyLaunchBundle(disabled);
+
+    expect(() => assertValidSymphonyChildLaunchContractBundle(bundle, {
+      featureFlagSnapshot: disabled,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toThrow("ambient.subagents is off; Symphony fine-grained contracts are unavailable.");
+  });
+
+  it("rejects malformed Symphony policy feature-flag snapshots before launch", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+    const malformedBundle = {
+      ...symphonyLaunchBundle(featureFlagSnapshot),
+      modePolicySnapshot: {
+        ...symphonyLaunchBundle(featureFlagSnapshot).modePolicySnapshot,
+        featureFlagSnapshot: {
+          schemaVersion: "ambient-feature-flags-v1",
+          generatedAt: "2026-06-16T00:00:00.000Z",
+          flags: {},
+        },
+      },
+    };
+
+    expect(() => assertValidSymphonyChildLaunchContractBundle(malformedBundle, {
+      featureFlagSnapshot,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toThrow("symphony.modePolicySnapshot.featureFlagSnapshot.flags.ambient.subagents must be an object.");
+  });
+
+  it("requires Symphony mode policy to allow child spawning before launch", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+    const bundle = {
+      ...symphonyLaunchBundle(featureFlagSnapshot),
+      modePolicySnapshot: {
+        ...symphonyLaunchBundle(featureFlagSnapshot).modePolicySnapshot,
+        parentAllowedActions: ["detect_pattern", "plan", "inspect_child_evidence", "synthesize"],
+      },
+    };
+
+    expect(() => assertValidSymphonyChildLaunchContractBundle(bundle, {
+      featureFlagSnapshot,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toThrow("symphony.modePolicySnapshot.parentAllowedActions must include spawn_child for child launch.");
+  });
+
+  it("rejects Symphony no-mutation launch policies that allow mutating tool categories", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+    const bundle = {
+      ...symphonyLaunchBundle(featureFlagSnapshot),
+      childLaunchPolicySnapshot: {
+        ...symphonyLaunchBundle(featureFlagSnapshot).childLaunchPolicySnapshot,
+        allowedToolIds: ["workspace.read", "workspace.write"],
+        deniedToolIds: ["browser.interactive"],
+        mutation: "none",
+      },
+    };
+
+    expect(() => assertValidSymphonyChildLaunchContractBundle(bundle, {
+      featureFlagSnapshot,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toThrow("symphony.childLaunchPolicySnapshot.allowedToolIds must not include mutating tool policy workspace.write when mutation is none.");
+  });
+
+  it("rejects wildcard Symphony tool policy ids and relative roots", () => {
+    const featureFlagSnapshot = enabledSubagentFeatureFlags();
+    const wildcardBundle = {
+      ...symphonyLaunchBundle(featureFlagSnapshot),
+      childLaunchPolicySnapshot: {
+        ...symphonyLaunchBundle(featureFlagSnapshot).childLaunchPolicySnapshot,
+        deniedToolIds: ["connector_app:gmail.*"],
+      },
+    };
+    expect(() => assertValidSymphonyChildLaunchContractBundle(wildcardBundle, {
+      featureFlagSnapshot,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toThrow("symphony.childLaunchPolicySnapshot.deniedToolIds[0] must not use wildcard grants or denials.");
+
+    const relativeRootBundle = {
+      ...symphonyLaunchBundle(featureFlagSnapshot),
+      childLaunchPolicySnapshot: {
+        ...symphonyLaunchBundle(featureFlagSnapshot).childLaunchPolicySnapshot,
+        inheritedAuthorityRoots: ["src"],
+      },
+    };
+    expect(() => assertValidSymphonyChildLaunchContractBundle(relativeRootBundle, {
+      featureFlagSnapshot,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toThrow("symphony.childLaunchPolicySnapshot.inheritedAuthorityRoots[0] must be an absolute path.");
+
+    const traversalReadRootBundle = {
+      ...symphonyLaunchBundle(featureFlagSnapshot),
+      childLaunchPolicySnapshot: {
+        ...symphonyLaunchBundle(featureFlagSnapshot).childLaunchPolicySnapshot,
+        inheritedAuthorityRoots: ["/workspace/slice/.."],
+      },
+    };
+    expect(() => assertValidSymphonyChildLaunchContractBundle(traversalReadRootBundle, {
+      featureFlagSnapshot,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toThrow("symphony.childLaunchPolicySnapshot.inheritedAuthorityRoots[0] must not contain . or .. path segments.");
+
+    const traversalWriteRootBundle = {
+      ...symphonyLaunchBundle(featureFlagSnapshot),
+      childLaunchPolicySnapshot: {
+        ...symphonyLaunchBundle(featureFlagSnapshot).childLaunchPolicySnapshot,
+        allowedToolIds: ["workspace.write"],
+        deniedToolIds: [],
+        writableRoots: ["/workspace/slice/.."],
+        mutation: "lease_required",
+      },
+    };
+    expect(() => assertValidSymphonyChildLaunchContractBundle(traversalWriteRootBundle, {
+      featureFlagSnapshot,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+    })).toThrow("symphony.childLaunchPolicySnapshot.writableRoots[0] must not contain . or .. path segments.");
+  });
+
+  it("rejects child decision requests with recommendations outside explicit options", () => {
+    expect(SYMPHONY_CHILD_DECISION_OPTIONS).not.toContain("parent_override");
+    expect(() => assertValidChildDecisionRequest({
+      schemaVersion: SYMPHONY_CHILD_DECISION_REQUEST_SCHEMA_VERSION,
+      requestId: "decision-1",
+      barrierId: "barrier-1",
+      parentRunId: "parent-run",
+      childRunIds: ["child-run"],
+      reason: "failed",
+      options: ["retry_child", "accept_partial"],
+      recommendedOption: "exit_symphony_mode",
+      evidenceRefs: [],
+    })).toThrow("childDecisionRequest.recommendedOption must be included in options.");
   });
 
   it("resolves role, model, task, and workspace policy into visible tool scope", () => {
@@ -901,3 +1155,72 @@ describe("sub-agent shared contracts", () => {
     ]);
   });
 });
+
+function enabledSubagentFeatureFlags() {
+  return resolveAmbientFeatureFlags({
+    startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+    generatedAt: "2026-06-16T00:00:00.000Z",
+  });
+}
+
+function symphonyLaunchBundle(featureFlagSnapshot: ReturnType<typeof enabledSubagentFeatureFlags>) {
+  return {
+    schemaVersion: SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
+    patternSelection: {
+      schemaVersion: SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
+      selectionId: "selection-1",
+      parentRunId: "parent-run",
+      pattern: "imitate_and_verify",
+      confidence: "high",
+      childRolePlan: [
+        { role: "drafter", count: 1, purpose: "Draft the artifact." },
+        { role: "verifier", count: 1, purpose: "Verify the draft against criteria." },
+      ],
+      requiredArtifacts: ["draft", "verification"],
+      reducerContract: "Synthesize only from child evidence.",
+      failurePolicy: "require_all",
+      tokenAndTimeBudget: { maxChildren: 2, maxMinutes: 10 },
+    },
+    modePolicySnapshot: {
+      schemaVersion: SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
+      snapshotId: "mode-policy-1",
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      enabled: true,
+      parentAllowedActions: [
+        "detect_pattern",
+        "plan",
+        "spawn_child",
+        "inspect_run_graph",
+        "inspect_child_evidence",
+        "request_decision",
+        "retry_child",
+        "synthesize",
+      ],
+      observationPolicy: "full_runtime_observability",
+      directExecutionPolicy: "deny_substantive_tools",
+      featureFlagSnapshot,
+    },
+    childLaunchPolicySnapshot: {
+      schemaVersion: SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
+      policyId: "child-policy-1",
+      childRunId: "planned-child-run",
+      role: "verifier",
+      pattern: "imitate_and_verify",
+      inheritedAuthorityRoots: ["/workspace"],
+      writableRoots: [],
+      allowedToolIds: ["workspace.read", "test.run"],
+      deniedToolIds: ["workspace.write", "browser.interactive"],
+      webProviderOrder: {
+        search: ["brave-search"],
+        staticFetchExtract: ["scrapling-static"],
+        dynamicHeadlessBrowser: ["scrapling-dynamic"],
+        interactiveBrowser: {
+          providers: ["ambient-browser"],
+          fallback: "approval_required",
+        },
+      },
+      mutation: "none",
+    },
+  };
+}

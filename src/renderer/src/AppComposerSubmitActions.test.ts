@@ -5,6 +5,7 @@ import type {
   DesktopState,
   LocalDeepResearchRunBudget,
   RunStatus,
+  SlashCommandSelection,
   SttMessageMetadata,
   ThreadGoal,
   WorkspaceContextReference,
@@ -207,6 +208,299 @@ describe("App composer submit actions", () => {
     expect(controller.runStatus.value).toBe("error");
   });
 
+  it("sends and restores selected slash command intents", async () => {
+    const selection = slashCommandSelection();
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        describeSlashCommand: vi.fn(async () => ({
+          schemaVersion: "ambient-slash-command-describe-v1",
+          status: "described",
+          entryId: selection.entryId,
+          entry: {
+            id: selection.entryId,
+            command: selection.command,
+            aliases: [],
+            title: selection.title,
+            kind: selection.kind,
+            sourceKind: selection.sourceKind,
+            invocationKind: selection.invocationKind,
+            availability: "available",
+            badges: ["Skill"],
+            icon: "sparkles",
+            sourceId: selection.sourceId,
+            sourceName: selection.sourceName,
+            sourceVersion: selection.sourceVersion,
+            sourceFingerprint: selection.sourceFingerprint,
+            requiresParameters: false,
+            searchText: "reviewer",
+          },
+          parameters: [],
+          diagnostics: [],
+        })),
+        sendMessage: vi.fn(async () => {
+          throw new Error("send failed");
+        }),
+      },
+    });
+    const controller = createController({
+      draft: "Review the migration.",
+      selectedSlashCommand: selection,
+    });
+
+    await controller.actions.submitDraft("prompt");
+
+    expect(window.ambientDesktop.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      composerIntent: {
+        kind: "slash-command",
+        selection,
+      },
+    }));
+    expect(controller.slashCommandSelection.value).toEqual(selection);
+    expect(controller.draft.value).toBe("Review the migration.");
+  });
+
+  it("submits bare selected slash command intents", async () => {
+    const selection = slashCommandSelection();
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        describeSlashCommand: vi.fn(async () => availableSlashCommandDescription(selection)),
+        sendMessage,
+      },
+    });
+    const controller = createController({
+      draft: "",
+      selectedSlashCommand: selection,
+    });
+
+    await controller.actions.submitDraft("prompt");
+
+    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      content: selection.command,
+      composerIntent: {
+        kind: "slash-command",
+        selection,
+      },
+    }));
+  });
+
+  it("requires prompt input before sending selected slash commands with required parameters", async () => {
+    const selection = {
+      ...slashCommandSelection(),
+      requiresParameters: true,
+    };
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        describeSlashCommand: vi.fn(async () => availableSlashCommandDescription(selection)),
+        sendMessage,
+      },
+    });
+    const controller = createController({
+      draft: "",
+      selectedSlashCommand: selection,
+    });
+
+    await controller.actions.submitDraft("prompt");
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(window.ambientDesktop.describeSlashCommand).not.toHaveBeenCalled();
+    expect(controller.contextError.value).toBe("Add input for reviewer before sending this slash command.");
+    expect(controller.slashCommandSelection.value).toEqual(selection);
+  });
+
+  it("does not clear a newly selected slash command when an earlier send completes", async () => {
+    const initialSelection = slashCommandSelection();
+    const nextSelection = {
+      ...slashCommandSelection(),
+      entryId: "codex-plugin-skill:next-reviewer",
+      command: "/next-reviewer",
+      title: "next-reviewer",
+      sourceId: "plugin-next-reviewer",
+      sourceName: "next-reviewer",
+      sourceFingerprint: "def456",
+    };
+    const send = deferred<void>();
+    const sendMessage = vi.fn(() => send.promise);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        describeSlashCommand: vi.fn(async () => ({
+          schemaVersion: "ambient-slash-command-describe-v1",
+          status: "described",
+          entryId: initialSelection.entryId,
+          entry: {
+            id: initialSelection.entryId,
+            command: initialSelection.command,
+            aliases: [],
+            title: initialSelection.title,
+            kind: initialSelection.kind,
+            sourceKind: initialSelection.sourceKind,
+            invocationKind: initialSelection.invocationKind,
+            availability: "available",
+            badges: ["Skill"],
+            icon: "sparkles",
+            sourceId: initialSelection.sourceId,
+            sourceName: initialSelection.sourceName,
+            sourceVersion: initialSelection.sourceVersion,
+            sourceFingerprint: initialSelection.sourceFingerprint,
+            requiresParameters: false,
+            searchText: "reviewer",
+          },
+          parameters: [],
+          diagnostics: [],
+        })),
+        sendMessage,
+      },
+    });
+    const controller = createController({
+      draft: "Review the migration.",
+      selectedSlashCommand: initialSelection,
+    });
+
+    const submit = controller.actions.submitDraft("prompt");
+    await flushPromises();
+    expect(sendMessage).toHaveBeenCalledOnce();
+    expect(controller.slashCommandSelection.value).toBeUndefined();
+
+    controller.slashCommandSelection.set(nextSelection);
+    send.resolve(undefined);
+    await submit;
+
+    expect(controller.slashCommandSelection.value).toEqual(nextSelection);
+  });
+
+  it("does not restore a failed send slash command over a newer selection", async () => {
+    const initialSelection = slashCommandSelection();
+    const nextSelection = {
+      ...slashCommandSelection(),
+      entryId: "codex-plugin-skill:next-reviewer",
+      command: "/next-reviewer",
+      title: "next-reviewer",
+      sourceId: "plugin-next-reviewer",
+      sourceName: "next-reviewer",
+      sourceFingerprint: "def456",
+    };
+    const send = deferred<void>();
+    const sendMessage = vi.fn(() => send.promise);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        describeSlashCommand: vi.fn(async () => availableSlashCommandDescription(initialSelection)),
+        sendMessage,
+      },
+    });
+    const controller = createController({
+      draft: "Review the migration.",
+      selectedSlashCommand: initialSelection,
+    });
+
+    const submit = controller.actions.submitDraft("prompt");
+    await flushPromises();
+    expect(sendMessage).toHaveBeenCalledOnce();
+
+    controller.draft.value = "Review the follow-up.";
+    controller.slashCommandSelection.set(nextSelection);
+    send.reject(new Error("send failed"));
+    await submit;
+
+    expect(controller.draft.value).toBe("Review the follow-up.");
+    expect(controller.slashCommandSelection.value).toEqual(nextSelection);
+  });
+
+  it("cancels slash command sends when the composer changes during validation", async () => {
+    const selection = slashCommandSelection();
+    const validation = deferred<ReturnType<typeof availableSlashCommandDescription>>();
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        describeSlashCommand: vi.fn(() => validation.promise),
+        sendMessage,
+      },
+    });
+    const controller = createController({
+      draft: "Review the migration.",
+      selectedSlashCommand: selection,
+    });
+
+    const submit = controller.actions.submitDraft("prompt");
+    await flushPromises();
+    expect(controller.draft.value).toBe("");
+    expect(controller.slashCommandSelection.value).toBeUndefined();
+
+    controller.draft.value = "Review the follow-up.";
+    validation.resolve(availableSlashCommandDescription(selection));
+    await submit;
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(controller.contextError.value).toBe("Slash command send was canceled because the composer changed. Send again when ready.");
+    expect(controller.draft.value).toBe("Review the follow-up.");
+  });
+
+  it("preserves selected slash commands when local composer commands conflict", async () => {
+    const selection = slashCommandSelection();
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        describeSlashCommand: vi.fn(async () => availableSlashCommandDescription(selection)),
+        sendMessage,
+      },
+    });
+    const controller = createController({
+      draft: "/plan",
+      selectedSlashCommand: selection,
+    });
+
+    await controller.actions.submitDraft("prompt");
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(window.ambientDesktop.describeSlashCommand).not.toHaveBeenCalled();
+    expect(controller.contextError.value).toBe("Remove the selected slash command before using this composer action.");
+    expect(controller.draft.value).toBe("/plan");
+    expect(controller.slashCommandSelection.value).toEqual(selection);
+  });
+
+  it("rejects unavailable slash command selections before sending", async () => {
+    const selection = slashCommandSelection();
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        describeSlashCommand: vi.fn(async () => ({
+          schemaVersion: "ambient-slash-command-describe-v1",
+          status: "described",
+          entryId: selection.entryId,
+          entry: {
+            id: selection.entryId,
+            command: selection.command,
+            aliases: [],
+            title: selection.title,
+            kind: selection.kind,
+            sourceKind: selection.sourceKind,
+            invocationKind: selection.invocationKind,
+            availability: "untrusted",
+            availabilityReason: "Plugin must be trusted before its skills can be invoked.",
+            badges: ["Skill"],
+            icon: "sparkles",
+            requiresParameters: false,
+            searchText: "reviewer",
+          },
+          parameters: [],
+          diagnostics: [],
+        })),
+        sendMessage,
+      },
+    });
+    const controller = createController({
+      draft: "Review the migration.",
+      selectedSlashCommand: selection,
+    });
+
+    await controller.actions.submitDraft("prompt");
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(controller.contextError.value).toBe("Plugin must be trusted before its skills can be invoked.");
+    expect(controller.draft.value).toBe("Review the migration.");
+    expect(controller.slashCommandSelection.value).toEqual(selection);
+  });
+
   it("blocks Ambient Review feedback when attachments are still selected", async () => {
     const requestWorkflowRecordingReview = vi.fn();
     vi.stubGlobal("window", { ambientDesktop: { requestWorkflowRecordingReview } });
@@ -235,6 +529,7 @@ function createController({
   localDeepResearchRunBudget = resolveLocalDeepResearchRunBudget(undefined),
   pendingWorkflowRecordingEditContext = undefined,
   running = false,
+  selectedSlashCommand = undefined,
   state = desktopState(),
   sttDraftMetadata = undefined,
   workflowRecordingReviewFeedbackActive = false,
@@ -248,6 +543,7 @@ function createController({
   localDeepResearchRunBudget?: LocalDeepResearchRunBudget;
   pendingWorkflowRecordingEditContext?: PendingWorkflowRecordingEditContext;
   running?: boolean;
+  selectedSlashCommand?: SlashCommandSelection;
   state?: DesktopState | undefined;
   sttDraftMetadata?: SttDraftMetadataState;
   workflowRecordingReviewFeedbackActive?: boolean;
@@ -258,6 +554,7 @@ function createController({
   const goalModeArmedState = statefulSetter(goalModeArmed);
   const pendingWorkflowRecordingEditContextState = statefulSetter<PendingWorkflowRecordingEditContext | undefined>(pendingWorkflowRecordingEditContext);
   const runStatus = statefulSetter<RunStatus>("idle");
+  const slashCommandSelectionState = statefulSetter<SlashCommandSelection | undefined>(selectedSlashCommand);
   const sttDraftMetadataState = statefulSetter<SttDraftMetadataState | undefined>(sttDraftMetadata);
   const threadRunStatuses = statefulSetter<Record<string, RunStatus>>({});
   const localDeepResearchModeArmedRef = { current: localDeepResearchModeArmed };
@@ -279,6 +576,7 @@ function createController({
       compactActiveThread,
       contextAttachments,
       getComposerDraft: () => draftState.value,
+      getSlashCommandSelection: () => slashCommandSelectionState.value,
       goalModeArmed,
       localDeepResearchRunActive,
       localDeepResearchModeArmedRef,
@@ -302,6 +600,7 @@ function createController({
       },
       setPendingWorkflowRecordingEditContext: pendingWorkflowRecordingEditContextState.set,
       setRunStatus: runStatus.set,
+      setSlashCommandSelection: slashCommandSelectionState.set,
       setSttDraftMetadata: sttDraftMetadataState.set,
       setThreadRunStatuses: threadRunStatuses.set,
       state,
@@ -324,6 +623,7 @@ function createController({
     resetRunActivityLines,
     runStatus,
     setError,
+    slashCommandSelection: slashCommandSelectionState,
     sttDraftMetadata: sttDraftMetadataState,
     threadRunStatuses,
     updateThreadSettings,
@@ -343,6 +643,25 @@ function statefulSetter<T>(initial: T): {
       state.value = typeof next === "function" ? (next as (current: T) => T)(state.value) : next;
     },
   };
+}
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushPromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 function desktopState(settings: Partial<DesktopState["settings"]> = {}): DesktopState {
@@ -382,4 +701,49 @@ function sttMessageMetadata(): SttMessageMetadata {
     status: "ready",
     text: "Edit: add a retry step",
   } as unknown as SttMessageMetadata;
+}
+
+function slashCommandSelection(): SlashCommandSelection {
+  return {
+    schemaVersion: "ambient-slash-command-invocation-v1",
+    entryId: "codex-plugin-skill:reviewer",
+    command: "/reviewer",
+    title: "reviewer",
+    kind: "skill",
+    sourceKind: "codex-plugin",
+    invocationKind: "codex-plugin-skill",
+    sourceId: "plugin-reviewer",
+    sourceName: "reviewer",
+    sourceVersion: "1.0.0",
+    sourceFingerprint: "abc123",
+    requiresParameters: false,
+  };
+}
+
+function availableSlashCommandDescription(selection: SlashCommandSelection) {
+  return {
+    schemaVersion: "ambient-slash-command-describe-v1",
+    status: "described",
+    entryId: selection.entryId,
+    entry: {
+      id: selection.entryId,
+      command: selection.command,
+      aliases: [],
+      title: selection.title,
+      kind: selection.kind,
+      sourceKind: selection.sourceKind,
+      invocationKind: selection.invocationKind,
+      availability: "available",
+      badges: ["Skill"],
+      icon: "sparkles",
+      sourceId: selection.sourceId,
+      sourceName: selection.sourceName,
+      sourceVersion: selection.sourceVersion,
+      sourceFingerprint: selection.sourceFingerprint,
+      requiresParameters: Boolean(selection.requiresParameters),
+      searchText: "reviewer",
+    },
+    parameters: [],
+    diagnostics: [],
+  } as const;
 }

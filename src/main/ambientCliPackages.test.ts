@@ -951,7 +951,8 @@ describe("Ambient CLI packages", () => {
         packageName: "ambient-tinystyler",
         status: "contract_ready",
         ready: false,
-        realRuntimeImplemented: false,
+        realRuntimeImplemented: true,
+        transferRuntimeImplemented: true,
         revisions: {
           tinystyler: "2a879107b2ec342e57170b82cdc344d5179fa32b",
         },

@@ -46,6 +46,7 @@ describe("RightPanelSettingsSearchModel", () => {
     expect(targets.map((target) => target.id)).toContain("voice.voice");
     expect(targetTerms(targets, "voice.provider")).toContain("piper");
     expect(targetTerms(targets, "voice.voice")).toContain("Soprano");
+    expect(targetTerms(targets, "model-mode.slash-commands")).toContain("ambient.slashCommands");
     expect(targetTerms(targets, "search-web.local-deep-research")).toContain("LiteResearcher ready");
     expect(targetTerms(targets, "security.google")).toContain("gmail");
     expect(targetTerms(targets, "diagnostics.subagent-repair")).toContain("missing_spawn_edge");
@@ -257,7 +258,7 @@ function fixtureDesktopState(): DesktopState {
     providerCatalog: { catalogVersion: "test-catalog" },
     settings: {
       model: "gpt-5",
-      featureFlags: { subagents: true, tencentDbMemory: false },
+      featureFlags: { subagents: true, tencentDbMemory: false, slashCommands: true },
       memory: {
         enabled: false,
         defaultThreadEnabled: false,

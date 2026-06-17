@@ -4,6 +4,8 @@ import type {
   ChatMessage,
   DesktopState,
   DiagnosticExportResult,
+  ExportChatPdfInput,
+  ExportChatPdfResult,
   ExportChatResult,
   RunStatus,
 } from "../../shared/types";
@@ -45,6 +47,11 @@ export function canStartActiveThreadMaintenance({
   return Boolean(state?.activeThreadId && !running && !busy);
 }
 
+export function chatPdfExportStatusMessage(result: ExportChatPdfResult): string {
+  const fileName = result.path.split(/[\\/]/).pop() || result.path;
+  return `Exported visible transcript PDF: ${fileName}`;
+}
+
 export function createAppThreadMaintenanceActions({
   applyProjectActionState,
   chatExportBusy,
@@ -83,6 +90,7 @@ export function createAppThreadMaintenanceActions({
   compactActiveThread: (customInstructions?: string) => Promise<void>;
   duplicateActiveThreadFromTranscript: () => Promise<void>;
   exportActiveChat: () => Promise<ExportChatResult | undefined>;
+  exportChatPdfThread: (input: ExportChatPdfInput | undefined) => Promise<ExportChatPdfResult | undefined>;
   exportChatThread: (threadId: string | undefined) => Promise<ExportChatResult | undefined>;
   exportDiagnostics: () => Promise<DiagnosticExportResult | undefined>;
   importDiagnostics: () => Promise<DiagnosticExportResult | undefined>;
@@ -111,6 +119,29 @@ export function createAppThreadMaintenanceActions({
         return undefined;
       }
       setChatExportStatus({ kind: "success", message: chatExportStatusMessage(result) });
+      return result;
+    } catch (error) {
+      const message = errorMessage(error);
+      setChatExportStatus({ kind: "error", message });
+      setError(message);
+      return undefined;
+    } finally {
+      setChatExportBusy(false);
+    }
+  }
+
+  async function exportChatPdfThread(input: ExportChatPdfInput | undefined): Promise<ExportChatPdfResult | undefined> {
+    if (!input?.threadId || chatExportBusy) return undefined;
+    setError(undefined);
+    setChatExportStatus(undefined);
+    setChatExportBusy(true);
+    try {
+      const result = await window.ambientDesktop.exportChatPdf(input);
+      if (!result) {
+        setChatExportStatus(EXPORT_CHAT_CANCELED_STATUS);
+        return undefined;
+      }
+      setChatExportStatus({ kind: "success", message: chatPdfExportStatusMessage(result) });
       return result;
     } catch (error) {
       const message = errorMessage(error);
@@ -194,6 +225,7 @@ export function createAppThreadMaintenanceActions({
     compactActiveThread,
     duplicateActiveThreadFromTranscript,
     exportActiveChat,
+    exportChatPdfThread,
     exportChatThread,
     exportDiagnostics,
     importDiagnostics,

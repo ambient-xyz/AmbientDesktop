@@ -126,6 +126,8 @@ describe("project store schema bootstrap", () => {
       ["subagent_runs", "role_profile_snapshot_json", "TEXT"],
       ["subagent_runs", "effective_role_snapshot_json", "TEXT"],
       ["subagent_runs", "capacity_lease_snapshot_json", "TEXT"],
+      ["subagent_runs", "symphony_launch_contract_json", "TEXT"],
+      ["subagent_runs", "symphony_mutation_lease_json", "TEXT"],
       ["subagent_parent_mailbox_events", "parent_message_id", "TEXT"],
       ["subagent_wait_barriers", "quorum_threshold", "INTEGER"],
     ]);

@@ -7,6 +7,15 @@ import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../s
 import { SUBAGENT_LIVE_EVIDENCE_LABELS } from "../shared/subagentLiveEvidenceLanes";
 import { effectiveSubagentRoleSnapshot } from "../shared/subagentPatternGraph";
 import { getDefaultSubagentRoleProfile } from "../shared/subagentRoles";
+import {
+  SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
+  SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
+  SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
+  SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
+  SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
+  type MutationWorkspaceLease,
+  type SymphonyChildLaunchContractBundle,
+} from "../shared/symphonyFineGrainedContracts";
 import { ProjectStore } from "./projectStore";
 import {
   createSubagentBatchJobPlan,
@@ -64,6 +73,92 @@ function upsertBatchJobPlan(store: ProjectStore, plan: SubagentBatchJobPlan) {
   });
 }
 
+function symphonyLaunchBundle(input: {
+  featureFlagSnapshot: ReturnType<typeof enabledSubagentFeatureFlags>;
+  parentThreadId: string;
+  parentRunId: string;
+  role: string;
+}): SymphonyChildLaunchContractBundle {
+  return {
+    schemaVersion: SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
+    patternSelection: {
+      schemaVersion: SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
+      selectionId: "selection-1",
+      parentRunId: input.parentRunId,
+      pattern: "map_reduce",
+      confidence: "high",
+      childRolePlan: [
+        { role: input.role, count: 1, purpose: "Map the assigned evidence slice." },
+      ],
+      requiredArtifacts: ["mapped-evidence"],
+      reducerContract: "Reduce only from mapped child evidence.",
+      failurePolicy: "require_all",
+      tokenAndTimeBudget: { maxChildren: 1, maxMinutes: 10 },
+    },
+    modePolicySnapshot: {
+      schemaVersion: SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
+      snapshotId: "mode-policy-1",
+      parentThreadId: input.parentThreadId,
+      parentRunId: input.parentRunId,
+      enabled: true,
+      parentAllowedActions: [
+        "detect_pattern",
+        "plan",
+        "spawn_child",
+        "inspect_run_graph",
+        "inspect_child_evidence",
+        "request_decision",
+        "retry_child",
+        "synthesize",
+      ],
+      observationPolicy: "full_runtime_observability",
+      directExecutionPolicy: "deny_substantive_tools",
+      featureFlagSnapshot: input.featureFlagSnapshot,
+    },
+    childLaunchPolicySnapshot: {
+      schemaVersion: SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
+      policyId: "child-policy-1",
+      childRunId: "planned-child-run",
+      role: input.role,
+      pattern: "map_reduce",
+      inheritedAuthorityRoots: ["/workspace"],
+      writableRoots: [],
+      allowedToolIds: ["workspace.read", "artifact.read"],
+      deniedToolIds: ["workspace.write", "browser.interactive"],
+      webProviderOrder: {
+        search: ["brave-search"],
+        staticFetchExtract: ["scrapling-static"],
+        dynamicHeadlessBrowser: ["scrapling-dynamic"],
+        interactiveBrowser: {
+          providers: ["ambient-browser"],
+          fallback: "approval_required",
+        },
+      },
+      mutation: "none",
+    },
+  };
+}
+
+function symphonyMutationWorkspaceLease(input: {
+  parentThreadId: string;
+}): MutationWorkspaceLease {
+  return {
+    schemaVersion: SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
+    leaseId: "mutation-lease-1",
+    parentThreadId: input.parentThreadId,
+    childThreadId: "planned-child-thread",
+    childRunId: "planned-child-run",
+    kind: "scratch_overlay",
+    rootPath: "/tmp/symphony/lease-1",
+    sourceRoots: ["/workspace"],
+    readOnlyBaseRoots: ["/workspace"],
+    writableRoots: ["/tmp/symphony/lease-1/out"],
+    status: "active",
+    acquiredAt: "2026-06-16T00:00:00.000Z",
+    lastHeartbeatAt: "2026-06-16T00:00:01.000Z",
+  };
+}
+
 function batchArtifact(runId: string, status: SubagentResultArtifact["status"], childThreadId = `${runId}-thread`): SubagentResultArtifact {
   return {
     schemaVersion: "ambient-subagent-result-artifact-v1",
@@ -116,7 +211,11 @@ describe("ProjectStore sub-agent foundation settings", () => {
 
       reopened.openWorkspace(workspacePath);
       expect(reopened.getThread(thread.id).model).toBe("custom/model");
-      expect(reopened.getDefaultSettings().featureFlags).toEqual({ subagents: true, tencentDbMemory: false });
+      expect(reopened.getDefaultSettings().featureFlags).toEqual({
+        subagents: true,
+        tencentDbMemory: false,
+        slashCommands: false,
+      });
       expect(reopened.getDefaultSettings().memory).toEqual({
         enabled: false,
         defaultThreadEnabled: false,
@@ -317,6 +416,13 @@ describe("ProjectStore sub-agent foundation settings", () => {
         canonicalTaskPath: "root/0:explorer",
         featureFlagSnapshot: enabledFlags,
         modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
+        symphonyLaunchContracts: symphonyLaunchBundle({
+          featureFlagSnapshot: enabledFlags,
+          parentThreadId: parent.id,
+          parentRunId: "parent-run",
+          role: "explorer",
+        }),
+        symphonyMutationWorkspaceLease: symphonyMutationWorkspaceLease({ parentThreadId: parent.id }),
         dependencyMode: "required",
       });
 
@@ -355,8 +461,31 @@ describe("ProjectStore sub-agent foundation settings", () => {
         }),
         roleProfileSnapshotSource: "resolved",
         effectiveRoleSnapshot,
+        symphonyLaunchContracts: expect.objectContaining({
+          patternSelection: expect.objectContaining({
+            pattern: "map_reduce",
+            parentRunId: "parent-run",
+          }),
+          modePolicySnapshot: expect.objectContaining({
+            parentThreadId: parent.id,
+            parentRunId: "parent-run",
+          }),
+          childLaunchPolicySnapshot: expect.objectContaining({
+            childRunId: run.id,
+            role: "explorer",
+            mutation: "none",
+          }),
+        }),
+        symphonyMutationWorkspaceLease: expect.objectContaining({
+          parentThreadId: parent.id,
+          childThreadId: child.id,
+          childRunId: run.id,
+          status: "active",
+        }),
       });
       expect(store.getSubagentRun(run.id).effectiveRoleSnapshot).toEqual(effectiveRoleSnapshot);
+      expect(store.getSubagentRun(run.id).symphonyLaunchContracts?.childLaunchPolicySnapshot.childRunId).toBe(run.id);
+      expect(store.getSubagentRun(run.id).symphonyMutationWorkspaceLease?.childThreadId).toBe(child.id);
       expect(store.listSubagentRunsForParentThread(parent.id).map((item) => item.id)).toEqual([run.id]);
       expect(store.listSubagentRunEvents(run.id)).toEqual([
         expect.objectContaining({
@@ -377,6 +506,11 @@ describe("ProjectStore sub-agent foundation settings", () => {
               status: "reserved",
               projectedOpenRunCount: 1,
             }),
+            symphonyLaunch: {
+              pattern: "map_reduce",
+              selectionId: "selection-1",
+              policyId: "child-policy-1",
+            },
           }),
         }),
         expect.objectContaining({

@@ -1,5 +1,9 @@
+import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createAmbientModelRuntimeSnapshotFromProfile } from "../shared/ambientModels";
+import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../shared/featureFlags";
 import {
   resolveSubagentCapacityLease,
   type SubagentCapacityLeaseSnapshot,
@@ -16,6 +20,14 @@ import type {
   ThreadWorktreeSummary,
 } from "../shared/types";
 import { getDefaultSubagentRoleProfile, type SubagentRoleProfile } from "../shared/subagentRoles";
+import {
+  SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
+  SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
+  SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
+  SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
+  SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
+  type SymphonyChildLaunchContractBundle,
+} from "../shared/symphonyFineGrainedContracts";
 import { createDefaultModelRuntimeRegistry } from "./modelRuntimeRegistry";
 import { resolveSubagentModelScope, type SubagentModelScopeResolution } from "./modelScopeResolver";
 import {
@@ -289,6 +301,450 @@ describe("subagentSpawnLaunchExecutor", () => {
     });
     expect(result.currentRun.status).toBe("failed");
     expect(result.taskMailboxEvent).toBeUndefined();
+  });
+
+  it("blocks Symphony launches when stored policy omits resolved role-default tools", async () => {
+    const role = getDefaultSubagentRoleProfile("explorer");
+    const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+    const modelScope = modelScopeFor(role);
+    const run = childRun({
+      role,
+      model,
+      symphonyLaunchContracts: symphonyLaunchBundle({
+        role: "explorer",
+        allowedToolIds: ["workspace.read"],
+      }),
+    });
+    const store = new FakeSpawnLaunchStore(run);
+    const startChildRun = vi.fn();
+
+    const result = await executeSubagentSpawnLaunch({
+      store,
+      runtime: "ambient-subagents",
+      phase: "phase-2-pi-tool-surface",
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+      run,
+      task: "Explore with role defaults, but enforce the stored Symphony policy.",
+      toolCallId: "tool-call",
+      requestedRoleId: "explorer",
+      roleId: "explorer",
+      role,
+      modelId: model.modelId,
+      model,
+      modelScope,
+      dependencyMode: "required",
+      forkMode: "recent_turns",
+      promptMode: role.promptMode,
+      retentionPolicy: role.retentionDefault,
+      idempotencyKey: "spawn:symphony-policy-mismatch",
+      requestedToolScope: {},
+      startChildRun,
+      createRuntimeSpawnEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.spawnBlockDecision).toMatchObject({
+      blocked: true,
+      failureStage: "tool_scope",
+      toolScopeBlocked: true,
+      launchDenialKind: "symphony_policy_mismatch",
+    });
+    if (!result.spawnBlockDecision.blocked) throw new Error("Expected Symphony policy mismatch to block launch.");
+    expect(result.spawnBlockDecision.reason).toContain("Symphony child launch policy does not cover resolved tool scope");
+    expect(result.spawnBlockDecision.reason).toContain("artifact.read is not allowed");
+    expect(result.currentRun.status).toBe("failed");
+    expect(result.taskMailboxEvent).toBeUndefined();
+    expect(startChildRun).not.toHaveBeenCalled();
+  });
+
+  it("allows Symphony launches with exact source allowlists without broad category grants", async () => {
+    const role = getDefaultSubagentRoleProfile("explorer");
+    const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+    const modelScope = modelScopeFor(role);
+    const run = childRun({
+      role,
+      model,
+      symphonyLaunchContracts: symphonyLaunchBundle({
+        role: "explorer",
+        allowedToolIds: ["connector_app:gmail.search"],
+      }),
+    });
+    const store = new FakeSpawnLaunchStore(run);
+    const startedRun = { ...run, status: "running" as const, startedAt: "2026-06-06T00:00:10.000Z" };
+    const startChildRun = vi.fn(async () => {
+      store.setRun(startedRun);
+      return { started: true, run: startedRun, message: "started" };
+    });
+
+    const result = await executeSubagentSpawnLaunch({
+      store,
+      runtime: "ambient-subagents",
+      phase: "phase-2-pi-tool-surface",
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+      run,
+      task: "Use one exact connector source without granting broad connector.read.",
+      toolCallId: "tool-call",
+      requestedRoleId: "explorer",
+      roleId: "explorer",
+      role,
+      modelId: model.modelId,
+      model,
+      modelScope,
+      dependencyMode: "required",
+      forkMode: "recent_turns",
+      promptMode: role.promptMode,
+      retentionPolicy: role.retentionDefault,
+      idempotencyKey: "spawn:symphony-exact-allow",
+      requestedToolScope: {
+        requestedSources: [
+          { source: "connector_app", id: "gmail.search", categoryId: "connector.read", piVisible: false },
+        ],
+      },
+      startChildRun,
+      createRuntimeSpawnEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.spawnBlockDecision.blocked).toBe(false);
+    expect(result.toolScope.loadedCategories).toEqual(["connector.read"]);
+    expect(result.currentRun.status).toBe("running");
+    expect(startChildRun).toHaveBeenCalledOnce();
+  });
+
+  it("blocks Symphony launches when bare exact ids would authorize a sourced tool", async () => {
+    const role = getDefaultSubagentRoleProfile("explorer");
+    const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+    const modelScope = modelScopeFor(role);
+    const run = childRun({
+      role,
+      model,
+      symphonyLaunchContracts: symphonyLaunchBundle({
+        role: "explorer",
+        allowedToolIds: ["gmail.search"],
+      }),
+    });
+    const store = new FakeSpawnLaunchStore(run);
+    const startChildRun = vi.fn();
+
+    const result = await executeSubagentSpawnLaunch({
+      store,
+      runtime: "ambient-subagents",
+      phase: "phase-2-pi-tool-surface",
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+      run,
+      task: "Use one exact connector source without granting broad connector.read.",
+      toolCallId: "tool-call",
+      requestedRoleId: "explorer",
+      roleId: "explorer",
+      role,
+      modelId: model.modelId,
+      model,
+      modelScope,
+      dependencyMode: "required",
+      forkMode: "recent_turns",
+      promptMode: role.promptMode,
+      retentionPolicy: role.retentionDefault,
+      idempotencyKey: "spawn:symphony-bare-exact-denied",
+      requestedToolScope: {
+        requestedSources: [
+          { source: "connector_app", id: "gmail.search", categoryId: "connector.read", piVisible: false },
+        ],
+      },
+      startChildRun,
+      createRuntimeSpawnEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.spawnBlockDecision).toMatchObject({
+      blocked: true,
+      failureStage: "tool_scope",
+      toolScopeBlocked: true,
+      launchDenialKind: "symphony_policy_mismatch",
+    });
+    if (!result.spawnBlockDecision.blocked) throw new Error("Expected bare exact id to be denied for sourced tools.");
+    expect(result.spawnBlockDecision.reason).toContain("connector_app:gmail.search is not allowed");
+    expect(result.currentRun.status).toBe("failed");
+    expect(startChildRun).not.toHaveBeenCalled();
+  });
+
+  it("blocks Symphony launches when resolved read roots exceed inherited authority roots", async () => {
+    const role = getDefaultSubagentRoleProfile("explorer");
+    const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+    const modelScope = modelScopeFor(role);
+    const run = childRun({
+      role,
+      model,
+      symphonyLaunchContracts: symphonyLaunchBundle({
+        role: "explorer",
+        allowedToolIds: ["workspace.read", "artifact.read", "long-context.read", "connector.read"],
+        inheritedAuthorityRoots: ["/repo/slices/alpha"],
+      }),
+    });
+    const store = new FakeSpawnLaunchStore(run);
+    const startChildRun = vi.fn();
+
+    const result = await executeSubagentSpawnLaunch({
+      store,
+      runtime: "ambient-subagents",
+      phase: "phase-2-pi-tool-surface",
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+      run,
+      task: "Explore with role defaults, but root policy allows only one slice.",
+      toolCallId: "tool-call",
+      requestedRoleId: "explorer",
+      roleId: "explorer",
+      role,
+      modelId: model.modelId,
+      model,
+      modelScope,
+      dependencyMode: "required",
+      forkMode: "recent_turns",
+      promptMode: role.promptMode,
+      retentionPolicy: role.retentionDefault,
+      idempotencyKey: "spawn:symphony-root-mismatch",
+      requestedToolScope: {},
+      startChildRun,
+      createRuntimeSpawnEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.spawnBlockDecision).toMatchObject({
+      blocked: true,
+      failureStage: "tool_scope",
+      launchDenialKind: "symphony_policy_mismatch",
+    });
+    if (!result.spawnBlockDecision.blocked) throw new Error("Expected Symphony root mismatch to block launch.");
+    expect(result.spawnBlockDecision.reason).toContain("/repo is outside Symphony inherited authority roots");
+    expect(result.currentRun.status).toBe("failed");
+    expect(result.taskMailboxEvent).toBeUndefined();
+    expect(startChildRun).not.toHaveBeenCalled();
+  });
+
+  it("blocks Symphony launches when read roots escape policy roots through symlinks", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "ambient-symphony-root-policy-"));
+    try {
+      const allowedRoot = join(tempRoot, "allowed");
+      const outsideRoot = join(tempRoot, "outside");
+      const linkRoot = join(allowedRoot, "link-out");
+      await mkdir(allowedRoot);
+      await mkdir(outsideRoot);
+      await symlink(outsideRoot, linkRoot, "dir");
+
+      const role = getDefaultSubagentRoleProfile("explorer");
+      const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+      const modelScope = modelScopeFor(role);
+      const run = childRun({
+        role,
+        model,
+        symphonyLaunchContracts: symphonyLaunchBundle({
+          role: "explorer",
+          allowedToolIds: ["workspace.read", "artifact.read", "long-context.read", "connector.read"],
+          inheritedAuthorityRoots: [allowedRoot],
+        }),
+      });
+      const store = new FakeSpawnLaunchStore(run);
+      const startChildRun = vi.fn();
+
+      const result = await executeSubagentSpawnLaunch({
+        store,
+        runtime: "ambient-subagents",
+        phase: "phase-2-pi-tool-surface",
+        parentThread: parentThread(),
+        parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+        run,
+        task: "Read a scoped slice without escaping through a symlink.",
+        toolCallId: "tool-call",
+        requestedRoleId: "explorer",
+        roleId: "explorer",
+        role,
+        modelId: model.modelId,
+        model,
+        modelScope,
+        dependencyMode: "required",
+        forkMode: "recent_turns",
+        promptMode: role.promptMode,
+        retentionPolicy: role.retentionDefault,
+        idempotencyKey: "spawn:symphony-symlink-root-mismatch",
+        requestedToolScope: {
+          childAuthority: {
+            taskIntent: "file_read",
+            rationale: "Read only the symlink root if policy permits it.",
+            readRoots: [linkRoot],
+            mutation: "deny",
+            network: "deny",
+            nestedFanout: "deny",
+          },
+        },
+        startChildRun,
+        createRuntimeSpawnEventEmitter: () => (event) =>
+          store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+      });
+
+      expect(result.spawnBlockDecision).toMatchObject({
+        blocked: true,
+        failureStage: "tool_scope",
+        launchDenialKind: "symphony_policy_mismatch",
+      });
+      if (!result.spawnBlockDecision.blocked) throw new Error("Expected Symphony symlink root mismatch to block launch.");
+      expect(result.spawnBlockDecision.reason).toContain(`${linkRoot} is outside Symphony inherited authority roots`);
+      expect(result.currentRun.status).toBe("failed");
+      expect(result.taskMailboxEvent).toBeUndefined();
+      expect(startChildRun).not.toHaveBeenCalled();
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks lease-required Symphony mutation launches until an active mutation lease is bound", async () => {
+    const role = getDefaultSubagentRoleProfile("worker");
+    const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+    const modelScope = modelScopeFor(role);
+    const run = childRun({
+      role,
+      model,
+      symphonyLaunchContracts: symphonyLaunchBundle({
+        role: "worker",
+        allowedToolIds: ["workspace.write"],
+        deniedToolIds: ["browser.interactive"],
+        inheritedAuthorityRoots: ["/repo"],
+        writableRoots: ["/repo/.ambient-codex/worktrees/child-thread"],
+        mutation: "lease_required",
+      }),
+    });
+    const store = new FakeSpawnLaunchStore(run);
+    const startChildRun = vi.fn();
+
+    const result = await executeSubagentSpawnLaunch({
+      store,
+      runtime: "ambient-subagents",
+      phase: "phase-4-mutating-workers",
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+      run,
+      task: "Mutate only through the leased child worktree.",
+      toolCallId: "tool-call",
+      requestedRoleId: "worker",
+      roleId: "worker",
+      role,
+      modelId: model.modelId,
+      model,
+      modelScope,
+      dependencyMode: "required",
+      forkMode: "recent_turns",
+      promptMode: role.promptMode,
+      retentionPolicy: role.retentionDefault,
+      idempotencyKey: "spawn:symphony-lease-required",
+      requestedToolScope: {
+        requestedCategories: ["workspace.write"],
+        childAuthority: {
+          taskIntent: "mutation",
+          rationale: "Write in the isolated child worktree only.",
+          readRoots: ["/repo"],
+          writeRoots: ["/repo/.ambient-codex/worktrees/child-thread/out"],
+          mutation: "allow_isolated_worktree",
+          network: "deny",
+          nestedFanout: "deny",
+        },
+      },
+      childWorktree: childWorktree(),
+      startChildRun,
+      createRuntimeSpawnEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.spawnBlockDecision).toMatchObject({
+      blocked: true,
+      failureStage: "tool_scope",
+      toolScopeBlocked: true,
+      launchDenialKind: "symphony_policy_mismatch",
+    });
+    if (!result.spawnBlockDecision.blocked) throw new Error("Expected lease-required Symphony launch to block without an active lease.");
+    expect(result.spawnBlockDecision.reason).toContain("requires an active mutation workspace lease");
+    expect(result.currentRun.status).toBe("failed");
+    expect(result.taskMailboxEvent).toBeUndefined();
+    expect(startChildRun).not.toHaveBeenCalled();
+  });
+
+  it("allows lease-required Symphony mutation launches with a matching active mutation lease", async () => {
+    const role = getDefaultSubagentRoleProfile("worker");
+    const model = createDefaultModelRuntimeRegistry().resolveProfile(role.defaultModelId);
+    const modelScope = modelScopeFor(role);
+    const run = childRun({
+      role,
+      model,
+      symphonyLaunchContracts: symphonyLaunchBundle({
+        role: "worker",
+        allowedToolIds: ["workspace.write"],
+        deniedToolIds: ["browser.interactive"],
+        inheritedAuthorityRoots: ["/repo"],
+        writableRoots: ["/repo/.ambient-codex/worktrees/child-thread"],
+        mutation: "lease_required",
+      }),
+      symphonyMutationWorkspaceLease: mutationWorkspaceLease({
+        writableRoots: ["/repo/.ambient-codex/worktrees/child-thread/out"],
+      }),
+    });
+    const store = new FakeSpawnLaunchStore(run);
+    const startedRun = { ...run, status: "running" as const, startedAt: "2026-06-06T00:00:10.000Z" };
+    const startChildRun = vi.fn(async () => {
+      store.setRun(startedRun);
+      return { started: true, run: startedRun, message: "started" };
+    });
+
+    const result = await executeSubagentSpawnLaunch({
+      store,
+      runtime: "ambient-subagents",
+      phase: "phase-4-mutating-workers",
+      parentThread: parentThread(),
+      parentRun: { id: "parent-run", assistantMessageId: "assistant-message" },
+      run,
+      task: "Mutate only through the leased child worktree.",
+      toolCallId: "tool-call",
+      requestedRoleId: "worker",
+      roleId: "worker",
+      role,
+      modelId: model.modelId,
+      model,
+      modelScope,
+      dependencyMode: "required",
+      forkMode: "recent_turns",
+      promptMode: role.promptMode,
+      retentionPolicy: role.retentionDefault,
+      idempotencyKey: "spawn:symphony-lease-required-active",
+      requestedToolScope: {
+        requestedCategories: ["workspace.write"],
+        childAuthority: {
+          taskIntent: "mutation",
+          rationale: "Write in the isolated child worktree only.",
+          readRoots: ["/repo"],
+          writeRoots: ["/repo/.ambient-codex/worktrees/child-thread/out"],
+          mutation: "allow_isolated_worktree",
+          network: "deny",
+          nestedFanout: "deny",
+        },
+      },
+      childWorktree: childWorktree(),
+      startChildRun,
+      createRuntimeSpawnEventEmitter: () => (event) =>
+        store.appendSubagentRunEvent(run.id, { type: "runtime", preview: event }),
+    });
+
+    expect(result.spawnBlockDecision.blocked).toBe(false);
+    expect(result.currentRun.status).toBe("running");
+    expect(result.toolScopeSnapshot.resolverInputs).toMatchObject({
+      childAuthorityProfile: {
+        resourceScopes: {
+          filesystem: {
+            writeRoots: ["/repo/.ambient-codex/worktrees/child-thread/out"],
+          },
+        },
+      },
+    });
+    expect(startChildRun).toHaveBeenCalledOnce();
   });
 
   it("records blocked post-reservation launches without creating required wait barriers", async () => {
@@ -663,6 +1119,8 @@ function childRun(input: {
   role: SubagentRoleProfile;
   model: ReturnType<ReturnType<typeof createDefaultModelRuntimeRegistry>["resolveProfile"]>;
   capacityLease?: SubagentCapacityLeaseSnapshot;
+  symphonyLaunchContracts?: SymphonyChildLaunchContractBundle;
+  symphonyMutationWorkspaceLease?: SubagentRunSummary["symphonyMutationWorkspaceLease"];
 }): SubagentRunSummary {
   return {
     id: "child-run",
@@ -679,6 +1137,8 @@ function childRun(input: {
     status: "reserved",
     featureFlagSnapshot: { subagents: true },
     modelRuntimeSnapshot: createAmbientModelRuntimeSnapshotFromProfile(input.model.modelId, input.model),
+    ...(input.symphonyLaunchContracts ? { symphonyLaunchContracts: input.symphonyLaunchContracts } : {}),
+    ...(input.symphonyMutationWorkspaceLease ? { symphonyMutationWorkspaceLease: input.symphonyMutationWorkspaceLease } : {}),
     capacityLeaseSnapshot: input.capacityLease ?? resolveSubagentCapacityLease({
       parentThreadId: "parent-thread",
       parentRunId: "parent-run",
@@ -691,4 +1151,96 @@ function childRun(input: {
     createdAt: "2026-06-06T00:00:00.000Z",
     updatedAt: "2026-06-06T00:00:00.000Z",
   } as unknown as SubagentRunSummary;
+}
+
+function mutationWorkspaceLease(
+  overrides: Partial<NonNullable<SubagentRunSummary["symphonyMutationWorkspaceLease"]>> = {},
+): NonNullable<SubagentRunSummary["symphonyMutationWorkspaceLease"]> {
+  return {
+    schemaVersion: SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
+    leaseId: "mutation-lease-1",
+    parentThreadId: "parent-thread",
+    childThreadId: "child-thread",
+    childRunId: "child-run",
+    kind: "git_worktree",
+    rootPath: "/repo/.ambient-codex/worktrees/child-thread",
+    sourceRoots: ["/repo"],
+    readOnlyBaseRoots: ["/repo"],
+    writableRoots: ["/repo/.ambient-codex/worktrees/child-thread/out"],
+    status: "active",
+    acquiredAt: "2026-06-06T00:00:00.000Z",
+    lastHeartbeatAt: "2026-06-06T00:00:01.000Z",
+    ...overrides,
+  };
+}
+
+function symphonyLaunchBundle(input: {
+  role: string;
+  allowedToolIds: string[];
+  deniedToolIds?: string[];
+  inheritedAuthorityRoots?: string[];
+  writableRoots?: string[];
+  mutation?: "none" | "lease_required";
+}): SymphonyChildLaunchContractBundle {
+  return {
+    schemaVersion: SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
+    patternSelection: {
+      schemaVersion: SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
+      selectionId: "selection-1",
+      parentRunId: "parent-run",
+      pattern: "map_reduce",
+      confidence: "high",
+      childRolePlan: [
+        { role: input.role, count: 1, purpose: "Map the assigned evidence slice." },
+      ],
+      requiredArtifacts: ["mapped-evidence"],
+      reducerContract: "Reduce only from mapped child evidence.",
+      failurePolicy: "require_all",
+      tokenAndTimeBudget: { maxChildren: 1, maxMinutes: 10 },
+    },
+    modePolicySnapshot: {
+      schemaVersion: SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
+      snapshotId: "mode-policy-1",
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      enabled: true,
+      parentAllowedActions: [
+        "detect_pattern",
+        "plan",
+        "spawn_child",
+        "inspect_run_graph",
+        "inspect_child_evidence",
+        "request_decision",
+        "retry_child",
+        "synthesize",
+      ],
+      observationPolicy: "full_runtime_observability",
+      directExecutionPolicy: "deny_substantive_tools",
+      featureFlagSnapshot: resolveAmbientFeatureFlags({
+        generatedAt: "2026-06-16T00:00:00.000Z",
+        startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+      }),
+    },
+    childLaunchPolicySnapshot: {
+      schemaVersion: SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
+      policyId: "child-policy-1",
+      childRunId: "child-run",
+      role: input.role,
+      pattern: "map_reduce",
+      inheritedAuthorityRoots: input.inheritedAuthorityRoots ?? ["/repo"],
+      writableRoots: input.writableRoots ?? [],
+      allowedToolIds: input.allowedToolIds,
+      deniedToolIds: input.deniedToolIds ?? ["workspace.write", "browser.interactive"],
+      webProviderOrder: {
+        search: ["brave-search"],
+        staticFetchExtract: ["scrapling-static"],
+        dynamicHeadlessBrowser: ["scrapling-dynamic"],
+        interactiveBrowser: {
+          providers: ["ambient-browser"],
+          fallback: "approval_required",
+        },
+      },
+      mutation: input.mutation ?? "none",
+    },
+  };
 }

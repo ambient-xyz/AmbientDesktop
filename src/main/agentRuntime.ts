@@ -208,7 +208,7 @@ import {
 } from "./desktopToolRegistry";
 import { AmbientDownloadService } from "./ambientDownloadService";
 import { createManagedDownloadToolExtension as createManagedDownloadToolsExtension } from "./agentRuntimeManagedDownloadTools";
-import { AmbientCliPackageDescriptionState } from "./agentRuntimeAmbientCliPackageDescriptionState";
+import { AmbientCliPackageDescriptionState } from "./agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageDescriptionState";
 import {
   createWorkflowRecordingReviewTools,
   WORKFLOW_RECORDING_REVIEW_ACTIVE_TOOL_NAMES,
@@ -843,6 +843,9 @@ export interface AgentRuntimeFeatures {
     fetchImpl?: typeof fetch;
     now?: () => Date;
   };
+  symphonyLaunchContracts?: {
+    resolve: (contractId: string) => unknown;
+  };
   media?: {
     readSettings: () => MediaPlaybackSettings;
     updateSettings?: (input: UpdateMediaPlaybackSettingsInput) => Promise<MediaPlaybackSettings> | MediaPlaybackSettings;
@@ -1367,6 +1370,7 @@ export class AgentRuntime {
   private modelContentForSendInput(input: SendMessageInput): string {
     return modelContentForAgentRuntimeSendInput(input, {
       isSubagentsEnabled: () => isAmbientSubagentsEnabled(this.currentFeatureFlagSnapshot()),
+      getFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
       getWorkflowAgentThreadSummary: (workflowThreadId) => this.store.getWorkflowAgentThreadSummary(workflowThreadId),
     });
   }
@@ -4069,6 +4073,7 @@ export class AgentRuntime {
       activeRunIds: this.activeRunIds,
       activeRunStore: this.store,
       getFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
+      resolveSymphonyLaunchContract: this.features.symphonyLaunchContracts?.resolve,
       resolveModelRuntimeProfile: (modelId) => this.resolveSubagentModelRuntimeProfile(modelId),
       resolveCapacityLease: (input) => this.resolveSubagentCapacityLease(input),
       prepareChildWorktree: (input) => this.prepareSubagentChildWorktree(input.run),

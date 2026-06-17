@@ -14,7 +14,12 @@ import type {
   DiagnosticExportSubagentReplayTranscriptItem,
   SubagentRepairIssueKind,
 } from "../../shared/types";
-import { AMBIENT_SUBAGENTS_FEATURE_FLAG, AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG } from "../../shared/featureFlags";
+import {
+  AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
+  AMBIENT_SUBAGENTS_FEATURE_FLAG,
+  AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
+  type AmbientFeatureFlagId,
+} from "../../shared/featureFlags";
 
 export const DIAGNOSTIC_EXPORT_HISTORY_STORAGE_KEY = "ambient.diagnosticExportHistory.v1";
 
@@ -201,31 +206,57 @@ function diagnosticExportResultFromStorage(input: unknown): DiagnosticExportResu
 
 function diagnosticFeatureFlagSnapshotFromStorage(input: unknown): AmbientFeatureFlagSnapshot | undefined {
   const value = objectValue(input);
-  const flag = objectValue(objectValue(value?.flags)?.[AMBIENT_SUBAGENTS_FEATURE_FLAG]);
+  const flags = objectValue(value?.flags);
   const schemaVersion = value?.schemaVersion === "ambient-feature-flags-v1" ? value.schemaVersion : undefined;
   const generatedAt = boundedString(value?.generatedAt, MAX_SUMMARY_MESSAGE_CHARS);
-  const enabled = typeof flag?.enabled === "boolean" ? flag.enabled : undefined;
-  const source = featureFlagSourceValue(flag?.source);
-  const defaultEnabled = typeof flag?.defaultEnabled === "boolean" ? flag.defaultEnabled : undefined;
-  if (!schemaVersion || !generatedAt || enabled === undefined || !source || defaultEnabled === undefined) return undefined;
+  const subagents = diagnosticFeatureFlagResolutionFromStorage(
+    flags?.[AMBIENT_SUBAGENTS_FEATURE_FLAG],
+    AMBIENT_SUBAGENTS_FEATURE_FLAG,
+  );
+  if (!schemaVersion || !generatedAt || !subagents) return undefined;
   return {
     schemaVersion,
     generatedAt,
     flags: {
-      [AMBIENT_SUBAGENTS_FEATURE_FLAG]: {
-        id: AMBIENT_SUBAGENTS_FEATURE_FLAG,
-        enabled,
-        source,
-        defaultEnabled,
-        ...(typeof flag?.settingsEnabled === "boolean" ? { settingsEnabled: flag.settingsEnabled } : {}),
-      },
-      [AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]: {
-        id: AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
-        enabled: false,
-        source: "default",
-        defaultEnabled: false,
-      },
+      [AMBIENT_SUBAGENTS_FEATURE_FLAG]: subagents,
+      [AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]: diagnosticFeatureFlagResolutionFromStorage(
+        flags?.[AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG],
+        AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
+      ) ?? defaultDiagnosticFeatureFlagResolution(AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG),
+      [AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]: diagnosticFeatureFlagResolutionFromStorage(
+        flags?.[AMBIENT_SLASH_COMMANDS_FEATURE_FLAG],
+        AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
+      ) ?? defaultDiagnosticFeatureFlagResolution(AMBIENT_SLASH_COMMANDS_FEATURE_FLAG),
     },
+  };
+}
+
+function diagnosticFeatureFlagResolutionFromStorage(
+  input: unknown,
+  id: AmbientFeatureFlagId,
+): AmbientFeatureFlagSnapshot["flags"][AmbientFeatureFlagId] | undefined {
+  const flag = objectValue(input);
+  const enabled = typeof flag?.enabled === "boolean" ? flag.enabled : undefined;
+  const source = featureFlagSourceValue(flag?.source);
+  const defaultEnabled = typeof flag?.defaultEnabled === "boolean" ? flag.defaultEnabled : undefined;
+  if (enabled === undefined || !source || defaultEnabled === undefined) return undefined;
+  return {
+    id,
+    enabled,
+    source,
+    defaultEnabled,
+    ...(typeof flag?.settingsEnabled === "boolean" ? { settingsEnabled: flag.settingsEnabled } : {}),
+  };
+}
+
+function defaultDiagnosticFeatureFlagResolution(
+  id: AmbientFeatureFlagId,
+): AmbientFeatureFlagSnapshot["flags"][AmbientFeatureFlagId] {
+  return {
+    id,
+    enabled: false,
+    source: "default",
+    defaultEnabled: false,
   };
 }
 

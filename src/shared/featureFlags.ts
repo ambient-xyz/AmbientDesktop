@@ -1,18 +1,25 @@
 export const AMBIENT_SUBAGENTS_FEATURE_FLAG = "ambient.subagents" as const;
 export const AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG = "ambient.memory.tencentdb" as const;
+export const AMBIENT_SLASH_COMMANDS_FEATURE_FLAG = "ambient.slashCommands" as const;
 
-export const AMBIENT_FEATURE_FLAG_IDS = [AMBIENT_SUBAGENTS_FEATURE_FLAG, AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG] as const;
+export const AMBIENT_FEATURE_FLAG_IDS = [
+  AMBIENT_SUBAGENTS_FEATURE_FLAG,
+  AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
+  AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
+] as const;
 
 export type AmbientFeatureFlagId = typeof AMBIENT_FEATURE_FLAG_IDS[number];
 
 export interface AmbientFeatureFlagSettings {
   subagents: boolean;
   tencentDbMemory: boolean;
+  slashCommands: boolean;
 }
 
 export interface UpdateFeatureFlagSettingsInput {
   subagents?: boolean;
   tencentDbMemory?: boolean;
+  slashCommands?: boolean;
 }
 
 export type AmbientFeatureFlagOverrideSource = "startup_arg" | "harness";
@@ -54,11 +61,13 @@ export interface ParsedAmbientFeatureFlagLaunchArgs {
 export const DEFAULT_AMBIENT_FEATURE_FLAG_SETTINGS: AmbientFeatureFlagSettings = {
   subagents: false,
   tencentDbMemory: false,
+  slashCommands: false,
 };
 
 const AMBIENT_FEATURE_FLAG_DEFAULTS: Record<AmbientFeatureFlagId, boolean> = {
   [AMBIENT_SUBAGENTS_FEATURE_FLAG]: false,
   [AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]: false,
+  [AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]: false,
 };
 
 function isAmbientFeatureFlagId(value: string): value is AmbientFeatureFlagId {
@@ -68,12 +77,14 @@ function isAmbientFeatureFlagId(value: string): value is AmbientFeatureFlagId {
 function featureFlagIdFromSettingKey(key: keyof AmbientFeatureFlagSettings): AmbientFeatureFlagId {
   if (key === "subagents") return AMBIENT_SUBAGENTS_FEATURE_FLAG;
   if (key === "tencentDbMemory") return AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG;
+  if (key === "slashCommands") return AMBIENT_SLASH_COMMANDS_FEATURE_FLAG;
   throw new Error(`Unsupported feature flag setting key: ${key}`);
 }
 
 function settingKeyFromFeatureFlagId(id: AmbientFeatureFlagId): keyof AmbientFeatureFlagSettings {
   if (id === AMBIENT_SUBAGENTS_FEATURE_FLAG) return "subagents";
   if (id === AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG) return "tencentDbMemory";
+  if (id === AMBIENT_SLASH_COMMANDS_FEATURE_FLAG) return "slashCommands";
   throw new Error(`Unsupported feature flag id: ${id}`);
 }
 
@@ -83,6 +94,9 @@ export function normalizeAmbientFeatureFlagSettings(input?: Partial<AmbientFeatu
     tencentDbMemory: typeof input?.tencentDbMemory === "boolean"
       ? input.tencentDbMemory
       : DEFAULT_AMBIENT_FEATURE_FLAG_SETTINGS.tencentDbMemory,
+    slashCommands: typeof input?.slashCommands === "boolean"
+      ? input.slashCommands
+      : DEFAULT_AMBIENT_FEATURE_FLAG_SETTINGS.slashCommands,
   };
 }
 
@@ -94,6 +108,7 @@ export function applyAmbientFeatureFlagSettingsPatch(
     ...current,
     ...(typeof patch.subagents === "boolean" ? { subagents: patch.subagents } : {}),
     ...(typeof patch.tencentDbMemory === "boolean" ? { tencentDbMemory: patch.tencentDbMemory } : {}),
+    ...(typeof patch.slashCommands === "boolean" ? { slashCommands: patch.slashCommands } : {}),
   });
 }
 
@@ -208,6 +223,10 @@ export function isAmbientSubagentsEnabled(snapshot: AmbientFeatureFlagSnapshot):
 
 export function isAmbientTencentDbMemoryEnabled(snapshot: AmbientFeatureFlagSnapshot): boolean {
   return snapshot.flags[AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG].enabled;
+}
+
+export function isAmbientSlashCommandsEnabled(snapshot: AmbientFeatureFlagSnapshot): boolean {
+  return snapshot.flags[AMBIENT_SLASH_COMMANDS_FEATURE_FLAG].enabled;
 }
 
 export function ambientFeatureFlagSettingKey(id: AmbientFeatureFlagId): keyof AmbientFeatureFlagSettings {

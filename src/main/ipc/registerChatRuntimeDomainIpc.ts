@@ -20,6 +20,7 @@ import type {
   DesktopEvent,
   RecoverThreadContextInput,
   SendMessageInput,
+  SlashCommandSelection,
   ThreadGoal,
   ThreadSummary,
 } from "../../shared/types";
@@ -98,6 +99,7 @@ export interface RegisterChatRuntimeDomainIpcDependencies<
   prepareWorktreeForThread(thread: ThreadSummary, store: Host["store"]): MaybePromise<ThreadSummary>;
   requireProjectRuntimeHostForThread(threadId: string): Host;
   setProjectHostActiveThreadId(host: Host, threadId: string): void;
+  validateSlashCommandSelection?(host: Host, selection: SlashCommandSelection): MaybePromise<void>;
 }
 
 export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>({
@@ -116,11 +118,15 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
   prepareWorktreeForThread,
   requireProjectRuntimeHostForThread,
   setProjectHostActiveThreadId,
+  validateSlashCommandSelection,
 }: RegisterChatRuntimeDomainIpcDependencies<Host>): void {
   registerMessageSendIpc({
     handleIpc,
     sendMessage: async (input, raw) => {
       const host = requireProjectRuntimeHostForThread(input.threadId);
+      if (input.composerIntent?.kind === "slash-command") {
+        await validateSlashCommandSelection?.(host, input.composerIntent.selection);
+      }
       const targetStore = host.store;
       const targetRuntime = host.runtime;
       let thread = targetStore.getThread(input.threadId);

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { resolveAmbientFeatureFlags } from "../shared/featureFlags";
 import { resolveLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
 import type { WorkflowAgentThreadSummary } from "../shared/types";
 import { modelContentForAgentRuntimeSendInput } from "./agentRuntimeSendContent";
@@ -54,6 +55,80 @@ describe("modelContentForAgentRuntimeSendInput", () => {
     expect(content).toContain("browser_click");
     expect(content).toContain("Do not edit the generated app to expose window test hooks");
     expect(content).toContain("Do not install or require jsdom");
+  });
+
+  it("wraps slash command skill selections as run-scoped guidance", () => {
+    const content = modelContentForAgentRuntimeSendInput({
+      content: "Review the migration.",
+      composerIntent: {
+        kind: "slash-command",
+        selection: {
+          schemaVersion: "ambient-slash-command-invocation-v1",
+          entryId: "codex-plugin-skill:reviewer",
+          command: "/reviewer",
+          title: "reviewer",
+          kind: "skill",
+          sourceKind: "codex-plugin",
+          invocationKind: "codex-plugin-skill",
+          sourceId: "plugin-reviewer",
+          sourceName: "reviewer",
+          sourceVersion: "1.0.0",
+        },
+      },
+    }, defaultDeps());
+
+    expect(content).toContain("Composer action: Slash command /reviewer.");
+    expect(content).toContain("Ambient Desktop validated this slash-command selection immediately before sending.");
+    expect(content).toContain('"invocationKind": "codex-plugin-skill"');
+    expect(content).toContain("Use the selected Codex skill for this run");
+    expect(content).toContain("User request:\nReview the migration.");
+  });
+
+  it("rejects slash command composer intents when slash commands are disabled", () => {
+    expect(() => modelContentForAgentRuntimeSendInput({
+      content: "Review the migration.",
+      composerIntent: {
+        kind: "slash-command",
+        selection: {
+          schemaVersion: "ambient-slash-command-invocation-v1",
+          entryId: "codex-plugin-skill:reviewer",
+          command: "/reviewer",
+          title: "reviewer",
+          kind: "skill",
+          sourceKind: "codex-plugin",
+          invocationKind: "codex-plugin-skill",
+          sourceId: "plugin-reviewer",
+          sourceName: "reviewer",
+          sourceVersion: "1.0.0",
+        },
+      },
+    }, defaultDeps({
+      getFeatureFlagSnapshot: () => resolveAmbientFeatureFlags({ settings: { slashCommands: false } }),
+    }))).toThrow("Slash command composer intents are disabled while ambient.slashCommands is off.");
+  });
+
+  it("guides callable slash commands through the callable workflow catalog", () => {
+    const content = modelContentForAgentRuntimeSendInput({
+      content: "Run the report workflow.",
+      composerIntent: {
+        kind: "slash-command",
+        selection: {
+          schemaVersion: "ambient-slash-command-invocation-v1",
+          entryId: "callable-workflow:weekly",
+          command: "/weekly-report",
+          title: "Weekly Report",
+          kind: "callable-workflow",
+          sourceKind: "workflow-recorder",
+          invocationKind: "callable-workflow",
+          sourceId: "weekly",
+          sourceVersion: 3,
+        },
+      },
+    }, defaultDeps());
+
+    expect(content).toContain("callable workflow catalog tools");
+    expect(content).toContain("launch-card risk");
+    expect(content).toContain("Do not manually recreate child fanout");
   });
 
   it("adds self-healing sub-agent verification guidance for generated HTML repair loops", () => {
@@ -181,6 +256,7 @@ describe("modelContentForAgentRuntimeSendInput", () => {
 function defaultDeps(overrides: Partial<Parameters<typeof modelContentForAgentRuntimeSendInput>[1]> = {}) {
   return {
     isSubagentsEnabled: () => true,
+    getFeatureFlagSnapshot: () => resolveAmbientFeatureFlags({ settings: { slashCommands: true } }),
     getWorkflowAgentThreadSummary: () => workflowThread(),
     ...overrides,
   };

@@ -95,6 +95,7 @@ function sampleCapabilityBuilderHistoryResult(): CapabilityBuilderHistoryResult 
         valid: true,
         status: "draft",
         installedPresent: false,
+        validationArtifacts: [],
         refs: {},
         commandNames: [],
         envNames: [],

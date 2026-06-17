@@ -17,6 +17,7 @@ export interface SubagentToolExtensionOptions {
   getThread: () => ThreadSummary;
   getFeatureFlagSnapshot: () => AmbientFeatureFlagSnapshot;
   getParentRun: CreateSubagentPiToolDefinitionsOptions["getParentRun"];
+  resolveSymphonyLaunchContract?: CreateSubagentPiToolDefinitionsOptions["resolveSymphonyLaunchContract"];
   resolveModelRuntimeProfile: NonNullable<CreateSubagentPiToolDefinitionsOptions["resolveModelRuntimeProfile"]>;
   resolveCapacityLease: NonNullable<CreateSubagentPiToolDefinitionsOptions["resolveCapacityLease"]>;
   prepareChildWorktree: NonNullable<CreateSubagentPiToolDefinitionsOptions["prepareChildWorktree"]>;
@@ -36,6 +37,7 @@ export function createAgentRuntimeSubagentToolExtension(input: {
   activeRunIds: Pick<Map<string, string>, "get">;
   activeRunStore: AgentRuntimeSubagentParentRunStore;
   getFeatureFlagSnapshot: () => AmbientFeatureFlagSnapshot;
+  resolveSymphonyLaunchContract?: CreateSubagentPiToolDefinitionsOptions["resolveSymphonyLaunchContract"];
   resolveModelRuntimeProfile: NonNullable<CreateSubagentPiToolDefinitionsOptions["resolveModelRuntimeProfile"]>;
   resolveCapacityLease: NonNullable<CreateSubagentPiToolDefinitionsOptions["resolveCapacityLease"]>;
   prepareChildWorktree: NonNullable<CreateSubagentPiToolDefinitionsOptions["prepareChildWorktree"]>;
@@ -59,6 +61,7 @@ export function createAgentRuntimeSubagentToolExtension(input: {
         return { id: runId };
       }
     },
+    resolveSymphonyLaunchContract: input.resolveSymphonyLaunchContract,
     resolveModelRuntimeProfile: input.resolveModelRuntimeProfile,
     resolveCapacityLease: input.resolveCapacityLease,
     prepareChildWorktree: input.prepareChildWorktree,
@@ -83,6 +86,7 @@ export function createSubagentToolExtension(options: SubagentToolExtensionOption
       getFeatureFlagSnapshot: options.getFeatureFlagSnapshot,
       getParentRun: options.getParentRun,
       availableExtensionToolNames,
+      resolveSymphonyLaunchContract: options.resolveSymphonyLaunchContract,
       resolveModelRuntimeProfile: options.resolveModelRuntimeProfile,
       resolveCapacityLease: options.resolveCapacityLease,
       prepareChildWorktree: options.prepareChildWorktree,

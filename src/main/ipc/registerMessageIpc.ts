@@ -62,6 +62,31 @@ const localDeepResearchRunBudgetSchema = z.object({
   onExhausted: z.enum(["summarize", "ask_to_continue"]),
 });
 
+const slashCommandSelectionSchema = z.object({
+  schemaVersion: z.literal("ambient-slash-command-invocation-v1"),
+  entryId: z.string().min(1).max(2048),
+  command: z.string().min(1).max(160),
+  title: z.string().min(1).max(500),
+  kind: z.enum(["app", "skill", "workflow", "callable-workflow"]),
+  sourceKind: z.enum(["builtin", "codex-plugin", "ambient-cli", "workflow-recorder", "symphony"]),
+  invocationKind: z.enum([
+    "builtin-command",
+    "codex-plugin-skill",
+    "ambient-cli-skill",
+    "ambient-cli-command",
+    "workflow-playbook",
+    "symphony-recipe",
+    "callable-workflow",
+  ]),
+  sourceId: z.string().min(1).max(2048).optional(),
+  sourceName: z.string().min(1).max(512).optional(),
+  sourceVersion: z.union([z.string().min(1).max(512), z.number()]).optional(),
+  sourceFingerprint: z.string().min(1).max(512).optional(),
+  requiresParameters: z.boolean().optional(),
+  userQuery: z.string().max(1000).optional(),
+  arguments: z.record(z.string().min(1).max(200), z.string().max(4000)).optional(),
+});
+
 const composerIntentSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("local-deep-research"),
@@ -81,6 +106,10 @@ const composerIntentSchema = z.discriminatedUnion("kind", [
     blocking: z.boolean().optional(),
     stepAnswers: symphonyBuilderAnswersSchema.optional(),
     metricCustomizations: z.record(z.string(), z.string().max(4000)).optional(),
+  }),
+  z.object({
+    kind: z.literal("slash-command"),
+    selection: slashCommandSelectionSchema,
   }),
 ]).superRefine((intent, ctx) => {
   if (intent.kind !== "symphony-workflow") return;

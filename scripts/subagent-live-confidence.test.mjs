@@ -1863,7 +1863,7 @@ function workflowUiBroaderDogfoodMatrixArtifact() {
           name: `workflow-agent-thread-ui-dogfood/${scenario}`,
           runId: `${scenario}-run`,
           snapshotMode: "shared-snapshot-temp-copy",
-          snapshotRootLabel: "example-shared-secrets-2026-05-14T02-16-32-0700",
+          snapshotRootLabel: "shared-secrets-snapshot-2026-05-14T02-16-32-0700",
           snapshotRootPathDigest: "abc123def456",
           pathsAreMachineLocal: true,
         },

@@ -5,6 +5,8 @@ import type {
   ChatMessage,
   DesktopState,
   ExportChatInput,
+  ExportChatPdfInput,
+  ExportChatPdfResult,
   ExportChatResult,
   PermissionAuditEntry,
   RequestThreadPermissionModeChangeInput,
@@ -15,6 +17,7 @@ import {
   registerThreadArchiveIpc,
   registerThreadCreateIpc,
   registerThreadExportChatIpc,
+  registerThreadExportChatPdfIpc,
   registerThreadForkIpc,
   registerThreadGoalIpc,
   registerThreadMarkUnreadIpc,
@@ -27,6 +30,7 @@ import {
   threadArchiveIpcChannels,
   threadCreateIpcChannels,
   threadExportChatIpcChannels,
+  threadExportChatPdfIpcChannels,
   threadForkIpcChannels,
   threadGoalIpcChannels,
   threadMarkUnreadIpcChannels,
@@ -39,6 +43,7 @@ import {
   type RegisterThreadArchiveIpcDependencies,
   type RegisterThreadCreateIpcDependencies,
   type RegisterThreadExportChatIpcDependencies,
+  type RegisterThreadExportChatPdfIpcDependencies,
   type RegisterThreadForkIpcDependencies,
   type RegisterThreadGoalIpcDependencies,
   type RegisterThreadMarkUnreadIpcDependencies,
@@ -588,6 +593,45 @@ describe("registerThreadExportChatIpc", () => {
     await expect(invoke("thread:export-chat", { threadId: "thread-1" })).rejects.toThrow("chat export failed");
 
     expect(deps.exportChat).toHaveBeenCalledWith({ threadId: "thread-1" });
+  });
+});
+
+describe("registerThreadExportChatPdfIpc", () => {
+  it("registers the thread export chat PDF channel", () => {
+    const { handlers } = registerExportChatPdfWithFakes();
+
+    expect([...handlers.keys()]).toEqual([...threadExportChatPdfIpcChannels]);
+  });
+
+  it("parses export chat PDF input before exporting", async () => {
+    const { deps, invoke, result } = registerExportChatPdfWithFakes();
+
+    await expect(
+      invoke("thread:export-chat-pdf", {
+        threadId: "thread-1",
+        projectId: "project-1",
+        extra: "ignored",
+      }),
+    ).resolves.toEqual(result);
+
+    expect(deps.exportChatPdf).toHaveBeenCalledWith({ threadId: "thread-1", projectId: "project-1" });
+  });
+
+  it("rejects invalid export chat PDF input before calling the dependency", () => {
+    const { deps, invoke } = registerExportChatPdfWithFakes();
+
+    expect(() => invoke("thread:export-chat-pdf", { threadId: "" })).toThrow();
+
+    expect(deps.exportChatPdf).not.toHaveBeenCalled();
+  });
+
+  it("propagates export chat PDF errors", async () => {
+    const error = new Error("chat PDF export failed");
+    const { deps, invoke } = registerExportChatPdfWithFakes({ error });
+
+    await expect(invoke("thread:export-chat-pdf", { threadId: "thread-1" })).rejects.toThrow("chat PDF export failed");
+
+    expect(deps.exportChatPdf).toHaveBeenCalledWith({ threadId: "thread-1" });
   });
 });
 
@@ -1147,6 +1191,38 @@ function registerExportChatWithFakes({
   };
 }
 
+function registerExportChatPdfWithFakes({
+  result = sampleExportChatPdfResult(),
+  error,
+}: {
+  result?: ExportChatPdfResult;
+  error?: Error;
+} = {}) {
+  const handlers = new Map<string, IpcListener>();
+  const deps: RegisterThreadExportChatPdfIpcDependencies = {
+    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
+      handlers.set(channel, listener);
+    }),
+    exportChatPdf: vi.fn(async (_input: ExportChatPdfInput) => {
+      if (error) throw error;
+      return result;
+    }),
+  };
+  registerThreadExportChatPdfIpc(deps);
+
+  return {
+    deps,
+    handlers,
+    result,
+    invoke: (channel: string, raw?: unknown) => {
+      const handler = handlers.get(channel);
+      expect(handler).toBeDefined();
+      if (!handler) throw new Error(`Missing handler for ${channel}`);
+      return Promise.resolve(handler({} as IpcMainInvokeEvent, raw));
+    },
+  };
+}
+
 function registerUpdateSettingsWithFakes({
   workspacePath = "/tmp/workspace",
   parsedInput = { threadId: "thread-1", collaborationMode: "agent" },
@@ -1402,6 +1478,15 @@ function sampleExportChatResult(): ExportChatResult {
     bytes: 2048,
     createdAt: "2026-06-04T00:00:00.000Z",
     source: "pi-session",
+  };
+}
+
+function sampleExportChatPdfResult(): ExportChatPdfResult {
+  return {
+    path: "/tmp/thread-export.pdf",
+    bytes: 4096,
+    createdAt: "2026-06-04T00:00:00.000Z",
+    source: "visible-chat-pdf",
   };
 }
 

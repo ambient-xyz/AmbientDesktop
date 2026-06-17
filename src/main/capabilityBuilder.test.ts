@@ -2170,6 +2170,8 @@ describe("Capability Builder scaffold", () => {
       const manifest = JSON.parse(await readFile(scaffold.manifestPath, "utf8"));
       expect(manifest).toMatchObject({ status: "validated", lastValidatedAt: result.validatedAt });
       expect(manifest.refs.lastValidated).toMatch(/^[a-f0-9]{40}$/);
+      expect(manifest.lastValidationLogPath).toBe("./.ambient/capability-builder/packages/ambient-piper-tts/capability-validation-log.jsonl");
+      expect(manifest.lastValidationArtifacts).toEqual([]);
       expect(capabilityBuilderValidateText(result)).toContain("Status: succeeded");
       expect(capabilityBuilderValidateText(result)).toContain("Total duration:");
     } finally {
@@ -2327,6 +2329,122 @@ describe("Capability Builder scaffold", () => {
 
       expect(result.succeeded).toBe(true);
       expect(result.artifacts).toEqual([expect.objectContaining({ path: "smoke-output.json" })]);
+      const manifest = JSON.parse(await readFile(scaffold.manifestPath, "utf8"));
+      expect(manifest.lastValidationArtifacts).toEqual([
+        expect.objectContaining({ path: "smoke-output.json", sizeBytes: expect.any(Number) }),
+      ]);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("clears validation evidence when repair invalidates the source", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-capability-builder-"));
+    try {
+      const scaffold = await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "json-export",
+        goal: "Write a JSON export file",
+        outputArtifactTypes: ["JSON"],
+      });
+      await writeFile(
+        join(scaffold.rootPath, "tests", "smoke.test.mjs"),
+        [
+          "import { strict as assert } from 'node:assert';",
+          "import { writeFileSync, statSync } from 'node:fs';",
+          "",
+          "writeFileSync('smoke-output.json', `${JSON.stringify({ ok: true })}\\n`);",
+          "assert.ok(statSync('smoke-output.json').size > 0);",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+      await validateCapabilityBuilderPackage(workspace, { packageName: "json-export" });
+      const validatedManifest = JSON.parse(await readFile(scaffold.manifestPath, "utf8"));
+      expect(validatedManifest.lastValidationLogPath).toBe("./.ambient/capability-builder/packages/ambient-json-export/capability-validation-log.jsonl");
+      expect(validatedManifest.lastValidationArtifacts).toEqual([
+        expect.objectContaining({ path: "smoke-output.json", sizeBytes: expect.any(Number) }),
+      ]);
+
+      await applyCapabilityBuilderRepair(workspace, {
+        packageName: "json-export",
+        reason: "Refresh the package guidance after validation.",
+        files: [
+          {
+            path: "SKILL.md",
+            content: [
+              "---",
+              "name: ambient-json-export",
+              "description: Write a JSON export file",
+              "---",
+              "",
+              "Use this capability after it is revalidated.",
+              "",
+            ].join("\n"),
+            rationale: "Exercise validation invalidation after source edits.",
+          },
+        ],
+      });
+
+      const repairedManifest = JSON.parse(await readFile(scaffold.manifestPath, "utf8"));
+      const history = await discoverCapabilityBuilderHistory(workspace, { packageName: "json-export" });
+      expect(repairedManifest.status).toBe("draft");
+      expect(repairedManifest.lastValidatedAt).toBeNull();
+      expect(repairedManifest.lastValidationLogPath).toBeNull();
+      expect(repairedManifest.lastValidationArtifacts).toEqual([]);
+      expect(history.entries[0].validationLogPath).toBeUndefined();
+      expect(history.entries[0].validationArtifacts).toEqual([]);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("clears validation evidence when direct Builder file writes invalidate the source", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-capability-builder-"));
+    try {
+      const scaffold = await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "json-export",
+        goal: "Write a JSON export file",
+        outputArtifactTypes: ["JSON"],
+      });
+      await writeFile(
+        join(scaffold.rootPath, "tests", "smoke.test.mjs"),
+        [
+          "import { strict as assert } from 'node:assert';",
+          "import { writeFileSync, statSync } from 'node:fs';",
+          "",
+          "writeFileSync('smoke-output.json', `${JSON.stringify({ ok: true })}\\n`);",
+          "assert.ok(statSync('smoke-output.json').size > 0);",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+      await validateCapabilityBuilderPackage(workspace, { packageName: "json-export" });
+
+      await writeCapabilityBuilderFile(workspace, {
+        packageName: "json-export",
+        filePath: "SKILL.md",
+        content: [
+          "---",
+          "name: ambient-json-export",
+          "description: Write a JSON export file",
+          "---",
+          "",
+          "Revalidate this edited capability before registration.",
+          "",
+        ].join("\n"),
+        reason: "Refresh capability guidance.",
+      });
+
+      const manifest = JSON.parse(await readFile(scaffold.manifestPath, "utf8"));
+      const history = await discoverCapabilityBuilderHistory(workspace, { packageName: "json-export" });
+      expect(manifest.status).toBe("draft");
+      expect(manifest.lastValidatedAt).toBeNull();
+      expect(manifest.lastValidationLogPath).toBeNull();
+      expect(manifest.lastValidationArtifacts).toEqual([]);
+      expect(manifest.refs.lastValidated).toBeNull();
+      expect(manifest.refs.lastValidatedHash).toBeNull();
+      expect(history.entries[0].validationLogPath).toBeUndefined();
+      expect(history.entries[0].validationArtifacts).toEqual([]);
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -2393,6 +2511,14 @@ describe("Capability Builder scaffold", () => {
         name: "ambient-piper-tts",
         installed: true,
       });
+      expect(result.sourceRef.sourcePath).toBe("./.ambient/capability-builder/packages/ambient-piper-tts");
+      expect(result.validationEvidence).toMatchObject({
+        validatedAt: expect.any(String),
+        sourceGitSha: expect.stringMatching(/^[a-f0-9]{40}$/),
+        sourceHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        logPath: "./.ambient/capability-builder/packages/ambient-piper-tts/capability-validation-log.jsonl",
+        artifacts: [],
+      });
       expect(result.installedPackage.commands.map((command) => command.name)).toEqual(["piper_tts"]);
       const config = JSON.parse(await readFile(join(workspace, ".ambient", "cli-packages", "packages.json"), "utf8"));
       expect(config.packages[0].source).toContain("./.ambient/cli-packages/imported/");
@@ -2410,6 +2536,36 @@ describe("Capability Builder scaffold", () => {
         installedPackageId: result.installedPackage.id,
         sourcePath: "./.ambient/capability-builder/packages/ambient-piper-tts",
       });
+      expect(capabilityBuilderRegisterText(result)).toContain("Validation evidence:");
+      expect(capabilityBuilderRegisterText(result)).toContain("source hash:");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps validation hash and log evidence when source Git metadata is unavailable", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-capability-builder-"));
+    try {
+      const scaffold = await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "piper-tts",
+        goal: "Generate WAV voice files from text using Piper",
+      });
+      await rm(join(scaffold.rootPath, ".git"), { recursive: true, force: true });
+      await validateCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+
+      const result = await registerCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+      const history = await discoverCapabilityBuilderHistory(workspace, { packageName: "piper-tts" });
+
+      expect(result.gitSha).toBeUndefined();
+      expect(result.validationEvidence).toMatchObject({
+        validatedAt: expect.any(String),
+        sourceHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        logPath: "./.ambient/capability-builder/packages/ambient-piper-tts/capability-validation-log.jsonl",
+        artifacts: [],
+      });
+      expect(result.validationEvidence.sourceGitSha).toBeUndefined();
+      expect(history.entries[0].validationLogPath).toBe("./.ambient/capability-builder/packages/ambient-piper-tts/capability-validation-log.jsonl");
+      expect(history.entries[0].validationArtifacts).toEqual([]);
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -2459,6 +2615,12 @@ describe("Capability Builder scaffold", () => {
         artifacts: true,
         envSecrets: true,
       });
+      const history = await discoverCapabilityBuilderHistory(workspace, { packageName: "piper-tts" });
+      expect(history.entries[0].validationLogPath).toBe("./.ambient/capability-builder/packages/ambient-piper-tts/capability-validation-log.jsonl");
+      expect(history.entries[0].validationArtifacts).toEqual([
+        expect.objectContaining({ path: "sample.wav", sizeBytes: expect.any(Number) }),
+      ]);
+      expect(capabilityBuilderHistoryText(history)).toContain("validation artifacts: sample.wav");
       expect(capabilityBuilderUnregisterText(result)).toContain("Preserved by default");
     } finally {
       await rm(workspace, { recursive: true, force: true });

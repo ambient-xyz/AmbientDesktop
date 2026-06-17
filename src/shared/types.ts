@@ -19,6 +19,7 @@ export type { SubagentMaturityEvidence, SubagentMaturitySnapshot } from "./subag
 export type { SubagentRoleProfile } from "./subagentRoles";
 export type { SubagentToolScopeResolution } from "./subagentToolScope";
 export type { SubagentEffectiveRoleSnapshot, SubagentPatternGraphSnapshot } from "./subagentPatternGraph";
+export type * from "./symphonyFineGrainedContracts";
 export type {
   AmbientSubagentProtocolVersion,
   SubagentDependencyMode,
@@ -37,6 +38,7 @@ export type * from "./subagentTypes";
 export type * from "./workspaceTypes";
 export type * from "./permissionTypes";
 export type * from "./pluginTypes";
+export type * from "./slashCommandTypes";
 export type * from "./browserTypes";
 export type * from "./terminalTypes";
 export type * from "./localRuntimeTypes";

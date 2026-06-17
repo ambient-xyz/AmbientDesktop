@@ -27,12 +27,76 @@
       "license": "Apache-2.0 upstream model terms; needed by TinyStyler inference before applying TinyStyler weights."
     },
     {
+      "name": "t5-v1_1-large-config",
+      "url": "https://huggingface.co/google/t5-v1_1-large/resolve/a98b0fcd0b8137ded40cdf0c0cf0ee884e7c9726/config.json",
+      "cachePath": "models/google-t5-v1_1-large/config.json",
+      "expectedSizeBytes": 607,
+      "sha256": "d0b3d0e585673b63c9218e0c526ac6f487e949c66c678e23172f2dbfa5ec73ee",
+      "license": "Apache-2.0 upstream model config for local TinyStyler transfer."
+    },
+    {
+      "name": "t5-v1_1-large-spiece-model",
+      "url": "https://huggingface.co/google/t5-v1_1-large/resolve/a98b0fcd0b8137ded40cdf0c0cf0ee884e7c9726/spiece.model",
+      "cachePath": "models/google-t5-v1_1-large/spiece.model",
+      "expectedSizeBytes": 791656,
+      "sha256": "d60acb128cf7b7f2536e8f38a5b18a05535c9e14c7a355904270e15b0945ea86",
+      "license": "Apache-2.0 upstream tokenizer model for local TinyStyler transfer."
+    },
+    {
+      "name": "t5-v1_1-large-tokenizer-config",
+      "url": "https://huggingface.co/google/t5-v1_1-large/resolve/a98b0fcd0b8137ded40cdf0c0cf0ee884e7c9726/tokenizer_config.json",
+      "cachePath": "models/google-t5-v1_1-large/tokenizer_config.json",
+      "expectedSizeBytes": 1857,
+      "sha256": "b971dce1d2805c2a66da8657156e7114a30501c6ba602fc947c8bf607a3ead2d",
+      "license": "Apache-2.0 upstream tokenizer config for local TinyStyler transfer."
+    },
+    {
+      "name": "t5-v1_1-large-special-tokens-map",
+      "url": "https://huggingface.co/google/t5-v1_1-large/resolve/a98b0fcd0b8137ded40cdf0c0cf0ee884e7c9726/special_tokens_map.json",
+      "cachePath": "models/google-t5-v1_1-large/special_tokens_map.json",
+      "expectedSizeBytes": 1786,
+      "sha256": "4720c0fddbe4c5991334f85ad7073d9bd0a294a8ba4641a2f8dab614ca825949",
+      "license": "Apache-2.0 upstream tokenizer special-token map for local TinyStyler transfer."
+    },
+    {
       "name": "style-embedding-model-weights",
       "url": "https://huggingface.co/AnnaWegmann/Style-Embedding/resolve/d7d0f5ca829316a8f5695e49dfce80b86db5e76c/pytorch_model.bin",
       "cachePath": "models/style-embedding/pytorch_model.bin",
       "expectedSizeBytes": 498669047,
       "sha256": "3186cd80660a7169a911bace4d54416cf5771a319a22f84c3a79a961ecb0c6f5",
       "license": "Hugging Face model asset used to compute style embeddings from user-provided examples."
+    },
+    {
+      "name": "style-embedding-config",
+      "url": "https://huggingface.co/AnnaWegmann/Style-Embedding/resolve/d7d0f5ca829316a8f5695e49dfce80b86db5e76c/config.json",
+      "cachePath": "models/style-embedding/config.json",
+      "expectedSizeBytes": 718,
+      "sha256": "2ed20b6297d7f5652f3a381221ce42cc592b7ebde6b61e3604df385904224311",
+      "license": "Hugging Face model config for local Style-Embedding profile extraction."
+    },
+    {
+      "name": "style-embedding-tokenizer",
+      "url": "https://huggingface.co/AnnaWegmann/Style-Embedding/resolve/d7d0f5ca829316a8f5695e49dfce80b86db5e76c/tokenizer.json",
+      "cachePath": "models/style-embedding/tokenizer.json",
+      "expectedSizeBytes": 1356048,
+      "sha256": "82139106e603ee4e1d5bc99d056ccbed5a92bc24848b1b5a7137c26e00d0dbf6",
+      "license": "Hugging Face tokenizer asset for local Style-Embedding profile extraction."
+    },
+    {
+      "name": "style-embedding-tokenizer-config",
+      "url": "https://huggingface.co/AnnaWegmann/Style-Embedding/resolve/d7d0f5ca829316a8f5695e49dfce80b86db5e76c/tokenizer_config.json",
+      "cachePath": "models/style-embedding/tokenizer_config.json",
+      "expectedSizeBytes": 354,
+      "sha256": "72824f8b68a49929f38b29c0d2e6f7664ea68846b5447791fc83bf1ad1778127",
+      "license": "Hugging Face tokenizer config for local Style-Embedding profile extraction."
+    },
+    {
+      "name": "style-embedding-special-tokens-map",
+      "url": "https://huggingface.co/AnnaWegmann/Style-Embedding/resolve/d7d0f5ca829316a8f5695e49dfce80b86db5e76c/special_tokens_map.json",
+      "cachePath": "models/style-embedding/special_tokens_map.json",
+      "expectedSizeBytes": 239,
+      "sha256": "378eb3bf733eb16e65792d7e3fda5b8a4631387ca04d2015199c4d4f22ae554d",
+      "license": "Hugging Face tokenizer special-token map for local Style-Embedding profile extraction."
     }
   ],
   "artifacts": {
@@ -48,14 +112,14 @@
       "responseFormats": ["json"]
     },
     "tinystyler_profile": {
-      "description": "Create a reusable TinyStyler style profile JSON from example texts. Slice 1 supports deterministic fake-runtime contract tests; real embedding extraction lands in the profile slice.",
+      "description": "Create a reusable TinyStyler style profile JSON from example texts using local Style-Embedding assets when dependencies are installed; deterministic fake and fixture modes support validation.",
       "command": "python3",
       "args": ["./scripts/tinystyler_cli.py", "profile"],
       "cwd": "package",
       "responseFormats": ["json"]
     },
     "tinystyler_transfer": {
-      "description": "Rewrite source text using a TinyStyler style profile or example texts. Slice 1 supports deterministic fake-runtime contract tests; real generation lands in the transfer slice.",
+      "description": "Rewrite source text using a TinyStyler style profile or example texts through local TinyStyler assets when dependencies are installed; deterministic fake and fixture modes support validation.",
       "command": "python3",
       "args": ["./scripts/tinystyler_cli.py", "transfer"],
       "cwd": "package",

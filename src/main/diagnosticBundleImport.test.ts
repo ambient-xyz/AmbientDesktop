@@ -4,7 +4,11 @@ import type {
   DiagnosticExportSubagentReplayEvidence,
   DiagnosticExportSummary,
 } from "../shared/types";
-import { AMBIENT_SUBAGENTS_FEATURE_FLAG, AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG } from "../shared/featureFlags";
+import {
+  AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
+  AMBIENT_SUBAGENTS_FEATURE_FLAG,
+  AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
+} from "../shared/featureFlags";
 import {
   diagnosticImportResultFromBundleJson,
   diagnosticImportResultFromBundleText,
@@ -583,6 +587,12 @@ function diagnosticSummary(): DiagnosticExportSummary {
         },
         [AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]: {
           id: AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG,
+          enabled: false,
+          source: "default",
+          defaultEnabled: false,
+        },
+        [AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]: {
+          id: AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
           enabled: false,
           source: "default",
           defaultEnabled: false,

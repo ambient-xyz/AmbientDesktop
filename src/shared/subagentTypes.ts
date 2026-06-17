@@ -12,6 +12,10 @@ import type {
 import type { SubagentRoleProfile } from "./subagentRoles";
 import type { SubagentEffectiveRoleSnapshot } from "./subagentPatternGraph";
 import type { SubagentToolScopeResolution } from "./subagentToolScope";
+import type {
+  MutationWorkspaceLease,
+  SymphonyChildLaunchContractBundle,
+} from "./symphonyFineGrainedContracts";
 import type { CallableWorkflowTaskRestartDiagnosticsReport, CallableWorkflowTaskRestartReconciliationSummary } from "./workflowTypes";
 
 export interface CreateSubagentRunInput {
@@ -26,6 +30,8 @@ export interface CreateSubagentRunInput {
   featureFlagSnapshot: AmbientFeatureFlagSnapshot;
   modelRuntimeSnapshot: AmbientModelRuntimeSnapshot;
   capacityLeaseSnapshot?: SubagentCapacityLeaseSnapshot;
+  symphonyLaunchContracts?: SymphonyChildLaunchContractBundle;
+  symphonyMutationWorkspaceLease?: MutationWorkspaceLease;
   dependencyMode?: SubagentDependencyMode;
   childOrder?: number;
 }
@@ -47,6 +53,8 @@ export interface SubagentRunSummary {
   featureFlagSnapshot: AmbientFeatureFlagSnapshot;
   modelRuntimeSnapshot: AmbientModelRuntimeSnapshot;
   capacityLeaseSnapshot: SubagentCapacityLeaseSnapshot;
+  symphonyLaunchContracts?: SymphonyChildLaunchContractBundle;
+  symphonyMutationWorkspaceLease?: MutationWorkspaceLease;
   createdAt: string;
   updatedAt: string;
   startedAt?: string;
