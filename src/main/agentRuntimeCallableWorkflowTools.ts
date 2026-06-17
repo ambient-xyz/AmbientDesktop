@@ -9,13 +9,13 @@ import type {
   WorkflowRecordingLibraryDescription,
   WorkspaceState,
 } from "../shared/types";
-import type { CallableWorkflowCallerProvenance } from "./callableWorkflowExecutionPlan";
+import type { CallableWorkflowCallerProvenance } from "./callable-workflow/callableWorkflowExecutionPlan";
 import {
   callableWorkflowActiveToolNamesForThread as defaultCallableWorkflowActiveToolNamesForThread,
   createCallableWorkflowPiToolDefinitions as defaultCreateCallableWorkflowPiToolDefinitions,
   type CallableWorkflowPiToolContext,
   type CreateCallableWorkflowPiToolDefinitionsOptions,
-} from "./callableWorkflowPiTools";
+} from "./callable-workflow/callableWorkflowPiTools";
 
 export interface CallableWorkflowRecordedPlaybookStore {
   listWorkflowRecordingLibrary: (input: { limit?: number }) => { id: string }[];

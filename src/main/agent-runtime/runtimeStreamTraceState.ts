@@ -4,7 +4,7 @@ import type { PiStreamTraceEvent } from "../agentRuntimeSendStreamDiagnostics";
 import {
   countJsonlEntries,
   type PiStreamTraceReference,
-} from "../agentRuntimeProviderDiagnostics";
+} from "./provider-continuation/agentRuntimeProviderDiagnostics";
 
 export interface RuntimeStreamTraceSnapshot {
   recentEvents: PiStreamTraceEvent[];

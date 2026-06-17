@@ -197,7 +197,7 @@ import {
   type CapabilityBuilderValidateInput,
   type CapabilityBuilderValidateResult,
   validateCapabilityBuilderPackage,
-} from "./capabilityBuilder";
+} from "./capability-builder/capabilityBuilder";
 import {
   browserToolDescriptor,
   messagingGatewayToolDescriptor,
@@ -288,9 +288,9 @@ import {
 import {
   formatLocalDeepResearchBytes,
   localDeepResearchRequestedLaunchFromContract,
-} from "./agentRuntimeLocalDeepResearchInput";
-import { createAgentRuntimeLocalDeepResearchToolExtension } from "./agentRuntimeLocalDeepResearchTools";
-import { createAgentRuntimeLocalDeepResearchWebBroker } from "./agentRuntimeLocalDeepResearchWebBroker";
+} from "./local-deep-research/agentRuntimeLocalDeepResearchInput";
+import { createAgentRuntimeLocalDeepResearchToolExtension } from "./local-deep-research/agentRuntimeLocalDeepResearchTools";
+import { createAgentRuntimeLocalDeepResearchWebBroker } from "./local-deep-research/agentRuntimeLocalDeepResearchWebBroker";
 import {
   resolveAmbientCliSkillMount,
   type AmbientCliSkillMountDiagnostics,
@@ -298,7 +298,7 @@ import {
 import {
   discoverAgentRuntimeSkillPaths,
   pluginStateReaderFromStore,
-} from "./agentRuntimePluginDiscovery";
+} from "./plugins/runtime-tools/agentRuntimePluginDiscovery";
 import {
   emitFirstPartyPluginPermissionAudit as emitFirstPartyPluginPermissionAuditWithRuntimeBridge,
   firstPartyPluginPermissionGrantHash,
@@ -308,8 +308,8 @@ import {
 import {
   revokeMcpPermissionGrantsForDescriptorDrift as revokeMcpPermissionGrantsForDescriptorDriftWithRuntimeBridge,
   revokePluginPermissionGrantsForLabelPrefixes,
-} from "./agentRuntimePluginGrantRevocation";
-import { ensurePluginMcpToolTrusted as ensurePluginMcpToolTrustedWithRuntimeBridge } from "./agentRuntimePluginMcpTrust";
+} from "./plugins/runtime-tools/agentRuntimePluginGrantRevocation";
+import { ensurePluginMcpToolTrusted as ensurePluginMcpToolTrustedWithRuntimeBridge } from "./plugins/runtime-tools/agentRuntimePluginMcpTrust";
 import {
   createAgentRuntimePluginInstallApplyCallbacks,
   createAgentRuntimePluginInstallToolExtension,
@@ -330,7 +330,7 @@ import { webResearchProviderPlanForInput as buildWebResearchProviderPlanForInput
 import {
   ambientSubagentActiveToolNamesForThread,
   type SubagentPiToolStore,
-} from "./subagentPiTools";
+} from "./subagents/subagentPiTools";
 import {
   applyExplicitSubagentRequestGuidance,
   explicitSubagentRequestPreflight,
@@ -339,7 +339,7 @@ import { createAgentRuntimeSubagentEventingStore } from "./agentRuntimeSubagentE
 import { createAgentRuntimeSubagentToolExtension } from "./agentRuntimeSubagentTools";
 import {
   callableWorkflowActiveToolNamesForThread,
-} from "./callableWorkflowPiTools";
+} from "./callable-workflow/callableWorkflowPiTools";
 import {
   callableWorkflowRecordedPlaybooks,
   createAgentRuntimeCallableWorkflowToolExtension,
@@ -353,10 +353,10 @@ import {
   resumeAgentRuntimeCallableWorkflowTask,
   startAgentRuntimeCallableWorkflowTaskForThread,
 } from "./agentRuntimeCallableWorkflowExecution";
-import { callableWorkflowToolName } from "./callableWorkflowRegistry";
+import { callableWorkflowToolName } from "./callable-workflow/callableWorkflowRegistry";
 import {
   type CallableWorkflowParentBlockingBlock,
-} from "./callableWorkflowParentBlocking";
+} from "./callable-workflow/callableWorkflowParentBlocking";
 import {
   callableWorkflowFinalizationBlock as resolveCallableWorkflowFinalizationBlock,
   recordCallableWorkflowFinalizationBlockedParentMailbox as recordCallableWorkflowFinalizationBlockedParentMailboxEvent,
@@ -367,11 +367,11 @@ import {
 import {
   resolveAgentRuntimeActiveToolNamesForThread,
   subagentChildCallableWorkflowToolNamesFromSnapshots,
-} from "./subagentChildActiveTools";
+} from "./subagents/subagentChildActiveTools";
 import {
   resolveActiveSubagentWaitBarriersForRun,
   SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
-} from "./subagentWaitBarrierResolution";
+} from "./subagents/subagentWaitBarrierResolution";
 import type {
   SubagentChildRuntimeAdapter,
   SubagentChildRuntimeApprovalResponseInput,
@@ -389,14 +389,14 @@ import type {
   SubagentChildRuntimeWaitResult,
   SubagentRuntimeEventEmitter,
 } from "./piChildSessionAdapter";
-import { subagentParentContextForMessages } from "./subagentContextFilter";
+import { subagentParentContextForMessages } from "./subagents/subagentContextFilter";
 import {
   buildSubagentChildPrompt,
   buildSubagentFollowupPrompt,
   buildSubagentPromptSnapshot,
   classifySubagentAssistantResult,
-} from "./subagentPromptRuntime";
-import { subagentTranscriptPath } from "./subagentLifecycleHooks";
+} from "./subagents/subagentPromptRuntime";
+import { subagentTranscriptPath } from "./subagents/subagentLifecycleHooks";
 import { tryRouteBrowserContentThroughScrapling as routeBrowserContentThroughScrapling } from "./agentRuntimeScraplingBrowserRoute";
 import {
   webResearchExaApiKeyFromEnv,
@@ -406,16 +406,16 @@ import {
 import { createAmbientProductContextExtension } from "./agentRuntimeProductContextTools";
 import { createProviderCatalogToolExtension } from "./agentRuntimeProviderCatalogTools";
 import { createMediaToolExtension } from "./agentRuntimeMediaTools";
-import { createLocalRuntimeToolExtension } from "./agentRuntimeLocalRuntimeTools";
+import { createLocalRuntimeToolExtension } from "./local-runtime/agentRuntimeLocalRuntimeTools";
 import { createVisionToolExtension } from "./agentRuntimeVisionTools";
 import { createSttSettingsToolExtension } from "./agentRuntimeSttTools";
 import { createVoiceSettingsToolExtension } from "./agentRuntimeVoiceTools";
-import { registerMessagingOverviewTools } from "./agentRuntimeMessagingOverviewTools";
+import { registerMessagingOverviewTools } from "./agent-runtime/messaging/agentRuntimeMessagingOverviewTools";
 import { registerTelegramSessionTools } from "./agentRuntimeTelegramSessionTools";
 import { registerSignalSessionTools } from "./agentRuntimeSignalSessionTools";
-import { registerMessagingBindingTools } from "./agentRuntimeMessagingBindingTools";
+import { registerMessagingBindingTools } from "./agent-runtime/messaging/agentRuntimeMessagingBindingTools";
 import { registerTelegramOwnerLoopTools } from "./agentRuntimeTelegramOwnerLoopTools";
-import { registerMessagingConversationDirectoryTools } from "./agentRuntimeMessagingConversationDirectoryTools";
+import { registerMessagingConversationDirectoryTools } from "./agent-runtime/messaging/agentRuntimeMessagingConversationDirectoryTools";
 import { registerTelegramConversationDirectoryTools } from "./agentRuntimeTelegramConversationDirectoryTools";
 import { registerTelegramOwnerHandoffTools } from "./agentRuntimeTelegramOwnerHandoffTools";
 import { registerSignalConversationDirectoryTools } from "./agentRuntimeSignalConversationDirectoryTools";
@@ -431,15 +431,15 @@ import { registerSignalOwnerHandoffTools } from "./agentRuntimeSignalOwnerHandof
 import {
   createSignalRemoteSurfacePlanResolvers,
   registerSignalRemoteSurfaceTools,
-} from "./agentRuntimeSignalRemoteSurfaceTools";
-import { registerMessagingRemoteSurfaceBindingTools } from "./agentRuntimeMessagingRemoteSurfaceBindingTools";
-import { registerMessagingRemoteSurfaceEventTools } from "./agentRuntimeMessagingRemoteSurfaceEventTools";
+} from "./agent-runtime/messaging/agentRuntimeSignalRemoteSurfaceTools";
+import { registerMessagingRemoteSurfaceBindingTools } from "./agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceBindingTools";
+import { registerMessagingRemoteSurfaceEventTools } from "./agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceEventTools";
 import {
   createTelegramRemoteSurfacePlanResolvers,
   registerTelegramRemoteSurfaceTools,
-} from "./agentRuntimeTelegramRemoteSurfaceTools";
+} from "./agent-runtime/messaging/agentRuntimeTelegramRemoteSurfaceTools";
 import { registerRuntimeSurfaceTools } from "./agentRuntimeRuntimeSurfaceTools";
-import { registerMessagingSyntheticRouteTools } from "./agentRuntimeMessagingSyntheticRouteTools";
+import { registerMessagingSyntheticRouteTools } from "./agent-runtime/messaging/agentRuntimeMessagingSyntheticRouteTools";
 import { registerTelegramBridgeEventTools } from "./agentRuntimeTelegramBridgeEventTools";
 import { registerTelegramBridgePollPreviewTools } from "./agentRuntimeTelegramBridgePollPreviewTools";
 import { registerTelegramBridgePollApplyTools } from "./agentRuntimeTelegramBridgePollApplyTools";
@@ -456,37 +456,37 @@ import {
   createTelegramBridgeReplyResolvers,
   telegramBridgeReplyApprovalRequest,
 } from "./agentRuntimeTelegramBridgeReplyPlan";
-import { registerMessagingRemoteSurfaceReplyPreviewTools } from "./agentRuntimeMessagingRemoteSurfaceReplyPreviewTools";
-import { registerMessagingRemoteSurfaceReplyApplyTools } from "./agentRuntimeMessagingRemoteSurfaceReplyApplyTools";
+import { registerMessagingRemoteSurfaceReplyPreviewTools } from "./agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceReplyPreviewTools";
+import { registerMessagingRemoteSurfaceReplyApplyTools } from "./agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceReplyApplyTools";
 import {
   createMessagingRemoteSurfaceReplyTargetResolver,
   messagingRemoteSurfaceReplyInputFromParams,
-} from "./agentRuntimeMessagingRemoteSurfaceReplyTarget";
-import { registerMessagingRemoteSurfaceCommandPreviewTools } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewTools";
+} from "./agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceReplyTarget";
+import { registerMessagingRemoteSurfaceCommandPreviewTools } from "./agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceCommandPreviewTools";
 import {
   completeMessagingRemoteSurfaceCommandPendingProjectSwitch,
   createMessagingRemoteSurfaceCommandApplyResolver,
   type MessagingRemoteSurfaceCommandPendingProjectSwitch,
   registerMessagingRemoteSurfaceCommandApplyTools,
-} from "./agentRuntimeMessagingRemoteSurfaceCommandApplyTools";
-import { createMessagingRemoteSurfaceCommandPreviewResolver } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewPlan";
+} from "./agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceCommandApplyTools";
+import { createMessagingRemoteSurfaceCommandPreviewResolver } from "./agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceCommandPreviewPlan";
 import { registerTelegramRelayDiagnosticsTools } from "./agentRuntimeTelegramRelayDiagnosticsTools";
 import { registerSignalRelayDiagnosticsTools } from "./agentRuntimeSignalRelayDiagnosticsTools";
 import { createMessagingRelayDiagnosticsResolvers } from "./agentRuntimeRelayDiagnosticsResolvers";
-import * as messagingGatewayStatusTools from "./agentRuntimeMessagingGatewayStatusTools";
+import * as messagingGatewayStatusTools from "./agent-runtime/messaging/agentRuntimeMessagingGatewayStatusTools";
 import {
   registerMessagingGatewayLifecyclePreviewTools,
-} from "./agentRuntimeMessagingGatewayLifecyclePreviewTools";
-import { registerMessagingGatewayLifecycleApplyTools } from "./agentRuntimeMessagingGatewayLifecycleApplyTools";
-import { createMessagingGatewayLifecycleResolvers } from "./agentRuntimeMessagingGatewayLifecycleResolvers";
+} from "./agent-runtime/messaging/agentRuntimeMessagingGatewayLifecyclePreviewTools";
+import { registerMessagingGatewayLifecycleApplyTools } from "./agent-runtime/messaging/agentRuntimeMessagingGatewayLifecycleApplyTools";
+import { createMessagingGatewayLifecycleResolvers } from "./agent-runtime/messaging/agentRuntimeMessagingGatewayLifecycleResolvers";
 import {
   createAgentRuntimeMessagingGatewayToolExtension,
   createAgentRuntimeMessagingRuntimeBridge,
-} from "./agentRuntimeMessagingGatewayToolExtension";
+} from "./agent-runtime/messaging/agentRuntimeMessagingGatewayToolExtension";
 import { createAgentRuntimeWebResearchToolExtension } from "./agentRuntimeWebResearchToolExtension";
 import { createSearchPreferenceToolExtension as createSearchPreferenceToolsExtension } from "./agentRuntimeSearchPreferenceTools";
 import { createGitToolExtension as createGitToolsExtension } from "./agentRuntimeGitTools";
-import { createPluginMcpToolExtension as createPluginMcpToolsExtension } from "./agentRuntimePluginMcpTools";
+import { createPluginMcpToolExtension as createPluginMcpToolsExtension } from "./plugins/runtime-tools/agentRuntimePluginMcpTools";
 import { createWorkflowNativeToolExtension as createWorkflowNativeToolsExtension } from "./agentRuntimeWorkflowNativeTools";
 import { createProjectBoardTaskToolExtension as createProjectBoardTaskToolsExtension } from "./agentRuntimeProjectBoardTaskTools";
 import {
@@ -515,55 +515,55 @@ import {
   type LocalDeepResearchProviderSnapshot,
   type LocalDeepResearchSetupContract,
   type LocalDeepResearchSetupInput,
-} from "./localDeepResearchSetup";
-import { detectLocalDeepResearchManagedAssets } from "./localDeepResearchManagedAssets";
-import type { LocalDeepResearchModelProfileId } from "./localDeepResearchModelProfiles";
-import type { LocalDeepResearchRunRequest, LocalDeepResearchRunServiceResult } from "./localDeepResearchRunService";
+} from "./local-deep-research/localDeepResearchSetup";
+import { detectLocalDeepResearchManagedAssets } from "./local-deep-research/localDeepResearchManagedAssets";
+import type { LocalDeepResearchModelProfileId } from "./local-deep-research/localDeepResearchModelProfiles";
+import type { LocalDeepResearchRunRequest, LocalDeepResearchRunServiceResult } from "./local-deep-research/localDeepResearchRunService";
 import {
   localDeepResearchInstallJobWarnings,
   reconcileLocalDeepResearchInstallJob,
   type LocalDeepResearchInstallRequest,
   type LocalDeepResearchInstallServiceResult,
-} from "./localDeepResearchInstallService";
+} from "./local-deep-research/localDeepResearchInstallService";
 import { detectLocalLlamaResidentProcesses, type LocalLlamaResidentProcess } from "./localLlamaResidencyPolicy";
 import {
   buildLocalModelResourceRegistry,
   localTextRequestedLaunch,
   type LocalModelRequestedLaunch,
-} from "./localModelResourceRegistry";
-import { buildLocalModelRuntimeStatusSnapshot, type LocalModelRuntimeStatusSnapshot } from "./localModelRuntimeStatus";
-import { LocalModelRuntimeManager } from "./localModelRuntimeManager";
-import { DEFAULT_LOCAL_RUNTIME_LEASE_STALE_MS } from "./localRuntimeInventory";
-import { runAgentRuntimeLocalModelRuntimeLifecycleAction } from "./agentRuntimeLocalRuntimeLifecycleAction";
+} from "./local-runtime/localModelResourceRegistry";
+import { buildLocalModelRuntimeStatusSnapshot, type LocalModelRuntimeStatusSnapshot } from "./local-runtime/localModelRuntimeStatus";
+import { LocalModelRuntimeManager } from "./local-runtime/localModelRuntimeManager";
+import { DEFAULT_LOCAL_RUNTIME_LEASE_STALE_MS } from "./local-runtime/localRuntimeInventory";
+import { runAgentRuntimeLocalModelRuntimeLifecycleAction } from "./local-runtime/agentRuntimeLocalRuntimeLifecycleAction";
 import {
   type LocalModelRuntimeRestartPlan,
-} from "./localModelRuntimeRestart";
+} from "./local-runtime/localModelRuntimeRestart";
 import {
   type LocalModelRuntimeStopPlan,
-} from "./localModelRuntimeStop";
+} from "./local-runtime/localModelRuntimeStop";
 import {
   localRuntimeOwnershipResolutionRequest,
   type LocalRuntimeOwnershipResolutionRequest,
   type LocalRuntimeOwnershipResolutionResult,
-} from "./localRuntimeOwnershipResolution";
+} from "./local-runtime/localRuntimeOwnershipResolution";
 import { createDefaultModelRuntimeRegistry } from "./modelRuntimeRegistry";
-import type { LocalTextRuntimeManagerLike } from "./localTextDelegation";
-import { runAgentRuntimeLocalTextMainRun } from "./agentRuntimeLocalTextMainRun";
+import type { LocalTextRuntimeManagerLike } from "./local-runtime/localTextDelegation";
+import { runAgentRuntimeLocalTextMainRun } from "./local-runtime/agentRuntimeLocalTextMainRun";
 import {
   createLocalTextSubagentRuntimeAdapter,
   type CreateLocalTextSubagentRuntimeAdapterOptions,
   type LocalTextSubagentRuntimeConfig,
   type LocalTextSubagentRuntimeStore,
-} from "./localTextSubagentRuntime";
-import { cancelPendingParentToChildMailboxEvents } from "./subagentMailbox";
-import { executeSubagentCancelAgent } from "./subagentCancelAgentExecutor";
-import { executeSubagentBarrierDecision } from "./subagentBarrierDecisionExecutor";
-import { assertCanCloseSubagentRun } from "./subagentCloseAgent";
-import { executeSubagentCloseAgent } from "./subagentCloseAgentExecutor";
-import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
-import { appendMappedSubagentRuntimeEvent } from "./subagentRuntimeEventPersistence";
+} from "./local-runtime/localTextSubagentRuntime";
+import { cancelPendingParentToChildMailboxEvents } from "./subagents/subagentMailbox";
+import { executeSubagentCancelAgent } from "./subagents/subagentCancelAgentExecutor";
+import { executeSubagentBarrierDecision } from "./subagents/subagentBarrierDecisionExecutor";
+import { assertCanCloseSubagentRun } from "./subagents/subagentCloseAgent";
+import { executeSubagentCloseAgent } from "./subagents/subagentCloseAgentExecutor";
+import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagents/subagentIdempotency";
+import { appendMappedSubagentRuntimeEvent } from "./subagents/subagentRuntimeEventPersistence";
 import { prepareThreadWorktree } from "./gitWorktrees";
-import type { LocalDeepResearchSmokeRequest } from "./localDeepResearchSmoke";
+import type { LocalDeepResearchSmokeRequest } from "./local-deep-research/localDeepResearchSmoke";
 import { createDefaultMessagingProviderRegistry } from "./messagingGatewayRegistry";
 import {
   MessagingGatewayRunner,
@@ -579,7 +579,7 @@ import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "./me
 import {
   SignalRealPollingRunner,
 } from "./signalRealPolling";
-import { createAgentRuntimeMessagingSurfaceSnapshot } from "./agentRuntimeMessagingSurfaceSnapshot";
+import { createAgentRuntimeMessagingSurfaceSnapshot } from "./agent-runtime/messaging/agentRuntimeMessagingSurfaceSnapshot";
 import {
   TelegramBridgePollingRunner,
 } from "./telegramBridgePolling";
@@ -587,7 +587,7 @@ import { agentRuntimeWorkflowRecoveryEventsForRemoteSurface } from "./agentRunti
 import {
   AgentRuntimeRemoteSurfaceRuntimeEventStore,
   type AgentRuntimeRemoteSurfaceRuntimeEventCreateInput,
-} from "./agentRuntimeRemoteSurfaceRuntimeEvents";
+} from "./agent-runtime/messaging/agentRuntimeRemoteSurfaceRuntimeEvents";
 import { AmbientWorkflowDescriptionState } from "./agentRuntimeAmbientWorkflowDescriptionState";
 import { answerWorkflowDiscoveryQuestion } from "./workflowDiscoveryService";
 import { writePrivilegedActionRedactedLog } from "./privilegedActionLogs";
@@ -611,7 +611,7 @@ import { refreshAgentRuntimeBrowsersForArtifactChange } from "./agent-runtime/br
 import { createLambdaRlmToolExtension as createLambdaRlmToolsExtension } from "./agentRuntimeLambdaRlmTools";
 import {
   projectBoardNativeTaskToolDefinitions,
-} from "./projectBoardTaskTools";
+} from "./project-board/projectBoardTaskTools";
 import { GlmTokenizerService, type GlmTokenizerStatus } from "./tokenization/glmTokenizer";
 import { createContextAccountingExtension as createContextAccountingToolsExtension } from "./agentRuntimeContextAccountingExtension";
 import {
@@ -718,13 +718,13 @@ import { createRuntimePromptStreamDispatcherSetup } from "./agent-runtime/runtim
 import {
   isAmbientProviderAuthFailure,
   truncateDiagnosticText,
-} from "./agentRuntimeProviderDiagnostics";
+} from "./agent-runtime/provider-continuation/agentRuntimeProviderDiagnostics";
 import {
   formatRuntimeError as formatAgentRuntimeError,
 } from "./agentRuntimeErrorFormatting";
 import {
   runtimeProviderRetryFinishedActivity,
-} from "./agentRuntimeProviderRetryActivity";
+} from "./agent-runtime/provider-continuation/agentRuntimeProviderRetryActivity";
 import { resolveAgentRuntimeToolCallPermission } from "./agentRuntimeToolCallPermission";
 import {
   childSessionErrorShouldPreserveTerminalStatus,
@@ -745,13 +745,13 @@ export {
   isAmbientProviderAuthFailure,
   runtimeProviderErrorDiagnostic,
   runtimeProviderFailureIdleSource,
-} from "./agentRuntimeProviderDiagnostics";
+} from "./agent-runtime/provider-continuation/agentRuntimeProviderDiagnostics";
 export type {
   PiStreamTraceReference,
   RuntimeProviderErrorDiagnostic,
   RuntimeProviderFailureDiagnostic,
   RuntimeProviderFailureIdleSource,
-} from "./agentRuntimeProviderDiagnostics";
+} from "./agent-runtime/provider-continuation/agentRuntimeProviderDiagnostics";
 
 type PiSession = Awaited<ReturnType<typeof createAgentSession>>["session"];
 

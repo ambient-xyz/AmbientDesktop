@@ -1,6 +1,6 @@
 import type { ProviderCatalogSettingsCard, ProviderCatalogSettingsState } from "../shared/types";
 import { miniCpmRemoteEndpointReviewChecklistText } from "../shared/miniCpmRemoteEndpointSecurity";
-import { localDeepResearchModelProfilesManifest, localDeepResearchModelAssetNames } from "./localDeepResearchModelProfiles";
+import { localDeepResearchModelProfilesManifest, localDeepResearchModelAssetNames } from "./local-deep-research/localDeepResearchModelProfiles";
 
 export type ProviderCapabilityArea =
   | "voice-generation"
@@ -13,6 +13,7 @@ export type ProviderCapabilityArea =
   | "image-generation"
   | "video-generation"
   | "rich-documents"
+  | "writing-style-transfer"
   | "svg-animation"
   | "social-media"
   | "agentic-services"
@@ -55,6 +56,7 @@ export const providerCapabilityAreas = [
   "image-generation",
   "video-generation",
   "rich-documents",
+  "writing-style-transfer",
   "svg-animation",
   "social-media",
   "agentic-services",
@@ -239,7 +241,7 @@ export interface ProviderCatalogToolExecutionResult {
   };
 }
 
-export const providerCatalogVersion = "2026-05-12.01";
+export const providerCatalogVersion = "2026-06-17.01";
 
 export const providerRecommendationPolicy = [
   "Known provider cards describe potential providers, not currently installed providers.",
@@ -2944,6 +2946,103 @@ export const providerCatalogEntries: ProviderCatalogEntry[] = [
     ],
   },
   {
+    id: "writing.tinystyler",
+    displayName: "TinyStyler writing-style transfer",
+    capabilityArea: "writing-style-transfer",
+    installerShape: "custom-cli",
+    providerKind: "local",
+    sourceModel: "open-source",
+    recommendationTier: "conditional",
+    recommendationSummary: "Bundled Ambient CLI package for local few-shot writing-style profiles and style transfer from user-provided examples.",
+    recommendationMemo: {
+      deploymentRole: "primary",
+      recommendation: "Use the bundled ambient-tinystyler Ambient CLI package when the user wants reusable writing-style profiles and local TinyStyler transfer from examples, while preserving raw-example privacy by default.",
+      dogfoodTargets: [
+        "Use ambient_cli_search and ambient_cli_describe to discover ambient-tinystyler through the standard Ambient CLI path.",
+        "Run tinystyler_doctor, create one profile from tiny example text, transfer one short source text, and verify profile/output artifact paths plus transcript non-leakage.",
+        "Exercise missing-model-cache behavior and confirm Pi surfaces dependency/model setup guidance rather than silently falling back to prompt-only rewriting.",
+      ],
+      promotionCriteria: [
+        "ambient-tinystyler declares pinned TinyStyler, T5, and Style-Embedding revisions with model asset sizes, hashes, license notes, and pickle/remote-code decisions.",
+        "Profile artifacts persist embeddings and aggregate counts by default, not raw example text or exact source verifiers.",
+        "Live Ambient/Pi evidence proves search -> describe -> ambient_cli profile and transfer can run with bounded artifacts and no raw example leakage.",
+      ],
+      fallbackGuidance: [
+        "Use ordinary chat rewriting when the user wants a one-off rewrite without reusable local profiles or model setup.",
+        "Use Capability Builder only if the user asks for a different style-transfer package or a new provider contract.",
+        "Keep optional reranking, interpolation strength, batch mode, and quality diagnostics deferred until their separate evidence gates pass.",
+      ],
+    },
+    bestFor: ["Reusable writing-style profiles", "Local style transfer from example texts", "Workspace artifact output with bounded previews"],
+    tradeoffs: ["Real local transfer requires multi-GB model caches and Python ML dependencies", "Generated output can vary by model/runtime settings", "Deterministic fake mode is validation-only"],
+    avoidWhen: ["The user wants identity verification or impersonation", "The user needs a quick one-off rewrite without local model setup", "Raw example retention is not explicitly approved"],
+    platforms: ["macos-arm64", "macos-x64", "linux-x64", "windows-x64"],
+    hardwareFit: ["CPU fallback is possible but slow; MPS/CUDA acceleration improves real transfer once local assets and dependencies are installed."],
+    capabilityBuilderDefaults: {
+      provider: "TinyStyler",
+      locality: "local",
+      outputFileArtifacts: ["json", "txt"],
+      responseFormats: ["json", "text"],
+      networkHosts: ["huggingface.co", "cdn-lfs.huggingface.co", "pypi.org", "files.pythonhosted.org"],
+      modelAssets: ["tinystyler-transfer-weights", "t5-v1_1-large-backbone", "style-embedding-model-weights"],
+    },
+    firstPartyTemplate: { available: true, templateId: "ambient-cli:ambient-tinystyler", notes: "Use the bundled Ambient CLI package rather than scaffolding a new Capability Builder package for the baseline path." },
+    ambientContract: {
+      commandContract: "Ambient CLI package ambient-tinystyler exposes tinystyler_doctor, tinystyler_profile, and tinystyler_transfer for declared local model assets or deterministic validation fixtures.",
+      descriptorRequirements: ["Ambient CLI package ambient-tinystyler", "profile JSON schema", "declared Hugging Face model assets", "bounded stdout", "workspace output artifacts", "raw-example retention opt-in"],
+      artifactPolicy: "Profile JSON and transfer TXT artifacts must be workspace-visible; raw examples and exact source verifiers are not persisted unless explicitly requested.",
+      validationTarget: "Install bundled:ambient-tinystyler, run doctor, create one profile, transfer one short text, and verify artifact paths plus no raw example leakage.",
+    },
+    secrets: [],
+    networkHosts: ["huggingface.co", "cdn-lfs.huggingface.co", "pypi.org", "files.pythonhosted.org"],
+    modelAssets: [
+      {
+        name: "tinystyler-transfer-weights",
+        sourceUrl: "https://huggingface.co/tinystyler/tinystyler",
+        expectedSize: "3.14 GB",
+        licenseNote: "MIT model card; PyTorch pickle weights load only from the reviewed declared cache path.",
+        cachePolicy: "Pinned revision and SHA-256 in ambient-tinystyler descriptor.",
+      },
+      {
+        name: "t5-v1_1-large-backbone",
+        sourceUrl: "https://huggingface.co/google/t5-v1_1-large",
+        expectedSize: "3.13 GB",
+        licenseNote: "Apache-2.0 upstream model terms.",
+        cachePolicy: "Pinned revision and SHA-256 in ambient-tinystyler descriptor.",
+      },
+      {
+        name: "style-embedding-model-weights",
+        sourceUrl: "https://huggingface.co/AnnaWegmann/Style-Embedding",
+        expectedSize: "499 MB",
+        licenseNote: "Hugging Face model asset for style embeddings.",
+        cachePolicy: "Pinned revision and SHA-256 in ambient-tinystyler descriptor.",
+      },
+    ],
+    localArtifactReadiness: {
+      status: "conditional-local",
+      verifiedArtifacts: ["Bundled Ambient CLI adapter", "profile schema", "deterministic fake/fixture smoke path", "live Ambient/Pi CLI dogfood evidence"],
+      missingOrBlockingArtifacts: ["Approved real-model dependency install on each host class", "Warm real TinyStyler transfer cache", "non-fake quality evidence"],
+      minimumLocalSmokeTest: "Run ambient_cli tinystyler_profile and tinystyler_transfer on tiny workspace files and verify profile/output artifacts plus transcript non-leakage.",
+    },
+    runtimeState: { externalService: false, serviceKind: "none", statePaths: [".ambient/cli-packages/imported/ambient-tinystyler-*", ".ambient/tinystyler/profiles", ".ambient/tinystyler/outputs"] },
+    costPrivacyNotes: ["Local execution avoids API keys and cloud text upload after model assets are installed; model downloads still contact Hugging Face/PyPI hosts.", "Raw example text is not persisted by default."],
+    maintenanceNotes: ["Track TinyStyler, T5, and Style-Embedding revisions, model hashes, Python ML dependency compatibility, and optional reranking deferrals."],
+    safetyBoundaries: ["Treat this as style adaptation, not identity verification or impersonation.", "Do not persist raw examples or exact source verifiers without explicit user opt-in.", "Do not silently repair failed model output through prompt-only rewriting."],
+    knownQuirks: ["The baseline package includes deterministic fake/fixture validation paths; those are not user-facing TinyStyler generation.", "Real transfer is model-cache and accelerator sensitive."],
+    researchStatus: "live-dogfooded",
+    evidence: [
+      { date: "2026-06-17", type: "local-smoke", summary: "Bundled ambient-tinystyler deterministic package smoke passed for doctor, profile, transfer, schema, and workspace-boundary behavior." },
+      { date: "2026-06-17", type: "pi-live-dogfood", summary: "Live Ambient/Pi dogfood created a profile and transferred a short text through search -> describe -> ambient_cli using Ambient Kimi, with raw example leakage checks." },
+      { date: "2026-06-16", type: "docs-review", summary: "TinyStyler paper, upstream repository, Hugging Face model card/files, and Style-Embedding model card reviewed for pinned asset/package decisions." },
+    ],
+    docs: [
+      { label: "TinyStyler paper", url: "https://arxiv.org/abs/2406.15586", lastReviewed: "2026-06-16" },
+      { label: "TinyStyler Hugging Face model", url: "https://huggingface.co/tinystyler/tinystyler", lastReviewed: "2026-06-16" },
+      { label: "TinyStyler repository", url: "https://github.com/zacharyhorvitz/TinyStyler", lastReviewed: "2026-06-16" },
+      { label: "Style-Embedding model", url: "https://huggingface.co/AnnaWegmann/Style-Embedding", lastReviewed: "2026-06-16" },
+    ],
+  },
+  {
     id: "svg.code-native-svg-css-smil",
     displayName: "Code-native SVG/CSS/SMIL",
     capabilityArea: "svg-animation",
@@ -3975,12 +4074,29 @@ function providerGoalMatches(entry: ProviderCatalogEntry, goalText: string): boo
   const goal = normalizeSearchText(goalText);
   const haystack = normalizeSearchText(providerGoalSearchText(entry));
   if (!goal) return true;
+  if (providerIdentityMatchesGoal(entry, goalText)) return true;
   if (haystack.includes(goal)) return true;
   const tokens = significantGoalTokens(goalText);
   if (!tokens.length) return true;
   const matched = tokens.filter((token) => haystack.includes(token));
   if (tokens.length <= 3) return matched.length === tokens.length;
   return matched.length >= Math.min(3, tokens.length);
+}
+
+function providerIdentityMatchesGoal(entry: ProviderCatalogEntry, goalText: string): boolean {
+  const goal = normalizeIdentifierSearchText(goalText);
+  if (!goal) return false;
+  const idSegments = entry.id.split(/[.:/_-]+/g);
+  const identities = [
+    entry.displayName,
+    entry.capabilityBuilderDefaults?.provider,
+    idSegments.at(-1),
+  ].filter((value): value is string => Boolean(value?.trim()));
+
+  return identities.some((value) => {
+    const identity = normalizeIdentifierSearchText(value);
+    return identity.length >= 4 && goal.includes(identity);
+  });
 }
 
 function providerGoalSearchText(entry: ProviderCatalogEntry): string {
@@ -4121,6 +4237,10 @@ function cloneProviderCatalogEntry(entry: ProviderCatalogEntry): ProviderCatalog
 
 function normalizeSearchText(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function normalizeIdentifierSearchText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 function optionalString(value: unknown): string | undefined {

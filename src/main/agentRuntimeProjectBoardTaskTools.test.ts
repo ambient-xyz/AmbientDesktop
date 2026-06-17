@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ProjectBoardCard } from "../shared/types";
 import { createProjectBoardTaskToolExtension } from "./agentRuntimeProjectBoardTaskTools";
-import { projectBoardNativeTaskToolDefinitions } from "./projectBoardTaskTools";
+import { projectBoardNativeTaskToolDefinitions } from "./project-board/projectBoardTaskTools";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 

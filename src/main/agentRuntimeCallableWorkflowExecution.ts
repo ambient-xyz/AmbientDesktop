@@ -8,19 +8,19 @@ import type {
   WorkspaceState,
 } from "../shared/types";
 import { ambientRetryPolicyFromSettings } from "./aggressiveRetries";
-import { pluginStateReaderFromStore } from "./agentRuntimePluginDiscovery";
+import { pluginStateReaderFromStore } from "./plugins/runtime-tools/agentRuntimePluginDiscovery";
 import {
   executeCallableWorkflowTask,
   latestCallableWorkflowRunForArtifact,
   type CallableWorkflowRunnerStore,
-} from "./callableWorkflowRunner";
+} from "./callable-workflow/callableWorkflowRunner";
 import { resolvePermissionWithGrants, type PermissionPromptRequester } from "./permissionGrants";
 import type { AmbientPluginHost, PluginMcpToolRegistration } from "./plugins/pluginHost";
 import type { ProjectStore } from "./projectStore";
 import { getAmbientProviderStatus } from "./providerStatus";
 import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "./workflowConnectors";
 import { WorkflowManualPausedError } from "./workflowAgentRuntime";
-import { compileWorkflowArtifact } from "./workflowCompilerService";
+import { compileWorkflowArtifact } from "./workflow-compiler/workflowCompilerService";
 import { workflowToolDescriptorsFromPluginRegistry } from "./workflowPluginCapabilities";
 import { runWorkflowArtifact, type RunWorkflowArtifactInput } from "./workflowRunService";
 

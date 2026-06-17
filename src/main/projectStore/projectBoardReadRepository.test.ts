@@ -6,7 +6,7 @@ import {
 } from "./projectBoardMappers";
 import {
   mapProjectBoardRow as legacyMapProjectBoardRow,
-} from "../projectBoardStoreMappers";
+} from "../project-board/projectBoardStoreMappers";
 import { ProjectStoreProjectBoardReadRepository } from "./projectBoardReadRepository";
 
 describe("ProjectStoreProjectBoardReadRepository", () => {

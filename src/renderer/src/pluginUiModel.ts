@@ -208,6 +208,7 @@ export function buildFirstRunCapabilityOnboardingPrompt(
     "- Search, web, and research: use the web-search, web-scraping, retrieval, and deep-research catalog cards above. Check installed first-party search/browser capabilities before proposing new packages; otherwise plan typed providers with explicit network hosts, secret rules, citation/artifact boundaries, and provider preference behavior.",
     "- Media and vision: use visual-understanding, image-generation, video-generation, and svg-animation catalog cards. MiniCPM-V should use the first-party visual setup path; HyperFrames authored video should use the bundled Ambient CLI package path, not the default Scrapling MCP path.",
     "- Documents and Office: use rich-documents catalog cards and installed connector/document surfaces first, then plan capability packages only when a specific document type or conversion need is not already covered.",
+    "- Writing Style: use writing-style-transfer catalog cards. TinyStyler should use the bundled ambient-tinystyler Ambient CLI package path, not prompt-only rewriting and not new Capability Builder scaffolding unless the user asks for a different package.",
     "- MCP runtime and default web research: treat container runtime recovery and the default Scrapling ToolHive capability as core setup. Surface status and setup prompts before any install or runtime mutation.",
     "- Remote access: use Remote Ambient Surface, not Messaging Connector. Start with ambient_messaging_remote_surface_activation_plan for any request to control Ambient through Telegram, Signal, or another messaging provider. Telegram is the reviewed activation route; Signal/other providers should surface unsupported-provider repair/status prompts unless the user explicitly asks to build future provider support.",
     "- Advanced services: social-media, agentic-services, and chat-bridging cards are core product setup when exposed in the provider catalog. Custom team-specific integrations still belong in Plugin Setup.",
@@ -216,7 +217,7 @@ export function buildFirstRunCapabilityOnboardingPrompt(
     "Required first response shape:",
     "- Briefly state that setup is optional, skippable, and resumable.",
     "- Recommend a minimal sequence: Voice/TTS first, Search/Web/Research second, MCP runtime/default web research if blocked, Remote access when the user wants owner control from Telegram, and Speech Input/STT when the user wants dictation or hands-free control.",
-    "- Present compact choices: Set up voice, Set up speech input, Set up search/web/research, Set up media/vision, Set up documents, Set up remote access, or Skip/resume later.",
+    "- Present compact choices: Set up voice, Set up speech input, Set up search/web/research, Set up media/vision, Set up documents, Set up writing style, Set up remote access, or Skip/resume later.",
     "- Do not call ambient_capability_builder_plan until the user chooses one setup area or names a specific provider/capability.",
     "",
     "Typed sub-installer handoff rules:",
@@ -225,6 +226,7 @@ export function buildFirstRunCapabilityOnboardingPrompt(
     "- If the user chooses search/web/research, run ambient_provider_catalog through ambient_tool_search, ambient_tool_describe, and ambient_tool_call for the relevant capability area, check installed search/browser/runtime capabilities when available, and then use the selected catalog card when planning after the user picks or confirms a provider path.",
     "- If the user chooses media/vision, run ambient_provider_catalog through ambient_tool_search, ambient_tool_describe, and ambient_tool_call for visual-understanding, image-generation, video-generation, or svg-animation as appropriate, then follow that catalog card's typed installer contract.",
     "- If the user chooses documents, run ambient_provider_catalog through ambient_tool_search, ambient_tool_describe, and ambient_tool_call with capabilityArea rich-documents and check installed document connector/rich-document surfaces before planning new packages.",
+    "- If the user chooses writing style, run ambient_provider_catalog through ambient_tool_search, ambient_tool_describe, and ambient_tool_call with capabilityArea writing-style-transfer, then use the selected catalog card's Ambient CLI package flow after the user picks or confirms a provider path.",
     "- If the user chooses remote access, call ambient_messaging_remote_surface_activation_plan first with the user's provider preference in requestText. If Telegram is selected and the shortcut recommends ambient_messaging_telegram_owner_loop_activation_plan, call that plan next before any lifecycle, directory, owner handoff, binding, polling, command, or relay tools. If Signal or another unsupported provider is selected, surface the unsupported-provider repair/status prompts and stop rather than falling back to generic Messaging Connector, provider UI, shell, browser automation, provider CLIs, provider-specific low-level tools, arbitrary history reads, provider message reads, or provider sends.",
     "- If the user asks for browser automation or document/media conversion, describe current installed capability boundaries first and ask for the concrete browser/profile or file/task type before planning dependencies.",
     "- If the user chooses skip, stop without mutating anything and tell the user they can return to setup later.",
@@ -532,6 +534,16 @@ function providerCatalogCardRequiredFlow(card: ProviderCatalogSettingsCard): str
       "- Start with hyperframes_doctor. If blocked, run hyperframes_setup_plan and present the approval-gated dependency action; do not install FFmpeg, browser runtime, Node, or npm packages silently.",
       "- For the first useful path, run hyperframes_init for a workspace project, hyperframes_inspect on the source, and hyperframes_render only after readiness is clear or the user intentionally approves the required setup.",
       "- Do not route HyperFrames through Capability Builder scaffolding or the Scrapling/default MCP capability lane unless the user explicitly asks to build a different custom package.",
+    ];
+  }
+  if (card.id === "writing.tinystyler") {
+    return [
+      catalogRefresh,
+      "- Then use Ambient CLI standard discovery: call ambient_cli_search for packageName ambient-tinystyler or query TinyStyler writing style transfer, call ambient_cli_describe for packageName ambient-tinystyler, then use ambient_cli commands from that description.",
+      "- Start with tinystyler_doctor --json. If the real model cache or dependencies are missing, present the approval-gated setup need and do not silently fall back to prompt-only rewriting.",
+      "- For the first useful validation path, create one tiny profile with tinystyler_profile, then run tinystyler_transfer on one short workspace file and verify the profile JSON path and output TXT path.",
+      "- Keep raw user examples out of chat and artifacts unless the user explicitly asks for raw-text retention; profile artifacts should persist embeddings and aggregate counts by default.",
+      "- Do not route TinyStyler through Capability Builder scaffolding unless the user explicitly asks to build a different custom style-transfer package.",
     ];
   }
   if (card.capabilityArea === "visual-understanding" || card.installerShape === "vision-analysis-provider") {

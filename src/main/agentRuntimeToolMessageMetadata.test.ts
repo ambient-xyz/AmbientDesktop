@@ -12,7 +12,7 @@ import {
   subagentParentControlAbortIntentFromToolEnd,
   toolMessageMetadata,
 } from "./agentRuntimeToolMessageMetadata";
-import { AMBIENT_SUBAGENT_TOOL_NAME } from "./subagentPiTools";
+import { AMBIENT_SUBAGENT_TOOL_NAME } from "./subagents/subagentPiTools";
 
 describe("agentRuntimeToolMessageMetadata", () => {
   it("builds tool metadata with result details and media artifact precedence", () => {

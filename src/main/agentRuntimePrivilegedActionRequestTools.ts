@@ -12,7 +12,7 @@ import {
   capabilityBuilderValidateText,
   type CapabilityBuilderValidateInput,
   type CapabilityBuilderValidateResult,
-} from "./capabilityBuilder";
+} from "./capability-builder/capabilityBuilder";
 import { privilegedActionToolDescriptor } from "./desktopToolRegistry";
 import { registerDesktopTool } from "./desktopToolRegistration";
 import {

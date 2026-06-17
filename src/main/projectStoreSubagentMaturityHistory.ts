@@ -1,4 +1,4 @@
-import type { CallableWorkflowTaskControlAction } from "./callableWorkflowTaskQueue";
+import type { CallableWorkflowTaskControlAction } from "./callable-workflow/callableWorkflowTaskQueue";
 import { subagentMaturityEvidencePassed } from "./projectStoreSubagentMappers";
 import type {
   SubagentDesktopDogfoodHistoryEntry,

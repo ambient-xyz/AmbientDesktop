@@ -44,6 +44,12 @@ export const welcomeCoreSetupSectionDefinitions: WelcomeSetupSectionDefinition[]
     capabilityAreas: ["rich-documents"],
   },
   {
+    id: "writing-style",
+    title: "Writing Style",
+    summary: "Reusable style profiles and local writing-style transfer packages.",
+    capabilityAreas: ["writing-style-transfer"],
+  },
+  {
     id: "advanced-services",
     title: "Advanced Services",
     summary: "Social, agentic, and chat-bridging setup cards that are product-level rather than custom plugins.",

@@ -303,7 +303,7 @@ async function runF001() {
     const readBack = await readFile(secretPath, "utf8");
 
     const ambientCli = await sourceHit("src/main/ambientCliPackages.ts", /saveAmbientCliPackageEnvSecret[\s\S]{0,900}writeFile|const secretsRoot = resolve\(workspacePath,\s*"\.ambient",\s*"cli-packages",\s*"secrets"\)/);
-    const capability = await sourceHit("src/main/capabilityBuilder.ts", /saveCapabilityBuilderEnvSecret[\s\S]{0,900}writeFile|const secretsRoot = resolve\(workspace,\s*"\.ambient",\s*"capability-builder",\s*"secrets"\)/);
+    const capability = await sourceHit("src/main/capability-builder/capabilityBuilder.ts", /saveCapabilityBuilderEnvSecret[\s\S]{0,900}writeFile|const secretsRoot = resolve\(workspace,\s*"\.ambient",\s*"capability-builder",\s*"secrets"\)/);
     const permission = await readRepoFile("src/main/permissionPolicy.ts");
     const explicitSecretDeny = /\.secret|\*\.secret|ambient\/.*secrets/.test(permission);
     const legacyWorkspaceSecretWriter = ambientCli.matched || capability.matched;
@@ -542,14 +542,14 @@ async function runF009() {
     timeoutMs: 120_000,
   });
   const hardKillReport = parseJson(hardKillGate.stdout);
-  const loader = await sourceHit("src/main/workflowProgramLoader.ts", /invokeWorkflowVmFunction[\s\S]{0,800}runInContext[\s\S]{0,160}timeout/);
-  const callbackGuard = await sourceHit("src/main/workflowProgramLoader.ts", /sandboxWorkflowStep[\s\S]{0,1200}sandboxVmCallback/);
-  const asyncMicrotaskMode = await sourceHit("src/main/workflowProgramLoader.ts", /microtaskMode:\s*["']afterEvaluate["']/);
+  const loader = await sourceHit("src/main/workflow-program/workflowProgramLoader.ts", /invokeWorkflowVmFunction[\s\S]{0,800}runInContext[\s\S]{0,160}timeout/);
+  const callbackGuard = await sourceHit("src/main/workflow-program/workflowProgramLoader.ts", /sandboxWorkflowStep[\s\S]{0,1200}sandboxVmCallback/);
+  const asyncMicrotaskMode = await sourceHit("src/main/workflow-program/workflowProgramLoader.ts", /microtaskMode:\s*["']afterEvaluate["']/);
   const asyncContinuationGuard = await sourceHit(
-    "src/main/workflowProgramLoader.ts",
+    "src/main/workflow-program/workflowProgramLoader.ts",
     /scheduleWorkflowVmMicrotaskPump[\s\S]{0,1600}resuming workflow after host call/,
   );
-  const asyncRaceGuard = await sourceHit("src/main/workflowProgramLoader.ts", /raceWorkflowVmResult[\s\S]{0,500}timeoutPromise/);
+  const asyncRaceGuard = await sourceHit("src/main/workflow-program/workflowProgramLoader.ts", /raceWorkflowVmResult[\s\S]{0,500}timeoutPromise/);
   const validation = await sourceHit("src/main/workflowSourceValidation.ts", /unbounded while loop|unbounded for loop/);
   const hardKillGatePassed =
     hardKillGate.code === 0 &&

@@ -21,12 +21,12 @@ import {
   createSubagentBatchJobPlan,
   createSubagentBatchResultReport,
   type SubagentBatchJobPlan,
-} from "./subagentBatchJobs";
+} from "./subagents/subagentBatchJobs";
 import {
   cancelPendingParentToChildMailboxEvents,
   consumeDeliveredParentToChildMailboxEvents,
   deliverQueuedParentToChildMailboxEvents,
-} from "./subagentMailbox";
+} from "./subagents/subagentMailbox";
 import type { SubagentResultArtifact } from "../shared/subagentProtocol";
 import type { ModelRuntimeInstalledProvider } from "../shared/types";
 
@@ -152,6 +152,7 @@ function symphonyMutationWorkspaceLease(input: {
     rootPath: "/tmp/symphony/lease-1",
     sourceRoots: ["/workspace"],
     readOnlyBaseRoots: ["/workspace"],
+    declaredWritableRoots: ["/workspace/out"],
     writableRoots: ["/tmp/symphony/lease-1/out"],
     status: "active",
     acquiredAt: "2026-06-16T00:00:00.000Z",
@@ -766,6 +767,11 @@ describe("ProjectStore sub-agent foundation settings", () => {
         releasedAt: "2026-06-05T00:02:00.000Z",
         releaseReason: expect.stringContaining("close_agent"),
       });
+      expect(closed.symphonyMutationWorkspaceLease).toMatchObject({
+        leaseId: "mutation-lease-1",
+        status: "released",
+        lastHeartbeatAt: "2026-06-05T00:02:00.000Z",
+      });
       expect(store.getThread(child.id)).toMatchObject({
         id: child.id,
         kind: "subagent_child",
@@ -791,6 +797,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
           status: "released",
           releasedAt: "2026-06-05T00:02:00.000Z",
         }),
+        mutationWorkspaceLease: {
+          leaseId: "mutation-lease-1",
+          kind: "scratch_overlay",
+          status: "released",
+          rootPath: "/tmp/symphony/lease-1",
+        },
       });
       const eventTypesAfterClose = store.listSubagentRunEvents(run.id).map((event) => event.type);
       const closeReplay = store.closeSubagentRun(run.id, "2026-06-05T00:03:00.000Z");

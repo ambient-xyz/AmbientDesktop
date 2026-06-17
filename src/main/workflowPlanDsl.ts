@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { WorkflowProgramIR, WorkflowProgramNode, WorkflowProgramReviewChoice, WorkflowProgramValue } from "../shared/workflowProgramIr";
-import type { WorkflowProgramDiagnostic } from "./workflowProgramCapabilityResolver";
+import type { WorkflowProgramDiagnostic } from "./workflow-program/workflowProgramCapabilityResolver";
 
 export type WorkflowPlanDslStageKind =
   | "model_interaction"

@@ -1,6 +1,6 @@
 # Workflow Compiler Extension Guide
 
-This is the Phase 8 executable extension path for the Workflow Agent compiler. The source of truth lives in `src/main/workflowCompilerExtensionGuide.ts`; this document is the human checklist for adding workflow capability without growing the always-on compiler prompt.
+This is the Phase 8 executable extension path for the Workflow Agent compiler. The source of truth lives in `src/main/workflow-compiler/workflowCompilerExtensionGuide.ts`; this document is the human checklist for adding workflow capability without growing the always-on compiler prompt.
 
 ## Extension Lanes
 
@@ -11,9 +11,9 @@ Purpose: attach tool, connector, or Ambient CLI guidance to selected capabilitie
 Primary files:
 
 - `src/main/desktopToolRegistry.ts`
-- `src/main/workflowCompilerService.ts`
-- `src/main/workflowCompilerPromptInventory.ts`
-- `src/main/workflowProgramCapabilityResolver.ts`
+- `src/main/workflow-compiler/workflowCompilerService.ts`
+- `src/main/workflow-compiler/workflowCompilerPromptInventory.ts`
+- `src/main/workflow-program/workflowProgramCapabilityResolver.ts`
 
 Required steps:
 
@@ -24,8 +24,8 @@ Required steps:
 
 Required tests:
 
-- `pnpm exec vitest run src/main/workflowCompilerPromptInventory.test.ts`
-- `pnpm exec vitest run src/main/workflowCompilerAbstractionRegression.test.ts`
+- `pnpm exec vitest run src/main/workflow-compiler/workflowCompilerPromptInventory.test.ts`
+- `pnpm exec vitest run src/main/workflow-compiler/workflowCompilerAbstractionRegression.test.ts`
 
 Live gate: run a tiny workflow that selects the capability and a control workflow that does not; the control compile must omit the capability module.
 
@@ -37,9 +37,9 @@ Purpose: capture reusable workflow shapes as selectable recipes with examples, p
 
 Primary files:
 
-- `src/main/workflowCompilerRecipes.ts`
-- `src/main/workflowCompilerService.ts`
-- `src/main/workflowCompilerPromptInventory.ts`
+- `src/main/workflow-compiler/workflowCompilerRecipes.ts`
+- `src/main/workflow-compiler/workflowCompilerService.ts`
+- `src/main/workflow-compiler/workflowCompilerPromptInventory.ts`
 - `src/renderer/src/workflowReviewUiModel.ts`
 
 Required steps:
@@ -51,8 +51,8 @@ Required steps:
 
 Required tests:
 
-- `pnpm exec vitest run src/main/workflowCompilerRecipes.test.ts`
-- `pnpm exec vitest run src/main/workflowCompilerPromptInventory.test.ts`
+- `pnpm exec vitest run src/main/workflow-compiler/workflowCompilerRecipes.test.ts`
+- `pnpm exec vitest run src/main/workflow-compiler/workflowCompilerPromptInventory.test.ts`
 
 Live gate: run one tiny end-to-end workflow that selects the new recipe and reaches approval or final output with the recipe visible in Build/Review audit.
 
@@ -64,9 +64,9 @@ Purpose: render safety, freshness, privacy, or permission guidance only when a r
 
 Primary files:
 
-- `src/main/workflowCompilerPromptInventory.ts`
-- `src/main/workflowCompilerService.ts`
-- `src/main/workflowProgramTypecheck.ts`
+- `src/main/workflow-compiler/workflowCompilerPromptInventory.ts`
+- `src/main/workflow-compiler/workflowCompilerService.ts`
+- `src/main/workflow-program/workflowProgramTypecheck.ts`
 - `docs/workflow-compiler-prompt-rule-inventory.md`
 
 Required steps:
@@ -78,8 +78,8 @@ Required steps:
 
 Required tests:
 
-- `pnpm exec vitest run src/main/workflowCompilerPromptInventory.test.ts`
-- `pnpm exec vitest run src/main/workflowCompilerAbstractionRegression.test.ts`
+- `pnpm exec vitest run src/main/workflow-compiler/workflowCompilerPromptInventory.test.ts`
+- `pnpm exec vitest run src/main/workflow-compiler/workflowCompilerAbstractionRegression.test.ts`
 
 Live gate: run a focused dogfood with matching and non-matching requests; the matching compile must show the policy id in compile audit.
 
@@ -91,9 +91,9 @@ Purpose: move correctness from prompt text into parse, static validation, dry-ru
 
 Primary files:
 
-- `src/main/workflowProgramTypecheck.ts`
-- `src/main/workflowProgramDryRun.ts`
-- `src/main/workflowCompilerService.ts`
+- `src/main/workflow-program/workflowProgramTypecheck.ts`
+- `src/main/workflow-program/workflowProgramDryRun.ts`
+- `src/main/workflow-compiler/workflowCompilerService.ts`
 - `src/shared/workflowProgramIr.ts`
 
 Required steps:
@@ -105,9 +105,9 @@ Required steps:
 
 Required tests:
 
-- `pnpm exec vitest run src/main/workflowCompilerPromptInventory.test.ts`
-- `pnpm exec vitest run src/main/workflowProgramTypecheck.test.ts`
-- `pnpm exec vitest run src/main/workflowCompilerAbstractionRegression.test.ts`
+- `pnpm exec vitest run src/main/workflow-compiler/workflowCompilerPromptInventory.test.ts`
+- `pnpm exec vitest run src/main/workflow-program/workflowProgramTypecheck.test.ts`
+- `pnpm exec vitest run src/main/workflow-compiler/workflowCompilerAbstractionRegression.test.ts`
 
 Live gate: run a tiny workflow that would violate the validator without the new rule and confirm repair or a clear compile failure.
 

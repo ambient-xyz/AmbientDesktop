@@ -13,7 +13,7 @@ const outputDir = process.env.AMBIENT_WORKFLOW_COMPILER_BENCHMARK_OUT || "test-r
 
 let exitCode = 0;
 if (!options.liveOnly) {
-  exitCode = await runInherited("pnpm", ["exec", "vitest", "run", "src/main/workflowCompilerMetrics.test.ts", "--reporter=dot"], {
+  exitCode = await runInherited("pnpm", ["exec", "vitest", "run", "src/main/workflow-compiler/workflowCompilerMetrics.test.ts", "--reporter=dot"], {
     cwd: process.cwd(),
     env: {
       ...process.env,

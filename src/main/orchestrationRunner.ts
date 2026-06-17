@@ -32,7 +32,7 @@ import {
   projectBoardTaskToolActionsFromProofOfWork,
   projectBoardTaskToolActionsForScope,
   type ProjectBoardTaskToolActionScope,
-} from "./projectBoardTaskTools";
+} from "./project-board/projectBoardTaskTools";
 
 const execFileAsync = promisify(execFile);
 const AUTO_COMMIT_EXCLUDED_PATH_PREFIXES = [".ambient/", ".ambient-codex/", ".git/", "node_modules/"];

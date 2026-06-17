@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { AmbientFeatureFlagSnapshot } from "../shared/featureFlags";
 import type { CallableWorkflowTaskSummary, SubagentRunSummary, SubagentToolScopeSnapshotSummary, ThreadSummary, WorkflowRecordingLibraryDescription } from "../shared/types";
 import type { SubagentToolScopeResolution } from "../shared/subagentToolScope";
-import type { CallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
-import type { CreateCallableWorkflowPiToolDefinitionsOptions } from "./callableWorkflowPiTools";
+import type { CallableWorkflowExecutionPlan } from "./callable-workflow/callableWorkflowExecutionPlan";
+import type { CreateCallableWorkflowPiToolDefinitionsOptions } from "./callable-workflow/callableWorkflowPiTools";
 import {
   callableWorkflowRecordedPlaybooks,
   createAgentRuntimeCallableWorkflowToolExtension,

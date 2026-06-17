@@ -83,10 +83,10 @@ import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/proje
 import { projectBoardStructuredClarificationDecisions } from "../../shared/projectBoardClarificationDecisions";
 import type { ProjectBoardDecisionImpactPreview } from "../../shared/projectBoardDecisionImpact";
 import { dedupeProjectBoardQuestions, projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
-import { normalizeProjectBoardPmReviewReport, type ProjectBoardSynthesisCardInput, type ProjectBoardSynthesisDraft } from "../projectBoardSynthesis";
-import { buildProjectBoardRenderedCardLedger } from "../projectBoardRenderedCardLedger";
-import { buildProjectBoardKickoffContextBrief } from "../projectBoardKickoffDefaultProvider";
-import type { BoardEventArtifact, ProposalManifestArtifact, RunHandoffArtifact, RunManifestArtifact, RunProofArtifact } from "../projectBoardArtifacts";
+import { normalizeProjectBoardPmReviewReport, type ProjectBoardSynthesisCardInput, type ProjectBoardSynthesisDraft } from "../project-board/projectBoardSynthesis";
+import { buildProjectBoardRenderedCardLedger } from "../project-board/projectBoardRenderedCardLedger";
+import { buildProjectBoardKickoffContextBrief } from "../project-board/projectBoardKickoffDefaultProvider";
+import type { BoardEventArtifact, ProposalManifestArtifact, RunHandoffArtifact, RunManifestArtifact, RunProofArtifact } from "../project-board/projectBoardArtifacts";
 import {
   projectBoardSourceAuthorityRole,
   projectBoardSourceChangeState,
@@ -95,7 +95,7 @@ import {
   projectBoardSourceDeterministicAuthorityLocked,
   projectBoardSourceIncludedInSynthesis,
   projectBoardSourceKey,
-} from "../projectBoardSourceIdentity";
+} from "../project-board/projectBoardSourceIdentity";
 import {
   type ProjectBoardTaskToolAction,
   projectBoardTaskToolActionDiagnostics,
@@ -109,8 +109,8 @@ import {
   projectBoardTaskToolRemaining,
   projectBoardTaskToolScreenshots,
   projectBoardTaskToolVisualChecks,
-} from "../projectBoardTaskTools";
-import { defaultProjectBoardClaimAgentId, projectBoardClaimProjectionFromProjectBoardEvents } from "../projectBoardClaims";
+} from "../project-board/projectBoardTaskTools";
+import { defaultProjectBoardClaimAgentId, projectBoardClaimProjectionFromProjectBoardEvents } from "../project-board/projectBoardClaims";
 import { normalizePlannerOpenQuestions } from "../plannerMode";
 
 export interface ProjectBoardStoreRow {

@@ -1,7 +1,7 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./desktopToolRegistry";
 import { workflowNativeToolDescriptors } from "./workflowNativeTools";
-import { projectBoardNativeTaskToolDefinitions } from "./projectBoardTaskTools";
+import { projectBoardNativeTaskToolDefinitions } from "./project-board/projectBoardTaskTools";
 import { normalizeToolArgumentsForTool } from "./toolArgumentNormalization";
 
 export const AMBIENT_TOOL_SEARCH = "ambient_tool_search";
@@ -154,6 +154,7 @@ function ambientToolSearchDefinition(options: AmbientToolRouterOptions): ToolDef
         input.includeActive === true ||
         isExactCatalogNameQuery(query) ||
         shouldIncludeActiveMcpWorkflowTools(query, category) ||
+        isAmbientCliCapabilityUseQuery(query, { installedMcpSearchAliases: [], category }) ||
         isRecordedWorkflowPlaybookUseQuery(query, { installedMcpSearchAliases: [], category }) ||
         isPublicWebResearchToolUseQuery(query, { installedMcpSearchAliases: [], category });
       const aliasProvider = options.getInstalledMcpSearchAliases;
@@ -162,6 +163,7 @@ function ambientToolSearchDefinition(options: AmbientToolRouterOptions): ToolDef
         : [];
       const searchContext: AmbientToolSearchContext = { installedMcpSearchAliases, category };
       const installedMcpToolUse = isInstalledMcpToolUseQuery(query, searchContext);
+      const ambientCliCapabilityUse = isAmbientCliCapabilityUseQuery(query, searchContext);
       const recordedWorkflowPlaybookUse = isRecordedWorkflowPlaybookUseQuery(query, searchContext);
       const matchedEntries = currentCatalogEntries(session)
         .filter((entry) => includeActive || !session.getActiveToolNames().includes(entry.name))
@@ -174,6 +176,9 @@ function ambientToolSearchDefinition(options: AmbientToolRouterOptions): ToolDef
         .map(({ entry }) => entry);
       if (installedMcpToolUse && matchedEntries.some((entry) => isInstalledMcpToolUseEntry(entry))) {
         activateRelatedTools(session, "ambient_mcp_tool_search");
+      }
+      if (ambientCliCapabilityUse && matchedEntries.some((entry) => isAmbientCliCapabilityUseEntry(entry))) {
+        activateRelatedTools(session, "ambient_cli_search");
       }
       if (recordedWorkflowPlaybookUse && matchedEntries.some((entry) => entry.name.startsWith("ambient_workflows_"))) {
         activateRelatedTools(session, "ambient_workflows_search");
@@ -198,6 +203,9 @@ function ambientToolSearchDefinition(options: AmbientToolRouterOptions): ToolDef
             publicWebResearchToolUse
               ? "For ordinary public web research, select web_research_search first; use browser tools only for explicit browser, visual, authenticated, or user-action tasks."
               : undefined,
+            ambientCliCapabilityUse
+              ? "For installed Ambient CLI skills and capabilities, select ambient_cli_search first, then ambient_cli_describe before ambient_cli execution. Do not inspect raw Pi skill directories."
+              : undefined,
             recordedWorkflowPlaybookUse
               ? "For saved Workflow Recorder playbook use, select ambient_workflows_search first, then ambient_workflows_describe and ambient_workflows_inject before completing the task through normal chat/tools."
               : undefined,
@@ -212,6 +220,7 @@ function ambientToolSearchDefinition(options: AmbientToolRouterOptions): ToolDef
           query,
           category,
           installedMcpToolUse,
+          ambientCliCapabilityUse,
           recordedWorkflowPlaybookUse,
           publicWebResearchToolUse,
           candidates: entries,
@@ -893,6 +902,8 @@ interface AmbientToolSearchContext {
 function searchRouteBoost(entry: AmbientToolCatalogEntry, query: string, context: AmbientToolSearchContext): number {
   const webResearchBoost = publicWebResearchRouteBoost(entry, query, context);
   if (webResearchBoost) return webResearchBoost;
+  const ambientCliBoost = ambientCliCapabilityRouteBoost(entry, query, context);
+  if (ambientCliBoost) return ambientCliBoost;
   const recordedWorkflowBoost = recordedWorkflowPlaybookRouteBoost(entry, query, context);
   if (recordedWorkflowBoost) return recordedWorkflowBoost;
   if (isInstalledMcpToolUseQuery(query, context)) {
@@ -909,6 +920,14 @@ function searchRouteBoost(entry: AmbientToolCatalogEntry, query: string, context
     if (entry.name === "ambient_mcp_autowire_plan") return 900;
     if (entry.name === "ambient_mcp_server_search") return 250;
   }
+  return 0;
+}
+
+function ambientCliCapabilityRouteBoost(entry: AmbientToolCatalogEntry, query: string, context: AmbientToolSearchContext): number {
+  if (!isAmbientCliCapabilityUseQuery(query, context)) return 0;
+  if (entry.name === "ambient_cli_search") return 3_400;
+  if (entry.name === "ambient_cli_describe") return 3_000;
+  if (entry.name === "ambient_cli") return 2_600;
   return 0;
 }
 
@@ -945,6 +964,17 @@ function isPublicWebResearchToolUseQuery(query: string, context: AmbientToolSear
   return publicWebResearchIntent(query, context) !== undefined;
 }
 
+function isAmbientCliCapabilityUseQuery(query: string, context: AmbientToolSearchContext): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return false;
+  const category = context.category;
+  if (category && !["ambient", "capability", "skills", "skill", "cli", "ambient-cli", "workflow", "workflows", "automation"].includes(category)) return false;
+  if (isInstallRouteQuery(normalized)) return false;
+  if (/\b(?:ambient_cli|ambient\s+cli|cli\s+packages?|package\s+skills?|wrapped\s+pi\s+skills?)\b/.test(normalized)) return true;
+  const inventoryIntent = /\b(?:what|which|list|show|installed|available|have|discover|discovery)\b/.test(normalized);
+  return inventoryIntent && /\b(?:skills?|capabilit(?:y|ies))\b/.test(normalized);
+}
+
 function publicWebResearchIntent(query: string, context: AmbientToolSearchContext): "search" | "fetch" | undefined {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return undefined;
@@ -968,9 +998,9 @@ function isRecordedWorkflowPlaybookUseQuery(query: string, context: AmbientToolS
   if (!normalized) return false;
   const category = context.category;
   if (category && !["ambient", "workflow", "workflows", "automation", "capability"].includes(category)) return false;
-  if (/\b(workflow recorder|recorded workflow|saved workflow|workflow playbook|playbook)\b/.test(normalized)) return true;
+  if (/\b(workflow recorder|recorded workflows?|saved workflows?|workflow playbooks?|playbooks?)\b/.test(normalized)) return true;
   if (looksLikeSavedWorkflowTitleQuery(query) && !isWorkflowAgentNativeQuery(normalized) && !isInstallRouteQuery(normalized)) return true;
-  if (/\bworkflow\b/.test(normalized) && !isWorkflowAgentNativeQuery(normalized) && !isInstallRouteQuery(normalized)) return true;
+  if (/\bworkflows?\b/.test(normalized) && !isWorkflowAgentNativeQuery(normalized) && !isInstallRouteQuery(normalized)) return true;
   return /\b(run|use|launch|execute|start)\b/.test(normalized) && hasTitleCasedRunTarget(query);
 }
 
@@ -1016,6 +1046,10 @@ function standardImportRouteBoost(entry: AmbientToolCatalogEntry, query: string)
 function isInstalledMcpToolUseEntry(entry: AmbientToolCatalogEntry): boolean {
   return AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES.includes(entry.name as (typeof AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES)[number]) ||
     entry.name === "ambient_mcp_server_list";
+}
+
+function isAmbientCliCapabilityUseEntry(entry: AmbientToolCatalogEntry): boolean {
+  return entry.name === "ambient_cli_search" || entry.name === "ambient_cli_describe" || entry.name === "ambient_cli";
 }
 
 function shouldLoadInstalledMcpSearchAliases(query: string, category?: string): boolean {
@@ -1110,7 +1144,7 @@ function categoryForToolName(name: string): string {
   if (name.startsWith("ambient_messaging_") || name.startsWith("ambient_runtime_surface_")) return "messaging";
   if (name.startsWith("ambient_search_")) return "search-routing";
   if (name.startsWith("ambient_privileged_")) return "privileged";
-  if (name.startsWith("ambient_capability_builder_") || name.startsWith("ambient_plugin_") || name.startsWith("ambient_pi_") || name.startsWith("ambient_cli_package_")) return "capability";
+  if (name.startsWith("ambient_capability_builder_") || name.startsWith("ambient_plugin_") || name.startsWith("ambient_pi_") || name.startsWith("ambient_cli_")) return "capability";
   if (name.startsWith("google_workspace_")) return "google-workspace";
   if (name.startsWith("ambient_workflows_")) return "workflow";
   if (name.startsWith("workflow_")) return "workflow";

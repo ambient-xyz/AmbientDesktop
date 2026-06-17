@@ -84,6 +84,56 @@ describe("modelContentForAgentRuntimeSendInput", () => {
     expect(content).toContain("User request:\nReview the migration.");
   });
 
+  it("routes Ambient CLI slash skill selections through Ambient wrappers", () => {
+    const content = modelContentForAgentRuntimeSendInput({
+      content: "Use it on this project.",
+      composerIntent: {
+        kind: "slash-command",
+        selection: {
+          schemaVersion: "ambient-slash-command-invocation-v1",
+          entryId: "ambient-cli-skill:pkg-review:skill:review",
+          command: "/review",
+          title: "review",
+          kind: "skill",
+          sourceKind: "ambient-cli",
+          invocationKind: "ambient-cli-skill",
+          sourceId: "pkg-review",
+          sourceName: "review-tools",
+          sourceVersion: "1.0.0",
+        },
+      },
+    }, defaultDeps());
+
+    expect(content).toContain("This is an Ambient-wrapped Pi skill from an installed Ambient CLI package");
+    expect(content).toContain("ambient_cli_search or ambient_cli_describe");
+    expect(content).toContain("Do not inspect arbitrary ~/.pi");
+  });
+
+  it("routes workflow slash selections through recorded playbook tools", () => {
+    const content = modelContentForAgentRuntimeSendInput({
+      content: "Run it for Friday.",
+      composerIntent: {
+        kind: "slash-command",
+        selection: {
+          schemaVersion: "ambient-slash-command-invocation-v1",
+          entryId: "workflow-playbook:find-events:4",
+          command: "/find-events",
+          title: "Find events",
+          kind: "workflow",
+          sourceKind: "workflow-recorder",
+          invocationKind: "workflow-playbook",
+          sourceId: "find-events",
+          sourceName: "Find events",
+          sourceVersion: 4,
+        },
+      },
+    }, defaultDeps());
+
+    expect(content).toContain("Call ambient_workflows_describe for the selected playbook id/version");
+    expect(content).toContain("ambient_workflows_inject");
+    expect(content).toContain("If the exact selected playbook is unavailable");
+  });
+
   it("rejects slash command composer intents when slash commands are disabled", () => {
     expect(() => modelContentForAgentRuntimeSendInput({
       content: "Review the migration.",

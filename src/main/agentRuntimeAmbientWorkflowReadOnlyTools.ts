@@ -14,7 +14,7 @@ import {
   buildCallableWorkflowRegistry,
   type CallableWorkflowCatalogEntry,
   type CallableWorkflowCatalogStatus,
-} from "./callableWorkflowRegistry";
+} from "./callable-workflow/callableWorkflowRegistry";
 import { pluginInstallToolDescriptor } from "./desktopToolRegistry";
 import { registerDesktopTool } from "./desktopToolRegistration";
 import type { ProjectStore } from "./projectStore";

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ProjectBoardEvent, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/projectBoardKickoffDefaults";
 import { projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
-import type { ProjectBoardKickoffDefaultSuggestion } from "../projectBoardKickoffDefaultProvider";
+import type { ProjectBoardKickoffDefaultSuggestion } from "../project-board/projectBoardKickoffDefaultProvider";
 import { DEFAULT_PROJECT_BOARD_QUESTIONS } from "../projectStoreFacadeHelpers";
 import { mapProjectBoardQuestionRow, type ProjectBoardQuestionStoreRow } from "./projectBoardMappers";
 

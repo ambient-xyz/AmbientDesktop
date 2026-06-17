@@ -1,4 +1,4 @@
-import { AMBIENT_SUBAGENT_TOOL_NAME } from "./subagentPiTools";
+import { AMBIENT_SUBAGENT_TOOL_NAME } from "./subagents/subagentPiTools";
 
 const ITERATIVE_REVISION_PATTERNS = [
   /\biterat(?:e|ive|ion|ions)\b/i,

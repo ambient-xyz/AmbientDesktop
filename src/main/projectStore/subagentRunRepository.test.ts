@@ -9,6 +9,7 @@ import {
 } from "../../shared/subagentCapacity";
 import { AMBIENT_SUBAGENT_PROTOCOL_VERSION } from "../../shared/subagentProtocol";
 import { getDefaultSubagentRoleProfile, type SubagentRoleId } from "../../shared/subagentRoles";
+import { SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION } from "../../shared/symphonyFineGrainedContracts";
 import { ProjectStoreSubagentRunRepository, type CreateReservedSubagentRunInput } from "./subagentRunRepository";
 
 describe("ProjectStoreSubagentRunRepository", () => {
@@ -280,6 +281,52 @@ describe("ProjectStoreSubagentRunRepository", () => {
       capacityReleasedAt: closedAt,
       updatedAt: closedAt,
     });
+  });
+
+  it("persists mutation workspace lease updates and release-on-close state", () => {
+    const run = createReservedRun();
+    const acquiredAt = "2026-06-16T00:02:30.000Z";
+    const lease = {
+      schemaVersion: SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
+      leaseId: "symphony-mutation:child-run",
+      parentThreadId: "parent-thread",
+      childThreadId: "child-thread",
+      childRunId: "child-run",
+      kind: "scratch_overlay" as const,
+      rootPath: "/tmp/symphony/child-run",
+      sourceRoots: ["/workspace"],
+      readOnlyBaseRoots: ["/workspace"],
+      declaredWritableRoots: ["/workspace/out"],
+      writableRoots: ["/tmp/symphony/child-run/out"],
+      status: "active" as const,
+      acquiredAt,
+      lastHeartbeatAt: acquiredAt,
+    };
+
+    const updated = repository.updateSubagentRunMutationWorkspaceLease(run.id, lease);
+
+    expect(updated.symphonyMutationWorkspaceLease).toEqual(lease);
+    expect(updated.updatedAt).toBe(acquiredAt);
+
+    const closedAt = "2026-06-16T00:03:00.000Z";
+    const releasedCapacityLease = releaseSubagentCapacityLease(updated.capacityLeaseSnapshot, {
+      releasedAt: closedAt,
+      reason: "Repository close test released capacity.",
+    });
+    const releasedLease = {
+      ...lease,
+      status: "released" as const,
+      lastHeartbeatAt: closedAt,
+    };
+    const closed = repository.closeSubagentRun({
+      runId: run.id,
+      closedAt,
+      capacityLeaseSnapshot: releasedCapacityLease,
+      symphonyMutationWorkspaceLease: releasedLease,
+    });
+
+    expect(closed.symphonyMutationWorkspaceLease).toEqual(releasedLease);
+    expect(closed.closedAt).toBe(closedAt);
   });
 
   it("lists canonical-task runs and parent message ids for subagent repair checks", () => {

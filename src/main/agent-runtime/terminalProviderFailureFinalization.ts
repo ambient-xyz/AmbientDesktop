@@ -1,4 +1,4 @@
-import type { RuntimeProviderErrorDiagnostic } from "../agentRuntimeProviderDiagnostics";
+import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
 import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
 

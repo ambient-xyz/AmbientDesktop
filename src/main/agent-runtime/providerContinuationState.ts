@@ -9,9 +9,9 @@ import type {
   ToolArgumentStreamDiagnostics,
   ToolIntentSnapshot,
 } from "../../shared/types";
-import type { ProviderInterruptionToolSnapshot } from "../agentRuntimeProviderContinuationHelpers";
-import { compactToolInputPreview } from "../agentRuntimeProviderDiagnostics";
-import type { PiStreamTraceReference } from "../agentRuntimeProviderDiagnostics";
+import type { ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
+import { compactToolInputPreview } from "./provider-continuation/agentRuntimeProviderDiagnostics";
+import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { stringMetadata } from "../agentRuntimeToolMessageMetadata";
 
 export type RuntimeProviderContinuationToolMaps = {

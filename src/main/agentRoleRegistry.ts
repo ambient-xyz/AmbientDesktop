@@ -9,7 +9,7 @@ import {
   type SubagentToolCategoryId,
 } from "../shared/subagentToolScope";
 import type { SubagentForkMode } from "../shared/subagentProtocol";
-import { subagentModelBlockingReasons } from "./modelScopeResolver";
+import { subagentModelBlockingReasons } from "./model-provider/modelScopeResolver";
 
 export interface AgentRoleRegistryValidationIssue {
   roleId?: string;

@@ -26,7 +26,7 @@ import { AgentRuntime } from "./agentRuntime";
 import { BrowserCredentialStore, type BrowserCredentialSafeStorage } from "./browserCredentialStore";
 import { BrowserService } from "./browserService";
 import { AmbientWorkflowRunProvider } from "./workflowAmbientProvider";
-import { AmbientWorkflowCompilerProvider, compileWorkflowArtifact } from "./workflowCompilerService";
+import { AmbientWorkflowCompilerProvider, compileWorkflowArtifact } from "./workflow-compiler/workflowCompilerService";
 import { AmbientWorkflowDiscoveryProvider } from "./workflowDiscoveryProvider";
 import {
   applyLiveAmbientProviderApiKeyEnv,
@@ -42,7 +42,7 @@ import { googleWorkspaceConnectorDescriptors, googleWorkspaceConnectorRegistrati
 import { googleWorkspaceConnectorGrantTarget, googleWorkspaceGrantConditions } from "../shared/googleWorkspaceGrantTargets";
 import { fixtureWorkflowConnector } from "./workflowConnectors";
 import { permissionGrantTargetHash } from "./permissionGrants";
-import { buildPluginMcpToolRegistrations } from "./pluginMcpSupervisor";
+import { buildPluginMcpToolRegistrations } from "./plugins/pluginMcpSupervisor";
 import { workflowPluginCapabilityGrant } from "./workflowPluginCapabilities";
 import { runWorkflowThreadExploration, type WorkflowExplorationAction, type WorkflowExplorationProvider } from "./workflowExplorationService";
 import { workflowApprovalsFromEvents } from "./workflowApprovals";

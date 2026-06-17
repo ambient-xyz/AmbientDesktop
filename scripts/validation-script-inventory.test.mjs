@@ -42,7 +42,7 @@ describe("validation script inventory", () => {
         test: "pnpm run prepare:node-native && vitest run",
         "dev:gmi-cloud":
           "GMI_CLOUD_API_KEY_FILE=${GMI_CLOUD_API_KEY_FILE:-$(node scripts/resolve-gmi-cloud-key-file.mjs)} AMBIENT_PROVIDER=gmi-cloud electron-vite dev",
-        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/projectBoardSynthesisProvider.test.ts",
+        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/project-board/projectBoardSynthesisProvider.test.ts",
         "test:project-board-release-gate:phase8": "node scripts/project-board-phase8-release-gate.mjs",
         "test:workflow-local-file:live":
           "GMI_CLOUD_API_KEY_FILE=${GMI_CLOUD_API_KEY_FILE:-$(node scripts/resolve-gmi-cloud-key-file.mjs)} AMBIENT_PROVIDER=gmi-cloud bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts",
@@ -86,7 +86,7 @@ describe("validation script inventory", () => {
         typecheck: "tsc --noEmit",
         test: "pnpm run prepare:node-native && vitest run",
         "dev:gmi-cloud": "AMBIENT_PROVIDER=gmi-cloud electron-vite dev",
-        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/projectBoardSynthesisProvider.test.ts",
+        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/project-board/projectBoardSynthesisProvider.test.ts",
         "test:project-board-release-gate:phase8": "node scripts/project-board-phase8-release-gate.mjs",
       },
     });
@@ -161,7 +161,7 @@ describe("validation script inventory", () => {
       scripts: {
         "test:project-board-release-gate:phase8": "node scripts/project-board-phase8-release-gate.mjs",
         "test:project-board-kanban-health-report-artifact-promotion:gmi": "node scripts/e2e-kanban-health-report-artifact-promotion-gmi.mjs",
-        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/projectBoardSynthesisProvider.test.ts -t \"lightweight PM Review contract fixtures\"",
+        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/project-board/projectBoardSynthesisProvider.test.ts -t \"lightweight PM Review contract fixtures\"",
         "test:project-board-pm-review-provider-fixtures-gate": "node scripts/project-board-pm-review-provider-fixtures-gate.mjs",
       },
     }, {
@@ -203,7 +203,7 @@ describe("validation script inventory", () => {
       scripts: {
         "test:project-board-kanban-health-report-artifact-promotion:gmi": "node scripts/e2e-kanban-health-report-artifact-promotion-gmi.mjs",
         "test:project-board-release-gate:phase8": "node scripts/project-board-phase8-release-gate.mjs",
-        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/projectBoardSynthesisProvider.test.ts",
+        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/project-board/projectBoardSynthesisProvider.test.ts",
         "test:workflow-local-file:live": "AMBIENT_PROVIDER=gmi-cloud bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts",
         "test:workflow-dogfood": "bash scripts/test-node-native.sh src/main/workflowDogfood.test.ts",
       },
@@ -219,7 +219,7 @@ describe("validation script inventory", () => {
     const report = buildValidationScriptInventory({
       scripts: {
         "test:project-board-kanban-health-report-artifact-promotion:gmi": "node scripts/e2e-kanban-health-report-artifact-promotion-gmi.mjs",
-        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/projectBoardSynthesisProvider.test.ts",
+        "test:project-board-pm-review-provider-fixtures": "pnpm exec vitest run src/main/project-board/projectBoardSynthesisProvider.test.ts",
       },
     });
 

@@ -85,7 +85,7 @@ export const V3_HOTSPOTS = [
     budget: { fileLines: 12600 },
     validationDomain: "project-board",
     validationCommand: "pnpm run test:project-board-evidentiary-fixes",
-    firstParityCommand: "pnpm exec vitest run src/renderer/src/projectBoardUiModel.test.ts src/main/projectBoardProofClosureModel.test.ts",
+    firstParityCommand: "pnpm exec vitest run src/renderer/src/projectBoardUiModel.test.ts src/main/project-board/projectBoardProofClosureModel.test.ts",
     desiredFirstPassDirection: "Split board layout, card state, PM Review, evidence, and command-affordance model owners.",
     firstExtractionTarget: "Board layout and card state model modules before PM Review/evidence splits.",
     statusNote: "Phase 0 baseline installed before V3 project-board UI-model split.",

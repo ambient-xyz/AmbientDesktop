@@ -65,7 +65,7 @@ export async function runWorkflowLoaderVmTimeoutRegression(options = {}) {
     "exec",
     "vitest",
     "run",
-    "src/main/workflowProgramLoader.test.ts",
+    "src/main/workflow-program/workflowProgramLoader.test.ts",
     "-t",
     testNamePattern,
   ], { cwd: repoRoot, timeoutMs, killGraceMs });

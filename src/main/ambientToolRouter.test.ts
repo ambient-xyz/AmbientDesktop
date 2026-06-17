@@ -324,6 +324,57 @@ describe("ambient tool router", () => {
     expect(exactTitleCandidateNames[0]).toBe("ambient_workflows_search");
   });
 
+  it("routes installed skill and workflow inventory questions to Ambient wrappers", async () => {
+    const session = fakeSession({
+      active: ["read", AMBIENT_TOOL_SEARCH, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_CALL],
+      tools: [
+        fakeTool("ambient_cli_search"),
+        fakeTool("ambient_cli_describe"),
+        fakeTool("ambient_cli"),
+        fakeTool("ambient_workflows_search"),
+        fakeTool("ambient_workflows_describe"),
+        fakeTool("ambient_workflows_inject"),
+        fakeTool("ambient_pi_privileged_scan"),
+      ],
+    });
+    const [search] = createAmbientToolRouterTools({ getSession: () => session });
+
+    const result = await search.execute(
+      "search-installed-skills-and-workflows",
+      { query: "What skills do you have installed, and what workflows do you have installed?", limit: 6 },
+      undefined,
+      undefined,
+      {} as any,
+    );
+    const candidateNames = ((result.details as any).candidates as Array<{ name: string }>).map((candidate) => candidate.name);
+    const text = result.content.map((part: any) => part.text ?? "").join("\n");
+
+    expect(candidateNames).toEqual([
+      "ambient_cli_search",
+      "ambient_workflows_search",
+      "ambient_cli_describe",
+      "ambient_workflows_describe",
+      "ambient_cli",
+      "ambient_workflows_inject",
+    ]);
+    expect(candidateNames).not.toContain("ambient_pi_privileged_scan");
+    expect(result.details).toMatchObject({
+      ambientCliCapabilityUse: true,
+      recordedWorkflowPlaybookUse: true,
+    });
+    expect(text).toContain("For installed Ambient CLI skills and capabilities");
+    expect(text).toContain("Do not inspect raw Pi skill directories");
+    expect(text).toContain("For saved Workflow Recorder playbook use");
+    expect(session.getActiveToolNames()).toEqual(expect.arrayContaining([
+      "ambient_cli_search",
+      "ambient_cli_describe",
+      "ambient_cli",
+      "ambient_workflows_search",
+      "ambient_workflows_describe",
+      "ambient_workflows_inject",
+    ]));
+  });
+
   it("uses installed MCP aliases when the user omits the MCP acronym", async () => {
     const session = fakeSession({
       active: ["read", AMBIENT_TOOL_SEARCH, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_CALL],

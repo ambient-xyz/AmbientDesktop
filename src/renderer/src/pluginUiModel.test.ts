@@ -586,6 +586,41 @@ describe("plugin UI model", () => {
     expect(prompt).not.toContain("Then call ambient_capability_builder_plan for this selected card");
   });
 
+  it("routes the TinyStyler settings card through Ambient CLI package setup", () => {
+    const tinystyler = providerCatalogSettingsState(new Date("2026-06-17T12:00:00.000Z")).cards.find((card) => card.id === "writing.tinystyler");
+    expect(tinystyler).toBeDefined();
+    const card = tinystyler!;
+    const view = providerCatalogSettingsCardView(card);
+    const prompt = buildProviderCatalogCardOnboardingPrompt(card);
+
+    expect(view).toMatchObject({
+      id: "writing.tinystyler",
+      title: "TinyStyler writing-style transfer",
+      tone: "conditional",
+      actionLabel: "Set up",
+    });
+    expect(view.meta).toEqual(
+      expect.arrayContaining([
+        "role primary",
+        "local / open-source",
+        "custom-cli",
+        "first-party template",
+        "hosts huggingface.co, cdn-lfs.huggingface.co, pypi.org, files.pythonhosted.org",
+      ]),
+    );
+    expect(card.capabilityArea).toBe("writing-style-transfer");
+    expect(card.firstPartyTemplate?.templateId).toBe("ambient-cli:ambient-tinystyler");
+    expect(prompt).toContain("Capability area: writing-style-transfer.");
+    expect(prompt).toContain("First-party template: ambient-cli:ambient-tinystyler");
+    expect(prompt).toContain("ambient_cli_search for packageName ambient-tinystyler");
+    expect(prompt).toContain("ambient_cli_describe for packageName ambient-tinystyler");
+    expect(prompt).toContain("tinystyler_doctor --json");
+    expect(prompt).toContain("tinystyler_profile");
+    expect(prompt).toContain("tinystyler_transfer");
+    expect(prompt).toContain("Keep raw user examples out of chat and artifacts");
+    expect(prompt).not.toContain("Then call ambient_capability_builder_plan for this selected card");
+  });
+
   it("release-gates real non-installable catalog cards", () => {
     const state = providerCatalogSettingsState(new Date("2026-05-29T12:00:00.000Z"));
     const google = state.cards.find((card) => card.id === "search.google-browser");
@@ -676,6 +711,13 @@ describe("plugin UI model", () => {
           installerShape: "rich-documents-provider",
           recommendationSummary: "Local rich-document parser card.",
         }),
+        providerSettingsCard({
+          id: "writing.tinystyler",
+          displayName: "TinyStyler",
+          capabilityArea: "writing-style-transfer",
+          installerShape: "custom-cli",
+          recommendationSummary: "Local writing-style transfer card.",
+        }),
       ],
     );
     expect(prompt).toContain("Ambient first-run capability onboarding request.");
@@ -693,6 +735,8 @@ describe("plugin UI model", () => {
     expect(prompt).toContain("MiniCPM-V (vision.minicpm, recommended): Local visual understanding card.");
     expect(prompt).toContain("Documents and Office catalog cards:");
     expect(prompt).toContain("Office Parser (docs.office, recommended): Local rich-document parser card.");
+    expect(prompt).toContain("Writing Style catalog cards:");
+    expect(prompt).toContain("TinyStyler (writing.tinystyler, recommended): Local writing-style transfer card.");
     expect(prompt).toContain("do not invent a separate first-run recommendation list");
     expect(prompt).toContain("Initial setup areas:");
     expect(prompt).toContain("Voice/TTS: use installer shape tts-provider and the voice-generation catalog cards above.");
@@ -700,17 +744,19 @@ describe("plugin UI model", () => {
     expect(prompt).toContain("Search, web, and research: use the web-search, web-scraping, retrieval, and deep-research catalog cards above.");
     expect(prompt).toContain("Media and vision: use visual-understanding, image-generation, video-generation, and svg-animation catalog cards.");
     expect(prompt).toContain("Documents and Office: use rich-documents catalog cards");
+    expect(prompt).toContain("Writing Style: use writing-style-transfer catalog cards.");
     expect(prompt).toContain("MCP runtime and default web research: treat container runtime recovery and the default Scrapling ToolHive capability as core setup.");
     expect(prompt).toContain("Remote access: use Remote Ambient Surface, not Messaging Connector.");
     expect(prompt).toContain("Advanced services: social-media, agentic-services, and chat-bridging cards are core product setup");
     expect(prompt).toContain("API-backed providers and secrets: use Ambient-managed secret flows only.");
-    expect(prompt).toContain("Present compact choices: Set up voice, Set up speech input, Set up search/web/research, Set up media/vision, Set up documents, Set up remote access, or Skip/resume later.");
+    expect(prompt).toContain("Present compact choices: Set up voice, Set up speech input, Set up search/web/research, Set up media/vision, Set up documents, Set up writing style, Set up remote access, or Skip/resume later.");
     expect(prompt).toContain("Do not call ambient_capability_builder_plan until the user chooses one setup area");
     expect(prompt).toContain("If the user chooses voice, use the TTS provider onboarding rules");
     expect(prompt).toContain("If the user chooses speech input, run ambient_provider_catalog through ambient_tool_search");
     expect(prompt).toContain("If the user chooses search/web/research, run ambient_provider_catalog through ambient_tool_search");
     expect(prompt).toContain("If the user chooses media/vision, run ambient_provider_catalog through ambient_tool_search");
     expect(prompt).toContain("If the user chooses documents, run ambient_provider_catalog through ambient_tool_search");
+    expect(prompt).toContain("If the user chooses writing style, run ambient_provider_catalog through ambient_tool_search");
     expect(prompt).toContain("If the user chooses remote access, call ambient_messaging_remote_surface_activation_plan first");
     expect(prompt).toContain("If Signal or another unsupported provider is selected, surface the unsupported-provider repair/status prompts");
     expect(prompt).toContain("All mutation is approval-gated");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { firstPartyDesktopToolDescriptors } from "./desktopToolRegistry";
 import { googleWorkspaceConnectorDescriptors } from "./googleWorkspaceConnectors";
-import { compileWorkflowProgramIr } from "./workflowProgramCompiler";
+import { compileWorkflowProgramIr } from "./workflow-program/workflowProgramCompiler";
 import { lowerWorkflowPlanDslToProgramIr, parseWorkflowPlanDsl, workflowPlanDslPromptSchemaExample, type WorkflowPlanDsl } from "./workflowPlanDsl";
 
 describe("Workflow Plan DSL", () => {

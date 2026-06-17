@@ -32,7 +32,7 @@ import { readAmbientApiKey, getActiveAmbientProviderBaseUrl, getActiveAmbientPro
 import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./desktopToolRegistry";
 import { completeAmbientText, executeLambdaRlm, type LambdaRlmTaskType } from "./lambdaRlm";
 import { classifyToolPermission } from "./permissionPolicy";
-import { callPluginMcpTool, type PluginMcpLaunchPlan, type PluginMcpToolRegistration } from "./pluginMcpSupervisor";
+import { callPluginMcpTool, type PluginMcpLaunchPlan, type PluginMcpToolRegistration } from "./plugins/pluginMcpSupervisor";
 import { normalizeAmbientBaseUrl } from "./providerStatus";
 import { runShellCommand, type ToolRunnerRunShellOptions } from "./toolRunner";
 import { materializeTextOutput, materializedTextNotice } from "./toolOutputArtifacts";

@@ -10,9 +10,9 @@ import type {
   SubagentWaitBarrierSummary,
   ThreadSummary,
 } from "../shared/types";
-import type { LocalTextSubagentRuntimeStore } from "./localTextSubagentRuntime";
+import type { LocalTextSubagentRuntimeStore } from "./local-runtime/localTextSubagentRuntime";
 import { createAgentRuntimeSubagentEventingStore } from "./agentRuntimeSubagentEventingStore";
-import type { SubagentPiToolStore } from "./subagentPiTools";
+import type { SubagentPiToolStore } from "./subagents/subagentPiTools";
 
 describe("createAgentRuntimeSubagentEventingStore", () => {
   it("emits run events and run updates after creating a subagent run", () => {

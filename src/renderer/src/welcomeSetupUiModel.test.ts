@@ -57,6 +57,7 @@ describe("welcome setup UI model", () => {
       "image-generation",
       "video-generation",
       "rich-documents",
+      "writing-style-transfer",
       "svg-animation",
       "social-media",
       "agentic-services",
@@ -73,6 +74,7 @@ describe("welcome setup UI model", () => {
       card("voice.piper", "voice-generation"),
       card("search.brave", "web-search"),
       card("deep.literesearcher", "deep-research"),
+      card("writing.tinystyler", "writing-style-transfer"),
     ]);
 
     expect(sections.find((section) => section.id === "voice-output")?.cards.map((item) => item.id)).toEqual(["voice.piper"]);
@@ -80,6 +82,7 @@ describe("welcome setup UI model", () => {
       "search.brave",
       "deep.literesearcher",
     ]);
+    expect(sections.find((section) => section.id === "writing-style")?.cards.map((item) => item.id)).toEqual(["writing.tinystyler"]);
   });
 
   it("identifies Welcome seeded pages for top-open behavior without changing ordinary chats", () => {

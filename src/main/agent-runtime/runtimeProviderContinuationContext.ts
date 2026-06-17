@@ -9,14 +9,14 @@ import type { RuntimeSessionRecoveryContext } from "../agentRuntimeAssistantRetr
 import type {
   PiStreamTraceReference,
   RuntimeProviderErrorDiagnostic,
-} from "../agentRuntimeProviderDiagnostics";
+} from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import {
   buildProviderInterruptionContinuationInput,
   type ProviderInterruptionToolSnapshot,
-} from "../agentRuntimeProviderContinuationHelpers";
+} from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import {
   persistPreparedProviderInterruptionToolArguments,
-} from "../agentRuntimeProviderInterruptionArguments";
+} from "./provider-continuation/agentRuntimeProviderInterruptionArguments";
 import type { InterruptedToolCallRecoveryTracker } from "../interruptedToolCallRecovery";
 import type { ToolArgumentProgressTracker } from "../toolArgumentProgress";
 import {

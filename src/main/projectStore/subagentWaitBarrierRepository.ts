@@ -11,7 +11,7 @@ import {
   resolveSubagentWaitBarrierQuorumThreshold,
   type SubagentWaitBarrierRow,
 } from "../projectStoreSubagentMappers";
-import { SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION } from "../subagentWaitBarrierResolution";
+import { SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION } from "../subagents/subagentWaitBarrierResolution";
 
 export interface SubagentWaitBarrierChildRun {
   id: string;

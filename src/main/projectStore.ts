@@ -164,7 +164,7 @@ import type {
   WorkspaceState,
 } from "../shared/types";
 import type { AmbientModelRuntimeCatalog } from "../shared/ambientModels";
-import type { CallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
+import type { CallableWorkflowExecutionPlan } from "./callable-workflow/callableWorkflowExecutionPlan";
 import {
   analyzeCallableWorkflowTaskRestartState,
   CALLABLE_WORKFLOW_TASK_CONTROL_EVENT_TYPE,
@@ -176,20 +176,20 @@ import {
   type CallableWorkflowPatternGraphChildBindingRequest,
   type CallableWorkflowTaskControlAction,
   type CallableWorkflowCompilerHandoffPlan,
-} from "./callableWorkflowTaskQueue";
+} from "./callable-workflow/callableWorkflowTaskQueue";
 import {
   analyzeSubagentRestartState,
   createSubagentRepairDiagnosticsReport,
   uniqueSubagentRepairIds,
-} from "./subagentRepair";
+} from "./subagents/subagentRepair";
 import {
   summarizeSubagentObservability,
   type SubagentObservabilitySummary,
-} from "./subagentObservability";
+} from "./subagents/subagentObservability";
 import {
   evaluateSubagentMaturity,
   type SubagentMaturityInput,
-} from "./subagentMaturity";
+} from "./subagents/subagentMaturity";
 import {
   type SubagentMaturityEvidence,
   type SubagentMaturityEvidenceKind,
@@ -208,7 +208,7 @@ import {
   type SubagentBatchJobRecord,
   type SubagentBatchReportApplyResult,
   type SubagentBatchResultReport,
-} from "./subagentBatchJobs";
+} from "./subagents/subagentBatchJobs";
 import {
   workflowLabApplyRunStatus,
   workflowLabApplyVariantAdoption,
@@ -226,7 +226,7 @@ import {
   planSubagentRetention,
   type SubagentRetentionCleanupResult,
   type SubagentRetentionPlan,
-} from "./subagentRetention";
+} from "./subagents/subagentRetention";
 import {
   getDefaultSubagentRoleProfile,
   type SubagentRoleId,
@@ -255,19 +255,19 @@ import {
 } from "../shared/subagentCapacity";
 import {
   assertSubagentRunLinkage,
-} from "./subagentInvariants";
-import { subagentLifecycleEventType, subagentLifecycleHookPreview } from "./subagentLifecycleHooks";
+} from "./subagents/subagentInvariants";
+import { subagentLifecycleEventType, subagentLifecycleHookPreview } from "./subagents/subagentLifecycleHooks";
 import {
   SUBAGENT_LIFECYCLE_INTERRUPTION_PARENT_MAILBOX_TYPE,
   subagentLifecycleInterruptionIdempotencyKey,
   subagentLifecycleInterruptionParentMailboxPayload,
   type SubagentLifecycleInterruptionSource,
-} from "./subagentLifecycleParentMailbox";
+} from "./subagents/subagentLifecycleParentMailbox";
 import {
   buildSubagentGroupedCompletionNotificationDraft,
   SUBAGENT_GROUPED_COMPLETION_PARENT_MAILBOX_TYPE,
-} from "./subagentGroupJoin";
-import { cancelPendingParentToChildMailboxEvents } from "./subagentMailbox";
+} from "./subagents/subagentGroupJoin";
+import { cancelPendingParentToChildMailboxEvents } from "./subagents/subagentMailbox";
 import {
   workflowRecordingFindLibraryRecord,
   workflowRecordingLibraryVersions,
@@ -365,6 +365,9 @@ import {
   materializeSymphonyChildLaunchContractBundleForRun,
 } from "../shared/symphonyFineGrainedContracts";
 import {
+  releaseSymphonyMutationWorkspaceLease,
+} from "./symphonyMutationWorkspaceLeaseService";
+import {
   compactSubagentCapacityLeasePreview,
   compactSubagentMailboxEventForPreview,
   latestSubagentMaturityEvidence,
@@ -383,8 +386,8 @@ import {
   subagentSpawnEdgeRecordForRun,
   subagentRunStatusIsTerminal,
 } from "./projectStoreSubagentMappers";
-import { resolveSubagentParentStopWaitBarrier } from "./subagentParentStopWaitBarrier";
-import { resolveSubagentParentControlBarrierReconciliation } from "./subagentParentControlBarrierReconciliation";
+import { resolveSubagentParentStopWaitBarrier } from "./subagents/subagentParentStopWaitBarrier";
+import { resolveSubagentParentControlBarrierReconciliation } from "./subagents/subagentParentControlBarrierReconciliation";
 import { ProjectStoreContextUsageRepository } from "./projectStore/contextUsageRepository";
 import { ProjectStorePermissionRepository } from "./projectStore/permissionRepository";
 import {
@@ -392,12 +395,12 @@ import {
   hashProjectBoardSourceContent,
   projectBoardSourceIncludedInSynthesis,
   projectBoardSourceKey,
-} from "./projectBoardSourceIdentity";
+} from "./project-board/projectBoardSourceIdentity";
 import {
   projectBoardPlanDisplayTitle,
   projectBoardPlanTitleIsGeneric,
 } from "../shared/projectBoardPlanIdentity";
-import type { ProjectBoardArtifactProjection } from "./projectBoardArtifactImport";
+import type { ProjectBoardArtifactProjection } from "./project-board/projectBoardArtifactImport";
 import {
   evaluateProjectBoardCardProof,
   mapProjectBoardEventRow,
@@ -522,8 +525,8 @@ import {
   projectBoardTaskToolCompleted,
   projectBoardTaskToolManualChecks,
   projectBoardTaskToolProofSummary,
-} from "./projectBoardTaskTools";
-import { type ProjectBoardSynthesisCardInput, type ProjectBoardSynthesisDraft } from "./projectBoardSynthesis";
+} from "./project-board/projectBoardTaskTools";
+import { type ProjectBoardSynthesisCardInput, type ProjectBoardSynthesisDraft } from "./project-board/projectBoardSynthesis";
 import { dedupeProjectBoardQuestions, projectBoardQuestionsAreNearDuplicates } from "../shared/projectBoardQuestionDedupe";
 import { projectBoardOpenClarificationQuestions } from "../shared/projectBoardClarificationDecisions";
 import type {
@@ -551,8 +554,8 @@ import {
   projectBoardClarificationDefaultAnsweredDecisions,
   projectBoardClarificationDefaultQuestionsShareDecisionTopic,
   type ProjectBoardClarificationDefaultSuggestion,
-} from "./projectBoardClarificationDefaultProvider";
-import type { ProjectBoardProofSuggestion } from "./projectBoardProofSuggestionProvider";
+} from "./project-board/projectBoardClarificationDefaultProvider";
+import type { ProjectBoardProofSuggestion } from "./project-board/projectBoardProofSuggestionProvider";
 import { extractPlannerPlanArtifactFields } from "./plannerMode";
 import { LEGACY_PROJECT_STATE_DIR, prepareWorkspaceAuthorityState } from "./workspaceAuthorityState";
 import { parseJsonArray, parseJsonObject, parseMetadata, stringFromRecord } from "./projectStoreJson";
@@ -4128,16 +4131,26 @@ export class ProjectStore {
       releasedAt: now,
       reason: "close_agent released live sub-agent capacity while preserving transcript history.",
     });
+    const releasedMutationLease = releaseSymphonyMutationWorkspaceLease(current.symphonyMutationWorkspaceLease, { now });
     const closed = this.subagentRuns().closeSubagentRun({
       runId,
       closedAt: now,
       capacityLeaseSnapshot: releasedCapacityLease,
+      ...(releasedMutationLease ? { symphonyMutationWorkspaceLease: releasedMutationLease } : {}),
     });
     this.appendSubagentRunEventInternal(runId, {
       type: "subagent.closed",
       preview: {
         childThreadId: current.childThreadId,
         capacityLease: compactSubagentCapacityLeasePreview(releasedCapacityLease),
+        ...(releasedMutationLease ? {
+          mutationWorkspaceLease: {
+            leaseId: releasedMutationLease.leaseId,
+            kind: releasedMutationLease.kind,
+            status: releasedMutationLease.status,
+            rootPath: releasedMutationLease.rootPath,
+          },
+        } : {}),
       },
       createdAt: now,
     });
@@ -4153,6 +4166,17 @@ export class ProjectStore {
       createdAt: now,
     });
     return closed;
+  }
+
+  updateSubagentRunMutationWorkspaceLease(runId: string, lease: unknown): SubagentRunSummary {
+    const current = this.getSubagentRun(runId);
+    const validated = assertValidMutationWorkspaceLease({
+      ...(typeof lease === "object" && lease && !Array.isArray(lease) ? lease as Record<string, unknown> : {}),
+      parentThreadId: current.parentThreadId,
+      childThreadId: current.childThreadId,
+      childRunId: current.id,
+    });
+    return this.subagentRuns().updateSubagentRunMutationWorkspaceLease(runId, validated);
   }
 
   createWorkflowRecordingThread(input: { goal?: string; workspacePath?: string } = {}): ThreadSummary {

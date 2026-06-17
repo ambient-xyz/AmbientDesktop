@@ -44,14 +44,14 @@ import {
   ambientCliLazySkillsEnabled,
   resolveAmbientCliSkillMount,
 } from "./agentRuntimeAmbientCliSkillMount";
-import { ambientCapabilityBuilderPlanInput } from "./agentRuntimeCapabilityBuilderInput";
+import { ambientCapabilityBuilderPlanInput } from "./capability-builder/agentRuntimeCapabilityBuilderInput";
 import { PLANNER_DURABLE_REVISION_PROMPT_MARKER } from "./agentRuntimePlannerFinalizationPrompt";
 import { AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES } from "./ambientToolRouter";
 import { MacosAuthorizedHelperUnavailableAdapter, type PrivilegedActionAdapter, type PrivilegedActionAdapterExecuteInput } from "./privilegedActionAdapter";
 import { privilegedActionAdapterStatus, successfulPrivilegedActionNativeRequest } from "./privilegedAction";
-import { scaffoldCapabilityBuilderPackage } from "./capabilityBuilder";
+import { scaffoldCapabilityBuilderPackage } from "./capability-builder/capabilityBuilder";
 import { ProjectStore } from "./projectStore";
-import type { LocalModelRuntimeLease, LocalModelRuntimeReleaseResult } from "./localModelRuntimeManager";
+import type { LocalModelRuntimeLease, LocalModelRuntimeReleaseResult } from "./local-runtime/localModelRuntimeManager";
 import { TelegramBridgeSupervisor } from "./telegramBridgeSupervisor";
 import { createMessagingBindingStore } from "./messagingBindings";
 import { createDefaultMessagingProviderRegistry } from "./messagingGatewayRegistry";
@@ -62,26 +62,26 @@ import { createSttSettingsToolExtension } from "./agentRuntimeSttTools";
 import { createVoiceSettingsToolExtension } from "./agentRuntimeVoiceTools";
 import { writePcm16Wav } from "./sttAudio";
 import { normalizeWebResearchProviderStackSettings } from "./webResearchProviderStack";
-import { normalizeLocalDeepResearchSettings } from "./localDeepResearchProviderStack";
+import { normalizeLocalDeepResearchSettings } from "./local-deep-research/localDeepResearchProviderStack";
 import { localDeepResearchToolBudgetState, normalizeLocalDeepResearchRunBudget } from "../shared/localDeepResearchBudget";
-import { detectLocalDeepResearchManagedAssets, localDeepResearchModelCachePath } from "./localDeepResearchManagedAssets";
-import { localDeepResearchProfileById } from "./localDeepResearchModelProfiles";
+import { detectLocalDeepResearchManagedAssets, localDeepResearchModelCachePath } from "./local-deep-research/localDeepResearchManagedAssets";
+import { localDeepResearchProfileById } from "./local-deep-research/localDeepResearchModelProfiles";
 import { selectLocalLlamaRuntimeArtifact } from "./localLlamaRuntimeManifest";
 import { detectLocalLlamaResidentProcesses } from "./localLlamaResidencyPolicy";
 import { miniCpmRuntimeReleaseManifestPrototype } from "./miniCpmRuntimeManifest";
-import { buildLocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import type { LocalDeepResearchRunServiceResult } from "./localDeepResearchRunService";
-import type { LocalDeepResearchInstallServiceResult } from "./localDeepResearchInstallService";
-import { resolveSubagentApprovalDecision } from "./subagentApprovalDecision";
-import { resolveSubagentChildActiveToolNames } from "./subagentChildActiveTools";
-import { appendMappedSubagentRuntimeEvent } from "./subagentRuntimeEventPersistence";
+import { buildLocalDeepResearchSetupContract } from "./local-deep-research/localDeepResearchSetup";
+import type { LocalDeepResearchRunServiceResult } from "./local-deep-research/localDeepResearchRunService";
+import type { LocalDeepResearchInstallServiceResult } from "./local-deep-research/localDeepResearchInstallService";
+import { resolveSubagentApprovalDecision } from "./subagents/subagentApprovalDecision";
+import { resolveSubagentChildActiveToolNames } from "./subagents/subagentChildActiveTools";
+import { appendMappedSubagentRuntimeEvent } from "./subagents/subagentRuntimeEventPersistence";
 import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   callableWorkflowToolName,
-} from "./callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
-import { CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE } from "./callableWorkflowParentBlocking";
+} from "./callable-workflow/callableWorkflowRegistry";
+import { buildCallableWorkflowExecutionPlan } from "./callable-workflow/callableWorkflowExecutionPlan";
+import { CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE } from "./callable-workflow/callableWorkflowParentBlocking";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 const gib = 1024 ** 3;

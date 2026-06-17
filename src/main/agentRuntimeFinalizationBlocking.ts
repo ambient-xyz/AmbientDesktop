@@ -13,11 +13,11 @@ import {
   callableWorkflowParentBlockingIdempotencyKey,
   resolveCallableWorkflowParentBlocking,
   type CallableWorkflowParentBlockingBlock,
-} from "./callableWorkflowParentBlocking";
+} from "./callable-workflow/callableWorkflowParentBlocking";
 import {
   subagentResultRepairStateForRun,
   type SubagentResultRepairState,
-} from "./subagentResultRepairState";
+} from "./subagents/subagentResultRepairState";
 
 type RuntimeStreamActivity = Extract<RuntimeActivity, { kind: "stream" }>;
 

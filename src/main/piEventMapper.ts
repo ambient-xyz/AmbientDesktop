@@ -31,7 +31,7 @@ import {
   largeOutputPreviewItemsMissingArtifacts,
   validateLargeOutputPreviewArtifacts,
   type LargeOutputPreviewMissingArtifactItem,
-} from "./subagentInvariants";
+} from "./subagents/subagentInvariants";
 
 type ToolStatus = "running" | "done" | "error";
 type ToolEventDetails = Record<string, string>;

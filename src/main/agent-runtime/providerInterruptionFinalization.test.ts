@@ -4,7 +4,7 @@ import type { ProviderContinuationState } from "../../shared/types";
 import type {
   ProviderInterruptionDiagnostic,
   ProviderInterruptionToolSnapshot,
-} from "../agentRuntimeProviderContinuationHelpers";
+} from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
 import {
   providerInterruptionFinalizationMessage,

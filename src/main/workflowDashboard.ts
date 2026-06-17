@@ -20,7 +20,7 @@ import type { ProjectStore } from "./projectStore";
 import { generateWorkflowAuditReport, hashWorkflowSource } from "./workflowAuditReport";
 import { assertWorkflowArtifactSourceEditable, validateWorkflowProgramIrArtifactFiles, workflowArtifactSourceProvenance } from "./workflowArtifactProvenance";
 import { workflowApprovalsFromEvents } from "./workflowApprovals";
-import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "./workflowCompiler";
+import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "./workflow-compiler/workflowCompiler";
 import { readWorkflowCheckpointSummaries } from "./workflowCheckpointStore";
 import { workflowResumeChainEvents, workflowResumeChainModelCalls } from "./workflowRunChain";
 import type { WorkflowConnectorDescriptor } from "./workflowConnectors";

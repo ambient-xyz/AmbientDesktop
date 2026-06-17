@@ -1,6 +1,6 @@
 # Workflow Compiler Prompt Rule Inventory
 
-This is the Phase 0 inventory for the Workflow Agent abstraction work. The executable source of truth lives in `src/main/workflowCompilerPromptInventory.ts`; this document is the human review surface for deciding whether each rule should remain core prompt text, move into a capability descriptor, become a typed recipe, or be enforced by a validator.
+This is the Phase 0 inventory for the Workflow Agent abstraction work. The executable source of truth lives in `src/main/workflow-compiler/workflowCompilerPromptInventory.ts`; this document is the human review surface for deciding whether each rule should remain core prompt text, move into a capability descriptor, become a typed recipe, or be enforced by a validator.
 
 ## Owner Categories
 

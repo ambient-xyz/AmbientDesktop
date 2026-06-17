@@ -50,7 +50,7 @@ import {
   type PluginMcpToolInvocation,
   type PluginMcpToolInvocationResult,
   type PluginMcpToolRegistration,
-} from "../pluginMcpSupervisor";
+} from "./pluginMcpSupervisor";
 import {
   buildAmbientPluginRegistry,
   getAmbientPluginCapabilityDiagnostics,

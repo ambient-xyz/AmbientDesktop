@@ -171,9 +171,11 @@ export interface MutationWorkspaceLease {
   rootPath: string;
   sourceRoots: string[];
   readOnlyBaseRoots: string[];
+  declaredWritableRoots: string[];
   writableRoots: string[];
   status: SymphonyMutationWorkspaceLeaseStatus;
   promotionBundleId?: string;
+  failureReason?: string;
   acquiredAt: string;
   lastHeartbeatAt: string;
 }
@@ -429,6 +431,9 @@ export function assertValidChildLaunchPolicySnapshot(value: unknown): ChildLaunc
   if (mutation === "none" && writableRoots.length > 0) {
     throw new Error("symphony.childLaunchPolicySnapshot.writableRoots must be empty when mutation is none.");
   }
+  if (mutation === "lease_required" && writableRoots.length === 0) {
+    throw new Error("symphony.childLaunchPolicySnapshot.writableRoots must declare at least one root when mutation requires a lease.");
+  }
   const mutatingAllowedToolId = mutation === "none"
     ? allowedToolIds.find((toolId) => (SYMPHONY_MUTATING_TOOL_POLICY_IDS as readonly string[]).includes(toolId))
     : undefined;
@@ -475,10 +480,14 @@ export function assertValidMutationWorkspaceLease(value: unknown): MutationWorks
   const input = objectRecord(value, "mutationWorkspaceLease");
   requireExactValue(input.schemaVersion, SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION, "mutationWorkspaceLease.schemaVersion");
   const rootPath = absolutePolicyPath(input.rootPath, "mutationWorkspaceLease.rootPath");
+  const declaredWritableRoots = absolutePathArray(input.declaredWritableRoots, "mutationWorkspaceLease.declaredWritableRoots");
   const writableRoots = absolutePathArray(input.writableRoots, "mutationWorkspaceLease.writableRoots");
   const outsideWritableRoot = writableRoots.find((writableRoot) => !policyPathWithinRoot(writableRoot, rootPath));
   if (outsideWritableRoot) {
     throw new Error(`mutationWorkspaceLease.writableRoots must stay inside mutationWorkspaceLease.rootPath; ${outsideWritableRoot} is outside ${rootPath}.`);
+  }
+  if ((input.status === "active" || input.status === "promoting") && writableRoots.length === 0) {
+    throw new Error("mutationWorkspaceLease.writableRoots must include at least one isolated writable root while active or promoting.");
   }
   return {
     schemaVersion: SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
@@ -490,10 +499,14 @@ export function assertValidMutationWorkspaceLease(value: unknown): MutationWorks
     rootPath,
     sourceRoots: absolutePathArray(input.sourceRoots, "mutationWorkspaceLease.sourceRoots"),
     readOnlyBaseRoots: absolutePathArray(input.readOnlyBaseRoots, "mutationWorkspaceLease.readOnlyBaseRoots"),
+    declaredWritableRoots,
     writableRoots,
     status: enumValue(input.status, SYMPHONY_MUTATION_WORKSPACE_LEASE_STATUSES, "mutationWorkspaceLease.status"),
     ...(input.promotionBundleId !== undefined
       ? { promotionBundleId: nonEmptyString(input.promotionBundleId, "mutationWorkspaceLease.promotionBundleId") }
+      : {}),
+    ...(input.failureReason !== undefined
+      ? { failureReason: nonEmptyString(input.failureReason, "mutationWorkspaceLease.failureReason") }
       : {}),
     acquiredAt: nonEmptyString(input.acquiredAt, "mutationWorkspaceLease.acquiredAt"),
     lastHeartbeatAt: nonEmptyString(input.lastHeartbeatAt, "mutationWorkspaceLease.lastHeartbeatAt"),

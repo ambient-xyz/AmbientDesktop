@@ -21,7 +21,7 @@ import type {
 } from "../shared/types";
 import { getRestorablePiSessionFile, isPathInside } from "./sessionPaths";
 import { isSecretKey, REDACTED_SECRET, redactSensitiveText, redactSensitiveTextWithMetadata } from "./secretRedaction";
-import { compactSubagentToolScopeSnapshot } from "./subagentToolScopeSnapshot";
+import { compactSubagentToolScopeSnapshot } from "./subagents/subagentToolScopeSnapshot";
 
 export interface ChatExportDataSource {
   getWorkspace(): WorkspaceState;

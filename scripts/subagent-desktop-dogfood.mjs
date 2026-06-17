@@ -45,13 +45,13 @@ try {
     }),
   });
   dogfoodEnv = buildDogfoodEnv();
-  await run("bash", ["scripts/test-node-native.sh", "src/main/subagentDesktopDogfoodSeed.test.ts"], dogfoodEnv);
+  await run("bash", ["scripts/test-node-native.sh", "src/main/subagents/subagentDesktopDogfoodSeed.test.ts"], dogfoodEnv);
   await run("pnpm", ["run", "prepare:electron-native"], dogfoodEnv);
   await run("pnpm", [
     "exec",
     "vitest",
     "run",
-    "src/main/subagentDesktopDogfood.e2e.test.ts",
+    "src/main/subagents/subagentDesktopDogfood.e2e.test.ts",
     ...process.argv.slice(2),
   ], dogfoodEnv);
   await run("node", [

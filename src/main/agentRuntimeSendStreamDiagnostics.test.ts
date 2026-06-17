@@ -6,7 +6,7 @@ import {
   createRuntimeSendStreamDiagnostics,
   type PiStreamTraceEvent,
 } from "./agentRuntimeSendStreamDiagnostics";
-import type { PiStreamTraceReference } from "./agentRuntimeProviderDiagnostics";
+import type { PiStreamTraceReference } from "./agent-runtime/provider-continuation/agentRuntimeProviderDiagnostics";
 
 describe("agentRuntimeSendStreamDiagnostics", () => {
   const tempRoots: string[] = [];

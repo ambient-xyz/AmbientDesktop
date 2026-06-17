@@ -4,7 +4,7 @@ import type {
   WorkspaceState,
 } from "../shared/types";
 import type { AmbientCliPackageCatalog } from "./ambientCliPackages";
-import type { LocalDeepResearchProviderSnapshot } from "./localDeepResearchSetup";
+import type { LocalDeepResearchProviderSnapshot } from "./local-deep-research/localDeepResearchSetup";
 import type { McpToolDescriptor } from "./mcpToolBridge";
 import { webResearchSettingsWithDynamicProviderCatalogs } from "./searchSettingsTools";
 import {

@@ -7,8 +7,8 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultOutputPath = resolve(repoRoot, "test-results", "subagent-replay-diagnostics", "latest.json");
 const replayTestFiles = [
   "src/test/subagentFixtures.test.ts",
-  "src/main/subagentRepair.test.ts",
-  "src/main/subagentLifecycleEdgeEvidence.test.ts",
+  "src/main/subagents/subagentRepair.test.ts",
+  "src/main/subagents/subagentLifecycleEdgeEvidence.test.ts",
 ];
 const requiredReplayTestNames = [
   "subagent test fixtures builds deterministic restart replay state with bounded transcripts and runtime events",

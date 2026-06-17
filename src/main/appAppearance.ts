@@ -13,7 +13,7 @@ import type {
   ThinkingDisplaySettings,
   VoiceSettings,
 } from "../shared/types";
-import { normalizeLocalDeepResearchSettings } from "./localDeepResearchProviderStack";
+import { normalizeLocalDeepResearchSettings } from "./local-deep-research/localDeepResearchProviderStack";
 import { normalizeSearchRoutingSettingsWithWebResearch } from "./webResearchProviderStack";
 
 export const DEFAULT_THEME_PREFERENCE: ThemePreference = "system";

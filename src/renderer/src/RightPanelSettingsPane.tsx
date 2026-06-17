@@ -66,6 +66,7 @@ import {
   RightPanelDiagnosticsSettingsSection,
   RightPanelMediaSettingsSection,
   RightPanelSecuritySettingsSection,
+  RightPanelWritingStyleSettingsSection,
 } from "./RightPanelSettingsSystem";
 import {
   webResearchProvidersForRole,
@@ -352,6 +353,7 @@ export function RightPanelSettingsPane({
     const searchCatalogCards = [...webSearchCatalogCards, ...deepResearchCatalogCards];
     const visualCatalogCards = providerCatalogSettingsCardsForArea(state.providerCatalog.cards, "visual-understanding");
     const authoredVideoCatalogCards = providerCatalogSettingsCardsForArea(state.providerCatalog.cards, "video-generation").filter((card) => card.id === "video.hyperframes-authored-motion");
+    const writingStyleCatalogCards = providerCatalogSettingsCardsForArea(state.providerCatalog.cards, "writing-style-transfer");
     const miniCpmVisionSetupModel = miniCpmVisionSetup.result ? miniCpmVisionSetupResultModel(miniCpmVisionSetup.result) : undefined;
     const miniCpmVisionActions = miniCpmVisionSetupActions(miniCpmVisionSetup.result);
     const miniCpmVisionDiagnostics = miniCpmVisionSetup.diagnostics ?? miniCpmVisionSetupModel?.diagnostics ?? [];
@@ -569,6 +571,7 @@ export function RightPanelSettingsPane({
       mcpRuntimeStatus: mcpRuntimeSettingsStatus,
       visualCatalogCount: visualCatalogCards.length,
       authoredVideoCatalogCount: authoredVideoCatalogCards.length,
+      writingStyleCatalogCount: writingStyleCatalogCards.length,
       activePermissionGrantCount: grantRegistry.activeCount,
       diagnosticStatusKind: diagnosticsPane.diagnosticStatus?.kind,
       appVersion: state.app.version,
@@ -627,6 +630,7 @@ export function RightPanelSettingsPane({
       miniCpmVisionDiagnostics,
       visualCatalogCards,
       authoredVideoCatalogCards,
+      writingStyleCatalogCards,
       googleGrantGroups: googleGrantReview.groups,
       grantRegistrySummary: grantRegistry.summary,
       permissionAuditError,
@@ -914,6 +918,15 @@ export function RightPanelSettingsPane({
             onSetupMiniCpmVisionProvider={onSetupMiniCpmVisionProvider}
             startProviderCatalogCardOnboarding={settingsPane.startProviderCatalogCardOnboarding}
             onMediaPlaybackSettingsChange={onMediaPlaybackSettingsChange}
+          />
+        )}
+        {settingsSectionVisible("writing-style") && (
+          <RightPanelWritingStyleSettingsSection
+            state={state}
+            running={running}
+            settingsRowVisible={settingsRowVisible}
+            writingStyleCatalogCards={writingStyleCatalogCards}
+            startProviderCatalogCardOnboarding={settingsPane.startProviderCatalogCardOnboarding}
           />
         )}
         {settingsSectionVisible("security-access") && (

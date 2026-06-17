@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { RuntimeProviderErrorDiagnostic } from "../agentRuntimeProviderDiagnostics";
+import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
 import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
 import { terminalProviderFailureFinalizationMessage } from "./terminalProviderFailureFinalization";

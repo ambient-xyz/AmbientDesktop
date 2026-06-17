@@ -81,7 +81,7 @@ import type {
   WorkflowVersionSummary,
   DesktopEvent,
 } from "../../shared/types";
-import type { CompileWorkflowArtifactInput } from "../workflowCompilerService";
+import type { CompileWorkflowArtifactInput } from "../workflow-compiler/workflowCompilerService";
 import type { WorkflowRecoveryPlan } from "../workflowRecovery";
 import type { RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput } from "../workflowRunService";
 import type { WorkflowConnectorDescriptor } from "../workflowConnectors";

@@ -1,5 +1,5 @@
 import type { DesktopEvent } from "../../shared/types";
-import type { PiStreamTraceReference } from "../agentRuntimeProviderDiagnostics";
+import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import type { PromptCompletion } from "../postToolFinalization";
 import {
   createRuntimeStreamWatchdogController,

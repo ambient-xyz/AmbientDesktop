@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { RestoreWorkflowVersionInput, WorkflowDashboard, WorkflowGraphEdge, WorkflowGraphNode, WorkflowManifest, WorkflowSpec } from "../shared/types";
 import { workflowGraphFromSpec } from "../shared/workflowAgentGraph";
 import type { ProjectStore } from "./projectStore";
-import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "./workflowCompiler";
+import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "./workflow-compiler/workflowCompiler";
 import type { WorkflowConnectorDescriptor } from "./workflowConnectors";
 import { readWorkflowDashboard } from "./workflowDashboard";
 import { commitWorkflowVersionRepo, restoreWorkflowVersionFiles } from "./workflowVersioning";

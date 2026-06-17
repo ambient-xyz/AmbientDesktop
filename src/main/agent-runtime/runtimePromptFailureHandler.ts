@@ -11,15 +11,15 @@ import { AmbientStreamFailureError, isRetryableAmbientProviderError } from "../a
 import type { AmbientStreamFailureKind } from "../aggressiveRetries";
 import type { AssistantFinalizationRetryReason, AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agentRuntimeAssistantRetryInput";
 import { shouldOpenApiKeyDialogForRuntimeError, formatRuntimeError as formatAgentRuntimeError } from "../agentRuntimeErrorFormatting";
-import type { RuntimeProviderErrorDiagnostic } from "../agentRuntimeProviderDiagnostics";
-import { isContinuableAmbientProviderInterruption, runtimeProviderErrorDiagnostic } from "../agentRuntimeProviderDiagnostics";
-import { type ProviderInterruptionToolSnapshot } from "../agentRuntimeProviderContinuationHelpers";
-import { runtimeProviderRetryStartingActivity } from "../agentRuntimeProviderRetryActivity";
+import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
+import { isContinuableAmbientProviderInterruption, runtimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
+import { type ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
+import { runtimeProviderRetryStartingActivity } from "./provider-continuation/agentRuntimeProviderRetryActivity";
 import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
 import { formatToolTranscript } from "../agentRuntimeToolTranscript";
 import { toolMessageMetadata, type SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";
 import type { InterruptedToolCallRecoveryTracker } from "../interruptedToolCallRecovery";
-import { providerInterruptionContinuationRetryBudget } from "../providerInterruptionContinuation";
+import { providerInterruptionContinuationRetryBudget } from "./provider-continuation/providerInterruptionContinuation";
 import { interruptedToolCallRecoveryFinalizationMessage } from "./interruptedToolCallRecoveryFinalization";
 import { type RuntimeOpenToolFailureReason } from "./openToolFailureUpdates";
 import {

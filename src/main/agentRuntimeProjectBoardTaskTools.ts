@@ -8,7 +8,7 @@ import {
   projectBoardTaskToolActionWithNativeMetadata,
   projectBoardTaskToolNativeResultText,
   type ProjectBoardNativeTaskToolName,
-} from "./projectBoardTaskTools";
+} from "./project-board/projectBoardTaskTools";
 
 export interface ProjectBoardTaskToolExtensionOptions {
   threadId: string;

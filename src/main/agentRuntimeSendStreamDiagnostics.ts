@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AmbientStreamFailureKind } from "./aggressiveRetries";
-import type { ProviderInterruptionToolSnapshot } from "./agentRuntimeProviderContinuationHelpers";
+import type { ProviderInterruptionToolSnapshot } from "./agent-runtime/provider-continuation/agentRuntimeProviderContinuationHelpers";
 import {
   approximateDiagnosticPayloadBytes,
   buildChatStreamInterruptionNotice,
@@ -12,7 +12,7 @@ import {
   type PiStreamTraceReference,
   type RuntimeProviderErrorDiagnostic,
   type RuntimeProviderFailureDiagnostic,
-} from "./agentRuntimeProviderDiagnostics";
+} from "./agent-runtime/provider-continuation/agentRuntimeProviderDiagnostics";
 import { runtimePiStreamFailureKind, runtimePiStreamTimeoutMessage } from "./agentRuntimeStreamState";
 import { getAmbientProviderStatus } from "./providerStatus";
 

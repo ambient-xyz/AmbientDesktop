@@ -1,5 +1,5 @@
 import type { DesktopEvent, ToolArgumentProgressSnapshot } from "../../shared/types";
-import type { PiStreamTraceReference } from "../agentRuntimeProviderDiagnostics";
+import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 
 export interface RuntimeToolArgumentProgressSource {
   nextActiveArgumentStallDelayMs(timeoutMs: number): number | undefined;

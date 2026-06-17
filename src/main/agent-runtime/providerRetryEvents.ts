@@ -3,7 +3,7 @@ import type { NormalizedPiEvent } from "../piEventMapper";
 import {
   runtimeProviderRetryFinishedActivity,
   runtimeProviderRetryStartingActivity,
-} from "../agentRuntimeProviderRetryActivity";
+} from "./provider-continuation/agentRuntimeProviderRetryActivity";
 
 type RuntimeRetryActivity = Extract<RuntimeActivity, { kind: "retry" }>;
 export type RuntimeProviderRetryEvent = Extract<NormalizedPiEvent, { kind: "auto-retry-start" | "auto-retry-end" }>;

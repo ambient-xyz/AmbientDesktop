@@ -3,7 +3,7 @@ import {
   buildProviderInterruptionContinuationNotice,
   type ProviderInterruptionDiagnostic,
   type ProviderInterruptionToolSnapshot,
-} from "../agentRuntimeProviderContinuationHelpers";
+} from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import type { ChatStreamInterruptionDiagnostic } from "../agentRuntimeSendStreamDiagnostics";
 
 export interface ProviderInterruptionFinalizationInput {

@@ -34,7 +34,7 @@ import type {
 import type { SymphonyWorkflowRecipePreset } from "../shared/symphonyWorkflowRecipes";
 import { projectBoardPlanTitleIsGeneric } from "../shared/projectBoardPlanIdentity";
 import { LEGACY_PROJECT_STATE_DIR } from "./workspaceAuthorityState";
-import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, projectBoardSourceIncludedInSynthesis } from "./projectBoardSourceIdentity";
+import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, projectBoardSourceIncludedInSynthesis } from "./project-board/projectBoardSourceIdentity";
 import { parseStringList } from "./projectStoreJson";
 import {
   normalizeCardTextList,
@@ -51,7 +51,7 @@ import {
   type ProjectBoardSynthesisProposalStoreRow,
   type ProjectBoardSynthesisRunStoreRow,
 } from "./projectStore/projectBoardMappers";
-import type { ProjectBoardSynthesisCardInput } from "./projectBoardSynthesis";
+import type { ProjectBoardSynthesisCardInput } from "./project-board/projectBoardSynthesis";
 
 export const PROJECT_STATE_DIR = LEGACY_PROJECT_STATE_DIR;
 export const AUTOMATION_HOME_FOLDER_ID = "home";

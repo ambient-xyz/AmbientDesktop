@@ -3,8 +3,8 @@ import type {
   ToolArgumentProgressSnapshot,
   ToolIntentSnapshot,
 } from "../../shared/types";
-import type { ProviderInterruptionToolSnapshot } from "../agentRuntimeProviderContinuationHelpers";
-import { compactToolInputPreview } from "../agentRuntimeProviderDiagnostics";
+import type { ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
+import { compactToolInputPreview } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 
 export type PersistPreparedProviderInterruptionArguments = (input: {
   workspacePath: string;

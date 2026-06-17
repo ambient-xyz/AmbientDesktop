@@ -35,15 +35,15 @@ function proofSteps() {
     },
     {
       label: "active sub-agent Stop blocker",
-      vitestArgs: ["src/main/localRuntimeInventory.test.ts", "-t", "joins active sub-agent leases"],
+      vitestArgs: ["src/main/local-runtime/localRuntimeInventory.test.ts", "-t", "joins active sub-agent leases"],
     },
     {
       label: "untracked runtime safety",
-      vitestArgs: ["src/main/localRuntimeInventory.test.ts", "-t", "keeps untracked runtime blockers visible"],
+      vitestArgs: ["src/main/local-runtime/localRuntimeInventory.test.ts", "-t", "keeps untracked runtime blockers visible"],
     },
     {
       label: "stale lease recovery",
-      vitestArgs: ["src/main/localRuntimeInventory.test.ts", "-t", "treats active-looking sub-agent leases as stale only when a freshness window is supplied"],
+      vitestArgs: ["src/main/local-runtime/localRuntimeInventory.test.ts", "-t", "treats active-looking sub-agent leases as stale only when a freshness window is supplied"],
     },
     {
       label: "stopped provider display",
@@ -51,7 +51,7 @@ function proofSteps() {
     },
     {
       label: "provider-declared lifecycle",
-      vitestArgs: ["src/main/agentRuntimeLocalRuntimeTools.test.ts", "-t", "runs provider-declared Start, Stop, and Restart"],
+      vitestArgs: ["src/main/local-runtime/agentRuntimeLocalRuntimeTools.test.ts", "-t", "runs provider-declared Start, Stop, and Restart"],
     },
   ];
 }

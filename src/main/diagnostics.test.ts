@@ -10,10 +10,10 @@ import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   callableWorkflowToolName,
-} from "./callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
+} from "./callable-workflow/callableWorkflowRegistry";
+import { buildCallableWorkflowExecutionPlan } from "./callable-workflow/callableWorkflowExecutionPlan";
 import { createDiagnosticBundle, diagnosticBundleFileName, redactString, redactValue } from "./diagnostics";
-import { buildLocalModelRuntimeStatusSnapshot } from "./localModelRuntimeStatus";
+import { buildLocalModelRuntimeStatusSnapshot } from "./local-runtime/localModelRuntimeStatus";
 import { ambientTencentMemoryDataDir, inspectTencentDbMemoryDiagnostics } from "./memory/tencentdb";
 import { ProjectStore } from "./projectStore";
 
@@ -283,7 +283,7 @@ describe("diagnostics", () => {
     });
     expect(payload.bundle.agentMemory.diagnostics).toMatchObject({
       adapter: "tencentdb",
-      status: "needs_attention",
+      status: "healthy",
       fileCount: 1,
       storageSchemaStatus: "missing",
       storageSchemaExpectedVersion: "ambient-tencent-memory-storage-v1",
@@ -291,13 +291,13 @@ describe("diagnostics", () => {
       activeThreadCount: 1,
       nativePreflight: {
         schemaVersion: "ambient-agent-memory-native-preflight-v1",
-        status: "needs_attention",
+        status: "healthy",
         coreModuleConfigured: true,
       },
     });
     expect(payload.bundle.summary.agentMemory).toMatchObject({
       adapter: "tencentdb",
-      status: "needs_attention",
+      status: "healthy",
       fileCount: 1,
       storageSchemaStatus: "missing",
       rawContentIncluded: false,

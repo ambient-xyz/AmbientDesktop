@@ -2,7 +2,7 @@ import type { DesktopEvent } from "../../shared/types";
 import {
   approximateDiagnosticPayloadBytes,
   normalizedPiEventType,
-} from "../agentRuntimeProviderDiagnostics";
+} from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { runtimePiStreamProgressActivity } from "../agentRuntimeStreamState";
 
 export interface RuntimeStreamActivitySnapshot {

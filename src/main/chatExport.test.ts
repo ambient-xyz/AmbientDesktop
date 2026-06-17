@@ -11,8 +11,8 @@ import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   parentPiVisibleCallableWorkflowTools,
-} from "./callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
+} from "./callable-workflow/callableWorkflowRegistry";
+import { buildCallableWorkflowExecutionPlan } from "./callable-workflow/callableWorkflowExecutionPlan";
 import { createChatExportBundle } from "./chatExport";
 import { ProjectStore } from "./projectStore";
 

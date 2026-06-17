@@ -6,7 +6,7 @@ if [[ ${#test_files[@]} -eq 0 ]]; then
   test_files=(
     src/main/projectStore.test.ts
     src/main/workflowDashboard.test.ts
-    src/main/workflowCompilerService.test.ts
+    src/main/workflow-compiler/workflowCompilerService.test.ts
     src/main/workflowRunService.test.ts
     src/main/workflowDogfood.test.ts
     src/main/pluginDogfood.test.ts

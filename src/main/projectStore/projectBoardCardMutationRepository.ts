@@ -29,8 +29,8 @@ import type {
   ProjectBoardSummary,
 } from "../../shared/projectBoardTypes";
 import type { CreateOrchestrationTaskInput, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
-import { stableBoardArtifactId } from "../projectBoardArtifacts";
-import type { ProjectBoardRunArtifactProjection } from "../projectBoardArtifactImport";
+import { stableBoardArtifactId } from "../project-board/projectBoardArtifacts";
+import type { ProjectBoardRunArtifactProjection } from "../project-board/projectBoardArtifactImport";
 import {
   mapProjectBoardCardRow,
   normalizeCardTextList,

@@ -8,8 +8,8 @@ import type {
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
 } from "../shared/types";
-import type { LocalTextSubagentRuntimeStore } from "./localTextSubagentRuntime";
-import type { SubagentPiToolStore } from "./subagentPiTools";
+import type { LocalTextSubagentRuntimeStore } from "./local-runtime/localTextSubagentRuntime";
+import type { SubagentPiToolStore } from "./subagents/subagentPiTools";
 
 export interface AgentRuntimeSubagentEventingStoreOptions {
   store: SubagentPiToolStore & LocalTextSubagentRuntimeStore;
@@ -49,6 +49,16 @@ export function createAgentRuntimeSubagentEventingStore(
       return run;
     },
     getSubagentRun: (runId) => store.getSubagentRun(runId),
+    updateSubagentRunMutationWorkspaceLease: (runId, lease) => {
+      const run = store.updateSubagentRunMutationWorkspaceLease(runId, lease);
+      emitSubagentRunAndChildThreadUpdated(run);
+      return run;
+    },
+    updateThreadWorkspacePath: (threadId, workspacePath) => {
+      const thread = store.updateThreadWorkspacePath(threadId, workspacePath);
+      emit({ type: "thread-updated", thread });
+      return thread;
+    },
     getSubagentWaitBarrier: (id) => store.getSubagentWaitBarrier(id),
     listSubagentRunsForParentThread: (parentThreadId) => store.listSubagentRunsForParentThread(parentThreadId),
     assertSubagentCanonicalTaskPathAvailableForSpawn: (input) => store.assertSubagentCanonicalTaskPathAvailableForSpawn(input),

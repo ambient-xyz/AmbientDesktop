@@ -7,7 +7,7 @@ import type {
   ProjectBoardSummary,
   ProjectBoardSynthesisProposalCard,
 } from "../../shared/projectBoardTypes";
-import type { ProjectBoardSynthesisDraft } from "../projectBoardSynthesis";
+import type { ProjectBoardSynthesisDraft } from "../project-board/projectBoardSynthesis";
 import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
 import {
   ProjectStoreProjectBoardSynthesisApplyRepository,

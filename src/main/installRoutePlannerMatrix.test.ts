@@ -8,7 +8,7 @@ import {
   scaffoldCapabilityBuilderPackage,
   validateCapabilityBuilderPackage,
   type CapabilityBuilderInstallerShape,
-} from "./capabilityBuilder";
+} from "./capability-builder/capabilityBuilder";
 
 describe("Ambient install route real install matrix", () => {
   let workspace = "";

@@ -36,7 +36,7 @@ import type {
   CallableWorkflowCatalogEntry,
   CallableWorkflowCatalogStatus,
   CallableWorkflowRegistry,
-} from "./callableWorkflowRegistry";
+} from "./callable-workflow/callableWorkflowRegistry";
 
 const DEFAULT_SLASH_COMMAND_LIMIT = 12;
 const MAX_SLASH_COMMAND_LIMIT = 50;
@@ -554,7 +554,7 @@ function kindRank(kind: SlashCommandKind): number {
 }
 
 function sourceRank(sourceKind: SlashCommandSourceKind): number {
-  const order: SlashCommandSourceKind[] = ["builtin", "codex-plugin", "ambient-cli", "workflow-recorder", "symphony"];
+  const order: SlashCommandSourceKind[] = ["builtin", "ambient-cli", "workflow-recorder", "codex-plugin", "symphony"];
   return 10 - order.indexOf(sourceKind);
 }
 

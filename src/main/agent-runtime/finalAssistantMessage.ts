@@ -1,4 +1,4 @@
-import type { CallableWorkflowParentBlockingBlock } from "../callableWorkflowParentBlocking";
+import type { CallableWorkflowParentBlockingBlock } from "../callable-workflow/callableWorkflowParentBlocking";
 import type { AssistantTerminalCleanupDiagnostic } from "../agentRuntimeAssistantTerminalDiagnostics";
 import type { SubagentFinalizationBarrierBlock } from "../agentRuntimeFinalizationBlocking";
 import type { SubagentParentControlAbortIntent } from "../agentRuntimeToolMessageMetadata";

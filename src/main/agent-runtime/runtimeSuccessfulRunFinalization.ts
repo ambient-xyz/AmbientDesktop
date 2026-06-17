@@ -7,7 +7,7 @@ import type {
   SubagentParentMailboxEventSummary,
   ThreadSummary,
 } from "../../shared/types";
-import type { CallableWorkflowParentBlockingBlock } from "../callableWorkflowParentBlocking";
+import type { CallableWorkflowParentBlockingBlock } from "../callable-workflow/callableWorkflowParentBlocking";
 import type { AssistantTerminalCleanupDiagnostic } from "../agentRuntimeAssistantTerminalDiagnostics";
 import {
   callableWorkflowFinalizationBlockedActivity,

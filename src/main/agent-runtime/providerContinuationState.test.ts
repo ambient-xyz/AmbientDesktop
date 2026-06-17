@@ -5,7 +5,7 @@ import type {
   ToolArgumentProgressSnapshot,
   ToolIntentSnapshot,
 } from "../../shared/types";
-import type { ProviderInterruptionToolSnapshot } from "../agentRuntimeProviderContinuationHelpers";
+import type { ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import {
   createRuntimeProviderContinuationState,
   runtimeProviderContinuationToolStateFromOpenSnapshot,

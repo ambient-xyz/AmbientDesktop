@@ -3,7 +3,7 @@ import type { DesktopEvent, SendMessageInput } from "../../shared/types";
 import {
   finalizeMessagingRemoteSurfaceCommandPendingProjectSwitchAfterRun,
   type MessagingRemoteSurfaceCommandPendingProjectSwitch,
-} from "../agentRuntimeMessagingRemoteSurfaceCommandApplyTools";
+} from "./messaging/agentRuntimeMessagingRemoteSurfaceCommandApplyTools";
 import {
   finalizeRuntimeGoalContinuationAfterRun,
   type AccountFinishedGoalRunInput,

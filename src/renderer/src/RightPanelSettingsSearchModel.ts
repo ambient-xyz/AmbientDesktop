@@ -23,6 +23,7 @@ export type RightPanelSettingsSectionsInput = {
   mcpRuntimeStatus: string;
   visualCatalogCount: number;
   authoredVideoCatalogCount: number;
+  writingStyleCatalogCount: number;
   activePermissionGrantCount: number;
   diagnosticStatusKind?: string;
   appVersion: string;
@@ -38,6 +39,7 @@ export function rightPanelSettingsSections({
   mcpRuntimeStatus,
   visualCatalogCount,
   authoredVideoCatalogCount,
+  writingStyleCatalogCount,
   activePermissionGrantCount,
   diagnosticStatusKind,
   appVersion,
@@ -58,6 +60,7 @@ export function rightPanelSettingsSections({
         authoredVideoCatalogCount ? `${authoredVideoCatalogCount} video` : undefined,
       ].filter(Boolean).join(" / ") || undefined,
     },
+    { id: "writing-style", label: "Writing Style", status: writingStyleCatalogCount ? `${writingStyleCatalogCount} catalog` : undefined },
     { id: "security-access", label: "Security & Access", status: `${activePermissionGrantCount} active` },
     { id: "diagnostics", label: "Diagnostics", status: diagnosticStatusKind },
     { id: "about", label: "About", status: appVersion },
@@ -78,6 +81,7 @@ export function rightPanelSettingsSectionSearchTerms({
     "search-web": ["search web", "web search", "search provider", "provider catalog", "web research", "local deep research", "literesearcher", "llama.cpp", "exa", "scrapling"],
     "mcp-runtime": ["mcp runtime", "web research", "scrapling", "toolhive", "docker", "podman", "container runtime"],
     "media-browser": ["media", "generated media settings", "visual analysis", "vision provider", "screenshot analysis"],
+    "writing-style": ["writing style", "style transfer", "tinystyler", "style profile", "rewrite in this style"],
     "security-access": ["security access", "security & access", "credential and permission settings"],
     diagnostics: ["diagnostics", "debug bundle", "diagnostic export history", "diagnostic import", "import diagnostics", "subagent maturity", "maturity gates", "feature flag graduation", "subagent repair", "restart repair", "replay evidence", "child timeline"],
     about: ["about", "app acknowledgements"],
@@ -253,6 +257,7 @@ export type RightPanelSettingsSearchTargetsInput = {
   }>;
   visualCatalogCards: ProviderCatalogSearchCard[];
   authoredVideoCatalogCards: ProviderCatalogSearchCard[];
+  writingStyleCatalogCards: ProviderCatalogSearchCard[];
   googleGrantGroups: Array<{
     accountHint: string;
     services: string[];
@@ -291,6 +296,7 @@ export function rightPanelSettingsSearchTargets({
   miniCpmVisionDiagnostics,
   visualCatalogCards,
   authoredVideoCatalogCards,
+  writingStyleCatalogCards,
   googleGrantGroups,
   grantRegistrySummary,
   permissionAuditError,
@@ -584,6 +590,7 @@ export function rightPanelSettingsSearchTargets({
     { id: "media.visual-catalog", sectionId: "media-browser", terms: ["visual analysis provider catalog", "vision catalog", "screenshot analysis", "image review", visualCatalogCards.map((card) => `${card.displayName} ${card.id} ${card.recommendationSummary}`).join(" ")] },
     { id: "media.video-catalog", sectionId: "media-browser", terms: ["authored video provider catalog", "hyperframes", "motion graphics", "title card", "html to video", authoredVideoCatalogCards.map((card) => `${card.displayName} ${card.id} ${card.recommendationSummary}`).join(" ")] },
     { id: "media.generated", sectionId: "media-browser", terms: ["generated media", "image", "audio", "video", "autoplay", state.settings.media.generatedMediaAutoplay] },
+    { id: "writing-style.catalog", sectionId: "writing-style", terms: ["writing style catalog", "style transfer", "TinyStyler", "ambient-tinystyler", "style profile", "rewrite in this style", writingStyleCatalogCards.map((card) => `${card.displayName} ${card.id} ${card.recommendationSummary}`).join(" ")] },
     { id: "security.api-key", sectionId: "security-access", terms: ["api key", "ambient api key", state.provider.source] },
     { id: "security.browser", sectionId: "security-access", terms: ["browser access", "chrome", "profile", "isolated profile"] },
     { id: "security.google", sectionId: "security-access", terms: ["google workspace grants", "gmail", "drive", "calendar", "plugins", "install capabilities", "connect account", googleGrantGroups.map((group) => `${group.accountHint} ${group.services.join(" ")}`).join(" ")] },

@@ -7,8 +7,8 @@ import type {
 import type { SubagentCapacityLocalMemorySnapshot } from "../shared/subagentCapacity";
 import type { SubagentRoleProfile } from "../shared/subagentRoles";
 import type { resolveSubagentToolScope } from "../shared/subagentToolScope";
-import type { SubagentApprovalDecision, SubagentApprovalRequestInput, SubagentApprovalScope } from "./subagentApprovalBridge";
-import type { SubagentSupervisorRequestInput } from "./subagentSupervisorRequest";
+import type { SubagentApprovalDecision, SubagentApprovalRequestInput, SubagentApprovalScope } from "./subagents/subagentApprovalBridge";
+import type { SubagentSupervisorRequestInput } from "./subagents/subagentSupervisorRequest";
 import type { SubagentTurnBudgetPolicy } from "../shared/subagentTurnBudget";
 import type {
   SubagentMailboxEventSummary,

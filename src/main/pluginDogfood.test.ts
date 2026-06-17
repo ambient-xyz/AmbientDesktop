@@ -18,7 +18,7 @@ import { AmbientPluginHost, codexPluginTrustFingerprint } from "./plugins/plugin
 import { ensureFirstPartyAmbientCliPackages, installAmbientCliPackageSource, runAmbientCliPackageCommand, saveAmbientCliPackageEnvSecret } from "./ambientCliPackages";
 import { discoverPiExtensionSandboxPackages } from "./piExtensionSandboxPackages";
 import { discoverPiPrivilegedPackages } from "./piPrivilegedPackages";
-import { registerCapabilityBuilderPackage, saveCapabilityBuilderEnvSecret, scaffoldCapabilityBuilderPackage, unregisterCapabilityBuilderPackage, validateCapabilityBuilderPackage } from "./capabilityBuilder";
+import { registerCapabilityBuilderPackage, saveCapabilityBuilderEnvSecret, scaffoldCapabilityBuilderPackage, unregisterCapabilityBuilderPackage, validateCapabilityBuilderPackage } from "./capability-builder/capabilityBuilder";
 import { setupQwen3AsrProvider } from "./sttProviderInstaller";
 import { writeVoiceDiscoveryCacheEntry } from "./voiceDiscoveryCache";
 import type { CodexPluginSummary, DesktopEvent, MediaPlaybackSettings, PermissionPromptResolution, PermissionPromptResponseMode, PermissionRequest, ProjectSummary, SearchRoutingSettings, SttSettings, VoiceProviderCandidate, VoiceSettings } from "../shared/types";
@@ -167,6 +167,41 @@ describeNative("Plugin chat dogfood", () => {
       ]),
     );
   }, 360_000);
+
+  itLive("keeps directly named provider cards during contextual live Ambient/Pi catalog lookups", async () => {
+    const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;
+    if (!apiKey) throw new Error("Set AMBIENT_API_KEY or AMBIENT_AGENT_AMBIENT_API_KEY for live provider catalog dogfood.");
+    process.env.AMBIENT_API_KEY = apiKey;
+
+    const thread = store.createThread("Provider catalog named provider dogfood");
+    runtime = new AgentRuntime(
+      store,
+      new BrowserService(() => store.getWorkspace()),
+      new BrowserCredentialStore(() => store.getWorkspace(), safeStorage),
+      () => undefined,
+      {
+        request: async (request) => {
+          throw new Error(`Unexpected permission prompt during provider catalog named provider dogfood: ${request.title}`);
+        },
+        denyThread: () => undefined,
+      },
+    );
+
+    const transcript = await sendDogfoodTurn(runtime, store, thread.id, {
+      mode: "agent",
+      content: [
+        "This is an Ambient Desktop provider catalog named-provider regression dogfood test.",
+        "Call ambient_provider_catalog once with capabilityArea exactly voice-generation, installerShape exactly tts-provider, goal exactly ElevenLabs text-to-speech for HyperFrames video narration, and limit 10.",
+        "Do not call capability builder, shell, browser, ambient_cli, install, validate, register, or secret tools.",
+        "After the tool result is available, answer with exactly PROVIDER_CATALOG_ELEVENLABS_CONTEXT_OK and nothing else.",
+      ],
+      expected: "PROVIDER_CATALOG_ELEVENLABS_CONTEXT_OK",
+    });
+    expect(transcript).toContain("ambient_provider_catalog completed");
+    expect(transcript).toContain("voice.elevenlabs");
+    expect(transcript).toContain("ElevenLabs");
+    expect(transcript).not.toContain("No known provider cards matched this query");
+  }, 300_000);
 
   itLive("queries provider catalog recommendation memos during live Ambient/Pi chat turns", async () => {
     const apiKey = process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY;

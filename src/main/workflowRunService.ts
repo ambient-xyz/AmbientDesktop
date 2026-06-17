@@ -34,7 +34,7 @@ import {
   isWorkflowPausedError,
   type WorkflowEventSink,
 } from "./workflowAgentRuntime";
-import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "./workflowCompiler";
+import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "./workflow-compiler/workflowCompiler";
 import { generateWorkflowAuditReport, hashWorkflowSource } from "./workflowAuditReport";
 import { readWorkflowDashboard } from "./workflowDashboard";
 import {
@@ -45,7 +45,7 @@ import {
 import { workflowApprovalsFromEvents } from "./workflowApprovals";
 import { JsonWorkflowCheckpointStore, readWorkflowCheckpointSummaries } from "./workflowCheckpointStore";
 import { workflowResumeChainEvents, workflowResumeChainModelCalls, workflowResumeChainRunIds } from "./workflowRunChain";
-import { loadWorkflowProgramFromSource } from "./workflowProgramLoader";
+import { loadWorkflowProgramFromSource } from "./workflow-program/workflowProgramLoader";
 import {
   createWorkflowAmbientClient,
   MemoryWorkflowAmbientCache,

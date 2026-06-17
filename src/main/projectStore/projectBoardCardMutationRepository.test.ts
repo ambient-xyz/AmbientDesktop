@@ -8,8 +8,8 @@ import type {
   ProjectBoardPlanningSnapshot,
 } from "../../shared/projectBoardTypes";
 import type { CreateOrchestrationTaskInput, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
-import { PROJECT_BOARD_ARTIFACT_SCHEMA_VERSION } from "../projectBoardArtifacts";
-import type { ProjectBoardRunArtifactProjection } from "../projectBoardArtifactImport";
+import { PROJECT_BOARD_ARTIFACT_SCHEMA_VERSION } from "../project-board/projectBoardArtifacts";
+import type { ProjectBoardRunArtifactProjection } from "../project-board/projectBoardArtifactImport";
 import { applyProjectStoreBootstrapSchema } from "../projectStoreSchema";
 import {
   ProjectStoreProjectBoardCardMutationRepository,

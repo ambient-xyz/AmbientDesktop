@@ -8,8 +8,8 @@ import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   callableWorkflowToolName,
-} from "./callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
+} from "./callable-workflow/callableWorkflowRegistry";
+import { buildCallableWorkflowExecutionPlan } from "./callable-workflow/callableWorkflowExecutionPlan";
 import { AgentRuntime } from "./agentRuntime";
 import { ProjectStore } from "./projectStore";
 
@@ -18,8 +18,8 @@ const workflowServiceMocks = vi.hoisted(() => ({
   runWorkflowArtifact: vi.fn(),
 }));
 
-vi.mock("./workflowCompilerService", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./workflowCompilerService")>()),
+vi.mock("./workflow-compiler/workflowCompilerService", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./workflow-compiler/workflowCompilerService")>()),
   compileWorkflowArtifact: workflowServiceMocks.compileWorkflowArtifact,
 }));
 

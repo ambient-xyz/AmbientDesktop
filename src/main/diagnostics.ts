@@ -48,21 +48,21 @@ import type {
 import { resolveAmbientFeatureFlags } from "../shared/featureFlags";
 import type { AppLogEntry } from "./appLogs";
 import type { AmbientCliPackageCatalog } from "./ambientCliPackages";
-import type { LocalModelRuntimeStatusSnapshot } from "./localModelRuntimeStatus";
+import type { LocalModelRuntimeStatusSnapshot } from "./local-runtime/localModelRuntimeStatus";
 import { isPathInside } from "./sessionPaths";
 import { redactSensitiveText, redactSensitiveValue } from "./secretRedaction";
-import type { SubagentObservabilitySummary } from "./subagentObservability";
+import type { SubagentObservabilitySummary } from "./subagents/subagentObservability";
 import {
   SUBAGENT_CHILD_SCOPED_PARENT_MAILBOX_TYPES,
   validateSubagentParentMailboxEventAttribution,
   validateSubagentRunEventAttribution,
-} from "./subagentInvariants";
+} from "./subagents/subagentInvariants";
 import {
   deniedCategoryIdsFromSubagentToolScopeSnapshot,
   deniedCategoryLabelsFromSubagentToolScopeSnapshot,
   deniedToolIdsFromSubagentToolScopeSnapshot,
   deniedToolLabelsFromSubagentToolScopeSnapshot,
-} from "./subagentToolScopeSnapshot";
+} from "./subagents/subagentToolScopeSnapshot";
 
 const MAX_THREADS = 50;
 const MAX_MESSAGES_PER_THREAD = 20;

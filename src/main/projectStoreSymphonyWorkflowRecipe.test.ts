@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../shared/featureFlags";
-import { buildCallableWorkflowRegistry, recordedWorkflowToolName } from "./callableWorkflowRegistry";
+import { buildCallableWorkflowRegistry, recordedWorkflowToolName } from "./callable-workflow/callableWorkflowRegistry";
 import { ProjectStore } from "./projectStore";
 
 describe("ProjectStore Symphony workflow recipes", () => {

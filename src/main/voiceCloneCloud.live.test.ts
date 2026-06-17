@@ -9,7 +9,7 @@ import {
   saveCapabilityBuilderEnvSecret,
   scaffoldCapabilityBuilderPackage,
   validateCapabilityBuilderPackage,
-} from "./capabilityBuilder";
+} from "./capability-builder/capabilityBuilder";
 import {
   listVoiceProviderVoices,
   readVoiceDiscoveryCache,

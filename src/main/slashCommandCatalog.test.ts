@@ -8,7 +8,7 @@ import type {
   WorkflowRecordingLibraryDescription,
   WorkflowRecordingLibraryEntry,
 } from "../shared/types";
-import { buildCallableWorkflowRegistry } from "./callableWorkflowRegistry";
+import { buildCallableWorkflowRegistry } from "./callable-workflow/callableWorkflowRegistry";
 import {
   assertSlashCommandSelectionInvocable,
   buildSlashCommandCatalogEntries,
@@ -102,6 +102,56 @@ describe("slash command catalog", () => {
         results: [],
       },
     }).status).toBe("not_found");
+  });
+
+  it("keeps Ambient-wrapped skills and workflow playbooks visible before plugin skills in broad discovery", () => {
+    const featureFlagSnapshot = resolveAmbientFeatureFlags({ settings: { slashCommands: true } });
+    const response = buildSlashCommandSearchResponse({ limit: 6 }, {
+      featureFlagSnapshot,
+      pluginCatalog: codexPluginCatalog([
+        codexPlugin({
+          name: "large-plugin",
+          skills: Array.from({ length: 12 }, (_, index) => ({
+            name: `Plugin Skill ${index + 1}`,
+            path: `/plugins/large/skill-${index + 1}/SKILL.md`,
+          })),
+        }),
+      ]),
+      ambientCliCapabilities: {
+        catalogVersion: "ambient-cli-v1:user",
+        truncated: false,
+        results: [{
+          packageId: "pkg-user",
+          registryPluginId: "ambient-cli:pkg-user",
+          sourceKind: "ambient-cli",
+          packageName: "user-tools",
+          installed: true,
+          availability: "available",
+          availabilityReason: "Installed Ambient CLI package is available.",
+          commands: [],
+          skills: [{
+            capabilityId: "pkg-user:skill:/skills/review/SKILL.md",
+            sourceKind: "ambient-cli",
+            name: "review",
+            description: "Review project changes.",
+            path: "skills/review/SKILL.md",
+          }],
+          missingEnv: [],
+          whyMatched: ["skill review"],
+          score: 10,
+        }],
+      },
+      workflowRecordings: [workflowRecording({ id: "date-night-events", title: "Find Date Night Events" })],
+    });
+
+    expect(response.entries.map((entry) => entry.invocationKind)).toEqual([
+      "builtin-command",
+      "builtin-command",
+      "builtin-command",
+      "builtin-command",
+      "ambient-cli-skill",
+      "workflow-playbook",
+    ]);
   });
 
   it("keeps duplicate display commands stable across broad search and narrow describe", () => {

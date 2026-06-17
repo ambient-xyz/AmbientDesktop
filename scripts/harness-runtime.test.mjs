@@ -35,7 +35,7 @@ describe("harness runtime contracts", () => {
     })).toBe("product_failed");
     expect(classifyHarnessFailure({
       phase: "test",
-      stderr: "AssertionError: expected child threads\n ❯ assertScenarioPassed src/main/subagentScenarioDogfood.live.test.ts:560:91",
+      stderr: "AssertionError: expected child threads\n ❯ assertScenarioPassed src/main/subagents/subagentScenarioDogfood.live.test.ts:560:91",
       exitCode: 1,
     })).toBe("product_failed");
     expect(classifyHarnessFailure({ phase: "test", stderr: "expected child run status completed", exitCode: 1 }))

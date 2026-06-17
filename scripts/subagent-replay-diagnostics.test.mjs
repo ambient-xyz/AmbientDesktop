@@ -26,14 +26,14 @@ describe("sub-agent replay diagnostics CLI", () => {
       stderrPath: "/tmp/subagent-replay/latest.stderr.txt",
       testFiles: [
         "src/test/subagentFixtures.test.ts",
-        "src/main/subagentRepair.test.ts",
-        "src/main/subagentLifecycleEdgeEvidence.test.ts",
+        "src/main/subagents/subagentRepair.test.ts",
+        "src/main/subagents/subagentLifecycleEdgeEvidence.test.ts",
       ],
     });
     expect(plan.args).toEqual(expect.arrayContaining([
       "src/test/subagentFixtures.test.ts",
-      "src/main/subagentRepair.test.ts",
-      "src/main/subagentLifecycleEdgeEvidence.test.ts",
+      "src/main/subagents/subagentRepair.test.ts",
+      "src/main/subagents/subagentLifecycleEdgeEvidence.test.ts",
       "--reporter=json",
       "--outputFile=/tmp/subagent-replay/latest-vitest.json",
     ]));

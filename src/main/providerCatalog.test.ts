@@ -77,11 +77,23 @@ describe("provider catalog", () => {
     expect(result.providers.map((provider) => provider.id)).toContain("voice.piper");
   });
 
+  it("keeps directly named provider cards when the goal includes downstream task context", () => {
+    const result = queryProviderCatalog({
+      capabilityArea: "voice-generation",
+      installerShape: "tts-provider",
+      goal: "ElevenLabs text-to-speech for HyperFrames video narration",
+      limit: 10,
+    });
+
+    expect(result.providers.map((provider) => provider.id)).toContain("voice.elevenlabs");
+  });
+
   it("projects the catalog into renderer-safe settings cards from the same source", () => {
     const state = providerCatalogSettingsState(new Date("2026-05-11T12:00:00.000Z"));
     const piper = state.cards.find((card) => card.id === "voice.piper");
     const elevenlabs = state.cards.find((card) => card.id === "voice.elevenlabs");
     const minicpm = state.cards.find((card) => card.id === "vision.minicpm-v");
+    const tinystyler = state.cards.find((card) => card.id === "writing.tinystyler");
 
     expect(state).toMatchObject({
       catalogVersion: expect.any(String),
@@ -124,6 +136,26 @@ describe("provider catalog", () => {
       ]),
     });
     expect(minicpm?.minimumLocalSmokeTest).toContain("typed Ambient visual tool");
+    expect(tinystyler).toMatchObject({
+      displayName: "TinyStyler writing-style transfer",
+      capabilityArea: "writing-style-transfer",
+      installerShape: "custom-cli",
+      recommendationTier: "conditional",
+      deploymentRole: "primary",
+      localArtifactStatus: "conditional-local",
+      firstPartyTemplate: {
+        available: true,
+        templateId: "ambient-cli:ambient-tinystyler",
+      },
+      ambientContract: {
+        validationTarget: expect.stringContaining("tinystyler"),
+      },
+      modelAssets: expect.arrayContaining([
+        expect.objectContaining({ name: "tinystyler-transfer-weights", expectedSize: "3.14 GB" }),
+        expect.objectContaining({ name: "t5-v1_1-large-backbone", expectedSize: "3.13 GB" }),
+      ]),
+    });
+    expect(tinystyler?.minimumLocalSmokeTest).toContain("tinystyler_transfer");
     expect(JSON.stringify(state.cards)).not.toContain("sk-");
   });
 
@@ -585,6 +617,39 @@ describe("provider catalog", () => {
     expect(text).toContain("Google Workspace");
     expect(text).toContain("LibreOffice/Pandoc");
     expect(text).toContain("Microsoft 365 / Graph");
+  });
+
+  it("routes TinyStyler through the writing-style transfer catalog area", () => {
+    const result = queryProviderCatalog({ capabilityArea: "writing-style-transfer" });
+
+    expect(result.providers.map((provider) => provider.id)).toEqual(["writing.tinystyler"]);
+    expect(result.providers[0]).toMatchObject({
+      recommendationTier: "conditional",
+      providerKind: "local",
+      sourceModel: "open-source",
+      installerShape: "custom-cli",
+      recommendationMemo: {
+        deploymentRole: "primary",
+        recommendation: expect.stringContaining("ambient-tinystyler"),
+      },
+      firstPartyTemplate: {
+        templateId: "ambient-cli:ambient-tinystyler",
+      },
+      localArtifactReadiness: {
+        status: "conditional-local",
+        minimumLocalSmokeTest: expect.stringContaining("tinystyler_profile"),
+      },
+      secrets: [],
+    });
+    expect(result.providers[0].recommendationMemo?.fallbackGuidance.some((guidance) => guidance.includes("one-off rewrite"))).toBe(
+      true,
+    );
+
+    const text = providerCatalogResultText(result);
+    expect(text).toContain("writing-style-transfer");
+    expect(text).toContain("ambient-tinystyler");
+    expect(text).toContain("declared Hugging Face model assets");
+    expect(text).not.toContain("sk-");
   });
 
   it("encodes Phase 4 SVG animation and authored-motion recommendation memos", () => {

@@ -13,7 +13,7 @@ import type {
   RefreshProjectBoardSourceDraftsInput,
 } from "../../shared/projectBoardTypes";
 import type { StageProjectBoardSourceDraftPiUpdatesInput } from "../projectStoreFacadeHelpers";
-import { projectBoardSourceKey } from "../projectBoardSourceIdentity";
+import { projectBoardSourceKey } from "../project-board/projectBoardSourceIdentity";
 import {
   mapProjectBoardSourceRow,
   normalizeCardTextList,

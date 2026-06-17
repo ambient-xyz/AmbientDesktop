@@ -5,7 +5,7 @@ import type { DesktopEvent, WorkspaceState } from "../shared/types";
 import {
   pluginStateReaderFromStore,
   type AgentRuntimePluginDiscoveryStore,
-} from "./agentRuntimePluginDiscovery";
+} from "./plugins/runtime-tools/agentRuntimePluginDiscovery";
 import {
   createAmbientCliPackageSummaryModelComplete,
   hydrateFirstPartyAmbientCliPackageSummaries,
@@ -30,7 +30,7 @@ import {
   ambientCapabilityBuilderValidateInput,
   ambientCapabilityBuilderWriteFileInput,
   suggestedCapabilityPackageName,
-} from "./agentRuntimeCapabilityBuilderInput";
+} from "./capability-builder/agentRuntimeCapabilityBuilderInput";
 import {
   createAgentRuntimePluginToolExtension,
   type AgentRuntimePluginToolAssemblyOptions,

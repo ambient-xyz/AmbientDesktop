@@ -4,7 +4,7 @@ import {
   createSubagentBatchJobPlan,
   createSubagentBatchResultReport,
   type SubagentBatchJobRecord,
-} from "../subagentBatchJobs";
+} from "../subagents/subagentBatchJobs";
 import type { SubagentResultArtifact } from "../../shared/subagentProtocol";
 import { ProjectStoreSubagentBatchRepository } from "./subagentBatchRepository";
 

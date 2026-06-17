@@ -8,7 +8,7 @@ import type {
   SendMessageSlashCommandComposerIntent,
   SendMessageSymphonyComposerIntent,
 } from "../shared/types";
-import { callableWorkflowToolName } from "./callableWorkflowRegistry";
+import { callableWorkflowToolName } from "./callable-workflow/callableWorkflowRegistry";
 
 interface SymphonyWorkflowComposerBuilderSelection {
   stepId: string;
@@ -137,9 +137,11 @@ function slashCommandInvocationGuidance(selection: SendMessageSlashCommandCompos
   }
   if (selection.invocationKind === "ambient-cli-skill") {
     return [
-      "This is an Ambient CLI lazy skill. Inspect the package with ambient_cli_search or ambient_cli_describe before attempting related execution.",
+      "This is an Ambient-wrapped Pi skill from an installed Ambient CLI package. Use Ambient-managed discovery only.",
+      "Start with ambient_cli_search or ambient_cli_describe for the selected package/skill before attempting related execution.",
       "Ambient CLI skills are not mounted eagerly; use the read-only description tools for exact package guidance.",
       "Any process execution must go through ambient_cli and its normal preflight/approval path.",
+      "Do not inspect arbitrary ~/.pi, ~/.agents, or other raw Pi skill paths for this request.",
     ];
   }
   if (selection.invocationKind === "ambient-cli-command") {
@@ -151,8 +153,9 @@ function slashCommandInvocationGuidance(selection: SendMessageSlashCommandCompos
   if (selection.invocationKind === "workflow-playbook") {
     return [
       "Use the selected recorded workflow playbook as bounded guidance for this run.",
+      "Call ambient_workflows_describe for the selected playbook id/version, then ambient_workflows_inject before applying the playbook.",
       "Do not bypass normal tool permissions, connector grants, or workspace restrictions from the original recording.",
-      "If the playbook needs current details, inspect the workflow catalog before applying it.",
+      "If the exact selected playbook is unavailable, explain that instead of substituting a different workflow.",
     ];
   }
   if (selection.invocationKind === "symphony-recipe" || selection.invocationKind === "callable-workflow") {

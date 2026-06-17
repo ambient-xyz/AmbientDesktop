@@ -32,7 +32,7 @@ import type {
   PermissionMode,
   ThinkingLevel,
 } from "../../shared/types";
-import { defaultLocalDeepResearchSettings } from "../localDeepResearchProviderStack";
+import { defaultLocalDeepResearchSettings } from "../local-deep-research/localDeepResearchProviderStack";
 import { createModelRuntimeCatalog } from "../modelRuntimeRegistry";
 import { migrateProjectStorePermissionModeDefaultsToWorkspace } from "../projectStoreSchema";
 import { DEFAULT_COMPACTION_SETTINGS, normalizeCompactionSettings } from "../projectStoreSettings";

@@ -48,7 +48,7 @@ import {
   createSubagentBatchJobPlan,
   createSubagentBatchResultLedger,
   createSubagentBatchResultReport,
-} from "./subagentBatchJobs";
+} from "./subagents/subagentBatchJobs";
 
 describe("project store subagent mappers", () => {
   it("classifies terminal subagent run statuses", () => {

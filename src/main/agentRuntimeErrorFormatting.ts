@@ -1,10 +1,10 @@
 import type { ProviderStatus } from "../shared/types";
 import { getAmbientProviderStatus } from "./providerStatus";
-import { runtimeProviderDiagnosticDisplayLines } from "./agentRuntimeProviderContinuationHelpers";
+import { runtimeProviderDiagnosticDisplayLines } from "./agent-runtime/provider-continuation/agentRuntimeProviderContinuationHelpers";
 import {
   isAmbientProviderAuthFailure,
   type RuntimeProviderErrorDiagnostic,
-} from "./agentRuntimeProviderDiagnostics";
+} from "./agent-runtime/provider-continuation/agentRuntimeProviderDiagnostics";
 
 export function formatRuntimeError(
   message: string,

@@ -4,7 +4,7 @@ import type {
   CallableWorkflowTaskSummary,
 } from "../../shared/workflowTypes";
 import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
-import type { CallableWorkflowQueuedTaskDraft } from "../callableWorkflowTaskQueue";
+import type { CallableWorkflowQueuedTaskDraft } from "../callable-workflow/callableWorkflowTaskQueue";
 import {
   mapCallableWorkflowTaskRow,
   type CallableWorkflowTaskRow,

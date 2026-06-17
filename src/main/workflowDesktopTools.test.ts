@@ -6,7 +6,7 @@ import type { BrowserLoginInput, BrowserSearchInput, PermissionRequest } from ".
 import { pluginMcpToolDescriptor } from "./desktopToolRegistry";
 import { createDocxFixture, createPptxFixture, createXlsxFixture } from "./officeTestFixtures";
 import { createPdfFixture } from "./pdfTestFixtures";
-import type { PluginMcpToolRegistration } from "./pluginMcpSupervisor";
+import type { PluginMcpToolRegistration } from "./plugins/pluginMcpSupervisor";
 import type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";
 import { createWorkflowDesktopToolBridge } from "./workflowDesktopTools";
 

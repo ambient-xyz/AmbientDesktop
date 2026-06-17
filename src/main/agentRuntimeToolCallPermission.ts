@@ -27,9 +27,9 @@ import {
 } from "./permissionPolicy";
 import { resolvePermissionWithGrants } from "./permissionGrants";
 import type { ProjectStore } from "./projectStore";
-import { classifySubagentBrowserToolAuthority } from "./subagentBrowserAuthority";
-import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "./subagentWaitBarrierEvaluation";
-import { evaluateSubagentWaitBarrierForStore } from "./subagentWaitBarrierResolution";
+import { classifySubagentBrowserToolAuthority } from "./subagents/subagentBrowserAuthority";
+import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "./subagents/subagentWaitBarrierEvaluation";
+import { evaluateSubagentWaitBarrierForStore } from "./subagents/subagentWaitBarrierResolution";
 
 export type AgentRuntimeToolCallPermissionBlock = { reason: string };
 

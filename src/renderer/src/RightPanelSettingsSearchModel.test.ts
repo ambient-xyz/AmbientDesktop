@@ -22,6 +22,7 @@ describe("RightPanelSettingsSearchModel", () => {
       mcpRuntimeStatus: "Runtime ready",
       visualCatalogCount: 1,
       authoredVideoCatalogCount: 2,
+      writingStyleCatalogCount: 1,
       activePermissionGrantCount: 3,
       diagnosticStatusKind: "success",
       appVersion: "0.1.58",
@@ -34,6 +35,7 @@ describe("RightPanelSettingsSearchModel", () => {
       { id: "search-web", label: "Search & Web", status: "Scrapling" },
       { id: "mcp-runtime", label: "MCP Runtime & Web Research", status: "Runtime ready" },
       { id: "media-browser", label: "Media & Vision", status: "1 visual / 2 video" },
+      { id: "writing-style", label: "Writing Style", status: "1 catalog" },
       { id: "security-access", label: "Security & Access", status: "3 active" },
       { id: "diagnostics", label: "Diagnostics", status: "success" },
       { id: "about", label: "About", status: "0.1.58" },
@@ -48,6 +50,7 @@ describe("RightPanelSettingsSearchModel", () => {
     expect(targetTerms(targets, "voice.voice")).toContain("Soprano");
     expect(targetTerms(targets, "model-mode.slash-commands")).toContain("ambient.slashCommands");
     expect(targetTerms(targets, "search-web.local-deep-research")).toContain("LiteResearcher ready");
+    expect(targetTerms(targets, "writing-style.catalog")).toContain("TinyStyler");
     expect(targetTerms(targets, "security.google")).toContain("gmail");
     expect(targetTerms(targets, "diagnostics.subagent-repair")).toContain("missing_spawn_edge");
   });
@@ -220,6 +223,7 @@ function fixtureSearchTargetsInput(): RightPanelSettingsSearchTargetsInput {
     miniCpmVisionDiagnostics: [{ code: "ready", title: "Ready" }],
     visualCatalogCards: [providerCard("vision.minicpm", "MiniCPM", "visual analysis")],
     authoredVideoCatalogCards: [providerCard("video.hyperframes", "Hyperframes", "authored motion")],
+    writingStyleCatalogCards: [providerCard("writing.tinystyler", "TinyStyler", "style transfer")],
     googleGrantGroups: [{ accountHint: "user@example.test", services: ["gmail", "drive"] }],
     grantRegistrySummary: "2 active",
     diagnostics: {

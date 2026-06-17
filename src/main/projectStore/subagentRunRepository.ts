@@ -7,7 +7,7 @@ import { AMBIENT_SUBAGENT_PROTOCOL_VERSION, type SubagentDependencyMode, type Su
 import type { SubagentRunEventSummary, SubagentRunSummary, SubagentSpawnEdgeSummary } from "../../shared/subagentTypes";
 import type { MutationWorkspaceLease, SymphonyChildLaunchContractBundle } from "../../shared/symphonyFineGrainedContracts";
 import type { SubagentRoleProfile } from "../../shared/subagentRoles";
-import { assertSubagentRunEventAttribution } from "../subagentInvariants";
+import { assertSubagentRunEventAttribution } from "../subagents/subagentInvariants";
 import {
   mapSubagentRunEventRow,
   mapSubagentRunRow,
@@ -49,6 +49,7 @@ export interface CloseSubagentRunInput {
   runId: string;
   closedAt: string;
   capacityLeaseSnapshot: SubagentCapacityLeaseSnapshot;
+  symphonyMutationWorkspaceLease?: MutationWorkspaceLease;
 }
 
 export interface AppendSubagentRunEventInput {
@@ -138,12 +139,25 @@ export class ProjectStoreSubagentRunRepository {
 
   closeSubagentRun(input: CloseSubagentRunInput): SubagentRunSummary {
     this.db
-      .prepare("UPDATE subagent_runs SET closed_at = ?, updated_at = ?, capacity_lease_snapshot_json = ? WHERE id = ?")
-      .run(input.closedAt, input.closedAt, JSON.stringify(input.capacityLeaseSnapshot), input.runId);
+      .prepare("UPDATE subagent_runs SET closed_at = ?, updated_at = ?, capacity_lease_snapshot_json = ?, symphony_mutation_lease_json = ? WHERE id = ?")
+      .run(
+        input.closedAt,
+        input.closedAt,
+        JSON.stringify(input.capacityLeaseSnapshot),
+        input.symphonyMutationWorkspaceLease ? JSON.stringify(input.symphonyMutationWorkspaceLease) : null,
+        input.runId,
+      );
     this.db
       .prepare("UPDATE subagent_spawn_edges SET capacity_released_at = ?, updated_at = ? WHERE child_run_id = ?")
       .run(input.closedAt, input.closedAt, input.runId);
     return this.getSubagentRun(input.runId);
+  }
+
+  updateSubagentRunMutationWorkspaceLease(runId: string, lease: MutationWorkspaceLease): SubagentRunSummary {
+    this.db
+      .prepare("UPDATE subagent_runs SET symphony_mutation_lease_json = ?, updated_at = ? WHERE id = ?")
+      .run(JSON.stringify(lease), lease.lastHeartbeatAt, runId);
+    return this.getSubagentRun(runId);
   }
 
   insertSubagentSpawnEdge(edge: SubagentSpawnEdgeSummary): void {

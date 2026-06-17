@@ -24,7 +24,7 @@ describe("sub-agent Desktop dogfood harness wiring", () => {
     const runner = await readText("scripts/subagent-desktop-dogfood.mjs");
     const supervisor = await readText("scripts/run-electron-dogfood.mjs");
     const placeholder = await readText("scripts/llama-server-placeholder.mjs");
-    const e2e = await readText("src/main/subagentDesktopDogfood.e2e.test.ts");
+    const e2e = await readText("src/main/subagents/subagentDesktopDogfood.e2e.test.ts");
 
     expect(supervisor).toContain("verifyHarnessCheckout");
     expect(supervisor).toContain("DEFAULT_DOGFOOD_PROVIDER = \"ambient\"");
@@ -56,7 +56,7 @@ describe("sub-agent Desktop dogfood harness wiring", () => {
     expect(runner).toContain("\"brave-search\", \"exa-mcp-default\", \"ambient-browser\"");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_BRAVE_SEARCH");
     expect(runner).toContain("AMBIENT_LEGACY_WORKFLOW_COMPILER");
-    expect(runner).toContain("src/main/subagentDesktopDogfoodSeed.test.ts");
+    expect(runner).toContain("src/main/subagents/subagentDesktopDogfoodSeed.test.ts");
     expect(runner).toContain("AMBIENT_E2E_USER_DATA");
     expect(runner).toContain("scripts/subagent-desktop-dogfood-history-report.mjs");
     expect(runner).toContain("staleLatestArtifactPath");

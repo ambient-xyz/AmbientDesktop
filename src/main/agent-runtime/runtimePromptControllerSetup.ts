@@ -1,5 +1,5 @@
 import type { ChatMessage, DesktopEvent, ToolArgumentProgressSnapshot } from "../../shared/types";
-import type { PiStreamTraceReference } from "../agentRuntimeProviderDiagnostics";
+import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import type { RuntimeStreamWatchdogController } from "./runtimeStreamWatchdogController";
 import {
   createRuntimeToolExecutionWatchdog,

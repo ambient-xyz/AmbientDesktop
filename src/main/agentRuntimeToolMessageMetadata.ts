@@ -5,7 +5,7 @@ import type {
   ToolLongformInputPreview,
 } from "../shared/types";
 import type { ToolResultDetails } from "./piEventMapper";
-import { AMBIENT_SUBAGENT_TOOL_NAME } from "./subagentPiTools";
+import { AMBIENT_SUBAGENT_TOOL_NAME } from "./subagents/subagentPiTools";
 
 export interface SubagentParentControlAbortIntent {
   reason: string;

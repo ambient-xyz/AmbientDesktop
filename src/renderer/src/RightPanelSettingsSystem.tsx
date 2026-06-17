@@ -61,6 +61,46 @@ export type RightPanelMediaSettingsSectionProps = {
   onMediaPlaybackSettingsChange: (media: DesktopState["settings"]["media"]) => void;
 };
 
+export type RightPanelWritingStyleSettingsSectionProps = {
+  state: DesktopState;
+  running: boolean;
+  settingsRowVisible: SettingsRowVisible;
+  writingStyleCatalogCards: ProviderCatalogSettingsCard[];
+  startProviderCatalogCardOnboarding: (card: ProviderCatalogSettingsCard) => MaybePromise;
+};
+
+export function RightPanelWritingStyleSettingsSection({
+  state,
+  running,
+  settingsRowVisible,
+  writingStyleCatalogCards,
+  startProviderCatalogCardOnboarding,
+}: RightPanelWritingStyleSettingsSectionProps) {
+  return (
+    <SettingsSection
+      id="writing-style"
+      title="Writing Style"
+      description="Reusable writing-style profiles and local style-transfer capability setup."
+    >
+      {settingsRowVisible("writing-style", "writing-style.catalog") && (
+        <SettingsRow
+          label="TinyStyler"
+          value={`${writingStyleCatalogCards.length} catalog card${writingStyleCatalogCards.length === 1 ? "" : "s"}`}
+          description="Launch approval-gated TinyStyler setup from the same Ambient CLI catalog source Pi sees."
+        >
+          <ProviderCatalogSettingsCards
+            cards={writingStyleCatalogCards}
+            catalogVersion={state.providerCatalog.catalogVersion}
+            generatedAt={state.providerCatalog.generatedAt}
+            running={running}
+            onStart={(card) => void startProviderCatalogCardOnboarding(card)}
+          />
+        </SettingsRow>
+      )}
+    </SettingsSection>
+  );
+}
+
 export function RightPanelMediaSettingsSection({
   state,
   running,

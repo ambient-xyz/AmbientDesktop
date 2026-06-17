@@ -47,24 +47,24 @@ import { ambientRetryPolicyFromSettings } from "./aggressiveRetries";
 import { ambientChatCompletionTransportTimeoutsFromEnv } from "./ambientChatCompletionRetry";
 import { getAppLogs, installAppLogCapture } from "./appLogs";
 import { parseAmbientLaunchArgs } from "./launchArgs";
-import { localTextSubagentStartupFeatureFromEnv } from "./localTextSubagentStartupConfig";
+import { localTextSubagentStartupFeatureFromEnv } from "./local-runtime/localTextSubagentStartupConfig";
 import { isAmbientSubagentsEnabled, resolveAmbientFeatureFlags } from "../shared/featureFlags";
-import { resolveSubagentApprovalDecision } from "./subagentApprovalDecision";
-import { reconcileSubagentsOnRuntimeStartup } from "./subagentStartupReconciliation";
+import { resolveSubagentApprovalDecision } from "./subagents/subagentApprovalDecision";
+import { reconcileSubagentsOnRuntimeStartup } from "./subagents/subagentStartupReconciliation";
 import { installAppMenu } from "./menu";
-import { scanProjectBoardSources } from "./projectBoardSources";
+import { scanProjectBoardSources } from "./project-board/projectBoardSources";
 import {
   projectBoardSourceDeterministicAuthorityLocked,
   projectBoardSourceIncludedInSynthesis,
-} from "./projectBoardSourceIdentity";
-import { createOrAdoptProjectBoard } from "./projectBoardBootstrap";
-import { repairProjectBoardWorkflow, updateProjectBoardWorkflowRaw, updateProjectBoardWorkflowSettings } from "./projectBoardWorkflowBootstrap";
-import { AmbientProjectBoardCharterSummaryProvider, type AmbientProjectBoardCharterSummaryResult } from "./projectBoardCharterSummaryProvider";
-import { recordProjectBoardDirectHelperRetryActivity } from "./projectBoardDirectHelperRetryActivity";
+} from "./project-board/projectBoardSourceIdentity";
+import { createOrAdoptProjectBoard } from "./project-board/projectBoardBootstrap";
+import { repairProjectBoardWorkflow, updateProjectBoardWorkflowRaw, updateProjectBoardWorkflowSettings } from "./project-board/projectBoardWorkflowBootstrap";
+import { AmbientProjectBoardCharterSummaryProvider, type AmbientProjectBoardCharterSummaryResult } from "./project-board/projectBoardCharterSummaryProvider";
+import { recordProjectBoardDirectHelperRetryActivity } from "./project-board/projectBoardDirectHelperRetryActivity";
 import {
   AmbientProjectBoardSourceClassifierProvider,
   type AmbientProjectBoardSourceBatchedClassificationResult,
-} from "./projectBoardSourceClassifierProvider";
+} from "./project-board/projectBoardSourceClassifierProvider";
 import {
   projectBoardPmReviewGitContextFromStatus,
   projectBoardSynthesisDraftFromProposal,
@@ -72,56 +72,56 @@ import {
   type ProjectBoardPmReviewGitContext,
   type ProjectBoardSynthesisDraft,
   type ProjectBoardSynthesisRefinementAnswer,
-} from "./projectBoardSynthesis";
+} from "./project-board/projectBoardSynthesis";
 import {
   projectBoardConsolidationCandidates,
   runProjectBoardCandidateConsolidation,
-} from "./projectBoardCandidateConsolidation";
+} from "./project-board/projectBoardCandidateConsolidation";
 import {
   projectBoardProgressiveRecordsFromDraft,
   projectBoardSynthesisDraftFromProgressiveRecords,
-} from "./projectBoardProgressivePlanning";
-import { projectBoardShouldUseSectionedPlanningForWorkflow } from "./projectBoardWorkflowPlanningDepth";
+} from "./project-board/projectBoardProgressivePlanning";
+import { projectBoardShouldUseSectionedPlanningForWorkflow } from "./project-board/projectBoardWorkflowPlanningDepth";
 import {
   annotateProjectBoardDraftWithObjectiveProvenance,
   annotateProjectBoardProgressiveRecordsWithObjectiveProvenance,
   deterministicProjectBoardSourceElaborationDraft,
   projectBoardSourceScopeAnswersForRefinement,
   selectProjectBoardSynthesisSources,
-} from "./projectBoardSourceElaboration";
-import { validateProposalJsonlRecordArtifact, type ProposalJsonlRecordArtifact } from "./projectBoardArtifacts";
-import { createProjectBoardPlannerWorkspace, readProjectBoardPlannerWorkspaceRecordsFromRoot } from "./projectBoardPlannerWorkspace";
-import { projectBoardPlannerContinuationForRetry, type ProjectBoardPlannerBatchContinuation } from "./projectBoardPlannerContinuation";
+} from "./project-board/projectBoardSourceElaboration";
+import { validateProposalJsonlRecordArtifact, type ProposalJsonlRecordArtifact } from "./project-board/projectBoardArtifacts";
+import { createProjectBoardPlannerWorkspace, readProjectBoardPlannerWorkspaceRecordsFromRoot } from "./project-board/projectBoardPlannerWorkspace";
+import { projectBoardPlannerContinuationForRetry, type ProjectBoardPlannerBatchContinuation } from "./project-board/projectBoardPlannerContinuation";
 import {
   AmbientProjectBoardProofJudgeProvider,
   type AmbientProjectBoardProofJudgmentProgress,
   type ProjectBoardProofJudgmentContext,
-} from "./projectBoardProofJudgeProvider";
+} from "./project-board/projectBoardProofJudgeProvider";
 import {
   AmbientProjectBoardClarificationDefaultProvider,
   deterministicProjectBoardClarificationDefaultSuggestionForTarget,
   projectBoardClarificationDefaultSuggestionTargets,
-} from "./projectBoardClarificationDefaultProvider";
+} from "./project-board/projectBoardClarificationDefaultProvider";
 import {
   AmbientProjectBoardKickoffDefaultProvider,
   buildProjectBoardKickoffContextBrief,
   projectBoardKickoffDefaultSuggestionTargets,
-} from "./projectBoardKickoffDefaultProvider";
-import { AmbientProjectBoardProofSuggestionProvider, deterministicProjectBoardProofSuggestionForCard } from "./projectBoardProofSuggestionProvider";
+} from "./project-board/projectBoardKickoffDefaultProvider";
+import { AmbientProjectBoardProofSuggestionProvider, deterministicProjectBoardProofSuggestionForCard } from "./project-board/projectBoardProofSuggestionProvider";
 import {
   AmbientProjectBoardDecisionDraftRefreshProvider,
   deterministicProjectBoardDecisionDraftRefreshSuggestionForCard,
-} from "./projectBoardDecisionDraftRefreshProvider";
+} from "./project-board/projectBoardDecisionDraftRefreshProvider";
 import {
   AmbientProjectBoardSourceDraftRefreshProvider,
   deterministicProjectBoardSourceDraftRefreshSuggestionForCard,
-} from "./projectBoardSourceDraftRefreshProvider";
+} from "./project-board/projectBoardSourceDraftRefreshProvider";
 import {
   AmbientProjectBoardSynthesisProvider,
   type AmbientProjectBoardSynthesisProgress,
   type AmbientProjectBoardSynthesisProgressiveBatch,
   type ProjectBoardSynthesisReasoning,
-} from "./projectBoardSynthesisProvider";
+} from "./project-board/projectBoardSynthesisProvider";
 import { ProjectStore } from "./projectStore";
 import {
   listWorkflowAgentFoldersAcrossStores,
@@ -133,8 +133,8 @@ import { ProjectRegistry, archiveProjectChats, normalizeWorkspacePath, projectId
 import { ensureWelcomeOnboardingProject, resolveWelcomeOnboardingAssetsPath } from "./welcomeOnboarding";
 import { providerCatalogSettingsState } from "./providerCatalog";
 import { getAmbientProviderStatus } from "./providerStatus";
-import { saveModelProviderCredentialForSettings } from "./modelProviderCredentialStore";
-import { installModelProviderEndpointForSettings } from "./modelProviderSettingsInstall";
+import { saveModelProviderCredentialForSettings } from "./model-provider/modelProviderCredentialStore";
+import { installModelProviderEndpointForSettings } from "./model-provider/modelProviderSettingsInstall";
 import { projectBoardDecisionImpactPreview } from "../shared/projectBoardDecisionImpact";
 import {
   assertProjectBoardCardGenerationAllowed,
@@ -277,7 +277,7 @@ import {
   pushProjectBoardGitArtifacts,
   releaseProjectBoardGitCardClaimArtifacts,
   resolveProjectBoardGitCardClaimConflictsArtifacts,
-} from "./projectBoardGitSync";
+} from "./project-board/projectBoardGitSync";
 import { emptyQueueState } from "../shared/messageDelivery";
 import {
   clearImportedWorkspaceContext,
@@ -426,7 +426,7 @@ import { listWorkspaceOpenTargets, openWorkspaceTarget } from "./externalEditors
 import { BrowserService, managedChromeRevealBoundsForWorkArea, type ManagedChromeWindowBounds } from "./browserService";
 import { BrowserCredentialStore } from "./browserCredentialStore";
 import { InternalBrowserHost } from "./internalBrowserHost";
-import { compileWorkflowArtifact } from "./workflowCompilerService";
+import { compileWorkflowArtifact } from "./workflow-compiler/workflowCompilerService";
 import {
   buildWorkflowDebugRewriteContext,
   buildWorkflowDebugRewritePromptSection,
@@ -446,7 +446,7 @@ import { workspaceInventoryConnector, workspaceInventoryConnectorDescriptor } fr
 import { AmbientWorkflowExplorationProvider, runWorkflowThreadExploration } from "./workflowExplorationService";
 import { workflowToolDescriptorsFromPluginRegistry } from "./workflowPluginCapabilities";
 import { invokeWorkflowNativeTool } from "./workflowNativeTools";
-import { discoverCapabilityBuilderHistory, saveCapabilityBuilderEnvSecret } from "./capabilityBuilder";
+import { discoverCapabilityBuilderHistory, saveCapabilityBuilderEnvSecret } from "./capability-builder/capabilityBuilder";
 import { runWorkflowArtifact } from "./workflowRunService";
 import { buildWorkflowRecoveryPlan } from "./workflowRecovery";
 import { markStaleWorkflowRunForRecoveryIfNeeded } from "./workflowStaleRunRecovery";
@@ -531,25 +531,25 @@ import { collectVoiceOnboardingHostFacts } from "./voiceOnboardingHostFacts";
 import { mergeVoiceProvidersWithCachedVoices, readVoiceDiscoveryCache, refreshVoiceProviderVoices } from "./voiceDiscoveryCache";
 import { mergeSttProvidersWithValidation, readQwen3AsrValidationMetadata, setupQwen3AsrProvider } from "./sttProviderInstaller";
 import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "./miniCpmVisionProvider";
-import { detectLocalDeepResearchManagedAssets } from "./localDeepResearchManagedAssets";
+import { detectLocalDeepResearchManagedAssets } from "./local-deep-research/localDeepResearchManagedAssets";
 import {
   installLocalDeepResearchManagedAssets,
   localDeepResearchInstallJobWarnings,
   reconcileLocalDeepResearchInstallJob,
   type LocalDeepResearchInstallServiceResult,
-} from "./localDeepResearchInstallService";
-import { listLocalDeepResearchRunHistory } from "./localDeepResearchRunService";
-import { runLocalDeepResearchRealAssetSmoke } from "./localDeepResearchSmoke";
+} from "./local-deep-research/localDeepResearchInstallService";
+import { listLocalDeepResearchRunHistory } from "./local-deep-research/localDeepResearchRunService";
+import { runLocalDeepResearchRealAssetSmoke } from "./local-deep-research/localDeepResearchSmoke";
 import { detectLocalLlamaResidentProcesses } from "./localLlamaResidencyPolicy";
-import { localDeepResearchRequestedLaunch, sampleLocalModelHostMemorySnapshot } from "./localModelResourceRegistry";
-import { buildLocalModelRuntimeStatusSnapshot } from "./localModelRuntimeStatus";
-import { type LocalDeepResearchModelProfileId } from "./localDeepResearchModelProfiles";
+import { localDeepResearchRequestedLaunch, sampleLocalModelHostMemorySnapshot } from "./local-runtime/localModelResourceRegistry";
+import { buildLocalModelRuntimeStatusSnapshot } from "./local-runtime/localModelRuntimeStatus";
+import { type LocalDeepResearchModelProfileId } from "./local-deep-research/localDeepResearchModelProfiles";
 import {
   buildLocalDeepResearchSetupContract,
   type LocalDeepResearchSetupContract,
   type LocalDeepResearchSetupInput as LocalDeepResearchSetupContractInput,
-} from "./localDeepResearchSetup";
-import { validateLocalDeepResearchSetup } from "./localDeepResearchValidation";
+} from "./local-deep-research/localDeepResearchSetup";
+import { validateLocalDeepResearchSetup } from "./local-deep-research/localDeepResearchValidation";
 import { webResearchSettingsWithDynamicProviderCatalogs } from "./searchSettingsTools";
 import { saveSttTestAudio } from "./sttTestAudio";
 import { SttRuntime } from "./sttRuntime";

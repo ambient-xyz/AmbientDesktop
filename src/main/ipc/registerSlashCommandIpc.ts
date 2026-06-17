@@ -13,7 +13,7 @@ import type {
   WorkflowRecordingLibraryEntry,
 } from "../../shared/types";
 import { searchAmbientCliCapabilities } from "../ambientCliPackages";
-import { buildCallableWorkflowRegistry } from "../callableWorkflowRegistry";
+import { buildCallableWorkflowRegistry } from "../callable-workflow/callableWorkflowRegistry";
 import type { ProjectRuntimeHost } from "../index";
 import {
   buildSlashCommandSearchResponse,

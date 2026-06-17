@@ -14,8 +14,8 @@ import {
 import {
   registerAgentRuntimeCapabilityBuilderTools,
   type AgentRuntimeCapabilityBuilderToolOptions,
-} from "./agentRuntimeCapabilityBuilderTools";
-import type { CapabilityBuilderPlanToolInput } from "./agentRuntimeCapabilityBuilderPlanTools";
+} from "./capability-builder/agentRuntimeCapabilityBuilderTools";
+import type { CapabilityBuilderPlanToolInput } from "./capability-builder/agentRuntimeCapabilityBuilderPlanTools";
 import {
   registerAgentRuntimePiExtensionSandboxTools,
   type AgentRuntimePiExtensionSandboxEvent,
@@ -30,7 +30,7 @@ import {
 import {
   registerAgentRuntimePluginInstallCoreTools,
   type AgentRuntimePluginInstallCoreToolOptions,
-} from "./agentRuntimePluginInstallCoreTools";
+} from "./plugins/runtime-tools/agentRuntimePluginInstallCoreTools";
 
 export interface AgentRuntimePluginToolAssemblyOptions<TPlanInput extends CapabilityBuilderPlanToolInput> {
   pluginInstallCore: AgentRuntimePluginInstallCoreToolOptions;

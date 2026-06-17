@@ -35,7 +35,7 @@ import {
   validateWorkflowSourceConnectorReferences,
   validateWorkflowSourceGraphMappings,
   validateWorkflowSourceReferences,
-} from "./workflowCompiler";
+} from "./workflow-compiler/workflowCompiler";
 import { restoreWorkflowVersion } from "./workflowVersionRestore";
 import { commitWorkflowVersionRepo } from "./workflowVersioning";
 import type { DesktopToolDescriptor } from "./desktopToolRegistry";
