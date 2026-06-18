@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { pluginMcpToolDescriptor } from "./workflowDiscoveryDesktopToolFacade";
-import { permissionGrantTargetHash } from "../permissions/permissionGrants";
+import { permissionGrantTargetHash } from "./workflowDiscoveryPermissionsFacade";
 import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
 import { workspaceInventoryConnectorDescriptor } from "./workflowDiscoveryWorkflowFacade";
 import {

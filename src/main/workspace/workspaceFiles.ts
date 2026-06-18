@@ -10,7 +10,7 @@ import type { FileTreeEntry, OfficePreview, WorkspaceContextReference, Workspace
 import { officeMimeTypeForExtension } from "../office/officeFileSupport";
 import { extractOfficeText } from "../office/officeTextExtraction";
 import { extractPdfText } from "../pdf/pdfTextExtraction";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./workspaceSessionFacade";
 import {
   NOFOLLOW_OPEN_FLAG,
   type WorkspacePathAuthorityOptions,

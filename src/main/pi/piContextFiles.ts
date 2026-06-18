@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./piSessionFacade";
 
 export interface PiContextFile {
   path: string;

@@ -4,7 +4,7 @@ import { isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
 import type { GitBranchInput, GitCommitInput, GitFileActionInput, GitReviewFile, GitReviewSummary, WorkspaceDiffCategory, WorkspaceDiffFile, WorkspaceGitStatus } from "../../shared/workspaceTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./workspaceSessionFacade";
 import { parseGitStatus } from "./workspaceFiles";
 
 const execFileAsync = promisify(execFile);

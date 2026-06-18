@@ -36,8 +36,8 @@ import {
   validateCapabilityBuilderPackage,
   writeCapabilityBuilderFile,
 } from "./capabilityBuilder";
-import { runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
-import { MANAGED_INSTALL_ROOT_ENV } from "../setup/managedInstallPaths";
+import { runAmbientCliPackageCommand } from "./capabilityBuilderAmbientCliFacade";
+import { MANAGED_INSTALL_ROOT_ENV } from "./capabilityBuilderSetupFacade";
 
 describe("Capability Builder scaffold", () => {
   it("creates a deterministic managed Ambient CLI package with Git provenance", async () => {

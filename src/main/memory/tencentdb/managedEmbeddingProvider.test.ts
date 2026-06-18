@@ -15,7 +15,7 @@ import {
   runAmbientMemoryEmbeddingLifecycleAction,
   startAmbientMemoryEmbeddingRuntime,
 } from "./managedEmbeddingProvider";
-import { managedInstallWorkspacePath } from "../../setup/managedInstallPaths";
+import { managedInstallWorkspacePath } from "./memorySetupFacade";
 import { miniCpmRuntimeReleaseManifestPrototype } from "../../mini-cpm/miniCpmRuntimeManifest";
 import {
   selectLocalLlamaRuntimeArtifact,

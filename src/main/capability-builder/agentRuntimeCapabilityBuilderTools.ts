@@ -44,7 +44,7 @@ import { registerCapabilityBuilderUnregisterTool } from "./agentRuntimeCapabilit
 import { registerCapabilityBuilderUpdatePlanTool } from "./agentRuntimeCapabilityBuilderUpdatePlanTools";
 import { registerCapabilityBuilderValidateTool } from "./agentRuntimeCapabilityBuilderValidateTools";
 import { registerCapabilityBuilderWriteFileTool } from "./agentRuntimeCapabilityBuilderWriteFileTools";
-import type { AmbientInstallRoutePlan } from "../install-route/installRoutePlanner";
+import type { AmbientInstallRoutePlan } from "./capabilityBuilderInstallRouteFacade";
 
 export interface AgentRuntimeCapabilityBuilderPermissionRequest {
   thread: ThreadSummary;

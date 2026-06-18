@@ -14,7 +14,7 @@ import {
   uninstallAmbientCliPackageSource,
   type AmbientCliPackageCatalog,
   type AmbientCliPackageSummary,
-} from "../ambient-cli/ambientCliPackages";
+} from "./capabilityBuilderAmbientCliFacade";
 import type { ToolLargeOutputPreview, ToolLargeOutputPreviewItem } from "../../shared/threadTypes";
 import type {
   VoiceOutputFormat,
@@ -22,10 +22,9 @@ import type {
   VoiceProviderCloningMetadata,
   VoiceProviderDiscoveryMetadata,
 } from "../../shared/localRuntimeTypes";
-import { ambientRuntimeEnv } from "../setup/runtimePath";
+import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "./capabilityBuilderSetupFacade";
 import { redactSensitiveText } from "../security/secretRedaction";
 import { isSecretReference, readSecretReference, saveSecretReference } from "../security/secretReferenceStore";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/managedInstallPaths";
 
 const execFileAsync = promisify(execFile);
 const builderRoot = ".ambient/capability-builder/packages";

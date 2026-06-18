@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEditTool, createFindTool, createGrepTool, createLsTool, createReadTool, createWriteTool } from "@mariozechner/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
-import { createDocxFixture, createXlsxFixture } from "../office/officeTestFixtures";
+import { createDocxFixture, createXlsxFixture } from "./piOfficeTestFacade";
 import { createPdfFixture } from "../pdf/pdfTestFixtures";
 import {
   createAmbientEditOperations,

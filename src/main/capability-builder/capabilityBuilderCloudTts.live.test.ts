@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { discoverAmbientCliVoiceProviders, runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
+import { discoverAmbientCliVoiceProviders, runAmbientCliPackageCommand } from "./capabilityBuilderAmbientCliFacade";
 import {
   registerCapabilityBuilderPackage,
   saveCapabilityBuilderEnvSecret,

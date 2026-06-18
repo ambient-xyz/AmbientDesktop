@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowDiscoveryQuestionCategory } from "../../shared/workflowTypes";
-import { AGGRESSIVE_RETRY_BACKOFF_MS, aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import { AGGRESSIVE_RETRY_BACKOFF_MS, aggressiveAmbientRetryPolicy } from "./workflowDiscoveryAmbientFacade";
 import { pluginMcpToolDescriptor } from "./workflowDiscoveryDesktopToolFacade";
 import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
-import { permissionGrantTargetHash } from "../permissions/permissionGrants";
+import { permissionGrantTargetHash } from "./workflowDiscoveryPermissionsFacade";
 import {
   describeWorkflowDiscoveryCapability,
   searchWorkflowDiscoveryCapabilities,

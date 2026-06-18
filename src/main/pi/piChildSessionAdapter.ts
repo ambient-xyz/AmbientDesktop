@@ -7,8 +7,12 @@ import type {
 import type { SubagentCapacityLocalMemorySnapshot } from "../../shared/subagentCapacity";
 import type { SubagentRoleProfile } from "../../shared/subagentRoles";
 import type { resolveSubagentToolScope } from "../../shared/subagentToolScope";
-import type { SubagentApprovalDecision, SubagentApprovalRequestInput, SubagentApprovalScope } from "../subagents/subagentApprovalBridge";
-import type { SubagentSupervisorRequestInput } from "../subagents/subagentSupervisorRequest";
+import type {
+  SubagentApprovalDecision,
+  SubagentApprovalRequestInput,
+  SubagentApprovalScope,
+  SubagentSupervisorRequestInput,
+} from "./piSubagentsFacade";
 import type { SubagentTurnBudgetPolicy } from "../../shared/subagentTurnBudget";
 import type { SubagentMailboxEventSummary, SubagentRunEventSummary, SubagentRunSummary, SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";

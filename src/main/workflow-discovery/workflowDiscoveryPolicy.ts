@@ -3,7 +3,7 @@ import { basename, extname, join, relative } from "node:path";
 import type { AmbientPermissionGrant, PermissionAuditDecisionSource, PermissionGrantActionKind, PermissionGrantTargetKind, PermissionMode, PermissionRequest, PermissionRisk } from "../../shared/permissionTypes";
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { WorkflowDiscoveryContextCapability, WorkflowDiscoveryContextEvidence } from "../../shared/workflowTypes";
-import { findMatchingPermissionGrant, permissionGrantTargetHash } from "../permissions/permissionGrants";
+import { findMatchingPermissionGrant, permissionGrantTargetHash } from "./workflowDiscoveryPermissionsFacade";
 import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
 import type { WorkflowConnectorDescriptor } from "./workflowDiscoveryWorkflowFacade";
 

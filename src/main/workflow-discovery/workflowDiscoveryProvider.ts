@@ -6,7 +6,7 @@ import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import {
   ambientRetryPolicyFromLegacyOptions,
   type AmbientRetryPolicy,
-} from "../ambient/aggressiveRetries";
+} from "./workflowDiscoveryAmbientFacade";
 import {
   capabilitySearchAmbientCliCapabilityIds,
   capabilitySearchConnectorIds,

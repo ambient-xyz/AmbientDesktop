@@ -23,7 +23,7 @@ import {
   largeOutputPreviewItemsMissingArtifacts,
   validateLargeOutputPreviewArtifacts,
   type LargeOutputPreviewMissingArtifactItem,
-} from "../subagents/subagentInvariants";
+} from "./piSubagentsFacade";
 
 type ToolStatus = "running" | "done" | "error";
 type ToolEventDetails = Record<string, string>;

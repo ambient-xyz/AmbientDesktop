@@ -15,7 +15,7 @@ import type { LocalDeepResearchInstallProgress } from "../../shared/localRuntime
 import { localDeepResearchModelCachePath } from "./localDeepResearchManagedAssets";
 import type { LocalDeepResearchModelProfile } from "./localDeepResearchModelProfiles";
 import { buildLocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { managedInstallWorkspacePath } from "../setup/managedInstallPaths";
+import { managedInstallWorkspacePath } from "./localDeepResearchSetupFacade";
 
 const gib = 1024 ** 3;
 

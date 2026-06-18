@@ -11,15 +11,14 @@ import type {
   WriteOperations,
 } from "@mariozechner/pi-coding-agent";
 import type { OfficeTextExtraction, PdfTextExtraction } from "../../shared/workspaceTypes";
-import { describeOfficeFileSupport } from "../office/officeFileSupport";
-import { extractOfficeText } from "../office/officeTextExtraction";
+import { describeOfficeFileSupport, extractOfficeText } from "./piOfficeFacade";
 import { extractPdfText } from "../pdf/pdfTextExtraction";
 import {
   createWorkspaceDirectoryAtAbsolutePath,
   writeWorkspaceTextFileAtAbsolutePath,
 } from "../workspace/workspaceFiles";
 import { resolveWorkspaceAbsolutePathForRead } from "../workspace/workspacePathResolver";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./piSessionFacade";
 
 const MAX_PI_READ_OFFICE_CHARS = 500_000;
 const MAX_PI_READ_PDF_CHARS = 500_000;

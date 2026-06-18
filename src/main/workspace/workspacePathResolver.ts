@@ -2,7 +2,7 @@ import { constants as fsConstants } from "node:fs";
 import type { Stats } from "node:fs";
 import { lstat, mkdir, realpath, stat } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./workspaceSessionFacade";
 
 export interface ResolvedWorkspaceReadPath {
   workspacePath: string;

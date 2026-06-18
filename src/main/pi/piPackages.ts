@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { z } from "zod";
 import type { CodexPluginCompatibilityTier, InstallPiPackageInput, PiPackageCatalog, PiPackageDependencyStatus, PiPackageInstallPreview, PiPackageInstallScope, PiPackageResourceKind, PiPackageResourceSource, PiPackageResourceSummary, PiPackageSourceKind, PiPackageSummary, PreviewPiPackageInstallInput, UninstallPiPackageInput } from "../../shared/pluginTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./piSessionFacade";
 import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/managedInstallPaths";
 
 const piResourceKinds: PiPackageResourceKind[] = ["extension", "skill", "prompt", "theme"];

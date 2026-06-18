@@ -19,7 +19,7 @@ import {
   type LocalDeepResearchModelProfileId,
 } from "./localDeepResearchModelProfiles";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { managedInstallWorkspacePath } from "../setup/managedInstallPaths";
+import { managedInstallWorkspacePath } from "./localDeepResearchSetupFacade";
 import { isPathInside } from "../session/sessionPaths";
 
 export interface LocalDeepResearchModelInstallResult {
