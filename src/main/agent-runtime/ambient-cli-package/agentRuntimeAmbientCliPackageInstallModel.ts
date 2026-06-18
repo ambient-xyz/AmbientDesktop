@@ -7,7 +7,7 @@ import type {
   AmbientCliPiCatalogInstallPreview,
   InstallAmbientCliPackageInput,
   PreviewAmbientCliPackageInput,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 
 export interface AmbientCliPackageInstallParams {
   source: string;

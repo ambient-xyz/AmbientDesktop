@@ -8,16 +8,16 @@ import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import { resolveAmbientFeatureFlags } from "../../../shared/featureFlags";
 import type { ChildLaunchPolicySnapshot } from "../../../shared/symphonyFineGrainedContracts";
 import type { SubagentToolCategoryId } from "../../../shared/subagentToolScope";
-import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
-import type { LocalDeepResearchProviderSnapshot } from "../../local-deep-research/localDeepResearchSetup";
-import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
+import type { AmbientCliPackageCatalog } from "../agentRuntimeAmbientCliFacade";
+import type { LocalDeepResearchProviderSnapshot } from "../agentRuntimeLocalDeepResearchFacade";
+import type { McpToolDescriptor } from "../agentRuntimeMcpFacade";
 import {
   localDeepResearchProviderOrderForRole,
   searchSettingsWithLocalDeepResearchProviderSnapshot,
   webResearchProviderPlanForInput,
   type WebResearchProviderPlanOptions,
 } from "./agentRuntimeWebResearchProviderPlan";
-import { WEB_RESEARCH_PROVIDER_IDS } from "../../web-research/webResearchProviderStack";
+import { WEB_RESEARCH_PROVIDER_IDS } from "../agentRuntimeWebResearchFacade";
 
 describe("agentRuntimeWebResearchProviderPlan", () => {
   it("hydrates dynamic catalogs and honors one-turn provider order", async () => {

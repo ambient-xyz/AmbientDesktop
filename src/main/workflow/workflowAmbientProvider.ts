@@ -2,7 +2,7 @@ import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import { readAmbientApiKey } from "../security/credentialStore";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import { parseCompilerJson } from "../workflow-compiler/workflowCompilerService";
-import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import type { AmbientRetryPolicy } from "./workflowAmbientFacade";
 import { callWorkflowPiText, type WorkflowPiProgress } from "./workflowPiTransport";
 import { workflowAmbientCallPromptParts, type WorkflowAmbientProvider } from "./workflowAmbientClient";
 

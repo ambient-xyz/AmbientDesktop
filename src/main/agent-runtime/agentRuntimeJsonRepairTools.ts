@@ -10,7 +10,7 @@ import {
   type JsonRepairToolInput,
   type JsonRepairToolOptions,
   type JsonRepairToolResult,
-} from "../workflow/jsonRepairTool";
+} from "./agentRuntimeWorkflowFacade";
 
 type JsonRepairToolUpdateHandler = (update: AgentToolResult<Record<string, unknown>>) => void;
 type JsonRepairModel = {

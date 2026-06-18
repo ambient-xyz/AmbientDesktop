@@ -6,7 +6,7 @@ import type {
 } from "../../shared/plannerTypes";
 import type { SubagentParentMailboxEventSummary } from "../../shared/subagentTypes";
 import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
-import type { CallableWorkflowParentBlockingBlock } from "../callable-workflow/callableWorkflowParentBlocking";
+import type { CallableWorkflowParentBlockingBlock } from "./agentRuntimeCallableWorkflowFacade";
 import type { AssistantTerminalCleanupDiagnostic } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
 import {
   callableWorkflowFinalizationBlockedActivity,

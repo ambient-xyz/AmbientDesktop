@@ -19,7 +19,7 @@ import { registerWebResearchProviderDescribeTools } from "./agentRuntimeWebResea
 import { registerWebResearchProviderSearchTools } from "./agentRuntimeWebResearchProviderSearchTools";
 import { registerWebResearchSearchTools, type WebResearchSearchToolRegistrationOptions } from "./agentRuntimeWebResearchSearchTools";
 import { registerWebResearchStatusTools, type WebResearchStatusToolRegistrationOptions } from "./agentRuntimeWebResearchStatusTools";
-import type { WebResearchProviderRequestPlan } from "../../web-research/webResearchProviderStack";
+import type { WebResearchProviderRequestPlan } from "../agentRuntimeWebResearchFacade";
 
 type WebResearchToolUpdateHandler = (update: AgentToolResult<Record<string, unknown>>) => void;
 

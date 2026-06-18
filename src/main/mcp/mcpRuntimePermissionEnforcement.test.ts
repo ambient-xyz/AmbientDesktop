@@ -6,7 +6,7 @@ import {
   mcpRuntimePermissionEnforcementDetailText,
 } from "./mcpRuntimePermissionEnforcement";
 import type { McpToolDescriptor } from "./mcpToolBridge";
-import type { ToolHiveInstalledServerState } from "../tool-runtime/toolHiveRuntimeService";
+import type { ToolHiveInstalledServerState } from "./mcpToolRuntimeFacade";
 
 describe("MCP runtime permission enforcement", () => {
   it("accepts exact public HTTPS resources covered by the installed ToolHive allowlist", () => {

@@ -12,7 +12,7 @@ import {
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "./agentRuntimeAmbientFacade";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 const itLive = process.env.AMBIENT_SLASH_COMMAND_LIVE === "1" ? it : it.skip;
 

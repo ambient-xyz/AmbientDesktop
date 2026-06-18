@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { chmod, copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
-import type { ToolHiveInstalledServerState, ToolHiveRunVolume } from "../tool-runtime/toolHiveRuntimeService";
+import type { ToolHiveInstalledServerState, ToolHiveRunVolume } from "./mcpToolRuntimeFacade";
 
 export const MCP_MANAGED_FILE_EXCHANGE_PURPOSE = "ambient-mcp-file-exchange";
 export const MCP_MANAGED_FILE_EXCHANGE_CONTAINER_PATH = "/ambient/mcp-files";

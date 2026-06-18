@@ -65,8 +65,9 @@ type SubagentApprovalScopeOption = {
 export function subagentApprovalInitialScope(action: SubagentParentClusterApprovalActionModel): string {
   if (action.decision === "denied") return "this_action";
   const normalized = normalizeSubagentApprovalScope(action.requestedScope) ?? normalizeSubagentApprovalScope(action.effectiveScope);
-  if (normalized === "always") return "always";
-  return normalized ?? "this_action";
+  if (!normalized || normalized === "this_action") return "this_action";
+  if (normalized === "always") return "this_child_thread";
+  return normalized;
 }
 
 export type AppModalHostProps = {
@@ -374,38 +375,32 @@ export function AppModalHost({
   );
 }
 
-function subagentApprovalScopeOptions(action: SubagentParentClusterApprovalActionModel): SubagentApprovalScopeOption[] {
-  const childThreadValue = normalizeSubagentApprovalScope(action.requestedScope) === "always" ||
-    normalizeSubagentApprovalScope(action.effectiveScope) === "always"
-    ? "always"
-    : "this_child_thread";
+export function subagentApprovalScopeOptions(): SubagentApprovalScopeOption[] {
   return [
     {
-      value: "this_action",
-      label: "This action",
-      description: "Only this approval request.",
+      value: "this_child_thread",
+      label: "For this child",
+      description: "Recommended. Apply to future matching actions in this child thread only.",
     },
     {
-      value: childThreadValue,
-      label: "This child thread",
-      description: childThreadValue === "always"
-        ? "Default for child always requests; does not widen to the parent tree."
-        : "Apply to future matching actions in this child thread.",
+      value: "this_action",
+      label: "This action only",
+      description: "Approve only this single request.",
     },
     {
       value: "parent_thread_tree",
       label: "Parent thread tree",
-      description: "Apply to this parent thread and its child sub-threads.",
+      description: "Escalates beyond this child to the parent and sibling child sub-threads.",
     },
     {
       value: "project",
       label: "Project/workspace",
-      description: "Apply across this project workspace.",
+      description: "Escalates beyond this child to matching actions across this project workspace.",
     },
     {
       value: "global",
       label: "Global",
-      description: "Apply to future matching actions everywhere.",
+      description: "Escalates beyond this child to future matching actions everywhere.",
     },
   ];
 }
@@ -452,7 +447,7 @@ function SubagentApprovalDecisionDialog({
   onConfirm: () => void;
 }) {
   const approving = dialog.decision === "approved";
-  const scopeOptions = subagentApprovalScopeOptions(dialog.action);
+  const scopeOptions = subagentApprovalScopeOptions();
   const selectedScope = scopeOptions.some((option) => option.value === dialog.requestedScope)
     ? dialog.requestedScope
     : scopeOptions[0]?.value ?? "this_action";

@@ -1,7 +1,7 @@
 import type { RuntimeSurfaceWorkflowRecoveryEvent } from "../../../shared/messagingGateway";
 import type { WorkflowGraphNode, WorkflowRunEvent } from "../../../shared/workflowTypes";
 import { workflowResumeCheckpointEligibility, workflowRetryEligibility, workflowSkipItemEligibility } from "../../../shared/workflowRetryEligibility";
-import { readWorkflowCheckpointSummaries } from "../../workflow/workflowCheckpointStore";
+import { readWorkflowCheckpointSummaries } from "../agentRuntimeWorkflowFacade";
 
 interface AgentRuntimeWorkflowRecoveryCommandEvent {
   retryEligible: boolean;

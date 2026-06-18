@@ -23,7 +23,7 @@ import {
   createAmbientLsOperations,
   createAmbientReadOperations,
   createAmbientWriteOperations,
-} from "../../pi/piReadOperations";
+} from "../agentRuntimePiFacade";
 import { isPathInside } from "../../session/sessionPaths";
 
 const AMBIENT_WRITE_DESCRIPTION_GUIDANCE =

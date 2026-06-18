@@ -33,7 +33,7 @@ import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 import type { SymphonyWorkflowRecipePreset } from "../../shared/symphonyWorkflowRecipes";
 import { projectBoardPlanTitleIsGeneric } from "../../shared/projectBoardPlanIdentity";
 import { LEGACY_PROJECT_STATE_DIR } from "../workspace/workspaceAuthorityState";
-import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, projectBoardSourceIncludedInSynthesis } from "../project-board/projectBoardSourceIdentity";
+import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, projectBoardSourceIncludedInSynthesis } from "./projectStoreProjectBoardFacade";
 import { parseStringList } from "./projectStoreJson";
 import {
   normalizeCardTextList,
@@ -50,7 +50,7 @@ import {
   type ProjectBoardSynthesisProposalStoreRow,
   type ProjectBoardSynthesisRunStoreRow,
 } from "./projectBoardMappers";
-import type { ProjectBoardSynthesisCardInput } from "../project-board/projectBoardSynthesis";
+import type { ProjectBoardSynthesisCardInput } from "./projectStoreProjectBoardFacade";
 
 export const PROJECT_STATE_DIR = LEGACY_PROJECT_STATE_DIR;
 export const AUTOMATION_HOME_FOLDER_ID = "home";

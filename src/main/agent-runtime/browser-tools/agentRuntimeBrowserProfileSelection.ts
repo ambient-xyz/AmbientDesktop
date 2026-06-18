@@ -3,7 +3,7 @@ import type {
   BrowserProfileMode,
   BrowserRuntimeKind,
 } from "../../../shared/browserTypes";
-import { selectAgentBrowserRuntime } from "../../agent/agentBrowserRuntime";
+import { selectAgentBrowserRuntime } from "../agentRuntimeAgentFacade";
 import { browserToolUpdate } from "./agentRuntimeBrowserToolFormatting";
 
 export interface AgentRuntimeBrowserProfileSelectionDeps {

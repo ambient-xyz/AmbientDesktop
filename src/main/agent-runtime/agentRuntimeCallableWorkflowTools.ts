@@ -11,13 +11,13 @@ import type {
 } from "../../shared/subagentTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import type { CallableWorkflowCallerProvenance } from "../callable-workflow/callableWorkflowExecutionPlan";
+import type { CallableWorkflowCallerProvenance } from "./agentRuntimeCallableWorkflowFacade";
 import {
   callableWorkflowActiveToolNamesForThread as defaultCallableWorkflowActiveToolNamesForThread,
   createCallableWorkflowPiToolDefinitions as defaultCreateCallableWorkflowPiToolDefinitions,
   type CallableWorkflowPiToolContext,
   type CreateCallableWorkflowPiToolDefinitionsOptions,
-} from "../callable-workflow/callableWorkflowPiTools";
+} from "./agentRuntimeCallableWorkflowFacade";
 
 export interface CallableWorkflowRecordedPlaybookStore {
   listWorkflowRecordingLibrary: (input: { limit?: number }) => { id: string }[];

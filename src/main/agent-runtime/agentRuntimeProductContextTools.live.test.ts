@@ -11,7 +11,7 @@ import {
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "./agentRuntimeAmbientFacade";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 const itLive = process.env.AMBIENT_PRODUCT_CONTEXT_LIVE === "1" ? it : it.skip;
 

@@ -1,6 +1,6 @@
 import type { AmbientPluginCapabilitySummary, AmbientPluginRegistry } from "../../shared/pluginTypes";
 import type { WorkflowManifest, WorkflowPluginCapabilityGrant } from "../../shared/workflowTypes";
-import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./workflowDesktopToolFacade";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { listAmbientPluginRuntimeCapabilities, pluginMcpToolCapabilityId } from "../plugins/capabilityRegistry";
 

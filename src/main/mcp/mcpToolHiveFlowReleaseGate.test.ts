@@ -3,12 +3,12 @@ import { firstPartyDesktopToolDescriptors, piToolFieldsFromDescriptor } from "..
 import {
   mcpAutowirePhase0Fixtures,
   mcpKatzillaInstallFailureReplay,
-} from "../mcp-autowire/mcpAutowireFixtures";
+} from "./mcpAutowireFacade";
 import {
   MCP_AUTOWIRE_CANDIDATE_SCHEMA_VERSION,
   validateMcpAutowireCandidate,
   type McpAutowireCandidate,
-} from "../mcp-autowire/mcpAutowireSchemas";
+} from "./mcpAutowireFacade";
 import { mcpLivePiSmokePrompt } from "./mcpLivePiSmoke";
 
 describe("ToolHive MCP flow release gate", () => {

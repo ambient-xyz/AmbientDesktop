@@ -21,12 +21,12 @@ import {
   createSubagentBatchJobPlan,
   createSubagentBatchResultReport,
   type SubagentBatchJobPlan,
-} from "../subagents/subagentBatchJobs";
+} from "./projectStoreSubagentsFacade";
 import {
   cancelPendingParentToChildMailboxEvents,
   consumeDeliveredParentToChildMailboxEvents,
   deliverQueuedParentToChildMailboxEvents,
-} from "../subagents/subagentMailbox";
+} from "./projectStoreSubagentsFacade";
 import type { SubagentResultArtifact } from "../../shared/subagentProtocol";
 import type { ModelRuntimeInstalledProvider } from "../../shared/threadTypes";
 

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { BrowserLoginInput, BrowserSearchInput } from "../../shared/browserTypes";
 import type { PermissionRequest } from "../../shared/permissionTypes";
-import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { pluginMcpToolDescriptor } from "./workflowDesktopToolFacade";
 import { createDocxFixture, createPptxFixture, createXlsxFixture } from "../office/officeTestFixtures";
 import { createPdfFixture } from "../pdf/pdfTestFixtures";
 import type { PluginMcpToolRegistration } from "../plugins/pluginMcpSupervisor";

@@ -1,5 +1,5 @@
-import { parseMcpAutowireCandidate, validateMcpAutowireCandidate, type McpAutowireCandidate, type McpAutowireValidationIssue, type McpAutowireValidationReport } from "../mcp-autowire/mcpAutowireSchemas";
-import type { ToolHiveInstalledServerSourceIdentity, ToolHiveInstallReviewState } from "../tool-runtime/toolHiveRuntimeService";
+import { parseMcpAutowireCandidate, validateMcpAutowireCandidate, type McpAutowireCandidate, type McpAutowireValidationIssue, type McpAutowireValidationReport } from "./mcpAutowireFacade";
+import type { ToolHiveInstalledServerSourceIdentity, ToolHiveInstallReviewState } from "./mcpToolRuntimeFacade";
 
 export interface McpGuidedLocalBridgePreviewInput {
   candidate: unknown;

@@ -12,7 +12,7 @@ import {
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
   type BrowserUnavailableFallback,
-} from "../agent/agentBrowserRuntime";
+} from "./agentRuntimeAgentFacade";
 import { pluginInstallToolDescriptor } from "./agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 import type { BrowserToolTextResult } from "./browser-tools/agentRuntimeBrowserToolFormatting";

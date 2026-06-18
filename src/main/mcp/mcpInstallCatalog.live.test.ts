@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { McpInstallCatalog, mcpRegistryInstallPreviewText, mcpServerSearchResultsText } from "./mcpInstallCatalog";
-import { resolveOrExtractToolHiveExecutable } from "../tool-runtime/toolHiveBundle";
-import { ToolHiveRuntimeService } from "../tool-runtime/toolHiveRuntimeService";
+import { resolveOrExtractToolHiveExecutable } from "./mcpToolRuntimeFacade";
+import { ToolHiveRuntimeService } from "./mcpToolRuntimeFacade";
 
 const runLive = process.env.AMBIENT_MCP_INSTALL_CATALOG_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

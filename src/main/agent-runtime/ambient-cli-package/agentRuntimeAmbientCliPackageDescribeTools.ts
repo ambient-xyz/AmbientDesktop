@@ -6,7 +6,7 @@ import {
   type AmbientCliPackageDescription,
   type DescribeAmbientCliPackageInput,
   type DescribeAmbientCliPackageOptions,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 import { ambientCliDescribeDetails, ambientCliDescribeInput, ambientCliDescribeText } from "./agentRuntimeAmbientCliPackageDescribeModel";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";

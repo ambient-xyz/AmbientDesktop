@@ -8,7 +8,7 @@ import {
   discoverAmbientCliEmbeddingProviders as defaultDiscoverEmbeddingProviders,
   discoverAmbientCliSttProviders as defaultDiscoverSttProviders,
   discoverAmbientCliVoiceProviders as defaultDiscoverVoiceProviders,
-} from "../ambient-cli/ambientCliPackages";
+} from "./agentRuntimeAmbientCliFacade";
 import { discoverAmbientMemoryEmbeddingProviders as defaultDiscoverManagedMemoryEmbeddingProviders } from "../memory/tencentdb/managedEmbeddingProvider";
 import {
   mergeSttProvidersWithValidation as defaultMergeSttProvidersWithValidation,

@@ -3,7 +3,7 @@ import {
   assistantTerminalEventDiagnostic,
   type AssistantTerminalEventDiagnostic,
 } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
-import type { NormalizedPiEvent } from "../pi/piEventMapper";
+import type { NormalizedPiEvent } from "./agentRuntimePiFacade";
 import { runtimeAgentEndEventModel, type RuntimeAgentEndEvent } from "./agentEndEvents";
 import { runtimeAssistantEndEventModel, type RuntimeAssistantEndEvent } from "./assistantEndEvents";
 import { runtimeAssistantUpdateEventModel, type RuntimeAssistantUpdateEvent } from "./assistantUpdateEvents";

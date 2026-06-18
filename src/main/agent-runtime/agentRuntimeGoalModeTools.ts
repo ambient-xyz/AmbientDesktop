@@ -2,7 +2,7 @@ import type { AgentToolResult, ExtensionFactory } from "@mariozechner/pi-coding-
 
 import type { ThreadGoal, ThreadGoalStatus, ThreadSummary } from "../../shared/threadTypes";
 import type { GoalCompletionValidationResult } from "./agentRuntimeGoalCompletionValidation";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 export const GOAL_CONTEXT_CUSTOM_TYPE = "ambient-goal-mode-context";
 

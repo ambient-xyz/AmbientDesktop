@@ -138,6 +138,7 @@ describe("AppConversationMessages", () => {
     expect(markup).toContain("data-child-tool-message-count=\"1\"");
     expect(markup).toContain("data-child-renderer=\"message-bubble+tool-card\"");
     expect(markup).toContain("data-child-run-activity-visible=\"true\"");
+    expect(markup).toContain("data-child-run-activity-placement=\"after-transcript\"");
     expect(markup).toContain("2 activity lines");
     expect(markup).toContain("Live child activity for Reviewer");
     expect(markup).toContain("Child is reading the workspace file.");
@@ -147,6 +148,8 @@ describe("AppConversationMessages", () => {
     expect(markup).toContain("data-child-runtime-events-open=\"true\"");
     expect(markup).toContain("data-child-mailbox-events-open=\"true\"");
     expect(markup).toContain("data-child-transcript-stream-live=\"true\"");
+    expect(markup).toContain("data-child-transcript-flow=\"messages-first\"");
+    expect(markup).toContain("data-child-secondary-flow=\"after-transcript-stream\"");
     expect(markup).toContain("data-child-transcript-layout=\"transcript-first\"");
     expect(markup).toContain("data-child-summary-follows=\"true\"");
     expect(markup).toContain("data-child-blocker-panel=\"after-transcript\"");
@@ -169,6 +172,9 @@ describe("AppConversationMessages", () => {
     );
     expect(markup.indexOf("Child tool result rendered with parent tool-card chrome.")).toBeLessThan(
       markup.indexOf("data-child-blocker-panel=\"after-transcript\""),
+    );
+    expect(markup.indexOf("Child tool result rendered with parent tool-card chrome.")).toBeLessThan(
+      markup.indexOf("aria-label=\"Live child activity for Reviewer\""),
     );
     expect(markup.indexOf("Child mailbox")).toBeLessThan(
       markup.indexOf("data-child-blocker-panel=\"after-transcript\""),

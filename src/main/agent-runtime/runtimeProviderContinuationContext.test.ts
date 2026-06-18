@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SendMessageInput } from "../../shared/desktopTypes";
 import type { ToolIntentSnapshot } from "../../shared/threadTypes";
 import { InterruptedToolCallRecoveryTracker } from "./recovery/interruptedToolCallRecovery";
-import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "./agentRuntimeToolRuntimeFacade";
 import type { RuntimeToolMessageController } from "./runtimeToolMessageController";
 import { createRuntimeProviderContinuationContext } from "./runtimeProviderContinuationContext";
 

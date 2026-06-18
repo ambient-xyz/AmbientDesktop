@@ -2,8 +2,8 @@ import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 
 import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
 import { webResearchToolResult } from "./agentRuntimeWebResearchStatusTools";
-import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
-import type { WebResearchProviderAttempt } from "../../web-research/webResearchBroker";
+import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../agentRuntimeToolRuntimeFacade";
+import type { WebResearchProviderAttempt } from "../agentRuntimeWebResearchFacade";
 
 export function isWebResearchMcpProvider(
   provider: WebResearchProviderConfig | undefined,

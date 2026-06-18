@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { ContainerRuntimeProbeResult, ContainerRuntimeProbeStatus } from "../container-runtime/containerRuntimeProbeService";
+import type { ContainerRuntimeProbeResult, ContainerRuntimeProbeStatus } from "./mcpContainerRuntimeFacade";
 import { mcpDefaultCatalogDescriptorHash, type McpDefaultCatalogDescriptor } from "./mcpDefaultCatalog";
 import type { McpInstalledServerSummary } from "./mcpInstallCatalog";
 

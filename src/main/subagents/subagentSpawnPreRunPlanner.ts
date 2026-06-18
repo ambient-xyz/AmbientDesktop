@@ -27,7 +27,7 @@ import {
 import {
   resolveSubagentModelScope,
   type SubagentModelScopeResolution,
-} from "../model-provider/modelScopeResolver";
+} from "./subagentModelProviderFacade";
 import {
   compactSubagentModelScopeForPi,
   previewSubagentSpawnText,

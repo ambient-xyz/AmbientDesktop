@@ -29,8 +29,8 @@ import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../.
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS } from "../../shared/symphonyWorkflowRecipes";
 import { sttMessageMetadataFromTranscription } from "../../shared/sttMessageMetadata";
-import { BrowserUnavailableError, BrowserUserActionCanceledError, BrowserUserActionTimedOutError } from "../browser/browserService";
-import { browserRuntimeForAgentProfile, browserToolFallback, browserUnavailableText, selectAgentBrowserRuntime } from "../agent/agentBrowserRuntime";
+import { BrowserUnavailableError, BrowserUserActionCanceledError, BrowserUserActionTimedOutError } from "./agentRuntimeBrowserFacade";
+import { browserRuntimeForAgentProfile, browserToolFallback, browserUnavailableText, selectAgentBrowserRuntime } from "./agentRuntimeAgentFacade";
 import {
   AgentRuntime,
   assistantFinalizationRetryAttemptsUsedForReason,
@@ -62,8 +62,8 @@ import { AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES } from "./agentRuntimeAmbientFacad
 import { MacosAuthorizedHelperUnavailableAdapter, type PrivilegedActionAdapter, type PrivilegedActionAdapterExecuteInput } from "../privileged-action/privilegedActionAdapter";
 import { privilegedActionAdapterStatus, successfulPrivilegedActionNativeRequest } from "../privileged-action/privilegedAction";
 import { scaffoldCapabilityBuilderPackage } from "../capability-builder/capabilityBuilder";
-import { ProjectStore } from "../projectStore/projectStore";
-import type { LocalModelRuntimeLease, LocalModelRuntimeReleaseResult } from "../local-runtime/localModelRuntimeManager";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
+import type { LocalModelRuntimeLease, LocalModelRuntimeReleaseResult } from "./agentRuntimeLocalRuntimeFacade";
 import { TelegramBridgeSupervisor } from "./agentRuntimeTelegramFacade";
 import { createMessagingBindingStore } from "./agentRuntimeMessagingFacade";
 import { createDefaultMessagingProviderRegistry } from "./agentRuntimeMessagingFacade";
@@ -73,27 +73,27 @@ import { createVisionToolExtension } from "./agentRuntimeVisionTools";
 import { createSttSettingsToolExtension } from "../stt/agentRuntimeSttTools";
 import { createVoiceSettingsToolExtension } from "../voice/agentRuntimeVoiceTools";
 import { writePcm16Wav } from "../stt/sttAudio";
-import { normalizeWebResearchProviderStackSettings } from "../web-research/webResearchProviderStack";
-import { normalizeLocalDeepResearchSettings } from "../local-deep-research/localDeepResearchProviderStack";
+import { normalizeWebResearchProviderStackSettings } from "./agentRuntimeWebResearchFacade";
+import { normalizeLocalDeepResearchSettings } from "./agentRuntimeLocalDeepResearchFacade";
 import { localDeepResearchToolBudgetState, normalizeLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
-import { detectLocalDeepResearchManagedAssets, localDeepResearchModelCachePath } from "../local-deep-research/localDeepResearchManagedAssets";
-import { localDeepResearchProfileById } from "../local-deep-research/localDeepResearchModelProfiles";
+import { detectLocalDeepResearchManagedAssets, localDeepResearchModelCachePath } from "./agentRuntimeLocalDeepResearchFacade";
+import { localDeepResearchProfileById } from "./agentRuntimeLocalDeepResearchFacade";
 import { selectLocalLlamaRuntimeArtifact } from "../local-llama/localLlamaRuntimeManifest";
 import { detectLocalLlamaResidentProcesses } from "../local-llama/localLlamaResidencyPolicy";
 import { miniCpmRuntimeReleaseManifestPrototype } from "../mini-cpm/miniCpmRuntimeManifest";
-import { buildLocalDeepResearchSetupContract } from "../local-deep-research/localDeepResearchSetup";
-import type { LocalDeepResearchRunServiceResult } from "../local-deep-research/localDeepResearchRunService";
-import type { LocalDeepResearchInstallServiceResult } from "../local-deep-research/localDeepResearchInstallService";
-import { resolveSubagentApprovalDecision } from "../subagents/subagentApprovalDecision";
-import { resolveSubagentChildActiveToolNames } from "../subagents/subagentChildActiveTools";
-import { appendMappedSubagentRuntimeEvent } from "../subagents/subagentRuntimeEventPersistence";
+import { buildLocalDeepResearchSetupContract } from "./agentRuntimeLocalDeepResearchFacade";
+import type { LocalDeepResearchRunServiceResult } from "./agentRuntimeLocalDeepResearchFacade";
+import type { LocalDeepResearchInstallServiceResult } from "./agentRuntimeLocalDeepResearchFacade";
+import { resolveSubagentApprovalDecision } from "./agentRuntimeSubagentsFacade";
+import { resolveSubagentChildActiveToolNames } from "./agentRuntimeSubagentsFacade";
+import { appendMappedSubagentRuntimeEvent } from "./agentRuntimeSubagentsFacade";
 import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   callableWorkflowToolName,
-} from "../callable-workflow/callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
-import { CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE } from "../callable-workflow/callableWorkflowParentBlocking";
+} from "./agentRuntimeCallableWorkflowFacade";
+import { buildCallableWorkflowExecutionPlan } from "./agentRuntimeCallableWorkflowFacade";
+import { CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE } from "./agentRuntimeCallableWorkflowFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 const gib = 1024 ** 3;

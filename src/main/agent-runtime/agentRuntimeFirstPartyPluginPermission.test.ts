@@ -15,7 +15,7 @@ import {
   type FirstPartyPluginPermissionWaitFinish,
   type FirstPartyPluginPermissionWaitStart,
 } from "./agentRuntimeFirstPartyPluginPermission";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 describe("agentRuntimeFirstPartyPluginPermission", () => {
   it("builds first-party plugin permission requests with existing grant hash shape", () => {

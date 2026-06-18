@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { ToolEventDetails } from "../../../shared/desktopTypes";
 import type { ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../../shared/threadTypes";
-import type { ToolResultDetails } from "../../pi/piEventMapper";
+import type { ToolResultDetails } from "../agentRuntimePiFacade";
 import {
   stringMetadata,
   subagentParentControlAbortIntentFromToolEnd,
   toolMessageMetadata,
 } from "./agentRuntimeToolMessageMetadata";
-import { AMBIENT_SUBAGENT_TOOL_NAME } from "../../subagents/subagentPiTools";
+import { AMBIENT_SUBAGENT_TOOL_NAME } from "../agentRuntimeSubagentsFacade";
 
 describe("agentRuntimeToolMessageMetadata", () => {
   it("builds tool metadata with result details and media artifact precedence", () => {

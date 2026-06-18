@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
-import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
+import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "./mcpToolRuntimeFacade";
 import { McpInstallCatalog, type McpInstalledServerSummary } from "./mcpInstallCatalog";
-import { type ToolHiveInstalledServerState, type ToolHiveMcpToolPolicy, type ToolHiveRuntimeService } from "../tool-runtime/toolHiveRuntimeService";
+import { type ToolHiveInstalledServerState, type ToolHiveMcpToolPolicy, type ToolHiveRuntimeService } from "./mcpToolRuntimeFacade";
 import {
   evaluateMcpRuntimePermissionEnforcement,
   mcpRuntimePermissionBlockedMessage,

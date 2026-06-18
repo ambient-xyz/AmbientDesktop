@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { ChatMessage, ToolIntentSnapshot } from "../../shared/threadTypes";
-import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "./agentRuntimeToolRuntimeFacade";
 import { createRuntimeToolEventDispatcher } from "./runtimeToolEventDispatcher";
 import { createRuntimeToolMessageController } from "./runtimeToolMessageController";
 

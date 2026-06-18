@@ -1,6 +1,6 @@
 import type { SubagentRunEventSummary } from "../../shared/subagentTypes";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
-import type { SubagentChildWorktreePrepareInput } from "../pi/piChildSessionAdapter";
+import type { SubagentChildWorktreePrepareInput } from "./subagentPiRuntimeFacade";
 import { compactSubagentThreadWorktreeForPi } from "./subagentSpawnFailure";
 
 export const SUBAGENT_CHILD_WORKTREE_PREPARER_SCHEMA_VERSION =

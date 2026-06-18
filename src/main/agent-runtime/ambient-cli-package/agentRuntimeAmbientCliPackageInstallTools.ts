@@ -14,7 +14,7 @@ import {
   type AmbientCliPiCatalogInstallPreview,
   type InstallAmbientCliPackageInput,
   type PreviewAmbientCliPackageInput,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 import {
   ambientCliPackageInstallApprovalDetail,
   ambientCliPackageInstallInput,

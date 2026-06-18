@@ -8,7 +8,7 @@ import type {
   SendMessageSymphonyComposerIntent,
 } from "../../shared/desktopTypes";
 import type { SendMessageSlashCommandComposerIntent } from "../../shared/slashCommandTypes";
-import { callableWorkflowToolName } from "../callable-workflow/callableWorkflowRegistry";
+import { callableWorkflowToolName } from "./agentRuntimeCallableWorkflowFacade";
 
 interface SymphonyWorkflowComposerBuilderSelection {
   stepId: string;

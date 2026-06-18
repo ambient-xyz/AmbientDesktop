@@ -7,7 +7,7 @@ import type { AgentToolResult, ExtensionFactory } from "@mariozechner/pi-coding-
 import {
   createAmbientWriteOperations,
   type AmbientFileAuthorityRequester,
-} from "../pi/piReadOperations";
+} from "./agentRuntimePiFacade";
 import { isPathInside } from "../session/sessionPaths";
 import {
   commonOverlapChars,

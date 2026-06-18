@@ -4,8 +4,8 @@ import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
-import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
+import { resolveSubagentModelScope } from "./subagentModelProviderFacade";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "./subagentPiRuntimeFacade";
 import {
   buildScheduledSubagentSpawnFailureParentMailboxInput,
   buildScheduledSubagentSpawnFailureReason,

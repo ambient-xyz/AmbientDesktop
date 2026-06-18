@@ -1,9 +1,9 @@
 import { join } from "node:path";
-import { containerRuntimeProbeSummary, probeContainerRuntime, type ContainerRuntimeProbeResult } from "../container-runtime/containerRuntimeProbeService";
+import { containerRuntimeProbeSummary, probeContainerRuntime, type ContainerRuntimeProbeResult } from "./mcpContainerRuntimeFacade";
 import { loadDefaultMcpCatalog, type McpDefaultCatalogDescriptor } from "./mcpDefaultCatalog";
 import { reconcileMcpDefaultCapabilities, type McpDefaultCapabilitySummary } from "./mcpDefaultCapabilityReconciler";
 import type { McpInstallCatalog, McpInstalledServerSummary } from "./mcpInstallCatalog";
-import type { ToolHiveRuntimeService } from "../tool-runtime/toolHiveRuntimeService";
+import type { ToolHiveRuntimeService } from "./mcpToolRuntimeFacade";
 
 export type McpInstallGateStatus =
   | "ready"

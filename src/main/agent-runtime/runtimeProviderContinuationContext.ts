@@ -15,7 +15,7 @@ import {
   persistPreparedProviderInterruptionToolArguments,
 } from "./provider-continuation/agentRuntimeProviderInterruptionArguments";
 import type { InterruptedToolCallRecoveryTracker } from "./recovery/interruptedToolCallRecovery";
-import type { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
+import type { ToolArgumentProgressTracker } from "./agentRuntimeToolRuntimeFacade";
 import {
   createRuntimeProviderContinuationState,
 } from "./providerContinuationState";

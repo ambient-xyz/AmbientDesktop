@@ -13,16 +13,16 @@ import {
   executeCallableWorkflowTask,
   latestCallableWorkflowRunForArtifact,
   type CallableWorkflowRunnerStore,
-} from "../callable-workflow/callableWorkflowRunner";
+} from "./agentRuntimeCallableWorkflowFacade";
 import { resolvePermissionWithGrants, type PermissionPromptRequester } from "../permissions/permissionGrants";
 import type { AmbientPluginHost, PluginMcpToolRegistration } from "../plugins/pluginHost";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { getAmbientProviderStatus } from "../provider/providerStatus";
-import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "../workflow/workflowConnectors";
-import { WorkflowManualPausedError } from "../workflow/workflowAgentRuntime";
+import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "./agentRuntimeWorkflowFacade";
+import { WorkflowManualPausedError } from "./agentRuntimeWorkflowFacade";
 import { compileWorkflowArtifact } from "../workflow-compiler/workflowCompilerService";
-import { workflowToolDescriptorsFromPluginRegistry } from "../workflow/workflowPluginCapabilities";
-import { runWorkflowArtifact, type RunWorkflowArtifactInput } from "../workflow/workflowRunService";
+import { workflowToolDescriptorsFromPluginRegistry } from "./agentRuntimeWorkflowFacade";
+import { runWorkflowArtifact, type RunWorkflowArtifactInput } from "./agentRuntimeWorkflowFacade";
 
 export interface AgentRuntimeCallableWorkflowExecutionOptions {
   store: ProjectStore;

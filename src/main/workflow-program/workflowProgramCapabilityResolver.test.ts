@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { WorkflowProgramIR } from "../../shared/workflowProgramIr";
-import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "./workflowProgramDesktopToolFacade";
 import {
   resolveWorkflowProgramManifest,
   validateWorkflowProgramNodeCapabilities,
   type WorkflowProgramAmbientCliCapability,
 } from "./workflowProgramCapabilityResolver";
-import { fixtureWorkflowConnector } from "../workflow/workflowConnectors";
+import { fixtureWorkflowConnector } from "./workflowProgramWorkflowFacade";
 
 function toolsByName() {
   return new Map(firstPartyDesktopToolDescriptors().map((tool) => [tool.name, tool]));

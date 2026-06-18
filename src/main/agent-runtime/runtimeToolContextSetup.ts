@@ -4,7 +4,7 @@ import type { ChatMessage } from "../../shared/threadTypes";
 import {
   interruptedToolCallRecoveryThresholdFromEnv,
 } from "./recovery/interruptedToolCallRecovery";
-import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "./agentRuntimeToolRuntimeFacade";
 import type { RuntimeTextOutputState } from "./runtimeTextOutputState";
 import {
   createRuntimeToolMessageController,

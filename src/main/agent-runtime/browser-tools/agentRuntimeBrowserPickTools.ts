@@ -14,7 +14,7 @@ import {
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
   type BrowserUnavailableFallback,
-} from "../../agent/agentBrowserRuntime";
+} from "../agentRuntimeAgentFacade";
 import { browserToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {

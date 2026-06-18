@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mcpAutowirePhase0Fixtures } from "../mcp-autowire/mcpAutowireFixtures";
+import { mcpAutowirePhase0Fixtures } from "./mcpAutowireFacade";
 import {
   mcpGuidedLocalBridgePreflightText,
   mcpGuidedLocalBridgePreviewText,

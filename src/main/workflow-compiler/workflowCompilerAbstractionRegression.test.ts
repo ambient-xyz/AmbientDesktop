@@ -7,7 +7,7 @@ import {
   type WorkflowCompilerAmbientCliCapability,
 } from "./workflowCompiler";
 import { buildWorkflowProgramIrPromptParts, type WorkflowCompilerPromptParts } from "./workflowCompilerService";
-import { fixtureWorkflowConnector, type WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import { fixtureWorkflowConnector, type WorkflowConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
 import type { WorkflowDiscoveryQuestion } from "../../shared/workflowTypes";
 
 const allToolDescriptors = firstPartyDesktopToolDescriptors();

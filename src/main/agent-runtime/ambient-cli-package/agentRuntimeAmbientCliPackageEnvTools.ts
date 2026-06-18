@@ -9,7 +9,7 @@ import {
   type AmbientCliPackageCatalog,
   type AmbientCliPackageEnvBindingInput,
   type AmbientCliPackageEnvStatus,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 import {
   ambientCliEnvBindApprovalDetail,
   ambientCliEnvBindGrantIdentity,

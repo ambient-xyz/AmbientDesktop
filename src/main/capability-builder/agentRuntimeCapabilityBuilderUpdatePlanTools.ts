@@ -7,8 +7,7 @@ import {
   type CapabilityBuilderUpdatePlanInput,
   type CapabilityBuilderUpdatePlanResult,
 } from "./capabilityBuilder";
-import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { pluginInstallToolDescriptor, registerDesktopTool } from "./capabilityBuilderDesktopToolFacade";
 
 export interface CapabilityBuilderUpdatePlanToolRegistrationOptions {
   workspace: Pick<WorkspaceState, "path">;

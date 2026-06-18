@@ -1,25 +1,26 @@
 import vm from "node:vm";
 import { types as utilTypes } from "node:util";
-import type {
-  WorkflowAmbientHandlers,
-  WorkflowBatchOptions,
-  WorkflowCollectionDedupeOptions,
-  WorkflowCollectionMapOptions,
-  WorkflowConnectorHandlers,
-  WorkflowDocumentRenderOptions,
-  WorkflowModelMapOptions,
-  WorkflowModelReduceContext,
-  WorkflowModelReduceOptions,
-  WorkflowNodeMetadata,
-  WorkflowPaginateConnectorOptions,
-  WorkflowPaginateToolOptions,
-  WorkflowProgram,
-  WorkflowProgramContext,
-  WorkflowRuntimePrimitives,
-  WorkflowToolHandler,
-  WorkflowToolHandlers,
-} from "../workflow/workflowAgentRuntime";
-import { stripWorkflowSourceLiteralsAndComments, validateWorkflowSourceIsolation } from "../workflow/workflowSourceValidation";
+import {
+  stripWorkflowSourceLiteralsAndComments,
+  validateWorkflowSourceIsolation,
+  type WorkflowAmbientHandlers,
+  type WorkflowBatchOptions,
+  type WorkflowCollectionDedupeOptions,
+  type WorkflowCollectionMapOptions,
+  type WorkflowConnectorHandlers,
+  type WorkflowDocumentRenderOptions,
+  type WorkflowModelMapOptions,
+  type WorkflowModelReduceContext,
+  type WorkflowModelReduceOptions,
+  type WorkflowNodeMetadata,
+  type WorkflowPaginateConnectorOptions,
+  type WorkflowPaginateToolOptions,
+  type WorkflowProgram,
+  type WorkflowProgramContext,
+  type WorkflowRuntimePrimitives,
+  type WorkflowToolHandler,
+  type WorkflowToolHandlers,
+} from "./workflowProgramWorkflowFacade";
 
 const DEFAULT_WORKFLOW_VM_SYNC_TIMEOUT_MS = 1_000;
 const EXPORT_DEFAULT_RUN = /\bexport\s+default\s+(async\s+)?function\s+run\s*\(/;

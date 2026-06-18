@@ -3989,7 +3989,7 @@ async function inspectApprovalDialog(cdp: CdpClient, input: { approvalId: string
       dialogShowsPrompt: text.includes("Review worker needs permission to edit files in its isolated worktree."),
       dialogShowsStandardScopes: [
         "This action",
-        "This child thread",
+        "For this child",
         "Parent thread tree",
         "Project/workspace",
         "Global",

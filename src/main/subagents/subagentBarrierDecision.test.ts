@@ -232,6 +232,67 @@ describe("subagentBarrierDecision", () => {
     });
   });
 
+  it("does not invent retry targets when authoritative control state found no retryable children", () => {
+    const controlState = {
+      retryRequestedRunIds: [],
+      retryAcceptedRunIds: [],
+      retryMailboxEventIds: [],
+      detachedRunIds: [],
+      cancelledRunIds: [],
+      unchangedRunIds: ["child-done", "child-attention"],
+      cancelledMailboxEventIds: [],
+    };
+    const barrierWithChildren = barrier({
+      id: "barrier-no-retry",
+      childRunIds: ["child-done", "child-attention"],
+    });
+    const artifact = buildSubagentBarrierDecisionResolutionArtifact({
+      barrier: barrierWithChildren,
+      childRuns: [
+        run({ id: "child-done", status: "completed" }),
+        run({ id: "child-attention", status: "needs_attention" }),
+      ],
+      decision: "retry_child",
+      userDecision: "Try again.",
+      now: "2026-06-06T12:00:00.000Z",
+      toolCallId: "tool-no-retry",
+      idempotencyKey: "barrier:no-retry",
+      controlState,
+    });
+    const preview = buildSubagentBarrierDecisionRunEventPreview({
+      waitBarrier: barrierWithChildren,
+      decision: "retry_child",
+      userDecision: "Try again.",
+      idempotencyKey: "barrier:no-retry",
+      toolCallId: "tool-no-retry",
+      controlState,
+    });
+    const draft = buildSubagentBarrierDecisionParentMailboxDraft({
+      barrier: barrierWithChildren,
+      childRuns: [
+        run({ id: "child-done", status: "completed" }),
+        run({ id: "child-attention", status: "needs_attention" }),
+      ],
+      parentResolution: resolution({ action: "wait_for_child", canSynthesize: false }),
+      decision: "retry_child",
+      userDecision: "Try again.",
+      idempotencyKey: "barrier:no-retry",
+      toolCallId: "tool-no-retry",
+      createdAt: "2026-06-06T12:00:00.000Z",
+      controlState,
+    });
+
+    expect(artifact).not.toHaveProperty("retryRequestedRunIds");
+    expect(artifact.transitionEvidence).toMatchObject({
+      details: expect.not.objectContaining({ retryRequestedRunIds: expect.anything() }),
+    });
+    expect(preview).not.toHaveProperty("retryRequestedRunIds");
+    expect(draft.parentMailboxInput.payload).toMatchObject({
+      unchangedRunIds: ["child-done", "child-attention"],
+    });
+    expect(draft.parentMailboxInput.payload).not.toHaveProperty("retryRequestedRunIds");
+  });
+
   it("builds bounded run-event previews and child thread messages", () => {
     const longUserDecision = `user ${"x".repeat(500)}`;
     const longPartialSummary = `partial ${"y".repeat(800)}`;

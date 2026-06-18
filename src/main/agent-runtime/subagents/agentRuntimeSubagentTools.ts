@@ -8,7 +8,7 @@ import {
   createSubagentPiToolDefinitions as defaultCreateSubagentPiToolDefinitions,
   type CreateSubagentPiToolDefinitionsOptions,
   type SubagentPiToolStore,
-} from "../../subagents/subagentPiTools";
+} from "../agentRuntimeSubagentsFacade";
 
 export interface SubagentToolExtensionOptions {
   threadId: string;

@@ -8,18 +8,18 @@ import {
   type ToolHiveInstallReviewState,
   type ToolHiveRuntimeService,
   type ToolHiveWorkloadSummary,
-} from "../tool-runtime/toolHiveRuntimeService";
+} from "./mcpToolRuntimeFacade";
 import {
   ociImageResolutionSummary,
   resolveOciImageForRuntimePlatform,
   type OciImageResolution,
-} from "../container-runtime/ociImageResolver";
+} from "./mcpContainerRuntimeFacade";
 import {
   pullOciImageWithContainerRuntime,
   type ContainerRuntimeImagePullPreferredRuntime,
   type ContainerRuntimeImagePullResult,
   type PullContainerRuntimeImageInput,
-} from "../container-runtime/containerRuntimeImagePuller";
+} from "./mcpContainerRuntimeFacade";
 
 export interface InstallMcpDefaultCapabilityOptions {
   capabilityId: "scrapling";

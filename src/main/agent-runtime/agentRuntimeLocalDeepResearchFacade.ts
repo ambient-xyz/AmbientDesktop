@@ -1,0 +1,25 @@
+export {
+  buildLocalDeepResearchSetupContract,
+  createAgentRuntimeLocalDeepResearchToolExtension,
+  createAgentRuntimeLocalDeepResearchWebBroker,
+  detectLocalDeepResearchManagedAssets,
+  formatLocalDeepResearchBytes,
+  localDeepResearchInstallJobWarnings,
+  localDeepResearchModelCachePath,
+  localDeepResearchProfileById,
+  localDeepResearchRequestedLaunchFromContract,
+  localDeepResearchSetupToolInput,
+  normalizeLocalDeepResearchSettings,
+  reconcileLocalDeepResearchInstallJob,
+} from "../local-deep-research/localDeepResearchAgentRuntimeContract";
+export type {
+  LocalDeepResearchInstallRequest,
+  LocalDeepResearchInstallServiceResult,
+  LocalDeepResearchModelProfileId,
+  LocalDeepResearchProviderSnapshot,
+  LocalDeepResearchRunRequest,
+  LocalDeepResearchRunServiceResult,
+  LocalDeepResearchSetupContract,
+  LocalDeepResearchSetupInput,
+  LocalDeepResearchSmokeRequest,
+} from "../local-deep-research/localDeepResearchAgentRuntimeContract";

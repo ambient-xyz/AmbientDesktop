@@ -28,10 +28,10 @@ import {
   shellCommandAuditReason,
 } from "../../permissions/permissionPolicy";
 import { resolvePermissionWithGrants } from "../../permissions/permissionGrants";
-import type { ProjectStore } from "../../projectStore/projectStore";
-import { classifySubagentBrowserToolAuthority } from "../../subagents/subagentBrowserAuthority";
-import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "../../subagents/subagentWaitBarrierEvaluation";
-import { evaluateSubagentWaitBarrierForStore } from "../../subagents/subagentWaitBarrierResolution";
+import type { ProjectStore } from "../agentRuntimeProjectStoreFacade";
+import { classifySubagentBrowserToolAuthority } from "../agentRuntimeSubagentsFacade";
+import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "../agentRuntimeSubagentsFacade";
+import { evaluateSubagentWaitBarrierForStore } from "../agentRuntimeSubagentsFacade";
 
 export type AgentRuntimeToolCallPermissionBlock = { reason: string };
 
@@ -379,6 +379,7 @@ export function subagentUnsafeRequiredBarrierToolBlock(input: {
 }): SubagentUnsafeBarrierToolBlock | undefined {
   if (!input.parentRunId) return undefined;
   if (typeof input.store.listSubagentWaitBarriersForParentRun !== "function") return undefined;
+  if (!isSubagentReplacementWorkTool(input.toolName, input.rawToolInput)) return undefined;
   const barrier = input.store
     .listSubagentWaitBarriersForParentRun(input.parentRunId)
     .find((candidate) =>
@@ -389,16 +390,24 @@ export function subagentUnsafeRequiredBarrierToolBlock(input: {
   if (!barrier) return undefined;
   const allowedActions = [...SUBAGENT_BARRIER_MANAGEMENT_ACTIONS];
   if (isAllowedSubagentBarrierManagementTool(input.toolName, input.rawToolInput)) return undefined;
-  const childFacts = barrier.childRunIds.map((childRunId) => childFact(input.store, childRunId));
+  const childRuns = barrier.childRunIds.map((childRunId) => childRunFact(input.store, childRunId));
+  const childFacts = childRuns.map((child) => child.fact);
+  const needsAttention = childRuns.some((child) => child.status === "needs_attention");
   const attemptedAction = subagentToolAction(input.rawToolInput);
   const reason = [
     `Tool ${input.toolName}${attemptedAction ? ` action ${attemptedAction}` : ""} is blocked by required sub-agent wait barrier ${barrier.id}.`,
-    "Resolve the unsafe child barrier before using ordinary parent tools or spawning replacement work.",
+    "Resolve the unsafe child barrier before spawning replacement work.",
   ].join(" ");
+  const allowedNextActionText = needsAttention
+    ? [
+      `Allowed next actions: resolve the pending child approval/request for the needs_attention child, then use ${AMBIENT_SUBAGENT_TOOL_NAME} wait_agent or status_agent on the same child.`,
+      "Do not call retry_child unless a child has failed, stopped, cancelled, timed out, or produced an aborted partial result.",
+    ].join(" ")
+    : `Allowed next actions: use ${AMBIENT_SUBAGENT_TOOL_NAME} with one of ${allowedActions.join(", ")}; for retry, call resolve_barrier with decision retry_child before continuing.`;
   return {
     reason,
     message: [
-      "Parent tool call blocked by required sub-agent work that is not safe for synthesis.",
+      "Replacement sub-agent work blocked by required sub-agent work that is not safe for synthesis.",
       `Blocked tool: ${input.toolName}${attemptedAction ? ` action=${attemptedAction}` : ""}`,
       `waitBarrierId: ${barrier.id}`,
       `waitBarrierStatus: ${barrier.status}`,
@@ -406,12 +415,17 @@ export function subagentUnsafeRequiredBarrierToolBlock(input: {
       `waitBarrierFailurePolicy: ${barrier.failurePolicy}`,
       `Child runs: ${childFacts.join(", ")}.`,
       "Do not use failed, timed-out, cancelled, or otherwise unsafe child output as evidence.",
-      `Allowed next actions: use ${AMBIENT_SUBAGENT_TOOL_NAME} with one of ${allowedActions.join(", ")}; for retry, call resolve_barrier with decision retry_child before continuing.`,
+      allowedNextActionText,
     ].join("\n"),
     barrier,
     childFacts,
     allowedActions,
   };
+}
+
+function isSubagentReplacementWorkTool(toolName: string, rawToolInput: unknown): boolean {
+  if (toolName !== AMBIENT_SUBAGENT_TOOL_NAME) return false;
+  return !isAllowedSubagentBarrierManagementTool(toolName, rawToolInput);
 }
 
 function isUnsafeRequiredSubagentWaitBarrier(
@@ -427,16 +441,14 @@ function isUnsafeRequiredSubagentWaitBarrier(
       return true;
     }
   }
-  if (childRuns.length > 0 && childRuns.every((run) => !SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES.has(run.status))) {
-    return false;
-  }
   try {
     const evaluation = evaluateSubagentWaitBarrierForStore({
       store,
       waitBarrier: barrier,
     });
-    return !evaluation.synthesisAllowed &&
-      (evaluation.impossible || evaluation.terminalUnsafeChildRunIds.length > 0);
+    if (evaluation.synthesisAllowed) return false;
+    if (childRuns.some((run) => run.status === "needs_attention")) return true;
+    return evaluation.impossible || evaluation.terminalUnsafeChildRunIds.length > 0;
   } catch {
     return true;
   }
@@ -456,11 +468,14 @@ function subagentToolAction(rawToolInput: unknown): string | undefined {
   return typeof action === "string" && action.trim() ? action.trim() : undefined;
 }
 
-function childFact(store: SubagentBarrierToolBlockStore, childRunId: string): string {
+function childRunFact(
+  store: SubagentBarrierToolBlockStore,
+  childRunId: string,
+): { fact: string; status?: SubagentRunSummary["status"] } {
   try {
     const run = store.getSubagentRun(childRunId);
-    return `${run.id} (${run.status})`;
+    return { fact: `${run.id} (${run.status})`, status: run.status };
   } catch {
-    return `${childRunId} (missing)`;
+    return { fact: `${childRunId} (missing)` };
   }
 }

@@ -10,7 +10,7 @@ import type {
   SubagentToolScopeSnapshotSummary,
 } from "../../shared/subagentTypes";
 import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
-import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
+import { resolveSubagentModelScope } from "./subagentModelProviderFacade";
 import {
   recordSubagentPostReservationSpawnFailure,
   SUBAGENT_POST_RESERVATION_SPAWN_FAILURE_RECORDER_SCHEMA_VERSION,

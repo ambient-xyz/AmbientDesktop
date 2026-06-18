@@ -17,7 +17,7 @@ import {
 import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import { createDefaultAgentRoleRegistry } from "../agent/agentRoleRegistry";
-import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
+import { createDefaultModelRuntimeRegistry } from "./subagentModelProviderFacade";
 import {
   resolveSubagentSpawnPreRunPlan,
   SUBAGENT_SPAWN_PRE_RUN_PLANNER_SCHEMA_VERSION,

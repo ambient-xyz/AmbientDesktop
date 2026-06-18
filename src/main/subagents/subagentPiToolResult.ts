@@ -7,8 +7,8 @@ import type {
   SubagentRunSummary,
 } from "../../shared/subagentTypes";
 import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
-import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "./subagentPiRuntimeFacade";
+import type { SubagentModelScopeResolution } from "./subagentModelProviderFacade";
 import {
   compactSubagentCapacityLeaseForPi,
   compactSubagentRunForPi,

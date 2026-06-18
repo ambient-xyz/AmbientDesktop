@@ -33,6 +33,9 @@ describe("SubagentChildTranscriptLive", () => {
     expect(markup).toContain("data-child-renderer=\"message-bubble\"");
     expect(markup).toContain("data-child-run-activity-count=\"0\"");
     expect(markup).toContain("data-child-run-activity-visible=\"false\"");
+    expect(markup).toContain("data-child-run-activity-placement=\"hidden\"");
+    expect(markup).toContain("data-child-transcript-flow=\"messages-first\"");
+    expect(markup).toContain("data-child-secondary-flow=\"after-transcript-stream\"");
     expect(markup).toContain("Child thread");
     expect(markup).toContain("Open full thread");
     expect(markup).toContain("Live");
@@ -62,6 +65,7 @@ describe("SubagentChildTranscriptLive", () => {
     expect(markup).toContain("data-child-message-count=\"0\"");
     expect(markup).toContain("data-child-run-activity-count=\"2\"");
     expect(markup).toContain("data-child-run-activity-visible=\"true\"");
+    expect(markup).toContain("data-child-run-activity-placement=\"before-transcript\"");
     expect(markup).toContain("2 activity lines");
     expect(markup).toContain("aria-label=\"Live child activity for Reviewer\"");
     expect(markup).toContain("class=\"subagent-parent-cluster-child-run-activity\"");
@@ -103,6 +107,31 @@ describe("SubagentChildTranscriptLive", () => {
     expect(markup).toContain("Delivery: queued / Retry the original delegated task in this same visible child thread.");
     expect(markup).toContain("Parent approval response");
     expect(markup).toContain("Delivery: delivered / Decision: approved / Effective scope: this_child_thread");
+  });
+
+  it("keeps live runtime and mailbox rails open after child messages arrive", () => {
+    const child = fixtureChild(0);
+    const markup = renderChildTranscript(child, {
+      messages: [
+        message({ id: "child-user-1", role: "user", content: "Review this file." }),
+        message({ id: "child-assistant-1", role: "assistant", content: "I am checking the file now." }),
+      ],
+      runtimeEvents: [
+        event(1, "subagent.session.started", { summary: "Child session started." }),
+      ],
+      mailboxEvents: [
+        mailboxEvent("mailbox-followup", "subagent.followup", "delivered", {
+          messagePreview: "Parent follow-up delivered while the review worker remains live and inspectable.",
+        }),
+      ],
+      runStatus: "streaming",
+    });
+
+    expect(markup).toContain("data-child-transcript-primary=\"true\"");
+    expect(markup).toContain("data-child-runtime-events-open=\"true\"");
+    expect(markup).toContain("data-child-mailbox-events-open=\"true\"");
+    expect(markup).toContain("Parent follow-up queued");
+    expect(markup).toContain("Parent follow-up delivered while the review worker remains live and inspectable.");
   });
 
   it("renders child messages as a mini thread with streaming and tool-call evidence", () => {
@@ -159,6 +188,7 @@ describe("SubagentChildTranscriptLive", () => {
     expect(markup).toContain("data-child-tool-message-count=\"1\"");
     expect(markup).toContain("data-child-renderer=\"message-bubble+tool-card\"");
     expect(markup).toContain("data-child-run-activity-visible=\"true\"");
+    expect(markup).toContain("data-child-run-activity-placement=\"after-transcript\"");
     expect(markup).toContain("aria-label=\"Child thread messages for Reviewer\"");
     expect(markup).toContain("Open full child thread Reviewer");
     expect(markup).toContain("4 messages");
@@ -167,7 +197,8 @@ describe("SubagentChildTranscriptLive", () => {
     expect(markup).toContain("2 activity lines");
     expect(markup).toContain("Live child activity for Reviewer");
     expect(markup).toContain("Latest 24 of 30 events");
-    expect(markup).not.toContain("class=\"subagent-parent-cluster-child-runtime-events\" open");
+    expect(markup).toContain("class=\"subagent-parent-cluster-child-runtime-events\"");
+    expect(markup).toContain("open=\"\"");
     expect(markup).not.toContain(">Event 1<");
     expect(markup).toContain("Event 30");
     expect(markup).toContain("Read the attached PDF");
@@ -181,6 +212,8 @@ describe("SubagentChildTranscriptLive", () => {
     expect(markup).toContain("Workspace Read returned invoice total.");
     expect(markup).toContain("Ambient");
     expect(markup).toContain("The invoice total appears to be $42.00.");
+    expectInOrder(markup, "class=\"subagent-parent-cluster-child-transcript-stream\"", "aria-label=\"Live child activity for Reviewer\"");
+    expectInOrder(markup, "The invoice total appears to be $42.00.", "Workspace Read returned invoice total.");
     expect(markup).not.toContain("data-child-terminal-summary=\"true\"");
   });
 

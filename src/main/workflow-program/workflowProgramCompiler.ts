@@ -1,4 +1,4 @@
-import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import type { DesktopToolDescriptor } from "./workflowProgramDesktopToolFacade";
 import { validateWorkflowCompilerOutput, type WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
 import type { WorkflowProgramIR, WorkflowProgramNode } from "../../shared/workflowProgramIr";
 import type { WorkflowGraphEdge, WorkflowGraphNode, WorkflowSpec } from "../../shared/workflowTypes";
@@ -28,7 +28,7 @@ import { generateWorkflowProgramSource } from "./workflowProgramCodegen";
 import { dryRunWorkflowProgramOutput, WorkflowProgramDryRunError, type WorkflowProgramDryRunResult } from "./workflowProgramDryRun";
 import { parseWorkflowProgramIr } from "./workflowProgramIr";
 import { workflowProgramKnownOutputFields } from "./workflowProgramOutputContracts";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "./workflowProgramWorkflowFacade";
 export type { WorkflowProgramAmbientCliCapability, WorkflowProgramDiagnostic } from "./workflowProgramCapabilityResolver";
 export type { WorkflowProgramIncrementalValidationMetrics } from "./workflowProgramTypecheck";
 export type { WorkflowProgramDryRunCall } from "./workflowProgramDryRun";

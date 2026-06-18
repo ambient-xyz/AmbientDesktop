@@ -9,7 +9,7 @@ import { bashToolDescriptor, firstPartyDesktopToolDescriptors, pluginMcpToolDesc
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import { ProjectStore } from "../projectStore/projectStore";
-import { readWorkflowRunDetail } from "../workflow/workflowDashboard";
+import { readWorkflowRunDetail } from "./workflowCompilerWorkflowDashboardFacade";
 import {
   AmbientWorkflowCompilerProvider,
   WORKFLOW_COMPILER_CALLABLE_INVOCATION_CONTEXT_SCHEMA_VERSION,
@@ -21,9 +21,9 @@ import {
 } from "./workflowCompilerService";
 import { WorkflowProgramIrRepairRejectedError } from "./workflowCompilerIrRepair";
 import { WorkflowProgramCompileError } from "../workflow-program/workflowProgramCompiler";
-import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor } from "../workflow/workflowConnectors";
+import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
 import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
-import type { WorkflowPiTextCallInput } from "../workflow/workflowPiTransport";
+import type { WorkflowPiTextCallInput } from "./workflowCompilerWorkflowFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

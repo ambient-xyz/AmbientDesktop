@@ -1,6 +1,6 @@
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { ChatMessage } from "../../shared/threadTypes";
-import type { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
+import type { ToolArgumentProgressTracker } from "./agentRuntimeToolRuntimeFacade";
 import {
   createRuntimePermissionWaitController,
   type RuntimePermissionWaitController,

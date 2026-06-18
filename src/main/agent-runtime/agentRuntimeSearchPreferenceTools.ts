@@ -4,7 +4,7 @@ import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/perm
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
+import type { AmbientCliPackageCatalog } from "./agentRuntimeAmbientCliFacade";
 import {
   searchPreferenceToolDescriptor,
   webResearchToolDescriptor,
@@ -17,7 +17,7 @@ import {
   webResearchPreferenceApprovalDetail,
   webResearchPreferenceUpdateText,
   type SearchPreferenceUpdateInput,
-} from "../web-research/searchSettingsTools";
+} from "./agentRuntimeWebResearchFacade";
 
 type SearchPreferenceToolUpdate = AgentToolResult<Record<string, unknown>>;
 type SearchPreferenceToolUpdateHandler = (update: SearchPreferenceToolUpdate) => void;

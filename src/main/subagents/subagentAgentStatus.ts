@@ -115,6 +115,17 @@ export function buildSubagentStatusText(input: {
     lastActivitySource: string;
     lastActivityDetail?: string;
     reason?: string;
+    approvalRequest?: {
+      approvalId: string;
+      title?: string;
+      requestedAction?: string;
+      requestedToolId?: string;
+      requestedToolCategory?: string;
+      requestedScope?: string;
+      effectiveScope?: string;
+      promptPreview?: string;
+      allowedNextActions: string[];
+    };
   }[];
   turnBudgetState?: Pick<SubagentTurnBudgetState, "state" | "observedTurnCount" | "remainingTurns" | "shouldSteerWrapUp" | "exhausted" | "instruction">;
 }): string {
@@ -179,14 +190,38 @@ function waitBarrierBlockerLines(
     lastActivitySource: string;
     lastActivityDetail?: string;
     reason?: string;
+    approvalRequest?: {
+      approvalId: string;
+      title?: string;
+      requestedAction?: string;
+      requestedToolId?: string;
+      requestedToolCategory?: string;
+      requestedScope?: string;
+      effectiveScope?: string;
+      promptPreview?: string;
+      allowedNextActions: string[];
+    };
   }[] | undefined,
 ): string[] {
   if (!blockers?.length) return [];
   return [
     `waitBarrierBlockers: ${blockers.length}`,
-    ...blockers.slice(0, 8).map((blocker) =>
-      `waitBarrierBlocker: ${blocker.canonicalTaskPath} childRunId=${blocker.childRunId} childThreadId=${blocker.childThreadId} status=${blocker.status} state=${blocker.blockingState} lastActivityAt=${blocker.lastActivityAt} lastActivitySource=${blocker.lastActivitySource}${blocker.lastActivityDetail ? ` lastActivityDetail=${previewText(blocker.lastActivityDetail, 160)}` : ""}${blocker.reason ? ` reason=${previewText(blocker.reason, 220)}` : ""}`
-    ),
+    ...blockers.slice(0, 8).flatMap((blocker) => {
+      const lines = [
+        `waitBarrierBlocker: ${blocker.canonicalTaskPath} childRunId=${blocker.childRunId} childThreadId=${blocker.childThreadId} status=${blocker.status} state=${blocker.blockingState} lastActivityAt=${blocker.lastActivityAt} lastActivitySource=${blocker.lastActivitySource}${blocker.lastActivityDetail ? ` lastActivityDetail=${previewText(blocker.lastActivityDetail, 160)}` : ""}${blocker.reason ? ` reason=${previewText(blocker.reason, 220)}` : ""}`,
+      ];
+      const approval = blocker.approvalRequest;
+      if (approval) {
+        lines.push(
+          `waitBarrierBlockerApproval: ${blocker.canonicalTaskPath} childRunId=${blocker.childRunId} childThreadId=${blocker.childThreadId} approvalId=${approval.approvalId}${approval.title ? ` title=${previewText(approval.title, 160)}` : ""}${approval.requestedAction ? ` requestedAction=${approval.requestedAction}` : ""}${approval.requestedToolId ? ` requestedToolId=${approval.requestedToolId}` : ""}${approval.requestedToolCategory ? ` requestedToolCategory=${approval.requestedToolCategory}` : ""}${approval.requestedScope ? ` requestedScope=${approval.requestedScope}` : ""}${approval.effectiveScope ? ` effectiveScope=${approval.effectiveScope}` : ""}`,
+          `waitBarrierBlockerAllowedNext: ${approval.allowedNextActions.map((action) => previewText(action, 180)).join(" ")}`,
+        );
+        if (approval.promptPreview) {
+          lines.push(`waitBarrierBlockerApprovalPrompt: ${previewText(approval.promptPreview, 260)}`);
+        }
+      }
+      return lines;
+    }),
     blockers.length > 8 ? `waitBarrierBlockersOmitted: ${blockers.length - 8}` : undefined,
   ].filter((line): line is string => Boolean(line));
 }

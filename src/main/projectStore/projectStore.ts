@@ -181,15 +181,15 @@ import {
   analyzeSubagentRestartState,
   createSubagentRepairDiagnosticsReport,
   uniqueSubagentRepairIds,
-} from "../subagents/subagentRepair";
+} from "./projectStoreSubagentsFacade";
 import {
   summarizeSubagentObservability,
   type SubagentObservabilitySummary,
-} from "../subagents/subagentObservability";
+} from "./projectStoreSubagentsFacade";
 import {
   evaluateSubagentMaturity,
   type SubagentMaturityInput,
-} from "../subagents/subagentMaturity";
+} from "./projectStoreSubagentsFacade";
 import {
   type SubagentMaturityEvidence,
   type SubagentMaturityEvidenceKind,
@@ -208,7 +208,7 @@ import {
   type SubagentBatchJobRecord,
   type SubagentBatchReportApplyResult,
   type SubagentBatchResultReport,
-} from "../subagents/subagentBatchJobs";
+} from "./projectStoreSubagentsFacade";
 import {
   workflowLabApplyRunStatus,
   workflowLabApplyVariantAdoption,
@@ -226,7 +226,7 @@ import {
   planSubagentRetention,
   type SubagentRetentionCleanupResult,
   type SubagentRetentionPlan,
-} from "../subagents/subagentRetention";
+} from "./projectStoreSubagentsFacade";
 import {
   getDefaultSubagentRoleProfile,
   type SubagentRoleId,
@@ -255,19 +255,19 @@ import {
 } from "../../shared/subagentCapacity";
 import {
   assertSubagentRunLinkage,
-} from "../subagents/subagentInvariants";
-import { subagentLifecycleEventType, subagentLifecycleHookPreview } from "../subagents/subagentLifecycleHooks";
+} from "./projectStoreSubagentsFacade";
+import { subagentLifecycleEventType, subagentLifecycleHookPreview } from "./projectStoreSubagentsFacade";
 import {
   SUBAGENT_LIFECYCLE_INTERRUPTION_PARENT_MAILBOX_TYPE,
   subagentLifecycleInterruptionIdempotencyKey,
   subagentLifecycleInterruptionParentMailboxPayload,
   type SubagentLifecycleInterruptionSource,
-} from "../subagents/subagentLifecycleParentMailbox";
+} from "./projectStoreSubagentsFacade";
 import {
   buildSubagentGroupedCompletionNotificationDraft,
   SUBAGENT_GROUPED_COMPLETION_PARENT_MAILBOX_TYPE,
-} from "../subagents/subagentGroupJoin";
-import { cancelPendingParentToChildMailboxEvents } from "../subagents/subagentMailbox";
+} from "./projectStoreSubagentsFacade";
+import { cancelPendingParentToChildMailboxEvents } from "./projectStoreSubagentsFacade";
 import {
   workflowRecordingFindLibraryRecord,
   workflowRecordingLibraryVersions,
@@ -366,7 +366,7 @@ import {
 } from "../../shared/symphonyFineGrainedContracts";
 import {
   releaseSymphonyMutationWorkspaceLease,
-} from "../subagents/symphonyMutationWorkspaceLeaseService";
+} from "./projectStoreSubagentsFacade";
 import {
   compactSubagentCapacityLeasePreview,
   compactSubagentMailboxEventForPreview,
@@ -386,8 +386,8 @@ import {
   subagentSpawnEdgeRecordForRun,
   subagentRunStatusIsTerminal,
 } from "./projectStoreSubagentMappers";
-import { resolveSubagentParentStopWaitBarrier } from "../subagents/subagentParentStopWaitBarrier";
-import { resolveSubagentParentControlBarrierReconciliation } from "../subagents/subagentParentControlBarrierReconciliation";
+import { resolveSubagentParentStopWaitBarrier } from "./projectStoreSubagentsFacade";
+import { resolveSubagentParentControlBarrierReconciliation } from "./projectStoreSubagentsFacade";
 import { ProjectStoreContextUsageRepository } from "./contextUsageRepository";
 import { ProjectStorePermissionRepository } from "./permissionRepository";
 import {
@@ -395,12 +395,12 @@ import {
   hashProjectBoardSourceContent,
   projectBoardSourceIncludedInSynthesis,
   projectBoardSourceKey,
-} from "../project-board/projectBoardSourceIdentity";
+} from "./projectStoreProjectBoardFacade";
 import {
   projectBoardPlanDisplayTitle,
   projectBoardPlanTitleIsGeneric,
 } from "../../shared/projectBoardPlanIdentity";
-import type { ProjectBoardArtifactProjection } from "../project-board/projectBoardArtifactImport";
+import type { ProjectBoardArtifactProjection } from "./projectStoreProjectBoardFacade";
 import {
   evaluateProjectBoardCardProof,
   mapProjectBoardEventRow,
@@ -525,8 +525,8 @@ import {
   projectBoardTaskToolCompleted,
   projectBoardTaskToolManualChecks,
   projectBoardTaskToolProofSummary,
-} from "../project-board/projectBoardTaskTools";
-import { type ProjectBoardSynthesisCardInput, type ProjectBoardSynthesisDraft } from "../project-board/projectBoardSynthesis";
+} from "./projectStoreProjectBoardFacade";
+import { type ProjectBoardSynthesisCardInput, type ProjectBoardSynthesisDraft } from "./projectStoreProjectBoardFacade";
 import { dedupeProjectBoardQuestions, projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
 import { projectBoardOpenClarificationQuestions } from "../../shared/projectBoardClarificationDecisions";
 import type {
@@ -554,8 +554,8 @@ import {
   projectBoardClarificationDefaultAnsweredDecisions,
   projectBoardClarificationDefaultQuestionsShareDecisionTopic,
   type ProjectBoardClarificationDefaultSuggestion,
-} from "../project-board/projectBoardClarificationDefaultProvider";
-import type { ProjectBoardProofSuggestion } from "../project-board/projectBoardProofSuggestionProvider";
+} from "./projectStoreProjectBoardFacade";
+import type { ProjectBoardProofSuggestion } from "./projectStoreProjectBoardFacade";
 import { extractPlannerPlanArtifactFields } from "../planner/plannerMode";
 import { LEGACY_PROJECT_STATE_DIR, prepareWorkspaceAuthorityState } from "../workspace/workspaceAuthorityState";
 import { parseJsonArray, parseJsonObject, parseMetadata, stringFromRecord } from "./projectStoreJson";

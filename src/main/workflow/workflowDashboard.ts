@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ResolveWorkflowApprovalInput, RevalidateWorkflowArtifactInput, ReviewWorkflowArtifactInput, UpdateWorkflowArtifactSourceInput, UpdateWorkflowConnectorGrantInput, WorkflowArtifactSourceProvenance, WorkflowArtifactSummary, WorkflowCompileAuditSummary, WorkflowConnectorDataRetention, WorkflowDashboard, WorkflowRunDetail, WorkflowRunEvent } from "../../shared/workflowTypes";
 import { workflowGraphFromSpec } from "../../shared/workflowAgentGraph";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 import { generateWorkflowAuditReport, hashWorkflowSource } from "./workflowAuditReport";
 import { assertWorkflowArtifactSourceEditable, validateWorkflowProgramIrArtifactFiles, workflowArtifactSourceProvenance } from "./workflowArtifactProvenance";
 import { workflowApprovalsFromEvents } from "./workflowApprovals";

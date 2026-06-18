@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
-import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
+import { aggressiveAmbientRetryPolicy } from "./workflowAmbientFacade";
+import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "./workflowAmbientFacade";
 import { repairJsonWithPi } from "./jsonRepairTool";
 
 const runLive = process.env.AMBIENT_JSON_REPAIR_LIVE === "1";

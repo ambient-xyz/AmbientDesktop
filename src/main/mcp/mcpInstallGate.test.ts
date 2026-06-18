@@ -2,7 +2,7 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { ContainerRuntimeProbeResult } from "../container-runtime/containerRuntimeProbeService";
+import type { ContainerRuntimeProbeResult } from "./mcpContainerRuntimeFacade";
 import {
   evaluateMcpInstallGate,
   mcpDefaultCapabilityStatePathForUserData,
@@ -14,7 +14,7 @@ import {
   TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION,
   ToolHiveRuntimeService,
   type ToolHiveCommandExecutor,
-} from "../tool-runtime/toolHiveRuntimeService";
+} from "./mcpToolRuntimeFacade";
 
 describe("MCP install gate", () => {
   it("allows custom MCP installs while Scrapling default capability approval is pending", async () => {

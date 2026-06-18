@@ -23,13 +23,13 @@ import type {
   RuntimeSurfaceWorkflowRecoveryEvent,
 } from "../../shared/messagingGateway";
 import { classifyWorkflowPlanEditIntent, type WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
-import { applyAgentBootstrapToPrompt, buildAgentBootstrapContext } from "../agent/agentBootstrapContext";
-import { resolveAgentHarnessVariant } from "../agent/agentHarnessVariant";
-import { LocalPreviewServerManager } from "../browser/localPreviewServer";
+import { applyAgentBootstrapToPrompt, buildAgentBootstrapContext } from "./agentRuntimeAgentFacade";
+import { resolveAgentHarnessVariant } from "./agentRuntimeAgentFacade";
+import { LocalPreviewServerManager } from "./agentRuntimeBrowserFacade";
 import { createPrivilegedActionAdapter, privilegedActionAdapterSelectionFromEnv, type PrivilegedActionAdapter } from "../privileged-action/privilegedActionAdapter";
 import type { PiSessionFileCommitReason } from "../session/sessionFileCommit";
 import { commitAgentRuntimeThreadPiSessionFile } from "./agentRuntimeSessionFileCommit";
-import { enableAtomicPiSessionPersistence } from "../pi/piSessionAtomicPersistence";
+import { enableAtomicPiSessionPersistence } from "./agentRuntimePiFacade";
 import type {
   DesktopEvent,
   CompactThreadInput,
@@ -130,7 +130,7 @@ import {
   contextUsageCompactionStatsFromEntries,
 } from "./agentRuntimeContextUsageSnapshot";
 import { runPromptPreflightBeforePrompt } from "./agentRuntimePromptPreflight";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import { readAmbientApiKey } from "../security/credentialStore";
 import { abortSessionRun as abortPiSessionRun } from "../session/sessionAbort";
@@ -140,8 +140,8 @@ import { dogfoodAgentRuntimeSelectedVoiceProvider } from "../voice/agentRuntimeV
 import type { AmbientCliVoiceRunner } from "../voice/voiceProvider";
 import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
 import { getRestorablePiSessionFile, getRestorableRecoverySessionFile, isPathInside } from "../session/sessionPaths";
-import type { AmbientFileAuthorityRequest } from "../pi/piReadOperations";
-import { workspaceBoundedAgentContextFiles } from "../pi/piContextFiles";
+import type { AmbientFileAuthorityRequest } from "./agentRuntimePiFacade";
+import { workspaceBoundedAgentContextFiles } from "./agentRuntimePiFacade";
 import {
   permissionPolicyFileToolAccess,
   permissionPolicyPathForTool,
@@ -169,7 +169,7 @@ import {
   discoverAmbientCliPackages,
   ensureFirstPartyAmbientCliPackages,
   runAmbientCliPackageCommand,
-} from "../ambient-cli/ambientCliPackages";
+} from "./agentRuntimeAmbientCliFacade";
 import {
   type AmbientWorkflowPlaybookDescription,
   type AmbientWorkflowPlaybookInjection,
@@ -192,7 +192,7 @@ import {
 import {
   appendSearchRoutingGuidance,
   webResearchSettingsWithDynamicProviderCatalogs,
-} from "../web-research/searchSettingsTools";
+} from "./agentRuntimeWebResearchFacade";
 import {
   capabilityBuilderValidationPreviewText,
   previewCapabilityBuilderPackage,
@@ -290,9 +290,9 @@ import {
 import {
   formatLocalDeepResearchBytes,
   localDeepResearchRequestedLaunchFromContract,
-} from "../local-deep-research/agentRuntimeLocalDeepResearchInput";
-import { createAgentRuntimeLocalDeepResearchToolExtension } from "../local-deep-research/agentRuntimeLocalDeepResearchTools";
-import { createAgentRuntimeLocalDeepResearchWebBroker } from "../local-deep-research/agentRuntimeLocalDeepResearchWebBroker";
+} from "./agentRuntimeLocalDeepResearchFacade";
+import { createAgentRuntimeLocalDeepResearchToolExtension } from "./agentRuntimeLocalDeepResearchFacade";
+import { createAgentRuntimeLocalDeepResearchWebBroker } from "./agentRuntimeLocalDeepResearchFacade";
 import {
   resolveAmbientCliSkillMount,
   type AmbientCliSkillMountDiagnostics,
@@ -321,7 +321,7 @@ import {
   AgentRuntimeInstallRouteGuard,
   appendMcpInstallRouteGuidance,
 } from "./agentRuntimeInstallRouteGuard";
-import type { McpToolCallResult } from "../mcp/mcpToolBridge";
+import type { McpToolCallResult } from "./agentRuntimeMcpFacade";
 import {
   createAgentRuntimeMcpToolOrchestration,
   type AgentRuntimeMcpToolOrchestration,
@@ -337,7 +337,7 @@ import {
 import {
   ambientSubagentActiveToolNamesForThread,
   type SubagentPiToolStore,
-} from "../subagents/subagentPiTools";
+} from "./agentRuntimeSubagentsFacade";
 import {
   applyExplicitSubagentRequestGuidance,
   explicitSubagentRequestPreflight,
@@ -348,7 +348,7 @@ import {
   CALLABLE_WORKFLOW_CATALOG_DESCRIBE_TOOL_NAME,
   CALLABLE_WORKFLOW_CATALOG_SEARCH_TOOL_NAME,
   callableWorkflowActiveToolNamesForThread,
-} from "../callable-workflow/callableWorkflowPiTools";
+} from "./agentRuntimeCallableWorkflowFacade";
 import {
   callableWorkflowRecordedPlaybooks,
   createAgentRuntimeCallableWorkflowToolExtension,
@@ -362,10 +362,10 @@ import {
   resumeAgentRuntimeCallableWorkflowTask,
   startAgentRuntimeCallableWorkflowTaskForThread,
 } from "./agentRuntimeCallableWorkflowExecution";
-import { callableWorkflowToolName } from "../callable-workflow/callableWorkflowRegistry";
+import { callableWorkflowToolName } from "./agentRuntimeCallableWorkflowFacade";
 import {
   type CallableWorkflowParentBlockingBlock,
-} from "../callable-workflow/callableWorkflowParentBlocking";
+} from "./agentRuntimeCallableWorkflowFacade";
 import {
   callableWorkflowFinalizationBlock as resolveCallableWorkflowFinalizationBlock,
   recordCallableWorkflowFinalizationBlockedParentMailbox as recordCallableWorkflowFinalizationBlockedParentMailboxEvent,
@@ -376,11 +376,11 @@ import {
 import {
   resolveAgentRuntimeActiveToolNamesForThread,
   subagentChildCallableWorkflowToolNamesFromSnapshots,
-} from "../subagents/subagentChildActiveTools";
+} from "./agentRuntimeSubagentsFacade";
 import {
   resolveActiveSubagentWaitBarriersForRun,
   SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
-} from "../subagents/subagentWaitBarrierResolution";
+} from "./agentRuntimeSubagentsFacade";
 import type {
   SubagentChildRuntimeAdapter,
   SubagentChildRuntimeApprovalResponseInput,
@@ -397,15 +397,15 @@ import type {
   SubagentChildRuntimeWaitInput,
   SubagentChildRuntimeWaitResult,
   SubagentRuntimeEventEmitter,
-} from "../pi/piChildSessionAdapter";
-import { subagentParentContextForMessages } from "../subagents/subagentContextFilter";
+} from "./agentRuntimePiFacade";
+import { subagentParentContextForMessages } from "./agentRuntimeSubagentsFacade";
 import {
   buildSubagentChildPrompt,
   buildSubagentFollowupPrompt,
   buildSubagentPromptSnapshot,
   classifySubagentAssistantResult,
-} from "../subagents/subagentPromptRuntime";
-import { subagentTranscriptPath } from "../subagents/subagentLifecycleHooks";
+} from "./agentRuntimeSubagentsFacade";
+import { subagentTranscriptPath } from "./agentRuntimeSubagentsFacade";
 import { tryRouteBrowserContentThroughScrapling as routeBrowserContentThroughScrapling } from "./agentRuntimeScraplingBrowserRoute";
 import {
   webResearchExaApiKeyFromEnv,
@@ -415,7 +415,7 @@ import {
 import { createAmbientProductContextExtension } from "./agentRuntimeProductContextTools";
 import { createProviderCatalogToolExtension } from "./agentRuntimeProviderCatalogTools";
 import { createMediaToolExtension } from "./agentRuntimeMediaTools";
-import { createLocalRuntimeToolExtension } from "../local-runtime/agentRuntimeLocalRuntimeTools";
+import { createLocalRuntimeToolExtension } from "./agentRuntimeLocalRuntimeFacade";
 import { createVisionToolExtension } from "./agentRuntimeVisionTools";
 import { createSttSettingsToolExtension } from "../stt/agentRuntimeSttTools";
 import { createVoiceSettingsToolExtension } from "../voice/agentRuntimeVoiceTools";
@@ -546,55 +546,55 @@ import {
   type LocalDeepResearchProviderSnapshot,
   type LocalDeepResearchSetupContract,
   type LocalDeepResearchSetupInput,
-} from "../local-deep-research/localDeepResearchSetup";
-import { detectLocalDeepResearchManagedAssets } from "../local-deep-research/localDeepResearchManagedAssets";
-import type { LocalDeepResearchModelProfileId } from "../local-deep-research/localDeepResearchModelProfiles";
-import type { LocalDeepResearchRunRequest, LocalDeepResearchRunServiceResult } from "../local-deep-research/localDeepResearchRunService";
+} from "./agentRuntimeLocalDeepResearchFacade";
+import { detectLocalDeepResearchManagedAssets } from "./agentRuntimeLocalDeepResearchFacade";
+import type { LocalDeepResearchModelProfileId } from "./agentRuntimeLocalDeepResearchFacade";
+import type { LocalDeepResearchRunRequest, LocalDeepResearchRunServiceResult } from "./agentRuntimeLocalDeepResearchFacade";
 import {
   localDeepResearchInstallJobWarnings,
   reconcileLocalDeepResearchInstallJob,
   type LocalDeepResearchInstallRequest,
   type LocalDeepResearchInstallServiceResult,
-} from "../local-deep-research/localDeepResearchInstallService";
+} from "./agentRuntimeLocalDeepResearchFacade";
 import { detectLocalLlamaResidentProcesses, type LocalLlamaResidentProcess } from "../local-llama/localLlamaResidencyPolicy";
 import {
   buildLocalModelResourceRegistry,
   localTextRequestedLaunch,
   type LocalModelRequestedLaunch,
-} from "../local-runtime/localModelResourceRegistry";
-import { buildLocalModelRuntimeStatusSnapshot, type LocalModelRuntimeStatusSnapshot } from "../local-runtime/localModelRuntimeStatus";
-import { LocalModelRuntimeManager } from "../local-runtime/localModelRuntimeManager";
-import { DEFAULT_LOCAL_RUNTIME_LEASE_STALE_MS } from "../local-runtime/localRuntimeInventory";
-import { runAgentRuntimeLocalModelRuntimeLifecycleAction } from "../local-runtime/agentRuntimeLocalRuntimeLifecycleAction";
+} from "./agentRuntimeLocalRuntimeFacade";
+import { buildLocalModelRuntimeStatusSnapshot, type LocalModelRuntimeStatusSnapshot } from "./agentRuntimeLocalRuntimeFacade";
+import { LocalModelRuntimeManager } from "./agentRuntimeLocalRuntimeFacade";
+import { DEFAULT_LOCAL_RUNTIME_LEASE_STALE_MS } from "./agentRuntimeLocalRuntimeFacade";
+import { runAgentRuntimeLocalModelRuntimeLifecycleAction } from "./agentRuntimeLocalRuntimeFacade";
 import {
   type LocalModelRuntimeRestartPlan,
-} from "../local-runtime/localModelRuntimeRestart";
+} from "./agentRuntimeLocalRuntimeFacade";
 import {
   type LocalModelRuntimeStopPlan,
-} from "../local-runtime/localModelRuntimeStop";
+} from "./agentRuntimeLocalRuntimeFacade";
 import {
   localRuntimeOwnershipResolutionRequest,
   type LocalRuntimeOwnershipResolutionRequest,
   type LocalRuntimeOwnershipResolutionResult,
-} from "../local-runtime/localRuntimeOwnershipResolution";
+} from "./agentRuntimeLocalRuntimeFacade";
 import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
-import type { LocalTextRuntimeManagerLike } from "../local-runtime/localTextDelegation";
-import { runAgentRuntimeLocalTextMainRun } from "../local-runtime/agentRuntimeLocalTextMainRun";
+import type { LocalTextRuntimeManagerLike } from "./agentRuntimeLocalRuntimeFacade";
+import { runAgentRuntimeLocalTextMainRun } from "./agentRuntimeLocalRuntimeFacade";
 import {
   createLocalTextSubagentRuntimeAdapter,
   type CreateLocalTextSubagentRuntimeAdapterOptions,
   type LocalTextSubagentRuntimeConfig,
   type LocalTextSubagentRuntimeStore,
-} from "../local-runtime/localTextSubagentRuntime";
-import { cancelPendingParentToChildMailboxEvents } from "../subagents/subagentMailbox";
-import { executeSubagentCancelAgent } from "../subagents/subagentCancelAgentExecutor";
-import { executeSubagentBarrierDecision } from "../subagents/subagentBarrierDecisionExecutor";
-import { assertCanCloseSubagentRun } from "../subagents/subagentCloseAgent";
-import { executeSubagentCloseAgent } from "../subagents/subagentCloseAgentExecutor";
-import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "../subagents/subagentIdempotency";
-import { appendMappedSubagentRuntimeEvent } from "../subagents/subagentRuntimeEventPersistence";
+} from "./agentRuntimeLocalRuntimeFacade";
+import { cancelPendingParentToChildMailboxEvents } from "./agentRuntimeSubagentsFacade";
+import { executeSubagentCancelAgent } from "./agentRuntimeSubagentsFacade";
+import { executeSubagentBarrierDecision } from "./agentRuntimeSubagentsFacade";
+import { assertCanCloseSubagentRun } from "./agentRuntimeSubagentsFacade";
+import { executeSubagentCloseAgent } from "./agentRuntimeSubagentsFacade";
+import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./agentRuntimeSubagentsFacade";
+import { appendMappedSubagentRuntimeEvent } from "./agentRuntimeSubagentsFacade";
 import { prepareThreadWorktree } from "../git/gitWorktrees";
-import type { LocalDeepResearchSmokeRequest } from "../local-deep-research/localDeepResearchSmoke";
+import type { LocalDeepResearchSmokeRequest } from "./agentRuntimeLocalDeepResearchFacade";
 import { createDefaultMessagingProviderRegistry } from "./agentRuntimeMessagingFacade";
 import {
   MessagingGatewayRunner,
@@ -633,11 +633,11 @@ import {
   type AgentRuntimeProviderDiscoveryOptions,
 } from "./agentRuntimeProviderDiscovery";
 import { generateThreadTitle } from "../thread/threadTitles";
-import { runWorkflowArtifact } from "../workflow/workflowRunService";
-import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "../workflow/workflowConnectors";
-import { BrowserService } from "../browser/browserService";
-import { BrowserCredentialStore } from "../browser/browserCredentialStore";
-import { refreshExternalFileBrowserTabs } from "../browser/browserRefresh";
+import { runWorkflowArtifact } from "./agentRuntimeWorkflowFacade";
+import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "./agentRuntimeWorkflowFacade";
+import { BrowserService } from "./agentRuntimeBrowserFacade";
+import { BrowserCredentialStore } from "./agentRuntimeBrowserFacade";
+import { refreshExternalFileBrowserTabs } from "./agentRuntimeBrowserFacade";
 import { refreshAgentRuntimeBrowsersForArtifactChange } from "./browser-tools/agentRuntimeBrowserRefresh";
 import { createLambdaRlmToolExtension as createLambdaRlmToolsExtension } from "./agentRuntimeLambdaRlmTools";
 import {
@@ -667,7 +667,7 @@ import {
   visibleTranscriptRecoveryUnavailableContextMessages,
 } from "./recovery/compactionSummary";
 import { commitGitPaths } from "../workspace/workspaceGit";
-import { browserToolRecoverableFailure } from "../agent/agentBrowserRuntime";
+import { browserToolRecoverableFailure } from "./agentRuntimeAgentFacade";
 import {
   AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES,
   createAmbientToolRouterTools,

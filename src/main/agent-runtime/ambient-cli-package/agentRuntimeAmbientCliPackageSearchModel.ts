@@ -1,4 +1,4 @@
-import type { AmbientCliCapabilitySearchInput, AmbientCliCapabilitySearchResponse } from "../../ambient-cli/ambientCliPackages";
+import type { AmbientCliCapabilitySearchInput, AmbientCliCapabilitySearchResponse } from "../agentRuntimeAmbientCliFacade";
 
 export function ambientCliSearchInput(input: Record<string, unknown>): AmbientCliCapabilitySearchInput {
   const kind = optionalString(input.kind);

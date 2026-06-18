@@ -11,8 +11,8 @@ import type {
 } from "../../shared/subagentTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { SubagentToolScopeResolution } from "../../shared/subagentToolScope";
-import type { CallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
-import type { CreateCallableWorkflowPiToolDefinitionsOptions } from "../callable-workflow/callableWorkflowPiTools";
+import type { CallableWorkflowExecutionPlan } from "./agentRuntimeCallableWorkflowFacade";
+import type { CreateCallableWorkflowPiToolDefinitionsOptions } from "./agentRuntimeCallableWorkflowFacade";
 import {
   callableWorkflowRecordedPlaybooks,
   createAgentRuntimeCallableWorkflowToolExtension,

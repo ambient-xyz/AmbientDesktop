@@ -19,8 +19,8 @@ import {
 } from "../workflow-compiler/workflowCompiler";
 import { restoreWorkflowVersion } from "./workflowVersionRestore";
 import { commitWorkflowVersionRepo } from "./workflowVersioning";
-import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { DesktopToolDescriptor } from "./workflowDesktopToolFacade";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import type { WorkflowConnectorDescriptor } from "./workflowConnectors";
 import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";

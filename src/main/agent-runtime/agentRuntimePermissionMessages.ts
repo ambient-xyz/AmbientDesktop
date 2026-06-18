@@ -4,7 +4,7 @@ import type {
   PermissionRisk,
 } from "../../shared/permissionTypes";
 import type { RuntimeActivity } from "../../shared/threadTypes";
-import type { ToolResultDetails } from "../pi/piEventMapper";
+import type { ToolResultDetails } from "./agentRuntimePiFacade";
 
 type RuntimePermissionActivity = Extract<RuntimeActivity, { kind: "permission" }>;
 

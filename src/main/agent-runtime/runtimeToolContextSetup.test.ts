@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../../shared/threadTypes";
-import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
+import { ToolArgumentProgressTracker } from "./agentRuntimeToolRuntimeFacade";
 import { createRuntimeTextOutputState } from "./runtimeTextOutputState";
 import {
   createRuntimeToolContextSetup,

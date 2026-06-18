@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION } from "../subagents/subagentWaitBarrierResolution";
+import { SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION } from "./projectStoreSubagentsFacade";
 import {
   ProjectStoreSubagentWaitBarrierRepository,
   type SubagentWaitBarrierChildRun,

@@ -5,8 +5,8 @@ import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { getDefaultSubagentRoleProfile, type SubagentRoleProfile } from "../../shared/subagentRoles";
-import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
-import type { SubagentChildWorktreePrepareInput } from "../pi/piChildSessionAdapter";
+import { createDefaultModelRuntimeRegistry } from "./subagentModelProviderFacade";
+import type { SubagentChildWorktreePrepareInput } from "./subagentPiRuntimeFacade";
 import {
   prepareSubagentChildWorktreeForLaunch,
   SUBAGENT_CHILD_WORKTREE_PREPARER_SCHEMA_VERSION,

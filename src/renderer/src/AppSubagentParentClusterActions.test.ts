@@ -55,7 +55,7 @@ describe("App subagent parent-cluster actions", () => {
     expect(controller.approvalDialog.value).toEqual({
       action: approval,
       decision: "approved",
-      requestedScope: "always",
+      requestedScope: "this_child_thread",
       userDecision: "",
     });
     expect(controller.barrierDialog.value).toEqual({

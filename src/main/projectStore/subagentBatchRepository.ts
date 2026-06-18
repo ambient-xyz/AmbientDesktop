@@ -6,7 +6,7 @@ import {
   type SubagentBatchJobRecord,
   type SubagentBatchReportApplyResult,
   type SubagentBatchResultReport,
-} from "../subagents/subagentBatchJobs";
+} from "./projectStoreSubagentsFacade";
 import {
   mapSubagentBatchJobRow,
   mapSubagentBatchResultReportRow,

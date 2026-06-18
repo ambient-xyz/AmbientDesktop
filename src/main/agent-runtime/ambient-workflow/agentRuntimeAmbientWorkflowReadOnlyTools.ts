@@ -14,10 +14,10 @@ import {
   buildCallableWorkflowRegistry,
   type CallableWorkflowCatalogEntry,
   type CallableWorkflowCatalogStatus,
-} from "../../callable-workflow/callableWorkflowRegistry";
+} from "../agentRuntimeCallableWorkflowFacade";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
-import type { ProjectStore } from "../../projectStore/projectStore";
+import type { ProjectStore } from "../agentRuntimeProjectStoreFacade";
 import { resolveAmbientFeatureFlags, type AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
 import type { WorkflowRecordingLibraryDescription } from "../../../shared/workflowTypes";
 

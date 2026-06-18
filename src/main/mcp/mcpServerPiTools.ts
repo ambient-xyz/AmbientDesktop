@@ -1,5 +1,5 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
-import { containerRuntimeProbeSummary, probeContainerRuntime, type ContainerRuntimeProbeResult } from "../container-runtime/containerRuntimeProbeService";
+import { containerRuntimeProbeSummary, probeContainerRuntime, type ContainerRuntimeProbeResult } from "./mcpContainerRuntimeFacade";
 import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import {
   mcpGuidedLocalBridgeInstallReviewState,
@@ -35,11 +35,11 @@ import {
 } from "./mcpInstallCatalog";
 import { mcpInstallGateSummary, type McpInstallGateResult } from "./mcpInstallGate";
 import { mcpDefaultCatalogDescriptorHash } from "./mcpDefaultCatalog";
-import type { ContainerRuntimeImagePullResult, PullContainerRuntimeImageInput } from "../container-runtime/containerRuntimeImagePuller";
-import type { OciImageResolution } from "../container-runtime/ociImageResolver";
+import type { ContainerRuntimeImagePullResult, PullContainerRuntimeImageInput } from "./mcpContainerRuntimeFacade";
+import type { OciImageResolution } from "./mcpContainerRuntimeFacade";
 import { installMcpDefaultCapability as installDefaultMcpCapability } from "./mcpDefaultCapabilityInstaller";
-import { type ToolHiveCommandResult, type ToolHiveInstalledServerState, type ToolHiveOperationProgress, type ToolHiveRuntimeService, type ToolHiveRunVolume, type ToolHiveWorkloadSummary } from "../tool-runtime/toolHiveRuntimeService";
-import { parseMcpAutowireCandidate, validateMcpAutowireCandidate } from "../mcp-autowire/mcpAutowireSchemas";
+import { type ToolHiveCommandResult, type ToolHiveInstalledServerState, type ToolHiveOperationProgress, type ToolHiveRuntimeService, type ToolHiveRunVolume, type ToolHiveWorkloadSummary } from "./mcpToolRuntimeFacade";
+import { parseMcpAutowireCandidate, validateMcpAutowireCandidate } from "./mcpAutowireFacade";
 import { storedMcpSecretBindingsForCandidate, storedMcpSecretBindingsForServer } from "./mcpSecretReferences";
 import { isSecretReference } from "../security/secretReferenceStore";
 import { redactSensitiveText } from "../security/secretRedaction";
@@ -54,8 +54,8 @@ import {
   type McpAutowirePlanRevision,
   type McpAutowirePlanRevisionStore,
   type McpAutowireRuntimeRepairDescribeResult,
-} from "../mcp-autowire/mcpAutowirePlanEdits";
-import { backfillMcpAutowirePlanRevisionFromInstalledServer } from "../mcp-autowire/mcpAutowireLegacyBackfill";
+} from "./mcpAutowireFacade";
+import { backfillMcpAutowirePlanRevisionFromInstalledServer } from "./mcpAutowireFacade";
 
 export interface McpServerPiToolThread {
   id: string;

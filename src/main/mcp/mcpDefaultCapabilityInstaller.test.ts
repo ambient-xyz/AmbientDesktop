@@ -9,8 +9,8 @@ import {
   ToolHiveRuntimeService,
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
-} from "../tool-runtime/toolHiveRuntimeService";
-import type { PullContainerRuntimeImageInput } from "../container-runtime/containerRuntimeImagePuller";
+} from "./mcpToolRuntimeFacade";
+import type { PullContainerRuntimeImageInput } from "./mcpContainerRuntimeFacade";
 
 describe("MCP default capability installer", () => {
   it("runs the pinned Scrapling OCI image with fixed MCP args and records default catalog identity", async () => {

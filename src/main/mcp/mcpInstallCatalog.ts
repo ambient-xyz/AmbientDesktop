@@ -11,9 +11,9 @@ import {
   type McpAutowireValidationReport,
   type McpInstallReview,
   type ToolHiveRunPlan,
-} from "../mcp-autowire/mcpAutowireSchemas";
+} from "./mcpAutowireFacade";
 import { defaultMcpCatalogByServerId, loadDefaultMcpCatalog, mcpDefaultCatalogDescriptorHash, type McpDefaultCatalogDescriptor } from "./mcpDefaultCatalog";
-import { mcpAutowirePhase0Fixtures } from "../mcp-autowire/mcpAutowireFixtures";
+import { mcpAutowirePhase0Fixtures } from "./mcpAutowireFacade";
 import {
   mcpManagedFileExchangeForWorkload,
   mcpManagedFileExchangePermissionMount,
@@ -32,7 +32,7 @@ import {
   type ToolHiveRunVolume,
   type ToolHiveSecretBindingState,
   type ToolHiveWorkloadSummary,
-} from "../tool-runtime/toolHiveRuntimeService";
+} from "./mcpToolRuntimeFacade";
 import { isSecretReference } from "../security/secretReferenceStore";
 
 export interface McpServerSearchInput {

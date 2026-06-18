@@ -7,7 +7,7 @@ import type { WorkflowApprovalStatus, WorkflowDashboard, WorkflowExecutionMode, 
 import { workflowScheduleMatchingConnectorGrantUse } from "../../shared/workflowSchedulePolicy";
 import type { WorkflowBrowserAdapter, WorkflowDesktopToolBridgeOptions } from "./workflowDesktopTools";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 import { createWorkflowDesktopToolBridge } from "./workflowDesktopTools";
 import {
   WorkflowAgentRuntime,
@@ -46,7 +46,7 @@ import {
   type WorkflowConnectorApprovalDecisionResolver,
   type WorkflowConnectorRegistration,
 } from "./workflowConnectors";
-import { ambientRetryPolicyFromSettings, type AmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import { ambientRetryPolicyFromSettings, type AmbientRetryPolicy } from "./workflowAmbientFacade";
 
 const DEFAULT_WORKFLOW_RUNTIME_AMBIENT_IDLE_TIMEOUT_MS = 60_000;
 const WORKFLOW_AMBIENT_PROGRESS_THROTTLE_MS = 2_000;

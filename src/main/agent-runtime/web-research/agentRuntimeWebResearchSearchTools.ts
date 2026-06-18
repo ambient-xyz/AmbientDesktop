@@ -13,15 +13,15 @@ import {
   type AmbientCliRunResult,
   type RunAmbientCliInput,
   runAmbientCliPackageCommand,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 import {
   browserToolFallback,
   browserUnavailableText,
   isBrowserUnavailableFallback,
-} from "../../agent/agentBrowserRuntime";
+} from "../agentRuntimeAgentFacade";
 import { webResearchToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
-import type { McpToolCallResult } from "../../mcp/mcpToolBridge";
+import type { McpToolCallResult } from "../agentRuntimeMcpFacade";
 import { webResearchToolResult } from "./agentRuntimeWebResearchStatusTools";
 import {
   isWebResearchMcpProvider,
@@ -36,11 +36,11 @@ import {
   type ExaWebSearchInput,
   isLikelyExaRateLimitError,
   type WebResearchProviderAttempt,
-} from "../../web-research/webResearchBroker";
+} from "../agentRuntimeWebResearchFacade";
 import {
   WEB_RESEARCH_PROVIDER_IDS,
   type WebResearchProviderRequestPlan,
-} from "../../web-research/webResearchProviderStack";
+} from "../agentRuntimeWebResearchFacade";
 
 type WebResearchSearchToolUpdate = AgentToolResult<Record<string, unknown>>;
 type WebResearchSearchToolUpdateHandler = (update: WebResearchSearchToolUpdate) => void;

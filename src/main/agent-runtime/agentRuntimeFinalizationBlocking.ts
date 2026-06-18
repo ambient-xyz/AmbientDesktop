@@ -13,11 +13,11 @@ import {
   callableWorkflowParentBlockingIdempotencyKey,
   resolveCallableWorkflowParentBlocking,
   type CallableWorkflowParentBlockingBlock,
-} from "../callable-workflow/callableWorkflowParentBlocking";
+} from "./agentRuntimeCallableWorkflowFacade";
 import {
   subagentResultRepairStateForRun,
   type SubagentResultRepairState,
-} from "../subagents/subagentResultRepairState";
+} from "./agentRuntimeSubagentsFacade";
 import {
   buildSubagentChildDecisionRequest,
   shouldBuildSubagentChildDecisionRequest,

@@ -7,7 +7,7 @@ import {
   detectIterativeChildEvaluationPattern,
   stripProductSubagentPromptScaffolding,
 } from "../agentRuntimeIterativeChildEvaluationPattern";
-import { AMBIENT_SUBAGENT_TOOL_NAME } from "../../subagents/subagentPiTools";
+import { AMBIENT_SUBAGENT_TOOL_NAME } from "../agentRuntimeSubagentsFacade";
 
 const EXPLICIT_SUBAGENT_PATTERNS = [
   /\bambient_subagent\b/i,

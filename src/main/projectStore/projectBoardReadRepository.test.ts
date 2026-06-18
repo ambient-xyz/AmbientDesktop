@@ -1,12 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
-import {
-  mapProjectBoardRow,
-} from "./projectBoardMappers";
-import {
-  mapProjectBoardRow as legacyMapProjectBoardRow,
-} from "../project-board/projectBoardStoreMappers";
 import { ProjectStoreProjectBoardReadRepository } from "./projectBoardReadRepository";
 
 describe("ProjectStoreProjectBoardReadRepository", () => {
@@ -23,10 +17,6 @@ describe("ProjectStoreProjectBoardReadRepository", () => {
 
   afterEach(() => {
     db.close();
-  });
-
-  it("keeps the legacy project-board mapper import path as re-exports", () => {
-    expect(legacyMapProjectBoardRow).toBe(mapProjectBoardRow);
   });
 
   it("hydrates active board rows with ordered related records", () => {

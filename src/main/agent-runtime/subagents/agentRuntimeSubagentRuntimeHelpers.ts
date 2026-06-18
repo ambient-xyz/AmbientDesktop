@@ -8,7 +8,7 @@ import type { AmbientModelRuntimeProfile } from "../../../shared/ambientModels";
 import type {
   SubagentChildRuntimeApprovalRequest,
   SubagentChildRuntimeApprovalResponseInput,
-} from "../../pi/piChildSessionAdapter";
+} from "../agentRuntimePiFacade";
 
 export function isSubagentTerminalStatus(status: SubagentRunSummary["status"]): boolean {
   return [

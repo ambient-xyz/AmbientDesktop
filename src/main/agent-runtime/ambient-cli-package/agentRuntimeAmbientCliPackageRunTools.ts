@@ -13,7 +13,7 @@ import {
   type DescribeAmbientCliPackageInput,
   type DescribeAmbientCliPackageOptions,
   type RunAmbientCliInput,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 import {
   ambientCliPreflightDescribeText,
   ambientCliRunApprovalDetail,
@@ -24,7 +24,7 @@ import {
 import { selectAmbientCliPackageForRuntime } from "./agentRuntimeAmbientCliPackageSelection";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
-import { buildToolLongformInputPreview as defaultBuildToolLongformInputPreview } from "../../tool-runtime/toolLongformInputPreview";
+import { buildToolLongformInputPreview as defaultBuildToolLongformInputPreview } from "../agentRuntimeToolRuntimeFacade";
 
 export {
   ambientCliPreflightDescribeText,

@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput } from "../../shared/localRuntimeTypes"; import type { AmbientPluginRegistry } from "../../shared/pluginTypes"; import type { WorkflowGraphSnapshot } from "../../shared/workflowTypes";
 import { workflowGraphEventCards } from "../../renderer/src/workflowAgentGraphUiModel";
-import { ProjectStore } from "../projectStore/projectStore";
-import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { ProjectStore } from "./workflowProjectStoreFacade";
+import { pluginMcpToolDescriptor } from "./workflowDesktopToolFacade";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { readWorkflowRunDetail, resolveWorkflowApproval } from "./workflowDashboard";
 import { buildWorkflowRecoveryPlan } from "./workflowRecovery";
@@ -21,7 +21,7 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../ambient/liveAmbientProviderConfig";
+} from "./workflowAmbientFacade";
 
 function fixturePluginRegistration(): PluginMcpToolRegistration {
   const descriptor = pluginMcpToolDescriptor({

@@ -7,8 +7,8 @@ import {
   mcpLivePiSmokePrompt,
   runMcpLivePiSmoke,
 } from "./mcpLivePiSmoke";
-import { mcpAutowirePhase0Fixtures } from "../mcp-autowire/mcpAutowireFixtures";
-import type { McpAutowireCandidate } from "../mcp-autowire/mcpAutowireSchemas";
+import { mcpAutowirePhase0Fixtures } from "./mcpAutowireFacade";
+import type { McpAutowireCandidate } from "./mcpAutowireFacade";
 
 describe("MCP live Pi smoke harness", () => {
   it("records required MCP tool progress and final success text", async () => {

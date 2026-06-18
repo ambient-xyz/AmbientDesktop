@@ -31,7 +31,7 @@ import type {
   SubagentBatchJobRecord,
   SubagentBatchResultLedger,
   SubagentBatchResultReport,
-} from "../subagents/subagentBatchJobs";
+} from "./projectStoreSubagentsFacade";
 import {
   fallbackSubagentCapacityLease,
   isSubagentCapacityLeaseSnapshot,

@@ -5,9 +5,9 @@ import {
   createAgentRuntimeMcpToolOrchestration,
   createAgentRuntimeMcpToolBridgeForWorkspace,
 } from "./agentRuntimeMcpToolBridge";
-import { McpInstallCatalog } from "../../mcp/mcpInstallCatalog";
-import { McpToolBridge, type McpToolBridgeOptions, type McpToolDescriptorDriftEvent } from "../../mcp/mcpToolBridge";
-import { ToolHiveRuntimeService } from "../../tool-runtime/toolHiveRuntimeService";
+import { McpInstallCatalog } from "../agentRuntimeMcpFacade";
+import { McpToolBridge, type McpToolBridgeOptions, type McpToolDescriptorDriftEvent } from "../agentRuntimeMcpFacade";
+import { ToolHiveRuntimeService } from "../agentRuntimeToolRuntimeFacade";
 
 describe("agentRuntimeMcpToolBridge", () => {
   it("returns undefined when MCP user data is not configured", () => {

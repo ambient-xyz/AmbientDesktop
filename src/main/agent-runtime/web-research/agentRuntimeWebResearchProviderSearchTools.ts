@@ -5,14 +5,14 @@ import type {
   WebResearchProviderRole,
 } from "../../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
+import type { AmbientCliPackageCatalog } from "../agentRuntimeAmbientCliFacade";
 import { webResearchToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
-import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
+import type { McpToolDescriptor } from "../agentRuntimeMcpFacade";
 import {
   buildWebResearchProviderDiscovery,
   webResearchProviderDiscoveryText,
-} from "../../web-research/webResearchProviderDiscovery";
+} from "../agentRuntimeWebResearchFacade";
 import { webResearchToolResult } from "./agentRuntimeWebResearchStatusTools";
 
 export interface WebResearchProviderSearchToolRegistrationOptions {

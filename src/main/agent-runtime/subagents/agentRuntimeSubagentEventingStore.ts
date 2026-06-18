@@ -8,8 +8,8 @@ import type {
   SubagentWaitBarrierSummary,
 } from "../../../shared/subagentTypes";
 import type { ChatMessage } from "../../../shared/threadTypes";
-import type { LocalTextSubagentRuntimeStore } from "../../local-runtime/localTextSubagentRuntime";
-import type { SubagentPiToolStore } from "../../subagents/subagentPiTools";
+import type { LocalTextSubagentRuntimeStore } from "../agentRuntimeLocalRuntimeFacade";
+import type { SubagentPiToolStore } from "../agentRuntimeSubagentsFacade";
 
 export interface AgentRuntimeSubagentEventingStoreOptions {
   store: SubagentPiToolStore & LocalTextSubagentRuntimeStore;

@@ -17,7 +17,7 @@ import type {
   SubagentChildRuntimeWaitInput,
   SubagentChildRuntimeWaitOutcome,
   SubagentChildRuntimeWaitResult,
-} from "../pi/piChildSessionAdapter";
+} from "./subagentPiRuntimeFacade";
 import {
   SUBAGENT_APPROVAL_DECISIONS,
   SUBAGENT_APPROVAL_RESPONSE_MAILBOX_TYPE,
@@ -156,7 +156,20 @@ export interface SubagentWaitBarrierBlocker {
   lastActivitySource: string;
   lastActivityDetail?: string;
   reason?: string;
+  approvalRequest?: SubagentWaitBarrierBlockerApprovalRequest;
   resultRepairState?: SubagentResultRepairState;
+}
+
+export interface SubagentWaitBarrierBlockerApprovalRequest {
+  approvalId: string;
+  title?: string;
+  requestedAction?: string;
+  requestedToolId?: string;
+  requestedToolCategory?: string;
+  requestedScope?: string;
+  effectiveScope?: string;
+  promptPreview?: string;
+  allowedNextActions: string[];
 }
 
 export interface SubagentWaitAgentExecutionResult {
@@ -556,14 +569,19 @@ function buildSubagentWaitBarrierBlockers(input: {
     .map((child) => {
       const run = input.store.getSubagentRun(child.childRunId);
       const runEvents = input.store.listSubagentRunEvents(run.id);
+      const mailboxEvents = input.store.listSubagentMailboxEvents(run.id);
       const activity = latestSubagentWaitBarrierBlockerActivity({
         run,
         runEvents,
-        mailboxEvents: input.store.listSubagentMailboxEvents(run.id),
+        mailboxEvents,
       });
       const active = input.waitBarrierEvaluation.activeChildRunIds.includes(child.childRunId);
       const terminalUnsafe = input.waitBarrierEvaluation.terminalUnsafeChildRunIds.includes(child.childRunId);
       const resultRepairState = subagentResultRepairStateForRun({ run, events: runEvents });
+      const approvalRequest = latestSubagentApprovalRequestBlocker({
+        run,
+        mailboxEvents,
+      });
       return {
         childRunId: run.id,
         childThreadId: run.childThreadId,
@@ -578,9 +596,82 @@ function buildSubagentWaitBarrierBlockers(input: {
         lastActivitySource: activity.source,
         ...(activity.detail ? { lastActivityDetail: activity.detail } : {}),
         ...(child.reason ? { reason: child.reason } : {}),
+        ...(approvalRequest ? { approvalRequest } : {}),
         ...(resultRepairState ? { resultRepairState } : {}),
       };
     });
+}
+
+function latestSubagentApprovalRequestBlocker(input: {
+  run: Pick<SubagentRunSummary, "id" | "childThreadId" | "status">;
+  mailboxEvents: SubagentMailboxEventSummary[];
+}): SubagentWaitBarrierBlockerApprovalRequest | undefined {
+  if (input.run.status !== "needs_attention") return undefined;
+  const latest = input.mailboxEvents
+    .filter((event) => event.direction === "child_to_parent" && event.type === "subagent.approval_requested")
+    .map((event) => ({ event, payload: objectRecord(event.payload) }))
+    .filter(({ payload }) =>
+      payload?.schemaVersion === "ambient-subagent-approval-bridge-v1" &&
+      optionalString(payload.childRunId) === input.run.id &&
+      optionalString(payload.childThreadId) === input.run.childThreadId &&
+      optionalString(payload.approvalId)
+    )
+    .filter(({ event, payload }) => {
+      const approvalId = optionalString(payload?.approvalId);
+      return Boolean(approvalId && !hasLaterApprovalResponse(input.mailboxEvents, approvalId, input.run, event));
+    })
+    .sort((a, b) => {
+      const aAt = a.event.deliveredAt ?? a.event.createdAt;
+      const bAt = b.event.deliveredAt ?? b.event.createdAt;
+      return bAt.localeCompare(aAt) || b.event.id.localeCompare(a.event.id);
+    })[0];
+  if (!latest?.payload) return undefined;
+  const approvalId = optionalString(latest.payload.approvalId);
+  if (!approvalId) return undefined;
+  const title = optionalString(latest.payload.title);
+  const requestedAction = optionalString(latest.payload.requestedAction);
+  const requestedToolId = optionalString(latest.payload.requestedToolId);
+  const requestedToolCategory = optionalString(latest.payload.requestedToolCategory);
+  const requestedScope = optionalString(latest.payload.requestedScope);
+  const effectiveScope = optionalString(latest.payload.effectiveScope);
+  const prompt = optionalString(latest.payload.prompt);
+  return {
+    approvalId,
+    ...(title ? { title } : {}),
+    ...(requestedAction ? { requestedAction } : {}),
+    ...(requestedToolId ? { requestedToolId } : {}),
+    ...(requestedToolCategory ? { requestedToolCategory } : {}),
+    ...(requestedScope ? { requestedScope } : {}),
+    ...(effectiveScope ? { effectiveScope } : {}),
+    ...(prompt ? { promptPreview: previewText(prompt, 240) } : {}),
+    allowedNextActions: [
+      `Resolve approval ${approvalId} for childRunId ${input.run.id}.`,
+      `Then call wait_agent for childRunId ${input.run.id}.`,
+      "Do not spawn a replacement child or call retry_child while this approval is pending.",
+    ],
+  };
+}
+
+function hasLaterApprovalResponse(
+  mailboxEvents: SubagentMailboxEventSummary[],
+  approvalId: string,
+  run: Pick<SubagentRunSummary, "id" | "childThreadId">,
+  requestEvent: SubagentMailboxEventSummary,
+): boolean {
+  const requestAt = mailboxEventSortTime(requestEvent);
+  return mailboxEvents.some((event) => {
+    if (event.direction !== "parent_to_child" || event.type !== SUBAGENT_APPROVAL_RESPONSE_MAILBOX_TYPE) return false;
+    if (event.deliveryState === "failed" || event.deliveryState === "cancelled") return false;
+    const payload = objectRecord(event.payload);
+    if (optionalString(payload?.approvalId) !== approvalId) return false;
+    if (optionalString(payload?.childRunId) !== run.id) return false;
+    if (optionalString(payload?.childThreadId) !== run.childThreadId) return false;
+    return mailboxEventSortTime(event).localeCompare(requestAt) > 0;
+  });
+}
+
+function mailboxEventSortTime(event: SubagentMailboxEventSummary): string {
+  return event.deliveredAt ?? event.createdAt;
 }
 
 function latestSubagentWaitBarrierBlockerActivity(input: {
@@ -823,4 +914,14 @@ function enumMember<T extends string>(values: readonly T[], value: unknown): T |
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+
+function previewText(text: string, limit: number): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, Math.max(0, limit - 3))}...`;
 }

@@ -9,10 +9,15 @@ import {
   describeAmbientWorkflowPlaybook,
   searchAmbientWorkflowPlaybooks,
   updateAmbientWorkflowPlaybook,
-} from "../ambient/ambientWorkflows";
-import { isRetryableAmbientProviderError } from "../ambient/aggressiveRetries";
-import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
-import { ProjectStore } from "../projectStore/projectStore";
+} from "./workflowAmbientPlaybookFacade";
+import {
+  isRetryableAmbientProviderError,
+  liveAmbientDirectHelperProfile,
+  liveAmbientProviderBaseUrl,
+  liveAmbientProviderModel,
+  readLiveAmbientProviderApiKey,
+} from "./workflowAmbientFacade";
+import { ProjectStore } from "./workflowProjectStoreFacade";
 import { callWorkflowPiText, type WorkflowPiToolProgress } from "./workflowPiTransport";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;

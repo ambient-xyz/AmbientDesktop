@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { getDefaultSubagentRoleProfile } from "../../../shared/subagentRoles";
 import { resolveAgentRuntimeToolCallPermission, subagentUnsafeRequiredBarrierToolBlock } from "./agentRuntimeToolCallPermission";
+import { subagentStructuredResultTemplate } from "../../subagents/subagentStructuredOutput";
 
 describe("resolveAgentRuntimeToolCallPermission", () => {
   it("checks child browser authority before allowing full-access browser tools", async () => {
@@ -113,73 +115,48 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
     ]));
   });
 
-  it("blocks ordinary parent tools after a required child barrier becomes unsafe", async () => {
-    const audits: unknown[] = [];
-    const messages: unknown[] = [];
-    const emits: unknown[] = [];
-    const permissionToolInput = vi.fn();
+  it("does not use the subagent replacement-work guard to block ordinary parent tools", () => {
+    expect(subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "failed",
+        barrierStatus: "waiting_on_children",
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "write_file",
+      rawToolInput: { path: "/workspace/essay-v6.md", content: "ordinary parent work" },
+    })).toBeUndefined();
+
+    expect(subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "running",
+        barrierStatus: "waiting_on_children",
+        resultArtifact: undefined,
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "bash",
+      rawToolInput: { command: "pwd" },
+    })).toBeUndefined();
+  });
+
+  it("blocks replacement subagent work after a required child barrier becomes unsafe", () => {
     const store = subagentBarrierStore({
       childStatus: "failed",
       barrierStatus: "waiting_on_children",
     });
 
-    const blocked = await resolveAgentRuntimeToolCallPermission(
-      "parent-thread",
-      { path: "/workspace", name: "workspace", statePath: "/state", sessionPath: "/sessions" },
-      "write_file",
-      { path: "/workspace/essay-v6.md", content: "unsafe parent edit" },
-      {
-        store: {
-          ...store,
-          getThread: () => ({
-            id: "parent-thread",
-            kind: "chat",
-            permissionMode: "workspace",
-            collaborationMode: "agent",
-          }),
-          listMessages: () => [],
-          getProjectArtifactWorkspacePath: () => "/workspace",
-          getProjectBoardDependencyWorkspacePathsForExecutionThread: () => [],
-          listSubagentToolScopeSnapshots: () => [],
-          addPermissionAudit: (entry: unknown) => {
-            audits.push(entry);
-            return { id: "audit-1", createdAt: "2026-06-13T00:00:00.000Z", ...(entry as Record<string, unknown>) };
-          },
-          addMessage: (message: unknown) => {
-            messages.push(message);
-            return { id: "message-1", ...(message as Record<string, unknown>) };
-          },
-        } as any,
-        installRouteGateBlockForTool: () => undefined,
-        mcpInstallShellBlockForTool: () => undefined,
-        permissionToolInput,
-        requestPermission: vi.fn(),
-        beginPermissionWait: () => undefined,
-        activeRunId: () => "parent-run",
-        recordTransientFileAuthorityForAllowedTool: vi.fn(),
-        recordTransientFileAuthorityFromPermissionRequest: vi.fn(),
-        emit: (event) => {
-          emits.push(event);
-        },
-      },
-    );
+    const blocked = subagentUnsafeRequiredBarrierToolBlock({
+      store,
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "spawn_agent", task: "replacement child" },
+    });
 
     expect(blocked?.reason).toContain("blocked by required sub-agent wait barrier barrier-unsafe");
-    expect(permissionToolInput).not.toHaveBeenCalled();
-    expect(audits).toEqual([]);
-    expect(messages).toEqual([
-      expect.objectContaining({
-        role: "tool",
-        content: expect.stringContaining("Parent tool call blocked by required sub-agent work that is not safe for synthesis."),
-        metadata: expect.objectContaining({
-          runtime: "ambient-subagent-barrier-policy",
-          toolName: "write_file",
-          waitBarrierId: "barrier-unsafe",
-          childRunIds: ["child-failed"],
-        }),
-      }),
-    ]);
-    expect(emits).toEqual([expect.objectContaining({ type: "message-created" })]);
+    expect(blocked?.message).toContain("Replacement sub-agent work blocked by required sub-agent work that is not safe for synthesis.");
+    expect(blocked?.message).toContain("Blocked tool: ambient_subagent action=spawn_agent");
   });
 
   it("allows barrier-management actions while blocking replacement spawns for unsafe required barriers", () => {
@@ -208,7 +185,21 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
     expect(blockedSpawn?.message).toContain("Allowed next actions: use ambient_subagent with one of");
   });
 
-  it("does not block ordinary tools while required children are still only running", () => {
+  it("allows additional subagent spawns while all required children are still running", () => {
+    const blockedSpawn = subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "running",
+        barrierStatus: "waiting_on_children",
+        resultArtifact: undefined,
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "spawn_agent", task: "replacement child" },
+    });
+
+    expect(blockedSpawn).toBeUndefined();
+
     expect(subagentUnsafeRequiredBarrierToolBlock({
       store: subagentBarrierStore({
         childStatus: "running",
@@ -217,8 +208,84 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
       }),
       threadId: "parent-thread",
       parentRunId: "parent-run",
-      toolName: "write_file",
-      rawToolInput: { path: "/workspace/draft.md", content: "parallel parent note" },
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "wait_agent", waitBarrierId: "barrier-unsafe" },
+    })).toBeUndefined();
+  });
+
+  it("allows additional subagent spawns while a required barrier still has active potential", () => {
+    const blockedSpawn = subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "completed",
+        barrierStatus: "waiting_on_children",
+        resultArtifact: completedResultArtifact("child-failed", "child-thread"),
+        additionalRuns: [{
+          id: "child-running",
+          status: "running",
+          resultArtifact: undefined,
+        }],
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "spawn_agent", task: "additional independent child" },
+    });
+
+    expect(blockedSpawn).toBeUndefined();
+  });
+
+  it("allows additional subagent spawns when required-any already has a safe child result", () => {
+    const blockedSpawn = subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "completed",
+        barrierStatus: "waiting_on_children",
+        dependencyMode: "required_any",
+        resultArtifact: completedResultArtifact("child-failed", "child-thread"),
+        additionalRuns: [{
+          id: "child-needs-attention",
+          status: "needs_attention",
+          resultArtifact: undefined,
+        }],
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "spawn_agent", task: "additional independent child" },
+    });
+
+    expect(blockedSpawn).toBeUndefined();
+  });
+
+  it("blocks replacement spawns while a required child is waiting for attention", () => {
+    const blockedSpawn = subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "needs_attention",
+        barrierStatus: "waiting_on_children",
+        resultArtifact: undefined,
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "spawn_agent", task: "replacement child" },
+    });
+
+    expect(blockedSpawn?.message).toContain("waitBarrierId: barrier-unsafe");
+    expect(blockedSpawn?.message).toContain("Child runs: child-failed (needs_attention).");
+    expect(blockedSpawn?.message).toContain("resolve the pending child approval/request");
+    expect(blockedSpawn?.message).toContain("wait_agent or status_agent on the same child");
+    expect(blockedSpawn?.message).toContain("Do not call retry_child unless a child has failed");
+    expect(blockedSpawn?.message).not.toContain("call resolve_barrier with decision retry_child before continuing");
+
+    expect(subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "needs_attention",
+        barrierStatus: "waiting_on_children",
+        resultArtifact: undefined,
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "status_agent", waitBarrierId: "barrier-unsafe" },
     })).toBeUndefined();
   });
 });
@@ -227,7 +294,10 @@ function subagentBarrierStore(input: {
   childStatus: string;
   barrierStatus: string;
   resultArtifact?: unknown;
+  additionalRuns?: Array<{ id: string; status: string; resultArtifact?: unknown }>;
+  dependencyMode?: "required_all" | "required_any" | "optional_background" | "quorum";
 }) {
+  const roleProfileSnapshot = getDefaultSubagentRoleProfile("reviewer");
   const childRun = {
     id: "child-failed",
     parentThreadId: "parent-thread",
@@ -235,6 +305,8 @@ function subagentBarrierStore(input: {
     childThreadId: "child-thread",
     canonicalTaskPath: "root/2:reviewer",
     roleId: "reviewer",
+    roleProfileSnapshot,
+    roleProfileSnapshotSource: "resolved",
     status: input.childStatus,
     resultArtifact: input.resultArtifact === undefined && input.childStatus === "failed"
       ? {
@@ -247,12 +319,25 @@ function subagentBarrierStore(input: {
       }
       : input.resultArtifact,
   };
+  const additionalRuns = (input.additionalRuns ?? []).map((run) => ({
+    id: run.id,
+    parentThreadId: "parent-thread",
+    parentRunId: "parent-run",
+    childThreadId: `${run.id}-thread`,
+    canonicalTaskPath: `root/extra:${run.id}`,
+    roleId: "reviewer",
+    roleProfileSnapshot,
+    roleProfileSnapshotSource: "resolved",
+    status: run.status,
+    resultArtifact: run.resultArtifact,
+  }));
+  const runs = new Map([childRun, ...additionalRuns].map((run) => [run.id, run]));
   const barrier = {
     id: "barrier-unsafe",
     parentThreadId: "parent-thread",
     parentRunId: "parent-run",
-    childRunIds: ["child-failed"],
-    dependencyMode: "required_all",
+    childRunIds: [...runs.keys()],
+    dependencyMode: input.dependencyMode ?? "required_all",
     status: input.barrierStatus,
     failurePolicy: "ask_user",
     createdAt: "2026-06-14T00:00:00.000Z",
@@ -261,9 +346,30 @@ function subagentBarrierStore(input: {
   return {
     listSubagentWaitBarriersForParentRun: (parentRunId: string) => parentRunId === "parent-run" ? [barrier] : [],
     getSubagentRun: (runId: string) => {
-      if (runId !== "child-failed") throw new Error(`Unknown run ${runId}`);
-      return childRun;
+      const run = runs.get(runId);
+      if (!run) throw new Error(`Unknown run ${runId}`);
+      return run;
     },
     listSubagentRunEvents: () => [],
   } as any;
+}
+
+function completedResultArtifact(runId: string, childThreadId: string): Record<string, unknown> {
+  return {
+    schemaVersion: "ambient-subagent-result-artifact-v1",
+    runId,
+    status: "completed",
+    partial: false,
+    summary: "Child result is synthesis safe.",
+    childThreadId,
+    structuredOutput: {
+      ...subagentStructuredResultTemplate(getDefaultSubagentRoleProfile("reviewer")),
+      summary: "Child result is synthesis safe.",
+      evidence: ["permission guard test"],
+      roleOutput: {
+        verdict: "approved",
+        findings: [],
+      },
+    },
+  };
 }

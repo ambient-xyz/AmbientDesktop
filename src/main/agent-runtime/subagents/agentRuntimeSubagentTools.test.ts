@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
 import type { ThreadSummary } from "../../../shared/threadTypes";
-import type { CreateSubagentPiToolDefinitionsOptions } from "../../subagents/subagentPiTools";
+import type { CreateSubagentPiToolDefinitionsOptions } from "../agentRuntimeSubagentsFacade";
 import {
   createAgentRuntimeSubagentToolExtension,
   createSubagentToolExtension,

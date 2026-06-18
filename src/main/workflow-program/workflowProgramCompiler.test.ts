@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "./workflowProgramDesktopToolFacade";
 import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
-import { fixtureWorkflowConnector } from "../workflow/workflowConnectors";
+import { fixtureWorkflowConnector } from "./workflowProgramWorkflowFacade";
 import { workflowGraphWithSourceMappings } from "../workflow-compiler/workflowCompiler";
 import { compileWorkflowProgramIr, createWorkflowProgramCompileCache, WorkflowProgramCompileError, type WorkflowProgramAmbientCliCapability } from "./workflowProgramCompiler";
 

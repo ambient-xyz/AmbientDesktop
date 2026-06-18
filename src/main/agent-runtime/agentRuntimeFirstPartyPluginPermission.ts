@@ -12,7 +12,7 @@ import type {
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import { permissionGrantTargetHash, resolvePermissionWithGrants } from "../permissions/permissionGrants";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 export interface FirstPartyPluginPermissionRequestInput {
   thread: Pick<ThreadSummary, "id">;

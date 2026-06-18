@@ -12,7 +12,7 @@ import {
   validateMcpAutowireCandidate,
   type McpAutowireCandidate,
   type McpAutowireValidationReport,
-} from "../mcp-autowire/mcpAutowireSchemas";
+} from "./mcpAutowireFacade";
 
 export { MCP_CUSTOM_SOURCE_BUILD_SCHEMA_VERSION };
 

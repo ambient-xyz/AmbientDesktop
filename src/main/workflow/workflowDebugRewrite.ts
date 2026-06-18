@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { WorkflowGraphSnapshot, WorkflowModelCallRecord, WorkflowRevisionSummary, WorkflowRunEvent } from "../../shared/workflowTypes";
 import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 import { readWorkflowRunDetail } from "./workflowDashboard";
 
 const MAX_SOURCE_CHARS = 80_000;

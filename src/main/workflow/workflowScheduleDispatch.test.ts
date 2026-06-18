@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./workflowProjectStoreFacade";
 import { runDueWorkflowArtifactSchedules, workflowArtifactScheduleBlockReason, workflowScheduleRunStartedEventData } from "./workflowScheduleDispatch";
 import type { PermissionAuditEntry } from "../../shared/permissionTypes"; import type { WorkflowManifest } from "../../shared/workflowTypes";
 import { workflowThreadScheduleState } from "../../renderer/src/workflowReviewUiModel";

@@ -8,9 +8,9 @@ import type {
   SubagentToolScopeSnapshotSummary,
 } from "../../shared/subagentTypes";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "./subagentPiRuntimeFacade";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
-import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
+import type { SubagentModelScopeResolution } from "./subagentModelProviderFacade";
 import { compactSubagentCapacityLeaseForPi } from "./subagentAgentStatus";
 import { compactSubagentToolScopeSnapshot } from "./subagentToolScopeSnapshot";
 

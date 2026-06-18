@@ -7,7 +7,7 @@ import {
 import {
   createToolRunnerBashOperations,
   type ToolRunnerPolicy,
-} from "../../tool-runtime/toolRunner";
+} from "../agentRuntimeToolRuntimeFacade";
 import { RECOVERY_READ_TOOL_NAME } from "../agentRuntimeInterruptedRecoveryTools";
 
 const INTERRUPTED_TOOL_CALL_RECOVERY_DIR = ".ambient-codex/interrupted-tool-calls";

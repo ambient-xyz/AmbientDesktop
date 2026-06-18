@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
+import type { McpToolDescriptor } from "../agentRuntimeMcpFacade";
 import {
   webResearchExaApiKeyFromEnv,
   webResearchRuntimeSummary,
@@ -12,7 +12,7 @@ import {
   SCRAPLING_DEFAULT_SERVER_ID,
   SCRAPLING_DEFAULT_WORKLOAD_NAME,
 } from "../../scrapling/scraplingBrowserRouting";
-import { WEB_RESEARCH_PROVIDER_IDS } from "../../web-research/webResearchProviderStack";
+import { WEB_RESEARCH_PROVIDER_IDS } from "../agentRuntimeWebResearchFacade";
 
 describe("agentRuntimeWebResearchRuntimeSummary", () => {
   it("resolves the Exa API key from MCP env before process env", () => {

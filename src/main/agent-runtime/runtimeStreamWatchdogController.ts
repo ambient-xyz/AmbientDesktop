@@ -5,7 +5,7 @@ import {
   piStreamStallTimeoutMessage,
   piStreamStartTimeoutMessage,
 } from "../agent-runtime/agentRuntimeTimeouts";
-import { createPiStreamWatchdog, type PiStreamWatchdog } from "../pi/piStreamWatchdog";
+import { createPiStreamWatchdog, type PiStreamWatchdog } from "./agentRuntimePiFacade";
 
 export interface RuntimeStreamWatchdogState {
   outputChars: number;

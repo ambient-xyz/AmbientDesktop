@@ -4,7 +4,7 @@ import {
   CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
   CALLABLE_WORKFLOW_PARENT_BLOCKING_SCHEMA_VERSION,
   type CallableWorkflowParentBlockingBlock,
-} from "../callable-workflow/callableWorkflowParentBlocking";
+} from "./agentRuntimeCallableWorkflowFacade";
 import type { SubagentFinalizationBarrierBlock } from "../agent-runtime/agentRuntimeFinalizationBlocking";
 import type { FinalAssistantMessageInput } from "./finalAssistantMessage";
 import { finalAssistantMessageModel } from "./finalAssistantMessage";

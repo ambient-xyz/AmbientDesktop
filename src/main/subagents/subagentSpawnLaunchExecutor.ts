@@ -39,8 +39,8 @@ import type {
   SubagentChildRuntimeStartInput,
   SubagentChildRuntimeStartResult,
   SubagentRuntimeEventEmitter,
-} from "../pi/piChildSessionAdapter";
-import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
+} from "./subagentPiRuntimeFacade";
+import type { SubagentModelScopeResolution } from "./subagentModelProviderFacade";
 import { recordSubagentLaunchRejection } from "./subagentLaunchRejectionRecorder";
 import { resolveSubagentSpawnBlockDecision, type SubagentSpawnBlockDecision } from "./subagentSpawnBlockDecision";
 import {

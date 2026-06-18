@@ -4,7 +4,7 @@ import {
   googleWorkspaceJsonObjectInput,
   googleWorkspaceJsonValueInput,
 } from "../google-workspace/agentRuntimeGoogleWorkspaceSetupTools";
-import { localDeepResearchSetupToolInput } from "../local-deep-research/agentRuntimeLocalDeepResearchInput";
+import { localDeepResearchSetupToolInput } from "./agentRuntimeLocalDeepResearchFacade";
 
 export interface PermissionToolInputLocalDeepResearchReadiness {
   contract: {

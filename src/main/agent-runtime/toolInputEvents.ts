@@ -1,6 +1,6 @@
 import type { InterruptedToolCallRecoverySnapshot, ToolArgumentStreamEventType, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
 import { serializeToolInputForInterruptedRecovery } from "./recovery/interruptedToolCallRecovery";
-import type { NormalizedPiEvent } from "../pi/piEventMapper";
+import type { NormalizedPiEvent } from "./agentRuntimePiFacade";
 
 export type RuntimeToolInputEventKind = "tool-input-start" | "tool-input-update" | "tool-input-end";
 export type RuntimeToolInputEvent = Extract<NormalizedPiEvent, { kind: RuntimeToolInputEventKind }>;

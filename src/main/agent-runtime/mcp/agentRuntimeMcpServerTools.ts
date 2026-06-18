@@ -13,13 +13,13 @@ import type { ThreadSummary } from "../../../shared/threadTypes";
 import { createMcpAutowireCandidateRefStore } from "../../mcp-autowire/mcpAutowireCandidateRefs";
 import { createMcpAutowirePlanRevisionStore } from "../../mcp-autowire/mcpAutowirePlanEdits";
 import { createMcpAutowirePiToolDefinitions } from "../../mcp-autowire/mcpAutowirePiTools";
-import { createMcpServerPiToolDefinitions } from "../../mcp/mcpServerPiTools";
-import { createMcpToolBridgePiToolDefinitions } from "../../mcp/mcpToolBridgePiTools";
-import { evaluateMcpInstallGate, mcpDefaultCapabilityStatePathForUserData } from "../../mcp/mcpInstallGate";
-import type { McpInstallCatalog } from "../../mcp/mcpInstallCatalog";
-import { planMcpPermissionPromptGrant } from "../../mcp/mcpPermissionPolicyService";
-import type { McpToolBridge } from "../../mcp/mcpToolBridge";
-import type { ToolHiveRuntimeService } from "../../tool-runtime/toolHiveRuntimeService";
+import { createMcpServerPiToolDefinitions } from "../agentRuntimeMcpFacade";
+import { createMcpToolBridgePiToolDefinitions } from "../agentRuntimeMcpFacade";
+import { evaluateMcpInstallGate, mcpDefaultCapabilityStatePathForUserData } from "../agentRuntimeMcpFacade";
+import type { McpInstallCatalog } from "../agentRuntimeMcpFacade";
+import { planMcpPermissionPromptGrant } from "../agentRuntimeMcpFacade";
+import type { McpToolBridge } from "../agentRuntimeMcpFacade";
+import type { ToolHiveRuntimeService } from "../agentRuntimeToolRuntimeFacade";
 
 export interface AgentRuntimeMcpRuntime {
   mcpUserDataPath: string;

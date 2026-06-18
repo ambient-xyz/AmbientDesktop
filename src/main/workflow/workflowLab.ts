@@ -5,8 +5,8 @@ import { AMBIENT_DEFAULT_MODEL, normalizeAmbientModelId } from "../../shared/amb
 import type { CreateWorkflowLabRunInput, ListWorkflowLabRunsInput, WorkflowLabCandidatePatch, WorkflowLabEvaluationCase, WorkflowLabEvaluationMetrics, WorkflowLabEvaluationResult, WorkflowLabGateResult, WorkflowLabJudgeResult, WorkflowLabMetricEmphasis, WorkflowLabRun, WorkflowLabRunStatus, WorkflowLabVariant, WorkflowLabVariantStatus, WorkflowRecordingLibraryDescription, WorkflowRecordingPlaybookDraft, WorkflowRecordingReviewDraftUpdate } from "../../shared/workflowTypes";
 import { callWorkflowPiJson, WorkflowPiJsonValidationError, type WorkflowPiTextCallInput } from "./workflowPiTransport";
 import { readAmbientApiKey } from "../security/credentialStore";
-import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { AmbientRetryPolicy } from "./workflowAmbientFacade";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 
 export const WORKFLOW_LAB_SCHEMA_VERSION = 1;
 

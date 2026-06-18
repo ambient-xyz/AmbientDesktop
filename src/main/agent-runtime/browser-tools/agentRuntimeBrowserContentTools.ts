@@ -8,7 +8,7 @@ import type {
   BrowserUserActionState,
 } from "../../../shared/browserTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
+import type { MaterializedTextOutput } from "../agentRuntimeToolRuntimeFacade";
 import {
   browserToolRecoverableFailure,
   browserUnavailableText,
@@ -17,7 +17,7 @@ import {
   isBrowserUserActionState,
   type BrowserToolRecoverableError,
   type BrowserUnavailableFallback,
-} from "../../agent/agentBrowserRuntime";
+} from "../agentRuntimeAgentFacade";
 import { browserToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {

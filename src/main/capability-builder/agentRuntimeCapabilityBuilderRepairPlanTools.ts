@@ -7,8 +7,7 @@ import {
   type CapabilityBuilderRepairPlanInput,
   type CapabilityBuilderRepairPlanResult,
 } from "./capabilityBuilder";
-import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { pluginInstallToolDescriptor, registerDesktopTool } from "./capabilityBuilderDesktopToolFacade";
 
 export interface CapabilityBuilderRepairPlanToolRegistrationOptions {
   workspace: Pick<WorkspaceState, "path">;

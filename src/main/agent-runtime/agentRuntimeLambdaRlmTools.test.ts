@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("../tool-runtime/lambdaRlm", () => ({
+vi.mock("./agentRuntimeToolRuntimeFacade", () => ({
   createLambdaRlmToolDefinition: mocks.createLambdaRlmToolDefinition,
 }));
 

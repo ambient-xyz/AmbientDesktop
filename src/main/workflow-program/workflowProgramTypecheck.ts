@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
-import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import type { DesktopToolDescriptor } from "./workflowProgramDesktopToolFacade";
 import {
   connectorOperationDescriptor,
   validateWorkflowProgramNodeCapabilities,
   type WorkflowProgramAmbientCliCapability,
   type WorkflowProgramDiagnostic,
 } from "./workflowProgramCapabilityResolver";
-import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflow/workflowConnectors";
+import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "./workflowProgramWorkflowFacade";
 import {
   workflowProgramKnownOutputPathList,
   workflowProgramNodeOutputSummary,

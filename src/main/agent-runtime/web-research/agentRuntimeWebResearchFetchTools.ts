@@ -14,7 +14,7 @@ import {
   browserUnavailableText,
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
-} from "../../agent/agentBrowserRuntime";
+} from "../agentRuntimeAgentFacade";
 import { webResearchToolResult } from "./agentRuntimeWebResearchStatusTools";
 import {
   isWebResearchMcpProvider,
@@ -24,19 +24,19 @@ import {
 } from "./agentRuntimeWebResearchToolFormatting";
 import { webResearchToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
-import type { McpToolCallResult } from "../../mcp/mcpToolBridge";
-import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
+import type { McpToolCallResult } from "../agentRuntimeMcpFacade";
+import type { MaterializedTextOutput } from "../agentRuntimeToolRuntimeFacade";
 import {
   callExaWebFetch,
   type ExaWebFetchInput,
   type ExaWebResearchResult,
   isLikelyExaRateLimitError,
   type WebResearchProviderAttempt,
-} from "../../web-research/webResearchBroker";
+} from "../agentRuntimeWebResearchFacade";
 import {
   WEB_RESEARCH_PROVIDER_IDS,
   type WebResearchProviderRequestPlan,
-} from "../../web-research/webResearchProviderStack";
+} from "../agentRuntimeWebResearchFacade";
 
 type WebResearchFetchToolUpdate = AgentToolResult<Record<string, unknown>>;
 type WebResearchFetchToolUpdateHandler = (update: WebResearchFetchToolUpdate) => void;

@@ -12,8 +12,8 @@ import type {
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import type { SubagentTurnBudgetPolicy } from "../../shared/subagentTurnBudget";
 import { compactSubagentTurnBudgetPolicyForPi } from "../../shared/subagentTurnBudget";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
-import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "./subagentPiRuntimeFacade";
+import type { SubagentModelScopeResolution } from "./subagentModelProviderFacade";
 import { compactSubagentCapacityLeaseForPi } from "./subagentAgentStatus";
 import {
   compactSubagentModelScopeForPi,

@@ -1,6 +1,6 @@
 import type { PermissionMode } from "../../shared/permissionTypes";
 import type { ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
-import type { NormalizedPiEvent } from "../pi/piEventMapper";
+import type { NormalizedPiEvent } from "./agentRuntimePiFacade";
 import type {
   RuntimeToolResultEventStatus,
   RuntimeToolResultMessageUpdateInput,

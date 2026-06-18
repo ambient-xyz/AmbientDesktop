@@ -8,7 +8,7 @@ import {
   mcpManagedFileExchangeForWorkload,
   prepareMcpManagedFileExchangeArguments,
 } from "./mcpManagedFileExchange";
-import type { ToolHiveInstalledServerState } from "../tool-runtime/toolHiveRuntimeService";
+import type { ToolHiveInstalledServerState } from "./mcpToolRuntimeFacade";
 
 describe("MCP managed file exchange", () => {
   it("stages explicit inline content and workspace files into the managed ToolHive exchange", async () => {

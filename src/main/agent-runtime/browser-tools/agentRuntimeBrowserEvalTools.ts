@@ -13,7 +13,7 @@ import {
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
   type BrowserUnavailableFallback,
-} from "../../agent/agentBrowserRuntime";
+} from "../agentRuntimeAgentFacade";
 import { browserToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
@@ -22,7 +22,7 @@ import {
   browserToolUpdate,
   type BrowserToolTextResult,
 } from "./agentRuntimeBrowserToolFormatting";
-import { buildToolLongformInputPreview as defaultBuildToolLongformInputPreview } from "../../tool-runtime/toolLongformInputPreview";
+import { buildToolLongformInputPreview as defaultBuildToolLongformInputPreview } from "../agentRuntimeToolRuntimeFacade";
 
 type BrowserEvalToolUpdate = BrowserToolTextResult;
 type BrowserEvalToolUpdateHandler = (update: BrowserEvalToolUpdate) => void;

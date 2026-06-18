@@ -7,8 +7,7 @@ import {
   type CapabilityBuilderHistoryInput,
   type CapabilityBuilderHistoryResult,
 } from "./capabilityBuilder";
-import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { pluginInstallToolDescriptor, registerDesktopTool } from "./capabilityBuilderDesktopToolFacade";
 
 export interface CapabilityBuilderHistoryToolRegistrationOptions {
   workspace: Pick<WorkspaceState, "path">;

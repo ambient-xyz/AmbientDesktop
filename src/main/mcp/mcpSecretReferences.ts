@@ -1,5 +1,5 @@
 import { findSecretReference, saveSecretReference } from "../security/secretReferenceStore";
-import type { McpAutowireCandidate } from "../mcp-autowire/mcpAutowireSchemas";
+import type { McpAutowireCandidate } from "./mcpAutowireFacade";
 
 export interface McpSecretBindingRef {
   envName: string;

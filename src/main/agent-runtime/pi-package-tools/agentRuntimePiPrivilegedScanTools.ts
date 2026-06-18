@@ -4,7 +4,7 @@ import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   previewAmbientCliPackagePiCatalogSource,
   type AmbientCliPiCatalogInstallPreview,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {

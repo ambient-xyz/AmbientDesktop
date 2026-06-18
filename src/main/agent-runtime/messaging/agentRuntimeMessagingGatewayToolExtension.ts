@@ -23,7 +23,7 @@ import type { WorkflowAgentFolderSummary } from "../../../shared/workflowTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
 import type { AgentRuntimeFeatures } from "../agentRuntime";
-import { discoverAmbientCliPackages } from "../../ambient-cli/ambientCliPackages";
+import { discoverAmbientCliPackages } from "../agentRuntimeAmbientCliFacade";
 import { registerMessagingOverviewTools } from "./agentRuntimeMessagingOverviewTools";
 import { registerTelegramSessionTools } from "../telegram/agentRuntimeTelegramSessionTools";
 import { registerSignalSessionTools } from "../signal/agentRuntimeSignalSessionTools";

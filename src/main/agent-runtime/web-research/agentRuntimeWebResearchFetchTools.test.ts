@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import type { BrowserPageContent, BrowserUserActionState } from "../../../shared/browserTypes";
 import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
-import { WEB_RESEARCH_PROVIDER_IDS, type WebResearchProviderRequestPlan } from "../../web-research/webResearchProviderStack";
+import type { MaterializedTextOutput } from "../agentRuntimeToolRuntimeFacade";
+import { WEB_RESEARCH_PROVIDER_IDS, type WebResearchProviderRequestPlan } from "../agentRuntimeWebResearchFacade";
 import { registerWebResearchFetchTools, type WebResearchFetchToolRegistrationOptions } from "./agentRuntimeWebResearchFetchTools";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };

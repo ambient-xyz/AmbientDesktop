@@ -17,7 +17,7 @@ import {
   type McpLivePiSmokeInstallPlan,
   runMcpLivePiSmoke,
 } from "./mcpLivePiSmoke";
-import { MCP_AUTOWIRE_CANDIDATE_SCHEMA_VERSION } from "../mcp-autowire/mcpAutowireSchemas";
+import { MCP_AUTOWIRE_CANDIDATE_SCHEMA_VERSION } from "./mcpAutowireFacade";
 import { createMcpServerPiToolDefinitions } from "./mcpServerPiTools";
 import { createMcpToolBridgePiToolDefinitions } from "./mcpToolBridgePiTools";
 import { McpToolBridge } from "./mcpToolBridge";
@@ -25,7 +25,7 @@ import {
   ToolHiveRuntimeService,
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
-} from "../tool-runtime/toolHiveRuntimeService";
+} from "./mcpToolRuntimeFacade";
 import type { WorkflowPiProgress, WorkflowPiToolProgress } from "../workflow/workflowPiTransport";
 
 const runLive = process.env.AMBIENT_MCP_LIVE_PI_SMOKE === "1";

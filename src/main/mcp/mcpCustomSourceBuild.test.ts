@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mcpAutowirePhase0Fixtures } from "../mcp-autowire/mcpAutowireFixtures";
-import { validateMcpAutowireCandidate, type McpAutowireCandidate } from "../mcp-autowire/mcpAutowireSchemas";
+import { mcpAutowirePhase0Fixtures } from "./mcpAutowireFacade";
+import { validateMcpAutowireCandidate, type McpAutowireCandidate } from "./mcpAutowireFacade";
 import {
   MCP_CUSTOM_SOURCE_BUILD_SCHEMA_VERSION,
   createMcpCustomSourceBuildImage,

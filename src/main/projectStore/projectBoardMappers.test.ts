@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/projectBoardKickoffDefaults";
 import type { ProjectBoardDecisionImpactPreview } from "../../shared/projectBoardDecisionImpact";
-import type { BoardEventArtifact, ProposalManifestArtifact, RunHandoffArtifact, RunManifestArtifact, RunProofArtifact } from "../project-board/projectBoardArtifacts";
-import type { ProjectBoardTaskToolAction } from "../project-board/projectBoardTaskTools";
-import type { ProjectBoardSynthesisDraft } from "../project-board/projectBoardSynthesis";
-import { defaultProjectBoardClaimAgentId } from "../project-board/projectBoardClaims";
-import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, GENERATED_REPORT_SOURCE_AUTHORITY_REASON } from "../project-board/projectBoardSourceIdentity";
+import type { BoardEventArtifact, ProposalManifestArtifact, RunHandoffArtifact, RunManifestArtifact, RunProofArtifact } from "./projectStoreProjectBoardFacade";
+import type { ProjectBoardTaskToolAction } from "./projectStoreProjectBoardFacade";
+import type { ProjectBoardSynthesisDraft } from "./projectStoreProjectBoardFacade";
+import { defaultProjectBoardClaimAgentId } from "./projectStoreProjectBoardFacade";
+import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, GENERATED_REPORT_SOURCE_AUTHORITY_REASON } from "./projectStoreProjectBoardFacade";
 import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import type {

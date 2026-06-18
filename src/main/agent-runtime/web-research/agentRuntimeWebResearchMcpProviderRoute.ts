@@ -7,19 +7,19 @@ import type {
 import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
-import { mcpRuntimePermissionBlockedMessage } from "../../mcp/mcpRuntimePermissionEnforcement";
+import { mcpRuntimePermissionBlockedMessage } from "../agentRuntimeMcpFacade";
 import {
   evaluateMcpToolCallPermission,
   mcpPermissionPolicyBlockedMessage,
   planMcpPermissionPromptGrant,
-} from "../../mcp/mcpPermissionPolicyService";
+} from "../agentRuntimeMcpFacade";
 import type {
   McpToolBridge,
   McpToolBridgeActivity,
   McpToolCallResult,
   McpToolDescriptor,
-} from "../../mcp/mcpToolBridge";
-import { mcpToolCallApprovalDetail } from "../../mcp/mcpToolBridgePiTools";
+} from "../agentRuntimeMcpFacade";
+import { mcpToolCallApprovalDetail } from "../agentRuntimeMcpFacade";
 
 export interface WebResearchMcpProviderPermissionRequest {
   thread: ThreadSummary;

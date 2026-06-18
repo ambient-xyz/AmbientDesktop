@@ -1,10 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import type { DesktopToolDescriptor } from "./workflowProgramDesktopToolFacade";
 import type { WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
 import { connectorOperationDescriptor, type WorkflowProgramDiagnostic } from "./workflowProgramCapabilityResolver";
 import type { WorkflowProgramLoweredOperationPlan } from "./workflowProgramLowering";
 import { validateWorkflowProgramJsonSchemaValue, workflowProgramSchemaObjectKeys } from "./workflowProgramTypecheck";
-import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflow/workflowConnectors";
+import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "./workflowProgramWorkflowFacade";
 
 export interface WorkflowProgramDryRunCall {
   kind: "tool" | "connector" | "model" | "checkpoint" | "step" | "document" | "mutation" | "review" | "approval" | "emit";

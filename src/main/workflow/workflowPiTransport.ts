@@ -8,7 +8,7 @@ import {
   retryDelayForAttempt,
   type AmbientRetryPolicy,
   type AmbientStreamFailureKind,
-} from "../ambient/aggressiveRetries";
+} from "./workflowAmbientFacade";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 
 export type WorkflowPiProgressStage = "waiting" | "thinking" | "streaming" | "retrying" | "completed";

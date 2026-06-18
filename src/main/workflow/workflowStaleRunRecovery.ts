@@ -1,6 +1,6 @@
 import type { WorkflowRecoveryAction } from "../../shared/workflowTypes";
 import { workflowRunLiveness, type WorkflowRunLivenessOptions } from "../../shared/workflowRunLiveness";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 
 export interface WorkflowStaleRunRecoveryInput {
   recoveryAction: WorkflowRecoveryAction;

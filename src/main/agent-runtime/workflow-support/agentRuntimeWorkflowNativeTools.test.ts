@@ -7,8 +7,8 @@ import type {
   WorkflowNativeToolInvocationResult,
 } from "../../../shared/workflowTypes";
 import type { DesktopToolDescriptor } from "../agentRuntimeDesktopToolFacade";
-import type { RunWorkflowArtifactInput } from "../../workflow/workflowRunService";
-import type { WorkflowNativeToolRuntime } from "../../workflow/workflowNativeTools";
+import type { RunWorkflowArtifactInput } from "../agentRuntimeWorkflowFacade";
+import type { WorkflowNativeToolRuntime } from "../agentRuntimeWorkflowFacade";
 import { createWorkflowNativeToolExtension } from "./agentRuntimeWorkflowNativeTools";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };

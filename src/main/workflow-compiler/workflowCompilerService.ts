@@ -12,7 +12,7 @@ import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
 import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
 import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
 import type { ProjectStore } from "../projectStore/projectStore";
 import { readAmbientApiKey } from "../security/credentialStore";
 import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
@@ -31,12 +31,12 @@ import {
   type WorkflowCompilerRequiredBuiltinToolIntent,
   type WorkflowCompilerOutput,
 } from "./workflowCompiler";
-import { readWorkflowDashboard } from "../workflow/workflowDashboard";
-import { enrichWorkflowManifestWithPluginCapabilities } from "../workflow/workflowPluginCapabilities";
-import { commitWorkflowVersionRepo } from "../workflow/workflowVersioning";
-import { buildWorkflowSourceDiff } from "../workflow/workflowDebugRewrite";
-import { callWorkflowPiJson, callWorkflowPiText, type WorkflowPiProgress } from "../workflow/workflowPiTransport";
-import { workflowPromptParts, type WorkflowPromptParts } from "../workflow/workflowPromptCache";
+import { readWorkflowDashboard } from "./workflowCompilerWorkflowDashboardFacade";
+import { enrichWorkflowManifestWithPluginCapabilities } from "./workflowCompilerWorkflowFacade";
+import { commitWorkflowVersionRepo } from "./workflowCompilerWorkflowFacade";
+import { buildWorkflowSourceDiff } from "./workflowCompilerWorkflowDashboardFacade";
+import { callWorkflowPiJson, callWorkflowPiText, type WorkflowPiProgress } from "./workflowCompilerWorkflowFacade";
+import { workflowPromptParts, type WorkflowPromptParts } from "./workflowCompilerWorkflowFacade";
 import {
   applyWorkflowProgramIrPatch,
   buildWorkflowProgramIrRepairPrompt,
@@ -73,7 +73,7 @@ import {
   parseWorkflowPlanDsl,
   workflowPlanDslPromptSchemaExample,
   type WorkflowPlanDsl,
-} from "../workflow/workflowPlanDsl";
+} from "./workflowCompilerWorkflowFacade";
 import { buildWorkflowDiscoveryPolicyContext, type WorkflowDiscoveryAmbientCliCapability } from "../workflow-discovery/workflowDiscoveryPolicy";
 import {
   describeWorkflowDiscoveryCapability,

@@ -7,7 +7,7 @@ import { AMBIENT_SUBAGENT_PROTOCOL_VERSION, type SubagentDependencyMode, type Su
 import type { SubagentRunEventSummary, SubagentRunSummary, SubagentSpawnEdgeSummary } from "../../shared/subagentTypes";
 import type { MutationWorkspaceLease, SymphonyChildLaunchContractBundle } from "../../shared/symphonyFineGrainedContracts";
 import type { SubagentRoleProfile } from "../../shared/subagentRoles";
-import { assertSubagentRunEventAttribution } from "../subagents/subagentInvariants";
+import { assertSubagentRunEventAttribution } from "./projectStoreSubagentsFacade";
 import {
   mapSubagentRunEventRow,
   mapSubagentRunRow,

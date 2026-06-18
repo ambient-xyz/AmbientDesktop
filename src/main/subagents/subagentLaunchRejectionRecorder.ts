@@ -7,7 +7,7 @@ import type {
   SubagentToolScopeSnapshotSummary,
 } from "../../shared/subagentTypes";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
-import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
+import type { SubagentModelScopeResolution } from "./subagentModelProviderFacade";
 import { compactSubagentCapacityLeaseForPi } from "./subagentAgentStatus";
 import {
   buildSubagentChildLaunchBlockedMessage,

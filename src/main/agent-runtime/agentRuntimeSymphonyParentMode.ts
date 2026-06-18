@@ -6,7 +6,7 @@ import type { SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRec
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type { SendMessageInput, SendMessageComposerIntent } from "../../shared/desktopTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { callableWorkflowToolName } from "../callable-workflow/callableWorkflowRegistry";
+import { callableWorkflowToolName } from "./agentRuntimeCallableWorkflowFacade";
 
 export const SYMPHONY_PARENT_MODE_ACTIVE_RUN_HANDOFF_ERROR =
   "Wait for the current Ambient run to finish before launching Symphony. Symphony parent mode cannot be steered into an unrestricted active session.";

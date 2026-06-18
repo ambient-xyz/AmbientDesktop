@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowProgramContext, WorkflowRuntimeEvent } from "../workflow/workflowAgentRuntime";
+import type { WorkflowProgramContext, WorkflowRuntimeEvent } from "./workflowProgramWorkflowFacade";
 import { loadWorkflowProgramFromSource } from "./workflowProgramLoader";
 
 function fixtureProgramContext(events: WorkflowRuntimeEvent[] = []): WorkflowProgramContext {

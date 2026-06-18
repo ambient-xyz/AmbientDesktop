@@ -1,10 +1,10 @@
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { McpToolBridge } from "../../mcp/mcpToolBridge";
+import type { McpToolBridge } from "../agentRuntimeMcpFacade";
 import { resolveScraplingBrowserContentDescriptor } from "../../scrapling/scraplingMcpDescriptor";
 import {
   WEB_RESEARCH_PROVIDER_IDS,
   type WebResearchProviderRuntimeSummary,
-} from "../../web-research/webResearchProviderStack";
+} from "../agentRuntimeWebResearchFacade";
 
 export type WebResearchRuntimeSummary = Partial<Record<string, Omit<WebResearchProviderRuntimeSummary, "providerId" | "label" | "role" | "kind" | "configuredStatus" | "privacyLabel">>>;
 

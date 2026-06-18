@@ -122,14 +122,30 @@ export function SubagentChildTranscriptLive({
     preview: child.preview,
   });
   const transcriptHasMessages = childVisibleMessages.length > 0;
-  const runtimeTimelineOpen = !transcriptState.isTerminal || !transcriptHasMessages;
-  const mailboxTimelineOpen = !transcriptState.isTerminal;
+  const timelineOpenWhileLive = childRunning && !transcriptState.isTerminal;
+  const runtimeTimelineOpen = timelineOpenWhileLive || !transcriptHasMessages;
+  const mailboxTimelineOpen = timelineOpenWhileLive || !transcriptHasMessages;
   const childRunActivityVisible = childRunning && !transcriptState.isTerminal && runActivityLines.length > 0;
+  const childRunActivityPlacement = !childRunActivityVisible
+    ? "hidden"
+    : transcriptHasMessages
+      ? "after-transcript"
+      : "before-transcript";
   const openThreadAvailable = child.canOpenThread && Boolean(onOpenThread);
   const openThread = () => {
     if (!onOpenThread || !child.canOpenThread) return;
     void onOpenThread(child);
   };
+  const childRunActivity = childRunActivityVisible ? (
+    <div
+      className="subagent-parent-cluster-child-run-activity"
+      aria-label={`Live child activity for ${child.title}`}
+      data-child-run-activity-count={runActivityLines.length}
+      data-child-run-activity-placement={childRunActivityPlacement}
+    >
+      <RunActivityFeed lines={runActivityLines} status={runStatus} />
+    </div>
+  ) : null;
   return (
     <div
       className="subagent-parent-cluster-child-transcript-live"
@@ -153,6 +169,9 @@ export function SubagentChildTranscriptLive({
       data-child-renderer={childToolMessageCount > 0 ? "message-bubble+tool-card" : "message-bubble"}
       data-child-run-activity-count={runActivityLines.length}
       data-child-run-activity-visible={String(childRunActivityVisible)}
+      data-child-run-activity-placement={childRunActivityPlacement}
+      data-child-transcript-flow="messages-first"
+      data-child-secondary-flow="after-transcript-stream"
     >
       <div className="subagent-parent-cluster-child-mini-thread-header">
         <div className="subagent-parent-cluster-child-mini-thread-title">
@@ -183,15 +202,7 @@ export function SubagentChildTranscriptLive({
         {childStreamingMessageCount > 0 && <span>{countLabel(childStreamingMessageCount, "streaming message")}</span>}
         {childRunActivityVisible && <span>{countLabel(runActivityLines.length, "activity line")}</span>}
       </div>
-      {childRunActivityVisible && (
-        <div
-          className="subagent-parent-cluster-child-run-activity"
-          aria-label={`Live child activity for ${child.title}`}
-          data-child-run-activity-count={runActivityLines.length}
-        >
-          <RunActivityFeed lines={runActivityLines} status={runStatus} />
-        </div>
-      )}
+      {childRunActivityPlacement === "before-transcript" && childRunActivity}
       <div
         className="subagent-parent-cluster-child-transcript-stream"
         aria-label={`Child thread messages for ${child.title}`}
@@ -260,6 +271,7 @@ export function SubagentChildTranscriptLive({
           </div>
         )}
       </div>
+      {childRunActivityPlacement === "after-transcript" && childRunActivity}
       {childRuntimeEventRows.length > 0 && (
         <details
           className="subagent-parent-cluster-child-runtime-events"

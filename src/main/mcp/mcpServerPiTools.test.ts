@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { McpInstallCatalog } from "./mcpInstallCatalog";
-import { mcpAutowirePhase0Fixtures, mcpKatzillaInstallFailureReplay } from "../mcp-autowire/mcpAutowireFixtures";
-import type { ContainerRuntimeProbeResult } from "../container-runtime/containerRuntimeProbeService";
+import { mcpAutowirePhase0Fixtures, mcpKatzillaInstallFailureReplay } from "./mcpAutowireFacade";
+import type { ContainerRuntimeProbeResult } from "./mcpContainerRuntimeFacade";
 import type { McpInstallGateResult } from "./mcpInstallGate";
 import { previewGuidedLocalBridge } from "./mcpGuidedLocalBridge";
 import { createMcpServerPiToolDefinitions, mcpGuidedLocalBridgePreflightApprovalDetail, mcpGuidedLocalBridgeRegisterApprovalDetail, mcpServerInstallApprovalDetail, mcpServerUninstallApprovalDetail } from "./mcpServerPiTools";
@@ -12,12 +12,12 @@ import {
   ToolHiveRuntimeService,
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
-} from "../tool-runtime/toolHiveRuntimeService";
+} from "./mcpToolRuntimeFacade";
 import { saveSecretReference } from "../security/secretReferenceStore";
 import { saveMcpServerEnvSecret } from "./mcpSecretReferences";
-import { createMcpAutowireCandidateRefStore } from "../mcp-autowire/mcpAutowireCandidateRefs";
-import { createMcpAutowirePlanRevisionStore } from "../mcp-autowire/mcpAutowirePlanEdits";
-import { validateMcpAutowireCandidate, type McpAutowireCandidate } from "../mcp-autowire/mcpAutowireSchemas";
+import { createMcpAutowireCandidateRefStore } from "./mcpAutowireFacade";
+import { createMcpAutowirePlanRevisionStore } from "./mcpAutowireFacade";
+import { validateMcpAutowireCandidate, type McpAutowireCandidate } from "./mcpAutowireFacade";
 
 describe("MCP server Pi tools", () => {
   it("falls back to locally bounded ToolHive logs when --tail is unsupported", async () => {

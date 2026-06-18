@@ -2,7 +2,7 @@ import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type {
   AmbientCliPackageEnvStatus,
   AmbientCliPackageSummary,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 
 export interface AmbientCliEnvBindInput {
   packageId?: string;

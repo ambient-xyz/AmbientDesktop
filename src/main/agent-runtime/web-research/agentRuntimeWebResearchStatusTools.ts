@@ -2,20 +2,20 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
+import type { AmbientCliPackageCatalog } from "../agentRuntimeAmbientCliFacade";
 import { webResearchToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
-import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
+import type { McpToolDescriptor } from "../agentRuntimeMcpFacade";
 import {
   webResearchProviderConfigsFromSearchCatalog,
   webResearchSettingsWithDynamicProviderCatalogs,
-} from "../../web-research/searchSettingsTools";
-import { webResearchProviderConfigsFromMcpTools } from "../../web-research/webResearchMcpProviderRegistry";
+} from "../agentRuntimeWebResearchFacade";
+import { webResearchProviderConfigsFromMcpTools } from "../agentRuntimeWebResearchFacade";
 import {
   buildWebResearchProviderStackStatus,
   type WebResearchProviderRuntimeSummary,
   webResearchProviderStackStatusText,
-} from "../../web-research/webResearchProviderStack";
+} from "../agentRuntimeWebResearchFacade";
 
 export type WebResearchStatusRuntimeSummary = Partial<Record<string, Omit<
   WebResearchProviderRuntimeSummary,

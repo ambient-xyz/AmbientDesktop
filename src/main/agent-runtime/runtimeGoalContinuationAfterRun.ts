@@ -1,5 +1,5 @@
 import type { ThreadGoal } from "../../shared/threadTypes";
-import type { PersistedRunStatus } from "../projectStore/projectStoreRunMappers";
+import type { PersistedRunStatus } from "./agentRuntimeProjectStoreFacade";
 
 export type RuntimeGoalRunStatus = PersistedRunStatus;
 

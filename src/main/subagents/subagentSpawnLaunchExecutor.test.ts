@@ -27,8 +27,8 @@ import {
   SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
   type SymphonyChildLaunchContractBundle,
 } from "../../shared/symphonyFineGrainedContracts";
-import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
-import { resolveSubagentModelScope, type SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
+import { createDefaultModelRuntimeRegistry } from "./subagentModelProviderFacade";
+import { resolveSubagentModelScope, type SubagentModelScopeResolution } from "./subagentModelProviderFacade";
 import {
   executeSubagentSpawnLaunch,
   SUBAGENT_SPAWN_LAUNCH_EXECUTOR_SCHEMA_VERSION,

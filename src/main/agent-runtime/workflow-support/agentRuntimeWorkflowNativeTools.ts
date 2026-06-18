@@ -12,7 +12,7 @@ import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
 import { piToolFieldsFromDescriptor } from "../agentRuntimeDesktopToolFacade";
 import type { DesktopToolDescriptor } from "../agentRuntimeDesktopToolFacade";
-import type { ProjectStore } from "../../projectStore/projectStore";
+import type { ProjectStore } from "../agentRuntimeProjectStoreFacade";
 import type {
   AmbientPluginMcpOptions,
   PluginMcpLaunchPlan,
@@ -20,16 +20,16 @@ import type {
   PluginMcpToolInvocationResult,
   PluginMcpToolRegistration,
 } from "../../plugins/pluginHost";
-import type { RunWorkflowArtifactInput } from "../../workflow/workflowRunService";
+import type { RunWorkflowArtifactInput } from "../agentRuntimeWorkflowFacade";
 import {
   invokeWorkflowNativeTool as defaultInvokeWorkflowNativeTool,
   workflowNativeToolDescriptors as defaultWorkflowNativeToolDescriptors,
   type WorkflowNativeRunArtifactInput,
   type WorkflowNativeToolRuntime,
-} from "../../workflow/workflowNativeTools";
-import type { WorkflowBrowserAdapter } from "../../workflow/workflowDesktopTools";
+} from "../agentRuntimeWorkflowFacade";
+import type { WorkflowBrowserAdapter } from "../agentRuntimeWorkflowFacade";
 import type { WorkflowPlanEditIntentKind } from "../../../shared/workflowThreadPlanEdit";
-import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "../../workflow/workflowConnectors";
+import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "../agentRuntimeWorkflowFacade";
 
 export interface WorkflowNativeToolExtensionOptions {
   threadId: string;

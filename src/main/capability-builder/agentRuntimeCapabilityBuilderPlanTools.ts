@@ -1,7 +1,6 @@
 import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { pluginInstallToolDescriptor, registerDesktopTool } from "./capabilityBuilderDesktopToolFacade";
 import type { AmbientInstallRoutePlan } from "../install-route/installRoutePlanner";
 
 export interface CapabilityBuilderPlanToolInput {

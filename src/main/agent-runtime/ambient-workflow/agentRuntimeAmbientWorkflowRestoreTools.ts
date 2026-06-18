@@ -8,7 +8,7 @@ import {
 } from "../agentRuntimeAmbientFacade";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
-import type { ProjectStore } from "../../projectStore/projectStore";
+import type { ProjectStore } from "../agentRuntimeProjectStoreFacade";
 
 interface AmbientWorkflowRestoreServices {
   restoreVersion?: (input: AmbientWorkflowsRestoreVersionInput) => Promise<AmbientWorkflowPlaybookDescription> | AmbientWorkflowPlaybookDescription;

@@ -8,7 +8,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { isPathInside } from "../../session/sessionPaths";
-import { discoverPiExtensionHostTools, runPiExtensionHostTool, type PiExtensionHostTool, type PiExtensionHostRunResult } from "../../pi/piExtensionCompatibilityHost";
+import { discoverPiExtensionHostTools, runPiExtensionHostTool, type PiExtensionHostTool, type PiExtensionHostRunResult } from "../agentRuntimePiFacade";
 import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../setup/managedInstallPaths";
 
 const execFileAsync = promisify(execFile);

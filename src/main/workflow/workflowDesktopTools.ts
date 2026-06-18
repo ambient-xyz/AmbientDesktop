@@ -14,7 +14,7 @@ import {
   type RunAmbientCliInput,
 } from "../ambient-cli/ambientCliPackages";
 import { readAmbientApiKey, getActiveAmbientProviderBaseUrl, getActiveAmbientProviderModelOverride } from "../security/credentialStore";
-import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./workflowDesktopToolFacade";
 import { completeAmbientText, executeLambdaRlm, type LambdaRlmTaskType } from "../tool-runtime/lambdaRlm";
 import { classifyToolPermission } from "../permissions/permissionPolicy";
 import { callPluginMcpTool, type PluginMcpLaunchPlan, type PluginMcpToolRegistration } from "../plugins/pluginMcpSupervisor";

@@ -1,7 +1,7 @@
 import type { PermissionMode } from "../../shared/permissionTypes";
 import type { ToolArgumentProgressSnapshot, ToolArgumentStreamEventType, ToolIntentSnapshot, ToolLongformInputPreview } from "../../shared/threadTypes";
 import { subagentParentControlAbortIntentFromToolEnd, type SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
-import type { NormalizedPiEvent } from "../pi/piEventMapper";
+import type { NormalizedPiEvent } from "./agentRuntimePiFacade";
 import {
   toolContinuationLinesFromToolContent,
   type CompletedToolSnapshot,

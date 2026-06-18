@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
-import { ProjectStore } from "../projectStore/projectStore";
+import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "./workflowAmbientFacade";
+import { ProjectStore } from "./workflowProjectStoreFacade";
 import { AmbientWorkflowLabJudgeProvider, runWorkflowLab } from "./workflowLab";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;

@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { AgentRuntime } from "./agentRuntime";
 
 async function withRuntime<T>(

@@ -15,8 +15,7 @@ import {
   type CapabilityBuilderInstallDepsResult,
   type CapabilityBuilderPreviewResult,
 } from "./capabilityBuilder";
-import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { pluginInstallToolDescriptor, registerDesktopTool } from "./capabilityBuilderDesktopToolFacade";
 
 type ToolUpdateHandler = (update: {
   content: Array<{ type: "text"; text: string }>;

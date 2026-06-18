@@ -13,7 +13,7 @@ import type {
   BrowserUserActionState,
 } from "../../shared/browserTypes";
 import type { ChatMessage, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
-import { isBrowserUserActionState } from "../agent/agentBrowserRuntime";
+import { isBrowserUserActionState } from "./agentRuntimeAgentFacade";
 import { cleanToolPath, normalizeWorkspaceArtifactPath, parseToolJsonInput, stringField } from "./agentRuntimeMediaArtifacts";
 
 const HTML_ARTIFACT_PATTERN = /\.(?:html?|xhtml)(?:[?#].*)?$/i;

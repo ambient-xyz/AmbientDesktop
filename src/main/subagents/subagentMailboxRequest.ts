@@ -1,4 +1,4 @@
-import type { SubagentChildRuntimeFollowupResult } from "../pi/piChildSessionAdapter";
+import type { SubagentChildRuntimeFollowupResult } from "./subagentPiRuntimeFacade";
 import type { SubagentMailboxEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
 

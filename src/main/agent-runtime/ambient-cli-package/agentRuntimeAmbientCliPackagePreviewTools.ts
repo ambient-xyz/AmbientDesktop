@@ -5,7 +5,7 @@ import {
   previewAmbientCliPackageInstallSource,
   type AmbientCliPackageInstallPreview,
   type PreviewAmbientCliPackageInput,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 import { ambientCliPackagePreviewInput, ambientCliPackagePreviewText } from "./agentRuntimeAmbientCliPackageInstallModel";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";

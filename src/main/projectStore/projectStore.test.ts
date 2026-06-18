@@ -6,15 +6,15 @@ import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
 import { workflowTraceRetentionReviewModel } from "../../renderer/src/workflowTraceRetentionUiModel";
 import { projectBoardPendingClarificationDecisions, projectBoardPiUpdateReviewQueue } from "../../renderer/src/projectBoardUiModel";
 import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/projectBoardKickoffDefaults";
-import type { ProjectBoardSynthesisDraft } from "../project-board/projectBoardSynthesis";
-import { projectBoardArtifactExportFromSummary } from "../project-board/projectBoardArtifactExport";
-import { projectBoardArtifactProjectionFromFiles } from "../project-board/projectBoardArtifactImport";
+import type { ProjectBoardSynthesisDraft } from "./projectStoreProjectBoardFacade";
+import { projectBoardArtifactExportFromSummary } from "./projectStoreProjectBoardFacade";
+import { projectBoardArtifactProjectionFromFiles } from "./projectStoreProjectBoardFacade";
 import {
   GENERATED_REPORT_SOURCE_AUTHORITY_REASON,
   GENERATED_WORKFLOW_SOURCE_AUTHORITY_REASON,
   hashProjectBoardSourceContent,
-} from "../project-board/projectBoardSourceIdentity";
-import { previewProjectBoardWorkflowRepair, repairProjectBoardWorkflow, updateProjectBoardWorkflowRaw, updateProjectBoardWorkflowSettings } from "../project-board/projectBoardWorkflowBootstrap";
+} from "./projectStoreProjectBoardFacade";
+import { previewProjectBoardWorkflowRepair, repairProjectBoardWorkflow, updateProjectBoardWorkflowRaw, updateProjectBoardWorkflowSettings } from "./projectStoreProjectBoardFacade";
 import { readOrchestrationWorkflowReadiness } from "../orchestration/orchestrationWorkflowReadiness";
 import { defaultOrchestrationProjectPath, defaultProjectArtifactWorkspacePath, ProjectStore } from "./projectStore";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";

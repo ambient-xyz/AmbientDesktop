@@ -7,8 +7,7 @@ import {
   type CapabilityBuilderPreviewInput,
   type CapabilityBuilderPreviewResult,
 } from "./capabilityBuilder";
-import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { pluginInstallToolDescriptor, registerDesktopTool } from "./capabilityBuilderDesktopToolFacade";
 
 export type CapabilityBuilderSecretRequestInput = CapabilityBuilderPreviewInput & { envName: string };
 

@@ -30,7 +30,7 @@ import type { CollaborationMode, ThinkingLevel, ThreadSummary } from "../../../s
 import type {
   AmbientCliPackageCatalog,
   DiscoverAmbientCliPackagesOptions,
-} from "../../ambient-cli/ambientCliPackages";
+} from "../agentRuntimeAmbientCliFacade";
 import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
@@ -61,7 +61,7 @@ import {
   planSearchPreferenceUpdate,
   searchPreferenceUpdateText,
   type SearchPreferenceUpdateInput,
-} from "../../web-research/searchSettingsTools";
+} from "../agentRuntimeWebResearchFacade";
 import {
   planSttPolicyUpdate,
   sttPolicyNoopText,

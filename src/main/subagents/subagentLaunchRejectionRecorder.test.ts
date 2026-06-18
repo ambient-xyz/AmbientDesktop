@@ -16,7 +16,7 @@ import type {
   SubagentToolScopeSnapshotSummary,
 } from "../../shared/subagentTypes";
 import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
-import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
+import { resolveSubagentModelScope } from "./subagentModelProviderFacade";
 import {
   recordSubagentLaunchRejection,
   SUBAGENT_LAUNCH_REJECTION_RECORDER_SCHEMA_VERSION,

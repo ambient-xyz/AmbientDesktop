@@ -9,7 +9,7 @@ import type {
   ProjectBoardSummary,
 } from "../../shared/projectBoardTypes";
 import { dedupeProjectBoardQuestions, projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
-import type { ProjectBoardSynthesisDraft } from "../project-board/projectBoardSynthesis";
+import type { ProjectBoardSynthesisDraft } from "./projectStoreProjectBoardFacade";
 import { parseJsonObject } from "./projectStoreJson";
 import {
   MAX_PROJECT_BOARD_SYNTHESIS_CARDS,

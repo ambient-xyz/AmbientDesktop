@@ -77,11 +77,12 @@ export function buildSubagentBarrierDecisionResolutionArtifact(input: {
   idempotencyKey: string;
   controlState?: SubagentBarrierControlState;
 }): Record<string, unknown> {
-  const controlState = input.controlState ?? emptySubagentBarrierControlState();
-  const controlRetryRequestedRunIds = controlState.retryRequestedRunIds ?? [];
-  const retryRequestedRunIds = input.decision === "retry_child"
-    ? (controlRetryRequestedRunIds.length ? controlRetryRequestedRunIds : input.barrier.childRunIds)
-    : controlRetryRequestedRunIds;
+  const { controlState, retryRequestedRunIds } = subagentBarrierDecisionControlStateWithRetryTargets({
+    decision: input.decision,
+    barrierChildRunIds: input.barrier.childRunIds,
+    controlState: input.controlState,
+    controlStateAuthoritative: input.controlState !== undefined,
+  });
   const childStatuses = input.childRuns.map((run) => ({ childRunId: run.id, status: run.status }));
   return {
     schemaVersion: SUBAGENT_WAIT_BARRIER_RESOLUTION_SCHEMA_VERSION,
@@ -226,11 +227,12 @@ export function buildSubagentBarrierDecisionRunEventPreview(input: {
   toolCallId: string;
   controlState?: SubagentBarrierControlState;
 }): Record<string, unknown> {
-  const controlState = input.controlState ?? emptySubagentBarrierControlState();
-  const controlRetryRequestedRunIds = controlState.retryRequestedRunIds ?? [];
-  const retryRequestedRunIds = input.decision === "retry_child"
-    ? (controlRetryRequestedRunIds.length ? controlRetryRequestedRunIds : input.waitBarrier.childRunIds)
-    : controlRetryRequestedRunIds;
+  const { controlState, retryRequestedRunIds } = subagentBarrierDecisionControlStateWithRetryTargets({
+    decision: input.decision,
+    barrierChildRunIds: input.waitBarrier.childRunIds,
+    controlState: input.controlState,
+    controlStateAuthoritative: input.controlState !== undefined,
+  });
   return {
     idempotencyKey: input.idempotencyKey,
     toolCallId: input.toolCallId,
@@ -298,11 +300,13 @@ export function buildSubagentBarrierDecisionParentMailboxDraft(input: {
   controlState?: SubagentBarrierControlState;
 }): SubagentBarrierDecisionParentMailboxDraft {
   const primaryRun = input.childRuns[0];
-  const controlState = input.controlState ?? barrierControlStateFromResolutionArtifact(input.barrier);
-  const controlRetryRequestedRunIds = controlState.retryRequestedRunIds ?? [];
-  const retryRequestedRunIds = input.decision === "retry_child"
-    ? (controlRetryRequestedRunIds.length ? controlRetryRequestedRunIds : input.barrier.childRunIds)
-    : controlRetryRequestedRunIds;
+  const controlSource = input.controlState ?? barrierControlStateFromResolutionArtifact(input.barrier);
+  const { controlState, retryRequestedRunIds } = subagentBarrierDecisionControlStateWithRetryTargets({
+    decision: input.decision,
+    barrierChildRunIds: input.barrier.childRunIds,
+    controlState: controlSource,
+    controlStateAuthoritative: input.controlState !== undefined,
+  });
   const childDecisionRequest = input.decision !== "retry_child" && shouldBuildSubagentChildDecisionRequest(input.parentResolution, { childRuns: input.childRuns })
     ? buildSubagentChildDecisionRequest({
       barrier: input.barrier,
@@ -379,6 +383,22 @@ export function emptySubagentBarrierControlState(): SubagentBarrierControlState 
     unchangedRunIds: [],
     cancelledMailboxEventIds: [],
   };
+}
+
+function subagentBarrierDecisionControlStateWithRetryTargets(input: {
+  decision: SubagentBarrierDecision;
+  barrierChildRunIds: string[];
+  controlState?: SubagentBarrierControlState;
+  controlStateAuthoritative: boolean;
+}): { controlState: SubagentBarrierControlState; retryRequestedRunIds: string[] } {
+  const controlState = input.controlState ?? emptySubagentBarrierControlState();
+  const controlRetryRequestedRunIds = controlState.retryRequestedRunIds ?? [];
+  const retryRequestedRunIds = input.decision === "retry_child"
+    ? controlRetryRequestedRunIds.length || input.controlStateAuthoritative
+      ? controlRetryRequestedRunIds
+      : input.barrierChildRunIds
+    : controlRetryRequestedRunIds;
+  return { controlState, retryRequestedRunIds };
 }
 
 function previewText(text: string, limit = 240): string {

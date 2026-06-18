@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { RestoreWorkflowVersionInput, WorkflowDashboard, WorkflowGraphEdge, WorkflowGraphNode, WorkflowManifest, WorkflowSpec } from "../../shared/workflowTypes";
 import { workflowGraphFromSpec } from "../../shared/workflowAgentGraph";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "../workflow-compiler/workflowCompiler";
 import type { WorkflowConnectorDescriptor } from "./workflowConnectors";
 import { readWorkflowDashboard } from "./workflowDashboard";

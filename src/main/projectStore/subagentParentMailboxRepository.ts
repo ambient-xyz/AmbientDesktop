@@ -4,7 +4,7 @@ import type {
   SubagentMailboxDeliveryState,
   SubagentParentMailboxEventSummary,
 } from "../../shared/subagentTypes";
-import { assertSubagentParentMailboxEventAttribution } from "../subagents/subagentInvariants";
+import { assertSubagentParentMailboxEventAttribution } from "./projectStoreSubagentsFacade";
 import {
   mapSubagentParentMailboxEventRow,
   type SubagentParentMailboxEventRow,

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
+import type { McpToolDescriptor } from "../agentRuntimeMcpFacade";
 import {
   tryCallWebResearchMcpProvider,
   type WebResearchMcpProviderRouteOptions,

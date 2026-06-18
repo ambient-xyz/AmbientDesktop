@@ -8,10 +8,10 @@ import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   callableWorkflowToolName,
-} from "../callable-workflow/callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
+} from "./agentRuntimeCallableWorkflowFacade";
+import { buildCallableWorkflowExecutionPlan } from "./agentRuntimeCallableWorkflowFacade";
 import { AgentRuntime } from "./agentRuntime";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 const workflowServiceMocks = vi.hoisted(() => ({
   compileWorkflowArtifact: vi.fn(),
@@ -23,8 +23,8 @@ vi.mock("../workflow-compiler/workflowCompilerService", async (importOriginal) =
   compileWorkflowArtifact: workflowServiceMocks.compileWorkflowArtifact,
 }));
 
-vi.mock("../workflow/workflowRunService", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../workflow/workflowRunService")>()),
+vi.mock("./agentRuntimeWorkflowFacade", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./agentRuntimeWorkflowFacade")>()),
   runWorkflowArtifact: workflowServiceMocks.runWorkflowArtifact,
 }));
 

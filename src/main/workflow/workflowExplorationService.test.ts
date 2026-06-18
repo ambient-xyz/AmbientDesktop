@@ -5,17 +5,17 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import { validateWorkflowDiscoveryGraphPatch } from "../../shared/workflowDiscoveryGraphPatch";
 import type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";
-import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "./workflowDesktopToolFacade";
 import { createWorkflowDesktopToolBridge } from "./workflowDesktopTools";
 import { validateWorkflowCompilerOutput, type WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
 import { fixtureWorkflowConnector } from "./workflowConnectors";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./workflowProjectStoreFacade";
 import {
   liveAmbientDirectHelperProfile,
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../ambient/liveAmbientProviderConfig";
+} from "./workflowAmbientFacade";
 import {
   AmbientWorkflowExplorationProvider,
   buildWorkflowExplorationCapabilityManifest,

@@ -26,7 +26,7 @@ import {
   ToolHiveRuntimeService,
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
-} from "../tool-runtime/toolHiveRuntimeService";
+} from "./mcpToolRuntimeFacade";
 import { mcpManagedFileExchangeForWorkload } from "./mcpManagedFileExchange";
 
 describe("McpToolBridge", () => {

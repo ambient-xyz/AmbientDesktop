@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { McpInstallCatalog } from "./mcpInstallCatalog";
 import { createMcpServerPiToolDefinitions } from "./mcpServerPiTools";
-import { ToolHiveRuntimeService } from "../tool-runtime/toolHiveRuntimeService";
+import { ToolHiveRuntimeService } from "./mcpToolRuntimeFacade";
 
 const runLive = process.env.AMBIENT_MCP_SERVER_TOOLS_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

@@ -23,13 +23,19 @@ describe("subagentBarrierDecisionExecutor", () => {
       status: "failed",
       parentMessageId: "assistant-message",
     });
+    const completedChild = run({
+      id: "child-b",
+      childThreadId: "thread-b",
+      status: "completed",
+      parentMessageId: "assistant-message",
+    });
     const barrier = waitBarrier({
       id: "barrier-a",
       status: "failed",
-      childRunIds: [child.id],
+      childRunIds: [child.id, completedChild.id],
       failurePolicy: "degrade_partial",
     });
-    const store = fakeStore({ runs: [child], waitBarriers: [barrier] });
+    const store = fakeStore({ runs: [child, completedChild], waitBarriers: [barrier] });
 
     const result = await executeSubagentBarrierDecision({
       store,
@@ -79,6 +85,15 @@ describe("subagentBarrierDecisionExecutor", () => {
       }),
       createdAt: "2026-06-06T12:00:00.000Z",
     });
+    expect(store.appendSubagentRunEvent).toHaveBeenCalledWith("child-b", expect.objectContaining({
+      type: "subagent.barrier_decision",
+      preview: expect.objectContaining({
+        waitBarrierId: "barrier-a",
+        decision: "continue_with_partial",
+        idempotencyKey: "barrier:partial",
+      }),
+    }));
+    expect(store.appendSubagentRunEvent).toHaveBeenCalledTimes(2);
     expect(store.addMessage).toHaveBeenCalledWith({
       threadId: "thread-a",
       role: "system",
@@ -97,6 +112,14 @@ describe("subagentBarrierDecisionExecutor", () => {
         decision: "continue_with_partial",
       },
     });
+    expect(store.addMessage).toHaveBeenCalledWith(expect.objectContaining({
+      threadId: "thread-b",
+      metadata: expect.objectContaining({
+        subagentRunId: "child-b",
+        decision: "continue_with_partial",
+      }),
+    }));
+    expect(store.addMessage).toHaveBeenCalledTimes(2);
     expect(store.appendSubagentParentMailboxEvent).toHaveBeenCalledWith(expect.objectContaining({
       parentThreadId: "parent-thread",
       parentRunId: "parent-run",
@@ -124,7 +147,10 @@ describe("subagentBarrierDecisionExecutor", () => {
       parentResolution: expect.objectContaining({ action: "continue_with_explicit_partial" }),
       parentMailboxEvent: expect.objectContaining({ type: "subagent.wait_barrier_decision" }),
       resolutionArtifact: expect.objectContaining({ synthesisAllowed: true }),
-      runEvents: [expect.objectContaining({ type: "subagent.barrier_decision" })],
+      runEvents: [
+        expect.objectContaining({ runId: "child-a", type: "subagent.barrier_decision" }),
+        expect.objectContaining({ runId: "child-b", type: "subagent.barrier_decision" }),
+      ],
     });
   });
 
@@ -299,6 +325,166 @@ describe("subagentBarrierDecisionExecutor", () => {
         retryMailboxEventIds: ["mailbox-1"],
       }),
     });
+  });
+
+  it("records retry child-thread side effects only on retry-target children", async () => {
+    const failed = run({
+      id: "failed-child",
+      childThreadId: "thread-failed",
+      canonicalTaskPath: "root/0:gear",
+      status: "failed",
+      parentMessageId: "assistant-message",
+    });
+    const completed = run({
+      id: "completed-child",
+      childThreadId: "thread-completed",
+      canonicalTaskPath: "root/1:route",
+      status: "completed",
+      parentMessageId: "assistant-message",
+    });
+    const barrier = waitBarrier({
+      id: "barrier-retry-targeting",
+      status: "failed",
+      childRunIds: [failed.id, completed.id],
+      failurePolicy: "ask_user",
+    });
+    const store = fakeStore({ runs: [failed, completed], waitBarriers: [barrier] });
+
+    const result = await executeSubagentBarrierDecision({
+      store,
+      barrier,
+      decision: "retry_child",
+      userDecision: "Retry only the failed Gear child.",
+      idempotencyKey: "barrier:retry-targeting",
+      toolCallId: "tool-retry-targeting",
+      now: "2026-06-06T12:00:00.000Z",
+      createRuntimeCancelEventEmitter: vi.fn(() => vi.fn()),
+    });
+
+    expect(result.runEvents).toEqual([
+      expect.objectContaining({
+        runId: "failed-child",
+        type: "subagent.barrier_decision",
+      }),
+    ]);
+    expect(store.appendSubagentRunEvent).toHaveBeenCalledTimes(1);
+    expect(store.appendSubagentRunEvent).toHaveBeenCalledWith("failed-child", expect.objectContaining({
+      type: "subagent.barrier_decision",
+      preview: expect.objectContaining({
+        retryRequestedRunIds: ["failed-child"],
+      }),
+    }));
+    expect(store.addMessage).toHaveBeenCalledTimes(1);
+    expect(store.addMessage).toHaveBeenCalledWith(expect.objectContaining({
+      threadId: "thread-failed",
+      content: expect.stringContaining("Retry only the failed Gear child."),
+      metadata: expect.objectContaining({ subagentRunId: "failed-child" }),
+    }));
+    expect(store.addMessage).not.toHaveBeenCalledWith(expect.objectContaining({
+      threadId: "thread-completed",
+    }));
+    expect(store.appendSubagentParentMailboxEvent).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        retryRequestedRunIds: ["failed-child"],
+        unchangedRunIds: ["completed-child"],
+      }),
+    }));
+  });
+
+  it("records whole-barrier cancel evidence when terminal children do not change state", async () => {
+    const failed = run({
+      id: "failed-child",
+      childThreadId: "thread-failed",
+      canonicalTaskPath: "root/0:gear",
+      status: "failed",
+      parentMessageId: "assistant-message",
+    });
+    const completed = run({
+      id: "completed-child",
+      childThreadId: "thread-completed",
+      canonicalTaskPath: "root/1:route",
+      status: "completed",
+      parentMessageId: "assistant-message",
+    });
+    const barrier = waitBarrier({
+      id: "barrier-cancel-terminal",
+      status: "failed",
+      childRunIds: [failed.id, completed.id],
+      failurePolicy: "ask_user",
+    });
+    const store = fakeStore({ runs: [failed, completed], waitBarriers: [barrier] });
+
+    const result = await executeSubagentBarrierDecision({
+      store,
+      barrier,
+      decision: "cancel_parent",
+      userDecision: "Stop this route; both child outcomes are already terminal.",
+      idempotencyKey: "barrier:cancel-terminal",
+      toolCallId: "tool-cancel-terminal",
+      now: "2026-06-06T12:00:00.000Z",
+      createRuntimeCancelEventEmitter: vi.fn(() => vi.fn()),
+    });
+
+    expect(result.runEvents).toEqual([
+      expect.objectContaining({ runId: "failed-child", type: "subagent.barrier_decision" }),
+      expect.objectContaining({ runId: "completed-child", type: "subagent.barrier_decision" }),
+    ]);
+    expect(store.appendSubagentRunEvent).toHaveBeenCalledTimes(2);
+    expect(store.appendSubagentRunEvent).toHaveBeenCalledWith("failed-child", expect.objectContaining({
+      type: "subagent.barrier_decision",
+      preview: expect.objectContaining({
+        decision: "cancel_parent",
+        idempotencyKey: "barrier:cancel-terminal",
+      }),
+    }));
+    expect(store.appendSubagentRunEvent).toHaveBeenCalledWith("completed-child", expect.objectContaining({
+      type: "subagent.barrier_decision",
+      preview: expect.objectContaining({
+        decision: "cancel_parent",
+        idempotencyKey: "barrier:cancel-terminal",
+      }),
+    }));
+    expect(store.addMessage).toHaveBeenCalledTimes(2);
+    expect(store.markSubagentRunStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects retry_child when the barrier only has completed or needs-attention children", async () => {
+    const completed = run({
+      id: "completed-child",
+      canonicalTaskPath: "root/0:route",
+      status: "completed",
+      parentMessageId: "assistant-message",
+    });
+    const needsAttention = run({
+      id: "attention-child",
+      canonicalTaskPath: "root/1:gear",
+      status: "needs_attention",
+      parentMessageId: "assistant-message",
+    });
+    const barrier = waitBarrier({
+      id: "barrier-approval",
+      status: "waiting_on_children",
+      childRunIds: [completed.id, needsAttention.id],
+      failurePolicy: "ask_user",
+    });
+    const store = fakeStore({ runs: [completed, needsAttention], waitBarriers: [barrier] });
+
+    await expect(executeSubagentBarrierDecision({
+      store,
+      barrier,
+      decision: "retry_child",
+      userDecision: "Retry the Gear child.",
+      idempotencyKey: "barrier:retry-needs-attention",
+      toolCallId: "tool-retry-needs-attention",
+      now: "2026-06-06T12:00:00.000Z",
+      createRuntimeCancelEventEmitter: vi.fn(() => vi.fn()),
+    })).rejects.toThrow(/no child run is retryable/);
+
+    expect(store.appendSubagentMailboxEvent).not.toHaveBeenCalled();
+    expect(store.updateSubagentWaitBarrierStatus).not.toHaveBeenCalled();
+    expect(store.appendSubagentRunEvent).not.toHaveBeenCalled();
+    expect(store.appendSubagentParentMailboxEvent).not.toHaveBeenCalled();
+    expect(store.addMessage).not.toHaveBeenCalled();
   });
 
   it("cancels active children for cancel-parent barrier decisions and records cancellation provenance", async () => {

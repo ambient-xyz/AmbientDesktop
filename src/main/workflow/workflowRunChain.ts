@@ -1,5 +1,5 @@
 import type { WorkflowModelCallRecord, WorkflowRunEvent } from "../../shared/workflowTypes";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 
 export function workflowResumeChainRunIds(store: ProjectStore, runId: string): string[] {
   const newestToOldest: string[] = [];

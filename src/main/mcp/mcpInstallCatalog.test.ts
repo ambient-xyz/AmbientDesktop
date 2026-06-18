@@ -15,15 +15,15 @@ import {
   registryInfoToAutowireCandidate,
   type McpPackageMetadataResolver,
 } from "./mcpInstallCatalog";
-import { mcpAutowirePhase0Fixtures } from "../mcp-autowire/mcpAutowireFixtures";
+import { mcpAutowirePhase0Fixtures } from "./mcpAutowireFacade";
 import {
   TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION,
   ToolHiveRuntimeService,
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
-} from "../tool-runtime/toolHiveRuntimeService";
+} from "./mcpToolRuntimeFacade";
 import { mcpDefaultCatalogDescriptorHash, parseDefaultCatalogDescriptor, type McpDefaultCatalogDescriptor } from "./mcpDefaultCatalog";
-import { validateMcpAutowireCandidate, type McpAutowireCandidate } from "../mcp-autowire/mcpAutowireSchemas";
+import { validateMcpAutowireCandidate, type McpAutowireCandidate } from "./mcpAutowireFacade";
 
 const githubSecretRef = `ambient-secret-ref:v1:${"a".repeat(64)}`;
 const context7SecretRef = `ambient-secret-ref:v1:${"b".repeat(64)}`;

@@ -3,7 +3,7 @@ import type { SubagentMailboxEventSummary, SubagentRunSummary } from "../../shar
 import type {
   SubagentChildRuntimeAdapter,
   SubagentRuntimeEventEmitter,
-} from "../pi/piChildSessionAdapter";
+} from "./subagentPiRuntimeFacade";
 import {
   buildSubagentBarrierRetryMailboxPayload,
   buildSubagentBarrierCancelledMailboxPayload,

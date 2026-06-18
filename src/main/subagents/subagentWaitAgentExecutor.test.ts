@@ -1048,6 +1048,28 @@ describe("subagentWaitAgentExecutor", () => {
       childRunId: needsAttention.id,
     });
     expect(result.waitNotice).toBe("Child requested approval; parent approval was forwarded to the parent mailbox and the parent remains blocked on this child.");
+    expect(result.waitBarrierBlockers).toEqual([
+      expect.objectContaining({
+        childRunId: needsAttention.id,
+        childThreadId: needsAttention.childThreadId,
+        canonicalTaskPath: needsAttention.canonicalTaskPath,
+        status: "needs_attention",
+        approvalRequest: {
+          approvalId: "approval-child-write",
+          title: "Allow child write",
+          requestedToolId: "builtin:write_file",
+          requestedToolCategory: "workspace.write",
+          requestedScope: "always",
+          effectiveScope: "this_child_thread",
+          promptPreview: "Child needs permission to write in its isolated worktree.",
+          allowedNextActions: [
+            `Resolve approval approval-child-write for childRunId ${needsAttention.id}.`,
+            `Then call wait_agent for childRunId ${needsAttention.id}.`,
+            "Do not spawn a replacement child or call retry_child while this approval is pending.",
+          ],
+        },
+      }),
+    ]);
     expect(result.approvalRequestRecords).toHaveLength(1);
     expect(result.approvalRequestRecords[0]).toMatchObject({
       replay: false,
@@ -1101,6 +1123,127 @@ describe("subagentWaitAgentExecutor", () => {
         childRunId: needsAttention.id,
         parentResolution: expect.objectContaining({ action: "ask_user" }),
       }),
+    });
+  });
+
+  it("does not surface answered approval requests as wait blockers", async () => {
+    const needsAttention = run({ status: "needs_attention" });
+    const barrier = waitBarrier({ status: "waiting_on_children" });
+    const store = new FakeWaitAgentStore([needsAttention], [barrier]);
+    store.mailboxEvents.set(needsAttention.id, [
+      {
+        id: "mailbox-approval-request",
+        runId: needsAttention.id,
+        direction: "child_to_parent",
+        type: SUBAGENT_CHILD_APPROVAL_REQUEST_MAILBOX_TYPE,
+        payload: {
+          schemaVersion: "ambient-subagent-approval-bridge-v1",
+          childRunId: needsAttention.id,
+          childThreadId: needsAttention.childThreadId,
+          approvalId: "approval-child-write",
+          title: "Allow child write",
+          requestedToolId: "builtin:write_file",
+          requestedToolCategory: "workspace.write",
+          requestedScope: "always",
+          effectiveScope: "this_child_thread",
+          prompt: "Child needs permission to write in its isolated worktree.",
+        },
+        deliveryState: "delivered",
+        createdAt: "2026-06-06T00:00:10.000Z",
+        deliveredAt: "2026-06-06T00:00:10.000Z",
+      },
+      approvalResponseMailbox({
+        runId: needsAttention.id,
+        createdAt: "2026-06-06T00:00:20.000Z",
+        deliveredAt: "2026-06-06T00:00:20.000Z",
+        payload: {
+          schemaVersion: "ambient-subagent-approval-bridge-v1",
+          idempotencyKey: "approval-response:key",
+          childRunId: needsAttention.id,
+          childThreadId: needsAttention.childThreadId,
+          approvalId: "approval-child-write",
+          decision: "approved",
+          effectiveScope: "this_child_thread",
+          resumeParentBlocking: true,
+        },
+      }),
+    ]);
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: needsAttention,
+      waitBarrier: barrier,
+      waitChildRuns: [needsAttention],
+      timeoutMs: 2500,
+    });
+
+    expect(result.waitSatisfied).toBe(false);
+    expect(result.waitBarrierBlockers).toHaveLength(1);
+    expect(result.waitBarrierBlockers[0]).toMatchObject({
+      childRunId: needsAttention.id,
+      status: "needs_attention",
+    });
+    expect(result.waitBarrierBlockers[0]?.approvalRequest).toBeUndefined();
+  });
+
+  it("keeps approval requests visible after a failed approval response", async () => {
+    const needsAttention = run({ status: "needs_attention" });
+    const barrier = waitBarrier({ status: "waiting_on_children" });
+    const store = new FakeWaitAgentStore([needsAttention], [barrier]);
+    store.mailboxEvents.set(needsAttention.id, [
+      {
+        id: "mailbox-approval-request",
+        runId: needsAttention.id,
+        direction: "child_to_parent",
+        type: SUBAGENT_CHILD_APPROVAL_REQUEST_MAILBOX_TYPE,
+        payload: {
+          schemaVersion: "ambient-subagent-approval-bridge-v1",
+          childRunId: needsAttention.id,
+          childThreadId: needsAttention.childThreadId,
+          approvalId: "approval-child-write",
+          title: "Allow child write",
+          requestedToolId: "builtin:write_file",
+          requestedToolCategory: "workspace.write",
+          requestedScope: "always",
+          effectiveScope: "this_child_thread",
+          prompt: "Child needs permission to write in its isolated worktree.",
+        },
+        deliveryState: "delivered",
+        createdAt: "2026-06-06T00:00:10.000Z",
+        deliveredAt: "2026-06-06T00:00:10.000Z",
+      },
+      approvalResponseMailbox({
+        runId: needsAttention.id,
+        deliveryState: "failed",
+        createdAt: "2026-06-06T00:00:20.000Z",
+        payload: {
+          schemaVersion: "ambient-subagent-approval-bridge-v1",
+          idempotencyKey: "approval-response:key",
+          childRunId: needsAttention.id,
+          childThreadId: needsAttention.childThreadId,
+          approvalId: "approval-child-write",
+          decision: "approved",
+          effectiveScope: "this_child_thread",
+          resumeParentBlocking: true,
+        },
+      }),
+    ]);
+
+    const result = await executeSubagentWaitAgent({
+      store,
+      action: "wait_agent",
+      run: needsAttention,
+      waitBarrier: barrier,
+      waitChildRuns: [needsAttention],
+      timeoutMs: 2500,
+    });
+
+    expect(result.waitBarrierBlockers).toHaveLength(1);
+    expect(result.waitBarrierBlockers[0]?.approvalRequest).toMatchObject({
+      approvalId: "approval-child-write",
+      title: "Allow child write",
+      promptPreview: "Child needs permission to write in its isolated worktree.",
     });
   });
 

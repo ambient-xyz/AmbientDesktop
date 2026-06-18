@@ -4,7 +4,7 @@ import type { ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformIn
 import { workspaceArtifactPathFromTool } from "../agent-runtime/agentRuntimeMediaArtifacts";
 import { chatToolEventDetails, formatToolTranscript, toolEventLabel } from "./tools/agentRuntimeToolTranscript";
 import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";
-import type { ToolResultDetails } from "../pi/piEventMapper";
+import type { ToolResultDetails } from "./agentRuntimePiFacade";
 
 export type RuntimeToolResultMessageStatus = "running" | "done" | "error";
 export type RuntimeToolResultEventStatus = "running" | "completed" | "error";

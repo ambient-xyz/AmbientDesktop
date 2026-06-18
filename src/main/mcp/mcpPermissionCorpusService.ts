@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { McpAutowireCandidate } from "../mcp-autowire/mcpAutowireSchemas";
+import type { McpAutowireCandidate } from "./mcpAutowireFacade";
 
 export const MCP_PERMISSION_CORPUS_REPORT_SCHEMA_VERSION = "ambient-mcp-permission-corpus-report-v1";
 export const MCP_PERMISSION_CORPUS_FIXTURE_POLICY_SCHEMA_VERSION = "ambient-mcp-permission-corpus-fixture-policy-v1";

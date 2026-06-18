@@ -1,5 +1,5 @@
 import type { DesktopEvent } from "../../shared/desktopTypes";
-import { normalizePiEvent } from "../pi/piEventMapper";
+import { normalizePiEvent } from "./agentRuntimePiFacade";
 
 export interface ManualCompactionEventRecorder<TSession> {
   threadId: string;

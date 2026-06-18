@@ -5,7 +5,7 @@ import {
   isRetryableAmbientProviderError,
   retryDelayForAttempt,
   type AmbientRetryPolicy,
-} from "../ambient/aggressiveRetries";
+} from "./workflowAmbientFacade";
 import { workflowPromptParts, type WorkflowPromptParts } from "./workflowPromptCache";
 import type { WorkflowEventSink } from "./workflowAgentRuntime";
 import type { WorkflowPiProgress } from "./workflowPiTransport";

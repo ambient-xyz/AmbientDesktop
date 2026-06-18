@@ -1,6 +1,6 @@
 import type { PermissionGrantScopeKind } from "../../shared/permissionTypes";
 import type { McpPermissionPolicyEvaluation, McpPermissionResource } from "./mcpPermissionPolicyService";
-import type { ToolHiveInstalledServerState } from "../tool-runtime/toolHiveRuntimeService";
+import type { ToolHiveInstalledServerState } from "./mcpToolRuntimeFacade";
 
 export type McpRuntimePermissionStatus = "enforced" | "broad-runtime-profile" | "not-applicable" | "blocked";
 export type McpRuntimeNetworkMode = "isolated" | "allowlist" | "broad" | "unknown";

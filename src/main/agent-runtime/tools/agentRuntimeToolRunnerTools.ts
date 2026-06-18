@@ -10,8 +10,8 @@ import {
 } from "../agentRuntimeMediaArtifacts";
 import { registerToolRunnerBashTool } from "./agentRuntimeToolRunnerBashTool";
 import { registerToolRunnerFileTools } from "./agentRuntimeToolRunnerFileTools";
-import type { AmbientFileAuthorityRequester } from "../../pi/piReadOperations";
-import type { ToolRunnerPolicy } from "../../tool-runtime/toolRunner";
+import type { AmbientFileAuthorityRequester } from "../agentRuntimePiFacade";
+import type { ToolRunnerPolicy } from "../agentRuntimeToolRuntimeFacade";
 
 export interface AgentRuntimeToolRunnerThreadState {
   collaborationMode: ThreadSummary["collaborationMode"];

@@ -6,15 +6,15 @@ import type { SubagentToolScopeSnapshotSummary } from "../../../shared/subagentT
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
 import type { ChildLaunchPolicySnapshot } from "../../../shared/symphonyFineGrainedContracts";
-import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
-import type { LocalDeepResearchProviderSnapshot } from "../../local-deep-research/localDeepResearchSetup";
-import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
-import { webResearchSettingsWithDynamicProviderCatalogs } from "../../web-research/searchSettingsTools";
+import type { AmbientCliPackageCatalog } from "../agentRuntimeAmbientCliFacade";
+import type { LocalDeepResearchProviderSnapshot } from "../agentRuntimeLocalDeepResearchFacade";
+import type { McpToolDescriptor } from "../agentRuntimeMcpFacade";
+import { webResearchSettingsWithDynamicProviderCatalogs } from "../agentRuntimeWebResearchFacade";
 import {
   normalizeSearchRoutingSettingsWithWebResearch,
   planWebResearchProviderOrder,
   type WebResearchProviderRequestPlan,
-} from "../../web-research/webResearchProviderStack";
+} from "../agentRuntimeWebResearchFacade";
 import {
   planSymphonyWebResearchProviderOrder,
 } from "./symphonyWebCapabilityRouter";

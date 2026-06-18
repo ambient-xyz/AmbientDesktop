@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./workflowProgramDesktopToolFacade";
 import { validateWorkflowProgramStatic } from "./workflowProgramTypecheck";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "./workflowProgramWorkflowFacade";
 import type { WorkflowProgramIR, WorkflowProgramNode } from "../../shared/workflowProgramIr";
 
 const CONTRACT_MUTATIONS_PER_FIXTURE = 20;

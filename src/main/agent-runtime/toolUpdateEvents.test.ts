@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
-import type { ToolResultDetails } from "../pi/piEventMapper";
+import type { ToolResultDetails } from "./agentRuntimePiFacade";
 import { runtimeToolUpdateEventModel } from "./toolUpdateEvents";
 
 const previousLongformInputPreview: ToolLongformInputPreview = {

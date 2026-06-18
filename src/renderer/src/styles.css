@@ -10519,7 +10519,11 @@ button {
 .subagent-parent-cluster-child-transcript-live {
   min-width: 0;
   display: grid;
+  grid-auto-flow: row;
+  align-content: start;
   gap: 10px;
+  isolation: isolate;
+  position: relative;
 }
 
 .subagent-parent-cluster-child-mini-thread-header {
@@ -10626,10 +10630,14 @@ button {
   min-width: 0;
   display: grid;
   gap: 10px;
+  position: relative;
+  z-index: 1;
 }
 
 .subagent-parent-cluster-child-run-activity {
   min-width: 0;
+  position: relative;
+  z-index: 0;
 }
 
 .subagent-parent-cluster-child-run-activity .message.run-activity {
@@ -10644,6 +10652,8 @@ button {
 
 .subagent-parent-cluster-child-runtime-events {
   min-width: 0;
+  position: relative;
+  z-index: 0;
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: 6px;
   background: color-mix(in srgb, var(--surface-muted) 56%, transparent);
@@ -10744,6 +10754,8 @@ button {
 .subagent-parent-cluster-child-transcript-live-marker,
 .subagent-parent-cluster-child-transcript-end {
   min-width: 0;
+  position: relative;
+  z-index: 0;
   border: 1px dashed var(--line);
   border-radius: 6px;
   background: var(--surface-muted);

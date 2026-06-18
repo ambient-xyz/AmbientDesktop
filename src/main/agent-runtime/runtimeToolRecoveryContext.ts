@@ -4,7 +4,7 @@ import {
   serializeToolInputForInterruptedRecovery,
 } from "./recovery/interruptedToolCallRecovery";
 import { buildToolIntentSnapshot } from "./tools/agentRuntimeToolIntentSnapshot";
-import type { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
+import type { ToolArgumentProgressTracker } from "./agentRuntimeToolRuntimeFacade";
 
 type RecoverySource = InterruptedToolCallRecoverySnapshot["source"];
 

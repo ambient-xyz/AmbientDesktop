@@ -9,6 +9,7 @@ import type {
   ThreadActionDialogState,
 } from "./AppActionDialogs";
 import type { AppModalHostProps } from "./AppModalHost";
+import { subagentApprovalInitialScope, subagentApprovalScopeOptions } from "./AppModalHost";
 import {
   createAppModalHostProps,
   type AppModalHostPropsInput,
@@ -17,6 +18,61 @@ import type { MediaPreviewModalRequest } from "./AppToolMessages";
 import type { GitConfirmation } from "./RightPanel";
 
 describe("App modal host props", () => {
+  it("defaults subagent approvals to an explicit child-scoped grant option", () => {
+    const action = {
+      approvalId: "approval-1",
+      childRunId: "child-run-1",
+      childThreadId: "child-thread-1",
+      decision: "approved",
+      requestedScope: "always",
+      effectiveScope: "this_child_thread",
+    } as NonNullable<AppModalHostProps["subagentApprovalDecisionDialog"]>["action"];
+
+    expect(subagentApprovalInitialScope(action)).toBe("this_child_thread");
+    expect(subagentApprovalScopeOptions()).toEqual([
+      {
+        value: "this_child_thread",
+        label: "For this child",
+        description: "Recommended. Apply to future matching actions in this child thread only.",
+      },
+      {
+        value: "this_action",
+        label: "This action only",
+        description: "Approve only this single request.",
+      },
+      expect.objectContaining({
+        value: "parent_thread_tree",
+        description: expect.stringContaining("Escalates beyond this child"),
+      }),
+      expect.objectContaining({
+        value: "project",
+        description: expect.stringContaining("Escalates beyond this child"),
+      }),
+      expect.objectContaining({
+        value: "global",
+        description: expect.stringContaining("Escalates beyond this child"),
+      }),
+    ]);
+  });
+
+  it("keeps one-off child approval requests one-off by default", () => {
+    const action = {
+      approvalId: "approval-one-shot",
+      childRunId: "child-run-1",
+      childThreadId: "child-thread-1",
+      decision: "approved",
+      requestedScope: "this_action",
+      effectiveScope: "this_action",
+    } as NonNullable<AppModalHostProps["subagentApprovalDecisionDialog"]>["action"];
+
+    expect(subagentApprovalInitialScope(action)).toBe("this_action");
+    expect(subagentApprovalInitialScope({
+      ...action,
+      requestedScope: undefined,
+      effectiveScope: undefined,
+    })).toBe("this_action");
+  });
+
   it("derives modal state props from desktop state and keeps core handoffs stable", () => {
     const media = statefulSetter<MediaPreviewModalRequest | undefined>({ path: "/tmp/image.png", mediaKind: "image" });
     const followupOpen = statefulSetter(true);

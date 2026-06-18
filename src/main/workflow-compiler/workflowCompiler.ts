@@ -6,8 +6,8 @@ import {
   validateWorkflowConnectorManifest,
   workflowConnectorCompilerSection,
   type WorkflowConnectorDescriptor,
-} from "../workflow/workflowConnectors";
-import { MAX_WORKFLOW_SOURCE_CHARS, validateWorkflowSourceIsolation } from "../workflow/workflowSourceValidation";
+} from "./workflowCompilerWorkflowFacade";
+import { MAX_WORKFLOW_SOURCE_CHARS, validateWorkflowSourceIsolation } from "./workflowCompilerWorkflowFacade";
 
 export interface WorkflowCompilerToolSelectionInput {
   userRequest: string;

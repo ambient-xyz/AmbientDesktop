@@ -312,11 +312,26 @@ describe("subagentAgentStatus", () => {
           childRunId: "child-running-b",
           childThreadId: "child-running-b-thread",
           canonicalTaskPath: "root/2:explorer",
-          status: "running",
+          status: "needs_attention",
           blockingState: "active",
           lastActivityAt: "2026-06-06T00:00:07.000Z",
-          lastActivitySource: "run_event:subagent.runtime_event",
-          reason: "Child is still working.",
+          lastActivitySource: "mailbox:subagent.approval_requested",
+          reason: "Child is waiting for approval.",
+          approvalRequest: {
+            approvalId: "approval-read-downloads",
+            title: "Read Downloads packet",
+            requestedAction: "workspace.read",
+            requestedToolId: "builtin:workspace.read",
+            requestedToolCategory: "workspace.read",
+            requestedScope: "always",
+            effectiveScope: "this_child_thread",
+            promptPreview: "Child needs to read one delegated file.",
+            allowedNextActions: [
+              "Resolve approval approval-read-downloads for childRunId child-running-b.",
+              "Then call wait_agent for childRunId child-running-b.",
+              "Do not spawn a replacement child or call retry_child while this approval is pending.",
+            ],
+          },
         },
       ],
       parentResolution: {
@@ -327,7 +342,10 @@ describe("subagentAgentStatus", () => {
     })).toContain([
       "waitBarrierBlockers: 2",
       "waitBarrierBlocker: root/1:explorer childRunId=child-running-a childThreadId=child-running-a-thread status=running state=active lastActivityAt=2026-06-06T00:00:05.000Z lastActivitySource=run_event:subagent.runtime_event",
-      "waitBarrierBlocker: root/2:explorer childRunId=child-running-b childThreadId=child-running-b-thread status=running state=active lastActivityAt=2026-06-06T00:00:07.000Z lastActivitySource=run_event:subagent.runtime_event reason=Child is still working.",
+      "waitBarrierBlocker: root/2:explorer childRunId=child-running-b childThreadId=child-running-b-thread status=needs_attention state=active lastActivityAt=2026-06-06T00:00:07.000Z lastActivitySource=mailbox:subagent.approval_requested reason=Child is waiting for approval.",
+      "waitBarrierBlockerApproval: root/2:explorer childRunId=child-running-b childThreadId=child-running-b-thread approvalId=approval-read-downloads title=Read Downloads packet requestedAction=workspace.read requestedToolId=builtin:workspace.read requestedToolCategory=workspace.read requestedScope=always effectiveScope=this_child_thread",
+      "waitBarrierBlockerAllowedNext: Resolve approval approval-read-downloads for childRunId child-running-b. Then call wait_agent for childRunId child-running-b. Do not spawn a replacement child or call retry_child while this approval is pending.",
+      "waitBarrierBlockerApprovalPrompt: Child needs to read one delegated file.",
     ].join("\n"));
   });
 

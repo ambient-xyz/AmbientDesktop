@@ -6,8 +6,8 @@ import type {
   SubagentWaitBarrierSummary,
 } from "../../shared/subagentTypes";
 import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
-import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
+import { resolveSubagentModelScope } from "./subagentModelProviderFacade";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "./subagentPiRuntimeFacade";
 import {
   buildSubagentSpawnRequestedRunEventInput,
   buildSubagentTaskMailboxEventInput,

@@ -45,7 +45,7 @@ import { effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 import type { SubagentRunSummary } from "../../shared/subagentTypes";
-import { createSubagentBatchJobPlan, createSubagentBatchResultLedger, createSubagentBatchResultReport } from "../subagents/subagentBatchJobs";
+import { createSubagentBatchJobPlan, createSubagentBatchResultLedger, createSubagentBatchResultReport } from "./projectStoreSubagentsFacade";
 
 describe("project store subagent mappers", () => {
   it("classifies terminal subagent run statuses", () => {

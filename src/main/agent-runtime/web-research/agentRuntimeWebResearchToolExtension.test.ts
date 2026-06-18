@@ -6,12 +6,12 @@ import type {
   WebResearchProviderRole,
 } from "../../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
+import type { AmbientCliPackageCatalog } from "../agentRuntimeAmbientCliFacade";
 import {
   createAgentRuntimeWebResearchToolExtension,
   type AgentRuntimeWebResearchToolExtensionOptions,
 } from "./agentRuntimeWebResearchToolExtension";
-import type { WebResearchProviderRequestPlan } from "../../web-research/webResearchProviderStack";
+import type { WebResearchProviderRequestPlan } from "../agentRuntimeWebResearchFacade";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 

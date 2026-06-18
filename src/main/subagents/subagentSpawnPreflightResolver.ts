@@ -16,7 +16,7 @@ import type {
   SubagentChildRuntimeAdapter,
   SubagentChildRuntimeLaunchPreflightInput,
   SubagentChildRuntimeLaunchPreflightResult,
-} from "../pi/piChildSessionAdapter";
+} from "./subagentPiRuntimeFacade";
 
 export const SUBAGENT_SPAWN_PREFLIGHT_RESOLVER_SCHEMA_VERSION =
   "ambient-subagent-spawn-preflight-resolver-v1" as const;

@@ -1,5 +1,5 @@
 import type { SendMessageInput } from "../../shared/desktopTypes";
-import type { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
+import type { ToolArgumentProgressTracker } from "./agentRuntimeToolRuntimeFacade";
 import type { InterruptedToolCallRecoveryTracker } from "./recovery/interruptedToolCallRecovery";
 import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import {

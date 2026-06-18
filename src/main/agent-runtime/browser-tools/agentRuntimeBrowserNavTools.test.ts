@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { BrowserPageContent, BrowserUserActionState } from "../../../shared/browserTypes";
-import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
-import { BrowserUnavailableError } from "../../browser/browserService";
+import type { MaterializedTextOutput } from "../agentRuntimeToolRuntimeFacade";
+import { BrowserUnavailableError } from "../agentRuntimeBrowserFacade";
 import {
   registerBrowserNavTool,
   type BrowserNavToolRegistrationOptions,

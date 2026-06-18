@@ -6,7 +6,7 @@ import {
   workflowArtifactScheduleConnectorGrantUses,
   type WorkflowArtifactScheduleBlockOptions,
 } from "../../shared/workflowSchedulePolicy";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 
 export { workflowArtifactScheduleBlockReason } from "../../shared/workflowSchedulePolicy";
 

@@ -1,4 +1,4 @@
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./workflowProjectStoreFacade";
 
 export const WORKFLOW_TRACE_RETENTION_SWEEP_MS = 6 * 60 * 60 * 1000;
 

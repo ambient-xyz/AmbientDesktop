@@ -1,0 +1,98 @@
+import {
+  describeAmbientCliPackage as describeAmbientCliPackageFromAmbientCli,
+  discoverAmbientCliEmbeddingProviders as discoverAmbientCliEmbeddingProvidersFromAmbientCli,
+  discoverAmbientCliPackages as discoverAmbientCliPackagesFromAmbientCli,
+  discoverAmbientCliSttProviders as discoverAmbientCliSttProvidersFromAmbientCli,
+  discoverAmbientCliVoiceProviders as discoverAmbientCliVoiceProvidersFromAmbientCli,
+  ensureFirstPartyAmbientCliPackages as ensureFirstPartyAmbientCliPackagesFromAmbientCli,
+  hydrateAmbientCliPackageSummaries as hydrateAmbientCliPackageSummariesFromAmbientCli,
+  installAmbientCliPackagePiCatalogSource as installAmbientCliPackagePiCatalogSourceFromAmbientCli,
+  installAmbientCliPackageSource as installAmbientCliPackageSourceFromAmbientCli,
+  previewAmbientCliPackageInstallSource as previewAmbientCliPackageInstallSourceFromAmbientCli,
+  previewAmbientCliPackagePiCatalogSource as previewAmbientCliPackagePiCatalogSourceFromAmbientCli,
+  runAmbientCliPackageCommand as runAmbientCliPackageCommandFromAmbientCli,
+  searchAmbientCliCapabilities as searchAmbientCliCapabilitiesFromAmbientCli,
+  setAmbientCliPackageEnvBinding as setAmbientCliPackageEnvBindingFromAmbientCli,
+  uninstallAmbientCliPackageSource as uninstallAmbientCliPackageSourceFromAmbientCli,
+} from "../ambient-cli/ambientCliPackages";
+import type {
+  AmbientCliCapabilitySearchInput as AmbientCliCapabilitySearchInputFromAmbientCli,
+  AmbientCliCapabilitySearchResponse as AmbientCliCapabilitySearchResponseFromAmbientCli,
+  AmbientCliPackageCatalog as AmbientCliPackageCatalogFromAmbientCli,
+  AmbientCliPackageCommand as AmbientCliPackageCommandFromAmbientCli,
+  AmbientCliPackageDescription as AmbientCliPackageDescriptionFromAmbientCli,
+  AmbientCliPackageEnvBindingInput as AmbientCliPackageEnvBindingInputFromAmbientCli,
+  AmbientCliPackageEnvStatus as AmbientCliPackageEnvStatusFromAmbientCli,
+  AmbientCliPackageInstallPreview as AmbientCliPackageInstallPreviewFromAmbientCli,
+  AmbientCliPackageSummary as AmbientCliPackageSummaryFromAmbientCli,
+  AmbientCliPackageSummaryHydrationResult as AmbientCliPackageSummaryHydrationResultFromAmbientCli,
+  AmbientCliPiCatalogInstallPreview as AmbientCliPiCatalogInstallPreviewFromAmbientCli,
+  AmbientCliPiCatalogResolution as AmbientCliPiCatalogResolutionFromAmbientCli,
+  AmbientCliRunResult as AmbientCliRunResultFromAmbientCli,
+  DescribeAmbientCliPackageInput as DescribeAmbientCliPackageInputFromAmbientCli,
+  DescribeAmbientCliPackageOptions as DescribeAmbientCliPackageOptionsFromAmbientCli,
+  DiscoverAmbientCliPackagesOptions as DiscoverAmbientCliPackagesOptionsFromAmbientCli,
+  InstallAmbientCliPackageInput as InstallAmbientCliPackageInputFromAmbientCli,
+  PreviewAmbientCliPackageInput as PreviewAmbientCliPackageInputFromAmbientCli,
+  RunAmbientCliInput as RunAmbientCliInputFromAmbientCli,
+  UninstallAmbientCliPackageInput as UninstallAmbientCliPackageInputFromAmbientCli,
+} from "../ambient-cli/ambientCliPackages";
+
+export const describeAmbientCliPackage = describeAmbientCliPackageFromAmbientCli;
+export const discoverAmbientCliEmbeddingProviders =
+  discoverAmbientCliEmbeddingProvidersFromAmbientCli;
+export const discoverAmbientCliPackages = discoverAmbientCliPackagesFromAmbientCli;
+export const discoverAmbientCliSttProviders =
+  discoverAmbientCliSttProvidersFromAmbientCli;
+export const discoverAmbientCliVoiceProviders =
+  discoverAmbientCliVoiceProvidersFromAmbientCli;
+export const ensureFirstPartyAmbientCliPackages =
+  ensureFirstPartyAmbientCliPackagesFromAmbientCli;
+export const hydrateAmbientCliPackageSummaries =
+  hydrateAmbientCliPackageSummariesFromAmbientCli;
+export const installAmbientCliPackagePiCatalogSource =
+  installAmbientCliPackagePiCatalogSourceFromAmbientCli;
+export const installAmbientCliPackageSource =
+  installAmbientCliPackageSourceFromAmbientCli;
+export const previewAmbientCliPackageInstallSource =
+  previewAmbientCliPackageInstallSourceFromAmbientCli;
+export const previewAmbientCliPackagePiCatalogSource =
+  previewAmbientCliPackagePiCatalogSourceFromAmbientCli;
+export const runAmbientCliPackageCommand = runAmbientCliPackageCommandFromAmbientCli;
+export const searchAmbientCliCapabilities = searchAmbientCliCapabilitiesFromAmbientCli;
+export const setAmbientCliPackageEnvBinding =
+  setAmbientCliPackageEnvBindingFromAmbientCli;
+export const uninstallAmbientCliPackageSource =
+  uninstallAmbientCliPackageSourceFromAmbientCli;
+
+export type AmbientCliCapabilitySearchInput =
+  AmbientCliCapabilitySearchInputFromAmbientCli;
+export type AmbientCliCapabilitySearchResponse =
+  AmbientCliCapabilitySearchResponseFromAmbientCli;
+export type AmbientCliPackageCatalog = AmbientCliPackageCatalogFromAmbientCli;
+export type AmbientCliPackageCommand = AmbientCliPackageCommandFromAmbientCli;
+export type AmbientCliPackageDescription = AmbientCliPackageDescriptionFromAmbientCli;
+export type AmbientCliPackageEnvBindingInput =
+  AmbientCliPackageEnvBindingInputFromAmbientCli;
+export type AmbientCliPackageEnvStatus = AmbientCliPackageEnvStatusFromAmbientCli;
+export type AmbientCliPackageInstallPreview =
+  AmbientCliPackageInstallPreviewFromAmbientCli;
+export type AmbientCliPackageSummary = AmbientCliPackageSummaryFromAmbientCli;
+export type AmbientCliPackageSummaryHydrationResult =
+  AmbientCliPackageSummaryHydrationResultFromAmbientCli;
+export type AmbientCliPiCatalogInstallPreview =
+  AmbientCliPiCatalogInstallPreviewFromAmbientCli;
+export type AmbientCliPiCatalogResolution =
+  AmbientCliPiCatalogResolutionFromAmbientCli;
+export type AmbientCliRunResult = AmbientCliRunResultFromAmbientCli;
+export type DescribeAmbientCliPackageInput =
+  DescribeAmbientCliPackageInputFromAmbientCli;
+export type DescribeAmbientCliPackageOptions =
+  DescribeAmbientCliPackageOptionsFromAmbientCli;
+export type DiscoverAmbientCliPackagesOptions =
+  DiscoverAmbientCliPackagesOptionsFromAmbientCli;
+export type InstallAmbientCliPackageInput = InstallAmbientCliPackageInputFromAmbientCli;
+export type PreviewAmbientCliPackageInput = PreviewAmbientCliPackageInputFromAmbientCli;
+export type RunAmbientCliInput = RunAmbientCliInputFromAmbientCli;
+export type UninstallAmbientCliPackageInput =
+  UninstallAmbientCliPackageInputFromAmbientCli;

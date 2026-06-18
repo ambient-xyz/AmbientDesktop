@@ -8,8 +8,8 @@ import { installMcpDefaultCapability } from "./mcpDefaultCapabilityInstaller";
 import { McpInstallCatalog } from "./mcpInstallCatalog";
 import { McpToolBridge } from "./mcpToolBridge";
 import { createMcpToolBridgePiToolDefinitions } from "./mcpToolBridgePiTools";
-import { resolveOrExtractToolHiveExecutable } from "../tool-runtime/toolHiveBundle";
-import { ToolHiveRuntimeService } from "../tool-runtime/toolHiveRuntimeService";
+import { resolveOrExtractToolHiveExecutable } from "./mcpToolRuntimeFacade";
+import { ToolHiveRuntimeService } from "./mcpToolRuntimeFacade";
 
 const execFileAsync = promisify(execFile);
 const runLive = process.env.AMBIENT_MCP_TOOL_BRIDGE_LIVE === "1";

@@ -10,7 +10,7 @@ import {
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "./agentRuntimeAmbientFacade";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 const itLive = process.env.AMBIENT_GOAL_MODE_LIVE === "1" ? it : it.skip;

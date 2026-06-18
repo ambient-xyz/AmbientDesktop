@@ -3,20 +3,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { McpInstallCatalog } from "./mcpInstallCatalog";
-import { mcpAutowirePhase0Fixtures } from "../mcp-autowire/mcpAutowireFixtures";
+import { mcpAutowirePhase0Fixtures } from "./mcpAutowireFacade";
 import { createMcpServerPiToolDefinitions } from "./mcpServerPiTools";
-import type { ContainerRuntimeProbeResult } from "../container-runtime/containerRuntimeProbeService";
+import type { ContainerRuntimeProbeResult } from "./mcpContainerRuntimeFacade";
 import {
   MCP_AUTOWIRE_CANDIDATE_SCHEMA_VERSION,
   type McpAutowireCandidate,
-} from "../mcp-autowire/mcpAutowireSchemas";
-import { mcpAutowireSixPackManagedLifecycleCandidates } from "../mcp-autowire/mcpAutowireSixPackFixtures";
+} from "./mcpAutowireFacade";
+import { mcpAutowireSixPackManagedLifecycleCandidates } from "./mcpAutowireFacade";
 import {
   ToolHiveRuntimeService,
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
   type ToolHiveInstalledServerSourceIdentity,
-} from "../tool-runtime/toolHiveRuntimeService";
+} from "./mcpToolRuntimeFacade";
 
 const context7ServerId = "io.github.stacklok/context7";
 

@@ -3,69 +3,69 @@ import {
   createEmptyMessagingBindingRegistry as createEmptyMessagingBindingRegistryFromMessaging,
   createMessagingBindingStore as createMessagingBindingStoreFromMessaging,
   messagingBindingListText as messagingBindingListTextFromMessaging,
-} from "../messaging/messagingBindings";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingBindingStore as MessagingBindingStoreFromMessaging,
-} from "../messaging/messagingBindings";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   buildMessagingConversationDirectoryPreview as buildMessagingConversationDirectoryPreviewFromMessaging,
   messagingConversationDirectoryInput as messagingConversationDirectoryInputFromMessaging,
   messagingConversationDirectoryPreviewText as messagingConversationDirectoryPreviewTextFromMessaging,
-} from "../messaging/messagingConversationDirectory";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingConversationDirectoryProviderRegistryLike as MessagingConversationDirectoryProviderRegistryLikeFromMessaging,
-} from "../messaging/messagingConversationDirectory";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   createDefaultMessagingConversationDirectoryAdapterRegistry as createDefaultMessagingConversationDirectoryAdapterRegistryFromMessaging,
   messagingConversationDirectoryAdapterExecutionEnvelope as messagingConversationDirectoryAdapterExecutionEnvelopeFromMessaging,
   messagingConversationDirectoryAdapterExecutionText as messagingConversationDirectoryAdapterExecutionTextFromMessaging,
   messagingConversationDirectorySetupCard as messagingConversationDirectorySetupCardFromMessaging,
   signalConversationDirectoryAdapterPlan as signalConversationDirectoryAdapterPlanFromMessaging,
-} from "../messaging/messagingConversationDirectoryAdapters";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingConversationDirectoryAdapterExecutionEnvelope as MessagingConversationDirectoryAdapterExecutionEnvelopeFromMessaging,
   MessagingConversationDirectoryAdapterRegistry as MessagingConversationDirectoryAdapterRegistryFromMessaging,
-} from "../messaging/messagingConversationDirectoryAdapters";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   messagingConversationDirectoryContractNotes as messagingConversationDirectoryContractNotesFromMessaging,
   messagingConversationDirectoryMetadataContract as messagingConversationDirectoryMetadataContractFromMessaging,
   sanitizeMessagingConversationDirectoryEntry as sanitizeMessagingConversationDirectoryEntryFromMessaging,
-} from "../messaging/messagingConversationDirectoryContract";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingConversationDirectoryMetadataContract as MessagingConversationDirectoryMetadataContractFromMessaging,
   MessagingConversationDirectoryMetadataEntry as MessagingConversationDirectoryMetadataEntryFromMessaging,
-} from "../messaging/messagingConversationDirectoryContract";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   messagingProjectionText as messagingProjectionTextFromMessaging,
-} from "../messaging/messagingGatewayProjection";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   createDefaultMessagingProviderRegistry as createDefaultMessagingProviderRegistryFromMessaging,
   messagingProviderListText as messagingProviderListTextFromMessaging,
   messagingProviderStatusText as messagingProviderStatusTextFromMessaging,
-} from "../messaging/messagingGatewayRegistry";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingProviderRegistry as MessagingProviderRegistryFromMessaging,
-} from "../messaging/messagingGatewayRegistry";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   MessagingGatewayRunner as MessagingGatewayRunnerFromMessaging,
   messagingGatewayInboundDispatchText as messagingGatewayInboundDispatchTextFromMessaging,
   messagingGatewayLifecycleApplyResultText as messagingGatewayLifecycleApplyResultTextFromMessaging,
   messagingGatewayLifecyclePreviewText as messagingGatewayLifecyclePreviewTextFromMessaging,
   messagingGatewayRuntimeStatusText as messagingGatewayRuntimeStatusTextFromMessaging,
-} from "../messaging/messagingGatewayRunner";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingGatewayInboundDispatchInput as MessagingGatewayInboundDispatchInputFromMessaging,
   MessagingGatewayInboundDispatchResult as MessagingGatewayInboundDispatchResultFromMessaging,
-} from "../messaging/messagingGatewayRunner";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   readinessProbesFromAdapters as readinessProbesFromAdaptersFromMessaging,
-} from "../messaging/messagingProviderReadiness";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingGatewayReadinessAdapter as MessagingGatewayReadinessAdapterFromMessaging,
-} from "../messaging/messagingProviderReadiness";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   messagingGatewayStatusWithRemoteSurfaceRuntimeEvents as messagingGatewayStatusWithRemoteSurfaceRuntimeEventsFromMessaging,
-} from "../messaging/messagingRelayStatus";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   buildMessagingRemoteSurfaceActivationPlan as buildMessagingRemoteSurfaceActivationPlanFromMessaging,
   buildMessagingRemoteSurfaceProviderSupportPlan as buildMessagingRemoteSurfaceProviderSupportPlanFromMessaging,
@@ -74,7 +74,7 @@ import {
   messagingRemoteSurfaceActivationPlanText as messagingRemoteSurfaceActivationPlanTextFromMessaging,
   messagingRemoteSurfaceProviderSupportPlanInput as messagingRemoteSurfaceProviderSupportPlanInputFromMessaging,
   messagingRemoteSurfaceProviderSupportPlanText as messagingRemoteSurfaceProviderSupportPlanTextFromMessaging,
-} from "../messaging/messagingRemoteSurfaceActivationPlan";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   buildMessagingRemoteSurfaceCommandPreview as buildMessagingRemoteSurfaceCommandPreviewFromMessaging,
   messagingRemoteSurfaceCommandAppliedResult as messagingRemoteSurfaceCommandAppliedResultFromMessaging,
@@ -94,7 +94,7 @@ import {
   messagingRemoteSurfaceCommandWorkflowActionRequest as messagingRemoteSurfaceCommandWorkflowActionRequestFromMessaging,
   messagingRemoteSurfaceCommandWorkflowAnswerInput as messagingRemoteSurfaceCommandWorkflowAnswerInputFromMessaging,
   messagingRemoteSurfaceCommandWorkflowCreateRequest as messagingRemoteSurfaceCommandWorkflowCreateRequestFromMessaging,
-} from "../messaging/messagingRemoteSurfaceCommands";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingRemoteSurfaceCommandBindingUpdate as MessagingRemoteSurfaceCommandBindingUpdateFromMessaging,
   MessagingRemoteSurfaceCommandPreview as MessagingRemoteSurfaceCommandPreviewFromMessaging,
@@ -103,7 +103,7 @@ import type {
   MessagingRemoteSurfaceSettingUpdateResult as MessagingRemoteSurfaceSettingUpdateResultFromMessaging,
   MessagingRemoteSurfaceWorkflowActionRequest as MessagingRemoteSurfaceWorkflowActionRequestFromMessaging,
   MessagingRemoteSurfaceWorkflowActionResult as MessagingRemoteSurfaceWorkflowActionResultFromMessaging,
-} from "../messaging/messagingRemoteSurfaceCommands";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   buildMessagingRemoteSurfaceBindingPreview as buildMessagingRemoteSurfaceBindingPreviewFromMessaging,
   buildMessagingRemoteSurfaceEventPreview as buildMessagingRemoteSurfaceEventPreviewFromMessaging,
@@ -111,14 +111,14 @@ import {
   messagingRemoteSurfaceBindingPreviewText as messagingRemoteSurfaceBindingPreviewTextFromMessaging,
   messagingRemoteSurfaceEventPreviewInput as messagingRemoteSurfaceEventPreviewInputFromMessaging,
   messagingRemoteSurfaceEventPreviewText as messagingRemoteSurfaceEventPreviewTextFromMessaging,
-} from "../messaging/messagingRemoteSurfaceProviderPreview";
+} from "../messaging/messagingAgentRuntimeContract";
 import type {
   MessagingRemoteSurfaceProviderRegistryLike as MessagingRemoteSurfaceProviderRegistryLikeFromMessaging,
-} from "../messaging/messagingRemoteSurfaceProviderPreview";
+} from "../messaging/messagingAgentRuntimeContract";
 import {
   remoteSurfaceRuntimeEventRelayPatch as remoteSurfaceRuntimeEventRelayPatchFromMessaging,
   runtimeEventRelayText as runtimeEventRelayTextFromMessaging,
-} from "../messaging/messagingRuntimeEventRelay";
+} from "../messaging/messagingAgentRuntimeContract";
 
 export const bindingLifecyclePreviewText = bindingLifecyclePreviewTextFromMessaging;
 export const buildMessagingConversationDirectoryPreview = buildMessagingConversationDirectoryPreviewFromMessaging;

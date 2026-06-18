@@ -1,6 +1,6 @@
 import type { AssistantTerminalEventDiagnostic } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
 import { stripAssistantReasoningTags } from "./assistantVisibleText";
-import type { NormalizedPiEvent } from "../pi/piEventMapper";
+import type { NormalizedPiEvent } from "./agentRuntimePiFacade";
 
 export type RuntimeAgentEndEvent = Extract<NormalizedPiEvent, { kind: "agent-end" }>;
 

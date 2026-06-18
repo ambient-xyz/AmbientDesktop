@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
-import { ProjectStore } from "../projectStore/projectStore";
+import { firstPartyDesktopToolDescriptors } from "./workflowDesktopToolFacade";
+import { ProjectStore } from "./workflowProjectStoreFacade";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionSetupInput, MiniCpmVisionSetupResult } from "../../shared/localRuntimeTypes";
@@ -26,7 +26,7 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../ambient/liveAmbientProviderConfig";
+} from "./workflowAmbientFacade";
 import { startWorkflowDiscovery } from "../workflow-discovery/workflowDiscoveryService";
 import { readWorkflowRunDetail, resolveWorkflowApproval, reviewWorkflowArtifact } from "./workflowDashboard";
 import { GoogleWorkspaceCliAdapter } from "../google-workspace/googleWorkspaceCliAdapter";

@@ -7,17 +7,17 @@ import type {
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import { browserToolResult } from "./browser-tools/agentRuntimeBrowserToolFormatting";
-import { mcpRuntimePermissionBlockedMessage } from "../mcp/mcpRuntimePermissionEnforcement";
+import { mcpRuntimePermissionBlockedMessage } from "./agentRuntimeMcpFacade";
 import {
   evaluateMcpToolCallPermission,
   mcpPermissionPolicyBlockedMessage,
   planMcpPermissionPromptGrant,
-} from "../mcp/mcpPermissionPolicyService";
-import { mcpToolCallApprovalDetail } from "../mcp/mcpToolBridgePiTools";
+} from "./agentRuntimeMcpFacade";
+import { mcpToolCallApprovalDetail } from "./agentRuntimeMcpFacade";
 import type {
   McpToolBridge,
   McpToolBridgeActivity,
-} from "../mcp/mcpToolBridge";
+} from "./agentRuntimeMcpFacade";
 import {
   scraplingBrowserContentToolArguments,
   shouldRouteBrowserContentUrlToScrapling,

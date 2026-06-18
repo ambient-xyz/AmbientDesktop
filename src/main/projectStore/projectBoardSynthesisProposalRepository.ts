@@ -9,7 +9,7 @@ import type {
 import {
   normalizeProjectBoardPmReviewReport,
   type ProjectBoardSynthesisDraft,
-} from "../project-board/projectBoardSynthesis";
+} from "./projectStoreProjectBoardFacade";
 import {
   mapProjectBoardSynthesisProposalRow,
   normalizeCardTextList,

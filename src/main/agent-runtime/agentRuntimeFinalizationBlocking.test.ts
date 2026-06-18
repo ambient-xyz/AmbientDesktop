@@ -8,7 +8,7 @@ import type {
 import {
   CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE,
   type CallableWorkflowParentBlockingBlock,
-} from "../callable-workflow/callableWorkflowParentBlocking";
+} from "./agentRuntimeCallableWorkflowFacade";
 import {
   callableWorkflowFinalizationBlockedActivity,
   callableWorkflowFinalizationBlock,

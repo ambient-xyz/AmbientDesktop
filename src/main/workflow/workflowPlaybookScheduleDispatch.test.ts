@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { WorkflowRecordingSavedPlaybook } from "../../shared/workflowTypes";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./workflowProjectStoreFacade";
 import { runDueWorkflowPlaybookSchedules } from "./workflowPlaybookScheduleDispatch";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import type { DesktopToolDescriptor } from "./workflowProgramDesktopToolFacade";
 import {
   WORKFLOW_PROGRAM_OUTPUT_CONTRACT_NODE_KINDS,
   workflowProgramKnownOutputFields,
   workflowProgramOutputContractCompleteness,
   workflowProgramRefPathExists,
 } from "./workflowProgramOutputContracts";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { WorkflowConnectorDescriptor } from "./workflowProgramWorkflowFacade";
 import type { WorkflowProgramConnectorCallNode, WorkflowProgramNode, WorkflowProgramToolCallNode } from "../../shared/workflowProgramIr";
 
 describe("workflowProgramOutputContracts", () => {

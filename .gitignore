@@ -32,7 +32,3 @@ windowsCredentials/
 
 resources/toolhive/*/thv
 resources/toolhive/*/thv.exe
-
-.env
-.env.*
-!.env.example

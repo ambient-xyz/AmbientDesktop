@@ -10,7 +10,7 @@ import type {
   SubagentChildRuntimeAdapter,
   SubagentChildRuntimeCancelResult,
   SubagentRuntimeEventEmitter,
-} from "../pi/piChildSessionAdapter";
+} from "./subagentPiRuntimeFacade";
 import { findSubagentRunEventByIdempotencyKey } from "./subagentIdempotency";
 import {
   buildSubagentCancelAgentChildThreadMessage,

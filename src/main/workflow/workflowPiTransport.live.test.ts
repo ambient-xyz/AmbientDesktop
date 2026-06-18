@@ -1,8 +1,8 @@
 import { Type } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
-import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
+import { aggressiveAmbientRetryPolicy } from "./workflowAmbientFacade";
+import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "./workflowAmbientFacade";
 import { callWorkflowPiJson, callWorkflowPiText } from "./workflowPiTransport";
 
 const runLive = process.env.AMBIENT_WORKFLOW_PI_TRANSPORT_LIVE === "1";

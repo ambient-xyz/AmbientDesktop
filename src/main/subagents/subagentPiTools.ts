@@ -43,7 +43,7 @@ import type { SymphonyChildLaunchContractBundle } from "../../shared/symphonyFin
 import type { ThreadWorktreeSummary, ThreadSummary } from "../../shared/threadTypes";
 import {
   type SubagentModelScopeResolution,
-} from "../model-provider/modelScopeResolver";
+} from "./subagentModelProviderFacade";
 import type {
   SubagentChildRuntimeAdapter,
   SubagentChildRuntimeCancelInput,
@@ -55,14 +55,14 @@ import type {
   SubagentChildRuntimeWaitResult,
   SubagentChildWorktreePrepareInput,
   SubagentRuntimeEventEmitter,
-} from "../pi/piChildSessionAdapter";
+} from "./subagentPiRuntimeFacade";
 import {
   prepareSubagentChildWorktreeForLaunch,
 } from "./subagentChildWorktreePreparer";
 import {
   acquireSymphonyMutationWorkspaceLease,
 } from "./symphonyMutationWorkspaceLeaseDefaultService";
-import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
+import { createDefaultModelRuntimeRegistry } from "./subagentModelProviderFacade";
 import {
   createSubagentIdempotencyKey,
   createSubagentPayloadFingerprint,
@@ -78,7 +78,7 @@ import {
 import {
   piChildRuntimeEventUpdateDetails,
   piChildRuntimeEventUpdateText,
-} from "../pi/piEventMapper";
+} from "./subagentPiRuntimeFacade";
 import { appendMappedSubagentRuntimeEvent } from "./subagentRuntimeEventPersistence";
 import {
   createDefaultAgentRoleRegistry,

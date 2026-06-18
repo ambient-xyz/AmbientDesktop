@@ -7,7 +7,7 @@ import type {
 import type {
   SubagentChildRuntimeAdapter,
   SubagentRuntimeEventEmitter,
-} from "../pi/piChildSessionAdapter";
+} from "./subagentPiRuntimeFacade";
 import {
   buildSubagentBarrierDecisionChildThreadMessage,
   buildSubagentBarrierDecisionRunEventPreview,
@@ -136,6 +136,11 @@ export async function executeSubagentBarrierDecision(input: {
     createRuntimeCancelEventEmitter: input.createRuntimeCancelEventEmitter,
     createRuntimeRetryEventEmitter: input.createRuntimeRetryEventEmitter,
   });
+  assertRetryDecisionAffectedAtLeastOneChild({
+    decision: input.decision,
+    childRuns: initialChildRuns,
+    retryRequestedRunIds: controlResult.retryRequestedRunIds ?? [],
+  });
   const childRunsAfterDecision = controlResult.childRuns;
   const { barrier: resolvedBarrier, resolutionArtifact } = resolveSubagentBarrierDecisionWaitBarrier({
     store: input.store,
@@ -149,7 +154,15 @@ export async function executeSubagentBarrierDecision(input: {
     idempotencyKey: input.idempotencyKey,
     controlState: controlResult,
   });
-  const runEvents = childRunsAfterDecision.map((run) => {
+  const affectedChildRuns = childRunsForDecisionChildThreadSideEffects({
+    decision: input.decision,
+    childRuns: childRunsAfterDecision,
+    retryRequestedRunIds: controlResult.retryRequestedRunIds ?? [],
+    retryAcceptedRunIds: controlResult.retryAcceptedRunIds ?? [],
+    detachedRunIds: controlResult.detachedRunIds,
+    cancelledRunIds: controlResult.cancelledRunIds,
+  });
+  const runEvents = affectedChildRuns.map((run) => {
     const runEvent = input.store.appendSubagentRunEvent(run.id, {
       type: "subagent.barrier_decision",
       preview: buildSubagentBarrierDecisionRunEventPreview({
@@ -222,4 +235,48 @@ function childRunsForBarrier(
   barrier: SubagentWaitBarrierSummary,
 ): SubagentRunSummary[] {
   return barrier.childRunIds.map((childRunId) => store.getSubagentRun(childRunId));
+}
+
+function assertRetryDecisionAffectedAtLeastOneChild(input: {
+  decision: SubagentBarrierDecision;
+  childRuns: SubagentRunSummary[];
+  retryRequestedRunIds: string[];
+}): void {
+  if (input.decision !== "retry_child" || input.retryRequestedRunIds.length > 0) return;
+  const childStatuses = input.childRuns
+    .map((run) => `${run.canonicalTaskPath}=${run.status}`)
+    .join(", ") || "none";
+  throw new Error([
+    "Cannot record retry_child for this wait barrier because no child run is retryable.",
+    "retry_child is only for failed, stopped, cancelled, timed_out, or aborted_partial child runs.",
+    "If a child is needs_attention for approval or steering, answer that child request and wait on the same child instead of retrying or spawning a replacement.",
+    `Child statuses: ${childStatuses}.`,
+  ].join(" "));
+}
+
+function childRunsForDecisionChildThreadSideEffects(input: {
+  decision: SubagentBarrierDecision;
+  childRuns: SubagentRunSummary[];
+  retryRequestedRunIds: string[];
+  retryAcceptedRunIds: string[];
+  detachedRunIds: string[];
+  cancelledRunIds: string[];
+}): SubagentRunSummary[] {
+  const affectedIds = new Set([
+    ...input.retryRequestedRunIds,
+    ...input.retryAcceptedRunIds,
+    ...input.detachedRunIds,
+    ...input.cancelledRunIds,
+  ]);
+  if (affectedIds.size === 0 && recordsWholeBarrierWhenNoChildStateChanges(input.decision)) {
+    for (const run of input.childRuns) affectedIds.add(run.id);
+  }
+  if (affectedIds.size === 0 && input.childRuns.length === 1) {
+    affectedIds.add(input.childRuns[0].id);
+  }
+  return input.childRuns.filter((run) => affectedIds.has(run.id));
+}
+
+function recordsWholeBarrierWhenNoChildStateChanges(decision: SubagentBarrierDecision): boolean {
+  return decision !== "retry_child";
 }

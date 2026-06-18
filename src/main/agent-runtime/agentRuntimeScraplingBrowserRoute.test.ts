@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
+import type { McpToolDescriptor } from "./agentRuntimeMcpFacade";
 import {
   tryRouteBrowserContentThroughScrapling,
   type ScraplingBrowserRouteOptions,

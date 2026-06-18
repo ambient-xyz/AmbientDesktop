@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
-import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
+import type { AmbientCliPackageCatalog } from "../agentRuntimeAmbientCliFacade";
+import type { McpToolDescriptor } from "../agentRuntimeMcpFacade";
 import { registerWebResearchProviderSearchTools } from "./agentRuntimeWebResearchProviderSearchTools";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };

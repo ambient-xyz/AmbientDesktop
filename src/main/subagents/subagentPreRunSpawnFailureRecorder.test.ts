@@ -4,8 +4,8 @@ import { AMBIENT_DEFAULT_MODEL, resolveAmbientModelRuntimeProfile } from "../../
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentParentMailboxEventSummary } from "../../shared/subagentTypes";
-import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
-import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
+import { resolveSubagentModelScope } from "./subagentModelProviderFacade";
+import type { SubagentChildRuntimeLaunchPreflightResult } from "./subagentPiRuntimeFacade";
 import {
   recordScheduledSubagentSpawnPolicyFailure,
   recordSubagentPreRunSpawnFailure,

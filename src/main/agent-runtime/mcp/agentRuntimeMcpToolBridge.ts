@@ -1,8 +1,8 @@
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import { installedMcpSearchAliasesForWorkspace } from "./agentRuntimeMcpSearchAliases";
-import { createPublicMcpPackageMetadataResolver, McpInstallCatalog } from "../../mcp/mcpInstallCatalog";
-import { McpToolBridge, type McpToolBridgeOptions } from "../../mcp/mcpToolBridge";
-import { ToolHiveRuntimeService } from "../../tool-runtime/toolHiveRuntimeService";
+import { createPublicMcpPackageMetadataResolver, McpInstallCatalog } from "../agentRuntimeMcpFacade";
+import { McpToolBridge, type McpToolBridgeOptions } from "../agentRuntimeMcpFacade";
+import { ToolHiveRuntimeService } from "../agentRuntimeToolRuntimeFacade";
 
 export interface AgentRuntimeMcpToolBridgeRuntime {
   mcpUserDataPath: string;

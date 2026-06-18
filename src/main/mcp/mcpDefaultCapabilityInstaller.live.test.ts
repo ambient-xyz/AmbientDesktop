@@ -7,8 +7,8 @@ import { describe, expect, it } from "vitest";
 import { installMcpDefaultCapability } from "./mcpDefaultCapabilityInstaller";
 import { McpInstallCatalog } from "./mcpInstallCatalog";
 import { McpToolBridge } from "./mcpToolBridge";
-import { resolveOrExtractToolHiveExecutable } from "../tool-runtime/toolHiveBundle";
-import { ToolHiveRuntimeService } from "../tool-runtime/toolHiveRuntimeService";
+import { resolveOrExtractToolHiveExecutable } from "./mcpToolRuntimeFacade";
+import { ToolHiveRuntimeService } from "./mcpToolRuntimeFacade";
 
 const execFileAsync = promisify(execFile);
 const runLive = process.env.AMBIENT_MCP_SCRAPLING_DEFAULT_LIVE === "1";

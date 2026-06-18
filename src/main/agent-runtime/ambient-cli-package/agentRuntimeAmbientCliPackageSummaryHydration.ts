@@ -4,8 +4,8 @@ import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   hydrateAmbientCliPackageSummaries,
   type AmbientCliPackageSummaryHydrationResult,
-} from "../../ambient-cli/ambientCliPackages";
-import { completeAmbientText } from "../../tool-runtime/lambdaRlm";
+} from "../agentRuntimeAmbientCliFacade";
+import { completeAmbientText } from "../agentRuntimeToolRuntimeFacade";
 
 type AmbientCliSummaryHydrationEnv = Partial<Pick<
   NodeJS.ProcessEnv,

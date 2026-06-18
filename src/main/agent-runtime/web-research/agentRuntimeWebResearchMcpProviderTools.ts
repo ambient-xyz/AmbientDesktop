@@ -1,5 +1,5 @@
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import type { McpToolBridge, McpToolDescriptor } from "../../mcp/mcpToolBridge";
+import type { McpToolBridge, McpToolDescriptor } from "../agentRuntimeMcpFacade";
 
 export interface WebResearchMcpProviderToolDiscoveryOptions {
   createMcpRuntime: (

@@ -1,7 +1,7 @@
 import type { AutomationScheduleSummary } from "../../shared/automationTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { injectAmbientWorkflowPlaybook, type AmbientWorkflowPlaybookInjection } from "../ambient/ambientWorkflows";
-import type { ProjectStore, RunRecord } from "../projectStore/projectStore";
+import { injectAmbientWorkflowPlaybook, type AmbientWorkflowPlaybookInjection } from "./workflowAmbientPlaybookFacade";
+import type { ProjectStore, RunRecord } from "./workflowProjectStoreFacade";
 
 export interface WorkflowPlaybookScheduleRunnerInput {
   schedule: AutomationScheduleSummary;

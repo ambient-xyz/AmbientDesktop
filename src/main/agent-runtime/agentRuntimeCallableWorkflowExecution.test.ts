@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type { DesktopEvent } from "../../shared/desktopTypes";
-import type { CallableWorkflowRunnerStore } from "../callable-workflow/callableWorkflowRunner";
+import type { CallableWorkflowRunnerStore } from "./agentRuntimeCallableWorkflowFacade";
 import {
   cancelAgentRuntimeCallableWorkflowTask,
   callableWorkflowTaskAbortController,
@@ -12,7 +12,7 @@ import {
   type AgentRuntimeCallableWorkflowTaskControlStore,
   type AgentRuntimeCallableWorkflowTaskStarterStore,
 } from "./agentRuntimeCallableWorkflowExecution";
-import { WorkflowManualPausedError } from "../workflow/workflowAgentRuntime";
+import { WorkflowManualPausedError } from "./agentRuntimeWorkflowFacade";
 
 describe("callableWorkflowTaskAbortController", () => {
   it("resolves task controllers directly before falling back through workflow run ids", () => {
