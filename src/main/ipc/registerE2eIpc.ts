@@ -1,6 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 

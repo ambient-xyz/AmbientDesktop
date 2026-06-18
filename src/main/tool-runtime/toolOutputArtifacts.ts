@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
-import { redactSensitiveTextWithMetadata } from "../secretRedaction";
+import { redactSensitiveTextWithMetadata } from "../security/secretRedaction";
 
 export interface MaterializedTextOutput {
   text: string;

@@ -191,7 +191,7 @@ function harnessSourceCheck(packageJson, scriptSources) {
       continue;
     }
     if (!/gmi-cloud|GMI_CLOUD|GMI_API_KEY/.test(source)) missing.push(`${name}: missing GMI Cloud launch/key guard`);
-    if (!source.includes("ambientCoderArchive")) missing.push(`${name}: missing Documents/ambientCoderArchive snapshot default`);
+    if (!source.includes("AmbientDesktopArchive")) missing.push(`${name}: missing Documents/AmbientDesktopArchive snapshot default`);
   }
   return check(
     "kanban GMI harness source contracts",

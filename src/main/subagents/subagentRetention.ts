@@ -1,6 +1,8 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 import type { SubagentRoleProfile } from "../../shared/subagentRoles";
-import type { AmbientFeatureFlagSnapshot, SubagentRunSummary, SubagentWaitBarrierSummary, ThreadSummary } from "../../shared/types";
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 
 export const DEFAULT_SUBAGENT_TRANSCRIPT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 export const DEFAULT_SUBAGENT_MAX_RETAINED_CHILDREN_PER_PARENT = 25;

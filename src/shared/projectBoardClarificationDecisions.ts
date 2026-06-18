@@ -1,11 +1,4 @@
-import type {
-  ProjectBoardCardClarificationAnswer,
-  ProjectBoardCardClarificationDecision,
-  ProjectBoardCardClarificationDecisionSource,
-  ProjectBoardCardClarificationDecisionState,
-  ProjectBoardCardClarificationSuggestion,
-  ProjectBoardClarificationQuestionKind,
-} from "./types";
+import type { ProjectBoardCardClarificationAnswer, ProjectBoardCardClarificationDecision, ProjectBoardCardClarificationDecisionSource, ProjectBoardCardClarificationDecisionState, ProjectBoardCardClarificationSuggestion, ProjectBoardClarificationQuestionKind } from "./projectBoardTypes";
 import {
   projectBoardQuestionDedupeKey,
   projectBoardQuestionsAreNearDuplicates,

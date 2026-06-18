@@ -11,7 +11,7 @@ import type {
 } from "../workflow/workflowConnectors";
 import { validateWorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { WorkflowConnectorAccessToken } from "../workflow/workflowConnectorAuth";
-import type { GoogleSidecarRequest } from "../googleSidecarSupervisor";
+import type { GoogleSidecarRequest } from "./googleSidecarSupervisor";
 
 const GOOGLE_PROVIDER_ID = "google.workspace";
 const GWS_PROVIDER_ID = "google.workspace.cli";

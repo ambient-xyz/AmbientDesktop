@@ -3,7 +3,8 @@ import { createAmbientModelRuntimeSnapshot, resolveAmbientModelRuntimeProfile } 
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import { resolveSubagentToolScope } from "../../shared/subagentToolScope";
-import type { SubagentRunEventSummary, SubagentRunSummary, ThreadSummary } from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { validateSubagentCompletionGuard } from "./subagentCompletionGuard";
 import { isSubagentParentOnlyContextMessage, subagentParentContextForMessages } from "./subagentContextFilter";
 import { ambientSubagentActiveToolNamesForThread } from "./subagentPiTools";

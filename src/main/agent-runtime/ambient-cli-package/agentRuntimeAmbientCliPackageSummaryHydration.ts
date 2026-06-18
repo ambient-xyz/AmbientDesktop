@@ -1,11 +1,11 @@
 import type { Model } from "@mariozechner/pi-ai";
 
-import type { WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   hydrateAmbientCliPackageSummaries,
   type AmbientCliPackageSummaryHydrationResult,
 } from "../../ambient-cli/ambientCliPackages";
-import { completeAmbientText } from "../../lambdaRlm";
+import { completeAmbientText } from "../../tool-runtime/lambdaRlm";
 
 type AmbientCliSummaryHydrationEnv = Partial<Pick<
   NodeJS.ProcessEnv,

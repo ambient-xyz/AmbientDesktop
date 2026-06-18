@@ -1,4 +1,4 @@
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 
 export const STATE_REDUCER_DESKTOP_EVENT_TYPES = new Set<DesktopEvent["type"]>([
   "provider-updated",

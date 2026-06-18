@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-import type {
-  CreateWorkflowLabRunInput,
-  DesktopState,
-  WorkflowLabRun,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { CreateWorkflowLabRunInput, WorkflowLabRun, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import type { ApiKeyStatus } from "./RightPanel";
 import type { WorkflowLabBusy } from "./AutomationsWorkflowLabViews";
 

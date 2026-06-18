@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../liveAmbientProviderConfig";
+import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
 import { planMcpAutowire } from "./mcpAutowirePlanner";
 
 const runLive = process.env.AMBIENT_MCP_AUTOWIRE_PLAN_LIVE === "1";

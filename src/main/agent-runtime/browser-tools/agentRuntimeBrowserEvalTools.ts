@@ -5,8 +5,8 @@ import type {
   BrowserProfileMode,
   BrowserRuntimeKind,
   BrowserUserActionState,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/browserTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   browserToolFallback,
   browserUnavailableText,
@@ -14,8 +14,8 @@ import {
   isBrowserUserActionState,
   type BrowserUnavailableFallback,
 } from "../../agent/agentBrowserRuntime";
-import { browserToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { browserToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   browserMaterializedToolResult,
   browserToolResult,

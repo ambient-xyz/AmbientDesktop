@@ -14,8 +14,8 @@ import type {
   ProjectBoardSourceChangeState,
   ProjectBoardSourceKind,
   ProjectBoardSynthesisProposal,
-  ProjectBoardUiMockRole,
-} from "../../shared/types";
+  ProjectBoardUiMockRole
+} from "../../shared/projectBoardTypes";
 import {
   buildProjectBoardPlanningContract,
   projectBoardPlanningDepthFromScopeContract,

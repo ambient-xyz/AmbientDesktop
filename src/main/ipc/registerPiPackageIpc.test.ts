@@ -8,7 +8,7 @@ import type {
   PreviewPiPackageInstallInput,
   SetPiPackageEnabledInput,
   UninstallPiPackageInput,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import {
   piPackagesInspectIpcChannels,
   piPackagesInstallIpcChannels,

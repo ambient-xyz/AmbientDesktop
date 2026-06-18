@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { getDefaultSubagentRoleProfile, type SubagentRoleId } from "../../shared/subagentRoles";
-import type { SubagentRunSummary, SubagentWaitBarrierSummary, ThreadSummary } from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { planSubagentRetention } from "./subagentRetention";
 
 describe("subagentRetention", () => {

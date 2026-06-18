@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import type { BrowserPageContent, BrowserScreenshotResult, ChatMessage, ThreadGoal, ThreadSummary } from "../../shared/types";
+import type { BrowserPageContent, BrowserScreenshotResult } from "../../shared/browserTypes";
+import type { ChatMessage, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
 import { validateGoalCompletionArtifacts, type GoalCompletionBrowser } from "./agentRuntimeGoalCompletionValidation";
 
 describe("validateGoalCompletionArtifacts", () => {

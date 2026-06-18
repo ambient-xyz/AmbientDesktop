@@ -8,7 +8,7 @@ import {
   GitBranch,
 } from "lucide-react";
 
-import type { ProjectBoardGitProjectionResolution, ProjectBoardGitSyncStatus } from "../../shared/types";
+import type { ProjectBoardGitProjectionResolution, ProjectBoardGitSyncStatus } from "../../shared/projectBoardTypes";
 import {
   projectBoardCollaborationReadiness,
   projectBoardProjectionReview,

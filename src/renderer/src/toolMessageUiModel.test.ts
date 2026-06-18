@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage } from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   artifactMediaKindFromPath,
   artifactPreviewRoute,
@@ -852,7 +852,7 @@ describe("tool message UI model", () => {
   });
 
   it("surfaces managed MCP output files as previewable workspace artifacts", () => {
-    const workspacePath = "/Users/travis/ambientCoder";
+    const workspacePath = "/Users/travis/AmbientDesktop";
     const workspaceArtifactPath = ".ambient/mcp-outputs/2026-06-10/ambient-csvglow-standard-mcp-csvglow.html";
     const metadata = {
       toolName: "ambient_mcp_tool_call",
@@ -905,15 +905,15 @@ describe("tool message UI model", () => {
   });
 
   it("resolves absolute workspace paths in inline code as artifact links", () => {
-    const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
+    const workspacePath = "/Users/travis/Documents/AmbientDesktopArchive";
 
-    expect(resolveInlineArtifactPath("/Users/travis/Documents/ambientCoderArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
-    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/ambientCoderArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
+    expect(resolveInlineArtifactPath("/Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
+    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/AmbientDesktopArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
     expect(resolveInlineArtifactPath("/Users/travis/Downloads/outside-summary.html", undefined, workspacePath)).toBeUndefined();
   });
 
   it("resolves explicit workspace-relative inline code paths as artifact links", () => {
-    const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
+    const workspacePath = "/Users/travis/Documents/AmbientDesktopArchive";
 
     expect(resolveInlineArtifactPath(".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md", undefined, workspacePath)).toBe(
       ".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md",
@@ -997,7 +997,7 @@ describe("tool message UI model", () => {
       {
         toolResultDetails: {
           mediaArtifact: {
-            artifactPath: `Users/Neo/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread/.ambient/hosted-images/google-2026-06-16T05-18-43-439Z.png`,
+            artifactPath: `Users/Neo/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread/.ambient/hosted-images/google-2026-06-16T05-18-43-439Z.png`,
             mediaKind: "image",
             mimeType: "image/jpeg",
             bytes: 2048,
@@ -1142,7 +1142,7 @@ describe("tool message UI model", () => {
       "ambient_cli",
       workspacePath,
       {
-        artifactPath: "Users/Neo/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1/.ambient/hosted-images/google-4k.jpg",
+        artifactPath: "Users/Neo/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread-1/.ambient/hosted-images/google-4k.jpg",
       },
     );
 

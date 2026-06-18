@@ -1,4 +1,4 @@
-import type { WorkflowCompileProgress } from "../../shared/types";
+import type { WorkflowCompileProgress } from "../../shared/workflowTypes";
 
 export interface WorkflowCompileActivityMetric {
   label: string;

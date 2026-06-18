@@ -1,11 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { BrowserWindow } from "electron";
-import type {
-  PrivilegedActionNativeRequest,
-  PrivilegedCredentialPromptResolution,
-  PrivilegedCredentialPromptResponseInput,
-  PrivilegedCredentialRequest,
-} from "../../shared/types";
+import type { PrivilegedActionNativeRequest, PrivilegedCredentialPromptResolution, PrivilegedCredentialPromptResponseInput, PrivilegedCredentialRequest } from "../../shared/permissionTypes";
 
 type PendingPrivilegedCredential = {
   request: PrivilegedCredentialRequest;

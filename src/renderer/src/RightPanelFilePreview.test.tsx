@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/types";
+import type { WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/workspaceTypes";
 import { FilePreview } from "./RightPanelFilePreview";
 
 describe("FilePreview", () => {

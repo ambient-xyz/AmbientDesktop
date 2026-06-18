@@ -11,7 +11,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          bootstrap: resolve(rootDir, "src/main/bootstrap.ts"),
+          bootstrap: resolve(rootDir, "src/main/desktop-shell/bootstrap.ts"),
         },
       },
     },

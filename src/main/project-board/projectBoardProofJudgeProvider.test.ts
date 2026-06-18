@@ -6,8 +6,9 @@ import {
   parseProjectBoardProofJudgmentJson,
   type AmbientProjectBoardProofJudgmentProgress,
 } from "./projectBoardProofJudgeProvider";
-import type { ProjectBoardCard, ProjectBoardCardProofReview, OrchestrationRun } from "../../shared/types";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import type { ProjectBoardCard, ProjectBoardCardProofReview } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun } from "../../shared/workflowTypes";
+import { aggressiveAmbientRetryPolicy } from "./projectBoardAmbientFacade";
 
 describe("AmbientProjectBoardProofJudgeProvider", () => {
   const card: ProjectBoardCard = {

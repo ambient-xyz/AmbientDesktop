@@ -1,13 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  RunStatus,
-  ThreadSummary,
-  WorkflowRecordingLibraryEntry,
-  WorkflowRecordingState,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
+import type { WorkflowRecordingLibraryEntry, WorkflowRecordingState } from "../../shared/workflowTypes";
 import {
   activeThreadHasWorkflowRecordingStatus,
   activeWorkflowRecordingForState,

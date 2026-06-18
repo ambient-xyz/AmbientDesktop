@@ -1,13 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type {
-  OrchestrationBoard,
-  OrchestrationRun,
-  OrchestrationTask,
-  ProjectBoardCard,
-  ProjectSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectSummary } from "../../shared/projectBoardTypes";
+import type { OrchestrationBoard, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import { ProjectBoardIntegrationTab } from "./ProjectBoardIntegrationViews";
 
 describe("ProjectBoardIntegrationViews", () => {

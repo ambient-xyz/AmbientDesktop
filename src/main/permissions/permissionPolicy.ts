@@ -3,11 +3,12 @@ import { existsSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, resolve } from "node:path";
-import type { CollaborationMode, PermissionGrantActionKind, PermissionGrantScopeKind, PermissionMode, PermissionRequest } from "../../shared/types";
-import type { GoogleWorkspaceCallInput, GoogleWorkspaceMethodSideEffect, GoogleWorkspaceMethodSummary } from "../../shared/types";
+import type { PermissionGrantActionKind, PermissionGrantScopeKind, PermissionMode, PermissionRequest } from "../../shared/permissionTypes";
+import type { CollaborationMode } from "../../shared/threadTypes";
+import type { GoogleWorkspaceCallInput, GoogleWorkspaceMethodSideEffect, GoogleWorkspaceMethodSummary } from "../../shared/pluginTypes";
 import { googleWorkspaceGrantConditions, googleWorkspaceMethodGrantTarget } from "../../shared/googleWorkspaceGrantTargets";
 import { googleWorkspaceMethodApprovalDetail, googleWorkspaceMethodGrantIdentity } from "../google-workspace/googleWorkspaceMethodBroker";
-import { isDotEnvPath, isEnvTemplatePath } from "../pathSensitivity";
+import { isDotEnvPath, isEnvTemplatePath } from "../../shared/pathSensitivity";
 import { classifyPlannerToolPermission } from "../planner/plannerMode";
 import { isPathInside } from "../session/sessionPaths";
 

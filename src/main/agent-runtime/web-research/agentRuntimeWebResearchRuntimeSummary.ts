@@ -1,4 +1,4 @@
-import type { WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { McpToolBridge } from "../../mcp/mcpToolBridge";
 import { resolveScraplingBrowserContentDescriptor } from "../../scrapling/scraplingMcpDescriptor";
 import {

@@ -1,7 +1,10 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DesktopUpdateCheckReason, DesktopUpdateState } from "../../shared/types";
+import type {
+  DesktopUpdateCheckReason,
+  DesktopUpdateState,
+} from "../../shared/desktopTypes";
 import { registerUpdatesIpc, updatesIpcChannels, type RegisterUpdatesIpcDependencies } from "./registerUpdatesIpc";
 
 type IpcListener = Parameters<IpcMain["handle"]>[1];

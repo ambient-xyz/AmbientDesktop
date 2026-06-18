@@ -1,7 +1,7 @@
 import type { ToolDefinition, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
 import type { AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
-import type { ThreadSummary } from "../../../shared/types";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import type { PluginMcpToolRegistration } from "../../plugins/pluginHost";
 import {
   ambientSubagentActiveToolNamesForThread as defaultAmbientSubagentActiveToolNamesForThread,

@@ -1,6 +1,6 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import { extname, join, relative, resolve } from "node:path";
-import type { SttTranscriptionState } from "../../shared/types";
+import type { SttTranscriptionState } from "../../shared/localRuntimeTypes";
 import { isPathInside } from "../session/sessionPaths";
 
 const MANAGED_STT_ROOT = ".ambient/stt";

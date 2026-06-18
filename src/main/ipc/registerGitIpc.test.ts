@@ -1,7 +1,13 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { GitBranchInput, GitCommitInput, GitFileActionInput, GitReviewSummary, GitSimpleAction } from "../../shared/types";
+import type {
+  GitBranchInput,
+  GitCommitInput,
+  GitFileActionInput,
+  GitReviewSummary,
+  GitSimpleAction,
+} from "../../shared/workspaceTypes";
 import {
   gitAttachExistingWorktreeIpcChannels,
   gitCommitIpcChannels,

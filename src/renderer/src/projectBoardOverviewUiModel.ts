@@ -1,12 +1,5 @@
-import type {
-  OrchestrationRun,
-  OrchestrationTask,
-  OrchestrationWorkflowReadiness,
-  ProjectBoardCard,
-  ProjectBoardEvent,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardGitSyncStatus, ProjectBoardSummary } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun, OrchestrationTask, OrchestrationWorkflowReadiness } from "../../shared/workflowTypes";
 import { DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS } from "../../shared/projectBoardSynthesisRecovery";
 import { projectBoardProofCoverageForBoard } from "./projectBoardActiveCardUiModel";
 import { projectBoardDecisionQueue } from "./projectBoardDecisionQueueUiModel";

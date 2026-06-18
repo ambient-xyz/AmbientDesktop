@@ -2,15 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import type {
-  PlannerDecisionQuestion,
-  PlannerDiagramKind,
-  PlannerDiagramSpec,
-  PlannerDurableArtifactValidationIssue,
-  PlannerDurableArtifactValidationResult,
-  PlannerPlanArtifact,
-  PlannerPlanStep,
-} from "../../shared/types";
+import type { PlannerDecisionQuestion, PlannerDiagramKind, PlannerDiagramSpec, PlannerDurableArtifactValidationIssue, PlannerDurableArtifactValidationResult, PlannerPlanArtifact, PlannerPlanStep } from "../../shared/plannerTypes";
 
 export interface PlannerDurableHtmlInput {
   artifact: PlannerPlanArtifact;

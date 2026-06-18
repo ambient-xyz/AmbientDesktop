@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { ThreadWorktreeSummary, WorkspaceState } from "../../shared/types";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
 import {
   ambientGitCommit as defaultAmbientGitCommit,
   ambientGitFinishToMain as defaultAmbientGitFinishToMain,
@@ -10,9 +11,9 @@ import {
   type AmbientGitFinishToMainInput,
   type AmbientGitFinishToMainResult,
   type AmbientGitStatusResult,
-} from "../ambient/ambientGitTools";
-import { gitToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+} from "./agentRuntimeAmbientFacade";
+import { gitToolDescriptor } from "./agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 
 export interface GitToolRegistrationOptions {
   workspace: WorkspaceState;

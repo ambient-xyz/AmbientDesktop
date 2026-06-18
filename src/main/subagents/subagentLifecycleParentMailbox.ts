@@ -1,5 +1,5 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 
 export const SUBAGENT_LIFECYCLE_INTERRUPTION_PARENT_MAILBOX_TYPE = "subagent.lifecycle_interrupted" as const;
 export const SUBAGENT_LIFECYCLE_INTERRUPTION_PARENT_MAILBOX_SCHEMA_VERSION =

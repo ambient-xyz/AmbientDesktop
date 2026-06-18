@@ -8,7 +8,7 @@ import type {
   LocalDeepResearchSettings,
   LocalModelMemoryLimitBehavior,
   LocalModelResourceSettings,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   DEFAULT_LOCAL_RUNTIME_COMFORTABLE_FREE_MEMORY_RATIO,
   DEFAULT_LOCAL_RUNTIME_MAX_PROJECTED_MEMORY_UTILIZATION,

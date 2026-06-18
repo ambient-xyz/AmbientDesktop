@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { BrowserWindow } from "electron";
-import type { PermissionPromptResolution, PermissionPromptResponseMode, PermissionRequest } from "../../shared/types";
+import type { PermissionPromptResolution, PermissionPromptResponseMode, PermissionRequest } from "../../shared/permissionTypes";
 
 type PendingPermission = {
   threadId: string;

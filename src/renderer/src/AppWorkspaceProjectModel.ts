@@ -1,10 +1,8 @@
 import { useMemo } from "react";
 
-import type {
-  ContextUsageSnapshot,
-  PlannerPlanArtifact,
-  ProjectSummary,
-} from "../../shared/types";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 import { isSessionContextMissingError } from "./AppMessages";
 import { isSessionContextMissing } from "./AppSessionRecovery";
 import { isPreparedLocalTaskWorkspace } from "./workspaceUiModel";

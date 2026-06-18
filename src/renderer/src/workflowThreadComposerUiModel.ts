@@ -1,4 +1,4 @@
-import type { WorkflowAgentThreadSummary, WorkflowRunDetail } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowRunDetail } from "../../shared/workflowTypes";
 import { workflowGraphEventCards, type WorkflowGraphEventCard } from "./workflowAgentGraphUiModel";
 import {
   workflowGraphRecoveryDecisionCard,

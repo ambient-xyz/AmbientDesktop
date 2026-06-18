@@ -4,9 +4,9 @@ import { access, copyFile, mkdir, rename, rm, stat } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import type { OfficePreview, OfficePreviewFormat } from "../../shared/types";
+import type { OfficePreview, OfficePreviewFormat } from "../../shared/workspaceTypes";
 import { describeOfficePreviewSupport } from "./officeFileSupport";
-import { ambientRuntimeEnv } from "../runtimePath";
+import { ambientRuntimeEnv } from "../setup/runtimePath";
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_CONVERT_TIMEOUT_MS = 45_000;

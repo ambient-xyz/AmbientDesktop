@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type {
-  DesktopEvent,
-  InterruptedToolCallRecoverySnapshot,
-  SendMessageInput,
-} from "../../shared/types";
+import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
+import type { InterruptedToolCallRecoverySnapshot } from "../../shared/threadTypes";
 import { createRuntimeAssistantRetryPlanning } from "./runtimeAssistantRetryPlanning";
 
 function sendInput(overrides: Partial<SendMessageInput> = {}): SendMessageInput {

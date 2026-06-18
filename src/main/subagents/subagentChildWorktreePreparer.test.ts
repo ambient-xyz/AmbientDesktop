@@ -2,14 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { createAmbientModelRuntimeSnapshotFromProfile } from "../../shared/ambientModels";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
-import type {
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-  ThreadSummary,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { getDefaultSubagentRoleProfile, type SubagentRoleProfile } from "../../shared/subagentRoles";
-import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
+import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
 import type { SubagentChildWorktreePrepareInput } from "../pi/piChildSessionAdapter";
 import {
   prepareSubagentChildWorktreeForLaunch,

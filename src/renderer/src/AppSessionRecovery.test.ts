@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ChatMessage, ContextUsageSnapshot } from "../../shared/types";
+import type { ChatMessage, ContextUsageSnapshot } from "../../shared/threadTypes";
 import {
   isSessionContextMissing,
   latestUserPromptForRecovery,

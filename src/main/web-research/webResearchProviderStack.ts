@@ -1,13 +1,4 @@
-import type {
-  SearchProviderPreference,
-  SearchRoutingSettings,
-  WebResearchFallbackPolicy,
-  WebResearchProviderConfig,
-  WebResearchProviderConfigStatus,
-  WebResearchProviderKind,
-  WebResearchProviderRole,
-  WebResearchProviderStackSettings,
-} from "../../shared/types";
+import type { SearchProviderPreference, SearchRoutingSettings, WebResearchCapabilityKind, WebResearchCapabilityProbeStatus, WebResearchFallbackPolicy, WebResearchProviderConfig, WebResearchProviderConfigStatus, WebResearchProviderKind, WebResearchProviderRole, WebResearchProviderStackSettings } from "../../shared/webResearchTypes";
 import {
   buildProviderStackStatus,
   cloneProviderStackPreferences,
@@ -33,6 +24,9 @@ export const WEB_RESEARCH_DEFAULT_PROVIDERS: WebResearchProviderConfig[] = [
     kind: "remote-mcp",
     roles: ["search", "fetch"],
     status: "enabled",
+    capabilityKinds: ["search", "static_fetch_extract"],
+    capabilityProbeStatus: "passed",
+    capabilityProbeEvidenceRefs: ["builtin:web-research/exa-search", "builtin:web-research/exa-fetch"],
     optionalSecretRefs: ["EXA_API_KEY"],
     privacyLabel: "Queries and fetched public URLs may be sent to Exa.",
   },
@@ -42,6 +36,9 @@ export const WEB_RESEARCH_DEFAULT_PROVIDERS: WebResearchProviderConfig[] = [
     kind: "toolhive-mcp",
     roles: ["fetch"],
     status: "enabled",
+    capabilityKinds: ["dynamic_headless_browser"],
+    capabilityProbeStatus: "passed",
+    capabilityProbeEvidenceRefs: ["builtin:web-research/scrapling-headless-fetch"],
     privacyLabel: "Public pages are fetched through the local ToolHive-isolated Scrapling workload.",
   },
   {
@@ -50,6 +47,9 @@ export const WEB_RESEARCH_DEFAULT_PROVIDERS: WebResearchProviderConfig[] = [
     kind: "built-in-browser",
     roles: ["search", "fetch", "interactive_browser"],
     status: "enabled",
+    capabilityKinds: ["interactive_browser"],
+    capabilityProbeStatus: "passed",
+    capabilityProbeEvidenceRefs: ["builtin:web-research/ambient-browser-interactive"],
     privacyLabel: "Browser fallback uses Ambient's managed browser session and may need user-visible interaction.",
   },
 ];
@@ -73,6 +73,13 @@ const WEB_RESEARCH_PROVIDER_KINDS = new Set<WebResearchProviderKind>([
   "ambient-cli",
 ]);
 const WEB_RESEARCH_PROVIDER_STATUSES = new Set<WebResearchProviderConfigStatus>(["enabled", "disabled"]);
+const WEB_RESEARCH_CAPABILITY_KINDS = new Set<WebResearchCapabilityKind>([
+  "search",
+  "static_fetch_extract",
+  "dynamic_headless_browser",
+  "interactive_browser",
+]);
+const WEB_RESEARCH_CAPABILITY_PROBE_STATUSES = new Set<WebResearchCapabilityProbeStatus>(["untested", "passed", "failed", "degraded"]);
 const SEARCH_ROUTING_MODES = new Set(["prefer", "require"]);
 const SEARCH_ROUTING_FALLBACKS = new Set(["allow", "block"]);
 
@@ -281,6 +288,13 @@ function normalizeCustomProvider(value: unknown): WebResearchProviderConfig | un
   const optionalSecretRefs = Array.isArray(record.optionalSecretRefs)
     ? [...new Set(record.optionalSecretRefs.filter((entry): entry is string => typeof entry === "string" && Boolean(entry.trim())).map((entry) => entry.trim()))]
     : [];
+  const capabilityKinds = normalizeCapabilityKinds(record.capabilityKinds);
+  const capabilityProbeStatus = typeof record.capabilityProbeStatus === "string" &&
+    WEB_RESEARCH_CAPABILITY_PROBE_STATUSES.has(record.capabilityProbeStatus as WebResearchCapabilityProbeStatus)
+    ? record.capabilityProbeStatus as WebResearchCapabilityProbeStatus
+    : undefined;
+  const capabilityProbeEvidenceRefs = stringList(record.capabilityProbeEvidenceRefs);
+  const capabilityFailureNotes = stringList(record.capabilityFailureNotes);
   const ambientCli = normalizeAmbientCliBinding(record.ambientCli);
   const mcp = normalizeMcpBinding(record.mcp);
   return {
@@ -289,6 +303,10 @@ function normalizeCustomProvider(value: unknown): WebResearchProviderConfig | un
     kind,
     roles,
     status,
+    ...(capabilityKinds.length ? { capabilityKinds } : {}),
+    ...(capabilityProbeStatus ? { capabilityProbeStatus } : {}),
+    ...(capabilityProbeEvidenceRefs.length ? { capabilityProbeEvidenceRefs } : {}),
+    ...(capabilityFailureNotes.length ? { capabilityFailureNotes } : {}),
     ...(privacyLabel ? { privacyLabel } : {}),
     ...(optionalSecretRefs.length ? { optionalSecretRefs } : {}),
     ...(ambientCli ? { ambientCli } : {}),
@@ -344,6 +362,9 @@ function cloneWebResearchProvider(provider: WebResearchProviderConfig): WebResea
   return {
     ...provider,
     roles: [...provider.roles],
+    ...(provider.capabilityKinds ? { capabilityKinds: [...provider.capabilityKinds] } : {}),
+    ...(provider.capabilityProbeEvidenceRefs ? { capabilityProbeEvidenceRefs: [...provider.capabilityProbeEvidenceRefs] } : {}),
+    ...(provider.capabilityFailureNotes ? { capabilityFailureNotes: [...provider.capabilityFailureNotes] } : {}),
     ...(provider.optionalSecretRefs ? { optionalSecretRefs: [...provider.optionalSecretRefs] } : {}),
     ...(provider.ambientCli ? { ambientCli: { ...provider.ambientCli } } : {}),
     ...(provider.mcp ? { mcp: { ...provider.mcp } } : {}),
@@ -403,6 +424,19 @@ function normalizeFallbackPolicy(value: unknown, legacyWebSearch?: SearchProvide
       ? false
       : WEB_RESEARCH_DEFAULT_FALLBACK_POLICY.allowBrowserFallback;
   return { allowBrowserFallback };
+}
+
+function normalizeCapabilityKinds(value: unknown): WebResearchCapabilityKind[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((entry): entry is WebResearchCapabilityKind =>
+    typeof entry === "string" && WEB_RESEARCH_CAPABILITY_KINDS.has(entry as WebResearchCapabilityKind),
+  ))];
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((entry): entry is string => typeof entry === "string" && Boolean(entry.trim())).map((entry) => entry.trim()))]
+    : [];
 }
 
 function normalizeLegacyWebSearchPreference(value: unknown): SearchProviderPreference | undefined {

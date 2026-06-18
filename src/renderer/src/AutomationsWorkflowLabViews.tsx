@@ -1,6 +1,6 @@
 import { Brain, CheckCircle2, LoaderCircle, Square, Zap } from "lucide-react";
 
-import type { WorkflowLabRun, WorkflowRecordingLibraryEntry } from "../../shared/types";
+import type { WorkflowLabRun, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import { formatTaskState, InfoTooltip, type ApiKeyStatus } from "./RightPanel";
 

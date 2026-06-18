@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
 import type { SubagentForkMode } from "../../shared/subagentProtocol";
 import type { SubagentInheritedContextItem, SubagentStrippedContextRef } from "./subagentPromptRuntime";
 

@@ -21,12 +21,7 @@ import {
   workflowLabRunsRootPath,
   workflowLabWriteRun,
 } from "./workflowLab";
-import type {
-  WorkflowLabCandidatePatch,
-  WorkflowLabEvaluationResult,
-  WorkflowLabRun,
-  WorkflowLabVariant,
-} from "../../shared/types";
+import type { WorkflowLabCandidatePatch, WorkflowLabEvaluationResult, WorkflowLabRun, WorkflowLabVariant } from "../../shared/workflowTypes";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

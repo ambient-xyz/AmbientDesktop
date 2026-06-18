@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { WorkflowCheckpointSummary } from "../../shared/types";
+import type { WorkflowCheckpointSummary } from "../../shared/workflowTypes";
 import type { WorkflowCheckpointStore } from "./workflowAgentRuntime";
 
 interface WorkflowCheckpointRecord {

@@ -1,13 +1,13 @@
+import type { DesktopEvent } from "../../../shared/desktopTypes";
 import type {
-  ChatMessage,
-  DesktopEvent,
   SubagentMailboxEventSummary,
   SubagentParentMailboxEventSummary,
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-} from "../../../shared/types";
+} from "../../../shared/subagentTypes";
+import type { ChatMessage } from "../../../shared/threadTypes";
 import type { LocalTextSubagentRuntimeStore } from "../../local-runtime/localTextSubagentRuntime";
 import type { SubagentPiToolStore } from "../../subagents/subagentPiTools";
 

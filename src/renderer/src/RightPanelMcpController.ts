@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import type {
-  AmbientMcpDefaultCapabilityInstallInput,
-  AmbientMcpInstallPreview,
-  AmbientMcpInstalledServerSummary,
-  AmbientMcpServerSearchResult,
-  AmbientMcpContainerRuntimeStatus,
-  CodexPluginMcpInspectionCatalog,
-  ManagedDevServerSummary,
-  PluginMcpRuntimeSnapshot,
-} from "../../shared/types";
+import type { AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, CodexPluginMcpInspectionCatalog, ManagedDevServerSummary, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
 import { mcpDefaultCapabilityRuntimeHandoffCandidate } from "./pluginUiModel";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 

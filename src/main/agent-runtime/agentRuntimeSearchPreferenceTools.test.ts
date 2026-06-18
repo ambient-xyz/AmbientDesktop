@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { SearchRoutingSettings, ThreadSummary, WorkspaceState } from "../../shared/types";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
 import {
   registerSearchPreferenceTools,

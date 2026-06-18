@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES } from "../../ambient/ambientToolRouter";
+import { AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES } from "../agentRuntimeAmbientFacade";
 import { ambientMcpBridgeActiveToolNamesForRecoveredTranscript } from "./agentRuntimeMcpRecoveredTranscript";
 
 describe("agentRuntimeMcpRecoveredTranscript", () => {

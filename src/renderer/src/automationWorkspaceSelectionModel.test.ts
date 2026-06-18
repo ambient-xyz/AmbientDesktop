@@ -1,18 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  AutomationFolderSummary,
-  AutomationThreadSummary,
-  OrchestrationBoard,
-  OrchestrationRun,
-  OrchestrationTask,
-  WorkflowAgentFolderSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowDashboard,
-  WorkflowRunDetail,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationThreadSummary } from "../../shared/automationTypes";
+import type { OrchestrationBoard, OrchestrationRun, OrchestrationTask, WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowDashboard, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/workflowTypes";
 import {
   automationWorkspaceSelectionModel,
   automationWorkspaceThreadForArtifact,

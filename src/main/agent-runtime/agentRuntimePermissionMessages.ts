@@ -1,4 +1,9 @@
-import type { PermissionPromptResponseMode, PermissionRequest, PermissionRisk, RuntimeActivity } from "../../shared/types";
+import type {
+  PermissionPromptResponseMode,
+  PermissionRequest,
+  PermissionRisk,
+} from "../../shared/permissionTypes";
+import type { RuntimeActivity } from "../../shared/threadTypes";
 import type { ToolResultDetails } from "../pi/piEventMapper";
 
 type RuntimePermissionActivity = Extract<RuntimeActivity, { kind: "permission" }>;

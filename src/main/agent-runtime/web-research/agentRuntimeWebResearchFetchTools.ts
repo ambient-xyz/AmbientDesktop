@@ -6,9 +6,9 @@ import type {
   BrowserProfileMode,
   BrowserRuntimeKind,
   BrowserUserActionState,
-  WebResearchProviderConfig,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/browserTypes";
+import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   browserToolFallback,
   browserUnavailableText,
@@ -22,8 +22,8 @@ import {
   webResearchResultText,
   webResearchToolUpdate,
 } from "./agentRuntimeWebResearchToolFormatting";
-import { webResearchToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { webResearchToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import type { McpToolCallResult } from "../../mcp/mcpToolBridge";
 import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 import {

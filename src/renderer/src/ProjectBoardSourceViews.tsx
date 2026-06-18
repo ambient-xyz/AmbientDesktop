@@ -1,15 +1,7 @@
 import { Info, ListFilter, MessageCircle, Plus, RefreshCw, X, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type {
-  ProjectBoardCard,
-  ProjectBoardEvent,
-  ProjectBoardSource,
-  ProjectBoardSourceChangeState,
-  ProjectBoardSourceKind,
-  ProjectSummary,
-  UpdateProjectBoardSourceInput,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSource, ProjectBoardSourceChangeState, ProjectBoardSourceKind, ProjectSummary, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
 import { projectBoardCandidateStatusLabel } from "./ProjectBoardLaneViews";
 import {
   projectBoardCardsForSourceGroup,

@@ -1,6 +1,6 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { ThreadSummary } from "../../shared/types";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
 import {
   isPlannerModeAllowedTool,

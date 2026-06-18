@@ -5,7 +5,7 @@ import {
   type SessionEntry,
 } from "@mariozechner/pi-coding-agent";
 
-import type { ContextUsageSnapshot } from "../../shared/types";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 import { getRestorablePiSessionFile } from "../session/sessionPaths";
 
 export interface ContextUsageReader {

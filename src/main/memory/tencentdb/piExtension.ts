@@ -5,9 +5,9 @@ import type {
   ExtensionFactory,
 } from "@mariozechner/pi-coding-agent";
 
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { DesktopToolDescriptor } from "../../desktopToolRegistry";
-import type { ChatMessage } from "../../../shared/types";
+import { registerDesktopTool } from "../../desktop-tools/desktopToolRegistration";
+import type { DesktopToolDescriptor } from "../../desktop-tools/desktopToolRegistry";
+import type { ChatMessage } from "../../../shared/threadTypes";
 import { buildAmbientTencentMemoryOffloadContext } from "./offload";
 import type { AmbientTencentDbMemoryRuntime } from "./runtime";
 import {

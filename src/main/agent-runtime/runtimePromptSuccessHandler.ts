@@ -1,4 +1,4 @@
-import type { DesktopEvent, SendMessageInput } from "../../shared/types";
+import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import type { AssistantFinalizationRetryReason } from "../agent-runtime/agentRuntimeAssistantRetryInput";
 import type {
   AssistantTerminalCleanupDiagnostic,

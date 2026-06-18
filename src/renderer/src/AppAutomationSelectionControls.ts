@@ -1,10 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  AutomationThreadSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { AutomationThreadSummary } from "../../shared/automationTypes";
+import type { WorkflowAgentThreadSummary, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import type { AutomationPane } from "./AutomationsWorkspace";
 import type { SidebarArea } from "./AppShellSidebar";
 

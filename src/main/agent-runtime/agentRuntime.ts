@@ -25,42 +25,59 @@ import type {
 import { classifyWorkflowPlanEditIntent, type WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
 import { applyAgentBootstrapToPrompt, buildAgentBootstrapContext } from "../agent/agentBootstrapContext";
 import { resolveAgentHarnessVariant } from "../agent/agentHarnessVariant";
-import { LocalPreviewServerManager } from "../localPreviewServer";
+import { LocalPreviewServerManager } from "../browser/localPreviewServer";
 import { createPrivilegedActionAdapter, privilegedActionAdapterSelectionFromEnv, type PrivilegedActionAdapter } from "../privileged-action/privilegedActionAdapter";
 import type { PiSessionFileCommitReason } from "../session/sessionFileCommit";
 import { commitAgentRuntimeThreadPiSessionFile } from "./agentRuntimeSessionFileCommit";
 import { enableAtomicPiSessionPersistence } from "../pi/piSessionAtomicPersistence";
 import type {
   DesktopEvent,
+  CompactThreadInput,
+  SendMessageInput,
+  RecoverThreadContextInput,
+  UpdateMediaPlaybackSettingsInput,
+  UpdatePlannerSettingsInput,
+  UpdateSttSettingsInput,
+  UpdateVoiceSettingsInput,
+  ProviderStatus,
+} from "../../shared/desktopTypes";
+import type {
   CancelCallableWorkflowTaskInput,
   PauseCallableWorkflowTaskInput,
-  ChatMessage,
   CallableWorkflowTaskSummary,
-  CompactThreadInput,
-  ContextUsageSnapshot,
-  MessageDelivery,
+  ResumeCallableWorkflowTaskInput,
+  WorkflowAgentThreadSummary,
+  WorkflowRecordingLibraryDescription,
+  WorkflowRecoveryAction,
+} from "../../shared/workflowTypes";
+import type {
   PermissionGrantScopeKind,
   PermissionMode,
   PermissionRisk,
   PermissionPromptResolution,
   PermissionPromptResponseMode,
-  PlannerPlanArtifact,
-  PlannerSettings,
   PermissionRequest,
   SecureInputPromptResolution,
-  ProjectSummary,
-  RunStatus,
-  SendMessageInput,
-  RecoverThreadContextInput,
-  ResumeCallableWorkflowTaskInput,
-  ThreadGoal,
-  ThreadSummary,
-  WorkspaceState,
-  BrowserProfileMode,
-  BrowserRuntimeKind,
+  PrivilegedActionNativeRequest,
+  PrivilegedCredentialPromptResolution,
+} from "../../shared/permissionTypes";
+import type { PlannerPlanArtifact, PlannerSettings } from "../../shared/plannerTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { BrowserProfileMode, BrowserRuntimeKind } from "../../shared/browserTypes";
+import type {
   CancelSubagentRunInput,
   CloseSubagentRunInput,
   ResolveSubagentWaitBarrierInput,
+  SubagentMailboxEventSummary,
+  SubagentParentMailboxEventSummary,
+  SubagentRunEventSummary,
+  SubagentRunSummary,
+  SubagentToolScopeSnapshotSummary,
+  SubagentWaitBarrierSummary,
+  SubagentWaitBarrierResolutionResult,
+} from "../../shared/subagentTypes";
+import type {
   EmbeddingProviderCandidate,
   MediaPlaybackSettings,
   MiniCpmVisionAnalysisResult,
@@ -74,35 +91,20 @@ import type {
   LocalModelRuntimeLifecycleActionResult,
   MiniCpmVisionSetupInput,
   MiniCpmVisionSetupResult,
-  PrivilegedActionNativeRequest,
-  PrivilegedCredentialPromptResolution,
-  SearchRoutingSettings,
   SttProviderCandidate,
   SttSettings,
-  SubagentMailboxEventSummary,
-  SubagentParentMailboxEventSummary,
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-  SubagentToolScopeSnapshotSummary,
-  SubagentWaitBarrierSummary,
-  SubagentWaitBarrierResolutionResult,
-  UpdateMediaPlaybackSettingsInput,
-  UpdatePlannerSettingsInput,
-  UpdateSttSettingsInput,
-  UpdateVoiceSettingsInput,
   VoiceSettingsAuditSource,
   VoiceProviderCandidate,
   VoiceSettings,
+} from "../../shared/localRuntimeTypes";
+import type {
+  SearchRoutingSettings,
   WebResearchProviderConfig,
   WebResearchProviderRole,
-  ThreadWorktreeSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowRecordingLibraryDescription,
-  ModelRuntimeSettings,
-  WorkflowRecoveryAction,
-  ProviderStatus,
-} from "../../shared/types";
+} from "../../shared/webResearchTypes";
+import type { ChatMessage, ContextUsageSnapshot, MessageDelivery, ModelRuntimeSettings, RunStatus, ThreadGoal, ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import {
+  AMBIENT_DEFAULT_MODEL,
   normalizeAmbientModelId,
   resolveAmbientModelRuntimeProfile,
   type AmbientModelRuntimeProfile,
@@ -120,7 +122,7 @@ import {
 } from "../../shared/featureFlags";
 import { isAgentMemoryActiveForThread } from "../../shared/agentMemorySettings";
 import type { AgentMemoryRuntimeSnapshot } from "../../shared/agentMemoryDiagnostics";
-import { ambientRetryPolicyFromSettings } from "../aggressiveRetries";
+import { ambientRetryPolicyFromSettings } from "./agentRuntimeAmbientFacade";
 import { createManualCompactionEventHandler } from "./agentRuntimeManualCompactionEvents";
 import {
   buildActiveContextUsageSnapshot,
@@ -130,13 +132,13 @@ import {
 import { runPromptPreflightBeforePrompt } from "./agentRuntimePromptPreflight";
 import type { ProjectStore } from "../projectStore/projectStore";
 import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "../provider/providerStatus";
-import { readAmbientApiKey } from "../credentialStore";
+import { readAmbientApiKey } from "../security/credentialStore";
 import { abortSessionRun as abortPiSessionRun } from "../session/sessionAbort";
 import { recordAgentRuntimeVoiceDispatch } from "../voice/agentRuntimeVoiceDispatch";
 import { completeAgentRuntimeRegisteredVoiceProviderSetup } from "../voice/agentRuntimeVoiceProviderSetup";
 import { dogfoodAgentRuntimeSelectedVoiceProvider } from "../voice/agentRuntimeVoiceProviderDogfood";
 import type { AmbientCliVoiceRunner } from "../voice/voiceProvider";
-import type { WorkspaceMediaUrlInput } from "../workspace/workspaceMedia";
+import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
 import { getRestorablePiSessionFile, getRestorableRecoverySessionFile, isPathInside } from "../session/sessionPaths";
 import type { AmbientFileAuthorityRequest } from "../pi/piReadOperations";
 import { workspaceBoundedAgentContextFiles } from "../pi/piContextFiles";
@@ -179,7 +181,7 @@ import {
   type AmbientWorkflowsSearchResponse,
   type AmbientWorkflowsUnarchiveInput,
   type AmbientWorkflowsUpdateInput,
-} from "../ambient/ambientWorkflows";
+} from "./agentRuntimeAmbientFacade";
 import {
   planVoicePolicyUpdate,
   voicePolicyApprovalDetail,
@@ -205,8 +207,8 @@ import {
   pluginInstallToolDescriptor,
   privilegedActionToolDescriptor,
   searchPreferenceToolDescriptor,
-} from "../desktopToolRegistry";
-import { AmbientDownloadService } from "../ambient/ambientDownloadService";
+} from "./agentRuntimeDesktopToolFacade";
+import { AmbientDownloadService } from "./agentRuntimeAmbientFacade";
 import { createManagedDownloadToolExtension as createManagedDownloadToolsExtension } from "./agentRuntimeManagedDownloadTools";
 import { AmbientCliPackageDescriptionState } from "./ambient-cli-package/agentRuntimeAmbientCliPackageDescriptionState";
 import {
@@ -328,6 +330,11 @@ import { tryCallWebResearchMcpProvider as callWebResearchMcpProvider } from "./w
 import { discoverWebResearchMcpProviderTools as discoverMcpProviderToolsForWebResearch } from "./web-research/agentRuntimeWebResearchMcpProviderTools";
 import { webResearchProviderPlanForInput as buildWebResearchProviderPlanForInput } from "./web-research/agentRuntimeWebResearchProviderPlan";
 import {
+  webResearchBrowserFallbackAllowedForThread,
+  webResearchSymphonyRoutingForThread,
+  type AgentRuntimeWebResearchSymphonyRouting,
+} from "./web-research/agentRuntimeWebResearchSymphonyRouting";
+import {
   ambientSubagentActiveToolNamesForThread,
   type SubagentPiToolStore,
 } from "../subagents/subagentPiTools";
@@ -338,6 +345,8 @@ import {
 import { createAgentRuntimeSubagentEventingStore } from "./subagents/agentRuntimeSubagentEventingStore";
 import { createAgentRuntimeSubagentToolExtension } from "./subagents/agentRuntimeSubagentTools";
 import {
+  CALLABLE_WORKFLOW_CATALOG_DESCRIBE_TOOL_NAME,
+  CALLABLE_WORKFLOW_CATALOG_SEARCH_TOOL_NAME,
   callableWorkflowActiveToolNamesForThread,
 } from "../callable-workflow/callableWorkflowPiTools";
 import {
@@ -490,6 +499,7 @@ import { createPluginMcpToolExtension as createPluginMcpToolsExtension } from ".
 import { createWorkflowNativeToolExtension as createWorkflowNativeToolsExtension } from "./workflow-support/agentRuntimeWorkflowNativeTools";
 import { createProjectBoardTaskToolExtension as createProjectBoardTaskToolsExtension } from "./agentRuntimeProjectBoardTaskTools";
 import {
+  RECOVERY_READ_TOOL_NAME,
   createInterruptedToolCallRecoveryToolExtension as createInterruptedToolCallRecoveryToolsExtension,
   readInterruptedToolCallRecoveryArtifact as readInterruptedToolCallRecoveryArtifactFromRoots,
 } from "./agentRuntimeInterruptedRecoveryTools";
@@ -497,6 +507,21 @@ import {
   activeToolNamesForAgentRuntimeSession,
   recoveryToolNamesForSessionRecovery,
 } from "./agentRuntimeRecoveryToolActivation";
+import {
+  activeToolNamesForSymphonyParentMode,
+  carrySymphonyParentModePolicy,
+  carrySymphonyParentModeVerifiedLaunch,
+  resolveSymphonyParentModePolicyForRuntimeSend,
+  resolveSymphonyParentModeVerifiedLaunch,
+  shouldRejectSymphonyParentModeActiveRunHandoff,
+  shouldRequireSymphonyParentModeLaunch,
+  shouldRebuildSessionForSymphonyParentMode,
+  SYMPHONY_PARENT_MODE_ACTIVE_RUN_HANDOFF_ERROR,
+  SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR,
+  validateSymphonyParentModeCallableWorkflowPrelaunch,
+  type SymphonyParentModePolicy,
+  type SymphonyParentModeVerifiedLaunch,
+} from "./agentRuntimeSymphonyParentMode";
 import { createGoalModeToolExtension as createGoalModeToolsExtension } from "./agentRuntimeGoalModeTools";
 import { validateGoalCompletionArtifacts } from "./agentRuntimeGoalCompletionValidation";
 import { createPrivilegedActionToolsExtension } from "./privileged-action/agentRuntimePrivilegedActionTools";
@@ -552,7 +577,7 @@ import {
   type LocalRuntimeOwnershipResolutionRequest,
   type LocalRuntimeOwnershipResolutionResult,
 } from "../local-runtime/localRuntimeOwnershipResolution";
-import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
+import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
 import type { LocalTextRuntimeManagerLike } from "../local-runtime/localTextDelegation";
 import { runAgentRuntimeLocalTextMainRun } from "../local-runtime/agentRuntimeLocalTextMainRun";
 import {
@@ -570,25 +595,25 @@ import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "
 import { appendMappedSubagentRuntimeEvent } from "../subagents/subagentRuntimeEventPersistence";
 import { prepareThreadWorktree } from "../git/gitWorktrees";
 import type { LocalDeepResearchSmokeRequest } from "../local-deep-research/localDeepResearchSmoke";
-import { createDefaultMessagingProviderRegistry } from "../messaging/messagingGatewayRegistry";
+import { createDefaultMessagingProviderRegistry } from "./agentRuntimeMessagingFacade";
 import {
   MessagingGatewayRunner,
-} from "../messaging/messagingGatewayRunner";
-import { TelegramBridgeSupervisor } from "../telegram/telegramBridgeSupervisor";
-import { readinessProbesFromAdapters } from "../messaging/messagingProviderReadiness";
+} from "./agentRuntimeMessagingFacade";
+import { TelegramBridgeSupervisor } from "./agentRuntimeTelegramFacade";
+import { readinessProbesFromAdapters } from "./agentRuntimeMessagingFacade";
 import { createSignalMessagingReadinessAdapter } from "./signal/signalMessagingReadiness";
-import { createTelegramMessagingReadinessAdapter } from "../telegram/telegramMessagingReadiness";
+import { createTelegramMessagingReadinessAdapter } from "./agentRuntimeTelegramFacade";
 import {
   createMessagingBindingStore,
-} from "../messaging/messagingBindings";
-import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "../messaging/messagingConversationDirectoryAdapters";
+} from "./agentRuntimeMessagingFacade";
+import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "./agentRuntimeMessagingFacade";
 import {
   SignalRealPollingRunner,
 } from "./signal/signalRealPolling";
 import { createAgentRuntimeMessagingSurfaceSnapshot } from "./messaging/agentRuntimeMessagingSurfaceSnapshot";
 import {
   TelegramBridgePollingRunner,
-} from "../telegram/telegramBridgePolling";
+} from "./agentRuntimeTelegramFacade";
 import { agentRuntimeWorkflowRecoveryEventsForRemoteSurface } from "./workflow-support/agentRuntimeWorkflowRecoveryEvents";
 import {
   AgentRuntimeRemoteSurfaceRuntimeEventStore,
@@ -640,13 +665,13 @@ import {
   visibleTranscriptRecoverySessionSeedDecision,
   visibleTranscriptRecoverySessionTranscriptContext,
   visibleTranscriptRecoveryUnavailableContextMessages,
-} from "../compactionSummary";
+} from "./recovery/compactionSummary";
 import { commitGitPaths } from "../workspace/workspaceGit";
 import { browserToolRecoverableFailure } from "../agent/agentBrowserRuntime";
 import {
   AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES,
   createAmbientToolRouterTools,
-} from "../ambient/ambientToolRouter";
+} from "./agentRuntimeAmbientFacade";
 import { ambientMcpBridgeActiveToolNamesForRecoveredTranscript } from "./mcp/agentRuntimeMcpRecoveredTranscript";
 import {
   cleanToolPath,
@@ -1094,6 +1119,9 @@ export interface VoiceSettingsAuditContext {
 }
 
 const activeSessions = new Map<string, PiSession>();
+const activeSessionSymphonyParentModeByThreadId = new Map<string, boolean>();
+const activeSessionSymphonyParentModePolicyKeyByThreadId = new Map<string, string>();
+const activeSessionSymphonyParentModeLaunchVerifiedByThreadId = new Map<string, boolean>();
 const POST_TOOL_CONTINUATION_IDLE_MS = resolvePostToolContinuationIdleMs();
 const POST_TOOL_FINALIZATION_IDLE_MS = 120_000;
 const POST_TOOL_FINALIZATION_TICK_MS = resolvePostToolFinalizationTickMs();
@@ -1139,8 +1167,15 @@ export {
 async function abortSessionRun(session: PiSession, threadId: string): Promise<void> {
   await abortPiSessionRun(session, {
     graceMs: POST_TOOL_ABORT_GRACE_MS,
-    onStalled: () => activeSessions.delete(threadId),
+    onStalled: () => deleteActiveSession(threadId),
   });
+}
+
+function deleteActiveSession(threadId: string): boolean {
+  activeSessionSymphonyParentModeByThreadId.delete(threadId);
+  activeSessionSymphonyParentModePolicyKeyByThreadId.delete(threadId);
+  activeSessionSymphonyParentModeLaunchVerifiedByThreadId.delete(threadId);
+  return activeSessions.delete(threadId);
 }
 
 type RuntimeSendMessageInput = SendMessageInput & {
@@ -1153,6 +1188,8 @@ type RuntimeSendMessageInput = SendMessageInput & {
   visibleUserContent?: string;
   hiddenUserMessage?: true;
   goalContinuation?: { goalId: string };
+  symphonyParentModePolicy?: SymphonyParentModePolicy | undefined;
+  symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined;
 };
 
 interface RuntimeSendLoopContext {
@@ -1234,6 +1271,7 @@ interface HandleAgentRuntimePromptSuccessInput {
   providerRetryAttemptCount: number;
   providerRetryLastError?: string | undefined;
   usesDedicatedReviewSession: boolean;
+  symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined;
   assistantFinalizationRetryMaxRetries: number;
   canScheduleAssistantFinalizationRetryFor: (reason: AssistantFinalizationRetryReason) => boolean;
   assistantFinalizationRetryAttemptsUsedFor: (reason: AssistantFinalizationRetryReason) => number;
@@ -1506,16 +1544,44 @@ export class AgentRuntime {
 
   async send(input: SendMessageInput, hooks: AgentRuntimeSendHooks = {}): Promise<void> {
     const incomingRuntimeInput = input as RuntimeSendMessageInput;
+    const activeRun = this.activeRuns.get(input.threadId);
+    if (activeRun) {
+      const thread = this.store.getThread(input.threadId);
+      const incomingSymphonyParentModePolicy = resolveSymphonyParentModePolicyForRuntimeSend({
+        thread,
+        composerIntent: incomingRuntimeInput.composerIntent,
+        carriedPolicy: incomingRuntimeInput.symphonyParentModePolicy,
+        featureFlagSnapshot: this.currentFeatureFlagSnapshot(),
+      });
+      if (shouldRejectSymphonyParentModeActiveRunHandoff({
+        activeRunPresent: true,
+        policy: incomingSymphonyParentModePolicy,
+      })) {
+        throw new Error(SYMPHONY_PARENT_MODE_ACTIVE_RUN_HANDOFF_ERROR);
+      }
+    }
     const activeRunHandoffHandled = await handleRuntimeActiveRunHandoff({
       sendInput: input,
       incomingDedicatedSessionKind: incomingRuntimeInput.dedicatedSessionKind,
-      activeRun: this.activeRuns.get(input.threadId),
+      activeRun,
       hooks,
       queueDuringRun: (queuedInput, activeRun, delivery) => this.queueDuringRun(queuedInput, activeRun, delivery),
     });
     if (activeRunHandoffHandled) return;
 
-    const sendLoop = this.prepareRuntimeSendLoopContext(input);
+    const initialThread = this.store.getThread(input.threadId);
+    const initialSymphonyParentModePolicy = resolveSymphonyParentModePolicyForRuntimeSend({
+      thread: initialThread,
+      composerIntent: incomingRuntimeInput.composerIntent,
+      carriedPolicy: incomingRuntimeInput.symphonyParentModePolicy,
+      featureFlagSnapshot: this.currentFeatureFlagSnapshot(),
+    });
+    const sendLoopInput = this.sendInputWithSymphonyParentModeToolCapableModel(
+      input,
+      initialThread,
+      initialSymphonyParentModePolicy,
+    );
+    const sendLoop = this.prepareRuntimeSendLoopContext(sendLoopInput);
     const {
       runtimeInput,
       usesDedicatedReviewSession,
@@ -1540,6 +1606,16 @@ export class AgentRuntime {
       promptContent,
       retrySourceUserMessageId,
     } = sendLoop;
+    const symphonyParentModePolicy = resolveSymphonyParentModePolicyForRuntimeSend({
+      thread,
+      composerIntent: runtimeInput.composerIntent,
+      carriedPolicy: runtimeInput.symphonyParentModePolicy,
+      featureFlagSnapshot: this.currentFeatureFlagSnapshot(),
+    });
+    const sendInputWithSymphonyParentModePolicy = carrySymphonyParentModePolicy(
+      runtimeInput,
+      symphonyParentModePolicy,
+    );
     const promptImageInputs = await resolveAgentRuntimeImageInputs({
       sendInput: runtimeInput,
       workspacePath: thread.workspacePath,
@@ -1576,12 +1652,14 @@ export class AgentRuntime {
     }
 
     const featureFlagSnapshotForPrompt = this.currentFeatureFlagSnapshot();
-    const subagentPreflight = explicitSubagentRequestPreflight({
-      prompt: visibleUserContent,
-      thread,
-      featureFlags: featureFlagSnapshotForPrompt,
-      activeToolNames: ambientSubagentActiveToolNamesForThread(thread, featureFlagSnapshotForPrompt),
-    });
+    const subagentPreflight = symphonyParentModePolicy
+      ? { kind: "none" as const }
+      : explicitSubagentRequestPreflight({
+        prompt: visibleUserContent,
+        thread,
+        featureFlags: featureFlagSnapshotForPrompt,
+        activeToolNames: ambientSubagentActiveToolNamesForThread(thread, featureFlagSnapshotForPrompt),
+      });
     if (subagentPreflight.kind === "blocked") {
       finalizeRuntimeSubagentPreflightBlock({
         threadId: input.threadId,
@@ -1605,9 +1683,9 @@ export class AgentRuntime {
       promptContent = applyExplicitSubagentRequestGuidance(promptContent, subagentPreflight.guidance);
     }
 
-    const runtimeModel = input.model ?? thread.model;
+    const runtimeModel = runtimeInput.model ?? thread.model;
     const mainModelRuntimeProfile = this.resolveMainModelRuntimeProfile(runtimeModel);
-    if (this.canUseLocalTextMainRuntime(mainModelRuntimeProfile, usesDedicatedReviewSession)) {
+    if (!symphonyParentModePolicy && this.canUseLocalTextMainRuntime(mainModelRuntimeProfile, usesDedicatedReviewSession)) {
       await this.sendLocalTextMainRun({
         input,
         thread,
@@ -1653,7 +1731,7 @@ export class AgentRuntime {
       createAssistantFinalizationRetryInput,
       createInterruptedToolCallRecoveryInput,
     } = createRuntimeAssistantRetryPlanning({
-      baseInput: input,
+      baseInput: sendInputWithSymphonyParentModePolicy,
       threadId: input.threadId,
       usesDedicatedReviewSession,
       activeAssistantFinalizationRetry,
@@ -1863,7 +1941,7 @@ export class AgentRuntime {
     let markOpenToolMessagesFailed: (reason: RuntimeOpenToolFailureReason) => void = () => undefined;
 
     const providerContinuation = createRuntimeProviderContinuationSetup({
-      baseInput: input,
+      baseInput: sendInputWithSymphonyParentModePolicy,
       workspacePath: thread.workspacePath,
       runId: run.id,
       threadId: input.threadId,
@@ -1904,7 +1982,7 @@ export class AgentRuntime {
       session,
       removeActiveSessionIfCurrent: (cleanupSession) => {
         if (activeSessions.get(input.threadId) !== cleanupSession) return false;
-        activeSessions.delete(input.threadId);
+        deleteActiveSession(input.threadId);
         return true;
       },
       clearPersistedSessionFileIfCurrent: options.clearPersistedSessionFileIfCurrent
@@ -1921,10 +1999,25 @@ export class AgentRuntime {
         : undefined,
     });
 
+    let symphonyParentModeVerifiedLaunch = runtimeInput.symphonyParentModeVerifiedLaunch;
+    const resolveCurrentSymphonyParentModeVerifiedLaunch = () =>
+      resolveSymphonyParentModeVerifiedLaunch({
+        policy: symphonyParentModePolicy,
+        carriedLaunch: symphonyParentModeVerifiedLaunch ?? runtimeInput.symphonyParentModeVerifiedLaunch,
+        parentThreadId: input.threadId,
+        parentRunId: run.id,
+        tasks: this.store.listCallableWorkflowTasksForParentRun(run.id),
+      });
+
     try {
       session = usesDedicatedReviewSession
         ? await this.createWorkflowRecordingReviewSession(thread)
-        : await this.getSession(thread, runtimeInput.sessionRecovery);
+        : await this.getSession(
+            thread,
+            runtimeInput.sessionRecovery,
+            symphonyParentModePolicy,
+            runtimeInput.symphonyParentModeVerifiedLaunch,
+          );
       if (!isRunStoreActive()) return;
       if (isAbortRequested()) {
         await abortSessionRun(session, input.threadId);
@@ -2074,7 +2167,7 @@ export class AgentRuntime {
         promptRunState,
         abortSessionRun: (cleanupSession, threadId) => abortSessionRun(cleanupSession as PiSession, threadId),
         removeActiveSessionIfCurrent: (cleanupSession) => {
-          if (activeSessions.get(input.threadId) === cleanupSession) activeSessions.delete(input.threadId);
+          if (activeSessions.get(input.threadId) === cleanupSession) deleteActiveSession(input.threadId);
         },
         emitRunEvent,
       });
@@ -2113,6 +2206,21 @@ export class AgentRuntime {
 
       const providerRetry = providerRetryState.snapshot();
       const promptRun = promptRunState.snapshot();
+      symphonyParentModeVerifiedLaunch = resolveCurrentSymphonyParentModeVerifiedLaunch();
+      const currentSymphonyParentModeTasks = symphonyParentModePolicy
+        ? this.store.listCallableWorkflowTasksForParentRun(run.id)
+          .filter((task) => task.parentThreadId === input.threadId && task.parentRunId === run.id)
+        : [];
+      if (
+        symphonyParentModePolicy &&
+        !symphonyParentModeVerifiedLaunch &&
+        (
+          currentSymphonyParentModeTasks.length > 0 ||
+          shouldRequireSymphonyParentModeLaunch({ policy: symphonyParentModePolicy })
+        )
+      ) {
+        throw new Error(SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR);
+      }
       const promptSuccess = await this.handlePromptSuccess({
         sendInput: input,
         runId: run.id,
@@ -2138,6 +2246,7 @@ export class AgentRuntime {
         providerRetryAttemptCount: providerRetry.providerRetryAttemptCount,
         providerRetryLastError: providerRetry.providerRetryLastError,
         usesDedicatedReviewSession,
+        symphonyParentModeVerifiedLaunch,
         assistantFinalizationRetryMaxRetries,
         canScheduleAssistantFinalizationRetryFor,
         assistantFinalizationRetryAttemptsUsedFor,
@@ -2149,8 +2258,16 @@ export class AgentRuntime {
         finishParentRun,
         emitRunEvent,
       });
-      pendingFollowUps.applyPromptSuccess(promptSuccess);
+      pendingFollowUps.applyPromptSuccess({
+        ...promptSuccess,
+        pendingEmptyResponseRetry: carrySymphonyParentModeVerifiedLaunch(
+          promptSuccess.pendingEmptyResponseRetry,
+          symphonyParentModeVerifiedLaunch,
+        ),
+      });
     } catch (error) {
+      symphonyParentModeVerifiedLaunch =
+        resolveCurrentSymphonyParentModeVerifiedLaunch() ?? symphonyParentModeVerifiedLaunch;
       await handleRuntimePromptFailure({
         error,
         threadId: input.threadId,
@@ -2183,12 +2300,23 @@ export class AgentRuntime {
         assistantFinalizationRetryNextAttemptFor,
         sessionRecoveryForCurrentSession,
         createAssistantFinalizationRetryInput,
-        createInterruptedToolCallRecoveryInput,
+        createInterruptedToolCallRecoveryInput: (snapshots) =>
+          carrySymphonyParentModeVerifiedLaunch(
+            carrySymphonyParentModePolicy(createInterruptedToolCallRecoveryInput(snapshots), symphonyParentModePolicy),
+            symphonyParentModeVerifiedLaunch,
+          ),
         collectOpenProviderInterruptionToolSnapshots,
         createProviderContinuationState,
         persistProviderContinuationState,
         persistCurrentSessionPointerForRetry,
-        createProviderInterruptionContinuationInput,
+        createProviderInterruptionContinuationInput: (continuationInput) =>
+          carrySymphonyParentModeVerifiedLaunch(
+            carrySymphonyParentModePolicy(
+              createProviderInterruptionContinuationInput(continuationInput),
+              symphonyParentModePolicy,
+            ),
+            symphonyParentModeVerifiedLaunch,
+          ),
         setPendingEmptyResponseRetry: pendingFollowUps.setPendingEmptyResponseRetry,
         setPendingInterruptedToolCallRecoveryFollowUp: pendingFollowUps.setPendingInterruptedToolCallRecoveryFollowUp,
         setPendingProviderInterruptionContinuation: pendingFollowUps.setPendingProviderInterruptionContinuation,
@@ -2316,7 +2444,12 @@ export class AgentRuntime {
         };
       },
       resolveSubagentFinalizationBlock: () => this.subagentFinalizationBarrierBlock(input.sendInput.threadId, input.runId),
-      resolveCallableWorkflowFinalizationBlock: () => this.callableWorkflowFinalizationBlock(input.sendInput.threadId, input.runId),
+      resolveCallableWorkflowFinalizationBlock: () =>
+        this.callableWorkflowFinalizationBlock(
+          input.sendInput.threadId,
+          input.runId,
+          input.symphonyParentModeVerifiedLaunch,
+        ),
       recordSubagentFinalizationBlockedParentMailbox: (block) =>
         this.recordSubagentFinalizationBlockedParentMailbox(input.sendInput.threadId, input.runId, block),
       recordCallableWorkflowFinalizationBlockedParentMailbox: (block) =>
@@ -2886,7 +3019,7 @@ export class AgentRuntime {
         continue;
       }
       session.dispose();
-      activeSessions.delete(threadId);
+      deleteActiveSession(threadId);
       this.stalePluginToolThreads.delete(threadId);
       this.staleRuntimeSettingsThreads.delete(threadId);
       this.ambientCliSkillMountDiagnostics.delete(threadId);
@@ -2913,7 +3046,7 @@ export class AgentRuntime {
         continue;
       }
       session.dispose();
-      activeSessions.delete(threadId);
+      deleteActiveSession(threadId);
       this.stalePluginToolThreads.delete(threadId);
       this.staleRuntimeSettingsThreads.delete(threadId);
       this.ambientCliSkillMountDiagnostics.delete(threadId);
@@ -2936,7 +3069,7 @@ export class AgentRuntime {
         continue;
       }
       session.dispose();
-      activeSessions.delete(threadId);
+      deleteActiveSession(threadId);
       this.stalePluginToolThreads.delete(threadId);
       this.staleRuntimeSettingsThreads.delete(threadId);
       this.ambientCliSkillMountDiagnostics.delete(threadId);
@@ -2997,7 +3130,7 @@ export class AgentRuntime {
         continue;
       }
       action.session.dispose();
-      activeSessions.delete(threadId);
+      deleteActiveSession(threadId);
       this.stalePluginToolThreads.delete(threadId);
       this.staleRuntimeSettingsThreads.delete(threadId);
       this.ambientCliSkillMountDiagnostics.delete(threadId);
@@ -3101,7 +3234,7 @@ export class AgentRuntime {
 
     const existing = activeSessions.get(thread.id);
     existing?.dispose();
-    activeSessions.delete(thread.id);
+    deleteActiveSession(thread.id);
     this.store.updateThreadSettings(thread.id, { piSessionFile: null });
 
     const reason = visibleTranscriptRecoveryReason({
@@ -3144,6 +3277,9 @@ export class AgentRuntime {
       session.dispose();
     }
     activeSessions.clear();
+    activeSessionSymphonyParentModeByThreadId.clear();
+    activeSessionSymphonyParentModePolicyKeyByThreadId.clear();
+    activeSessionSymphonyParentModeLaunchVerifiedByThreadId.clear();
     this.stalePluginToolThreads.clear();
     this.staleRuntimeSettingsThreads.clear();
     this.activeRuns.clear();
@@ -3506,14 +3642,26 @@ export class AgentRuntime {
       });
   }
 
-  private async getSession(thread: ThreadSummary, recovery?: RuntimeSessionRecoveryContext): Promise<PiSession> {
+  private async getSession(
+    thread: ThreadSummary,
+    recovery?: RuntimeSessionRecoveryContext,
+    symphonyParentModePolicy?: SymphonyParentModePolicy | undefined,
+    symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined,
+  ): Promise<PiSession> {
     const existing = activeSessions.get(thread.id);
     if (existing) {
       const pluginToolsStale = this.stalePluginToolThreads.delete(thread.id);
       const runtimeSettingsStale = this.staleRuntimeSettingsThreads.delete(thread.id);
-      if (pluginToolsStale || runtimeSettingsStale) {
+      const symphonyParentModeStale = shouldRebuildSessionForSymphonyParentMode({
+        cachedSymphonyParentMode: activeSessionSymphonyParentModeByThreadId.get(thread.id),
+        nextPolicy: symphonyParentModePolicy,
+        cachedPolicyKey: activeSessionSymphonyParentModePolicyKeyByThreadId.get(thread.id),
+        cachedLaunchVerified: activeSessionSymphonyParentModeLaunchVerifiedByThreadId.get(thread.id),
+        nextLaunchVerified: Boolean(symphonyParentModeVerifiedLaunch),
+      });
+      if (pluginToolsStale || runtimeSettingsStale || symphonyParentModeStale) {
         existing.dispose();
-        activeSessions.delete(thread.id);
+        deleteActiveSession(thread.id);
       } else {
         if (normalizeAmbientModelId(existing.model?.id) !== normalizeAmbientModelId(thread.model)) {
           await this.switchSessionToThreadModel(thread, existing);
@@ -3743,7 +3891,16 @@ export class AgentRuntime {
         this.createWorkflowNativeToolExtension(thread.id, workspace),
         this.createPluginMcpToolExtension(thread.id, workspace, pluginMcpTools),
         ...(callableWorkflowToolNames.length
-          ? [this.createCallableWorkflowToolExtension(thread.id, workspace, initialCallableWorkflowRecordedPlaybooks, childCallableWorkflowToolNames)]
+          ? [
+            this.createCallableWorkflowToolExtension(
+              thread.id,
+              workspace,
+              initialCallableWorkflowRecordedPlaybooks,
+              childCallableWorkflowToolNames,
+              symphonyParentModePolicy,
+              symphonyParentModeVerifiedLaunch,
+            ),
+          ]
           : []),
         ...(subagentToolNames.length ? [this.createSubagentToolExtension(thread.id, pluginMcpTools)] : []),
         this.createPlannerModeExtension(thread.id),
@@ -3834,10 +3991,25 @@ export class AgentRuntime {
     const transcriptRehydratedToolNames = thread.kind === "subagent_child"
       ? []
       : ambientMcpBridgeActiveToolNamesForRecoveredTranscript(recoveryTranscriptMessages);
-    const activeTools = activeToolNamesForAgentRuntimeSession({
+    const sessionActiveTools = activeToolNamesForAgentRuntimeSession({
       agentRuntimeActiveTools,
       recoveryToolNames: interruptedToolCallRecoveryToolNames,
       transcriptRehydratedToolNames,
+    });
+    const callableWorkflowConductorToolNames = symphonyParentModePolicy
+      ? [
+          CALLABLE_WORKFLOW_CATALOG_SEARCH_TOOL_NAME,
+          CALLABLE_WORKFLOW_CATALOG_DESCRIBE_TOOL_NAME,
+          ...(symphonyParentModeVerifiedLaunch ? [] : [symphonyParentModePolicy.expectedWorkflowToolName]),
+        ]
+      : callableWorkflowToolNames;
+    const activeTools = activeToolNamesForSymphonyParentMode({
+      activeToolNames: sessionActiveTools,
+      policy: symphonyParentModePolicy,
+      conductorToolNames: [
+        ...callableWorkflowConductorToolNames,
+        ...interruptedToolCallRecoveryToolNames.filter((toolName) => toolName === RECOVERY_READ_TOOL_NAME),
+      ],
     });
     const { session } = await createAgentSession({
       cwd: workspace.path,
@@ -3856,6 +4028,9 @@ export class AgentRuntime {
     session.agent.toolExecution = "sequential";
     await session.bindExtensions({});
     activeSessions.set(thread.id, session);
+    activeSessionSymphonyParentModeByThreadId.set(thread.id, Boolean(symphonyParentModePolicy));
+    activeSessionSymphonyParentModePolicyKeyByThreadId.set(thread.id, symphonyParentModePolicy?.expectedWorkflowToolName ?? "");
+    activeSessionSymphonyParentModeLaunchVerifiedByThreadId.set(thread.id, Boolean(symphonyParentModeVerifiedLaunch));
     if (session.sessionFile && session.sessionFile !== thread.piSessionFile) {
       await this.commitThreadPiSessionFile({
         threadId: thread.id,
@@ -4013,11 +4188,16 @@ export class AgentRuntime {
   private callableWorkflowFinalizationBlock(
     parentThreadId: string,
     parentRunId: string,
+    carriedLaunch?: SymphonyParentModeVerifiedLaunch | undefined,
   ): CallableWorkflowParentBlockingBlock | undefined {
     return resolveCallableWorkflowFinalizationBlock({
       parentThreadId,
       parentRunId,
       listCallableWorkflowTasksForParentRun: (runId) => this.store.listCallableWorkflowTasksForParentRun(runId),
+      additionalTasks: carriedLaunch?.parentThreadId === parentThreadId
+        ? this.store.listCallableWorkflowTasksForParentRun(carriedLaunch.parentRunId)
+          .filter((task) => task.id === carriedLaunch.taskId)
+        : [],
     });
   }
 
@@ -4034,6 +4214,24 @@ export class AgentRuntime {
   private resolveMainModelRuntimeProfile(modelId?: string): AmbientModelRuntimeProfile {
     return this.features.localTextSubagents?.resolveModelRuntimeProfile?.(modelId) ??
       DEFAULT_SUBAGENT_MODEL_RUNTIME_REGISTRY.resolveProfile(modelId);
+  }
+
+  private sendInputWithSymphonyParentModeToolCapableModel(
+    input: SendMessageInput,
+    thread: Pick<ThreadSummary, "model">,
+    policy?: SymphonyParentModePolicy | undefined,
+  ): SendMessageInput {
+    if (!policy) return input;
+    const requestedModel = input.model ?? thread.model;
+    const profile = this.resolveMainModelRuntimeProfile(requestedModel);
+    const toolCapable = profile.toolUse !== "none" && !isLocalTextSubagentProfile(profile);
+    if (toolCapable || normalizeAmbientModelId(requestedModel) === normalizeAmbientModelId(AMBIENT_DEFAULT_MODEL)) {
+      return input;
+    }
+    return {
+      ...input,
+      model: AMBIENT_DEFAULT_MODEL,
+    };
   }
 
   private canUseLocalTextMainRuntime(
@@ -4179,6 +4377,8 @@ export class AgentRuntime {
     workspace: WorkspaceState,
     initialRecordedWorkflowPlaybooks: readonly WorkflowRecordingLibraryDescription[] = [],
     childCallableWorkflowToolNames: readonly string[] = [],
+    symphonyParentModePolicy?: SymphonyParentModePolicy | undefined,
+    symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined,
   ): ExtensionFactory {
     return createAgentRuntimeCallableWorkflowToolExtension({
       threadId,
@@ -4188,6 +4388,20 @@ export class AgentRuntime {
       activeRunIds: this.activeRunIds,
       store: this.store,
       getFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
+      beforeEnqueueCallableWorkflowTask: ({ executionPlan }) => {
+        const validation = validateSymphonyParentModeCallableWorkflowPrelaunch({
+          policy: symphonyParentModePolicy,
+          launchVerified: Boolean(symphonyParentModeVerifiedLaunch),
+          request: {
+            parentThreadId: executionPlan.parent.threadId,
+            parentRunId: executionPlan.parent.runId,
+            toolName: executionPlan.workflowRunPlan.toolName,
+            sourceKind: executionPlan.workflowRunPlan.source.kind,
+          },
+          existingTasks: this.store.listCallableWorkflowTasksForParentRun(executionPlan.parent.runId),
+        });
+        if (!validation.allowed) throw new Error(validation.reason);
+      },
       startCallableWorkflowTaskForThread: (threadId, taskId, workspace) =>
         this.startCallableWorkflowTaskForThread(threadId, taskId, workspace),
       emitCallableWorkflowTaskUpdated: (task) => this.emitCallableWorkflowTaskUpdated(task),
@@ -6853,7 +7067,8 @@ export class AgentRuntime {
       webResearchRuntimeSummary: (signal) => this.webResearchRuntimeSummary(workspace, signal),
       webResearchProviderPlanForInput: (input, role, signal) =>
         this.webResearchProviderPlanForInput(workspace, input, role, signal, undefined, {
-          allowBrowserFallback: this.webResearchBrowserFallbackAllowedForThread(threadId),
+          allowBrowserFallback: webResearchBrowserFallbackAllowedForThread(this.store, threadId),
+          symphonyRouting: webResearchSymphonyRoutingForThread(this.store, threadId),
         }),
       webResearchExaApiKey: () => webResearchExaApiKeyFromEnv(this.features.mcp?.env),
       prepareBrowserToolProfile: (input, sourceThreadId, onUpdate) => this.prepareBrowserToolProfile(input, sourceThreadId, onUpdate),
@@ -6874,7 +7089,10 @@ export class AgentRuntime {
     role: WebResearchProviderRole,
     signal?: AbortSignal,
     providerSnapshot?: LocalDeepResearchProviderSnapshot,
-    options: { allowBrowserFallback?: boolean } = {},
+    options: {
+      allowBrowserFallback?: boolean;
+      symphonyRouting?: AgentRuntimeWebResearchSymphonyRouting;
+    } = {},
   ) {
     return buildWebResearchProviderPlanForInput({
       workspace,
@@ -6883,22 +7101,12 @@ export class AgentRuntime {
       signal,
       providerSnapshot,
       allowBrowserFallback: options.allowBrowserFallback,
+      symphonyRouting: options.symphonyRouting,
     }, {
       readSettings: () => this.features.search?.readSettings(),
       discoverAmbientCliPackages,
       discoverMcpProviderTools: (planSignal) => this.discoverWebResearchMcpProviderTools(workspace, planSignal),
     });
-  }
-
-  private webResearchBrowserFallbackAllowedForThread(threadId: string): boolean | undefined {
-    const thread = this.store.getThread(threadId);
-    if (thread.kind !== "subagent_child") return undefined;
-    if (!thread.subagentRunId) return false;
-    const latestScope = this.store.listSubagentToolScopeSnapshots(thread.subagentRunId).at(-1)?.scope;
-    const visibleCategories = new Set(latestScope?.piVisibleCategories ?? []);
-    return visibleCategories.has("browser.read") || visibleCategories.has("browser.interactive")
-      ? undefined
-      : false;
   }
 
   private async discoverWebResearchMcpProviderTools(workspace: WorkspaceState, signal?: AbortSignal) {

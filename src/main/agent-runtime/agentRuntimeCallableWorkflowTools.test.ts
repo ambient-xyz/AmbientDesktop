@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
-import type { CallableWorkflowTaskSummary, SubagentRunSummary, SubagentToolScopeSnapshotSummary, ThreadSummary, WorkflowRecordingLibraryDescription } from "../../shared/types";
+import type {
+  CallableWorkflowTaskSummary,
+  WorkflowRecordingLibraryDescription,
+} from "../../shared/workflowTypes";
+import type {
+  SubagentRunSummary,
+  SubagentToolScopeSnapshotSummary,
+} from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type { SubagentToolScopeResolution } from "../../shared/subagentToolScope";
 import type { CallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
 import type { CreateCallableWorkflowPiToolDefinitionsOptions } from "../callable-workflow/callableWorkflowPiTools";

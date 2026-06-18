@@ -1,10 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  MessageVoiceState,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { MessageVoiceState } from "../../shared/localRuntimeTypes";
 import {
   createAppMessageVoiceActions,
   desktopStateWithMessageVoiceState,

@@ -3,11 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import type {
   DesktopEvent,
+} from "../../shared/desktopTypes";
+import type {
   LocalDeepResearchInstallProgress,
   LocalDeepResearchSmokeResult,
   LocalDeepResearchValidationResult,
-  WorkspaceState,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   registerLocalDeepResearchSetupTools,
   type LocalDeepResearchSetupReadiness,

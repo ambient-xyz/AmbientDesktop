@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sttMessageArtifactEntries, sttMessageMetadataFromTranscription, sttMessageMetadataFromUnknown } from "./sttMessageMetadata";
-import type { SttTranscriptionState } from "./types";
+import type { SttTranscriptionState } from "./localRuntimeTypes";
 
 describe("STT message metadata", () => {
   it("keeps transcript provenance without copying transcript text", () => {

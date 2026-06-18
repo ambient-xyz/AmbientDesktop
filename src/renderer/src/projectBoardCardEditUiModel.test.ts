@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ProjectBoardCard,
-  ProjectBoardQuestion,
-  ProjectBoardSource,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import {
   projectBoardCandidateClarificationItems,
   projectBoardCardCanMarkReady,

@@ -8,14 +8,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { RefObject } from "react";
-import type {
-  BrowserCapabilityState,
-  BrowserCredentialSummary,
-  BrowserPickResult,
-  BrowserProfileMode,
-  BrowserScreenshotResult,
-  MiniCpmVisionDiagnosticItem,
-} from "../../shared/types";
+import type { BrowserCapabilityState, BrowserCredentialSummary, BrowserPickResult, BrowserProfileMode, BrowserScreenshotResult } from "../../shared/browserTypes";
+import type { MiniCpmVisionDiagnosticItem } from "../../shared/localRuntimeTypes";
 import type {
   BrowserCredentialForm,
   BrowserInspectResult,

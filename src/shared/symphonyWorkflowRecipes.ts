@@ -1,7 +1,7 @@
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, type AmbientFeatureFlagId } from "./featureFlags";
 import { buildDefaultSymphonyPatternRoleGraph, type SubagentPatternRoleGraph } from "./subagentPatternGraph";
 import type { SubagentRoleId } from "./subagentRoles";
-import type { CallableWorkflowSourcePreview } from "./types";
+import type { CallableWorkflowSourcePreview } from "./workflowTypes";
 
 export const SYMPHONY_WORKFLOW_RECIPE_SCHEMA_VERSION = "ambient-symphony-workflow-recipe-v1" as const;
 export const SYMPHONY_WORKFLOW_SOURCE_PREVIEW_SCHEMA_VERSION =

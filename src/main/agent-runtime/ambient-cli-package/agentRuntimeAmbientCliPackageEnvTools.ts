@@ -1,6 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { PermissionGrantScopeKind, PermissionRisk, ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   discoverAmbientCliPackages,
   setAmbientCliPackageEnvBinding,
@@ -17,8 +19,8 @@ import {
   ambientCliSecretRequestText,
 } from "./agentRuntimeAmbientCliPackageEnvModel";
 import { selectAmbientCliPackageForRuntime } from "./agentRuntimeAmbientCliPackageSelection";
-import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 
 type ToolUpdateHandler = (update: {
   content: Array<{ type: "text"; text: string }>;

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { CallableWorkflowTaskStatus, CallableWorkflowTaskSummary } from "../../shared/types";
+import type { CallableWorkflowTaskStatus, CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 
 export const CALLABLE_WORKFLOW_PARENT_BLOCKING_SCHEMA_VERSION =
   "ambient-callable-workflow-parent-blocking-v1" as const;

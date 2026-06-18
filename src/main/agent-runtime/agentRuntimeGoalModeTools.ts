@@ -1,6 +1,6 @@
 import type { AgentToolResult, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { ThreadGoal, ThreadGoalStatus, ThreadSummary } from "../../shared/types";
+import type { ThreadGoal, ThreadGoalStatus, ThreadSummary } from "../../shared/threadTypes";
 import type { GoalCompletionValidationResult } from "./agentRuntimeGoalCompletionValidation";
 import type { ProjectStore } from "../projectStore/projectStore";
 

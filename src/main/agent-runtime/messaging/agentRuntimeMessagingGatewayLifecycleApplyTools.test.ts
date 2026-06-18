@@ -5,7 +5,8 @@ import type {
   MessagingGatewayLifecyclePreview,
   MessagingGatewayRuntimeStatus,
 } from "../../../shared/messagingGateway";
-import type { ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   registerMessagingGatewayLifecycleApplyTools,
   type MessagingGatewayLifecycleApplyInput,

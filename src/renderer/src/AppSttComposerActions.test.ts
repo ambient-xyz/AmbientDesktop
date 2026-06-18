@@ -1,12 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  RunStatus,
-  SttProviderCandidate,
-  SttTranscriptionState,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { SttProviderCandidate, SttTranscriptionState } from "../../shared/localRuntimeTypes";
+import type { RunStatus } from "../../shared/threadTypes";
 import type { SttComposerUiState } from "./AppComposerShell";
 import {
   createAppSttComposerActions,

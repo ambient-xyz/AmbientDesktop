@@ -1,4 +1,5 @@
-import type { BrowserCapabilityState, BrowserCredentialSummary, WorkspaceState } from "../../shared/types";
+import type { BrowserCapabilityState, BrowserCredentialSummary } from "../../shared/browserTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   googleWorkspaceJsonObjectInput,
   googleWorkspaceJsonValueInput,

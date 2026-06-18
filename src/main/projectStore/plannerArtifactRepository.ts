@@ -7,8 +7,8 @@ import type {
   PlannerPlanArtifactStatus,
   PlannerPlanFinalizationAttempt,
   PlannerPlanFinalizationAttemptStatus,
-  PlannerPlanWorkflowState,
-} from "../../shared/types";
+  PlannerPlanWorkflowState
+} from "../../shared/plannerTypes";
 import {
   mapPlannerDecisionQuestionRow,
   mapPlannerPlanArtifactRow,

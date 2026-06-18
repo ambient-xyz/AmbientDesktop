@@ -12,13 +12,12 @@ import type {
   SubagentMailboxEventSummary,
   SubagentParentMailboxEventSummary,
   SubagentRunEventSummary,
-  SubagentRunStatus,
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { SubagentRunStatus } from "../../shared/subagentProtocol";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { getDefaultSubagentRoleProfile, type SubagentRoleProfile } from "../../shared/subagentRoles";
 import {
   SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
@@ -28,7 +27,7 @@ import {
   SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
   type SymphonyChildLaunchContractBundle,
 } from "../../shared/symphonyFineGrainedContracts";
-import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
+import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
 import { resolveSubagentModelScope, type SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
 import {
   executeSubagentSpawnLaunch,

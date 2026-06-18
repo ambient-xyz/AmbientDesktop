@@ -1,5 +1,9 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type {
+  SubagentMailboxEventSummary,
+  SubagentRunSummary,
+  SubagentWaitBarrierSummary,
+} from "../../shared/subagentTypes";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
 import {
   SUBAGENT_LIFECYCLE_INTERRUPTION_PARENT_MAILBOX_TYPE,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage, VoiceSettings } from "../../shared/types";
+import type { VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import { cleanAssistantTextForVoice, prepareVoiceTextForMessage } from "./voiceText";
 
 const voiceSettings: VoiceSettings = {

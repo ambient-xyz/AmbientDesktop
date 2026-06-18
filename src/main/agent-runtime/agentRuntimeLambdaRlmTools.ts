@@ -1,8 +1,8 @@
 import type { Model } from "@mariozechner/pi-ai";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { WorkspaceState } from "../../shared/types";
-import { createLambdaRlmToolDefinition } from "../lambdaRlm";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import { createLambdaRlmToolDefinition } from "../tool-runtime/lambdaRlm";
 import type { AmbientFileAuthorityRequester } from "../pi/piReadOperations";
 
 export interface LambdaRlmToolExtensionOptions {

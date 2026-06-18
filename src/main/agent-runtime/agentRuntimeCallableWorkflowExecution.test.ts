@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CallableWorkflowTaskSummary, DesktopEvent } from "../../shared/types";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { CallableWorkflowRunnerStore } from "../callable-workflow/callableWorkflowRunner";
 import {
   cancelAgentRuntimeCallableWorkflowTask,

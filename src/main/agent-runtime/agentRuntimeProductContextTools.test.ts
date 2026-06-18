@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 
-import { createAmbientToolRouterTools } from "../ambient/ambientToolRouter";
+import { createAmbientToolRouterTools } from "./agentRuntimeAmbientFacade";
 import {
   AMBIENT_PRODUCT_IDENTITY_SYSTEM_PROMPT,
   createAmbientProductContextExtension,
@@ -11,7 +11,7 @@ import {
   firstPartyDesktopToolDescriptors,
   productContextToolDescriptor,
   productContextToolDescriptors,
-} from "../desktopToolRegistry";
+} from "./agentRuntimeDesktopToolFacade";
 
 describe("Ambient product context tools", () => {
   it("registers a read-only product context tool and appends Desktop identity", async () => {

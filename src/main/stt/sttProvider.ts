@@ -1,6 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import type { SttSettings, SttTranscriptionState } from "../../shared/types";
+import type { SttSettings, SttTranscriptionState } from "../../shared/localRuntimeTypes";
 import type { AmbientCliRunResult, RunAmbientCliInput } from "../ambient-cli/ambientCliPackages";
 import { analyzeWavPcm16Rms, normalizeWavPcm16ToMono16k } from "./sttAudio";
 import { resolveWorkspaceSttAudioPath, sttUtteranceArtifactPaths, toWorkspaceRelativePath } from "./sttArtifacts";

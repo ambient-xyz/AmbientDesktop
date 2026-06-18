@@ -1,6 +1,6 @@
 import type { MutableRefObject } from "react";
 
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import {
   desktopEventMatchesProject,
   type WorkspaceProjectAliases,

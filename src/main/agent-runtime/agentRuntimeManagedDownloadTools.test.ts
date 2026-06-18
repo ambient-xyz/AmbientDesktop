@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkspaceState } from "../../shared/types";
-import type { AmbientDownloadJobSnapshot, AmbientDownloadStartInput } from "../ambient/ambientDownloadService";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { AmbientDownloadJobSnapshot, AmbientDownloadStartInput } from "./agentRuntimeAmbientFacade";
 import { createManagedDownloadToolExtension, type ManagedDownloadServiceLike } from "./agentRuntimeManagedDownloadTools";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };

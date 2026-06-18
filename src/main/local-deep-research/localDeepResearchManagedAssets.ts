@@ -1,8 +1,8 @@
 import { stat } from "node:fs/promises";
 import { arch as hostArch, platform as hostPlatform } from "node:os";
 import { resolve } from "node:path";
-import type { MiniCpmVisionRuntimeReleaseManifest } from "../../shared/types";
-import { managedInstallWorkspacePath } from "../managedInstallPaths";
+import type { MiniCpmVisionRuntimeReleaseManifest } from "../../shared/localRuntimeTypes";
+import { managedInstallWorkspacePath } from "../setup/managedInstallPaths";
 import { isPathInside } from "../session/sessionPaths";
 import { selectLocalLlamaRuntimeArtifact } from "../local-llama/localLlamaRuntimeManifest";
 import { miniCpmRuntimeReleaseManifestPrototype } from "../mini-cpm/miniCpmRuntimeManifest";

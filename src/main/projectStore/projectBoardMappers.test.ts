@@ -7,18 +7,17 @@ import type { ProjectBoardTaskToolAction } from "../project-board/projectBoardTa
 import type { ProjectBoardSynthesisDraft } from "../project-board/projectBoardSynthesis";
 import { defaultProjectBoardClaimAgentId } from "../project-board/projectBoardClaims";
 import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, GENERATED_REPORT_SOURCE_AUTHORITY_REASON } from "../project-board/projectBoardSourceIdentity";
+import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import type {
-  OrchestrationRun,
-  OrchestrationTask,
-  PlannerPlanArtifact,
   ProjectBoardCard,
   ProjectBoardCardClarificationAnswer,
   ProjectBoardCardProofReview,
   ProjectBoardCharter,
   ProjectBoardEvent,
   ProjectBoardQuestion,
-  ProjectBoardSource,
-} from "../../shared/types";
+  ProjectBoardSource
+} from "../../shared/projectBoardTypes";
 
 import {
   buildProjectBoardCharterProjectSummary,

@@ -1,9 +1,9 @@
 import { mkdir, stat } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
-import type { MessageVoiceState, VoiceOutputFormat } from "../../shared/types";
+import type { MessageVoiceState, VoiceOutputFormat } from "../../shared/localRuntimeTypes";
 import type { AmbientCliRunResult, RunAmbientCliInput } from "../ambient-cli/ambientCliPackages";
 import { isPathInside } from "../session/sessionPaths";
-import type { WorkspaceMediaUrlInput } from "../workspace/workspaceMedia";
+import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
 
 export interface VoiceSynthesisProvider {
   id: string;

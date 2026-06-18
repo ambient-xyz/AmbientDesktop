@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
 
 const LOCAL_DEEP_RESEARCH_RUN_TOOL_NAME = "ambient_local_deep_research_run";
 

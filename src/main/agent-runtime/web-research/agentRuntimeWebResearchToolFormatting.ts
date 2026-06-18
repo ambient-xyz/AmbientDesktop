@@ -1,6 +1,6 @@
 import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 
-import type { WebResearchProviderConfig } from "../../../shared/types";
+import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
 import { webResearchToolResult } from "./agentRuntimeWebResearchStatusTools";
 import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 import type { WebResearchProviderAttempt } from "../../web-research/webResearchBroker";

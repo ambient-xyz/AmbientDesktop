@@ -9,7 +9,7 @@ import type {
   LocalModelHostMemorySnapshot,
   LocalRuntimeLeaseRecord,
   VoiceProviderCandidate,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import { resolveLocalRuntimeMemoryPolicy } from "../../shared/localRuntimeMemoryPolicy";
 import { localDeepResearchProfileById } from "../local-deep-research/localDeepResearchModelProfiles";
 import {

@@ -1,10 +1,8 @@
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  ProjectSummary,
-  ThreadSummary,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type {
   ProjectActionDialogState,
   ProjectContextMenuState,

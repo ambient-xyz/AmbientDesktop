@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  OrchestrationPrepareResult,
-  ProjectBoardCard,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSummary } from "../../shared/projectBoardTypes";
+import type { OrchestrationPrepareResult } from "../../shared/workflowTypes";
 import {
   projectBoardPrepareSkipReasonLabel,
   projectBoardPrepareSkippedMessage,

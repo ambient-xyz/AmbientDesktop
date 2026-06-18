@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  MessageVoiceState,
-  VoiceProviderCandidate,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { MessageVoiceState, VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
 import { voiceThreadStatusDismissKey } from "./AppChatChrome";
 import {
   latestReadyVoiceAutoplayTarget,

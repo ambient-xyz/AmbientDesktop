@@ -1,5 +1,5 @@
+import type { AutomationRunSummary } from "../../shared/automationTypes";
 import type {
-  AutomationRunSummary,
   CallableWorkflowTaskProgressSnapshot,
   CallableWorkflowTaskStatus,
   CallableWorkflowTaskUsageSnapshot,
@@ -24,8 +24,8 @@ import type {
   WorkflowVersionCreatedBy,
   WorkflowVersionStatus,
   WorkflowVersionSummary,
-  WorkflowTraceMode,
-} from "../../shared/types";
+  WorkflowTraceMode
+} from "../../shared/workflowTypes";
 import { workflowRunLiveness } from "../../shared/workflowRunLiveness";
 import {
   mapWorkflowArtifactRow,

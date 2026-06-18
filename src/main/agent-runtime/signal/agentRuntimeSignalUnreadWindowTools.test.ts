@@ -4,9 +4,9 @@ import {
   registerSignalUnreadWindowTools,
   type SignalUnreadWindowToolPermissionRequest,
 } from "./agentRuntimeSignalUnreadWindowTools";
-import { createEmptyMessagingBindingRegistry } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createEmptyMessagingBindingRegistry } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
 

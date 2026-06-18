@@ -1,4 +1,4 @@
-import type { RunDiagnostics } from "../../shared/types";
+import type { RunDiagnostics } from "../../shared/threadTypes";
 
 export type PersistedRunStatus = "starting" | "streaming" | "tool" | "done" | "error" | "aborted" | "interrupted";
 export type ActivePersistedRunStatus = Extract<PersistedRunStatus, "starting" | "streaming" | "tool">;

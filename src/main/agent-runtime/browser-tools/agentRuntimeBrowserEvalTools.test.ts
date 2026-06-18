@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { BrowserUserActionState } from "../../../shared/types";
+import type { BrowserUserActionState } from "../../../shared/browserTypes";
 import { BrowserUnavailableError } from "../../browser/browserService";
 import {
   formatBrowserEvalValue,

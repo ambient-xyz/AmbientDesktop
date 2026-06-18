@@ -1,7 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import { e2eEmitEventIpcChannels } from "./registerE2eIpc";
 import {
   e2eDomainIpcChannels,

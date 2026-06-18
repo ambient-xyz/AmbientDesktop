@@ -9,11 +9,11 @@ import type {
   MiniCpmVisionSetupResult,
   MiniCpmVisionTask,
   MiniCpmVisionVideoInputSource,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../shared/types";
-import { visionToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+} from "../../shared/localRuntimeTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import { visionToolDescriptor } from "./agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
 import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "../mini-cpm/miniCpmVisionProvider";
 import type { AnalyzeMiniCpmVisionInputOptions, MiniCpmVisionProgressEvent, SetupMiniCpmVisionProviderOptions } from "../mini-cpm/miniCpmVisionProvider";

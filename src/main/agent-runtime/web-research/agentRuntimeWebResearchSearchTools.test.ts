@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  BrowserSearchResult,
-  BrowserUserActionState,
-  WebResearchProviderConfig,
-  WorkspaceState,
-} from "../../../shared/types";
+import type { BrowserSearchResult, BrowserUserActionState } from "../../../shared/browserTypes";
+import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { AmbientCliRunResult } from "../../ambient-cli/ambientCliPackages";
 import { WEB_RESEARCH_PROVIDER_IDS, type WebResearchProviderRequestPlan } from "../../web-research/webResearchProviderStack";
 import { registerWebResearchSearchTools, type WebResearchSearchToolRegistrationOptions } from "./agentRuntimeWebResearchSearchTools";

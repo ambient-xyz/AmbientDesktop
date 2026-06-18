@@ -1,10 +1,4 @@
-import type {
-  ProjectBoardPlanningDepthAssessment,
-  ProjectBoardPlanningSnapshot,
-  ProjectBoardQuestion,
-  ProjectBoardSource,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardPlanningDepthAssessment, ProjectBoardPlanningSnapshot, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 
 export type ProjectBoardComplexityBand = "small" | "medium" | "large";
 export type ProjectBoardComplexityConfidence = "low" | "medium" | "high";

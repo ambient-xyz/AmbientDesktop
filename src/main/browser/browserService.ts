@@ -4,39 +4,8 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { cp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, relative } from "node:path";
-import type {
-  BrowserCapabilityState,
-  BrowserContentInput,
-  BrowserEvaluateInput,
-  BrowserKeypressFocusResult,
-  BrowserKeypressInput,
-  BrowserKeypressKeyInput,
-  BrowserKeypressKeyResult,
-  BrowserKeypressResult,
-  BrowserLoginRequest,
-  BrowserLoginResult,
-  BrowserNavigateInput,
-  BrowserPageContent,
-  BrowserPickInput,
-  BrowserPickResult,
-  BrowserPickSelection,
-  BrowserProfileMode,
-  BrowserRevealInput,
-  BrowserRevealResult,
-  BrowserRuntimeKind,
-  BrowserScreenshotResult,
-  BrowserSearchResult,
-  BrowserSearchInput,
-  BrowserSessionLifecycleAction,
-  BrowserSessionLifecycleEvent,
-  BrowserStartInput,
-  BrowserTabSnapshot,
-  BrowserUserActionKind,
-  BrowserUserActionProvider,
-  BrowserUserActionState,
-  BrowserViewBoundsInput,
-  WorkspaceState,
-} from "../../shared/types";
+import type { BrowserCapabilityState, BrowserContentInput, BrowserEvaluateInput, BrowserKeypressFocusResult, BrowserKeypressInput, BrowserKeypressKeyInput, BrowserKeypressKeyResult, BrowserKeypressResult, BrowserLoginRequest, BrowserLoginResult, BrowserNavigateInput, BrowserPageContent, BrowserPickInput, BrowserPickResult, BrowserPickSelection, BrowserProfileMode, BrowserRevealInput, BrowserRevealResult, BrowserRuntimeKind, BrowserScreenshotResult, BrowserSearchInput, BrowserSearchResult, BrowserSessionLifecycleAction, BrowserSessionLifecycleEvent, BrowserStartInput, BrowserTabSnapshot, BrowserUserActionKind, BrowserUserActionProvider, BrowserUserActionState, BrowserViewBoundsInput } from "../../shared/browserTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { shouldReloadBrowserUrlForWorkspaceChange } from "./browserRefresh";
 
 export const BROWSER_SCREENSHOT_MIME_TYPE = "image/png";

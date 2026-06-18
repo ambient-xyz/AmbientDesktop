@@ -37,11 +37,10 @@ import type {
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-  CallableWorkflowTaskSummary,
-  SymphonyChildLaunchContractBundle,
-  ThreadWorktreeSummary,
-  ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
+import type { SymphonyChildLaunchContractBundle } from "../../shared/symphonyFineGrainedContracts";
+import type { ThreadWorktreeSummary, ThreadSummary } from "../../shared/threadTypes";
 import {
   type SubagentModelScopeResolution,
 } from "../model-provider/modelScopeResolver";
@@ -62,8 +61,8 @@ import {
 } from "./subagentChildWorktreePreparer";
 import {
   acquireSymphonyMutationWorkspaceLease,
-} from "../symphonyMutationWorkspaceLeaseService";
-import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
+} from "./symphonyMutationWorkspaceLeaseDefaultService";
+import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
 import {
   createSubagentIdempotencyKey,
   createSubagentPayloadFingerprint,

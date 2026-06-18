@@ -1,4 +1,4 @@
-import type { RuntimeActivity } from "../../../shared/types";
+import type { RuntimeActivity } from "../../../shared/threadTypes";
 
 type RuntimeToolActivity = Extract<RuntimeActivity, { kind: "tool" }>;
 

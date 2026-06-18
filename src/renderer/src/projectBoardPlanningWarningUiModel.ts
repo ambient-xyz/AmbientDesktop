@@ -1,10 +1,4 @@
-import type {
-  ProjectBoardCard,
-  ProjectBoardSummary,
-  ProjectBoardSynthesisProposal,
-  ProjectBoardSynthesisRun,
-  ProjectBoardSynthesisRunProgressiveRecord,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSummary, ProjectBoardSynthesisProposal, ProjectBoardSynthesisRun, ProjectBoardSynthesisRunProgressiveRecord } from "../../shared/projectBoardTypes";
 import {
   projectBoardProofArray,
   projectBoardProofObject,

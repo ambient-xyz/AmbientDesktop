@@ -4,15 +4,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { registerMessagingRemoteSurfaceBindingTools } from "./agentRuntimeMessagingRemoteSurfaceBindingTools";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 import {
   buildTelegramRemoteSurfaceBindingPlan,
   telegramRemoteSurfaceBindingCreateInput,
   telegramRemoteSurfaceBindingRevokeInput,
   type TelegramRemoteSurfaceBindingToolInput,
-} from "../../telegram/telegramRemoteSurfaceBinding";
+} from "../agentRuntimeTelegramFacade";
 
 describe("registerMessagingRemoteSurfaceBindingTools", () => {
   it("registers and executes the generic Remote Ambient Surface binding preview tool", async () => {

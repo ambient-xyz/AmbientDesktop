@@ -4,12 +4,12 @@ import type { ExtensionAPI, ToolDefinition } from "@mariozechner/pi-coding-agent
 
 import type {
   AmbientPermissionGrant,
-  DesktopEvent,
   PermissionGrantScopeKind,
   PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/permissionTypes";
+import type { DesktopEvent } from "../../../shared/desktopTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import { createMcpAutowireCandidateRefStore } from "../../mcp-autowire/mcpAutowireCandidateRefs";
 import { createMcpAutowirePlanRevisionStore } from "../../mcp-autowire/mcpAutowirePlanEdits";
 import { createMcpAutowirePiToolDefinitions } from "../../mcp-autowire/mcpAutowirePiTools";

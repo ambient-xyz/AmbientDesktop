@@ -1,11 +1,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { messagingGatewayToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { messagingGatewayToolDescriptor } from "./agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 import {
   runtimeSurfaceSnapshotText,
   type RuntimeSurfaceSnapshot,
-} from "../runtimeSurfaceSnapshot";
+} from "../../shared/runtimeSurfaceSnapshot";
 
 export interface RuntimeSurfaceToolRegistrationOptions {
   runtimeSurfaceSnapshot: (limit?: number) => RuntimeSurfaceSnapshot;

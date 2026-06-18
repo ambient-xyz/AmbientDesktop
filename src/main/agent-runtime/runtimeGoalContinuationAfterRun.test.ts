@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ThreadGoal } from "../../shared/types";
+import type { ThreadGoal } from "../../shared/threadTypes";
 import {
   finalizeRuntimeGoalContinuationAfterRun,
   type AccountFinishedGoalRunInput,

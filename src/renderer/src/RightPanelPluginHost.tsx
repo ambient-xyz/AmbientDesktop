@@ -1,40 +1,9 @@
 import { AlertCircle, CheckCircle2, FileText, FolderOpen, Info, LoaderCircle, Package, Pencil, Plug, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
 import { FormEvent, ReactNode, memo, useEffect, useState, type ComponentType } from "react";
-import type {
-  AmbientGeneratedCapabilitySummary,
-  AmbientMcpContainerRuntimeManagedInstallProgress,
-  AmbientMcpDefaultCapabilityInstallProgress,
-  AmbientMcpContainerRuntimeStatus,
-  AmbientMcpDefaultCapabilityInstallInput,
-  AmbientMcpInstallPreview,
-  AmbientMcpInstalledServerSummary,
-  AmbientMcpServerSearchResult,
-  AmbientPluginAuthStartResult,
-  AmbientPluginCapabilityDiagnostics,
-  AmbientPluginRegistry,
-  AmbientPluginRuntime,
-  AmbientPluginSourceKind,
-  CapabilityBuilderHistoryEntry,
-  CapabilityBuilderHistoryResult,
-  CodexHostedMarketplaceReport,
-  CodexMarketplaceSourceSummary,
-  CodexPluginCatalog,
-  CodexPluginMcpInspectionCatalog,
-  CodexPluginSummary,
-  DesktopState,
-  FirstPartyGoogleIntegrationState,
-  ManagedDevServerSummary,
-  PermissionAuditEntry,
-  PiExtensionSandboxCatalog,
-  PiExtensionSandboxInstallPreview,
-  PiPackageCatalog,
-  PiPackageInstallScope,
-  PiPrivilegedCatalog,
-  PiPrivilegedSecurityScan,
-  PluginMcpRuntimeSnapshot,
-  SttProviderCandidate,
-  VoiceProviderCandidate,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { SttProviderCandidate, VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
+import type { PermissionAuditEntry } from "../../shared/permissionTypes";
+import type { AmbientGeneratedCapabilitySummary, AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, AmbientMcpDefaultCapabilityInstallProgress, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, AmbientPluginAuthStartResult, AmbientPluginCapabilityDiagnostics, AmbientPluginRegistry, AmbientPluginRuntime, AmbientPluginSourceKind, CapabilityBuilderHistoryEntry, CapabilityBuilderHistoryResult, CodexHostedMarketplaceReport, CodexMarketplaceSourceSummary, CodexPluginCatalog, CodexPluginMcpInspectionCatalog, CodexPluginSummary, FirstPartyGoogleIntegrationState, ManagedDevServerSummary, PiExtensionSandboxCatalog, PiExtensionSandboxInstallPreview, PiPackageCatalog, PiPackageInstallScope, PiPrivilegedCatalog, PiPrivilegedSecurityScan, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
 import {
   capabilityBuilderHistoryPreviewActionState,
   capabilityBuilderHistoryRepairPlanActionState,

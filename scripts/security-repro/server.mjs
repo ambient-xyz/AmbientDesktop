@@ -333,9 +333,9 @@ async function runF002() {
     env: { ...process.env, AMBIENT_SECURITY_REPRO_SECRET: sentinel },
     timeoutMs: 5_000,
   });
-  const credentialStore = await sourceHit("src/main/credentialStore.ts", /process\.env(?:\.|\[['"])(?:AMBIENT_API_KEY|AMBIENT_AGENT_AMBIENT_API_KEY)['"]?\]?\s*=/);
+  const credentialStore = await sourceHit("src/main/security/credentialStore.ts", /process\.env(?:\.|\[['"])(?:AMBIENT_API_KEY|AMBIENT_AGENT_AMBIENT_API_KEY)['"]?\]?\s*=/);
   const toolRunner = await sourceHit("src/main/tool-runtime/toolRunner.ts", /\.\.\.process\.env|env:\s*process\.env/);
-  const runtimePath = await sourceHit("src/main/runtimePath.ts", /\.\.\.process\.env/);
+  const runtimePath = await sourceHit("src/main/setup/runtimePath.ts", /\.\.\.process\.env/);
   const inherited = child.stdout === sentinel;
   const broadSourceLeak = credentialStore.matched || toolRunner.matched || runtimePath.matched;
 
@@ -519,14 +519,14 @@ async function runF007() {
 
 async function runF008() {
   const index = await readRepoFile("src/main/index.ts");
-  const policy = await readRepoFile("src/main/externalUrlPolicy.ts").catch(() => "");
+  const policy = await readRepoFile("src/main/security/externalUrlPolicy.ts").catch(() => "");
   const legacyExternalSchema = /const\s+externalUrlSchema[\s\S]{0,500}file:/.test(index);
   const rawWindowOpenExternal = /setWindowOpenHandler\(\(\{\s*url\s*\}\)\s*=>\s*\{[\s\S]{0,160}shell\.openExternal\(url\)/.test(index);
   const policyRejectsFiles = /Only https links and loopback http links can be opened externally/.test(policy) && !/protocol\s*===\s*["']file:["']/.test(policy);
   const mainGuard = /installExternalNavigationGuards\(mainWindow/.test(index);
   const miniGuard = /installExternalNavigationGuards\(miniWindow/.test(index);
-  const internalBrowser = await sourceHit("src/main/internalBrowserHost.ts", /assertAllowedInternalBrowserUrl|isAllowedInternalBrowserUrl/);
-  const policyHit = await sourceHit("src/main/externalUrlPolicy.ts", /parseExternalOpenUrl|Only https links and loopback http links can be opened externally/);
+  const internalBrowser = await sourceHit("src/main/browser/internalBrowserHost.ts", /assertAllowedInternalBrowserUrl|isAllowedInternalBrowserUrl/);
+  const policyHit = await sourceHit("src/main/security/externalUrlPolicy.ts", /parseExternalOpenUrl|Only https links and loopback http links can be opened externally/);
   const rawOpenHit = await sourceHit("src/main/index.ts", /setWindowOpenHandler\(\(\{\s*url\s*\}\)\s*=>\s*\{[\s\S]{0,160}shell\.openExternal\(url\)/);
 
   return {

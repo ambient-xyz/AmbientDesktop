@@ -5,9 +5,9 @@ import {
   createSignalBridgeReplyResolvers,
   signalBridgeReplyApprovalRequest,
 } from "./agentRuntimeSignalBridgeReplyPlan";
-import { createEmptyMessagingBindingRegistry } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createEmptyMessagingBindingRegistry } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 describe("registerSignalBridgeReplyTools", () => {
   it("registers and executes the Signal bridge reply tools", async () => {

@@ -1,4 +1,5 @@
-import type { MessageDelivery, SendMessageInput, ThreadSummary } from "../../../shared/types";
+import type { SendMessageInput } from "../../../shared/desktopTypes";
+import type { MessageDelivery, ThreadSummary } from "../../../shared/threadTypes";
 import { workflowRecordingReviewPromptFromState } from "../../../shared/workflowRecorder";
 
 export type AgentRuntimeWorkflowRecordingReviewSendInput =

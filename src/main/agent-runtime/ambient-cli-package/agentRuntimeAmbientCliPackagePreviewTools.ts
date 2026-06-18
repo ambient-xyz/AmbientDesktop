@@ -1,14 +1,14 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   previewAmbientCliPackageInstallSource,
   type AmbientCliPackageInstallPreview,
   type PreviewAmbientCliPackageInput,
 } from "../../ambient-cli/ambientCliPackages";
 import { ambientCliPackagePreviewInput, ambientCliPackagePreviewText } from "./agentRuntimeAmbientCliPackageInstallModel";
-import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 
 type ToolUpdateHandler = (update: {
   content: Array<{ type: "text"; text: string }>;

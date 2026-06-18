@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";
 import { createWorkflowAmbientClient, MemoryWorkflowAmbientCache, workflowAmbientCallCacheCheckpoint, workflowAmbientCallPromptParts } from "./workflowAmbientClient";
 

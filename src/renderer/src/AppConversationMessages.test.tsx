@@ -2,7 +2,8 @@ import { createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ChatMessage, DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import { AppConversationMessages } from "./AppConversationMessages";
 import { subagentParentClusterFixtureModel } from "./SubagentParentCluster.fixture";
 import type { SubagentThreadInspectorModel } from "./subagentThreadInspectorUiModel";

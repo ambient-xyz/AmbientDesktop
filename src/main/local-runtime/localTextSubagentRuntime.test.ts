@@ -8,7 +8,7 @@ import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../.
 import { getDefaultSubagentRoleProfile, type SubagentRoleId, type SubagentRoleProfile } from "../../shared/subagentRoles";
 import { resolveSubagentTurnBudgetPolicy } from "../../shared/subagentTurnBudget";
 import { resolveSubagentToolScope } from "../../shared/subagentToolScope";
-import type { LocalModelResourcePolicyDecision, LocalModelResourceRegistryEntry, LocalModelResourceRegistrySnapshot, LocalRuntimeLeaseRecord } from "../../shared/types";
+import type { LocalModelResourcePolicyDecision, LocalModelResourceRegistryEntry, LocalModelResourceRegistrySnapshot, LocalRuntimeLeaseRecord } from "../../shared/localRuntimeTypes";
 import {
   LocalModelRuntimeStartupError,
   type LocalModelRuntimeLease,

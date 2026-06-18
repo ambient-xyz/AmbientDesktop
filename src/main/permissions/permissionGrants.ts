@@ -1,15 +1,5 @@
 import { createHash } from "node:crypto";
-import type {
-  AmbientPermissionGrant,
-  CreateAmbientPermissionGrantInput,
-  PermissionGrantActionKind,
-  PermissionGrantScopeKind,
-  PermissionGrantTargetKind,
-  PermissionMode,
-  PermissionPromptResolution,
-  PermissionPromptResponseMode,
-  PermissionRequest,
-} from "../../shared/types";
+import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionGrantActionKind, PermissionGrantScopeKind, PermissionGrantTargetKind, PermissionMode, PermissionPromptResolution, PermissionPromptResponseMode, PermissionRequest } from "../../shared/permissionTypes";
 import type { ProjectStore } from "../projectStore/projectStore";
 
 export interface PermissionGrantContext {

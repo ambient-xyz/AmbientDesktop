@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { z } from "zod";
 import { isPathInside } from "../../session/sessionPaths";
 import { discoverPiExtensionHostTools, runPiExtensionHostTool, type PiExtensionHostTool, type PiExtensionHostRunResult } from "../../pi/piExtensionCompatibilityHost";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../managedInstallPaths";
+import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../setup/managedInstallPaths";
 
 const execFileAsync = promisify(execFile);
 const sandboxConfigPath = ".ambient/pi-extension-sandboxes/packages.json";

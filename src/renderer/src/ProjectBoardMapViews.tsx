@@ -1,7 +1,7 @@
 import { AlertCircle, Check, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import type { ProjectBoardCard, ProjectSummary, UpdateProjectBoardCardInput } from "../../shared/types";
+import type { ProjectBoardCard, ProjectSummary, UpdateProjectBoardCardInput } from "../../shared/projectBoardTypes";
 import {
   projectBoardCanonicalCardProjection,
   projectBoardCardVisualTone,

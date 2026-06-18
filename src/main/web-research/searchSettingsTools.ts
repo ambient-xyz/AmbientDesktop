@@ -1,10 +1,4 @@
-import type {
-  SearchRoutingFallback,
-  SearchRoutingMode,
-  SearchRoutingSettings,
-  WebResearchProviderConfig,
-  WebResearchProviderRole,
-} from "../../shared/types";
+import type { SearchRoutingFallback, SearchRoutingMode, SearchRoutingSettings, WebResearchProviderConfig, WebResearchProviderRole } from "../../shared/webResearchTypes";
 import type { AmbientCliPackageCatalog, AmbientCliPackageCommand, AmbientCliPackageSummary } from "../ambient-cli/ambientCliPackages";
 import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
 import { webResearchProviderConfigsFromMcpTools } from "./webResearchMcpProviderRegistry";
@@ -75,6 +69,10 @@ export function webResearchProviderConfigsFromSearchCatalog(catalog: AmbientCliP
     kind: "ambient-cli",
     roles: ["search"],
     status: provider.available ? "enabled" : "disabled",
+    capabilityKinds: ["search"],
+    capabilityProbeStatus: provider.available ? "passed" : "failed",
+    capabilityProbeEvidenceRefs: [`ambient-cli:${provider.packageName}:${provider.commandName}:health`],
+    ...(provider.reason ? { capabilityFailureNotes: [provider.reason] } : {}),
     privacyLabel: `Queries may be sent to ${provider.label}.`,
     ambientCli: {
       packageId: provider.packageId,

@@ -1,27 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { AMBIENT_DEFAULT_MODEL, normalizeAmbientModelId } from "../../shared/ambientModels";
-import type {
-  PermissionMode,
-  PermissionRequest,
-  AmbientPermissionGrant,
-  AmbientPluginRegistry,
-  WorkflowApprovalStatus,
-  WorkflowDashboard,
-  WorkflowExecutionMode,
-  WorkflowManifest,
-  WorkflowModelCallStatus,
-  WorkflowRecoveryAction,
-  WorkflowRecoveryContext,
-  WorkflowRecoveryTargetKind,
-  WorkflowRunLimitOverrides,
-  WorkflowRunEvent,
-  WorkflowRunProviderHealth,
-  WorkflowRunRetryMetadata,
-  WorkflowRunRuntime,
-  WorkflowRunSummary,
-  WorkflowUserInputResponse,
-} from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionMode, PermissionRequest } from "../../shared/permissionTypes";
+import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
+import type { WorkflowApprovalStatus, WorkflowDashboard, WorkflowExecutionMode, WorkflowManifest, WorkflowModelCallStatus, WorkflowRecoveryAction, WorkflowRecoveryContext, WorkflowRecoveryTargetKind, WorkflowRunEvent, WorkflowRunLimitOverrides, WorkflowRunProviderHealth, WorkflowRunRetryMetadata, WorkflowRunRuntime, WorkflowRunSummary, WorkflowUserInputResponse } from "../../shared/workflowTypes";
 import { workflowScheduleMatchingConnectorGrantUse } from "../../shared/workflowSchedulePolicy";
 import type { WorkflowBrowserAdapter, WorkflowDesktopToolBridgeOptions } from "./workflowDesktopTools";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
@@ -64,7 +46,7 @@ import {
   type WorkflowConnectorApprovalDecisionResolver,
   type WorkflowConnectorRegistration,
 } from "./workflowConnectors";
-import { ambientRetryPolicyFromSettings, type AmbientRetryPolicy } from "../aggressiveRetries";
+import { ambientRetryPolicyFromSettings, type AmbientRetryPolicy } from "../ambient/aggressiveRetries";
 
 const DEFAULT_WORKFLOW_RUNTIME_AMBIENT_IDLE_TIMEOUT_MS = 60_000;
 const WORKFLOW_AMBIENT_PROGRESS_THROTTLE_MS = 2_000;

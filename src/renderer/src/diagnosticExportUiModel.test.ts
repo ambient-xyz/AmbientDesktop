@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DiagnosticExportResult } from "../../shared/types";
+import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { diagnosticExportStatusMessage, diagnosticImportStatusMessage } from "./diagnosticExportUiModel";
 

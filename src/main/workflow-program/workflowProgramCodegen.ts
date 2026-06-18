@@ -1,4 +1,4 @@
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import { connectorOperationDescriptor } from "./workflowProgramCapabilityResolver";
 import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import { isWorkflowProgramLoopMapToolCall } from "../../shared/workflowProgramIr";

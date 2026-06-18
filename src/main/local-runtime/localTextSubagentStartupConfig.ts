@@ -5,7 +5,7 @@ import {
   resolveAmbientModelRuntimeProfile,
   type AmbientModelRuntimeProfile,
 } from "../../shared/ambientModels";
-import type { ThreadSummary } from "../../shared/types";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type { CreateLocalTextSubagentRuntimeAdapterOptions } from "./localTextSubagentRuntime";
 import type { LocalTextSubagentRuntimeConfig } from "./localTextSubagentRuntime";
 

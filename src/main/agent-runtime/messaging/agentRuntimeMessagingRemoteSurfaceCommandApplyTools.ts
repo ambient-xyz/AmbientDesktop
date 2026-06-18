@@ -8,29 +8,31 @@ import type {
 } from "../../../shared/messagingGateway";
 import type {
   AnswerWorkflowDiscoveryQuestionInput,
-  CollaborationMode,
+  WorkflowDiscoveryQuestion,
+} from "../../../shared/workflowTypes";
+import type {
   MediaPlaybackSettings,
-  PlannerSettings,
-  SearchRoutingSettings,
   SttProviderCandidate,
   SttSettings,
-  ThinkingLevel,
-  ThreadSummary,
+  VoiceSettings,
+  VoiceSettingsAuditSource,
+} from "../../../shared/localRuntimeTypes";
+import type { PlannerSettings } from "../../../shared/plannerTypes";
+import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
+import type {
   UpdateMediaPlaybackSettingsInput,
   UpdatePlannerSettingsInput,
   UpdateSttSettingsInput,
   UpdateVoiceSettingsInput,
-  VoiceSettings,
-  VoiceSettingsAuditSource,
-  WorkspaceState,
-  WorkflowDiscoveryQuestion,
-} from "../../../shared/types";
+} from "../../../shared/desktopTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { CollaborationMode, ThinkingLevel, ThreadSummary } from "../../../shared/threadTypes";
 import type {
   AmbientCliPackageCatalog,
   DiscoverAmbientCliPackagesOptions,
 } from "../../ambient-cli/ambientCliPackages";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   messagingRemoteSurfaceCommandAppliedResult,
   messagingRemoteSurfaceCommandApprovalDetail,
@@ -54,7 +56,7 @@ import {
   type MessagingRemoteSurfaceSettingUpdateResult,
   type MessagingRemoteSurfaceWorkflowActionRequest,
   type MessagingRemoteSurfaceWorkflowActionResult,
-} from "../../messaging/messagingRemoteSurfaceCommands";
+} from "../agentRuntimeMessagingFacade";
 import {
   planSearchPreferenceUpdate,
   searchPreferenceUpdateText,

@@ -1,4 +1,4 @@
-import type { SearchRoutingSettings } from "../../shared/types";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
 import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
 import { webResearchSettingsWithDynamicProviderCatalogs } from "./searchSettingsTools";

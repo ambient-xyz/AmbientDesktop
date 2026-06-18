@@ -1,18 +1,15 @@
 import type { AgentToolResult, ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  SearchRoutingSettings,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../shared/types";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/permissionTypes";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
 import {
   searchPreferenceToolDescriptor,
   webResearchToolDescriptor,
-} from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+} from "./agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 import {
   buildSearchPreferenceStatus,
   planWebResearchPreferenceUpdate,

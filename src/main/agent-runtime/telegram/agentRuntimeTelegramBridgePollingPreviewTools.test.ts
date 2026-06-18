@@ -5,12 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import { createTelegramBridgePollingResolvers } from "./agentRuntimeTelegramBridgePollPlan";
 import { registerTelegramBridgePollingPreviewTools } from "./agentRuntimeTelegramBridgePollingPreviewTools";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 import {
   TelegramBridgePollingRunner,
-} from "../../telegram/telegramBridgePolling";
+} from "../agentRuntimeTelegramFacade";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
 

@@ -1,5 +1,6 @@
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
-import type { ChatMessage, MessageVoiceState, VoiceSettings } from "../../shared/types";
+import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import { prepareVoiceTextForMessage, type VoiceTextDecision } from "./voiceText";
 

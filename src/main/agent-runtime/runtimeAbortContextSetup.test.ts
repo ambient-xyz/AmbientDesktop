@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DesktopEvent, SubagentWaitBarrierSummary } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import type { RuntimeAbortContext, RuntimeAbortContextInput } from "./runtimeAbortContext";
 import { createRuntimeAbortContextSetup, type RuntimeAbortContextSetupInput } from "./runtimeAbortContextSetup";
 import type { RuntimeQueuedMessageSnapshot } from "./runtimeQueuedMessageController";

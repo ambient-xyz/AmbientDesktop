@@ -1,4 +1,4 @@
-import type { PermissionGrantScopeKind } from "../../shared/types";
+import type { PermissionGrantScopeKind } from "../../shared/permissionTypes";
 import type { McpPermissionPolicyEvaluation, McpPermissionResource } from "./mcpPermissionPolicyService";
 import type { ToolHiveInstalledServerState } from "../tool-runtime/toolHiveRuntimeService";
 

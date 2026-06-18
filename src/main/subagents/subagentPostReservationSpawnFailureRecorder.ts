@@ -4,9 +4,8 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
-  ThreadSummary,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
 import {
   buildSubagentPostReservationSpawnFailureParentMailboxInput,

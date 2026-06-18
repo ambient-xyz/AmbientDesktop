@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkflowRecordingLibraryEntry } from "../../shared/types";
+import type { WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import {
   selectedWorkflowRecordingForLibrary,
   workflowRecordingLibraryForDisplay,

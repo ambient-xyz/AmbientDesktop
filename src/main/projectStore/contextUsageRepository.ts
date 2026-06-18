@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import type { ContextUsageSnapshot } from "../../shared/types";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 import type { ContextUsageSnapshotInput } from "./projectStoreFacadeHelpers";
 import { mapContextUsageSnapshotRow, type ContextUsageSnapshotRow } from "./contextUsageMappers";
 

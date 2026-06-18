@@ -1,8 +1,8 @@
 import type { AgentToolResult, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { WorkspaceState } from "../../shared/types";
-import type { AmbientDownloadJobSnapshot, AmbientDownloadStartInput } from "../ambient/ambientDownloadService";
-import { managedDownloadToolDescriptor, piToolFieldsFromDescriptor } from "../desktopToolRegistry";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { AmbientDownloadJobSnapshot, AmbientDownloadStartInput } from "./agentRuntimeAmbientFacade";
+import { managedDownloadToolDescriptor, piToolFieldsFromDescriptor } from "./agentRuntimeDesktopToolFacade";
 
 export interface ManagedDownloadServiceLike {
   start(input: AmbientDownloadStartInput): AmbientDownloadJobSnapshot;

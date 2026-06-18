@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BrowserPickResult } from "../../shared/types";
+import type { BrowserPickResult } from "../../shared/browserTypes";
 import { browserPickReferenceText } from "./RightPanelBrowserPane";
 
 describe("browserPickReferenceText", () => {

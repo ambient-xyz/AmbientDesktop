@@ -1,4 +1,4 @@
-import type { ProviderStatus } from "../../shared/types";
+import type { ProviderStatus } from "../../shared/desktopTypes";
 import { AMBIENT_DEFAULT_MODEL, normalizeAmbientModelId } from "../../shared/ambientModels";
 import {
   getActiveAmbientProviderBaseUrl,
@@ -7,7 +7,7 @@ import {
   getActiveAmbientProviderModelOverride,
   getAmbientApiKeySource,
   readAmbientApiKey,
-} from "../credentialStore";
+} from "../security/credentialStore";
 
 export function getAmbientProviderStatus(model = AMBIENT_DEFAULT_MODEL): ProviderStatus {
   const providerId = getActiveAmbientProviderId();

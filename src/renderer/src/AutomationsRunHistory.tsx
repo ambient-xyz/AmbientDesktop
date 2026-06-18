@@ -1,13 +1,7 @@
 import { LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 
-import type {
-  OrchestrationAutoDispatchStatus,
-  OrchestrationBoard,
-  OrchestrationPrepareResult,
-  OrchestrationRun,
-  OrchestrationTask,
-} from "../../shared/types";
+import type { OrchestrationAutoDispatchStatus, OrchestrationBoard, OrchestrationPrepareResult, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import { projectBoardTaskActionEvidenceFromProof } from "./projectBoardUiModel";
 import { formatTaskState, formatTimelineTime } from "./RightPanel";
 

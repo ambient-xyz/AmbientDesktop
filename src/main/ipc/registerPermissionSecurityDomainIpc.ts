@@ -27,7 +27,7 @@ import type {
   PrivilegedCredentialPromptResponseInput,
   RevokeAmbientPermissionGrantInput,
   SecureInputPromptResponseInput,
-} from "../../shared/types";
+} from "../../shared/permissionTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

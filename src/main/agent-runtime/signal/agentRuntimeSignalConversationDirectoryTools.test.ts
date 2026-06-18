@@ -4,8 +4,8 @@ import {
   registerSignalConversationDirectoryTools,
   type SignalConversationDirectoryToolPermissionRequest,
 } from "./agentRuntimeSignalConversationDirectoryTools";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 describe("registerSignalConversationDirectoryTools", () => {
   it("registers and executes the Signal conversation directory preview and denied apply tools", async () => {

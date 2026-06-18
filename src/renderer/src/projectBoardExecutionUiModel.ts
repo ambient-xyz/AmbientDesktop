@@ -1,4 +1,5 @@
-import type { OrchestrationRun, OrchestrationTask, OrchestrationWorkflowReadiness, ProjectBoardCard, ProjectBoardEvent, ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSummary } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun, OrchestrationTask, OrchestrationWorkflowReadiness } from "../../shared/workflowTypes";
 import { projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
 import { projectBoardRunIsActive } from "./projectBoardProofEvidenceUiModel";
 

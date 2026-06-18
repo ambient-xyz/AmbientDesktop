@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   describeAmbientCliPackage,
   type AmbientCliPackageDescription,
@@ -8,8 +8,8 @@ import {
   type DescribeAmbientCliPackageOptions,
 } from "../../ambient-cli/ambientCliPackages";
 import { ambientCliDescribeDetails, ambientCliDescribeInput, ambientCliDescribeText } from "./agentRuntimeAmbientCliPackageDescribeModel";
-import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 
 export interface AmbientCliPackageDescribeToolRegistrationOptions {
   workspace: Pick<WorkspaceState, "path">;

@@ -1,15 +1,7 @@
-import type {
-  CallableWorkflowTaskRestartIssue,
-  CallableWorkflowTaskRestartReconciliationSummary,
-  CallableWorkflowTaskStatus,
-  CallableWorkflowTaskSummary,
-  SubagentPatternGraphSnapshot,
-  SubagentRunSummary,
-  ThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowRunStatus,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { CallableWorkflowTaskRestartIssue, CallableWorkflowTaskRestartReconciliationSummary, CallableWorkflowTaskStatus, CallableWorkflowTaskSummary, WorkflowArtifactSummary, WorkflowRunStatus, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS, type SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRecipes";
 import {
   buildPatternGraphSnapshot,

@@ -10,7 +10,7 @@ import {
   planMcpPermissionPromptGrant,
 } from "./mcpPermissionPolicyService";
 import { permissionGrantTargetHash } from "../permissions/permissionGrants";
-import type { AmbientPermissionGrant } from "../../shared/types";
+import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
 import type { McpToolDescriptor } from "./mcpToolBridge";
 
 describe("MCP permission policy service", () => {

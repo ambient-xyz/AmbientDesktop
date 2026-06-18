@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { SttTranscriptionState } from "../../shared/types";
+import type { SttTranscriptionState } from "../../shared/localRuntimeTypes";
 import {
   inspectSttArtifactRetention,
   managedSttThreadRoot,

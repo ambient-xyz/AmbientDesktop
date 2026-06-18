@@ -1,7 +1,8 @@
 import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DesktopEvent, WorkspaceState } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { registerAgentRuntimeLocalDeepResearchTools } from "./agentRuntimeLocalDeepResearchTools";
 import type { LocalDeepResearchSetupReadiness } from "./agentRuntimeLocalDeepResearchSetupTools";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";

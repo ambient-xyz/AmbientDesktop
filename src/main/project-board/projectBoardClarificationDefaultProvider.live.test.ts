@@ -4,12 +4,12 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "./projectBoardAmbientFacade";
 import {
   AmbientProjectBoardClarificationDefaultProvider,
   projectBoardClarificationDefaultSuggestionTargets,
 } from "./projectBoardClarificationDefaultProvider";
-import type { ProjectBoardCard } from "../../shared/types";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_CLARIFICATION_DEFAULTS_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

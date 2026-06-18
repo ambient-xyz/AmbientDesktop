@@ -16,14 +16,16 @@ import {
 import { registerRunAbortIpc, runAbortIpcChannels } from "./registerRunIpc";
 import type {
   CompactThreadInput,
-  ContextUsageSnapshot,
   DesktopEvent,
   RecoverThreadContextInput,
   SendMessageInput,
-  SlashCommandSelection,
+} from "../../shared/desktopTypes";
+import type { SlashCommandSelection } from "../../shared/slashCommandTypes";
+import type {
+  ContextUsageSnapshot,
   ThreadGoal,
   ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/threadTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

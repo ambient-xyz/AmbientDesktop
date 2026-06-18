@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { isAbsolute, relative, resolve } from "node:path";
-import type { AmbientPermissionGrant, PermissionGrantScopeKind, PermissionPromptResponseMode } from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionGrantScopeKind, PermissionPromptResponseMode } from "../../shared/permissionTypes";
 import type { McpToolDescriptor } from "./mcpToolBridge";
-import { isSecretReference } from "../secretReferenceStore";
+import { isSecretReference } from "../security/secretReferenceStore";
 
 export type McpPermissionResourceKind =
   | "tool-call"

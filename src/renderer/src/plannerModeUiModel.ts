@@ -1,4 +1,5 @@
-import type { CollaborationMode, PlannerDecisionQuestion, PlannerPlanArtifact } from "../../shared/types";
+import type { PlannerDecisionQuestion, PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { CollaborationMode } from "../../shared/threadTypes";
 
 export interface CollaborationCommandResult {
   content: string;

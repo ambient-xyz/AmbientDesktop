@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/permissionTypes";
 import { permissionGrantRegistryModel, permissionGrantRevocationImpact, workflowPermissionGrantRegistryModel } from "./permissionGrantRegistryUiModel";
 
 describe("permissionGrantRegistryUiModel", () => {

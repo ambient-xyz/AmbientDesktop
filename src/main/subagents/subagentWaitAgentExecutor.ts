@@ -5,7 +5,7 @@ import type {
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import type {
   SubagentRuntimeEventEmitter,
   SubagentChildRuntimeApprovalResponseInput,
@@ -428,6 +428,7 @@ export async function executeSubagentWaitAgent(
       run,
       waitBarrier,
       waitTimedOut: waitBarrierTimedOutForPolicy,
+      waitChildRuns,
       waitBarrierEvaluation,
       resultValidation,
       parentResolution,

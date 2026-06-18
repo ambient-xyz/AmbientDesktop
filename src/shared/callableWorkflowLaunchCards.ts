@@ -1,8 +1,4 @@
-import type {
-  CallableWorkflowLaunchCardRiskLevel,
-  CallableWorkflowLaunchCardSummary,
-  CallableWorkflowSourcePreview,
-} from "./types";
+import type { CallableWorkflowLaunchCardRiskLevel, CallableWorkflowLaunchCardSummary, CallableWorkflowSourcePreview } from "./workflowTypes";
 
 export interface CallableWorkflowLaunchCardPolicyInput {
   launchCardRequirementIds: string[];

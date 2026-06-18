@@ -1,5 +1,6 @@
 import { isAmbientSubagentsEnabled } from "../../shared/featureFlags";
-import type { ChatMessage, DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 
 export interface MessageDeltaForChildThread {
   messageId: string;

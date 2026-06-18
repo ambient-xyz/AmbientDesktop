@@ -1,21 +1,8 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
 import { AlertCircle, Check, CheckCircle2, ExternalLink, Info, LoaderCircle, MessageCircle, Monitor } from "lucide-react";
 
-import type {
-  AmbientPluginAuthAccountSummary,
-  AmbientPluginRegistry,
-  WorkflowCompileProgress,
-  WorkflowArtifactSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowDashboard,
-  WorkflowExecutionMode,
-  WorkflowGraphNode,
-  WorkflowRunLimitOverrides,
-  WorkflowRunDetail,
-  WorkflowRunSummary,
-  WorkflowUserInputResponse,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { AmbientPluginAuthAccountSummary, AmbientPluginRegistry } from "../../shared/pluginTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowDashboard, WorkflowExecutionMode, WorkflowGraphNode, WorkflowRunDetail, WorkflowRunLimitOverrides, WorkflowRunSummary, WorkflowUserInputResponse, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { formatBytes, formatTaskState, formatTimelineTime, truncateUiText } from "./RightPanel";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import {

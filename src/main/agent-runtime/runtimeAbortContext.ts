@@ -1,7 +1,5 @@
-import type {
-  DesktopEvent,
-  SubagentWaitBarrierSummary,
-} from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import type { SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
 import { runtimeSubagentParentControlAbortActivity } from "./subagents/agentRuntimeSubagentParentControlActivity";
 import type { RuntimeActiveRunHandoffActiveRun } from "./runtimeActiveRunHandoff";

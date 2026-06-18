@@ -5,7 +5,7 @@ import {
   workflowRecordingEditContextFromMetadata,
 } from "./AppWorkflowRecording";
 
-import type { WorkflowCompileProgress } from "../../shared/types";
+import type { WorkflowCompileProgress } from "../../shared/workflowTypes";
 
 describe("workflow recording helpers", () => {
   it("parses workflow recording edit context metadata", () => {

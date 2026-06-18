@@ -1,13 +1,13 @@
+import type { AutomationScheduleTargetKind } from "../../shared/automationTypes";
 import type {
-  AutomationScheduleTargetKind,
   WorkflowRecoveryContext,
   WorkflowRunEvent,
   WorkflowRunProviderHealth,
   WorkflowRunRetryMetadata,
   WorkflowRunScheduleSummary,
   WorkflowRunStatus,
-  WorkflowRunSummary,
-} from "../../shared/types";
+  WorkflowRunSummary
+} from "../../shared/workflowTypes";
 import { parseJsonValue, parseMetadata, stringFromRecord } from "./projectStoreJson";
 
 export type {
@@ -16,8 +16,8 @@ export type {
   WorkflowRunProviderHealth,
   WorkflowRunRetryMetadata,
   WorkflowRunStatus,
-  WorkflowRunSummary,
-} from "../../shared/types";
+  WorkflowRunSummary
+} from "../../shared/workflowTypes";
 
 export interface WorkflowRunEventRow {
   id: string;

@@ -1,4 +1,4 @@
-import type { WorkflowRecordingReviewDraftUpdate } from "../../shared/types";
+import type { WorkflowRecordingReviewDraftUpdate } from "../../shared/workflowTypes";
 
 export function workflowRecordingReviewDraftUpdateFromToolParams(params: unknown): WorkflowRecordingReviewDraftUpdate {
   const draft = objectRecord(objectRecord(params).draft);

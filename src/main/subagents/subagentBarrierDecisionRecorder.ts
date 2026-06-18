@@ -2,7 +2,7 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   barrierControlStateFromResolutionArtifact,
   buildSubagentBarrierDecisionParentMailboxDraft,

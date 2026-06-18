@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectSummary, ThreadSummary } from "../../shared/types";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   projectIdForWorkspacePath,
   sidebarMenuPosition,

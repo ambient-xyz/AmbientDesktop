@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  AutomationThreadSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-} from "../../shared/types";
+import type { AutomationThreadSummary } from "../../shared/automationTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary } from "../../shared/workflowTypes";
 import {
   automationThreadRouteDetailForNavigation,
   createAutomationsWorkflowNavigationController,

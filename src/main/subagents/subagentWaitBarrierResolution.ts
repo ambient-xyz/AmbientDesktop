@@ -2,7 +2,7 @@ import type {
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   evaluateSubagentWaitBarrierForSynthesis as evaluateSubagentWaitBarrierForSynthesisFromResults,
   subagentRuntimeTimeoutKindFromReason,

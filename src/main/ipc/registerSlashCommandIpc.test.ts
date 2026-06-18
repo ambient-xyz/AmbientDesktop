@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IpcMain } from "electron";
 
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
-import type { SearchWorkflowRecordingsInput, WorkflowRecordingLibraryEntry } from "../../shared/types";
+import type {
+  SearchWorkflowRecordingsInput,
+  WorkflowRecordingLibraryEntry,
+} from "../../shared/workflowTypes";
 import type {
   AmbientCliCapabilitySearchResponse,
 } from "../ambient-cli/ambientCliPackages";

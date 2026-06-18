@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import {
   emitAgentRuntimeDesktopEvent,
   type AgentRuntimeDesktopEventWindow,

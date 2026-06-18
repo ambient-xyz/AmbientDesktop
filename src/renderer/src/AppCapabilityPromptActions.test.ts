@@ -1,11 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  RunStatus,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { RunStatus } from "../../shared/threadTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import {
   createAppCapabilityPromptActions,
   remoteSurfaceActivationActivityLine,

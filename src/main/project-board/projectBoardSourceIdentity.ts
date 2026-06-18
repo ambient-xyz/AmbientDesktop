@@ -4,8 +4,8 @@ import type {
   ProjectBoardSourceAuthorityRole,
   ProjectBoardSourceChangeState,
   ProjectBoardSourceClassifiedBy,
-  ProjectBoardSourceKind,
-} from "../../shared/types";
+  ProjectBoardSourceKind
+} from "../../shared/projectBoardTypes";
 
 export interface ProjectBoardSourceIdentityInput {
   kind?: ProjectBoardSourceKind;

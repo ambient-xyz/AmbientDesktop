@@ -1,17 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { providerCatalogSettingsState } from "../../main/provider/providerCatalog";
-import type {
-  AmbientMcpContainerRuntimeStatus,
-  AmbientMcpDefaultCapabilitySummary,
-  AmbientPluginAppAuthSummary,
-  AmbientPluginCapabilitySummary,
-  AmbientPluginRegistry,
-  AmbientPluginSummary,
-  CapabilityBuilderHistoryEntry,
-  CodexPluginSummary,
-  FirstPartyGoogleIntegrationState,
-  ProviderCatalogSettingsCard,
-} from "../../shared/types";
+import type { ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilitySummary, AmbientPluginAppAuthSummary, AmbientPluginCapabilitySummary, AmbientPluginRegistry, AmbientPluginSummary, CapabilityBuilderHistoryEntry, CodexPluginSummary, FirstPartyGoogleIntegrationState } from "../../shared/pluginTypes";
 import {
   buildCapabilityBuilderPrompt,
   buildFirstRunCapabilityOnboardingPrompt,

@@ -1,23 +1,8 @@
-import type {
-  BrowserContentInput,
-  BrowserEvaluateInput,
-  BrowserKeypressInput,
-  BrowserLoginInput,
-  BrowserNavigateInput,
-  BrowserPickInput,
-  BrowserSearchInput,
-  BrowserStartInput,
-  MiniCpmVisionAnalysisResult,
-  MiniCpmVisionAnalyzeInput,
-  MiniCpmVisionSetupInput,
-  MiniCpmVisionSetupResult,
-  OfficeTextExtraction,
-  PermissionMode,
-  PermissionRequest,
-  PdfTextExtraction,
-  WorkspaceState,
-  WorkflowRunRuntime,
-} from "../../shared/types";
+import type { BrowserContentInput, BrowserEvaluateInput, BrowserKeypressInput, BrowserLoginInput, BrowserNavigateInput, BrowserPickInput, BrowserSearchInput, BrowserStartInput } from "../../shared/browserTypes";
+import type { MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionSetupInput, MiniCpmVisionSetupResult } from "../../shared/localRuntimeTypes";
+import type { PermissionMode, PermissionRequest } from "../../shared/permissionTypes";
+import type { WorkflowRunRuntime } from "../../shared/workflowTypes";
+import type { OfficeTextExtraction, PdfTextExtraction, WorkspaceState } from "../../shared/workspaceTypes";
 import type { Model } from "@mariozechner/pi-ai";
 import { AMBIENT_DEFAULT_MODEL, ambientModelLabel, normalizeAmbientModelId } from "../../shared/ambientModels";
 import {
@@ -28,20 +13,20 @@ import {
   type DescribeAmbientCliPackageInput,
   type RunAmbientCliInput,
 } from "../ambient-cli/ambientCliPackages";
-import { readAmbientApiKey, getActiveAmbientProviderBaseUrl, getActiveAmbientProviderModelOverride } from "../credentialStore";
-import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktopToolRegistry";
-import { completeAmbientText, executeLambdaRlm, type LambdaRlmTaskType } from "../lambdaRlm";
+import { readAmbientApiKey, getActiveAmbientProviderBaseUrl, getActiveAmbientProviderModelOverride } from "../security/credentialStore";
+import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { completeAmbientText, executeLambdaRlm, type LambdaRlmTaskType } from "../tool-runtime/lambdaRlm";
 import { classifyToolPermission } from "../permissions/permissionPolicy";
 import { callPluginMcpTool, type PluginMcpLaunchPlan, type PluginMcpToolRegistration } from "../plugins/pluginMcpSupervisor";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import { runShellCommand, type ToolRunnerRunShellOptions } from "../tool-runtime/toolRunner";
 import { materializeTextOutput, materializedTextNotice } from "../tool-runtime/toolOutputArtifacts";
-import { listLocalDirectory, readLocalTextFile } from "../localFiles";
 import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "../mini-cpm/miniCpmVisionProvider";
-import { readWorkspaceFile, writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { readLocalFilePreview, readWorkspaceFile, writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { listLocalDirectory, readLocalTextFile } from "./localFiles";
 import { createWorkflowToolBridge } from "./workflowToolBridge";
 import type { WorkflowEventSink, WorkflowToolHandlers } from "./workflowAgentRuntime";
-import type { WorkflowManifest } from "../../shared/types";
+import type { WorkflowManifest } from "../../shared/workflowTypes";
 
 export interface WorkflowBrowserAdapter {
   search(input: BrowserSearchInput): Promise<unknown>;
@@ -511,7 +496,7 @@ async function runWorkflowLocalFileRead(input: unknown, options: WorkflowDesktop
   officeText?: Omit<OfficeTextExtraction, "text">;
 }> {
   const { path } = filePathInput(input, "local_file_read");
-  return readLocalTextFile(options.workspace.path, path);
+  return readLocalTextFile(options.workspace.path, path, readLocalFilePreview);
 }
 
 async function runWorkflowLongContextProcess(input: unknown, options: WorkflowDesktopToolBridgeOptions): Promise<{

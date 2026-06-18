@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChatMessage, DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   createRuntimePostToolContinuationController,
   type RuntimePostToolContinuationCompletion,

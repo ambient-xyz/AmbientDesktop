@@ -1,7 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { SecureInputPromptResponseInput } from "../../shared/types";
+import type { SecureInputPromptResponseInput } from "../../shared/permissionTypes";
 import {
   registerSecureInputRespondIpc,
   secureInputRespondIpcChannels,

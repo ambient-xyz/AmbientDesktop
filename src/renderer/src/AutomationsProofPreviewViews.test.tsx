@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { OrchestrationRun } from "../../shared/types";
+import type { OrchestrationRun } from "../../shared/workflowTypes";
 import {
   ProofEvidencePathLink,
   ProofOfWorkPreview,

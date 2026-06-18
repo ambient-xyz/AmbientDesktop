@@ -1,8 +1,8 @@
-import type { ModelRuntimeSettings, RuntimeActivity } from "../../shared/types";
+import type { ModelRuntimeSettings, RuntimeActivity } from "../../shared/threadTypes";
 import {
   AGGRESSIVE_RETRY_BACKOFF_MS,
   ambientRetryPolicyFromSettings,
-} from "../aggressiveRetries";
+} from "./agentRuntimeAmbientFacade";
 
 const POST_TOOL_IDLE_CONTINUATION_ATTEMPTS = 1;
 type RuntimeSettingsActivity = Extract<RuntimeActivity, { kind: "runtime-settings" }>;

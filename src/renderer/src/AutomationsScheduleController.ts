@@ -1,17 +1,8 @@
 import { useState } from "react";
 
-import type {
-  AutomationFolderSummary,
-  AutomationScheduleExceptionSummary,
-  AutomationScheduleSummary,
-  CreateAmbientPermissionGrantInput,
-  OrchestrationTask,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowRecordingLibraryEntry,
-  WorkflowRunLimitOverrides,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationScheduleExceptionSummary, AutomationScheduleSummary } from "../../shared/automationTypes";
+import type { CreateAmbientPermissionGrantInput } from "../../shared/permissionTypes";
+import type { OrchestrationTask, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowRecordingLibraryEntry, WorkflowRunLimitOverrides, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { googleWorkspaceGrantTargetIdentityCondition } from "../../shared/googleWorkspaceGrantTargets";
 import {
   type AutomationScheduleTargetSources,

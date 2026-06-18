@@ -21,7 +21,7 @@ import {
   readArtifactDraftManifest as readArtifactDraftManifestFile,
   removeArtifactDraftLayout,
   writeArtifactDraftManifestAtomic,
-} from "../artifactDraftStore";
+} from "./artifactDraftStore";
 import { normalizeArtifactDraftTargetPath } from "./projectStoreFacadeHelpers";
 import {
   mapArtifactDraftEventRow,

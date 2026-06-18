@@ -2,7 +2,7 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import type {
   SubagentParentPolicyResolution,
 } from "./subagentParentPolicyResolution";
@@ -40,6 +40,7 @@ export function recordSubagentWaitBarrierAttentionParentMailboxIfNeeded(input: {
   waitBarrier: SubagentWaitBarrierSummary;
   waitTimedOut: boolean;
   resultValidation: SubagentResultValidation;
+  waitChildRuns?: readonly SubagentRunSummary[];
   waitBarrierEvaluation?: SubagentWaitBarrierStoreEvaluation;
   parentResolution: SubagentParentPolicyResolution;
 }): SubagentParentMailboxEventSummary | undefined {

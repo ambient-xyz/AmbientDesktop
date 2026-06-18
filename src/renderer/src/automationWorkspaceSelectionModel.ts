@@ -1,13 +1,5 @@
-import type {
-  AutomationFolderSummary,
-  AutomationThreadSummary,
-  OrchestrationBoard,
-  WorkflowAgentFolderSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowDashboard,
-  WorkflowRunDetail,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationThreadSummary } from "../../shared/automationTypes";
+import type { OrchestrationBoard, WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowDashboard, WorkflowRunDetail } from "../../shared/workflowTypes";
 import type { AutomationPane } from "./AutomationsWorkspaceShellViews";
 import { workflowArtifactThreadRoute } from "./workflowThreadFirstUiModel";
 

@@ -2,12 +2,9 @@ import type {
   MessagingBindingListResult,
   MessagingGatewayRuntimeStatus,
 } from "../../../shared/messagingGateway";
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   applyTelegramBridgeReply,
   buildTelegramBridgeReplyPreview,
@@ -15,7 +12,7 @@ import {
   telegramBridgeReplyInput,
   type TelegramBridgeReplyPreview,
   type TelegramBridgeReplyResult,
-} from "../../telegram/telegramBridgeOutbound";
+} from "../agentRuntimeTelegramFacade";
 
 type TelegramBridgeReplyFetchLike = (
   input: string,

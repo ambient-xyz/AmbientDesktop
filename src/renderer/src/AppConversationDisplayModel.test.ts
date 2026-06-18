@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ChatMessage,
-  PlannerPlanArtifact,
-} from "../../shared/types";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import type { RunActivityLine } from "./AppRunActivity";
 import {
   appConversationArtifactWorkspacePath,

@@ -1,12 +1,5 @@
 import { createHash } from "node:crypto";
-import type {
-  WorkflowApprovalSummary,
-  WorkflowArtifactSummary,
-  WorkflowCheckpointSummary,
-  WorkflowModelCallRecord,
-  WorkflowRunEvent,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { WorkflowApprovalSummary, WorkflowArtifactSummary, WorkflowCheckpointSummary, WorkflowModelCallRecord, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/workflowTypes";
 
 export interface WorkflowAuditReportInput {
   artifact: WorkflowArtifactSummary;

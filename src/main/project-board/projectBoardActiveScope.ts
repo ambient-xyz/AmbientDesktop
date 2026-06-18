@@ -1,4 +1,5 @@
-import type { PlannerPlanArtifact, ProjectSummary } from "../../shared/types";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
 
 const CURRENT_PLANNER_SOURCE_KINDS = new Set(["plan_artifact", "implementation_plan"]);
 

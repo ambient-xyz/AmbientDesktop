@@ -3,7 +3,7 @@ import type {
   SubagentMailboxEventSummary,
   SubagentRunEventSummary,
   SubagentRunSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   compactSubagentTurnBudgetStateForPi,
   type SubagentTurnBudgetState,

@@ -9,7 +9,7 @@ import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import { BrowserCredentialStore } from "../browser/browserCredentialStore";
 import { BrowserService } from "../browser/browserService";
-import { applyLiveAmbientProviderApiKeyEnv, readLiveAmbientProviderApiKey } from "../liveAmbientProviderConfig";
+import { applyLiveAmbientProviderApiKeyEnv, readLiveAmbientProviderApiKey } from "./liveAmbientProviderConfig";
 import { ProjectStore } from "../projectStore/projectStore";
 
 const electronMock = vi.hoisted(() => ({

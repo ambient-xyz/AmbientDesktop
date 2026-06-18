@@ -1,4 +1,4 @@
-import type { MiniCpmVisionDiagnosticItem } from "../../shared/types";
+import type { MiniCpmVisionDiagnosticItem } from "../../shared/localRuntimeTypes";
 
 export function MiniCpmVisionDiagnosticsList({
   diagnostics,

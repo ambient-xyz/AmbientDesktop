@@ -1,12 +1,11 @@
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import type {
-  ChatMessage,
-  DesktopEvent,
   PlannerPlanArtifact,
   PlannerPlanFinalizationAttemptStatus,
   PlannerPlanWorkflowState,
-  SubagentParentMailboxEventSummary,
-  ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/plannerTypes";
+import type { SubagentParentMailboxEventSummary } from "../../shared/subagentTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import type { CallableWorkflowParentBlockingBlock } from "../callable-workflow/callableWorkflowParentBlocking";
 import type { AssistantTerminalCleanupDiagnostic } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
 import {

@@ -1,9 +1,10 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { MediaArtifactResult, WorkspaceState } from "../../shared/types";
-import { mediaToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
-import { downloadMediaArtifact, mediaDownloadResultText } from "../mediaDownload";
+import type { MediaArtifactResult } from "../../shared/desktopTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import { mediaToolDescriptor } from "./agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
+import { downloadMediaArtifact, mediaDownloadResultText } from "../media/mediaDownload";
 
 export function createMediaToolExtension(workspace: Pick<WorkspaceState, "path">): ExtensionFactory {
   return (pi) => {

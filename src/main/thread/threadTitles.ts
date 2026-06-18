@@ -1,8 +1,8 @@
 import type { Context, Model } from "@mariozechner/pi-ai";
 import { streamSimpleOpenAICompletions } from "@mariozechner/pi-ai/openai-completions";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
-import { isRetryableAmbientProviderError, retryDelayForAttempt, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { readAmbientApiKey } from "../credentialStore";
+import { isRetryableAmbientProviderError, retryDelayForAttempt, type AmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import { readAmbientApiKey } from "../security/credentialStore";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 
 interface GenerateThreadTitleInput {

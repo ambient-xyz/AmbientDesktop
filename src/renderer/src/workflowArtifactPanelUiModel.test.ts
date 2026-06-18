@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/types";
+import type { WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/workflowTypes";
 import {
   normalizeWorkflowArtifactPanelId,
   normalizeWorkflowBuildPanelId,

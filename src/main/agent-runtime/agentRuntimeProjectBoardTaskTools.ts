@@ -1,6 +1,6 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { ProjectBoardCard } from "../../shared/types";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 import type { ProjectStore } from "../projectStore/projectStore";
 import {
   projectBoardNativeTaskToolDefinitions,

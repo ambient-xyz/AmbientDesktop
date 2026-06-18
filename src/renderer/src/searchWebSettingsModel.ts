@@ -1,9 +1,5 @@
-import type {
-  AmbientMcpDefaultCapabilitySummary,
-  WebResearchProviderConfig,
-  WebResearchProviderRole,
-  WebResearchProviderStackSettings,
-} from "../../shared/types";
+import type { AmbientMcpDefaultCapabilitySummary } from "../../shared/pluginTypes";
+import type { WebResearchProviderConfig, WebResearchProviderRole, WebResearchProviderStackSettings } from "../../shared/webResearchTypes";
 
 const WEB_RESEARCH_UI_SCHEMA_VERSION = "ambient-web-research-provider-stack-v1" as const;
 

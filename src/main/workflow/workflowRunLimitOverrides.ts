@@ -1,4 +1,4 @@
-import type { WorkflowRunLimitOverrides } from "../../shared/types";
+import type { WorkflowRunLimitOverrides } from "../../shared/workflowTypes";
 
 export function stringifyWorkflowRunLimitOverrides(value: WorkflowRunLimitOverrides | undefined): string | null {
   if (!value) return null;

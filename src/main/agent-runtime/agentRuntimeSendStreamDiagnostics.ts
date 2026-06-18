@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { AmbientStreamFailureKind } from "../aggressiveRetries";
+import type { AmbientStreamFailureKind } from "./agentRuntimeAmbientFacade";
 import type { ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import {
   approximateDiagnosticPayloadBytes,

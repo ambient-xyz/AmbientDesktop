@@ -1,14 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ChatMessage, SubagentMailboxEventSummary, SubagentRunEventSummary, ThinkingDisplayMode } from "../../shared/types";
+import type { ThinkingDisplayMode } from "../../shared/desktopTypes";
+import type { SubagentMailboxEventSummary, SubagentRunEventSummary } from "../../shared/subagentTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import type { RunActivityLine } from "./AppRunActivity";
 import { subagentParentClusterFixtureModel } from "./SubagentParentCluster.fixture";
 import { SubagentChildTranscriptLive } from "./SubagentChildTranscriptLive";
 import type { SubagentParentClusterChildModel } from "./subagentParentClusterUiModel";
 
 describe("SubagentChildTranscriptLive", () => {
-  it("renders a live child transcript shell with runtime event context", () => {
+  it("sym-live-ux-export renders a live child transcript shell with runtime event context", () => {
     const child = fixtureChild(0);
     const markup = renderChildTranscript(child, {
       runtimeEvents: [

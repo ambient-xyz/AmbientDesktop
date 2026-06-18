@@ -9,8 +9,8 @@ import type {
   PermissionGrantSource,
   PermissionGrantTargetKind,
   PermissionMode,
-  PermissionRisk,
-} from "../../shared/types";
+  PermissionRisk
+} from "../../shared/permissionTypes";
 
 export interface PermissionAuditRow {
   id: string;

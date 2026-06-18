@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import type { ChatMessage } from "../../shared/types";
-import { formatThreadPreview } from "../thread/threadPreview";
+import type { ChatMessage } from "../../shared/threadTypes";
+import { formatThreadPreview } from "../../shared/threadPreview";
 import { mapMessageRow, type MessageRow } from "./messageMappers";
 
 export interface AddProjectStoreMessageInput {

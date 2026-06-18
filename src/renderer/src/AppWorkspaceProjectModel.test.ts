@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ContextUsageSnapshot,
-  PlannerPlanArtifact,
-  ProjectSummary,
-} from "../../shared/types";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 import {
   activeProjectForWorkspace,
   activeWorkspaceIsPreparedLocalTaskWorkspace,

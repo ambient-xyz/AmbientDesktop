@@ -5,16 +5,16 @@ import type {
   PermissionRisk,
   PrivilegedActionNativeRequest,
   PrivilegedCredentialPromptResolution,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   capabilityBuilderValidateText,
   type CapabilityBuilderValidateInput,
   type CapabilityBuilderValidateResult,
 } from "../../capability-builder/capabilityBuilder";
-import { privilegedActionToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { privilegedActionToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   buildPrivilegedActionNativeRequest,
   planPrivilegedAction,

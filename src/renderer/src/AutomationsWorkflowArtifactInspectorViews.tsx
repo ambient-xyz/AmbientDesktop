@@ -1,22 +1,8 @@
 import type { ReactNode, Ref } from "react";
 
-import type {
-  AmbientPermissionGrant,
-  AmbientPluginAuthAccountSummary,
-  AmbientPluginRegistry,
-  PermissionAuditEntry,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowConnectorDataRetention,
-  WorkflowConnectorManifestGrant,
-  WorkflowGraphNode,
-  WorkflowRunDetail,
-  WorkflowRunLimitOverrides,
-  WorkflowRunSummary,
-  WorkflowUserInputResponse,
-  WorkflowVersionSummary,
-  WorkflowRevisionSummary,
-} from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/permissionTypes";
+import type { AmbientPluginAuthAccountSummary, AmbientPluginRegistry } from "../../shared/pluginTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowGraphNode, WorkflowRevisionSummary, WorkflowRunDetail, WorkflowRunLimitOverrides, WorkflowRunSummary, WorkflowUserInputResponse, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import {
   WorkflowAmbientCliCapabilityList,

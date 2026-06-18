@@ -8,14 +8,11 @@ import type {
   MessagingGatewayRuntimeStatus,
   MessagingProviderDescriptor,
 } from "../../../shared/messagingGateway";
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import type {
   SignalRemoteSurfaceBindingInput,
   SignalRemoteSurfaceBindingPlan,

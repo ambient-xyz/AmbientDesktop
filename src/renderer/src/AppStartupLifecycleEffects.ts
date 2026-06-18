@@ -1,11 +1,8 @@
 import { useEffect } from "react";
 import type { MutableRefObject } from "react";
 
-import type {
-  DesktopEvent,
-  DesktopState,
-  RunStatus,
-} from "../../shared/types";
+import type { DesktopEvent, DesktopState } from "../../shared/desktopTypes";
+import type { RunStatus } from "../../shared/threadTypes";
 import {
   mcpContainerRuntimeShouldOpenStartupPanel,
 } from "./pluginUiModel";

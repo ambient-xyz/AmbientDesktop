@@ -15,14 +15,14 @@ import {
 } from "./registerChatRuntimeDomainIpc";
 import { messageSendIpcChannels } from "./registerMessageIpc";
 import { runAbortIpcChannels } from "./registerRunIpc";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { SlashCommandSelection } from "../../shared/slashCommandTypes";
 import type {
   ContextUsageSnapshot,
-  SendMessageInput,
-  SlashCommandSelection,
   ThreadGoal,
   ThreadSummary,
-  WorkspaceContextReference,
-} from "../../shared/types";
+} from "../../shared/threadTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 
 type IpcListener = Parameters<IpcMain["handle"]>[1];
 

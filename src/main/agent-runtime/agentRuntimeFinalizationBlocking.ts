@@ -1,12 +1,12 @@
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type {
-  CallableWorkflowTaskSummary,
-  RuntimeActivity,
   SubagentMailboxEventSummary,
   SubagentParentMailboxEventSummary,
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { RuntimeActivity } from "../../shared/threadTypes";
 import {
   CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE,
   callableWorkflowParentBlockingAllowedUserChoices,
@@ -18,6 +18,11 @@ import {
   subagentResultRepairStateForRun,
   type SubagentResultRepairState,
 } from "../subagents/subagentResultRepairState";
+import {
+  buildSubagentChildDecisionRequest,
+  shouldBuildSubagentChildDecisionRequest,
+  subagentChildDecisionOptionLabel,
+} from "../../shared/subagentChildDecisionRequests";
 
 type RuntimeStreamActivity = Extract<RuntimeActivity, { kind: "stream" }>;
 
@@ -99,6 +104,13 @@ export function recordSubagentFinalizationBlockedParentMailbox(input: {
       childRuns,
     });
     const parentResolution = subagentFinalizationBlockParentResolution(barrier, primaryRun, input.block.message);
+    const childDecisionRequest = shouldBuildSubagentChildDecisionRequest(parentResolution, { childRuns })
+      ? buildSubagentChildDecisionRequest({
+        barrier,
+        childRuns,
+        parentResolution,
+      })
+      : undefined;
     const event = input.appendSubagentParentMailboxEvent({
       parentThreadId: input.parentThreadId,
       parentRunId: input.parentRunId,
@@ -127,6 +139,12 @@ export function recordSubagentFinalizationBlockedParentMailbox(input: {
         waitTimedOut: barrier.status === "timed_out",
         parentFinalizationBlocked: true,
         parentResolution,
+        ...(childDecisionRequest ? { childDecisionRequest } : {}),
+        ...(childDecisionRequest ? { symphonyDecisionOptions: childDecisionRequest.options.map((option) => ({
+          id: option,
+          label: subagentChildDecisionOptionLabel(option),
+          recommended: option === childDecisionRequest.recommendedOption,
+        })) } : {}),
         allowedUserChoices: subagentFinalizationBlockUserChoices(parentResolution.action, barrier.failurePolicy),
         reason: parentResolution.reason,
         instruction: parentResolution.instruction,
@@ -511,9 +529,16 @@ export function callableWorkflowFinalizationBlock(input: {
   parentThreadId: string;
   parentRunId: string;
   listCallableWorkflowTasksForParentRun: (parentRunId: string) => CallableWorkflowTaskSummary[];
+  additionalTasks?: readonly CallableWorkflowTaskSummary[] | undefined;
 }): CallableWorkflowParentBlockingBlock | undefined {
+  const tasksById = new Map<string, CallableWorkflowTaskSummary>();
+  for (const task of [
+    ...input.listCallableWorkflowTasksForParentRun(input.parentRunId),
+    ...(input.additionalTasks ?? []),
+  ]) {
+    if (task.parentThreadId === input.parentThreadId) tasksById.set(task.id, task);
+  }
   return resolveCallableWorkflowParentBlocking({
-    tasks: input.listCallableWorkflowTasksForParentRun(input.parentRunId)
-      .filter((task) => task.parentThreadId === input.parentThreadId),
+    tasks: [...tasksById.values()],
   });
 }

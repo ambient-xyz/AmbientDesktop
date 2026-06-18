@@ -2,7 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
 import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
-import type { SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
 import {
   messageSendIpcChannels,
   registerMessageSendIpc,

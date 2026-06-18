@@ -14,7 +14,7 @@ import type {
   PiPackageCatalog,
   PiPackageResourceKind,
   PiPackageSummary,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import type {
   AmbientCliPackageCatalog,
   AmbientCliPackageCommand,
@@ -22,7 +22,7 @@ import type {
   AmbientCliPackageSummary,
 } from "../ambient-cli/ambientCliPackages";
 import { ambientCliCapabilityId, ambientCliRegistryPluginId } from "../ambient-cli/ambientCliPackages";
-import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 
 const ambientBuiltInPluginId = "ambient-built-in:desktop-tools";
 

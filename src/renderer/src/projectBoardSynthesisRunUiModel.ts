@@ -1,4 +1,4 @@
-import type { ProjectBoardSynthesisRun, ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardSummary, ProjectBoardSynthesisRun } from "../../shared/projectBoardTypes";
 import {
   DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS,
   projectBoardSynthesisOutputCapRecovery,

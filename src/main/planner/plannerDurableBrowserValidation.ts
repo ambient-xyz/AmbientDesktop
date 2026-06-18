@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import type { PlannerDurableArtifactValidationIssue, PlannerDurableArtifactValidationResult } from "../../shared/types";
+import type { PlannerDurableArtifactValidationIssue, PlannerDurableArtifactValidationResult } from "../../shared/plannerTypes";
 
 export interface PlannerDurableBrowserSvgSnapshot {
   index: number;

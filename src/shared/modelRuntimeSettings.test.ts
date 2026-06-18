@@ -8,7 +8,7 @@ import {
   normalizeModelRuntimeSettings,
 } from "./modelRuntimeSettings";
 import type { ModelProviderCapabilityProbeId } from "./modelProviderInstallTemplates";
-import type { ModelRuntimeInstalledProvider } from "./types";
+import type { ModelRuntimeInstalledProvider } from "./threadTypes";
 
 describe("modelRuntimeSettings", () => {
   it("keeps installed provider settings default-off and empty until Settings installs one", () => {

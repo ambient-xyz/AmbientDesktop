@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { PrivilegedActionAdapterStatus, ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { PrivilegedActionAdapterStatus } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   registerAgentRuntimePrivilegedActionTools,
   type AgentRuntimePrivilegedActionToolOptions,

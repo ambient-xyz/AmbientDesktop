@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type {
+  SubagentMailboxEventSummary,
+  SubagentRunSummary,
+  SubagentWaitBarrierSummary,
+} from "../../shared/subagentTypes";
 import {
   buildSubagentCancelAgentChildThreadMessage,
   buildSubagentCancelAgentParentMailboxDraft,

@@ -7,7 +7,7 @@ import type {
   MessagingGatewayRuntimeStatus,
   MessagingProviderDescriptor,
 } from "../../../shared/messagingGateway";
-import { runtimeEventRelayText } from "../../messaging/messagingRuntimeEventRelay";
+import { runtimeEventRelayText } from "../agentRuntimeMessagingFacade";
 import {
   signalBridgeApprovedReplySendContract,
   signalBridgeEndpointPaths,

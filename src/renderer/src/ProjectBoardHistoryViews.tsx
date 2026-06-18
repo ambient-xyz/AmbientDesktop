@@ -11,17 +11,8 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import type {
-  OrchestrationBoard,
-  ProjectBoardCard,
-  ProjectBoardEvent,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardSummary,
-  ProjectBoardSynthesisRun,
-  ProjectBoardSynthesisRunProgressiveRecord,
-  ProjectSummary,
-  RetryProjectBoardSynthesisInput,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardGitSyncStatus, ProjectBoardSummary, ProjectBoardSynthesisRun, ProjectBoardSynthesisRunProgressiveRecord, ProjectSummary, RetryProjectBoardSynthesisInput } from "../../shared/projectBoardTypes";
+import type { OrchestrationBoard } from "../../shared/workflowTypes";
 import { DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS } from "../../shared/projectBoardSynthesisRecovery";
 import { useRunningClock } from "./AutomationsWorkspace";
 import {

@@ -7,10 +7,10 @@ import type {
   ProjectBoardPmReviewReport,
   ProjectBoardRenderedCardLedgerEntry,
   ProjectBoardScopeContract,
-  ProjectBoardScopeFeature,
-} from "../../shared/types";
-import { readAmbientEventStreamText } from "../ambient/ambientStreamTransport";
-import { readAmbientApiKey } from "../credentialStore";
+  ProjectBoardScopeFeature
+} from "../../shared/projectBoardTypes";
+import { readAmbientEventStreamText } from "./projectBoardAmbientFacade";
+import { readAmbientApiKey } from "../security/credentialStore";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import {
   projectBoardModelBudgetProfile,
@@ -102,7 +102,7 @@ import {
   isRetryableAmbientProviderError,
   retryDelayForAttempt,
   type AmbientRetryPolicy,
-} from "../aggressiveRetries";
+} from "./projectBoardAmbientFacade";
 import { callWorkflowPiText, type WorkflowPiCompletionMetadata, type WorkflowPiProgress } from "../workflow/workflowPiTransport";
 
 export interface AmbientProjectBoardSynthesisProgress {

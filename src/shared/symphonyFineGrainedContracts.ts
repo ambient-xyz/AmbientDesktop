@@ -70,6 +70,13 @@ export const SYMPHONY_CHILD_DECISION_OPTIONS = [
   "cancel_group",
   "exit_symphony_mode",
 ] as const;
+export const SYMPHONY_CHILD_DECISION_TOOL_ACTIONS = ["resolve_barrier"] as const;
+export const SYMPHONY_CHILD_DECISION_RESOLVE_BARRIER_DECISIONS = [
+  "continue_with_partial",
+  "retry_child",
+  "cancel_parent",
+  "fail_parent",
+] as const;
 export const SYMPHONY_MUTATING_TOOL_POLICY_IDS = [
   "workspace.write",
   "artifact.write",
@@ -94,6 +101,9 @@ export type SymphonyMutationWorkspaceLeaseKind = typeof SYMPHONY_MUTATION_WORKSP
 export type SymphonyMutationWorkspaceLeaseStatus = typeof SYMPHONY_MUTATION_WORKSPACE_LEASE_STATUSES[number];
 export type SymphonyChildDecisionReason = typeof SYMPHONY_CHILD_DECISION_REASONS[number];
 export type SymphonyChildDecisionOption = typeof SYMPHONY_CHILD_DECISION_OPTIONS[number];
+export type SymphonyChildDecisionToolAction = typeof SYMPHONY_CHILD_DECISION_TOOL_ACTIONS[number];
+export type SymphonyChildDecisionResolveBarrierDecision =
+  typeof SYMPHONY_CHILD_DECISION_RESOLVE_BARRIER_DECISIONS[number];
 
 export interface SymphonyPatternChildRolePlan {
   role: string;
@@ -189,7 +199,16 @@ export interface ChildDecisionRequest {
   reason: SymphonyChildDecisionReason;
   options: SymphonyChildDecisionOption[];
   recommendedOption: SymphonyChildDecisionOption;
+  optionActions: ChildDecisionOptionAction[];
   evidenceRefs: string[];
+}
+
+export interface ChildDecisionOptionAction {
+  option: SymphonyChildDecisionOption;
+  toolAction: SymphonyChildDecisionToolAction;
+  decision: SymphonyChildDecisionResolveBarrierDecision;
+  requiresUserDecision?: boolean;
+  requiresPartialSummary?: boolean;
 }
 
 export interface SymphonyChildLaunchContractBundle {
@@ -525,6 +544,10 @@ export function assertValidChildDecisionRequest(value: unknown): ChildDecisionRe
   if (!options.includes(recommendedOption)) {
     throw new Error("childDecisionRequest.recommendedOption must be included in options.");
   }
+  const optionActions = childDecisionOptionActions(input.optionActions, options);
+  if (optionActions.length !== options.length) {
+    throw new Error("childDecisionRequest.optionActions must include one executable action for each option.");
+  }
   return {
     schemaVersion: SYMPHONY_CHILD_DECISION_REQUEST_SCHEMA_VERSION,
     requestId: nonEmptyString(input.requestId, "childDecisionRequest.requestId"),
@@ -534,8 +557,42 @@ export function assertValidChildDecisionRequest(value: unknown): ChildDecisionRe
     reason: enumValue(input.reason, SYMPHONY_CHILD_DECISION_REASONS, "childDecisionRequest.reason"),
     options,
     recommendedOption,
+    optionActions,
     evidenceRefs: stringArray(input.evidenceRefs, "childDecisionRequest.evidenceRefs"),
   };
+}
+
+function childDecisionOptionActions(value: unknown, options: readonly SymphonyChildDecisionOption[]): ChildDecisionOptionAction[] {
+  const seen = new Set<SymphonyChildDecisionOption>();
+  return arrayInput(value, "childDecisionRequest.optionActions").map((item, index) => {
+    const record = objectRecord(item, `childDecisionRequest.optionActions[${index}]`);
+    const option = enumValue(record.option, SYMPHONY_CHILD_DECISION_OPTIONS, `childDecisionRequest.optionActions[${index}].option`);
+    if (!options.includes(option)) {
+      throw new Error(`childDecisionRequest.optionActions[${index}].option must be included in childDecisionRequest.options.`);
+    }
+    if (seen.has(option)) {
+      throw new Error(`childDecisionRequest.optionActions[${index}].option must be unique.`);
+    }
+    seen.add(option);
+    const action: ChildDecisionOptionAction = {
+      option,
+      toolAction: enumValue(
+        record.toolAction,
+        SYMPHONY_CHILD_DECISION_TOOL_ACTIONS,
+        `childDecisionRequest.optionActions[${index}].toolAction`,
+      ),
+      decision: enumValue(
+        record.decision,
+        SYMPHONY_CHILD_DECISION_RESOLVE_BARRIER_DECISIONS,
+        `childDecisionRequest.optionActions[${index}].decision`,
+      ),
+    };
+    return {
+      ...action,
+      ...(record.requiresUserDecision === true ? { requiresUserDecision: true } : {}),
+      ...(record.requiresPartialSummary === true ? { requiresPartialSummary: true } : {}),
+    };
+  });
 }
 
 function objectRecord(value: unknown, key: string): Record<string, unknown> {

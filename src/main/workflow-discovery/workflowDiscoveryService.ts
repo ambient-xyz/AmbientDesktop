@@ -1,32 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type {
-  AnswerWorkflowDiscoveryQuestionInput,
-  AmbientPermissionGrant,
-  PermissionAuditDecisionSource,
-  PermissionGrantScopeKind,
-  PermissionGrantTargetKind,
-  StartWorkflowDiscoveryInput,
-  StartWorkflowRevisionDiscoveryInput,
-  ResolveWorkflowDiscoveryAccessRequestInput,
-  WorkflowAgentDiscoveryResult,
-  WorkflowDiscoveryAccessRequest,
-  WorkflowDiscoveryActivityEvent,
-  WorkflowDiscoveryContextEvidence,
-  WorkflowDiscoveryContextCapability,
-  WorkflowDiscoveryQuestion,
-  WorkflowDiscoveryQuestionCategory,
-  WorkflowDiscoveryGraphPatch,
-  WorkflowDiscoveryProgress,
-  WorkflowGraphSnapshot,
-  WorkflowRevisionSummary,
-  PermissionMode,
-  SearchRoutingSettings,
-  WorkflowDiscoveryCapabilityDescription,
-  WorkflowDiscoveryCapabilitySearch,
-} from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionAuditDecisionSource, PermissionGrantScopeKind, PermissionGrantTargetKind, PermissionMode } from "../../shared/permissionTypes";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
+import type { AnswerWorkflowDiscoveryQuestionInput, ResolveWorkflowDiscoveryAccessRequestInput, StartWorkflowDiscoveryInput, StartWorkflowRevisionDiscoveryInput, WorkflowAgentDiscoveryResult, WorkflowDiscoveryAccessRequest, WorkflowDiscoveryActivityEvent, WorkflowDiscoveryCapabilityDescription, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryContextCapability, WorkflowDiscoveryContextEvidence, WorkflowDiscoveryGraphPatch, WorkflowDiscoveryProgress, WorkflowDiscoveryQuestion, WorkflowDiscoveryQuestionCategory, WorkflowGraphSnapshot, WorkflowRevisionSummary } from "../../shared/workflowTypes";
 import { workflowDiscoveryGraph } from "../../shared/workflowDiscovery";
 import { applyWorkflowDiscoveryGraphPatch, validateWorkflowDiscoveryGraphPatch } from "../../shared/workflowDiscoveryGraphPatch";
-import { isRetryableAmbientProviderError } from "../aggressiveRetries";
+import { isRetryableAmbientProviderError } from "../ambient/aggressiveRetries";
 import { searchAmbientCliCapabilities, type AmbientCliCapabilitySearchResponse } from "../ambient-cli/ambientCliPackages";
 import type { ProjectStore } from "../projectStore/projectStore";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";

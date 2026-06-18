@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowRevisionSummary } from "../../shared/types";
+import type { WorkflowRevisionSummary } from "../../shared/workflowTypes";
 import {
   workflowRevisionCards,
   workflowRevisionGraphDetails,

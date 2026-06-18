@@ -1,13 +1,4 @@
-import type {
-  PrivilegedActionAdapterExecutionPlan,
-  PrivilegedActionAdapterName,
-  PrivilegedActionAdapterResultStatus,
-  PrivilegedActionAdapterStatus,
-  PrivilegedActionCredentialCaptureStatus,
-  PrivilegedActionNativeRequest,
-  PrivilegedActionNativeResult,
-  PrivilegedActionPlatform,
-} from "../../shared/types";
+import type { PrivilegedActionAdapterExecutionPlan, PrivilegedActionAdapterName, PrivilegedActionAdapterResultStatus, PrivilegedActionAdapterStatus, PrivilegedActionCredentialCaptureStatus, PrivilegedActionNativeRequest, PrivilegedActionNativeResult, PrivilegedActionPlatform } from "../../shared/permissionTypes";
 import { spawn } from "node:child_process";
 import { isAbsolute, resolve } from "node:path";
 import { Buffer } from "node:buffer";

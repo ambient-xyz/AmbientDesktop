@@ -1,8 +1,4 @@
-import type {
-  InterruptedToolCallRecoverySnapshot,
-  ToolArgumentProgressSnapshot,
-  ToolIntentSnapshot,
-} from "../../shared/types";
+import type { InterruptedToolCallRecoverySnapshot, ToolArgumentProgressSnapshot, ToolIntentSnapshot } from "../../shared/threadTypes";
 import type { ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import { compactToolInputPreview } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 

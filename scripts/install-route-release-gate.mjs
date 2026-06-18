@@ -10,7 +10,7 @@ const files = {
   matrixTest: read("src/main/install-route/installRoutePlannerMatrix.test.ts"),
   liveTest: read("src/main/install-route/installRoutePlanner.live.test.ts"),
   router: read("src/main/ambient/ambientToolRouter.ts"),
-  registry: read("src/main/desktopToolRegistry.ts"),
+  registry: read("src/main/desktop-tools/desktopToolRegistry.ts"),
   agentRuntime: read("src/main/agent-runtime/agentRuntime.ts"),
   installReadOnlyTools: read("src/main/plugins/runtime-tools/agentRuntimePluginInstallReadOnlyTools.ts"),
   rendererModel: read("src/renderer/src/toolMessageUiModel.ts"),

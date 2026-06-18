@@ -1,16 +1,5 @@
-import type {
-  PermissionRequest,
-  PlannerDecisionOption,
-  PlannerDecisionQuestion,
-  PlannerDiagramEdge,
-  PlannerDiagramKind,
-  PlannerDiagramNode,
-  PlannerDiagramSpec,
-  PlannerDurableArtifactValidationIssue,
-  PlannerDurableArtifactValidationResult,
-  PlannerPlanArtifact,
-  PlannerPlanStep,
-} from "../../shared/types";
+import type { PermissionRequest } from "../../shared/permissionTypes";
+import type { PlannerDecisionOption, PlannerDecisionQuestion, PlannerDiagramEdge, PlannerDiagramKind, PlannerDiagramNode, PlannerDiagramSpec, PlannerDurableArtifactValidationIssue, PlannerDurableArtifactValidationResult, PlannerPlanArtifact, PlannerPlanStep } from "../../shared/plannerTypes";
 import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
 
 type PlannerPermissionPrompt = Omit<PermissionRequest, "id">;

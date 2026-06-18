@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/types";
+import type { WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { WorkflowOutputsPanel } from "./AutomationsWorkflowOutputViews";
 
 describe("Automations workflow output views", () => {

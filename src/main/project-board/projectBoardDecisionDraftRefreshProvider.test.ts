@@ -6,7 +6,7 @@ import {
   normalizeProjectBoardDecisionDraftRefreshSuggestions,
   parseProjectBoardDecisionDraftRefreshJson,
 } from "./projectBoardDecisionDraftRefreshProvider";
-import type { ProjectBoardCard } from "../../shared/types";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 
 describe("AmbientProjectBoardDecisionDraftRefreshProvider", () => {
   const animatedCard = card({

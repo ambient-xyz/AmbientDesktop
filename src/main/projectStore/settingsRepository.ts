@@ -24,16 +24,11 @@ import {
   modelRuntimeProvidersFromSettings,
   normalizeModelRuntimeSettings,
 } from "../../shared/modelRuntimeSettings";
-import type {
-  AmbientCompactionSettings,
-  CollaborationMode,
-  DesktopSettings,
-  ModelRuntimeSettings,
-  PermissionMode,
-  ThinkingLevel,
-} from "../../shared/types";
+import type { AmbientCompactionSettings, CollaborationMode, ModelRuntimeSettings, ThinkingLevel } from "../../shared/threadTypes";
+import type { DesktopSettings } from "../../shared/desktopTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
 import { defaultLocalDeepResearchSettings } from "../local-deep-research/localDeepResearchProviderStack";
-import { createModelRuntimeCatalog } from "../modelRuntimeRegistry";
+import { createModelRuntimeCatalog } from "../model-provider/modelRuntimeRegistry";
 import { migrateProjectStorePermissionModeDefaultsToWorkspace } from "./projectStoreSchema";
 import { DEFAULT_COMPACTION_SETTINGS, normalizeCompactionSettings } from "./projectStoreSettings";
 

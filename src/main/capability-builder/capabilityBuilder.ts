@@ -15,18 +15,17 @@ import {
   type AmbientCliPackageCatalog,
   type AmbientCliPackageSummary,
 } from "../ambient-cli/ambientCliPackages";
+import type { ToolLargeOutputPreview, ToolLargeOutputPreviewItem } from "../../shared/threadTypes";
 import type {
-  ToolLargeOutputPreview,
-  ToolLargeOutputPreviewItem,
   VoiceOutputFormat,
   VoiceProviderCandidate,
   VoiceProviderCloningMetadata,
   VoiceProviderDiscoveryMetadata,
-} from "../../shared/types";
-import { ambientRuntimeEnv } from "../runtimePath";
-import { redactSensitiveText } from "../secretRedaction";
-import { isSecretReference, readSecretReference, saveSecretReference } from "../secretReferenceStore";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../managedInstallPaths";
+} from "../../shared/localRuntimeTypes";
+import { ambientRuntimeEnv } from "../setup/runtimePath";
+import { redactSensitiveText } from "../security/secretRedaction";
+import { isSecretReference, readSecretReference, saveSecretReference } from "../security/secretReferenceStore";
+import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/managedInstallPaths";
 
 const execFileAsync = promisify(execFile);
 const builderRoot = ".ambient/capability-builder/packages";

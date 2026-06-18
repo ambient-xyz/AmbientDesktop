@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GitReviewSummary } from "../../shared/types";
+import type { GitReviewSummary } from "../../shared/workspaceTypes";
 import { gitEditSummaryBadgeTitle } from "./AppGitControls";
 
 describe("git controls helpers", () => {

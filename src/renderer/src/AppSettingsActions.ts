@@ -1,14 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  InstallModelProviderEndpointInput,
-  InstallModelProviderEndpointResult,
-  LocalModelRuntimeLifecycleActionInput,
-  LocalModelRuntimeLifecycleActionResult,
-  ModelProviderCredentialSaveResult,
-  SaveModelProviderCredentialInput,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult } from "../../shared/localRuntimeTypes";
+import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
+import type { InstallModelProviderEndpointInput, InstallModelProviderEndpointResult, SaveModelProviderCredentialInput } from "../../shared/threadTypes";
 import type { LocalDeepResearchSetupUiState } from "./RightPanel";
 import { CLEAR_AGENT_MEMORY_CONFIRMATION } from "../../shared/agentMemoryPrivacy";
 

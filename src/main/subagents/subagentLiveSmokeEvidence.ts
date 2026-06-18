@@ -1,6 +1,10 @@
 import { validateSubagentResultArtifactForSynthesis, type SubagentRuntimeEvent } from "../../shared/subagentProtocol";
 import type { SubagentMaturityEvidence } from "../../shared/subagentMaturity";
-import type { PermissionRequest, SubagentParentMailboxEventSummary, SubagentRunSummary } from "../../shared/types";
+import type { PermissionRequest } from "../../shared/permissionTypes";
+import type {
+  SubagentParentMailboxEventSummary,
+  SubagentRunSummary,
+} from "../../shared/subagentTypes";
 
 export const SUBAGENT_LIVE_SMOKE_EVIDENCE_SCHEMA_VERSION = "ambient-subagent-live-smoke-evidence-v1" as const;
 export const SUBAGENT_LIVE_APPROVAL_AUTHORITY_EVIDENCE_SCHEMA_VERSION = "ambient-subagent-live-approval-authority-evidence-v1" as const;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DesktopEvent, DesktopState, ThreadSummary } from "../../shared/types";
+import type { DesktopEvent, DesktopState } from "../../shared/desktopTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   desktopEventMatchesProject,
   workspaceProjectAliasesForState,

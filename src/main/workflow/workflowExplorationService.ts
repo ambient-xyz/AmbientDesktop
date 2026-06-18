@@ -1,27 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { AMBIENT_DEFAULT_MODEL, normalizeAmbientModelId } from "../../shared/ambientModels";
-import type {
-  WorkflowConnectorManifestGrant,
-  WorkflowGraphEdge,
-  WorkflowGraphNode,
-  WorkflowManifest,
-  WorkflowPromptCacheCheckpoint,
-  PermissionMode,
-  PermissionRequest,
-  WorkflowExplorationTraceSummary,
-  WorkflowExplorationEventSummary,
-  WorkflowExplorationProgress,
-  WorkflowGraphSnapshot,
-  WorkflowAgentThreadSummary,
-  WorkflowAmbientCliCapabilityGrant,
-  WorkflowExplorationRunStatus,
-} from "../../shared/types";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { PermissionMode, PermissionRequest } from "../../shared/permissionTypes";
+import type { WorkflowAgentThreadSummary, WorkflowAmbientCliCapabilityGrant, WorkflowConnectorManifestGrant, WorkflowExplorationEventSummary, WorkflowExplorationProgress, WorkflowExplorationRunStatus, WorkflowExplorationTraceSummary, WorkflowGraphEdge, WorkflowGraphNode, WorkflowGraphSnapshot, WorkflowManifest, WorkflowPromptCacheCheckpoint } from "../../shared/workflowTypes";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { WorkflowEventSink, WorkflowToolHandlers } from "./workflowAgentRuntime";
-import { readAmbientApiKey } from "../credentialStore";
+import { readAmbientApiKey } from "../security/credentialStore";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import type { ProjectStore } from "../projectStore/projectStore";
-import type { AmbientRetryPolicy } from "../aggressiveRetries";
+import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import { createWorkflowDesktopToolBridge, type WorkflowBrowserAdapter, type WorkflowDesktopToolBridgeOptions } from "./workflowDesktopTools";
 import {
   createWorkflowConnectorBridge,

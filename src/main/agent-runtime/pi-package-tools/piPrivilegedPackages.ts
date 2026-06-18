@@ -8,7 +8,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { isPathInside } from "../../session/sessionPaths";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../managedInstallPaths";
+import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../setup/managedInstallPaths";
 
 const execFileAsync = promisify(execFile);
 const privilegedConfigPath = ".ambient/pi-privileged-installs/packages.json";

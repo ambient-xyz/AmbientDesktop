@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OrchestrationTask } from "../../shared/types";
+import type { OrchestrationTask } from "../../shared/workflowTypes";
 import { parseWorkflowMarkdown } from "../workflow/workflow";
 import { claimSelectedTasks, selectDispatchableTasks } from "./orchestrationScheduler";
 

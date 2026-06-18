@@ -1,12 +1,4 @@
-import type {
-  DiagnosticExportSubagentCompletionGuardSummary,
-  DiagnosticExportSubagentLifecycleSummary,
-  DiagnosticExportSubagentReplayEvidence,
-  DiagnosticExportSubagentReplayParentMailboxItem,
-  DiagnosticExportSubagentReplaySummary,
-  DiagnosticExportSubagentReplayTimelineItem,
-  DiagnosticExportSubagentReplayTranscriptItem,
-} from "../../shared/types";
+import type { DiagnosticExportSubagentCompletionGuardSummary, DiagnosticExportSubagentLifecycleSummary, DiagnosticExportSubagentReplayEvidence, DiagnosticExportSubagentReplayParentMailboxItem, DiagnosticExportSubagentReplaySummary, DiagnosticExportSubagentReplayTimelineItem, DiagnosticExportSubagentReplayTranscriptItem } from "../../shared/diagnosticTypes";
 
 export interface SubagentReplayEvidenceInspectorModel {
   statusLabel: string;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SubagentToolScopeResolution } from "../../shared/subagentToolScope";
-import type { ThreadWorktreeSummary } from "../../shared/types";
+import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
 import {
   resolveSubagentChildAuthorityProfile,
   resolveSubagentLaunchWorkspaceToolPolicy,

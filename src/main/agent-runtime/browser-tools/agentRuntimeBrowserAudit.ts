@@ -1,4 +1,5 @@
-import type { PermissionAuditEntry, ThreadSummary } from "../../../shared/types";
+import type { PermissionAuditEntry } from "../../../shared/permissionTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 
 export type AgentRuntimeBrowserAuditRisk =
   | "browser-network"

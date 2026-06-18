@@ -1,5 +1,5 @@
 import { emptyQueueState } from "../../shared/messageDelivery";
-import type { DesktopEvent, SendMessageInput } from "../../shared/types";
+import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import {
   finalizeMessagingRemoteSurfaceCommandPendingProjectSwitchAfterRun,
   type MessagingRemoteSurfaceCommandPendingProjectSwitch,

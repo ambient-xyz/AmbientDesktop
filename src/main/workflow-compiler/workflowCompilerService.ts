@@ -5,29 +5,17 @@ import { join } from "node:path";
 import YAML from "yaml";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import { workflowGraphFromSpec } from "../../shared/workflowAgentGraph";
-import type {
-  WorkflowAmbientCliCapabilityGrant,
-  CallableWorkflowLaunchCardSummary,
-  CallableWorkflowTaskSummary,
-  WorkflowCompileProgress,
-  WorkflowDashboard,
-  WorkflowDiscoveryQuestion,
-  WorkflowExplorationTraceSummary,
-  WorkflowGraphSnapshot,
-  WorkflowPromptCacheCheckpoint,
-  PermissionMode,
-  SearchRoutingSettings,
-  WorkflowDiscoveryCapabilityDescription,
-  WorkflowDiscoveryCapabilitySearch,
-} from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
+import type { CallableWorkflowLaunchCardSummary, CallableWorkflowTaskSummary, WorkflowAmbientCliCapabilityGrant, WorkflowCompileProgress, WorkflowDashboard, WorkflowDiscoveryCapabilityDescription, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryQuestion, WorkflowExplorationTraceSummary, WorkflowGraphSnapshot, WorkflowPromptCacheCheckpoint } from "../../shared/workflowTypes";
 import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
 import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { ProjectStore } from "../projectStore/projectStore";
-import { readAmbientApiKey } from "../credentialStore";
-import type { AmbientRetryPolicy } from "../aggressiveRetries";
+import { readAmbientApiKey } from "../security/credentialStore";
+import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import {
   canonicalizeWorkflowGraphLayout,
   buildWorkflowCompilerCapabilityDiscoveryPrompt,

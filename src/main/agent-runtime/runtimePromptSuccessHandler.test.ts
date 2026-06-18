@@ -1,12 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  ChatMessage,
-  DesktopEvent,
-  PlannerPlanArtifact,
-  SendMessageInput,
-  ThreadSummary,
-} from "../../shared/types";
+import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import {
   handleRuntimePromptSuccess,
   type RuntimePromptSuccessHandlerInput,

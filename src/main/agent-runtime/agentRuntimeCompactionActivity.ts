@@ -1,4 +1,4 @@
-import type { RuntimeActivity } from "../../shared/types";
+import type { RuntimeActivity } from "../../shared/threadTypes";
 
 type RuntimeCompactionActivity = Extract<RuntimeActivity, { kind: "compaction" }>;
 type RuntimeCompactionStartingActivity = Extract<RuntimeCompactionActivity, { status: "starting" }>;

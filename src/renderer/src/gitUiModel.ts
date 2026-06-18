@@ -1,4 +1,4 @@
-import type { GitReviewSummary, WorkspaceGitStatus } from "../../shared/types";
+import type { GitReviewSummary, WorkspaceGitStatus } from "../../shared/workspaceTypes";
 
 export function filterGitBranches(branches: string[], query: string, currentBranch = ""): string[] {
   const normalizedQuery = query.trim().toLowerCase();

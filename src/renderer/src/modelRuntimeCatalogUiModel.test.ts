@@ -7,7 +7,7 @@ import {
   resolveAmbientModelRuntimeProfile,
   type AmbientModelRuntimeProfile,
 } from "../../shared/ambientModels";
-import type { LocalRuntimeLeaseRecord, LocalRuntimeLeaseStateSummary, LocalRuntimeLifecycleDecision } from "../../shared/types";
+import type { LocalRuntimeLeaseRecord, LocalRuntimeLeaseStateSummary, LocalRuntimeLifecycleDecision } from "../../shared/localRuntimeTypes";
 import { modelRuntimeCatalogSettingsModel } from "./modelRuntimeCatalogUiModel";
 
 describe("modelRuntimeCatalogSettingsModel", () => {

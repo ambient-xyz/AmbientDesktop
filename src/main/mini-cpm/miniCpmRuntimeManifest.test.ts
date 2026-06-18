@@ -7,7 +7,7 @@ import {
   miniCpmRuntimeReleaseManifestPrototype,
   verifyMiniCpmRuntimeReleaseManifest,
 } from "./miniCpmRuntimeManifest";
-import type { MiniCpmVisionRuntimeReleaseManifest } from "../../shared/types";
+import type { MiniCpmVisionRuntimeReleaseManifest } from "../../shared/localRuntimeTypes";
 
 describe("MiniCPM-V runtime release manifest verifier", () => {
   it("enables default managed download only for the pinned macOS/Linux lanes", () => {

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { SttTestAudioInput, SttTestAudioResult } from "../../shared/types";
+import type { SttTestAudioInput, SttTestAudioResult } from "../../shared/localRuntimeTypes";
 import { parseWavPcm16 } from "./sttAudio";
 import { sttUtteranceArtifactPaths } from "./sttArtifacts";
 

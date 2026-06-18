@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { BrowserCapabilityState } from "../../../shared/types";
+import type { BrowserCapabilityState } from "../../../shared/browserTypes";
 import {
   isBrowserProfileMode,
   prepareAgentRuntimeBrowserToolProfile,

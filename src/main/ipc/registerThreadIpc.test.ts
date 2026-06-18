@@ -2,17 +2,19 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
-  ChatMessage,
   DesktopState,
+  RequestThreadPermissionModeChangeInput,
+  UpdateThreadSettingsInput,
+} from "../../shared/desktopTypes";
+import type { PermissionAuditEntry } from "../../shared/permissionTypes";
+import type {
+  ChatMessage,
   ExportChatInput,
   ExportChatPdfInput,
   ExportChatPdfResult,
   ExportChatResult,
-  PermissionAuditEntry,
-  RequestThreadPermissionModeChangeInput,
   ThreadGoal,
-  UpdateThreadSettingsInput,
-} from "../../shared/types";
+} from "../../shared/threadTypes";
 import {
   registerThreadArchiveIpc,
   registerThreadCreateIpc,

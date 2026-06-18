@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { PermissionAuditEntry } from "../../../shared/types";
+import type { PermissionAuditEntry } from "../../../shared/permissionTypes";
 import { recordAgentRuntimeBrowserAudit } from "./agentRuntimeBrowserAudit";
 
 describe("agentRuntimeBrowserAudit", () => {

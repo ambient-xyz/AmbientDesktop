@@ -3,11 +3,15 @@ import { join, resolve } from "node:path";
 import { emptyQueueState, type QueuedMessageSnapshot } from "../../shared/messageDelivery";
 import type {
   DesktopEvent,
+  SendMessageInput,
+} from "../../shared/desktopTypes";
+import type {
   LocalDeepResearchSettings,
   LocalModelHostMemorySnapshot,
-  SendMessageInput,
+} from "../../shared/localRuntimeTypes";
+import type {
   ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/threadTypes";
 import type { AmbientModelRuntimeProfile } from "../../shared/ambientModels";
 import {
   buildLocalModelResourceRegistry,

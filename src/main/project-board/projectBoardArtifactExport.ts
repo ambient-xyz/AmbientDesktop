@@ -1,8 +1,7 @@
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative } from "node:path";
+import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import type {
-  OrchestrationRun,
-  OrchestrationTask,
   ProjectBoardCard,
   ProjectBoardCharter,
   ProjectBoardEvent,
@@ -11,8 +10,8 @@ import type {
   ProjectBoardSource,
   ProjectBoardSummary,
   ProjectBoardSynthesisProposal,
-  ProjectBoardSynthesisRun,
-} from "../../shared/types";
+  ProjectBoardSynthesisRun
+} from "../../shared/projectBoardTypes";
 import {
   PROJECT_BOARD_ARTIFACT_ROOT,
   PROJECT_BOARD_ARTIFACT_SCHEMA_VERSION,

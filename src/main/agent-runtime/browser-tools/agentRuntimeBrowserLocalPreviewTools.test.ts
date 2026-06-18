@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  BrowserPageContent,
-  BrowserUserActionState,
-} from "../../../shared/types";
+import type { BrowserPageContent, BrowserUserActionState } from "../../../shared/browserTypes";
 import { BrowserUnavailableError } from "../../browser/browserService";
-import { localPreviewSummary, type LocalPreviewSession } from "../../localPreviewServer";
+import { localPreviewSummary, type LocalPreviewSession } from "../../browser/localPreviewServer";
 import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 import {
   registerBrowserLocalPreviewTool,

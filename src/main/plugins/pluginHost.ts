@@ -16,7 +16,6 @@ import type {
   InstallCodexPluginDependenciesInput,
   InstallPiPackageInput,
   ImportCodexPluginInput,
-  PermissionMode,
   PiPackageCatalog,
   SetPiPackageEnabledInput,
   PluginAuthAccountActionInput,
@@ -25,7 +24,8 @@ import type {
   StartPluginAppAuthInput,
   UninstallCodexPluginInput,
   UninstallPiPackageInput,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
 import { discoverAmbientCliPackages, type DiscoverAmbientCliPackagesOptions } from "../ambient-cli/ambientCliPackages";
 import {
   addCodexMarketplaceSource,

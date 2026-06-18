@@ -1,18 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 
-import type {
-  AutomationScheduleExceptionSummary,
-  AutomationScheduleSummary,
-  WorkflowAgentFolderSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowDashboard,
-  WorkflowExplorationProgress,
-  WorkflowExplorationTraceSummary,
-  WorkflowRevisionSummary,
-  WorkflowRunDetail,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { AutomationScheduleExceptionSummary, AutomationScheduleSummary } from "../../shared/automationTypes";
+import type { WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowDashboard, WorkflowExplorationProgress, WorkflowExplorationTraceSummary, WorkflowRevisionSummary, WorkflowRunDetail, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import type { WorkflowArtifactPanelId } from "./workflowArtifactPanelUiModel";
 import type { WorkflowRunsPanelId } from "./workflowRunsPanelUiModel";
 

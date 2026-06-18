@@ -1,15 +1,17 @@
+import type { DesktopEvent } from "../../../shared/desktopTypes";
 import type {
-  DesktopEvent,
   PermissionPromptResolution,
   PermissionPromptResponseMode,
   PermissionRequest,
   PermissionRisk,
+} from "../../../shared/permissionTypes";
+import type {
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/subagentTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   formatInstallRouteGateBlockedMessage,
   formatMcpInstallShellBlockedMessage,

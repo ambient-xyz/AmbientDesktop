@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { SearchRoutingSettings, WorkspaceState } from "../../../shared/types";
+import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
 import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
 import { registerWebResearchStatusTools } from "./agentRuntimeWebResearchStatusTools";

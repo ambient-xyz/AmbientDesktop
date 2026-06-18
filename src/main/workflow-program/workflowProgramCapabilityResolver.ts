@@ -1,4 +1,4 @@
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import { GOOGLE_WORKSPACE_METHOD_CATALOG, GOOGLE_WORKSPACE_METHOD_CATALOG_VERSION, normalizeMethodId } from "../google-workspace/googleWorkspaceMethodBroker";
 import type { WorkflowConnectorDescriptor, WorkflowConnectorOperationDescriptor } from "../workflow/workflowConnectors";
 import { isWorkflowProgramLoopMapToolCall } from "../../shared/workflowProgramIr";
@@ -15,13 +15,8 @@ import type {
   WorkflowProgramToolCallNode,
   WorkflowProgramToolPaginateNode,
 } from "../../shared/workflowProgramIr";
-import type {
-  GoogleWorkspaceMethodSideEffect,
-  GoogleWorkspaceMethodSummary,
-  WorkflowAmbientCliCapabilityGrant,
-  WorkflowGoogleWorkspaceMethodGrant,
-  WorkflowManifest,
-} from "../../shared/types";
+import type { GoogleWorkspaceMethodSideEffect, GoogleWorkspaceMethodSummary } from "../../shared/pluginTypes";
+import type { WorkflowAmbientCliCapabilityGrant, WorkflowGoogleWorkspaceMethodGrant, WorkflowManifest } from "../../shared/workflowTypes";
 
 export interface WorkflowProgramDiagnostic {
   code: string;

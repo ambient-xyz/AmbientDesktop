@@ -1,4 +1,4 @@
-import type { WorkflowExplorationProgress, WorkflowExplorationTraceSummary } from "../../shared/types";
+import type { WorkflowExplorationProgress, WorkflowExplorationTraceSummary } from "../../shared/workflowTypes";
 import { normalizeWorkflowExplorationBudgets, workflowExplorationBudgetLabels } from "./workflowExplorationBudgetUiModel";
 
 export interface WorkflowExplorationTraceCard {

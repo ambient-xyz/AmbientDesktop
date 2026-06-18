@@ -5,8 +5,8 @@ import type {
   CreateWorkflowArtifactInput,
   UpdateWorkflowArtifactInput,
   WorkflowAgentThreadPhase,
-  WorkflowArtifactSummary,
-} from "../../shared/types";
+  WorkflowArtifactSummary
+} from "../../shared/workflowTypes";
 import { mapWorkflowArtifactRow, type WorkflowArtifactRow } from "./workflowArtifactMappers";
 import { workflowAgentPhaseForArtifactStatus } from "./projectStoreWorkflowMappers";
 

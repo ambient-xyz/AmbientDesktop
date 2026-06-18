@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import type { MessageVoiceState } from "../../shared/types";
+import type { MessageVoiceState } from "../../shared/localRuntimeTypes";
 import { clearManagedVoiceArtifacts, inspectVoiceArtifactRetention, pruneManagedVoiceArtifactsToBudget, pruneVoiceArtifactOrphans } from "./voiceArtifacts";
 
 describe("voice artifact retention", () => {

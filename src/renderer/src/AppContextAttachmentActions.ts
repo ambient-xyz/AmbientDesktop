@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { WorkspaceContextReference } from "../../shared/types";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { contextAttachmentKey } from "./RightPanelDetailPanels";
 import { mergeContextAttachments } from "./AppComposerControls";
 

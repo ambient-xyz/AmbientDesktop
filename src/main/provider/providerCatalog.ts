@@ -1,4 +1,4 @@
-import type { ProviderCatalogSettingsCard, ProviderCatalogSettingsState } from "../../shared/types";
+import type { ProviderCatalogSettingsCard, ProviderCatalogSettingsState } from "../../shared/desktopTypes";
 import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
 import { localDeepResearchModelProfilesManifest, localDeepResearchModelAssetNames } from "../local-deep-research/localDeepResearchModelProfiles";
 
@@ -814,7 +814,7 @@ export const providerCatalogEntries: ProviderCatalogEntry[] = [
       { label: "Ambient faster-whisper STT package instructions", url: "resources/ambient-cli-packages/ambient-faster-whisper-stt/SKILL.md", lastReviewed: reviewedAt },
       { label: "faster-whisper clean-cache validation", url: "scripts/stt-faster-whisper-clean-cache-validation.mjs", lastReviewed: reviewedAt },
       { label: "faster-whisper tiny smoke provider config", url: "scripts/stt-spike/providers.faster-whisper-tiny-smoke.json", lastReviewed: reviewedAt },
-      { label: "faster-whisper STT live product-path dogfood", url: "src/main/pluginDogfood.test.ts", lastReviewed: reviewedAt },
+      { label: "faster-whisper STT live product-path dogfood", url: "src/main/plugins/pluginDogfood.test.ts", lastReviewed: reviewedAt },
       { label: "STT spike plan", url: "STTSpikePlan.md", lastReviewed: reviewedAt },
     ],
   },

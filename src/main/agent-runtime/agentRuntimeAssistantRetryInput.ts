@@ -1,5 +1,7 @@
 import { existsSync } from "node:fs";
-import type { MessageDelivery, PermissionMode, SendMessageInput } from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { MessageDelivery } from "../../shared/threadTypes";
 
 export type AssistantFinalizationRetryReason =
   | "empty_assistant_response"

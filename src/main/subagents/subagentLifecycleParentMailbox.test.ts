@@ -7,7 +7,7 @@ import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { AMBIENT_SUBAGENT_PROTOCOL_VERSION, type SubagentRunStatus } from "../../shared/subagentProtocol";
 import { getDefaultSubagentRoleProfile, type SubagentRoleId } from "../../shared/subagentRoles";
-import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import {
   SUBAGENT_LIFECYCLE_INTERRUPTION_PARENT_MAILBOX_SCHEMA_VERSION,
   SUBAGENT_LIFECYCLE_INTERRUPTION_PARENT_MAILBOX_TYPE,

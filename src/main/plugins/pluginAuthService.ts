@@ -4,7 +4,7 @@ import type {
   AmbientPluginAuthStatus,
   CodexPluginApp,
   CodexPluginSummary,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import {
   WorkflowConnectorAuthService,
   providerSupportsConnector,

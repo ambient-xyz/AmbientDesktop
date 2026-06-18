@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import type { PrivilegedActionNativeRequest, PrivilegedActionNativeResult, PrivilegedCredentialPromptResolution } from "../../shared/types";
+import type { PrivilegedActionNativeRequest, PrivilegedActionNativeResult, PrivilegedCredentialPromptResolution } from "../../shared/permissionTypes";
 import {
   buildPrivilegedActionNativeRequest,
   credentialPlaceholder,

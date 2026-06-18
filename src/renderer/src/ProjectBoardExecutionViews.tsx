@@ -18,14 +18,8 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-import type {
-  AttachProjectBoardLocalTaskMode,
-  OrchestrationTask,
-  RepairOrchestrationWorkflowAction,
-  ResolveOrchestrationWorkflowImpactAction,
-  UpdateOrchestrationWorkflowRawInput,
-  UpdateOrchestrationWorkflowSettingsInput,
-} from "../../shared/types";
+import type { AttachProjectBoardLocalTaskMode } from "../../shared/projectBoardTypes";
+import type { OrchestrationTask, RepairOrchestrationWorkflowAction, ResolveOrchestrationWorkflowImpactAction, UpdateOrchestrationWorkflowRawInput, UpdateOrchestrationWorkflowSettingsInput } from "../../shared/workflowTypes";
 import type { ProjectBoardCardInspectorOptions } from "./ProjectBoardActiveCardDetailViews";
 import {
   projectBoardBoardDecisionImpactRail,

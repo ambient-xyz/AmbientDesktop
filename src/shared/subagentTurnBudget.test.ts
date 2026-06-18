@@ -7,7 +7,7 @@ import {
   resolveSubagentTurnBudgetPolicy,
   SUBAGENT_TURN_BUDGET_POLICY_SCHEMA_VERSION,
 } from "./subagentTurnBudget";
-import type { SubagentRunEventSummary } from "./types";
+import type { SubagentRunEventSummary } from "./subagentTypes";
 
 describe("subagentTurnBudget", () => {
   it("derives wrap-up and partial exhaustion policy from role guard limits", () => {

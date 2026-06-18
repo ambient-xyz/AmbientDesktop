@@ -1,13 +1,7 @@
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, getBezierPath, Handle, Position, ReactFlow, ReactFlowProvider, useReactFlow, type EdgeProps } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type {
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowRecoveryAction,
-  WorkflowRunDetail,
-  WorkflowRunEvent,
-} from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowRecoveryAction, WorkflowRunDetail, WorkflowRunEvent } from "../../shared/workflowTypes";
 import { formatTaskState } from "./RightPanel";
 import {
   workflowDiagramInitialViewportNodeIds,

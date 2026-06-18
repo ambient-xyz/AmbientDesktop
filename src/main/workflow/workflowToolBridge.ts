@@ -1,5 +1,5 @@
-import type { WorkflowManifest } from "../../shared/types";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { WorkflowManifest } from "../../shared/workflowTypes";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { WorkflowEventSink, WorkflowToolHandler, WorkflowToolHandlers } from "./workflowAgentRuntime";
 
 export interface WorkflowToolBridgeOptions {

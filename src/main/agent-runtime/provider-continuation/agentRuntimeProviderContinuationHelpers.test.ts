@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProviderContinuationState, ProviderContinuationToolState, SendMessageInput, ToolIntentSnapshot } from "../../../shared/types";
+import type { SendMessageInput } from "../../../shared/desktopTypes";
+import type { ProviderContinuationState, ProviderContinuationToolState, ToolIntentSnapshot } from "../../../shared/threadTypes";
 import {
   buildProviderInterruptionContinuationInput,
   buildProviderInterruptionContinuationNotice,

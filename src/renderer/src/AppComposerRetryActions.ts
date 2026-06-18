@@ -1,11 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  ChatMessage,
-  DesktopState,
-  RunStatus,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ChatMessage, RunStatus } from "../../shared/threadTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { mergeContextAttachments } from "./AppComposerControls";
 import { contextReferencesFromMetadata } from "./AppMessages";
 import { workflowRecordingEditContextFromMetadata } from "./AppWorkflowRecording";

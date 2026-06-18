@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DesktopEvent, PlannerPlanArtifact } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import { createRuntimeRunEventScope } from "./runtimeRunEventScope";
 
 const createdAt = "2026-06-15T00:00:00.000Z";

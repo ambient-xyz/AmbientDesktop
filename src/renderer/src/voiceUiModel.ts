@@ -1,11 +1,5 @@
-import type {
-  ChatMessage,
-  MessageVoiceState,
-  VoiceProviderCandidate,
-  VoiceProviderRuntimeState,
-  VoiceSettings,
-  VoiceSettingsAuditEntry,
-} from "../../shared/types";
+import type { MessageVoiceState, VoiceProviderCandidate, VoiceProviderRuntimeState, VoiceSettings, VoiceSettingsAuditEntry } from "../../shared/localRuntimeTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 
 export interface MessageVoiceStripModel {
   statusLabel: string;

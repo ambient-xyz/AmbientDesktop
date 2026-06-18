@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { PermissionAuditEntry, ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { PermissionAuditEntry } from "../../../shared/permissionTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { PluginMcpToolRegistration } from "../pluginHost";
 import {
   buildPluginMcpTrustedPermissionAudit,

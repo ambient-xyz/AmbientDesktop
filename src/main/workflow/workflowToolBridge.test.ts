@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { WorkflowManifest } from "../../shared/types";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { WorkflowManifest } from "../../shared/workflowTypes";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";
 import { createWorkflowToolBridge } from "./workflowToolBridge";
 

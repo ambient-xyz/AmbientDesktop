@@ -1,10 +1,7 @@
-import type {
-  PermissionMode,
-  ProviderContinuationState,
-  SendMessageInput,
-  ToolIntentSnapshot,
-} from "../../shared/types";
-import type { AmbientStreamFailureKind } from "../aggressiveRetries";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { ProviderContinuationState, ToolIntentSnapshot } from "../../shared/threadTypes";
+import type { AmbientStreamFailureKind } from "./agentRuntimeAmbientFacade";
 import type { RuntimeSessionRecoveryContext } from "../agent-runtime/agentRuntimeAssistantRetryInput";
 import type {
   PiStreamTraceReference,
@@ -17,7 +14,7 @@ import {
 import {
   persistPreparedProviderInterruptionToolArguments,
 } from "./provider-continuation/agentRuntimeProviderInterruptionArguments";
-import type { InterruptedToolCallRecoveryTracker } from "../interruptedToolCallRecovery";
+import type { InterruptedToolCallRecoveryTracker } from "./recovery/interruptedToolCallRecovery";
 import type { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 import {
   createRuntimeProviderContinuationState,

@@ -1,19 +1,8 @@
 import { FileText, RefreshCw, Target, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type {
-  ApplyProjectBoardSourceImpactFeedbackInput,
-  OrchestrationBoard,
-  ProjectBoardCard,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardQuestion,
-  ProjectBoardSummary,
-  ProjectSummary,
-  RefreshProjectBoardSourceDraftsInput,
-  RegenerateProjectBoardSourceDraftsInput,
-  SuggestProjectBoardKickoffDefaultsInput,
-  UpdateProjectBoardSourceInput,
-} from "../../shared/types";
+import type { ApplyProjectBoardSourceImpactFeedbackInput, ProjectBoardCard, ProjectBoardGitSyncStatus, ProjectBoardQuestion, ProjectBoardSummary, ProjectSummary, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardSourceDraftsInput, SuggestProjectBoardKickoffDefaultsInput, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
+import type { OrchestrationBoard } from "../../shared/workflowTypes";
 import type { ProjectBoardCardInspectorOptions } from "./ProjectBoardActiveCardDetailViews";
 import { ProjectBoardKickoffInterview } from "./ProjectBoardDraftInboxViews";
 import { projectBoardImpactKindLabel, projectBoardTabTitle } from "./ProjectBoardHistoryViews";

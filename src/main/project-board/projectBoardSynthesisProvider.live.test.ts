@@ -7,7 +7,7 @@ import {
   parseProjectBoardSynthesisJson,
   type AmbientProjectBoardSynthesisProgress,
 } from "./projectBoardSynthesisProvider";
-import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../liveAmbientProviderConfig";
+import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "./projectBoardAmbientFacade";
 import { createProjectBoardPlannerWorkspace } from "./projectBoardPlannerWorkspace";
 import { projectBoardPlannerWorkspaceToolExecutor } from "./projectBoardPlannerWorkspaceTools";
 import type { ProjectBoardSynthesisSource } from "./projectBoardSynthesis";

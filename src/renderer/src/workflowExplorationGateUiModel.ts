@@ -1,12 +1,5 @@
-import type {
-  ChatMessage,
-  WorkflowAgentThreadSummary,
-  WorkflowDiscoveryCapabilitySearch,
-  WorkflowDiscoveryCapabilitySearchResult,
-  WorkflowExplorationProgress,
-  WorkflowExplorationTraceSummary,
-  WorkflowRevisionSummary,
-} from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
+import type { WorkflowAgentThreadSummary, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryCapabilitySearchResult, WorkflowExplorationProgress, WorkflowExplorationTraceSummary, WorkflowRevisionSummary } from "../../shared/workflowTypes";
 
 export interface WorkflowExplorationGateInput {
   requestContext?: boolean;

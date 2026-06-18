@@ -1,14 +1,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 import {
   applyTelegramConversationDirectory,
   buildTelegramConversationDirectoryPreview,
@@ -19,7 +16,7 @@ import {
   telegramConversationDirectoryPreviewText,
   telegramConversationDirectoryResultText,
   telegramConversationDirectorySetupCard,
-} from "../../telegram/telegramConversationDirectory";
+} from "../agentRuntimeTelegramFacade";
 
 export interface TelegramConversationDirectoryToolPermissionRequest {
   thread: ThreadSummary;

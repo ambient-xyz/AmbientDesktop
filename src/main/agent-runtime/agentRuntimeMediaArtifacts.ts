@@ -2,7 +2,7 @@ import { readdirSync, statSync } from "node:fs";
 import type { Dirent } from "node:fs";
 import { join, relative } from "node:path";
 
-import type { MediaArtifactResult } from "../../shared/types";
+import type { MediaArtifactResult } from "../../shared/desktopTypes";
 
 const MEDIA_ARTIFACT_EXTENSIONS = "apng|avif|gif|jpe?g|png|svg|webp|aac|flac|m4a|mp3|oga|ogg|opus|wav|weba|m4v|mov|mp4|ogv|webm";
 const MEDIA_ARTIFACT_PATH_PATTERN = `[^\\s"'\\\`<>|]+\\.(?:${MEDIA_ARTIFACT_EXTENSIONS})(?:[?#][^\\s"'\\\`<>|]+)?`;

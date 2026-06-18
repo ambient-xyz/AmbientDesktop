@@ -1,11 +1,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   messagingRemoteSurfaceCommandPreviewText,
   type MessagingRemoteSurfaceCommandPreview,
-} from "../../messaging/messagingRemoteSurfaceCommands";
+} from "../agentRuntimeMessagingFacade";
 
 export interface MessagingRemoteSurfaceCommandPreviewToolRegistrationOptions {
   previewForParams: (params: unknown) => MessagingRemoteSurfaceCommandPreview;

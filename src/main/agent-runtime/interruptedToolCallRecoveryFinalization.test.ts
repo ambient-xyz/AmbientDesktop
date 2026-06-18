@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
-import type {
-  InterruptedToolCallRecoverySnapshot,
-  ProviderContinuationState,
-} from "../../shared/types";
+import type { InterruptedToolCallRecoverySnapshot, ProviderContinuationState } from "../../shared/threadTypes";
 import { interruptedToolCallRecoveryFinalizationMessage } from "./interruptedToolCallRecoveryFinalization";
 
 const snapshot: InterruptedToolCallRecoverySnapshot = {

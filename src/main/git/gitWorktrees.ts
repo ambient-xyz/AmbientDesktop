@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { appendFile, cp, mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
-import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/types";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { isPathInside } from "../session/sessionPaths";
 
 const execFileAsync = promisify(execFile);

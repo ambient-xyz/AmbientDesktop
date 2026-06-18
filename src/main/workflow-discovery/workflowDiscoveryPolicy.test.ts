@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { pluginMcpToolDescriptor } from "../desktopToolRegistry";
+import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import { permissionGrantTargetHash } from "../permissions/permissionGrants";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { workspaceInventoryConnectorDescriptor } from "../workflow/workflowConnectors";

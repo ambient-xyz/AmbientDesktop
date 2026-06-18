@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { WorkflowManifest } from "../../shared/types";
+import type { WorkflowManifest } from "../../shared/workflowTypes";
 import type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";
 import { isWorkflowPausedError } from "./workflowAgentRuntime";
 import {

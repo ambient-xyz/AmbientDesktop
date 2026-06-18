@@ -1,7 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { DesktopState, ThreadGoal } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ThreadGoal } from "../../shared/threadTypes";
 import {
   createAppGoalActions,
   desktopStateWithActiveGoal,

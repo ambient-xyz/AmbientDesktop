@@ -4,12 +4,12 @@ import type {
   PermissionGrantScopeKind,
   PermissionRisk,
   SecureInputPromptResolution,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+} from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 import {
   applyTelegramSessionBootstrap,
   previewTelegramSessionBootstrap,
@@ -18,8 +18,8 @@ import {
   telegramSessionBootstrapSetupCard,
   type TelegramSessionBootstrapInput,
   type TelegramSessionBootstrapOptions,
-} from "../../telegram/telegramSessionBootstrap";
-import type { TelegramBridgeSupervisor } from "../../telegram/telegramBridgeSupervisor";
+} from "../agentRuntimeTelegramFacade";
+import type { TelegramBridgeSupervisor } from "../agentRuntimeTelegramFacade";
 
 export interface TelegramSessionToolPermissionRequest {
   thread: ThreadSummary;

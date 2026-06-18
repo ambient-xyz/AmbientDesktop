@@ -4,9 +4,9 @@ import {
   createMessagingGatewayStatusResolvers,
   registerMessagingGatewayStatusTools,
 } from "./agentRuntimeMessagingGatewayStatusTools";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
 import { SignalRealPollingRunner } from "../signal/signalRealPolling";
-import { TelegramBridgePollingRunner } from "../../telegram/telegramBridgePolling";
+import { TelegramBridgePollingRunner } from "../agentRuntimeTelegramFacade";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 

@@ -10,10 +10,10 @@ import type {
   ReadOperations,
   WriteOperations,
 } from "@mariozechner/pi-coding-agent";
-import type { OfficeTextExtraction, PdfTextExtraction } from "../../shared/types";
+import type { OfficeTextExtraction, PdfTextExtraction } from "../../shared/workspaceTypes";
 import { describeOfficeFileSupport } from "../office/officeFileSupport";
 import { extractOfficeText } from "../office/officeTextExtraction";
-import { extractPdfText } from "../pdfTextExtraction";
+import { extractPdfText } from "../pdf/pdfTextExtraction";
 import {
   createWorkspaceDirectoryAtAbsolutePath,
   writeWorkspaceTextFileAtAbsolutePath,

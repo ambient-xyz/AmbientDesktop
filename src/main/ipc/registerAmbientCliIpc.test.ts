@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   AmbientCliSecretSaveResult,
   SaveAmbientCliSecretInput,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import {
   ambientCliSaveSecretIpcChannels,
   registerAmbientCliSaveSecretIpc,

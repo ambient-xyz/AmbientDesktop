@@ -1,4 +1,4 @@
-import { AmbientStreamFailureError } from "../aggressiveRetries";
+import { AmbientStreamFailureError } from "./aggressiveRetries";
 
 export interface AmbientStreamReadOptions {
   idleTimeoutMs: number;

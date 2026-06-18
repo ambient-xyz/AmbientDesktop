@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { promisify } from "node:util";
-import type { ProjectBoardSourceKind } from "../../shared/types";
+import type { ProjectBoardSourceKind } from "../../shared/projectBoardTypes";
 import type { ProjectBoardSourceInput, ProjectStore } from "../projectStore/projectStore";
 import {
   DURABLE_PLAN_SOURCE_AUTHORITY_REASON,

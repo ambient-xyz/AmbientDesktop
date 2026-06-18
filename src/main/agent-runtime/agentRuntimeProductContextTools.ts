@@ -1,7 +1,7 @@
 import type { AgentToolResult, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import { productContextToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { productContextToolDescriptor } from "./agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 
 export const AMBIENT_PRODUCT_IDENTITY_SYSTEM_PROMPT = [
   "[AMBIENT PRODUCT IDENTITY]",

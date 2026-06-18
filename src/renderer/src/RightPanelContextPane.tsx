@@ -1,8 +1,6 @@
 import { useState } from "react";
-import type {
-  MiniCpmVisionDiagnosticItem,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { MiniCpmVisionDiagnosticItem } from "../../shared/localRuntimeTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { ContextPanel } from "./RightPanelDetailPanels";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 

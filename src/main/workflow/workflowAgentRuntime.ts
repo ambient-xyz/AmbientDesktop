@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { WorkflowApprovalStatus, WorkflowManifest, WorkflowRecoveryContext, WorkflowRecoveryTargetKind } from "../../shared/types";
+import type { WorkflowApprovalStatus, WorkflowManifest, WorkflowRecoveryContext, WorkflowRecoveryTargetKind } from "../../shared/workflowTypes";
 
 export interface WorkflowRuntimeEvent {
   type: string;

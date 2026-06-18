@@ -1,7 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ContextUsageSnapshot } from "../../shared/types";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 import {
   contextCompactIpcChannels,
   contextRecoverIpcChannels,

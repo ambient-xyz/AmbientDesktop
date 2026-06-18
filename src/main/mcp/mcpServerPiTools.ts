@@ -1,6 +1,6 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { containerRuntimeProbeSummary, probeContainerRuntime, type ContainerRuntimeProbeResult } from "../container-runtime/containerRuntimeProbeService";
-import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktopToolRegistry";
+import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import {
   mcpGuidedLocalBridgeInstallReviewState,
   mcpGuidedLocalBridgePermissionProfile,
@@ -41,8 +41,8 @@ import { installMcpDefaultCapability as installDefaultMcpCapability } from "./mc
 import { type ToolHiveCommandResult, type ToolHiveInstalledServerState, type ToolHiveOperationProgress, type ToolHiveRuntimeService, type ToolHiveRunVolume, type ToolHiveWorkloadSummary } from "../tool-runtime/toolHiveRuntimeService";
 import { parseMcpAutowireCandidate, validateMcpAutowireCandidate } from "../mcp-autowire/mcpAutowireSchemas";
 import { storedMcpSecretBindingsForCandidate, storedMcpSecretBindingsForServer } from "./mcpSecretReferences";
-import { isSecretReference } from "../secretReferenceStore";
-import { redactSensitiveText } from "../secretRedaction";
+import { isSecretReference } from "../security/secretReferenceStore";
+import { redactSensitiveText } from "../security/secretRedaction";
 import {
   MCP_MANAGED_FILE_EXCHANGE_PURPOSE,
   validateMcpManagedFileExchangeHostAccess,

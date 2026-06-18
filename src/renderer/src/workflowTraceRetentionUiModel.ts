@@ -1,4 +1,4 @@
-import type { WorkflowModelCallRecord, WorkflowRunEvent, WorkflowTraceMode } from "../../shared/types";
+import type { WorkflowModelCallRecord, WorkflowRunEvent, WorkflowTraceMode } from "../../shared/workflowTypes";
 
 export type WorkflowTraceRetentionTone = "ready" | "review" | "neutral";
 

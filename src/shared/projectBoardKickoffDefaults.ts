@@ -1,4 +1,4 @@
-import type { ProjectBoardSource } from "./types";
+import type { ProjectBoardSource } from "./projectBoardTypes";
 
 export type ProjectBoardKickoffDefaultConfidence = "high" | "medium" | "low";
 

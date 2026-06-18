@@ -1,7 +1,10 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AmbientApiKeyTestResult, ProviderStatus } from "../../shared/types";
+import type {
+  AmbientApiKeyTestResult,
+  ProviderStatus,
+} from "../../shared/desktopTypes";
 import {
   ambientApiKeyIpcChannels,
   ambientOpenKeysIpcChannels,

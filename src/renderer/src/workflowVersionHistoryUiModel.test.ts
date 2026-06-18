@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowVersionSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { workflowVersionHistoryModel } from "./workflowVersionHistoryUiModel";
 
 const artifact: Pick<WorkflowArtifactSummary, "id"> = { id: "artifact-1" };

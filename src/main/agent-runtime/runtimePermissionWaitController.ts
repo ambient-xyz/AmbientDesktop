@@ -1,12 +1,6 @@
-import type {
-  ChatMessage,
-  DesktopEvent,
-  PermissionPromptResponseMode,
-  PermissionRisk,
-  ToolArgumentProgressSnapshot,
-  ToolEditInputPreview,
-  ToolLongformInputPreview,
-} from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { PermissionPromptResponseMode, PermissionRisk } from "../../shared/permissionTypes";
+import type { ChatMessage, ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
 import { runtimePermissionWaitActivity, runtimePermissionWaitToolResult } from "../agent-runtime/agentRuntimePermissionMessages";
 import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";
 import { formatToolTranscript } from "./tools/agentRuntimeToolTranscript";

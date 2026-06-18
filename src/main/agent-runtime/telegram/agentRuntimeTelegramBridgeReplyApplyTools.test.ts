@@ -8,10 +8,10 @@ import {
   createTelegramBridgeReplyResolvers,
   telegramBridgeReplyApprovalRequest,
 } from "./agentRuntimeTelegramBridgeReplyPlan";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
-import { buildRuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
+import { buildRuntimeSurfaceSnapshot } from "../../../shared/runtimeSurfaceSnapshot";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
 

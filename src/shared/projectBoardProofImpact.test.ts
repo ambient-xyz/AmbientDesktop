@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSummary } from "./types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSummary } from "./projectBoardTypes";
 import {
   projectBoardProofCoverageDrift,
   projectBoardLatestProofCoverageRecheckEvent,

@@ -3,7 +3,7 @@ import { cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
-import type { GitCheckpointSummary } from "../../shared/types";
+import type { GitCheckpointSummary } from "../../shared/workspaceTypes";
 import { isPathInside } from "../session/sessionPaths";
 
 const execFileAsync = promisify(execFile);

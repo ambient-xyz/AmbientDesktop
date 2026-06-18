@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { WorkflowRecordingLibraryEntry } from "../../shared/types";
+import type { WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import {
   WorkflowLabPlaybookLibrarySection,
   WorkflowRecordingPlaybookLibrarySection,

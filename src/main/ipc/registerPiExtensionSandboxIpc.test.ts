@@ -7,7 +7,7 @@ import type {
   PiExtensionSandboxInstallPreview,
   PreviewPiExtensionSandboxPackageInput,
   UninstallPiExtensionSandboxPackageInput,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import {
   piExtensionSandboxClearHistoryIpcChannels,
   piExtensionSandboxInstallIpcChannels,

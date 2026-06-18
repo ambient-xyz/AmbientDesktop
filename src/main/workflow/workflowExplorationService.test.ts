@@ -5,7 +5,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import { validateWorkflowDiscoveryGraphPatch } from "../../shared/workflowDiscoveryGraphPatch";
 import type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";
-import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
 import { createWorkflowDesktopToolBridge } from "./workflowDesktopTools";
 import { validateWorkflowCompilerOutput, type WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
 import { fixtureWorkflowConnector } from "./workflowConnectors";
@@ -15,7 +15,7 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "../ambient/liveAmbientProviderConfig";
 import {
   AmbientWorkflowExplorationProvider,
   buildWorkflowExplorationCapabilityManifest,

@@ -1,7 +1,7 @@
 import type { IpcMain } from "electron";
 import { z } from "zod";
 
-import type { SecureInputPromptResponseInput } from "../../shared/types";
+import type { SecureInputPromptResponseInput } from "../../shared/permissionTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

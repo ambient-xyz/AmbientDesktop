@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import type { AmbientPluginRegistry, CodexPluginSummary } from "../../../shared/pluginTypes";
+import type { PermissionMode } from "../../../shared/permissionTypes";
 import type {
-  AmbientPluginRegistry,
-  CodexPluginSummary,
-  PermissionMode,
   WorkflowDashboard,
   WorkflowNativeToolInvocationResult,
-} from "../../../shared/types";
-import type { DesktopToolDescriptor } from "../../desktopToolRegistry";
+} from "../../../shared/workflowTypes";
+import type { DesktopToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import type { RunWorkflowArtifactInput } from "../../workflow/workflowRunService";
 import type { WorkflowNativeToolRuntime } from "../../workflow/workflowNativeTools";
 import { createWorkflowNativeToolExtension } from "./agentRuntimeWorkflowNativeTools";

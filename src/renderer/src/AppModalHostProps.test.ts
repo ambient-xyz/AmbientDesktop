@@ -1,12 +1,8 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  PermissionRequest,
-  PrivilegedCredentialRequest,
-  SecureInputRequest,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { PermissionRequest, PrivilegedCredentialRequest, SecureInputRequest } from "../../shared/permissionTypes";
 import type {
   PlannerRevisionDialogState,
   ProjectActionDialogState,

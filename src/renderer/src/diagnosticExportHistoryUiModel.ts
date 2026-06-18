@@ -1,20 +1,8 @@
-import type {
-  AgentMemoryStarterStatus,
-  AgentMemoryStorageDiagnostics,
-  AmbientFeatureFlagSnapshot,
-  DiagnosticExportHealthStatus,
-  DiagnosticExportLocalRuntimeEvidence,
-  DiagnosticExportLocalRuntimeSummary,
-  DiagnosticExportResult,
-  DiagnosticExportSubagentCompletionGuardSummary,
-  DiagnosticExportSubagentLifecycleSummary,
-  DiagnosticExportSubagentReplayEvidence,
-  DiagnosticExportSubagentReplayParentMailboxItem,
-  DiagnosticExportSubagentReplaySummary,
-  DiagnosticExportSubagentReplayTimelineItem,
-  DiagnosticExportSubagentReplayTranscriptItem,
-  SubagentRepairIssueKind,
-} from "../../shared/types";
+import type { AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
+import type { AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
+import type { DiagnosticExportHealthStatus, DiagnosticExportLocalRuntimeEvidence, DiagnosticExportLocalRuntimeSummary, DiagnosticExportResult, DiagnosticExportSubagentCompletionGuardSummary, DiagnosticExportSubagentLifecycleSummary, DiagnosticExportSubagentReplayEvidence, DiagnosticExportSubagentReplayParentMailboxItem, DiagnosticExportSubagentReplaySummary, DiagnosticExportSubagentReplayTimelineItem, DiagnosticExportSubagentReplayTranscriptItem } from "../../shared/diagnosticTypes";
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { SubagentRepairIssueKind } from "../../shared/subagentTypes";
 import {
   AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
   AMBIENT_SUBAGENTS_FEATURE_FLAG,

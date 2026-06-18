@@ -2,20 +2,22 @@ import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agen
 
 import type {
   DesktopEvent,
+} from "../../shared/desktopTypes";
+import type {
   LocalDeepResearchInstallProgress,
   LocalDeepResearchSetupAction,
   LocalDeepResearchSetupResult,
   LocalDeepResearchSmokeResult,
   LocalDeepResearchValidationResult,
   LocalModelResourcePolicyDecision,
-  WorkspaceState,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   formatLocalDeepResearchBytes,
   localDeepResearchSetupToolInput,
 } from "./agentRuntimeLocalDeepResearchInput";
-import { localDeepResearchToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { localDeepResearchToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 import {
   installLocalDeepResearchManagedAssets,
   localDeepResearchInstallText,

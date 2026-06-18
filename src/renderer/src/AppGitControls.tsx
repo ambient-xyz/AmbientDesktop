@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 
-import type { GitReviewSummary, WorkspaceGitStatus } from "../../shared/types";
+import type { GitReviewSummary, WorkspaceGitStatus } from "../../shared/workspaceTypes";
 import {
   filterGitBranches,
   gitCreateBranchActionState,

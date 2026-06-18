@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type {
-  ProjectBoardCard,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { projectBoardKickoffAnswerState } from "../../shared/projectBoardSynthesisGate";
 import type {
   ProjectBoardCardInspectorOptions,

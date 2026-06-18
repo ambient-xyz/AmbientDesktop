@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { googleWorkspaceConnectorGrantTarget, googleWorkspaceGrantConditions } from "./googleWorkspaceGrantTargets";
-import type { AmbientPermissionGrant, WorkflowArtifactSummary } from "./types";
+import type { AmbientPermissionGrant } from "./permissionTypes";
+import type { WorkflowArtifactSummary } from "./workflowTypes";
 import {
   workflowArtifactScheduleBlockReason,
   workflowArtifactScheduleConnectorGrantUses,

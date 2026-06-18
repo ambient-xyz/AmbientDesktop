@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type {
-  AgentMemoryStarterStatus,
-  DiagnosticExportLocalRuntimeEvidence,
-  DiagnosticExportSubagentReplayEvidence,
-  DiagnosticExportSummary,
-} from "../../shared/types";
+import type { AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
+import type { DiagnosticExportLocalRuntimeEvidence, DiagnosticExportSubagentReplayEvidence, DiagnosticExportSummary } from "../../shared/diagnosticTypes";
 import {
   AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
   AMBIENT_SUBAGENTS_FEATURE_FLAG,

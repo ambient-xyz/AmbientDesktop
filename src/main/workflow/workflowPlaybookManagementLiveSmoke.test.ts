@@ -10,8 +10,8 @@ import {
   searchAmbientWorkflowPlaybooks,
   updateAmbientWorkflowPlaybook,
 } from "../ambient/ambientWorkflows";
-import { isRetryableAmbientProviderError } from "../aggressiveRetries";
-import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../liveAmbientProviderConfig";
+import { isRetryableAmbientProviderError } from "../ambient/aggressiveRetries";
+import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
 import { ProjectStore } from "../projectStore/projectStore";
 import { callWorkflowPiText, type WorkflowPiToolProgress } from "./workflowPiTransport";
 

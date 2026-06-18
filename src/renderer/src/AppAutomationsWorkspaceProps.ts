@@ -1,10 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  WorkflowCompileProgress,
-  WorkflowExplorationProgress,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { WorkflowCompileProgress, WorkflowExplorationProgress } from "../../shared/workflowTypes";
 import type { AutomationsWorkspaceProps } from "./AutomationsWorkspace";
 import { automationPaneForSelectedThread } from "./AppAutomationSelectionControls";
 

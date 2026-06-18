@@ -1,7 +1,7 @@
 import type {
   LocalModelResourceRegistryEntry,
   LocalRuntimeLeaseRecord,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 
 export function localRuntimeLeaseMatchesResourceEntry(
   lease: LocalRuntimeLeaseRecord,

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ChatMessage } from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   applyWorkflowRecordingSummaryState,
   confirmWorkflowRecordingReviewState,
@@ -389,7 +389,7 @@ describe("workflow recorder capture", () => {
             "Result",
             "/Users/travis/Downloads/Ambient UAE.pdf",
             "/Users/travis/Downloads/Complete_with_Docusign_OVH_US_LLC_Mechanus_L.pdf",
-            "Successfully wrote /Users/travis/Documents/ambientCoderArchive/pdf-summaries.html",
+            "Successfully wrote /Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html",
           ].join("\n"),
           createdAt: "2026-05-19T16:00:01.000Z",
           metadata: { toolName: "bash", status: "done" },
@@ -406,7 +406,7 @@ describe("workflow recorder capture", () => {
         successfulExamples: [{ toolName: "bash", resultPreview: "Confirmed Ambient UAE.pdf and Complete_with_Docusign_OVH_US_LLC_Mechanus_L.pdf were selected." }],
         doNot: [],
         validation: ["Ambient UAE.pdf and Complete_with_Docusign_OVH_US_LLC_Mechanus_L.pdf are the two largest PDFs."],
-        outputShape: ["HTML summary at /Users/travis/Documents/ambientCoderArchive/pdf-summaries.html"],
+        outputShape: ["HTML summary at /Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html"],
       },
     });
 
@@ -1013,7 +1013,7 @@ describeNative("workflow recorder store (requires Node ABI better-sqlite3 build)
     store.addMessage({
       threadId: thread.id,
       role: "tool",
-      content: "bash completed\nResult\n/Users/travis/Downloads/Ambient UAE.pdf\nSuccessfully wrote /Users/travis/Documents/ambientCoderArchive/pdf-summaries.html",
+      content: "bash completed\nResult\n/Users/travis/Downloads/Ambient UAE.pdf\nSuccessfully wrote /Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html",
       metadata: { toolName: "bash", status: "done" },
     });
     store.stopWorkflowRecording(thread.id);

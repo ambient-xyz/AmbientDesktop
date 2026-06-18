@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import { validateWorkflowProgramStatic, type WorkflowProgramNodeValidationCacheEntry } from "./workflowProgramTypecheck";
 import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { WorkflowProgramIR } from "../../shared/workflowProgramIr";

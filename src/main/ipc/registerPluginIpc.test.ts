@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type {
   AddCodexMarketplaceInput,
-  AmbientPluginCapabilityDiagnostics,
-  AmbientPluginCapabilitySummary,
   AmbientPluginAuthAccountSummary,
   AmbientPluginAuthStartResult,
+  AmbientPluginCapabilityDiagnostics,
+  AmbientPluginCapabilitySummary,
   AmbientPluginRegistry,
   CodexHostedMarketplaceReport,
   CodexPluginCatalog,
@@ -26,7 +26,7 @@ import type {
   SetCodexPluginTrustedInput,
   StartPluginAppAuthInput,
   UninstallCodexPluginInput,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import {
   pluginAddCodexMarketplaceIpcChannels,
   pluginAuthIpcChannels,

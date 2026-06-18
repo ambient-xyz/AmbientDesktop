@@ -1,22 +1,8 @@
 import { AlertCircle, CheckCircle2, Copy, FileText, LoaderCircle, RefreshCw, SquarePen } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 
-import type {
-  AmbientPluginAuthAccountSummary,
-  AmbientPluginRegistry,
-  WorkflowArtifactSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowCompileAuditSummary,
-  WorkflowCompileProgress,
-  WorkflowConnectorDataRetention,
-  WorkflowConnectorManifestGrant,
-  WorkflowGraphNode,
-  WorkflowPluginCapabilityGrant,
-  WorkflowRunDetail,
-  WorkflowRunLimitOverrides,
-  WorkflowRunSummary,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { AmbientPluginAuthAccountSummary, AmbientPluginRegistry } from "../../shared/pluginTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileAuditSummary, WorkflowCompileProgress, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowGraphNode, WorkflowPluginCapabilityGrant, WorkflowRunDetail, WorkflowRunLimitOverrides, WorkflowRunSummary, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { workflowDiscoveryAnswerText } from "../../shared/workflowDiscovery";
 import { workflowSourceEditDiffSummary, type AutomationSchedulePreset } from "./automationUiModel";
 import { AutomationHeadingLabel } from "./AutomationsHeading";

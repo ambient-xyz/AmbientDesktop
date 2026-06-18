@@ -1,11 +1,4 @@
-import type {
-  ProjectBoardCard,
-  ProjectBoardEvent,
-  ProjectBoardSource,
-  ProjectBoardSourceChangeState,
-  ProjectBoardSourceKind,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSource, ProjectBoardSourceChangeState, ProjectBoardSourceKind, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { projectBoardUniqueProofItems } from "./projectBoardProofEvidenceUiModel";
 
 export type ProjectBoardSourceFilterKind = "all" | "included_sources" | "ignored_sources" | "ignored_threads" | ProjectBoardSourceKind;

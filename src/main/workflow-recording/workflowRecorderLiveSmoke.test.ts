@@ -4,15 +4,15 @@ import { join } from "node:path";
 import { Type, type Tool } from "@mariozechner/pi-ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import type { WorkflowRecordingPlaybookAvoidPattern } from "../../shared/types";
+import type { WorkflowRecordingPlaybookAvoidPattern } from "../../shared/workflowTypes";
 import {
   ambientWorkflowsInjectText,
   describeAmbientWorkflowPlaybook,
   injectAmbientWorkflowPlaybook,
   searchAmbientWorkflowPlaybooks,
 } from "../ambient/ambientWorkflows";
-import { isRetryableAmbientProviderError } from "../aggressiveRetries";
-import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../liveAmbientProviderConfig";
+import { isRetryableAmbientProviderError } from "../ambient/aggressiveRetries";
+import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
 import { ProjectStore } from "../projectStore/projectStore";
 import { callWorkflowPiText, type WorkflowPiToolProgress } from "../workflow/workflowPiTransport";
 

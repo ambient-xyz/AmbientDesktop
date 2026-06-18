@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSource } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSource } from "../../shared/projectBoardTypes";
 import {
   projectBoardAddCardsSourceScope,
   projectBoardCardSourceBasis,

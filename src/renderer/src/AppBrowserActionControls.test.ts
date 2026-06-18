@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  BrowserCapabilityState,
-  BrowserUserActionState,
-} from "../../shared/types";
+import type { BrowserCapabilityState, BrowserUserActionState } from "../../shared/browserTypes";
 import {
   browserUserActionActiveTabContext,
   browserUserActionCompletionPrompt,

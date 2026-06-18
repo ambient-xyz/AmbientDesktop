@@ -1,17 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type {
-  AmbientGeneratedCapabilitySummary,
-  AmbientPluginCapabilityDiagnostics,
-  AmbientPluginRegistry,
-  CapabilityBuilderHistoryEntry,
-  CapabilityBuilderHistoryResult,
-  CodexHostedMarketplaceReport,
-  CodexPluginCatalog,
-  FirstPartyGoogleIntegrationState,
-  ManagedDevServerSummary,
-  PluginMcpRuntimeSnapshot,
-} from "../../shared/types";
+import type { AmbientGeneratedCapabilitySummary, AmbientPluginCapabilityDiagnostics, AmbientPluginRegistry, CapabilityBuilderHistoryEntry, CapabilityBuilderHistoryResult, CodexHostedMarketplaceReport, CodexPluginCatalog, FirstPartyGoogleIntegrationState, ManagedDevServerSummary, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
 import {
   buildCapabilityBuilderHistoryPreviewPrompt,
   buildCapabilityBuilderHistoryRepairPlanPrompt,

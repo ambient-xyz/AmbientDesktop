@@ -1,9 +1,6 @@
-import type {
-  BrowserScreenshotResult,
-  MiniCpmVisionAnalyzeInput,
-  WorkspaceContextReference,
-  WorkspaceFileContent,
-} from "../../shared/types";
+import type { BrowserScreenshotResult } from "../../shared/browserTypes";
+import type { MiniCpmVisionAnalyzeInput } from "../../shared/localRuntimeTypes";
+import type { WorkspaceContextReference, WorkspaceFileContent } from "../../shared/workspaceTypes";
 
 export type MiniCpmVisualActionMediaKind = "image" | "video";
 

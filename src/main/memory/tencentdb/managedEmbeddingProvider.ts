@@ -7,7 +7,7 @@ import type {
   AgentMemoryEmbeddingLifecycleActionStatus,
 } from "../../../shared/agentMemoryDiagnostics";
 import type { EmbeddingProviderCandidate, EmbeddingProviderRuntimeState } from "../../../shared/localRuntimeTypes";
-import { managedInstallWorkspacePath } from "../../managedInstallPaths";
+import { managedInstallWorkspacePath } from "../../setup/managedInstallPaths";
 import { miniCpmRuntimeReleaseManifestPrototype } from "../../mini-cpm/miniCpmRuntimeManifest";
 import { selectLocalLlamaRuntimeArtifact } from "../../local-llama/localLlamaRuntimeManifest";
 import {

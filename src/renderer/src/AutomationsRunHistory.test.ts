@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { OrchestrationAutoDispatchStatus, OrchestrationRun } from "../../shared/types";
+import type { OrchestrationAutoDispatchStatus, OrchestrationRun } from "../../shared/workflowTypes";
 import {
   formatAutoDispatchStartedRun,
   formatDelay,

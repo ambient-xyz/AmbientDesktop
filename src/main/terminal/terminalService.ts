@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { BrowserWindow } from "electron";
 import type { IPty } from "node-pty";
 import * as pty from "node-pty";
-import type { DesktopEvent, PermissionMode, TerminalSession } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { TerminalSession } from "../../shared/terminalTypes";
 import { TerminalTextBuffer } from "./terminalText";
 import { buildTerminalShellInvocation } from "../tool-runtime/toolRunner";
 

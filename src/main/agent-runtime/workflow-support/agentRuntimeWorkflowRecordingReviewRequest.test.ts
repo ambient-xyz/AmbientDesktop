@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type {
-  ThreadSummary,
   WorkflowRecordingPlaybookDraft,
   WorkflowRecordingState,
-} from "../../../shared/types";
+} from "../../../shared/workflowTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import { workflowRecordingReviewSendInputForThread } from "./agentRuntimeWorkflowRecordingReviewRequest";
 
 describe("workflowRecordingReviewSendInputForThread", () => {

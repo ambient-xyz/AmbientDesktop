@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { workflowRunLiveness } from "./workflowRunLiveness";
-import type { WorkflowRunSummary } from "./types";
+import type { WorkflowRunSummary } from "./workflowTypes";
 
 const runningRun: WorkflowRunSummary = {
   id: "run-1",

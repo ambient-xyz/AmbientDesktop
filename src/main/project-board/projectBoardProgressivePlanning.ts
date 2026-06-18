@@ -1,4 +1,4 @@
-import type { ProjectBoardSource } from "../../shared/types";
+import type { ProjectBoardSource } from "../../shared/projectBoardTypes";
 import {
   stableBoardArtifactId,
   validateProposalJsonlRecordArtifact,

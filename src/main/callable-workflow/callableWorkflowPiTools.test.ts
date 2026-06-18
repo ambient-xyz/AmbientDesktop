@@ -2,7 +2,8 @@ import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-ag
 import { describe, expect, it } from "vitest";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS } from "../../shared/symphonyWorkflowRecipes";
-import type { ThreadSummary, WorkflowRecordingLibraryDescription } from "../../shared/types";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkflowRecordingLibraryDescription } from "../../shared/workflowTypes";
 import {
   callableWorkflowToolName,
   recordedWorkflowToolName,

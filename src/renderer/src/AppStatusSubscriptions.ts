@@ -1,12 +1,9 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 
-import type {
-  BrowserUserActionState,
-  DesktopState,
-  GitReviewSummary,
-  RunStatus,
-  WorkspaceGitStatus,
-} from "../../shared/types";
+import type { BrowserUserActionState } from "../../shared/browserTypes";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { RunStatus } from "../../shared/threadTypes";
+import type { GitReviewSummary, WorkspaceGitStatus } from "../../shared/workspaceTypes";
 import { chatBrowserUserActionForThread } from "./AppChatChrome";
 import type { RunActivityLine } from "./AppRunActivity";
 import type { UtilityPanel } from "./RightPanel";

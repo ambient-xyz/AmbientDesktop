@@ -4,9 +4,9 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "./projectBoardAmbientFacade";
 import { AmbientProjectBoardSourceDraftRefreshProvider } from "./projectBoardSourceDraftRefreshProvider";
-import type { ProjectBoardCard, ProjectBoardSource } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSource } from "../../shared/projectBoardTypes";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_SOURCE_REFRESH_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

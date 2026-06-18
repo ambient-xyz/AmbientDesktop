@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { MessageVoiceState } from "../../shared/types";
+import type { MessageVoiceState } from "../../shared/localRuntimeTypes";
 import { mapMessageVoiceStateRow, type MessageVoiceStateRow } from "./messageVoiceMappers";
 
 export class ProjectStoreMessageVoiceRepository {

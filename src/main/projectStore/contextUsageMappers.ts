@@ -1,4 +1,4 @@
-import type { ContextUsageSnapshot } from "../../shared/types";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 
 export interface ContextUsageSnapshotRow {
   id: string;

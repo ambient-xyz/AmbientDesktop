@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CodexPluginSummary } from "../../shared/types";
+import type { CodexPluginSummary } from "../../shared/pluginTypes";
 import {
   buildPluginMcpLaunchPlans,
   buildPluginMcpToolRegistrations,

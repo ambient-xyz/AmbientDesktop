@@ -14,8 +14,8 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierResolutionResult,
-  WorkflowRunDetail,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { WorkflowRunDetail } from "../../shared/workflowTypes";
 import {
   approvalDomainIpcChannels,
   registerApprovalDomainIpc,

@@ -1,7 +1,9 @@
 import { AlertCircle, Copy, ExternalLink, FileImage, Film, FolderOpen, LoaderCircle, Monitor } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { OrchestrationRun, ProjectBoardCard, WorkspaceOpenTarget } from "../../shared/types";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun } from "../../shared/workflowTypes";
+import type { WorkspaceOpenTarget } from "../../shared/workspaceTypes";
 import { projectBoardProofEvidenceModel, projectBoardProofInspectionNavigationModel } from "./projectBoardUiModel";
 import {
   LinkContextMenuState,

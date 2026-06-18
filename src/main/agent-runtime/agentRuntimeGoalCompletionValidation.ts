@@ -11,10 +11,8 @@ import type {
   BrowserScreenshotResult,
   BrowserStartInput,
   BrowserUserActionState,
-  ChatMessage,
-  ThreadGoal,
-  ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/browserTypes";
+import type { ChatMessage, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
 import { isBrowserUserActionState } from "../agent/agentBrowserRuntime";
 import { cleanToolPath, normalizeWorkspaceArtifactPath, parseToolJsonInput, stringField } from "./agentRuntimeMediaArtifacts";
 

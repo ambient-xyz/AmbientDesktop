@@ -105,7 +105,7 @@ const REQUIRED_DETERMINISTIC_TEST_FILES = [
   "src/main/callable-workflow/callableWorkflowParentBlocking.test.ts",
   "src/main/agent-runtime/agentRuntimeFinalizationBlocking.test.ts",
   "src/main/workflow/workflowAgentRuntime.test.ts",
-  "src/main/modelRuntimeRegistry.test.ts",
+  "src/main/model-provider/modelRuntimeRegistry.test.ts",
   "src/main/model-provider/modelProviderCapabilityProbe.test.ts",
   "src/main/model-provider/modelProviderCapabilityProbeRunner.test.ts",
   "src/main/model-provider/modelProviderEndpointProbeAdapter.test.ts",

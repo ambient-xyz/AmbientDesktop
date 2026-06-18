@@ -4,9 +4,9 @@ import {
   AmbientStreamFailureError,
   isRetryableAmbientProviderError,
   type AmbientStreamFailureKind,
-} from "../../aggressiveRetries";
-import { redactSensitiveText } from "../../secretRedaction";
-import type { ProviderStatus } from "../../../shared/types";
+} from "../agentRuntimeAmbientFacade";
+import { redactSensitiveText } from "../../security/secretRedaction";
+import type { ProviderStatus } from "../../../shared/desktopTypes";
 import type { ProviderInterruptionToolSnapshot } from "./agentRuntimeProviderContinuationHelpers";
 
 export interface PiStreamTraceReference {

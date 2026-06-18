@@ -10,8 +10,8 @@ import type {
   PlannerPlanFinalizationAttempt,
   PlannerPlanFinalizationAttemptStatus,
   PlannerPlanStep,
-  PlannerPlanWorkflowState,
-} from "../../shared/types";
+  PlannerPlanWorkflowState
+} from "../../shared/plannerTypes";
 
 export interface PlannerDecisionQuestionRow {
   id: string;

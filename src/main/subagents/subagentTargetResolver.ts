@@ -1,8 +1,5 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type {
-  SubagentRunSummary,
-  SubagentWaitBarrierSummary,
-} from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "./subagentWaitBarrierEvaluation";
 
 export const SUBAGENT_TARGET_RESOLVER_SCHEMA_VERSION =

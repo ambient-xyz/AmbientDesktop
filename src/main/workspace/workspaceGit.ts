@@ -2,17 +2,8 @@ import { execFile } from "node:child_process";
 import { readFile, rm, stat } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
-import type {
-  GitBranchInput,
-  GitCommitInput,
-  GitFileActionInput,
-  GitReviewFile,
-  GitReviewSummary,
-  ThreadWorktreeSummary,
-  WorkspaceDiffCategory,
-  WorkspaceDiffFile,
-  WorkspaceGitStatus,
-} from "../../shared/types";
+import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
+import type { GitBranchInput, GitCommitInput, GitFileActionInput, GitReviewFile, GitReviewSummary, WorkspaceDiffCategory, WorkspaceDiffFile, WorkspaceGitStatus } from "../../shared/workspaceTypes";
 import { isPathInside } from "../session/sessionPaths";
 import { parseGitStatus } from "./workspaceFiles";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SubagentRepairDiagnosticsReport } from "../../shared/types";
+import type { SubagentRepairDiagnosticsReport } from "../../shared/subagentTypes";
 import { subagentRepairDiagnosticsModel, subagentRepairRowsForRun } from "./subagentRepairDiagnosticsUiModel";
 
 describe("subagent repair diagnostics UI model", () => {

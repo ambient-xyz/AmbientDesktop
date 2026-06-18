@@ -5,8 +5,8 @@ import { basename, delimiter, join, resolve } from "node:path";
 import type { Readable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import type { BashOperations } from "@mariozechner/pi-coding-agent";
-import type { PermissionMode } from "../../shared/types";
-import { buildSafeProcessEnv, isSecretEnvName } from "../safeProcessEnv";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import { buildSafeProcessEnv, isSecretEnvName } from "../security/safeProcessEnv";
 import { isPathInside } from "../session/sessionPaths";
 import { materializeTextOutput, materializedTextNotice } from "./toolOutputArtifacts";
 

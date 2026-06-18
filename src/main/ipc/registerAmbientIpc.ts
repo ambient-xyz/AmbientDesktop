@@ -1,7 +1,10 @@
 import type { IpcMain } from "electron";
 import { z } from "zod";
 
-import type { AmbientApiKeyTestResult, ProviderStatus } from "../../shared/types";
+import type {
+  AmbientApiKeyTestResult,
+  ProviderStatus,
+} from "../../shared/desktopTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

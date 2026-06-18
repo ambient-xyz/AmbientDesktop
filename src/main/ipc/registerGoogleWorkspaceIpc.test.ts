@@ -9,7 +9,7 @@ import type {
   GoogleWorkspaceSetupState,
   GoogleWorkspaceValidationInput,
   GoogleWorkspaceValidationResult,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import {
   googleDisconnectIpcChannels,
   googleInstallCliIpcChannels,

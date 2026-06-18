@@ -3,7 +3,7 @@ import type {
   SubagentMaturityEvidence,
   SubagentWorkflowJitterReleaseProfileReport,
 } from "../../shared/subagentMaturity";
-import type { SubagentRestartReconciliationSummary } from "../../shared/types";
+import type { SubagentRestartReconciliationSummary } from "../../shared/subagentTypes";
 import {
   recordSubagentApprovalRoutingVisibilityEvidence,
   recordSubagentBugAuditEvidence,

@@ -7,7 +7,9 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AMBIENT_KIMI_K2_7_CODE_MODEL } from "../../shared/ambientModels";
 import { validateSubagentResultArtifactForSynthesis } from "../../shared/subagentProtocol";
-import type { ChatMessage, PermissionPromptResponseMode, PermissionRequest, WorkspaceContextReference } from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
+import type { PermissionPromptResponseMode, PermissionRequest } from "../../shared/permissionTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import { createChatExportBundle } from "../chat-export/chatExport";
 import {
@@ -15,9 +17,9 @@ import {
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "../ambient/liveAmbientProviderConfig";
 import { createDocxFixture } from "../office/officeTestFixtures";
-import { createPdfFixture } from "../pdfTestFixtures";
+import { createPdfFixture } from "../pdf/pdfTestFixtures";
 import { ProjectStore } from "../projectStore/projectStore";
 import { forbiddenClaimLooksPromised, forbiddenClaimPromises, termsPresent } from "./subagentScenarioDogfoodAssertions";
 

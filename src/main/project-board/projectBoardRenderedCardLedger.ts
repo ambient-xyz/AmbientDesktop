@@ -9,8 +9,8 @@ import type {
   ProjectBoardRenderedCardRestartAction,
   ProjectBoardRenderedCardSourceSnapshot,
   ProjectBoardRenderedCardSourceRef,
-  ProjectBoardRenderedCardSplitLineage,
-} from "../../shared/types";
+  ProjectBoardRenderedCardSplitLineage
+} from "../../shared/projectBoardTypes";
 import { stableBoardArtifactId } from "./projectBoardArtifacts";
 
 const PROJECT_BOARD_RENDERED_CARD_LEDGER_SCHEMA_VERSION = 1;

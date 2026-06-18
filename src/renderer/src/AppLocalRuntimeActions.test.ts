@@ -1,10 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  LocalDeepResearchRunHistoryResult,
-  MiniCpmVisionSetupResult,
-} from "../../shared/types";
+import type { LocalDeepResearchRunHistoryResult, MiniCpmVisionSetupResult } from "../../shared/localRuntimeTypes";
 import type {
   LocalDeepResearchRunHistoryUiState,
   LocalDeepResearchSetupUiState,

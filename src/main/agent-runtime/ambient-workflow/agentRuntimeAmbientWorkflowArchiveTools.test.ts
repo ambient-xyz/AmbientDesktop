@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AmbientWorkflowPlaybookDescription } from "../../ambient/ambientWorkflows";
+import type { AmbientWorkflowPlaybookDescription } from "../agentRuntimeAmbientFacade";
 import {
   registerAmbientWorkflowArchiveTools,
   type AmbientWorkflowArchiveToolRegistrationOptions,

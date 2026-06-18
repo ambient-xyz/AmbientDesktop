@@ -1,5 +1,5 @@
 import type { SubagentCapacityLeaseSnapshot } from "../../shared/subagentCapacity";
-import type { SubagentToolScopeSnapshotSummary } from "../../shared/types";
+import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import type { SubagentSpawnFailureStage } from "./subagentSpawnFailure";
 import {
   subagentToolScopeApprovalUnavailable,

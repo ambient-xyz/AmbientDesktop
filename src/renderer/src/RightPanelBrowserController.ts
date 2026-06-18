@@ -1,18 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type {
-  BrowserCapabilityState,
-  BrowserCredentialSummary,
-  BrowserPickResult,
-  BrowserProfileMode,
-  BrowserScreenshotResult,
-  BrowserUserActionState,
-  MiniCpmVisionAnalyzeInput,
-  MiniCpmVisionAnalysisResult,
-  MiniCpmVisionDiagnosticItem,
-  SaveBrowserCredentialInput,
-  WorkspaceContextReference,
-  WorkspaceFileContent,
-} from "../../shared/types";
+import type { BrowserCapabilityState, BrowserCredentialSummary, BrowserPickResult, BrowserProfileMode, BrowserScreenshotResult, BrowserUserActionState, SaveBrowserCredentialInput } from "../../shared/browserTypes";
+import type { MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionDiagnosticItem } from "../../shared/localRuntimeTypes";
+import type { WorkspaceContextReference, WorkspaceFileContent } from "../../shared/workspaceTypes";
 import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
 import {
   miniCpmVisualAnalyzeInputForBrowserScreenshot,

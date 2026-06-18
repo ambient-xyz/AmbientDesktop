@@ -8,9 +8,8 @@ import type {
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import type { SubagentTurnBudgetPolicy } from "../../shared/subagentTurnBudget";
 import { compactSubagentTurnBudgetPolicyForPi } from "../../shared/subagentTurnBudget";
 import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";

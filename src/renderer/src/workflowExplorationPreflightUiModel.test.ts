@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary } from "../../shared/workflowTypes";
 import { workflowExplorationGateModel } from "./workflowExplorationGateUiModel";
 import { workflowExplorationPreflightModel } from "./workflowExplorationPreflightUiModel";
 

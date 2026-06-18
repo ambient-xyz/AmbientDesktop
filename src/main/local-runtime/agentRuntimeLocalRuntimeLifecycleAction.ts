@@ -3,7 +3,7 @@ import type {
   LocalModelRuntimeLifecycleActionInput,
   LocalModelRuntimeLifecycleActionResult,
   LocalModelRuntimeLifecycleActionSnapshot,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import type {
   LocalModelRuntimeRestartInput,
   LocalModelRuntimeRestartResult,

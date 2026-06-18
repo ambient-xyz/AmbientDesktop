@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  PlannerPlanArtifact,
-  ProjectSummary,
-} from "../../shared/types";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
 import type { AppTopbarProjectBoardAction } from "./AppTopbar";
 import {
   projectBoardActionState,

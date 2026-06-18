@@ -1,14 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type {
-  ChatMessage,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowCompileProgress,
-  WorkflowExplorationTraceSummary,
-  WorkflowNativeToolName,
-  WorkflowRevisionSummary,
-  WorkflowRunDetail,
-} from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowExplorationTraceSummary, WorkflowNativeToolName, WorkflowRevisionSummary, WorkflowRunDetail } from "../../shared/workflowTypes";
 import { workflowThreadTranscriptCards } from "./workflowThreadTranscriptUiModel";
 
 const thread: Pick<WorkflowAgentThreadSummary, "id" | "initialRequest" | "phase" | "projectName" | "traceMode" | "latestVersion"> = {

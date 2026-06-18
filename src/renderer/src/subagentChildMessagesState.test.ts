@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
-import type { ChatMessage, DesktopState, SubagentRunSummary, ThreadSummary } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import {
   applyChildThreadMessageDelta,
   childThreadIsVisibleUnderActiveParent,

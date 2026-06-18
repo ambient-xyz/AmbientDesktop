@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceContextReference } from "../../shared/types";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { pickRightPanelWorkspaceContext } from "./RightPanelContextPane";
 
 describe("pickRightPanelWorkspaceContext", () => {

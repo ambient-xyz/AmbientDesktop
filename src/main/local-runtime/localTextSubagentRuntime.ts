@@ -12,18 +12,18 @@ import type {
 import type {
   SubagentMailboxDeliveryState,
   SubagentMailboxEventSummary,
-  LocalRuntimeLeaseRecord,
   SubagentRunEventSummary,
   SubagentRunSummary,
-  ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type {
   LocalModelHostMemorySnapshot,
   LocalModelResourcePolicyDecision,
   LocalModelResourceRegistrySnapshot,
   LocalModelResourceRequestedLaunch,
   LocalModelResourceSettings,
-} from "../../shared/types";
+  LocalRuntimeLeaseRecord,
+} from "../../shared/localRuntimeTypes";
 import {
   isLocalModelRuntimeStartupError,
   type LocalModelRuntimeAcquisition,

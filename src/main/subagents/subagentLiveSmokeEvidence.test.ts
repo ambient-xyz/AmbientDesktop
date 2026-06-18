@@ -5,7 +5,11 @@ import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { AMBIENT_SUBAGENT_PROTOCOL_VERSION, type SubagentRuntimeEvent } from "../../shared/subagentProtocol";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentMaturityEvidence } from "../../shared/subagentMaturity";
-import type { PermissionRequest, SubagentParentMailboxEventSummary, SubagentRunSummary } from "../../shared/types";
+import type { PermissionRequest } from "../../shared/permissionTypes";
+import type {
+  SubagentParentMailboxEventSummary,
+  SubagentRunSummary,
+} from "../../shared/subagentTypes";
 import {
   recordSubagentLiveApprovalAuthorityEvidence,
   recordSubagentLiveSmokeEvidence,

@@ -1,4 +1,4 @@
-import type { WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/types";
+import type { WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { workflowRunLiveness } from "../../shared/workflowRunLiveness";
 
 export type WorkflowArtifactPanelId = "diagram" | "run_console" | "runtime_input" | "source" | "manifest" | "permissions" | "discovery" | "exploration" | "outputs" | "versions";

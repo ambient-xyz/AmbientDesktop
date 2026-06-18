@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  AmbientCliSecretSaveResult,
-  DesktopState,
-  ProviderStatus,
-} from "../../shared/types";
+import type { DesktopState, ProviderStatus } from "../../shared/desktopTypes";
+import type { AmbientCliSecretSaveResult } from "../../shared/pluginTypes";
 import type { AmbientCliSecretDialogState } from "./AppDialogs";
 import {
   API_KEY_PASTE_CHECK_STATUS,

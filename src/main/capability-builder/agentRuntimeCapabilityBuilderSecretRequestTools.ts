@@ -1,13 +1,14 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { DesktopEvent, WorkspaceState } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   previewCapabilityBuilderPackage,
   type CapabilityBuilderPreviewInput,
   type CapabilityBuilderPreviewResult,
 } from "./capabilityBuilder";
-import { pluginInstallToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 
 export type CapabilityBuilderSecretRequestInput = CapabilityBuilderPreviewInput & { envName: string };
 

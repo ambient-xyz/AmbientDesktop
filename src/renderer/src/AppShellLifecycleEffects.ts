@@ -1,10 +1,8 @@
 import { useEffect } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
-import type {
-  AmbientPluginRegistry,
-  DesktopState,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
 import type { WelcomeOnboardingPageKind } from "../../shared/welcomeOnboarding";
 import type { SttMicrophoneRecorder } from "./sttMicrophoneRecorder";
 

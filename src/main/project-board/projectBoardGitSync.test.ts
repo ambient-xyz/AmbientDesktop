@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { boardEventArtifactPath, serializeBoardArtifact, type BoardEventArtifact } from "./projectBoardArtifacts";
 import { createProjectBoardClaimEvent } from "./projectBoardClaims";
 import {

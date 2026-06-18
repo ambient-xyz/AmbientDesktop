@@ -1,4 +1,4 @@
-import type { OrchestrationPrepareResult, OrchestrationTask, OrchestrationRun } from "../../shared/types";
+import type { OrchestrationPrepareResult, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import { defaultOrchestrationProjectPath, type ProjectStore } from "../projectStore/projectStore";
 import { prepareNextOrchestrationTasks } from "./orchestrationPrepare";
 import { type WorkflowConfig } from "../workflow/workflow";

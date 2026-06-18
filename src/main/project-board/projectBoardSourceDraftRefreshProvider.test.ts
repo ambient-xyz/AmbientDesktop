@@ -6,7 +6,7 @@ import {
   normalizeProjectBoardSourceDraftRefreshSuggestions,
   parseProjectBoardSourceDraftRefreshJson,
 } from "./projectBoardSourceDraftRefreshProvider";
-import type { ProjectBoardCard, ProjectBoardSource } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSource } from "../../shared/projectBoardTypes";
 
 describe("AmbientProjectBoardSourceDraftRefreshProvider", () => {
   const durableSource: ProjectBoardSource = {

@@ -5,12 +5,15 @@ import type {
   LocalModelResourceRegistrySnapshot,
   LocalRuntimeInventoryEntry,
   LocalRuntimeInventorySnapshot,
+  MiniCpmVisionRuntimeReleaseManifest,
+  MiniCpmVisionRuntimeReleaseManifestVerification,
+} from "../../shared/localRuntimeTypes";
+import type {
   SearchRoutingSettings,
   WebResearchFallbackPolicy,
   WebResearchProviderConfig,
-} from "../../shared/types";
+} from "../../shared/webResearchTypes";
 import { normalizeLocalModelResourceSettings } from "./localDeepResearchProviderStack";
-import type { MiniCpmVisionRuntimeReleaseManifest, MiniCpmVisionRuntimeReleaseManifestVerification } from "../../shared/types";
 import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "../mini-cpm/miniCpmRuntimeManifest";
 import {
   detectLocalDeepResearchMachineFacts,

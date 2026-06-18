@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import {
   connectorOperationDescriptor,
   validateWorkflowProgramNodeCapabilities,

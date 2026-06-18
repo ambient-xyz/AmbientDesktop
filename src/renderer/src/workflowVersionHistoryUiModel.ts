@@ -1,4 +1,4 @@
-import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowVersionStatus, WorkflowVersionSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowVersionStatus, WorkflowVersionSummary } from "../../shared/workflowTypes";
 
 export interface WorkflowVersionHistoryItemModel {
   id: string;

@@ -15,15 +15,8 @@ import {
   resolveAmbientModelRuntimeProfile,
   type AmbientModelRuntimeProfile,
 } from "../../shared/ambientModels";
-import type {
-  ChatMessage,
-  LocalRuntimeAffectedSubagent,
-  LocalRuntimeInventorySnapshot,
-  LocalRuntimeLeaseRecord,
-  LocalRuntimeLeaseStateSummary,
-  LocalRuntimeLifecycleActionDecision,
-  LocalRuntimeLifecycleDecision,
-} from "../../shared/types";
+import type { LocalRuntimeAffectedSubagent, LocalRuntimeInventorySnapshot, LocalRuntimeLeaseRecord, LocalRuntimeLeaseStateSummary, LocalRuntimeLifecycleActionDecision, LocalRuntimeLifecycleDecision } from "../../shared/localRuntimeTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import { MessageBubble } from "./AppMessages";
 import {
   DiagnosticExportHistory,

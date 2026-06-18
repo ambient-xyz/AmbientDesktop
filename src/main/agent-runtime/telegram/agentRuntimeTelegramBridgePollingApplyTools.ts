@@ -1,20 +1,17 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   telegramBridgePollingApprovalDetail,
   telegramBridgePollingControlResultText,
   type TelegramBridgePollingControlInput,
   type TelegramBridgePollingControlPreview,
   type TelegramBridgePollingControlResult,
-} from "../../telegram/telegramBridgePolling";
+} from "../agentRuntimeTelegramFacade";
 
 export interface TelegramBridgePollingApplyPreviewForParamsResult {
   input: TelegramBridgePollingControlInput;

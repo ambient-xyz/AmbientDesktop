@@ -4,19 +4,16 @@ import type {
   MessagingBindingCreateInput,
   MessagingBindingRevokeInput,
 } from "../../../shared/messagingGateway";
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   bindingLifecyclePreviewText,
   messagingBindingListText,
   type MessagingBindingStore,
-} from "../../messaging/messagingBindings";
+} from "../agentRuntimeMessagingFacade";
 
 type MessagingBindingLifecycleToolInput =
   | { action: "create"; create: MessagingBindingCreateInput }

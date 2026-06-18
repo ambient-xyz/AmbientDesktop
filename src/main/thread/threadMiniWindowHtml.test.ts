@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage, ThreadSummary } from "../../shared/types";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import { miniWindowHeaderPaddingLeft, renderThreadMiniWindowHtml } from "./threadMiniWindowHtml";
 
 const thread: ThreadSummary = {

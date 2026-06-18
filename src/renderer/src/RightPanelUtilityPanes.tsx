@@ -10,15 +10,9 @@ import type {
   ReactNode,
   RefObject,
 } from "react";
-import type {
-  MiniCpmVisionDiagnosticItem,
-  TerminalSession,
-  WorkspaceFileContent,
-  WorkspaceFileTree,
-  WorkspaceOpenTarget,
-  WorkspaceSearchResult,
-  WorkspaceSearchScope,
-} from "../../shared/types";
+import type { MiniCpmVisionDiagnosticItem } from "../../shared/localRuntimeTypes";
+import type { TerminalSession } from "../../shared/terminalTypes";
+import type { WorkspaceFileContent, WorkspaceFileTree, WorkspaceOpenTarget, WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/workspaceTypes";
 import { MiniCpmVisionDiagnosticsList } from "./RightPanelMiniCpmVisionDiagnostics";
 
 type ApiKeyStatus = { kind: "info" | "success" | "error"; message: string };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ChatMessage, DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   appMessageActivityKindMap,
   clearAppDesktopStateRefs,

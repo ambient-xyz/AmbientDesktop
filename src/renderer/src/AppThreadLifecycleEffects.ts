@@ -1,13 +1,11 @@
 import { useEffect } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
-import type {
-  AutomationFolderSummary,
-  ChatMessage,
-  DesktopState,
-  WorkflowAgentFolderSummary,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { AutomationFolderSummary } from "../../shared/automationTypes";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
+import type { WorkflowAgentFolderSummary } from "../../shared/workflowTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import {
   messageKindForActivity,
 } from "./AppMessages";

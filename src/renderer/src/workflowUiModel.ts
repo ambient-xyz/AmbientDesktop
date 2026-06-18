@@ -1,4 +1,4 @@
-import type { WorkflowManifest, WorkflowRunEvent } from "../../shared/types";
+import type { WorkflowManifest, WorkflowRunEvent } from "../../shared/workflowTypes";
 
 export interface WorkflowConnectorCallSummary {
   id: string;

@@ -4,14 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AmbientStreamFailureError } from "../aggressiveRetries";
+import { AmbientStreamFailureError } from "../ambient/aggressiveRetries";
 import { McpInstallCatalog } from "./mcpInstallCatalog";
 import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "../ambient/liveAmbientProviderConfig";
 import {
   mcpLivePiSmokePrompt,
   type McpLivePiSmokeInstallPlan,

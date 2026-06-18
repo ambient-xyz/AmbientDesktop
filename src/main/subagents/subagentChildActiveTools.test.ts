@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SubagentToolCategoryId, SubagentToolScopeDenial, SubagentToolScopeGrant } from "../../shared/subagentToolScope";
-import type { SubagentToolScopeSnapshotSummary } from "../../shared/types";
+import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import {
   isSubagentChildActivatableBuiltInTool,
   resolveAgentRuntimeActiveToolNamesForThread,

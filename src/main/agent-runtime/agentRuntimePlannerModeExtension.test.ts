@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CollaborationMode } from "../../shared/types";
+import type { CollaborationMode } from "../../shared/threadTypes";
 import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
 import {
   createPlannerModeExtension,

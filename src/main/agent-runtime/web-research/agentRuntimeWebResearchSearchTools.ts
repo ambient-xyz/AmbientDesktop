@@ -6,9 +6,9 @@ import type {
   BrowserSearchInput,
   BrowserSearchResult,
   BrowserUserActionState,
-  WebResearchProviderConfig,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/browserTypes";
+import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   type AmbientCliRunResult,
   type RunAmbientCliInput,
@@ -19,8 +19,8 @@ import {
   browserUnavailableText,
   isBrowserUnavailableFallback,
 } from "../../agent/agentBrowserRuntime";
-import { webResearchToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { webResearchToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import type { McpToolCallResult } from "../../mcp/mcpToolBridge";
 import { webResearchToolResult } from "./agentRuntimeWebResearchStatusTools";
 import {

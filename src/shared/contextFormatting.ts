@@ -1,4 +1,5 @@
-import type { WorkflowRecordingEditContext, WorkspaceContextReference } from "./types";
+import type { WorkflowRecordingEditContext } from "./workflowTypes";
+import type { WorkspaceContextReference } from "./workspaceTypes";
 
 export function formatPromptWithContext(content: string, context: readonly WorkspaceContextReference[] | undefined): string {
   const references = context?.filter((item) => item.path.trim()) ?? [];

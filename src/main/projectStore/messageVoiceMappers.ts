@@ -1,4 +1,4 @@
-import type { MessageVoiceState } from "../../shared/types";
+import type { MessageVoiceState } from "../../shared/localRuntimeTypes";
 
 export interface MessageVoiceStateRow {
   message_id: string;

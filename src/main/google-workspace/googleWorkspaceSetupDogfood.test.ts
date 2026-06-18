@@ -7,25 +7,8 @@ import { fileURLToPath } from "node:url";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import type {
-  AmbientPluginAuthAccountSummary,
-  FirstPartyGoogleIntegrationState,
-  GoogleWorkspaceCallInput,
-  GoogleWorkspaceCallResult,
-  GoogleWorkspaceCliInstallState,
-  GoogleWorkspaceDescribeMethodInput,
-  GoogleWorkspaceMaterializeFileInput,
-  GoogleWorkspaceMaterializeFileResult,
-  GoogleWorkspaceMethodSummary,
-  GoogleWorkspaceOAuthClientImportInput,
-  GoogleWorkspaceSearchMethodsInput,
-  GoogleWorkspaceSearchMethodsResult,
-  GoogleWorkspaceSetupInput,
-  GoogleWorkspaceSetupState,
-  GoogleWorkspaceValidationInput,
-  GoogleWorkspaceValidationResult,
-  PermissionRequest,
-} from "../../shared/types";
+import type { PermissionRequest } from "../../shared/permissionTypes";
+import type { AmbientPluginAuthAccountSummary, FirstPartyGoogleIntegrationState, GoogleWorkspaceCallInput, GoogleWorkspaceCallResult, GoogleWorkspaceCliInstallState, GoogleWorkspaceDescribeMethodInput, GoogleWorkspaceMaterializeFileInput, GoogleWorkspaceMaterializeFileResult, GoogleWorkspaceMethodSummary, GoogleWorkspaceOAuthClientImportInput, GoogleWorkspaceSearchMethodsInput, GoogleWorkspaceSearchMethodsResult, GoogleWorkspaceSetupInput, GoogleWorkspaceSetupState, GoogleWorkspaceValidationInput, GoogleWorkspaceValidationResult } from "../../shared/pluginTypes";
 import type { AgentRuntime, AgentRuntimeGoogleWorkspaceTools } from "../agent-runtime/agentRuntime";
 import type { BrowserCredentialStore } from "../browser/browserCredentialStore";
 import type { BrowserService } from "../browser/browserService";

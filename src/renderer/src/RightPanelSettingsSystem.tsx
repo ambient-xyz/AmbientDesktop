@@ -1,12 +1,8 @@
 import { Download, FolderOpen, LoaderCircle, Plug, RefreshCw, Square, Trash2 } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type {
-  DesktopState,
-  MiniCpmVisionDiagnosticItem,
-  MiniCpmVisionSetupAction,
-  PermissionAuditEntry,
-  ProviderCatalogSettingsCard,
-} from "../../shared/types";
+import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { MiniCpmVisionDiagnosticItem, MiniCpmVisionSetupAction } from "../../shared/localRuntimeTypes";
+import type { PermissionAuditEntry } from "../../shared/permissionTypes";
 import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
 import type { MiniCpmVisionSetupActionModel, MiniCpmVisionSetupResultModel } from "./miniCpmVisionUiModel";
 import type { DiagnosticExportHistoryModel } from "./diagnosticExportHistoryUiModel";

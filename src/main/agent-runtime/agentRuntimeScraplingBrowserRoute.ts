@@ -3,9 +3,9 @@ import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 import type {
   AmbientPermissionGrant,
   PermissionGrantScopeKind,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../shared/types";
+} from "../../shared/permissionTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { browserToolResult } from "./browser-tools/agentRuntimeBrowserToolFormatting";
 import { mcpRuntimePermissionBlockedMessage } from "../mcp/mcpRuntimePermissionEnforcement";
 import {

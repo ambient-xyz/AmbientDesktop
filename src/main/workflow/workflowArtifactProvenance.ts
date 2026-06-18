@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { WorkflowArtifactSourceProvenance, WorkflowArtifactSummary } from "../../shared/types";
+import type { WorkflowArtifactSourceProvenance, WorkflowArtifactSummary } from "../../shared/workflowTypes";
 
 export function workflowArtifactSourceProvenance(
   artifact: Pick<WorkflowArtifactSummary, "sourcePath">,

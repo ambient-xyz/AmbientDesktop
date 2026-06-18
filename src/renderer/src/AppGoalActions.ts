@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { DesktopState, ThreadGoal } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ThreadGoal } from "../../shared/threadTypes";
 
 export type ActiveGoalUpdateInput = {
   objective?: string;

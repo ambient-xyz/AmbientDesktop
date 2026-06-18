@@ -1,6 +1,6 @@
 import type { SubagentRunStatus } from "./subagentProtocol";
 import type { SubagentRoleProfile } from "./subagentRoles";
-import type { SubagentRunEventSummary } from "./types";
+import type { SubagentRunEventSummary } from "./subagentTypes";
 
 export const SUBAGENT_TURN_BUDGET_POLICY_SCHEMA_VERSION =
   "ambient-subagent-turn-budget-policy-v1" as const;

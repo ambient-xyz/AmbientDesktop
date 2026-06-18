@@ -5,19 +5,10 @@ import {
   localDeepResearchEffortLabel,
   localDeepResearchMaxToolCallsForEffort,
 } from "../../shared/localDeepResearchBudget";
-import type {
-  AmbientMcpContainerRuntimeStatus,
-  AmbientMcpDefaultCapabilitySummary,
-  AmbientMcpInstalledServerSummary,
-  DesktopState,
-  LocalDeepResearchBudgetExhaustionBehavior,
-  LocalDeepResearchEffort,
-  LocalDeepResearchRunHistoryEntry,
-  ManagedDevServerSummary,
-  ProviderCatalogSettingsCard,
-  WebResearchProviderConfig,
-  WebResearchProviderStackSettings,
-} from "../../shared/types";
+import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { LocalDeepResearchBudgetExhaustionBehavior, LocalDeepResearchEffort, LocalDeepResearchRunHistoryEntry } from "../../shared/localRuntimeTypes";
+import type { AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilitySummary, AmbientMcpInstalledServerSummary, ManagedDevServerSummary } from "../../shared/pluginTypes";
+import type { WebResearchProviderConfig, WebResearchProviderStackSettings } from "../../shared/webResearchTypes";
 import type {
   LocalDeepResearchDiagnosticItem,
   LocalDeepResearchInstallProgressModel,

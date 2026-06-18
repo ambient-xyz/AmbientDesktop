@@ -1,8 +1,4 @@
-import type {
-  AmbientPluginRegistry,
-  CodexPluginMcpInspectionCatalog,
-  PluginMcpRuntimeSnapshot,
-} from "../../shared/types";
+import type { AmbientPluginRegistry, CodexPluginMcpInspectionCatalog, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
 import { formatJsonPreview, formatTaskState } from "./RightPanelDetailPanels";
 import { formatTimelineTime } from "./RightPanelSettingsRuntime";
 import {

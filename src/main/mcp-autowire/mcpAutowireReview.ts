@@ -8,7 +8,7 @@ import {
   type McpAutowireValidationReport,
   type McpInstallReview,
 } from "./mcpAutowireSchemas";
-import { isSecretReference } from "../secretReferenceStore";
+import { isSecretReference } from "../security/secretReferenceStore";
 
 export interface McpAutowireSecretBinding {
   envName: string;

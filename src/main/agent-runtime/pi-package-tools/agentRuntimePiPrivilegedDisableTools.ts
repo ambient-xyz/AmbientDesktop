@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { WorkspaceState } from "../../../shared/types";
-import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   disablePiPrivilegedPackage,
   discoverPiPrivilegedPackages,

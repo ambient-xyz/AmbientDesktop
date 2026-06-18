@@ -1,8 +1,5 @@
-import type {
-  InterruptedToolCallRecoverySnapshot,
-  ProviderContinuationState,
-} from "../../shared/types";
-import { buildInterruptedToolCallRecoveryNotice } from "../interruptedToolCallRecovery";
+import type { InterruptedToolCallRecoverySnapshot, ProviderContinuationState } from "../../shared/threadTypes";
+import { buildInterruptedToolCallRecoveryNotice } from "./recovery/interruptedToolCallRecovery";
 import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 
 export interface InterruptedToolCallRecoveryFinalizationInput {

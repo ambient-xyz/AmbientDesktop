@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
-import type {
-  CreateWorkflowGraphSnapshotInput,
-  WorkflowGraphSnapshot,
-} from "../../shared/types";
+import type { CreateWorkflowGraphSnapshotInput, WorkflowGraphSnapshot } from "../../shared/workflowTypes";
 import {
   mapWorkflowGraphSnapshotRow,
   type WorkflowGraphSnapshotRow,

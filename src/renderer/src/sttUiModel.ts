@@ -1,17 +1,6 @@
 import { sttMessageMetadataFromTranscription, sttMessageMetadataFromUnknown } from "../../shared/sttMessageMetadata";
-import type {
-  ChatMessage,
-  MessageDelivery,
-  SttMessageMetadata,
-  SttDiagnosticSummary,
-  SttProviderCandidate,
-  SttProviderSetupAction,
-  SttProviderSetupResult,
-  SttProviderValidationMetadata,
-  SttQueueState,
-  SttSettings,
-  SttTranscriptionState,
-} from "../../shared/types";
+import type { SttDiagnosticSummary, SttMessageMetadata, SttProviderCandidate, SttProviderSetupAction, SttProviderSetupResult, SttProviderValidationMetadata, SttQueueState, SttSettings, SttTranscriptionState } from "../../shared/localRuntimeTypes";
+import type { ChatMessage, MessageDelivery } from "../../shared/threadTypes";
 
 export interface SttSettingsProviderModel {
   selectedProvider?: SttProviderCandidate;

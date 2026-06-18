@@ -4,7 +4,8 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
-import type { PermissionMode, ThinkingLevel } from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { ThinkingLevel } from "../../shared/threadTypes";
 
 export type WorkflowErrorCode =
   | "missing_workflow_file"

@@ -5,7 +5,7 @@ import {
   validateBoardEventArtifact,
   type BoardEventArtifact,
 } from "./projectBoardArtifacts";
-import type { ProjectBoardEvent } from "../../shared/types";
+import type { ProjectBoardEvent } from "../../shared/projectBoardTypes";
 
 export const PROJECT_BOARD_DEFAULT_CLAIM_LEASE_MS = 15 * 60 * 1000;
 

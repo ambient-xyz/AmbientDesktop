@@ -1,4 +1,4 @@
-import type { WorkflowGraphEdge, WorkflowGraphNode, WorkflowManifest, WorkflowSpec } from "./types";
+import type { WorkflowGraphEdge, WorkflowGraphNode, WorkflowManifest, WorkflowSpec } from "./workflowTypes";
 
 export function workflowGraphFromSpec(input: {
   title: string;

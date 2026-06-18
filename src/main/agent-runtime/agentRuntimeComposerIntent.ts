@@ -5,9 +5,9 @@ import {
 } from "../../shared/symphonyWorkflowRecipes";
 import type {
   SendMessageLocalDeepResearchComposerIntent,
-  SendMessageSlashCommandComposerIntent,
   SendMessageSymphonyComposerIntent,
-} from "../../shared/types";
+} from "../../shared/desktopTypes";
+import type { SendMessageSlashCommandComposerIntent } from "../../shared/slashCommandTypes";
 import { callableWorkflowToolName } from "../callable-workflow/callableWorkflowRegistry";
 
 interface SymphonyWorkflowComposerBuilderSelection {
@@ -84,6 +84,9 @@ export function symphonyWorkflowComposerPrompt(
       "Use this JSON input:",
       JSON.stringify(toolInput, null, 2),
       "After the tool queues the visible background workflow task, explain the task status, blocking mode, launch-card risk, and what result artifact is still pending.",
+      "Symphony parent-mode contract: act only as the conductor. You may select the pattern, launch/observe workflow-managed child work, retry/re-scope, ask the user for a decision, and synthesize from completed child evidence.",
+      "Do not perform substantive worker actions in the parent: no browser or web research, shell/bash, file read/write, verifier/testing work, or parent-generated substitute findings.",
+      "If child work fails, times out, needs approval, or is unavailable, choose retry, re-scope, ask the user, accept partial only when explicitly allowed, cancel the group, or exit Symphony mode. Never silently replace the child with parent work.",
       "Do not spawn child agents directly for this request; the callable workflow task owns visible fanout, progress, pause/resume/cancel, token/cost tracking, and parent blocking semantics.",
     ].join("\n");
   }
@@ -159,11 +162,19 @@ function slashCommandInvocationGuidance(selection: SendMessageSlashCommandCompos
     ];
   }
   if (selection.invocationKind === "symphony-recipe" || selection.invocationKind === "callable-workflow") {
-    return [
+    const lines = [
       "Use the callable workflow catalog tools to describe the selected entry, then invoke the parent-visible callable workflow only if its preflight still matches the user request.",
       "The callable workflow owns visible background execution, launch-card risk, pause/resume/cancel, token/cost tracking, and parent blocking semantics.",
-      "Do not manually recreate child fanout in the parent unless the callable workflow is unavailable and you explain that fallback.",
     ];
+    if (selection.sourceKind === "symphony") {
+      lines.push(
+        "For Symphony entries, parent mode is conductor-only: do not use browser or web research, shell/bash, file read/write, verifier/testing work, or parent-generated substitute findings.",
+        "If the callable workflow is unavailable, ask the user to retry, re-scope, accept partial when allowed, cancel, or exit Symphony mode instead of manually recreating child fanout in the parent.",
+      );
+    } else {
+      lines.push("Do not manually recreate child fanout in the parent unless the callable workflow is unavailable and you explain that fallback.");
+    }
+    return lines;
   }
   return [
     "This slash command is not invocable as a model-run skill or workflow. Explain the limitation instead of guessing.",

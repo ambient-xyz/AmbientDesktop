@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { MutableRefObject } from "react";
 
-import type { DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
 import type { SttComposerUiState } from "./AppComposerShell";
 import {
   shouldSuppressSttShortcutEventTarget,

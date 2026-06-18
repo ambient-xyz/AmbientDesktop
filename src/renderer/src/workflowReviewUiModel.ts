@@ -1,26 +1,6 @@
-import type {
-  AmbientPermissionGrant,
-  AutomationScheduleExceptionSummary,
-  AutomationSchedulePresetKind,
-  AutomationScheduleSummary,
-  PermissionAuditEntry,
-  PermissionMode,
-  PermissionGrantScopeKind,
-  WorkflowAgentThreadSummary,
-  WorkflowAmbientCliCapabilityGrant,
-  WorkflowArtifactStatus,
-  WorkflowArtifactSummary,
-  WorkflowConnectorManifestGrant,
-  WorkflowDiscoveryAccessRequest,
-  WorkflowGraphNode,
-  WorkflowGraphSnapshot,
-  WorkflowManifest,
-  WorkflowRunLimitOverrides,
-  WorkflowRunDetail,
-  WorkflowRunSummary,
-  WorkflowTraceMode,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { AutomationScheduleExceptionSummary, AutomationSchedulePresetKind, AutomationScheduleSummary } from "../../shared/automationTypes";
+import type { AmbientPermissionGrant, PermissionAuditEntry, PermissionGrantScopeKind, PermissionMode } from "../../shared/permissionTypes";
+import type { WorkflowAgentThreadSummary, WorkflowAmbientCliCapabilityGrant, WorkflowArtifactStatus, WorkflowArtifactSummary, WorkflowConnectorManifestGrant, WorkflowDiscoveryAccessRequest, WorkflowGraphNode, WorkflowGraphSnapshot, WorkflowManifest, WorkflowRunDetail, WorkflowRunLimitOverrides, WorkflowRunSummary, WorkflowTraceMode, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import {
   workflowAmbientCliScheduleTargetLabel,
   workflowArtifactScheduleAmbientCliGrantUses,

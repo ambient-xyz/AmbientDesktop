@@ -2,7 +2,8 @@ import { execFile } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
-import type { CollaborationMode, PermissionMode } from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { CollaborationMode } from "../../shared/threadTypes";
 import type { AgentHarnessVariant } from "./agentHarnessVariant";
 
 const execFileAsync = promisify(execFile);

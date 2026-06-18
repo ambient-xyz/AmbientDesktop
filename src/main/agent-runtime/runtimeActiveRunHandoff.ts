@@ -1,4 +1,5 @@
-import type { MessageDelivery, SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { MessageDelivery } from "../../shared/threadTypes";
 
 export interface RuntimeActiveRunHandoffActiveRun {
   settled: Promise<void>;

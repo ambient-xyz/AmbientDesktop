@@ -1,9 +1,4 @@
-import type {
-  LocalModelHostMemorySnapshot,
-  LocalModelMemoryLimitBehavior,
-  LocalModelResourcePolicyDecision,
-  LocalModelResourceSettings,
-} from "./types";
+import type { LocalModelHostMemorySnapshot, LocalModelMemoryLimitBehavior, LocalModelResourcePolicyDecision, LocalModelResourceSettings } from "./localRuntimeTypes";
 
 export const DEFAULT_LOCAL_RUNTIME_MAX_PROJECTED_MEMORY_UTILIZATION = 0.8;
 export const DEFAULT_LOCAL_RUNTIME_MIN_FREE_MEMORY_RATIO_AFTER_LAUNCH = 0.2;

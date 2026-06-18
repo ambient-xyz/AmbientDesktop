@@ -1,9 +1,4 @@
-import type {
-  ProjectBoardCard,
-  ProjectBoardCardCandidateStatus,
-  ProjectBoardCardStatus,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardCardStatus, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import {
   type ProjectBoardClarificationDecision,
   projectBoardClarificationDecisions,

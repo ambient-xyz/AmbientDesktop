@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   assertCanCloseSubagentRun,
   buildSubagentCloseAgentChildThreadMessage,

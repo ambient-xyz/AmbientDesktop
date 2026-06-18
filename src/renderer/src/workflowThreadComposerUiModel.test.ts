@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowRunDetail } from "../../shared/types";
+import type { WorkflowRunDetail } from "../../shared/workflowTypes";
 import { workflowThreadComposerModel, workflowThreadComposerRecoveryActionForDraft, workflowThreadComposerRuntimeActionForDraft } from "./workflowThreadComposerUiModel";
 
 describe("workflowThreadComposerUiModel", () => {

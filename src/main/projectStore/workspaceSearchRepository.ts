@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/types";
+import type { WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/workspaceTypes";
 import { mapWorkspaceSearchMessageRow, type SearchMessageRow } from "./messageMappers";
 import { mapWorkspaceSearchThreadRow, type ThreadRow } from "./threadMappers";
 

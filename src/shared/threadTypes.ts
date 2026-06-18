@@ -9,7 +9,9 @@ import type {
 import type { PermissionMode, PermissionPromptResponseMode, PermissionRisk } from "./permissionTypes";
 import type { ModelProviderEndpointProbeServiceResult } from "./pluginTypes";
 import type { SubagentRunStatus } from "./subagentProtocol";
-import type { WorkflowRecordingState } from "./workflowTypes";
+import type { MessageRole } from "./threadCoreTypes";
+import type { WorkflowRecordingState } from "./workflowRecordingTypes";
+export type { MessageRole, ThreadActionInput } from "./threadCoreTypes";
 
 export type CollaborationMode = "agent" | "planner";
 
@@ -341,8 +343,6 @@ export interface ThreadSummary {
 }
 
 export type ThreadKind = "chat" | "subagent_child";
-
-export type MessageRole = "user" | "assistant" | "system" | "tool";
 
 export interface ChatMessage {
   id: string;

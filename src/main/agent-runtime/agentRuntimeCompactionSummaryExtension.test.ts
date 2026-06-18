@@ -1,7 +1,7 @@
 import type { Model } from "@mariozechner/pi-ai";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ChatMessage, ThreadSummary } from "../../shared/types";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import { createAmbientCompactionSummaryExtension } from "./agentRuntimeCompactionSummaryExtension";
 
 describe("createAmbientCompactionSummaryExtension", () => {

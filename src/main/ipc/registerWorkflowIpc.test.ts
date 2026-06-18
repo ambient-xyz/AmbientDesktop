@@ -3,38 +3,42 @@ import { describe, expect, it, vi } from "vitest";
 
 import { resolveAmbientFeatureFlags, type AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import type {
+  DesktopEvent,
+  DesktopState,
+} from "../../shared/desktopTypes";
+import type {
   AmbientPermissionGrant,
+  PermissionMode,
+  PermissionRequest,
+} from "../../shared/permissionTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
+import type {
   AnswerWorkflowDiscoveryQuestionInput,
   CancelWorkflowRunInput,
-  ChatMessage,
   CompileWorkflowDebugRewriteInput,
   CompileWorkflowPreviewInput,
   CreateWorkflowAgentFolderInput,
   CreateWorkflowAgentThreadInput,
-  CreateWorkflowRevisionInput,
   CreateWorkflowLabRunInput,
-  DesktopEvent,
-  DesktopState,
+  CreateWorkflowRevisionInput,
   InvokeWorkflowNativeToolInput,
   ListWorkflowLabRunsInput,
   MoveWorkflowAgentThreadInput,
-  PermissionMode,
-  PermissionRequest,
   RecoverWorkflowRunInput,
-  RevalidateWorkflowArtifactInput,
-  ReviewWorkflowArtifactInput,
   ResolveWorkflowApprovalInput,
   ResolveWorkflowRevisionInput,
+  RestoreWorkflowVersionInput,
+  RevalidateWorkflowArtifactInput,
+  ReviewWorkflowArtifactInput,
+  RunWorkflowArtifactInput,
   SaveSymphonyWorkflowRecipeInput,
   StartWorkflowDiscoveryInput,
   StartWorkflowRevisionDiscoveryInput,
-  RestoreWorkflowVersionInput,
-  RunWorkflowArtifactInput,
   UpdateWorkflowArtifactSourceInput,
   UpdateWorkflowConnectorGrantInput,
   UpdateWorkflowRevisionInput,
-  WorkflowAgentFolderSummary,
   WorkflowAgentDiscoveryResult,
+  WorkflowAgentFolderSummary,
   WorkflowAgentThreadSummary,
   WorkflowDashboard,
   WorkflowDiscoveryCapabilityDescription,
@@ -46,11 +50,11 @@ import type {
   WorkflowRecordingLibraryDescription,
   WorkflowRecordingLibraryEntry,
   WorkflowRecordingReviewDraftUpdate,
-  WorkflowRunDetail,
   WorkflowRevisionSummary,
+  WorkflowRunDetail,
   WorkflowThreadExplorationResult,
   WorkflowVersionSummary,
-} from "../../shared/types";
+} from "../../shared/workflowTypes";
 import type { WorkflowDiscoveryPolicyContext } from "../workflow-discovery/workflowDiscoveryPolicy";
 import {
   registerWorkflowAgentCapabilityIpc,

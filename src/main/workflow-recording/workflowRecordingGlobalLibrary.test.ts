@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowAgentFolderSummary, WorkflowRecordingLibraryEntry } from "../../shared/types";
+import type { WorkflowAgentFolderSummary, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import {
   listWorkflowAgentFoldersAcrossStores,
   listWorkflowRecordingLibraryAcrossStores,

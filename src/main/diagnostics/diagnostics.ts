@@ -2,56 +2,22 @@ import { existsSync } from "node:fs";
 import { open, readdir, stat } from "node:fs/promises";
 import { arch, freemem, platform, release, totalmem } from "node:os";
 import { basename, join, relative } from "node:path";
-import type {
-  AmbientFeatureFlagSnapshot,
-  AmbientPluginAppAuthSummary,
-  AmbientPermissionGrant,
-  AmbientPluginRegistry,
-  CallableWorkflowTaskSummary,
-  ChatMessage,
-  CodexHostedMarketplaceReport,
-  CodexPluginCatalog,
-  ContextUsageSnapshot,
-  DiagnosticExportActionSummary,
-  AgentMemoryStarterStatus,
-  AgentMemoryStorageDiagnostics,
-  DiagnosticExportHealthStatus,
-  DiagnosticExportLocalRuntimeEvidence,
-  DiagnosticExportLocalRuntimeSummary,
-  DiagnosticExportCallableWorkflowReplayItem,
-  DiagnosticExportCallableWorkflowRestartIssueItem,
-  DiagnosticExportSubagentCompletionGuardSummary,
-  DiagnosticExportSubagentAttributionIssueSummary,
-  DiagnosticExportSubagentAttributionSummary,
-  DiagnosticExportSubagentLifecycleSummary,
-  DiagnosticExportSubagentObservabilitySummary,
-  DiagnosticExportSubagentReplayEvidence,
-  DiagnosticExportSubagentReplayParentMailboxItem,
-  DiagnosticExportSubagentReplaySummary,
-  DiagnosticExportSubagentReplayTimelineItem,
-  DiagnosticExportSubagentRepairSummary,
-  DiagnosticExportSummary,
-  OrchestrationBoard,
-  PermissionAuditEntry,
-  PiPackageCatalog,
-  SubagentRepairDiagnosticAction,
-  PluginMcpRuntimeSnapshot,
-  SubagentParentMailboxEventSummary,
-  SubagentRepairDiagnosticsReport,
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-  ThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowRunEvent,
-  WorkflowRunSummary,
-  WorkspaceState,
-} from "../../shared/types";
+import type { AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
+import type { AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
+import type { DiagnosticExportActionSummary, DiagnosticExportCallableWorkflowReplayItem, DiagnosticExportCallableWorkflowRestartIssueItem, DiagnosticExportHealthStatus, DiagnosticExportLocalRuntimeEvidence, DiagnosticExportLocalRuntimeSummary, DiagnosticExportSubagentAttributionIssueSummary, DiagnosticExportSubagentAttributionSummary, DiagnosticExportSubagentCompletionGuardSummary, DiagnosticExportSubagentLifecycleSummary, DiagnosticExportSubagentObservabilitySummary, DiagnosticExportSubagentRepairSummary, DiagnosticExportSubagentReplayEvidence, DiagnosticExportSubagentReplayParentMailboxItem, DiagnosticExportSubagentReplaySummary, DiagnosticExportSubagentReplayTimelineItem, DiagnosticExportSummary } from "../../shared/diagnosticTypes";
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/permissionTypes";
+import type { AmbientPluginAppAuthSummary, AmbientPluginRegistry, CodexHostedMarketplaceReport, CodexPluginCatalog, PiPackageCatalog, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
+import type { SubagentParentMailboxEventSummary, SubagentRepairDiagnosticAction, SubagentRepairDiagnosticsReport, SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ChatMessage, ContextUsageSnapshot, ThreadSummary } from "../../shared/threadTypes";
+import type { CallableWorkflowTaskSummary, OrchestrationBoard, WorkflowArtifactSummary, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/workflowTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { AppLogEntry } from "./appLogs";
 import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
 import type { LocalModelRuntimeStatusSnapshot } from "../local-runtime/localModelRuntimeStatus";
 import { isPathInside } from "../session/sessionPaths";
-import { redactSensitiveText, redactSensitiveValue } from "../secretRedaction";
+import { redactSensitiveText, redactSensitiveValue } from "../security/secretRedaction";
 import type { SubagentObservabilitySummary } from "../subagents/subagentObservability";
 import {
   SUBAGENT_CHILD_SCOPED_PARENT_MAILBOX_TYPES,

@@ -1,7 +1,8 @@
 import type { ContextUsage } from "@mariozechner/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
-import type { AmbientCompactionSettings, DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { AmbientCompactionSettings } from "../../shared/threadTypes";
 import {
   PROMPT_PREFLIGHT_COMPACTED_MESSAGE,
   PROMPT_PREFLIGHT_COMPACTION_INSTRUCTIONS,

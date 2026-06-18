@@ -1,4 +1,5 @@
-import type { ChatMessage, PlannerDecisionQuestion, PlannerDurableArtifactValidationResult, PlannerPlanArtifact } from "../../shared/types";
+import type { PlannerDecisionQuestion, PlannerDurableArtifactValidationResult, PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 
 export const PLANNER_DURABLE_REPAIR_PROMPT_MARKER = "[ambient-planner-durable-repair]";
 export const PLANNER_DURABLE_REPAIR_MAX_ATTEMPTS = 2;

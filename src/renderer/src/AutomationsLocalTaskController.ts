@@ -1,14 +1,7 @@
 import type { DragEvent as ReactDragEvent } from "react";
 import { useState } from "react";
 
-import type {
-  CreateOrchestrationTaskInput,
-  OrchestrationAutoDispatchStatus,
-  OrchestrationBoard,
-  OrchestrationPrepareResult,
-  OrchestrationTask,
-  UpdateOrchestrationTaskInput,
-} from "../../shared/types";
+import type { CreateOrchestrationTaskInput, OrchestrationAutoDispatchStatus, OrchestrationBoard, OrchestrationPrepareResult, OrchestrationTask, UpdateOrchestrationTaskInput } from "../../shared/workflowTypes";
 import {
   localTaskEditActionState,
   parseLocalTaskLabels,

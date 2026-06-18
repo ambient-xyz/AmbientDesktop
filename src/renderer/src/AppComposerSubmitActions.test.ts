@@ -1,15 +1,11 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  LocalDeepResearchRunBudget,
-  RunStatus,
-  SlashCommandSelection,
-  SttMessageMetadata,
-  ThreadGoal,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { LocalDeepResearchRunBudget, SttMessageMetadata } from "../../shared/localRuntimeTypes";
+import type { SlashCommandSelection } from "../../shared/slashCommandTypes";
+import type { RunStatus, ThreadGoal } from "../../shared/threadTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import {
   createAppComposerSubmitActions,

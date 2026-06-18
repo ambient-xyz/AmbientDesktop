@@ -5,10 +5,10 @@ import type {
   AmbientPermissionGrant,
   CreateAmbientPermissionGrantInput,
   PermissionAuditEntry,
-  PermissionRequest,
   PermissionPromptResponseMode,
+  PermissionRequest,
   RevokeAmbientPermissionGrantInput,
-} from "../../shared/types";
+} from "../../shared/permissionTypes";
 import {
   permissionCreateGrantIpcChannels,
   permissionListIpcChannels,

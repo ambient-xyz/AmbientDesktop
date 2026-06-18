@@ -7,7 +7,7 @@ import {
   Terminal,
 } from "lucide-react";
 
-import type { GitReviewSummary } from "../../shared/types";
+import type { GitReviewSummary } from "../../shared/workspaceTypes";
 import { GitEditSummaryBadge } from "./AppGitControls";
 import type { ProjectBoardActionKind } from "./projectBoardUiModel";
 import type { UtilityPanel } from "./RightPanel";

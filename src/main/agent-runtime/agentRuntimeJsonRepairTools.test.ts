@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { registerJsonRepairTool } from "./agentRuntimeJsonRepairTools";
-import type { JsonRepairToolInput, JsonRepairToolOptions, JsonRepairToolResult } from "../jsonRepairTool";
+import type { JsonRepairToolInput, JsonRepairToolOptions, JsonRepairToolResult } from "../workflow/jsonRepairTool";
 
 describe("agentRuntimeJsonRepairTools", () => {
   it("registers ambient_json_repair and forwards model, retry, signal, and progress details", async () => {

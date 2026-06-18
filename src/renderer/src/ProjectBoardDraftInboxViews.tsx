@@ -24,23 +24,7 @@ import {
   projectBoardRunBlocksPlanning,
   projectBoardRunIsKickoffDefaults,
 } from "../../shared/projectBoardSynthesisGate";
-import type {
-  ApplyProjectBoardDecisionImpactFeedbackInput,
-  ApplyProjectBoardSourceImpactFeedbackInput,
-  ProjectBoardCard,
-  ProjectBoardCardCandidateStatus,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardQuestion,
-  ProjectBoardSynthesisRun,
-  ProjectSummary,
-  RefreshProjectBoardDecisionDraftsInput,
-  RefreshProjectBoardSourceDraftsInput,
-  RegenerateProjectBoardDecisionDraftsInput,
-  RegenerateProjectBoardSourceDraftsInput,
-  ResolveProjectBoardCardPiUpdateInput,
-  SuggestProjectBoardKickoffDefaultsInput,
-  UpdateProjectBoardCardInput,
-} from "../../shared/types";
+import type { ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardGitSyncStatus, ProjectBoardQuestion, ProjectBoardSynthesisRun, ProjectSummary, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, ResolveProjectBoardCardPiUpdateInput, SuggestProjectBoardKickoffDefaultsInput, UpdateProjectBoardCardInput } from "../../shared/projectBoardTypes";
 import {
   ProjectBoardCandidateDetail,
   ProjectBoardProofScopeWarningSummary,

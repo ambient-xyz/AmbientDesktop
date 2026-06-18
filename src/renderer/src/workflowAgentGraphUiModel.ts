@@ -1,18 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 import ELK from "elkjs/lib/elk.bundled.js";
-import type {
-  WorkflowCheckpointSummary,
-  WorkflowDiscoveryQuestion,
-  WorkflowArtifactStatus,
-  WorkflowGraphEdge,
-  WorkflowGraphNode,
-  WorkflowGraphRunState,
-  WorkflowGraphSnapshot,
-  WorkflowManifest,
-  WorkflowModelCallRecord,
-  WorkflowRecoveryTargetKind,
-  WorkflowRunEvent,
-} from "../../shared/types";
+import type { WorkflowArtifactStatus, WorkflowCheckpointSummary, WorkflowDiscoveryQuestion, WorkflowGraphEdge, WorkflowGraphNode, WorkflowGraphRunState, WorkflowGraphSnapshot, WorkflowManifest, WorkflowModelCallRecord, WorkflowRecoveryTargetKind, WorkflowRunEvent } from "../../shared/workflowTypes";
 import { diffWorkflowGraphs, type WorkflowGraphDiff } from "../../shared/workflowGraphDiff";
 import {
   workflowResumeCheckpointEligibility,

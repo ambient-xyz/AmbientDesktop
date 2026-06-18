@@ -3,8 +3,8 @@ import type {
   ProjectBoardAddCardsObjectiveProvenance,
   ProjectBoardSource,
   ProjectBoardSummary,
-  RefineProjectBoardSynthesisInput,
-} from "../../shared/types";
+  RefineProjectBoardSynthesisInput
+} from "../../shared/projectBoardTypes";
 import {
   validateProposalJsonlRecordArtifact,
   type ProposalJsonlRecordArtifact,

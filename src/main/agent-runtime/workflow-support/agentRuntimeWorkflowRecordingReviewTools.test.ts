@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
+import type { DesktopEvent } from "../../../shared/desktopTypes";
 import type {
-  DesktopEvent,
-  ThreadSummary,
   WorkflowRecordingPlaybookDraft,
   WorkflowRecordingReviewDraftUpdate,
   WorkflowRecordingState,
   WorkflowRecordingReviewValidationIssue,
-} from "../../../shared/types";
+} from "../../../shared/workflowTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import { WorkflowRecordingReviewValidationError } from "../../../shared/workflowRecorder";
 import {
   createWorkflowRecordingReviewTools,

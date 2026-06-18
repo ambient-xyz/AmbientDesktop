@@ -7,10 +7,10 @@ import type {
   BrowserProfileMode,
   BrowserRuntimeKind,
   BrowserUserActionState,
-} from "../../../shared/types";
+} from "../../../shared/browserTypes";
 import { isBrowserUserActionState } from "../../agent/agentBrowserRuntime";
-import { browserToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { browserToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   browserToolResult,
   browserToolUpdate,

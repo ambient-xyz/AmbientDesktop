@@ -1,10 +1,8 @@
 import { formatPromptWithContext, formatWorkflowRecordingEditPrompt } from "../../shared/contextFormatting";
 import { isAmbientSlashCommandsEnabled } from "../../shared/featureFlags";
-import type {
-  AmbientFeatureFlagSnapshot,
-  SendMessageInput,
-  WorkflowAgentThreadSummary,
-} from "../../shared/types";
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { WorkflowAgentThreadSummary } from "../../shared/workflowTypes";
 import { workflowThreadPlanEditPrompt } from "../../shared/workflowThreadPlanEdit";
 import {
   localDeepResearchComposerPrompt,

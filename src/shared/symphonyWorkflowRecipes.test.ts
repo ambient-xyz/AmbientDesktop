@@ -11,7 +11,7 @@ import {
 } from "./symphonyWorkflowRecipes";
 
 describe("Symphony workflow recipe presets", () => {
-  it("defines all six planned Symphony patterns behind ambient.subagents", () => {
+  it("sym-pattern-six-pack defines all six planned Symphony patterns behind ambient.subagents", () => {
     const presets = listSymphonyWorkflowRecipePresets();
 
     expect(presets.map((preset) => preset.id)).toEqual([...SYMPHONY_WORKFLOW_PATTERN_IDS]);

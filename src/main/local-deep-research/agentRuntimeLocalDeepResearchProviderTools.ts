@@ -1,14 +1,13 @@
 import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
   LocalDeepResearchSettings,
-} from "../../shared/types";
-import { localDeepResearchToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+} from "../../shared/localRuntimeTypes";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/permissionTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import { localDeepResearchToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 import {
   buildLocalDeepResearchProviderDiscovery,
   buildLocalDeepResearchProviderStackStatus,

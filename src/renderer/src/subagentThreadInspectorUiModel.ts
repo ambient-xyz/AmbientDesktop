@@ -1,11 +1,5 @@
-import type {
-  SubagentRepairDiagnosticsReport,
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-  SubagentToolScopeSnapshotSummary,
-  SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../shared/types";
+import type { SubagentRepairDiagnosticsReport, SubagentRunEventSummary, SubagentRunSummary, SubagentToolScopeSnapshotSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { subagentRepairRowsForRun, type SubagentRepairDiagnosticRowModel } from "./subagentRepairDiagnosticsUiModel";
 
 export interface SubagentThreadInspectorModel {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkspaceContextReference } from "../../shared/types";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { contextUsageRingMetrics, createComposerDraftStore, mergeContextAttachments } from "./AppComposerControls";
 
 describe("composer controls helpers", () => {

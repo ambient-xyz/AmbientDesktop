@@ -1,7 +1,4 @@
-import type {
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-} from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   buildSubagentCloseAgentChildThreadMessage,
   buildSubagentCloseRequestedRunEventPreview,

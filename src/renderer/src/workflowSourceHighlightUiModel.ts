@@ -1,4 +1,4 @@
-import type { WorkflowGraphNode, WorkflowSourceRange, WorkflowVersionSummary } from "../../shared/types";
+import type { WorkflowGraphNode, WorkflowSourceRange, WorkflowVersionSummary } from "../../shared/workflowTypes";
 
 export interface WorkflowSourceHighlightChunk {
   text: string;

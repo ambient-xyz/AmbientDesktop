@@ -7,8 +7,8 @@ import {
   registerTelegramConversationDirectoryTools,
   type TelegramConversationDirectoryToolPermissionRequest,
 } from "./agentRuntimeTelegramConversationDirectoryTools";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 describe("registerTelegramConversationDirectoryTools", () => {
   it("registers and executes the Telegram conversation directory preview and denied apply tools", async () => {

@@ -7,7 +7,7 @@ import type {
   SttProviderSetupResult,
   SttQueueState,
   SttTranscriptionState,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 
 const maxInMemoryDiagnostics = 30;
 const diagnosticsLogPath = join(".ambient", "stt", "diagnostics.jsonl");

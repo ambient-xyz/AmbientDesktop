@@ -9,7 +9,7 @@ import type {
   GoogleWorkspaceSetupState,
   GoogleWorkspaceValidationInput,
   GoogleWorkspaceValidationResult,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

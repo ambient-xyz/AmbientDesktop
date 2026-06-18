@@ -1,11 +1,7 @@
 import { FolderPlus } from "lucide-react";
 import type { ReactNode } from "react";
-import type {
-  AutomationFolderSummary,
-  AutomationThreadSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationThreadSummary } from "../../shared/automationTypes";
+import type { WorkflowAgentThreadSummary, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import { automationIndicatorKind } from "./AutomationsWorkflowUtilityViews";
 import { InfoTooltip } from "./RightPanel";
 

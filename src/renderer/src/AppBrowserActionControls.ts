@@ -1,12 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  BrowserCapabilityState,
-  BrowserUserActionState,
-  DesktopState,
-  MessageDelivery,
-  RunStatus,
-} from "../../shared/types";
+import type { BrowserCapabilityState, BrowserUserActionState } from "../../shared/browserTypes";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { MessageDelivery, RunStatus } from "../../shared/threadTypes";
 import type { UtilityPanel } from "./RightPanel";
 import type { AppendRunActivityLine } from "./AppRunActivity";
 import { ambientBrowserRuntimeForUrl } from "./RightPanelRichText";

@@ -1,14 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type {
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowCompileAuditSummary,
-  WorkflowCompileProgress,
-  WorkflowRunDetail,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileAuditSummary, WorkflowCompileProgress, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/workflowTypes";
 import {
   WorkflowCompileActivity,
   WorkflowCompileAuditInlineCard,

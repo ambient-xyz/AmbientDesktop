@@ -2,7 +2,7 @@ import { LoaderCircle } from "lucide-react";
 import { useCallback, useLayoutEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
-import type { RunStatus, RuntimeActivity } from "../../shared/types";
+import type { RunStatus, RuntimeActivity } from "../../shared/threadTypes";
 import { formatDelay } from "./AutomationsWorkspace";
 import { mergeRunActivityLine, normalizeRunActivityLineText } from "./runActivityUiModel";
 import { isScrolledToBottom, scrollToBottom } from "./scrolling";

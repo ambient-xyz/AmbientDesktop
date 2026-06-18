@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
 import {
   appBootstrapRunStatus,
   shouldRunMcpContainerRuntimeStartupCheck,

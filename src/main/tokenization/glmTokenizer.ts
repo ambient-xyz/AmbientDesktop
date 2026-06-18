@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { estimateJsonByteLength, estimateTokensFromBytes, estimateTokensFromText } from "../contextAccounting";
+import { estimateJsonByteLength, estimateTokensFromBytes, estimateTokensFromText } from "../../shared/contextAccounting";
 
 const GLM_TOKENIZER_MODEL_ID = "zai-org/GLM-5.1";
 const GLM_TOKENIZER_REVISION = process.env.AMBIENT_GLM_TOKENIZER_REVISION || "main";

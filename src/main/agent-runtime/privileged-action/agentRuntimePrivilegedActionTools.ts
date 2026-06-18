@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   registerPrivilegedActionRequestTools,
   type PrivilegedActionRequestToolPermissionRequest,

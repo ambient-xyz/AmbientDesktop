@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AmbientPluginRegistry } from "../../shared/types";
+import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
 import { welcomePluginSetupStats } from "./AppWelcomeSetup";
 
 describe("welcome setup helpers", () => {

@@ -1,4 +1,4 @@
-import type { ProjectBoardQuestion, ProjectBoardSummary, ProjectBoardSynthesisRun } from "./types";
+import type { ProjectBoardQuestion, ProjectBoardSummary, ProjectBoardSynthesisRun } from "./projectBoardTypes";
 
 type BoardForKickoffGate = Pick<ProjectBoardSummary, "status" | "questions">;
 type RunForPlanningGate = Pick<ProjectBoardSynthesisRun, "status" | "stage">;

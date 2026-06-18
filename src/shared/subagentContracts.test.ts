@@ -175,10 +175,20 @@ describe("sub-agent shared contracts", () => {
       reason: "tool_scope_denied",
       options: ["retry_child", "accept_partial", "exit_symphony_mode"],
       recommendedOption: "retry_child",
+      optionActions: [
+        { option: "retry_child", toolAction: "resolve_barrier", decision: "retry_child" },
+        { option: "accept_partial", toolAction: "resolve_barrier", decision: "continue_with_partial", requiresUserDecision: true, requiresPartialSummary: true },
+        { option: "exit_symphony_mode", toolAction: "resolve_barrier", decision: "fail_parent" },
+      ],
       evidenceRefs: ["artifact://barrier-1"],
     })).toMatchObject({
       recommendedOption: "retry_child",
       options: ["retry_child", "accept_partial", "exit_symphony_mode"],
+      optionActions: [
+        { option: "retry_child", toolAction: "resolve_barrier", decision: "retry_child" },
+        { option: "accept_partial", toolAction: "resolve_barrier", decision: "continue_with_partial", requiresUserDecision: true, requiresPartialSummary: true },
+        { option: "exit_symphony_mode", toolAction: "resolve_barrier", decision: "fail_parent" },
+      ],
     });
   });
 
@@ -356,8 +366,29 @@ describe("sub-agent shared contracts", () => {
       reason: "failed",
       options: ["retry_child", "accept_partial"],
       recommendedOption: "exit_symphony_mode",
+      optionActions: [
+        { option: "retry_child", toolAction: "resolve_barrier", decision: "retry_child" },
+        { option: "accept_partial", toolAction: "resolve_barrier", decision: "continue_with_partial", requiresUserDecision: true, requiresPartialSummary: true },
+      ],
       evidenceRefs: [],
     })).toThrow("childDecisionRequest.recommendedOption must be included in options.");
+  });
+
+  it("rejects child decision requests without executable actions for every option", () => {
+    expect(() => assertValidChildDecisionRequest({
+      schemaVersion: SYMPHONY_CHILD_DECISION_REQUEST_SCHEMA_VERSION,
+      requestId: "decision-1",
+      barrierId: "barrier-1",
+      parentRunId: "parent-run",
+      childRunIds: ["child-run"],
+      reason: "failed",
+      options: ["retry_child", "accept_partial"],
+      recommendedOption: "retry_child",
+      optionActions: [
+        { option: "retry_child", toolAction: "resolve_barrier", decision: "retry_child" },
+      ],
+      evidenceRefs: [],
+    })).toThrow("childDecisionRequest.optionActions must include one executable action for each option.");
   });
 
   it("resolves role, model, task, and workspace policy into visible tool scope", () => {

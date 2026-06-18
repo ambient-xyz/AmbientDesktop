@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ExportChatResult } from "../../shared/types";
+import type { ExportChatResult } from "../../shared/threadTypes";
 import {
   chatExportStatusMessage,
   workflowRecordingExportErrorStatus,

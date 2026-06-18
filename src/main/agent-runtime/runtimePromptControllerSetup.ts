@@ -1,4 +1,5 @@
-import type { ChatMessage, DesktopEvent, ToolArgumentProgressSnapshot } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { ChatMessage, ToolArgumentProgressSnapshot } from "../../shared/threadTypes";
 import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import type { RuntimeStreamWatchdogController } from "./runtimeStreamWatchdogController";
 import {

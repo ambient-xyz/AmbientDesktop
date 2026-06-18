@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkflowArtifactSummary } from "../../shared/types";
+import type { WorkflowArtifactSummary } from "../../shared/workflowTypes";
 import {
   workflowRunArtifactBusyKey,
   workflowRunLimitOverridesForArtifact,

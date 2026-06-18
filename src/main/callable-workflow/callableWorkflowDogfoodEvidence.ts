@@ -1,9 +1,4 @@
-import type {
-  CallableWorkflowTaskRestartReconciliationSummary,
-  CallableWorkflowTaskSummary,
-  WorkflowArtifactSummary,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { CallableWorkflowTaskRestartReconciliationSummary, CallableWorkflowTaskSummary, WorkflowArtifactSummary, WorkflowRunSummary } from "../../shared/workflowTypes";
 import {
   CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
   CALLABLE_WORKFLOW_PARENT_BLOCKING_SCHEMA_VERSION,

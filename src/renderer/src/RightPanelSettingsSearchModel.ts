@@ -1,5 +1,5 @@
 import { ambientModelLabel } from "../../shared/ambientModels";
-import type { DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
 import {
   contextUsagePresentation,
   desktopUpdateStatusText,

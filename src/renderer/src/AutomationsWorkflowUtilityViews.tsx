@@ -2,7 +2,7 @@ import { AlertCircle, Bot, Brain, CalendarClock, CalendarPlus, Check, CheckCircl
 import type { ReactNode, RefObject } from "react";
 import { useEffect, useState } from "react";
 
-import type { AutomationThreadSummary, WorkflowAgentThreadSummary, WorkspaceFileContent } from "../../shared/types";
+import type { AutomationThreadSummary } from "../../shared/automationTypes"; import type { WorkflowAgentThreadSummary } from "../../shared/workflowTypes"; import type { WorkspaceFileContent } from "../../shared/workspaceTypes";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import { formatPanelFileSize, formatTaskState, formatTimelineTime, InfoTooltip } from "./RightPanel";
 import { artifactMediaKindFromPath } from "./toolMessageUiModel";

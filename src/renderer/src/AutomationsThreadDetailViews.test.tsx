@@ -1,14 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type {
-  AutomationFolderSummary,
-  AutomationThreadSummary,
-  OrchestrationRun,
-  OrchestrationTask,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationThreadSummary } from "../../shared/automationTypes";
+import type { OrchestrationRun, OrchestrationTask, WorkflowAgentThreadSummary, WorkflowArtifactSummary } from "../../shared/workflowTypes";
 import { AutomationSelectedThreadDetailView } from "./AutomationsThreadDetailViews";
 import type { WorkflowArtifactThreadRoute } from "./workflowThreadFirstUiModel";
 

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";
 import { mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
-import { managedInstallWorkspacePath } from "../managedInstallPaths";
+import { managedInstallWorkspacePath } from "../setup/managedInstallPaths";
 import { isPathInside } from "../session/sessionPaths";
 
 export type AmbientDownloadDestinationKind = "workspace" | "managed-install";

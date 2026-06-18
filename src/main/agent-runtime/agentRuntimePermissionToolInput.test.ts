@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { BrowserCapabilityState, BrowserCredentialSummary, WorkspaceState } from "../../shared/types";
+import type { BrowserCapabilityState, BrowserCredentialSummary } from "../../shared/browserTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { permissionToolInput } from "./agentRuntimePermissionToolInput";
 
 describe("permissionToolInput", () => {

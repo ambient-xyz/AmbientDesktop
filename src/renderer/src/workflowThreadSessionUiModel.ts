@@ -1,4 +1,4 @@
-import type { WorkflowAgentThreadSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary } from "../../shared/workflowTypes";
 
 export type WorkflowThreadSessionState = "missing" | "preparing" | "active";
 

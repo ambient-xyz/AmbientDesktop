@@ -1,11 +1,7 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
-import type {
-  MessageVoiceState,
-  VoiceArtifactPruneResult,
-  VoiceArtifactRetentionSummary,
-} from "../../shared/types";
+import type { MessageVoiceState, VoiceArtifactPruneResult, VoiceArtifactRetentionSummary } from "../../shared/localRuntimeTypes";
 import { isPathInside } from "../session/sessionPaths";
 
 const MANAGED_VOICE_ROOT = ".ambient/voice";

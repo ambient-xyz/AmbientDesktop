@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   SubagentMailboxDeliveryState,
   SubagentMailboxEventSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   cancelPendingParentToChildMailboxEvents,
   consumeDeliveredParentToChildMailboxEvents,

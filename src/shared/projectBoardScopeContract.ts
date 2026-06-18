@@ -1,9 +1,4 @@
-import type {
-  ProjectBoardPlanningDepthAssessment,
-  ProjectBoardPlanningDepthLevel,
-  ProjectBoardScopeContract,
-  ProjectBoardScopeFeature,
-} from "./types";
+import type { ProjectBoardPlanningDepthAssessment, ProjectBoardPlanningDepthLevel, ProjectBoardScopeContract, ProjectBoardScopeFeature } from "./projectBoardTypes";
 
 interface ScopeFeatureRule {
   feature: ProjectBoardScopeFeature;

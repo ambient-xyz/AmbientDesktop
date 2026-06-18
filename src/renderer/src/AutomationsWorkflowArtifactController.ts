@@ -1,18 +1,6 @@
 import type { MutableRefObject } from "react";
 
-import type {
-  WorkflowAgentFolderSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowConnectorDataRetention,
-  WorkflowConnectorManifestGrant,
-  WorkflowDashboard,
-  WorkflowRecoveryAction,
-  WorkflowRunDetail,
-  WorkflowRunLimitOverrides,
-  WorkflowUserInputResponse,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowDashboard, WorkflowRecoveryAction, WorkflowRunDetail, WorkflowRunLimitOverrides, WorkflowUserInputResponse, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import type { WorkflowGraphEventCard } from "./workflowAgentGraphUiModel";
 import { latestWorkflowRunForArtifact } from "./AutomationsWorkflowDiscoveryController";
 import type { WorkflowRuntimeInputCard } from "./workflowRuntimeInputUiModel";

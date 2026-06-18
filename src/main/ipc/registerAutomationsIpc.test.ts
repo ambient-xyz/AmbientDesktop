@@ -11,7 +11,7 @@ import type {
   CreateAutomationScheduleInput,
   MoveAutomationThreadInput,
   UpdateAutomationScheduleInput,
-} from "../../shared/types";
+} from "../../shared/automationTypes";
 import {
   automationsCreateFolderIpcChannels,
   automationsCreateScheduleIpcChannels,

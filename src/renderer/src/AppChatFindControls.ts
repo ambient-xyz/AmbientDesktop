@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 
-import type { ChatMessage, ThinkingDisplayMode } from "../../shared/types";
+import type { ThinkingDisplayMode } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   countTextMatches,
   visibleMessages,

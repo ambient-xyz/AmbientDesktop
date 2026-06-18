@@ -1,4 +1,4 @@
-import type { WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import { installedMcpSearchAliasesForWorkspace } from "./agentRuntimeMcpSearchAliases";
 import { createPublicMcpPackageMetadataResolver, McpInstallCatalog } from "../../mcp/mcpInstallCatalog";
 import { McpToolBridge, type McpToolBridgeOptions } from "../../mcp/mcpToolBridge";

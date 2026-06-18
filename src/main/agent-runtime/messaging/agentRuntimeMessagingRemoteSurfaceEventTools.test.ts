@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { registerMessagingRemoteSurfaceEventTools } from "./agentRuntimeMessagingRemoteSurfaceEventTools";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { buildRuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { buildRuntimeSurfaceSnapshot } from "../../../shared/runtimeSurfaceSnapshot";
 
 describe("registerMessagingRemoteSurfaceEventTools", () => {
   it("registers and executes the generic Remote Ambient Surface event preview tool", async () => {

@@ -7,7 +7,7 @@ import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { AMBIENT_SUBAGENT_PROTOCOL_VERSION, type SubagentRunStatus } from "../../shared/subagentProtocol";
 import { getDefaultSubagentRoleProfile, type SubagentRoleId } from "../../shared/subagentRoles";
-import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   appendMappedSubagentRuntimeEvent,
   type SubagentRuntimeEventPersistenceStore,

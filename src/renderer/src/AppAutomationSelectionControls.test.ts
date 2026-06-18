@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  AutomationThreadSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { AutomationThreadSummary } from "../../shared/automationTypes";
+import type { WorkflowAgentThreadSummary, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import {
   automationPaneForSelectedThread,
   automationPaneKeepsWorkflowAgentThread,

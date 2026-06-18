@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowCompileProgress } from "../../shared/types";
+import type { WorkflowCompileProgress } from "../../shared/workflowTypes";
 import { workflowCompileActivityModel, workflowCompileProgressDetail } from "./workflowCompileActivityUiModel";
 
 describe("workflowCompileActivityUiModel", () => {

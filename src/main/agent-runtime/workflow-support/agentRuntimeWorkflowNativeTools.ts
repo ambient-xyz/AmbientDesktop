@@ -1,19 +1,17 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
+import type { AmbientPluginRegistry, CodexPluginSummary } from "../../../shared/pluginTypes";
+import type { PermissionMode, PermissionRequest } from "../../../shared/permissionTypes";
+import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
 import type {
-  AmbientPluginRegistry,
-  CodexPluginSummary,
-  PermissionMode,
-  PermissionRequest,
-  SearchRoutingSettings,
-  ThreadSummary,
   WorkflowDashboard,
   WorkflowNativeToolInvocationResult,
   WorkflowNativeToolName,
-  WorkspaceState,
-} from "../../../shared/types";
-import { piToolFieldsFromDescriptor } from "../../desktopToolRegistry";
-import type { DesktopToolDescriptor } from "../../desktopToolRegistry";
+} from "../../../shared/workflowTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import { piToolFieldsFromDescriptor } from "../agentRuntimeDesktopToolFacade";
+import type { DesktopToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import type { ProjectStore } from "../../projectStore/projectStore";
 import type {
   AmbientPluginMcpOptions,

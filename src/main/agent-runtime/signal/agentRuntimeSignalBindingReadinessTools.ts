@@ -5,9 +5,9 @@ import type {
   MessagingBindingPurpose,
   MessagingProviderDescriptor,
 } from "../../../shared/messagingGateway";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 import {
   buildSignalBindingReadinessPreview,
   signalBindingReadinessInput,

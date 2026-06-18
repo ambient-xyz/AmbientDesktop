@@ -1,4 +1,5 @@
-import type { AmbientPermissionGrant, PermissionMode, WorkflowAmbientCliCapabilityGrant, WorkflowArtifactSummary, WorkflowConnectorManifestGrant } from "./types";
+import type { AmbientPermissionGrant, PermissionMode } from "./permissionTypes";
+import type { WorkflowAmbientCliCapabilityGrant, WorkflowArtifactSummary, WorkflowConnectorManifestGrant } from "./workflowTypes";
 import {
   googleWorkspaceConnectorGrantTarget,
   googleWorkspaceGrantMatchesTarget,

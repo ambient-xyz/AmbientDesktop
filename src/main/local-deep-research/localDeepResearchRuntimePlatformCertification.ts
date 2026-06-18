@@ -1,5 +1,5 @@
 import { arch, platform } from "node:os";
-import type { MiniCpmVisionRuntimeReleaseArtifact, MiniCpmVisionRuntimeReleaseManifest } from "../../shared/types";
+import type { MiniCpmVisionRuntimeReleaseArtifact, MiniCpmVisionRuntimeReleaseManifest } from "../../shared/localRuntimeTypes";
 import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "../mini-cpm/miniCpmRuntimeManifest";
 import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
 

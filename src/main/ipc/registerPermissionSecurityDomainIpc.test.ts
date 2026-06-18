@@ -6,7 +6,7 @@ import type {
   CreateAmbientPermissionGrantInput,
   PermissionAuditEntry,
   PermissionRequest,
-} from "../../shared/types";
+} from "../../shared/permissionTypes";
 import {
   permissionCreateGrantIpcChannels,
   permissionListIpcChannels,

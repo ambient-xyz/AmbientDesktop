@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { AgentRuntime, AgentRuntimeSendHooks } from "../agent-runtime/agentRuntime";
 import { startPreparedOrchestrationRun } from "../orchestration/orchestrationRunner";
 import { ProjectStore } from "../projectStore/projectStore";
-import type { SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
 
 const execFileAsync = promisify(execFile);
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;

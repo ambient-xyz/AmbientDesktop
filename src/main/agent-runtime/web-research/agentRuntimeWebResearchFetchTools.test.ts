@@ -1,12 +1,9 @@
 import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
-import type {
-  BrowserPageContent,
-  BrowserUserActionState,
-  WebResearchProviderConfig,
-  WorkspaceState,
-} from "../../../shared/types";
+import type { BrowserPageContent, BrowserUserActionState } from "../../../shared/browserTypes";
+import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 import { WEB_RESEARCH_PROVIDER_IDS, type WebResearchProviderRequestPlan } from "../../web-research/webResearchProviderStack";
 import { registerWebResearchFetchTools, type WebResearchFetchToolRegistrationOptions } from "./agentRuntimeWebResearchFetchTools";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PrivilegedActionAdapterStatus } from "../../../shared/types";
+import type { PrivilegedActionAdapterStatus } from "../../../shared/permissionTypes";
 import { registerPrivilegedActionStatusTools } from "./agentRuntimePrivilegedActionStatusTools";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };

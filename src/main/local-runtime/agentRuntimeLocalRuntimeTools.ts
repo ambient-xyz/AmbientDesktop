@@ -10,10 +10,10 @@ import type {
   LocalRuntimeInventoryEntry,
   LocalRuntimeLeaseRecord,
   VoiceProviderCandidate,
-  WorkspaceState,
-} from "../../shared/types";
-import { localRuntimeToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+} from "../../shared/localRuntimeTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import { localRuntimeToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 import {
   buildLocalModelRuntimeStatusSnapshot,
   localModelRuntimeStatusText,

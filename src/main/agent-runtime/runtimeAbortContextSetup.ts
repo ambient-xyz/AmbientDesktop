@@ -1,4 +1,5 @@
-import type { DesktopEvent, SubagentWaitBarrierSummary } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import type { RuntimePromptLifecycleControls } from "./runtimePromptLifecycleControls";
 import type { RuntimeQueuedMessageController, RuntimeQueuedMessageSnapshot } from "./runtimeQueuedMessageController";
 import type { RuntimeRunEventScope } from "./runtimeRunEventScope";

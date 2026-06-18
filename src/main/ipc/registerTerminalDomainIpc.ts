@@ -14,7 +14,7 @@ import {
   terminalStopIpcChannels,
   terminalSubmitCommandIpcChannels,
 } from "./registerTerminalIpc";
-import type { SubmitTerminalCommandInput } from "../../shared/types";
+import type { SubmitTerminalCommandInput } from "../../shared/terminalTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 

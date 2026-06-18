@@ -11,10 +11,8 @@ import type {
   SubagentToolScopeResolution,
   SubagentWorkspaceToolPolicy,
 } from "../../shared/subagentToolScope";
-import type {
-  PermissionMode,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
 import type {
   MutationWorkspaceLease,
 } from "../../shared/symphonyFineGrainedContracts";

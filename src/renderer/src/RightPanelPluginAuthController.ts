@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { AmbientPluginAuthStartResult, FirstPartyGoogleIntegrationState } from "../../shared/types";
+import type { AmbientPluginAuthStartResult, FirstPartyGoogleIntegrationState } from "../../shared/pluginTypes";
 import { formatTaskState } from "./RightPanelDetailPanels";
 import type { GoogleWorkspaceValidationFeedback } from "./pluginUiModel";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";

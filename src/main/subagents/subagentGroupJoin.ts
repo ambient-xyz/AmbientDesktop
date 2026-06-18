@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { SubagentRunStatus } from "../../shared/types";
+import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 
 export const SUBAGENT_GROUPED_COMPLETION_PARENT_MAILBOX_TYPE = "subagent.grouped_completion" as const;
 export const SUBAGENT_GROUPED_COMPLETION_SCHEMA_VERSION = "ambient-subagent-grouped-completion-v1" as const;

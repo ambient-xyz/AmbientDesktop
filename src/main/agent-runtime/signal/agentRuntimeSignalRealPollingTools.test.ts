@@ -4,9 +4,9 @@ import {
   registerSignalRealPollingTools,
   type SignalRealPollingToolPermissionRequest,
 } from "./agentRuntimeSignalRealPollingTools";
-import { createEmptyMessagingBindingRegistry } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createEmptyMessagingBindingRegistry } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 import { SignalRealPollingRunner } from "./signalRealPolling";
 
 describe("registerSignalRealPollingTools", () => {

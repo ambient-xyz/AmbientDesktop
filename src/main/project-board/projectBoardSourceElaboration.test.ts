@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectBoardCard, ProjectBoardSource, ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSource, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import type { ProjectBoardSynthesisDraft } from "./projectBoardSynthesis";
 import {
   annotateProjectBoardDraftWithObjectiveProvenance,

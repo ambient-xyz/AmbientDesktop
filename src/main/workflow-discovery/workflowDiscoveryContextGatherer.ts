@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { WorkflowDiscoveryAccessRequest, WorkflowDiscoveryContextEvidence } from "../../shared/types";
+import type { WorkflowDiscoveryAccessRequest, WorkflowDiscoveryContextEvidence } from "../../shared/workflowTypes";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 

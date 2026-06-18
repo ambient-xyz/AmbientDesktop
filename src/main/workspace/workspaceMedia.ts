@@ -5,20 +5,8 @@ import { constants as fsConstants } from "node:fs";
 import { basename, resolve } from "node:path";
 import { Readable } from "node:stream";
 import type { Protocol } from "electron";
+import { WORKSPACE_MEDIA_SCHEME, type WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
 import { NOFOLLOW_OPEN_FLAG, resolveWorkspacePathForRead } from "./workspacePathResolver";
-
-export const WORKSPACE_MEDIA_SCHEME = "ambient-media";
-
-export interface WorkspaceMediaUrlInput {
-  workspacePath: string;
-  absolutePath: string;
-  relativePath: string;
-  realPath?: string;
-  mimeType?: string;
-  size: number;
-  mtimeMs?: number;
-  allowExternal?: boolean;
-}
 
 interface WorkspaceMediaRecord extends WorkspaceMediaUrlInput {
   token: string;

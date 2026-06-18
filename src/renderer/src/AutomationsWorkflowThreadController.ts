@@ -1,15 +1,8 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
-import type {
-  ChatMessage,
-  PermissionMode,
-  RuntimeActivity,
-  ThinkingLevel,
-  WorkflowAgentThreadSummary,
-  WorkflowRecoveryAction,
-  WorkflowRunDetail,
-  WorkflowUserInputResponse,
-} from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { ChatMessage, RuntimeActivity, ThinkingLevel } from "../../shared/threadTypes";
+import type { WorkflowAgentThreadSummary, WorkflowRecoveryAction, WorkflowRunDetail, WorkflowUserInputResponse } from "../../shared/workflowTypes";
 import type { WorkflowGraphEventCard } from "./workflowAgentGraphUiModel";
 import type { WorkflowRuntimeInputCard } from "./workflowRuntimeInputUiModel";
 import {

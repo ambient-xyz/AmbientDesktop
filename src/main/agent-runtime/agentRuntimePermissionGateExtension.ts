@@ -1,6 +1,6 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { WorkspaceState } from "../../shared/types";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 
 type ToolPermissionBlock = { reason: string };
 

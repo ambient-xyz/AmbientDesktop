@@ -1,15 +1,7 @@
 import type { ReactNode } from "react";
 import { Bot, ClipboardPaste, LoaderCircle, Zap } from "lucide-react";
 
-import type {
-  WorkflowCompileProgress,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowGraphNode,
-  WorkflowRunDetail,
-  WorkflowRunSummary,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowGraphNode, WorkflowRunDetail, WorkflowRunSummary, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { formatTaskState } from "./RightPanel";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import {

@@ -8,9 +8,9 @@ import type {
   PermissionPromptResolution,
   PermissionPromptResponseMode,
   PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../shared/types";
+} from "../../shared/permissionTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { permissionGrantTargetHash, resolvePermissionWithGrants } from "../permissions/permissionGrants";
 import type { ProjectStore } from "../projectStore/projectStore";
 

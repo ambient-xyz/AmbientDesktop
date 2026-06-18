@@ -5,8 +5,8 @@ import type {
   ThreadGoalAccountInput,
   ThreadGoalCreateInput,
   ThreadGoalSetInput,
-  ThreadGoalStatus,
-} from "../../shared/types";
+  ThreadGoalStatus
+} from "../../shared/threadTypes";
 import { mapThreadGoalRow, type ThreadGoalRow } from "./threadGoalMappers";
 
 const terminalThreadGoalStatuses = new Set<ThreadGoalStatus>(["blocked", "usage_limited", "budget_limited", "complete"]);

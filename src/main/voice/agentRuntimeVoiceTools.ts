@@ -2,19 +2,14 @@ import { existsSync, statSync } from "node:fs";
 import { extname, relative, resolve } from "node:path";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  UpdateVoiceSettingsInput,
-  VoiceProviderCandidate,
-  VoiceSettings,
-  VoiceSettingsAuditSource,
-  WorkspaceState,
-} from "../../shared/types";
+import type { UpdateVoiceSettingsInput } from "../../shared/desktopTypes";
+import type { VoiceProviderCandidate, VoiceSettings, VoiceSettingsAuditSource } from "../../shared/localRuntimeTypes";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/permissionTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
-import { voiceToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { voiceToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 import { isPathInside } from "../session/sessionPaths";
 import {
   listVoiceProviderVoices,

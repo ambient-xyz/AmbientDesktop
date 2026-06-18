@@ -2,7 +2,7 @@ import type {
   LocalRuntimeAffectedSubagent,
   LocalRuntimeInventoryEntry,
   LocalRuntimeLeaseRecord,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 
 export type LocalRuntimeOwnershipResolutionAction = "stop" | "restart";
 

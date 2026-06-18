@@ -3,11 +3,11 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type {
   SearchRoutingSettings,
   WebResearchProviderRole,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
-import { webResearchToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { webResearchToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
 import {
   describeWebResearchProvider,

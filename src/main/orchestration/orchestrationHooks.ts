@@ -1,5 +1,5 @@
-import type { PermissionMode } from "../../shared/types";
-import { redactSensitiveText } from "../secretRedaction";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import { redactSensitiveText } from "../security/secretRedaction";
 import { materializeTextOutput, materializedTextNotice } from "../tool-runtime/toolOutputArtifacts";
 import { spawnToolProcess } from "../tool-runtime/toolRunner";
 

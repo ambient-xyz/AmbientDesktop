@@ -11,7 +11,7 @@ import type {
   CreateAutomationScheduleInput,
   MoveAutomationThreadInput,
   UpdateAutomationScheduleInput,
-} from "../../shared/types";
+} from "../../shared/automationTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

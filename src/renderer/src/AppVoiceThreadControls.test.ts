@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { MessageVoiceState } from "../../shared/types";
+import type { MessageVoiceState } from "../../shared/localRuntimeTypes";
 import {
   activeThreadVoiceStatusPresentation,
   activeVoiceMessageStillPlayable,

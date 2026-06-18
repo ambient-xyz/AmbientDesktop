@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   AmbientWorkflowPlaybookDescription,
   AmbientWorkflowsSearchResponse,
-} from "../../ambient/ambientWorkflows";
+} from "../agentRuntimeAmbientFacade";
 import {
   registerAmbientWorkflowReadOnlyTools,
   type AmbientWorkflowReadOnlyToolRegistrationOptions,

@@ -7,8 +7,8 @@ import {
   registerMessagingBindingTools,
   type MessagingBindingToolPermissionRequest,
 } from "./agentRuntimeMessagingBindingTools";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
 
 describe("registerMessagingBindingTools", () => {
   it("registers the read-only binding list tool with provider, purpose, and inactive filters", async () => {

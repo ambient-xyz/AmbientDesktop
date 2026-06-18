@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { OrchestrationRun, ProjectBoardCard } from "../../shared/types";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun } from "../../shared/workflowTypes";
 import {
   projectBoardProofEvidenceModel,
   projectBoardProofInspectionNavigationModel,

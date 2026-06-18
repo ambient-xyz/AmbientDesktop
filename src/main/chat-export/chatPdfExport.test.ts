@@ -6,7 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createVisibleChatExportSnapshot, type ChatExportDataSource, type VisibleChatExportSnapshot } from "./chatExport";
 import { createChatPdfExport, createElectronPrintToPdfRenderer, renderChatPdfExportHtml } from "./chatPdfExport";
-import type { ChatMessage, ThreadSummary, WorkspaceState } from "../../shared/types";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 
 describe("chat PDF export", () => {
   it("renders a redacted parent transcript with compact child summaries only", () => {

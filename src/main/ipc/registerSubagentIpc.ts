@@ -10,7 +10,7 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierResolutionResult,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 

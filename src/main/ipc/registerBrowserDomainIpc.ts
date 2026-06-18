@@ -26,7 +26,10 @@ import {
   registerBrowserUserActionIpc,
   registerBrowserViewBoundsIpc,
 } from "./registerBrowserIpc";
-import type { BrowserLocalPreviewInput, BrowserLocalPreviewSession } from "../../shared/types";
+import type {
+  BrowserLocalPreviewInput,
+  BrowserLocalPreviewSession,
+} from "../../shared/browserTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 

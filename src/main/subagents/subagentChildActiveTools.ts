@@ -1,5 +1,6 @@
 import type { SubagentToolCategoryId } from "../../shared/subagentToolScope";
-import type { SubagentToolScopeSnapshotSummary, ThreadSummary } from "../../shared/types";
+import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   AMBIENT_TOOL_CALL,
   AMBIENT_TOOL_DESCRIBE,

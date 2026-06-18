@@ -4,9 +4,9 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "./projectBoardAmbientFacade";
 import { AmbientProjectBoardKickoffDefaultProvider } from "./projectBoardKickoffDefaultProvider";
-import type { ProjectBoardQuestion, ProjectBoardSource } from "../../shared/types";
+import type { ProjectBoardQuestion, ProjectBoardSource } from "../../shared/projectBoardTypes";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_KICKOFF_DEFAULTS_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

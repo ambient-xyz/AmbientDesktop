@@ -1,4 +1,4 @@
-import type { WorkflowManifest, WorkflowRunEvent, WorkflowRunLimitOverrides, WorkflowRunStatus } from "../../shared/types";
+import type { WorkflowManifest, WorkflowRunEvent, WorkflowRunLimitOverrides, WorkflowRunStatus } from "../../shared/workflowTypes";
 
 export const DEFAULT_WORKFLOW_FOREGROUND_IDLE_TIMEOUT_MS = 120_000;
 export const DEFAULT_WORKFLOW_FOREGROUND_TOTAL_LIMIT_MODE: WorkflowRunTotalLimitMode = "disabled";

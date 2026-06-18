@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type { GitReviewFile, GitReviewSummary, GitSimpleAction } from "../../shared/types";
+import type { GitReviewFile, GitReviewSummary, GitSimpleAction } from "../../shared/workspaceTypes";
 import type { GitConfirmation } from "./RightPanelDetailPanels";
 import {
   formatGitSimpleAction,

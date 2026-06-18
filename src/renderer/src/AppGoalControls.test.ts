@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { RuntimeActivity, ThreadGoal } from "../../shared/types";
+import type { RuntimeActivity, ThreadGoal } from "../../shared/threadTypes";
 import {
   GOAL_COMPLETION_CELEBRATION_MS,
   runtimeActivityVisibleForThreadGoal,

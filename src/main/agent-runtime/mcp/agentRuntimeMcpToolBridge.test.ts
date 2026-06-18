@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   createAgentRuntimeMcpToolOrchestration,
   createAgentRuntimeMcpToolBridgeForWorkspace,

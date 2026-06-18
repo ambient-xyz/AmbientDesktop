@@ -8,11 +8,11 @@ import {
   messagingRemoteSurfaceCommandPreviewForParams,
 } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewPlan";
 import { registerMessagingRemoteSurfaceCommandPreviewTools } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewTools";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
-import type { MessagingRemoteSurfaceCommandPreview } from "../../messaging/messagingRemoteSurfaceCommands";
-import { buildRuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
+import type { MessagingRemoteSurfaceCommandPreview } from "../agentRuntimeMessagingFacade";
+import { buildRuntimeSurfaceSnapshot } from "../../../shared/runtimeSurfaceSnapshot";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
 

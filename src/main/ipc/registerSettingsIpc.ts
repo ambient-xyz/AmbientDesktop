@@ -12,7 +12,40 @@ import {
   MIN_AGENT_MEMORY_EMBEDDING_TIMEOUT_MS,
 } from "../../shared/agentMemorySettings";
 import type {
+  AgentMemoryClearResult,
+  AgentMemoryEmbeddingLifecycleActionInput,
+  AgentMemoryEmbeddingLifecycleActionResult,
+  AgentMemoryStorageDiagnostics,
+} from "../../shared/agentMemoryDiagnostics";
+import type {
+  AgentMemorySettings,
+  UpdateAgentMemorySettingsInput,
+} from "../../shared/agentMemorySettings";
+import type {
+  AgentMemoryStarterDisableInput,
+  AgentMemoryStarterEnableInput,
+  AgentMemoryStarterOperationResult,
+  AgentMemoryStarterRepairInput,
+  AgentMemoryStarterStatus,
+} from "../../shared/agentMemoryStarter";
+import type {
   AppAppearance,
+  SetThemePreferenceInput,
+  ThinkingDisplaySettings,
+  UpdateLocalDeepResearchSettingsInput,
+  UpdateMediaPlaybackSettingsInput,
+  UpdateModelRuntimeSettingsInput,
+  UpdatePlannerSettingsInput,
+  UpdateSearchRoutingSettingsInput,
+  UpdateSttSettingsInput,
+  UpdateThinkingDisplaySettingsInput,
+  UpdateVoiceSettingsInput,
+} from "../../shared/desktopTypes";
+import type {
+  AmbientFeatureFlagSettings,
+  UpdateFeatureFlagSettingsInput,
+} from "../../shared/featureFlags";
+import type {
   LocalDeepResearchRunHistoryInput,
   LocalDeepResearchRunHistoryResult,
   LocalDeepResearchSettings,
@@ -20,19 +53,6 @@ import type {
   LocalDeepResearchSetupResult,
   LocalModelRuntimeLifecycleActionInput,
   LocalModelRuntimeLifecycleActionResult,
-  AgentMemoryEmbeddingLifecycleActionInput,
-  AgentMemoryEmbeddingLifecycleActionResult,
-  AgentMemoryStarterDisableInput,
-  AgentMemoryStarterEnableInput,
-  AgentMemoryStarterOperationResult,
-  AgentMemoryStarterRepairInput,
-  AgentMemoryStarterStatus,
-  AgentMemoryStorageDiagnostics,
-  AgentMemorySettings,
-  AgentMemoryClearResult,
-  AmbientFeatureFlagSettings,
-  InstallModelProviderEndpointInput,
-  InstallModelProviderEndpointResult,
   MediaPlaybackSettings,
   MessageVoiceArtifactInput,
   MessageVoiceState,
@@ -40,15 +60,9 @@ import type {
   MiniCpmVisionAnalyzeInput,
   MiniCpmVisionSetupInput,
   MiniCpmVisionSetupResult,
-  ModelProviderCredentialSaveResult,
-  ModelRuntimeSettings,
-  PlannerSettings,
-  RegenerateMessageVoiceInput,
   RefreshVoiceProviderVoicesInput,
   RefreshVoiceProviderVoicesResult,
-  SaveModelProviderCredentialInput,
-  SearchRoutingSettings,
-  SetThemePreferenceInput,
+  RegenerateMessageVoiceInput,
   SetSttTtsSpeakingInput,
   SttProviderCandidate,
   SttProviderSetupInput,
@@ -59,17 +73,6 @@ import type {
   SttTestAudioResult,
   SttTranscribeAudioInput,
   SttTranscribeAudioResult,
-  ThinkingDisplaySettings,
-  UpdateFeatureFlagSettingsInput,
-  UpdateAgentMemorySettingsInput,
-  UpdateLocalDeepResearchSettingsInput,
-  UpdateMediaPlaybackSettingsInput,
-  UpdateModelRuntimeSettingsInput,
-  UpdatePlannerSettingsInput,
-  UpdateSearchRoutingSettingsInput,
-  UpdateSttSettingsInput,
-  UpdateThinkingDisplaySettingsInput,
-  UpdateVoiceSettingsInput,
   VoiceArtifactPruneResult,
   VoiceArtifactRetentionInput,
   VoiceArtifactRetentionSummary,
@@ -77,7 +80,16 @@ import type {
   VoiceProviderCandidate,
   VoiceSettings,
   VoiceSettingsAuditSource,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
+import type { PlannerSettings } from "../../shared/plannerTypes";
+import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
+import type {
+  InstallModelProviderEndpointInput,
+  InstallModelProviderEndpointResult,
+  ModelRuntimeSettings,
+  SaveModelProviderCredentialInput,
+} from "../../shared/threadTypes";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

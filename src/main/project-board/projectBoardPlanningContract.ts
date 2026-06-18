@@ -3,12 +3,7 @@ import {
   projectBoardPlanningDepthFromScopeContract,
   projectBoardScopeContractFromTexts,
 } from "../../shared/projectBoardScopeContract";
-import type {
-  ProjectBoardCharterProjectSummary,
-  ProjectBoardPlanningDepthAssessment,
-  ProjectBoardScopeContract,
-  ProjectBoardScopeFeature,
-} from "../../shared/types";
+import type { ProjectBoardCharterProjectSummary, ProjectBoardPlanningDepthAssessment, ProjectBoardScopeContract, ProjectBoardScopeFeature } from "../../shared/projectBoardTypes";
 
 export {
   mergeProjectBoardScopeContracts,

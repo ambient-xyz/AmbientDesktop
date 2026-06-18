@@ -1,20 +1,6 @@
-import type {
-  OrchestrationRun,
-  OrchestrationTask,
-  RunStatus,
-  ProjectBoardCard,
-  ProjectBoardCardSplitOutcomeStatus,
-  ProjectBoardExecutionArtifact,
-  ProjectBoardPlanningSnapshot,
-  ProjectBoardProofDecisionAction,
-  ProjectBoardSplitDecisionAction,
-  ProjectBoardPmReviewReport,
-  ProjectBoardSource,
-  ProjectBoardSynthesisProposal,
-  ProjectBoardSynthesisRun,
-  ProjectBoardSummary,
-  ProjectSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardCardSplitOutcomeStatus, ProjectBoardExecutionArtifact, ProjectBoardPlanningSnapshot, ProjectBoardPmReviewReport, ProjectBoardProofDecisionAction, ProjectBoardSource, ProjectBoardSplitDecisionAction, ProjectBoardSummary, ProjectBoardSynthesisProposal, ProjectBoardSynthesisRun, ProjectSummary } from "../../shared/projectBoardTypes";
+import type { RunStatus } from "../../shared/threadTypes";
+import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import { projectBoardDecisionImpactPreview } from "../../shared/projectBoardDecisionImpact";
 import { projectBoardProofPolicyRequiresProofSpec } from "../../shared/projectBoardProofImpact";
 import {

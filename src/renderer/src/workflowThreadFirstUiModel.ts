@@ -1,4 +1,4 @@
-import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary } from "../../shared/workflowTypes";
 
 export type WorkflowArtifactThreadRouteKind = "workflow_thread" | "refresh_workflow_threads" | "legacy_only";
 

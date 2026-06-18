@@ -1,10 +1,7 @@
-import type {
-  ChatMessage,
-  WorkspaceSearchResult,
-  WorkspaceSearchScope,
-} from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
+import type { WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/workspaceTypes";
 import { parseMetadata } from "./projectStoreJson";
-import { formatThreadPreview } from "../thread/threadPreview";
+import { formatThreadPreview } from "../../shared/threadPreview";
 
 export interface MessageRow {
   id: string;

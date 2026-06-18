@@ -5,7 +5,7 @@ import type {
   MessagingGatewayProviderReadiness,
   MessagingGatewayProviderSessionReadiness,
 } from "../../../shared/messagingGateway";
-import type { MessagingGatewayReadinessAdapter } from "../../messaging/messagingProviderReadiness";
+import type { MessagingGatewayReadinessAdapter } from "../agentRuntimeMessagingFacade";
 import {
   signalBridgeEndpointPaths,
   validateSignalBridgeProfileStatusEnvelope,

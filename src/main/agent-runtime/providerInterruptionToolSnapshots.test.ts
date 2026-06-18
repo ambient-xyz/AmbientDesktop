@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ToolArgumentProgressSnapshot, ToolIntentSnapshot } from "../../shared/types";
+import type { ToolArgumentProgressSnapshot, ToolIntentSnapshot } from "../../shared/threadTypes";
 import {
   runtimeOpenProviderInterruptionToolSnapshots,
   type PersistPreparedProviderInterruptionArguments,

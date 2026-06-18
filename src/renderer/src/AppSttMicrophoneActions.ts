@@ -1,11 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  SttProviderSetupResult,
-  SttTestAudioInput,
-  SttTestAudioResult,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { SttProviderSetupResult, SttTestAudioInput, SttTestAudioResult } from "../../shared/localRuntimeTypes";
 import type { SttMicTestUiState, SttProviderSetupUiState } from "./RightPanel";
 import {
   listSttMicrophoneDevices,

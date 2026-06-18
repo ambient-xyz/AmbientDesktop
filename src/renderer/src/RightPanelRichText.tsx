@@ -36,7 +36,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { MouseEvent as ReactMouseEvent, ReactNode, useEffect, useState } from "react";
-import type { BrowserRuntimeKind, WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/types";
+import type { BrowserRuntimeKind } from "../../shared/browserTypes"; import type { WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/workspaceTypes";
 import { parseMarkdownBlocks } from "./markdownBlockParser";
 import { richMarkdownTableIconLabel, type RichMarkdownIconLabel } from "./richMarkdownIcons";
 import { OpenTargetIcon, formatPanelFileSize } from "./RightPanelFilePreview";

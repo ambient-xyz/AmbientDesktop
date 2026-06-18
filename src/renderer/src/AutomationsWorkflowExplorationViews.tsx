@@ -1,12 +1,6 @@
 import { ClipboardPaste, LoaderCircle, RotateCcw, Zap } from "lucide-react";
 
-import type {
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowExplorationProgress,
-  WorkflowExplorationTraceSummary,
-  WorkflowRevisionSummary,
-} from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowExplorationProgress, WorkflowExplorationTraceSummary, WorkflowRevisionSummary } from "../../shared/workflowTypes";
 import type { WorkflowExplorationBudgets } from "../../shared/workflowExplorationBudgets";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import {

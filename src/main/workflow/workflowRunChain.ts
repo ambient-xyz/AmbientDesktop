@@ -1,4 +1,4 @@
-import type { WorkflowModelCallRecord, WorkflowRunEvent } from "../../shared/types";
+import type { WorkflowModelCallRecord, WorkflowRunEvent } from "../../shared/workflowTypes";
 import type { ProjectStore } from "../projectStore/projectStore";
 
 export function workflowResumeChainRunIds(store: ProjectStore, runId: string): string[] {

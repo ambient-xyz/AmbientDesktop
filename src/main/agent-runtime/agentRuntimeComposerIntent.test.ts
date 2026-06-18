@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
+import { slashCommandComposerPrompt } from "./agentRuntimeComposerIntent";
 import { localDeepResearchComposerPrompt, symphonyWorkflowComposerPrompt } from "./agentRuntime";
 
 describe("agent runtime composer intents", () => {
@@ -43,6 +44,9 @@ describe("agent runtime composer intents", () => {
     expect(prompt).toContain('"templateId": "map_reduce-metric"');
     expect(prompt).toContain("Read-only, small slice first.");
     expect(prompt).toContain("Reducer must cite every changed section.");
+    expect(prompt).toContain("Symphony parent-mode contract: act only as the conductor.");
+    expect(prompt).toContain("Do not perform substantive worker actions in the parent");
+    expect(prompt).toContain("Never silently replace the child with parent work.");
     expect(prompt).toContain("Do not spawn child agents directly");
   });
 
@@ -62,6 +66,28 @@ describe("agent runtime composer intents", () => {
     expect(prompt).toContain("Do not call ambient_workflow_symphony_imitate_and_verify");
     expect(prompt).toContain("searchable workflow catalog");
     expect(prompt).toContain("finite JSON Schema parameters");
+    expect(prompt).not.toContain("Symphony parent-mode contract");
+  });
+
+  it("keeps Symphony slash command invocations in conductor-only parent mode", () => {
+    const prompt = slashCommandComposerPrompt("Run the selected Symphony map-reduce recipe.", {
+      kind: "slash-command",
+      selection: {
+        schemaVersion: "ambient-slash-command-invocation-v1",
+        entryId: "symphony-map-reduce",
+        command: "/symphony-map-reduce",
+        title: "Symphony Map-Reduce",
+        kind: "callable-workflow",
+        sourceKind: "symphony",
+        invocationKind: "symphony-recipe",
+        sourceId: "map_reduce",
+        sourceName: "Symphony Map-Reduce",
+      },
+    });
+
+    expect(prompt).toContain("parent mode is conductor-only");
+    expect(prompt).toContain("do not use browser or web research, shell/bash, file read/write, verifier/testing work");
+    expect(prompt).toContain("instead of manually recreating child fanout in the parent");
   });
 
   it("rejects Symphony composer intents that omit required metrics or rubrics", () => {

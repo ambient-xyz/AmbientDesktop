@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 
 export function workflowRecordingLibraryFromDesktopState(
   state: Pick<DesktopState, "workflowRecordingLibrary"> | undefined,

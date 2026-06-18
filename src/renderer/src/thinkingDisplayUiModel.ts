@@ -1,4 +1,5 @@
-import type { ChatMessage, ThinkingDisplayMode, ThinkingDisplaySettings, ThinkingLevel } from "../../shared/types";
+import type { ThinkingDisplayMode, ThinkingDisplaySettings } from "../../shared/desktopTypes";
+import type { ChatMessage, ThinkingLevel } from "../../shared/threadTypes";
 
 export type ThinkingDisplayRunActivityLine = {
   id: string;

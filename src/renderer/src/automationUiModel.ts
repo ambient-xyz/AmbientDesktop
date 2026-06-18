@@ -1,4 +1,4 @@
-import type { OrchestrationRun } from "../../shared/types";
+import type { OrchestrationRun } from "../../shared/workflowTypes";
 
 export interface LocalTaskCreateActionInput {
   title: string;

@@ -3,7 +3,7 @@ import {
   isRetryableAmbientProviderError,
   retryDelayForAttempt,
   type AmbientRetryPolicy,
-} from "../aggressiveRetries";
+} from "./aggressiveRetries";
 import { readAmbientEventStreamText } from "./ambientStreamTransport";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 

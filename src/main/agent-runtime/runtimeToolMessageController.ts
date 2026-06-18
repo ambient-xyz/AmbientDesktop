@@ -1,12 +1,6 @@
-import type {
-  ChatMessage,
-  DesktopEvent,
-  InterruptedToolCallRecoverySnapshot,
-  PermissionMode,
-  ToolArgumentProgressSnapshot,
-  ToolEditInputPreview,
-  ToolLongformInputPreview,
-} from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { ChatMessage, InterruptedToolCallRecoverySnapshot, ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
 import { chatToolEventDetails, toolEventLabel } from "./tools/agentRuntimeToolTranscript";
 import { stringMetadata } from "./tools/agentRuntimeToolMessageMetadata";
 import {

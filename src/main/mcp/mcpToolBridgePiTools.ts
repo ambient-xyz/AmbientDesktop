@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
-import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktopToolRegistry";
+import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import {
   McpToolBridge,
   isMcpToolRuntimePermissionBlockedError,
@@ -31,7 +31,7 @@ import {
   type McpRuntimePermissionEnforcement,
 } from "./mcpRuntimePermissionEnforcement";
 import type { McpManagedFileExchangeStagedFile, McpToolCallFileInput } from "./mcpManagedFileExchange";
-import { redactSensitiveValue } from "../secretRedaction";
+import { redactSensitiveValue } from "../security/secretRedaction";
 
 export interface McpToolBridgePiToolThread {
   id: string;

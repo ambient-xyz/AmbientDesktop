@@ -1,12 +1,8 @@
 import { useState } from "react";
 
-import type {
-  AmbientPluginRegistry,
-  AutomationFolderSummary,
-  OrchestrationAutoDispatchStatus,
-  OrchestrationBoard,
-  WorkflowAgentFolderSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary } from "../../shared/automationTypes";
+import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
+import type { OrchestrationAutoDispatchStatus, OrchestrationBoard, WorkflowAgentFolderSummary } from "../../shared/workflowTypes";
 
 export type AutomationsWorkspaceSurfaceDesktop = {
   getOrchestrationAutoDispatchStatus: () => Promise<OrchestrationAutoDispatchStatus>;

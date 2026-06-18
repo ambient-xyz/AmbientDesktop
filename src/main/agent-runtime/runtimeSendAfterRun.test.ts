@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { SendMessageInput, ThreadGoal } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { ThreadGoal } from "../../shared/threadTypes";
 import { finalizeRuntimeSendAfterRun, type RuntimeSendAfterRunInput } from "./runtimeSendAfterRun";
 
 const activeGoal: ThreadGoal = {

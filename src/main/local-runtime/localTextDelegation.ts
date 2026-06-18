@@ -7,12 +7,12 @@ import {
   type LocalTextResultArtifact,
   validateLocalTextOutput,
 } from "../../shared/localTextDelegation";
-import { estimateTokensFromText } from "../contextAccounting";
+import { estimateTokensFromText } from "../../shared/contextAccounting";
 import type {
   LocalModelResourcePolicyDecision,
   LocalModelResourceRegistrySnapshot,
   LocalRuntimeLeaseRecord,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   type LocalModelRuntimeAcquireInput,
   type LocalModelRuntimeLease,

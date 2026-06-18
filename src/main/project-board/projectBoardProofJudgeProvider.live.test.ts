@@ -4,9 +4,10 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "./projectBoardAmbientFacade";
 import { AmbientProjectBoardProofJudgeProvider } from "./projectBoardProofJudgeProvider";
-import type { OrchestrationRun, ProjectBoardCard, ProjectBoardCardProofReview } from "../../shared/types";
+import type { OrchestrationRun } from "../../shared/workflowTypes";
+import type { ProjectBoardCard, ProjectBoardCardProofReview } from "../../shared/projectBoardTypes";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_PROOF_JUDGE_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

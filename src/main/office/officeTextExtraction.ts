@@ -3,7 +3,7 @@ import { basename, posix } from "node:path";
 import { XMLParser } from "fast-xml-parser";
 import JSZip from "jszip";
 import * as mammoth from "mammoth";
-import type { OfficeDocumentFormat, OfficeTextExtraction } from "../../shared/types";
+import type { OfficeDocumentFormat, OfficeTextExtraction } from "../../shared/workspaceTypes";
 import { describeOfficeFileSupport } from "./officeFileSupport";
 
 const DEFAULT_MAX_SOURCE_BYTES = 50 * 1024 * 1024;

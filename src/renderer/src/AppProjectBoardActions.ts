@@ -1,39 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  AddProjectBoardCardRunFeedbackInput,
-  ApplyProjectBoardDecisionImpactFeedbackInput,
-  ApplyProjectBoardSourceImpactFeedbackInput,
-  AttachProjectBoardLocalTaskMode,
-  CopyProjectBoardSessionToThreadInput,
-  CreateReadyProjectBoardTasksInput,
-  DeferProjectBoardSynthesisSectionsInput,
-  DesktopState,
-  PlannerPlanArtifact,
-  ProjectBoardCard,
-  ProjectBoardCardCandidateStatus,
-  ProjectBoardProofDecisionAction,
-  ProjectBoardQuestion,
-  ProjectBoardSplitDecisionAction,
-  ProjectBoardSynthesisProposalCardReviewStatus,
-  ProjectSummary,
-  RecomputeProjectBoardProofCoverageInput,
-  RefreshProjectBoardDecisionDraftsInput,
-  RefreshProjectBoardSourceDraftsInput,
-  RefineProjectBoardSynthesisInput,
-  RegenerateProjectBoardDecisionDraftsInput,
-  RegenerateProjectBoardSourceDraftsInput,
-  ResolveProjectBoardCardPiUpdateInput,
-  ResolveProjectBoardDeliverableIntegrationInput,
-  RetryProjectBoardSynthesisInput,
-  RerunProjectBoardProofInput,
-  SplitProjectBoardCardInput,
-  SuggestProjectBoardClarificationDefaultsInput,
-  SuggestProjectBoardKickoffDefaultsInput,
-  SuggestProjectBoardProofInput,
-  UpdateProjectBoardCardInput,
-  UpdateProjectBoardSourceInput,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { AddProjectBoardCardRunFeedbackInput, ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, CreateReadyProjectBoardTasksInput, DeferProjectBoardSynthesisSectionsInput, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardProofDecisionAction, ProjectBoardQuestion, ProjectBoardSplitDecisionAction, ProjectBoardSynthesisProposalCardReviewStatus, ProjectSummary, RecomputeProjectBoardProofCoverageInput, RefineProjectBoardSynthesisInput, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, RerunProjectBoardProofInput, ResolveProjectBoardCardPiUpdateInput, ResolveProjectBoardDeliverableIntegrationInput, RetryProjectBoardSynthesisInput, SplitProjectBoardCardInput, SuggestProjectBoardClarificationDefaultsInput, SuggestProjectBoardKickoffDefaultsInput, SuggestProjectBoardProofInput, UpdateProjectBoardCardInput, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
 import type { ProjectBoardResetDialogState } from "./AppActionDialogs";
 import type { SidebarArea } from "./AppShellSidebar";
 import { projectBoardSuppressedForWorkflowRecordingThread } from "./projectBoardUiModel";

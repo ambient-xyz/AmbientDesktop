@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
+import type { PermissionMode } from "../../shared/permissionTypes";
 import type {
   CancelOrchestrationRunInput,
   CreateOrchestrationTaskInput,
@@ -8,16 +9,15 @@ import type {
   OrchestrationBoard,
   OrchestrationPrepareResult,
   OrchestrationWorkflowReadiness,
-  PermissionMode,
   RepairOrchestrationWorkflowInput,
-  RevealOrchestrationWorkspaceInput,
   ResolveOrchestrationWorkflowImpactInput,
+  RevealOrchestrationWorkspaceInput,
   SetOrchestrationAutoDispatchInput,
   StartOrchestrationRunInput,
   UpdateOrchestrationTaskInput,
   UpdateOrchestrationWorkflowRawInput,
   UpdateOrchestrationWorkflowSettingsInput,
-} from "../../shared/types";
+} from "../../shared/workflowTypes";
 import {
   orchestrationAutoDispatchIpcChannels,
   orchestrationBoardIpcChannels,

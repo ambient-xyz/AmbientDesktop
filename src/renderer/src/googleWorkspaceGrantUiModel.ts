@@ -1,4 +1,4 @@
-import type { AmbientPermissionGrant, PermissionAuditEntry, PermissionGrantScopeKind } from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionAuditEntry, PermissionGrantScopeKind } from "../../shared/permissionTypes";
 
 export interface GoogleWorkspaceGrantRow {
   id: string;

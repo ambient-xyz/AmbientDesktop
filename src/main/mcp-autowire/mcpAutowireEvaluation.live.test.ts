@@ -6,7 +6,7 @@ import {
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "../ambient/liveAmbientProviderConfig";
 import {
   evaluateMcpAutowireRuntimeGate,
   evaluateMcpAutowireDogfoodFixtures,

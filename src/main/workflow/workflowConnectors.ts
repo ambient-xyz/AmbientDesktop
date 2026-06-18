@@ -1,10 +1,5 @@
 import { createHash } from "node:crypto";
-import type {
-  WorkflowApprovalStatus,
-  WorkflowConnectorDataRetention,
-  WorkflowConnectorManifestGrant,
-  WorkflowManifest,
-} from "../../shared/types";
+import type { WorkflowApprovalStatus, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowManifest } from "../../shared/workflowTypes";
 import { WorkflowPausedError, type WorkflowEventSink, type WorkflowRuntimeEvent } from "./workflowAgentRuntime";
 import { listWorkspaceFiles } from "../workspace/workspaceFiles";
 

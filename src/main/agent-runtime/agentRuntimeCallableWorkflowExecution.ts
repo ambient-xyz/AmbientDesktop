@@ -1,13 +1,13 @@
 import type {
   CallableWorkflowTaskSummary,
   CancelCallableWorkflowTaskInput,
-  DesktopEvent,
   PauseCallableWorkflowTaskInput,
   ResumeCallableWorkflowTaskInput,
-  SearchRoutingSettings,
-  WorkspaceState,
-} from "../../shared/types";
-import { ambientRetryPolicyFromSettings } from "../aggressiveRetries";
+} from "../../shared/workflowTypes";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import { ambientRetryPolicyFromSettings } from "./agentRuntimeAmbientFacade";
 import { pluginStateReaderFromStore } from "../plugins/runtime-tools/agentRuntimePluginDiscovery";
 import {
   executeCallableWorkflowTask,

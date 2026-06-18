@@ -27,7 +27,7 @@ const keyFile = resolve(
   process.env.GMI_CLOUD_API_KEY_FILE ||
     (existsSync(defaultRepoKeyFile) ? defaultRepoKeyFile : defaultHomeCheckoutKeyFile),
 );
-const defaultSnapshotWorkspace = join(homedir(), "Documents", "ambientCoderArchive");
+const defaultSnapshotWorkspace = join(homedir(), "Documents", "AmbientDesktopArchive");
 const sourceWorkspace =
   process.env.AMBIENT_KANBAN_CONTRAST_NATIVE_ACTIONS_SNAPSHOT_WORKSPACE ||
   process.env.AMBIENT_DESKTOP_WORKSPACE ||
@@ -142,7 +142,7 @@ try {
     screenshots: { board: boardScreenshotPath, taskActions: taskActionsScreenshotPath },
     assertions: [
       "Desktop launched with the temporary GMI Cloud provider override without exposing the API key",
-      "The harness used a temp copy of Documents/ambientCoderArchive before running the destructive Local Task",
+      "The harness used a temp copy of Documents/AmbientDesktopArchive before running the destructive Local Task",
       "The contrast checker Local Task produced native task_heartbeat, task_report_proof, and task_complete actions",
       "Native task actions were recorded as card_run_progress events before relying on final assistant prose",
       "The final proof diagnostics reported native task tools and zero fenced JSON fallback actions",

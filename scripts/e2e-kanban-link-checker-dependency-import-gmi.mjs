@@ -21,7 +21,7 @@ const workerRunMaxElapsedMs = Number(process.env.AMBIENT_KANBAN_LINK_CHECKER_DEP
 const defaultRepoKeyFile = join(repoRoot, "gmicloud-api-key.txt");
 const defaultHomeCheckoutKeyFile = join(homedir(), "AmbientDesktop", "gmicloud-api-key.txt");
 const keyFile = resolve(process.env.GMI_CLOUD_API_KEY_FILE || (existsSync(defaultRepoKeyFile) ? defaultRepoKeyFile : defaultHomeCheckoutKeyFile));
-const defaultSnapshotWorkspace = join(homedir(), "Documents", "ambientCoderArchive");
+const defaultSnapshotWorkspace = join(homedir(), "Documents", "AmbientDesktopArchive");
 const sourceWorkspace =
   process.env.AMBIENT_KANBAN_LINK_CHECKER_DEP_IMPORT_SNAPSHOT_WORKSPACE ||
   process.env.AMBIENT_DESKTOP_WORKSPACE ||

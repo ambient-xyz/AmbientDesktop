@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { LocalModelResourceRegistrySnapshot } from "../../shared/types";
+import type { LocalModelResourceRegistrySnapshot } from "../../shared/localRuntimeTypes";
 import {
   localDeepResearchMemoryStatus,
   localDeepResearchStatusSnapshot,

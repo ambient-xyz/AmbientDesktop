@@ -1,6 +1,6 @@
 import type { IpcMain } from "electron";
 
-import type { DiagnosticExportResult } from "../../shared/types";
+import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

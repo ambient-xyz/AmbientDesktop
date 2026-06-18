@@ -1,6 +1,6 @@
 import { LoaderCircle, MessageCircle, Send } from "lucide-react";
 
-import type { WorkflowAgentThreadSummary, WorkflowRunDetail } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowRunDetail } from "../../shared/workflowTypes";
 import { workflowGraphRecoveryDecisionCard } from "./workflowRuntimeDecisionUiModel";
 import {
   workflowThreadComposerModel,

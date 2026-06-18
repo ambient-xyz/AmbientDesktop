@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowArtifactSummary, WorkflowRunDetail } from "../../shared/types";
+import type { WorkflowArtifactSummary, WorkflowRunDetail } from "../../shared/workflowTypes";
 import { workflowRunOutputCards } from "./workflowRunOutputUiModel";
 
 const artifact: WorkflowArtifactSummary = {

@@ -4,7 +4,12 @@ import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
-import type { SubagentMailboxEventSummary, SubagentRunEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type {
+  SubagentMailboxEventSummary,
+  SubagentRunEventSummary,
+  SubagentRunSummary,
+  SubagentWaitBarrierSummary,
+} from "../../shared/subagentTypes";
 import {
   buildSubagentListAgentsText,
   buildSubagentStatusText,

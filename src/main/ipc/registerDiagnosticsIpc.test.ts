@@ -1,7 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DiagnosticExportResult } from "../../shared/types";
+import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
 import {
   diagnosticsIpcChannels,
   registerDiagnosticsIpc,

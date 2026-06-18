@@ -6,7 +6,7 @@ import type {
   SubagentReleaseGateLiveHistoryEntry,
   SubagentWorkflowJitterReleaseProfileReport,
 } from "../../shared/subagentMaturity";
-import type { SubagentRestartReconciliationSummary } from "../../shared/types";
+import type { SubagentRestartReconciliationSummary } from "../../shared/subagentTypes";
 import type { SubagentObservabilitySummary } from "./subagentObservability";
 import {
   evaluateSubagentMaturity,

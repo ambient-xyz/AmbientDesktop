@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { LocalDeepResearchSettings, WorkspaceState } from "../../shared/types";
+import type { LocalDeepResearchSettings } from "../../shared/localRuntimeTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { normalizeLocalDeepResearchRunBudgetSettings } from "../../shared/localDeepResearchBudget";
 import { defaultLocalModelResourceSettings, normalizeLocalDeepResearchSettings } from "./localDeepResearchProviderStack";
 import { registerLocalDeepResearchProviderTools } from "./agentRuntimeLocalDeepResearchProviderTools";

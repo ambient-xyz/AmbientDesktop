@@ -1,4 +1,4 @@
-import type { SttQueueState, SttSettings, SttTranscriptionState } from "../../shared/types";
+import type { SttQueueState, SttSettings, SttTranscriptionState } from "../../shared/localRuntimeTypes";
 import type { AmbientCliSttRunner } from "./sttProvider";
 import {
   ambientCliSttProviderFromSettings,

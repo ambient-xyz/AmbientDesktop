@@ -1,4 +1,4 @@
-import type { WorkflowRunEvent, WorkflowRunProviderHealthStatus, WorkflowRunSummary } from "./types";
+import type { WorkflowRunEvent, WorkflowRunProviderHealthStatus, WorkflowRunSummary } from "./workflowTypes";
 
 export const DEFAULT_WORKFLOW_RUN_STALE_MS = 5 * 60 * 1000;
 

@@ -2,7 +2,7 @@ import type {
   LocalModelResourcePolicyDecision,
   LocalRuntimeInventoryEntry,
   LocalRuntimeInventorySnapshot,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   localRuntimeMemoryPolicyEvidenceText,
   localRuntimeResidentMemoryEvidenceText,

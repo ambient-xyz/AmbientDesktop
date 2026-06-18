@@ -1,5 +1,5 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
 
 export const SUBAGENT_CLOSE_REQUEST_EVENT_TYPE = "subagent.close_requested" as const;

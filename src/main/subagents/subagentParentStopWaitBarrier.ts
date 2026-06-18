@@ -1,8 +1,5 @@
-import type {
-  AmbientFeatureFlagSnapshot,
-  SubagentRunSummary,
-  SubagentWaitBarrierSummary,
-} from "../../shared/types";
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import {
   SUBAGENT_WAIT_BARRIER_RESOLUTION_SCHEMA_VERSION,
   SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,

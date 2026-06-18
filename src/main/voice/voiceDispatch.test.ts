@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage, MessageVoiceState, VoiceSettings } from "../../shared/types";
+import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   recordVoiceDispatchForMessage,
   requestVoiceSummary,

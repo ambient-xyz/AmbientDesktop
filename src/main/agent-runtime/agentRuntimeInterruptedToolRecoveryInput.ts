@@ -1,10 +1,7 @@
-import type {
-  InterruptedToolCallRecoverySnapshot,
-  MessageDelivery,
-  PermissionMode,
-  SendMessageInput,
-} from "../../shared/types";
-import { buildInterruptedToolCallRecoveryPrompt } from "../interruptedToolCallRecovery";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { InterruptedToolCallRecoverySnapshot, MessageDelivery } from "../../shared/threadTypes";
+import { buildInterruptedToolCallRecoveryPrompt } from "./recovery/interruptedToolCallRecovery";
 import type { RuntimeSessionRecoveryContext } from "./agentRuntimeAssistantRetryInput";
 
 export interface InterruptedToolCallRecoveryState {

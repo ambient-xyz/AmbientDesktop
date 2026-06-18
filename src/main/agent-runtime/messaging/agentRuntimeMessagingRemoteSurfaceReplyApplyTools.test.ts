@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { registerMessagingRemoteSurfaceReplyApplyTools } from "./agentRuntimeMessagingRemoteSurfaceReplyApplyTools";
 import type { SignalBridgeReplyResult } from "../signal/signalBridgeReply";
-import type { TelegramBridgeReplyResult } from "../../telegram/telegramBridgeOutbound";
+import type { TelegramBridgeReplyResult } from "../agentRuntimeTelegramFacade";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
 

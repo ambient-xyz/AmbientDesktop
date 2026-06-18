@@ -23,7 +23,7 @@ import {
   parseVoiceCloneCreateStdout,
   parseVoiceCloneDeleteStdout,
 } from "./voiceSettingsTools";
-import type { VoiceProviderCandidate, VoiceSettings } from "../../shared/types";
+import type { VoiceProviderCandidate, VoiceSettings } from "../../shared/localRuntimeTypes";
 
 const liveCloneEnabled = process.env.AMBIENT_LIVE_VOICE_CLONE_DOGFOOD === "1";
 const maybeDescribe = liveCloneEnabled ? describe : describe.skip;

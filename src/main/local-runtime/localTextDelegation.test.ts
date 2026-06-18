@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { AmbientModelRuntimeProfile } from "../../shared/ambientModels";
-import type { LocalModelResourcePolicyDecision, LocalModelResourceRegistryEntry, LocalModelResourceRegistrySnapshot } from "../../shared/types";
+import type { LocalModelResourcePolicyDecision, LocalModelResourceRegistryEntry, LocalModelResourceRegistrySnapshot } from "../../shared/localRuntimeTypes";
 import type { LocalModelRuntimeLease, LocalModelRuntimeReleaseResult } from "./localModelRuntimeManager";
 import {
   acquireLocalTextDelegationRuntime,

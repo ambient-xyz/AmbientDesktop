@@ -11,11 +11,11 @@ import {
   reconcileLocalDeepResearchInstallJob,
   type LocalDeepResearchInstallServiceResult,
 } from "./localDeepResearchInstallService";
-import type { LocalDeepResearchInstallProgress } from "../../shared/types";
+import type { LocalDeepResearchInstallProgress } from "../../shared/localRuntimeTypes";
 import { localDeepResearchModelCachePath } from "./localDeepResearchManagedAssets";
 import type { LocalDeepResearchModelProfile } from "./localDeepResearchModelProfiles";
 import { buildLocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { managedInstallWorkspacePath } from "../managedInstallPaths";
+import { managedInstallWorkspacePath } from "../setup/managedInstallPaths";
 
 const gib = 1024 ** 3;
 

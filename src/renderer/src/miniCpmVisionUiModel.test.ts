@@ -3,7 +3,7 @@ import {
   miniCpmVisionSetupActions,
   miniCpmVisionSetupResultModel,
 } from "./miniCpmVisionUiModel";
-import type { MiniCpmVisionSetupResult } from "../../shared/types";
+import type { MiniCpmVisionSetupResult } from "../../shared/localRuntimeTypes";
 
 describe("miniCpmVisionUiModel", () => {
   it("prefers install before a setup result exists", () => {

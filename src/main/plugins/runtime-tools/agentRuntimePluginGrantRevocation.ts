@@ -1,4 +1,4 @@
-import type { AmbientPermissionGrant } from "../../../shared/types";
+import type { AmbientPermissionGrant } from "../../../shared/permissionTypes";
 import {
   mcpPermissionGrantIdsForDescriptorDrift,
   type McpDescriptorDriftGrantInvalidationInput,

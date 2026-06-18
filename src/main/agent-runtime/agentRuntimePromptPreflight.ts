@@ -1,4 +1,5 @@
-import type { AmbientCompactionSettings, DesktopEvent, RunStatus } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { AmbientCompactionSettings, RunStatus } from "../../shared/threadTypes";
 import {
   contextUsagePreflightInput,
   type ContextUsageModelWindowReader,
@@ -7,7 +8,7 @@ import {
   runtimeCompactionFinishedActivity,
   runtimeCompactionStartingActivity,
 } from "./agentRuntimeCompactionActivity";
-import { preflightPrompt } from "../contextAccounting";
+import { preflightPrompt } from "../../shared/contextAccounting";
 
 export const PROMPT_PREFLIGHT_COMPACTION_INSTRUCTIONS =
   "Prepare the session to accept the next user prompt. Preserve current task status, files, constraints, and blockers.";

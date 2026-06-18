@@ -6,7 +6,8 @@ import {
 import { isSubagentCapacityLeaseSnapshot, type SubagentCapacityLeaseSnapshot } from "../../shared/subagentCapacity";
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 import { subagentResultCanBeSynthesized } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary, ToolLargeOutputPreview } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ToolLargeOutputPreview } from "../../shared/threadTypes";
 
 export type SubagentInvariantId =
   | "parent-child-linkage"

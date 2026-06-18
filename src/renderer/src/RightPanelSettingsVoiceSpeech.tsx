@@ -1,14 +1,7 @@
 import { CheckCircle2, Mic, Package, Plug, Plus, RefreshCw, Square, Zap } from "lucide-react";
 import type { RefObject } from "react";
-import type {
-  DesktopState,
-  ProviderCatalogSettingsCard,
-  SttProviderCandidate,
-  SttProviderSetupAction,
-  VoiceArtifactRetentionSummary,
-  VoiceProviderCandidate,
-  VoiceProviderVoiceCandidate,
-} from "../../shared/types";
+import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { SttProviderCandidate, SttProviderSetupAction, VoiceArtifactRetentionSummary, VoiceProviderCandidate, VoiceProviderVoiceCandidate } from "../../shared/localRuntimeTypes";
 import type { SttMicrophoneDevice } from "./sttMicrophoneRecorder";
 import type {
   SttMicTestUiState,

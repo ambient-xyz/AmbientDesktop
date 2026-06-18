@@ -9,13 +9,8 @@ import type {
   RuntimeSurfaceApprovalResponseMode,
   RuntimeSurfaceSnapshot,
 } from "../../shared/messagingGateway";
-import type {
-  AnswerWorkflowDiscoveryQuestionInput,
-  CollaborationMode,
-  ThinkingLevel,
-  WorkflowRecoveryAction,
-  WorkflowDiscoveryQuestion,
-} from "../../shared/types";
+import type { CollaborationMode, ThinkingLevel } from "../../shared/threadTypes";
+import type { AnswerWorkflowDiscoveryQuestionInput, WorkflowDiscoveryQuestion, WorkflowRecoveryAction } from "../../shared/workflowTypes";
 import {
   messagingProjectionText,
   routeMessagingInboundEvent,

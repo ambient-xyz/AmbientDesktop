@@ -4,11 +4,11 @@ import type {
   LocalDeepResearchFinalSynthesisMode,
   LocalDeepResearchRunBudget,
   LocalModelResourcePolicyDecision,
-  WorkspaceState,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { normalizeLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
-import { localDeepResearchToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { localDeepResearchToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 import type { LocalDeepResearchBroker } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import { LOCAL_DEEP_RESEARCH_PROVIDER_IDS } from "./localDeepResearchProviderStack";

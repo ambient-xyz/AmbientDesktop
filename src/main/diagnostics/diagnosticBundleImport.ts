@@ -1,12 +1,7 @@
 import { stat, readFile } from "node:fs/promises";
 import { z } from "zod";
-import type {
-  AmbientFeatureFlagSnapshot,
-  DiagnosticExportLocalRuntimeEvidence,
-  DiagnosticExportResult,
-  DiagnosticExportSubagentReplayEvidence,
-  DiagnosticExportSummary,
-} from "../../shared/types";
+import type { DiagnosticExportLocalRuntimeEvidence, DiagnosticExportResult, DiagnosticExportSubagentReplayEvidence, DiagnosticExportSummary } from "../../shared/diagnosticTypes";
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import {
   AMBIENT_SLASH_COMMANDS_FEATURE_FLAG,
   AMBIENT_SUBAGENTS_FEATURE_FLAG,

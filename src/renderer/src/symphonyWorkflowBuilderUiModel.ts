@@ -17,7 +17,7 @@ import {
   type SymphonyWorkflowPatternId,
   type SymphonyWorkflowRecipePreset,
 } from "../../shared/symphonyWorkflowRecipes";
-import type { CallableWorkflowLaunchCardSummary } from "../../shared/types";
+import type { CallableWorkflowLaunchCardSummary } from "../../shared/workflowTypes";
 
 export interface SymphonyWorkflowBuilderDraftChoice {
   choiceId?: string;

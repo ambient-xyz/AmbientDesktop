@@ -5,21 +5,23 @@ import type {
 } from "../../../shared/messagingGateway";
 import type {
   AmbientPermissionGrant,
-  DesktopEvent,
-  MediaPlaybackSettings,
   PermissionAuditEntry,
   PermissionGrantScopeKind,
   PermissionRequest,
   PermissionRisk,
-  PlannerSettings,
-  ProjectSummary,
-  SearchRoutingSettings,
+} from "../../../shared/permissionTypes";
+import type { DesktopEvent } from "../../../shared/desktopTypes";
+import type {
+  MediaPlaybackSettings,
   SttSettings,
-  ThreadSummary,
   VoiceSettings,
-  WorkflowAgentFolderSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/localRuntimeTypes";
+import type { PlannerSettings } from "../../../shared/plannerTypes";
+import type { ProjectSummary } from "../../../shared/projectBoardTypes";
+import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
+import type { WorkflowAgentFolderSummary } from "../../../shared/workflowTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import type { AgentRuntimeFeatures } from "../agentRuntime";
 import { discoverAmbientCliPackages } from "../../ambient-cli/ambientCliPackages";
 import { registerMessagingOverviewTools } from "./agentRuntimeMessagingOverviewTools";
@@ -91,17 +93,17 @@ import {
 } from "./agentRuntimeMessagingGatewayLifecyclePreviewTools";
 import { registerMessagingGatewayLifecycleApplyTools } from "./agentRuntimeMessagingGatewayLifecycleApplyTools";
 import { createMessagingGatewayLifecycleResolvers } from "./agentRuntimeMessagingGatewayLifecycleResolvers";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
-import { TelegramBridgeSupervisor } from "../../telegram/telegramBridgeSupervisor";
-import { readinessProbesFromAdapters } from "../../messaging/messagingProviderReadiness";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
+import { TelegramBridgeSupervisor } from "../agentRuntimeTelegramFacade";
+import { readinessProbesFromAdapters } from "../agentRuntimeMessagingFacade";
 import { createSignalMessagingReadinessAdapter } from "../signal/signalMessagingReadiness";
-import { createTelegramMessagingReadinessAdapter } from "../../telegram/telegramMessagingReadiness";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "../../messaging/messagingConversationDirectoryAdapters";
+import { createTelegramMessagingReadinessAdapter } from "../agentRuntimeTelegramFacade";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "../agentRuntimeMessagingFacade";
 import { SignalRealPollingRunner } from "../signal/signalRealPolling";
 import { createAgentRuntimeMessagingSurfaceSnapshot } from "./agentRuntimeMessagingSurfaceSnapshot";
-import { TelegramBridgePollingRunner } from "../../telegram/telegramBridgePolling";
+import { TelegramBridgePollingRunner } from "../agentRuntimeTelegramFacade";
 import type {
   AgentRuntimeRemoteSurfaceRuntimeEventStore,
   AgentRuntimeRemoteSurfaceRuntimeEventRelayMarkInput,

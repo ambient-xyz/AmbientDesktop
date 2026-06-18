@@ -6,14 +6,11 @@ import type {
   SubagentPromptSnapshotSummary,
   SubagentRunEventSummary,
   SubagentRunSummary,
-  SubagentRunStatus,
   SubagentSpawnEdgeSummary,
   SubagentToolScopeSnapshotSummary,
-  SubagentWaitBarrierFailurePolicy,
-  SubagentWaitBarrierMode,
-  SubagentWaitBarrierStatus,
-  SubagentWaitBarrierSummary,
-} from "../../shared/types";
+  SubagentWaitBarrierSummary
+} from "../../shared/subagentTypes";
+import type { SubagentRunStatus, SubagentWaitBarrierFailurePolicy, SubagentWaitBarrierMode, SubagentWaitBarrierStatus } from "../../shared/subagentProtocol";
 import {
   SUBAGENT_MATURITY_EVIDENCE_KINDS,
   type SubagentApprovalRoutingVisibilityEvidence,

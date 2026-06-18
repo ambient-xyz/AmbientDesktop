@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { VoiceProviderCandidate, VoiceSettings } from "../../shared/types";
+import type { VoiceProviderCandidate, VoiceSettings } from "../../shared/localRuntimeTypes";
 import {
   buildVoiceStatus,
   buildVoiceClonePlan,

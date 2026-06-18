@@ -1,11 +1,5 @@
-import type {
-  WorkflowDiscoveryCapabilityDescription,
-  WorkflowDiscoveryCapabilityMutationClass,
-  WorkflowDiscoveryCapabilitySearch,
-  WorkflowDiscoveryCapabilitySearchResult,
-  WorkflowDiscoveryContextCapability,
-  SearchProviderPreference,
-} from "../../shared/types";
+import type { SearchProviderPreference } from "../../shared/webResearchTypes";
+import type { WorkflowDiscoveryCapabilityDescription, WorkflowDiscoveryCapabilityMutationClass, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryCapabilitySearchResult, WorkflowDiscoveryContextCapability } from "../../shared/workflowTypes";
 import { pluginMcpToolCapabilityId } from "../plugins/capabilityRegistry";
 import type {
   WorkflowDiscoveryAmbientCliCapability,

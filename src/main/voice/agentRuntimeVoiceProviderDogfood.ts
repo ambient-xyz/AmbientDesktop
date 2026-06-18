@@ -1,10 +1,12 @@
-import type { MessageVoiceState, ThreadSummary, VoiceSettings, WorkspaceState } from "../../shared/types";
+import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   synthesizeQueuedVoiceState as defaultSynthesizeQueuedVoiceState,
   type SynthesizeQueuedVoiceStateInput,
 } from "./voiceRuntime";
 import type { AmbientCliVoiceRunner } from "./voiceProvider";
-import type { WorkspaceMediaUrlInput } from "../workspace/workspaceMedia";
+import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
 
 export interface AgentRuntimeVoiceProviderDogfoodOptions {
   text?: string;

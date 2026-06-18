@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import {
   projectBoardHistoryImpactAudit,
   projectBoardImpactQueue,

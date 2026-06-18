@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SubagentToolScopeSnapshotSummary } from "../../shared/types";
+import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import {
   childAuthorityDisplayMetadata,
   callableWorkflowBridgeDisplayMetadata,

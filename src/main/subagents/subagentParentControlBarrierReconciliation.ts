@@ -1,4 +1,4 @@
-import type { SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import {
   SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
   type SubagentWaitBarrierTransitionEvidence,

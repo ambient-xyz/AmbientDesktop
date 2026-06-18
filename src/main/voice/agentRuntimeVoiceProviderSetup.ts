@@ -1,4 +1,7 @@
-import type { ThreadSummary, UpdateVoiceSettingsInput, VoiceSettings, WorkspaceState } from "../../shared/types";
+import type { UpdateVoiceSettingsInput } from "../../shared/desktopTypes";
+import type { VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { AgentRuntimeVoiceProviderDogfoodResult } from "./agentRuntimeVoiceProviderDogfood";
 
 export interface AgentRuntimeRegisteredVoiceProvider {

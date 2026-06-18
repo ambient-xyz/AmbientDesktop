@@ -7,7 +7,7 @@ import type {
   LocalRuntimeInventorySnapshot,
   LocalRuntimeLeaseRecord,
   LocalRuntimePolicyHandoffSnapshot,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   buildLocalRuntimeInventory,
   buildLocalRuntimePolicyHandoff,

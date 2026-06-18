@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ProjectBoardCard,
-  ProjectBoardSummary,
-  ProjectBoardSynthesisRun,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSummary, ProjectBoardSynthesisRun } from "../../shared/projectBoardTypes";
 import {
   projectBoardCardBlockedByStrictProofScopeWarning,
   projectBoardPlanningWarningActionTitle,

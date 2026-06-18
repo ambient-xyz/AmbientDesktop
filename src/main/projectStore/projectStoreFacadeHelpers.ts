@@ -1,14 +1,19 @@
 import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import type { AutomationThreadKind } from "../../shared/automationTypes";
 import type {
-  AutomationThreadKind,
   CollaborationMode,
   ContextUsageSnapshot,
-  OrchestrationRun,
-  PermissionAuditEntry,
-  PermissionMode,
-  PlannerPlanArtifact,
+  ThinkingLevel,
+  ThreadGoalStatus,
+  ThreadKind,
+  ThreadWorktreeSummary
+} from "../../shared/threadTypes";
+import type { OrchestrationRun, SaveSymphonyWorkflowRecipeInput, WorkflowRecordingPlaybookDraft } from "../../shared/workflowTypes";
+import type { PermissionAuditEntry, PermissionMode } from "../../shared/permissionTypes";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type {
   ProjectBoardCard,
   ProjectBoardCardProofReview,
   ProjectBoardDecisionDraftRefreshSuggestion,
@@ -22,15 +27,9 @@ import type {
   ProjectBoardSummary,
   ProjectBoardSynthesisRunEvent,
   RefreshProjectBoardDecisionDraftsInput,
-  RefreshProjectBoardSourceDraftsInput,
-  SaveSymphonyWorkflowRecipeInput,
-  SubagentRunStatus,
-  ThinkingLevel,
-  ThreadGoalStatus,
-  ThreadKind,
-  ThreadWorktreeSummary,
-  WorkflowRecordingPlaybookDraft,
-} from "../../shared/types";
+  RefreshProjectBoardSourceDraftsInput
+} from "../../shared/projectBoardTypes";
+import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 import type { SymphonyWorkflowRecipePreset } from "../../shared/symphonyWorkflowRecipes";
 import { projectBoardPlanTitleIsGeneric } from "../../shared/projectBoardPlanIdentity";
 import { LEGACY_PROJECT_STATE_DIR } from "../workspace/workspaceAuthorityState";

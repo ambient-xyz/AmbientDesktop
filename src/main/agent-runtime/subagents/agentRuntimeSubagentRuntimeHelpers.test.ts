@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage, PermissionRequest, SubagentRunSummary } from "../../../shared/types";
+import type { PermissionRequest } from "../../../shared/permissionTypes";
+import type { SubagentRunSummary } from "../../../shared/subagentTypes";
+import type { ChatMessage } from "../../../shared/threadTypes";
 import type { AmbientModelRuntimeProfile } from "../../../shared/ambientModels";
 import {
   childSessionErrorShouldPreserveTerminalStatus,

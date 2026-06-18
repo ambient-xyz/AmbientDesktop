@@ -1,13 +1,5 @@
-import type {
-  ChatMessage,
-  MediaArtifactResult,
-  ToolArgumentProgressSnapshot,
-  ToolEditTextPreview,
-  ToolLargeOutputPreview,
-  ToolLargeOutputPreviewItem,
-  ToolLongformInputPreview,
-  ToolLongformInputPreviewItem,
-} from "../../shared/types";
+import type { MediaArtifactResult } from "../../shared/desktopTypes";
+import type { ChatMessage, ToolArgumentProgressSnapshot, ToolEditTextPreview, ToolLargeOutputPreview, ToolLargeOutputPreviewItem, ToolLongformInputPreview, ToolLongformInputPreviewItem } from "../../shared/threadTypes";
 import type {
   MessagingConversationDirectorySetupCard,
   MessagingConversationDirectorySetupCardConversation,

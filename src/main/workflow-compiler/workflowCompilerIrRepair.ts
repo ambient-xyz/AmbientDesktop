@@ -1,4 +1,4 @@
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { WorkflowProgramAmbientCliCapability, WorkflowProgramDiagnostic } from "../workflow-program/workflowProgramCompiler";
 

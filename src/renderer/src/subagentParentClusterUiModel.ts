@@ -1,13 +1,8 @@
-import type {
-  CallableWorkflowTaskSummary,
-  SubagentParentMailboxEventSummary,
-  SubagentRunSummary,
-  SubagentRunStatus,
-  SubagentWaitBarrierDecision,
-  SubagentWaitBarrierSummary,
-  SubagentPatternGraphSnapshot,
-  ThreadSummary,
-} from "../../shared/types";
+import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
+import type { SubagentRunStatus } from "../../shared/subagentProtocol";
+import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierDecision, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import {
   aggregatePatternGraphOverflowApprovalState,
   aggregatePatternGraphOverflowStatus,
@@ -1962,6 +1957,8 @@ function waitBarrierAttentionActivity(event: SubagentParentMailboxEventSummary):
   const choices = choiceRecords
     .map((choice) => stringValue(choice?.label))
     .filter((label): label is string => Boolean(label));
+  const symphonyOptions = symphonyDecisionOptionLabels(payload);
+  const actionLabels = uniqueStrings([...choices, ...symphonyOptions]);
   const actions = choiceRecords
     .map((choice) => waitBarrierChoiceAction(payload, choice))
     .filter((action): action is SubagentParentClusterMailboxActionModel => Boolean(action));
@@ -1979,11 +1976,49 @@ function waitBarrierAttentionActivity(event: SubagentParentMailboxEventSummary):
       reason,
       waitBarrierResultValidationDetail(payload),
       choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined,
+      symphonyOptions.length ? `Symphony options: ${symphonyOptions.slice(0, 5).join(", ")}` : undefined,
     ].filter(Boolean).join(" | "), 240),
-    ...(choices.length ? { actionLabels: choices.slice(0, 4) } : {}),
+    ...(actionLabels.length ? { actionLabels: actionLabels.slice(0, 5) } : {}),
     ...(actions.length ? { actions: actions.slice(0, 4) } : {}),
     updatedAt: event.updatedAt,
   };
+}
+
+function symphonyDecisionOptionLabels(payload: Record<string, unknown>): string[] {
+  const explicit = arrayValue(payload.symphonyDecisionOptions)
+    .map(recordValue)
+    .map((option) => {
+      const label = stringValue(option?.label);
+      if (!label) return undefined;
+      return option?.recommended === true ? `${label} (recommended)` : label;
+    })
+    .filter((label): label is string => Boolean(label));
+  if (explicit.length) return uniqueStrings(explicit);
+  const request = recordValue(payload.childDecisionRequest);
+  const recommendedOption = stringValue(request?.recommendedOption);
+  return uniqueStrings(stringArrayValue(request?.options).map((option) => {
+    const label = symphonyDecisionOptionLabel(option);
+    return option === recommendedOption ? `${label} (recommended)` : label;
+  }));
+}
+
+function symphonyDecisionOptionLabel(option: string): string {
+  switch (option) {
+    case "grant_scope":
+      return "Grant or re-scope child authority";
+    case "retry_child":
+      return "Retry child";
+    case "retry_with_verifier":
+      return "Retry with verifier";
+    case "accept_partial":
+      return "Accept partial";
+    case "cancel_group":
+      return "Cancel group";
+    case "exit_symphony_mode":
+      return "Exit Symphony";
+    default:
+      return option.split(/[._-]+/g).map(titleCase).join(" ");
+  }
 }
 
 function waitBarrierResultValidationDetail(payload: Record<string, unknown>): string | undefined {

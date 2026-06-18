@@ -1,4 +1,4 @@
-import { createAssistantVisibleTextFilter } from "../assistantVisibleText";
+import { createAssistantVisibleTextFilter } from "./assistantVisibleText";
 
 export interface RuntimeTextOutputSnapshot {
   receivedAnyText: boolean;

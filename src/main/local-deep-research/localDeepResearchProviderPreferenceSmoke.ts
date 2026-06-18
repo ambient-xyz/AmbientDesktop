@@ -1,4 +1,4 @@
-import type { SearchRoutingSettings } from "../../shared/types";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
 import { buildLocalDeepResearchSetupContract, type LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import { webResearchSettingsWithDynamicProviderCatalogs } from "../web-research/searchSettingsTools";

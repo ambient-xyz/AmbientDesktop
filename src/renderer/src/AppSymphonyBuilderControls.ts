@@ -1,11 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  MessageDelivery,
-  SaveSymphonyWorkflowRecipeInput,
-  SendMessageComposerIntent,
-} from "../../shared/types";
+import type { DesktopState, SendMessageComposerIntent } from "../../shared/desktopTypes";
+import type { MessageDelivery } from "../../shared/threadTypes";
+import type { SaveSymphonyWorkflowRecipeInput } from "../../shared/workflowTypes";
 import type { SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRecipes";
 import type { AppendRunActivityLine } from "./AppRunActivity";
 import type { SubmitDraftOptions } from "./AppComposerSubmitActions";

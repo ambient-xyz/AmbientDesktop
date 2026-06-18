@@ -7,7 +7,7 @@ import {
   rightPanelSettingsSections,
   type RightPanelSettingsSearchTargetsInput,
 } from "./RightPanelSettingsSearchModel";
-import type { DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
 import type { SettingsSearchTarget, SettingsSectionNavItem } from "./RightPanelSettingsPrimitives";
 
 describe("RightPanelSettingsSearchModel", () => {

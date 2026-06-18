@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/projectBoardKickoffDefaults";
-import type { ProjectBoardQuestion, ProjectBoardSource } from "../../shared/types";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import type { ProjectBoardQuestion, ProjectBoardSource } from "../../shared/projectBoardTypes";
+import { aggressiveAmbientRetryPolicy } from "./projectBoardAmbientFacade";
 import {
   AmbientProjectBoardKickoffDefaultProvider,
   buildProjectBoardKickoffContextBrief,

@@ -6,7 +6,7 @@ import type {
 import type {
   MessagingGatewayInboundDispatchInput,
   MessagingGatewayInboundDispatchResult,
-} from "../../messaging/messagingGatewayRunner";
+} from "../agentRuntimeMessagingFacade";
 import {
   applyTelegramBridgePoll,
   buildTelegramBridgePollPlan,
@@ -17,7 +17,7 @@ import {
   type TelegramBridgePollingControlInput,
   type TelegramBridgePollingControlPreview,
   type TelegramBridgePollingControlResult,
-} from "../../telegram/telegramBridgePolling";
+} from "../agentRuntimeTelegramFacade";
 
 type TelegramBridgePollFetchLike = (
   input: string,

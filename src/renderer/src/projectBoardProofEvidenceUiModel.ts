@@ -1,9 +1,5 @@
-import type {
-  OrchestrationRun,
-  ProjectBoardCard,
-  ProjectBoardCardProofRecommendedAction,
-  ProjectBoardCardProofReviewStatus,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardCardProofRecommendedAction, ProjectBoardCardProofReviewStatus } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun } from "../../shared/workflowTypes";
 
 export type ProjectBoardProofEvidenceTone = "success" | "warning" | "danger" | "neutral";
 

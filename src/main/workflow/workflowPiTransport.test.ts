@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Type, type Context, type SimpleStreamOptions, type ToolCall } from "@mariozechner/pi-ai";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AmbientStreamFailureError, aggressiveAmbientRetryPolicy, isRetryableAmbientProviderError } from "../aggressiveRetries";
+import { AmbientStreamFailureError, aggressiveAmbientRetryPolicy, isRetryableAmbientProviderError } from "../ambient/aggressiveRetries";
 import {
   ambientJsonSchemaResponseFormat,
   callWorkflowPiJson,

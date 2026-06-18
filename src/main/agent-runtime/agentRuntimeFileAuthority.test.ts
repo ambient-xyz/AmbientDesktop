@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
-import type { AmbientPermissionGrant } from "../../shared/types";
+import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
 import {
   childAuthorityFileRootPathsFromSnapshot,
   childAuthorityFileRootPathsForThread,

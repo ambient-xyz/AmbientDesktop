@@ -1,21 +1,21 @@
 import type { IpcMain, OpenDialogOptions, OpenDialogReturnValue } from "electron";
 import { z } from "zod";
 
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
 import type {
-  DesktopState,
   OpenLocalPathInput,
   OpenWorkspacePathInput,
-  PermissionMode,
   PickWorkspaceContextInput,
   WorkspaceContextReference,
   WorkspaceDiff,
   WorkspaceFileContent,
-  WorkspaceOpenTarget,
   WorkspaceFileTree,
   WorkspaceGitStatus,
+  WorkspaceOpenTarget,
   WorkspaceSearchInput,
   WorkspaceSearchResult,
-} from "../../shared/types";
+} from "../../shared/workspaceTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

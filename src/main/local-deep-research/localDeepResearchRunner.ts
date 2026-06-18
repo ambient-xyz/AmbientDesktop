@@ -11,7 +11,7 @@ import type {
   LocalDeepResearchFinalSynthesisConfig,
   LocalDeepResearchRunBudget,
   LocalDeepResearchToolBudgetState,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   localDeepResearchToolBudgetState,
   normalizeLocalDeepResearchRunBudget,

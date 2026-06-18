@@ -1,9 +1,5 @@
 import { Download, RefreshCw } from "lucide-react";
-import type {
-  AmbientMcpContainerRuntimeStatus,
-  AmbientMcpDefaultCapabilityInstallInput,
-  ManagedDevServerSummary,
-} from "../../shared/types";
+import type { AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, ManagedDevServerSummary } from "../../shared/pluginTypes";
 import {
   mcpContainerRuntimeDetailRows,
   mcpDefaultCapabilityInstallActionState,

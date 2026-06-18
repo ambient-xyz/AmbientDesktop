@@ -5,9 +5,9 @@ import {
   registerSignalOwnerHandoffTools,
   type SignalOwnerHandoffToolPermissionRequest,
 } from "./agentRuntimeSignalOwnerHandoffTools";
-import { createEmptyMessagingBindingRegistry } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createEmptyMessagingBindingRegistry } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 describe("registerSignalOwnerHandoffTools", () => {
   it("registers and executes the Signal owner handoff preview and apply tools", async () => {

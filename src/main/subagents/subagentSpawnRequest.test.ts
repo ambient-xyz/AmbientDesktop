@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL, resolveAmbientModelRuntimeProfile } from "../../shared/ambientModels";
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
-import type { SubagentToolScopeSnapshotSummary, SubagentWaitBarrierSummary, ThreadWorktreeSummary } from "../../shared/types";
+import type {
+  SubagentToolScopeSnapshotSummary,
+  SubagentWaitBarrierSummary,
+} from "../../shared/subagentTypes";
+import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
 import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import {
@@ -226,7 +230,7 @@ function runtimePreflight(): SubagentChildRuntimeLaunchPreflightResult {
 function childWorktree(): ThreadWorktreeSummary {
   return {
     threadId: "child-thread",
-    projectRoot: "/Users/travis/ambientCoder",
+    projectRoot: "/Users/travis/AmbientDesktop",
     worktreePath: "/tmp/ambient-child",
     branchName: "codex/child",
     baseRef: "main",

@@ -1,9 +1,9 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { MessagingGatewayLifecyclePreview } from "../../../shared/messagingGateway";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import { messagingGatewayLifecyclePreviewText } from "../../messaging/messagingGatewayRunner";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import { messagingGatewayLifecyclePreviewText } from "../agentRuntimeMessagingFacade";
 
 export interface MessagingGatewayLifecyclePreviewInput {
   action: "start" | "stop";

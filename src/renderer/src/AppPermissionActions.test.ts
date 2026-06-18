@@ -1,15 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  AmbientPermissionGrant,
-  PermissionAuditEntry,
-  PermissionRequest,
-  PrivilegedCredentialRequest,
-  SecureInputRequest,
-  ThreadSummary,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { AmbientPermissionGrant, PermissionAuditEntry, PermissionRequest, PrivilegedCredentialRequest, SecureInputRequest } from "../../shared/permissionTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   createAppPermissionActions,
   desktopStateWithUpdatedThreadSettings,

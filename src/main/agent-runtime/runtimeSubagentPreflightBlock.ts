@@ -1,9 +1,9 @@
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import type {
-  ChatMessage,
-  DesktopEvent,
   PlannerPlanFinalizationAttemptStatus,
   PlannerPlanWorkflowState,
-} from "../../shared/types";
+} from "../../shared/plannerTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import { piAssistantMessageMetadata } from "../agent-runtime/agentRuntimeAssistantMessageMetadata";
 
 export interface RuntimeSubagentPreflightBlockInput {

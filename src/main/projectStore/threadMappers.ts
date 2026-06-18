@@ -1,15 +1,14 @@
 import type {
   CollaborationMode,
-  PermissionMode,
-  SubagentRunStatus,
   ThinkingLevel,
   ThreadKind,
   ThreadSummary,
-  ThreadWorktreeSummary,
-  WorkspaceSearchResult,
-  WorkspaceSearchScope,
-  WorkflowRecordingState,
-} from "../../shared/types";
+  ThreadWorktreeSummary
+} from "../../shared/threadTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { SubagentRunStatus } from "../../shared/subagentProtocol";
+import type { WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/workspaceTypes";
+import type { WorkflowRecordingState } from "../../shared/workflowTypes";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
 
 export interface ThreadRow {

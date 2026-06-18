@@ -1,4 +1,4 @@
-import type { ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { initializeGitRepository } from "../workspace/workspaceGit";
 import { PROJECT_BOARD_ARTIFACT_ROOT } from "./projectBoardArtifacts";
 import { projectBoardSourceKey, type ProjectBoardSourceIdentityInput } from "./projectBoardSourceIdentity";

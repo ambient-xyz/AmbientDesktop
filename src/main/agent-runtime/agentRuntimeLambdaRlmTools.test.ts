@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Model } from "@mariozechner/pi-ai";
-import type { WorkspaceState } from "../../shared/types";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { createLambdaRlmToolExtension } from "./agentRuntimeLambdaRlmTools";
 
 type RegisteredTool = {
@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("../lambdaRlm", () => ({
+vi.mock("../tool-runtime/lambdaRlm", () => ({
   createLambdaRlmToolDefinition: mocks.createLambdaRlmToolDefinition,
 }));
 

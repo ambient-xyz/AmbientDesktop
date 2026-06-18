@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type { ThreadKind } from "../../shared/types";
+import type { ThreadKind } from "../../shared/threadTypes";
 import type { SidebarArea } from "./AppShellSidebar";
 
 export type PendingProjectComposerDraft = {

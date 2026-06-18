@@ -1,11 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
-import type {
-  ProjectBoardGitProjectionChange,
-  ProjectBoardGitProjectionChangeKind,
-  ProjectBoardGitProjectionResolutionDecision,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardGitProjectionChange, ProjectBoardGitProjectionChangeKind, ProjectBoardGitProjectionResolutionDecision, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import {
   PROJECT_BOARD_ARTIFACT_ROOT,
   boardConfigArtifactSchema,

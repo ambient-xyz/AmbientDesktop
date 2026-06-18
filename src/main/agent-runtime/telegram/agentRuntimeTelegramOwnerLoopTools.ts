@@ -1,16 +1,16 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messaging/messagingBindings";
-import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
-import type { TelegramBridgePollingRunner } from "../../telegram/telegramBridgePolling";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import type { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
+import type { TelegramBridgePollingRunner } from "../agentRuntimeTelegramFacade";
 import {
   buildTelegramOwnerLoopActivationPlan,
   telegramOwnerLoopActivationCard,
   telegramOwnerLoopActivationInput,
   telegramOwnerLoopActivationPlanText,
-} from "../../telegram/telegramOwnerLoopActivation";
+} from "../agentRuntimeTelegramFacade";
 
 export interface TelegramOwnerLoopToolRegistrationOptions {
   bindings: MessagingBindingStore;

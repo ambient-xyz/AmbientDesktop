@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type {
-  AmbientPermissionGrant,
-  AutomationScheduleExceptionSummary,
-  AutomationScheduleSummary,
-  PermissionAuditEntry,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowRunDetail,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { AutomationScheduleExceptionSummary, AutomationScheduleSummary } from "../../shared/automationTypes";
+import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/permissionTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/workflowTypes";
 import {
   workflowDiscoveryContextReviewModel,
   workflowReviewActionLabel,

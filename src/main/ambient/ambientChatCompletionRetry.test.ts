@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import { aggressiveAmbientRetryPolicy } from "./aggressiveRetries";
 import {
   ambientChatCompletionTransportTimeoutsFromEnv,
   callAmbientChatCompletionTextWithRetries,

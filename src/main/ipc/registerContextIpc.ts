@@ -1,7 +1,11 @@
 import type { IpcMain } from "electron";
 import { z } from "zod";
 
-import type { CompactThreadInput, ContextUsageSnapshot, RecoverThreadContextInput } from "../../shared/types";
+import type {
+  CompactThreadInput,
+  RecoverThreadContextInput,
+} from "../../shared/desktopTypes";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

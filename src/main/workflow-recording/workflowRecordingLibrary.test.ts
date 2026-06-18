@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
-import type { WorkflowRecordingCapture, WorkflowRecordingPlaybookDraft, WorkflowRecordingSavedPlaybook, WorkflowRecordingState } from "../../shared/types";
+import type { WorkflowRecordingCapture, WorkflowRecordingPlaybookDraft, WorkflowRecordingSavedPlaybook, WorkflowRecordingState } from "../../shared/workflowTypes";
 import {
   WORKFLOW_RECORDING_CALLABLE_INVOCATION_SCHEMA_VERSION,
   WORKFLOW_RECORDING_DIAGNOSTICS_TRACE_SCHEMA_VERSION,

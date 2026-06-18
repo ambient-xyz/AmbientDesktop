@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { DragEvent as ReactDragEvent, ReactNode } from "react";
 
-import type { OrchestrationRun, OrchestrationTask } from "../../shared/types";
+import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import {
   appendLocalTaskBlocker,
   latestRunForTask,

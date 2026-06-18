@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkflowExplorationTraceSummary, WorkflowRevisionSummary } from "../../shared/types";
+import type { WorkflowExplorationTraceSummary, WorkflowRevisionSummary } from "../../shared/workflowTypes";
 import {
   activeDraftWorkflowRevisionForThread,
   decodeWorkflowExplorationSkips,

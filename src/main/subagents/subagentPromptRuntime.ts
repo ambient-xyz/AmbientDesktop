@@ -1,4 +1,4 @@
-import type { SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import type { SubagentForkMode, SubagentPromptMode } from "../../shared/subagentProtocol";
 import type { SubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentToolScopeResolution } from "../../shared/subagentToolScope";

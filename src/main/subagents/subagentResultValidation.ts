@@ -1,10 +1,7 @@
 import {
   validateSubagentResultArtifactForSynthesis,
 } from "../../shared/subagentProtocol";
-import type {
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-} from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   validateSubagentCompletionGuard,
 } from "./subagentCompletionGuard";

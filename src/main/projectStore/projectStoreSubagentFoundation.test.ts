@@ -28,7 +28,7 @@ import {
   deliverQueuedParentToChildMailboxEvents,
 } from "../subagents/subagentMailbox";
 import type { SubagentResultArtifact } from "../../shared/subagentProtocol";
-import type { ModelRuntimeInstalledProvider } from "../../shared/types";
+import type { ModelRuntimeInstalledProvider } from "../../shared/threadTypes";
 
 const roots: string[] = [];
 

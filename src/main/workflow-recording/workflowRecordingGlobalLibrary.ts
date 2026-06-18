@@ -1,9 +1,4 @@
-import type {
-  SearchWorkflowRecordingsInput,
-  WorkflowAgentFolderSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { SearchWorkflowRecordingsInput, WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import { ambientWorkflowCatalogVersion, type AmbientWorkflowsSearchInput, type AmbientWorkflowsSearchResponse } from "../ambient/ambientWorkflows";
 
 export interface WorkflowRecordingLibraryStore {

@@ -1,4 +1,5 @@
-import type { OrchestrationRun, ProjectBoardEvent } from "./types";
+import type { ProjectBoardEvent } from "./projectBoardTypes";
+import type { OrchestrationRun } from "./workflowTypes";
 
 export type ProjectBoardDeliverableFileCategory = "implementation" | "test" | "visual" | "config" | "docs" | "other" | "runtime" | "dependency";
 export type ProjectBoardDeliverableFileSource = "changed_file" | "artifact_file";

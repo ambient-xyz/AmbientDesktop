@@ -5,11 +5,11 @@ import type {
   ProjectBoardCharter,
   ProjectBoardSource,
   ProjectBoardSourceDraftRefreshConfidence,
-  ProjectBoardSourceDraftRefreshSuggestion,
-} from "../../shared/types";
-import { AmbientStreamFailureError, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambient/ambientChatCompletionRetry";
-import { readAmbientApiKey } from "../credentialStore";
+  ProjectBoardSourceDraftRefreshSuggestion
+} from "../../shared/projectBoardTypes";
+import { AmbientStreamFailureError, type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
+import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "./projectBoardAmbientFacade";
+import { readAmbientApiKey } from "../security/credentialStore";
 
 export interface AmbientProjectBoardSourceDraftRefreshTelemetry {
   promptCharCount: number;

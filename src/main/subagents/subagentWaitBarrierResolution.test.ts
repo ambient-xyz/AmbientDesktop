@@ -8,10 +8,7 @@ import {
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { getDefaultSubagentRoleProfile, type SubagentRoleId } from "../../shared/subagentRoles";
-import type {
-  SubagentRunSummary,
-  SubagentWaitBarrierSummary,
-} from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import { subagentStructuredResultTemplate } from "./subagentStructuredOutput";
 import {
   evaluateSubagentWaitBarrierForStore,

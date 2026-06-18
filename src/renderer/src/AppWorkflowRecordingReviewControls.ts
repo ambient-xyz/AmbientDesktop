@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  ThinkingDisplaySettings,
-  ThreadSummary,
-} from "../../shared/types";
+import type { ThinkingDisplaySettings } from "../../shared/desktopTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { shouldShowRunStatusCard } from "./thinkingDisplayUiModel";
 import type { WorkflowRecorderSurfaceModel } from "./workflowRecorderUiModel";
 

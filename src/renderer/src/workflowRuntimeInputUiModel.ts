@@ -1,4 +1,4 @@
-import type { WorkflowRunDetail, WorkflowRunEvent, WorkflowUserInputChoice } from "../../shared/types";
+import type { WorkflowRunDetail, WorkflowRunEvent, WorkflowUserInputChoice } from "../../shared/workflowTypes";
 
 export interface WorkflowRuntimeInputCard {
   id: string;

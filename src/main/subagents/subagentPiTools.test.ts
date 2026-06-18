@@ -20,7 +20,7 @@ import {
   type SymphonyChildLaunchContractBundle,
 } from "../../shared/symphonyFineGrainedContracts";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
-import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/types";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { createAgentRoleRegistry } from "../agent/agentRoleRegistry";
 import {
   buildCallableWorkflowRegistry,

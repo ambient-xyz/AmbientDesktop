@@ -1,7 +1,9 @@
-import type { ChatMessage, DesktopEvent, PermissionMode } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   interruptedToolCallRecoveryThresholdFromEnv,
-} from "../interruptedToolCallRecovery";
+} from "./recovery/interruptedToolCallRecovery";
 import { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 import type { RuntimeTextOutputState } from "./runtimeTextOutputState";
 import {

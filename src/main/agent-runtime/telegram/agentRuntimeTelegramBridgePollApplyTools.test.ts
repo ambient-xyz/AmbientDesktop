@@ -10,9 +10,9 @@ import {
 import {
   createTelegramBridgePollResolvers,
 } from "./agentRuntimeTelegramBridgePollPlan";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
 

@@ -1,5 +1,5 @@
 import { projectBoardSynthesisOutputCapRecovery } from "../../shared/projectBoardSynthesisRecovery";
-import type { ProjectBoardSynthesisRun } from "../../shared/types";
+import type { ProjectBoardSynthesisRun } from "../../shared/projectBoardTypes";
 import type { ProposalJsonlRecordArtifact } from "./projectBoardArtifacts";
 
 export interface ProjectBoardPlannerBatchContinuation {

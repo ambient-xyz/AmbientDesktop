@@ -1,6 +1,7 @@
 import type { IpcMain } from "electron";
 import { z } from "zod";
 
+import type { PermissionMode } from "../../shared/permissionTypes";
 import type {
   CancelOrchestrationRunInput,
   CreateOrchestrationTaskInput,
@@ -8,16 +9,15 @@ import type {
   OrchestrationBoard,
   OrchestrationPrepareResult,
   OrchestrationWorkflowReadiness,
-  PermissionMode,
   RepairOrchestrationWorkflowInput,
-  RevealOrchestrationWorkspaceInput,
   ResolveOrchestrationWorkflowImpactInput,
+  RevealOrchestrationWorkspaceInput,
   SetOrchestrationAutoDispatchInput,
   StartOrchestrationRunInput,
   UpdateOrchestrationTaskInput,
   UpdateOrchestrationWorkflowRawInput,
   UpdateOrchestrationWorkflowSettingsInput,
-} from "../../shared/types";
+} from "../../shared/workflowTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

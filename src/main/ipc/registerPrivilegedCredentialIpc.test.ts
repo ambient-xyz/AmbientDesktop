@@ -1,7 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { PrivilegedCredentialPromptResponseInput } from "../../shared/types";
+import type { PrivilegedCredentialPromptResponseInput } from "../../shared/permissionTypes";
 import {
   privilegedCredentialRespondIpcChannels,
   registerPrivilegedCredentialRespondIpc,

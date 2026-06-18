@@ -14,9 +14,10 @@ import {
   SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
   SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
 } from "../../shared/symphonyFineGrainedContracts";
-import type { SubagentRunSummary, ThreadSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { createDefaultAgentRoleRegistry } from "../agent/agentRoleRegistry";
-import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
+import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
 import {
   resolveSubagentSpawnPreRunPlan,
   SUBAGENT_SPAWN_PRE_RUN_PLANNER_SCHEMA_VERSION,

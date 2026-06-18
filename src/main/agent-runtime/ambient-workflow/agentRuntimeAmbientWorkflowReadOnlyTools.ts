@@ -9,17 +9,17 @@ import {
   type AmbientWorkflowsDescribeInput,
   type AmbientWorkflowsSearchInput,
   type AmbientWorkflowsSearchResponse,
-} from "../../ambient/ambientWorkflows";
+} from "../agentRuntimeAmbientFacade";
 import {
   buildCallableWorkflowRegistry,
   type CallableWorkflowCatalogEntry,
   type CallableWorkflowCatalogStatus,
 } from "../../callable-workflow/callableWorkflowRegistry";
-import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import type { ProjectStore } from "../../projectStore/projectStore";
 import { resolveAmbientFeatureFlags, type AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
-import type { WorkflowRecordingLibraryDescription } from "../../../shared/types";
+import type { WorkflowRecordingLibraryDescription } from "../../../shared/workflowTypes";
 
 interface AmbientWorkflowReadOnlyServices {
   search?: (input: AmbientWorkflowsSearchInput) => Promise<AmbientWorkflowsSearchResponse> | AmbientWorkflowsSearchResponse;

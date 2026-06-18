@@ -7,7 +7,7 @@ import type {
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   buildSubagentApprovalRequestBridgeDraft,
   buildSubagentApprovalResponseBridgeDraft,

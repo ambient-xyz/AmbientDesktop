@@ -1,5 +1,5 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
-import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import { workflowNativeToolDescriptors } from "../workflow/workflowNativeTools";
 import { projectBoardNativeTaskToolDefinitions } from "../project-board/projectBoardTaskTools";
 import { normalizeToolArgumentsForTool } from "../tool-runtime/toolArgumentNormalization";

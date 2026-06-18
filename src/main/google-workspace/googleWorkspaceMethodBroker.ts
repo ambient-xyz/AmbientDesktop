@@ -3,24 +3,7 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
-import type {
-  GoogleWorkspaceCallInput,
-  GoogleWorkspaceCallResult,
-  GoogleWorkspaceDriveFileContentWriteResult,
-  GoogleWorkspaceGmailDraftAttachmentSummary,
-  GoogleWorkspaceGmailDraftInput,
-  GoogleWorkspaceGmailDraftWriteResult,
-  GoogleWorkspaceManagedFileResult,
-  GoogleWorkspaceMaterializeFileInput,
-  GoogleWorkspaceMaterializeFileResult,
-  GoogleWorkspaceDescribeMethodInput,
-  GoogleWorkspaceMethodParameterSummary,
-  GoogleWorkspaceMethodRequestBodySummary,
-  GoogleWorkspaceMethodSideEffect,
-  GoogleWorkspaceMethodSummary,
-  GoogleWorkspaceSearchMethodsInput,
-  GoogleWorkspaceSearchMethodsResult,
-} from "../../shared/types";
+import type { GoogleWorkspaceCallInput, GoogleWorkspaceCallResult, GoogleWorkspaceDescribeMethodInput, GoogleWorkspaceDriveFileContentWriteResult, GoogleWorkspaceGmailDraftAttachmentSummary, GoogleWorkspaceGmailDraftInput, GoogleWorkspaceGmailDraftWriteResult, GoogleWorkspaceManagedFileResult, GoogleWorkspaceMaterializeFileInput, GoogleWorkspaceMaterializeFileResult, GoogleWorkspaceMethodParameterSummary, GoogleWorkspaceMethodRequestBodySummary, GoogleWorkspaceMethodSideEffect, GoogleWorkspaceMethodSummary, GoogleWorkspaceSearchMethodsInput, GoogleWorkspaceSearchMethodsResult } from "../../shared/pluginTypes";
 import type { GoogleWorkspaceCliAdapter } from "./googleWorkspaceCliAdapter";
 import {
   GOOGLE_WORKSPACE_GENERATED_METHOD_CATALOG,

@@ -7,7 +7,7 @@ import type {
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   SUBAGENT_APPROVAL_RESPONSE_MAILBOX_TYPE,
   SUBAGENT_CHILD_APPROVAL_REQUEST_MAILBOX_TYPE,

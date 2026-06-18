@@ -1,18 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type {
-  ProjectBoardCard,
-  ProjectBoardEvent,
-  ProjectBoardExecutionArtifact,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardPmReviewReport,
-  ProjectBoardPlanningSnapshot,
-  ProjectBoardSource,
-  ProjectBoardSynthesisRun,
-  ProjectBoardSummary,
-  ProjectSummary,
-  OrchestrationRun,
-  OrchestrationTask,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardExecutionArtifact, ProjectBoardGitSyncStatus, ProjectBoardPlanningSnapshot, ProjectBoardPmReviewReport, ProjectBoardSource, ProjectBoardSummary, ProjectBoardSynthesisRun, ProjectSummary } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import {
   projectBoardActionState,
   projectBoardActiveCardDetail,
@@ -788,7 +776,7 @@ describe("projectBoardUiModel", () => {
   it("does not score a simple Hangman request from unrelated repository background", () => {
     const estimate = projectBoardComplexityEstimate(
       boardSummary({
-        title: "ambientCoder board",
+        title: "AmbientDesktop board",
         summary: "Kickoff is ready.",
         questions: [
           {

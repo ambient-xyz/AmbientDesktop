@@ -1,4 +1,4 @@
-import type { WorkflowGraphEdge, WorkflowGraphNode, WorkflowGraphSnapshot, WorkflowManifest } from "./types";
+import type { WorkflowGraphEdge, WorkflowGraphNode, WorkflowGraphSnapshot, WorkflowManifest } from "./workflowTypes";
 
 export interface WorkflowFieldChange {
   field: string;

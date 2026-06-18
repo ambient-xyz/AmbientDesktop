@@ -1,4 +1,4 @@
-import type { WorkflowAgentThreadSummary } from "./types";
+import type { WorkflowAgentThreadSummary } from "./workflowTypes";
 
 export type WorkflowPlanEditIntentKind =
   | "question"

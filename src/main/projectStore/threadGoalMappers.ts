@@ -1,7 +1,4 @@
-import type {
-  ThreadGoal,
-  ThreadGoalStatus,
-} from "../../shared/types";
+import type { ThreadGoal, ThreadGoalStatus } from "../../shared/threadTypes";
 
 export const THREAD_GOAL_STATUSES: readonly ThreadGoalStatus[] = [
   "active",

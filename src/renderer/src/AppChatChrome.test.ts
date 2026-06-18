@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BrowserUserActionState } from "../../shared/types";
+import type { BrowserUserActionState } from "../../shared/browserTypes";
 import { chatBrowserUserActionForThread, voiceThreadStatusDismissKey } from "./AppChatChrome";
 import type { voiceThreadStatusModel } from "./voiceUiModel";
 

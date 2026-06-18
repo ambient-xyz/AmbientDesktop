@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage, SttProviderCandidate, SttProviderSetupResult, SttSettings, SttTranscriptionState } from "../../shared/types";
+import type { SttProviderCandidate, SttProviderSetupResult, SttSettings, SttTranscriptionState } from "../../shared/localRuntimeTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   queuedSpeechFollowUpCount,
   sttDiagnosticsModel,

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  InterruptedToolCallRecoverySnapshot,
-  ToolArgumentProgressSnapshot,
-  ToolIntentSnapshot,
-} from "../../shared/types";
+import type { InterruptedToolCallRecoverySnapshot, ToolArgumentProgressSnapshot, ToolIntentSnapshot } from "../../shared/threadTypes";
 import type { ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import {
   createRuntimeProviderContinuationState,

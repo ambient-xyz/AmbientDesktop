@@ -1,11 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../shared/types";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/permissionTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   capabilityBuilderRegisterText,
   previewCapabilityBuilderPackage,
@@ -15,8 +12,8 @@ import {
   type CapabilityBuilderRegisterInput,
   type CapabilityBuilderRegisterResult,
 } from "./capabilityBuilder";
-import { pluginInstallToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 
 type ToolUpdateHandler = (update: {
   content: Array<{ type: "text"; text: string }>;

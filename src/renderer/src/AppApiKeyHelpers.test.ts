@@ -5,7 +5,7 @@ import {
   looksLikeApiKey,
 } from "./AppApiKeyHelpers";
 
-import type { ProviderStatus } from "../../shared/types";
+import type { ProviderStatus } from "../../shared/desktopTypes";
 
 describe("API key dialog helpers", () => {
   it("reports the initial API key status for saved and environment-backed providers", () => {

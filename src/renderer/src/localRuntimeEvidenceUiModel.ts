@@ -1,7 +1,4 @@
-import type {
-  DiagnosticExportLocalRuntimeEvidence,
-  DiagnosticExportLocalRuntimeSummary,
-} from "../../shared/types";
+import type { DiagnosticExportLocalRuntimeEvidence, DiagnosticExportLocalRuntimeSummary } from "../../shared/diagnosticTypes";
 
 export interface LocalRuntimeEvidenceInspectorModel {
   statusLabel: string;

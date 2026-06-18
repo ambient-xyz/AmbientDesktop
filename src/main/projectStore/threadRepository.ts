@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/types";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import type { CreateThreadOptions, ThreadWorktreeInput } from "./projectStoreFacadeHelpers";
 import {

@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
 import { connectorOperationDescriptor, type WorkflowProgramDiagnostic } from "./workflowProgramCapabilityResolver";
 import type { WorkflowProgramLoweredOperationPlan } from "./workflowProgramLowering";

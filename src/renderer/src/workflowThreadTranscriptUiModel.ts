@@ -1,17 +1,5 @@
-import type {
-  ChatMessage,
-  RuntimeActivity,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowCompileProgress,
-  WorkflowDiscoveryQuestion,
-  WorkflowExplorationProgress,
-  WorkflowExplorationTraceSummary,
-  WorkflowNativeToolName,
-  WorkflowRevisionSummary,
-  WorkflowRunDetail,
-  WorkflowRunEvent,
-} from "../../shared/types";
+import type { ChatMessage, RuntimeActivity } from "../../shared/threadTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowDiscoveryQuestion, WorkflowExplorationProgress, WorkflowExplorationTraceSummary, WorkflowNativeToolName, WorkflowRevisionSummary, WorkflowRunDetail, WorkflowRunEvent } from "../../shared/workflowTypes";
 import type { WorkflowArtifactPanelId } from "./workflowArtifactPanelUiModel";
 import { workflowCompileActivityModel } from "./workflowCompileActivityUiModel";
 import { workflowExplorationProgressCard, workflowExplorationTraceCards } from "./workflowExplorationUiModel";

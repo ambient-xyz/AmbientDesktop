@@ -1,7 +1,4 @@
-import type {
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-} from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import { isSubagentTerminalStatus } from "../agent-runtime/subagents/agentRuntimeSubagentRuntimeHelpers";
 
 export const SUBAGENT_RESULT_REPAIR_STATE_SCHEMA_VERSION =

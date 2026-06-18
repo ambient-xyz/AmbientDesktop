@@ -1,4 +1,4 @@
-import type { ProjectBoardCardTestPlan } from "../../shared/types";
+import type { ProjectBoardCardTestPlan } from "../../shared/projectBoardTypes";
 import { validateProposalJsonlRecordArtifact, type ProposalJsonlRecordArtifact } from "./projectBoardArtifacts";
 
 export interface ProjectBoardProofScopeCandidate {

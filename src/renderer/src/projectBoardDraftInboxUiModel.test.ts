@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectBoardCard, ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import {
   projectBoardDraftColumnMoveState,
   projectBoardDraftColumns,

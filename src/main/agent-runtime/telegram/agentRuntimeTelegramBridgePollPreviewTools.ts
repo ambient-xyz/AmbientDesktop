@@ -1,11 +1,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   telegramBridgePollPlanText,
   type TelegramBridgePollPlan,
-} from "../../telegram/telegramBridgePolling";
+} from "../agentRuntimeTelegramFacade";
 
 export interface TelegramBridgePollPreviewToolRegistrationOptions {
   planForParams: (params: unknown) => TelegramBridgePollPlan;

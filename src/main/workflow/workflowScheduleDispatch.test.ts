@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ProjectStore } from "../projectStore/projectStore";
 import { runDueWorkflowArtifactSchedules, workflowArtifactScheduleBlockReason, workflowScheduleRunStartedEventData } from "./workflowScheduleDispatch";
-import type { PermissionAuditEntry, WorkflowManifest } from "../../shared/types";
+import type { PermissionAuditEntry } from "../../shared/permissionTypes"; import type { WorkflowManifest } from "../../shared/workflowTypes";
 import { workflowThreadScheduleState } from "../../renderer/src/workflowReviewUiModel";
 import { permissionGrantTargetHash } from "../permissions/permissionGrants";
 

@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { AmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { buildPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
-import type {
-  CallableWorkflowTaskSummary,
-  SubagentParentMailboxEventSummary,
-  SubagentRunSummary,
-  SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../shared/types";
+import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import { subagentParentClusterModelsByMessageId } from "./subagentParentClusterUiModel";
 
 describe("subagent parent cluster UI model", () => {
@@ -1094,6 +1090,65 @@ describe("subagent parent cluster UI model", () => {
           ],
           detail: "Child wait timed out before producing a synthesis-safe result. | Choices: Continue with partial, Retry child, Detach child, Cancel parent run",
         },
+      ],
+    });
+  });
+
+  it("surfaces Symphony decision request labels on wait-barrier attention cards", () => {
+    const clusters = subagentParentClusterModelsByMessageId(
+      [],
+      [],
+      [],
+      [parentMailboxEvent({
+        type: "subagent.wait_barrier_attention",
+        payload: {
+          schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
+          childRunId: "run-1",
+          childThreadId: "child-1",
+          canonicalTaskPath: "root/0:researcher",
+          waitBarrierId: "barrier-1",
+          dependencyMode: "required_all",
+          barrierStatus: "failed",
+          failurePolicy: "degrade_partial",
+          reason: "Child needs a scope decision before retry.",
+          parentResolution: {
+            schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
+            action: "ask_user",
+            status: "blocked",
+          },
+          childDecisionRequest: {
+            schemaVersion: "ambient-symphony-child-decision-request-v1",
+            requestId: "decision-1",
+            barrierId: "barrier-1",
+            parentRunId: "parent-run",
+            childRunIds: ["run-1"],
+            reason: "tool_scope_denied",
+            options: ["grant_scope", "retry_child", "accept_partial", "cancel_group", "exit_symphony_mode"],
+            recommendedOption: "grant_scope",
+            evidenceRefs: ["wait-barrier:barrier-1", "subagent-run:run-1"],
+          },
+          allowedUserChoices: [
+            { id: "retry_child", label: "Retry child", toolAction: "resolve_barrier", decision: "retry_child" },
+          ],
+        },
+      })],
+    );
+
+    expect(clusters.get("message-1")?.mailboxActivities[0]).toMatchObject({
+      label: "Barrier attention",
+      detail: expect.stringContaining("Symphony options: Grant or re-scope child authority (recommended), Retry child, Accept partial, Cancel group, Exit Symphony"),
+      actionLabels: [
+        "Retry child",
+        "Grant or re-scope child authority (recommended)",
+        "Accept partial",
+        "Cancel group",
+        "Exit Symphony",
+      ],
+      actions: [
+        expect.objectContaining({
+          label: "Retry child",
+          decision: "retry_child",
+        }),
       ],
     });
   });

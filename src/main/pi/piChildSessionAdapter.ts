@@ -10,14 +10,8 @@ import type { resolveSubagentToolScope } from "../../shared/subagentToolScope";
 import type { SubagentApprovalDecision, SubagentApprovalRequestInput, SubagentApprovalScope } from "../subagents/subagentApprovalBridge";
 import type { SubagentSupervisorRequestInput } from "../subagents/subagentSupervisorRequest";
 import type { SubagentTurnBudgetPolicy } from "../../shared/subagentTurnBudget";
-import type {
-  SubagentMailboxEventSummary,
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-  SubagentToolScopeSnapshotSummary,
-  ThreadSummary,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+import type { SubagentMailboxEventSummary, SubagentRunEventSummary, SubagentRunSummary, SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 
 export const PI_CHILD_SESSION_ADAPTER_SCHEMA_VERSION = "ambient-pi-child-session-adapter-v1" as const;
 

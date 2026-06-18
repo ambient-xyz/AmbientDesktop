@@ -1,10 +1,4 @@
-import type {
-  WorkflowCheckpointSummary,
-  WorkflowGraphNode,
-  WorkflowManifest,
-  WorkflowModelCallRecord,
-  WorkflowRunEvent,
-} from "../../shared/types";
+import type { WorkflowCheckpointSummary, WorkflowGraphNode, WorkflowManifest, WorkflowModelCallRecord, WorkflowRunEvent } from "../../shared/workflowTypes";
 import { workflowTraceRetentionReviewModel } from "./workflowTraceRetentionUiModel";
 
 export type WorkflowGraphNodeReviewTone = "ready" | "review" | "blocked" | "neutral";

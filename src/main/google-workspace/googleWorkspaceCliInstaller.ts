@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { GoogleWorkspaceCliInstallState } from "../../shared/types";
+import type { GoogleWorkspaceCliInstallState } from "../../shared/pluginTypes";
 
 type FetchLike = (url: string) => Promise<{
   ok: boolean;

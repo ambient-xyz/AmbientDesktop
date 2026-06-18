@@ -1,4 +1,4 @@
-import type { DiagnosticExportResult } from "../../shared/types";
+import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG } from "../../shared/featureFlags";
 
 export function diagnosticExportStatusMessage(

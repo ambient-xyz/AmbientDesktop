@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SttProviderCandidate, SttSettings, SttTranscriptionState } from "../../shared/types";
+import type { SttProviderCandidate, SttSettings, SttTranscriptionState } from "../../shared/localRuntimeTypes";
 import {
   buildSttStatus,
   planSttPolicyUpdate,

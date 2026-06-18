@@ -1,7 +1,7 @@
 import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "./subagentWaitBarrierEvaluation";
 import { previewSubagentSpawnText } from "./subagentSpawnFailure";
 

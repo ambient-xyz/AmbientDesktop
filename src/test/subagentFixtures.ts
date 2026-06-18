@@ -9,17 +9,8 @@ import {
   type SubagentRuntimeEvent,
 } from "../shared/subagentProtocol";
 import { getDefaultSubagentRoleProfile, type SubagentRoleId } from "../shared/subagentRoles";
-import type {
-  ChatMessage,
-  SubagentRepairIssueKind,
-  SubagentParentMailboxEventSummary,
-  SubagentRestartReconciliationSummary,
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-  SubagentSpawnEdgeSummary,
-  SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../shared/types";
+import type { SubagentParentMailboxEventSummary, SubagentRepairIssueKind, SubagentRestartReconciliationSummary, SubagentRunEventSummary, SubagentRunSummary, SubagentSpawnEdgeSummary, SubagentWaitBarrierSummary } from "../shared/subagentTypes";
+import type { ChatMessage, ThreadSummary } from "../shared/threadTypes";
 
 export const SUBAGENT_FIXTURE_NOW = "2026-06-05T00:00:00.000Z";
 export const SUBAGENT_FIXTURE_WORKSPACE = "/tmp/ambient-subagent-fixture";

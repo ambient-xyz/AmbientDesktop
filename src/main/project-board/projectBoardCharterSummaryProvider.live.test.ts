@@ -4,9 +4,9 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "./projectBoardAmbientFacade";
 import { AmbientProjectBoardCharterSummaryProvider } from "./projectBoardCharterSummaryProvider";
-import type { ProjectBoardCharter, ProjectBoardCharterProjectSummary, ProjectBoardSource } from "../../shared/types";
+import type { ProjectBoardCharter, ProjectBoardCharterProjectSummary, ProjectBoardSource } from "../../shared/projectBoardTypes";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_CHARTER_SUMMARY_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

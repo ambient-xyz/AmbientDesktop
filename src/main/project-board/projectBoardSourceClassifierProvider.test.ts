@@ -6,8 +6,8 @@ import {
   parseProjectBoardSourceClassificationJson,
   type AmbientProjectBoardSourceClassificationProgress,
 } from "./projectBoardSourceClassifierProvider";
-import type { ProjectBoardSource } from "../../shared/types";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import type { ProjectBoardSource } from "../../shared/projectBoardTypes";
+import { aggressiveAmbientRetryPolicy } from "./projectBoardAmbientFacade";
 
 describe("AmbientProjectBoardSourceClassifierProvider", () => {
   it("calls Ambient chat completions and normalizes source classifications", async () => {

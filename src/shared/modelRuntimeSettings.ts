@@ -1,10 +1,5 @@
-import type {
-  AmbientModelRuntimeProfile,
-  AmbientProviderDescriptor,
-  ModelRuntimeInstalledProvider,
-  ModelRuntimeInstalledProviderSecretRef,
-  ModelRuntimeSettings,
-} from "./types";
+import type { AmbientModelRuntimeProfile, AmbientProviderDescriptor } from "./ambientModels";
+import type { ModelRuntimeInstalledProvider, ModelRuntimeInstalledProviderSecretRef, ModelRuntimeSettings } from "./threadTypes";
 import type {
   ModelProviderCapabilityDiagnostic,
   ModelProviderCapabilityEligibility,

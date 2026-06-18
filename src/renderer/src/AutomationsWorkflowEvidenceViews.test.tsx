@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { AmbientPluginRegistry, WorkflowConnectorManifestGrant, WorkflowModelCallRecord, WorkflowRunEvent } from "../../shared/types";
+import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
+import type { WorkflowConnectorManifestGrant, WorkflowModelCallRecord, WorkflowRunEvent } from "../../shared/workflowTypes";
 import {
   WorkflowConnectorGrantList,
   WorkflowEventList,

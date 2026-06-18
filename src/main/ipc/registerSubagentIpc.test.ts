@@ -10,7 +10,7 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierResolutionResult,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   registerSubagentApprovalIpc,
   subagentApprovalIpcChannels,

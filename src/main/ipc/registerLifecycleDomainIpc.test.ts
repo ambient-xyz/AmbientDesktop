@@ -1,7 +1,11 @@
 import type { IpcMain, IpcMainInvokeEvent, OpenDialogOptions } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DesktopState, DesktopUpdateState, ThreadGoal } from "../../shared/types";
+import type {
+  DesktopState,
+  DesktopUpdateState,
+} from "../../shared/desktopTypes";
+import type { ThreadGoal } from "../../shared/threadTypes";
 import {
   registerLifecycleDomainIpc,
   lifecycleDomainIpcChannels,

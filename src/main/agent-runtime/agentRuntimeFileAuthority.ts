@@ -2,7 +2,8 @@ import { existsSync, statSync } from "node:fs";
 import { dirname, isAbsolute } from "node:path";
 
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
-import type { AmbientPermissionGrant, PermissionRequest, ThreadSummary } from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionRequest } from "../../shared/permissionTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { enrichPermissionRequest } from "../permissions/permissionGrants";
 
 export type FileAuthorityAccess = "read" | "write";

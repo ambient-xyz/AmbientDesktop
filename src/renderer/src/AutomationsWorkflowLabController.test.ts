@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkflowLabRun, WorkflowRecordingLibraryEntry } from "../../shared/types";
+import type { WorkflowLabRun, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import {
   workflowLabCompletionStatus,
   workflowLabCreateRunInput,

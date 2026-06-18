@@ -1,18 +1,11 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
-import type {
-  CollaborationMode,
-  DesktopState,
-  MessageDelivery,
-  RunStatus,
-  LocalDeepResearchRunBudget,
-  SendMessageComposerIntent,
-  SlashCommandSelection,
-  ThreadGoal,
-  ThreadSummary,
-  WorkflowRecordingEditContext,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { DesktopState, SendMessageComposerIntent } from "../../shared/desktopTypes";
+import type { LocalDeepResearchRunBudget } from "../../shared/localRuntimeTypes";
+import type { SlashCommandSelection } from "../../shared/slashCommandTypes";
+import type { CollaborationMode, MessageDelivery, RunStatus, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
+import type { WorkflowRecordingEditContext } from "../../shared/workflowTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { resolveMessageDelivery } from "../../shared/messageDelivery";
 import {
   parseCollaborationSlashCommand,

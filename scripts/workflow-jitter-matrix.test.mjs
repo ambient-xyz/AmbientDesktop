@@ -103,9 +103,9 @@ describe("workflow jitter matrix", () => {
         env: {},
         repoRoot: "/tmp/ambient-plan-slice",
         homeDir: "/Users/tester",
-        existsSync: (candidate) => candidate === "/Users/tester/Documents/ambientCoder/gmicloud-api-key.txt",
+        existsSync: (candidate) => candidate === "/Users/tester/Documents/AmbientDesktop/gmicloud-api-key.txt",
       }),
-    ).toBe("/Users/tester/Documents/ambientCoder/gmicloud-api-key.txt");
+    ).toBe("/Users/tester/Documents/AmbientDesktop/gmicloud-api-key.txt");
 
     expect(
       resolveGmiCloudKeyFileForChildEnv({

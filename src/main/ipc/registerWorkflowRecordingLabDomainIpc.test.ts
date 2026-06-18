@@ -2,14 +2,14 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ModelRuntimeSettings } from "../../shared/threadTypes";
 import type {
-  DesktopState,
-  ModelRuntimeSettings,
   WorkflowLabRun,
   WorkflowRecordingLibraryDescription,
   WorkflowRecordingLibraryEntry,
   WorkflowRecordingReviewDraftUpdate,
-} from "../../shared/types";
+} from "../../shared/workflowTypes";
 import {
   workflowLabIpcChannels,
   workflowRecorderIpcChannels,

@@ -1,11 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  ProviderCatalogSettingsCard,
-  RunStatus,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { RunStatus } from "../../shared/threadTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import type { VoiceOnboardingHostFacts } from "../../shared/localRuntimeTypes";
 import {
   buildFirstRunCapabilityOnboardingPrompt,

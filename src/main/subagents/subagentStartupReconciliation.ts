@@ -1,13 +1,13 @@
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { CallableWorkflowTaskRestartReconciliationSummary } from "../../shared/workflowTypes";
 import type {
-  AmbientFeatureFlagSnapshot,
-  CallableWorkflowTaskRestartReconciliationSummary,
   SubagentRestartReconciliationSummary,
   SubagentParentMailboxEventSummary,
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { isAmbientSubagentsEnabled } from "../../shared/featureFlags";
 import { subagentLifecycleEventType } from "./subagentLifecycleHooks";
 

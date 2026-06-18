@@ -4,9 +4,9 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "./projectBoardAmbientFacade";
 import { AmbientProjectBoardProofSuggestionProvider } from "./projectBoardProofSuggestionProvider";
-import type { ProjectBoardCard } from "../../shared/types";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_PROOF_SUGGESTION_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

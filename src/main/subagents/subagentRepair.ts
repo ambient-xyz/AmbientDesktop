@@ -3,6 +3,8 @@ import type {
   CallableWorkflowTaskRestartDiagnosticsReport,
   CallableWorkflowTaskRestartIssue,
   CallableWorkflowTaskRestartReconciliationSummary,
+} from "../../shared/workflowTypes";
+import type {
   SubagentRepairDiagnosticAction,
   SubagentRepairDiagnosticItem,
   SubagentRepairDiagnosticsReport,
@@ -14,8 +16,8 @@ import type {
   SubagentSpawnEdgeSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { isAmbientSubagentsEnabled } from "../../shared/featureFlags";
 import { isSubagentCapacityLeaseSnapshot } from "../../shared/subagentCapacity";
 import { validateSubagentResultArtifactForSynthesis, type SubagentResultArtifact } from "../../shared/subagentProtocol";

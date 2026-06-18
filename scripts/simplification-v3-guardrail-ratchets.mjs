@@ -23,6 +23,7 @@ export function buildGuardrailSnapshot(options = {}) {
   const sharedTypesImporters = [...(importersByTarget.get("src/shared/types.ts") ?? new Set())].sort();
   const importCycles = findImportCycles(importGraph);
   const importBoundaryEdges = findImportBoundaryEdges(importGraph);
+  const hardBoundaryViolations = findHardBoundaryViolations(importBoundaryEdges);
   const largeFileLineCeilings = Object.fromEntries(
     complexityReport.topFiles
       .filter((entry) => entry.lines >= LARGE_FILE_LINE_THRESHOLD)
@@ -45,6 +46,7 @@ export function buildGuardrailSnapshot(options = {}) {
       sharedTypesImporters: sharedTypesImporters.length,
       importCycles: importCycles.length,
       importBoundaryEdges: importBoundaryEdges.length,
+      hardBoundaryViolations: hardBoundaryViolations.length,
       largeFiles: Object.keys(largeFileLineCeilings).length,
     },
     localTooling: {
@@ -67,6 +69,7 @@ export function buildGuardrailSnapshot(options = {}) {
     sharedTypesImporters,
     importCycles,
     importBoundaryEdges,
+    hardBoundaryViolations,
     largeFileLineCeilings,
     exceptions: {
       flatMainFiles: {},
@@ -127,6 +130,13 @@ export function compareGuardrailSnapshots(current, baseline) {
   );
   if (newImportBoundaryEdges.length) {
     issues.push(`import-boundaries: ${newImportBoundaryEdges.length} new boundary imports: ${newImportBoundaryEdges.join(" | ")}`);
+  }
+
+  const hardBoundaryViolations = current.hardBoundaryViolations ?? findHardBoundaryViolations(current.importBoundaryEdges ?? []);
+  if (hardBoundaryViolations.length) {
+    issues.push(
+      `hard-boundaries: ${hardBoundaryViolations.length} production main/renderer imports: ${hardBoundaryViolations.join(" | ")}`,
+    );
   }
 
   for (const [file, lines] of Object.entries(current.largeFileLineCeilings ?? {})) {
@@ -190,6 +200,7 @@ export function renderGuardrailSnapshotMarkdown(snapshot, comparison) {
     `| shared/types importers | ${formatNumber(snapshot.metrics.sharedTypesImporters)} |`,
     `| relative import cycles | ${formatNumber(snapshot.metrics.importCycles)} |`,
     `| import-boundary edges | ${formatNumber(snapshot.metrics.importBoundaryEdges)} |`,
+    `| hard boundary violations | ${formatNumber(snapshot.metrics.hardBoundaryViolations ?? 0)} |`,
     `| files at/above ${formatNumber(snapshot.largeFileLineThreshold)} lines | ${formatNumber(snapshot.metrics.largeFiles)} |`,
     `| lint errors / warnings | ${formatNumber(snapshot.lint.totalErrors)} / ${formatNumber(snapshot.lint.totalWarnings)} |`,
     "",
@@ -321,6 +332,20 @@ function findImportBoundaryEdges(importGraph) {
   return [...edges].sort();
 }
 
+function findHardBoundaryViolations(importBoundaryEdges) {
+  return importBoundaryEdges.map(hardBoundaryViolationForEdge).filter(Boolean).sort();
+}
+
+function hardBoundaryViolationForEdge(edge) {
+  const crossLayerMatch = /^(main-to-renderer|renderer-to-main):(.+)->(.+)$/.exec(edge);
+  if (!crossLayerMatch) return undefined;
+
+  const [, kind, importer, target] = crossLayerMatch;
+  if (isTestFile(importer)) return undefined;
+
+  return `${kind}:${importer}->${target}`;
+}
+
 export function classifyImportBoundaryEdge(importer, target) {
   const importerMainOwner = mainOwnerDirectory(importer);
   const targetMainOwner = mainOwnerDirectory(target);
@@ -345,6 +370,10 @@ export function classifyImportBoundaryEdge(importer, target) {
 
 function mainOwnerDirectory(file) {
   return /^src\/main\/([^/]+)\//.exec(file)?.[1];
+}
+
+function isTestFile(file) {
+  return /(?:^|\/)[^/]+\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file);
 }
 
 function canonicalCycle(cycle) {

@@ -21,20 +21,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type {
-  ApplyProjectBoardDecisionImpactFeedbackInput,
-  ProjectBoardCard,
-  ProjectBoardSynthesisProposal,
-  ProjectBoardSynthesisProposalCardReviewStatus,
-  ProjectBoardSynthesisRun,
-  ProjectSummary,
-  RefreshProjectBoardDecisionDraftsInput,
-  RefineProjectBoardSynthesisInput,
-  RegenerateProjectBoardDecisionDraftsInput,
-  RetryProjectBoardSynthesisInput,
-  SuggestProjectBoardClarificationDefaultsInput,
-  UpdateProjectBoardCardInput,
-} from "../../shared/types";
+import type { ApplyProjectBoardDecisionImpactFeedbackInput, ProjectBoardCard, ProjectBoardSynthesisProposal, ProjectBoardSynthesisProposalCardReviewStatus, ProjectBoardSynthesisRun, ProjectSummary, RefineProjectBoardSynthesisInput, RefreshProjectBoardDecisionDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RetryProjectBoardSynthesisInput, SuggestProjectBoardClarificationDefaultsInput, UpdateProjectBoardCardInput } from "../../shared/projectBoardTypes";
 import {
   projectBoardRunBlocksPlanning,
   projectBoardRunIsKickoffDefaults,

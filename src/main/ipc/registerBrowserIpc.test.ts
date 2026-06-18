@@ -3,16 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 
 import type {
   BrowserCapabilityState,
-  BrowserPageContent,
   BrowserCredentialSummary,
   BrowserKeypressResult,
   BrowserLocalPreviewSession,
+  BrowserPageContent,
   BrowserPickResult,
   BrowserRevealResult,
   BrowserScreenshotResult,
   BrowserSearchResult,
   SaveBrowserCredentialInput,
-} from "../../shared/types";
+} from "../../shared/browserTypes";
 import {
   browserContentIpcChannels,
   browserCredentialIpcChannels,

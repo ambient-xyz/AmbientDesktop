@@ -86,7 +86,7 @@ export function buildAgentMemoryRolloutReviewReport(
     liveSmoke,
     evidenceRefs: [
       input.liveSmokeReportPath,
-      "src/main/tencentMemoryLiveSmoke.live.test.ts",
+      "src/main/memory/tencentdb/tencentMemoryLiveSmoke.live.test.ts",
       "src/main/memory/tencentdb/runtime.test.ts",
       "src/main/memory/tencentdb/piExtension.test.ts",
       privacyLanguageReviewed ? "src/shared/agentMemoryPrivacy.ts" : undefined,

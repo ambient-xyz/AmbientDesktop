@@ -2,16 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import type {
-  AmbientPluginAuthAccountSummary,
-  GoogleWorkspaceOAuthClientImportInput,
-  GoogleWorkspaceSetupCommand,
-  GoogleWorkspaceSetupInput,
-  GoogleWorkspaceSetupState,
-  GoogleWorkspaceAccountIdentity,
-  GoogleWorkspaceValidationCheck,
-  GoogleWorkspaceValidationResult,
-} from "../../shared/types";
+import type { AmbientPluginAuthAccountSummary, GoogleWorkspaceAccountIdentity, GoogleWorkspaceOAuthClientImportInput, GoogleWorkspaceSetupCommand, GoogleWorkspaceSetupInput, GoogleWorkspaceSetupState, GoogleWorkspaceValidationCheck, GoogleWorkspaceValidationResult } from "../../shared/pluginTypes";
 import { redactString } from "../diagnostics/diagnostics";
 import {
   GOOGLE_WORKSPACE_CLI_OAUTH_SCOPES,

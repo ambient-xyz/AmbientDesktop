@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { DiagnosticExportResult } from "../../shared/types";
+import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
 import { diagnosticExportStatusMessage, diagnosticImportStatusMessage } from "./diagnosticExportUiModel";
 import {
   decodeDiagnosticExportHistoryStorage,

@@ -1,4 +1,4 @@
-import type { WorkflowDiscoveryQuestion, WorkflowExplorationTraceSummary, WorkflowGraphSnapshot } from "../../shared/types";
+import type { WorkflowDiscoveryQuestion, WorkflowExplorationTraceSummary, WorkflowGraphSnapshot } from "../../shared/workflowTypes";
 
 export type WorkflowCompilerRecipeId =
   | "interactive_model_study_card"

@@ -1,4 +1,4 @@
-import type { ChatMessage, RuntimeActivity } from "../../../shared/types";
+import type { ChatMessage, RuntimeActivity } from "../../../shared/threadTypes";
 
 type RuntimeStreamActivity = Extract<RuntimeActivity, { kind: "stream" }>;
 

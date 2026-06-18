@@ -1,9 +1,6 @@
 import { z } from "zod";
-import type {
-  PermissionMode,
-  RequestThreadPermissionModeChangeInput,
-  UpdateThreadSettingsInput,
-} from "../../shared/types";
+import type { RequestThreadPermissionModeChangeInput, UpdateThreadSettingsInput } from "../../shared/desktopTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
 
 const permissionModeSchema = z.enum(["full-access", "workspace"]);
 

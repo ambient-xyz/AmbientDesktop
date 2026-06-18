@@ -4,7 +4,7 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   recordSubagentBarrierDecisionParentMailbox,
   SUBAGENT_BARRIER_DECISION_RECORDER_SCHEMA_VERSION,

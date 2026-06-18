@@ -10,12 +10,7 @@ import {
   type SymphonyWorkflowRecipePreset,
 } from "../../shared/symphonyWorkflowRecipes";
 import type { SubagentRoleId } from "../../shared/subagentRoles";
-import type {
-  CallableWorkflowLaunchCardSummary,
-  CallableWorkflowSourcePreview,
-  WorkflowRecordingLibraryDescription,
-  WorkflowRecordingPlaybookDraft,
-} from "../../shared/types";
+import type { CallableWorkflowLaunchCardSummary, CallableWorkflowSourcePreview, WorkflowRecordingLibraryDescription, WorkflowRecordingPlaybookDraft } from "../../shared/workflowTypes";
 
 export const CALLABLE_WORKFLOW_REGISTRY_SCHEMA_VERSION = "ambient-callable-workflow-registry-v1" as const;
 export const CALLABLE_WORKFLOW_TOOL_SCHEMA_VERSION = "ambient-callable-workflow-tool-v1" as const;

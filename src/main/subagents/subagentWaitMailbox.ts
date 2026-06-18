@@ -1,8 +1,13 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
 import { allowedUserChoicesForSubagentWaitBarrier, type SubagentParentPolicyResolution } from "./subagentParentPolicyResolution";
 import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES, type SubagentWaitBarrierEvaluation } from "./subagentWaitBarrierEvaluation";
+import {
+  buildSubagentChildDecisionRequest,
+  shouldBuildSubagentChildDecisionRequest,
+  subagentChildDecisionOptionLabel,
+} from "../../shared/subagentChildDecisionRequests";
 
 export const SUBAGENT_WAIT_COMPLETION_MAILBOX_TYPE = "subagent.wait_completed" as const;
 export const SUBAGENT_WAIT_COMPLETION_SCHEMA_VERSION = "ambient-subagent-wait-completion-v1" as const;
@@ -155,6 +160,7 @@ export function buildSubagentWaitBarrierAttentionParentMailboxDraft<
   waitBarrier: SubagentWaitBarrierSummary;
   waitTimedOut: boolean;
   resultValidation: ResultValidation;
+  waitChildRuns?: readonly SubagentRunSummary[];
   waitBarrierEvaluation?: SubagentWaitBarrierEvaluation<ResultValidation>;
   parentResolution: SubagentParentPolicyResolution;
 }): SubagentWaitBarrierAttentionParentMailboxDraft {
@@ -173,6 +179,16 @@ export function buildSubagentWaitBarrierAttentionParentMailboxDraft<
     parentRunId: input.run.parentRunId,
     payloadFingerprint,
   });
+  const waitChildRuns = input.waitChildRuns?.length ? input.waitChildRuns : [input.run];
+  const childDecisionRequest = shouldBuildSubagentChildDecisionRequest(input.parentResolution, { childRuns: waitChildRuns })
+    ? buildSubagentChildDecisionRequest({
+      barrier: input.waitBarrier,
+      childRuns: input.waitBarrierEvaluation?.childStatuses?.length
+        ? input.waitBarrierEvaluation.childStatuses.map((child) => ({ id: child.childRunId, status: child.status }))
+        : [{ id: input.run.id, status: input.run.status }],
+      parentResolution: input.parentResolution,
+    })
+    : undefined;
   const parentMailboxInput: SubagentWaitBarrierAttentionParentMailboxDraft["parentMailboxInput"] = {
     parentThreadId: input.run.parentThreadId,
     parentRunId: input.run.parentRunId,
@@ -200,6 +216,12 @@ export function buildSubagentWaitBarrierAttentionParentMailboxDraft<
       resultValidation: compactSubagentResultValidationForParentMailbox(input.resultValidation),
       ...(input.waitBarrierEvaluation ? { waitBarrierEvaluation: compactSubagentWaitBarrierEvaluationForParentMailbox(input.waitBarrierEvaluation) } : {}),
       parentResolution: input.parentResolution,
+      ...(childDecisionRequest ? { childDecisionRequest } : {}),
+      ...(childDecisionRequest ? { symphonyDecisionOptions: childDecisionRequest.options.map((option) => ({
+        id: option,
+        label: subagentChildDecisionOptionLabel(option),
+        recommended: option === childDecisionRequest.recommendedOption,
+      })) } : {}),
       allowedUserChoices: allowedUserChoicesForSubagentWaitBarrier(input.parentResolution),
       reason: previewText(input.parentResolution.reason, 600),
       instruction: previewText(input.parentResolution.instruction, 600),

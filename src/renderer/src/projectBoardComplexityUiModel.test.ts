@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ProjectBoardPlanningSnapshot,
-  ProjectBoardSource,
-  ProjectBoardSummary,
-  ProjectBoardSynthesisRun,
-} from "../../shared/types";
+import type { ProjectBoardPlanningSnapshot, ProjectBoardSource, ProjectBoardSummary, ProjectBoardSynthesisRun } from "../../shared/projectBoardTypes";
 import { projectBoardComplexityEstimate } from "./projectBoardComplexityUiModel";
 
 function boardSummary(overrides: Partial<ProjectBoardSummary> = {}): ProjectBoardSummary {

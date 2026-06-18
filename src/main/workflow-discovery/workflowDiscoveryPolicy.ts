@@ -1,17 +1,8 @@
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { basename, extname, join, relative } from "node:path";
-import type {
-  AmbientPermissionGrant,
-  PermissionAuditDecisionSource,
-  PermissionGrantActionKind,
-  PermissionGrantTargetKind,
-  PermissionMode,
-  PermissionRequest,
-  PermissionRisk,
-  WorkflowDiscoveryContextEvidence,
-  WorkflowDiscoveryContextCapability,
-  SearchRoutingSettings,
-} from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionAuditDecisionSource, PermissionGrantActionKind, PermissionGrantTargetKind, PermissionMode, PermissionRequest, PermissionRisk } from "../../shared/permissionTypes";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
+import type { WorkflowDiscoveryContextCapability, WorkflowDiscoveryContextEvidence } from "../../shared/workflowTypes";
 import { findMatchingPermissionGrant, permissionGrantTargetHash } from "../permissions/permissionGrants";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";

@@ -1,4 +1,4 @@
-import type { WebResearchProviderConfig, WebResearchProviderRole } from "../../shared/types";
+import type { WebResearchProviderConfig, WebResearchProviderRole } from "../../shared/webResearchTypes";
 import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
 import { SCRAPLING_BROWSER_CONTENT_TOOL_CANDIDATES, SCRAPLING_DEFAULT_SERVER_ID } from "../scrapling/scraplingBrowserRouting";
 
@@ -30,6 +30,10 @@ export function webResearchProviderConfigFromMcpTool(tool: McpToolDescriptor): W
     kind: tool.endpoint?.startsWith("http://127.0.0.1") || tool.endpoint?.startsWith("http://localhost") ? "toolhive-mcp" : "remote-mcp",
     roles: [role],
     status,
+    capabilityKinds: [role === "search" ? "search" : "static_fetch_extract"],
+    capabilityProbeStatus: status === "enabled" ? "passed" : "failed",
+    capabilityProbeEvidenceRefs: [`mcp:${tool.toolRef}:descriptor`],
+    ...(status === "disabled" ? { capabilityFailureNotes: ["MCP provider is not trusted, reachable, or running."] } : {}),
     privacyLabel: role === "search"
       ? `Queries may be sent to MCP provider ${tool.serverId}.`
       : `Public URLs may be fetched through MCP provider ${tool.serverId}.`,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
 import { createRuntimeSendPendingFollowUps } from "./runtimeSendPendingFollowUps";
 
 const followUp = (content: string): SendMessageInput => ({

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import type { SubagentParentPolicyResolution } from "./subagentParentPolicyResolution";
 import {
   barrierControlStateFromResolutionArtifact,
@@ -287,7 +287,7 @@ describe("subagentBarrierDecision", () => {
     const draft = buildSubagentBarrierDecisionParentMailboxDraft({
       barrier: waitBarrier,
       childRuns: [
-        run({ id: "child-detached", status: "detached", parentMessageId: "assistant-message" }),
+        run({ id: "child-detached", status: "detached", parentMessageId: "assistant-message", symphonyLaunchContracts: symphonyLaunchContracts() }),
         run({ id: "child-cancelled", status: "cancelled" }),
       ],
       parentResolution,
@@ -331,9 +331,58 @@ describe("subagentBarrierDecision", () => {
       cancelledRunIds: ["child-cancelled"],
       unchangedRunIds: ["child-unchanged"],
       cancelledMailboxEventIds: ["mailbox-1"],
+      childDecisionRequest: expect.objectContaining({
+        schemaVersion: "ambient-symphony-child-decision-request-v1",
+        barrierId: "barrier",
+        parentRunId: "parent-run",
+        childRunIds: ["child-run"],
+        reason: "failed",
+        options: ["cancel_group", "exit_symphony_mode"],
+        recommendedOption: "exit_symphony_mode",
+      }),
+      symphonyDecisionOptions: [
+        { id: "cancel_group", label: "Cancel group", recommended: false },
+        { id: "exit_symphony_mode", label: "Exit Symphony", recommended: true },
+      ],
       waitBarrier: expect.objectContaining({ id: "barrier", status: "failed" }),
     });
     expect(payload.userDecisionPreview.length).toBeLessThanOrEqual(600);
+  });
+
+  it("does not attach Symphony decision requests to ordinary non-Symphony barrier decisions", () => {
+    const waitBarrier = barrier({ status: "failed" });
+    const draft = buildSubagentBarrierDecisionParentMailboxDraft({
+      barrier: waitBarrier,
+      childRuns: [run({ id: "child-failed", status: "failed", parentMessageId: "assistant-message" })],
+      parentResolution: resolution({ action: "retry_child", canSynthesize: false }),
+      decision: "retry_child",
+      userDecision: "Retry the ordinary failed child.",
+      idempotencyKey: "barrier:retry",
+      toolCallId: "tool-ordinary-retry",
+      createdAt: "2026-06-06T12:02:00.000Z",
+    });
+    const payload = draft.parentMailboxInput.payload as Record<string, unknown>;
+
+    expect(payload).not.toHaveProperty("childDecisionRequest");
+    expect(payload).not.toHaveProperty("symphonyDecisionOptions");
+  });
+
+  it("does not emit a fresh Symphony decision request after a retry decision reopens the barrier", () => {
+    const waitBarrier = barrier({ status: "waiting_on_children" });
+    const draft = buildSubagentBarrierDecisionParentMailboxDraft({
+      barrier: waitBarrier,
+      childRuns: [run({ id: "child-running", status: "running", symphonyLaunchContracts: symphonyLaunchContracts() })],
+      parentResolution: resolution({ action: "retry_child", canSynthesize: false }),
+      decision: "retry_child",
+      userDecision: "Retry was accepted and the barrier is open again.",
+      idempotencyKey: "barrier:retry-symphony",
+      toolCallId: "tool-symphony-retry",
+      createdAt: "2026-06-06T12:03:00.000Z",
+    });
+    const payload = draft.parentMailboxInput.payload as Record<string, unknown>;
+
+    expect(payload).not.toHaveProperty("childDecisionRequest");
+    expect(payload).not.toHaveProperty("symphonyDecisionOptions");
   });
 });
 
@@ -341,6 +390,7 @@ function run(overrides: {
   id?: string;
   status?: SubagentRunStatus;
   parentMessageId?: string;
+  symphonyLaunchContracts?: SubagentRunSummary["symphonyLaunchContracts"];
 } = {}): SubagentRunSummary {
   return {
     id: overrides.id ?? "child-run",
@@ -352,7 +402,12 @@ function run(overrides: {
     roleId: "reviewer",
     dependencyMode: "required",
     status: overrides.status ?? "running",
+    ...(overrides.symphonyLaunchContracts ? { symphonyLaunchContracts: overrides.symphonyLaunchContracts } : {}),
   } as SubagentRunSummary;
+}
+
+function symphonyLaunchContracts(): NonNullable<SubagentRunSummary["symphonyLaunchContracts"]> {
+  return { schemaVersion: "ambient-symphony-child-launch-contract-bundle-v1" } as NonNullable<SubagentRunSummary["symphonyLaunchContracts"]>;
 }
 
 function barrier(overrides: Partial<SubagentWaitBarrierSummary> = {}): SubagentWaitBarrierSummary {

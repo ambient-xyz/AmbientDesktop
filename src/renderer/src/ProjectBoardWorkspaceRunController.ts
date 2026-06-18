@@ -1,22 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-import type {
-  AddProjectBoardCardRunFeedbackInput,
-  AttachProjectBoardLocalTaskMode,
-  CopyProjectBoardSessionToThreadInput,
-  OrchestrationBoard,
-  OrchestrationPrepareResult,
-  ProjectBoardProofDecisionAction,
-  ProjectBoardSplitDecisionAction,
-  ProjectBoardSummary,
-  RepairOrchestrationWorkflowAction,
-  RerunProjectBoardProofInput,
-  ResolveOrchestrationWorkflowImpactAction,
-  ResolveProjectBoardDeliverableIntegrationInput,
-  SuggestProjectBoardProofInput,
-  UpdateOrchestrationWorkflowRawInput,
-  UpdateOrchestrationWorkflowSettingsInput,
-} from "../../shared/types";
+import type { AddProjectBoardCardRunFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, ProjectBoardProofDecisionAction, ProjectBoardSplitDecisionAction, ProjectBoardSummary, RerunProjectBoardProofInput, ResolveProjectBoardDeliverableIntegrationInput, SuggestProjectBoardProofInput } from "../../shared/projectBoardTypes";
+import type { OrchestrationBoard, OrchestrationPrepareResult, RepairOrchestrationWorkflowAction, ResolveOrchestrationWorkflowImpactAction, UpdateOrchestrationWorkflowRawInput, UpdateOrchestrationWorkflowSettingsInput } from "../../shared/workflowTypes";
 
 export type ProjectBoardWorkspaceRunControllerInput = {
   board?: ProjectBoardSummary;

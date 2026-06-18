@@ -8,7 +8,8 @@ import type {
 import type { AgentMemorySettings } from "../../../shared/agentMemorySettings";
 import { isAgentMemoryActiveForThread } from "../../../shared/agentMemorySettings";
 import { isAmbientTencentDbMemoryEnabled, type AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
-import type { ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import { inspectTencentDbMemoryNativePreflight } from "./preflight";
 import { ambientTencentMemoryDataDir, inspectAmbientTencentMemoryStorageSchema } from "./storage";
 

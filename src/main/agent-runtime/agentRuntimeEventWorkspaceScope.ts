@@ -1,4 +1,4 @@
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 
 export interface AgentRuntimeEventWorkspaceScopeStore {
   getThread(threadId: string): { workspacePath: string };

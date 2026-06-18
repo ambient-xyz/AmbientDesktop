@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
 import {
   buildWorkflowCompilerCapabilityDiscoveryPrompt,
   canonicalizeWorkflowGraphLayout,

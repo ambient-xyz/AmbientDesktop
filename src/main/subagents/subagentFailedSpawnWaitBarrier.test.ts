@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { validateSubagentResultArtifactForSynthesis } from "../../shared/subagentProtocol";
-import type {
-  SubagentRunSummary,
-  SubagentWaitBarrierSummary,
-} from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import {
   buildSubagentFailedSpawnWaitBarrierResolutionArtifact,
   resolveSubagentFailedSpawnWaitBarrier,

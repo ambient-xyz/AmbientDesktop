@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { stringify as stringifyYaml } from "yaml";
 import { loadWorkflowFile, parseWorkflowMarkdown, WorkflowError, workflowContentHash, type WorkflowDefinition } from "../workflow/workflow";
-import type { OrchestrationWorkflowRepairPreview } from "../../shared/types";
+import type { OrchestrationWorkflowRepairPreview } from "../../shared/workflowTypes";
 
 const execFileAsync = promisify(execFile);
 

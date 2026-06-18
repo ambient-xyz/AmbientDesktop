@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  AutomationFolderSummary,
-  AutomationThreadSummary,
-  ProjectSummary,
-  ThreadSummary,
-  WorkflowAgentFolderSummary,
-  WorkflowAgentThreadSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationThreadSummary } from "../../shared/automationTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkflowAgentFolderSummary, WorkflowAgentThreadSummary } from "../../shared/workflowTypes";
 import {
   appSidebarSelectionModel,
   selectedAutomationFolderForId,

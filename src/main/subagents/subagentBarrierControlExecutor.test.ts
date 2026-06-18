@@ -5,7 +5,7 @@ import type {
   SubagentMailboxDeliveryState,
   SubagentMailboxEventSummary,
   SubagentRunSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   executeSubagentBarrierControlDecision,
   SUBAGENT_BARRIER_CONTROL_EXECUTOR_SCHEMA_VERSION,

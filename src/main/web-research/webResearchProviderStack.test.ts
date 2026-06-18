@@ -22,6 +22,20 @@ describe("webResearchProviderStack", () => {
       "scrapling-mcp-default",
       "ambient-browser",
     ]);
+    expect(settings.providers).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providerId: "exa-mcp-default",
+        capabilityKinds: ["search", "static_fetch_extract"],
+      }),
+      expect.objectContaining({
+        providerId: "scrapling-mcp-default",
+        capabilityKinds: ["dynamic_headless_browser"],
+      }),
+      expect.objectContaining({
+        providerId: "ambient-browser",
+        capabilityKinds: ["interactive_browser"],
+      }),
+    ]));
   });
 
   it("updates one role order and drops the legacy search preference lane", () => {
@@ -82,6 +96,9 @@ describe("webResearchProviderStack", () => {
           roles: ["search"],
           status: "enabled",
           privacyLabel: "Queries may be sent to Brave.",
+          capabilityKinds: ["search"],
+          capabilityProbeStatus: "passed",
+          capabilityProbeEvidenceRefs: ["test:brave-search-health"],
           ambientCli: {
             packageId: "ambient-cli:ambient-brave-search",
             packageName: "ambient-brave-search",
@@ -105,6 +122,9 @@ describe("webResearchProviderStack", () => {
         kind: "ambient-cli",
         roles: ["search"],
         privacyLabel: "Queries may be sent to Brave.",
+        capabilityKinds: ["search"],
+        capabilityProbeStatus: "passed",
+        capabilityProbeEvidenceRefs: ["test:brave-search-health"],
         ambientCli: {
           packageId: "ambient-cli:ambient-brave-search",
           packageName: "ambient-brave-search",

@@ -1,9 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  GitReviewSummary,
-  WorkspaceGitStatus,
-} from "../../shared/types";
+import type { GitReviewSummary, WorkspaceGitStatus } from "../../shared/workspaceTypes";
 import type { GitConfirmation } from "./RightPanel";
 
 function errorMessage(error: unknown): string {

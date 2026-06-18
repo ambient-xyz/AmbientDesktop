@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import type { ExportChatResult, WorkflowRecordingLibraryEntry } from "../../shared/types";
+import type { ExportChatResult } from "../../shared/threadTypes";
+import type { WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import type { ApiKeyStatus } from "./RightPanel";
 
 export type WorkflowRecordingExportChat = (input: { threadId: string }) => Promise<ExportChatResult | undefined>;

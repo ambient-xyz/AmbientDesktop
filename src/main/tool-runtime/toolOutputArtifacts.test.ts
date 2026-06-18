@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { clearRegisteredSecretRedactionsForTests, registerSecretRedaction } from "../secretRedaction";
+import { clearRegisteredSecretRedactionsForTests, registerSecretRedaction } from "../security/secretRedaction";
 import { materializeTextOutput, materializedTextNotice } from "./toolOutputArtifacts";
 
 describe("materializeTextOutput", () => {

@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { PrivilegedActionAdapterStatus } from "../../../shared/types";
-import { privilegedActionToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import type { PrivilegedActionAdapterStatus } from "../../../shared/permissionTypes";
+import { privilegedActionToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import { privilegedActionAdapterStatusText } from "../../privileged-action/privilegedAction";
 
 export interface PrivilegedActionStatusToolRegistrationOptions {

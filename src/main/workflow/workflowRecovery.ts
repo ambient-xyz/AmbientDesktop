@@ -1,6 +1,6 @@
 import { workflowRetryEligibility, workflowSkipItemEligibility } from "../../shared/workflowRetryEligibility";
 import { workflowRunLiveness, type WorkflowRunLivenessOptions } from "../../shared/workflowRunLiveness";
-import type { RecoverWorkflowRunInput, WorkflowGraphNode, WorkflowRecoveryContext, WorkflowRecoveryTargetKind, WorkflowRunEvent } from "../../shared/types";
+import type { RecoverWorkflowRunInput, WorkflowGraphNode, WorkflowRecoveryContext, WorkflowRecoveryTargetKind, WorkflowRunEvent } from "../../shared/workflowTypes";
 import type { ProjectStore } from "../projectStore/projectStore";
 import { readWorkflowCheckpointSummaries } from "./workflowCheckpointStore";
 

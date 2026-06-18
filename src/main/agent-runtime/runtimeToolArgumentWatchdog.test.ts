@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DesktopEvent, ToolArgumentProgressSnapshot } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { ToolArgumentProgressSnapshot } from "../../shared/threadTypes";
 import { createRuntimeToolArgumentWatchdog } from "./runtimeToolArgumentWatchdog";
 
 function progressSnapshot(overrides: Partial<ToolArgumentProgressSnapshot> = {}): ToolArgumentProgressSnapshot {

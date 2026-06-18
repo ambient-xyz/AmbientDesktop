@@ -1,4 +1,5 @@
-import type { ChatMessage, ResolvedTheme, ThinkingDisplayMode, ThreadSummary } from "../../shared/types";
+import type { ResolvedTheme, ThinkingDisplayMode } from "../../shared/desktopTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 
 export interface ThreadMiniWindowRenderOptions {
   theme: ResolvedTheme;

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ProjectBoardCard,
-  ProjectBoardQuestion,
-  ProjectBoardSummary,
-  ProjectBoardSynthesisProposal,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardQuestion, ProjectBoardSummary, ProjectBoardSynthesisProposal } from "../../shared/projectBoardTypes";
 import {
   projectBoardActiveCardInspectorRequest,
   projectBoardCardNavigationTarget,

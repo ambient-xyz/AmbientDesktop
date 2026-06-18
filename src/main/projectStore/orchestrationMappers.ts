@@ -1,16 +1,6 @@
-import type {
-  CreateOrchestrationTaskInput,
-  OrchestrationBoard,
-  OrchestrationRun,
-  OrchestrationTask,
-} from "../../shared/types";
+import type { CreateOrchestrationTaskInput, OrchestrationBoard, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 
-export type {
-  CreateOrchestrationTaskInput,
-  OrchestrationBoard,
-  OrchestrationRun,
-  OrchestrationTask,
-} from "../../shared/types";
+export type { CreateOrchestrationTaskInput, OrchestrationBoard, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 
 export interface OrchestrationTaskRow {
   id: string;

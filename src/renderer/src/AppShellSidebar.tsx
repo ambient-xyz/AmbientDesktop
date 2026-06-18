@@ -15,14 +15,9 @@ import {
   SquarePen,
 } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import type {
-  ProjectSummary,
-  RunStatus,
-  ThreadSummary,
-  WorkflowAgentFolderSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
+import type { WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import {
   ProjectContextMenu,
   type ProjectContextMenuState,

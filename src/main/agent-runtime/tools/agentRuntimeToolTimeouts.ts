@@ -1,4 +1,4 @@
-import { firstPartyDesktopToolDescriptors } from "../../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "../agentRuntimeDesktopToolFacade";
 
 const descriptorTimeoutsByToolName = new Map(
   firstPartyDesktopToolDescriptors().map((descriptor) => [descriptor.name, descriptor.defaultTimeoutMs] as const),

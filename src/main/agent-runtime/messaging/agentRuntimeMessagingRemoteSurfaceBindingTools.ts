@@ -1,19 +1,19 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messaging/messagingBindings";
-import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import type { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 import {
   buildMessagingRemoteSurfaceBindingPreview,
   messagingRemoteSurfaceBindingPreviewInput,
   messagingRemoteSurfaceBindingPreviewText,
   type MessagingRemoteSurfaceProviderRegistryLike,
-} from "../../messaging/messagingRemoteSurfaceProviderPreview";
+} from "../agentRuntimeMessagingFacade";
 import type {
   TelegramRemoteSurfaceBindingPlan,
   TelegramRemoteSurfaceBindingToolInput,
-} from "../../telegram/telegramRemoteSurfaceBinding";
+} from "../agentRuntimeTelegramFacade";
 
 export interface MessagingRemoteSurfaceBindingToolRegistrationOptions {
   registry: MessagingRemoteSurfaceProviderRegistryLike;

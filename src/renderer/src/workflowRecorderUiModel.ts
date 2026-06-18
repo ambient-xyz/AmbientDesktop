@@ -1,10 +1,4 @@
-import type {
-  WorkflowInjectedPlaybookMetadata,
-  WorkflowRecordingLibraryEntry,
-  WorkflowRecordingPlaybookDraft,
-  WorkflowRecordingReviewDraftUpdate,
-  WorkflowRecordingState,
-} from "../../shared/types";
+import type { WorkflowInjectedPlaybookMetadata, WorkflowRecordingLibraryEntry, WorkflowRecordingPlaybookDraft, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingState } from "../../shared/workflowTypes";
 
 export interface WorkflowRecorderSurfaceModel {
   legacyCompilerEnabled: boolean;

@@ -22,7 +22,7 @@ import {
   writeWorkspaceTextFile,
 } from "./workspaceFiles";
 import { createDocxFixture, createPptxFixture, createXlsxFixture } from "../office/officeTestFixtures";
-import { createPdfFixture } from "../pdfTestFixtures";
+import { createPdfFixture } from "../pdf/pdfTestFixtures";
 
 describe("shouldIgnoreWorkspaceEntry", () => {
   it("skips heavy/generated workspace folders", () => {

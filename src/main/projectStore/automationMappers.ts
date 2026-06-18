@@ -9,14 +9,16 @@ import type {
   AutomationScheduleSummary,
   AutomationScheduleTargetKind,
   AutomationThreadKind,
-  AutomationThreadSummary,
+  AutomationThreadSummary
+} from "../../shared/automationTypes";
+import type {
   OrchestrationRun,
   OrchestrationTask,
   WorkflowArtifactSummary,
   WorkflowRunEvent,
   WorkflowRunLimitOverrides,
-  WorkflowRunSummary,
-} from "../../shared/types";
+  WorkflowRunSummary
+} from "../../shared/workflowTypes";
 import {
   formatMutationPolicy,
   workflowRunAutomationStatus,

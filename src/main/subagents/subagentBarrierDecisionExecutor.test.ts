@@ -8,7 +8,7 @@ import type {
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   executeSubagentBarrierDecision,
   SUBAGENT_BARRIER_DECISION_EXECUTOR_SCHEMA_VERSION,

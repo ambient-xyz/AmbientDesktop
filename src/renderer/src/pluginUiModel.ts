@@ -1,30 +1,7 @@
-import type {
-  AmbientPluginAuthAccountSummary,
-  AmbientPluginAppAuthSummary,
-  AmbientPluginCapabilitySummary,
-  AmbientGeneratedCapabilitySummary,
-  AmbientMcpContainerRuntimeInstallAction,
-  AmbientMcpContainerRuntimeStatus,
-  AmbientMcpContainerRuntimeStatusKind,
-  AmbientMcpDefaultCapabilitySummary,
-  AmbientMcpInstallPreview,
-  AmbientMcpInstalledServerSummary,
-  AmbientMcpServerSearchResult,
-  AmbientPluginRegistry,
-  AmbientPluginRuntime,
-  AmbientPluginSourceKind,
-  AmbientPluginSummary,
-  CapabilityBuilderHistoryEntry,
-  CodexMarketplaceSourceSummary,
-  CodexPluginSummary,
-  FirstPartyGoogleIntegrationState,
-  PiPackageInstallScope,
-  PiPackageSummary,
-  PluginMcpRuntimeEvent,
-  ProviderCatalogSettingsCard,
-  VoiceOnboardingHostFacts,
-  WorkflowPluginCapabilityGrant,
-} from "../../shared/types";
+import type { ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { VoiceOnboardingHostFacts } from "../../shared/localRuntimeTypes";
+import type { AmbientGeneratedCapabilitySummary, AmbientMcpContainerRuntimeInstallAction, AmbientMcpContainerRuntimeStatus, AmbientMcpContainerRuntimeStatusKind, AmbientMcpDefaultCapabilitySummary, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, AmbientPluginAppAuthSummary, AmbientPluginAuthAccountSummary, AmbientPluginCapabilitySummary, AmbientPluginRegistry, AmbientPluginRuntime, AmbientPluginSourceKind, AmbientPluginSummary, CapabilityBuilderHistoryEntry, CodexMarketplaceSourceSummary, CodexPluginSummary, FirstPartyGoogleIntegrationState, PiPackageInstallScope, PiPackageSummary, PluginMcpRuntimeEvent } from "../../shared/pluginTypes";
+import type { WorkflowPluginCapabilityGrant } from "../../shared/workflowTypes";
 import { welcomeCoreSetupSectionDefinitions } from "./welcomeSetupUiModel";
 import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowGraphSnapshot, WorkflowManifest } from "./types";
+import type { WorkflowGraphSnapshot, WorkflowManifest } from "./workflowTypes";
 import { diffWorkflowGraphs, workflowGraphDiffHasChanges, workflowGraphDiffSummary } from "./workflowGraphDiff";
 
 const baseGraph: WorkflowGraphSnapshot = {

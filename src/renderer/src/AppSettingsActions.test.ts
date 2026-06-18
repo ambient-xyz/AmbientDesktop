@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  DesktopState,
-  LocalModelRuntimeLifecycleActionResult,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { LocalModelRuntimeLifecycleActionResult } from "../../shared/localRuntimeTypes";
 import type { LocalDeepResearchSetupUiState } from "./RightPanel";
 import {
   CLEAR_AGENT_MEMORY_CONFIRMATION,

@@ -1,4 +1,4 @@
-import type { OrchestrationRun, OrchestrationTask } from "../../shared/types";
+import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 
 export const RESTART_INTERRUPTED_LOCAL_TASK_ERROR = "Ambient Desktop restarted before this Local Task run finished.";
 export const RESTART_INTERRUPTED_AUTO_CONTINUE_LIMIT = 1;

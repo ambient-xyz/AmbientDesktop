@@ -10,7 +10,7 @@ import {
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "./agentRuntimeAmbientFacade";
 import { ProjectStore } from "../projectStore/projectStore";
 
 const itLive = process.env.AMBIENT_PRODUCT_CONTEXT_LIVE === "1" ? it : it.skip;

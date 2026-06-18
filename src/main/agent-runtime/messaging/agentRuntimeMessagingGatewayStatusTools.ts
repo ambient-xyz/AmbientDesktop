@@ -5,10 +5,10 @@ import type {
   MessagingGatewayRuntimeStatus,
   MessagingProviderDescriptor,
 } from "../../../shared/messagingGateway";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messaging/messagingBindings";
-import { messagingGatewayRuntimeStatusText } from "../../messaging/messagingGatewayRunner";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { messagingGatewayRuntimeStatusText } from "../agentRuntimeMessagingFacade";
 import {
   type SignalRealPollingRuntimeStatus,
   signalRealPollingStatusText,
@@ -21,7 +21,7 @@ import {
 import {
   type TelegramBridgePollingRuntimeStatus,
   telegramBridgePollingStatusText,
-} from "../../telegram/telegramBridgePolling";
+} from "../agentRuntimeTelegramFacade";
 
 export interface MessagingGatewayStatusToolRegistrationOptions {
   bindings: Pick<MessagingBindingStore, "list">;

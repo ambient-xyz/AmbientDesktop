@@ -1,5 +1,5 @@
 import type { MessagingGatewayRuntimeStatus } from "../../shared/messagingGateway";
-import type { MessagingBindingStore } from "../messaging/messagingBindings";
+import type { MessagingBindingStore } from "./agentRuntimeMessagingFacade";
 import type { SignalRelayDiagnosticsToolRegistrationOptions } from "./signal/agentRuntimeSignalRelayDiagnosticsTools";
 import type { TelegramRelayDiagnosticsToolRegistrationOptions } from "./telegram/agentRuntimeTelegramRelayDiagnosticsTools";
 

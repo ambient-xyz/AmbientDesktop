@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage, MessageVoiceState, VoiceProviderCandidate, VoiceSettings } from "../../shared/types";
+import type { MessageVoiceState, VoiceProviderCandidate, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   latestReadyVoiceAutoplayTarget,
   messageVoiceStripModel,

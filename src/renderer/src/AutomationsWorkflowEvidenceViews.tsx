@@ -1,15 +1,7 @@
 import { useState } from "react";
 
-import type {
-  AmbientPluginAuthAccountSummary,
-  AmbientPluginRegistry,
-  WorkflowArtifactSummary,
-  WorkflowConnectorDataRetention,
-  WorkflowConnectorManifestGrant,
-  WorkflowModelCallRecord,
-  WorkflowPluginCapabilityGrant,
-  WorkflowRunEvent,
-} from "../../shared/types";
+import type { AmbientPluginAuthAccountSummary, AmbientPluginRegistry } from "../../shared/pluginTypes";
+import type { WorkflowArtifactSummary, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowModelCallRecord, WorkflowPluginCapabilityGrant, WorkflowRunEvent } from "../../shared/workflowTypes";
 import {
   workflowConnectorAccountOptions,
   workflowConnectorConsentSummary,

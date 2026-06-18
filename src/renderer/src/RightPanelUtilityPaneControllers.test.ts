@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkspaceFileContent } from "../../shared/types";
+import type { WorkspaceFileContent } from "../../shared/workspaceTypes";
 import { fileContextReference } from "./RightPanelUtilityPaneControllers";
 
 describe("RightPanelUtilityPaneControllers", () => {

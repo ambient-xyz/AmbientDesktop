@@ -2,7 +2,7 @@ import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import type { PlannerPlanArtifact } from "../../shared/types";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import {
   mergePlannerDurableValidationResults,
   PlannerDurableHtmlValidationError,

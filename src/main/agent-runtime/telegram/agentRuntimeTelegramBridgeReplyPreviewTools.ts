@@ -1,11 +1,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   telegramBridgeReplyPreviewText,
   type TelegramBridgeReplyPreview,
-} from "../../telegram/telegramBridgeOutbound";
+} from "../agentRuntimeTelegramFacade";
 
 export interface TelegramBridgeReplyPreviewToolRegistrationOptions {
   previewForParams: (params: unknown) => TelegramBridgeReplyPreview;

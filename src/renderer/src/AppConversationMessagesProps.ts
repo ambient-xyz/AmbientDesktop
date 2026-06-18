@@ -1,4 +1,4 @@
-import type { DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
 import type { AppConversationMessagesProps } from "./AppConversationMessages";
 import type { AppProjectBoardActions } from "./AppProjectBoardActions";
 import type { UtilityPanel } from "./RightPanel";

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage, PlannerDecisionQuestion, PlannerPlanArtifact } from "../../shared/types";
+import type { PlannerDecisionQuestion, PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   isPlannerFinalizationPrompt,
   isPlannerFinalizationResponseForSourceMessage,

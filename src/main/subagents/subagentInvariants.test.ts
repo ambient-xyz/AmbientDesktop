@@ -4,7 +4,7 @@ import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../.
 import { DEFAULT_SUBAGENT_ROLE_PROFILES } from "../../shared/subagentRoles";
 import { AMBIENT_SUBAGENT_PROTOCOL_VERSION } from "../../shared/subagentProtocol";
 import { materializeSubagentCapacityLeaseForRun, releaseSubagentCapacityLease, resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
-import type { SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   assertCapacityClosePreservesHistory,
   assertSubagentParentMailboxEventAttribution,

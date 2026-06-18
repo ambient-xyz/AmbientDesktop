@@ -18,7 +18,7 @@ import type {
   LocalRuntimePolicyHandoffRuntime,
   LocalRuntimePolicyHandoffSnapshot,
   LocalRuntimeStopDecision,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import { localRuntimeLeaseMatchesResourceEntry } from "./localRuntimeLeaseMatching";
 
 const activeLeaseStatuses = new Set<LocalRuntimeLeaseRecord["status"]>(["acquiring", "running", "idle", "releasing"]);

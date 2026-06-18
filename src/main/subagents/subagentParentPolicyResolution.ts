@@ -1,5 +1,5 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 
 export const SUBAGENT_PARENT_POLICY_RESOLUTION_SCHEMA_VERSION = "ambient-subagent-parent-policy-resolution-v1" as const;
 export const SUBAGENT_BARRIER_DECISIONS = ["continue_with_partial", "fail_parent", "retry_child", "detach_child", "cancel_parent"] as const;

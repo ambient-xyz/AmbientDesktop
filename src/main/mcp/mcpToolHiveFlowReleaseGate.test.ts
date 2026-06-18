@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstPartyDesktopToolDescriptors, piToolFieldsFromDescriptor } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors, piToolFieldsFromDescriptor } from "../desktop-tools/desktopToolRegistry";
 import {
   mcpAutowirePhase0Fixtures,
   mcpKatzillaInstallFailureReplay,

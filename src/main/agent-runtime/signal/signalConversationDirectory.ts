@@ -10,14 +10,14 @@ import {
   messagingConversationDirectoryMetadataContract,
   type MessagingConversationDirectoryMetadataEntry,
   type MessagingConversationDirectoryMetadataContract,
-} from "../../messaging/messagingConversationDirectoryContract";
+} from "../agentRuntimeMessagingFacade";
 import {
   messagingConversationDirectoryAdapterExecutionEnvelope,
   messagingConversationDirectoryAdapterExecutionText,
   messagingConversationDirectorySetupCard,
   signalConversationDirectoryAdapterPlan,
   type MessagingConversationDirectoryAdapterExecutionEnvelope,
-} from "../../messaging/messagingConversationDirectoryAdapters";
+} from "../agentRuntimeMessagingFacade";
 import {
   signalBridgeEndpointPaths,
   validateSignalBridgeConversationDirectoryEnvelope,

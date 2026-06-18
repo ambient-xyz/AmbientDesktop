@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { workflowGraphNodeReviewModel } from "./workflowGraphNodeReviewUiModel";
-import type { WorkflowGraphNode, WorkflowManifest } from "../../shared/types";
+import type { WorkflowGraphNode, WorkflowManifest } from "../../shared/workflowTypes";
 
 const manifest: WorkflowManifest = {
   tools: ["ambient.responses", "file_read"],

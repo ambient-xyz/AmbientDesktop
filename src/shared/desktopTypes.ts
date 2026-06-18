@@ -1,5 +1,7 @@
 import type { AmbientModelRuntimeCatalog } from "./ambientModels";
 import type { AgentMemorySettings, UpdateAgentMemorySettingsInput } from "./agentMemorySettings";
+import type { SearchRoutingSettings } from "./webResearchTypes";
+export type * from "./webResearchTypes";
 import type {
   AgentMemoryClearResult,
   AgentMemoryEmbeddingLifecycleActionInput,
@@ -295,10 +297,12 @@ import type {
   ThreadGoalClearInput,
   ThreadGoalGetInput,
   ThreadGoalSetInput,
+  ThreadActionInput,
   ThreadSummary,
   ToolArgumentProgressPhase,
   ToolArgumentProgressSnapshot,
 } from "./threadTypes";
+export type { ThreadActionInput } from "./threadTypes";
 import type {
   AdoptWorkflowLabVariantInput,
   AnswerWorkflowDiscoveryQuestionInput,
@@ -480,69 +484,6 @@ export type ThinkingDisplayMode = "off" | "transient" | "full";
 export interface ThinkingDisplaySettings {
   mode: ThinkingDisplayMode;
   showRunStatusCard: boolean;
-}
-
-export type SearchRoutingActivity = "web_search";
-
-export type SearchRoutingMode = "prefer" | "require";
-
-export type SearchRoutingFallback = "allow" | "block";
-
-export type WebResearchProviderRole = "search" | "fetch" | "interactive_browser";
-
-export type WebResearchProviderKind = "remote-mcp" | "toolhive-mcp" | "built-in-browser" | "ambient-cli";
-
-export type WebResearchProviderConfigStatus = "enabled" | "disabled";
-
-export interface SearchProviderPreference {
-  activity: SearchRoutingActivity;
-  preferredProvider: string;
-  mode: SearchRoutingMode;
-  fallback: SearchRoutingFallback;
-  updatedAt?: string;
-}
-
-export interface WebResearchAmbientCliBinding {
-  packageId?: string;
-  packageName: string;
-  commandName: string;
-  capabilityId?: string;
-}
-
-export interface WebResearchMcpBinding {
-  serverId?: string;
-  workloadName?: string;
-  toolName: string;
-  argumentName?: string;
-}
-
-export interface WebResearchProviderConfig {
-  providerId: string;
-  label: string;
-  kind: WebResearchProviderKind;
-  roles: WebResearchProviderRole[];
-  status: WebResearchProviderConfigStatus;
-  privacyLabel?: string;
-  optionalSecretRefs?: string[];
-  ambientCli?: WebResearchAmbientCliBinding;
-  mcp?: WebResearchMcpBinding;
-}
-
-export interface WebResearchFallbackPolicy {
-  allowBrowserFallback: boolean;
-}
-
-export interface WebResearchProviderStackSettings {
-  schemaVersion: "ambient-web-research-provider-stack-v1";
-  providers: WebResearchProviderConfig[];
-  preferences: Partial<Record<WebResearchProviderRole, string[]>>;
-  fallbackPolicy: WebResearchFallbackPolicy;
-  updatedAt?: string;
-}
-
-export interface SearchRoutingSettings {
-  webSearch?: SearchProviderPreference;
-  webResearch?: WebResearchProviderStackSettings;
 }
 
 export type ThemePreference = "system" | "light" | "dark";
@@ -845,11 +786,6 @@ export interface UpdateProjectInput {
   projectId: string;
   name?: string;
   pinned?: boolean;
-}
-
-export interface ThreadActionInput {
-  threadId: string;
-  projectId?: string;
 }
 
 export interface UpdateThreadInput extends ThreadActionInput {

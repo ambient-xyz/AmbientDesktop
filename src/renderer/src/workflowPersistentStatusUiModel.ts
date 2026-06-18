@@ -1,4 +1,4 @@
-import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { workflowRunLiveness } from "../../shared/workflowRunLiveness";
 
 export type WorkflowPersistentStatusTone = "blocked" | "warning" | "running" | "ready";

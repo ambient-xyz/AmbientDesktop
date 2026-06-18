@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { ProjectBoardEvent, ProjectBoardSummary, ProjectBoardSynthesisRun, ProjectSummary } from "../../shared/types";
+import type { ProjectBoardEvent, ProjectBoardSummary, ProjectBoardSynthesisRun, ProjectSummary } from "../../shared/projectBoardTypes";
 import {
   ProjectBoardHistoryImpactAuditPanel,
   ProjectBoardHistoryRecoveryPanel,

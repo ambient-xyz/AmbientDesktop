@@ -4,9 +4,10 @@ import type {
   AmbientGitCommitResult,
   AmbientGitFinishToMainResult,
   AmbientGitStatusResult,
-} from "../ambient/ambientGitTools";
+} from "./agentRuntimeAmbientFacade";
 import { registerGitTools } from "./agentRuntimeGitTools";
-import type { ThreadWorktreeSummary, WorkspaceState } from "../../shared/types";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 

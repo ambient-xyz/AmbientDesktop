@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  DiagnosticExportSubagentReplayEvidence,
-  DiagnosticExportSubagentReplaySummary,
-} from "../../shared/types";
+import type { DiagnosticExportSubagentReplayEvidence, DiagnosticExportSubagentReplaySummary } from "../../shared/diagnosticTypes";
 import { subagentReplayEvidenceInspectorModel } from "./subagentReplayEvidenceUiModel";
 
 describe("subagent replay evidence UI model", () => {

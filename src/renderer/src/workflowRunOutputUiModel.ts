@@ -1,4 +1,4 @@
-import type { WorkflowModelCallRecord, WorkflowRunDetail, WorkflowRunEvent } from "../../shared/types";
+import type { WorkflowModelCallRecord, WorkflowRunDetail, WorkflowRunEvent } from "../../shared/workflowTypes";
 
 export type WorkflowRunOutputKind = "report" | "checkpoint" | "event" | "model";
 export type WorkflowRunOutputFormat = "path" | "markdown" | "html" | "text" | "json" | "image";

@@ -1,4 +1,4 @@
-import type { BrowserCapabilityState, BrowserProfileMode, BrowserRuntimeKind, BrowserUserActionState } from "../../shared/types";
+import type { BrowserCapabilityState, BrowserProfileMode, BrowserRuntimeKind, BrowserUserActionState } from "../../shared/browserTypes";
 import { BrowserUnavailableError, BrowserUserActionCanceledError, BrowserUserActionTimedOutError } from "../browser/browserService";
 
 export interface BrowserUnavailableFallback {

@@ -3,7 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { MiniCpmVisionRuntimeInstallResult } from "../../../shared/types";
+import type { MiniCpmVisionRuntimeInstallResult } from "../../../shared/localRuntimeTypes";
 import type { AmbientDownloadService } from "../../ambient/ambientDownloadService";
 import {
   installAmbientMemoryEmbeddingAssets,

@@ -1,12 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  PlannerDecisionQuestion,
-  PlannerPlanArtifact,
-  RunStatus,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { PlannerDecisionQuestion, PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { RunStatus } from "../../shared/threadTypes";
 import type { PlannerRevisionDialogState } from "./AppActionDialogs";
 import {
   createAppPlannerActions,

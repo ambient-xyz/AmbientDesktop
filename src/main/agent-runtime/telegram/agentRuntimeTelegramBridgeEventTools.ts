@@ -1,17 +1,17 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messaging/messagingBindings";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingBindingStore } from "../agentRuntimeMessagingFacade";
 import {
   messagingGatewayInboundDispatchText,
   type MessagingGatewayRunner,
-} from "../../messaging/messagingGatewayRunner";
+} from "../agentRuntimeMessagingFacade";
 import {
   messagingInboundEventFromTelegramBridge,
   telegramBridgeEventRouteInput,
-} from "../../telegram/telegramBridgeEvents";
-import type { RuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
+} from "../agentRuntimeTelegramFacade";
+import type { RuntimeSurfaceSnapshot } from "../../../shared/runtimeSurfaceSnapshot";
 
 export interface TelegramBridgeEventToolRegistrationOptions {
   bindings: MessagingBindingStore;

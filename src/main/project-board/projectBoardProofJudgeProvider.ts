@@ -1,7 +1,7 @@
 import { parseProjectBoardLlmJson } from "./projectBoardLlmJson";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
+import type { OrchestrationRun } from "../../shared/workflowTypes";
 import type {
-  OrchestrationRun,
   ProjectBoardCard,
   ProjectBoardCardProofEvidenceQuality,
   ProjectBoardCardProofRecommendedAction,
@@ -9,11 +9,11 @@ import type {
   ProjectBoardCardProofReviewStatus,
   ProjectBoardCardTestPlan,
   ProjectBoardCharter,
-  ProjectBoardProofFollowUpSuggestion,
-} from "../../shared/types";
-import { AmbientStreamFailureError, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries } from "../ambient/ambientChatCompletionRetry";
-import { readAmbientApiKey } from "../credentialStore";
+  ProjectBoardProofFollowUpSuggestion
+} from "../../shared/projectBoardTypes";
+import { AmbientStreamFailureError, type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
+import { callAmbientChatCompletionTextWithRetries } from "./projectBoardAmbientFacade";
+import { readAmbientApiKey } from "../security/credentialStore";
 import {
   projectBoardTaskToolActionIntegrityIssues,
   projectBoardTaskToolActionsFromProofOfWork,

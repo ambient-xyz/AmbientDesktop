@@ -10,7 +10,7 @@ import type {
   TerminalControlInput,
   TerminalSession,
   TerminalStartIntent,
-} from "../../shared/types";
+} from "../../shared/terminalTypes";
 import {
   registerTerminalControlIpc,
   registerTerminalRequestStartIpc,

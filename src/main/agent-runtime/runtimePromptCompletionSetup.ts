@@ -1,4 +1,4 @@
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { RuntimeAssistantTerminalCompletion } from "./runtimeAssistantTerminalCompletion";
 import type { RuntimeEmptyAssistantStallWatchdog } from "./runtimeEmptyAssistantStallWatchdog";
 import type { RuntimePermissionWaitController } from "./runtimePermissionWaitController";

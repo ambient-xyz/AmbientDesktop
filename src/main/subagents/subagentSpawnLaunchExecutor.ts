@@ -20,9 +20,8 @@ import type {
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import {
   assertValidMutationWorkspaceLease,
   symphonyExactToolPolicyId,
@@ -34,7 +33,7 @@ import {
 } from "../../shared/subagentTurnBudget";
 import {
   releaseSymphonyMutationWorkspaceLease,
-} from "../symphonyMutationWorkspaceLeaseService";
+} from "./symphonyMutationWorkspaceLeaseService";
 import type {
   SubagentChildRuntimeLaunchPreflightResult,
   SubagentChildRuntimeStartInput,

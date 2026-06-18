@@ -1,10 +1,6 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import type {
-  AmbientPermissionGrant,
-  CreateAmbientPermissionGrantInput,
-  PermissionAuditEntry,
-} from "../../shared/types";
+import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionAuditEntry } from "../../shared/permissionTypes";
 import type { PermissionAuditInput } from "./projectStoreFacadeHelpers";
 import {
   mapPermissionAuditRow,

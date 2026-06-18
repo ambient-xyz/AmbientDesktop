@@ -1,7 +1,7 @@
 import {
   sanitizeMessagingConversationDirectoryEntry,
   type MessagingConversationDirectoryMetadataEntry,
-} from "../../messaging/messagingConversationDirectoryContract";
+} from "../agentRuntimeMessagingFacade";
 
 const PROVIDER_ID = "signal-cli";
 const CONTRACT_KIND = "ambient-signal-local-bridge";

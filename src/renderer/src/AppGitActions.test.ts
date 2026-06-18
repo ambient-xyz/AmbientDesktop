@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkspaceGitStatus } from "../../shared/types";
+import type { WorkspaceGitStatus } from "../../shared/workspaceTypes";
 import {
   gitSwitchBranchConfirmation,
   gitSwitchBranchNeedsConfirmation,

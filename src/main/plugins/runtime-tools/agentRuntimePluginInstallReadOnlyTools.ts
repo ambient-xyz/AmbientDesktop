@@ -2,13 +2,13 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { CodexPluginInstallPreview } from "../codex/codexPlugins";
 import {
   installRouteToolDescriptor,
   pluginInstallToolDescriptor,
-} from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+} from "../../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../../desktop-tools/desktopToolRegistration";
 import { discoverAmbientCliPackages } from "../../ambient-cli/ambientCliPackages";
 import {
   ambientInstallRoutePlanInput,

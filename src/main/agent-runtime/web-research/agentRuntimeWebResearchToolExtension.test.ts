@@ -4,8 +4,8 @@ import type {
   SearchRoutingSettings,
   WebResearchProviderConfig,
   WebResearchProviderRole,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
 import {
   createAgentRuntimeWebResearchToolExtension,

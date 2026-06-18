@@ -41,20 +41,12 @@ import {
   localDeepResearchEffortLabel,
 } from "../../shared/localDeepResearchBudget";
 
-import type {
-  CollaborationMode,
-  DesktopState,
-  GitReviewSummary,
-  LocalDeepResearchEffort,
-  LocalDeepResearchRunBudget,
-  PermissionMode,
-  PlannerPlanArtifact,
-  SttTranscriptionState,
-  ThinkingDisplayMode,
-  ThinkingLevel,
-  WorkspaceContextReference,
-  WorkspaceGitStatus,
-} from "../../shared/types";
+import type { DesktopState, ThinkingDisplayMode } from "../../shared/desktopTypes";
+import type { LocalDeepResearchEffort, LocalDeepResearchRunBudget, SttTranscriptionState } from "../../shared/localRuntimeTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { CollaborationMode, ThinkingLevel } from "../../shared/threadTypes";
+import type { GitReviewSummary, WorkspaceContextReference, WorkspaceGitStatus } from "../../shared/workspaceTypes";
 import type {
   SlashCommandCatalogEntry,
   SlashCommandSearchResponse,

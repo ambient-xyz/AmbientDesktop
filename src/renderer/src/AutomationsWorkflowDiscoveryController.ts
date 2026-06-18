@@ -1,16 +1,8 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 
-import type {
-  AutomationFolderSummary,
-  PermissionPromptResponseMode,
-  WorkflowAgentFolderSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowDashboard,
-  WorkflowExplorationTraceSummary,
-  WorkflowRevisionSummary,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary } from "../../shared/automationTypes";
+import type { PermissionPromptResponseMode } from "../../shared/permissionTypes";
+import type { WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowDashboard, WorkflowExplorationTraceSummary, WorkflowRevisionSummary, WorkflowRunSummary } from "../../shared/workflowTypes";
 import type { WorkflowExplorationBudgets } from "../../shared/workflowExplorationBudgets";
 import { workflowArtifactRevisionRequest } from "./automationUiModel";
 import type { WorkflowArtifactPanelId } from "./workflowArtifactPanelUiModel";

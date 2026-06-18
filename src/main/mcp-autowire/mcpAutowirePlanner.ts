@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { Type, type Tool, type ToolCall } from "@mariozechner/pi-ai";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import {
   extractMcpAutowireManifestFacts,
   extractMcpAutowireSecretFacts,

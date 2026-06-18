@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { registerSignalBindingReadinessTools } from "./agentRuntimeSignalBindingReadinessTools";
-import { createEmptyMessagingBindingRegistry } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createEmptyMessagingBindingRegistry } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 describe("registerSignalBindingReadinessTools", () => {
   it("registers and executes the Signal binding readiness preview tool", async () => {

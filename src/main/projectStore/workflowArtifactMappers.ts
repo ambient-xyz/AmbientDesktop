@@ -1,9 +1,4 @@
-import type {
-  WorkflowArtifactStatus,
-  WorkflowArtifactSummary,
-  WorkflowManifest,
-  WorkflowSpec,
-} from "../../shared/types";
+import type { WorkflowArtifactStatus, WorkflowArtifactSummary, WorkflowManifest, WorkflowSpec } from "../../shared/workflowTypes";
 import { parseJsonObject } from "./projectStoreJson";
 
 export interface WorkflowArtifactRow {

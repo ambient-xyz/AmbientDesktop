@@ -5,9 +5,9 @@ import {
   restoreAmbientWorkflowPlaybookVersion,
   type AmbientWorkflowPlaybookDescription,
   type AmbientWorkflowsRestoreVersionInput,
-} from "../../ambient/ambientWorkflows";
-import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+} from "../agentRuntimeAmbientFacade";
+import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import type { ProjectStore } from "../../projectStore/projectStore";
 
 interface AmbientWorkflowRestoreServices {

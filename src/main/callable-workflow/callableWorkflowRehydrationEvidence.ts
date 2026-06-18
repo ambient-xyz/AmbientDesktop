@@ -1,10 +1,4 @@
-import type {
-  CallableWorkflowTaskProgressSnapshot,
-  CallableWorkflowTaskSummary,
-  CallableWorkflowTaskUsageSnapshot,
-  WorkflowArtifactSummary,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { CallableWorkflowTaskProgressSnapshot, CallableWorkflowTaskSummary, CallableWorkflowTaskUsageSnapshot, WorkflowArtifactSummary, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { callableWorkflowExecutionPlanFromTask } from "./callableWorkflowTaskQueue";
 
 export const CALLABLE_WORKFLOW_REHYDRATION_EVIDENCE_SCHEMA_VERSION =

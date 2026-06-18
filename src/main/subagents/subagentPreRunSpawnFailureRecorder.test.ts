@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL, resolveAmbientModelRuntimeProfile } from "../../shared/ambientModels";
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
-import type { SubagentParentMailboxEventSummary } from "../../shared/types";
+import type { SubagentParentMailboxEventSummary } from "../../shared/subagentTypes";
 import { resolveSubagentModelScope } from "../model-provider/modelScopeResolver";
 import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import {

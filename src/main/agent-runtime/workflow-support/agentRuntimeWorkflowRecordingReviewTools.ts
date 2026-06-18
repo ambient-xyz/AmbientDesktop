@@ -1,5 +1,7 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
-import type { DesktopEvent, ThreadSummary, WorkflowRecordingState } from "../../../shared/types";
+import type { DesktopEvent } from "../../../shared/desktopTypes";
+import type { WorkflowRecordingState } from "../../../shared/workflowTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import { WorkflowRecordingReviewValidationError } from "../../../shared/workflowRecorder";
 import { workflowRecordingReviewDraftUpdateFromToolParams } from "../../workflow-recording/workflowRecordingReviewDraftInput";
 

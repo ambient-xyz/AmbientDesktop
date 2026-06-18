@@ -1,17 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  AmbientPermissionGrant,
-  DesktopState,
-  PermissionAuditEntry,
-  PermissionMode,
-  PermissionPromptResponseMode,
-  PermissionRequest,
-  PrivilegedCredentialRequest,
-  RunStatus,
-  SecureInputRequest,
-  ThreadSummary,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { AmbientPermissionGrant, PermissionAuditEntry, PermissionMode, PermissionPromptResponseMode, PermissionRequest, PrivilegedCredentialRequest, SecureInputRequest } from "../../shared/permissionTypes";
+import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
 import { isRunStatusRunning } from "../../shared/runStatus";
 import { permissionGrantRevocationImpact } from "./permissionGrantRegistryUiModel";
 

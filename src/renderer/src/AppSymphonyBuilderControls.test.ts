@@ -2,7 +2,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
-import type { DesktopState, MessageDelivery } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { MessageDelivery } from "../../shared/threadTypes";
 import type { SubmitDraftOptions } from "./AppComposerSubmitActions";
 import {
   compactSymphonyIntentValue,

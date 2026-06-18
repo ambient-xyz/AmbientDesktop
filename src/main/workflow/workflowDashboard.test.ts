@@ -15,7 +15,7 @@ import {
   updateWorkflowConnectorGrant,
 } from "./workflowDashboard";
 import { workspaceInventoryConnectorDescriptor } from "./workflowConnectors";
-import type { WorkflowRunEvent } from "../../shared/types";
+import type { WorkflowRunEvent } from "../../shared/workflowTypes";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

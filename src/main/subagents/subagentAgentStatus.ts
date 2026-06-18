@@ -4,7 +4,12 @@ import {
   resolveSubagentTurnBudgetPolicy,
   type SubagentTurnBudgetState,
 } from "../../shared/subagentTurnBudget";
-import type { SubagentMailboxEventSummary, SubagentRunEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type {
+  SubagentMailboxEventSummary,
+  SubagentRunEventSummary,
+  SubagentRunSummary,
+  SubagentWaitBarrierSummary,
+} from "../../shared/subagentTypes";
 import type { SubagentParentPolicyResolution } from "./subagentParentPolicyResolution";
 
 export const SUBAGENT_AGENT_STATUS_SCHEMA_VERSION = "ambient-subagent-agent-status-v1" as const;

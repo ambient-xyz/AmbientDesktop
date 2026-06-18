@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { LocalRuntimeLeaseRecord } from "../../shared/types";
+import type { LocalRuntimeLeaseRecord } from "../../shared/localRuntimeTypes";
 import {
   buildLocalModelRuntimeStatusSnapshot,
   localModelRuntimeStatusText,

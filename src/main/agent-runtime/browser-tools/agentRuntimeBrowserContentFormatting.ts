@@ -2,7 +2,7 @@ import type {
   BrowserPageContent,
   BrowserProfileMode,
   BrowserUserActionState,
-} from "../../../shared/types";
+} from "../../../shared/browserTypes";
 import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 
 export type MaterializedBrowserPageContent = BrowserPageContent & { textOutput?: MaterializedTextOutput };

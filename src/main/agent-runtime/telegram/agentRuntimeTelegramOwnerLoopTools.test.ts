@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { registerTelegramOwnerLoopTools } from "./agentRuntimeTelegramOwnerLoopTools";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
-import { TelegramBridgePollingRunner } from "../../telegram/telegramBridgePolling";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
+import { TelegramBridgePollingRunner } from "../agentRuntimeTelegramFacade";
 
 describe("registerTelegramOwnerLoopTools", () => {
   it("registers and executes the Telegram owner-loop activation plan tool", async () => {

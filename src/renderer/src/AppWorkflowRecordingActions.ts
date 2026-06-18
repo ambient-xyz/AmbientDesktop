@@ -1,14 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  RunStatus,
-  SendMessageInput,
-  ThreadSummary,
-  WorkflowRecordingLibraryEntry,
-  WorkflowRecordingReviewDraftUpdate,
-  WorkflowRecordingState,
-} from "../../shared/types";
+import type { DesktopState, SendMessageInput } from "../../shared/desktopTypes";
+import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
+import type { WorkflowRecordingLibraryEntry, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingState } from "../../shared/workflowTypes";
 import type { SidebarArea } from "./AppShellSidebar";
 
 export function workflowRecordingGoalFromInput(goalInput: string): string | undefined {

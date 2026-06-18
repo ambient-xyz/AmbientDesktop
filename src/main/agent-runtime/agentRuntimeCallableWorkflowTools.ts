@@ -3,12 +3,14 @@ import type { ToolDefinition, ExtensionFactory } from "@mariozechner/pi-coding-a
 import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import type {
   CallableWorkflowTaskSummary,
+  WorkflowRecordingLibraryDescription,
+} from "../../shared/workflowTypes";
+import type {
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
-  ThreadSummary,
-  WorkflowRecordingLibraryDescription,
-  WorkspaceState,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type { CallableWorkflowCallerProvenance } from "../callable-workflow/callableWorkflowExecutionPlan";
 import {
   callableWorkflowActiveToolNamesForThread as defaultCallableWorkflowActiveToolNamesForThread,
@@ -55,6 +57,9 @@ export interface CallableWorkflowToolExtensionOptions {
   getFeatureFlagSnapshot: () => AmbientFeatureFlagSnapshot;
   getParentRun?: CreateCallableWorkflowPiToolDefinitionsOptions["getParentRun"];
   getCallerProvenance?: CreateCallableWorkflowPiToolDefinitionsOptions["getCallerProvenance"];
+  beforeEnqueueCallableWorkflowTask?: (input: {
+    executionPlan: Parameters<NonNullable<CreateCallableWorkflowPiToolDefinitionsOptions["enqueueCallableWorkflowTask"]>>[0]["executionPlan"];
+  }) => void;
   enqueueCallableWorkflowTask: NonNullable<CreateCallableWorkflowPiToolDefinitionsOptions["enqueueCallableWorkflowTask"]>;
   startCallableWorkflowTask: NonNullable<CreateCallableWorkflowPiToolDefinitionsOptions["startCallableWorkflowTask"]>;
   getRecordedWorkflowPlaybooks: NonNullable<CreateCallableWorkflowPiToolDefinitionsOptions["getRecordedWorkflowPlaybooks"]>;
@@ -72,6 +77,9 @@ export function createAgentRuntimeCallableWorkflowToolExtension(input: {
   getFeatureFlagSnapshot: () => AmbientFeatureFlagSnapshot;
   startCallableWorkflowTaskForThread: (threadId: string, taskId: string, workspace: WorkspaceState) => void;
   emitCallableWorkflowTaskUpdated: (task: CallableWorkflowTaskSummary) => void;
+  beforeEnqueueCallableWorkflowTask?: (input: {
+    executionPlan: Parameters<NonNullable<CreateCallableWorkflowPiToolDefinitionsOptions["enqueueCallableWorkflowTask"]>>[0]["executionPlan"];
+  }) => void;
   callableWorkflowActiveToolNamesForThread?: (input: CallableWorkflowPiToolContext) => string[];
   createCallableWorkflowPiToolDefinitions?: (options: CreateCallableWorkflowPiToolDefinitionsOptions) => ToolDefinition<any, any, any>[];
 }): ExtensionFactory {
@@ -95,6 +103,7 @@ export function createAgentRuntimeCallableWorkflowToolExtension(input: {
         }, input.store),
       startCallableWorkflowTaskForThread: input.startCallableWorkflowTaskForThread,
       emitCallableWorkflowTaskUpdated: input.emitCallableWorkflowTaskUpdated,
+      beforeEnqueueCallableWorkflowTask: input.beforeEnqueueCallableWorkflowTask,
     }),
     getRecordedWorkflowPlaybooks: () => callableWorkflowRecordedPlaybooks(input.store),
     callableWorkflowActiveToolNamesForThread: input.callableWorkflowActiveToolNamesForThread,
@@ -111,6 +120,9 @@ export function createAgentRuntimeCallableWorkflowToolRuntime(input: {
   getCallerProvenance: NonNullable<CreateCallableWorkflowPiToolDefinitionsOptions["getCallerProvenance"]>;
   startCallableWorkflowTaskForThread: (threadId: string, taskId: string, workspace: WorkspaceState) => void;
   emitCallableWorkflowTaskUpdated: (task: CallableWorkflowTaskSummary) => void;
+  beforeEnqueueCallableWorkflowTask?: (input: {
+    executionPlan: Parameters<NonNullable<CreateCallableWorkflowPiToolDefinitionsOptions["enqueueCallableWorkflowTask"]>>[0]["executionPlan"];
+  }) => void;
 }): Pick<
   CallableWorkflowToolExtensionOptions,
   "getParentRun" | "getCallerProvenance" | "enqueueCallableWorkflowTask" | "startCallableWorkflowTask"
@@ -128,6 +140,7 @@ export function createAgentRuntimeCallableWorkflowToolRuntime(input: {
     },
     getCallerProvenance: (provenanceInput) => input.getCallerProvenance(provenanceInput),
     enqueueCallableWorkflowTask: ({ executionPlan }) => {
+      input.beforeEnqueueCallableWorkflowTask?.({ executionPlan });
       const task = input.store.enqueueCallableWorkflowTask({
         executionPlan,
         featureFlagSnapshot: input.getFeatureFlagSnapshot(),

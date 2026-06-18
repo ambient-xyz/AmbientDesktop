@@ -6,7 +6,7 @@ import type {
   CodexHostedMarketplaceReport,
   CodexHostedMarketplaceSummary,
   CodexPluginCatalog,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 
 export const codexMarketplaceProtocolMethods = [
   "initialize",

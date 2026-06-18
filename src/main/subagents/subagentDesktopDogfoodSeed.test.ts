@@ -9,7 +9,7 @@ import {
   createAmbientModelRuntimeSnapshot,
 } from "../../shared/ambientModels";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
-import type { LocalRuntimeLeaseRecord } from "../../shared/types";
+import type { LocalRuntimeLeaseRecord } from "../../shared/localRuntimeTypes";
 import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,

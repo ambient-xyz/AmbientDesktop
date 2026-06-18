@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { ProjectBoardCard, ProjectBoardSource, ProjectSummary } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardSource, ProjectSummary } from "../../shared/projectBoardTypes";
 import {
   ProjectBoardCharterTab,
   ProjectBoardComplexityShadowPanel,

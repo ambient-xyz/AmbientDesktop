@@ -1,0 +1,126 @@
+import {
+  AGGRESSIVE_RETRY_BACKOFF_MS as AGGRESSIVE_RETRY_BACKOFF_MSFromAmbient,
+  AmbientStreamFailureError as AmbientStreamFailureErrorFromAmbient,
+  ambientRetryPolicyFromSettings as ambientRetryPolicyFromSettingsFromAmbient,
+  isRetryableAmbientProviderError as isRetryableAmbientProviderErrorFromAmbient,
+} from "../ambient/aggressiveRetries";
+import type {
+  AmbientStreamFailureKind as AmbientStreamFailureKindFromAmbient,
+} from "../ambient/aggressiveRetries";
+import {
+  AmbientDownloadService as AmbientDownloadServiceFromAmbient,
+} from "../ambient/ambientDownloadService";
+import type {
+  AmbientDownloadJobSnapshot as AmbientDownloadJobSnapshotFromAmbient,
+  AmbientDownloadStartInput as AmbientDownloadStartInputFromAmbient,
+} from "../ambient/ambientDownloadService";
+import {
+  ambientGitCommit as ambientGitCommitFromAmbient,
+  ambientGitFinishToMain as ambientGitFinishToMainFromAmbient,
+  ambientGitStatus as ambientGitStatusFromAmbient,
+} from "../ambient/ambientGitTools";
+import type {
+  AmbientGitCommitInput as AmbientGitCommitInputFromAmbient,
+  AmbientGitCommitResult as AmbientGitCommitResultFromAmbient,
+  AmbientGitFinishToMainInput as AmbientGitFinishToMainInputFromAmbient,
+  AmbientGitFinishToMainResult as AmbientGitFinishToMainResultFromAmbient,
+  AmbientGitStatusResult as AmbientGitStatusResultFromAmbient,
+} from "../ambient/ambientGitTools";
+import {
+  AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES as AMBIENT_DEFAULT_ACTIVE_TOOL_NAMESFromAmbient,
+  AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES as AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMESFromAmbient,
+  AMBIENT_TOOL_CALL as AMBIENT_TOOL_CALLFromAmbient,
+  AMBIENT_TOOL_DESCRIBE as AMBIENT_TOOL_DESCRIBEFromAmbient,
+  AMBIENT_TOOL_SEARCH as AMBIENT_TOOL_SEARCHFromAmbient,
+  createAmbientToolRouterTools as createAmbientToolRouterToolsFromAmbient,
+} from "../ambient/ambientToolRouter";
+import {
+  ambientWorkflowsArchiveText as ambientWorkflowsArchiveTextFromAmbient,
+  ambientWorkflowsDescribeText as ambientWorkflowsDescribeTextFromAmbient,
+  ambientWorkflowsInjectText as ambientWorkflowsInjectTextFromAmbient,
+  ambientWorkflowsPreflightDescribeText as ambientWorkflowsPreflightDescribeTextFromAmbient,
+  ambientWorkflowsRestoreVersionText as ambientWorkflowsRestoreVersionTextFromAmbient,
+  ambientWorkflowsSearchText as ambientWorkflowsSearchTextFromAmbient,
+  ambientWorkflowsUnarchiveText as ambientWorkflowsUnarchiveTextFromAmbient,
+  ambientWorkflowsUpdateText as ambientWorkflowsUpdateTextFromAmbient,
+  archiveAmbientWorkflowPlaybook as archiveAmbientWorkflowPlaybookFromAmbient,
+  describeAmbientWorkflowPlaybook as describeAmbientWorkflowPlaybookFromAmbient,
+  injectAmbientWorkflowPlaybook as injectAmbientWorkflowPlaybookFromAmbient,
+  restoreAmbientWorkflowPlaybookVersion as restoreAmbientWorkflowPlaybookVersionFromAmbient,
+  searchAmbientWorkflowPlaybooks as searchAmbientWorkflowPlaybooksFromAmbient,
+  unarchiveAmbientWorkflowPlaybook as unarchiveAmbientWorkflowPlaybookFromAmbient,
+  updateAmbientWorkflowPlaybook as updateAmbientWorkflowPlaybookFromAmbient,
+} from "../ambient/ambientWorkflows";
+import type {
+  AmbientWorkflowPlaybookDescription as AmbientWorkflowPlaybookDescriptionFromAmbient,
+  AmbientWorkflowPlaybookInjection as AmbientWorkflowPlaybookInjectionFromAmbient,
+  AmbientWorkflowsArchiveInput as AmbientWorkflowsArchiveInputFromAmbient,
+  AmbientWorkflowsDescribeInput as AmbientWorkflowsDescribeInputFromAmbient,
+  AmbientWorkflowsInjectInput as AmbientWorkflowsInjectInputFromAmbient,
+  AmbientWorkflowsRestoreVersionInput as AmbientWorkflowsRestoreVersionInputFromAmbient,
+  AmbientWorkflowsSearchInput as AmbientWorkflowsSearchInputFromAmbient,
+  AmbientWorkflowsSearchResponse as AmbientWorkflowsSearchResponseFromAmbient,
+  AmbientWorkflowsUnarchiveInput as AmbientWorkflowsUnarchiveInputFromAmbient,
+  AmbientWorkflowsUpdateInput as AmbientWorkflowsUpdateInputFromAmbient,
+} from "../ambient/ambientWorkflows";
+import {
+  applyLiveAmbientProviderApiKeyEnv as applyLiveAmbientProviderApiKeyEnvFromAmbient,
+  liveAmbientProviderLabel as liveAmbientProviderLabelFromAmbient,
+  liveAmbientProviderModel as liveAmbientProviderModelFromAmbient,
+  readLiveAmbientProviderApiKey as readLiveAmbientProviderApiKeyFromAmbient,
+} from "../ambient/liveAmbientProviderConfig";
+
+export const AGGRESSIVE_RETRY_BACKOFF_MS = AGGRESSIVE_RETRY_BACKOFF_MSFromAmbient;
+export const AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES = AMBIENT_DEFAULT_ACTIVE_TOOL_NAMESFromAmbient;
+export const AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES = AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMESFromAmbient;
+export const AMBIENT_TOOL_CALL = AMBIENT_TOOL_CALLFromAmbient;
+export const AMBIENT_TOOL_DESCRIBE = AMBIENT_TOOL_DESCRIBEFromAmbient;
+export const AMBIENT_TOOL_SEARCH = AMBIENT_TOOL_SEARCHFromAmbient;
+export const AmbientDownloadService = AmbientDownloadServiceFromAmbient;
+export const AmbientStreamFailureError = AmbientStreamFailureErrorFromAmbient;
+export const ambientGitCommit = ambientGitCommitFromAmbient;
+export const ambientGitFinishToMain = ambientGitFinishToMainFromAmbient;
+export const ambientGitStatus = ambientGitStatusFromAmbient;
+export const ambientRetryPolicyFromSettings = ambientRetryPolicyFromSettingsFromAmbient;
+export const ambientWorkflowsArchiveText = ambientWorkflowsArchiveTextFromAmbient;
+export const ambientWorkflowsDescribeText = ambientWorkflowsDescribeTextFromAmbient;
+export const ambientWorkflowsInjectText = ambientWorkflowsInjectTextFromAmbient;
+export const ambientWorkflowsPreflightDescribeText = ambientWorkflowsPreflightDescribeTextFromAmbient;
+export const ambientWorkflowsRestoreVersionText = ambientWorkflowsRestoreVersionTextFromAmbient;
+export const ambientWorkflowsSearchText = ambientWorkflowsSearchTextFromAmbient;
+export const ambientWorkflowsUnarchiveText = ambientWorkflowsUnarchiveTextFromAmbient;
+export const ambientWorkflowsUpdateText = ambientWorkflowsUpdateTextFromAmbient;
+export const applyLiveAmbientProviderApiKeyEnv = applyLiveAmbientProviderApiKeyEnvFromAmbient;
+export const archiveAmbientWorkflowPlaybook = archiveAmbientWorkflowPlaybookFromAmbient;
+export const createAmbientToolRouterTools = createAmbientToolRouterToolsFromAmbient;
+export const describeAmbientWorkflowPlaybook = describeAmbientWorkflowPlaybookFromAmbient;
+export const injectAmbientWorkflowPlaybook = injectAmbientWorkflowPlaybookFromAmbient;
+export const isRetryableAmbientProviderError = isRetryableAmbientProviderErrorFromAmbient;
+export const liveAmbientProviderLabel = liveAmbientProviderLabelFromAmbient;
+export const liveAmbientProviderModel = liveAmbientProviderModelFromAmbient;
+export const readLiveAmbientProviderApiKey = readLiveAmbientProviderApiKeyFromAmbient;
+export const restoreAmbientWorkflowPlaybookVersion = restoreAmbientWorkflowPlaybookVersionFromAmbient;
+export const searchAmbientWorkflowPlaybooks = searchAmbientWorkflowPlaybooksFromAmbient;
+export const unarchiveAmbientWorkflowPlaybook = unarchiveAmbientWorkflowPlaybookFromAmbient;
+export const updateAmbientWorkflowPlaybook = updateAmbientWorkflowPlaybookFromAmbient;
+
+export type AmbientDownloadJobSnapshot = AmbientDownloadJobSnapshotFromAmbient;
+export type AmbientDownloadService = InstanceType<typeof AmbientDownloadServiceFromAmbient>;
+export type AmbientDownloadStartInput = AmbientDownloadStartInputFromAmbient;
+export type AmbientGitCommitInput = AmbientGitCommitInputFromAmbient;
+export type AmbientGitCommitResult = AmbientGitCommitResultFromAmbient;
+export type AmbientGitFinishToMainInput = AmbientGitFinishToMainInputFromAmbient;
+export type AmbientGitFinishToMainResult = AmbientGitFinishToMainResultFromAmbient;
+export type AmbientGitStatusResult = AmbientGitStatusResultFromAmbient;
+export type AmbientStreamFailureError = InstanceType<typeof AmbientStreamFailureErrorFromAmbient>;
+export type AmbientStreamFailureKind = AmbientStreamFailureKindFromAmbient;
+export type AmbientWorkflowPlaybookDescription = AmbientWorkflowPlaybookDescriptionFromAmbient;
+export type AmbientWorkflowPlaybookInjection = AmbientWorkflowPlaybookInjectionFromAmbient;
+export type AmbientWorkflowsArchiveInput = AmbientWorkflowsArchiveInputFromAmbient;
+export type AmbientWorkflowsDescribeInput = AmbientWorkflowsDescribeInputFromAmbient;
+export type AmbientWorkflowsInjectInput = AmbientWorkflowsInjectInputFromAmbient;
+export type AmbientWorkflowsRestoreVersionInput = AmbientWorkflowsRestoreVersionInputFromAmbient;
+export type AmbientWorkflowsSearchInput = AmbientWorkflowsSearchInputFromAmbient;
+export type AmbientWorkflowsSearchResponse = AmbientWorkflowsSearchResponseFromAmbient;
+export type AmbientWorkflowsUnarchiveInput = AmbientWorkflowsUnarchiveInputFromAmbient;
+export type AmbientWorkflowsUpdateInput = AmbientWorkflowsUpdateInputFromAmbient;

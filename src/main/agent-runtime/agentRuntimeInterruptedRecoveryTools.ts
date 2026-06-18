@@ -14,7 +14,7 @@ import {
   parseRecoveryApplyWriteSuffixArgs,
   parseSavedWriteArgs,
   type ParsedSavedWriteArgs,
-} from "../interruptedWriteRecoveryArgs";
+} from "./recovery/interruptedWriteRecoveryArgs";
 
 export const RECOVERY_READ_TOOL_NAME = "recovery_read_interrupted_tool_call";
 export const RECOVERY_APPLY_WRITE_SUFFIX_TOOL_NAME = "recovery_apply_interrupted_write_suffix";

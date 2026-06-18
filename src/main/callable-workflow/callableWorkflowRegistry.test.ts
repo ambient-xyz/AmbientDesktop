@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS } from "../../shared/symphonyWorkflowRecipes";
 import { buildDefaultSymphonyPatternRoleGraph } from "../../shared/subagentPatternGraph";
-import type { WorkflowRecordingLibraryDescription } from "../../shared/types";
+import type { WorkflowRecordingLibraryDescription } from "../../shared/workflowTypes";
 import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,

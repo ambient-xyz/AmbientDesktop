@@ -1,4 +1,4 @@
-import type { ProjectBoardSynthesisRun } from "./types";
+import type { ProjectBoardSynthesisRun } from "./projectBoardTypes";
 
 export const DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS = 5 * 60 * 1000;
 

@@ -1,9 +1,9 @@
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import type {
-  DesktopEvent,
   PlannerPlanArtifact,
   PlannerPlanFinalizationAttemptStatus,
   PlannerPlanWorkflowState,
-} from "../../shared/types";
+} from "../../shared/plannerTypes";
 
 export interface RuntimeRunEventScopeInput {
   runWorkspacePath: string;

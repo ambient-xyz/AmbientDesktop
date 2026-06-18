@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { PrivilegedActionNativeResult } from "../../shared/types";
+import type { PrivilegedActionNativeResult } from "../../shared/permissionTypes";
 import type { ContainerRuntimeManagedInstallResult } from "../container-runtime/containerRuntimeInstallLauncher";
 import { credentialPlaceholder, redactPrivilegedOutputPreview } from "./privilegedAction";
 import { isPathInside } from "../session/sessionPaths";

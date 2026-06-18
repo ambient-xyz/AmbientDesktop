@@ -1,4 +1,4 @@
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import { emptyAssistantStallRuntimeActivity } from "../agent-runtime/agentRuntimeEmptyAssistantStallActivity";
 import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { piStreamStallTimeoutMessage } from "../agent-runtime/agentRuntimeTimeouts";

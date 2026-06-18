@@ -1,9 +1,4 @@
-import type {
-  ProjectBoardCard,
-  ProjectBoardCardCandidateStatus,
-  ProjectBoardEvent,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardEvent, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { projectBoardDecisionImpactPreview } from "../../shared/projectBoardDecisionImpact";
 import {
   projectBoardCardBlockedByOpenUxMockGate,

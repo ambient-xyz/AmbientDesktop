@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowRunSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { workflowPersistentStatusModel } from "./workflowPersistentStatusUiModel";
 
 const baseThread: Pick<WorkflowAgentThreadSummary, "phase" | "discoveryQuestions" | "latestVersion" | "activeArtifactId"> = {

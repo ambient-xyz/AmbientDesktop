@@ -1,9 +1,5 @@
-import type {
-  ToolArgumentProgressSnapshot,
-  ToolEditInputPreview,
-  ToolEventDetails,
-  ToolLongformInputPreview,
-} from "../../../shared/types";
+import type { ToolEventDetails } from "../../../shared/desktopTypes";
+import type { ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../../shared/threadTypes";
 import type { ToolResultDetails } from "../../pi/piEventMapper";
 import { AMBIENT_SUBAGENT_TOOL_NAME } from "../../subagents/subagentPiTools";
 

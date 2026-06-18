@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { WorkflowAgentThreadSummary, WorkflowExplorationTraceSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowExplorationTraceSummary } from "../../shared/workflowTypes";
 import { normalizeWorkflowExplorationBudgets } from "./workflowExplorationBudgetUiModel";
 import { workflowExplorationGateModel } from "./workflowExplorationGateUiModel";
 import { WorkflowExplorationPanel } from "./AutomationsWorkflowExplorationViews";

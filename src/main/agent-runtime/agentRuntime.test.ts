@@ -5,7 +5,19 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, vi } from "vitest";
-import type { BrowserUserActionState, LocalDeepResearchSettings, LocalDeepResearchSmokeResult, LocalDeepResearchValidationResult, LocalRuntimeLeaseRecord, PermissionMode, PermissionRequest, ProjectSummary, SttProviderCandidate, SttSettings, VoiceProviderCandidate, VoiceSettings } from "../../shared/types";
+import type { BrowserUserActionState } from "../../shared/browserTypes";
+import type {
+  LocalDeepResearchSettings,
+  LocalDeepResearchSmokeResult,
+  LocalDeepResearchValidationResult,
+  LocalRuntimeLeaseRecord,
+  SttProviderCandidate,
+  SttSettings,
+  VoiceProviderCandidate,
+  VoiceSettings,
+} from "../../shared/localRuntimeTypes";
+import type { PermissionMode, PermissionRequest } from "../../shared/permissionTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
 import {
   AMBIENT_KIMI_K2_7_CODE_MODEL,
   AMBIENT_LOCAL_TEXT_MODEL,
@@ -46,15 +58,15 @@ import {
 } from "./agentRuntimeAmbientCliSkillMount";
 import { ambientCapabilityBuilderPlanInput } from "../capability-builder/agentRuntimeCapabilityBuilderInput";
 import { PLANNER_DURABLE_REVISION_PROMPT_MARKER } from "./agentRuntimePlannerFinalizationPrompt";
-import { AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES } from "../ambient/ambientToolRouter";
+import { AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES } from "./agentRuntimeAmbientFacade";
 import { MacosAuthorizedHelperUnavailableAdapter, type PrivilegedActionAdapter, type PrivilegedActionAdapterExecuteInput } from "../privileged-action/privilegedActionAdapter";
 import { privilegedActionAdapterStatus, successfulPrivilegedActionNativeRequest } from "../privileged-action/privilegedAction";
 import { scaffoldCapabilityBuilderPackage } from "../capability-builder/capabilityBuilder";
 import { ProjectStore } from "../projectStore/projectStore";
 import type { LocalModelRuntimeLease, LocalModelRuntimeReleaseResult } from "../local-runtime/localModelRuntimeManager";
-import { TelegramBridgeSupervisor } from "../telegram/telegramBridgeSupervisor";
-import { createMessagingBindingStore } from "../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../messaging/messagingGatewayRegistry";
+import { TelegramBridgeSupervisor } from "./agentRuntimeTelegramFacade";
+import { createMessagingBindingStore } from "./agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "./agentRuntimeMessagingFacade";
 import { providerCatalogBootstrapReminder } from "../provider/providerCatalog";
 import { createProviderCatalogToolExtension } from "./agentRuntimeProviderCatalogTools";
 import { createVisionToolExtension } from "./agentRuntimeVisionTools";
@@ -660,6 +672,138 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       expect(fetchImpl).toHaveBeenCalledTimes(1);
       expect(release).toHaveBeenCalledTimes(1);
       expect(getSessionSpy).not.toHaveBeenCalled();
+    } finally {
+      store.close();
+      await rm(workspacePath, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps Symphony parent mode on the tool-capable Pi path when a local text main model is selected", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-local-main-symphony-"));
+    const store = new ProjectStore();
+    const emitted: any[] = [];
+    try {
+      const workspace = store.openWorkspace(workspacePath);
+      store.setFeatureFlagSettings({ subagents: true });
+      const threadSessionDir = join(workspace.sessionPath, "local-symphony-session");
+      await mkdir(threadSessionDir, { recursive: true });
+      const sessionFile = join(threadSessionDir, "session.jsonl");
+      await writeFile(sessionFile, "", "utf8");
+      const thread = store.updateThreadSettings(store.createThread("local main Symphony").id, {
+        model: AMBIENT_LOCAL_TEXT_MODEL,
+        piSessionFile: sessionFile,
+      });
+      const release = vi.fn(async () => agentRuntimeLocalModelRelease());
+      const runtimeManager = { acquire: vi.fn(async () => agentRuntimeLocalModelLease(workspacePath, { release })) };
+      const fetchImpl = vi.fn(async () => agentRuntimeJsonResponse({ output_text: "Local main should not answer." }));
+      const getWindow = () =>
+        ({
+          isDestroyed: () => false,
+          webContents: {
+            isDestroyed: () => false,
+            isCrashed: () => false,
+            send: (_channel: string, event: any) => emitted.push(event),
+          },
+        }) as any;
+      const localProfile = agentRuntimeLocalTextProfile({ selectableAsMain: true });
+      const subscribers: Array<(event: any) => void> = [];
+      const emit = (event: any) => {
+        for (const subscriber of [...subscribers]) subscriber(event);
+      };
+      const session = {
+        ...fakePiSession(sessionFile),
+        isStreaming: true,
+        subscribe: vi.fn((subscriber: (event: any) => void) => {
+          subscribers.push(subscriber);
+          return () => {
+            const index = subscribers.indexOf(subscriber);
+            if (index >= 0) subscribers.splice(index, 1);
+          };
+        }),
+        prompt: vi.fn(async () => {
+          emit({
+            type: "message_end",
+            message: {
+              role: "assistant",
+              stopReason: "stop",
+              content: [{ type: "text", text: "I cannot run local text for Symphony." }],
+            },
+          });
+        }),
+        steer: vi.fn(async () => undefined),
+        compact: vi.fn(async () => undefined),
+        agent: {
+          abort: vi.fn(),
+          waitForIdle: vi.fn(async () => undefined),
+        },
+      };
+      const runtime = new AgentRuntime(
+        store,
+        {} as any,
+        {} as any,
+        getWindow,
+        {
+          request: vi.fn(async () => ({ allowed: true, mode: "allow_once" as const })),
+          denyThread: () => undefined,
+        },
+        {
+          localTextSubagents: {
+            resolveModelRuntimeProfile: (modelId) => {
+              if (modelId === AMBIENT_LOCAL_TEXT_MODEL) return localProfile;
+              return resolveAmbientModelRuntimeProfile(modelId);
+            },
+            resolveRuntimeForMain: ({ thread: mainThread, runId, model }) => ({
+              launch: {
+                runtimeId: "local-text-runtime",
+                command: "/runtime/local-text",
+                args: ["serve"],
+                cwd: mainThread.workspacePath,
+                estimatedResidentMemoryBytes: 6 * gib,
+                profileId: model.profileId,
+              },
+              completionUrl: "http://127.0.0.1:43123/v1/chat/completions",
+              artifactRootPath: join(mainThread.workspacePath, ".ambient/local-main", runId),
+              maxInlineChars: 1024,
+            }),
+            runtimeManager,
+            fetchImpl: fetchImpl as typeof fetch,
+          },
+        },
+      );
+      const getSessionSpy = vi.spyOn(runtime as any, "getSession").mockResolvedValue(session);
+
+      await runtime.send({
+        threadId: thread.id,
+        content: "Use Symphony to compare these options.",
+        permissionMode: thread.permissionMode,
+        collaborationMode: thread.collaborationMode,
+        model: AMBIENT_LOCAL_TEXT_MODEL,
+        thinkingLevel: thread.thinkingLevel,
+        composerIntent: {
+          kind: "symphony-workflow",
+          action: "run-once",
+          patternId: "map_reduce",
+          metricCustomizations: {
+            "map_reduce-metric": "Reducer must cite each child result before synthesis.",
+          },
+        },
+      });
+
+      expect(runtimeManager.acquire).not.toHaveBeenCalled();
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(getSessionSpy).toHaveBeenCalledTimes(1);
+      expect(getSessionSpy.mock.calls[0]?.[0]).toMatchObject({ model: AMBIENT_KIMI_K2_7_CODE_MODEL });
+      expect(store.getThread(thread.id).model).toBe(AMBIENT_KIMI_K2_7_CODE_MODEL);
+      expect(session.prompt).toHaveBeenCalledTimes(1);
+      const prompt = String((session.prompt as any).mock.calls[0]?.[0] ?? "");
+      expect(prompt).toContain("ambient_workflow_symphony_map_reduce");
+      expect(prompt).not.toContain("Use ambient_subagent");
+      expect(prompt).not.toContain("Ambient sub-agent orchestration pattern detected");
+      expect(store.listCallableWorkflowTasksForParentThread(thread.id)).toEqual([]);
+      expect(store.listMessages(thread.id).at(-1)).toMatchObject({
+        metadata: expect.objectContaining({ status: "error", runtime: "pi" }),
+      });
+      expect(store.listMessages(thread.id).at(-1)?.metadata?.localTextResult).toBeUndefined();
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });

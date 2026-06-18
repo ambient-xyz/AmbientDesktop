@@ -1,5 +1,5 @@
 import type { SubagentToolScopeResolution } from "../../shared/subagentToolScope";
-import type { SubagentToolScopeSnapshotSummary } from "../../shared/types";
+import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 
 export interface SubagentToolScopeSnapshotDisplayMetadata {
   schemaVersion: "ambient-subagent-tool-scope-display-metadata-v1";

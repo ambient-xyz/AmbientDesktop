@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type {
-  ChatMessage,
-  WorkflowAgentThreadSummary,
-  WorkflowDiscoveryQuestion,
-  WorkflowExplorationProgress,
-  WorkflowExplorationTraceSummary,
-  WorkflowRevisionSummary,
-} from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
+import type { WorkflowAgentThreadSummary, WorkflowDiscoveryQuestion, WorkflowExplorationProgress, WorkflowExplorationTraceSummary, WorkflowRevisionSummary } from "../../shared/workflowTypes";
 import { workflowExplorationGateForThread, workflowExplorationGateModel } from "./workflowExplorationGateUiModel";
 
 describe("workflowExplorationGateUiModel", () => {

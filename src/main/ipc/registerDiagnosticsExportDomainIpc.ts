@@ -10,13 +10,13 @@ import {
   threadExportChatPdfIpcChannels,
   threadExportChatIpcChannels,
 } from "./registerThreadIpc";
+import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
 import type {
-  DiagnosticExportResult,
   ExportChatInput,
   ExportChatPdfInput,
   ExportChatPdfResult,
   ExportChatResult,
-} from "../../shared/types";
+} from "../../shared/threadTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

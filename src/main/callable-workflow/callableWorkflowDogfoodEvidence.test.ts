@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { SubagentToolScopeResolution } from "../../shared/subagentToolScope";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS } from "../../shared/symphonyWorkflowRecipes";
-import type { CallableWorkflowTaskRestartReconciliationSummary, ThreadWorktreeSummary, WorkflowArtifactSummary } from "../../shared/types";
+import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
+import type { CallableWorkflowTaskRestartReconciliationSummary, WorkflowArtifactSummary } from "../../shared/workflowTypes";
 import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,

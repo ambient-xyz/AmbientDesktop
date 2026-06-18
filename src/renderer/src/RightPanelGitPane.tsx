@@ -1,6 +1,6 @@
 import { ChevronDown, ExternalLink, RefreshCw, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import type { GitReviewFile, GitReviewSummary, GitSimpleAction } from "../../shared/types";
+import type { GitReviewFile, GitReviewSummary, GitSimpleAction } from "../../shared/workspaceTypes";
 import {
   gitCommitActionState,
   gitCreateBranchActionState,

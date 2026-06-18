@@ -1,12 +1,4 @@
-import type {
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowDiscoveryCapabilitySearch,
-  WorkflowDiscoveryCapabilitySearchResult,
-  WorkflowConnectorManifestGrant,
-  WorkflowManifest,
-  WorkflowPluginCapabilityGrant,
-} from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowConnectorManifestGrant, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryCapabilitySearchResult, WorkflowManifest, WorkflowPluginCapabilityGrant } from "../../shared/workflowTypes";
 import type { WorkflowExplorationBudgets } from "../../shared/workflowExplorationBudgets";
 import { normalizeWorkflowExplorationBudgets, workflowExplorationBudgetLabels } from "./workflowExplorationBudgetUiModel";
 import type { WorkflowExplorationGateModel } from "./workflowExplorationGateUiModel";

@@ -6,7 +6,7 @@ import {
   type ModelProviderInstallTemplateKind,
   type ModelProviderSecretFlow,
 } from "../../shared/modelProviderInstallTemplates";
-import type { InstallModelProviderEndpointInput, SaveModelProviderCredentialInput } from "../../shared/types";
+import type { InstallModelProviderEndpointInput, SaveModelProviderCredentialInput } from "../../shared/threadTypes";
 import type { ModelRuntimeCatalogTone } from "./modelRuntimeCatalogUiModel";
 
 export interface ModelProviderOnboardingCard {

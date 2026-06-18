@@ -2,12 +2,9 @@ import { createHash } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
-import type {
-  MiniCpmVisionRuntimeInstallResult,
-  MiniCpmVisionRuntimeReleaseManifest,
-} from "../../../shared/types";
+import type { MiniCpmVisionRuntimeInstallResult, MiniCpmVisionRuntimeReleaseManifest } from "../../../shared/localRuntimeTypes";
 import { AmbientDownloadService } from "../../ambient/ambientDownloadService";
-import { managedInstallWorkspacePath } from "../../managedInstallPaths";
+import { managedInstallWorkspacePath } from "../../setup/managedInstallPaths";
 import { installMiniCpmManagedRuntimeFromDownload } from "../../mini-cpm/miniCpmVisionProvider";
 import { isPathInside } from "../../session/sessionPaths";
 import {

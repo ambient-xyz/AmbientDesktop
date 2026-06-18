@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { CreateWorkflowAgentThreadInput } from "../../shared/types";
+import type { CreateWorkflowAgentThreadInput } from "../../shared/workflowTypes";
 import { mapWorkflowArtifactRow } from "./workflowArtifactMappers";
 import { ProjectStoreWorkflowArtifactRepository } from "./workflowArtifactRepository";
 import { mapWorkflowArtifactRow as legacyMapWorkflowArtifactRow } from "./projectStoreWorkflowMappers";

@@ -1,14 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type {
-  InterruptedToolCallRecoveryDiagnostics,
-  InterruptedToolCallRecoverySnapshot,
-  ProviderContinuationState,
-  ProviderContinuationToolState,
-  ToolArgumentProgressSnapshot,
-  ToolArgumentStreamDiagnostics,
-  ToolIntentSnapshot,
-} from "../../shared/types";
+import type { InterruptedToolCallRecoveryDiagnostics, InterruptedToolCallRecoverySnapshot, ProviderContinuationState, ProviderContinuationToolState, ToolArgumentProgressSnapshot, ToolArgumentStreamDiagnostics, ToolIntentSnapshot } from "../../shared/threadTypes";
 import type { ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import { compactToolInputPreview } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";

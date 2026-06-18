@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { pluginMcpToolDescriptor } from "../desktopToolRegistry";
+import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import { ProjectStore } from "../projectStore/projectStore";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { invokeWorkflowNativeTool, workflowNativeToolDescriptors, type WorkflowNativeRunArtifactInput } from "./workflowNativeTools";

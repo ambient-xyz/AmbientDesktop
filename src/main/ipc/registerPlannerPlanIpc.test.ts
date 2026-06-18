@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   GeneratePlannerDurableArtifactInput,
   PlannerPlanArtifact,
-} from "../../shared/types";
+} from "../../shared/plannerTypes";
 import {
   plannerPlanAnswerQuestionIpcChannels,
   plannerPlanGenerateDurableArtifactIpcChannels,

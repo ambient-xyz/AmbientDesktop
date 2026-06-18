@@ -4,19 +4,15 @@ import {
   type ExtensionFactory,
 } from "@mariozechner/pi-coding-agent";
 
-import type {
-  BrowserCapabilityState,
-  ChatMessage,
-  ThreadSummary,
-  WorkspaceGitStatus,
-  WorkspaceState,
-} from "../../shared/types";
+import type { BrowserCapabilityState } from "../../shared/browserTypes";
+import type { WorkspaceGitStatus, WorkspaceState } from "../../shared/workspaceTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import {
   buildAmbientCompactionSummary as defaultBuildAmbientCompactionSummary,
   collectAmbientCompactionFileLists as defaultCollectAmbientCompactionFileLists,
   type AmbientCompactionFileLists,
   type AmbientCompactionSummaryInput,
-} from "../compactionSummary";
+} from "./recovery/compactionSummary";
 import { getWorkspaceGitStatus as defaultGetWorkspaceGitStatus } from "../workspace/workspaceGit";
 
 type CompactPiContext = (

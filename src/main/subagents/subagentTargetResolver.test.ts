@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  SubagentRunSummary,
-  SubagentWaitBarrierSummary,
-} from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import {
   assertSubagentRunOpenForAction,
   resolveSubagentTargetRun,

@@ -2,7 +2,7 @@ import type {
   LocalModelRuntimeLifecycleActionKind,
   LocalRuntimeInventoryEntry,
   LocalRuntimeProviderLifecycleAction,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   runAmbientCliPackageCommand,
   type AmbientCliRunResult,

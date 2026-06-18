@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectBoardCard, ProjectBoardCardClaimSummary, ProjectBoardGitSyncStatus } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardCardClaimSummary, ProjectBoardGitSyncStatus } from "../../shared/projectBoardTypes";
 import {
   projectBoardCardClaimActionState,
   projectBoardCardClaimBlocksLocalTicketization,

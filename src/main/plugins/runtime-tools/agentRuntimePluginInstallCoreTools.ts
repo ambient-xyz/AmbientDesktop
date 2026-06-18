@@ -1,12 +1,10 @@
 import type { Model } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type {
-  AmbientPermissionGrant,
-  DesktopEvent,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+import type { DesktopEvent } from "../../../shared/desktopTypes";
+import type { AmbientPermissionGrant } from "../../../shared/permissionTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   registerAgentRuntimeMcpServerTools,
   type AgentRuntimeMcpPermissionRequest,

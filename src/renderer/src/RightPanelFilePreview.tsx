@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import type { WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/types";
+import type { WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/workspaceTypes";
 import { miniCpmVisualMediaKindFromPath } from "./miniCpmVisualActionUiModel";
 import { canRefreshOfficePreview } from "./workspaceUiModel";
 

@@ -1,4 +1,4 @@
-import type { ToolLongformInputPreview, ToolLongformInputPreviewItem } from "../../shared/types";
+import type { ToolLongformInputPreview, ToolLongformInputPreviewItem } from "../../shared/threadTypes";
 
 const DEFAULT_PREVIEW_CHARS = 1000;
 const DEFAULT_LONGFORM_MIN_CHARS = 500;

@@ -6,8 +6,8 @@ import type {
   MessagingGatewayRemoteSurfaceRuntimeEvent,
   MessagingGatewayRuntimeStatus,
 } from "../../../shared/messagingGateway";
-import { messagingGatewayStatusWithRemoteSurfaceRuntimeEvents } from "../../messaging/messagingRelayStatus";
-import { remoteSurfaceRuntimeEventRelayPatch } from "../../messaging/messagingRuntimeEventRelay";
+import { messagingGatewayStatusWithRemoteSurfaceRuntimeEvents } from "../agentRuntimeMessagingFacade";
+import { remoteSurfaceRuntimeEventRelayPatch } from "../agentRuntimeMessagingFacade";
 
 export type AgentRuntimeRemoteSurfaceRuntimeEventCreateInput =
   Omit<MessagingGatewayRemoteSurfaceRuntimeEvent, "id" | "scheduledAt"> & { scheduledAt?: string };

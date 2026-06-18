@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   recordSubagentGroupedCompletionNotificationIfNeeded,
   SUBAGENT_GROUPED_COMPLETION_RECORDER_SCHEMA_VERSION,

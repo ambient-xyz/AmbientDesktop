@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CodexPluginSummary } from "../../shared/types";
+import type { CodexPluginSummary } from "../../shared/pluginTypes";
 import { MemoryWorkflowConnectorTokenVault, fakeOAuthConnectorProvider } from "../workflow/workflowConnectorAuth";
 import { PluginAuthService } from "./pluginAuthService";
 

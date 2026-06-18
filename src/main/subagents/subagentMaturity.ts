@@ -23,7 +23,7 @@ import {
   type SubagentWorkflowJitterReleaseProfileReport,
   type SubagentWorkflowJitterReleaseProfileSummary,
 } from "../../shared/subagentMaturity";
-import type { SubagentRestartReconciliationSummary } from "../../shared/types";
+import type { SubagentRestartReconciliationSummary } from "../../shared/subagentTypes";
 import type { SubagentObservabilitySummary } from "./subagentObservability";
 
 export const REQUIRED_WORKFLOW_JITTER_RELEASE_PROFILE_DETERMINISTIC_STRESS_UNITS = 1_000;

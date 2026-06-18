@@ -1,9 +1,4 @@
-import type {
-  MiniCpmVisionDiagnosticItem,
-  MiniCpmVisionSetupAction,
-  MiniCpmVisionSetupResult,
-  MiniCpmVisionValidationMetadata,
-} from "../../shared/types";
+import type { MiniCpmVisionDiagnosticItem, MiniCpmVisionSetupAction, MiniCpmVisionSetupResult, MiniCpmVisionValidationMetadata } from "../../shared/localRuntimeTypes";
 
 export interface MiniCpmVisionSetupActionModel {
   action: MiniCpmVisionSetupAction;

@@ -1,12 +1,4 @@
-import type {
-  WorkflowDiscoveryGraphPatch,
-  WorkflowGraphEdge,
-  WorkflowGraphEdgeType,
-  WorkflowGraphNode,
-  WorkflowGraphNodeType,
-  WorkflowGraphSnapshot,
-  WorkflowGraphSnapshotSource,
-} from "./types";
+import type { WorkflowDiscoveryGraphPatch, WorkflowGraphEdge, WorkflowGraphEdgeType, WorkflowGraphNode, WorkflowGraphNodeType, WorkflowGraphSnapshot, WorkflowGraphSnapshotSource } from "./workflowTypes";
 
 const GRAPH_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,159}$/;
 const NODE_TYPES: WorkflowGraphNodeType[] = [

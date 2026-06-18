@@ -1,18 +1,7 @@
 import { z } from "zod";
-import type {
-  WorkflowDiscoveryQuestion,
-  WorkflowExplorationTraceSummary,
-  WorkflowGraphEdge,
-  WorkflowGraphNode,
-  WorkflowGraphNodeType,
-  WorkflowGraphSnapshot,
-  WorkflowManifest,
-  WorkflowSourceRange,
-  WorkflowSourceRangeKind,
-  WorkflowSpec,
-} from "../../shared/types";
+import type { WorkflowDiscoveryQuestion, WorkflowExplorationTraceSummary, WorkflowGraphEdge, WorkflowGraphNode, WorkflowGraphNodeType, WorkflowGraphSnapshot, WorkflowManifest, WorkflowSourceRange, WorkflowSourceRangeKind, WorkflowSpec } from "../../shared/workflowTypes";
 import type { AmbientCliCapabilitySearchResponse } from "../ambient-cli/ambientCliPackages";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import {
   validateWorkflowConnectorManifest,
   workflowConnectorCompilerSection,

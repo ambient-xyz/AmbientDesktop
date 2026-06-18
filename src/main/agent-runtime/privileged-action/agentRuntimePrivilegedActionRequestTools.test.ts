@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { PrivilegedActionNativeRequest, ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { PrivilegedActionNativeRequest } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import { dryRunPrivilegedActionNativeRequest, privilegedActionAdapterStatus } from "../../privileged-action/privilegedAction";
 import type { PrivilegedActionAdapter } from "../../privileged-action/privilegedActionAdapter";
 import {

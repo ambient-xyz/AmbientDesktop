@@ -3,7 +3,7 @@ import type {
   LocalModelResourceRegistryEntry,
   LocalModelResourceRegistrySnapshot,
   LocalRuntimeLeaseRecord,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import { buildLocalRuntimeInventory } from "./localRuntimeInventory";
 import {
   localModelRuntimeRestartText,

@@ -1,4 +1,4 @@
-import type { LocalRuntimeInventorySnapshot } from "../../shared/types";
+import type { LocalRuntimeInventorySnapshot } from "../../shared/localRuntimeTypes";
 
 export type LocalDeepResearchSetupAction = "status" | "install" | "repair" | "validate" | "smoke";
 export type LocalDeepResearchSetupStatus = "ready" | "needs-install" | "blocked";

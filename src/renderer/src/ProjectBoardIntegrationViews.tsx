@@ -1,11 +1,8 @@
 import { Archive, CheckCircle2, Package } from "lucide-react";
 import { useMemo } from "react";
 
-import type {
-  OrchestrationBoard,
-  ProjectSummary,
-  ResolveProjectBoardDeliverableIntegrationInput,
-} from "../../shared/types";
+import type { ProjectSummary, ResolveProjectBoardDeliverableIntegrationInput } from "../../shared/projectBoardTypes";
+import type { OrchestrationBoard } from "../../shared/workflowTypes";
 import { formatOrchestrationRunStatus } from "./AutomationsWorkspace";
 import { projectBoardPhaseDisplayName } from "./ProjectBoardLaneViews";
 import { projectBoardDeliverableIntegrationQueue } from "./projectBoardIntegrationUiModel";

@@ -1,14 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  ChatMessage,
-  DesktopState,
-  DiagnosticExportResult,
-  ExportChatPdfInput,
-  ExportChatPdfResult,
-  ExportChatResult,
-  RunStatus,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
+import type { ChatMessage, ExportChatPdfInput, ExportChatPdfResult, ExportChatResult, RunStatus } from "../../shared/threadTypes";
 import type { ApiKeyStatus } from "./RightPanel";
 import { chatExportStatusMessage } from "./AutomationsWorkspace";
 

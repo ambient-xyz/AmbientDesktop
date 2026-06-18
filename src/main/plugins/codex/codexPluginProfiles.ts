@@ -1,4 +1,4 @@
-import type { CodexPluginCompatibilityTier } from "../../../shared/types";
+import type { CodexPluginCompatibilityTier } from "../../../shared/pluginTypes";
 
 export type CodexPluginKnownProfile = {
   tier?: CodexPluginCompatibilityTier;

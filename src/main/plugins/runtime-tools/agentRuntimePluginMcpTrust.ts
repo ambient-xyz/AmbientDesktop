@@ -3,9 +3,9 @@ import type {
   PermissionGrantScopeKind,
   PermissionMode,
   PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/permissionTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { PluginMcpToolRegistration } from "../pluginHost";
 
 export interface PluginMcpTrustPermissionRequest {

@@ -1,14 +1,6 @@
-import type {
-  MediaArtifactResult,
-  ToolExternalModelResponseArtifact,
-  ToolEditInputPreview,
-  ToolEditInputPreviewEdit,
-  ToolEditTextPreview,
-  ToolLargeOutputPreview,
-  ToolLargeOutputPreviewItem,
-  ToolLongformInputPreview,
-  WorkflowInjectedPlaybookMetadata,
-} from "../../shared/types";
+import type { MediaArtifactResult } from "../../shared/desktopTypes";
+import type { ToolEditInputPreview, ToolEditInputPreviewEdit, ToolEditTextPreview, ToolExternalModelResponseArtifact, ToolLargeOutputPreview, ToolLargeOutputPreviewItem, ToolLongformInputPreview } from "../../shared/threadTypes";
+import type { WorkflowInjectedPlaybookMetadata } from "../../shared/workflowTypes";
 import type {
   MessagingConversationDirectorySetupCard,
   MessagingConversationDirectorySetupCardConversation,
@@ -26,7 +18,7 @@ import {
   type SubagentRuntimeEventInput,
   type SubagentRuntimeEventSource,
 } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   largeOutputPreviewItemsMissingArtifacts,
   validateLargeOutputPreviewArtifacts,

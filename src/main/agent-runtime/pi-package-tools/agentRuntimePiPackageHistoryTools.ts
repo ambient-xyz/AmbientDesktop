@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   discoverPiExtensionSandboxPackages,
   type PiExtensionSandboxCatalog,
@@ -10,7 +10,7 @@ import {
   discoverPiPrivilegedPackages,
   type PiPrivilegedCatalog,
 } from "./piPrivilegedPackages";
-import type { WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 
 export interface PiExtensionSandboxHistoryToolRegistrationOptions {
   workspace: Pick<WorkspaceState, "path">;

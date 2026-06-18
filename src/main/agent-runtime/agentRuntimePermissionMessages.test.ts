@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PermissionRequest } from "../../shared/types";
+import type { PermissionRequest } from "../../shared/permissionTypes";
 import {
   formatPermissionBlockedMessage,
   formatPermissionDeniedToolResultReason,

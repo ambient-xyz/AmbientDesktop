@@ -22,7 +22,7 @@ const workerRunMaxElapsedMs = Number(process.env.AMBIENT_KANBAN_EXPENSE_NULL_SCR
 const defaultRepoKeyFile = join(repoRoot, "gmicloud-api-key.txt");
 const defaultHomeCheckoutKeyFile = join(homedir(), "AmbientDesktop", "gmicloud-api-key.txt");
 const keyFile = resolve(process.env.GMI_CLOUD_API_KEY_FILE || (existsSync(defaultRepoKeyFile) ? defaultRepoKeyFile : defaultHomeCheckoutKeyFile));
-const defaultSnapshotWorkspace = join(homedir(), "Documents", "ambientCoderArchive");
+const defaultSnapshotWorkspace = join(homedir(), "Documents", "AmbientDesktopArchive");
 const sourceWorkspace =
   process.env.AMBIENT_KANBAN_EXPENSE_NULL_SCRATCH_PERMISSION_SNAPSHOT_WORKSPACE ||
   process.env.AMBIENT_DESKTOP_WORKSPACE ||
@@ -111,7 +111,7 @@ try {
     outsideReadPromptText,
     screenshots: { board: boardScreenshotPath, proof: proofScreenshotPath },
     assertions: [
-      "Desktop launched with the GMI Cloud provider against a temp copy of Documents/ambientCoderArchive",
+      "Desktop launched with the GMI Cloud provider against a temp copy of Documents/AmbientDesktopArchive",
       "A CSV expense Local Task was prepared and started through visible Board UI controls",
       "The worker ran a proof command with output redirected to /dev/null without a false outside-workspace prompt",
       "The worker wrote a workspace-local temporary scratch proof file under tmp/",

@@ -1,4 +1,4 @@
-import type { ProjectBoardCard, ProjectBoardSummary } from "./types";
+import type { ProjectBoardCard, ProjectBoardSummary } from "./projectBoardTypes";
 import {
   projectBoardClarificationCanonicalKey,
   projectBoardClarificationDecisions,

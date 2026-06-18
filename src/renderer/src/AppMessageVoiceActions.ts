@@ -1,9 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  MessageVoiceState,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { MessageVoiceState } from "../../shared/localRuntimeTypes";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

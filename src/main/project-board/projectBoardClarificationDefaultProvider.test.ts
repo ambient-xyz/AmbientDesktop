@@ -8,8 +8,8 @@ import {
   projectBoardClarificationDefaultSuggestionTargets,
   type AmbientProjectBoardClarificationDefaultProgress,
 } from "./projectBoardClarificationDefaultProvider";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
-import type { ProjectBoardCard } from "../../shared/types";
+import { aggressiveAmbientRetryPolicy } from "./projectBoardAmbientFacade";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 
 describe("AmbientProjectBoardClarificationDefaultProvider", () => {
   const animatedCard = card({

@@ -38,7 +38,7 @@ import {
 import type {
   MessagingRemoteSurfaceCommandPreview,
   MessagingRemoteSurfaceCommandResult,
-} from "../../messaging/messagingRemoteSurfaceCommands";
+} from "../agentRuntimeMessagingFacade";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 

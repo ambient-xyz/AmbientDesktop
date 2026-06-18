@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  BrowserScreenshotResult,
-  BrowserUserActionState,
-} from "../../../shared/types";
-import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "../../ambient/ambientToolRouter";
+import type { BrowserScreenshotResult, BrowserUserActionState } from "../../../shared/browserTypes";
+import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "../agentRuntimeAmbientFacade";
 import { BrowserUnavailableError } from "../../browser/browserService";
 import {
   browserScreenshotMediaArtifact,

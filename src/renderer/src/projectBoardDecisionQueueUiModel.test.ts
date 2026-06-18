@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { projectBoardDecisionQueue } from "./projectBoardDecisionQueueUiModel";
 
 describe("projectBoardDecisionQueue", () => {

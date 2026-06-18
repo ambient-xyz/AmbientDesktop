@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ContextUsageSnapshot } from "../../shared/types";
-import { summarizeProviderPayload } from "../contextAccounting";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
+import { summarizeProviderPayload } from "../../shared/contextAccounting";
 import { createContextAccountingExtension } from "./agentRuntimeContextAccountingExtension";
 
 type ProviderRequestHandler = (event: any) => Promise<undefined>;

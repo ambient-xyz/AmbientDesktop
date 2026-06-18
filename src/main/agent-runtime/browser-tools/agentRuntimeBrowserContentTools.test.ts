@@ -1,10 +1,7 @@
 import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  BrowserPageContent,
-  BrowserUserActionState,
-} from "../../../shared/types";
+import type { BrowserPageContent, BrowserUserActionState } from "../../../shared/browserTypes";
 import type { MaterializedTextOutput } from "../../tool-runtime/toolOutputArtifacts";
 import { BrowserUnavailableError } from "../../browser/browserService";
 import {

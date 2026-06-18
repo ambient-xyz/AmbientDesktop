@@ -3,7 +3,7 @@ import type {
   LocalDeepResearchSmokeCheck,
   LocalDeepResearchSmokeResult,
   LocalDeepResearchSmokeStatus,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import { localDeepResearchToolBudgetState, resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import {
   enforceLocalModelResourceLaunchPolicy,

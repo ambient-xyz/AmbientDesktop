@@ -4,22 +4,24 @@ import type {
 } from "../../../shared/messagingGateway";
 import type {
   AmbientPermissionGrant,
-  MediaPlaybackSettings,
   PermissionAuditEntry,
   PermissionRequest,
-  PlannerSettings,
-  ProjectSummary,
-  SearchRoutingSettings,
+} from "../../../shared/permissionTypes";
+import type {
+  MediaPlaybackSettings,
   SttSettings,
-  ThreadSummary,
   VoiceSettings,
-  WorkflowAgentFolderSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/localRuntimeTypes";
+import type { PlannerSettings } from "../../../shared/plannerTypes";
+import type { ProjectSummary } from "../../../shared/projectBoardTypes";
+import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
+import type { WorkflowAgentFolderSummary } from "../../../shared/workflowTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   buildRuntimeSurfaceSnapshot,
   type RuntimeSurfaceSnapshot,
-} from "../../runtimeSurfaceSnapshot";
+} from "../../../shared/runtimeSurfaceSnapshot";
 
 export interface AgentRuntimeMessagingSurfaceSnapshotOptions {
   workspace: WorkspaceState;

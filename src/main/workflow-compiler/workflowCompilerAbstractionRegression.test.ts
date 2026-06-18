@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
 import {
   selectWorkflowCompilerConnectorDescriptors,
   selectWorkflowCompilerToolDescriptors,
@@ -8,7 +8,7 @@ import {
 } from "./workflowCompiler";
 import { buildWorkflowProgramIrPromptParts, type WorkflowCompilerPromptParts } from "./workflowCompilerService";
 import { fixtureWorkflowConnector, type WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
-import type { WorkflowDiscoveryQuestion } from "../../shared/types";
+import type { WorkflowDiscoveryQuestion } from "../../shared/workflowTypes";
 
 const allToolDescriptors = firstPartyDesktopToolDescriptors();
 

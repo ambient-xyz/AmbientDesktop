@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import {
   buildSubagentParentControlBarrierReconciliationArtifact,
   resolveSubagentParentControlBarrierReconciliation,

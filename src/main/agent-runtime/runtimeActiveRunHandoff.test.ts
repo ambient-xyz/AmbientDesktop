@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
 import {
   handleRuntimeActiveRunHandoff,
   type RuntimeActiveRunHandoffActiveRun,

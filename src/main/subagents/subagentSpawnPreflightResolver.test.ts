@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
-import type {
-  SubagentRunSummary,
-  ThreadSummary,
-} from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
-import { createDefaultModelRuntimeRegistry } from "../modelRuntimeRegistry";
+import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
 import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import {
   buildSubagentSpawnCapacityLeaseInput,

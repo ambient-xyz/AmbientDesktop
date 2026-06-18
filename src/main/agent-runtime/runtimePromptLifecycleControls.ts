@@ -1,4 +1,5 @@
-import type { DesktopEvent, RunStatus } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { RunStatus } from "../../shared/threadTypes";
 import type { RuntimePromptCompletion } from "./runtimePromptCompletionLoop";
 
 export type RuntimeActiveRunStatus = Exclude<RunStatus, "idle" | "error">;

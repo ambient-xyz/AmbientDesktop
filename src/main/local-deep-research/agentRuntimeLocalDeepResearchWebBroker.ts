@@ -8,9 +8,9 @@ import type {
   BrowserSearchInput,
   BrowserSearchResult,
   BrowserUserActionState,
-  WebResearchProviderConfig,
-  WorkspaceState,
-} from "../../shared/types";
+} from "../../shared/browserTypes";
+import type { WebResearchProviderConfig } from "../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   type AmbientCliRunResult,
   type RunAmbientCliInput,

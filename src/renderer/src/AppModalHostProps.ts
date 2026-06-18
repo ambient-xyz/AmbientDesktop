@@ -1,11 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  LocalDeepResearchSetupAction,
-  PermissionMode,
-  PermissionPromptResponseMode,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { LocalDeepResearchSetupAction } from "../../shared/localRuntimeTypes";
+import type { PermissionMode, PermissionPromptResponseMode } from "../../shared/permissionTypes";
 import type {
   AppModalHostProps,
   SubagentApprovalDecisionDialogState,

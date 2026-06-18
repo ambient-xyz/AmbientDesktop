@@ -1,4 +1,4 @@
-import type { ProjectBoardSynthesisRunStage } from "../../shared/types";
+import type { ProjectBoardSynthesisRunStage } from "../../shared/projectBoardTypes";
 import type { ProjectStore } from "../projectStore/projectStore";
 
 export interface ProjectBoardDirectHelperRetryProgress {

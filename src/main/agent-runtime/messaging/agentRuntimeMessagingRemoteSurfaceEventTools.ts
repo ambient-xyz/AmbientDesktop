@@ -1,15 +1,15 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messaging/messagingBindings";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingBindingStore } from "../agentRuntimeMessagingFacade";
 import {
   buildMessagingRemoteSurfaceEventPreview,
   messagingRemoteSurfaceEventPreviewInput,
   messagingRemoteSurfaceEventPreviewText,
   type MessagingRemoteSurfaceProviderRegistryLike,
-} from "../../messaging/messagingRemoteSurfaceProviderPreview";
-import type { RuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
+} from "../agentRuntimeMessagingFacade";
+import type { RuntimeSurfaceSnapshot } from "../../../shared/runtimeSurfaceSnapshot";
 
 export interface MessagingRemoteSurfaceEventToolRegistrationOptions {
   registry: MessagingRemoteSurfaceProviderRegistryLike;

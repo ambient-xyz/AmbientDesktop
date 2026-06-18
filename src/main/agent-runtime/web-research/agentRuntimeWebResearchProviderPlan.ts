@@ -1,8 +1,11 @@
 import type {
   SearchRoutingSettings,
   WebResearchProviderRole,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/webResearchTypes";
+import type { SubagentToolScopeSnapshotSummary } from "../../../shared/subagentTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
+import type { ChildLaunchPolicySnapshot } from "../../../shared/symphonyFineGrainedContracts";
 import type { AmbientCliPackageCatalog } from "../../ambient-cli/ambientCliPackages";
 import type { LocalDeepResearchProviderSnapshot } from "../../local-deep-research/localDeepResearchSetup";
 import type { McpToolDescriptor } from "../../mcp/mcpToolBridge";
@@ -12,6 +15,9 @@ import {
   planWebResearchProviderOrder,
   type WebResearchProviderRequestPlan,
 } from "../../web-research/webResearchProviderStack";
+import {
+  planSymphonyWebResearchProviderOrder,
+} from "./symphonyWebCapabilityRouter";
 
 export interface WebResearchProviderPlanRequest {
   workspace: WorkspaceState;
@@ -20,6 +26,12 @@ export interface WebResearchProviderPlanRequest {
   signal?: AbortSignal;
   providerSnapshot?: LocalDeepResearchProviderSnapshot;
   allowBrowserFallback?: boolean;
+  symphonyRouting?: {
+    featureFlagSnapshot: AmbientFeatureFlagSnapshot;
+    childToolScopeSnapshot?: Pick<SubagentToolScopeSnapshotSummary, "scope" | "resolverInputs">;
+    childLaunchPolicySnapshot?: Pick<ChildLaunchPolicySnapshot, "webProviderOrder">;
+    interactiveBrowserApproved?: boolean;
+  };
 }
 
 export interface WebResearchProviderPlanOptions {
@@ -43,11 +55,26 @@ export async function webResearchProviderPlanForInput(
     request.providerSnapshot ? searchSettingsWithLocalDeepResearchProviderSnapshot(settings, request.providerSnapshot) : settings,
     request.allowBrowserFallback,
   );
-  return planWebResearchProviderOrder({
+  const providerOrder = request.providerSnapshot ? localDeepResearchProviderOrderForRole(request.providerSnapshot, request.role) : request.input.providerOrder;
+  const webResearch = normalizeSearchRoutingSettingsWithWebResearch(plannedSettings).webResearch;
+  const legacyPlan = planWebResearchProviderOrder({
     settings: plannedSettings,
     role: request.role,
-    providerOrder: request.providerSnapshot ? localDeepResearchProviderOrderForRole(request.providerSnapshot, request.role) : request.input.providerOrder,
+    providerOrder,
   });
+  if (request.symphonyRouting && (request.role === "search" || request.role === "fetch")) {
+    return planSymphonyWebResearchProviderOrder({
+      webResearch,
+      role: request.role,
+      providerOrder,
+      legacyPlan,
+      featureFlagSnapshot: request.symphonyRouting.featureFlagSnapshot,
+      childToolScopeSnapshot: request.symphonyRouting.childToolScopeSnapshot,
+      childLaunchPolicySnapshot: request.symphonyRouting.childLaunchPolicySnapshot,
+      interactiveBrowserApproved: request.symphonyRouting.interactiveBrowserApproved,
+    });
+  }
+  return legacyPlan;
 }
 
 export function searchSettingsWithLocalDeepResearchProviderSnapshot(

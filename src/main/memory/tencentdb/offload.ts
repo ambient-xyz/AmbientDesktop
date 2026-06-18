@@ -1,4 +1,4 @@
-import type { ChatMessage, ToolLargeOutputPreview, ToolLargeOutputPreviewItem } from "../../../shared/types";
+import type { ChatMessage, ToolLargeOutputPreview, ToolLargeOutputPreviewItem } from "../../../shared/threadTypes";
 
 const DEFAULT_MAX_ENTRIES = 5;
 const DEFAULT_MAX_CONTEXT_CHARS = 4_000;

@@ -1,4 +1,4 @@
-import type { RuntimeActivity } from "../../shared/types";
+import type { RuntimeActivity } from "../../shared/threadTypes";
 import type { NormalizedPiEvent } from "../pi/piEventMapper";
 import {
   runtimeProviderRetryFinishedActivity,

@@ -8,7 +8,7 @@ import type {
   PiPrivilegedSecurityScan,
   ScanPiPrivilegedPackageInput,
   UninstallPiPrivilegedPackageInput,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import {
   piPrivilegedClearHistoryIpcChannels,
   piPrivilegedDisableIpcChannels,

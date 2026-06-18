@@ -1,28 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
-import type {
-  InvokeWorkflowNativeToolInput,
-  PermissionMode,
-  SearchRoutingSettings,
-  WorkflowDashboard,
-  WorkflowArtifactSummary,
-  WorkflowDiscoveryCapabilityDescription,
-  WorkflowDiscoveryCapabilitySearch,
-  WorkflowExecutionMode,
-  WorkflowGraphEdge,
-  WorkflowGraphNode,
-  WorkflowGraphSnapshot,
-  WorkflowManifest,
-  WorkflowNativeToolInvocationResult,
-  WorkflowNativeToolName,
-  WorkflowRevisionSummary,
-  WorkflowRunDetail,
-  WorkflowRunLimitOverrides,
-  WorkflowRunRuntime,
-  WorkflowVersionStatus,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
+import type { InvokeWorkflowNativeToolInput, WorkflowArtifactSummary, WorkflowDashboard, WorkflowDiscoveryCapabilityDescription, WorkflowDiscoveryCapabilitySearch, WorkflowExecutionMode, WorkflowGraphEdge, WorkflowGraphNode, WorkflowGraphSnapshot, WorkflowManifest, WorkflowNativeToolInvocationResult, WorkflowNativeToolName, WorkflowRevisionSummary, WorkflowRunDetail, WorkflowRunLimitOverrides, WorkflowRunRuntime, WorkflowVersionStatus, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { diffWorkflowGraphs, workflowGraphDiffHasChanges, workflowGraphDiffSummary, type WorkflowGraphDiff } from "../../shared/workflowGraphDiff";
 import { readWorkflowRunDetail } from "./workflowDashboard";
 import { assertWorkflowArtifactSourceEditable, workflowArtifactSourceProvenance } from "./workflowArtifactProvenance";
@@ -38,7 +19,7 @@ import {
 } from "../workflow-compiler/workflowCompiler";
 import { restoreWorkflowVersion } from "./workflowVersionRestore";
 import { commitWorkflowVersionRepo } from "./workflowVersioning";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { ProjectStore } from "../projectStore/projectStore";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import type { WorkflowConnectorDescriptor } from "./workflowConnectors";

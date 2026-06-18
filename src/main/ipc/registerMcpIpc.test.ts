@@ -8,16 +8,16 @@ import type {
   AmbientMcpDefaultCapabilityInstallInput,
   AmbientMcpInstalledServerSummary,
   AmbientMcpInstallPreview,
-  AmbientMcpServerInstallResult,
   AmbientMcpServerDescribeInput,
   AmbientMcpServerInstallInput,
+  AmbientMcpServerInstallResult,
   AmbientMcpServerSearchInput,
   AmbientMcpServerSearchResult,
   AmbientMcpServerUninstallInput,
   AmbientMcpServerUninstallResult,
   AmbientMcpToolReviewAcceptInput,
   AmbientMcpToolReviewAcceptResult,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 import {
   mcpContainerRuntimeDeferIpcChannels,
   mcpContainerRuntimeLaunchInstallIpcChannels,

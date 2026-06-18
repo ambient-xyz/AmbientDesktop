@@ -1,4 +1,4 @@
-import type { RunStatus } from "./types";
+import type { RunStatus } from "./threadTypes";
 
 export const RUN_ABORT_ARM_DELAY_MS = 1_000;
 

@@ -1,11 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  SttProviderCandidate,
-  SttProviderSetupResult,
-  VoiceProviderCandidate,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { SttProviderCandidate, SttProviderSetupResult, VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
 import {
   sttProviderCacheChanges,
   sttSetupResultModel,

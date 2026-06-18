@@ -1,4 +1,4 @@
-import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSummary } from "./types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardSummary } from "./projectBoardTypes";
 
 export interface ProjectBoardProofCoverageRecheckMetadata {
   schemaVersion: 1;

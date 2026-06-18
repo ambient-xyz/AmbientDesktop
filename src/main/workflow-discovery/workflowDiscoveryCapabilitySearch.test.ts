@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { pluginMcpToolDescriptor } from "../desktopToolRegistry";
+import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
 import { validateWorkflowConnectorDescriptor, workspaceInventoryConnectorDescriptor } from "../workflow/workflowConnectors";

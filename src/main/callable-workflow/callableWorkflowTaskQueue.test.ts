@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
-import type { WorkflowRecordingLibraryDescription } from "../../shared/types";
+import type { WorkflowRecordingLibraryDescription } from "../../shared/workflowTypes";
 import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,

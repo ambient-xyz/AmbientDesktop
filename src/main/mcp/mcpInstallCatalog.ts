@@ -33,7 +33,7 @@ import {
   type ToolHiveSecretBindingState,
   type ToolHiveWorkloadSummary,
 } from "../tool-runtime/toolHiveRuntimeService";
-import { isSecretReference } from "../secretReferenceStore";
+import { isSecretReference } from "../security/secretReferenceStore";
 
 export interface McpServerSearchInput {
   query?: string;

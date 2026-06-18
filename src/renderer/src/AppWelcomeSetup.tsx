@@ -5,10 +5,8 @@ import {
   Zap,
 } from "lucide-react";
 
-import type {
-  AmbientPluginRegistry,
-  ProviderCatalogSettingsCard,
-} from "../../shared/types";
+import type { ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
 import type { WelcomeOnboardingPageKind } from "../../shared/welcomeOnboarding";
 import {
   formatAmbientAvailability,

@@ -1,12 +1,8 @@
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
-import type {
-  ProjectBoardSource,
-  ProjectBoardSourceAuthorityRole,
-  ProjectBoardSourceKind,
-} from "../../shared/types";
-import { type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries } from "../ambient/ambientChatCompletionRetry";
-import { readAmbientApiKey } from "../credentialStore";
+import type { ProjectBoardSource, ProjectBoardSourceAuthorityRole, ProjectBoardSourceKind } from "../../shared/projectBoardTypes";
+import { type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
+import { callAmbientChatCompletionTextWithRetries } from "./projectBoardAmbientFacade";
+import { readAmbientApiKey } from "../security/credentialStore";
 import { buildProjectBoardPlanningContract } from "./projectBoardPlanningContract";
 import {
   projectBoardSourceAuthorityRole,

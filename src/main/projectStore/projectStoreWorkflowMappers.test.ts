@@ -34,7 +34,7 @@ import {
   type WorkflowRunScheduleEventRow,
   type WorkflowVersionRow,
 } from "./projectStoreWorkflowMappers";
-import type { WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowRunStatus } from "../../shared/types";
+import type { WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowRunStatus } from "../../shared/workflowTypes";
 
 describe("project store workflow mappers", () => {
   it("maps workflow agent folder rows without store state", () => {

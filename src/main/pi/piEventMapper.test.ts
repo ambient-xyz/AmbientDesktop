@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   formatToolArgs,
   formatToolResult,

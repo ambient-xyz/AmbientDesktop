@@ -1,4 +1,4 @@
-import type { ProjectBoardEvent } from "../../shared/types";
+import type { ProjectBoardEvent } from "../../shared/projectBoardTypes";
 
 export interface ProjectBoardEventGroup {
   label: string;

@@ -8,7 +8,8 @@ import type {
 } from "../../../shared/agentMemoryDiagnostics";
 import { isAmbientTencentDbMemoryEnabled, type AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
 import type { EmbeddingProviderCandidate } from "../../../shared/localRuntimeTypes";
-import type { ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import { AmbientTencentMemoryHostAdapter } from "./ambientHostAdapter";
 import { AmbientTencentMemoryLlmRunnerFactory, type AmbientTencentMemoryLlmDelegate } from "./ambientLlmRunner";
 import {

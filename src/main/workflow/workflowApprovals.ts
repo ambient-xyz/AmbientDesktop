@@ -1,4 +1,4 @@
-import type { WorkflowApprovalStatus, WorkflowApprovalSummary, WorkflowRunEvent } from "../../shared/types";
+import type { WorkflowApprovalStatus, WorkflowApprovalSummary, WorkflowRunEvent } from "../../shared/workflowTypes";
 
 export function workflowApprovalsFromEvents(events: WorkflowRunEvent[]): WorkflowApprovalSummary[] {
   const approvals = new Map<string, WorkflowApprovalSummary>();

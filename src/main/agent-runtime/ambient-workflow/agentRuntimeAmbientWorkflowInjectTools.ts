@@ -9,9 +9,9 @@ import {
   type AmbientWorkflowPlaybookInjection,
   type AmbientWorkflowsDescribeInput,
   type AmbientWorkflowsInjectInput,
-} from "../../ambient/ambientWorkflows";
-import { pluginInstallToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+} from "../agentRuntimeAmbientFacade";
+import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import type { ProjectStore } from "../../projectStore/projectStore";
 
 interface AmbientWorkflowInjectServices {

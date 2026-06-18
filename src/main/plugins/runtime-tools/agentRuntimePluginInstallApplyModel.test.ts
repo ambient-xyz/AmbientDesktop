@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { CodexPluginSummary, ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { CodexPluginSummary } from "../../../shared/pluginTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { CodexPluginInstallPreview } from "../codex/codexPlugins";
 import {
   pluginActivationApprovalDetail,

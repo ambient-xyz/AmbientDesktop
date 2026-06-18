@@ -1,4 +1,5 @@
-import type { DesktopEvent, DesktopState, ThreadSummary } from "../../shared/types";
+import type { DesktopEvent, DesktopState } from "../../shared/desktopTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 
 export type WorkspaceProjectAliases = Record<string, string>;
 

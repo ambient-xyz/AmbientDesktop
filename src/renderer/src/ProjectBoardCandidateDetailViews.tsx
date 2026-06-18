@@ -14,17 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import type {
-  ApplyProjectBoardDecisionImpactFeedbackInput,
-  ProjectBoardCard,
-  ProjectBoardCardCandidateStatus,
-  ProjectBoardGitSyncStatus,
-  ProjectSummary,
-  RefreshProjectBoardDecisionDraftsInput,
-  RegenerateProjectBoardDecisionDraftsInput,
-  ResolveProjectBoardCardPiUpdateInput,
-  UpdateProjectBoardCardInput,
-} from "../../shared/types";
+import type { ApplyProjectBoardDecisionImpactFeedbackInput, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardGitSyncStatus, ProjectSummary, RefreshProjectBoardDecisionDraftsInput, RegenerateProjectBoardDecisionDraftsInput, ResolveProjectBoardCardPiUpdateInput, UpdateProjectBoardCardInput } from "../../shared/projectBoardTypes";
 import { ProjectBoardClaimControls, projectBoardCardTouchedFieldLabel } from "./ProjectBoardActiveCardDetailViews";
 import { projectBoardCardSourceLabel } from "./ProjectBoardLaneViews";
 import {

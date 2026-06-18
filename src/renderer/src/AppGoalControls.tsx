@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { CSSProperties } from "react";
 
-import type { RuntimeActivity, ThreadGoal } from "../../shared/types";
+import type { RuntimeActivity, ThreadGoal } from "../../shared/threadTypes";
 
 export const GOAL_COMPLETION_CELEBRATION_MS = 2200;
 

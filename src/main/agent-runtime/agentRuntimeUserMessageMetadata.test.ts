@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import type { QueuedMessageSnapshot } from "../../shared/messageDelivery";
-import type { SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
 import { agentRuntimeQueuedMessageMetadata, agentRuntimeUserMessageMetadata } from "./agentRuntimeUserMessageMetadata";
 
 describe("agentRuntimeUserMessageMetadata", () => {

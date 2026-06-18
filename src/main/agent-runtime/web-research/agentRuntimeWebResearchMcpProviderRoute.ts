@@ -3,10 +3,10 @@ import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 import type {
   AmbientPermissionGrant,
   PermissionGrantScopeKind,
-  ThreadSummary,
-  WebResearchProviderConfig,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/permissionTypes";
+import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import { mcpRuntimePermissionBlockedMessage } from "../../mcp/mcpRuntimePermissionEnforcement";
 import {
   evaluateMcpToolCallPermission,

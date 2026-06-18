@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowRunEvent } from "../../shared/types";
+import type { WorkflowRunEvent } from "../../shared/workflowTypes";
 import { workflowApprovalsFromEvents } from "./workflowApprovals";
 
 describe("workflowApprovalsFromEvents", () => {

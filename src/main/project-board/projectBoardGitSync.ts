@@ -2,12 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import type {
-  ProjectBoardGitProjectionChange,
-  ProjectBoardGitProjectionResolutionDecision,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardGitProjectionChange, ProjectBoardGitProjectionResolutionDecision, ProjectBoardGitSyncStatus, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { PROJECT_BOARD_ARTIFACT_ROOT, boardEventArtifactPath, serializeBoardArtifact, type BoardEventArtifact } from "./projectBoardArtifacts";
 import {
   projectBoardArtifactExportFromSummary,

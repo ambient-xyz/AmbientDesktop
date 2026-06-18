@@ -12,7 +12,7 @@ import type {
   SttProviderSetupInput,
   SttProviderSetupResult,
   SttProviderValidationMetadata,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   discoverAmbientCliSttProviders,
   ensureFirstPartyAmbientCliPackages,

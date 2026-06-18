@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import { aggressiveAmbientRetryPolicy } from "./projectBoardAmbientFacade";
 import { recordProjectBoardDirectHelperRetryActivity } from "./projectBoardDirectHelperRetryActivity";
 import { AmbientProjectBoardSourceClassifierProvider } from "./projectBoardSourceClassifierProvider";
 import { ProjectStore } from "../projectStore/projectStore";

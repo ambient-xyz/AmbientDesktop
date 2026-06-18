@@ -1,4 +1,4 @@
-import type { AmbientCompactionSettings } from "../../shared/types";
+import type { AmbientCompactionSettings } from "../../shared/threadTypes";
 
 export const DEFAULT_COMPACTION_SETTINGS: AmbientCompactionSettings = {
   autoCompactionEnabled: true,

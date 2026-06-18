@@ -1,15 +1,5 @@
-import type {
-  ChatMessage,
-  StartWorkflowRecordingInput,
-  WorkflowRecordingCapture,
-  WorkflowRecordingEvent,
-  WorkflowRecordingEventStatus,
-  WorkflowRecordingPlaybookDraft,
-  WorkflowRecordingReviewDraftUpdate,
-  WorkflowRecordingReviewState,
-  WorkflowRecordingReviewValidationIssue,
-  WorkflowRecordingState,
-} from "./types";
+import type { ChatMessage } from "./threadTypes";
+import type { StartWorkflowRecordingInput, WorkflowRecordingCapture, WorkflowRecordingEvent, WorkflowRecordingEventStatus, WorkflowRecordingPlaybookDraft, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingReviewState, WorkflowRecordingReviewValidationIssue, WorkflowRecordingState } from "./workflowTypes";
 
 const WORKFLOW_RECORDING_PREVIEW_CHARS = 700;
 const WORKFLOW_RECORDING_SECTION_PREVIEW_CHARS = 500;

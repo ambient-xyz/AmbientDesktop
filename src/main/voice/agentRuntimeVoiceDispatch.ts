@@ -1,4 +1,6 @@
-import type { ChatMessage, MessageVoiceState, ProviderStatus, ThreadSummary, VoiceSettings } from "../../shared/types";
+import type { ProviderStatus } from "../../shared/desktopTypes";
+import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import { recordVoiceDispatchForMessage } from "./voiceDispatch";
 import {
   ambientCliVoiceProviderFromSettings,
@@ -7,7 +9,7 @@ import {
   type VoiceRuntimeStore,
 } from "./voiceRuntime";
 import type { AmbientCliVoiceRunner } from "./voiceProvider";
-import type { WorkspaceMediaUrlInput } from "../workspace/workspaceMedia";
+import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
 
 export type AgentRuntimeVoiceDispatchStore = VoiceRuntimeStore & {
   getThread(threadId: string): ThreadSummary;

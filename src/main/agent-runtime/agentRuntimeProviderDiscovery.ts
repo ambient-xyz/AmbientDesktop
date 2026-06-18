@@ -3,7 +3,7 @@ import type {
   SttProviderCandidate,
   SttProviderValidationMetadata,
   VoiceProviderCandidate,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   discoverAmbientCliEmbeddingProviders as defaultDiscoverEmbeddingProviders,
   discoverAmbientCliSttProviders as defaultDiscoverSttProviders,

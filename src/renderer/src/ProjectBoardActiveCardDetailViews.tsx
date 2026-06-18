@@ -17,18 +17,9 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import type {
-  AddProjectBoardCardRunFeedbackInput,
-  CopyProjectBoardSessionToThreadInput,
-  OrchestrationBoard,
-  ProjectBoardCard,
-  ProjectBoardCardRunFeedbackSource,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardProofDecisionAction,
-  ProjectBoardSplitDecisionAction,
-  ProjectSummary,
-  RunStatus,
-} from "../../shared/types";
+import type { AddProjectBoardCardRunFeedbackInput, CopyProjectBoardSessionToThreadInput, ProjectBoardCard, ProjectBoardCardRunFeedbackSource, ProjectBoardGitSyncStatus, ProjectBoardProofDecisionAction, ProjectBoardSplitDecisionAction, ProjectSummary } from "../../shared/projectBoardTypes";
+import type { RunStatus } from "../../shared/threadTypes";
+import type { OrchestrationBoard } from "../../shared/workflowTypes";
 import { formatOrchestrationRunStatus, ProofEvidencePathLink, ProofOfWorkPreview, RunTimeline } from "./AutomationsWorkspace";
 import { formatTaskState, formatTimelineTime } from "./RightPanel";
 import { ProjectBoardObjectiveProvenanceBlock, projectBoardPhaseDisplayName } from "./ProjectBoardLaneViews";

@@ -22,7 +22,7 @@ import type {
   ImportCodexPluginInput,
   RemoveCodexMarketplaceInput,
   UninstallCodexPluginInput,
-} from "../../../shared/types";
+} from "../../../shared/pluginTypes";
 import { validateAmbientCuratedMarketplace } from "./codexCuratedMarketplace";
 import {
   ambientCuratedMarketplaceDefaultUrl,
@@ -35,7 +35,7 @@ import {
 import { knownCodexPluginProfile } from "./codexPluginProfiles";
 import { isPathInside } from "../../session/sessionPaths";
 import { materializeTextOutput } from "../../tool-runtime/toolOutputArtifacts";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../managedInstallPaths";
+import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../setup/managedInstallPaths";
 
 const execFileAsync = promisify(execFile);
 const marketplaceLocations = [".agents/plugins/marketplace.json", ".claude-plugin/marketplace.json"];

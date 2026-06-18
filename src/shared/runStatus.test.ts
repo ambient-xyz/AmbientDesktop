@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isRunStatusRunning, RUN_ABORT_ARM_DELAY_MS } from "./runStatus";
-import type { RunStatus } from "./types";
+import type { RunStatus } from "./threadTypes";
 
 describe("isRunStatusRunning", () => {
   it.each([

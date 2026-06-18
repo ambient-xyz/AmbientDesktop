@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowDiscoveryQuestion, WorkflowGraphSnapshot } from "../../shared/types";
+import type { WorkflowDiscoveryQuestion, WorkflowGraphSnapshot } from "../../shared/workflowTypes";
 import {
   workflowDiagramInitialViewportNodeIds,
   layoutWorkflowGraph,

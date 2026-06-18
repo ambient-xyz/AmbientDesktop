@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ProjectBoardGitSyncStatus } from "../../shared/types";
+import type { ProjectBoardGitSyncStatus } from "../../shared/projectBoardTypes";
 import {
   ProjectBoardCollaborationReadinessPanel,
   ProjectBoardGitSyncControls,

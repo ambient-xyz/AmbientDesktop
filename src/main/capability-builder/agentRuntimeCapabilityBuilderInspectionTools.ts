@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { WorkspaceState } from "../../shared/types";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   capabilityBuilderListFilesText,
   capabilityBuilderPreviewText,
@@ -15,8 +15,8 @@ import {
   type CapabilityBuilderReadFileInput,
   type CapabilityBuilderReadFileResult,
 } from "./capabilityBuilder";
-import { pluginInstallToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 
 export interface CapabilityBuilderInspectionToolRegistrationOptions {
   workspace: Pick<WorkspaceState, "path">;

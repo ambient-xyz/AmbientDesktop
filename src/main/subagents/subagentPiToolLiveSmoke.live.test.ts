@@ -4,16 +4,16 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
-import type { PermissionPromptResponseMode, PermissionRequest } from "../../shared/types";
+import type { PermissionPromptResponseMode, PermissionRequest } from "../../shared/permissionTypes";
 import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "../ambient/liveAmbientProviderConfig";
 import { createDocxFixture } from "../office/officeTestFixtures";
-import { createPdfFixture } from "../pdfTestFixtures";
+import { createPdfFixture } from "../pdf/pdfTestFixtures";
 import { ProjectStore } from "../projectStore/projectStore";
 import { resolveSubagentApprovalDecision } from "./subagentApprovalDecision";
 import { recordSubagentLiveApprovalAuthorityEvidence, recordSubagentLiveSmokeEvidence } from "./subagentLiveSmokeEvidence";

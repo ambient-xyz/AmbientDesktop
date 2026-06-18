@@ -1,15 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import type { DesktopEvent } from "../../../shared/desktopTypes";
 import type {
-  ChatMessage,
-  DesktopEvent,
   SubagentMailboxEventSummary,
   SubagentParentMailboxEventSummary,
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../../shared/types";
+} from "../../../shared/subagentTypes";
+import type { ChatMessage, ThreadSummary } from "../../../shared/threadTypes";
 import type { LocalTextSubagentRuntimeStore } from "../../local-runtime/localTextSubagentRuntime";
 import { createAgentRuntimeSubagentEventingStore } from "./agentRuntimeSubagentEventingStore";
 import type { SubagentPiToolStore } from "../../subagents/subagentPiTools";

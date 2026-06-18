@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PlannerPlanArtifact } from "../../shared/types";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import {
   parseCollaborationSlashCommand,
   parseSecretSlashCommand,

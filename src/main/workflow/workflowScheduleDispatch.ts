@@ -1,4 +1,6 @@
-import type { AutomationScheduleSummary, PermissionAuditEntry, WorkflowArtifactSummary, WorkflowRunLimitOverrides } from "../../shared/types";
+import type { AutomationScheduleSummary } from "../../shared/automationTypes";
+import type { PermissionAuditEntry } from "../../shared/permissionTypes";
+import type { WorkflowArtifactSummary, WorkflowRunLimitOverrides } from "../../shared/workflowTypes";
 import {
   workflowArtifactScheduleBlockReason,
   workflowArtifactScheduleConnectorGrantUses,

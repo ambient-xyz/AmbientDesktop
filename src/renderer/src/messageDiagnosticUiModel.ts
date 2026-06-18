@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
 
 export interface MessageDiagnosticCardModel {
   title: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DesktopToolDescriptor } from "../desktopToolRegistry";
+import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import {
   WORKFLOW_PROGRAM_OUTPUT_CONTRACT_NODE_KINDS,
   workflowProgramKnownOutputFields,

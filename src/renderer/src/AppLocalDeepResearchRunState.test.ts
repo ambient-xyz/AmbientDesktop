@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ChatMessage } from "../../shared/types";
+import type { ChatMessage } from "../../shared/threadTypes";
 import { activeThreadHasRunningLocalDeepResearch } from "./AppLocalDeepResearchRunState";
 
 describe("App Local Deep Research run state", () => {

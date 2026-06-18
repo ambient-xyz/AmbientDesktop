@@ -1,9 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  WorkflowRecordingEditContext,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { WorkflowRecordingEditContext, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import type {
   AutomationPopover,
   ProjectPopover,

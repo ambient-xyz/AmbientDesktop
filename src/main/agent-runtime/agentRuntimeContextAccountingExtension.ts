@@ -1,7 +1,7 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { ContextUsageSnapshot } from "../../shared/types";
-import { summarizeProviderPayload } from "../contextAccounting";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
+import { summarizeProviderPayload } from "../../shared/contextAccounting";
 
 type ContextUsageSnapshotInput = Omit<ContextUsageSnapshot, "updatedAt">;
 

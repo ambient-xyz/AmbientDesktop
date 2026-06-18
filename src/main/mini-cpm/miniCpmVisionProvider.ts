@@ -5,32 +5,7 @@ import { chmod, mkdir, open, readFile, rename, rm, stat, writeFile } from "node:
 import { arch, homedir, platform } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import JSZip from "jszip";
-import type {
-  MiniCpmVisionAnalysisCommandSummary,
-  MiniCpmVisionAnalysisResult,
-  MiniCpmVisionAnalyzeInput,
-  MiniCpmVisionCleanupResult,
-  MiniCpmVisionDiagnosticItem,
-  MiniCpmVisionImageInputReference,
-  MiniCpmVisionImageSummary,
-  MiniCpmVisionObservation,
-  MiniCpmVisionRuntimeReleaseArtifact,
-  MiniCpmVisionRuntimeReleaseManifest,
-  MiniCpmVisionRuntimeReleaseManifestCheck,
-  MiniCpmVisionRuntimeReleaseManifestVerification,
-  MiniCpmVisionRuntimeCandidate,
-  MiniCpmVisionRuntimeContract,
-  MiniCpmVisionRuntimeInstallResult,
-  MiniCpmVisionRuntimeMacosSecurity,
-  MiniCpmVisionRuntimePreflightCheck,
-  MiniCpmVisionRuntimeState,
-  MiniCpmVisionSetupInput,
-  MiniCpmVisionSetupResult,
-  MiniCpmVisionTask,
-  MiniCpmVisionValidationMetadata,
-  MiniCpmVisionVideoInputReference,
-  MiniCpmVisionVideoSummary,
-} from "../../shared/types";
+import type { MiniCpmVisionAnalysisCommandSummary, MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionCleanupResult, MiniCpmVisionDiagnosticItem, MiniCpmVisionImageInputReference, MiniCpmVisionImageSummary, MiniCpmVisionObservation, MiniCpmVisionRuntimeCandidate, MiniCpmVisionRuntimeContract, MiniCpmVisionRuntimeInstallResult, MiniCpmVisionRuntimeMacosSecurity, MiniCpmVisionRuntimePreflightCheck, MiniCpmVisionRuntimeReleaseArtifact, MiniCpmVisionRuntimeReleaseManifest, MiniCpmVisionRuntimeReleaseManifestCheck, MiniCpmVisionRuntimeReleaseManifestVerification, MiniCpmVisionRuntimeState, MiniCpmVisionSetupInput, MiniCpmVisionSetupResult, MiniCpmVisionTask, MiniCpmVisionValidationMetadata, MiniCpmVisionVideoInputReference, MiniCpmVisionVideoSummary } from "../../shared/localRuntimeTypes";
 import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
 import { miniCpmRemoteEndpointBlockedMessage } from "../../shared/miniCpmRemoteEndpointSecurity";
 import { localLlamaManagedRuntimeDownloadEligibility, selectLocalLlamaRuntimeArtifact } from "../local-llama/localLlamaRuntimeManifest";
@@ -46,7 +21,7 @@ import {
   type FirstPartyAmbientCliPackageInstallStatus,
 } from "../ambient-cli/ambientCliPackages";
 import { isPathInside } from "../session/sessionPaths";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../managedInstallPaths";
+import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/managedInstallPaths";
 
 const provider = "minicpm-v" as const;
 const packageName = "ambient-minicpm-v-vision";

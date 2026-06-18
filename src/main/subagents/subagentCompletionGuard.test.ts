@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL, createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
-import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import { validateSubagentCompletionGuard } from "./subagentCompletionGuard";
 import { subagentStructuredResultTemplate } from "./subagentStructuredOutput";
 

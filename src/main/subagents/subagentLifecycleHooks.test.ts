@@ -9,7 +9,7 @@ import {
   subagentLifecycleHookPreview,
   subagentTranscriptPath,
 } from "./subagentLifecycleHooks";
-import type { SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 
 describe("subagent lifecycle hooks", () => {
   it("records durable start transcript refs", () => {

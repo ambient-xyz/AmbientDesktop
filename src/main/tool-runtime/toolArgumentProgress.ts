@@ -1,10 +1,4 @@
-import type {
-  ToolArgumentProgressPhase,
-  ToolArgumentProgressSnapshot,
-  ToolArgumentStreamDiagnostics,
-  ToolArgumentStreamEventType,
-  ToolLongformInputPreview,
-} from "../../shared/types";
+import type { ToolArgumentProgressPhase, ToolArgumentProgressSnapshot, ToolArgumentStreamDiagnostics, ToolArgumentStreamEventType, ToolLongformInputPreview } from "../../shared/threadTypes";
 
 const COMPLETED_ARGUMENT_STREAM_LIMIT = 20;
 

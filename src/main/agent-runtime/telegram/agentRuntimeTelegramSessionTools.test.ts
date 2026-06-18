@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import type { MessagingGatewayBridgeSupervisorStatus } from "../../../shared/messagingGateway";
-import type { ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import { registerTelegramSessionTools } from "./agentRuntimeTelegramSessionTools";
 
 describe("registerTelegramSessionTools", () => {

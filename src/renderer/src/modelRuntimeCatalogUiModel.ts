@@ -3,10 +3,7 @@ import type {
   AmbientModelRuntimeProfile,
   AmbientProviderDescriptor,
 } from "../../shared/ambientModels";
-import type {
-  LocalRuntimeInventoryEntry,
-  LocalRuntimeInventorySnapshot,
-} from "../../shared/types";
+import type { LocalRuntimeInventoryEntry, LocalRuntimeInventorySnapshot } from "../../shared/localRuntimeTypes";
 import {
   modelProviderOnboardingSettingsModel,
   type ModelProviderOnboardingSettingsModel,

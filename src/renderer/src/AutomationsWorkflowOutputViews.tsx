@@ -1,6 +1,6 @@
 import { FileText, Maximize2 } from "lucide-react";
 
-import type { WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/types";
+import type { WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import { WorkflowRuntimeBrowserScreenshotPreview } from "./AutomationsWorkflowUtilityViews";
 import { artifactMediaKindFromPath } from "./toolMessageUiModel";

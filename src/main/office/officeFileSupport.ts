@@ -1,5 +1,5 @@
 import { extname } from "node:path";
-import type { OfficeDocumentFormat, OfficePreviewFormat } from "../../shared/types";
+import type { OfficeDocumentFormat, OfficePreviewFormat } from "../../shared/workspaceTypes";
 
 export type OfficeFileSupport =
   | {

@@ -1,11 +1,5 @@
-import type {
-  OrchestrationRun,
-  OrchestrationTask,
-  OrchestrationWorkflowReadiness,
-  ProjectBoardCard,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardSummary,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardGitSyncStatus, ProjectBoardSummary } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun, OrchestrationTask, OrchestrationWorkflowReadiness } from "../../shared/workflowTypes";
 import { projectBoardRunBlocksPlanning } from "../../shared/projectBoardSynthesisGate";
 import { projectBoardCanonicalCardProjection } from "./projectBoardActiveCardUiModel";
 import {

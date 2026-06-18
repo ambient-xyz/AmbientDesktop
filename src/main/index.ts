@@ -44,15 +44,16 @@ import {
   type AmbientWorkflowsUpdateInput,
 } from "./ambient/ambientWorkflows";
 import { AmbientWorkflowLabJudgeProvider, runWorkflowLab } from "./workflow/workflowLab";
-import { ambientRetryPolicyFromSettings } from "./aggressiveRetries";
+import { ambientRetryPolicyFromSettings } from "./ambient/aggressiveRetries";
 import { ambientChatCompletionTransportTimeoutsFromEnv } from "./ambient/ambientChatCompletionRetry";
 import { getAppLogs, installAppLogCapture } from "./diagnostics/appLogs";
-import { parseAmbientLaunchArgs } from "./launchArgs";
+import { parseAmbientLaunchArgs } from "./desktop-shell/launchArgs";
 import { localTextSubagentStartupFeatureFromEnv } from "./local-runtime/localTextSubagentStartupConfig";
+import { AMBIENT_KEYS_URL } from "../shared/ambientUrls";
 import { isAmbientSubagentsEnabled, resolveAmbientFeatureFlags } from "../shared/featureFlags";
 import { resolveSubagentApprovalDecision } from "./subagents/subagentApprovalDecision";
 import { reconcileSubagentsOnRuntimeStartup } from "./subagents/subagentStartupReconciliation";
-import { installAppMenu } from "./menu";
+import { installAppMenu } from "./desktop-shell/menu";
 import { scanProjectBoardSources } from "./project-board/projectBoardSources";
 import {
   projectBoardSourceDeterministicAuthorityLocked,
@@ -130,8 +131,8 @@ import {
   searchAmbientWorkflowPlaybooksAcrossStores,
   type WorkflowRecordingLibraryStore,
 } from "./workflow-recording/workflowRecordingGlobalLibrary";
-import { ProjectRegistry, archiveProjectChats, normalizeWorkspacePath, projectIdFromWorkspacePath, readProjectSearchResults } from "./projectRegistry";
-import { ensureWelcomeOnboardingProject, resolveWelcomeOnboardingAssetsPath } from "./welcomeOnboarding";
+import { ProjectRegistry, archiveProjectChats, normalizeWorkspacePath, projectIdFromWorkspacePath, readProjectSearchResults } from "./workspace/projectRegistry";
+import { ensureWelcomeOnboardingProject, resolveWelcomeOnboardingAssetsPath } from "./workspace/welcomeOnboarding";
 import { providerCatalogSettingsState } from "./provider/providerCatalog";
 import { getAmbientProviderStatus } from "./provider/providerStatus";
 import { saveModelProviderCredentialForSettings } from "./model-provider/modelProviderCredentialStore";
@@ -141,135 +142,28 @@ import {
   assertProjectBoardCardGenerationAllowed,
   assertProjectBoardCharterReviewAllowed,
 } from "../shared/projectBoardSynthesisGate";
-import { DesktopUpdateService, desktopUpdateConfigFromEnv } from "./updateService";
-import { isLoopbackWebUrl, parseExternalOpenUrl } from "./externalUrlPolicy";
-import { LocalPreviewServerManager } from "./localPreviewServer";
-import { redactSensitiveText } from "./secretRedaction";
-import { readSecretReference } from "./secretReferenceStore";
+import { DesktopUpdateService, desktopUpdateConfigFromEnv } from "./desktop-shell/updateService";
+import { isLoopbackWebUrl, parseExternalOpenUrl } from "./security/externalUrlPolicy";
+import { LocalPreviewServerManager } from "./browser/localPreviewServer";
+import { redactSensitiveText } from "./security/secretRedaction";
+import { readSecretReference } from "./security/secretReferenceStore";
 import { saveMcpServerEnvSecret } from "./mcp/mcpSecretReferences";
 import { selectStartupWorkspacePath } from "./workspace/workspaceDefaults";
-import type {
-  AmbientPermissionGrant,
-  AmbientMcpInstallPreview,
-  AmbientMcpContainerRuntimeStatus,
-  AmbientMcpDefaultCapabilityInstallInput,
-  AmbientMcpServerInstallResult,
-  AmbientMcpServerUninstallResult,
-  AmbientMcpToolReviewAcceptResult,
-  AmbientPluginRegistry,
-  CodexHostedMarketplaceReport,
-  CodexPluginCatalog,
-  DesktopEvent,
-  DesktopState,
-  DesktopUpdateState,
-  FirstPartyGoogleIntegrationState,
-  GitReviewSummary,
-  OrchestrationAutoDispatchStartedRun,
-  OrchestrationAutoDispatchStatus,
-  ChatMessage,
-  AppThirdPartyCredit,
-  CreateAutomationScheduleInput,
-  UpdateAutomationScheduleInput,
-  CreateProjectBoardInput,
-  ProjectBoardGitSyncInput,
-  ProjectBoardCard,
-  ProjectBoardCharterProjectSummary,
-  ProjectBoardPmReviewReport,
-  ProjectBoardSource,
-  ProjectBoardSynthesisProposal,
-  ProjectBoardSynthesisRun,
-  ProjectBoardSynthesisRunStage,
-  PauseProjectBoardSynthesisInput,
-  CreateAmbientPermissionGrantInput,
-  SetThemePreferenceInput,
-  ProjectSummary,
-  RefineProjectBoardSynthesisInput,
-  RegenerateMessageVoiceInput,
-  MessageVoiceArtifactInput,
-  VoiceArtifactRetentionInput,
-  AmbientMcpDefaultCapabilityInstallProgress,
-  RefreshProjectBoardSourcesInput,
-  RerunProjectBoardProofInput,
-  SuggestProjectBoardClarificationDefaultsInput,
-  SuggestProjectBoardKickoffDefaultsInput,
-  SuggestProjectBoardProofInput,
-  RetryProjectBoardSynthesisInput,
-  SeedProjectBoardCanonicalProjectionDogfoodInput,
-  SeedProjectBoardDeliverableIntegrationDogfoodInput,
-  SeedProjectBoardProofJudgmentDogfoodInput,
-  LocalDeepResearchRunHistoryInput,
-  LocalDeepResearchRunHistoryResult,
-  LocalDeepResearchSetupInput as LocalDeepResearchSetupIpcInput,
-  LocalDeepResearchSetupResult,
-  InstallModelProviderEndpointInput,
-  InstallModelProviderEndpointResult,
-  ModelProviderCredentialSaveResult,
-  LocalModelResourcePolicyDecision,
-  LocalModelRuntimeLifecycleActionInput,
-  LocalModelRuntimeLifecycleActionResult,
-  MiniCpmVisionAnalyzeInput,
-  MiniCpmVisionSetupInput,
-  ResolveWorkflowRevisionInput,
-  RegenerateProjectBoardDecisionDraftsInput,
-  RegenerateProjectBoardSourceDraftsInput,
-  SearchWorkflowRecordingsInput,
-  RunStatus,
-  PermissionRequest,
-  SaveModelProviderCredentialInput,
-  SetSttTtsSpeakingInput,
-  PermissionAuditEntry,
-  SetOrchestrationAutoDispatchInput,
-  ThreadActionInput,
-  ThreadSummary,
-  ThemePreference,
-  GeneratePlannerDurableArtifactInput,
-  UpdateMediaPlaybackSettingsInput,
-  AgentMemoryStarterDisableInput,
-  AgentMemoryStarterEnableInput,
-  AgentMemoryStarterOperationLogEntry,
-  AgentMemoryStarterOperationResult,
-  AgentMemoryStarterRepairInput,
-  AgentMemoryStarterRuntimeStatus,
-  AgentMemoryStarterStatus,
-  UpdateAgentMemorySettingsInput,
-  AgentMemoryEmbeddingDiagnostics,
-  AgentMemoryEmbeddingLifecycleActionInput,
-  AgentMemoryEmbeddingLifecycleActionResult,
-  AgentMemoryStorageDiagnostics,
-  AgentMemorySettings,
-  UpdateFeatureFlagSettingsInput,
-  UpdateModelRuntimeSettingsInput,
-  PlannerSettings,
-  PlannerPlanArtifact,
-  UpdatePlannerSettingsInput,
-  LocalDeepResearchSettings,
-  SearchRoutingSettings,
-  UpdateLocalDeepResearchSettingsInput,
-  UpdateSearchRoutingSettingsInput,
-  UpdateSttSettingsInput,
-  ThinkingDisplaySettings,
-  UpdateThinkingDisplaySettingsInput,
-  SttProviderSetupInput,
-  SttQueueState,
-  SttTestAudioInput,
-  SttTranscribeAudioInput,
-  UpdateVoiceSettingsInput,
-  SttSettings,
-  VoiceSettingsAuditChange,
-  VoiceSettingsAuditEntry,
-  VoiceSettingsAuditSource,
-  VoiceSettings,
-  VoiceProviderCandidate,
-  EmbeddingProviderCandidate,
-  WorkspaceSearchInput,
-  WorkspaceFileContent,
-  WorkflowAgentFolderSummary,
-  WorkflowRecordingLibraryEntry,
-  WorkflowAmbientCliCapabilityGrant,
-  WorkflowRevisionSummary,
-  WorkflowRecoveryAction,
-  OfficePreview,
-} from "../shared/types";
+import type { AgentMemoryEmbeddingDiagnostics, AgentMemoryEmbeddingLifecycleActionInput, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryStorageDiagnostics } from "../shared/agentMemoryDiagnostics";
+import type { AgentMemorySettings, UpdateAgentMemorySettingsInput } from "../shared/agentMemorySettings";
+import type { AgentMemoryStarterDisableInput, AgentMemoryStarterEnableInput, AgentMemoryStarterOperationLogEntry, AgentMemoryStarterOperationResult, AgentMemoryStarterRepairInput, AgentMemoryStarterRuntimeStatus, AgentMemoryStarterStatus } from "../shared/agentMemoryStarter";
+import type { CreateAutomationScheduleInput, UpdateAutomationScheduleInput } from "../shared/automationTypes";
+import type { AppThirdPartyCredit, DesktopEvent, DesktopState, DesktopUpdateState, SetThemePreferenceInput, ThemePreference, ThinkingDisplaySettings, ThreadActionInput, UpdateLocalDeepResearchSettingsInput, UpdateMediaPlaybackSettingsInput, UpdateModelRuntimeSettingsInput, UpdatePlannerSettingsInput, UpdateSearchRoutingSettingsInput, UpdateSttSettingsInput, UpdateThinkingDisplaySettingsInput, UpdateVoiceSettingsInput } from "../shared/desktopTypes";
+import type { UpdateFeatureFlagSettingsInput } from "../shared/featureFlags";
+import type { EmbeddingProviderCandidate, LocalDeepResearchRunHistoryInput, LocalDeepResearchRunHistoryResult, LocalDeepResearchSettings, LocalDeepResearchSetupInput as LocalDeepResearchSetupIpcInput, LocalDeepResearchSetupResult, LocalModelResourcePolicyDecision, LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult, MessageVoiceArtifactInput, MiniCpmVisionAnalyzeInput, MiniCpmVisionSetupInput, RegenerateMessageVoiceInput, SetSttTtsSpeakingInput, SttProviderSetupInput, SttQueueState, SttSettings, SttTestAudioInput, SttTranscribeAudioInput, VoiceArtifactRetentionInput, VoiceProviderCandidate, VoiceSettings, VoiceSettingsAuditChange, VoiceSettingsAuditEntry, VoiceSettingsAuditSource } from "../shared/localRuntimeTypes";
+import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionAuditEntry, PermissionRequest } from "../shared/permissionTypes";
+import type { GeneratePlannerDurableArtifactInput, PlannerPlanArtifact, PlannerSettings } from "../shared/plannerTypes";
+import type { AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, AmbientMcpDefaultCapabilityInstallProgress, AmbientMcpInstallPreview, AmbientMcpServerInstallResult, AmbientMcpServerUninstallResult, AmbientMcpToolReviewAcceptResult, AmbientPluginRegistry, CodexHostedMarketplaceReport, CodexPluginCatalog, FirstPartyGoogleIntegrationState, ModelProviderCredentialSaveResult } from "../shared/pluginTypes";
+import type { CreateProjectBoardInput, PauseProjectBoardSynthesisInput, ProjectBoardCard, ProjectBoardCharterProjectSummary, ProjectBoardGitSyncInput, ProjectBoardPmReviewReport, ProjectBoardSource, ProjectBoardSynthesisProposal, ProjectBoardSynthesisRun, ProjectBoardSynthesisRunStage, ProjectSummary, RefineProjectBoardSynthesisInput, RefreshProjectBoardSourcesInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, RerunProjectBoardProofInput, RetryProjectBoardSynthesisInput, SeedProjectBoardCanonicalProjectionDogfoodInput, SeedProjectBoardDeliverableIntegrationDogfoodInput, SeedProjectBoardProofJudgmentDogfoodInput, SuggestProjectBoardClarificationDefaultsInput, SuggestProjectBoardKickoffDefaultsInput, SuggestProjectBoardProofInput } from "../shared/projectBoardTypes";
+import type { ChatMessage, InstallModelProviderEndpointInput, InstallModelProviderEndpointResult, RunStatus, SaveModelProviderCredentialInput, ThreadSummary } from "../shared/threadTypes";
+import type { SearchRoutingSettings } from "../shared/webResearchTypes";
+import type { OrchestrationAutoDispatchStartedRun, OrchestrationAutoDispatchStatus, ResolveWorkflowRevisionInput, SearchWorkflowRecordingsInput, SetOrchestrationAutoDispatchInput, WorkflowAgentFolderSummary, WorkflowAmbientCliCapabilityGrant, WorkflowRecordingLibraryEntry, WorkflowRecoveryAction, WorkflowRevisionSummary } from "../shared/workflowTypes";
+import type { GitReviewSummary, OfficePreview, WorkspaceFileContent, WorkspaceSearchInput } from "../shared/workspaceTypes";
 import {
   DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS,
   projectBoardSynthesisOutputCapRecovery,
@@ -328,7 +222,7 @@ import { listManagedDevServers, stopManagedDevServer } from "./tool-runtime/tool
 import { TerminalStartTokenStore } from "./terminal/terminalSessionTokens";
 import { PermissionPromptService } from "./permissions/permissionPrompts";
 import { PrivilegedCredentialPromptService } from "./privileged-action/privilegedCredentialPrompts";
-import { SecureInputPromptService } from "./secureInputPrompts";
+import { SecureInputPromptService } from "./security/secureInputPrompts";
 import { permissionGrantTargetHash, resolvePermissionWithGrants } from "./permissions/permissionGrants";
 import { classifyToolPermission } from "./permissions/permissionPolicy";
 import {
@@ -440,10 +334,10 @@ import {
 } from "./memory/tencentdb/starter";
 import { createChatExportBundle } from "./chat-export/chatExport";
 import { createChatPdfExport, createElectronPrintToPdfRenderer } from "./chat-export/chatPdfExport";
-import { listWorkspaceOpenTargets, openWorkspaceTarget } from "./externalEditors";
+import { listWorkspaceOpenTargets, openWorkspaceTarget } from "./desktop-shell/externalEditors";
 import { BrowserService, managedChromeRevealBoundsForWorkArea, type ManagedChromeWindowBounds } from "./browser/browserService";
 import { BrowserCredentialStore } from "./browser/browserCredentialStore";
-import { InternalBrowserHost } from "./internalBrowserHost";
+import { InternalBrowserHost } from "./browser/internalBrowserHost";
 import { compileWorkflowArtifact } from "./workflow-compiler/workflowCompilerService";
 import {
   buildWorkflowDebugRewriteContext,
@@ -472,33 +366,32 @@ import { runDueWorkflowArtifactSchedules, workflowScheduleRunStartedEventData } 
 import { runDueWorkflowPlaybookSchedules } from "./workflow/workflowPlaybookScheduleDispatch";
 import { compactExpiredWorkflowTraceData, WORKFLOW_TRACE_RETENTION_SWEEP_MS } from "./workflow/workflowTraceRetention";
 import { SafeStorageWorkflowConnectorTokenVault } from "./workflow/workflowConnectorAuth";
-import { googleWorkspaceOAuthProvidersFromEnv } from "./googleOAuthProvider";
+import { googleWorkspaceOAuthProvidersFromEnv } from "./google-workspace/googleOAuthProvider";
 import { googleWorkspaceConnectorDescriptors, googleWorkspaceConnectorRegistrations, type GoogleWorkspaceConnectorDescriptorOptions } from "./google-workspace/googleWorkspaceConnectors";
-import { GoogleSidecarSupervisor } from "./googleSidecarSupervisor";
+import { GoogleSidecarSupervisor } from "./google-workspace/googleSidecarSupervisor";
 import { GoogleWorkspaceCliAdapter } from "./google-workspace/googleWorkspaceCliAdapter";
 import { GoogleWorkspaceCliInstaller } from "./google-workspace/googleWorkspaceCliInstaller";
 import { GoogleWorkspaceSetupService } from "./google-workspace/googleWorkspaceSetupService";
 import { GoogleWorkspaceMethodBroker } from "./google-workspace/googleWorkspaceMethodBroker";
 import { restoreWorkflowVersion } from "./workflow/workflowVersionRestore";
 import {
-  AMBIENT_KEYS_URL,
   clearSavedAmbientApiKey,
   readAmbientApiKey,
   saveAmbientApiKey,
   testAmbientApiKey,
-} from "./credentialStore";
+} from "./security/credentialStore";
 import {
   LAMBDA_RLM_SOURCE_COMMIT,
   LAMBDA_RLM_SOURCE_PAPER,
   LAMBDA_RLM_SOURCE_REPOSITORY,
-} from "./lambdaRlm";
+} from "./tool-runtime/lambdaRlm";
 import {
   centerBoundsInWorkArea,
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   parsePersistedWindowState,
   type PersistedWindowState,
-} from "./windowState";
+} from "./desktop-shell/windowState";
 import {
   appearanceBackgroundColor,
   normalizePlannerSettings,
@@ -523,8 +416,8 @@ import {
   writeThemePreference,
   writeVoiceSettings,
   DEFAULT_VOICE_SETTINGS,
-} from "./appAppearance";
-import { ambientLegacyUserDataPaths, hasRestorableWorkspaceState, migrateAmbientUserData } from "./userDataMigration";
+} from "./desktop-shell/appAppearanceDefaultPreferences";
+import { ambientLegacyUserDataPaths, hasRestorableWorkspaceState, migrateAmbientUserData } from "./desktop-shell/userDataMigration";
 import { renderThreadMiniWindowHtml } from "./thread/threadMiniWindowHtml";
 import {
   discoverAmbientCliPackages,
@@ -7879,7 +7772,7 @@ async function createWindow(): Promise<void> {
   projectRegistry.register(startupHost.store.getWorkspace().path);
   ensureWelcomeOnboardingProject({
     userDataPath: app.getPath("userData"),
-    projectRegistry,
+    projectRegistry, createProjectStore: () => new ProjectStore(),
     assetsSourcePath: resolveWelcomeOnboardingAssetsPath([
       process.resourcesPath ? join(process.resourcesPath, "welcome-onboarding") : undefined,
       join(app.getAppPath(), "resources", "welcome-onboarding"),

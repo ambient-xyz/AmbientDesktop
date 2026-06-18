@@ -1,12 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  AutomationThreadSummary,
-  DesktopState,
-  WorkflowCompileProgress,
-  WorkflowExplorationProgress,
-} from "../../shared/types";
+import type { AutomationThreadSummary } from "../../shared/automationTypes";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { WorkflowCompileProgress, WorkflowExplorationProgress } from "../../shared/workflowTypes";
 import {
   createAppAutomationsWorkspaceProps,
   type AppAutomationsWorkspacePropsInput,

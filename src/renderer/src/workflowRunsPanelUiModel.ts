@@ -1,4 +1,4 @@
-import type { WorkflowRunDetail, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/types";
+import type { WorkflowRunDetail, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { workflowRunLiveness } from "../../shared/workflowRunLiveness";
 
 export type WorkflowRunsPanelId = "runs-live" | "runs-input" | "runs-outputs" | "runs-events" | "runs-model" | "runs-checkpoints" | "runs-report";

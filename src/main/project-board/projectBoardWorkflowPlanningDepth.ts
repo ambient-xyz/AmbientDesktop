@@ -2,7 +2,7 @@ import {
   projectBoardPlanningDepthFromScopeContract,
   projectBoardScopeContractFromTexts,
 } from "../../shared/projectBoardScopeContract";
-import type { ProjectBoardScopeFeature } from "../../shared/types";
+import type { ProjectBoardScopeFeature } from "../../shared/projectBoardTypes";
 import { projectBoardSourceIncludedInSynthesis } from "./projectBoardSourceIdentity";
 import { projectBoardShouldUseSectionedPlanning } from "./projectBoardSectionedPlanning";
 import {

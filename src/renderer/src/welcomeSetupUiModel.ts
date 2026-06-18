@@ -1,4 +1,5 @@
-import type { ChatMessage, ProviderCatalogSettingsCard } from "../../shared/types";
+import type { ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import { welcomeOnboardingPageKindFromMetadata, type WelcomeOnboardingPageKind } from "../../shared/welcomeOnboarding";
 
 export interface WelcomeSetupSectionDefinition {

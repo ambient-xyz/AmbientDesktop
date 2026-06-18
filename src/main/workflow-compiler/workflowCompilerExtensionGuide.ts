@@ -47,7 +47,7 @@ const extensionGuideEntries: WorkflowCompilerExtensionGuideEntry[] = [
     title: "Add request-scoped capability guidance",
     purpose: "Attach tool, connector, or Ambient CLI guidance to selected capabilities instead of global compiler prose.",
     primaryFiles: [
-      "src/main/desktopToolRegistry.ts",
+      "src/main/desktop-tools/desktopToolRegistry.ts",
       "src/main/workflow-compiler/workflowCompilerService.ts",
       "src/main/workflow-compiler/workflowCompilerPromptInventory.ts",
       "src/main/workflow-program/workflowProgramCapabilityResolver.ts",

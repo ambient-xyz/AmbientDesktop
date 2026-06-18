@@ -2,7 +2,7 @@ import type {
   SubagentMailboxDeliveryState,
   SubagentMailboxDirection,
   SubagentMailboxEventSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 
 export const SUBAGENT_MAILBOX_DELIVERY_BATCH_SCHEMA_VERSION =
   "ambient-subagent-mailbox-delivery-batch-v1" as const;

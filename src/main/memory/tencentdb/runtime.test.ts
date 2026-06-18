@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAmbientFeatureFlags } from "../../../shared/featureFlags";
 import type { AgentMemorySettings } from "../../../shared/agentMemorySettings";
-import type { ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   createTencentDbMemoryRuntimeForThread,
   isTencentDbMemoryActiveForThread,

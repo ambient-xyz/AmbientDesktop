@@ -1,4 +1,4 @@
-import type { WorkflowRevisionStatus, WorkflowRevisionSummary } from "../../shared/types";
+import type { WorkflowRevisionStatus, WorkflowRevisionSummary } from "../../shared/workflowTypes";
 import { workflowGraphDiffSummary, type WorkflowGraphDiff } from "../../shared/workflowGraphDiff";
 
 export interface WorkflowRevisionCardModel {

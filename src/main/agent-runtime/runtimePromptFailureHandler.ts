@@ -1,14 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type {
-  ChatMessage,
-  DesktopEvent,
-  InterruptedToolCallRecoverySnapshot,
-  ProviderContinuationState,
-  SendMessageInput,
-  ToolArgumentProgressSnapshot,
-} from "../../shared/types";
-import { AmbientStreamFailureError, isRetryableAmbientProviderError } from "../aggressiveRetries";
-import type { AmbientStreamFailureKind } from "../aggressiveRetries";
+import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
+import type { ChatMessage, InterruptedToolCallRecoverySnapshot, ProviderContinuationState, ToolArgumentProgressSnapshot } from "../../shared/threadTypes";
+import { AmbientStreamFailureError, isRetryableAmbientProviderError } from "./agentRuntimeAmbientFacade";
+import type { AmbientStreamFailureKind } from "./agentRuntimeAmbientFacade";
 import type { AssistantFinalizationRetryReason, AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agent-runtime/agentRuntimeAssistantRetryInput";
 import { shouldOpenApiKeyDialogForRuntimeError, formatRuntimeError as formatAgentRuntimeError } from "../agent-runtime/agentRuntimeErrorFormatting";
 import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
@@ -18,7 +12,7 @@ import { runtimeProviderRetryStartingActivity } from "./provider-continuation/ag
 import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 import { formatToolTranscript } from "./tools/agentRuntimeToolTranscript";
 import { toolMessageMetadata, type SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
-import type { InterruptedToolCallRecoveryTracker } from "../interruptedToolCallRecovery";
+import type { InterruptedToolCallRecoveryTracker } from "./recovery/interruptedToolCallRecovery";
 import { providerInterruptionContinuationRetryBudget } from "./provider-continuation/providerInterruptionContinuation";
 import { interruptedToolCallRecoveryFinalizationMessage } from "./interruptedToolCallRecoveryFinalization";
 import { type RuntimeOpenToolFailureReason } from "./openToolFailureUpdates";

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   AmbientWorkflowPlaybookDescription,
   AmbientWorkflowPlaybookInjection,
-} from "../../ambient/ambientWorkflows";
+} from "../agentRuntimeAmbientFacade";
 import {
   registerAmbientWorkflowInjectTool,
   type AmbientWorkflowInjectToolRegistrationOptions,

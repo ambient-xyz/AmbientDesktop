@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ChatMessage, ToolArgumentProgressSnapshot } from "../../../shared/types";
+import type { ChatMessage, ToolArgumentProgressSnapshot } from "../../../shared/threadTypes";
 import {
   chatToolEventDetails,
   formatToolTranscript,

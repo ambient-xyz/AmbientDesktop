@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  AutomationFolderSummary,
-  AutomationThreadSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationThreadSummary } from "../../shared/automationTypes";
 import {
   createdCustomFolderId,
   fallbackFolderId,

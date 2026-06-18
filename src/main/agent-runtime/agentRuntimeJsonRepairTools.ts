@@ -1,8 +1,8 @@
 import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { ambientRetryPolicyFromSettings } from "../aggressiveRetries";
-import { pluginInstallToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { ambientRetryPolicyFromSettings } from "./agentRuntimeAmbientFacade";
+import { pluginInstallToolDescriptor } from "./agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 import {
   jsonRepairToolResultText,
   parseJsonRepairToolInput,
@@ -10,7 +10,7 @@ import {
   type JsonRepairToolInput,
   type JsonRepairToolOptions,
   type JsonRepairToolResult,
-} from "../jsonRepairTool";
+} from "../workflow/jsonRepairTool";
 
 type JsonRepairToolUpdateHandler = (update: AgentToolResult<Record<string, unknown>>) => void;
 type JsonRepairModel = {

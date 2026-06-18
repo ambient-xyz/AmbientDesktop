@@ -1,11 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  LocalDeepResearchRunHistoryResult,
-  MiniCpmVisionSetupAction,
-  MiniCpmVisionSetupInput,
-  MiniCpmVisionSetupResult,
-} from "../../shared/types";
+import type { LocalDeepResearchRunHistoryResult, MiniCpmVisionSetupAction, MiniCpmVisionSetupInput, MiniCpmVisionSetupResult } from "../../shared/localRuntimeTypes";
 import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
 import type {
   LocalDeepResearchRunHistoryUiState,

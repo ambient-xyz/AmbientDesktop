@@ -7,28 +7,14 @@ import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import type {
-  EmbeddingProviderCandidate,
-  EmbeddingProviderDiagnostics,
-  EmbeddingProviderRuntimeState,
-  SttProviderCandidate,
-  SttProviderDiagnostics,
-  LocalRuntimeProviderLifecycleActionKind,
-  LocalRuntimeProviderLifecycleControls,
-  VoiceOutputFormat,
-  VoiceProviderCandidate,
-  VoiceProviderCloningMetadata,
-  VoiceProviderDiagnostics,
-  VoiceProviderDiscoveryMetadata,
-  VoiceProviderRuntimeState,
-} from "../../shared/types";
+import type { EmbeddingProviderCandidate, EmbeddingProviderDiagnostics, EmbeddingProviderRuntimeState, LocalRuntimeProviderLifecycleActionKind, LocalRuntimeProviderLifecycleControls, SttProviderCandidate, SttProviderDiagnostics, VoiceOutputFormat, VoiceProviderCandidate, VoiceProviderCloningMetadata, VoiceProviderDiagnostics, VoiceProviderDiscoveryMetadata, VoiceProviderRuntimeState } from "../../shared/localRuntimeTypes";
 import { isPathInside } from "../session/sessionPaths";
-import { executeLambdaRlm } from "../lambdaRlm";
+import { executeLambdaRlm } from "../tool-runtime/lambdaRlm";
 import { materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
-import { ambientRuntimeEnv } from "../runtimePath";
-import { buildSafeProcessEnv, isSecretEnvName } from "../safeProcessEnv";
-import { isSecretReference, readSecretReference, saveSecretReference } from "../secretReferenceStore";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../managedInstallPaths";
+import { ambientRuntimeEnv } from "../setup/runtimePath";
+import { buildSafeProcessEnv, isSecretEnvName } from "../security/safeProcessEnv";
+import { isSecretReference, readSecretReference, saveSecretReference } from "../security/secretReferenceStore";
+import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/managedInstallPaths";
 
 const execFileAsync = promisify(execFile);
 const cliPackageConfigPath = ".ambient/cli-packages/packages.json";

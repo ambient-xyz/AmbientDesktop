@@ -1,4 +1,6 @@
-import type { MessageDelivery, QueueState, SttMessageMetadata, WorkspaceContextReference } from "./types";
+import type { SttMessageMetadata } from "./localRuntimeTypes";
+import type { MessageDelivery, QueueState } from "./threadTypes";
+import type { WorkspaceContextReference } from "./workspaceTypes";
 
 export interface DeliveryInput {
   running: boolean;

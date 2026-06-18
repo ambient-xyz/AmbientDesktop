@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { CallableWorkflowTaskRestartReconciliationSummary } from "../../shared/workflowTypes";
 import type {
-  AmbientFeatureFlagSnapshot,
-  CallableWorkflowTaskRestartReconciliationSummary,
   SubagentParentMailboxEventSummary,
   SubagentRestartReconciliationSummary,
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { reconcileSubagentsOnRuntimeStartup, type SubagentStartupReconciliationStore } from "./subagentStartupReconciliation";
 

@@ -7,8 +7,8 @@ import {
   parseProjectBoardProofSuggestionJson,
   type AmbientProjectBoardProofSuggestionProgress,
 } from "./projectBoardProofSuggestionProvider";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
-import type { ProjectBoardCard } from "../../shared/types";
+import { aggressiveAmbientRetryPolicy } from "./projectBoardAmbientFacade";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 
 describe("AmbientProjectBoardProofSuggestionProvider", () => {
   const visualCard = card({

@@ -2,16 +2,18 @@ import type { IpcMain } from "electron";
 import { z } from "zod";
 
 import type { AmbientCliCapabilitySearchInput } from "../ambient-cli/ambientCliPackages";
+import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { CodexPluginCatalog } from "../../shared/pluginTypes";
 import type {
-  AmbientFeatureFlagSnapshot,
-  CodexPluginCatalog,
-  SearchWorkflowRecordingsInput,
   SlashCommandDescribeInput,
   SlashCommandDescription,
   SlashCommandSearchInput,
+} from "../../shared/slashCommandTypes";
+import type {
+  SearchWorkflowRecordingsInput,
   WorkflowRecordingLibraryDescription,
   WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+} from "../../shared/workflowTypes";
 import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
 import { buildCallableWorkflowRegistry } from "../callable-workflow/callableWorkflowRegistry";
 import type { ProjectRuntimeHost } from "../index";
@@ -19,7 +21,7 @@ import {
   buildSlashCommandSearchResponse,
   describeSlashCommandCatalogEntry,
   type SlashCommandCatalogSources,
-} from "../slashCommandCatalog";
+} from "./slashCommandCatalog";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

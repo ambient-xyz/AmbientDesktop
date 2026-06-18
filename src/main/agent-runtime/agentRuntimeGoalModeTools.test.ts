@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ThreadGoal } from "../../shared/types";
+import type { ThreadGoal } from "../../shared/threadTypes";
 import { createGoalModeToolExtension, GOAL_CONTEXT_CUSTOM_TYPE } from "./agentRuntimeGoalModeTools";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };

@@ -6,7 +6,7 @@ import type {
   LocalDeepResearchValidationProviderPreferenceSmokeSummary,
   LocalDeepResearchValidationResult,
   LocalDeepResearchValidationStatus,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import type { LocalDeepResearchMemoryTelemetryResult } from "./localDeepResearchMemoryTelemetry";
 import { runLocalDeepResearchMemoryTelemetry } from "./localDeepResearchMemoryTelemetry";

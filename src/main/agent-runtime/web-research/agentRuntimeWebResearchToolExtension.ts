@@ -1,12 +1,11 @@
 import type { AgentToolResult, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
+import type { BrowserProfileMode, BrowserRuntimeKind } from "../../../shared/browserTypes";
 import type {
-  BrowserProfileMode,
-  BrowserRuntimeKind,
   SearchRoutingSettings,
   WebResearchProviderRole,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/webResearchTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import { ambientCliRunText } from "../ambient-cli-package/agentRuntimeAmbientCliPackageRunTools";
 import {
   browserAuditRisk,

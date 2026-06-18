@@ -1,4 +1,4 @@
-import type { DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import { withTimeout } from "../agent-runtime/agentRuntimeTimeouts";
 import type { PromptCompletion } from "./post-tool/postToolFinalization";
 import {

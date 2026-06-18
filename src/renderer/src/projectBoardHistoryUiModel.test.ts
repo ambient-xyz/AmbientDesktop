@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectBoardEvent } from "../../shared/types";
+import type { ProjectBoardEvent } from "../../shared/projectBoardTypes";
 import {
   projectBoardEventGroups,
   projectBoardEventHasSupersededCardReview,

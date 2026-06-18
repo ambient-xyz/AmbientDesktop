@@ -1,4 +1,4 @@
-import type { ProviderStatus } from "../../shared/types";
+import type { ProviderStatus } from "../../shared/desktopTypes";
 import type { ApiKeyStatus } from "./RightPanel";
 
 export function getInitialApiKeyStatus(provider?: ProviderStatus): ApiKeyStatus | undefined {

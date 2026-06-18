@@ -1,20 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
-import type {
-  AgentMemoryStarterOperationKind,
-  AgentMemoryStarterOperationResult,
-  AgentMemoryStarterStatus,
-  DesktopState,
-  InstallModelProviderEndpointInput,
-  InstallModelProviderEndpointResult,
-  LocalModelRuntimeLifecycleActionInput,
-  LocalModelRuntimeLifecycleActionResult,
-  ModelProviderCredentialSaveResult,
-  ProviderCatalogSettingsCard,
-  SaveModelProviderCredentialInput,
-  VoiceArtifactRetentionSummary,
-  VoiceOnboardingHostFacts,
-} from "../../shared/types";
+import type { AgentMemoryStarterOperationKind, AgentMemoryStarterOperationResult, AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
+import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult, VoiceArtifactRetentionSummary, VoiceOnboardingHostFacts } from "../../shared/localRuntimeTypes";
+import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
+import type { InstallModelProviderEndpointInput, InstallModelProviderEndpointResult, SaveModelProviderCredentialInput } from "../../shared/threadTypes";
 import {
   buildFirstRunCapabilityOnboardingPrompt,
   buildProviderCatalogCardOnboardingPrompt,

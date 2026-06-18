@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
-import type { WorkflowAgentThreadSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary } from "../../shared/workflowTypes";
 import { modelContentForAgentRuntimeSendInput } from "./agentRuntimeSendContent";
 
 describe("modelContentForAgentRuntimeSendInput", () => {

@@ -43,7 +43,7 @@ const report = buildLocalDeepResearchReleaseGateReport({
       "src/main/agent-runtime/agentRuntime.ts",
       "src/main/local-deep-research/agentRuntimeLocalDeepResearchRunTools.ts",
       "src/main/local-deep-research/agentRuntimeLocalDeepResearchSetupTools.ts",
-      "src/main/desktopToolRegistry.ts",
+      "src/main/desktop-tools/desktopToolRegistry.ts",
     ]),
     settings: await readTexts([
       "src/renderer/src/App.tsx",

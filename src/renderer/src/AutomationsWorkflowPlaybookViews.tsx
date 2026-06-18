@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-import type { WorkflowLabRun, WorkflowRecordingLibraryEntry } from "../../shared/types";
+import type { WorkflowLabRun, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import { WorkflowLabPanel, type WorkflowLabBusy } from "./AutomationsWorkflowLabViews";
 import { formatTimelineTime, type ApiKeyStatus } from "./RightPanel";

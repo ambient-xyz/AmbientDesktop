@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ChatMessage, MessageVoiceState, ThreadSummary, VoiceSettings } from "../../shared/types";
+import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import { discoverAmbientCliVoiceProviders, installAmbientCliPackageSource, runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
 import { recordVoiceDispatchForMessage } from "./voiceDispatch";
 import {

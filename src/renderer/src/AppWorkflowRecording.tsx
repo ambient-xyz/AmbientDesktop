@@ -12,13 +12,8 @@ import {
 } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 
-import type {
-  RunStatus,
-  WorkflowCompileProgress,
-  WorkflowRecordingEditContext,
-  WorkflowRecordingReviewDraftUpdate,
-  WorkflowRecordingState,
-} from "../../shared/types";
+import type { RunStatus } from "../../shared/threadTypes";
+import type { WorkflowCompileProgress, WorkflowRecordingEditContext, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingState } from "../../shared/workflowTypes";
 import { ambientMiniLogoUrl } from "./AppBranding";
 import {
   RUN_ACTIVITY_PLACEHOLDER,

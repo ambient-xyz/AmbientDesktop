@@ -1,12 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type {
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowRunSummary,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowRunSummary, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import {
   WorkflowManifestPanel,
   WorkflowPermissionsPanel,

@@ -13,7 +13,7 @@ import {
   isSecretLikePath,
   resolvePolicyPath,
 } from "./permissionPolicy";
-import { isDotEnvPath, isEnvTemplatePath } from "../pathSensitivity";
+import { isDotEnvPath, isEnvTemplatePath } from "../../shared/pathSensitivity";
 
 describe("isDangerousCommand", () => {
   it("detects destructive or privileged shell commands", () => {

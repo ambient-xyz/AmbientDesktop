@@ -1,4 +1,4 @@
-import type { ContextUsageSnapshot } from "../../shared/types";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 import type { CommandPaletteItem } from "./AppDialogs";
 import { isSessionContextMissing } from "./AppSessionRecovery";
 

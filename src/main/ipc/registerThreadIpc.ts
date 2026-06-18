@@ -2,27 +2,31 @@ import type { IpcMain } from "electron";
 import { z } from "zod";
 
 import type {
-  ChatMessage,
   CreateThreadInput,
   DesktopEvent,
   DesktopState,
+  ForkThreadInput,
+  RequestThreadPermissionModeChangeInput,
+  ThreadActionInput,
+  UpdateThreadInput,
+  UpdateThreadSettingsInput,
+} from "../../shared/desktopTypes";
+import type {
+  PermissionAuditEntry,
+  PermissionMode,
+} from "../../shared/permissionTypes";
+import type {
+  ChatMessage,
   ExportChatInput,
   ExportChatPdfInput,
   ExportChatPdfResult,
   ExportChatResult,
-  ForkThreadInput,
-  PermissionAuditEntry,
-  PermissionMode,
-  RequestThreadPermissionModeChangeInput,
-  ThreadActionInput,
   ThreadGoal,
   ThreadGoalClearInput,
   ThreadGoalGetInput,
   ThreadGoalSetInput,
   ThreadSummary,
-  UpdateThreadSettingsInput,
-  UpdateThreadInput,
-} from "../../shared/types";
+} from "../../shared/threadTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

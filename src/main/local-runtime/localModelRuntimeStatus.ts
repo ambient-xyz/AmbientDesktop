@@ -11,7 +11,7 @@ import type {
   LocalRuntimePolicyHandoffSnapshot,
   LocalRuntimePolicyHandoffNextSafeAction,
   VoiceProviderCandidate,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 import {
   detectLocalLlamaResidentProcesses,
   type DetectLocalLlamaResidentProcessesInput,

@@ -1,14 +1,7 @@
 import { LoaderCircle } from "lucide-react";
 
-import type {
-  AutomationFolderSummary,
-  AutomationRunSummary,
-  AutomationThreadSummary,
-  OrchestrationRun,
-  OrchestrationTask,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationRunSummary, AutomationThreadSummary } from "../../shared/automationTypes";
+import type { OrchestrationRun, OrchestrationTask, WorkflowAgentThreadSummary, WorkflowArtifactSummary } from "../../shared/workflowTypes";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import { ProofOfWorkPreview } from "./AutomationsProofPreviewViews";
 import {

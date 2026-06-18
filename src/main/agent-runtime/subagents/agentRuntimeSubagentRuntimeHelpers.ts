@@ -1,9 +1,9 @@
 import type {
-  ChatMessage,
   PermissionPromptResponseMode,
   PermissionRequest,
-  SubagentRunSummary,
-} from "../../../shared/types";
+} from "../../../shared/permissionTypes";
+import type { SubagentRunSummary } from "../../../shared/subagentTypes";
+import type { ChatMessage } from "../../../shared/threadTypes";
 import type { AmbientModelRuntimeProfile } from "../../../shared/ambientModels";
 import type {
   SubagentChildRuntimeApprovalRequest,

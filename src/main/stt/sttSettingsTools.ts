@@ -1,4 +1,4 @@
-import type { SttProviderCandidate, SttSettings, SttTranscriptionState } from "../../shared/types";
+import type { SttProviderCandidate, SttSettings, SttTranscriptionState } from "../../shared/localRuntimeTypes";
 
 export interface SttStatusResult {
   settings: SttSettings;

@@ -5,12 +5,12 @@ import type {
   CodexPluginMcpTool,
   PluginMcpRuntimeEvent,
   CodexPluginSummary,
-  PermissionMode,
   PluginMcpRuntimeSnapshot,
   PluginMcpRuntimeStatus,
-} from "../../shared/types";
-import { pluginMcpToolDescriptor, type DesktopToolDescriptor } from "../desktopToolRegistry";
-import { redactSensitiveText } from "../secretRedaction";
+} from "../../shared/pluginTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import { pluginMcpToolDescriptor, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { redactSensitiveText } from "../security/secretRedaction";
 import { spawnToolProcess } from "../tool-runtime/toolRunner";
 import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
 

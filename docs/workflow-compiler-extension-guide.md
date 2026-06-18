@@ -10,7 +10,7 @@ Purpose: attach tool, connector, or Ambient CLI guidance to selected capabilitie
 
 Primary files:
 
-- `src/main/desktopToolRegistry.ts`
+- `src/main/desktop-tools/desktopToolRegistry.ts`
 - `src/main/workflow-compiler/workflowCompilerService.ts`
 - `src/main/workflow-compiler/workflowCompilerPromptInventory.ts`
 - `src/main/workflow-program/workflowProgramCapabilityResolver.ts`

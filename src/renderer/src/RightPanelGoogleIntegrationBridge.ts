@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { FirstPartyGoogleIntegrationState } from "../../shared/types";
+import type { FirstPartyGoogleIntegrationState } from "../../shared/pluginTypes";
 
 export type RightPanelGoogleIntegrationBridge = {
   googleIntegration?: FirstPartyGoogleIntegrationState;

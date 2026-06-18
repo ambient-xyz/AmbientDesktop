@@ -1,7 +1,7 @@
 import type {
   LocalModelResourcePolicyDecision,
   LocalRuntimeInventoryEntry,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 
 export function localRuntimeResidentMemoryEvidenceText(
   entry: LocalRuntimeInventoryEntry | undefined,

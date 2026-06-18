@@ -61,7 +61,7 @@ const tasks = [
       "vitest",
       "run",
       "src/main/pi/piEventMapper.test.ts",
-      "src/main/desktopToolRegistry.test.ts",
+      "src/main/desktop-tools/desktopToolRegistry.test.ts",
       "src/main/ambient/ambientToolRouter.test.ts",
       "src/main/planner/plannerMode.test.ts",
     ],

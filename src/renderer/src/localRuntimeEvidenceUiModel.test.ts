@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  DiagnosticExportLocalRuntimeEvidence,
-  DiagnosticExportLocalRuntimeSummary,
-} from "../../shared/types";
+import type { DiagnosticExportLocalRuntimeEvidence, DiagnosticExportLocalRuntimeSummary } from "../../shared/diagnosticTypes";
 import { localRuntimeEvidenceInspectorModel } from "./localRuntimeEvidenceUiModel";
 
 describe("local runtime evidence UI model", () => {

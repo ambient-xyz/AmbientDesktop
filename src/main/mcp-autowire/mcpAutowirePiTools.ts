@@ -1,6 +1,6 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import type { Model } from "@mariozechner/pi-ai";
-import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktopToolRegistry";
+import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import {
   mcpAutowirePlanResultText,
   planMcpAutowire,

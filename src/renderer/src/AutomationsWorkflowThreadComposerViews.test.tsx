@@ -1,14 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type {
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowGraphSnapshot,
-  WorkflowRunDetail,
-  WorkflowRunEvent,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowGraphSnapshot, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { WorkflowThreadComposerView } from "./AutomationsWorkflowThreadComposerViews";
 
 describe("Automations workflow thread composer views", () => {

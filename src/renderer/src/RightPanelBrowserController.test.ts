@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BrowserCapabilityState } from "../../shared/types";
+import type { BrowserCapabilityState } from "../../shared/browserTypes";
 import {
   browserCredentialSaveInputFromForm,
   browserProfileModeForState,

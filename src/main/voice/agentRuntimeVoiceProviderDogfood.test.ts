@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { MessageVoiceState, ThreadSummary, VoiceSettings, WorkspaceState } from "../../shared/types";
+import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { dogfoodAgentRuntimeSelectedVoiceProvider } from "./agentRuntimeVoiceProviderDogfood";
 import type { SynthesizeQueuedVoiceStateInput } from "./voiceRuntime";
 

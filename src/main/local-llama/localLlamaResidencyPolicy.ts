@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { localDeepResearchEstimatedResidentMemoryBytes, localDeepResearchProfileById } from "../local-deep-research/localDeepResearchModelProfiles";
-import { managedInstallWorkspacePath } from "../managedInstallPaths";
+import { managedInstallWorkspacePath } from "../setup/managedInstallPaths";
 import {
   readLocalLlamaServerState,
   readLocalLlamaServerStateFromDir,

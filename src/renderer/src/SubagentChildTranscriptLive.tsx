@@ -1,12 +1,7 @@
-import type {
-  AnswerPlannerDecisionQuestionInput,
-  ChatMessage,
-  PlannerPlanArtifact,
-  RunStatus,
-  SubagentMailboxEventSummary,
-  SubagentRunEventSummary,
-  ThinkingDisplayMode,
-} from "../../shared/types";
+import type { ThinkingDisplayMode } from "../../shared/desktopTypes";
+import type { AnswerPlannerDecisionQuestionInput, PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { SubagentMailboxEventSummary, SubagentRunEventSummary } from "../../shared/subagentTypes";
+import type { ChatMessage, RunStatus } from "../../shared/threadTypes";
 import { ExternalLink } from "lucide-react";
 import { isRunStatusRunning } from "../../shared/runStatus";
 import {

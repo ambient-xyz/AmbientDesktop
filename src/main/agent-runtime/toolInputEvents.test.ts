@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ToolEditInputPreview,
-  ToolLongformInputPreview,
-} from "../../shared/types";
+import type { ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
 import { runtimeToolInputEventModel } from "./toolInputEvents";
 
 const previousLongformInputPreview: ToolLongformInputPreview = {

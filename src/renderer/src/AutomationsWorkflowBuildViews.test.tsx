@@ -1,13 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type {
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowRunDetail,
-  WorkflowRunSummary,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { WorkflowBuildWorkspace, workflowBuildWorkspaceViewModel } from "./AutomationsWorkflowBuildViews";
 import type { WorkflowExplorationGateModel } from "./workflowExplorationGateUiModel";
 import type { WorkflowPersistentStatusModel } from "./workflowPersistentStatusUiModel";

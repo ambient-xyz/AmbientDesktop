@@ -1,4 +1,4 @@
-import type { AppAppearance, ResolvedTheme } from "../../shared/types";
+import type { AppAppearance, ResolvedTheme } from "../../shared/desktopTypes";
 
 const resolvedThemeStorageKey = "ambient-desktop-resolved-theme";
 

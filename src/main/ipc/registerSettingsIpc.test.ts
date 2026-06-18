@@ -2,30 +2,30 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
-  AppAppearance,
   AgentMemoryClearResult,
   AgentMemoryEmbeddingLifecycleActionResult,
+  AgentMemoryStorageDiagnostics,
+} from "../../shared/agentMemoryDiagnostics";
+import type { AgentMemorySettings } from "../../shared/agentMemorySettings";
+import type {
   AgentMemoryStarterOperationResult,
   AgentMemoryStarterStatus,
-  AgentMemoryStorageDiagnostics,
-  AgentMemorySettings,
-  AmbientFeatureFlagSettings,
-  InstallModelProviderEndpointInput,
-  InstallModelProviderEndpointResult,
+} from "../../shared/agentMemoryStarter";
+import type {
+  AppAppearance,
+  SetThemePreferenceInput,
+} from "../../shared/desktopTypes";
+import type { AmbientFeatureFlagSettings } from "../../shared/featureFlags";
+import type {
   LocalDeepResearchRunHistoryResult,
   LocalDeepResearchSettings,
   LocalDeepResearchSetupResult,
+  LocalModelRuntimeLifecycleActionResult,
   MediaPlaybackSettings,
   MessageVoiceState,
   MiniCpmVisionAnalysisResult,
   MiniCpmVisionSetupResult,
-  LocalModelRuntimeLifecycleActionResult,
-  ModelProviderCredentialSaveResult,
-  ModelRuntimeSettings,
   RefreshVoiceProviderVoicesResult,
-  SaveModelProviderCredentialInput,
-  SearchRoutingSettings,
-  SetThemePreferenceInput,
   SttProviderCandidate,
   SttProviderSetupResult,
   SttQueueState,
@@ -37,7 +37,15 @@ import type {
   VoiceOnboardingHostFacts,
   VoiceProviderCandidate,
   VoiceSettings,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
+import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
+import type {
+  InstallModelProviderEndpointInput,
+  InstallModelProviderEndpointResult,
+  ModelRuntimeSettings,
+  SaveModelProviderCredentialInput,
+} from "../../shared/threadTypes";
+import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import {
   registerSettingsIpc,
   settingsIpcChannels,

@@ -6,14 +6,8 @@ import type {
   RefObject,
 } from "react";
 
-import type {
-  OrchestrationRun,
-  OrchestrationTask,
-  ProjectBoardAddCardsObjectiveProvenance,
-  ProjectBoardCard,
-  ProjectBoardCardCandidateStatus,
-  ProjectBoardExecutionArtifact,
-} from "../../shared/types";
+import type { ProjectBoardAddCardsObjectiveProvenance, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardExecutionArtifact } from "../../shared/projectBoardTypes";
+import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import { latestRunForTask } from "./automationUiModel";
 import {
   projectBoardCanonicalCardProjection,

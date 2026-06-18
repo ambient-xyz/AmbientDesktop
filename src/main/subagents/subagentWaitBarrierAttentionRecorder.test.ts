@@ -4,7 +4,7 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import type {
   SubagentParentPolicyResolution,
 } from "./subagentParentPolicyResolution";

@@ -8,7 +8,7 @@ import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import { BrowserCredentialStore } from "../browser/browserCredentialStore";
 import { BrowserService } from "../browser/browserService";
 import { ProjectStore } from "../projectStore/projectStore";
-import { applyLiveAmbientProviderApiKeyEnv, liveAmbientProviderLabel, readLiveAmbientProviderApiKey } from "../liveAmbientProviderConfig";
+import { applyLiveAmbientProviderApiKeyEnv, liveAmbientProviderLabel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
 import type { AmbientInstallRouteLane } from "./installRoutePlanner";
 
 const electronMock = vi.hoisted(() => ({

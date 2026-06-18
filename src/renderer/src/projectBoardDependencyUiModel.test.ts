@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { OrchestrationTask, ProjectBoardCard, ProjectBoardExecutionArtifact, ProjectBoardSummary } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardExecutionArtifact, ProjectBoardSummary } from "../../shared/projectBoardTypes";
+import type { OrchestrationTask } from "../../shared/workflowTypes";
 import {
   projectBoardCardDependencyBadges,
   projectBoardCardCanEditDependencies,

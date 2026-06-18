@@ -1,9 +1,5 @@
 import { RefreshCw, Search } from "lucide-react";
-import type {
-  AmbientMcpInstallPreview,
-  AmbientMcpInstalledServerSummary,
-  AmbientMcpServerSearchResult,
-} from "../../shared/types";
+import type { AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult } from "../../shared/pluginTypes";
 import {
   mcpInstalledServerStatusLabel,
   mcpServerInstallActionState,

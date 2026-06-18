@@ -2,7 +2,7 @@ import {
   isAmbientSubagentsEnabled,
   type AmbientFeatureFlagSnapshot,
 } from "../../../shared/featureFlags";
-import type { ThreadSummary } from "../../../shared/types";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   detectIterativeChildEvaluationPattern,
   stripProductSubagentPromptScaffolding,

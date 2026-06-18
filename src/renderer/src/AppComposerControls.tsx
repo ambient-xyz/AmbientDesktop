@@ -17,13 +17,10 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import type {
-  CollaborationMode,
-  ContextUsageSnapshot,
-  DesktopState,
-  PermissionMode,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { CollaborationMode, ContextUsageSnapshot } from "../../shared/threadTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import {
   clampNumber,
   contextAttachmentKey,

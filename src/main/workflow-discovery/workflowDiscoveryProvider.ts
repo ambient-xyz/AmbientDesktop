@@ -1,22 +1,12 @@
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
-import type {
-  WorkflowDiscoveryChoice,
-  WorkflowDiscoveryProviderKind,
-  WorkflowDiscoveryQuestion,
-  WorkflowDiscoveryQuestionCategory,
-  WorkflowDiscoveryGraphPatch,
-  WorkflowGraphSnapshot,
-  WorkflowPromptCacheCheckpoint,
-  WorkflowDiscoveryCapabilityDescription,
-  WorkflowDiscoveryCapabilitySearch,
-} from "../../shared/types";
+import type { WorkflowDiscoveryCapabilityDescription, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryChoice, WorkflowDiscoveryGraphPatch, WorkflowDiscoveryProviderKind, WorkflowDiscoveryQuestion, WorkflowDiscoveryQuestionCategory, WorkflowGraphSnapshot, WorkflowPromptCacheCheckpoint } from "../../shared/workflowTypes";
 import { initialWorkflowDiscoveryQuestions, type WorkflowDiscoveryRevisionContext } from "../../shared/workflowDiscovery";
 import { validateWorkflowDiscoveryGraphPatch } from "../../shared/workflowDiscoveryGraphPatch";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import {
   ambientRetryPolicyFromLegacyOptions,
   type AmbientRetryPolicy,
-} from "../aggressiveRetries";
+} from "../ambient/aggressiveRetries";
 import {
   capabilitySearchAmbientCliCapabilityIds,
   capabilitySearchConnectorIds,

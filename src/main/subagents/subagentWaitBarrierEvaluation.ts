@@ -1,5 +1,5 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 
 export const SUBAGENT_WAIT_BARRIER_EVALUATION_SCHEMA_VERSION = "ambient-subagent-wait-barrier-evaluation-v1" as const;
 

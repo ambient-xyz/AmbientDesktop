@@ -1,4 +1,4 @@
-import type { RunWorkflowThreadExplorationInput } from "../../shared/types";
+import type { RunWorkflowThreadExplorationInput } from "../../shared/workflowTypes";
 import { defaultWorkflowExplorationBudgets, type WorkflowExplorationBudgets } from "../../shared/workflowExplorationBudgets";
 
 export const workflowExplorationElapsedBudgetOptions = [

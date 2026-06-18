@@ -24,7 +24,7 @@ import type {
   BrowserViewBoundsInput,
   DeleteBrowserCredentialInput,
   SaveBrowserCredentialInput,
-} from "../../shared/types";
+} from "../../shared/browserTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

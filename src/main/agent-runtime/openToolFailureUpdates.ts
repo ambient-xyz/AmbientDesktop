@@ -1,10 +1,6 @@
-import type {
-  PermissionMode,
-  ToolArgumentProgressSnapshot,
-  ToolEditInputPreview,
-  ToolEventDetails,
-  ToolLongformInputPreview,
-} from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { ToolEventDetails } from "../../shared/desktopTypes";
+import type { ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
 import { workspaceArtifactPathFromTool } from "../agent-runtime/agentRuntimeMediaArtifacts";
 import { chatToolEventDetails, formatToolTranscript, toolEventLabel } from "./tools/agentRuntimeToolTranscript";
 import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";

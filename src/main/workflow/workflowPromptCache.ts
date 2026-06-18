@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import type { WorkflowPromptCacheCheckpoint, WorkflowPromptCacheStage } from "../../shared/types";
-import { estimateTokensFromText } from "../contextAccounting";
+import type { WorkflowPromptCacheCheckpoint, WorkflowPromptCacheStage } from "../../shared/workflowTypes";
+import { estimateTokensFromText } from "../../shared/contextAccounting";
 
 const DEFAULT_BOUNDARY_LABEL = "Workflow prompt cache checkpoint";
 

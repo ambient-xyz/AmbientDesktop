@@ -1,5 +1,5 @@
-import type { ProjectBoardCard } from "../../shared/types";
-import type { AmbientRetryPolicy } from "../aggressiveRetries";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
+import type { AmbientRetryPolicy } from "./projectBoardAmbientFacade";
 import { stableBoardArtifactId } from "./projectBoardArtifacts";
 import { parseProjectBoardLlmJson } from "./projectBoardLlmJson";
 import { callWorkflowPiText } from "../workflow/workflowPiTransport";

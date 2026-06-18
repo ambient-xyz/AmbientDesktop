@@ -1,4 +1,4 @@
-import { estimateTokensFromText } from "../contextAccounting";
+import { estimateTokensFromText } from "../../shared/contextAccounting";
 import type { WorkflowCompilerPromptRule } from "./workflowCompilerPromptInventory";
 
 export type WorkflowCompilerPromptModuleLayer =

@@ -6,21 +6,14 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
 import { ProjectStore } from "../projectStore/projectStore";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import type {
-  CodexPluginSummary,
-  DesktopEvent,
-  MiniCpmVisionAnalysisResult,
-  MiniCpmVisionAnalyzeInput,
-  MiniCpmVisionSetupInput,
-  MiniCpmVisionSetupResult,
-  PermissionAuditEntry,
-  WorkflowDashboard,
-  WorkflowRunEvent,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionSetupInput, MiniCpmVisionSetupResult } from "../../shared/localRuntimeTypes";
+import type { PermissionAuditEntry } from "../../shared/permissionTypes";
+import type { CodexPluginSummary } from "../../shared/pluginTypes";
+import type { WorkflowDashboard, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/workflowTypes";
 import type { WorkflowGraphDiff } from "../../shared/workflowGraphDiff";
 import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import { BrowserCredentialStore, type BrowserCredentialSafeStorage } from "../browser/browserCredentialStore";
@@ -33,7 +26,7 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "../ambient/liveAmbientProviderConfig";
 import { startWorkflowDiscovery } from "../workflow-discovery/workflowDiscoveryService";
 import { readWorkflowRunDetail, resolveWorkflowApproval, reviewWorkflowArtifact } from "./workflowDashboard";
 import { GoogleWorkspaceCliAdapter } from "../google-workspace/googleWorkspaceCliAdapter";

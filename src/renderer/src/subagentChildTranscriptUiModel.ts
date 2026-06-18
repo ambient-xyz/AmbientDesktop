@@ -1,4 +1,5 @@
-import type { SubagentMailboxEventSummary, SubagentRunEventSummary, SubagentRunStatus } from "../../shared/types";
+import type { SubagentRunStatus } from "../../shared/subagentProtocol";
+import type { SubagentMailboxEventSummary, SubagentRunEventSummary } from "../../shared/subagentTypes";
 
 export type SubagentChildTranscriptTone = "neutral" | "active" | "success" | "warning" | "danger";
 

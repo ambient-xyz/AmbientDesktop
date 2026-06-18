@@ -5,7 +5,7 @@ import {
   projectBoardRunBlocksPlanning,
   projectBoardRunCanProvidePlanningSnapshot,
 } from "./projectBoardSynthesisGate";
-import type { ProjectBoardSummary, ProjectBoardSynthesisRun } from "./types";
+import type { ProjectBoardSummary, ProjectBoardSynthesisRun } from "./projectBoardTypes";
 
 function board(input: Partial<ProjectBoardSummary> = {}): ProjectBoardSummary {
   const base: ProjectBoardSummary = {

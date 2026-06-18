@@ -1,13 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  CallableWorkflowTaskSummary,
-  DesktopState,
-  SubagentParentMailboxEventSummary,
-  SubagentRunSummary,
-  SubagentWaitBarrierSummary,
-  WorkflowAgentFolderSummary,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { CallableWorkflowTaskSummary, WorkflowAgentFolderSummary } from "../../shared/workflowTypes";
 import type { AutomationPane } from "./AutomationsWorkspace";
 import type { SidebarArea } from "./AppShellSidebar";
 import {

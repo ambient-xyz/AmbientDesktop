@@ -3,7 +3,7 @@ import os from "node:os";
 import { promisify } from "node:util";
 import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
 
-import type { LocalModelResourceRegistrySnapshot } from "../../shared/types";
+import type { LocalModelResourceRegistrySnapshot } from "../../shared/localRuntimeTypes";
 import {
   probeLocalLlamaServerHealth,
   type LocalLlamaServerHealthProbe,

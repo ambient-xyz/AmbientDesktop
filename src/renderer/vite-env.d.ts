@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { AmbientDesktopApi } from "../shared/types";
+import type { AmbientDesktopApi } from "../shared/desktopTypes";
 
 interface ImportMetaEnv {
   readonly AMBIENT_LEGACY_WORKFLOW_COMPILER?: string;

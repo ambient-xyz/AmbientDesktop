@@ -1,4 +1,5 @@
-import type { DesktopEvent, ToolArgumentProgressSnapshot } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { ToolArgumentProgressSnapshot } from "../../shared/threadTypes";
 import type { PiStreamTraceReference } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 
 export interface RuntimeToolArgumentProgressSource {

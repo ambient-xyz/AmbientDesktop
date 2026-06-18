@@ -1,9 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  AutomationFolderSummary,
-  WorkflowAgentFolderSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary } from "../../shared/automationTypes";
+import type { WorkflowAgentFolderSummary } from "../../shared/workflowTypes";
 import type { AutomationPopover } from "./AppSidebar";
 
 type FolderWithThreads = {

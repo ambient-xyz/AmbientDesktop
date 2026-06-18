@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import type { InterruptedToolCallRecoverySnapshot } from "../../../shared/types";
+import type { InterruptedToolCallRecoverySnapshot } from "../../../shared/threadTypes";
 import type { ProviderInterruptionToolSnapshot } from "./agentRuntimeProviderContinuationHelpers";
 
 const PROVIDER_INTERRUPTION_ARGUMENT_DIRECTORY = ".ambient-codex/interrupted-tool-calls";

@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type {
-  PiExtensionSandboxCatalog,
-  PiExtensionSandboxInstallPreview,
-  PiPackageCatalog,
-  PiPackageInstallScope,
-  PiPrivilegedCatalog,
-  PiPrivilegedSecurityScan,
-} from "../../shared/types";
+import type { PiExtensionSandboxCatalog, PiExtensionSandboxInstallPreview, PiPackageCatalog, PiPackageInstallScope, PiPrivilegedCatalog, PiPrivilegedSecurityScan } from "../../shared/pluginTypes";
 
 type UseRightPanelPiPackageControllerInput = {
   panel: string;

@@ -1,11 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  SttProviderSetupResult,
-  SttTestAudioResult,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { SttProviderSetupResult, SttTestAudioResult } from "../../shared/localRuntimeTypes";
 import type { SttMicTestUiState, SttProviderSetupUiState } from "./RightPanel";
 import {
   createAppSttMicrophoneActions,

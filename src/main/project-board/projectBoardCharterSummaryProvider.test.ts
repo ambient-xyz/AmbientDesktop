@@ -6,8 +6,8 @@ import {
   parseProjectBoardCharterSummaryJson,
   type AmbientProjectBoardCharterSummaryProgress,
 } from "./projectBoardCharterSummaryProvider";
-import type { ProjectBoardCharter, ProjectBoardCharterProjectSummary, ProjectBoardSource } from "../../shared/types";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import type { ProjectBoardCharter, ProjectBoardCharterProjectSummary, ProjectBoardSource } from "../../shared/projectBoardTypes";
+import { aggressiveAmbientRetryPolicy } from "./projectBoardAmbientFacade";
 
 describe("AmbientProjectBoardCharterSummaryProvider", () => {
   it("calls Ambient chat completions and normalizes a grounded charter summary", async () => {

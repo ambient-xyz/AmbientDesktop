@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectBoardSynthesisRun } from "../../shared/types";
+import type { ProjectBoardSynthesisRun } from "../../shared/projectBoardTypes";
 import { validateProposalJsonlRecordArtifact, type ProposalJsonlRecordArtifact } from "./projectBoardArtifacts";
 import {
   projectBoardPlannerContinuationForRetry,

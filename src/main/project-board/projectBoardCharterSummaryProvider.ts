@@ -1,8 +1,8 @@
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
-import type { ProjectBoardCharter, ProjectBoardCharterProjectSummary, ProjectBoardSource } from "../../shared/types";
-import { type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries } from "../ambient/ambientChatCompletionRetry";
-import { readAmbientApiKey } from "../credentialStore";
+import type { ProjectBoardCharter, ProjectBoardCharterProjectSummary, ProjectBoardSource } from "../../shared/projectBoardTypes";
+import { type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
+import { callAmbientChatCompletionTextWithRetries } from "./projectBoardAmbientFacade";
+import { readAmbientApiKey } from "../security/credentialStore";
 import { buildProjectBoardPlanningContract } from "./projectBoardPlanningContract";
 import { projectBoardSourceIncludedInSynthesis, projectBoardSourceKey } from "./projectBoardSourceIdentity";
 

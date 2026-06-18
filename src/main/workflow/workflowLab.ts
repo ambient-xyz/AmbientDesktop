@@ -2,27 +2,10 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 
 import { AMBIENT_DEFAULT_MODEL, normalizeAmbientModelId } from "../../shared/ambientModels";
-import type {
-  CreateWorkflowLabRunInput,
-  ListWorkflowLabRunsInput,
-  WorkflowLabCandidatePatch,
-  WorkflowLabEvaluationMetrics,
-  WorkflowLabEvaluationCase,
-  WorkflowLabEvaluationResult,
-  WorkflowLabGateResult,
-  WorkflowLabJudgeResult,
-  WorkflowLabMetricEmphasis,
-  WorkflowLabRun,
-  WorkflowLabRunStatus,
-  WorkflowLabVariant,
-  WorkflowLabVariantStatus,
-  WorkflowRecordingLibraryDescription,
-  WorkflowRecordingPlaybookDraft,
-  WorkflowRecordingReviewDraftUpdate,
-} from "../../shared/types";
+import type { CreateWorkflowLabRunInput, ListWorkflowLabRunsInput, WorkflowLabCandidatePatch, WorkflowLabEvaluationCase, WorkflowLabEvaluationMetrics, WorkflowLabEvaluationResult, WorkflowLabGateResult, WorkflowLabJudgeResult, WorkflowLabMetricEmphasis, WorkflowLabRun, WorkflowLabRunStatus, WorkflowLabVariant, WorkflowLabVariantStatus, WorkflowRecordingLibraryDescription, WorkflowRecordingPlaybookDraft, WorkflowRecordingReviewDraftUpdate } from "../../shared/workflowTypes";
 import { callWorkflowPiJson, WorkflowPiJsonValidationError, type WorkflowPiTextCallInput } from "./workflowPiTransport";
-import { readAmbientApiKey } from "../credentialStore";
-import type { AmbientRetryPolicy } from "../aggressiveRetries";
+import { readAmbientApiKey } from "../security/credentialStore";
+import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import type { ProjectStore } from "../projectStore/projectStore";
 
 export const WORKFLOW_LAB_SCHEMA_VERSION = 1;

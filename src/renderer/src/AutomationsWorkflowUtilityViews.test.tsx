@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { AutomationThreadSummary, WorkflowAgentThreadSummary } from "../../shared/types";
+import type { AutomationThreadSummary } from "../../shared/automationTypes";
+import type { WorkflowAgentThreadSummary } from "../../shared/workflowTypes";
 import { workflowRecorderStartActionState, workflowRecorderSurfaceModel } from "./workflowRecorderUiModel";
 import type { WorkflowThreadTranscriptCard } from "./workflowThreadTranscriptUiModel";
 import {

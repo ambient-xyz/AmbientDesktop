@@ -1,4 +1,4 @@
-import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardGitProjectionChange, ProjectBoardGitProjectionResolution, ProjectBoardGitSyncStatus } from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardEvent, ProjectBoardGitProjectionChange, ProjectBoardGitProjectionResolution, ProjectBoardGitSyncStatus } from "../../shared/projectBoardTypes";
 import { projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
 
 type ProjectBoardTabId = "overview" | "board" | "map" | "proof" | "integration" | "charter" | "decisions" | "draft_inbox" | "history";

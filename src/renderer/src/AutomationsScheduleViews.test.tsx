@@ -1,14 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type {
-  AutomationScheduleExceptionSummary,
-  AutomationScheduleSummary,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowRunSummary,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { AutomationScheduleExceptionSummary, AutomationScheduleSummary } from "../../shared/automationTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowRunSummary, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import type {
   WorkflowScheduleCreationModel,
   WorkflowScheduleGrantReadinessModel,

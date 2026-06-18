@@ -3,14 +3,8 @@ import type { AmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { fallbackSubagentCapacityLease, resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
-import type {
-  SubagentRepairDiagnosticsReport,
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-  SubagentToolScopeSnapshotSummary,
-  SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../shared/types";
+import type { SubagentRepairDiagnosticsReport, SubagentRunEventSummary, SubagentRunSummary, SubagentToolScopeSnapshotSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { subagentThreadInspectorModel } from "./subagentThreadInspectorUiModel";
 
 const gib = 1024 ** 3;

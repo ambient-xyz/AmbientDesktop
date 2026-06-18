@@ -1,7 +1,8 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { PermissionMode, WorkspaceState } from "../../../shared/types";
-import { piToolFieldsFromDescriptor } from "../../desktopToolRegistry";
+import type { PermissionMode } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import { piToolFieldsFromDescriptor } from "../../desktop-tools/desktopToolRegistry";
 import type {
   PluginMcpLaunchPlan,
   PluginMcpToolInvocation,

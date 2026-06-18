@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { registerRuntimeSurfaceTools } from "./agentRuntimeRuntimeSurfaceTools";
-import { buildRuntimeSurfaceSnapshot } from "../runtimeSurfaceSnapshot";
+import { buildRuntimeSurfaceSnapshot } from "../../shared/runtimeSurfaceSnapshot";
 
 describe("registerRuntimeSurfaceTools", () => {
   it("registers and executes the runtime surface snapshot tool", async () => {
@@ -49,7 +49,7 @@ describe("registerRuntimeSurfaceTools", () => {
     const result = await registeredTools[0]!.execute("runtime-surface-snapshot", { limit: 1 });
     expect(observedLimit).toBe(1);
     expect(result.content[0].text).toContain("Ambient runtime surface snapshot");
-    expect(result.content[0].text).toContain("Workspace: ambientCoder");
+    expect(result.content[0].text).toContain("Workspace: AmbientDesktop");
     expect(result.content[0].text).toContain("Projects: 1/2");
     expect(result.details).toMatchObject({
       runtime: "ambient-messaging-gateway",

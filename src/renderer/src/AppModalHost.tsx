@@ -1,15 +1,8 @@
 import { GitBranch, Shield } from "lucide-react";
 import type { FormEvent, RefObject } from "react";
-import type {
-  DesktopState,
-  LocalDeepResearchSetupAction,
-  PermissionMode,
-  PermissionPromptResponseMode,
-  PermissionRequest,
-  PrivilegedCredentialRequest,
-  ProviderStatus,
-  SecureInputRequest,
-} from "../../shared/types";
+import type { DesktopState, ProviderStatus } from "../../shared/desktopTypes";
+import type { LocalDeepResearchSetupAction } from "../../shared/localRuntimeTypes";
+import type { PermissionMode, PermissionPromptResponseMode, PermissionRequest, PrivilegedCredentialRequest, SecureInputRequest } from "../../shared/permissionTypes";
 import {
   AmbientCliSecretDialog,
   type AmbientCliSecretDialogState,

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
-import { parseAmbientLaunchArgs } from "../launchArgs";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
 import {
   assertSubagentRunLinkage,
@@ -19,10 +18,6 @@ import {
 } from "./subagentObservability";
 
 describe("sub-agent hardening foundation", () => {
-  it("parses launch args into a boot feature-flag snapshot input", () => {
-    expect(parseAmbientLaunchArgs(["--enable-feature=ambient.subagents"]).featureFlags.enabled).toEqual([AMBIENT_SUBAGENTS_FEATURE_FLAG]);
-  });
-
   it("requires linkage fields and enabled feature flag before child creation", () => {
     const disabledFlags = resolveAmbientFeatureFlags({ generatedAt: "2026-06-05T00:00:00.000Z" });
 

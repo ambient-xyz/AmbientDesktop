@@ -1,7 +1,7 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import { providerCatalogToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { providerCatalogToolDescriptor } from "./agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 import { providerCatalogBootstrapReminder, runProviderCatalogTool } from "../provider/providerCatalog";
 
 const PROVIDER_CATALOG_CONTEXT_TYPE = "ambient-provider-selection-context";

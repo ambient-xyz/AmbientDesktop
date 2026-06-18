@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { WorkflowManifest } from "../../shared/types";
+import type { WorkflowManifest } from "../../shared/workflowTypes";
 import { createWorkflowConnectorBridge, validateWorkflowConnectorDescriptor, type WorkflowConnectorDescriptor } from "./workflowConnectors";
 import {
   MemoryWorkflowConnectorTokenVault,

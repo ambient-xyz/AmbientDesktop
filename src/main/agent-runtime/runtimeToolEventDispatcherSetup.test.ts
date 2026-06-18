@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ToolArgumentProgressSnapshot, ToolIntentSnapshot } from "../../shared/types";
+import type { ToolArgumentProgressSnapshot, ToolIntentSnapshot } from "../../shared/threadTypes";
 import type {
   RuntimeToolEventDispatcher,
   RuntimeToolEventDispatcherInput,

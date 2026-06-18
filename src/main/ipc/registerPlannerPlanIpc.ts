@@ -1,12 +1,12 @@
 import type { IpcMain } from "electron";
 import { z } from "zod";
 
+import type { UpdatePlannerPlanArtifactInput } from "../../shared/desktopTypes";
 import type {
   AnswerPlannerDecisionQuestionInput,
   GeneratePlannerDurableArtifactInput,
   PlannerPlanArtifact,
-  UpdatePlannerPlanArtifactInput,
-} from "../../shared/types";
+} from "../../shared/plannerTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SubagentMailboxEventSummary, SubagentRunSummary } from "../../shared/types";
+import type { SubagentMailboxEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   buildSubagentChildMailboxEventInput,
   buildSubagentChildMailboxQueuedText,

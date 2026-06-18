@@ -1,7 +1,7 @@
 import type {
   LocalModelResourceRequestedLaunch,
   LocalRuntimeInventoryEntry,
-} from "../../shared/types";
+} from "../../shared/localRuntimeTypes";
 
 export type LocalModelRuntimeLifecycleLaunchAction = "start" | "restart";
 

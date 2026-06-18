@@ -1,23 +1,8 @@
 import type { CSSProperties, Dispatch, ReactNode, SetStateAction } from "react";
 
-import type {
-  AmbientPermissionGrant,
-  AutomationFolderSummary,
-  AutomationScheduleExceptionSummary,
-  AutomationScheduleSummary,
-  OrchestrationTask,
-  PermissionAuditEntry,
-  PermissionMode,
-  WorkflowAgentThreadSummary,
-  WorkflowCompileProgress,
-  WorkflowManifest,
-  WorkflowArtifactSummary,
-  WorkflowRecordingLibraryEntry,
-  WorkflowRunDetail,
-  WorkflowRunSummary,
-  WorkflowRunLimitOverrides,
-  WorkflowVersionSummary,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationScheduleExceptionSummary, AutomationScheduleSummary } from "../../shared/automationTypes";
+import type { AmbientPermissionGrant, PermissionAuditEntry, PermissionMode } from "../../shared/permissionTypes";
+import type { OrchestrationTask, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowManifest, WorkflowRecordingLibraryEntry, WorkflowRunDetail, WorkflowRunLimitOverrides, WorkflowRunSummary, WorkflowVersionSummary } from "../../shared/workflowTypes";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import { PermissionFullAccessReceiptList, formatTaskState, formatTimelineTime } from "./RightPanel";
 import { InfoTooltip } from "./RightPanelStatusWidgets";

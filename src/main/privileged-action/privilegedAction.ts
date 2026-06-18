@@ -1,21 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type {
-  PrivilegedActionAdapterName,
-  PrivilegedActionAdapterExecutionPlan,
-  PrivilegedActionAdapterReadiness,
-  PrivilegedActionAdapterResultStatus,
-  PrivilegedActionAdapterStatus,
-  PrivilegedActionCommandTemplate,
-  PrivilegedActionContinuation,
-  PrivilegedActionCredentialPolicy,
-  PrivilegedActionCredentialCaptureStatus,
-  PrivilegedActionNativeRequest,
-  PrivilegedActionNativeResult,
-  PrivilegedActionPurpose,
-  PrivilegedActionTemplate,
-  PrivilegedActionUiPrompt,
-} from "../../shared/types";
-import { redactSensitiveText } from "../secretRedaction";
+import type { PrivilegedActionAdapterExecutionPlan, PrivilegedActionAdapterName, PrivilegedActionAdapterReadiness, PrivilegedActionAdapterResultStatus, PrivilegedActionAdapterStatus, PrivilegedActionCommandTemplate, PrivilegedActionContinuation, PrivilegedActionCredentialCaptureStatus, PrivilegedActionCredentialPolicy, PrivilegedActionNativeRequest, PrivilegedActionNativeResult, PrivilegedActionPurpose, PrivilegedActionTemplate, PrivilegedActionUiPrompt } from "../../shared/permissionTypes";
+import { redactSensitiveText } from "../security/secretRedaction";
 
 export type {
   PrivilegedActionAdapterName,

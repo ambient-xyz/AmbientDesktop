@@ -1,7 +1,8 @@
 import type { Model } from "@mariozechner/pi-ai";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { DesktopEvent, WorkspaceState } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   pluginStateReaderFromStore,
   type AgentRuntimePluginDiscoveryStore,

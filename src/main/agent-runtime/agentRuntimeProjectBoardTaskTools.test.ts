@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectBoardCard } from "../../shared/types";
+import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 import { createProjectBoardTaskToolExtension } from "./agentRuntimeProjectBoardTaskTools";
 import { projectBoardNativeTaskToolDefinitions } from "../project-board/projectBoardTaskTools";
 

@@ -2,7 +2,12 @@ import type { IpcMain, OpenDialogOptions, OpenDialogReturnValue } from "electron
 import { basename, dirname, join } from "node:path";
 import { z } from "zod";
 
-import type { DesktopState, ProjectActionInput, SelectProjectInput, UpdateProjectInput } from "../../shared/types";
+import type {
+  DesktopState,
+  ProjectActionInput,
+  SelectProjectInput,
+  UpdateProjectInput,
+} from "../../shared/desktopTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceContextReference } from "../../shared/types";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import {
   contextAttachmentsWithoutItem,
   createAppContextAttachmentActions,

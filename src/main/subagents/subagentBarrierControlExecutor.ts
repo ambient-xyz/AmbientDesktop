@@ -1,8 +1,5 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type {
-  SubagentMailboxEventSummary,
-  SubagentRunSummary,
-} from "../../shared/types";
+import type { SubagentMailboxEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import type {
   SubagentChildRuntimeAdapter,
   SubagentRuntimeEventEmitter,

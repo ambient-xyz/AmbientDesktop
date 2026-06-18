@@ -1,8 +1,4 @@
-import type {
-  SubagentRepairDiagnosticItem,
-  SubagentRepairDiagnosticsReport,
-  SubagentRepairIssueKind,
-} from "../../shared/types";
+import type { SubagentRepairDiagnosticItem, SubagentRepairDiagnosticsReport, SubagentRepairIssueKind } from "../../shared/subagentTypes";
 
 export interface SubagentRepairDiagnosticsModel {
   statusLabel: string;

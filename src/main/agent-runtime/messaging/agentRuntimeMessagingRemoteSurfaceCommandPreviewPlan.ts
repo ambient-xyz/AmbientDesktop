@@ -7,7 +7,7 @@ import {
   buildMessagingRemoteSurfaceCommandPreview,
   messagingRemoteSurfaceCommandInput,
   type MessagingRemoteSurfaceCommandPreview,
-} from "../../messaging/messagingRemoteSurfaceCommands";
+} from "../agentRuntimeMessagingFacade";
 
 export interface MessagingRemoteSurfaceCommandPreviewBindingsLike {
   list(input: { includeInactive: false }): MessagingBindingListResult;

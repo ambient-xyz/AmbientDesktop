@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { LocalDeepResearchManagedAssetDetection } from "../../shared/types";
+import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import { buildLocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import { validateLocalDeepResearchSetup } from "./localDeepResearchValidation";
 

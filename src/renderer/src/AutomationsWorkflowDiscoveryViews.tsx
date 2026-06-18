@@ -1,15 +1,8 @@
 import { Bot, Check, CheckCircle2, ClipboardPaste, Clock, LoaderCircle, MessageCircle, RefreshCw, Shield, X } from "lucide-react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 
-import type {
-  PermissionPromptResponseMode,
-  WorkflowCompileProgress,
-  WorkflowAgentThreadSummary,
-  WorkflowArtifactSummary,
-  WorkflowDiscoveryAccessRequest,
-  WorkflowDiscoveryProgress,
-  WorkflowRevisionSummary,
-} from "../../shared/types";
+import type { PermissionPromptResponseMode } from "../../shared/permissionTypes";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileProgress, WorkflowDiscoveryAccessRequest, WorkflowDiscoveryProgress, WorkflowRevisionSummary } from "../../shared/workflowTypes";
 import { workflowDiscoveryAnswerText } from "../../shared/workflowDiscovery";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import { formatDelay } from "./AutomationsRunHistory";

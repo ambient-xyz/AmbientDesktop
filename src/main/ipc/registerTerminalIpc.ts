@@ -10,7 +10,7 @@ import type {
   TerminalControlInput,
   TerminalSession,
   TerminalStartIntent,
-} from "../../shared/types";
+} from "../../shared/terminalTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

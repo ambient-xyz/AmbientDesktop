@@ -1,9 +1,6 @@
 import { X } from "lucide-react";
 
-import type {
-  ChatMessage,
-  ContextUsageSnapshot,
-} from "../../shared/types";
+import type { ChatMessage, ContextUsageSnapshot } from "../../shared/threadTypes";
 import {
   SessionContextRecoveryButtons,
   isSessionContextMissingError,

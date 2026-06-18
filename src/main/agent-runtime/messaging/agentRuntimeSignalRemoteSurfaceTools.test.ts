@@ -5,9 +5,9 @@ import {
   registerSignalRemoteSurfaceTools,
   type SignalRemoteSurfaceToolPermissionRequest,
 } from "./agentRuntimeSignalRemoteSurfaceTools";
-import { createEmptyMessagingBindingRegistry } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createEmptyMessagingBindingRegistry } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 describe("registerSignalRemoteSurfaceTools", () => {
   it("registers and executes the Signal remote surface preview tool", async () => {

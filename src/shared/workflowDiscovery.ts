@@ -1,10 +1,4 @@
-import type {
-  WorkflowDiscoveryQuestion,
-  WorkflowDiscoveryQuestionCategory,
-  WorkflowGraphEdge,
-  WorkflowGraphNode,
-  WorkflowGraphSnapshot,
-} from "./types";
+import type { WorkflowDiscoveryQuestion, WorkflowDiscoveryQuestionCategory, WorkflowGraphEdge, WorkflowGraphNode, WorkflowGraphSnapshot } from "./workflowTypes";
 
 export interface InitialWorkflowDiscoveryInput {
   workflowThreadId: string;

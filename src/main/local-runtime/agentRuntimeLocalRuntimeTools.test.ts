@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import type { LocalRuntimeLeaseRecord } from "../../shared/types";
+import type { LocalRuntimeLeaseRecord } from "../../shared/localRuntimeTypes";
 import { createLocalRuntimeToolExtension } from "./agentRuntimeLocalRuntimeTools";
 
 describe("createLocalRuntimeToolExtension", () => {

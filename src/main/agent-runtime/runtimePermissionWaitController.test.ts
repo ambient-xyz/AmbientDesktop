@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type {
-  ChatMessage,
-  DesktopEvent,
-  ToolArgumentProgressSnapshot,
-  ToolEditInputPreview,
-  ToolLongformInputPreview,
-} from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { ChatMessage, ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
 import {
   createRuntimePermissionWaitController,
   type RuntimePermissionWaitActiveToolExecution,

@@ -18,7 +18,7 @@ import { previewProjectBoardWorkflowRepair, repairProjectBoardWorkflow, updatePr
 import { readOrchestrationWorkflowReadiness } from "../orchestration/orchestrationWorkflowReadiness";
 import { defaultOrchestrationProjectPath, defaultProjectArtifactWorkspacePath, ProjectStore } from "./projectStore";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import type { ModelRuntimeInstalledProvider } from "../../shared/types";
+import type { ModelRuntimeInstalledProvider } from "../../shared/threadTypes";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

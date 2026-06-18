@@ -1,7 +1,5 @@
-import type {
-  DesktopEvent,
-  ThreadSummary,
-} from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   PI_SESSION_FILE_COMMIT_WAIT_MS,
   piSessionFileCommitDiagnostic,

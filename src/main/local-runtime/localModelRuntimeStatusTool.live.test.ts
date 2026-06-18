@@ -9,7 +9,7 @@ import {
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "../ambient/liveAmbientProviderConfig";
 import { ProjectStore } from "../projectStore/projectStore";
 
 const itLive = process.env.AMBIENT_LOCAL_RUNTIME_STATUS_LIVE === "1" ? it : it.skip;

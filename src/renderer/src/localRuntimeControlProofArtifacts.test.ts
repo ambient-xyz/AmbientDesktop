@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { MiniCpmVisionSetupResult, VoiceProviderCandidate, VoiceSettings } from "../../shared/types";
+import type { MiniCpmVisionSetupResult, VoiceProviderCandidate, VoiceSettings } from "../../shared/localRuntimeTypes";
 import {
   miniCpmVisionSetupActions,
   miniCpmVisionSetupResultModel,

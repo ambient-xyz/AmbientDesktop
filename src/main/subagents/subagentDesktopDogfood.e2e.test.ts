@@ -36,7 +36,7 @@ import {
 } from "./subagentDesktopDogfoodScenario";
 
 const DOGFOOD_ENABLED = process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD === "1";
-const REPO_ROOT = resolve(__dirname, "../..");
+const REPO_ROOT = resolve(__dirname, "../../..");
 const RESULTS_DIR = join(REPO_ROOT, "test-results/subagent-desktop-dogfood");
 
 interface CdpMessage {

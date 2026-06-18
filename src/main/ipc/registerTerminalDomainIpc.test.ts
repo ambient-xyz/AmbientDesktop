@@ -6,7 +6,7 @@ import type {
   StopTerminalInput,
   SubmitTerminalCommandInput,
   TerminalControlInput,
-} from "../../shared/types";
+} from "../../shared/terminalTypes";
 import {
   terminalControlIpcChannels,
   terminalRequestStartIpcChannels,

@@ -1,11 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  AmbientCliSecretSaveResult,
-  DesktopState,
-  ProviderStatus,
-  SaveAmbientCliSecretInput,
-} from "../../shared/types";
+import type { DesktopState, ProviderStatus } from "../../shared/desktopTypes";
+import type { AmbientCliSecretSaveResult, SaveAmbientCliSecretInput } from "../../shared/pluginTypes";
 import type { AmbientCliSecretDialogState } from "./AppDialogs";
 import type { ApiKeyStatus } from "./RightPanel";
 import {

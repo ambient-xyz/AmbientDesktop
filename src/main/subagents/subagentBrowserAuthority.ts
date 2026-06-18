@@ -1,4 +1,5 @@
-import type { PermissionRequest, ThreadSummary } from "../../shared/types";
+import type { PermissionRequest } from "../../shared/permissionTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import { permissionGrantTargetHash } from "../permissions/permissionGrants";
 import type { PermissionDecision } from "../permissions/permissionPolicy";

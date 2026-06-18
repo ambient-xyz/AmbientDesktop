@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ChatMessage, ProjectSummary, ThreadSummary } from "../../shared/types";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import {
   compareSidebarThreads,
   orderSidebarSubagentThreads,

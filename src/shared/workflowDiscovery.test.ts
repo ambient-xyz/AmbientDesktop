@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { initialWorkflowDiscoveryQuestions, workflowDiscoveryAnswerText, workflowDiscoveryGraph } from "./workflowDiscovery";
-import type { WorkflowDiscoveryQuestion } from "./types";
+import type { WorkflowDiscoveryQuestion } from "./workflowTypes";
 
 describe("workflow discovery model", () => {
   it("creates planner-style initial questions across scope, data, and model role", () => {

@@ -3,8 +3,8 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { ambientRuntimeEnv } from "../runtimePath";
-import { readSecretReference } from "../secretReferenceStore";
+import { ambientRuntimeEnv } from "../setup/runtimePath";
+import { readSecretReference } from "../security/secretReferenceStore";
 import { resolveOrExtractToolHiveExecutable, type ResolveToolHiveExecutableOptions } from "./toolHiveBundle";
 import { ensureMcpManagedFileExchangeHostPath, managedFileExchangeFromVolumes, type McpManagedFileExchange } from "../mcp/mcpManagedFileExchange";
 

@@ -2,8 +2,8 @@ import { projectBoardProofPolicyRequiresProofSpec } from "../../shared/projectBo
 import { createHash, randomUUID } from "node:crypto";
 import { isAbsolute, relative, resolve } from "node:path";
 
+import type { OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import type {
-  OrchestrationRun,
   ProjectBoardCard,
   ProjectBoardCardCandidateStatus,
   ProjectBoardCardClaimSummary,
@@ -60,14 +60,12 @@ import type {
   ProjectBoardSynthesisRunStage,
   ProjectBoardSynthesisRunStatus,
   ProjectBoardStatus,
-  ProjectBoardUiMockRole,
-  OrchestrationTask,
-  PlannerPlanArtifact,
-  PlannerPlanStep,
-} from "../../shared/types";
+  ProjectBoardUiMockRole
+} from "../../shared/projectBoardTypes";
+import type { PlannerPlanArtifact, PlannerPlanStep } from "../../shared/plannerTypes";
 
+export type { OrchestrationTask } from "../../shared/workflowTypes";
 export type {
-  OrchestrationTask,
   ProjectBoardCard,
   ProjectBoardCharter,
   ProjectBoardEvent,
@@ -76,8 +74,8 @@ export type {
   ProjectBoardSource,
   ProjectBoardSummary,
   ProjectBoardSynthesisProposal,
-  ProjectBoardSynthesisRun,
-} from "../../shared/types";
+  ProjectBoardSynthesisRun
+} from "../../shared/projectBoardTypes";
 
 import { projectBoardKickoffDefaultContextFingerprint } from "../../shared/projectBoardKickoffDefaults";
 import { projectBoardStructuredClarificationDecisions } from "../../shared/projectBoardClarificationDecisions";

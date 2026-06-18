@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { PermissionAuditEntry } from "../../shared/types";
+import type { PermissionAuditEntry } from "../../shared/permissionTypes";
 import { permissionGrantRegistryModel } from "./permissionGrantRegistryUiModel";
 import { InfoTooltip, PermissionFullAccessReceiptList } from "./RightPanelStatusWidgets";
 

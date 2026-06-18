@@ -1,13 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  AnswerPlannerDecisionQuestionInput,
-  DesktopState,
-  PlannerPlanArtifact,
-  PlannerPlanWorkflowState,
-  RunStatus,
-  ThreadSummary,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { AnswerPlannerDecisionQuestionInput, PlannerPlanArtifact, PlannerPlanWorkflowState } from "../../shared/plannerTypes";
+import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
 import type { PlannerRevisionDialogState } from "./AppActionDialogs";
 import {
   plannerDecisionFinalizationPrompt,

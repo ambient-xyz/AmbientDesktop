@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { DesktopState, RunStatus } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { RunStatus } from "../../shared/threadTypes";
 import type { SidebarArea } from "./AppShellSidebar";
 
 export type AppDesktopRunStatuses = Record<string, RunStatus>;

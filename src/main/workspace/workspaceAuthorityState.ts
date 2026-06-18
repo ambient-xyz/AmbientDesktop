@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, existsSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { workspaceAuthorityId } from "../../shared/projectIdentity";
 
 const require = createRequire(import.meta.url);
 
@@ -53,10 +53,6 @@ export function workspaceAuthorityStateRoot(env: NodeJS.ProcessEnv = process.env
   const e2eUserData = env.AMBIENT_E2E_USER_DATA?.trim();
   if (e2eUserData) return join(resolve(e2eUserData), "authority-state");
   return join(tmpdir(), "ambient-codex-desktop", "authority-state");
-}
-
-export function workspaceAuthorityId(workspacePath: string): string {
-  return createHash("sha256").update(resolve(workspacePath)).digest("hex");
 }
 
 function workspaceAuthorityStateDirectoryName(workspacePath: string): string {

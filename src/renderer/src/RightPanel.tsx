@@ -1,35 +1,13 @@
 import { ReactNode, useEffect, useState } from "react";
-import type {
-  AmbientMcpContainerRuntimeManagedInstallProgress,
-  AmbientMcpDefaultCapabilityInstallProgress,
-  AmbientPermissionGrant,
-  BrowserCapabilityState,
-  BrowserUserActionState,
-  AgentMemoryEmbeddingLifecycleActionKind,
-  AgentMemoryEmbeddingLifecycleActionResult,
-  AgentMemoryStorageDiagnostics,
-  DesktopState,
-  DiagnosticExportResult,
-  GitReviewSummary,
-  InstallModelProviderEndpointInput,
-  InstallModelProviderEndpointResult,
-  LocalDeepResearchInstallProgress,
-  LocalDeepResearchRunHistoryResult,
-  LocalModelRuntimeLifecycleActionInput,
-  LocalModelRuntimeLifecycleActionResult,
-  MiniCpmVisionDiagnosticItem,
-  MiniCpmVisionSetupAction,
-  MiniCpmVisionSetupResult,
-  ModelProviderCredentialSaveResult,
-  PermissionAuditEntry,
-  SaveModelProviderCredentialInput,
-  SttProviderCandidate,
-  SttProviderSetupResult,
-  SttTestAudioResult,
-  ThemePreference,
-  VoiceProviderCandidate,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
+import type { BrowserCapabilityState, BrowserUserActionState } from "../../shared/browserTypes";
+import type { DesktopState, ThemePreference } from "../../shared/desktopTypes";
+import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
+import type { LocalDeepResearchInstallProgress, LocalDeepResearchRunHistoryResult, LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult, MiniCpmVisionDiagnosticItem, MiniCpmVisionSetupAction, MiniCpmVisionSetupResult, SttProviderCandidate, SttProviderSetupResult, SttTestAudioResult, VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
+import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/permissionTypes";
+import type { AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpDefaultCapabilityInstallProgress, ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
+import type { InstallModelProviderEndpointInput, InstallModelProviderEndpointResult, SaveModelProviderCredentialInput } from "../../shared/threadTypes";
+import type { GitReviewSummary, WorkspaceContextReference } from "../../shared/workspaceTypes";
 import {
   type LocalDeepResearchDiagnosticItem,
   type LocalDeepResearchSetupAction,

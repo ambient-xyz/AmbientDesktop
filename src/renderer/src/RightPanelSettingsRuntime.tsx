@@ -12,12 +12,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
-import type {
-  DesktopState,
-  LocalDeepResearchRunHistoryEntry,
-  LocalModelRuntimeLifecycleActionResult,
-  ProviderCatalogSettingsCard,
-} from "../../shared/types";
+import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { LocalDeepResearchRunHistoryEntry, LocalModelRuntimeLifecycleActionResult } from "../../shared/localRuntimeTypes";
 import type { DiagnosticExportHistoryModel } from "./diagnosticExportHistoryUiModel";
 import type { LocalDeepResearchDiagnosticItem } from "./localDeepResearchUiModel";
 import type { LocalRuntimeEvidenceInspectorModel } from "./localRuntimeEvidenceUiModel";

@@ -1,9 +1,6 @@
-import type {
-  ChatMessage,
-  PermissionMode,
-  ToolArgumentProgressSnapshot,
-  ToolEventDetails,
-} from "../../../shared/types";
+import type { PermissionMode } from "../../../shared/permissionTypes";
+import type { ToolEventDetails } from "../../../shared/desktopTypes";
+import type { ChatMessage, ToolArgumentProgressSnapshot } from "../../../shared/threadTypes";
 import {
   normalizeWorkspaceArtifactPath,
   parseToolJsonInput,

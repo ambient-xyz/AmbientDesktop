@@ -8,8 +8,8 @@ import {
   registerTelegramOwnerHandoffTools,
   type TelegramOwnerHandoffToolPermissionRequest,
 } from "./agentRuntimeTelegramOwnerHandoffTools";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 describe("registerTelegramOwnerHandoffTools", () => {
   it("registers and executes the Telegram owner handoff preview and denied apply tools", async () => {

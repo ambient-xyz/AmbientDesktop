@@ -6,7 +6,7 @@ import type {
   MessagingGatewayRuntimeStatus,
   MessagingInboundEvent,
 } from "../../../shared/messagingGateway";
-import type { MessagingGatewayInboundDispatchResult } from "../../messaging/messagingGatewayRunner";
+import type { MessagingGatewayInboundDispatchResult } from "../agentRuntimeMessagingFacade";
 import {
   signalBridgeEndpointPaths,
   signalBridgeRealUnreadWindowContract,

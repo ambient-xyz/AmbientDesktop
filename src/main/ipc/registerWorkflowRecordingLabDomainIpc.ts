@@ -6,13 +6,13 @@ import {
   workflowLabIpcChannels,
   workflowRecorderIpcChannels,
 } from "./registerWorkflowIpc";
+import type { ModelRuntimeSettings } from "../../shared/threadTypes";
 import type {
-  ModelRuntimeSettings,
   StartWorkflowLabRunInput,
   WorkflowLabJudgeResult,
   WorkflowLabRun,
-} from "../../shared/types";
-import type { AmbientRetryPolicy } from "../aggressiveRetries";
+} from "../../shared/workflowTypes";
+import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import type {
   RunWorkflowLabOptions,
   WorkflowLabJudgeInput,

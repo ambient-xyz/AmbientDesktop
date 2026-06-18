@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceState } from "../../shared/types";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { createPermissionGateExtension } from "./agentRuntimePermissionGateExtension";
 
 type ToolCallHandler = (event: any) => Promise<{ block: true; reason: string } | undefined>;

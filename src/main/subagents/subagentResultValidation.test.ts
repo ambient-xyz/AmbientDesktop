@@ -7,7 +7,7 @@ import {
 } from "../../shared/ambientModels";
 import { resolveSubagentCapacityLease } from "../../shared/subagentCapacity";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
-import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import { getDefaultSubagentRoleProfile, type SubagentRoleId } from "../../shared/subagentRoles";
 import {
   subagentStructuredResultTemplate,

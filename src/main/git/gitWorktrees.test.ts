@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import type { ThreadSummary } from "../../shared/types";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { attachExistingThreadWorktree, branchNameForThread, prepareThreadWorktree } from "./gitWorktrees";
 
 const execFileAsync = promisify(execFile);

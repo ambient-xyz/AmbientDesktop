@@ -43,12 +43,9 @@ import { AMBIENT_DEFAULT_MODEL, createAmbientModelRuntimeSnapshot, resolveAmbien
 import { subagentCapacityProviderProfileSnapshot } from "../../shared/subagentCapacity";
 import { effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
-import type { SubagentRunStatus, SubagentRunSummary } from "../../shared/types";
-import {
-  createSubagentBatchJobPlan,
-  createSubagentBatchResultLedger,
-  createSubagentBatchResultReport,
-} from "../subagents/subagentBatchJobs";
+import type { SubagentRunStatus } from "../../shared/subagentProtocol";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
+import { createSubagentBatchJobPlan, createSubagentBatchResultLedger, createSubagentBatchResultReport } from "../subagents/subagentBatchJobs";
 
 describe("project store subagent mappers", () => {
   it("classifies terminal subagent run statuses", () => {

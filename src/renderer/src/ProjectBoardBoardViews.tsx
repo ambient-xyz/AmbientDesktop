@@ -1,23 +1,8 @@
 import { AlertCircle, ClipboardPaste, Kanban, RefreshCw } from "lucide-react";
 
-import type {
-  AddProjectBoardCardRunFeedbackInput,
-  AttachProjectBoardLocalTaskMode,
-  CopyProjectBoardSessionToThreadInput,
-  OrchestrationBoard,
-  ProjectBoardCard,
-  ProjectBoardGitSyncStatus,
-  ProjectBoardProofDecisionAction,
-  ProjectBoardSplitDecisionAction,
-  ProjectBoardSynthesisRun,
-  ProjectSummary,
-  RepairOrchestrationWorkflowAction,
-  ResolveOrchestrationWorkflowImpactAction,
-  RetryProjectBoardSynthesisInput,
-  RunStatus,
-  UpdateOrchestrationWorkflowRawInput,
-  UpdateOrchestrationWorkflowSettingsInput,
-} from "../../shared/types";
+import type { AddProjectBoardCardRunFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, ProjectBoardCard, ProjectBoardGitSyncStatus, ProjectBoardProofDecisionAction, ProjectBoardSplitDecisionAction, ProjectBoardSynthesisRun, ProjectSummary, RetryProjectBoardSynthesisInput } from "../../shared/projectBoardTypes";
+import type { RunStatus } from "../../shared/threadTypes";
+import type { OrchestrationBoard, RepairOrchestrationWorkflowAction, ResolveOrchestrationWorkflowImpactAction, UpdateOrchestrationWorkflowRawInput, UpdateOrchestrationWorkflowSettingsInput } from "../../shared/workflowTypes";
 import type {
   ProjectBoardCardClaimAction,
   ProjectBoardLiveSessionActivityLine,

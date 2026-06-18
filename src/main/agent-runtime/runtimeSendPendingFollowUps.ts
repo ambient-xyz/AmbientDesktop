@@ -1,4 +1,4 @@
-import type { SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
 
 export interface RuntimeSendPendingFollowUpsSnapshot {
   pendingPlannerRepairFollowUp?: SendMessageInput | undefined;

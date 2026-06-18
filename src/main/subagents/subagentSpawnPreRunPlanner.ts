@@ -10,10 +10,8 @@ import type {
   SubagentRoleId,
   SubagentRoleProfile,
 } from "../../shared/subagentRoles";
-import type {
-  SubagentRunSummary,
-  ThreadSummary,
-} from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   effectiveSubagentRoleSnapshot,
   SUBAGENT_PATTERN_ROLE_IDS,

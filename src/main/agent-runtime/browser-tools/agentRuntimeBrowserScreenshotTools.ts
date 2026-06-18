@@ -6,9 +6,9 @@ import type {
   BrowserScreenshotResult,
   BrowserStartInput,
   BrowserUserActionState,
-  MediaArtifactResult,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/browserTypes";
+import type { MediaArtifactResult } from "../../../shared/desktopTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   browserToolFallback,
   browserUnavailableText,
@@ -16,9 +16,9 @@ import {
   isBrowserUserActionState,
   type BrowserUnavailableFallback,
 } from "../../agent/agentBrowserRuntime";
-import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "../../ambient/ambientToolRouter";
-import { browserToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "../agentRuntimeAmbientFacade";
+import { browserToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   browserToolResult,
   browserToolUpdate,

@@ -1,10 +1,5 @@
 import { Plug, Plus, Shield, Zap } from "lucide-react";
-import type {
-  AmbientMcpContainerRuntimeManagedInstallProgress,
-  AmbientMcpContainerRuntimeStatus,
-  AmbientMcpDefaultCapabilityInstallInput,
-  AmbientMcpDefaultCapabilityInstallProgress,
-} from "../../shared/types";
+import type { AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, AmbientMcpDefaultCapabilityInstallProgress } from "../../shared/pluginTypes";
 import {
   mcpContainerRuntimeDetailRows,
   mcpContainerRuntimeDiagnosticsActionState,

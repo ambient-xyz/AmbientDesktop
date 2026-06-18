@@ -5,10 +5,10 @@ import {
   type ProjectBoardKickoffDefaultConfidence,
 } from "../../shared/projectBoardKickoffDefaults";
 import { projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
-import type { ProjectBoardKickoffContextBrief, ProjectBoardQuestion, ProjectBoardSource } from "../../shared/types";
-import { AmbientStreamFailureError, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambient/ambientChatCompletionRetry";
-import { readAmbientApiKey } from "../credentialStore";
+import type { ProjectBoardKickoffContextBrief, ProjectBoardQuestion, ProjectBoardSource } from "../../shared/projectBoardTypes";
+import { AmbientStreamFailureError, type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
+import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "./projectBoardAmbientFacade";
+import { readAmbientApiKey } from "../security/credentialStore";
 import { buildProjectBoardPlanningContract } from "./projectBoardPlanningContract";
 import { projectBoardSourceIncludedInSynthesis, projectBoardSourceKey } from "./projectBoardSourceIdentity";
 

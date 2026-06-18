@@ -7,7 +7,7 @@ import {
   localDeepResearchSetupResultModel,
   type LocalDeepResearchSetupResult,
 } from "./localDeepResearchUiModel";
-import type { LocalRuntimeLifecycleDecision } from "../../shared/types";
+import type { LocalRuntimeLifecycleDecision } from "../../shared/localRuntimeTypes";
 
 const gib = 1024 ** 3;
 

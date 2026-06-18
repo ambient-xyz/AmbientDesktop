@@ -1,5 +1,5 @@
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentRunSummary } from "../../shared/types";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 
 export const SUBAGENT_LIFECYCLE_HOOK_SCHEMA_VERSION = "ambient-subagent-lifecycle-hook-v1" as const;
 

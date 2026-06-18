@@ -1,18 +1,20 @@
 import type { IpcMain } from "electron";
 
 import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 import type {
   CancelSubagentRunInput,
   CloseSubagentRunInput,
-  DesktopEvent,
   ResolveSubagentApprovalInput,
   ResolveSubagentWaitBarrierInput,
-  ResolveWorkflowApprovalInput,
   SubagentApprovalResolutionResult,
   SubagentRunSummary,
   SubagentWaitBarrierResolutionResult,
+} from "../../shared/subagentTypes";
+import type {
+  ResolveWorkflowApprovalInput,
   WorkflowRunDetail,
-} from "../../shared/types";
+} from "../../shared/workflowTypes";
 import {
   registerSubagentApprovalIpc,
   subagentApprovalIpcChannels,

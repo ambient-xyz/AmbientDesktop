@@ -9,19 +9,12 @@ import {
   Zap,
 } from "lucide-react";
 
-import type {
-  AmbientPluginRegistry,
-  AnswerPlannerDecisionQuestionInput,
-  BrowserUserActionState,
-  ChatMessage,
-  DesktopState,
-  PlannerPlanArtifact,
-  ProviderCatalogSettingsCard,
-  RunStatus,
-  RuntimeActivity,
-  ThinkingDisplayMode,
-  WorkflowRecordingState,
-} from "../../shared/types";
+import type { BrowserUserActionState } from "../../shared/browserTypes";
+import type { DesktopState, ProviderCatalogSettingsCard, ThinkingDisplayMode } from "../../shared/desktopTypes";
+import type { AnswerPlannerDecisionQuestionInput, PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
+import type { ChatMessage, RunStatus, RuntimeActivity } from "../../shared/threadTypes";
+import type { WorkflowRecordingState } from "../../shared/workflowTypes";
 import { welcomeOnboardingPageKindFromMetadata } from "../../shared/welcomeOnboarding";
 import { ambientMiniLogoUrl } from "./AppBranding";
 import {

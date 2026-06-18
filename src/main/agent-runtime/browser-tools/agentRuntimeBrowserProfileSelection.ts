@@ -1,4 +1,8 @@
-import type { BrowserCapabilityState, BrowserProfileMode, BrowserRuntimeKind } from "../../../shared/types";
+import type {
+  BrowserCapabilityState,
+  BrowserProfileMode,
+  BrowserRuntimeKind,
+} from "../../../shared/browserTypes";
 import { selectAgentBrowserRuntime } from "../../agent/agentBrowserRuntime";
 import { browserToolUpdate } from "./agentRuntimeBrowserToolFormatting";
 

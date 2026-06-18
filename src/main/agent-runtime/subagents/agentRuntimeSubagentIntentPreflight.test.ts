@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveAmbientFeatureFlags } from "../../../shared/featureFlags";
-import type { ThreadSummary } from "../../../shared/types";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   applyExplicitSubagentRequestGuidance,
   detectSubagentOrchestrationPattern,

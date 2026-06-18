@@ -1,4 +1,4 @@
-import type { WorkflowRecoveryAction } from "../../shared/types";
+import type { WorkflowRecoveryAction } from "../../shared/workflowTypes";
 import { workflowRunLiveness, type WorkflowRunLivenessOptions } from "../../shared/workflowRunLiveness";
 import type { ProjectStore } from "../projectStore/projectStore";
 

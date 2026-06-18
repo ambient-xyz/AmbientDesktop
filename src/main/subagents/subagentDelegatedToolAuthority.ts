@@ -185,7 +185,7 @@ export const SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES: readonly SubagentDelega
     approvalProvider: "AgentRuntime.requestFileAuthorityForThread(threadId, workspace, request)",
     childIdentityProvider: "thread.kind/subagentRunId plus child thread id in permission request detail",
     proofTests: [
-      "src/main/lambdaRlm.test.ts",
+      "src/main/tool-runtime/lambdaRlm.test.ts",
       "src/main/agent-runtime/agentRuntimeLambdaRlmTools.test.ts",
       "src/main/agent-runtime/agentRuntimeFileAuthority.test.ts",
     ],
@@ -266,7 +266,7 @@ export const SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES: readonly SubagentDelega
     adapter: "media-download-boundary",
     proofTests: [
       "src/main/agent-runtime/agentRuntimeMediaTools.test.ts",
-      "src/main/mediaAcquisitionDogfood.test.ts",
+      "src/main/media/mediaAcquisitionDogfood.test.ts",
       "src/main/permissions/permissionPolicy.test.ts",
     ],
     notes: "Remote media download combines network fetch, content validation, and workspace artifact writes; keep it parent/workflow-owned until a child media authority bridge carries child identity, approved URL/source policy, and artifact write scope.",

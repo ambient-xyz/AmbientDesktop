@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { arch, cpus, platform, release, totalmem } from "node:os";
 import { promisify } from "node:util";
-import type { VoiceOnboardingHostFacts, VoiceOnboardingRuntimeFact } from "../../shared/types";
+import type { VoiceOnboardingHostFacts, VoiceOnboardingRuntimeFact } from "../../shared/localRuntimeTypes";
 
 const execFileAsync = promisify(execFile);
 

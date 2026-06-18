@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_MODEL_RUNTIME_SETTINGS, normalizeModelRuntimeSettings } from "../../shared/modelRuntimeSettings";
-import type { ModelRuntimeSettings } from "../../shared/types";
+import type { ModelRuntimeSettings } from "../../shared/threadTypes";
 import { installModelProviderEndpointForSettings } from "./modelProviderSettingsInstall";
 
 describe("installModelProviderEndpointForSettings", () => {

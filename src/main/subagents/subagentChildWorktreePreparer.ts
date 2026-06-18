@@ -1,8 +1,5 @@
-import type {
-  SubagentRunEventSummary,
-  ThreadSummary,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+import type { SubagentRunEventSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import type { SubagentChildWorktreePrepareInput } from "../pi/piChildSessionAdapter";
 import { compactSubagentThreadWorktreeForPi } from "./subagentSpawnFailure";
 

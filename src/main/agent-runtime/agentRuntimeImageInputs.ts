@@ -2,7 +2,8 @@ import { readFile, stat } from "node:fs/promises";
 import { basename, extname, resolve } from "node:path";
 import type { ImageContent } from "@mariozechner/pi-ai";
 import type { AmbientModelRuntimeProfile } from "../../shared/ambientModels";
-import type { SendMessageInput, WorkspaceContextReference } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 
 export const AGENT_RUNTIME_IMAGE_INPUT_MAX_COUNT = 8;
 export const AGENT_RUNTIME_IMAGE_INPUT_MAX_BYTES = 20 * 1024 * 1024;

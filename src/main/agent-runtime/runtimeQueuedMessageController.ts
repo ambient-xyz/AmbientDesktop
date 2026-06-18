@@ -5,7 +5,8 @@ import {
   reconcileQueuedMessages,
   type QueuedMessageSnapshot,
 } from "../../shared/messageDelivery";
-import type { ChatMessage, DesktopEvent } from "../../shared/types";
+import type { DesktopEvent } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import { agentRuntimeQueuedMessageMetadata } from "../agent-runtime/agentRuntimeUserMessageMetadata";
 
 export type RuntimeQueuedMessageSnapshot = QueuedMessageSnapshot & {

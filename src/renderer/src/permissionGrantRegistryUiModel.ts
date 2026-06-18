@@ -1,9 +1,4 @@
-import type {
-  AmbientPermissionGrant,
-  PermissionAuditEntry,
-  PermissionGrantActionKind,
-  PermissionGrantScopeKind,
-} from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionAuditEntry, PermissionGrantActionKind, PermissionGrantScopeKind } from "../../shared/permissionTypes";
 
 export type PermissionGrantRegistryRisk = "low" | "medium" | "high";
 export type PermissionGrantRegistryTone = "ready" | "review" | "blocked";

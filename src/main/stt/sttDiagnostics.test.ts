@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { SttProviderSetupResult, SttTranscriptionState } from "../../shared/types";
+import type { SttProviderSetupResult, SttTranscriptionState } from "../../shared/localRuntimeTypes";
 import {
   SttDiagnosticRecorder,
   sttDiagnosticsLogRelativePath,

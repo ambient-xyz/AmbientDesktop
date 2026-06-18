@@ -6,20 +6,10 @@ import { copyFile, lstat, open, readdir, realpath, rm, stat } from "node:fs/prom
 import { basename, extname, join, parse, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import type {
-  FileTreeEntry,
-  WorkspaceDiff,
-  WorkspaceDiffCategory,
-  WorkspaceDiffFile,
-  WorkspaceContextReference,
-  WorkspaceFileContent,
-  WorkspaceFilePreviewKind,
-  WorkspaceFileTree,
-  OfficePreview,
-} from "../../shared/types";
+import type { FileTreeEntry, OfficePreview, WorkspaceContextReference, WorkspaceDiff, WorkspaceDiffCategory, WorkspaceDiffFile, WorkspaceFileContent, WorkspaceFilePreviewKind, WorkspaceFileTree } from "../../shared/workspaceTypes";
 import { officeMimeTypeForExtension } from "../office/officeFileSupport";
 import { extractOfficeText } from "../office/officeTextExtraction";
-import { extractPdfText } from "../pdfTextExtraction";
+import { extractPdfText } from "../pdf/pdfTextExtraction";
 import { isPathInside } from "../session/sessionPaths";
 import {
   NOFOLLOW_OPEN_FLAG,

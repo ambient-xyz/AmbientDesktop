@@ -2,10 +2,8 @@ import { useEffect, useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import { isAmbientSubagentsEnabled } from "../../shared/featureFlags";
-import type {
-  DesktopState,
-  ThreadSummary,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type {
   SubagentApprovalDecisionDialogState,
   SubagentBarrierDecisionDialogState,

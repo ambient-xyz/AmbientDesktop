@@ -1,6 +1,8 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { PermissionMode, ThreadSummary, WorkspaceState } from "../../../shared/types";
+import type { PermissionMode } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   appendMediaArtifactResult as defaultAppendMediaArtifactResult,
   newestChangedMediaArtifact as defaultNewestChangedMediaArtifact,

@@ -1,7 +1,7 @@
 import type { Tool } from "@mariozechner/pi-ai";
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
+import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import {
   callWorkflowPiText,
   type WorkflowPiProgress,

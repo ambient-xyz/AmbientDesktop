@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { registerTelegramBridgePollingStatusTools } from "./agentRuntimeTelegramBridgePollingStatusTools";
-import { TelegramBridgePollingRunner } from "../../telegram/telegramBridgePolling";
+import { TelegramBridgePollingRunner } from "../agentRuntimeTelegramFacade";
 
 type RegisteredTool = { name: string; execute: (...args: any[]) => Promise<any> };
 

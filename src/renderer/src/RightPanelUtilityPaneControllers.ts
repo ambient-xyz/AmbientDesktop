@@ -10,16 +10,9 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 
-import type {
-  PermissionMode,
-  TerminalSession,
-  WorkspaceContextReference,
-  WorkspaceFileContent,
-  WorkspaceFileTree,
-  WorkspaceOpenTarget,
-  WorkspaceSearchResult,
-  WorkspaceSearchScope,
-} from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
+import type { TerminalSession } from "../../shared/terminalTypes";
+import type { WorkspaceContextReference, WorkspaceFileContent, WorkspaceFileTree, WorkspaceOpenTarget, WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/workspaceTypes";
 import { visibleFileEntries } from "./RightPanelDetailPanels";
 import { clampNumber } from "./RightPanelRichText";
 

@@ -1,8 +1,4 @@
-import type {
-  ToolArgumentProgressSnapshot,
-  ToolEditInputPreview,
-  ToolLongformInputPreview,
-} from "../../shared/types";
+import type { ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
 import { workspaceArtifactPathFromTool } from "../agent-runtime/agentRuntimeMediaArtifacts";
 import { formatToolTranscript } from "./tools/agentRuntimeToolTranscript";
 import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";

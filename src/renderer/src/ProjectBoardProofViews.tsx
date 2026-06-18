@@ -1,15 +1,8 @@
 import { AlertCircle, Bot, Info, RefreshCw, Zap } from "lucide-react";
 import { useState } from "react";
 
-import type {
-  OrchestrationBoard,
-  OrchestrationRun,
-  OrchestrationTask,
-  ProjectBoardCard,
-  ProjectBoardProofDecisionAction,
-  ProjectSummary,
-  RerunProjectBoardProofInput,
-} from "../../shared/types";
+import type { ProjectBoardCard, ProjectBoardProofDecisionAction, ProjectSummary, RerunProjectBoardProofInput } from "../../shared/projectBoardTypes";
+import type { OrchestrationBoard, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
 import {
   projectBoardLatestProofCoverageRecheckEvent,
   projectBoardProofCoverageDrift,

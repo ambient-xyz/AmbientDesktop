@@ -1,8 +1,5 @@
-import type {
-  SubagentRunSummary,
-  SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import type {
   SubagentWaitBarrierFailurePolicy,
   SubagentWaitBarrierMode,

@@ -1,4 +1,4 @@
-import type { VoiceLongReplyBehavior, VoiceMode, VoiceOutputFormat, VoiceProviderCandidate, VoiceProviderDynamicVoice, VoiceSettings } from "../../shared/types";
+import type { VoiceLongReplyBehavior, VoiceMode, VoiceOutputFormat, VoiceProviderCandidate, VoiceProviderDynamicVoice, VoiceSettings } from "../../shared/localRuntimeTypes";
 
 export interface VoiceStatusResult {
   settings: VoiceSettings;

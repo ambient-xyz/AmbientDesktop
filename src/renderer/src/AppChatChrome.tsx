@@ -1,7 +1,7 @@
 import { ChevronDown, Music, Search, X } from "lucide-react";
 import type { RefObject } from "react";
 
-import type { BrowserUserActionState } from "../../shared/types";
+import type { BrowserUserActionState } from "../../shared/browserTypes";
 import type { voiceThreadStatusModel } from "./voiceUiModel";
 import { formatTimelineTime } from "./RightPanel";
 

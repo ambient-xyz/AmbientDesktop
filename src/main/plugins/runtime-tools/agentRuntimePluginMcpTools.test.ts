@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkspaceState } from "../../../shared/types";
-import { pluginMcpToolDescriptor } from "../../desktopToolRegistry";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import { pluginMcpToolDescriptor } from "../../desktop-tools/desktopToolRegistry";
 import { createPluginMcpToolExtension } from "./agentRuntimePluginMcpTools";
 import type {
   PluginMcpLaunchPlan,

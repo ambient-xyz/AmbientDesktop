@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { InterruptedToolCallRecoverySnapshot, SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { InterruptedToolCallRecoverySnapshot } from "../../shared/threadTypes";
 import { buildInterruptedToolCallRecoveryInput } from "./agentRuntimeInterruptedToolRecoveryInput";
 
 describe("buildInterruptedToolCallRecoveryInput", () => {

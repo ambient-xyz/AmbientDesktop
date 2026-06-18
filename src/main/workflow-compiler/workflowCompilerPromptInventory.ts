@@ -381,7 +381,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired browser user-action prompt; browser capability guidance and browser.intervention validation own this behavior.",
     exemplarText:
       "Browser user-action rule: when a browser_search/browser_nav/browser_content/browser_login step may hit CAPTCHA/login/MFA/consent, use browser.intervention instead of raw tool.call plus hand-written retry logic.",
-    duplicatedIn: ["src/main/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
+    duplicatedIn: ["src/main/desktop-tools/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
     validatorRefs: ["browserSharedWorkflowGuidance", "validateWorkflowProgramStatic", "browser.intervention_review_required"],
     migrationBlockers: [],
   }),
@@ -392,7 +392,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired browser login prompt; browser_login descriptor guidance and login intervention validation own this behavior.",
     exemplarText:
       "Browser login intervention rule: for browser_login, default to retry.maxAttempts:0 after the user handoff and verify progress with a dependent browser_content/browser_nav step, because refilling credentials after MFA/passkey completion can be unsafe or fail if the login form is gone.",
-    duplicatedIn: ["src/main/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
+    duplicatedIn: ["src/main/desktop-tools/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
     validatorRefs: ["browserLoginWorkflowGuidance", "validateWorkflowProgramStatic", "browser.login_intervention_retry_unsupported", "browser.login_review_required"],
     migrationBlockers: [],
   }),
@@ -403,7 +403,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired low-level browser handoff prompt; browser workflow guidance and review validation own this behavior.",
     exemplarText:
       "Lower-level browser rule: if you use tool.call with waitForUserAction:false, the same IR must add a review.input handoff, put bounded metadata in options.data.browserIntervention, and route downstream work through it.",
-    duplicatedIn: ["src/main/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
+    duplicatedIn: ["src/main/desktop-tools/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
     validatorRefs: ["browserSharedWorkflowGuidance", "validateWorkflowProgramStatic", "browser.intervention_review_required"],
     migrationBlockers: [],
   }),
@@ -413,7 +413,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     risk: "medium",
     summary: "Retired browser wait behavior prompt; browser descriptors and static validation own this behavior.",
     exemplarText: "Default browser behavior: omit waitForUserAction unless using browser.intervention or an explicit review.input handoff.",
-    duplicatedIn: ["src/main/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
+    duplicatedIn: ["src/main/desktop-tools/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
     validatorRefs: ["browserSharedWorkflowGuidance", "validateWorkflowProgramStatic", "browser.intervention_review_required"],
     migrationBlockers: [],
   }),
@@ -424,7 +424,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired browser user-action resume prompt; browser workflow guidance and resume validation own this behavior.",
     exemplarText:
       "Use waitForUserAction:false only when the following node graph hands that BrowserUserActionState to review.input; browser userActionId resumes must depend on that review gate.",
-    duplicatedIn: ["src/main/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
+    duplicatedIn: ["src/main/desktop-tools/desktopToolRegistry.ts", "src/main/workflow-program/workflowProgramCapabilityResolver.ts"],
     validatorRefs: ["browserSharedWorkflowGuidance", "validateWorkflowProgramStatic", "browser.user_action_resume_requires_review"],
     migrationBlockers: [],
   }),
@@ -435,7 +435,7 @@ const retiredPolicyPromptRuleDefinitions: WorkflowCompilerPromptRuleDefinition[]
     summary: "Retired browser recovery provenance prompt; browser capability guidance and recovery recipe gates own this behavior.",
     exemplarText:
       "Browser recovery provenance rule: browser_nav returns compact page text and links and can be the evidence-producing item read. For browser item fan-out, feed the browser fan-out items/results directly into checkpoints and the final model.call input. Do not create empty evidence checkpoints or model calls that contain only instructions. Do not run a later browser_content loop over the active page after navigating multiple items; active-page reads are not item-stable. If browser_content is needed for each item, pass the item URL inside the same item-scoped fan-out and preserve the source id/item key.",
-    duplicatedIn: ["src/main/desktopToolRegistry.ts", "src/main/workflow-compiler/workflowCompilerRecipes.ts", "src/main/workflow-compiler/workflowCompilerAbstractionRegression.test.ts"],
+    duplicatedIn: ["src/main/desktop-tools/desktopToolRegistry.ts", "src/main/workflow-compiler/workflowCompilerRecipes.ts", "src/main/workflow-compiler/workflowCompilerAbstractionRegression.test.ts"],
     validatorRefs: ["browserSharedWorkflowGuidance", "workflowCompilerRecipes:browser_item_recovery", "validateWorkflowProgramStatic"],
     migrationBlockers: [],
   }),

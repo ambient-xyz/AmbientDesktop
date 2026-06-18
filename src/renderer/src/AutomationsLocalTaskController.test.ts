@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { OrchestrationTask } from "../../shared/types";
+import type { OrchestrationTask } from "../../shared/workflowTypes";
 import {
   localTaskCreateInput,
   localTaskDropUpdateInput,

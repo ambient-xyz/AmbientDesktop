@@ -11,23 +11,12 @@ import {
   Music,
   Trash2,
 } from "lucide-react";
-import type {
-  BrowserCapabilityState,
-  CodexMarketplaceSourceSummary,
-  CodexPluginCompatibilityTier,
-  CodexPluginSummary,
-  DesktopState,
-  FileTreeEntry,
-  MiniCpmVisionDiagnosticItem,
-  PermissionAuditEntry,
-  PiExtensionSandboxPackageSummary,
-  PiPackageResourceKind,
-  PiPrivilegedInstallSummary,
-  VoiceArtifactRetentionSummary,
-  VoiceProviderCandidate,
-  VoiceProviderVoiceCandidate,
-  WorkspaceContextReference,
-} from "../../shared/types";
+import type { BrowserCapabilityState } from "../../shared/browserTypes";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { MiniCpmVisionDiagnosticItem, VoiceArtifactRetentionSummary, VoiceProviderCandidate, VoiceProviderVoiceCandidate } from "../../shared/localRuntimeTypes";
+import type { PermissionAuditEntry } from "../../shared/permissionTypes";
+import type { CodexMarketplaceSourceSummary, CodexPluginCompatibilityTier, CodexPluginSummary, PiExtensionSandboxPackageSummary, PiPackageResourceKind, PiPrivilegedInstallSummary } from "../../shared/pluginTypes";
+import type { FileTreeEntry, WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { miniCpmVisualMediaKindFromPath } from "./miniCpmVisualActionUiModel";
 import { MiniCpmVisionDiagnosticsList } from "./RightPanelMiniCpmVisionDiagnostics";
 import { formatPanelFileSize } from "./RightPanelFilePreview";

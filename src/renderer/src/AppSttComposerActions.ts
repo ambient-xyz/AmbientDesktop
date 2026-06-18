@@ -1,13 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
-import type {
-  DesktopState,
-  MessageDelivery,
-  RunStatus,
-  SttMessageMetadata,
-  SttProviderCandidate,
-  SttTranscriptionState,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { SttMessageMetadata, SttProviderCandidate, SttTranscriptionState } from "../../shared/localRuntimeTypes";
+import type { MessageDelivery, RunStatus } from "../../shared/threadTypes";
 import type { SttComposerUiState } from "./AppComposerShell";
 import {
   sttInsertTranscriptIntoDraft,

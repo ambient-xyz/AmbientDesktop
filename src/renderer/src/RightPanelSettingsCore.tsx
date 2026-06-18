@@ -1,20 +1,9 @@
 import { Activity, Brain, ChevronDown, Monitor, Moon, Play, Plug, Plus, RefreshCw, RotateCw, Square, Sun, Wrench, Zap } from "lucide-react";
 import type { ReactNode } from "react";
-import type {
-  AgentMemoryEmbeddingLifecycleActionKind,
-  AgentMemoryEmbeddingLifecycleActionResult,
-  AgentMemoryOperationStatus,
-  AgentMemoryStarterOperationKind,
-  AgentMemoryStarterOperationResult,
-  AgentMemoryStarterNextAction,
-  AgentMemoryStarterStatus,
-  AgentMemoryStorageDiagnostics,
-  ContextUsageSnapshot,
-  DesktopState,
-  DesktopUpdateState,
-  ThemePreference,
-  ThinkingDisplayMode,
-} from "../../shared/types";
+import type { AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryOperationStatus, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
+import type { AgentMemoryStarterNextAction, AgentMemoryStarterOperationKind, AgentMemoryStarterOperationResult, AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
+import type { DesktopState, DesktopUpdateState, ThemePreference, ThinkingDisplayMode } from "../../shared/desktopTypes";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 import { ambientModelLabel } from "../../shared/ambientModels";
 import type {
   ModelRuntimeCatalogRuntimeAction,

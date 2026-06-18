@@ -1,4 +1,4 @@
-import type { ProviderContinuationState } from "../../shared/types";
+import type { ProviderContinuationState } from "../../shared/threadTypes";
 import {
   buildProviderInterruptionContinuationNotice,
   type ProviderInterruptionDiagnostic,

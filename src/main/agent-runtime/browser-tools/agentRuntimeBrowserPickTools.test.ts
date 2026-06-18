@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  BrowserPickResult,
-  BrowserUserActionState,
-} from "../../../shared/types";
+import type { BrowserPickResult, BrowserUserActionState } from "../../../shared/browserTypes";
 import { BrowserUnavailableError } from "../../browser/browserService";
 import {
   browserPickText,

@@ -8,10 +8,7 @@ import {
   type WorkflowRecordingReviewThread,
 } from "./AppWorkflowRecordingReviewControls";
 import type { WorkflowRecorderSurfaceModel } from "./workflowRecorderUiModel";
-import type {
-  WorkflowRecordingPlaybookDraft,
-  WorkflowRecordingState,
-} from "../../shared/types";
+import type { WorkflowRecordingPlaybookDraft, WorkflowRecordingState } from "../../shared/workflowTypes";
 
 describe("AppWorkflowRecordingReviewControls", () => {
   it("builds a stable review panel key only after a draft is available", () => {

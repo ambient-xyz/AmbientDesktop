@@ -1,11 +1,11 @@
-import type { WorkflowPromptCacheCheckpoint } from "../../shared/types";
+import type { WorkflowPromptCacheCheckpoint } from "../../shared/workflowTypes";
 import {
   DEFAULT_AMBIENT_RETRY_ATTEMPTS,
   ambientRetryPolicyFromLegacyOptions,
   isRetryableAmbientProviderError,
   retryDelayForAttempt,
   type AmbientRetryPolicy,
-} from "../aggressiveRetries";
+} from "../ambient/aggressiveRetries";
 import { workflowPromptParts, type WorkflowPromptParts } from "./workflowPromptCache";
 import type { WorkflowEventSink } from "./workflowAgentRuntime";
 import type { WorkflowPiProgress } from "./workflowPiTransport";

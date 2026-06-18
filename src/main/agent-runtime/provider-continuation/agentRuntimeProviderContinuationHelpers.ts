@@ -1,12 +1,6 @@
-import type {
-  InterruptedToolCallRecoverySnapshot,
-  MessageDelivery,
-  PermissionMode,
-  ProviderContinuationState,
-  ProviderContinuationToolState,
-  SendMessageInput,
-  ToolIntentSnapshot,
-} from "../../../shared/types";
+import type { PermissionMode } from "../../../shared/permissionTypes";
+import type { SendMessageInput } from "../../../shared/desktopTypes";
+import type { InterruptedToolCallRecoverySnapshot, MessageDelivery, ProviderContinuationState, ProviderContinuationToolState, ToolIntentSnapshot } from "../../../shared/threadTypes";
 import type { AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agentRuntimeAssistantRetryInput";
 
 const RECOVERY_APPLY_WRITE_SUFFIX_TOOL_NAME = "recovery_apply_interrupted_write_suffix";

@@ -1,11 +1,8 @@
 import { useMemo } from "react";
 
-import type {
-  ChatMessage,
-  MessageDelivery,
-  PlannerPlanArtifact,
-  ThinkingDisplayMode,
-} from "../../shared/types";
+import type { ThinkingDisplayMode } from "../../shared/desktopTypes";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ChatMessage, MessageDelivery } from "../../shared/threadTypes";
 import {
   retryableFailedPromptIds,
   streamingAssistantMessageId,

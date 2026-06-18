@@ -1,4 +1,5 @@
-import type { ChatMessage, MessageVoiceState, ThreadSummary, VoiceSettings } from "../../shared/types";
+import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import type { RunAmbientCliInput } from "../ambient-cli/ambientCliPackages";
 import { recordVoiceDispatchForMessage, requestVoiceSummary } from "./voiceDispatch";
 import {
@@ -8,7 +9,7 @@ import {
   type AmbientCliVoiceProviderConfig,
   type AmbientCliVoiceRunner,
 } from "./voiceProvider";
-import type { WorkspaceMediaUrlInput } from "../workspace/workspaceMedia";
+import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
 
 export interface VoiceRuntimeStore {
   setMessageVoiceState(input: Omit<MessageVoiceState, "createdAt" | "updatedAt">): MessageVoiceState;

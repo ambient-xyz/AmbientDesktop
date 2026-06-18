@@ -1,5 +1,6 @@
 import type { QueuedMessageSnapshot } from "../../shared/messageDelivery";
-import type { MessageDelivery, SendMessageInput } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { MessageDelivery } from "../../shared/threadTypes";
 
 export function agentRuntimeUserMessageMetadata(
   input: Pick<

@@ -7,8 +7,8 @@ import type {
   SubagentSpawnEdgeSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-  ThreadSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 import { createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { fallbackSubagentCapacityLease, materializeSubagentCapacityLeaseForRun } from "../../shared/subagentCapacity";
 import type { SubagentResultArtifact } from "../../shared/subagentProtocol";

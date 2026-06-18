@@ -1,4 +1,4 @@
-import type { WorkflowGraphNode, WorkflowRecoveryTargetKind, WorkflowRunEvent } from "./types";
+import type { WorkflowGraphNode, WorkflowRecoveryTargetKind, WorkflowRunEvent } from "./workflowTypes";
 
 export type WorkflowRetryAction = "retry_step" | "resume_checkpoint" | "skip_item" | "debug_rewrite" | "none";
 

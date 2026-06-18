@@ -1,21 +1,8 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
-
-import type {
-  ChatMessage,
-  ThreadSummary,
-  WorkflowRecordingCapture,
-  WorkflowRecordingCallableInvocationSummary,
-  WorkflowRecordingLibraryDescription,
-  WorkflowRecordingLibraryEntry,
-  WorkflowRecordingLibraryVersion,
-  WorkflowRecordingPlaybookDraft,
-  WorkflowRecordingReviewDraftUpdate,
-  WorkflowRecordingSavedPlaybook,
-  WorkflowRecordingState,
-  SearchWorkflowRecordingsInput,
-} from "../../shared/types";
+import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
+import type { SearchWorkflowRecordingsInput, WorkflowRecordingCallableInvocationSummary, WorkflowRecordingCapture, WorkflowRecordingLibraryDescription, WorkflowRecordingLibraryEntry, WorkflowRecordingLibraryVersion, WorkflowRecordingPlaybookDraft, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingSavedPlaybook, WorkflowRecordingState } from "../../shared/workflowTypes";
 import {
   assertWorkflowRecordingReviewDraftReusable,
   updateWorkflowRecordingReviewDraftState,

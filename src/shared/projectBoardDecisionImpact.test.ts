@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectBoardCard, ProjectBoardSummary } from "./types";
+import type { ProjectBoardCard, ProjectBoardSummary } from "./projectBoardTypes";
 import { projectBoardDecisionImpactPreview } from "./projectBoardDecisionImpact";
 
 describe("projectBoardDecisionImpactPreview", () => {

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { OrchestrationBoard, OrchestrationWorkflowReadiness } from "../../shared/types";
+import type { OrchestrationBoard, OrchestrationWorkflowReadiness } from "../../shared/workflowTypes";
 import { previewProjectBoardWorkflowRepair } from "../project-board/projectBoardWorkflowBootstrap";
 import { loadWorkflowFile, WorkflowError } from "../workflow/workflow";
 

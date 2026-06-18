@@ -1,13 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type {
-  BrowserCredentialScope,
-  BrowserCredentialSummary,
-  BrowserLoginCredential,
-  SaveBrowserCredentialInput,
-  WorkspaceState,
-} from "../../shared/types";
+import type { BrowserCredentialScope, BrowserCredentialSummary, BrowserLoginCredential, SaveBrowserCredentialInput } from "../../shared/browserTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 
 export interface BrowserCredentialSafeStorage {
   isEncryptionAvailable(): boolean;

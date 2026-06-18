@@ -13,7 +13,7 @@ import type {
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   SUBAGENT_BATCH_PROGRESS_PARENT_MAILBOX_SCHEMA_VERSION,
   SUBAGENT_BATCH_PROGRESS_PARENT_MAILBOX_TYPE,

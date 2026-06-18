@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/types";
+import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/permissionTypes";
 import {
   buildFirstPartyPluginPermissionAudit,
   buildFirstPartyPluginPermissionRequest,

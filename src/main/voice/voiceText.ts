@@ -1,4 +1,5 @@
-import type { ChatMessage, VoiceLongReplyBehavior, VoiceSettings } from "../../shared/types";
+import type { VoiceLongReplyBehavior, VoiceSettings } from "../../shared/localRuntimeTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 
 export type VoiceTextSkipReason =
   | "voice-disabled"

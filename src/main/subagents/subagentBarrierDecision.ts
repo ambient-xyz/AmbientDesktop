@@ -1,4 +1,4 @@
-import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/types";
+import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import type { SubagentBarrierDecision, SubagentParentPolicyResolution } from "./subagentParentPolicyResolution";
 import { compactSubagentWaitBarrier } from "./subagentWaitMailbox";
 import {
@@ -6,6 +6,11 @@ import {
   type SubagentWaitBarrierTransitionEvidence,
   type SubagentWaitBarrierTransitionEvidenceKind,
 } from "./subagentWaitBarrierResolution";
+import {
+  buildSubagentChildDecisionRequest,
+  shouldBuildSubagentChildDecisionRequest,
+  subagentChildDecisionOptionLabel,
+} from "../../shared/subagentChildDecisionRequests";
 
 export const SUBAGENT_WAIT_BARRIER_DECISION_PARENT_MAILBOX_TYPE = "subagent.wait_barrier_decision" as const;
 export const SUBAGENT_WAIT_BARRIER_DECISION_SCHEMA_VERSION = "ambient-subagent-wait-barrier-decision-v1" as const;
@@ -298,6 +303,13 @@ export function buildSubagentBarrierDecisionParentMailboxDraft(input: {
   const retryRequestedRunIds = input.decision === "retry_child"
     ? (controlRetryRequestedRunIds.length ? controlRetryRequestedRunIds : input.barrier.childRunIds)
     : controlRetryRequestedRunIds;
+  const childDecisionRequest = input.decision !== "retry_child" && shouldBuildSubagentChildDecisionRequest(input.parentResolution, { childRuns: input.childRuns })
+    ? buildSubagentChildDecisionRequest({
+      barrier: input.barrier,
+      childRuns: input.childRuns,
+      parentResolution: input.parentResolution,
+    })
+    : undefined;
   const parentMailboxInput: SubagentBarrierDecisionParentMailboxDraft["parentMailboxInput"] = {
     parentThreadId: input.barrier.parentThreadId,
     parentRunId: input.barrier.parentRunId,
@@ -332,6 +344,12 @@ export function buildSubagentBarrierDecisionParentMailboxDraft(input: {
       userDecisionPreview: input.userDecision ? previewText(input.userDecision, 600) : null,
       partialSummaryPreview: input.partialSummary ? previewText(input.partialSummary, 600) : null,
       parentResolution: input.parentResolution,
+      ...(childDecisionRequest ? { childDecisionRequest } : {}),
+      ...(childDecisionRequest ? { symphonyDecisionOptions: childDecisionRequest.options.map((option) => ({
+        id: option,
+        label: subagentChildDecisionOptionLabel(option),
+        recommended: option === childDecisionRequest.recommendedOption,
+      })) } : {}),
       waitBarrier: compactSubagentWaitBarrier(input.barrier),
     },
   };

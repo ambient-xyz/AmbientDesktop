@@ -1,10 +1,4 @@
-import type {
-  SttMessageArtifactMetadata,
-  SttMessageMetadata,
-  SttNoSpeechGateResult,
-  SttTranscriptionState,
-  SttTranscriptionStatus,
-} from "./types";
+import type { SttMessageArtifactMetadata, SttMessageMetadata, SttNoSpeechGateResult, SttTranscriptionState, SttTranscriptionStatus } from "./localRuntimeTypes";
 
 const STT_TRANSCRIPTION_STATUSES = new Set<SttTranscriptionStatus>([
   "queued",

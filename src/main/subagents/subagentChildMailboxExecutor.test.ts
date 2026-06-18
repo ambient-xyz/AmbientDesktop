@@ -6,7 +6,7 @@ import type {
   SubagentMailboxEventSummary,
   SubagentRunEventSummary,
   SubagentRunSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   executeSubagentChildMailbox,
   SUBAGENT_CHILD_MAILBOX_EXECUTOR_SCHEMA_VERSION,

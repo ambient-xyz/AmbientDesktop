@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { workflowGraphWithSourceMappings, type WorkflowCompilerOutput } from "../../main/workflow-compiler/workflowCompiler";
-import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/types";
+import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowRunDetail, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { workflowGraphNodeReviewModel } from "./workflowGraphNodeReviewUiModel";
 import { workflowReviewWorkspaceModel } from "./workflowReviewUiModel";
 

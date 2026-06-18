@@ -1,7 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ManagedDevServerSummary } from "../../shared/types";
+import type { ManagedDevServerSummary } from "../../shared/pluginTypes";
 import {
   registerToolsManagedDevServerStopIpc,
   registerToolsManagedDevServersIpc,

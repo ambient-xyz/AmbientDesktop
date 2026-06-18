@@ -1,11 +1,10 @@
 import type {
   CodexPluginCatalog,
-  PermissionGrantScopeKind,
-  PermissionRisk,
   CodexPluginSummary,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+} from "../../../shared/pluginTypes";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type {
   CommitCodexPluginInstallInput,
   CodexPluginInstallCommitResult,

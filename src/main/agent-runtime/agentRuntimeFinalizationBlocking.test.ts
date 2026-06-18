@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type {
-  CallableWorkflowTaskSummary,
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE,
   type CallableWorkflowParentBlockingBlock,
@@ -428,7 +428,14 @@ describe("agent runtime finalization blocking helpers", () => {
         return barrier;
       },
       getSubagentRun: (runId) => {
-        if (runId === "child-run-1") return subagentRun({ id: "child-run-1", status: "failed", parentMessageId: "parent-message" });
+        if (runId === "child-run-1") {
+          return subagentRun({
+            id: "child-run-1",
+            status: "failed",
+            parentMessageId: "parent-message",
+            symphonyLaunchContracts: symphonyLaunchContracts(),
+          });
+        }
         throw new Error("missing run");
       },
       appendSubagentParentMailboxEvent: (event) => {
@@ -468,6 +475,27 @@ describe("agent runtime finalization blocking helpers", () => {
         ],
         waitTimedOut: true,
         parentFinalizationBlocked: true,
+        childDecisionRequest: {
+          schemaVersion: "ambient-symphony-child-decision-request-v1",
+          barrierId: "barrier-1",
+          parentRunId: "parent-run",
+          childRunIds: ["child-run-1", "missing-run"],
+          reason: "timed_out",
+          options: ["retry_child", "accept_partial", "cancel_group", "exit_symphony_mode"],
+          recommendedOption: "retry_child",
+          optionActions: [
+            { option: "retry_child", toolAction: "resolve_barrier", decision: "retry_child" },
+            { option: "accept_partial", toolAction: "resolve_barrier", decision: "continue_with_partial", requiresUserDecision: true, requiresPartialSummary: true },
+            { option: "cancel_group", toolAction: "resolve_barrier", decision: "cancel_parent", requiresUserDecision: true },
+            { option: "exit_symphony_mode", toolAction: "resolve_barrier", decision: "fail_parent" },
+          ],
+        },
+        symphonyDecisionOptions: [
+          { id: "retry_child", label: "Retry child", recommended: true },
+          { id: "accept_partial", label: "Accept partial", recommended: false },
+          { id: "cancel_group", label: "Cancel group", recommended: false },
+          { id: "exit_symphony_mode", label: "Exit Symphony", recommended: false },
+        ],
         allowedUserChoices: [expect.objectContaining({ id: "continue_with_partial" }), expect.any(Object), expect.any(Object), expect.any(Object), expect.any(Object), expect.any(Object)],
         waitBarrier: {
           quorumThreshold: 2,
@@ -479,6 +507,85 @@ describe("agent runtime finalization blocking helpers", () => {
         },
       },
     });
+  });
+
+  it("keeps active wait/steer finalization blocks out of Symphony decision requests", () => {
+    const barrier = waitBarrier({
+      id: "barrier-waiting",
+      status: "waiting_on_children",
+      failurePolicy: "ask_user",
+      childRunIds: ["child-run-1"],
+    });
+    const appended: unknown[] = [];
+
+    recordSubagentFinalizationBlockedParentMailbox({
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      block: finalizationBlock({ barriers: [{
+        id: barrier.id,
+        dependencyMode: barrier.dependencyMode,
+        status: barrier.status,
+        failurePolicy: barrier.failurePolicy,
+        childRunIds: barrier.childRunIds,
+        childBlockers: [],
+      }] }),
+      getSubagentWaitBarrier: () => barrier,
+      getSubagentRun: () => subagentRun({ id: "child-run-1", status: "running" }),
+      appendSubagentParentMailboxEvent: (event) => {
+        appended.push(event);
+        return parentMailboxEvent(event);
+      },
+      emitSubagentParentMailboxEventUpdated: () => undefined,
+    });
+
+    const payload = (appended[0] as { payload: Record<string, unknown> }).payload;
+    expect(payload).toMatchObject({
+      parentResolution: expect.objectContaining({ action: "wait_for_child" }),
+      allowedUserChoices: [
+        expect.objectContaining({ id: "wait_again" }),
+        expect.objectContaining({ id: "send_child_steering" }),
+        expect.objectContaining({ id: "cancel_parent" }),
+      ],
+    });
+    expect(payload).not.toHaveProperty("childDecisionRequest");
+    expect(payload).not.toHaveProperty("symphonyDecisionOptions");
+  });
+
+  it("keeps ordinary non-Symphony finalization blocks out of Symphony decision requests", () => {
+    const barrier = waitBarrier({
+      id: "barrier-generic-failed",
+      status: "failed",
+      failurePolicy: "ask_user",
+      childRunIds: ["child-run-1"],
+    });
+    const appended: unknown[] = [];
+
+    recordSubagentFinalizationBlockedParentMailbox({
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      block: finalizationBlock({ barriers: [{
+        id: barrier.id,
+        dependencyMode: barrier.dependencyMode,
+        status: barrier.status,
+        failurePolicy: barrier.failurePolicy,
+        childRunIds: barrier.childRunIds,
+        childBlockers: [],
+      }] }),
+      getSubagentWaitBarrier: () => barrier,
+      getSubagentRun: () => subagentRun({ id: "child-run-1", status: "failed" }),
+      appendSubagentParentMailboxEvent: (event) => {
+        appended.push(event);
+        return parentMailboxEvent(event);
+      },
+      emitSubagentParentMailboxEventUpdated: () => undefined,
+    });
+
+    const payload = (appended[0] as { payload: Record<string, unknown> }).payload;
+    expect(payload).toMatchObject({
+      parentResolution: expect.objectContaining({ action: "ask_user" }),
+    });
+    expect(payload).not.toHaveProperty("childDecisionRequest");
+    expect(payload).not.toHaveProperty("symphonyDecisionOptions");
   });
 
   it("plans and records callable workflow finalization blocks", () => {
@@ -531,6 +638,34 @@ describe("agent runtime finalization blocking helpers", () => {
       },
     });
   });
+
+  it("keeps carried callable workflow tasks blocking retry-run finalization", () => {
+    const block = callableWorkflowFinalizationBlock({
+      parentThreadId: "parent-thread",
+      parentRunId: "retry-run",
+      listCallableWorkflowTasksForParentRun: (runId) => {
+        expect(runId).toBe("retry-run");
+        return [];
+      },
+      additionalTasks: [
+        callableTask({
+          id: "task-original",
+          parentRunId: "original-run",
+          status: "running",
+          blocking: true,
+        }),
+      ],
+    });
+
+    expect(block).toMatchObject({
+      parentThreadId: "parent-thread",
+      parentRunId: "original-run",
+      taskIds: ["task-original"],
+      waitingTaskIds: ["task-original"],
+      parentFinalizationBlocked: true,
+      synthesisAllowed: false,
+    });
+  });
 });
 
 function waitBarrier(overrides: Partial<SubagentWaitBarrierSummary> = {}): SubagentWaitBarrierSummary {
@@ -569,6 +704,10 @@ function subagentRun(overrides: Partial<SubagentRunSummary> = {}): SubagentRunSu
     updatedAt: "2026-06-11T00:00:01.000Z",
     ...overrides,
   };
+}
+
+function symphonyLaunchContracts(): NonNullable<SubagentRunSummary["symphonyLaunchContracts"]> {
+  return { schemaVersion: "ambient-symphony-child-launch-contract-bundle-v1" } as NonNullable<SubagentRunSummary["symphonyLaunchContracts"]>;
 }
 
 function finalizationBlock(overrides: Partial<SubagentFinalizationBarrierBlock> = {}): SubagentFinalizationBarrierBlock {

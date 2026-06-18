@@ -1,4 +1,4 @@
-import type { OrchestrationTask } from "../../shared/types";
+import type { OrchestrationTask } from "../../shared/workflowTypes";
 import type { WorkflowConfig } from "../workflow/workflow";
 
 export type SchedulerSkipReason =

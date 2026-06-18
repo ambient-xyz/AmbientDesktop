@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { DesktopState } from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
 import { localDeepResearchEffortLabel, localDeepResearchMaxToolCallsForEffort } from "../../shared/localDeepResearchBudget";
 import type { RightPanelProps } from "./RightPanel";
 import type { RightPanelDiagnosticsController } from "./RightPanelDiagnosticsController";

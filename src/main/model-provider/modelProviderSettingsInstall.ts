@@ -1,5 +1,5 @@
-import type { ModelRuntimeSettings } from "../../shared/types";
-import type { ModelRuntimeInstalledProviderSecretRef } from "../../shared/types";
+import type { ModelRuntimeSettings } from "../../shared/threadTypes";
+import type { ModelRuntimeInstalledProviderSecretRef } from "../../shared/threadTypes";
 import type { ModelProviderCapabilityProbeId } from "../../shared/modelProviderInstallTemplates";
 import { modelProviderInstallTemplateById } from "../../shared/modelProviderInstallTemplates";
 import {

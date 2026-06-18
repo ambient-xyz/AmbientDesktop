@@ -3,12 +3,9 @@ import type {
   MessagingGatewayRuntimeStatus,
   MessagingProviderDescriptor,
 } from "../../../shared/messagingGateway";
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  ThreadSummary,
-  WorkspaceState,
-} from "../../../shared/types";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
+import type { WorkspaceState } from "../../../shared/workspaceTypes";
+import type { ThreadSummary } from "../../../shared/threadTypes";
 import {
   applySignalBridgeReply,
   buildSignalBridgeReplyPreview,

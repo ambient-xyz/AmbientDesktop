@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { WorkflowGraphSnapshot, WorkflowModelCallRecord, WorkflowRevisionSummary, WorkflowRunEvent } from "../../shared/types";
+import type { WorkflowGraphSnapshot, WorkflowModelCallRecord, WorkflowRevisionSummary, WorkflowRunEvent } from "../../shared/workflowTypes";
 import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
 import type { ProjectStore } from "../projectStore/projectStore";
 import { readWorkflowRunDetail } from "./workflowDashboard";

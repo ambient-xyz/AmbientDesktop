@@ -8,9 +8,9 @@ import {
   registerTelegramRemoteSurfaceTools,
   type TelegramRemoteSurfaceToolPermissionRequest,
 } from "./agentRuntimeTelegramRemoteSurfaceTools";
-import { createMessagingBindingStore } from "../../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../../messaging/messagingGatewayRegistry";
-import { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
+import { createMessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
+import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 
 describe("registerTelegramRemoteSurfaceTools", () => {
   it("registers and executes the Telegram Remote Ambient Surface preview tool", async () => {

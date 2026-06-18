@@ -6,7 +6,7 @@ import {
   projectBoardSynthesisStaleRecovery,
   sectionStatusLabel,
 } from "./projectBoardSynthesisRecovery";
-import type { ProjectBoardSynthesisRun } from "./types";
+import type { ProjectBoardSynthesisRun } from "./projectBoardTypes";
 
 const baseRun: ProjectBoardSynthesisRun = {
   id: "run-1",

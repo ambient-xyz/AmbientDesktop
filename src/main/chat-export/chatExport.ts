@@ -2,25 +2,13 @@ import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import JSZip from "jszip";
-import type {
-  CallableWorkflowTaskSummary,
-  ChatExportSource,
-  ChatMessage,
-  ContextUsageSnapshot,
-  SubagentPatternGraphSnapshot,
-  SubagentMailboxEventSummary,
-  SubagentParentMailboxEventSummary,
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-  SubagentToolScopeSnapshotSummary,
-  SubagentWaitBarrierSummary,
-  ThreadSummary,
-  ToolExternalModelResponseArtifact,
-  ToolLargeOutputPreviewItem,
-  WorkspaceState,
-} from "../../shared/types";
+import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
+import type { SubagentMailboxEventSummary, SubagentParentMailboxEventSummary, SubagentRunEventSummary, SubagentRunSummary, SubagentToolScopeSnapshotSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type { ChatExportSource, ChatMessage, ContextUsageSnapshot, ThreadSummary, ToolExternalModelResponseArtifact, ToolLargeOutputPreviewItem } from "../../shared/threadTypes";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { getRestorablePiSessionFile, isPathInside } from "../session/sessionPaths";
-import { isSecretKey, REDACTED_SECRET, redactSensitiveText, redactSensitiveTextWithMetadata } from "../secretRedaction";
+import { isSecretKey, REDACTED_SECRET, redactSensitiveText, redactSensitiveTextWithMetadata } from "../security/secretRedaction";
 import { compactSubagentToolScopeSnapshot } from "../subagents/subagentToolScopeSnapshot";
 
 export interface ChatExportDataSource {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectBoardSource, ProjectBoardSynthesisRun } from "../../shared/types";
+import type { ProjectBoardSource, ProjectBoardSynthesisRun } from "../../shared/projectBoardTypes";
 import {
   projectBoardHistoryRecoveryQueue,
   projectBoardSynthesisRunControlState,

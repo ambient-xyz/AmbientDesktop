@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  AutomationFolderSummary,
-  AutomationScheduleSummary,
-  OrchestrationTask,
-  WorkflowArtifactSummary,
-  WorkflowRecordingLibraryEntry,
-} from "../../shared/types";
+import type { AutomationFolderSummary, AutomationScheduleSummary } from "../../shared/automationTypes";
+import type { OrchestrationTask, WorkflowArtifactSummary, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import { datetimeLocalValueFromIso } from "./AutomationsScheduleViews";
 import {
   automationScheduleEditFormState,

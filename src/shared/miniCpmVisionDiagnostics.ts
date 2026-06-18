@@ -1,11 +1,4 @@
-import type {
-  MiniCpmVisionDiagnosticCode,
-  MiniCpmVisionDiagnosticItem,
-  MiniCpmVisionDiagnosticSeverity,
-  MiniCpmVisionRuntimeCandidate,
-  MiniCpmVisionSetupStatus,
-  MiniCpmVisionValidationStatus,
-} from "./types";
+import type { MiniCpmVisionDiagnosticCode, MiniCpmVisionDiagnosticItem, MiniCpmVisionDiagnosticSeverity, MiniCpmVisionRuntimeCandidate, MiniCpmVisionSetupStatus, MiniCpmVisionValidationStatus } from "./localRuntimeTypes";
 import {
   miniCpmRemoteEndpointBlockedMessage,
   miniCpmRemoteEndpointReviewChecklistText,

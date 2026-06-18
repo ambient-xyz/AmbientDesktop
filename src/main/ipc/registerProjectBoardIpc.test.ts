@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
+import type { DesktopState } from "../../shared/desktopTypes";
 import type {
   AnswerProjectBoardQuestionInput,
   AnswerProjectBoardSynthesisProposalQuestionInput,
@@ -9,14 +10,13 @@ import type {
   ApproveProjectBoardCardInput,
   CreateProjectBoardInput,
   CreateReadyProjectBoardTasksInput,
-  DesktopState,
   DeferProjectBoardSynthesisSectionsInput,
   FinalizeProjectBoardKickoffInput,
   PauseProjectBoardSynthesisInput,
   ProjectBoardGitSyncStatus,
   PromotePlannerPlanToBoardInput,
-  RefreshProjectBoardSourcesInput,
   RefineProjectBoardSynthesisInput,
+  RefreshProjectBoardSourcesInput,
   RegenerateProjectBoardSourceDraftsInput,
   ResolveProjectBoardProofDecisionInput,
   RetryProjectBoardSynthesisInput,
@@ -29,7 +29,7 @@ import type {
   SuggestProjectBoardKickoffDefaultsInput,
   UpdateProjectBoardSourceInput,
   UpdateProjectBoardStatusInput,
-} from "../../shared/types";
+} from "../../shared/projectBoardTypes";
 import {
   projectBoardCardIpcChannels,
   projectBoardCreateIpcChannels,

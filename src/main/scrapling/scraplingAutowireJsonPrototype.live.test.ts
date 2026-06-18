@@ -3,9 +3,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
-import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../liveAmbientProviderConfig";
-import { repairJsonWithPi, stableJson, validateJsonAgainstSchemaStrict, type JsonRepairToolResult } from "../jsonRepairTool";
+import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
+import { repairJsonWithPi, stableJson, validateJsonAgainstSchemaStrict, type JsonRepairToolResult } from "../workflow/jsonRepairTool";
 import { callWorkflowPiJson, callWorkflowPiText, WorkflowPiJsonValidationError, type WorkflowPiProgress, type WorkflowPiTextCallInput } from "../workflow/workflowPiTransport";
 
 const runLive = process.env.AMBIENT_SCRAPLING_AUTOWIRE_JSON_LIVE === "1";

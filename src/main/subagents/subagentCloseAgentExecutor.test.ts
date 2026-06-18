@@ -3,10 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL, resolveAmbientModelRuntimeProfile } from "../../shared/ambientModels";
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 import { subagentCapacityProviderProfileSnapshot } from "../../shared/subagentCapacity";
-import type {
-  SubagentRunEventSummary,
-  SubagentRunSummary,
-} from "../../shared/types";
+import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import {
   executeSubagentCloseAgent,
   SUBAGENT_CLOSE_AGENT_EXECUTOR_SCHEMA_VERSION,

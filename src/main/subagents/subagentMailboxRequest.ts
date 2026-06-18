@@ -1,5 +1,5 @@
 import type { SubagentChildRuntimeFollowupResult } from "../pi/piChildSessionAdapter";
-import type { SubagentMailboxEventSummary, SubagentRunSummary } from "../../shared/types";
+import type { SubagentMailboxEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
 
 export const SUBAGENT_CHILD_MAILBOX_REQUEST_SCHEMA_VERSION = "ambient-subagent-child-mailbox-request-v1" as const;

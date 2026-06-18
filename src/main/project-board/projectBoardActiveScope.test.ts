@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PlannerPlanArtifact, ProjectBoardSourceKind, ProjectBoardSummary } from "../../shared/types";
+import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
+import type { ProjectBoardSourceKind, ProjectBoardSummary } from "../../shared/projectBoardTypes";
 import { projectBoardMatchesCurrentPlannerArtifact } from "./projectBoardActiveScope";
 
 describe("projectBoardMatchesCurrentPlannerArtifact", () => {

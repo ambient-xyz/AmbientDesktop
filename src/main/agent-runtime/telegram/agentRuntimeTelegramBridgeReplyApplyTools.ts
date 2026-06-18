@@ -1,12 +1,12 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { MessagingGatewayRuntimeStatus } from "../../../shared/messagingGateway";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
   telegramBridgeReplyResultText,
   type TelegramBridgeReplyResult,
-} from "../../telegram/telegramBridgeOutbound";
+} from "../agentRuntimeTelegramFacade";
 
 export interface TelegramBridgeReplyApplyToolRegistrationOptions {
   applyForParams: (params: unknown) => Promise<TelegramBridgeReplyResult>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AmbientStreamFailureError, isRetryableAmbientProviderError } from "../aggressiveRetries";
+import { AmbientStreamFailureError, isRetryableAmbientProviderError } from "./aggressiveRetries";
 import { readAmbientEventStreamText } from "./ambientStreamTransport";
 
 describe("readAmbientEventStreamText", () => {

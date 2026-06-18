@@ -3,31 +3,31 @@ import { z } from "zod";
 
 import type {
   AddCodexMarketplaceInput,
-  AmbientPluginCapabilityDiagnostics,
-  AmbientPluginCapabilitySummary,
   AmbientPluginAuthAccountSummary,
   AmbientPluginAuthStartResult,
+  AmbientPluginCapabilityDiagnostics,
+  AmbientPluginCapabilitySummary,
   AmbientPluginRegistry,
   CodexHostedMarketplaceReport,
-  CodexPluginMcpInspectionCatalog,
   CodexPluginCatalog,
   CodexPluginDependencyInstallResult,
+  CodexPluginMcpInspectionCatalog,
   CodexPluginSummary,
   CompletePluginAppAuthInput,
   GetAmbientPluginCapabilityDiagnosticsInput,
   ImportCodexPluginInput,
   InstallCodexPluginDependenciesInput,
   ListAmbientPluginRuntimeCapabilitiesInput,
+  PluginAuthAccountActionInput,
   PluginMcpRuntimeActionInput,
   PluginMcpRuntimeSnapshot,
-  PluginAuthAccountActionInput,
   ReadCodexPluginInput,
   RemoveCodexMarketplaceInput,
   SetCodexPluginEnabledInput,
   SetCodexPluginTrustedInput,
   StartPluginAppAuthInput,
   UninstallCodexPluginInput,
-} from "../../shared/types";
+} from "../../shared/pluginTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

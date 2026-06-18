@@ -2,14 +2,10 @@ import { parseProjectBoardLlmJson } from "./projectBoardLlmJson";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import { projectBoardClarificationDecisions } from "../../shared/projectBoardClarificationDecisions";
 import { projectBoardQuestionDedupeKey, projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
-import type {
-  ProjectBoardCard,
-  ProjectBoardCharter,
-  ProjectBoardClarificationQuestionKind,
-} from "../../shared/types";
-import { AmbientStreamFailureError, type AmbientRetryPolicy } from "../aggressiveRetries";
-import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "../ambient/ambientChatCompletionRetry";
-import { readAmbientApiKey } from "../credentialStore";
+import type { ProjectBoardCard, ProjectBoardCharter, ProjectBoardClarificationQuestionKind } from "../../shared/projectBoardTypes";
+import { AmbientStreamFailureError, type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
+import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "./projectBoardAmbientFacade";
+import { readAmbientApiKey } from "../security/credentialStore";
 
 export type ProjectBoardClarificationDefaultConfidence = "high" | "medium" | "low";
 

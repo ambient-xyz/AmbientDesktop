@@ -1,5 +1,5 @@
-import type { ToolIntentSnapshot } from "../../../shared/types";
-import { redactSensitiveText } from "../../secretRedaction";
+import type { ToolIntentSnapshot } from "../../../shared/threadTypes";
+import { redactSensitiveText } from "../../security/secretRedaction";
 
 export function buildToolIntentSnapshot(input: {
   toolCallId: string;

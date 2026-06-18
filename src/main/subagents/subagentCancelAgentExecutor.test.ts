@@ -9,7 +9,7 @@ import type {
   SubagentRunEventSummary,
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   executeSubagentCancelAgent,
   SUBAGENT_CANCEL_AGENT_EXECUTOR_SCHEMA_VERSION,

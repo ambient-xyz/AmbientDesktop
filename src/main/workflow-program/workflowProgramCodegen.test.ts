@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkflowProgramNode } from "../../shared/workflowProgramIr";
-import { firstPartyDesktopToolDescriptors } from "../desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
 import { generateWorkflowProgramSource } from "./workflowProgramCodegen";
 
 const toolDescriptors = firstPartyDesktopToolDescriptors();

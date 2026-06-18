@@ -1,4 +1,4 @@
-import type { RuntimeActivity, ThreadGoal, ThreadSummary } from "../../shared/types";
+import type { RuntimeActivity, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
 
 export const GOAL_MODE_TOOL_NAMES = ["get_goal", "create_goal", "update_goal"] as const;
 export const GOAL_COMPLETION_MESSAGE_KIND = "goal-completion";

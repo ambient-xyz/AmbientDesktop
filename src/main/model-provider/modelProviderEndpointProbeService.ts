@@ -7,11 +7,7 @@ import type {
   AmbientModelTrustClass,
   AmbientProviderDescriptor,
 } from "../../shared/ambientModels";
-import type {
-  ModelRuntimeInstalledProvider,
-  ModelRuntimeInstalledProviderEndpointConfig,
-  ModelRuntimeInstalledProviderSecretRef,
-} from "../../shared/types";
+import type { ModelRuntimeInstalledProvider, ModelRuntimeInstalledProviderEndpointConfig, ModelRuntimeInstalledProviderSecretRef } from "../../shared/threadTypes";
 import type {
   ModelProviderCapabilityEligibility,
   ModelProviderCapabilityProbeId,

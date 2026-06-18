@@ -4,9 +4,9 @@ import {
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../liveAmbientProviderConfig";
+} from "./projectBoardAmbientFacade";
 import { AmbientProjectBoardSourceClassifierProvider } from "./projectBoardSourceClassifierProvider";
-import type { ProjectBoardSource } from "../../shared/types";
+import type { ProjectBoardSource } from "../../shared/projectBoardTypes";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_SOURCE_CLASSIFIER_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

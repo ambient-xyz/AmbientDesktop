@@ -6,9 +6,8 @@ import type {
   SubagentParentMailboxEventSummary,
   SubagentRunSummary,
   SubagentToolScopeSnapshotSummary,
-  ThreadSummary,
-  ThreadWorktreeSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
+import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import type { SubagentChildRuntimeLaunchPreflightResult } from "../pi/piChildSessionAdapter";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./subagentIdempotency";
 import type { SubagentModelScopeResolution } from "../model-provider/modelScopeResolver";
@@ -460,6 +459,8 @@ export function compactSubagentParentMailboxForPi(event: SubagentParentMailboxEv
       .map((item) => objectInput(item).runId)
       .filter((runId): runId is string => typeof runId === "string"),
   ]);
+  const childDecisionRequest = compactChildDecisionRequestForPi(payload.childDecisionRequest);
+  const symphonyDecisionOptions = compactSymphonyDecisionOptionsForPi(payload.symphonyDecisionOptions);
   return {
     id: event.id,
     parentThreadId: event.parentThreadId,
@@ -472,6 +473,8 @@ export function compactSubagentParentMailboxForPi(event: SubagentParentMailboxEv
     updatedAt: event.updatedAt,
     notificationCount: typeof payload.notificationCount === "number" ? payload.notificationCount : undefined,
     childRunIds,
+    ...(childDecisionRequest ? { childDecisionRequest } : {}),
+    ...(symphonyDecisionOptions.length ? { symphonyDecisionOptions } : {}),
   };
 }
 
@@ -529,6 +532,69 @@ function objectInput(value: unknown): Record<string, unknown> {
 
 function arrayInput(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function compactChildDecisionRequestForPi(value: unknown): Record<string, unknown> | undefined {
+  const request = objectInput(value);
+  const requestId = stringInput(request.requestId);
+  const barrierId = stringInput(request.barrierId);
+  const parentRunId = stringInput(request.parentRunId);
+  const schemaVersion = stringInput(request.schemaVersion);
+  const reason = stringInput(request.reason);
+  const recommendedOption = stringInput(request.recommendedOption);
+  if (!requestId || !barrierId || !parentRunId) return undefined;
+  const options = stringArrayInput(request.options);
+  return {
+    ...(schemaVersion ? { schemaVersion } : {}),
+    requestId,
+    barrierId,
+    parentRunId,
+    childRunIds: stringArrayInput(request.childRunIds),
+    ...(reason ? { reason } : {}),
+    options,
+    ...(recommendedOption ? { recommendedOption } : {}),
+    optionActions: compactChildDecisionOptionActionsForPi(request.optionActions),
+    evidenceRefs: stringArrayInput(request.evidenceRefs),
+  };
+}
+
+function compactChildDecisionOptionActionsForPi(value: unknown): Record<string, unknown>[] {
+  return arrayInput(value).flatMap((item) => {
+    const action = objectInput(item);
+    const option = stringInput(action.option);
+    const toolAction = stringInput(action.toolAction);
+    const decision = stringInput(action.decision);
+    if (!option || !toolAction || !decision) return [];
+    return [{
+      option,
+      toolAction,
+      decision,
+      ...(action.requiresUserDecision === true ? { requiresUserDecision: true } : {}),
+      ...(action.requiresPartialSummary === true ? { requiresPartialSummary: true } : {}),
+    }];
+  });
+}
+
+function compactSymphonyDecisionOptionsForPi(value: unknown): Record<string, unknown>[] {
+  return arrayInput(value).flatMap((item) => {
+    const option = objectInput(item);
+    const id = stringInput(option.id);
+    if (!id) return [];
+    const label = stringInput(option.label);
+    return [{
+      id,
+      ...(label ? { label: previewSubagentSpawnText(label, 120) } : {}),
+      recommended: option.recommended === true,
+    }];
+  });
+}
+
+function stringArrayInput(value: unknown): string[] {
+  return uniqueStrings(arrayInput(value).map((item) => typeof item === "string" ? item : undefined));
+}
+
+function stringInput(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function uniqueStrings(values: readonly (string | undefined)[]): string[] {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProviderStatus } from "../../shared/types";
+import type { ProviderStatus } from "../../shared/desktopTypes";
 import {
   formatRuntimeError,
   shouldOpenApiKeyDialogForRuntimeError,

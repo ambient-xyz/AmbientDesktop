@@ -11,7 +11,7 @@ import type {
   SubagentToolScopeIntegrityEvidence,
   SubagentWorkflowJitterReleaseProfileReport,
 } from "../../shared/subagentMaturity";
-import type { SubagentRestartReconciliationSummary } from "../../shared/types";
+import type { SubagentRestartReconciliationSummary } from "../../shared/subagentTypes";
 import {
   REQUIRED_WORKFLOW_JITTER_RELEASE_PROFILE_DETERMINISTIC_STRESS_UNITS,
   REQUIRED_WORKFLOW_JITTER_RELEASE_PROFILE_LIVE_DOGFOOD_RUNS,

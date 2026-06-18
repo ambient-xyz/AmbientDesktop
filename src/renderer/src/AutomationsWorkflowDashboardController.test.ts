@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  WorkflowAgentFolderSummary,
-  WorkflowArtifactSummary,
-  WorkflowDashboard,
-  WorkflowExplorationProgress,
-  WorkflowExplorationTraceSummary,
-  WorkflowRunSummary,
-} from "../../shared/types";
+import type { WorkflowAgentFolderSummary, WorkflowArtifactSummary, WorkflowDashboard, WorkflowExplorationProgress, WorkflowExplorationTraceSummary, WorkflowRunSummary } from "../../shared/workflowTypes";
 import {
   retainedWorkflowExplorationProgress,
   workflowAgentThreadForArtifactFromFolders,

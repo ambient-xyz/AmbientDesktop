@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { welcomeOnboardingMessageMetadata } from "../../shared/welcomeOnboarding";
-import type { ChatMessage, ProviderCatalogSettingsCard } from "../../shared/types";
+import type { ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
+import type { ChatMessage } from "../../shared/threadTypes";
 import {
   welcomeCoreSetupSectionDefinitions,
   welcomeCoreSetupSections,

@@ -1,14 +1,8 @@
-import type {
-  InterruptedToolCallRecoveryDiagnostics,
-  InterruptedToolCallRecoverySnapshot,
-  ToolArgumentProgressSnapshot,
-  ToolArgumentStreamDiagnostics,
-  ToolIntentSnapshot,
-} from "../../shared/types";
+import type { InterruptedToolCallRecoveryDiagnostics, InterruptedToolCallRecoverySnapshot, ToolArgumentProgressSnapshot, ToolArgumentStreamDiagnostics, ToolIntentSnapshot } from "../../shared/threadTypes";
 import {
   InterruptedToolCallRecoveryTracker,
   serializeToolInputForInterruptedRecovery,
-} from "../interruptedToolCallRecovery";
+} from "./recovery/interruptedToolCallRecovery";
 import { buildToolIntentSnapshot } from "./tools/agentRuntimeToolIntentSnapshot";
 import type { ToolArgumentProgressTracker } from "../tool-runtime/toolArgumentProgress";
 

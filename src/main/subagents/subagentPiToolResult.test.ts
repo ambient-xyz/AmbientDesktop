@@ -3,7 +3,7 @@ import type {
   SubagentMailboxEventSummary,
   SubagentParentMailboxEventSummary,
   SubagentRunEventSummary,
-} from "../../shared/types";
+} from "../../shared/subagentTypes";
 import {
   compactSubagentPiToolMailboxEvent,
   compactSubagentPiToolParentMailboxEvent,
@@ -140,6 +140,70 @@ describe("subagentPiToolResult", () => {
     expect(compactSubagentPiToolParentMailboxEvent(parentMailbox)).toEqual(expect.objectContaining({
       type: "subagent.child_supervisor_request",
       childRunIds: ["child-supervisor"],
+    }));
+  });
+
+  it("keeps wait-barrier decision requests visible in Pi parent-mailbox handles", () => {
+    const parentMailbox: SubagentParentMailboxEventSummary = {
+      id: "parent-mailbox-barrier",
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      parentMessageId: "assistant-message",
+      type: "subagent.wait_barrier_attention",
+      payload: {
+        childRunIds: ["child-a", "child-b"],
+        childDecisionRequest: {
+          schemaVersion: "ambient-symphony-child-decision-request-v1",
+          requestId: "symphony-child-decision:parent-run:barrier-1:failed:2026",
+          barrierId: "barrier-1",
+          parentRunId: "parent-run",
+          childRunIds: ["child-a", "child-b"],
+          reason: "failed",
+          options: ["retry_child", "cancel_group", "exit_symphony_mode"],
+          recommendedOption: "retry_child",
+          optionActions: [
+            { option: "retry_child", toolAction: "resolve_barrier", decision: "retry_child" },
+            { option: "cancel_group", toolAction: "resolve_barrier", decision: "cancel_parent", requiresUserDecision: true },
+            { option: "exit_symphony_mode", toolAction: "resolve_barrier", decision: "fail_parent" },
+          ],
+          evidenceRefs: ["wait-barrier:barrier-1", "subagent-run:child-a", "subagent-run:child-b"],
+          ignoredLargeField: "x".repeat(5000),
+        },
+        symphonyDecisionOptions: [
+          { id: "retry_child", label: "Retry child", recommended: true },
+          { id: "cancel_group", label: "Cancel group", recommended: false },
+          { id: "exit_symphony_mode", label: "Exit Symphony", recommended: false },
+        ],
+      },
+      deliveryState: "queued",
+      createdAt: "2026-06-06T00:00:00.000Z",
+      updatedAt: "2026-06-06T00:00:01.000Z",
+    };
+
+    expect(compactSubagentPiToolParentMailboxEvent(parentMailbox)).toEqual(expect.objectContaining({
+      type: "subagent.wait_barrier_attention",
+      childRunIds: ["child-a", "child-b"],
+      childDecisionRequest: {
+        schemaVersion: "ambient-symphony-child-decision-request-v1",
+        requestId: "symphony-child-decision:parent-run:barrier-1:failed:2026",
+        barrierId: "barrier-1",
+        parentRunId: "parent-run",
+        childRunIds: ["child-a", "child-b"],
+        reason: "failed",
+        options: ["retry_child", "cancel_group", "exit_symphony_mode"],
+        recommendedOption: "retry_child",
+        optionActions: [
+          { option: "retry_child", toolAction: "resolve_barrier", decision: "retry_child" },
+          { option: "cancel_group", toolAction: "resolve_barrier", decision: "cancel_parent", requiresUserDecision: true },
+          { option: "exit_symphony_mode", toolAction: "resolve_barrier", decision: "fail_parent" },
+        ],
+        evidenceRefs: ["wait-barrier:barrier-1", "subagent-run:child-a", "subagent-run:child-b"],
+      },
+      symphonyDecisionOptions: [
+        { id: "retry_child", label: "Retry child", recommended: true },
+        { id: "cancel_group", label: "Cancel group", recommended: false },
+        { id: "exit_symphony_mode", label: "Exit Symphony", recommended: false },
+      ],
     }));
   });
 

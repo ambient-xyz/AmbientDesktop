@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AmbientPermissionGrant } from "../../../shared/types";
+import type { AmbientPermissionGrant } from "../../../shared/permissionTypes";
 import {
   pluginPermissionGrantIdsForLabelPrefixes,
   pluginPermissionGrantMatchesLabelPrefixes,

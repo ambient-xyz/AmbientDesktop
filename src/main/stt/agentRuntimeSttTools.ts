@@ -2,18 +2,14 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type {
-  PermissionGrantScopeKind,
-  PermissionRisk,
-  SttProviderCandidate,
-  SttSettings,
-  ThreadSummary,
-  UpdateSttSettingsInput,
-  WorkspaceState,
-} from "../../shared/types";
+import type { UpdateSttSettingsInput } from "../../shared/desktopTypes";
+import type { SttProviderCandidate, SttSettings } from "../../shared/localRuntimeTypes";
+import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/permissionTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
-import { sttToolDescriptor } from "../desktopToolRegistry";
-import { registerDesktopTool } from "../desktopToolRegistration";
+import { sttToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
 import { managedSttThreadRoot } from "./sttArtifacts";
 import { transcribeWithAmbientCliSttProvider, type AmbientCliSttRunner } from "./sttProvider";
 import {

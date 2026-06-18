@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionRequest } from "../../shared/types";
+import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionRequest } from "../../shared/permissionTypes";
 import {
   enrichPermissionRequest,
   findMatchingPermissionGrant,

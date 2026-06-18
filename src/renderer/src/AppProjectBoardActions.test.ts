@@ -1,10 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  DesktopState,
-  ProjectSummary,
-} from "../../shared/types";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
 import type { ProjectBoardResetDialogState } from "./AppActionDialogs";
 import {
   PROJECT_BOARD_RESET_BRIDGE_UNAVAILABLE_MESSAGE,

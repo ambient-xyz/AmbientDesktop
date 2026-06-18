@@ -1,14 +1,21 @@
 import type { IpcMain } from "electron";
 import { z } from "zod";
 
+import type { DesktopState } from "../../shared/desktopTypes";
 import type {
+  AddProjectBoardCardRunFeedbackInput,
   AnswerProjectBoardQuestionInput,
   AnswerProjectBoardSynthesisProposalQuestionInput,
   ApplyProjectBoardDecisionImpactFeedbackInput,
   ApplyProjectBoardSourceImpactFeedbackInput,
   ApplyProjectBoardSynthesisProposalInput,
+  ApproveProjectBoardCardInput,
+  AttachProjectBoardLocalTaskInput,
   CancelProjectBoardRevisionInput,
-  DesktopState,
+  CopyProjectBoardSessionToThreadInput,
+  CreateProjectBoardCardInput,
+  CreateProjectBoardInput,
+  CreateReadyProjectBoardTasksInput,
   DeferProjectBoardSynthesisSectionsInput,
   FinalizeProjectBoardKickoffInput,
   PauseProjectBoardSynthesisInput,
@@ -19,21 +26,21 @@ import type {
   ProjectBoardGitSyncStatus,
   PromotePlannerPlanToBoardInput,
   RecomputeProjectBoardProofCoverageInput,
+  RefineProjectBoardSynthesisInput,
   RefreshProjectBoardDecisionDraftsInput,
   RefreshProjectBoardSourceDraftsInput,
   RefreshProjectBoardSourcesInput,
-  RefineProjectBoardSynthesisInput,
   RegenerateProjectBoardDecisionDraftsInput,
   RegenerateProjectBoardSourceDraftsInput,
+  RerunProjectBoardProofInput,
   ResetProjectBoardInput,
   ResolveProjectBoardCardPiUpdateInput,
   ResolveProjectBoardDeliverableIntegrationInput,
   ResolveProjectBoardProofDecisionInput,
   ResolveProjectBoardSplitDecisionInput,
   RetryProjectBoardSynthesisInput,
-  RerunProjectBoardProofInput,
-  ReviseProjectBoardInput,
   ReviewProjectBoardSynthesisProposalCardInput,
+  ReviseProjectBoardInput,
   SeedProjectBoardCanonicalProjectionDogfoodInput,
   SeedProjectBoardDeliverableIntegrationDogfoodInput,
   SeedProjectBoardProofJudgmentDogfoodInput,
@@ -46,14 +53,7 @@ import type {
   UpdateProjectBoardCardInput,
   UpdateProjectBoardSourceInput,
   UpdateProjectBoardStatusInput,
-  AddProjectBoardCardRunFeedbackInput,
-  ApproveProjectBoardCardInput,
-  AttachProjectBoardLocalTaskInput,
-  CopyProjectBoardSessionToThreadInput,
-  CreateProjectBoardInput,
-  CreateProjectBoardCardInput,
-  CreateReadyProjectBoardTasksInput,
-} from "../../shared/types";
+} from "../../shared/projectBoardTypes";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

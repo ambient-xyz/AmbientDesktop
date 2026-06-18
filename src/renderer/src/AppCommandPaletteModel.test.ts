@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ContextUsageSnapshot } from "../../shared/types";
+import type { ContextUsageSnapshot } from "../../shared/threadTypes";
 import {
   commandPaletteBrowserLabel,
   createAppCommandPaletteItems,

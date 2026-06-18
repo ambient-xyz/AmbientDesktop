@@ -1,4 +1,4 @@
-import type { WorkflowRecoveryAction } from "../../shared/types";
+import type { WorkflowRecoveryAction } from "../../shared/workflowTypes";
 import type { WorkflowGraphEventCard } from "./workflowAgentGraphUiModel";
 import type { WorkflowRuntimeInputCard } from "./workflowRuntimeInputUiModel";
 import type { WorkflowTotalRuntimePauseModel } from "./workflowRunLimitsUiModel";

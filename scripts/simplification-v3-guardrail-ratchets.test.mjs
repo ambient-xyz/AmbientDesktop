@@ -84,6 +84,44 @@ describe("simplification V3 guardrail ratchets", () => {
     );
   });
 
+  it("hard-fails production main and renderer layer crossings even when they are already baselined", () => {
+    const productionMainToRenderer =
+      "main-to-renderer:src/main/ipc/registerProjectIpc.ts->src/renderer/src/projectBoardUiModel.ts";
+    const productionRendererToMain =
+      "renderer-to-main:src/renderer/src/projectBoardUiModel.ts->src/main/projectStore/projectStore.ts";
+    const snapshot = fixtureSnapshot({
+      metrics: { importBoundaryEdges: 3, hardBoundaryViolations: 2 },
+      importBoundaryEdges: [
+        "main-owner-peer:ipc->projectStore:src/main/ipc/a.ts->src/main/projectStore/a.ts",
+        productionMainToRenderer,
+        productionRendererToMain,
+      ],
+      hardBoundaryViolations: [productionMainToRenderer, productionRendererToMain],
+    });
+
+    expect(compareGuardrailSnapshots(snapshot, snapshot).issues).toContain(
+      `hard-boundaries: 2 production main/renderer imports: ${productionMainToRenderer} | ${productionRendererToMain}`,
+    );
+  });
+
+  it("allows baselined test-only main and renderer layer crossings", () => {
+    const testOnlyMainToRenderer =
+      "main-to-renderer:src/main/projectStore/projectStore.test.ts->src/renderer/src/projectBoardUiModel.ts";
+    const testOnlyRendererToMain =
+      "renderer-to-main:src/renderer/src/pluginUiModel.test.ts->src/main/provider/providerCatalog.ts";
+    const snapshot = fixtureSnapshot({
+      metrics: { importBoundaryEdges: 3, hardBoundaryViolations: 0 },
+      importBoundaryEdges: [
+        "main-owner-peer:ipc->projectStore:src/main/ipc/a.ts->src/main/projectStore/a.ts",
+        testOnlyMainToRenderer,
+        testOnlyRendererToMain,
+      ],
+      hardBoundaryViolations: [],
+    });
+
+    expect(compareGuardrailSnapshots(snapshot, snapshot)).toEqual({ ok: true, issues: [] });
+  });
+
   it("allows explicit baseline exceptions", () => {
     const baseline = fixtureSnapshot({
       exceptions: {
@@ -178,6 +216,7 @@ function fixtureSnapshot(overrides = {}) {
     importBoundaryEdges: overrides.importBoundaryEdges ?? [
       "main-owner-peer:ipc->projectStore:src/main/ipc/a.ts->src/main/projectStore/a.ts",
     ],
+    hardBoundaryViolations: overrides.hardBoundaryViolations ?? [],
     largeFileLineCeilings: overrides.largeFileLineCeilings ?? {
       "src/main/a.ts": 900,
     },

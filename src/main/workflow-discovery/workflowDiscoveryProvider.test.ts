@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import type { WorkflowDiscoveryQuestionCategory } from "../../shared/types";
-import { AGGRESSIVE_RETRY_BACKOFF_MS, aggressiveAmbientRetryPolicy } from "../aggressiveRetries";
-import { pluginMcpToolDescriptor } from "../desktopToolRegistry";
+import type { WorkflowDiscoveryQuestionCategory } from "../../shared/workflowTypes";
+import { AGGRESSIVE_RETRY_BACKOFF_MS, aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { permissionGrantTargetHash } from "../permissions/permissionGrants";
 import {

@@ -1,12 +1,12 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { MessagingInboundEvent } from "../../../shared/messagingGateway";
-import { messagingGatewayToolDescriptor } from "../../desktopToolRegistry";
-import { registerDesktopTool } from "../../desktopToolRegistration";
-import type { MessagingBindingStore } from "../../messaging/messagingBindings";
-import type { MessagingGatewayRunner } from "../../messaging/messagingGatewayRunner";
-import { messagingProjectionText } from "../../messaging/messagingGatewayProjection";
-import type { RuntimeSurfaceSnapshot } from "../../runtimeSurfaceSnapshot";
+import { messagingGatewayToolDescriptor } from "../agentRuntimeDesktopToolFacade";
+import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
+import type { MessagingBindingStore } from "../agentRuntimeMessagingFacade";
+import type { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
+import { messagingProjectionText } from "../agentRuntimeMessagingFacade";
+import type { RuntimeSurfaceSnapshot } from "../../../shared/runtimeSurfaceSnapshot";
 
 export interface MessagingSyntheticRouteToolRegistrationOptions {
   bindings: MessagingBindingStore;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { workflowExplorationProgressCard, workflowExplorationTraceCards } from "./workflowExplorationUiModel";
-import type { WorkflowExplorationTraceSummary } from "../../shared/types";
+import type { WorkflowExplorationTraceSummary } from "../../shared/workflowTypes";
 
 describe("workflowExplorationUiModel", () => {
   it("summarizes the latest exploration trace with distillation evidence", () => {

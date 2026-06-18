@@ -3,7 +3,8 @@ import {
   isAmbientSubagentsEnabled,
   type AmbientFeatureFlagSnapshot,
 } from "../../shared/featureFlags";
-import type { CallableWorkflowTaskSummary, ThreadSummary, WorkflowRecordingLibraryDescription } from "../../shared/types";
+import type { ThreadSummary } from "../../shared/threadTypes";
+import type { CallableWorkflowTaskSummary, WorkflowRecordingLibraryDescription } from "../../shared/workflowTypes";
 import {
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,

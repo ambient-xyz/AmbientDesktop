@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProviderContinuationState } from "../../shared/types";
+import type { ProviderContinuationState } from "../../shared/threadTypes";
 import type {
   ProviderInterruptionDiagnostic,
   ProviderInterruptionToolSnapshot,

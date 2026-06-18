@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ToolArgumentProgressSnapshot,
-  ToolEditInputPreview,
-  ToolEventDetails,
-  ToolLongformInputPreview,
-} from "../../../shared/types";
+import type { ToolEventDetails } from "../../../shared/desktopTypes";
+import type { ToolArgumentProgressSnapshot, ToolEditInputPreview, ToolLongformInputPreview } from "../../../shared/threadTypes";
 import type { ToolResultDetails } from "../../pi/piEventMapper";
 import {
   stringMetadata,

@@ -1,4 +1,4 @@
-import type { PermissionMode } from "../../shared/types";
+import type { PermissionMode } from "../../shared/permissionTypes";
 import type { RuntimeAssistantTerminalCompletion } from "./runtimeAssistantTerminalCompletion";
 import type { RuntimeEmptyAssistantStallWatchdog } from "./runtimeEmptyAssistantStallWatchdog";
 import type { RuntimePostToolContinuationController } from "./runtimePostToolContinuationController";

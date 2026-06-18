@@ -1,4 +1,5 @@
-import type { SendMessageInput, ThreadSummary } from "../../shared/types";
+import type { SendMessageInput } from "../../shared/desktopTypes";
+import type { ThreadSummary } from "../../shared/threadTypes";
 
 export type RuntimeThreadSettingsUpdate = Partial<Pick<ThreadSummary, "collaborationMode" | "model" | "thinkingLevel">>;
 
