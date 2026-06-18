@@ -9,7 +9,7 @@ import {
 import {
   SCRAPLING_DEFAULT_SERVER_ID,
   SCRAPLING_DEFAULT_WORKLOAD_NAME,
-} from "../scrapling/scraplingBrowserRouting";
+} from "./agentRuntimeScraplingFacade";
 
 describe("agentRuntimeScraplingBrowserRoute", () => {
   it("does not create an MCP runtime for URLs that should stay in the browser", async () => {

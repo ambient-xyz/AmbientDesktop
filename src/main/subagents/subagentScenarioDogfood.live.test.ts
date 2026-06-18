@@ -20,7 +20,7 @@ import {
 } from "../ambient/liveAmbientProviderConfig";
 import { createDocxFixture } from "../office/officeTestFixtures";
 import { createPdfFixture } from "../pdf/pdfTestFixtures";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./subagentProjectStoreFacade";
 import { forbiddenClaimLooksPromised, forbiddenClaimPromises, termsPresent } from "./subagentScenarioDogfoodAssertions";
 
 const itScenario = process.env.AMBIENT_SUBAGENT_SCENARIO_DOGFOOD === "1" ? it : it.skip;

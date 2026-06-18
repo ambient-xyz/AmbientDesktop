@@ -2,7 +2,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { discoverAmbientCliSttProviders } from "../ambient-cli/ambientCliPackages";
+import { discoverAmbientCliSttProviders } from "./sttAmbientCliFacade";
 import { mergeSttProvidersWithValidation, readQwen3AsrValidationMetadata, setupQwen3AsrProvider } from "./sttProviderInstaller";
 
 describe("Qwen3-ASR STT provider setup", () => {

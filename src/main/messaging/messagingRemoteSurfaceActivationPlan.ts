@@ -5,13 +5,13 @@ import type {
   MessagingRemoteSurfaceActivationCard,
   MessagingRemoteSurfaceActivationCardPhase,
 } from "../../shared/messagingGateway";
-import type { TelegramBridgePollingRuntimeStatus } from "../telegram/telegramBridgePolling";
+import type { TelegramBridgePollingRuntimeStatus } from "./messagingTelegramFacade";
 import {
   buildTelegramOwnerLoopActivationPlan,
   telegramOwnerLoopActivationCard,
   telegramOwnerLoopActivationInput,
   type TelegramOwnerLoopActivationPlan,
-} from "../telegram/telegramOwnerLoopActivation";
+} from "./messagingTelegramFacade";
 
 const TELEGRAM_PROVIDER_ID = "telegram-tdlib";
 const TELEGRAM_OWNER_LOOP_ACTIVATION_PLAN_TOOL = "ambient_messaging_telegram_owner_loop_activation_plan";

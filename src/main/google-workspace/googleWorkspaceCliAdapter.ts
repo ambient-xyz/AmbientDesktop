@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, delimiter, isAbsolute, join, relative, resolve } from "node:path";
-import { redactString } from "../diagnostics/diagnostics";
+import { redactString } from "./googleWorkspaceDiagnosticsFacade";
 import { buildSafeProcessEnv } from "../security/safeProcessEnv";
 import type { GoogleSidecarRequest } from "./googleSidecarSupervisor";
 

@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
 
 import type { CodexPluginSummary } from "../../../shared/pluginTypes";
-import { enabledAmbientCliSkillPaths as defaultEnabledAmbientCliSkillPaths } from "../../ambient-cli/ambientCliPackages";
+import { enabledAmbientCliSkillPaths as defaultEnabledAmbientCliSkillPaths } from "../pluginsAmbientCliFacade";
 import type { AmbientPluginHost, AmbientPluginStateReader } from "../pluginHost";
 
 export interface AgentRuntimePluginDiscoveryStore {

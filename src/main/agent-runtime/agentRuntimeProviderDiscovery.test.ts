@@ -14,8 +14,8 @@ import {
   voiceProviderWorkspacePathForCapabilityId,
   type AgentRuntimeProviderDiscoveryOptions,
 } from "./agentRuntimeProviderDiscovery";
-import { AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID } from "../memory/tencentdb/managedEmbeddingProvider";
-import type { VoiceDiscoveryCache } from "../voice/voiceDiscoveryCache";
+import { AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID } from "./agentRuntimeMemoryFacade";
+import type { VoiceDiscoveryCache } from "./agentRuntimeVoiceFacade";
 
 describe("agent runtime provider discovery", () => {
   it("builds runtime discovery options from store workspace paths and feature listers", async () => {

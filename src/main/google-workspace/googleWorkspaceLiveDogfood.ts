@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { redactString } from "../diagnostics/diagnostics";
+import { redactString } from "./googleWorkspaceDiagnosticsFacade";
 import { GoogleWorkspaceCliAdapter, type GoogleWorkspaceCliAdapterOptions } from "./googleWorkspaceCliAdapter";
 
 export type GoogleWorkspaceLiveDogfoodProbe = "gmail" | "calendar" | "drive" | "workspace";

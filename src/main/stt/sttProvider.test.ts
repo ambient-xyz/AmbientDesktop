@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { SttSettings } from "../../shared/localRuntimeTypes";
-import type { AmbientCliRunResult, RunAmbientCliInput } from "../ambient-cli/ambientCliPackages";
+import type { AmbientCliRunResult, RunAmbientCliInput } from "./sttAmbientCliFacade";
 import {
   ambientCliSttProviderFromSettings,
   analyzeWavPcm16Rms,

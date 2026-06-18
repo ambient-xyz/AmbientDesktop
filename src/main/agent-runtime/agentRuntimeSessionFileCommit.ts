@@ -6,7 +6,7 @@ import {
   waitForPiSessionFileCommit,
   type PiSessionFileCommitReason,
   type PiSessionFileCommitWaitResult,
-} from "../session/sessionFileCommit";
+} from "./agentRuntimeSessionFacade";
 
 export interface AgentRuntimeThreadPiSessionFileCommitInput {
   threadId: string;

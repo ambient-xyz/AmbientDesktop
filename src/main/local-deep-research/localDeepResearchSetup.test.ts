@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildLocalDeepResearchSetupContract, buildLocalDeepResearchProviderSnapshot, localDeepResearchSetupContractText } from "./localDeepResearchSetup";
-import { normalizeWebResearchProviderStackSettings } from "../web-research/webResearchProviderStack";
+import { normalizeWebResearchProviderStackSettings } from "./localDeepResearchWebResearchFacade";
 
 const gib = 1024 ** 3;
 const fixedNow = () => new Date("2026-05-28T12:00:00.000Z");

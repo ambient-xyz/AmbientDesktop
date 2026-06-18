@@ -12,7 +12,7 @@ import {
   capabilityBuilderValidateText,
   type CapabilityBuilderValidateInput,
   type CapabilityBuilderValidateResult,
-} from "../../capability-builder/capabilityBuilder";
+} from "../agentRuntimeCapabilityBuilderFacade";
 import { privilegedActionToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import {
@@ -21,9 +21,9 @@ import {
   privilegedActionResultFromNativeResult,
   privilegedActionResultText,
   withPrivilegedActionLogPath,
-} from "../../privileged-action/privilegedAction";
-import type { PrivilegedActionAdapter } from "../../privileged-action/privilegedActionAdapter";
-import { writePrivilegedActionRedactedLog as defaultWritePrivilegedActionRedactedLog } from "../../privileged-action/privilegedActionLogs";
+} from "../agentRuntimePrivilegedActionFacade";
+import type { PrivilegedActionAdapter } from "../agentRuntimePrivilegedActionFacade";
+import { writePrivilegedActionRedactedLog as defaultWritePrivilegedActionRedactedLog } from "../agentRuntimePrivilegedActionFacade";
 
 type PrivilegedActionRequestToolUpdate = AgentToolResult<Record<string, unknown>>;
 type PrivilegedActionRequestToolUpdateHandler = (update: PrivilegedActionRequestToolUpdate) => void;

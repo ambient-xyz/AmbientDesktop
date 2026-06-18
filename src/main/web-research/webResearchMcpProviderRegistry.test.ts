@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
+import type { McpToolDescriptor } from "./webResearchMcpFacade";
 import { webResearchProviderConfigFromMcpTool, webResearchProviderConfigsFromMcpTools } from "./webResearchMcpProviderRegistry";
 
 describe("webResearchMcpProviderRegistry", () => {

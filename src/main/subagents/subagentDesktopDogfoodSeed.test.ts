@@ -11,19 +11,17 @@ import {
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { LocalRuntimeLeaseRecord } from "../../shared/localRuntimeTypes";
 import {
+  CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE,
+  buildCallableWorkflowExecutionPlan,
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
-  callableWorkflowToolName,
-  parentPiVisibleCallableWorkflowTools,
-} from "../callable-workflow/callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
-import {
-  CALLABLE_WORKFLOW_PARENT_BLOCKED_MAILBOX_TYPE,
   callableWorkflowParentBlockingAllowedUserChoices,
   callableWorkflowParentBlockingIdempotencyKey,
+  callableWorkflowToolName,
+  parentPiVisibleCallableWorkflowTools,
   resolveCallableWorkflowParentBlocking,
-} from "../callable-workflow/callableWorkflowParentBlocking";
-import type { CallableWorkflowCallerProvenance } from "../callable-workflow/callableWorkflowExecutionPlan";
+  type CallableWorkflowCallerProvenance,
+} from "./subagentCallableWorkflowFacade";
 import { recordSubagentApprovalRequestBridgeIfNeeded } from "./subagentApprovalBridge";
 import { executeSubagentBarrierDecision } from "./subagentBarrierDecisionExecutor";
 import {
@@ -74,7 +72,7 @@ import {
   SUBAGENT_DESKTOP_DOGFOOD_WORKFLOW_TOOL_CALL_ID,
   type SubagentDesktopDogfoodSeedResult,
 } from "./subagentDesktopDogfoodScenario";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./subagentProjectStoreFacade";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS } from "../../shared/symphonyWorkflowRecipes";
 import { buildPatternGraphSnapshot, effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph";
 

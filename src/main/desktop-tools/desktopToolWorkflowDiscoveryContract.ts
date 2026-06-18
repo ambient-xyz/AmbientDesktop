@@ -1,0 +1,1 @@
+export { pluginMcpToolDescriptor } from "./desktopToolRegistry";

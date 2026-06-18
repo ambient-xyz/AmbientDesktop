@@ -6,7 +6,7 @@ import { ProjectStore } from "./workflowProjectStoreFacade";
 import { runDueWorkflowArtifactSchedules, workflowArtifactScheduleBlockReason, workflowScheduleRunStartedEventData } from "./workflowScheduleDispatch";
 import type { PermissionAuditEntry } from "../../shared/permissionTypes"; import type { WorkflowManifest } from "../../shared/workflowTypes";
 import { workflowThreadScheduleState } from "../../renderer/src/workflowReviewUiModel";
-import { permissionGrantTargetHash } from "../permissions/permissionGrants";
+import { permissionGrantTargetHash } from "./workflowPermissionsFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

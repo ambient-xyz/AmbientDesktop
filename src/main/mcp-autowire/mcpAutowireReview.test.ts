@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mcpAutowirePhase0Fixtures, mcpKatzillaInstallFailureReplay } from "./mcpAutowireFixtures";
-import { registryInfoToAutowireCandidate } from "../mcp/mcpInstallCatalog";
+import { registryInfoToAutowireCandidate } from "./mcpAutowireMcpInstallFacade";
 import { mcpAutowireReviewResultText, reviewMcpAutowireCandidate } from "./mcpAutowireReview";
 import type { McpAutowireCandidate } from "./mcpAutowireSchemas";
 

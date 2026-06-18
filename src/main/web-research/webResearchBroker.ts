@@ -1,5 +1,5 @@
-import { createMcpHttpClient, isMcpToolError, textFromMcpToolCallResult, type FetchLike } from "../mcp/mcpToolBridge";
 import { materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
+import { createMcpHttpClient, isMcpToolError, textFromMcpToolCallResult, type FetchLike } from "./webResearchMcpFacade";
 import { WEB_RESEARCH_PROVIDER_IDS } from "./webResearchProviderStack";
 
 export const EXA_MCP_ENDPOINT = "https://mcp.exa.ai/mcp";

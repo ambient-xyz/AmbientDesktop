@@ -26,7 +26,7 @@ import type {
   UninstallPiPackageInput,
 } from "../../shared/pluginTypes";
 import type { PermissionMode } from "../../shared/permissionTypes";
-import { discoverAmbientCliPackages, type DiscoverAmbientCliPackagesOptions } from "../ambient-cli/ambientCliPackages";
+import { discoverAmbientCliPackages, type DiscoverAmbientCliPackagesOptions } from "./pluginsAmbientCliFacade";
 import {
   addCodexMarketplaceSource,
   previewCodexPluginInstallSource,

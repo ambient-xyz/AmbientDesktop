@@ -10,7 +10,7 @@ import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import { BrowserCredentialStore } from "../browser/browserCredentialStore";
 import { BrowserService } from "../browser/browserService";
 import { applyLiveAmbientProviderApiKeyEnv, readLiveAmbientProviderApiKey } from "./liveAmbientProviderConfig";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./ambientProjectStoreFacade";
 
 const electronMock = vi.hoisted(() => ({
   userDataPath: `${process.env.TMPDIR || "/tmp"}/ambient-download-live-electron`,

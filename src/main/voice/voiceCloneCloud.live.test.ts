@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { discoverAmbientCliVoiceProviders, runAmbientCliPackageCommand, type AmbientCliRunResult } from "../ambient-cli/ambientCliPackages";
+import { discoverAmbientCliVoiceProviders, runAmbientCliPackageCommand, type AmbientCliRunResult } from "./voiceAmbientCliFacade";
 import {
   registerCapabilityBuilderPackage,
   saveCapabilityBuilderEnvSecret,

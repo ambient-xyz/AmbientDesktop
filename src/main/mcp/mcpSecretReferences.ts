@@ -1,4 +1,4 @@
-import { findSecretReference, saveSecretReference } from "../security/secretReferenceStore";
+import { findSecretReference, saveSecretReference } from "./mcpSecurityFacade";
 import type { McpAutowireCandidate } from "./mcpAutowireFacade";
 
 export interface McpSecretBindingRef {

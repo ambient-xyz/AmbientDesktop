@@ -7,9 +7,13 @@ import type { ThreadSummary } from "../../../shared/threadTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import {
   registerAgentRuntimeMcpServerTools,
+  registerJsonRepairTool,
+  registerSetupFinalReportTool,
   type AgentRuntimeMcpPermissionRequest,
   type AgentRuntimeMcpServerToolsOptions,
-} from "../../agent-runtime/mcp/agentRuntimeMcpServerTools";
+  type JsonRepairToolRegistrationOptions,
+  type SetupFinalReportToolRegistrationOptions,
+} from "../pluginsAgentRuntimeFacade";
 import {
   registerPluginInstallApplyTools,
   type PluginInstallApplyPermissionRequest,
@@ -21,15 +25,6 @@ import {
   type PluginInstallPlanningToolRegistrationOptions,
   type PluginInstallPreviewToolRegistrationOptions,
 } from "./agentRuntimePluginInstallReadOnlyTools";
-import {
-  registerSetupFinalReportTool,
-  type SetupFinalReportToolRegistrationOptions,
-} from "../../agent-runtime/agentRuntimeSetupFinalReportTools";
-import {
-  registerJsonRepairTool,
-  type JsonRepairToolRegistrationOptions,
-} from "../../agent-runtime/agentRuntimeJsonRepairTools";
-
 export interface AgentRuntimePluginInstallCoreToolOptions {
   threadId: string;
   workspace: WorkspaceState;

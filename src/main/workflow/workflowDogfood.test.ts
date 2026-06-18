@@ -19,23 +19,20 @@ import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import { BrowserCredentialStore, type BrowserCredentialSafeStorage } from "../browser/browserCredentialStore";
 import { BrowserService } from "../browser/browserService";
 import { AmbientWorkflowRunProvider } from "./workflowAmbientProvider";
-import { AmbientWorkflowCompilerProvider, compileWorkflowArtifact } from "../workflow-compiler/workflowCompilerService";
-import { AmbientWorkflowDiscoveryProvider } from "../workflow-discovery/workflowDiscoveryProvider";
+import { AmbientWorkflowCompilerProvider, compileWorkflowArtifact } from "./workflowWorkflowCompilerServiceFacade";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderBaseUrl,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "./workflowAmbientFacade";
-import { startWorkflowDiscovery } from "../workflow-discovery/workflowDiscoveryService";
+import { AmbientWorkflowDiscoveryProvider, startWorkflowDiscovery } from "./workflowWorkflowDiscoveryFacade";
 import { readWorkflowRunDetail, resolveWorkflowApproval, reviewWorkflowArtifact } from "./workflowDashboard";
-import { GoogleWorkspaceCliAdapter } from "../google-workspace/googleWorkspaceCliAdapter";
-import { resolveGoogleWorkspaceLiveDogfoodRuntime } from "../google-workspace/googleWorkspaceLiveDogfood";
-import { googleWorkspaceConnectorDescriptors, googleWorkspaceConnectorRegistrations, type GoogleWorkspaceConnectorDescriptorOptions } from "../google-workspace/googleWorkspaceConnectors";
+import { GoogleWorkspaceCliAdapter, googleWorkspaceConnectorDescriptors, googleWorkspaceConnectorRegistrations, resolveGoogleWorkspaceLiveDogfoodRuntime, type GoogleWorkspaceConnectorDescriptorOptions } from "./workflowGoogleWorkspaceFacade";
 import { googleWorkspaceConnectorGrantTarget, googleWorkspaceGrantConditions } from "../../shared/googleWorkspaceGrantTargets";
 import { fixtureWorkflowConnector } from "./workflowConnectors";
-import { permissionGrantTargetHash } from "../permissions/permissionGrants";
-import { buildPluginMcpToolRegistrations } from "../plugins/pluginMcpSupervisor";
+import { permissionGrantTargetHash } from "./workflowPermissionsFacade";
+import { buildPluginMcpToolRegistrations } from "./workflowPluginsFacade";
 import { workflowPluginCapabilityGrant } from "./workflowPluginCapabilities";
 import { runWorkflowThreadExploration, type WorkflowExplorationAction, type WorkflowExplorationProvider } from "./workflowExplorationService";
 import { workflowApprovalsFromEvents } from "./workflowApprovals";

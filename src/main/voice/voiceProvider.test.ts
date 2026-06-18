@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import type { MessageVoiceState } from "../../shared/localRuntimeTypes";
-import type { AmbientCliRunResult, RunAmbientCliInput } from "../ambient-cli/ambientCliPackages";
+import type { AmbientCliRunResult, RunAmbientCliInput } from "./voiceAmbientCliFacade";
 import {
   synthesizeWithAmbientCliVoiceProvider,
   voiceSynthesisFailedState,

@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowDiscoveryProgress } from "../../shared/workflowTypes";
 import { workflowDiscoveryContextReviewModel } from "../../renderer/src/workflowReviewUiModel";
-import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import { pluginMcpToolDescriptor } from "./workflowDiscoveryDesktopToolFacade";
+import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
 import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
 import { ProjectStore } from "../projectStore/projectStore";
 import type { WorkflowDiscoveryContextGatherer } from "./workflowDiscoveryContextGatherer";
@@ -16,7 +16,7 @@ import {
   startWorkflowDiscovery,
   startWorkflowRevisionDiscovery,
 } from "./workflowDiscoveryService";
-import { workspaceInventoryConnectorDescriptor } from "../workflow/workflowConnectors";
+import { workspaceInventoryConnectorDescriptor } from "./workflowDiscoveryWorkflowFacade";
 import { AmbientWorkflowDiscoveryProvider, DeterministicWorkflowDiscoveryProvider, type WorkflowDiscoveryProvider } from "./workflowDiscoveryProvider";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;

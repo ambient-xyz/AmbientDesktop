@@ -1,6 +1,6 @@
 import type { WebResearchProviderConfig, WebResearchProviderRole } from "../../shared/webResearchTypes";
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
 import { SCRAPLING_BROWSER_CONTENT_TOOL_CANDIDATES, SCRAPLING_DEFAULT_SERVER_ID } from "../scrapling/scraplingBrowserRouting";
+import type { McpToolDescriptor } from "./webResearchMcpFacade";
 
 export function webResearchProviderConfigsFromMcpTools(tools: McpToolDescriptor[]): WebResearchProviderConfig[] {
   const providers: WebResearchProviderConfig[] = [];

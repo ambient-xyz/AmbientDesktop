@@ -1,5 +1,5 @@
 import type { OrchestrationTask } from "../../shared/workflowTypes";
-import type { WorkflowConfig } from "../workflow/workflow";
+import type { WorkflowConfig } from "./orchestrationWorkflowFacade";
 
 export type SchedulerSkipReason =
   | "inactive-state"

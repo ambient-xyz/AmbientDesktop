@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import type { OrchestrationBoard, OrchestrationWorkflowReadiness } from "../../shared/workflowTypes";
 import { previewProjectBoardWorkflowRepair } from "../project-board/projectBoardWorkflowBootstrap";
-import { loadWorkflowFile, WorkflowError } from "../workflow/workflow";
+import { loadWorkflowFile, WorkflowError } from "./orchestrationWorkflowFacade";
 
 const WORKFLOW_READINESS_RAW_CONTENT_LIMIT = 80_000;
 

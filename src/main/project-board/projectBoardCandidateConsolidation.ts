@@ -2,7 +2,7 @@ import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 import type { AmbientRetryPolicy } from "./projectBoardAmbientFacade";
 import { stableBoardArtifactId } from "./projectBoardArtifacts";
 import { parseProjectBoardLlmJson } from "./projectBoardLlmJson";
-import { callWorkflowPiText } from "../workflow/workflowPiTransport";
+import { callWorkflowPiText } from "./projectBoardWorkflowFacade";
 
 export interface ProjectBoardCandidateConsolidationGroup {
   survivorCardId: string;

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { AMBIENT_DEFAULT_MODEL, normalizeAmbientModelId } from "../../shared/ambientModels";
 import type { CreateWorkflowLabRunInput, ListWorkflowLabRunsInput, WorkflowLabCandidatePatch, WorkflowLabEvaluationCase, WorkflowLabEvaluationMetrics, WorkflowLabEvaluationResult, WorkflowLabGateResult, WorkflowLabJudgeResult, WorkflowLabMetricEmphasis, WorkflowLabRun, WorkflowLabRunStatus, WorkflowLabVariant, WorkflowLabVariantStatus, WorkflowRecordingLibraryDescription, WorkflowRecordingPlaybookDraft, WorkflowRecordingReviewDraftUpdate } from "../../shared/workflowTypes";
 import { callWorkflowPiJson, WorkflowPiJsonValidationError, type WorkflowPiTextCallInput } from "./workflowPiTransport";
-import { readAmbientApiKey } from "../security/credentialStore";
+import { readAmbientApiKey } from "./workflowSecurityFacade";
 import type { AmbientRetryPolicy } from "./workflowAmbientFacade";
 import type { ProjectStore } from "./workflowProjectStoreFacade";
 

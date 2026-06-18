@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { DesktopToolDescriptor } from "./workflowProgramDesktopToolFacade";
-import type { WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
+import type { WorkflowCompilerOutput } from "./workflowProgramWorkflowCompilerFacade";
 import { connectorOperationDescriptor, type WorkflowProgramDiagnostic } from "./workflowProgramCapabilityResolver";
 import type { WorkflowProgramLoweredOperationPlan } from "./workflowProgramLowering";
 import { validateWorkflowProgramJsonSchemaValue, workflowProgramSchemaObjectKeys } from "./workflowProgramTypecheck";

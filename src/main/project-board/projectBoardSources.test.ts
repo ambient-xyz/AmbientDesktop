@@ -27,7 +27,7 @@ import {
   summarizeGitState,
   summarizeText,
 } from "./projectBoardSources";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./projectBoardProjectStoreFacade";
 
 const execFileAsync = promisify(execFile);
 

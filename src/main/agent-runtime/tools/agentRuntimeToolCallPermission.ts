@@ -25,9 +25,9 @@ import {
 } from "../agentRuntimePermissionMessages";
 import {
   classifyToolPermission,
+  resolvePermissionWithGrants,
   shellCommandAuditReason,
-} from "../../permissions/permissionPolicy";
-import { resolvePermissionWithGrants } from "../../permissions/permissionGrants";
+} from "../agentRuntimePermissionsFacade";
 import type { ProjectStore } from "../agentRuntimeProjectStoreFacade";
 import { classifySubagentBrowserToolAuthority } from "../agentRuntimeSubagentsFacade";
 import { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "../agentRuntimeSubagentsFacade";

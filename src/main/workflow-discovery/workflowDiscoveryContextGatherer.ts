@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { WorkflowDiscoveryAccessRequest, WorkflowDiscoveryContextEvidence } from "../../shared/workflowTypes";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
+import type { WorkflowConnectorDescriptor } from "./workflowDiscoveryWorkflowFacade";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_MAX_ITEMS = 3;

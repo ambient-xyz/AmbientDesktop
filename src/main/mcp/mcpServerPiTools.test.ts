@@ -13,7 +13,7 @@ import {
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
 } from "./mcpToolRuntimeFacade";
-import { saveSecretReference } from "../security/secretReferenceStore";
+import { saveSecretReference } from "./mcpSecurityFacade";
 import { saveMcpServerEnvSecret } from "./mcpSecretReferences";
 import { createMcpAutowireCandidateRefStore } from "./mcpAutowireFacade";
 import { createMcpAutowirePlanRevisionStore } from "./mcpAutowireFacade";

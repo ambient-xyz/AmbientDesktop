@@ -1,43 +1,24 @@
 import {
-  workspaceBoundedAgentContextFiles as workspaceBoundedAgentContextFilesFromPi,
-} from "../pi/piContextFiles";
-import {
-  normalizePiEvent as normalizePiEventFromPi,
-} from "../pi/piEventMapper";
-import type {
-  NormalizedPiEvent as NormalizedPiEventFromPi,
-  ToolResultDetails as ToolResultDetailsFromPi,
-} from "../pi/piEventMapper";
-import {
-  discoverPiExtensionHostTools as discoverPiExtensionHostToolsFromPi,
-  runPiExtensionHostTool as runPiExtensionHostToolFromPi,
-} from "../pi/piExtensionCompatibilityHost";
-import type {
-  PiExtensionHostRunResult as PiExtensionHostRunResultFromPi,
-  PiExtensionHostTool as PiExtensionHostToolFromPi,
-} from "../pi/piExtensionCompatibilityHost";
-import {
   createAmbientEditOperations as createAmbientEditOperationsFromPi,
   createAmbientFindOperations as createAmbientFindOperationsFromPi,
   createAmbientGrepOperations as createAmbientGrepOperationsFromPi,
   createAmbientLsOperations as createAmbientLsOperationsFromPi,
   createAmbientReadOperations as createAmbientReadOperationsFromPi,
   createAmbientWriteOperations as createAmbientWriteOperationsFromPi,
-} from "../pi/piReadOperations";
+  createPiStreamWatchdog as createPiStreamWatchdogFromPi,
+  discoverPiExtensionHostTools as discoverPiExtensionHostToolsFromPi,
+  enableAtomicPiSessionPersistence as enableAtomicPiSessionPersistenceFromPi,
+  normalizePiEvent as normalizePiEventFromPi,
+  runPiExtensionHostTool as runPiExtensionHostToolFromPi,
+  workspaceBoundedAgentContextFiles as workspaceBoundedAgentContextFilesFromPi,
+} from "../pi/piAgentRuntimeContract";
 import type {
   AmbientFileAuthorityRequest as AmbientFileAuthorityRequestFromPi,
   AmbientFileAuthorityRequester as AmbientFileAuthorityRequesterFromPi,
-} from "../pi/piReadOperations";
-import {
-  enableAtomicPiSessionPersistence as enableAtomicPiSessionPersistenceFromPi,
-} from "../pi/piSessionAtomicPersistence";
-import {
-  createPiStreamWatchdog as createPiStreamWatchdogFromPi,
-} from "../pi/piStreamWatchdog";
-import type {
+  NormalizedPiEvent as NormalizedPiEventFromPi,
+  PiExtensionHostRunResult as PiExtensionHostRunResultFromPi,
+  PiExtensionHostTool as PiExtensionHostToolFromPi,
   PiStreamWatchdog as PiStreamWatchdogFromPi,
-} from "../pi/piStreamWatchdog";
-import type {
   SubagentChildRuntimeAdapter as SubagentChildRuntimeAdapterFromPi,
   SubagentChildRuntimeApprovalRequest as SubagentChildRuntimeApprovalRequestFromPi,
   SubagentChildRuntimeApprovalResponseInput as SubagentChildRuntimeApprovalResponseInputFromPi,
@@ -53,7 +34,8 @@ import type {
   SubagentChildRuntimeWaitInput as SubagentChildRuntimeWaitInputFromPi,
   SubagentChildRuntimeWaitResult as SubagentChildRuntimeWaitResultFromPi,
   SubagentRuntimeEventEmitter as SubagentRuntimeEventEmitterFromPi,
-} from "../pi/piChildSessionAdapter";
+  ToolResultDetails as ToolResultDetailsFromPi,
+} from "../pi/piAgentRuntimeContract";
 
 export const createAmbientEditOperations = createAmbientEditOperationsFromPi;
 export const createAmbientFindOperations = createAmbientFindOperationsFromPi;

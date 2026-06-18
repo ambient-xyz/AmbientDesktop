@@ -41,8 +41,7 @@ import { installMcpDefaultCapability as installDefaultMcpCapability } from "./mc
 import { type ToolHiveCommandResult, type ToolHiveInstalledServerState, type ToolHiveOperationProgress, type ToolHiveRuntimeService, type ToolHiveRunVolume, type ToolHiveWorkloadSummary } from "./mcpToolRuntimeFacade";
 import { parseMcpAutowireCandidate, validateMcpAutowireCandidate } from "./mcpAutowireFacade";
 import { storedMcpSecretBindingsForCandidate, storedMcpSecretBindingsForServer } from "./mcpSecretReferences";
-import { isSecretReference } from "../security/secretReferenceStore";
-import { redactSensitiveText } from "../security/secretRedaction";
+import { isSecretReference, redactSensitiveText } from "./mcpSecurityFacade";
 import {
   MCP_MANAGED_FILE_EXCHANGE_PURPOSE,
   validateMcpManagedFileExchangeHostAccess,

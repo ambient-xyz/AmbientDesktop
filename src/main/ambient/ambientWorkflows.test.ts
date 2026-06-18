@@ -14,7 +14,7 @@ import {
   searchAmbientWorkflowPlaybooks,
   updateAmbientWorkflowPlaybook,
 } from "./ambientWorkflows";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./ambientProjectStoreFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

@@ -14,7 +14,7 @@ import {
   workflowRecordingReviewFromCapture,
   workflowRecordingReviewPromptFromState,
 } from "../../shared/workflowRecorder";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./workflowRecordingProjectStoreFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

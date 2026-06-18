@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
+import type { AmbientCliPackageCatalog } from "./webResearchAmbientCliFacade";
 import { hydrateWebResearchSettings } from "./webResearchSettingsHydration";
+import type { McpToolDescriptor } from "./webResearchMcpFacade";
 
 describe("hydrateWebResearchSettings", () => {
   it("merges installed Ambient CLI and MCP web providers without mutating persisted settings directly", async () => {

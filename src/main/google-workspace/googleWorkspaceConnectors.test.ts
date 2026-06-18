@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWorkflowConnectorBridge } from "../workflow/workflowConnectors";
+import { createWorkflowConnectorBridge } from "./googleWorkspaceWorkflowFacade";
 import { googleWorkspaceConnectorDescriptors, googleWorkspaceConnectorRegistrations } from "./googleWorkspaceConnectors";
-import type { WorkflowRuntimeEvent } from "../workflow/workflowAgentRuntime";
+import type { WorkflowRuntimeEvent } from "./googleWorkspaceWorkflowFacade";
 
 describe("googleWorkspaceConnectorDescriptors", () => {
   it("declares first-party Gmail, Calendar, and Drive connectors", () => {

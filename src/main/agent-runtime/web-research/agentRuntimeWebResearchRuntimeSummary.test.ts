@@ -11,7 +11,7 @@ import {
 import {
   SCRAPLING_DEFAULT_SERVER_ID,
   SCRAPLING_DEFAULT_WORKLOAD_NAME,
-} from "../../scrapling/scraplingBrowserRouting";
+} from "../agentRuntimeScraplingFacade";
 import { WEB_RESEARCH_PROVIDER_IDS } from "../agentRuntimeWebResearchFacade";
 
 describe("agentRuntimeWebResearchRuntimeSummary", () => {

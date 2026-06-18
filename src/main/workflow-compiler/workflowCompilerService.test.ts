@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowCompileProgress } from "../../shared/workflowTypes";
 import { installAmbientCliPackageSource } from "../ambient-cli/ambientCliPackages";
-import { bashToolDescriptor, firstPartyDesktopToolDescriptors, pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { bashToolDescriptor, firstPartyDesktopToolDescriptors, pluginMcpToolDescriptor } from "./workflowCompilerDesktopToolFacade";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import { ProjectStore } from "../projectStore/projectStore";
@@ -20,7 +20,7 @@ import {
   type WorkflowCompilerCallableInvocationContext,
 } from "./workflowCompilerService";
 import { WorkflowProgramIrRepairRejectedError } from "./workflowCompilerIrRepair";
-import { WorkflowProgramCompileError } from "../workflow-program/workflowProgramCompiler";
+import { WorkflowProgramCompileError } from "./workflowCompilerWorkflowProgramFacade";
 import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
 import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
 import type { WorkflowPiTextCallInput } from "./workflowCompilerWorkflowFacade";

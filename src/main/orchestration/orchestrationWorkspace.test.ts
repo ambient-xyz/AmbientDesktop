@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parseWorkflowMarkdown } from "../workflow/workflow";
+import { parseWorkflowMarkdown } from "./orchestrationWorkflowFacade";
 import { branchNameForTask, configureTaskWorkspaceRuntimeExcludes, prepareTaskWorkspace, workspaceKeyForTask } from "./orchestrationWorkspace";
 
 const execFileAsync = promisify(execFile);

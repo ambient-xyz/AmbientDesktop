@@ -7,9 +7,9 @@ import type { CodexPluginInstallPreview } from "../codex/codexPlugins";
 import {
   installRouteToolDescriptor,
   pluginInstallToolDescriptor,
-} from "../../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../../desktop-tools/desktopToolRegistration";
-import { discoverAmbientCliPackages } from "../../ambient-cli/ambientCliPackages";
+  registerDesktopTool,
+} from "../pluginsDesktopToolFacade";
+import { discoverAmbientCliPackages } from "../pluginsAmbientCliFacade";
 import {
   ambientInstallRoutePlanInput,
   ambientInstallRoutePlanText,

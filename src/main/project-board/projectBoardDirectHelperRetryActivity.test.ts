@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { aggressiveAmbientRetryPolicy } from "./projectBoardAmbientFacade";
 import { recordProjectBoardDirectHelperRetryActivity } from "./projectBoardDirectHelperRetryActivity";
 import { AmbientProjectBoardSourceClassifierProvider } from "./projectBoardSourceClassifierProvider";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./projectBoardProjectStoreFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { SearchWorkflowRecordingsInput, WorkflowRecordingLibraryDescription, WorkflowRecordingLibraryEntry, WorkflowRecordingPlaybookDraft, WorkflowRecordingReviewDraftUpdate } from "../../shared/workflowTypes";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./ambientProjectStoreFacade";
 
 const AMBIENT_WORKFLOW_DESCRIBE_MARKDOWN_CHARS = 6_000;
 const AMBIENT_WORKFLOW_INJECTION_MARKDOWN_CHARS = 4_000;

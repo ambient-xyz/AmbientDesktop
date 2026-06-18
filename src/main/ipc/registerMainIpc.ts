@@ -56,9 +56,9 @@ import { assertSlashCommandSelectionInvocable } from "./slashCommandCatalog";
 type ProjectRuntimeHostLookup = (...args: any[]) => ProjectRuntimeHost;
 
 export interface RegisterMainIpcDependencies extends SettingsDomainServices, Record<string, any> {
-  AmbientWorkflowExplorationProvider: typeof import("../workflow/workflowExplorationService").AmbientWorkflowExplorationProvider;
-  AmbientWorkflowLabJudgeProvider: typeof import("../workflow/workflowLab").AmbientWorkflowLabJudgeProvider;
-  runWorkflowLab: typeof import("../workflow/workflowLab").runWorkflowLab;
+  AmbientWorkflowExplorationProvider: typeof import("./ipcWorkflowFacade").AmbientWorkflowExplorationProvider;
+  AmbientWorkflowLabJudgeProvider: typeof import("./ipcWorkflowFacade").AmbientWorkflowLabJudgeProvider;
+  runWorkflowLab: typeof import("./ipcWorkflowFacade").runWorkflowLab;
   requireActiveProjectRuntimeHost: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForAutomationSchedule: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForAutomationScheduleTarget: ProjectRuntimeHostLookup;

@@ -26,7 +26,7 @@ import {
 } from "./providerRetryFinalization";
 import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import type { RuntimeToolMessageController } from "./runtimeToolMessageController";
-import type { PiSessionFileCommitReason } from "../session/sessionFileCommit";
+import type { PiSessionFileCommitReason } from "./agentRuntimeSessionFacade";
 import { streamWatchdogFinalizationMessage } from "./streamWatchdogFinalization";
 import { terminalProviderFailureFinalizationMessage } from "./terminalProviderFailureFinalization";
 

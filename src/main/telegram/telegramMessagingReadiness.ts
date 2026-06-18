@@ -4,7 +4,7 @@ import type {
   MessagingGatewayProviderReadiness,
   MessagingGatewayProviderSessionReadiness,
 } from "../../shared/messagingGateway";
-import type { MessagingGatewayReadinessAdapter } from "../messaging/messagingProviderReadiness";
+import type { MessagingGatewayReadinessAdapter } from "./telegramMessagingFacade";
 
 const PROVIDER_ID = "telegram-tdlib";
 const DEFAULT_PORT = "8091";

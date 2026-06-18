@@ -4,6 +4,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import {
   localDeepResearchRuntimeInventorySettingsRefreshDecision,
   localDeepResearchSetupResultModel,
+  type LocalDeepResearchSetupAction,
   type LocalDeepResearchSetupResult,
 } from "./localDeepResearchUiModel";
 import type {
@@ -18,19 +19,65 @@ export function localDeepResearchStatusCheckingState(
   return { status: "running", action: "status", message: "Checking Local Deep Research..." };
 }
 
+function setupPayloadsEqual<T>(left: T, right: T): boolean {
+  if (left === right) return true;
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+}
+
+function localDeepResearchSetupStatesEqual(
+  left: LocalDeepResearchSetupUiState,
+  right: LocalDeepResearchSetupUiState,
+): boolean {
+  return left.status === right.status &&
+    left.action === right.action &&
+    left.message === right.message &&
+    setupPayloadsEqual(left.result, right.result) &&
+    setupPayloadsEqual(left.diagnostics, right.diagnostics) &&
+    setupPayloadsEqual(left.progress, right.progress);
+}
+
+export function localDeepResearchInstallProgressState(
+  current: LocalDeepResearchSetupUiState,
+  progress: NonNullable<LocalDeepResearchSetupUiState["progress"]>,
+): LocalDeepResearchSetupUiState {
+  const next = current.status === "running" && current.action === progress.action
+    ? { ...current, message: progress.message, progress }
+    : {
+        ...current,
+        status: "running" as const,
+        action: progress.action,
+        message: progress.message,
+        progress,
+      };
+  return localDeepResearchSetupStatesEqual(current, next) ? current : next;
+}
+
+export function localDeepResearchSetupResultState(
+  result: LocalDeepResearchSetupResult,
+  current: LocalDeepResearchSetupUiState,
+  action: LocalDeepResearchSetupAction = result.action,
+): LocalDeepResearchSetupUiState {
+  const model = localDeepResearchSetupResultModel(result);
+  const next: LocalDeepResearchSetupUiState = {
+    status: model.statusTone === "error" ? "error" : "success",
+    action,
+    message: model.statusLabel,
+    result,
+    diagnostics: model.diagnostics,
+    progress: current.action === action ? current.progress : undefined,
+  };
+  return localDeepResearchSetupStatesEqual(current, next) ? current : next;
+}
+
 export function localDeepResearchStatusResultState(
   result: LocalDeepResearchSetupResult,
   current: LocalDeepResearchSetupUiState,
 ): LocalDeepResearchSetupUiState {
-  const model = localDeepResearchSetupResultModel(result);
-  return {
-    status: model.statusTone === "error" ? "error" : "success",
-    action: "status",
-    message: model.statusLabel,
-    result,
-    diagnostics: model.diagnostics,
-    progress: current.action === "status" ? current.progress : undefined,
-  };
+  return localDeepResearchSetupResultState(result, current, "status");
 }
 
 export function localDeepResearchStatusErrorState(error: unknown): LocalDeepResearchSetupUiState {

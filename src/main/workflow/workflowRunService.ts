@@ -6,7 +6,7 @@ import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
 import type { WorkflowApprovalStatus, WorkflowDashboard, WorkflowExecutionMode, WorkflowManifest, WorkflowModelCallStatus, WorkflowRecoveryAction, WorkflowRecoveryContext, WorkflowRecoveryTargetKind, WorkflowRunEvent, WorkflowRunLimitOverrides, WorkflowRunProviderHealth, WorkflowRunRetryMetadata, WorkflowRunRuntime, WorkflowRunSummary, WorkflowUserInputResponse } from "../../shared/workflowTypes";
 import { workflowScheduleMatchingConnectorGrantUse } from "../../shared/workflowSchedulePolicy";
 import type { WorkflowBrowserAdapter, WorkflowDesktopToolBridgeOptions } from "./workflowDesktopTools";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import type { PluginMcpToolRegistration } from "./workflowPluginsFacade";
 import type { ProjectStore } from "./workflowProjectStoreFacade";
 import { createWorkflowDesktopToolBridge } from "./workflowDesktopTools";
 import {
@@ -16,9 +16,9 @@ import {
   isWorkflowPausedError,
   type WorkflowEventSink,
 } from "./workflowAgentRuntime";
-import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "../workflow-compiler/workflowCompiler";
 import { generateWorkflowAuditReport, hashWorkflowSource } from "./workflowAuditReport";
 import { readWorkflowDashboard } from "./workflowDashboard";
+import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "./workflowWorkflowCompilerFacade";
 import {
   validateWorkflowPluginCapabilityRequirements,
   workflowAutomationPluginRequirementBlockerMessage,
@@ -37,7 +37,7 @@ import {
 } from "./workflowAmbientClient";
 import { AmbientWorkflowRunProvider } from "./workflowAmbientProvider";
 import type { WorkflowPiProgress } from "./workflowPiTransport";
-import type { ToolRunnerRunShellOptions } from "../tool-runtime/toolRunner";
+import type { ToolRunnerRunShellOptions } from "./workflowToolRuntimeFacade";
 import {
   createWorkflowConnectorBridge,
   validateWorkflowConnectorManifest,

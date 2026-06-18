@@ -10,7 +10,7 @@ import type {
   ProjectBoardScopeFeature
 } from "../../shared/projectBoardTypes";
 import { readAmbientEventStreamText } from "./projectBoardAmbientFacade";
-import { readAmbientApiKey } from "../security/credentialStore";
+import { readAmbientApiKey } from "./projectBoardSecurityFacade";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
 import {
   projectBoardModelBudgetProfile,
@@ -103,7 +103,7 @@ import {
   retryDelayForAttempt,
   type AmbientRetryPolicy,
 } from "./projectBoardAmbientFacade";
-import { callWorkflowPiText, type WorkflowPiCompletionMetadata, type WorkflowPiProgress } from "../workflow/workflowPiTransport";
+import { callWorkflowPiText, type WorkflowPiCompletionMetadata, type WorkflowPiProgress } from "./projectBoardWorkflowFacade";
 
 export interface AmbientProjectBoardSynthesisProgress {
   stage: "model_request" | "model_response" | "schema_validation";

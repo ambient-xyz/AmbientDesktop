@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
 import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
-import { discoverAmbientCliVoiceProviders, installAmbientCliPackageSource, runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
+import { discoverAmbientCliVoiceProviders, installAmbientCliPackageSource, runAmbientCliPackageCommand } from "./voiceAmbientCliFacade";
 import { recordVoiceDispatchForMessage } from "./voiceDispatch";
 import {
   ambientCliVoiceProviderFromSettings,

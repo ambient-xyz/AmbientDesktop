@@ -2,10 +2,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import { pluginMcpToolDescriptor } from "./workflowDiscoveryDesktopToolFacade";
+import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
 import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
-import { validateWorkflowConnectorDescriptor, workspaceInventoryConnectorDescriptor } from "../workflow/workflowConnectors";
+import {
+  validateWorkflowConnectorDescriptor,
+  workspaceInventoryConnectorDescriptor,
+} from "./workflowDiscoveryWorkflowFacade";
 import { buildWorkflowDiscoveryPolicyContext } from "./workflowDiscoveryPolicy";
 import {
   describeWorkflowDiscoveryCapability,

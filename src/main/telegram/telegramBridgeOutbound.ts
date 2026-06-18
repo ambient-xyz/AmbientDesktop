@@ -6,9 +6,9 @@ import type {
   MessagingGatewayRuntimeStatus,
   MessagingGatewayQueuedProjection,
 } from "../../shared/messagingGateway";
-import { runtimeEventRelayText } from "../messaging/messagingRuntimeEventRelay";
+import { runtimeEventRelayText } from "./telegramMessagingFacade";
 
-export { runtimeEventRelayText } from "../messaging/messagingRuntimeEventRelay";
+export { runtimeEventRelayText } from "./telegramMessagingFacade";
 
 const TELEGRAM_PROVIDER_ID = "telegram-tdlib";
 const DEFAULT_BRIDGE_PORT = "8091";

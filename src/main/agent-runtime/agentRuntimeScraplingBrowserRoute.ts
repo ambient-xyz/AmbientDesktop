@@ -19,10 +19,10 @@ import type {
   McpToolBridgeActivity,
 } from "./agentRuntimeMcpFacade";
 import {
+  resolveScraplingBrowserContentDescriptor,
   scraplingBrowserContentToolArguments,
   shouldRouteBrowserContentUrlToScrapling,
-} from "../scrapling/scraplingBrowserRouting";
-import { resolveScraplingBrowserContentDescriptor } from "../scrapling/scraplingMcpDescriptor";
+} from "./agentRuntimeScraplingFacade";
 
 export interface ScraplingBrowserRoutePermissionRequest {
   thread: ThreadSummary;

@@ -10,7 +10,7 @@ import {
 import {
   registerPrivilegedActionStatusTools,
 } from "./agentRuntimePrivilegedActionStatusTools";
-import type { PrivilegedActionAdapter } from "../../privileged-action/privilegedActionAdapter";
+import type { PrivilegedActionAdapter } from "../agentRuntimePrivilegedActionFacade";
 
 export interface AgentRuntimePrivilegedActionToolOptions {
   threadId: string;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { firstPartyDesktopToolDescriptors } from "./workflowProgramDesktopToolFacade";
 import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
 import { fixtureWorkflowConnector } from "./workflowProgramWorkflowFacade";
-import { workflowGraphWithSourceMappings } from "../workflow-compiler/workflowCompiler";
+import { workflowGraphWithSourceMappings } from "./workflowProgramWorkflowCompilerFacade";
 import { compileWorkflowProgramIr, createWorkflowProgramCompileCache, WorkflowProgramCompileError, type WorkflowProgramAmbientCliCapability } from "./workflowProgramCompiler";
 
 function arxivAmbientCliCapability(overrides: Partial<WorkflowProgramAmbientCliCapability> = {}): WorkflowProgramAmbientCliCapability {

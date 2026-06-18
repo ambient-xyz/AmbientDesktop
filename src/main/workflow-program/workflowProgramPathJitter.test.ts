@@ -3,7 +3,7 @@ import type { WorkflowProgramIR, WorkflowProgramValue } from "../../shared/workf
 import { firstPartyDesktopToolDescriptors } from "./workflowProgramDesktopToolFacade";
 import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
 import { compileWorkflowProgramIr, WorkflowProgramCompileError } from "./workflowProgramCompiler";
-import type { WorkflowCompilerRecipeId } from "../workflow-compiler/workflowCompilerRecipes";
+import type { WorkflowCompilerRecipeId } from "./workflowProgramWorkflowCompilerFacade";
 
 const CASES_PER_RECIPE = 125;
 

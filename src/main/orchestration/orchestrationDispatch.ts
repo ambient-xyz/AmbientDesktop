@@ -1,7 +1,7 @@
 import type { OrchestrationPrepareResult, OrchestrationRun, OrchestrationTask } from "../../shared/workflowTypes";
-import { defaultOrchestrationProjectPath, type ProjectStore } from "../projectStore/projectStore";
+import { defaultOrchestrationProjectPath, type ProjectStore } from "./orchestrationProjectStoreFacade";
 import { prepareNextOrchestrationTasks } from "./orchestrationPrepare";
-import { type WorkflowConfig } from "../workflow/workflow";
+import { type WorkflowConfig } from "./orchestrationWorkflowFacade";
 import {
   ensureDefaultProjectBoardWorkflow,
   type ProjectBoardWorkflowBootstrapResult,

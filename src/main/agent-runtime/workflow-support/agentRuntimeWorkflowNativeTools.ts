@@ -19,7 +19,7 @@ import type {
   PluginMcpToolInvocation,
   PluginMcpToolInvocationResult,
   PluginMcpToolRegistration,
-} from "../../plugins/pluginHost";
+} from "../agentRuntimePluginsFacade";
 import type { RunWorkflowArtifactInput } from "../agentRuntimeWorkflowFacade";
 import {
   invokeWorkflowNativeTool as defaultInvokeWorkflowNativeTool,

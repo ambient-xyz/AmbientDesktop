@@ -13,7 +13,7 @@ import {
   validateLocalModelResourcePolicySnapshot,
   voiceProviderRuntimeRegistryEntries,
 } from "./localModelResourceRegistry";
-import type { LocalLlamaResidentProcess } from "../local-llama/localLlamaResidencyPolicy";
+import type { LocalLlamaResidentProcess } from "./localRuntimeLocalLlamaFacade";
 import type { LocalRuntimeLeaseRecord } from "../../shared/localRuntimeTypes";
 
 const gib = 1024 ** 3;

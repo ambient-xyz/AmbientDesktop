@@ -7,8 +7,7 @@ import type {
 } from "../../shared/localRuntimeTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { normalizeLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
-import { localDeepResearchToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { localDeepResearchToolDescriptor, registerDesktopTool } from "./localDeepResearchDesktopToolFacade";
 import type { LocalDeepResearchBroker } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import { LOCAL_DEEP_RESEARCH_PROVIDER_IDS } from "./localDeepResearchProviderStack";

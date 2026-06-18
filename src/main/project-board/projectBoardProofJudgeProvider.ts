@@ -13,7 +13,7 @@ import type {
 } from "../../shared/projectBoardTypes";
 import { AmbientStreamFailureError, type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
 import { callAmbientChatCompletionTextWithRetries } from "./projectBoardAmbientFacade";
-import { readAmbientApiKey } from "../security/credentialStore";
+import { readAmbientApiKey } from "./projectBoardSecurityFacade";
 import {
   projectBoardTaskToolActionIntegrityIssues,
   projectBoardTaskToolActionsFromProofOfWork,

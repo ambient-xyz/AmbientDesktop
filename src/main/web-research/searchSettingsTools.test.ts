@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
+import type { AmbientCliPackageCatalog } from "./webResearchAmbientCliFacade";
 import {
   appendSearchRoutingGuidance,
   buildSearchPreferenceStatus,

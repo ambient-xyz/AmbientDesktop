@@ -4,17 +4,15 @@ import type {
   MessagingGatewayProviderSessionReadiness,
 } from "../../shared/messagingGateway";
 import {
-  messagingConversationDirectoryContractNotes,
-  sanitizeMessagingConversationDirectoryEntry,
-  type MessagingConversationDirectoryMetadataEntry,
-} from "../messaging/messagingConversationDirectoryContract";
-import {
   messagingConversationDirectoryAdapterExecutionEnvelope,
   messagingConversationDirectoryAdapterExecutionText,
+  messagingConversationDirectoryContractNotes,
   messagingConversationDirectorySetupCard,
+  sanitizeMessagingConversationDirectoryEntry,
   telegramConversationDirectoryAdapterPlan,
   type MessagingConversationDirectoryAdapterExecutionEnvelope,
-} from "../messaging/messagingConversationDirectoryAdapters";
+  type MessagingConversationDirectoryMetadataEntry,
+} from "./telegramMessagingFacade";
 
 const TELEGRAM_PROVIDER_ID = "telegram-tdlib";
 const DEFAULT_BRIDGE_PORT = "8091";

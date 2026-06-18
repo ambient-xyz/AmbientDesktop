@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "./workflowCompilerDesktopToolFacade";
 import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor, type WorkflowConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
 import {
   compileWorkflowProgramIr,
@@ -9,7 +9,7 @@ import {
   type WorkflowProgramAmbientCliCapability,
   type WorkflowProgramCompileMetrics,
   type WorkflowProgramDiagnostic,
-} from "../workflow-program/workflowProgramCompiler";
+} from "./workflowCompilerWorkflowProgramFacade";
 
 export interface WorkflowCompilerBenchmarkCase {
   id: string;

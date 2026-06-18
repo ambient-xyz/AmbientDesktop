@@ -4,8 +4,8 @@ import type { PermissionMode, PermissionRequest } from "../../shared/permissionT
 import type { WorkflowAgentThreadSummary, WorkflowAmbientCliCapabilityGrant, WorkflowConnectorManifestGrant, WorkflowExplorationEventSummary, WorkflowExplorationProgress, WorkflowExplorationRunStatus, WorkflowExplorationTraceSummary, WorkflowGraphEdge, WorkflowGraphNode, WorkflowGraphSnapshot, WorkflowManifest, WorkflowPromptCacheCheckpoint } from "../../shared/workflowTypes";
 import type { DesktopToolDescriptor } from "./workflowDesktopToolFacade";
 import type { WorkflowEventSink, WorkflowToolHandlers } from "./workflowAgentRuntime";
-import { readAmbientApiKey } from "../security/credentialStore";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import { readAmbientApiKey } from "./workflowSecurityFacade";
+import type { PluginMcpToolRegistration } from "./workflowPluginsFacade";
 import type { ProjectStore } from "./workflowProjectStoreFacade";
 import type { AmbientRetryPolicy } from "./workflowAmbientFacade";
 import { createWorkflowDesktopToolBridge, type WorkflowBrowserAdapter, type WorkflowDesktopToolBridgeOptions } from "./workflowDesktopTools";

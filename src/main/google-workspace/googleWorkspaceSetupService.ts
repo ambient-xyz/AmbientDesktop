@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { AmbientPluginAuthAccountSummary, GoogleWorkspaceAccountIdentity, GoogleWorkspaceOAuthClientImportInput, GoogleWorkspaceSetupCommand, GoogleWorkspaceSetupInput, GoogleWorkspaceSetupState, GoogleWorkspaceValidationCheck, GoogleWorkspaceValidationResult } from "../../shared/pluginTypes";
-import { redactString } from "../diagnostics/diagnostics";
+import { redactString } from "./googleWorkspaceDiagnosticsFacade";
 import {
   GOOGLE_WORKSPACE_CLI_OAUTH_SCOPES,
   GoogleWorkspaceCliAdapter,

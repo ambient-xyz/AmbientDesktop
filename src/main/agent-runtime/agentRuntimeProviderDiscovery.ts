@@ -9,16 +9,16 @@ import {
   discoverAmbientCliSttProviders as defaultDiscoverSttProviders,
   discoverAmbientCliVoiceProviders as defaultDiscoverVoiceProviders,
 } from "./agentRuntimeAmbientCliFacade";
-import { discoverAmbientMemoryEmbeddingProviders as defaultDiscoverManagedMemoryEmbeddingProviders } from "../memory/tencentdb/managedEmbeddingProvider";
+import { discoverAmbientMemoryEmbeddingProviders as defaultDiscoverManagedMemoryEmbeddingProviders } from "./agentRuntimeMemoryFacade";
 import {
   mergeSttProvidersWithValidation as defaultMergeSttProvidersWithValidation,
   readQwen3AsrValidationMetadata as defaultReadSttValidationMetadata,
-} from "../stt/sttProviderInstaller";
+} from "./agentRuntimeSttFacade";
 import {
   mergeVoiceProvidersWithCachedVoices as defaultMergeVoiceProvidersWithCachedVoices,
   readVoiceDiscoveryCache as defaultReadVoiceDiscoveryCache,
   type VoiceDiscoveryCache,
-} from "../voice/voiceDiscoveryCache";
+} from "./agentRuntimeVoiceFacade";
 
 type MaybePromise<T> = T | Promise<T>;
 type ProviderLister<T> = (workspacePath: string) => MaybePromise<T[]>;

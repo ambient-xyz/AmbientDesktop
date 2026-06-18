@@ -3,10 +3,10 @@ import { join } from "node:path";
 import type { RestoreWorkflowVersionInput, WorkflowDashboard, WorkflowGraphEdge, WorkflowGraphNode, WorkflowManifest, WorkflowSpec } from "../../shared/workflowTypes";
 import { workflowGraphFromSpec } from "../../shared/workflowAgentGraph";
 import type { ProjectStore } from "./workflowProjectStoreFacade";
-import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "../workflow-compiler/workflowCompiler";
 import type { WorkflowConnectorDescriptor } from "./workflowConnectors";
 import { readWorkflowDashboard } from "./workflowDashboard";
 import { commitWorkflowVersionRepo, restoreWorkflowVersionFiles } from "./workflowVersioning";
+import { validateWorkflowSourceConnectorReferences, validateWorkflowSourceReferences } from "./workflowWorkflowCompilerFacade";
 
 export async function restoreWorkflowVersion(
   store: ProjectStore,

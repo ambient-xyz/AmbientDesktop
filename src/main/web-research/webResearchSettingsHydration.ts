@@ -1,7 +1,7 @@
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
-import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
+import type { AmbientCliPackageCatalog } from "./webResearchAmbientCliFacade";
 import { webResearchSettingsWithDynamicProviderCatalogs } from "./searchSettingsTools";
+import type { McpToolDescriptor } from "./webResearchMcpFacade";
 
 export interface HydrateWebResearchSettingsInput {
   settings?: SearchRoutingSettings;

@@ -25,8 +25,8 @@ import {
 import {
   registerAgentRuntimeCapabilityBuilderTools,
   type AgentRuntimeCapabilityBuilderToolOptions,
-} from "../capability-builder/agentRuntimeCapabilityBuilderTools";
-import type { CapabilityBuilderPlanToolInput } from "../capability-builder/agentRuntimeCapabilityBuilderPlanTools";
+  type CapabilityBuilderPlanToolInput,
+} from "./agentRuntimeCapabilityBuilderFacade";
 import {
   registerAgentRuntimePluginInstallCoreTools,
   type AgentRuntimePluginInstallCoreToolOptions,

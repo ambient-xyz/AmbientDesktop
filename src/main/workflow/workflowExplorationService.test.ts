@@ -7,7 +7,7 @@ import { validateWorkflowDiscoveryGraphPatch } from "../../shared/workflowDiscov
 import type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";
 import { firstPartyDesktopToolDescriptors } from "./workflowDesktopToolFacade";
 import { createWorkflowDesktopToolBridge } from "./workflowDesktopTools";
-import { validateWorkflowCompilerOutput, type WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
+import { validateWorkflowCompilerOutput, type WorkflowCompilerOutput } from "./workflowWorkflowCompilerFacade";
 import { fixtureWorkflowConnector } from "./workflowConnectors";
 import { ProjectStore } from "./workflowProjectStoreFacade";
 import {

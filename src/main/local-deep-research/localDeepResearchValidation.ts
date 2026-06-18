@@ -12,7 +12,7 @@ import type { LocalDeepResearchMemoryTelemetryResult } from "./localDeepResearch
 import { runLocalDeepResearchMemoryTelemetry } from "./localDeepResearchMemoryTelemetry";
 import type { LocalDeepResearchProviderPreferenceSmokeResult } from "./localDeepResearchProviderPreferenceSmoke";
 import { runLocalDeepResearchProviderPreferenceSmoke } from "./localDeepResearchProviderPreferenceSmoke";
-import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { writeWorkspaceTextFile } from "./localDeepResearchWorkspaceFacade";
 
 export async function validateLocalDeepResearchSetup(input: {
   workspacePath: string;

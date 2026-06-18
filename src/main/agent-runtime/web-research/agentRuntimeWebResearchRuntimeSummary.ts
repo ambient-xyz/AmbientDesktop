@@ -1,6 +1,6 @@
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { McpToolBridge } from "../agentRuntimeMcpFacade";
-import { resolveScraplingBrowserContentDescriptor } from "../../scrapling/scraplingMcpDescriptor";
+import { resolveScraplingBrowserContentDescriptor } from "../agentRuntimeScraplingFacade";
 import {
   WEB_RESEARCH_PROVIDER_IDS,
   type WebResearchProviderRuntimeSummary,

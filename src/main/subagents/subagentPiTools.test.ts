@@ -21,14 +21,14 @@ import {
 } from "../../shared/symphonyFineGrainedContracts";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
-import { createAgentRoleRegistry } from "../agent/agentRoleRegistry";
+import { createAgentRoleRegistry } from "./subagentAgentFacade";
 import {
+  buildCallableWorkflowExecutionPlan,
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   parentPiVisibleCallableWorkflowTools,
-} from "../callable-workflow/callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
-import { ProjectStore } from "../projectStore/projectStore";
+} from "./subagentCallableWorkflowFacade";
+import { ProjectStore } from "./subagentProjectStoreFacade";
 import {
   AMBIENT_SUBAGENT_TOOL_NAME,
   ambientSubagentActiveToolNamesForThread,

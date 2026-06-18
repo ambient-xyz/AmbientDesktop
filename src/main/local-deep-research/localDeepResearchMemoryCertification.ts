@@ -7,7 +7,7 @@ import {
   type LocalDeepResearchMemoryReservation,
   type LocalDeepResearchModelProfileId,
 } from "./localDeepResearchModelProfiles";
-import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { writeWorkspaceTextFile } from "./localDeepResearchWorkspaceFacade";
 
 const gib = 1024 ** 3;
 const certificationRoot = ".ambient/local-deep-research/memory-certification";

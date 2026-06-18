@@ -1,4 +1,4 @@
-import { standardMcpImportSpec } from "../mcp/mcpInstallCatalog";
+import { standardMcpImportSpec } from "./mcpAutowireMcpInstallFacade";
 import { reviewMcpAutowireCandidate } from "./mcpAutowireReview";
 import {
   MCP_AUTOWIRE_CANDIDATE_SCHEMA_VERSION,
@@ -6,7 +6,7 @@ import {
   validateMcpAutowireCandidate,
   type McpAutowireCandidate,
 } from "./mcpAutowireSchemas";
-import { TOOLHIVE_AMBIENT_GROUP } from "../tool-runtime/toolHiveRuntimeService";
+import { TOOLHIVE_AMBIENT_GROUP } from "./mcpAutowireToolRuntimeFacade";
 
 export const MCP_AUTOWIRE_INITIAL_SIX_PACK_GATE_SCHEMA_VERSION = "ambient-mcp-autowire-initial-six-pack-gate-v1";
 

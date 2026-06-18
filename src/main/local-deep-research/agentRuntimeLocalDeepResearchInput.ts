@@ -2,7 +2,7 @@ import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import {
   localDeepResearchRequestedLaunch,
   type LocalModelRequestedLaunch,
-} from "../local-runtime/localModelResourceRegistry";
+} from "./localDeepResearchLocalRuntimeFacade";
 
 export type LocalDeepResearchSetupToolAction = "status" | "install" | "repair" | "validate" | "smoke";
 

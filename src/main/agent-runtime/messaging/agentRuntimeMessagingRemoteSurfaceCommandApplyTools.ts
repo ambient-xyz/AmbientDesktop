@@ -67,13 +67,13 @@ import {
   sttPolicyNoopText,
   sttPolicyText,
   type SttPolicyInput,
-} from "../../stt/sttSettingsTools";
+} from "../agentRuntimeSttFacade";
 import {
   planVoicePolicyUpdate,
   voicePolicyNoopText,
   voicePolicyText,
   type VoicePolicyInput,
-} from "../../voice/voiceSettingsTools";
+} from "../agentRuntimeVoiceFacade";
 
 export interface MessagingRemoteSurfaceCommandApplyToolRegistrationOptions {
   applyForParams: (params: unknown) => Promise<any>;

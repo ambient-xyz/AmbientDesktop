@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { firstPartyDesktopToolDescriptors } from "./workflowDesktopToolFacade";
-import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
+import { googleWorkspaceConnectorDescriptors } from "./workflowGoogleWorkspaceFacade";
 import { compileWorkflowProgramIr } from "../workflow-program/workflowProgramCompiler";
 import { lowerWorkflowPlanDslToProgramIr, parseWorkflowPlanDsl, workflowPlanDslPromptSchemaExample, type WorkflowPlanDsl } from "./workflowPlanDsl";
 

@@ -7,7 +7,7 @@ import type { PermissionRequest } from "../../shared/permissionTypes";
 import { pluginMcpToolDescriptor } from "./workflowDesktopToolFacade";
 import { createDocxFixture, createPptxFixture, createXlsxFixture } from "../office/officeTestFixtures";
 import { createPdfFixture } from "../pdf/pdfTestFixtures";
-import type { PluginMcpToolRegistration } from "../plugins/pluginMcpSupervisor";
+import type { PluginMcpToolRegistration } from "./workflowPluginsFacade";
 import type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";
 import { createWorkflowDesktopToolBridge } from "./workflowDesktopTools";
 

@@ -3,23 +3,23 @@ import {
   aggressiveAmbientRetryPolicy as aggressiveAmbientRetryPolicyFromAmbient,
   isRetryableAmbientProviderError as isRetryableAmbientProviderErrorFromAmbient,
   retryDelayForAttempt as retryDelayForAttemptFromAmbient,
-} from "../ambient/aggressiveRetries";
+} from "../ambient/ambientProjectBoardContract";
 import type {
   AmbientRetryPolicy as AmbientRetryPolicyFromAmbient,
-} from "../ambient/aggressiveRetries";
+} from "../ambient/ambientProjectBoardContract";
 import {
   callAmbientChatCompletionTextWithRetries as callAmbientChatCompletionTextWithRetriesFromAmbient,
   isAmbientChatCompletionValidationError as isAmbientChatCompletionValidationErrorFromAmbient,
-} from "../ambient/ambientChatCompletionRetry";
+} from "../ambient/ambientProjectBoardContract";
 import {
   readAmbientEventStreamText as readAmbientEventStreamTextFromAmbient,
-} from "../ambient/ambientStreamTransport";
+} from "../ambient/ambientProjectBoardContract";
 import {
   liveAmbientDirectHelperProfile as liveAmbientDirectHelperProfileFromAmbient,
   liveAmbientProviderBaseUrl as liveAmbientProviderBaseUrlFromAmbient,
   liveAmbientProviderModel as liveAmbientProviderModelFromAmbient,
   readLiveAmbientProviderApiKey as readLiveAmbientProviderApiKeyFromAmbient,
-} from "../ambient/liveAmbientProviderConfig";
+} from "../ambient/ambientProjectBoardContract";
 
 export const AmbientStreamFailureError = AmbientStreamFailureErrorFromAmbient;
 export const aggressiveAmbientRetryPolicy = aggressiveAmbientRetryPolicyFromAmbient;

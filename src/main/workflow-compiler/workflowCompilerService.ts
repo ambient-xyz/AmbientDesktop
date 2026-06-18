@@ -10,7 +10,7 @@ import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { CallableWorkflowLaunchCardSummary, CallableWorkflowTaskSummary, WorkflowAmbientCliCapabilityGrant, WorkflowCompileProgress, WorkflowDashboard, WorkflowDiscoveryCapabilityDescription, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryQuestion, WorkflowExplorationTraceSummary, WorkflowGraphSnapshot, WorkflowPromptCacheCheckpoint } from "../../shared/workflowTypes";
 import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
 import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
-import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import type { DesktopToolDescriptor } from "./workflowCompilerDesktopToolFacade";
 import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
 import type { WorkflowConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
 import type { ProjectStore } from "../projectStore/projectStore";
@@ -67,7 +67,7 @@ import {
   type WorkflowProgramDiagnostic,
   type WorkflowProgramLoweredOperationPlan,
   type WorkflowProgramValidationReport,
-} from "../workflow-program/workflowProgramCompiler";
+} from "./workflowCompilerWorkflowProgramFacade";
 import {
   lowerWorkflowPlanDslToProgramIr,
   parseWorkflowPlanDsl,

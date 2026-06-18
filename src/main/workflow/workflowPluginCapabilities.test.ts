@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AmbientPluginAvailability, AmbientPluginRegistry, AmbientPluginRuntime } from "../../shared/pluginTypes";
 import { pluginMcpToolDescriptor } from "./workflowDesktopToolFacade";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import type { PluginMcpToolRegistration } from "./workflowPluginsFacade";
 import {
   enrichWorkflowManifestWithPluginCapabilities,
   validateWorkflowAutomationPluginRequirements,

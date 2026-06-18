@@ -10,7 +10,7 @@ import {
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
 } from "../ambient/liveAmbientProviderConfig";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./localRuntimeProjectStoreFacade";
 
 const itLive = process.env.AMBIENT_LOCAL_RUNTIME_STATUS_LIVE === "1" ? it : it.skip;
 

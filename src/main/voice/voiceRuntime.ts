@@ -1,6 +1,6 @@
 import type { MessageVoiceState, VoiceSettings } from "../../shared/localRuntimeTypes";
 import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
-import type { RunAmbientCliInput } from "../ambient-cli/ambientCliPackages";
+import type { RunAmbientCliInput } from "./voiceAmbientCliFacade";
 import { recordVoiceDispatchForMessage, requestVoiceSummary } from "./voiceDispatch";
 import {
   synthesizeWithAmbientCliVoiceProvider,

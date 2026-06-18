@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { OrchestrationTask } from "../../shared/workflowTypes";
-import type { WorkflowConfig } from "../workflow/workflow";
+import type { WorkflowConfig } from "./orchestrationWorkflowFacade";
 
 const execFileAsync = promisify(execFile);
 

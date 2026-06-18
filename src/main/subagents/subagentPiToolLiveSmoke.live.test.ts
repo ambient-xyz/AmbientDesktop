@@ -14,7 +14,7 @@ import {
 } from "../ambient/liveAmbientProviderConfig";
 import { createDocxFixture } from "../office/officeTestFixtures";
 import { createPdfFixture } from "../pdf/pdfTestFixtures";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./subagentProjectStoreFacade";
 import { resolveSubagentApprovalDecision } from "./subagentApprovalDecision";
 import { recordSubagentLiveApprovalAuthorityEvidence, recordSubagentLiveSmokeEvidence } from "./subagentLiveSmokeEvidence";
 import { recordSubagentRestartRecoveryEvidence } from "./subagentReviewedMaturityEvidence";

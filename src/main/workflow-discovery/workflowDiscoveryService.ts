@@ -7,8 +7,8 @@ import { applyWorkflowDiscoveryGraphPatch, validateWorkflowDiscoveryGraphPatch }
 import { isRetryableAmbientProviderError } from "../ambient/aggressiveRetries";
 import { searchAmbientCliCapabilities, type AmbientCliCapabilitySearchResponse } from "../ambient-cli/ambientCliPackages";
 import type { ProjectStore } from "../projectStore/projectStore";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
+import type { WorkflowConnectorDescriptor } from "./workflowDiscoveryWorkflowFacade";
 import { DefaultWorkflowDiscoveryContextGatherer, type WorkflowDiscoveryContextGatherer } from "./workflowDiscoveryContextGatherer";
 import {
   describeWorkflowDiscoveryCapability,

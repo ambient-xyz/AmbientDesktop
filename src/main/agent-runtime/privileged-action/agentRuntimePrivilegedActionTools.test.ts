@@ -7,7 +7,7 @@ import {
   registerAgentRuntimePrivilegedActionTools,
   type AgentRuntimePrivilegedActionToolOptions,
 } from "./agentRuntimePrivilegedActionTools";
-import type { PrivilegedActionAdapter } from "../../privileged-action/privilegedActionAdapter";
+import type { PrivilegedActionAdapter } from "../agentRuntimePrivilegedActionFacade";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 

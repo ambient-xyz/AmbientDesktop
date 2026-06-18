@@ -8,7 +8,7 @@ import {
   createAmbientWriteOperations,
   type AmbientFileAuthorityRequester,
 } from "./agentRuntimePiFacade";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./agentRuntimeSessionFacade";
 import {
   commonOverlapChars,
   parseRecoveryApplyWriteSuffixArgs,

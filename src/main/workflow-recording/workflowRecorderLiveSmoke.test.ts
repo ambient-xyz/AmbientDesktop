@@ -5,15 +5,8 @@ import { Type, type Tool } from "@mariozechner/pi-ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowRecordingPlaybookAvoidPattern } from "../../shared/workflowTypes";
-import {
-  ambientWorkflowsInjectText,
-  describeAmbientWorkflowPlaybook,
-  injectAmbientWorkflowPlaybook,
-  searchAmbientWorkflowPlaybooks,
-} from "../ambient/ambientWorkflows";
-import { isRetryableAmbientProviderError } from "../ambient/aggressiveRetries";
-import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ambientWorkflowsInjectText, describeAmbientWorkflowPlaybook, injectAmbientWorkflowPlaybook, isRetryableAmbientProviderError, liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey, searchAmbientWorkflowPlaybooks } from "./workflowRecordingAmbientFacade";
+import { ProjectStore } from "./workflowRecordingProjectStoreFacade";
 import { callWorkflowPiText, type WorkflowPiToolProgress } from "../workflow/workflowPiTransport";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;

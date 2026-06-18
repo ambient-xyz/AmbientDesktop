@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import type { AgentRuntime, AgentRuntimeSendHooks } from "../agent-runtime/agentRuntime";
 import { startPreparedOrchestrationRun } from "../orchestration/orchestrationRunner";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./projectBoardProjectStoreFacade";
 import type { SendMessageInput } from "../../shared/desktopTypes";
 
 const execFileAsync = promisify(execFile);

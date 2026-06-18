@@ -2,14 +2,14 @@ import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
 import type { PermissionMode } from "../../../shared/permissionTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
-import { piToolFieldsFromDescriptor } from "../../desktop-tools/desktopToolRegistry";
+import { piToolFieldsFromDescriptor } from "../pluginsDesktopToolFacade";
 import type {
   PluginMcpLaunchPlan,
   PluginMcpToolInvocation,
   PluginMcpToolInvocationResult,
   PluginMcpToolRegistration,
 } from "../pluginHost";
-import { buildToolLongformInputPreview } from "../../tool-runtime/toolLongformInputPreview";
+import { buildToolLongformInputPreview } from "../pluginsToolRuntimeFacade";
 
 export interface PluginMcpToolExtensionOptions {
   workspace: Pick<WorkspaceState, "path">;

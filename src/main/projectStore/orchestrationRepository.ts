@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import {
   isRestartInterruptedOrchestrationRun,
   restartInterruptedAutoContinueProofOfWork,
-} from "../orchestration/orchestrationRecovery";
-import type { SchedulerRuntimeState } from "../orchestration/orchestrationScheduler";
+  type SchedulerRuntimeState,
+} from "./projectStoreOrchestrationFacade";
 import { emptyToNull } from "./projectStoreFacadeHelpers";
 import {
   normalizeTaskLabels,

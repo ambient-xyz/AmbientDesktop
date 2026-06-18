@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowDiscoveryQuestionCategory } from "../../shared/workflowTypes";
 import { AGGRESSIVE_RETRY_BACKOFF_MS, aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
-import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import { pluginMcpToolDescriptor } from "./workflowDiscoveryDesktopToolFacade";
+import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
 import { permissionGrantTargetHash } from "../permissions/permissionGrants";
 import {
   describeWorkflowDiscoveryCapability,
@@ -21,7 +21,7 @@ import {
   normalizeWorkflowDiscoveryProviderOutput,
 } from "./workflowDiscoveryProvider";
 import { buildWorkflowDiscoveryPolicyContext, workflowDiscoveryPolicyContextSummary } from "./workflowDiscoveryPolicy";
-import type { WorkflowPiTextCallInput } from "../workflow/workflowPiTransport";
+import type { WorkflowPiTextCallInput } from "./workflowDiscoveryWorkflowFacade";
 
 describe("workflowDiscoveryProvider", () => {
   let workspacePath = "";

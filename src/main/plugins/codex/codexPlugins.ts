@@ -34,7 +34,7 @@ import {
 } from "./codexCuratedMarketplaceSignature";
 import { knownCodexPluginProfile } from "./codexPluginProfiles";
 import { isPathInside } from "../../session/sessionPaths";
-import { materializeTextOutput } from "../../tool-runtime/toolOutputArtifacts";
+import { materializeTextOutput } from "../pluginsToolRuntimeFacade";
 import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../setup/managedInstallPaths";
 
 const execFileAsync = promisify(execFile);

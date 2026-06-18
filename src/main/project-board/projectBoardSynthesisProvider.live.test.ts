@@ -11,7 +11,7 @@ import { liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbient
 import { createProjectBoardPlannerWorkspace } from "./projectBoardPlannerWorkspace";
 import { projectBoardPlannerWorkspaceToolExecutor } from "./projectBoardPlannerWorkspaceTools";
 import type { ProjectBoardSynthesisSource } from "./projectBoardSynthesis";
-import { callWorkflowPiText } from "../workflow/workflowPiTransport";
+import { callWorkflowPiText } from "./projectBoardWorkflowFacade";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_PROVIDER_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

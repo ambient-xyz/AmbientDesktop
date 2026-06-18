@@ -1,6 +1,6 @@
 import type { SearchRoutingFallback, SearchRoutingMode, SearchRoutingSettings, WebResearchProviderConfig, WebResearchProviderRole } from "../../shared/webResearchTypes";
-import type { AmbientCliPackageCatalog, AmbientCliPackageCommand, AmbientCliPackageSummary } from "../ambient-cli/ambientCliPackages";
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
+import type { AmbientCliPackageCatalog, AmbientCliPackageCommand, AmbientCliPackageSummary } from "./webResearchAmbientCliFacade";
+import type { McpToolDescriptor } from "./webResearchMcpFacade";
 import { webResearchProviderConfigsFromMcpTools } from "./webResearchMcpProviderRegistry";
 import {
   normalizeSearchRoutingSettingsWithWebResearch,

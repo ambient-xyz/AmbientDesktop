@@ -24,7 +24,7 @@ import {
   createAmbientReadOperations,
   createAmbientWriteOperations,
 } from "../agentRuntimePiFacade";
-import { isPathInside } from "../../session/sessionPaths";
+import { isPathInside } from "../agentRuntimeSessionFacade";
 
 const AMBIENT_WRITE_DESCRIPTION_GUIDANCE =
   "Ambient streams long content arguments and can resume large writes; do not split one logical file only to avoid size. Include both path and full content, then verify with the returned byte count, wc -c, or a hash instead of treating a bounded read preview as proof of truncation. During Ambient interrupted-write recovery, set recoveryMode to interrupted_write_suffix and pass only recoverySuffix so Ambient appends it to the saved prefix instead of streaming the full file again.";

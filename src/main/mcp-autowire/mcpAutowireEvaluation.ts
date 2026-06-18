@@ -1,10 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { standardMcpImportSpec } from "../mcp/mcpInstallCatalog";
+import { standardMcpImportSpec } from "./mcpAutowireMcpInstallFacade";
 import { mcpAutowirePlanResultText, planMcpAutowire, type McpAutowirePlanInput, type McpAutowirePlanResult, type McpAutowirePlannerOptions } from "./mcpAutowirePlanner";
 import { mcpAutowireReviewResultText, reviewMcpAutowireCandidate, type McpAutowireReviewResult } from "./mcpAutowireReview";
 import type { McpAutowireCandidate, McpAutowireOutcome } from "./mcpAutowireSchemas";
-import { TOOLHIVE_AMBIENT_GROUP } from "../tool-runtime/toolHiveRuntimeService";
+import { TOOLHIVE_AMBIENT_GROUP } from "./mcpAutowireToolRuntimeFacade";
 
 export const MCP_AUTOWIRE_DOGFOOD_FIXTURE_SCHEMA_VERSION = "ambient-mcp-autowire-dogfood-fixture-v1";
 

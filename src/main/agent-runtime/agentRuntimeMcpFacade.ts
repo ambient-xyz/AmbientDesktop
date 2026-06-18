@@ -1,37 +1,25 @@
 import {
-  evaluateMcpInstallGate as evaluateMcpInstallGateFromMcp,
-  mcpDefaultCapabilityStatePathForUserData as mcpDefaultCapabilityStatePathForUserDataFromMcp,
-} from "../mcp/mcpInstallGate";
-import {
-  createPublicMcpPackageMetadataResolver as createPublicMcpPackageMetadataResolverFromMcp,
-  McpInstallCatalog as McpInstallCatalogFromMcp,
-} from "../mcp/mcpInstallCatalog";
-import type { McpInstallCatalog as McpInstallCatalogInstanceFromMcp } from "../mcp/mcpInstallCatalog";
-import {
   createMcpServerPiToolDefinitions as createMcpServerPiToolDefinitionsFromMcp,
-} from "../mcp/mcpServerPiTools";
-import {
+  createMcpToolBridgePiToolDefinitions as createMcpToolBridgePiToolDefinitionsFromMcp,
+  createPublicMcpPackageMetadataResolver as createPublicMcpPackageMetadataResolverFromMcp,
+  evaluateMcpInstallGate as evaluateMcpInstallGateFromMcp,
   evaluateMcpToolCallPermission as evaluateMcpToolCallPermissionFromMcp,
-  mcpPermissionPolicyBlockedMessage as mcpPermissionPolicyBlockedMessageFromMcp,
-  planMcpPermissionPromptGrant as planMcpPermissionPromptGrantFromMcp,
-} from "../mcp/mcpPermissionPolicyService";
-import {
-  mcpRuntimePermissionBlockedMessage as mcpRuntimePermissionBlockedMessageFromMcp,
-} from "../mcp/mcpRuntimePermissionEnforcement";
-import {
+  McpInstallCatalog as McpInstallCatalogFromMcp,
   McpToolBridge as McpToolBridgeFromMcp,
-} from "../mcp/mcpToolBridge";
+  mcpDefaultCapabilityStatePathForUserData as mcpDefaultCapabilityStatePathForUserDataFromMcp,
+  mcpPermissionPolicyBlockedMessage as mcpPermissionPolicyBlockedMessageFromMcp,
+  mcpRuntimePermissionBlockedMessage as mcpRuntimePermissionBlockedMessageFromMcp,
+  mcpToolCallApprovalDetail as mcpToolCallApprovalDetailFromMcp,
+  planMcpPermissionPromptGrant as planMcpPermissionPromptGrantFromMcp,
+} from "../mcp/mcpAgentRuntimeContract";
 import type {
+  McpInstallCatalog as McpInstallCatalogInstanceFromMcp,
   McpToolBridgeActivity as McpToolBridgeActivityFromMcp,
   McpToolBridgeOptions as McpToolBridgeOptionsFromMcp,
   McpToolCallResult as McpToolCallResultFromMcp,
   McpToolDescriptor as McpToolDescriptorFromMcp,
   McpToolDescriptorDriftEvent as McpToolDescriptorDriftEventFromMcp,
-} from "../mcp/mcpToolBridge";
-import {
-  createMcpToolBridgePiToolDefinitions as createMcpToolBridgePiToolDefinitionsFromMcp,
-  mcpToolCallApprovalDetail as mcpToolCallApprovalDetailFromMcp,
-} from "../mcp/mcpToolBridgePiTools";
+} from "../mcp/mcpAgentRuntimeContract";
 
 export const createMcpServerPiToolDefinitions =
   createMcpServerPiToolDefinitionsFromMcp;

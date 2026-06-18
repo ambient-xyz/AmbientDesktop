@@ -14,7 +14,7 @@ import type {
   WebResearchProviderConfig,
 } from "../../shared/webResearchTypes";
 import { normalizeLocalModelResourceSettings } from "./localDeepResearchProviderStack";
-import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "../mini-cpm/miniCpmRuntimeManifest";
+import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "./localDeepResearchMiniCpmFacade";
 import {
   detectLocalDeepResearchMachineFacts,
   localDeepResearchEstimatedResidentMemoryBytes,
@@ -26,9 +26,9 @@ import {
   normalizeSearchRoutingSettingsWithWebResearch,
   planWebResearchProviderOrder,
   type WebResearchProviderRequestPlan,
-} from "../web-research/webResearchProviderStack";
+} from "./localDeepResearchWebResearchFacade";
 import { buildLocalDeepResearchProviderStackStatus } from "./localDeepResearchProviderStack";
-import { buildLocalRuntimeInventory } from "../local-runtime/localRuntimeInventory";
+import { buildLocalRuntimeInventory } from "./localDeepResearchLocalRuntimeFacade";
 
 export type LocalDeepResearchInstallState = "installed" | "missing";
 export type LocalDeepResearchSetupStatus = "ready" | "needs-install" | "blocked";

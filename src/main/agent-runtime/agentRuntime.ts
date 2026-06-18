@@ -26,8 +26,8 @@ import { classifyWorkflowPlanEditIntent, type WorkflowPlanEditIntentKind } from 
 import { applyAgentBootstrapToPrompt, buildAgentBootstrapContext } from "./agentRuntimeAgentFacade";
 import { resolveAgentHarnessVariant } from "./agentRuntimeAgentFacade";
 import { LocalPreviewServerManager } from "./agentRuntimeBrowserFacade";
-import { createPrivilegedActionAdapter, privilegedActionAdapterSelectionFromEnv, type PrivilegedActionAdapter } from "../privileged-action/privilegedActionAdapter";
-import type { PiSessionFileCommitReason } from "../session/sessionFileCommit";
+import { createPrivilegedActionAdapter, privilegedActionAdapterSelectionFromEnv, type PrivilegedActionAdapter } from "./agentRuntimePrivilegedActionFacade";
+import type { PiSessionFileCommitReason } from "./agentRuntimeSessionFacade";
 import { commitAgentRuntimeThreadPiSessionFile } from "./agentRuntimeSessionFileCommit";
 import { enableAtomicPiSessionPersistence } from "./agentRuntimePiFacade";
 import type {
@@ -131,40 +131,42 @@ import {
 } from "./agentRuntimeContextUsageSnapshot";
 import { runPromptPreflightBeforePrompt } from "./agentRuntimePromptPreflight";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
-import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "../provider/providerStatus";
+import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "./agentRuntimeProviderFacade";
 import { readAmbientApiKey } from "../security/credentialStore";
-import { abortSessionRun as abortPiSessionRun } from "../session/sessionAbort";
-import { recordAgentRuntimeVoiceDispatch } from "../voice/agentRuntimeVoiceDispatch";
-import { completeAgentRuntimeRegisteredVoiceProviderSetup } from "../voice/agentRuntimeVoiceProviderSetup";
-import { dogfoodAgentRuntimeSelectedVoiceProvider } from "../voice/agentRuntimeVoiceProviderDogfood";
-import type { AmbientCliVoiceRunner } from "../voice/voiceProvider";
+import { abortSessionRun as abortPiSessionRun } from "./agentRuntimeSessionFacade";
+import {
+  completeAgentRuntimeRegisteredVoiceProviderSetup,
+  dogfoodAgentRuntimeSelectedVoiceProvider,
+  recordAgentRuntimeVoiceDispatch,
+  type AmbientCliVoiceRunner,
+} from "./agentRuntimeVoiceFacade";
 import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
-import { getRestorablePiSessionFile, getRestorableRecoverySessionFile, isPathInside } from "../session/sessionPaths";
+import { getRestorablePiSessionFile, getRestorableRecoverySessionFile, isPathInside } from "./agentRuntimeSessionFacade";
 import type { AmbientFileAuthorityRequest } from "./agentRuntimePiFacade";
 import { workspaceBoundedAgentContextFiles } from "./agentRuntimePiFacade";
 import {
   permissionPolicyFileToolAccess,
   permissionPolicyPathForTool,
   resolvePolicyPath,
-} from "../permissions/permissionPolicy";
-import { resolvePermissionWithGrants } from "../permissions/permissionGrants";
+  resolvePermissionWithGrants,
+} from "./agentRuntimePermissionsFacade";
 import {
   applyPlannerDurableRevisionResponse,
+  buildPlannerDurableRepairPrompt,
   extractPlannerDurableRevisionResponse,
   extractPlannerPlanArtifactFields,
-} from "../planner/plannerMode";
+  PLANNER_DURABLE_REPAIR_MAX_ATTEMPTS,
+  PlannerDurableHtmlValidationError,
+  plannerDurableFallbackWarnings,
+  plannerDurableRepairAttemptCount,
+  validatePlannerDurableHtmlFileInBrowser,
+  writePlannerDurableHtmlArtifact,
+  type PlannerDurableHtmlBrowserValidator,
+} from "./agentRuntimePlannerFacade";
 import { createPlannerModeExtension as createPlannerModeToolsExtension } from "./agentRuntimePlannerModeExtension";
 import { createPermissionGateExtension as createPermissionGateToolsExtension } from "./agentRuntimePermissionGateExtension";
 import { permissionToolInput as resolvePermissionToolInput } from "./agentRuntimePermissionToolInput";
-import { validatePlannerDurableHtmlFileInBrowser } from "../planner/plannerDurableBrowserValidation";
-import { PlannerDurableHtmlValidationError, writePlannerDurableHtmlArtifact, type PlannerDurableHtmlBrowserValidator } from "../planner/plannerDurableHtml";
-import {
-  buildPlannerDurableRepairPrompt,
-  PLANNER_DURABLE_REPAIR_MAX_ATTEMPTS,
-  plannerDurableFallbackWarnings,
-  plannerDurableRepairAttemptCount,
-} from "../planner/plannerDurableRepair";
-import { AmbientPluginHost, type PluginMcpRuntimeSnapshot, type PluginMcpToolRegistration } from "../plugins/pluginHost";
+import { AmbientPluginHost, type PluginMcpRuntimeSnapshot, type PluginMcpToolRegistration } from "./agentRuntimePluginsFacade";
 import {
   discoverAmbientCliPackages,
   ensureFirstPartyAmbientCliPackages,
@@ -185,10 +187,10 @@ import {
 import {
   planVoicePolicyUpdate,
   voicePolicyApprovalDetail,
-} from "../voice/voiceSettingsTools";
+} from "./agentRuntimeVoiceFacade";
 import {
   planSttPolicyUpdate,
-} from "../stt/sttSettingsTools";
+} from "./agentRuntimeSttFacade";
 import {
   appendSearchRoutingGuidance,
   webResearchSettingsWithDynamicProviderCatalogs,
@@ -199,7 +201,7 @@ import {
   type CapabilityBuilderValidateInput,
   type CapabilityBuilderValidateResult,
   validateCapabilityBuilderPackage,
-} from "../capability-builder/capabilityBuilder";
+} from "./agentRuntimeCapabilityBuilderFacade";
 import {
   browserToolDescriptor,
   messagingGatewayToolDescriptor,
@@ -298,9 +300,11 @@ import {
   type AmbientCliSkillMountDiagnostics,
 } from "./agentRuntimeAmbientCliSkillMount";
 import {
+  createPluginMcpToolExtension as createPluginMcpToolsExtension,
   discoverAgentRuntimeSkillPaths,
+  ensurePluginMcpToolTrusted as ensurePluginMcpToolTrustedWithRuntimeBridge,
   pluginStateReaderFromStore,
-} from "../plugins/runtime-tools/agentRuntimePluginDiscovery";
+} from "./agentRuntimePluginsFacade";
 import {
   emitFirstPartyPluginPermissionAudit as emitFirstPartyPluginPermissionAuditWithRuntimeBridge,
   firstPartyPluginPermissionGrantHash,
@@ -311,7 +315,6 @@ import {
   revokeMcpPermissionGrantsForDescriptorDrift as revokeMcpPermissionGrantsForDescriptorDriftWithRuntimeBridge,
   revokePluginPermissionGrantsForLabelPrefixes,
 } from "../plugins/runtime-tools/agentRuntimePluginGrantRevocation";
-import { ensurePluginMcpToolTrusted as ensurePluginMcpToolTrustedWithRuntimeBridge } from "../plugins/runtime-tools/agentRuntimePluginMcpTrust";
 import {
   createAgentRuntimePluginInstallApplyCallbacks,
   createAgentRuntimePluginInstallToolExtension,
@@ -417,8 +420,8 @@ import { createProviderCatalogToolExtension } from "./agentRuntimeProviderCatalo
 import { createMediaToolExtension } from "./agentRuntimeMediaTools";
 import { createLocalRuntimeToolExtension } from "./agentRuntimeLocalRuntimeFacade";
 import { createVisionToolExtension } from "./agentRuntimeVisionTools";
-import { createSttSettingsToolExtension } from "../stt/agentRuntimeSttTools";
-import { createVoiceSettingsToolExtension } from "../voice/agentRuntimeVoiceTools";
+import { createSttSettingsToolExtension } from "./agentRuntimeSttFacade";
+import { createVoiceSettingsToolExtension } from "./agentRuntimeVoiceFacade";
 import { registerMessagingOverviewTools } from "./messaging/agentRuntimeMessagingOverviewTools";
 import { registerTelegramSessionTools } from "./telegram/agentRuntimeTelegramSessionTools";
 import { registerSignalSessionTools } from "./signal/agentRuntimeSignalSessionTools";
@@ -495,7 +498,6 @@ import {
 import { createAgentRuntimeWebResearchToolExtension } from "./web-research/agentRuntimeWebResearchToolExtension";
 import { createSearchPreferenceToolExtension as createSearchPreferenceToolsExtension } from "./agentRuntimeSearchPreferenceTools";
 import { createGitToolExtension as createGitToolsExtension } from "./agentRuntimeGitTools";
-import { createPluginMcpToolExtension as createPluginMcpToolsExtension } from "../plugins/runtime-tools/agentRuntimePluginMcpTools";
 import { createWorkflowNativeToolExtension as createWorkflowNativeToolsExtension } from "./workflow-support/agentRuntimeWorkflowNativeTools";
 import { createProjectBoardTaskToolExtension as createProjectBoardTaskToolsExtension } from "./agentRuntimeProjectBoardTaskTools";
 import {
@@ -526,20 +528,19 @@ import { createGoalModeToolExtension as createGoalModeToolsExtension } from "./a
 import { validateGoalCompletionArtifacts } from "./agentRuntimeGoalCompletionValidation";
 import { createPrivilegedActionToolsExtension } from "./privileged-action/agentRuntimePrivilegedActionTools";
 import { createAmbientCompactionSummaryExtension as createAmbientCompactionSummaryToolsExtension } from "./agentRuntimeCompactionSummaryExtension";
-import type { AmbientTencentMemoryLlmDelegate } from "../memory/tencentdb/ambientLlmRunner";
-import type {
-  AmbientTencentMemoryEmbeddingPrepareInput,
-  AmbientTencentMemoryEmbeddingPrepareResult,
-  AmbientTencentMemoryEmbeddingStartInput,
-  AmbientTencentMemoryEmbeddingStartResult,
-} from "../memory/tencentdb/ambientEmbeddingProvider";
-import type { TencentMemoryCoreConstructorLoader } from "../memory/tencentdb/optionalCore";
 import {
   AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
   AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
+  installAmbientMemoryEmbeddingAssets,
+  loadAgentRuntimeTencentMemoryModules,
   startAmbientMemoryEmbeddingRuntime,
-} from "../memory/tencentdb/managedEmbeddingProvider";
-import { installAmbientMemoryEmbeddingAssets } from "../memory/tencentdb/managedEmbeddingInstaller";
+  type AmbientTencentMemoryLlmDelegate,
+  type AmbientTencentMemoryEmbeddingPrepareInput,
+  type AmbientTencentMemoryEmbeddingPrepareResult,
+  type AmbientTencentMemoryEmbeddingStartInput,
+  type AmbientTencentMemoryEmbeddingStartResult,
+  type TencentMemoryCoreConstructorLoader,
+} from "./agentRuntimeMemoryFacade";
 import type { AnalyzeMiniCpmVisionInputOptions, SetupMiniCpmVisionProviderOptions } from "../mini-cpm/miniCpmVisionProvider";
 import {
   buildLocalDeepResearchSetupContract,
@@ -621,8 +622,8 @@ import {
 } from "./messaging/agentRuntimeRemoteSurfaceRuntimeEvents";
 import { AmbientWorkflowDescriptionState } from "./ambient-workflow/agentRuntimeAmbientWorkflowDescriptionState";
 import { answerWorkflowDiscoveryQuestion } from "../workflow-discovery/workflowDiscoveryService";
-import { writePrivilegedActionRedactedLog } from "../privileged-action/privilegedActionLogs";
-import type { AmbientCliSttRunner } from "../stt/sttProvider";
+import { writePrivilegedActionRedactedLog } from "./agentRuntimePrivilegedActionFacade";
+import type { AmbientCliSttRunner } from "./agentRuntimeSttFacade";
 import {
   agentRuntimeProviderDiscoveryOptions as createAgentRuntimeProviderDiscoveryOptions,
   listEmbeddingProvidersForTools as listAgentRuntimeEmbeddingProvidersForTools,
@@ -3709,15 +3710,11 @@ export class AgentRuntime {
     let tencentMemoryExtension: ExtensionFactory | undefined;
     let memoryToolNames: string[] = [];
     if (tencentMemoryActive) {
-      const [
-        { createTencentDbMemoryRuntimeForThread },
-        { createTencentDbMemoryPiExtension },
-        { createAmbientTencentMemoryPiLlmDelegate },
-      ] = await Promise.all([
-        import("../memory/tencentdb/runtime"),
-        import("../memory/tencentdb/piExtension"),
-        import("../memory/tencentdb/ambientPiLlmDelegate"),
-      ]);
+      const {
+        createTencentDbMemoryRuntimeForThread,
+        createTencentDbMemoryPiExtension,
+        createAmbientTencentMemoryPiLlmDelegate,
+      } = await loadAgentRuntimeTencentMemoryModules();
       const runWithAmbientPi = this.features.memory?.runWithAmbientPi ?? createAmbientTencentMemoryPiLlmDelegate({
         workspacePath: workspace.path,
         statePath: workspace.statePath,

@@ -1,4 +1,4 @@
-import type { WorkflowConnectorProvider, WorkflowConnectorTokenSet } from "../workflow/workflowConnectorAuth";
+import type { WorkflowConnectorProvider, WorkflowConnectorTokenSet } from "./googleWorkspaceWorkflowFacade";
 
 export const GOOGLE_WORKSPACE_PROVIDER_ID = "google.workspace";
 export const GOOGLE_WORKSPACE_CONNECTOR_ID = "google.workspace";

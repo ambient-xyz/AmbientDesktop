@@ -6,7 +6,7 @@ import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   pluginStateReaderFromStore,
   type AgentRuntimePluginDiscoveryStore,
-} from "../plugins/runtime-tools/agentRuntimePluginDiscovery";
+} from "./agentRuntimePluginsFacade";
 import {
   createAmbientCliPackageSummaryModelComplete,
   hydrateFirstPartyAmbientCliPackageSummaries,
@@ -31,12 +31,12 @@ import {
   ambientCapabilityBuilderValidateInput,
   ambientCapabilityBuilderWriteFileInput,
   suggestedCapabilityPackageName,
-} from "../capability-builder/agentRuntimeCapabilityBuilderInput";
+} from "./agentRuntimeCapabilityBuilderFacade";
 import {
   createAgentRuntimePluginToolExtension,
   type AgentRuntimePluginToolAssemblyOptions,
 } from "./agentRuntimePluginToolAssembly";
-import type { AmbientPluginHost } from "../plugins/pluginHost";
+import type { AmbientPluginHost } from "./agentRuntimePluginsFacade";
 
 type AmbientCapabilityBuilderPlanInput = ReturnType<typeof ambientCapabilityBuilderPlanInput>;
 type PluginToolAssemblyOptions = AgentRuntimePluginToolAssemblyOptions<AmbientCapabilityBuilderPlanInput>;

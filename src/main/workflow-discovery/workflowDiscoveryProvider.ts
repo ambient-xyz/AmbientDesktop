@@ -14,8 +14,13 @@ import {
 } from "./workflowDiscoveryCapabilitySearch";
 import type { WorkflowDiscoveryPolicyContext } from "./workflowDiscoveryPolicy";
 import { workflowDiscoveryProviderPolicyPayload } from "./workflowDiscoveryPolicy";
-import { callWorkflowPiText, type WorkflowPiProgress, type WorkflowPiTextCallInput } from "../workflow/workflowPiTransport";
-import { workflowPromptParts, type WorkflowPromptParts } from "../workflow/workflowPromptCache";
+import {
+  callWorkflowPiText,
+  workflowPromptParts,
+  type WorkflowPiProgress,
+  type WorkflowPiTextCallInput,
+  type WorkflowPromptParts,
+} from "./workflowDiscoveryWorkflowFacade";
 
 export const REQUIRED_WORKFLOW_DISCOVERY_CATEGORIES: WorkflowDiscoveryQuestionCategory[] = [
   "scope",

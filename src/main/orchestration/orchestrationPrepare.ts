@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { OrchestrationHookLog, OrchestrationPrepareResult, OrchestrationTask, PreparedOrchestrationTask } from "../../shared/workflowTypes";
-import { loadWorkflowFile, type WorkflowConfig, type WorkflowDefinition } from "../workflow/workflow";
+import { loadWorkflowFile, type WorkflowConfig, type WorkflowDefinition } from "./orchestrationWorkflowFacade";
 import { prepareTaskWorkspace, type PreparedTaskWorkspace } from "./orchestrationWorkspace";
 import {
   emptySchedulerRuntimeState,

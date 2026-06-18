@@ -69,8 +69,12 @@ export function SubagentParentCluster({
   const childDetailsByRunId = useRef(new Map<string, HTMLDetailsElement>());
   const childToggleIntentRunIds = useRef(new Set<string>());
   const userCollapsedChildRunIds = useRef(new Set<string>());
-  const defaultExpandedChildRunIds = useMemo(() => defaultExpandedChildRunIdsForModel(model), [model]);
-  const defaultExpandedChildRunIdSet = useMemo(() => new Set(defaultExpandedChildRunIds), [defaultExpandedChildRunIds]);
+  const defaultExpandedChildRunIds = defaultExpandedChildRunIdsForModel(model);
+  const defaultExpandedChildRunIdsKey = childRunIdListKey(defaultExpandedChildRunIds);
+  const defaultExpandedChildRunIdSet = useMemo(
+    () => new Set(runIdsFromListKey(defaultExpandedChildRunIdsKey)),
+    [defaultExpandedChildRunIdsKey],
+  );
   const [expandedChildRunIds, setExpandedChildRunIds] = useState<Set<string>>(() => new Set(defaultExpandedChildRunIds));
   const scrollExpandedDetailsIntoView = useCallback((details: HTMLDetailsElement) => {
     details.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
@@ -90,7 +94,7 @@ export function SubagentParentCluster({
     setExpandedChildRunIds((current) => {
       let changed = false;
       const next = new Set(current);
-      for (const runId of defaultExpandedChildRunIds) {
+      for (const runId of defaultExpandedChildRunIdSet) {
         if (userCollapsedChildRunIds.current.has(runId) || next.has(runId)) continue;
         next.add(runId);
         changed = true;
@@ -100,7 +104,7 @@ export function SubagentParentCluster({
     for (const runId of userCollapsedChildRunIds.current) {
       if (!defaultExpandedChildRunIdSet.has(runId)) userCollapsedChildRunIds.current.delete(runId);
     }
-  }, [defaultExpandedChildRunIdSet, defaultExpandedChildRunIds]);
+  }, [defaultExpandedChildRunIdSet]);
   const setChildExpanded = useCallback((runId: string, open: boolean, source: "user" | "programmatic" = "user") => {
     if (source !== "programmatic") {
       if (open) userCollapsedChildRunIds.current.delete(runId);
@@ -119,11 +123,11 @@ export function SubagentParentCluster({
   }, []);
   const renderedExpandedChildRunIds = useMemo(() => {
     const next = new Set(expandedChildRunIds);
-    for (const runId of defaultExpandedChildRunIds) {
+    for (const runId of defaultExpandedChildRunIdSet) {
       if (!userCollapsedChildRunIds.current.has(runId)) next.add(runId);
     }
     return next;
-  }, [defaultExpandedChildRunIds, expandedChildRunIds]);
+  }, [defaultExpandedChildRunIdSet, expandedChildRunIds]);
   const approvalActionsByChildIdentity = useMemo(() => {
     const byRunId = new Map<string, SubagentParentClusterApprovalActionModel[]>();
     const byThreadId = new Map<string, SubagentParentClusterApprovalActionModel[]>();
@@ -544,6 +548,14 @@ function defaultExpandedChildRunIdsForModel(model: SubagentParentClusterModel): 
   return model.children
     .filter((child) => shouldDefaultExpandChild(child, parentBlockingRunIds))
     .map((child) => child.runId);
+}
+
+function childRunIdListKey(runIds: string[]): string {
+  return runIds.join("\u001f");
+}
+
+function runIdsFromListKey(key: string): string[] {
+  return key ? key.split("\u001f") : [];
 }
 
 function shouldDefaultExpandChild(

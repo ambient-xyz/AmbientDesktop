@@ -16,8 +16,7 @@ import {
   formatLocalDeepResearchBytes,
   localDeepResearchSetupToolInput,
 } from "./agentRuntimeLocalDeepResearchInput";
-import { localDeepResearchToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { localDeepResearchToolDescriptor, registerDesktopTool } from "./localDeepResearchDesktopToolFacade";
 import {
   installLocalDeepResearchManagedAssets,
   localDeepResearchInstallText,

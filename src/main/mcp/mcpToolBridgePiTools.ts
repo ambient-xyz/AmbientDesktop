@@ -31,7 +31,7 @@ import {
   type McpRuntimePermissionEnforcement,
 } from "./mcpRuntimePermissionEnforcement";
 import type { McpManagedFileExchangeStagedFile, McpToolCallFileInput } from "./mcpManagedFileExchange";
-import { redactSensitiveValue } from "../security/secretRedaction";
+import { redactSensitiveValue } from "./mcpSecurityFacade";
 
 export interface McpToolBridgePiToolThread {
   id: string;

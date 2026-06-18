@@ -1,6 +1,6 @@
-import type { DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import type { DesktopToolDescriptor } from "./workflowCompilerDesktopToolFacade";
 import type { WorkflowConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
-import type { WorkflowProgramAmbientCliCapability, WorkflowProgramDiagnostic } from "../workflow-program/workflowProgramCompiler";
+import type { WorkflowProgramAmbientCliCapability, WorkflowProgramDiagnostic } from "./workflowCompilerWorkflowProgramFacade";
 
 export type WorkflowProgramIrPatchOperation =
   | { op: "add"; path: string; value: unknown }

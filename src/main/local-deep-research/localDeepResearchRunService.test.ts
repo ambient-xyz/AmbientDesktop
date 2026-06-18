@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import { listLocalDeepResearchRunHistory, runLocalDeepResearchWithManagedLlama } from "./localDeepResearchRunService";
 import { buildLocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { LocalLlamaServerSupervisor } from "../local-llama/localLlamaServerSupervisor";
+import { LocalLlamaServerSupervisor } from "./localDeepResearchLocalLlamaFacade";
 import type { LocalDeepResearchBroker } from "./localDeepResearchAdapter";
 
 const gib = 1024 ** 3;

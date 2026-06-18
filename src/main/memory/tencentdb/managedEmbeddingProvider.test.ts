@@ -17,8 +17,12 @@ import {
 } from "./managedEmbeddingProvider";
 import { managedInstallWorkspacePath } from "../../setup/managedInstallPaths";
 import { miniCpmRuntimeReleaseManifestPrototype } from "../../mini-cpm/miniCpmRuntimeManifest";
-import { selectLocalLlamaRuntimeArtifact } from "../../local-llama/localLlamaRuntimeManifest";
-import type { LocalLlamaServerAcquireInput, LocalLlamaServerLease, LocalLlamaServerState } from "../../local-llama/localLlamaServerSupervisor";
+import {
+  selectLocalLlamaRuntimeArtifact,
+  type LocalLlamaServerAcquireInput,
+  type LocalLlamaServerLease,
+  type LocalLlamaServerState,
+} from "./memoryLocalLlamaFacade";
 
 describe("managed Tencent memory embedding provider", () => {
   it("reports missing managed EmbeddingGemma assets without starting anything", async () => {

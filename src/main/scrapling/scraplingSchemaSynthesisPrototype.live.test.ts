@@ -4,16 +4,17 @@ import { join } from "node:path";
 import { Type, type Tool, type ToolCall } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
-import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
-import { repairJsonWithPi, validateJsonAgainstSchemaStrict, type JsonRepairToolResult } from "../workflow/jsonRepairTool";
 import {
   callWorkflowPiJson,
   callWorkflowPiText,
+  repairJsonWithPi,
+  validateJsonAgainstSchemaStrict,
   WorkflowPiJsonValidationError,
+  type JsonRepairToolResult,
   type WorkflowPiProgress,
   type WorkflowPiTextCallInput,
-} from "../workflow/workflowPiTransport";
+} from "./scraplingWorkflowFacade";
+import { aggressiveAmbientRetryPolicy, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "./scraplingAmbientFacade";
 
 const runLive = process.env.AMBIENT_SCRAPLING_SCHEMA_SYNTHESIS_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

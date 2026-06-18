@@ -7,10 +7,10 @@ import type { VoiceProviderCandidate, VoiceSettings, VoiceSettingsAuditSource } 
 import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/permissionTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import { runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
+import { runAmbientCliPackageCommand } from "./voiceAmbientCliFacade";
 import { voiceToolDescriptor } from "../desktop-tools/desktopToolRegistry";
 import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./voiceSessionFacade";
 import {
   listVoiceProviderVoices,
   readVoiceDiscoveryCache,

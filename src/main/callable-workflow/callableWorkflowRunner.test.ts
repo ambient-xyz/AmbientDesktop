@@ -19,7 +19,7 @@ import {
   executeCallableWorkflowTask,
   validateCallableWorkflowRunnerExecutionBoundary,
 } from "./callableWorkflowRunner";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./callableWorkflowProjectStoreFacade";
 
 const enabledFlags = resolveAmbientFeatureFlags({
   settings: { subagents: true },

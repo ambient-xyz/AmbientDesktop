@@ -1,12 +1,12 @@
 import type { SearchRoutingSettings, WebResearchProviderConfig, WebResearchProviderRole } from "../../shared/webResearchTypes";
-import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
+import type { AmbientCliPackageCatalog } from "./webResearchAmbientCliFacade";
 import type { ProviderCatalogEntry } from "../provider/providerCatalog";
 import { getProviderCatalogEntries, providerSelectionGuidanceForProvider } from "../provider/providerCatalog";
 import {
   normalizeSearchRoutingSettingsWithWebResearch,
 } from "./webResearchProviderStack";
 import { webResearchSettingsWithDynamicProviderCatalogs } from "./searchSettingsTools";
+import type { McpToolDescriptor } from "./webResearchMcpFacade";
 
 export interface WebResearchProviderDiscoveryInput {
   settings?: SearchRoutingSettings;

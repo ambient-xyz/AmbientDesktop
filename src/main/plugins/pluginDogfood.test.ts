@@ -7,7 +7,6 @@ import { promisify } from "node:util";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import { BrowserCredentialStore } from "../browser/browserCredentialStore";
 import { BrowserService } from "../browser/browserService";
 import { createMessagingBindingStore } from "../messaging/messagingBindings";
@@ -15,9 +14,12 @@ import { createDefaultMessagingProviderRegistry } from "../messaging/messagingGa
 import { ProjectStore } from "../projectStore/projectStore";
 import { deterministicWavFixtureVoiceRunner } from "../voice/voiceRuntime";
 import { AmbientPluginHost, codexPluginTrustFingerprint } from "./pluginHost";
-import { ensureFirstPartyAmbientCliPackages, installAmbientCliPackageSource, runAmbientCliPackageCommand, saveAmbientCliPackageEnvSecret } from "../ambient-cli/ambientCliPackages";
-import { discoverPiExtensionSandboxPackages } from "../agent-runtime/pi-package-tools/piExtensionSandboxPackages";
-import { discoverPiPrivilegedPackages } from "../agent-runtime/pi-package-tools/piPrivilegedPackages";
+import { ensureFirstPartyAmbientCliPackages, installAmbientCliPackageSource, runAmbientCliPackageCommand, saveAmbientCliPackageEnvSecret } from "./pluginsAmbientCliFacade";
+import {
+  AgentRuntime,
+  discoverPiExtensionSandboxPackages,
+  discoverPiPrivilegedPackages,
+} from "./pluginsAgentRuntimeDogfoodFacade";
 import { registerCapabilityBuilderPackage, saveCapabilityBuilderEnvSecret, scaffoldCapabilityBuilderPackage, unregisterCapabilityBuilderPackage, validateCapabilityBuilderPackage } from "../capability-builder/capabilityBuilder";
 import { setupQwen3AsrProvider } from "../stt/sttProviderInstaller";
 import { writeVoiceDiscoveryCacheEntry } from "../voice/voiceDiscoveryCache";

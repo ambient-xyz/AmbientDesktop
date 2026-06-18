@@ -22,18 +22,16 @@ import {
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
 } from "../agent/agentBrowserRuntime";
-import { ambientCliRunText } from "../agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageRunTools";
 import {
+  ambientCliRunText,
   browserAuditRisk,
   browserContentText,
+  browserSearchText,
   browserUserActionText,
-  materializeBrowserPageContent,
-} from "../agent-runtime/browser-tools/agentRuntimeBrowserContentFormatting";
-import { browserSearchText } from "../agent-runtime/browser-tools/agentRuntimeBrowserSearchTools";
-import {
   isWebResearchMcpProvider,
+  materializeBrowserPageContent,
   webResearchNoProviderText,
-} from "../agent-runtime/web-research/agentRuntimeWebResearchToolFormatting";
+} from "./localDeepResearchAgentRuntimeWebBrokerFacade";
 import type { McpToolCallResult } from "../mcp/mcpToolBridge";
 import type { MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
 import {
@@ -44,11 +42,11 @@ import {
   type ExaWebSearchInput,
   isLikelyExaRateLimitError,
   type WebResearchProviderAttempt,
-} from "../web-research/webResearchBroker";
+} from "./localDeepResearchWebResearchFacade";
 import {
   WEB_RESEARCH_PROVIDER_IDS,
   type WebResearchProviderRequestPlan,
-} from "../web-research/webResearchProviderStack";
+} from "./localDeepResearchWebResearchFacade";
 import type { LocalDeepResearchBroker, LocalDeepResearchBrokerResult } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchProviderSnapshot } from "./localDeepResearchSetup";
 import {

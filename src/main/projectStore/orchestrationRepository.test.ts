@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { RESTART_INTERRUPTED_LOCAL_TASK_ERROR } from "../orchestration/orchestrationRecovery";
+import { RESTART_INTERRUPTED_LOCAL_TASK_ERROR } from "./projectStoreOrchestrationFacade";
 import { applyProjectStoreBootstrapSchema } from "./projectStoreSchema";
 import {
   mapOrchestrationRunRow,

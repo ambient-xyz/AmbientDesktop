@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import type { LocalLlamaServerAcquireInput } from "../local-llama/localLlamaServerSupervisor";
+import type { LocalLlamaServerAcquireInput } from "./localDeepResearchLocalLlamaFacade";
 
 const localDeepResearchServerStateRoot = ".ambient/local-deep-research/server";
 

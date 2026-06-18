@@ -1,9 +1,8 @@
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
 import { buildLocalDeepResearchSetupContract, type LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { webResearchSettingsWithDynamicProviderCatalogs } from "../web-research/searchSettingsTools";
-import { normalizeWebResearchProviderStackSettings } from "../web-research/webResearchProviderStack";
-import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { normalizeWebResearchProviderStackSettings, webResearchSettingsWithDynamicProviderCatalogs } from "./localDeepResearchWebResearchFacade";
+import { writeWorkspaceTextFile } from "./localDeepResearchWorkspaceFacade";
 
 const gib = 1024 ** 3;
 const smokeRoot = ".ambient/local-deep-research/provider-preference-smoke";

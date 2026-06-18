@@ -22,7 +22,7 @@ import {
   type SetupFinalReportBrowserPageProbe,
   type SetupFinalReportEditRequirement,
   type SetupFinalReportValidationCheckInput,
-} from "../setup/setupFinalReportService";
+} from "./agentRuntimeSetupFacade";
 
 type SetupFinalReportToolUpdate = BrowserToolTextResult;
 type SetupFinalReportToolUpdateHandler = (update: SetupFinalReportToolUpdate) => void;

@@ -5,7 +5,7 @@ import {
   type McpAutowireCandidate,
 } from "./mcpAutowireSchemas";
 import type { McpAutowirePlanRevision, McpAutowirePlanRevisionStore } from "./mcpAutowirePlanEdits";
-import type { ToolHiveInstalledServerState, ToolHiveRunVolume } from "../tool-runtime/toolHiveRuntimeService";
+import type { ToolHiveInstalledServerState, ToolHiveRunVolume } from "./mcpAutowireToolRuntimeFacade";
 
 const legacyEvidenceId = "legacy-installed-state";
 const permissionEvidenceId = "legacy-permission-profile";

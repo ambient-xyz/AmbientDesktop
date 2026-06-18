@@ -42,7 +42,7 @@ import {
   telegramRemoteSurfaceBindingInput,
   telegramRemoteSurfaceBindingRevokeInput,
   telegramRemoteSurfaceBindingText,
-} from "../telegram/telegramRemoteSurfaceBinding";
+} from "./messagingTelegramFacade";
 import {
   buildMessagingRemoteSurfaceBindingPreview,
   buildMessagingRemoteSurfaceEventPreview,
@@ -68,20 +68,20 @@ import {
   telegramConversationDirectoryInput,
   telegramConversationDirectoryPreviewText,
   telegramConversationDirectoryResultText,
-} from "../telegram/telegramConversationDirectory";
+} from "./messagingTelegramFacade";
 import {
   applyTelegramOwnerHandoff,
   buildTelegramOwnerHandoffPreview,
   telegramOwnerHandoffInput,
   telegramOwnerHandoffPreviewText,
   telegramOwnerHandoffResultText,
-} from "../telegram/telegramOwnerHandoff";
+} from "./messagingTelegramFacade";
 import {
   buildTelegramOwnerLoopActivationPlan,
   telegramOwnerLoopActivationCard,
   telegramOwnerLoopActivationInput,
   telegramOwnerLoopActivationPlanText,
-} from "../telegram/telegramOwnerLoopActivation";
+} from "./messagingTelegramFacade";
 import {
   buildMessagingRemoteSurfaceActivationPlan,
   buildMessagingRemoteSurfaceProviderSupportPlan,
@@ -92,22 +92,50 @@ import {
   messagingRemoteSurfaceProviderSupportPlanText,
 } from "./messagingRemoteSurfaceActivationPlan";
 import {
+  applySignalBridgeReply,
   applySignalConversationDirectory,
+  applySignalOwnerHandoff,
+  applySignalRealUnreadWindow,
+  applySignalUnreadWindow,
+  buildSignalBindingReadinessPreview,
+  buildSignalBridgeReplyPreview,
+  buildSignalBridgeReplyStatus,
   buildSignalConversationDirectoryPreview,
+  buildSignalOwnerHandoffPreview,
+  buildSignalRealPollingControlPreview,
+  buildSignalRealPollingStatus,
+  buildSignalRealUnreadWindowPreview,
+  buildSignalRelayDiagnostics,
+  buildSignalRemoteSurfaceBindingPlan,
+  buildSignalRemoteSurfaceBindingRevokePlan,
+  buildSignalUnreadWindowPreview,
+  buildSignalUnreadWindowStatus,
+  SignalRealPollingRunner,
+  signalBindingReadinessInput,
+  signalBindingReadinessPreviewText,
+  signalBridgeReplyApprovalDetail,
+  signalBridgeReplyInput,
+  signalBridgeReplyPreviewText,
+  signalBridgeReplyResultText,
+  signalBridgeReplyStatusText,
   signalConversationDirectoryBlockedResult,
   signalConversationDirectoryInput,
   signalConversationDirectoryPreviewText,
   signalConversationDirectoryResultText,
-  signalSessionMetadataContract,
-} from "../agent-runtime/signal/signalConversationDirectory";
-import {
-  buildSignalBindingReadinessPreview,
-  signalBindingReadinessInput,
-  signalBindingReadinessPreviewText,
-} from "../agent-runtime/signal/signalBindingReadiness";
-import {
-  buildSignalRemoteSurfaceBindingRevokePlan,
-  buildSignalRemoteSurfaceBindingPlan,
+  signalOwnerHandoffBlockedApplyResult,
+  signalOwnerHandoffInput,
+  signalOwnerHandoffPreviewText,
+  signalOwnerHandoffResultText,
+  signalRealPollingControlInput,
+  signalRealPollingControlPreviewText,
+  signalRealPollingControlResultText,
+  signalRealPollingStatusText,
+  signalRealUnreadWindowDeniedResult,
+  signalRealUnreadWindowInput,
+  signalRealUnreadWindowPreviewText,
+  signalRealUnreadWindowResultText,
+  signalRelayDiagnosticsInput,
+  signalRelayDiagnosticsText,
   signalRemoteSurfaceBindingAppliedResult,
   signalRemoteSurfaceBindingCreateInput,
   signalRemoteSurfaceBindingInput,
@@ -116,50 +144,13 @@ import {
   signalRemoteSurfaceBindingRevokeText,
   signalRemoteSurfaceBindingRevokedResult,
   signalRemoteSurfaceBindingText,
-} from "../agent-runtime/signal/signalRemoteSurfaceBinding";
-import {
-  applySignalOwnerHandoff,
-  buildSignalOwnerHandoffPreview,
-  signalOwnerHandoffBlockedApplyResult,
-  signalOwnerHandoffInput,
-  signalOwnerHandoffPreviewText,
-  signalOwnerHandoffResultText,
-} from "../agent-runtime/signal/signalOwnerHandoff";
-import {
-  applySignalRealUnreadWindow,
-  applySignalUnreadWindow,
-  buildSignalRealUnreadWindowPreview,
-  buildSignalUnreadWindowStatus,
-  buildSignalUnreadWindowPreview,
-  signalRealUnreadWindowDeniedResult,
-  signalRealUnreadWindowInput,
-  signalRealUnreadWindowPreviewText,
-  signalRealUnreadWindowResultText,
+  signalSessionMetadataContract,
   signalUnreadWindowInput,
   signalUnreadWindowPreviewText,
   signalUnreadWindowResultText,
   signalUnreadWindowStatusInput,
   signalUnreadWindowStatusText,
-} from "../agent-runtime/signal/signalUnreadWindow";
-import {
-  buildSignalRealPollingControlPreview,
-  buildSignalRealPollingStatus,
-  SignalRealPollingRunner,
-  signalRealPollingControlInput,
-  signalRealPollingControlPreviewText,
-  signalRealPollingControlResultText,
-  signalRealPollingStatusText,
-} from "../agent-runtime/signal/signalRealPolling";
-import {
-  applySignalBridgeReply,
-  buildSignalBridgeReplyPreview,
-  buildSignalBridgeReplyStatus,
-  signalBridgeReplyApprovalDetail,
-  signalBridgeReplyInput,
-  signalBridgeReplyPreviewText,
-  signalBridgeReplyResultText,
-  signalBridgeReplyStatusText,
-} from "../agent-runtime/signal/signalBridgeReply";
+} from "./messagingAgentRuntimeSignalFacade";
 import {
   createDefaultMessagingProviderRegistry,
   MessagingProviderRegistry,
@@ -178,26 +169,21 @@ import {
   telegramBridgePollPlanText,
   telegramBridgePollResultText,
   telegramBridgePollToolInput,
-} from "../telegram/telegramBridgePolling";
+} from "./messagingTelegramFacade";
 import {
   applyTelegramBridgeReply,
   buildTelegramBridgeReplyPreview,
   telegramBridgeReplyInput,
   telegramBridgeReplyPreviewText,
   telegramBridgeReplyResultText,
-} from "../telegram/telegramBridgeOutbound";
+} from "./messagingTelegramFacade";
 import { runtimeEventRelayText } from "./messagingRuntimeEventRelay";
 import {
   buildTelegramRelayDiagnostics,
   secondProviderRelayReadinessChecklist,
   telegramRelayDiagnosticsInput,
   telegramRelayDiagnosticsText,
-} from "../telegram/telegramRelayDiagnostics";
-import {
-  buildSignalRelayDiagnostics,
-  signalRelayDiagnosticsInput,
-  signalRelayDiagnosticsText,
-} from "../agent-runtime/signal/signalRelayDiagnostics";
+} from "./messagingTelegramFacade";
 import {
   createPlannedMessagingReadinessAdapter,
   readinessProbesFromAdapters,

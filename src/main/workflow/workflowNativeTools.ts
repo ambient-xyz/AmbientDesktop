@@ -8,20 +8,19 @@ import { diffWorkflowGraphs, workflowGraphDiffHasChanges, workflowGraphDiffSumma
 import { readWorkflowRunDetail } from "./workflowDashboard";
 import { assertWorkflowArtifactSourceEditable, workflowArtifactSourceProvenance } from "./workflowArtifactProvenance";
 import { buildWorkflowSourceDiff } from "./workflowDebugRewrite";
-import { buildWorkflowDiscoveryPolicyContext } from "../workflow-discovery/workflowDiscoveryPolicy";
-import { describeWorkflowDiscoveryCapability, searchWorkflowDiscoveryCapabilities } from "../workflow-discovery/workflowDiscoveryCapabilitySearch";
+import { buildWorkflowDiscoveryPolicyContext, describeWorkflowDiscoveryCapability, searchWorkflowDiscoveryCapabilities } from "./workflowWorkflowDiscoveryFacade";
 import { searchAmbientCliCapabilities, type AmbientCliCapabilitySearchResponse } from "../ambient-cli/ambientCliPackages";
 import {
   validateWorkflowGraphOutput,
   validateWorkflowSourceConnectorReferences,
   validateWorkflowSourceGraphMappings,
   validateWorkflowSourceReferences,
-} from "../workflow-compiler/workflowCompiler";
+} from "./workflowWorkflowCompilerFacade";
 import { restoreWorkflowVersion } from "./workflowVersionRestore";
 import { commitWorkflowVersionRepo } from "./workflowVersioning";
 import type { DesktopToolDescriptor } from "./workflowDesktopToolFacade";
 import type { ProjectStore } from "./workflowProjectStoreFacade";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import type { PluginMcpToolRegistration } from "./workflowPluginsFacade";
 import type { WorkflowConnectorDescriptor } from "./workflowConnectors";
 import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
 

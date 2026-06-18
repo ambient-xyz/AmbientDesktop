@@ -8,9 +8,9 @@ import type {
   WorkflowConnectorOperationDescriptor,
   WorkflowConnectorPaginationDescriptor,
   WorkflowConnectorRegistration,
-} from "../workflow/workflowConnectors";
-import { validateWorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
-import type { WorkflowConnectorAccessToken } from "../workflow/workflowConnectorAuth";
+} from "./googleWorkspaceWorkflowFacade";
+import { validateWorkflowConnectorDescriptor } from "./googleWorkspaceWorkflowFacade";
+import type { WorkflowConnectorAccessToken } from "./googleWorkspaceWorkflowFacade";
 import type { GoogleSidecarRequest } from "./googleSidecarSupervisor";
 
 const GOOGLE_PROVIDER_ID = "google.workspace";

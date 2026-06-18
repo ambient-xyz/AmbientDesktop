@@ -5,16 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import { McpInstallCatalog } from "../mcp/mcpInstallCatalog";
+import { McpInstallCatalog } from "./mcpAutowireMcpInstallFacade";
 import {
   mcpAutowireSixPackCandidateForId,
   mcpAutowireSixPackManagedLifecycleCandidateForId,
   mcpAutowireSixPackTargetIds,
   type McpAutowireSixPackTargetId,
 } from "./mcpAutowireSixPackFixtures";
-import { createMcpServerPiToolDefinitions } from "../mcp/mcpServerPiTools";
-import { resolveOrExtractToolHiveExecutable } from "../tool-runtime/toolHiveBundle";
-import { ToolHiveRuntimeService } from "../tool-runtime/toolHiveRuntimeService";
+import { createMcpServerPiToolDefinitions } from "./mcpAutowireMcpInstallFacade";
+import { ToolHiveRuntimeService, resolveOrExtractToolHiveExecutable } from "./mcpAutowireToolRuntimeFacade";
 
 const execFileAsync = promisify(execFile);
 const runLive = process.env.AMBIENT_MCP_AUTOWIRE_SIX_PACK_TOOLHIVE_LIVE === "1";

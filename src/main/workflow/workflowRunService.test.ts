@@ -7,15 +7,15 @@ import type { MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput } from "../
 import { workflowGraphEventCards } from "../../renderer/src/workflowAgentGraphUiModel";
 import { ProjectStore } from "./workflowProjectStoreFacade";
 import { pluginMcpToolDescriptor } from "./workflowDesktopToolFacade";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import type { PluginMcpToolRegistration } from "./workflowPluginsFacade";
 import { readWorkflowRunDetail, resolveWorkflowApproval } from "./workflowDashboard";
 import { buildWorkflowRecoveryPlan } from "./workflowRecovery";
 import { AmbientWorkflowRunProvider } from "./workflowAmbientProvider";
 import type { WorkflowAmbientProvider } from "./workflowAmbientClient";
 import { fixtureWorkflowConnector, validateWorkflowConnectorDescriptor, type WorkflowConnectorDescriptor } from "./workflowConnectors";
-import type { ToolRunnerRunShellOptions } from "../tool-runtime/toolRunner";
+import type { ToolRunnerRunShellOptions } from "./workflowToolRuntimeFacade";
 import { runWorkflowArtifact } from "./workflowRunService";
-import { permissionGrantTargetHash } from "../permissions/permissionGrants";
+import { permissionGrantTargetHash } from "./workflowPermissionsFacade";
 import {
   liveAmbientDirectHelperProfile,
   liveAmbientProviderBaseUrl,

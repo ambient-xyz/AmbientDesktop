@@ -11,7 +11,7 @@ import type {
 } from "../../shared/permissionTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { permissionGrantTargetHash, resolvePermissionWithGrants } from "../permissions/permissionGrants";
+import { permissionGrantTargetHash, resolvePermissionWithGrants } from "./agentRuntimePermissionsFacade";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 export interface FirstPartyPluginPermissionRequestInput {

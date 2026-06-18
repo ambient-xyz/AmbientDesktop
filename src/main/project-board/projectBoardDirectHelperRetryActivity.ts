@@ -1,5 +1,5 @@
 import type { ProjectBoardSynthesisRunStage } from "../../shared/projectBoardTypes";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./projectBoardProjectStoreFacade";
 
 export interface ProjectBoardDirectHelperRetryProgress {
   promptCharCount?: number;

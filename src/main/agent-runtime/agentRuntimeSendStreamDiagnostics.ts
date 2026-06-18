@@ -14,7 +14,7 @@ import {
   type RuntimeProviderFailureDiagnostic,
 } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { runtimePiStreamFailureKind, runtimePiStreamTimeoutMessage } from "./agentRuntimeStreamState";
-import { getAmbientProviderStatus } from "../provider/providerStatus";
+import { getAmbientProviderStatus } from "./agentRuntimeProviderFacade";
 
 export interface ChatStreamInterruptionDiagnostic {
   kind: AmbientStreamFailureKind;

@@ -7,7 +7,7 @@ import type {
   MiniCpmVisionRuntimeInstallResult,
   MiniCpmVisionRuntimeReleaseManifest,
 } from "../../shared/localRuntimeTypes";
-import { installMiniCpmManagedRuntimeFromDownload } from "../mini-cpm/miniCpmVisionProvider";
+import { installMiniCpmManagedRuntimeFromDownload } from "./localDeepResearchMiniCpmFacade";
 import {
   detectLocalDeepResearchManagedAssets,
   localDeepResearchModelCachePath,

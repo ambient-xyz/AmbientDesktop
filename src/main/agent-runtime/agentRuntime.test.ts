@@ -56,23 +56,23 @@ import {
   ambientCliLazySkillsEnabled,
   resolveAmbientCliSkillMount,
 } from "./agentRuntimeAmbientCliSkillMount";
-import { ambientCapabilityBuilderPlanInput } from "../capability-builder/agentRuntimeCapabilityBuilderInput";
+import { ambientCapabilityBuilderPlanInput } from "./agentRuntimeCapabilityBuilderFacade";
 import { PLANNER_DURABLE_REVISION_PROMPT_MARKER } from "./agentRuntimePlannerFinalizationPrompt";
 import { AMBIENT_DIRECT_MCP_TOOL_BRIDGE_NAMES } from "./agentRuntimeAmbientFacade";
-import { MacosAuthorizedHelperUnavailableAdapter, type PrivilegedActionAdapter, type PrivilegedActionAdapterExecuteInput } from "../privileged-action/privilegedActionAdapter";
-import { privilegedActionAdapterStatus, successfulPrivilegedActionNativeRequest } from "../privileged-action/privilegedAction";
-import { scaffoldCapabilityBuilderPackage } from "../capability-builder/capabilityBuilder";
+import { MacosAuthorizedHelperUnavailableAdapter, type PrivilegedActionAdapter, type PrivilegedActionAdapterExecuteInput } from "./agentRuntimePrivilegedActionFacade";
+import { privilegedActionAdapterStatus, successfulPrivilegedActionNativeRequest } from "./agentRuntimePrivilegedActionFacade";
+import { scaffoldCapabilityBuilderPackage } from "./agentRuntimeCapabilityBuilderFacade";
 import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import type { LocalModelRuntimeLease, LocalModelRuntimeReleaseResult } from "./agentRuntimeLocalRuntimeFacade";
 import { TelegramBridgeSupervisor } from "./agentRuntimeTelegramFacade";
 import { createMessagingBindingStore } from "./agentRuntimeMessagingFacade";
 import { createDefaultMessagingProviderRegistry } from "./agentRuntimeMessagingFacade";
-import { providerCatalogBootstrapReminder } from "../provider/providerCatalog";
+import { providerCatalogBootstrapReminder } from "./agentRuntimeProviderFacade";
 import { createProviderCatalogToolExtension } from "./agentRuntimeProviderCatalogTools";
 import { createVisionToolExtension } from "./agentRuntimeVisionTools";
-import { createSttSettingsToolExtension } from "../stt/agentRuntimeSttTools";
-import { createVoiceSettingsToolExtension } from "../voice/agentRuntimeVoiceTools";
-import { writePcm16Wav } from "../stt/sttAudio";
+import { createSttSettingsToolExtension } from "./agentRuntimeSttFacade";
+import { createVoiceSettingsToolExtension } from "./agentRuntimeVoiceFacade";
+import { writePcm16Wav } from "./agentRuntimeSttFacade";
 import { normalizeWebResearchProviderStackSettings } from "./agentRuntimeWebResearchFacade";
 import { normalizeLocalDeepResearchSettings } from "./agentRuntimeLocalDeepResearchFacade";
 import { localDeepResearchToolBudgetState, normalizeLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";

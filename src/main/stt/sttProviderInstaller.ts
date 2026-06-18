@@ -13,16 +13,16 @@ import type {
   SttProviderSetupResult,
   SttProviderValidationMetadata,
 } from "../../shared/localRuntimeTypes";
+import { isPathInside } from "../session/sessionPaths";
 import {
   discoverAmbientCliSttProviders,
   ensureFirstPartyAmbientCliPackages,
   runAmbientCliPackageCommand,
   setAmbientCliPackageEnvBinding,
   type FirstPartyAmbientCliPackageInstallStatus,
-} from "../ambient-cli/ambientCliPackages";
+} from "./sttAmbientCliFacade";
 import { transcribeWithAmbientCliSttProvider } from "./sttProvider";
 import { toWorkspaceRelativePath } from "./sttArtifacts";
-import { isPathInside } from "../session/sessionPaths";
 
 const qwenProvider = "qwen3-asr" as const;
 const qwenPackageName = "ambient-qwen3-asr";

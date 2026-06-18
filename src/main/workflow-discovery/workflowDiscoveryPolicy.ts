@@ -4,8 +4,8 @@ import type { AmbientPermissionGrant, PermissionAuditDecisionSource, PermissionG
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { WorkflowDiscoveryContextCapability, WorkflowDiscoveryContextEvidence } from "../../shared/workflowTypes";
 import { findMatchingPermissionGrant, permissionGrantTargetHash } from "../permissions/permissionGrants";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
+import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
+import type { WorkflowConnectorDescriptor } from "./workflowDiscoveryWorkflowFacade";
 
 const DEFAULT_MAX_FILES = 80;
 const DEFAULT_MAX_CONTENT_FILES = 6;

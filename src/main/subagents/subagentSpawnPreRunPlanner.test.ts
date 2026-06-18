@@ -16,7 +16,7 @@ import {
 } from "../../shared/symphonyFineGrainedContracts";
 import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { createDefaultAgentRoleRegistry } from "../agent/agentRoleRegistry";
+import { createDefaultAgentRoleRegistry } from "./subagentAgentFacade";
 import { createDefaultModelRuntimeRegistry } from "./subagentModelProviderFacade";
 import {
   resolveSubagentSpawnPreRunPlan,

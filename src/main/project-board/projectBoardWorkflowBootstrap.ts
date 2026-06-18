@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { stringify as stringifyYaml } from "yaml";
-import { loadWorkflowFile, parseWorkflowMarkdown, WorkflowError, workflowContentHash, type WorkflowDefinition } from "../workflow/workflow";
+import { loadWorkflowFile, parseWorkflowMarkdown, WorkflowError, workflowContentHash, type WorkflowDefinition } from "./projectBoardWorkflowFacade";
 import type { OrchestrationWorkflowRepairPreview } from "../../shared/workflowTypes";
 
 const execFileAsync = promisify(execFile);

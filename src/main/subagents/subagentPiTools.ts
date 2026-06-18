@@ -83,7 +83,7 @@ import { appendMappedSubagentRuntimeEvent } from "./subagentRuntimeEventPersiste
 import {
   createDefaultAgentRoleRegistry,
   type AgentRoleRegistry,
-} from "../agent/agentRoleRegistry";
+} from "./subagentAgentFacade";
 import {
   compactSubagentToolScopeSnapshot,
 } from "./subagentToolScopeSnapshot";
@@ -130,7 +130,7 @@ import {
 import {
   assertCallableWorkflowPatternGraphCanBind,
   type CallableWorkflowPatternGraphChildBindingRequest,
-} from "../callable-workflow/callableWorkflowTaskQueue";
+} from "./subagentCallableWorkflowFacade";
 import {
   compactSubagentPiToolCapacityLease as compactCapacityLease,
   compactSubagentPiToolMailboxEvent as compactMailbox,

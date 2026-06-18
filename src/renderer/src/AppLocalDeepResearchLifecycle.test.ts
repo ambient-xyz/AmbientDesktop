@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  localDeepResearchInstallProgressState,
+  localDeepResearchSetupResultState,
   localDeepResearchStatusCheckingState,
   localDeepResearchStatusErrorState,
   localDeepResearchStatusResultState,
@@ -60,6 +62,52 @@ describe("AppLocalDeepResearchLifecycle", () => {
       action: "status",
       message: "Local Deep Research blocked",
       progress: undefined,
+    });
+  });
+
+  it("does not replace Local Deep Research progress state for duplicate progress events", () => {
+    const progress = {
+      schemaVersion: "ambient-local-deep-research-install-progress-v1",
+      action: "install",
+      component: "model",
+      phase: "model-download-progress",
+      status: "running",
+      message: "Downloading model",
+      bytesReceived: 10,
+      totalBytes: 20,
+      recordedAt: "2026-06-13T00:00:00.000Z",
+    } satisfies NonNullable<LocalDeepResearchSetupUiState["progress"]>;
+    const current: LocalDeepResearchSetupUiState = {
+      status: "running",
+      action: "install",
+      message: "Downloading model",
+      progress,
+    };
+
+    expect(localDeepResearchInstallProgressState(current, { ...progress })).toBe(current);
+    expect(localDeepResearchInstallProgressState(current, {
+      ...progress,
+      bytesReceived: 20,
+      message: "Download complete",
+    })).toMatchObject({
+      status: "running",
+      action: "install",
+      message: "Download complete",
+      progress: {
+        bytesReceived: 20,
+      },
+    });
+  });
+
+  it("does not replace Local Deep Research setup state for duplicate setup results", () => {
+    const result = setupResult({ setupStatus: "ready" });
+    const current = localDeepResearchSetupResultState(result, { status: "running", action: "install" }, "install");
+
+    expect(localDeepResearchSetupResultState({ ...result }, current, "install")).toBe(current);
+    expect(localDeepResearchSetupResultState(setupResult({ setupStatus: "blocked" }), current, "install")).toMatchObject({
+      status: "error",
+      action: "install",
+      message: "Local Deep Research blocked",
     });
   });
 

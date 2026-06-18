@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
-import { liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
+import { aggressiveAmbientRetryPolicy, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey } from "./mcpAutowireAmbientFacade";
 import {
   mcpAutowireCandidatePromptSchema,
   validateMcpAutowireCandidate,

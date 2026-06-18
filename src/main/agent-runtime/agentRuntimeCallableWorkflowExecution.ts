@@ -8,16 +8,16 @@ import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { ambientRetryPolicyFromSettings } from "./agentRuntimeAmbientFacade";
-import { pluginStateReaderFromStore } from "../plugins/runtime-tools/agentRuntimePluginDiscovery";
+import { pluginStateReaderFromStore } from "./agentRuntimePluginsFacade";
 import {
   executeCallableWorkflowTask,
   latestCallableWorkflowRunForArtifact,
   type CallableWorkflowRunnerStore,
 } from "./agentRuntimeCallableWorkflowFacade";
-import { resolvePermissionWithGrants, type PermissionPromptRequester } from "../permissions/permissionGrants";
-import type { AmbientPluginHost, PluginMcpToolRegistration } from "../plugins/pluginHost";
+import { resolvePermissionWithGrants, type PermissionPromptRequester } from "./agentRuntimePermissionsFacade";
+import type { AmbientPluginHost, PluginMcpToolRegistration } from "./agentRuntimePluginsFacade";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
-import { getAmbientProviderStatus } from "../provider/providerStatus";
+import { getAmbientProviderStatus } from "./agentRuntimeProviderFacade";
 import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "./agentRuntimeWorkflowFacade";
 import { WorkflowManualPausedError } from "./agentRuntimeWorkflowFacade";
 import { compileWorkflowArtifact } from "../workflow-compiler/workflowCompilerService";

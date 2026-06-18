@@ -3,7 +3,7 @@ import { closeSync, openSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { LocalRuntimeLeaseRecord } from "../../shared/localRuntimeTypes";
-import { sampleProcessResidentMemory, type LocalLlamaResidentMemorySample } from "../local-llama/localLlamaResidencyPolicy";
+import { sampleProcessResidentMemory, type LocalLlamaResidentMemorySample } from "./localRuntimeLocalLlamaFacade";
 import {
   DEFAULT_LOCAL_RUNTIME_LEASE_STALE_MS,
   isActiveLocalRuntimeLease,

@@ -225,7 +225,6 @@ import {
 import {
   localDeepResearchInstallProgressModel,
   localDeepResearchSetupActions,
-  localDeepResearchSetupResultModel,
   type LocalDeepResearchDiagnosticItem,
 } from "./localDeepResearchUiModel";
 import {
@@ -704,7 +703,11 @@ import {
   appBootstrapRunStatus,
   useAppStartupLifecycleEffects,
 } from "./AppStartupLifecycleEffects";
-import { useAppLocalDeepResearchLifecycle } from "./AppLocalDeepResearchLifecycle";
+import {
+  localDeepResearchInstallProgressState,
+  localDeepResearchSetupResultState,
+  useAppLocalDeepResearchLifecycle,
+} from "./AppLocalDeepResearchLifecycle";
 import {
   slashCommandComposerCanSubmit,
   slashCommandDraftAfterSelection,
@@ -721,7 +724,10 @@ import {
   coalesceWorkflowCompileProgress,
 } from "./AppWorkflowRecording";
 import { createAppCredentialDialogActions } from "./AppCredentialDialogActions";
-import { STATE_REDUCER_DESKTOP_EVENT_TYPES } from "./AppDesktopEvents";
+import {
+  STATE_REDUCER_DESKTOP_EVENT_TYPES,
+  upsertSortedDesktopEventItem,
+} from "./AppDesktopEvents";
 import {
   applyChildThreadMessageDelta,
   upsertChildThreadMessage,
@@ -1612,30 +1618,12 @@ export function App() {
     }
     if (event.type === "local-deep-research-install-progress") {
       if (!desktopEventMatchesActiveProject(event)) return;
-      setLocalDeepResearchSetup((current) => (
-        current.status === "running" && current.action === event.progress.action
-          ? { ...current, message: event.progress.message, progress: event.progress }
-          : {
-              ...current,
-              status: "running",
-              action: event.progress.action,
-              message: event.progress.message,
-              progress: event.progress,
-            }
-      ));
+      setLocalDeepResearchSetup((current) => localDeepResearchInstallProgressState(current, event.progress));
       return;
     }
     if (event.type === "local-deep-research-setup-updated") {
       if (!desktopEventMatchesActiveProject(event)) return;
-      const model = localDeepResearchSetupResultModel(event.result);
-      setLocalDeepResearchSetup((current) => ({
-        status: model.statusTone === "error" ? "error" : "success",
-        action: event.result.action,
-        message: model.statusLabel,
-        result: event.result,
-        diagnostics: model.diagnostics,
-        progress: current.action === event.result.action ? current.progress : undefined,
-      }));
+      setLocalDeepResearchSetup((current) => localDeepResearchSetupResultState(event.result, current));
       return;
     }
     if (event.type === "context-usage-updated") {
@@ -1929,82 +1917,73 @@ export function App() {
         if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
         if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
         if (event.run.parentThreadId !== current.activeThreadId && event.run.childThreadId !== current.activeThreadId) return current;
-        const exists = current.subagentRuns.some((run) => run.id === event.run.id);
-        const subagentRuns = exists
-          ? current.subagentRuns.map((run) => (run.id === event.run.id ? event.run : run))
-          : [...current.subagentRuns, event.run].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        return {
-          ...current,
-          subagentRuns,
-        };
+        const subagentRuns = upsertSortedDesktopEventItem(
+          current.subagentRuns,
+          event.run,
+          (run) => run.id,
+          (left, right) => left.createdAt.localeCompare(right.createdAt),
+        );
+        return subagentRuns === current.subagentRuns ? current : { ...current, subagentRuns };
       }
       if (event.type === "subagent-run-event-created") {
         if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
         if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
         if (event.run.parentThreadId !== current.activeThreadId && event.run.childThreadId !== current.activeThreadId) return current;
-        const runExists = current.subagentRuns.some((run) => run.id === event.run.id);
-        const subagentRuns = runExists
-          ? current.subagentRuns.map((run) => (run.id === event.run.id ? event.run : run))
-          : [...current.subagentRuns, event.run].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        const eventExists = current.subagentRunEvents.some(
-          (candidate) => candidate.runId === event.event.runId && candidate.sequence === event.event.sequence,
+        const subagentRuns = upsertSortedDesktopEventItem(
+          current.subagentRuns,
+          event.run,
+          (run) => run.id,
+          (left, right) => left.createdAt.localeCompare(right.createdAt),
         );
-        const subagentRunEvents = eventExists
-          ? current.subagentRunEvents.map((candidate) =>
-              candidate.runId === event.event.runId && candidate.sequence === event.event.sequence ? event.event : candidate,
-            )
-          : [...current.subagentRunEvents, event.event].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.sequence - b.sequence);
-        return {
-          ...current,
-          subagentRuns,
-          subagentRunEvents,
-        };
+        const subagentRunEvents = upsertSortedDesktopEventItem(
+          current.subagentRunEvents,
+          event.event,
+          (candidate) => `${candidate.runId}:${candidate.sequence}`,
+          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.sequence - right.sequence,
+        );
+        return subagentRuns === current.subagentRuns && subagentRunEvents === current.subagentRunEvents
+          ? current
+          : { ...current, subagentRuns, subagentRunEvents };
       }
       if (event.type === "subagent-mailbox-event-updated") {
         if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
         if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
         if (event.run.parentThreadId !== current.activeThreadId && event.run.childThreadId !== current.activeThreadId) return current;
-        const runExists = current.subagentRuns.some((run) => run.id === event.run.id);
-        const subagentRuns = runExists
-          ? current.subagentRuns.map((run) => (run.id === event.run.id ? event.run : run))
-          : [...current.subagentRuns, event.run].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        const mailboxExists = current.subagentMailboxEvents.some((candidate) => candidate.id === event.mailboxEvent.id);
-        const subagentMailboxEvents = mailboxExists
-          ? current.subagentMailboxEvents.map((candidate) =>
-              candidate.id === event.mailboxEvent.id ? event.mailboxEvent : candidate,
-            )
-          : [...current.subagentMailboxEvents, event.mailboxEvent].sort(
-              (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
-            );
-        return {
-          ...current,
-          subagentRuns,
-          subagentMailboxEvents,
-        };
+        const subagentRuns = upsertSortedDesktopEventItem(
+          current.subagentRuns,
+          event.run,
+          (run) => run.id,
+          (left, right) => left.createdAt.localeCompare(right.createdAt),
+        );
+        const subagentMailboxEvents = upsertSortedDesktopEventItem(
+          current.subagentMailboxEvents,
+          event.mailboxEvent,
+          (mailboxEvent) => mailboxEvent.id,
+          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+        );
+        return subagentRuns === current.subagentRuns && subagentMailboxEvents === current.subagentMailboxEvents
+          ? current
+          : { ...current, subagentRuns, subagentMailboxEvents };
       }
       if (event.type === "subagent-tool-scope-snapshot-recorded") {
         if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
         if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
         if (event.run.parentThreadId !== current.activeThreadId && event.run.childThreadId !== current.activeThreadId) return current;
-        const runExists = current.subagentRuns.some((run) => run.id === event.run.id);
-        const subagentRuns = runExists
-          ? current.subagentRuns.map((run) => (run.id === event.run.id ? event.run : run))
-          : [...current.subagentRuns, event.run].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        const snapshotExists = current.subagentToolScopeSnapshots.some(
-          (candidate) => candidate.runId === event.snapshot.runId && candidate.sequence === event.snapshot.sequence,
+        const subagentRuns = upsertSortedDesktopEventItem(
+          current.subagentRuns,
+          event.run,
+          (run) => run.id,
+          (left, right) => left.createdAt.localeCompare(right.createdAt),
         );
-        const subagentToolScopeSnapshots = snapshotExists
-          ? current.subagentToolScopeSnapshots.map((candidate) =>
-              candidate.runId === event.snapshot.runId && candidate.sequence === event.snapshot.sequence ? event.snapshot : candidate,
-            )
-          : [...current.subagentToolScopeSnapshots, event.snapshot].sort(
-              (a, b) => a.createdAt.localeCompare(b.createdAt) || a.sequence - b.sequence,
-            );
-        return {
-          ...current,
-          subagentRuns,
-          subagentToolScopeSnapshots,
-        };
+        const subagentToolScopeSnapshots = upsertSortedDesktopEventItem(
+          current.subagentToolScopeSnapshots,
+          event.snapshot,
+          (snapshot) => `${snapshot.runId}:${snapshot.sequence}`,
+          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.sequence - right.sequence,
+        );
+        return subagentRuns === current.subagentRuns && subagentToolScopeSnapshots === current.subagentToolScopeSnapshots
+          ? current
+          : { ...current, subagentRuns, subagentToolScopeSnapshots };
       }
       if (event.type === "subagent-wait-barrier-updated") {
         if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
@@ -2013,41 +1992,40 @@ export function App() {
         if (event.barrier.parentThreadId !== current.activeThreadId && !event.barrier.childRunIds.some((runId) => activeRunIds.has(runId))) {
           return current;
         }
-        const exists = current.subagentWaitBarriers.some((barrier) => barrier.id === event.barrier.id);
-        const subagentWaitBarriers = exists
-          ? current.subagentWaitBarriers.map((barrier) => (barrier.id === event.barrier.id ? event.barrier : barrier))
-          : [...current.subagentWaitBarriers, event.barrier].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        return {
-          ...current,
-          subagentWaitBarriers,
-        };
+        const subagentWaitBarriers = upsertSortedDesktopEventItem(
+          current.subagentWaitBarriers,
+          event.barrier,
+          (barrier) => barrier.id,
+          (left, right) => left.createdAt.localeCompare(right.createdAt),
+        );
+        return subagentWaitBarriers === current.subagentWaitBarriers ? current : { ...current, subagentWaitBarriers };
       }
       if (event.type === "subagent-parent-mailbox-event-updated") {
         if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
         if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
         const activeParentRunIds = new Set(current.subagentRuns.map((run) => run.parentRunId));
         if (event.mailboxEvent.parentThreadId !== current.activeThreadId && !activeParentRunIds.has(event.mailboxEvent.parentRunId)) return current;
-        const exists = current.subagentParentMailboxEvents.some((candidate) => candidate.id === event.mailboxEvent.id);
-        const subagentParentMailboxEvents = exists
-          ? current.subagentParentMailboxEvents.map((candidate) => (candidate.id === event.mailboxEvent.id ? event.mailboxEvent : candidate))
-          : [...current.subagentParentMailboxEvents, event.mailboxEvent].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-        return {
-          ...current,
-          subagentParentMailboxEvents,
-        };
+        const subagentParentMailboxEvents = upsertSortedDesktopEventItem(
+          current.subagentParentMailboxEvents,
+          event.mailboxEvent,
+          (mailboxEvent) => mailboxEvent.id,
+          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+        );
+        return subagentParentMailboxEvents === current.subagentParentMailboxEvents
+          ? current
+          : { ...current, subagentParentMailboxEvents };
       }
       if (event.type === "callable-workflow-task-updated") {
         if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
         if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
         if (event.task.parentThreadId !== current.activeThreadId) return current;
-        const exists = current.callableWorkflowTasks.some((task) => task.id === event.task.id);
-        const callableWorkflowTasks = exists
-          ? current.callableWorkflowTasks.map((task) => (task.id === event.task.id ? event.task : task))
-          : [...current.callableWorkflowTasks, event.task].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-        return {
-          ...current,
-          callableWorkflowTasks,
-        };
+        const callableWorkflowTasks = upsertSortedDesktopEventItem(
+          current.callableWorkflowTasks,
+          event.task,
+          (task) => task.id,
+          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+        );
+        return callableWorkflowTasks === current.callableWorkflowTasks ? current : { ...current, callableWorkflowTasks };
       }
       return current;
     });

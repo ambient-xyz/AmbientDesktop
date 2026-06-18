@@ -7,7 +7,7 @@ import {
   plannerModeToolsForWorkflowPlanEditIntent,
   PLANNER_MODE_ALLOWED_TOOLS,
   PLANNER_MODE_DIRECT_ACTIVE_TOOLS,
-} from "../planner/plannerMode";
+} from "./agentRuntimePlannerFacade";
 
 const PLANNER_MODE_CONTEXT_CUSTOM_TYPE = "ambient-planner-mode-context";
 

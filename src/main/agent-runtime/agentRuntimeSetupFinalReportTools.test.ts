@@ -5,7 +5,7 @@ import { BrowserUnavailableError } from "./agentRuntimeBrowserFacade";
 import type {
   SetupFinalReportBrowserPageLoad,
   SetupFinalReportResult,
-} from "../setup/setupFinalReportService";
+} from "./agentRuntimeSetupFacade";
 import {
   optionalSetupFinalReportEditRequirement,
   optionalSetupFinalReportValidationChecks,

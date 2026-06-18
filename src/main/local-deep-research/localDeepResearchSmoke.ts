@@ -8,7 +8,7 @@ import { localDeepResearchToolBudgetState, resolveLocalDeepResearchRunBudget } f
 import {
   enforceLocalModelResourceLaunchPolicy,
   type LocalModelResourceLaunchPreflightResult,
-} from "../local-runtime/localModelResourceRegistry";
+} from "./localDeepResearchLocalRuntimeFacade";
 import {
   createLocalDeepResearchLlamaChatClient,
   type LocalDeepResearchLlamaChatClientOptions,
@@ -19,9 +19,9 @@ import {
   buildLocalDeepResearchLlamaServerAcquireInput,
 } from "./localDeepResearchServerSupervisor";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { LocalLlamaServerSupervisor, type LocalLlamaServerAcquireInput, type LocalLlamaServerLease } from "../local-llama/localLlamaServerSupervisor";
+import { LocalLlamaServerSupervisor, type LocalLlamaServerAcquireInput, type LocalLlamaServerLease } from "./localDeepResearchLocalLlamaFacade";
 import type { LocalDeepResearchChatClient } from "./localDeepResearchRunner";
-import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { writeWorkspaceTextFile } from "./localDeepResearchWorkspaceFacade";
 
 const smokeRoot = ".ambient/local-deep-research/smoke";
 const smokePrompt = "Reply with one short sentence containing the exact token LOCAL_DEEP_RESEARCH_SMOKE_OK.";

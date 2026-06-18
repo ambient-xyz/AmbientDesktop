@@ -3,7 +3,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { promisify } from "node:util";
 import type { ProjectBoardSourceKind } from "../../shared/projectBoardTypes";
-import type { ProjectBoardSourceInput, ProjectStore } from "../projectStore/projectStore";
+import type { ProjectBoardSourceInput, ProjectStore } from "./projectBoardProjectStoreFacade";
 import {
   DURABLE_PLAN_SOURCE_AUTHORITY_REASON,
   GENERATED_REPORT_SOURCE_AUTHORITY_REASON,

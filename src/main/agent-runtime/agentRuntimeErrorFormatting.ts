@@ -1,5 +1,5 @@
 import type { ProviderStatus } from "../../shared/desktopTypes";
-import { getAmbientProviderStatus } from "../provider/providerStatus";
+import { getAmbientProviderStatus } from "./agentRuntimeProviderFacade";
 import { runtimeProviderDiagnosticDisplayLines } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import {
   isAmbientProviderAuthFailure,

@@ -10,8 +10,8 @@ import type {
 import {
   type LocalDeepResearchSetupAction,
   type LocalDeepResearchSetupResult,
-  localDeepResearchSetupResultModel,
 } from "./localDeepResearchUiModel";
+import { localDeepResearchSetupResultState } from "./AppLocalDeepResearchLifecycle";
 import { miniCpmVisionSetupResultModel } from "./miniCpmVisionUiModel";
 
 export function miniCpmVisionSetupRunningMessage(action: MiniCpmVisionSetupAction): string {
@@ -125,15 +125,7 @@ export function createAppLocalRuntimeActions({
         action,
         q8Override: localDeepResearchQ8Override,
       });
-      const model = localDeepResearchSetupResultModel(result);
-      setLocalDeepResearchSetup((current) => ({
-        status: model.statusTone === "error" ? "error" : "success",
-        action,
-        message: model.statusLabel,
-        result,
-        diagnostics: model.diagnostics,
-        progress: current.action === action ? current.progress : undefined,
-      }));
+      setLocalDeepResearchSetup((current) => localDeepResearchSetupResultState(result, current, action));
       return result;
     } catch (err) {
       const message = errorMessage(err);

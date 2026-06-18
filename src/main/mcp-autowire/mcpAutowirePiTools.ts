@@ -29,7 +29,7 @@ import {
   mcpCustomSourceBuildReviewText,
   reviewMcpCustomSourceBuildPlan,
   type McpCustomSourceBuildCommandRunner,
-} from "../mcp/mcpCustomSourceBuild";
+} from "./mcpAutowireMcpInstallFacade";
 import type { McpAutowireCandidateRefStore } from "./mcpAutowireCandidateRefs";
 import type { WorkflowPiProgress } from "../workflow/workflowPiTransport";
 

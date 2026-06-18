@@ -11,7 +11,7 @@ import { messagingProjectionText, routeMessagingInboundEvent } from "./messaging
 import type {
   TelegramRemoteSurfaceBindingPlan,
   TelegramRemoteSurfaceBindingToolInput,
-} from "../telegram/telegramRemoteSurfaceBinding";
+} from "./messagingTelegramFacade";
 
 const TELEGRAM_PROVIDER_ID = "telegram-tdlib";
 const SIGNAL_PROVIDER_ID = "signal-cli";

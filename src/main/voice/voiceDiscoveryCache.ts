@@ -3,8 +3,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import type { VoiceProviderCandidate, VoiceProviderDiscoverySource, VoiceProviderDynamicVoice } from "../../shared/localRuntimeTypes";
-import type { AmbientCliRunResult, RunAmbientCliInput } from "../ambient-cli/ambientCliPackages";
-import { isPathInside } from "../session/sessionPaths";
+import type { AmbientCliRunResult, RunAmbientCliInput } from "./voiceAmbientCliFacade";
+import { isPathInside } from "./voiceSessionFacade";
 
 const cachePath = ".ambient/voice/voice-discovery-cache.json";
 const cacheSchemaVersion = "ambient-voice-discovery-cache-v1";

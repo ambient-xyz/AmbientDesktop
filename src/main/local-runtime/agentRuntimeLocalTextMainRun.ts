@@ -23,7 +23,7 @@ import {
 } from "./localTextDelegation";
 import type { LocalTextSubagentRuntimeConfig } from "./localTextSubagentRuntime";
 import { localTextMainAssistantContent } from "../agent-runtime/subagents/agentRuntimeSubagentRuntimeHelpers";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./localRuntimeProjectStoreFacade";
 import { agentRuntimeQueuedMessageMetadata } from "../agent-runtime/agentRuntimeUserMessageMetadata";
 
 export interface AgentRuntimeLocalTextMainActiveRun {

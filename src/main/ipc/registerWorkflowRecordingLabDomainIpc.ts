@@ -16,7 +16,7 @@ import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
 import type {
   RunWorkflowLabOptions,
   WorkflowLabJudgeInput,
-} from "../workflow/workflowLab";
+} from "./ipcWorkflowFacade";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

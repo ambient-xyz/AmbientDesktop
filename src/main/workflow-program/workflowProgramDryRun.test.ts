@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WorkflowProgramIR } from "../../shared/workflowProgramIr";
 import type { WorkflowManifest } from "../../shared/workflowTypes";
 import { firstPartyDesktopToolDescriptors } from "./workflowProgramDesktopToolFacade";
-import type { WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
+import type { WorkflowCompilerOutput } from "./workflowProgramWorkflowCompilerFacade";
 import { generateWorkflowProgramSource } from "./workflowProgramCodegen";
 import { dryRunWorkflowProgramOutput, WorkflowProgramDryRunError } from "./workflowProgramDryRun";
 import { lowerWorkflowProgram, type WorkflowProgramLoweredOperationPlan } from "./workflowProgramLowering";

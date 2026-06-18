@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { SendMessageInput } from "../../shared/desktopTypes";
 import type { AgentRuntime, AgentRuntimeSendHooks } from "../agent-runtime/agentRuntime";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./orchestrationProjectStoreFacade";
 import {
   listAutoContinuableRestartInterruptedRuns,
   listAutoStartablePreparedOrchestrationRuns,
@@ -12,7 +12,7 @@ import {
   prepareAndRecordNextOrchestrationRuns,
 } from "./orchestrationDispatch";
 import { startPreparedOrchestrationRun } from "./orchestrationRunner";
-import { loadWorkflowFile } from "../workflow/workflow";
+import { loadWorkflowFile } from "./orchestrationWorkflowFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

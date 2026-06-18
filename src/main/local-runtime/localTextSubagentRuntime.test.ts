@@ -15,7 +15,7 @@ import {
   type LocalModelRuntimeReleaseResult,
   type LocalModelRuntimeStartupFailure,
 } from "./localModelRuntimeManager";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./localRuntimeProjectStoreFacade";
 import { createLocalTextSubagentRuntimeAdapter } from "./localTextSubagentRuntime";
 
 const roots: string[] = [];

@@ -164,7 +164,6 @@ import type { SubagentRunStatus, SubagentWaitBarrierFailurePolicy, SubagentWaitB
 import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
 import type { WorkspaceSearchScope, WorkspaceSearchResult, WorkspaceState } from "../../shared/workspaceTypes";
 import type { AmbientModelRuntimeCatalog } from "../../shared/ambientModels";
-import type { CallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
 import {
   analyzeCallableWorkflowTaskRestartState,
   CALLABLE_WORKFLOW_TASK_CONTROL_EVENT_TYPE,
@@ -176,7 +175,8 @@ import {
   type CallableWorkflowPatternGraphChildBindingRequest,
   type CallableWorkflowTaskControlAction,
   type CallableWorkflowCompilerHandoffPlan,
-} from "../callable-workflow/callableWorkflowTaskQueue";
+  type CallableWorkflowExecutionPlan,
+} from "./projectStoreCallableWorkflowFacade";
 import {
   analyzeSubagentRestartState,
   createSubagentRepairDiagnosticsReport,
@@ -502,7 +502,6 @@ import {
   AMBIENT_LEGACY_MODEL_IDS,
 } from "../../shared/ambientModels";
 import { workflowGraphFromSpec } from "../../shared/workflowAgentGraph";
-import type { SchedulerRuntimeState } from "../orchestration/orchestrationScheduler";
 import {
   INTERRUPTED_RUN_MESSAGE,
   interruptedMessageContent,
@@ -512,7 +511,8 @@ import {
 import {
   RESTART_INTERRUPTED_LOCAL_TASK_ERROR,
   restartInterruptedRunProofOfWork,
-} from "../orchestration/orchestrationRecovery";
+  type SchedulerRuntimeState,
+} from "./projectStoreOrchestrationFacade";
 import {
   type ProjectBoardTaskToolAction,
   type ProjectBoardTaskToolActionTransport,

@@ -7,7 +7,7 @@ import type {
   MessagingInboundEvent,
   RuntimeSurfaceSnapshot,
 } from "../../shared/messagingGateway";
-import type { MessagingGatewayInboundDispatchResult } from "../messaging/messagingGatewayRunner";
+import type { MessagingGatewayInboundDispatchResult } from "./telegramMessagingFacade";
 import { messagingInboundEventFromTelegramBridge } from "./telegramBridgeEvents";
 
 const TELEGRAM_PROVIDER_ID = "telegram-tdlib";

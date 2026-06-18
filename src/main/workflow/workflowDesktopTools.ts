@@ -13,20 +13,18 @@ import {
   type DescribeAmbientCliPackageInput,
   type RunAmbientCliInput,
 } from "../ambient-cli/ambientCliPackages";
-import { readAmbientApiKey, getActiveAmbientProviderBaseUrl, getActiveAmbientProviderModelOverride } from "../security/credentialStore";
+import { readAmbientApiKey, getActiveAmbientProviderBaseUrl, getActiveAmbientProviderModelOverride } from "./workflowSecurityFacade";
 import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./workflowDesktopToolFacade";
-import { completeAmbientText, executeLambdaRlm, type LambdaRlmTaskType } from "../tool-runtime/lambdaRlm";
-import { classifyToolPermission } from "../permissions/permissionPolicy";
-import { callPluginMcpTool, type PluginMcpLaunchPlan, type PluginMcpToolRegistration } from "../plugins/pluginMcpSupervisor";
+import { classifyToolPermission } from "./workflowPermissionsFacade";
+import { callPluginMcpTool, type PluginMcpLaunchPlan, type PluginMcpToolRegistration } from "./workflowPluginsFacade";
 import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
-import { runShellCommand, type ToolRunnerRunShellOptions } from "../tool-runtime/toolRunner";
-import { materializeTextOutput, materializedTextNotice } from "../tool-runtime/toolOutputArtifacts";
 import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "../mini-cpm/miniCpmVisionProvider";
 import { readLocalFilePreview, readWorkspaceFile, writeWorkspaceTextFile } from "../workspace/workspaceFiles";
 import { listLocalDirectory, readLocalTextFile } from "./localFiles";
 import { createWorkflowToolBridge } from "./workflowToolBridge";
 import type { WorkflowEventSink, WorkflowToolHandlers } from "./workflowAgentRuntime";
 import type { WorkflowManifest } from "../../shared/workflowTypes";
+import { completeAmbientText, executeLambdaRlm, materializeTextOutput, materializedTextNotice, runShellCommand, type LambdaRlmTaskType, type ToolRunnerRunShellOptions } from "./workflowToolRuntimeFacade";
 
 export interface WorkflowBrowserAdapter {
   search(input: BrowserSearchInput): Promise<unknown>;

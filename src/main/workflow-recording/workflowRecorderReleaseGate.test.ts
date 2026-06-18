@@ -8,8 +8,8 @@ import {
   describeAmbientWorkflowPlaybook,
   injectAmbientWorkflowPlaybook,
   searchAmbientWorkflowPlaybooks,
-} from "../ambient/ambientWorkflows";
-import { ProjectStore } from "../projectStore/projectStore";
+} from "./workflowRecordingAmbientFacade";
+import { ProjectStore } from "./workflowRecordingProjectStoreFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

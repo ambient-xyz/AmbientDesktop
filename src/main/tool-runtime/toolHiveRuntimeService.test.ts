@@ -11,7 +11,7 @@ import {
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
 } from "./toolHiveRuntimeService";
-import { saveSecretReference } from "../security/secretReferenceStore";
+import { saveSecretReference } from "./toolRuntimeSecurityFacade";
 
 const context7SecretRef = `ambient-secret-ref:v1:${"b".repeat(64)}`;
 

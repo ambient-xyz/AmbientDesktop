@@ -1,7 +1,7 @@
 import { arch, platform } from "node:os";
 import type { MiniCpmVisionRuntimeReleaseArtifact, MiniCpmVisionRuntimeReleaseManifest } from "../../shared/localRuntimeTypes";
-import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "../mini-cpm/miniCpmRuntimeManifest";
-import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "./localDeepResearchMiniCpmFacade";
+import { writeWorkspaceTextFile } from "./localDeepResearchWorkspaceFacade";
 
 const certificationRoot = ".ambient/local-deep-research/runtime-platform-certification";
 

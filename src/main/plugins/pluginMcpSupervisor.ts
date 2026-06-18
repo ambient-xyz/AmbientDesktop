@@ -9,10 +9,9 @@ import type {
   PluginMcpRuntimeStatus,
 } from "../../shared/pluginTypes";
 import type { PermissionMode } from "../../shared/permissionTypes";
-import { pluginMcpToolDescriptor, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { pluginMcpToolDescriptor, type DesktopToolDescriptor } from "./pluginsDesktopToolFacade";
 import { redactSensitiveText } from "../security/secretRedaction";
-import { spawnToolProcess } from "../tool-runtime/toolRunner";
-import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
+import { materializeTextOutput, materializedTextNotice, spawnToolProcess, type MaterializedTextOutput } from "./pluginsToolRuntimeFacade";
 
 export type { PluginMcpRuntimeSnapshot, PluginMcpRuntimeStatus };
 

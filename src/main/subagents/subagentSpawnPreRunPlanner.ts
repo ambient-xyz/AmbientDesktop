@@ -19,7 +19,10 @@ import {
   type SubagentEffectiveRoleSnapshot,
   type SubagentPatternRoleId,
 } from "../../shared/subagentPatternGraph";
-import type { AgentRoleRegistry, AgentRoleLaunchResolution } from "../agent/agentRoleRegistry";
+import type {
+  AgentRoleLaunchResolution,
+  AgentRoleRegistry,
+} from "./subagentAgentFacade";
 import {
   createSubagentIdempotencyKey,
   createSubagentPayloadFingerprint,

@@ -86,10 +86,12 @@ import type {
   WorkflowVersionSummary,
 } from "../../shared/workflowTypes";
 import type { CompileWorkflowArtifactInput } from "../workflow-compiler/workflowCompilerService";
-import type { WorkflowRecoveryPlan } from "../workflow/workflowRecovery";
-import type { RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput } from "../workflow/workflowRunService";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
 import type { WorkflowDiscoveryPolicyContext } from "../workflow-discovery/workflowDiscoveryPolicy";
+import type {
+  RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput,
+  WorkflowConnectorDescriptor,
+  WorkflowRecoveryPlan,
+} from "./ipcWorkflowFacade";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

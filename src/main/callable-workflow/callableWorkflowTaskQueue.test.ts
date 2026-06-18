@@ -23,7 +23,7 @@ import {
   buildCallableWorkflowCompilerHandoffPlan,
   callableWorkflowQueuedTaskDraftFromExecutionPlan,
 } from "./callableWorkflowTaskQueue";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./callableWorkflowProjectStoreFacade";
 
 const roots: string[] = [];
 const enabledFlags = resolveAmbientFeatureFlags({

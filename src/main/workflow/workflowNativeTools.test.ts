@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { pluginMcpToolDescriptor } from "./workflowDesktopToolFacade";
 import { ProjectStore } from "./workflowProjectStoreFacade";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import type { PluginMcpToolRegistration } from "./workflowPluginsFacade";
 import { invokeWorkflowNativeTool, workflowNativeToolDescriptors, type WorkflowNativeRunArtifactInput } from "./workflowNativeTools";
 import { runWorkflowArtifact } from "./workflowRunService";
 import { commitWorkflowVersionRepo } from "./workflowVersioning";

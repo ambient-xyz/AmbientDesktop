@@ -4,7 +4,7 @@ import { dirname, isAbsolute } from "node:path";
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import type { AmbientPermissionGrant, PermissionRequest } from "../../shared/permissionTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { enrichPermissionRequest } from "../permissions/permissionGrants";
+import { enrichPermissionRequest } from "./agentRuntimePermissionsFacade";
 
 export type FileAuthorityAccess = "read" | "write";
 export type FileAuthorityActionKind = "file_content_read" | "local_file_write";

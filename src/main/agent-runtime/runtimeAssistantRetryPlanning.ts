@@ -1,7 +1,7 @@
 import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import type { PermissionMode } from "../../shared/permissionTypes";
 import type { InterruptedToolCallRecoverySnapshot } from "../../shared/threadTypes";
-import type { PiSessionFileCommitReason } from "../session/sessionFileCommit";
+import type { PiSessionFileCommitReason } from "./agentRuntimeSessionFacade";
 import {
   assistantFinalizationRetryAttemptsUsedForReason,
   buildAssistantFinalizationRetryInput,

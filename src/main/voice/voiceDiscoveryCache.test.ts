@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
-import type { AmbientCliRunResult } from "../ambient-cli/ambientCliPackages";
+import type { AmbientCliRunResult } from "./voiceAmbientCliFacade";
 import {
   listVoiceProviderVoices,
   mergeVoiceProvidersWithCachedVoices,

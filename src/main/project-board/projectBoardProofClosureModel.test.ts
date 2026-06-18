@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectBoardProofReviewClosureModelForApplication } from "../projectStore/projectBoardMappers";
+import { projectBoardProofReviewClosureModelForApplication } from "./projectBoardProjectStoreFacade";
 import type { ProjectBoardCardProofReview } from "../../shared/projectBoardTypes";
 
 describe("projectBoardProofReviewClosureModelForApplication", () => {

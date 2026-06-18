@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstPartyDesktopToolDescriptors } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors } from "./workflowCompilerDesktopToolFacade";
 import {
   selectWorkflowCompilerConnectorDescriptors,
   selectWorkflowCompilerToolDescriptors,

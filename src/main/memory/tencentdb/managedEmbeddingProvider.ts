@@ -9,16 +9,14 @@ import type {
 import type { EmbeddingProviderCandidate, EmbeddingProviderRuntimeState } from "../../../shared/localRuntimeTypes";
 import { managedInstallWorkspacePath } from "../../setup/managedInstallPaths";
 import { miniCpmRuntimeReleaseManifestPrototype } from "../../mini-cpm/miniCpmRuntimeManifest";
-import { selectLocalLlamaRuntimeArtifact } from "../../local-llama/localLlamaRuntimeManifest";
-import {
-  LocalLlamaServerSupervisor,
-  readLocalLlamaServerState,
-  type LocalLlamaServerLease,
-} from "../../local-llama/localLlamaServerSupervisor";
 import {
   detectLocalLlamaResidentProcesses,
+  LocalLlamaServerSupervisor,
+  readLocalLlamaServerState,
+  selectLocalLlamaRuntimeArtifact,
   type LocalLlamaResidentProcess,
-} from "../../local-llama/localLlamaResidencyPolicy";
+  type LocalLlamaServerLease,
+} from "./memoryLocalLlamaFacade";
 import {
   normalizeOpenAiEmbeddingBaseUrl,
   preflightOpenAiCompatibleEmbeddingEndpoint,

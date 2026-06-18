@@ -3,7 +3,7 @@ import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import type { ProjectBoardCard, ProjectBoardCardTestPlan, ProjectBoardCharter } from "../../shared/projectBoardTypes";
 import { AmbientStreamFailureError, type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
 import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "./projectBoardAmbientFacade";
-import { readAmbientApiKey } from "../security/credentialStore";
+import { readAmbientApiKey } from "./projectBoardSecurityFacade";
 import { projectBoardProofOwnershipForCard, projectBoardProofScopePromptRules, type ProjectBoardProofOwnership } from "./projectBoardProofScope";
 
 export type ProjectBoardProofSuggestionConfidence = "high" | "medium" | "low";

@@ -13,7 +13,7 @@ import type {
 import {
   enforceLocalModelResourceLaunchPolicy,
   type LocalModelResourceLaunchPreflightResult,
-} from "../local-runtime/localModelResourceRegistry";
+} from "./localDeepResearchLocalRuntimeFacade";
 import { createLocalDeepResearchLlamaChatClient, type LocalDeepResearchLlamaChatClientOptions } from "./localDeepResearchLlamaClient";
 import { buildLocalDeepResearchLlamaServerAcquireInput } from "./localDeepResearchServerSupervisor";
 import {
@@ -34,9 +34,8 @@ import {
 import type { LocalDeepResearchBroker } from "./localDeepResearchAdapter";
 import type { LocalDeepResearchManagedAssetDetection } from "./localDeepResearchManagedAssets";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
-import { LocalLlamaServerSupervisor, type LocalLlamaServerLease } from "../local-llama/localLlamaServerSupervisor";
-import type { LocalLlamaServerAcquireInput } from "../local-llama/localLlamaServerSupervisor";
-import { writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { LocalLlamaServerSupervisor, type LocalLlamaServerAcquireInput, type LocalLlamaServerLease } from "./localDeepResearchLocalLlamaFacade";
+import { writeWorkspaceTextFile } from "./localDeepResearchWorkspaceFacade";
 
 const localDeepResearchRunArtifactsRoot = ".ambient/local-deep-research/runs";
 

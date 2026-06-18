@@ -127,10 +127,12 @@ import {
   type RegisterWorkflowRunArtifactIpcDependencies,
 } from "./registerWorkflowIpc";
 import type { CompileWorkflowArtifactInput } from "../workflow-compiler/workflowCompilerService";
-import type { WorkflowRecoveryPlan } from "../workflow/workflowRecovery";
-import type { RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput } from "../workflow/workflowRunService";
-import type { WorkflowConnectorDescriptor } from "../workflow/workflowConnectors";
-import type { WorkflowDebugRewriteContext } from "../workflow/workflowDebugRewrite";
+import type {
+  RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput,
+  WorkflowConnectorDescriptor,
+  WorkflowDebugRewriteContext,
+  WorkflowRecoveryPlan,
+} from "./ipcWorkflowFacade";
 
 type IpcListener = Parameters<IpcMain["handle"]>[1];
 

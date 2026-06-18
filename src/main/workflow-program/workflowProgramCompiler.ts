@@ -1,5 +1,5 @@
 import type { DesktopToolDescriptor } from "./workflowProgramDesktopToolFacade";
-import { validateWorkflowCompilerOutput, type WorkflowCompilerOutput } from "../workflow-compiler/workflowCompiler";
+import { validateWorkflowCompilerOutput, type WorkflowCompilerOutput } from "./workflowProgramWorkflowCompilerFacade";
 import type { WorkflowProgramIR, WorkflowProgramNode } from "../../shared/workflowProgramIr";
 import type { WorkflowGraphEdge, WorkflowGraphNode, WorkflowSpec } from "../../shared/workflowTypes";
 import {

@@ -18,7 +18,7 @@ import {
 import {
   WEB_RESEARCH_PROVIDER_IDS,
   type WebResearchProviderRequestPlan,
-} from "../web-research/webResearchProviderStack";
+} from "./localDeepResearchWebResearchFacade";
 
 describe("agentRuntimeLocalDeepResearchWebBroker", () => {
   it("routes search through Ambient CLI with skipped provider metadata", async () => {

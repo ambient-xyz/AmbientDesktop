@@ -8,7 +8,7 @@ import { projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoar
 import type { ProjectBoardKickoffContextBrief, ProjectBoardQuestion, ProjectBoardSource } from "../../shared/projectBoardTypes";
 import { AmbientStreamFailureError, type AmbientRetryPolicy } from "./projectBoardAmbientFacade";
 import { callAmbientChatCompletionTextWithRetries, isAmbientChatCompletionValidationError } from "./projectBoardAmbientFacade";
-import { readAmbientApiKey } from "../security/credentialStore";
+import { readAmbientApiKey } from "./projectBoardSecurityFacade";
 import { buildProjectBoardPlanningContract } from "./projectBoardPlanningContract";
 import { projectBoardSourceIncludedInSynthesis, projectBoardSourceKey } from "./projectBoardSourceIdentity";
 
