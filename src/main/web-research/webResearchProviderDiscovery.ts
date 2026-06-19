@@ -1,7 +1,7 @@
 import type { SearchRoutingSettings, WebResearchProviderConfig, WebResearchProviderRole } from "../../shared/webResearchTypes";
 import type { AmbientCliPackageCatalog } from "./webResearchAmbientCliFacade";
-import type { ProviderCatalogEntry } from "../provider/providerCatalog";
-import { getProviderCatalogEntries, providerSelectionGuidanceForProvider } from "../provider/providerCatalog";
+import type { ProviderCatalogEntry } from "./webResearchProviderFacade";
+import { getProviderCatalogEntries, providerSelectionGuidanceForProvider } from "./webResearchProviderFacade";
 import {
   normalizeSearchRoutingSettingsWithWebResearch,
 } from "./webResearchProviderStack";

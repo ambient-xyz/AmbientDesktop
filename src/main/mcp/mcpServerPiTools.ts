@@ -1,6 +1,6 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { containerRuntimeProbeSummary, probeContainerRuntime, type ContainerRuntimeProbeResult } from "./mcpContainerRuntimeFacade";
-import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "./mcpDesktopToolsFacade";
 import {
   mcpGuidedLocalBridgeInstallReviewState,
   mcpGuidedLocalBridgePermissionProfile,

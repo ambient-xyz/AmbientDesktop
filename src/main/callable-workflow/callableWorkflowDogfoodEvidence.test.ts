@@ -30,7 +30,7 @@ import { ProjectStore } from "./callableWorkflowProjectStoreFacade";
 import {
   resolveSubagentLaunchWorkspaceToolPolicy,
   resolveSubagentToolScopeLaunchDenial,
-} from "../subagents/subagentToolScopeLaunchPolicy";
+} from "./callableWorkflowSubagentsFacade";
 
 const roots: string[] = [];
 const STAGED_MUTATION_RELATIVE_PATH = "src/feature.txt";

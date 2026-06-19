@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { PrivilegedActionNativeResult } from "../../shared/permissionTypes";
-import type { ContainerRuntimeManagedInstallResult } from "../container-runtime/containerRuntimeInstallLauncher";
+import type { ContainerRuntimeManagedInstallResult } from "./privilegedActionContainerRuntimeFacade";
 import { credentialPlaceholder, redactPrivilegedOutputPreview } from "./privilegedAction";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./privilegedActionSessionFacade";
 
 const privilegedActionLogRoot = ".ambient/privileged-actions";
 const secretLikePattern = /(password|passwd|pwd|token|secret|credential|authorization|auth[_-]?key|api[_-]?key)=([^&\s"\\]+)/gi;

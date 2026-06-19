@@ -916,7 +916,7 @@ export function AutomationsWorkspace({
   onRevokePermissionGrant: (id: string) => Promise<void>;
   onRevokePermissionGrantIds: (ids: string[], busyId: string) => Promise<void>;
   onCreateProject: () => Promise<DesktopState | undefined>;
-  onStartWorkflowRecording: (goal: string) => Promise<void>;
+  onStartWorkflowRecording: (goal: string) => Promise<boolean>;
   onSetWorkflowRecordingEnabled: (id: string, enabled: boolean) => Promise<void>;
   onEditWorkflowRecordingPlaybook: (playbook: WorkflowRecordingLibraryEntry) => void;
   onArchiveWorkflowRecordingPlaybook: (playbook: WorkflowRecordingLibraryEntry) => Promise<void>;
@@ -1612,8 +1612,8 @@ export function AutomationsWorkspace({
       setWorkflowBusy("recorder:start");
       setWorkflowError(undefined);
       try {
-        await onStartWorkflowRecording(workflowRequest);
-        setWorkflowRequest("");
+        const started = await onStartWorkflowRecording(workflowRequest);
+        if (started) setWorkflowRequest("");
       } catch (err) {
         setWorkflowError(err instanceof Error ? err.message : String(err));
       } finally {

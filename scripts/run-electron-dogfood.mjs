@@ -77,7 +77,7 @@ try {
     artifacts: [
       { label: "electron dogfood stdout", path: relativePath(stdoutPath), kind: "log" },
       { label: "electron dogfood stderr", path: relativePath(stderrPath), kind: "log" },
-      { label: "desktop dogfood latest", path: "test-results/subagent-desktop-dogfood/latest.json", kind: "json" },
+      { label: "desktop dogfood latest", path: scenarioLatestArtifactPath(args.scenario), kind: "json" },
     ],
     failures: failure ? [{ phase, message: failure.message }] : [],
   });
@@ -105,12 +105,36 @@ function parseArgs(argv) {
 }
 
 function scenarioCommand(scenario, scenarioArgs = []) {
+  if (scenario === "agent-memory-repair-resident-conflict") {
+    return {
+      executable: "node",
+      args: ["scripts/agent-memory-repair-resident-conflict-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/agent-memory-repair-resident-conflict-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "symphony-gap-phase0") {
+    return {
+      executable: "node",
+      args: ["scripts/symphony-gap-phase0-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/symphony-gap-phase0-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario !== "subagent-desktop-dogfood") throw new Error(`Unsupported Electron dogfood scenario: ${scenario}`);
   return {
     executable: "node",
     args: ["scripts/subagent-desktop-dogfood.mjs", ...scenarioArgs],
     display: ["node", "scripts/subagent-desktop-dogfood.mjs", ...scenarioArgs],
   };
+}
+
+function scenarioLatestArtifactPath(scenario) {
+  if (scenario === "agent-memory-repair-resident-conflict") {
+    return "test-results/agent-memory-repair-resident-conflict/latest.json";
+  }
+  if (scenario === "symphony-gap-phase0") {
+    return "test-results/symphony-gap-phase0-dogfood/latest.json";
+  }
+  return "test-results/subagent-desktop-dogfood/latest.json";
 }
 
 async function runCommand(executable, commandArgs, env) {
@@ -183,16 +207,17 @@ async function writeText(path, text) {
 }
 
 function providerSnapshot(env) {
+  const providerId = env.AMBIENT_PROVIDER || DEFAULT_DOGFOOD_PROVIDER;
   return {
-    providerId: env.AMBIENT_PROVIDER || DEFAULT_DOGFOOD_PROVIDER,
-    modelId: env.AMBIENT_LIVE_MODEL || env.GMI_CLOUD_MODEL || env.AMBIENT_MODEL,
+    providerId,
+    modelId: dogfoodModelIdForProvider(env, providerId),
     usingGmiFailover: env.AMBIENT_PROVIDER === "gmi-cloud",
   };
 }
 
 function dogfoodLaunchEnv(env) {
   const providerId = env.AMBIENT_PROVIDER || DEFAULT_DOGFOOD_PROVIDER;
-  const modelId = env.AMBIENT_LIVE_MODEL || env.GMI_CLOUD_MODEL || env.AMBIENT_MODEL || DEFAULT_DOGFOOD_MODEL;
+  const modelId = dogfoodModelIdForProvider(env, providerId) || DEFAULT_DOGFOOD_MODEL;
   const next = { ...env, AMBIENT_PROVIDER: providerId };
   if (providerId === "gmi-cloud") {
     next.GMI_CLOUD_MODEL = modelId;
@@ -200,6 +225,12 @@ function dogfoodLaunchEnv(env) {
     next.AMBIENT_LIVE_MODEL = modelId;
   }
   return next;
+}
+
+function dogfoodModelIdForProvider(env, providerId) {
+  return providerId === "gmi-cloud"
+    ? env.GMI_CLOUD_MODEL || env.AMBIENT_MODEL
+    : env.AMBIENT_LIVE_MODEL || env.AMBIENT_MODEL;
 }
 
 function cleanChildEnv(env) {

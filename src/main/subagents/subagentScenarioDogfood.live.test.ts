@@ -10,16 +10,16 @@ import { validateSubagentResultArtifactForSynthesis } from "../../shared/subagen
 import type { ChatMessage } from "../../shared/threadTypes";
 import type { PermissionPromptResponseMode, PermissionRequest } from "../../shared/permissionTypes";
 import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
+import { AgentRuntime } from "./subagentsAgentRuntimeLiveFacade";
 import { createChatExportBundle } from "../chat-export/chatExport";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../ambient/liveAmbientProviderConfig";
-import { createDocxFixture } from "../office/officeTestFixtures";
-import { createPdfFixture } from "../pdf/pdfTestFixtures";
+} from "./subagentsAmbientFacade";
+import { createDocxFixture } from "./subagentsOfficeTestFacade";
+import { createPdfFixture } from "./subagentsPdfTestFacade";
 import { ProjectStore } from "./subagentProjectStoreFacade";
 import { forbiddenClaimLooksPromised, forbiddenClaimPromises, termsPresent } from "./subagentScenarioDogfoodAssertions";
 

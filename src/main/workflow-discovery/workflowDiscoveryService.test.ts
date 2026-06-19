@@ -7,8 +7,8 @@ import type { WorkflowDiscoveryProgress } from "../../shared/workflowTypes";
 import { workflowDiscoveryContextReviewModel } from "../../renderer/src/workflowReviewUiModel";
 import { pluginMcpToolDescriptor } from "./workflowDiscoveryDesktopToolFacade";
 import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
-import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
-import { ProjectStore } from "../projectStore/projectStore";
+import { googleWorkspaceConnectorDescriptors } from "./workflowDiscoveryGoogleWorkspaceFacade";
+import { ProjectStore } from "./workflowDiscoveryProjectStoreFacade";
 import type { WorkflowDiscoveryContextGatherer } from "./workflowDiscoveryContextGatherer";
 import {
   answerWorkflowDiscoveryQuestion,

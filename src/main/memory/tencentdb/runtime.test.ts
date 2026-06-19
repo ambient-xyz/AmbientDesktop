@@ -12,6 +12,7 @@ import {
   isTencentDbMemoryActiveForThread,
   tencentMemorySessionKeyForThread,
   ambientTencentMemoryDataDir,
+  TENCENT_MEMORY_CREATE_TOOL_NAME,
   AMBIENT_TENCENT_MEMORY_STORAGE_SCHEMA_FILENAME,
   AMBIENT_TENCENT_MEMORY_STORAGE_SCHEMA_VERSION,
   type TencentMemoryCoreOptions,
@@ -69,6 +70,13 @@ describe("TencentDB memory runtime", () => {
     const workspace = fakeWorkspace(root);
     const admin = {
       inspect: vi.fn(async () => ({ rows: [], total: 0, truncated: false })),
+      create: vi.fn(async (input) => ({
+        id: "mem_created",
+        layer: input.layer ?? "l1",
+        content: input.content,
+        preview: input.content,
+        source: "tencentdb" as const,
+      })),
       update: vi.fn(async (input) => ({
         id: input.id,
         layer: input.layer,
@@ -223,6 +231,26 @@ describe("TencentDB memory runtime", () => {
     expect(FakeTencentCore.destroyed).toBe(true);
   });
 
+  it("does not expose explicit memory create in subagent child sessions", async () => {
+    const runtime = createTencentDbMemoryRuntimeForThread({
+      thread: fakeThread({ kind: "subagent_child", memoryEnabled: true }),
+      workspace: fakeWorkspace(await tempDir()),
+      featureFlagSnapshot: resolveAmbientFeatureFlags({
+        generatedAt: "2026-06-13T00:00:00.000Z",
+        settings: { tencentDbMemory: true },
+      }),
+      memorySettings: enabledMemorySettings(),
+      loadCoreConstructor: vi.fn(() => ({
+        Core: FakeTencentCore,
+        createMemoryAdminService: vi.fn(),
+        moduleSpecifier: "fake:tencent-core",
+      })),
+    });
+
+    expect(runtime).toBeDefined();
+    expect(runtime?.activeToolNames).not.toContain(TENCENT_MEMORY_CREATE_TOOL_NAME);
+  });
+
   it("runs the reviewed vendored Tencent core and admin service without OpenClaw", async () => {
     const root = await tempDir();
     const thread = fakeThread({ memoryEnabled: true });
@@ -269,6 +297,22 @@ describe("TencentDB memory runtime", () => {
       id: "missing-memory-id",
       content: "Do not create this from an edit request.",
     })).resolves.toBeUndefined();
+
+    const firstCreate = await runtime!.createMemory({
+      layer: "l1",
+      content: "The explicit workspace color is teal.",
+      type: "persona",
+      priority: 80,
+    });
+    const duplicateCreate = await runtime!.createMemory({
+      layer: "l1",
+      content: "The explicit workspace color is teal.",
+      type: "persona",
+      priority: 80,
+    });
+    expect(duplicateCreate?.id).toBe(firstCreate?.id);
+    const explicitMemories = await runtime!.inspectMemories({ layer: "l1", query: "explicit workspace color", limit: 10 });
+    expect(explicitMemories?.rows.filter((row) => row.preview.includes("explicit workspace color"))).toHaveLength(1);
 
     const dataDir = runtime!.snapshot().dataDir;
     await mkdir(dataDir, { recursive: true });
@@ -655,7 +699,7 @@ function fakeThread(patch: Partial<ThreadSummary>): ThreadSummary {
     workspacePath: "/tmp/workspace",
     model: "ambient/default",
     memoryEnabled: false,
-    kind: "primary",
+    kind: "chat",
     ...patch,
   } as ThreadSummary;
 }

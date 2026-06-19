@@ -10,7 +10,7 @@ import type {
 } from "../../shared/pluginTypes";
 import type { PermissionMode } from "../../shared/permissionTypes";
 import { pluginMcpToolDescriptor, type DesktopToolDescriptor } from "./pluginsDesktopToolFacade";
-import { redactSensitiveText } from "../security/secretRedaction";
+import { redactSensitiveText } from "./pluginsSecurityFacade";
 import { materializeTextOutput, materializedTextNotice, spawnToolProcess, type MaterializedTextOutput } from "./pluginsToolRuntimeFacade";
 
 export type { PluginMcpRuntimeSnapshot, PluginMcpRuntimeStatus };

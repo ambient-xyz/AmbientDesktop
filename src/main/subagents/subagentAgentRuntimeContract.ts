@@ -33,6 +33,7 @@ export {
 } from "./subagentPromptRuntime";
 export { subagentResultRepairStateForRun } from "./subagentResultRepairState";
 export type { SubagentResultRepairState } from "./subagentResultRepairState";
+export { isSubagentTerminalStatus } from "./subagentRunStatus";
 export { appendMappedSubagentRuntimeEvent } from "./subagentRuntimeEventPersistence";
 export { SUBAGENT_WAIT_BARRIER_TERMINAL_STATUSES } from "./subagentWaitBarrierEvaluation";
 export {

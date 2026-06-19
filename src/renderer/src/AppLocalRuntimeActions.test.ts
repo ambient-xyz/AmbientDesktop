@@ -149,6 +149,21 @@ describe("App local runtime actions", () => {
     });
   });
 
+  it("does not churn duplicate Local Deep Research running setup state", async () => {
+    const deferred = deferredValue<LocalDeepResearchSetupResult>();
+    const setupLocalDeepResearch = vi.fn(() => deferred.promise);
+    vi.stubGlobal("window", { ambientDesktop: { setupLocalDeepResearch } });
+    const controller = createController();
+
+    const first = controller.actions.setupLocalDeepResearchFromSettings("status");
+    const firstRunning = controller.localDeepResearchSetup.value;
+    const second = controller.actions.setupLocalDeepResearchFromSettings("status");
+
+    expect(controller.localDeepResearchSetup.value).toBe(firstRunning);
+    deferred.resolve(localDeepResearchSetupResult({ setupStatus: "ready" }));
+    await Promise.all([first, second]);
+  });
+
   it("opens the Local Deep Research follow-up when status is not ready", async () => {
     vi.stubGlobal("window", {
       ambientDesktop: {

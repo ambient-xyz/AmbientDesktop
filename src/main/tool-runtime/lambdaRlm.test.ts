@@ -18,8 +18,8 @@ import {
   runLambdaRlmModelCallWithTimeout,
   splitLambdaText,
 } from "./lambdaRlm";
-import { createPptxFixture, createXlsxFixture } from "../office/officeTestFixtures";
-import { createPdfFixture } from "../pdf/pdfTestFixtures";
+import { createPptxFixture, createXlsxFixture } from "./toolRuntimeOfficeFacade";
+import { createPdfFixture } from "./toolRuntimePdfFacade";
 
 describe("Lambda-RLM exact port constants", () => {
   it("keeps the upstream task, composition, and prompt constants", () => {

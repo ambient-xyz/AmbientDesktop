@@ -6,10 +6,10 @@ import { join } from "node:path";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
+import { AgentRuntime } from "./browserAgentRuntimeDogfoodFacade";
 import { BrowserCredentialStore } from "./browserCredentialStore";
 import { BrowserService } from "./browserService";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./browserProjectStoreFacade";
 
 const electronMock = vi.hoisted(() => ({
   userDataPath: `${process.env.TMPDIR || "/tmp"}/ambient-browser-routing-dogfood-electron`,

@@ -4,9 +4,11 @@ export {
   discoverAgentRuntimeSkillPaths,
   ensurePluginMcpToolTrusted,
   pluginStateReaderFromStore,
+  registerAgentRuntimePluginInstallCoreTools,
 } from "../plugins/pluginsAgentRuntimeContract";
 export type {
   AgentRuntimePluginDiscoveryStore,
+  AgentRuntimePluginInstallCoreToolOptions,
   AmbientPluginMcpOptions,
   EnsurePluginMcpToolTrustedInput,
   EnsurePluginMcpToolTrustedOptions,

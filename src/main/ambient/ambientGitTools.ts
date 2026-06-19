@@ -4,7 +4,7 @@ import { mkdir } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { ThreadWorktreeSummary } from "../../shared/threadTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./ambientSessionFacade";
 
 const execFileAsync = promisify(execFile);
 const defaultTimeoutMs = 60_000;

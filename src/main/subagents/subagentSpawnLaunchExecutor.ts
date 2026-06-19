@@ -57,7 +57,7 @@ import {
   buildSubagentTaskMailboxEventInput,
   type SubagentSpawnRequestContractInput,
 } from "./subagentSpawnRequest";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./subagentSessionFacade";
 
 export const SUBAGENT_SPAWN_LAUNCH_EXECUTOR_SCHEMA_VERSION =
   "ambient-subagent-spawn-launch-executor-v1" as const;

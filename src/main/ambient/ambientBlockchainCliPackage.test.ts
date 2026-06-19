@@ -9,7 +9,7 @@ import {
   ensureFirstPartyAmbientCliPackages,
   runAmbientCliPackageCommand,
   searchAmbientCliCapabilities,
-} from "../ambient-cli/ambientCliPackages";
+} from "./ambientAmbientCliFacade";
 
 describe("Ambient Blockchain CLI package", () => {
   it("installs as a bundled package and exposes the live-test planning surface", async () => {

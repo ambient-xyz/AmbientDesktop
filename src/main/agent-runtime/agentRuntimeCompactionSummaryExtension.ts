@@ -13,7 +13,7 @@ import {
   type AmbientCompactionFileLists,
   type AmbientCompactionSummaryInput,
 } from "./recovery/compactionSummary";
-import { getWorkspaceGitStatus as defaultGetWorkspaceGitStatus } from "../workspace/workspaceGit";
+import { getWorkspaceGitStatus as defaultGetWorkspaceGitStatus } from "./agentRuntimeWorkspaceFacade";
 
 type CompactPiContext = (
   preparation: unknown,

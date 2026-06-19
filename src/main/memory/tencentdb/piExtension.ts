@@ -5,13 +5,14 @@ import type {
   ExtensionFactory,
 } from "@mariozechner/pi-coding-agent";
 
-import { registerDesktopTool } from "../../desktop-tools/desktopToolRegistration";
-import type { DesktopToolDescriptor } from "../../desktop-tools/desktopToolRegistry";
+import { registerDesktopTool, type DesktopToolDescriptor } from "../../desktop-tools/desktopToolFirstPartyRuntimeContract";
 import type { ChatMessage } from "../../../shared/threadTypes";
+import { redactSensitiveTextWithMetadata } from "./memorySecurityFacade";
 import { buildAmbientTencentMemoryOffloadContext } from "./offload";
 import type { AmbientTencentDbMemoryRuntime } from "./runtime";
 import {
   TENCENT_CONVERSATION_SEARCH_TOOL_NAME,
+  TENCENT_MEMORY_CREATE_TOOL_NAME,
   TENCENT_MEMORY_DELETE_TOOL_NAME,
   TENCENT_MEMORY_INSPECT_TOOL_NAME,
   TENCENT_MEMORY_SEARCH_TOOL_NAME,
@@ -121,7 +122,7 @@ export function createTencentDbMemoryPiExtension(options: TencentMemoryExtension
       await options.runtime.dispose();
     });
 
-    registerTencentMemorySearchTools(pi, options.runtime);
+    registerTencentMemorySearchTools(pi, options.runtime, () => pendingTurn?.userText);
   };
 }
 
@@ -146,6 +147,7 @@ async function buildShortTermOffloadContext(
 function registerTencentMemorySearchTools(
   pi: Parameters<ExtensionFactory>[0],
   runtime: AmbientTencentDbMemoryRuntime,
+  currentUserText: () => string | undefined,
 ): void {
   registerDesktopTool(pi, tencentMemorySearchToolDescriptor, {
     execute: async (_toolCallId, params): Promise<AgentToolResult<Record<string, unknown>>> => {
@@ -242,6 +244,39 @@ function registerTencentMemorySearchTools(
     },
   });
 
+  registerDesktopTool(pi, tencentMemoryCreateToolDescriptor, {
+    execute: async (_toolCallId, params): Promise<AgentToolResult<Record<string, unknown>>> => {
+      const input = params as {
+        content: string;
+        type?: "persona" | "episodic" | "instruction";
+        priority?: number;
+        sceneName?: string;
+        confirmed?: boolean;
+      };
+      if (input.confirmed !== true) {
+        return unavailableToolResult("Memory create requires explicit confirmation. Re-run with confirmed=true only after the current user message positively asks to remember the exact content.");
+      }
+      const guard = validateCurrentUserMemoryCreateRequest(currentUserText(), input.content);
+      if (!guard.allowed) {
+        return unavailableToolResult(guard.message);
+      }
+      const row = await runtime.createMemory({
+        layer: "l1",
+        content: input.content,
+        type: input.type,
+        priority: input.priority,
+        sceneName: input.sceneName,
+      });
+      if (!row) return unavailableToolResult("TencentDB memory create is unavailable.");
+      return {
+        content: [{ type: "text", text: `Created TencentDB memory ${row.id} (l1).\n\n${formatMemoryRowsTable([row])}` }],
+        details: {
+          created: memoryRowDetails(row),
+        },
+      };
+    },
+  });
+
   registerDesktopTool(pi, tencentMemoryDeleteToolDescriptor, {
     execute: async (_toolCallId, params): Promise<AgentToolResult<Record<string, unknown>>> => {
       const input = params as { layer: "l1" | "l0" | "l2" | "l3"; ids: string[]; confirmed?: boolean };
@@ -272,6 +307,151 @@ function unavailableToolResult(message: string): AgentToolResult<Record<string, 
     content: [{ type: "text", text: message }],
     details: { unavailable: true },
   };
+}
+
+function validateCurrentUserMemoryCreateRequest(
+  userText: string | undefined,
+  content: string,
+): { allowed: true } | { allowed: false; message: string } {
+  const normalizedUserText = normalizeMemoryCreateGuardText(userText ?? "");
+  const normalizedContent = normalizeMemoryCreateGuardText(content);
+  if (!normalizedContent) {
+    return { allowed: false, message: "Memory create requires non-empty content from the current user request." };
+  }
+  if (memoryCreateContentHasSecretLikeMaterial(content) || memoryCreateUserWindowHasSecretLikeMaterial(normalizedUserText, normalizedContent)) {
+    return {
+      allowed: false,
+      message: "Memory create cannot store API keys, tokens, passwords, or other secret-like content. Use Ambient-managed secret storage with ambient_cli_secret_request or ambient_cli_env_bind instead.",
+    };
+  }
+  if (!currentUserTextAuthorizesMemoryCreate(normalizedUserText, normalizedContent)) {
+    return {
+      allowed: false,
+      message: "Memory create requires the current user message to positively ask Ambient to remember the exact content or store/save/record it as memory, a durable fact, a preference, or an instruction.",
+    };
+  }
+  return { allowed: true };
+}
+
+function memoryCreateContentHasSecretLikeMaterial(content: string): boolean {
+  if (redactSensitiveTextWithMetadata(content).redacted) return true;
+  return /\b(?:api[_\s-]?key|access[_\s-]?token|refresh[_\s-]?token|auth[_\s-]?token|token|private[_\s-]?key|password|passphrase|passwd|pwd|secret|credential|auth[_\s-]?key)\b.{0,32}(?:\bis\b|[=:])/i.test(content) ||
+    /\b(?:api[_\s-]?key|access[_\s-]?token|refresh[_\s-]?token|auth[_\s-]?token|token|private[_\s-]?key|password|passphrase|passwd|pwd|secret|credential|auth[_\s-]?key)\b\s+["']?[A-Za-z0-9._~+/=-]{4,}/i.test(content) ||
+    /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/i.test(content) ||
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/i.test(content);
+}
+
+function memoryCreateUserWindowHasSecretLikeMaterial(normalizedUserText: string, normalizedContent: string): boolean {
+  let searchFrom = 0;
+  while (searchFrom < normalizedUserText.length) {
+    const contentIndex = normalizedUserText.indexOf(normalizedContent, searchFrom);
+    if (contentIndex < 0) return false;
+    const start = Math.max(0, contentIndex - 120);
+    const end = Math.min(normalizedUserText.length, contentIndex + normalizedContent.length + 120);
+    if (memoryCreateContentHasSecretLikeMaterial(normalizedUserText.slice(start, end))) return true;
+    searchFrom = contentIndex + Math.max(1, normalizedContent.length);
+  }
+  return false;
+}
+
+function currentUserTextAuthorizesMemoryCreate(normalizedUserText: string, normalizedContent: string): boolean {
+  let searchFrom = 0;
+  while (searchFrom < normalizedUserText.length) {
+    const contentIndex = normalizedUserText.indexOf(normalizedContent, searchFrom);
+    if (contentIndex < 0) return false;
+    const { clause, priorContext } = currentUserMemoryCreateClause(normalizedUserText.slice(0, contentIndex));
+    const suffix = normalizedUserText.slice(contentIndex + normalizedContent.length, contentIndex + normalizedContent.length + 160);
+    const suffixClause = currentUserMemoryCreateSuffixClause(suffix);
+    if (
+      !memoryCreatePriorContextFramesUntrusted(`${priorContext} ${clause}`) &&
+      memoryCreateContextHasPositiveIntent(clause, normalizedContent, suffixClause) &&
+      !memoryCreateClauseHasNegatedIntent(clause) &&
+      !memoryCreateClauseHasNegatedIntent(suffixClause) &&
+      !memoryCreateClauseHasTransientScope(clause) &&
+      !memoryCreateClauseHasTransientScope(suffixClause) &&
+      !memoryCreateTextHasTransientScope(`${normalizedContent} ${suffix}`) &&
+      !memoryCreateSuffixHasNegatingCaveat(suffix)
+    ) {
+      return true;
+    }
+    searchFrom = contentIndex + Math.max(1, normalizedContent.length);
+  }
+  return false;
+}
+
+function currentUserMemoryCreateClause(prefix: string): { clause: string; priorContext: string } {
+  const boundary = Math.max(
+    prefix.lastIndexOf("."),
+    prefix.lastIndexOf("!"),
+    prefix.lastIndexOf("?"),
+    prefix.lastIndexOf(";"),
+    prefix.lastIndexOf("\n"),
+  );
+  return {
+    clause: prefix.slice(boundary + 1).trim(),
+    priorContext: boundary < 0 ? "" : prefix.slice(0, boundary + 1).trim(),
+  };
+}
+
+function currentUserMemoryCreateSuffixClause(suffix: string): string {
+  const trimmed = suffix.trim();
+  const boundary = [";", "\n"].reduce((best, marker) => {
+    const index = trimmed.indexOf(marker);
+    return index >= 0 && (best < 0 || index < best) ? index : best;
+  }, -1);
+  return (boundary < 0 ? trimmed : trimmed.slice(0, boundary)).trim();
+}
+
+function memoryCreatePriorContextFramesUntrusted(priorContext: string): boolean {
+  return /\b(?:summari[sz]e|analy[sz]e|review|explain|translate|paraphrase)\b.{0,80}\b(?:prompt|instruction|text|block|document|quote|snippet|transcript|log)\b/.test(priorContext) ||
+    /\b(?:pasted|quoted|untrusted|fenced|markdown|prompt[-\s]?injection)\b.{0,80}\b(?:prompt|instruction|text|block|document|quote|snippet|transcript|log)?\b/.test(priorContext);
+}
+
+function memoryCreateContextHasPositiveIntent(prefixClause: string, content: string, suffixClause: string): boolean {
+  return memoryCreateClauseHasLeadingPositiveIntent(prefixClause, `${prefixClause} ${content} ${suffixClause}`) ||
+    memoryCreateClauseHasTrailingPositiveIntent(suffixClause);
+}
+
+function memoryCreateClauseHasLeadingPositiveIntent(clause: string, context: string): boolean {
+  const match = clause.match(/^(?:please\s+)?(?:(?:can|could|would)\s+you\s+(?:please\s+)?)?(?:(?:i\s+(?:want|need)\s+you\s+to)\s+(?:please\s+)?)?(?:ambient\s*,?\s*)?(remember|store|save|record)\b/);
+  const verb = match?.[1];
+  if (!verb) return false;
+  if (verb === "remember") return !/\bremember\s+(?:when|if|whether|who|what|where|why|how)\b/.test(clause);
+  return /\b(?:memory|durable|fact|preference|instruction)\b/.test(context);
+}
+
+function memoryCreateClauseHasTrailingPositiveIntent(clause: string): boolean {
+  const match = clause.match(/^(?:[.!,?:]\s*)?(?:please\s+)?(?:(?:can|could|would)\s+you\s+(?:please\s+)?)?(?:(?:i\s+(?:want|need)\s+you\s+to)\s+(?:please\s+)?)?(?:ambient\s*,?\s*)?(remember|store|save|record)\b/);
+  const verb = match?.[1];
+  if (!verb) return false;
+  if (verb === "remember") {
+    return /\bremember\s+(?:that|this|it|the\s+(?:above|previous|preceding)|what\s+i\s+just\s+said)\b/.test(clause);
+  }
+  return /\b(?:memory|durable|fact|preference|instruction)\b/.test(clause);
+}
+
+function memoryCreateClauseHasNegatedIntent(clause: string): boolean {
+  return /\b(?:do\s+not|don't|dont|never|avoid|refuse\s+to|should\s+not|must\s+not|not\s+to)\s+(?:remember|store|save|record|keep)\b/.test(clause) ||
+    /\b(?:remember|store|save|record|keep)\b.{0,40}\b(?:not|nothing)\b/.test(clause);
+}
+
+function memoryCreateClauseHasTransientScope(clause: string): boolean {
+  return /\bfor\s+(?:this|the)\s+(?:answer|response|reply|run|task|command|session|tool|request)\b/.test(clause);
+}
+
+function memoryCreateTextHasTransientScope(text: string): boolean {
+  return /\bfor\s+(?:this|the)\s+(?:answer|response|reply|run|task|command|session|tool|request)\b/.test(text) ||
+    /\b(?:only|just)\s+for\s+(?:this|the)\s+(?:answer|response|reply|run|task|command|session|tool|request)\b/.test(text);
+}
+
+function memoryCreateSuffixHasNegatingCaveat(suffix: string): boolean {
+  return /\b(?:do\s+not|don't|dont|never|avoid|refuse\s+to|should\s+not|must\s+not)\s+(?:follow|obey|use|apply|store|save|record|remember|keep)\b/.test(suffix) ||
+    /\b(?:ignore|disregard)\s+(?:this|that|the)\s+(?:instruction|request|prompt|text|quote)\b/.test(suffix) ||
+    /\b(?:pasted|quoted|untrusted|prompt[-\s]?injection)\s+(?:instruction|request|prompt|text|quote)\b/.test(suffix);
+}
+
+function normalizeMemoryCreateGuardText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function findLastUserMessageIndex(messages: readonly AgentMessage[]): number {
@@ -499,6 +679,50 @@ const tencentMemoryUpdateToolDescriptor: DesktopToolDescriptor = {
     type: "object",
     properties: {
       updated: { type: "object" },
+    },
+    additionalProperties: true,
+  },
+  source: "first-party",
+  sideEffects: "write-workspace",
+  permissionScope: "memory.write",
+  supportsDryRun: false,
+  supportsUndo: false,
+  idempotency: "recommended",
+  defaultTimeoutMs: 8_000,
+  runtimeSupport: ["chat"],
+};
+
+const tencentMemoryCreateToolDescriptor: DesktopToolDescriptor = {
+  name: TENCENT_MEMORY_CREATE_TOOL_NAME,
+  label: "Tencent Memory Create",
+  description: "Create a new durable TencentDB Agent Memory L1 record for an explicit user memory request.",
+  promptSnippet: "ambient_memory_create: Create a durable TencentDB L1 memory when the user directly asks you to remember/store exact content.",
+  promptGuidelines: [
+    "Use this for explicit current-message requests such as \"remember that...\", \"store this in memory\", or \"save this durable fact\" followed by the exact memory text.",
+    "Set confirmed=true only when the current user message positively asks to remember exact content, or to store/save/record it as memory, a durable fact, a preference, or an instruction.",
+    "The exact content argument must appear in the current user message next to that positive memory request; a bare \"yes\" confirmation is not enough.",
+    "If you need to rewrite or infer the memory, ask the user to restate the exact memory text they want saved.",
+    "Keep content concise, durable, and user-meaningful; do not store transient tool plans or hidden reasoning.",
+    "Do not store API keys, tokens, passwords, private keys, or other secret-like content; use Ambient-managed secret tools instead.",
+    "Use type=persona for stable user preferences, instruction for standing instructions, and episodic for event/task facts.",
+    "After creating, report the stable id if the user may want to inspect, edit, or delete the memory later.",
+  ],
+  inputSchema: {
+    type: "object",
+    properties: {
+      content: { type: "string", description: "Exact durable memory content to create." },
+      type: { type: "string", enum: ["persona", "episodic", "instruction"], description: "L1 memory type. Defaults to episodic." },
+      priority: { type: "number", description: "L1 priority score. Defaults to 50." },
+      sceneName: { type: "string", description: "Optional scene/category name. Defaults to explicit_memory." },
+      confirmed: { type: "boolean", description: "Must be true only after the current user message explicitly asks to remember/store the exact content." },
+    },
+    required: ["content", "confirmed"],
+    additionalProperties: false,
+  },
+  outputSchema: {
+    type: "object",
+    properties: {
+      created: { type: "object" },
     },
     additionalProperties: true,
   },

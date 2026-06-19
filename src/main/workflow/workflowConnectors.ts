@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { WorkflowApprovalStatus, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowManifest } from "../../shared/workflowTypes";
 import { WorkflowPausedError, type WorkflowEventSink, type WorkflowRuntimeEvent } from "./workflowAgentRuntime";
-import { listWorkspaceFiles } from "../workspace/workspaceFiles";
+import { listWorkspaceFiles } from "./workflowWorkspaceFacade";
 
 export type WorkflowConnectorAuthType = "none" | "oauth2" | "oauth2_pkce";
 export type WorkflowConnectorAuthStatus = "available" | "not_configured" | "connecting" | "expired" | "revoked" | "error" | "unavailable";

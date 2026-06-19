@@ -6,11 +6,10 @@ import type { AddressInfo } from "node:net";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
-import { BrowserCredentialStore } from "../browser/browserCredentialStore";
-import { BrowserService } from "../browser/browserService";
-import { ProjectStore } from "../projectStore/projectStore";
-import { readWorkspaceFile } from "../workspace/workspaceFiles";
+import { AgentRuntime } from "./mediaAgentRuntimeDogfoodFacade";
+import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { ProjectStore } from "./mediaProjectStoreFacade";
+import { readWorkspaceFile } from "./mediaWorkspaceTestFacade";
 
 const electronMock = vi.hoisted(() => ({
   userDataPath: `${process.env.TMPDIR || "/tmp"}/ambient-media-dogfood-electron`,

@@ -9,13 +9,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { PermissionRequest } from "../../shared/permissionTypes";
 import type { AmbientPluginAuthAccountSummary, FirstPartyGoogleIntegrationState, GoogleWorkspaceCallInput, GoogleWorkspaceCallResult, GoogleWorkspaceCliInstallState, GoogleWorkspaceDescribeMethodInput, GoogleWorkspaceMaterializeFileInput, GoogleWorkspaceMaterializeFileResult, GoogleWorkspaceMethodSummary, GoogleWorkspaceOAuthClientImportInput, GoogleWorkspaceSearchMethodsInput, GoogleWorkspaceSearchMethodsResult, GoogleWorkspaceSetupInput, GoogleWorkspaceSetupState, GoogleWorkspaceValidationInput, GoogleWorkspaceValidationResult } from "../../shared/pluginTypes";
-import type { AgentRuntime, AgentRuntimeGoogleWorkspaceTools } from "../agent-runtime/agentRuntime";
-import type { BrowserCredentialStore } from "../browser/browserCredentialStore";
-import type { BrowserService } from "../browser/browserService";
+import type { AgentRuntime, AgentRuntimeGoogleWorkspaceTools } from "./googleWorkspaceAgentRuntimeDogfoodFacade";
+import type { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
 import { GoogleWorkspaceCliAdapter } from "./googleWorkspaceCliAdapter";
 import { resolveGoogleWorkspaceLiveDogfoodRuntime } from "./googleWorkspaceLiveDogfood";
 import { GOOGLE_WORKSPACE_METHOD_CATALOG, GoogleWorkspaceMethodBroker, searchGoogleWorkspaceMethods } from "./googleWorkspaceMethodBroker";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./googleWorkspaceProjectStoreFacade";
 
 const electronMock = vi.hoisted(() => ({
   userDataPath: `${process.env.TMPDIR || "/tmp"}/ambient-google-setup-dogfood-electron`,
@@ -1461,10 +1460,10 @@ describeNative("Google Workspace real gws dynamic broker dogfood", () => {
 });
 
 interface RuntimeModules {
-  AgentRuntime: typeof import("../agent-runtime/agentRuntime").AgentRuntime;
-  BrowserCredentialStore: typeof import("../browser/browserCredentialStore").BrowserCredentialStore;
-  BrowserService: typeof import("../browser/browserService").BrowserService;
-  ProjectStore: typeof import("../projectStore/projectStore").ProjectStore;
+  AgentRuntime: typeof import("./googleWorkspaceAgentRuntimeDogfoodFacade").AgentRuntime;
+  BrowserCredentialStore: typeof import("../browser/browserAgentRuntimeContract").BrowserCredentialStore;
+  BrowserService: typeof import("../browser/browserAgentRuntimeContract").BrowserService;
+  ProjectStore: typeof import("./googleWorkspaceProjectStoreFacade").ProjectStore;
 }
 
 interface GoogleWorkspaceDogfoodStub {
@@ -1484,11 +1483,10 @@ interface GoogleWorkspaceDogfoodStub {
 }
 
 async function loadRuntimeModules(): Promise<RuntimeModules> {
-  const [{ AgentRuntime }, { BrowserCredentialStore }, { BrowserService }, { ProjectStore }] = await Promise.all([
-    import("../agent-runtime/agentRuntime"),
-    import("../browser/browserCredentialStore"),
-    import("../browser/browserService"),
-    import("../projectStore/projectStore"),
+  const [{ AgentRuntime }, { BrowserCredentialStore, BrowserService }, { ProjectStore }] = await Promise.all([
+    import("./googleWorkspaceAgentRuntimeDogfoodFacade"),
+    import("../browser/browserAgentRuntimeContract"),
+    import("./googleWorkspaceProjectStoreFacade"),
   ]);
   return { AgentRuntime, BrowserCredentialStore, BrowserService, ProjectStore };
 }

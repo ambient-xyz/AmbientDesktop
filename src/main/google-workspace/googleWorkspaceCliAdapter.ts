@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, delimiter, isAbsolute, join, relative, resolve } from "node:path";
 import { redactString } from "./googleWorkspaceDiagnosticsFacade";
-import { buildSafeProcessEnv } from "../security/safeProcessEnv";
+import { buildSafeProcessEnv } from "./googleWorkspaceSecurityFacade";
 import type { GoogleSidecarRequest } from "./googleSidecarSupervisor";
 
 export type GoogleWorkspaceCliAdapterKind = "gws";

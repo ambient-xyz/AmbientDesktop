@@ -47,8 +47,8 @@ describe("classifySubagentBrowserToolAuthority", () => {
   it("asks the parent for child browser authority when the launch profile requires escalation", () => {
     const decision = classifySubagentBrowserToolAuthority({
       thread: childThread(),
-      toolName: "browser_search",
-      toolInput: { query: "Ambient sub-agent permissions" },
+      toolName: "browser_content",
+      toolInput: { url: "https://docs.example.test/ambient-sub-agent-permissions" },
       snapshots: [snapshot({ networkDecision: "ask_parent" })],
     });
 
@@ -58,14 +58,42 @@ describe("classifySubagentBrowserToolAuthority", () => {
         title: "Allow child browser network access?",
         risk: "browser-network",
         grantActionKind: "browser_network",
-        grantTargetKind: "tool",
-        grantTargetLabel: "browser_search",
+        grantTargetKind: "browser_origin",
+        grantTargetLabel: "docs.example.test",
       },
     });
     if (decision?.action === "prompt") {
       expect(decision.request.message).toContain("Review this in the parent thread");
       expect(decision.request.detail).toContain("Reason: Child browser authority requires parent approval");
     }
+  });
+
+  it("denies child browser_search even when browser interactive authority is present", () => {
+    const decision = classifySubagentBrowserToolAuthority({
+      thread: childThread(),
+      toolName: "browser_search",
+      toolInput: { query: "Ambient sub-agent permissions" },
+      snapshots: [snapshot({ networkDecision: "ask_parent" })],
+    });
+
+    expect(decision).toMatchObject({
+      action: "deny",
+      reason: "browser_search is not child-callable. Use connector.read with web_research_search for child web discovery.",
+      request: {
+        threadId: "child-thread",
+        toolName: "browser_search",
+        title: "Allow child browser network access?",
+        risk: "browser-network",
+        grantActionKind: "browser_network",
+        grantTargetKind: "tool",
+        grantTargetLabel: "browser_search",
+        grantConditions: {
+          childRunId: "child-run",
+          childThreadId: "child-thread",
+          source: "subagent-child-browser-authority",
+        },
+      },
+    });
   });
 
   it("fails closed for non-interactive child browser escalation", () => {
@@ -88,8 +116,8 @@ describe("classifySubagentBrowserToolAuthority", () => {
   it("keeps copied browser profile access parent-approved even when network is otherwise allowed", () => {
     const decision = classifySubagentBrowserToolAuthority({
       thread: childThread(),
-      toolName: "browser_search",
-      toolInput: { query: "ambient", profileMode: "copied" },
+      toolName: "browser_content",
+      toolInput: { url: "https://example.test/ambient", profileMode: "copied" },
       snapshots: [snapshot({ networkDecision: "allow" })],
     });
 
@@ -106,8 +134,8 @@ describe("classifySubagentBrowserToolAuthority", () => {
   it("denies child browser tools when the child authority profile is missing", () => {
     expect(classifySubagentBrowserToolAuthority({
       thread: childThread(),
-      toolName: "browser_search",
-      toolInput: { query: "ambient" },
+      toolName: "browser_content",
+      toolInput: { url: "https://example.test/ambient" },
       snapshots: [],
     })).toMatchObject({
       action: "deny",

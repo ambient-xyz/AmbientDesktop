@@ -12,15 +12,15 @@ import { createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS } from "../../shared/symphonyWorkflowRecipes";
 import {
+  buildCallableWorkflowExecutionPlan,
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   callableWorkflowToolName,
-} from "../callable-workflow/callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
+} from "../callable-workflow/callableWorkflowTestContract";
 import { createDiagnosticBundle, diagnosticBundleFileName, redactString, redactValue } from "./diagnostics";
-import { buildLocalModelRuntimeStatusSnapshot } from "../local-runtime/localModelRuntimeStatus";
+import { buildLocalModelRuntimeStatusSnapshot } from "./diagnosticsLocalRuntimeFacade";
 import { ambientTencentMemoryDataDir, inspectTencentDbMemoryDiagnostics } from "../memory/tencentdb";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./diagnosticsProjectStoreFacade";
 
 const gib = 1024 ** 3;
 

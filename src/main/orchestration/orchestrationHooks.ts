@@ -1,7 +1,10 @@
 import type { PermissionMode } from "../../shared/permissionTypes";
-import { redactSensitiveText } from "../security/secretRedaction";
-import { materializeTextOutput, materializedTextNotice } from "../tool-runtime/toolOutputArtifacts";
-import { spawnToolProcess } from "../tool-runtime/toolRunner";
+import { redactSensitiveText } from "./orchestrationSecurityFacade";
+import {
+  materializeTextOutput,
+  materializedTextNotice,
+  spawnToolProcess,
+} from "../tool-runtime/toolRuntimeOrchestrationContract";
 
 export type WorkflowHookName = "afterCreate" | "beforeRun" | "afterRun" | "beforeRemove";
 

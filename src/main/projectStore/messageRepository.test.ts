@@ -58,9 +58,34 @@ describe("ProjectStoreMessageRepository", () => {
     expect(threadPreview()).toBe("Done");
   });
 
+  it("keeps assistant thinking out of thread previews", () => {
+    repository.addMessage({ threadId: "thread-1", role: "user", content: "Inspect memory." });
+    const thinking = repository.addMessage({
+      threadId: "thread-1",
+      role: "assistant",
+      content: "The user asked me to inspect memory. I should call the tool.",
+      metadata: { kind: "thinking", status: "thinking" },
+    });
+
+    expect(threadPreview()).toBe("Inspect memory.");
+
+    repository.replaceMessage(thinking.id, "The user asked me to inspect memory and reply exactly: inspected.", {
+      kind: "thinking",
+      status: "done",
+    });
+
+    expect(threadPreview()).toBe("Inspect memory.");
+  });
+
   it("repairs stale previews from persisted messages", () => {
     const user = repository.addMessage({ threadId: "thread-1", role: "user", content: "Use this preview." });
     repository.addMessage({ threadId: "thread-1", role: "tool", content: "Do not use this tool preview." });
+    repository.addMessage({
+      threadId: "thread-1",
+      role: "assistant",
+      content: "The user asked me to use this preview. I should not expose this.",
+      metadata: { kind: "thinking", status: "done" },
+    });
     db.prepare("UPDATE threads SET last_message_preview = ? WHERE id = ?").run("stale", "thread-1");
 
     repository.repairThreadPreviews();

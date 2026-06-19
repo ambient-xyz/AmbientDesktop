@@ -133,6 +133,13 @@ describe("AppConversationMessages", () => {
     );
 
     expect(markup).toContain("subagent-parent-cluster-child-transcript-live");
+    const parentClusterDetails = markup.match(/<details class="subagent-parent-cluster"[^>]*>/)?.[0] ?? "";
+    expect(parentClusterDetails).toContain("open=\"\"");
+    expect(parentClusterDetails).toContain("data-subagent-cluster-auto-open=\"true\"");
+    expect(parentClusterDetails).toContain("data-subagent-cluster-live-child-count=\"1\"");
+    const childDetails = markup.match(/<details class="subagent-parent-cluster-child-thread[^>]*data-child-run-id="child-run-1"[^>]*>/)?.[0] ?? "";
+    expect(childDetails).toContain("open=\"\"");
+    expect(childDetails).toContain("data-child-live-transcript-auto-open=\"true\"");
     expect(markup).toContain("data-child-run-id=\"child-run-1\"");
     expect(markup).toContain("data-child-message-count=\"2\"");
     expect(markup).toContain("data-child-tool-message-count=\"1\"");
@@ -182,6 +189,84 @@ describe("AppConversationMessages", () => {
     expect(markup.indexOf("Parent follow-up remains visible inside the child timeline.")).toBeLessThan(
       markup.indexOf("data-child-blocker-panel=\"after-transcript\""),
     );
+  });
+
+  it("auto-opens a running child transcript in the parent thread even without a blocker", () => {
+    const model = subagentParentClusterFixtureModel();
+    model.parentBlocking = undefined;
+    model.barriers = [];
+    model.mailboxActivities = [];
+    model.patternGraphs = [];
+    model.workflowTasks = [];
+    model.status = "Running";
+    model.statusTone = "active";
+    model.summary = "1 child active";
+    model.children = [{
+      ...model.children[0]!,
+      parentBlocker: undefined,
+      status: "Running",
+      runStatus: "running",
+      statusTone: "active",
+      isTerminal: false,
+      isSynthesisSafe: false,
+      preview: "Child is streaming its research.",
+    }];
+
+    const markup = renderToStaticMarkup(
+      <AppConversationMessages
+        {...baseProps({
+          provider: provider({ hasApiKey: true }),
+          visibleChatMessages: [parentAssistantMessage()],
+          childMessagesByThreadId: {
+            "child-thread-1": [childAssistantMessage()],
+          },
+          threads: [
+            {
+              id: "child-thread-1",
+              title: "Reviewer",
+              workspacePath: "/workspace/reviewer",
+            },
+          ] as DesktopState["threads"],
+          subagentRunEvents: [
+            {
+              runId: "child-run-1",
+              sequence: 1,
+              type: "subagent.child_session_running",
+              createdAt: "2026-06-13T00:00:01.000Z",
+              preview: {
+                childThreadId: "child-thread-1",
+                messagePreview: "Child Pi session is running in the visible child thread.",
+              },
+            },
+          ] as DesktopState["subagentRunEvents"],
+          threadRunStatuses: { "child-thread-1": "streaming" },
+          runActivityLinesByThread: {
+            "child-thread-1": [{
+              id: "child-activity-1",
+              kind: "thinking",
+              text: "Child is producing live transcript evidence.",
+              timestamp: 1,
+            }],
+          },
+          subagentParentClustersByMessageId: new Map([["message-1", model]]),
+        })}
+      />,
+    );
+
+    const parentClusterDetails = markup.match(/<details class="subagent-parent-cluster"[^>]*>/)?.[0] ?? "";
+    const childDetails = markup.match(/<details class="subagent-parent-cluster-child-thread[^>]*data-child-run-id="child-run-1"[^>]*>/)?.[0] ?? "";
+    expect(parentClusterDetails).toContain("open=\"\"");
+    expect(parentClusterDetails).toContain("data-subagent-cluster-auto-open=\"true\"");
+    expect(parentClusterDetails).toContain("data-subagent-cluster-live-child-count=\"1\"");
+    expect(childDetails).toContain("open=\"\"");
+    expect(childDetails).toContain("data-child-default-expanded=\"true\"");
+    expect(childDetails).toContain("data-child-live-transcript-auto-open=\"true\"");
+    expect(markup).toContain("data-child-transcript-primary=\"true\"");
+    expect(markup).toContain("data-child-transcript-stream-live=\"true\"");
+    expect(markup).toContain("data-child-run-activity-visible=\"true\"");
+    expect(markup).toContain("Child transcript rendered inline for Reviewer.");
+    expect(markup).toContain("Child is producing live transcript evidence.");
+    expect(markup).not.toContain("data-child-blocker-panel=\"after-transcript\"");
   });
 
   it("keeps opened child thread transcripts ahead of collapsed run details", () => {

@@ -22,7 +22,7 @@ import {
   type WorkflowPiProgress,
   type WorkflowPiTextCallInput,
   type WorkflowPiToolProgress,
-} from "../workflow/workflowPiTransport";
+} from "./mcpAutowireWorkflowFacade";
 
 const urlReadToolName = "ambient_mcp_url_read";
 const sourceSearchToolName = "ambient_mcp_source_search";

@@ -5,7 +5,7 @@ import { type WorkflowConfig } from "./orchestrationWorkflowFacade";
 import {
   ensureDefaultProjectBoardWorkflow,
   type ProjectBoardWorkflowBootstrapResult,
-} from "../project-board/projectBoardWorkflowBootstrap";
+} from "./orchestrationProjectBoardFacade";
 import {
   isRestartInterruptedOrchestrationRun,
   RESTART_INTERRUPTED_AUTO_CONTINUE_LIMIT,

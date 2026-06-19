@@ -11,13 +11,12 @@ import type {
   VoiceProviderCandidate,
 } from "../../shared/localRuntimeTypes";
 import { resolveLocalRuntimeMemoryPolicy } from "../../shared/localRuntimeMemoryPolicy";
-import { localDeepResearchProfileById } from "../local-deep-research/localDeepResearchModelProfiles";
+import { localDeepResearchProfileById, normalizeLocalModelResourceSettings } from "../local-deep-research/localDeepResearchLocalModelResourceContract";
 import {
   detectLocalLlamaResidentProcesses,
   type DetectLocalLlamaResidentProcessesInput,
   type LocalLlamaResidentProcess,
 } from "./localRuntimeLocalLlamaFacade";
-import { normalizeLocalModelResourceSettings } from "../local-deep-research/localDeepResearchProviderStack";
 import {
   isActiveLocalRuntimeLease,
   type LocalRuntimeLeaseFreshnessOptions,

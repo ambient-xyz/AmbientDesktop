@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { dirname, extname, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./browserSessionFacade";
 
 const execFileAsync = promisify(execFile);
 

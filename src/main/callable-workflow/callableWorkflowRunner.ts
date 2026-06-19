@@ -3,7 +3,7 @@ import type { CallableWorkflowCompilerHandoffPlan } from "./callableWorkflowTask
 import {
   workflowCompilerCallableInvocationContextFromRunnerInput,
   type WorkflowCompilerCallableInvocationContext,
-} from "../workflow-compiler/workflowCompilerService";
+} from "./callableWorkflowWorkflowCompilerFacade";
 
 export const CALLABLE_WORKFLOW_RUNNER_BRIDGE_SCHEMA_VERSION =
   "ambient-callable-workflow-runner-bridge-v1" as const;

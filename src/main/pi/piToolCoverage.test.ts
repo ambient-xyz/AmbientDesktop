@@ -11,7 +11,7 @@ import {
   createAmbientReadOperations,
   createAmbientWriteOperations,
 } from "./piReadOperations";
-import { createToolRunnerBashOperations } from "../tool-runtime/toolRunner";
+import { createToolRunnerBashOperations } from "./piToolRuntimeFacade";
 
 const expectedPiToolNames = ["bash", "edit", "find", "grep", "ls", "read", "write"] as const;
 

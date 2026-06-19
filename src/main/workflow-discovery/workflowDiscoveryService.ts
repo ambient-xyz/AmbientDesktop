@@ -5,8 +5,8 @@ import type { AnswerWorkflowDiscoveryQuestionInput, ResolveWorkflowDiscoveryAcce
 import { workflowDiscoveryGraph } from "../../shared/workflowDiscovery";
 import { applyWorkflowDiscoveryGraphPatch, validateWorkflowDiscoveryGraphPatch } from "../../shared/workflowDiscoveryGraphPatch";
 import { isRetryableAmbientProviderError } from "./workflowDiscoveryAmbientFacade";
-import { searchAmbientCliCapabilities, type AmbientCliCapabilitySearchResponse } from "../ambient-cli/ambientCliPackages";
-import type { ProjectStore } from "../projectStore/projectStore";
+import { searchAmbientCliCapabilities, type AmbientCliCapabilitySearchResponse } from "./workflowDiscoveryAmbientCliFacade";
+import type { ProjectStore } from "./workflowDiscoveryProjectStoreFacade";
 import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
 import type { WorkflowConnectorDescriptor } from "./workflowDiscoveryWorkflowFacade";
 import { DefaultWorkflowDiscoveryContextGatherer, type WorkflowDiscoveryContextGatherer } from "./workflowDiscoveryContextGatherer";

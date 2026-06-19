@@ -4,7 +4,7 @@ import type { MediaArtifactResult } from "../../shared/desktopTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { mediaToolDescriptor } from "./agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
-import { downloadMediaArtifact, mediaDownloadResultText } from "../media/mediaDownload";
+import { downloadMediaArtifact, mediaDownloadResultText } from "./agentRuntimeMediaFacade";
 
 export function createMediaToolExtension(workspace: Pick<WorkspaceState, "path">): ExtensionFactory {
   return (pi) => {

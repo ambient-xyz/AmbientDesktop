@@ -12,12 +12,13 @@ import {
   type AmbientPluginRuntimeFilter,
   type AmbientPluginSourceFilter,
 } from "./pluginUiModel";
+import type { CapabilityBuilderPromptResult } from "./AppCapabilityPromptActions";
 import type { PluginPanelView } from "./RightPanelPluginHost";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 
 type UseRightPanelPluginCatalogControllerInput = {
   workspacePath: string;
-  onStartCapabilityBuilder: (prompt: string, newChat: boolean, activityLine?: string) => Promise<void>;
+  onStartCapabilityBuilder: (prompt: string, newChat: boolean, activityLine?: string) => Promise<CapabilityBuilderPromptResult>;
   onGoogleIntegrationChanged: (googleIntegration: FirstPartyGoogleIntegrationState | undefined) => void;
   mcp: {
     prepareCatalogLoad: () => void;

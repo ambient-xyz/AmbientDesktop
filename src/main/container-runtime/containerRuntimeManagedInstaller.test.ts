@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { executeContainerRuntimeManagedInstallAction } from "./containerRuntimeManagedInstaller";
 import { buildContainerRuntimeInstallPlan } from "./containerRuntimeInstallLauncher";
-import { DryRunPrivilegedActionAdapter } from "../privileged-action/privilegedActionAdapter";
+import { DryRunPrivilegedActionAdapter } from "./containerRuntimePrivilegedActionFacade";
 
 describe("container runtime managed installer", () => {
   it("runs a managed user command without opening a browser", async () => {

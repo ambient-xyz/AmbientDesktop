@@ -22,9 +22,11 @@ import {
   type LocalTextRuntimeManagerLike,
 } from "./localTextDelegation";
 import type { LocalTextSubagentRuntimeConfig } from "./localTextSubagentRuntime";
-import { localTextMainAssistantContent } from "../agent-runtime/subagents/agentRuntimeSubagentRuntimeHelpers";
 import type { ProjectStore } from "./localRuntimeProjectStoreFacade";
-import { agentRuntimeQueuedMessageMetadata } from "../agent-runtime/agentRuntimeUserMessageMetadata";
+import {
+  agentRuntimeQueuedMessageMetadata,
+  localTextMainAssistantContent,
+} from "./localRuntimeAgentRuntimeFacade";
 
 export interface AgentRuntimeLocalTextMainActiveRun {
   abort: () => Promise<void>;

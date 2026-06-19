@@ -50,7 +50,7 @@ import { registerWorkflowAutomationDomainIpc } from "./registerWorkflowAutomatio
 import { registerWorkspaceGitDomainIpc } from "./registerWorkspaceGitDomainIpc";
 
 import type { ProjectRuntimeHost } from "../index";
-import type { ProjectStore } from "../projectStore/projectStore";
+import type { ProjectStore } from "./ipcProjectStoreFacade";
 import { assertSlashCommandSelectionInvocable } from "./slashCommandCatalog";
 
 type ProjectRuntimeHostLookup = (...args: any[]) => ProjectRuntimeHost;

@@ -59,12 +59,12 @@ export function createAppWorkspaceNavigationControls({
   threadRunStatuses,
 }: {
   activeWorkspacePath: string | undefined;
-  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => void;
+  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => boolean;
   closeProjectBoard: () => void;
   currentWorkspacePath: string | undefined;
   openNewWorkflowComposer: () => void;
   projectIdForWorkspacePath: (workspacePath: string) => string;
-  rememberDesktopState: (next: DesktopState) => void;
+  rememberDesktopState: (next: DesktopState) => DesktopState | false | void;
   scheduleComposerFocusEnd: () => void;
   setComposerDraft: (value: string, options?: { clearSlashCommandSelection?: boolean }) => void;
   setProjectPopover: Dispatch<SetStateAction<ProjectPopover | undefined>>;
@@ -86,12 +86,14 @@ export function createAppWorkspaceNavigationControls({
   selectThread: (threadId: string, workspacePath?: string) => Promise<void>;
 } {
   function applyLoadedWorkspaceState(next: DesktopState): void {
-    const nextRunStatuses = workspaceReplacementRunStatuses(next);
+    const remembered = rememberDesktopState(next);
+    if (remembered === false) return;
+    const nextState = remembered ?? next;
+    const nextRunStatuses = workspaceReplacementRunStatuses(nextState);
     setThreadRunStatuses(nextRunStatuses);
-    rememberDesktopState(next);
-    setState(next);
+    setState(nextState);
     setSidebarArea("projects");
-    setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
+    setRunStatus(runStatusForDesktopState(nextState, nextRunStatuses));
     setComposerDraft("", { clearSlashCommandSelection: true });
     setProjectsCollapsed(false);
     setProjectPopover(undefined);
@@ -144,27 +146,31 @@ export function createAppWorkspaceNavigationControls({
       request.kind === "thread"
         ? await window.ambientDesktop.selectThread(request.threadId)
         : await window.ambientDesktop.selectProject({ projectId: request.projectId, threadId: request.threadId });
-    const nextRunStatuses = mergeAppDesktopRunStatuses(threadRunStatuses, next);
+    const remembered = rememberDesktopState(next);
+    if (remembered === false) return;
+    const nextState = remembered ?? next;
+    const nextRunStatuses = mergeAppDesktopRunStatuses(threadRunStatuses, nextState);
     setThreadRunStatuses(nextRunStatuses);
-    rememberDesktopState(next);
-    setState(next);
-    setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
+    setState(nextState);
+    setRunStatus(runStatusForDesktopState(nextState, nextRunStatuses));
     closeProjectBoard();
-    if (appDesktopWorkspaceChanged(next, activeWorkspacePath)) {
+    if (appDesktopWorkspaceChanged(nextState, activeWorkspacePath)) {
       setWorkspaceRevision((revision) => revision + 1);
     }
   }
 
   async function selectProject(workspacePath: string): Promise<void> {
     const next = await window.ambientDesktop.selectProject({ projectId: projectIdForWorkspacePath(workspacePath) });
-    const nextRunStatuses = mergeAppDesktopRunStatuses(threadRunStatuses, next);
+    const remembered = rememberDesktopState(next);
+    if (remembered === false) return;
+    const nextState = remembered ?? next;
+    const nextRunStatuses = mergeAppDesktopRunStatuses(threadRunStatuses, nextState);
     setThreadRunStatuses(nextRunStatuses);
-    rememberDesktopState(next);
-    setState(next);
+    setState(nextState);
     setSidebarArea("projects");
-    setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
+    setRunStatus(runStatusForDesktopState(nextState, nextRunStatuses));
     closeProjectBoard();
-    if (appDesktopWorkspaceChanged(next, activeWorkspacePath)) {
+    if (appDesktopWorkspaceChanged(nextState, activeWorkspacePath)) {
       setComposerDraft("", { clearSlashCommandSelection: true });
       setWorkspaceRevision((revision) => revision + 1);
     }

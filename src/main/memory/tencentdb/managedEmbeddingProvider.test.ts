@@ -12,16 +12,18 @@ import {
   ambientMemoryEmbeddingServerStateRoot,
   detectAmbientMemoryEmbeddingAssets,
   discoverAmbientMemoryEmbeddingProviders,
+  repairAmbientMemoryResidentConflicts,
   runAmbientMemoryEmbeddingLifecycleAction,
   startAmbientMemoryEmbeddingRuntime,
 } from "./managedEmbeddingProvider";
 import { managedInstallWorkspacePath } from "./memorySetupFacade";
-import { miniCpmRuntimeReleaseManifestPrototype } from "../../mini-cpm/miniCpmRuntimeManifest";
+import { miniCpmRuntimeReleaseManifestPrototype } from "./memoryMiniCpmFacade";
 import {
   selectLocalLlamaRuntimeArtifact,
   type LocalLlamaServerAcquireInput,
   type LocalLlamaServerLease,
   type LocalLlamaServerState,
+  type LocalLlamaResidentProcess,
 } from "./memoryLocalLlamaFacade";
 
 describe("managed Tencent memory embedding provider", () => {
@@ -183,7 +185,118 @@ describe("managed Tencent memory embedding provider", () => {
 
     expect(result.status).toBe("blocked");
     expect(result.reason).toContain("Another llama.cpp runtime is already resident");
+    expect(result.reason).toContain("Ambient will not stop external or active llama.cpp runtimes automatically");
     expect(acquire).not.toHaveBeenCalled();
+  });
+
+  it("tells users Repair can clean an orphaned Ambient memory embedding resident", async () => {
+    const workspace = await tempWorkspace("resident-repair-copy");
+    await installSparseModel(workspace);
+    await installRuntime(workspace);
+    const acquire = vi.fn();
+
+    const result = await startAmbientMemoryEmbeddingRuntime({
+      workspacePath: workspace,
+      supervisor: { acquire },
+      detectResidents: () => [ambientMemoryOrphanResident(80235)],
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain("Repair can stop the orphaned Ambient memory embedding runtime");
+    expect(acquire).not.toHaveBeenCalled();
+  });
+
+  it("repairs orphaned Ambient-managed memory embedding residents before retrying start", async () => {
+    const workspace = await tempWorkspace("repair-orphan");
+    const resident = ambientMemoryOrphanResident(80233);
+    const alive = new Set([resident.pid]);
+    const killCalls: Array<{ pid: number; signal?: NodeJS.Signals }> = [];
+
+    const result = await repairAmbientMemoryResidentConflicts({
+      workspacePath: workspace,
+      detectResidents: () => [resident],
+      processAlive: (pid) => alive.has(pid),
+      killProcess: (pid, signal) => {
+        killCalls.push({ pid, signal });
+        alive.delete(pid);
+      },
+      sleep: async () => undefined,
+    });
+
+    expect(result.status).toBe("clean");
+    expect(result.reason).toBe("Stopped 1 orphaned Ambient memory embedding runtime.");
+    expect(result.stopped).toEqual([
+      expect.objectContaining({
+        kind: "safe_ambient_memory_orphan",
+        id: "untracked-llama:80233",
+        pid: 80233,
+        ppid: 1,
+      }),
+    ]);
+    expect(result.blockers).toEqual([]);
+    expect(killCalls).toEqual([{ pid: 80233, signal: "SIGTERM" }]);
+  });
+
+  it("does not repair external llama.cpp residents even when they are orphaned", async () => {
+    const workspace = await tempWorkspace("repair-external");
+    const resident: LocalLlamaResidentProcess = {
+      capability: "local-text",
+      id: "untracked-llama:4404",
+      pid: 4404,
+      ppid: 1,
+      running: true,
+      statePath: "process:4404",
+      trackingStatus: "untracked",
+      modelId: "/models/embeddinggemma-300m-qat-Q8_0.gguf",
+      commandLine: "/opt/llama.cpp/build/bin/llama-server --embedding --alias embeddinggemma-300m-q8_0 --model /models/embeddinggemma-300m-qat-Q8_0.gguf --host 127.0.0.1 --port 44222",
+    };
+    const killProcess = vi.fn();
+
+    const result = await repairAmbientMemoryResidentConflicts({
+      workspacePath: workspace,
+      detectResidents: () => [resident],
+      processAlive: (pid) => pid === resident.pid,
+      killProcess,
+      sleep: async () => undefined,
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        kind: "external_or_active_runtime",
+        id: "untracked-llama:4404",
+        pid: 4404,
+      }),
+    ]);
+    expect(result.reason).toContain("Ambient will not stop it automatically");
+    expect(killProcess).not.toHaveBeenCalled();
+  });
+
+  it("does not repair Ambient-looking memory residents that still have a parent process", async () => {
+    const workspace = await tempWorkspace("repair-active-parent");
+    const resident = {
+      ...ambientMemoryOrphanResident(80234),
+      ppid: 777,
+    };
+    const killProcess = vi.fn();
+
+    const result = await repairAmbientMemoryResidentConflicts({
+      workspacePath: workspace,
+      detectResidents: () => [resident],
+      processAlive: (pid) => pid === resident.pid,
+      killProcess,
+      sleep: async () => undefined,
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.blockers[0]).toMatchObject({
+      kind: "external_or_active_runtime",
+      id: "untracked-llama:80234",
+      pid: 80234,
+      ppid: 777,
+    });
+    expect(result.reason).toContain("parent PID 777");
+    expect(killProcess).not.toHaveBeenCalled();
   });
 
   it("checks a running managed embedding endpoint with the embeddings preflight", async () => {
@@ -319,6 +432,31 @@ async function installRuntime(workspace: string): Promise<void> {
   );
   await mkdir(dirname(runtimePath), { recursive: true });
   await writeFile(runtimePath, "#!/bin/sh\n", "utf8");
+}
+
+function ambientMemoryOrphanResident(pid: number): LocalLlamaResidentProcess {
+  const managedRoot = join(tmpdir(), `ambient memory orphan ${pid}`, "Application Support", "Ambient Desktop", "managed-installs");
+  const runtimePath = join(
+    managedRoot,
+    ".ambient/vision/minicpm-v/runtime/b9122/macos-arm64-metal/llama-b9122/llama-server",
+  );
+  const modelPath = join(
+    managedRoot,
+    ".ambient/memory/tencentdb/embeddings/models/ggml-org--embeddinggemma-300m-qat-q8_0-GGUF/66f974f8cd48cc3b9c41c516b95508e75b4bee64/embeddinggemma-300m-qat-Q8_0.gguf",
+  );
+  return {
+    capability: "local-text",
+    id: `untracked-llama:${pid}`,
+    pid,
+    ppid: 1,
+    running: true,
+    statePath: `process:${pid}`,
+    trackingStatus: "untracked",
+    modelId: modelPath,
+    endpointUrl: "http://127.0.0.1:49768",
+    port: 49768,
+    commandLine: `${runtimePath} --model ${modelPath} --host 127.0.0.1 --port 49768 -c 2048 -ngl 99 --embedding --alias ${AMBIENT_MEMORY_EMBEDDING_MODEL_ID}`,
+  };
 }
 
 function llamaState(workspace: string, input: LocalLlamaServerAcquireInput): LocalLlamaServerState {

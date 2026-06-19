@@ -15,13 +15,13 @@ import {
   type AmbientCliRunResult,
   type RunAmbientCliInput,
   runAmbientCliPackageCommand,
-} from "../ambient-cli/ambientCliPackages";
+} from "./localDeepResearchAmbientCliFacade";
 import {
   browserToolFallback,
   browserUnavailableText,
   isBrowserUnavailableFallback,
   isBrowserUserActionState,
-} from "../agent/agentBrowserRuntime";
+} from "./localDeepResearchAgentFacade";
 import {
   ambientCliRunText,
   browserAuditRisk,
@@ -32,8 +32,8 @@ import {
   materializeBrowserPageContent,
   webResearchNoProviderText,
 } from "./localDeepResearchAgentRuntimeWebBrokerFacade";
-import type { McpToolCallResult } from "../mcp/mcpToolBridge";
-import type { MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
+import type { McpToolCallResult } from "./localDeepResearchMcpFacade";
+import type { MaterializedTextOutput } from "./localDeepResearchToolRuntimeFacade";
 import {
   callExaWebFetch,
   callExaWebSearch,

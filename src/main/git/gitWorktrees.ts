@@ -4,7 +4,7 @@ import { appendFile, cp, mkdir, readFile, realpath, stat } from "node:fs/promise
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./gitSessionFacade";
 
 const execFileAsync = promisify(execFile);
 

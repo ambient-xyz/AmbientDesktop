@@ -6,7 +6,7 @@ import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { PermissionMode } from "../../shared/permissionTypes";
 import type { TerminalSession } from "../../shared/terminalTypes";
 import { TerminalTextBuffer } from "./terminalText";
-import { buildTerminalShellInvocation } from "../tool-runtime/toolRunner";
+import { buildTerminalShellInvocation } from "./terminalToolRuntimeFacade";
 
 interface ManagedTerminal {
   id: string;

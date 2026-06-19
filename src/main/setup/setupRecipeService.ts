@@ -8,7 +8,7 @@ import {
   type ContainerRuntimeCommandInvocation,
   type ContainerRuntimeCommandResult,
   type ContainerRuntimeHostProbe,
-} from "../container-runtime/containerRuntimeProbeService";
+} from "./setupContainerRuntimeFacade";
 
 const execFileAsync = promisify(execFile);
 

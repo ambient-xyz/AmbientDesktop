@@ -53,6 +53,20 @@ describe("App project board actions", () => {
     expect(calls.projectActionStates).toEqual([nextState]);
   });
 
+  it("does not reopen the project board when the returned project state is stale", async () => {
+    const nextState = desktopState();
+    const createProjectBoard = vi.fn(async () => nextState);
+    const { actions, calls } = createController({
+      ambientDesktop: { createProjectBoard },
+      projectActionApplied: false,
+    });
+
+    await actions.buildProjectBoard(projectSummary({ id: "project-1" }));
+
+    expect(calls.projectBoardOpen).toEqual([true]);
+    expect(calls.projectActionStates).toEqual([nextState]);
+  });
+
   it("does not build boards for workflow-recording threads", async () => {
     const createProjectBoard = vi.fn(async () => desktopState());
     const { actions, calls, busyIds } = createController({
@@ -100,10 +114,12 @@ function createController({
   activeThread,
   ambientDesktop,
   projectBoardResetDialog,
+  projectActionApplied = true,
   setProjectBoardResetDialog,
 }: {
   activeThread?: { workflowRecording?: unknown };
   ambientDesktop: AmbientDesktopMock;
+  projectActionApplied?: boolean;
   projectBoardResetDialog?: ProjectBoardResetDialogState;
   setProjectBoardResetDialog?: Dispatch<SetStateAction<ProjectBoardResetDialogState | undefined>>;
 }) {
@@ -131,8 +147,14 @@ function createController({
   const actions = createAppProjectBoardActions({
     activeThread,
     activeWorkspacePath: "/repo",
-    applyCreatedThreadState: (next) => calls.createdThreadStates.push(next),
-    applyProjectActionState: (next) => calls.projectActionStates.push(next),
+    applyCreatedThreadState: (next) => {
+      calls.createdThreadStates.push(next);
+      return true;
+    },
+    applyProjectActionState: (next) => {
+      calls.projectActionStates.push(next);
+      return projectActionApplied;
+    },
     projectBoardBusyProjectIds: busyIds.value,
     projectBoardKickoffDefaultsBusy: false,
     projectBoardResetDialog,

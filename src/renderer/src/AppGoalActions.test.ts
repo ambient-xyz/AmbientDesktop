@@ -145,6 +145,7 @@ describe("App goal actions", () => {
       threadId: "thread-1",
       expectedGoalId: "goal-1",
     });
+    expect(controller.onGoalCleared).toHaveBeenCalledWith("thread-1", "goal-1");
     expect(controller.state.value?.activeThreadGoal).toBeUndefined();
     expect(controller.goalBusy.value).toBe(false);
     expect(controller.goalMenuOpen.value).toBe(false);
@@ -167,9 +168,11 @@ function createController({
   const goalModeArmedState = statefulSetter(goalModeArmed);
   const setError = vi.fn();
   const setLocalDeepResearchModeArmed = vi.fn();
+  const onGoalCleared = vi.fn();
   return {
     actions: createAppGoalActions({
       goalModeArmed,
+      onGoalCleared,
       setError,
       setGoalBusy: goalBusy.set,
       setGoalMenuOpen: goalMenuOpenState.set,
@@ -181,6 +184,7 @@ function createController({
     goalBusy,
     goalMenuOpen: goalMenuOpenState,
     goalModeArmed: goalModeArmedState,
+    onGoalCleared,
     setError,
     setLocalDeepResearchModeArmed,
     state: stateValue,

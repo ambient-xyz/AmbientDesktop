@@ -55,7 +55,6 @@ import type {
   WorkflowThreadExplorationResult,
   WorkflowVersionSummary,
 } from "../../shared/workflowTypes";
-import type { WorkflowDiscoveryPolicyContext } from "../workflow-discovery/workflowDiscoveryPolicy";
 import {
   registerWorkflowAgentCapabilityIpc,
   registerWorkflowAgentDiscoveryAnswerIpc,
@@ -126,11 +125,12 @@ import {
   type RegisterWorkflowRecoverRunIpcDependencies,
   type RegisterWorkflowRunArtifactIpcDependencies,
 } from "./registerWorkflowIpc";
-import type { CompileWorkflowArtifactInput } from "../workflow-compiler/workflowCompilerService";
 import type {
+  CompileWorkflowArtifactInput,
   RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput,
   WorkflowConnectorDescriptor,
   WorkflowDebugRewriteContext,
+  WorkflowDiscoveryPolicyContext,
   WorkflowRecoveryPlan,
 } from "./ipcWorkflowFacade";
 

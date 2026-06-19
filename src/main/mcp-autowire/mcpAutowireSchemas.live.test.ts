@@ -6,7 +6,7 @@ import {
   validateMcpAutowireCandidate,
   type McpAutowireCandidate,
 } from "./mcpAutowireSchemas";
-import { callWorkflowPiJson } from "../workflow/workflowPiTransport";
+import { callWorkflowPiJson } from "./mcpAutowireWorkflowFacade";
 
 const runLive = process.env.AMBIENT_MCP_AUTOWIRE_LIVE === "1";
 const liveIt = runLive ? it : it.skip;

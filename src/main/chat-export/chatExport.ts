@@ -7,9 +7,9 @@ import type { SubagentMailboxEventSummary, SubagentParentMailboxEventSummary, Su
 import type { ChatExportSource, ChatMessage, ContextUsageSnapshot, ThreadSummary, ToolExternalModelResponseArtifact, ToolLargeOutputPreviewItem } from "../../shared/threadTypes";
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import { getRestorablePiSessionFile, isPathInside } from "../session/sessionPaths";
-import { isSecretKey, REDACTED_SECRET, redactSensitiveText, redactSensitiveTextWithMetadata } from "../security/secretRedaction";
-import { compactSubagentToolScopeSnapshot } from "../subagents/subagentToolScopeSnapshot";
+import { getRestorablePiSessionFile, isPathInside } from "./chatExportSessionFacade";
+import { isSecretKey, REDACTED_SECRET, redactSensitiveText, redactSensitiveTextWithMetadata } from "./chatExportSecurityFacade";
+import { compactSubagentToolScopeSnapshot } from "./chatExportSubagentsFacade";
 
 export interface ChatExportDataSource {
   getWorkspace(): WorkspaceState;

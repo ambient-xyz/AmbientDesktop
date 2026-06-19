@@ -27,7 +27,7 @@ import {
 import { workflowApprovalsFromEvents } from "./workflowApprovals";
 import { JsonWorkflowCheckpointStore, readWorkflowCheckpointSummaries } from "./workflowCheckpointStore";
 import { workflowResumeChainEvents, workflowResumeChainModelCalls, workflowResumeChainRunIds } from "./workflowRunChain";
-import { loadWorkflowProgramFromSource } from "../workflow-program/workflowProgramLoader";
+import { loadWorkflowProgramFromSource } from "./workflowProgramRuntimeFacade";
 import {
   createWorkflowAmbientClient,
   MemoryWorkflowAmbientCache,

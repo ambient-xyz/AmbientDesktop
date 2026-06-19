@@ -16,6 +16,7 @@ export {
   executeSubagentBarrierDecision,
   executeSubagentCancelAgent,
   executeSubagentCloseAgent,
+  isSubagentTerminalStatus,
   resolveActiveSubagentWaitBarriersForRun,
   resolveAgentRuntimeActiveToolNamesForThread,
   resolveSubagentApprovalDecision,

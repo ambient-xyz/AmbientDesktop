@@ -9,18 +9,7 @@ import type {
   SubagentChildRuntimeApprovalRequest,
   SubagentChildRuntimeApprovalResponseInput,
 } from "../agentRuntimePiFacade";
-
-export function isSubagentTerminalStatus(status: SubagentRunSummary["status"]): boolean {
-  return [
-    "completed",
-    "failed",
-    "stopped",
-    "cancelled",
-    "timed_out",
-    "detached",
-    "aborted_partial",
-  ].includes(status);
-}
+export { isSubagentTerminalStatus } from "../agentRuntimeSubagentsFacade";
 
 export function uniqueStrings(values: string[]): string[] {
   return Array.from(new Set(values.filter((value) => value.trim())));

@@ -8,7 +8,7 @@ import type {
 } from "../../../shared/agentMemoryDiagnostics";
 import type { EmbeddingProviderCandidate, EmbeddingProviderRuntimeState } from "../../../shared/localRuntimeTypes";
 import { managedInstallWorkspacePath } from "./memorySetupFacade";
-import { miniCpmRuntimeReleaseManifestPrototype } from "../../mini-cpm/miniCpmRuntimeManifest";
+import { miniCpmRuntimeReleaseManifestPrototype } from "./memoryMiniCpmFacade";
 import {
   detectLocalLlamaResidentProcesses,
   LocalLlamaServerSupervisor,
@@ -89,6 +89,31 @@ export interface StartAmbientMemoryEmbeddingRuntimeResult {
 
 type AmbientMemoryEmbeddingLifecycleSupervisor = Pick<LocalLlamaServerSupervisor, "acquire" | "stopProfile">;
 
+export type AmbientMemoryResidentClassificationKind =
+  | "current_managed_runtime"
+  | "safe_ambient_memory_orphan"
+  | "external_or_active_runtime"
+  | "ambiguous";
+
+export interface AmbientMemoryResidentClassification {
+  kind: AmbientMemoryResidentClassificationKind;
+  id: string;
+  pid: number;
+  reason: string;
+  ppid?: number;
+  endpoint?: string;
+  modelId?: string;
+  commandPreview?: string;
+}
+
+export interface AmbientMemoryResidentRepairResult {
+  status: "clean" | "blocked" | "failed";
+  reason: string;
+  stopped: AmbientMemoryResidentClassification[];
+  blockers: AmbientMemoryResidentClassification[];
+  ignored: AmbientMemoryResidentClassification[];
+}
+
 export interface RunAmbientMemoryEmbeddingLifecycleActionInput {
   workspacePath: string;
   action: AgentMemoryEmbeddingLifecycleActionKind;
@@ -108,6 +133,16 @@ export interface RunAmbientMemoryEmbeddingLifecycleActionResult {
   provider: EmbeddingProviderCandidate;
   leaseId?: string;
   release?: () => Promise<void>;
+}
+
+export interface RepairAmbientMemoryResidentConflictsInput {
+  workspacePath: string;
+  detectResidents?: (workspacePath: string) => Promise<LocalLlamaResidentProcess[]> | LocalLlamaResidentProcess[];
+  processAlive?: (pid: number) => boolean;
+  killProcess?: (pid: number, signal?: NodeJS.Signals) => void;
+  sleep?: (ms: number) => Promise<void>;
+  gracefulWaitMs?: number;
+  killWaitMs?: number;
 }
 
 export async function detectAmbientMemoryEmbeddingAssets(
@@ -143,6 +178,104 @@ export async function discoverAmbientMemoryEmbeddingProviders(workspacePath: str
   return [ambientMemoryEmbeddingProviderCandidate(workspacePath, detection)];
 }
 
+export async function repairAmbientMemoryResidentConflicts(
+  input: RepairAmbientMemoryResidentConflictsInput,
+): Promise<AmbientMemoryResidentRepairResult> {
+  const detection = await detectAmbientMemoryEmbeddingAssets(input.workspacePath);
+  let residents: LocalLlamaResidentProcess[];
+  try {
+    residents = await Promise.resolve((input.detectResidents ?? detectLocalLlamaResidentProcesses)(input.workspacePath));
+  } catch (error) {
+    return {
+      status: "failed",
+      reason: `Could not inspect resident llama.cpp processes: ${errorMessage(error)}`,
+      stopped: [],
+      blockers: [],
+      ignored: [],
+    };
+  }
+
+  const processAliveFn = input.processAlive ?? processAlive;
+  const killProcess = input.killProcess ?? ((pid: number, signal?: NodeJS.Signals) => process.kill(pid, signal));
+  const sleep = input.sleep ?? ((ms: number) => new Promise<void>((resolveSleep) => setTimeout(resolveSleep, ms)));
+  const gracefulWaitMs = input.gracefulWaitMs ?? 750;
+  const killWaitMs = input.killWaitMs ?? 250;
+  const stopped: AmbientMemoryResidentClassification[] = [];
+  const blockers: AmbientMemoryResidentClassification[] = [];
+  const ignored: AmbientMemoryResidentClassification[] = [];
+
+  for (const resident of residents) {
+    const classification = classifyAmbientMemoryResident(resident, detection.state?.pid);
+    if (classification.kind === "current_managed_runtime") {
+      ignored.push(classification);
+      continue;
+    }
+    if (!resident.running) {
+      ignored.push({
+        ...classification,
+        reason: "Resident process is already stopped.",
+      });
+      continue;
+    }
+    if (classification.kind !== "safe_ambient_memory_orphan") {
+      blockers.push(classification);
+      continue;
+    }
+
+    try {
+      killProcess(resident.pid, "SIGTERM");
+    } catch (error) {
+      if (processAliveFn(resident.pid)) {
+        return {
+          status: "failed",
+          reason: `Could not stop orphaned Ambient memory embedding runtime ${resident.id}: ${errorMessage(error)}`,
+          stopped,
+          blockers,
+          ignored,
+        };
+      }
+    }
+    await sleep(gracefulWaitMs);
+    if (processAliveFn(resident.pid)) {
+      try {
+        killProcess(resident.pid, "SIGKILL");
+      } catch {
+        // The process may exit between the liveness check and the forced signal.
+      }
+      await sleep(killWaitMs);
+    }
+    if (processAliveFn(resident.pid)) {
+      return {
+        status: "failed",
+        reason: `Orphaned Ambient memory embedding runtime ${resident.id} did not exit after termination.`,
+        stopped,
+        blockers,
+        ignored,
+      };
+    }
+    stopped.push(classification);
+  }
+
+  if (blockers.length > 0) {
+    return {
+      status: "blocked",
+      reason: `Resident llama.cpp runtime conflict remains: ${blockers.map((blocker) => `${blocker.id}: ${blocker.reason}`).join("; ")}`,
+      stopped,
+      blockers,
+      ignored,
+    };
+  }
+  return {
+    status: "clean",
+    reason: stopped.length > 0
+      ? `Stopped ${stopped.length} orphaned Ambient memory embedding runtime${stopped.length === 1 ? "" : "s"}.`
+      : "No orphaned Ambient memory embedding runtimes needed cleanup.",
+    stopped,
+    blockers,
+    ignored,
+  };
+}
+
 export async function runAmbientMemoryEmbeddingLifecycleAction(
   input: RunAmbientMemoryEmbeddingLifecycleActionInput,
 ): Promise<RunAmbientMemoryEmbeddingLifecycleActionResult> {
@@ -172,9 +305,10 @@ export async function startAmbientMemoryEmbeddingRuntime(
   const residents = await Promise.resolve((input.detectResidents ?? detectLocalLlamaResidentProcesses)(input.workspacePath)).catch(() => []);
   const blockers = residents.filter((resident) => resident.running && resident.pid !== detection.state?.pid);
   if (blockers.length > 0) {
+    const classifications = blockers.map((resident) => classifyAmbientMemoryResident(resident, detection.state?.pid));
     return {
       status: "blocked",
-      reason: `Another llama.cpp runtime is already resident (${blockers.map((resident) => resident.id).join(", ")}); memory embeddings will not start a second local model automatically.`,
+      reason: residentConflictStartReason(classifications),
       provider,
     };
   }
@@ -539,6 +673,159 @@ function unavailableReason(detection: AmbientMemoryEmbeddingAssetDetection): str
     detection.model.status !== "present" ? detection.model.reason : undefined,
     detection.runtime.status !== "present" ? detection.runtime.reason : undefined,
   ].filter(Boolean).join(" ") || "EmbeddingGemma provider assets are not ready.";
+}
+
+function residentConflictStartReason(classifications: AmbientMemoryResidentClassification[]): string {
+  const ids = classifications.map((classification) => classification.id).join(", ");
+  const safeOrphans = classifications.filter((classification) => classification.kind === "safe_ambient_memory_orphan");
+  if (safeOrphans.length === classifications.length) {
+    return `Another llama.cpp runtime is already resident (${ids}); Repair can stop the orphaned Ambient memory embedding runtime${safeOrphans.length === 1 ? "" : "s"} and retry start.`;
+  }
+  if (safeOrphans.length > 0) {
+    return `Another llama.cpp runtime is already resident (${ids}); Repair can clean the orphaned Ambient memory embedding runtime${safeOrphans.length === 1 ? "" : "s"}, but external or active llama.cpp runtimes must be stopped by the user.`;
+  }
+  return `Another llama.cpp runtime is already resident (${ids}); Ambient will not stop external or active llama.cpp runtimes automatically. Stop the other runtime, then retry Agent Memory repair.`;
+}
+
+function classifyAmbientMemoryResident(
+  resident: LocalLlamaResidentProcess,
+  currentStatePid?: number,
+): AmbientMemoryResidentClassification {
+  const base = residentClassificationBase(resident);
+  if (resident.pid === currentStatePid) {
+    return {
+      ...base,
+      kind: "current_managed_runtime",
+      reason: "Resident matches the current Ambient-managed memory embedding state.",
+    };
+  }
+
+  const commandLine = resident.commandLine ?? "";
+  if (!commandLine.trim()) {
+    return {
+      ...base,
+      kind: "ambiguous",
+      reason: "Resident command line is unavailable; Ambient will not stop it automatically.",
+    };
+  }
+
+  const tokens = shellishTokens(commandLine);
+  const binaryPath = tokens[0] ?? "";
+  const modelPath = stringArg(commandLine, ["--model", "-m"]) ?? resident.modelId;
+  const alias = stringArg(commandLine, ["--alias"]);
+  const embeddingMode = tokens.includes("--embedding");
+  const ambientRuntime = isAmbientManagedLlamaRuntimePath(binaryPath) || commandContainsAmbientManagedLlamaRuntime(commandLine);
+  const ambientMemoryModel = isAmbientManagedMemoryEmbeddingModelPath(modelPath) || commandContainsAmbientManagedMemoryEmbeddingModel(commandLine);
+  const orphaned = resident.ppid === 1;
+  const memoryEmbeddingCommand =
+    resident.trackingStatus === "untracked" &&
+    embeddingMode &&
+    alias === AMBIENT_MEMORY_EMBEDDING_MODEL_ID &&
+    ambientRuntime &&
+    ambientMemoryModel;
+
+  if (memoryEmbeddingCommand && orphaned) {
+    return {
+      ...base,
+      kind: "safe_ambient_memory_orphan",
+      reason: "Untracked Ambient-managed memory embedding runtime is orphaned and safe for Repair cleanup.",
+    };
+  }
+
+  if (memoryEmbeddingCommand) {
+    return {
+      ...base,
+      kind: "external_or_active_runtime",
+      reason: resident.ppid === undefined
+        ? "Ambient-managed memory embedding runtime has unknown parent process; Ambient will not stop it automatically."
+        : `Ambient-managed memory embedding runtime still has parent PID ${resident.ppid}; Ambient will not stop it automatically.`,
+    };
+  }
+
+  return {
+    ...base,
+    kind: "external_or_active_runtime",
+    reason: "Resident llama.cpp runtime is not an orphaned Ambient memory embedding process; Ambient will not stop it automatically.",
+  };
+}
+
+function residentClassificationBase(resident: LocalLlamaResidentProcess): Omit<AmbientMemoryResidentClassification, "kind" | "reason"> {
+  return {
+    id: resident.id,
+    pid: resident.pid,
+    ...(resident.ppid !== undefined ? { ppid: resident.ppid } : {}),
+    ...(resident.endpointUrl ? { endpoint: resident.endpointUrl } : {}),
+    ...(resident.modelId ? { modelId: resident.modelId } : {}),
+    ...(resident.commandLine ? { commandPreview: boundedPreview(resident.commandLine) } : {}),
+  };
+}
+
+function isAmbientManagedLlamaRuntimePath(path: string | undefined): boolean {
+  const normalized = normalizePathForMatching(path);
+  return Boolean(normalized && normalized.includes("/.ambient/vision/minicpm-v/runtime/") && /\/llama-[^/]*\/llama-server$/.test(normalized));
+}
+
+function isAmbientManagedMemoryEmbeddingModelPath(path: string | undefined): boolean {
+  const normalized = normalizePathForMatching(path);
+  return Boolean(
+    normalized &&
+    normalized.includes("/.ambient/memory/tencentdb/embeddings/models/") &&
+    normalized.includes("embeddinggemma-300m") &&
+    normalized.endsWith(".gguf")
+  );
+}
+
+function commandContainsAmbientManagedLlamaRuntime(commandLine: string): boolean {
+  const normalized = normalizePathForMatching(commandLine);
+  return Boolean(
+    normalized &&
+    normalized.includes("/.ambient/vision/minicpm-v/runtime/") &&
+    /\/llama-[^/\s]+\/llama-server(?:\s|$)/.test(normalized)
+  );
+}
+
+function commandContainsAmbientManagedMemoryEmbeddingModel(commandLine: string): boolean {
+  const normalized = normalizePathForMatching(commandLine);
+  return Boolean(
+    normalized &&
+    normalized.includes("/.ambient/memory/tencentdb/embeddings/models/") &&
+    /embeddinggemma-300m[^\s]*\.gguf(?:\s|$)/.test(normalized)
+  );
+}
+
+function normalizePathForMatching(path: string | undefined): string | undefined {
+  return path?.trim().replace(/\\/g, "/");
+}
+
+function stringArg(args: string, flags: string[]): string | undefined {
+  const tokens = shellishTokens(args);
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    for (const flag of flags) {
+      if (token === flag) {
+        return tokens[index + 1]?.trim() || undefined;
+      }
+      if (token.startsWith(`${flag}=`)) {
+        return token.slice(flag.length + 1).trim() || undefined;
+      }
+    }
+  }
+  return undefined;
+}
+
+function shellishTokens(input: string): string[] {
+  const tokens: string[] = [];
+  const pattern = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(input)) !== null) {
+    tokens.push(match[1] ?? match[2] ?? match[3] ?? "");
+  }
+  return tokens;
+}
+
+function boundedPreview(value: string, maxLength = 240): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 3)}...`;
 }
 
 function releaseMemoryEmbeddingLease(workspacePath: string, leaseId: string): () => Promise<void> {

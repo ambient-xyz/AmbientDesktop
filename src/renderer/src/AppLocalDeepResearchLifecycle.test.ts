@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   localDeepResearchInstallProgressState,
   localDeepResearchSetupResultState,
+  localDeepResearchSetupRunningState,
   localDeepResearchStatusCheckingState,
   localDeepResearchStatusErrorState,
   localDeepResearchStatusResultState,
@@ -27,6 +28,21 @@ describe("AppLocalDeepResearchLifecycle", () => {
       status: "running",
       action: "status",
       message: "Checking Local Deep Research...",
+    });
+  });
+
+  it("does not replace duplicate Local Deep Research running states", () => {
+    const running: LocalDeepResearchSetupUiState = {
+      status: "running",
+      action: "status",
+      message: "Checking Local Deep Research...",
+    };
+
+    expect(localDeepResearchSetupRunningState(running, "status", "Checking Local Deep Research...")).toBe(running);
+    expect(localDeepResearchSetupRunningState(running, "install", "Installing Local Deep Research...")).toEqual({
+      status: "running",
+      action: "install",
+      message: "Installing Local Deep Research...",
     });
   });
 

@@ -17,7 +17,7 @@ import {
   type WorkflowConnectorProvider,
   type WorkflowConnectorStartConnectInput,
   type WorkflowConnectorTokenVault,
-} from "../workflow/workflowConnectorAuth";
+} from "./pluginsWorkflowAuthFacade";
 
 export interface PluginAuthServiceOptions {
   providers?: WorkflowConnectorProvider[];

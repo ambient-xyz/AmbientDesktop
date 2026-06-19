@@ -25,6 +25,7 @@ import { ambientTencentMemoryDataDir, ensureAmbientTencentMemoryStorageSchema } 
 import { loadAmbientReviewedTencentMemoryCore, type TencentMemoryCoreConstructorLoader } from "./optionalCore";
 import type {
   TencentMemoryCaptureResult,
+  TencentMemoryAdminCreateInput,
   TencentMemoryAdminDeleteInput,
   TencentMemoryAdminInspectInput,
   TencentMemoryAdminInspectResult,
@@ -41,15 +42,19 @@ import type {
 export const TENCENT_MEMORY_SEARCH_TOOL_NAME = "tdai_memory_search" as const;
 export const TENCENT_CONVERSATION_SEARCH_TOOL_NAME = "tdai_conversation_search" as const;
 export const TENCENT_MEMORY_INSPECT_TOOL_NAME = "ambient_memory_inspect" as const;
+export const TENCENT_MEMORY_CREATE_TOOL_NAME = "ambient_memory_create" as const;
 export const TENCENT_MEMORY_UPDATE_TOOL_NAME = "ambient_memory_update" as const;
 export const TENCENT_MEMORY_DELETE_TOOL_NAME = "ambient_memory_delete" as const;
 export const TENCENT_MEMORY_ACTIVE_TOOL_NAMES = [
   TENCENT_MEMORY_SEARCH_TOOL_NAME,
   TENCENT_CONVERSATION_SEARCH_TOOL_NAME,
   TENCENT_MEMORY_INSPECT_TOOL_NAME,
+  TENCENT_MEMORY_CREATE_TOOL_NAME,
   TENCENT_MEMORY_UPDATE_TOOL_NAME,
   TENCENT_MEMORY_DELETE_TOOL_NAME,
 ] as const;
+export const TENCENT_MEMORY_CHILD_ACTIVE_TOOL_NAMES = TENCENT_MEMORY_ACTIVE_TOOL_NAMES
+  .filter((toolName) => toolName !== TENCENT_MEMORY_CREATE_TOOL_NAME);
 
 const DEFAULT_RECALL_CONTEXT_CHAR_LIMIT = 6_000;
 
@@ -116,6 +121,9 @@ export function createTencentDbMemoryRuntimeForThread(
     startEmbeddingProviderRuntime: input.startEmbeddingProviderRuntime,
     fetchEmbedding: input.fetchEmbedding,
     defaultModelRef: input.defaultModelRef ?? input.thread.model,
+    activeToolNames: input.thread.kind === "subagent_child"
+      ? TENCENT_MEMORY_CHILD_ACTIVE_TOOL_NAMES
+      : TENCENT_MEMORY_ACTIVE_TOOL_NAMES,
     now: input.now,
     onSnapshot: input.onSnapshot,
   });
@@ -169,12 +177,13 @@ export interface AmbientTencentDbMemoryRuntimeOptions {
   startEmbeddingProviderRuntime?: (input: AmbientTencentMemoryEmbeddingStartInput) => Promise<AmbientTencentMemoryEmbeddingStartResult> | AmbientTencentMemoryEmbeddingStartResult;
   fetchEmbedding?: typeof fetch;
   defaultModelRef?: string;
+  activeToolNames?: readonly string[];
   now?: () => Date;
   onSnapshot?: (snapshot: TencentMemoryRuntimeSnapshot) => void;
 }
 
 export class AmbientTencentDbMemoryRuntime {
-  readonly activeToolNames = TENCENT_MEMORY_ACTIVE_TOOL_NAMES;
+  readonly activeToolNames: readonly string[];
   private corePromise?: Promise<TencentMemoryCore | undefined>;
   private core?: TencentMemoryCore;
   private admin?: TencentMemoryAdminService;
@@ -188,7 +197,9 @@ export class AmbientTencentDbMemoryRuntime {
   private releaseEmbeddingRuntime?: () => Promise<void>;
   private lastContextInjection?: AgentMemoryContextAccountingSnapshot;
 
-  constructor(private readonly options: AmbientTencentDbMemoryRuntimeOptions) {}
+  constructor(private readonly options: AmbientTencentDbMemoryRuntimeOptions) {
+    this.activeToolNames = options.activeToolNames ?? TENCENT_MEMORY_ACTIVE_TOOL_NAMES;
+  }
 
   get sessionKey(): string {
     return this.options.sessionKey;
@@ -341,6 +352,28 @@ export class AmbientTencentDbMemoryRuntime {
     } catch (error) {
       this.lastSearch = this.status("error", errorMessage(error));
       this.options.logger.warn(`TencentDB memory update failed: ${errorMessage(error)}`);
+      this.emitSnapshot();
+      return undefined;
+    }
+  }
+
+  async createMemory(params: TencentMemoryAdminCreateInput): Promise<TencentMemoryAdminRow | undefined> {
+    const admin = await this.ensureAdmin();
+    if (!admin) return undefined;
+    try {
+      const result = await admin.create({
+        ...params,
+        sessionKey: params.sessionKey ?? this.options.sessionKey,
+        sessionId: params.sessionId ?? this.options.sessionId,
+      });
+      this.lastSearch = this.status("ok", "Memory create completed.", {
+        total: 1,
+      });
+      this.emitSnapshot();
+      return result;
+    } catch (error) {
+      this.lastSearch = this.status("error", errorMessage(error));
+      this.options.logger.warn(`TencentDB memory create failed: ${errorMessage(error)}`);
       this.emitSnapshot();
       return undefined;
     }

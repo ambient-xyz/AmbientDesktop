@@ -109,7 +109,7 @@ import {
   projectBoardTaskToolVisualChecks,
 } from "./projectStoreProjectBoardFacade";
 import { defaultProjectBoardClaimAgentId, projectBoardClaimProjectionFromProjectBoardEvents } from "./projectStoreProjectBoardFacade";
-import { normalizePlannerOpenQuestions } from "../planner/plannerMode";
+import { normalizePlannerOpenQuestions } from "./projectStorePlannerFacade";
 
 export interface ProjectBoardStoreRow {
   id: string;

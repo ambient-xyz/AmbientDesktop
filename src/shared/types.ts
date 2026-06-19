@@ -21,6 +21,7 @@ export type { SubagentRoleProfile } from "./subagentRoles";
 export type { SubagentToolScopeResolution } from "./subagentToolScope";
 export type { SubagentEffectiveRoleSnapshot, SubagentPatternGraphSnapshot } from "./subagentPatternGraph";
 export type * from "./symphonyFineGrainedContracts";
+export type * from "./symphonyModeState";
 export type {
   AmbientSubagentProtocolVersion,
   SubagentDependencyMode,

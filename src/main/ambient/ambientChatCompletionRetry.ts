@@ -5,7 +5,7 @@ import {
   type AmbientRetryPolicy,
 } from "./aggressiveRetries";
 import { readAmbientEventStreamText } from "./ambientStreamTransport";
-import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
+import { normalizeAmbientBaseUrl } from "./ambientProviderFacade";
 
 export interface AmbientChatCompletionResponse {
   choices?: Array<{

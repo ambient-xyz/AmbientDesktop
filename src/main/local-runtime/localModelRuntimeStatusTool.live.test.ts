@@ -3,13 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../ambient/liveAmbientProviderConfig";
+} from "./localRuntimeAmbientLiveFacade";
+import { AgentRuntime } from "./localRuntimeAgentRuntimeLiveFacade";
 import { ProjectStore } from "./localRuntimeProjectStoreFacade";
 
 const itLive = process.env.AMBIENT_LOCAL_RUNTIME_STATUS_LIVE === "1" ? it : it.skip;

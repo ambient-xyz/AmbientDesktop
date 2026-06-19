@@ -1,4 +1,4 @@
-import { materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
+import { materializeTextOutput, type MaterializedTextOutput } from "./webResearchToolRuntimeFacade";
 import { createMcpHttpClient, isMcpToolError, textFromMcpToolCallResult, type FetchLike } from "./webResearchMcpFacade";
 import { WEB_RESEARCH_PROVIDER_IDS } from "./webResearchProviderStack";
 

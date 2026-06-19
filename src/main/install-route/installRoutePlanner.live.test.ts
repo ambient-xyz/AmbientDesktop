@@ -4,11 +4,10 @@ import { tmpdir } from "node:os";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
-import { BrowserCredentialStore } from "../browser/browserCredentialStore";
-import { BrowserService } from "../browser/browserService";
-import { ProjectStore } from "../projectStore/projectStore";
-import { applyLiveAmbientProviderApiKeyEnv, liveAmbientProviderLabel, readLiveAmbientProviderApiKey } from "../ambient/liveAmbientProviderConfig";
+import { AgentRuntime } from "./installRouteAgentRuntimeDogfoodFacade";
+import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { ProjectStore } from "./installRouteProjectStoreFacade";
+import { applyLiveAmbientProviderApiKeyEnv, liveAmbientProviderLabel, readLiveAmbientProviderApiKey } from "./installRouteAmbientLiveFacade";
 import type { AmbientInstallRouteLane } from "./installRoutePlanner";
 
 const electronMock = vi.hoisted(() => ({

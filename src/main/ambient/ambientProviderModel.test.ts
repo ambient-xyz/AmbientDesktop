@@ -3,9 +3,9 @@ import {
   AMBIENT_DEFAULT_MODEL,
   AMBIENT_GLM_5_1_FP8_MODEL,
 } from "../../shared/ambientModels";
-import { ambientModel, createAmbientProviderExtension } from "./agentRuntimeAmbientProvider";
+import { ambientModel, createAmbientProviderExtension } from "./ambientProviderModel";
 
-describe("agentRuntimeAmbientProvider", () => {
+describe("ambientProviderModel", () => {
   it("builds the Ambient Pi model descriptor", () => {
     expect(ambientModel("glm-5.1", "https://ambient.example/v1")).toEqual({
       id: AMBIENT_GLM_5_1_FP8_MODEL,

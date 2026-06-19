@@ -9,7 +9,7 @@ import {
   saveCapabilityBuilderEnvSecret,
   scaffoldCapabilityBuilderPackage,
   validateCapabilityBuilderPackage,
-} from "../capability-builder/capabilityBuilder";
+} from "./voiceCapabilityBuilderDogfoodFacade";
 import {
   listVoiceProviderVoices,
   readVoiceDiscoveryCache,

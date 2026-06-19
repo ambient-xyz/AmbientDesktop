@@ -5,6 +5,11 @@ import type { RunStatus } from "../../shared/threadTypes";
 import type { SidebarArea } from "./AppShellSidebar";
 
 export type AppDesktopRunStatuses = Record<string, RunStatus>;
+type AppliedDesktopState = {
+  applied: boolean;
+  runStatuses: AppDesktopRunStatuses;
+  state: DesktopState;
+};
 
 export function mergeAppDesktopRunStatuses(
   current: AppDesktopRunStatuses,
@@ -41,7 +46,7 @@ export function createAppDesktopStateAppliers({
 }: {
   activeWorkspacePath: string | undefined;
   closeProjectBoard: () => void;
-  rememberDesktopState: (next: DesktopState) => void;
+  rememberDesktopState: (next: DesktopState) => DesktopState | false | void;
   setComposerDraft: (value: string, options?: { clearSlashCommandSelection?: boolean }) => void;
   setRunStatus: Dispatch<SetStateAction<RunStatus>>;
   setSidebarArea: Dispatch<SetStateAction<SidebarArea>>;
@@ -50,51 +55,67 @@ export function createAppDesktopStateAppliers({
   setWorkspaceRevision: Dispatch<SetStateAction<number>>;
   threadRunStatuses: AppDesktopRunStatuses;
 }): {
-  applyRunStatusDesktopState: (next: DesktopState) => void;
-  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => void;
-  applyProjectActionState: (next: DesktopState) => void;
-  applyAutomationDesktopState: (next: DesktopState) => void;
+  applyRunStatusDesktopState: (next: DesktopState) => boolean;
+  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => boolean;
+  applyProjectActionState: (next: DesktopState) => boolean;
+  applyAutomationDesktopState: (next: DesktopState) => boolean;
 } {
-  function applyDesktopStateBase(next: DesktopState): AppDesktopRunStatuses {
-    const nextRunStatuses = mergeAppDesktopRunStatuses(threadRunStatuses, next);
+  function applyDesktopStateBase(next: DesktopState): AppliedDesktopState {
+    const remembered = rememberDesktopState(next);
+    if (remembered === false) {
+      return {
+        applied: false,
+        runStatuses: mergeAppDesktopRunStatuses(threadRunStatuses, next),
+        state: next,
+      };
+    }
+    const nextState = remembered ?? next;
+    const nextRunStatuses = mergeAppDesktopRunStatuses(threadRunStatuses, nextState);
     setThreadRunStatuses(nextRunStatuses);
-    rememberDesktopState(next);
-    setState(next);
-    return nextRunStatuses;
+    setState(nextState);
+    return { applied: true, state: nextState, runStatuses: nextRunStatuses };
   }
 
-  function applyRunStatusDesktopState(next: DesktopState): void {
-    const nextRunStatuses = applyDesktopStateBase(next);
-    setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
+  function applyRunStatusDesktopState(next: DesktopState): boolean {
+    const applied = applyDesktopStateBase(next);
+    if (!applied.applied) return false;
+    setRunStatus(runStatusForDesktopState(applied.state, applied.runStatuses));
+    return true;
   }
 
-  function applyCreatedThreadState(next: DesktopState, previousWorkspacePath?: string): void {
-    const nextRunStatuses = applyDesktopStateBase(next);
+  function applyCreatedThreadState(next: DesktopState, previousWorkspacePath?: string): boolean {
+    const applied = applyDesktopStateBase(next);
+    if (!applied.applied) return false;
     setSidebarArea("projects");
-    setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
+    setRunStatus(runStatusForDesktopState(applied.state, applied.runStatuses));
     setComposerDraft("", { clearSlashCommandSelection: true });
     closeProjectBoard();
-    if (appDesktopWorkspaceChanged(next, previousWorkspacePath)) {
+    if (appDesktopWorkspaceChanged(applied.state, previousWorkspacePath)) {
       setWorkspaceRevision((revision) => revision + 1);
     }
+    return applied.applied;
   }
 
-  function applyProjectActionState(next: DesktopState): void {
-    const nextRunStatuses = applyDesktopStateBase(next);
+  function applyProjectActionState(next: DesktopState): boolean {
+    const applied = applyDesktopStateBase(next);
+    if (!applied.applied) return false;
     setSidebarArea("projects");
-    setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
-    if (appDesktopWorkspaceChanged(next, activeWorkspacePath)) {
+    setRunStatus(runStatusForDesktopState(applied.state, applied.runStatuses));
+    if (appDesktopWorkspaceChanged(applied.state, activeWorkspacePath)) {
       setComposerDraft("", { clearSlashCommandSelection: true });
       setWorkspaceRevision((revision) => revision + 1);
     }
+    return true;
   }
 
-  function applyAutomationDesktopState(next: DesktopState): void {
-    const nextRunStatuses = applyDesktopStateBase(next);
-    setRunStatus(runStatusForDesktopState(next, nextRunStatuses));
-    if (appDesktopWorkspaceChanged(next, activeWorkspacePath)) {
+  function applyAutomationDesktopState(next: DesktopState): boolean {
+    const applied = applyDesktopStateBase(next);
+    if (!applied.applied) return false;
+    setRunStatus(runStatusForDesktopState(applied.state, applied.runStatuses));
+    if (appDesktopWorkspaceChanged(applied.state, activeWorkspacePath)) {
       setWorkspaceRevision((revision) => revision + 1);
     }
+    return true;
   }
 
   return {

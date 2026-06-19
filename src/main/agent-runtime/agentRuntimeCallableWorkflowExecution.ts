@@ -20,7 +20,7 @@ import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { getAmbientProviderStatus } from "./agentRuntimeProviderFacade";
 import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "./agentRuntimeWorkflowFacade";
 import { WorkflowManualPausedError } from "./agentRuntimeWorkflowFacade";
-import { compileWorkflowArtifact } from "../workflow-compiler/workflowCompilerService";
+import { compileWorkflowArtifact } from "./agentRuntimeWorkflowCompilerFacade";
 import { workflowToolDescriptorsFromPluginRegistry } from "./agentRuntimeWorkflowFacade";
 import { runWorkflowArtifact, type RunWorkflowArtifactInput } from "./agentRuntimeWorkflowFacade";
 

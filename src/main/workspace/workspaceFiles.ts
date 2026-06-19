@@ -7,9 +7,8 @@ import { basename, extname, join, parse, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { FileTreeEntry, OfficePreview, WorkspaceContextReference, WorkspaceDiff, WorkspaceDiffCategory, WorkspaceDiffFile, WorkspaceFileContent, WorkspaceFilePreviewKind, WorkspaceFileTree } from "../../shared/workspaceTypes";
-import { officeMimeTypeForExtension } from "../office/officeFileSupport";
-import { extractOfficeText } from "../office/officeTextExtraction";
-import { extractPdfText } from "../pdf/pdfTextExtraction";
+import { extractOfficeText, officeMimeTypeForExtension } from "./workspaceOfficeFacade";
+import { extractPdfText } from "./workspacePdfFacade";
 import { isPathInside } from "./workspaceSessionFacade";
 import {
   NOFOLLOW_OPEN_FLAG,

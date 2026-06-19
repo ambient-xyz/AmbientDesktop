@@ -4,9 +4,11 @@ import {
   AMBIENT_SUBAGENTS_FEATURE_FLAG,
   resolveAmbientFeatureFlags,
 } from "../../shared/featureFlags";
+import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import type { SendMessageComposerIntent } from "../../shared/desktopTypes";
 import {
   activeToolNamesForSymphonyParentMode,
+  buildSymphonyModeStateSnapshot,
   carrySymphonyParentModePolicy,
   carrySymphonyParentModeVerifiedLaunch,
   resolveSymphonyParentModePolicy,
@@ -29,6 +31,194 @@ const disabledFlags = resolveAmbientFeatureFlags({
 });
 
 describe("Symphony parent mode policy", () => {
+  it("builds an explicit generic sub-agent snapshot for ordinary parent prompts", () => {
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "chat" },
+      featureFlagSnapshot: enabledFlags,
+    })).toMatchObject({
+      schemaVersion: "ambient-symphony-mode-state-v1",
+      kind: "generic_subagents",
+      reason: "no_symphony_intent",
+      toggleState: "off",
+      patternPreflight: {
+        schemaVersion: "ambient-symphony-pattern-preflight-v1",
+        state: "not_required",
+        source: "none",
+      },
+      launch: {
+        schemaVersion: "ambient-symphony-workflow-launch-state-v1",
+        state: "not_required",
+      },
+    });
+
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "chat" },
+      composerIntent: {
+        kind: "local-deep-research",
+        localDeepResearch: resolveLocalDeepResearchRunBudget(undefined, {
+          effort: "deep",
+          maxToolCalls: 20,
+          onExhausted: "summarize",
+        }),
+      },
+      featureFlagSnapshot: enabledFlags,
+    })).toMatchObject({
+      kind: "generic_subagents",
+      reason: "non_symphony_intent",
+      composerIntentKind: "local-deep-research",
+    });
+  });
+
+  it("builds a Symphony armed snapshot for recipe authoring without entering parent mode", () => {
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "chat" },
+      featureFlagSnapshot: enabledFlags,
+      toggleState: "on",
+    })).toMatchObject({
+      kind: "symphony_armed",
+      reason: "symphony_preflight_pending",
+      toggleState: "on",
+      patternPreflight: {
+        state: "pending_detection",
+        source: "symphony_toggle",
+      },
+      launch: {
+        state: "not_required",
+      },
+    });
+
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "chat" },
+      composerIntent: symphonySaveRecipeIntent(),
+      featureFlagSnapshot: enabledFlags,
+    })).toMatchObject({
+      kind: "symphony_armed",
+      reason: "symphony_save_recipe",
+      toggleState: "on",
+      composerIntentKind: "symphony-workflow",
+      patternPreflight: {
+        state: "selected",
+        source: "composer_intent",
+        selectedPatternId: "map_reduce",
+      },
+      launch: {
+        state: "not_required",
+      },
+    });
+  });
+
+  it("builds a Symphony parent-mode snapshot with policy and launch status", () => {
+    const policy = resolveSymphonyParentModePolicy({
+      thread: { kind: "chat" },
+      composerIntent: symphonyRunOnceIntent(),
+      featureFlagSnapshot: enabledFlags,
+    });
+
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "chat" },
+      composerIntent: symphonyRunOnceIntent(),
+      featureFlagSnapshot: enabledFlags,
+      policy,
+    })).toMatchObject({
+      kind: "symphony_parent",
+      reason: "symphony-composer-run-once",
+      toggleState: "on",
+      composerIntentKind: "symphony-workflow",
+      patternPreflight: {
+        state: "selected",
+        source: "composer_intent",
+        selectedPatternId: "map_reduce",
+      },
+      launch: {
+        state: "required_pending",
+        expectedWorkflowToolName: "ambient_workflow_symphony_map_reduce",
+        expectedWorkflowSourceKind: "symphony_recipe",
+      },
+      parentModePolicy: {
+        enabled: true,
+        reason: "symphony-composer-run-once",
+        launchRequirement: "required_this_turn",
+        directExecutionPolicy: "deny_substantive_tools",
+        expectedWorkflowToolName: "ambient_workflow_symphony_map_reduce",
+        expectedWorkflowSourceKind: "symphony_recipe",
+        expectedPatternId: "map_reduce",
+      },
+    });
+
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "chat" },
+      composerIntent: symphonyRunOnceIntent(),
+      featureFlagSnapshot: enabledFlags,
+      policy,
+      verifiedLaunch: {
+        parentThreadId: "parent-thread",
+        parentRunId: "run-1",
+        taskId: "task-1",
+        toolName: "ambient_workflow_symphony_map_reduce",
+        sourceKind: "symphony_recipe",
+      },
+    })).toMatchObject({
+      kind: "symphony_parent",
+      launch: {
+        state: "verified",
+        taskId: "task-1",
+        parentThreadId: "parent-thread",
+        parentRunId: "run-1",
+      },
+    });
+  });
+
+  it("builds a preflight-capable Symphony slash snapshot without requiring immediate launch", () => {
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "chat" },
+      composerIntent: symphonySlashIntent(),
+      featureFlagSnapshot: enabledFlags,
+    })).toMatchObject({
+      kind: "symphony_parent",
+      reason: "symphony-slash-command",
+      patternPreflight: {
+        state: "selected",
+        source: "slash_command",
+        selectedPatternId: "map_reduce",
+      },
+      launch: {
+        state: "preflight_may_ask",
+        expectedWorkflowToolName: "ambient_workflow_symphony_map_reduce",
+      },
+    });
+  });
+
+  it("explains why Symphony mode is unavailable when subagents are disabled or the thread is already a child", () => {
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "chat" },
+      composerIntent: symphonyRunOnceIntent(),
+      featureFlagSnapshot: disabledFlags,
+    })).toMatchObject({
+      kind: "unavailable",
+      reason: "ambient_subagents_disabled",
+      toggleState: "off",
+      patternPreflight: {
+        state: "selected",
+        source: "composer_intent",
+        selectedPatternId: "map_reduce",
+      },
+      launch: {
+        state: "not_required",
+      },
+    });
+
+    expect(buildSymphonyModeStateSnapshot({
+      thread: { kind: "subagent_child" },
+      composerIntent: symphonyRunOnceIntent(),
+      featureFlagSnapshot: enabledFlags,
+      toggleState: "on",
+    })).toMatchObject({
+      kind: "unavailable",
+      reason: "subagent_child_thread",
+      toggleState: "unknown",
+    });
+  });
+
   it("activates only for parent-thread Symphony launch intents while ambient.subagents is enabled", () => {
     expect(resolveSymphonyParentModePolicy({
       thread: { kind: "chat" },

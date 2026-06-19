@@ -30,7 +30,6 @@ describe("subagent delegated tool authority audit", () => {
       "browser_keypress",
       "browser_nav",
       "browser_screenshot",
-      "browser_search",
       "edit",
       "long_context_process",
       "read",
@@ -99,13 +98,13 @@ describe("subagent delegated tool authority audit", () => {
     expect(browserInteractive.adapter).toBe("subagent-browser-authority");
     expect(browserInteractive.categoryIds).toEqual(["browser.interactive"]);
     expect(browserInteractive.toolNames).toEqual([
-      "browser_search",
       "browser_nav",
       "browser_content",
       "browser_screenshot",
       "browser_eval",
       "browser_keypress",
     ]);
+    expect(browserInteractive.notes).toContain("browser_search remains parent-only");
     expect(browserParentSession.childVisibility).toBe("not_child_visible");
     expect(browserParentSession.adapter).toBe("browser-parent-session-boundary");
     expect(browserParentSession.toolNames).toEqual([
@@ -175,7 +174,7 @@ describe("subagent delegated tool authority audit", () => {
       schemaVersion: "ambient-subagent-delegated-tool-authority-audit-v1",
       status: "passed",
       surfaceCount: SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES.length,
-      builtInChildToolCount: 15,
+      builtInChildToolCount: 14,
       exactGrantSurfaceCount: 2,
       nonVisibleSurfaceCount: 6,
       coveredBuiltInChildToolNames: [
@@ -186,7 +185,6 @@ describe("subagent delegated tool authority audit", () => {
         "browser_keypress",
         "browser_nav",
         "browser_screenshot",
-        "browser_search",
         "edit",
         "long_context_process",
         "read",

@@ -16,7 +16,7 @@ import type {
   CapabilityBuilderWriteFileInput,
 } from "./capabilityBuilder";
 import type { AmbientInstallRoutePlan } from "./capabilityBuilderInstallRouteFacade";
-import { getProviderCatalogEntries, providerSelectionGuidanceForProvider, type ProviderCatalogEntry } from "../provider/providerCatalog";
+import { getProviderCatalogEntries, providerSelectionGuidanceForProvider, type ProviderCatalogEntry } from "./capabilityBuilderProviderFacade";
 
 function requiredString(input: Record<string, unknown>, key: string): string {
   const value = input[key];

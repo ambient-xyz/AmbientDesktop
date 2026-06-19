@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { performance } from "node:perf_hooks";
-import type { ToolHiveCommandResult, ToolHiveRuntimePreflight } from "../tool-runtime/toolHiveRuntimeService";
+import type { ToolHiveCommandResult, ToolHiveRuntimePreflight } from "./containerRuntimeToolRuntimeFacade";
 
 export type ContainerRuntimeProbeStatus =
   | "ready"

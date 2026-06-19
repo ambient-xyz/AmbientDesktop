@@ -1,5 +1,5 @@
 import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/subagentTypes";
-import { isSubagentTerminalStatus } from "../agent-runtime/subagents/agentRuntimeSubagentRuntimeHelpers";
+import { isSubagentTerminalStatus } from "./subagentRunStatus";
 
 export const SUBAGENT_RESULT_REPAIR_STATE_SCHEMA_VERSION =
   "ambient-subagent-result-repair-state-v1" as const;

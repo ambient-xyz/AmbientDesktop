@@ -1,4 +1,4 @@
-import type { AmbientInstallRoutePlan } from "../install-route/installRoutePlanner";
+import type { AmbientInstallRoutePlan } from "./agentRuntimeInstallRouteFacade";
 
 export interface InstallRouteGate {
   lane: AmbientInstallRoutePlan["lane"];

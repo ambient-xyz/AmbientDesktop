@@ -39,6 +39,11 @@ export {
 } from "./ambientToolRouter";
 
 export {
+  ambientModel,
+  createAmbientProviderExtension,
+} from "./ambientProviderModel";
+
+export {
   ambientWorkflowsArchiveText,
   ambientWorkflowsDescribeText,
   ambientWorkflowsInjectText,

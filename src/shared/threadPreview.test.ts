@@ -42,6 +42,20 @@ describe("chooseThreadPreview", () => {
     ).toBe("create a file");
   });
 
+  it("skips assistant thinking when choosing sidebar-safe previews", () => {
+    expect(
+      chooseThreadPreview([
+        { role: "user", content: "inspect memory", createdAt: "2026-04-29T00:00:00.000Z" },
+        {
+          role: "assistant",
+          content: "The user asked me to inspect memory. I should call the tool.",
+          createdAt: "2026-04-29T00:00:01.000Z",
+          metadata: { kind: "thinking", status: "done" },
+        },
+      ]),
+    ).toBe("inspect memory");
+  });
+
   it("falls back to the latest non-empty message when a thread only has tool messages", () => {
     expect(
       chooseThreadPreview([

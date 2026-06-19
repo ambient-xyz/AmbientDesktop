@@ -3,7 +3,7 @@ import type { DesktopEvent } from "../../../shared/desktopTypes";
 import type { WorkflowRecordingState } from "../../../shared/workflowTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
 import { WorkflowRecordingReviewValidationError } from "../../../shared/workflowRecorder";
-import { workflowRecordingReviewDraftUpdateFromToolParams } from "../../workflow-recording/workflowRecordingReviewDraftInput";
+import { workflowRecordingReviewDraftUpdateFromToolParams } from "../agentRuntimeWorkflowRecordingFacade";
 
 export const WORKFLOW_RECORDING_REVIEW_READ_DRAFT_TOOL = "workflow_recording_review_read_draft";
 export const WORKFLOW_RECORDING_REVIEW_UPDATE_DRAFT_TOOL = "workflow_recording_review_update_draft";

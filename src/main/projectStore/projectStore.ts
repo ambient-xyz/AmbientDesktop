@@ -221,7 +221,7 @@ import {
   workflowLabRequireBaseVersion,
   workflowLabRunArtifactPath,
   workflowLabWriteRun,
-} from "../workflow/workflowLab";
+} from "./projectStoreWorkflowFacade";
 import {
   planSubagentRetention,
   type SubagentRetentionCleanupResult,
@@ -276,7 +276,7 @@ import {
   workflowRecordingRequireLibraryVersion,
   workflowRecordingSavedPlaybookForWorkspace,
   workflowRecordingWritePlaybookPackageWithIndex,
-} from "../workflow-recording/workflowRecordingLibrary";
+} from "./projectStoreWorkflowRecordingFacade";
 import {
   applyProjectStoreBootstrapSchema,
   applyProjectStoreSchemaMigrationSteps,
@@ -556,8 +556,8 @@ import {
   type ProjectBoardClarificationDefaultSuggestion,
 } from "./projectStoreProjectBoardFacade";
 import type { ProjectBoardProofSuggestion } from "./projectStoreProjectBoardFacade";
-import { extractPlannerPlanArtifactFields } from "../planner/plannerMode";
-import { LEGACY_PROJECT_STATE_DIR, prepareWorkspaceAuthorityState } from "../workspace/workspaceAuthorityState";
+import { extractPlannerPlanArtifactFields } from "./projectStorePlannerFacade";
+import { LEGACY_PROJECT_STATE_DIR, prepareWorkspaceAuthorityState } from "./projectStoreWorkspaceFacade";
 import { parseJsonArray, parseJsonObject, parseMetadata, stringFromRecord } from "./projectStoreJson";
 import { ProjectStoreSettingsRepository } from "./settingsRepository";
 

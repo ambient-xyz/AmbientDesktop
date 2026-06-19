@@ -1,5 +1,5 @@
 import type { AgentToolResult } from "@mariozechner/pi-coding-agent";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { BrowserPageContent, BrowserUserActionState } from "../../../shared/browserTypes";
 import type { WebResearchProviderConfig } from "../../../shared/webResearchTypes";
@@ -61,11 +61,15 @@ describe("registerWebResearchFetchTools", () => {
     const updates: any[] = [];
     const signal = new AbortController().signal;
     const scraplingTextOutput = textOutput("scrapling output");
+    const browserContentCall = vi.fn(async () => browserContent());
 
     registerWebResearchFetchTools({
       registerTool: (tool: any) => registeredTools.push(tool),
     }, options({
-      webResearchProviderPlanForInput: async () => providerPlan([scraplingProvider(), exaProvider()], [WEB_RESEARCH_PROVIDER_IDS.scrapling, WEB_RESEARCH_PROVIDER_IDS.exa]),
+      webResearchProviderPlanForInput: async () => providerPlan(
+        [scraplingProvider(), exaProvider(), browserProvider()],
+        [WEB_RESEARCH_PROVIDER_IDS.scrapling, WEB_RESEARCH_PROVIDER_IDS.exa, WEB_RESEARCH_PROVIDER_IDS.browser],
+      ),
       tryRouteBrowserContentThroughScrapling: async (input) => {
         scraplingCalls.push(input);
         return {
@@ -76,6 +80,7 @@ describe("registerWebResearchFetchTools", () => {
           }),
         };
       },
+      browserContent: browserContentCall,
       now: sequenceClock([100, 142]),
     }));
 
@@ -116,6 +121,7 @@ describe("registerWebResearchFetchTools", () => {
       ],
       textOutput: scraplingTextOutput,
     });
+    expect(browserContentCall).not.toHaveBeenCalled();
   });
 
   it("runs Exa fetch with current normalized arguments", async () => {

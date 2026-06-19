@@ -132,7 +132,7 @@ import {
 import { runPromptPreflightBeforePrompt } from "./agentRuntimePromptPreflight";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "./agentRuntimeProviderFacade";
-import { readAmbientApiKey } from "../security/credentialStore";
+import { readAmbientApiKey } from "./agentRuntimeSecurityFacade";
 import { abortSessionRun as abortPiSessionRun } from "./agentRuntimeSessionFacade";
 import {
   completeAgentRuntimeRegisteredVoiceProviderSetup,
@@ -278,7 +278,7 @@ import {
   type AssistantTerminalCleanupDiagnostic,
   type AssistantTerminalEventDiagnostic,
 } from "./agentRuntimeAssistantTerminalDiagnostics";
-import { ambientModel, createAmbientProviderExtension } from "./agentRuntimeAmbientProvider";
+import { ambientModel, createAmbientProviderExtension } from "./agentRuntimeAmbientFacade";
 import { browserToolUpdate } from "./browser-tools/agentRuntimeBrowserToolFormatting";
 import { withBrowserToolHeartbeat } from "./browser-tools/agentRuntimeBrowserToolHeartbeat";
 import { recordAgentRuntimeBrowserAudit } from "./browser-tools/agentRuntimeBrowserAudit";
@@ -288,7 +288,7 @@ import type { BrowserScreenshotArtifactReference } from "./browser-tools/agentRu
 import {
   registerGoogleWorkspaceSetupTools,
   type AgentRuntimeGoogleWorkspaceTools,
-} from "../google-workspace/agentRuntimeGoogleWorkspaceSetupTools";
+} from "./agentRuntimeGoogleWorkspaceFacade";
 import {
   formatLocalDeepResearchBytes,
   localDeepResearchRequestedLaunchFromContract,
@@ -314,7 +314,7 @@ import {
 import {
   revokeMcpPermissionGrantsForDescriptorDrift as revokeMcpPermissionGrantsForDescriptorDriftWithRuntimeBridge,
   revokePluginPermissionGrantsForLabelPrefixes,
-} from "../plugins/runtime-tools/agentRuntimePluginGrantRevocation";
+} from "./agentRuntimePluginGrantRevocationFacade";
 import {
   createAgentRuntimePluginInstallApplyCallbacks,
   createAgentRuntimePluginInstallToolExtension,
@@ -541,7 +541,7 @@ import {
   type AmbientTencentMemoryEmbeddingStartResult,
   type TencentMemoryCoreConstructorLoader,
 } from "./agentRuntimeMemoryFacade";
-import type { AnalyzeMiniCpmVisionInputOptions, SetupMiniCpmVisionProviderOptions } from "../mini-cpm/miniCpmVisionProvider";
+import type { AnalyzeMiniCpmVisionInputOptions, SetupMiniCpmVisionProviderOptions } from "./agentRuntimeMiniCpmFacade";
 import {
   buildLocalDeepResearchSetupContract,
   type LocalDeepResearchProviderSnapshot,
@@ -557,7 +557,7 @@ import {
   type LocalDeepResearchInstallRequest,
   type LocalDeepResearchInstallServiceResult,
 } from "./agentRuntimeLocalDeepResearchFacade";
-import { detectLocalLlamaResidentProcesses, type LocalLlamaResidentProcess } from "../local-llama/localLlamaResidencyPolicy";
+import { detectLocalLlamaResidentProcesses, type LocalLlamaResidentProcess } from "./agentRuntimeLocalLlamaFacade";
 import {
   buildLocalModelResourceRegistry,
   localTextRequestedLaunch,
@@ -578,7 +578,7 @@ import {
   type LocalRuntimeOwnershipResolutionRequest,
   type LocalRuntimeOwnershipResolutionResult,
 } from "./agentRuntimeLocalRuntimeFacade";
-import { createDefaultModelRuntimeRegistry } from "../model-provider/modelRuntimeRegistry";
+import { createDefaultModelRuntimeRegistry } from "./agentRuntimeModelProviderFacade";
 import type { LocalTextRuntimeManagerLike } from "./agentRuntimeLocalRuntimeFacade";
 import { runAgentRuntimeLocalTextMainRun } from "./agentRuntimeLocalRuntimeFacade";
 import {
@@ -594,7 +594,7 @@ import { assertCanCloseSubagentRun } from "./agentRuntimeSubagentsFacade";
 import { executeSubagentCloseAgent } from "./agentRuntimeSubagentsFacade";
 import { createSubagentIdempotencyKey, createSubagentPayloadFingerprint } from "./agentRuntimeSubagentsFacade";
 import { appendMappedSubagentRuntimeEvent } from "./agentRuntimeSubagentsFacade";
-import { prepareThreadWorktree } from "../git/gitWorktrees";
+import { prepareThreadWorktree } from "./agentRuntimeGitFacade";
 import type { LocalDeepResearchSmokeRequest } from "./agentRuntimeLocalDeepResearchFacade";
 import { createDefaultMessagingProviderRegistry } from "./agentRuntimeMessagingFacade";
 import {
@@ -621,7 +621,7 @@ import {
   type AgentRuntimeRemoteSurfaceRuntimeEventCreateInput,
 } from "./messaging/agentRuntimeRemoteSurfaceRuntimeEvents";
 import { AmbientWorkflowDescriptionState } from "./ambient-workflow/agentRuntimeAmbientWorkflowDescriptionState";
-import { answerWorkflowDiscoveryQuestion } from "../workflow-discovery/workflowDiscoveryService";
+import { answerWorkflowDiscoveryQuestion } from "./agentRuntimeWorkflowDiscoveryFacade";
 import { writePrivilegedActionRedactedLog } from "./agentRuntimePrivilegedActionFacade";
 import type { AmbientCliSttRunner } from "./agentRuntimeSttFacade";
 import {
@@ -633,7 +633,7 @@ import {
   voiceProviderWorkspacePathForCapabilityId as agentRuntimeVoiceProviderWorkspacePathForCapabilityId,
   type AgentRuntimeProviderDiscoveryOptions,
 } from "./agentRuntimeProviderDiscovery";
-import { generateThreadTitle } from "../thread/threadTitles";
+import { generateThreadTitle } from "./agentRuntimeThreadFacade";
 import { runWorkflowArtifact } from "./agentRuntimeWorkflowFacade";
 import type { WorkflowConnectorAccountAuthorizer, WorkflowConnectorDescriptor, WorkflowConnectorRegistration } from "./agentRuntimeWorkflowFacade";
 import { BrowserService } from "./agentRuntimeBrowserFacade";
@@ -643,8 +643,8 @@ import { refreshAgentRuntimeBrowsersForArtifactChange } from "./browser-tools/ag
 import { createLambdaRlmToolExtension as createLambdaRlmToolsExtension } from "./agentRuntimeLambdaRlmTools";
 import {
   projectBoardNativeTaskToolDefinitions,
-} from "../project-board/projectBoardTaskTools";
-import { GlmTokenizerService, type GlmTokenizerStatus } from "../tokenization/glmTokenizer";
+} from "./agentRuntimeProjectBoardFacade";
+import { GlmTokenizerService, type GlmTokenizerStatus } from "./agentRuntimeTokenizationFacade";
 import { createContextAccountingExtension as createContextAccountingToolsExtension } from "./agentRuntimeContextAccountingExtension";
 import {
   recordTransientFileAuthorityForAllowedTool,
@@ -667,7 +667,7 @@ import {
   visibleTranscriptRecoverySessionTranscriptContext,
   visibleTranscriptRecoveryUnavailableContextMessages,
 } from "./recovery/compactionSummary";
-import { commitGitPaths } from "../workspace/workspaceGit";
+import { commitGitPaths } from "./agentRuntimeWorkspaceFacade";
 import { browserToolRecoverableFailure } from "./agentRuntimeAgentFacade";
 import {
   AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES,
@@ -787,7 +787,7 @@ export type {
 
 type PiSession = Awaited<ReturnType<typeof createAgentSession>>["session"];
 
-export type { AgentRuntimeGoogleWorkspaceTools } from "../google-workspace/agentRuntimeGoogleWorkspaceSetupTools";
+export type { AgentRuntimeGoogleWorkspaceTools } from "./agentRuntimeGoogleWorkspaceFacade";
 
 interface ActiveRun extends RuntimeAbortContextActiveRun {}
 

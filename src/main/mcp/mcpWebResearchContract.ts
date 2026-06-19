@@ -7,5 +7,6 @@ export type {
   FetchLike,
   McpHttpClient,
   McpHttpClientOptions,
+  McpToolCallResult,
   McpToolDescriptor,
 } from "./mcpToolBridge";

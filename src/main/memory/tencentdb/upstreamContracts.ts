@@ -201,6 +201,17 @@ export interface TencentMemoryAdminUpdateInput {
   filename?: string;
 }
 
+export interface TencentMemoryAdminCreateInput {
+  layer?: "l1";
+  content: string;
+  type?: string;
+  priority?: number;
+  sceneName?: string;
+  sessionKey?: string;
+  sessionId?: string;
+  sourceMessageIds?: string[];
+}
+
 export interface TencentMemoryAdminDeleteInput {
   layer: TencentMemoryAdminLayer;
   ids: string[];
@@ -208,6 +219,7 @@ export interface TencentMemoryAdminDeleteInput {
 
 export interface TencentMemoryAdminService {
   inspect(input?: TencentMemoryAdminInspectInput): Promise<TencentMemoryAdminInspectResult>;
+  create(input: TencentMemoryAdminCreateInput): Promise<TencentMemoryAdminRow>;
   update(input: TencentMemoryAdminUpdateInput): Promise<TencentMemoryAdminRow>;
   delete(input: TencentMemoryAdminDeleteInput): Promise<{ deleted: string[]; failed: string[] }>;
 }

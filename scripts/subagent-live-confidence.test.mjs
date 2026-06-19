@@ -1707,13 +1707,14 @@ function browserApprovalArtifact() {
     pendingBeforeApproval: [{
       id: "browser-approval-1",
       threadId: run.childThreadId,
-      toolName: "browser_search",
+      toolName: "browser_content",
       grantActionKind: "browser_network",
-      grantTargetKind: "tool",
-      grantTargetLabel: "browser_search",
+      grantTargetKind: "browser_origin",
+      grantTargetLabel: "example.com",
       grantConditions: {
         childRunId: run.id,
         childThreadId: run.childThreadId,
+        domain: "example.com",
         source: "subagent-child-browser-authority",
       },
     }],
@@ -1726,7 +1727,7 @@ function browserApprovalArtifact() {
         childRunId: run.id,
         childThreadId: run.childThreadId,
         approvalId: "browser-approval-1",
-        requestedToolId: "browser_search",
+        requestedToolId: "browser_content",
         requestedAction: "browser_network",
         parentBlockingState: {
           action: "forward_child_approval_then_wait",

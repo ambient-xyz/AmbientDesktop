@@ -7,12 +7,8 @@ import { promisify } from "node:util";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { BrowserCredentialStore } from "../browser/browserCredentialStore";
-import { BrowserService } from "../browser/browserService";
-import { createMessagingBindingStore } from "../messaging/messagingBindings";
-import { createDefaultMessagingProviderRegistry } from "../messaging/messagingGatewayRegistry";
-import { ProjectStore } from "../projectStore/projectStore";
-import { deterministicWavFixtureVoiceRunner } from "../voice/voiceRuntime";
+import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { ProjectStore } from "./pluginsProjectStoreFacade";
 import { AmbientPluginHost, codexPluginTrustFingerprint } from "./pluginHost";
 import { ensureFirstPartyAmbientCliPackages, installAmbientCliPackageSource, runAmbientCliPackageCommand, saveAmbientCliPackageEnvSecret } from "./pluginsAmbientCliFacade";
 import {
@@ -20,9 +16,22 @@ import {
   discoverPiExtensionSandboxPackages,
   discoverPiPrivilegedPackages,
 } from "./pluginsAgentRuntimeDogfoodFacade";
-import { registerCapabilityBuilderPackage, saveCapabilityBuilderEnvSecret, scaffoldCapabilityBuilderPackage, unregisterCapabilityBuilderPackage, validateCapabilityBuilderPackage } from "../capability-builder/capabilityBuilder";
+import {
+  createDefaultMessagingProviderRegistry,
+  createMessagingBindingStore,
+} from "./pluginsMessagingDogfoodFacade";
+import {
+  deterministicWavFixtureVoiceRunner,
+  writeVoiceDiscoveryCacheEntry,
+} from "./pluginsVoiceDogfoodFacade";
+import {
+  registerCapabilityBuilderPackage,
+  saveCapabilityBuilderEnvSecret,
+  scaffoldCapabilityBuilderPackage,
+  unregisterCapabilityBuilderPackage,
+  validateCapabilityBuilderPackage,
+} from "./pluginsCapabilityBuilderDogfoodFacade";
 import { setupQwen3AsrProvider } from "../stt/sttProviderInstaller";
-import { writeVoiceDiscoveryCacheEntry } from "../voice/voiceDiscoveryCache";
 import type { DesktopEvent } from "../../shared/desktopTypes"; import type { MediaPlaybackSettings, SttSettings, VoiceProviderCandidate, VoiceSettings } from "../../shared/localRuntimeTypes"; import type { PermissionPromptResolution, PermissionPromptResponseMode, PermissionRequest } from "../../shared/permissionTypes"; import type { CodexPluginSummary } from "../../shared/pluginTypes"; import type { ProjectSummary } from "../../shared/projectBoardTypes"; import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import {
   buildFirstRunCapabilityOnboardingPrompt,
@@ -31,7 +40,7 @@ import {
   buildGeneratedCapabilityRemovalPlanPrompt,
   buildGeneratedCapabilityUpdatePlanPrompt,
 } from "../../renderer/src/pluginUiModel";
-import { providerCatalogSettingsState } from "../provider/providerCatalog";
+import { providerCatalogSettingsState } from "./pluginsProviderFacade";
 
 const execFileAsync = promisify(execFile);
 

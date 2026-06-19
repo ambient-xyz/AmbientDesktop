@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type { ChatMessage } from "../../shared/threadTypes";
-import { formatThreadPreview } from "../../shared/threadPreview";
+import { chooseThreadPreview, formatThreadPreview, isAssistantThinkingMessage } from "../../shared/threadPreview";
 import { mapMessageRow, type MessageRow } from "./messageMappers";
 
 export interface AddProjectStoreMessageInput {
@@ -31,8 +31,7 @@ export class ProjectStoreMessageRepository {
       this.db.prepare(`DELETE FROM messages WHERE id IN (${placeholders})`).run(...removeIds);
     }
     const remaining = messages.slice(0, index + 1);
-    const preview = [...remaining].reverse().find((message) => message.role !== "tool" && message.content.trim())?.content ?? "";
-    this.touchThread(threadId, preview);
+    this.touchThread(threadId, chooseThreadPreview(remaining));
     return remaining;
   }
 
@@ -51,8 +50,13 @@ export class ProjectStoreMessageRepository {
         now,
         input.metadata ? JSON.stringify(input.metadata) : null,
       );
-    this.touchThread(input.threadId, input.content);
-    return this.getMessage(id);
+    const message = this.getMessage(id);
+    if (messageCanUpdateThreadPreview(message)) {
+      this.touchThread(input.threadId, message.content);
+    } else {
+      this.refreshThreadPreview(input.threadId);
+    }
+    return message;
   }
 
   appendToMessage(messageId: string, delta: string): ChatMessage {
@@ -65,24 +69,16 @@ export class ProjectStoreMessageRepository {
       .prepare("UPDATE messages SET content = ?, metadata_json = ? WHERE id = ?")
       .run(content, metadata ? JSON.stringify(metadata) : null, messageId);
     const message = this.getMessage(messageId);
-    this.touchThread(message.threadId, content);
+    this.refreshThreadPreview(message.threadId);
     return message;
   }
 
   repairThreadPreviews(): void {
     const threads = this.db.prepare("SELECT id FROM threads").all() as Array<{ id: string }>;
-    const latestNonTool = this.db.prepare(
-      "SELECT content FROM messages WHERE thread_id = ? AND role != 'tool' AND trim(content) != '' ORDER BY created_at DESC LIMIT 1",
-    );
-    const latestMessage = this.db.prepare(
-      "SELECT content FROM messages WHERE thread_id = ? AND trim(content) != '' ORDER BY created_at DESC LIMIT 1",
-    );
     const update = this.db.prepare("UPDATE threads SET last_message_preview = ? WHERE id = ?");
 
     for (const thread of threads) {
-      const nonTool = latestNonTool.get(thread.id) as { content: string } | undefined;
-      const fallback = latestMessage.get(thread.id) as { content: string } | undefined;
-      update.run(formatThreadPreview(nonTool?.content ?? fallback?.content ?? ""), thread.id);
+      update.run(chooseThreadPreview(this.listMessages(thread.id)), thread.id);
     }
   }
 
@@ -97,4 +93,12 @@ export class ProjectStoreMessageRepository {
       .prepare("UPDATE threads SET updated_at = ?, last_message_preview = ? WHERE id = ?")
       .run(new Date().toISOString(), formatThreadPreview(preview), threadId);
   }
+
+  private refreshThreadPreview(threadId: string): void {
+    this.touchThread(threadId, chooseThreadPreview(this.listMessages(threadId)));
+  }
+}
+
+function messageCanUpdateThreadPreview(message: ChatMessage): boolean {
+  return message.role !== "tool" && message.content.trim().length > 0 && !isAssistantThinkingMessage(message);
 }

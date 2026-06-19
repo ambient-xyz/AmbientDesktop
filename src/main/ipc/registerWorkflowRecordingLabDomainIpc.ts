@@ -12,7 +12,7 @@ import type {
   WorkflowLabJudgeResult,
   WorkflowLabRun,
 } from "../../shared/workflowTypes";
-import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import type { AmbientRetryPolicy } from "./ipcAmbientFacade";
 import type {
   RunWorkflowLabOptions,
   WorkflowLabJudgeInput,

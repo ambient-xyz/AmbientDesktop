@@ -10,9 +10,9 @@ import type { PermissionMode } from "../../shared/permissionTypes";
 import type { ProjectBoardCard } from "../../shared/projectBoardTypes";
 import type { ChatMessage } from "../../shared/threadTypes";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import type { AgentRuntime } from "../agent-runtime/agentRuntime";
+import type { AgentRuntime } from "./orchestrationAgentRuntimeFacade";
 import { defaultOrchestrationProjectPath, projectBoardDependencyArtifactPromptSection, type ProjectStore } from "./orchestrationProjectStoreFacade";
-import { getWorkspaceDiff } from "../workspace/workspaceFiles";
+import { getWorkspaceDiff } from "./orchestrationWorkspaceFacade";
 import { loadWorkflowFile, renderWorkflowPrompt, type WorkflowConfig } from "./orchestrationWorkflowFacade";
 import { runWorkflowHook } from "./orchestrationHooks";
 import { isRestartInterruptedOrchestrationRun, restartInterruptedContinuationPrompt } from "./orchestrationRecovery";
@@ -34,7 +34,7 @@ import {
   projectBoardTaskToolActionsFromProofOfWork,
   projectBoardTaskToolActionsForScope,
   type ProjectBoardTaskToolActionScope,
-} from "../project-board/projectBoardTaskTools";
+} from "./orchestrationProjectBoardFacade";
 
 const execFileAsync = promisify(execFile);
 const AUTO_COMMIT_EXCLUDED_PATH_PREFIXES = [".ambient/", ".ambient-codex/", ".git/", "node_modules/"];

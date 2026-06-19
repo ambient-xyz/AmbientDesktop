@@ -7,7 +7,7 @@ import {
   planProviderStackOrder,
   updateProviderStackOrder,
   type ProviderStackDefinition,
-} from "../provider/providerStack";
+} from "./webResearchProviderFacade";
 
 export const WEB_RESEARCH_PROVIDER_STACK_SCHEMA_VERSION = "ambient-web-research-provider-stack-v1" as const;
 

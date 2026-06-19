@@ -3,16 +3,15 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { FirstPartyGoogleIntegrationState, GoogleWorkspaceCallInput, GoogleWorkspaceCallResult, GoogleWorkspaceCliInstallState, GoogleWorkspaceDescribeMethodInput, GoogleWorkspaceMaterializeFileInput, GoogleWorkspaceMaterializeFileResult, GoogleWorkspaceMethodSummary, GoogleWorkspaceOAuthClientImportInput, GoogleWorkspaceSearchMethodsInput, GoogleWorkspaceSearchMethodsResult, GoogleWorkspaceSetupInput, GoogleWorkspaceSetupState, GoogleWorkspaceValidationInput, GoogleWorkspaceValidationResult } from "../../shared/pluginTypes";
 import type { ToolLongformInputPreview } from "../../shared/threadTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import { googleWorkspaceSetupToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
-import { isPathInside } from "../session/sessionPaths";
-import { buildToolLongformInputPreview as defaultBuildToolLongformInputPreview } from "../tool-runtime/toolLongformInputPreview";
+import { googleWorkspaceSetupToolDescriptor, registerDesktopTool } from "../desktop-tools/desktopToolFirstPartyRuntimeContract";
+import { isPathInside } from "./googleWorkspaceSessionFacade";
 import {
+  buildToolLongformInputPreview as defaultBuildToolLongformInputPreview,
   materializeTextOutput as defaultMaterializeTextOutput,
   materializedTextNotice,
   type MaterializedTextOutput,
   type MaterializeTextOutputInput,
-} from "../tool-runtime/toolOutputArtifacts";
+} from "../tool-runtime/toolRuntimeGoogleWorkspaceContract";
 
 type ToolUpdateHandler = (update: {
   content: Array<{ type: "text"; text: string }>;

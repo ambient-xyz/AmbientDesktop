@@ -2,8 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";
 import { mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
-import { managedInstallWorkspacePath } from "../setup/managedInstallPaths";
-import { isPathInside } from "../session/sessionPaths";
+import { managedInstallWorkspacePath } from "./ambientSetupFacade";
+import { isPathInside } from "./ambientSessionFacade";
 
 export type AmbientDownloadDestinationKind = "workspace" | "managed-install";
 export type AmbientDownloadStatus = "queued" | "running" | "completed" | "failed" | "canceled";

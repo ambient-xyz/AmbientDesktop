@@ -5,6 +5,7 @@ import {
   defaultCapabilityBuilderLauncherDraft,
   type CapabilityBuilderLauncherDraft,
 } from "./pluginUiModel";
+import type { CapabilityBuilderPromptResult } from "./AppCapabilityPromptActions";
 
 export function capabilityBuilderDraftWithPatch(
   current: CapabilityBuilderLauncherDraft,
@@ -25,7 +26,7 @@ export function useRightPanelCapabilityBuilderController({
   onStartCapabilityBuilder,
 }: {
   running: boolean;
-  onStartCapabilityBuilder: (prompt: string, newChat: boolean, activityLine?: string) => Promise<void>;
+  onStartCapabilityBuilder: (prompt: string, newChat: boolean, activityLine?: string) => Promise<CapabilityBuilderPromptResult>;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<CapabilityBuilderLauncherDraft>(defaultCapabilityBuilderLauncherDraft);
@@ -44,7 +45,12 @@ export function useRightPanelCapabilityBuilderController({
     if (!capabilityBuilderLauncherCanSubmit(draft, running)) return;
     setBusy(true);
     try {
-      await onStartCapabilityBuilder(buildCapabilityBuilderPrompt(draft), newChat);
+      const result = await onStartCapabilityBuilder(buildCapabilityBuilderPrompt(draft), newChat);
+      if (result === "send-failed") {
+        setNewChat(false);
+        return;
+      }
+      if (result !== "sent") return;
       setOpen(false);
       setDraft(defaultCapabilityBuilderLauncherDraft());
       setNewChat(true);

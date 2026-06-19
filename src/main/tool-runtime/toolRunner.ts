@@ -6,7 +6,7 @@ import type { Readable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import type { BashOperations } from "@mariozechner/pi-coding-agent";
 import type { PermissionMode } from "../../shared/permissionTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./toolRuntimeSessionFacade";
 import { materializeTextOutput, materializedTextNotice } from "./toolOutputArtifacts";
 import { buildSafeProcessEnv, isSecretEnvName } from "./toolRuntimeSecurityFacade";
 

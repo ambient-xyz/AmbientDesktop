@@ -3,7 +3,7 @@ import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   googleWorkspaceJsonObjectInput,
   googleWorkspaceJsonValueInput,
-} from "../google-workspace/agentRuntimeGoogleWorkspaceSetupTools";
+} from "./agentRuntimeGoogleWorkspaceFacade";
 import { localDeepResearchSetupToolInput } from "./agentRuntimeLocalDeepResearchFacade";
 
 export interface PermissionToolInputLocalDeepResearchReadiness {

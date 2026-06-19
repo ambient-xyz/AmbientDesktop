@@ -85,11 +85,11 @@ import type {
   WorkflowThreadExplorationResult,
   WorkflowVersionSummary,
 } from "../../shared/workflowTypes";
-import type { CompileWorkflowArtifactInput } from "../workflow-compiler/workflowCompilerService";
-import type { WorkflowDiscoveryPolicyContext } from "../workflow-discovery/workflowDiscoveryPolicy";
 import type {
+  CompileWorkflowArtifactInput,
   RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput,
   WorkflowConnectorDescriptor,
+  WorkflowDiscoveryPolicyContext,
   WorkflowRecoveryPlan,
 } from "./ipcWorkflowFacade";
 

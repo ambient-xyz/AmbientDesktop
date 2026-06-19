@@ -7,7 +7,7 @@ import {
   getActiveAmbientProviderModelOverride,
   getAmbientApiKeySource,
   readAmbientApiKey,
-} from "../security/credentialStore";
+} from "./providerSecurityFacade";
 
 export function getAmbientProviderStatus(model = AMBIENT_DEFAULT_MODEL): ProviderStatus {
   const providerId = getActiveAmbientProviderId();

@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { localDeepResearchEstimatedResidentMemoryBytes, localDeepResearchProfileById } from "../local-deep-research/localDeepResearchModelProfiles";
-import { managedInstallWorkspacePath } from "../setup/managedInstallPaths";
+import { localDeepResearchEstimatedResidentMemoryBytes, localDeepResearchProfileById } from "./localLlamaLocalDeepResearchFacade";
+import { managedInstallWorkspacePath } from "./localLlamaSetupFacade";
 import {
   readLocalLlamaServerState,
   readLocalLlamaServerStateFromDir,
@@ -15,7 +15,7 @@ import {
   AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
   ambientMemoryEmbeddingModelProfile,
   ambientMemoryEmbeddingServerStateRoot,
-} from "../memory/tencentdb/managedEmbeddingRuntimeMetadata";
+} from "./localLlamaMemoryEmbeddingFacade";
 
 const gib = 1024 ** 3;
 const localDeepResearchServerRoot = ".ambient/local-deep-research/server";
@@ -29,6 +29,7 @@ export interface LocalLlamaResidentProcess {
   capability: LocalLlamaResidentCapability;
   id: string;
   pid: number;
+  ppid?: number;
   running: boolean;
   statePath: string;
   providerId?: string;
@@ -51,6 +52,7 @@ export interface LocalLlamaResidentProcess {
   lastUsedAt?: string;
   logPath?: string;
   stderrPath?: string;
+  commandLine?: string;
 }
 
 export interface DetectLocalLlamaResidentProcessesInput {
@@ -73,6 +75,7 @@ export interface LocalLlamaResidentMemorySample {
 
 export interface LocalLlamaProcessSnapshot {
   pid: number;
+  ppid?: number;
   command: string;
   args?: string;
 }
@@ -314,6 +317,7 @@ async function detectUntrackedLlamaResidents(
       capability: "local-text",
       id: `untracked-llama:${process.pid}`,
       pid: process.pid,
+      ...(process.ppid !== undefined ? { ppid: process.ppid } : {}),
       running: true,
       statePath: `process:${process.pid}`,
       trackingStatus: "untracked",
@@ -321,6 +325,7 @@ async function detectUntrackedLlamaResidents(
       ...(modelFromLlamaArgs(args) ? { modelId: modelFromLlamaArgs(args) } : {}),
       ...(contextTokensFromLlamaArgs(args) ? { contextTokens: contextTokensFromLlamaArgs(args) } : {}),
       ...(memory ? { actualResidentMemoryBytes: memory.residentMemoryBytes, memorySampledAt: memory.sampledAt } : {}),
+      commandLine: args,
     });
   }
   return residents;
@@ -442,7 +447,7 @@ export function sampleProcessResidentMemory(pid: number): Promise<LocalLlamaResi
 
 function listLocalProcesses(): Promise<LocalLlamaProcessSnapshot[]> {
   return new Promise((resolveProcesses) => {
-    execFile("ps", ["-axo", "pid=,command="], { encoding: "utf8", timeout: 2500, maxBuffer: 1024 * 1024 }, (error, stdout) => {
+    execFile("ps", ["-axo", "pid=,ppid=,command="], { encoding: "utf8", timeout: 2500, maxBuffer: 1024 * 1024 }, (error, stdout) => {
       if (error) {
         resolveProcesses([]);
         return;
@@ -453,13 +458,15 @@ function listLocalProcesses(): Promise<LocalLlamaProcessSnapshot[]> {
 }
 
 function parseProcessLine(line: string): LocalLlamaProcessSnapshot | undefined {
-  const match = line.trim().match(/^(\d+)\s+(.+)$/);
+  const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
   if (!match) return undefined;
   const pid = Number.parseInt(match[1], 10);
-  const args = match[2].trim();
+  const ppid = Number.parseInt(match[2], 10);
+  const args = match[3].trim();
   if (!Number.isFinite(pid) || pid <= 0 || !args) return undefined;
   return {
     pid,
+    ...(Number.isFinite(ppid) && ppid >= 0 ? { ppid } : {}),
     command: shellishTokens(args)[0] ?? args,
     args,
   };

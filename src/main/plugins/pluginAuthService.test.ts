@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CodexPluginSummary } from "../../shared/pluginTypes";
-import { MemoryWorkflowConnectorTokenVault, fakeOAuthConnectorProvider } from "../workflow/workflowConnectorAuth";
+import { MemoryWorkflowConnectorTokenVault, fakeOAuthConnectorProvider } from "./pluginsWorkflowAuthFacade";
 import { PluginAuthService } from "./pluginAuthService";
 
 function appPlugin(): CodexPluginSummary {

@@ -27,3 +27,7 @@ export type {
   PluginMcpTrustedPermissionAuditInput,
   ResolvePluginMcpTrustPermissionInput,
 } from "./runtime-tools/agentRuntimePluginMcpTrust";
+export {
+  registerAgentRuntimePluginInstallCoreTools,
+} from "./runtime-tools/agentRuntimePluginInstallCoreTools";
+export type { AgentRuntimePluginInstallCoreToolOptions } from "./runtime-tools/agentRuntimePluginInstallCoreTools";

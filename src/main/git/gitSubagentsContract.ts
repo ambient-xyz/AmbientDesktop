@@ -1,0 +1,1 @@
+export { isGitRepository } from "./gitWorktrees";

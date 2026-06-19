@@ -76,7 +76,9 @@ describe("App capability prompt actions", () => {
     vi.stubGlobal("window", { ambientDesktop: { createThread, sendMessage } });
     const controller = createController();
 
-    await controller.actions.startCapabilityBuilderPrompt("Build a capability.", true, "Capability launch.");
+    await expect(
+      controller.actions.startCapabilityBuilderPrompt("Build a capability.", true, "Capability launch."),
+    ).resolves.toBe("sent");
 
     expect(createThread).toHaveBeenCalledWith({
       permissionMode: "full-access",
@@ -98,6 +100,47 @@ describe("App capability prompt actions", () => {
       delivery: "prompt",
       context: [],
     });
+  });
+
+  it("reports Capability Builder send failure after the target thread has been applied", async () => {
+    const createdState = desktopState({ activeThreadId: "thread-2", workspacePath: "/workspace" });
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        createThread: vi.fn(async () => createdState),
+        sendMessage: vi.fn(async () => {
+          throw new Error("send failed");
+        }),
+      },
+    });
+    const controller = createController();
+
+    await expect(
+      controller.actions.startCapabilityBuilderPrompt("Build a capability.", true, "Capability launch."),
+    ).resolves.toBe("send-failed");
+
+    expect(controller.applyCreatedThreadState).toHaveBeenCalledWith(createdState, "/active-workspace");
+    expect(controller.setError).toHaveBeenCalledWith("send failed");
+    expect(controller.runStatus.value).toBe("error");
+  });
+
+  it("does not send a Capability Builder prompt when the created-thread state is stale", async () => {
+    const createdState = desktopState({ activeThreadId: "thread-stale", workspacePath: "/workspace" });
+    const createThread = vi.fn(async () => createdState);
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { createThread, sendMessage } });
+    const controller = createController({ createdThreadApplied: false });
+
+    await expect(
+      controller.actions.startCapabilityBuilderPrompt("Build a capability.", true, "Capability launch."),
+    ).resolves.toBe("skipped");
+
+    expect(controller.applyCreatedThreadState).toHaveBeenCalledWith(createdState, "/active-workspace");
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(controller.resetPromptHistory).not.toHaveBeenCalled();
+    expect(controller.resetRunActivityLines).not.toHaveBeenCalled();
+    expect(controller.threadRunStatuses.value).toEqual({});
+    expect(controller.runStatus.value).toBe("idle");
+    expect(controller.setError).toHaveBeenCalledWith("Created thread state was superseded before the launch could be applied.");
   });
 
   it("routes welcome remote-surface setup through Capability Builder prompt copy", async () => {
@@ -148,9 +191,11 @@ describe("App capability prompt actions", () => {
 });
 
 function createController({
+  createdThreadApplied = true,
   running = false,
   state = desktopState(),
 }: {
+  createdThreadApplied?: boolean;
   running?: boolean;
   state?: DesktopState | undefined;
 } = {}) {
@@ -158,7 +203,7 @@ function createController({
   const contextError = statefulSetter<string | undefined>("old context error");
   const runStatus = statefulSetter<RunStatus>("idle");
   const threadRunStatuses = statefulSetter<Record<string, RunStatus>>({});
-  const applyCreatedThreadState = vi.fn();
+  const applyCreatedThreadState = vi.fn(() => createdThreadApplied);
   const resetPromptHistory = vi.fn();
   const resetRunActivityLines = vi.fn();
   const setError = vi.fn();

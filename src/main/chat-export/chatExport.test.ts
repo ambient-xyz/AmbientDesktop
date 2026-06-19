@@ -8,13 +8,13 @@ import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../.
 import { effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import {
+  buildCallableWorkflowExecutionPlan,
   buildCallableWorkflowRegistry,
   buildCallableWorkflowRunPlan,
   parentPiVisibleCallableWorkflowTools,
-} from "../callable-workflow/callableWorkflowRegistry";
-import { buildCallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
+} from "../callable-workflow/callableWorkflowTestContract";
 import { createChatExportBundle } from "./chatExport";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./chatExportProjectStoreFacade";
 
 describe("chat export", () => {
   let workspacePath = "";

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import type { GitCheckpointSummary } from "../../shared/workspaceTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./gitSessionFacade";
 
 const execFileAsync = promisify(execFile);
 

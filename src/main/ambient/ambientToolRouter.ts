@@ -1,8 +1,8 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
-import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { workflowNativeToolDescriptors } from "../workflow/workflowNativeTools";
-import { projectBoardNativeTaskToolDefinitions } from "../project-board/projectBoardTaskTools";
-import { normalizeToolArgumentsForTool } from "../tool-runtime/toolArgumentNormalization";
+import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./ambientDesktopToolsFacade";
+import { workflowNativeToolDescriptors } from "./ambientWorkflowNativeToolsFacade";
+import { projectBoardNativeTaskToolDefinitions } from "./ambientProjectBoardTaskToolsFacade";
+import { normalizeToolArgumentsForTool } from "./ambientToolRuntimeFacade";
 
 export const AMBIENT_TOOL_SEARCH = "ambient_tool_search";
 export const AMBIENT_TOOL_DESCRIBE = "ambient_tool_describe";

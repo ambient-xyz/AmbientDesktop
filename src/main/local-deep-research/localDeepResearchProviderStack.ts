@@ -15,16 +15,18 @@ import {
   DEFAULT_LOCAL_RUNTIME_MIN_FREE_MEMORY_RATIO_AFTER_LAUNCH,
 } from "../../shared/localRuntimeMemoryPolicy";
 import { normalizeLocalDeepResearchRunBudgetSettings } from "../../shared/localDeepResearchBudget";
-import { getProviderCatalogEntries, providerSelectionGuidanceForProvider, type ProviderCatalogEntry } from "../provider/providerCatalog";
 import {
   buildProviderStackStatus,
   defaultProviderStackSettings,
+  getProviderCatalogEntries,
   normalizeProviderStackSettings,
   planProviderStackOrder,
+  providerSelectionGuidanceForProvider,
   updateProviderStackOrder,
+  type ProviderCatalogEntry,
   type ProviderStackDefinition,
   type ProviderStackRuntimeSummary,
-} from "../provider/providerStack";
+} from "../provider/providerLocalDeepResearchContract";
 
 export const LOCAL_DEEP_RESEARCH_PROVIDER_STACK_SCHEMA_VERSION = "ambient-local-deep-research-provider-stack-v1" as const;
 export const LOCAL_DEEP_RESEARCH_PROVIDER_STACK_STATUS_SCHEMA_VERSION = "ambient-local-deep-research-provider-stack-status-v1" as const;

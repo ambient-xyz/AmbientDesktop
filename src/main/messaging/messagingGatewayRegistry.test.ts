@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MessagingBindingListResult, MessagingGatewayRemoteSurfaceRuntimeEvent, MessagingGatewayRuntimeStatus } from "../../shared/messagingGateway";
-import { firstPartyDesktopToolDescriptors, messagingGatewayToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { firstPartyDesktopToolDescriptors, messagingGatewayToolDescriptor } from "./messagingDesktopToolsTestFacade";
 import { bindingLifecyclePreviewText, createEmptyMessagingBindingRegistry, createMessagingBindingStore } from "./messagingBindings";
 import { buildHeadlessRuntimeUxInventory, headlessRuntimeUxInventoryText } from "../../shared/headlessRuntimeInventory";
 import { buildRuntimeSurfaceSnapshot, runtimeSurfaceSnapshotText } from "../../shared/runtimeSurfaceSnapshot";

@@ -1,8 +1,8 @@
 import {
   descriptorToolDefinition as desktopDescriptorToolDefinition,
   registerDesktopTool as registerDesktopToolWithDescriptor,
-} from "../desktop-tools/desktopToolRegistration";
-import type { DescriptorToolRegistration as DesktopDescriptorToolRegistration } from "../desktop-tools/desktopToolRegistration";
+} from "../desktop-tools/desktopToolAgentRuntimeContract";
+import type { DescriptorToolRegistration as DesktopDescriptorToolRegistration } from "../desktop-tools/desktopToolAgentRuntimeContract";
 import {
   browserToolDescriptor as desktopBrowserToolDescriptor,
   firstPartyDesktopToolDescriptors as desktopFirstPartyDesktopToolDescriptors,
@@ -19,11 +19,11 @@ import {
   searchPreferenceToolDescriptor as desktopSearchPreferenceToolDescriptor,
   visionToolDescriptor as desktopVisionToolDescriptor,
   webResearchToolDescriptor as desktopWebResearchToolDescriptor,
-} from "../desktop-tools/desktopToolRegistry";
+} from "../desktop-tools/desktopToolAgentRuntimeContract";
 import type {
   DesktopToolDescriptor as DesktopToolDescriptorContract,
   PiToolRegistrationFields as DesktopPiToolRegistrationFields,
-} from "../desktop-tools/desktopToolRegistry";
+} from "../desktop-tools/desktopToolAgentRuntimeContract";
 
 export const descriptorToolDefinition = desktopDescriptorToolDefinition;
 export const registerDesktopTool = registerDesktopToolWithDescriptor;

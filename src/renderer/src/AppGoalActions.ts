@@ -42,6 +42,7 @@ export function parseGoalBudgetPromptValue(value: string): GoalBudgetPromptResul
 
 export function createAppGoalActions({
   goalModeArmed,
+  onGoalCleared,
   setError,
   setGoalBusy,
   setGoalMenuOpen,
@@ -51,6 +52,7 @@ export function createAppGoalActions({
   state,
 }: {
   goalModeArmed: boolean;
+  onGoalCleared?: (threadId: string, goalId: string) => void;
   setError: (message: string | undefined) => void;
   setGoalBusy: Dispatch<SetStateAction<boolean>>;
   setGoalMenuOpen: Dispatch<SetStateAction<boolean>>;
@@ -99,6 +101,7 @@ export function createAppGoalActions({
     setError(undefined);
     try {
       await window.ambientDesktop.clearThreadGoal({ threadId: state.activeThreadId, expectedGoalId: goal.goalId });
+      onGoalCleared?.(state.activeThreadId, goal.goalId);
       applyActiveGoal(undefined);
       setGoalModeArmed(false);
       setGoalMenuOpen(false);

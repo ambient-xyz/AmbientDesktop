@@ -1,6 +1,7 @@
 import { Activity, Brain, ChevronDown, Monitor, Moon, Play, Plug, Plus, RefreshCw, RotateCw, Square, Sun, Wrench, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryOperationStatus, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
+import { agentMemoryStarterPrimaryAction } from "../../shared/agentMemoryStarter";
 import type { AgentMemoryStarterNextAction, AgentMemoryStarterOperationKind, AgentMemoryStarterOperationResult, AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
 import type { DesktopState, DesktopUpdateState, ThemePreference, ThinkingDisplayMode } from "../../shared/desktopTypes";
 import type { ContextUsageSnapshot } from "../../shared/threadTypes";
@@ -31,7 +32,6 @@ import { SettingsRow, SettingsSection } from "./RightPanelSettingsPrimitives";
 
 type SettingsRowVisible = (sectionId: string, rowId: string) => boolean;
 type MaybePromise<T = unknown> = T | Promise<T>;
-const AGENT_MEMORY_SETUP_ACTIONS: AgentMemoryStarterNextAction[] = ["enable", "repair", "install", "start", "retry_preflight"];
 
 export const thinkingDisplayOptions: ThinkingDisplayMode[] = ["off", "transient", "full"];
 
@@ -294,6 +294,9 @@ export type RightPanelModelModeSettingsSectionProps = {
   agentMemoryStarterError?: string;
   agentMemoryStarterOperationLoading?: AgentMemoryStarterOperationKind;
   agentMemoryStarterOperationResult?: AgentMemoryStarterOperationResult;
+  agentMemoryClearConfirming: boolean;
+  agentMemoryClearLoading: boolean;
+  agentMemoryClearStatus?: { kind: "success" | "error"; message: string };
   subagentMaturity: DesktopState["subagentMaturity"];
   subagentMaturityEvidence: DesktopState["subagentMaturityEvidence"];
   setModelProviderInstallDraft: (draft: ModelProviderEndpointInstallDraft) => void;
@@ -304,13 +307,15 @@ export type RightPanelModelModeSettingsSectionProps = {
   enableAgentMemoryStarterFromSettings: () => MaybePromise;
   repairAgentMemoryStarterFromSettings: () => MaybePromise;
   disableAgentMemoryStarterFromSettings: () => MaybePromise;
+  requestAgentMemoryClearFromSettings: () => MaybePromise;
+  cancelAgentMemoryClearFromSettings: () => MaybePromise;
+  confirmAgentMemoryClearFromSettings: () => MaybePromise;
   onThinkingDisplaySettingsChange: (thinkingDisplay: DesktopState["settings"]["thinkingDisplay"]) => void;
   onFeatureFlagSettingsChange: (featureFlags: DesktopState["settings"]["featureFlags"]) => void;
   onMemorySettingsChange: (memory: DesktopState["settings"]["memory"]) => void;
   onActiveThreadMemoryEnabledChange: (enabled: boolean) => void;
-  onRefreshAgentMemoryDiagnostics: () => void;
+  onRefreshAgentMemoryDiagnostics: () => MaybePromise;
   onRunAgentMemoryEmbeddingLifecycleAction: (action: AgentMemoryEmbeddingLifecycleActionKind) => void;
-  onClearAgentMemory: () => void;
   onModelRuntimeSettingsChange: (modelRuntime: DesktopState["settings"]["modelRuntime"]) => void;
   onPlannerSettingsChange: (planner: DesktopState["settings"]["planner"]) => void;
 };
@@ -384,8 +389,10 @@ function AgentMemoryStarterCard({
         : "info";
   const primaryLabel = checked ? "Enabled" : "Off";
   const setupAction = agentMemoryStarterSetupAction(status);
-  const setupOperation: AgentMemoryStarterOperationKind = setupAction === "enable" ? "enable" : "repair";
-  const setupButtonLabel = operationLoading === setupOperation ? "Working" : agentMemoryStarterSetupActionLabel(setupAction);
+  const setupOperation = agentMemoryStarterOperationForAction(setupAction);
+  const setupActionBusy = Boolean(setupOperation && operationLoading === setupOperation);
+  const setupButtonLabel = setupActionBusy ? "Working" : agentMemoryStarterSetupActionLabel(setupAction);
+  const operationLogPreview = operationResult ? agentMemoryStarterOperationLogPreview(operationResult) : [];
   return (
     <div className={`voice-provider-diagnostics ${tone}`}>
       <div className="voice-provider-diagnostics-header">
@@ -424,27 +431,68 @@ function AgentMemoryStarterCard({
           className="panel-button mini"
           disabled={disabled || busy || !setupAction}
           aria-label={setupAction ? `${agentMemoryStarterActionLabel(setupAction)} Agent Memory setup` : "Continue Agent Memory setup"}
-          onClick={() => void (setupAction === "enable" ? onEnable() : onRepair())}
+          onClick={() => void runAgentMemoryStarterAction(setupAction, { onEnable, onRepair, onDisable })}
         >
-          {operationLoading === "repair" ? <RefreshCw size={14} /> : <Wrench size={14} />}
+          {setupActionBusy ? <RefreshCw size={14} /> : agentMemoryStarterActionIcon(setupAction)}
           {setupButtonLabel}
         </button>
       </div>
       {operationResult && (
-        <small>
-          Last {agentMemoryStarterOperationLabel(operationResult.operation).toLowerCase()}: {agentMemoryStarterStateLabel(operationResult.status.state)} · {formatTimelineTime(operationResult.completedAt)}
-        </small>
+        <div className="agent-memory-starter-operation-log" aria-label="Agent Memory operation log">
+          <small>
+            Last {agentMemoryStarterOperationLabel(operationResult.operation).toLowerCase()}: {agentMemoryStarterStateLabel(operationResult.status.state)} · {formatTimelineTime(operationResult.completedAt)}
+          </small>
+          {operationLogPreview.length > 0 && (
+            <ul>
+              {operationLogPreview.map((entry) => (
+                <li key={`${entry.at}:${entry.step}:${entry.status}`}>
+                  <span>{entry.step}</span>: {agentMemoryStarterOperationLogStatusLabel(entry.status)} - {entry.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-function agentMemoryStarterSetupAction(status?: AgentMemoryStarterStatus): AgentMemoryStarterNextAction | undefined {
-  return status?.nextActions.find((action) => AGENT_MEMORY_SETUP_ACTIONS.includes(action));
+export function agentMemoryStarterSetupAction(status?: AgentMemoryStarterStatus): AgentMemoryStarterNextAction | undefined {
+  return status ? agentMemoryStarterPrimaryAction(status) : undefined;
 }
 
-function agentMemoryStarterSetupActionLabel(action?: AgentMemoryStarterNextAction): string {
+export function agentMemoryStarterOperationForAction(action?: AgentMemoryStarterNextAction): AgentMemoryStarterOperationKind | undefined {
+  if (action === "enable") return "enable";
+  if (action === "disable") return "disable";
+  if (action === "install" || action === "repair" || action === "start" || action === "retry_preflight") return "repair";
+  return undefined;
+}
+
+function runAgentMemoryStarterAction(
+  action: AgentMemoryStarterNextAction | undefined,
+  handlers: {
+    onEnable: () => MaybePromise;
+    onRepair: () => MaybePromise;
+    onDisable: () => MaybePromise;
+  },
+): MaybePromise | undefined {
+  const operation = agentMemoryStarterOperationForAction(action);
+  if (operation === "enable") return handlers.onEnable();
+  if (operation === "disable") return handlers.onDisable();
+  if (operation === "repair") return handlers.onRepair();
+  return undefined;
+}
+
+function agentMemoryStarterActionIcon(action?: AgentMemoryStarterNextAction): ReactNode {
+  if (action === "start") return <Play size={14} />;
+  if (action === "disable") return <Square size={14} />;
+  if (action === "enable") return <Zap size={14} />;
+  return <Wrench size={14} />;
+}
+
+export function agentMemoryStarterSetupActionLabel(action?: AgentMemoryStarterNextAction): string {
   if (action === "enable") return "Enable";
+  if (action === "disable") return "Disable";
   if (action === "install") return "Install";
   if (action === "start") return "Start";
   if (action === "retry_preflight") return "Retry";
@@ -579,6 +627,28 @@ function agentMemoryStarterOperationLabel(operation: AgentMemoryStarterOperation
   return "Status";
 }
 
+export function agentMemoryStarterOperationLogPreview(
+  result: Pick<AgentMemoryStarterOperationResult, "log">,
+): AgentMemoryStarterOperationResult["log"] {
+  const important = result.log.filter((entry) =>
+    entry.step === "resident-cleanup" ||
+    entry.step === "start-embeddings" ||
+    entry.step === "stop-embeddings" ||
+    entry.status === "blocked" ||
+    entry.status === "failed"
+  );
+  return (important.length > 0 ? important : result.log).slice(-6);
+}
+
+function agentMemoryStarterOperationLogStatusLabel(status: AgentMemoryStarterOperationResult["log"][number]["status"]): string {
+  if (status === "started") return "started";
+  if (status === "skipped") return "skipped";
+  if (status === "passed") return "passed";
+  if (status === "blocked") return "blocked";
+  if (status === "failed") return "failed";
+  return status;
+}
+
 function latestAgentMemoryOperation(
   diagnostics: AgentMemoryStorageDiagnostics,
   key: "lastRecall" | "lastCapture" | "lastSearch",
@@ -647,6 +717,9 @@ export function RightPanelModelModeSettingsSection({
   agentMemoryStarterError,
   agentMemoryStarterOperationLoading,
   agentMemoryStarterOperationResult,
+  agentMemoryClearConfirming,
+  agentMemoryClearLoading,
+  agentMemoryClearStatus,
   subagentMaturity,
   subagentMaturityEvidence,
   setModelProviderInstallDraft,
@@ -657,13 +730,15 @@ export function RightPanelModelModeSettingsSection({
   enableAgentMemoryStarterFromSettings,
   repairAgentMemoryStarterFromSettings,
   disableAgentMemoryStarterFromSettings,
+  requestAgentMemoryClearFromSettings,
+  cancelAgentMemoryClearFromSettings,
+  confirmAgentMemoryClearFromSettings,
   onThinkingDisplaySettingsChange,
   onFeatureFlagSettingsChange,
   onMemorySettingsChange,
   onActiveThreadMemoryEnabledChange,
   onRefreshAgentMemoryDiagnostics,
   onRunAgentMemoryEmbeddingLifecycleAction,
-  onClearAgentMemory,
   onModelRuntimeSettingsChange,
   onPlannerSettingsChange,
 }: RightPanelModelModeSettingsSectionProps) {
@@ -824,6 +899,7 @@ export function RightPanelModelModeSettingsSection({
               <label className="setting-toggle">
                 <input
                   type="checkbox"
+                  aria-label="Agent Memory feature flag"
                   checked={persistentMemoryFeatureEnabled}
                   onChange={(event) =>
                     onFeatureFlagSettingsChange({
@@ -837,6 +913,7 @@ export function RightPanelModelModeSettingsSection({
               <label className="setting-toggle">
                 <input
                   type="checkbox"
+                  aria-label="Global Agent Memory"
                   checked={state.settings.memory.enabled}
                   onChange={(event) =>
                     onMemorySettingsChange({
@@ -850,6 +927,7 @@ export function RightPanelModelModeSettingsSection({
               <label className="setting-toggle">
                 <input
                   type="checkbox"
+                  aria-label="Enable Agent Memory for new threads"
                   checked={state.settings.memory.defaultThreadEnabled}
                   onChange={(event) =>
                     onMemorySettingsChange({
@@ -863,6 +941,7 @@ export function RightPanelModelModeSettingsSection({
               <label className="setting-toggle">
                 <input
                   type="checkbox"
+                  aria-label="Agent Memory short-term offload"
                   checked={state.settings.memory.shortTermOffloadEnabled}
                   onChange={(event) =>
                     onMemorySettingsChange({
@@ -876,6 +955,7 @@ export function RightPanelModelModeSettingsSection({
               <label className="setting-toggle">
                 <input
                   type="checkbox"
+                  aria-label="Managed Agent Memory embeddings"
                   checked={state.settings.memory.embeddings.enabled}
                   onChange={(event) =>
                     onMemorySettingsChange({
@@ -892,6 +972,7 @@ export function RightPanelModelModeSettingsSection({
               <label className="setting-toggle">
                 <input
                   type="checkbox"
+                  aria-label="Agent Memory for this thread"
                   checked={activeThreadMemoryEnabled}
                   disabled={activeThreadMemoryToggleDisabled}
                   onChange={(event) => onActiveThreadMemoryEnabledChange(event.target.checked)}
@@ -912,10 +993,29 @@ export function RightPanelModelModeSettingsSection({
             <button type="button" className="panel-button mini" disabled={agentMemoryDiagnosticsLoading} onClick={onRefreshAgentMemoryDiagnostics}>
               {agentMemoryDiagnosticsLoading ? "Refreshing" : "Refresh diagnostics"}
             </button>
-            <button type="button" className="panel-button mini danger" onClick={onClearAgentMemory}>
-              Clear memory
+            <button
+              type="button"
+              className="panel-button mini danger"
+              disabled={agentMemoryClearLoading || agentMemoryClearConfirming}
+              onClick={requestAgentMemoryClearFromSettings}
+            >
+              {agentMemoryClearLoading ? "Clearing" : "Clear memory"}
             </button>
           </div>
+          {agentMemoryClearConfirming && !agentMemoryClearLoading && (
+            <>
+              <p className="panel-status info">Confirm clearing this workspace's Agent Memory store. Chat transcripts and workspace files are not edited.</p>
+              <div className="panel-action-row">
+                <button type="button" className="panel-button mini danger" onClick={confirmAgentMemoryClearFromSettings}>
+                  Confirm clear
+                </button>
+                <button type="button" className="panel-button mini" onClick={cancelAgentMemoryClearFromSettings}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+          {agentMemoryClearStatus && <p className={`panel-status ${agentMemoryClearStatus.kind}`}>{agentMemoryClearStatus.message}</p>}
           {agentMemoryDiagnosticsError && <p className="panel-status error">{agentMemoryDiagnosticsError}</p>}
           {agentMemoryDiagnostics
             ? <AgentMemoryDiagnosticsSummary diagnostics={agentMemoryDiagnostics} />

@@ -52,6 +52,17 @@ export interface AmbientMemoryAdminUpdateInput {
   filename?: string;
 }
 
+export interface AmbientMemoryAdminCreateInput {
+  layer?: "l1";
+  content: string;
+  type?: MemoryType;
+  priority?: number;
+  sceneName?: string;
+  sessionKey?: string;
+  sessionId?: string;
+  sourceMessageIds?: string[];
+}
+
 export interface AmbientMemoryAdminDeleteInput {
   layer: AmbientMemoryAdminLayer;
   ids: string[];
@@ -59,6 +70,7 @@ export interface AmbientMemoryAdminDeleteInput {
 
 export interface AmbientMemoryAdminService {
   inspect(input?: AmbientMemoryAdminInspectInput): Promise<AmbientMemoryAdminInspectResult>;
+  create(input: AmbientMemoryAdminCreateInput): Promise<AmbientMemoryAdminRow>;
   update(input: AmbientMemoryAdminUpdateInput): Promise<AmbientMemoryAdminRow>;
   delete(input: AmbientMemoryAdminDeleteInput): Promise<{ deleted: string[]; failed: string[] }>;
 }
@@ -97,6 +109,10 @@ class TencentMemoryAdminService implements AmbientMemoryAdminService {
   async update(input: AmbientMemoryAdminUpdateInput): Promise<AmbientMemoryAdminRow> {
     if (input.layer === "l1") return this.updateL1(input);
     return this.updateProfile(input as AmbientMemoryAdminUpdateInput & { layer: "l2" | "l3" });
+  }
+
+  async create(input: AmbientMemoryAdminCreateInput): Promise<AmbientMemoryAdminRow> {
+    return this.createL1(input);
   }
 
   async delete(input: AmbientMemoryAdminDeleteInput): Promise<{ deleted: string[]; failed: string[] }> {
@@ -185,6 +201,51 @@ class TencentMemoryAdminService implements AmbientMemoryAdminService {
       embeddingService: this.input.core.getEmbeddingService(),
     });
     if (!record) throw new Error("TencentDB memory update was skipped.");
+    return l1Row(record);
+  }
+
+  private async createL1(input: AmbientMemoryAdminCreateInput): Promise<AmbientMemoryAdminRow> {
+    const store = this.store();
+    if (!store) throw new Error("TencentDB memory store is unavailable.");
+    const content = input.content.trim();
+    if (!content) throw new Error("TencentDB memory content is required.");
+    const type = input.type ?? "episodic";
+    const priority = input.priority ?? 50;
+    const sceneName = input.sceneName ?? "explicit_memory";
+    const sessionKey = input.sessionKey ?? "";
+    const sessionId = input.sessionId ?? "";
+    const existing = (await queryMemoryRecords(store, {
+      ...(sessionKey ? { sessionKey } : {}),
+      ...(sessionId ? { sessionId } : {}),
+    }, this.input.logger))
+      .find((record) =>
+        (!sessionKey || record.sessionKey === sessionKey) &&
+        (!sessionId || record.sessionId === sessionId) &&
+        normalizeMemoryContentForIdempotency(record.content) === normalizeMemoryContentForIdempotency(content)
+      );
+    if (existing) return l1Row(existing);
+    const record = await writeMemory({
+      memory: {
+        content,
+        type,
+        priority,
+        scene_name: sceneName,
+        source_message_ids: input.sourceMessageIds ?? [],
+        metadata: {},
+      },
+      decision: {
+        action: "store",
+        record_id: "",
+        target_ids: [],
+      },
+      baseDir: this.input.dataDir,
+      sessionKey,
+      sessionId,
+      logger: this.input.logger,
+      vectorStore: store,
+      embeddingService: this.input.core.getEmbeddingService(),
+    });
+    if (!record) throw new Error("TencentDB memory create was skipped.");
     return l1Row(record);
   }
 
@@ -320,6 +381,10 @@ function filterRows(rows: AmbientMemoryAdminRow[], query: string | undefined): A
 function preview(content: string): string {
   const normalized = content.replace(/\s+/g, " ").trim();
   return normalized.length > 180 ? `${normalized.slice(0, 177)}...` : normalized;
+}
+
+function normalizeMemoryContentForIdempotency(content: string): string {
+  return content.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function clampLimit(limit: number | undefined): number {

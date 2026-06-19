@@ -21,8 +21,8 @@ import {
   truncateText,
   writeWorkspaceTextFile,
 } from "./workspaceFiles";
-import { createDocxFixture, createPptxFixture, createXlsxFixture } from "../office/officeTestFixtures";
-import { createPdfFixture } from "../pdf/pdfTestFixtures";
+import { createDocxFixture, createPptxFixture, createXlsxFixture } from "./workspaceOfficeFacade";
+import { createPdfFixture } from "./workspacePdfFacade";
 
 describe("shouldIgnoreWorkspaceEntry", () => {
   it("skips heavy/generated workspace folders", () => {

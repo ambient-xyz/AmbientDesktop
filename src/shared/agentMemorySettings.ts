@@ -169,3 +169,24 @@ export function isAgentMemoryActiveForThread(input: {
     (input.storageHealthy ?? true),
   );
 }
+
+export function shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
+  previous: AgentMemorySettings,
+  next: AgentMemorySettings,
+): boolean {
+  const nextManagedAutoStart = Boolean(
+    next.enabled &&
+    next.embeddings.enabled &&
+    next.embeddings.providerMode === "ambient-managed" &&
+    next.embeddings.autoStartProvider,
+  );
+  if (!nextManagedAutoStart) return false;
+  const previousManagedAutoStart = Boolean(
+    previous.enabled &&
+    previous.embeddings.enabled &&
+    previous.embeddings.providerMode === "ambient-managed" &&
+    previous.embeddings.autoStartProvider,
+  );
+  return !previousManagedAutoStart ||
+    previous.embeddings.providerCapabilityId !== next.embeddings.providerCapabilityId;
+}

@@ -1,14 +1,11 @@
 import type { Dispatch, SetStateAction } from "react";
 
+import type { AgentMemoryClearResult } from "../../shared/agentMemoryDiagnostics";
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult } from "../../shared/localRuntimeTypes";
 import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
 import type { InstallModelProviderEndpointInput, InstallModelProviderEndpointResult, SaveModelProviderCredentialInput } from "../../shared/threadTypes";
 import type { LocalDeepResearchSetupUiState } from "./RightPanel";
-import { CLEAR_AGENT_MEMORY_CONFIRMATION } from "../../shared/agentMemoryPrivacy";
-
-export { CLEAR_AGENT_MEMORY_CONFIRMATION };
-
 export function desktopStateWithUpdatedSettings<K extends keyof DesktopState["settings"]>(
   state: DesktopState,
   key: K,
@@ -60,7 +57,7 @@ export function createAppSettingsActions({
   setState: Dispatch<SetStateAction<DesktopState | undefined>>;
   state: DesktopState | undefined;
 }): {
-  clearAgentMemory: () => Promise<void>;
+  clearAgentMemory: () => Promise<AgentMemoryClearResult>;
   hydrateSearchRoutingSettingsForSettingsPanel: () => Promise<void>;
   installModelProviderEndpoint: (input: InstallModelProviderEndpointInput) => Promise<InstallModelProviderEndpointResult>;
   runLocalModelRuntimeLifecycleAction: (input: LocalModelRuntimeLifecycleActionInput) => Promise<LocalModelRuntimeLifecycleActionResult>;
@@ -131,11 +128,9 @@ export function createAppSettingsActions({
     await updateSettingsSection("memory", memory, (value) => window.ambientDesktop.updateMemorySettings(value));
   }
 
-  async function clearAgentMemory(): Promise<void> {
-    if (!state) return;
-    const confirmed = window.confirm(CLEAR_AGENT_MEMORY_CONFIRMATION);
-    if (!confirmed) return;
-    await window.ambientDesktop.clearAgentMemory();
+  async function clearAgentMemory(): Promise<AgentMemoryClearResult> {
+    const current = requireDesktopState(state);
+    return window.ambientDesktop.clearAgentMemory({ workspacePath: current.workspace.path });
   }
 
   async function updatePlannerSettings(planner: DesktopState["settings"]["planner"]): Promise<void> {

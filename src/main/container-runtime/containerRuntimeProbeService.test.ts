@@ -7,7 +7,7 @@ import {
   type ContainerRuntimeCommandRunner,
   type ContainerRuntimeToolHiveClient,
 } from "./containerRuntimeProbeService";
-import type { ToolHiveCommandResult, ToolHiveRuntimePreflight } from "../tool-runtime/toolHiveRuntimeService";
+import type { ToolHiveCommandResult, ToolHiveRuntimePreflight } from "./containerRuntimeToolRuntimeFacade";
 
 describe("container runtime probe service", () => {
   it("classifies a ToolHive-verified Docker runtime as ready and queues Scrapling", async () => {

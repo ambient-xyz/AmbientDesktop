@@ -10,8 +10,8 @@ import type {
   TelegramSessionSetupCardAction,
   TelegramSessionSetupCardStatus,
 } from "../../shared/messagingGateway";
-import { buildToolLongformInputPreview } from "../tool-runtime/toolLongformInputPreview";
-import type { AmbientInstallRouteSummary, AmbientInstallRouteTelemetry } from "../install-route/installRoutePlanner";
+import { buildToolLongformInputPreview } from "./piToolRuntimeFacade";
+import type { AmbientInstallRouteSummary, AmbientInstallRouteTelemetry } from "./piInstallRouteFacade";
 import {
   createSubagentRuntimeEvent,
   type SubagentRuntimeEvent,

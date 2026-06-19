@@ -1,7 +1,7 @@
 import { modelProviderInstallTemplateById } from "../../shared/modelProviderInstallTemplates";
 import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
 import type { SaveModelProviderCredentialInput } from "../../shared/threadTypes";
-import { saveSecretReference, type SaveSecretReferenceInput } from "../security/secretReferenceStore";
+import { saveSecretReference, type SaveSecretReferenceInput } from "./modelProviderSecurityFacade";
 
 export const MODEL_PROVIDER_CREDENTIAL_SAVE_SCHEMA_VERSION = "ambient-model-provider-credential-save-v1" as const;
 

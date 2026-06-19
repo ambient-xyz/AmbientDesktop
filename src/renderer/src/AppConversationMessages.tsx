@@ -12,6 +12,7 @@ import {
 import type { BrowserUserActionState } from "../../shared/browserTypes";
 import type { DesktopState, ProviderCatalogSettingsCard, ThinkingDisplayMode } from "../../shared/desktopTypes";
 import type { AnswerPlannerDecisionQuestionInput, PlannerPlanArtifact } from "../../shared/plannerTypes";
+import { isRunStatusRunning } from "../../shared/runStatus";
 import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
 import type { ChatMessage, RunStatus, RuntimeActivity } from "../../shared/threadTypes";
 import type { WorkflowRecordingState } from "../../shared/workflowTypes";
@@ -23,6 +24,7 @@ import {
   DismissibleErrorStrip,
   ThreadVoiceStatusBar,
 } from "./AppChatChrome";
+import type { CapabilityBuilderPromptResult } from "./AppCapabilityPromptActions";
 import type { ChatComposerInputHandle } from "./AppComposerControls";
 import type { MediaPreviewModalRequest } from "./AppToolMessages";
 import {
@@ -213,9 +215,9 @@ export function AppConversationMessages({
   welcomeAmbientPluginRegistry?: AmbientPluginRegistry;
   onOpenAmbientKeys: () => void | Promise<void>;
   onOpenApiKeyDialog: () => void | Promise<void>;
-  onStartWelcomeFirstRunCapabilityOnboarding: () => void | Promise<void>;
-  onStartWelcomeProviderCatalogCardOnboarding: (card: ProviderCatalogSettingsCard) => void | Promise<void>;
-  onStartWelcomeRemoteSurfaceActivation: (provider: "telegram" | "signal" | "choose") => void | Promise<void>;
+  onStartWelcomeFirstRunCapabilityOnboarding: () => void | Promise<CapabilityBuilderPromptResult>;
+  onStartWelcomeProviderCatalogCardOnboarding: (card: ProviderCatalogSettingsCard) => void | Promise<CapabilityBuilderPromptResult>;
+  onStartWelcomeRemoteSurfaceActivation: (provider: "telegram" | "signal" | "choose") => void | Promise<CapabilityBuilderPromptResult>;
   onOpenSettingsPanel: () => void;
   onOpenPluginsPanel: () => void;
   messageVoiceStates: DesktopState["messageVoiceStates"];
@@ -346,6 +348,16 @@ export function AppConversationMessages({
       />
     );
   };
+  const liveInlineChildRunIdsForCluster = (cluster: SubagentParentClusterModel): string[] =>
+    cluster.children
+      .filter((child) => childShouldAutoOpenInlineTranscript(child, {
+        childMessagesByThreadId,
+        subagentRunEvents,
+        subagentMailboxEvents,
+        threadRunStatuses,
+        runActivityLinesByThread,
+      }))
+      .map((child) => child.runId);
 
   return (
     <section className={activeSubagentInspector ? "conversation subagent-inspector-docked" : "conversation"}>
@@ -471,6 +483,11 @@ export function AppConversationMessages({
                 );
               }
               const subagentCluster = subagentParentClustersByMessageId.get(message.id);
+              const liveInlineChildRunIds = subagentCluster ? liveInlineChildRunIdsForCluster(subagentCluster) : [];
+              const subagentClusterAutoOpen = Boolean(subagentCluster && (
+                liveInlineChildRunIds.length > 0 ||
+                (subagentCluster.parentBlocking && subagentCluster.statusTone !== "success")
+              ));
               return (
                 <Fragment key={message.id}>
                   <MessageBubble
@@ -518,6 +535,8 @@ export function AppConversationMessages({
                   {subagentCluster && (
                     <SubagentParentCluster
                       model={subagentCluster}
+                      autoOpen={subagentClusterAutoOpen}
+                      liveChildRunIds={liveInlineChildRunIds}
                       onOpenThread={onOpenSubagentThread}
                       onCancelChild={onCancelSubagentChild}
                       onCloseChild={onCloseSubagentChild}
@@ -610,6 +629,34 @@ export function AppConversationMessages({
       {children}
     </section>
   );
+}
+
+function childShouldAutoOpenInlineTranscript(
+  child: SubagentParentClusterChildModel,
+  input: {
+    childMessagesByThreadId?: DesktopState["childMessagesByThreadId"];
+    subagentRunEvents: DesktopState["subagentRunEvents"];
+    subagentMailboxEvents: DesktopState["subagentMailboxEvents"];
+    threadRunStatuses: Record<string, RunStatus>;
+    runActivityLinesByThread: Record<string, RunActivityLine[]>;
+  },
+): boolean {
+  const childMessages = input.childMessagesByThreadId?.[child.childThreadId] ?? [];
+  const childRunStatus = input.threadRunStatuses[child.childThreadId];
+  const childRunning = childRunStatus ? isRunStatusRunning(childRunStatus) : child.statusTone === "active";
+  const childRuntimeEventsVisible = input.subagentRunEvents.some((event) => event.runId === child.runId);
+  const childMailboxEventsVisible = input.subagentMailboxEvents.some((event) =>
+    event.runId === child.runId && event.type !== "subagent.task"
+  );
+  const childActivityVisible = (input.runActivityLinesByThread[child.childThreadId]?.length ?? 0) > 0;
+  const childHasLiveEvidence = childMessages.length > 0 ||
+    childRuntimeEventsVisible ||
+    childMailboxEventsVisible ||
+    childActivityVisible;
+  const childNeedsParentControl = Boolean(child.parentBlocker && child.parentBlocker.statusTone !== "success");
+  if (childNeedsParentControl) return true;
+  if (child.isTerminal) return false;
+  return childRunning || child.statusTone === "active" || childHasLiveEvidence;
 }
 
 export type AppConversationMessagesProps = ComponentProps<typeof AppConversationMessages>;

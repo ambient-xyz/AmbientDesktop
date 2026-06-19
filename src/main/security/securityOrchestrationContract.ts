@@ -1,0 +1,1 @@
+export { redactSensitiveText } from "./secretRedaction";

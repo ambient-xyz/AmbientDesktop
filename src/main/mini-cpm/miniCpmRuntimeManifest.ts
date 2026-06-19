@@ -1,7 +1,7 @@
 import {
   localLlamaRuntimeReleaseRequiredArtifactFields,
   verifyLocalLlamaRuntimeReleaseManifest,
-} from "../local-llama/localLlamaRuntimeManifest";
+} from "./miniCpmLocalLlamaFacade";
 import type { MiniCpmVisionRuntimeReleaseArtifact, MiniCpmVisionRuntimeReleaseManifest, MiniCpmVisionRuntimeReleaseManifestVerification } from "../../shared/localRuntimeTypes";
 
 export const miniCpmRuntimeReleaseRequiredArtifactFields = localLlamaRuntimeReleaseRequiredArtifactFields;

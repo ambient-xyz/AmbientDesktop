@@ -2,13 +2,13 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { discoverAmbientCliPackages, runAmbientCliPackageCommand } from "../ambient-cli/ambientCliPackages";
+import { discoverAmbientCliPackages, runAmbientCliPackageCommand } from "./installRouteAmbientCliFacade";
 import {
   registerCapabilityBuilderPackage,
   scaffoldCapabilityBuilderPackage,
   validateCapabilityBuilderPackage,
   type CapabilityBuilderInstallerShape,
-} from "../capability-builder/capabilityBuilder";
+} from "./installRouteCapabilityBuilderTestFacade";
 
 describe("Ambient install route real install matrix", () => {
   let workspace = "";

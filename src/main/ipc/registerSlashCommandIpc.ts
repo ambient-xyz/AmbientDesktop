@@ -1,7 +1,6 @@
 import type { IpcMain } from "electron";
 import { z } from "zod";
 
-import type { AmbientCliCapabilitySearchInput } from "../ambient-cli/ambientCliPackages";
 import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import type { CodexPluginCatalog } from "../../shared/pluginTypes";
 import type {
@@ -14,9 +13,12 @@ import type {
   WorkflowRecordingLibraryDescription,
   WorkflowRecordingLibraryEntry,
 } from "../../shared/workflowTypes";
-import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
-import { buildCallableWorkflowRegistry } from "../callable-workflow/callableWorkflowRegistry";
 import type { ProjectRuntimeHost } from "../index";
+import { buildCallableWorkflowRegistry } from "./ipcCallableWorkflowFacade";
+import {
+  searchAmbientCliCapabilities,
+  type AmbientCliCapabilitySearchInput,
+} from "./ipcAmbientCliFacade";
 import {
   buildSlashCommandSearchResponse,
   describeSlashCommandCatalogEntry,

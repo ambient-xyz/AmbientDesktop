@@ -231,6 +231,83 @@ describe("TencentDB agent memory starter", () => {
     expect(status.nextActions).toEqual(["repair", "open_logs", "disable"]);
   });
 
+  it("does not turn embedding-only diagnostics errors into storage blockers", () => {
+    const status = agentMemoryStarterStatusFromDiagnostics({
+      settings: {
+        featureFlags: { tencentDbMemory: true },
+        memory: memorySettings({ enabled: true, embeddingsEnabled: true }),
+      },
+      diagnostics: diagnostics({
+        featureEnabled: true,
+        settingsEnabled: true,
+        status: "error",
+        message: "Embedding endpoint preflight failed.",
+        storageSchemaStatus: "current",
+        storageSchemaMessage: "Storage schema is current.",
+        embedding: {
+          enabled: true,
+          status: "error",
+          message: "Embedding endpoint preflight failed.",
+          runtimeStatus: "running",
+          running: false,
+          lastError: "Embedding endpoint returned 500.",
+        },
+      }),
+      assets: readyAssets(),
+      activeThread: { id: "thread-1", memoryEnabled: true },
+      now: now(),
+    });
+
+    expect(status.state).toBe("needs_repair");
+    expect(status.blockers).toEqual([expect.objectContaining({
+      code: "embedding_preflight_failed",
+      message: "Embedding endpoint returned 500.",
+      retryable: true,
+    })]);
+    expect(status.nextActions).toEqual(["retry_preflight", "repair", "disable"]);
+  });
+
+  it("surfaces failed embedding starts as start failures", () => {
+    const status = agentMemoryStarterStatusFromDiagnostics({
+      settings: {
+        featureFlags: { tencentDbMemory: true },
+        memory: memorySettings({ enabled: true, embeddingsEnabled: true }),
+      },
+      diagnostics: diagnostics({
+        featureEnabled: true,
+        settingsEnabled: true,
+        status: "error",
+        message: "Ambient-managed memory embeddings failed to start.",
+        storageSchemaStatus: "current",
+        storageSchemaMessage: "Storage schema is current.",
+        embedding: {
+          enabled: true,
+          status: "error",
+          message: "Ambient-managed memory embeddings failed to start.",
+          runtimeStatus: "failed",
+          running: false,
+          lastError: "llama-server exited before opening an endpoint.",
+        },
+      }),
+      assets: readyAssets(),
+      activeThread: { id: "thread-1", memoryEnabled: true },
+      now: now(),
+    });
+
+    expect(status.state).toBe("needs_repair");
+    expect(status.blockers[0]).toEqual(expect.objectContaining({
+      code: "start_failed",
+      message: "llama-server exited before opening an endpoint.",
+      retryable: true,
+    }));
+    expect(status.blockers).toContainEqual(expect.objectContaining({
+      code: "embedding_preflight_failed",
+      message: "llama-server exited before opening an endpoint.",
+      retryable: true,
+    }));
+    expect(status.nextActions).toEqual(["retry_preflight", "repair", "open_logs", "disable"]);
+  });
+
   it("does not treat stale embedding runtime state files as running endpoints", () => {
     const snapshot = agentMemoryStarterAssetSnapshotFromDetection({
       managedRoot: "/tmp/ambient-managed",

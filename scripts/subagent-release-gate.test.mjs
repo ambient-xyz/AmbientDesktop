@@ -6112,7 +6112,7 @@ function childAuthorityLiveConfidenceArtifact() {
       ],
       evidence: [
         "childThreadId: browser-child",
-        "requestedToolId: browser_search",
+        "requestedToolId: browser_content",
         "approvalScope: always_thread",
         "resumeSynthesisAllowed: false",
       ],

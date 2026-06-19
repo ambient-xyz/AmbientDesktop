@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkflowProgramIR, WorkflowProgramValue } from "../../shared/workflowProgramIr";
 import { firstPartyDesktopToolDescriptors } from "./workflowProgramDesktopToolFacade";
-import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
+import { googleWorkspaceConnectorDescriptors } from "./workflowProgramGoogleWorkspaceFacade";
 import { compileWorkflowProgramIr, WorkflowProgramCompileError } from "./workflowProgramCompiler";
 import type { WorkflowCompilerRecipeId } from "./workflowProgramWorkflowCompilerFacade";
 

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { getDefaultSubagentRoleProfile } from "../../../shared/subagentRoles";
 import { resolveAgentRuntimeToolCallPermission, subagentUnsafeRequiredBarrierToolBlock } from "./agentRuntimeToolCallPermission";
-import { subagentStructuredResultTemplate } from "../../subagents/subagentStructuredOutput";
 
 describe("resolveAgentRuntimeToolCallPermission", () => {
   it("checks child browser authority before allowing full-access browser tools", async () => {
@@ -41,8 +40,8 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
           },
           scope: {
             schemaVersion: "ambient-subagent-tool-scope-v1",
-            loadedCategories: ["browser.read"],
-            piVisibleCategories: ["browser.read"],
+            loadedCategories: ["browser.interactive"],
+            piVisibleCategories: ["browser.interactive"],
             deniedCategories: [],
             loadedTools: [],
             piVisibleTools: [],
@@ -66,8 +65,8 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
     const blocked = await resolveAgentRuntimeToolCallPermission(
       "child-thread",
       { path: "/workspace/child", name: "workspace", statePath: "/state", sessionPath: "/sessions" },
-      "browser_search",
-      { query: "ambient" },
+      "browser_content",
+      { url: "https://docs.example.test/ambient", profileMode: "isolated" },
       {
         store: store as any,
         installRouteGateBlockForTool: () => undefined,
@@ -91,7 +90,7 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
         runId: "child-active-run",
         threadId: "child-thread",
         permissionMode: "full-access",
-        toolName: "browser_search",
+        toolName: "browser_content",
         risk: "browser-network",
         decision: "denied",
         reason: "Denied by child browser authority profile.",
@@ -104,7 +103,7 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
         metadata: expect.objectContaining({
           status: "error",
           runtime: "permission-policy",
-          toolName: "browser_search",
+          toolName: "browser_content",
           risk: "browser-network",
         }),
       }),
@@ -363,9 +362,14 @@ function completedResultArtifact(runId: string, childThreadId: string): Record<s
     summary: "Child result is synthesis safe.",
     childThreadId,
     structuredOutput: {
-      ...subagentStructuredResultTemplate(getDefaultSubagentRoleProfile("reviewer")),
+      schemaVersion: "ambient-subagent-structured-result-v1",
+      roleId: "reviewer",
+      status: "complete",
       summary: "Child result is synthesis safe.",
       evidence: ["permission guard test"],
+      artifacts: [],
+      risks: [],
+      nextActions: [],
       roleOutput: {
         verdict: "approved",
         findings: [],

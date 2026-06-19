@@ -8,7 +8,7 @@ import JSZip from "jszip";
 import type { MiniCpmVisionAnalysisCommandSummary, MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionCleanupResult, MiniCpmVisionDiagnosticItem, MiniCpmVisionImageInputReference, MiniCpmVisionImageSummary, MiniCpmVisionObservation, MiniCpmVisionRuntimeCandidate, MiniCpmVisionRuntimeContract, MiniCpmVisionRuntimeInstallResult, MiniCpmVisionRuntimeMacosSecurity, MiniCpmVisionRuntimePreflightCheck, MiniCpmVisionRuntimeReleaseArtifact, MiniCpmVisionRuntimeReleaseManifest, MiniCpmVisionRuntimeReleaseManifestCheck, MiniCpmVisionRuntimeReleaseManifestVerification, MiniCpmVisionRuntimeState, MiniCpmVisionSetupInput, MiniCpmVisionSetupResult, MiniCpmVisionTask, MiniCpmVisionValidationMetadata, MiniCpmVisionVideoInputReference, MiniCpmVisionVideoSummary } from "../../shared/localRuntimeTypes";
 import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
 import { miniCpmRemoteEndpointBlockedMessage } from "../../shared/miniCpmRemoteEndpointSecurity";
-import { localLlamaManagedRuntimeDownloadEligibility, selectLocalLlamaRuntimeArtifact } from "../local-llama/localLlamaRuntimeManifest";
+import { localLlamaManagedRuntimeDownloadEligibility, selectLocalLlamaRuntimeArtifact } from "./miniCpmLocalLlamaFacade";
 import { miniCpmRuntimeReleaseManifestPrototype, verifyMiniCpmRuntimeReleaseManifest } from "./miniCpmRuntimeManifest";
 import {
   discoverAmbientCliPackages,
@@ -19,9 +19,9 @@ import {
   uninstallAmbientCliPackageSource,
   type AmbientCliRunResult,
   type FirstPartyAmbientCliPackageInstallStatus,
-} from "../ambient-cli/ambientCliPackages";
-import { isPathInside } from "../session/sessionPaths";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/managedInstallPaths";
+} from "./miniCpmAmbientCliFacade";
+import { isPathInside } from "./miniCpmSessionFacade";
+import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "./miniCpmSetupFacade";
 
 const provider = "minicpm-v" as const;
 const packageName = "ambient-minicpm-v-vision";

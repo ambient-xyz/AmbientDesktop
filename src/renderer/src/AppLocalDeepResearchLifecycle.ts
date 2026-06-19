@@ -19,6 +19,15 @@ export function localDeepResearchStatusCheckingState(
   return { status: "running", action: "status", message: "Checking Local Deep Research..." };
 }
 
+export function localDeepResearchSetupRunningState(
+  current: LocalDeepResearchSetupUiState,
+  action: LocalDeepResearchSetupAction,
+  message: string,
+): LocalDeepResearchSetupUiState {
+  if (current.status === "running" && current.action === action && current.message === message) return current;
+  return { status: "running", action, message };
+}
+
 function setupPayloadsEqual<T>(left: T, right: T): boolean {
   if (left === right) return true;
   try {
@@ -103,15 +112,17 @@ export function useAppLocalDeepResearchLifecycle({
   setupLocalDeepResearchFromSettings: (action: "status") => Promise<LocalDeepResearchSetupResult | undefined>;
   workspacePath: string | undefined;
 }): void {
+  const hasLocalRuntimeInventory = Boolean(localDeepResearchSetup.result?.localRuntimeInventory);
+
   useEffect(() => {
-    if (localDeepResearchSetup.result?.localRuntimeInventory) {
+    if (hasLocalRuntimeInventory) {
       localRuntimeInventorySettingsRefreshKeyRef.current = undefined;
     }
     const decision = localDeepResearchRuntimeInventorySettingsRefreshDecision({
       panel,
       workspacePath,
       setupStatus: localDeepResearchSetup.status,
-      hasRuntimeInventory: Boolean(localDeepResearchSetup.result?.localRuntimeInventory),
+      hasRuntimeInventory: hasLocalRuntimeInventory,
       lastRefreshKey: localRuntimeInventorySettingsRefreshKeyRef.current,
     });
     if (decision.refreshKey) {
@@ -124,7 +135,7 @@ export function useAppLocalDeepResearchLifecycle({
     panel,
     workspacePath,
     localDeepResearchSetup.status,
-    localDeepResearchSetup.result?.localRuntimeInventory,
+    hasLocalRuntimeInventory,
   ]);
 
   useEffect(() => {

@@ -16948,6 +16948,25 @@ button.inline-media-preview {
   background: var(--surface-danger);
 }
 
+.agent-memory-starter-operation-log {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.agent-memory-starter-operation-log ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.agent-memory-starter-operation-log li {
+  overflow-wrap: anywhere;
+}
+
+.agent-memory-starter-operation-log li span {
+  font-weight: 700;
+}
+
 .panel-action-row {
   min-width: 0;
   max-width: 100%;

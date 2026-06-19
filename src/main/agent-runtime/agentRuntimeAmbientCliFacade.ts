@@ -14,7 +14,7 @@ import {
   searchAmbientCliCapabilities as searchAmbientCliCapabilitiesFromAmbientCli,
   setAmbientCliPackageEnvBinding as setAmbientCliPackageEnvBindingFromAmbientCli,
   uninstallAmbientCliPackageSource as uninstallAmbientCliPackageSourceFromAmbientCli,
-} from "../ambient-cli/ambientCliPackages";
+} from "../ambient-cli/ambientCliAgentRuntimeContract";
 import type {
   AmbientCliCapabilitySearchInput as AmbientCliCapabilitySearchInputFromAmbientCli,
   AmbientCliCapabilitySearchResponse as AmbientCliCapabilitySearchResponseFromAmbientCli,
@@ -36,7 +36,7 @@ import type {
   PreviewAmbientCliPackageInput as PreviewAmbientCliPackageInputFromAmbientCli,
   RunAmbientCliInput as RunAmbientCliInputFromAmbientCli,
   UninstallAmbientCliPackageInput as UninstallAmbientCliPackageInputFromAmbientCli,
-} from "../ambient-cli/ambientCliPackages";
+} from "../ambient-cli/ambientCliAgentRuntimeContract";
 
 export const describeAmbientCliPackage = describeAmbientCliPackageFromAmbientCli;
 export const discoverAmbientCliEmbeddingProviders =

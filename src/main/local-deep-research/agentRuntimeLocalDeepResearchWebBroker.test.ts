@@ -9,7 +9,7 @@ import type {
 import type { WebResearchProviderConfig } from "../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { LocalDeepResearchProviderSnapshot } from "./localDeepResearchSetup";
-import type { MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
+import type { MaterializedTextOutput } from "./localDeepResearchToolRuntimeFacade";
 import {
   createAgentRuntimeLocalDeepResearchWebBroker,
   createLocalDeepResearchWebBroker,

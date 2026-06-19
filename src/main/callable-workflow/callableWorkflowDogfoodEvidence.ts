@@ -10,7 +10,7 @@ import { callableWorkflowExecutionPlanFromTask } from "./callableWorkflowTaskQue
 import {
   SUBAGENT_TOOL_SCOPE_LAUNCH_POLICY_SCHEMA_VERSION,
   type SubagentToolScopeLaunchDenial,
-} from "../subagents/subagentToolScopeLaunchPolicy";
+} from "./callableWorkflowSubagentsFacade";
 
 export const CALLABLE_WORKFLOW_DOGFOOD_EVIDENCE_SCHEMA_VERSION =
   "ambient-callable-workflow-dogfood-evidence-v1" as const;

@@ -7,11 +7,10 @@ import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { SendMessageInput } from "../../shared/desktopTypes";
 import type { PlannerDiagramKind, PlannerPlanArtifact } from "../../shared/plannerTypes";
 import { plannerDecisionFinalizationPrompt } from "../../renderer/src/plannerModeUiModel";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
-import { BrowserCredentialStore } from "../browser/browserCredentialStore";
-import { BrowserService } from "../browser/browserService";
+import { AgentRuntime } from "./plannerAgentRuntimeDogfoodFacade";
+import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
 import type { PlannerDurableHtmlBrowserValidator } from "./plannerDurableHtml";
-import { ProjectStore } from "../projectStore/projectStore";
+import { ProjectStore } from "./plannerProjectStoreFacade";
 
 const electronMock = vi.hoisted(() => ({
   userDataPath: `${process.env.TMPDIR || "/tmp"}/ambient-planner-dogfood-electron`,

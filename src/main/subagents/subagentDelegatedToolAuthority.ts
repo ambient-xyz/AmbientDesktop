@@ -125,7 +125,7 @@ export const SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES: readonly SubagentDelega
     schemaVersion: SUBAGENT_DELEGATED_TOOL_AUTHORITY_AUDIT_SCHEMA_VERSION,
     surfaceId: "browser-interactive-tools",
     categoryIds: ["browser.interactive"],
-    toolNames: ["browser_search", "browser_nav", "browser_content", "browser_screenshot", "browser_eval", "browser_keypress"],
+    toolNames: ["browser_nav", "browser_content", "browser_screenshot", "browser_eval", "browser_keypress"],
     childVisibility: "built_in_child_visible",
     adapter: "subagent-browser-authority",
     authorityProfilePath: "resolverInputs.childAuthorityProfile.resourceScopes.browser",
@@ -136,7 +136,7 @@ export const SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES: readonly SubagentDelega
       "src/main/agent-runtime/tools/agentRuntimeToolCallPermission.test.ts",
     ],
     liveProof: "test:subagents:live:browser-approval",
-    notes: "Browser-backed child tools require explicit browser.interactive scope and child browser network authority before they can ask the parent for browser approval.",
+    notes: "Browser-backed child tools require explicit browser.interactive scope and child browser network authority before they can ask the parent for browser approval. browser_search remains parent-only; ordinary child web discovery uses connector.read and web_research_search.",
   },
   {
     schemaVersion: SUBAGENT_DELEGATED_TOOL_AUTHORITY_AUDIT_SCHEMA_VERSION,

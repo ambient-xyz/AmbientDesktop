@@ -101,11 +101,9 @@ describe("subagentToolScopeRequest", () => {
       builtInTools: [{ id: "browser_search", categoryId: "browser.read" }],
     })).toThrow("No exact built-in child tools are currently activatable for browser.read");
 
-    expect(resolveSubagentToolScopeRequest({
+    expect(() => resolveSubagentToolScopeRequest({
       builtInTools: [{ id: "browser_search", categoryId: "browser.interactive" }],
-    })).toEqual({
-      requestedSources: [{ source: "built_in", id: "browser_search", categoryId: "browser.interactive" }],
-    });
+    })).toThrow("Use one of: browser_nav, browser_content, browser_screenshot, browser_eval, browser_keypress.");
   });
 
   it("reports only unavailable Pi-visible surfaced extension tools", () => {

@@ -6,9 +6,8 @@ import { tmpdir } from "node:os";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
-import { BrowserCredentialStore } from "../browser/browserCredentialStore";
-import { BrowserService } from "../browser/browserService";
+import { AgentRuntime } from "./ambientAgentRuntimeDogfoodFacade";
+import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
 import { applyLiveAmbientProviderApiKeyEnv, readLiveAmbientProviderApiKey } from "./liveAmbientProviderConfig";
 import { ProjectStore } from "./ambientProjectStoreFacade";
 

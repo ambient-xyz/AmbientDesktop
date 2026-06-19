@@ -24,6 +24,15 @@ import type {
   LocalModelResourceSettings,
   LocalRuntimeLeaseRecord,
 } from "../../shared/localRuntimeTypes";
+import type {
+  SubagentChildRuntimeAdapter,
+  SubagentChildRuntimeCancelInput,
+  SubagentChildRuntimeLaunchPreflightInput,
+  SubagentChildRuntimeStartInput,
+  SubagentChildRuntimeStartResult,
+  SubagentChildRuntimeWaitInput,
+  SubagentChildRuntimeWaitResult,
+} from "./localRuntimePiFacade";
 import {
   isLocalModelRuntimeStartupError,
   type LocalModelRuntimeAcquisition,
@@ -32,15 +41,6 @@ import {
   type LocalModelRuntimeStartupFailure,
   type LocalModelRuntimeState,
 } from "./localModelRuntimeManager";
-import type {
-  SubagentChildRuntimeAdapter,
-  SubagentChildRuntimeCancelInput,
-  SubagentChildRuntimeStartInput,
-  SubagentChildRuntimeStartResult,
-  SubagentChildRuntimeLaunchPreflightInput,
-  SubagentChildRuntimeWaitInput,
-  SubagentChildRuntimeWaitResult,
-} from "../pi/piChildSessionAdapter";
 import {
   completeLocalTextDelegation,
   isLocalTextDelegationRuntimeFailureError,
@@ -58,8 +58,7 @@ import {
   localTextRequestedLaunch,
   validateLocalModelResourcePolicySnapshot,
 } from "./localModelResourceRegistry";
-import { subagentTranscriptPath } from "../subagents/subagentLifecycleHooks";
-import { subagentStructuredOutputForLocalText } from "../subagents/subagentStructuredOutput";
+import { subagentStructuredOutputForLocalText, subagentTranscriptPath } from "../subagents/subagentsLocalRuntimeContract";
 
 export interface LocalTextSubagentRuntimeConfig {
   launch: LocalTextRuntimeLaunchDescriptor;

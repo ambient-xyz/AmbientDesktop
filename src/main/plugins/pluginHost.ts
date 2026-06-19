@@ -41,7 +41,12 @@ import {
   type CommitCodexPluginInstallInput,
   type PreviewCodexPluginInstallInput,
 } from "./codex/codexPlugins";
-import { discoverPiPackages, installPiPackageSource, previewPiPackageInstallSource, uninstallPiPackageSource } from "../pi/piPackages";
+import {
+  discoverPiPackages,
+  installPiPackageSource,
+  previewPiPackageInstallSource,
+  uninstallPiPackageSource,
+} from "./pluginsPiFacade";
 import {
   codexPluginRuntimeFingerprint,
   PluginMcpSupervisor,

@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
-import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
+import { normalizeAmbientBaseUrl } from "./projectBoardProviderFacade";
 import { projectBoardTaskToolActionIntegrityIssues, projectBoardTaskToolActionsFromText, projectBoardTaskToolPromptSection } from "./projectBoardTaskTools";
 
 const runLive = process.env.AMBIENT_PROJECT_BOARD_TASK_ACTIONS_LIVE === "1";

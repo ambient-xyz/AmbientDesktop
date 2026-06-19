@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import type { AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
+import type { AgentMemoryClearResult, AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
 import type { BrowserCapabilityState, BrowserUserActionState } from "../../shared/browserTypes";
 import type { DesktopState, ThemePreference } from "../../shared/desktopTypes";
 import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
@@ -13,6 +13,7 @@ import {
   type LocalDeepResearchSetupAction,
   type LocalDeepResearchSetupResult,
 } from "./localDeepResearchUiModel";
+import type { CapabilityBuilderPromptResult } from "./AppCapabilityPromptActions";
 import { useRightPanelCapabilityBuilderController } from "./RightPanelCapabilityBuilderController";
 import { useRightPanelBrowserController } from "./RightPanelBrowserController";
 import { RightPanelBrowserPane } from "./RightPanelBrowserPane";
@@ -412,9 +413,9 @@ export function RightPanel({
   onFeatureFlagSettingsChange: (featureFlags: DesktopState["settings"]["featureFlags"]) => void;
   onMemorySettingsChange: (memory: DesktopState["settings"]["memory"]) => void;
   onActiveThreadMemoryEnabledChange: (enabled: boolean) => void;
-  onRefreshAgentMemoryDiagnostics: () => void;
-  onRunAgentMemoryEmbeddingLifecycleAction: (action: AgentMemoryEmbeddingLifecycleActionKind) => void;
-  onClearAgentMemory: () => void;
+  onRefreshAgentMemoryDiagnostics: () => Promise<void>;
+  onRunAgentMemoryEmbeddingLifecycleAction: (action: AgentMemoryEmbeddingLifecycleActionKind) => Promise<AgentMemoryEmbeddingLifecycleActionResult | undefined>;
+  onClearAgentMemory: () => Promise<AgentMemoryClearResult>;
   onPlannerSettingsChange: (planner: DesktopState["settings"]["planner"]) => void;
   onHydrateSearchRoutingSettings: () => void;
   onSearchRoutingSettingsChange: (search: DesktopState["settings"]["search"]) => void;
@@ -447,7 +448,7 @@ export function RightPanel({
   onContextError: (message: string | undefined) => void;
   onGitReviewChanged: (review: GitReviewSummary | undefined) => void;
   onWorkspaceChanged: () => void;
-  onStartCapabilityBuilder: (prompt: string, newChat: boolean, activityLine?: string) => Promise<void>;
+  onStartCapabilityBuilder: (prompt: string, newChat: boolean, activityLine?: string) => Promise<CapabilityBuilderPromptResult>;
   onOpenPluginCapabilities: () => void;
   onOpenMcpRuntimeSettings: () => void;
   onDefaultCapabilityInstalled: () => void;
@@ -571,6 +572,8 @@ export function RightPanel({
     onLoadPermissionAudit,
     onLoadPermissionGrants,
     onLoadVoiceProviders,
+    onRefreshAgentMemoryDiagnostics,
+    onClearAgentMemory,
     onStartCapabilityBuilder,
     onHydrateSearchRoutingSettings,
     onSttSettingsChange,
@@ -578,6 +581,14 @@ export function RightPanel({
     onInstallModelProviderEndpoint,
     onRunLocalModelRuntimeLifecycleAction,
   });
+  async function runAgentMemoryEmbeddingLifecycleActionFromSettings(action: AgentMemoryEmbeddingLifecycleActionKind) {
+    const result = await onRunAgentMemoryEmbeddingLifecycleAction(action);
+    if (result?.starterStatus) {
+      settingsPane.applyAgentMemoryStarterStatus(result.starterStatus);
+      return;
+    }
+    await settingsPane.loadAgentMemoryStarterStatus();
+  }
   const googleIntegrationBridge = useRightPanelGoogleIntegrationBridge();
   const pluginCatalogPane = useRightPanelPluginCatalogController({
     workspacePath: state.activeWorkspace.path,
@@ -867,8 +878,7 @@ export function RightPanel({
         onMemorySettingsChange={onMemorySettingsChange}
         onActiveThreadMemoryEnabledChange={onActiveThreadMemoryEnabledChange}
         onRefreshAgentMemoryDiagnostics={onRefreshAgentMemoryDiagnostics}
-        onRunAgentMemoryEmbeddingLifecycleAction={onRunAgentMemoryEmbeddingLifecycleAction}
-        onClearAgentMemory={onClearAgentMemory}
+        onRunAgentMemoryEmbeddingLifecycleAction={(action) => void runAgentMemoryEmbeddingLifecycleActionFromSettings(action)}
         onPlannerSettingsChange={onPlannerSettingsChange}
         onHydrateSearchRoutingSettings={onHydrateSearchRoutingSettings}
         onSearchRoutingSettingsChange={onSearchRoutingSettingsChange}
@@ -1161,5 +1171,4 @@ export function RightPanel({
     </>
   );
 }
-
 export type RightPanelProps = Parameters<typeof RightPanel>[0];

@@ -12,8 +12,7 @@ import type {
   VoiceProviderCandidate,
 } from "../../shared/localRuntimeTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import { localRuntimeToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { localRuntimeToolDescriptor, registerDesktopTool } from "../desktop-tools/desktopToolFirstPartyRuntimeContract";
 import {
   buildLocalModelRuntimeStatusSnapshot,
   localModelRuntimeStatusText,

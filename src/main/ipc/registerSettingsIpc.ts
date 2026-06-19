@@ -12,6 +12,7 @@ import {
   MIN_AGENT_MEMORY_EMBEDDING_TIMEOUT_MS,
 } from "../../shared/agentMemorySettings";
 import type {
+  AgentMemoryClearInput,
   AgentMemoryClearResult,
   AgentMemoryEmbeddingLifecycleActionInput,
   AgentMemoryEmbeddingLifecycleActionResult,
@@ -175,7 +176,7 @@ export interface RegisterSettingsIpcDependencies<
   disableAgentMemoryStarter(input: AgentMemoryStarterDisableInput): MaybePromise<AgentMemoryStarterOperationResult>;
   getAgentMemoryDiagnostics(): MaybePromise<AgentMemoryStorageDiagnostics>;
   runAgentMemoryEmbeddingLifecycleAction(input: AgentMemoryEmbeddingLifecycleActionInput): MaybePromise<AgentMemoryEmbeddingLifecycleActionResult>;
-  clearAgentMemory(): MaybePromise<AgentMemoryClearResult>;
+  clearAgentMemory(input: AgentMemoryClearInput): MaybePromise<AgentMemoryClearResult>;
   updatePlannerSettings(input: UpdatePlannerSettingsInput): MaybePromise<PlannerSettings>;
   hydrateSearchRoutingSettingsForActiveWorkspace(): MaybePromise<SearchRoutingSettings>;
   updateSearchRoutingSettings(input: UpdateSearchRoutingSettingsInput): MaybePromise<SearchRoutingSettings>;
@@ -322,6 +323,9 @@ const updateMemorySettingsSchema = z.object({
 }).strict();
 const agentMemoryEmbeddingLifecycleActionSchema = z.object({
   action: z.enum(["check", "start", "stop", "restart"]),
+}).strict();
+const agentMemoryClearSchema = z.object({
+  workspacePath: z.string().trim().min(1).max(4096),
 }).strict();
 const agentMemoryStarterEnableSchema = z.object({
   enableCurrentThread: z.boolean().optional(),
@@ -631,7 +635,10 @@ export function registerSettingsIpc<
     const input = agentMemoryEmbeddingLifecycleActionSchema.parse(raw);
     return runAgentMemoryEmbeddingLifecycleAction(input);
   });
-  handleIpc("memory:clear", async () => clearAgentMemory());
+  handleIpc("memory:clear", async (_event, raw: AgentMemoryClearInput) => {
+    const input = agentMemoryClearSchema.parse(raw);
+    return clearAgentMemory(input);
+  });
   handleIpc("planner:update-settings", async (_event, raw: UpdatePlannerSettingsInput) => {
     const input = updatePlannerSettingsSchema.parse(raw);
     return updatePlannerSettings(input);

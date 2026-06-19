@@ -1,8 +1,7 @@
 import type { PermissionRequest } from "../../shared/permissionTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
-import { permissionGrantTargetHash } from "../permissions/permissionGrants";
-import type { PermissionDecision } from "../permissions/permissionPolicy";
+import { permissionGrantTargetHash, type PermissionDecision } from "./subagentPermissionsFacade";
 
 type BrowserDecision = "allow" | "ask_parent" | "deny";
 type BrowserRisk = "browser-network" | "browser-control" | "browser-profile" | "browser-login";
@@ -17,6 +16,10 @@ const CHILD_BROWSER_TOOL_NAMES = new Set([
   "browser_pick",
   "browser_screenshot",
   "browser_login",
+]);
+
+const CHILD_FORBIDDEN_BROWSER_TOOL_NAMES = new Set([
+  "browser_search",
 ]);
 
 const BROWSER_CONTROL_TOOL_NAMES = new Set([
@@ -45,6 +48,16 @@ export function classifySubagentBrowserToolAuthority(
   const context = browserToolAuthorityContext(input.toolName, input.toolInput);
   const childRunId = input.thread.subagentRunId ?? stringField(profile, "childRunId");
   const childThreadId = input.thread.id;
+
+  if (CHILD_FORBIDDEN_BROWSER_TOOL_NAMES.has(input.toolName)) {
+    return denyChildBrowserTool({
+      input,
+      context,
+      childRunId,
+      childThreadId,
+      reason: "browser_search is not child-callable. Use connector.read with web_research_search for child web discovery.",
+    });
+  }
 
   if (!profile) {
     return denyChildBrowserTool({

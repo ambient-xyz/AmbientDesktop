@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AgentMemoryEmbeddingLifecycleActionInput } from "../shared/agentMemoryDiagnostics";
+import type { AgentMemoryClearInput, AgentMemoryEmbeddingLifecycleActionInput } from "../shared/agentMemoryDiagnostics";
 import type { UpdateAgentMemorySettingsInput } from "../shared/agentMemorySettings";
 import type { AgentMemoryStarterDisableInput, AgentMemoryStarterEnableInput, AgentMemoryStarterRepairInput } from "../shared/agentMemoryStarter";
 import type { AutomationScheduleOccurrenceActionInput, CreateAutomationFolderInput, CreateAutomationScheduleInput, MoveAutomationThreadInput, UpdateAutomationScheduleInput } from "../shared/automationTypes";
@@ -35,7 +35,7 @@ const api: AmbientDesktopApi = {
   disableAgentMemoryStarter: (input?: AgentMemoryStarterDisableInput) => ipcRenderer.invoke("memory:starter-disable", input),
   getAgentMemoryDiagnostics: () => ipcRenderer.invoke("memory:diagnostics"),
   runAgentMemoryEmbeddingLifecycleAction: (input: AgentMemoryEmbeddingLifecycleActionInput) => ipcRenderer.invoke("memory:embedding-lifecycle-action", input),
-  clearAgentMemory: () => ipcRenderer.invoke("memory:clear"),
+  clearAgentMemory: (input: AgentMemoryClearInput) => ipcRenderer.invoke("memory:clear", input),
   updatePlannerSettings: (input: UpdatePlannerSettingsInput) => ipcRenderer.invoke("planner:update-settings", input),
   hydrateSearchRoutingSettings: () => ipcRenderer.invoke("search-routing:hydrate-settings"),
   updateSearchRoutingSettings: (input: UpdateSearchRoutingSettingsInput) => ipcRenderer.invoke("search-routing:update-settings", input),

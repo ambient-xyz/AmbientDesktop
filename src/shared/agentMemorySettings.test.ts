@@ -4,6 +4,7 @@ import {
   DEFAULT_AGENT_MEMORY_SETTINGS,
   isAgentMemoryActiveForThread,
   normalizeAgentMemorySettings,
+  shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
 } from "./agentMemorySettings";
 
 describe("agent memory settings", () => {
@@ -122,5 +123,35 @@ describe("agent memory settings", () => {
       settings,
       threadMemoryEnabled: true,
     })).toBe(true);
+  });
+
+  it("starts managed embeddings when settings newly enter the auto-start state", () => {
+    const active = normalizeAgentMemorySettings({
+      enabled: true,
+      embeddings: { enabled: true, autoStartProvider: true },
+    });
+    expect(shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
+      normalizeAgentMemorySettings({
+        enabled: false,
+        embeddings: { enabled: true, autoStartProvider: true },
+      }),
+      active,
+    )).toBe(true);
+    expect(shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
+      normalizeAgentMemorySettings({
+        enabled: true,
+        embeddings: { enabled: false, autoStartProvider: true },
+      }),
+      active,
+    )).toBe(true);
+    expect(shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(active, active)).toBe(false);
+    expect(shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate({
+      ...active,
+      embeddings: { ...active.embeddings, providerCapabilityId: "ambient:custom:embedding" },
+    }, active)).toBe(true);
+    expect(shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(active, {
+      ...active,
+      embeddings: { ...active.embeddings, autoStartProvider: false },
+    })).toBe(false);
   });
 });

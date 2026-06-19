@@ -1,4 +1,5 @@
 import type { AgentMemoryAdapter, AgentMemoryStorageScope } from "./agentMemorySettings";
+import type { AgentMemoryStarterStatus } from "./agentMemoryStarter";
 import type { DiagnosticExportHealthStatus } from "./diagnosticTypes";
 
 export type AgentMemoryOperationStatusKind = "idle" | "ok" | "unavailable" | "error";
@@ -83,6 +84,50 @@ export interface AgentMemoryEmbeddingDiagnostics {
   lastError?: string;
 }
 
+export function mergeAgentMemoryEmbeddingLiveDiagnostics(
+  snapshot: AgentMemoryEmbeddingDiagnostics,
+  live: AgentMemoryEmbeddingDiagnostics,
+): AgentMemoryEmbeddingDiagnostics {
+  const merged: AgentMemoryEmbeddingDiagnostics = {
+    ...snapshot,
+    ...live,
+  };
+  for (const field of ["endpoint", "runtimeId", "runtimeStatus", "running"] as const) {
+    if (!(field in live)) delete merged[field];
+  }
+  if (snapshot.reindexStatus && snapshot.reindexStatus !== "unknown") {
+    merged.reindexStatus = snapshot.reindexStatus;
+  } else if (!live.reindexStatus && snapshot.reindexStatus) {
+    merged.reindexStatus = snapshot.reindexStatus;
+  }
+
+  const preserveSnapshotReindexDetail =
+    snapshot.reindexStatus === "pending" ||
+    snapshot.reindexStatus === "partial" ||
+    snapshot.reindexStatus === "error";
+
+  if (live.lastError) {
+    merged.lastError = live.lastError;
+  } else if (preserveSnapshotReindexDetail && snapshot.lastError) {
+    merged.lastError = snapshot.lastError;
+  } else {
+    delete merged.lastError;
+  }
+
+  merged.missingHints = live.missingHints ?? snapshot.missingHints;
+  return merged;
+}
+
+export function mergeAgentMemoryEmbeddingLifecycleDiagnostics(
+  checked: AgentMemoryEmbeddingDiagnostics,
+  lifecycle: AgentMemoryEmbeddingDiagnostics,
+): AgentMemoryEmbeddingDiagnostics {
+  if (checked.status === "error" || checked.status === "unavailable") {
+    return mergeAgentMemoryEmbeddingLiveDiagnostics(lifecycle, checked);
+  }
+  return mergeAgentMemoryEmbeddingLiveDiagnostics(checked, lifecycle);
+}
+
 export interface AgentMemoryNativeDependencyPreflightDependency {
   name: string;
   expectedVersion?: string;
@@ -136,6 +181,26 @@ export interface AgentMemoryStorageDiagnostics {
   errors: string[];
 }
 
+export function agentMemoryStorageDiagnosticsWithEmbedding(
+  diagnostics: AgentMemoryStorageDiagnostics,
+  embedding: AgentMemoryEmbeddingDiagnostics,
+): AgentMemoryStorageDiagnostics {
+  const errors = [...diagnostics.errors];
+  const embeddingError = embedding.status === "error"
+    ? embedding.lastError ?? embedding.message
+    : undefined;
+  if (embeddingError && !errors.includes(embeddingError)) errors.push(embeddingError);
+  const embeddingStatus: DiagnosticExportHealthStatus | undefined = embedding.status === "error" && diagnostics.status === "healthy"
+    ? "error"
+    : undefined;
+  return {
+    ...diagnostics,
+    embedding,
+    ...(embeddingStatus ? { status: embeddingStatus, message: embedding.message } : {}),
+    errors,
+  };
+}
+
 export interface AgentMemoryClearResult {
   adapter: AgentMemoryAdapter;
   clearedAt: string;
@@ -149,6 +214,10 @@ export interface AgentMemoryClearResult {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   };
+}
+
+export interface AgentMemoryClearInput {
+  workspacePath: string;
 }
 
 export type AgentMemoryEmbeddingLifecycleActionKind = "check" | "start" | "stop" | "restart";
@@ -175,4 +244,5 @@ export interface AgentMemoryEmbeddingLifecycleActionResult {
   message: string;
   checkedAt: string;
   diagnostics: AgentMemoryStorageDiagnostics;
+  starterStatus?: AgentMemoryStarterStatus;
 }

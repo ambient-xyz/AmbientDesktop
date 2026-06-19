@@ -6,9 +6,10 @@ import {
   credentialPlaceholder,
   dryRunPrivilegedActionNativeRequest,
   planPrivilegedAction,
+  planPrivilegedActionAdapterExecution,
+  type PrivilegedActionAdapter,
   withPrivilegedActionLogPath,
-} from "../privileged-action/privilegedAction";
-import { planPrivilegedActionAdapterExecution, type PrivilegedActionAdapter } from "../privileged-action/privilegedActionAdapter";
+} from "./containerRuntimePrivilegedActionFacade";
 import type {
   ContainerRuntimeInstallAction,
   ContainerRuntimeManagedInstallCommand,

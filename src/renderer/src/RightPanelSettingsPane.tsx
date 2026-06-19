@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import type { AgentMemoryEmbeddingLifecycleActionKind } from "../../shared/agentMemoryDiagnostics";
 import type { DesktopState } from "../../shared/desktopTypes";
 import { localDeepResearchEffortLabel, localDeepResearchMaxToolCallsForEffort } from "../../shared/localDeepResearchBudget";
 import type { RightPanelProps } from "./RightPanel";
@@ -147,8 +148,6 @@ type RightPanelSettingsPaneBaseProps = Pick<
   | "onMemorySettingsChange"
   | "onActiveThreadMemoryEnabledChange"
   | "onRefreshAgentMemoryDiagnostics"
-  | "onRunAgentMemoryEmbeddingLifecycleAction"
-  | "onClearAgentMemory"
   | "onPlannerSettingsChange"
   | "onHydrateSearchRoutingSettings"
   | "onSearchRoutingSettingsChange"
@@ -175,6 +174,7 @@ type RightPanelSettingsPaneBaseProps = Pick<
 >;
 
 export type RightPanelSettingsPaneProps = RightPanelSettingsPaneBaseProps & {
+  onRunAgentMemoryEmbeddingLifecycleAction: (action: AgentMemoryEmbeddingLifecycleActionKind) => void;
   settingsPane: RightPanelSettingsController;
   mcpPane: RightPanelMcpController;
   diagnosticsPane: RightPanelDiagnosticsController;
@@ -241,7 +241,6 @@ export function RightPanelSettingsPane({
   onActiveThreadMemoryEnabledChange,
   onRefreshAgentMemoryDiagnostics,
   onRunAgentMemoryEmbeddingLifecycleAction,
-  onClearAgentMemory,
   onPlannerSettingsChange,
   onHydrateSearchRoutingSettings,
   onSearchRoutingSettingsChange,
@@ -760,6 +759,9 @@ export function RightPanelSettingsPane({
             agentMemoryStarterError={settingsPane.agentMemoryStarterError}
             agentMemoryStarterOperationLoading={settingsPane.agentMemoryStarterOperationLoading}
             agentMemoryStarterOperationResult={settingsPane.agentMemoryStarterOperationResult}
+            agentMemoryClearConfirming={settingsPane.agentMemoryClearConfirming}
+            agentMemoryClearLoading={settingsPane.agentMemoryClearLoading}
+            agentMemoryClearStatus={settingsPane.agentMemoryClearStatus}
             subagentMaturity={subagentMaturity}
             subagentMaturityEvidence={subagentMaturityEvidence}
             setModelProviderInstallDraft={settingsPane.setModelProviderInstallDraft}
@@ -770,13 +772,15 @@ export function RightPanelSettingsPane({
             enableAgentMemoryStarterFromSettings={settingsPane.enableAgentMemoryStarterFromSettings}
             repairAgentMemoryStarterFromSettings={settingsPane.repairAgentMemoryStarterFromSettings}
             disableAgentMemoryStarterFromSettings={settingsPane.disableAgentMemoryStarterFromSettings}
+            requestAgentMemoryClearFromSettings={settingsPane.requestAgentMemoryClearFromSettings}
+            cancelAgentMemoryClearFromSettings={settingsPane.cancelAgentMemoryClearFromSettings}
+            confirmAgentMemoryClearFromSettings={settingsPane.confirmAgentMemoryClearFromSettings}
             onThinkingDisplaySettingsChange={onThinkingDisplaySettingsChange}
             onFeatureFlagSettingsChange={onFeatureFlagSettingsChange}
             onMemorySettingsChange={onMemorySettingsChange}
             onActiveThreadMemoryEnabledChange={onActiveThreadMemoryEnabledChange}
             onRefreshAgentMemoryDiagnostics={onRefreshAgentMemoryDiagnostics}
             onRunAgentMemoryEmbeddingLifecycleAction={onRunAgentMemoryEmbeddingLifecycleAction}
-            onClearAgentMemory={onClearAgentMemory}
             onModelRuntimeSettingsChange={onModelRuntimeSettingsChange}
             onPlannerSettingsChange={onPlannerSettingsChange}
           />

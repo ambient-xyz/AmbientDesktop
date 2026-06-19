@@ -17,6 +17,9 @@ export function classifyHarnessFailure(input = {}) {
   const output = `${input.stdout ?? ""}\n${input.stderr ?? ""}\n${input.error ?? ""}`;
   if (input.phase && input.phase !== "test" && input.phase !== "dogfood") return "harness_environment_failed";
   if (input.exitCode === 0 && !input.error) return "passed";
+  if (/(harness environment preflight failed|unrelated resident llama\.cpp processes)/i.test(output)) {
+    return "harness_environment_failed";
+  }
   if (/(nested worktree|nested node_modules|native module verification failed|ABI mismatch|wrong architecture|architecture mismatch|better_sqlite3\.node|(?:better-sqlite3|node-pty).*(?:failed|missing|wrong architecture|architecture mismatch))/i.test(output)) {
     return "harness_environment_failed";
   }

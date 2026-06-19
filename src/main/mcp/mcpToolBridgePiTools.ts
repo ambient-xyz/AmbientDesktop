@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
-import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "./mcpDesktopToolsFacade";
 import {
   McpToolBridge,
   isMcpToolRuntimePermissionBlockedError,

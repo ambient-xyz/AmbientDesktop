@@ -33,9 +33,9 @@ import {
   type AmbientCuratedMarketplaceSignatureVerification,
 } from "./codexCuratedMarketplaceSignature";
 import { knownCodexPluginProfile } from "./codexPluginProfiles";
-import { isPathInside } from "../../session/sessionPaths";
+import { isPathInside } from "../pluginsSessionFacade";
 import { materializeTextOutput } from "../pluginsToolRuntimeFacade";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../../setup/managedInstallPaths";
+import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../pluginsSetupFacade";
 
 const execFileAsync = promisify(execFile);
 const marketplaceLocations = [".agents/plugins/marketplace.json", ".claude-plugin/marketplace.json"];

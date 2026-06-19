@@ -9,7 +9,7 @@ import {
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 import type { ProjectStore } from "../agentRuntimeProjectStoreFacade";
-import { workflowRecordingReviewDraftUpdateFromToolParams } from "../../workflow-recording/workflowRecordingReviewDraftInput";
+import { workflowRecordingReviewDraftUpdateFromToolParams } from "../agentRuntimeWorkflowRecordingFacade";
 
 interface AmbientWorkflowUpdateServices {
   update?: (input: AmbientWorkflowsUpdateInput) => Promise<AmbientWorkflowPlaybookDescription> | AmbientWorkflowPlaybookDescription;

@@ -17,19 +17,17 @@ import {
   ambientInstallRouteTelemetry,
   planAmbientInstallRoute,
   type AmbientInstallRoutePlan,
-} from "../../install-route/installRoutePlanner";
-import {
-  runSetupRuntimePreflight,
-  setupRuntimePreflightText,
-  type SetupRuntimePackageManagerChoice,
-  type SetupRuntimePreflightResult,
-} from "../../setup/setupRuntimePreflight";
+} from "../pluginsInstallRouteFacade";
 import {
   describeSetupRecipe,
+  runSetupRuntimePreflight,
   setupRecipeDescribeText,
+  setupRuntimePreflightText,
   type SetupRecipeDescribeResult,
   type SetupRecipeId,
-} from "../../setup/setupRecipeService";
+  type SetupRuntimePackageManagerChoice,
+  type SetupRuntimePreflightResult,
+} from "../pluginsSetupFacade";
 
 type ToolUpdateHandler = (update: AgentToolResult<Record<string, unknown>>) => void;
 

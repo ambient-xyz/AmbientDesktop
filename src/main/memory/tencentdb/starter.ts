@@ -218,7 +218,11 @@ function starterBlockers(input: {
   if (input.diagnostics.featureEnabled && input.diagnostics.storageSchemaStatus === "unsupported") {
     add("storage_unhealthy", input.diagnostics.storageSchemaMessage, false);
   }
-  if (input.diagnostics.featureEnabled && input.diagnostics.status !== "healthy") {
+  if (
+    input.diagnostics.featureEnabled &&
+    input.diagnostics.status !== "healthy" &&
+    !isEmbeddingOnlyDiagnosticsIssue(input.diagnostics)
+  ) {
     add("storage_unhealthy", input.diagnostics.message, true);
   }
   if (!input.memory.embeddings.enabled || input.memory.embeddings.providerMode !== "ambient-managed" || !input.memory.embeddings.autoStartProvider) {
@@ -270,6 +274,11 @@ function starterBlockers(input: {
     add("start_failed", input.diagnostics.embedding.message, true);
   }
   return blockers;
+}
+
+function isEmbeddingOnlyDiagnosticsIssue(diagnostics: AgentMemoryStorageDiagnostics): boolean {
+  if (diagnostics.status === "healthy" || diagnostics.embedding.status !== "error") return false;
+  return diagnostics.message === diagnostics.embedding.message;
 }
 
 function disabledRuntimeStarterBlockers(
@@ -362,7 +371,7 @@ function runtimeStatusFromEmbedding(
   current: AgentMemoryStarterRuntimeStatus,
   embedding: AgentMemoryEmbeddingDiagnostics,
 ): AgentMemoryStarterRuntimeStatus {
-  if (embedding.runtimeStatus === "failed" || embedding.status === "error") {
+  if (embedding.runtimeStatus === "failed") {
     return { ...current, state: "failed", message: embedding.lastError ?? embedding.message };
   }
   if (embedding.runtimeStatus === "blocked") {

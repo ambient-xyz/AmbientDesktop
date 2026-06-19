@@ -8,8 +8,7 @@ import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/perm
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { runAmbientCliPackageCommand } from "./voiceAmbientCliFacade";
-import { voiceToolDescriptor } from "../desktop-tools/desktopToolRegistry";
-import { registerDesktopTool } from "../desktop-tools/desktopToolRegistration";
+import { registerDesktopTool, voiceToolDescriptor } from "../desktop-tools/desktopToolFirstPartyRuntimeContract";
 import { isPathInside } from "./voiceSessionFacade";
 import {
   listVoiceProviderVoices,

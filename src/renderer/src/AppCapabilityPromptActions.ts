@@ -14,7 +14,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const STALE_CREATED_THREAD_STATE_MESSAGE = "Created thread state was superseded before the launch could be applied.";
+
 export type RemoteSurfaceActivationProvider = "telegram" | "signal" | "choose";
+export type CapabilityBuilderPromptResult = "sent" | "skipped" | "send-failed";
 
 export function remoteSurfaceActivationActivityLine(provider: RemoteSurfaceActivationProvider): string {
   if (provider === "telegram") return "Remote Ambient Surface Telegram setup sent to Ambient.";
@@ -41,7 +44,7 @@ export function createAppCapabilityPromptActions({
   setThreadRunStatuses,
   state,
 }: {
-  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => void;
+  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => boolean;
   resetPromptHistory: () => void;
   resetRunActivityLines: (initialText?: string, threadId?: string) => void;
   running: boolean;
@@ -56,10 +59,10 @@ export function createAppCapabilityPromptActions({
   sendTelegramSessionSetupPrompt: (prompt: string) => Promise<void>;
   sendToolActionPrompt: (prompt: string, activityLine: string) => Promise<void>;
   sendToolActionPromptForState: (targetState: DesktopState, threadId: string, prompt: string, activityLine: string) => Promise<void>;
-  startCapabilityBuilderPrompt: (prompt: string, newChat: boolean, activityLine?: string) => Promise<void>;
-  startWelcomeFirstRunCapabilityOnboarding: () => Promise<void>;
-  startWelcomeProviderCatalogCardOnboarding: (card: ProviderCatalogSettingsCard) => Promise<void>;
-  startWelcomeRemoteSurfaceActivation: (provider: RemoteSurfaceActivationProvider) => Promise<void>;
+  startCapabilityBuilderPrompt: (prompt: string, newChat: boolean, activityLine?: string) => Promise<CapabilityBuilderPromptResult>;
+  startWelcomeFirstRunCapabilityOnboarding: () => Promise<CapabilityBuilderPromptResult>;
+  startWelcomeProviderCatalogCardOnboarding: (card: ProviderCatalogSettingsCard) => Promise<CapabilityBuilderPromptResult>;
+  startWelcomeRemoteSurfaceActivation: (provider: RemoteSurfaceActivationProvider) => Promise<CapabilityBuilderPromptResult>;
 } {
   async function sendToolActionPromptForState(targetState: DesktopState, threadId: string, prompt: string, activityLine: string): Promise<void> {
     if (running || !prompt.trim()) return;
@@ -99,8 +102,9 @@ export function createAppCapabilityPromptActions({
     await sendToolActionPrompt(prompt, "Remote Ambient Surface action sent to Ambient.");
   }
 
-  async function startCapabilityBuilderPrompt(prompt: string, newChat: boolean, activityLine = "Capability Builder prompt sent to Ambient."): Promise<void> {
-    if (!state || running || !prompt.trim()) return;
+  async function startCapabilityBuilderPrompt(prompt: string, newChat: boolean, activityLine = "Capability Builder prompt sent to Ambient."): Promise<CapabilityBuilderPromptResult> {
+    if (!state || running || !prompt.trim()) return "skipped";
+    let promptTargetApplied = !newChat;
     setError(undefined);
     setContextError(undefined);
     try {
@@ -114,7 +118,11 @@ export function createAppCapabilityPromptActions({
           thinkingLevel: state.settings.thinkingLevel,
           workspacePath: state.workspace.path,
         });
-        applyCreatedThreadState(targetState, previousWorkspacePath);
+        if (!applyCreatedThreadState(targetState, previousWorkspacePath)) {
+          setError(STALE_CREATED_THREAD_STATE_MESSAGE);
+          return "skipped";
+        }
+        promptTargetApplied = true;
       }
       resetPromptHistory();
       setContextAttachments([]);
@@ -131,9 +139,11 @@ export function createAppCapabilityPromptActions({
         delivery: "prompt",
         context: [],
       });
+      return "sent";
     } catch (err) {
       setError(errorMessage(err));
-      setRunStatus("error");
+      if (promptTargetApplied) setRunStatus("error");
+      return promptTargetApplied ? "send-failed" : "skipped";
     }
   }
 
@@ -145,21 +155,21 @@ export function createAppCapabilityPromptActions({
     }
   }
 
-  async function startWelcomeProviderCatalogCardOnboarding(card: ProviderCatalogSettingsCard): Promise<void> {
-    if (running) return;
+  async function startWelcomeProviderCatalogCardOnboarding(card: ProviderCatalogSettingsCard): Promise<CapabilityBuilderPromptResult> {
+    if (running) return "skipped";
     const hostFacts = await voiceOnboardingHostFacts();
-    await startCapabilityBuilderPrompt(buildProviderCatalogCardOnboardingPrompt(card, hostFacts), true);
+    return startCapabilityBuilderPrompt(buildProviderCatalogCardOnboardingPrompt(card, hostFacts), true);
   }
 
-  async function startWelcomeFirstRunCapabilityOnboarding(): Promise<void> {
-    if (running || !state) return;
+  async function startWelcomeFirstRunCapabilityOnboarding(): Promise<CapabilityBuilderPromptResult> {
+    if (running || !state) return "skipped";
     const hostFacts = await voiceOnboardingHostFacts();
-    await startCapabilityBuilderPrompt(buildFirstRunCapabilityOnboardingPrompt(hostFacts, state.providerCatalog.cards), true);
+    return startCapabilityBuilderPrompt(buildFirstRunCapabilityOnboardingPrompt(hostFacts, state.providerCatalog.cards), true);
   }
 
-  async function startWelcomeRemoteSurfaceActivation(provider: RemoteSurfaceActivationProvider): Promise<void> {
-    if (running) return;
-    await startCapabilityBuilderPrompt(buildRemoteSurfaceActivationPrompt(provider), true, remoteSurfaceActivationActivityLine(provider));
+  async function startWelcomeRemoteSurfaceActivation(provider: RemoteSurfaceActivationProvider): Promise<CapabilityBuilderPromptResult> {
+    if (running) return "skipped";
+    return startCapabilityBuilderPrompt(buildRemoteSurfaceActivationPrompt(provider), true, remoteSurfaceActivationActivityLine(provider));
   }
 
   return {

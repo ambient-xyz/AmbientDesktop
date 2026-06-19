@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname, relative, resolve } from "node:path";
 import type { MediaArtifactResult } from "../../shared/desktopTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./mediaSessionFacade";
 
 export type MediaKind = "image";
 

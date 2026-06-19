@@ -10,9 +10,11 @@ import type {
 import type { DesktopEvent } from "../../../shared/desktopTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
-import { createMcpAutowireCandidateRefStore } from "../../mcp-autowire/mcpAutowireCandidateRefs";
-import { createMcpAutowirePlanRevisionStore } from "../../mcp-autowire/mcpAutowirePlanEdits";
-import { createMcpAutowirePiToolDefinitions } from "../../mcp-autowire/mcpAutowirePiTools";
+import {
+  createMcpAutowireCandidateRefStore,
+  createMcpAutowirePiToolDefinitions,
+  createMcpAutowirePlanRevisionStore,
+} from "../agentRuntimeMcpAutowireFacade";
 import { createMcpServerPiToolDefinitions } from "../agentRuntimeMcpFacade";
 import { createMcpToolBridgePiToolDefinitions } from "../agentRuntimeMcpFacade";
 import { evaluateMcpInstallGate, mcpDefaultCapabilityStatePathForUserData } from "../agentRuntimeMcpFacade";

@@ -15,9 +15,8 @@ import type { PermissionAuditEntry } from "../../shared/permissionTypes";
 import type { CodexPluginSummary } from "../../shared/pluginTypes";
 import type { WorkflowDashboard, WorkflowRunEvent, WorkflowRunSummary } from "../../shared/workflowTypes";
 import type { WorkflowGraphDiff } from "../../shared/workflowGraphDiff";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
-import { BrowserCredentialStore, type BrowserCredentialSafeStorage } from "../browser/browserCredentialStore";
-import { BrowserService } from "../browser/browserService";
+import { AgentRuntime } from "./workflowAgentRuntimeDogfoodFacade";
+import { BrowserCredentialStore, BrowserService, type BrowserCredentialSafeStorage } from "../browser/browserAgentRuntimeContract";
 import { AmbientWorkflowRunProvider } from "./workflowAmbientProvider";
 import { AmbientWorkflowCompilerProvider, compileWorkflowArtifact } from "./workflowWorkflowCompilerServiceFacade";
 import {
@@ -62,7 +61,7 @@ import { workflowThreadTranscriptCards } from "../../renderer/src/workflowThread
 import type { WorkflowBrowserAdapter } from "./workflowDesktopTools";
 import { invokeWorkflowNativeTool } from "./workflowNativeTools";
 import { commitWorkflowVersionRepo } from "./workflowVersioning";
-import { ensureFirstPartyAmbientCliPackages, searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
+import { ensureFirstPartyAmbientCliPackages, searchAmbientCliCapabilities } from "./workflowAmbientCliFacade";
 
 type HarnessTraceArtifactsModule = {
   snapshotHarnessWorkspace: (workspacePath: string) => Promise<unknown>;

@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { delimiter, dirname } from "node:path";
-import { buildSafeProcessEnv } from "../security/safeProcessEnv";
+import { buildSafeProcessEnv } from "./setupSecurityFacade";
 
 const commonRuntimeBinDirs = [
   dirname(process.execPath),

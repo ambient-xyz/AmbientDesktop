@@ -5,15 +5,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { PermissionPromptResponseMode, PermissionRequest } from "../../shared/permissionTypes";
-import { AgentRuntime } from "../agent-runtime/agentRuntime";
+import { AgentRuntime } from "./subagentsAgentRuntimeLiveFacade";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../ambient/liveAmbientProviderConfig";
-import { createDocxFixture } from "../office/officeTestFixtures";
-import { createPdfFixture } from "../pdf/pdfTestFixtures";
+} from "./subagentsAmbientFacade";
+import { createDocxFixture } from "./subagentsOfficeTestFacade";
+import { createPdfFixture } from "./subagentsPdfTestFacade";
 import { ProjectStore } from "./subagentProjectStoreFacade";
 import { resolveSubagentApprovalDecision } from "./subagentApprovalDecision";
 import { recordSubagentLiveApprovalAuthorityEvidence, recordSubagentLiveSmokeEvidence } from "./subagentLiveSmokeEvidence";
@@ -664,11 +664,11 @@ describe("AgentRuntime sub-agent Pi tool live smoke", () => {
       idempotencyKey: "live-subagent-child-browser-approval",
       task: [
         "This is a live child browser approval validation.",
-        "Use only browser_search and your final reply.",
-        "Call browser_search exactly once with query: Ambient Desktop child browser approval live smoke.",
+        "Use only browser_content and your final reply.",
+        "Call browser_content exactly once with url: https://example.com/ambient-desktop-child-browser-approval-live-smoke.",
         "If Ambient pauses for approval, wait for the parent approval response before continuing.",
         "Do not use shell, filesystem, write/edit, connector, MCP, workflow, or sub-agent tools.",
-        "Do not complete unless browser_search returns or Ambient explicitly reports the browser action was denied.",
+        "Do not complete unless browser_content returns or Ambient explicitly reports the browser action was denied.",
       ].join("\n"),
       toolScope: {
         requestedCategories: ["browser.interactive"],
@@ -719,15 +719,16 @@ describe("AgentRuntime sub-agent Pi tool live smoke", () => {
     expect(pendingPermissions).toEqual([
       expect.objectContaining({
         threadId: run.childThreadId,
-        toolName: "browser_search",
+        toolName: "browser_content",
         title: "Allow child browser network access?",
         risk: "browser-network",
         grantActionKind: "browser_network",
-        grantTargetKind: "tool",
-        grantTargetLabel: "browser_search",
+        grantTargetKind: "browser_origin",
+        grantTargetLabel: "example.com",
         grantConditions: expect.objectContaining({
           childRunId: run.id,
           childThreadId: run.childThreadId,
+          domain: "example.com",
           source: "subagent-child-browser-authority",
         }),
       }),
@@ -740,7 +741,7 @@ describe("AgentRuntime sub-agent Pi tool live smoke", () => {
         childRunId: run.id,
         childThreadId: run.childThreadId,
         approvalId: pendingPermissions[0].id,
-        requestedToolId: "browser_search",
+        requestedToolId: "browser_content",
         requestedAction: "browser_network",
         requestedToolCategory: "browser-network",
         parentBlockingState: expect.objectContaining({
@@ -760,7 +761,7 @@ describe("AgentRuntime sub-agent Pi tool live smoke", () => {
       approvalId,
       decision: "approved",
       requestedScope: "this_child_thread",
-      userDecision: "Approve browser_search for this live child thread so it can resume.",
+      userDecision: "Approve browser_content for this live child thread so it can resume.",
     });
     expect(decision).toMatchObject({
       approvalId,

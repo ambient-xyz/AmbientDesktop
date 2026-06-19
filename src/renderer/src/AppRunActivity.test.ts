@@ -7,6 +7,7 @@ import {
   runActivityThinkingDeltaUpdate,
   runRetryStatsFromActivity,
   shouldAppendRunActivityLine,
+  shouldRenderRuntimeActivityUpdate,
   summarizeRunActivity,
   workflowReviewRetryStatusLabel,
   type RunActivityLine,
@@ -92,6 +93,38 @@ describe("summarizeRunActivity", () => {
       completedLines: ["A".repeat(141)],
       remainder: "",
     });
+  });
+
+  it("rate-limits only high-frequency streaming activity replacements", () => {
+    const previous = {
+      text: "Streaming response: 10 output chars.",
+      renderedAt: 1_000,
+    };
+
+    expect(
+      shouldRenderRuntimeActivityUpdate({
+        activity: { threadId: "thread-id", kind: "stream", status: "running", outputChars: 11 },
+        now: 1_050,
+        previous,
+        text: "Streaming response: 11 output chars.",
+      }),
+    ).toBe(false);
+    expect(
+      shouldRenderRuntimeActivityUpdate({
+        activity: { threadId: "thread-id", kind: "stream", status: "running", outputChars: 11 },
+        now: 1_300,
+        previous,
+        text: "Streaming response: 11 output chars.",
+      }),
+    ).toBe(true);
+    expect(
+      shouldRenderRuntimeActivityUpdate({
+        activity: { threadId: "thread-id", kind: "stream", status: "timeout", outputChars: 11 },
+        now: 1_050,
+        previous,
+        text: "Ambient/Pi stream timed out after 30s.",
+      }),
+    ).toBe(true);
   });
 
   it("tracks retry stats and labels without changing review status text", () => {

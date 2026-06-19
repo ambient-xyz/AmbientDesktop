@@ -27,6 +27,8 @@ import type {
 
 export interface SubagentParentClusterProps {
   model: SubagentParentClusterModel;
+  autoOpen?: boolean;
+  liveChildRunIds?: readonly string[];
   onOpenThread: (child: SubagentParentClusterChildModel) => void;
   onCancelChild: (child: SubagentParentClusterChildModel) => void;
   onCloseChild: (child: SubagentParentClusterChildModel) => void;
@@ -58,6 +60,8 @@ export function SubagentParentCluster({
   onResolveBarrierAction,
   onResolveApprovalAction,
   renderChildTranscript,
+  autoOpen = false,
+  liveChildRunIds = [],
   cancelChildBusyId,
   closeChildBusyId,
   pauseWorkflowTaskBusyId,
@@ -66,10 +70,18 @@ export function SubagentParentCluster({
   barrierActionBusyId,
   approvalActionBusyId,
 }: SubagentParentClusterProps) {
+  const clusterToggleIntent = useRef(false);
+  const clusterUserCollapsed = useRef(false);
   const childDetailsByRunId = useRef(new Map<string, HTMLDetailsElement>());
   const childToggleIntentRunIds = useRef(new Set<string>());
   const userCollapsedChildRunIds = useRef(new Set<string>());
-  const defaultExpandedChildRunIds = defaultExpandedChildRunIdsForModel(model);
+  const liveChildRunIdsKey = childRunIdListKey([...liveChildRunIds]);
+  const liveChildRunIdSet = useMemo(
+    () => new Set(runIdsFromListKey(liveChildRunIdsKey)),
+    [liveChildRunIdsKey],
+  );
+  const [clusterOpen, setClusterOpen] = useState(autoOpen);
+  const defaultExpandedChildRunIds = defaultExpandedChildRunIdsForModel(model, liveChildRunIdSet);
   const defaultExpandedChildRunIdsKey = childRunIdListKey(defaultExpandedChildRunIds);
   const defaultExpandedChildRunIdSet = useMemo(
     () => new Set(runIdsFromListKey(defaultExpandedChildRunIdsKey)),
@@ -82,6 +94,9 @@ export function SubagentParentCluster({
       details.scrollIntoView({ block: "end", inline: "nearest", behavior: "auto" });
     });
   }, []);
+  const markClusterToggleIntent = useCallback(() => {
+    clusterToggleIntent.current = true;
+  }, []);
   const registerChildDetails = useCallback((runId: string) =>
     (element: HTMLDetailsElement | null) => {
       if (element) childDetailsByRunId.current.set(runId, element);
@@ -90,6 +105,10 @@ export function SubagentParentCluster({
   const markChildToggleIntent = useCallback((runId: string) => {
     childToggleIntentRunIds.current.add(runId);
   }, []);
+  useEffect(() => {
+    if (autoOpen && !clusterUserCollapsed.current) setClusterOpen(true);
+    if (!autoOpen) clusterUserCollapsed.current = false;
+  }, [autoOpen]);
   useEffect(() => {
     setExpandedChildRunIds((current) => {
       let changed = false;
@@ -167,11 +186,29 @@ export function SubagentParentCluster({
   return (
     <details
       className="subagent-parent-cluster"
+      open={clusterOpen}
+      data-subagent-cluster-auto-open={String(autoOpen)}
+      data-subagent-cluster-live-child-count={liveChildRunIdSet.size}
       onToggle={(event) => {
+        const open = event.currentTarget.open;
+        const userInitiated = clusterToggleIntent.current;
+        clusterToggleIntent.current = false;
+        if (!userInitiated && !open && autoOpen && !clusterUserCollapsed.current) {
+          event.currentTarget.open = true;
+          setClusterOpen(true);
+          return;
+        }
+        if (userInitiated) clusterUserCollapsed.current = autoOpen && !open;
+        setClusterOpen(open);
         if (event.currentTarget.open) scrollExpandedDetailsIntoView(event.currentTarget);
       }}
     >
-      <summary>
+      <summary
+        onClick={markClusterToggleIntent}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") markClusterToggleIntent();
+        }}
+      >
         <span className="subagent-parent-cluster-title">
           <GitBranch size={13} aria-hidden="true" />
           <span>{model.title}</span>
@@ -207,6 +244,7 @@ export function SubagentParentCluster({
               data-child-run-id={child.runId}
               data-child-thread-id={child.childThreadId}
               data-child-default-expanded={String(defaultExpandedChildRunIdSet.has(child.runId))}
+              data-child-live-transcript-auto-open={String(liveChildRunIdSet.has(child.runId))}
               ref={registerChildDetails(child.runId)}
               open={renderedExpandedChildRunIds.has(child.runId)}
               onToggle={(event) => {
@@ -543,10 +581,13 @@ export function SubagentParentCluster({
   );
 }
 
-function defaultExpandedChildRunIdsForModel(model: SubagentParentClusterModel): string[] {
+function defaultExpandedChildRunIdsForModel(
+  model: SubagentParentClusterModel,
+  liveChildRunIds: ReadonlySet<string> = new Set(),
+): string[] {
   const parentBlockingRunIds = new Set(model.parentBlocking?.blockingChildren.map((child) => child.runId) ?? []);
   return model.children
-    .filter((child) => shouldDefaultExpandChild(child, parentBlockingRunIds))
+    .filter((child) => liveChildRunIds.has(child.runId) || shouldDefaultExpandChild(child, parentBlockingRunIds))
     .map((child) => child.runId);
 }
 

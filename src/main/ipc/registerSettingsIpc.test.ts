@@ -75,7 +75,7 @@ describe("registerSettingsIpc", () => {
     await expect(invoke("memory:starter-disable", {})).resolves.toMatchObject({ operation: "disable" });
     await expect(invoke("memory:diagnostics")).resolves.toMatchObject({ adapter: "tencentdb" });
     await expect(invoke("memory:embedding-lifecycle-action", { action: "check" })).resolves.toMatchObject({ status: "ready" });
-    await invoke("memory:clear");
+    await invoke("memory:clear", { workspacePath: "/tmp/ambient-workspace" });
     await invoke("search-routing:update-settings", { webSearch: { activity: "web_search" }, extra: true });
 
     expect(deps.updateMediaPlaybackSettings).toHaveBeenCalledWith({ generatedMediaAutoplay: true });
@@ -88,7 +88,7 @@ describe("registerSettingsIpc", () => {
     expect(deps.disableAgentMemoryStarter).toHaveBeenCalledWith({});
     expect(deps.getAgentMemoryDiagnostics).toHaveBeenCalledOnce();
     expect(deps.runAgentMemoryEmbeddingLifecycleAction).toHaveBeenCalledWith({ action: "check" });
-    expect(deps.clearAgentMemory).toHaveBeenCalledOnce();
+    expect(deps.clearAgentMemory).toHaveBeenCalledWith({ workspacePath: "/tmp/ambient-workspace" });
     expect(deps.updateSearchRoutingSettings).toHaveBeenCalledWith({ webSearch: { activity: "web_search" }, extra: true });
   });
 

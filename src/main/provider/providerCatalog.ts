@@ -1,6 +1,6 @@
 import type { ProviderCatalogSettingsCard, ProviderCatalogSettingsState } from "../../shared/desktopTypes";
 import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
-import { localDeepResearchModelProfilesManifest, localDeepResearchModelAssetNames } from "../local-deep-research/localDeepResearchModelProfiles";
+import { localDeepResearchModelProfilesManifest, localDeepResearchModelAssetNames } from "./providerLocalDeepResearchFacade";
 
 export type ProviderCapabilityArea =
   | "voice-generation"

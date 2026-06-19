@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { SendMessageInput } from "../../shared/desktopTypes";
-import type { AgentRuntime, AgentRuntimeSendHooks } from "../agent-runtime/agentRuntime";
+import type { AgentRuntime, AgentRuntimeSendHooks } from "./orchestrationAgentRuntimeFacade";
 import { ProjectStore } from "./orchestrationProjectStoreFacade";
 import {
   listAutoContinuableRestartInterruptedRuns,

@@ -9,7 +9,7 @@ import {
   type AmbientRetryPolicy,
   type AmbientStreamFailureKind,
 } from "./workflowAmbientFacade";
-import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
+import { normalizeAmbientBaseUrl } from "./workflowProviderFacade";
 
 export type WorkflowPiProgressStage = "waiting" | "thinking" | "streaming" | "retrying" | "completed";
 

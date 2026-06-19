@@ -12,14 +12,14 @@ import {
   type AmbientCliRunResult,
   type DescribeAmbientCliPackageInput,
   type RunAmbientCliInput,
-} from "../ambient-cli/ambientCliPackages";
+} from "./workflowAmbientCliFacade";
 import { readAmbientApiKey, getActiveAmbientProviderBaseUrl, getActiveAmbientProviderModelOverride } from "./workflowSecurityFacade";
 import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./workflowDesktopToolFacade";
 import { classifyToolPermission } from "./workflowPermissionsFacade";
 import { callPluginMcpTool, type PluginMcpLaunchPlan, type PluginMcpToolRegistration } from "./workflowPluginsFacade";
-import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
-import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "../mini-cpm/miniCpmVisionProvider";
-import { readLocalFilePreview, readWorkspaceFile, writeWorkspaceTextFile } from "../workspace/workspaceFiles";
+import { normalizeAmbientBaseUrl } from "./workflowProviderFacade";
+import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "./workflowMiniCpmFacade";
+import { readLocalFilePreview, readWorkspaceFile, writeWorkspaceTextFile } from "./workflowWorkspaceFacade";
 import { listLocalDirectory, readLocalTextFile } from "./localFiles";
 import { createWorkflowToolBridge } from "./workflowToolBridge";
 import type { WorkflowEventSink, WorkflowToolHandlers } from "./workflowAgentRuntime";

@@ -8,12 +8,12 @@ import type {
 } from "../../shared/workflowTypes";
 import type {
   AmbientCliCapabilitySearchResponse,
-} from "../ambient-cli/ambientCliPackages";
-import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
+} from "./ipcAmbientCliFacade";
+import { searchAmbientCliCapabilities } from "./ipcAmbientCliFacade";
 import { registerSlashCommandIpc } from "./registerSlashCommandIpc";
 
-vi.mock("../ambient-cli/ambientCliPackages", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../ambient-cli/ambientCliPackages")>();
+vi.mock("./ipcAmbientCliFacade", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./ipcAmbientCliFacade")>();
   return {
     ...actual,
     searchAmbientCliCapabilities: vi.fn(),

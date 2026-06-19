@@ -78,9 +78,8 @@ import { normalizeLocalDeepResearchSettings } from "./agentRuntimeLocalDeepResea
 import { localDeepResearchToolBudgetState, normalizeLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import { detectLocalDeepResearchManagedAssets, localDeepResearchModelCachePath } from "./agentRuntimeLocalDeepResearchFacade";
 import { localDeepResearchProfileById } from "./agentRuntimeLocalDeepResearchFacade";
-import { selectLocalLlamaRuntimeArtifact } from "../local-llama/localLlamaRuntimeManifest";
-import { detectLocalLlamaResidentProcesses } from "../local-llama/localLlamaResidencyPolicy";
-import { miniCpmRuntimeReleaseManifestPrototype } from "../mini-cpm/miniCpmRuntimeManifest";
+import { detectLocalLlamaResidentProcesses, selectLocalLlamaRuntimeArtifact } from "./agentRuntimeLocalLlamaFacade";
+import { miniCpmRuntimeReleaseManifestPrototype } from "./agentRuntimeMiniCpmFacade";
 import { buildLocalDeepResearchSetupContract } from "./agentRuntimeLocalDeepResearchFacade";
 import type { LocalDeepResearchRunServiceResult } from "./agentRuntimeLocalDeepResearchFacade";
 import type { LocalDeepResearchInstallServiceResult } from "./agentRuntimeLocalDeepResearchFacade";
@@ -3469,7 +3468,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         subagentTool.execute("spawn-browser-approval-roundtrip", {
           action: "spawn_agent",
           roleId: "explorer",
-          task: "Use browser search only if the parent approves child browser network access.",
+          task: "Read one browser URL only if the parent approves child browser network access.",
           dependencyMode: "required",
           forkMode: "recent_turns",
           promptMode: "fresh",
@@ -3513,8 +3512,8 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           loadedCategories: ["browser.interactive"],
           piVisibleCategories: ["browser.interactive"],
           deniedCategories: [],
-          loadedTools: ["browser_search"],
-          piVisibleTools: ["browser_search"],
+          loadedTools: ["browser_content"],
+          piVisibleTools: ["browser_content"],
           deniedTools: [],
           approvalMode: "interactive",
           worktreeIsolated: false,
@@ -3525,8 +3524,8 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       const browserPermissionPromise = (runtime as any).resolveToolCallPermission(
         run.childThreadId,
         store.getWorkspace(),
-        "browser_search",
-        { query: "current Ambient child browser approval behavior" },
+        "browser_content",
+        { url: "https://ambient.test/current-child-browser-approval-behavior" },
       ) as Promise<{ reason: string } | undefined>;
       await Promise.race([
         browserPromptStarted,
@@ -3544,15 +3543,16 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         expect.objectContaining({
           id: "permission-child-browser",
           threadId: run.childThreadId,
-          toolName: "browser_search",
+          toolName: "browser_content",
           title: "Allow child browser network access?",
           risk: "browser-network",
           grantActionKind: "browser_network",
-          grantTargetKind: "tool",
-          grantTargetLabel: "browser_search",
+          grantTargetKind: "browser_origin",
+          grantTargetLabel: "ambient.test",
           grantConditions: expect.objectContaining({
             childRunId: run.id,
             childThreadId: run.childThreadId,
+            domain: "ambient.test",
             source: "subagent-child-browser-authority",
           }),
         }),
@@ -3591,7 +3591,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
         approvalRequestRecords: [
           {
-            idempotencyKey: `subagent:native-permission-request:${run.id}:permission-child-browser:browser_search`,
+            idempotencyKey: `subagent:native-permission-request:${run.id}:permission-child-browser:browser_content`,
             parentMailboxEvent: {
               parentThreadId: parent.id,
               parentRunId: parentRun.id,
@@ -3611,7 +3611,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
             childRunId: run.id,
             childThreadId: run.childThreadId,
             approvalId: "permission-child-browser",
-            requestedToolId: "browser_search",
+            requestedToolId: "browser_content",
             requestedAction: "browser_network",
             requestedToolCategory: "browser-network",
             parentBlockingState: expect.objectContaining({
@@ -3630,7 +3630,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         approvalId: "permission-child-browser",
         decision: "approved",
         requestedScope: "this_child_thread",
-        userDecision: "Approve child browser search for the rest of this child thread.",
+        userDecision: "Approve child browser content for the rest of this child thread.",
       }, { now: "2026-06-06T00:02:00.000Z" });
 
       expect(decision).toMatchObject({

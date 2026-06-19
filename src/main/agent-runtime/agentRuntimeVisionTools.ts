@@ -15,8 +15,8 @@ import type { ThreadSummary } from "../../shared/threadTypes";
 import { visionToolDescriptor } from "./agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
 import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
-import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "../mini-cpm/miniCpmVisionProvider";
-import type { AnalyzeMiniCpmVisionInputOptions, MiniCpmVisionProgressEvent, SetupMiniCpmVisionProviderOptions } from "../mini-cpm/miniCpmVisionProvider";
+import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "./agentRuntimeMiniCpmFacade";
+import type { AnalyzeMiniCpmVisionInputOptions, MiniCpmVisionProgressEvent, SetupMiniCpmVisionProviderOptions } from "./agentRuntimeMiniCpmFacade";
 import type { BrowserScreenshotArtifactReference } from "./browser-tools/agentRuntimeBrowserScreenshotTools";
 
 export interface AgentRuntimeVisionToolExtensionOptions {

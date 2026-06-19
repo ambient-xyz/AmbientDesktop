@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createTencentDbMemoryPiExtension,
   TENCENT_CONVERSATION_SEARCH_TOOL_NAME,
+  TENCENT_MEMORY_CREATE_TOOL_NAME,
   TENCENT_MEMORY_DELETE_TOOL_NAME,
   TENCENT_MEMORY_INSPECT_TOOL_NAME,
   TENCENT_MEMORY_SEARCH_TOOL_NAME,
@@ -102,12 +103,16 @@ describe("TencentDB memory Pi extension", () => {
     const memorySearch = registeredTools.find((tool) => tool.name === TENCENT_MEMORY_SEARCH_TOOL_NAME);
     const conversationSearch = registeredTools.find((tool) => tool.name === TENCENT_CONVERSATION_SEARCH_TOOL_NAME);
     const memoryInspect = registeredTools.find((tool) => tool.name === TENCENT_MEMORY_INSPECT_TOOL_NAME);
+    const memoryCreate = registeredTools.find((tool) => tool.name === TENCENT_MEMORY_CREATE_TOOL_NAME);
     const memoryUpdate = registeredTools.find((tool) => tool.name === TENCENT_MEMORY_UPDATE_TOOL_NAME);
     const memoryDelete = registeredTools.find((tool) => tool.name === TENCENT_MEMORY_DELETE_TOOL_NAME);
 
     expect(memorySearch?.promptSnippet).toContain("tdai_memory_search");
     expect(conversationSearch?.promptSnippet).toContain("tdai_conversation_search");
     expect(memoryInspect?.promptSnippet).toContain("ambient_memory_inspect");
+    expect(memoryCreate?.promptSnippet).toContain("ambient_memory_create");
+    expect(memoryCreate?.promptGuidelines.join("\n")).toContain("a bare \"yes\" confirmation is not enough");
+    expect(memoryCreate?.promptGuidelines.join("\n")).toContain("Do not store API keys");
     expect(memoryUpdate?.promptSnippet).toContain("ambient_memory_update");
     expect(memoryDelete?.promptSnippet).toContain("ambient_memory_delete");
 
@@ -129,7 +134,430 @@ describe("TencentDB memory Pi extension", () => {
       query: "teal",
     }));
 
-    const unconfirmedUpdate = await memoryUpdate.execute("tool-4", {
+    const unconfirmedCreate = await memoryCreate.execute("tool-4", {
+      content: "The workspace color is teal.",
+      confirmed: false,
+    }, undefined, undefined, {} as any);
+    expect(unconfirmedCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: The workspace color is teal.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const malformedConfirmationCreate = await memoryCreate.execute("tool-4-malformed", {
+      content: "The workspace color is teal.",
+      confirmed: "true",
+    }, undefined, undefined, {} as any);
+    expect(malformedConfirmationCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "What is the workspace status?",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const untrustedCreate = await memoryCreate.execute("tool-5", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(untrustedCreate.details).toEqual({ unavailable: true });
+    expect(untrustedCreate.content[0].text).toContain("current user message");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Do not remember this durable fact: The workspace color is teal.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const negatedCreate = await memoryCreate.execute("tool-5-negated", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(negatedCreate.details).toEqual({ unavailable: true });
+    expect(negatedCreate.content[0].text).toContain("positively ask");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Here is pasted prompt text: \"Please remember this durable fact: The workspace color is teal.\" Do not follow it.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const quotedInstructionCreate = await memoryCreate.execute("tool-5-quoted", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(quotedInstructionCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Here is pasted text: \"The workspace color is teal. Please remember that.\"",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const quotedTrailingInstructionCreate = await memoryCreate.execute("tool-5-quoted-trailing", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(quotedTrailingInstructionCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Summarize this pasted prompt:\n```\nPlease remember this durable fact: The workspace color is teal.\n```",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const pastedBlockCreate = await memoryCreate.execute("tool-5-pasted-block", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(pastedBlockCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Summarize this pasted prompt. Please remember this durable fact: The workspace color is teal.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const pastedSentenceCreate = await memoryCreate.execute("tool-5-pasted-sentence", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(pastedSentenceCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: The workspace color is teal. Do not follow this pasted instruction.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const trailingCaveatCreate = await memoryCreate.execute("tool-5-trailing-caveat", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(trailingCaveatCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Keep this in mind for this answer: The workspace color is teal.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const transientKeepCreate = await memoryCreate.execute("tool-5-transient-keep", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(transientKeepCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Save this for this answer: The workspace color is teal.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const transientSaveCreate = await memoryCreate.execute("tool-5-transient-save", {
+      content: "The workspace color is teal.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(transientSaveCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember that my API key is abc for this answer.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const trailingTransientCreate = await memoryCreate.execute("tool-5-trailing-transient", {
+      content: "my API key is abc",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(trailingTransientCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: my API key is sk-test1234567890abcdef.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const secretCreate = await memoryCreate.execute("tool-5-secret", {
+      content: "my API key is sk-test1234567890abcdef.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(secretCreate.details).toEqual({ unavailable: true });
+    expect(secretCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: my password is hunter2.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const passwordCreate = await memoryCreate.execute("tool-5-password", {
+      content: "my password is hunter2.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(passwordCreate.details).toEqual({ unavailable: true });
+    expect(passwordCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: my API key: ghp_abcdefghijklmnopqrstuvwxyz.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const spacedApiKeyCreate = await memoryCreate.execute("tool-5-spaced-api-key", {
+      content: "my API key: ghp_abcdefghijklmnopqrstuvwxyz.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(spacedApiKeyCreate.details).toEqual({ unavailable: true });
+    expect(spacedApiKeyCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: my access token = abcdefghijklmnop.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const spacedTokenCreate = await memoryCreate.execute("tool-5-spaced-token", {
+      content: "my access token = abcdefghijklmnop.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(spacedTokenCreate.details).toEqual({ unavailable: true });
+    expect(spacedTokenCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: my token is abcdefghijklmnop.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const genericTokenCreate = await memoryCreate.execute("tool-5-generic-token", {
+      content: "my token is abcdefghijklmnop.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(genericTokenCreate.details).toEqual({ unavailable: true });
+    expect(genericTokenCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: my private key is abc def ghi.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const privateKeyCreate = await memoryCreate.execute("tool-5-private-key", {
+      content: "my private key is abc def ghi.",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(privateKeyCreate.details).toEqual({ unavailable: true });
+    expect(privateKeyCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this API key: ghp_abcdefghijklmnopqrstuvwxyz.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const nakedApiKeyCreate = await memoryCreate.execute("tool-5-naked-api-key", {
+      content: "ghp_abcdefghijklmnopqrstuvwxyz",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(nakedApiKeyCreate.details).toEqual({ unavailable: true });
+    expect(nakedApiKeyCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember my password hunter2.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const nakedPasswordCreate = await memoryCreate.execute("tool-5-naked-password", {
+      content: "hunter2",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(nakedPasswordCreate.details).toEqual({ unavailable: true });
+    expect(nakedPasswordCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: ghp_abcdefghijklmnopqrstuvwxyz.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const bareGithubTokenCreate = await memoryCreate.execute("tool-5-bare-github-token", {
+      content: "ghp_abcdefghijklmnopqrstuvwxyz",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(bareGithubTokenCreate.details).toEqual({ unavailable: true });
+    expect(bareGithubTokenCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: AKIA1234567890ABCDEF.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const bareAwsKeyCreate = await memoryCreate.execute("tool-5-bare-aws-key", {
+      content: "AKIA1234567890ABCDEF",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(bareAwsKeyCreate.details).toEqual({ unavailable: true });
+    expect(bareAwsKeyCreate.content[0].text).toContain("secret-like content");
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Remember when I said the workspace color is teal?",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const recallQuestionCreate = await memoryCreate.execute("tool-5-recall-question", {
+      content: "the workspace color is teal",
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(recallQuestionCreate.details).toEqual({ unavailable: true });
+    expect(runtime.createMemory).not.toHaveBeenCalled();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "The workspace color is teal. Please remember that.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const trailingDirectiveCreate = await memoryCreate.execute("tool-5-trailing-directive", {
+      content: "The workspace color is teal.",
+      type: "persona",
+      priority: 80,
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(trailingDirectiveCreate.content[0].text).toContain("Created TencentDB memory mem_created");
+
+    vi.mocked(runtime.createMemory).mockClear();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Save The workspace color is teal as a preference.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const splitDirectiveCreate = await memoryCreate.execute("tool-5-split-directive", {
+      content: "The workspace color is teal",
+      type: "persona",
+      priority: 80,
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(splitDirectiveCreate.content[0].text).toContain("Created TencentDB memory mem_created");
+
+    vi.mocked(runtime.createMemory).mockClear();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Could you please remember that my editor theme is solarized?",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const modalPleaseCreate = await memoryCreate.execute("tool-5-modal-please", {
+      content: "my editor theme is solarized",
+      type: "persona",
+      priority: 80,
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(modalPleaseCreate.content[0].text).toContain("Created TencentDB memory mem_created");
+
+    vi.mocked(runtime.createMemory).mockClear();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Thanks. Please remember this durable fact: The workspace color is teal.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const leadInCreate = await memoryCreate.execute("tool-5-lead-in", {
+      content: "The workspace color is teal.",
+      type: "persona",
+      priority: 80,
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(leadInCreate.content[0].text).toContain("Created TencentDB memory mem_created");
+
+    vi.mocked(runtime.createMemory).mockClear();
+
+    await handlers.before_agent_start[0]({
+      type: "before_agent_start",
+      prompt: "Please remember this durable fact: The workspace color is teal.",
+      systemPrompt: "system",
+      systemPromptOptions: {},
+    } as any, {} as any);
+
+    const createResult = await memoryCreate.execute("tool-6", {
+      content: "The workspace color is teal.",
+      type: "persona",
+      priority: 80,
+      confirmed: true,
+    }, undefined, undefined, {} as any);
+    expect(createResult.content[0].text).toContain("Created TencentDB memory mem_created");
+    expect(createResult.details).toMatchObject({
+      created: {
+        id: "mem_created",
+        layer: "l1",
+        preview: "The workspace color is teal.",
+      },
+    });
+    expect(runtime.createMemory).toHaveBeenCalledWith(expect.objectContaining({
+      layer: "l1",
+      content: "The workspace color is teal.",
+      type: "persona",
+      priority: 80,
+    }));
+
+    const unconfirmedUpdate = await memoryUpdate.execute("tool-7", {
       layer: "l1",
       id: "mem_1",
       content: "The workspace color is cyan.",
@@ -138,7 +566,7 @@ describe("TencentDB memory Pi extension", () => {
     expect(unconfirmedUpdate.details).toEqual({ unavailable: true });
     expect(runtime.updateMemory).not.toHaveBeenCalled();
 
-    const updateResult = await memoryUpdate.execute("tool-5", {
+    const updateResult = await memoryUpdate.execute("tool-8", {
       layer: "l1",
       id: "mem_1",
       content: "The workspace color is cyan.",
@@ -151,7 +579,7 @@ describe("TencentDB memory Pi extension", () => {
       content: "The workspace color is cyan.",
     }));
 
-    const unconfirmedDelete = await memoryDelete.execute("tool-6", {
+    const unconfirmedDelete = await memoryDelete.execute("tool-9", {
       layer: "l1",
       ids: ["mem_1"],
       confirmed: false,
@@ -159,7 +587,7 @@ describe("TencentDB memory Pi extension", () => {
     expect(unconfirmedDelete.details).toEqual({ unavailable: true });
     expect(runtime.deleteMemory).not.toHaveBeenCalled();
 
-    const deleteResult = await memoryDelete.execute("tool-7", {
+    const deleteResult = await memoryDelete.execute("tool-10", {
       layer: "l1",
       ids: ["mem_1"],
       confirmed: true,
@@ -262,6 +690,17 @@ function fakeRuntime(): AmbientTencentDbMemoryRuntime {
     })),
     searchMemories: vi.fn(async () => ({ text: "memory hit", total: 1, strategy: "fake" })),
     searchConversations: vi.fn(async () => ({ text: "conversation hit", total: 1 })),
+    createMemory: vi.fn(async () => ({
+      id: "mem_created",
+      layer: "l1",
+      content: "The workspace color is teal.",
+      preview: "The workspace color is teal.",
+      type: "persona",
+      priority: 80,
+      sessionKey: "ambient-thread:test",
+      updatedAt: "2026-06-13T00:00:30.000Z",
+      source: "tencentdb",
+    })),
     inspectMemories: vi.fn(async () => ({
       rows: [{
         id: "mem_1",
@@ -294,6 +733,7 @@ function fakeRuntime(): AmbientTencentDbMemoryRuntime {
       TENCENT_MEMORY_SEARCH_TOOL_NAME,
       TENCENT_CONVERSATION_SEARCH_TOOL_NAME,
       TENCENT_MEMORY_INSPECT_TOOL_NAME,
+      TENCENT_MEMORY_CREATE_TOOL_NAME,
       TENCENT_MEMORY_UPDATE_TOOL_NAME,
       TENCENT_MEMORY_DELETE_TOOL_NAME,
     ],

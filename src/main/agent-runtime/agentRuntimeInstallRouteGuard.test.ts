@@ -8,7 +8,7 @@ import {
   isInstallRouteGateSideEffectTool,
   looksLikeManualMcpInstallShellCommand,
 } from "./agentRuntimeInstallRouteGuard";
-import type { AmbientInstallRoutePlan } from "../install-route/installRoutePlanner";
+import type { AmbientInstallRoutePlan } from "./agentRuntimeInstallRouteFacade";
 
 describe("AgentRuntimeInstallRouteGuard", () => {
   it("blocks install side-effect tools after a needs-clarification plan and clears on a resolved lane", () => {

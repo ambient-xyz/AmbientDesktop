@@ -11,6 +11,8 @@ import { buildHarnessManifest, classifyHarnessFailure } from "./write-harness-ma
 describe("harness runtime contracts", () => {
   it("classifies harness, provider, environment, and product failures distinctly", () => {
     expect(classifyHarnessFailure({ exitCode: 0 })).toBe("passed");
+    expect(classifyHarnessFailure({ phase: "dogfood", stdout: "previous run: Harness environment preflight failed", exitCode: 0 }))
+      .toBe("passed");
     expect(classifyHarnessFailure({ phase: "native", stderr: "Native module verification failed for Node ABI 141" }))
       .toBe("harness_environment_failed");
     expect(classifyHarnessFailure({ phase: "test", stderr: "Ambient/Pi stream stalled after 30000 ms" }))
@@ -21,6 +23,8 @@ describe("harness runtime contracts", () => {
       .toBe("provider_failed");
     expect(classifyHarnessFailure({ phase: "dogfood", stderr: "Timed out waiting for Electron CDP" }))
       .toBe("harness_failed");
+    expect(classifyHarnessFailure({ phase: "dogfood", stderr: "Harness environment preflight failed: unrelated resident llama.cpp processes are running before safe orphan repair." }))
+      .toBe("harness_environment_failed");
     expect(classifyHarnessFailure({
       phase: "test",
       stdout: "native module ok: better-sqlite3\nnative module ok: node-pty",

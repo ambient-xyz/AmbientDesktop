@@ -7,7 +7,7 @@ import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowRecordingPlaybookAvoidPattern } from "../../shared/workflowTypes";
 import { ambientWorkflowsInjectText, describeAmbientWorkflowPlaybook, injectAmbientWorkflowPlaybook, isRetryableAmbientProviderError, liveAmbientDirectHelperProfile, liveAmbientProviderBaseUrl, liveAmbientProviderModel, readLiveAmbientProviderApiKey, searchAmbientWorkflowPlaybooks } from "./workflowRecordingAmbientFacade";
 import { ProjectStore } from "./workflowRecordingProjectStoreFacade";
-import { callWorkflowPiText, type WorkflowPiToolProgress } from "../workflow/workflowPiTransport";
+import { callWorkflowPiText, type WorkflowPiToolProgress } from "./workflowRecordingWorkflowLiveFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 const runLive = process.env.AMBIENT_WORKFLOW_RECORDER_LIVE === "1";

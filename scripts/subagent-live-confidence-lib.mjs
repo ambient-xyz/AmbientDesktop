@@ -973,8 +973,9 @@ export function validateBrowserApprovalAuthorityArtifact(artifact) {
   const pendingBeforeApproval = Array.isArray(artifact.pendingBeforeApproval) ? artifact.pendingBeforeApproval : [];
   const permission = pendingBeforeApproval.find((candidate) =>
     candidate?.threadId === run.childThreadId &&
-    candidate?.toolName === "browser_search" &&
+    candidate?.toolName === "browser_content" &&
     candidate?.grantActionKind === "browser_network" &&
+    candidate?.grantTargetKind === "browser_origin" &&
     objectValue(candidate.grantConditions).childRunId === run.id
   );
   if (!permission) issues.push("artifact is missing a pending browser permission scoped to the child run.");
@@ -982,7 +983,7 @@ export function validateBrowserApprovalAuthorityArtifact(artifact) {
     childRunId: run.id,
     childThreadId: run.childThreadId,
     approvalId: permission?.id,
-    requestedToolId: "browser_search",
+    requestedToolId: "browser_content",
     requestedAction: "browser_network",
     deliveryState: "consumed",
   });
@@ -2221,7 +2222,7 @@ function childAuthorityObservations(input) {
   observations.push({
     label: "child browser approval authority",
     result: browserValidation.valid
-      ? `Child run ${input.browserApprovalArtifact?.run?.id ?? "unknown"} paused browser_search, received a child-thread scoped approval response, and kept parent synthesis blocked.`
+      ? `Child run ${input.browserApprovalArtifact?.run?.id ?? "unknown"} paused browser_content, received a child-thread scoped approval response, and kept parent synthesis blocked.`
       : `Child browser approval proof was not release-usable: ${browserValidation.issues.join(" ")}`,
   });
   return observations;

@@ -9,7 +9,7 @@ import {
   AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
   AMBIENT_MEMORY_EMBEDDING_RUNTIME_ID,
   ambientMemoryEmbeddingModelProfile,
-} from "../memory/tencentdb/managedEmbeddingRuntimeMetadata";
+} from "./localLlamaMemoryEmbeddingFacade";
 
 describe("local llama residency policy", () => {
   it("detects active Local Deep Research and MiniCPM managed llama-server state", async () => {

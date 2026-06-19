@@ -5,7 +5,7 @@ import type {
   MessagingGatewayBridgeSupervisorStatus,
   MessagingGatewayProviderReadiness,
 } from "../../shared/messagingGateway";
-import { redactString } from "../diagnostics/diagnostics";
+import { redactString } from "./telegramDiagnosticsFacade";
 
 const PROVIDER_ID = "telegram-tdlib";
 const DEFAULT_PORT = "8091";

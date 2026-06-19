@@ -3,11 +3,10 @@ import { basename, extname, isAbsolute, resolve } from "node:path";
 import type { Context, Model } from "@mariozechner/pi-ai";
 import { streamSimpleOpenAICompletions } from "@mariozechner/pi-ai/openai-completions";
 import type { OfficeTextExtraction, PdfTextExtraction } from "../../shared/workspaceTypes";
-import { describeOfficeFileSupport } from "../office/officeFileSupport";
-import { extractOfficeText } from "../office/officeTextExtraction";
-import { extractPdfText } from "../pdf/pdfTextExtraction";
-import type { AmbientFileAuthorityRequester } from "../pi/piReadOperations";
-import { isPathInside } from "../session/sessionPaths";
+import { describeOfficeFileSupport, extractOfficeText } from "./toolRuntimeOfficeFacade";
+import { extractPdfText } from "./toolRuntimePdfFacade";
+import type { AmbientFileAuthorityRequester } from "./toolRuntimePiFacade";
+import { isPathInside } from "./toolRuntimeSessionFacade";
 
 export const LAMBDA_RLM_SOURCE_REPOSITORY = "https://github.com/lambda-calculus-LLM/lambda-RLM";
 export const LAMBDA_RLM_SOURCE_PAPER = "https://arxiv.org/abs/2603.20105";

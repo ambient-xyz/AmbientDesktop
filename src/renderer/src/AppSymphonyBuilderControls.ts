@@ -168,7 +168,7 @@ export function createAppSymphonyBuilderControls({
   appendRunActivityLine: AppendRunActivityLine;
   focusComposerEnd: () => void;
   getComposerDraft: () => string;
-  rememberDesktopState: (next: DesktopState) => void;
+  rememberDesktopState: (next: DesktopState) => DesktopState | false | void;
   refreshWorkflowRecordingLibraryOverride: (includeArchived?: boolean) => Promise<void>;
   setError: (message: string | undefined) => void;
   setLocalDeepResearchModeArmed: (next: boolean) => void;
@@ -242,8 +242,9 @@ export function createAppSymphonyBuilderControls({
       setError(undefined);
       try {
         const next = await window.ambientDesktop.saveSymphonyWorkflowRecipe(input);
-        rememberDesktopState(next);
-        setState(next);
+        const remembered = rememberDesktopState(next);
+        if (remembered === false) return;
+        setState(remembered ?? next);
         void refreshWorkflowRecordingLibraryOverride(false);
         appendRunActivityLine("Symphony recipe saved to the workflow catalog.", "state", {}, input.threadId);
       } catch (err) {

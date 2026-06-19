@@ -11,7 +11,10 @@ import {
   type LocalDeepResearchSetupAction,
   type LocalDeepResearchSetupResult,
 } from "./localDeepResearchUiModel";
-import { localDeepResearchSetupResultState } from "./AppLocalDeepResearchLifecycle";
+import {
+  localDeepResearchSetupResultState,
+  localDeepResearchSetupRunningState,
+} from "./AppLocalDeepResearchLifecycle";
 import { miniCpmVisionSetupResultModel } from "./miniCpmVisionUiModel";
 
 export function miniCpmVisionSetupRunningMessage(action: MiniCpmVisionSetupAction): string {
@@ -115,11 +118,8 @@ export function createAppLocalRuntimeActions({
   }
 
   async function setupLocalDeepResearchFromSettings(action: LocalDeepResearchSetupAction): Promise<LocalDeepResearchSetupResult | undefined> {
-    setLocalDeepResearchSetup({
-      status: "running",
-      action,
-      message: localDeepResearchSetupRunningMessage(action),
-    });
+    const runningMessage = localDeepResearchSetupRunningMessage(action);
+    setLocalDeepResearchSetup((current) => localDeepResearchSetupRunningState(current, action, runningMessage));
     try {
       const result = await window.ambientDesktop.setupLocalDeepResearch({
         action,

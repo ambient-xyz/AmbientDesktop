@@ -9,7 +9,7 @@ import { readWorkflowRunDetail } from "./workflowDashboard";
 import { assertWorkflowArtifactSourceEditable, workflowArtifactSourceProvenance } from "./workflowArtifactProvenance";
 import { buildWorkflowSourceDiff } from "./workflowDebugRewrite";
 import { buildWorkflowDiscoveryPolicyContext, describeWorkflowDiscoveryCapability, searchWorkflowDiscoveryCapabilities } from "./workflowWorkflowDiscoveryFacade";
-import { searchAmbientCliCapabilities, type AmbientCliCapabilitySearchResponse } from "../ambient-cli/ambientCliPackages";
+import { searchAmbientCliCapabilities, type AmbientCliCapabilitySearchResponse } from "./workflowAmbientCliFacade";
 import {
   validateWorkflowGraphOutput,
   validateWorkflowSourceConnectorReferences,

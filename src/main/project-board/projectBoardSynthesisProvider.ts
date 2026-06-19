@@ -11,7 +11,7 @@ import type {
 } from "../../shared/projectBoardTypes";
 import { readAmbientEventStreamText } from "./projectBoardAmbientFacade";
 import { readAmbientApiKey } from "./projectBoardSecurityFacade";
-import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
+import { normalizeAmbientBaseUrl } from "./projectBoardProviderFacade";
 import {
   projectBoardModelBudgetProfile,
   projectBoardModelBudgetProfileMetadata,

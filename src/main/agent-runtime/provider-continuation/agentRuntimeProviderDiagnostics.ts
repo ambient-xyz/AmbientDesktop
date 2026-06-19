@@ -5,7 +5,7 @@ import {
   isRetryableAmbientProviderError,
   type AmbientStreamFailureKind,
 } from "../agentRuntimeAmbientFacade";
-import { redactSensitiveText } from "../../security/secretRedaction";
+import { redactSensitiveText } from "../agentRuntimeSecurityFacade";
 import type { ProviderStatus } from "../../../shared/desktopTypes";
 import type { ProviderInterruptionToolSnapshot } from "./agentRuntimeProviderContinuationHelpers";
 

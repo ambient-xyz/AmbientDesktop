@@ -54,6 +54,7 @@ import {
   memo,
   MouseEvent as ReactMouseEvent,
   startTransition,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -616,9 +617,11 @@ import {
   EMPTY_RUN_ACTIVITY_LINES,
   formatRuntimeActivity,
   runRetryStatsFromActivity,
+  shouldRenderRuntimeActivityUpdate,
   useAppRunActivityControls,
   type RunRetryStats,
   type RunActivityLine,
+  type RuntimeActivityRenderState,
 } from "./AppRunActivity";
 import {
   chatBrowserUserActionForThread,
@@ -680,6 +683,12 @@ import {
   runtimeActivityVisibleForThreadGoal,
 } from "./AppGoalControls";
 import { createAppGoalActions } from "./AppGoalActions";
+import {
+  desktopStateCommitDecision,
+  desktopStateFreshnessDecision,
+  desktopStateWithoutClearedGoal,
+  threadGoalKey,
+} from "./AppDesktopStateFreshness";
 import { AppTopbar } from "./AppTopbar";
 import { createAppRightPanelControls } from "./AppRightPanelControls";
 import {
@@ -775,6 +784,7 @@ export function App() {
   const [agentMemoryDiagnostics, setAgentMemoryDiagnostics] = useState<AgentMemoryStorageDiagnostics | undefined>();
   const [agentMemoryDiagnosticsLoading, setAgentMemoryDiagnosticsLoading] = useState(false);
   const [agentMemoryDiagnosticsError, setAgentMemoryDiagnosticsError] = useState<string | undefined>();
+  const agentMemoryDiagnosticsRequestSeq = useRef(0);
   const [agentMemoryEmbeddingActionLoading, setAgentMemoryEmbeddingActionLoading] = useState<AgentMemoryEmbeddingLifecycleActionKind | undefined>();
   const [agentMemoryEmbeddingActionResult, setAgentMemoryEmbeddingActionResult] = useState<AgentMemoryEmbeddingLifecycleActionResult | undefined>();
   const [agentMemoryEmbeddingActionError, setAgentMemoryEmbeddingActionError] = useState<string | undefined>();
@@ -876,6 +886,8 @@ export function App() {
   const [goalMenuOpen, setGoalMenuOpen] = useState(false);
   const [goalBusy, setGoalBusy] = useState(false);
   const [goalCompletionCelebrationId, setGoalCompletionCelebrationId] = useState<string | undefined>();
+  const latestDesktopStateRevisionRef = useRef<number | undefined>(undefined);
+  const clearedGoalKeysRef = useRef(new Set<string>());
   const [apiDialogOpen, setApiDialogOpen] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [clipboardCandidate, setClipboardCandidate] = useState("");
@@ -1130,6 +1142,7 @@ export function App() {
   const runActivityLastEventAtRef = useRef(0);
   const runActivityHeartbeatIndexRef = useRef(0);
   const runActivityLinesByThreadRef = useRef<Record<string, RunActivityLine[]>>({});
+  const runtimeActivityRenderStateRef = useRef<Record<string, RuntimeActivityRenderState>>({});
   const thinkingDeltaBuffersRef = useRef<Record<string, string>>({});
   const voiceProviderRefreshTimerRef = useRef<number | undefined>(undefined);
   const voiceProviderRequestIdRef = useRef(0);
@@ -1325,7 +1338,30 @@ export function App() {
     sttProvidersRef,
   });
 
-  function rememberDesktopState(next: DesktopState) {
+  function rememberClearedGoal(threadId: string, goalId: string | undefined): void {
+    if (goalId) clearedGoalKeysRef.current.add(`${threadId}:${goalId}`);
+  }
+
+  function applyDesktopStateFreshness(next: DesktopState): boolean {
+    const decision = desktopStateFreshnessDecision(latestDesktopStateRevisionRef.current, next);
+    latestDesktopStateRevisionRef.current = decision.latestRevision;
+    return decision.apply;
+  }
+
+  function rememberDesktopState(next: DesktopState): DesktopState | false {
+    const nextState = desktopStateWithoutClearedGoal(next, clearedGoalKeysRef.current);
+    if (!applyDesktopStateFreshness(nextState)) return false;
+    rememberAppDesktopStateRefs(nextState, {
+      activeProjectRootRef,
+      activeThreadIdRef,
+      workspaceProjectAliasesRef,
+    });
+    return nextState;
+  }
+
+  function rememberCommittedDesktopState(next: DesktopState): void {
+    const decision = desktopStateFreshnessDecision(latestDesktopStateRevisionRef.current, next);
+    latestDesktopStateRevisionRef.current = decision.latestRevision;
     rememberAppDesktopStateRefs(next, {
       activeProjectRootRef,
       activeThreadIdRef,
@@ -1379,11 +1415,12 @@ export function App() {
     mcpContainerRuntimeStartupCheckRef,
     onBootstrapError: (err) => setError(String(err)),
     onBootstrapState: (next) => {
-      applyDocumentAppearance(next.appearance);
-      setThreadRunStatuses(next.threadRunStatuses ?? {});
-      setRunStatus(appBootstrapRunStatus(next));
-      rememberDesktopState(next);
-      setState(next);
+      const nextState = rememberDesktopState(next);
+      if (!nextState) return;
+      applyDocumentAppearance(nextState.appearance);
+      setThreadRunStatuses(nextState.threadRunStatuses ?? {});
+      setRunStatus(appBootstrapRunStatus(nextState));
+      setState(nextState);
     },
     onDesktopEvent: handleEvent,
     openMcpRuntimeSettings,
@@ -1487,6 +1524,20 @@ export function App() {
     workspaceProjectAliasesRef,
   });
 
+  useEffect(() => {
+    if (!state) return;
+    applyDocumentAppearance(state.appearance);
+    const nextRunStatuses = state.threadRunStatuses ?? {};
+    setThreadRunStatuses((current) => {
+      for (const [threadId, status] of Object.entries(nextRunStatuses)) {
+        if (current[threadId] !== status) return { ...current, ...nextRunStatuses };
+      }
+      return current;
+    });
+    const nextRunStatus = nextRunStatuses[state.activeThreadId] ?? "idle";
+    setRunStatus((current) => (current === nextRunStatus ? current : nextRunStatus));
+  }, [state?.activeThreadId, state?.appearance, state?.threadRunStatuses]);
+
   const {
     appendRunActivityLine,
     appendThinkingDeltaLine,
@@ -1542,21 +1593,33 @@ export function App() {
 
   function handleEvent(event: DesktopEvent) {
     if (event.type === "state") {
-      applyDocumentAppearance(event.state.appearance);
-      const nextRunStatuses = event.state.threadRunStatuses ?? {};
-      setThreadRunStatuses((current) => {
-        for (const [threadId, status] of Object.entries(nextRunStatuses)) {
-          if (current[threadId] !== status) return { ...current, ...nextRunStatuses };
-        }
-        return current;
-      });
-      const nextRunStatus = nextRunStatuses[event.state.activeThreadId] ?? "idle";
-      setRunStatus((current) => (current === nextRunStatus ? current : nextRunStatus));
-      rememberDesktopState(event.state);
+      const nextState = desktopStateWithoutClearedGoal(event.state, clearedGoalKeysRef.current);
+      const freshness = desktopStateFreshnessDecision(latestDesktopStateRevisionRef.current, nextState);
+      if (!freshness.apply) return;
+      latestDesktopStateRevisionRef.current = freshness.latestRevision;
       // Full desktop snapshots can be large while board synthesis streams; keep them interruptible
       // so local input, scrolling, and close/tab clicks stay responsive.
-      startTransition(() => setState(event.state));
+      startTransition(() => {
+        setState((current) => {
+          const decision = desktopStateCommitDecision(
+            latestDesktopStateRevisionRef.current,
+            nextState,
+            clearedGoalKeysRef.current,
+            current,
+          );
+          if (!decision.apply) return current;
+          rememberCommittedDesktopState(decision.state);
+          return decision.state;
+        });
+      });
       return;
+    }
+    if (
+      event.type === "thread-goal-cleared" &&
+      event.threadId === activeThreadIdRef.current &&
+      desktopEventMatchesActiveProject(event)
+    ) {
+      rememberClearedGoal(event.threadId, event.goalId);
     }
     if (event.type === "appearance-updated") {
       applyDocumentAppearance(event.appearance);
@@ -1565,6 +1628,7 @@ export function App() {
     }
     if (event.type === "run-status") {
       if (!desktopEventMatchesActiveProject(event)) return;
+      if (event.status === "starting") delete runtimeActivityRenderStateRef.current[event.threadId];
       setThreadRunStatuses((statuses) => (
         statuses[event.threadId] === event.status ? statuses : { ...statuses, [event.threadId]: event.status }
       ));
@@ -1588,17 +1652,28 @@ export function App() {
           [retryActivity.threadId]: runRetryStatsFromActivity(current[retryActivity.threadId], retryActivity),
         }));
       }
-      appendRunActivityLine(
-        formatRuntimeActivity(event.activity),
-        event.activity.kind === "retry" ||
-          (event.activity.kind === "stream" && event.activity.status === "timeout") ||
-          (event.activity.kind === "tool" && event.activity.status === "timeout")
-          ? "error"
-          : "state",
-        {},
-        event.activity.threadId,
-      );
-      if (event.activity.threadId === activeThreadIdRef.current) setActivity(event.activity);
+      const activityText = formatRuntimeActivity(event.activity);
+      const now = Date.now();
+      const shouldRenderActivity = shouldRenderRuntimeActivityUpdate({
+        activity: event.activity,
+        now,
+        previous: runtimeActivityRenderStateRef.current[event.activity.threadId],
+        text: activityText,
+      });
+      if (shouldRenderActivity) {
+        runtimeActivityRenderStateRef.current[event.activity.threadId] = { text: activityText, renderedAt: now };
+        appendRunActivityLine(
+          activityText,
+          event.activity.kind === "retry" ||
+            (event.activity.kind === "stream" && event.activity.status === "timeout") ||
+            (event.activity.kind === "tool" && event.activity.status === "timeout")
+            ? "error"
+            : "state",
+          {},
+          event.activity.threadId,
+        );
+      }
+      if (shouldRenderActivity && event.activity.threadId === activeThreadIdRef.current) setActivity(event.activity);
       return;
     }
     if (event.type === "thread-goal-updated" && event.goal.threadId === activeThreadIdRef.current && event.goal.status !== "active") {
@@ -1874,6 +1949,7 @@ export function App() {
       if (event.type === "thread-goal-updated") {
         if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
         if (event.goal.threadId !== current.activeThreadId) return current;
+        if (clearedGoalKeysRef.current.has(threadGoalKey(event.goal))) return current;
         return { ...current, activeThreadGoal: event.goal };
       }
       if (event.type === "thread-goal-cleared") {
@@ -2456,27 +2532,62 @@ export function App() {
     state,
   });
 
-  async function refreshAgentMemoryDiagnostics() {
+  const refreshAgentMemoryDiagnostics = useCallback(async () => {
+    const requestId = agentMemoryDiagnosticsRequestSeq.current + 1;
+    agentMemoryDiagnosticsRequestSeq.current = requestId;
     setAgentMemoryDiagnosticsError(undefined);
     setAgentMemoryDiagnosticsLoading(true);
     try {
-      setAgentMemoryDiagnostics(await window.ambientDesktop.getAgentMemoryDiagnostics());
+      const diagnostics = await window.ambientDesktop.getAgentMemoryDiagnostics();
+      if (requestId !== agentMemoryDiagnosticsRequestSeq.current) return;
+      setAgentMemoryDiagnostics(diagnostics);
     } catch (err) {
+      if (requestId !== agentMemoryDiagnosticsRequestSeq.current) return;
       setAgentMemoryDiagnosticsError(err instanceof Error ? err.message : String(err));
     } finally {
+      if (requestId !== agentMemoryDiagnosticsRequestSeq.current) return;
       setAgentMemoryDiagnosticsLoading(false);
     }
-  }
+  }, []);
 
-  async function runAgentMemoryEmbeddingLifecycleAction(action: AgentMemoryEmbeddingLifecycleActionKind) {
+  const agentMemoryDiagnosticsRefreshKey = state
+    ? [
+        state.workspace.path,
+        state.activeThreadId,
+        Boolean(activeThread?.memoryEnabled),
+        state.settings.featureFlags.tencentDbMemory ?? "default",
+        state.settings.memory.enabled,
+        state.settings.memory.defaultThreadEnabled,
+        state.settings.memory.shortTermOffloadEnabled,
+        state.settings.memory.storageScope,
+        state.settings.memory.embeddings.enabled,
+        state.settings.memory.embeddings.providerMode,
+        state.settings.memory.embeddings.providerCapabilityId ?? "",
+        state.settings.memory.embeddings.autoStartProvider,
+        state.settings.memory.embeddings.sendDimensions,
+        state.settings.memory.embeddings.maxInputChars,
+        state.settings.memory.embeddings.timeoutMs,
+      ].join("\u001f")
+    : "";
+
+  useEffect(() => {
+    if (rightPanel !== "settings" || !state) return;
+    void refreshAgentMemoryDiagnostics();
+  }, [rightPanel, agentMemoryDiagnosticsRefreshKey, refreshAgentMemoryDiagnostics]);
+
+  async function runAgentMemoryEmbeddingLifecycleAction(action: AgentMemoryEmbeddingLifecycleActionKind): Promise<AgentMemoryEmbeddingLifecycleActionResult | undefined> {
     setAgentMemoryEmbeddingActionError(undefined);
     setAgentMemoryEmbeddingActionLoading(action);
     try {
       const result = await window.ambientDesktop.runAgentMemoryEmbeddingLifecycleAction({ action });
       setAgentMemoryEmbeddingActionResult(result);
+      agentMemoryDiagnosticsRequestSeq.current += 1;
+      setAgentMemoryDiagnosticsLoading(false);
       setAgentMemoryDiagnostics(result.diagnostics);
+      return result;
     } catch (err) {
       setAgentMemoryEmbeddingActionError(err instanceof Error ? err.message : String(err));
+      return undefined;
     } finally {
       setAgentMemoryEmbeddingActionLoading(undefined);
     }
@@ -2638,6 +2749,7 @@ export function App() {
     toggleGoalMode,
   } = createAppGoalActions({
     goalModeArmed,
+    onGoalCleared: rememberClearedGoal,
     setError,
     setGoalBusy,
     setGoalMenuOpen,
@@ -3584,9 +3696,9 @@ export function App() {
               onFeatureFlagSettingsChange={(featureFlags) => void updateFeatureFlagSettings(featureFlags)}
               onMemorySettingsChange={(memory) => void updateMemorySettings(memory)}
               onActiveThreadMemoryEnabledChange={(memoryEnabled) => void updateThreadSettings({ memoryEnabled })}
-              onRefreshAgentMemoryDiagnostics={() => void refreshAgentMemoryDiagnostics()}
-              onRunAgentMemoryEmbeddingLifecycleAction={(action) => void runAgentMemoryEmbeddingLifecycleAction(action)}
-              onClearAgentMemory={() => void clearAgentMemory()}
+              onRefreshAgentMemoryDiagnostics={refreshAgentMemoryDiagnostics}
+              onRunAgentMemoryEmbeddingLifecycleAction={runAgentMemoryEmbeddingLifecycleAction}
+              onClearAgentMemory={clearAgentMemory}
               onPlannerSettingsChange={(planner) => void updatePlannerSettings(planner)}
               onHydrateSearchRoutingSettings={() => void hydrateSearchRoutingSettingsForSettingsPanel()}
               onSearchRoutingSettingsChange={(search) => void updateSearchRoutingSettings(search)}

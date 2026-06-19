@@ -1,7 +1,7 @@
 import type { IpcMain } from "electron";
 import { z } from "zod";
 
-import type { CapabilityBuilderHistoryInput, CapabilityBuilderHistoryResult } from "../capability-builder/capabilityBuilder";
+import type { CapabilityBuilderHistoryInput, CapabilityBuilderHistoryResult } from "./ipcCapabilityBuilderFacade";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;

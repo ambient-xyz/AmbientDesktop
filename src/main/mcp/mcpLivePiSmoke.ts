@@ -1,13 +1,13 @@
 import type { Tool } from "@mariozechner/pi-ai";
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import { aggressiveAmbientRetryPolicy } from "./mcpAmbientFacade";
 import {
   callWorkflowPiText,
   type WorkflowPiProgress,
   type WorkflowPiTextCallInput,
   type WorkflowPiToolProgress,
-} from "../workflow/workflowPiTransport";
+} from "./mcpWorkflowLivePiSmokeFacade";
 
 export interface McpLivePiSmokeInput {
   apiKey?: string;

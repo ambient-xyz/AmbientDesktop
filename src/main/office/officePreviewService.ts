@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { OfficePreview, OfficePreviewFormat } from "../../shared/workspaceTypes";
 import { describeOfficePreviewSupport } from "./officeFileSupport";
-import { ambientRuntimeEnv } from "../setup/runtimePath";
+import { ambientRuntimeEnv } from "./officeSetupFacade";
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_CONVERT_TIMEOUT_MS = 45_000;

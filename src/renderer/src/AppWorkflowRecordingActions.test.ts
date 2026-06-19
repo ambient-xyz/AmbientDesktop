@@ -85,6 +85,26 @@ describe("App workflow recording actions", () => {
     expect(controller.scheduleComposerDraftFocus).not.toHaveBeenCalled();
   });
 
+  it("does not submit a workflow goal when the created recording thread state is stale", async () => {
+    const next = desktopState({ activeThreadId: "recording-stale" });
+    const startWorkflowRecording = vi.fn(async () => next);
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { startWorkflowRecording, sendMessage } });
+    const controller = createController({ createdThreadApplied: false });
+
+    await expect(controller.actions.startWorkflowRecording("  Make the weekly report  ")).resolves.toBe(false);
+
+    expect(controller.applyCreatedThreadState).toHaveBeenCalledWith(next, "/repo");
+    expect(controller.setSidebarArea).not.toHaveBeenCalled();
+    expect(controller.closeProjectBoard).not.toHaveBeenCalled();
+    expect(controller.resetPromptHistory).not.toHaveBeenCalled();
+    expect(controller.resetRunActivityLines).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(controller.runStatus.value).toBe("idle");
+    expect(controller.threadRunStatuses.value).toEqual({});
+    expect(controller.setError).toHaveBeenCalledWith("Created workflow recording thread state was superseded before the launch could be applied.");
+  });
+
   it("restores the workflow goal to the composer when immediate submission fails", async () => {
     const next = desktopState({ activeThreadId: "recording-thread" });
     vi.stubGlobal("window", {
@@ -97,7 +117,7 @@ describe("App workflow recording actions", () => {
     });
     const controller = createController();
 
-    await controller.actions.startWorkflowRecording("Make the weekly report");
+    await expect(controller.actions.startWorkflowRecording("Make the weekly report")).resolves.toBe(true);
 
     expect(controller.setError).toHaveBeenLastCalledWith("send failed");
     expect(controller.runStatus.value).toBe("error");
@@ -149,10 +169,16 @@ function workflowRecording(overrides: Partial<WorkflowRecordingState> = {}): Wor
   };
 }
 
-function createController({ state = desktopState() }: { state?: DesktopState | undefined } = {}) {
+function createController({
+  createdThreadApplied = true,
+  state = desktopState(),
+}: {
+  createdThreadApplied?: boolean;
+  state?: DesktopState | undefined;
+} = {}) {
   const runStatus = statefulSetter<RunStatus>("idle");
   const threadRunStatuses = statefulSetter<Record<string, RunStatus>>({});
-  const applyCreatedThreadState = vi.fn();
+  const applyCreatedThreadState = vi.fn(() => createdThreadApplied);
   const applyRunStatusDesktopState = vi.fn();
   const closeProjectBoard = vi.fn();
   const refreshWorkflowRecordingLibraryOverride = vi.fn(async () => undefined);

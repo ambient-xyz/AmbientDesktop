@@ -64,6 +64,12 @@ export function redactSensitiveTextWithMetadata(value: string): SensitiveTextRed
     /\b(?:(?:sk|ak|pk|rk|zai|glm)-|ambient-(?!cli-)(?![a-z0-9-]+-v\d+\b))[A-Za-z0-9._-]{12,}\b/gi,
     REDACTED_SECRET,
   ));
+  ({ text, replacementCount } = replaceAndCount(
+    text,
+    replacementCount,
+    /\b(?:gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{20,}|ya29\.[A-Za-z0-9._-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/g,
+    REDACTED_SECRET,
+  ));
   ({ text, replacementCount } = replaceAndCount(text, replacementCount, /\b([A-Za-z0-9._%+-]+:)([A-Za-z0-9._~+/=-]{8,})(@)/g, `$1${REDACTED_SECRET}$3`));
 
   return { text, redacted: replacementCount > 0, replacementCount };

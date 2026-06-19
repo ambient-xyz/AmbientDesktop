@@ -3,8 +3,8 @@ import { homedir, tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OfficePreviewService } from "./officePreviewService";
-import { createAmbientReadOperations } from "../pi/piReadOperations";
-import { readWorkspaceFile } from "../workspace/workspaceFiles";
+import { createAmbientReadOperations } from "./officePiTestFacade";
+import { readWorkspaceFile } from "./officeWorkspaceTestFacade";
 
 const runReleaseSignoff = process.env.AMBIENT_OFFICE_RELEASE_SIGNOFF === "1";
 const describeIf = runReleaseSignoff ? describe : describe.skip;

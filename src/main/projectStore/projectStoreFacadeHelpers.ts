@@ -32,7 +32,7 @@ import type {
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 import type { SymphonyWorkflowRecipePreset } from "../../shared/symphonyWorkflowRecipes";
 import { projectBoardPlanTitleIsGeneric } from "../../shared/projectBoardPlanIdentity";
-import { LEGACY_PROJECT_STATE_DIR } from "../workspace/workspaceAuthorityState";
+import { LEGACY_PROJECT_STATE_DIR } from "./projectStoreWorkspaceFacade";
 import { DURABLE_PLAN_SOURCE_AUTHORITY_REASON, projectBoardSourceIncludedInSynthesis } from "./projectStoreProjectBoardFacade";
 import { parseStringList } from "./projectStoreJson";
 import {

@@ -9,6 +9,7 @@ export {
   BrowserCredentialStore,
   normalizeBrowserCredentialOrigin,
 } from "./browserCredentialStore";
+export type { BrowserCredentialSafeStorage } from "./browserCredentialStore";
 
 export { refreshExternalFileBrowserTabs } from "./browserRefresh";
 

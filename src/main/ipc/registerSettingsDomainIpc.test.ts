@@ -81,7 +81,7 @@ function createSettingsServices(): SettingsDomainServices {
     })),
     analyzeMiniCpmVision: vi.fn(async () => ({} as any)),
     cancelSttTranscription: vi.fn(async () => ({} as any)),
-    clearAgentMemory: vi.fn(async () => ({} as any)),
+    clearAgentMemory: vi.fn(async (_input) => ({} as any)),
     clearMessageVoiceArtifact: vi.fn(async () => ({} as any)),
     collectVoiceOnboardingHostFacts: vi.fn(async ({ isPackaged }) => ({ packaged: isPackaged } as any)),
     emitRuntimeFeatureStateUpdated: vi.fn(),

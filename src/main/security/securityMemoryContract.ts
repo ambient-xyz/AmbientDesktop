@@ -1,0 +1,1 @@
+export { redactSensitiveTextWithMetadata } from "./secretRedaction";

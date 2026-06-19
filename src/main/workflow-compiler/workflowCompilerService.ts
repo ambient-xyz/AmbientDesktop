@@ -9,13 +9,13 @@ import type { PermissionMode } from "../../shared/permissionTypes";
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { CallableWorkflowLaunchCardSummary, CallableWorkflowTaskSummary, WorkflowAmbientCliCapabilityGrant, WorkflowCompileProgress, WorkflowDashboard, WorkflowDiscoveryCapabilityDescription, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryQuestion, WorkflowExplorationTraceSummary, WorkflowGraphSnapshot, WorkflowPromptCacheCheckpoint } from "../../shared/workflowTypes";
 import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
-import { searchAmbientCliCapabilities } from "../ambient-cli/ambientCliPackages";
+import { searchAmbientCliCapabilities } from "./workflowCompilerAmbientCliFacade";
 import type { DesktopToolDescriptor } from "./workflowCompilerDesktopToolFacade";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
+import type { PluginMcpToolRegistration } from "./workflowCompilerPluginsFacade";
 import type { WorkflowConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
-import type { ProjectStore } from "../projectStore/projectStore";
-import { readAmbientApiKey } from "../security/credentialStore";
-import type { AmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import type { ProjectStore } from "./workflowCompilerProjectStoreFacade";
+import { readAmbientApiKey } from "./workflowCompilerSecurityFacade";
+import type { AmbientRetryPolicy } from "./workflowCompilerAmbientFacade";
 import {
   canonicalizeWorkflowGraphLayout,
   buildWorkflowCompilerCapabilityDiscoveryPrompt,
@@ -74,18 +74,19 @@ import {
   workflowPlanDslPromptSchemaExample,
   type WorkflowPlanDsl,
 } from "./workflowCompilerWorkflowFacade";
-import { buildWorkflowDiscoveryPolicyContext, type WorkflowDiscoveryAmbientCliCapability } from "../workflow-discovery/workflowDiscoveryPolicy";
 import {
+  buildWorkflowDiscoveryPolicyContext,
   describeWorkflowDiscoveryCapability,
   searchWorkflowDiscoveryCapabilities,
+  type WorkflowDiscoveryAmbientCliCapability,
   workflowDiscoveryCapabilityAwarePolicySummary,
-} from "../workflow-discovery/workflowDiscoveryCapabilitySearch";
-import type { CallableWorkflowSourceContext } from "../callable-workflow/callableWorkflowRegistry";
+} from "./workflowCompilerWorkflowDiscoveryFacade";
 import {
   callableWorkflowExecutionPlanFromTask,
   type CallableWorkflowCompilerHandoffPlan,
-} from "../callable-workflow/callableWorkflowTaskQueue";
-import type { CallableWorkflowCallerProvenance } from "../callable-workflow/callableWorkflowExecutionPlan";
+  type CallableWorkflowCallerProvenance,
+  type CallableWorkflowSourceContext,
+} from "./workflowCompilerCallableWorkflowFacade";
 
 export interface CompileWorkflowArtifactInput {
   store: ProjectStore;

@@ -3,9 +3,9 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { ambientRuntimeEnv } from "../setup/runtimePath";
+import { ambientRuntimeEnv } from "./toolRuntimeSetupFacade";
 import { resolveOrExtractToolHiveExecutable, type ResolveToolHiveExecutableOptions } from "./toolHiveBundle";
-import { ensureMcpManagedFileExchangeHostPath, managedFileExchangeFromVolumes, type McpManagedFileExchange } from "../mcp/mcpManagedFileExchange";
+import { ensureMcpManagedFileExchangeHostPath, managedFileExchangeFromVolumes, type McpManagedFileExchange } from "./toolRuntimeMcpManagedFileExchangeFacade";
 import { readSecretReference } from "./toolRuntimeSecurityFacade";
 
 const execFileAsync = promisify(execFile);

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
+import type { McpToolDescriptor } from "./scraplingMcpFacade";
 import {
   NO_CALLABLE_SCRAPLING_TOOL_MESSAGE,
   resolveScraplingBrowserContentDescriptor,

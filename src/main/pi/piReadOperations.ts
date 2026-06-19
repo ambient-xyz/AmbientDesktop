@@ -12,12 +12,12 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import type { OfficeTextExtraction, PdfTextExtraction } from "../../shared/workspaceTypes";
 import { describeOfficeFileSupport, extractOfficeText } from "./piOfficeFacade";
-import { extractPdfText } from "../pdf/pdfTextExtraction";
+import { extractPdfText } from "./piPdfFacade";
 import {
   createWorkspaceDirectoryAtAbsolutePath,
+  resolveWorkspaceAbsolutePathForRead,
   writeWorkspaceTextFileAtAbsolutePath,
-} from "../workspace/workspaceFiles";
-import { resolveWorkspaceAbsolutePathForRead } from "../workspace/workspacePathResolver";
+} from "./piWorkspaceFacade";
 import { isPathInside } from "./piSessionFacade";
 
 const MAX_PI_READ_OFFICE_CHARS = 500_000;

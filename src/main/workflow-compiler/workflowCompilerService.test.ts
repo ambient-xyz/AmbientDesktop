@@ -4,11 +4,11 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowCompileProgress } from "../../shared/workflowTypes";
-import { installAmbientCliPackageSource } from "../ambient-cli/ambientCliPackages";
+import { installAmbientCliPackageSource } from "./workflowCompilerAmbientCliFacade";
 import { bashToolDescriptor, firstPartyDesktopToolDescriptors, pluginMcpToolDescriptor } from "./workflowCompilerDesktopToolFacade";
-import type { PluginMcpToolRegistration } from "../plugins/pluginHost";
-import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
-import { ProjectStore } from "../projectStore/projectStore";
+import type { PluginMcpToolRegistration } from "./workflowCompilerPluginsFacade";
+import { aggressiveAmbientRetryPolicy } from "./workflowCompilerAmbientFacade";
+import { ProjectStore } from "./workflowCompilerProjectStoreFacade";
 import { readWorkflowRunDetail } from "./workflowCompilerWorkflowDashboardFacade";
 import {
   AmbientWorkflowCompilerProvider,
@@ -22,7 +22,7 @@ import {
 import { WorkflowProgramIrRepairRejectedError } from "./workflowCompilerIrRepair";
 import { WorkflowProgramCompileError } from "./workflowCompilerWorkflowProgramFacade";
 import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
-import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
+import { googleWorkspaceConnectorDescriptors } from "./workflowCompilerGoogleWorkspaceFacade";
 import type { WorkflowPiTextCallInput } from "./workflowCompilerWorkflowFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;

@@ -1,5 +1,5 @@
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
-import type { McpToolDescriptor } from "../mcp/mcpToolBridge";
+import type { McpToolDescriptor } from "./localDeepResearchMcpFacade";
 import { buildLocalDeepResearchSetupContract, type LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import { normalizeWebResearchProviderStackSettings, webResearchSettingsWithDynamicProviderCatalogs } from "./localDeepResearchWebResearchFacade";
 import { writeWorkspaceTextFile } from "./localDeepResearchWorkspaceFacade";

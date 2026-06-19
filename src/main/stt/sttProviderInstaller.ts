@@ -13,7 +13,7 @@ import type {
   SttProviderSetupResult,
   SttProviderValidationMetadata,
 } from "../../shared/localRuntimeTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./sttSessionFacade";
 import {
   discoverAmbientCliSttProviders,
   ensureFirstPartyAmbientCliPackages,

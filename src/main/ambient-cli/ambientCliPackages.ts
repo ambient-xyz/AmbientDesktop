@@ -8,13 +8,10 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import type { EmbeddingProviderCandidate, EmbeddingProviderDiagnostics, EmbeddingProviderRuntimeState, LocalRuntimeProviderLifecycleActionKind, LocalRuntimeProviderLifecycleControls, SttProviderCandidate, SttProviderDiagnostics, VoiceOutputFormat, VoiceProviderCandidate, VoiceProviderCloningMetadata, VoiceProviderDiagnostics, VoiceProviderDiscoveryMetadata, VoiceProviderRuntimeState } from "../../shared/localRuntimeTypes";
-import { isPathInside } from "../session/sessionPaths";
-import { executeLambdaRlm } from "../tool-runtime/lambdaRlm";
-import { materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
-import { ambientRuntimeEnv } from "../setup/runtimePath";
-import { buildSafeProcessEnv, isSecretEnvName } from "../security/safeProcessEnv";
-import { isSecretReference, readSecretReference, saveSecretReference } from "../security/secretReferenceStore";
-import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/managedInstallPaths";
+import { isPathInside } from "./ambientCliSessionFacade";
+import { executeLambdaRlm, materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolRuntimeAmbientCliContract";
+import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/setupAmbientCliContract";
+import { buildSafeProcessEnv, isSecretEnvName, isSecretReference, readSecretReference, saveSecretReference } from "../security/securityAmbientCliContract";
 
 const execFileAsync = promisify(execFile);
 const cliPackageConfigPath = ".ambient/cli-packages/packages.json";

@@ -7,10 +7,10 @@ import type { PermissionGrantActionKind, PermissionGrantScopeKind, PermissionMod
 import type { CollaborationMode } from "../../shared/threadTypes";
 import type { GoogleWorkspaceCallInput, GoogleWorkspaceMethodSideEffect, GoogleWorkspaceMethodSummary } from "../../shared/pluginTypes";
 import { googleWorkspaceGrantConditions, googleWorkspaceMethodGrantTarget } from "../../shared/googleWorkspaceGrantTargets";
-import { googleWorkspaceMethodApprovalDetail, googleWorkspaceMethodGrantIdentity } from "../google-workspace/googleWorkspaceMethodBroker";
+import { googleWorkspaceMethodApprovalDetail, googleWorkspaceMethodGrantIdentity } from "./permissionsGoogleWorkspaceFacade";
 import { isDotEnvPath, isEnvTemplatePath } from "../../shared/pathSensitivity";
-import { classifyPlannerToolPermission } from "../planner/plannerMode";
-import { isPathInside } from "../session/sessionPaths";
+import { classifyPlannerToolPermission } from "./permissionsPlannerFacade";
+import { isPathInside } from "./permissionsSessionFacade";
 
 type PermissionPrompt = Omit<PermissionRequest, "id">;
 

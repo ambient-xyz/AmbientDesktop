@@ -1,5 +1,5 @@
-import { normalizeLocalDeepResearchSettings } from "../local-deep-research/localDeepResearchProviderStack";
-import { normalizeSearchRoutingSettingsWithWebResearch } from "../web-research/webResearchProviderStack";
+import { normalizeLocalDeepResearchSettings } from "./desktopShellLocalDeepResearchFacade";
+import { normalizeSearchRoutingSettingsWithWebResearch } from "./desktopShellWebResearchFacade";
 import { createAppAppearanceProviderPreferences } from "./appAppearance";
 
 export {

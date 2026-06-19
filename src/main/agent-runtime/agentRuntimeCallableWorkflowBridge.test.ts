@@ -18,8 +18,8 @@ const workflowServiceMocks = vi.hoisted(() => ({
   runWorkflowArtifact: vi.fn(),
 }));
 
-vi.mock("../workflow-compiler/workflowCompilerService", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../workflow-compiler/workflowCompilerService")>()),
+vi.mock("./agentRuntimeWorkflowCompilerFacade", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./agentRuntimeWorkflowCompilerFacade")>()),
   compileWorkflowArtifact: workflowServiceMocks.compileWorkflowArtifact,
 }));
 

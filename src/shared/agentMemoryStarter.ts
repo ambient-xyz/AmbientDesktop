@@ -150,7 +150,15 @@ export function agentMemoryStarterPrimaryAction(
   status: Pick<AgentMemoryStarterStatus, "state" | "nextActions">,
 ): AgentMemoryStarterNextAction | undefined {
   if (status.state === "off") return "enable";
-  if (status.state === "setup_required") return status.nextActions.find((action) => action === "install" || action === "repair");
+  if (status.state === "setup_required") {
+    return status.nextActions.find((action) =>
+      action === "install" ||
+      action === "repair" ||
+      action === "start" ||
+      action === "retry_preflight" ||
+      action === "enable"
+    );
+  }
   if (status.state === "needs_repair") return status.nextActions.find((action) => action === "repair" || action === "retry_preflight" || action === "start");
   if (status.state === "ready") return status.nextActions.includes("disable") ? "disable" : undefined;
   return undefined;

@@ -1,6 +1,6 @@
 import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import type { Model } from "@mariozechner/pi-ai";
-import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "../desktop-tools/desktopToolRegistry";
+import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "./mcpAutowireDesktopToolsFacade";
 import {
   mcpAutowirePlanResultText,
   planMcpAutowire,
@@ -31,7 +31,7 @@ import {
   type McpCustomSourceBuildCommandRunner,
 } from "./mcpAutowireMcpInstallFacade";
 import type { McpAutowireCandidateRefStore } from "./mcpAutowireCandidateRefs";
-import type { WorkflowPiProgress } from "../workflow/workflowPiTransport";
+import type { WorkflowPiProgress } from "./mcpAutowireWorkflowFacade";
 
 export interface McpAutowirePiToolThread {
   id: string;

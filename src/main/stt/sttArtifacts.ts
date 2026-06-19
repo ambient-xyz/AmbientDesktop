@@ -1,7 +1,7 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import { extname, join, relative, resolve } from "node:path";
 import type { SttTranscriptionState } from "../../shared/localRuntimeTypes";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./sttSessionFacade";
 
 const MANAGED_STT_ROOT = ".ambient/stt";
 const STT_ARTIFACT_EXTENSIONS = new Set([".json", ".txt", ".wav"]);

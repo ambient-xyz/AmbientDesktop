@@ -1,0 +1,1 @@
+export { defaultLocalDeepResearchSettings } from "./localDeepResearchProviderStack";

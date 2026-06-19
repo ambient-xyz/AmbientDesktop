@@ -2,7 +2,7 @@ import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import type { WorkflowDiscoveryCapabilityDescription, WorkflowDiscoveryCapabilitySearch, WorkflowDiscoveryChoice, WorkflowDiscoveryGraphPatch, WorkflowDiscoveryProviderKind, WorkflowDiscoveryQuestion, WorkflowDiscoveryQuestionCategory, WorkflowGraphSnapshot, WorkflowPromptCacheCheckpoint } from "../../shared/workflowTypes";
 import { initialWorkflowDiscoveryQuestions, type WorkflowDiscoveryRevisionContext } from "../../shared/workflowDiscovery";
 import { validateWorkflowDiscoveryGraphPatch } from "../../shared/workflowDiscoveryGraphPatch";
-import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
+import { normalizeAmbientBaseUrl } from "./workflowDiscoveryProviderFacade";
 import {
   ambientRetryPolicyFromLegacyOptions,
   type AmbientRetryPolicy,

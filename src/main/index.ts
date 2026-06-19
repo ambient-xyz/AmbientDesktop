@@ -50,7 +50,7 @@ import { getAppLogs, installAppLogCapture } from "./diagnostics/appLogs";
 import { parseAmbientLaunchArgs } from "./desktop-shell/launchArgs";
 import { localTextSubagentStartupFeatureFromEnv } from "./local-runtime/localTextSubagentStartupConfig";
 import { AMBIENT_KEYS_URL } from "../shared/ambientUrls";
-import { isAmbientSubagentsEnabled, resolveAmbientFeatureFlags } from "../shared/featureFlags";
+import { isAmbientSubagentsEnabled, isAmbientTencentDbMemoryEnabled, resolveAmbientFeatureFlags } from "../shared/featureFlags";
 import { resolveSubagentApprovalDecision } from "./subagents/subagentApprovalDecision";
 import { reconcileSubagentsOnRuntimeStartup } from "./subagents/subagentStartupReconciliation";
 import { installAppMenu } from "./desktop-shell/menu";
@@ -149,8 +149,8 @@ import { redactSensitiveText } from "./security/secretRedaction";
 import { readSecretReference } from "./security/secretReferenceStore";
 import { saveMcpServerEnvSecret } from "./mcp/mcpSecretReferences";
 import { selectStartupWorkspacePath } from "./workspace/workspaceDefaults";
-import type { AgentMemoryEmbeddingDiagnostics, AgentMemoryEmbeddingLifecycleActionInput, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryStorageDiagnostics } from "../shared/agentMemoryDiagnostics";
-import type { AgentMemorySettings, UpdateAgentMemorySettingsInput } from "../shared/agentMemorySettings";
+import { agentMemoryStorageDiagnosticsWithEmbedding, mergeAgentMemoryEmbeddingLifecycleDiagnostics, mergeAgentMemoryEmbeddingLiveDiagnostics, type AgentMemoryClearInput, type AgentMemoryEmbeddingDiagnostics, type AgentMemoryEmbeddingLifecycleActionInput, type AgentMemoryEmbeddingLifecycleActionKind, type AgentMemoryEmbeddingLifecycleActionResult, type AgentMemoryStorageDiagnostics } from "../shared/agentMemoryDiagnostics";
+import { shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate, type AgentMemorySettings, type UpdateAgentMemorySettingsInput } from "../shared/agentMemorySettings";
 import type { AgentMemoryStarterDisableInput, AgentMemoryStarterEnableInput, AgentMemoryStarterOperationLogEntry, AgentMemoryStarterOperationResult, AgentMemoryStarterRepairInput, AgentMemoryStarterRuntimeStatus, AgentMemoryStarterStatus } from "../shared/agentMemoryStarter";
 import type { CreateAutomationScheduleInput, UpdateAutomationScheduleInput } from "../shared/automationTypes";
 import type { AppThirdPartyCredit, DesktopEvent, DesktopState, DesktopUpdateState, SetThemePreferenceInput, ThemePreference, ThinkingDisplaySettings, ThreadActionInput, UpdateLocalDeepResearchSettingsInput, UpdateMediaPlaybackSettingsInput, UpdateModelRuntimeSettingsInput, UpdatePlannerSettingsInput, UpdateSearchRoutingSettingsInput, UpdateSttSettingsInput, UpdateThinkingDisplaySettingsInput, UpdateVoiceSettingsInput } from "../shared/desktopTypes";
@@ -194,7 +194,7 @@ import {
   resolveWorkspacePath,
   resolveWorkspacePathForOpen,
 } from "./workspace/workspaceFiles";
-import { isPathInside } from "./session/sessionPaths";
+import { isPathInside } from "./session/sessionMainContract";
 import { registerWorkspaceMediaProtocol, WorkspaceMediaServer } from "./workspace/workspaceMedia";
 import { OfficePreviewService, type OfficePreviewRenderResult } from "./office/officePreviewService";
 import {
@@ -218,7 +218,7 @@ import {
 import { createGitCheckpoint, latestGitCheckpoint, restoreLatestGitCheckpoint } from "./git/gitCheckpoints";
 import { attachExistingThreadWorktree, createPermanentWorktree, prepareThreadWorktree } from "./git/gitWorktrees";
 import { TerminalService } from "./terminal/terminalService";
-import { listManagedDevServers, stopManagedDevServer } from "./tool-runtime/toolRunner";
+import { listManagedDevServers, stopManagedDevServer } from "./tool-runtime/toolRuntimeMainContract";
 import { TerminalStartTokenStore } from "./terminal/terminalSessionTokens";
 import { PermissionPromptService } from "./permissions/permissionPrompts";
 import { PrivilegedCredentialPromptService } from "./privileged-action/privilegedCredentialPrompts";
@@ -320,8 +320,10 @@ import {
   inspectTencentDbMemoryDiagnostics,
 } from "./memory/tencentdb/diagnostics";
 import {
+  AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
   detectAmbientMemoryEmbeddingAssets,
   discoverAmbientMemoryEmbeddingProviders,
+  repairAmbientMemoryResidentConflicts,
   runAmbientMemoryEmbeddingLifecycleAction,
 } from "./memory/tencentdb/managedEmbeddingProvider";
 import { installAmbientMemoryEmbeddingAssets } from "./memory/tencentdb/managedEmbeddingInstaller";
@@ -358,7 +360,7 @@ import { workspaceInventoryConnector, workspaceInventoryConnectorDescriptor } fr
 import { AmbientWorkflowExplorationProvider, runWorkflowThreadExploration } from "./workflow/workflowExplorationService";
 import { workflowToolDescriptorsFromPluginRegistry } from "./workflow/workflowPluginCapabilities";
 import { invokeWorkflowNativeTool } from "./workflow/workflowNativeTools";
-import { discoverCapabilityBuilderHistory, saveCapabilityBuilderEnvSecret } from "./capability-builder/capabilityBuilder";
+import { discoverCapabilityBuilderHistory, saveCapabilityBuilderEnvSecret } from "./capability-builder/capabilityBuilderMainContract";
 import { runWorkflowArtifact } from "./workflow/workflowRunService";
 import { buildWorkflowRecoveryPlan } from "./workflow/workflowRecovery";
 import { markStaleWorkflowRunForRecoveryIfNeeded } from "./workflow/workflowStaleRunRecovery";
@@ -545,6 +547,7 @@ let thinkingDisplaySettings: ThinkingDisplaySettings = { mode: "transient", show
 let plannerSettings: PlannerSettings = { autoFinalize: true };
 let localDeepResearchSettings: LocalDeepResearchSettings = normalizeLocalDeepResearchAppSettings(undefined);
 let searchRoutingSettings: SearchRoutingSettings = {};
+let desktopStateRevision = 0;
 
 function emitMainWindowDesktopEvent(event: DesktopEvent): void {
   const window = mainWindow;
@@ -901,6 +904,7 @@ export interface ProjectRuntimeHost {
   autoDispatch: ProjectAutoDispatchState;
   agentMemoryEmbeddingRuntimeLeaseId?: string;
   agentMemoryEmbeddingRuntimeRelease?: () => Promise<void>;
+  disposed?: boolean;
 }
 
 interface ProjectAutoDispatchState {
@@ -2886,6 +2890,7 @@ function disposeProjectRuntimeHost(workspacePath: string, reason: string): void 
   if (activeHost === host) {
     throw new Error("Cannot dispose the active project runtime host before switching projects.");
   }
+  host.disposed = true;
   stopAutoDispatch(reason, host);
   host.terminals.stopAll();
   host.runtime.interruptActiveRuns(reason);
@@ -2901,6 +2906,7 @@ function disposeProjectRuntimeHost(workspacePath: string, reason: string): void 
 
 function disposeAllProjectRuntimeHosts(reason: string): void {
   for (const host of projectRuntimeHostList()) {
+    host.disposed = true;
     stopAutoDispatch(reason, host);
     host.terminals.stopAll();
     host.runtime.interruptActiveRuns(reason);
@@ -3082,6 +3088,7 @@ function readState(threadId = activeThreadId, options: { markActiveRead?: boolea
   const projectThreads = threads.filter((thread) => !automationThreadChatIds.includes(thread.id));
   const activeProject = activeProjectSummary(workspace, projectThreads, activeProjectBoardForState(store, active));
   return {
+    stateRevision: ++desktopStateRevision,
     app: {
       name: app.getName(),
       version: app.getVersion(),
@@ -8071,40 +8078,130 @@ async function runLocalModelRuntimeLifecycleAction(
   return result;
 }
 
-async function updateFeatureFlagSettings(input: UpdateFeatureFlagSettingsInput, host = requireActiveProjectRuntimeHost()) {
+async function updateFeatureFlagSettings(
+  input: UpdateFeatureFlagSettingsInput,
+  host = requireActiveProjectRuntimeHost(),
+  options: { runManagedEmbeddingLifecycle?: boolean } = {},
+) {
   const targetStore = host.store;
+  const memorySettings = targetStore.getMemorySettings();
+  const previousFeatureEnabled = isAmbientTencentDbMemoryEnabled(currentFeatureFlagSnapshot(targetStore));
+  const previousDefaultAutoStart = agentMemoryDefaultManagedEmbeddingAutoStartEnabledForFeature(memorySettings, previousFeatureEnabled);
   const next = targetStore.setFeatureFlagSettings(input);
+  const nextFeatureEnabled = isAmbientTencentDbMemoryEnabled(currentFeatureFlagSnapshot(targetStore));
+  const nextDefaultAutoStart = agentMemoryDefaultManagedEmbeddingAutoStartEnabledForFeature(memorySettings, nextFeatureEnabled);
   host.runtime.applyFeatureFlags(currentFeatureFlagSnapshot(targetStore));
-  emitProjectStateIfActive(host);
-  return next;
-}
-
-async function updateMemorySettings(input: UpdateAgentMemorySettingsInput, host = requireActiveProjectRuntimeHost()) {
-  const targetStore = host.store;
-  const next = targetStore.setMemorySettings(input);
-  host.runtime.applyMemorySettings();
-  if (!next.enabled || !next.embeddings.enabled) {
-    await runAmbientMemoryEmbeddingLifecycleAction({
-      workspacePath: targetStore.getWorkspace().path,
-      action: "stop",
-      sendDimensions: next.embeddings.sendDimensions,
-      timeoutMs: next.embeddings.timeoutMs,
-    }).catch((error) => {
-      console.warn(`Failed to stop Ambient-managed memory embeddings after disabling memory: ${error instanceof Error ? error.message : String(error)}`);
-    });
+  if (options.runManagedEmbeddingLifecycle !== false) {
+    if ((previousFeatureEnabled && !nextFeatureEnabled) || (previousDefaultAutoStart && !nextDefaultAutoStart)) {
+      stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate(host, targetStore);
+    } else if (!previousDefaultAutoStart && nextDefaultAutoStart) {
+      startAgentMemoryManagedEmbeddingsAfterSettingsUpdate(host, targetStore);
+    }
   }
   emitProjectStateIfActive(host);
   return next;
 }
 
-async function getAgentMemoryDiagnostics(host = requireActiveProjectRuntimeHost()) {
-  return inspectTencentDbMemoryDiagnostics({
+async function updateMemorySettings(
+  input: UpdateAgentMemorySettingsInput,
+  host = requireActiveProjectRuntimeHost(),
+  options: { runManagedEmbeddingLifecycle?: boolean; startManagedEmbeddings?: boolean } = {},
+) {
+  const targetStore = host.store;
+  const previous = targetStore.getMemorySettings();
+  const next = targetStore.setMemorySettings(input);
+  host.runtime.applyMemorySettings();
+  const previousDefaultAutoStart = agentMemoryDefaultManagedEmbeddingAutoStartEnabled(previous, targetStore);
+  const nextDefaultAutoStart = agentMemoryDefaultManagedEmbeddingAutoStartEnabled(next, targetStore);
+  if (options.runManagedEmbeddingLifecycle !== false) {
+    if (!next.enabled || !next.embeddings.enabled || (previousDefaultAutoStart && !nextDefaultAutoStart)) {
+      stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate(host, targetStore);
+    } else if (
+      nextDefaultAutoStart &&
+      options.startManagedEmbeddings !== false &&
+      shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(previous, next)
+    ) {
+      startAgentMemoryManagedEmbeddingsAfterSettingsUpdate(host, targetStore);
+    }
+  }
+  emitProjectStateIfActive(host);
+  return targetStore.getMemorySettings();
+}
+
+function agentMemoryManagedEmbeddingAutoStartEnabled(targetStore: ProjectStore): boolean {
+  return agentMemoryDefaultManagedEmbeddingAutoStartEnabled(targetStore.getMemorySettings(), targetStore);
+}
+
+function agentMemoryDefaultManagedEmbeddingAutoStartEnabled(
+  settings: AgentMemorySettings,
+  targetStore: ProjectStore,
+): boolean {
+  return agentMemoryDefaultManagedEmbeddingAutoStartEnabledForFeature(
+    settings,
+    isAmbientTencentDbMemoryEnabled(currentFeatureFlagSnapshot(targetStore)),
+  );
+}
+
+function agentMemoryDefaultManagedEmbeddingAutoStartEnabledForFeature(
+  settings: AgentMemorySettings,
+  featureEnabled: boolean,
+): boolean {
+  return Boolean(
+    featureEnabled &&
+    settings.enabled &&
+    settings.embeddings.enabled &&
+    settings.embeddings.providerMode === "ambient-managed" &&
+    settings.embeddings.autoStartProvider &&
+    agentMemoryUsesDefaultManagedEmbeddingProvider(settings),
+  );
+}
+
+function agentMemoryUsesDefaultManagedEmbeddingProvider(settings: AgentMemorySettings): boolean {
+  return !settings.embeddings.providerCapabilityId ||
+    settings.embeddings.providerCapabilityId === AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID;
+}
+
+function startAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
+  host: ProjectRuntimeHost,
+  targetStore: ProjectStore,
+): void {
+  enqueueAgentMemoryEmbeddingLifecycleBackgroundOperation(host, targetStore, "settings-start", async () => {
+    if (host.disposed) return;
+    if (!agentMemoryManagedEmbeddingAutoStartEnabled(targetStore)) return;
+    await runAgentMemoryEmbeddingLifecycleActionWithoutQueue({ action: "start" }, host);
+    if (host.disposed) return;
+    if (!agentMemoryManagedEmbeddingAutoStartEnabled(targetStore)) {
+      await runAgentMemoryEmbeddingLifecycleActionWithoutQueue({ action: "stop" }, host);
+    }
+    emitProjectStateIfActive(host);
+  });
+}
+
+function stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
+  host: ProjectRuntimeHost,
+  targetStore: ProjectStore,
+): void {
+  enqueueAgentMemoryEmbeddingLifecycleBackgroundOperation(host, targetStore, "settings-stop", async () => {
+    if (host.disposed) return;
+    if (agentMemoryManagedEmbeddingAutoStartEnabled(targetStore)) return;
+    await runAgentMemoryEmbeddingLifecycleActionWithoutQueue({ action: "stop" }, host);
+    emitProjectStateIfActive(host);
+  });
+}
+
+async function getAgentMemoryDiagnostics(
+  host = requireActiveProjectRuntimeHost(),
+  options: { liveEmbeddingCheck?: boolean } = {},
+) {
+  const diagnostics = await inspectTencentDbMemoryDiagnostics({
     workspace: host.store.getWorkspace(),
     settings: host.store.getMemorySettings(),
     featureFlagSnapshot: currentFeatureFlagSnapshot(host.store),
     threads: host.store.listThreads(),
     runtimeSnapshots: host.runtime.listAgentMemoryRuntimeSnapshots(),
   });
+  if (options.liveEmbeddingCheck === false) return diagnostics;
+  return agentMemoryDiagnosticsWithEmbeddingCheck(host, diagnostics);
 }
 
 const activeAgentMemoryStarterOperations = new Map<string, {
@@ -8112,6 +8209,38 @@ const activeAgentMemoryStarterOperations = new Map<string, {
   requestKey: string;
   promise: Promise<AgentMemoryStarterOperationResult>;
 }>();
+const activeAgentMemoryEmbeddingLifecycleOperations = new Map<string, Promise<void>>();
+
+function enqueueAgentMemoryEmbeddingLifecycleBackgroundOperation(
+  host: ProjectRuntimeHost,
+  targetStore: ProjectStore,
+  operation: "settings-start" | "settings-stop",
+  run: () => Promise<void>,
+): void {
+  void enqueueAgentMemoryEmbeddingLifecycleOperation(host, targetStore, operation, run).catch((error) => {
+    console.warn(`Agent Memory managed embedding settings ${operation} operation failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
+}
+
+function enqueueAgentMemoryEmbeddingLifecycleOperation<T>(
+  host: ProjectRuntimeHost,
+  targetStore: ProjectStore,
+  _operation: AgentMemoryEmbeddingLifecycleActionInput["action"] | "settings-start" | "settings-stop",
+  run: () => Promise<T>,
+): Promise<T> {
+  const workspacePath = targetStore.getWorkspace().path;
+  const previous = activeAgentMemoryEmbeddingLifecycleOperations.get(workspacePath) ?? Promise.resolve();
+  const operationPromise = previous.catch(() => undefined).then(run);
+  const queuePromise = operationPromise
+    .then(() => undefined, () => undefined)
+    .finally(() => {
+      if (activeAgentMemoryEmbeddingLifecycleOperations.get(workspacePath) === queuePromise) {
+        activeAgentMemoryEmbeddingLifecycleOperations.delete(workspacePath);
+      }
+    });
+  activeAgentMemoryEmbeddingLifecycleOperations.set(workspacePath, queuePromise);
+  return operationPromise;
+}
 
 async function getAgentMemoryStarterStatus(
   host = requireActiveProjectRuntimeHost(),
@@ -8171,7 +8300,7 @@ async function runAgentMemoryStarterDisableOperation(
   const log: AgentMemoryStarterOperationLogEntry[] = [];
   let runtimeOverride: AgentMemoryStarterRuntimeStatus | undefined;
   appendAgentMemoryStarterLog(log, "disable", "started", "Disabling Agent Memory.");
-  await updateMemorySettings(agentMemoryStarterDisableMemoryPatch(), host);
+  await updateMemorySettings(agentMemoryStarterDisableMemoryPatch(), host, { runManagedEmbeddingLifecycle: false });
   appendAgentMemoryStarterLog(log, "settings", "passed", "Global memory and managed embeddings are disabled; stored memories are preserved.");
   try {
     const stopped = await runAgentMemoryEmbeddingLifecycleAction({ action: "stop" }, host);
@@ -8216,11 +8345,16 @@ async function runAgentMemoryStarterSetupOperation(
   const startedAt = new Date().toISOString();
   const log: AgentMemoryStarterOperationLogEntry[] = [];
   appendAgentMemoryStarterLog(log, operation, "started", `${operation === "repair" ? "Repairing" : "Enabling"} Agent Memory.`);
-  await updateFeatureFlagSettings({ tencentDbMemory: true }, host);
+  await updateFeatureFlagSettings({ tencentDbMemory: true }, host, { runManagedEmbeddingLifecycle: false });
   appendAgentMemoryStarterLog(log, "feature-flag", "passed", "TencentDB Agent Memory feature gate is enabled for this workspace.");
-  await updateMemorySettings(agentMemoryStarterEnableMemoryPatch(input, {
-    enableNewThreadsDefault: operation === "enable" ? true : undefined,
-  }), host);
+  const memoryBeforeEnable = host.store.getMemorySettings();
+  await updateMemorySettings(
+    agentMemoryStarterEnableMemoryPatch(input, {
+      enableNewThreadsDefault: operation === "enable" && !memoryBeforeEnable.enabled ? true : undefined,
+    }),
+    host,
+    { runManagedEmbeddingLifecycle: false, startManagedEmbeddings: false },
+  );
   appendAgentMemoryStarterLog(log, "settings", "passed", "Global memory, managed embeddings, and embedding auto-start are enabled.");
 
   const threadId = activeThreadIdForHost(host);
@@ -8277,7 +8411,45 @@ async function runAgentMemoryStarterSetupOperation(
   }
 
   let lifecycleDiagnostics: AgentMemoryStorageDiagnostics | undefined;
-  if (assetsReadyForStart) {
+  let runtimeOverride: AgentMemoryStarterRuntimeStatus | undefined;
+  let residentCleanupBlocksStart = false;
+  if (assetsReadyForStart && operation === "repair") {
+    try {
+      appendAgentMemoryStarterLog(
+        log,
+        "resident-cleanup",
+        "started",
+        "Inspecting resident llama.cpp runtimes before retrying memory embeddings.",
+      );
+      const cleanup = await repairAmbientMemoryResidentConflicts({
+        workspacePath: host.store.getWorkspace().path,
+      });
+      appendAgentMemoryStarterLog(
+        log,
+        "resident-cleanup",
+        cleanup.status === "clean" ? cleanup.stopped.length > 0 ? "passed" : "skipped" : cleanup.status,
+        cleanup.reason,
+        cleanup.status === "clean" ? undefined : "resident_runtime_conflict",
+      );
+      if (cleanup.status !== "clean") {
+        residentCleanupBlocksStart = true;
+        runtimeOverride = {
+          state: cleanup.status === "failed" ? "failed" : "blocked",
+          message: cleanup.reason,
+        };
+      }
+    } catch (error) {
+      const message = agentMemoryStarterErrorMessage(error);
+      residentCleanupBlocksStart = true;
+      runtimeOverride = {
+        state: "failed",
+        message,
+      };
+      appendAgentMemoryStarterLog(log, "resident-cleanup", "failed", message, "resident_runtime_conflict");
+    }
+  }
+
+  if (assetsReadyForStart && !residentCleanupBlocksStart) {
     try {
       const started = await runAgentMemoryEmbeddingLifecycleAction({ action: "start" }, host);
       lifecycleDiagnostics = started.diagnostics;
@@ -8290,11 +8462,13 @@ async function runAgentMemoryStarterSetupOperation(
     } catch (error) {
       appendAgentMemoryStarterLog(log, "start-embeddings", "failed", agentMemoryStarterErrorMessage(error), "start_failed");
     }
+  } else if (residentCleanupBlocksStart) {
+    appendAgentMemoryStarterLog(log, "start-embeddings", "skipped", "Embedding runtime start skipped because resident cleanup did not complete.");
   } else {
     appendAgentMemoryStarterLog(log, "start-embeddings", "skipped", "Embedding runtime start skipped until managed assets are installed.");
   }
 
-  const status = await readAgentMemoryStarterStatus(host, operationId, lifecycleDiagnostics);
+  const status = await readAgentMemoryStarterStatus(host, operationId, lifecycleDiagnostics, runtimeOverride);
   if (status.state !== "ready" && status.blockers[0]) {
     const blocker = status.blockers[0];
     appendAgentMemoryStarterLog(log, "final-status", "blocked", blocker.message, blocker.code);
@@ -8328,9 +8502,7 @@ async function readAgentMemoryStarterStatus(
       .then(agentMemoryStarterAssetSnapshotFromDetection)
       .catch(agentMemoryStarterAssetSnapshotFromError),
   ]);
-  const diagnostics = diagnosticsOverride
-    ? baseDiagnostics
-    : await agentMemoryStarterDiagnosticsWithEmbeddingCheck(host, baseDiagnostics);
+  const diagnostics = baseDiagnostics;
   return agentMemoryStarterStatusFromDiagnostics({
     settings: {
       featureFlags: { tencentDbMemory: diagnostics.featureEnabled },
@@ -8344,12 +8516,18 @@ async function readAgentMemoryStarterStatus(
   });
 }
 
-async function agentMemoryStarterDiagnosticsWithEmbeddingCheck(
+async function agentMemoryDiagnosticsWithEmbeddingCheck(
   host: ProjectRuntimeHost,
   diagnostics: AgentMemoryStorageDiagnostics,
 ): Promise<AgentMemoryStorageDiagnostics> {
   const settings = host.store.getMemorySettings();
-  if (!settings.enabled || !settings.embeddings.enabled || settings.embeddings.providerMode !== "ambient-managed") {
+  if (
+    !diagnostics.featureEnabled ||
+    !diagnostics.settingsEnabled ||
+    !settings.enabled ||
+    !settings.embeddings.enabled ||
+    settings.embeddings.providerMode !== "ambient-managed"
+  ) {
     return diagnostics;
   }
   try {
@@ -8359,10 +8537,13 @@ async function agentMemoryStarterDiagnosticsWithEmbeddingCheck(
       sendDimensions: settings.embeddings.sendDimensions,
       timeoutMs: settings.embeddings.timeoutMs,
     });
-    return {
-      ...diagnostics,
-      embedding: agentMemoryEmbeddingDiagnosticsFromLifecycle(settings, lifecycle),
-    };
+    return agentMemoryStorageDiagnosticsWithEmbedding(
+      diagnostics,
+      mergeAgentMemoryEmbeddingLiveDiagnostics(
+        diagnostics.embedding,
+        agentMemoryEmbeddingDiagnosticsFromLifecycle(settings, lifecycle, "check"),
+      ),
+    );
   } catch {
     return diagnostics;
   }
@@ -8403,6 +8584,14 @@ async function runAgentMemoryEmbeddingLifecycleAction(
   input: AgentMemoryEmbeddingLifecycleActionInput,
   host = requireActiveProjectRuntimeHost(),
 ): Promise<AgentMemoryEmbeddingLifecycleActionResult> {
+  return enqueueAgentMemoryEmbeddingLifecycleOperation(host, host.store, input.action, () =>
+    runAgentMemoryEmbeddingLifecycleActionWithoutQueue(input, host));
+}
+
+async function runAgentMemoryEmbeddingLifecycleActionWithoutQueue(
+  input: AgentMemoryEmbeddingLifecycleActionInput,
+  host = requireActiveProjectRuntimeHost(),
+): Promise<AgentMemoryEmbeddingLifecycleActionResult> {
   const workspace = host.store.getWorkspace();
   const settings = host.store.getMemorySettings();
   const lifecycle = await runAmbientMemoryEmbeddingLifecycleAction({
@@ -8411,6 +8600,10 @@ async function runAgentMemoryEmbeddingLifecycleAction(
     sendDimensions: settings.embeddings.sendDimensions,
     timeoutMs: settings.embeddings.timeoutMs,
   });
+  if (host.disposed) {
+    releaseAgentMemoryEmbeddingLifecycleLease(lifecycle, "project runtime host disposed before lifecycle completion");
+    throw new Error("Project runtime host was disposed before Agent Memory embedding lifecycle completion.");
+  }
   retainAgentMemoryEmbeddingRuntimeLease(host, input.action, lifecycle);
   if (
     input.action !== "check" &&
@@ -8418,18 +8611,35 @@ async function runAgentMemoryEmbeddingLifecycleAction(
   ) {
     host.runtime.applyMemorySettings();
   }
-  const diagnostics = await getAgentMemoryDiagnostics(host);
+  const diagnostics = await getAgentMemoryDiagnostics(host, { liveEmbeddingCheck: input.action !== "check" });
+  const lifecycleEmbedding = agentMemoryEmbeddingDiagnosticsFromLifecycle(settings, lifecycle, input.action);
+  const embedding = input.action === "check"
+    ? mergeAgentMemoryEmbeddingLiveDiagnostics(diagnostics.embedding, lifecycleEmbedding)
+    : mergeAgentMemoryEmbeddingLifecycleDiagnostics(diagnostics.embedding, lifecycleEmbedding);
+  const updatedDiagnostics = agentMemoryStorageDiagnosticsWithEmbedding(
+    diagnostics,
+    embedding,
+  );
+  const starterStatus = await readAgentMemoryStarterStatus(host, undefined, updatedDiagnostics);
   return {
     schemaVersion: "ambient-agent-memory-embedding-lifecycle-action-v1",
     action: input.action,
     status: lifecycle.status,
     message: lifecycle.reason,
     checkedAt: new Date().toISOString(),
-    diagnostics: {
-      ...diagnostics,
-      embedding: agentMemoryEmbeddingDiagnosticsFromLifecycle(settings, lifecycle),
-    },
+    diagnostics: updatedDiagnostics,
+    starterStatus,
   };
+}
+
+function releaseAgentMemoryEmbeddingLifecycleLease(
+  lifecycle: Awaited<ReturnType<typeof runAmbientMemoryEmbeddingLifecycleAction>>,
+  reason: string,
+): void {
+  if (!lifecycle.release) return;
+  void lifecycle.release().catch((error) => {
+    console.warn(`Agent Memory embedding runtime lease release failed after ${reason}: ${error instanceof Error ? error.message : String(error)}`);
+  });
 }
 
 function retainAgentMemoryEmbeddingRuntimeLease(
@@ -8437,6 +8647,10 @@ function retainAgentMemoryEmbeddingRuntimeLease(
   action: AgentMemoryEmbeddingLifecycleActionInput["action"],
   lifecycle: Awaited<ReturnType<typeof runAmbientMemoryEmbeddingLifecycleAction>>,
 ): void {
+  if (host.disposed) {
+    releaseAgentMemoryEmbeddingLifecycleLease(lifecycle, "project runtime host disposed before lease retention");
+    return;
+  }
   if (
     (action === "start" || action === "restart") &&
     lifecycle.release &&
@@ -8469,12 +8683,13 @@ function releaseAgentMemoryEmbeddingRuntimeForHost(host: ProjectRuntimeHost, rea
 function agentMemoryEmbeddingDiagnosticsFromLifecycle(
   settings: AgentMemorySettings,
   lifecycle: Awaited<ReturnType<typeof runAmbientMemoryEmbeddingLifecycleAction>>,
+  action: AgentMemoryEmbeddingLifecycleActionKind,
 ): AgentMemoryEmbeddingDiagnostics {
   const provider = lifecycle.provider;
   const runtime = provider.diagnostics?.runtimeState;
   const ready = lifecycle.status === "ready" || lifecycle.status === "started" || lifecycle.status === "restarted";
   const stopped = lifecycle.status === "stopped" || lifecycle.status === "not-found";
-  const runtimeStatus = lifecycle.status === "blocked" || lifecycle.status === "failed"
+  const runtimeStatus = lifecycle.status === "blocked" || (lifecycle.status === "failed" && action !== "check")
     ? lifecycle.status
     : runtime?.status;
   const status: AgentMemoryEmbeddingDiagnostics["status"] = ready
@@ -8510,7 +8725,10 @@ function agentMemoryEmbeddingDiagnosticsFromLifecycle(
   };
 }
 
-async function clearAgentMemory(host = requireActiveProjectRuntimeHost()) {
+async function clearAgentMemory(input: AgentMemoryClearInput, host = requireActiveProjectRuntimeHost()) {
+  if (normalizeWorkspacePath(input.workspacePath) !== normalizeWorkspacePath(host.workspacePath)) {
+    throw new Error("Agent Memory clear workspace no longer matches the active workspace.");
+  }
   const activeSessionsReset = host.runtime.applyMemorySettings();
   const result = await clearTencentDbMemoryStorage({
     workspace: host.store.getWorkspace(),

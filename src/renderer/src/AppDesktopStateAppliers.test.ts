@@ -25,7 +25,7 @@ function desktopState({
   } as unknown as DesktopState;
 }
 
-function createRecorder() {
+function createRecorder({ rememberDesktopStateResult }: { rememberDesktopStateResult?: false | DesktopState } = {}) {
   const calls: {
     composerDrafts: string[];
     projectBoardOpen: boolean[];
@@ -50,7 +50,10 @@ function createRecorder() {
   const appliers = createAppDesktopStateAppliers({
     activeWorkspacePath: "/repo",
     closeProjectBoard: () => calls.projectBoardOpen.push(false),
-    rememberDesktopState: (next) => calls.remembered.push(next),
+    rememberDesktopState: (next) => {
+      calls.remembered.push(next);
+      return rememberDesktopStateResult;
+    },
     setComposerDraft: (value, options) => {
       calls.composerDrafts.push(value);
       calls.composerDraftOptions.push(options);
@@ -131,6 +134,61 @@ describe("App desktop state appliers", () => {
     expect(calls.composerDraftOptions).toEqual([{ clearSlashCommandSelection: true }]);
     expect(calls.projectBoardOpen).toEqual([false]);
     expect(calls.workspaceRevision).toBe(0);
+  });
+
+  it("does not apply run-status-only desktop state when freshness rejects it", () => {
+    const { appliers, calls } = createRecorder({ rememberDesktopStateResult: false });
+
+    appliers.applyRunStatusDesktopState(desktopState({ activeThreadId: "thread-stale" }));
+
+    expect(calls.remembered.map((item) => item.activeThreadId)).toEqual(["thread-stale"]);
+    expect(calls.states).toEqual([]);
+    expect(calls.threadRunStatuses).toEqual([]);
+    expect(calls.runStatuses).toEqual([]);
+  });
+
+  it("ignores stale created-thread desktop state without destructive cleanup", () => {
+    const { appliers, calls } = createRecorder({ rememberDesktopStateResult: false });
+
+    expect(appliers.applyCreatedThreadState(desktopState({ activeThreadId: "thread-stale" }), "/repo")).toBe(false);
+
+    expect(calls.remembered.map((item) => item.activeThreadId)).toEqual(["thread-stale"]);
+    expect(calls.states).toEqual([]);
+    expect(calls.threadRunStatuses).toEqual([]);
+    expect(calls.runStatuses).toEqual([]);
+    expect(calls.sidebarAreas).toEqual([]);
+    expect(calls.composerDrafts).toEqual([]);
+    expect(calls.projectBoardOpen).toEqual([]);
+  });
+
+  it("ignores stale generic project-action desktop state without destructive cleanup", () => {
+    const { appliers, calls } = createRecorder({ rememberDesktopStateResult: false });
+
+    appliers.applyProjectActionState(desktopState({
+      activeThreadId: "thread-stale",
+      activeWorkspacePath: "/other",
+    }));
+
+    expect(calls.remembered.map((item) => item.activeThreadId)).toEqual(["thread-stale"]);
+    expect(calls.states).toEqual([]);
+    expect(calls.threadRunStatuses).toEqual([]);
+    expect(calls.sidebarAreas).toEqual([]);
+    expect(calls.composerDrafts).toEqual([]);
+    expect(calls.workspaceRevision).toBe(0);
+  });
+
+  it("applies the sanitized desktop state returned by the freshness gate", () => {
+    const sanitized = desktopState({
+      activeThreadId: "thread-sanitized",
+      activeWorkspacePath: "/repo",
+      threadRunStatuses: { "thread-sanitized": "idle" },
+    });
+    const { appliers, calls } = createRecorder({ rememberDesktopStateResult: sanitized });
+
+    appliers.applyCreatedThreadState(desktopState({ activeThreadId: "thread-stale" }), "/repo");
+
+    expect(calls.states).toEqual([sanitized]);
+    expect(calls.runStatuses).toEqual(["idle"]);
   });
 
   it("applies automation desktop state without clearing the composer", () => {

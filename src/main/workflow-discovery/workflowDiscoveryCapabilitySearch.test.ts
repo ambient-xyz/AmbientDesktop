@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { pluginMcpToolDescriptor } from "./workflowDiscoveryDesktopToolFacade";
 import type { PluginMcpToolRegistration } from "./workflowDiscoveryPluginsFacade";
-import { googleWorkspaceConnectorDescriptors } from "../google-workspace/googleWorkspaceConnectors";
+import { googleWorkspaceConnectorDescriptors } from "./workflowDiscoveryGoogleWorkspaceFacade";
 import {
   validateWorkflowConnectorDescriptor,
   workspaceInventoryConnectorDescriptor,

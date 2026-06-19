@@ -1,4 +1,4 @@
-import { isGitRepository } from "../git/gitWorktrees";
+import { isGitRepository } from "./subagentGitFacade";
 import { createSymphonyMutationWorkspaceLeaseService } from "./symphonyMutationWorkspaceLeaseService";
 
 export {

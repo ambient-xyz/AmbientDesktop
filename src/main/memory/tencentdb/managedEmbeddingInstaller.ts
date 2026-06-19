@@ -3,10 +3,10 @@ import { createReadStream, existsSync } from "node:fs";
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import type { MiniCpmVisionRuntimeInstallResult, MiniCpmVisionRuntimeReleaseManifest } from "../../../shared/localRuntimeTypes";
-import { AmbientDownloadService } from "../../ambient/ambientDownloadService";
+import { AmbientDownloadService } from "./memoryAmbientFacade";
 import { managedInstallWorkspacePath } from "./memorySetupFacade";
-import { installMiniCpmManagedRuntimeFromDownload } from "../../mini-cpm/miniCpmVisionProvider";
-import { isPathInside } from "../../session/sessionPaths";
+import { installMiniCpmManagedRuntimeFromDownload } from "./memoryMiniCpmFacade";
+import { isPathInside } from "./memorySessionFacade";
 import {
   ambientMemoryEmbeddingModelCachePath,
   ambientMemoryEmbeddingModelProfile,

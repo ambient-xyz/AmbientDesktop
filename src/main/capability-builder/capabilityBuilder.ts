@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { appendFile, chmod, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import { isPathInside } from "../session/sessionPaths";
+import { isPathInside } from "./capabilityBuilderSessionFacade";
 import {
   discoverAmbientCliPackages,
   discoverAmbientCliVoiceProviders,
@@ -23,8 +23,7 @@ import type {
   VoiceProviderDiscoveryMetadata,
 } from "../../shared/localRuntimeTypes";
 import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "./capabilityBuilderSetupFacade";
-import { redactSensitiveText } from "../security/secretRedaction";
-import { isSecretReference, readSecretReference, saveSecretReference } from "../security/secretReferenceStore";
+import { isSecretReference, readSecretReference, redactSensitiveText, saveSecretReference } from "../security/securityCapabilityBuilderContract";
 
 const execFileAsync = promisify(execFile);
 const builderRoot = ".ambient/capability-builder/packages";

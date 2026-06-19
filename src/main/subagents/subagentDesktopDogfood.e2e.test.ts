@@ -38,6 +38,14 @@ import {
 const DOGFOOD_ENABLED = process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD === "1";
 const REPO_ROOT = resolve(__dirname, "../../..");
 const RESULTS_DIR = join(REPO_ROOT, "test-results/subagent-desktop-dogfood");
+const CDP_COMMAND_TIMEOUT_MS = positiveIntegerEnv(
+  "AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_COMMAND_TIMEOUT_MS",
+  5_000,
+);
+const CDP_ARTIFACT_COMMAND_TIMEOUT_MS = positiveIntegerEnv(
+  "AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_ARTIFACT_COMMAND_TIMEOUT_MS",
+  15_000,
+);
 
 interface CdpMessage {
   id?: number;
@@ -46,7 +54,11 @@ interface CdpMessage {
 }
 
 interface CdpClient {
-  send<T = unknown>(method: string, params?: Record<string, unknown>): Promise<T>;
+  send<T = unknown>(
+    method: string,
+    params?: Record<string, unknown>,
+    options?: { timeoutMs?: number },
+  ): Promise<T>;
   close(): void;
 }
 
@@ -2075,18 +2087,42 @@ function createCdpClient(url: string): CdpClient {
   });
 
   return {
-    send<T = unknown>(method: string, params: Record<string, unknown> = {}) {
+    send<T = unknown>(
+      method: string,
+      params: Record<string, unknown> = {},
+      options: { timeoutMs?: number } = {},
+    ) {
       const id = nextId++;
+      const timeoutMs = options.timeoutMs ?? CDP_COMMAND_TIMEOUT_MS;
       const ready = socket.readyState === WebSocket.OPEN
         ? Promise.resolve()
         : new Promise<void>((resolveReady, rejectReady) => {
-          socket.addEventListener("open", () => resolveReady(), { once: true });
-          socket.addEventListener("error", () => rejectReady(new Error("CDP socket failed to open")), { once: true });
+          const timeout = setTimeout(() => {
+            rejectReady(new Error(`Timed out waiting for CDP socket open after ${timeoutMs}ms.`));
+          }, timeoutMs);
+          socket.addEventListener("open", () => {
+            clearTimeout(timeout);
+            resolveReady();
+          }, { once: true });
+          socket.addEventListener("error", () => {
+            clearTimeout(timeout);
+            rejectReady(new Error("CDP socket failed to open"));
+          }, { once: true });
         });
       return ready.then(() => new Promise<T>((resolveCommand, rejectCommand) => {
+        const timeout = setTimeout(() => {
+          pending.delete(id);
+          rejectCommand(new Error(cdpCommandTimeoutMessage(method, timeoutMs)));
+        }, timeoutMs);
         pending.set(id, {
-          resolve: (value) => resolveCommand(value as T),
-          reject: rejectCommand,
+          resolve: (value) => {
+            clearTimeout(timeout);
+            resolveCommand(value as T);
+          },
+          reject: (error) => {
+            clearTimeout(timeout);
+            rejectCommand(error);
+          },
         });
         socket.send(JSON.stringify({ id, method, params }));
       }));
@@ -2107,10 +2143,22 @@ async function waitFor<T extends unknown[]>(
   ...args: T
 ) {
   const started = Date.now();
+  let lastCdpTimeout: Error | undefined;
   while (Date.now() - started < 20_000) {
-    const matched = await evaluate<boolean, T>(cdp, predicate, ...args);
-    if (matched) return;
+    try {
+      const matched = await evaluate<boolean, T>(cdp, predicate, ...args);
+      if (matched) return;
+    } catch (error) {
+      if (!isCdpCommandTimeout(error)) throw error;
+      lastCdpTimeout = error;
+    }
     await delay(100);
+    if (lastCdpTimeout && Date.now() - started >= 20_000) {
+      throw new Error(`Timed out waiting for Electron UI condition. Last CDP timeout: ${lastCdpTimeout.message}`);
+    }
+  }
+  if (lastCdpTimeout) {
+    throw new Error(`Timed out waiting for Electron UI condition. Last CDP timeout: ${lastCdpTimeout.message}`);
   }
   throw new Error("Timed out waiting for Electron UI condition.");
 }
@@ -2124,6 +2172,14 @@ async function evaluate<T, TArgs extends unknown[]>(cdp: CdpClient, fn: (...args
   });
   if (result.exceptionDetails) throw new Error(`Runtime.evaluate failed: ${JSON.stringify(result.exceptionDetails)}`);
   return result.result?.value as T;
+}
+
+function cdpCommandTimeoutMessage(method: string, timeoutMs: number): string {
+  return `Timed out waiting for CDP ${method} after ${timeoutMs}ms.`;
+}
+
+function isCdpCommandTimeout(error: unknown): error is Error {
+  return error instanceof Error && error.message.startsWith("Timed out waiting for CDP ");
 }
 
 async function setViewport(cdp: CdpClient, width: number, height: number) {
@@ -5186,14 +5242,14 @@ async function writeScreenshot(cdp: CdpClient, name: string): Promise<string> {
   const result = await cdp.send<{ data: string }>("Page.captureScreenshot", {
     format: "png",
     captureBeyondViewport: true,
-  });
+  }, { timeoutMs: CDP_ARTIFACT_COMMAND_TIMEOUT_MS });
   await writeFile(outputPath, Buffer.from(result.data, "base64"));
   return relative(REPO_ROOT, outputPath);
 }
 
 async function writeAccessibilitySnapshot(cdp: CdpClient, name: string): Promise<string> {
   const outputPath = join(RESULTS_DIR, name);
-  const snapshot = await cdp.send("Accessibility.getFullAXTree");
+  const snapshot = await cdp.send("Accessibility.getFullAXTree", {}, { timeoutMs: CDP_ARTIFACT_COMMAND_TIMEOUT_MS });
   await writeFile(outputPath, JSON.stringify(snapshot, null, 2), "utf8");
   return relative(REPO_ROOT, outputPath);
 }
@@ -6461,6 +6517,16 @@ function cdpPortFromEnv(): number | undefined {
     throw new Error(`AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_PORT must be a TCP port, got ${raw}.`);
   }
   return port;
+}
+
+function positiveIntegerEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer, got ${raw}.`);
+  }
+  return value;
 }
 
 function failMissingCdpPort(): never {

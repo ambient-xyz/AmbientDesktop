@@ -88,7 +88,7 @@ function baseInput(input: Partial<AppAutomationsWorkspacePropsInput> = {}): AppA
     onSelectWorkflowAgentThread: noop,
     onSelectWorkflowRecordingPlaybook: noop,
     onSetWorkflowRecordingEnabled: vi.fn(async () => undefined),
-    onStartWorkflowRecording: vi.fn(async () => undefined),
+    onStartWorkflowRecording: vi.fn(async () => true),
     onUnarchiveWorkflowRecordingPlaybook: noop,
     onWorkflowAgentFoldersChanged: noop,
     onWorkflowLibraryIncludeArchivedChange: noop,

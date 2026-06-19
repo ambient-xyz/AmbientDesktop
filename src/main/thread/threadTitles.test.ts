@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { aggressiveAmbientRetryPolicy } from "../ambient/aggressiveRetries";
+import { aggressiveAmbientRetryPolicy } from "./threadAmbientFacade";
 import { fallbackThreadTitleFromPrompt, generateThreadTitle, sanitizeThreadTitle } from "./threadTitles";
 
 describe("thread title generation", () => {

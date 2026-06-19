@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AMBIENT_DEFAULT_MODEL } from "../../../shared/ambientModels";
 import { resolveAmbientFeatureFlags } from "../../../shared/featureFlags";
-import { AgentRuntime } from "../../agent-runtime/agentRuntime";
+import { AgentRuntime } from "./memoryAgentRuntimeDogfoodFacade";
 import {
   applyLiveAmbientProviderApiKeyEnv,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../../ambient/liveAmbientProviderConfig";
+} from "./memoryAmbientFacade";
 import {
   createTencentDbMemoryRuntimeForThread,
   TENCENT_MEMORY_DELETE_TOOL_NAME,
@@ -25,7 +25,7 @@ import {
 } from "./managedEmbeddingProvider";
 import { installAmbientMemoryEmbeddingAssets } from "./managedEmbeddingInstaller";
 import { buildAmbientTencentMemoryOffloadContext } from "./offload";
-import { ProjectStore } from "../../projectStore/projectStore";
+import { ProjectStore } from "./memoryProjectStoreFacade";
 import { agentMemoryStarterEnableMemoryPatch } from "./starter";
 
 const itLive = process.env.AMBIENT_TENCENT_MEMORY_LIVE === "1" ? it : it.skip;

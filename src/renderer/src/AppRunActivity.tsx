@@ -33,6 +33,7 @@ export type AppendRunActivityLine = (
 
 export const RUN_ACTIVITY_SCROLL_THRESHOLD = 32;
 export const RUN_ACTIVITY_MAX_LINES = 80;
+export const RUN_ACTIVITY_STREAM_UPDATE_MIN_MS = 250;
 
 export const RUN_ACTIVITY_PLACEHOLDER: RunActivityLine = {
   id: "activity-placeholder",
@@ -88,6 +89,29 @@ export function runActivityThinkingDeltaUpdate(
     remainder = "";
   }
   return { completedLines, remainder };
+}
+
+export type RuntimeActivityRenderState = {
+  text: string;
+  renderedAt: number;
+};
+
+export function shouldRenderRuntimeActivityUpdate({
+  activity,
+  minIntervalMs = RUN_ACTIVITY_STREAM_UPDATE_MIN_MS,
+  now,
+  previous,
+  text,
+}: {
+  activity: RuntimeActivity;
+  minIntervalMs?: number;
+  now: number;
+  previous: RuntimeActivityRenderState | undefined;
+  text: string;
+}): boolean {
+  if (!previous) return true;
+  if (previous.text === text) return false;
+  return activity.kind !== "stream" || activity.status !== "running" || now - previous.renderedAt >= minIntervalMs;
 }
 
 export function useAppRunActivityControls({

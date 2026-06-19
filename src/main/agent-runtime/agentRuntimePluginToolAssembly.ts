@@ -30,7 +30,7 @@ import {
 import {
   registerAgentRuntimePluginInstallCoreTools,
   type AgentRuntimePluginInstallCoreToolOptions,
-} from "../plugins/runtime-tools/agentRuntimePluginInstallCoreTools";
+} from "./agentRuntimePluginsFacade";
 
 export interface AgentRuntimePluginToolAssemblyOptions<TPlanInput extends CapabilityBuilderPlanToolInput> {
   pluginInstallCore: AgentRuntimePluginInstallCoreToolOptions;

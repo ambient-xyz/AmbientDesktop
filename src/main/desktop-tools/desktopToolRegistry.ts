@@ -5,7 +5,7 @@ import {
   providerLocalityOptions,
   providerPlatformOptions,
   providerSourcePreferenceOptions,
-} from "../provider/providerCatalog";
+} from "./desktopToolsProviderFacade";
 import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
 
 export type DesktopToolSource = "first-party" | "plugin-mcp" | "pi-builtin";

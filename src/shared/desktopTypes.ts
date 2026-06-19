@@ -4,6 +4,7 @@ import type { SearchRoutingSettings } from "./webResearchTypes";
 export type * from "./webResearchTypes";
 import type {
   AgentMemoryClearResult,
+  AgentMemoryClearInput,
   AgentMemoryEmbeddingLifecycleActionInput,
   AgentMemoryEmbeddingLifecycleActionResult,
   AgentMemoryStorageDiagnostics,
@@ -567,6 +568,7 @@ export interface AppThirdPartyCredit {
 }
 
 export interface DesktopState {
+  stateRevision?: number;
   app: AppInfo;
   appearance: AppAppearance;
   workspace: WorkspaceState;
@@ -935,7 +937,7 @@ export interface AmbientDesktopApi {
   disableAgentMemoryStarter(input?: AgentMemoryStarterDisableInput): Promise<AgentMemoryStarterOperationResult>;
   getAgentMemoryDiagnostics(): Promise<AgentMemoryStorageDiagnostics>;
   runAgentMemoryEmbeddingLifecycleAction(input: AgentMemoryEmbeddingLifecycleActionInput): Promise<AgentMemoryEmbeddingLifecycleActionResult>;
-  clearAgentMemory(): Promise<AgentMemoryClearResult>;
+  clearAgentMemory(input: AgentMemoryClearInput): Promise<AgentMemoryClearResult>;
   updatePlannerSettings(input: UpdatePlannerSettingsInput): Promise<PlannerSettings>;
   hydrateSearchRoutingSettings(): Promise<SearchRoutingSettings>;
   updateSearchRoutingSettings(input: UpdateSearchRoutingSettingsInput): Promise<SearchRoutingSettings>;

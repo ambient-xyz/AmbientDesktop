@@ -14,22 +14,20 @@ import type { CallableWorkflowTaskSummary, OrchestrationBoard, WorkflowArtifactS
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { AppLogEntry } from "./appLogs";
-import type { AmbientCliPackageCatalog } from "../ambient-cli/ambientCliPackages";
-import type { LocalModelRuntimeStatusSnapshot } from "../local-runtime/localModelRuntimeStatus";
-import { isPathInside } from "../session/sessionPaths";
-import { redactSensitiveText, redactSensitiveValue } from "../security/secretRedaction";
-import type { SubagentObservabilitySummary } from "../subagents/subagentObservability";
+import type { AmbientCliPackageCatalog } from "./diagnosticsAmbientCliFacade";
+import type { LocalModelRuntimeStatusSnapshot } from "./diagnosticsLocalRuntimeFacade";
+import { isPathInside } from "./diagnosticsSessionFacade";
+import { redactSensitiveText, redactSensitiveValue } from "./diagnosticsSecurityFacade";
 import {
   SUBAGENT_CHILD_SCOPED_PARENT_MAILBOX_TYPES,
-  validateSubagentParentMailboxEventAttribution,
-  validateSubagentRunEventAttribution,
-} from "../subagents/subagentInvariants";
-import {
   deniedCategoryIdsFromSubagentToolScopeSnapshot,
   deniedCategoryLabelsFromSubagentToolScopeSnapshot,
   deniedToolIdsFromSubagentToolScopeSnapshot,
   deniedToolLabelsFromSubagentToolScopeSnapshot,
-} from "../subagents/subagentToolScopeSnapshot";
+  validateSubagentParentMailboxEventAttribution,
+  validateSubagentRunEventAttribution,
+  type SubagentObservabilitySummary,
+} from "./diagnosticsSubagentsFacade";
 
 const MAX_THREADS = 50;
 const MAX_MESSAGES_PER_THREAD = 20;

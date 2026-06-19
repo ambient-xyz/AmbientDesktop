@@ -27,8 +27,8 @@ import {
 import type { AmbientCompactionSettings, CollaborationMode, ModelRuntimeSettings, ThinkingLevel } from "../../shared/threadTypes";
 import type { DesktopSettings } from "../../shared/desktopTypes";
 import type { PermissionMode } from "../../shared/permissionTypes";
-import { defaultLocalDeepResearchSettings } from "../local-deep-research/localDeepResearchProviderStack";
-import { createModelRuntimeCatalog } from "../model-provider/modelRuntimeRegistry";
+import { defaultLocalDeepResearchSettings } from "./projectStoreLocalDeepResearchFacade";
+import { createModelRuntimeCatalog } from "./projectStoreModelProviderFacade";
 import { migrateProjectStorePermissionModeDefaultsToWorkspace } from "./projectStoreSchema";
 import { DEFAULT_COMPACTION_SETTINGS, normalizeCompactionSettings } from "./projectStoreSettings";
 

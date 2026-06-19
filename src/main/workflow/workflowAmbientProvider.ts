@@ -1,6 +1,6 @@
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import { readAmbientApiKey } from "./workflowSecurityFacade";
-import { normalizeAmbientBaseUrl } from "../provider/providerStatus";
+import { normalizeAmbientBaseUrl } from "./workflowProviderFacade";
 import type { AmbientRetryPolicy } from "./workflowAmbientFacade";
 import { callWorkflowPiText, type WorkflowPiProgress } from "./workflowPiTransport";
 import { workflowAmbientCallPromptParts, type WorkflowAmbientProvider } from "./workflowAmbientClient";

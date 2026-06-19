@@ -2,6 +2,14 @@ import {
   isAmbientSubagentsEnabled,
   type AmbientFeatureFlagSnapshot,
 } from "../../shared/featureFlags";
+import {
+  symphonyPatternPreflightSnapshot,
+  symphonyWorkflowLaunchStateSnapshot,
+  SYMPHONY_MODE_STATE_SCHEMA_VERSION,
+  type SymphonyModeStateSnapshot,
+  type SymphonyModeToggleState,
+  type SymphonyParentModePolicyStateSnapshot,
+} from "../../shared/symphonyModeState";
 import type { SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRecipes";
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type { SendMessageInput, SendMessageComposerIntent } from "../../shared/desktopTypes";
@@ -39,6 +47,173 @@ export type SymphonyParentModeRuntimeSendInput<T extends SendMessageInput = Send
   symphonyParentModePolicy?: SymphonyParentModePolicy | undefined;
   symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined;
 };
+
+export function buildSymphonyModeStateSnapshot(input: {
+  thread: Pick<ThreadSummary, "kind">;
+  composerIntent?: SendMessageComposerIntent | undefined;
+  featureFlagSnapshot: AmbientFeatureFlagSnapshot;
+  policy?: SymphonyParentModePolicy | undefined;
+  verifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined;
+  toggleState?: SymphonyModeToggleState | undefined;
+}): SymphonyModeStateSnapshot {
+  const composerIntentKind = input.composerIntent?.kind;
+  const explicitToggleState = input.toggleState;
+  const selectedPatternId = selectedPatternIdForComposerIntent(input.composerIntent);
+  const selectedPatternSource = composerIntentKind === "slash-command" ? "slash_command" : "composer_intent";
+  if (input.thread.kind === "subagent_child") {
+    return {
+      schemaVersion: SYMPHONY_MODE_STATE_SCHEMA_VERSION,
+      kind: "unavailable",
+      reason: "subagent_child_thread",
+      toggleState: explicitToggleState === "on" ? "unknown" : explicitToggleState ?? "unknown",
+      featureFlagSnapshot: input.featureFlagSnapshot,
+      ...(composerIntentKind ? { composerIntentKind } : {}),
+      patternPreflight: symphonyPatternPreflightSnapshot({
+        state: "not_required",
+        source: "none",
+      }),
+      launch: symphonyWorkflowLaunchStateSnapshot({
+        state: "not_required",
+      }),
+    };
+  }
+  if (!isAmbientSubagentsEnabled(input.featureFlagSnapshot)) {
+    return {
+      schemaVersion: SYMPHONY_MODE_STATE_SCHEMA_VERSION,
+      kind: "unavailable",
+      reason: "ambient_subagents_disabled",
+      toggleState: explicitToggleState === "on" ? "unknown" : explicitToggleState ?? "off",
+      featureFlagSnapshot: input.featureFlagSnapshot,
+      ...(composerIntentKind ? { composerIntentKind } : {}),
+      patternPreflight: selectedPatternId
+        ? symphonyPatternPreflightSnapshot({
+          state: "selected",
+          source: selectedPatternSource,
+          selectedPatternId,
+        })
+        : symphonyPatternPreflightSnapshot({
+          state: "not_required",
+          source: "none",
+        }),
+      launch: symphonyWorkflowLaunchStateSnapshot({
+        state: "not_required",
+      }),
+    };
+  }
+  const policy = input.policy ?? resolveSymphonyParentModePolicy({
+    thread: input.thread,
+    composerIntent: input.composerIntent,
+    featureFlagSnapshot: input.featureFlagSnapshot,
+  });
+  if (policy) {
+    return {
+      schemaVersion: SYMPHONY_MODE_STATE_SCHEMA_VERSION,
+      kind: "symphony_parent",
+      reason: policy.reason,
+      toggleState: "on",
+      featureFlagSnapshot: input.featureFlagSnapshot,
+      ...(composerIntentKind ? { composerIntentKind } : {}),
+      patternPreflight: symphonyPatternPreflightSnapshot({
+        state: "selected",
+        source: policy.reason === "symphony-slash-command" ? "slash_command" : "composer_intent",
+        selectedPatternId: policy.expectedPatternId as SymphonyWorkflowPatternId,
+      }),
+      launch: input.verifiedLaunch
+        ? symphonyWorkflowLaunchStateSnapshot({
+          state: "verified",
+          expectedWorkflowToolName: policy.expectedWorkflowToolName,
+          expectedWorkflowSourceKind: policy.expectedWorkflowSourceKind,
+          taskId: input.verifiedLaunch.taskId,
+          parentThreadId: input.verifiedLaunch.parentThreadId,
+          parentRunId: input.verifiedLaunch.parentRunId,
+        })
+        : symphonyWorkflowLaunchStateSnapshot({
+          state: policy.launchRequirement === "required_this_turn" ? "required_pending" : "preflight_may_ask",
+          expectedWorkflowToolName: policy.expectedWorkflowToolName,
+          expectedWorkflowSourceKind: policy.expectedWorkflowSourceKind,
+        }),
+      parentModePolicy: symphonyParentModePolicyStateSnapshot(policy),
+    };
+  }
+  if (input.composerIntent?.kind === "symphony-workflow") {
+    return {
+      schemaVersion: SYMPHONY_MODE_STATE_SCHEMA_VERSION,
+      kind: "symphony_armed",
+      reason: input.composerIntent.action === "save-recipe" ? "symphony_save_recipe" : "symphony_preflight_pending",
+      toggleState: "on",
+      featureFlagSnapshot: input.featureFlagSnapshot,
+      composerIntentKind,
+      patternPreflight: symphonyPatternPreflightSnapshot({
+        state: selectedPatternId ? "selected" : "pending_detection",
+        source: "composer_intent",
+        ...(selectedPatternId ? { selectedPatternId } : {}),
+      }),
+      launch: symphonyWorkflowLaunchStateSnapshot({
+        state: "not_required",
+      }),
+    };
+  }
+  if (explicitToggleState === "on") {
+    return {
+      schemaVersion: SYMPHONY_MODE_STATE_SCHEMA_VERSION,
+      kind: "symphony_armed",
+      reason: "symphony_preflight_pending",
+      toggleState: "on",
+      featureFlagSnapshot: input.featureFlagSnapshot,
+      ...(composerIntentKind ? { composerIntentKind } : {}),
+      patternPreflight: symphonyPatternPreflightSnapshot({
+        state: "pending_detection",
+        source: "symphony_toggle",
+      }),
+      launch: symphonyWorkflowLaunchStateSnapshot({
+        state: "not_required",
+      }),
+    };
+  }
+  return {
+    schemaVersion: SYMPHONY_MODE_STATE_SCHEMA_VERSION,
+    kind: "generic_subagents",
+    reason: composerIntentKind ? "non_symphony_intent" : "no_symphony_intent",
+    toggleState: explicitToggleState ?? "off",
+    featureFlagSnapshot: input.featureFlagSnapshot,
+    ...(composerIntentKind ? { composerIntentKind } : {}),
+    patternPreflight: symphonyPatternPreflightSnapshot({
+      state: "not_required",
+      source: "none",
+    }),
+    launch: symphonyWorkflowLaunchStateSnapshot({
+      state: "not_required",
+    }),
+  };
+}
+
+function selectedPatternIdForComposerIntent(
+  composerIntent?: SendMessageComposerIntent | undefined,
+): SymphonyWorkflowPatternId | undefined {
+  if (composerIntent?.kind === "symphony-workflow") return composerIntent.patternId;
+  if (
+    composerIntent?.kind === "slash-command" &&
+    composerIntent.selection.sourceKind === "symphony" &&
+    typeof composerIntent.selection.sourceId === "string"
+  ) {
+    return composerIntent.selection.sourceId as SymphonyWorkflowPatternId;
+  }
+  return undefined;
+}
+
+function symphonyParentModePolicyStateSnapshot(
+  policy: SymphonyParentModePolicy,
+): SymphonyParentModePolicyStateSnapshot {
+  return {
+    enabled: true,
+    reason: policy.reason,
+    launchRequirement: policy.launchRequirement,
+    directExecutionPolicy: policy.directExecutionPolicy,
+    expectedWorkflowToolName: policy.expectedWorkflowToolName,
+    expectedWorkflowSourceKind: policy.expectedWorkflowSourceKind,
+    expectedPatternId: policy.expectedPatternId,
+  };
+}
 
 export function resolveSymphonyParentModePolicy(input: {
   thread: Pick<ThreadSummary, "kind">;

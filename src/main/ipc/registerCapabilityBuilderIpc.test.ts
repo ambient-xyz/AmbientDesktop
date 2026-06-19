@@ -1,7 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
-import type { CapabilityBuilderHistoryResult } from "../capability-builder/capabilityBuilder";
+import type { CapabilityBuilderHistoryResult } from "./ipcCapabilityBuilderFacade";
 import {
   capabilityBuilderHistoryIpcChannels,
   registerCapabilityBuilderHistoryIpc,

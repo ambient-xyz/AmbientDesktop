@@ -61,6 +61,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const STALE_CREATED_THREAD_STATE_MESSAGE = "Created workflow recording thread state was superseded before the launch could be applied.";
+
 export function workflowRecordingInitialGoalMessageInput(
   state: Pick<DesktopState, "activeThreadId" | "settings">,
   goal: string,
@@ -103,7 +105,7 @@ export function createAppWorkflowRecordingActions({
   workflowLibraryIncludeArchived,
 }: {
   activeThread: Pick<ThreadSummary, "workflowRecording"> | undefined;
-  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => void;
+  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => boolean;
   applyRunStatusDesktopState: (next: DesktopState) => void;
   closeProjectBoard: () => void;
   refreshWorkflowRecordingLibraryOverride: (includeArchived?: boolean) => Promise<void>;
@@ -124,19 +126,22 @@ export function createAppWorkflowRecordingActions({
   confirmActiveWorkflowRecordingReview: () => Promise<void>;
   restoreWorkflowRecordingVersion: (id: string, version: number) => Promise<void>;
   setWorkflowRecordingEnabled: (id: string, enabled: boolean) => Promise<void>;
-  startWorkflowRecording: (goalInput?: string) => Promise<void>;
+  startWorkflowRecording: (goalInput?: string) => Promise<boolean>;
   stopActiveWorkflowRecording: (input?: { requestReview?: boolean }) => Promise<void>;
   unarchiveWorkflowRecordingPlaybook: (playbook: WorkflowRecordingLibraryEntry) => Promise<void>;
   updateActiveWorkflowRecordingReview: (draft: WorkflowRecordingReviewDraftUpdate) => Promise<void>;
 } {
-  async function startWorkflowRecording(goalInput = ""): Promise<void> {
-    if (!state) return;
+  async function startWorkflowRecording(goalInput = ""): Promise<boolean> {
+    if (!state) return false;
     const input = workflowRecordingStartInput(goalInput, state.workspace.path);
     const previousWorkspacePath = state.activeWorkspace.path;
     try {
       setError(undefined);
       const next = await window.ambientDesktop.startWorkflowRecording(input);
-      applyCreatedThreadState(next, previousWorkspacePath);
+      if (!applyCreatedThreadState(next, previousWorkspacePath)) {
+        setError(STALE_CREATED_THREAD_STATE_MESSAGE);
+        return false;
+      }
       setSidebarArea("projects");
       closeProjectBoard();
       if (input.goal) {
@@ -144,16 +149,20 @@ export function createAppWorkflowRecordingActions({
         resetRunActivityLines("Workflow recording prompt sent to Ambient.", next.activeThreadId);
         setRunStatus("starting");
         setThreadRunStatuses((statuses) => workflowRecordingRunStatusesWithStarting(statuses, next.activeThreadId));
-        await window.ambientDesktop
+        const sent = await window.ambientDesktop
           .sendMessage(workflowRecordingInitialGoalMessageInput(next, input.goal))
           .catch((error) => {
             setError(errorMessage(error));
             setRunStatus("error");
             scheduleComposerDraftFocus(input.goal!);
+            return false;
           });
+        if (sent === false) return true;
       }
+      return true;
     } catch (error) {
       setError(errorMessage(error));
+      return false;
     }
   }
 

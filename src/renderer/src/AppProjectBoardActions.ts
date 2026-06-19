@@ -81,8 +81,8 @@ export function createAppProjectBoardActions({
 }: {
   activeThread: ProjectBoardActionsThread | undefined;
   activeWorkspacePath: string | undefined;
-  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => void;
-  applyProjectActionState: (next: DesktopState) => void;
+  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => boolean;
+  applyProjectActionState: (next: DesktopState) => boolean;
   projectBoardBusyProjectIds: Set<string>;
   projectBoardKickoffDefaultsBusy: boolean;
   projectBoardResetDialog: ProjectBoardResetDialogState | undefined;
@@ -172,8 +172,7 @@ export function createAppProjectBoardActions({
   }
 
   function applyProjectBoardState(next: DesktopState): void {
-    applyProjectActionState(next);
-    setProjectBoardOpen(true);
+    if (applyProjectActionState(next)) setProjectBoardOpen(true);
   }
 
   async function buildProjectBoard(project: ProjectSummary) {

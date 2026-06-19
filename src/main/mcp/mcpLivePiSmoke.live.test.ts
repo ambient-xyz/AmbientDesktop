@@ -4,14 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { AmbientStreamFailureError } from "../ambient/aggressiveRetries";
 import { McpInstallCatalog } from "./mcpInstallCatalog";
 import {
+  AmbientStreamFailureError,
   liveAmbientProviderBaseUrl,
   liveAmbientProviderLabel,
   liveAmbientProviderModel,
   readLiveAmbientProviderApiKey,
-} from "../ambient/liveAmbientProviderConfig";
+} from "./mcpAmbientFacade";
 import {
   mcpLivePiSmokePrompt,
   type McpLivePiSmokeInstallPlan,
@@ -26,7 +26,7 @@ import {
   type ToolHiveCommandExecutor,
   type ToolHiveCommandInvocation,
 } from "./mcpToolRuntimeFacade";
-import type { WorkflowPiProgress, WorkflowPiToolProgress } from "../workflow/workflowPiTransport";
+import type { WorkflowPiProgress, WorkflowPiToolProgress } from "./mcpWorkflowLivePiSmokeFacade";
 
 const runLive = process.env.AMBIENT_MCP_LIVE_PI_SMOKE === "1";
 const liveIt = runLive ? it : it.skip;

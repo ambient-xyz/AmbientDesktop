@@ -9,7 +9,7 @@ import type {
   VisibleChatExportSnapshot,
 } from "./chatExport";
 import { createVisibleChatExportSnapshot } from "./chatExport";
-import { redactSensitiveText } from "../security/secretRedaction";
+import { redactSensitiveText } from "./chatExportSecurityFacade";
 import type { ChatMessage, ChatPdfExportSource, ThreadSummary } from "../../shared/threadTypes";
 
 export interface ChatPdfExportPayload {

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { containerRuntimeProbeSummary, probeContainerRuntime } from "./containerRuntimeProbeService";
-import { ToolHiveRuntimeService } from "../tool-runtime/toolHiveRuntimeService";
+import { ToolHiveRuntimeService } from "./containerRuntimeToolRuntimeFacade";
 
 const describeLive = process.env.AMBIENT_CONTAINER_RUNTIME_PROBE_LIVE === "1" ? describe : describe.skip;
 

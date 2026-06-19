@@ -30,7 +30,7 @@ import {
   userCodeExpression,
   type InternalBrowserBackend,
 } from "./browserService";
-import { assertAllowedInternalBrowserUrl, isAllowedInternalBrowserUrl } from "../security/externalUrlPolicy";
+import { assertAllowedInternalBrowserUrl, isAllowedInternalBrowserUrl } from "./browserSecurityFacade";
 
 const HIDDEN_TOOL_VIEWPORT: Rectangle = { x: -10_000, y: -10_000, width: 1280, height: 720 };
 const INTERNAL_BROWSER_EVALUATE_TIMEOUT_MS = 15_000;
