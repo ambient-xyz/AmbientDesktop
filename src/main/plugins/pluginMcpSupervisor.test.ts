@@ -302,7 +302,7 @@ describe("buildPluginMcpLaunchPlans", () => {
     try {
       const result = await callPluginMcpTool(
         plan,
-        { toolName: "ambient_fixture_markdown_echo", arguments: { markdown: "large output dogfood", outputLines: 260 } },
+        { toolName: "ambient_fixture_markdown_echo", arguments: { markdown: "large output dogfood", outputLines: 20_000 } },
         { timeoutMs: 4_000, workspacePath },
       );
       const output = result.details.outputOutput;
@@ -316,7 +316,7 @@ describe("buildPluginMcpLaunchPlans", () => {
       });
       expect(output!.totalChars).toBeGreaterThan(12_000);
       const artifact = await readFile(join(workspacePath, output!.artifactPath!), "utf8");
-      expect(artifact).toContain("pluginOutputLine 0260");
+      expect(artifact).toContain("pluginOutputLine 20000");
     } finally {
       await rm(workspacePath, { recursive: true, force: true });
     }

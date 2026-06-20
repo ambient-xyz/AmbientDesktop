@@ -10,7 +10,6 @@ export const CURRENT_PROVIDER_GUIDANCE = Object.freeze({
   preferredLiveModel: "moonshotai/kimi-k2.7-code",
   gmiCloudPolicy: "explicit request or approved failover only",
   summary:
-    "Provider-dependent validation should use AMBIENT_PROVIDER=ambient with AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code; GMI Cloud entries are failover inventory, not default recommendations.",
 });
 
 export function buildValidationScriptInventory(packageJson, options = {}) {

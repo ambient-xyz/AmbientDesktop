@@ -154,6 +154,13 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       display: ["node", "scripts/symphony-gap-phase4-dogfood.mjs", ...scenarioArgs],
     };
   }
+  if (scenario === "large-context-blowup") {
+    return {
+      executable: "node",
+      args: ["scripts/large-context-blowup-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/large-context-blowup-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario !== "subagent-desktop-dogfood") throw new Error(`Unsupported Electron dogfood scenario: ${scenario}`);
   return {
     executable: "node",
@@ -176,6 +183,7 @@ function scenarioLatestArtifactPath(scenario) {
   if (scenario === "symphony-gap-phase2") return "test-results/symphony-gap-phase2-dogfood/latest.json";
   if (scenario === "symphony-gap-phase3") return "test-results/symphony-gap-phase3-dogfood/latest.json";
   if (scenario === "symphony-gap-phase4") return "test-results/symphony-gap-phase4-dogfood/latest.json";
+  if (scenario === "large-context-blowup") return "test-results/large-context-blowup/latest.json";
   return "test-results/subagent-desktop-dogfood/latest.json";
 }
 

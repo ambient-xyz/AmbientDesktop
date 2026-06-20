@@ -22,6 +22,11 @@ import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlan
 import { applyAgentBootstrapToPrompt, buildAgentBootstrapContext } from "./agentRuntimeAgentFacade";
 import { resolveAgentHarnessVariant } from "./agentRuntimeAgentFacade";
 import { LocalPreviewServerManager } from "./agentRuntimeBrowserFacade";
+import {
+  materializeToolDefinitions,
+  materializeToolResultFinalizerExtensionFactory,
+  materializeToolResultExtensionFactory,
+} from "./agentRuntimeToolRuntimeFacade";
 import { createPrivilegedActionAdapter, privilegedActionAdapterSelectionFromEnv, type PrivilegedActionAdapter } from "./agentRuntimePrivilegedActionFacade";
 import type { PiSessionFileCommitReason } from "./agentRuntimeSessionFacade";
 import { commitAgentRuntimeThreadPiSessionFile } from "./agentRuntimeSessionFileCommit";
@@ -126,6 +131,10 @@ import {
   AgentRuntimeContextRecoveryController,
   type AgentRuntimeContextRecoverySession,
 } from "./agentRuntimeContextRecoveryController";
+import {
+  createProviderCallContextPreflightExtension,
+  runProviderCallContextPreflightBeforePrompt,
+} from "./agentRuntimeProviderContextPreflight";
 import { runPromptPreflightBeforePrompt } from "./agentRuntimePromptPreflight";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "./agentRuntimeProviderFacade";
@@ -241,7 +250,11 @@ import {
 import {
   type RuntimeSessionRecoveryContext,
 } from "./agentRuntimeAssistantRetryInput";
-import { ambientModel, createAmbientProviderExtension } from "./agentRuntimeAmbientFacade";
+import {
+  ambientModel,
+  createAmbientProviderExtension,
+  createAmbientToolRouterResultStatusExtension,
+} from "./agentRuntimeAmbientFacade";
 import { browserToolUpdate } from "./browser-tools/agentRuntimeBrowserToolFormatting";
 import { withBrowserToolHeartbeat } from "./browser-tools/agentRuntimeBrowserToolHeartbeat";
 import { recordAgentRuntimeBrowserAudit } from "./browser-tools/agentRuntimeBrowserAudit";
@@ -2460,11 +2473,22 @@ export class AgentRuntime {
     isRunStoreActive: () => boolean = () => true,
     emitRunEvent: (event: DesktopEvent) => void = (event) => this.emit(event),
   ): Promise<void> {
+    const compactionSettings = this.store.getCompactionSettings();
+    const providerContextPreflight = () => runProviderCallContextPreflightBeforePrompt({
+      threadId: thread.id,
+      workspacePath: thread.workspacePath,
+      session,
+      promptContent,
+      contextWindow: session.model?.contextWindow ?? CONTEXT_USAGE_UNAVAILABLE_WINDOW,
+      reserveTokens: compactionSettings.reserveTokens,
+      hardPreflightPercent: compactionSettings.hardPreflightPercent,
+    });
+
     await runPromptPreflightBeforePrompt({
       threadId: thread.id,
       session,
       promptContent,
-      compactionSettings: this.store.getCompactionSettings(),
+      compactionSettings,
       unavailableContextWindow: CONTEXT_USAGE_UNAVAILABLE_WINDOW,
       setActiveRunStatus,
       isRunStoreActive,
@@ -2472,6 +2496,9 @@ export class AgentRuntime {
       recordContextUsageSnapshot: (threadId, promptSession, message) =>
         this.recordContextUsageSnapshot(threadId, promptSession, message),
     });
+    if (!isRunStoreActive()) return;
+
+    await providerContextPreflight();
   }
 
   private recordContextUsageSnapshot(threadId: string, session: PiSession, message?: string): ContextUsageSnapshot {
@@ -2672,6 +2699,88 @@ export class AgentRuntime {
     });
     const interruptedToolCallRecoveryToolNames = recoveryToolNamesForSessionRecovery(recovery);
     const interruptedToolCallRecoveryToolsAvailable = interruptedToolCallRecoveryToolNames.length > 0;
+    const extensionFactories: ExtensionFactory[] = [
+      createAmbientProviderExtension(model),
+      createAmbientToolRouterResultStatusExtension(),
+      createAmbientProductContextExtension(),
+      this.createAmbientCompactionSummaryExtension(thread.id, workspace, model, apiKey),
+      this.createProviderCallContextPreflightExtension(thread.id, workspace.path, model),
+      this.createContextAccountingExtension(thread.id, model),
+      ...(tencentMemoryExtension ? [tencentMemoryExtension] : []),
+      this.createGoalModeToolExtension(thread.id),
+      this.createInterruptedToolCallRecoveryToolExtension(thread.id, workspace),
+      this.createToolRunnerExtension(thread.id, workspace, {
+        interruptedToolCallRecoveryToolsAvailable,
+      }),
+      this.createProjectBoardTaskToolExtension(thread.id),
+      createMediaToolExtension(workspace),
+      createVoiceSettingsToolExtension({
+        threadId: thread.id,
+        workspace,
+        getThread: (id) => this.store.getThread(id),
+        listProviders: (workspacePath) => this.listVoiceProvidersForTools(workspacePath),
+        voiceProviderWorkspacePathForCapabilityId: (providerCapabilityId) => this.voiceProviderWorkspacePathForCapabilityId(providerCapabilityId),
+        resolveFirstPartyPluginPermission: (input) => this.resolveFirstPartyPluginPermission(input),
+        dogfoodSelectedVoiceProvider: (voiceThread, voiceWorkspace, settings, options) => this.dogfoodSelectedVoiceProvider(voiceThread, voiceWorkspace, settings, options),
+        voice: this.features.voice,
+      }),
+      createSttSettingsToolExtension({
+        threadId: thread.id,
+        workspace,
+        getThread: (id) => this.store.getThread(id),
+        listProviders: (workspacePath) => this.listSttProvidersForTools(workspacePath),
+        resolveFirstPartyPluginPermission: (input) => this.resolveFirstPartyPluginPermission(input),
+        stt: this.features.stt,
+      }),
+      createVisionToolExtension({
+        threadId: thread.id,
+        workspace,
+        getThread: (id) => this.store.getThread(id),
+        getLatestBrowserScreenshotArtifact: () => this.latestBrowserScreenshotArtifacts.get(thread.id),
+        vision: this.features.vision,
+      }),
+      this.createLocalDeepResearchToolExtension(thread.id, workspace),
+      createLocalRuntimeToolExtension({
+        workspace,
+        getLocalModelResourceSettings: () => this.features.localDeepResearch?.readSettings?.()?.localModelResources,
+        getHostMemory: () => this.features.localModelHostMemory?.(),
+        getActiveRuntimeLeases: () => this.localModelRuntimeManager.activeRuntimeLeases(),
+        getVoiceProviders: () => this.listVoiceProvidersWithCachedVoices(workspace.path),
+        getEmbeddingProviders: () => this.listEmbeddingProvidersForTools(workspace.path),
+        startRuntime: (input) => this.localModelRuntimeManager.startRuntime(input),
+        stopRuntime: (input) => this.localModelRuntimeManager.stopRuntime(input),
+        restartRuntime: (input) => this.localModelRuntimeManager.restartRuntime(input),
+        resolveLocalRuntimeOwnership: (request) => this.resolveLocalRuntimeOwnershipForForcedAction(request),
+      }),
+      this.createManagedDownloadToolExtension(workspace),
+      createProviderCatalogToolExtension(),
+      this.createMessagingGatewayToolExtension(thread.id, workspace),
+      this.createWebResearchToolExtension(thread.id, workspace),
+      this.createSearchPreferenceToolExtension(thread.id, workspace),
+      this.createGitToolExtension(thread.id, workspace),
+      this.createPrivilegedActionToolExtension(thread.id, workspace),
+      this.createLambdaRlmToolExtension(thread.id, workspace, model, apiKey),
+      this.createBrowserToolExtension(thread.id, workspace),
+      this.createPluginInstallToolExtension(thread.id, workspace, model, apiKey),
+      this.createGoogleWorkspaceSetupToolExtension(workspace),
+      this.createWorkflowNativeToolExtension(thread.id, workspace),
+      this.createPluginMcpToolExtension(thread.id, workspace, pluginMcpTools),
+      ...(callableWorkflowToolNames.length
+        ? [
+          this.createCallableWorkflowToolExtension(
+            thread.id,
+            workspace,
+            initialCallableWorkflowRecordedPlaybooks,
+            childCallableWorkflowToolNames,
+            symphonyParentModePolicy,
+            symphonyParentModeVerifiedLaunch,
+          ),
+        ]
+        : []),
+      ...(subagentToolNames.length ? [this.createSubagentToolExtension(thread.id, pluginMcpTools)] : []),
+      this.createPlannerModeExtension(thread.id),
+      this.createPermissionGateExtension(thread.id, workspace),
+    ];
 
     const resourceLoader = new DefaultResourceLoader({
       cwd: workspace.path,
@@ -2690,84 +2799,10 @@ export class AgentRuntime {
         ...cliSkillMount.mountedCliSkillPaths,
       ],
       extensionFactories: [
-        createAmbientProviderExtension(model),
-        createAmbientProductContextExtension(),
-        this.createAmbientCompactionSummaryExtension(thread.id, workspace, model, apiKey),
-        this.createContextAccountingExtension(thread.id, model),
-        ...(tencentMemoryExtension ? [tencentMemoryExtension] : []),
-        this.createGoalModeToolExtension(thread.id),
-        this.createInterruptedToolCallRecoveryToolExtension(thread.id, workspace),
-        this.createToolRunnerExtension(thread.id, workspace, {
-          interruptedToolCallRecoveryToolsAvailable,
-        }),
-        this.createProjectBoardTaskToolExtension(thread.id),
-        createMediaToolExtension(workspace),
-        createVoiceSettingsToolExtension({
-          threadId: thread.id,
-          workspace,
-          getThread: (id) => this.store.getThread(id),
-          listProviders: (workspacePath) => this.listVoiceProvidersForTools(workspacePath),
-          voiceProviderWorkspacePathForCapabilityId: (providerCapabilityId) => this.voiceProviderWorkspacePathForCapabilityId(providerCapabilityId),
-          resolveFirstPartyPluginPermission: (input) => this.resolveFirstPartyPluginPermission(input),
-          dogfoodSelectedVoiceProvider: (voiceThread, voiceWorkspace, settings, options) => this.dogfoodSelectedVoiceProvider(voiceThread, voiceWorkspace, settings, options),
-          voice: this.features.voice,
-        }),
-        createSttSettingsToolExtension({
-          threadId: thread.id,
-          workspace,
-          getThread: (id) => this.store.getThread(id),
-          listProviders: (workspacePath) => this.listSttProvidersForTools(workspacePath),
-          resolveFirstPartyPluginPermission: (input) => this.resolveFirstPartyPluginPermission(input),
-          stt: this.features.stt,
-        }),
-        createVisionToolExtension({
-          threadId: thread.id,
-          workspace,
-          getThread: (id) => this.store.getThread(id),
-          getLatestBrowserScreenshotArtifact: () => this.latestBrowserScreenshotArtifacts.get(thread.id),
-          vision: this.features.vision,
-        }),
-        this.createLocalDeepResearchToolExtension(thread.id, workspace),
-        createLocalRuntimeToolExtension({
-          workspace,
-          getLocalModelResourceSettings: () => this.features.localDeepResearch?.readSettings?.()?.localModelResources,
-          getHostMemory: () => this.features.localModelHostMemory?.(),
-          getActiveRuntimeLeases: () => this.localModelRuntimeManager.activeRuntimeLeases(),
-          getVoiceProviders: () => this.listVoiceProvidersWithCachedVoices(workspace.path),
-          getEmbeddingProviders: () => this.listEmbeddingProvidersForTools(workspace.path),
-          startRuntime: (input) => this.localModelRuntimeManager.startRuntime(input),
-          stopRuntime: (input) => this.localModelRuntimeManager.stopRuntime(input),
-          restartRuntime: (input) => this.localModelRuntimeManager.restartRuntime(input),
-          resolveLocalRuntimeOwnership: (request) => this.resolveLocalRuntimeOwnershipForForcedAction(request),
-        }),
-        this.createManagedDownloadToolExtension(workspace),
-        createProviderCatalogToolExtension(),
-        this.createMessagingGatewayToolExtension(thread.id, workspace),
-        this.createWebResearchToolExtension(thread.id, workspace),
-        this.createSearchPreferenceToolExtension(thread.id, workspace),
-        this.createGitToolExtension(thread.id, workspace),
-        this.createPrivilegedActionToolExtension(thread.id, workspace),
-        this.createLambdaRlmToolExtension(thread.id, workspace, model, apiKey),
-        this.createBrowserToolExtension(thread.id, workspace),
-        this.createPluginInstallToolExtension(thread.id, workspace, model, apiKey),
-        this.createGoogleWorkspaceSetupToolExtension(workspace),
-        this.createWorkflowNativeToolExtension(thread.id, workspace),
-        this.createPluginMcpToolExtension(thread.id, workspace, pluginMcpTools),
-        ...(callableWorkflowToolNames.length
-          ? [
-            this.createCallableWorkflowToolExtension(
-              thread.id,
-              workspace,
-              initialCallableWorkflowRecordedPlaybooks,
-              childCallableWorkflowToolNames,
-              symphonyParentModePolicy,
-              symphonyParentModeVerifiedLaunch,
-            ),
-          ]
-          : []),
-        ...(subagentToolNames.length ? [this.createSubagentToolExtension(thread.id, pluginMcpTools)] : []),
-        this.createPlannerModeExtension(thread.id),
-        this.createPermissionGateExtension(thread.id, workspace),
+        ...extensionFactories.map((factory) =>
+          materializeToolResultExtensionFactory(factory, { workspacePath: workspace.path }),
+        ),
+        materializeToolResultFinalizerExtensionFactory({ workspacePath: workspace.path }),
       ],
     });
     await resourceLoader.reload();
@@ -2883,7 +2918,7 @@ export class AgentRuntime {
       sessionManager,
       settingsManager,
       thinkingLevel: thread.thinkingLevel,
-      customTools: ambientToolRouterTools,
+      customTools: materializeToolDefinitions(ambientToolRouterTools, { workspacePath: workspace.path }),
       activeTools,
       includeAllExtensionTools: false,
     });
@@ -5470,9 +5505,15 @@ export class AgentRuntime {
         }),
       }),
       extensionFactories: [
-        createAmbientProviderExtension(model),
-        createAmbientProductContextExtension(),
-        this.createContextAccountingExtension(thread.id, model),
+        ...[
+          createAmbientProviderExtension(model),
+          createAmbientProductContextExtension(),
+          this.createProviderCallContextPreflightExtension(thread.id, workspace.path, model),
+          this.createContextAccountingExtension(thread.id, model),
+        ].map((factory) =>
+          materializeToolResultExtensionFactory(factory, { workspacePath: workspace.path }),
+        ),
+        materializeToolResultFinalizerExtensionFactory({ workspacePath: workspace.path }),
       ],
     });
     await resourceLoader.reload();
@@ -5486,12 +5527,15 @@ export class AgentRuntime {
       sessionManager: enableAtomicPiSessionPersistence(SessionManager.create(workspace.path, reviewSessionDir)),
       settingsManager,
       thinkingLevel: thread.thinkingLevel,
-      customTools: createWorkflowRecordingReviewTools({
-        threadId: thread.id,
-        getThread: (id) => this.store.getThread(id),
-        updateWorkflowRecordingReviewDraft: (id, draft, options) => this.store.updateWorkflowRecordingReviewDraft(id, draft, options),
-        emit: (event) => this.emit(event),
-      }),
+      customTools: materializeToolDefinitions(
+        createWorkflowRecordingReviewTools({
+          threadId: thread.id,
+          getThread: (id) => this.store.getThread(id),
+          updateWorkflowRecordingReviewDraft: (id, draft, options) => this.store.updateWorkflowRecordingReviewDraft(id, draft, options),
+          emit: (event) => this.emit(event),
+        }),
+        { workspacePath: workspace.path },
+      ),
       activeTools: [...WORKFLOW_RECORDING_REVIEW_ACTIVE_TOOL_NAMES],
       includeAllExtensionTools: false,
     });
@@ -5559,6 +5603,35 @@ export class AgentRuntime {
     });
   }
 
+  private createProviderCallContextPreflightExtension(
+    threadId: string,
+    workspacePath: string,
+    model: Model<"openai-completions">,
+  ): ExtensionFactory {
+    const compactionSettings = this.store.getCompactionSettings();
+    return createProviderCallContextPreflightExtension({
+      workspacePath,
+      contextWindow: model.contextWindow,
+      getContextWindow: () => this.currentProviderContextWindow(threadId, model.contextWindow),
+      reserveTokens: compactionSettings.reserveTokens,
+      hardPreflightPercent: compactionSettings.hardPreflightPercent,
+    });
+  }
+
+  private currentProviderContextWindow(threadId: string, fallback: number): number {
+    const sessionContextWindow = this.sessions.get(threadId)?.model?.contextWindow;
+    if (typeof sessionContextWindow === "number" && Number.isFinite(sessionContextWindow) && sessionContextWindow > 0) {
+      return sessionContextWindow;
+    }
+    try {
+      const thread = this.store.getThread(threadId);
+      const provider = getAmbientProviderStatus(thread.model);
+      return ambientModel(thread.model, normalizeAmbientBaseUrl(provider.baseUrl)).contextWindow;
+    } catch {
+      return fallback;
+    }
+  }
+
   private createContextAccountingExtension(threadId: string, model: Model<"openai-completions">): ExtensionFactory {
     return createContextAccountingToolsExtension({
       threadId,
@@ -5598,6 +5671,7 @@ export class AgentRuntime {
     model: Model<"openai-completions">,
     apiKey: string | undefined,
   ): ExtensionFactory {
+    const compactionSettings = this.store.getCompactionSettings();
     return createAmbientCompactionSummaryToolsExtension({
       threadId,
       workspace,
@@ -5606,6 +5680,10 @@ export class AgentRuntime {
       getThread: (id) => this.store.getThread(id),
       listMessages: (id) => this.store.listMessages(id),
       getBrowserState: () => this.browser.getState(),
+      providerContextPreflight: {
+        reserveTokens: compactionSettings.reserveTokens,
+        hardPreflightPercent: compactionSettings.hardPreflightPercent,
+      },
     });
   }
 

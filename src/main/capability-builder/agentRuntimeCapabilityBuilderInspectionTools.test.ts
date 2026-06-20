@@ -68,6 +68,14 @@ describe("agentRuntimeCapabilityBuilderInspectionTools", () => {
       maxEntries: 200,
       maxDepth: 12,
       includeGenerated: false,
+      hasNextPage: true,
+      nextPageInput: {
+        sourcePath: ".ambient/capability-builder/packages/ambient-demo",
+        maxEntries: 200,
+        maxDepth: 12,
+        includeGenerated: false,
+        cursor: "next-page",
+      },
       sourceRef: sourceRefFixture(),
       inventoryArtifact: expect.objectContaining({
         path: ".ambient/tool-outputs/2026-06-20/inventory.txt",
@@ -176,6 +184,7 @@ function listFilesFixture(): any {
     totalFileCountTruncated: false,
     omittedDirectoryCount: 0,
     omittedDirectories: [],
+    nextCursor: "next-page",
     inventoryArtifact: {
       path: ".ambient/tool-outputs/2026-06-20/inventory.txt",
       bytes: 512,

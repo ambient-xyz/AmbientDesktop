@@ -10,5 +10,10 @@ export {
   materializedTextNotice,
 } from "./toolOutputArtifacts";
 export type { MaterializedTextOutput } from "./toolOutputArtifacts";
+export {
+  materializeToolDefinitions,
+  materializeToolResultFinalizerExtensionFactory,
+  materializeToolResultExtensionFactory,
+} from "./toolResultMaterialization";
 export { createToolRunnerBashOperations } from "./toolRunner";
 export type { ToolRunnerPolicy } from "./toolRunner";

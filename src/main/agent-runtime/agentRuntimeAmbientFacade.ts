@@ -23,6 +23,7 @@ export {
   applyLiveAmbientProviderApiKeyEnv,
   archiveAmbientWorkflowPlaybook,
   createAmbientToolRouterTools,
+  createAmbientToolRouterResultStatusExtension,
   createAmbientProviderExtension,
   describeAmbientWorkflowPlaybook,
   injectAmbientWorkflowPlaybook,

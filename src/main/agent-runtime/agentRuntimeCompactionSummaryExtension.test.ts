@@ -1,8 +1,24 @@
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Model } from "@mariozechner/pi-ai";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import { createAmbientCompactionSummaryExtension } from "./agentRuntimeCompactionSummaryExtension";
+
+const tempRoots: string[] = [];
+
+async function makeWorkspace(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "ambient-compaction-provider-context-"));
+  tempRoots.push(root);
+  return root;
+}
+
+afterEach(async () => {
+  await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
 
 describe("createAmbientCompactionSummaryExtension", () => {
   it("adds Ambient workspace state to Pi compaction requests and results", async () => {
@@ -56,6 +72,7 @@ describe("createAmbientCompactionSummaryExtension", () => {
       thread: thread(),
       visibleMessages: visibleMessages(),
       summarizedMessages: preparation.messagesToSummarize,
+      previousSummary: undefined,
       gitStatus,
       browserState,
       fileOps: preparation.fileOps,
@@ -111,6 +128,242 @@ describe("createAmbientCompactionSummaryExtension", () => {
 
     await expect(handlers.get("session_before_compact")!({ preparation: {} })).resolves.toBeUndefined();
     expect(compactPiContext).not.toHaveBeenCalled();
+  });
+
+  it("protects compaction messages before Pi summarizes them", async () => {
+    const handlers = new Map<string, (event: any) => Promise<any>>();
+    const workspacePath = await makeWorkspace();
+    const summarizedToolOutput = `summarized tool output\n${"s".repeat(2_000)}`;
+    const turnPrefixToolOutput = `turn prefix tool output\n${"p".repeat(2_000)}`;
+    const preparation = {
+      firstKeptEntryId: "entry-keep",
+      tokensBefore: 42_000,
+      messagesToSummarize: [
+        {
+          role: "toolResult",
+          toolName: "ambient_capability_builder_list_files",
+          content: [{ type: "text", text: summarizedToolOutput }],
+        },
+      ],
+      turnPrefixMessages: [
+        {
+          role: "tool",
+          tool_call_id: "call-2",
+          content: turnPrefixToolOutput,
+        },
+      ],
+      isSplitTurn: true,
+      fileOps: {},
+      settings: { reserveTokens: 100 },
+    };
+    const compactPiContext = vi.fn(async (..._args: any[]) => ({
+      summary: "Pi summary",
+      firstKeptEntryId: "entry-keep",
+      tokensBefore: 42_000,
+      details: { provider: "pi-test" },
+    }));
+
+    createAmbientCompactionSummaryExtension({
+      threadId: "thread-1",
+      workspace: { path: workspacePath },
+      model: { id: "ambient-test", contextWindow: 100_000 } as Model<"openai-completions">,
+      apiKey: "test-api-key",
+      getThread: () => thread(),
+      listMessages: () => visibleMessages(),
+      getBrowserState: async () => undefined,
+      compactPiContext,
+      buildAmbientCompactionSummary: () => "Ambient workspace summary",
+      collectAmbientCompactionFileLists: () => ({ readFiles: [], modifiedFiles: [] }),
+      providerContextPreflight: {
+        reserveTokens: 100,
+        hardPreflightPercent: 90,
+        textPreviewChars: 64,
+        offloadTextChars: 100,
+      },
+    })({
+      on: (eventName: string, handler: any) => {
+        handlers.set(eventName, handler);
+      },
+    } as any);
+
+    await handlers.get("session_before_compact")!({ preparation });
+
+    expect(compactPiContext).toHaveBeenCalledOnce();
+    const protectedPreparation = compactPiContext.mock.calls[0]![0] as any;
+    expect(protectedPreparation).not.toBe(preparation);
+    const summarizedText = protectedPreparation.messagesToSummarize[0].content[0].text;
+    const turnPrefixText = protectedPreparation.turnPrefixMessages[0].content;
+    expect(summarizedText).toContain("Full output saved at: .ambient/tool-outputs/");
+    expect(turnPrefixText).toContain("Full output saved at: .ambient/tool-outputs/");
+    expect(summarizedText).not.toContain("s".repeat(500));
+    expect(turnPrefixText).not.toContain("p".repeat(500));
+    expect((preparation.messagesToSummarize[0].content[0] as any).text).toBe(summarizedToolOutput);
+    expect(preparation.turnPrefixMessages[0].content).toBe(turnPrefixToolOutput);
+
+    const summarizedArtifactPath = summarizedText.match(/Full output saved at: ([^\n]+)/)?.[1];
+    const turnPrefixArtifactPath = turnPrefixText.match(/Full output saved at: ([^\n]+)/)?.[1];
+    await expect(readFile(join(workspacePath, summarizedArtifactPath!), "utf8")).resolves.toBe(summarizedToolOutput);
+    await expect(readFile(join(workspacePath, turnPrefixArtifactPath!), "utf8")).resolves.toBe(turnPrefixToolOutput);
+  });
+
+  it("cancels compaction instead of falling back to raw Pi compaction when protected context is still too large", async () => {
+    const handlers = new Map<string, (event: any) => Promise<any>>();
+    const workspacePath = await makeWorkspace();
+    const materializedToolOutput = `materialized before block\n${"m".repeat(2_000)}`;
+    const preparation = {
+      firstKeptEntryId: "entry-keep",
+      tokensBefore: 42_000,
+      messagesToSummarize: [
+        {
+          role: "toolResult",
+          toolName: "huge_tool",
+          content: [{ type: "text", text: materializedToolOutput }],
+        },
+        ...Array.from({ length: 260 }, (_item, index) => ({
+          role: "user",
+          content: `message ${index}\n${"u".repeat(400)}`,
+        })),
+      ],
+      previousSummary: "Earlier compacted history that must survive.",
+      turnPrefixMessages: [],
+      isSplitTurn: false,
+      fileOps: {},
+      settings: { reserveTokens: 0 },
+    };
+    const compactPiContext = vi.fn(async (..._args: any[]) => ({
+      summary: "Pi summary",
+    }));
+
+    createAmbientCompactionSummaryExtension({
+      threadId: "thread-1",
+      workspace: { path: workspacePath },
+      model: { id: "ambient-test", contextWindow: 24_000 } as Model<"openai-completions">,
+      apiKey: "test-api-key",
+      getThread: () => thread(),
+      listMessages: () => visibleMessages(),
+      getBrowserState: async () => undefined,
+      compactPiContext,
+      buildAmbientCompactionSummary: () => "Ambient workspace summary",
+      collectAmbientCompactionFileLists: () => ({ readFiles: ["README.md"], modifiedFiles: ["output.txt"] }),
+      providerContextPreflight: {
+        reserveTokens: 0,
+        hardPreflightPercent: 100,
+        textPreviewChars: 64,
+        offloadTextChars: 1_000,
+      },
+      now: () => "2026-06-12T05:00:00.000Z",
+    })({
+      on: (eventName: string, handler: any) => {
+        handlers.set(eventName, handler);
+      },
+    } as any);
+
+    const result = await handlers.get("session_before_compact")!({ preparation });
+
+    expect(compactPiContext).not.toHaveBeenCalled();
+    expect(result).toEqual({ cancel: true });
+    const artifactRoot = join(workspacePath, ".ambient", "tool-outputs");
+    expect(existsSync(artifactRoot)).toBe(true);
+  });
+
+  it("returns a safe blocked compaction when compaction artifact materialization fails", async () => {
+    const handlers = new Map<string, (event: any) => Promise<any>>();
+    const workspaceRoot = await makeWorkspace();
+    const fileWorkspacePath = join(workspaceRoot, "not-a-directory");
+    await writeFile(fileWorkspacePath, "I am a file, not a workspace directory.");
+    const preparation = {
+      firstKeptEntryId: "entry-keep",
+      tokensBefore: 42_000,
+      messagesToSummarize: [
+        {
+          role: "toolResult",
+          toolName: "huge_tool",
+          content: [{ type: "text", text: "t".repeat(2_000) }],
+        },
+      ],
+      previousSummary: "Earlier compacted history that must survive.",
+      turnPrefixMessages: [],
+      isSplitTurn: false,
+      fileOps: {},
+      settings: { reserveTokens: 0 },
+    };
+    const compactPiContext = vi.fn(async (..._args: any[]) => ({
+      summary: "Pi summary",
+    }));
+
+    createAmbientCompactionSummaryExtension({
+      threadId: "thread-1",
+      workspace: { path: fileWorkspacePath },
+      model: { id: "ambient-test", contextWindow: 24_000 } as Model<"openai-completions">,
+      apiKey: "test-api-key",
+      getThread: () => thread(),
+      listMessages: () => visibleMessages(),
+      getBrowserState: async () => undefined,
+      compactPiContext,
+      buildAmbientCompactionSummary: () => "Ambient workspace summary",
+      collectAmbientCompactionFileLists: () => ({ readFiles: [], modifiedFiles: [] }),
+      providerContextPreflight: {
+        reserveTokens: 0,
+        hardPreflightPercent: 100,
+        textPreviewChars: 64,
+        offloadTextChars: 100,
+      },
+    })({
+      on: (eventName: string, handler: any) => {
+        handlers.set(eventName, handler);
+      },
+    } as any);
+
+    const result = await handlers.get("session_before_compact")!({ preparation });
+
+    expect(compactPiContext).not.toHaveBeenCalled();
+    expect(result).toEqual({ cancel: true });
+  });
+
+  it("blocks compaction when the previous summary would exceed the provider budget", async () => {
+    const handlers = new Map<string, (event: any) => Promise<any>>();
+    const workspacePath = await makeWorkspace();
+    const preparation = {
+      firstKeptEntryId: "entry-keep",
+      tokensBefore: 42_000,
+      messagesToSummarize: [{ role: "assistant", content: "short history" }],
+      previousSummary: `Earlier compacted history\n${"p".repeat(120_000)}`,
+      turnPrefixMessages: [],
+      isSplitTurn: false,
+      fileOps: {},
+      settings: { reserveTokens: 0 },
+    };
+    const compactPiContext = vi.fn(async (..._args: any[]) => ({
+      summary: "Pi summary",
+    }));
+
+    createAmbientCompactionSummaryExtension({
+      threadId: "thread-1",
+      workspace: { path: workspacePath },
+      model: { id: "ambient-test", contextWindow: 10_000 } as Model<"openai-completions">,
+      apiKey: "test-api-key",
+      getThread: () => thread(),
+      listMessages: () => visibleMessages(),
+      getBrowserState: async () => undefined,
+      compactPiContext,
+      buildAmbientCompactionSummary: () => "Ambient workspace summary",
+      collectAmbientCompactionFileLists: () => ({ readFiles: [], modifiedFiles: [] }),
+      providerContextPreflight: {
+        reserveTokens: 0,
+        hardPreflightPercent: 100,
+        textPreviewChars: 64,
+        offloadTextChars: 1_000,
+      },
+    })({
+      on: (eventName: string, handler: any) => {
+        handlers.set(eventName, handler);
+      },
+    } as any);
+
+    const result = await handlers.get("session_before_compact")!({ preparation });
+
+    expect(compactPiContext).not.toHaveBeenCalled();
+    expect(result).toEqual({ cancel: true });
   });
 });
 

@@ -220,6 +220,9 @@ describe("Capability Builder scaffold", () => {
       expect(generatedPage.files).toHaveLength(1);
       expect(generatedPage.totalFileCountTruncated).toBe(true);
       expect(generatedPage.nextCursor).toBeTruthy();
+      expect(capabilityBuilderListFilesText(generatedPage)).toContain("Structured next page input:");
+      expect(capabilityBuilderListFilesText(generatedPage)).toContain(`"pathPrefix":".venv/lib/python3.12/site-packages/huge_dep"`);
+      expect(capabilityBuilderListFilesText(generatedPage)).toContain(`"includeGenerated":true`);
       expect(generatedPage.inventoryArtifact).toMatchObject({
         inventoryFileCount: 2,
         inventoryFileCountTruncated: false,

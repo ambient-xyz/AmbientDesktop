@@ -35,6 +35,7 @@ export {
   AMBIENT_TOOL_CALL,
   AMBIENT_TOOL_DESCRIBE,
   AMBIENT_TOOL_SEARCH,
+  createAmbientToolRouterResultStatusExtension,
   createAmbientToolRouterTools,
 } from "./ambientToolRouter";
 

@@ -186,6 +186,11 @@ export interface CapabilityBuilderListFilesResult {
   }>;
 }
 
+export type CapabilityBuilderListFilesNextPageInput = CapabilityBuilderListFilesInput & {
+  sourcePath: string;
+  cursor: string;
+};
+
 export interface CapabilityBuilderReadFileInput extends CapabilityBuilderPreviewInput {
   filePath: string;
   maxChars?: number;
@@ -2128,6 +2133,7 @@ export function capabilityBuilderPreviewText(result: CapabilityBuilderPreviewRes
 
 export function capabilityBuilderListFilesText(result: CapabilityBuilderListFilesResult): string {
   const inventoryArtifact = result.inventoryArtifact;
+  const nextPageInput = capabilityBuilderListFilesNextPageInput(result);
   return [
     "Ambient Capability Builder files",
     `Package: ${result.packageName}`,
@@ -2147,6 +2153,7 @@ export function capabilityBuilderListFilesText(result: CapabilityBuilderListFile
     ...result.omittedDirectories.map((directory) => `- ${directory.path}/ (${directory.reason}; ${directory.fileCount}${directory.truncated ? "+" : ""} files; ${directory.totalBytes}${directory.truncated ? "+ scanned" : ""} bytes)`),
     result.nextCursor ? "" : undefined,
     result.nextCursor ? "For the next page, call this tool again with the same selector/filter fields and the next cursor." : undefined,
+    nextPageInput ? `Structured next page input: ${JSON.stringify(nextPageInput)}` : undefined,
     result.includeGenerated ? undefined : "",
     result.includeGenerated
       ? undefined
@@ -2171,6 +2178,20 @@ export function capabilityBuilderListFilesText(result: CapabilityBuilderListFile
     "",
     "Use ambient_capability_builder_read_file for exact file contents and ambient_capability_builder_write_file for approved Builder-managed edits.",
   ].filter((line) => line !== undefined).join("\n");
+}
+
+export function capabilityBuilderListFilesNextPageInput(
+  result: CapabilityBuilderListFilesResult,
+): CapabilityBuilderListFilesNextPageInput | undefined {
+  if (!result.nextCursor) return undefined;
+  return {
+    sourcePath: result.sourceRef.sourcePath,
+    ...(result.pathPrefix ? { pathPrefix: result.pathPrefix } : {}),
+    maxEntries: result.maxEntries,
+    maxDepth: result.maxDepth,
+    includeGenerated: result.includeGenerated,
+    cursor: result.nextCursor,
+  };
 }
 
 export function capabilityBuilderListFilesOutputPreview(result: CapabilityBuilderListFilesResult): ToolLargeOutputPreview | undefined {

@@ -32,7 +32,7 @@ const tools = [
           type: "integer",
           description: "Optional number of deterministic text lines to include in the tool result for large-output display tests.",
           minimum: 0,
-          maximum: 1000,
+          maximum: 25000,
         },
       },
       required: ["markdown"],
@@ -84,7 +84,7 @@ function handleMessage(line) {
     const toolName = message.params?.name;
     if (toolName === "ambient_fixture_markdown_echo") {
       const markdown = String(message.params?.arguments?.markdown ?? "");
-      const outputLines = Math.max(0, Math.min(Number(message.params?.arguments?.outputLines ?? 0) || 0, 1000));
+      const outputLines = Math.max(0, Math.min(Number(message.params?.arguments?.outputLines ?? 0) || 0, 25000));
       const generatedOutput = Array.from({ length: outputLines }, (_, index) =>
         `pluginOutputLine ${String(index + 1).padStart(4, "0")}: ${"fixture plugin large output ".repeat(4)}`,
       ).join("\n");

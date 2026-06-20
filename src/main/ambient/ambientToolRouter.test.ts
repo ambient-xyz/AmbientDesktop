@@ -9,6 +9,7 @@ import {
   AMBIENT_TOOL_DESCRIBE,
   AMBIENT_TOOL_SEARCH,
   ambientToolRouterTargetFromInput,
+  createAmbientToolRouterResultStatusExtension,
   createAmbientToolRouterTools,
 } from "./ambientToolRouter";
 
@@ -933,6 +934,131 @@ describe("ambient tool router", () => {
       "ambient_mcp_tool_describe",
       "ambient_mcp_tool_call",
     ]));
+  });
+
+  it("preserves installed MCP tool ref error results through the router", async () => {
+    const session = fakeSession({
+      active: ["read", AMBIENT_TOOL_SEARCH, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_CALL],
+      tools: [
+        fakeTool("ambient_mcp_tool_call", {
+          parameters: {
+            type: "object",
+            properties: {
+              toolName: { type: "string" },
+              arguments: { type: "object", additionalProperties: true },
+            },
+            required: ["toolName"],
+            additionalProperties: false,
+          } as any,
+          execute: async () => ({
+            content: [{ type: "text" as const, text: "mcp bridge failed" }],
+            details: { reason: "fixture" },
+            isError: true,
+          }),
+        }),
+        fakeTool("ambient_mcp_tool_search"),
+        fakeTool("ambient_mcp_tool_describe"),
+      ],
+    });
+    const tools = createAmbientToolRouterTools({ getSession: () => session });
+    const call = tools.find((tool) => tool.name === AMBIENT_TOOL_CALL)!;
+
+    const result = await call.execute(
+      "call-mcp-error",
+      {
+        toolName: "modelcontextprotocol-server-filesystem-standard-mcp/read_file",
+        toolInput: { arguments: { path: "/projects/filesystem-fixture/notes.txt" } },
+      },
+      undefined,
+      undefined,
+      {} as any,
+    );
+
+    expect((result as any).isError).toBe(true);
+    expect(result.content.map((part: any) => part.text ?? "").join("\n")).toContain("mcp bridge failed");
+    expect(result.details).toMatchObject({
+      status: "error",
+      wrappedTool: "ambient_mcp_tool_call",
+      routedToolRef: "modelcontextprotocol-server-filesystem-standard-mcp/read_file",
+      resultDetails: { reason: "fixture" },
+    });
+  });
+
+  it("preserves routed first-party tool error results through the router", async () => {
+    const session = fakeSession({
+      active: ["read", AMBIENT_TOOL_SEARCH, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_CALL],
+      tools: [
+        fakeTool("web_research_status", {
+          parameters: {
+            type: "object",
+            properties: {},
+            additionalProperties: false,
+          } as any,
+          execute: async () => ({
+            content: [{ type: "text" as const, text: "status failed" }],
+            details: { reason: "fixture" },
+            isError: true,
+          }),
+        }),
+      ],
+    });
+    const tools = createAmbientToolRouterTools({ getSession: () => session });
+    const call = tools.find((tool) => tool.name === AMBIENT_TOOL_CALL)!;
+
+    const result = await call.execute(
+      "call-first-party-error",
+      { toolName: "web_research_status", toolInput: {} },
+      undefined,
+      undefined,
+      {} as any,
+    );
+
+    expect((result as any).isError).toBe(true);
+    expect(result.content.map((part: any) => part.text ?? "").join("\n")).toContain("status failed");
+    expect(result.details).toMatchObject({
+      status: "error",
+      wrappedTool: "web_research_status",
+      resultDetails: { reason: "fixture" },
+    });
+  });
+
+  it("marks structured ambient_tool_call error results as Pi tool errors", async () => {
+    const handlers: Array<(event: any) => unknown> = [];
+    createAmbientToolRouterResultStatusExtension()({
+      on: (eventName: string, handler: (event: any) => unknown) => {
+        expect(eventName).toBe("tool_result");
+        handlers.push(handler);
+      },
+    } as any);
+
+    expect(handlers).toHaveLength(1);
+    await expect(Promise.resolve(handlers[0]({
+      toolName: AMBIENT_TOOL_CALL,
+      details: {
+        runtime: "ambient-tool-router",
+        status: "error",
+        wrappedTool: "web_research_status",
+      },
+      isError: false,
+    }))).resolves.toEqual({ isError: true });
+    await expect(Promise.resolve(handlers[0]({
+      toolName: AMBIENT_TOOL_CALL,
+      details: {
+        runtime: "ambient-tool-router",
+        status: "blocked-user-action",
+        wrappedTool: "browser_nav",
+      },
+      isError: false,
+    }))).resolves.toEqual({ isError: true });
+    await expect(Promise.resolve(handlers[0]({
+      toolName: AMBIENT_TOOL_CALL,
+      details: {
+        runtime: "ambient-tool-router",
+        status: "complete",
+        wrappedTool: "web_research_status",
+      },
+      isError: false,
+    }))).resolves.toBeUndefined();
   });
 
   it("routes web research tools and activates the web research bundle", async () => {

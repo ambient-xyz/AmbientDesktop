@@ -1,4 +1,4 @@
-import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
+import type { AgentToolResult, ExtensionFactory, ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { firstPartyDesktopToolDescriptors, type DesktopToolDescriptor } from "./ambientDesktopToolsFacade";
 import { workflowNativeToolDescriptors } from "./ambientWorkflowNativeToolsFacade";
 import { projectBoardNativeTaskToolDefinitions } from "./ambientProjectBoardTaskToolsFacade";
@@ -112,6 +112,15 @@ export function createAmbientToolRouterTools(options: AmbientToolRouterOptions):
     ambientToolDescribeDefinition(options, state),
     ambientToolCallDefinition(options, state),
   ];
+}
+
+export function createAmbientToolRouterResultStatusExtension(): ExtensionFactory {
+  return (pi) => {
+    pi.on("tool_result", (event) => {
+      if (event.toolName !== AMBIENT_TOOL_CALL) return undefined;
+      return ambientToolRouterResultIsError(event.details) ? { isError: true } : undefined;
+    });
+  };
 }
 
 export function ambientToolRouterTargetFromInput(toolName: string, input: unknown): { toolName: string; input: unknown } | undefined {
@@ -341,17 +350,7 @@ function ambientToolCallDefinition(options: AmbientToolRouterOptions, state: Amb
           },
         });
         const result = await mcpDefinition.execute(`${toolCallId}:ambient_mcp_tool_call`, preparedInput as any, signal, onUpdate, ctx);
-        return {
-          content: result.content,
-          details: {
-            runtime: "ambient-tool-router",
-            toolName: "ambient_mcp_tool_call",
-            status: "complete",
-            wrappedTool: "ambient_mcp_tool_call",
-            routedToolRef: name,
-            resultDetails: result.details,
-          },
-        };
+        return routedToolCallResult("ambient_mcp_tool_call", result, { routedToolRef: name });
       }
       const definition = requireCallableDefinition(session, name);
       const preparedInput = definition.prepareArguments ? definition.prepareArguments(toolInput) : toolInput;
@@ -389,16 +388,7 @@ function ambientToolCallDefinition(options: AmbientToolRouterOptions, state: Amb
       const result = await definition.execute(`${toolCallId}:${name}`, preparedInput as any, signal, onUpdate, ctx);
       const userActionBlock = routedBrowserUserActionBlock(name, result);
       if (userActionBlock) return userActionBlock;
-      return {
-        content: result.content,
-        details: {
-          runtime: "ambient-tool-router",
-          toolName: name,
-          status: "complete",
-          wrappedTool: name,
-          resultDetails: result.details,
-        },
-      };
+      return routedToolCallResult(name, result);
     },
   };
 }
@@ -469,6 +459,32 @@ function describeTool(session: AmbientToolRouterSession, name: string, prefix?: 
 
 function textResult<T>(text: string, details: T): AgentToolResult<T> {
   return { content: [{ type: "text" as const, text }], details };
+}
+
+function routedToolCallResult(
+  name: string,
+  result: AgentToolResult<Record<string, unknown>>,
+  extraDetails: Record<string, unknown> = {},
+): AgentToolResult<Record<string, unknown>> & { isError?: true } {
+  const isError = (result as { isError?: unknown }).isError === true;
+  return {
+    content: result.content,
+    details: {
+      runtime: "ambient-tool-router",
+      toolName: name,
+      status: isError ? "error" : "complete",
+      wrappedTool: name,
+      ...extraDetails,
+      resultDetails: result.details,
+    },
+    ...(isError ? { isError: true as const } : {}),
+  };
+}
+
+function ambientToolRouterResultIsError(details: unknown): boolean {
+  const record = objectInput(details);
+  return record.runtime === "ambient-tool-router" &&
+    (record.status === "error" || record.status === "blocked-user-action");
 }
 
 function routedToolContractBlock(
