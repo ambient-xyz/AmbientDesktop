@@ -32,6 +32,47 @@ function model(overrides: Partial<FinalAssistantMessageInput>) {
   return finalAssistantMessageModel({ ...baseInput, ...overrides });
 }
 
+function callableWorkflowBlock(
+  overrides: Partial<CallableWorkflowParentBlockingBlock> = {},
+): CallableWorkflowParentBlockingBlock {
+  return {
+    schemaVersion: CALLABLE_WORKFLOW_PARENT_BLOCKING_SCHEMA_VERSION,
+    reason: CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
+    message: "Workflow task is still running.",
+    instruction: "Wait for workflow completion.",
+    synthesisAllowed: false,
+    parentFinalizationBlocked: true,
+    taskIds: ["task-1"],
+    launchIds: ["launch-1"],
+    workflowArtifactIds: ["artifact-1"],
+    workflowRunIds: ["workflow-run-1"],
+    waitingTaskIds: ["task-1"],
+    attentionTaskIds: [],
+    tasks: [{
+      id: "task-1",
+      launchId: "launch-1",
+      parentThreadId: "thread-1",
+      parentRunId: "run-1",
+      toolCallId: "tool-1",
+      toolId: "tool-1",
+      toolName: "workflow",
+      sourceKind: "callable-workflow",
+      title: "Build workflow",
+      status: "running",
+      statusLabel: "Running",
+      statusGroup: "waiting_on_workflow",
+      blocking: true,
+      runnerTarget: "workflow",
+      runnerDeferredReason: "running",
+      workflowArtifactId: "artifact-1",
+      workflowRunId: "workflow-run-1",
+      createdAt: "2026-06-15T00:00:00.000Z",
+      updatedAt: "2026-06-15T00:00:01.000Z",
+    }],
+    ...overrides,
+  };
+}
+
 describe("finalAssistantMessage", () => {
   it("preserves visible assistant content and provider retry metadata", () => {
     const providerRetryLastError = "x".repeat(260);
@@ -178,7 +219,7 @@ describe("finalAssistantMessage", () => {
     });
   });
 
-  it("models subagent and callable workflow finalization blocks", () => {
+  it("suppresses workflow-managed subagent block text while preserving blocker metadata", () => {
     const subagentFinalizationBlock: SubagentFinalizationBarrierBlock = {
       message: "Subagent work is still blocked.",
       barrierIds: ["barrier-1"],
@@ -215,41 +256,7 @@ describe("finalAssistantMessage", () => {
         }],
       }],
     };
-    const callableWorkflowFinalizationBlock: CallableWorkflowParentBlockingBlock = {
-      schemaVersion: CALLABLE_WORKFLOW_PARENT_BLOCKING_SCHEMA_VERSION,
-      reason: CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
-      message: "Workflow task is still running.",
-      instruction: "Wait for workflow completion.",
-      synthesisAllowed: false,
-      parentFinalizationBlocked: true,
-      taskIds: ["task-1"],
-      launchIds: ["launch-1"],
-      workflowArtifactIds: ["artifact-1"],
-      workflowRunIds: ["workflow-run-1"],
-      waitingTaskIds: ["task-1"],
-      attentionTaskIds: [],
-      tasks: [{
-        id: "task-1",
-        launchId: "launch-1",
-        parentThreadId: "thread-1",
-        parentRunId: "run-1",
-        toolCallId: "tool-1",
-        toolId: "tool-1",
-        toolName: "workflow",
-        sourceKind: "callable-workflow",
-        title: "Build workflow",
-        status: "running",
-        statusLabel: "Running",
-        statusGroup: "waiting_on_workflow",
-        blocking: true,
-        runnerTarget: "workflow",
-        runnerDeferredReason: "running",
-        workflowArtifactId: "artifact-1",
-        workflowRunId: "workflow-run-1",
-        createdAt: "2026-06-15T00:00:00.000Z",
-        updatedAt: "2026-06-15T00:00:01.000Z",
-      }],
-    };
+    const callableWorkflowFinalizationBlock = callableWorkflowBlock();
 
     expect(model({
       currentAssistantVisibleContent: "Premature answer.",
@@ -260,7 +267,7 @@ describe("finalAssistantMessage", () => {
       callableWorkflowFinalizationParentMailboxEventId: "mailbox-2",
     })).toMatchObject({
       status: "error",
-      content: "Subagent work is still blocked.\n\nWorkflow task is still running.",
+      content: "",
       finalizationErrorText: "Subagent work is still blocked.\n\nWorkflow task is still running.",
       parentFinalizationBlocked: true,
       metadata: {
@@ -286,6 +293,29 @@ describe("finalAssistantMessage", () => {
           workflowRunIds: ["workflow-run-1"],
           waitingTaskIds: ["task-1"],
           attentionTaskIds: [],
+          parentMailboxEventId: "mailbox-2",
+        },
+      },
+    });
+  });
+
+  it("suppresses callable workflow block text while preserving blocker metadata", () => {
+    expect(model({
+      currentAssistantVisibleContent: "Premature parent answer.",
+      parentFinalizationBlockMessage: "Workflow task is still running.",
+      callableWorkflowFinalizationBlock: callableWorkflowBlock(),
+      callableWorkflowFinalizationParentMailboxEventId: "mailbox-2",
+    })).toMatchObject({
+      status: "error",
+      content: "",
+      finalizationErrorText: "Workflow task is still running.",
+      parentFinalizationBlocked: true,
+      metadata: {
+        status: "error",
+        callableWorkflowFinalizationBlocked: {
+          reason: CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
+          taskIds: ["task-1"],
+          waitingTaskIds: ["task-1"],
           parentMailboxEventId: "mailbox-2",
         },
       },

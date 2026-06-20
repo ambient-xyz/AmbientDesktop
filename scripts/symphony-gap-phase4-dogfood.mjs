@@ -173,7 +173,7 @@ async function waitForLaunchBridgeEvidence(cdp) {
       throw new Error(`Duplicate Symphony workflow tasks launched: ${evidence.workflowTaskCount}`);
     }
     if (evidence.launchBridgeVerified) {
-      await waitForText(cdp, "SUB-AGENT");
+      await waitForChildThreadUi(cdp);
       return evidence;
     }
     await delay(1000);
@@ -469,6 +469,25 @@ async function clickElement(cdp, selector) {
 
 async function waitForText(cdp, text) {
   await waitFor(cdp, (expected) => document.body.innerText.includes(expected), text);
+}
+
+async function waitForChildThreadUi(cdp) {
+  await waitFor(cdp, (roles) => {
+    const sidebarText = Array.from(document.querySelectorAll(".thread-row.subagent-child"))
+      .map((element) => element.textContent ?? "")
+      .join("\n")
+      .toLowerCase();
+    const inlineText = Array.from(document.querySelectorAll(
+      ".subagent-parent-cluster-child-thread, .subagent-thread-inspector, .subagent-child-starting-state",
+    ))
+      .map((element) => element.textContent ?? "")
+      .join("\n");
+    const inlineNormalized = inlineText.toLowerCase();
+    const sidebarRowsNameChildren = roles.every((role) => sidebarText.includes(`${role} sub-agent`));
+    const inlineCardsNameChildren = inlineText.includes("SUB-AGENT") &&
+      roles.every((role) => inlineNormalized.includes(role));
+    return sidebarRowsNameChildren || inlineCardsNameChildren;
+  }, expectedPatternRoles);
 }
 
 async function waitForTextareaValue(cdp, selector, expectedValue) {

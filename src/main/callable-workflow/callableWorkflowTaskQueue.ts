@@ -142,34 +142,104 @@ export interface CallableWorkflowSymphonyChildLaunchContract {
   idempotencyKey: string;
 }
 
+type CallableWorkflowSymphonyLaunchBridgeTaskContext = Pick<
+  CallableWorkflowTaskSummary,
+  | "id"
+  | "launchId"
+  | "parentThreadId"
+  | "parentRunId"
+  | "parentMessageId"
+  | "toolName"
+  | "toolId"
+  | "sourceKind"
+  | "title"
+>;
+
+type CallableWorkflowExecutionPlanWithDurableHandoff = CallableWorkflowExecutionPlan & {
+  handoff?: {
+    compiler?: {
+      launchBridgeContract?: CallableWorkflowSymphonyLaunchBridgeContract;
+    };
+  };
+};
+
 export function callableWorkflowQueuedTaskDraftFromExecutionPlan(
   executionPlan: CallableWorkflowExecutionPlan,
+  options: { parentMessageId?: string | undefined } = {},
 ): CallableWorkflowQueuedTaskDraft {
-  return {
-    id: executionPlan.launchId,
-    launchId: executionPlan.launchId,
-    parentThreadId: executionPlan.parent.threadId,
-    parentRunId: executionPlan.parent.runId,
-    parentMessageId: executionPlan.parent.assistantMessageId,
-    toolCallId: executionPlan.toolCallId,
-    toolId: executionPlan.workflowRunPlan.toolId,
-    toolName: executionPlan.workflowRunPlan.toolName,
-    sourceKind: executionPlan.workflowRunPlan.source.kind,
-    title: executionPlan.visibleTask.title,
+  const parentMessageId = options.parentMessageId ?? executionPlan.parent.assistantMessageId;
+  const resolvedExecutionPlan = parentMessageId === executionPlan.parent.assistantMessageId
+    ? executionPlan
+    : {
+        ...executionPlan,
+        parent: {
+          ...executionPlan.parent,
+          assistantMessageId: parentMessageId,
+        },
+      };
+  const draft: CallableWorkflowQueuedTaskDraft = {
+    id: resolvedExecutionPlan.launchId,
+    launchId: resolvedExecutionPlan.launchId,
+    parentThreadId: resolvedExecutionPlan.parent.threadId,
+    parentRunId: resolvedExecutionPlan.parent.runId,
+    parentMessageId,
+    toolCallId: resolvedExecutionPlan.toolCallId,
+    toolId: resolvedExecutionPlan.workflowRunPlan.toolId,
+    toolName: resolvedExecutionPlan.workflowRunPlan.toolName,
+    sourceKind: resolvedExecutionPlan.workflowRunPlan.source.kind,
+    title: resolvedExecutionPlan.visibleTask.title,
     status: CALLABLE_WORKFLOW_TASK_QUEUED_STATUS,
-    statusLabel: executionPlan.visibleTask.statusLabel,
-    blocking: executionPlan.visibleTask.blocking,
-    defaultCollapsed: executionPlan.visibleTask.defaultCollapsed,
-    progressVisible: executionPlan.visibleTask.progressVisible,
-    tokenCostTracking: executionPlan.visibleTask.tokenCostTracking,
-    pauseResumeCancel: executionPlan.visibleTask.pauseResumeCancel,
-    cancelHandle: executionPlan.visibleTask.cancelHandle,
-    runnerTarget: executionPlan.runnerHandoff.target,
-    runnerDeferredReason: executionPlan.runnerHandoff.deferredReason,
-    launchCard: executionPlan.visibleTask.launchCard,
-    executionPlan,
-    ...callableWorkflowPatternGraphSnapshotFromExecutionPlan(executionPlan),
+    statusLabel: resolvedExecutionPlan.visibleTask.statusLabel,
+    blocking: resolvedExecutionPlan.visibleTask.blocking,
+    defaultCollapsed: resolvedExecutionPlan.visibleTask.defaultCollapsed,
+    progressVisible: resolvedExecutionPlan.visibleTask.progressVisible,
+    tokenCostTracking: resolvedExecutionPlan.visibleTask.tokenCostTracking,
+    pauseResumeCancel: resolvedExecutionPlan.visibleTask.pauseResumeCancel,
+    cancelHandle: resolvedExecutionPlan.visibleTask.cancelHandle,
+    runnerTarget: resolvedExecutionPlan.runnerHandoff.target,
+    runnerDeferredReason: resolvedExecutionPlan.runnerHandoff.deferredReason,
+    launchCard: resolvedExecutionPlan.visibleTask.launchCard,
+    executionPlan: resolvedExecutionPlan,
+    ...callableWorkflowPatternGraphSnapshotFromExecutionPlan(resolvedExecutionPlan),
   };
+  return {
+    ...draft,
+    executionPlan: callableWorkflowExecutionPlanWithDurableLaunchBridge(draft, resolvedExecutionPlan),
+  };
+}
+
+function callableWorkflowExecutionPlanWithDurableLaunchBridge(
+  task: CallableWorkflowSymphonyLaunchBridgeTaskContext,
+  executionPlan: CallableWorkflowExecutionPlan,
+): CallableWorkflowExecutionPlan {
+  const launchBridgeContract = callableWorkflowSymphonyLaunchBridgeContractFromExecutionPlan(task, executionPlan);
+  if (!launchBridgeContract) return executionPlan;
+  const existing = executionPlan as CallableWorkflowExecutionPlanWithDurableHandoff;
+  return {
+    ...executionPlan,
+    handoff: {
+      ...existing.handoff,
+      compiler: {
+        ...existing.handoff?.compiler,
+        launchBridgeContract,
+      },
+    },
+  } as CallableWorkflowExecutionPlan;
+}
+
+function callableWorkflowDurableLaunchBridgeContractFromExecutionPlan(
+  task: CallableWorkflowSymphonyLaunchBridgeTaskContext,
+  executionPlan: CallableWorkflowExecutionPlan,
+): CallableWorkflowSymphonyLaunchBridgeContract | undefined {
+  const expected = callableWorkflowSymphonyLaunchBridgeContractFromExecutionPlan(task, executionPlan);
+  if (!expected) return undefined;
+  const contract = (executionPlan as CallableWorkflowExecutionPlanWithDurableHandoff)
+    .handoff?.compiler?.launchBridgeContract;
+  if (!contract) {
+    throw new Error(`Callable workflow task ${task.id} is missing a durable Symphony launch bridge contract.`);
+  }
+  assertCallableWorkflowSymphonyLaunchBridgeContractMatchesTask(task, contract, expected);
+  return contract;
 }
 
 export function callableWorkflowPatternGraphSnapshotFromExecutionPlan(
@@ -425,10 +495,7 @@ export function buildCallableWorkflowCompilerHandoffPlan(input: {
   createdAt?: string;
 }): CallableWorkflowCompilerHandoffPlan {
   const executionPlan = callableWorkflowExecutionPlanFromTask(input.task);
-  const launchBridgeContract = callableWorkflowSymphonyLaunchBridgeContractFromExecutionPlan(
-    input.task,
-    executionPlan,
-  );
+  const launchBridgeContract = callableWorkflowDurableLaunchBridgeContractFromExecutionPlan(input.task, executionPlan);
   const userRequest = callableWorkflowCompilerUserRequest(input.task, executionPlan, launchBridgeContract);
   return {
     schemaVersion: CALLABLE_WORKFLOW_COMPILER_HANDOFF_SCHEMA_VERSION,
@@ -465,7 +532,7 @@ export function buildCallableWorkflowCompilerHandoffPlan(input: {
 }
 
 export function callableWorkflowSymphonyLaunchBridgeContractFromExecutionPlan(
-  task: CallableWorkflowTaskSummary,
+  task: CallableWorkflowSymphonyLaunchBridgeTaskContext,
   executionPlan: CallableWorkflowExecutionPlan,
 ): CallableWorkflowSymphonyLaunchBridgeContract | undefined {
   const sourceContext = executionPlan.workflowRunPlan.sourceContext;
@@ -536,6 +603,32 @@ export function callableWorkflowSymphonyLaunchBridgeContractFromExecutionPlan(
       "Parent synthesis uses only synthesis-safe child results or an explicit partial-result decision.",
     ],
   };
+}
+
+function assertCallableWorkflowSymphonyLaunchBridgeContractMatchesTask(
+  task: CallableWorkflowSymphonyLaunchBridgeTaskContext,
+  contract: CallableWorkflowSymphonyLaunchBridgeContract,
+  expected: CallableWorkflowSymphonyLaunchBridgeContract,
+): void {
+  const matches =
+    contract.schemaVersion === CALLABLE_WORKFLOW_SYMPHONY_LAUNCH_BRIDGE_SCHEMA_VERSION &&
+    contract.workflowTaskId === task.id &&
+    contract.launchId === task.launchId &&
+    contract.parentThreadId === task.parentThreadId &&
+    contract.parentRunId === task.parentRunId &&
+    contract.parentMessageId === task.parentMessageId &&
+    contract.parentMessageId === expected.parentMessageId &&
+    contract.expectedWorkflowToolName === task.toolName &&
+    contract.expectedWorkflowToolId === task.toolId &&
+    contract.sourceKind === "symphony_recipe" &&
+    contract.pattern.id === expected.pattern.id &&
+    contract.pattern.label === expected.pattern.label &&
+    contract.pattern.blocking === expected.pattern.blocking &&
+    JSON.stringify(contract.childLaunches) === JSON.stringify(expected.childLaunches) &&
+    JSON.stringify(contract.wait) === JSON.stringify(expected.wait) &&
+    JSON.stringify(contract.expectedEvidence) === JSON.stringify(expected.expectedEvidence);
+  if (matches) return;
+  throw new Error(`Callable workflow task ${task.id} has a durable Symphony launch bridge contract that does not match the queued task.`);
 }
 
 const CALLABLE_WORKFLOW_TASK_RESTART_ACTIVE_TASK_STATUSES = new Set<CallableWorkflowTaskStatus>([
@@ -790,7 +883,7 @@ function callableWorkflowSymphonyLaunchBridgeLines(
 }
 
 function callableWorkflowSymphonyChildOutputContract(
-  task: CallableWorkflowTaskSummary,
+  task: CallableWorkflowSymphonyLaunchBridgeTaskContext,
   executionPlan: CallableWorkflowExecutionPlan,
   roleNodeId: string,
 ): string {
@@ -809,7 +902,7 @@ function callableWorkflowSymphonyChildOutputContract(
 }
 
 function callableWorkflowSymphonyChildTaskText(
-  task: CallableWorkflowTaskSummary,
+  task: CallableWorkflowSymphonyLaunchBridgeTaskContext,
   executionPlan: CallableWorkflowExecutionPlan,
   roleNodeId: string,
 ): string {

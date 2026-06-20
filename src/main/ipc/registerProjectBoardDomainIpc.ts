@@ -1,6 +1,7 @@
 import type { IpcMain } from "electron";
 
-import type { ProjectRuntimeHost } from "../index";
+import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "../project-runtime/projectRuntimeHost";
+import type { ProjectStore } from "./ipcProjectStoreFacade";
 import {
   projectBoardCardIpcChannels,
   projectBoardCreateIpcChannels,
@@ -39,6 +40,15 @@ import {
 } from "./registerProjectBoardIpc";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
+type ProjectRuntimeHost = ProjectRuntimeHostContract<
+  ProjectStore,
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  { enabled: boolean }
+>;
 
 export const projectBoardDomainIpcChannels = [
   ...projectBoardCreateIpcChannels,

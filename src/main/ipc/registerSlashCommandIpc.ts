@@ -13,7 +13,7 @@ import type {
   WorkflowRecordingLibraryDescription,
   WorkflowRecordingLibraryEntry,
 } from "../../shared/workflowTypes";
-import type { ProjectRuntimeHost } from "../index";
+import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "../project-runtime/projectRuntimeHost";
 import { buildCallableWorkflowRegistry } from "./ipcCallableWorkflowFacade";
 import {
   searchAmbientCliCapabilities,
@@ -27,6 +27,8 @@ import {
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;
+type ProjectRuntimeHost<Store extends ActiveWorkflowRecordingStore = ActiveWorkflowRecordingStore> =
+  ProjectRuntimeHostContract<Store>;
 export type SlashCommandCatalogSourceInput = SlashCommandSearchInput & {
   ambientCliKind?: AmbientCliCapabilitySearchInput["kind"];
   ambientCliPackageId?: string;

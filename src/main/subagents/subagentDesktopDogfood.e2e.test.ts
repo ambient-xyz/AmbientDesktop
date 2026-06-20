@@ -37,7 +37,10 @@ import {
 
 const DOGFOOD_ENABLED = process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD === "1";
 const REPO_ROOT = resolve(__dirname, "../../..");
-const RESULTS_DIR = join(REPO_ROOT, "test-results/subagent-desktop-dogfood");
+const RESULTS_DIR = resolve(
+  REPO_ROOT,
+  process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_RESULTS_DIR ?? "test-results/subagent-desktop-dogfood",
+);
 const CDP_COMMAND_TIMEOUT_MS = positiveIntegerEnv(
   "AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_COMMAND_TIMEOUT_MS",
   5_000,
@@ -198,6 +201,8 @@ interface DesktopMaturityAssertionEvidence {
 }
 
 const dogfoodIt = DOGFOOD_ENABLED ? it : it.skip;
+const phase5RecoveryDogfoodIt =
+  DOGFOOD_ENABLED && process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_PHASE5_RECOVERY === "1" ? it : it.skip;
 
 describe("sub-agent Desktop dogfood", () => {
   dogfoodIt("renders seeded sub-agent clusters in the full Electron app", async () => {
@@ -2009,6 +2014,259 @@ describe("sub-agent Desktop dogfood", () => {
       await terminateApp(app);
     }
   }, 180_000);
+
+  phase5RecoveryDogfoodIt("denies child approval and rehydrates Symphony recovery state", async () => {
+    const artifacts: Record<string, string> = {};
+    const checks: Record<string, unknown> = {};
+    const startedAt = new Date().toISOString();
+    const startedMs = Date.now();
+    let app: ChildProcess | undefined;
+    let cdp: CdpClient | undefined;
+    let seeded: SubagentDesktopDogfoodSeedResult | undefined;
+    let port = -1;
+
+    await mkdir(RESULTS_DIR, { recursive: true });
+
+    try {
+      const workspacePath = requireDogfoodEnv("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_WORKSPACE");
+      const userDataPath = requireDogfoodEnv("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_USER_DATA");
+      const seedPath = requireDogfoodEnv("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_SEED");
+      const chatExportPath = join(RESULTS_DIR, "desktop-chat-export-phase5.zip");
+      seeded = await readSeed(seedPath);
+      port = dogfoodCdpPort();
+      app = launchDesktop({ port, workspacePath, userDataPath, chatExportPath });
+      cdp = await connectToElectron(port, app);
+      await cdp.send("Runtime.enable");
+      await cdp.send("Page.enable");
+      await setViewport(cdp, 1440, 900);
+      await waitFor(cdp, () => Boolean(document.querySelector(".subagent-parent-cluster")));
+      await waitForText(cdp, SUBAGENT_DESKTOP_DOGFOOD_PARENT_ASSISTANT_TEXT);
+
+      const collapsed = await inspectSubagentUi(cdp);
+      checks.collapsed = collapsed;
+      expect(collapsed.clusterAfterParentMessage).toBe(true);
+      expect(collapsed.childRows).toBe(2);
+      await openPrimaryClusterIfClosed(cdp);
+      await waitFor(cdp, () => document.querySelector(".subagent-parent-cluster")?.hasAttribute("open") ?? false);
+
+      const expanded = await inspectSubagentUi(cdp);
+      checks.expanded = expanded;
+      expect(expanded.childRows).toBe(2);
+      expect(expanded.approvalFlow).toMatchObject({
+        approvalRequested: true,
+        approvalBlockedChild: true,
+        parentStillBlocked: true,
+        approveButtonVisible: true,
+        denyButtonVisible: true,
+        approvalButtonsNameChild: true,
+      });
+      artifacts.phase5ExpandedBeforeDenialScreenshot = await writeScreenshot(cdp, "phase5-expanded-before-denial.png");
+
+      await clickMailboxAction(cdp, "Deny child", seeded.approvalId);
+      await waitFor(cdp, () => Boolean(document.querySelector(".subagent-approval-dialog")));
+      const denialDialog = await inspectApprovalDialog(cdp, {
+        approvalId: seeded.approvalId,
+        childRunId: seeded.approvalChildRunId,
+        childThreadId: seeded.approvalChildThreadId,
+      });
+      checks.denialDialog = denialDialog;
+      expect(denialDialog).toMatchObject({
+        dialogOpened: true,
+        dialogNamesApproval: true,
+        dialogNamesChildRun: true,
+        dialogNamesChildThread: true,
+        dialogNamesBlockingChild: true,
+        dialogShowsParentWaitState: true,
+        dialogShowsPrompt: true,
+      });
+      expect(denialDialog.text).toContain("Deny child request");
+      artifacts.phase5DenialDialogScreenshot = await writeScreenshot(cdp, "phase5-denial-dialog.png");
+      await submitApprovalDecisionDialog(cdp, "Deny child request");
+      await waitFor(cdp, () => document.body.innerText.includes("Approval forwarded") && document.body.innerText.includes("Denied"));
+
+      const approvalDenial = await inspectApprovalDenial(cdp, {
+        approvalId: seeded.approvalId,
+        childRunId: seeded.approvalChildRunId,
+        childThreadId: seeded.approvalChildThreadId,
+        canonicalTaskPath: "root/0:reviewer",
+      });
+      checks.approvalDenial = approvalDenial;
+      expect(approvalDenial).toMatchObject({
+        forwardedVisible: true,
+        deniedDecisionVisible: true,
+        denialScopeVisible: true,
+        denialReasonVisible: true,
+        parentResumeAfterDenialVisible: true,
+        forwardedNamesChild: true,
+        forwardedNamesApproval: true,
+        forwardedMatchesApprovalChild: true,
+        approvalRequestMatchesApprovalChild: true,
+        forwardedAndRequestSameChild: true,
+        approvalRequestStillVisible: true,
+        approvalRequestActionsRemoved: true,
+        parentStillBlockedAfterForward: true,
+        childRowDataMatchesApprovalChild: true,
+        childRowStillBlocksApprovalChild: true,
+        siblingStillVisible: true,
+        waitBarrierStillVisible: true,
+        horizontalOverflowFree: true,
+        criticalOverlapCount: 0,
+      });
+      artifacts.phase5DeniedDesktopScreenshot = await writeScreenshot(cdp, "phase5-denied-desktop.png");
+
+      cdp.close();
+      cdp = undefined;
+      await terminateApp(app);
+      app = undefined;
+
+      port = await getAvailablePort();
+      app = launchDesktop({ port, workspacePath, userDataPath, chatExportPath });
+      cdp = await connectToElectron(port, app);
+      await cdp.send("Runtime.enable");
+      await cdp.send("Page.enable");
+      await setViewport(cdp, 1440, 900);
+      await waitFor(cdp, () => Boolean(document.querySelector(".subagent-parent-cluster")));
+      await waitForText(cdp, SUBAGENT_DESKTOP_DOGFOOD_PARENT_ASSISTANT_TEXT);
+
+      const restartCollapsed = await inspectSubagentUi(cdp);
+      checks.restartCollapsed = restartCollapsed;
+      expect(restartCollapsed.clusterAfterParentMessage).toBe(true);
+      expect(restartCollapsed.childRows).toBe(2);
+      await openPrimaryClusterIfClosed(cdp);
+      await waitFor(cdp, () => document.querySelector(".subagent-parent-cluster")?.hasAttribute("open") ?? false);
+
+      const restartRehydration = await inspectRestartRehydration(cdp, {
+        approvalId: seeded.approvalId,
+        childRunId: seeded.approvalChildRunId,
+        childThreadId: seeded.approvalChildThreadId,
+        workflowTaskId: seeded.workflowTaskId,
+        workflowArtifactId: seeded.workflowArtifactId,
+        workflowRunId: seeded.workflowRunId,
+        workflowThreadId: seeded.workflowThreadId,
+        mutatingWorkflowTaskId: seeded.mutatingWorkflowTaskId,
+        mutatingWorkflowArtifactId: seeded.mutatingWorkflowArtifactId,
+        mutatingWorkflowRunId: seeded.mutatingWorkflowRunId,
+        workflowHighLoadTaskIds: seeded.workflowHighLoadTaskIds,
+        workflowHighLoadArtifactIds: seeded.workflowHighLoadArtifactIds,
+        workflowHighLoadRunIds: seeded.workflowHighLoadRunIds,
+        workflowHighLoadPatternLabels: seeded.workflowHighLoadPatternLabels,
+        defaultCollapsedAfterRelaunch: restartCollapsed.defaultCollapsed,
+        approvalDecisionLabel: "Denied",
+      });
+      checks.restartRehydration = restartRehydration;
+      expect(restartRehydration).toMatchObject({
+        expandedAfterRelaunch: true,
+        parentMessageVisible: true,
+        approvalForwardedRehydrated: true,
+        approvalRequestRehydrated: true,
+        approvalActionsStillRemoved: true,
+        parentStillBlockedAfterRelaunch: true,
+        childBlockerRehydrated: true,
+        childRunIdRehydrated: true,
+        childThreadIdRehydrated: true,
+        completedChildResultSummaryRehydrated: true,
+        workflowTaskRehydrated: true,
+        workflowBlockerRehydrated: true,
+        workflowMailboxBlockRehydrated: true,
+        workflowArtifactRehydrated: true,
+        workflowRunRehydrated: true,
+        workflowThreadRehydrated: true,
+        mutatingWorkflowTaskRehydrated: true,
+        mutatingWorkflowArtifactRehydrated: true,
+        mutatingWorkflowRunRehydrated: true,
+        workflowHighLoadTasksRehydrated: true,
+        workflowHighLoadArtifactsRehydrated: true,
+        workflowHighLoadRunsRehydrated: true,
+        patternGraphsRehydrated: true,
+        patternGraphChildBindingRehydrated: true,
+        patternGraphRuntimeBindingsRehydrated: true,
+        childRowsRehydrated: true,
+        horizontalOverflowFree: true,
+        criticalOverlapCount: 0,
+      });
+      artifacts.phase5RestartRehydrationDesktopScreenshot =
+        await writeScreenshot(cdp, "phase5-restart-rehydration-desktop.png");
+
+      const completedAt = new Date().toISOString();
+      await writeReport({
+        schemaVersion: "ambient-subagent-desktop-dogfood-v1",
+        status: "passed",
+        classification: "passed",
+        generatedAt: completedAt,
+        startedAt,
+        completedAt,
+        durationMs: Date.now() - startedMs,
+        gitCommit: dogfoodGitCommit(),
+        gitBranch: dogfoodGitBranch(),
+        provider: process.env.AMBIENT_PROVIDER || "ambient",
+        model: process.env.AMBIENT_LIVE_MODEL || process.env.GMI_CLOUD_MODEL || process.env.AMBIENT_MODEL,
+        featureFlag: AMBIENT_SUBAGENTS_FEATURE_FLAG,
+        headful: true,
+        cdpPort: port,
+        scenarios: ["symphony_gap_phase5_failure_approval_recovery"],
+        parentThreadId: seeded.parentThreadId,
+        parentMessageId: seeded.parentMessageId,
+        childRunIds: seeded.childRunIds,
+        childThreadIds: seeded.childThreadIds,
+        approvalRequestParentMailboxEventId: seeded.approvalRequestParentMailboxEventId,
+        approvalWaitBarrierId: seeded.approvalWaitBarrierId,
+        approvalId: seeded.approvalId,
+        completedChildRunId: seeded.completedChildRunId,
+        completedChildThreadId: seeded.completedChildThreadId,
+        workflowTaskId: seeded.workflowTaskId,
+        workflowArtifactId: seeded.workflowArtifactId,
+        workflowRunId: seeded.workflowRunId,
+        workflowThreadId: seeded.workflowThreadId,
+        mutatingWorkflowTaskId: seeded.mutatingWorkflowTaskId,
+        mutatingWorkflowArtifactId: seeded.mutatingWorkflowArtifactId,
+        mutatingWorkflowRunId: seeded.mutatingWorkflowRunId,
+        workflowHighLoadTaskIds: seeded.workflowHighLoadTaskIds,
+        workflowHighLoadArtifactIds: seeded.workflowHighLoadArtifactIds,
+        workflowHighLoadRunIds: seeded.workflowHighLoadRunIds,
+        workflowHighLoadPatternLabels: seeded.workflowHighLoadPatternLabels,
+        artifacts,
+        checks,
+        visualAssertions: {} as Record<DesktopVisualAssertionId, DesktopVisualAssertionEvidence>,
+        maturityAssertions: {} as Record<DesktopMaturityAssertionId, DesktopMaturityAssertionEvidence>,
+      });
+    } catch (error) {
+      if (cdp) await captureFailureArtifacts(cdp, artifacts);
+      const completedAt = new Date().toISOString();
+      await writeReport({
+        schemaVersion: "ambient-subagent-desktop-dogfood-v1",
+        status: "failed",
+        classification: "failed",
+        generatedAt: completedAt,
+        startedAt,
+        completedAt,
+        durationMs: Date.now() - startedMs,
+        gitCommit: dogfoodGitCommit(),
+        gitBranch: dogfoodGitBranch(),
+        provider: process.env.AMBIENT_PROVIDER || "ambient",
+        model: process.env.AMBIENT_LIVE_MODEL || process.env.GMI_CLOUD_MODEL || process.env.AMBIENT_MODEL,
+        featureFlag: AMBIENT_SUBAGENTS_FEATURE_FLAG,
+        headful: true,
+        cdpPort: port,
+        scenarios: ["symphony_gap_phase5_failure_approval_recovery"],
+        parentThreadId: seeded?.parentThreadId,
+        parentMessageId: seeded?.parentMessageId,
+        childRunIds: seeded?.childRunIds,
+        childThreadIds: seeded?.childThreadIds,
+        approvalRequestParentMailboxEventId: seeded?.approvalRequestParentMailboxEventId,
+        approvalWaitBarrierId: seeded?.approvalWaitBarrierId,
+        approvalId: seeded?.approvalId,
+        artifacts,
+        checks,
+        visualAssertions: {} as Record<DesktopVisualAssertionId, DesktopVisualAssertionEvidence>,
+        maturityAssertions: {} as Record<DesktopMaturityAssertionId, DesktopMaturityAssertionEvidence>,
+        error: error instanceof Error ? error.stack ?? error.message : String(error),
+      });
+      throw error;
+    } finally {
+      cdp?.close();
+      await terminateApp(app);
+    }
+  }, 180_000);
 });
 
 function launchDesktop(input: { port: number; workspacePath: string; userDataPath: string; chatExportPath: string }): ChildProcess {
@@ -2724,12 +2982,16 @@ async function selectApprovalScope(cdp: CdpClient, value: string) {
 }
 
 async function submitApprovalDialog(cdp: CdpClient) {
-  await evaluate(cdp, () => {
+  await submitApprovalDecisionDialog(cdp, "Approve child request");
+}
+
+async function submitApprovalDecisionDialog(cdp: CdpClient, label: string) {
+  await evaluate(cdp, (expectedLabel) => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".subagent-approval-dialog button[type='submit']")]
-      .find((candidate) => candidate.innerText.includes("Approve child request"));
-    if (!button) throw new Error("Missing approval dialog submit button");
+      .find((candidate) => candidate.innerText.includes(expectedLabel));
+    if (!button) throw new Error(`Missing approval dialog submit button ${expectedLabel}`);
     button.click();
-  });
+  }, label);
 }
 
 async function dismissApprovalDialog(cdp: CdpClient) {
@@ -4701,6 +4963,122 @@ async function inspectApprovalForwarding(
   }, input);
 }
 
+async function inspectApprovalDenial(
+  cdp: CdpClient,
+  input: { approvalId: string; childRunId: string; childThreadId: string; canonicalTaskPath: string },
+) {
+  return evaluate(cdp, (expected) => {
+    const cluster = document.querySelector<HTMLElement>(".subagent-parent-cluster");
+    const text = document.body.innerText;
+    const titledText = [...document.querySelectorAll<HTMLElement>("[title]")]
+      .map((element) => element.getAttribute("title") ?? "")
+      .join("\n");
+    const mailboxRows = [...(cluster?.querySelectorAll<HTMLElement>(".subagent-parent-cluster-mailbox > div") ?? [])]
+      .filter((row) => row.offsetParent !== null)
+      .map((row) => ({
+        text: row.innerText,
+        titleText: [...row.querySelectorAll<HTMLElement>("[title]")]
+          .map((element) => element.getAttribute("title") ?? "")
+          .join("\n"),
+      }));
+    const childRows = [...(cluster?.querySelectorAll<HTMLElement>(".subagent-parent-cluster-child-row") ?? [])]
+      .filter((row) => row.offsetParent !== null)
+      .map((row) => ({
+        text: row.innerText,
+        childRunId: row.closest<HTMLElement>(".subagent-parent-cluster-child-thread")?.dataset.childRunId ??
+          row.dataset.childRunId ?? "",
+        childThreadId: row.closest<HTMLElement>(".subagent-parent-cluster-child-thread")?.dataset.childThreadId ??
+          row.dataset.childThreadId ?? "",
+        titleText: [...row.querySelectorAll<HTMLElement>("[title]")]
+          .map((element) => element.getAttribute("title") ?? "")
+          .join("\n"),
+      }));
+    const forwarded = mailboxRows.find((row) => row.text.includes("Approval forwarded"));
+    const approvalRequest = mailboxRows.find((row) => row.text.includes("Approval requested"));
+    const review = childRows.find((row) => row.text.includes("Review worker"));
+    const summarizer = childRows.find((row) => row.text.includes("Context summarizer"));
+    const rowText = (row: { text: string; titleText: string } | undefined) => `${row?.text ?? ""}\n${row?.titleText ?? ""}`;
+    const rowNamesExpectedChild = (row: { text: string; titleText: string } | undefined) => {
+      const haystack = rowText(row);
+      return haystack.includes(expected.childRunId) &&
+        haystack.includes(expected.childThreadId) &&
+        haystack.includes(expected.canonicalTaskPath);
+    };
+    const forwardedText = rowText(forwarded);
+    const approvalActionButtons = [...(cluster?.querySelectorAll<HTMLButtonElement>(".subagent-parent-cluster-mailbox-action.is-button") ?? [])]
+      .filter((button) => ["Approve child", "Deny child"].includes(button.innerText.trim()));
+    const criticalElements = [...(cluster?.querySelectorAll<HTMLElement>([
+      ".subagent-parent-cluster-child-row",
+      ".subagent-parent-cluster-barriers > div",
+      ".subagent-parent-cluster-mailbox > div",
+      ".subagent-parent-cluster-mailbox-action.is-button",
+    ].join(",")) ?? [])]
+      .filter((element) => element.offsetParent !== null);
+    const criticalRects = criticalElements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+    let criticalOverlapCount = 0;
+    for (let index = 0; index < criticalRects.length; index += 1) {
+      for (let compare = index + 1; compare < criticalRects.length; compare += 1) {
+        const aElement = criticalElements[index];
+        const bElement = criticalElements[compare];
+        if (aElement.contains(bElement) || bElement.contains(aElement)) continue;
+        const a = criticalRects[index];
+        const b = criticalRects[compare];
+        const overlapX = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+        const overlapY = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+        const overlapArea = overlapX * overlapY;
+        const smaller = Math.min(a.width * a.height, b.width * b.height);
+        if (smaller > 0 && overlapArea / smaller > 0.15) criticalOverlapCount += 1;
+      }
+    }
+    return {
+      forwardedVisible: Boolean(forwarded),
+      deniedDecisionVisible: forwardedText.includes("Denied"),
+      denialScopeVisible: forwardedText.includes("This action"),
+      denialReasonVisible: forwardedText.includes("Denied approval grants apply only to the original child approval request."),
+      parentResumeAfterDenialVisible: forwardedText.includes("Parent returned to waiting on this child"),
+      forwardedNamesChild: Boolean(
+        forwarded &&
+        (forwarded.text.includes("Review worker") || forwarded.titleText.includes("Review worker") || titledText.includes("Review worker")) &&
+        (forwarded.text.includes("root/0:reviewer") || forwarded.titleText.includes("root/0:reviewer") || titledText.includes("root/0:reviewer")) &&
+        (forwarded.text.includes(expected.childRunId) || forwarded.titleText.includes(expected.childRunId) || titledText.includes(expected.childRunId))
+      ),
+      forwardedNamesApproval: Boolean(forwarded?.text.includes(expected.approvalId)),
+      forwardedMatchesApprovalChild: rowNamesExpectedChild(forwarded),
+      approvalRequestMatchesApprovalChild: rowNamesExpectedChild(approvalRequest),
+      forwardedAndRequestSameChild: rowNamesExpectedChild(forwarded) && rowNamesExpectedChild(approvalRequest),
+      approvalRequestStillVisible: Boolean(approvalRequest),
+      approvalRequestActionsRemoved: approvalActionButtons.length === 0,
+      parentStillBlockedAfterForward: text.includes("Waiting on child") && text.includes("Required all"),
+      childRowDataMatchesApprovalChild: Boolean(
+        review?.childRunId === expected.childRunId &&
+        review?.childThreadId === expected.childThreadId &&
+        (review.text.includes(expected.canonicalTaskPath) || review.titleText.includes(expected.canonicalTaskPath))
+      ),
+      childRowStillBlocksApprovalChild: Boolean(
+        review?.childRunId === expected.childRunId &&
+        review?.childThreadId === expected.childThreadId &&
+        (review.text.includes("Blocking: needs steering") || review.titleText.includes("Blocking: needs steering"))
+      ),
+      siblingStillVisible: Boolean(summarizer?.text.includes("Context summarizer") && summarizer.text.includes("Completed")),
+      waitBarrierStillVisible: text.includes("Waiting on child") && text.includes("Ask user on failure"),
+      horizontalOverflowFree: document.documentElement.scrollWidth <= window.innerWidth + 2,
+      criticalOverlapCount,
+      mailboxRows,
+      childRows,
+    };
+  }, input);
+}
+
 async function inspectRestartRehydration(
   cdp: CdpClient,
   input: {
@@ -4719,6 +5097,7 @@ async function inspectRestartRehydration(
     workflowHighLoadRunIds: string[];
     workflowHighLoadPatternLabels: string[];
     defaultCollapsedAfterRelaunch: boolean;
+    approvalDecisionLabel?: "Approved" | "Denied";
     summarizerAssistantText?: string;
   },
 ) {
@@ -4832,7 +5211,7 @@ async function inspectRestartRehydration(
       parentMessageVisible: text.includes("Ambient is coordinating a parent task while required child work stays visible."),
       approvalForwardedRehydrated: Boolean(
         forwarded?.text.includes("Approval forwarded") &&
-        forwarded.text.includes("Approved") &&
+        forwarded.text.includes(expected.approvalDecisionLabel) &&
         forwarded.text.includes(expected.approvalId)
       ),
       approvalRequestRehydrated: Boolean(
@@ -4902,6 +5281,7 @@ async function inspectRestartRehydration(
     };
   }, {
     ...input,
+    approvalDecisionLabel: input.approvalDecisionLabel ?? "Approved",
     summarizerAssistantText: input.summarizerAssistantText ?? SUBAGENT_DESKTOP_DOGFOOD_SUMMARIZER_CHILD_ASSISTANT_TEXT,
   });
 }

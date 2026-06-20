@@ -43,6 +43,10 @@ export interface FinalAssistantMessageModel {
 
 export function finalAssistantMessageModel(input: FinalAssistantMessageInput): FinalAssistantMessageModel {
   const parentFinalizationBlocked = Boolean(input.subagentFinalizationBlock || input.callableWorkflowFinalizationBlock);
+  const suppressWorkflowManagedBlockText = Boolean(input.callableWorkflowFinalizationBlock);
+  const visibleParentFinalizationBlockMessage = suppressWorkflowManagedBlockText
+    ? ""
+    : input.parentFinalizationBlockMessage;
   const status =
     input.abortRequested
       ? "aborted"
@@ -54,18 +58,18 @@ export function finalAssistantMessageModel(input: FinalAssistantMessageInput): F
             ? "awaiting-input"
             : "done";
   const finalizationErrorText = input.parentFinalizationBlockMessage || input.emptyResponseText;
-  const content =
-    input.parentFinalizationBlockMessage ||
-    input.currentAssistantVisibleContent ||
-    (input.abortRequested
-      ? input.abortMessage
-      : input.emptyAssistantResponse
-        ? input.emptyResponseText
-        : input.awaitingInputAfterTools
-          ? "Tool calls completed. Ambient is awaiting your next instruction."
-          : input.receivedAnyText
-            ? ""
-            : "Ambient finished without assistant text.");
+  const content = parentFinalizationBlocked
+    ? visibleParentFinalizationBlockMessage
+    : input.currentAssistantVisibleContent ||
+      (input.abortRequested
+        ? input.abortMessage
+        : input.emptyAssistantResponse
+          ? input.emptyResponseText
+          : input.awaitingInputAfterTools
+            ? "Tool calls completed. Ambient is awaiting your next instruction."
+            : input.receivedAnyText
+              ? ""
+              : "Ambient finished without assistant text.");
 
   return {
     status,

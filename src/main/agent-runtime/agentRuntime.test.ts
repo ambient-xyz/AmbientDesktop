@@ -12240,7 +12240,7 @@ describe("AgentRuntime terminal cleanup", () => {
         }),
       });
       expect(finalAssistant).toMatchObject({
-        content: expect.stringContaining("Parent final answer blocked because blocking callable workflow work is not safe for synthesis."),
+        content: "",
         metadata: expect.objectContaining({
           status: "error",
           callableWorkflowFinalizationBlocked: expect.objectContaining({
@@ -12251,6 +12251,15 @@ describe("AgentRuntime terminal cleanup", () => {
           }),
         }),
       });
+      const task = store.getCallableWorkflowTask(taskId);
+      const parentAssistantMessagesAfterTask = store
+        .listMessages(thread.id)
+        .filter((message) =>
+          message.role === "assistant" &&
+          message.createdAt >= task.createdAt &&
+          message.content.trim().length > 0
+        );
+      expect(parentAssistantMessagesAfterTask).toEqual([]);
       expect(store.getRunRecord(parentRunId)).toMatchObject({
         status: "error",
         errorMessage: expect.stringContaining("Parent final answer blocked because blocking callable workflow work is not safe for synthesis."),
@@ -12282,8 +12291,99 @@ describe("AgentRuntime terminal cleanup", () => {
           }),
           workspacePath,
         }),
+        expect.objectContaining({
+          type: "thread-updated",
+          thread: expect.objectContaining({ id: thread.id }),
+          workspacePath,
+        }),
       ]));
       expect(store.listActiveRuns()).toEqual([]);
+    } finally {
+      store.close();
+      await rm(workspacePath, { recursive: true, force: true });
+    }
+  });
+
+  it("suppresses callable workflow parent chatter by parent message id when the message predates the task", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-callable-workflow-owned-message-"));
+    const store = new ProjectStore();
+    try {
+      store.openWorkspace(workspacePath);
+      const thread = store.createThread("callable workflow stale parent message");
+      const ownedParentMessage = store.addMessage({
+        threadId: thread.id,
+        role: "assistant",
+        content: "Launched the workflow and now I am narrating parent work.",
+        metadata: { status: "done", runtime: "pi" },
+      });
+      const unrelatedEarlierMessage = store.addMessage({
+        threadId: thread.id,
+        role: "assistant",
+        content: "Earlier assistant answer should remain visible.",
+        metadata: { status: "done", runtime: "pi" },
+      });
+      const finalBlockedMessage = store.addMessage({
+        threadId: thread.id,
+        role: "assistant",
+        content: "",
+        metadata: { status: "error", runtime: "pi" },
+      });
+      const emitted: any[] = [];
+      const runtime = new AgentRuntime(
+        store,
+        {} as any,
+        {} as any,
+        () =>
+          ({
+            isDestroyed: () => false,
+            webContents: {
+              isDestroyed: () => false,
+              isCrashed: () => false,
+              send: (_channel: string, event: any) => emitted.push(event),
+            },
+          }) as any,
+        {
+          request: vi.fn(),
+          denyThread: () => undefined,
+        },
+      );
+
+      (runtime as any).suppressCallableWorkflowParentAssistantMessages({
+        reason: "blocking_callable_workflow_not_synthesis_safe",
+        parentThreadId: thread.id,
+        parentMessageId: ownedParentMessage.id,
+        taskIds: ["workflow-task-1"],
+        tasks: [{
+          id: "workflow-task-1",
+          parentMessageId: ownedParentMessage.id,
+          createdAt: "2999-06-06T18:00:00.000Z",
+        }],
+      }, { preserveMessageId: finalBlockedMessage.id });
+
+      const messages = () => store.listMessages(thread.id);
+      const messageById = (id: string) => messages().find((message) => message.id === id);
+      expect(messageById(ownedParentMessage.id)).toMatchObject({
+        content: "",
+        metadata: expect.objectContaining({
+          callableWorkflowParentOutputSuppressed: expect.objectContaining({
+            taskIds: ["workflow-task-1"],
+            parentMessageId: ownedParentMessage.id,
+          }),
+        }),
+      });
+      expect(messageById(unrelatedEarlierMessage.id)?.content).toBe("Earlier assistant answer should remain visible.");
+      expect(messageById(finalBlockedMessage.id)?.content).toBe("");
+      expect(emitted).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: "message-updated",
+          message: expect.objectContaining({ id: ownedParentMessage.id }),
+        }),
+        expect.objectContaining({
+          type: "thread-updated",
+          thread: expect.objectContaining({ id: thread.id }),
+          workspacePath,
+        }),
+      ]));
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });

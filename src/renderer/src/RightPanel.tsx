@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import type { AgentMemoryClearResult, AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
 import type { BrowserCapabilityState, BrowserUserActionState } from "../../shared/browserTypes";
 import type { DesktopState, ThemePreference } from "../../shared/desktopTypes";
@@ -27,7 +27,6 @@ import { useRightPanelDiagnosticsController } from "./RightPanelDiagnosticsContr
 import {
   CapabilityBuilderLauncherDialog,
   McpContainerRuntimeDialog,
-  mcpContainerRuntimeInstallBusyLabel,
 } from "./RightPanelDialogs";
 import { RightPanelContextPane } from "./RightPanelContextPane";
 import { FilePreview, formatPanelFileSize } from "./RightPanelFilePreview";
@@ -38,8 +37,8 @@ import { useRightPanelMcpController } from "./RightPanelMcpController";
 import { useRightPanelPiPackageController } from "./RightPanelPiPackageController";
 import { useRightPanelPluginAuthController } from "./RightPanelPluginAuthController";
 import { useRightPanelPluginCatalogController } from "./RightPanelPluginCatalogController";
-import { RightPanelPluginHost } from "./RightPanelPluginHost";
-import { clampNumber, RichText } from "./RightPanelRichText";
+import { RightPanelPluginsPane } from "./RightPanelPluginsPane";
+import { RichText } from "./RightPanelRichText";
 import { useRightPanelSettingsController } from "./RightPanelSettingsController";
 import { RightPanelSettingsPane } from "./RightPanelSettingsPane";
 import { formatTimelineTime } from "./RightPanelSettingsRuntime";
@@ -917,173 +916,24 @@ export function RightPanel({
     );
   } else if (panel === "plugins") {
     body = (
-      <RightPanelPluginHost
+      <RightPanelPluginsPane
         InfoTooltip={InfoTooltip}
         state={state}
         running={running}
         voiceProviders={voiceProviders}
         sttProviders={sttProviders}
-        ambientPluginRegistry={pluginCatalogPane.ambientPluginRegistry}
-        pluginCatalog={pluginCatalogPane.pluginCatalog}
-        hostedMarketplaceReport={pluginCatalogPane.hostedMarketplaceReport}
-        pluginView={pluginCatalogPane.pluginView}
-        setPluginView={pluginCatalogPane.setPluginView}
-        pluginSourceFilter={pluginCatalogPane.pluginSourceFilter}
-        setPluginSourceFilter={pluginCatalogPane.setPluginSourceFilter}
-        pluginRuntimeFilter={pluginCatalogPane.pluginRuntimeFilter}
-        setPluginRuntimeFilter={pluginCatalogPane.setPluginRuntimeFilter}
-        pluginCapabilityDiagnostics={pluginCatalogPane.pluginCapabilityDiagnostics}
-        pluginCapabilityDiagnosticsBusy={pluginCatalogPane.pluginCapabilityDiagnosticsBusy}
-        pluginCapabilityDiagnosticsError={pluginCatalogPane.pluginCapabilityDiagnosticsError}
-        capabilityBuilderHistory={pluginCatalogPane.capabilityBuilderHistory}
-        capabilityBuilderHistoryLoading={pluginCatalogPane.capabilityBuilderHistoryLoading}
-        capabilityBuilderHistoryError={pluginCatalogPane.capabilityBuilderHistoryError}
-        capabilityBuilderHistoryPreviewStarting={pluginCatalogPane.capabilityBuilderHistoryPreviewStarting}
-        capabilityBuilderHistoryRepairPlanning={pluginCatalogPane.capabilityBuilderHistoryRepairPlanning}
-        capabilityBuilderHistoryReregisterStarting={pluginCatalogPane.capabilityBuilderHistoryReregisterStarting}
-        generatedCapabilitySourceOpening={pluginCatalogPane.generatedCapabilitySourceOpening}
-        generatedCapabilityValidationStarting={pluginCatalogPane.generatedCapabilityValidationStarting}
-        generatedCapabilityUpdatePlanning={pluginCatalogPane.generatedCapabilityUpdatePlanning}
-        generatedCapabilityRemovalPlanning={pluginCatalogPane.generatedCapabilityRemovalPlanning}
-        selectedPluginDetailId={pluginCatalogPane.selectedPluginDetailId}
-        setSelectedPluginDetailId={pluginCatalogPane.setSelectedPluginDetailId}
-        setCapabilityBuilderLauncherOpen={capabilityBuilderLauncher.setOpen}
-        firstRunCapabilityOnboardingDismissed={settingsPane.firstRunCapabilityOnboardingDismissed}
-        firstRunCapabilityOnboardingStarting={settingsPane.firstRunCapabilityOnboardingStarting}
-        codexMarketplaceSourceInput={pluginCatalogPane.codexMarketplaceSourceInput}
-        setCodexMarketplaceSourceInput={pluginCatalogPane.setCodexMarketplaceSourceInput}
-        codexMarketplaceNameInput={pluginCatalogPane.codexMarketplaceNameInput}
-        setCodexMarketplaceNameInput={pluginCatalogPane.setCodexMarketplaceNameInput}
-        codexMarketplaceAllowExperimental={pluginCatalogPane.codexMarketplaceAllowExperimental}
-        setCodexMarketplaceAllowExperimental={pluginCatalogPane.setCodexMarketplaceAllowExperimental}
-        codexMarketplaceAdding={pluginCatalogPane.codexMarketplaceAdding}
-        codexMarketplaceRemoving={pluginCatalogPane.codexMarketplaceRemoving}
-        pluginCatalogError={pluginCatalogPane.pluginCatalogError}
-        mcpInspection={mcpPane.inspection}
-        mcpRuntimeSnapshots={mcpPane.runtimeSnapshots}
-        mcpInspectionError={mcpPane.inspectionError}
-        mcpRuntimeBusy={mcpPane.runtimeBusy}
-        mcpInspecting={mcpPane.inspecting}
-        mcpServerQuery={mcpPane.serverQuery}
-        setMcpServerQuery={mcpPane.setServerQuery}
-        mcpRegistryResults={mcpPane.registryResults}
-        mcpInstalledServers={mcpPane.installedServers}
-        mcpSelectedPreview={mcpPane.selectedPreview}
-        mcpServerBusy={mcpPane.serverBusy}
-        mcpServerStatus={mcpPane.serverStatus}
-        mcpServerError={mcpPane.serverError}
-        managedDevServers={mcpPane.managedDevServers}
-        managedDevServerBusy={mcpPane.managedDevServerBusy}
-        managedDevServerError={mcpPane.managedDevServerError}
-        mcpContainerRuntimeStatus={mcpPane.containerRuntimeStatus}
-        mcpContainerRuntimeBusy={mcpPane.containerRuntimeBusy}
-        mcpContainerRuntimeLaunchBusy={mcpPane.containerRuntimeLaunchBusy}
-        mcpContainerRuntimeError={mcpPane.containerRuntimeError}
+        permissionAudit={permissionAudit}
         mcpContainerRuntimeInstallProgress={mcpContainerRuntimeInstallProgress}
         mcpDefaultCapabilityInstallProgress={mcpDefaultCapabilityInstallProgress}
-        mcpContainerRuntimeInstallBusyLabel={mcpContainerRuntimeInstallBusyLabel}
-        diagnosticBusy={diagnosticsPane.diagnosticBusy}
-        diagnosticStatus={diagnosticsPane.diagnosticStatus}
-        pluginAuthBusy={pluginAuthPane.pluginAuthBusy}
-        pluginAuthStatus={pluginAuthPane.pluginAuthStatus}
-        setPluginAuthStatus={pluginAuthPane.setPluginAuthStatus}
-        pluginAuthPending={pluginAuthPane.pluginAuthPending}
-        setPluginAuthPending={pluginAuthPane.setPluginAuthPending}
-        pluginAuthCode={pluginAuthPane.pluginAuthCode}
-        setPluginAuthCode={pluginAuthPane.setPluginAuthCode}
-        googleIntegration={googleIntegrationBridge.googleIntegration}
-        googleSetupAccountHint={pluginAuthPane.googleSetupAccountHint}
-        setGoogleSetupAccountHint={pluginAuthPane.setGoogleSetupAccountHint}
-        googleSetupBusy={pluginAuthPane.googleSetupBusy}
-        googleValidationFeedback={pluginAuthPane.googleValidationFeedback}
-        pluginDependencyInstalling={pluginCatalogPane.pluginDependencyInstalling}
-        pluginDependencyStatus={pluginCatalogPane.pluginDependencyStatus}
-        piPackageCatalog={piPackagePane.piPackageCatalog}
-        piPackageError={piPackagePane.piPackageError}
-        piPackageInspecting={piPackagePane.piPackageInspecting}
-        selectedPiPackageDetailId={piPackagePane.selectedPiPackageDetailId}
-        setSelectedPiPackageDetailId={piPackagePane.setSelectedPiPackageDetailId}
-        piPackageInstalling={piPackagePane.piPackageInstalling}
-        piPackageUninstalling={piPackagePane.piPackageUninstalling}
-        piPackageEnabling={piPackagePane.piPackageEnabling}
-        piExtensionSandboxCatalog={piPackagePane.piExtensionSandboxCatalog}
-        piExtensionSandboxInstalling={piPackagePane.piExtensionSandboxInstalling}
-        piExtensionSandboxFallback={piPackagePane.piExtensionSandboxFallback}
-        piExtensionSandboxUninstalling={piPackagePane.piExtensionSandboxUninstalling}
-        piExtensionSandboxClearingHistory={piPackagePane.piExtensionSandboxClearingHistory}
-        piPrivilegedCatalog={piPackagePane.piPrivilegedCatalog}
-        piPrivilegedBusy={piPackagePane.piPrivilegedBusy}
-        piPrivilegedClearingHistory={piPackagePane.piPrivilegedClearingHistory}
-        piPrivilegedScan={piPackagePane.piPrivilegedScan}
-        piPrivilegedScanSource={piPackagePane.piPrivilegedScanSource}
-        piPrivilegedScanning={piPackagePane.piPrivilegedScanning}
-        piPrivilegedInstalling={piPackagePane.piPrivilegedInstalling}
-        piPackageSourceInput={piPackagePane.piPackageSourceInput}
-        setPiPackageSourceInput={piPackagePane.setPiPackageSourceInput}
-        piPackageInstallScope={piPackagePane.piPackageInstallScope}
-        setPiPackageInstallScope={piPackagePane.setPiPackageInstallScope}
-        permissionAudit={permissionAudit}
-        loadPluginCatalog={pluginCatalogPane.loadPluginCatalog}
-        resumeFirstRunCapabilityOnboarding={settingsPane.resumeFirstRunCapabilityOnboarding}
-        inspectPluginMcp={mcpPane.inspectPluginMcp}
-        inspectPiPackages={piPackagePane.inspectPiPackages}
-        startFirstRunCapabilityOnboarding={settingsPane.startFirstRunCapabilityOnboarding}
-        dismissFirstRunCapabilityOnboarding={settingsPane.dismissFirstRunCapabilityOnboarding}
-        completePluginAppAuth={pluginAuthPane.completePluginAppAuth}
-        importCodexPlugin={pluginCatalogPane.importCodexPlugin}
-        refreshMcpContainerRuntimeStatus={mcpPane.refreshContainerRuntimeStatus}
-        setMcpContainerRuntimeModalOpen={mcpPane.setContainerRuntimeModalOpen}
+        pluginCatalogPane={pluginCatalogPane}
+        mcpPane={mcpPane}
+        settingsPane={settingsPane}
+        diagnosticsPane={diagnosticsPane}
+        pluginAuthPane={pluginAuthPane}
+        googleIntegrationBridge={googleIntegrationBridge}
+        capabilityBuilderLauncher={capabilityBuilderLauncher}
+        piPackagePane={piPackagePane}
         onOpenMcpRuntimeSettings={onOpenMcpRuntimeSettings}
-        exportDiagnostics={diagnosticsPane.exportDiagnostics}
-        launchMcpContainerRuntimeInstaller={mcpPane.launchContainerRuntimeInstaller}
-        installMcpDefaultCapability={mcpPane.installDefaultCapability}
-        loadManagedDevServers={mcpPane.loadManagedDevServers}
-        stopManagedDevServerProcess={mcpPane.stopManagedDevServerProcess}
-        searchMcpRegistryServers={mcpPane.searchRegistryServers}
-        loadMcpInstalledServers={mcpPane.loadInstalledServers}
-        acceptMcpToolDescriptorReview={mcpPane.acceptToolDescriptorReview}
-        uninstallMcpServer={mcpPane.uninstallServer}
-        describeMcpRegistryServer={mcpPane.describeRegistryServer}
-        installMcpRegistryServer={mcpPane.installRegistryServer}
-        revealGeneratedCapabilitySource={pluginCatalogPane.revealGeneratedCapabilitySource}
-        setPluginTrusted={pluginCatalogPane.setPluginTrusted}
-        setPluginEnabled={pluginCatalogPane.setPluginEnabled}
-        uninstallCodexPlugin={pluginCatalogPane.uninstallCodexPlugin}
-        startGeneratedCapabilityValidation={pluginCatalogPane.startGeneratedCapabilityValidation}
-        startGeneratedCapabilityUpdatePlan={pluginCatalogPane.startGeneratedCapabilityUpdatePlan}
-        startGeneratedCapabilityRemovalPlan={pluginCatalogPane.startGeneratedCapabilityRemovalPlan}
-        installCodexPluginDependencies={pluginCatalogPane.installCodexPluginDependencies}
-        startPluginAppAuth={pluginAuthPane.startPluginAppAuth}
-        installGoogleWorkspaceCli={pluginAuthPane.installGoogleWorkspaceCli}
-        confirmGoogleWorkspaceAccount={pluginAuthPane.confirmGoogleWorkspaceAccount}
-        startGoogleWorkspaceSetup={pluginAuthPane.startGoogleWorkspaceSetup}
-        importGoogleWorkspaceOAuthClient={pluginAuthPane.importGoogleWorkspaceOAuthClient}
-        validateGoogleWorkspace={pluginAuthPane.validateGoogleWorkspace}
-        cancelGoogleWorkspaceSetup={pluginAuthPane.cancelGoogleWorkspaceSetup}
-        testPluginAuthAccount={pluginAuthPane.testPluginAuthAccount}
-        disconnectGoogleWorkspace={pluginAuthPane.disconnectGoogleWorkspace}
-        disconnectPluginAuthAccount={pluginAuthPane.disconnectPluginAuthAccount}
-        revokePluginAuthAccount={pluginAuthPane.revokePluginAuthAccount}
-        addCodexMarketplace={pluginCatalogPane.addCodexMarketplace}
-        removeCodexMarketplace={pluginCatalogPane.removeCodexMarketplace}
-        loadCapabilityBuilderHistory={pluginCatalogPane.loadCapabilityBuilderHistory}
-        startCapabilityBuilderHistoryPreview={pluginCatalogPane.startCapabilityBuilderHistoryPreview}
-        startCapabilityBuilderHistoryReregister={pluginCatalogPane.startCapabilityBuilderHistoryReregister}
-        startCapabilityBuilderHistoryRepairPlan={pluginCatalogPane.startCapabilityBuilderHistoryRepairPlan}
-        installPiPackage={piPackagePane.installPiPackage}
-        installPiExtensionSandboxPackage={piPackagePane.installPiExtensionSandboxPackage}
-        scanPiPrivilegedPackage={piPackagePane.scanPiPrivilegedPackage}
-        installPiPrivilegedPackage={piPackagePane.installPiPrivilegedPackage}
-        uninstallPiPackage={piPackagePane.uninstallPiPackage}
-        setPiPackageEnabled={piPackagePane.setPiPackageEnabled}
-        uninstallPiExtensionSandboxPackage={piPackagePane.uninstallPiExtensionSandboxPackage}
-        clearPiExtensionSandboxHistory={piPackagePane.clearPiExtensionSandboxHistory}
-        disablePiPrivilegedPackage={piPackagePane.disablePiPrivilegedPackage}
-        uninstallPiPrivilegedPackage={piPackagePane.uninstallPiPrivilegedPackage}
-        clearPiPrivilegedPackageHistory={piPackagePane.clearPiPrivilegedPackageHistory}
-        inspectAmbientPluginCapability={pluginCatalogPane.inspectAmbientPluginCapability}
-        restartPluginMcpRuntime={mcpPane.restartPluginMcpRuntime}
-        stopPluginMcpRuntime={mcpPane.stopPluginMcpRuntime}
       />
     );
   } else if (panel === "attachments") {

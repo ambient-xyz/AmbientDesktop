@@ -6,6 +6,12 @@ import { handleRuntimePromptFailure, type RuntimePromptFailureHandlerInput } fro
 import { SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR } from "./agentRuntimeSymphonyParentMode";
 import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import type { RuntimeToolMessageController } from "./runtimeToolMessageController";
+import {
+  CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
+  CALLABLE_WORKFLOW_PARENT_BLOCKING_SCHEMA_VERSION,
+  type CallableWorkflowParentBlockingBlock,
+} from "./agentRuntimeCallableWorkflowFacade";
+import type { SubagentFinalizationBarrierBlock } from "./agentRuntimeFinalizationBlocking";
 
 function message(input: Partial<ChatMessage> & { id: string; content?: string }): ChatMessage {
   return {
@@ -40,6 +46,79 @@ function streamDiagnostic(
   };
 }
 
+function callableWorkflowBlock(): CallableWorkflowParentBlockingBlock {
+  return {
+    schemaVersion: CALLABLE_WORKFLOW_PARENT_BLOCKING_SCHEMA_VERSION,
+    reason: CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
+    message: "Workflow task is still running.",
+    instruction: "Wait for workflow completion.",
+    synthesisAllowed: false,
+    parentFinalizationBlocked: true,
+    taskIds: ["task-1"],
+    launchIds: ["launch-1"],
+    workflowArtifactIds: [],
+    workflowRunIds: [],
+    waitingTaskIds: ["task-1"],
+    attentionTaskIds: [],
+    tasks: [{
+      id: "task-1",
+      launchId: "launch-1",
+      parentThreadId: "thread-1",
+      parentRunId: "run-1",
+      toolCallId: "tool-1",
+      toolId: "tool-1",
+      toolName: "ambient_workflow_symphony_imitate_and_verify",
+      sourceKind: "symphony_recipe",
+      title: "Imitate and Verify",
+      status: "running",
+      statusLabel: "Running",
+      statusGroup: "waiting_on_workflow",
+      blocking: true,
+      runnerTarget: "workflow",
+      runnerDeferredReason: "running",
+      createdAt: "2026-06-15T00:00:00.000Z",
+      updatedAt: "2026-06-15T00:00:00.000Z",
+    }],
+  };
+}
+
+function subagentBlock(): SubagentFinalizationBarrierBlock {
+  return {
+    message: "A required child is still running.",
+    barrierIds: ["barrier-1"],
+    childRunIds: ["child-run-1"],
+    childBlockers: [{
+      childRunId: "child-run-1",
+      childThreadId: "child-thread-1",
+      canonicalTaskPath: "root/1:reviewer",
+      roleId: "reviewer",
+      status: "running",
+      dependencyMode: "required_all",
+      barrierIds: ["barrier-1"],
+      lastActivityAt: "2026-06-15T00:00:00.000Z",
+      lastActivitySource: "run_event:assistant_delta",
+    }],
+    barriers: [{
+      id: "barrier-1",
+      dependencyMode: "required_all",
+      status: "waiting_on_children",
+      failurePolicy: "fail_parent",
+      childRunIds: ["child-run-1"],
+      childBlockers: [{
+        childRunId: "child-run-1",
+        childThreadId: "child-thread-1",
+        canonicalTaskPath: "root/1:reviewer",
+        roleId: "reviewer",
+        status: "running",
+        dependencyMode: "required_all",
+        barrierIds: ["barrier-1"],
+        lastActivityAt: "2026-06-15T00:00:00.000Z",
+        lastActivitySource: "run_event:assistant_delta",
+      }],
+    }],
+  };
+}
+
 function setup(overrides: Partial<RuntimePromptFailureHandlerInput> = {}) {
   const events: DesktopEvent[] = [];
   const retryFollowUp = {
@@ -70,10 +149,12 @@ function setup(overrides: Partial<RuntimePromptFailureHandlerInput> = {}) {
       return updated;
     }),
     finishCurrentAssistantMessage: vi.fn(),
+    suppressAssistantMessagesExceptCurrent: vi.fn(),
     ensureThinkingMessage: vi.fn(() => "thinking-1"),
     appendThinkingDelta: vi.fn(),
     replaceCurrentThinking: vi.fn(),
     finishCurrentThinkingMessage: vi.fn(),
+    suppressCurrentThinkingMessage: vi.fn(),
   } satisfies RuntimeAssistantMessageController;
   const toolMessages = {
     size: vi.fn(() => 0),
@@ -162,10 +243,12 @@ function setup(overrides: Partial<RuntimePromptFailureHandlerInput> = {}) {
     markOpenToolMessagesFailed: vi.fn(),
     persistToolArgumentDiagnostics: vi.fn(),
     replaceToolMessage: vi.fn((messageId, content, metadata) => message({ id: messageId, role: "tool", content, metadata })),
+    suppressCallableWorkflowParentAssistantMessages: vi.fn(),
     finishPlannerFinalizationSources: vi.fn(),
     finishParentRun: vi.fn((status, errorMessage) => {
       finishedRuns.push({ status, errorMessage });
     }),
+    getThread: vi.fn(() => ({ id: "thread-1" } as any)),
     chatStreamInterruptionDiagnostic: vi.fn(streamDiagnostic),
     chatStreamInterruptionNotice: vi.fn((text) => `interrupted: ${text}`),
     emitRunEvent: vi.fn((event) => {
@@ -211,6 +294,156 @@ describe("handleRuntimePromptFailure", () => {
     );
     expect(finishedRuns).toEqual([{ status: "done", errorMessage: undefined }]);
     expect(events).toContainEqual({ type: "run-status", threadId: "thread-1", status: "idle" });
+  });
+
+  it("suppresses parent output when failure happens after a blocking callable workflow launch", async () => {
+    const block = callableWorkflowBlock();
+    const { input, runtimeMessages, events, finishedRuns, replacedAssistantMessages, pending } = setup({
+      error: new Error("provider failed after launch"),
+      currentAssistantFinalText: vi.fn(() => "Premature parent answer."),
+      currentThinkingFinalText: vi.fn(() => "Premature parent thinking."),
+      receivedAnyText: vi.fn(() => true),
+      streamWatchdogTimedOut: vi.fn(() => true),
+      resolveCallableWorkflowFinalizationBlock: vi.fn(() => block),
+      recordCallableWorkflowFinalizationBlockedParentMailbox: vi.fn(() => ({ id: "mailbox-1" })),
+      retrySourceUserMessageId: "user-1",
+      canScheduleAssistantFinalizationRetryFor: vi.fn(() => true),
+    });
+
+    await handleRuntimePromptFailure(input);
+
+    expect(runtimeMessages.finishCurrentThinkingMessage).toHaveBeenCalledWith("error", "Premature parent thinking.");
+    expect(runtimeMessages.suppressAssistantMessagesExceptCurrent).toHaveBeenCalledWith("error");
+    expect(runtimeMessages.suppressCurrentThinkingMessage).toHaveBeenCalledWith("error");
+    expect(input.suppressCallableWorkflowParentAssistantMessages).toHaveBeenCalledWith(block, {
+      preserveMessageId: "assistant-1",
+    });
+    expect(input.persistPiStreamTrace).toHaveBeenCalledWith("provider failed after launch");
+    expect(input.chatStreamInterruptionDiagnostic).toHaveBeenCalledWith("provider failed after launch", expect.objectContaining({
+      kind: "pre_stream_timeout",
+      retryScheduled: false,
+      replaySafe: false,
+      completedToolMessageCount: 0,
+      receivedAnyText: true,
+      providerErrorDiagnostic: expect.objectContaining({
+        message: "provider failed after launch",
+      }),
+    }));
+    expect(runtimeMessages.replaceCurrentAssistant).toHaveBeenCalledWith(
+      "",
+      expect.objectContaining({
+        status: "error",
+        providerErrorDiagnostic: expect.objectContaining({
+          message: "provider failed after launch",
+        }),
+        piStreamInterruption: expect.objectContaining({
+          kind: "pre_stream_timeout",
+          message: "provider failed after launch",
+          providerErrorDiagnostic: expect.objectContaining({
+            message: "provider failed after launch",
+          }),
+        }),
+        callableWorkflowFinalizationBlocked: expect.objectContaining({
+          taskIds: ["task-1"],
+          waitingTaskIds: ["task-1"],
+          parentMailboxEventId: "mailbox-1",
+        }),
+      }),
+    );
+    expect(replacedAssistantMessages.at(-1)).toMatchObject({ content: "" });
+    expect(input.recordCallableWorkflowFinalizationBlockedParentMailbox).toHaveBeenCalledWith(block);
+    expect(input.markOpenToolMessagesFailed).toHaveBeenCalledWith(expect.stringContaining("waiting for the workflow task"));
+    expect(pending().pendingEmptyResponseRetry).toBeUndefined();
+    expect(finishedRuns).toEqual([{ status: "error", errorMessage: "Workflow task is still running." }]);
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "runtime-activity",
+        activity: expect.objectContaining({
+          diagnostic: expect.objectContaining({
+            reason: CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
+            taskIds: ["task-1"],
+          }),
+        }),
+      }),
+      { type: "run-status", threadId: "thread-1", status: "error" },
+      { type: "thread-updated", thread: { id: "thread-1" } },
+    ]));
+  });
+
+  it("preserves mixed subagent and workflow blocker state on post-launch failures", async () => {
+    const workflowBlock = callableWorkflowBlock();
+    const childBlock = subagentBlock();
+    const { input, runtimeMessages, events, finishedRuns } = setup({
+      error: new Error("provider failed after mixed launch"),
+      currentAssistantFinalText: vi.fn(() => "Premature mixed parent answer."),
+      currentThinkingFinalText: vi.fn(() => "Premature mixed parent thinking."),
+      receivedAnyText: vi.fn(() => true),
+      resolveSubagentFinalizationBlock: vi.fn(() => childBlock),
+      recordSubagentFinalizationBlockedParentMailbox: vi.fn(() => [{ id: "child-mailbox-1" }]),
+      resolveCallableWorkflowFinalizationBlock: vi.fn(() => workflowBlock),
+      recordCallableWorkflowFinalizationBlockedParentMailbox: vi.fn(() => ({ id: "workflow-mailbox-1" })),
+    });
+
+    await handleRuntimePromptFailure(input);
+
+    expect(runtimeMessages.suppressAssistantMessagesExceptCurrent).toHaveBeenCalledWith("error");
+    expect(runtimeMessages.suppressCurrentThinkingMessage).toHaveBeenCalledWith("error");
+    expect(input.suppressCallableWorkflowParentAssistantMessages).toHaveBeenCalledWith(workflowBlock, {
+      preserveMessageId: "assistant-1",
+    });
+    expect(input.persistPiStreamTrace).toHaveBeenCalledWith("provider failed after mixed launch");
+    expect(input.chatStreamInterruptionDiagnostic).toHaveBeenCalledWith("provider failed after mixed launch", expect.objectContaining({
+      kind: "provider_error_event",
+      retryScheduled: false,
+      replaySafe: false,
+      providerErrorDiagnostic: expect.objectContaining({
+        message: "provider failed after mixed launch",
+      }),
+    }));
+    expect(runtimeMessages.replaceCurrentAssistant).toHaveBeenCalledWith(
+      "",
+      expect.objectContaining({
+        providerErrorDiagnostic: expect.objectContaining({
+          message: "provider failed after mixed launch",
+        }),
+        piStreamInterruption: expect.objectContaining({
+          kind: "provider_error_event",
+          message: "provider failed after mixed launch",
+        }),
+        subagentFinalizationBlocked: expect.objectContaining({
+          parentMailboxEventIds: ["child-mailbox-1"],
+        }),
+        callableWorkflowFinalizationBlocked: expect.objectContaining({
+          parentMailboxEventId: "workflow-mailbox-1",
+        }),
+      }),
+    );
+    expect(input.recordSubagentFinalizationBlockedParentMailbox).toHaveBeenCalledWith(childBlock);
+    expect(input.recordCallableWorkflowFinalizationBlockedParentMailbox).toHaveBeenCalledWith(workflowBlock);
+    expect(finishedRuns).toEqual([{
+      status: "error",
+      errorMessage: "A required child is still running.\n\nWorkflow task is still running.",
+    }]);
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "runtime-activity",
+        activity: expect.objectContaining({
+          diagnostic: expect.objectContaining({
+            reason: "required_wait_barrier_not_satisfied",
+            barrierIds: ["barrier-1"],
+          }),
+        }),
+      }),
+      expect.objectContaining({
+        type: "runtime-activity",
+        activity: expect.objectContaining({
+          diagnostic: expect.objectContaining({
+            reason: CALLABLE_WORKFLOW_PARENT_BLOCKING_REASON,
+            taskIds: ["task-1"],
+          }),
+        }),
+      }),
+    ]));
   });
 
   it("finalizes terminal provider failures when no retry path applies", async () => {

@@ -53,6 +53,7 @@ export interface RuntimeSuccessfulRunFinalizationInput {
   providerRetrySessionFile?: string | undefined;
   providerRetryLastError?: string | undefined;
   hasPlannerFinalizationSources: boolean;
+  preResolvedCallableWorkflowFinalizationBlock?: CallableWorkflowParentBlockingBlock | undefined;
   resolveSubagentFinalizationBlock: () => SubagentFinalizationBarrierBlock | undefined;
   resolveCallableWorkflowFinalizationBlock: () => CallableWorkflowParentBlockingBlock | undefined;
   recordSubagentFinalizationBlockedParentMailbox: (
@@ -83,6 +84,7 @@ export interface RuntimeSuccessfulRunFinalizationResult {
   finalStatus: FinalAssistantMessageStatus;
   finalizationErrorText: string;
   parentFinalizationBlocked: boolean;
+  suppressCurrentThinkingMessage: boolean;
   finalMessage: ChatMessage;
   visibleFinalMessage: ChatMessage;
   plannerArtifactResult?: RuntimePlannerArtifactFinalizationResult | undefined;
@@ -92,13 +94,14 @@ export interface RuntimeSuccessfulRunFinalizationResult {
 export async function finalizeSuccessfulRuntimeRun(
   input: RuntimeSuccessfulRunFinalizationInput,
 ): Promise<RuntimeSuccessfulRunFinalizationResult> {
+  const canResolveParentFinalizationBlock =
+    !input.abortRequested && !input.assistantTerminalCleanupInterrupted;
+  const callableWorkflowFinalizationBlock = canResolveParentFinalizationBlock
+    ? input.preResolvedCallableWorkflowFinalizationBlock ?? input.resolveCallableWorkflowFinalizationBlock()
+    : undefined;
   const subagentFinalizationBlock =
-    !input.abortRequested && !input.assistantTerminalCleanupInterrupted && !input.emptyAssistantResponse
+    canResolveParentFinalizationBlock && (!input.emptyAssistantResponse || Boolean(callableWorkflowFinalizationBlock))
       ? input.resolveSubagentFinalizationBlock()
-      : undefined;
-  const callableWorkflowFinalizationBlock =
-    !input.abortRequested && !input.assistantTerminalCleanupInterrupted && !input.emptyAssistantResponse
-      ? input.resolveCallableWorkflowFinalizationBlock()
       : undefined;
   const subagentFinalizationParentMailboxEvents = subagentFinalizationBlock
     ? input.recordSubagentFinalizationBlockedParentMailbox(subagentFinalizationBlock)
@@ -208,6 +211,7 @@ export async function finalizeSuccessfulRuntimeRun(
     finalStatus,
     finalizationErrorText,
     parentFinalizationBlocked,
+    suppressCurrentThinkingMessage: Boolean(callableWorkflowFinalizationBlock),
     finalMessage,
     visibleFinalMessage,
     plannerArtifactResult,

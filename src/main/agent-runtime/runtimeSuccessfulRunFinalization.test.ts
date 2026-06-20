@@ -187,6 +187,7 @@ describe("finalizeSuccessfulRuntimeRun", () => {
       }),
     );
     expect(result.parentFinalizationBlocked).toBe(true);
+    expect(result.suppressCurrentThinkingMessage).toBe(false);
     expect(input.emitted).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: "runtime-activity" }),
       { type: "run-status", threadId: "thread-1", status: "error" },

@@ -4,14 +4,18 @@ import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { access, chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 const repoRoot = process.cwd();
 const scratchRoot = await mkdtemp(join(tmpdir(), "ambient-subagent-desktop-dogfood-"));
 const workspacePath = join(scratchRoot, "workspace");
 const userDataPath = join(scratchRoot, "userData");
 const seedPath = join(scratchRoot, "seed.json");
-const staleLatestArtifactPath = join(repoRoot, "test-results", "subagent-desktop-dogfood", "latest.json");
+const defaultResultsDir = join("test-results", "subagent-desktop-dogfood");
+const resultsDir = resolve(repoRoot, process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_RESULTS_DIR || defaultResultsDir);
+const staleLatestArtifactPath = join(resultsDir, "latest.json");
+const latestArtifactRelativePath = relativePath(staleLatestArtifactPath);
+const appendHistory = process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_HISTORY_APPEND !== "0";
 const untrackedRuntimeModelPath = join(scratchRoot, "manual-untracked-model.gguf");
 const untrackedRuntimePort = 44222;
 const DEFAULT_DOGFOOD_PROVIDER = "ambient";
@@ -54,20 +58,24 @@ try {
     "src/main/subagents/subagentDesktopDogfood.e2e.test.ts",
     ...process.argv.slice(2),
   ], dogfoodEnv);
-  await run("node", [
-    "scripts/subagent-desktop-dogfood-history-report.mjs",
-    "--append-latest=test-results/subagent-desktop-dogfood/latest.json",
-  ], dogfoodEnv);
+  if (appendHistory) {
+    await run("node", [
+      "scripts/subagent-desktop-dogfood-history-report.mjs",
+      `--append-latest=${latestArtifactRelativePath}`,
+    ], dogfoodEnv);
+  }
 } catch (error) {
   exitCode = 1;
   process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
-  try {
-    await run("node", [
-      "scripts/subagent-desktop-dogfood-history-report.mjs",
-      "--append-latest-if-exists=test-results/subagent-desktop-dogfood/latest.json",
-    ], dogfoodEnv);
-  } catch (historyError) {
-    process.stderr.write(`${historyError instanceof Error ? historyError.stack ?? historyError.message : String(historyError)}\n`);
+  if (appendHistory) {
+    try {
+      await run("node", [
+        "scripts/subagent-desktop-dogfood-history-report.mjs",
+        `--append-latest-if-exists=${latestArtifactRelativePath}`,
+      ], dogfoodEnv);
+    } catch (historyError) {
+      process.stderr.write(`${historyError instanceof Error ? historyError.stack ?? historyError.message : String(historyError)}\n`);
+    }
   }
 } finally {
   try {
@@ -97,6 +105,7 @@ function buildDogfoodEnv() {
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_WORKSPACE: workspacePath,
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_USER_DATA: userDataPath,
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_SEED: seedPath,
+    AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_RESULTS_DIR: resultsDir,
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_RUNTIME_PID: String(process.pid),
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_PID: untrackedRuntimeProcess?.pid ? String(untrackedRuntimeProcess.pid) : "",
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_UNTRACKED_RUNTIME_ID: untrackedRuntimeProcess?.pid ? `untracked-llama:${untrackedRuntimeProcess.pid}` : "",
@@ -106,6 +115,10 @@ function buildDogfoodEnv() {
     AMBIENT_DESKTOP_WORKSPACE: workspacePath,
     AMBIENT_E2E_USER_DATA: userDataPath,
   });
+}
+
+function relativePath(path) {
+  return relative(repoRoot, path).replaceAll("\\", "/");
 }
 
 function dogfoodProviderEnv(env) {

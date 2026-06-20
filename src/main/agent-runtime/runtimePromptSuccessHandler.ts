@@ -46,6 +46,12 @@ export interface RuntimePromptSuccessHandlerInput {
   emptyAssistantRetryNextAttempt: number;
   consumeSubagentParentControlAbort: () => Promise<void>;
   finishCurrentThinkingMessage: (status: "done" | "aborted", text: string) => void;
+  suppressAssistantMessagesExceptCurrent: (status: "done" | "error" | "aborted") => void;
+  suppressCurrentThinkingMessage: (status: "done" | "aborted") => void;
+  suppressCallableWorkflowParentAssistantMessages: (
+    block: NonNullable<RuntimeSuccessfulRunFinalizationInput["preResolvedCallableWorkflowFinalizationBlock"]>,
+    options: { preserveMessageId?: string | undefined },
+  ) => void;
   recordContextUsageSnapshot: () => void;
   cleanupCurrentSession: () => void;
   createEmptyAssistantRetry: () => SendMessageInput;
@@ -93,6 +99,11 @@ export async function handleRuntimePromptSuccess(
       input.lastAssistantTerminalEvent?.error
     ),
   );
+  const preResolvedCallableWorkflowFinalizationBlock =
+    !input.abortRequested && !assistantTerminalCleanupInterrupted
+      ? input.resolveCallableWorkflowFinalizationBlock()
+      : undefined;
+  const suppressEmptyAssistantRetryForCallableWorkflow = Boolean(preResolvedCallableWorkflowFinalizationBlock);
   const sessionDisposition = finalizeRuntimeSessionDispositionAfterRun({
     abortRequested: input.abortRequested,
     finalizedAfterToolIdle: input.finalizedAfterToolIdle,
@@ -100,7 +111,7 @@ export async function handleRuntimePromptSuccess(
     receivedAnyText: input.receivedAnyText,
     currentAssistantFinalTextChars: input.currentAssistantFinalText.length,
     activeToolMessageCount: input.activeToolMessageCount,
-    canScheduleEmptyAssistantRetry: input.canScheduleEmptyAssistantRetry,
+    canScheduleEmptyAssistantRetry: !suppressEmptyAssistantRetryForCallableWorkflow && input.canScheduleEmptyAssistantRetry,
     emptyAssistantRetryAttemptsUsed: input.emptyAssistantRetryAttemptsUsed,
     emptyAssistantRetryNextAttempt: input.emptyAssistantRetryNextAttempt,
     maxRetries: input.assistantFinalizationRetryMaxRetries,
@@ -144,9 +155,13 @@ export async function handleRuntimePromptSuccess(
     finalizedAfterToolIdle: input.finalizedAfterToolIdle,
     awaitingInputAfterTools: sessionDisposition.awaitingInputAfterTools,
     emptyAssistantResponse: sessionDisposition.emptyAssistantResponse,
-    retryEmptyAssistantResponse: sessionDisposition.retryEmptyAssistantResponse,
+    retryEmptyAssistantResponse: suppressEmptyAssistantRetryForCallableWorkflow
+      ? false
+      : sessionDisposition.retryEmptyAssistantResponse,
     emptyResponseText: sessionDisposition.emptyResponseText,
-    emptyAssistantResponseMetadata: sessionDisposition.emptyAssistantFinalization.metadata,
+    emptyAssistantResponseMetadata: suppressEmptyAssistantRetryForCallableWorkflow
+      ? undefined
+      : sessionDisposition.emptyAssistantFinalization.metadata,
     assistantTerminalCleanupInterrupted,
     assistantTerminalCleanupDiagnostic: input.assistantTerminalCleanupDiagnostic,
     subagentParentControlAbortIntent: input.subagentParentControlAbortIntent,
@@ -157,6 +172,7 @@ export async function handleRuntimePromptSuccess(
     providerRetrySessionFile: input.sessionFile,
     providerRetryLastError: input.providerRetryLastError,
     hasPlannerFinalizationSources: input.hasPlannerFinalizationSources,
+    preResolvedCallableWorkflowFinalizationBlock,
     resolveSubagentFinalizationBlock: input.resolveSubagentFinalizationBlock,
     resolveCallableWorkflowFinalizationBlock: input.resolveCallableWorkflowFinalizationBlock,
     recordSubagentFinalizationBlockedParentMailbox: input.recordSubagentFinalizationBlockedParentMailbox,
@@ -169,6 +185,19 @@ export async function handleRuntimePromptSuccess(
     getThread: input.getThread,
     emitRunEvent: input.emitRunEvent,
   });
+  if (successfulFinalization.suppressCurrentThinkingMessage) {
+    if (preResolvedCallableWorkflowFinalizationBlock) {
+      input.suppressCallableWorkflowParentAssistantMessages(preResolvedCallableWorkflowFinalizationBlock, {
+        preserveMessageId: successfulFinalization.finalMessage.id,
+      });
+    }
+    input.suppressAssistantMessagesExceptCurrent(finalAssistantSuppressionStatus(successfulFinalization.finalStatus));
+    input.suppressCurrentThinkingMessage(input.abortRequested ? "aborted" : "done");
+    input.emitRunEvent({ type: "thread-updated", thread: input.getThread() });
+  }
+  if (successfulFinalization.parentFinalizationBlocked) {
+    pendingEmptyResponseRetry = undefined;
+  }
 
   return {
     pendingEmptyResponseRetry,
@@ -176,4 +205,10 @@ export async function handleRuntimePromptSuccess(
       ? input.createPlannerRepairFollowUp(successfulFinalization.plannerRepairPrompt)
       : undefined,
   };
+}
+
+function finalAssistantSuppressionStatus(status: "done" | "error" | "aborted" | "awaiting-input"): "done" | "error" | "aborted" {
+  if (status === "aborted") return "aborted";
+  if (status === "done") return "done";
+  return "error";
 }

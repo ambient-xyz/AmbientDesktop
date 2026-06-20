@@ -280,6 +280,9 @@ describe("modelContentForAgentRuntimeSendInput", () => {
     expect(content).toContain("ambient_workflow_symphony_map_reduce");
     expect(content).toContain('"goal": "Audit the current plan."');
     expect(content).toContain('"blocking": true');
+    expect(content).toContain("do not explain task status in chat");
+    expect(content).toContain("workflow task surface show status");
+    expect(content).not.toContain("explain the task status, blocking mode");
   });
 
   it("uses workflow thread plan-edit prompts after context formatting", () => {

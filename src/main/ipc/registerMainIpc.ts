@@ -1,844 +1,105 @@
 
-import { registerAppBootstrapDomainIpc } from "./registerAppBootstrapDomainIpc";
-
-import { registerAmbientCliSecretDomainIpc } from "./registerAmbientCliSecretDomainIpc";
-
-import { registerApprovalDomainIpc } from "./registerApprovalDomainIpc";
+import type { ApprovalDomainHost } from "./registerApprovalDomainIpc";
 
 import { registerE2eDomainIpc } from "./registerE2eDomainIpc";
 
-import { registerChatRuntimeDomainIpc } from "./registerChatRuntimeDomainIpc";
+import type { ChatRuntimeDomainHost } from "./registerChatRuntimeDomainIpc";
 
-import { registerDiagnosticsExportDomainIpc } from "./registerDiagnosticsExportDomainIpc";
+import type { PermissionSecurityDomainHost } from "./registerPermissionSecurityDomainIpc";
 
-import { registerPermissionSecurityDomainIpc } from "./registerPermissionSecurityDomainIpc";
+import type { TerminalDomainRuntimeHost } from "./registerTerminalDomainIpc";
 
-import { registerTerminalDomainIpc } from "./registerTerminalDomainIpc";
+import type { BrowserDomainRuntimeHost } from "./registerBrowserDomainIpc";
 
-import { registerBrowserDomainIpc } from "./registerBrowserDomainIpc";
+import type { RegisterProjectBoardDomainIpcDependencies } from "./registerProjectBoardDomainIpc";
 
-import { registerPluginToolingDomainIpc } from "./registerPluginToolingDomainIpc";
+import type { SettingsDomainServices } from "./registerSettingsDomainIpc";
 
-import { registerOrchestrationDomainIpc } from "./registerOrchestrationDomainIpc";
+import { registerMainAppCoreIpc } from "./registerMainAppCoreIpc";
 
-import {
-  registerProjectBoardDomainIpc,
-  type RegisterProjectBoardDomainIpcDependencies,
-} from "./registerProjectBoardDomainIpc";
+import { registerMainPluginToolingIpc } from "./registerMainPluginToolingIpc";
 
-import { registerProjectNavigationDomainIpc } from "./registerProjectNavigationDomainIpc";
+import { registerMainProjectWorkspaceIpc } from "./registerMainProjectWorkspaceIpc";
 
-import { registerProjectThreadDomainIpc } from "./registerProjectThreadDomainIpc";
+import { registerMainRuntimeInteractionIpc } from "./registerMainRuntimeInteractionIpc";
 
-import { registerPiToolingDomainIpc } from "./registerPiToolingDomainIpc";
+import { registerMainShellBrowserIpc } from "./registerMainShellBrowserIpc";
 
-import {
-  registerSettingsDomainIpc,
-  type SettingsDomainServices,
-} from "./registerSettingsDomainIpc";
+import { registerMainWorkflowAutomationIpc } from "./registerMainWorkflowAutomationIpc";
 
-import { registerLifecycleDomainIpc } from "./registerLifecycleDomainIpc";
-
-import { registerShellIntegrationDomainIpc } from "./registerShellIntegrationDomainIpc";
-
-import {
-  describeSlashCommandForProjectHost,
-  registerSlashCommandIpc,
-} from "./registerSlashCommandIpc";
-
-import { registerWorkflowRecordingLabDomainIpc } from "./registerWorkflowRecordingLabDomainIpc";
-
-import { registerWorkflowAutomationDomainIpc } from "./registerWorkflowAutomationDomainIpc";
-
-import { registerWorkspaceGitDomainIpc } from "./registerWorkspaceGitDomainIpc";
-
-import type { ProjectRuntimeHost } from "../index";
+import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "../project-runtime/projectRuntimeHost";
 import type { ProjectStore } from "./ipcProjectStoreFacade";
-import { assertSlashCommandSelectionInvocable } from "./slashCommandCatalog";
 
-type ProjectRuntimeHostLookup = (...args: any[]) => ProjectRuntimeHost;
+type ProjectRuntimeHost = ProjectRuntimeHostContract<
+  ProjectStore,
+  unknown,
+  BrowserDomainRuntimeHost["browserService"],
+  BrowserDomainRuntimeHost["browserCredentialStore"],
+  ApprovalDomainHost<ProjectStore>["runtime"] & ChatRuntimeDomainHost<ProjectStore>["runtime"],
+  TerminalDomainRuntimeHost["terminals"],
+  { enabled: boolean }
+> &
+  BrowserDomainRuntimeHost &
+  ApprovalDomainHost<ProjectStore> &
+  ChatRuntimeDomainHost<ProjectStore> &
+  PermissionSecurityDomainHost &
+  TerminalDomainRuntimeHost;
 
-export interface RegisterMainIpcDependencies extends SettingsDomainServices, Record<string, any> {
+type ProjectRuntimeHostLookup<Host extends ProjectRuntimeHost> = (...args: any[]) => Host;
+
+export interface RegisterMainIpcDependencies<Host extends ProjectRuntimeHost = ProjectRuntimeHost> extends SettingsDomainServices, Record<string, any> {
   AmbientWorkflowExplorationProvider: typeof import("./ipcWorkflowFacade").AmbientWorkflowExplorationProvider;
   AmbientWorkflowLabJudgeProvider: typeof import("./ipcWorkflowFacade").AmbientWorkflowLabJudgeProvider;
   runWorkflowLab: typeof import("./ipcWorkflowFacade").runWorkflowLab;
-  requireActiveProjectRuntimeHost: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForAutomationSchedule: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForAutomationScheduleTarget: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForAutomationThread: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForCallableWorkflowTask: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForOrchestrationRun: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForOrchestrationTask: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForOrchestrationWorkspace: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForPermissionGrant: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForPermissionGrantInput: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForPlannerPlanArtifact: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForSubagentRun: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForSubagentWaitBarrier: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForThread: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForThreadAction: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForWorkflowArtifact: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForWorkflowLabRun: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForWorkflowRecording: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForWorkflowRevision: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForWorkflowRun: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForWorkflowThread: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForWorkflowVersion: ProjectRuntimeHostLookup;
+  requireActiveProjectRuntimeHost: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForAutomationSchedule: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForAutomationScheduleTarget: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForAutomationThread: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForCallableWorkflowTask: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForOrchestrationRun: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForOrchestrationTask: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForOrchestrationWorkspace: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForPermissionGrant: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForPermissionGrantInput: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForPlannerPlanArtifact: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForSubagentRun: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForSubagentWaitBarrier: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForThread: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForThreadAction: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForWorkflowArtifact: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForWorkflowLabRun: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForWorkflowRecording: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForWorkflowRevision: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForWorkflowRun: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForWorkflowThread: ProjectRuntimeHostLookup<Host>;
+  requireProjectRuntimeHostForWorkflowVersion: ProjectRuntimeHostLookup<Host>;
   projectBoardDesktopIpcDependencies: Omit<RegisterProjectBoardDomainIpcDependencies, "handleIpc">;
-  projectRuntimeHostForTerminal: (...args: any[]) => ProjectRuntimeHost | undefined;
-  projectRuntimeHostForWorkflowRun: (...args: any[]) => ProjectRuntimeHost | undefined;
-  projectRuntimeHostForWorkspacePath: (...args: any[]) => ProjectRuntimeHost | undefined;
-  isActiveProjectRuntimeHost: (host: ProjectRuntimeHost) => boolean;
-  activeThreadIdForHost: (host: ProjectRuntimeHost) => string;
+  projectRuntimeHostForTerminal: (...args: any[]) => Host | undefined;
+  projectRuntimeHostForWorkflowRun: (...args: any[]) => Host | undefined;
+  projectRuntimeHostForWorkspacePath: (...args: any[]) => Host | undefined;
+  isActiveProjectRuntimeHost: (host: Host) => boolean;
+  activeThreadIdForHost: (host: Host) => string;
 }
 
-export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
-  const {
-    AMBIENT_KEYS_URL,
-    AmbientWorkflowExplorationProvider,
-    AmbientWorkflowLabJudgeProvider,
-    acceptMcpToolDescriptorReviewForDesktop,
-    activeGitContextForProjectHost,
-    activeHost,
-    activeThreadId,
-    activeThreadIdForHost,
-    activeWorkflowRunController,
-    activeWorkflowRunHost,
-    activeWorkspaceFileContextForProjectHost,
-    allPluginMcpRuntimeSnapshots,
-    ambientCliCapabilityGrantsForWorkflowRequest,
-    ambientMcpInstallPreview,
-    ambientRetryPolicyFromCurrentSettings,
-    ambientRetryPolicyFromSettings,
-    answerWorkflowDiscoveryQuestion,
-    app,
-    archiveProjectChats,
-    assertTrustedMainWindowIpc,
-    attachWorktreeForThread,
-    browserLoginBrokerEnabled,
-    buildContainerRuntimeInstallPlanFromProbe,
-    buildWorkflowDebugRewritePromptSection,
-    buildWorkflowRecoveryPlan,
-    classifyToolPermission,
-    clearPiExtensionSandboxHistory,
-    clearPiPrivilegedPackageHistory,
-    clearSavedAmbientApiKey,
-    clipboard,
-    codexPluginTrustFingerprint,
-    commitGit,
-    compileWorkflowArtifact,
-    createAndRecordCheckpoint,
-    createChatExportBundle,
-    createChatPdfExport,
-    createDiagnosticBundle,
-    createGitBranch,
-    createMainDiagnosticSource,
-    createMcpInstallCatalog,
-    createPermanentWorktree,
-    createPrivilegedActionAdapter,
-    createPullRequestUrl,
-    createWorkflowDebugRewriteRevision,
-    createWorkflowDiscoveryProvider,
-    createWorkflowSampleArtifact,
-    currentFeatureFlagSnapshot,
-    describeWorkflowDiscoveryCapability,
-    describeWorkspaceAbsoluteContextPaths,
-    describeWorkspaceContextReferences,
-    desktopUpdateService,
-    dialog,
-    disablePiPrivilegedPackage,
-    discardGitFile,
-    discoverAmbientCliPackages,
-    discoverCapabilityBuilderHistory,
-    discoverPiExtensionSandboxPackages,
-    discoverPiPrivilegedPackages,
-    disposeProjectRuntimeHost,
-    emitBrowserStateForHost,
-    emitMainWindowDesktopEvent,
-    emitOrchestrationUpdated,
-    emitPermissionAuditCreated,
-    emitPermissionGrantCreated,
-    emitPermissionGrantRevoked,
-    emitPlannerPlanArtifactUpdated,
-    emitPluginCatalogUpdated,
-    emitProjectScopedEvent,
-    emitProjectStateIfActive,
-    emitThreadUpdated,
-    emitWorkflowEvent,
-    emitWorkflowRecordingLibraryStateChanged,
-    emitWorkflowUpdated,
-    ensureProjectRuntimeHostForWorkspacePath,
-    ensureWorkflowPluginTrusted,
-    executeContainerRuntimeManagedInstallAction,
-    existsSync,
-    fetchGit,
-    firstPartyWorkflowConnectorAccountAuthorizer,
-    firstPartyWorkflowConnectorDescriptors,
-    firstPartyWorkflowConnectorRegistrations,
-    forgetActiveWorkflowRunsForController,
-    formatPiExtensionSandboxInstallApprovalDetail,
-    formatPiPrivilegedInstallApprovalDetail,
-    formatPiResourceCountsForPermission,
-    generatePlannerDurableArtifact,
-    getAmbientProviderStatus,
-    getAppLogs,
-    getWorkspaceDiff,
-    getWorkspaceGitStatus,
-    googleWorkspaceCliInstaller,
-    googleWorkspaceSetupService,
+export function registerMainIpc<Host extends ProjectRuntimeHost>(deps: RegisterMainIpcDependencies<Host>): void {
+  const { handleIpc } = deps;
+  registerMainAppCoreIpc(deps);
+
+  registerMainProjectWorkspaceIpc(deps);
+
+  registerMainShellBrowserIpc(deps);
+
+  registerMainPluginToolingIpc(deps);
+
+  registerMainWorkflowAutomationIpc(deps);
+
+  registerMainRuntimeInteractionIpc(deps);
+
+  registerE2eDomainIpc({
     handleIpc,
-    importDiagnosticBundleFromFile,
-    initialActiveThreadIdForStore,
-    initializeGitRepository,
-    installMcpDefaultCapabilityForDesktop,
-    installMcpRegistryServerForDesktop,
-    installPiExtensionSandboxPackage,
-    installPiPrivilegedPackage,
-    invokeWorkflowNativeTool,
-    isActiveProjectRuntimeHost,
-    isGoogleWorkspaceSetupUrl,
-    isLoopbackWebUrl,
-    join,
-    launchContainerRuntimeInstallAction,
-    listGlobalWorkflowAgentFolders,
-    listGlobalWorkflowRecordingLibrary,
-    listManagedDevServers,
-    listWorkspaceFiles,
-    listWorkspaceOpenTargets,
-    mainWindow,
-    markStaleWorkflowRunForRecoveryIfNeeded,
-    mcpContainerRuntimeSetupStatePath,
-    mkdirSync,
-    normalizeWorkspacePath,
-    officePreviewService,
-    openAllowedExternalUrl,
-    openContainerRuntimeApplication,
-    openGoogleWorkspaceUrl,
-    openRendererLocalUrlInAmbientBrowser,
-    openThreadMiniWindow,
-    openWorkspaceTarget,
-    packageJson,
-    parseExternalOpenUrl,
-    parseThreadPermissionModeChange,
-    parseThreadSettingsUpdate,
-    permanentWorktreeBranchName,
-    permissionGrantTargetHash,
-    permissionGrantWorkspacePath,
-    permissionModeChangeAuditDetail,
-    permissions,
-    pluginHost,
-    pluginMcpRegistrationsForThread,
-    pluginStateReaderForStore,
-    prepareAndRecordNextOrchestrationRuns,
-    prepareWorktreeForThread,
-    previewPiExtensionSandboxInstall,
-    privilegedActionAdapterSelectionFromEnv,
-    privilegedCredentials,
-    probeAmbientMcpContainerRuntimeStatus,
-    probeContainerRuntime,
-    projectRegistry,
-    projectBoardDesktopIpcDependencies,
-    projectRuntimeHostForTerminal,
-    projectRuntimeHostForWorkflowRun,
-    projectRuntimeHostForWorkspacePath,
-    pullGit,
-    pushGit,
-    readActiveLocalFilePreview,
-    readActiveWorkspaceFile,
-    readAmbientApiKey,
-    readAmbientPluginRegistry,
-    readAutoDispatchStatus,
-    readCodexHostedMarketplaceReport,
-    readCodexPluginCatalog,
-    readCurrentOrchestrationBoard,
-    readFirstPartyGoogleIntegration,
-    readGitReviewForProjectHost,
-    readOrchestrationWorkflowReadiness,
-    readState,
-    readStateForProjectHostAction,
-    readWorkflowDashboard,
-    readWorkflowRunDetail,
-    recordActiveProjectBoardExecutionReadinessBlocker,
-    recordBrowserControlAudit,
-    recordBrowserProfileAudit,
-    recordContainerRuntimeDeferred,
-    recordContainerRuntimeInstallLaunched,
-    recordWorkflowRevisionDecisionInChat,
-    redactGoogleWorkspaceSetupState,
-    refreshGoogleWorkspaceConnectorMode,
-    rememberActiveWorkflowRun,
-    rendererLocalPreviewServers,
-    repairProjectBoardWorkflow,
-    requestPermissionWithGrantRegistry,
-    requireActiveProjectRuntimeHost,
-    requireProjectRuntimeHostForAutomationSchedule,
-    requireProjectRuntimeHostForAutomationScheduleTarget,
-    requireProjectRuntimeHostForAutomationThread,
-    requireProjectRuntimeHostForCallableWorkflowTask,
-    requireProjectRuntimeHostForOrchestrationRun,
-    requireProjectRuntimeHostForOrchestrationTask,
-    requireProjectRuntimeHostForOrchestrationWorkspace,
-    requireProjectRuntimeHostForPermissionGrant,
-    requireProjectRuntimeHostForPermissionGrantInput,
-    requireProjectRuntimeHostForPlannerPlanArtifact,
-    requireProjectRuntimeHostForSubagentRun,
-    requireProjectRuntimeHostForSubagentWaitBarrier,
-    requireProjectRuntimeHostForThread,
-    requireProjectRuntimeHostForThreadAction,
-    requireProjectRuntimeHostForWorkflowArtifact,
-    requireProjectRuntimeHostForWorkflowLabRun,
-    requireProjectRuntimeHostForWorkflowRecording,
-    requireProjectRuntimeHostForWorkflowRevision,
-    requireProjectRuntimeHostForWorkflowRun,
-    requireProjectRuntimeHostForWorkflowThread,
-    requireProjectRuntimeHostForWorkflowVersion,
-    resetProjectRuntimeAndPluginServers,
-    resetRuntimeAndPluginServers,
-    resolveLocalFilePath,
-    resolveRegisteredProjectPathForHost,
-    resolveSubagentApprovalDecision,
-    resolveWorkflowApproval,
-    resolveWorkflowDiscoveryAccessRequest,
-    resolveWorkspacePathForOpen,
-    restartProjectRuntimeMcpRuntime,
-    restoreLatestGitCheckpoint,
-    restoreWorkflowVersion,
-    revalidateWorkflowArtifact,
-    reviewFinishedProjectBoardRun,
-    reviewWorkflowArtifact,
-    revokePluginGrantsForLabels,
-    runWorkflowArtifact,
-    runWorkflowLab,
-    runWorkflowThreadExploration,
-    saveAmbientApiKey,
-    saveAmbientCliPackageEnvSecret,
-    saveCapabilityBuilderEnvSecret,
-    saveMcpServerEnvSecret,
-    scanPiPrivilegedPackage,
-    searchRoutingSettings,
-    searchWorkflowDiscoveryCapabilities,
-    searchWorkspace,
-    secureInputs,
-    selectAmbientCliPackageForSecret,
-    setAutoDispatchEnabled,
-    setProjectHostActiveThreadId,
-    shell,
-    stageAllGitFiles,
-    stageGitFile,
-    startPreparedOrchestrationRun,
-    startWorkflowDiscovery,
-    startWorkflowRevisionDiscovery,
-    stopManagedDevServer,
-    stopProjectRuntimeMcpRuntime,
-    store,
-    switchWorkspace,
-    switchWorkspaceBranch,
-    terminalStartTokens,
-    testAmbientApiKey,
-    threadWorkingDirectory,
-    uninstallMcpServerForDesktop,
-    uninstallPiExtensionSandboxPackage,
-    uninstallPiPrivilegedPackage,
-    unstageAllGitFiles,
-    unstageGitFile,
-    updateProjectBoardWorkflowRaw,
-    updateProjectBoardWorkflowSettings,
-    updateWorkflowArtifactSource,
-    updateWorkflowConnectorGrant,
-    withBrowserState,
-    workflowAgentControlThread,
-    workflowAgentIpcContextForDiscoveryQuestion,
-    workflowAgentIpcContextForWorkflowThread,
-    workflowArtifactIpcContext,
-    workflowArtifactIpcContextForHost,
-    workflowCompileIpcContext,
-    workflowDebugRewriteIpcContext,
-    workflowDebugRewriteUserRequest,
-    workflowDiscoveryPolicyContextForCapabilityLookup,
-    workflowProjectIpcContext,
-    workflowToolDescriptorsFromPluginRegistry,
-    workspaceInventoryConnector,
-    workspacePathForRelativeArtifactPath,
-    workspaceStateForThread,
-    writeContainerRuntimeManagedInstallRedactedLog,
-    writeFile,
-    writePrivilegedActionRedactedLog,
-  } = deps;
-  registerAppBootstrapDomainIpc({
-    handleIpc,
-    readBootstrapState: () => readState(),
+    isE2eEnabled: () => process.env.AMBIENT_E2E === "1",
+    emitDesktopEvent: (event, raw) => {
+      event.sender.send("desktop:event", raw);
+    },
   });
-  registerOrchestrationDomainIpc({
-      handleIpc,
-      activeThreadIdForHost,
-      emitOrchestrationUpdated,
-      emitProjectStateIfActive,
-      ensureProjectRuntimeHostForWorkspacePath,
-      openPath: (workspacePath) => shell.openPath(workspacePath),
-      prepareAndRecordNextOrchestrationRuns,
-      readAutoDispatchStatus,
-      readCurrentOrchestrationBoard,
-      readOrchestrationWorkflowReadiness,
-      recordActiveProjectBoardExecutionReadinessBlocker,
-      repairProjectBoardWorkflow,
-      requireActiveProjectRuntimeHost,
-      requireProjectRuntimeHostForOrchestrationRun,
-      requireProjectRuntimeHostForOrchestrationTask,
-      requireProjectRuntimeHostForOrchestrationWorkspace,
-      requireProjectRuntimeHostForThread,
-      reviewFinishedProjectBoardRun,
-      setAutoDispatchEnabled,
-      setProjectHostActiveThreadId,
-      startPreparedOrchestrationRun,
-      updateProjectBoardWorkflowRaw,
-      updateProjectBoardWorkflowSettings,
-    });
-    registerSettingsDomainIpc({
-      handleIpc,
-      isAppPackaged: () => app.isPackaged,
-      settingsServices: deps,
-    });
-    registerLifecycleDomainIpc({
-      handleIpc,
-      desktopUpdateService,
-      showWorkspaceDialog: (options) => dialog.showOpenDialog(mainWindow!, options),
-      createWorkspaceDirectory: (workspacePath) => mkdirSync(workspacePath, { recursive: true }),
-      switchWorkspace,
-      requireActiveProjectRuntimeHost,
-      prepareWorktreeForThread,
-      setProjectHostActiveThreadId,
-      emitProjectStateIfActive,
-      readStateForProjectHostAction,
-      requireProjectRuntimeHostForThread,
-      emitProjectScopedEvent,
-    });
-
-    registerWorkflowRecordingLabDomainIpc({
-      AmbientWorkflowLabJudgeProvider,
-      ambientRetryPolicyFromSettings,
-      getAmbientProviderStatus,
-      handleIpc,
-      requireActiveProjectRuntimeHost,
-      requireProjectRuntimeHostForThreadAction,
-      requireProjectRuntimeHostForWorkflowLabRun,
-      requireProjectRuntimeHostForWorkflowRecording,
-      prepareWorktreeForThread,
-      setProjectHostActiveThreadId,
-      emitProjectStateIfActive,
-      emitWorkflowRecordingLibraryStateChanged,
-      readStateForProjectHostAction,
-      listGlobalWorkflowRecordingLibrary,
-      getFeatureFlagSnapshot: currentFeatureFlagSnapshot,
-      runWorkflowLab,
-    });
-
-    registerProjectNavigationDomainIpc<ProjectRuntimeHost>({
-      handleIpc,
-      activeThreadIdForHost,
-      emitProjectStateIfActive,
-      normalizeWorkspacePath,
-      readStateForProjectHostAction,
-      requireActiveProjectRuntimeHost,
-      requireProjectRuntimeHostForThread,
-      resolveRegisteredProjectPathForHost,
-      setProjectHostActiveThreadId,
-      setProjectDisplayName: (workspacePath, name) => projectRegistry.setDisplayName(workspacePath, name),
-      setProjectPinned: (workspacePath, pinned) => projectRegistry.setPinned(workspacePath, pinned),
-      switchWorkspace,
-    });
-
-    registerProjectBoardDomainIpc({
-      handleIpc,
-      ...projectBoardDesktopIpcDependencies,
-    });
-
-    registerProjectThreadDomainIpc({
-      handleIpc,
-      activeThreadIdForHost,
-      archiveProjectChats,
-      createPermanentWorktree,
-      disposeProjectRuntimeHost,
-      emitDesktopState: (state) => mainWindow?.webContents.send("desktop:event", { type: "state", state }),
-      emitPermissionAuditCreated,
-      emitPlannerPlanArtifactUpdated,
-      emitProjectStateIfActive,
-      emitThreadUpdated,
-      generatePlannerDurableArtifact,
-      initialActiveThreadIdForStore,
-      isActiveProjectRuntimeHost,
-      listRegisteredProjectPaths: () => projectRegistry.listRegisteredPaths(),
-      normalizeWorkspacePath,
-      openPath: (path) => shell.openPath(path),
-      openThreadMiniWindow,
-      parseThreadPermissionModeChange,
-      parseThreadSettingsUpdate,
-      pathExists: (workspacePath) => existsSync(workspacePath),
-      permanentWorktreeBranchName,
-      permissionModeChangeAuditDetail,
-      prepareWorktreeForThread,
-      projectRuntimeHostForWorkspacePath,
-      readState,
-      readStateForProjectHostAction,
-      removeProject: (workspacePath: string) => projectRegistry.remove(workspacePath),
-      requireActiveProjectRuntimeHost,
-      requireProjectRuntimeHostForPlannerPlanArtifact,
-      requireProjectRuntimeHostForThread,
-      requireProjectRuntimeHostForThreadAction,
-      resolveRegisteredProjectPathForHost,
-      setProjectHostActiveThreadId,
-      showItemInFolder: (path) => shell.showItemInFolder(path),
-      showOpenDialog: (options) => dialog.showOpenDialog(mainWindow!, options),
-      switchWorkspace,
-      threadWorkingDirectory,
-    });
-
-    registerShellIntegrationDomainIpc({
-      handleIpc,
-      ambientKeysUrl: AMBIENT_KEYS_URL,
-      openAllowedExternalUrl,
-      parseExternalOpenUrl,
-      isGoogleWorkspaceSetupUrl,
-      openGoogleWorkspaceUrl,
-      isLoopbackWebUrl,
-      openRendererLocalUrlInAmbientBrowser,
-      readClipboardText: () => clipboard.readText(),
-      writeClipboardText: (text) => clipboard.writeText(text),
-      saveAmbientApiKey,
-      clearSavedAmbientApiKey,
-      testAmbientApiKey,
-      resetRuntimeAndPluginServers,
-      readCurrentSettingsModel: () => readState().settings.model,
-      getAmbientProviderStatus,
-      emitProviderUpdated: (provider) => mainWindow?.webContents.send("desktop:event", { type: "provider-updated", provider }),
-    });
-
-    registerWorkspaceGitDomainIpc({
-      handleIpc,
-      activeGitContextForProjectHost,
-      activeWorkspaceFileContextForProjectHost,
-      attachWorktreeForThread,
-      commitGit,
-      createAndRecordCheckpoint,
-      createGitBranch,
-      createPullRequestUrl,
-      describeWorkspaceAbsoluteContextPaths,
-      discardGitFile,
-      emitProjectStateIfActive,
-      fetchGit,
-      getWorkspaceDiff,
-      getWorkspaceGitStatus,
-      initializeGitRepository,
-      listWorkspaceFiles,
-      listWorkspaceOpenTargets,
-      normalizeWorkspacePath,
-      openAllowedExternalUrl,
-      openWorkspaceTarget,
-      prepareWorktreeForThread,
-      pullGit,
-      pushGit,
-      readActiveLocalFilePreview,
-      readActiveWorkspaceFile,
-      readGitReviewForProjectHost,
-      rendererOfficePreviewService: officePreviewService,
-      resolveLocalFilePath,
-      resolveWorkspacePathForOpen,
-      restoreLatestGitCheckpoint,
-      searchWorkspace,
-      setProjectHostActiveThreadId,
-      shell,
-      showOpenDialog: (options: any) => dialog.showOpenDialog(mainWindow!, options),
-      stageAllGitFiles,
-      stageGitFile,
-      switchWorkspaceBranch,
-      unstageAllGitFiles,
-      unstageGitFile,
-      workspacePathForRelativeArtifactPath,
-    });
-
-    registerBrowserDomainIpc<ProjectRuntimeHost>({
-      handleIpc,
-      browserLoginBrokerEnabled,
-      emitBrowserStateForHost,
-      isLoopbackWebUrl,
-      openBrowserLocalPreview: (host, input) => rendererLocalPreviewServers.open({ workspacePath: host.workspacePath, path: input.path }),
-      recordBrowserControlAudit,
-      recordBrowserProfileAudit,
-      requireActiveProjectRuntimeHost,
-      withBrowserState,
-    });
-
-    registerPluginToolingDomainIpc({
-      handleIpc,
-      acceptMcpToolDescriptorReviewForDesktop,
-      activeThreadId,
-      activeThreadIdForHost,
-      allPluginMcpRuntimeSnapshots,
-      ambientMcpInstallPreview,
-      app,
-      buildContainerRuntimeInstallPlanFromProbe,
-      codexPluginTrustFingerprint,
-      createMcpInstallCatalog,
-      createPrivilegedActionAdapter,
-      dialog,
-      discoverCapabilityBuilderHistory,
-      emitMainWindowDesktopEvent,
-      executeContainerRuntimeManagedInstallAction,
-      googleWorkspaceCliInstaller,
-      googleWorkspaceSetupService,
-      installMcpDefaultCapabilityForDesktop,
-      installMcpRegistryServerForDesktop,
-      launchContainerRuntimeInstallAction,
-      listManagedDevServers,
-      mcpContainerRuntimeSetupStatePath,
-      openAllowedExternalUrl,
-      openContainerRuntimeApplication,
-      packageJson,
-      permissions,
-      pluginHost,
-      pluginStateReaderForStore,
-      privilegedActionAdapterSelectionFromEnv,
-      privilegedCredentials,
-      probeAmbientMcpContainerRuntimeStatus,
-      probeContainerRuntime,
-      readAmbientPluginRegistry,
-      readCodexHostedMarketplaceReport,
-      readCodexPluginCatalog,
-      readFirstPartyGoogleIntegration,
-      recordContainerRuntimeDeferred,
-      recordContainerRuntimeInstallLaunched,
-      redactGoogleWorkspaceSetupState,
-      refreshGoogleWorkspaceConnectorMode,
-      requireActiveProjectRuntimeHost,
-      resetProjectRuntimeAndPluginServers,
-      resetRuntimeAndPluginServers,
-      restartProjectRuntimeMcpRuntime,
-      stopManagedDevServer,
-      stopProjectRuntimeMcpRuntime,
-      uninstallMcpServerForDesktop,
-      writeContainerRuntimeManagedInstallRedactedLog,
-      writePrivilegedActionRedactedLog,
-    });
-
-    registerPiToolingDomainIpc({
-      handleIpc,
-      activeThreadIdForHost,
-      clearPiExtensionSandboxHistory,
-      clearPiPrivilegedPackageHistory,
-      disablePiPrivilegedPackage,
-      discoverPiExtensionSandboxPackages,
-      discoverPiPrivilegedPackages,
-      emitPermissionAuditCreated,
-      emitPluginCatalogUpdated,
-      formatPiExtensionSandboxInstallApprovalDetail,
-      formatPiPrivilegedInstallApprovalDetail,
-      formatPiResourceCountsForPermission,
-      installPiExtensionSandboxPackage,
-      installPiPrivilegedPackage,
-      permissionGrantTargetHash,
-      permissions,
-      pluginHost,
-      pluginStateReaderForStore,
-      previewPiExtensionSandboxInstall,
-      requestPermissionWithGrantRegistry,
-      requireActiveProjectRuntimeHost,
-      resetProjectRuntimeAndPluginServers,
-      revokePluginGrantsForLabels,
-      scanPiPrivilegedPackage,
-      uninstallPiExtensionSandboxPackage,
-      uninstallPiPrivilegedPackage,
-    });
-
-    registerWorkflowAutomationDomainIpc({
-      handleIpc,
-      AmbientWorkflowExplorationProvider,
-      activeWorkflowRunController,
-      activeWorkflowRunHost,
-      ambientCliCapabilityGrantsForWorkflowRequest,
-      ambientRetryPolicyFromCurrentSettings,
-      answerWorkflowDiscoveryQuestion,
-      buildWorkflowDebugRewritePromptSection,
-      buildWorkflowRecoveryPlan,
-      compileWorkflowArtifact,
-      createWorkflowDebugRewriteRevision,
-      createWorkflowDiscoveryProvider,
-      createWorkflowSampleArtifact,
-      describeWorkflowDiscoveryCapability,
-      emitPermissionGrantCreated,
-      emitWorkflowEvent,
-      emitWorkflowUpdated,
-      ensureWorkflowPluginTrusted,
-      firstPartyWorkflowConnectorAccountAuthorizer,
-      firstPartyWorkflowConnectorDescriptors,
-      firstPartyWorkflowConnectorRegistrations,
-      forgetActiveWorkflowRunsForController,
-      getAmbientProviderStatus,
-      getFeatureFlagSnapshot: currentFeatureFlagSnapshot,
-      invokeWorkflowNativeTool,
-      listGlobalWorkflowAgentFolders,
-      mainWindow,
-      markStaleWorkflowRunForRecoveryIfNeeded,
-      normalizeWorkspacePath,
-      pluginHost,
-      pluginMcpRegistrationsForThread,
-      pluginStateReaderForStore,
-      projectRuntimeHostForWorkflowRun,
-      readAmbientApiKey,
-      readWorkflowDashboard,
-      readWorkflowRunDetail,
-      recordWorkflowRevisionDecisionInChat,
-      rememberActiveWorkflowRun,
-      requestPermissionWithGrantRegistry,
-      requireActiveProjectRuntimeHost,
-      requireProjectRuntimeHostForAutomationSchedule,
-      requireProjectRuntimeHostForAutomationScheduleTarget,
-      requireProjectRuntimeHostForAutomationThread,
-      requireProjectRuntimeHostForCallableWorkflowTask,
-      requireProjectRuntimeHostForWorkflowArtifact,
-      requireProjectRuntimeHostForWorkflowRevision,
-      requireProjectRuntimeHostForWorkflowRun,
-      requireProjectRuntimeHostForWorkflowThread,
-      requireProjectRuntimeHostForWorkflowVersion,
-      resolveWorkflowDiscoveryAccessRequest,
-      restoreWorkflowVersion,
-      revalidateWorkflowArtifact,
-      reviewWorkflowArtifact,
-      runWorkflowArtifact,
-      runWorkflowThreadExploration,
-      searchRoutingSettings,
-      searchWorkflowDiscoveryCapabilities,
-      startWorkflowDiscovery,
-      startWorkflowRevisionDiscovery,
-      store,
-      updateWorkflowArtifactSource,
-      updateWorkflowConnectorGrant,
-      workflowAgentControlThread,
-      workflowAgentIpcContextForDiscoveryQuestion,
-      workflowAgentIpcContextForWorkflowThread,
-      workflowArtifactIpcContext,
-      workflowArtifactIpcContextForHost,
-      workflowCompileIpcContext,
-      workflowDebugRewriteIpcContext,
-      workflowDebugRewriteUserRequest,
-      workflowDiscoveryPolicyContextForCapabilityLookup,
-      workflowProjectIpcContext,
-      workflowToolDescriptorsFromPluginRegistry,
-      workspaceInventoryConnector,
-      workspaceStateForThread,
-    });
-
-    registerApprovalDomainIpc<ProjectStore, ProjectRuntimeHost>({
-      emitProjectScopedEvent,
-      emitProjectStateIfActive,
-      emitWorkflowUpdated,
-      getFeatureFlagSnapshot: currentFeatureFlagSnapshot,
-      handleIpc,
-      requireProjectRuntimeHostForSubagentRun,
-      requireProjectRuntimeHostForSubagentWaitBarrier,
-      requireProjectRuntimeHostForWorkflowRun,
-      resolveSubagentApprovalDecision,
-      resolveWorkflowApproval,
-    });
-
-    registerDiagnosticsExportDomainIpc({
-      app,
-      createChatExportBundle,
-      createChatPdfExport,
-      createDiagnosticBundle,
-      createMainDiagnosticSource,
-      dialog,
-      existsSync,
-      getAppLogs,
-      handleIpc,
-      importDiagnosticBundleFromFile,
-      join,
-      mainWindow,
-      requireActiveProjectRuntimeHost,
-      requireProjectRuntimeHostForThread,
-      requireProjectRuntimeHostForThreadAction,
-      writeFile,
-    });
-
-    registerPermissionSecurityDomainIpc({
-      handleIpc,
-      emitPermissionGrantCreated,
-      emitPermissionGrantRevoked,
-      permissionGrantWorkspacePath,
-      permissions,
-      privilegedCredentials,
-      requireActiveProjectRuntimeHost,
-      requireProjectRuntimeHostForPermissionGrant,
-      requireProjectRuntimeHostForPermissionGrantInput,
-      secureInputs,
-    });
-
-    registerAmbientCliSecretDomainIpc({
-      activeWorkspaceFileContextForProjectHost,
-      discoverAmbientCliPackages,
-      handleIpc,
-      saveAmbientCliPackageEnvSecret,
-      saveCapabilityBuilderEnvSecret,
-      saveMcpServerEnvSecret,
-      selectAmbientCliPackageForSecret,
-    });
-
-    registerSlashCommandIpc<ProjectRuntimeHost>({
-      handleIpc,
-      getFeatureFlagSnapshot: currentFeatureFlagSnapshot,
-      listGlobalWorkflowRecordingLibrary,
-      readCodexPluginCatalog,
-      requireActiveProjectRuntimeHost,
-      requireProjectRuntimeHostForWorkflowRecording,
-    });
-
-    registerTerminalDomainIpc<ProjectRuntimeHost>({
-      handleIpc,
-      activeThreadIdForHost,
-      assertTrustedTerminalIpc: (event) => assertTrustedMainWindowIpc(event),
-      classifyToolPermission,
-      emitPermissionAuditCreated,
-      isActiveProjectRuntimeHost,
-      projectRuntimeHostForTerminal,
-      projectRuntimeHostForWorkspacePath,
-      requestPermissionWithGrantRegistry,
-      requireProjectRuntimeHostForThread,
-      terminalStartTokens,
-    });
-
-    registerChatRuntimeDomainIpc<ProjectRuntimeHost>({
-      activeHost,
-      activeThreadId,
-      activeThreadIdForHost,
-      createAndRecordCheckpoint,
-      describeWorkspaceContextReferences,
-      emitDesktopEvent: (event) => mainWindow?.webContents.send("desktop:event", event),
-      emitProjectScopedEvent,
-      emitProjectStateIfActive,
-      emitThreadUpdated,
-      handleIpc,
-      isActiveProjectRuntimeHost,
-      prepareWorktreeForThread,
-      requireProjectRuntimeHostForThread,
-      setProjectHostActiveThreadId,
-      validateSlashCommandSelection: async (host, selection) => {
-        const description = await describeSlashCommandForProjectHost(
-          host,
-          { entryId: selection.entryId, includeUnavailable: true },
-          {
-            requireProjectRuntimeHostForWorkflowRecording,
-            readCodexPluginCatalog,
-            listGlobalWorkflowRecordingLibrary,
-            getFeatureFlagSnapshot: currentFeatureFlagSnapshot,
-          },
-        );
-        assertSlashCommandSelectionInvocable(selection, description);
-      },
-    });
-
-    registerE2eDomainIpc({
-      handleIpc,
-      isE2eEnabled: () => process.env.AMBIENT_E2E === "1",
-      emitDesktopEvent: (event, raw) => {
-        event.sender.send("desktop:event", raw);
-      },
-    });
 }

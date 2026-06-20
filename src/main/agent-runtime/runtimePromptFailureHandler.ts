@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
-import type { ChatMessage, InterruptedToolCallRecoverySnapshot, ProviderContinuationState, ToolArgumentProgressSnapshot } from "../../shared/threadTypes";
+import type { ChatMessage, InterruptedToolCallRecoverySnapshot, ProviderContinuationState, ThreadSummary, ToolArgumentProgressSnapshot } from "../../shared/threadTypes";
 import { AmbientStreamFailureError, isRetryableAmbientProviderError } from "./agentRuntimeAmbientFacade";
 import type { AmbientStreamFailureKind } from "./agentRuntimeAmbientFacade";
 import type { AssistantFinalizationRetryReason, AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agent-runtime/agentRuntimeAssistantRetryInput";
@@ -20,6 +20,7 @@ import {
   providerInterruptionFinalizationMessage,
   providerInterruptionRecoveryFailureFinalizationMessage,
 } from "./providerInterruptionFinalization";
+import type { CallableWorkflowParentBlockingBlock } from "./agentRuntimeCallableWorkflowFacade";
 import {
   preOutputStreamStallRetryFinalizationMessage,
   providerErrorBeforeToolRetryFinalizationMessage,
@@ -34,6 +35,12 @@ import {
   type SymphonyParentModePolicy,
 } from "./agentRuntimeSymphonyParentMode";
 import { symphonyParentModeRecoveryFinalizationMessage } from "./symphonyParentModeRecoveryFinalization";
+import { finalAssistantMessageModel } from "./finalAssistantMessage";
+import {
+  callableWorkflowFinalizationBlockedActivity,
+  subagentFinalizationBlockedActivity,
+  type SubagentFinalizationBarrierBlock,
+} from "./agentRuntimeFinalizationBlocking";
 
 interface RuntimePromptFailureToolArgumentProgress {
   current(toolCallId: string): ToolArgumentProgressSnapshot | undefined;
@@ -131,11 +138,24 @@ export interface RuntimePromptFailureHandlerInput {
   markOpenToolMessagesFailed: (reason: RuntimeOpenToolFailureReason) => void;
   persistToolArgumentDiagnostics: (force?: boolean) => void;
   replaceToolMessage: (messageId: string, content: string, metadata: Record<string, unknown>) => ChatMessage;
+  resolveSubagentFinalizationBlock?: (() => SubagentFinalizationBarrierBlock | undefined) | undefined;
+  resolveCallableWorkflowFinalizationBlock?: (() => CallableWorkflowParentBlockingBlock | undefined) | undefined;
+  recordSubagentFinalizationBlockedParentMailbox?: ((
+    block: SubagentFinalizationBarrierBlock,
+  ) => Array<{ id: string }>) | undefined;
+  recordCallableWorkflowFinalizationBlockedParentMailbox?: ((
+    block: CallableWorkflowParentBlockingBlock,
+  ) => { id: string } | undefined) | undefined;
+  suppressCallableWorkflowParentAssistantMessages?: ((
+    block: CallableWorkflowParentBlockingBlock,
+    options: { preserveMessageId?: string | undefined },
+  ) => void) | undefined;
   finishPlannerFinalizationSources: (
     status: "failed",
     options: { error: string; workflowState: "failed" },
   ) => void;
   finishParentRun: (status: "done" | "error" | "aborted" | "interrupted", errorMessage?: string) => void;
+  getThread: () => ThreadSummary;
   symphonyParentModePolicy?: SymphonyParentModePolicy | undefined;
   chatStreamInterruptionDiagnostic: (
     message: string,
@@ -170,6 +190,110 @@ export async function handleRuntimePromptFailure(input: RuntimePromptFailureHand
     input.emitRunEvent({ type: "open-api-key-dialog" });
   }
   const message = providerErrorDiagnostic.message;
+  if (input.streamWatchdogTimedOut() || input.error instanceof AmbientStreamFailureError) {
+    input.persistPiStreamTrace(message);
+  }
+  const callableWorkflowFailureBlock = !input.abortRequested()
+    ? input.resolveCallableWorkflowFinalizationBlock?.()
+    : undefined;
+  if (callableWorkflowFailureBlock) {
+    const failureKind: AmbientStreamFailureKind = input.streamWatchdogTimedOut()
+      ? input.currentPiStreamFailureKind()
+      : input.error instanceof AmbientStreamFailureError
+        ? input.error.kind
+        : "provider_error_event";
+    input.persistPiStreamTrace(message);
+    const streamInterruptionDiagnostic = input.chatStreamInterruptionDiagnostic(message, {
+      kind: failureKind,
+      retryScheduled: false,
+      replaySafe: false,
+      providerErrorDiagnostic,
+      completedToolMessageCount: input.toolMessages.size(),
+      receivedAnyText: input.receivedAnyText(),
+    });
+    const subagentFailureBlock = input.resolveSubagentFinalizationBlock?.();
+    input.cleanupCurrentSession({ clearPersistedSessionFileIfCurrent: true });
+    input.runtimeMessages.finishCurrentThinkingMessage("error", input.currentThinkingFinalText());
+    input.runtimeMessages.suppressCurrentThinkingMessage("error");
+    input.markOpenToolMessagesFailed(
+      "Parent finalization stopped after launching a blocking callable workflow. Ambient is waiting for the workflow task instead of preserving parent output.",
+    );
+    const subagentMailboxEvents = subagentFailureBlock
+      ? input.recordSubagentFinalizationBlockedParentMailbox?.(subagentFailureBlock) ?? []
+      : [];
+    const mailboxEvent = input.recordCallableWorkflowFinalizationBlockedParentMailbox?.(callableWorkflowFailureBlock);
+    const currentAssistantVisibleContent = input.runtimeMessages.currentMessageContent(
+      input.runtimeMessages.currentAssistantMessageId(),
+      input.currentAssistantFinalText(),
+    );
+    const parentFinalizationBlockMessage = [
+      subagentFailureBlock?.message,
+      callableWorkflowFailureBlock.message,
+    ].filter((item): item is string => Boolean(item)).join("\n\n");
+    const finalAssistant = finalAssistantMessageModel({
+      currentAssistantVisibleContent,
+      abortRequested: false,
+      abortMessage: "Run stopped.",
+      receivedAnyText: input.receivedAnyText(),
+      finalizedAfterToolIdle: false,
+      awaitingInputAfterTools: false,
+      emptyAssistantResponse: false,
+      retryEmptyAssistantResponse: false,
+      emptyResponseText: "",
+      assistantTerminalCleanupInterrupted: false,
+      parentFinalizationBlockMessage,
+      subagentFinalizationBlock: subagentFailureBlock,
+      subagentFinalizationParentMailboxEventIds: subagentMailboxEvents.map((event) => event.id),
+      callableWorkflowFinalizationBlock: callableWorkflowFailureBlock,
+      callableWorkflowFinalizationParentMailboxEventId: mailboxEvent?.id,
+      providerRetryBeforeVisibleOutput: false,
+      providerRetryRecovered: false,
+      providerRetryAttemptCount: input.providerRetryAttemptCount(),
+      discardProviderRetrySession: false,
+    });
+    const fallback = input.runtimeMessages.replaceCurrentAssistant(finalAssistant.content, {
+      ...finalAssistant.metadata,
+      providerErrorDiagnostic,
+      piStreamInterruption: streamInterruptionDiagnostic,
+    });
+    input.suppressCallableWorkflowParentAssistantMessages?.(callableWorkflowFailureBlock, {
+      preserveMessageId: fallback.id,
+    });
+    input.runtimeMessages.suppressAssistantMessagesExceptCurrent("error");
+    input.emitRunEvent({ type: "thread-updated", thread: input.getThread() });
+    input.finishPlannerFinalizationSources("failed", {
+      error: finalAssistant.finalizationErrorText,
+      workflowState: "failed",
+    });
+    input.finishParentRun("error", finalAssistant.finalizationErrorText);
+    input.emitRunEvent({ type: "message-updated", message: fallback });
+    if (subagentFailureBlock) {
+      input.emitRunEvent({
+        type: "runtime-activity",
+        activity: subagentFinalizationBlockedActivity({
+          threadId: input.threadId,
+          outputChars: currentAssistantVisibleContent.length,
+          block: subagentFailureBlock,
+        }),
+      });
+    }
+    input.emitRunEvent({
+      type: "runtime-activity",
+      activity: callableWorkflowFinalizationBlockedActivity({
+        threadId: input.threadId,
+        outputChars: currentAssistantVisibleContent.length,
+        block: callableWorkflowFailureBlock,
+      }),
+    });
+    input.emitRunEvent({ type: "run-status", threadId: input.threadId, status: "error" });
+    input.emitRunEvent({
+      type: "error",
+      message: finalAssistant.finalizationErrorText,
+      threadId: input.threadId,
+      workspacePath: input.workspacePath,
+    });
+    return;
+  }
   if (isSymphonyParentModeMissingWorkflowTaskError(input.error)) {
     input.cleanupCurrentSession({ clearPersistedSessionFileIfCurrent: true });
     input.runtimeMessages.finishCurrentThinkingMessage("error", input.currentThinkingFinalText());
@@ -190,9 +314,6 @@ export async function handleRuntimePromptFailure(input: RuntimePromptFailureHand
     return;
   }
   const preOutputStreamStallRetryReason: AssistantFinalizationRetryReason = "pre_output_stream_stall";
-  if (input.streamWatchdogTimedOut() || input.error instanceof AmbientStreamFailureError) {
-    input.persistPiStreamTrace(message);
-  }
   const retryPreOutputStreamStall =
     input.streamWatchdogTimedOut() &&
     input.canScheduleAssistantFinalizationRetryFor(preOutputStreamStallRetryReason) &&

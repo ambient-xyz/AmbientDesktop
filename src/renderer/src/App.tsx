@@ -475,10 +475,6 @@ import {
   thinkingDisplayOptions,
   ApiKeyStatus,
   LinkContextMenuState,
-  UtilityPanel,
-  SettingsFocusRequest,
-  ArtifactPreviewRequest,
-  GitPanelTabRequest,
   GitConfirmation,
   VoiceProviderCacheStatus,
   VoiceProviderCacheActivity,
@@ -645,7 +641,7 @@ import {
   threadGoalKey,
 } from "./AppDesktopStateFreshness";
 import { AppTopbar } from "./AppTopbar";
-import { createAppRightPanelControls } from "./AppRightPanelControls";
+import { useAppRightPanelState } from "./AppRightPanelState";
 import {
   createComposerDraftStore,
   type ChatComposerInputHandle,
@@ -733,10 +729,7 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialSidebarWidth);
   const [sidebarArea, setSidebarArea] = useState<SidebarArea>("projects");
-  const [rightPanel, setRightPanel] = useState<UtilityPanel | undefined>();
-  const [rightPanelWidth, setRightPanelWidth] = useState(520);
   const [workflowRecorderReviewPanelWidth, setWorkflowRecorderReviewPanelWidth] = useState(420);
-  const [settingsFocusRequest, setSettingsFocusRequest] = useState<SettingsFocusRequest | undefined>();
   const [searchRoutingHydrating, setSearchRoutingHydrating] = useState(false);
   const [searchRoutingHydrationError, setSearchRoutingHydrationError] = useState<string | undefined>();
   const [agentMemoryDiagnostics, setAgentMemoryDiagnostics] = useState<AgentMemoryStorageDiagnostics | undefined>();
@@ -746,11 +739,16 @@ export function App() {
   const [agentMemoryEmbeddingActionLoading, setAgentMemoryEmbeddingActionLoading] = useState<AgentMemoryEmbeddingLifecycleActionKind | undefined>();
   const [agentMemoryEmbeddingActionResult, setAgentMemoryEmbeddingActionResult] = useState<AgentMemoryEmbeddingLifecycleActionResult | undefined>();
   const [agentMemoryEmbeddingActionError, setAgentMemoryEmbeddingActionError] = useState<string | undefined>();
-  const [artifactPreviewRequest, setArtifactPreviewRequest] = useState<ArtifactPreviewRequest | undefined>();
-  const [localFilePreviewRequest, setLocalFilePreviewRequest] = useState<ArtifactPreviewRequest | undefined>();
   const [mediaPreviewModal, setMediaPreviewModal] = useState<MediaPreviewModalRequest | undefined>();
-  const [gitPanelTabRequest, setGitPanelTabRequest] = useState<GitPanelTabRequest>({ tab: "summary", nonce: 0 });
   const {
+    rightPanel,
+    setRightPanel,
+    rightPanelWidth,
+    setRightPanelWidth,
+    settingsFocusRequest,
+    artifactPreviewRequest,
+    localFilePreviewRequest,
+    gitPanelTabRequest,
     togglePanel,
     openPanel,
     openMcpRuntimeSettings,
@@ -758,13 +756,7 @@ export function App() {
     openGitSummaryPanel,
     previewArtifact,
     previewLocalFile,
-  } = createAppRightPanelControls({
-    setRightPanel,
-    setSettingsFocusRequest,
-    setArtifactPreviewRequest,
-    setLocalFilePreviewRequest,
-    setGitPanelTabRequest,
-  });
+  } = useAppRightPanelState();
   const [runActivityLinesByThread, setRunActivityLinesByThread] = useState<Record<string, RunActivityLine[]>>({});
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");

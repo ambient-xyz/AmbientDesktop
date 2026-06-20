@@ -65,6 +65,8 @@ function runtimeMessages(): RuntimeAssistantMessageController {
     currentAssistantMessageId: vi.fn(() => "assistant-1"),
     currentMessageContent: vi.fn(() => "Final answer"),
     finishCurrentThinkingMessage: vi.fn(),
+    suppressAssistantMessagesExceptCurrent: vi.fn(),
+    suppressCurrentThinkingMessage: vi.fn(),
   } as unknown as RuntimeAssistantMessageController;
 }
 
@@ -85,6 +87,8 @@ function failureRuntimeMessages(): RuntimeAssistantMessageController {
     currentAssistantMessageId: vi.fn(() => "assistant-1"),
     currentMessageContent: vi.fn((_, fallback) => fallback),
     finishCurrentThinkingMessage: vi.fn(),
+    suppressAssistantMessagesExceptCurrent: vi.fn(),
+    suppressCurrentThinkingMessage: vi.fn(),
     replaceCurrentAssistant: vi.fn((content: string, metadata?: Record<string, unknown>) =>
       message({ id: "assistant-1", content, metadata })),
   } as unknown as RuntimeAssistantMessageController;
@@ -136,6 +140,7 @@ function controllerOptions(overrides: Partial<AgentRuntimePromptOutcomeControlle
     resolveCallableWorkflowFinalizationBlock: vi.fn(() => undefined),
     recordSubagentFinalizationBlockedParentMailbox: vi.fn(() => []),
     recordCallableWorkflowFinalizationBlockedParentMailbox: vi.fn(),
+    suppressCallableWorkflowParentAssistantMessages: vi.fn(),
     recordVoiceDispatch: vi.fn(),
     clearActiveRun: vi.fn(),
     clearActiveRunId: vi.fn(),
@@ -189,6 +194,7 @@ describe("AgentRuntimePromptOutcomeController", () => {
     await new AgentRuntimePromptOutcomeController(options).handlePromptFailure({
       error: new Error("Ambient/Pi stream stalled after 30000 ms without stream activity."),
       sendInput: followUp("user request"),
+      runId: "run-1",
       runWorkspacePath: "/workspace",
       usesDedicatedReviewSession: false,
       assistantFinalizationRetryMaxRetries: 3,
@@ -238,6 +244,7 @@ describe("AgentRuntimePromptOutcomeController", () => {
       persistToolArgumentDiagnostics: vi.fn(),
       finishPlannerFinalizationSources: vi.fn(),
       finishParentRun: vi.fn(),
+      getThread: vi.fn(() => thread()),
       symphonyParentModePolicy,
       symphonyParentModeVerifiedLaunch,
       chatStreamInterruptionDiagnostic: vi.fn((text) => ({
@@ -316,6 +323,8 @@ describe("AgentRuntimePromptOutcomeController", () => {
       reason: "run-finished",
     }));
     expect(runtimeMessageController.finishCurrentThinkingMessage).toHaveBeenCalledWith("done", "thinking");
+    expect(runtimeMessageController.suppressAssistantMessagesExceptCurrent).not.toHaveBeenCalled();
+    expect(runtimeMessageController.suppressCurrentThinkingMessage).not.toHaveBeenCalled();
     expect(options.replaceMessage).toHaveBeenCalledWith(
       "assistant-1",
       "Final answer",

@@ -1,9 +1,14 @@
 import type { AmbientCliPackageSummary } from "../agentRuntimeAmbientCliFacade";
 
-export function selectAmbientCliPackageForRuntime(
-  packages: AmbientCliPackageSummary[],
+export interface AmbientCliPackageSelectionCandidate {
+  id: string;
+  name: string;
+}
+
+export function selectAmbientCliPackage<T extends AmbientCliPackageSelectionCandidate>(
+  packages: T[],
   selector: { packageId?: string; packageName?: string },
-): AmbientCliPackageSummary {
+): T {
   if (selector.packageId) {
     const pkg = packages.find((candidate) => candidate.id === selector.packageId);
     if (!pkg) throw new Error(`Ambient CLI package "${selector.packageId}" was not found.`);
@@ -16,4 +21,11 @@ export function selectAmbientCliPackageForRuntime(
     throw new Error(`Ambient CLI package "${selector.packageName}" was not found.`);
   }
   throw new Error("packageId or packageName is required.");
+}
+
+export function selectAmbientCliPackageForRuntime<T extends AmbientCliPackageSelectionCandidate = AmbientCliPackageSummary>(
+  packages: T[],
+  selector: { packageId?: string; packageName?: string },
+): T {
+  return selectAmbientCliPackage(packages, selector);
 }

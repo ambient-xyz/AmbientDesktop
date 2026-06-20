@@ -83,7 +83,7 @@ export function symphonyWorkflowComposerPrompt(
       `Call the parent-visible callable workflow tool exactly once: ${toolName}.`,
       "Use this JSON input:",
       JSON.stringify(toolInput, null, 2),
-      "After the tool queues the visible background workflow task, explain the task status, blocking mode, launch-card risk, and what result artifact is still pending.",
+      "After the tool queues the visible background workflow task, do not explain task status in chat. Let Ambient's workflow task surface show status, blocking mode, launch-card risk, and pending result artifacts.",
       "Symphony parent-mode contract: act only as the conductor. You may select the pattern, launch/observe workflow-managed child work, retry/re-scope, ask the user for a decision, and synthesize from completed child evidence.",
       "Do not perform substantive worker actions in the parent: no browser or web research, shell/bash, file read/write, verifier/testing work, or parent-generated substitute findings.",
       "If child work fails, times out, needs approval, or is unavailable, choose retry, re-scope, ask the user, accept partial only when explicitly allowed, cancel the group, or exit Symphony mode. Never silently replace the child with parent work.",

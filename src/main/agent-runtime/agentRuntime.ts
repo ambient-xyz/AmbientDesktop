@@ -1243,6 +1243,8 @@ export class AgentRuntime {
         this.recordSubagentFinalizationBlockedParentMailbox(threadId, runId, block),
       recordCallableWorkflowFinalizationBlockedParentMailbox: (threadId, runId, block) =>
         this.recordCallableWorkflowFinalizationBlockedParentMailbox(threadId, runId, block),
+      suppressCallableWorkflowParentAssistantMessages: (block, options) =>
+        this.suppressCallableWorkflowParentAssistantMessages(block, options),
       recordVoiceDispatch: (message) => this.recordVoiceDispatch(message),
       clearActiveRun: (threadId) => {
         this.activeRuns.delete(threadId);
@@ -1970,6 +1972,7 @@ export class AgentRuntime {
       await this.promptOutcomes.handlePromptFailure({
         error,
         sendInput: input,
+        runId: run.id,
         runWorkspacePath,
         usesDedicatedReviewSession,
         activeAssistantFinalizationRetry,
@@ -2016,6 +2019,7 @@ export class AgentRuntime {
         persistToolArgumentDiagnostics,
         finishPlannerFinalizationSources,
         finishParentRun,
+        getThread: () => this.store.getThread(input.threadId),
         symphonyParentModePolicy,
         symphonyParentModeVerifiedLaunch,
         chatStreamInterruptionDiagnostic,
@@ -3100,6 +3104,47 @@ export class AgentRuntime {
           .filter((task) => task.id === carriedLaunch.taskId)
         : [],
     });
+  }
+
+  private suppressCallableWorkflowParentAssistantMessages(
+    block: CallableWorkflowParentBlockingBlock,
+    options: { preserveMessageId?: string | undefined } = {},
+  ): void {
+    const parentThreadId = block.parentThreadId;
+    if (!parentThreadId) return;
+    const cutoff = block.tasks
+      .map((task) => task.createdAt)
+      .filter((value) => typeof value === "string" && value.length > 0)
+      .sort()[0];
+    const parentMessageIds = new Set(
+      [block.parentMessageId, ...block.tasks.map((task) => task.parentMessageId)]
+        .filter((value): value is string => typeof value === "string" && value.length > 0),
+    );
+    if (!cutoff && parentMessageIds.size === 0) return;
+    const taskIds = block.taskIds;
+    let suppressedCount = 0;
+    for (const message of this.store.listMessages(parentThreadId)) {
+      if (message.id === options.preserveMessageId) continue;
+      if (message.role !== "assistant") continue;
+      const explicitlyOwnedByWorkflow = parentMessageIds.has(message.id);
+      const createdAfterWorkflowTask = cutoff ? message.createdAt >= cutoff : false;
+      if (!explicitlyOwnedByWorkflow && !createdAfterWorkflowTask) continue;
+      if (message.content.trim().length === 0) continue;
+      const updated = this.store.replaceMessage(message.id, "", {
+        ...piAssistantMessageMetadata("error"),
+        callableWorkflowParentOutputSuppressed: {
+          reason: block.reason,
+          taskIds,
+          ...(cutoff ? { cutoffCreatedAt: cutoff } : {}),
+          ...(explicitlyOwnedByWorkflow ? { parentMessageId: message.id } : {}),
+        },
+      });
+      suppressedCount += 1;
+      this.emit({ type: "message-updated", message: updated });
+    }
+    if (suppressedCount > 0) {
+      this.emit({ type: "thread-updated", thread: this.store.getThread(parentThreadId) });
+    }
   }
 
   private emitSubagentRunEventsSince(run: SubagentRunSummary, sequence: number): void {

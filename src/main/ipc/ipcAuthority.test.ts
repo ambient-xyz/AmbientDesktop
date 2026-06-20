@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const mainSource = readSource("src/main/index.ts");
+const desktopIpcTrustServiceSource = readSource("src/main/security/desktopIpcTrustService.ts");
+const pluginDesktopServiceSource = readSource("src/main/plugins/pluginDesktopService.ts");
 const mainHandleSources = readMainHandleSources();
 const ambientIpcSource = readSource("src/main/ipc/registerAmbientIpc.ts");
 const diagnosticsExportDomainIpcSource = readSource("src/main/ipc/registerDiagnosticsExportDomainIpc.ts");
@@ -29,7 +31,7 @@ function readSource(relativePath: string): string {
 }
 
 function readMainHandleSources(): string {
-  const sources = [mainSource];
+  const sources = [mainSource, desktopIpcTrustServiceSource];
   const ipcDir = resolve(process.cwd(), "src/main/ipc");
   for (const entry of readdirSync(ipcDir, { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts")) {
@@ -43,7 +45,7 @@ describe("IPC authority boundary", () => {
   it("routes every main-process invoke handler through the sender-validating wrapper", () => {
     const rawMainHandlerCount = mainHandleSources.match(/\bipcMain\.handle\(/g)?.length ?? 0;
     expect(rawMainHandlerCount).toBe(1);
-    expect(mainSource).toMatch(/function handleIpc[\s\S]*ipcMain\.handle\(channel[\s\S]*assertTrustedMainWindowIpc\(event, `IPC channel "\$\{channel\}"`\)/);
+    expect(desktopIpcTrustServiceSource).toMatch(/function handleIpc[\s\S]*ipcMain\.handle\(channel[\s\S]*assertTrustedMainWindowIpc\(event, `IPC channel "\$\{channel\}"`\)/);
 
     const allRegisteredChannels = [...mainHandleSources.matchAll(/\bhandleIpc\("([^"]+)"/g)].map((match) => match[1]).filter((item): item is string => Boolean(item));
     const registeredChannels = [...new Set(allRegisteredChannels)].sort();
@@ -71,19 +73,20 @@ describe("IPC authority boundary", () => {
   });
 
   it("limits trusted renderer IPC origins to exact renderer entrypoints", () => {
-    const trustedRendererRegion = sourceBetween(mainSource, "function isTrustedRendererUrl", "\nasync function readCodexPluginCatalog");
+    const trustedRendererRegion = sourceBetween(desktopIpcTrustServiceSource, "function isTrustedRendererUrl", "\n  return {");
 
     expect(trustedRendererRegion).toContain("trustedMainRendererUrl()");
     expect(trustedRendererRegion).toContain("url.href === trustedUrl.href");
     expect(trustedRendererRegion).toContain("url.origin === trustedUrl.origin");
-    expect(trustedRendererRegion).toContain('pathToFileURL(resolveBuiltOutputPath("renderer", "index.html"))');
+    expect(trustedRendererRegion).toContain("builtRendererUrl()");
+    expect(mainSource).toContain('builtRendererUrl: () => pathToFileURL(resolveBuiltOutputPath("renderer", "index.html"))');
     expect(trustedRendererRegion).not.toContain('url.protocol === "file:") return true');
     expect(trustedRendererRegion).not.toContain('isLoopbackHost(url.hostname)) return true');
   });
 
   it("binds diagnostic export reads to the runtime host captured at export start", () => {
-    const diagnosticSource = sourceBetween(mainSource, "function createMainDiagnosticSource", "\nasync function readDiagnosticSection");
-    expect(diagnosticSource).toContain("host: ProjectRuntimeHost = requireActiveProjectRuntimeHost()");
+    const diagnosticSource = sourceBetween(pluginDesktopServiceSource, "function createMainDiagnosticSource", "\n  function revokePluginGrantsForLabels");
+    expect(diagnosticSource).toContain("host = dependencies.defaultHost()");
     expect(diagnosticSource).toContain("const targetStore = host.store;");
     expect(diagnosticSource).toContain("const targetRuntime = host.runtime;");
     expect(diagnosticSource).toContain("readAmbientPluginRegistry(targetStore)");

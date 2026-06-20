@@ -1,18 +1,53 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { cp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, relative } from "node:path";
-import type { BrowserCapabilityState, BrowserContentInput, BrowserEvaluateInput, BrowserKeypressFocusResult, BrowserKeypressInput, BrowserKeypressKeyInput, BrowserKeypressKeyResult, BrowserKeypressResult, BrowserLoginRequest, BrowserLoginResult, BrowserNavigateInput, BrowserPageContent, BrowserPickInput, BrowserPickResult, BrowserPickSelection, BrowserProfileMode, BrowserRevealInput, BrowserRevealResult, BrowserRuntimeKind, BrowserScreenshotResult, BrowserSearchInput, BrowserSearchResult, BrowserSessionLifecycleAction, BrowserSessionLifecycleEvent, BrowserStartInput, BrowserTabSnapshot, BrowserUserActionKind, BrowserUserActionProvider, BrowserUserActionState, BrowserViewBoundsInput } from "../../shared/browserTypes";
+import type { BrowserCapabilityState, BrowserContentInput, BrowserEvaluateInput, BrowserKeypressFocusResult, BrowserKeypressInput, BrowserKeypressKeyInput, BrowserKeypressKeyResult, BrowserKeypressResult, BrowserLoginRequest, BrowserLoginResult, BrowserNavigateInput, BrowserPageContent, BrowserPickInput, BrowserPickResult, BrowserPickSelection, BrowserProfileMode, BrowserRevealInput, BrowserRevealResult, BrowserRuntimeKind, BrowserScreenshotResult, BrowserSearchInput, BrowserSearchResult, BrowserSessionLifecycleEvent, BrowserStartInput, BrowserTabSnapshot, BrowserUserActionKind, BrowserUserActionProvider, BrowserUserActionState, BrowserViewBoundsInput } from "../../shared/browserTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
+import {
+  BrowserChromeTargetController,
+  fetchJson,
+  JsonRpcWebSocketClient,
+  type ChromeTargetInfo,
+  type ChromeVersionInfo,
+} from "./browserChromeTargetController";
+import {
+  BrowserChromeSessionStore,
+  browserSessionLifecycleEvent,
+  type BrowserPaths,
+} from "./browserChromeSessionStore";
+import {
+  assertBrowserScreenshotTargetLoaded,
+  BrowserChromeScreenshotController,
+} from "./browserChromeScreenshotController";
+import {
+  assertBrowserNavigationReachedRequestedPage,
+  assertLocalBrowserNavigationReachable,
+  isAboutBlankUrl,
+  isLocalBrowserHttpUrl,
+  normalizeBrowserUrl,
+} from "./browserNavigation";
 import { shouldReloadBrowserUrlForWorkspaceChange } from "./browserRefresh";
 
-export const BROWSER_SCREENSHOT_MIME_TYPE = "image/png";
+export {
+  assertBrowserScreenshotTargetLoaded,
+  browserScreenshotArtifactPath,
+  browserScreenshotStorageTarget,
+  BROWSER_SCREENSHOT_MIME_TYPE,
+  pngImageDimensions,
+  type BrowserScreenshotStorageTarget,
+} from "./browserChromeScreenshotController";
 
-interface ChromeVersionInfo {
-  webSocketDebuggerUrl?: string;
-}
+export {
+  assertBrowserNavigationReachedRequestedPage,
+  assertLocalBrowserNavigationReachable,
+  browserNavigationReachedExpectedUrl,
+  LOCAL_BROWSER_NAVIGATION_PREFLIGHT_TIMEOUT_MS,
+  normalizeBrowserUrl,
+  PAGE_READY_TIMEOUT_MS,
+} from "./browserNavigation";
 
 export interface ChromeDevToolsEndpoint {
   port: number;
@@ -23,30 +58,6 @@ export interface ChromeAvailability {
   available: boolean;
   executable?: string;
   unavailableReason?: string;
-}
-
-interface ChromeTargetInfo {
-  id: string;
-  type: string;
-  title?: string;
-  url?: string;
-  webSocketDebuggerUrl?: string;
-}
-
-interface BrowserPaths {
-  root: string;
-  copiedProfile: string;
-  copiedProfileMetadata: string;
-  profilesRoot: string;
-  isolatedProfile: string;
-  sessionsRoot: string;
-  sessionManifests: string;
-  screenshots: string;
-}
-
-export interface BrowserScreenshotStorageTarget {
-  screenshots: string;
-  artifactWorkspacePath: string;
 }
 
 interface CopiedChromeProfileMetadata {
@@ -61,20 +72,6 @@ interface InternalBrowserStateSnapshot {
   lastActivity?: string;
   lastError?: string;
   viewVisible?: boolean;
-}
-
-interface ChromeSessionManifest {
-  id: string;
-  workspacePath: string;
-  profileMode: BrowserProfileMode;
-  profilePath: string;
-  profileEphemeral: boolean;
-  processId?: number;
-  devToolsPort: number;
-  browserWsUrl: string;
-  activeTargetId?: string;
-  createdAt: string;
-  lastUsedAt: string;
 }
 
 export interface InternalBrowserBackend {
@@ -127,8 +124,6 @@ export interface BrowserServiceOptions {
 
 const DEFAULT_PROFILE_MODE: BrowserProfileMode = "isolated";
 const START_TIMEOUT_MS = 15_000;
-export const PAGE_READY_TIMEOUT_MS = 10_000;
-export const LOCAL_BROWSER_NAVIGATION_PREFLIGHT_TIMEOUT_MS = 2_500;
 export const PICK_TIMEOUT_MS = 300_000;
 export const MAX_BROWSER_TEXT = 12_000;
 const MAX_PICK_HTML = 500;
@@ -216,12 +211,49 @@ export class BrowserService {
         activityTimer?: NodeJS.Timeout;
       }
     | undefined;
+  private readonly chromeSessions: BrowserChromeSessionStore;
+  private readonly chromeTargets: BrowserChromeTargetController;
+  private readonly chromeScreenshots: BrowserChromeScreenshotController;
 
   constructor(
     private readonly getWorkspace: () => WorkspaceState,
     private readonly internalBrowser?: InternalBrowserBackend,
     private readonly options: BrowserServiceOptions = {},
   ) {
+    this.chromeSessions = new BrowserChromeSessionStore(getWorkspace);
+    this.chromeTargets = new BrowserChromeTargetController({
+      getPort: () => this.port,
+      getBrowserWsUrl: () => this.browserWsUrl,
+      setBrowserWsUrl: (url) => {
+        this.browserWsUrl = url;
+      },
+      getActiveTargetId: () => this.activeTargetId,
+      setActiveTargetId: (targetId) => {
+        this.activeTargetId = targetId;
+      },
+      setLastActiveTab: (tab) => {
+        this.lastActiveTab = tab;
+      },
+      waitForVersion: () => this.waitForVersion(),
+      writeChromeSessionManifest: () => this.writeChromeSessionManifest(),
+      managedChromeRevealBounds: () =>
+        this.options.managedChromeRevealBounds?.() ?? managedChromeRevealBoundsForWorkArea({ x: 0, y: 0, width: 1440, height: 900 }),
+    });
+    this.chromeScreenshots = new BrowserChromeScreenshotController({
+      getWorkspace,
+      ensureChromeStarted: (profileMode) => this.ensureChromeStarted(profileMode),
+      getActiveTabSnapshot: () => this.getActiveTabSnapshot(),
+      connectActivePage: () => this.connectActivePage(),
+      refuseStateLosingInternalPreviewScreenshotIfBlank: (onActivity) => this.refuseStateLosingInternalPreviewScreenshotIfBlank(onActivity),
+      sameAsLastChromeBrowserActionTarget: (tab) => this.sameAsLastChromeBrowserActionTarget(tab),
+      captureChromeScreenshotData: () => this.captureChromeScreenshotData(),
+      setLastActivity: (message) => {
+        this.lastActivity = message;
+      },
+      setLastError: (message) => {
+        this.lastError = message;
+      },
+    });
     this.activeRuntime = internalBrowser?.isAvailable() ? "internal" : "chrome";
   }
 
@@ -347,7 +379,7 @@ export class BrowserService {
   }
 
   async copyChromeProfile(): Promise<BrowserCapabilityState> {
-    await this.copyChromeProfileIntoState(this.paths());
+    await this.copyChromeProfileIntoState(this.chromeSessions.paths());
     this.lastActivity = "Copied Chrome profile into Ambient-controlled state.";
     this.lastError = undefined;
     return this.getState();
@@ -380,8 +412,8 @@ export class BrowserService {
 
   async clearCopiedChromeProfile(): Promise<BrowserCapabilityState> {
     if (this.isChromeRunning() && this.profileMode === "copied") await this.stopChrome("Copied browser profile is being cleared.");
-    const paths = this.paths();
-    await this.clearChromeSessionManifest("copied").catch(() => undefined);
+    const paths = this.chromeSessions.paths();
+    await this.chromeSessions.clear("copied").catch(() => undefined);
     await rm(paths.copiedProfile, { recursive: true, force: true });
     await rm(paths.copiedProfileMetadata, { force: true });
     this.lastActivity = "Cleared copied Chrome profile.";
@@ -391,8 +423,8 @@ export class BrowserService {
 
   async clearIsolatedBrowserProfile(): Promise<BrowserCapabilityState> {
     if (this.isChromeRunning() && this.profileMode === "isolated") await this.stopChrome("Isolated browser profile is being cleared.");
-    const paths = this.paths();
-    await this.clearChromeSessionManifest("isolated").catch(() => undefined);
+    const paths = this.chromeSessions.paths();
+    await this.chromeSessions.clear("isolated").catch(() => undefined);
     await rm(paths.isolatedProfile, { recursive: true, force: true });
     this.clearUserAction("Cleared isolated browser profile.");
     this.lastActivity = "Cleared isolated browser profile.";
@@ -686,7 +718,7 @@ export class BrowserService {
     const executable = availability.executable;
     if (!executable) throw new BrowserUnavailableError(availability.unavailableReason ?? defaultChromeUnavailableReason());
 
-    const paths = this.paths();
+    const paths = this.chromeSessions.paths();
     mkdirSync(paths.root, { recursive: true });
     mkdirSync(paths.profilesRoot, { recursive: true });
     mkdirSync(paths.sessionsRoot, { recursive: true });
@@ -734,7 +766,12 @@ export class BrowserService {
     this.lastChromeBrowserActionTarget = undefined;
     this.activeRuntime = "chrome";
     this.lastActivity = `Started ${profileMode} browser profile${runtimeProfileEphemeral ? "" : " with persistent Ambient state"}.`;
-    this.recordChromeSessionEvent("started", "Started managed Chrome for Ambient browser tooling.");
+    this.lastSessionEvent = browserSessionLifecycleEvent(
+      "started",
+      "Started managed Chrome for Ambient browser tooling.",
+      this.profileMode,
+      this.chromeSessionId,
+    );
     this.lastError = undefined;
 
     child.once("exit", () => {
@@ -764,7 +801,7 @@ export class BrowserService {
 
   private async preserveChromeSession(reason: string): Promise<void> {
     if (!this.isChromeRunning()) return;
-    this.recordChromeSessionEvent("preserved", reason);
+    this.lastSessionEvent = browserSessionLifecycleEvent("preserved", reason, this.profileMode, this.chromeSessionId);
     this.child?.unref?.();
     this.child = undefined;
     this.attachedChrome = true;
@@ -800,7 +837,7 @@ export class BrowserService {
     this.lastActiveTab = undefined;
     this.lastChromeBrowserActionTarget = undefined;
     this.lastActivity = reason;
-    this.recordChromeSessionEvent("closed", reason, closedProfileMode, closedSessionId);
+    this.lastSessionEvent = browserSessionLifecycleEvent("closed", reason, closedProfileMode, closedSessionId);
     if (closeBrowserWsUrl) {
       await JsonRpcWebSocketClient.connect(closeBrowserWsUrl)
         .then(async (client) => {
@@ -820,7 +857,7 @@ export class BrowserService {
         await waitForChildProcessExit(child, 2_500);
       }
     }
-    await this.clearChromeSessionManifest().catch(() => undefined);
+    await this.chromeSessions.clear(this.profileMode).catch(() => undefined);
     if (this.runtimeProfilePath) {
       if (this.runtimeProfileEphemeral) await rm(this.runtimeProfilePath, { recursive: true, force: true }).catch(() => undefined);
       this.runtimeProfilePath = undefined;
@@ -994,38 +1031,7 @@ export class BrowserService {
   }
 
   private async screenshotChrome(input: BrowserStartInput & BrowserActivityInput = {}): Promise<BrowserScreenshotResult> {
-    await this.ensureChromeStarted(input.profileMode);
-    input.onActivity?.("Chrome browser runtime is ready.");
-    await this.refuseStateLosingInternalPreviewScreenshotIfBlank(input.onActivity);
-    const tabBeforeCapture = await this.getActiveTabSnapshot().catch(() => undefined);
-    assertBrowserScreenshotTargetLoaded(tabBeforeCapture);
-    const data = await this.captureChromeScreenshotData();
-    input.onActivity?.("Chrome screenshot bytes captured.");
-    const tab = await this.getActiveTabSnapshot().catch(() => undefined);
-    const sameTargetAsLastBrowserAction = this.sameAsLastChromeBrowserActionTarget(tab ?? tabBeforeCapture);
-    const fileName = `browser-${new Date().toISOString().replace(/[:.]/g, "-")}.png`;
-    const target = browserScreenshotStorageTarget(this.getWorkspace(), input);
-    mkdirSync(target.screenshots, { recursive: true });
-    const filePath = join(target.screenshots, fileName);
-    const bytes = Buffer.from(data, "base64");
-    const dimensions = pngImageDimensions(bytes);
-    await writeFile(filePath, bytes);
-    input.onActivity?.("Chrome screenshot artifact was written.");
-    this.lastActivity = `Captured browser screenshot ${fileName}.`;
-    return {
-      path: filePath,
-      artifactPath: browserScreenshotArtifactPath(target, filePath),
-      mimeType: BROWSER_SCREENSHOT_MIME_TYPE,
-      bytes: bytes.length,
-      ...(dimensions ? { width: dimensions.width, height: dimensions.height } : {}),
-      title: tab?.title,
-      url: tab?.url,
-      runtime: "chrome",
-      targetId: tab?.id ?? tabBeforeCapture?.id,
-      statePreserved: true,
-      freshLoad: false,
-      ...(sameTargetAsLastBrowserAction !== undefined ? { sameTargetAsLastBrowserAction } : {}),
-    };
+    return this.chromeScreenshots.screenshot(input);
   }
 
   private async pickChrome(input: BrowserPickInput): Promise<BrowserPickResult> {
@@ -1132,8 +1138,13 @@ export class BrowserService {
       this.attachedChrome = false;
       this.lastActiveTab = undefined;
       this.runtimeProfilePath = undefined;
-      this.recordChromeSessionEvent("closed", "Previously preserved managed Chrome session is no longer reachable.");
-      await this.clearChromeSessionManifest().catch(() => undefined);
+      this.lastSessionEvent = browserSessionLifecycleEvent(
+        "closed",
+        "Previously preserved managed Chrome session is no longer reachable.",
+        this.profileMode,
+        this.chromeSessionId,
+      );
+      await this.chromeSessions.clear(this.profileMode).catch(() => undefined);
     });
   }
 
@@ -1176,7 +1187,7 @@ export class BrowserService {
   }): BrowserCapabilityState {
     const chrome = chromeAvailability();
     const sourceProfilePath = chromeProfileSourcePath();
-    const paths = this.paths();
+    const paths = this.chromeSessions.paths();
     const copiedProfile = copiedChromeProfileState(paths);
     return {
       running: input.running,
@@ -1469,14 +1480,14 @@ export class BrowserService {
   }
 
   private async reattachChrome(profileMode: BrowserProfileMode): Promise<boolean> {
-    const manifest = await this.readChromeSessionManifest(profileMode);
+    const manifest = await this.chromeSessions.read(profileMode);
     if (!manifest) return false;
-    if (!isSubpath(this.paths().root, manifest.profilePath)) {
-      await this.clearChromeSessionManifest(profileMode).catch(() => undefined);
+    if (!isSubpath(this.chromeSessions.paths().root, manifest.profilePath)) {
+      await this.chromeSessions.clear(profileMode).catch(() => undefined);
       return false;
     }
     if (manifest.processId && !isProcessAlive(manifest.processId)) {
-      await this.clearChromeSessionManifest(profileMode).catch(() => undefined);
+      await this.chromeSessions.clear(profileMode).catch(() => undefined);
       return false;
     }
     this.port = manifest.devToolsPort;
@@ -1495,7 +1506,12 @@ export class BrowserService {
       await this.ensureActiveTarget();
       await this.writeChromeSessionManifest();
       this.lastActivity = `Reattached to existing ${profileMode} browser session.`;
-      this.recordChromeSessionEvent("reattached", "Reattached to preserved managed Chrome session.");
+      this.lastSessionEvent = browserSessionLifecycleEvent(
+        "reattached",
+        "Reattached to preserved managed Chrome session.",
+        this.profileMode,
+        this.chromeSessionId,
+      );
       this.lastError = undefined;
       return true;
     } catch {
@@ -1505,86 +1521,23 @@ export class BrowserService {
       this.chromeSessionId = undefined;
       this.chromeProcessId = undefined;
       this.attachedChrome = false;
-      await this.clearChromeSessionManifest(profileMode).catch(() => undefined);
+      await this.chromeSessions.clear(profileMode).catch(() => undefined);
       return false;
-    }
-  }
-
-  private recordChromeSessionEvent(
-    action: BrowserSessionLifecycleAction,
-    reason: string,
-    profileMode = this.profileMode,
-    sessionId = this.chromeSessionId,
-  ): void {
-    this.lastSessionEvent = {
-      action,
-      reason,
-      at: new Date().toISOString(),
-      profileMode,
-      ...(sessionId ? { sessionId } : {}),
-    };
-  }
-
-  private chromeSessionManifestPath(profileMode = this.profileMode): string {
-    return join(this.paths().sessionManifests, `${profileMode}.json`);
-  }
-
-  private async readChromeSessionManifest(profileMode: BrowserProfileMode): Promise<ChromeSessionManifest | undefined> {
-    try {
-      const parsed = JSON.parse(await readFile(this.chromeSessionManifestPath(profileMode), "utf8")) as Partial<ChromeSessionManifest>;
-      if (
-        typeof parsed.id !== "string" ||
-        typeof parsed.workspacePath !== "string" ||
-        parsed.workspacePath !== this.getWorkspace().path ||
-        parsed.profileMode !== profileMode ||
-        typeof parsed.profilePath !== "string" ||
-        typeof parsed.devToolsPort !== "number" ||
-        typeof parsed.browserWsUrl !== "string"
-      ) {
-        return undefined;
-      }
-      return {
-        id: parsed.id,
-        workspacePath: parsed.workspacePath,
-        profileMode,
-        profilePath: parsed.profilePath,
-        profileEphemeral: parsed.profileEphemeral === true,
-        processId: typeof parsed.processId === "number" ? parsed.processId : undefined,
-        devToolsPort: parsed.devToolsPort,
-        browserWsUrl: parsed.browserWsUrl,
-        activeTargetId: typeof parsed.activeTargetId === "string" ? parsed.activeTargetId : undefined,
-        createdAt: typeof parsed.createdAt === "string" ? parsed.createdAt : new Date().toISOString(),
-        lastUsedAt: typeof parsed.lastUsedAt === "string" ? parsed.lastUsedAt : new Date().toISOString(),
-      };
-    } catch {
-      return undefined;
     }
   }
 
   private async writeChromeSessionManifest(): Promise<void> {
     if (!this.port || !this.browserWsUrl || !this.runtimeProfilePath || !this.chromeSessionId) return;
-    const path = this.chromeSessionManifestPath();
-    mkdirSync(this.paths().sessionManifests, { recursive: true });
-    const existing = await this.readChromeSessionManifest(this.profileMode);
-    const now = new Date().toISOString();
-    const manifest: ChromeSessionManifest = {
-      id: this.chromeSessionId,
-      workspacePath: this.getWorkspace().path,
+    await this.chromeSessions.write({
+      sessionId: this.chromeSessionId,
       profileMode: this.profileMode,
       profilePath: this.runtimeProfilePath,
       profileEphemeral: this.runtimeProfileEphemeral,
-      processId: this.child?.pid ?? this.chromeProcessId ?? existing?.processId,
+      processId: this.child?.pid ?? this.chromeProcessId,
       devToolsPort: this.port,
       browserWsUrl: this.browserWsUrl,
       activeTargetId: this.activeTargetId,
-      createdAt: existing?.id === this.chromeSessionId ? existing.createdAt : now,
-      lastUsedAt: now,
-    };
-    await writeFile(path, JSON.stringify(manifest, null, 2), "utf8");
-  }
-
-  private async clearChromeSessionManifest(profileMode = this.profileMode): Promise<void> {
-    await rm(this.chromeSessionManifestPath(profileMode), { force: true });
+    });
   }
 
   private hasInternalBrowser(): boolean {
@@ -1597,20 +1550,6 @@ export class BrowserService {
 
   private runtimeForRequest(profileMode: BrowserProfileMode, runtime?: BrowserRuntimeKind): BrowserRuntimeKind {
     return browserRuntimeForRequest(profileMode, runtime, this.hasInternalBrowser());
-  }
-
-  private paths(): BrowserPaths {
-    const root = join(this.getWorkspace().statePath, "browser");
-    return {
-      root,
-      copiedProfile: join(root, "copied-chrome-profile"),
-      copiedProfileMetadata: join(root, "copied-chrome-profile.json"),
-      profilesRoot: join(root, "profiles"),
-      isolatedProfile: join(root, "profiles", "isolated-chrome"),
-      sessionsRoot: join(root, "sessions"),
-      sessionManifests: join(root, "session-manifests"),
-      screenshots: join(root, "screenshots"),
-    };
   }
 
   private async waitForVersion(): Promise<ChromeVersionInfo> {
@@ -1662,36 +1601,15 @@ export class BrowserService {
   }
 
   private async targets(): Promise<ChromeTargetInfo[]> {
-    const targets = await fetchJson<ChromeTargetInfo[]>(this.browserUrl("/json"));
-    return targets.filter((target) => target.type === "page");
+    return this.chromeTargets.targets();
   }
 
   private async ensureActiveTarget(): Promise<ChromeTargetInfo> {
-    const targets = await this.targets();
-    const contentTargets = targets.filter(isChromeContentTarget);
-    const current = contentTargets.find((target) => target.id === this.activeTargetId) ?? contentTargets.at(-1);
-    if (current) {
-      this.activeTargetId = current.id;
-      this.lastActiveTab = { id: current.id, title: current.title, url: current.url };
-      return current;
-    }
-    await this.createTarget("about:blank");
-    const [created] = await this.targets();
-    if (!created) throw new Error("Chrome did not create a browser tab.");
-    this.activeTargetId = created.id;
-    this.lastActiveTab = { id: created.id, title: created.title, url: created.url };
-    return created;
+    return this.chromeTargets.ensureActiveTarget();
   }
 
   private async createTarget(url: string): Promise<void> {
-    const client = await this.connectBrowser();
-    try {
-      const result = await client.request<{ targetId?: string }>("Target.createTarget", { url });
-      if (result.targetId) this.activeTargetId = result.targetId;
-      await this.waitForPageReady(undefined, { expectedUrl: url });
-    } finally {
-      client.close();
-    }
+    return this.chromeTargets.createTarget(url);
   }
 
   private async closeActiveAboutBlankTarget(): Promise<boolean> {
@@ -1714,76 +1632,18 @@ export class BrowserService {
   }
 
   private async navigateActiveTarget(url: string): Promise<void> {
-    const target = await this.ensureActiveTarget();
-    const previousUrl = target.url;
-    const client = await this.connectChromeTargetPage(target);
-    try {
-      await client.request("Page.enable", {});
-      const navigation = await client.request<{ errorText?: string }>("Page.navigate", { url });
-      if (navigation.errorText && !isNavigationAbortErrorText(navigation.errorText)) throw new Error(`${navigation.errorText} loading '${url}'`);
-      await this.waitForPageReady(client, { expectedUrl: url, previousUrl });
-    } finally {
-      client.close();
-    }
+    return this.chromeTargets.navigateActiveTarget(url);
   }
 
   private async waitForPageReady(
     existingClient?: JsonRpcWebSocketClient,
     expectation: { expectedUrl?: string; previousUrl?: string } = {},
   ): Promise<void> {
-    const client = existingClient ?? (await this.connectActivePage());
-    const shouldClose = !existingClient;
-    try {
-      const startedAt = Date.now();
-      let lastHref: string | undefined;
-      while (Date.now() - startedAt < PAGE_READY_TIMEOUT_MS) {
-        const pageState = await client
-          .request<{ result?: { value?: { readyState?: string; href?: string } } }>("Runtime.evaluate", {
-            expression: "({ readyState: document.readyState, href: location.href })",
-            returnByValue: true,
-          })
-          .then((result) => result.result?.value)
-          .catch(() => undefined);
-        const readyState = pageState?.readyState;
-        lastHref = pageState?.href ?? lastHref;
-        if (
-          (readyState === "complete" || readyState === "interactive") &&
-          browserNavigationReachedExpectedUrl(expectation.expectedUrl, pageState?.href, expectation.previousUrl)
-        ) {
-          return;
-        }
-        await delay(200);
-      }
-      if (expectation.expectedUrl && isAboutBlankUrl(lastHref ?? "")) {
-        throw new Error(browserNavigationDidNotCommitMessage(normalizeBrowserUrl(expectation.expectedUrl)));
-      }
-    } finally {
-      if (shouldClose) client.close();
-    }
+    return this.chromeTargets.waitForPageReady(existingClient, expectation);
   }
 
   private async evaluatePage<T>(expression: string, timeoutMs = 15_000): Promise<T> {
-    const client = await this.connectActivePage();
-    try {
-      const result = await client.request<{
-        exceptionDetails?: { text?: string; exception?: { description?: string } };
-        result?: { value?: unknown; description?: string };
-      }>(
-        "Runtime.evaluate",
-        {
-          expression,
-          awaitPromise: true,
-          returnByValue: true,
-        },
-        timeoutMs,
-      );
-      if (result.exceptionDetails) {
-        throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text ?? "Browser evaluation failed.");
-      }
-      return (result.result?.value ?? result.result?.description ?? null) as T;
-    } finally {
-      client.close();
-    }
+    return this.chromeTargets.evaluatePage<T>(expression, timeoutMs);
   }
 
   private async detectChromeUserAction(): Promise<BrowserUserActionDetection | undefined> {
@@ -1791,74 +1651,35 @@ export class BrowserService {
   }
 
   private async getActiveTabSnapshot(): Promise<BrowserTabSnapshot> {
-    const target = await this.ensureActiveTarget();
-    return { id: target.id, title: target.title, url: target.url };
+    return this.chromeTargets.getActiveTabSnapshot();
   }
 
   private async connectBrowser(): Promise<JsonRpcWebSocketClient> {
-    if (!this.browserWsUrl) this.browserWsUrl = (await this.waitForVersion()).webSocketDebuggerUrl;
-    if (!this.browserWsUrl) throw new Error("Chrome did not expose a browser CDP endpoint.");
-    return JsonRpcWebSocketClient.connect(this.browserWsUrl);
+    return this.chromeTargets.connectBrowser();
   }
 
   private async connectActivePage(): Promise<JsonRpcWebSocketClient> {
-    const target = await this.ensureActiveTarget();
-    if (!target.webSocketDebuggerUrl) throw new Error("Active Chrome tab does not expose a CDP endpoint.");
-    return JsonRpcWebSocketClient.connect(target.webSocketDebuggerUrl);
+    return this.chromeTargets.connectActivePage();
   }
 
   private async ensureChromeTarget(targetId?: string): Promise<ChromeTargetInfo> {
-    if (!targetId) return this.ensureActiveTarget();
-    const targets = await this.targets();
-    const target = targets.find((candidate) => candidate.id === targetId);
-    if (!target) return this.ensureActiveTarget();
-    this.activeTargetId = target.id;
-    this.lastActiveTab = { id: target.id, title: target.title, url: target.url };
-    return target;
+    return this.chromeTargets.ensureChromeTarget(targetId);
   }
 
   private async connectChromeTargetPage(target: ChromeTargetInfo): Promise<JsonRpcWebSocketClient> {
-    if (!target.webSocketDebuggerUrl) throw new Error("Chrome tab does not expose a CDP endpoint.");
-    return JsonRpcWebSocketClient.connect(target.webSocketDebuggerUrl);
+    return this.chromeTargets.connectChromeTargetPage(target);
   }
 
   private browserUrl(path: string): string {
-    if (!this.port) throw new Error("Browser is not running.");
-    return `http://127.0.0.1:${this.port}${path}`;
+    return this.chromeTargets.browserUrl(path);
   }
 
   private async setActiveChromeWindowState(windowState: "normal" | "minimized", targetId = this.activeTargetId): Promise<void> {
-    if (!targetId) return;
-    const browser = await this.connectBrowser();
-    try {
-      const windowInfo = await browser.request<{ windowId?: number }>("Browser.getWindowForTarget", { targetId }, 5_000);
-      if (typeof windowInfo.windowId !== "number") return;
-      await browser.request("Browser.setWindowBounds", { windowId: windowInfo.windowId, bounds: { windowState } }, 5_000);
-    } finally {
-      browser.close();
-    }
+    return this.chromeTargets.setActiveWindowState(windowState, targetId);
   }
 
   private async setActiveChromeWindowBounds(bounds: ManagedChromeWindowBounds, targetId = this.activeTargetId): Promise<void> {
-    if (!targetId) return;
-    const browser = await this.connectBrowser();
-    try {
-      const windowInfo = await browser.request<{ windowId?: number }>("Browser.getWindowForTarget", { targetId }, 5_000);
-      if (typeof windowInfo.windowId !== "number") return;
-      await browser.request(
-        "Browser.setWindowBounds",
-        {
-          windowId: windowInfo.windowId,
-          bounds: {
-            windowState: "normal",
-            ...bounds,
-          },
-        },
-        5_000,
-      );
-    } finally {
-      browser.close();
-    }
+    return this.chromeTargets.setActiveWindowBounds(bounds, targetId);
   }
 
   private async revealManagedChromeWindow(input: ManagedChromeRevealInput): Promise<ManagedChromeRevealResult> {
@@ -1876,89 +1697,11 @@ export class BrowserService {
   }
 
   private async activateChromeTarget(targetId?: string): Promise<{ activated: boolean; activeTab?: BrowserTabSnapshot; reason?: string }> {
-    const target = await this.ensureChromeTarget(targetId);
-    const activeTab = { id: target.id, title: target.title, url: target.url };
-    let activated = false;
-    let reason: string | undefined;
-
-    const browser = await this.connectBrowser().catch((error) => {
-      reason = errorMessage(error);
-      return undefined;
-    });
-    if (browser) {
-      try {
-        const windowInfo = await browser.request<{ windowId?: number }>("Browser.getWindowForTarget", { targetId: target.id }, 5_000);
-        if (typeof windowInfo.windowId === "number") {
-          const revealBounds = this.options.managedChromeRevealBounds?.() ?? managedChromeRevealBoundsForWorkArea({ x: 0, y: 0, width: 1440, height: 900 });
-          await browser
-            .request("Browser.setWindowBounds", { windowId: windowInfo.windowId, bounds: { windowState: "normal", ...revealBounds } }, 5_000)
-            .catch((error) => {
-              reason = errorMessage(error);
-            });
-        }
-      } finally {
-        browser.close();
-      }
-    }
-
-    const page = await this.connectChromeTargetPage(target).catch((error) => {
-      reason = errorMessage(error);
-      return undefined;
-    });
-    if (page) {
-      try {
-        await page.request("Page.bringToFront", {}, 5_000);
-        activated = true;
-      } catch (error) {
-        reason = errorMessage(error);
-      } finally {
-        page.close();
-      }
-    }
-
-    this.lastActiveTab = activeTab;
-    await this.writeChromeSessionManifest().catch(() => undefined);
-    return { activated, activeTab, ...(reason ? { reason } : {}) };
+    return this.chromeTargets.activateTarget(targetId);
   }
 
   private async captureChromeScreenshotData(): Promise<string> {
-    const attempts: Array<{ prepare?: boolean; params: Record<string, unknown> }> = [
-      { params: { format: "png", fromSurface: true } },
-      { prepare: true, params: { format: "png", fromSurface: false, captureBeyondViewport: false } },
-      {
-        prepare: true,
-        params: {
-          format: "png",
-          fromSurface: true,
-          captureBeyondViewport: false,
-          clip: { x: 0, y: 0, width: 1280, height: 720, scale: 1 },
-        },
-      },
-    ];
-    let lastError: unknown;
-    for (const attempt of attempts) {
-      const client = await this.connectActivePage();
-      try {
-        await client.request("Page.enable", {}, 5_000).catch(() => undefined);
-        await client.request("Page.bringToFront", {}, 5_000).catch(() => undefined);
-        if (attempt.prepare) {
-          await client.request("Page.stopLoading", {}, 2_000).catch(() => undefined);
-          await client
-            .request("Runtime.evaluate", { expression: "window.stop(); true", returnByValue: true }, 2_000)
-            .catch(() => undefined);
-          await delay(350);
-        }
-        const result = await client.request<{ data?: string }>("Page.captureScreenshot", attempt.params, 12_000);
-        if (result.data) return result.data;
-        lastError = new Error("Chrome did not return screenshot data.");
-      } catch (error) {
-        lastError = error;
-      } finally {
-        client.close();
-      }
-    }
-    this.lastError = errorMessage(lastError);
-    throw lastError instanceof Error ? lastError : new Error("Chrome screenshot failed.");
+    return this.chromeScreenshots.captureChromeScreenshotData();
   }
 }
 
@@ -1989,95 +1732,6 @@ function browserUserActionWaitingActivity(state: BrowserUserActionState): string
   return `Waiting for the user to complete the ${subject}${provider} and click Confirmed.`;
 }
 
-class JsonRpcWebSocketClient {
-  private nextId = 1;
-  private readonly pending = new Map<
-    number,
-    {
-      resolve: (value: any) => void;
-      reject: (error: Error) => void;
-      timeout: NodeJS.Timeout;
-    }
-  >();
-
-  private constructor(private readonly socket: WebSocket) {
-    socket.addEventListener("message", (event) => this.onMessage(String(event.data)));
-    socket.addEventListener("close", () => this.rejectAll(new Error("Chrome CDP connection closed.")));
-    socket.addEventListener("error", () => this.rejectAll(new Error("Chrome CDP connection failed.")));
-  }
-
-  static connect(url: string): Promise<JsonRpcWebSocketClient> {
-    return new Promise((resolve, reject) => {
-      const socket = new WebSocket(url);
-      const timeout = setTimeout(() => {
-        socket.close();
-        reject(new Error("Timed out connecting to Chrome CDP."));
-      }, 8_000);
-      socket.addEventListener(
-        "open",
-        () => {
-          clearTimeout(timeout);
-          resolve(new JsonRpcWebSocketClient(socket));
-        },
-        { once: true },
-      );
-      socket.addEventListener(
-        "error",
-        () => {
-          clearTimeout(timeout);
-          reject(new Error("Unable to connect to Chrome CDP."));
-        },
-        { once: true },
-      );
-    });
-  }
-
-  request<T = any>(method: string, params: Record<string, unknown>, timeoutMs = 15_000): Promise<T> {
-    const id = this.nextId++;
-    const payload = JSON.stringify({ id, method, params });
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`Chrome CDP request timed out: ${method}`));
-      }, timeoutMs);
-      this.pending.set(id, { resolve, reject, timeout });
-      this.socket.send(payload);
-    });
-  }
-
-  close(): void {
-    this.socket.close();
-    this.rejectAll(new Error("Chrome CDP connection closed."));
-  }
-
-  private onMessage(raw: string): void {
-    let message: any;
-    try {
-      message = JSON.parse(raw);
-    } catch {
-      return;
-    }
-    if (typeof message.id !== "number") return;
-    const pending = this.pending.get(message.id);
-    if (!pending) return;
-    clearTimeout(pending.timeout);
-    this.pending.delete(message.id);
-    if (message.error) {
-      pending.reject(new Error(message.error.message ?? JSON.stringify(message.error)));
-      return;
-    }
-    pending.resolve(message.result ?? {});
-  }
-
-  private rejectAll(error: Error): void {
-    for (const [id, pending] of this.pending) {
-      clearTimeout(pending.timeout);
-      pending.reject(error);
-      this.pending.delete(id);
-    }
-  }
-}
-
 function childProcessExited(child: ChildProcess): boolean {
   return child.exitCode !== null || child.signalCode !== null;
 }
@@ -2097,14 +1751,6 @@ function waitForChildProcessExit(child: ChildProcess, timeoutMs: number): Promis
     child.once("exit", handleExit);
     child.once("close", handleExit);
   });
-}
-
-export function normalizeBrowserUrl(input: string): string {
-  const value = input.trim();
-  if (!value) throw new Error("URL is required.");
-  if (/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(value)) return `http://${value}`;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return value;
-  return `https://${value}`;
 }
 
 export function managedChromeLaunchArgs(runtimeProfilePath: string): string[] {
@@ -2136,125 +1782,6 @@ function clampManagedChromeDimension(preferred: number, available: number, minim
   const insetAvailable = Math.max(0, Math.round(available) - MANAGED_CHROME_REVEAL_MARGIN * 2);
   if (insetAvailable >= minimum) return Math.min(preferred, insetAvailable);
   return Math.min(preferred, Math.round(available));
-}
-
-export function assertBrowserNavigationReachedRequestedPage(requestedUrl: string, content: BrowserPageContent): BrowserPageContent {
-  const requested = normalizeBrowserUrl(requestedUrl);
-  const finalUrl = (content.url ?? "").trim();
-  if (isAboutBlankUrl(finalUrl) && !isAboutBlankUrl(requested)) {
-    throw new Error(browserNavigationDidNotCommitMessage(requested));
-  }
-  return content;
-}
-
-export function assertBrowserScreenshotTargetLoaded(activeTab: Pick<BrowserTabSnapshot, "url"> | undefined): void {
-  const url = activeTab?.url?.trim() ?? "";
-  if (url && !isAboutBlankUrl(url)) return;
-  throw new Error(
-    [
-      "Browser screenshot refused: the active browser target is about:blank.",
-      "Reopen the intended page with browser_local_preview or browser_nav before capturing visual evidence.",
-      "Ambient will not write an about:blank screenshot artifact.",
-    ].join(" "),
-  );
-}
-
-function isAboutBlankUrl(value: string): boolean {
-  return value.trim().toLowerCase() === "about:blank";
-}
-
-export function browserNavigationReachedExpectedUrl(
-  requestedUrl: string | undefined,
-  currentUrl: string | undefined,
-  previousUrl?: string,
-): boolean {
-  if (!requestedUrl) return true;
-  const requested = normalizeBrowserUrl(requestedUrl);
-  const current = (currentUrl ?? "").trim();
-  if (isAboutBlankUrl(requested)) return isAboutBlankUrl(current);
-  if (!current || isAboutBlankUrl(current)) return false;
-  if (urlsEquivalentForBrowserNavigation(requested, current)) return true;
-  if (previousUrl && urlsEquivalentForBrowserNavigation(previousUrl, current)) return false;
-  return hasBrowserNavigationCommittedAwayFromBlank(requested, current);
-}
-
-function browserNavigationDidNotCommitMessage(requested: string): string {
-  if (isWorkspaceLocalFileUrl(requested)) {
-    return `Browser navigation to ${requested} ended at about:blank; the requested page did not load. For local workspace HTML/static app files, use browser_local_preview instead of file:// navigation.`;
-  }
-  if (isLocalBrowserHttpUrl(requested)) {
-    return `Browser navigation to ${requested} ended at about:blank; the local server navigation did not commit. Check that the dev server is reachable and retry browser_nav.`;
-  }
-  return `Browser navigation to ${requested} ended at about:blank; the external browser navigation did not commit. This usually indicates a browser profile, CDP, or navigation timing issue.`;
-}
-
-function hasBrowserNavigationCommittedAwayFromBlank(requested: string, current: string): boolean {
-  try {
-    const requestedUrl = new URL(requested);
-    const currentParsed = new URL(current);
-    if (isLocalBrowserHttpUrl(requested)) return currentParsed.origin === requestedUrl.origin;
-    return currentParsed.protocol === "http:" || currentParsed.protocol === "https:";
-  } catch {
-    return current === requested;
-  }
-}
-
-function urlsEquivalentForBrowserNavigation(left: string, right: string): boolean {
-  try {
-    const leftUrl = new URL(left);
-    const rightUrl = new URL(right);
-    if (leftUrl.href === rightUrl.href) return true;
-    if (leftUrl.origin !== rightUrl.origin) return false;
-    return normalizeBrowserPathForComparison(leftUrl) === normalizeBrowserPathForComparison(rightUrl);
-  } catch {
-    return left.trim() === right.trim();
-  }
-}
-
-function normalizeBrowserPathForComparison(url: URL): string {
-  const path = url.pathname === "" ? "/" : url.pathname;
-  return `${path.replace(/\/+$/, "") || "/"}${url.search}${url.hash}`;
-}
-
-function isWorkspaceLocalFileUrl(value: string): boolean {
-  try {
-    return new URL(value).protocol === "file:";
-  } catch {
-    return false;
-  }
-}
-
-function isLocalBrowserHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (url.protocol === "http:" || url.protocol === "https:") && isLocalBrowserHostname(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
-export async function assertLocalBrowserNavigationReachable(value: string, timeoutMs = LOCAL_BROWSER_NAVIGATION_PREFLIGHT_TIMEOUT_MS): Promise<void> {
-  if (!isLocalBrowserHttpUrl(value)) return;
-  if (new URL(value).protocol === "https:") return;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(value, {
-      method: "GET",
-      redirect: "manual",
-      signal: controller.signal,
-    });
-    if (response.body) await response.body.cancel().catch(() => undefined);
-  } catch (error) {
-    throw new Error(`Local browser target ${value} is not reachable before browser navigation. Start or repair the local server, then retry browser_nav. ${errorMessage(error)}`);
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function isLocalBrowserHostname(hostname: string): boolean {
-  const value = hostname.toLowerCase();
-  return value === "localhost" || value === "127.0.0.1" || value === "::1" || value === "[::1]";
 }
 
 function browserArtifactWorkspacePath(input: unknown): string | undefined {
@@ -2865,12 +2392,6 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
-function isChromeContentTarget(target: ChromeTargetInfo): boolean {
-  const url = target.url ?? "";
-  if (!url) return true;
-  return !/^(?:chrome|devtools|chrome-untrusted):\/\//i.test(url);
-}
-
 interface ExternalCommandResult {
   ok: boolean;
   code?: number | null;
@@ -2939,12 +2460,6 @@ function isExecutableFile(path: string): boolean {
   } catch {
     return false;
   }
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  return (await response.json()) as T;
 }
 
 export function parseChromeDevToolsEndpoint(raw: string): ChromeDevToolsEndpoint | undefined {
@@ -3480,55 +2995,6 @@ export function keypressKeyResult(key: BrowserKeypressKeyResult): BrowserKeypres
     durationMs: key.durationMs,
     ...(key.text !== undefined ? { text: key.text } : {}),
   };
-}
-
-export function browserScreenshotStorageTarget(workspace: WorkspaceState, input: BrowserStartInput = {}): BrowserScreenshotStorageTarget {
-  const artifactWorkspacePath = typeof input.artifactWorkspacePath === "string" ? input.artifactWorkspacePath.trim() : "";
-  if (artifactWorkspacePath) {
-    return {
-      screenshots: join(artifactWorkspacePath, ".ambient-codex", "browser", "screenshots"),
-      artifactWorkspacePath,
-    };
-  }
-  return {
-    screenshots: join(workspace.statePath, "browser", "screenshots"),
-    artifactWorkspacePath: workspace.path,
-  };
-}
-
-export function browserScreenshotArtifactPath(target: BrowserScreenshotStorageTarget, filePath: string): string | undefined {
-  const artifactPath = relative(target.artifactWorkspacePath, filePath);
-  if (
-    !artifactPath ||
-    artifactPath.startsWith("..") ||
-    artifactPath.startsWith("/") ||
-    /^[a-z]:[\\/]/i.test(artifactPath)
-  ) {
-    return undefined;
-  }
-  return artifactPath;
-}
-
-export function pngImageDimensions(bytes: Buffer): { width: number; height: number } | undefined {
-  if (bytes.length < 24) return undefined;
-  const isPng =
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a;
-  if (!isPng || bytes.toString("ascii", 12, 16) !== "IHDR") return undefined;
-  const width = bytes.readUInt32BE(16);
-  const height = bytes.readUInt32BE(20);
-  if (width <= 0 || height <= 0) return undefined;
-  return { width, height };
-}
-
-function isNavigationAbortErrorText(text: string): boolean {
-  return /\b(?:net::)?ERR_ABORTED\b/i.test(text);
 }
 
 const excludedChromeProfileParts = new Set([

@@ -111,6 +111,30 @@ describe("createRuntimeAssistantMessageController", () => {
     }));
   });
 
+  it("suppresses prior assistant messages while preserving the current one", () => {
+    const { controller, messages, events } = setup();
+
+    controller.startAssistantMessage();
+    controller.appendAssistantDelta("pre-tool parent chatter");
+    controller.startAssistantMessage();
+    controller.appendAssistantDelta("post-tool final blocker");
+
+    const suppressed = controller.suppressAssistantMessagesExceptCurrent("error");
+
+    expect(suppressed).toHaveLength(1);
+    expect(messages.get("assistant-initial")).toMatchObject({
+      content: "",
+      metadata: expect.objectContaining({ status: "error", runtime: "pi" }),
+    });
+    expect(messages.get("created-1")).toMatchObject({
+      content: "post-tool final blocker",
+    });
+    expect(events).toContainEqual(expect.objectContaining({
+      type: "message-updated",
+      message: expect.objectContaining({ id: "assistant-initial", content: "" }),
+    }));
+  });
+
   it("starts a fresh thinking message after a prior thinking message finishes", () => {
     const { controller, events, messages } = setup();
 
@@ -126,6 +150,26 @@ describe("createRuntimeAssistantMessageController", () => {
       content: "step two",
       metadata: expect.objectContaining({ status: "thinking", kind: "thinking" }),
     });
+    expect(events.filter((event) => event.type === "message-created")).toHaveLength(2);
+  });
+
+  it("suppresses thinking messages without creating one", () => {
+    const { controller, events, messages } = setup();
+
+    expect(controller.suppressCurrentThinkingMessage("done")).toBeUndefined();
+    controller.appendThinkingDelta("first internal status");
+    controller.finishCurrentThinkingMessage("done", "first fallback");
+    controller.appendThinkingDelta("second internal status");
+
+    const suppressed = controller.suppressCurrentThinkingMessage("done");
+
+    expect(suppressed).toMatchObject({
+      id: "created-2",
+      content: "",
+      metadata: expect.objectContaining({ status: "done", kind: "thinking" }),
+    });
+    expect(messages.get("created-1")).toMatchObject({ content: "" });
+    expect(messages.get("created-2")).toMatchObject({ content: "" });
     expect(events.filter((event) => event.type === "message-created")).toHaveLength(2);
   });
 });

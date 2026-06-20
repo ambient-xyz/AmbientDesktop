@@ -14599,7 +14599,7 @@ button.inline-media-preview {
 }
 
 .symphony-pattern-preflight span {
-  color: #276b4c;
+  color: var(--success);
   font-size: 12px;
   font-weight: 700;
 }
@@ -14633,15 +14633,15 @@ button.inline-media-preview {
 }
 
 .symphony-launch-requirements span.ready {
-  border-color: rgba(39, 107, 76, 0.28);
-  color: #276b4c;
-  background: #e6f7ee;
+  border-color: color-mix(in srgb, var(--success) 36%, var(--line));
+  color: var(--success);
+  background: color-mix(in srgb, var(--surface-success) 78%, var(--surface-elevated));
 }
 
 .symphony-launch-requirements span.missing {
-  border-color: rgba(122, 52, 21, 0.3);
-  color: #7a3415;
-  background: #fff2db;
+  border-color: color-mix(in srgb, var(--warning) 36%, var(--line));
+  color: var(--warning);
+  background: color-mix(in srgb, var(--surface-warning) 78%, var(--surface-elevated));
 }
 
 .symphony-builder-columns {
@@ -14702,8 +14702,9 @@ button.inline-media-preview {
 
 .symphony-choice-button.selected,
 .symphony-custom-choice.selected {
-  border-color: rgba(61, 91, 179, 0.4);
-  background: #f2f5ff;
+  border-color: color-mix(in srgb, var(--info) 42%, var(--line-strong));
+  background: color-mix(in srgb, var(--surface-info) 76%, var(--surface-elevated));
+  color: var(--text-primary);
 }
 
 .symphony-choice-button span,

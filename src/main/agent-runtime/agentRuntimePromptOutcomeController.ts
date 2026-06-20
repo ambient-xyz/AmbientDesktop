@@ -68,6 +68,7 @@ export interface AgentRuntimePromptOutcomeControllerOptions {
     runId: string,
     block: Parameters<RuntimePromptSuccessHandlerInput["recordCallableWorkflowFinalizationBlockedParentMailbox"]>[0],
   ) => ReturnType<RuntimePromptSuccessHandlerInput["recordCallableWorkflowFinalizationBlockedParentMailbox"]>;
+  suppressCallableWorkflowParentAssistantMessages: RuntimePromptSuccessHandlerInput["suppressCallableWorkflowParentAssistantMessages"];
   recordVoiceDispatch: RuntimePromptSuccessHandlerInput["recordVoiceDispatch"];
   clearActiveRun: (threadId: string) => void;
   clearActiveRunId: (threadId: string) => void;
@@ -134,6 +135,7 @@ export interface HandleAgentRuntimePromptFailureInput
     | "replaceToolMessage"
   > {
   sendInput: SendMessageInput;
+  runId: string;
   runWorkspacePath: string;
   symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined;
   createInterruptedToolCallRecoveryInput: RuntimePromptFailureHandlerInput["createInterruptedToolCallRecoveryInput"];
@@ -197,6 +199,28 @@ export class AgentRuntimePromptOutcomeController {
         ),
       replaceToolMessage: (messageId, content, metadata) =>
         this.options.replaceMessage(messageId, content, metadata),
+      resolveSubagentFinalizationBlock: () =>
+        this.options.resolveSubagentFinalizationBlock(input.sendInput.threadId, input.runId),
+      recordSubagentFinalizationBlockedParentMailbox: (block) =>
+        this.options.recordSubagentFinalizationBlockedParentMailbox(
+          input.sendInput.threadId,
+          input.runId,
+          block,
+        ),
+      resolveCallableWorkflowFinalizationBlock: () =>
+        this.options.resolveCallableWorkflowFinalizationBlock(
+          input.sendInput.threadId,
+          input.runId,
+          input.symphonyParentModeVerifiedLaunch,
+        ),
+      recordCallableWorkflowFinalizationBlockedParentMailbox: (block) =>
+        this.options.recordCallableWorkflowFinalizationBlockedParentMailbox(
+          input.sendInput.threadId,
+          input.runId,
+          block,
+        ),
+      suppressCallableWorkflowParentAssistantMessages: this.options.suppressCallableWorkflowParentAssistantMessages,
+      getThread: () => this.options.getThread(input.sendInput.threadId),
     });
   }
 
@@ -244,6 +268,8 @@ export class AgentRuntimePromptOutcomeController {
       emptyAssistantRetryNextAttempt: input.assistantFinalizationRetryNextAttemptFor(emptyAssistantRetryReason),
       consumeSubagentParentControlAbort: input.consumeSubagentParentControlAbort,
       finishCurrentThinkingMessage: input.runtimeMessages.finishCurrentThinkingMessage,
+      suppressAssistantMessagesExceptCurrent: input.runtimeMessages.suppressAssistantMessagesExceptCurrent,
+      suppressCurrentThinkingMessage: input.runtimeMessages.suppressCurrentThinkingMessage,
       recordContextUsageSnapshot: () => this.options.recordContextUsageSnapshot(input.sendInput.threadId, input.session),
       cleanupCurrentSession: input.cleanupCurrentSession,
       createEmptyAssistantRetry: () => input.createAssistantFinalizationRetryInput(emptyAssistantRetryReason),
@@ -287,6 +313,7 @@ export class AgentRuntimePromptOutcomeController {
         this.options.recordSubagentFinalizationBlockedParentMailbox(input.sendInput.threadId, input.runId, block),
       recordCallableWorkflowFinalizationBlockedParentMailbox: (block) =>
         this.options.recordCallableWorkflowFinalizationBlockedParentMailbox(input.sendInput.threadId, input.runId, block),
+      suppressCallableWorkflowParentAssistantMessages: this.options.suppressCallableWorkflowParentAssistantMessages,
       replaceAssistantMessage: (messageId, content, metadata) => this.options.replaceMessage(messageId, content, metadata),
       createPlannerPlanArtifactFromMessage: (message) => this.options.createPlannerPlanArtifactFromMessage(message),
       finishPlannerFinalizationSources: input.finishPlannerFinalizationSources,

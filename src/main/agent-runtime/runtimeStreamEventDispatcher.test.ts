@@ -102,10 +102,12 @@ function setup() {
     appendAssistantDelta: vi.fn((delta) => message({ id: "assistant-1", content: delta })),
     replaceCurrentAssistant: vi.fn((content, metadata) => message({ id: "assistant-1", content, metadata })),
     finishCurrentAssistantMessage: vi.fn(),
+    suppressAssistantMessagesExceptCurrent: vi.fn(),
     ensureThinkingMessage: vi.fn(() => "thinking-1"),
     appendThinkingDelta: vi.fn((delta) => message({ id: "thinking-1", content: delta })),
     replaceCurrentThinking: vi.fn((content, metadata) => message({ id: "thinking-1", content, metadata })),
     finishCurrentThinkingMessage: vi.fn(),
+    suppressCurrentThinkingMessage: vi.fn(),
   };
   const emittedEvents: DesktopEvent[] = [];
   const activeRunStatuses: string[] = [];

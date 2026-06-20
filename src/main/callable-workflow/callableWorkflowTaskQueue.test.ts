@@ -113,6 +113,36 @@ describe("callable workflow task queue", () => {
     }
   });
 
+  it("resolves parent message fallback before persisting Symphony launch bridge contracts", async () => {
+    const workspacePath = await tempWorkspace();
+    const store = new ProjectStore();
+
+    try {
+      store.openWorkspace(workspacePath);
+      const parent = store.createThread("Parent");
+      const assistant = store.addMessage({ threadId: parent.id, role: "assistant", content: "" });
+      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
+      const executionPlan = executionPlanForParent(parent.id, parentRun.id);
+
+      const task = enqueueTask(store, { executionPlan });
+      const launchBridgeContract = (task.executionPlan as typeof task.executionPlan & {
+        handoff?: { compiler?: { launchBridgeContract?: { parentMessageId?: string } } };
+      }).handoff?.compiler?.launchBridgeContract;
+      const handoff = buildCallableWorkflowCompilerHandoffPlan({ task });
+
+      expect(task.parentMessageId).toBe(assistant.id);
+      expect(task.patternGraphSnapshot?.parentMessageId).toBe(assistant.id);
+      expect(launchBridgeContract).toMatchObject({
+        workflowTaskId: task.id,
+        parentMessageId: assistant.id,
+      });
+      expect(handoff.parent.messageId).toBe(assistant.id);
+      expect(handoff.compiler.launchBridgeContract?.parentMessageId).toBe(assistant.id);
+    } finally {
+      store.close();
+    }
+  });
+
   it("refuses to enqueue callable workflow tasks while ambient.subagents is disabled", async () => {
     const workspacePath = await tempWorkspace();
     const store = new ProjectStore();
@@ -567,6 +597,9 @@ describe("callable workflow task queue", () => {
     };
 
     const handoff = buildCallableWorkflowCompilerHandoffPlan({ task });
+    const durableLaunchBridgeContract = (task.executionPlan as typeof task.executionPlan & {
+      handoff?: { compiler?: { launchBridgeContract?: unknown } };
+    }).handoff?.compiler?.launchBridgeContract;
 
     expect(runPlan.sourceContext).toMatchObject({
       kind: "symphony_recipe",
@@ -589,6 +622,17 @@ describe("callable workflow task queue", () => {
     expect(handoff.compiler.userRequest).toContain("Selected builder step pattern-scope: Files: Split across selected workspace files or search results.");
     expect(handoff.compiler.userRequest).toContain("Selected builder step limits-and-policy: Read-only with a small slice first.");
     expect(handoff.compiler.userRequest).toContain("Required objective_metric map_reduce-metric: Every mapped implementation section has cited evidence.");
+    expect(durableLaunchBridgeContract).toMatchObject({
+      schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
+      workflowTaskId: task.id,
+      launchId: task.launchId,
+      wait: {
+        mode: "required_all",
+        failurePolicy: "ask_user",
+        timeoutMs: 600000,
+      },
+    });
+    expect(handoff.compiler.launchBridgeContract).toEqual(durableLaunchBridgeContract);
     expect(handoff.compiler.launchBridgeContract).toMatchObject({
       schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
       workflowTaskId: task.id,
@@ -630,6 +674,142 @@ describe("callable workflow task queue", () => {
     expect(handoff.compiler.userRequest).toContain("Ambient runtime, not the workflow compiler");
     expect(handoff.compiler.userRequest).toContain("must not emit or repair WorkflowProgramIR with ambient_subagent_spawn_agent");
     expect(handoff.compiler.userRequest).toContain(`"workflowTaskId": "${task.id}"`);
+  });
+
+  it("refuses parent Symphony compiler handoff when the durable launch bridge contract is missing", () => {
+    const registry = buildCallableWorkflowRegistry({ featureFlagSnapshot: enabledFlags });
+    const tool = parentPiVisibleCallableWorkflowTools(registry).find((candidate) =>
+      candidate.name === "ambient_workflow_symphony_map_reduce"
+    );
+    if (!tool) throw new Error("Missing Symphony Map-Reduce workflow tool.");
+    const runPlan = buildCallableWorkflowRunPlan(tool, {
+      goal: "Summarize release notes",
+      blocking: true,
+      metricCriteria: mapReduceMetricCriteria(),
+    });
+    const executionPlan = buildCallableWorkflowExecutionPlan({
+      descriptor: tool,
+      runPlan,
+      parent: {
+        threadId: "parent-thread",
+        runId: "parent-run",
+        assistantMessageId: "assistant-message",
+      },
+      toolCallId: "tool-call-symphony-missing-bridge",
+      createdAt: "2026-06-07T18:10:00.000Z",
+    });
+    const queued = callableWorkflowQueuedTaskDraftFromExecutionPlan(executionPlan);
+    const task = {
+      ...queued,
+      executionPlan,
+      createdAt: executionPlan.createdAt,
+      updatedAt: executionPlan.createdAt,
+    };
+
+    expect(() => buildCallableWorkflowCompilerHandoffPlan({ task }))
+      .toThrow(`Callable workflow task ${task.id} is missing a durable Symphony launch bridge contract.`);
+  });
+
+  it("refuses parent Symphony compiler handoff when the durable bridge points at another parent message", () => {
+    const registry = buildCallableWorkflowRegistry({ featureFlagSnapshot: enabledFlags });
+    const tool = parentPiVisibleCallableWorkflowTools(registry).find((candidate) =>
+      candidate.name === "ambient_workflow_symphony_map_reduce"
+    );
+    if (!tool) throw new Error("Missing Symphony Map-Reduce workflow tool.");
+    const runPlan = buildCallableWorkflowRunPlan(tool, {
+      goal: "Summarize release notes",
+      blocking: true,
+      metricCriteria: mapReduceMetricCriteria(),
+    });
+    const executionPlan = buildCallableWorkflowExecutionPlan({
+      descriptor: tool,
+      runPlan,
+      parent: {
+        threadId: "parent-thread",
+        runId: "parent-run",
+        assistantMessageId: "assistant-message",
+      },
+      toolCallId: "tool-call-symphony-stale-parent-message",
+      createdAt: "2026-06-07T18:10:00.000Z",
+    });
+    const queued = callableWorkflowQueuedTaskDraftFromExecutionPlan(executionPlan);
+    const baseExecutionPlan = queued.executionPlan as Record<string, unknown>;
+    const durablePlan = baseExecutionPlan as typeof baseExecutionPlan & {
+      handoff: { compiler: { launchBridgeContract: { parentMessageId?: string } } };
+    };
+    const divergentExecutionPlan = {
+      ...baseExecutionPlan,
+      handoff: {
+        ...durablePlan.handoff,
+        compiler: {
+          ...durablePlan.handoff.compiler,
+          launchBridgeContract: {
+            ...durablePlan.handoff.compiler.launchBridgeContract,
+            parentMessageId: "another-assistant-message",
+          },
+        },
+      },
+    };
+    const task = {
+      ...queued,
+      executionPlan: divergentExecutionPlan,
+      createdAt: executionPlan.createdAt,
+      updatedAt: executionPlan.createdAt,
+    };
+
+    expect(() => buildCallableWorkflowCompilerHandoffPlan({ task }))
+      .toThrow(`Callable workflow task ${task.id} has a durable Symphony launch bridge contract that does not match the queued task.`);
+  });
+
+  it("refuses parent Symphony compiler handoff when durable child launch contracts diverge", () => {
+    const registry = buildCallableWorkflowRegistry({ featureFlagSnapshot: enabledFlags });
+    const tool = parentPiVisibleCallableWorkflowTools(registry).find((candidate) =>
+      candidate.name === "ambient_workflow_symphony_map_reduce"
+    );
+    if (!tool) throw new Error("Missing Symphony Map-Reduce workflow tool.");
+    const runPlan = buildCallableWorkflowRunPlan(tool, {
+      goal: "Summarize release notes",
+      blocking: true,
+      metricCriteria: mapReduceMetricCriteria(),
+    });
+    const executionPlan = buildCallableWorkflowExecutionPlan({
+      descriptor: tool,
+      runPlan,
+      parent: {
+        threadId: "parent-thread",
+        runId: "parent-run",
+        assistantMessageId: "assistant-message",
+      },
+      toolCallId: "tool-call-symphony-divergent-bridge",
+      createdAt: "2026-06-07T18:10:00.000Z",
+    });
+    const queued = callableWorkflowQueuedTaskDraftFromExecutionPlan(executionPlan);
+    const baseExecutionPlan = queued.executionPlan as Record<string, unknown>;
+    const durablePlan = baseExecutionPlan as typeof baseExecutionPlan & {
+      handoff: { compiler: { launchBridgeContract: { childLaunches: unknown[] } } };
+    };
+    const divergentExecutionPlan = {
+      ...baseExecutionPlan,
+      handoff: {
+        ...durablePlan.handoff,
+        compiler: {
+          ...durablePlan.handoff.compiler,
+          launchBridgeContract: {
+            ...durablePlan.handoff.compiler.launchBridgeContract,
+            childLaunches: [],
+          },
+        },
+      },
+    } as typeof queued.executionPlan;
+    const task = {
+      ...queued,
+      executionPlan: divergentExecutionPlan,
+      createdAt: executionPlan.createdAt,
+      updatedAt: executionPlan.createdAt,
+    };
+
+    expect(() => buildCallableWorkflowCompilerHandoffPlan({ task }))
+      .toThrow(`Callable workflow task ${task.id} has a durable Symphony launch bridge contract that does not match the queued task.`);
   });
 
   it("keeps background Symphony child runs detachable while requiring bridge evidence for workflow synthesis", () => {

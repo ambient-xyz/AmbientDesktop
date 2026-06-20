@@ -32,18 +32,22 @@ export interface RuntimeAssistantMessageController {
   appendAssistantDelta(delta: string): ChatMessage;
   replaceCurrentAssistant(content: string, metadata?: Record<string, unknown>): ChatMessage;
   finishCurrentAssistantMessage(status: AssistantStatus, fallbackContent: string): void;
+  suppressAssistantMessagesExceptCurrent(status: AssistantStatus): ChatMessage[];
   ensureThinkingMessage(): string;
   appendThinkingDelta(delta: string): ChatMessage;
   replaceCurrentThinking(content: string, metadata?: Record<string, unknown>): ChatMessage;
   finishCurrentThinkingMessage(status: ThinkingStatus, fallbackContent: string): void;
+  suppressCurrentThinkingMessage(status: ThinkingStatus): ChatMessage | undefined;
 }
 
 export function createRuntimeAssistantMessageController(
   input: RuntimeAssistantMessageControllerInput,
 ): RuntimeAssistantMessageController {
   let currentAssistantMessageId = input.initialAssistantMessage.id;
+  const assistantMessageIds: string[] = [input.initialAssistantMessage.id];
   let assistantStartCount = 0;
   let currentThinkingMessageId: string | undefined;
+  const thinkingMessageIds: string[] = [];
   let thinkingFinished = false;
 
   const emitMessageCreated = (message: ChatMessage) => {
@@ -73,6 +77,7 @@ export function createRuntimeAssistantMessageController(
     });
     assistantStartCount += 1;
     currentAssistantMessageId = next.id;
+    assistantMessageIds.push(next.id);
     input.resetAssistantStreamState();
     emitMessageCreated(next);
   };
@@ -101,6 +106,18 @@ export function createRuntimeAssistantMessageController(
     emitMessageUpdated(updated);
   };
 
+  const suppressAssistantMessagesExceptCurrent = (status: AssistantStatus) => {
+    if (!input.markRunActivity()) return [];
+    const updatedMessages: ChatMessage[] = [];
+    for (const messageId of assistantMessageIds) {
+      if (messageId === currentAssistantMessageId) continue;
+      const updated = input.replaceMessage(messageId, "", piAssistantMessageMetadata(status));
+      updatedMessages.push(updated);
+      emitMessageUpdated(updated);
+    }
+    return updatedMessages;
+  };
+
   const startThinkingMessage = () => {
     if (!input.markRunActivity()) return;
     const thinkingMessage = input.addAssistantMessage({
@@ -109,6 +126,7 @@ export function createRuntimeAssistantMessageController(
       metadata: piThinkingMessageMetadata("thinking"),
     });
     currentThinkingMessageId = thinkingMessage.id;
+    thinkingMessageIds.push(thinkingMessage.id);
     thinkingFinished = false;
     input.resetThinkingStreamState();
     emitMessageCreated(thinkingMessage);
@@ -144,6 +162,22 @@ export function createRuntimeAssistantMessageController(
     emitMessageUpdated(updated);
   };
 
+  const suppressCurrentThinkingMessage = (status: ThinkingStatus) => {
+    if (thinkingMessageIds.length === 0) return undefined;
+    if (!input.markRunActivity()) return undefined;
+    let updated: ChatMessage | undefined;
+    for (const messageId of thinkingMessageIds) {
+      updated = input.replaceMessage(
+        messageId,
+        "",
+        piThinkingMessageMetadata(status),
+      );
+      emitMessageUpdated(updated);
+    }
+    thinkingFinished = true;
+    return updated;
+  };
+
   return {
     currentAssistantMessageId: () => currentAssistantMessageId,
     assistantStartCount: () => assistantStartCount,
@@ -154,9 +188,11 @@ export function createRuntimeAssistantMessageController(
     appendAssistantDelta,
     replaceCurrentAssistant,
     finishCurrentAssistantMessage,
+    suppressAssistantMessagesExceptCurrent,
     ensureThinkingMessage,
     appendThinkingDelta,
     replaceCurrentThinking,
     finishCurrentThinkingMessage,
+    suppressCurrentThinkingMessage,
   };
 }

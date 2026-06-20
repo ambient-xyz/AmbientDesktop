@@ -154,6 +154,20 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       display: ["node", "scripts/symphony-gap-phase4-dogfood.mjs", ...scenarioArgs],
     };
   }
+  if (scenario === "symphony-gap-phase5") {
+    return {
+      executable: "node",
+      args: ["scripts/symphony-gap-phase5-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/symphony-gap-phase5-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "symphony-gap-phase6") {
+    return {
+      executable: "node",
+      args: ["scripts/symphony-gap-phase6-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/symphony-gap-phase6-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario === "large-context-blowup") {
     return {
       executable: "node",
@@ -183,6 +197,8 @@ function scenarioLatestArtifactPath(scenario) {
   if (scenario === "symphony-gap-phase2") return "test-results/symphony-gap-phase2-dogfood/latest.json";
   if (scenario === "symphony-gap-phase3") return "test-results/symphony-gap-phase3-dogfood/latest.json";
   if (scenario === "symphony-gap-phase4") return "test-results/symphony-gap-phase4-dogfood/latest.json";
+  if (scenario === "symphony-gap-phase5") return "test-results/symphony-gap-phase5-dogfood/latest.json";
+  if (scenario === "symphony-gap-phase6") return "test-results/symphony-gap-phase6-dogfood/latest.json";
   if (scenario === "large-context-blowup") return "test-results/large-context-blowup/latest.json";
   return "test-results/subagent-desktop-dogfood/latest.json";
 }

@@ -5209,20 +5209,21 @@ export class ProjectStore {
     if (!isAmbientSubagentsEnabled(input.featureFlagSnapshot)) {
       throw new Error("Callable workflow task queueing is disabled while ambient.subagents is off.");
     }
-    const draft = callableWorkflowQueuedTaskDraftFromExecutionPlan(input.executionPlan);
-    this.getThread(draft.parentThreadId);
-    const parentRun = this.getRunRecord(draft.parentRunId);
-    if (parentRun.threadId !== draft.parentThreadId) {
+    this.getThread(input.executionPlan.parent.threadId);
+    const parentRun = this.getRunRecord(input.executionPlan.parent.runId);
+    if (parentRun.threadId !== input.executionPlan.parent.threadId) {
       throw new Error("Cannot queue callable workflow task for a parent run on a different thread.");
     }
-    if (draft.parentMessageId && parentRun.assistantMessageId !== draft.parentMessageId) {
+    const plannedParentMessageId = input.executionPlan.parent.assistantMessageId;
+    if (plannedParentMessageId && parentRun.assistantMessageId !== plannedParentMessageId) {
       throw new Error("Cannot queue callable workflow task for a mismatched parent assistant message.");
     }
+    const parentMessageId = plannedParentMessageId ?? parentRun.assistantMessageId;
+    const draft = callableWorkflowQueuedTaskDraftFromExecutionPlan(input.executionPlan, { parentMessageId });
     const existing = this.findCallableWorkflowTaskByLaunchId(draft.launchId);
     if (existing) return existing;
 
     const now = input.createdAt ?? input.executionPlan.createdAt ?? new Date().toISOString();
-    const parentMessageId = draft.parentMessageId ?? parentRun.assistantMessageId;
     const patternGraphSnapshot = input.patternGraphSnapshot ?? draft.patternGraphSnapshot;
     return this.callableWorkflowTasks().createQueuedTask({ draft, parentMessageId, patternGraphSnapshot, now });
   }
