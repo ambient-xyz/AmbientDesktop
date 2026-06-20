@@ -45,12 +45,6 @@ pnpm install
 pnpm run dev
 ```
 
-Current provider note, 2026-06-16: GLM 5.1 is degraded. Contributors who need provider-dependent local validation should use the Ambient provider with Kimi selected:
-
-```bash
-AMBIENT_PROVIDER=ambient AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code pnpm run dev
-```
-
 Build packaged artifacts on the target platform:
 
 ```bash
