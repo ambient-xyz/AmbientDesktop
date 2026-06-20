@@ -159,6 +159,8 @@ export const PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL = `
         dependency_mode TEXT NOT NULL,
         status TEXT NOT NULL,
         failure_policy TEXT NOT NULL,
+        owner_kind TEXT,
+        owner_id TEXT,
         quorum_threshold INTEGER,
         timeout_ms INTEGER,
         created_at TEXT NOT NULL,
@@ -1152,6 +1154,8 @@ export const PROJECT_STORE_MIGRATION_COLUMN_GROUPS = {
     ["subagent_runs", "symphony_mutation_lease_json", "TEXT"],
     ["subagent_parent_mailbox_events", "parent_message_id", "TEXT"],
     ["subagent_wait_barriers", "quorum_threshold", "INTEGER"],
+    ["subagent_wait_barriers", "owner_kind", "TEXT"],
+    ["subagent_wait_barriers", "owner_id", "TEXT"],
   ],
   runtimeSupport: [
     ["runs", "diagnostics_json", "TEXT"],

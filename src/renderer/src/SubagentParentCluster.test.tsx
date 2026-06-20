@@ -187,6 +187,47 @@ describe("SubagentParentCluster", () => {
     expect(markup).toContain("data-approval-child-thread-id=\"child-thread-1\"");
   });
 
+  it("renders workflow-scoped child waits for background Symphony tasks", () => {
+    const model = subagentParentClusterFixtureModel();
+    model.parentBlocking = undefined;
+    model.barriers = [];
+    model.children = model.children.map((child) => ({ ...child, parentBlocker: undefined }));
+    model.workflowTasks = [{
+      ...model.workflowTasks[0],
+      modeLabel: "Background",
+      parentBlocker: undefined,
+      status: "Child wait needs attention",
+      statusTone: "warning",
+      progressLabel: "Child wait needs attention",
+      childWait: {
+        label: "Waiting on Symphony children",
+        detail: "Symphony Imitate and Verify / Failed / Required all / Drafter: Completed / Verifier: Failed",
+        statusTone: "warning",
+        childLabels: ["Drafter: Completed", "Verifier: Failed"],
+      },
+    }];
+
+    const markup = renderToStaticMarkup(
+      <SubagentParentCluster
+        model={model}
+        onOpenThread={vi.fn()}
+        onCancelChild={vi.fn()}
+        onCloseChild={vi.fn()}
+        onOpenWorkflowThread={vi.fn()}
+        onPauseWorkflowTask={vi.fn()}
+        onResumeWorkflowTask={vi.fn()}
+        onCancelWorkflowTask={vi.fn()}
+        onResolveBarrierAction={vi.fn()}
+        onResolveApprovalAction={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("class=\"subagent-parent-cluster-workflow-child-wait tone-warning\"");
+    expect(markup).toContain("Waiting on Symphony children");
+    expect(markup).toContain("Workflow child wait: Drafter: Completed");
+    expect(markup).toContain("Verifier: Failed");
+  });
+
   it("keeps non-blocking completed children collapsed by default", () => {
     const model = subagentParentClusterFixtureModel();
     model.parentBlocking = undefined;

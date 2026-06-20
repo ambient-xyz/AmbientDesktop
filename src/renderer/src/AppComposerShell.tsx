@@ -174,6 +174,7 @@ export function AppComposerShell({
   onChangeSymphonyStepCustomText,
   onChangeSymphonyMetric,
   onChangeSymphonyBlocking,
+  onChooseSymphonyPreflightCustom,
   onRunSymphonyOnce,
   onSaveSymphonyRecipe,
   onRemoveContextAttachment,
@@ -278,6 +279,7 @@ export function AppComposerShell({
   onChangeSymphonyStepCustomText: (stepId: string, value: string) => void;
   onChangeSymphonyMetric: (metricId: string, value: string) => void;
   onChangeSymphonyBlocking: (blocking: boolean) => void;
+  onChooseSymphonyPreflightCustom: (goal: string) => void;
   onRunSymphonyOnce: () => void;
   onSaveSymphonyRecipe: () => void;
   onRemoveContextAttachment: (item: WorkspaceContextReference) => void;
@@ -342,15 +344,12 @@ export function AppComposerShell({
   useEffect(() => {
     if (!localDeepResearchModeArmed) setLocalDeepResearchEffortOpen(false);
   }, [localDeepResearchModeArmed]);
-
   useEffect(() => {
     if (localDeepResearchRunActive) setLocalDeepResearchEffortOpen(false);
   }, [localDeepResearchRunActive]);
-
   useEffect(() => {
     if (!localDeepResearchEffortOpen) setLocalDeepResearchCustomDraft(String(localDeepResearchRunBudget.maxToolCalls));
   }, [localDeepResearchEffortOpen, localDeepResearchRunBudget.maxToolCalls]);
-
   useEffect(() => {
     if (slashDismissedToken && slashDismissedToken !== slashTrigger.token) setSlashDismissedToken("");
   }, [slashDismissedToken, slashTrigger.token]);
@@ -490,6 +489,7 @@ export function AppComposerShell({
             onChangeStepCustomText={onChangeSymphonyStepCustomText}
             onChangeMetric={onChangeSymphonyMetric}
             onChangeBlocking={onChangeSymphonyBlocking}
+            onChoosePreflightCustom={onChooseSymphonyPreflightCustom}
             onRunOnce={onRunSymphonyOnce}
             onSaveRecipe={onSaveSymphonyRecipe}
             actionBusy={symphonyBuilderActionBusy}

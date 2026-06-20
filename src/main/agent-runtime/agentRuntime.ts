@@ -12,17 +12,13 @@ import {
   type ExtensionFactory,
   type AgentToolResult,
 } from "@mariozechner/pi-coding-agent";
-import {
-  DEFAULT_MODEL_RUNTIME_PROVIDER_PRE_STREAM_TIMEOUT_MS,
-  DEFAULT_MODEL_RUNTIME_PROVIDER_STREAM_IDLE_TIMEOUT_MS,
-} from "../../shared/modelRuntimeSettings";
 import type { SubagentRuntimeEventSource } from "../../shared/subagentProtocol";
 import type {
   MessagingGatewayRemoteSurfaceRuntimeEvent,
   RuntimeSurfaceSnapshot,
   RuntimeSurfaceWorkflowRecoveryEvent,
 } from "../../shared/messagingGateway";
-import { classifyWorkflowPlanEditIntent, type WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
+import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
 import { applyAgentBootstrapToPrompt, buildAgentBootstrapContext } from "./agentRuntimeAgentFacade";
 import { resolveAgentHarnessVariant } from "./agentRuntimeAgentFacade";
 import { LocalPreviewServerManager } from "./agentRuntimeBrowserFacade";
@@ -61,7 +57,7 @@ import type {
   PrivilegedActionNativeRequest,
   PrivilegedCredentialPromptResolution,
 } from "../../shared/permissionTypes";
-import type { PlannerPlanArtifact, PlannerSettings } from "../../shared/plannerTypes";
+import type { PlannerSettings } from "../../shared/plannerTypes";
 import type { ProjectSummary } from "../../shared/projectBoardTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { BrowserProfileMode, BrowserRuntimeKind } from "../../shared/browserTypes";
@@ -102,7 +98,7 @@ import type {
   WebResearchProviderConfig,
   WebResearchProviderRole,
 } from "../../shared/webResearchTypes";
-import type { ChatMessage, ContextUsageSnapshot, MessageDelivery, ModelRuntimeSettings, RunStatus, ThreadGoal, ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
+import type { ChatMessage, ContextUsageSnapshot, ModelRuntimeSettings, RunStatus, ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import {
   AMBIENT_DEFAULT_MODEL,
   normalizeAmbientModelId,
@@ -123,12 +119,13 @@ import {
 import { isAgentMemoryActiveForThread } from "../../shared/agentMemorySettings";
 import type { AgentMemoryRuntimeSnapshot } from "../../shared/agentMemoryDiagnostics";
 import { ambientRetryPolicyFromSettings } from "./agentRuntimeAmbientFacade";
-import { createManualCompactionEventHandler } from "./agentRuntimeManualCompactionEvents";
 import {
-  buildActiveContextUsageSnapshot,
-  buildUnavailableContextUsageSnapshot,
   contextUsageCompactionStatsFromEntries,
 } from "./agentRuntimeContextUsageSnapshot";
+import {
+  AgentRuntimeContextRecoveryController,
+  type AgentRuntimeContextRecoverySession,
+} from "./agentRuntimeContextRecoveryController";
 import { runPromptPreflightBeforePrompt } from "./agentRuntimePromptPreflight";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "./agentRuntimeProviderFacade";
@@ -141,7 +138,7 @@ import {
   type AmbientCliVoiceRunner,
 } from "./agentRuntimeVoiceFacade";
 import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
-import { getRestorablePiSessionFile, getRestorableRecoverySessionFile, isPathInside } from "./agentRuntimeSessionFacade";
+import { getRestorableRecoverySessionFile, isPathInside } from "./agentRuntimeSessionFacade";
 import type { AmbientFileAuthorityRequest } from "./agentRuntimePiFacade";
 import { workspaceBoundedAgentContextFiles } from "./agentRuntimePiFacade";
 import {
@@ -151,16 +148,6 @@ import {
   resolvePermissionWithGrants,
 } from "./agentRuntimePermissionsFacade";
 import {
-  applyPlannerDurableRevisionResponse,
-  buildPlannerDurableRepairPrompt,
-  extractPlannerDurableRevisionResponse,
-  extractPlannerPlanArtifactFields,
-  PLANNER_DURABLE_REPAIR_MAX_ATTEMPTS,
-  PlannerDurableHtmlValidationError,
-  plannerDurableFallbackWarnings,
-  plannerDurableRepairAttemptCount,
-  validatePlannerDurableHtmlFileInBrowser,
-  writePlannerDurableHtmlArtifact,
   type PlannerDurableHtmlBrowserValidator,
 } from "./agentRuntimePlannerFacade";
 import { createPlannerModeExtension as createPlannerModeToolsExtension } from "./agentRuntimePlannerModeExtension";
@@ -191,10 +178,7 @@ import {
 import {
   planSttPolicyUpdate,
 } from "./agentRuntimeSttFacade";
-import {
-  appendSearchRoutingGuidance,
-  webResearchSettingsWithDynamicProviderCatalogs,
-} from "./agentRuntimeWebResearchFacade";
+import { webResearchSettingsWithDynamicProviderCatalogs } from "./agentRuntimeWebResearchFacade";
 import {
   capabilityBuilderValidationPreviewText,
   previewCapabilityBuilderPackage,
@@ -233,51 +217,30 @@ import {
   resolveWorkflowRecordingReviewStreamIdleTimeoutMs,
 } from "./agentRuntimeTimeouts";
 import { createRuntimeSendStreamDiagnostics } from "./agentRuntimeSendStreamDiagnostics";
-import { runtimeActiveSessionResetPlan } from "./agentRuntimeActiveSessionReset";
+import { AgentRuntimeSessionRegistry } from "./agentRuntimeSessionRegistry";
 import {
   runtimeSubagentDirectChildStoppedActivity,
   runtimeSubagentParentStopCascadeActivity,
 } from "./subagents/agentRuntimeSubagentParentControlActivity";
 import { piAssistantMessageMetadata } from "./agentRuntimeAssistantMessageMetadata";
-import { agentRuntimeUserMessageMetadata } from "./agentRuntimeUserMessageMetadata";
-import { modelContentForAgentRuntimeSendInput } from "./agentRuntimeSendContent";
 import {
-  goalContinuationPrompt as buildGoalContinuationPrompt,
-  goalCompletionChatMessage,
   goalRuntimeActivity,
-  GOAL_COMPLETION_MESSAGE_KIND,
-  GOAL_MAX_CONTINUATION_TURNS,
   GOAL_MODE_TOOL_NAMES,
-  GOAL_NO_PROGRESS_TURN_LIMIT,
 } from "./agentRuntimeGoalRuntime";
+import { AgentRuntimeActiveRunHandoffController } from "./agentRuntimeActiveRunHandoffController";
+import { AgentRuntimeGoalContinuationController } from "./agentRuntimeGoalContinuationController";
+import { AgentRuntimePlannerFinalizationController } from "./agentRuntimePlannerFinalizationController";
 import {
-  assistantFinalizationRetryMaxRetriesFromSettings,
+  AgentRuntimeSendPreparationController,
+  type RuntimeSendMessageInput,
+} from "./agentRuntimeSendPreparationController";
+import {
   piRetryOverridesFromModelRuntimeSettings,
   runtimeSettingsActivity,
 } from "./agentRuntimeRetrySettings";
 import {
-  type AssistantFinalizationRetryReason,
-  type AssistantFinalizationRetryState,
   type RuntimeSessionRecoveryContext,
 } from "./agentRuntimeAssistantRetryInput";
-import {
-  type InterruptedToolCallRecoveryState,
-} from "./agentRuntimeInterruptedToolRecoveryInput";
-import {
-  hasRuntimeThreadSettingsUpdate,
-  runtimeThreadSettingsUpdateFromSendInput,
-} from "./agentRuntimeThreadSettingsUpdate";
-import {
-  plannerDecisionQuestionsForFinalArtifact,
-  plannerDurableRevisionArtifactIdForSourceMessage,
-  plannerFinalizationSourceArtifactsFromPrompt,
-  plannerPriorUserPromptForSourceMessage,
-  type PlannerPlanArtifactContentUpdate,
-} from "./agentRuntimePlannerFinalizationPrompt";
-import {
-  type AssistantTerminalCleanupDiagnostic,
-  type AssistantTerminalEventDiagnostic,
-} from "./agentRuntimeAssistantTerminalDiagnostics";
 import { ambientModel, createAmbientProviderExtension } from "./agentRuntimeAmbientFacade";
 import { browserToolUpdate } from "./browser-tools/agentRuntimeBrowserToolFormatting";
 import { withBrowserToolHeartbeat } from "./browser-tools/agentRuntimeBrowserToolHeartbeat";
@@ -320,10 +283,7 @@ import {
   createAgentRuntimePluginInstallToolExtension,
 } from "./agentRuntimePluginInstallToolExtension";
 import { createAgentRuntimeToolRunnerExtension } from "./tools/agentRuntimeToolRunnerTools";
-import {
-  AgentRuntimeInstallRouteGuard,
-  appendMcpInstallRouteGuidance,
-} from "./agentRuntimeInstallRouteGuard";
+import { AgentRuntimeInstallRouteGuard } from "./agentRuntimeInstallRouteGuard";
 import type { McpToolCallResult } from "./agentRuntimeMcpFacade";
 import {
   createAgentRuntimeMcpToolOrchestration,
@@ -339,6 +299,7 @@ import {
 } from "./web-research/agentRuntimeWebResearchSymphonyRouting";
 import {
   ambientSubagentActiveToolNamesForThread,
+  createSubagentPiToolDefinitions,
   type SubagentPiToolStore,
 } from "./agentRuntimeSubagentsFacade";
 import {
@@ -357,6 +318,10 @@ import {
   createAgentRuntimeCallableWorkflowToolExtension,
 } from "./agentRuntimeCallableWorkflowTools";
 import {
+  CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
+  isCallableWorkflowSymphonyChildWaitPreCompilePause,
+} from "../../shared/callableWorkflowTaskGuards";
+import {
   cancelAgentRuntimeCallableWorkflowTask,
   createAgentRuntimeCallableWorkflowRuntimeBridge,
   createAgentRuntimeCallableWorkflowRunnerStore,
@@ -368,6 +333,8 @@ import {
 import { callableWorkflowToolName } from "./agentRuntimeCallableWorkflowFacade";
 import {
   type CallableWorkflowParentBlockingBlock,
+  type CallableWorkflowRunnerCompileInput,
+  type CallableWorkflowSubagentLaunchResult,
 } from "./agentRuntimeCallableWorkflowFacade";
 import {
   callableWorkflowFinalizationBlock as resolveCallableWorkflowFinalizationBlock,
@@ -515,10 +482,7 @@ import {
   carrySymphonyParentModeVerifiedLaunch,
   resolveSymphonyParentModePolicyForRuntimeSend,
   resolveSymphonyParentModeVerifiedLaunch,
-  shouldRejectSymphonyParentModeActiveRunHandoff,
   shouldRequireSymphonyParentModeLaunch,
-  shouldRebuildSessionForSymphonyParentMode,
-  SYMPHONY_PARENT_MODE_ACTIVE_RUN_HANDOFF_ERROR,
   SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR,
   validateSymphonyParentModeCallableWorkflowPrelaunch,
   type SymphonyParentModePolicy,
@@ -654,12 +618,7 @@ import {
   type TransientFileAuthorityRoot,
 } from "./agentRuntimeFileAuthority";
 import {
-  hasVisibleTranscriptRecoveryMessage,
-  isVisibleTranscriptRecoveryNormalCompactionRequiredError,
-  visibleTranscriptRecoveryManualMessages,
   visibleTranscriptRecoveryMissingSessionPlan,
-  visibleTranscriptRecoveryReason,
-  visibleTranscriptRecoveryRestorableSessionPlan,
   visibleTranscriptRecoverySessionOpenFailurePlan,
   visibleTranscriptRecoverySessionOpenUnavailablePlan,
   visibleTranscriptRecoveryDefaultSessionSeedMessages,
@@ -667,7 +626,6 @@ import {
   visibleTranscriptRecoverySessionTranscriptContext,
   visibleTranscriptRecoveryUnavailableContextMessages,
 } from "./recovery/compactionSummary";
-import { commitGitPaths } from "./agentRuntimeWorkspaceFacade";
 import { browserToolRecoverableFailure } from "./agentRuntimeAgentFacade";
 import {
   AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES,
@@ -684,12 +642,10 @@ import {
 } from "./tools/agentRuntimeToolTranscript";
 import {
   stringMetadata,
-  type SubagentParentControlAbortIntent,
 } from "./tools/agentRuntimeToolMessageMetadata";
 import {
   type RuntimeOpenToolFailureReason,
 } from "./openToolFailureUpdates";
-import { handleRuntimeActiveRunHandoff } from "./runtimeActiveRunHandoff";
 import { createRuntimeAssistantRetryPlanning } from "./runtimeAssistantRetryPlanning";
 import {
   type RuntimePermissionWaitControl,
@@ -701,15 +657,8 @@ import {
   createRuntimeQueuedMessageController,
 } from "./runtimeQueuedMessageController";
 import { createRuntimeRunEventScope } from "./runtimeRunEventScope";
-import {
-  handleRuntimePromptSuccess,
-  type RuntimePromptSuccessHandlerInput,
-} from "./runtimePromptSuccessHandler";
 import { finalizeRuntimeSubagentPreflightBlock } from "./runtimeSubagentPreflightBlock";
-import { finalizeRuntimeSendAfterRun } from "./runtimeSendAfterRun";
-import {
-  type AccountFinishedGoalRunInput,
-} from "./runtimeGoalContinuationAfterRun";
+import { AgentRuntimePromptOutcomeController } from "./agentRuntimePromptOutcomeController";
 import {
   type RuntimeAssistantTerminalCompletion,
 } from "./runtimeAssistantTerminalCompletion";
@@ -724,14 +673,8 @@ import {
 } from "./runtimeToolExecutionWatchdog";
 import type { RuntimeStreamWatchdogController } from "./runtimeStreamWatchdogController";
 import { createRuntimeStreamActivityTracker } from "./runtimeStreamActivityTracker";
-import {
-  type RuntimePostToolContinuationController,
-} from "./runtimePostToolContinuationController";
 import { cleanupRuntimeSession } from "./runtimeSessionCleanup";
 import { createRuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
-import type { RuntimeToolMessageController } from "./runtimeToolMessageController";
-import { createRuntimeToolEventDispatcherSetup } from "./runtimeToolEventDispatcherSetup";
-import { handleRuntimePromptFailure } from "./runtimePromptFailureHandler";
 import { createRuntimeToolContextSetup } from "./runtimeToolContextSetup";
 import { createRuntimeProviderContinuationSetup } from "./runtimeProviderContinuationSetup";
 import { createRuntimeAbortContextSetup } from "./runtimeAbortContextSetup";
@@ -742,11 +685,7 @@ import { createRuntimeStreamTraceState } from "./runtimeStreamTraceState";
 import { createRuntimeSendPendingFollowUps } from "./runtimeSendPendingFollowUps";
 import { createRuntimePromptControlState } from "./runtimePromptControlState";
 import { createRuntimePromptLifecycleControls } from "./runtimePromptLifecycleControls";
-import { subscribeRuntimePromptEvents } from "./runtimePromptEventSubscription";
-import { createRuntimePromptExecutionSetup } from "./runtimePromptExecutionSetup";
-import { runRuntimePromptCompletionSetup } from "./runtimePromptCompletionSetup";
-import { createRuntimePromptControllerSetup } from "./runtimePromptControllerSetup";
-import { createRuntimePromptStreamDispatcherSetup } from "./runtimePromptStreamDispatcherSetup";
+import { AgentRuntimePromptExecutionController } from "./agentRuntimePromptExecutionController";
 import {
   isAmbientProviderAuthFailure,
   truncateDiagnosticText,
@@ -1119,10 +1058,6 @@ export interface VoiceSettingsAuditContext {
   summary?: string;
 }
 
-const activeSessions = new Map<string, PiSession>();
-const activeSessionSymphonyParentModeByThreadId = new Map<string, boolean>();
-const activeSessionSymphonyParentModePolicyKeyByThreadId = new Map<string, string>();
-const activeSessionSymphonyParentModeLaunchVerifiedByThreadId = new Map<string, boolean>();
 const POST_TOOL_CONTINUATION_IDLE_MS = resolvePostToolContinuationIdleMs();
 const POST_TOOL_FINALIZATION_IDLE_MS = 120_000;
 const POST_TOOL_FINALIZATION_TICK_MS = resolvePostToolFinalizationTickMs();
@@ -1165,126 +1100,6 @@ export {
   type RuntimeThreadSettingsUpdate,
 } from "./agentRuntimeThreadSettingsUpdate";
 
-async function abortSessionRun(session: PiSession, threadId: string): Promise<void> {
-  await abortPiSessionRun(session, {
-    graceMs: POST_TOOL_ABORT_GRACE_MS,
-    onStalled: () => deleteActiveSession(threadId),
-  });
-}
-
-function deleteActiveSession(threadId: string): boolean {
-  activeSessionSymphonyParentModeByThreadId.delete(threadId);
-  activeSessionSymphonyParentModePolicyKeyByThreadId.delete(threadId);
-  activeSessionSymphonyParentModeLaunchVerifiedByThreadId.delete(threadId);
-  return activeSessions.delete(threadId);
-}
-
-type RuntimeSendMessageInput = SendMessageInput & {
-  internal?: true;
-  assistantFinalizationRetry?: AssistantFinalizationRetryState;
-  interruptedToolCallRecovery?: InterruptedToolCallRecoveryState;
-  sessionRecovery?: RuntimeSessionRecoveryContext;
-  dedicatedSessionKind?: "workflow-recording-review";
-  modelContentOverride?: string;
-  visibleUserContent?: string;
-  hiddenUserMessage?: true;
-  goalContinuation?: { goalId: string };
-  symphonyParentModePolicy?: SymphonyParentModePolicy | undefined;
-  symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined;
-};
-
-interface RuntimeSendLoopContext {
-  runtimeInput: RuntimeSendMessageInput;
-  usesDedicatedReviewSession: boolean;
-  visibleUserContent: string;
-  hasWorkflowPlanEditIntent: boolean;
-  thread: ThreadSummary;
-  plannerFinalizationSources: PlannerPlanArtifact[];
-  runWorkspacePath: string;
-  modelRuntimeSettingsForRun: ModelRuntimeSettings;
-  piPreStreamTimeoutMs: number;
-  piStreamIdleTimeoutMs: number;
-  defaultToolExecutionIdleTimeoutMs: number;
-  emptyAssistantStallTimeoutMs: number;
-  promptContent: string;
-  shouldInjectBootstrap: boolean;
-  retrySourceUserMessageId?: string;
-  activeAssistantFinalizationRetry?: AssistantFinalizationRetryState;
-  assistantFinalizationRetryMaxRetries: number;
-  interruptedToolCallRecoveryMaxRetries: number;
-  interruptedToolCallRecoveryAttemptsUsed: number;
-  canScheduleInterruptedToolCallRecovery: boolean;
-}
-
-interface FinalizeAgentRuntimeSendAfterRunInput {
-  sendInput: SendMessageInput;
-  hooks: AgentRuntimeSendHooks;
-  runId: string;
-  runWorkspacePath: string;
-  runGoalId?: string | undefined;
-  runGoalStartedAtMs: number;
-  promptContent: string;
-  currentAssistantFinalText: string;
-  assistantOutputChars: number;
-  currentThinkingFinalText: string;
-  thinkingOutputChars: number;
-  abortRequested: boolean;
-  pendingPlannerRepairFollowUp?: SendMessageInput | undefined;
-  pendingEmptyResponseRetry?: SendMessageInput | undefined;
-  pendingInterruptedToolCallRecoveryFollowUp?: SendMessageInput | undefined;
-  pendingProviderInterruptionContinuation?: SendMessageInput | undefined;
-  pendingEmptyResponseRetryDelayMs: number;
-  usesDedicatedReviewSession: boolean;
-  session?: PiSession | undefined;
-  hasWorkflowPlanEditIntent: boolean;
-  isRunStoreActive: () => boolean;
-  cleanupCurrentSession: () => void;
-  emitRunEvent: (event: DesktopEvent) => void;
-  toolArgumentWatchdog?: RuntimeToolArgumentWatchdog | undefined;
-  toolExecutionWatchdog?: RuntimeToolExecutionWatchdog | undefined;
-  queuedMessages: ReturnType<typeof createRuntimeQueuedMessageController>;
-  toolMessages: RuntimeToolMessageController;
-  resolveActiveRunSettled?: (() => void) | undefined;
-}
-
-interface HandleAgentRuntimePromptSuccessInput {
-  sendInput: SendMessageInput;
-  runId: string;
-  runWorkspacePath: string;
-  session: PiSession;
-  runtimeMessages: ReturnType<typeof createRuntimeAssistantMessageController>;
-  toolMessages: RuntimeToolMessageController;
-  plannerFinalizationSources: PlannerPlanArtifact[];
-  runtimeError?: string | undefined;
-  abortRequested: boolean;
-  finalizedAfterToolIdle: boolean;
-  currentThinkingFinalText: string;
-  currentAssistantFinalText: string;
-  receivedAnyText: boolean;
-  pendingEmptyResponseRetryDelayMs: number;
-  activeRetryReason?: AssistantFinalizationRetryReason | undefined;
-  retrySourceUserMessageId?: string | undefined;
-  lastAssistantTerminalEvent?: AssistantTerminalEventDiagnostic | undefined;
-  assistantTerminalCleanupDiagnostic?: AssistantTerminalCleanupDiagnostic | undefined;
-  subagentParentControlAbortIntent?: SubagentParentControlAbortIntent | undefined;
-  providerRetryBeforeVisibleOutput: boolean;
-  providerRetryRecovered: boolean;
-  providerRetryAttemptCount: number;
-  providerRetryLastError?: string | undefined;
-  usesDedicatedReviewSession: boolean;
-  symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined;
-  assistantFinalizationRetryMaxRetries: number;
-  canScheduleAssistantFinalizationRetryFor: (reason: AssistantFinalizationRetryReason) => boolean;
-  assistantFinalizationRetryAttemptsUsedFor: (reason: AssistantFinalizationRetryReason) => number;
-  assistantFinalizationRetryNextAttemptFor: (reason: AssistantFinalizationRetryReason) => number;
-  createAssistantFinalizationRetryInput: (reason: AssistantFinalizationRetryReason) => RuntimeSendMessageInput;
-  consumeSubagentParentControlAbort: () => Promise<void>;
-  cleanupCurrentSession: () => void;
-  finishPlannerFinalizationSources: RuntimePromptSuccessHandlerInput["finishPlannerFinalizationSources"];
-  finishParentRun: RuntimePromptSuccessHandlerInput["finishParentRun"];
-  emitRunEvent: (event: DesktopEvent) => void;
-}
-
 export class AgentRuntime {
   private activeRuns = new Map<string, ActiveRun>();
   private activeRunIds = new Map<string, string>();
@@ -1293,13 +1108,19 @@ export class AgentRuntime {
   private callableWorkflowRunTaskIds = new Map<string, string>();
   private workflowPlanEditIntentByThreadId = new Map<string, WorkflowPlanEditIntentKind>();
   private workflowPlanEditWorkflowThreadByThreadId = new Map<string, string>();
-  private readonly stalePluginToolThreads = new Set<string>();
-  private readonly staleRuntimeSettingsThreads = new Set<string>();
+  private readonly sessions = new AgentRuntimeSessionRegistry<PiSession>();
   private readonly ambientCliSkillMountDiagnostics = new Map<string, AmbientCliSkillMountDiagnostics>();
   private readonly ambientCliPackageDescriptionState = new AmbientCliPackageDescriptionState();
   private readonly ambientWorkflowDescriptionState = new AmbientWorkflowDescriptionState();
   private readonly pendingProjectSwitchByThreadId = new Map<string, MessagingRemoteSurfaceCommandPendingProjectSwitch>();
   private readonly remoteSurfaceRuntimeEvents: AgentRuntimeRemoteSurfaceRuntimeEventStore;
+  private readonly goalContinuations: AgentRuntimeGoalContinuationController;
+  private readonly contextRecovery: AgentRuntimeContextRecoveryController;
+  private readonly plannerFinalization: AgentRuntimePlannerFinalizationController;
+  private readonly sendPreparation: AgentRuntimeSendPreparationController;
+  private readonly activeRunHandoff: AgentRuntimeActiveRunHandoffController;
+  private readonly promptOutcomes: AgentRuntimePromptOutcomeController;
+  private readonly promptExecutions: AgentRuntimePromptExecutionController<PiSession>;
   private readonly pluginHost = new AmbientPluginHost();
   private readonly mcpToolOrchestration: AgentRuntimeMcpToolOrchestration;
   private readonly localPreviewServers = new LocalPreviewServerManager();
@@ -1343,6 +1164,131 @@ export class AgentRuntime {
         providers: createDefaultMessagingProviderRegistry(),
       }).list({ purpose: "remote_ambient_surface", includeInactive: true }).bindings,
     });
+    this.goalContinuations = new AgentRuntimeGoalContinuationController({
+      store: this.store,
+      hasActiveRun: (threadId) => this.activeRuns.has(threadId),
+      send: (input) => this.send(input as RuntimeSendMessageInput),
+      emit: (event) => this.emit(event),
+    });
+    this.contextRecovery = new AgentRuntimeContextRecoveryController({
+      store: this.store,
+      hasActiveRun: (threadId) => this.activeRuns.has(threadId),
+      getActiveSession: (threadId) => this.sessions.get(threadId) as AgentRuntimeContextRecoverySession | undefined,
+      deleteActiveSession: (threadId) => this.sessions.delete(threadId),
+      getSession: async (thread) => this.getSession(thread) as Promise<AgentRuntimeContextRecoverySession>,
+      commitThreadPiSessionFile: (input) => this.commitThreadPiSessionFile(input),
+      ambientCliSkillMountForThread: (threadId) => this.ambientCliSkillMountDiagnostics.get(threadId),
+      emit: (event) => this.emit(event),
+    });
+    this.plannerFinalization = new AgentRuntimePlannerFinalizationController({
+      store: this.store,
+      durableBrowserValidator: this.features.planner?.durableBrowserValidator,
+      refreshBrowsersForArtifactChange: (threadId, workspacePath, artifactPath) =>
+        this.refreshBrowsersForArtifactChange(threadId, workspacePath, artifactPath),
+      send: (followUp) => this.send(followUp),
+      emit: (event) => this.emit(event),
+    });
+    this.sendPreparation = new AgentRuntimeSendPreparationController({
+      store: this.store,
+      getFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
+      readSearchSettings: () => this.features.search?.readSettings(),
+      plannerFinalizationSourceArtifactsForPrompt: (threadId, prompt) =>
+        this.plannerFinalization.plannerFinalizationSourceArtifactsForPrompt(threadId, prompt),
+      deletePendingProjectSwitch: (threadId) => {
+        this.pendingProjectSwitchByThreadId.delete(threadId);
+      },
+      setWorkflowPlanEditIntent: (threadId, intent, workflowThreadId) => {
+        this.workflowPlanEditIntentByThreadId.set(threadId, intent);
+        this.workflowPlanEditWorkflowThreadByThreadId.set(threadId, workflowThreadId);
+      },
+      generateTitleIfNeeded: (thread, prompt) => this.generateTitleIfNeeded(thread, prompt),
+      emit: (event) => this.emit(event),
+      workflowRecordingReviewStreamIdleTimeoutMs: WORKFLOW_RECORDING_REVIEW_STREAM_IDLE_TIMEOUT_MS,
+      chatPiEmptyAssistantStallTimeoutMs: CHAT_PI_EMPTY_ASSISTANT_STALL_TIMEOUT_MS,
+      defaultInterruptedToolCallRecoveryMaxRetries: DEFAULT_INTERRUPTED_TOOL_CALL_RECOVERY_MAX_RETRIES,
+      localToolIdleTimeoutMs,
+    });
+    this.activeRunHandoff = new AgentRuntimeActiveRunHandoffController({
+      store: this.store,
+      getFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
+      applyThreadModelSettings: (threadId) => this.applyThreadModelSettings(threadId),
+      modelContentForSendInput: (activeRunInput) => this.sendPreparation.modelContentForSendInput(activeRunInput),
+      emit: (event) => this.emit(event),
+    });
+    this.promptOutcomes = new AgentRuntimePromptOutcomeController({
+      getThread: (threadId) => this.store.getThread(threadId),
+      updateThreadSettings: (threadId, settings) => this.store.updateThreadSettings(threadId, settings),
+      replaceMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
+      commitThreadPiSessionFile: (input) => this.commitThreadPiSessionFile(input),
+      recordContextUsageSnapshot: (threadId, session) => this.recordContextUsageSnapshot(threadId, session as PiSession),
+      createPlannerPlanArtifactFromMessage: (message) =>
+        this.plannerFinalization.createPlannerPlanArtifactFromMessage(message),
+      resolveSubagentFinalizationBlock: (threadId, runId) => this.subagentFinalizationBarrierBlock(threadId, runId),
+      resolveCallableWorkflowFinalizationBlock: (threadId, runId, verifiedLaunch) =>
+        this.callableWorkflowFinalizationBlock(threadId, runId, verifiedLaunch),
+      recordSubagentFinalizationBlockedParentMailbox: (threadId, runId, block) =>
+        this.recordSubagentFinalizationBlockedParentMailbox(threadId, runId, block),
+      recordCallableWorkflowFinalizationBlockedParentMailbox: (threadId, runId, block) =>
+        this.recordCallableWorkflowFinalizationBlockedParentMailbox(threadId, runId, block),
+      recordVoiceDispatch: (message) => this.recordVoiceDispatch(message),
+      clearActiveRun: (threadId) => {
+        this.activeRuns.delete(threadId);
+      },
+      clearActiveRunId: (threadId) => {
+        this.activeRunIds.delete(threadId);
+      },
+      clearPermissionWaitControl: (threadId) => {
+        this.permissionWaitControls.delete(threadId);
+      },
+      clearWorkflowPlanEditIntent: (threadId) => {
+        this.workflowPlanEditIntentByThreadId.delete(threadId);
+        this.workflowPlanEditWorkflowThreadByThreadId.delete(threadId);
+      },
+      takePendingProjectSwitch: (threadId) => {
+        const pendingProjectSwitch = this.pendingProjectSwitchByThreadId.get(threadId);
+        this.pendingProjectSwitchByThreadId.delete(threadId);
+        return pendingProjectSwitch;
+      },
+      updateRuntimeEvent: (eventId, patch) => this.remoteSurfaceRuntimeEvents.update(eventId, patch),
+      scheduleProjectSwitchCompletion: (projectSwitch, switchInput) => {
+        setTimeout(() => {
+          void this.completePendingRemoteProjectSwitch(projectSwitch as MessagingRemoteSurfaceCommandPendingProjectSwitch, switchInput);
+        }, 0);
+      },
+      getRunRecord: (runId) => {
+        try {
+          return this.store.getRunRecord(runId);
+        } catch {
+          return undefined;
+        }
+      },
+      accountFinishedGoalRun: (input) => this.goalContinuations.accountFinishedGoalRun(input),
+      scheduleGoalContinuation: (threadId, goalId, delayMs) =>
+        this.goalContinuations.scheduleGoalContinuation(threadId, goalId, delayMs),
+      schedulePlannerDurableRepairFollowUp: (followUp, workspacePath) =>
+        this.plannerFinalization.schedulePlannerDurableRepairFollowUp(followUp, workspacePath),
+      send: (followUp, followUpHooks) => this.send(followUp, followUpHooks),
+      emitError: (message, threadId, workspacePath) => this.emit({ type: "error", message, threadId, workspacePath }),
+    });
+    this.promptExecutions = new AgentRuntimePromptExecutionController<PiSession>({
+      preflightBeforePrompt: (preflightInput) =>
+        this.preflightBeforePrompt(
+          preflightInput.thread,
+          preflightInput.session,
+          preflightInput.promptContent,
+          preflightInput.setActiveRunStatus,
+          preflightInput.isRunStoreActive,
+          preflightInput.emitRunEvent,
+        ),
+      abortSessionRun: (executionSession, threadId) => this.abortSessionRunForThread(executionSession, threadId),
+      removeActiveSessionIfCurrent: (threadId, executionSession) => {
+        if (this.sessions.get(threadId) === executionSession) this.sessions.delete(threadId);
+      },
+      recordContextUsageSnapshot: (threadId, executionSession, snapshotMessage) =>
+        this.recordContextUsageSnapshot(threadId, executionSession, snapshotMessage),
+      refreshBrowsersForArtifactChange: (threadId, workspacePath, artifactPath) =>
+        this.refreshBrowsersForArtifactChange(threadId, workspacePath, artifactPath),
+    });
     this.glmTokenizer = new GlmTokenizerService(() => this.store.getWorkspace().statePath);
   }
 
@@ -1370,7 +1316,7 @@ export class AgentRuntime {
       await session.setModel(model);
     }
     session.setThinkingLevel(thread.thinkingLevel);
-    this.staleRuntimeSettingsThreads.delete(thread.id);
+    this.sessions.clearRuntimeSettingsStale(thread.id);
     if (session.sessionFile) {
       await this.commitThreadPiSessionFile({
         threadId: thread.id,
@@ -1380,6 +1326,13 @@ export class AgentRuntime {
         emit: (event) => this.emit(event),
       });
     }
+  }
+
+  private async abortSessionRunForThread(session: PiSession, threadId: string): Promise<void> {
+    await abortPiSessionRun(session, {
+      graceMs: POST_TOOL_ABORT_GRACE_MS,
+      onStalled: () => this.sessions.delete(threadId),
+    });
   }
 
   private recordRemoteSurfaceRuntimeEvent(
@@ -1412,129 +1365,6 @@ export class AgentRuntime {
     });
   }
 
-  private modelContentForSendInput(input: SendMessageInput): string {
-    return modelContentForAgentRuntimeSendInput(input, {
-      isSubagentsEnabled: () => isAmbientSubagentsEnabled(this.currentFeatureFlagSnapshot()),
-      getFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
-      getWorkflowAgentThreadSummary: (workflowThreadId) => this.store.getWorkflowAgentThreadSummary(workflowThreadId),
-    });
-  }
-
-  private prepareRuntimeSendLoopContext(input: SendMessageInput): RuntimeSendLoopContext {
-    const runtimeInput = input as RuntimeSendMessageInput;
-    const usesDedicatedReviewSession = runtimeInput.dedicatedSessionKind === "workflow-recording-review";
-    const visibleUserContent = runtimeInput.visibleUserContent ?? input.content;
-
-    this.pendingProjectSwitchByThreadId.delete(input.threadId);
-    const workflowPlanEditIntent = input.workflowThreadId ? classifyWorkflowPlanEditIntent(input.content) : undefined;
-    if (workflowPlanEditIntent) {
-      this.workflowPlanEditIntentByThreadId.set(input.threadId, workflowPlanEditIntent.kind);
-      this.workflowPlanEditWorkflowThreadByThreadId.set(input.threadId, input.workflowThreadId!);
-    }
-
-    const threadSettingsUpdate = runtimeThreadSettingsUpdateFromSendInput(input);
-    const thread = hasRuntimeThreadSettingsUpdate(threadSettingsUpdate)
-      ? this.store.updateThreadSettings(input.threadId, threadSettingsUpdate)
-      : this.store.getThread(input.threadId);
-    const plannerFinalizationSources = this.plannerFinalizationSourceArtifactsForPrompt(thread.id, input.content);
-    const runWorkspacePath = this.store.getWorkspace().path;
-    const modelRuntimeSettingsForRun = usesDedicatedReviewSession
-      ? { ...this.store.getModelRuntimeSettings(), aggressiveRetries: true }
-      : this.store.getModelRuntimeSettings();
-    const piPreStreamTimeoutMs = usesDedicatedReviewSession
-      ? WORKFLOW_RECORDING_REVIEW_STREAM_IDLE_TIMEOUT_MS
-      : modelRuntimeSettingsForRun.providerPreStreamTimeoutMs ?? DEFAULT_MODEL_RUNTIME_PROVIDER_PRE_STREAM_TIMEOUT_MS;
-    const piStreamIdleTimeoutMs = usesDedicatedReviewSession
-      ? WORKFLOW_RECORDING_REVIEW_STREAM_IDLE_TIMEOUT_MS
-      : modelRuntimeSettingsForRun.providerStreamIdleTimeoutMs ?? DEFAULT_MODEL_RUNTIME_PROVIDER_STREAM_IDLE_TIMEOUT_MS;
-    const defaultToolExecutionIdleTimeoutMs = localToolIdleTimeoutMs();
-    const emptyAssistantStallTimeoutMs = usesDedicatedReviewSession
-      ? Math.min(CHAT_PI_EMPTY_ASSISTANT_STALL_TIMEOUT_MS, WORKFLOW_RECORDING_REVIEW_STREAM_IDLE_TIMEOUT_MS)
-      : CHAT_PI_EMPTY_ASSISTANT_STALL_TIMEOUT_MS;
-    const configuredAssistantFinalizationRetryMaxRetries = assistantFinalizationRetryMaxRetriesFromSettings(
-      modelRuntimeSettingsForRun,
-    );
-    const retryUserMessage = input.retryOfMessageId
-      ? this.store.listMessages(input.threadId).find((message) => message.id === input.retryOfMessageId)
-      : undefined;
-    if (input.retryOfMessageId && (!retryUserMessage || retryUserMessage.role !== "user")) {
-      throw new Error("Retry target user message was not found.");
-    }
-
-    let promptContent = runtimeInput.modelContentOverride ?? this.modelContentForSendInput(input);
-    if (!usesDedicatedReviewSession) promptContent = appendSearchRoutingGuidance(promptContent, this.features.search?.readSettings());
-    if (!usesDedicatedReviewSession) promptContent = appendMcpInstallRouteGuidance(promptContent, visibleUserContent);
-    const messagesBeforePrompt = this.store.listMessages(input.threadId);
-    const shouldInjectBootstrap =
-      !input.retryOfMessageId && !thread.piSessionFile && messagesBeforePrompt.length === 0 && input.delivery !== "follow-up";
-    let retrySourceUserMessageId = retryUserMessage?.id;
-
-    if (retryUserMessage) {
-      this.emit({ type: "thread-updated", thread: this.store.markThreadRead(input.threadId) });
-    } else if (runtimeInput.hiddenUserMessage) {
-      this.emit({
-        type: "runtime-activity",
-        activity: goalRuntimeActivity({
-          threadId: input.threadId,
-          status: "continuing",
-          message: visibleUserContent,
-          goalId: runtimeInput.goalContinuation?.goalId,
-        }),
-      });
-    } else {
-      const userMessage = this.store.addMessage({
-        threadId: input.threadId,
-        role: "user",
-        content: visibleUserContent,
-        metadata: agentRuntimeUserMessageMetadata(input, { dedicatedSessionKind: runtimeInput.dedicatedSessionKind }),
-      });
-      retrySourceUserMessageId = userMessage.id;
-      this.emit({ type: "message-created", message: userMessage });
-      this.emit({ type: "thread-updated", thread: this.store.markThreadRead(input.threadId) });
-      this.generateTitleIfNeeded(thread, visibleUserContent);
-    }
-
-    const activeAssistantFinalizationRetry =
-      runtimeInput.assistantFinalizationRetry?.sourceUserMessageId === retrySourceUserMessageId
-        ? runtimeInput.assistantFinalizationRetry
-        : undefined;
-    const assistantFinalizationRetryMaxRetries = Math.max(
-      configuredAssistantFinalizationRetryMaxRetries,
-      activeAssistantFinalizationRetry?.maxRetries ?? 0,
-    );
-    const interruptedToolCallRecoveryMaxRetries =
-      runtimeInput.interruptedToolCallRecovery?.maxRetries ?? DEFAULT_INTERRUPTED_TOOL_CALL_RECOVERY_MAX_RETRIES;
-    const interruptedToolCallRecoveryAttemptsUsed = Math.min(
-      runtimeInput.interruptedToolCallRecovery?.attempt ?? 0,
-      interruptedToolCallRecoveryMaxRetries,
-    );
-    const canScheduleInterruptedToolCallRecovery =
-      !usesDedicatedReviewSession && interruptedToolCallRecoveryAttemptsUsed < interruptedToolCallRecoveryMaxRetries;
-
-    return {
-      runtimeInput,
-      usesDedicatedReviewSession,
-      visibleUserContent,
-      hasWorkflowPlanEditIntent: Boolean(workflowPlanEditIntent),
-      thread,
-      plannerFinalizationSources,
-      runWorkspacePath,
-      modelRuntimeSettingsForRun,
-      piPreStreamTimeoutMs,
-      piStreamIdleTimeoutMs,
-      defaultToolExecutionIdleTimeoutMs,
-      emptyAssistantStallTimeoutMs,
-      promptContent,
-      shouldInjectBootstrap,
-      retrySourceUserMessageId,
-      activeAssistantFinalizationRetry,
-      assistantFinalizationRetryMaxRetries,
-      interruptedToolCallRecoveryMaxRetries,
-      interruptedToolCallRecoveryAttemptsUsed,
-      canScheduleInterruptedToolCallRecovery,
-    };
-  }
-
   async requestWorkflowRecordingReview(input: { threadId: string; feedback?: string }): Promise<void> {
     const thread = this.store.getThread(input.threadId);
     const reviewInput: RuntimeSendMessageInput = workflowRecordingReviewSendInputForThread(thread, {
@@ -1546,28 +1376,7 @@ export class AgentRuntime {
   async send(input: SendMessageInput, hooks: AgentRuntimeSendHooks = {}): Promise<void> {
     const incomingRuntimeInput = input as RuntimeSendMessageInput;
     const activeRun = this.activeRuns.get(input.threadId);
-    if (activeRun) {
-      const thread = this.store.getThread(input.threadId);
-      const incomingSymphonyParentModePolicy = resolveSymphonyParentModePolicyForRuntimeSend({
-        thread,
-        composerIntent: incomingRuntimeInput.composerIntent,
-        carriedPolicy: incomingRuntimeInput.symphonyParentModePolicy,
-        featureFlagSnapshot: this.currentFeatureFlagSnapshot(),
-      });
-      if (shouldRejectSymphonyParentModeActiveRunHandoff({
-        activeRunPresent: true,
-        policy: incomingSymphonyParentModePolicy,
-      })) {
-        throw new Error(SYMPHONY_PARENT_MODE_ACTIVE_RUN_HANDOFF_ERROR);
-      }
-    }
-    const activeRunHandoffHandled = await handleRuntimeActiveRunHandoff({
-      sendInput: input,
-      incomingDedicatedSessionKind: incomingRuntimeInput.dedicatedSessionKind,
-      activeRun,
-      hooks,
-      queueDuringRun: (queuedInput, activeRun, delivery) => this.queueDuringRun(queuedInput, activeRun, delivery),
-    });
+    const activeRunHandoffHandled = await this.activeRunHandoff.handleSendActiveRunHandoff(input, activeRun, hooks);
     if (activeRunHandoffHandled) return;
 
     const initialThread = this.store.getThread(input.threadId);
@@ -1582,7 +1391,7 @@ export class AgentRuntime {
       initialThread,
       initialSymphonyParentModePolicy,
     );
-    const sendLoop = this.prepareRuntimeSendLoopContext(sendLoopInput);
+    const sendLoop = this.sendPreparation.prepareRuntimeSendLoopContext(sendLoopInput);
     const {
       runtimeInput,
       usesDedicatedReviewSession,
@@ -1591,7 +1400,6 @@ export class AgentRuntime {
       thread,
       plannerFinalizationSources,
       runWorkspacePath,
-      modelRuntimeSettingsForRun,
       piPreStreamTimeoutMs,
       piStreamIdleTimeoutMs,
       defaultToolExecutionIdleTimeoutMs,
@@ -1909,7 +1717,7 @@ export class AgentRuntime {
       },
       denyThread: (threadId) => this.permissions.denyThread(threadId),
       getSession: () => session,
-      abortSessionRun,
+      abortSessionRun: (abortSession, threadId) => this.abortSessionRunForThread(abortSession, threadId),
       markSubagentParentControlBarrierReconciled: (reconcileInput) =>
         this.store.markSubagentParentControlBarrierReconciled(reconcileInput),
       cascadeSubagentsForStoppedParentRun: (threadId, runId, reason) =>
@@ -1976,14 +1784,11 @@ export class AgentRuntime {
       createProviderInterruptionContinuationInput,
     } = providerContinuation;
 
-    const reconcileQueueUpdate = (steering: string[], followUp: string[]) => {
-      queuedMessages.reconcileQueueUpdate(steering, followUp);
-    };
     const cleanupCurrentSession = (options: { clearPersistedSessionFileIfCurrent?: boolean } = {}) => cleanupRuntimeSession({
       session,
       removeActiveSessionIfCurrent: (cleanupSession) => {
-        if (activeSessions.get(input.threadId) !== cleanupSession) return false;
-        deleteActiveSession(input.threadId);
+        if (this.sessions.get(input.threadId) !== cleanupSession) return false;
+        this.sessions.delete(input.threadId);
         return true;
       },
       clearPersistedSessionFileIfCurrent: options.clearPersistedSessionFileIfCurrent
@@ -2021,191 +1826,71 @@ export class AgentRuntime {
           );
       if (!isRunStoreActive()) return;
       if (isAbortRequested()) {
-        await abortSessionRun(session, input.threadId);
+        await this.abortSessionRunForThread(session, input.threadId);
         throw new Error("Run stopped.");
       }
 
-      let finalizeAssistantTerminalRun: (pendingCompletion?: Promise<unknown>) => Promise<void> = async () => {
-        throw new Error("Assistant terminal finalization requested before prompt start.");
-      };
-      const promptControllers = createRuntimePromptControllerSetup({
-        threadId: input.threadId,
+      const promptExecutionResult = await this.promptExecutions.runPrompt({
+        thread,
         runId: run.id,
+        session,
+        promptContent,
+        images: promptImageInputs.images,
+        preStreamTimeoutMs: piPreStreamTimeoutMs,
+        streamIdleTimeoutMs: piStreamIdleTimeoutMs,
         defaultToolExecutionIdleTimeoutMs,
-        toolArgumentIdleTimeoutMs: piStreamIdleTimeoutMs,
         emptyAssistantStallTimeoutMs,
         assistantTerminalGraceMs: ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS,
         postToolContinuationIdleMs: POST_TOOL_CONTINUATION_IDLE_MS,
         postToolFinalizationIdleMs: POST_TOOL_FINALIZATION_IDLE_MS,
         postToolFinalizationTickMs: POST_TOOL_FINALIZATION_TICK_MS,
+        abortGraceMs: POST_TOOL_ABORT_GRACE_MS,
         assistantFinalizationRetryMaxRetries,
         isRunStoreActive,
-        isPermissionWaiting: () => permissionWaits.isWaiting(),
-        pauseStreamWatchdog: () => {
-          streamWatchdog?.pause();
-        },
-        resumeStreamWatchdog: () => {
-          streamWatchdog?.resume();
-        },
-        resetStreamWatchdog: () => {
-          streamWatchdog?.reset();
-        },
-        abortSessionRun: () => {
-          if (session) void abortSessionRun(session, input.threadId).catch(() => undefined);
-        },
-        signalToolExecutionTimeout: promptLifecycleControls.signalToolExecutionTimeout,
-        signalStreamWatchdogTimeout: promptLifecycleControls.signalStreamWatchdogTimeout,
-        streamWatchdogCompletion: promptLifecycleControls.streamWatchdogCompletion,
-        isStreamTimedOut: promptControlState.isStreamTimedOut,
-        markStreamTimedOut: promptControlState.markStreamTimedOut,
-        setStreamTimeoutMessage: promptControlState.setStreamWatchdogTimeoutMessage,
+        permissionWaits,
+        promptControlState,
+        promptLifecycleControls,
         streamTimeoutMessage: currentPiStreamTimeoutMessage,
         persistPiStreamTrace,
         toolArgumentProgress,
         forceInterruptedToolCallRecovery,
-        getOutputChars: outputState.assistantOutputChars,
-        getThinkingChars: outputState.thinkingOutputChars,
-        hasAssistantText: outputState.hasAssistantText,
-        getAssistantStartCount: runtimeMessages.assistantStartCount,
-        getReceivedAnyText: outputState.receivedAnyText,
-        getCurrentAssistantReceivedText: outputState.currentAssistantReceivedText,
-        getCurrentAssistantFinalText: outputState.currentAssistantFinalText,
-        getStreamEventCount: () => piStreamActivity.snapshot().eventCount,
-        getSessionFile: () => session?.sessionFile,
-        getMessages: () => this.store.listMessages(input.threadId),
-        getRunEventSeq: promptControlState.runEventSeq,
-        steerContinuation: (prompt) => session!.steer(prompt),
-        finalizeAssistantTerminalRun: (pendingCompletion) => finalizeAssistantTerminalRun(pendingCompletion),
-        emitRunEvent,
-      });
-      const activeToolExecutionWatchdog = promptControllers.toolExecutionWatchdog;
-      toolExecutionWatchdog = activeToolExecutionWatchdog;
-      const activeToolArgumentWatchdog = promptControllers.toolArgumentWatchdog;
-      toolArgumentWatchdog = activeToolArgumentWatchdog;
-      emptyAssistantStallWatchdog = promptControllers.emptyAssistantStallWatchdog;
-      assistantTerminalCompletion = promptControllers.assistantTerminalCompletion;
-      const markPiStreamActivity = (forceProgress = false, event?: unknown) => {
-        piStreamActivity.markActivity(forceProgress, event);
-      };
-      await this.preflightBeforePrompt(
-        thread,
-        session,
-        promptContent,
-        promptLifecycleControls.setActiveRunStatus,
-        isRunStoreActive,
-        emitRunEvent,
-      );
-      if (!isRunStoreActive()) return;
-      const promptRunState = promptControllers.promptRunState;
-      const postToolContinuation = promptControllers.postToolContinuation;
-      const streamEventDispatcher = createRuntimePromptStreamDispatcherSetup({
-        threadId: input.threadId,
-        assistantTerminalGraceMs: ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS,
         outputState,
-        promptRunState,
-        providerRetryState,
         runtimeMessages,
-        emptyAssistantStallWatchdog,
-        assistantTerminalCompletion,
-        postToolContinuation,
-        toolMessages,
-        markPiStreamActivity: () => markPiStreamActivity(),
-        setActiveRunStatus: promptLifecycleControls.setActiveRunStatus,
-        reconcileQueueUpdate,
-        recordContextUsageSnapshot: (snapshotMessage) => {
-          if (session) this.recordContextUsageSnapshot(input.threadId, session, snapshotMessage);
-        },
-        emitRunEvent,
-      });
-      markOpenToolMessagesFailed = (reason: RuntimeOpenToolFailureReason) => {
-        if (toolMessages.markOpenToolMessagesFailed(reason) > 0) persistToolArgumentDiagnostics(true);
-      };
-      const toolEventDispatcher = createRuntimeToolEventDispatcherSetup({
-        threadId: input.threadId,
-        runId: run.id,
-        workspacePath: thread.workspacePath,
-        permissionMode: thread.permissionMode,
-        toolMessages,
-        toolArgumentProgress,
-        toolArgumentWatchdog: activeToolArgumentWatchdog,
-        toolExecutionWatchdog: activeToolExecutionWatchdog,
-        postToolContinuation,
-        startedToolCallIds,
-        emptyAssistantStallWatchdog,
-        assistantTerminalCompletion,
-        streamTraceState,
-        toolRecovery,
-        promptLifecycleControls,
-        promptRunState,
-        requestSubagentParentControlAbort,
-        refreshBrowsersForArtifactChange: (threadId, workspacePath, artifactPath) =>
-          this.refreshBrowsersForArtifactChange(threadId, workspacePath, artifactPath),
-      });
-
-      const unsubscribe = subscribeRuntimePromptEvents({
-        subscribe: (handler) => session!.subscribe(handler as (event: any) => void),
-        markRunActivity,
-        incrementRunEventSeq: promptControlState.incrementRunEventSeq,
-        markPostToolEvent: postToolContinuation.markEvent,
-        recordPiStreamTraceEvent,
-        markPiStreamActivity,
-        streamEventDispatcher,
-        toolEventDispatcher,
-      });
-
-      const promptExecution = createRuntimePromptExecutionSetup({
-        threadId: input.threadId,
-        session,
-        promptContent,
-        images: promptImageInputs.images,
-        promptControlState,
-        streamTimeoutMessage: currentPiStreamTimeoutMessage,
-        streamTraceState,
-        assistantTerminalCompletion,
-        outputState,
-        streamIdleTimeoutMs: piStreamIdleTimeoutMs,
-        abortGraceMs: POST_TOOL_ABORT_GRACE_MS,
-        promptRunState,
-        abortSessionRun: (cleanupSession, threadId) => abortSessionRun(cleanupSession as PiSession, threadId),
-        removeActiveSessionIfCurrent: (cleanupSession) => {
-          if (activeSessions.get(input.threadId) === cleanupSession) deleteActiveSession(input.threadId);
-        },
-        emitRunEvent,
-      });
-      finalizeAssistantTerminalRun = promptExecution.finalizeAssistantTerminalRun;
-      const promptCompletionLoop = await runRuntimePromptCompletionSetup<PiSession>({
-        threadId: input.threadId,
-        preStreamTimeoutMs: piPreStreamTimeoutMs,
-        idleTimeoutMs: piStreamIdleTimeoutMs,
-        session,
-        isRunStoreActive,
-        permissionWaits,
-        toolExecutionWatchdog: activeToolExecutionWatchdog,
-        toolArgumentWatchdog: activeToolArgumentWatchdog,
-        emptyAssistantStallWatchdog,
-        promptControlState,
-        persistPiStreamTrace,
-        outputState,
+        getMessages: () => this.store.listMessages(input.threadId),
+        queuedMessages,
         streamActivity: piStreamActivity,
-        abortSessionRun,
-        promptLifecycleControls,
-        emitRunEvent,
+        streamTraceState,
+        providerRetryState,
+        toolMessages,
+        toolRecovery,
+        startedToolCallIds,
+        markRunActivity,
+        recordPiStreamTraceEvent,
+        requestSubagentParentControlAbort,
         setStreamWatchdog: (controller) => {
           streamWatchdog = controller;
         },
-        queuedMessages,
-        promptExecution,
-        postToolContinuation,
-        assistantTerminalCompletion,
-        promptRunState,
-        streamTimeoutMessage: currentPiStreamTimeoutMessage,
-        finalizeAssistantTerminalRun: () => finalizeAssistantTerminalRun(),
-        unsubscribePromptEvents: unsubscribe,
+        setToolExecutionWatchdog: (watchdog) => {
+          toolExecutionWatchdog = watchdog;
+        },
+        setToolArgumentWatchdog: (watchdog) => {
+          toolArgumentWatchdog = watchdog;
+        },
+        setEmptyAssistantStallWatchdog: (watchdog) => {
+          emptyAssistantStallWatchdog = watchdog;
+        },
+        setAssistantTerminalCompletion: (completion) => {
+          assistantTerminalCompletion = completion;
+        },
+        setMarkOpenToolMessagesFailed: (handler) => {
+          markOpenToolMessagesFailed = handler;
+        },
+        emitRunEvent,
       });
-      promptRunState.setFinalizedAfterToolIdle(promptCompletionLoop.finalizedAfterToolIdle);
-      if (!isRunStoreActive()) return;
+      if (!promptExecutionResult.completed) return;
 
       const providerRetry = providerRetryState.snapshot();
+      const promptRunState = promptExecutionResult.promptRunState;
       const promptRun = promptRunState.snapshot();
       symphonyParentModeVerifiedLaunch = resolveCurrentSymphonyParentModeVerifiedLaunch();
       const currentSymphonyParentModeTasks = symphonyParentModePolicy
@@ -2222,7 +1907,7 @@ export class AgentRuntime {
       ) {
         throw new Error(SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR);
       }
-      const promptSuccess = await this.handlePromptSuccess({
+      const promptSuccess = await this.promptOutcomes.handlePromptSuccess({
         sendInput: input,
         runId: run.id,
         runWorkspacePath,
@@ -2269,10 +1954,10 @@ export class AgentRuntime {
     } catch (error) {
       symphonyParentModeVerifiedLaunch =
         resolveCurrentSymphonyParentModeVerifiedLaunch() ?? symphonyParentModeVerifiedLaunch;
-      await handleRuntimePromptFailure({
+      await this.promptOutcomes.handlePromptFailure({
         error,
-        threadId: input.threadId,
-        workspacePath: runWorkspacePath,
+        sendInput: input,
+        runWorkspacePath,
         usesDedicatedReviewSession,
         activeAssistantFinalizationRetry,
         assistantFinalizationRetryMaxRetries,
@@ -2301,23 +1986,12 @@ export class AgentRuntime {
         assistantFinalizationRetryNextAttemptFor,
         sessionRecoveryForCurrentSession,
         createAssistantFinalizationRetryInput,
-        createInterruptedToolCallRecoveryInput: (snapshots) =>
-          carrySymphonyParentModeVerifiedLaunch(
-            carrySymphonyParentModePolicy(createInterruptedToolCallRecoveryInput(snapshots), symphonyParentModePolicy),
-            symphonyParentModeVerifiedLaunch,
-          ),
+        createInterruptedToolCallRecoveryInput,
         collectOpenProviderInterruptionToolSnapshots,
         createProviderContinuationState,
         persistProviderContinuationState,
         persistCurrentSessionPointerForRetry,
-        createProviderInterruptionContinuationInput: (continuationInput) =>
-          carrySymphonyParentModeVerifiedLaunch(
-            carrySymphonyParentModePolicy(
-              createProviderInterruptionContinuationInput(continuationInput),
-              symphonyParentModePolicy,
-            ),
-            symphonyParentModeVerifiedLaunch,
-          ),
+        createProviderInterruptionContinuationInput,
         setPendingEmptyResponseRetry: pendingFollowUps.setPendingEmptyResponseRetry,
         setPendingInterruptedToolCallRecoveryFollowUp: pendingFollowUps.setPendingInterruptedToolCallRecoveryFollowUp,
         setPendingProviderInterruptionContinuation: pendingFollowUps.setPendingProviderInterruptionContinuation,
@@ -2327,16 +2001,17 @@ export class AgentRuntime {
         cleanupCurrentSession,
         markOpenToolMessagesFailed,
         persistToolArgumentDiagnostics,
-        replaceToolMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
         finishPlannerFinalizationSources,
         finishParentRun,
+        symphonyParentModePolicy,
+        symphonyParentModeVerifiedLaunch,
         chatStreamInterruptionDiagnostic,
         chatStreamInterruptionNotice,
         emitRunEvent,
       });
     } finally {
       const pendingFollowUpsSnapshot = pendingFollowUps.snapshot();
-      await this.finalizeSendAfterRun({
+      await this.promptOutcomes.finalizeSendAfterRun({
         sendInput: input,
         hooks,
         runId: run.id,
@@ -2369,384 +2044,8 @@ export class AgentRuntime {
     }
   }
 
-  private async handlePromptSuccess(
-    input: HandleAgentRuntimePromptSuccessInput,
-  ): Promise<{
-    pendingEmptyResponseRetry?: RuntimeSendMessageInput | undefined;
-    pendingPlannerRepairFollowUp?: SendMessageInput | undefined;
-  }> {
-    const emptyAssistantRetryReason: AssistantFinalizationRetryReason = "empty_assistant_response";
-    const currentThread = this.store.getThread(input.sendInput.threadId);
-    const result = await handleRuntimePromptSuccess({
-      threadId: input.sendInput.threadId,
-      runId: input.runId,
-      workspacePath: input.runWorkspacePath,
-      currentAssistantMessageId: input.runtimeMessages.currentAssistantMessageId(),
-      runtimeError: input.runtimeError,
-      abortRequested: input.abortRequested,
-      finalizedAfterToolIdle: input.finalizedAfterToolIdle,
-      currentThinkingFinalText: input.currentThinkingFinalText,
-      currentAssistantFinalText: input.currentAssistantFinalText,
-      currentAssistantVisibleContent: input.runtimeMessages.currentMessageContent(
-        input.runtimeMessages.currentAssistantMessageId(),
-        input.currentAssistantFinalText,
-      ),
-      receivedAnyText: input.receivedAnyText,
-      activeToolMessageCount: input.toolMessages.size(),
-      pendingEmptyResponseRetryDelayMs: input.pendingEmptyResponseRetryDelayMs,
-      activeRetryReason: input.activeRetryReason,
-      retrySourceUserMessageId: input.retrySourceUserMessageId,
-      sessionFile: input.session.sessionFile,
-      lastAssistantTerminalEvent: input.lastAssistantTerminalEvent,
-      assistantTerminalCleanupDiagnostic: input.assistantTerminalCleanupDiagnostic,
-      subagentParentControlAbortIntent: input.subagentParentControlAbortIntent,
-      providerRetryBeforeVisibleOutput: input.providerRetryBeforeVisibleOutput,
-      providerRetryRecovered: input.providerRetryRecovered,
-      providerRetryAttemptCount: input.providerRetryAttemptCount,
-      providerRetryLastError: input.providerRetryLastError,
-      usesDedicatedReviewSession: input.usesDedicatedReviewSession,
-      currentThreadPiSessionFile: currentThread.piSessionFile,
-      hasPlannerFinalizationSources: input.plannerFinalizationSources.length > 0,
-      assistantFinalizationRetryMaxRetries: input.assistantFinalizationRetryMaxRetries,
-      canScheduleEmptyAssistantRetry: input.canScheduleAssistantFinalizationRetryFor(emptyAssistantRetryReason),
-      emptyAssistantRetryAttemptsUsed: input.assistantFinalizationRetryAttemptsUsedFor(emptyAssistantRetryReason),
-      emptyAssistantRetryNextAttempt: input.assistantFinalizationRetryNextAttemptFor(emptyAssistantRetryReason),
-      consumeSubagentParentControlAbort: input.consumeSubagentParentControlAbort,
-      finishCurrentThinkingMessage: input.runtimeMessages.finishCurrentThinkingMessage,
-      recordContextUsageSnapshot: () => this.recordContextUsageSnapshot(input.sendInput.threadId, input.session),
-      cleanupCurrentSession: input.cleanupCurrentSession,
-      createEmptyAssistantRetry: () => input.createAssistantFinalizationRetryInput(emptyAssistantRetryReason),
-      clearThreadPiSessionFile: () => {
-        input.emitRunEvent({
-          type: "thread-updated",
-          thread: this.store.updateThreadSettings(input.sendInput.threadId, { piSessionFile: null }),
-        });
-      },
-      commitThreadPiSessionFile: async (commitInput) => {
-        await this.commitThreadPiSessionFile({
-          threadId: input.sendInput.threadId,
-          sessionFile: commitInput.sessionFile,
-          currentPiSessionFile: commitInput.currentPiSessionFile,
-          reason: commitInput.reason,
-          emit: input.emitRunEvent,
-        });
-      },
-      createPlannerRepairFollowUp: (prompt) => {
-        const repairThread = this.store.getThread(input.sendInput.threadId);
-        return {
-          threadId: input.sendInput.threadId,
-          content: prompt,
-          permissionMode: repairThread.permissionMode,
-          collaborationMode: "planner",
-          model: repairThread.model,
-          thinkingLevel: repairThread.thinkingLevel,
-          delivery: "follow-up",
-          preserveActiveThread: true,
-        };
-      },
-      resolveSubagentFinalizationBlock: () => this.subagentFinalizationBarrierBlock(input.sendInput.threadId, input.runId),
-      resolveCallableWorkflowFinalizationBlock: () =>
-        this.callableWorkflowFinalizationBlock(
-          input.sendInput.threadId,
-          input.runId,
-          input.symphonyParentModeVerifiedLaunch,
-        ),
-      recordSubagentFinalizationBlockedParentMailbox: (block) =>
-        this.recordSubagentFinalizationBlockedParentMailbox(input.sendInput.threadId, input.runId, block),
-      recordCallableWorkflowFinalizationBlockedParentMailbox: (block) =>
-        this.recordCallableWorkflowFinalizationBlockedParentMailbox(input.sendInput.threadId, input.runId, block),
-      replaceAssistantMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
-      createPlannerPlanArtifactFromMessage: (message) => this.createPlannerPlanArtifactFromMessage(message),
-      finishPlannerFinalizationSources: input.finishPlannerFinalizationSources,
-      finishParentRun: input.finishParentRun,
-      recordVoiceDispatch: (message) => this.recordVoiceDispatch(message),
-      getThread: () => this.store.getThread(input.sendInput.threadId),
-      emitRunEvent: input.emitRunEvent,
-    });
-    return {
-      pendingEmptyResponseRetry: result.pendingEmptyResponseRetry as RuntimeSendMessageInput | undefined,
-      pendingPlannerRepairFollowUp: result.pendingPlannerRepairFollowUp,
-    };
-  }
-
-  private async finalizeSendAfterRun(input: FinalizeAgentRuntimeSendAfterRunInput): Promise<void> {
-    await finalizeRuntimeSendAfterRun({
-      threadId: input.sendInput.threadId,
-      workspacePath: input.runWorkspacePath,
-      runGoalId: input.runGoalId,
-      runGoalStartedAtMs: input.runGoalStartedAtMs,
-      promptChars: input.promptContent.length,
-      assistantChars: input.currentAssistantFinalText.length + input.assistantOutputChars,
-      thinkingChars: input.currentThinkingFinalText.length + input.thinkingOutputChars,
-      toolMessageCount: input.toolMessages.size(),
-      abortRequested: input.abortRequested,
-      pendingPlannerRepairFollowUp: input.pendingPlannerRepairFollowUp,
-      pendingInterruptedToolCallRecoveryFollowUp: input.pendingInterruptedToolCallRecoveryFollowUp,
-      pendingProviderInterruptionContinuation: input.pendingProviderInterruptionContinuation,
-      pendingEmptyResponseRetry: input.pendingEmptyResponseRetry,
-      pendingEmptyResponseRetryDelayMs: input.pendingEmptyResponseRetryDelayMs,
-      awaitInternalRetryCompletion: Boolean(input.hooks.awaitInternalRetryCompletion),
-      hasWorkflowPlanEditIntent: input.hasWorkflowPlanEditIntent,
-      hasDedicatedReviewSession: input.usesDedicatedReviewSession && Boolean(input.session),
-      isRunStoreActive: input.isRunStoreActive,
-      clearActiveRun: () => {
-        this.activeRuns.delete(input.sendInput.threadId);
-      },
-      clearActiveRunId: () => {
-        this.activeRunIds.delete(input.sendInput.threadId);
-      },
-      clearPermissionWaitControl: () => {
-        this.permissionWaitControls.delete(input.sendInput.threadId);
-      },
-      clearToolArgumentWatchdog: () => {
-        input.toolArgumentWatchdog?.clear();
-      },
-      clearToolExecutionWatchdog: () => {
-        input.toolExecutionWatchdog?.clear();
-      },
-      cleanupDedicatedReviewSession: input.cleanupCurrentSession,
-      clearWorkflowPlanEditIntent: () => {
-        this.workflowPlanEditIntentByThreadId.delete(input.sendInput.threadId);
-        this.workflowPlanEditWorkflowThreadByThreadId.delete(input.sendInput.threadId);
-      },
-      takePendingProjectSwitch: () => {
-        const pendingProjectSwitch = this.pendingProjectSwitchByThreadId.get(input.sendInput.threadId);
-        this.pendingProjectSwitchByThreadId.delete(input.sendInput.threadId);
-        return pendingProjectSwitch;
-      },
-      updateRuntimeEvent: (eventId, patch) => this.remoteSurfaceRuntimeEvents.update(eventId, patch),
-      scheduleProjectSwitchCompletion: (projectSwitch) => {
-        setTimeout(() => {
-          void this.completePendingRemoteProjectSwitch(projectSwitch, {
-            threadId: input.sendInput.threadId,
-            workspacePath: input.runWorkspacePath,
-          });
-        }, 0);
-      },
-      getRunRecord: () => {
-        try {
-          return this.store.getRunRecord(input.runId);
-        } catch {
-          return undefined;
-        }
-      },
-      hasQueuedUserInput: () => input.queuedMessages.hasQueuedOrSentInput(),
-      accountFinishedGoalRun: (accountInput) => this.accountFinishedGoalRun(accountInput),
-      scheduleGoalContinuation: (threadId, goalId, delayMs) => this.scheduleGoalContinuation(threadId, goalId, delayMs),
-      schedulePlannerDurableRepairFollowUp: (followUp, workspacePath) =>
-        this.schedulePlannerDurableRepairFollowUp(followUp, workspacePath),
-      send: (followUp, followUpHooks) => this.send(followUp, followUpHooks),
-      emitError: (message, threadId, workspacePath) => this.emit({ type: "error", message, threadId, workspacePath }),
-      emitRunEvent: input.emitRunEvent,
-      resolveActiveRunSettled: () => {
-        input.resolveActiveRunSettled?.();
-      },
-    });
-  }
-
-  private accountFinishedGoalRun(input: AccountFinishedGoalRunInput): ThreadGoal | undefined {
-    const seconds = Math.max(0, Math.ceil((Date.now() - input.startedAtMs) / 1000));
-    const tokenEstimate = Math.max(1, Math.ceil((input.promptChars + input.assistantChars + input.thinkingChars) / 4));
-    const noProgress = input.toolMessageCount === 0 && input.assistantChars < 40;
-    const accounted = this.store.accountThreadGoalUsage({
-      threadId: input.threadId,
-      goalId: input.goalId,
-      tokensUsedDelta: tokenEstimate,
-      timeUsedSecondsDelta: seconds,
-      noProgressTurnDelta: noProgress ? 1 : 0,
-    });
-    if (!accounted) return undefined;
-    let goal = accounted;
-    if (input.abortRequested && goal.status === "active") {
-      goal = this.store.markThreadGoalStatus(input.threadId, "paused", {
-        expectedGoalId: input.goalId,
-        statusReason: "Paused because the user stopped the active run.",
-      });
-      this.emit({
-        type: "runtime-activity",
-        activity: goalRuntimeActivity({
-          threadId: input.threadId,
-          status: "paused",
-          message: "Goal paused because the active run was stopped.",
-          goalId: goal.goalId,
-        }),
-      });
-    }
-    const failedTerminalRun = input.runStatus === "error" || input.runStatus === "interrupted" || input.runStatus === "aborted";
-    if (!input.abortRequested && failedTerminalRun && goal.status === "active") {
-      const detail = input.runErrorMessage?.trim().slice(0, 240);
-      const statusReason =
-        input.runStatus === "interrupted"
-          ? "Paused because the active run was interrupted."
-          : detail
-            ? `Paused because the goal run failed: ${detail}`
-            : "Paused because the goal run failed.";
-      goal = this.store.markThreadGoalStatus(input.threadId, "paused", {
-        expectedGoalId: input.goalId,
-        statusReason,
-      });
-      this.emit({
-        type: "runtime-activity",
-        activity: goalRuntimeActivity({
-          threadId: input.threadId,
-          status: "paused",
-          message: statusReason,
-          goalId: goal.goalId,
-        }),
-      });
-    }
-    this.emit({ type: "thread-goal-updated", goal });
-    if (goal.status === "complete") return this.finalizeCompletedThreadGoal(goal);
-    return goal;
-  }
-
-  private finalizeCompletedThreadGoal(goal: ThreadGoal): ThreadGoal {
-    const current = this.store.getThreadGoal(goal.threadId);
-    if (!current || current.goalId !== goal.goalId) return goal;
-    if (current.status !== "complete") return current;
-    const message = this.store.addMessage({
-      threadId: current.threadId,
-      role: "assistant",
-      content: goalCompletionChatMessage(current),
-      metadata: {
-        runtime: "ambient-goal-mode",
-        kind: GOAL_COMPLETION_MESSAGE_KIND,
-        status: "done",
-        goalId: current.goalId,
-        objective: current.objective,
-        tokensUsed: current.tokensUsed,
-        timeUsedSeconds: current.timeUsedSeconds,
-        completedAt: current.completedAt,
-      },
-    });
-    this.emit({ type: "message-created", message });
-    const cleared = this.store.clearThreadGoal(current.threadId, current.goalId);
-    this.emit({ type: "thread-goal-cleared", threadId: current.threadId, goalId: cleared?.goalId ?? current.goalId });
-    return current;
-  }
-
-  private scheduleGoalContinuation(threadId: string, expectedGoalId: string, delayMs = 0): void {
-    setTimeout(() => {
-      void this.maybeContinueGoalIfIdle(threadId, expectedGoalId).catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        this.emit({ type: "error", message: `Goal continuation failed: ${message}`, threadId });
-      });
-    }, delayMs);
-  }
-
   continueGoalIfIdle(threadId: string, expectedGoalId: string, delayMs = 0): void {
-    this.scheduleGoalContinuation(threadId, expectedGoalId, delayMs);
-  }
-
-  private async maybeContinueGoalIfIdle(threadId: string, expectedGoalId: string): Promise<void> {
-    if (this.activeRuns.has(threadId)) return;
-    const thread = this.store.getThread(threadId);
-    if (thread.collaborationMode === "planner") return;
-    const goal = this.store.getThreadGoal(threadId);
-    if (!goal || goal.goalId !== expectedGoalId || goal.status !== "active") return;
-    if (goal.tokenBudget !== undefined && goal.tokensUsed >= goal.tokenBudget) {
-      const stopped = this.store.markThreadGoalStatus(threadId, "budget_limited", {
-        expectedGoalId,
-        statusReason: "Goal token budget reached.",
-      });
-      this.emit({ type: "thread-goal-updated", goal: stopped });
-      return;
-    }
-    if (goal.continuationTurns >= GOAL_MAX_CONTINUATION_TURNS) {
-      const stopped = this.store.markThreadGoalStatus(threadId, "usage_limited", {
-        expectedGoalId,
-        statusReason: `Paused after ${GOAL_MAX_CONTINUATION_TURNS} automatic continuation turns.`,
-      });
-      this.emit({ type: "thread-goal-updated", goal: stopped });
-      return;
-    }
-    if (goal.noProgressTurns >= GOAL_NO_PROGRESS_TURN_LIMIT) {
-      const paused = this.store.markThreadGoalStatus(threadId, "paused", {
-        expectedGoalId,
-        statusReason: `Paused after ${GOAL_NO_PROGRESS_TURN_LIMIT} no-progress turns.`,
-      });
-      this.emit({ type: "thread-goal-updated", goal: paused });
-      return;
-    }
-    const updated = this.store.accountThreadGoalUsage({
-      threadId,
-      goalId: expectedGoalId,
-      continuationTurnDelta: 1,
-      statusReason: null,
-    });
-    if (!updated || updated.status !== "active") return;
-    this.emit({ type: "thread-goal-updated", goal: updated });
-    const prompt = this.goalContinuationPrompt(thread, updated);
-    this.emit({
-      type: "runtime-activity",
-      activity: goalRuntimeActivity({
-        threadId,
-        status: "continuing",
-        message: "Continuing goal...",
-        goalId: updated.goalId,
-      }),
-    });
-    await this.send({
-      threadId,
-      content: prompt,
-      visibleUserContent: "Continuing goal...",
-      modelContentOverride: prompt,
-      hiddenUserMessage: true,
-      goalContinuation: { goalId: updated.goalId },
-      permissionMode: thread.permissionMode,
-      collaborationMode: "agent",
-      model: thread.model,
-      thinkingLevel: thread.thinkingLevel,
-      delivery: "follow-up",
-      preserveActiveThread: true,
-      internal: true,
-    } as RuntimeSendMessageInput);
-  }
-
-  private goalContinuationPrompt(thread: ThreadSummary, goal: ThreadGoal): string {
-    return buildGoalContinuationPrompt(thread, goal);
-  }
-
-  private async queueDuringRun(
-    input: SendMessageInput,
-    activeRun: ActiveRun,
-    delivery: Exclude<MessageDelivery, "prompt">,
-  ): Promise<void> {
-    const runtimeInput = input as RuntimeSendMessageInput;
-    const usesDedicatedReviewSession = runtimeInput.dedicatedSessionKind === "workflow-recording-review";
-    const threadSettingsUpdate = runtimeThreadSettingsUpdateFromSendInput(input);
-    const thread = hasRuntimeThreadSettingsUpdate(threadSettingsUpdate)
-      ? this.store.updateThreadSettings(input.threadId, threadSettingsUpdate)
-      : this.store.getThread(input.threadId);
-    if (input.model !== undefined) await this.applyThreadModelSettings(input.threadId);
-    const imageInputs = await resolveAgentRuntimeImageInputs({
-      sendInput: input,
-      workspacePath: thread.workspacePath,
-      modelProfile: resolveAmbientModelRuntimeProfile(thread.model),
-    });
-    const queuedMessage = this.store.addMessage({
-      threadId: input.threadId,
-      role: "user",
-      content: input.content,
-      metadata: agentRuntimeUserMessageMetadata(input, {
-        delivery,
-        dedicatedSessionKind: runtimeInput.dedicatedSessionKind,
-        includeWorkflowRecordingEditContext: false,
-      }),
-    });
-    this.emit({ type: "message-created", message: queuedMessage });
-    this.emit({ type: "thread-updated", thread: this.store.markThreadRead(input.threadId) });
-    await activeRun.queue({
-      id: queuedMessage.id,
-      content: input.content,
-      modelContent: runtimeInput.modelContentOverride ?? this.modelContentForSendInput(input),
-      context: input.context,
-      workflowThreadId: input.workflowThreadId,
-      stt: input.stt,
-      ...(imageInputs.images.length ? { imageInputs: imageInputs.images } : {}),
-      delivery,
-      status: "queued",
-    });
+    this.goalContinuations.continueGoalIfIdle(threadId, expectedGoalId, delayMs);
   }
 
   async abort(threadId: string, options: { skipSubagentChildCancellation?: boolean } = {}): Promise<void> {
@@ -3008,29 +2307,22 @@ export class AgentRuntime {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   } {
-    const plan = runtimeActiveSessionResetPlan(activeSessions.entries(), this.activeRuns);
-    for (const action of plan.actions) {
-      const { threadId, session } = action;
-      if (action.status === "deferred") {
-        this.staleRuntimeSettingsThreads.add(threadId);
+    return this.sessions.resetForRuntimeSettings(this.activeRuns, {
+      onDeferred: (threadId) => {
         this.emit({
           type: "runtime-activity",
           activity: runtimeSettingsActivity(threadId, settings.aggressiveRetries, "deferred"),
         });
-        continue;
-      }
-      session.dispose();
-      deleteActiveSession(threadId);
-      this.stalePluginToolThreads.delete(threadId);
-      this.staleRuntimeSettingsThreads.delete(threadId);
-      this.ambientCliSkillMountDiagnostics.delete(threadId);
-      this.tencentMemoryRuntimeSnapshots.delete(threadId);
-      this.emit({
-        type: "runtime-activity",
-        activity: runtimeSettingsActivity(threadId, settings.aggressiveRetries, "applied"),
-      });
-    }
-    return plan.result;
+      },
+      onDisposed: (threadId) => {
+        this.ambientCliSkillMountDiagnostics.delete(threadId);
+        this.tencentMemoryRuntimeSnapshots.delete(threadId);
+        this.emit({
+          type: "runtime-activity",
+          activity: runtimeSettingsActivity(threadId, settings.aggressiveRetries, "applied"),
+        });
+      },
+    });
   }
 
   applyFeatureFlags(_snapshot: AmbientFeatureFlagSnapshot): {
@@ -3039,21 +2331,12 @@ export class AgentRuntime {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   } {
-    const plan = runtimeActiveSessionResetPlan(activeSessions.entries(), this.activeRuns);
-    for (const action of plan.actions) {
-      const { threadId, session } = action;
-      if (action.status === "deferred") {
-        this.staleRuntimeSettingsThreads.add(threadId);
-        continue;
-      }
-      session.dispose();
-      deleteActiveSession(threadId);
-      this.stalePluginToolThreads.delete(threadId);
-      this.staleRuntimeSettingsThreads.delete(threadId);
-      this.ambientCliSkillMountDiagnostics.delete(threadId);
-      this.tencentMemoryRuntimeSnapshots.delete(threadId);
-    }
-    return plan.result;
+    return this.sessions.resetForRuntimeSettings(this.activeRuns, {
+      onDisposed: (threadId) => {
+        this.ambientCliSkillMountDiagnostics.delete(threadId);
+        this.tencentMemoryRuntimeSnapshots.delete(threadId);
+      },
+    });
   }
 
   applyMemorySettings(): {
@@ -3062,21 +2345,12 @@ export class AgentRuntime {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   } {
-    const plan = runtimeActiveSessionResetPlan(activeSessions.entries(), this.activeRuns);
-    for (const action of plan.actions) {
-      const { threadId, session } = action;
-      if (action.status === "deferred") {
-        this.staleRuntimeSettingsThreads.add(threadId);
-        continue;
-      }
-      session.dispose();
-      deleteActiveSession(threadId);
-      this.stalePluginToolThreads.delete(threadId);
-      this.staleRuntimeSettingsThreads.delete(threadId);
-      this.ambientCliSkillMountDiagnostics.delete(threadId);
-      this.tencentMemoryRuntimeSnapshots.delete(threadId);
-    }
-    return plan.result;
+    return this.sessions.resetForRuntimeSettings(this.activeRuns, {
+      onDisposed: (threadId) => {
+        this.ambientCliSkillMountDiagnostics.delete(threadId);
+        this.tencentMemoryRuntimeSnapshots.delete(threadId);
+      },
+    });
   }
 
   async applyThreadModelSettings(threadId: string): Promise<{
@@ -3086,7 +2360,7 @@ export class AgentRuntime {
     deferredThreadIds: string[];
   }> {
     const thread = this.store.getThread(threadId);
-    const session = activeSessions.get(threadId);
+    const session = this.sessions.get(threadId);
     const result = {
       switchedSessions: 0,
       deferredSessions: 0,
@@ -3094,18 +2368,18 @@ export class AgentRuntime {
       deferredThreadIds: [] as string[],
     };
     if (!session) {
-      this.staleRuntimeSettingsThreads.delete(threadId);
+      this.sessions.clearRuntimeSettingsStale(threadId);
       return result;
     }
 
     if (normalizeAmbientModelId(session.model?.id) === normalizeAmbientModelId(thread.model)) {
       session.setThinkingLevel(thread.thinkingLevel);
-      this.staleRuntimeSettingsThreads.delete(threadId);
+      this.sessions.clearRuntimeSettingsStale(threadId);
       return result;
     }
 
     if (this.activeRuns.has(threadId)) {
-      this.staleRuntimeSettingsThreads.add(threadId);
+      this.sessions.markRuntimeSettingsStale(threadId);
       result.deferredSessions = 1;
       result.deferredThreadIds.push(threadId);
       return result;
@@ -3123,21 +2397,12 @@ export class AgentRuntime {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   } {
-    const session = activeSessions.get(threadId);
-    const plan = runtimeActiveSessionResetPlan(session ? [[threadId, session]] : [], this.activeRuns);
-    for (const action of plan.actions) {
-      if (action.status === "deferred") {
-        this.staleRuntimeSettingsThreads.add(threadId);
-        continue;
-      }
-      action.session.dispose();
-      deleteActiveSession(threadId);
-      this.stalePluginToolThreads.delete(threadId);
-      this.staleRuntimeSettingsThreads.delete(threadId);
-      this.ambientCliSkillMountDiagnostics.delete(threadId);
-      this.tencentMemoryRuntimeSnapshots.delete(threadId);
-    }
-    return plan.result;
+    return this.sessions.resetForRuntimeSettings(this.activeRuns, {
+      onDisposed: () => {
+        this.ambientCliSkillMountDiagnostics.delete(threadId);
+        this.tencentMemoryRuntimeSnapshots.delete(threadId);
+      },
+    }, [threadId]);
   }
 
   listAgentMemoryRuntimeSnapshots(): AgentMemoryRuntimeSnapshot[] {
@@ -3145,144 +2410,19 @@ export class AgentRuntime {
   }
 
   async getContextUsage(threadId: string): Promise<ContextUsageSnapshot> {
-    const thread = this.store.getThread(threadId);
-    const session = activeSessions.get(threadId);
-    if (session) return this.recordContextUsageSnapshot(threadId, session);
-
-    const latest = this.store.getLatestContextUsageSnapshot(threadId);
-    if (latest) return latest;
-
-    const snapshot = this.unavailableContextUsageSnapshot(thread, "No active Pi session has reported context usage yet.");
-    return this.store.recordContextUsageSnapshot(snapshot);
+    return this.contextRecovery.getContextUsage(threadId);
   }
 
   async compactThread(input: CompactThreadInput): Promise<ContextUsageSnapshot> {
-    const thread = this.store.getThread(input.threadId);
-    if (this.activeRuns.has(input.threadId)) {
-      throw new Error("Context compaction is available after the current run finishes.");
-    }
-
-    const session = await this.getSession(thread);
-    if (session.isCompacting) {
-      throw new Error("Context compaction is already running for this thread.");
-    }
-
-    this.emit({ type: "run-status", threadId: input.threadId, status: "compacting" });
-    const compactionEvents = createManualCompactionEventHandler({
-      threadId: input.threadId,
-      session,
-      recordContextUsageSnapshot: (threadId, compactionSession, message) =>
-        this.recordContextUsageSnapshot(threadId, compactionSession, message),
-      emit: (event) => this.emit(event),
-    });
-    const unsubscribe = session.subscribe((event: any) => compactionEvents.handle(event));
-
-    try {
-      await session.compact(input.customInstructions);
-      if (compactionEvents.runtimeError) throw new Error(compactionEvents.runtimeError);
-      const current = this.store.getThread(input.threadId);
-      if (session.sessionFile && session.sessionFile !== current.piSessionFile) {
-        await this.commitThreadPiSessionFile({
-          threadId: input.threadId,
-          sessionFile: session.sessionFile,
-          currentPiSessionFile: current.piSessionFile,
-          reason: "compaction-finished",
-          emit: (event) => this.emit(event),
-        });
-      }
-      return this.recordContextUsageSnapshot(input.threadId, session);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.emit({ type: "error", message, threadId: input.threadId, workspacePath: this.store.getWorkspace().path });
-      throw error;
-    } finally {
-      unsubscribe();
-      this.emit({ type: "run-status", threadId: input.threadId, status: "idle" });
-    }
+    return this.contextRecovery.compactThread(input);
   }
 
   async recoverThreadContext(input: RecoverThreadContextInput): Promise<ContextUsageSnapshot> {
-    const thread = this.store.getThread(input.threadId);
-    if (this.activeRuns.has(input.threadId)) {
-      throw new Error("Context recovery is available after the current run finishes.");
-    }
-
-    const appWorkspace = this.store.getWorkspace();
-    const piSessionDir = join(appWorkspace.sessionPath, thread.id);
-    const restorableSessionFile = getRestorablePiSessionFile(thread.piSessionFile, piSessionDir);
-    if (restorableSessionFile) {
-      try {
-        SessionManager.open(restorableSessionFile, piSessionDir, thread.workspacePath).getEntries();
-        const restorableSessionPlan = visibleTranscriptRecoveryRestorableSessionPlan({
-          hasRecoveryMessage: this.hasVisibleTranscriptRecoveryMessage(thread.id),
-        });
-        if (restorableSessionPlan.kind === "already-recovered") {
-          const session = await this.getSession(thread);
-          return this.recordContextUsageSnapshot(thread.id, session, restorableSessionPlan.snapshotMessage);
-        }
-        throw new Error(restorableSessionPlan.errorMessage);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isVisibleTranscriptRecoveryNormalCompactionRequiredError(message)) throw error;
-      }
-    }
-
-    const visibleMessages = this.store.listMessages(thread.id);
-    if (visibleMessages.length === 0) {
-      this.store.updateThreadSettings(thread.id, { piSessionFile: null });
-      throw new Error("There is no visible transcript to rebuild model context from.");
-    }
-
-    const existing = activeSessions.get(thread.id);
-    existing?.dispose();
-    deleteActiveSession(thread.id);
-    this.store.updateThreadSettings(thread.id, { piSessionFile: null });
-
-    const reason = visibleTranscriptRecoveryReason({
-      requestedReason: input.reason,
-      threadSessionFile: thread.piSessionFile,
-      restorableSessionFile,
-    });
-    const session = await this.getSession(this.store.getThread(thread.id));
-    const recoveryMessages = visibleTranscriptRecoveryManualMessages({
-      thread,
-      visibleMessages,
-      reason,
-      recoveredAt: new Date().toISOString(),
-      includeSystemMessage: !this.hasVisibleTranscriptRecoveryMessage(thread.id),
-    });
-    await session.sendCustomMessage(recoveryMessages.customMessage, { triggerTurn: false, deliverAs: "nextTurn" });
-
-    if (recoveryMessages.systemMessage) {
-      const recoveryMessage = this.store.addMessage(recoveryMessages.systemMessage);
-      this.emit({ type: "message-created", message: recoveryMessage });
-    }
-    if (session.sessionFile) {
-      await this.commitThreadPiSessionFile({
-        threadId: thread.id,
-        sessionFile: session.sessionFile,
-        currentPiSessionFile: this.store.getThread(thread.id).piSessionFile,
-        reason: "visible-transcript-recovery",
-        emit: (event) => this.emit(event),
-      });
-    }
-    return this.recordContextUsageSnapshot(thread.id, session, "Model context rebuilt from visible transcript. Recovery is lossy.");
-  }
-
-  private hasVisibleTranscriptRecoveryMessage(threadId: string): boolean {
-    return hasVisibleTranscriptRecoveryMessage(this.store.listMessages(threadId));
+    return this.contextRecovery.recoverThreadContext(input);
   }
 
   resetSessions(): void {
-    for (const session of activeSessions.values()) {
-      session.dispose();
-    }
-    activeSessions.clear();
-    activeSessionSymphonyParentModeByThreadId.clear();
-    activeSessionSymphonyParentModePolicyKeyByThreadId.clear();
-    activeSessionSymphonyParentModeLaunchVerifiedByThreadId.clear();
-    this.stalePluginToolThreads.clear();
-    this.staleRuntimeSettingsThreads.clear();
+    this.sessions.disposeAll();
     this.activeRuns.clear();
     this.activeRunIds.clear();
     this.ambientCliPackageDescriptionState.clear();
@@ -3335,288 +2475,19 @@ export class AgentRuntime {
   }
 
   private recordContextUsageSnapshot(threadId: string, session: PiSession, message?: string): ContextUsageSnapshot {
-    const snapshot = this.contextUsageSnapshot(threadId, session, message);
-    const recorded = this.store.recordContextUsageSnapshot(snapshot);
-    this.emit({ type: "context-usage-updated", snapshot: recorded });
-    return recorded;
+    return this.contextRecovery.recordContextUsageSnapshot(
+      threadId,
+      session as AgentRuntimeContextRecoverySession,
+      message,
+    );
   }
 
   private contextUsageSnapshot(threadId: string, session: PiSession, message?: string): ContextUsageSnapshot {
-    return buildActiveContextUsageSnapshot({
-      threadId,
-      session,
-      unavailableContextWindow: CONTEXT_USAGE_UNAVAILABLE_WINDOW,
-      ambientCliSkillMount: this.ambientCliSkillMountDiagnostics.get(threadId),
-      message,
-    });
+    return this.contextRecovery.contextUsageSnapshot(threadId, session as AgentRuntimeContextRecoverySession, message);
   }
 
   private unavailableContextUsageSnapshot(thread: ThreadSummary, message: string): ContextUsageSnapshot {
-    const appWorkspace = this.store.getWorkspace();
-    return buildUnavailableContextUsageSnapshot({
-      threadId: thread.id,
-      sessionFile: thread.piSessionFile,
-      sessionDir: join(appWorkspace.sessionPath, thread.id),
-      workspacePath: thread.workspacePath,
-      contextWindow: ambientModel(thread.model, normalizeAmbientBaseUrl(getAmbientProviderStatus(thread.model).baseUrl)).contextWindow,
-      message,
-    });
-  }
-
-  private async createPlannerPlanArtifactFromMessage(
-    message: ChatMessage,
-  ): Promise<
-    | {
-        message: ChatMessage;
-        artifact: PlannerPlanArtifact;
-        relatedArtifacts?: PlannerPlanArtifact[];
-        repairPrompt?: string;
-        eventType: "created" | "updated";
-      }
-    | undefined
-  > {
-    const thread = this.store.getThread(message.threadId);
-    if (thread.collaborationMode !== "planner") return undefined;
-    if (!message.content.trim()) return undefined;
-    if (message.metadata?.kind === "planner-plan" || typeof message.metadata?.plannerPlanArtifactId === "string") return undefined;
-
-    const durableRevisionArtifactId = plannerDurableRevisionArtifactIdForSourceMessage(this.store.listMessages(message.threadId), message.id);
-    if (durableRevisionArtifactId) {
-      const existing = this.store.getPlannerPlanArtifact(durableRevisionArtifactId);
-      if (existing.threadId !== message.threadId) throw new Error("Planner durable revision target does not belong to this thread.");
-      const typedRevision = extractPlannerDurableRevisionResponse(message.content);
-      if (!typedRevision) {
-        this.store.updatePlannerPlanArtifact(existing.id, { workflowState: "failed" });
-        throw new Error("Planner durable revision response must use the ambient-planner-revision JSON contract.");
-      }
-      let appliedRevision: ReturnType<typeof applyPlannerDurableRevisionResponse>;
-      try {
-        appliedRevision = applyPlannerDurableRevisionResponse(existing, message.id, typedRevision);
-      } catch (error) {
-        this.store.updatePlannerPlanArtifact(existing.id, { workflowState: "failed" });
-        throw error;
-      }
-      const updatedFields = appliedRevision.fields;
-      const generating = this.store.updatePlannerPlanArtifact(existing.id, { workflowState: "durable_generating" });
-      const revisionCandidate: PlannerPlanArtifact = {
-        ...generating,
-        ...updatedFields,
-        workflowState: "durable_generating",
-        finalizationAttempt: undefined,
-      };
-      const durableResult = await this.rewriteDurablePlannerArtifact(revisionCandidate, thread, existing.durableArtifactPath, updatedFields);
-      const updatedMessage = this.store.replaceMessage(message.id, appliedRevision.messageContent, {
-        ...message.metadata,
-        status: "done",
-        runtime: "pi",
-        provider: "ambient",
-        kind: "planner-plan",
-        plannerPlanArtifactId: durableResult.artifact.id,
-        plannerDurableRevisionOfArtifactId: existing.id,
-      });
-      return { message: updatedMessage, artifact: durableResult.artifact, repairPrompt: durableResult.repairPrompt, eventType: "updated" };
-    }
-
-    const fields = extractPlannerPlanArtifactFields(message.content);
-    if (!fields.content.trim()) return undefined;
-    const finalizationSources = this.plannerFinalizationSourceArtifactsForPrompt(
-      message.threadId,
-      plannerPriorUserPromptForSourceMessage(this.store.listMessages(message.threadId), message.id),
-    );
-    const decisionQuestions = plannerDecisionQuestionsForFinalArtifact({
-      threadId: message.threadId,
-      messages: this.store.listMessages(message.threadId),
-      sourceMessageId: message.id,
-      parsedQuestions: fields.decisionQuestions,
-      listThreadArtifacts: (artifactThreadId) => this.store.listPlannerPlanArtifacts(artifactThreadId),
-    });
-
-    const artifact = this.store.createPlannerPlanArtifact({
-      threadId: message.threadId,
-      sourceMessageId: message.id,
-      ...fields,
-      decisionQuestions,
-    });
-    const durableResult = await this.generateDurablePlannerArtifactIfReady(artifact, thread);
-    const relatedArtifacts = finalizationSources.map((source) =>
-      this.store.finishPlannerPlanFinalizationAttempt(source.id, {
-        status: durableResult.artifact.workflowState === "failed" ? "failed" : "completed",
-        workflowState: durableResult.artifact.workflowState === "failed" ? "failed" : "answers_complete",
-        ...(durableResult.artifact.workflowState === "failed" ? { error: "Planner durable artifact generation failed." } : {}),
-      }),
-    );
-    const updatedMessage = this.store.replaceMessage(message.id, fields.content, {
-      ...message.metadata,
-      status: "done",
-      runtime: "pi",
-      provider: "ambient",
-      kind: "planner-plan",
-      plannerPlanArtifactId: durableResult.artifact.id,
-    });
-    return {
-      message: updatedMessage,
-      artifact: durableResult.artifact,
-      relatedArtifacts,
-      repairPrompt: durableResult.repairPrompt,
-      eventType: "created",
-    };
-  }
-
-  private plannerFinalizationSourceArtifactsForPrompt(threadId: string, prompt: string): PlannerPlanArtifact[] {
-    return plannerFinalizationSourceArtifactsFromPrompt({
-      threadId,
-      prompt,
-      getArtifactById: (artifactId) => this.store.getPlannerPlanArtifact(artifactId),
-      listThreadArtifacts: (artifactThreadId) => this.store.listPlannerPlanArtifacts(artifactThreadId),
-    });
-  }
-
-  private async generateDurablePlannerArtifactIfReady(
-    artifact: PlannerPlanArtifact,
-    thread: ThreadSummary,
-  ): Promise<{ artifact: PlannerPlanArtifact; repairPrompt?: string }> {
-    if (artifact.status !== "ready" || artifact.decisionQuestions.some((question) => question.required && !question.answer)) {
-      return { artifact };
-    }
-    const generating = this.store.updatePlannerPlanArtifact(artifact.id, { workflowState: "durable_generating" });
-    const projectArtifactWorkspacePath = this.store.getProjectArtifactWorkspacePath();
-    try {
-      const durable = await writePlannerDurableHtmlArtifact({
-        artifact: generating,
-        threadTitle: thread.title,
-        workspacePath: projectArtifactWorkspacePath,
-        browserValidator: this.features.planner?.durableBrowserValidator ?? validatePlannerDurableHtmlFileInBrowser,
-      });
-      const updated = this.store.setPlannerPlanDurableArtifact(generating.id, {
-        path: durable.relativePath,
-        generatedAt: durable.generatedAt,
-        validation: durable.validation,
-      });
-      this.store.promotePlannerDurableArtifactToBoardSource(updated.id);
-      await this.commitPlannerDurableArtifact(projectArtifactWorkspacePath, updated, durable.manifestRelativePath, "Add durable plan");
-      await this.refreshBrowsersForArtifactChange(thread.id, projectArtifactWorkspacePath, durable.relativePath);
-      return { artifact: updated };
-    } catch (error) {
-      console.warn(`[planner] Failed to generate durable plan artifact: ${error instanceof Error ? error.message : String(error)}`);
-      if (error instanceof PlannerDurableHtmlValidationError) {
-        const priorRepairAttempts = plannerDurableRepairAttemptCount(this.store.listMessages(thread.id));
-        if (priorRepairAttempts < PLANNER_DURABLE_REPAIR_MAX_ATTEMPTS) {
-          const repairing = this.store.setPlannerPlanDurableArtifactValidation(generating.id, error.validation, "repairing");
-          return {
-            artifact: repairing,
-            repairPrompt: buildPlannerDurableRepairPrompt({
-              artifact: repairing,
-              validation: error.validation,
-              attempt: priorRepairAttempts + 1,
-              maxAttempts: PLANNER_DURABLE_REPAIR_MAX_ATTEMPTS,
-            }),
-          };
-        }
-        return { artifact: await this.writeDeterministicPlannerDurableFallback(generating, thread, error.validation, projectArtifactWorkspacePath) };
-      }
-      return { artifact: this.store.updatePlannerPlanArtifact(generating.id, { workflowState: "failed" }) };
-    }
-  }
-
-  private async rewriteDurablePlannerArtifact(
-    artifact: PlannerPlanArtifact,
-    thread: ThreadSummary,
-    existingRelativePath?: string,
-    contentUpdate?: PlannerPlanArtifactContentUpdate,
-  ): Promise<{ artifact: PlannerPlanArtifact; repairPrompt?: string }> {
-    const projectArtifactWorkspacePath = this.store.getProjectArtifactWorkspacePath();
-    try {
-      const durable = await writePlannerDurableHtmlArtifact({
-        artifact,
-        threadTitle: thread.title,
-        workspacePath: projectArtifactWorkspacePath,
-        browserValidator: this.features.planner?.durableBrowserValidator ?? validatePlannerDurableHtmlFileInBrowser,
-        ...(existingRelativePath ? { relativePath: existingRelativePath } : {}),
-      });
-      const persisted = contentUpdate
-        ? this.store.updatePlannerPlanArtifactContent(artifact.id, {
-            ...contentUpdate,
-            workflowState: "durable_generating",
-          })
-        : artifact;
-      const updated = this.store.setPlannerPlanDurableArtifact(persisted.id, {
-        path: durable.relativePath,
-        generatedAt: durable.generatedAt,
-        validation: durable.validation,
-      });
-      this.store.promotePlannerDurableArtifactToBoardSource(updated.id);
-      await this.commitPlannerDurableArtifact(projectArtifactWorkspacePath, updated, durable.manifestRelativePath, "Revise durable plan");
-      await this.refreshBrowsersForArtifactChange(thread.id, projectArtifactWorkspacePath, durable.relativePath);
-      return { artifact: updated };
-    } catch (error) {
-      console.warn(`[planner] Failed to revise durable plan artifact: ${error instanceof Error ? error.message : String(error)}`);
-      if (error instanceof PlannerDurableHtmlValidationError) {
-        return { artifact: this.store.setPlannerPlanDurableArtifactValidation(artifact.id, error.validation, "failed") };
-      }
-      return { artifact: this.store.updatePlannerPlanArtifact(artifact.id, { workflowState: "failed" }) };
-    }
-  }
-
-  private async writeDeterministicPlannerDurableFallback(
-    artifact: PlannerPlanArtifact,
-    thread: ThreadSummary,
-    validation: PlannerDurableHtmlValidationError["validation"],
-    projectArtifactWorkspacePath = this.store.getProjectArtifactWorkspacePath(),
-  ): Promise<PlannerPlanArtifact> {
-    try {
-      const durable = await writePlannerDurableHtmlArtifact({
-        artifact,
-        threadTitle: thread.title,
-        workspacePath: projectArtifactWorkspacePath,
-        browserValidator: this.features.planner?.durableBrowserValidator ?? validatePlannerDurableHtmlFileInBrowser,
-        diagramMode: "deterministic",
-        validationWarnings: plannerDurableFallbackWarnings(validation),
-      });
-      const updated = this.store.setPlannerPlanDurableArtifact(artifact.id, {
-        path: durable.relativePath,
-        generatedAt: durable.generatedAt,
-        validation: durable.validation,
-        workflowState: "durable_ready_with_fallbacks",
-      });
-      this.store.promotePlannerDurableArtifactToBoardSource(updated.id);
-      await this.commitPlannerDurableArtifact(projectArtifactWorkspacePath, updated, durable.manifestRelativePath, "Add durable plan");
-      await this.refreshBrowsersForArtifactChange(thread.id, projectArtifactWorkspacePath, durable.relativePath);
-      return updated;
-    } catch (fallbackError) {
-      console.warn(`[planner] Failed deterministic durable plan fallback: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
-      if (fallbackError instanceof PlannerDurableHtmlValidationError) {
-        return this.store.setPlannerPlanDurableArtifactValidation(artifact.id, fallbackError.validation, "failed");
-      }
-      return this.store.updatePlannerPlanArtifact(artifact.id, { workflowState: "failed" });
-    }
-  }
-
-  private async commitPlannerDurableArtifact(
-    workspacePath: string,
-    artifact: PlannerPlanArtifact,
-    manifestRelativePath: string,
-    action: "Add durable plan" | "Revise durable plan",
-  ): Promise<void> {
-    if (!artifact.durableArtifactPath) return;
-    const title = artifact.title.trim() || "Planner durable artifact";
-    try {
-      await commitGitPaths(workspacePath, {
-        paths: [artifact.durableArtifactPath, manifestRelativePath],
-        message: `${action}: ${title}`.slice(0, 180),
-        force: true,
-      });
-    } catch (error) {
-      console.warn(`[planner] Failed to commit durable plan artifact: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  private schedulePlannerDurableRepairFollowUp(input: SendMessageInput, workspacePath: string): void {
-    setTimeout(() => {
-      void this.send(input).catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        this.emit({ type: "error", message: `Planner durable repair follow-up failed: ${message}`, threadId: input.threadId, workspacePath });
-      });
-    }, 0);
+    return this.contextRecovery.unavailableContextUsageSnapshot(thread, message);
   }
 
   private generateTitleIfNeeded(thread: ThreadSummary, prompt: string): void {
@@ -3649,21 +2520,17 @@ export class AgentRuntime {
     symphonyParentModePolicy?: SymphonyParentModePolicy | undefined,
     symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined,
   ): Promise<PiSession> {
-    const existing = activeSessions.get(thread.id);
-    if (existing) {
-      const pluginToolsStale = this.stalePluginToolThreads.delete(thread.id);
-      const runtimeSettingsStale = this.staleRuntimeSettingsThreads.delete(thread.id);
-      const symphonyParentModeStale = shouldRebuildSessionForSymphonyParentMode({
-        cachedSymphonyParentMode: activeSessionSymphonyParentModeByThreadId.get(thread.id),
-        nextPolicy: symphonyParentModePolicy,
-        cachedPolicyKey: activeSessionSymphonyParentModePolicyKeyByThreadId.get(thread.id),
-        cachedLaunchVerified: activeSessionSymphonyParentModeLaunchVerifiedByThreadId.get(thread.id),
-        nextLaunchVerified: Boolean(symphonyParentModeVerifiedLaunch),
-      });
-      if (pluginToolsStale || runtimeSettingsStale || symphonyParentModeStale) {
-        existing.dispose();
-        deleteActiveSession(thread.id);
+    const existingPlan = this.sessions.reusableSessionPlan({
+      threadId: thread.id,
+      symphonyParentModePolicy,
+      symphonyParentModeVerifiedLaunch,
+    });
+    if (existingPlan.kind !== "missing") {
+      if (existingPlan.kind === "stale") {
+        existingPlan.session.dispose();
+        this.sessions.delete(thread.id);
       } else {
+        const existing = existingPlan.session;
         if (normalizeAmbientModelId(existing.model?.id) !== normalizeAmbientModelId(thread.model)) {
           await this.switchSessionToThreadModel(thread, existing);
         }
@@ -3671,8 +2538,7 @@ export class AgentRuntime {
         return existing;
       }
     }
-    this.stalePluginToolThreads.delete(thread.id);
-    this.staleRuntimeSettingsThreads.delete(thread.id);
+    this.sessions.clearStale(thread.id);
 
     const appWorkspace = this.store.getWorkspace();
     const workspace: WorkspaceState = {
@@ -4024,10 +2890,12 @@ export class AgentRuntime {
     sessionForAmbientToolRouter = session;
     session.agent.toolExecution = "sequential";
     await session.bindExtensions({});
-    activeSessions.set(thread.id, session);
-    activeSessionSymphonyParentModeByThreadId.set(thread.id, Boolean(symphonyParentModePolicy));
-    activeSessionSymphonyParentModePolicyKeyByThreadId.set(thread.id, symphonyParentModePolicy?.expectedWorkflowToolName ?? "");
-    activeSessionSymphonyParentModeLaunchVerifiedByThreadId.set(thread.id, Boolean(symphonyParentModeVerifiedLaunch));
+    this.sessions.set({
+      threadId: thread.id,
+      session,
+      symphonyParentModePolicy,
+      symphonyParentModeVerifiedLaunch,
+    });
     if (session.sessionFile && session.sessionFile !== thread.piSessionFile) {
       await this.commitThreadPiSessionFile({
         threadId: thread.id,
@@ -4152,6 +3020,7 @@ export class AgentRuntime {
       parentThreadId,
       parentRunId,
       listSubagentWaitBarriersForParentRun: (runId) => this.store.listSubagentWaitBarriersForParentRun(runId),
+      listCallableWorkflowTasksForParentRun: (runId) => this.store.listCallableWorkflowTasksForParentRun(runId),
       getSubagentRun: (runId) => this.store.getSubagentRun(runId),
       listSubagentRunEvents: (runId) => this.store.listSubagentRunEvents(runId),
       listSubagentMailboxEvents: (runId) => this.store.listSubagentMailboxEvents(runId),
@@ -4419,14 +3288,227 @@ export class AgentRuntime {
     });
   }
 
-  cancelCallableWorkflowTask(input: CancelCallableWorkflowTaskInput): CallableWorkflowTaskSummary {
-    return cancelAgentRuntimeCallableWorkflowTask(input, {
+  async cancelCallableWorkflowTask(input: CancelCallableWorkflowTaskInput): Promise<CallableWorkflowTaskSummary> {
+    const current = this.store.getCallableWorkflowTask(input.taskId);
+    const canceled = cancelAgentRuntimeCallableWorkflowTask(input, {
       store: this.store,
       taskAbortControllers: this.callableWorkflowTaskAbortControllers,
       runTaskIds: this.callableWorkflowRunTaskIds,
       emitCallableWorkflowTaskUpdated: (task) => this.emitCallableWorkflowTaskUpdated(task),
       emit: (event) => this.emit(event),
     });
+    if (shouldCancelCallableWorkflowSymphonyLaunchChildren(current)) {
+      try {
+        await this.cancelCallableWorkflowSymphonyChildWait(current, input.reason);
+      } catch (error) {
+        console.warn("Callable workflow Symphony child cleanup failed after task cancellation.", {
+          taskId: current.id,
+          error,
+        });
+      }
+    }
+    return canceled;
+  }
+
+  private async cancelCallableWorkflowSymphonyChildWait(
+    task: CallableWorkflowTaskSummary,
+    reason?: string,
+  ): Promise<void> {
+    const taskChildRunIds = callableWorkflowPatternGraphChildRunIds(task);
+    if (taskChildRunIds.size === 0) return;
+    const ownedBarriers = this.store.listSubagentWaitBarriersForParentRun(task.parentRunId)
+      .filter((barrier) =>
+        barrier.status !== "satisfied" &&
+        barrier.status !== "cancelled" &&
+        barrier.ownerKind === "callable_workflow_symphony_launch_bridge" &&
+        barrier.ownerId === task.id);
+    const userDecision = reason?.trim() ||
+      `Callable workflow task ${task.id} was canceled while waiting on Symphony child runs.`;
+    const barrierChildRunIds = new Set<string>();
+    for (const barrier of ownedBarriers) {
+      for (const childRunId of barrier.childRunIds) barrierChildRunIds.add(childRunId);
+      const payloadFingerprint = createSubagentPayloadFingerprint({
+        taskId: task.id,
+        waitBarrierId: barrier.id,
+        decision: task.blocking ? "cancel_parent" : "cancel_workflow_task",
+        userDecision,
+      });
+      const idempotencyKey = createSubagentIdempotencyKey({
+        operation: "barrier-decision",
+        parentRunId: task.parentRunId,
+        payloadFingerprint,
+      });
+      if (task.blocking) {
+        await executeSubagentBarrierDecision({
+          store: this.createSubagentEventingStore(),
+          runtime: {
+            cancelChildRun: (cancelInput) => this.cancelResolvedSubagentChildRun(cancelInput),
+            retryChildRun: (retryInput) => this.retryResolvedSubagentChildRun(retryInput),
+          },
+          barrier,
+          decision: "cancel_parent",
+          userDecision,
+          idempotencyKey,
+          toolCallId: "callable-workflow-cancel-child-wait",
+          createRuntimeCancelEventEmitter: (targetRun) => this.createDesktopSubagentCancelEventEmitter(targetRun),
+          createRuntimeRetryEventEmitter: (targetRun) => this.createDesktopSubagentRetryEventEmitter(targetRun),
+        });
+        for (const childRunId of barrier.childRunIds) {
+          try {
+            this.resolveCallableWorkflowCancelledChildWaitBarriers(
+              this.store.getSubagentRun(childRunId),
+              userDecision,
+              idempotencyKey,
+            );
+          } catch {
+            // Missing children are already represented in the bridge barrier evidence.
+          }
+        }
+      } else {
+        await this.cancelBackgroundCallableWorkflowSymphonyBarrier({
+          task,
+          barrier,
+          userDecision,
+          idempotencyKey,
+        });
+      }
+    }
+    for (const childRunId of taskChildRunIds) {
+      if (barrierChildRunIds.has(childRunId)) continue;
+      let run: SubagentRunSummary;
+      try {
+        run = this.store.getSubagentRun(childRunId);
+      } catch {
+        continue;
+      }
+      if (isSubagentTerminalStatus(run.status)) continue;
+      const payloadFingerprint = createSubagentPayloadFingerprint({
+        taskId: task.id,
+        childRunId,
+        decision: task.blocking ? "cancel_parent" : "cancel_workflow_task",
+        userDecision,
+      });
+      const idempotencyKey = createSubagentIdempotencyKey({
+        operation: "cancel",
+        parentRunId: task.parentRunId,
+        childRunId,
+        payloadFingerprint,
+      });
+      await this.cancelCallableWorkflowSymphonyChildRun({
+        run,
+        reason: userDecision,
+        idempotencyKey,
+        toolCallId: "callable-workflow-cancel-orphan-child",
+      });
+    }
+  }
+
+  private async cancelCallableWorkflowSymphonyChildRun(input: {
+    run: SubagentRunSummary;
+    reason: string;
+    idempotencyKey: string;
+    toolCallId: string;
+  }): Promise<SubagentRunSummary> {
+    const result = await executeSubagentCancelAgent({
+      store: this.createSubagentEventingStore(),
+      runtime: {
+        cancelChildRun: (cancelInput) => this.cancelResolvedSubagentChildRun(cancelInput),
+      },
+      run: input.run,
+      reason: input.reason,
+      idempotencyKey: input.idempotencyKey,
+      toolCallId: input.toolCallId,
+      createRuntimeCancelEventEmitter: (targetRun) => this.createDesktopSubagentCancelEventEmitter(targetRun),
+    });
+    return result.run;
+  }
+
+  private resolveCallableWorkflowCancelledChildWaitBarriers(
+    run: SubagentRunSummary,
+    reason: string,
+    idempotencyKey: string,
+  ): void {
+    const waitBarriers = resolveActiveSubagentWaitBarriersForRun({
+      store: this.store,
+      run,
+      evidence: {
+        schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+        kind: "child_cancelled",
+        source: "cancel_agent",
+        childRunId: run.id,
+        reason,
+        idempotencyKey,
+      },
+    });
+    for (const barrier of waitBarriers) this.emitSubagentWaitBarrierUpdated(barrier);
+  }
+
+  private async cancelBackgroundCallableWorkflowSymphonyBarrier(input: {
+    task: CallableWorkflowTaskSummary;
+    barrier: SubagentWaitBarrierSummary;
+    userDecision: string;
+    idempotencyKey: string;
+  }): Promise<void> {
+    const cancelledRuns: SubagentRunSummary[] = [];
+    for (const childRunId of input.barrier.childRunIds) {
+      let run: SubagentRunSummary;
+      try {
+        run = this.store.getSubagentRun(childRunId);
+      } catch {
+        continue;
+      }
+      if (!isSubagentTerminalStatus(run.status)) {
+        const cancelled = await this.cancelCallableWorkflowSymphonyChildRun({
+          run,
+          reason: input.userDecision,
+          idempotencyKey: input.idempotencyKey,
+          toolCallId: "callable-workflow-cancel-background-child",
+        });
+        cancelledRuns.push(cancelled);
+      } else {
+        cancelledRuns.push(run);
+      }
+    }
+    const childStatuses = input.barrier.childRunIds.flatMap((childRunId) => {
+      try {
+        const run = this.store.getSubagentRun(childRunId);
+        return [{ childRunId: run.id, status: run.status }];
+      } catch {
+        return [];
+      }
+    });
+    const updatedBarrier = this.store.updateSubagentWaitBarrierStatus(input.barrier.id, "cancelled", {
+      resolutionArtifact: {
+        schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+        childRunIds: input.barrier.childRunIds,
+        childStatuses,
+        synthesisAllowed: false,
+        explicitPartial: false,
+        resultArtifact: null,
+        transitionEvidence: {
+          schemaVersion: SUBAGENT_WAIT_BARRIER_TRANSITION_EVIDENCE_SCHEMA_VERSION,
+          kind: "parent_stopped",
+          source: "barrier_controller",
+          childRunIds: input.barrier.childRunIds,
+          reason: input.userDecision,
+          idempotencyKey: input.idempotencyKey,
+          details: {
+            workflowTaskId: input.task.id,
+            callableWorkflowTaskCancellation: true,
+            cancelledRunIds: cancelledRuns.filter((run) => run.status === "cancelled").map((run) => run.id),
+          },
+        },
+        workflowTaskDecision: {
+          schemaVersion: "ambient-callable-workflow-task-decision-v1",
+          decision: "cancel_workflow_task",
+          workflowTaskId: input.task.id,
+          userDecision: input.userDecision,
+          decidedAt: new Date().toISOString(),
+          idempotencyKey: input.idempotencyKey,
+        },
+      },
+    });
+    this.emitSubagentWaitBarrierUpdated(updatedBarrier);
   }
 
   pauseCallableWorkflowTask(input: PauseCallableWorkflowTaskInput): CallableWorkflowTaskSummary {
@@ -4440,6 +3522,11 @@ export class AgentRuntime {
   }
 
   async resumeCallableWorkflowTask(input: ResumeCallableWorkflowTaskInput): Promise<CallableWorkflowTaskSummary> {
+    const current = this.store.getCallableWorkflowTask(input.taskId);
+    if (isCallableWorkflowSymphonyChildWaitPreCompilePause(current)) {
+      await this.executeCallableWorkflowTaskForThread(current.parentThreadId, current.id, this.store.getWorkspace());
+      return this.store.getCallableWorkflowTask(current.id);
+    }
     return resumeAgentRuntimeCallableWorkflowTask(input, {
       store: this.store,
       browser: this.browser,
@@ -4478,6 +3565,7 @@ export class AgentRuntime {
       readSearchRoutingSettings: this.features.search?.readSettings,
       ensurePluginMcpToolTrusted: (threadId, workspace, registration) =>
         this.ensurePluginMcpToolTrusted(threadId, workspace, registration),
+      launchWorkflowSubagents: (input) => this.launchCallableWorkflowSymphonySubagents(input),
       ...createAgentRuntimeCallableWorkflowRuntimeBridge({
         taskAbortControllers: this.callableWorkflowTaskAbortControllers,
         runTaskIds: this.callableWorkflowRunTaskIds,
@@ -4485,6 +3573,219 @@ export class AgentRuntime {
         emit: (event) => this.emit(event),
       }),
     });
+  }
+
+  private async launchCallableWorkflowSymphonySubagents(input: CallableWorkflowRunnerCompileInput): Promise<CallableWorkflowSubagentLaunchResult | void> {
+    const contract = input.handoffPlan.compiler.launchBridgeContract;
+    if (!contract) return;
+    if (
+      contract.workflowTaskId !== input.task.id ||
+      contract.launchId !== input.task.launchId ||
+      contract.parentThreadId !== input.task.parentThreadId ||
+      contract.parentRunId !== input.task.parentRunId ||
+      contract.expectedWorkflowToolName !== input.task.toolName ||
+      contract.sourceKind !== "symphony_recipe"
+    ) {
+      throw new Error(`Callable workflow task ${input.task.id} has a Symphony launch bridge contract that does not match the queued task.`);
+    }
+    const [tool] = createSubagentPiToolDefinitions({
+      store: this.createSubagentEventingStore(),
+      threadId: contract.parentThreadId,
+      getFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
+      getParentRun: () => ({
+        id: contract.parentRunId,
+        ...(contract.parentMessageId ? { assistantMessageId: contract.parentMessageId } : {}),
+      }),
+      resolveSymphonyLaunchContract: this.features.symphonyLaunchContracts?.resolve,
+      resolveModelRuntimeProfile: (modelId) => this.resolveSubagentModelRuntimeProfile(modelId),
+      resolveCapacityLease: (leaseInput) => this.resolveSubagentCapacityLease(leaseInput),
+      prepareChildWorktree: (worktreeInput) => this.prepareSubagentChildWorktree(worktreeInput.run),
+      trustedWaitBarrierOwner: {
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: input.task.id,
+      },
+      runtime: {
+        startChildRun: (startInput) => this.startResolvedSubagentChildRun(startInput),
+        waitForChildRun: (waitInput) => this.waitForResolvedSubagentChildRun(waitInput),
+        cancelChildRun: (cancelInput) => this.cancelResolvedSubagentChildRun(cancelInput),
+        followupChildRun: (followupInput) => this.followupResolvedSubagentChildRun(followupInput),
+        retryChildRun: (retryInput) => this.retryResolvedSubagentChildRun(retryInput),
+        resolveChildApprovalResponse: (approvalInput) => this.resolveResolvedSubagentChildApprovalResponse(approvalInput),
+      },
+    });
+    if (!tool) throw new Error("Symphony launch bridge could not create the Ambient sub-agent tool.");
+    const childRunBindings: Array<{ roleNodeId: string; childRunId: string }> = [];
+    const terminalIfTaskCanceled = async (): Promise<CallableWorkflowSubagentLaunchResult | undefined> => {
+      const currentTask = this.store.getCallableWorkflowTask(input.task.id);
+      if (currentTask.status !== "canceled") return undefined;
+      const childRunIds = [...new Set(childRunBindings.map((binding) => binding.childRunId))];
+      const reason = currentTask.errorMessage?.trim() ||
+        `Callable workflow task ${input.task.id} was canceled during Symphony child launch.`;
+      for (const childRunId of childRunIds) {
+        let run: SubagentRunSummary;
+        try {
+          run = this.store.getSubagentRun(childRunId);
+        } catch {
+          continue;
+        }
+        if (isSubagentTerminalStatus(run.status)) continue;
+        const payloadFingerprint = createSubagentPayloadFingerprint({
+          taskId: input.task.id,
+          childRunId,
+          decision: input.task.blocking ? "cancel_parent" : "cancel_workflow_task",
+          userDecision: reason,
+        });
+        const idempotencyKey = createSubagentIdempotencyKey({
+          operation: "cancel",
+          parentRunId: input.task.parentRunId,
+          childRunId,
+          payloadFingerprint,
+        });
+        await this.cancelCallableWorkflowSymphonyChildRun({
+          run,
+          reason,
+          idempotencyKey,
+          toolCallId: "callable-workflow-cancel-launch-child",
+        });
+      }
+      return {
+        status: "terminal",
+        task: this.store.getCallableWorkflowTask(input.task.id),
+        launchBridgeEvidence: callableWorkflowSymphonyLaunchBridgeEvidence({
+          contract,
+          childRunIds,
+          childRunBindings,
+          childRuns: childRunIds.flatMap((runId) => {
+            try {
+              return [this.store.getSubagentRun(runId)];
+            } catch {
+              return [];
+            }
+          }),
+        }),
+      };
+    };
+    for (const child of contract.childLaunches) {
+      const canceledBeforeSpawn = await terminalIfTaskCanceled();
+      if (canceledBeforeSpawn) return canceledBeforeSpawn;
+      const result = await tool.execute(`callable-workflow:${input.task.id}:spawn:${child.roleNodeId}`, {
+        action: "spawn_agent",
+        task: child.task,
+        title: child.title,
+        roleId: child.roleId,
+        dependencyMode: child.dependencyMode,
+        forkMode: child.forkMode,
+        promptMode: child.promptMode,
+        effectiveRole: {
+          patternRole: child.patternRole,
+          overlayLabels: child.effectiveRole.overlays.map((overlay) => overlay.label),
+          ...(child.effectiveRole.outputContract ? { outputContract: child.effectiveRole.outputContract } : {}),
+        },
+        patternGraphBinding: child.patternGraphBinding,
+        idempotencyKey: child.idempotencyKey,
+      }, undefined, undefined, {} as any);
+      const childRunId = subagentRunIdFromToolResult(result);
+      if (childRunId) childRunBindings.push({ roleNodeId: child.roleNodeId, childRunId });
+      const canceledAfterSpawn = await terminalIfTaskCanceled();
+      if (canceledAfterSpawn) return canceledAfterSpawn;
+    }
+    const canceledBeforeWait = await terminalIfTaskCanceled();
+    if (canceledBeforeWait) return canceledBeforeWait;
+    const boundRoleNodeIds = new Set(childRunBindings.map((binding) => binding.roleNodeId));
+    const missingRoleNodeIds = contract.childLaunches
+      .filter((child) => !boundRoleNodeIds.has(child.roleNodeId))
+      .map((child) => child.roleNodeId);
+    if (missingRoleNodeIds.length > 0) {
+      const paused = this.store.pauseCallableWorkflowTask({
+        id: input.task.id,
+        statusLabel: "Child launch needs attention",
+        runnerDeferredReason: CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
+        errorMessage:
+          `Callable workflow task ${input.task.id} blocked because required Symphony children did not launch: ${missingRoleNodeIds.join(", ")}.`,
+      });
+      this.emitCallableWorkflowTaskUpdated(paused);
+      return {
+        status: "blocked",
+        task: paused,
+        launchBridgeEvidence: callableWorkflowSymphonyLaunchBridgeEvidence({
+          contract,
+          childRunIds: childRunBindings.map((binding) => binding.childRunId),
+          childRunBindings,
+          childRuns: childRunBindings.map((binding) => this.store.getSubagentRun(binding.childRunId)),
+        }),
+      };
+    }
+    const uniqueChildRunIds = [...new Set(childRunBindings.map((binding) => binding.childRunId))];
+    if (!uniqueChildRunIds.length) {
+      return {
+        status: "ready",
+        task: this.store.getCallableWorkflowTask(input.task.id),
+        launchBridgeEvidence: callableWorkflowSymphonyLaunchBridgeEvidence({
+          contract,
+          childRunIds: uniqueChildRunIds,
+          childRunBindings,
+          childRuns: [],
+        }),
+      };
+    }
+    const waitResult = await tool.execute(`callable-workflow:${input.task.id}:wait`, {
+      action: "wait_agent",
+      childRunIds: uniqueChildRunIds,
+      waitBarrierMode: contract.wait.mode,
+      failurePolicy: contract.wait.failurePolicy,
+      timeoutMs: contract.wait.timeoutMs,
+      idempotencyKey: `callable-workflow:${input.task.id}:symphony-wait:${contract.wait.mode}`,
+    }, undefined, undefined, {} as any);
+    const postWaitChildRuns = uniqueChildRunIds.map((runId) => this.store.getSubagentRun(runId));
+    const waitEvidence = callableWorkflowSymphonyLaunchBridgeEvidence({
+      contract,
+      childRunIds: uniqueChildRunIds,
+      childRunBindings,
+      childRuns: postWaitChildRuns,
+      waitResult,
+    });
+    const currentTask = this.store.getCallableWorkflowTask(input.task.id);
+    if (currentTask.status === "canceled") {
+      return {
+        status: "terminal",
+        task: currentTask,
+        launchBridgeEvidence: waitEvidence,
+      };
+    }
+    const waitBarrierId = callableWorkflowSymphonyWaitBarrierId(waitResult);
+    const persistedWaitBarrier = waitBarrierId ? this.store.getSubagentWaitBarrier(waitBarrierId) : undefined;
+    if (callableWorkflowSymphonyWaitAllowsCompile(waitResult)) {
+      return {
+        status: "ready",
+        task: this.store.getCallableWorkflowTask(input.task.id),
+        launchBridgeEvidence: waitEvidence,
+      };
+    }
+    const terminalDecision = callableWorkflowSymphonyTerminalWaitDecisionAction(waitResult, persistedWaitBarrier);
+    if (terminalDecision) {
+      const terminalMessage = callableWorkflowSymphonyTerminalWaitDecisionMessage(input.task.id, terminalDecision, waitResult);
+      const terminalTask = terminalDecision === "cancel_parent"
+        ? this.store.cancelCallableWorkflowTask({ id: input.task.id, reason: terminalMessage })
+        : this.store.failCallableWorkflowTask({ id: input.task.id, errorMessage: terminalMessage });
+      this.emitCallableWorkflowTaskUpdated(terminalTask);
+      return {
+        status: "terminal",
+        task: terminalTask,
+        launchBridgeEvidence: waitEvidence,
+      };
+    }
+    const paused = this.store.pauseCallableWorkflowTask({
+      id: input.task.id,
+      statusLabel: "Child wait needs attention",
+      runnerDeferredReason: CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
+      errorMessage: callableWorkflowSymphonyWaitBlockMessage(input.task.id, waitResult),
+    });
+    this.emitCallableWorkflowTaskUpdated(paused);
+    return {
+      status: "blocked",
+      task: paused,
+      launchBridgeEvidence: waitEvidence,
+    };
   }
 
   private emitCallableWorkflowTaskUpdated(task: CallableWorkflowTaskSummary): void {
@@ -6201,7 +5502,7 @@ export class AgentRuntime {
   }
 
   private markPluginToolsStale(threadId: string): void {
-    this.stalePluginToolThreads.add(threadId);
+    this.sessions.markPluginToolsStale(threadId);
     this.emit({ type: "plugin-catalog-updated" });
   }
 
@@ -6262,7 +5563,7 @@ export class AgentRuntime {
     return createContextAccountingToolsExtension({
       threadId,
       contextWindow: model.contextWindow,
-      getActiveSession: (id) => activeSessions.get(id),
+      getActiveSession: (id) => this.sessions.get(id),
       compactionStatsFromEntries: (entries) => contextUsageCompactionStatsFromEntries(entries),
       countSerializedPayload: (payload, fallbackTokens) => this.glmTokenizer.countSerializedPayload(payload, fallbackTokens),
       recordContextUsageSnapshot: (snapshot) => this.store.recordContextUsageSnapshot(snapshot),
@@ -6276,7 +5577,7 @@ export class AgentRuntime {
       threadId,
       store: this.store,
       hasActiveRun: () => this.activeRuns.has(threadId),
-      finalizeCompletedThreadGoal: (goal) => this.finalizeCompletedThreadGoal(goal),
+      finalizeCompletedThreadGoal: (goal) => this.goalContinuations.finalizeCompletedThreadGoal(goal),
       emit: (event) => this.emit(event),
       validateGoalCompletion: (goal) => {
         const thread = this.store.getThread(threadId);
@@ -7512,6 +6813,166 @@ export class AgentRuntime {
     });
   }
 
+}
+
+function subagentRunIdFromToolResult(result: unknown): string | undefined {
+  if (!isRecord(result)) return undefined;
+  const details = result.details;
+  if (!isRecord(details)) return undefined;
+  const run = details.run;
+  if (!isRecord(run)) return undefined;
+  return typeof run.id === "string" && run.id.trim().length > 0 ? run.id : undefined;
+}
+
+function callableWorkflowSymphonyWaitAllowsCompile(result: unknown): boolean {
+  if (!isRecord(result)) return false;
+  const details = result.details;
+  if (!isRecord(details)) return false;
+  const waitSatisfied = details.waitSatisfied === true;
+  const synthesisAllowed = details.synthesisAllowed === true;
+  const waitBarrier = isRecord(details.waitBarrier) ? details.waitBarrier : undefined;
+  const waitBarrierStatus = typeof waitBarrier?.status === "string" ? waitBarrier.status : "unknown";
+  return waitSatisfied && synthesisAllowed && waitBarrierStatus === "satisfied";
+}
+
+function callableWorkflowSymphonyWaitBlockMessage(taskId: string, result: unknown): string {
+  if (!isRecord(result)) {
+    return `Callable workflow task ${taskId} blocked because the Symphony wait result was unavailable.`;
+  }
+  const details = result.details;
+  if (!isRecord(details)) {
+    return `Callable workflow task ${taskId} blocked because the Symphony wait details were unavailable.`;
+  }
+  const waitSatisfied = details.waitSatisfied === true;
+  const synthesisAllowed = details.synthesisAllowed === true;
+  const waitBarrier = isRecord(details.waitBarrier) ? details.waitBarrier : undefined;
+  const waitBarrierStatus = typeof waitBarrier?.status === "string" ? waitBarrier.status : "unknown";
+  const parentResolution = isRecord(details.parentResolution) ? details.parentResolution : undefined;
+  const resolutionAction = typeof parentResolution?.action === "string" ? parentResolution.action : "none";
+  return [
+    `Callable workflow task ${taskId} blocked because Symphony children are not synthesis-safe.`,
+    `waitSatisfied=${String(waitSatisfied)}; synthesisAllowed=${String(synthesisAllowed)}; waitBarrierStatus=${waitBarrierStatus}; parentResolution=${resolutionAction}.`,
+  ].join(" ");
+}
+
+function callableWorkflowSymphonyWaitBarrierId(result: unknown): string | undefined {
+  if (!isRecord(result) || !isRecord(result.details)) return undefined;
+  const waitBarrier = isRecord(result.details.waitBarrier) ? result.details.waitBarrier : undefined;
+  const id = typeof waitBarrier?.id === "string" ? waitBarrier.id.trim() : "";
+  return id || undefined;
+}
+
+function callableWorkflowPatternGraphChildRunIds(task: CallableWorkflowTaskSummary): Set<string> {
+  return new Set(
+    task.patternGraphSnapshot?.nodes
+      .map((node) => node.childRunId)
+      .filter((childRunId): childRunId is string => typeof childRunId === "string" && childRunId.length > 0) ?? [],
+  );
+}
+
+function shouldCancelCallableWorkflowSymphonyLaunchChildren(task: CallableWorkflowTaskSummary): boolean {
+  if (isCallableWorkflowSymphonyChildWaitPreCompilePause(task)) return true;
+  if (task.status !== "compiling" || task.sourceKind !== "symphony_recipe") return false;
+  return callableWorkflowPatternGraphChildRunIds(task).size > 0;
+}
+
+function callableWorkflowSymphonyTerminalWaitDecisionAction(
+  result: unknown,
+  waitBarrier?: SubagentWaitBarrierSummary,
+): "fail_parent" | "cancel_parent" | "detach_child" | undefined {
+  const artifact = isRecord(waitBarrier?.resolutionArtifact) ? waitBarrier.resolutionArtifact : undefined;
+  const userDecision = isRecord(artifact?.userDecision) ? artifact.userDecision : undefined;
+  const decision = typeof userDecision?.decision === "string" ? userDecision.decision : undefined;
+  if (decision === "fail_parent" || decision === "cancel_parent" || decision === "detach_child") return decision;
+  if (!isRecord(result) || !isRecord(result.details)) return undefined;
+  const parentResolution = isRecord(result.details.parentResolution) ? result.details.parentResolution : undefined;
+  const action = typeof parentResolution?.action === "string" ? parentResolution.action : undefined;
+  if (action === "fail_parent" || action === "cancel_parent" || action === "detach_child") return action;
+  return undefined;
+}
+
+function callableWorkflowSymphonyTerminalWaitDecisionMessage(
+  taskId: string,
+  action: "fail_parent" | "cancel_parent" | "detach_child",
+  result: unknown,
+): string {
+  const details = isRecord(result) && isRecord(result.details) ? result.details : undefined;
+  const parentResolution = isRecord(details?.parentResolution) ? details?.parentResolution : undefined;
+  const reason = typeof parentResolution?.reason === "string" ? parentResolution.reason.trim() : "";
+  const decisionLabel = action === "cancel_parent"
+    ? "canceled"
+    : action === "detach_child"
+      ? "failed after a required child was detached"
+      : "failed";
+  return [
+    `Callable workflow task ${taskId} ${decisionLabel} by Symphony wait-barrier decision ${action}.`,
+    reason,
+  ].filter(Boolean).join(" ");
+}
+
+function callableWorkflowSymphonyLaunchBridgeEvidence(input: {
+  contract: NonNullable<CallableWorkflowRunnerCompileInput["handoffPlan"]["compiler"]["launchBridgeContract"]>;
+  childRunIds: readonly string[];
+  childRunBindings?: readonly { roleNodeId: string; childRunId: string }[];
+  childRuns?: readonly SubagentRunSummary[];
+  waitResult?: unknown;
+}): Record<string, unknown> {
+  const details = isRecord(input.waitResult) && isRecord(input.waitResult.details)
+    ? input.waitResult.details
+    : undefined;
+  const waitBarrier = isRecord(details?.waitBarrier) ? details?.waitBarrier : undefined;
+  return {
+    schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-evidence-v1",
+    workflowTaskId: input.contract.workflowTaskId,
+    patternId: input.contract.pattern.id,
+    childRunIds: [...input.childRunIds],
+    childRoles: input.contract.childLaunches.map((child) => ({
+      roleNodeId: child.roleNodeId,
+      roleId: child.roleId,
+      patternRole: child.patternRole,
+      childRunId: input.childRunBindings?.find((binding) => binding.roleNodeId === child.roleNodeId)?.childRunId,
+      outputContract: child.effectiveRole.outputContract,
+    })),
+    childResults: (input.childRuns ?? []).map((run) => ({
+      childRunId: run.id,
+      childThreadId: run.childThreadId,
+      roleId: run.roleId,
+      patternRole: run.effectiveRoleSnapshot?.patternRole,
+      status: run.status,
+      resultArtifact: compactCallableWorkflowSymphonyChildResultArtifact(run.resultArtifact),
+    })),
+    ...(details ? {
+      wait: {
+        waitSatisfied: details.waitSatisfied === true,
+        synthesisAllowed: details.synthesisAllowed === true,
+        waitTimedOut: details.waitTimedOut === true,
+        waitSessionExpired: details.waitSessionExpired === true,
+        waitBarrier: waitBarrier ? {
+          id: waitBarrier.id,
+          status: waitBarrier.status,
+          dependencyMode: waitBarrier.dependencyMode,
+          failurePolicy: waitBarrier.failurePolicy,
+          childRunIds: waitBarrier.childRunIds,
+        } : undefined,
+        parentResolution: details.parentResolution,
+        waitBarrierBlockers: details.waitBarrierBlockers,
+        waitChildRuns: details.waitChildRuns,
+      },
+    } : {}),
+  };
+}
+
+function compactCallableWorkflowSymphonyChildResultArtifact(artifact: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(artifact)) return undefined;
+  return {
+    schemaVersion: artifact.schemaVersion,
+    runId: artifact.runId,
+    status: artifact.status,
+    partial: artifact.partial,
+    summary: artifact.summary,
+    childThreadId: artifact.childThreadId,
+    artifactPath: artifact.artifactPath,
+  };
 }
 
 function subagentStatusCanRetryInSameChildThread(status: SubagentRunSummary["status"]): boolean {

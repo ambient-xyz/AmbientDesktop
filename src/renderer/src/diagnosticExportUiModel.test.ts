@@ -421,6 +421,7 @@ function agentMemoryStarterSummary(
     settings: {
       featureFlags: { tencentDbMemory: true },
       memory: {
+        mode: "enabled_all",
         enabled: true,
         defaultThreadEnabled: false,
         adapter: "tencentdb",

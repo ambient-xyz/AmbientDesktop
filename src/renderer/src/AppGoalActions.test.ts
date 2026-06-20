@@ -57,6 +57,15 @@ describe("App goal actions", () => {
     expect(controller.setError).not.toHaveBeenCalled();
   });
 
+  it("closes Symphony when goal mode arms", async () => {
+    const controller = createController({ state: desktopState() });
+
+    await controller.actions.toggleGoalMode();
+
+    expect(controller.goalModeArmed.value).toBe(true);
+    expect(controller.setSymphonyBuilderOpen).toHaveBeenCalledWith(false);
+  });
+
   it("does not arm goal mode while planner collaboration mode is active", async () => {
     const controller = createController({
       state: desktopState({ settings: { collaborationMode: "planner" } }),
@@ -168,6 +177,7 @@ function createController({
   const goalModeArmedState = statefulSetter(goalModeArmed);
   const setError = vi.fn();
   const setLocalDeepResearchModeArmed = vi.fn();
+  const setSymphonyBuilderOpen = vi.fn();
   const onGoalCleared = vi.fn();
   return {
     actions: createAppGoalActions({
@@ -178,6 +188,7 @@ function createController({
       setGoalMenuOpen: goalMenuOpenState.set,
       setGoalModeArmed: goalModeArmedState.set,
       setLocalDeepResearchModeArmed,
+      setSymphonyBuilderOpen,
       setState: stateValue.set,
       state: stateValue.value,
     }),
@@ -187,6 +198,7 @@ function createController({
     onGoalCleared,
     setError,
     setLocalDeepResearchModeArmed,
+    setSymphonyBuilderOpen,
     state: stateValue,
   };
 }

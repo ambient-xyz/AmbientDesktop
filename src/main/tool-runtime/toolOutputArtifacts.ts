@@ -18,13 +18,14 @@ export interface MaterializeTextOutputInput {
   text: string;
   maxPreviewChars: number;
   extension?: string;
+  alwaysWriteArtifact?: boolean;
 }
 
 export async function materializeTextOutput(workspacePath: string, input: MaterializeTextOutputInput): Promise<MaterializedTextOutput> {
   const redaction = redactSensitiveTextWithMetadata(input.text);
   const safeText = redaction.text;
   const totalChars = safeText.length;
-  if (totalChars <= input.maxPreviewChars) {
+  if (totalChars <= input.maxPreviewChars && input.alwaysWriteArtifact !== true) {
     return {
       text: safeText,
       truncated: false,
@@ -40,7 +41,7 @@ export async function materializeTextOutput(workspacePath: string, input: Materi
   const artifact = await writeWorkspaceTextFile(workspacePath, artifactPath, safeText);
   return {
     text: preview,
-    truncated: true,
+    truncated: totalChars > input.maxPreviewChars,
     totalChars,
     previewChars: preview.length,
     redacted: redaction.redacted,

@@ -14,6 +14,8 @@ export function messageHasProviderDiagnostic(message: ChatMessage): boolean {
 
 export function messageDiagnosticCardModel(message: ChatMessage): MessageDiagnosticCardModel | undefined {
   if (messageHasProviderDiagnostic(message)) return providerDiagnosticCardModel(message);
+  const symphonyRecovery = recordValue(message.metadata?.symphonyParentModeRecovery);
+  if (symphonyRecovery) return symphonyRecoveryCardModel(message, symphonyRecovery);
   if (message.role === "system" && message.metadata?.runtime === "ambient-recovery") {
     return {
       title: "System recovery",
@@ -28,6 +30,7 @@ export function messageDiagnosticCardModel(message: ChatMessage): MessageDiagnos
 
 export function messageContentWithoutDiagnostic(message: ChatMessage): string {
   if (message.role === "system" && message.metadata?.runtime === "ambient-recovery") return "";
+  if (recordValue(message.metadata?.symphonyParentModeRecovery)) return "";
   if (!messageHasProviderDiagnostic(message)) return message.content;
   const lines = message.content.split(/\r?\n/);
   const diagnosticStart = lines.findIndex((line) => {
@@ -40,6 +43,37 @@ export function messageContentWithoutDiagnostic(message: ChatMessage): string {
   });
   if (diagnosticStart <= 0) return diagnosticStart === 0 ? "" : message.content;
   return lines.slice(0, diagnosticStart).join("\n").trimEnd();
+}
+
+function symphonyRecoveryCardModel(
+  message: ChatMessage,
+  recovery: Record<string, unknown>,
+): MessageDiagnosticCardModel {
+  const details = arrayValue(recovery.details)
+    .map((item) => stringValue(item))
+    .filter((item): item is string => Boolean(item));
+  const actions = arrayValue(recovery.actions)
+    .map((item) => {
+      const action = recordValue(item);
+      if (!action) return undefined;
+      const label = stringValue(action.label);
+      const description = stringValue(action.description);
+      if (!label || !description) return undefined;
+      return `- ${label}: ${description}`;
+    })
+    .filter((item): item is string => Boolean(item));
+  return {
+    title: "Symphony recovery",
+    summary: "Conductor lock stopped the parent before a verified workflow launch.",
+    details: [
+      ...details,
+      actions.length ? "Recovery choices:" : undefined,
+      ...actions,
+      message.content.trim() ? `Visible message:\n${message.content.trim()}` : undefined,
+    ].filter((line): line is string => Boolean(line)).join("\n"),
+    tone: "warning",
+    dismissible: false,
+  };
 }
 
 function providerDiagnosticCardModel(message: ChatMessage): MessageDiagnosticCardModel {
@@ -127,6 +161,10 @@ function metadataDetails(metadata: Record<string, unknown> | undefined): string 
 
 function recordValue(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function stringValue(value: unknown): string | undefined {

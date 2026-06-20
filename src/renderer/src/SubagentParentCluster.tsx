@@ -441,6 +441,23 @@ export function SubagentParentCluster({
                   {task.parentBlocker.label}
                 </span>
               )}
+              {task.childWait && (
+                <span
+                  className={`subagent-parent-cluster-workflow-child-wait tone-${task.childWait.statusTone}`}
+                  title={task.childWait.detail}
+                >
+                  {task.childWait.label}
+                </span>
+              )}
+              {task.childWait?.childLabels.map((label) => (
+                <span
+                  key={`child-wait-${label}`}
+                  className={`subagent-parent-cluster-workflow-child-wait-child tone-${task.childWait?.statusTone ?? "neutral"}`}
+                  title={`Workflow child wait: ${label}`}
+                >
+                  {label}
+                </span>
+              ))}
               {task.detail && <span title={task.detail}>{task.detail}</span>}
               {task.canOpenWorkflowThread && (
                 <button

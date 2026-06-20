@@ -74,6 +74,7 @@ import {
   workflowPlanDslPromptSchemaExample,
   type WorkflowPlanDsl,
 } from "./workflowCompilerWorkflowFacade";
+import type { CallableWorkflowSymphonyLaunchBridgeContract } from "../callable-workflow/callableWorkflowTaskQueue";
 import {
   buildWorkflowDiscoveryPolicyContext,
   describeWorkflowDiscoveryCapability,
@@ -128,6 +129,8 @@ export interface WorkflowCompilerCallableInvocationContext {
   launchCard?: CallableWorkflowLaunchCardSummary;
   sourceContext?: CallableWorkflowSourceContext;
   callerProvenance?: CallableWorkflowCallerProvenance;
+  launchBridgeContract?: CallableWorkflowSymphonyLaunchBridgeContract;
+  launchBridgeEvidence?: unknown;
 }
 
 export interface WorkflowCompilerProvider {
@@ -160,6 +163,7 @@ export interface WorkflowCompilerProvider {
 export function workflowCompilerCallableInvocationContextFromRunnerInput(input: {
   task: CallableWorkflowTaskSummary;
   handoffPlan: CallableWorkflowCompilerHandoffPlan;
+  launchBridgeEvidence?: unknown;
 }): WorkflowCompilerCallableInvocationContext {
   const executionPlan = callableWorkflowExecutionPlanFromTask(input.task);
   return {
@@ -177,6 +181,10 @@ export function workflowCompilerCallableInvocationContextFromRunnerInput(input: 
     launchCard: workflowCompilerJsonClone(input.handoffPlan.compiler.launchCard),
     sourceContext: workflowCompilerJsonClone(executionPlan.workflowRunPlan.sourceContext),
     callerProvenance: workflowCompilerJsonClone(input.handoffPlan.callerProvenance),
+    ...(input.handoffPlan.compiler.launchBridgeContract
+      ? { launchBridgeContract: workflowCompilerJsonClone(input.handoffPlan.compiler.launchBridgeContract) }
+      : {}),
+    ...(input.launchBridgeEvidence ? { launchBridgeEvidence: workflowCompilerJsonClone(input.launchBridgeEvidence) } : {}),
   };
 }
 
@@ -1576,6 +1584,20 @@ function workflowCompilerCallableInvocationEventSnapshot(
           },
         }
       : {}),
+    ...(invocation.launchBridgeContract
+      ? {
+          symphonyLaunchBridge: {
+            schemaVersion: invocation.launchBridgeContract.schemaVersion,
+            patternId: invocation.launchBridgeContract.pattern.id,
+            childRoleNodeIds: invocation.launchBridgeContract.childLaunches.map((child) => child.roleNodeId),
+            waitMode: invocation.launchBridgeContract.wait.mode,
+            waitFailurePolicy: invocation.launchBridgeContract.wait.failurePolicy,
+          },
+        }
+      : {}),
+    ...(invocation.launchBridgeEvidence
+      ? { symphonyLaunchBridgeEvidence: workflowCompilerJsonClone(invocation.launchBridgeEvidence) }
+      : {}),
   };
 }
 
@@ -2388,10 +2410,38 @@ function workflowCompilerCallableInvocationPromptSection(invocation: WorkflowCom
       ? `- Launch card: risk ${invocation.launchCard.riskLevel}, max fanout ${invocation.launchCard.maxFanout}, max depth ${invocation.launchCard.maxDepth}, token budget ${invocation.launchCard.estimatedTokenBudget}`
       : "- Launch card: unavailable",
     ...sourceLines,
+    ...workflowCompilerCallableInvocationLaunchBridgeLines(invocation.launchBridgeContract),
+    ...workflowCompilerCallableInvocationLaunchBridgeEvidenceLines(invocation.launchBridgeEvidence),
     "- Compile a fresh workflow artifact for this invocation. Preserve callable workflow task identity in summaries, checkpoints, and final output.",
     "- For recorded workflows, use the compact invocation and confirmed playbook as reusable guidance. Treat full recorder traces as diagnostics evidence, not replay instructions.",
     "Callable workflow invocation input:",
     JSON.stringify(invocation.input, null, 2),
+  ];
+}
+
+function workflowCompilerCallableInvocationLaunchBridgeLines(
+  contract: WorkflowCompilerCallableInvocationContext["launchBridgeContract"],
+): string[] {
+  if (!contract) return [];
+  return [
+    `- Symphony launch bridge: ${contract.schemaVersion}`,
+    `- Bridge pattern: ${contract.pattern.label} (${contract.pattern.id})`,
+    `- Bridge children: ${contract.childLaunches.map((child) => `${child.roleNodeId}:${child.roleId}`).join(", ") || "none"}`,
+    `- Bridge wait: ${contract.wait.mode}, failure ${contract.wait.failurePolicy}, timeout ${contract.wait.timeoutMs}ms`,
+    "- Bridge runtime obligation: visible Ambient child threads are created from this contract before workflow synthesis; preserve the task id, child role ids, and wait policy in workflow summaries.",
+    "- Bridge compiler boundary: do not emit, repair, or ask for ambient_subagent_spawn_agent, ambient_subagent_wait_agent, or other internal sub-agent bridge tools in WorkflowProgramIR. Ambient runtime owns child launch/wait; the compiler receives only contract/evidence.",
+    "Symphony launch bridge contract JSON:",
+    JSON.stringify(contract, null, 2),
+  ];
+}
+
+function workflowCompilerCallableInvocationLaunchBridgeEvidenceLines(evidence: unknown): string[] {
+  if (!evidence) return [];
+  return [
+    "- Symphony launch bridge evidence: required children have already run through Ambient child threads; use this evidence and the referenced child result artifacts when compiling/synthesizing.",
+    "- Treat launch bridge child results as input evidence. Do not re-run, re-spawn, or re-wait the same child work inside the compiled workflow artifact.",
+    "Symphony launch bridge evidence JSON:",
+    JSON.stringify(evidence, null, 2),
   ];
 }
 

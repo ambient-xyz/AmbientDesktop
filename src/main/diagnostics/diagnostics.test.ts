@@ -90,6 +90,20 @@ describe("diagnostics", () => {
         memoryEnabled: true,
         piSessionFile: sessionFile,
       },
+      {
+        id: "thread-child-memory",
+        title: "Child memory should not count",
+        workspacePath,
+        createdAt: "2026-04-29T00:00:00.000Z",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+        lastMessagePreview: "child",
+        permissionMode: "full-access",
+        collaborationMode: "agent",
+        model: "zai-org/GLM-5.1-FP8",
+        thinkingLevel: "low",
+        kind: "subagent_child",
+        memoryEnabled: true,
+      },
     ];
     const audit: PermissionAuditEntry[] = [
       {
@@ -156,6 +170,7 @@ describe("diagnostics", () => {
         getAgentMemoryDiagnostics: () => inspectTencentDbMemoryDiagnostics({
           workspace,
           settings: {
+            mode: "enabled_all",
             enabled: true,
             defaultThreadEnabled: true,
             adapter: "tencentdb",
@@ -294,6 +309,7 @@ describe("diagnostics", () => {
       storageSchemaStatus: "missing",
       storageSchemaExpectedVersion: "ambient-tencent-memory-storage-v1",
       rawContentIncluded: false,
+      threadEnabledCount: 1,
       activeThreadCount: 1,
       nativePreflight: {
         schemaVersion: "ambient-agent-memory-native-preflight-v1",
@@ -325,7 +341,7 @@ describe("diagnostics", () => {
     });
     expect(JSON.stringify(payload.bundle.agentMemory)).not.toContain("raw memory secret");
     expect(JSON.stringify(payload.bundle.agentMemory)).not.toContain("ambient-abcdefghijklmnopqrstuvwxyz");
-    expect(payload.bundle.sqlite.threads).toHaveLength(1);
+    expect(payload.bundle.sqlite.threads).toHaveLength(2);
     expect(payload.bundle.sqlite.messages[0].content).toBe("Bearer [REDACTED]");
     expect(payload.bundle.sqlite.permissionAudit[0].detail).toBe("Authorization: Bearer [REDACTED]");
     expect(payload.bundle.sqlite.permissionGrants[0].targetHash).toBe("[REDACTED]");
@@ -1821,6 +1837,7 @@ function sampleAgentMemoryStarterStatus(checkedAt: string): AgentMemoryStarterSt
     settings: {
       featureFlags: { tencentDbMemory: true },
       memory: {
+        mode: "enabled_all",
         enabled: true,
         defaultThreadEnabled: true,
         adapter: "tencentdb",

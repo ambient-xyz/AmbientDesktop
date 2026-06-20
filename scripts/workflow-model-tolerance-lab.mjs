@@ -850,7 +850,7 @@ function readProviderCredential(providerId, env, cwd) {
       join(dirname(cwd), "gmicloud-api-key.txt"),
       join(dirname(cwd), "AmbientDesktop", "gmicloud-api-key.txt"),
       join(homedir(), "Documents", "AmbientDesktop", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "AmbientDesktop", "gmicloud-api-key.txt"),
+      join(homedir(), "Documents", "New project 3", "gmicloud-api-key.txt"),
     ],
     "gmicloud-api-key.txt",
   );

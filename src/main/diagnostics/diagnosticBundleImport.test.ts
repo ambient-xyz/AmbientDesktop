@@ -474,6 +474,11 @@ describe("diagnostic bundle import", () => {
   });
 
   it("imports bounded Tencent memory diagnostics without raw memory payloads", () => {
+    const starterSummary = {
+      ...agentMemoryStarterSummary(),
+      rawInstallerLog: "do not return raw starter log",
+    };
+    delete (starterSummary.settings.memory as Partial<typeof starterSummary.settings.memory>).mode;
     const result = diagnosticImportResultFromBundleJson({
       path: "/tmp/ambient-diagnostics.json",
       bytes: 2048,
@@ -490,10 +495,7 @@ describe("diagnostic bundle import", () => {
               rawConversation: "do not return raw conversation",
             }],
           },
-          agentMemoryStarter: {
-            ...agentMemoryStarterSummary(),
-            rawInstallerLog: "do not return raw starter log",
-          },
+          agentMemoryStarter: starterSummary,
         },
       },
     });
@@ -521,6 +523,11 @@ describe("diagnostic bundle import", () => {
     expect(result.summary?.agentMemoryStarter).toMatchObject({
       schemaVersion: "ambient-agent-memory-starter-status-v1",
       state: "needs_repair",
+      settings: {
+        memory: {
+          mode: "per_thread",
+        },
+      },
       runtime: { state: "stopped" },
       blockers: [{ code: "runtime_missing" }],
       nextActions: ["repair", "open_logs"],
@@ -778,6 +785,7 @@ function agentMemoryStarterSummary(): AgentMemoryStarterStatus {
     settings: {
       featureFlags: { tencentDbMemory: true },
       memory: {
+        mode: "per_thread",
         enabled: true,
         defaultThreadEnabled: false,
         adapter: "tencentdb",

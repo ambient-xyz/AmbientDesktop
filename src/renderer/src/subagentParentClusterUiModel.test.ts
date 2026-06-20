@@ -4,6 +4,7 @@ import { buildPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
 import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
+import { CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON } from "../../shared/callableWorkflowTaskGuards";
 import { subagentParentClusterModelsByMessageId } from "./subagentParentClusterUiModel";
 
 describe("subagent parent cluster UI model", () => {
@@ -250,6 +251,58 @@ describe("subagent parent cluster UI model", () => {
         },
       ],
     });
+  });
+
+  it("does not mark nonblocking callable-workflow bridge barriers as parent blockers", () => {
+    const clusters = subagentParentClusterModelsByMessageId(
+      [run({ id: "run-1", status: "failed" })],
+      [thread({ id: "child-1", title: "Background workflow child" })],
+      [barrier({
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: "callable-task-1",
+      })],
+      [],
+      [callableWorkflowTask({ id: "callable-task-1", blocking: false })],
+    );
+
+    const cluster = clusters.get("message-1");
+    expect(cluster?.parentBlocking).toBeUndefined();
+    expect(cluster?.children[0]?.parentBlocker).toBeUndefined();
+  });
+
+  it("does not mark nonblocking callable-workflow bridge attention events as parent blockers", () => {
+    const clusters = subagentParentClusterModelsByMessageId(
+      [run({ id: "run-1", status: "failed" })],
+      [thread({ id: "child-1", title: "Background workflow child" })],
+      [barrier({
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: "callable-task-1",
+        status: "timed_out",
+      })],
+      [parentMailboxEvent({
+        type: "subagent.wait_barrier_attention",
+        deliveryState: "queued",
+        payload: {
+          schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
+          childRunId: "run-1",
+          childThreadId: "child-1",
+          waitBarrierId: "barrier-1",
+          barrierStatus: "timed_out",
+          dependencyMode: "required_all",
+          parentResolution: {
+            schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
+            action: "ask_user",
+            status: "blocked",
+          },
+          reason: "Background workflow bridge needs attention.",
+        },
+      })],
+      [callableWorkflowTask({ id: "callable-task-1", blocking: false })],
+    );
+
+    const cluster = clusters.get("message-1");
+    expect(cluster?.parentBlocking).toBeUndefined();
+    expect(cluster?.children[0]?.parentBlocker).toBeUndefined();
   });
 
   it("marks approval-blocked required children with warning blocker indicators", () => {
@@ -2643,7 +2696,7 @@ describe("subagent parent cluster UI model", () => {
     });
   });
 
-  it("marks paused callable workflow tasks resumeable only when the linked run can resume", () => {
+  it("marks paused callable workflow tasks resumeable only when a linked run or guarded pre-compile wait can resume", () => {
     const clusters = subagentParentClusterModelsByMessageId(
       [],
       [],
@@ -2680,6 +2733,13 @@ describe("subagent parent cluster UI model", () => {
             activeStepCount: 0,
           },
         }),
+        callableWorkflowTask({
+          id: "callable-task-child-wait",
+          status: "paused",
+          statusLabel: "Child wait needs attention",
+          runnerDeferredReason: CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
+          errorMessage: "Symphony children are not synthesis-safe.",
+        }),
       ],
     );
 
@@ -2702,8 +2762,79 @@ describe("subagent parent cluster UI model", () => {
           canCancel: true,
           detail: "Runner: workflowCompilerService / State: Workflow run needs input / Artifact: workflow-artifact-2 / Run: workflow-run-input",
         }),
+        expect.objectContaining({
+          id: "callable-task-child-wait",
+          progressLabel: "Child wait needs attention",
+          canResume: true,
+          canPause: false,
+          canCancel: true,
+          detail: "Runner: workflowCompilerService / State: Symphony Child Wait Needs Attention / Error: Symphony children are not synthesis-safe.",
+        }),
       ]),
     );
+  });
+
+  it("surfaces background Symphony child wait barriers on the workflow task row without parent-blocking children", () => {
+    const clusters = subagentParentClusterModelsByMessageId(
+      [
+        run({
+          id: "drafter-run",
+          childThreadId: "drafter-thread",
+          roleId: "drafter",
+          status: "completed",
+          canonicalTaskPath: "root/0:drafter",
+        }),
+        run({
+          id: "verifier-run",
+          childThreadId: "verifier-thread",
+          roleId: "reviewer",
+          status: "failed",
+          canonicalTaskPath: "root/1:verifier",
+        }),
+      ],
+      [
+        thread({ id: "drafter-thread", title: "Drafter sub-agent", childOrder: 1 }),
+        thread({ id: "verifier-thread", title: "Verifier sub-agent", childOrder: 2 }),
+      ],
+      [barrier({
+        id: "symphony-child-wait",
+        childRunIds: ["drafter-run", "verifier-run"],
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: "callable-task-child-wait",
+        status: "failed",
+        timeoutMs: 600_000,
+      })],
+      [],
+      [callableWorkflowTask({
+        id: "callable-task-child-wait",
+        title: "Symphony Imitate and Verify",
+        toolName: "ambient_workflow_symphony_imitate_and_verify",
+        status: "paused",
+        statusLabel: "Child wait needs attention",
+        blocking: false,
+        runnerDeferredReason: CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
+        errorMessage: "Symphony children are not synthesis-safe.",
+      })],
+    );
+
+    const cluster = clusters.get("message-1");
+    expect(cluster).toMatchObject({
+      summary: expect.stringContaining("Waiting on Drafter sub-agent: Completed, Verifier sub-agent: Failed"),
+      status: "Needs attention",
+      statusTone: "danger",
+    });
+    expect(cluster?.children.find((child) => child.runId === "verifier-run")?.parentBlocker).toBeUndefined();
+    expect(cluster?.workflowTasks[0]).toMatchObject({
+      id: "callable-task-child-wait",
+      status: "Child wait needs attention",
+      modeLabel: "Background",
+      childWait: {
+        label: "Waiting on Symphony children",
+        statusTone: "danger",
+        childLabels: ["Drafter sub-agent: Completed", "Verifier sub-agent: Failed"],
+        detail: expect.stringContaining("Symphony Imitate and Verify / Failed / Required all / Ask user on failure / 10m timeout"),
+      },
+    });
   });
 
   it("surfaces failed callable workflow tasks as needs-attention rows", () => {

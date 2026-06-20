@@ -300,6 +300,7 @@ export function RightPanel({
   onRunLocalModelRuntimeLifecycleAction,
   onFeatureFlagSettingsChange,
   onMemorySettingsChange,
+  onApplyMemorySettingsSnapshot,
   onActiveThreadMemoryEnabledChange,
   onRefreshAgentMemoryDiagnostics,
   onRunAgentMemoryEmbeddingLifecycleAction,
@@ -412,6 +413,7 @@ export function RightPanel({
   onRunLocalModelRuntimeLifecycleAction: (input: LocalModelRuntimeLifecycleActionInput) => Promise<LocalModelRuntimeLifecycleActionResult>;
   onFeatureFlagSettingsChange: (featureFlags: DesktopState["settings"]["featureFlags"]) => void;
   onMemorySettingsChange: (memory: DesktopState["settings"]["memory"]) => void;
+  onApplyMemorySettingsSnapshot: (memory: DesktopState["settings"]["memory"]) => void;
   onActiveThreadMemoryEnabledChange: (enabled: boolean) => void;
   onRefreshAgentMemoryDiagnostics: () => Promise<void>;
   onRunAgentMemoryEmbeddingLifecycleAction: (action: AgentMemoryEmbeddingLifecycleActionKind) => Promise<AgentMemoryEmbeddingLifecycleActionResult | undefined>;
@@ -576,6 +578,7 @@ export function RightPanel({
     onClearAgentMemory,
     onStartCapabilityBuilder,
     onHydrateSearchRoutingSettings,
+    onApplyMemorySettingsSnapshot,
     onSttSettingsChange,
     onSaveModelProviderCredential,
     onInstallModelProviderEndpoint,

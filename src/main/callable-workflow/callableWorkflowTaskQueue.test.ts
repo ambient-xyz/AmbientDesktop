@@ -589,6 +589,143 @@ describe("callable workflow task queue", () => {
     expect(handoff.compiler.userRequest).toContain("Selected builder step pattern-scope: Files: Split across selected workspace files or search results.");
     expect(handoff.compiler.userRequest).toContain("Selected builder step limits-and-policy: Read-only with a small slice first.");
     expect(handoff.compiler.userRequest).toContain("Required objective_metric map_reduce-metric: Every mapped implementation section has cited evidence.");
+    expect(handoff.compiler.launchBridgeContract).toMatchObject({
+      schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
+      workflowTaskId: task.id,
+      launchId: task.launchId,
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      pattern: {
+        id: "map_reduce",
+        label: "Map-Reduce",
+        blocking: true,
+      },
+      childLaunches: [
+        expect.objectContaining({
+          roleNodeId: "mapper",
+          roleId: "explorer",
+          dependencyMode: "required",
+          patternGraphBinding: expect.objectContaining({
+            workflowTaskId: task.id,
+            roleNodeId: "mapper",
+            blockingParent: true,
+          }),
+          idempotencyKey: `callable-workflow:${task.id}:symphony-child:mapper`,
+        }),
+        expect.objectContaining({
+          roleNodeId: "reducer",
+          roleId: "summarizer",
+          dependencyMode: "required",
+          idempotencyKey: `callable-workflow:${task.id}:symphony-child:reducer`,
+        }),
+      ],
+      wait: {
+        mode: "required_all",
+        failurePolicy: "ask_user",
+        timeoutMs: 600000,
+        childRoleNodeIds: ["mapper", "reducer"],
+      },
+    });
+    expect(handoff.compiler.userRequest).toContain("Symphony launch bridge contract:");
+    expect(handoff.compiler.userRequest).toContain("Ambient runtime, not the workflow compiler");
+    expect(handoff.compiler.userRequest).toContain("must not emit or repair WorkflowProgramIR with ambient_subagent_spawn_agent");
+    expect(handoff.compiler.userRequest).toContain(`"workflowTaskId": "${task.id}"`);
+  });
+
+  it("keeps background Symphony child runs detachable while requiring bridge evidence for workflow synthesis", () => {
+    const registry = buildCallableWorkflowRegistry({ featureFlagSnapshot: enabledFlags });
+    const tool = parentPiVisibleCallableWorkflowTools(registry).find((candidate) =>
+      candidate.name === "ambient_workflow_symphony_map_reduce"
+    );
+    if (!tool) throw new Error("Missing Symphony Map-Reduce workflow tool.");
+    const runPlan = buildCallableWorkflowRunPlan(tool, {
+      goal: "Compare notes in the background",
+      blocking: false,
+      metricCriteria: mapReduceMetricCriteria(),
+    });
+    const executionPlan = buildCallableWorkflowExecutionPlan({
+      descriptor: tool,
+      runPlan,
+      parent: {
+        threadId: "parent-thread",
+        runId: "parent-run",
+        assistantMessageId: "assistant-message",
+      },
+      toolCallId: "tool-call-symphony-background",
+      createdAt: "2026-06-07T18:10:00.000Z",
+    });
+    const task = {
+      ...callableWorkflowQueuedTaskDraftFromExecutionPlan(executionPlan),
+      createdAt: executionPlan.createdAt,
+      updatedAt: executionPlan.createdAt,
+    };
+
+    const handoff = buildCallableWorkflowCompilerHandoffPlan({ task });
+
+    expect(handoff.compiler.launchBridgeContract).toMatchObject({
+      pattern: {
+        id: "map_reduce",
+        blocking: false,
+      },
+      childLaunches: [
+        expect.objectContaining({
+          roleNodeId: "mapper",
+          dependencyMode: "optional_background",
+          patternGraphBinding: expect.objectContaining({ blockingParent: false }),
+        }),
+        expect.objectContaining({
+          roleNodeId: "reducer",
+          dependencyMode: "optional_background",
+          patternGraphBinding: expect.objectContaining({ blockingParent: false }),
+        }),
+      ],
+      wait: {
+        mode: "required_all",
+        failurePolicy: "ask_user",
+        blocking: true,
+      },
+    });
+  });
+
+  it("does not build a Symphony launch bridge for child-originated callable workflows", () => {
+    const registry = buildCallableWorkflowRegistry({ featureFlagSnapshot: enabledFlags });
+    const tool = parentPiVisibleCallableWorkflowTools(registry).find((candidate) =>
+      candidate.name === "ambient_workflow_symphony_map_reduce"
+    );
+    if (!tool) throw new Error("Missing Symphony Map-Reduce workflow tool.");
+    const runPlan = buildCallableWorkflowRunPlan(tool, {
+      goal: "Compare notes from inside a child workflow",
+      blocking: true,
+      metricCriteria: mapReduceMetricCriteria(),
+    });
+    const executionPlan = buildCallableWorkflowExecutionPlan({
+      descriptor: tool,
+      runPlan,
+      parent: {
+        threadId: "child-thread",
+        runId: "child-run",
+        assistantMessageId: "child-message",
+      },
+      toolCallId: "tool-call-child-symphony",
+      callerProvenance: childCallerProvenance({
+        threadId: "child-thread",
+        runId: "child-run",
+        messageId: "child-message",
+        worktreePath: "/repo/.ambient-codex/worktrees/child-thread",
+      }),
+      createdAt: "2026-06-07T18:10:00.000Z",
+    });
+    const task = {
+      ...callableWorkflowQueuedTaskDraftFromExecutionPlan(executionPlan),
+      createdAt: executionPlan.createdAt,
+      updatedAt: executionPlan.createdAt,
+    };
+
+    const handoff = buildCallableWorkflowCompilerHandoffPlan({ task });
+
+    expect(handoff.callerProvenance.kind).toBe("subagent_child_thread");
+    expect(handoff.compiler.launchBridgeContract).toBeUndefined();
+    expect(handoff.compiler.userRequest).not.toContain("Symphony launch bridge contract:");
   });
 
   it("transitions queued tasks through compiler handoff, artifact link, and started workflow run", async () => {

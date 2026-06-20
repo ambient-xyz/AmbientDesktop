@@ -155,6 +155,81 @@ describe("subagentWaitContextResolver", () => {
     expect(store.createdBarriers).toEqual([]);
   });
 
+  it("keeps owner-scoped aggregate waits separate from ordinary waits over the same children", () => {
+    const store = new FakeWaitStore([
+      run({ id: "child-a" }),
+      run({ id: "child-b" }),
+    ]);
+    const owned = store.addBarrier({
+      id: "bridge-owned",
+      childRunIds: ["child-a", "child-b"],
+      dependencyMode: "required_all",
+      failurePolicy: "ask_user",
+      ownerKind: "callable_workflow_symphony_launch_bridge",
+      ownerId: "workflow-task-1",
+      status: "waiting_on_children",
+    });
+
+    const bridgeContext = resolveSubagentWaitContext({
+      store,
+      parentThread: { id: "parent-thread" },
+      trustedWaitBarrierOwner: {
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: "workflow-task-1",
+      },
+      request: {
+        childRunIds: ["child-a", "child-b"],
+        waitBarrierMode: "required_all",
+        failurePolicy: "ask_user",
+      },
+      timeoutMs: 10_000,
+      resolveTargetRun: targetRunResolver(store),
+      resolveTargetWaitBarrier: targetWaitBarrierResolver(store),
+    });
+    const singleChildContext = resolveSubagentWaitContext({
+      store,
+      parentThread: { id: "parent-thread" },
+      request: {
+        childRunId: "child-a",
+      },
+      timeoutMs: 10_000,
+      resolveTargetRun: targetRunResolver(store),
+      resolveTargetWaitBarrier: targetWaitBarrierResolver(store),
+    });
+    const ordinaryContext = resolveSubagentWaitContext({
+      store,
+      parentThread: { id: "parent-thread" },
+      request: {
+        childRunIds: ["child-a", "child-b"],
+        waitBarrierMode: "required_all",
+        failurePolicy: "ask_user",
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: "workflow-task-1",
+      },
+      timeoutMs: 10_000,
+      resolveTargetRun: targetRunResolver(store),
+      resolveTargetWaitBarrier: targetWaitBarrierResolver(store),
+    });
+
+    expect(bridgeContext.waitBarrier).toBe(owned);
+    expect(singleChildContext.waitBarrier).not.toBe(owned);
+    expect(singleChildContext.waitBarrier).toMatchObject({
+      childRunIds: ["child-a"],
+      dependencyMode: "required_all",
+      failurePolicy: "ask_user",
+    });
+    expect(singleChildContext.waitBarrier.ownerKind).toBeUndefined();
+    expect(ordinaryContext.waitBarrier).not.toBe(owned);
+    expect(ordinaryContext.waitBarrier).toMatchObject({
+      childRunIds: ["child-a", "child-b"],
+      dependencyMode: "required_all",
+      failurePolicy: "ask_user",
+    });
+    expect(ordinaryContext.waitBarrier.ownerKind).toBeUndefined();
+    expect(ordinaryContext.waitBarrier.ownerId).toBeUndefined();
+    expect(store.createdBarriers).toHaveLength(2);
+  });
+
   it("resolves explicit wait-barrier handles and validates child ownership", () => {
     const store = new FakeWaitStore([
       run({ id: "child-a" }),
@@ -267,6 +342,8 @@ class FakeWaitStore implements SubagentWaitContextResolverStore {
     childRunIds: string[];
     dependencyMode: SubagentWaitBarrierMode;
     failurePolicy: SubagentWaitBarrierFailurePolicy;
+    ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+    ownerId?: string;
     quorumThreshold?: number;
     timeoutMs?: number;
   }): SubagentWaitBarrierSummary {
@@ -286,6 +363,8 @@ class FakeWaitStore implements SubagentWaitContextResolverStore {
     childRunIds: string[];
     dependencyMode: SubagentWaitBarrierMode;
     failurePolicy: SubagentWaitBarrierFailurePolicy;
+    ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+    ownerId?: string;
     quorumThreshold?: number;
     status: SubagentWaitBarrierStatus;
     parentThreadId?: string;
@@ -356,6 +435,8 @@ function barrierSummary(input: {
   childRunIds: string[];
   dependencyMode: SubagentWaitBarrierMode;
   failurePolicy: SubagentWaitBarrierFailurePolicy;
+  ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+  ownerId?: string;
   quorumThreshold?: number;
   status: SubagentWaitBarrierStatus;
   parentThreadId?: string;
@@ -371,6 +452,8 @@ function barrierSummary(input: {
     dependencyMode: input.dependencyMode,
     status: input.status,
     failurePolicy: input.failurePolicy,
+    ...(input.ownerKind ? { ownerKind: input.ownerKind } : {}),
+    ...(input.ownerId ? { ownerId: input.ownerId } : {}),
     ...(input.quorumThreshold !== undefined ? { quorumThreshold: input.quorumThreshold } : {}),
     ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
     createdAt: input.createdAt ?? "2026-06-06T00:00:00.000Z",

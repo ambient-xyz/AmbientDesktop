@@ -416,6 +416,52 @@ describe("subagentWaitMailbox", () => {
     expect(payload).not.toHaveProperty("childDecisionRequest");
     expect(payload).not.toHaveProperty("symphonyDecisionOptions");
   });
+
+  it("filters parent-level barrier actions from background callable workflow attention drafts", () => {
+    const run = childRun({ status: "failed" });
+    const waitBarrier = barrier({
+      status: "failed",
+      failurePolicy: "ask_user",
+      ownerKind: "callable_workflow_symphony_launch_bridge",
+      ownerId: "callable-task-1",
+    });
+    const resultValidation = validation({ status: "failed", synthesisAllowed: false });
+    const parentResolution = parentPolicyResolution({
+      status: "blocked",
+      action: "ask_user",
+      canSynthesize: false,
+      requiresUserInput: true,
+      requiresExplicitPartial: true,
+      reason: "Child failed.",
+      instruction: "Retry the child, accept partial evidence, or cancel the workflow task.",
+      barrierStatus: "failed",
+      failurePolicy: "ask_user",
+    });
+
+    const draft = buildSubagentWaitBarrierAttentionParentMailboxDraft({
+      run,
+      waitBarrier,
+      waitTimedOut: false,
+      resultValidation,
+      parentResolution,
+      backgroundCallableWorkflowTask: true,
+    });
+    const payload = draft.parentMailboxInput.payload as Record<string, any>;
+
+    expect(payload.workflowTaskScopedAttention).toBe(true);
+    expect(payload).not.toHaveProperty("childDecisionRequest");
+    expect(payload).not.toHaveProperty("symphonyDecisionOptions");
+    expect(payload.allowedUserChoices).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "continue_with_partial" }),
+      expect.objectContaining({ id: "send_child_steering" }),
+      expect.objectContaining({ id: "retry_child" }),
+    ]));
+    expect(payload.allowedUserChoices).toEqual(expect.not.arrayContaining([
+      expect.objectContaining({ id: "detach_child" }),
+      expect.objectContaining({ id: "cancel_parent" }),
+      expect.objectContaining({ id: "fail_parent" }),
+    ]));
+  });
 });
 
 function childRun(overrides: {

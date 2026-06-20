@@ -1599,6 +1599,8 @@ class FakeSpawnLaunchStore implements SubagentSpawnLaunchExecutorStore {
     childRunIds: string[];
     dependencyMode: "required_all" | "required_any" | "quorum" | "optional_background";
     failurePolicy: "fail_parent" | "ask_user" | "degrade_partial" | "retry_child";
+    ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+    ownerId?: string;
     quorumThreshold?: number;
     timeoutMs?: number;
     createdAt?: string;
@@ -1611,6 +1613,8 @@ class FakeSpawnLaunchStore implements SubagentSpawnLaunchExecutorStore {
       dependencyMode: input.dependencyMode,
       status: "waiting_on_children",
       failurePolicy: input.failurePolicy,
+      ...(input.ownerKind ? { ownerKind: input.ownerKind } : {}),
+      ...(input.ownerId ? { ownerId: input.ownerId } : {}),
       ...(input.quorumThreshold !== undefined ? { quorumThreshold: input.quorumThreshold } : {}),
       ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
       createdAt: input.createdAt ?? "2026-06-06T00:00:03.000Z",

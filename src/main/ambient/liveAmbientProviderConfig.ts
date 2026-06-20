@@ -139,8 +139,8 @@ function readAmbientApiKey(env: NodeJS.ProcessEnv, cwd: string): string | undefi
       join(dirname(dirname(cwd)), "ambient_api_key.txt"),
       join(homedir(), "Documents", "AmbientDesktop", "ambient_api_key_u.txt"),
       join(homedir(), "Documents", "AmbientDesktop", "ambient_api_key.txt"),
-      join(homedir(), "Documents", "AmbientDesktop", "ambient_api_key_u.txt"),
-      join(homedir(), "Documents", "AmbientDesktop", "ambient_api_key.txt"),
+      join(homedir(), "Documents", "New project 3", "ambient_api_key_u.txt"),
+      join(homedir(), "Documents", "New project 3", "ambient_api_key.txt"),
     ])
   );
 }
@@ -155,7 +155,7 @@ function readGmiCloudApiKey(env: NodeJS.ProcessEnv, cwd: string): string | undef
       join(dirname(cwd), "gmicloud-api-key.txt"),
       join(dirname(cwd), "AmbientDesktop", "gmicloud-api-key.txt"),
       join(homedir(), "Documents", "AmbientDesktop", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "AmbientDesktop", "gmicloud-api-key.txt"),
+      join(homedir(), "Documents", "New project 3", "gmicloud-api-key.txt"),
     ])
   );
 }

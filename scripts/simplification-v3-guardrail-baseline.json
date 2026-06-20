@@ -7,14 +7,14 @@
     "scripts/**/*.{js,mjs,cjs}"
   ],
   "metrics": {
-    "sourceFiles": 3518,
+    "sourceFiles": 3553,
     "srcMainFlatFiles": 2,
-    "srcMainNestedFiles": 2516,
+    "srcMainNestedFiles": 2543,
     "sharedTypesImporters": 0,
     "importCycles": 25,
-    "importBoundaryEdges": 384,
+    "importBoundaryEdges": 393,
     "hardBoundaryViolations": 0,
-    "largeFiles": 291
+    "largeFiles": 296
   },
   "localTooling": {
     "eslintConfig": "eslint.config.mjs",
@@ -23,18 +23,18 @@
   },
   "lint": {
     "totalErrors": 0,
-    "totalWarnings": 10572,
+    "totalWarnings": 10485,
     "ruleCounts": {
       "@typescript-eslint/no-empty-object-type": 22,
-      "@typescript-eslint/no-explicit-any": 3740,
+      "@typescript-eslint/no-explicit-any": 3707,
       "@typescript-eslint/no-unused-expressions": 1,
-      "@typescript-eslint/no-unused-vars": 6519,
+      "@typescript-eslint/no-unused-vars": 6466,
       "no-control-regex": 4,
       "no-dupe-keys": 2,
       "no-extra-boolean-cast": 1,
       "no-unsafe-finally": 1,
       "no-unused-vars": 37,
-      "no-useless-assignment": 67,
+      "no-useless-assignment": 66,
       "no-useless-catch": 2,
       "no-useless-escape": 15,
       "prefer-const": 17,
@@ -57,8 +57,8 @@
     },
     "app-shell": {
       "file": "src/renderer/src/App.tsx",
-      "fileLines": 3750,
-      "declarationLines": 2983
+      "fileLines": 3695,
+      "declarationLines": 2970
     },
     "automations-workspace": {
       "file": "src/renderer/src/AutomationsWorkspace.tsx",
@@ -76,13 +76,13 @@
     },
     "agent-runtime-class": {
       "file": "src/main/agent-runtime/agentRuntime.ts",
-      "fileLines": 7532,
-      "declarationLines": 6228
+      "fileLines": 6496,
+      "declarationLines": 5351
     },
     "agent-runtime-send": {
       "file": "src/main/agent-runtime/agentRuntime.ts",
-      "fileLines": 7532,
-      "declarationLines": 825
+      "fileLines": 6496,
+      "declarationLines": 670
     },
     "main-ipc-registrar": {
       "file": "src/main/ipc/registerMainIpc.ts",
@@ -321,9 +321,15 @@
     "main-owner-peer:office->workspace:src/main/office/officeWorkspaceTestFacade.ts->src/main/workspace/workspaceOfficeTestContract.ts",
     "main-owner-peer:orchestration->agent-runtime:src/main/orchestration/orchestrationAgentRuntimeFacade.ts->src/main/agent-runtime/agentRuntimeOrchestrationContract.ts",
     "main-owner-peer:orchestration->project-board:src/main/orchestration/orchestrationProjectBoardFacade.ts->src/main/project-board/projectBoardOrchestrationContract.ts",
+    "main-owner-peer:orchestration->projectStore:src/main/orchestration/orchestrationAutoDispatchService.ts->src/main/projectStore/projectStore.ts",
     "main-owner-peer:orchestration->projectStore:src/main/orchestration/orchestrationProjectStoreFacade.ts->src/main/projectStore/projectStoreOrchestrationContract.ts",
+    "main-owner-peer:orchestration->provider:src/main/orchestration/orchestrationAutoDispatchService.ts->src/main/provider/providerStatus.ts",
     "main-owner-peer:orchestration->security:src/main/orchestration/orchestrationSecurityFacade.ts->src/main/security/securityOrchestrationContract.ts",
     "main-owner-peer:orchestration->tool-runtime:src/main/orchestration/orchestrationHooks.ts->src/main/tool-runtime/toolRuntimeOrchestrationContract.ts",
+    "main-owner-peer:orchestration->workflow:src/main/orchestration/orchestrationAutoDispatchService.ts->src/main/workflow/workflow.ts",
+    "main-owner-peer:orchestration->workflow:src/main/orchestration/orchestrationAutoDispatchService.ts->src/main/workflow/workflowPlaybookScheduleDispatch.ts",
+    "main-owner-peer:orchestration->workflow:src/main/orchestration/orchestrationAutoDispatchService.ts->src/main/workflow/workflowRunService.ts",
+    "main-owner-peer:orchestration->workflow:src/main/orchestration/orchestrationAutoDispatchService.ts->src/main/workflow/workflowScheduleDispatch.ts",
     "main-owner-peer:orchestration->workflow:src/main/orchestration/orchestrationWorkflowFacade.ts->src/main/workflow/workflowOrchestrationContract.ts",
     "main-owner-peer:orchestration->workspace:src/main/orchestration/orchestrationWorkspaceFacade.ts->src/main/workspace/workspaceOrchestrationContract.ts",
     "main-owner-peer:permissions->google-workspace:src/main/permissions/permissionsGoogleWorkspaceFacade.ts->src/main/google-workspace/googleWorkspacePermissionsContract.ts",
@@ -367,6 +373,8 @@
     "main-owner-peer:project-board->agent-runtime:src/main/project-board/projectBoardAgentRuntimeDogfoodFacade.ts->src/main/agent-runtime/agentRuntimeDogfoodContract.ts",
     "main-owner-peer:project-board->ambient:src/main/project-board/projectBoardAmbientFacade.ts->src/main/ambient/ambientProjectBoardContract.ts",
     "main-owner-peer:project-board->orchestration:src/main/project-board/projectBoardRuntimeSplitDogfood.test.ts->src/main/orchestration/orchestrationRunner.ts",
+    "main-owner-peer:project-board->projectStore:src/main/project-board/projectBoardDogfoodDesktopService.test.ts->src/main/projectStore/projectStore.ts",
+    "main-owner-peer:project-board->projectStore:src/main/project-board/projectBoardDogfoodDesktopService.ts->src/main/projectStore/projectStore.ts",
     "main-owner-peer:project-board->projectStore:src/main/project-board/projectBoardProjectStoreFacade.ts->src/main/projectStore/projectStoreProjectBoardContract.ts",
     "main-owner-peer:project-board->provider:src/main/project-board/projectBoardProviderFacade.ts->src/main/provider/providerProjectBoardContract.ts",
     "main-owner-peer:project-board->security:src/main/project-board/projectBoardSecurityFacade.ts->src/main/security/projectBoardSecurityContract.ts",
@@ -457,6 +465,7 @@
     "main-owner-peer:workflow-compiler->ambient-cli:src/main/workflow-compiler/workflowCompilerAmbientCliFacade.ts->src/main/ambient-cli/ambientCliWorkflowContract.ts",
     "main-owner-peer:workflow-compiler->ambient:src/main/workflow-compiler/workflowCompilerAmbientFacade.ts->src/main/ambient/ambientWorkflowCompilerContract.ts",
     "main-owner-peer:workflow-compiler->callable-workflow:src/main/workflow-compiler/workflowCompilerCallableWorkflowFacade.ts->src/main/callable-workflow/callableWorkflowCompilerContract.ts",
+    "main-owner-peer:workflow-compiler->callable-workflow:src/main/workflow-compiler/workflowCompilerService.ts->src/main/callable-workflow/callableWorkflowTaskQueue.ts",
     "main-owner-peer:workflow-compiler->desktop-tools:src/main/workflow-compiler/workflowCompilerDesktopToolFacade.ts->src/main/desktop-tools/desktopToolWorkflowCompilerContract.ts",
     "main-owner-peer:workflow-compiler->google-workspace:src/main/workflow-compiler/workflowCompilerGoogleWorkspaceFacade.ts->src/main/google-workspace/googleWorkspaceWorkflowContract.ts",
     "main-owner-peer:workflow-compiler->plugins:src/main/workflow-compiler/workflowCompilerPluginsFacade.ts->src/main/plugins/pluginsWorkflowContract.ts",
@@ -559,8 +568,9 @@
     "scripts/workflow-agent-thread-ui-dogfood.test.mjs": 1742,
     "scripts/workflow-jitter-matrix.mjs": 1255,
     "scripts/workflow-model-tolerance-lab.mjs": 1097,
-    "src/main/agent-runtime/agentRuntime.test.ts": 17196,
-    "src/main/agent-runtime/agentRuntime.ts": 7532,
+    "src/main/agent-runtime/agentRuntime.permissionProjectHost.test.ts": 1378,
+    "src/main/agent-runtime/agentRuntime.test.ts": 15275,
+    "src/main/agent-runtime/agentRuntime.ts": 6496,
     "src/main/agent-runtime/agentRuntimeFinalizationBlocking.test.ts": 808,
     "src/main/agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceCommandApplyTools.test.ts": 2230,
     "src/main/agent-runtime/messaging/agentRuntimeMessagingRemoteSurfaceCommandApplyTools.ts": 1563,
@@ -577,7 +587,8 @@
     "src/main/browser/browserService.ts": 3550,
     "src/main/callable-workflow/callableWorkflowRegistry.test.ts": 869,
     "src/main/callable-workflow/callableWorkflowRegistry.ts": 1369,
-    "src/main/callable-workflow/callableWorkflowTaskQueue.test.ts": 1505,
+    "src/main/callable-workflow/callableWorkflowTaskQueue.test.ts": 1642,
+    "src/main/callable-workflow/callableWorkflowTaskQueue.ts": 969,
     "src/main/capability-builder/agentRuntimeCapabilityBuilderInput.ts": 1030,
     "src/main/capability-builder/capabilityBuilder.test.ts": 2699,
     "src/main/capability-builder/capabilityBuilder.ts": 4972,
@@ -594,7 +605,7 @@
     "src/main/google-workspace/googleWorkspaceConnectors.ts": 916,
     "src/main/google-workspace/googleWorkspaceMethodBroker.ts": 1164,
     "src/main/google-workspace/googleWorkspaceSetupDogfood.test.ts": 2088,
-    "src/main/index.ts": 10869,
+    "src/main/index.ts": 5490,
     "src/main/ipc/registerAutomationsIpc.test.ts": 904,
     "src/main/ipc/registerBrowserIpc.test.ts": 1295,
     "src/main/ipc/registerGitIpc.test.ts": 1368,
@@ -629,6 +640,7 @@
     "src/main/mcp-autowire/mcpAutowirePlanner.ts": 2846,
     "src/main/mcp-autowire/mcpAutowireSchemas.ts": 1000,
     "src/main/mcp/mcpCustomSourceBuild.ts": 1326,
+    "src/main/mcp/mcpDesktopInstallService.ts": 919,
     "src/main/mcp/mcpInstallCatalog.test.ts": 1302,
     "src/main/mcp/mcpInstallCatalog.ts": 2771,
     "src/main/mcp/mcpPermissionPolicyService.ts": 1159,
@@ -664,9 +676,11 @@
     "src/main/project-board/projectBoardArtifactExport.ts": 1128,
     "src/main/project-board/projectBoardArtifactImport.ts": 1143,
     "src/main/project-board/projectBoardArtifacts.ts": 1017,
+    "src/main/project-board/projectBoardDogfoodDesktopService.ts": 811,
     "src/main/project-board/projectBoardPlannerWorkspaceTools.ts": 955,
     "src/main/project-board/projectBoardSynthesis.test.ts": 855,
     "src/main/project-board/projectBoardSynthesis.ts": 1769,
+    "src/main/project-board/projectBoardSynthesisDesktopService.ts": 2494,
     "src/main/project-board/projectBoardSynthesisProvider.live.test.ts": 1375,
     "src/main/project-board/projectBoardSynthesisProvider.test.ts": 4955,
     "src/main/project-board/projectBoardSynthesisProvider.ts": 6457,
@@ -710,8 +724,8 @@
     "src/main/workflow-compiler/workflowCompiler.ts": 2251,
     "src/main/workflow-compiler/workflowCompilerIrRepair.ts": 852,
     "src/main/workflow-compiler/workflowCompilerRecipes.ts": 1020,
-    "src/main/workflow-compiler/workflowCompilerService.test.ts": 3265,
-    "src/main/workflow-compiler/workflowCompilerService.ts": 3294,
+    "src/main/workflow-compiler/workflowCompilerService.test.ts": 3404,
+    "src/main/workflow-compiler/workflowCompilerService.ts": 3326,
     "src/main/workflow-discovery/workflowDiscoveryCapabilitySearch.ts": 871,
     "src/main/workflow-discovery/workflowDiscoveryService.test.ts": 1190,
     "src/main/workflow-discovery/workflowDiscoveryService.ts": 1239,
@@ -740,7 +754,7 @@
     "src/main/workflow/workflowRunService.ts": 1070,
     "src/main/workflow/workflowScheduleDispatch.test.ts": 886,
     "src/main/workspace/workspaceFiles.ts": 857,
-    "src/renderer/src/App.tsx": 3750,
+    "src/renderer/src/App.tsx": 3695,
     "src/renderer/src/AppActionDialogs.tsx": 1256,
     "src/renderer/src/AppComposerShell.tsx": 1085,
     "src/renderer/src/AppDialogs.tsx": 1406,
@@ -811,8 +825,33 @@
     "flatMainFiles": {},
     "sharedTypesImporters": {},
     "importCycles": {},
-    "importBoundaryEdges": {},
-    "largeFiles": {},
+    "importBoundaryEdges": {
+      "main-owner-peer:capability-builder->tool-runtime:src/main/capability-builder/capabilityBuilder.ts->src/main/tool-runtime/toolOutputArtifacts.ts": {
+        "reason": "Inherited current-main capability builder/tool-runtime boundary recorded during Simplification V4 Phase 1B runtime feature factory extraction."
+      }
+    },
+    "largeFiles": {
+      "src/main/capability-builder/agentRuntimeCapabilityBuilderInput.ts": {
+        "lineCeiling": 1050,
+        "reason": "Inherited current-main capability builder growth recorded during Simplification V4 Phase 1B workflow runtime actions extraction."
+      },
+      "src/main/capability-builder/capabilityBuilder.test.ts": {
+        "lineCeiling": 2817,
+        "reason": "Inherited current-main capability builder growth recorded during Simplification V4 Phase 1B runtime feature factory extraction."
+      },
+      "src/main/capability-builder/capabilityBuilder.ts": {
+        "lineCeiling": 5532,
+        "reason": "Inherited current-main capability builder growth recorded during Simplification V4 Phase 1B runtime feature factory extraction."
+      },
+      "src/main/desktop-tools/desktopToolRegistry.test.ts": {
+        "lineCeiling": 1765,
+        "reason": "Inherited current-main desktop tool registry growth recorded during Simplification V4 Phase 1B runtime feature factory extraction."
+      },
+      "src/main/desktop-tools/desktopToolRegistry.ts": {
+        "lineCeiling": 9392,
+        "reason": "Inherited current-main desktop tool registry growth recorded during Simplification V4 Phase 1B runtime feature factory extraction."
+      }
+    },
     "hotspots": {},
     "lintRuleCounts": {}
   }

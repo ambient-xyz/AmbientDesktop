@@ -6,7 +6,7 @@ import type {
   AgentMemoryClearResult,
 } from "../../../shared/agentMemoryDiagnostics";
 import type { AgentMemorySettings } from "../../../shared/agentMemorySettings";
-import { isAgentMemoryActiveForThread } from "../../../shared/agentMemorySettings";
+import { agentMemoryModeAllowsManagedRuntime, isAgentMemoryActiveForThread } from "../../../shared/agentMemorySettings";
 import { isAmbientTencentDbMemoryEnabled, type AmbientFeatureFlagSnapshot } from "../../../shared/featureFlags";
 import type { ThreadSummary } from "../../../shared/threadTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
@@ -28,8 +28,9 @@ export async function inspectTencentDbMemoryDiagnostics(
   const checkedAt = (input.now ?? new Date()).toISOString();
   const dataDir = ambientTencentMemoryDataDir(input.workspace.statePath);
   const featureEnabled = isAmbientTencentDbMemoryEnabled(input.featureFlagSnapshot);
-  const threadEnabledCount = input.threads.filter((thread) => Boolean(thread.memoryEnabled)).length;
-  const activeThreadCount = input.threads.filter((thread) =>
+  const eligibleThreads = input.threads.filter((thread) => thread.kind !== "subagent_child");
+  const threadEnabledCount = eligibleThreads.filter((thread) => Boolean(thread.memoryEnabled)).length;
+  const activeThreadCount = eligibleThreads.filter((thread) =>
     isAgentMemoryActiveForThread({
       featureEnabled,
       settings: input.settings,
@@ -52,7 +53,8 @@ export async function inspectTencentDbMemoryDiagnostics(
   const unavailableCore = runtimeSnapshots.some((snapshot) => snapshot.lastInitialize?.status === "unavailable");
   const nativePreflight = inspectTencentDbMemoryNativePreflight({ now: input.now });
   const nativeNeedsAttention = nativePreflight.status !== "healthy";
-  const status = !featureEnabled || !input.settings.enabled
+  const modeAllowsRuntime = agentMemoryModeAllowsManagedRuntime(input.settings);
+  const status = !featureEnabled || !modeAllowsRuntime
     ? "unavailable"
     : storageSchema.status === "unsupported"
       ? "error"

@@ -80,7 +80,9 @@ export function createAppSettingsActions({
   ): Promise<void> {
     if (!state) return;
     const nextValue = await persist(value);
-    setState(desktopStateWithUpdatedSettings(state, key, nextValue));
+    setState((current) => current
+      ? desktopStateWithUpdatedSettings(current, key, nextValue)
+      : current);
   }
 
   async function updateMediaPlaybackSettings(media: DesktopState["settings"]["media"]): Promise<void> {

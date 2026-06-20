@@ -12,6 +12,7 @@ import type {
 } from "../../../shared/subagentTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { CallableWorkflowTaskSummary } from "../../../shared/workflowTypes";
 import {
   formatInstallRouteGateBlockedMessage,
   formatMcpInstallShellBlockedMessage,
@@ -47,6 +48,7 @@ const SUBAGENT_BARRIER_MANAGEMENT_ACTIONS = new Set([
 
 interface SubagentBarrierToolBlockStore {
   listSubagentWaitBarriersForParentRun(parentRunId: string): SubagentWaitBarrierSummary[];
+  listCallableWorkflowTasksForParentRun?(parentRunId: string): CallableWorkflowTaskSummary[];
   getSubagentRun(runId: string): SubagentRunSummary;
   listSubagentRunEvents(runId: string): SubagentRunEventSummary[];
 }
@@ -385,6 +387,7 @@ export function subagentUnsafeRequiredBarrierToolBlock(input: {
     .find((candidate) =>
       candidate.parentThreadId === input.threadId &&
       candidate.dependencyMode !== "optional_background" &&
+      !subagentBarrierBelongsToBackgroundCallableWorkflow(candidate, input.store, input.parentRunId!) &&
       candidate.status !== "satisfied" &&
       isUnsafeRequiredSubagentWaitBarrier(input.store, candidate));
   if (!barrier) return undefined;
@@ -421,6 +424,16 @@ export function subagentUnsafeRequiredBarrierToolBlock(input: {
     childFacts,
     allowedActions,
   };
+}
+
+function subagentBarrierBelongsToBackgroundCallableWorkflow(
+  barrier: SubagentWaitBarrierSummary,
+  store: SubagentBarrierToolBlockStore,
+  parentRunId: string,
+): boolean {
+  if (barrier.ownerKind !== "callable_workflow_symphony_launch_bridge" || !barrier.ownerId) return false;
+  const tasks = store.listCallableWorkflowTasksForParentRun?.(parentRunId) ?? [];
+  return tasks.some((task) => task.id === barrier.ownerId && task.blocking === false);
 }
 
 function isSubagentReplacementWorkTool(toolName: string, rawToolInput: unknown): boolean {

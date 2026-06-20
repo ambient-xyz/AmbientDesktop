@@ -86,11 +86,12 @@ export interface CreateTencentDbMemoryRuntimeInput {
 }
 
 export function isTencentDbMemoryActiveForThread(input: {
-  thread: Pick<ThreadSummary, "memoryEnabled">;
+  thread: Pick<ThreadSummary, "memoryEnabled"> & Pick<Partial<ThreadSummary>, "kind">;
   featureFlagSnapshot: AmbientFeatureFlagSnapshot;
   memorySettings: AgentMemorySettings;
   storageHealthy?: boolean;
 }): boolean {
+  if (input.thread.kind === "subagent_child") return false;
   return isAgentMemoryActiveForThread({
     featureEnabled: isAmbientTencentDbMemoryEnabled(input.featureFlagSnapshot),
     settings: input.memorySettings,

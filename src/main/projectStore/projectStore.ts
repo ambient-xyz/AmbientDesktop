@@ -164,6 +164,7 @@ import type { SubagentRunStatus, SubagentWaitBarrierFailurePolicy, SubagentWaitB
 import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
 import type { WorkspaceSearchScope, WorkspaceSearchResult, WorkspaceState } from "../../shared/workspaceTypes";
 import type { AmbientModelRuntimeCatalog } from "../../shared/ambientModels";
+import { canBeginCallableWorkflowCompilerHandoff } from "../../shared/callableWorkflowTaskGuards";
 import {
   analyzeCallableWorkflowTaskRestartState,
   CALLABLE_WORKFLOW_TASK_CONTROL_EVENT_TYPE,
@@ -3698,6 +3699,8 @@ export class ProjectStore {
     childRunIds: string[];
     dependencyMode: SubagentWaitBarrierMode;
     failurePolicy: SubagentWaitBarrierFailurePolicy;
+    ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+    ownerId?: string;
     quorumThreshold?: number;
     timeoutMs?: number;
     createdAt?: string;
@@ -3710,6 +3713,8 @@ export class ProjectStore {
       childRunIds,
       dependencyMode: input.dependencyMode,
       failurePolicy: input.failurePolicy,
+      ownerKind: input.ownerKind,
+      ownerId: input.ownerId,
       quorumThreshold: input.quorumThreshold,
       timeoutMs: input.timeoutMs,
       createdAt: input.createdAt,
@@ -5298,17 +5303,21 @@ export class ProjectStore {
     options: { createdAt?: string } = {},
   ): { task: CallableWorkflowTaskSummary; handoffPlan: CallableWorkflowCompilerHandoffPlan } {
     const current = this.getCallableWorkflowTask(id);
-    if (!["queued", "compiling"].includes(current.status)) {
+    if (!canBeginCallableWorkflowCompilerHandoff(current)) {
       throw new Error(`Cannot begin compiler handoff for callable workflow task ${id} while status is ${current.status}.`);
     }
     const now = options.createdAt ?? new Date().toISOString();
-    const shouldUpdate = current.status !== "compiling" || !current.startedAt || current.runnerDeferredReason !== "workflow_artifact_not_compiled";
+    const shouldUpdate = current.status !== "compiling" ||
+      !current.startedAt ||
+      current.runnerDeferredReason !== "workflow_artifact_not_compiled" ||
+      Boolean(current.errorMessage);
     const task = shouldUpdate
       ? this.updateCallableWorkflowTaskRow({
           id,
           status: "compiling",
           statusLabel: "Compiling",
           runnerDeferredReason: "workflow_artifact_not_compiled",
+          errorMessage: null,
           updatedAt: now,
           startedAt: current.startedAt ?? now,
         })
@@ -5455,6 +5464,29 @@ export class ProjectStore {
       errorMessage: input.errorMessage,
       updatedAt: now,
       completedAt: now,
+    });
+  }
+
+  pauseCallableWorkflowTask(input: {
+    id: string;
+    statusLabel: string;
+    runnerDeferredReason: string;
+    errorMessage?: string;
+    createdAt?: string;
+  }): CallableWorkflowTaskSummary {
+    const current = this.getCallableWorkflowTask(input.id);
+    if (["succeeded", "failed", "canceled"].includes(current.status)) {
+      throw new Error(`Cannot pause callable workflow task ${input.id} after terminal status ${current.status}.`);
+    }
+    const now = input.createdAt ?? new Date().toISOString();
+    return this.updateCallableWorkflowTaskRow({
+      id: input.id,
+      status: "paused",
+      statusLabel: input.statusLabel,
+      runnerDeferredReason: input.runnerDeferredReason,
+      errorMessage: input.errorMessage,
+      updatedAt: now,
+      startedAt: current.startedAt ?? now,
     });
   }
 
@@ -5721,7 +5753,21 @@ export class ProjectStore {
       parentThreadId: input.parentThreadId,
       parentRunId: input.parentRunId,
       matchingRuns,
+      ignoreBarrier: (barrier) => this.subagentWaitBarrierBelongsToNonblockingCallableWorkflowTask(barrier),
     });
+  }
+
+  private subagentWaitBarrierBelongsToNonblockingCallableWorkflowTask(
+    barrier: SubagentWaitBarrierSummary,
+  ): boolean {
+    if (barrier.ownerKind !== "callable_workflow_symphony_launch_bridge" || !barrier.ownerId) return false;
+    let task: CallableWorkflowTaskSummary;
+    try {
+      task = this.getCallableWorkflowTask(barrier.ownerId);
+    } catch {
+      return false;
+    }
+    return task.parentRunId === barrier.parentRunId && task.blocking === false;
   }
 
   private appendSubagentRunEventInternal(
@@ -5784,7 +5830,7 @@ export class ProjectStore {
     runnerDeferredReason?: string;
     workflowArtifactId?: string;
     workflowRunId?: string;
-    errorMessage?: string;
+    errorMessage?: string | null;
     updatedAt: string;
     startedAt?: string;
     completedAt?: string;

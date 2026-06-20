@@ -23,6 +23,8 @@ export type {
   CallableWorkflowExecutionPlan,
   CallableWorkflowParentBlockingBlock,
   CallableWorkflowPiToolContext,
+  CallableWorkflowRunnerCompileInput,
   CallableWorkflowRunnerStore,
+  CallableWorkflowSubagentLaunchResult,
   CreateCallableWorkflowPiToolDefinitionsOptions,
 } from "../callable-workflow/callableWorkflowAgentRuntimeContract";

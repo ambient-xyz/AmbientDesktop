@@ -8,17 +8,18 @@ import {
 } from "./agentMemorySettings";
 
 describe("agent memory settings", () => {
-  it("defaults Tencent memory and short-term offload off", () => {
+  it("defaults Tencent memory to enabled globally with managed embeddings automatic", () => {
     expect(normalizeAgentMemorySettings()).toEqual(DEFAULT_AGENT_MEMORY_SETTINGS);
     expect(DEFAULT_AGENT_MEMORY_SETTINGS).toMatchObject({
-      enabled: false,
-      defaultThreadEnabled: false,
+      mode: "enabled_all",
+      enabled: true,
+      defaultThreadEnabled: true,
       adapter: "tencentdb",
       shortTermOffloadEnabled: false,
       embeddings: {
-        enabled: false,
+        enabled: true,
         providerMode: "ambient-managed",
-        autoStartProvider: false,
+        autoStartProvider: true,
         sendDimensions: false,
         maxInputChars: 512,
         timeoutMs: 10_000,
@@ -28,8 +29,92 @@ describe("agent memory settings", () => {
     });
   });
 
+  it("derives missing mode from legacy enabled and default-thread fields", () => {
+    expect(normalizeAgentMemorySettings({ enabled: false })).toMatchObject({
+      mode: "disabled",
+      enabled: false,
+      defaultThreadEnabled: false,
+      embeddings: {
+        enabled: false,
+        autoStartProvider: false,
+      },
+    });
+    expect(normalizeAgentMemorySettings({ enabled: true, defaultThreadEnabled: false })).toMatchObject({
+      mode: "per_thread",
+      enabled: true,
+      defaultThreadEnabled: false,
+      embeddings: {
+        enabled: true,
+        autoStartProvider: true,
+      },
+    });
+    expect(normalizeAgentMemorySettings({ defaultThreadEnabled: true })).toMatchObject({
+      mode: "enabled_all",
+      enabled: true,
+      defaultThreadEnabled: true,
+    });
+  });
+
+  it("does not fail open when a persisted mode value is malformed", () => {
+    expect(normalizeAgentMemorySettings({
+      mode: "future-mode" as never,
+      enabled: false,
+      defaultThreadEnabled: false,
+    })).toMatchObject({
+      mode: "disabled",
+      enabled: false,
+      defaultThreadEnabled: false,
+      embeddings: {
+        enabled: false,
+        autoStartProvider: false,
+      },
+    });
+    expect(normalizeAgentMemorySettings({
+      mode: "future-mode" as never,
+      enabled: true,
+      defaultThreadEnabled: false,
+    })).toMatchObject({
+      mode: "per_thread",
+      enabled: true,
+      defaultThreadEnabled: false,
+    });
+    expect(normalizeAgentMemorySettings({
+      mode: "future-mode" as never,
+    })).toMatchObject({
+      mode: "disabled",
+      enabled: false,
+      defaultThreadEnabled: false,
+    });
+  });
+
+  it("preserves explicit embedding disablement for enabled memory modes", () => {
+    expect(normalizeAgentMemorySettings({
+      mode: "enabled_all",
+      embeddings: { enabled: false, autoStartProvider: false },
+    })).toMatchObject({
+      mode: "enabled_all",
+      enabled: true,
+      embeddings: {
+        enabled: false,
+        autoStartProvider: false,
+      },
+    });
+    expect(normalizeAgentMemorySettings({
+      mode: "disabled",
+      embeddings: { enabled: true, autoStartProvider: true },
+    })).toMatchObject({
+      mode: "disabled",
+      enabled: false,
+      embeddings: {
+        enabled: false,
+        autoStartProvider: false,
+      },
+    });
+  });
+
   it("patches known fields and ignores malformed values", () => {
     expect(applyAgentMemorySettingsPatch(DEFAULT_AGENT_MEMORY_SETTINGS, {
+      mode: "per_thread",
       enabled: true,
       defaultThreadEnabled: true,
       adapter: "tencentdb",
@@ -47,8 +132,9 @@ describe("agent memory settings", () => {
       },
       storageScope: "workspace",
     })).toEqual({
+      mode: "per_thread",
       enabled: true,
-      defaultThreadEnabled: true,
+      defaultThreadEnabled: false,
       adapter: "tencentdb",
       shortTermOffloadEnabled: true,
       embeddings: {
@@ -67,7 +153,6 @@ describe("agent memory settings", () => {
     });
 
     expect(normalizeAgentMemorySettings({
-      enabled: true,
       adapter: "unsupported" as never,
       embeddings: {
         enabled: true,
@@ -79,12 +164,13 @@ describe("agent memory settings", () => {
       },
       storageScope: "global" as never,
     })).toMatchObject({
+      mode: "enabled_all",
       enabled: true,
       adapter: "tencentdb",
       embeddings: {
         enabled: true,
         providerMode: "ambient-managed",
-        autoStartProvider: false,
+        autoStartProvider: true,
         sendDimensions: false,
         maxInputChars: 128,
         timeoutMs: 1_000,
@@ -94,52 +180,59 @@ describe("agent memory settings", () => {
     });
   });
 
-  it("requires every gate before Tencent memory can activate", () => {
-    const settings = { ...DEFAULT_AGENT_MEMORY_SETTINGS, enabled: true };
+  it("applies mode policy before Tencent memory can activate", () => {
+    const enabledAll = normalizeAgentMemorySettings({ mode: "enabled_all" });
+    const perThread = normalizeAgentMemorySettings({ mode: "per_thread" });
+    const disabled = normalizeAgentMemorySettings({ mode: "disabled" });
 
     expect(isAgentMemoryActiveForThread({
       featureEnabled: false,
-      settings,
+      settings: enabledAll,
       threadMemoryEnabled: true,
     })).toBe(false);
     expect(isAgentMemoryActiveForThread({
       featureEnabled: true,
-      settings: DEFAULT_AGENT_MEMORY_SETTINGS,
+      settings: disabled,
       threadMemoryEnabled: true,
     })).toBe(false);
     expect(isAgentMemoryActiveForThread({
       featureEnabled: true,
-      settings,
+      settings: enabledAll,
+      threadMemoryEnabled: false,
+    })).toBe(true);
+    expect(isAgentMemoryActiveForThread({
+      featureEnabled: true,
+      settings: perThread,
       threadMemoryEnabled: false,
     })).toBe(false);
     expect(isAgentMemoryActiveForThread({
       featureEnabled: true,
-      settings,
+      settings: enabledAll,
       threadMemoryEnabled: true,
       storageHealthy: false,
     })).toBe(false);
     expect(isAgentMemoryActiveForThread({
       featureEnabled: true,
-      settings,
+      settings: perThread,
       threadMemoryEnabled: true,
     })).toBe(true);
   });
 
   it("starts managed embeddings when settings newly enter the auto-start state", () => {
     const active = normalizeAgentMemorySettings({
-      enabled: true,
+      mode: "enabled_all",
       embeddings: { enabled: true, autoStartProvider: true },
     });
     expect(shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
       normalizeAgentMemorySettings({
-        enabled: false,
+        mode: "disabled",
         embeddings: { enabled: true, autoStartProvider: true },
       }),
       active,
     )).toBe(true);
     expect(shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
       normalizeAgentMemorySettings({
-        enabled: true,
+        mode: "enabled_all",
         embeddings: { enabled: false, autoStartProvider: true },
       }),
       active,
@@ -151,7 +244,10 @@ describe("agent memory settings", () => {
     }, active)).toBe(true);
     expect(shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(active, {
       ...active,
-      embeddings: { ...active.embeddings, autoStartProvider: false },
+      mode: "disabled",
+      enabled: false,
+      defaultThreadEnabled: false,
+      embeddings: { ...active.embeddings, enabled: false, autoStartProvider: false },
     })).toBe(false);
   });
 });

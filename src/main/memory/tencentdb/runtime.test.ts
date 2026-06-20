@@ -12,7 +12,6 @@ import {
   isTencentDbMemoryActiveForThread,
   tencentMemorySessionKeyForThread,
   ambientTencentMemoryDataDir,
-  TENCENT_MEMORY_CREATE_TOOL_NAME,
   AMBIENT_TENCENT_MEMORY_STORAGE_SCHEMA_FILENAME,
   AMBIENT_TENCENT_MEMORY_STORAGE_SCHEMA_VERSION,
   type TencentMemoryCoreOptions,
@@ -30,7 +29,7 @@ afterEach(async () => {
 });
 
 describe("TencentDB memory runtime", () => {
-  it("respects feature flag, global setting, thread toggle, and storage health", () => {
+  it("respects feature flag, memory mode, per-thread toggle, and storage health", () => {
     const enabledFlags = resolveAmbientFeatureFlags({
       generatedAt: "2026-06-13T00:00:00.000Z",
       settings: { tencentDbMemory: true },
@@ -40,6 +39,8 @@ describe("TencentDB memory runtime", () => {
       settings: { tencentDbMemory: false },
     });
     const memorySettings = enabledMemorySettings();
+    const perThreadSettings = enabledMemorySettings({ mode: "per_thread" });
+    const disabledMemorySettings = enabledMemorySettings({ mode: "disabled" });
 
     expect(isTencentDbMemoryActiveForThread({
       thread: { memoryEnabled: true },
@@ -55,6 +56,21 @@ describe("TencentDB memory runtime", () => {
       thread: { memoryEnabled: false },
       featureFlagSnapshot: enabledFlags,
       memorySettings,
+    })).toBe(true);
+    expect(isTencentDbMemoryActiveForThread({
+      thread: { kind: "subagent_child", memoryEnabled: true },
+      featureFlagSnapshot: enabledFlags,
+      memorySettings,
+    })).toBe(false);
+    expect(isTencentDbMemoryActiveForThread({
+      thread: { memoryEnabled: false },
+      featureFlagSnapshot: enabledFlags,
+      memorySettings: perThreadSettings,
+    })).toBe(false);
+    expect(isTencentDbMemoryActiveForThread({
+      thread: { memoryEnabled: true },
+      featureFlagSnapshot: enabledFlags,
+      memorySettings: disabledMemorySettings,
     })).toBe(false);
     expect(isTencentDbMemoryActiveForThread({
       thread: { memoryEnabled: true },
@@ -231,7 +247,7 @@ describe("TencentDB memory runtime", () => {
     expect(FakeTencentCore.destroyed).toBe(true);
   });
 
-  it("does not expose explicit memory create in subagent child sessions", async () => {
+  it("does not create persistent memory runtimes in subagent child sessions", async () => {
     const runtime = createTencentDbMemoryRuntimeForThread({
       thread: fakeThread({ kind: "subagent_child", memoryEnabled: true }),
       workspace: fakeWorkspace(await tempDir()),
@@ -247,8 +263,7 @@ describe("TencentDB memory runtime", () => {
       })),
     });
 
-    expect(runtime).toBeDefined();
-    expect(runtime?.activeToolNames).not.toContain(TENCENT_MEMORY_CREATE_TOOL_NAME);
+    expect(runtime).toBeUndefined();
   });
 
   it("runs the reviewed vendored Tencent core and admin service without OpenClaw", async () => {
@@ -674,8 +689,9 @@ class FakeTencentCore {
   }
 }
 
-function enabledMemorySettings(): AgentMemorySettings {
+function enabledMemorySettings(patch: Partial<AgentMemorySettings> = {}): AgentMemorySettings {
   return {
+    mode: "enabled_all",
     enabled: true,
     defaultThreadEnabled: true,
     adapter: "tencentdb",
@@ -690,6 +706,7 @@ function enabledMemorySettings(): AgentMemorySettings {
       preflightEnabled: true,
     },
     storageScope: "workspace",
+    ...patch,
   };
 }
 

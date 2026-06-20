@@ -32,7 +32,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_BASE_URL = "https://api.ambient.xyz/v1"
 DEFAULT_MODEL = "moonshotai/kimi-k2.7-code"
 DEFAULT_SESSION_LOG = pathlib.Path(
-    "/path/to/user/.ambient-hardening/bases/local-test-state-2026-05-13/"
+    "/path/to/user/.ambient-example/bases/core-no-secrets-example-2026-05-13/"
     "workspace/.ambient-codex/sessions/fb1c7ffc-732d-421c-a429-c66c4628bf60/"
     "2026-05-14T23-55-00-533Z_019e28ea-3e35-71f1-a6f9-5233bcce0cac.jsonl"
 )

@@ -53,6 +53,14 @@ function optionalBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
+function optionalPositiveNumber(input: Record<string, unknown>, key: string): number | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${key} must be a finite number.`);
+  if (value < 1) throw new Error(`${key} must be at least 1.`);
+  return value;
+}
+
 export interface AmbientCapabilityBuilderPlanInput {
   goal: string;
   capabilityName?: string;
@@ -742,7 +750,19 @@ export function ambientCapabilityBuilderPreviewInput(input: Record<string, unkno
 }
 
 export function ambientCapabilityBuilderListFilesInput(input: Record<string, unknown>): CapabilityBuilderListFilesInput {
-  return ambientCapabilityBuilderPreviewInput(input);
+  const pathPrefix = optionalString(input.pathPrefix);
+  const maxEntries = optionalPositiveNumber(input, "maxEntries");
+  const maxDepth = optionalPositiveNumber(input, "maxDepth");
+  const includeGenerated = optionalBoolean(input.includeGenerated);
+  const cursor = optionalString(input.cursor);
+  return {
+    ...ambientCapabilityBuilderPreviewInput(input),
+    ...(pathPrefix ? { pathPrefix } : {}),
+    ...(maxEntries !== undefined ? { maxEntries } : {}),
+    ...(maxDepth !== undefined ? { maxDepth } : {}),
+    ...(includeGenerated !== undefined ? { includeGenerated } : {}),
+    ...(cursor ? { cursor } : {}),
+  };
 }
 
 export function ambientCapabilityBuilderReadFileInput(input: Record<string, unknown>): CapabilityBuilderReadFileInput {

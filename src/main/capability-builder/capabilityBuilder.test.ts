@@ -11,6 +11,7 @@ import {
   capabilityBuilderInstallDepsOutputPreview,
   capabilityBuilderInstallDepsText,
   capabilityBuilderListFilesText,
+  capabilityBuilderListFilesOutputPreview,
   capabilityBuilderRemovalPlanText,
   capabilityBuilderPreviewText,
   capabilityBuilderReadFileText,
@@ -151,6 +152,123 @@ describe("Capability Builder scaffold", () => {
         content: "{}",
         reason: "overwrite metadata",
       })).rejects.toThrow(/metadata or logs/);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("bounds Builder file listing and omits generated directories by default", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-capability-builder-large-list-"));
+    try {
+      const scaffold = await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "large-list",
+        goal: "Inspect source without generated dependency blowups",
+      });
+      const generatedPackageRoot = join(scaffold.rootPath, ".venv", "lib", "python3.12", "site-packages", "huge_dep");
+      await mkdir(generatedPackageRoot, { recursive: true });
+      await writeFile(join(generatedPackageRoot, "module_a.py"), "print('a')\n", "utf8");
+      await writeFile(join(generatedPackageRoot, "module_b.py"), "print('b')\n", "utf8");
+      const generatedCacheRoot = join(scaffold.rootPath, ".cache", "bulk");
+      await mkdir(generatedCacheRoot, { recursive: true });
+      for (let index = 0; index < 1_001; index += 1) {
+        await writeFile(join(generatedCacheRoot, `entry-${index}.txt`), "x", "utf8");
+      }
+      await mkdir(join(scaffold.rootPath, "docs", "deep", "nested"), { recursive: true });
+      await writeFile(join(scaffold.rootPath, "docs", "deep", "nested", "notes.md"), "# Notes\n", "utf8");
+
+      const listed = await listCapabilityBuilderFiles(workspace, { sourcePath: scaffold.sourceRef.sourcePath });
+      expect(listed.files.map((file) => file.path)).toEqual(expect.arrayContaining(["SKILL.md", "ambient-cli.json", "scripts/run.mjs"]));
+      expect(listed.files.some((file) => file.path.startsWith(".venv/"))).toBe(false);
+      expect(listed.omittedDirectories).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ".venv", reason: "generated", fileCount: 2 }),
+      ]));
+      expect(listed.omittedDirectories).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ".cache", reason: "generated", fileCount: 1_000, truncated: true }),
+      ]));
+      expect(capabilityBuilderListFilesText(listed)).toContain("Generated/dependency directories are summarized");
+      expect(capabilityBuilderListFilesText(listed)).toContain("long_context_process");
+      expect(capabilityBuilderListFilesText(listed)).toContain("file_read");
+      expect(listed.inventoryArtifact).toMatchObject({
+        path: expect.stringMatching(/^\.ambient\/tool-outputs\//),
+        inventoryFileCountTruncated: false,
+      });
+      expect(capabilityBuilderListFilesOutputPreview(listed)).toMatchObject({
+        kind: "large-output",
+        items: [expect.objectContaining({
+          artifactPath: listed.inventoryArtifact?.path,
+          suggestedTools: ["file_read", "long_context_process"],
+        })],
+      });
+      const inventoryText = await readFile(join(workspace, listed.inventoryArtifact!.path), "utf8");
+      expect(inventoryText).toContain("Ambient Capability Builder filtered file inventory");
+      expect(inventoryText).toContain("Generated content: omitted by default");
+      expect(inventoryText).toContain("- scripts/run.mjs");
+      expect(inventoryText).toContain("- .venv/");
+      expect(inventoryText).not.toContain("huge_dep/module_a.py");
+
+      await expect(listCapabilityBuilderFiles(workspace, {
+        sourcePath: scaffold.sourceRef.sourcePath,
+        includeGenerated: true,
+      })).rejects.toThrow(/includeGenerated=true requires a narrow pathPrefix/);
+
+      const generatedPage = await listCapabilityBuilderFiles(workspace, {
+        sourcePath: scaffold.sourceRef.sourcePath,
+        pathPrefix: ".venv/lib/python3.12/site-packages/huge_dep",
+        includeGenerated: true,
+        maxEntries: 1,
+      });
+      expect(generatedPage.files).toHaveLength(1);
+      expect(generatedPage.totalFileCountTruncated).toBe(true);
+      expect(generatedPage.nextCursor).toBeTruthy();
+      expect(generatedPage.inventoryArtifact).toMatchObject({
+        inventoryFileCount: 2,
+        inventoryFileCountTruncated: false,
+      });
+      const generatedInventoryText = await readFile(join(workspace, generatedPage.inventoryArtifact!.path), "utf8");
+      expect(generatedInventoryText).toContain("Generated content: included for this scoped request");
+      expect(generatedInventoryText).toContain("- .venv/lib/python3.12/site-packages/huge_dep/module_a.py");
+      expect(generatedInventoryText).toContain("- .venv/lib/python3.12/site-packages/huge_dep/module_b.py");
+      await expect(listCapabilityBuilderFiles(workspace, {
+        sourcePath: scaffold.sourceRef.sourcePath,
+        pathPrefix: "scripts",
+        maxEntries: 1,
+        cursor: generatedPage.nextCursor,
+      })).rejects.toThrow(/cursor is invalid or does not match/);
+      const otherScaffold = await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "other-large-list",
+        goal: "Inspect another package",
+      });
+      const otherGeneratedRoot = join(otherScaffold.rootPath, ".venv", "lib", "python3.12", "site-packages", "huge_dep");
+      await mkdir(otherGeneratedRoot, { recursive: true });
+      await writeFile(join(otherGeneratedRoot, "module_a.py"), "print('other')\n", "utf8");
+      await expect(listCapabilityBuilderFiles(workspace, {
+        sourcePath: otherScaffold.sourceRef.sourcePath,
+        pathPrefix: ".venv/lib/python3.12/site-packages/huge_dep",
+        includeGenerated: true,
+        maxEntries: 1,
+        cursor: generatedPage.nextCursor,
+      })).rejects.toThrow(/cursor is invalid or does not match/);
+      const generatedNextPage = await listCapabilityBuilderFiles(workspace, {
+        sourcePath: scaffold.sourceRef.sourcePath,
+        pathPrefix: ".venv/lib/python3.12/site-packages/huge_dep",
+        includeGenerated: true,
+        maxEntries: 1,
+        cursor: generatedPage.nextCursor,
+      });
+      expect([...generatedPage.files, ...generatedNextPage.files].map((file) => file.path).sort()).toEqual([
+        ".venv/lib/python3.12/site-packages/huge_dep/module_a.py",
+        ".venv/lib/python3.12/site-packages/huge_dep/module_b.py",
+      ]);
+
+      const depthLimited = await listCapabilityBuilderFiles(workspace, {
+        sourcePath: scaffold.sourceRef.sourcePath,
+        pathPrefix: "docs",
+        maxDepth: 1,
+      });
+      expect(depthLimited.files).toEqual([]);
+      expect(depthLimited.omittedDirectories).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: "docs/deep/nested", reason: "maxDepth", fileCount: 1 }),
+      ]));
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

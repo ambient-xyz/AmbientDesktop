@@ -1,6 +1,6 @@
 # Simplification Validation Map
 
-Use this map while executing `simplificationPlan.html` phase by phase. Pick the smallest validation set that covers the files changed, then add live checks only when a real Ambient/Pi or provider loop is affected.
+Use this map while executing `simplificationPlanV4.html` phase by phase. Pick the smallest validation set that covers the files changed, then add live checks only when a real Ambient/Pi or provider loop is affected. The active plan and release-gate index lives in `docs/active-plan-index.md`.
 
 Provider note, 2026-06-16: GLM 5.1 is currently degraded. Current live Ambient/Pi validation must use the Ambient provider with Kimi (`AMBIENT_PROVIDER=ambient` and `AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code`). Do not use GLM 5.1 or GMI Cloud for operative simplification validation unless a future plan explicitly supersedes this note.
 

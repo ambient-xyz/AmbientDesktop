@@ -258,6 +258,7 @@ export interface SubagentPiToolStore {
   }): SubagentToolScopeSnapshotSummary;
   listSubagentToolScopeSnapshots(runId: string): SubagentToolScopeSnapshotSummary[];
   getCallableWorkflowTask?: (id: string) => CallableWorkflowTaskSummary;
+  listCallableWorkflowTasksForParentRun?: (parentRunId: string) => CallableWorkflowTaskSummary[];
   bindCallableWorkflowTaskPatternGraphChild?: (input: CallableWorkflowPatternGraphChildBindingRequest) => CallableWorkflowTaskSummary;
   markSubagentRunStatus(runId: string, status: SubagentRunStatus, options?: { resultArtifact?: unknown; now?: string }): SubagentRunSummary;
   closeSubagentRun(runId: string, now?: string): SubagentRunSummary;
@@ -267,6 +268,8 @@ export interface SubagentPiToolStore {
     childRunIds: string[];
     dependencyMode: "required_all" | "required_any" | "quorum" | "optional_background";
     failurePolicy: "fail_parent" | "ask_user" | "degrade_partial" | "retry_child";
+    ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+    ownerId?: string;
     quorumThreshold?: number;
     timeoutMs?: number;
     createdAt?: string;
@@ -343,6 +346,7 @@ export interface CreateSubagentPiToolDefinitionsOptions {
   resolveModelRuntimeProfile?: (modelId?: string) => AmbientModelRuntimeProfile;
   resolveCapacityLease?: (input: ResolveSubagentCapacityLeaseInput) => Promise<SubagentCapacityLeaseSnapshot> | SubagentCapacityLeaseSnapshot;
   prepareChildWorktree?: (input: SubagentChildWorktreePrepareInput) => Promise<ThreadWorktreeSummary | undefined> | ThreadWorktreeSummary | undefined;
+  trustedWaitBarrierOwner?: Pick<SubagentWaitBarrierSummary, "ownerKind" | "ownerId">;
   runtime?: SubagentChildRuntimeAdapter;
 }
 
@@ -1641,6 +1645,7 @@ function resolveWaitContext(
     store: options.store,
     parentThread,
     request: input,
+    trustedWaitBarrierOwner: options.trustedWaitBarrierOwner,
     timeoutMs: resolveSubagentPiToolWaitTimeoutMs(input),
     resolveTimeoutMs: (waitBarrierMode) => resolveSubagentPiToolWaitTimeoutMs(input, { waitBarrierMode }),
     resolveTargetRun: (request) => resolveSubagentTargetRun({ store: options.store, parentThreadId: parentThread.id, request }),

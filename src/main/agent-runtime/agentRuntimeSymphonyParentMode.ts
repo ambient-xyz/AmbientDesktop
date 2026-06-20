@@ -20,6 +20,33 @@ export const SYMPHONY_PARENT_MODE_ACTIVE_RUN_HANDOFF_ERROR =
   "Wait for the current Ambient run to finish before launching Symphony. Symphony parent mode cannot be steered into an unrestricted active session.";
 export const SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR =
   "Symphony parent mode did not queue a callable workflow task for this run. Retry, re-scope, or exit Symphony mode instead of answering from the parent.";
+export const SYMPHONY_PARENT_MODE_RECOVERY_ACTIONS = [
+  {
+    id: "retry_launch",
+    label: "Retry launch",
+    description: "Ask Ambient to try the same Symphony workflow launch again from the retained request.",
+  },
+  {
+    id: "choose_another_pattern",
+    label: "Choose another pattern",
+    description: "Return to the Symphony pattern picker and select a better orchestration shape.",
+  },
+  {
+    id: "clarify_scope",
+    label: "Clarify scope",
+    description: "Add missing inputs, evidence requirements, or blocking policy before launching.",
+  },
+  {
+    id: "cancel_symphony",
+    label: "Cancel Symphony",
+    description: "Stop this orchestration attempt without letting the parent substitute worker output.",
+  },
+  {
+    id: "exit_symphony_mode",
+    label: "Exit Symphony mode",
+    description: "Turn off conductor lock so the next user-approved turn can run as an ordinary parent thread.",
+  },
+] as const;
 
 export interface SymphonyParentModePolicy {
   enabled: true;
@@ -42,6 +69,11 @@ export interface SymphonyParentModeVerifiedLaunch {
 export type SymphonyParentModeLaunchValidationResult =
   | { allowed: true }
   | { allowed: false; reason: string };
+
+export function isSymphonyParentModeMissingWorkflowTaskError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message === SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR;
+}
 
 export type SymphonyParentModeRuntimeSendInput<T extends SendMessageInput = SendMessageInput> = T & {
   symphonyParentModePolicy?: SymphonyParentModePolicy | undefined;

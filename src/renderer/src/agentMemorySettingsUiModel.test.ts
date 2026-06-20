@@ -19,6 +19,7 @@ function starterStatus(input: {
     settings: {
       featureFlags: { tencentDbMemory: true },
       memory: {
+        mode: input.state === "off" ? "disabled" : "enabled_all",
         enabled: input.state !== "off",
         defaultThreadEnabled: true,
         adapter: "tencentdb",

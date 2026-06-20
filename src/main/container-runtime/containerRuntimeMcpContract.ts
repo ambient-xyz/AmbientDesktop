@@ -1,4 +1,14 @@
 export {
+  buildContainerRuntimeInstallPlanFromProbe,
+} from "./containerRuntimeInstallLauncher";
+export {
+  containerRuntimeSetupPromptState,
+  recordContainerRuntimeProbeState,
+} from "./containerRuntimeSetupState";
+export type {
+  ContainerRuntimeSetupPromptState,
+} from "./containerRuntimeSetupState";
+export {
   containerRuntimeProbeSummary,
   probeContainerRuntime,
 } from "./containerRuntimeProbeService";

@@ -62,7 +62,25 @@ describe("agentRuntimeCapabilityBuilderInspectionTools", () => {
       status: "listed",
       packageName: "ambient-demo",
       fileCount: 2,
+      totalFileCount: 2,
+      totalFileCountTruncated: false,
+      omittedDirectoryCount: 0,
+      maxEntries: 200,
+      maxDepth: 12,
+      includeGenerated: false,
       sourceRef: sourceRefFixture(),
+      inventoryArtifact: expect.objectContaining({
+        path: ".ambient/tool-outputs/2026-06-20/inventory.txt",
+        inventoryFileCount: 2,
+        inventoryFileCountTruncated: false,
+      }),
+      largeOutputPreview: expect.objectContaining({
+        kind: "large-output",
+        items: [expect.objectContaining({
+          artifactPath: ".ambient/tool-outputs/2026-06-20/inventory.txt",
+          suggestedTools: ["file_read", "long_context_process"],
+        })],
+      }),
     });
 
     const read = await registeredTools[2].execute("read", {
@@ -151,6 +169,31 @@ function listFilesFixture(): any {
     rootPath: "/workspace/.ambient/capability-builder/packages/ambient-demo",
     relativeRootPath: ".ambient/capability-builder/packages/ambient-demo",
     sourceRef: sourceRefFixture(),
+    maxEntries: 200,
+    maxDepth: 12,
+    includeGenerated: false,
+    totalFileCount: 2,
+    totalFileCountTruncated: false,
+    omittedDirectoryCount: 0,
+    omittedDirectories: [],
+    inventoryArtifact: {
+      path: ".ambient/tool-outputs/2026-06-20/inventory.txt",
+      bytes: 512,
+      chars: 512,
+      previewChars: 512,
+      truncated: false,
+      redacted: false,
+      redactionCount: 0,
+      inventoryFileCount: 2,
+      inventoryFileCountTruncated: false,
+      fileReadInput: { path: ".ambient/tool-outputs/2026-06-20/inventory.txt" },
+      longContextProcessInput: {
+        taskType: "analysis",
+        instruction: "Analyze this Builder inventory.",
+        workspacePaths: [".ambient/tool-outputs/2026-06-20/inventory.txt"],
+        maxModelCalls: 4,
+      },
+    },
     files: [
       { path: "SKILL.md", sizeBytes: 18, mtimeMs: 1 },
       { path: "ambient-cli.json", sizeBytes: 200, mtimeMs: 2 },

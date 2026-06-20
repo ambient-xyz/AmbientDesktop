@@ -29,6 +29,12 @@ import {
 } from "./projectStoreSubagentsFacade";
 import type { SubagentResultArtifact } from "../../shared/subagentProtocol";
 import type { ModelRuntimeInstalledProvider } from "../../shared/threadTypes";
+import { buildCallableWorkflowExecutionPlan } from "../callable-workflow/callableWorkflowExecutionPlan";
+import {
+  buildCallableWorkflowRegistry,
+  buildCallableWorkflowRunPlan,
+  parentPiVisibleCallableWorkflowTools,
+} from "../callable-workflow/callableWorkflowRegistry";
 
 const roots: string[] = [];
 
@@ -65,6 +71,10 @@ function enabledSubagentFeatureFlags(generatedAt = "2026-06-05T00:00:00.000Z") {
     startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
     generatedAt,
   });
+}
+
+function mapReduceMetricCriteria(): Array<{ templateId: string; value: string }> {
+  return [{ templateId: "map_reduce-metric", value: "Every mapped item has reducer evidence." }];
 }
 
 function upsertBatchJobPlan(store: ProjectStore, plan: SubagentBatchJobPlan) {
@@ -214,18 +224,19 @@ describe("ProjectStore sub-agent foundation settings", () => {
       expect(reopened.getThread(thread.id).model).toBe("custom/model");
       expect(reopened.getDefaultSettings().featureFlags).toEqual({
         subagents: true,
-        tencentDbMemory: false,
+        tencentDbMemory: true,
         slashCommands: false,
       });
       expect(reopened.getDefaultSettings().memory).toEqual({
-        enabled: false,
-        defaultThreadEnabled: false,
+        mode: "enabled_all",
+        enabled: true,
+        defaultThreadEnabled: true,
         adapter: "tencentdb",
         shortTermOffloadEnabled: false,
         embeddings: {
-          enabled: false,
+          enabled: true,
           providerMode: "ambient-managed",
-          autoStartProvider: false,
+          autoStartProvider: true,
           sendDimensions: false,
           maxInputChars: 512,
           timeoutMs: 10_000,
@@ -265,10 +276,11 @@ describe("ProjectStore sub-agent foundation settings", () => {
 
     try {
       store.openWorkspace(workspacePath);
+      store.setMemorySettings({ mode: "per_thread" });
       const beforeDefault = store.createThread("Before memory default");
       expect(beforeDefault.memoryEnabled).toBe(false);
 
-      store.setMemorySettings({ enabled: true, defaultThreadEnabled: true });
+      store.setMemorySettings({ mode: "enabled_all" });
       const afterDefault = store.createThread("After memory default");
       store.updateThreadSettings(beforeDefault.id, { memoryEnabled: true });
       store.close();
@@ -276,6 +288,7 @@ describe("ProjectStore sub-agent foundation settings", () => {
       reopened.openWorkspace(workspacePath);
       expect(reopened.getDefaultSettings().memory).toMatchObject({
         enabled: true,
+        mode: "enabled_all",
         defaultThreadEnabled: true,
         adapter: "tencentdb",
       });
@@ -926,6 +939,84 @@ describe("ProjectStore sub-agent foundation settings", () => {
       expect(store.listSubagentRunsForParentThread(parent.id)
         .filter((run) => run.canonicalTaskPath === "root/background:explorer")
         .map((run) => run.id)).toEqual([original.id, duplicateBackground.id]);
+    } finally {
+      store.close();
+    }
+  });
+
+  it("does not treat nonblocking callable-workflow bridge barriers as duplicate canonical path blockers", async () => {
+    const workspacePath = await tempWorkspace();
+    const store = new ProjectStore();
+    const enabledFlags = enabledSubagentFeatureFlags();
+
+    try {
+      store.openWorkspace(workspacePath);
+      store.setFeatureFlagSettings({ subagents: true });
+      const parent = store.createThread("Parent");
+      const assistant = store.addMessage({ threadId: parent.id, role: "assistant", content: "" });
+      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
+      const registry = buildCallableWorkflowRegistry({ featureFlagSnapshot: enabledFlags });
+      const tool = parentPiVisibleCallableWorkflowTools(registry)[0];
+      if (!tool) throw new Error("Missing callable workflow tool.");
+      const task = store.enqueueCallableWorkflowTask({
+        executionPlan: buildCallableWorkflowExecutionPlan({
+          descriptor: tool,
+          runPlan: buildCallableWorkflowRunPlan(tool, {
+            goal: "Background map-reduce",
+            blocking: false,
+            metricCriteria: mapReduceMetricCriteria(),
+          }),
+          parent: {
+            threadId: parent.id,
+            runId: parentRun.id,
+            assistantMessageId: assistant.id,
+          },
+          toolCallId: "background-callable-workflow-tool-call",
+          createdAt: "2026-06-05T00:00:00.000Z",
+        }),
+        featureFlagSnapshot: enabledFlags,
+      });
+      const original = store.createSubagentRun({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        parentMessageId: assistant.id,
+        title: "Background bridge child",
+        roleId: "explorer",
+        canonicalTaskPath: "root/background-bridge:explorer",
+        featureFlagSnapshot: enabledFlags,
+        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
+        dependencyMode: "optional_background",
+      });
+      store.createSubagentWaitBarrier({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        childRunIds: [original.id],
+        dependencyMode: "required_all",
+        failurePolicy: "ask_user",
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: task.id,
+        createdAt: "2026-06-05T00:00:10.000Z",
+      });
+
+      expect(() => store.assertSubagentCanonicalTaskPathAvailableForSpawn({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        canonicalTaskPath: "root/background-bridge:explorer",
+      })).not.toThrow();
+      const replacement = store.createSubagentRun({
+        parentThreadId: parent.id,
+        parentRunId: parentRun.id,
+        parentMessageId: assistant.id,
+        title: "Background bridge child replacement",
+        roleId: "explorer",
+        canonicalTaskPath: "root/background-bridge:explorer",
+        featureFlagSnapshot: enabledFlags,
+        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
+        dependencyMode: "optional_background",
+      });
+      expect(store.listSubagentRunsForParentThread(parent.id)
+        .filter((run) => run.canonicalTaskPath === "root/background-bridge:explorer")
+        .map((run) => run.id)).toEqual([original.id, replacement.id]);
     } finally {
       store.close();
     }

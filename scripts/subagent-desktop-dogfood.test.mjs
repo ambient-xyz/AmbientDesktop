@@ -35,6 +35,8 @@ describe("sub-agent Desktop dogfood harness wiring", () => {
     expect(supervisor).toContain("getAvailablePort");
     expect(supervisor).toContain("electron-dogfood-latest.manifest.json");
     expect(supervisor).toContain("staleElectronProcessPids");
+    expect(supervisor).toContain("scripts/symphony-gap-phase4-dogfood.mjs");
+    expect(supervisor).toContain("test-results/symphony-gap-phase4-dogfood/latest.json");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_RUNTIME_PID");
     expect(runner).toContain("DEFAULT_DOGFOOD_PROVIDER = \"ambient\"");
@@ -218,5 +220,20 @@ describe("sub-agent Desktop dogfood harness wiring", () => {
     expect(e2e).toContain("horizontalOverflowFree");
     expect(e2e).toContain("collapsed-desktop.png");
     expect(e2e).toContain("expanded-narrow.png");
+  });
+
+  it("keeps the Symphony Phase 4 launch bridge dogfood wired to durable child and wait evidence", async () => {
+    const phase4 = await readText("scripts/symphony-gap-phase4-dogfood.mjs");
+
+    expect(phase4).toContain("ambient_workflow_symphony_imitate_and_verify");
+    expect(phase4).toContain("launchBridgeVerified");
+    expect(phase4).toContain("callable_workflow_tasks");
+    expect(phase4).toContain("subagent_runs");
+    expect(phase4).toContain("subagent_wait_barriers");
+    expect(phase4).toContain("expectedPatternRoles = [\"drafter\", \"verifier\"]");
+    expect(phase4).toContain("SUB-AGENT");
+    expect(phase4).toContain("Accessibility.getFullAXTree");
+    expect(phase4).toContain("headful: true");
+    expect(phase4).toContain("--enable-feature=${SUBAGENTS_FEATURE_FLAG}");
   });
 });

@@ -22,7 +22,7 @@ export interface UpdateCallableWorkflowTaskRowInput {
   runnerDeferredReason?: string;
   workflowArtifactId?: string;
   workflowRunId?: string;
-  errorMessage?: string;
+  errorMessage?: string | null;
   updatedAt: string;
   startedAt?: string;
   completedAt?: string;
@@ -149,7 +149,7 @@ export class ProjectStoreCallableWorkflowTaskRepository {
         input.runnerDeferredReason ?? current.runnerDeferredReason,
         input.workflowArtifactId ?? current.workflowArtifactId ?? null,
         input.workflowRunId ?? current.workflowRunId ?? null,
-        input.errorMessage ?? current.errorMessage ?? null,
+        "errorMessage" in input ? input.errorMessage ?? null : current.errorMessage ?? null,
         input.updatedAt,
         input.startedAt ?? current.startedAt ?? null,
         input.completedAt ?? current.completedAt ?? null,

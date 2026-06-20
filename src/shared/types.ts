@@ -3,6 +3,7 @@ export type {
   AgentMemoryAdapter,
   AgentMemoryEmbeddingProviderMode,
   AgentMemoryEmbeddingSettings,
+  AgentMemoryMode,
   AgentMemorySettings,
   AgentMemoryStorageScope,
   UpdateAgentMemorySettingsInput,

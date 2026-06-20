@@ -1,6 +1,7 @@
 import { Activity, Brain, ChevronDown, Monitor, Moon, Play, Plug, Plus, RefreshCw, RotateCw, Square, Sun, Wrench, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryOperationStatus, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
+import type { AgentMemoryMode } from "../../shared/agentMemorySettings";
 import { agentMemoryStarterPrimaryAction } from "../../shared/agentMemoryStarter";
 import type { AgentMemoryStarterNextAction, AgentMemoryStarterOperationKind, AgentMemoryStarterOperationResult, AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
 import type { DesktopState, DesktopUpdateState, ThemePreference, ThinkingDisplayMode } from "../../shared/desktopTypes";
@@ -34,6 +35,7 @@ type SettingsRowVisible = (sectionId: string, rowId: string) => boolean;
 type MaybePromise<T = unknown> = T | Promise<T>;
 
 export const thinkingDisplayOptions: ThinkingDisplayMode[] = ["off", "transient", "full"];
+const agentMemoryModeOptions: AgentMemoryMode[] = ["enabled_all", "per_thread", "disabled"];
 
 export function desktopUpdateStatusText(update: DesktopUpdateState): string {
   if (update.status === "available") return "Ready to download";
@@ -304,7 +306,7 @@ export type RightPanelModelModeSettingsSectionProps = {
   saveModelProviderCredentialFromSettings: () => MaybePromise;
   installModelProviderEndpointFromSettings: () => MaybePromise;
   loadAgentMemoryStarterStatus: () => MaybePromise;
-  enableAgentMemoryStarterFromSettings: () => MaybePromise;
+  enableAgentMemoryStarterFromSettings: (targetMode?: AgentMemoryMode) => MaybePromise;
   repairAgentMemoryStarterFromSettings: () => MaybePromise;
   disableAgentMemoryStarterFromSettings: () => MaybePromise;
   requestAgentMemoryClearFromSettings: () => MaybePromise;
@@ -353,14 +355,51 @@ function AgentMemoryDiagnosticsSummary({ diagnostics }: { diagnostics: AgentMemo
   );
 }
 
+function AgentMemoryPolicyDiagnostics({
+  memoryMode,
+  memoryFlagValue,
+  persistentMemoryFeatureEnabled,
+  activeThreadMemoryEnabled,
+  activeThreadMemoryToggleDisabled,
+  defaultThreadEnabled,
+  managedEmbeddingsEnabled,
+  managedEmbeddingsAutoStart,
+}: {
+  memoryMode: AgentMemoryMode;
+  memoryFlagValue: string;
+  persistentMemoryFeatureEnabled: boolean;
+  activeThreadMemoryEnabled: boolean;
+  activeThreadMemoryToggleDisabled: boolean;
+  defaultThreadEnabled: boolean;
+  managedEmbeddingsEnabled: boolean;
+  managedEmbeddingsAutoStart: boolean;
+}) {
+  return (
+    <div className="voice-provider-diagnostics info">
+      <div className="voice-provider-diagnostics-header">
+        <strong>Memory policy diagnostics</strong>
+        <span>{agentMemoryModeLabel(memoryMode)}</span>
+      </div>
+      <ul>
+        <li>Feature gate: {persistentMemoryFeatureEnabled ? "on" : "off"} · {memoryFlagValue}</li>
+        <li>Derived global setting: {memoryMode === "disabled" ? "off" : "on"}</li>
+        <li>Derived new-thread default: {defaultThreadEnabled ? "on" : "off"}</li>
+        <li>Active thread flag: {activeThreadMemoryToggleDisabled ? "unavailable" : activeThreadMemoryEnabled ? "on" : "off"}</li>
+        <li>Managed embeddings: {managedEmbeddingsEnabled ? "on" : "off"} · auto-start {managedEmbeddingsAutoStart ? "on" : "off"}</li>
+      </ul>
+    </div>
+  );
+}
+
 function AgentMemoryStarterCard({
   status,
   loading,
   error,
   operationLoading,
   operationResult,
-  fallbackEnabled,
-  disabled,
+  memoryMode,
+  actionsDisabled,
+  onModeChange,
   onRefresh,
   onEnable,
   onRepair,
@@ -371,15 +410,15 @@ function AgentMemoryStarterCard({
   error?: string;
   operationLoading?: AgentMemoryStarterOperationKind;
   operationResult?: AgentMemoryStarterOperationResult;
-  fallbackEnabled: boolean;
-  disabled: boolean;
+  memoryMode: AgentMemoryMode;
+  actionsDisabled: boolean;
+  onModeChange: (mode: AgentMemoryMode) => MaybePromise;
   onRefresh: () => MaybePromise;
   onEnable: () => MaybePromise;
   onRepair: () => MaybePromise;
   onDisable: () => MaybePromise;
 }) {
   const busy = loading || Boolean(operationLoading);
-  const checked = status ? status.state !== "off" : fallbackEnabled;
   const tone = error
     ? "error"
     : status?.state === "ready"
@@ -387,36 +426,42 @@ function AgentMemoryStarterCard({
       : status?.state === "needs_repair" || status?.state === "setup_required"
         ? "warning"
         : "info";
-  const primaryLabel = checked ? "Enabled" : "Off";
   const setupAction = agentMemoryStarterSetupAction(status);
   const setupOperation = agentMemoryStarterOperationForAction(setupAction);
   const setupActionBusy = Boolean(setupOperation && operationLoading === setupOperation);
-  const setupButtonLabel = setupActionBusy ? "Working" : agentMemoryStarterSetupActionLabel(setupAction);
+  const setupButtonLabel = setupActionBusy ? "Working" : agentMemoryStarterRepairButtonLabel(status, setupAction);
   const operationLogPreview = operationResult ? agentMemoryStarterOperationLogPreview(operationResult) : [];
+  const repairDisabled = actionsDisabled || busy || !agentMemoryStarterCanRepair(status, setupAction);
   return (
     <div className={`voice-provider-diagnostics ${tone}`}>
       <div className="voice-provider-diagnostics-header">
         <strong>Agent Memory</strong>
         <span>{loading ? "Checking" : agentMemoryStarterStateLabel(status?.state)}</span>
       </div>
-      <label className="setting-toggle">
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={disabled || busy}
+      <label className="setting-field">
+        <span>Memory mode</span>
+        <select
+          className="settings-select compact agent-memory-mode-select"
+          value={memoryMode}
+          disabled={busy}
+          aria-label="Agent Memory mode"
           onChange={(event) => {
-            if (event.target.checked) void onEnable();
-            else void onDisable();
+            const nextMode = event.target.value as AgentMemoryMode;
+            if (actionsDisabled && nextMode !== "disabled") return;
+            void onModeChange(nextMode);
           }}
-        />
-        <span>{operationLoading === "enable" ? "Enabling" : operationLoading === "disable" ? "Disabling" : primaryLabel}</span>
+        >
+          {agentMemoryModeOptions.map((mode) => (
+            <option key={mode} value={mode} disabled={actionsDisabled && mode !== "disabled"}>{agentMemoryModeLabel(mode)}</option>
+          ))}
+        </select>
       </label>
       <small>{agentMemoryStarterMessage(status, error)}</small>
       {status && (
         <ul>
-          <li>Model: {agentMemoryStarterAssetLabel(status.assets.model)}</li>
-          <li>Runtime: {agentMemoryStarterAssetLabel(status.assets.runtime)} · {status.runtime.state}{status.runtime.endpoint ? ` · ${status.runtime.endpoint}` : ""}</li>
-          <li>Scope: global {status.settings.memory.enabled ? "on" : "off"}, thread {status.threadScope.activeThreadMemoryEnabled ? "on" : "off"}, new threads {status.threadScope.defaultThreadEnabled ? "on" : "off"}</li>
+          <li>Policy: {agentMemoryModeLabel(status.settings.memory.mode)}</li>
+          <li>Health: {agentMemoryStarterStateLabel(status.state)}</li>
+          <li>Thread scope: {agentMemoryThreadScopeLabel(status)}</li>
           {status.blockers[0] && <li>Blocker: {status.blockers[0].message}</li>}
           {status.nextActions[0] && <li>Next: {agentMemoryStarterActionLabel(status.nextActions[0])}</li>}
         </ul>
@@ -429,8 +474,8 @@ function AgentMemoryStarterCard({
         <button
           type="button"
           className="panel-button mini"
-          disabled={disabled || busy || !setupAction}
-          aria-label={setupAction ? `${agentMemoryStarterActionLabel(setupAction)} Agent Memory setup` : "Continue Agent Memory setup"}
+          disabled={repairDisabled}
+          aria-label="Repair Agent Memory health"
           onClick={() => void runAgentMemoryStarterAction(setupAction, { onEnable, onRepair, onDisable })}
         >
           {setupActionBusy ? <RefreshCw size={14} /> : agentMemoryStarterActionIcon(setupAction)}
@@ -458,7 +503,9 @@ function AgentMemoryStarterCard({
 }
 
 export function agentMemoryStarterSetupAction(status?: AgentMemoryStarterStatus): AgentMemoryStarterNextAction | undefined {
-  return status ? agentMemoryStarterPrimaryAction(status) : undefined;
+  if (!status) return undefined;
+  return agentMemoryStarterPrimaryAction(status) ??
+    (status.state === "needs_repair" && status.nextActions.includes("disable") ? "disable" : undefined);
 }
 
 export function agentMemoryStarterOperationForAction(action?: AgentMemoryStarterNextAction): AgentMemoryStarterOperationKind | undefined {
@@ -499,6 +546,39 @@ export function agentMemoryStarterSetupActionLabel(action?: AgentMemoryStarterNe
   return "Repair";
 }
 
+export function agentMemoryModeLabel(mode: AgentMemoryMode): string {
+  if (mode === "enabled_all") return "Enabled globally";
+  if (mode === "per_thread") return "Available per thread";
+  return "Disabled";
+}
+
+function agentMemoryThreadScopeLabel(status: AgentMemoryStarterStatus): string {
+  if (status.settings.memory.mode === "enabled_all") return "all threads";
+  if (status.settings.memory.mode === "disabled") return "no threads";
+  return status.threadScope.activeThreadMemoryEnabled ? "this thread on" : "this thread off";
+}
+
+function agentMemoryStarterCanRepair(
+  status: AgentMemoryStarterStatus | undefined,
+  action: AgentMemoryStarterNextAction | undefined,
+): boolean {
+  if (!status || status.state === "ready" || status.state === "off") return false;
+  return Boolean(action && action !== "clear_memory" && action !== "open_logs");
+}
+
+function agentMemoryStarterRepairButtonLabel(
+  status: AgentMemoryStarterStatus | undefined,
+  action: AgentMemoryStarterNextAction | undefined,
+): string {
+  if (!status || !agentMemoryStarterCanRepair(status, action)) return "Repair";
+  if (action === "start") return "Start";
+  if (action === "install") return "Repair";
+  if (action === "retry_preflight") return "Repair";
+  if (action === "disable") return "Repair";
+  if (action === "enable") return "Repair";
+  return agentMemoryStarterSetupActionLabel(action);
+}
+
 function AgentMemoryEmbeddingHealthCard({
   diagnostics,
   embeddingsEnabled,
@@ -506,6 +586,7 @@ function AgentMemoryEmbeddingHealthCard({
   actionResult,
   actionError,
   onAction,
+  showControls = true,
 }: {
   diagnostics?: AgentMemoryStorageDiagnostics;
   embeddingsEnabled: boolean;
@@ -513,6 +594,7 @@ function AgentMemoryEmbeddingHealthCard({
   actionResult?: AgentMemoryEmbeddingLifecycleActionResult;
   actionError?: string;
   onAction: (action: AgentMemoryEmbeddingLifecycleActionKind) => void;
+  showControls?: boolean;
 }) {
   const embedding = diagnostics?.embedding;
   const running = embedding?.running === true;
@@ -540,12 +622,14 @@ function AgentMemoryEmbeddingHealthCard({
         {embedding?.lastError && <li>Error: {embedding.lastError}</li>}
         {embedding?.missingHints?.length ? <li>Missing: {embedding.missingHints[0]}</li> : null}
       </ul>
-      <div className="panel-action-row compact">
-        <EmbeddingLifecycleButton action="check" icon={<Activity size={14} />} label="Check" disabled={!embeddingsEnabled || busy} loading={actionLoading} onAction={onAction} />
-        <EmbeddingLifecycleButton action="start" icon={<Play size={14} />} label="Start" disabled={!embeddingsEnabled || busy || running} loading={actionLoading} onAction={onAction} />
-        <EmbeddingLifecycleButton action="restart" icon={<RotateCw size={14} />} label="Restart" disabled={!embeddingsEnabled || busy} loading={actionLoading} onAction={onAction} />
-        <EmbeddingLifecycleButton action="stop" icon={<Square size={14} />} label="Stop" disabled={busy || !running} loading={actionLoading} onAction={onAction} />
-      </div>
+      {showControls && (
+        <div className="panel-action-row compact">
+          <EmbeddingLifecycleButton action="check" icon={<Activity size={14} />} label="Check" disabled={!embeddingsEnabled || busy} loading={actionLoading} onAction={onAction} />
+          <EmbeddingLifecycleButton action="start" icon={<Play size={14} />} label="Start" disabled={!embeddingsEnabled || busy || running} loading={actionLoading} onAction={onAction} />
+          <EmbeddingLifecycleButton action="restart" icon={<RotateCw size={14} />} label="Restart" disabled={!embeddingsEnabled || busy} loading={actionLoading} onAction={onAction} />
+          <EmbeddingLifecycleButton action="stop" icon={<Square size={14} />} label="Stop" disabled={busy || !running} loading={actionLoading} onAction={onAction} />
+        </div>
+      )}
       {actionResult && (
         <small>
           Last {embeddingLifecycleActionLabel(actionResult.action).toLowerCase()}: {actionResult.status} · {actionResult.message} · {formatTimelineTime(actionResult.checkedAt)}
@@ -736,13 +820,24 @@ export function RightPanelModelModeSettingsSection({
   onThinkingDisplaySettingsChange,
   onFeatureFlagSettingsChange,
   onMemorySettingsChange,
-  onActiveThreadMemoryEnabledChange,
   onRefreshAgentMemoryDiagnostics,
   onRunAgentMemoryEmbeddingLifecycleAction,
   onModelRuntimeSettingsChange,
   onPlannerSettingsChange,
 }: RightPanelModelModeSettingsSectionProps) {
   const contextUsage = contextUsagePresentation(state.contextUsage, state.settings.compaction);
+  async function changeAgentMemoryMode(mode: AgentMemoryMode) {
+    if (mode === state.settings.memory.mode && mode !== "disabled") {
+      await repairAgentMemoryStarterFromSettings();
+      return;
+    }
+    if (mode === "disabled") {
+      await disableAgentMemoryStarterFromSettings();
+      return;
+    }
+    await enableAgentMemoryStarterFromSettings(mode);
+  }
+
   return (
     <SettingsSection
       id="model-mode"
@@ -860,8 +955,8 @@ export function RightPanelModelModeSettingsSection({
       {settingsRowVisible("model-mode", "model-mode.agent-memory") && (
         <SettingsRow
           label="Agent Memory"
-          value={agentMemoryStarterStateLabel(agentMemoryStarterStatus?.state)}
-          description="Sets up local TencentDB Agent Memory, managed embeddings, and active thread scope."
+          value={agentMemoryModeLabel(state.settings.memory.mode)}
+          description="Controls whether Agent Memory is available globally, per thread, or off."
         >
           <AgentMemoryStarterCard
             status={agentMemoryStarterStatus}
@@ -869,8 +964,9 @@ export function RightPanelModelModeSettingsSection({
             error={agentMemoryStarterError}
             operationLoading={agentMemoryStarterOperationLoading}
             operationResult={agentMemoryStarterOperationResult}
-            fallbackEnabled={persistentMemoryFeatureEnabled && state.settings.memory.enabled}
-            disabled={memoryFlagValue === "Forced off"}
+            memoryMode={state.settings.memory.mode}
+            actionsDisabled={memoryFlagValue === "Forced off"}
+            onModeChange={changeAgentMemoryMode}
             onRefresh={loadAgentMemoryStarterStatus}
             onEnable={enableAgentMemoryStarterFromSettings}
             onRepair={repairAgentMemoryStarterFromSettings}
@@ -899,48 +995,6 @@ export function RightPanelModelModeSettingsSection({
               <label className="setting-toggle">
                 <input
                   type="checkbox"
-                  aria-label="Agent Memory feature flag"
-                  checked={persistentMemoryFeatureEnabled}
-                  onChange={(event) =>
-                    onFeatureFlagSettingsChange({
-                      ...state.settings.featureFlags,
-                      tencentDbMemory: event.target.checked,
-                    })
-                  }
-                />
-                <span>Feature flag</span>
-              </label>
-              <label className="setting-toggle">
-                <input
-                  type="checkbox"
-                  aria-label="Global Agent Memory"
-                  checked={state.settings.memory.enabled}
-                  onChange={(event) =>
-                    onMemorySettingsChange({
-                      ...state.settings.memory,
-                      enabled: event.target.checked,
-                    })
-                  }
-                />
-                <span>Global memory</span>
-              </label>
-              <label className="setting-toggle">
-                <input
-                  type="checkbox"
-                  aria-label="Enable Agent Memory for new threads"
-                  checked={state.settings.memory.defaultThreadEnabled}
-                  onChange={(event) =>
-                    onMemorySettingsChange({
-                      ...state.settings.memory,
-                      defaultThreadEnabled: event.target.checked,
-                    })
-                  }
-                />
-                <span>New threads</span>
-              </label>
-              <label className="setting-toggle">
-                <input
-                  type="checkbox"
                   aria-label="Agent Memory short-term offload"
                   checked={state.settings.memory.shortTermOffloadEnabled}
                   onChange={(event) =>
@@ -952,33 +1006,16 @@ export function RightPanelModelModeSettingsSection({
                 />
                 <span>Short-term offload</span>
               </label>
-              <label className="setting-toggle">
-                <input
-                  type="checkbox"
-                  aria-label="Managed Agent Memory embeddings"
-                  checked={state.settings.memory.embeddings.enabled}
-                  onChange={(event) =>
-                    onMemorySettingsChange({
-                      ...state.settings.memory,
-                      embeddings: {
-                        ...state.settings.memory.embeddings,
-                        enabled: event.target.checked,
-                      },
-                    })
-                  }
-                />
-                <span>Managed embeddings</span>
-              </label>
-              <label className="setting-toggle">
-                <input
-                  type="checkbox"
-                  aria-label="Agent Memory for this thread"
-                  checked={activeThreadMemoryEnabled}
-                  disabled={activeThreadMemoryToggleDisabled}
-                  onChange={(event) => onActiveThreadMemoryEnabledChange(event.target.checked)}
-                />
-                <span>This thread</span>
-              </label>
+              <AgentMemoryPolicyDiagnostics
+                memoryMode={state.settings.memory.mode}
+                memoryFlagValue={memoryFlagValue}
+                persistentMemoryFeatureEnabled={persistentMemoryFeatureEnabled}
+                activeThreadMemoryEnabled={activeThreadMemoryEnabled}
+                activeThreadMemoryToggleDisabled={activeThreadMemoryToggleDisabled}
+                defaultThreadEnabled={state.settings.memory.defaultThreadEnabled}
+                managedEmbeddingsEnabled={state.settings.memory.embeddings.enabled}
+                managedEmbeddingsAutoStart={state.settings.memory.embeddings.autoStartProvider}
+              />
               <AgentMemoryEmbeddingHealthCard
                 diagnostics={agentMemoryDiagnostics}
                 embeddingsEnabled={state.settings.memory.embeddings.enabled}
@@ -986,6 +1023,7 @@ export function RightPanelModelModeSettingsSection({
                 actionResult={agentMemoryEmbeddingActionResult}
                 actionError={agentMemoryEmbeddingActionError}
                 onAction={onRunAgentMemoryEmbeddingLifecycleAction}
+                showControls={false}
               />
             </div>
           </details>

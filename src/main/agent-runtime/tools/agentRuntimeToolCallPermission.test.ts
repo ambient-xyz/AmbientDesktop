@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { getDefaultSubagentRoleProfile } from "../../../shared/subagentRoles";
+import type { SubagentWaitBarrierSummary } from "../../../shared/subagentTypes";
 import { resolveAgentRuntimeToolCallPermission, subagentUnsafeRequiredBarrierToolBlock } from "./agentRuntimeToolCallPermission";
 
 describe("resolveAgentRuntimeToolCallPermission", () => {
@@ -158,6 +159,42 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
     expect(blocked?.message).toContain("Blocked tool: ambient_subagent action=spawn_agent");
   });
 
+  it("does not block replacement work on nonblocking callable-workflow bridge barriers", () => {
+    const blocked = subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "failed",
+        barrierStatus: "waiting_on_children",
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: "background-task",
+        callableWorkflowTasks: [{ id: "background-task", blocking: false }],
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "spawn_agent", task: "replacement child" },
+    });
+
+    expect(blocked).toBeUndefined();
+  });
+
+  it("still blocks owner-scoped bridge barriers for parent-blocking callable workflows", () => {
+    const blocked = subagentUnsafeRequiredBarrierToolBlock({
+      store: subagentBarrierStore({
+        childStatus: "failed",
+        barrierStatus: "waiting_on_children",
+        ownerKind: "callable_workflow_symphony_launch_bridge",
+        ownerId: "blocking-task",
+        callableWorkflowTasks: [{ id: "blocking-task", blocking: true }],
+      }),
+      threadId: "parent-thread",
+      parentRunId: "parent-run",
+      toolName: "ambient_subagent",
+      rawToolInput: { action: "spawn_agent", task: "replacement child" },
+    });
+
+    expect(blocked?.reason).toContain("blocked by required sub-agent wait barrier barrier-unsafe");
+  });
+
   it("allows barrier-management actions while blocking replacement spawns for unsafe required barriers", () => {
     const store = subagentBarrierStore({
       childStatus: "failed",
@@ -295,6 +332,9 @@ function subagentBarrierStore(input: {
   resultArtifact?: unknown;
   additionalRuns?: Array<{ id: string; status: string; resultArtifact?: unknown }>;
   dependencyMode?: "required_all" | "required_any" | "optional_background" | "quorum";
+  ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+  ownerId?: string;
+  callableWorkflowTasks?: Array<{ id: string; blocking: boolean }>;
 }) {
   const roleProfileSnapshot = getDefaultSubagentRoleProfile("reviewer");
   const childRun = {
@@ -339,11 +379,14 @@ function subagentBarrierStore(input: {
     dependencyMode: input.dependencyMode ?? "required_all",
     status: input.barrierStatus,
     failurePolicy: "ask_user",
+    ...(input.ownerKind ? { ownerKind: input.ownerKind } : {}),
+    ...(input.ownerId ? { ownerId: input.ownerId } : {}),
     createdAt: "2026-06-14T00:00:00.000Z",
     updatedAt: "2026-06-14T00:00:00.000Z",
   };
   return {
     listSubagentWaitBarriersForParentRun: (parentRunId: string) => parentRunId === "parent-run" ? [barrier] : [],
+    listCallableWorkflowTasksForParentRun: (parentRunId: string) => parentRunId === "parent-run" ? input.callableWorkflowTasks ?? [] : [],
     getSubagentRun: (runId: string) => {
       const run = runs.get(runId);
       if (!run) throw new Error(`Unknown run ${runId}`);

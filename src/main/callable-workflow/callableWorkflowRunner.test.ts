@@ -19,6 +19,7 @@ import {
   executeCallableWorkflowTask,
   validateCallableWorkflowRunnerExecutionBoundary,
 } from "./callableWorkflowRunner";
+import { CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON } from "../../shared/callableWorkflowTaskGuards";
 import { ProjectStore } from "./callableWorkflowProjectStoreFacade";
 
 const enabledFlags = resolveAmbientFeatureFlags({
@@ -50,6 +51,22 @@ describe("callable workflow runner bridge", () => {
             ...input,
             projectPath: workspacePath,
           }),
+        launchWorkflowSubagents: async ({ handoffPlan, callableWorkflowInvocation }) => {
+          runnerCalls.push(`launch:${handoffPlan.compiler.launchBridgeContract?.pattern.id}:${callableWorkflowInvocation.launchBridgeContract?.wait.mode}`);
+          expect(handoffPlan.compiler.launchBridgeContract).toMatchObject({
+            schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
+            workflowTaskId: task.id,
+            pattern: { id: "map_reduce" },
+            wait: { mode: "required_all", failurePolicy: "ask_user" },
+          });
+          expect(callableWorkflowInvocation.launchBridgeContract).toMatchObject({
+            schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
+            childLaunches: [
+              expect.objectContaining({ roleNodeId: "mapper", roleId: "explorer" }),
+              expect.objectContaining({ roleNodeId: "reducer", roleId: "summarizer" }),
+            ],
+          });
+        },
         compileWorkflowTask: async ({ handoffPlan, workflowThread, callableWorkflowInvocation }) => {
           runnerCalls.push(`compile:${handoffPlan.compiler.toolName}:${workflowThread.id}`);
           expect(callableWorkflowInvocation).toMatchObject({
@@ -123,6 +140,7 @@ describe("callable workflow runner bridge", () => {
         },
       });
       expect(runnerCalls).toEqual([
+        "launch:map_reduce:required_all",
         `compile:ambient_workflow_symphony_map_reduce:${result.workflowThread?.id}`,
         `run:${result.artifact?.id}`,
       ]);
@@ -245,6 +263,145 @@ describe("callable workflow runner bridge", () => {
       });
 
       expect(result.status).toBe("succeeded");
+    } finally {
+      store.close();
+    }
+  });
+
+  it("re-enters pre-compile Symphony child-wait pauses through the compiler handoff", async () => {
+    const workspacePath = await tempWorkspace();
+    const store = new ProjectStore();
+
+    try {
+      store.openWorkspace(workspacePath);
+      const parent = store.createThread("Parent");
+      const assistant = store.addMessage({ threadId: parent.id, role: "assistant", content: "" });
+      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
+      const task = store.enqueueCallableWorkflowTask({
+        executionPlan: executionPlanForParent(parent.id, parentRun.id, assistant.id),
+        featureFlagSnapshot: enabledFlags,
+      });
+
+      const blocked = await executeCallableWorkflowTask({
+        store,
+        taskId: task.id,
+        createWorkflowThread: (input) => store.createWorkflowAgentThreadSummary({ ...input, projectPath: workspacePath }),
+        launchWorkflowSubagents: async () => ({
+          status: "blocked",
+          task: store.pauseCallableWorkflowTask({
+            id: task.id,
+            statusLabel: "Child wait needs attention",
+            runnerDeferredReason: CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
+            errorMessage: "Children need a user decision before synthesis.",
+          }),
+        }),
+        compileWorkflowTask: async () => {
+          throw new Error("compile should not run while child wait is blocked");
+        },
+        runWorkflowTask: async () => {
+          throw new Error("run should not start while child wait is blocked");
+        },
+      });
+
+      expect(blocked).toMatchObject({
+        status: "paused",
+        task: {
+          id: task.id,
+          status: "paused",
+          runnerDeferredReason: CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
+          workflowArtifactId: undefined,
+          workflowRunId: undefined,
+        },
+      });
+
+      const runnerCalls: string[] = [];
+      const resumed = await executeCallableWorkflowTask({
+        store,
+        taskId: task.id,
+        createWorkflowThread: (input) => store.createWorkflowAgentThreadSummary({ ...input, projectPath: workspacePath }),
+        launchWorkflowSubagents: async () => {
+          runnerCalls.push("launch");
+          return { status: "ready", task: store.getCallableWorkflowTask(task.id) };
+        },
+        compileWorkflowTask: async ({ task, workflowThread }) => {
+          runnerCalls.push(`compile:${task.status}:${task.errorMessage ?? "clear"}`);
+          const artifact = store.createWorkflowArtifact({
+            workflowThreadId: workflowThread.id,
+            title: "Callable Map Reduce",
+            status: "ready_for_preview",
+            manifest: { tools: ["ambient.responses"], mutationPolicy: "read_only" },
+            spec: { goal: "Summarize release notes.", summary: "Callable workflow artifact." },
+            sourcePath: join(workspacePath, ".ambient-codex", "workflows", "callable-map-reduce", "main.ts"),
+            statePath: join(workspacePath, ".ambient-codex", "workflows", "callable-map-reduce", "state.json"),
+          });
+          const previewRun = store.startWorkflowRun({ artifactId: artifact.id, status: "previewed" });
+          return { artifacts: [artifact], runs: [previewRun] };
+        },
+        runWorkflowTask: async ({ artifact, onRunStarted }) => {
+          runnerCalls.push("run");
+          const run = store.startWorkflowRun({ artifactId: artifact.id, status: "running" });
+          onRunStarted(run.id);
+          const finished = store.updateWorkflowRun({ id: run.id, status: "succeeded", finish: true });
+          return { artifacts: [artifact], runs: [finished] };
+        },
+      });
+
+      expect(runnerCalls).toEqual(["launch", "compile:compiling:clear", "run"]);
+      expect(resumed).toMatchObject({
+        status: "succeeded",
+        task: {
+          id: task.id,
+          status: "succeeded",
+          errorMessage: undefined,
+          runnerDeferredReason: "workflow_run_succeeded",
+        },
+      });
+    } finally {
+      store.close();
+    }
+  });
+
+  it("returns terminal launch results without compiling or reporting them as paused", async () => {
+    const workspacePath = await tempWorkspace();
+    const store = new ProjectStore();
+
+    try {
+      store.openWorkspace(workspacePath);
+      const parent = store.createThread("Parent");
+      const assistant = store.addMessage({ threadId: parent.id, role: "assistant", content: "" });
+      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
+      const task = store.enqueueCallableWorkflowTask({
+        executionPlan: executionPlanForParent(parent.id, parentRun.id, assistant.id),
+        featureFlagSnapshot: enabledFlags,
+      });
+
+      const result = await executeCallableWorkflowTask({
+        store,
+        taskId: task.id,
+        createWorkflowThread: (input) => store.createWorkflowAgentThreadSummary({ ...input, projectPath: workspacePath }),
+        launchWorkflowSubagents: async () => ({
+          status: "terminal",
+          task: store.failCallableWorkflowTask({
+            id: task.id,
+            errorMessage: "Required child was detached before compilation.",
+          }),
+        }),
+        compileWorkflowTask: async () => {
+          throw new Error("compile should not run after terminal child decision");
+        },
+        runWorkflowTask: async () => {
+          throw new Error("run should not start after terminal child decision");
+        },
+      });
+
+      expect(result).toMatchObject({
+        status: "failed",
+        task: {
+          id: task.id,
+          status: "failed",
+          errorMessage: "Required child was detached before compilation.",
+        },
+      });
     } finally {
       store.close();
     }

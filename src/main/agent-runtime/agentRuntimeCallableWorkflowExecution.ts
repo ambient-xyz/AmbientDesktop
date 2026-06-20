@@ -12,7 +12,9 @@ import { pluginStateReaderFromStore } from "./agentRuntimePluginsFacade";
 import {
   executeCallableWorkflowTask,
   latestCallableWorkflowRunForArtifact,
+  type CallableWorkflowRunnerCompileInput,
   type CallableWorkflowRunnerStore,
+  type CallableWorkflowSubagentLaunchResult,
 } from "./agentRuntimeCallableWorkflowFacade";
 import { resolvePermissionWithGrants, type PermissionPromptRequester } from "./agentRuntimePermissionsFacade";
 import type { AmbientPluginHost, PluginMcpToolRegistration } from "./agentRuntimePluginsFacade";
@@ -38,6 +40,7 @@ export interface AgentRuntimeCallableWorkflowExecutionOptions {
   connectorAccountAuthorizer?: () => WorkflowConnectorAccountAuthorizer | undefined;
   readSearchRoutingSettings?: () => SearchRoutingSettings | undefined;
   ensurePluginMcpToolTrusted: (threadId: string, workspace: WorkspaceState, registration: PluginMcpToolRegistration) => Promise<boolean>;
+  launchWorkflowSubagents?: (input: CallableWorkflowRunnerCompileInput) => Promise<CallableWorkflowSubagentLaunchResult | void>;
   setTaskAbortController: (taskId: string, controller: AbortController) => void;
   deleteTaskAbortController: (taskId: string) => void;
   setRunTaskId: (runId: string, taskId: string) => void;
@@ -145,6 +148,11 @@ export function createAgentRuntimeCallableWorkflowRunnerStore(
       emitCallableWorkflowTaskUpdated(task);
       return task;
     },
+    pauseCallableWorkflowTask: (input) => {
+      const task = store.pauseCallableWorkflowTask(input);
+      emitCallableWorkflowTaskUpdated(task);
+      return task;
+    },
     failCallableWorkflowTask: (input) => {
       const task = store.failCallableWorkflowTask(input);
       emitCallableWorkflowTaskUpdated(task);
@@ -249,6 +257,7 @@ export async function executeAgentRuntimeCallableWorkflowTaskForThread(
         ...input,
         projectPath: workflowWorkspacePath,
       }),
+    ...(options.launchWorkflowSubagents ? { launchWorkflowSubagents: options.launchWorkflowSubagents } : {}),
     compileWorkflowTask: ({ handoffPlan, workflowThread, callableWorkflowInvocation }) =>
       compileWorkflowArtifact({
         store: options.store,

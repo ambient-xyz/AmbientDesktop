@@ -60,13 +60,13 @@ export interface ParsedAmbientFeatureFlagLaunchArgs {
 
 export const DEFAULT_AMBIENT_FEATURE_FLAG_SETTINGS: AmbientFeatureFlagSettings = {
   subagents: false,
-  tencentDbMemory: false,
+  tencentDbMemory: true,
   slashCommands: false,
 };
 
 const AMBIENT_FEATURE_FLAG_DEFAULTS: Record<AmbientFeatureFlagId, boolean> = {
   [AMBIENT_SUBAGENTS_FEATURE_FLAG]: false,
-  [AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]: false,
+  [AMBIENT_TENCENTDB_MEMORY_FEATURE_FLAG]: true,
   [AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]: false,
 };
 

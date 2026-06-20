@@ -516,19 +516,19 @@ async function runF007() {
     evidence: [hitText(projectStoreDefault), hitText(privilegedInstall)],
   };
 }
-
 async function runF008() {
   const index = await readRepoFile("src/main/index.ts");
-  const policy = await readRepoFile("src/main/security/externalUrlPolicy.ts").catch(() => "");
-  const legacyExternalSchema = /const\s+externalUrlSchema[\s\S]{0,500}file:/.test(index);
-  const rawWindowOpenExternal = /setWindowOpenHandler\(\(\{\s*url\s*\}\)\s*=>\s*\{[\s\S]{0,160}shell\.openExternal\(url\)/.test(index);
+  const policy = await readRepoFile("src/main/security/externalUrlPolicy.ts").catch(() => ""), externalNavigation = await readRepoFile("src/main/security/externalNavigationService.ts").catch(() => "");
+  const inspectedSource = `${index}\n${externalNavigation}`;
+  const rawWindowOpenPattern = /setWindowOpenHandler\(\(\{\s*url\s*\}\)\s*=>\s*\{[\s\S]{0,160}shell\.openExternal\(url\)/;
+  const legacyExternalSchema = /const\s+externalUrlSchema[\s\S]{0,500}file:/.test(index), rawWindowOpenExternal = rawWindowOpenPattern.test(inspectedSource);
   const policyRejectsFiles = /Only https links and loopback http links can be opened externally/.test(policy) && !/protocol\s*===\s*["']file:["']/.test(policy);
-  const mainGuard = /installExternalNavigationGuards\(mainWindow/.test(index);
-  const miniGuard = /installExternalNavigationGuards\(miniWindow/.test(index);
+  const hasNavigationGuardOwner = /setWindowOpenHandler/.test(externalNavigation);
+  const mainGuard = /installExternalNavigationGuards\(mainWindow/.test(index) || (/source:\s*["']main-window["']/.test(index) && hasNavigationGuardOwner);
+  const miniGuard = /installExternalNavigationGuards\(miniWindow/.test(index) || (/source:\s*["']thread-mini-window["']/.test(index) && hasNavigationGuardOwner);
   const internalBrowser = await sourceHit("src/main/browser/internalBrowserHost.ts", /assertAllowedInternalBrowserUrl|isAllowedInternalBrowserUrl/);
   const policyHit = await sourceHit("src/main/security/externalUrlPolicy.ts", /parseExternalOpenUrl|Only https links and loopback http links can be opened externally/);
-  const rawOpenHit = await sourceHit("src/main/index.ts", /setWindowOpenHandler\(\(\{\s*url\s*\}\)\s*=>\s*\{[\s\S]{0,160}shell\.openExternal\(url\)/);
-
+  const rawOpenHit = await sourceHit("src/main/security/externalNavigationService.ts", rawWindowOpenPattern);
   return {
     status: legacyExternalSchema || rawWindowOpenExternal || !policyRejectsFiles || !mainGuard || !miniGuard ? "vulnerable" : "not-reproduced",
     summary: `External URL source inspection found legacy file allowlist=${legacyExternalSchema}, raw window openExternal=${rawWindowOpenExternal}, policy rejects file=${policyRejectsFiles}, main guard=${mainGuard}, mini guard=${miniGuard}.`,

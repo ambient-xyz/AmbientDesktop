@@ -8,10 +8,12 @@ import type {
   AmbientRetryPolicy as AmbientRetryPolicyFromAmbient,
 } from "../ambient/ambientProjectBoardContract";
 import {
+  ambientChatCompletionTransportTimeoutsFromEnv as ambientChatCompletionTransportTimeoutsFromEnvFromAmbient,
   callAmbientChatCompletionTextWithRetries as callAmbientChatCompletionTextWithRetriesFromAmbient,
   isAmbientChatCompletionValidationError as isAmbientChatCompletionValidationErrorFromAmbient,
 } from "../ambient/ambientProjectBoardContract";
 import {
+  ambientRetryPolicyFromSettings as ambientRetryPolicyFromSettingsFromAmbient,
   readAmbientEventStreamText as readAmbientEventStreamTextFromAmbient,
 } from "../ambient/ambientProjectBoardContract";
 import {
@@ -23,6 +25,8 @@ import {
 
 export const AmbientStreamFailureError = AmbientStreamFailureErrorFromAmbient;
 export const aggressiveAmbientRetryPolicy = aggressiveAmbientRetryPolicyFromAmbient;
+export const ambientChatCompletionTransportTimeoutsFromEnv = ambientChatCompletionTransportTimeoutsFromEnvFromAmbient;
+export const ambientRetryPolicyFromSettings = ambientRetryPolicyFromSettingsFromAmbient;
 export const callAmbientChatCompletionTextWithRetries = callAmbientChatCompletionTextWithRetriesFromAmbient;
 export const isAmbientChatCompletionValidationError = isAmbientChatCompletionValidationErrorFromAmbient;
 export const isRetryableAmbientProviderError = isRetryableAmbientProviderErrorFromAmbient;

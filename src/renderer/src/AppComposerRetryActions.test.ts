@@ -7,6 +7,7 @@ import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import {
   createAppComposerRetryActions,
   retryPromptAllowed,
+  retryPromptComposerIntent,
   retryPromptContext,
 } from "./AppComposerRetryActions";
 
@@ -51,6 +52,48 @@ describe("App composer retry actions", () => {
       { kind: "file", path: "README.md", name: "README.md", size: 10 },
       { kind: "directory", path: "src", name: "src" },
     ]);
+  });
+
+  it("preserves Symphony composer intent for retry", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { sendMessage } });
+    const controller = createController();
+    const message = retryMessage({
+      composerIntent: {
+        kind: "symphony-workflow",
+        action: "run-once",
+        patternId: "imitate_and_verify",
+        blocking: true,
+        metricCustomizations: {
+          "imitate_and_verify-metric": "Verifier must cite the draft weakness it checked.",
+        },
+      },
+    });
+
+    expect(retryPromptComposerIntent(message)).toEqual({
+      kind: "symphony-workflow",
+      action: "run-once",
+      patternId: "imitate_and_verify",
+      blocking: true,
+      metricCustomizations: {
+        "imitate_and_verify-metric": "Verifier must cite the draft weakness it checked.",
+      },
+    });
+
+    await controller.actions.retryFailedPrompt(message);
+
+    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      composerIntent: {
+        kind: "symphony-workflow",
+        action: "run-once",
+        patternId: "imitate_and_verify",
+        blocking: true,
+        metricCustomizations: {
+          "imitate_and_verify-metric": "Verifier must cite the draft weakness it checked.",
+        },
+      },
+      retryOfMessageId: "message-1",
+    }));
   });
 
   it("sends retry prompts with context and workflow edit metadata", async () => {
@@ -163,7 +206,7 @@ function desktopState(): DesktopState {
   } as DesktopState;
 }
 
-function retryMessage(): ChatMessage {
+function retryMessage(metadata: Record<string, unknown> = {}): ChatMessage {
   return {
     id: "message-1",
     role: "user",
@@ -171,6 +214,7 @@ function retryMessage(): ChatMessage {
     metadata: {
       context: [{ kind: "file", path: "README.md", name: "README.md" }],
       workflowRecordingEditContext: workflowEditContext(),
+      ...metadata,
     },
   } as unknown as ChatMessage;
 }

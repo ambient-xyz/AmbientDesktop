@@ -4,6 +4,7 @@ import type {
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
 } from "../../shared/subagentTypes";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type {
   SubagentChildRuntimeAdapter,
   SubagentRuntimeEventEmitter,
@@ -31,6 +32,7 @@ export const SUBAGENT_BARRIER_DECISION_EXECUTOR_SCHEMA_VERSION =
 
 export interface SubagentBarrierDecisionExecutorStore extends SubagentBarrierControlExecutorStore, SubagentBarrierDecisionWaitBarrierStore {
   getSubagentWaitBarrier(id: string): SubagentWaitBarrierSummary;
+  getCallableWorkflowTask?: (id: string) => CallableWorkflowTaskSummary;
   listSubagentRunEvents(runId: string): SubagentRunEventSummary[];
   appendSubagentRunEvent(
     runId: string,
@@ -83,6 +85,11 @@ export async function executeSubagentBarrierDecision(input: {
   createRuntimeCancelEventEmitter: (run: SubagentRunSummary) => SubagentRuntimeEventEmitter;
   createRuntimeRetryEventEmitter?: (run: SubagentRunSummary) => SubagentRuntimeEventEmitter;
 }): Promise<SubagentBarrierDecisionExecutionResult> {
+  assertCallableWorkflowBridgeBarrierDecisionAllowed({
+    store: input.store,
+    barrier: input.barrier,
+    decision: input.decision,
+  });
   const initialChildRuns = childRunsForBarrier(input.store, input.barrier);
   const existing = initialChildRuns.find((run) =>
     findSubagentRunEventByIdempotencyKey(
@@ -228,6 +235,38 @@ export async function executeSubagentBarrierDecision(input: {
     resolutionArtifact,
     runEvents,
   };
+}
+
+const BACKGROUND_CALLABLE_WORKFLOW_PARENT_SCOPED_DECISIONS = new Set<SubagentBarrierDecision>([
+  "cancel_parent",
+  "detach_child",
+  "fail_parent",
+]);
+
+function assertCallableWorkflowBridgeBarrierDecisionAllowed(input: {
+  store: Pick<SubagentBarrierDecisionExecutorStore, "getCallableWorkflowTask">;
+  barrier: SubagentWaitBarrierSummary;
+  decision: SubagentBarrierDecision;
+}): void {
+  if (!BACKGROUND_CALLABLE_WORKFLOW_PARENT_SCOPED_DECISIONS.has(input.decision)) return;
+  if (input.barrier.ownerKind !== "callable_workflow_symphony_launch_bridge") return;
+  const ownerId = input.barrier.ownerId?.trim();
+  if (!ownerId) {
+    throw new Error(
+      `Cannot resolve Symphony workflow bridge barrier ${input.barrier.id} with ${input.decision}; the owning workflow task is missing.`,
+    );
+  }
+  if (!input.store.getCallableWorkflowTask) {
+    throw new Error(
+      `Cannot resolve Symphony workflow bridge barrier ${input.barrier.id} with ${input.decision}; the owning workflow task cannot be verified.`,
+    );
+  }
+  const task = input.store.getCallableWorkflowTask(ownerId);
+  if (task.blocking !== false) return;
+  throw new Error(
+    `Background callable workflow barrier ${input.barrier.id} cannot use parent-scoped decision ${input.decision}. ` +
+      "Use retry_child or continue_with_partial, or cancel the workflow task itself.",
+  );
 }
 
 function childRunsForBarrier(

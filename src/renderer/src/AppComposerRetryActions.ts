@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { DesktopState } from "../../shared/desktopTypes";
+import type { DesktopState, SendMessageComposerIntent } from "../../shared/desktopTypes";
 import type { ChatMessage, RunStatus } from "../../shared/threadTypes";
 import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { mergeContextAttachments } from "./AppComposerControls";
@@ -21,6 +21,23 @@ export function retryPromptAllowed(input: {
 
 export function retryPromptContext(message: Pick<ChatMessage, "metadata">): WorkspaceContextReference[] {
   return contextReferencesFromMetadata(message.metadata?.context);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function retryPromptComposerIntent(message: Pick<ChatMessage, "metadata">): SendMessageComposerIntent | undefined {
+  const composerIntent = message.metadata?.composerIntent;
+  if (!isRecord(composerIntent)) return undefined;
+  if (
+    composerIntent.kind !== "local-deep-research" &&
+    composerIntent.kind !== "slash-command" &&
+    composerIntent.kind !== "symphony-workflow"
+  ) {
+    return undefined;
+  }
+  return composerIntent as unknown as SendMessageComposerIntent;
 }
 
 export function createAppComposerRetryActions({
@@ -49,6 +66,7 @@ export function createAppComposerRetryActions({
   async function retryFailedPrompt(message: ChatMessage): Promise<void> {
     if (!retryPromptAllowed({ message, running, stateAvailable: Boolean(state) }) || !state) return;
     const context = retryPromptContext(message);
+    const composerIntent = retryPromptComposerIntent(message);
     const workflowRecordingEditContext = workflowRecordingEditContextFromMetadata(message.metadata?.workflowRecordingEditContext);
     setError(undefined);
     setContextError(undefined);
@@ -68,6 +86,7 @@ export function createAppComposerRetryActions({
         delivery: "prompt",
         context,
         ...(workflowRecordingEditContext ? { workflowRecordingEditContext } : {}),
+        ...(composerIntent ? { composerIntent } : {}),
         retryOfMessageId: message.id,
       })
       .catch((err) => {

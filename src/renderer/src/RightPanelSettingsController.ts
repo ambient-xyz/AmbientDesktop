@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { AgentMemoryClearResult } from "../../shared/agentMemoryDiagnostics";
-import type { AgentMemoryStarterOperationKind, AgentMemoryStarterOperationResult, AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
+import type { AgentMemoryStarterEnableInput, AgentMemoryStarterOperationKind, AgentMemoryStarterOperationResult, AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
+import type { AgentMemoryMode } from "../../shared/agentMemorySettings";
 import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
 import type { LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult, VoiceArtifactRetentionSummary, VoiceOnboardingHostFacts } from "../../shared/localRuntimeTypes";
 import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
@@ -57,6 +58,7 @@ type UseRightPanelSettingsControllerInput = {
   onLoadPermissionGrants: () => Promise<void>;
   onLoadVoiceProviders: (trigger?: string) => Promise<void>;
   onRefreshAgentMemoryDiagnostics: () => Promise<void>;
+  onApplyMemorySettingsSnapshot: (memory: DesktopState["settings"]["memory"]) => void;
   onClearAgentMemory: () => Promise<AgentMemoryClearResult>;
   onStartCapabilityBuilder: (prompt: string, newChat: boolean, activityLine?: string) => Promise<CapabilityBuilderPromptResult>;
   onHydrateSearchRoutingSettings: () => void;
@@ -79,6 +81,7 @@ function agentMemoryStarterSettingsRefreshKey(settings: DesktopState["settings"]
   const embeddings = memory.embeddings;
   return [
     settings.featureFlags?.tencentDbMemory ?? "default",
+    memory.mode,
     memory.enabled,
     memory.defaultThreadEnabled,
     memory.adapter,
@@ -95,6 +98,14 @@ function agentMemoryStarterSettingsRefreshKey(settings: DesktopState["settings"]
     embeddings.timeoutMs,
     embeddings.preflightEnabled,
   ].join("|");
+}
+
+export function agentMemoryStarterEnableInputForMode(
+  mode: DesktopState["settings"]["memory"]["mode"],
+): AgentMemoryStarterEnableInput {
+  if (mode === "disabled") return { enableCurrentThread: true, enableNewThreads: true };
+  if (mode === "enabled_all") return { enableCurrentThread: false, enableNewThreads: true };
+  return { enableCurrentThread: false, enableNewThreads: false };
 }
 
 export function useRightPanelSettingsController({
@@ -114,6 +125,7 @@ export function useRightPanelSettingsController({
   onLoadPermissionGrants,
   onLoadVoiceProviders,
   onRefreshAgentMemoryDiagnostics,
+  onApplyMemorySettingsSnapshot,
   onClearAgentMemory,
   onStartCapabilityBuilder,
   onHydrateSearchRoutingSettings,
@@ -307,20 +319,26 @@ export function useRightPanelSettingsController({
     setAgentMemoryStarterStatus(status);
   }
 
-  async function runAgentMemoryStarterOperation(operation: AgentMemoryStarterOperationKind) {
+  async function runAgentMemoryStarterOperation(
+    operation: AgentMemoryStarterOperationKind,
+    targetMode?: AgentMemoryMode,
+  ) {
     setAgentMemoryStarterOperationLoading(operation);
     setAgentMemoryStarterError(undefined);
     try {
-      const enableInput = settings.memory.enabled
-        ? { enableCurrentThread: true, enableNewThreads: settings.memory.defaultThreadEnabled }
-        : { enableCurrentThread: true };
+      const enableInput = agentMemoryStarterEnableInputForMode(targetMode ?? settings.memory.mode);
+      const repairInput = {
+        enableCurrentThread: false,
+        enableNewThreads: settings.memory.mode === "enabled_all",
+      };
       const result = operation === "enable"
         ? await window.ambientDesktop.enableAgentMemoryStarter(enableInput)
         : operation === "repair"
-          ? await window.ambientDesktop.repairAgentMemoryStarter({ enableCurrentThread: true })
+          ? await window.ambientDesktop.repairAgentMemoryStarter(repairInput)
           : await window.ambientDesktop.disableAgentMemoryStarter({});
       setAgentMemoryStarterOperationResult(result);
       setAgentMemoryStarterStatus(result.status);
+      onApplyMemorySettingsSnapshot(result.status.settings.memory);
       await onRefreshAgentMemoryDiagnostics();
     } catch (error) {
       setAgentMemoryStarterError(error instanceof Error ? error.message : String(error));
@@ -606,7 +624,7 @@ export function useRightPanelSettingsController({
     pruneVoiceArtifactRetention,
     loadAgentMemoryStarterStatus,
     applyAgentMemoryStarterStatus,
-    enableAgentMemoryStarterFromSettings: () => runAgentMemoryStarterOperation("enable"),
+    enableAgentMemoryStarterFromSettings: (targetMode?: AgentMemoryMode) => runAgentMemoryStarterOperation("enable", targetMode),
     repairAgentMemoryStarterFromSettings: () => runAgentMemoryStarterOperation("repair"),
     disableAgentMemoryStarterFromSettings: () => runAgentMemoryStarterOperation("disable"),
     requestAgentMemoryClearFromSettings,

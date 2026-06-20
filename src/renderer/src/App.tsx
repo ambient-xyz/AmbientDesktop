@@ -1,49 +1,3 @@
-import {
-  AlertCircle,
-  Bell,
-  BookOpenText,
-  Bot,
-  Brain,
-  CalendarPlus,
-  CalendarClock,
-  ChevronLeft,
-  ChevronRight,
-  Command,
-  Copy,
-  Film,
-  FileCode2,
-  FileImage,
-  Folder,
-  FolderPlus,
-  FolderOpen,
-  GitBranch,
-  Home,
-  Info,
-  Kanban,
-  KeyRound,
-  ListFilter,
-  Maximize2,
-  Minimize2,
-  Mic,
-  Monitor,
-  Moon,
-  Music,
-  PanelLeft,
-  PanelRight,
-  Paperclip,
-  Pin,
-  Plug,
-  Plus,
-  RefreshCw,
-  Search,
-  Settings,
-  Shield,
-  SquarePen,
-  Star,
-  Sun,
-  type LucideIcon,
-} from "lucide-react";
-import { Background, BaseEdge, Controls, EdgeLabelRenderer, getBezierPath, Handle, Position, ReactFlow, ReactFlowProvider, useReactFlow, type EdgeProps } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
   FormEvent,
@@ -61,7 +15,7 @@ import {
   useState,
 } from "react";
 import { flushSync } from "react-dom";
-import { isAmbientSubagentsEnabled } from "../../shared/featureFlags";
+import { isAmbientSubagentsEnabled, isAmbientTencentDbMemoryEnabled } from "../../shared/featureFlags";
 import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import {
   projectBoardActiveCardDetail,
@@ -653,9 +607,10 @@ import { useAppWorkflowRecordingLibraryControls } from "./AppWorkflowRecordingLi
 import { createAppWorkflowRecordingActions } from "./AppWorkflowRecordingActions";
 import { createAppWorkflowRecordingPlaybookActions } from "./AppWorkflowRecordingPlaybookActions";
 import { useAppWorkflowRecordingReviewControls } from "./AppWorkflowRecordingReviewControls";
+import { createAppUpdateActions } from "./AppUpdateActions";
 import { createAppAutomationFolderControls } from "./AppAutomationFolderControls";
 import { createAppBrowserActionControls } from "./AppBrowserActionControls";
-import { createAppSettingsActions } from "./AppSettingsActions";
+import { createAppSettingsActions, desktopStateWithUpdatedSettings } from "./AppSettingsActions";
 import { createAppGitActions } from "./AppGitActions";
 import { createAppThreadMaintenanceActions } from "./AppThreadMaintenanceActions";
 import { createAppProjectBoardActions } from "./AppProjectBoardActions";
@@ -744,7 +699,10 @@ import {
 import {
   type SymphonyWorkflowBuilderDraft,
 } from "./symphonyWorkflowBuilderUiModel";
-import { createAppSymphonyBuilderControls } from "./AppSymphonyBuilderControls";
+import {
+  createAppSymphonyBuilderControls,
+  shouldRouteComposerSubmitThroughSymphony,
+} from "./AppSymphonyBuilderControls";
 import { createAppCapabilityPromptActions } from "./AppCapabilityPromptActions";
 import { createAppPlannerActions } from "./AppPlannerActions";
 import { createAppLocalRuntimeActions } from "./AppLocalRuntimeActions";
@@ -795,7 +753,6 @@ export function App() {
   const {
     togglePanel,
     openPanel,
-    openVoiceSettingsFromStatus,
     openMcpRuntimeSettings,
     openSearchWebSettings,
     openGitSummaryPanel,
@@ -923,7 +880,7 @@ export function App() {
   const [automationPopover, setAutomationPopover] = useState<AutomationPopover | undefined>();
   const [automationsCollapsed, setAutomationsCollapsed] = useState(false);
   const [automationFolders, setAutomationFolders] = useState<AutomationFolderSummary[]>([]);
-  const [automationNavigationError, setAutomationNavigationError] = useState<string | undefined>();
+  const [, setAutomationNavigationError] = useState<string | undefined>();
   const [selectedAutomationPane, setSelectedAutomationPane] = useState<AutomationPane>("home");
   const [selectedAutomationFolderId, setSelectedAutomationFolderId] = useState("home");
   const [selectedAutomationThreadId, setSelectedAutomationThreadId] = useState<string | undefined>();
@@ -1034,12 +991,10 @@ export function App() {
     show: "all",
   });
   const {
-    createAutomationFolder,
     createWorkflowAgentFolder,
     loadAutomationFolders,
     loadWorkflowAgentFolders,
     moveAutomationThread,
-    moveWorkflowAgentThread,
   } = createAppAutomationFolderControls({
     selectedAutomationFolderId,
     selectedAutomationThreadId,
@@ -2203,7 +2158,6 @@ export function App() {
     activeThreadSuppressesProjectBoard,
     projectBoardOpen,
     setProjectBoardOpen,
-    projectBoardPlanBusy,
     setProjectBoardPlanBusy,
     projectBoardPlanPickerOpen,
     setProjectBoardPlanPickerOpen,
@@ -2361,13 +2315,16 @@ export function App() {
     applyLatestWorkflowRecordingSummary,
     archiveWorkflowRecordingPlaybook,
     confirmActiveWorkflowRecordingReview,
+    retryWorkflowRecordingReview,
     restoreWorkflowRecordingVersion,
+    sendWorkflowRecordingReviewPrompt,
     setWorkflowRecordingEnabled,
     startWorkflowRecording,
     stopActiveWorkflowRecording,
     unarchiveWorkflowRecordingPlaybook,
     updateActiveWorkflowRecordingReview,
   } = createAppWorkflowRecordingActions({
+    abortArmed,
     activeThread,
     applyCreatedThreadState,
     applyRunStatusDesktopState,
@@ -2375,13 +2332,15 @@ export function App() {
     refreshWorkflowRecordingLibraryOverride,
     resetPromptHistory,
     resetRunActivityLines,
+    running,
     scheduleComposerDraftFocus: (draft) => {
       window.setTimeout(() => {
         setComposerDraft(draft);
         composerInputRef.current?.focusEnd();
       }, 0);
     },
-    sendWorkflowRecordingReviewPromptForState,
+    setContextAttachments,
+    setContextError,
     setError,
     setRunStatus,
     setSelectedWorkflowRecordingId,
@@ -2409,6 +2368,13 @@ export function App() {
     setSidebarArea,
   });
 
+  const { runUpdateAction } = createAppUpdateActions({
+    setError,
+    setState,
+    setUpdateBusy,
+    setUpdatePopoverOpen,
+  });
+
   function openNewWorkflowComposer(folderId?: string) {
     setSidebarArea("automations");
     setProjectPopover(undefined);
@@ -2426,20 +2392,26 @@ export function App() {
     input: Partial<Pick<ThreadSummary, "collaborationMode" | "model" | "thinkingLevel" | "memoryEnabled">>,
   ) {
     if (!state) return undefined;
+    const threadId = state.activeThreadId;
     const thread = await window.ambientDesktop.updateThreadSettings({
-      threadId: state.activeThreadId,
+      threadId,
       ...input,
     });
-    setState({
-      ...state,
-      threads: state.threads.map((item) => (item.id === thread.id ? thread : item)),
-      settings: {
-        ...state.settings,
-        permissionMode: thread.permissionMode,
-        collaborationMode: thread.collaborationMode,
-        model: thread.model,
-        thinkingLevel: thread.thinkingLevel,
-      },
+    setState((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        threads: current.threads.map((item) => (item.id === thread.id ? thread : item)),
+        settings: current.activeThreadId === thread.id
+          ? {
+              ...current.settings,
+              permissionMode: thread.permissionMode,
+              collaborationMode: thread.collaborationMode,
+              model: thread.model,
+              thinkingLevel: thread.thinkingLevel,
+            }
+          : current.settings,
+      };
     });
     return thread;
   }
@@ -2556,6 +2528,7 @@ export function App() {
         state.activeThreadId,
         Boolean(activeThread?.memoryEnabled),
         state.settings.featureFlags.tencentDbMemory ?? "default",
+        state.settings.memory.mode,
         state.settings.memory.enabled,
         state.settings.memory.defaultThreadEnabled,
         state.settings.memory.shortTermOffloadEnabled,
@@ -2648,7 +2621,6 @@ export function App() {
     duplicateActiveThreadFromTranscript,
     exportActiveChat,
     exportChatPdfThread,
-    exportChatThread,
     exportDiagnostics,
     importDiagnostics,
     recoverActiveThreadContext,
@@ -2755,6 +2727,9 @@ export function App() {
     setGoalMenuOpen,
     setGoalModeArmed,
     setLocalDeepResearchModeArmed,
+    setSymphonyBuilderOpen: (open) => {
+      setSymphonyBuilderDraft((current) => current.open === open ? current : { ...current, open });
+    },
     setState,
     state,
   });
@@ -2779,6 +2754,15 @@ export function App() {
     if (options.focusEnd) {
       window.setTimeout(() => composerInputRef.current?.focusEnd(), 0);
     }
+  }
+
+  function chooseSymphonyPreflightCustom(goal: string): void {
+    const trimmedGoal = goal.trim();
+    const customDraft = trimmedGoal
+      ? `${trimmedGoal}\n\nCustom Symphony pattern: `
+      : "Custom Symphony pattern: ";
+    setComposerDraft(customDraft, { focusEnd: true, clearSlashCommandSelection: true });
+    setContextError("Add enough custom orchestration detail for Symphony to choose one of the six execution patterns, then send again.");
   }
 
   function setSelectedSlashCommand(next: SlashCommandSelection | undefined): void {
@@ -2921,6 +2905,7 @@ export function App() {
     selectSymphonyPattern,
     selectSymphonyStepChoice,
     submitSymphonyBuilderAction,
+    submitSymphonyComposerPrompt,
     toggleSymphonyBuilder,
   } = createAppSymphonyBuilderControls({
     appendRunActivityLine,
@@ -2928,7 +2913,9 @@ export function App() {
     getComposerDraft,
     rememberDesktopState,
     refreshWorkflowRecordingLibraryOverride,
+    setContextError,
     setError,
+    setGoalModeArmed,
     setLocalDeepResearchModeArmed,
     setState,
     setSymphonyBuilderActionBusy,
@@ -2948,7 +2935,10 @@ export function App() {
     setContextError(undefined);
     const next = !localDeepResearchModeArmedRef.current;
     setLocalDeepResearchModeArmed(next);
-    if (next) setGoalModeArmed(false);
+    if (next) {
+      setGoalModeArmed(false);
+      setSymphonyBuilderDraft((current) => current.open ? { ...current, open: false } : current);
+    }
     window.setTimeout(() => composerInputRef.current?.focusEnd(), 0);
   }
 
@@ -2962,6 +2952,21 @@ export function App() {
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (state && shouldRouteComposerSubmitThroughSymphony({
+      subagentUiEnabled,
+      symphonyBuilderOpen: symphonyBuilderDraft.open,
+      localDeepResearchModeArmed: localDeepResearchModeArmedRef.current,
+      slashCommandSelected: Boolean(selectedSlashCommandRef.current),
+      running,
+      goalModeArmed,
+      workflowRecordingReviewFeedbackActive,
+      workflowRecordingEditActive: Boolean(pendingWorkflowRecordingEditContext),
+      composerDraft: getComposerDraft(),
+      collaborationMode: state.settings.collaborationMode,
+    })) {
+      void submitSymphonyComposerPrompt();
+      return;
+    }
     void submitComposerDraft("prompt");
   }
 
@@ -3012,76 +3017,22 @@ export function App() {
     }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+      if (state && shouldRouteComposerSubmitThroughSymphony({
+        subagentUiEnabled,
+        symphonyBuilderOpen: symphonyBuilderDraft.open,
+        localDeepResearchModeArmed: localDeepResearchModeArmedRef.current,
+        slashCommandSelected: Boolean(selectedSlashCommandRef.current),
+        running,
+        goalModeArmed,
+        workflowRecordingReviewFeedbackActive,
+        workflowRecordingEditActive: Boolean(pendingWorkflowRecordingEditContext),
+        composerDraft: getComposerDraft(),
+        collaborationMode: state.settings.collaborationMode,
+      })) {
+        void submitSymphonyComposerPrompt(event.altKey);
+        return;
+      }
       void submitComposerDraft("prompt", event.altKey);
-    }
-  }
-
-  async function sendWorkflowRecordingReviewPrompt(recording = activeThread?.workflowRecording) {
-    if (!state || !recording || recording.status === "recording" || !recording.review?.draft) {
-      setError("Stop the workflow recording before asking Ambient to review the draft playbook.");
-      return;
-    }
-    await sendWorkflowRecordingReviewPromptForState(state.activeThreadId, recording);
-  }
-
-  async function sendWorkflowRecordingReviewPromptForState(
-    threadId: string,
-    recording: WorkflowRecordingState,
-    options: { force?: boolean; activityLine?: string } = {},
-  ) {
-    if (!recording || recording.status === "recording" || !recording.review?.draft) {
-      setError("Workflow recording stopped, but no review draft was available to send to Ambient.");
-      return;
-    }
-    if (running && !options.force) return;
-    setError(undefined);
-    setContextError(undefined);
-    setContextAttachments([]);
-    resetPromptHistory();
-    resetRunActivityLines(options.activityLine ?? "Workflow recording stopped; dedicated review sent to Ambient.", threadId);
-    setRunStatus("starting");
-    setThreadRunStatuses((statuses) => ({ ...statuses, [threadId]: "starting" }));
-    await window.ambientDesktop
-      .requestWorkflowRecordingReview({ threadId })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : String(err));
-        setRunStatus("error");
-      });
-  }
-
-  async function retryWorkflowRecordingReview(recording: WorkflowRecordingState) {
-    if (!state?.activeThreadId || !abortArmed) return;
-    setError(undefined);
-    let aborted = true;
-    await window.ambientDesktop.abortRun(state.activeThreadId).catch((err) => {
-      aborted = false;
-      setError(err instanceof Error ? err.message : String(err));
-    });
-    if (!aborted) return;
-    await sendWorkflowRecordingReviewPromptForState(state.activeThreadId, recording, {
-      force: true,
-      activityLine: "Workflow recording review retry sent to a fresh Ambient session.",
-    });
-  }
-
-  async function runUpdateAction(action: "check" | "download" | "install" | "dismiss") {
-    setUpdateBusy(true);
-    setError(undefined);
-    try {
-      const update =
-        action === "check"
-          ? await window.ambientDesktop.checkForUpdates("manual")
-          : action === "download"
-            ? await window.ambientDesktop.downloadUpdate()
-            : action === "install"
-              ? await window.ambientDesktop.installUpdateAndRestart()
-              : await window.ambientDesktop.dismissUpdateNotification();
-      setState((current) => (current ? { ...current, app: { ...current.app, update } } : current));
-      if (action === "dismiss") setUpdatePopoverOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setUpdateBusy(false);
     }
   }
 
@@ -3367,6 +3318,9 @@ export function App() {
     activeActivity,
     state,
   });
+  const showTopbarThreadMemoryToggle = sidebarArea === "projects" &&
+    activeThread?.kind !== "subagent_child" &&
+    isAmbientTencentDbMemoryEnabled(state.featureFlagSnapshot);
   return (
     <div className={`app-shell ${isMac ? "platform-macos" : ""}`}>
       <DesktopUpdateNotice
@@ -3476,12 +3430,16 @@ export function App() {
           }
           providerHasApiKey={state.provider.hasApiKey}
           providerLabel={state.provider.providerLabel}
+          memoryMode={showTopbarThreadMemoryToggle ? state.settings.memory.mode : undefined}
+          threadMemoryEnabled={Boolean(activeThread?.memoryEnabled)}
+          threadMemoryToggleDisabled={!activeThread}
           projectBoardAction={activeProjectBoardTopbarAction}
           gitReview={activeGitReview}
           gitReviewError={activeGitReviewError}
           rightPanel={rightPanel}
           onShowSidebar={() => setSidebarOpen(true)}
           onOpenApiKey={() => void openApiKeyDialog()}
+          onToggleThreadMemory={showTopbarThreadMemoryToggle ? (enabled) => void updateThreadSettings({ memoryEnabled: enabled }) : undefined}
           onOpenGitSummary={openGitSummaryPanel}
           onTogglePanel={togglePanel}
         />
@@ -3556,6 +3514,7 @@ export function App() {
                 onChangeSymphonyStepCustomText: changeSymphonyStepCustomText,
                 onChangeSymphonyMetric: changeSymphonyMetric,
                 onChangeSymphonyBlocking: changeSymphonyBlocking,
+                onChooseSymphonyPreflightCustom: chooseSymphonyPreflightCustom,
                 onRunSymphonyOnce: () => void submitSymphonyBuilderAction("run-once"),
                 onSaveSymphonyRecipe: () => void submitSymphonyBuilderAction("save-recipe"),
                 onRemoveContextAttachment: removeContextAttachment,
@@ -3695,6 +3654,9 @@ export function App() {
               onRunLocalModelRuntimeLifecycleAction={(input) => runLocalModelRuntimeLifecycleAction(input)}
               onFeatureFlagSettingsChange={(featureFlags) => void updateFeatureFlagSettings(featureFlags)}
               onMemorySettingsChange={(memory) => void updateMemorySettings(memory)}
+              onApplyMemorySettingsSnapshot={(memory) =>
+                setState((current) => current ? desktopStateWithUpdatedSettings(current, "memory", memory) : current)
+              }
               onActiveThreadMemoryEnabledChange={(memoryEnabled) => void updateThreadSettings({ memoryEnabled })}
               onRefreshAgentMemoryDiagnostics={refreshAgentMemoryDiagnostics}
               onRunAgentMemoryEmbeddingLifecycleAction={runAgentMemoryEmbeddingLifecycleAction}

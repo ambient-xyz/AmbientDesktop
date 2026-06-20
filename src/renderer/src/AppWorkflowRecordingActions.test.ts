@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
 import type { WorkflowRecordingLibraryEntry, WorkflowRecordingState } from "../../shared/workflowTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import {
   activeThreadHasWorkflowRecordingStatus,
   activeWorkflowRecordingForState,
@@ -141,6 +142,51 @@ describe("App workflow recording actions", () => {
     expect(activeThreadHasWorkflowRecordingStatus(undefined, "recording")).toBe(false);
   });
 
+  it("sends a stopped workflow recording review request with the existing activity reset behavior", async () => {
+    const requestWorkflowRecordingReview = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { requestWorkflowRecordingReview } });
+    const recording = workflowRecording({ status: "stopped", review: { status: "draft", draft: workflowDraft() } });
+    const controller = createController({
+      activeThread: thread({ workflowRecording: recording }),
+      state: desktopState({ activeThreadId: "thread-1" }),
+    });
+
+    await controller.actions.sendWorkflowRecordingReviewPrompt();
+
+    expect(controller.setError).toHaveBeenCalledWith(undefined);
+    expect(controller.setContextError).toHaveBeenCalledWith(undefined);
+    expect(controller.contextAttachments.value).toEqual([]);
+    expect(controller.resetPromptHistory).toHaveBeenCalledOnce();
+    expect(controller.resetRunActivityLines).toHaveBeenCalledWith(
+      "Workflow recording stopped; dedicated review sent to Ambient.",
+      "thread-1",
+    );
+    expect(controller.runStatus.value).toBe("starting");
+    expect(controller.threadRunStatuses.value).toEqual({ "thread-1": "starting" });
+    expect(requestWorkflowRecordingReview).toHaveBeenCalledWith({ threadId: "thread-1" });
+  });
+
+  it("retries workflow recording review after aborting the active run", async () => {
+    const abortRun = vi.fn(async () => undefined);
+    const requestWorkflowRecordingReview = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { abortRun, requestWorkflowRecordingReview } });
+    const recording = workflowRecording({ status: "stopped", review: { status: "draft", draft: workflowDraft() } });
+    const controller = createController({
+      abortArmed: true,
+      running: true,
+      state: desktopState({ activeThreadId: "thread-1" }),
+    });
+
+    await controller.actions.retryWorkflowRecordingReview(recording);
+
+    expect(abortRun).toHaveBeenCalledWith("thread-1");
+    expect(controller.resetRunActivityLines).toHaveBeenCalledWith(
+      "Workflow recording review retry sent to a fresh Ambient session.",
+      "thread-1",
+    );
+    expect(requestWorkflowRecordingReview).toHaveBeenCalledWith({ threadId: "thread-1" });
+  });
+
   it("keeps archive and version request shapes stable", () => {
     const playbook = workflowPlaybook({ id: "playbook-1", title: "Review invoices", version: 7 });
     expect(workflowRecordingArchiveConfirmation(playbook)).toBe(
@@ -169,11 +215,41 @@ function workflowRecording(overrides: Partial<WorkflowRecordingState> = {}): Wor
   };
 }
 
+function workflowDraft(): NonNullable<WorkflowRecordingState["review"]>["draft"] {
+  return {
+    status: "draft",
+    source: "deterministic_capture",
+    generatedAt: "2026-06-13T00:00:00.000Z",
+    sourceCapturedAt: "2026-06-13T00:00:00.000Z",
+    intent: "Review a stopped workflow",
+    inputs: [],
+    successfulExamples: [],
+    doNot: [],
+    validation: [],
+    outputShape: [],
+    evidenceSummary: {
+      messageCount: 1,
+      toolResultCount: 0,
+      successfulToolResultCount: 0,
+      failedToolResultCount: 0,
+      skippedToolResultCount: 0,
+      permissionBlockedToolResultCount: 0,
+      redactionCount: 0,
+    },
+  };
+}
+
 function createController({
+  abortArmed = false,
+  activeThread,
   createdThreadApplied = true,
+  running = false,
   state = desktopState(),
 }: {
+  abortArmed?: boolean;
+  activeThread?: ThreadSummary;
   createdThreadApplied?: boolean;
+  running?: boolean;
   state?: DesktopState | undefined;
 } = {}) {
   const runStatus = statefulSetter<RunStatus>("idle");
@@ -185,22 +261,26 @@ function createController({
   const resetPromptHistory = vi.fn();
   const resetRunActivityLines = vi.fn();
   const scheduleComposerDraftFocus = vi.fn();
-  const sendWorkflowRecordingReviewPromptForState = vi.fn(async () => undefined);
+  const contextAttachments = statefulSetter<WorkspaceContextReference[]>([]);
+  const setContextError = vi.fn();
   const setError = vi.fn();
   const setSelectedWorkflowRecordingId = vi.fn();
   const setSidebarArea = vi.fn();
 
   return {
     actions: createAppWorkflowRecordingActions({
-      activeThread: undefined,
+      abortArmed,
+      activeThread,
       applyCreatedThreadState,
       applyRunStatusDesktopState,
       closeProjectBoard,
       refreshWorkflowRecordingLibraryOverride,
       resetPromptHistory,
       resetRunActivityLines,
+      running,
       scheduleComposerDraftFocus,
-      sendWorkflowRecordingReviewPromptForState,
+      setContextAttachments: contextAttachments.set,
+      setContextError,
       setError,
       setRunStatus: runStatus.set,
       setSelectedWorkflowRecordingId,
@@ -212,12 +292,13 @@ function createController({
     applyCreatedThreadState,
     applyRunStatusDesktopState,
     closeProjectBoard,
+    contextAttachments,
     refreshWorkflowRecordingLibraryOverride,
     resetPromptHistory,
     resetRunActivityLines,
     runStatus,
     scheduleComposerDraftFocus,
-    sendWorkflowRecordingReviewPromptForState,
+    setContextError,
     setError,
     setSelectedWorkflowRecordingId,
     setSidebarArea,

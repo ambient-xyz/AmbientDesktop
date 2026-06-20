@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS } from "../../shared/symphonyWorkflowRecipes";
+import { SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION } from "../../shared/symphonyPatternPreflight";
 import { createComposerDraftStore } from "./AppComposerControls";
 import { SymphonyWorkflowBuilderPanel, SymphonyWorkflowComposerToggle } from "./SymphonyWorkflowBuilder";
 import { symphonyWorkflowBuilderUiModel, type SymphonyWorkflowBuilderDraft } from "./symphonyWorkflowBuilderUiModel";
@@ -119,6 +120,128 @@ describe("SymphonyWorkflowBuilder", () => {
     expect(panel).toContain("<span class=\"missing\">Verifier criteria</span>");
     expect(panel).toContain("disabled=\"\"");
   });
+
+  it("renders auto-selected preflight rationale, confidence, roles, and expected children", () => {
+    const featureFlagSnapshot = resolveAmbientFeatureFlags({ settings: { subagents: true } });
+    const draft = {
+      open: true,
+      patternId: "map_reduce",
+      goal: "Compare each source packet and synthesize a recommendation.",
+      preflightSelection: {
+        schemaVersion: SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION,
+        source: "auto-selected",
+        patternId: "map_reduce",
+        label: "Map-Reduce",
+        goal: "Compare each source packet and synthesize a recommendation.",
+        confidence: 0.68,
+        rationale: "The request asks Symphony to split comparable inputs, inspect them independently, and reduce the findings.",
+        rolePlan: ["explorer", "summarizer"],
+        expectedChildren: "One explorer child per source packet plus a reducer/summarizer.",
+        candidatePatternIds: ["map_reduce", "pipeline", "ensemble"],
+      },
+      metricCustomizations: {
+        "map_reduce-metric": "Every source packet has a cited summary before reduction.",
+      },
+    } satisfies SymphonyWorkflowBuilderDraft;
+    const model = symphonyWorkflowBuilderUiModel({
+      featureFlagSnapshot,
+      draft,
+    });
+
+    const panel = renderPanel(model, { featureFlagSnapshot, draft });
+
+    expect(panel).toContain("data-pattern-preflight=\"map_reduce\"");
+    expect(panel).toContain("Auto-selected by preflight");
+    expect(panel).toContain("68% confidence");
+    expect(panel).toContain("split comparable inputs");
+    expect(panel).toContain("Role plan: explorer, summarizer");
+    expect(panel).toContain("One explorer child per source packet");
+  });
+
+  it("renders pending preflight clarification as clickable bounded choices", () => {
+    const featureFlagSnapshot = resolveAmbientFeatureFlags({ settings: { subagents: true } });
+    const draft = {
+      open: true,
+      goal: "Help me with this.",
+      preflightClarification: {
+        schemaVersion: SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION,
+        goal: "Help me with this.",
+        question: "Which Symphony pattern should coordinate this request?",
+        candidates: [
+          {
+            patternId: "map_reduce",
+            label: "Map-Reduce",
+            confidenceLabel: "20% confidence",
+            rationale: "Possible wide-analysis fit.",
+            expectedChildren: "Explorer children plus a reducer.",
+          },
+          {
+            patternId: "pipeline",
+            label: "Pipeline",
+            confidenceLabel: "20% confidence",
+            rationale: "Possible staged handoff fit.",
+            expectedChildren: "Stage children with handoff contracts.",
+          },
+        ],
+        customOption: {
+          label: "Custom details",
+          description: "Add custom orchestration details to the request, then send again.",
+        },
+        missingInputs: ["Select a pattern before launch."],
+      },
+    } satisfies SymphonyWorkflowBuilderDraft;
+    const model = symphonyWorkflowBuilderUiModel({
+      featureFlagSnapshot,
+      draft,
+    });
+
+    const panel = renderPanel(model, { featureFlagSnapshot, draft });
+
+    expect(panel).toContain("aria-label=\"Symphony pattern clarification\"");
+    expect(panel).toContain("Which Symphony pattern should coordinate this request?");
+    expect(panel).toContain("data-preflight-choice=\"map_reduce\"");
+    expect(panel).toContain("Map-Reduce · 20% confidence");
+    expect(panel).toContain("data-preflight-choice=\"pipeline\"");
+    expect(panel).toContain("data-preflight-refine=\"custom\"");
+    expect(panel).toContain("Custom details");
+    expect(panel).toContain("Select a pattern before launch.");
+  });
+
+  it("hides stale preflight clarification after the composer goal changes", () => {
+    const featureFlagSnapshot = resolveAmbientFeatureFlags({ settings: { subagents: true } });
+    const draft = {
+      open: true,
+      goal: "Compare each packet and synthesize a recommendation.",
+      preflightClarification: {
+        schemaVersion: SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION,
+        goal: "Help me with this.",
+        question: "Which Symphony pattern should coordinate this request?",
+        candidates: [
+          {
+            patternId: "map_reduce",
+            label: "Map-Reduce",
+            confidenceLabel: "20% confidence",
+            rationale: "Possible wide-analysis fit.",
+            expectedChildren: "Explorer children plus a reducer.",
+          },
+        ],
+        customOption: {
+          label: "Custom details",
+          description: "Add custom orchestration details to the request, then send again.",
+        },
+        missingInputs: ["Select a pattern before launch."],
+      },
+    } satisfies SymphonyWorkflowBuilderDraft;
+    const model = symphonyWorkflowBuilderUiModel({
+      featureFlagSnapshot,
+      draft,
+    });
+
+    const panel = renderPanel(model, { featureFlagSnapshot, draft });
+
+    expect(panel).not.toContain("aria-label=\"Symphony pattern clarification\"");
+    expect(panel).not.toContain("data-preflight-choice=\"map_reduce\"");
+  });
 });
 
 function renderPanel(
@@ -140,6 +263,7 @@ function renderPanel(
       onChangeStepCustomText={() => undefined}
       onChangeMetric={() => undefined}
       onChangeBlocking={() => undefined}
+      onChoosePreflightCustom={() => undefined}
       onRunOnce={() => undefined}
       onSaveRecipe={() => undefined}
       actionBusy={options.actionBusy}

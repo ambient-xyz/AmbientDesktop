@@ -21,7 +21,10 @@ import { registerPluginToolingDomainIpc } from "./registerPluginToolingDomainIpc
 
 import { registerOrchestrationDomainIpc } from "./registerOrchestrationDomainIpc";
 
-import { registerProjectBoardDomainIpc } from "./registerProjectBoardDomainIpc";
+import {
+  registerProjectBoardDomainIpc,
+  type RegisterProjectBoardDomainIpcDependencies,
+} from "./registerProjectBoardDomainIpc";
 
 import { registerProjectNavigationDomainIpc } from "./registerProjectNavigationDomainIpc";
 
@@ -70,11 +73,6 @@ export interface RegisterMainIpcDependencies extends SettingsDomainServices, Rec
   requireProjectRuntimeHostForPermissionGrant: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForPermissionGrantInput: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForPlannerPlanArtifact: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForProjectBoard: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForProjectBoardCard: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForProjectBoardQuestion: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForProjectBoardSource: ProjectRuntimeHostLookup;
-  requireProjectRuntimeHostForProjectBoardSynthesisProposal: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForSubagentRun: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForSubagentWaitBarrier: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForThread: ProjectRuntimeHostLookup;
@@ -86,6 +84,7 @@ export interface RegisterMainIpcDependencies extends SettingsDomainServices, Rec
   requireProjectRuntimeHostForWorkflowRun: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForWorkflowThread: ProjectRuntimeHostLookup;
   requireProjectRuntimeHostForWorkflowVersion: ProjectRuntimeHostLookup;
+  projectBoardDesktopIpcDependencies: Omit<RegisterProjectBoardDomainIpcDependencies, "handleIpc">;
   projectRuntimeHostForTerminal: (...args: any[]) => ProjectRuntimeHost | undefined;
   projectRuntimeHostForWorkflowRun: (...args: any[]) => ProjectRuntimeHost | undefined;
   projectRuntimeHostForWorkspacePath: (...args: any[]) => ProjectRuntimeHost | undefined;
@@ -113,17 +112,13 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     ambientRetryPolicyFromSettings,
     answerWorkflowDiscoveryQuestion,
     app,
-    applyProjectBoardGitProjectionAndBroadcast,
-    applyProjectBoardLiveSynthesis,
     archiveProjectChats,
-    assertProjectBoardMutationAllowedForActiveThread,
     assertTrustedMainWindowIpc,
     attachWorktreeForThread,
     browserLoginBrokerEnabled,
     buildContainerRuntimeInstallPlanFromProbe,
     buildWorkflowDebugRewritePromptSection,
     buildWorkflowRecoveryPlan,
-    claimProjectBoardGitCardArtifacts,
     classifyToolPermission,
     clearPiExtensionSandboxHistory,
     clearPiPrivilegedPackageHistory,
@@ -131,7 +126,6 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     clipboard,
     codexPluginTrustFingerprint,
     commitGit,
-    commitProjectBoardGitArtifacts,
     compileWorkflowArtifact,
     createAndRecordCheckpoint,
     createChatExportBundle,
@@ -142,7 +136,6 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     createMcpInstallCatalog,
     createPermanentWorktree,
     createPrivilegedActionAdapter,
-    createProjectBoardForProjectHost,
     createPullRequestUrl,
     createWorkflowDebugRewriteRevision,
     createWorkflowDiscoveryProvider,
@@ -178,8 +171,6 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     ensureWorkflowPluginTrusted,
     executeContainerRuntimeManagedInstallAction,
     existsSync,
-    expireProjectBoardGitCardClaimArtifacts,
-    exportProjectBoardGitArtifacts,
     fetchGit,
     firstPartyWorkflowConnectorAccountAuthorizer,
     firstPartyWorkflowConnectorDescriptors,
@@ -191,7 +182,6 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     generatePlannerDurableArtifact,
     getAmbientProviderStatus,
     getAppLogs,
-    getProjectBoardGitSyncStatus,
     getWorkspaceDiff,
     getWorkspaceGitStatus,
     googleWorkspaceCliInstaller,
@@ -231,7 +221,6 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     parseExternalOpenUrl,
     parseThreadPermissionModeChange,
     parseThreadSettingsUpdate,
-    pauseProjectBoardSynthesisForProjectHost,
     permanentWorktreeBranchName,
     permissionGrantTargetHash,
     permissionGrantWorkspacePath,
@@ -248,13 +237,12 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     probeAmbientMcpContainerRuntimeStatus,
     probeContainerRuntime,
     projectRegistry,
+    projectBoardDesktopIpcDependencies,
     projectRuntimeHostForTerminal,
     projectRuntimeHostForWorkflowRun,
     projectRuntimeHostForWorkspacePath,
     pullGit,
-    pullProjectBoardGitArtifacts,
     pushGit,
-    pushProjectBoardGitArtifacts,
     readActiveLocalFilePreview,
     readActiveWorkspaceFile,
     readAmbientApiKey,
@@ -275,22 +263,14 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     recordBrowserProfileAudit,
     recordContainerRuntimeDeferred,
     recordContainerRuntimeInstallLaunched,
-    recordProjectBoardSynthesisSectionDecision,
     recordWorkflowRevisionDecisionInChat,
     redactGoogleWorkspaceSetupState,
-    refineProjectBoardSynthesisForProjectHost,
     refreshGoogleWorkspaceConnectorMode,
-    refreshProjectBoardSourcesForProjectHost,
-    regenerateProjectBoardDecisionDrafts,
-    regenerateProjectBoardSourceDrafts,
-    releaseProjectBoardGitCardClaimArtifacts,
     rememberActiveWorkflowRun,
     rendererLocalPreviewServers,
     repairProjectBoardWorkflow,
     requestPermissionWithGrantRegistry,
     requireActiveProjectRuntimeHost,
-    requireProjectBoardDogfoodTestHook,
-    requireProjectBoardForAction,
     requireProjectRuntimeHostForAutomationSchedule,
     requireProjectRuntimeHostForAutomationScheduleTarget,
     requireProjectRuntimeHostForAutomationThread,
@@ -301,11 +281,6 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     requireProjectRuntimeHostForPermissionGrant,
     requireProjectRuntimeHostForPermissionGrantInput,
     requireProjectRuntimeHostForPlannerPlanArtifact,
-    requireProjectRuntimeHostForProjectBoard,
-    requireProjectRuntimeHostForProjectBoardCard,
-    requireProjectRuntimeHostForProjectBoardQuestion,
-    requireProjectRuntimeHostForProjectBoardSource,
-    requireProjectRuntimeHostForProjectBoardSynthesisProposal,
     requireProjectRuntimeHostForSubagentRun,
     requireProjectRuntimeHostForSubagentWaitBarrier,
     requireProjectRuntimeHostForThread,
@@ -317,11 +292,9 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     requireProjectRuntimeHostForWorkflowRun,
     requireProjectRuntimeHostForWorkflowThread,
     requireProjectRuntimeHostForWorkflowVersion,
-    rerunProjectBoardProof,
     resetProjectRuntimeAndPluginServers,
     resetRuntimeAndPluginServers,
     resolveLocalFilePath,
-    resolveProjectBoardGitCardClaimConflictsArtifacts,
     resolveRegisteredProjectPathForHost,
     resolveSubagentApprovalDecision,
     resolveWorkflowApproval,
@@ -330,7 +303,6 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     restartProjectRuntimeMcpRuntime,
     restoreLatestGitCheckpoint,
     restoreWorkflowVersion,
-    retryProjectBoardSynthesisForProjectHost,
     revalidateWorkflowArtifact,
     reviewFinishedProjectBoardRun,
     reviewWorkflowArtifact,
@@ -343,15 +315,10 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     saveCapabilityBuilderEnvSecret,
     saveMcpServerEnvSecret,
     scanPiPrivilegedPackage,
-    scheduleAutoDispatch,
     searchRoutingSettings,
     searchWorkflowDiscoveryCapabilities,
     searchWorkspace,
     secureInputs,
-    seedProjectBoardCanonicalProjectionDogfoodForProjectHost,
-    seedProjectBoardDeliverableIntegrationDogfoodForProjectHost,
-    seedProjectBoardProofJudgmentDogfoodForProjectHost,
-    seedProjectBoardSemanticIdleDogfoodRun,
     selectAmbientCliPackageForSecret,
     setAutoDispatchEnabled,
     setProjectHostActiveThreadId,
@@ -359,15 +326,11 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
     stageAllGitFiles,
     stageGitFile,
     startPreparedOrchestrationRun,
-    startProjectBoardSynthesisAfterPlanPromotion,
     startWorkflowDiscovery,
     startWorkflowRevisionDiscovery,
     stopManagedDevServer,
     stopProjectRuntimeMcpRuntime,
     store,
-    suggestProjectBoardClarificationDefaults,
-    suggestProjectBoardKickoffDefaults,
-    suggestProjectBoardProof,
     switchWorkspace,
     switchWorkspaceBranch,
     terminalStartTokens,
@@ -486,48 +449,7 @@ export function registerMainIpc(deps: RegisterMainIpcDependencies): void {
 
     registerProjectBoardDomainIpc({
       handleIpc,
-      applyProjectBoardGitProjectionAndBroadcast,
-      applyProjectBoardLiveSynthesis,
-      assertProjectBoardMutationAllowedForActiveThread,
-      claimProjectBoardGitCardArtifacts,
-      commitProjectBoardGitArtifacts,
-      createProjectBoardForProjectHost,
-      emitProjectStateIfActive,
-      expireProjectBoardGitCardClaimArtifacts,
-      exportProjectBoardGitArtifacts,
-      getProjectBoardGitSyncStatus,
-      pauseProjectBoardSynthesisForProjectHost,
-      pullProjectBoardGitArtifacts,
-      pushProjectBoardGitArtifacts,
-      readStateForProjectHostAction,
-      recordProjectBoardSynthesisSectionDecision,
-      refineProjectBoardSynthesisForProjectHost,
-      refreshProjectBoardSourcesForProjectHost,
-      regenerateProjectBoardDecisionDrafts,
-      regenerateProjectBoardSourceDrafts,
-      releaseProjectBoardGitCardClaimArtifacts,
-      requireProjectBoardDogfoodTestHook,
-      requireProjectBoardForAction,
-      requireProjectRuntimeHostForOrchestrationTask,
-      requireProjectRuntimeHostForPlannerPlanArtifact,
-      requireProjectRuntimeHostForProjectBoard,
-      requireProjectRuntimeHostForProjectBoardCard,
-      requireProjectRuntimeHostForProjectBoardQuestion,
-      requireProjectRuntimeHostForProjectBoardSource,
-      requireProjectRuntimeHostForProjectBoardSynthesisProposal,
-      rerunProjectBoardProof,
-      resolveProjectBoardGitCardClaimConflictsArtifacts,
-      retryProjectBoardSynthesisForProjectHost,
-      scheduleAutoDispatch,
-      seedProjectBoardCanonicalProjectionDogfoodForProjectHost,
-      seedProjectBoardDeliverableIntegrationDogfoodForProjectHost,
-      seedProjectBoardProofJudgmentDogfoodForProjectHost,
-      seedProjectBoardSemanticIdleDogfoodRun,
-      setProjectHostActiveThreadId,
-      startProjectBoardSynthesisAfterPlanPromotion,
-      suggestProjectBoardClarificationDefaults,
-      suggestProjectBoardKickoffDefaults,
-      suggestProjectBoardProof,
+      ...projectBoardDesktopIpcDependencies,
     });
 
     registerProjectThreadDomainIpc({

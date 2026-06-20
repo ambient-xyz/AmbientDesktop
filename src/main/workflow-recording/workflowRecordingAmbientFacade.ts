@@ -12,6 +12,14 @@ export {
   searchAmbientWorkflowPlaybooks,
 } from "../ambient/ambientWorkflowRecordingContract";
 export type {
+  AmbientWorkflowPlaybookDescription,
+  AmbientWorkflowPlaybookInjection,
+  AmbientWorkflowsArchiveInput,
+  AmbientWorkflowsDescribeInput,
+  AmbientWorkflowsInjectInput,
+  AmbientWorkflowsRestoreVersionInput,
   AmbientWorkflowsSearchInput,
   AmbientWorkflowsSearchResponse,
+  AmbientWorkflowsUnarchiveInput,
+  AmbientWorkflowsUpdateInput,
 } from "../ambient/ambientWorkflowRecordingContract";

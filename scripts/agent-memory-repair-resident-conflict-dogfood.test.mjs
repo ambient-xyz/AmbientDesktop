@@ -37,10 +37,9 @@ describe("Agent Memory repair Desktop dogfood harness wiring", () => {
     expect(scenario).not.toContain("tmpManagedRootCandidates");
     expect(scenario).not.toContain("ambient-desktop-managed-installs");
     expect(scenario).toContain("--remote-debugging-port");
-    expect(scenario).toContain("Enable Agent Memory setup");
-    expect(scenario).toContain("Repair Agent Memory setup");
-    expect(scenario).toContain("Disable Agent Memory setup");
-    expect(scenario).toContain("Repair can stop the orphaned Ambient memory embedding runtime");
+    expect(scenario).toContain("Repair Agent Memory health");
+    expect(scenario).toContain("setMemoryModeFromUi");
+    expect(scenario).toContain("Agent Memory mode");
     expect(scenario).toContain("Ambient will not stop external or active llama.cpp runtimes automatically");
     expect(scenario).toContain("Ambient will not stop it automatically");
     expect(scenario).toContain("resident-cleanup");

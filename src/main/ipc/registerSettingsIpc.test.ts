@@ -570,6 +570,7 @@ function registerWithFakes() {
       slashCommands: Boolean(input.slashCommands),
     })),
     updateMemorySettings: vi.fn(async (input): Promise<AgentMemorySettings> => ({
+      mode: input.mode ?? (input.enabled === false ? "disabled" : input.defaultThreadEnabled === false ? "per_thread" : "enabled_all"),
       enabled: Boolean(input.enabled),
       defaultThreadEnabled: Boolean(input.defaultThreadEnabled),
       adapter: input.adapter ?? "tencentdb",
@@ -696,6 +697,7 @@ function sampleAgentMemoryStarterStatus(): AgentMemoryStarterStatus {
     settings: {
       featureFlags: { tencentDbMemory: true },
       memory: {
+        mode: "per_thread",
         enabled: true,
         defaultThreadEnabled: false,
         adapter: "tencentdb",

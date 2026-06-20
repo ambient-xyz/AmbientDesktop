@@ -9,6 +9,7 @@ import type {
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
 } from "../../shared/subagentTypes";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import {
   executeSubagentBarrierDecision,
   SUBAGENT_BARRIER_DECISION_EXECUTOR_SCHEMA_VERSION,
@@ -587,11 +588,46 @@ describe("subagentBarrierDecisionExecutor", () => {
       }),
     });
   });
+
+  it("rejects parent-scoped decisions for background callable workflow bridge barriers", async () => {
+    const child = run({ id: "child-a", status: "failed" });
+    const barrier = waitBarrier({
+      id: "barrier-background",
+      childRunIds: [child.id],
+      status: "failed",
+      ownerKind: "callable_workflow_symphony_launch_bridge",
+      ownerId: "workflow-task-background",
+    });
+    const store = fakeStore({
+      runs: [child],
+      waitBarriers: [barrier],
+      callableWorkflowTasks: [callableWorkflowTask({
+        id: "workflow-task-background",
+        blocking: false,
+      })],
+    });
+
+    await expect(executeSubagentBarrierDecision({
+      store,
+      barrier,
+      decision: "cancel_parent",
+      userDecision: "Stop the whole parent run.",
+      idempotencyKey: "barrier:background-cancel-parent",
+      toolCallId: "tool-background-cancel-parent",
+      now: "2026-06-06T12:00:00.000Z",
+      createRuntimeCancelEventEmitter: vi.fn(() => vi.fn()),
+    })).rejects.toThrow("Background callable workflow barrier barrier-background cannot use parent-scoped decision cancel_parent");
+
+    expect(store.markSubagentRunStatus).not.toHaveBeenCalled();
+    expect(store.updateSubagentWaitBarrierStatus).not.toHaveBeenCalled();
+    expect(store.appendSubagentParentMailboxEvent).not.toHaveBeenCalled();
+  });
 });
 
 function fakeStore(input: {
   runs: SubagentRunSummary[];
   waitBarriers: SubagentWaitBarrierSummary[];
+  callableWorkflowTasks?: CallableWorkflowTaskSummary[];
   runEvents?: SubagentRunEventSummary[];
   mailboxEvents?: SubagentMailboxEventSummary[];
   parentMailboxEvents?: SubagentParentMailboxEventSummary[];
@@ -607,9 +643,11 @@ function fakeStore(input: {
   appendSubagentRunEvent: ReturnType<typeof vi.fn>;
   appendSubagentParentMailboxEvent: ReturnType<typeof vi.fn>;
   addMessage: ReturnType<typeof vi.fn>;
+  getCallableWorkflowTask: ReturnType<typeof vi.fn>;
 } {
   const runs = new Map(input.runs.map((childRun) => [childRun.id, childRun]));
   const waitBarriers = new Map(input.waitBarriers.map((barrier) => [barrier.id, barrier]));
+  const callableWorkflowTasks = new Map((input.callableWorkflowTasks ?? []).map((task) => [task.id, task]));
   const runEvents = [...(input.runEvents ?? [])];
   const mailboxEvents = new Map((input.mailboxEvents ?? []).map((event) => [event.id, event]));
   const parentMailboxEvents = [...(input.parentMailboxEvents ?? [])];
@@ -742,6 +780,11 @@ function fakeStore(input: {
     content: string;
     metadata?: Record<string, unknown>;
   }) => message);
+  const getCallableWorkflowTask = vi.fn((taskId: string): CallableWorkflowTaskSummary => {
+    const task = callableWorkflowTasks.get(taskId);
+    if (!task) throw new Error(`Unknown callable workflow task ${taskId}`);
+    return task;
+  });
 
   return {
     getSubagentRun,
@@ -755,7 +798,29 @@ function fakeStore(input: {
     appendSubagentRunEvent,
     appendSubagentParentMailboxEvent,
     addMessage,
+    getCallableWorkflowTask,
   };
+}
+
+function callableWorkflowTask(overrides: Partial<CallableWorkflowTaskSummary> = {}): CallableWorkflowTaskSummary {
+  return {
+    id: "workflow-task",
+    launchId: "workflow-launch",
+    parentThreadId: "parent-thread",
+    parentRunId: "parent-run",
+    title: "Callable workflow",
+    status: "paused",
+    statusLabel: "Paused",
+    toolId: "workflow-tool",
+    toolName: "ambient_workflow_symphony_map_reduce",
+    toolCallId: "workflow-tool-call",
+    sourceKind: "symphony_recipe",
+    blocking: true,
+    featureFlagSnapshot: { ambientSubagents: true, generatedAt: "2026-06-06T12:00:00.000Z" },
+    createdAt: "2026-06-06T12:00:00.000Z",
+    updatedAt: "2026-06-06T12:00:00.000Z",
+    ...overrides,
+  } as CallableWorkflowTaskSummary;
 }
 
 function run(overrides: {

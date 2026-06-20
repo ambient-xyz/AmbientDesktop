@@ -3,6 +3,7 @@ import type {
   SubagentRunSummary,
   SubagentWaitBarrierSummary,
 } from "../../shared/subagentTypes";
+import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type {
   SubagentParentPolicyResolution,
 } from "./subagentParentPolicyResolution";
@@ -21,6 +22,7 @@ export const SUBAGENT_WAIT_BARRIER_ATTENTION_RECORDER_SCHEMA_VERSION =
   "ambient-subagent-wait-barrier-attention-recorder-v1" as const;
 
 export interface SubagentWaitBarrierAttentionRecorderStore {
+  listCallableWorkflowTasksForParentRun?(parentRunId: string): CallableWorkflowTaskSummary[];
   appendSubagentParentMailboxEvent(input: {
     parentThreadId: string;
     parentRunId: string;
@@ -45,6 +47,18 @@ export function recordSubagentWaitBarrierAttentionParentMailboxIfNeeded(input: {
   parentResolution: SubagentParentPolicyResolution;
 }): SubagentParentMailboxEventSummary | undefined {
   if (!shouldRecordSubagentWaitBarrierAttention(input)) return undefined;
-  const draft = buildSubagentWaitBarrierAttentionParentMailboxDraft(input);
+  const draft = buildSubagentWaitBarrierAttentionParentMailboxDraft({
+    ...input,
+    backgroundCallableWorkflowTask: waitBarrierBelongsToBackgroundCallableWorkflowTask(input.store, input.waitBarrier),
+  });
   return input.store.appendSubagentParentMailboxEvent(draft.parentMailboxInput);
+}
+
+function waitBarrierBelongsToBackgroundCallableWorkflowTask(
+  store: SubagentWaitBarrierAttentionRecorderStore,
+  waitBarrier: SubagentWaitBarrierSummary,
+): boolean {
+  if (waitBarrier.ownerKind !== "callable_workflow_symphony_launch_bridge" || !waitBarrier.ownerId) return false;
+  return (store.listCallableWorkflowTasksForParentRun?.(waitBarrier.parentRunId) ?? [])
+    .some((task) => task.id === waitBarrier.ownerId && task.blocking === false);
 }

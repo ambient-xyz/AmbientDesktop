@@ -285,18 +285,24 @@ const agentMemoryStarterEmbeddingSettingsSchema = z.object({
   preflightEnabled: z.boolean(),
 });
 
+const agentMemoryStarterMemorySettingsSchema = z.object({
+  mode: z.enum(["enabled_all", "per_thread", "disabled"]).optional(),
+  enabled: z.boolean(),
+  defaultThreadEnabled: z.boolean(),
+  adapter: z.literal("tencentdb"),
+  shortTermOffloadEnabled: z.boolean(),
+  embeddings: agentMemoryStarterEmbeddingSettingsSchema,
+  storageScope: z.literal("workspace"),
+}).transform((memory) => ({
+  ...memory,
+  mode: memory.mode ?? (!memory.enabled ? "disabled" : memory.defaultThreadEnabled ? "enabled_all" : "per_thread"),
+}));
+
 const agentMemoryStarterSettingsSchema = z.object({
   featureFlags: z.object({
     tencentDbMemory: z.boolean(),
   }),
-  memory: z.object({
-    enabled: z.boolean(),
-    defaultThreadEnabled: z.boolean(),
-    adapter: z.literal("tencentdb"),
-    shortTermOffloadEnabled: z.boolean(),
-    embeddings: agentMemoryStarterEmbeddingSettingsSchema,
-    storageScope: z.literal("workspace"),
-  }),
+  memory: agentMemoryStarterMemorySettingsSchema,
 });
 
 const agentMemoryStarterAssetStatusSchema = z.object({

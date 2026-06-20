@@ -1,5 +1,6 @@
 import type { CallableWorkflowTaskStatus, CallableWorkflowTaskSummary, CreateWorkflowAgentThreadInput, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowDashboard, WorkflowRunStatus, WorkflowRunSummary } from "../../shared/workflowTypes";
 import type { CallableWorkflowCompilerHandoffPlan } from "./callableWorkflowTaskQueue";
+import { canBeginCallableWorkflowCompilerHandoff } from "../../shared/callableWorkflowTaskGuards";
 import {
   workflowCompilerCallableInvocationContextFromRunnerInput,
   type WorkflowCompilerCallableInvocationContext,
@@ -31,6 +32,13 @@ export interface CallableWorkflowRunnerStore {
     errorMessage?: string;
     createdAt?: string;
   }): CallableWorkflowTaskSummary;
+  pauseCallableWorkflowTask(input: {
+    id: string;
+    statusLabel: string;
+    runnerDeferredReason: string;
+    errorMessage?: string;
+    createdAt?: string;
+  }): CallableWorkflowTaskSummary;
   failCallableWorkflowTask(input: {
     id: string;
     errorMessage: string;
@@ -43,6 +51,7 @@ export interface CallableWorkflowRunnerCompileInput {
   handoffPlan: CallableWorkflowCompilerHandoffPlan;
   workflowThread: WorkflowAgentThreadSummary;
   callableWorkflowInvocation: WorkflowCompilerCallableInvocationContext;
+  launchBridgeEvidence?: unknown;
 }
 
 export interface CallableWorkflowRunnerRunInput extends CallableWorkflowRunnerCompileInput {
@@ -54,10 +63,28 @@ export interface ExecuteCallableWorkflowTaskInput {
   store: CallableWorkflowRunnerStore;
   taskId: string;
   createWorkflowThread(input: CreateWorkflowAgentThreadInput): WorkflowAgentThreadSummary;
+  launchWorkflowSubagents?(input: CallableWorkflowRunnerCompileInput): Promise<CallableWorkflowSubagentLaunchResult | void>;
   compileWorkflowTask(input: CallableWorkflowRunnerCompileInput): Promise<WorkflowDashboard>;
   runWorkflowTask(input: CallableWorkflowRunnerRunInput): Promise<WorkflowDashboard>;
   createdAt?: string;
 }
+
+export type CallableWorkflowSubagentLaunchResult =
+  | {
+      status: "ready";
+      task?: CallableWorkflowTaskSummary;
+      launchBridgeEvidence?: unknown;
+    }
+  | {
+      status: "blocked";
+      task: CallableWorkflowTaskSummary;
+      launchBridgeEvidence?: unknown;
+    }
+  | {
+      status: "terminal";
+      task: CallableWorkflowTaskSummary;
+      launchBridgeEvidence?: unknown;
+    };
 
 export interface ExecuteCallableWorkflowTaskResult {
   schemaVersion: typeof CALLABLE_WORKFLOW_RUNNER_BRIDGE_SCHEMA_VERSION;
@@ -86,7 +113,7 @@ export async function executeCallableWorkflowTask(
   input: ExecuteCallableWorkflowTaskInput,
 ): Promise<ExecuteCallableWorkflowTaskResult> {
   const current = input.store.getCallableWorkflowTask(input.taskId);
-  if (!["queued", "compiling"].includes(current.status)) {
+  if (!canBeginCallableWorkflowCompilerHandoff(current)) {
     return {
       schemaVersion: CALLABLE_WORKFLOW_RUNNER_BRIDGE_SCHEMA_VERSION,
       task: current,
@@ -104,8 +131,44 @@ export async function executeCallableWorkflowTask(
       initialRequest: handoffPlan.compiler.workflowThreadInitialRequest,
       phase: "compiling",
     });
-    const callableWorkflowInvocation = workflowCompilerCallableInvocationContextFromRunnerInput({ task, handoffPlan });
-    const compileDashboard = await input.compileWorkflowTask({ task, handoffPlan, workflowThread, callableWorkflowInvocation });
+    const initialCallableWorkflowInvocation = workflowCompilerCallableInvocationContextFromRunnerInput({ task, handoffPlan });
+    const launchResult = await input.launchWorkflowSubagents?.({
+      task,
+      handoffPlan,
+      workflowThread,
+      callableWorkflowInvocation: initialCallableWorkflowInvocation,
+    });
+    if (launchResult?.status === "blocked") {
+      return {
+        schemaVersion: CALLABLE_WORKFLOW_RUNNER_BRIDGE_SCHEMA_VERSION,
+        task: launchResult.task,
+        handoffPlan,
+        workflowThread,
+        status: "paused",
+      };
+    }
+    if (launchResult?.status === "terminal") {
+      return {
+        schemaVersion: CALLABLE_WORKFLOW_RUNNER_BRIDGE_SCHEMA_VERSION,
+        task: launchResult.task,
+        handoffPlan,
+        workflowThread,
+        status: callableWorkflowRunnerResultStatus(launchResult.task.status),
+      };
+    }
+    const taskAfterLaunch = launchResult?.task ?? input.store.getCallableWorkflowTask(task.id);
+    const callableWorkflowInvocation = workflowCompilerCallableInvocationContextFromRunnerInput({
+      task: taskAfterLaunch,
+      handoffPlan,
+      launchBridgeEvidence: launchResult?.launchBridgeEvidence,
+    });
+    const compileDashboard = await input.compileWorkflowTask({
+      task: taskAfterLaunch,
+      handoffPlan,
+      workflowThread,
+      callableWorkflowInvocation,
+      launchBridgeEvidence: launchResult?.launchBridgeEvidence,
+    });
     const artifact = latestCallableWorkflowArtifactForThread(compileDashboard, workflowThread.id);
     if (!artifact) {
       throw new Error(`Callable workflow task ${task.id} compiler completed without a workflow artifact.`);

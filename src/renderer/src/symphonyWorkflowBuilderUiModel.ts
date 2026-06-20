@@ -17,6 +17,11 @@ import {
   type SymphonyWorkflowPatternId,
   type SymphonyWorkflowRecipePreset,
 } from "../../shared/symphonyWorkflowRecipes";
+import {
+  SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION,
+  type SymphonyPatternPreflightCandidate,
+  type SymphonyPatternPreflightResult,
+} from "../../shared/symphonyPatternPreflight";
 import type { CallableWorkflowLaunchCardSummary } from "../../shared/workflowTypes";
 
 export interface SymphonyWorkflowBuilderDraftChoice {
@@ -27,10 +32,43 @@ export interface SymphonyWorkflowBuilderDraftChoice {
 export interface SymphonyWorkflowBuilderDraft {
   open?: boolean;
   patternId?: SymphonyWorkflowPatternId;
+  preflightSelection?: SymphonyWorkflowBuilderPreflightSelection;
+  preflightClarification?: SymphonyWorkflowBuilderPreflightClarification;
   goal?: string;
   blocking?: boolean;
   stepAnswers?: Record<string, SymphonyWorkflowBuilderDraftChoice>;
   metricCustomizations?: Record<string, string>;
+}
+
+export interface SymphonyWorkflowBuilderPreflightSelection {
+  schemaVersion: typeof SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION;
+  source: "auto-selected";
+  patternId: SymphonyWorkflowPatternId;
+  label: string;
+  goal: string;
+  confidence: number;
+  rationale: string;
+  rolePlan: string[];
+  expectedChildren: string;
+  candidatePatternIds: SymphonyWorkflowPatternId[];
+}
+
+export interface SymphonyWorkflowBuilderPreflightClarification {
+  schemaVersion: typeof SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION;
+  goal: string;
+  question: string;
+  candidates: Array<{
+    patternId: SymphonyWorkflowPatternId;
+    label: string;
+    confidenceLabel: string;
+    rationale: string;
+    expectedChildren: string;
+  }>;
+  customOption: {
+    label: string;
+    description: string;
+  };
+  missingInputs: string[];
 }
 
 export interface SymphonyWorkflowBuilderToggleModel {
@@ -55,6 +93,13 @@ export interface SymphonyWorkflowBuilderPatternCardModel {
   metricLabel: string;
   riskLabel: string;
   budgetLabel: string;
+  preflightSelection?: {
+    sourceLabel: string;
+    confidenceLabel: string;
+    rationale: string;
+    rolePlanLabel: string;
+    expectedChildren: string;
+  };
 }
 
 export interface SymphonyWorkflowBuilderChoiceModel extends SymphonyWorkflowChoice {
@@ -110,6 +155,7 @@ export interface SymphonyWorkflowBuilderUiModel {
   subtitle: string;
   patternCards: SymphonyWorkflowBuilderPatternCardModel[];
   selectedPattern?: SymphonyWorkflowBuilderPatternCardModel;
+  preflightClarification?: SymphonyWorkflowBuilderPreflightClarification;
   steps: SymphonyWorkflowBuilderStepModel[];
   metrics: SymphonyWorkflowBuilderMetricModel[];
   launchCard?: SymphonyWorkflowBuilderLaunchCardModel;
@@ -130,13 +176,16 @@ export function symphonyWorkflowBuilderUiModel(input: {
   const visible = featureFlagEnabled;
   const presets = visible ? listSymphonyWorkflowRecipePresets() : [];
   const selectedRecipe = selectedSymphonyRecipe(presets, input.draft?.patternId);
-  const patternCards = presets.map((preset) => symphonyPatternCard(preset, selectedRecipe?.id));
+  const patternCards = presets.map((preset) => symphonyPatternCard(preset, selectedRecipe?.id, input.draft?.preflightSelection));
   const selectedPattern = patternCards.find((card) => card.id === selectedRecipe?.id);
   const steps = selectedRecipe ? selectedRecipe.builderSteps.map((step) => symphonyStepModel(step, input.draft?.stepAnswers?.[step.id])) : [];
   const metrics = selectedRecipe
     ? selectedRecipe.metricTemplates.map((template) => symphonyMetricModel(template, input.draft?.metricCustomizations?.[template.id]))
     : [];
   const launchCard = selectedRecipe ? symphonyLaunchCardModel(selectedRecipe, input.draft) : undefined;
+  const preflightClarification = open && input.draft?.preflightClarification?.goal === (input.draft?.goal?.trim() ?? "")
+    ? input.draft.preflightClarification
+    : undefined;
   return {
     schemaVersion: "ambient-symphony-workflow-builder-ui-v1",
     featureFlagEnabled,
@@ -158,6 +207,7 @@ export function symphonyWorkflowBuilderUiModel(input: {
     subtitle: "Compose a visible multi-agent workflow from presets, Custom choices, metrics, and a launch card.",
     patternCards,
     ...(selectedPattern ? { selectedPattern } : {}),
+    ...(preflightClarification ? { preflightClarification } : {}),
     steps: open ? steps : [],
     metrics: open ? metrics : [],
     ...(open && launchCard ? { launchCard } : {}),
@@ -196,7 +246,9 @@ function selectedSymphonyRecipe(
 function symphonyPatternCard(
   preset: SymphonyWorkflowRecipePreset,
   selectedId: SymphonyWorkflowPatternId | undefined,
+  preflightSelection: SymphonyWorkflowBuilderPreflightSelection | undefined,
 ): SymphonyWorkflowBuilderPatternCardModel {
+  const selectionMatches = preflightSelection?.source === "auto-selected" && preflightSelection.patternId === preset.id;
   return {
     id: preset.id,
     label: preset.label,
@@ -207,6 +259,59 @@ function symphonyPatternCard(
     metricLabel: preset.metricTemplates[0]?.label ?? "Metric",
     riskLabel: preset.hardLimits.maxFanout >= 8 || preset.hardLimits.maxDepth > 1 ? "High review" : "Review",
     budgetLabel: `Up to ${formatCallableWorkflowLaunchCardInteger(preset.hardLimits.maxTokenBudget)} tokens`,
+    ...(selectionMatches
+      ? {
+          preflightSelection: {
+            sourceLabel: "Auto-selected by preflight",
+            confidenceLabel: `${Math.round(preflightSelection.confidence * 100)}% confidence`,
+            rationale: preflightSelection.rationale,
+            rolePlanLabel: `Role plan: ${preflightSelection.rolePlan.join(", ")}`,
+            expectedChildren: preflightSelection.expectedChildren,
+          },
+        }
+      : {}),
+  };
+}
+
+export function symphonyWorkflowBuilderPreflightSelection(
+  candidate: SymphonyPatternPreflightCandidate,
+  candidates: SymphonyPatternPreflightCandidate[],
+  goal: string,
+): SymphonyWorkflowBuilderPreflightSelection {
+  return {
+    schemaVersion: SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION,
+    source: "auto-selected",
+    patternId: candidate.patternId,
+    label: candidate.label,
+    goal: goal.trim(),
+    confidence: candidate.confidence,
+    rationale: candidate.rationale,
+    rolePlan: [...candidate.rolePlan],
+    expectedChildren: candidate.expectedChildren,
+    candidatePatternIds: candidates.map((item) => item.patternId),
+  };
+}
+
+export function symphonyWorkflowBuilderPreflightClarification(
+  result: Extract<SymphonyPatternPreflightResult, { kind: "clarify" }>,
+  goal: string,
+): SymphonyWorkflowBuilderPreflightClarification {
+  return {
+    schemaVersion: SYMPHONY_PATTERN_PREFLIGHT_SCHEMA_VERSION,
+    goal: goal.trim(),
+    question: result.question,
+    candidates: result.candidates.map((candidate) => ({
+      patternId: candidate.patternId,
+      label: candidate.label,
+      confidenceLabel: `${Math.round(candidate.confidence * 100)}% confidence`,
+      rationale: candidate.rationale,
+      expectedChildren: candidate.expectedChildren,
+    })),
+    customOption: {
+      label: result.customOption.label,
+      description: result.customOption.description,
+    },
+    missingInputs: [...result.missingInputs],
   };
 }
 

@@ -4,6 +4,7 @@ import {
   ambientCapabilityBuilderApplyRepairInput,
   ambientCapabilityBuilderHistoryInput,
   ambientCapabilityBuilderInstallDepsInput,
+  ambientCapabilityBuilderListFilesInput,
   ambientCapabilityBuilderPreviewInput,
   ambientCapabilityBuilderReadFileInput,
   ambientCapabilityBuilderScaffoldInput,
@@ -31,6 +32,25 @@ describe("AgentRuntime capability builder input helpers", () => {
 
   it("keeps preview-like package selectors and exact file content intact", () => {
     expect(ambientCapabilityBuilderPreviewInput({ packageName: "ambient-demo" })).toEqual({ packageName: "ambient-demo" });
+    expect(ambientCapabilityBuilderListFilesInput({
+      sourcePath: ".ambient/capability-builder/packages/ambient-demo",
+      pathPrefix: "scripts",
+      maxEntries: 50,
+      maxDepth: 3,
+      includeGenerated: false,
+      cursor: "opaque",
+    })).toEqual({
+      sourcePath: ".ambient/capability-builder/packages/ambient-demo",
+      pathPrefix: "scripts",
+      maxEntries: 50,
+      maxDepth: 3,
+      includeGenerated: false,
+      cursor: "opaque",
+    });
+    expect(() => ambientCapabilityBuilderListFilesInput({
+      packageName: "ambient-demo",
+      maxEntries: 0,
+    })).toThrow("maxEntries must be at least 1");
     expect(ambientCapabilityBuilderReadFileInput({
       path: ".ambient/capability-builder/packages/ambient-demo",
       filePath: "scripts/run.js",

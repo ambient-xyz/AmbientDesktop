@@ -269,6 +269,48 @@ describe("AppConversationMessages", () => {
     expect(markup).not.toContain("data-child-blocker-panel=\"after-transcript\"");
   });
 
+  it("renders subagent clusters whose placeholder assistant anchor is hidden", () => {
+    const cluster = subagentParentClusterFixtureModel();
+    cluster.parentMessageId = "hidden-empty-assistant";
+    cluster.parentBlocking = undefined;
+    cluster.status = "Waiting on children";
+    cluster.statusTone = "active";
+    cluster.summary = "2 children · Waiting on Drafter: Completed, Verifier: Running";
+    cluster.workflowTasks = [{
+      ...cluster.workflowTasks[0],
+      modeLabel: "Background",
+      parentBlocker: undefined,
+      childWait: {
+        label: "Waiting on Symphony children",
+        detail: "Workflow is waiting on child runs.",
+        statusTone: "active",
+        childLabels: ["Drafter: Completed", "Verifier: Running"],
+      },
+    }];
+
+    const markup = renderToStaticMarkup(
+      <AppConversationMessages
+        {...baseProps({
+          provider: provider({ hasApiKey: true }),
+          visibleChatMessages: [{
+            id: "visible-response",
+            threadId: "parent-thread",
+            role: "assistant",
+            content: "Queued the Symphony Imitate and Verify workflow.",
+            createdAt: "2026-06-13T00:00:01.000Z",
+          }],
+          subagentParentClustersByMessageId: new Map([["hidden-empty-assistant", cluster]]),
+        })}
+      />,
+    );
+
+    expect(markup).toContain("Queued the Symphony Imitate and Verify workflow.");
+    expect(markup).toContain("class=\"subagent-parent-cluster\"");
+    expect(markup).toContain("data-subagent-cluster-auto-open=\"true\"");
+    expect(markup).toContain("Waiting on Drafter: Completed, Verifier: Running");
+    expect(markup).toContain("Waiting on Symphony children");
+  });
+
   it("keeps opened child thread transcripts ahead of collapsed run details", () => {
     const markup = renderToStaticMarkup(
       <AppConversationMessages

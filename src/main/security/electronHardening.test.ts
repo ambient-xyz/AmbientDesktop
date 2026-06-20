@@ -6,14 +6,13 @@ const repoRoot = process.cwd();
 
 describe("Electron hardening source inventory", () => {
   it("keeps the main renderer sandboxed with context isolation and no node integration", async () => {
-    const index = await readFile(resolve(repoRoot, "src/main/index.ts"), "utf8");
-    const mainWindowOptions = extractObjectLiteral(index, "mainWindow = new BrowserWindow");
+    const mainWindowBootstrap = await readFile(resolve(repoRoot, "src/main/desktop-shell/mainWindowBootstrapService.ts"), "utf8");
 
-    expect(mainWindowOptions).toContain('preload: resolveBuiltOutputPath("preload", "index.cjs")');
-    expect(mainWindowOptions).toMatch(/\bcontextIsolation:\s*true\b/);
-    expect(mainWindowOptions).toMatch(/\bnodeIntegration:\s*false\b/);
-    expect(mainWindowOptions).toMatch(/\bsandbox:\s*true\b/);
-    expect(index).not.toMatch(/\bsandbox:\s*false\b/);
+    expect(mainWindowBootstrap).toContain("preload: preloadPath");
+    expect(mainWindowBootstrap).toMatch(/\bcontextIsolation:\s*true\b/);
+    expect(mainWindowBootstrap).toMatch(/\bnodeIntegration:\s*false\b/);
+    expect(mainWindowBootstrap).toMatch(/\bsandbox:\s*true\b/);
+    expect(mainWindowBootstrap).not.toMatch(/\bsandbox:\s*false\b/);
   });
 
   it("keeps the preload compatible with sandboxed-renderer constraints", async () => {
@@ -28,30 +27,15 @@ describe("Electron hardening source inventory", () => {
 
   it("funnels renderer/window external URL opens through the allowlisted policy helper", async () => {
     const index = await readFile(resolve(repoRoot, "src/main/index.ts"), "utf8");
+    const externalNavigation = await readFile(resolve(repoRoot, "src/main/security/externalNavigationService.ts"), "utf8");
+    const inspectedSource = `${index}\n${externalNavigation}`;
 
-    expect(index).toContain("parseExternalOpenUrl");
-    expect(index).toContain("installExternalNavigationGuards(mainWindow");
-    expect(index).toContain("installExternalNavigationGuards(miniWindow");
-    expect(index).not.toMatch(/setWindowOpenHandler\(\(\{\s*url\s*\}\)\s*=>\s*\{[\s\S]{0,120}shell\.openExternal\(url\)/);
-    expect(index).not.toMatch(/protocol\s*===\s*["']file:["'][\s\S]{0,160}opened externally/i);
+    expect(externalNavigation).toContain("parseExternalOpenUrl");
+    expect(externalNavigation).toContain("setWindowOpenHandler");
+    expect(index).toContain('source: "main-window"');
+    expect(index).toContain('source: "thread-mini-window"');
+    expect(index).toContain("installExternalNavigationGuards: (window) => installExternalNavigationGuards(window");
+    expect(inspectedSource).not.toMatch(/setWindowOpenHandler\(\(\{\s*url\s*\}\)\s*=>\s*\{[\s\S]{0,160}shell\.openExternal\(url\)/);
+    expect(inspectedSource).not.toMatch(/protocol\s*===\s*["']file:["'][\s\S]{0,160}opened externally/i);
   });
 });
-
-function extractObjectLiteral(source: string, marker: string): string {
-  const markerIndex = source.indexOf(marker);
-  expect(markerIndex).toBeGreaterThanOrEqual(0);
-  const openIndex = source.indexOf("{", markerIndex);
-  expect(openIndex).toBeGreaterThanOrEqual(0);
-
-  let depth = 0;
-  for (let index = openIndex; index < source.length; index += 1) {
-    const character = source[index];
-    if (character === "{") depth += 1;
-    if (character === "}") {
-      depth -= 1;
-      if (depth === 0) return source.slice(openIndex, index + 1);
-    }
-  }
-
-  throw new Error(`Could not extract object literal after ${marker}.`);
-}

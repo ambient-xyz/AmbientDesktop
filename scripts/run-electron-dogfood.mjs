@@ -105,6 +105,13 @@ function parseArgs(argv) {
 }
 
 function scenarioCommand(scenario, scenarioArgs = []) {
+  if (scenario === "agent-memory-ux-modes") {
+    return {
+      executable: "node",
+      args: ["scripts/agent-memory-ux-modes-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/agent-memory-ux-modes-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario === "agent-memory-repair-resident-conflict") {
     return {
       executable: "node",
@@ -119,6 +126,34 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       display: ["node", "scripts/symphony-gap-phase0-dogfood.mjs", ...scenarioArgs],
     };
   }
+  if (scenario === "symphony-gap-phase1") {
+    return {
+      executable: "node",
+      args: ["scripts/symphony-gap-phase1-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/symphony-gap-phase1-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "symphony-gap-phase2") {
+    return {
+      executable: "node",
+      args: ["scripts/symphony-gap-phase2-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/symphony-gap-phase2-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "symphony-gap-phase3") {
+    return {
+      executable: "node",
+      args: ["scripts/symphony-gap-phase3-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/symphony-gap-phase3-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "symphony-gap-phase4") {
+    return {
+      executable: "node",
+      args: ["scripts/symphony-gap-phase4-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/symphony-gap-phase4-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario !== "subagent-desktop-dogfood") throw new Error(`Unsupported Electron dogfood scenario: ${scenario}`);
   return {
     executable: "node",
@@ -128,12 +163,19 @@ function scenarioCommand(scenario, scenarioArgs = []) {
 }
 
 function scenarioLatestArtifactPath(scenario) {
+  if (scenario === "agent-memory-ux-modes") {
+    return "test-results/agent-memory-ux-modes/latest.json";
+  }
   if (scenario === "agent-memory-repair-resident-conflict") {
     return "test-results/agent-memory-repair-resident-conflict/latest.json";
   }
   if (scenario === "symphony-gap-phase0") {
     return "test-results/symphony-gap-phase0-dogfood/latest.json";
   }
+  if (scenario === "symphony-gap-phase1") return "test-results/symphony-gap-phase1-dogfood/latest.json";
+  if (scenario === "symphony-gap-phase2") return "test-results/symphony-gap-phase2-dogfood/latest.json";
+  if (scenario === "symphony-gap-phase3") return "test-results/symphony-gap-phase3-dogfood/latest.json";
+  if (scenario === "symphony-gap-phase4") return "test-results/symphony-gap-phase4-dogfood/latest.json";
   return "test-results/subagent-desktop-dogfood/latest.json";
 }
 

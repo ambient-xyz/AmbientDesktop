@@ -358,6 +358,41 @@ export function AppConversationMessages({
         runActivityLinesByThread,
       }))
       .map((child) => child.runId);
+  const visibleChatMessageIds = new Set(visibleChatMessages.map((message) => message.id));
+  const orphanedSubagentClusters = [...subagentParentClustersByMessageId.values()]
+    .filter((cluster) => !visibleChatMessageIds.has(cluster.parentMessageId));
+  const renderSubagentParentCluster = (subagentCluster: SubagentParentClusterModel) => {
+    const liveInlineChildRunIds = liveInlineChildRunIdsForCluster(subagentCluster);
+    const subagentClusterAutoOpen = Boolean(
+      liveInlineChildRunIds.length > 0 ||
+      (subagentCluster.parentBlocking && subagentCluster.statusTone !== "success") ||
+      subagentCluster.workflowTasks.some((task) => task.childWait),
+    );
+    return (
+      <SubagentParentCluster
+        model={subagentCluster}
+        autoOpen={subagentClusterAutoOpen}
+        liveChildRunIds={liveInlineChildRunIds}
+        onOpenThread={onOpenSubagentThread}
+        onCancelChild={onCancelSubagentChild}
+        onCloseChild={onCloseSubagentChild}
+        onOpenWorkflowThread={onOpenCallableWorkflowThread}
+        onPauseWorkflowTask={onPauseCallableWorkflowTask}
+        onResumeWorkflowTask={onResumeCallableWorkflowTask}
+        onCancelWorkflowTask={onCancelCallableWorkflowTask}
+        onResolveBarrierAction={onResolveSubagentBarrierAction}
+        onResolveApprovalAction={onResolveSubagentApprovalAction}
+        renderChildTranscript={renderSubagentChildTranscript}
+        cancelChildBusyId={subagentChildCancelBusy}
+        closeChildBusyId={subagentChildCloseBusy}
+        pauseWorkflowTaskBusyId={callableWorkflowTaskPauseBusy}
+        resumeWorkflowTaskBusyId={callableWorkflowTaskResumeBusy}
+        cancelWorkflowTaskBusyId={callableWorkflowTaskCancelBusy}
+        barrierActionBusyId={subagentBarrierActionBusy}
+        approvalActionBusyId={subagentApprovalActionBusy}
+      />
+    );
+  };
 
   return (
     <section className={activeSubagentInspector ? "conversation subagent-inspector-docked" : "conversation"}>
@@ -483,11 +518,6 @@ export function AppConversationMessages({
                 );
               }
               const subagentCluster = subagentParentClustersByMessageId.get(message.id);
-              const liveInlineChildRunIds = subagentCluster ? liveInlineChildRunIdsForCluster(subagentCluster) : [];
-              const subagentClusterAutoOpen = Boolean(subagentCluster && (
-                liveInlineChildRunIds.length > 0 ||
-                (subagentCluster.parentBlocking && subagentCluster.statusTone !== "success")
-              ));
               return (
                 <Fragment key={message.id}>
                   <MessageBubble
@@ -532,33 +562,15 @@ export function AppConversationMessages({
                     onRecoverContextAndRetry={onRecoverAndRetryLatest}
                     onDuplicateThreadFromTranscript={onDuplicateActiveThreadFromTranscript}
                   />
-                  {subagentCluster && (
-                    <SubagentParentCluster
-                      model={subagentCluster}
-                      autoOpen={subagentClusterAutoOpen}
-                      liveChildRunIds={liveInlineChildRunIds}
-                      onOpenThread={onOpenSubagentThread}
-                      onCancelChild={onCancelSubagentChild}
-                      onCloseChild={onCloseSubagentChild}
-                      onOpenWorkflowThread={onOpenCallableWorkflowThread}
-                      onPauseWorkflowTask={onPauseCallableWorkflowTask}
-                      onResumeWorkflowTask={onResumeCallableWorkflowTask}
-                      onCancelWorkflowTask={onCancelCallableWorkflowTask}
-                      onResolveBarrierAction={onResolveSubagentBarrierAction}
-                      onResolveApprovalAction={onResolveSubagentApprovalAction}
-                      renderChildTranscript={renderSubagentChildTranscript}
-                      cancelChildBusyId={subagentChildCancelBusy}
-                      closeChildBusyId={subagentChildCloseBusy}
-                      pauseWorkflowTaskBusyId={callableWorkflowTaskPauseBusy}
-                      resumeWorkflowTaskBusyId={callableWorkflowTaskResumeBusy}
-                      cancelWorkflowTaskBusyId={callableWorkflowTaskCancelBusy}
-                      barrierActionBusyId={subagentBarrierActionBusy}
-                      approvalActionBusyId={subagentApprovalActionBusy}
-                    />
-                  )}
+                  {subagentCluster && renderSubagentParentCluster(subagentCluster)}
                 </Fragment>
               );
             })}
+            {orphanedSubagentClusters.map((subagentCluster) => (
+              <Fragment key={`orphan-subagent-cluster:${subagentCluster.parentMessageId}`}>
+                {renderSubagentParentCluster(subagentCluster)}
+              </Fragment>
+            ))}
             {activeChatBrowserUserAction?.active && (
               <BrowserUserActionChatCard
                 action={activeChatBrowserUserAction}

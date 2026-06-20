@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { DesktopState, SendMessageInput } from "../../shared/desktopTypes";
 import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
 import type { WorkflowRecordingLibraryEntry, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingState } from "../../shared/workflowTypes";
+import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import type { SidebarArea } from "./AppShellSidebar";
 
 export function workflowRecordingGoalFromInput(goalInput: string): string | undefined {
@@ -87,6 +88,7 @@ export function workflowRecordingRunStatusesWithStarting(
 }
 
 export function createAppWorkflowRecordingActions({
+  abortArmed,
   activeThread,
   applyCreatedThreadState,
   applyRunStatusDesktopState,
@@ -94,8 +96,10 @@ export function createAppWorkflowRecordingActions({
   refreshWorkflowRecordingLibraryOverride,
   resetPromptHistory,
   resetRunActivityLines,
+  running,
   scheduleComposerDraftFocus,
-  sendWorkflowRecordingReviewPromptForState,
+  setContextAttachments,
+  setContextError,
   setError,
   setRunStatus,
   setSelectedWorkflowRecordingId,
@@ -104,6 +108,7 @@ export function createAppWorkflowRecordingActions({
   state,
   workflowLibraryIncludeArchived,
 }: {
+  abortArmed: boolean;
   activeThread: Pick<ThreadSummary, "workflowRecording"> | undefined;
   applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => boolean;
   applyRunStatusDesktopState: (next: DesktopState) => void;
@@ -111,8 +116,10 @@ export function createAppWorkflowRecordingActions({
   refreshWorkflowRecordingLibraryOverride: (includeArchived?: boolean) => Promise<void>;
   resetPromptHistory: () => void;
   resetRunActivityLines: (initialText?: string, threadId?: string) => void;
+  running: boolean;
   scheduleComposerDraftFocus: (draft: string) => void;
-  sendWorkflowRecordingReviewPromptForState: (threadId: string, recording: WorkflowRecordingState) => Promise<void>;
+  setContextAttachments: Dispatch<SetStateAction<WorkspaceContextReference[]>>;
+  setContextError: (message: string | undefined) => void;
   setError: (message: string | undefined) => void;
   setRunStatus: Dispatch<SetStateAction<RunStatus>>;
   setSelectedWorkflowRecordingId: Dispatch<SetStateAction<string | undefined>>;
@@ -124,7 +131,9 @@ export function createAppWorkflowRecordingActions({
   applyLatestWorkflowRecordingSummary: () => Promise<void>;
   archiveWorkflowRecordingPlaybook: (playbook: WorkflowRecordingLibraryEntry) => Promise<void>;
   confirmActiveWorkflowRecordingReview: () => Promise<void>;
+  retryWorkflowRecordingReview: (recording: WorkflowRecordingState) => Promise<void>;
   restoreWorkflowRecordingVersion: (id: string, version: number) => Promise<void>;
+  sendWorkflowRecordingReviewPrompt: (recording?: WorkflowRecordingState) => Promise<void>;
   setWorkflowRecordingEnabled: (id: string, enabled: boolean) => Promise<void>;
   startWorkflowRecording: (goalInput?: string) => Promise<boolean>;
   stopActiveWorkflowRecording: (input?: { requestReview?: boolean }) => Promise<void>;
@@ -182,6 +191,54 @@ export function createAppWorkflowRecordingActions({
     } catch (error) {
       setError(errorMessage(error));
     }
+  }
+
+  async function sendWorkflowRecordingReviewPrompt(recording = activeThread?.workflowRecording): Promise<void> {
+    if (!state || !recording || recording.status === "recording" || !recording.review?.draft) {
+      setError("Stop the workflow recording before asking Ambient to review the draft playbook.");
+      return;
+    }
+    await sendWorkflowRecordingReviewPromptForState(state.activeThreadId, recording);
+  }
+
+  async function sendWorkflowRecordingReviewPromptForState(
+    threadId: string,
+    recording: WorkflowRecordingState,
+    options: { force?: boolean; activityLine?: string } = {},
+  ): Promise<void> {
+    if (!recording || recording.status === "recording" || !recording.review?.draft) {
+      setError("Workflow recording stopped, but no review draft was available to send to Ambient.");
+      return;
+    }
+    if (running && !options.force) return;
+    setError(undefined);
+    setContextError(undefined);
+    setContextAttachments([]);
+    resetPromptHistory();
+    resetRunActivityLines(options.activityLine ?? "Workflow recording stopped; dedicated review sent to Ambient.", threadId);
+    setRunStatus("starting");
+    setThreadRunStatuses((statuses) => workflowRecordingRunStatusesWithStarting(statuses, threadId));
+    await window.ambientDesktop
+      .requestWorkflowRecordingReview({ threadId })
+      .catch((error) => {
+        setError(errorMessage(error));
+        setRunStatus("error");
+      });
+  }
+
+  async function retryWorkflowRecordingReview(recording: WorkflowRecordingState): Promise<void> {
+    if (!state?.activeThreadId || !abortArmed) return;
+    setError(undefined);
+    let aborted = true;
+    await window.ambientDesktop.abortRun(state.activeThreadId).catch((error) => {
+      aborted = false;
+      setError(errorMessage(error));
+    });
+    if (!aborted) return;
+    await sendWorkflowRecordingReviewPromptForState(state.activeThreadId, recording, {
+      force: true,
+      activityLine: "Workflow recording review retry sent to a fresh Ambient session.",
+    });
   }
 
   async function confirmActiveWorkflowRecordingReview(): Promise<void> {
@@ -267,7 +324,9 @@ export function createAppWorkflowRecordingActions({
     applyLatestWorkflowRecordingSummary,
     archiveWorkflowRecordingPlaybook,
     confirmActiveWorkflowRecordingReview,
+    retryWorkflowRecordingReview,
     restoreWorkflowRecordingVersion,
+    sendWorkflowRecordingReviewPrompt,
     setWorkflowRecordingEnabled,
     startWorkflowRecording,
     stopActiveWorkflowRecording,

@@ -46,6 +46,7 @@ export function SymphonyWorkflowBuilderPanel({
   onChangeStepCustomText,
   onChangeMetric,
   onChangeBlocking,
+  onChoosePreflightCustom,
   onRunOnce,
   onSaveRecipe,
   actionBusy,
@@ -59,6 +60,7 @@ export function SymphonyWorkflowBuilderPanel({
   onChangeStepCustomText: (stepId: string, value: string) => void;
   onChangeMetric: (metricId: string, value: string) => void;
   onChangeBlocking: (blocking: boolean) => void;
+  onChoosePreflightCustom: (goal: string) => void;
   onRunOnce: () => void;
   onSaveRecipe: () => void;
   actionBusy?: "run-once" | "save-recipe";
@@ -74,6 +76,7 @@ export function SymphonyWorkflowBuilderPanel({
       onChangeStepCustomText={onChangeStepCustomText}
       onChangeMetric={onChangeMetric}
       onChangeBlocking={onChangeBlocking}
+      onChoosePreflightCustom={onChoosePreflightCustom}
       onRunOnce={onRunOnce}
       onSaveRecipe={onSaveRecipe}
       actionBusy={actionBusy}
@@ -90,6 +93,7 @@ function OpenSymphonyWorkflowBuilderPanel({
   onChangeStepCustomText,
   onChangeMetric,
   onChangeBlocking,
+  onChoosePreflightCustom,
   onRunOnce,
   onSaveRecipe,
   actionBusy,
@@ -102,6 +106,7 @@ function OpenSymphonyWorkflowBuilderPanel({
   onChangeStepCustomText: (stepId: string, value: string) => void;
   onChangeMetric: (metricId: string, value: string) => void;
   onChangeBlocking: (blocking: boolean) => void;
+  onChoosePreflightCustom: (goal: string) => void;
   onRunOnce: () => void;
   onSaveRecipe: () => void;
   actionBusy?: "run-once" | "save-recipe";
@@ -129,6 +134,43 @@ function OpenSymphonyWorkflowBuilderPanel({
         <small>{model.subtitle}</small>
       </div>
 
+      {model.preflightClarification && (
+        <section className="symphony-preflight-clarification" aria-label="Symphony pattern clarification">
+          <header>
+            <strong>{model.preflightClarification.question}</strong>
+            <small>Choose a pattern to keep the parent in conductor mode before launch.</small>
+          </header>
+          <div className="symphony-preflight-choice-row">
+            {model.preflightClarification.candidates.map((candidate) => (
+              <button
+                type="button"
+                key={candidate.patternId}
+                data-preflight-choice={candidate.patternId}
+                onClick={() => onSelectPattern(candidate.patternId)}
+              >
+                <span>{candidate.label} · {candidate.confidenceLabel}</span>
+                <small>{candidate.rationale}</small>
+                <small>{candidate.expectedChildren}</small>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="symphony-preflight-custom"
+            data-preflight-refine="custom"
+            onClick={() => onChoosePreflightCustom(model.preflightClarification?.goal ?? composerGoal)}
+          >
+            <span>{model.preflightClarification.customOption.label}</span>
+            <small>{model.preflightClarification.customOption.description}</small>
+          </button>
+          <div className="symphony-preflight-missing">
+            {model.preflightClarification.missingInputs.map((input) => (
+              <span key={input}>{input}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="symphony-pattern-grid" aria-label="Symphony workflow patterns">
         {model.patternCards.map((card) => (
           <button
@@ -147,6 +189,16 @@ function OpenSymphonyWorkflowBuilderPanel({
               <span>{card.metricLabel}</span>
               <span>{card.budgetLabel}</span>
             </span>
+            {card.preflightSelection && (
+              <span className="symphony-pattern-preflight" data-pattern-preflight={card.id}>
+                <span>
+                  {card.preflightSelection.sourceLabel} · {card.preflightSelection.confidenceLabel}
+                </span>
+                <small>{card.preflightSelection.rationale}</small>
+                <small>{card.preflightSelection.rolePlanLabel}</small>
+                <small>{card.preflightSelection.expectedChildren}</small>
+              </span>
+            )}
           </button>
         ))}
       </div>

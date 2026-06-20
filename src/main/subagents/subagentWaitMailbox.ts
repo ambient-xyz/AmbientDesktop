@@ -163,6 +163,7 @@ export function buildSubagentWaitBarrierAttentionParentMailboxDraft<
   waitChildRuns?: readonly SubagentRunSummary[];
   waitBarrierEvaluation?: SubagentWaitBarrierEvaluation<ResultValidation>;
   parentResolution: SubagentParentPolicyResolution;
+  backgroundCallableWorkflowTask?: boolean;
 }): SubagentWaitBarrierAttentionParentMailboxDraft {
   const payloadFingerprint = createSubagentPayloadFingerprint({
     waitBarrierId: input.waitBarrier.id,
@@ -180,7 +181,8 @@ export function buildSubagentWaitBarrierAttentionParentMailboxDraft<
     payloadFingerprint,
   });
   const waitChildRuns = input.waitChildRuns?.length ? input.waitChildRuns : [input.run];
-  const childDecisionRequest = shouldBuildSubagentChildDecisionRequest(input.parentResolution, { childRuns: waitChildRuns })
+  const childDecisionRequest = !input.backgroundCallableWorkflowTask &&
+    shouldBuildSubagentChildDecisionRequest(input.parentResolution, { childRuns: waitChildRuns })
     ? buildSubagentChildDecisionRequest({
       barrier: input.waitBarrier,
       childRuns: input.waitBarrierEvaluation?.childStatuses?.length
@@ -222,13 +224,25 @@ export function buildSubagentWaitBarrierAttentionParentMailboxDraft<
         label: subagentChildDecisionOptionLabel(option),
         recommended: option === childDecisionRequest.recommendedOption,
       })) } : {}),
-      allowedUserChoices: allowedUserChoicesForSubagentWaitBarrier(input.parentResolution),
+      allowedUserChoices: input.backgroundCallableWorkflowTask
+        ? backgroundCallableWorkflowAllowedUserChoices(input.parentResolution)
+        : allowedUserChoicesForSubagentWaitBarrier(input.parentResolution),
+      ...(input.backgroundCallableWorkflowTask ? { workflowTaskScopedAttention: true } : {}),
       reason: previewText(input.parentResolution.reason, 600),
       instruction: previewText(input.parentResolution.instruction, 600),
       waitBarrier: compactSubagentWaitBarrier(input.waitBarrier),
     },
   };
   return { idempotencyKey, parentMailboxInput };
+}
+
+function backgroundCallableWorkflowAllowedUserChoices(
+  parentResolution: SubagentParentPolicyResolution,
+): Array<Record<string, unknown>> {
+  return allowedUserChoicesForSubagentWaitBarrier(parentResolution).filter((choice) => {
+    const decision = stringValue(choice.decision ?? choice.id);
+    return decision !== "cancel_parent" && decision !== "fail_parent" && decision !== "detach_child";
+  });
 }
 
 export function compactSubagentResultValidationForParentMailbox(

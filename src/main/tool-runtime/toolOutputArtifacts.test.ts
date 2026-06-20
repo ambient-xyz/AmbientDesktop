@@ -60,4 +60,27 @@ describe("materializeTextOutput", () => {
       await rm(workspace, { recursive: true, force: true });
     }
   });
+
+  it("can materialize a short output artifact without marking it truncated", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-output-forced-artifact-"));
+    try {
+      const output = await materializeTextOutput(workspace, {
+        label: "short-forced-output",
+        text: "short inventory",
+        maxPreviewChars: 200,
+        alwaysWriteArtifact: true,
+      });
+
+      expect(output).toMatchObject({
+        text: "short inventory",
+        truncated: false,
+        totalChars: 15,
+        previewChars: 15,
+      });
+      expect(output.artifactPath).toMatch(/^\.ambient\/tool-outputs\//);
+      await expect(readFile(join(workspace, output.artifactPath!), "utf8")).resolves.toBe("short inventory");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
 });

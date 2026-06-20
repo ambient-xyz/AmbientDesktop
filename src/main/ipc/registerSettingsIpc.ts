@@ -314,6 +314,7 @@ const updateMemoryEmbeddingSettingsSchema = z.object({
   preflightEnabled: z.boolean().optional(),
 }).strict();
 const updateMemorySettingsSchema = z.object({
+  mode: z.enum(["enabled_all", "per_thread", "disabled"]).optional(),
   enabled: z.boolean().optional(),
   defaultThreadEnabled: z.boolean().optional(),
   adapter: z.enum(["tencentdb"]).optional(),

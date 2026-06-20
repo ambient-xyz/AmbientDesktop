@@ -3,6 +3,7 @@ import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import type { ChatMessage, ProviderContinuationState } from "../../shared/threadTypes";
 import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 import { handleRuntimePromptFailure, type RuntimePromptFailureHandlerInput } from "./runtimePromptFailureHandler";
+import { SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR } from "./agentRuntimeSymphonyParentMode";
 import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import type { RuntimeToolMessageController } from "./runtimeToolMessageController";
 
@@ -227,7 +228,7 @@ describe("handleRuntimePromptFailure", () => {
     });
     expect(finishedRuns).toEqual([{ status: "error", errorMessage: "provider exploded" }]);
     expect(runtimeMessages.replaceCurrentAssistant).toHaveBeenCalledWith(
-      expect.stringContaining("provider exploded"),
+      expect.any(String),
       expect.objectContaining({ status: "error", runtime: "pi", provider: "ambient" }),
     );
     expect(replacedAssistantMessages.at(-1)?.metadata).toEqual(expect.objectContaining({
@@ -236,5 +237,52 @@ describe("handleRuntimePromptFailure", () => {
     }));
     expect(events).toContainEqual({ type: "run-status", threadId: "thread-1", status: "error" });
     expect(events).toContainEqual({ type: "error", message: "provider exploded", threadId: "thread-1", workspacePath: "/workspace" });
+  });
+
+  it("surfaces Symphony parent-mode launch misses as recovery cards instead of provider failures", async () => {
+    const { input, runtimeMessages, events, finishedRuns, replacedAssistantMessages } = setup({
+      error: new Error(SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR),
+      symphonyParentModePolicy: {
+        enabled: true,
+        reason: "symphony-composer-run-once",
+        launchRequirement: "required_this_turn",
+        directExecutionPolicy: "deny_substantive_tools",
+        expectedWorkflowToolName: "ambient_workflow_symphony_map_reduce",
+        expectedWorkflowSourceKind: "symphony_recipe",
+        expectedPatternId: "map_reduce",
+      },
+    });
+
+    await handleRuntimePromptFailure(input);
+
+    expect(input.cleanupCurrentSession).toHaveBeenCalledWith({ clearPersistedSessionFileIfCurrent: true });
+    expect(runtimeMessages.finishCurrentThinkingMessage).toHaveBeenCalledWith("error", "thinking");
+    expect(input.markOpenToolMessagesFailed).toHaveBeenCalledWith(
+      "Symphony parent mode stopped before a callable workflow launch was verified.",
+    );
+    expect(runtimeMessages.replaceCurrentAssistant).toHaveBeenCalledWith(
+      expect.stringContaining("Symphony launch needs a recovery choice."),
+      expect.objectContaining({
+        status: "error",
+        runtime: "pi",
+        provider: "ambient",
+        symphonyParentModeRecovery: expect.objectContaining({
+          expectedWorkflowToolName: "ambient_workflow_symphony_map_reduce",
+          expectedPatternId: "map_reduce",
+          actionRequired: true,
+        }),
+      }),
+    );
+    expect(input.finishPlannerFinalizationSources).toHaveBeenCalledWith("failed", {
+      error: SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR,
+      workflowState: "failed",
+    });
+    expect(finishedRuns).toEqual([{ status: "error", errorMessage: SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR }]);
+    expect(replacedAssistantMessages.at(-1)?.content).not.toContain("provider exploded");
+    expect(events).toContainEqual({
+      type: "run-status",
+      threadId: "thread-1",
+      status: "error",
+    });
   });
 });

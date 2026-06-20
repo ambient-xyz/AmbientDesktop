@@ -123,6 +123,7 @@ describe("diagnostic export history UI model", () => {
     }
     if (selected.summary?.agentMemoryStarter) {
       (selected.summary.agentMemoryStarter as typeof selected.summary.agentMemoryStarter & { rawStarterLog?: string }).rawStarterLog = "do not persist raw starter";
+      delete (selected.summary.agentMemoryStarter.settings.memory as Partial<typeof selected.summary.agentMemoryStarter.settings.memory>).mode;
     }
 
     const decoded = decodeDiagnosticExportHistoryStorage(encodeDiagnosticExportHistoryStorage({
@@ -140,6 +141,11 @@ describe("diagnostic export history UI model", () => {
     expect(decoded.history[0]?.summary?.agentMemoryStarter).toMatchObject({
       schemaVersion: "ambient-agent-memory-starter-status-v1",
       state: "needs_repair",
+      settings: {
+        memory: {
+          mode: "per_thread",
+        },
+      },
       blockers: [{ code: "runtime_missing" }],
       nextActions: ["repair", "open_logs"],
     });
@@ -958,6 +964,7 @@ function agentMemoryStarterSummary(
     settings: {
       featureFlags: { tencentDbMemory: true },
       memory: {
+        mode: "enabled_all",
         enabled: true,
         defaultThreadEnabled: false,
         adapter: "tencentdb",

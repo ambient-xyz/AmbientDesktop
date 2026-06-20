@@ -1,13 +1,30 @@
-import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
+import type {
+  SubagentEffectiveRoleSnapshot,
+  SubagentPatternGraphSnapshot,
+  SubagentPatternRoleId,
+} from "../../shared/subagentPatternGraph";
 import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { CallableWorkflowTaskRestartIssue, CallableWorkflowTaskRestartReconciliationSummary, CallableWorkflowTaskStatus, CallableWorkflowTaskSummary, WorkflowArtifactSummary, WorkflowRunStatus, WorkflowRunSummary } from "../../shared/workflowTypes";
 import { SYMPHONY_WORKFLOW_PATTERN_IDS, type SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRecipes";
 import {
   buildPatternGraphSnapshot,
+  buildDefaultSymphonyPatternRoleGraph,
+  effectiveSubagentRoleSnapshot,
   type SubagentPatternGraphApprovalState,
   type SubagentPatternGraphChildBinding,
 } from "../../shared/subagentPatternGraph";
+import {
+  getDefaultSubagentRoleProfile,
+  type SubagentRoleId,
+} from "../../shared/subagentRoles";
+import type {
+  SubagentDependencyMode,
+  SubagentForkMode,
+  SubagentPromptMode,
+  SubagentWaitBarrierFailurePolicy,
+  SubagentWaitBarrierMode,
+} from "../../shared/subagentProtocol";
 import {
   cloneCallableWorkflowCallerProvenance,
   defaultCallableWorkflowCallerProvenance,
@@ -22,6 +39,9 @@ export const CALLABLE_WORKFLOW_TASK_QUEUED_STATUS = "queued" as const;
 export const CALLABLE_WORKFLOW_TASK_STARTED_EVENT_TYPE = "callable_workflow.task_started" as const;
 export const CALLABLE_WORKFLOW_TASK_FINISHED_EVENT_TYPE = "callable_workflow.task_finished" as const;
 export const CALLABLE_WORKFLOW_TASK_CONTROL_EVENT_TYPE = "callable_workflow.task_control" as const;
+export const CALLABLE_WORKFLOW_SYMPHONY_LAUNCH_BRIDGE_SCHEMA_VERSION =
+  "ambient-callable-workflow-symphony-launch-bridge-v1" as const;
+export const CALLABLE_WORKFLOW_SYMPHONY_LAUNCH_BRIDGE_WAIT_TIMEOUT_MS = 10 * 60_000;
 
 export type CallableWorkflowTaskControlAction =
   | "pause_requested"
@@ -61,6 +81,7 @@ export interface CallableWorkflowCompilerHandoffPlan {
     blocking: boolean;
     launchCard: NonNullable<CallableWorkflowTaskSummary["launchCard"]>;
     requiredBeforeStart: readonly string[];
+    launchBridgeContract?: CallableWorkflowSymphonyLaunchBridgeContract;
   };
   runStart: {
     mode: "compile_then_start_workflow_run";
@@ -68,6 +89,57 @@ export interface CallableWorkflowCompilerHandoffPlan {
     requiresArtifactBeforeRun: true;
     allowUnapprovedOneOff: true;
   };
+}
+
+export interface CallableWorkflowSymphonyLaunchBridgeContract {
+  schemaVersion: typeof CALLABLE_WORKFLOW_SYMPHONY_LAUNCH_BRIDGE_SCHEMA_VERSION;
+  workflowTaskId: string;
+  launchId: string;
+  parentThreadId: string;
+  parentRunId: string;
+  parentMessageId?: string;
+  expectedWorkflowToolName: string;
+  expectedWorkflowToolId: string;
+  sourceKind: "symphony_recipe";
+  pattern: {
+    id: SymphonyWorkflowPatternId;
+    label: string;
+    blocking: boolean;
+  };
+  childLaunches: CallableWorkflowSymphonyChildLaunchContract[];
+  wait: {
+    mode: SubagentWaitBarrierMode;
+    failurePolicy: SubagentWaitBarrierFailurePolicy;
+    timeoutMs: number;
+    blocking: boolean;
+    childRoleNodeIds: string[];
+  };
+  expectedEvidence: string[];
+}
+
+export interface CallableWorkflowSymphonyChildLaunchContract {
+  roleNodeId: string;
+  label: string;
+  title: string;
+  task: string;
+  roleId: SubagentRoleId;
+  dependencyMode: SubagentDependencyMode;
+  forkMode: SubagentForkMode;
+  promptMode: SubagentPromptMode;
+  effectiveRole: SubagentEffectiveRoleSnapshot;
+  patternRole: SubagentPatternRoleId;
+  patternGraphBinding: {
+    workflowTaskId: string;
+    roleNodeId: string;
+    label: string;
+    approvalState: SubagentPatternGraphApprovalState;
+    blockingParent: boolean;
+  };
+  toolScope: {
+    mode: "role_defaults";
+    rationale: string;
+  };
+  idempotencyKey: string;
 }
 
 export function callableWorkflowQueuedTaskDraftFromExecutionPlan(
@@ -353,7 +425,11 @@ export function buildCallableWorkflowCompilerHandoffPlan(input: {
   createdAt?: string;
 }): CallableWorkflowCompilerHandoffPlan {
   const executionPlan = callableWorkflowExecutionPlanFromTask(input.task);
-  const userRequest = callableWorkflowCompilerUserRequest(input.task, executionPlan);
+  const launchBridgeContract = callableWorkflowSymphonyLaunchBridgeContractFromExecutionPlan(
+    input.task,
+    executionPlan,
+  );
+  const userRequest = callableWorkflowCompilerUserRequest(input.task, executionPlan, launchBridgeContract);
   return {
     schemaVersion: CALLABLE_WORKFLOW_COMPILER_HANDOFF_SCHEMA_VERSION,
     taskId: input.task.id,
@@ -377,6 +453,7 @@ export function buildCallableWorkflowCompilerHandoffPlan(input: {
       blocking: executionPlan.workflowRunPlan.blocking,
       launchCard: executionPlan.workflowRunPlan.launchCard,
       requiredBeforeStart: [...executionPlan.runnerHandoff.requiredBeforeStart],
+      ...(launchBridgeContract ? { launchBridgeContract } : {}),
     },
     runStart: {
       mode: "compile_then_start_workflow_run",
@@ -384,6 +461,80 @@ export function buildCallableWorkflowCompilerHandoffPlan(input: {
       requiresArtifactBeforeRun: true,
       allowUnapprovedOneOff: true,
     },
+  };
+}
+
+export function callableWorkflowSymphonyLaunchBridgeContractFromExecutionPlan(
+  task: CallableWorkflowTaskSummary,
+  executionPlan: CallableWorkflowExecutionPlan,
+): CallableWorkflowSymphonyLaunchBridgeContract | undefined {
+  const sourceContext = executionPlan.workflowRunPlan.sourceContext;
+  if (sourceContext.kind !== "symphony_recipe") return undefined;
+  if (executionPlan.callerProvenance.kind === "subagent_child_thread") return undefined;
+  const roleGraph = buildDefaultSymphonyPatternRoleGraph(sourceContext.recipeId);
+  const requiredNodes = roleGraph.nodes.filter((node) => node.required);
+  const blocking = executionPlan.workflowRunPlan.blocking;
+  const childLaunches: CallableWorkflowSymphonyChildLaunchContract[] = requiredNodes.map((node) => {
+    const role = getDefaultSubagentRoleProfile(node.baseRole);
+    const effectiveRole = effectiveSubagentRoleSnapshot({
+      baseRole: node.baseRole,
+      patternRole: node.patternRole,
+      overlayLabels: node.overlayLabels,
+      outputContract: callableWorkflowSymphonyChildOutputContract(task, executionPlan, node.id),
+    });
+    return {
+      roleNodeId: node.id,
+      label: node.label,
+      title: `${node.label} sub-agent`,
+      task: callableWorkflowSymphonyChildTaskText(task, executionPlan, node.id),
+      roleId: node.baseRole,
+      dependencyMode: blocking ? "required" : "optional_background",
+      forkMode: role.defaultForkMode,
+      promptMode: role.promptMode,
+      effectiveRole,
+      patternRole: node.patternRole,
+      patternGraphBinding: {
+        workflowTaskId: task.id,
+        roleNodeId: node.id,
+        label: node.label,
+        approvalState: "none",
+        blockingParent: blocking,
+      },
+      toolScope: {
+        mode: "role_defaults",
+        rationale: "Use the selected role's least-privilege defaults; Ambient policy may narrow further at launch.",
+      },
+      idempotencyKey: `callable-workflow:${task.id}:symphony-child:${node.id}`,
+    };
+  });
+  return {
+    schemaVersion: CALLABLE_WORKFLOW_SYMPHONY_LAUNCH_BRIDGE_SCHEMA_VERSION,
+    workflowTaskId: task.id,
+    launchId: task.launchId,
+    parentThreadId: task.parentThreadId,
+    parentRunId: task.parentRunId,
+    ...(task.parentMessageId ? { parentMessageId: task.parentMessageId } : {}),
+    expectedWorkflowToolName: task.toolName,
+    expectedWorkflowToolId: task.toolId,
+    sourceKind: "symphony_recipe",
+    pattern: {
+      id: sourceContext.recipeId,
+      label: roleGraph.label,
+      blocking,
+    },
+    childLaunches,
+    wait: {
+      mode: "required_all",
+      failurePolicy: "ask_user",
+      timeoutMs: CALLABLE_WORKFLOW_SYMPHONY_LAUNCH_BRIDGE_WAIT_TIMEOUT_MS,
+      blocking: true,
+      childRoleNodeIds: childLaunches.map((child) => child.roleNodeId),
+    },
+    expectedEvidence: [
+      "Every required child launch has a childRunId bound to this workflow task's pattern graph.",
+      "The workflow launch bridge wait names all required child runs before compiler synthesis.",
+      "Parent synthesis uses only synthesis-safe child results or an explicit partial-result decision.",
+    ],
   };
 }
 
@@ -602,6 +753,7 @@ function symphonyRecipeIdOrFallback(value: unknown): SymphonyWorkflowPatternId {
 function callableWorkflowCompilerUserRequest(
   task: CallableWorkflowTaskSummary,
   executionPlan: CallableWorkflowExecutionPlan,
+  launchBridgeContract?: CallableWorkflowSymphonyLaunchBridgeContract,
 ): string {
   return [
     `Callable workflow: ${task.title}`,
@@ -612,10 +764,71 @@ function callableWorkflowCompilerUserRequest(
     ...callableWorkflowLaunchCardLines(executionPlan.workflowRunPlan.launchCard),
     "Source recipe context:",
     ...callableWorkflowSourceContextLines(executionPlan.workflowRunPlan.sourceContext),
+    ...callableWorkflowSymphonyLaunchBridgeLines(launchBridgeContract),
     "Compile this callable workflow invocation into a reviewable Ambient workflow artifact, then start a visible workflow run only after the artifact is persisted.",
     "Input:",
     JSON.stringify(executionPlan.workflowRunPlan.input, null, 2),
   ].join("\n");
+}
+
+function callableWorkflowSymphonyLaunchBridgeLines(
+  contract: CallableWorkflowSymphonyLaunchBridgeContract | undefined,
+): string[] {
+  if (!contract) return [];
+  return [
+    "Symphony launch bridge contract:",
+    `- Schema: ${contract.schemaVersion}`,
+    `- Pattern: ${contract.pattern.label} (${contract.pattern.id})`,
+    `- Required child roles: ${contract.childLaunches.map((child) => `${child.roleNodeId}:${child.roleId}`).join(", ") || "none"}`,
+    `- Wait: ${contract.wait.mode}, failure ${contract.wait.failurePolicy}, timeout ${contract.wait.timeoutMs}ms`,
+    "- Ambient runtime, not the workflow compiler, must create visible child threads from this contract exactly once before workflow synthesis.",
+    "- The compiler must not emit or repair WorkflowProgramIR with ambient_subagent_spawn_agent, ambient_subagent_wait_agent, or other internal bridge tools; those operations are already owned by this launch bridge.",
+    "- After required child launches, Ambient runtime waits on the childRunIds using the bridge wait policy; do not synthesize from failed, timed-out, or detached children without an explicit partial-result decision.",
+    "Symphony launch bridge JSON:",
+    JSON.stringify(contract, null, 2),
+  ];
+}
+
+function callableWorkflowSymphonyChildOutputContract(
+  task: CallableWorkflowTaskSummary,
+  executionPlan: CallableWorkflowExecutionPlan,
+  roleNodeId: string,
+): string {
+  const sourceContext = executionPlan.workflowRunPlan.sourceContext;
+  const metricCriteria = sourceContext.kind === "symphony_recipe"
+    ? sourceContext.invocationCustomization?.metricCriteria ?? []
+    : [];
+  const metricText = metricCriteria.length
+    ? metricCriteria.map((criterion) => `${criterion.templateId}: ${criterion.value}`).join(" | ")
+    : "Use the launch card, user input, and role overlays as the acceptance criteria.";
+  return [
+    `Return a compact, structured result for role node ${roleNodeId} on callable workflow task ${task.id}.`,
+    `Include: summary, evidence used, uncertainties, blockers, and synthesis-ready recommendation or handoff.`,
+    `Metric/rubric: ${metricText}`,
+  ].join(" ");
+}
+
+function callableWorkflowSymphonyChildTaskText(
+  task: CallableWorkflowTaskSummary,
+  executionPlan: CallableWorkflowExecutionPlan,
+  roleNodeId: string,
+): string {
+  const sourceContext = executionPlan.workflowRunPlan.sourceContext;
+  const roleGraph = sourceContext.kind === "symphony_recipe"
+    ? buildDefaultSymphonyPatternRoleGraph(sourceContext.recipeId)
+    : undefined;
+  const roleNode = roleGraph?.nodes.find((node) => node.id === roleNodeId);
+  const upstreamEdges = roleGraph?.edges.filter((edge) => edge.to === roleNodeId) ?? [];
+  const downstreamEdges = roleGraph?.edges.filter((edge) => edge.from === roleNodeId) ?? [];
+  return [
+    `You are the ${roleNode?.label ?? roleNodeId} child in the ${roleGraph?.label ?? "Symphony"} pattern for parent callable workflow task ${task.id}.`,
+    `Parent objective: ${task.title}.`,
+    `Current invocation input: ${JSON.stringify(executionPlan.workflowRunPlan.input)}.`,
+    roleNode?.overlayLabels.length ? `Role overlays: ${roleNode.overlayLabels.join("; ")}.` : undefined,
+    upstreamEdges.length ? `Upstream contracts: ${upstreamEdges.map((edge) => `${edge.from} -> ${edge.to} (${edge.label})`).join("; ")}.` : "Upstream contracts: none at launch.",
+    downstreamEdges.length ? `Downstream handoff: ${downstreamEdges.map((edge) => `${edge.from} -> ${edge.to} (${edge.label})`).join("; ")}.` : "Downstream handoff: parent synthesis.",
+    "Stay within the role defaults and do not spawn nested sub-agents. Return a synthesis-safe, compact result with evidence and blockers.",
+  ].filter((line): line is string => Boolean(line)).join("\n");
 }
 
 function callableWorkflowSourceContextLines(

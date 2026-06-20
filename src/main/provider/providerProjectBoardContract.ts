@@ -1,1 +1,1 @@
-export { normalizeAmbientBaseUrl } from "./providerStatus";
+export { getAmbientProviderStatus, normalizeAmbientBaseUrl } from "./providerStatus";

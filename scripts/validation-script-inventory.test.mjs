@@ -6,6 +6,7 @@ import {
   classifyScriptCost,
   classifyScriptDomain,
   compareValidationScriptEntries,
+  CURRENT_PROVIDER_GUIDANCE,
   isValidationScriptName,
   recommendedValidationScriptEntries,
   renderValidationScriptInventoryMarkdown,
@@ -94,9 +95,10 @@ describe("validation script inventory", () => {
     const markdown = renderValidationScriptInventoryMarkdown(report);
 
     expect(markdown).toContain("# Validation Script Inventory");
+    expect(markdown).toContain("Provider guidance: Provider-dependent validation should use AMBIENT_PROVIDER=ambient");
     expect(markdown).toContain("## project-board");
     expect(markdown).toContain("`test:project-board-pm-review-provider-fixtures`");
-    expect(markdown).toContain("| `dev:gmi-cloud` | live-provider | gmi-cloud | yes | uses GMI Cloud override |");
+    expect(markdown).toContain("| `dev:gmi-cloud` | live-provider | gmi-cloud | yes | GMI Cloud failover only |");
   });
 
   it("filters the generated inventory by cost, provider, secrets, and search text", () => {
@@ -185,9 +187,9 @@ describe("validation script inventory", () => {
     ]);
     expect(["provider-dependent", "ambient", "gmi-cloud", "none"].sort((left, right) => validationProviderRank(left) - validationProviderRank(right))).toEqual([
       "none",
-      "gmi-cloud",
       "ambient",
       "provider-dependent",
+      "gmi-cloud",
     ]);
 
     const sorted = [
@@ -226,8 +228,30 @@ describe("validation script inventory", () => {
     const markdown = renderValidationScriptRecommendationsMarkdown(report);
 
     expect(markdown).toContain("# Recommended Validation Scripts");
+    expect(markdown).toContain("moonshotai/kimi-k2.7-code");
     expect(markdown).toContain("| project-board | `pnpm run test:project-board-pm-review-provider-fixtures` | local-fast | Vitest |");
     expect(markdown).not.toContain("health-report-artifact-promotion");
+  });
+
+  it("keeps recommendation output aligned with current live-provider policy", () => {
+    const report = buildValidationScriptInventory({
+      scripts: {
+        "test:ambient-live": "AMBIENT_PROVIDER=ambient node scripts/e2e-web-research-preferences-live.mjs",
+        "test:gmi-live": "AMBIENT_PROVIDER=gmi-cloud node scripts/e2e-kanban-health-report-artifact-promotion-gmi.mjs",
+      },
+    });
+
+    expect(report.providerGuidance).toBe(CURRENT_PROVIDER_GUIDANCE);
+    expect(report.providerGuidance).toMatchObject({
+      preferredLiveProvider: "ambient",
+      preferredLiveModel: "moonshotai/kimi-k2.7-code",
+      gmiCloudPolicy: "explicit request or approved failover only",
+    });
+    expect(report.entries.map((entry) => `${entry.liveProvider}:${entry.name}`)).toEqual([
+      "ambient:test:ambient-live",
+      "gmi-cloud:test:gmi-live",
+    ]);
+    expect(renderValidationScriptRecommendationsMarkdown(report)).toContain("GMI Cloud entries are failover inventory, not default recommendations");
   });
 
   it("keeps the core heuristics stable", () => {

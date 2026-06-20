@@ -875,6 +875,23 @@ describe("firstPartyDesktopToolDescriptors", () => {
     expect((preview!.inputSchema as { properties: Record<string, unknown> }).properties).toMatchObject({
       sourcePath: expect.objectContaining({ type: "string" }),
     });
+    const listFiles = firstPartyDesktopToolDescriptors().find((tool) => tool.name === "ambient_capability_builder_list_files");
+    expect(piToolFieldsFromDescriptor(listFiles!).promptGuidelines).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("generated/dependency directories"),
+        expect.stringContaining("pathPrefix, maxEntries, maxDepth, and cursor"),
+        expect.stringContaining("includeGenerated=true only with a narrow pathPrefix"),
+        expect.stringContaining("inventory artifact"),
+        expect.stringContaining("long_context_process"),
+      ]),
+    );
+    expect((listFiles!.inputSchema as { properties: Record<string, unknown> }).properties).toMatchObject({
+      pathPrefix: expect.objectContaining({ type: "string" }),
+      maxEntries: expect.objectContaining({ type: "number" }),
+      maxDepth: expect.objectContaining({ type: "number" }),
+      includeGenerated: expect.objectContaining({ type: "boolean" }),
+      cursor: expect.objectContaining({ type: "string" }),
+    });
     const history = firstPartyDesktopToolDescriptors().find((tool) => tool.name === "ambient_capability_builder_history");
     expect(history).toMatchObject({
       sideEffects: "none",

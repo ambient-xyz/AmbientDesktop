@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   capabilityBuilderListFilesText,
+  capabilityBuilderListFilesOutputPreview,
   capabilityBuilderPreviewText,
   capabilityBuilderReadFileText,
   listCapabilityBuilderFiles,
@@ -86,6 +87,7 @@ function capabilityBuilderPreviewToolResult(result: CapabilityBuilderPreviewResu
 }
 
 function capabilityBuilderListFilesToolResult(result: CapabilityBuilderListFilesResult) {
+  const largeOutputPreview = capabilityBuilderListFilesOutputPreview(result);
   return {
     content: [{ type: "text" as const, text: capabilityBuilderListFilesText(result) }],
     details: {
@@ -97,6 +99,16 @@ function capabilityBuilderListFilesToolResult(result: CapabilityBuilderListFiles
       relativeRootPath: result.relativeRootPath,
       sourceRef: result.sourceRef,
       fileCount: result.files.length,
+      totalFileCount: result.totalFileCount,
+      totalFileCountTruncated: result.totalFileCountTruncated,
+      omittedDirectoryCount: result.omittedDirectoryCount,
+      maxEntries: result.maxEntries,
+      maxDepth: result.maxDepth,
+      includeGenerated: result.includeGenerated,
+      ...(result.inventoryArtifact ? { inventoryArtifact: result.inventoryArtifact } : {}),
+      ...(largeOutputPreview ? { largeOutputPreview } : {}),
+      ...(result.pathPrefix ? { pathPrefix: result.pathPrefix } : {}),
+      ...(result.nextCursor ? { hasNextPage: true } : {}),
     },
   };
 }

@@ -48,6 +48,7 @@ export function createAppGoalActions({
   setGoalMenuOpen,
   setGoalModeArmed,
   setLocalDeepResearchModeArmed,
+  setSymphonyBuilderOpen,
   setState,
   state,
 }: {
@@ -58,6 +59,7 @@ export function createAppGoalActions({
   setGoalMenuOpen: Dispatch<SetStateAction<boolean>>;
   setGoalModeArmed: Dispatch<SetStateAction<boolean>>;
   setLocalDeepResearchModeArmed: (next: boolean) => void;
+  setSymphonyBuilderOpen?: (open: boolean) => void;
   setState: Dispatch<SetStateAction<DesktopState | undefined>>;
   state: DesktopState | undefined;
 }): {
@@ -118,7 +120,10 @@ export function createAppGoalActions({
     if (!goal) {
       const next = !goalModeArmed;
       setGoalModeArmed(next);
-      if (next) setLocalDeepResearchModeArmed(false);
+      if (next) {
+        setLocalDeepResearchModeArmed(false);
+        setSymphonyBuilderOpen?.(false);
+      }
       setGoalMenuOpen(false);
       return;
     }

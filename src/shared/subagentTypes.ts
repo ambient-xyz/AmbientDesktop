@@ -139,6 +139,8 @@ export interface SubagentWaitBarrierSummary {
   dependencyMode: SubagentWaitBarrierMode;
   status: SubagentWaitBarrierStatus;
   failurePolicy: SubagentWaitBarrierFailurePolicy;
+  ownerKind?: "callable_workflow_symphony_launch_bridge";
+  ownerId?: string;
   quorumThreshold?: number;
   timeoutMs?: number;
   createdAt: string;

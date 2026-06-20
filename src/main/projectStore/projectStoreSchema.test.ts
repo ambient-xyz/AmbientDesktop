@@ -130,6 +130,8 @@ describe("project store schema bootstrap", () => {
       ["subagent_runs", "symphony_mutation_lease_json", "TEXT"],
       ["subagent_parent_mailbox_events", "parent_message_id", "TEXT"],
       ["subagent_wait_barriers", "quorum_threshold", "INTEGER"],
+      ["subagent_wait_barriers", "owner_kind", "TEXT"],
+      ["subagent_wait_barriers", "owner_id", "TEXT"],
     ]);
   });
 
@@ -303,7 +305,7 @@ describe("project store schema bootstrap", () => {
     ]);
     expect(calls.slice(-2)).toEqual([
       "PRAGMA table_info(subagent_wait_barriers)",
-      "ALTER TABLE subagent_wait_barriers ADD COLUMN quorum_threshold INTEGER",
+      "ALTER TABLE subagent_wait_barriers ADD COLUMN owner_id TEXT",
     ]);
   });
 

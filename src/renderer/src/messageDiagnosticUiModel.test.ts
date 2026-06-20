@@ -58,6 +58,47 @@ describe("messageDiagnosticUiModel", () => {
     expect(messageContentWithoutDiagnostic(message)).toBe("");
   });
 
+  it("models Symphony parent-mode recovery as a non-dismissible conductor card", () => {
+    const message: ChatMessage = {
+      id: "message-symphony-recovery",
+      threadId: "thread-1",
+      role: "assistant",
+      content: "Symphony launch needs a recovery choice.",
+      createdAt: "2026-06-19T00:00:00.000Z",
+      metadata: {
+        status: "error",
+        runtime: "pi",
+        provider: "ambient",
+        symphonyParentModeRecovery: {
+          schemaVersion: "ambient-symphony-parent-mode-recovery-v1",
+          expectedWorkflowToolName: "ambient_workflow_symphony_map_reduce",
+          expectedWorkflowSourceKind: "symphony_recipe",
+          expectedPatternId: "map_reduce",
+          launchRequirement: "required_this_turn",
+          details: [
+            "Expected workflow tool: ambient_workflow_symphony_map_reduce",
+            "Reason: no launch",
+          ],
+          actions: [
+            { id: "retry_launch", label: "Retry launch", description: "Try again." },
+            { id: "exit_symphony_mode", label: "Exit Symphony mode", description: "Run normally next turn." },
+          ],
+        },
+      },
+    };
+
+    const model = messageDiagnosticCardModel(message);
+    expect(model).toMatchObject({
+      title: "Symphony recovery",
+      tone: "warning",
+      dismissible: false,
+    });
+    expect(model?.details).toContain("ambient_workflow_symphony_map_reduce");
+    expect(model?.details).toContain("Retry launch");
+    expect(model?.details).toContain("Exit Symphony mode");
+    expect(messageContentWithoutDiagnostic(message)).toBe("");
+  });
+
   it("models pre-output stream stall retries as provider diagnostics", () => {
     const message: ChatMessage = {
       id: "message-3",

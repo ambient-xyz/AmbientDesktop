@@ -370,6 +370,7 @@ describe("Ambient Tencent memory embedding provider resolver", () => {
 
 function memorySettings(embeddings: Partial<AgentMemorySettings["embeddings"]>): AgentMemorySettings {
   return {
+    mode: "enabled_all",
     enabled: true,
     defaultThreadEnabled: true,
     adapter: "tencentdb",

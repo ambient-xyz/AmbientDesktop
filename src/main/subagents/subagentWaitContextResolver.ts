@@ -31,6 +31,8 @@ export interface SubagentWaitContextResolverStore {
     childRunIds: string[];
     dependencyMode: SubagentWaitBarrierMode;
     failurePolicy: SubagentWaitBarrierFailurePolicy;
+    ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+    ownerId?: string;
     quorumThreshold?: number;
     timeoutMs?: number;
   }): SubagentWaitBarrierSummary;
@@ -46,6 +48,7 @@ export interface ResolveSubagentWaitContextInput {
   store: SubagentWaitContextResolverStore;
   parentThread: Pick<ThreadSummary, "id">;
   request: Record<string, unknown>;
+  trustedWaitBarrierOwner?: Pick<SubagentWaitBarrierSummary, "ownerKind" | "ownerId">;
   timeoutMs: number;
   resolveTimeoutMs?: (dependencyMode: SubagentWaitBarrierMode) => number;
   resolveTargetRun(request: Record<string, unknown>): SubagentRunSummary;
@@ -81,7 +84,7 @@ export function resolveSubagentWaitContext(input: ResolveSubagentWaitContextInpu
 }
 
 export function ensureSubagentWaitBarrierForRuns(
-  input: Pick<ResolveSubagentWaitContextInput, "store" | "parentThread" | "request" | "timeoutMs" | "resolveTimeoutMs">,
+  input: Pick<ResolveSubagentWaitContextInput, "store" | "parentThread" | "request" | "trustedWaitBarrierOwner" | "timeoutMs" | "resolveTimeoutMs">,
   runs: SubagentRunSummary[],
 ): SubagentWaitBarrierSummary {
   validateSubagentWaitChildRuns(input.parentThread.id, runs);
@@ -97,11 +100,13 @@ export function ensureSubagentWaitBarrierForRuns(
     "failurePolicy",
   ) ?? defaultSubagentWaitBarrierFailurePolicy(dependencyMode);
   const quorumThreshold = optionalInteger(input.request.quorumThreshold, "quorumThreshold");
+  const owner = input.trustedWaitBarrierOwner ?? {};
   const existing = findSubagentWaitBarrierForRuns(input.store, runs[0]!.parentRunId, {
     childRunIds,
     dependencyMode,
     failurePolicy,
     quorumThreshold,
+    ...owner,
   });
   if (existing) return existing;
   return input.store.createSubagentWaitBarrier({
@@ -110,18 +115,23 @@ export function ensureSubagentWaitBarrierForRuns(
     childRunIds,
     dependencyMode,
     failurePolicy,
+    ...owner,
     ...(quorumThreshold !== undefined ? { quorumThreshold } : {}),
     timeoutMs: subagentWaitContextTimeoutMs(input, dependencyMode),
   });
 }
 
 export function ensureSubagentWaitBarrierForRun(
-  input: Pick<ResolveSubagentWaitContextInput, "store" | "parentThread" | "timeoutMs" | "resolveTimeoutMs">,
+  input: Pick<ResolveSubagentWaitContextInput, "store" | "parentThread" | "request" | "trustedWaitBarrierOwner" | "timeoutMs" | "resolveTimeoutMs">,
   run: SubagentRunSummary,
 ): SubagentWaitBarrierSummary {
+  const owner = input.trustedWaitBarrierOwner ?? {};
   const barriers = input.store
     .listSubagentWaitBarriersForParentRun(run.parentRunId)
-    .filter((barrier) => barrier.childRunIds.includes(run.id));
+    .filter((barrier) =>
+      barrier.childRunIds.includes(run.id) &&
+      subagentWaitBarrierOwnerMatches(barrier, owner)
+    );
   const existing = barriers.find((barrier) => barrier.status === "waiting_on_children") ?? barriers.at(-1);
   if (existing) return existing;
   const dependencyMode = run.dependencyMode === "optional_background" ? "optional_background" : "required_all";
@@ -131,6 +141,7 @@ export function ensureSubagentWaitBarrierForRun(
     childRunIds: [run.id],
     dependencyMode,
     failurePolicy: run.dependencyMode === "optional_background" ? "degrade_partial" : "ask_user",
+    ...owner,
     timeoutMs: subagentWaitContextTimeoutMs(input, dependencyMode),
   });
 }
@@ -149,6 +160,8 @@ export function findSubagentWaitBarrierForRuns(
     childRunIds: string[];
     dependencyMode: SubagentWaitBarrierMode;
     failurePolicy: SubagentWaitBarrierFailurePolicy;
+    ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+    ownerId?: string;
     quorumThreshold?: number;
   },
 ): SubagentWaitBarrierSummary | undefined {
@@ -159,6 +172,7 @@ export function findSubagentWaitBarrierForRuns(
       subagentWaitChildRunSetKey(barrier.childRunIds) === expectedChildKey &&
       barrier.dependencyMode === input.dependencyMode &&
       barrier.failurePolicy === input.failurePolicy &&
+      subagentWaitBarrierOwnerMatches(barrier, input) &&
       (input.dependencyMode !== "quorum" || barrier.quorumThreshold === input.quorumThreshold)
     )
     .slice()
@@ -168,6 +182,16 @@ export function findSubagentWaitBarrierForRuns(
 
 export function defaultSubagentWaitBarrierModeForRuns(runs: SubagentRunSummary[]): SubagentWaitBarrierMode {
   return runs.every((run) => run.dependencyMode === "optional_background") ? "optional_background" : "required_all";
+}
+
+function subagentWaitBarrierOwnerMatches(
+  barrier: SubagentWaitBarrierSummary,
+  input: Pick<SubagentWaitBarrierSummary, "ownerKind" | "ownerId">,
+): boolean {
+  if (input.ownerKind || input.ownerId) {
+    return barrier.ownerKind === input.ownerKind && barrier.ownerId === input.ownerId;
+  }
+  return !barrier.ownerKind && !barrier.ownerId;
 }
 
 export function defaultSubagentWaitBarrierFailurePolicy(

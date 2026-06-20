@@ -146,6 +146,8 @@ export interface SubagentWaitBarrierRow {
   dependency_mode: SubagentWaitBarrierMode;
   status: SubagentWaitBarrierStatus;
   failure_policy: SubagentWaitBarrierFailurePolicy;
+  owner_kind?: SubagentWaitBarrierSummary["ownerKind"] | null;
+  owner_id?: string | null;
   quorum_threshold: number | null;
   timeout_ms: number | null;
   created_at: string;
@@ -408,6 +410,8 @@ export function mapSubagentWaitBarrierRow(row: SubagentWaitBarrierRow): Subagent
     dependencyMode: row.dependency_mode,
     status: row.status,
     failurePolicy: row.failure_policy,
+    ownerKind: row.owner_kind ?? undefined,
+    ownerId: row.owner_id ?? undefined,
     quorumThreshold: row.quorum_threshold ?? undefined,
     timeoutMs: row.timeout_ms ?? undefined,
     createdAt: row.created_at,

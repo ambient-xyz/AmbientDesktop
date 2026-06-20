@@ -1,13 +1,23 @@
 import type { Dispatch, SetStateAction } from "react";
 
 import type { DesktopState, SendMessageComposerIntent } from "../../shared/desktopTypes";
-import type { MessageDelivery } from "../../shared/threadTypes";
+import type { CollaborationMode, MessageDelivery } from "../../shared/threadTypes";
+import {
+  resolveSymphonyPatternPreflight,
+  symphonyPatternClarificationMessage,
+} from "../../shared/symphonyPatternPreflight";
 import type { SaveSymphonyWorkflowRecipeInput } from "../../shared/workflowTypes";
 import type { SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRecipes";
 import type { AppendRunActivityLine } from "./AppRunActivity";
 import type { SubmitDraftOptions } from "./AppComposerSubmitActions";
 import {
+  parseCollaborationSlashCommand,
+  parseSecretSlashCommand,
+} from "./plannerModeUiModel";
+import {
   symphonyWorkflowBuilderComposerUiModel,
+  symphonyWorkflowBuilderPreflightClarification,
+  symphonyWorkflowBuilderPreflightSelection,
   type SymphonyWorkflowBuilderDraft,
   type SymphonyWorkflowBuilderUiModel,
 } from "./symphonyWorkflowBuilderUiModel";
@@ -20,6 +30,39 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+export function shouldRouteComposerSubmitThroughSymphony(input: {
+  subagentUiEnabled: boolean;
+  symphonyBuilderOpen: boolean | undefined;
+  localDeepResearchModeArmed: boolean;
+  slashCommandSelected: boolean;
+  running: boolean;
+  goalModeArmed: boolean;
+  workflowRecordingReviewFeedbackActive: boolean;
+  workflowRecordingEditActive: boolean;
+  composerDraft: string;
+  collaborationMode: CollaborationMode;
+}): boolean {
+  return input.subagentUiEnabled &&
+    Boolean(input.symphonyBuilderOpen) &&
+    input.collaborationMode !== "planner" &&
+    !input.localDeepResearchModeArmed &&
+    !input.slashCommandSelected &&
+    !input.running &&
+    !input.goalModeArmed &&
+    !input.workflowRecordingReviewFeedbackActive &&
+    !input.workflowRecordingEditActive &&
+    !composerDraftHasLocalCommand(input.composerDraft, input.collaborationMode);
+}
+
+function composerDraftHasLocalCommand(draft: string, collaborationMode: CollaborationMode): boolean {
+  const parsedSecretCommand = parseSecretSlashCommand(draft);
+  if (parsedSecretCommand.isSecretCommand) return true;
+  const parsedCollaborationCommand = parseCollaborationSlashCommand(draft, collaborationMode);
+  if (parsedCollaborationCommand.content !== draft.trim() || parsedCollaborationCommand.mode !== collaborationMode) return true;
+  const trimmed = draft.trim();
+  return trimmed === "/compact" || trimmed.startsWith("/compact ");
+}
+
 export function compactSymphonyIntentValue(value: unknown): unknown {
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -30,6 +73,16 @@ export function compactSymphonyIntentValue(value: unknown): unknown {
     .map(([entryKey, entryValue]) => [entryKey, compactSymphonyIntentValue(entryValue)] as const)
     .filter(([, entryValue]) => entryValue !== undefined);
   return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+export function shouldResolveSymphonyPatternPreflight(
+  draft: SymphonyWorkflowBuilderDraft,
+  composerGoal: string,
+): boolean {
+  if (!draft.patternId) return true;
+  if (!draft.preflightSelection) return false;
+  return draft.preflightSelection.patternId !== draft.patternId ||
+    draft.preflightSelection.goal !== composerGoal.trim();
 }
 
 function nonEmptySymphonyIntentField<K extends "stepAnswers" | "metricCustomizations">(
@@ -154,6 +207,8 @@ export function createAppSymphonyBuilderControls({
   rememberDesktopState,
   refreshWorkflowRecordingLibraryOverride,
   setError,
+  setContextError,
+  setGoalModeArmed,
   setLocalDeepResearchModeArmed,
   setState,
   setSymphonyBuilderActionBusy,
@@ -171,6 +226,8 @@ export function createAppSymphonyBuilderControls({
   rememberDesktopState: (next: DesktopState) => DesktopState | false | void;
   refreshWorkflowRecordingLibraryOverride: (includeArchived?: boolean) => Promise<void>;
   setError: (message: string | undefined) => void;
+  setContextError: (message: string | undefined) => void;
+  setGoalModeArmed: Dispatch<SetStateAction<boolean>>;
   setLocalDeepResearchModeArmed: (next: boolean) => void;
   setState: Dispatch<SetStateAction<DesktopState | undefined>>;
   setSymphonyBuilderActionBusy: Dispatch<SetStateAction<SymphonyBuilderAction | undefined>>;
@@ -187,7 +244,8 @@ export function createAppSymphonyBuilderControls({
   changeSymphonyStepCustomText: (stepId: string, customText: string) => void;
   selectSymphonyPattern: (patternId: SymphonyWorkflowPatternId) => void;
   selectSymphonyStepChoice: (stepId: string, choiceId: string) => void;
-  submitSymphonyBuilderAction: (action: SymphonyBuilderAction) => Promise<void>;
+  submitSymphonyBuilderAction: (action: SymphonyBuilderAction, followUpModifier?: boolean) => Promise<boolean>;
+  submitSymphonyComposerPrompt: (followUpModifier?: boolean) => Promise<boolean>;
   toggleSymphonyBuilder: () => void;
 } {
   const selectedPatternId = symphonyBuilderModel?.selectedPattern?.id;
@@ -195,13 +253,27 @@ export function createAppSymphonyBuilderControls({
   function toggleSymphonyBuilder(): void {
     if (!subagentUiEnabled) return;
     const opening = !symphonyBuilderDraft.open;
+    if (opening && state?.settings.collaborationMode === "planner") {
+      setContextError("Switch to Agent mode before using Symphony.");
+      return;
+    }
     setSymphonyBuilderDraft((current) => ({ ...current, open: opening }));
-    if (opening) setLocalDeepResearchModeArmed(false);
-    window.setTimeout(focusComposerEnd, 0);
+    if (opening) {
+      setLocalDeepResearchModeArmed(false);
+      setGoalModeArmed(false);
+    }
+    scheduleComposerFocus();
   }
 
   function selectSymphonyPattern(patternId: SymphonyWorkflowPatternId): void {
-    setSymphonyBuilderDraft((current) => ({ ...current, patternId }));
+    setSymphonyBuilderDraft((current) => {
+      const {
+        preflightClarification: _preflightClarification,
+        preflightSelection: _preflightSelection,
+        ...rest
+      } = current;
+      return { ...rest, patternId };
+    });
   }
 
   function selectSymphonyStepChoice(stepId: string, choiceId: string): void {
@@ -220,59 +292,137 @@ export function createAppSymphonyBuilderControls({
     setSymphonyBuilderDraft((current) => ({ ...current, blocking }));
   }
 
-  async function submitSymphonyBuilderAction(action: SymphonyBuilderAction): Promise<void> {
+  function scheduleComposerFocus(): void {
+    const schedule = typeof window !== "undefined" && typeof window.setTimeout === "function"
+      ? window.setTimeout.bind(window)
+      : globalThis.setTimeout.bind(globalThis);
+    schedule(focusComposerEnd, 0);
+  }
+
+  function blockSymphonySubmit(message: string, options: {
+    clearAutoSelection?: boolean;
+    preflightClarification?: SymphonyWorkflowBuilderDraft["preflightClarification"];
+  } = {}): false {
+    setContextError(message);
+    setSymphonyBuilderDraft((current) => {
+      if (options.clearAutoSelection && current.preflightSelection) {
+        const {
+          patternId: _patternId,
+          preflightClarification: _preflightClarification,
+          preflightSelection: _preflightSelection,
+          ...rest
+        } = current;
+        return {
+          ...rest,
+          open: true,
+          ...(options.preflightClarification ? { preflightClarification: options.preflightClarification } : {}),
+        };
+      }
+      return {
+        ...current,
+        open: true,
+        ...(options.preflightClarification ? { preflightClarification: options.preflightClarification } : {}),
+      };
+    });
+    scheduleComposerFocus();
+    return false;
+  }
+
+  async function submitSymphonyBuilderAction(action: SymphonyBuilderAction, followUpModifier = false): Promise<boolean> {
+    if (state?.settings.collaborationMode === "planner") {
+      return blockSymphonySubmit("Switch to Agent mode before using Symphony.");
+    }
+    const composerGoal = getComposerDraft();
+    const preflight = shouldResolveSymphonyPatternPreflight(symphonyBuilderDraft, composerGoal)
+      ? resolveSymphonyPatternPreflight(composerGoal)
+      : undefined;
+    if (preflight?.kind === "clarify") {
+      return blockSymphonySubmit(symphonyPatternClarificationMessage(preflight), {
+        clearAutoSelection: true,
+        preflightClarification: symphonyWorkflowBuilderPreflightClarification(preflight, composerGoal),
+      });
+    }
+    const preflightSelection = preflight?.kind === "selected"
+      ? symphonyWorkflowBuilderPreflightSelection(preflight.selected, preflight.candidates, composerGoal)
+      : undefined;
+    const resolvedDraft: SymphonyWorkflowBuilderDraft = preflight?.kind === "selected"
+      ? (() => {
+          const { preflightClarification: _preflightClarification, ...rest } = symphonyBuilderDraft;
+          return { ...rest, patternId: preflight.selected.patternId, preflightSelection };
+        })()
+      : symphonyBuilderDraft;
+    if (preflight?.kind === "selected") {
+      setSymphonyBuilderDraft((current) => {
+        if (!shouldResolveSymphonyPatternPreflight(current, composerGoal)) return current;
+        const { preflightClarification: _preflightClarification, ...rest } = current;
+        return { ...rest, patternId: preflight.selected.patternId, preflightSelection };
+      });
+    }
     const currentModel = state
       ? symphonyWorkflowBuilderComposerUiModel({
           featureFlagSnapshot: state.featureFlagSnapshot,
-          draft: symphonyBuilderDraft,
-          composerGoal: getComposerDraft(),
+          draft: resolvedDraft,
+          composerGoal,
         })
       : undefined;
-    if (!currentModel?.launchCard || currentModel.launchCard.confirmDisabled || symphonyBuilderActionBusy) return;
+    if (!currentModel?.launchCard) return blockSymphonySubmit("Open Symphony and choose a pattern before sending this request.");
+    if (currentModel.launchCard.confirmDisabled) {
+      return blockSymphonySubmit(currentModel.launchCard.confirmDisabledReason ?? "Complete the Symphony launch card before sending this request.");
+    }
+    if (symphonyBuilderActionBusy) return false;
     if (action === "save-recipe") {
       const input = symphonyRecipeSaveInputForDraft({
         activeThreadId: state?.activeThreadId,
-        draft: symphonyBuilderDraft,
-        goal: getComposerDraft(),
-        selectedPatternId,
+        draft: resolvedDraft,
+        goal: composerGoal,
+        selectedPatternId: resolvedDraft.patternId ?? selectedPatternId,
         subagentUiEnabled,
       });
-      if (!input) return;
+      if (!input) return blockSymphonySubmit("Complete the Symphony recipe goal and pattern before saving.");
       setSymphonyBuilderActionBusy(action);
       setError(undefined);
+      setContextError(undefined);
       try {
         const next = await window.ambientDesktop.saveSymphonyWorkflowRecipe(input);
         const remembered = rememberDesktopState(next);
-        if (remembered === false) return;
+        if (remembered === false) return true;
         setState(remembered ?? next);
         void refreshWorkflowRecordingLibraryOverride(false);
         appendRunActivityLine("Symphony recipe saved to the workflow catalog.", "state", {}, input.threadId);
+        return true;
       } catch (err) {
         setError(errorMessage(err));
+        return false;
       } finally {
         setSymphonyBuilderActionBusy(undefined);
       }
-      return;
     }
 
     const composerIntent = symphonyComposerIntentForDraft({
       action,
-      draft: symphonyBuilderDraft,
-      selectedPatternId,
+      draft: resolvedDraft,
+      selectedPatternId: resolvedDraft.patternId ?? selectedPatternId,
       subagentUiEnabled,
     });
-    if (!composerIntent) return;
+    if (!composerIntent) return blockSymphonySubmit("Complete the Symphony pattern before sending this request.");
     setSymphonyBuilderActionBusy(action);
+    setContextError(undefined);
     try {
-      await submitDraft("prompt", false, {
+      await submitDraft("prompt", followUpModifier, {
         composerIntent,
         activityLine: action === "run-once"
           ? "Symphony workflow launch sent to Ambient."
           : "Symphony recipe save request sent to Ambient.",
       });
+      return true;
     } finally {
       setSymphonyBuilderActionBusy(undefined);
     }
+  }
+
+  function submitSymphonyComposerPrompt(followUpModifier = false): Promise<boolean> {
+    if (!subagentUiEnabled || !symphonyBuilderDraft.open) return Promise.resolve(false);
+    return submitSymphonyBuilderAction("run-once", followUpModifier);
   }
 
   return {
@@ -282,6 +432,7 @@ export function createAppSymphonyBuilderControls({
     selectSymphonyPattern,
     selectSymphonyStepChoice,
     submitSymphonyBuilderAction,
+    submitSymphonyComposerPrompt,
     toggleSymphonyBuilder,
   };
 }

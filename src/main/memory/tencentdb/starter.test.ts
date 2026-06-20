@@ -78,6 +78,31 @@ describe("TencentDB agent memory starter", () => {
     expect(status.nextActions).toEqual(["install", "disable"]);
   });
 
+  it("does not report subagent child threads as memory-enabled even under global mode", () => {
+    const status = agentMemoryStarterStatusFromDiagnostics({
+      settings: {
+        featureFlags: { tencentDbMemory: true },
+        memory: memorySettings({ enabled: true, embeddingsEnabled: true }),
+      },
+      diagnostics: diagnostics({
+        featureEnabled: true,
+        settingsEnabled: true,
+        activeThreadCount: 1,
+        threadEnabledCount: 1,
+      }),
+      assets: readyAssets(),
+      activeThread: { id: "thread-child", kind: "subagent_child", memoryEnabled: true },
+      now: now(),
+    });
+
+    expect(status.threadScope).toMatchObject({
+      activeThreadId: "thread-child",
+      activeThreadMemoryEnabled: false,
+      activeThreadCount: 1,
+      enabledThreadCount: 1,
+    });
+  });
+
   it("uses the effective feature flag from diagnostics when startup overrides differ from persisted settings", () => {
     const status = agentMemoryStarterStatusFromDiagnostics({
       settings: {
@@ -122,7 +147,7 @@ describe("TencentDB agent memory starter", () => {
       code: "feature_disabled",
       retryable: false,
     }));
-    expect(status.nextActions).toEqual(["open_logs", "disable"]);
+    expect(status.nextActions).toEqual(["enable", "open_logs", "disable"]);
   });
 
   it("reports ready when settings, assets, native preflight, thread scope, and endpoint are healthy", () => {
@@ -485,6 +510,7 @@ describe("TencentDB agent memory starter", () => {
 
   it("builds idempotent enable and disable memory settings patches", () => {
     expect(agentMemoryStarterEnableMemoryPatch({ enableNewThreads: false })).toEqual({
+      mode: "per_thread",
       enabled: true,
       defaultThreadEnabled: false,
       adapter: "tencentdb",
@@ -501,6 +527,7 @@ describe("TencentDB agent memory starter", () => {
       storageScope: "workspace",
     });
     expect(agentMemoryStarterEnableMemoryPatch()).toMatchObject({
+      mode: "enabled_all",
       enabled: true,
       defaultThreadEnabled: true,
       embeddings: {
@@ -509,6 +536,7 @@ describe("TencentDB agent memory starter", () => {
       },
     });
     expect(agentMemoryStarterEnableMemoryPatch({}, { enableNewThreadsDefault: undefined })).toEqual({
+      mode: "enabled_all",
       enabled: true,
       adapter: "tencentdb",
       embeddings: {
@@ -524,6 +552,7 @@ describe("TencentDB agent memory starter", () => {
       storageScope: "workspace",
     });
     expect(agentMemoryStarterDisableMemoryPatch()).toEqual({
+      mode: "disabled",
       enabled: false,
       embeddings: {
         enabled: false,
@@ -539,8 +568,9 @@ function now(): Date {
 
 function memorySettings(input: { enabled: boolean; embeddingsEnabled?: boolean }): AgentMemorySettings {
   return {
+    mode: input.enabled ? "enabled_all" : "disabled",
     enabled: input.enabled,
-    defaultThreadEnabled: false,
+    defaultThreadEnabled: input.enabled,
     adapter: "tencentdb",
     shortTermOffloadEnabled: false,
     storageScope: "workspace",

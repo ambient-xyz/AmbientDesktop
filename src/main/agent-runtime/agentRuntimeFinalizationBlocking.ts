@@ -317,15 +317,18 @@ export function subagentFinalizationBarrierBlock(input: {
   parentThreadId: string;
   parentRunId: string;
   listSubagentWaitBarriersForParentRun: (parentRunId: string) => SubagentWaitBarrierSummary[];
+  listCallableWorkflowTasksForParentRun?: (parentRunId: string) => CallableWorkflowTaskSummary[];
   getSubagentRun: (runId: string) => SubagentRunSummary;
   listSubagentRunEvents?: (runId: string) => SubagentRunEventSummary[];
   listSubagentMailboxEvents?: (runId: string) => SubagentMailboxEventSummary[];
 }): SubagentFinalizationBarrierBlock | undefined {
+  const callableWorkflowTasks = input.listCallableWorkflowTasksForParentRun?.(input.parentRunId) ?? [];
   const barriers = input.listSubagentWaitBarriersForParentRun(input.parentRunId)
     .filter((barrier) =>
       barrier.parentThreadId === input.parentThreadId &&
       barrier.status !== "satisfied" &&
-      barrier.dependencyMode !== "optional_background");
+      barrier.dependencyMode !== "optional_background" &&
+      !subagentBarrierBelongsToBackgroundCallableWorkflow(barrier, callableWorkflowTasks));
   if (barriers.length === 0) return undefined;
   const childRunIds = [...new Set(barriers.flatMap((barrier) => barrier.childRunIds))];
   const compactBarriers = barriers.map((barrier) => ({
@@ -360,6 +363,14 @@ export function subagentFinalizationBarrierBlock(input: {
     childBlockers,
     barriers: compactBarriers,
   };
+}
+
+function subagentBarrierBelongsToBackgroundCallableWorkflow(
+  barrier: SubagentWaitBarrierSummary,
+  tasks: readonly CallableWorkflowTaskSummary[],
+): boolean {
+  if (barrier.ownerKind !== "callable_workflow_symphony_launch_bridge" || !barrier.ownerId) return false;
+  return tasks.some((task) => task.id === barrier.ownerId && task.blocking === false);
 }
 
 function childBlockersForBarrier(input: {

@@ -434,6 +434,9 @@ function diagnosticAgentMemoryStarterSettingsFromStorage(input: unknown): AgentM
       tencentDbMemory: featureFlags.tencentDbMemory,
     },
     memory: {
+      mode: memory.mode === "enabled_all" || memory.mode === "per_thread" || memory.mode === "disabled"
+        ? memory.mode
+        : !memory.enabled ? "disabled" : memory.defaultThreadEnabled ? "enabled_all" : "per_thread",
       enabled: memory.enabled,
       defaultThreadEnabled: memory.defaultThreadEnabled,
       adapter: "tencentdb",

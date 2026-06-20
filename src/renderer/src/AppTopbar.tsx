@@ -1,4 +1,5 @@
 import {
+  Brain,
   Code2,
   FileText,
   Kanban,
@@ -7,6 +8,7 @@ import {
   Terminal,
 } from "lucide-react";
 
+import type { AgentMemoryMode } from "../../shared/agentMemorySettings";
 import type { GitReviewSummary } from "../../shared/workspaceTypes";
 import { GitEditSummaryBadge } from "./AppGitControls";
 import type { ProjectBoardActionKind } from "./projectBoardUiModel";
@@ -27,12 +29,16 @@ export function AppTopbar({
   title,
   providerHasApiKey,
   providerLabel,
+  memoryMode,
+  threadMemoryEnabled,
+  threadMemoryToggleDisabled,
   projectBoardAction,
   gitReview,
   gitReviewError,
   rightPanel,
   onShowSidebar,
   onOpenApiKey,
+  onToggleThreadMemory,
   onOpenGitSummary,
   onTogglePanel,
 }: {
@@ -40,12 +46,16 @@ export function AppTopbar({
   title: string;
   providerHasApiKey: boolean;
   providerLabel: string;
+  memoryMode?: AgentMemoryMode;
+  threadMemoryEnabled?: boolean;
+  threadMemoryToggleDisabled?: boolean;
   projectBoardAction?: AppTopbarProjectBoardAction;
   gitReview?: GitReviewSummary;
   gitReviewError?: string;
   rightPanel?: UtilityPanel;
   onShowSidebar: () => void;
   onOpenApiKey: () => void;
+  onToggleThreadMemory?: (enabled: boolean) => void;
   onOpenGitSummary: () => void;
   onTogglePanel: (panel: UtilityPanel) => void;
 }) {
@@ -68,6 +78,22 @@ export function AppTopbar({
         >
           {providerHasApiKey ? `${providerLabel} API` : "API key missing"}
         </button>
+        {memoryMode === "per_thread" && onToggleThreadMemory && (
+          <label
+            className={`topbar-memory-toggle ${threadMemoryEnabled ? "enabled" : ""}`}
+            data-tooltip={threadMemoryEnabled ? "Memory is on for this thread" : "Memory is off for this thread"}
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(threadMemoryEnabled)}
+              disabled={threadMemoryToggleDisabled}
+              aria-label="Memory for this thread"
+              onChange={(event) => onToggleThreadMemory(event.target.checked)}
+            />
+            <Brain size={13} />
+            <span>Memory</span>
+          </label>
+        )}
       </div>
       <div className="top-actions">
         {projectBoardAction && (

@@ -246,6 +246,116 @@ function callableRecordedWorkflowInvocationContext(input: {
         inputSchemaHintKeys: ["goal", "blocking", "input_1"],
       },
     },
+    launchBridgeContract: {
+      schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
+      workflowTaskId: "symphony-task-1",
+      launchId: "symphony-launch-1",
+      parentThreadId: "parent-thread-1",
+      parentRunId: "parent-run-1",
+      parentMessageId: "parent-message-1",
+      expectedWorkflowToolName: "ambient_workflow_symphony_map_reduce",
+      expectedWorkflowToolId: "symphony:map_reduce",
+      sourceKind: "symphony_recipe",
+      pattern: {
+        id: "map_reduce",
+        label: "Map-Reduce",
+        blocking: true,
+      },
+      childLaunches: [
+        {
+          roleNodeId: "mapper",
+          label: "Mapper",
+          title: "Mapper sub-agent",
+          task: "Map implementation evidence into schema-valid findings.",
+          roleId: "explorer",
+          dependencyMode: "required",
+          forkMode: "recent_turns",
+          promptMode: "append",
+          effectiveRole: {
+            schemaVersion: "ambient-subagent-effective-role-v1",
+            baseRole: "explorer",
+            patternRole: "mapper",
+            displayLabel: "Explorer + Mapper",
+            roleOverlayIds: ["mapper.slice-assignment"],
+            overlays: [
+              {
+                id: "mapper.slice-assignment",
+                label: "slice assignment",
+                narrowsAuthority: true,
+                widensAuthority: false,
+                adds: ["slice assignment"],
+              },
+            ],
+            nonWidening: true,
+            outputContract: "Return mapped evidence with citations and blockers.",
+          },
+          patternRole: "mapper",
+          patternGraphBinding: {
+            workflowTaskId: "symphony-task-1",
+            roleNodeId: "mapper",
+            label: "Mapper",
+            approvalState: "none",
+            blockingParent: true,
+          },
+          toolScope: {
+            mode: "role_defaults",
+            rationale: "Use the selected role's least-privilege defaults.",
+          },
+          idempotencyKey: "callable-workflow:symphony-task-1:symphony-child:mapper",
+        },
+        {
+          roleNodeId: "reducer",
+          label: "Reducer",
+          title: "Reducer sub-agent",
+          task: "Reduce mapped evidence into a synthesis-safe answer.",
+          roleId: "summarizer",
+          dependencyMode: "required",
+          forkMode: "no_history",
+          promptMode: "fresh",
+          effectiveRole: {
+            schemaVersion: "ambient-subagent-effective-role-v1",
+            baseRole: "summarizer",
+            patternRole: "reducer",
+            displayLabel: "Summarizer + Reducer",
+            roleOverlayIds: ["reducer.merge-rules"],
+            overlays: [
+              {
+                id: "reducer.merge-rules",
+                label: "merge rules",
+                narrowsAuthority: true,
+                widensAuthority: false,
+                adds: ["merge rules"],
+              },
+            ],
+            nonWidening: true,
+            outputContract: "Return reduced findings and coverage validation.",
+          },
+          patternRole: "reducer",
+          patternGraphBinding: {
+            workflowTaskId: "symphony-task-1",
+            roleNodeId: "reducer",
+            label: "Reducer",
+            approvalState: "none",
+            blockingParent: true,
+          },
+          toolScope: {
+            mode: "role_defaults",
+            rationale: "Use the selected role's least-privilege defaults.",
+          },
+          idempotencyKey: "callable-workflow:symphony-task-1:symphony-child:reducer",
+        },
+      ],
+      wait: {
+        mode: "required_all",
+        failurePolicy: "ask_user",
+        timeoutMs: 600000,
+        blocking: true,
+        childRoleNodeIds: ["mapper", "reducer"],
+      },
+      expectedEvidence: [
+        "Every required child launch has a childRunId bound to this workflow task's pattern graph.",
+      ],
+    },
   };
 }
 
@@ -1192,6 +1302,11 @@ describeNative("compileWorkflowArtifact", () => {
     const compileContext = JSON.parse(await readFile(join(artifactRoot, "compile-context.json"), "utf8"));
     expect(prompt).toContain("Selected builder choices: pattern-scope=Files: Split across selected workspace files or search results.");
     expect(prompt).toContain("Required metric criteria: map_reduce-metric=Every mapped implementation section has cited evidence.");
+    expect(prompt).toContain("Symphony launch bridge: ambient-callable-workflow-symphony-launch-bridge-v1");
+    expect(prompt).toContain("Bridge children: mapper:explorer, reducer:summarizer");
+    expect(prompt).toContain("Bridge wait: required_all, failure ask_user, timeout 600000ms");
+    expect(prompt).toContain("Bridge compiler boundary: do not emit, repair, or ask for ambient_subagent_spawn_agent");
+    expect(prompt).toContain("Ambient runtime owns child launch/wait; the compiler receives only contract/evidence.");
     expect(compileContext.callableWorkflowInvocation).toMatchObject({
       schemaVersion: WORKFLOW_COMPILER_CALLABLE_INVOCATION_CONTEXT_SCHEMA_VERSION,
       taskId: "symphony-task-1",
@@ -1212,6 +1327,19 @@ describeNative("compileWorkflowArtifact", () => {
           ],
         },
       },
+      launchBridgeContract: {
+        schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
+        pattern: { id: "map_reduce" },
+        childLaunches: [
+          expect.objectContaining({ roleNodeId: "mapper", roleId: "explorer" }),
+          expect.objectContaining({ roleNodeId: "reducer", roleId: "summarizer" }),
+        ],
+        wait: {
+          mode: "required_all",
+          failurePolicy: "ask_user",
+          timeoutMs: 600000,
+        },
+      },
     });
     const compileRun = dashboard.runs.find((run) => run.artifactId === artifact.id)!;
     const compileEvent = store.listWorkflowRunEvents(compileRun.id).find((event) => event.type === "workflow.compile");
@@ -1225,12 +1353,25 @@ describeNative("compileWorkflowArtifact", () => {
           stepSelectionCount: 1,
           metricCriteriaIds: ["map_reduce-metric"],
         },
+        symphonyLaunchBridge: {
+          schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
+          patternId: "map_reduce",
+          childRoleNodeIds: ["mapper", "reducer"],
+          waitMode: "required_all",
+          waitFailurePolicy: "ask_user",
+        },
       },
     });
     const modelCall = store.listWorkflowModelCalls({ artifactId: artifact.id }).find((call) => call.task === "workflow.compiler");
     expect(modelCall?.input).toMatchObject({
       callableWorkflowInvocation: {
         taskId: "symphony-task-1",
+        launchBridgeContract: {
+          schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
+          wait: {
+            mode: "required_all",
+          },
+        },
         sourceContext: {
           kind: "symphony_recipe",
           invocationCustomization: {

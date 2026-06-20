@@ -285,6 +285,7 @@ function createHarness() {
     linkCallableWorkflowTaskArtifact: vi.fn(() => task("linked")),
     markCallableWorkflowTaskRunStarted: vi.fn(() => task("started")),
     markCallableWorkflowTaskRunFinished: vi.fn(() => task("finished")),
+    pauseCallableWorkflowTask: vi.fn(() => task("paused", { status: "paused" })),
     failCallableWorkflowTask: vi.fn(() => task("failed")),
   };
   return {

@@ -434,13 +434,13 @@ describe("TencentDB memory Pi extension", () => {
 
     await handlers.before_agent_start[0]({
       type: "before_agent_start",
-      prompt: "Please remember this durable fact: AKIA1234567890ABCDEF.",
+      prompt: "Please remember this durable fact: AWS_ACCESS_KEY_EXAMPLE.",
       systemPrompt: "system",
       systemPromptOptions: {},
     } as any, {} as any);
 
     const bareAwsKeyCreate = await memoryCreate.execute("tool-5-bare-aws-key", {
-      content: "AKIA1234567890ABCDEF",
+      content: "AWS_ACCESS_KEY_EXAMPLE",
       confirmed: true,
     }, undefined, undefined, {} as any);
     expect(bareAwsKeyCreate.details).toEqual({ unavailable: true });

@@ -3,7 +3,7 @@ import type {
   AgentMemoryNativeDependencyPreflight,
   AgentMemoryStorageDiagnostics,
 } from "../../../shared/agentMemoryDiagnostics";
-import type { AgentMemorySettings, UpdateAgentMemorySettingsInput } from "../../../shared/agentMemorySettings";
+import type { AgentMemoryMode, AgentMemorySettings, UpdateAgentMemorySettingsInput } from "../../../shared/agentMemorySettings";
 import type {
   AgentMemoryStarterAssetStatus,
   AgentMemoryStarterBlocker,
@@ -32,7 +32,7 @@ export interface AgentMemoryStarterStatusInput {
   diagnostics: AgentMemoryStorageDiagnostics;
   assets: AgentMemoryStarterAssetSnapshot;
   runtimeOverride?: AgentMemoryStarterRuntimeStatus;
-  activeThread?: Pick<ThreadSummary, "id" | "memoryEnabled">;
+  activeThread?: Pick<ThreadSummary, "id" | "kind" | "memoryEnabled">;
   operationId?: string;
   now?: Date;
 }
@@ -46,14 +46,18 @@ export function agentMemoryStarterStatusFromDiagnostics(input: AgentMemoryStarte
     ...input.runtimeOverride,
   };
   const nativePreflight = input.diagnostics.nativePreflight ?? missingNativePreflight(checkedAt);
+  const activeThreadMemoryEligible = input.activeThread?.kind !== "subagent_child";
+  const activeThreadMemoryEnabled = input.activeThread && activeThreadMemoryEligible
+    ? memory.mode === "enabled_all" || (memory.mode === "per_thread" && Boolean(input.activeThread.memoryEnabled))
+    : false;
   const threadScope = {
     ...(input.activeThread ? { activeThreadId: input.activeThread.id } : {}),
-    activeThreadMemoryEnabled: input.activeThread ? Boolean(input.activeThread.memoryEnabled) : false,
+    activeThreadMemoryEnabled,
     defaultThreadEnabled: memory.defaultThreadEnabled,
     enabledThreadCount: input.diagnostics.threadEnabledCount,
     activeThreadCount: input.diagnostics.activeThreadCount,
   };
-  const requested = memory.enabled;
+  const requested = memory.mode !== "disabled";
   const disabledRuntimeBlockers = requested ? [] : disabledRuntimeStarterBlockers(runtime, Boolean(input.runtimeOverride));
   const blockers = requested
     ? starterBlockers({
@@ -152,9 +156,14 @@ export function agentMemoryStarterAssetSnapshotFromError(error: unknown): AgentM
 
 export function agentMemoryStarterEnableMemoryPatch(
   input: AgentMemoryStarterEnableInput = {},
-  options: { enableNewThreadsDefault?: boolean } = { enableNewThreadsDefault: true },
+  options: { enableNewThreadsDefault?: boolean; modeDefault?: AgentMemoryMode } = { enableNewThreadsDefault: true },
 ): UpdateAgentMemorySettingsInput {
+  const enableNewThreads = input.enableNewThreads ?? options.enableNewThreadsDefault;
+  const mode = typeof enableNewThreads === "boolean"
+    ? enableNewThreads ? "enabled_all" : "per_thread"
+    : options.modeDefault ?? "enabled_all";
   const patch: UpdateAgentMemorySettingsInput = {
+    mode,
     enabled: true,
     adapter: "tencentdb",
     embeddings: {
@@ -169,13 +178,13 @@ export function agentMemoryStarterEnableMemoryPatch(
     },
     storageScope: "workspace",
   };
-  const enableNewThreads = input.enableNewThreads ?? options.enableNewThreadsDefault;
   if (typeof enableNewThreads === "boolean") patch.defaultThreadEnabled = enableNewThreads;
   return patch;
 }
 
 export function agentMemoryStarterDisableMemoryPatch(): UpdateAgentMemorySettingsInput {
   return {
+    mode: "disabled",
     enabled: false,
     embeddings: {
       enabled: false,
@@ -191,7 +200,7 @@ function starterBlockers(input: {
   runtimeAsset: AgentMemoryStarterAssetStatus;
   runtime: AgentMemoryStarterRuntimeStatus;
   nativePreflight: AgentMemoryNativeDependencyPreflight;
-  activeThread?: Pick<ThreadSummary, "id" | "memoryEnabled">;
+  activeThread?: Pick<ThreadSummary, "id" | "kind" | "memoryEnabled">;
 }): AgentMemoryStarterBlocker[] {
   const blockers: AgentMemoryStarterBlocker[] = [];
   const add = (
@@ -212,7 +221,7 @@ function starterBlockers(input: {
       "Check launch-time feature flag overrides before retrying setup.",
     );
   }
-  if (!input.memory.enabled) {
+  if (input.memory.mode === "disabled") {
     add("global_memory_disabled", "Agent Memory is disabled globally.", true);
   }
   if (input.diagnostics.featureEnabled && input.diagnostics.storageSchemaStatus === "unsupported") {
@@ -232,10 +241,6 @@ function starterBlockers(input: {
       true,
     );
   }
-  if (input.activeThread && !input.activeThread.memoryEnabled) {
-    add("thread_memory_disabled", "Agent Memory is disabled for the active thread.", true);
-  }
-
   if (input.model.state === "missing") {
     add("model_missing", input.model.message ?? "EmbeddingGemma model asset is missing.", true, input.model.path);
   } else if (input.model.state === "mismatch") {
@@ -345,7 +350,12 @@ function starterNextActions(input: {
   }
 
   if (input.blockers.some((blocker) => blocker.code === "model_missing" || blocker.code === "runtime_missing")) push("install");
-  if (input.blockers.some((blocker) => blocker.code === "managed_embeddings_disabled" || blocker.code === "thread_memory_disabled" || blocker.code === "global_memory_disabled")) push("enable");
+  if (input.blockers.some((blocker) =>
+    blocker.code === "feature_disabled" ||
+    blocker.code === "managed_embeddings_disabled" ||
+    blocker.code === "thread_memory_disabled" ||
+    blocker.code === "global_memory_disabled"
+  )) push("enable");
   if (
     input.blockers.length === 0 &&
     input.runtime.state !== "blocked" &&

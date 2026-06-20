@@ -91,6 +91,58 @@ describe("agent runtime finalization blocking helpers", () => {
     expect(block?.message).toContain("missing-run (missing, last activity 2026-06-11T00:00:01.000Z via wait_barrier)");
   });
 
+  it("does not block parent finalization on required barriers owned by background callable workflows", () => {
+    const block = subagentFinalizationBarrierBlock({
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      listSubagentWaitBarriersForParentRun: () => [
+        waitBarrier({
+          id: "barrier-workflow-background",
+          childRunIds: ["child-run-1"],
+          ownerKind: "callable_workflow_symphony_launch_bridge",
+          ownerId: "background-task",
+        }),
+      ],
+      listCallableWorkflowTasksForParentRun: () => [
+        callableTask({
+          id: "background-task",
+          blocking: false,
+        }),
+      ],
+      getSubagentRun: () => subagentRun({ id: "child-run-1", status: "running" }),
+    });
+
+    expect(block).toBeUndefined();
+  });
+
+  it("keeps explicit required waits blocked even when they share background workflow children", () => {
+    const block = subagentFinalizationBarrierBlock({
+      parentThreadId: "parent-thread",
+      parentRunId: "parent-run",
+      listSubagentWaitBarriersForParentRun: () => [
+        waitBarrier({
+          id: "barrier-explicit-parent-wait",
+          childRunIds: ["child-run-1"],
+        }),
+      ],
+      listCallableWorkflowTasksForParentRun: () => [
+        callableTask({
+          id: "background-task",
+          blocking: false,
+          patternGraphSnapshot: {
+            nodes: [{ childRunId: "child-run-1" }],
+          } as any,
+        }),
+      ],
+      getSubagentRun: () => subagentRun({ id: "child-run-1", status: "running" }),
+    });
+
+    expect(block).toMatchObject({
+      barrierIds: ["barrier-explicit-parent-wait"],
+      childRunIds: ["child-run-1"],
+    });
+  });
+
   it("keeps timed-out required barriers blocked even when a child later completes", () => {
     const barrier = waitBarrier({
       id: "barrier-timed-out",

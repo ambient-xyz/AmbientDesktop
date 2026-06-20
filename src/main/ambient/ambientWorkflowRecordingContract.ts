@@ -7,8 +7,16 @@ export {
   searchAmbientWorkflowPlaybooks,
 } from "./ambientWorkflows";
 export type {
+  AmbientWorkflowPlaybookDescription,
+  AmbientWorkflowPlaybookInjection,
+  AmbientWorkflowsArchiveInput,
+  AmbientWorkflowsDescribeInput,
+  AmbientWorkflowsInjectInput,
+  AmbientWorkflowsRestoreVersionInput,
   AmbientWorkflowsSearchInput,
   AmbientWorkflowsSearchResponse,
+  AmbientWorkflowsUnarchiveInput,
+  AmbientWorkflowsUpdateInput,
 } from "./ambientWorkflows";
 
 export { isRetryableAmbientProviderError } from "./aggressiveRetries";

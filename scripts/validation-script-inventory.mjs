@@ -5,6 +5,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+export const CURRENT_PROVIDER_GUIDANCE = Object.freeze({
+  preferredLiveProvider: "ambient",
+  preferredLiveModel: "moonshotai/kimi-k2.7-code",
+  gmiCloudPolicy: "explicit request or approved failover only",
+  summary:
+    "Provider-dependent validation should use AMBIENT_PROVIDER=ambient with AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code; GMI Cloud entries are failover inventory, not default recommendations.",
+});
+
 export function buildValidationScriptInventory(packageJson, options = {}) {
   const scripts = packageJson?.scripts && typeof packageJson.scripts === "object" ? packageJson.scripts : {};
   const entries = Object.entries(scripts)
@@ -16,6 +24,7 @@ export function buildValidationScriptInventory(packageJson, options = {}) {
   const domains = [...new Set(entries.map((entry) => entry.domain))].sort();
   return {
     generatedFrom: "package.json scripts",
+    providerGuidance: CURRENT_PROVIDER_GUIDANCE,
     scriptCount: entries.length,
     domains,
     liveProviderScriptCount: entries.filter((entry) => entry.liveProvider !== "none").length,
@@ -46,9 +55,9 @@ export function validationCostRank(cost) {
 export function validationProviderRank(provider) {
   return {
     none: 0,
-    "gmi-cloud": 1,
-    ambient: 2,
-    "provider-dependent": 3,
+    ambient: 1,
+    "provider-dependent": 2,
+    "gmi-cloud": 3,
   }[provider] ?? 99;
 }
 
@@ -169,6 +178,7 @@ export function renderValidationScriptInventoryMarkdown(report) {
     "",
     `Generated from ${report.generatedFrom}. ${report.scriptCount} validation-related scripts across ${report.domains.length} domains.`,
     `Live/provider-backed scripts: ${report.liveProviderScriptCount}; GMI Cloud scripts: ${report.gmiCloudScriptCount}.`,
+    providerGuidanceMarkdownLine(report),
     "",
   ];
 
@@ -189,6 +199,7 @@ export function renderValidationScriptRecommendationsMarkdown(report) {
     "# Recommended Validation Scripts",
     "",
     `Generated from ${report.generatedFrom}. Showing the cheapest local, no-secret script for each included domain.`,
+    providerGuidanceMarkdownLine(report),
     "",
     "| Domain | Run | Cost | Notes |",
     "| --- | --- | --- | --- |",
@@ -201,9 +212,13 @@ export function renderValidationScriptRecommendationsMarkdown(report) {
   return lines.join("\n");
 }
 
+function providerGuidanceMarkdownLine(report) {
+  return `Provider guidance: ${report.providerGuidance?.summary ?? CURRENT_PROVIDER_GUIDANCE.summary}`;
+}
+
 function scriptNotes(name, command, classification) {
   const notes = [];
-  if (classification.liveProvider === "gmi-cloud") notes.push("uses GMI Cloud override");
+  if (classification.liveProvider === "gmi-cloud") notes.push("GMI Cloud failover only");
   if (classification.liveProvider === "ambient") notes.push("uses Ambient provider directly");
   if (classification.liveProvider === "provider-dependent") notes.push("live/provider state required");
   if (/pnpm run typecheck|tsc --noEmit/.test(command) || name === "typecheck") notes.push("TypeScript check");

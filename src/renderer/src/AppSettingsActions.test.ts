@@ -20,6 +20,7 @@ describe("App settings actions", () => {
       settings: {
         media: { generatedMediaAutoplay: false },
         memory: {
+          mode: "enabled_all",
           enabled: true,
           defaultThreadEnabled: true,
           adapter: "tencentdb",
@@ -41,6 +42,7 @@ describe("App settings actions", () => {
     expect(desktopStateWithUpdatedSettings(state, "media", { generatedMediaAutoplay: true }).settings).toEqual({
       media: { generatedMediaAutoplay: true },
       memory: {
+        mode: "enabled_all",
         enabled: true,
         defaultThreadEnabled: true,
         adapter: "tencentdb",
@@ -109,6 +111,52 @@ describe("App settings actions", () => {
     await expect(actions.clearAgentMemory()).resolves.toEqual(clearResult);
     expect(clearAgentMemory).toHaveBeenCalledWith({ workspacePath: "/tmp/ambient-workspace" });
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("merges sequential persisted settings sections into the latest local state", async () => {
+    let localState = desktopState({
+      settings: {
+        featureFlags: { subagents: false, slashCommands: false, tencentDbMemory: false },
+        memory: {
+          mode: "disabled",
+          enabled: false,
+          defaultThreadEnabled: false,
+          adapter: "tencentdb",
+          shortTermOffloadEnabled: false,
+          embeddings: {
+            enabled: false,
+            providerMode: "ambient-managed",
+            autoStartProvider: false,
+            sendDimensions: false,
+            maxInputChars: 512,
+            timeoutMs: 10_000,
+            preflightEnabled: true,
+          },
+          storageScope: "workspace",
+        },
+      },
+    });
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        updateFeatureFlagSettings: vi.fn(async (featureFlags) => featureFlags),
+        updateMemorySettings: vi.fn(async (memory) => memory),
+      },
+    });
+    const actions = createAppSettingsActions({
+      setLocalDeepResearchSetup: vi.fn(),
+      setSearchRoutingHydrationError: vi.fn(),
+      setSearchRoutingHydrating: vi.fn(),
+      setState: (value) => {
+        localState = typeof value === "function" ? value(localState) as DesktopState : value as DesktopState;
+      },
+      state: localState,
+    });
+
+    await actions.updateFeatureFlagSettings({ subagents: false, slashCommands: false, tencentDbMemory: true });
+    await actions.updateMemorySettings({ ...localState.settings.memory, mode: "enabled_all" });
+
+    expect(localState.settings.featureFlags).toEqual({ subagents: false, slashCommands: false, tencentDbMemory: true });
+    expect(localState.settings.memory.mode).toBe("enabled_all");
   });
 });
 

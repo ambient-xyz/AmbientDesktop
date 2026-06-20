@@ -1,4 +1,5 @@
 export {
+  ambientRetryPolicyFromSettings,
   AmbientStreamFailureError,
   aggressiveAmbientRetryPolicy,
   isRetryableAmbientProviderError,
@@ -7,6 +8,7 @@ export {
 export type { AmbientRetryPolicy } from "./aggressiveRetries";
 
 export {
+  ambientChatCompletionTransportTimeoutsFromEnv,
   callAmbientChatCompletionTextWithRetries,
   isAmbientChatCompletionValidationError,
 } from "./ambientChatCompletionRetry";

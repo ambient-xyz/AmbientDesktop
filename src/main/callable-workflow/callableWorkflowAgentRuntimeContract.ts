@@ -40,5 +40,7 @@ export {
   latestCallableWorkflowRunForArtifact,
 } from "./callableWorkflowRunner";
 export type {
+  CallableWorkflowRunnerCompileInput,
+  CallableWorkflowSubagentLaunchResult,
   CallableWorkflowRunnerStore,
 } from "./callableWorkflowRunner";

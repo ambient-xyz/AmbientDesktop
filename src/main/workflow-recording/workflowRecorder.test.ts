@@ -87,14 +87,14 @@ describe("workflow recorder capture", () => {
           "Result",
           "Authorization: Bearer ya29.liveOAuthTokenValue12345",
           "Opened 3 Scottsdale venue pages and kept event titles, dates, prices, and booking URLs.",
-          "Credential file was /path/to/user/.ambient-hardening/snapshots/shared-secrets/example/userData/credentials.json",
+          "Credential file was /path/to/user/.ambient-example/snapshots/shared-secrets/example/userData/credentials.json",
         ].join("\n"),
         createdAt: "2026-05-19T16:00:01.000Z",
         metadata: {
           toolName: "ambient_cli",
           toolCallId: "call-secret",
           status: "done",
-          artifactPath: "/path/to/user/.ambient-hardening/snapshots/shared-secrets/example/tool-output.txt",
+          artifactPath: "/path/to/user/.ambient-example/snapshots/shared-secrets/example/tool-output.txt",
         },
       },
     ];

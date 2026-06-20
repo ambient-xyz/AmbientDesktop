@@ -136,6 +136,7 @@ describe("TencentDB Agent Memory live smoke", () => {
       }),
     ]));
 
+    store.setMemorySettings({ mode: "per_thread", enabled: true, defaultThreadEnabled: false });
     const memoryOffThread = store.createThread("Tencent memory off control live smoke");
     store.updateThreadSettings(memoryOffThread.id, { memoryEnabled: false });
     await sendWithTimeout({

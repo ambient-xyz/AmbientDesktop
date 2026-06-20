@@ -29,6 +29,11 @@ import type { RuntimeToolMessageController } from "./runtimeToolMessageControlle
 import type { PiSessionFileCommitReason } from "./agentRuntimeSessionFacade";
 import { streamWatchdogFinalizationMessage } from "./streamWatchdogFinalization";
 import { terminalProviderFailureFinalizationMessage } from "./terminalProviderFailureFinalization";
+import {
+  isSymphonyParentModeMissingWorkflowTaskError,
+  type SymphonyParentModePolicy,
+} from "./agentRuntimeSymphonyParentMode";
+import { symphonyParentModeRecoveryFinalizationMessage } from "./symphonyParentModeRecoveryFinalization";
 
 interface RuntimePromptFailureToolArgumentProgress {
   current(toolCallId: string): ToolArgumentProgressSnapshot | undefined;
@@ -131,6 +136,7 @@ export interface RuntimePromptFailureHandlerInput {
     options: { error: string; workflowState: "failed" },
   ) => void;
   finishParentRun: (status: "done" | "error" | "aborted" | "interrupted", errorMessage?: string) => void;
+  symphonyParentModePolicy?: SymphonyParentModePolicy | undefined;
   chatStreamInterruptionDiagnostic: (
     message: string,
     input?: Partial<
@@ -164,6 +170,25 @@ export async function handleRuntimePromptFailure(input: RuntimePromptFailureHand
     input.emitRunEvent({ type: "open-api-key-dialog" });
   }
   const message = providerErrorDiagnostic.message;
+  if (isSymphonyParentModeMissingWorkflowTaskError(input.error)) {
+    input.cleanupCurrentSession({ clearPersistedSessionFileIfCurrent: true });
+    input.runtimeMessages.finishCurrentThinkingMessage("error", input.currentThinkingFinalText());
+    input.markOpenToolMessagesFailed("Symphony parent mode stopped before a callable workflow launch was verified.");
+    const recoveryFinalization = symphonyParentModeRecoveryFinalizationMessage({
+      message,
+      policy: input.symphonyParentModePolicy,
+    });
+    const fallback = input.runtimeMessages.replaceCurrentAssistant(
+      recoveryFinalization.content,
+      recoveryFinalization.metadata,
+    );
+    input.finishPlannerFinalizationSources("failed", { error: message, workflowState: "failed" });
+    input.finishParentRun("error", message);
+    input.emitRunEvent({ type: "message-updated", message: fallback });
+    input.emitRunEvent({ type: "run-status", threadId: input.threadId, status: "error" });
+    input.emitRunEvent({ type: "error", message, threadId: input.threadId, workspacePath: input.workspacePath });
+    return;
+  }
   const preOutputStreamStallRetryReason: AssistantFinalizationRetryReason = "pre_output_stream_stall";
   if (input.streamWatchdogTimedOut() || input.error instanceof AmbientStreamFailureError) {
     input.persistPiStreamTrace(message);

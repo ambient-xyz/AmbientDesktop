@@ -77,6 +77,9 @@ export function createAgentRuntimeSubagentEventingStore(
     getCallableWorkflowTask: store.getCallableWorkflowTask
       ? (id) => store.getCallableWorkflowTask!(id)
       : undefined,
+    listCallableWorkflowTasksForParentRun: store.listCallableWorkflowTasksForParentRun
+      ? (parentRunId) => store.listCallableWorkflowTasksForParentRun!(parentRunId)
+      : undefined,
     bindCallableWorkflowTaskPatternGraphChild: store.bindCallableWorkflowTaskPatternGraphChild
       ? (input) => {
         const task = store.bindCallableWorkflowTaskPatternGraphChild!(input);

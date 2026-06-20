@@ -3,6 +3,7 @@ import type { SubagentRunStatus } from "../../shared/subagentProtocol";
 import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierDecision, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
+import { isCallableWorkflowSymphonyChildWaitPreCompilePause } from "../../shared/callableWorkflowTaskGuards";
 import {
   aggregatePatternGraphOverflowApprovalState,
   aggregatePatternGraphOverflowStatus,
@@ -179,6 +180,7 @@ export interface SubagentParentClusterWorkflowTaskModel {
   canResume: boolean;
   resumeTitle: string;
   parentBlocker?: SubagentParentClusterWorkflowTaskBlockerModel;
+  childWait?: SubagentParentClusterWorkflowTaskChildWaitModel;
   detail?: string;
 }
 
@@ -187,6 +189,13 @@ export interface SubagentParentClusterWorkflowTaskBlockerModel {
   label: string;
   detail: string;
   statusTone: SubagentParentClusterTone;
+}
+
+export interface SubagentParentClusterWorkflowTaskChildWaitModel {
+  label: string;
+  detail: string;
+  statusTone: SubagentParentClusterTone;
+  childLabels: string[];
 }
 
 export type SubagentParentClusterTone = "neutral" | "active" | "success" | "warning" | "danger";
@@ -273,10 +282,18 @@ export function subagentParentClusterModelsByMessageId(
     const children = sortedRuns.map((run) => childModel(
       run,
       childThreads.get(run.childThreadId),
-      childParentBlocker(run, relevantWaitBarriers, parentMailboxEventsForCluster),
+      childParentBlocker(run, relevantWaitBarriers, sortedWorkflowTaskSummaries, parentMailboxEventsForCluster),
     ));
     const workflowTaskBlockers = workflowTaskParentBlockers(parentMailboxEventsForCluster);
-    const workflowTasks = sortedWorkflowTaskSummaries.map((task) => callableWorkflowTaskModel(task, workflowTaskBlockers.get(task.id)));
+    const workflowTaskChildWaits = workflowTaskChildWaitsForBackgroundSymphonyTasks(
+      sortedWorkflowTaskSummaries,
+      relevantWaitBarriers,
+      runsById,
+      childThreads,
+    );
+    const workflowTasks = sortedWorkflowTaskSummaries.map((task) =>
+      callableWorkflowTaskModel(task, workflowTaskBlockers.get(task.id), workflowTaskChildWaits.get(task.id))
+    );
     const patternGraphs = uniquePatternGraphSnapshots(patternGraphsByParentMessage.get(parentMessageId) ?? [])
       .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.patternId.localeCompare(b.patternId))
       .map(subagentPatternGraphRendererModel);
@@ -608,6 +625,9 @@ function childSummary(
   const workflowBlocking = workflowTasks.filter((task) => task.modeLabel === "Blocking").length;
   const workflowActive = workflowTasks.filter((task) => task.statusTone === "active").length;
   const workflowNeedsAttention = workflowTasks.filter((task) => task.statusTone === "warning" || task.statusTone === "danger").length;
+  const workflowChildWaits = workflowTasks
+    .map((task) => task.childWait)
+    .filter((wait): wait is SubagentParentClusterWorkflowTaskChildWaitModel => Boolean(wait));
   const activeBatches = mailboxActivities.filter((activity) => activity.label === "Batch progress" && activity.statusTone === "active").length;
   const failedSpawns = mailboxActivities.filter((activity) => activity.label === "Spawn failed").length;
   const interruptions = mailboxActivities.filter((activity) => activity.label === "Child interrupted" || activity.label === "Parent stopped").length;
@@ -625,12 +645,21 @@ function childSummary(
   if (workflowBlocking) pieces.push(`${workflowBlocking} blocking`);
   if (workflowActive) pieces.push(`${workflowActive} active`);
   if (workflowNeedsAttention) pieces.push(`${workflowNeedsAttention} workflow attention`);
+  if (workflowChildWaits.length) pieces.push(workflowChildWaitSummary(workflowChildWaits));
   if (workflowBlockers) pieces.push(`${workflowBlockers} workflow blocked`);
   if (supervisorRequests) pieces.push(`${supervisorRequests} supervisor ${supervisorRequests === 1 ? "request" : "requests"}`);
   if (activeBatches) pieces.push(`${activeBatches} batch pending`);
   if (failedSpawns) pieces.push(`${failedSpawns} failed ${failedSpawns === 1 ? "spawn" : "spawns"}`);
   if (interruptions) pieces.push(`${interruptions} interrupted`);
   return pieces.join(" · ");
+}
+
+function workflowChildWaitSummary(waits: SubagentParentClusterWorkflowTaskChildWaitModel[]): string {
+  const first = waits[0];
+  const labels = first?.childLabels.slice(0, 2) ?? [];
+  if (!labels.length) return `${waits.length} Waiting on children`;
+  const hidden = first && first.childLabels.length > labels.length ? `, ${first.childLabels.length - labels.length} more` : "";
+  return `Waiting on ${labels.join(", ")}${hidden}`;
 }
 
 function clusterStatus(
@@ -648,6 +677,8 @@ function clusterStatus(
   if (hasChildAttentionBlocker(children)) return "Needs attention";
   if (hasSupervisorAttention(mailboxActivities)) return "Needs attention";
   if (hasWorkflowBlocker(mailboxActivities, "warning")) return "Needs attention";
+  const workflowChildWait = workflowTasks.find((task) => task.childWait)?.childWait;
+  if (workflowChildWait) return workflowChildWait.statusTone === "active" ? "Waiting on children" : "Waiting on child attention";
   if (workflowTasks.some((task) => task.statusTone === "warning")) return "Needs attention";
   if (patternGraphs.some((graph) => graph.nodes.some((node) => node.tone === "warning" || node.tone === "danger"))) return "Needs attention";
   if (hasWorkflowBlocker(mailboxActivities, "active")) return "Waiting";
@@ -778,15 +809,16 @@ function parentMailboxEventsForParentMessage(
 function childParentBlocker(
   run: SubagentRunSummary,
   barriers: SubagentWaitBarrierSummary[],
+  workflowTasks: CallableWorkflowTaskSummary[],
   parentMailboxEvents: SubagentParentMailboxEventSummary[],
 ): SubagentParentClusterChildBlockerDraft | undefined {
   const approval = latestQueuedApprovalRequestForRun(run, parentMailboxEvents);
   if (approval) return approvalParentBlocker(approval);
   const supervisor = latestQueuedSupervisorRequestForRun(run, parentMailboxEvents);
   if (supervisor) return supervisorRequestParentBlocker(supervisor);
-  const waitBarrierAttention = latestQueuedWaitBarrierAttentionForRun(run, parentMailboxEvents);
+  const waitBarrierAttention = latestQueuedWaitBarrierAttentionForRun(run, parentMailboxEvents, barriers, workflowTasks);
   if (waitBarrierAttention) return waitBarrierAttentionParentBlocker(waitBarrierAttention);
-  const waitingBarrier = barriers.find((barrier) => barrierBlocksParentForRun(barrier, run));
+  const waitingBarrier = barriers.find((barrier) => barrierBlocksParentForRun(barrier, run, workflowTasks));
   if (!waitingBarrier) return undefined;
   if (waitingBarrier.status !== "waiting_on_children") {
     return unresolvedBarrierParentBlocker(run, waitingBarrier);
@@ -849,12 +881,22 @@ function childParentBlocker(
 function barrierBlocksParentForRun(
   barrier: SubagentWaitBarrierSummary,
   run: SubagentRunSummary,
+  workflowTasks: CallableWorkflowTaskSummary[],
 ): boolean {
   if (barrier.dependencyMode === "optional_background") return false;
+  if (barrierBelongsToBackgroundCallableWorkflow(barrier, workflowTasks)) return false;
   if (barrier.status === "satisfied") return false;
   if (!barrier.childRunIds.includes(run.id)) return false;
   if (barrier.status === "waiting_on_children") return true;
   return !barrierChildSynthesisAllowed(barrier, run);
+}
+
+function barrierBelongsToBackgroundCallableWorkflow(
+  barrier: SubagentWaitBarrierSummary,
+  workflowTasks: CallableWorkflowTaskSummary[],
+): boolean {
+  if (barrier.ownerKind !== "callable_workflow_symphony_launch_bridge" || !barrier.ownerId) return false;
+  return workflowTasks.some((task) => task.id === barrier.ownerId && task.blocking === false);
 }
 
 function unresolvedBarrierParentBlocker(
@@ -934,12 +976,18 @@ function latestQueuedSupervisorRequestForRun(
 function latestQueuedWaitBarrierAttentionForRun(
   run: SubagentRunSummary,
   parentMailboxEvents: SubagentParentMailboxEventSummary[],
+  barriers: SubagentWaitBarrierSummary[],
+  workflowTasks: CallableWorkflowTaskSummary[],
 ): SubagentParentMailboxEventSummary | undefined {
   return parentMailboxEvents.find((event) => {
     if (event.type !== "subagent.wait_barrier_attention" || event.deliveryState !== "queued") return false;
     const payload = recordValue(event.payload);
-    return payload?.schemaVersion === "ambient-subagent-wait-barrier-attention-v1" &&
-      stringValue(payload.childRunId) === run.id;
+    if (payload?.schemaVersion !== "ambient-subagent-wait-barrier-attention-v1") return false;
+    if (stringValue(payload.childRunId) !== run.id) return false;
+    const waitBarrierId = stringValue(payload.waitBarrierId);
+    if (!waitBarrierId) return true;
+    const barrier = barriers.find((candidate) => candidate.id === waitBarrierId);
+    return !barrier || !barrierBelongsToBackgroundCallableWorkflow(barrier, workflowTasks);
   });
 }
 
@@ -1010,6 +1058,7 @@ function supervisorRequestParentBlocker(event: SubagentParentMailboxEventSummary
 function callableWorkflowTaskModel(
   task: CallableWorkflowTaskSummary,
   parentBlocker?: SubagentParentClusterWorkflowTaskBlockerModel,
+  childWait?: SubagentParentClusterWorkflowTaskChildWaitModel,
 ): SubagentParentClusterWorkflowTaskModel {
   const detail = callableWorkflowTaskDetail(task);
   const launchCardLabels = callableWorkflowTaskLaunchCardLabels(task);
@@ -1040,7 +1089,68 @@ function callableWorkflowTaskModel(
     canResume: task.pauseResumeCancel && callableWorkflowTaskCanResume(task),
     resumeTitle: `Resume ${task.blocking ? "blocking" : "background"} workflow task`,
     ...(parentBlocker ? { parentBlocker } : {}),
+    ...(childWait ? { childWait } : {}),
     ...(detail ? { detail } : {}),
+  };
+}
+
+function workflowTaskChildWaitsForBackgroundSymphonyTasks(
+  tasks: CallableWorkflowTaskSummary[],
+  barriers: SubagentWaitBarrierSummary[],
+  runsById: Map<string, SubagentRunSummary>,
+  childThreads: Map<string, ThreadSummary>,
+): Map<string, SubagentParentClusterWorkflowTaskChildWaitModel> {
+  const backgroundTasks = new Map(
+    tasks
+      .filter((task) => !task.blocking)
+      .map((task) => [task.id, task] as const),
+  );
+  const waits = new Map<string, { barrier: SubagentWaitBarrierSummary; model: SubagentParentClusterWorkflowTaskChildWaitModel }>();
+  for (const barrier of barriers) {
+    if (barrier.ownerKind !== "callable_workflow_symphony_launch_bridge" || !barrier.ownerId) continue;
+    if (barrier.status === "satisfied") continue;
+    const task = backgroundTasks.get(barrier.ownerId);
+    if (!task) continue;
+    const existing = waits.get(task.id);
+    if (existing && existing.barrier.updatedAt >= barrier.updatedAt) continue;
+    waits.set(task.id, {
+      barrier,
+      model: workflowTaskChildWaitModel(task, barrier, runsById, childThreads),
+    });
+  }
+  return new Map([...waits].map(([taskId, entry]) => [taskId, entry.model]));
+}
+
+function workflowTaskChildWaitModel(
+  task: CallableWorkflowTaskSummary,
+  barrier: SubagentWaitBarrierSummary,
+  runsById: Map<string, SubagentRunSummary>,
+  childThreads: Map<string, ThreadSummary>,
+): SubagentParentClusterWorkflowTaskChildWaitModel {
+  const childLabels = barrier.childRunIds
+    .map((runId) => {
+      const run = runsById.get(runId);
+      if (!run) return `Child ${runId.slice(0, 8)}`;
+      return `${childTitle(run, childThreads.get(run.childThreadId))}: ${statusLabel(run.status)}`;
+    })
+    .slice(0, 4);
+  const hiddenChildCount = Math.max(0, barrier.childRunIds.length - childLabels.length);
+  const childSummary = [
+    ...childLabels,
+    hiddenChildCount ? `${hiddenChildCount} more` : undefined,
+  ].filter((label): label is string => Boolean(label)).join(" / ");
+  return {
+    label: "Waiting on Symphony children",
+    statusTone: barrierTone(barrier.status),
+    detail: truncate([
+      task.title || task.toolName,
+      barrierStatusLabel(barrier.status),
+      barrierDependencyLabel(barrier.dependencyMode),
+      failurePolicyLabel(barrier.failurePolicy),
+      barrier.timeoutMs !== undefined ? timeoutLabel(barrier.timeoutMs) : undefined,
+      childSummary,
+    ].filter(Boolean).join(" / "), 280),
+    childLabels,
   };
 }
 
@@ -1194,6 +1304,7 @@ function callableWorkflowTaskCanPause(task: CallableWorkflowTaskSummary): boolea
 }
 
 function callableWorkflowTaskCanResume(task: CallableWorkflowTaskSummary): boolean {
+  if (isCallableWorkflowSymphonyChildWaitPreCompilePause(task)) return true;
   if (task.status !== "paused" || !task.workflowArtifactId || !task.workflowRunId) return false;
   const runStatus = task.progressSnapshot?.workflowRunStatus;
   if (runStatus) return runStatus === "paused";

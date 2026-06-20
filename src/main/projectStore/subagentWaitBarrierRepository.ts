@@ -25,6 +25,8 @@ export interface CreateSubagentWaitBarrierInput {
   childRunIds: readonly string[];
   dependencyMode: SubagentWaitBarrierMode;
   failurePolicy: SubagentWaitBarrierFailurePolicy;
+  ownerKind?: SubagentWaitBarrierSummary["ownerKind"];
+  ownerId?: string;
   quorumThreshold?: number;
   timeoutMs?: number;
   createdAt?: string;
@@ -61,8 +63,8 @@ export class ProjectStoreSubagentWaitBarrierRepository {
       .prepare(
         `INSERT INTO subagent_wait_barriers
          (id, parent_thread_id, parent_run_id, child_run_ids_json, dependency_mode, status, failure_policy,
-          quorum_threshold, timeout_ms, created_at, updated_at, resolved_at, resolution_artifact_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          owner_kind, owner_id, quorum_threshold, timeout_ms, created_at, updated_at, resolved_at, resolution_artifact_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -72,6 +74,8 @@ export class ProjectStoreSubagentWaitBarrierRepository {
         input.dependencyMode,
         "waiting_on_children",
         input.failurePolicy,
+        input.ownerKind ?? null,
+        input.ownerId ?? null,
         quorumThreshold,
         input.timeoutMs ?? null,
         now,
@@ -106,6 +110,7 @@ export class ProjectStoreSubagentWaitBarrierRepository {
     parentThreadId: string;
     parentRunId: string;
     matchingRuns: readonly T[];
+    ignoreBarrier?: (barrier: SubagentWaitBarrierSummary) => boolean;
   }): { run: T; barrier: SubagentWaitBarrierSummary } | undefined {
     if (input.matchingRuns.length === 0) return undefined;
     const matchingRunIds = new Set(input.matchingRuns.map((run) => run.id));
@@ -121,6 +126,7 @@ export class ProjectStoreSubagentWaitBarrierRepository {
       .all(input.parentThreadId, input.parentRunId) as SubagentWaitBarrierRow[];
     for (const row of rows) {
       const barrier = mapSubagentWaitBarrierRow(row);
+      if (input.ignoreBarrier?.(barrier)) continue;
       const blockedRun = input.matchingRuns.find((run) => matchingRunIds.has(run.id) && barrier.childRunIds.includes(run.id));
       if (blockedRun) return { run: blockedRun, barrier };
     }

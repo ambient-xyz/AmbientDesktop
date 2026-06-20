@@ -262,16 +262,17 @@ function fixtureDesktopState(): DesktopState {
     providerCatalog: { catalogVersion: "test-catalog" },
     settings: {
       model: "gpt-5",
-      featureFlags: { subagents: true, tencentDbMemory: false, slashCommands: true },
+      featureFlags: { subagents: true, tencentDbMemory: true, slashCommands: true },
       memory: {
-        enabled: false,
+        mode: "per_thread",
+        enabled: true,
         defaultThreadEnabled: false,
         adapter: "tencentdb",
         shortTermOffloadEnabled: false,
         embeddings: {
-          enabled: false,
+          enabled: true,
           providerMode: "ambient-managed",
-          autoStartProvider: false,
+          autoStartProvider: true,
           sendDimensions: false,
           maxInputChars: 512,
           timeoutMs: 10_000,

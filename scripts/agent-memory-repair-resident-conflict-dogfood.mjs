@@ -134,12 +134,7 @@ async function runSafeOrphanCase(sourceManagedRoot) {
     await cdp.send("Page.enable");
     await setViewport(cdp, 1440, 900);
     await openAgentMemorySettings(cdp);
-    await clickByAriaLabel(cdp, "Enable Agent Memory setup");
-    await waitForText(cdp, "Needs repair", appWaitTimeoutMs);
-    await waitForText(cdp, "Repair can stop the orphaned Ambient memory embedding runtime", appWaitTimeoutMs);
-    caseArtifacts.safeOrphanNeedsRepairScreenshot = await writeScreenshot(cdp, "safe-orphan-needs-repair.png");
-
-    await clickByAriaLabel(cdp, "Repair Agent Memory setup");
+    await clickByAriaLabel(cdp, "Repair Agent Memory health");
     await waitForText(cdp, "Ready", repairWaitTimeoutMs);
     await waitForText(cdp, "Embeddings: ready", repairWaitTimeoutMs);
     await waitForText(cdp, "resident-cleanup", repairWaitTimeoutMs);
@@ -155,7 +150,7 @@ async function runSafeOrphanCase(sourceManagedRoot) {
     }
     caseChecks.seededPidAliveAfterRepair = await processAlive(seeded.pid);
 
-    await clickByAriaLabel(cdp, "Disable Agent Memory setup");
+    await setMemoryModeFromUi(cdp, "disabled");
     await waitForText(cdp, "Agent Memory is off.", appWaitTimeoutMs);
     await waitForNoScratchEmbeddingRuntime(scratch.managedRoot);
     caseChecks.disableStoppedScratchRuntime = true;
@@ -205,12 +200,12 @@ async function runExternalRuntimeCase(sourceManagedRoot) {
     await cdp.send("Page.enable");
     await setViewport(cdp, 1440, 900);
     await openAgentMemorySettings(cdp);
-    await clickByAriaLabel(cdp, "Enable Agent Memory setup");
+    await clickByAriaLabel(cdp, "Repair Agent Memory health");
     await waitForText(cdp, "Needs repair", appWaitTimeoutMs);
     await waitForText(cdp, "Ambient will not stop external or active llama.cpp runtimes automatically", appWaitTimeoutMs);
     caseArtifacts.externalNeedsRepairScreenshot = await writeScreenshot(cdp, "external-runtime-needs-repair.png");
 
-    await clickByAriaLabel(cdp, "Repair Agent Memory setup");
+    await clickByAriaLabel(cdp, "Repair Agent Memory health");
     await waitForText(cdp, "Needs repair", appWaitTimeoutMs);
     await waitForText(cdp, "Ambient will not stop it automatically", appWaitTimeoutMs);
     await waitForText(cdp, "resident-cleanup", appWaitTimeoutMs);
@@ -471,6 +466,22 @@ async function setSettingsSearch(cdp, query) {
     input.focus();
     return input.value === value;
   }, query);
+}
+
+async function setMemoryModeFromUi(cdp, mode) {
+  await waitFor(cdp, (expected) => {
+    const select = [...document.querySelectorAll("select")]
+      .find((candidate) => candidate.getAttribute("aria-label") === "Agent Memory mode");
+    if (!(select instanceof HTMLSelectElement)) return false;
+    select.value = expected;
+    select.dispatchEvent(new Event("input", { bubbles: true }));
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    return select.value === expected;
+  }, appWaitTimeoutMs, mode);
+  await waitFor(cdp, async (expected) => {
+    const state = await window.ambientDesktop.bootstrap();
+    return state.settings?.memory?.mode === expected;
+  }, appWaitTimeoutMs, mode);
 }
 
 async function connectToElectron(port, app) {

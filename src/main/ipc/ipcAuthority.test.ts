@@ -7,8 +7,10 @@ const mainHandleSources = readMainHandleSources();
 const ambientIpcSource = readSource("src/main/ipc/registerAmbientIpc.ts");
 const diagnosticsExportDomainIpcSource = readSource("src/main/ipc/registerDiagnosticsExportDomainIpc.ts");
 const workflowIpcSource = readSource("src/main/ipc/registerWorkflowIpc.ts");
+const workflowActiveRunRegistrySource = readSource("src/main/workflow/workflowActiveRunRegistry.ts");
+const projectRuntimeLifecycleServiceSource = readSource("src/main/project-runtime/projectRuntimeLifecycleService.ts");
 const preloadSource = readSource("src/preload/index.ts");
-const desktopTypesSource = readSource("src/shared/desktopTypes.ts");
+const threadCoreTypesSource = readSource("src/shared/threadCoreTypes.ts");
 
 function uniqueMatches(source: string, pattern: RegExp): string[] {
   return [...new Set([...source.matchAll(pattern)].map((match) => match[1]).filter((item): item is string => Boolean(item)))].sort();
@@ -59,7 +61,7 @@ describe("IPC authority boundary", () => {
 
   it("does not allow thread actions to carry renderer-supplied workspace paths", () => {
     const threadActionSchemaBody = mainSource.match(/const threadActionSchema = z\.object\(\{([\s\S]*?)\n\}\);/)?.[1] ?? "";
-    const threadActionTypeBody = desktopTypesSource.match(/export interface ThreadActionInput \{([\s\S]*?)\n\}/)?.[1] ?? "";
+    const threadActionTypeBody = threadCoreTypesSource.match(/export interface ThreadActionInput \{([\s\S]*?)\n\}/)?.[1] ?? "";
 
     expect(threadActionSchemaBody).toContain("projectId: projectIdSchema.optional()");
     expect(threadActionSchemaBody).not.toContain("workspacePath");
@@ -98,14 +100,10 @@ describe("IPC authority boundary", () => {
   });
 
   it("tracks active workflow run controllers with their owner workspace", () => {
-    const activeWorkflowRunRegion = sourceBetween(
-      mainSource,
-      "interface ActiveWorkflowRunController",
-      "\nfunction isProjectBoardSynthesisPauseRequested",
-    );
-    expect(activeWorkflowRunRegion).toContain("workspacePath: string;");
-    expect(activeWorkflowRunRegion).toContain("rememberActiveWorkflowRun(runId: string, controller: AbortController, workspacePath: string)");
-    expect(activeWorkflowRunRegion).toContain("projectRuntimeHostForKnownWorkspacePath(activeRun.workspacePath)");
+    expect(workflowActiveRunRegistrySource).toContain("workspacePath: string;");
+    expect(workflowActiveRunRegistrySource).toContain("rememberActiveWorkflowRun(runId: string, controller: AbortController, workspacePath: string)");
+    expect(workflowActiveRunRegistrySource).toContain("projectRuntimeHostForKnownWorkspacePath(activeRun.workspacePath)");
+    expect(mainSource).toContain("createWorkflowActiveRunRegistry<ProjectRuntimeHost>");
     expect(mainSource).not.toContain("activeWorkflowRuns.set(runId, abortController);");
     expect(mainSource).not.toContain("activeWorkflowRuns.delete(startedRunId)");
 
@@ -127,8 +125,10 @@ describe("IPC authority boundary", () => {
     );
     expect(appCredentialRegion).toContain("resetRuntimeAndPluginServers()");
 
-    const projectResetHelper = sourceBetween(mainSource, "function resetProjectRuntimeAndPluginServers", "\nfunction disposeProjectRuntimeHost");
+    expect(mainSource).toContain("createProjectRuntimeLifecycleService<ProjectRuntimeHost>");
+    const projectResetHelper = sourceBetween(projectRuntimeLifecycleServiceSource, "function resetProjectRuntimeAndPluginServers", "\n  function disposeHost");
     expect(projectResetHelper).toContain("workspacePathsForProjectRuntimeHost(host)");
+    expect(projectResetHelper).toContain("shutdownPluginMcpServersForWorkspace(workspacePath)");
 
     const pluginMutationRegion = sourceBetween(mainHandleSources, "registerPluginSetEnabledIpc({", "\n  registerPluginSetTrustedIpc({");
     expect(pluginMutationRegion).toContain("resetProjectRuntimeAndPluginServers(host)");
