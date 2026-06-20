@@ -16,7 +16,7 @@ import { spawn } from "node:child_process";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { existsSync, mkdirSync } from "node:fs";
-import { rm, stat, writeFile } from "node:fs/promises";
+import { stat, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import packageJson from "../../package.json";
 import {
@@ -94,8 +94,8 @@ import { readSecretReference } from "./security/secretReferenceStore";
 import { saveMcpServerEnvSecret } from "./mcp/mcpSecretReferences";
 import { selectStartupWorkspacePath } from "./workspace/workspaceDefaults";
 import { shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate } from "../shared/agentMemorySettings";
-import type { AppThirdPartyCredit, DesktopEvent, DesktopState, ThemePreference, ThinkingDisplaySettings, ThreadActionInput, UpdateSttSettingsInput, UpdateVoiceSettingsInput } from "../shared/desktopTypes";
-import type { EmbeddingProviderCandidate, LocalDeepResearchRunHistoryInput, LocalDeepResearchRunHistoryResult, LocalDeepResearchSettings, LocalDeepResearchSetupInput as LocalDeepResearchSetupIpcInput, LocalDeepResearchSetupResult, LocalModelResourcePolicyDecision, MessageVoiceArtifactInput, MiniCpmVisionAnalyzeInput, MiniCpmVisionSetupInput, RegenerateMessageVoiceInput, SetSttTtsSpeakingInput, SttProviderSetupInput, SttQueueState, SttSettings, SttTestAudioInput, SttTranscribeAudioInput, VoiceArtifactRetentionInput, VoiceProviderCandidate, VoiceSettings, VoiceSettingsAuditChange, VoiceSettingsAuditEntry, VoiceSettingsAuditSource } from "../shared/localRuntimeTypes";
+import type { AppThirdPartyCredit, DesktopEvent, DesktopState, ThemePreference, ThinkingDisplaySettings, ThreadActionInput } from "../shared/desktopTypes";
+import type { LocalDeepResearchRunHistoryInput, LocalDeepResearchRunHistoryResult, LocalDeepResearchSettings, LocalDeepResearchSetupInput as LocalDeepResearchSetupIpcInput, LocalDeepResearchSetupResult, LocalModelResourcePolicyDecision, MiniCpmVisionAnalyzeInput, MiniCpmVisionSetupInput, SttSettings, SttTestAudioInput } from "../shared/localRuntimeTypes";
 import type { PermissionRequest } from "../shared/permissionTypes";
 import type { GeneratePlannerDurableArtifactInput, PlannerPlanArtifact, PlannerSettings } from "../shared/plannerTypes";
 import type { AmbientPluginRegistry, CodexHostedMarketplaceReport, CodexPluginCatalog, FirstPartyGoogleIntegrationState } from "../shared/pluginTypes";
@@ -234,7 +234,6 @@ import {
   startAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
   stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
 } from "./memory/agentMemoryDesktopService";
-import { discoverAmbientMemoryEmbeddingProviders } from "./memory/tencentdb/managedEmbeddingProvider";
 import { createChatExportBundle } from "./chat-export/chatExport";
 import { createChatPdfExport, createElectronPrintToPdfRenderer } from "./chat-export/chatPdfExport";
 import { listWorkspaceOpenTargets, openWorkspaceTarget } from "./desktop-shell/externalEditors";
@@ -316,33 +315,21 @@ import {
   writeSttSettings,
   writeThinkingDisplaySettings,
   writeThemePreference,
-  writeVoiceSettings,
-  DEFAULT_VOICE_SETTINGS,
 } from "./desktop-shell/appAppearanceDefaultPreferences";
 import { ambientLegacyUserDataPaths, hasRestorableWorkspaceState, migrateAmbientUserData } from "./desktop-shell/userDataMigration";
 import { renderThreadMiniWindowHtml } from "./thread/threadMiniWindowHtml";
 import {
   discoverAmbientCliPackages,
-  discoverAmbientCliEmbeddingProviders,
-  discoverAmbientCliSttProviders,
-  discoverAmbientCliVoiceProviders,
   runAmbientCliPackageCommand,
   saveAmbientCliPackageEnvSecret,
   searchAmbientCliCapabilities,
   type AmbientCliPackageSummary,
 } from "./ambient-cli/ambientCliPackages";
 import { hydrateWebResearchSettings } from "./web-research/webResearchSettingsHydration";
-import { regenerateMessageVoiceState } from "./voice/voiceRuntime";
-import {
-  clearManagedVoiceArtifacts,
-  clearManagedVoiceArtifactsSync,
-  inspectVoiceArtifactRetention,
-  pruneManagedVoiceArtifactsToBudget,
-  pruneVoiceArtifactOrphans,
-} from "./voice/voiceArtifacts";
+import { createVoiceArtifactDesktopService } from "./voice/voiceArtifactDesktopService";
+import { createVoiceSettingsDesktopService, type VoiceSettingsDesktopService } from "./voice/voiceSettingsDesktopService";
 import { collectVoiceOnboardingHostFacts } from "./voice/voiceOnboardingHostFacts";
-import { mergeVoiceProvidersWithCachedVoices, readVoiceDiscoveryCache, refreshVoiceProviderVoices } from "./voice/voiceDiscoveryCache";
-import { mergeSttProvidersWithValidation, readQwen3AsrValidationMetadata, setupQwen3AsrProvider } from "./stt/sttProviderInstaller";
+import { createSttDesktopService } from "./stt/sttDesktopService";
 import { analyzeMiniCpmVisionInput, setupMiniCpmVisionProvider } from "./mini-cpm/miniCpmVisionProvider";
 import { detectLocalDeepResearchManagedAssets } from "./local-deep-research/localDeepResearchManagedAssets";
 import {
@@ -365,8 +352,6 @@ import {
 import { validateLocalDeepResearchSetup } from "./local-deep-research/localDeepResearchValidation";
 import { webResearchSettingsWithDynamicProviderCatalogs } from "./web-research/searchSettingsTools";
 import { saveSttTestAudio } from "./stt/sttTestAudio";
-import { SttRuntime } from "./stt/sttRuntime";
-import { SttDiagnosticRecorder, sttSetupDiagnosticSummary, sttTranscriptionDiagnosticSummary } from "./stt/sttDiagnostics";
 import { validatePlannerDurableHtmlFileInBrowser } from "./planner/plannerDurableBrowserValidation";
 import { PlannerDurableHtmlValidationError, writePlannerDurableHtmlArtifact } from "./planner/plannerDurableHtml";
 import { plannerDurableFallbackWarnings } from "./planner/plannerDurableRepair";
@@ -453,15 +438,6 @@ function emitMainWindowDesktopEvent(event: DesktopEvent): void {
   }
 }
 
-let voiceSettings: VoiceSettings = {
-  enabled: false,
-  mode: "assistant-final" as const,
-  autoplay: false,
-  maxChars: 1500,
-  longReply: "summarize" as const,
-  format: "mp3" as const,
-  artifactCacheMaxMb: 30,
-};
 let sttSettings: SttSettings = {
   enabled: false,
   spokenLanguage: "English",
@@ -478,9 +454,6 @@ let sttSettings: SttSettings = {
     queueWhileAgentRuns: true,
   },
 };
-const sttRuntimes = new Map<string, SttRuntime>();
-const sttDiagnostics = new SttDiagnosticRecorder();
-let voiceSettingsAudit: VoiceSettingsAuditEntry[] = [];
 const workspaceMediaServer = new WorkspaceMediaServer((workspacePath) => Boolean(projectRuntimeHostForKnownWorkspacePath(workspacePath)));
 let officePreviewService: OfficePreviewService | undefined;
 
@@ -648,6 +621,61 @@ const {
   requireProjectRuntimeHostForOrchestrationRun,
   requireProjectRuntimeHostForOrchestrationWorkspace,
 } = projectRuntimeHostResolver;
+const sttDesktopService = createSttDesktopService<ProjectRuntimeHost, ProjectStore>({
+  activeProjectRuntimeHost: () => requireActiveProjectRuntimeHost(),
+  activeThreadIdForHost,
+  activeWorkspacePath: () => activeWorkspacePath(),
+  emitDesktopState: () => emitDesktopState(),
+  emitDesktopEvent: emitMainWindowDesktopEvent,
+  emitRuntimeFeatureStateUpdated,
+  getSttSettings: () => sttSettings,
+  normalizeWorkspacePath,
+  requireProjectRuntimeHostForThread,
+  runner: runAmbientCliPackageCommand,
+  setSttSettings: (next) => {
+    sttSettings = next;
+  },
+  settingsPath: () => appearancePreferencesPath(),
+  writeSttSettings,
+});
+const {
+  activeVoiceSttContextForProjectHost,
+  cancelSttTranscription,
+  clearSttRuntimes,
+  currentSttQueueState,
+  disposeSttRuntimeForWorkspace,
+  listSttDiagnostics,
+  listSttProvidersWithValidation,
+  setSttTtsSpeaking,
+  setupSttProvider,
+  transcribeSttAudio,
+  updateSttSettings,
+} = sttDesktopService;
+const voiceArtifactBudgetBridge: {
+  enforceVoiceArtifactBudget?: (workspacePath: string, targetStore: ProjectStore) => Promise<void>;
+} = {};
+const voiceSettingsDesktopService: VoiceSettingsDesktopService<ProjectStore> = createVoiceSettingsDesktopService<ProjectStore>({
+  activeWorkspacePath: () => activeWorkspacePath(),
+  defaultStore: () => store,
+  emitDesktopState: () => emitDesktopState(),
+  enforceVoiceArtifactBudget: (workspacePath, targetStore) => {
+    const enforceVoiceArtifactBudget = voiceArtifactBudgetBridge.enforceVoiceArtifactBudget;
+    if (!enforceVoiceArtifactBudget) throw new Error("Voice artifact budget service is not initialized.");
+    return enforceVoiceArtifactBudget(workspacePath, targetStore);
+  },
+  settingsPath: () => appearancePreferencesPath(),
+});
+const {
+  listEmbeddingProvidersForSettings,
+  listVoiceProviders,
+  listVoiceProvidersWithCachedVoices,
+  listVoiceSettingsAudit,
+  readVoiceSettings: readCurrentVoiceSettings,
+  refreshVoiceProviderCatalog,
+  resolveVoiceProviderWorkspacePath,
+  setVoiceSettings,
+  updateVoiceSettings,
+} = voiceSettingsDesktopService;
 const projectRuntimeLifecycleService = createProjectRuntimeLifecycleService<ProjectRuntimeHost>({
   defaultRuntimeResetReason: RUNTIME_RESET_INTERRUPTED_RUN_MESSAGE,
   normalizeWorkspacePath,
@@ -656,9 +684,7 @@ const projectRuntimeLifecycleService = createProjectRuntimeLifecycleService<Proj
   projectRuntimeHostForWorkspacePath: (workspacePath) => projectRuntimeHostForWorkspacePath(workspacePath),
   removeProjectRuntimeHost: (workspacePath) => projectRuntimeHostActivationService.removeProjectRuntimeHost(workspacePath),
   clearProjectRuntimeHosts: () => projectRuntimeHostActivationService.clearProjectRuntimeHosts(),
-  clearSttRuntimes: () => {
-    sttRuntimes.clear();
-  },
+  clearSttRuntimes,
   clearActiveProjectRuntimeHost: () => projectRuntimeHostActivationService.clearActiveProjectRuntimeHost(),
   stopAutoDispatch: (reason, host) => stopAutoDispatch(reason, host),
   disposeSttRuntimeForWorkspace,
@@ -707,20 +733,20 @@ const desktopStateSnapshotService = createDesktopStateSnapshotService<ProjectSto
   listGlobalWorkflowAgentFolders: () => listGlobalWorkflowAgentFolders(),
   listGlobalWorkflowRecordingLibrary: (input) => listGlobalWorkflowRecordingLibrary(input),
   settingsSlots: () => ({
-    voiceSettingsAudit,
+    voiceSettingsAudit: listVoiceSettingsAudit(),
     thinkingDisplay: thinkingDisplaySettings,
     media: mediaPlaybackSettings,
     planner: plannerSettings,
     search: searchRoutingSettings,
     localDeepResearch: localDeepResearchSettings,
-    voice: voiceSettings,
+    voice: readCurrentVoiceSettings(),
     stt: sttSettings,
   }),
   currentModelRuntimeCatalog: (generatedAt, targetStore) => currentModelRuntimeCatalog(generatedAt, targetStore),
   providerStatus: (model) => getAmbientProviderStatus(model),
   queueState: (threadId) => emptyQueueState(threadId),
   sttQueueState: (workspacePath) => currentSttQueueState(workspacePath),
-  sttDiagnostics: (workspacePath) => sttDiagnostics.list(workspacePath),
+  sttDiagnostics: (workspacePath) => listSttDiagnostics(workspacePath),
 });
 const desktopStateEventService = createDesktopStateEventService<ProjectStore, ProjectRuntimeHost>({
   activeThreadId: () => activeThreadId,
@@ -1231,9 +1257,9 @@ const agentRuntimeFeatureFactory = createAgentRuntimeFeatureFactory<ProjectStore
     unarchive: (input) => unarchiveGlobalAmbientWorkflowPlaybook(input),
     restoreVersion: (input) => restoreGlobalAmbientWorkflowPlaybookVersion(input),
   },
-  readVoiceSettings: () => voiceSettings,
+  readVoiceSettings: () => readCurrentVoiceSettings(),
   updateVoiceSettings: (input, audit, options) => updateVoiceSettings(input, audit, options),
-  listVoiceProviders: (workspacePath) => discoverAmbientCliVoiceProviders(workspacePath),
+  listVoiceProviders: (workspacePath) => listVoiceProviders(workspacePath),
   enforceVoiceArtifactBudget: (workspacePath, targetStore) => enforceVoiceArtifactBudget(workspacePath, targetStore),
   createMediaUrl: (input) => workspaceMediaServer.createUrl(input),
   readSttSettings: () => sttSettings,
@@ -1290,6 +1316,46 @@ const {
   resolveLocalFilePath,
   workspacePathForRelativeArtifactPath,
 } = activeWorkspaceFileService;
+const voiceArtifactDesktopService = createVoiceArtifactDesktopService<ProjectRuntimeHost, ProjectStore>({
+  activeProjectRuntimeHost: () => requireActiveProjectRuntimeHost(),
+  activeStore: () => store,
+  activeThreadIdForHost,
+  activeWorkspacePath: () => activeWorkspacePath(),
+  artifactCacheMaxBytes: () =>
+    Math.max(0, Math.floor(readCurrentVoiceSettings().artifactCacheMaxMb) * 1024 * 1024),
+  createMediaUrl: (input) => workspaceMediaServer.createUrl(input),
+  emitProjectStateIfActive,
+  emitRuntimeFeatureStateUpdated,
+  getVoiceSettings: () => readCurrentVoiceSettings(),
+  projectRuntimeHostList,
+  providerSummaryForThread: (thread) => {
+    const provider = getAmbientProviderStatus(thread.model);
+    return {
+      model: thread.model,
+      apiKey: readAmbientApiKey(),
+      baseUrl: provider.baseUrl,
+    };
+  },
+  requireProjectRuntimeHostForMessageVoiceState,
+  requireProjectRuntimeHostForThread,
+  resolveVoiceProviderWorkspacePath,
+  resolveWorkspacePath,
+  runner: runAmbientCliPackageCommand,
+  shouldEmitRuntimeFeatureStateUpdated: () => Boolean(mainWindow && activeThreadId),
+  showItemInFolder: (path) => shell.showItemInFolder(path),
+  warn: (message) => console.warn(message),
+});
+const {
+  clearManagedVoiceArtifactCache,
+  clearManagedVoiceArtifactCachesForRuntimeHostsSync,
+  clearMessageVoiceArtifact,
+  enforceVoiceArtifactBudget,
+  inspectVoiceArtifacts,
+  pruneVoiceArtifacts,
+  regenerateMessageVoice,
+  revealMessageVoiceArtifact,
+} = voiceArtifactDesktopService;
+voiceArtifactBudgetBridge.enforceVoiceArtifactBudget = enforceVoiceArtifactBudget;
 
 function currentFeatureFlagSnapshot(targetStore: ProjectStore = store) {
   return resolveAmbientFeatureFlags({
@@ -2395,181 +2461,6 @@ function publishAppearanceUpdated(): void {
   mainWindow?.webContents.send("desktop:event", { type: "appearance-updated", appearance } satisfies DesktopEvent);
 }
 
-interface VoiceSettingsAuditContext {
-  source: VoiceSettingsAuditSource;
-  toolName?: string;
-  threadId?: string;
-  summary?: string;
-}
-
-interface SettingsUpdateStateOptions {
-  onStateUpdated?: () => void;
-}
-
-interface VoiceSettingsUpdateOptions extends SettingsUpdateStateOptions {
-  providerStore?: ProjectStore;
-  workspacePath?: string;
-}
-
-function activeVoiceSttContextForProjectHost(host: ProjectRuntimeHost = requireActiveProjectRuntimeHost()) {
-  const threadId = activeThreadIdForHost(host);
-  const thread = host.store.getThread(threadId);
-  return {
-    host,
-    targetStore: host.store,
-    threadId,
-    thread,
-    workspacePath: thread.workspacePath,
-  };
-}
-
-async function updateVoiceSettings(
-  input: UpdateVoiceSettingsInput,
-  audit: VoiceSettingsAuditContext = { source: "settings-ui" },
-  options: VoiceSettingsUpdateOptions = {},
-) {
-  const selectedProviderAvailable = input.providerCapabilityId
-    ? (await listVoiceProvidersWithCachedVoices(options.providerStore ?? store)).some(
-      (provider) => provider.capabilityId === input.providerCapabilityId && provider.available,
-    )
-    : false;
-  const firstProviderSetup = selectedProviderAvailable && !voiceSettings.providerCapabilityId;
-  const previousSettings = voiceSettings;
-  const preferredVoicesByProvider = {
-    ...(voiceSettings.preferredVoicesByProvider ?? {}),
-    ...(input.preferredVoicesByProvider ?? {}),
-    ...(input.providerCapabilityId && input.voiceId ? { [input.providerCapabilityId]: input.voiceId } : {}),
-  };
-  voiceSettings = {
-    enabled: selectedProviderAvailable && (input.enabled || firstProviderSetup),
-    mode: input.mode,
-    autoplay: selectedProviderAvailable && (input.autoplay || firstProviderSetup),
-    ...(input.providerCapabilityId ? { providerCapabilityId: input.providerCapabilityId } : {}),
-    ...(input.voiceId ? { voiceId: input.voiceId } : {}),
-    ...(Object.keys(preferredVoicesByProvider).length ? { preferredVoicesByProvider } : {}),
-    maxChars: input.maxChars,
-    longReply: input.longReply,
-    format: input.format,
-    artifactCacheMaxMb: input.artifactCacheMaxMb,
-  };
-  recordVoiceSettingsAudit(previousSettings, voiceSettings, audit);
-  await writeVoiceSettings(appearancePreferencesPath(), voiceSettings);
-  await enforceVoiceArtifactBudget(options.workspacePath ?? activeWorkspacePath(), options.providerStore ?? store);
-  if (options.onStateUpdated) options.onStateUpdated();
-  else emitDesktopState();
-  return voiceSettings;
-}
-
-async function updateSttSettings(input: UpdateSttSettingsInput, options: SettingsUpdateStateOptions = {}) {
-  sttSettings = {
-    enabled: input.enabled && Boolean(input.providerCapabilityId),
-    ...(input.providerCapabilityId ? { providerCapabilityId: input.providerCapabilityId } : {}),
-    spokenLanguage: input.spokenLanguage,
-    ...(input.pushToTalkShortcut ? { pushToTalkShortcut: input.pushToTalkShortcut } : {}),
-    microphone: {
-      ...(input.microphone?.deviceId ? { deviceId: input.microphone.deviceId } : {}),
-      ...(input.microphone?.label ? { label: input.microphone.label } : {}),
-    },
-    mode: input.mode,
-    autoSendAfterTranscription: input.autoSendAfterTranscription,
-    silenceFinalizeSeconds: input.silenceFinalizeSeconds,
-    noSpeechGate: input.noSpeechGate,
-    bargeIn: input.bargeIn,
-  };
-  await writeSttSettings(appearancePreferencesPath(), sttSettings);
-  for (const runtime of sttRuntimes.values()) runtime.updateSettings(sttSettings);
-  if (options.onStateUpdated) options.onStateUpdated();
-  else emitDesktopState();
-  return sttSettings;
-}
-
-async function listVoiceProvidersWithCachedVoices(targetStore: ProjectStore = store) {
-  const providers: VoiceProviderCandidate[] = [];
-  const seen = new Set<string>();
-  for (const workspacePath of voiceProviderWorkspacePaths(targetStore)) {
-    const workspaceProviders = await discoverAmbientCliVoiceProviders(workspacePath);
-    const cache = await readVoiceDiscoveryCache(workspacePath);
-    for (const provider of mergeVoiceProvidersWithCachedVoices(workspaceProviders, cache)) {
-      if (seen.has(provider.capabilityId)) continue;
-      seen.add(provider.capabilityId);
-      providers.push(provider);
-    }
-  }
-  return providers;
-}
-
-async function listEmbeddingProvidersForSettings(targetStore: ProjectStore = store) {
-  const providers: EmbeddingProviderCandidate[] = [];
-  const seen = new Set<string>();
-  for (const workspacePath of voiceProviderWorkspacePaths(targetStore)) {
-    const workspaceProviders = [
-      ...await discoverAmbientMemoryEmbeddingProviders(workspacePath).catch(() => []),
-      ...await discoverAmbientCliEmbeddingProviders(workspacePath).catch(() => []),
-    ];
-    for (const provider of workspaceProviders) {
-      if (seen.has(provider.capabilityId)) continue;
-      seen.add(provider.capabilityId);
-      providers.push(provider);
-    }
-  }
-  return providers;
-}
-
-function voiceProviderWorkspacePaths(targetStore: ProjectStore = store): string[] {
-  return Array.from(new Set([
-    targetStore.getWorkspace().path,
-    ...targetStore.listThreads().map((thread) => thread.workspacePath),
-  ]));
-}
-
-async function resolveVoiceProviderWorkspacePath(
-  providerCapabilityId: string | undefined,
-  targetStore: ProjectStore = store,
-): Promise<string> {
-  if (!providerCapabilityId) return targetStore.getWorkspace().path;
-  for (const workspacePath of voiceProviderWorkspacePaths(targetStore)) {
-    const providers = await discoverAmbientCliVoiceProviders(workspacePath);
-    if (providers.some((provider) => provider.capabilityId === providerCapabilityId)) return workspacePath;
-  }
-  return targetStore.getWorkspace().path;
-}
-
-async function listSttProvidersWithValidation(workspacePath = activeWorkspacePath()) {
-  const providers = await discoverAmbientCliSttProviders(workspacePath);
-  const validation = await readQwen3AsrValidationMetadata(workspacePath);
-  return mergeSttProvidersWithValidation(providers, validation);
-}
-
-async function setupSttProvider(input: SttProviderSetupInput, context = activeVoiceSttContextForProjectHost()) {
-  const { workspacePath } = context;
-  const startedAt = Date.now();
-  const result = await setupQwen3AsrProvider(workspacePath, input, sttProviderSetupOptions());
-  const selectedProvider = result.selectedProvider;
-  if (input.selectProvider && selectedProvider) {
-    await updateSttSettings({
-      ...sttSettings,
-      enabled: Boolean(input.enable) && selectedProvider.available && result.status === "ready",
-      providerCapabilityId: selectedProvider.capabilityId,
-      spokenLanguage: input.spokenLanguage?.trim() || selectedProvider.defaultLanguage || sttSettings.spokenLanguage,
-    }, {
-      onStateUpdated: () => emitRuntimeFeatureStateUpdated(context.targetStore),
-    });
-  }
-  await recordSttDiagnostic(workspacePath, sttSetupDiagnosticSummary({ result, durationMs: Date.now() - startedAt }));
-  return {
-    ...result,
-    providers: await listSttProvidersWithValidation(workspacePath),
-  };
-}
-
-function sttProviderSetupOptions() {
-  if (process.env.AMBIENT_E2E !== "1") return {};
-  return {
-    disableRuntimeAutoDetect: process.env.AMBIENT_E2E_STT_DISABLE_RUNTIME_AUTODETECT === "1",
-    disableRuntimeInstall: process.env.AMBIENT_E2E_STT_DISABLE_RUNTIME_INSTALL === "1",
-  };
-}
-
 function miniCpmVisionProviderOptions() {
   if (process.env.AMBIENT_E2E !== "1") return {};
   return {
@@ -2783,214 +2674,6 @@ async function listLocalDeepResearchRunsForSettings(
   return listLocalDeepResearchRunHistory(workspacePath, input);
 }
 
-async function transcribeSttAudio(input: SttTranscribeAudioInput, host = requireProjectRuntimeHostForThread(input.threadId)) {
-  if (!sttSettings.enabled || !sttSettings.providerCapabilityId) {
-    throw new Error("Enable speech input and select an available STT provider before transcribing speech.");
-  }
-  const targetStore = host.store;
-  const thread = targetStore.getThread(input.threadId);
-  const workspacePath = thread.workspacePath;
-  const runtime = getSttRuntime(workspacePath);
-  runtime.updateSettings(sttSettings);
-  runtime.setAgentRunning(isThreadRunActive(input.threadId, targetStore));
-  const startedAt = Date.now();
-  const state = await runtime.enqueueUtterance({
-    threadId: input.threadId,
-    utteranceId: input.utteranceId ?? `stt-${Date.now().toString(36)}`,
-    audioPath: input.audioPath,
-  });
-  runtime.drainReadyToSend();
-  const queue = runtime.getQueueState();
-  await recordSttDiagnostic(
-    workspacePath,
-    sttTranscriptionDiagnosticSummary({ state, elapsedMs: Date.now() - startedAt, queue }),
-  );
-  return {
-    state,
-    queue,
-  };
-}
-
-async function setSttTtsSpeaking(input: SetSttTtsSpeakingInput, workspacePath = activeVoiceSttContextForProjectHost().workspacePath): Promise<SttQueueState> {
-  const runtime = getSttRuntime(workspacePath);
-  runtime.updateSettings(sttSettings);
-  return runtime.setTtsSpeaking(input.speaking);
-}
-
-async function cancelSttTranscription(workspacePath = activeVoiceSttContextForProjectHost().workspacePath): Promise<SttQueueState> {
-  const runtime = getSttRuntime(workspacePath);
-  runtime.updateSettings(sttSettings);
-  return runtime.cancelTranscription();
-}
-
-function getSttRuntime(workspacePath: string): SttRuntime {
-  const normalized = normalizeWorkspacePath(workspacePath);
-  let runtime = sttRuntimes.get(normalized);
-  if (!runtime) {
-    runtime = new SttRuntime({
-      workspacePath: normalized,
-      settings: sttSettings,
-      runner: runAmbientCliPackageCommand,
-      onQueueStateChanged: (queue) => {
-        emitMainWindowDesktopEvent({ type: "stt-queue-updated", queue, workspacePath: normalized });
-      },
-      onStopSpeakingRequested: () => {
-        emitMainWindowDesktopEvent({ type: "stt-stop-tts-requested", workspacePath: normalized });
-      },
-    });
-    sttRuntimes.set(normalized, runtime);
-  }
-  return runtime;
-}
-
-function idleSttQueueState(): SttQueueState {
-  return { phase: "idle" as const, queuedUtteranceIds: [] };
-}
-
-function currentSttQueueState(workspacePath = activeWorkspacePath()): SttQueueState {
-  return sttRuntimes.get(normalizeWorkspacePath(workspacePath))?.getQueueState() ?? idleSttQueueState();
-}
-
-function disposeSttRuntimeForWorkspace(workspacePath: string, reason: string): void {
-  const normalized = normalizeWorkspacePath(workspacePath);
-  const runtime = sttRuntimes.get(normalized);
-  if (!runtime) return;
-  runtime.dispose(reason);
-  sttRuntimes.delete(normalized);
-}
-
-async function recordSttDiagnostic(workspacePath: string, diagnostic: ReturnType<typeof sttSetupDiagnosticSummary> | ReturnType<typeof sttTranscriptionDiagnosticSummary>): Promise<void> {
-  const diagnostics = await sttDiagnostics.record(workspacePath, diagnostic);
-  mainWindow?.webContents.send("desktop:event", {
-    type: "stt-diagnostic-recorded",
-    diagnostic,
-    diagnostics,
-    workspacePath,
-  } satisfies DesktopEvent);
-}
-
-function isThreadRunActive(threadId: string, targetStore: ProjectStore = store): boolean {
-  return targetStore
-    .listActiveRuns()
-    .some((run) => run.threadId === threadId && (run.status === "starting" || run.status === "streaming" || run.status === "tool"));
-}
-
-async function refreshVoiceProviderCatalog(input: { providerCapabilityId: string }, targetStore: ProjectStore = store) {
-  const workspacePath = await resolveVoiceProviderWorkspacePath(input.providerCapabilityId, targetStore);
-  const providers = await discoverAmbientCliVoiceProviders(workspacePath);
-  const result = await refreshVoiceProviderVoices(workspacePath, providers, input, runAmbientCliPackageCommand);
-  return {
-    providerCapabilityId: result.provider.capabilityId,
-    providerLabel: result.provider.label,
-    ...(result.entry.source ? { source: result.entry.source } : {}),
-    refreshedAt: result.entry.refreshedAt,
-    ...(result.entry.expiresAt ? { expiresAt: result.entry.expiresAt } : {}),
-    voiceCount: result.entry.voiceCount,
-    durationMs: result.durationMs,
-    ...(result.stdoutArtifactPath ? { stdoutArtifactPath: result.stdoutArtifactPath } : {}),
-    ...(result.stderrArtifactPath ? { stderrArtifactPath: result.stderrArtifactPath } : {}),
-  };
-}
-
-function recordVoiceSettingsAudit(previous: VoiceSettings, next: VoiceSettings, audit: VoiceSettingsAuditContext): void {
-  const changes = voiceSettingsChanges(previous, next);
-  if (changes.length === 0) return;
-  const entry: VoiceSettingsAuditEntry = {
-    id: `voice-settings-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    createdAt: new Date().toISOString(),
-    source: audit.source,
-    summary: audit.summary ?? voiceSettingsAuditSummary(audit.source, changes),
-    changes,
-    ...(audit.toolName ? { toolName: audit.toolName } : {}),
-    ...(audit.threadId ? { threadId: audit.threadId } : {}),
-  };
-  voiceSettingsAudit = [entry, ...voiceSettingsAudit].slice(0, 20);
-}
-
-function voiceSettingsChanges(previous: VoiceSettings, next: VoiceSettings): VoiceSettingsAuditChange[] {
-  const fields: Array<keyof VoiceSettings> = [
-    "enabled",
-    "mode",
-    "autoplay",
-    "providerCapabilityId",
-    "voiceId",
-    "preferredVoicesByProvider",
-    "maxChars",
-    "longReply",
-    "format",
-    "artifactCacheMaxMb",
-  ];
-  return fields.flatMap((field) => {
-    const previousValue = previous[field];
-    const nextValue = next[field];
-    if (previousValue === nextValue) return [];
-    return [{
-      field,
-      ...(previousValue !== undefined ? { previous: String(previousValue) } : {}),
-      ...(nextValue !== undefined ? { next: String(nextValue) } : {}),
-    }];
-  });
-}
-
-function voiceSettingsAuditSummary(source: VoiceSettingsAuditSource, changes: VoiceSettingsAuditChange[]): string {
-  const fieldList = changes.map((change) => change.field).join(", ");
-  return source === "chat-tool"
-    ? `Chat updated voice settings: ${fieldList}.`
-    : source === "settings-ui"
-      ? `Settings updated voice settings: ${fieldList}.`
-      : `Ambient updated voice settings: ${fieldList}.`;
-}
-
-async function regenerateMessageVoice(input: RegenerateMessageVoiceInput) {
-  const host = requireProjectRuntimeHostForMessageVoiceState(input.messageId);
-  const targetStore = host.store;
-  const result = await regenerateMessageVoiceState({
-    messageId: input.messageId,
-    packageWorkspacePath: await resolveVoiceProviderWorkspacePath(voiceSettings.providerCapabilityId, targetStore),
-    settings: voiceSettings,
-    store: targetStore,
-    runner: runAmbientCliPackageCommand,
-    createMediaUrl: (mediaInput) => workspaceMediaServer.createUrl(mediaInput),
-    summaryForThread: (thread) => {
-      const provider = getAmbientProviderStatus(thread.model);
-      return {
-        model: thread.model,
-        apiKey: readAmbientApiKey(),
-        baseUrl: provider.baseUrl,
-      };
-    },
-    onStateUpdated: () => emitProjectStateIfActive(host),
-  });
-  await enforceVoiceArtifactBudget(targetStore.getThread(result.threadId).workspacePath, targetStore);
-  emitProjectStateIfActive(host);
-  return result;
-}
-
-function resolveManagedVoiceArtifactPath(audioPath: string, workspacePath = activeWorkspacePath()): string {
-  const normalized = audioPath.replace(/\\/g, "/");
-  if (!normalized.startsWith(".ambient/voice/")) {
-    throw new Error("Voice artifact is not in Ambient's managed voice directory.");
-  }
-  return resolveWorkspacePath(workspacePath, normalized);
-}
-
-function revealMessageVoiceArtifact(input: MessageVoiceArtifactInput): void {
-  const host = requireProjectRuntimeHostForMessageVoiceState(input.messageId);
-  const voiceState = host.store.getMessageVoiceState(input.messageId);
-  if (!voiceState?.audioPath) throw new Error(`Voice artifact not found for message: ${input.messageId}`);
-  shell.showItemInFolder(resolveManagedVoiceArtifactPath(voiceState.audioPath, host.store.getWorkspace().path));
-}
-
-async function clearMessageVoiceArtifact(input: MessageVoiceArtifactInput) {
-  const host = requireProjectRuntimeHostForMessageVoiceState(input.messageId);
-  const voiceState = host.store.getMessageVoiceState(input.messageId);
-  if (!voiceState?.audioPath) throw new Error(`Voice artifact not found for message: ${input.messageId}`);
-  await rm(resolveManagedVoiceArtifactPath(voiceState.audioPath, host.store.getWorkspace().path), { force: true });
-  const cleared = host.store.clearMessageVoiceArtifact(input.messageId);
-  emitProjectStateIfActive(host);
-  return cleared;
-}
-
 async function generatePlannerDurableArtifact(input: GeneratePlannerDurableArtifactInput) {
   const host = requireProjectRuntimeHostForPlannerPlanArtifact(input.artifactId);
   const targetStore = host.store;
@@ -3078,43 +2761,6 @@ async function commitPlannerDurableArtifact(
   }
 }
 
-function voiceArtifactRetentionInput(input: VoiceArtifactRetentionInput = {}, host = input.threadId ? requireProjectRuntimeHostForThread(input.threadId) : requireActiveProjectRuntimeHost()) {
-  const targetStore = host.store;
-  const threadId = input.threadId ?? activeThreadIdForHost(host);
-  const thread = targetStore.getThread(threadId);
-  return {
-    workspacePath: thread.workspacePath,
-    threadId,
-    providerCapabilityId: input.providerCapabilityId,
-    voiceStates: targetStore.listMessageVoiceStates(threadId),
-  };
-}
-
-function inspectVoiceArtifacts(input: VoiceArtifactRetentionInput = {}, host = input.threadId ? requireProjectRuntimeHostForThread(input.threadId) : requireActiveProjectRuntimeHost()) {
-  return inspectVoiceArtifactRetention(voiceArtifactRetentionInput(input, host));
-}
-
-async function pruneVoiceArtifacts(input: VoiceArtifactRetentionInput = {}, host = input.threadId ? requireProjectRuntimeHostForThread(input.threadId) : requireActiveProjectRuntimeHost()) {
-  const pruned = await pruneVoiceArtifactOrphans(voiceArtifactRetentionInput(input, host));
-  clearVoiceStatesForDeletedArtifacts(pruned.deletedPreview, "Voice artifact cache removed this audio file.", host.store);
-  emitProjectStateIfActive(host);
-  return pruned;
-}
-
-function voiceArtifactCacheMaxBytes(): number {
-  return Math.max(0, Math.floor(voiceSettings.artifactCacheMaxMb ?? DEFAULT_VOICE_SETTINGS.artifactCacheMaxMb) * 1024 * 1024);
-}
-
-async function clearManagedVoiceArtifactCache(reason: string, workspacePath = activeWorkspacePath(), targetStore: ProjectStore = store): Promise<void> {
-  try {
-    const result = await clearManagedVoiceArtifacts(workspacePath);
-    clearVoiceStatesForDeletedArtifacts(result.deletedPreview, `Voice artifact cache cleared on ${reason}.`, targetStore);
-    if (result.deletedFileCount > 0 && mainWindow && activeThreadId) emitRuntimeFeatureStateUpdated(targetStore);
-  } catch (error) {
-    console.warn(`Failed to clear managed voice artifact cache on ${reason}: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
 async function clearImportedWorkspaceContextCache(reason: string, workspacePaths = knownWorkspaceContextPaths()): Promise<void> {
   await Promise.all(
     workspacePaths.map(async (workspacePath) => {
@@ -3152,50 +2798,6 @@ function knownWorkspaceContextPaths(): string[] {
       }),
     ),
   );
-}
-
-function clearManagedVoiceArtifactCacheSync(reason: string, workspacePath: string, targetStore: ProjectStore = store): void {
-  try {
-    const deletedPaths = clearManagedVoiceArtifactsSync(workspacePath);
-    clearVoiceStatesForDeletedArtifacts(deletedPaths, `Voice artifact cache cleared on ${reason}.`, targetStore);
-  } catch (error) {
-    console.warn(`Failed to clear managed voice artifact cache on ${reason}: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-function clearManagedVoiceArtifactCachesForRuntimeHostsSync(reason: string): void {
-  const hosts = projectRuntimeHostList();
-  if (hosts.length === 0) {
-    const workspacePath = store?.getWorkspaceIfOpen()?.path;
-    if (workspacePath) clearManagedVoiceArtifactCacheSync(reason, workspacePath, store);
-    return;
-  }
-  for (const host of hosts) clearManagedVoiceArtifactCacheSync(reason, host.workspacePath, host.store);
-}
-
-async function enforceVoiceArtifactBudget(workspacePath = activeWorkspacePath(), targetStore: ProjectStore = store): Promise<void> {
-  try {
-    const result = await pruneManagedVoiceArtifactsToBudget({ workspacePath, maxBytes: voiceArtifactCacheMaxBytes() });
-    clearVoiceStatesForDeletedArtifacts(result.deletedPreview, "Voice artifact cache limit removed this audio file.", targetStore);
-    if (result.deletedFileCount > 0 && mainWindow && activeThreadId) emitRuntimeFeatureStateUpdated(targetStore);
-  } catch (error) {
-    console.warn(`Failed to enforce managed voice artifact cache budget: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-function clearVoiceStatesForDeletedArtifacts(deletedPaths: string[], error: string, targetStore: ProjectStore = store): void {
-  if (deletedPaths.length === 0) return;
-  const deleted = new Set(deletedPaths.map(normalizeManagedVoiceArtifactReference));
-  for (const thread of targetStore.listThreads()) {
-    for (const voiceState of targetStore.listMessageVoiceStates(thread.id)) {
-      if (!voiceState.audioPath || !deleted.has(normalizeManagedVoiceArtifactReference(voiceState.audioPath))) continue;
-      targetStore.clearMessageVoiceArtifact(voiceState.messageId, error);
-    }
-  }
-}
-
-function normalizeManagedVoiceArtifactReference(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\/+/, "");
 }
 
 function recordWorkflowRevisionDecisionInChat(
@@ -3591,7 +3193,7 @@ async function startApp(): Promise<void> {
   plannerSettings = await readPlannerSettings(appearancePreferencesPath());
   localDeepResearchSettings = await readLocalDeepResearchSettings(appearancePreferencesPath());
   searchRoutingSettings = await readSearchRoutingSettings(appearancePreferencesPath());
-  voiceSettings = await readVoiceSettings(appearancePreferencesPath());
+  setVoiceSettings(await readVoiceSettings(appearancePreferencesPath()));
   sttSettings = await readSttSettings(appearancePreferencesPath());
   nativeTheme.on("updated", publishAppearanceUpdated);
   const googleOAuthProviders = googleWorkspaceOAuthProvidersFromEnv(process.env);

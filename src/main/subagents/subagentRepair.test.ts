@@ -9,7 +9,7 @@ import type {
   SubagentWaitBarrierSummary,
 } from "../../shared/subagentTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
+import { AMBIENT_GLM_5_2_FP8_MODEL, createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { fallbackSubagentCapacityLease, materializeSubagentCapacityLeaseForRun } from "../../shared/subagentCapacity";
 import type { SubagentResultArtifact } from "../../shared/subagentProtocol";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
@@ -765,7 +765,7 @@ describe("subagentRepair", () => {
       expect.objectContaining({
         kind: "model_runtime_snapshot_mismatch",
         runId: "run-mismatched-model",
-        message: expect.stringContaining("lease modelId zai-org/GLM-5.1-FP8 does not match runtime modelId other/model"),
+        message: expect.stringContaining("lease modelId zai-org/GLM-5.2-FP8 does not match runtime modelId other/model"),
       }),
       expect.objectContaining({ kind: "missing_prompt_snapshot", runId: "run-missing-prompt" }),
       expect.objectContaining({
@@ -1173,7 +1173,7 @@ function thread(input: Partial<ThreadSummary> & { id: string }): ThreadSummary {
     lastMessagePreview: "",
     permissionMode: "workspace",
     collaborationMode: "agent",
-    model: "zai-org/GLM-5.1-FP8",
+    model: AMBIENT_GLM_5_2_FP8_MODEL,
     thinkingLevel: "minimal",
     ...input,
   };
@@ -1188,7 +1188,7 @@ function run(input: Partial<SubagentRunSummary> & {
   status: SubagentRunSummary["status"];
 }): SubagentRunSummary {
   const modelRuntimeSnapshot = input.modelRuntimeSnapshot ??
-    createAmbientModelRuntimeSnapshot("zai-org/GLM-5.1-FP8", "2026-06-05T00:00:00.000Z");
+    createAmbientModelRuntimeSnapshot(AMBIENT_GLM_5_2_FP8_MODEL, "2026-06-05T00:00:00.000Z");
   return {
     protocolVersion: "ambient-subagent-v1",
     roleId: "explorer",

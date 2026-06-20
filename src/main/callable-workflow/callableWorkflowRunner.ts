@@ -54,6 +54,12 @@ export interface CallableWorkflowRunnerCompileInput {
   launchBridgeEvidence?: unknown;
 }
 
+export interface CallableWorkflowRunnerLaunchInput {
+  task: CallableWorkflowTaskSummary;
+  handoffPlan: CallableWorkflowCompilerHandoffPlan;
+  callableWorkflowInvocation: WorkflowCompilerCallableInvocationContext;
+}
+
 export interface CallableWorkflowRunnerRunInput extends CallableWorkflowRunnerCompileInput {
   artifact: WorkflowArtifactSummary;
   onRunStarted(runId: string): void;
@@ -63,7 +69,7 @@ export interface ExecuteCallableWorkflowTaskInput {
   store: CallableWorkflowRunnerStore;
   taskId: string;
   createWorkflowThread(input: CreateWorkflowAgentThreadInput): WorkflowAgentThreadSummary;
-  launchWorkflowSubagents?(input: CallableWorkflowRunnerCompileInput): Promise<CallableWorkflowSubagentLaunchResult | void>;
+  launchWorkflowSubagents?(input: CallableWorkflowRunnerLaunchInput): Promise<CallableWorkflowSubagentLaunchResult | void>;
   compileWorkflowTask(input: CallableWorkflowRunnerCompileInput): Promise<WorkflowDashboard>;
   runWorkflowTask(input: CallableWorkflowRunnerRunInput): Promise<WorkflowDashboard>;
   createdAt?: string;
@@ -126,16 +132,10 @@ export async function executeCallableWorkflowTask(
     const { task, handoffPlan } = input.store.beginCallableWorkflowTaskCompilerHandoff(input.taskId, {
       createdAt: input.createdAt,
     });
-    const workflowThread = input.createWorkflowThread({
-      title: handoffPlan.compiler.workflowThreadTitle,
-      initialRequest: handoffPlan.compiler.workflowThreadInitialRequest,
-      phase: "compiling",
-    });
     const initialCallableWorkflowInvocation = workflowCompilerCallableInvocationContextFromRunnerInput({ task, handoffPlan });
     const launchResult = await input.launchWorkflowSubagents?.({
       task,
       handoffPlan,
-      workflowThread,
       callableWorkflowInvocation: initialCallableWorkflowInvocation,
     });
     if (launchResult?.status === "blocked") {
@@ -143,7 +143,6 @@ export async function executeCallableWorkflowTask(
         schemaVersion: CALLABLE_WORKFLOW_RUNNER_BRIDGE_SCHEMA_VERSION,
         task: launchResult.task,
         handoffPlan,
-        workflowThread,
         status: "paused",
       };
     }
@@ -152,11 +151,15 @@ export async function executeCallableWorkflowTask(
         schemaVersion: CALLABLE_WORKFLOW_RUNNER_BRIDGE_SCHEMA_VERSION,
         task: launchResult.task,
         handoffPlan,
-        workflowThread,
         status: callableWorkflowRunnerResultStatus(launchResult.task.status),
       };
     }
     const taskAfterLaunch = launchResult?.task ?? input.store.getCallableWorkflowTask(task.id);
+    const workflowThread = input.createWorkflowThread({
+      title: handoffPlan.compiler.workflowThreadTitle,
+      initialRequest: handoffPlan.compiler.workflowThreadInitialRequest,
+      phase: "compiling",
+    });
     const callableWorkflowInvocation = workflowCompilerCallableInvocationContextFromRunnerInput({
       task: taskAfterLaunch,
       handoffPlan,

@@ -333,7 +333,7 @@ import {
 import { callableWorkflowToolName } from "./agentRuntimeCallableWorkflowFacade";
 import {
   type CallableWorkflowParentBlockingBlock,
-  type CallableWorkflowRunnerCompileInput,
+  type CallableWorkflowRunnerLaunchInput,
   type CallableWorkflowSubagentLaunchResult,
 } from "./agentRuntimeCallableWorkflowFacade";
 import {
@@ -3575,7 +3575,7 @@ export class AgentRuntime {
     });
   }
 
-  private async launchCallableWorkflowSymphonySubagents(input: CallableWorkflowRunnerCompileInput): Promise<CallableWorkflowSubagentLaunchResult | void> {
+  private async launchCallableWorkflowSymphonySubagents(input: CallableWorkflowRunnerLaunchInput): Promise<CallableWorkflowSubagentLaunchResult | void> {
     const contract = input.handoffPlan.compiler.launchBridgeContract;
     if (!contract) return;
     if (
@@ -6911,7 +6911,7 @@ function callableWorkflowSymphonyTerminalWaitDecisionMessage(
 }
 
 function callableWorkflowSymphonyLaunchBridgeEvidence(input: {
-  contract: NonNullable<CallableWorkflowRunnerCompileInput["handoffPlan"]["compiler"]["launchBridgeContract"]>;
+  contract: NonNullable<CallableWorkflowRunnerLaunchInput["handoffPlan"]["compiler"]["launchBridgeContract"]>;
   childRunIds: readonly string[];
   childRunBindings?: readonly { roleNodeId: string; childRunId: string }[];
   childRuns?: readonly SubagentRunSummary[];

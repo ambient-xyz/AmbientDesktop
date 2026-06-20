@@ -1,6 +1,6 @@
 import type { Context, Model } from "@mariozechner/pi-ai";
 import { streamSimpleOpenAICompletions } from "@mariozechner/pi-ai/openai-completions";
-import { normalizeAmbientModelId } from "../../shared/ambientModels";
+import { ambientModelLabel, normalizeAmbientModelId, resolveAmbientModelRuntimeProfile } from "../../shared/ambientModels";
 import { isRetryableAmbientProviderError, retryDelayForAttempt, type AmbientRetryPolicy } from "./threadAmbientFacade";
 import { readAmbientApiKey } from "./threadSecurityFacade";
 import { normalizeAmbientBaseUrl } from "./threadProviderFacade";
@@ -157,9 +157,10 @@ async function generateThreadTitleWithFetch(input: GenerateThreadTitleInput, api
 
 function titleModel(modelId: string, baseUrl: string): Model<"openai-completions"> {
   const normalizedModelId = normalizeAmbientModelId(modelId);
+  const profile = resolveAmbientModelRuntimeProfile(normalizedModelId);
   return {
     id: normalizedModelId,
-    name: normalizedModelId,
+    name: ambientModelLabel(normalizedModelId),
     api: "openai-completions",
     provider: "ambient",
     baseUrl,
@@ -176,8 +177,8 @@ function titleModel(modelId: string, baseUrl: string): Model<"openai-completions
       cacheRead: 0,
       cacheWrite: 0,
     },
-    contextWindow: 200000,
-    maxTokens: 131072,
+    contextWindow: profile.contextWindowTokens ?? 200000,
+    maxTokens: profile.maxOutputTokens ?? 131072,
   };
 }
 

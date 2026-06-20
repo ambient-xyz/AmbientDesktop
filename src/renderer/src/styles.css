@@ -14560,6 +14560,19 @@ button.inline-media-preview {
     inset 0 0 0 1px color-mix(in srgb, var(--surface-elevated) 72%, transparent);
 }
 
+:root[data-theme="dark"] .symphony-pattern-card.selected {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--success) 72%, var(--line));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-muted) 88%, var(--success) 12%),
+    color-mix(in srgb, var(--surface-elevated) 90%, var(--success) 10%)
+  );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--success) 34%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--surface-elevated) 64%, transparent);
+}
+
 .symphony-pattern-svg {
   height: 56px;
   overflow: hidden;
@@ -14611,6 +14624,12 @@ button.inline-media-preview {
   background: var(--surface);
   padding: 2px 7px;
   white-space: normal;
+}
+
+:root[data-theme="dark"] .symphony-pattern-card.selected .symphony-pattern-meta span {
+  color: var(--text-secondary);
+  border-color: color-mix(in srgb, var(--success) 24%, var(--line));
+  background: color-mix(in srgb, var(--surface) 86%, var(--success) 14%);
 }
 
 .symphony-launch-requirements span.ready {

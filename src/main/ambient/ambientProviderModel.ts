@@ -24,8 +24,8 @@ export function ambientModel(modelId: string, baseUrl: string): Model<"openai-co
       cacheRead: 0,
       cacheWrite: 0,
     },
-    contextWindow: 200000,
-    maxTokens: 131072,
+    contextWindow: profile.contextWindowTokens ?? 200000,
+    maxTokens: profile.maxOutputTokens ?? 131072,
   };
 }
 

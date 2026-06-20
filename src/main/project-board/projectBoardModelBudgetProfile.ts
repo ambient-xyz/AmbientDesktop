@@ -53,10 +53,10 @@ export interface ProjectBoardPromptBudgetAssessment {
   contextWindowExceeded: boolean;
 }
 
-const GLM_5_1_CONTEXT_TOKENS = 200_000;
-const GLM_5_1_MAX_OUTPUT_TOKENS = 128_000;
-const GLM_5_1_PLANNER_BATCH_SOFT_PROMPT_TOKENS = 48_000;
-const GLM_5_1_PLANNER_BATCH_SUMMARIZATION_THRESHOLD_TOKENS = 36_000;
+const GLM_5_FP8_CONTEXT_TOKENS = 202_752;
+const GLM_5_FP8_MAX_OUTPUT_TOKENS = 202_752;
+const GLM_5_FP8_PLANNER_BATCH_SOFT_PROMPT_TOKENS = 48_000;
+const GLM_5_FP8_PLANNER_BATCH_SUMMARIZATION_THRESHOLD_TOKENS = 36_000;
 const DEFAULT_CONTEXT_TOKENS = 64_000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 16_000;
 
@@ -193,8 +193,8 @@ export function projectBoardPromptBudgetAssessmentMetadata(assessment: ProjectBo
 }
 
 function projectBoardModelLimits(modelId: string): { contextWindowTokens: number; maxOutputTokens: number } {
-  if (isGlm51Model(modelId)) {
-    return { contextWindowTokens: GLM_5_1_CONTEXT_TOKENS, maxOutputTokens: GLM_5_1_MAX_OUTPUT_TOKENS };
+  if (isGlm5Fp8Model(modelId)) {
+    return { contextWindowTokens: GLM_5_FP8_CONTEXT_TOKENS, maxOutputTokens: GLM_5_FP8_MAX_OUTPUT_TOKENS };
   }
   return { contextWindowTokens: DEFAULT_CONTEXT_TOKENS, maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS };
 }
@@ -214,8 +214,8 @@ function calibratedSoftPromptBudgetTokens(input: {
   modelId: string;
   defaultSoftPromptBudgetTokens: number;
 }): number {
-  if (input.operation === "planner_card_batch" && isGlm51Model(input.modelId)) {
-    return Math.min(input.defaultSoftPromptBudgetTokens, GLM_5_1_PLANNER_BATCH_SOFT_PROMPT_TOKENS);
+  if (input.operation === "planner_card_batch" && isGlm5Fp8Model(input.modelId)) {
+    return Math.min(input.defaultSoftPromptBudgetTokens, GLM_5_FP8_PLANNER_BATCH_SOFT_PROMPT_TOKENS);
   }
   return input.defaultSoftPromptBudgetTokens;
 }
@@ -225,15 +225,22 @@ function calibratedSummarizationThresholdTokens(input: {
   modelId: string;
   softPromptBudgetTokens: number;
 }): number {
-  if (input.operation === "planner_card_batch" && isGlm51Model(input.modelId)) {
-    return Math.min(input.softPromptBudgetTokens, GLM_5_1_PLANNER_BATCH_SUMMARIZATION_THRESHOLD_TOKENS);
+  if (input.operation === "planner_card_batch" && isGlm5Fp8Model(input.modelId)) {
+    return Math.min(input.softPromptBudgetTokens, GLM_5_FP8_PLANNER_BATCH_SUMMARIZATION_THRESHOLD_TOKENS);
   }
   return Math.max(1_024, Math.floor(input.softPromptBudgetTokens * 0.85));
 }
 
-function isGlm51Model(modelId: string): boolean {
+function isGlm5Fp8Model(modelId: string): boolean {
   const normalized = modelId.toLowerCase();
-  return normalized.includes("glm-5.1") || normalized.includes("glm_5.1") || normalized.includes("glm5.1");
+  return (
+    normalized.includes("glm-5.1") ||
+    normalized.includes("glm_5.1") ||
+    normalized.includes("glm5.1") ||
+    normalized.includes("glm-5.2") ||
+    normalized.includes("glm_5.2") ||
+    normalized.includes("glm5.2")
+  );
 }
 
 function modelBudgetOutputOverride(

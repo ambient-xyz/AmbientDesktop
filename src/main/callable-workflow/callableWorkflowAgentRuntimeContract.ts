@@ -41,6 +41,7 @@ export {
 } from "./callableWorkflowRunner";
 export type {
   CallableWorkflowRunnerCompileInput,
+  CallableWorkflowRunnerLaunchInput,
   CallableWorkflowSubagentLaunchResult,
   CallableWorkflowRunnerStore,
 } from "./callableWorkflowRunner";

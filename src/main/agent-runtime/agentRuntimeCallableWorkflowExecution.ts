@@ -12,7 +12,7 @@ import { pluginStateReaderFromStore } from "./agentRuntimePluginsFacade";
 import {
   executeCallableWorkflowTask,
   latestCallableWorkflowRunForArtifact,
-  type CallableWorkflowRunnerCompileInput,
+  type CallableWorkflowRunnerLaunchInput,
   type CallableWorkflowRunnerStore,
   type CallableWorkflowSubagentLaunchResult,
 } from "./agentRuntimeCallableWorkflowFacade";
@@ -40,7 +40,7 @@ export interface AgentRuntimeCallableWorkflowExecutionOptions {
   connectorAccountAuthorizer?: () => WorkflowConnectorAccountAuthorizer | undefined;
   readSearchRoutingSettings?: () => SearchRoutingSettings | undefined;
   ensurePluginMcpToolTrusted: (threadId: string, workspace: WorkspaceState, registration: PluginMcpToolRegistration) => Promise<boolean>;
-  launchWorkflowSubagents?: (input: CallableWorkflowRunnerCompileInput) => Promise<CallableWorkflowSubagentLaunchResult | void>;
+  launchWorkflowSubagents?: (input: CallableWorkflowRunnerLaunchInput) => Promise<CallableWorkflowSubagentLaunchResult | void>;
   setTaskAbortController: (taskId: string, controller: AbortController) => void;
   deleteTaskAbortController: (taskId: string) => void;
   setRunTaskId: (runId: string, taskId: string) => void;

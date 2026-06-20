@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   AMBIENT_DEFAULT_MODEL,
   AMBIENT_GLM_5_1_FP8_MODEL,
+  AMBIENT_GLM_5_2_FP8_MODEL,
 } from "../../shared/ambientModels";
 import { ambientModel, createAmbientProviderExtension } from "./ambientProviderModel";
 
 describe("ambientProviderModel", () => {
   it("builds the Ambient Pi model descriptor", () => {
     expect(ambientModel("glm-5.1", "https://ambient.example/v1")).toEqual({
-      id: AMBIENT_GLM_5_1_FP8_MODEL,
-      name: "GLM-5.1 FP8",
+      id: AMBIENT_GLM_5_2_FP8_MODEL,
+      name: "GLM-5.2 FP8",
       api: "openai-completions",
       provider: "ambient",
       baseUrl: "https://ambient.example/v1",
@@ -26,8 +27,8 @@ describe("ambientProviderModel", () => {
         cacheRead: 0,
         cacheWrite: 0,
       },
-      contextWindow: 200000,
-      maxTokens: 131072,
+      contextWindow: 202752,
+      maxTokens: 202752,
     });
   });
 

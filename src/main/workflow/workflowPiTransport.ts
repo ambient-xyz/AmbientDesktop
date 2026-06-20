@@ -1,7 +1,7 @@
 import type { AssistantMessage, Context, Model, SimpleStreamOptions, ThinkingLevel, Tool, ToolCall } from "@mariozechner/pi-ai";
 import { validateToolCall } from "@mariozechner/pi-ai";
 import { streamSimpleOpenAICompletions } from "@mariozechner/pi-ai/openai-completions";
-import { ambientModelLabel, normalizeAmbientModelId } from "../../shared/ambientModels";
+import { ambientModelLabel, normalizeAmbientModelId, resolveAmbientModelRuntimeProfile } from "../../shared/ambientModels";
 import {
   AmbientStreamFailureError,
   isRetryableAmbientProviderError,
@@ -700,6 +700,7 @@ function summarizeToolArguments(args: unknown): string {
 
 function workflowPiModel(modelId: string, baseUrl: string | undefined): Model<"openai-completions"> {
   const normalizedModelId = normalizeAmbientModelId(modelId);
+  const profile = resolveAmbientModelRuntimeProfile(normalizedModelId);
   return {
     id: normalizedModelId,
     name: ambientModelLabel(normalizedModelId),
@@ -721,8 +722,8 @@ function workflowPiModel(modelId: string, baseUrl: string | undefined): Model<"o
       cacheRead: 0,
       cacheWrite: 0,
     },
-    contextWindow: 200000,
-    maxTokens: 131072,
+    contextWindow: profile.contextWindowTokens ?? 200000,
+    maxTokens: profile.maxOutputTokens ?? 131072,
   };
 }
 

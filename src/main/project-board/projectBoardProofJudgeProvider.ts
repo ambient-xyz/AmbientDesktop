@@ -257,7 +257,7 @@ export function buildProjectBoardProofJudgmentPrompt(input: ProjectBoardProofJud
     "- Keep followUpSuggestion small and actionable. Prefer one follow-up card. Use clarificationQuestions only when the card cannot be safely ticketized without user input.",
     "- For ready_for_review with ask_user, missing must still explain what the human should inspect or decide before closing.",
     "- Do not trust narrative proof if changed files, commands, screenshots, or hook output contradict it.",
-    "- GLM 5.1 cannot inspect image pixels directly. Treat raw screenshot paths as human artifacts; judge visual proof from textual fields like visualChecks, browserEvidence, dimensions, nonblank pixel counts, color diversity, console errors, canvas metrics, accessibility snapshots, command output, and trace summaries.",
+    "- Text-only Ambient GLM models cannot inspect image pixels directly. Treat raw screenshot paths as human artifacts; judge visual proof from textual fields like visualChecks, browserEvidence, dimensions, nonblank pixel counts, color diversity, console errors, canvas metrics, accessibility snapshots, command output, and trace summaries.",
     "- If deterministic review found missing implementation evidence, only override it when the proof packet explains why code changes were not expected.",
     "",
     `Card: ${card.title}`,

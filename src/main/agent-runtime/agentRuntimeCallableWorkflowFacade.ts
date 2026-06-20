@@ -24,6 +24,7 @@ export type {
   CallableWorkflowParentBlockingBlock,
   CallableWorkflowPiToolContext,
   CallableWorkflowRunnerCompileInput,
+  CallableWorkflowRunnerLaunchInput,
   CallableWorkflowRunnerStore,
   CallableWorkflowSubagentLaunchResult,
   CreateCallableWorkflowPiToolDefinitionsOptions,

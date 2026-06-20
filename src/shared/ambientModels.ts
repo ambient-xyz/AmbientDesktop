@@ -1,5 +1,6 @@
 export const AMBIENT_KIMI_K2_7_CODE_MODEL = "moonshotai/kimi-k2.7-code";
 export const AMBIENT_GLM_5_1_FP8_MODEL = "zai-org/GLM-5.1-FP8";
+export const AMBIENT_GLM_5_2_FP8_MODEL = "zai-org/GLM-5.2-FP8";
 export const AMBIENT_DEFAULT_MODEL = AMBIENT_KIMI_K2_7_CODE_MODEL;
 
 export const AMBIENT_PROVIDER_AMBIENT = "ambient" as const;
@@ -99,10 +100,12 @@ export interface AmbientModelRuntimeCatalog {
 }
 
 export const AMBIENT_LEGACY_MODEL_IDS = [
-  ["glm-5.1", AMBIENT_GLM_5_1_FP8_MODEL],
-  ["glm-5", AMBIENT_GLM_5_1_FP8_MODEL],
-  ["ambient/large", AMBIENT_GLM_5_1_FP8_MODEL],
-  ["zai-org/GLM-5-FP8", AMBIENT_GLM_5_1_FP8_MODEL],
+  ["glm-5.2", AMBIENT_GLM_5_2_FP8_MODEL],
+  ["glm-5.1", AMBIENT_GLM_5_2_FP8_MODEL],
+  ["glm-5", AMBIENT_GLM_5_2_FP8_MODEL],
+  ["ambient/large", AMBIENT_GLM_5_2_FP8_MODEL],
+  ["zai-org/GLM-5-FP8", AMBIENT_GLM_5_2_FP8_MODEL],
+  [AMBIENT_GLM_5_1_FP8_MODEL, AMBIENT_GLM_5_2_FP8_MODEL],
 ] as const;
 
 const legacyModelMap = new Map<string, string>(AMBIENT_LEGACY_MODEL_IDS);
@@ -167,15 +170,15 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
   },
   {
     schemaVersion: "ambient-model-runtime-profile-v1",
-    profileId: `${AMBIENT_PROVIDER_AMBIENT}:${AMBIENT_GLM_5_1_FP8_MODEL}`,
+    profileId: `${AMBIENT_PROVIDER_AMBIENT}:${AMBIENT_GLM_5_2_FP8_MODEL}`,
     providerId: AMBIENT_PROVIDER_AMBIENT,
-    modelId: AMBIENT_GLM_5_1_FP8_MODEL,
-    label: "GLM-5.1 FP8",
+    modelId: AMBIENT_GLM_5_2_FP8_MODEL,
+    label: "GLM-5.2 FP8",
     selectableAsMain: true,
     selectableAsSubagent: true,
     available: true,
-    contextWindowTokens: 200_000,
-    maxOutputTokens: 32_000,
+    contextWindowTokens: 202_752,
+    maxOutputTokens: 202_752,
     supportsStreaming: true,
     toolUse: "ambient-tools",
     structuredOutput: "schema",
@@ -186,7 +189,11 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
     trustClass: "ambient-managed",
     privacyLabel: "Ambient managed cloud model",
     memoryClass: "remote",
-    providerQuirks: ["Uses Ambient/Pi streaming and timeout semantics."],
+    providerQuirks: [
+      "Discovered through the Ambient /v1/models endpoint after the GLM 5.2 migration.",
+      "Uses Ambient/Pi streaming and timeout semantics.",
+      "Streams reasoning deltas before visible content on small prompts.",
+    ],
   },
   {
     schemaVersion: "ambient-model-runtime-profile-v1",

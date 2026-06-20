@@ -439,7 +439,7 @@ describe("AmbientProjectBoardProofJudgeProvider", () => {
     expect(prompt).toContain("Canvas renders a nonblank scene.");
     expect(prompt).toContain("Capture canvas screenshot.");
     expect(prompt).toContain("src/App.tsx");
-    expect(prompt).toContain("GLM 5.1 cannot inspect image pixels directly");
+    expect(prompt).toContain("Text-only Ambient GLM models cannot inspect image pixels directly");
     expect(prompt).toContain("ask_user must include the direct question to ask the user");
     expect(prompt).toContain("followUpSuggestion");
     expect(prompt).toContain("ticket-ready draft card");

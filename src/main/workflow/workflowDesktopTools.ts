@@ -4,7 +4,12 @@ import type { PermissionMode, PermissionRequest } from "../../shared/permissionT
 import type { WorkflowRunRuntime } from "../../shared/workflowTypes";
 import type { OfficeTextExtraction, PdfTextExtraction, WorkspaceState } from "../../shared/workspaceTypes";
 import type { Model } from "@mariozechner/pi-ai";
-import { AMBIENT_DEFAULT_MODEL, ambientModelLabel, normalizeAmbientModelId } from "../../shared/ambientModels";
+import {
+  AMBIENT_DEFAULT_MODEL,
+  ambientModelLabel,
+  normalizeAmbientModelId,
+  resolveAmbientModelRuntimeProfile,
+} from "../../shared/ambientModels";
 import {
   describeAmbientCliPackage,
   runAmbientCliPackageCommand,
@@ -927,6 +932,7 @@ function optionalStringArray(value: unknown, fieldName: string): string[] | unde
 
 function workflowLongContextAmbientModel(options: WorkflowDesktopToolBridgeOptions): Model<"openai-completions"> {
   const normalizedModelId = normalizeAmbientModelId(getActiveAmbientProviderModelOverride() ?? options.model ?? AMBIENT_DEFAULT_MODEL);
+  const profile = resolveAmbientModelRuntimeProfile(normalizedModelId);
   return {
     id: normalizedModelId,
     name: ambientModelLabel(normalizedModelId),
@@ -941,8 +947,8 @@ function workflowLongContextAmbientModel(options: WorkflowDesktopToolBridgeOptio
     reasoning: true,
     input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 200000,
-    maxTokens: 131072,
+    contextWindow: profile.contextWindowTokens ?? 200000,
+    maxTokens: profile.maxOutputTokens ?? 131072,
   };
 }
 

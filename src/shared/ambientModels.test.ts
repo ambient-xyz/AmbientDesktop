@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AMBIENT_DEFAULT_MODEL,
   AMBIENT_GLM_5_1_FP8_MODEL,
+  AMBIENT_GLM_5_2_FP8_MODEL,
   AMBIENT_KIMI_K2_7_CODE_MODEL,
   AMBIENT_LOCAL_TEXT_MODEL,
   AMBIENT_MODEL_OPTIONS,
@@ -28,9 +29,9 @@ describe("ambient model options", () => {
         privacyLabel: "Ambient managed cloud model",
       }),
       expect.objectContaining({
-        id: AMBIENT_GLM_5_1_FP8_MODEL,
-        label: "GLM-5.1 FP8",
-        profileId: `ambient:${AMBIENT_GLM_5_1_FP8_MODEL}`,
+        id: AMBIENT_GLM_5_2_FP8_MODEL,
+        label: "GLM-5.2 FP8",
+        profileId: `ambient:${AMBIENT_GLM_5_2_FP8_MODEL}`,
         providerId: "ambient",
         locality: "cloud",
         privacyLabel: "Ambient managed cloud model",
@@ -127,6 +128,20 @@ describe("ambient model options", () => {
       supportsVision: true,
       privacyLabel: "Ambient managed cloud model",
     });
+    expect(resolveAmbientModelRuntimeProfile(AMBIENT_GLM_5_2_FP8_MODEL)).toMatchObject({
+      providerId: "ambient",
+      modelId: AMBIENT_GLM_5_2_FP8_MODEL,
+      label: "GLM-5.2 FP8",
+      available: true,
+      selectableAsMain: true,
+      selectableAsSubagent: true,
+      contextWindowTokens: 202_752,
+      maxOutputTokens: 202_752,
+      toolUse: "ambient-tools",
+      structuredOutput: "schema",
+      supportsVision: false,
+      privacyLabel: "Ambient managed cloud model",
+    });
   });
 
   it("keeps unqualified Qwen chat candidates out of main and sub-agent selection", () => {
@@ -142,15 +157,17 @@ describe("ambient model options", () => {
 
   it("normalizes removed model ids while preserving unknown model ids", () => {
     expect(normalizeAmbientModelId()).toBe(AMBIENT_DEFAULT_MODEL);
-    expect(normalizeAmbientModelId("glm-5.1")).toBe(AMBIENT_GLM_5_1_FP8_MODEL);
-    expect(normalizeAmbientModelId("glm-5")).toBe(AMBIENT_GLM_5_1_FP8_MODEL);
-    expect(normalizeAmbientModelId("ambient/large")).toBe(AMBIENT_GLM_5_1_FP8_MODEL);
-    expect(normalizeAmbientModelId("zai-org/GLM-5-FP8")).toBe(AMBIENT_GLM_5_1_FP8_MODEL);
+    expect(normalizeAmbientModelId("glm-5.2")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
+    expect(normalizeAmbientModelId("glm-5.1")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
+    expect(normalizeAmbientModelId("glm-5")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
+    expect(normalizeAmbientModelId("ambient/large")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
+    expect(normalizeAmbientModelId("zai-org/GLM-5-FP8")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
+    expect(normalizeAmbientModelId(AMBIENT_GLM_5_1_FP8_MODEL)).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
     expect(normalizeAmbientModelId("custom/model")).toBe("custom/model");
   });
 
-  it("labels removed model ids as GLM-5.1 FP8", () => {
-    expect(ambientModelLabel("ambient/large")).toBe("GLM-5.1 FP8");
+  it("labels removed GLM ids as GLM-5.2 FP8", () => {
+    expect(ambientModelLabel("ambient/large")).toBe("GLM-5.2 FP8");
   });
 
   it("preserves unknown models as unavailable runtime profiles", () => {

@@ -281,11 +281,17 @@ describe("callable workflow runner bridge", () => {
         executionPlan: executionPlanForParent(parent.id, parentRun.id, assistant.id),
         featureFlagSnapshot: enabledFlags,
       });
+      const createdWorkflowThreadIds: string[] = [];
+      const createWorkflowThread = (input: Parameters<typeof store.createWorkflowAgentThreadSummary>[0]) => {
+        const workflowThread = store.createWorkflowAgentThreadSummary({ ...input, projectPath: workspacePath });
+        createdWorkflowThreadIds.push(workflowThread.id);
+        return workflowThread;
+      };
 
       const blocked = await executeCallableWorkflowTask({
         store,
         taskId: task.id,
-        createWorkflowThread: (input) => store.createWorkflowAgentThreadSummary({ ...input, projectPath: workspacePath }),
+        createWorkflowThread,
         launchWorkflowSubagents: async () => ({
           status: "blocked",
           task: store.pauseCallableWorkflowTask({
@@ -313,12 +319,14 @@ describe("callable workflow runner bridge", () => {
           workflowRunId: undefined,
         },
       });
+      expect(blocked.workflowThread).toBeUndefined();
+      expect(createdWorkflowThreadIds).toHaveLength(0);
 
       const runnerCalls: string[] = [];
       const resumed = await executeCallableWorkflowTask({
         store,
         taskId: task.id,
-        createWorkflowThread: (input) => store.createWorkflowAgentThreadSummary({ ...input, projectPath: workspacePath }),
+        createWorkflowThread,
         launchWorkflowSubagents: async () => {
           runnerCalls.push("launch");
           return { status: "ready", task: store.getCallableWorkflowTask(task.id) };
@@ -356,6 +364,7 @@ describe("callable workflow runner bridge", () => {
           runnerDeferredReason: "workflow_run_succeeded",
         },
       });
+      expect(createdWorkflowThreadIds).toEqual([resumed.workflowThread?.id]);
     } finally {
       store.close();
     }

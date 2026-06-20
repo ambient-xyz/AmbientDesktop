@@ -11,8 +11,9 @@ describe("projectBoardModelBudgetProfile", () => {
       }),
     ).toMatchObject({
       operation: "planner_card_batch",
-      contextWindowTokens: 200_000,
-      modelMaxOutputTokens: 128_000,
+      modelId: "zai-org/GLM-5.2-FP8",
+      contextWindowTokens: 202_752,
+      modelMaxOutputTokens: 202_752,
       maxOutputTokens: 4_800,
       softPromptBudgetTokens: 48_000,
       summarizationThresholdTokens: 36_000,
