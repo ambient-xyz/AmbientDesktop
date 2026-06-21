@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
@@ -9,6 +12,8 @@ import {
   type SearchPreferenceToolPermissionRequest,
   type SearchPreferenceToolRegistrationOptions,
 } from "./agentRuntimeSearchPreferenceTools";
+import { AgentRuntime } from "./agentRuntime";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 
@@ -199,6 +204,85 @@ describe("registerSearchPreferenceTools", () => {
       providerAlias: "Brave Search",
     })).rejects.toThrow("Search preference changes are blocked in Planner Mode.");
     expect(permissionRequests).toEqual([]);
+  });
+});
+
+describe("AgentRuntime search preference tools", () => {
+  it("registers web_research_preferences_update and writes the canonical global webResearch model", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-search-pref-tool-"));
+    const store = new ProjectStore();
+    try {
+      const workspace = store.openWorkspace(workspacePath);
+      const thread = store.createThread("search preference update");
+      const currentSettings = {
+        webResearch: {
+          schemaVersion: "ambient-web-research-provider-stack-v1",
+          providers: [
+            { providerId: "exa-mcp-default", label: "Exa Search", kind: "remote-mcp", roles: ["search", "fetch"], status: "enabled" },
+            { providerId: "ambient-browser", label: "Ambient Browser", kind: "built-in-browser", roles: ["search", "fetch"], status: "enabled" },
+            { providerId: "ambient-brave-search", label: "Brave Search", kind: "ambient-cli", roles: ["search"], status: "enabled" },
+          ],
+          preferences: {
+            search: ["ambient-brave-search", "exa-mcp-default", "ambient-browser"],
+            fetch: ["exa-mcp-default", "ambient-browser"],
+          },
+          fallbackPolicy: { allowBrowserFallback: false },
+        },
+      };
+      const updateSettings = vi.fn(async (input: any) => input);
+      const permissionRequester = vi.fn(async (request: any) => {
+        expect(request.toolName).toBe("web_research_preferences_update");
+        expect(request.detail).toContain("Scope: Global Search & Web settings");
+        expect(request.grantTargetLabel).toBe("Update Search & Web routing preference");
+        expect(request.grantTargetHash).toMatch(/^[a-f0-9]{64}$/);
+        return { allowed: true, mode: "allow_once" as const };
+      });
+      const runtime = new AgentRuntime(store, {} as any, {} as any, () => undefined, {
+        request: permissionRequester,
+        denyThread: () => undefined,
+      }, {
+        search: {
+          readSettings: () => currentSettings as any,
+          updateSettings,
+        },
+      });
+      const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
+      (runtime as any).createSearchPreferenceToolExtension(thread.id, workspace)({
+        registerTool: (tool: any) => registeredTools.push(tool),
+      });
+
+      expect(registeredTools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
+        "web_research_preferences_update",
+      ]));
+      expect(registeredTools.map((tool) => tool.name)).not.toContain("ambient_search_preference_update");
+
+      const update = registeredTools.find((tool) => tool.name === "web_research_preferences_update");
+      if (!update) throw new Error("Missing web_research_preferences_update.");
+      const result = await update.execute("search-pref-swap", {
+        role: "search",
+        providerOrder: ["Ambient Browser", "Exa Search"],
+        reason: "Temporarily test provider order.",
+      });
+
+      expect(result.details).toMatchObject({
+        toolName: "web_research_preferences_update",
+        status: "complete",
+        role: "search",
+        providerOrder: ["ambient-browser", "exa-mcp-default"],
+      });
+      expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+        webResearch: expect.objectContaining({
+          preferences: expect.objectContaining({
+            search: ["ambient-browser", "exa-mcp-default"],
+          }),
+          fallbackPolicy: { allowBrowserFallback: false },
+        }),
+      }));
+      expect(result.details.settings.webSearch).toBeUndefined();
+    } finally {
+      store.close();
+      await rm(workspacePath, { recursive: true, force: true });
+    }
   });
 });
 

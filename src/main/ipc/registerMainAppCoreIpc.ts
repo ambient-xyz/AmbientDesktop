@@ -149,7 +149,6 @@ export function registerMainAppCoreIpc(
       mkdirSync(workspacePath, { recursive: true }),
     switchWorkspace,
     requireActiveProjectRuntimeHost,
-    prepareWorktreeForThread,
     setProjectHostActiveThreadId,
     emitProjectStateIfActive,
     readStateForProjectHostAction,

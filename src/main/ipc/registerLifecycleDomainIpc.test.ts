@@ -73,16 +73,14 @@ describe("registerLifecycleDomainIpc", () => {
   });
 
   it("routes thread creation through the active project host dependencies", async () => {
-    const { deps, host, thread, invoke } = registerWithFakes();
+    const { deps, host, invoke } = registerWithFakes();
 
     await expect(invoke("thread:create")).resolves.toBe(desktopState);
 
     expect(deps.requireActiveProjectRuntimeHost).toHaveBeenCalledOnce();
     expect(host.store.findReusableEmptyThread).toHaveBeenCalledOnce();
     expect(host.store.createThread).toHaveBeenCalledWith();
-    expect(deps.prepareWorktreeForThread).toHaveBeenCalledWith(thread, host.store);
     expect(deps.setProjectHostActiveThreadId).toHaveBeenCalledWith(host, "thread-1");
-    expect(deps.emitProjectStateIfActive).toHaveBeenCalledWith(host, "thread-1");
     expect(deps.readStateForProjectHostAction).toHaveBeenCalledWith(host, "thread-1");
   });
 
@@ -114,10 +112,6 @@ function registerWithFakes({
 } = {}) {
   const handlers = new Map<string, IpcListener>();
   const thread = sampleThread("thread-1", "/workspace");
-  const preparedThread = {
-    ...thread,
-    gitWorktree: { worktreePath: "/workspace/.ambient-worktree/thread-1" },
-  };
   const host = createFakeHost({ currentGoal, nextGoal, thread });
   const deps: RegisterLifecycleDomainIpcDependencies = {
     handleIpc: vi.fn((channel: string, listener: IpcListener) => {
@@ -137,7 +131,6 @@ function registerWithFakes({
     createWorkspaceDirectory: vi.fn(),
     switchWorkspace: vi.fn(async () => desktopState),
     requireActiveProjectRuntimeHost: vi.fn(() => host),
-    prepareWorktreeForThread: vi.fn(async () => preparedThread),
     setProjectHostActiveThreadId: vi.fn((targetHost: FakeHost, threadId: string) => {
       targetHost.activeThreadId = threadId;
     }),

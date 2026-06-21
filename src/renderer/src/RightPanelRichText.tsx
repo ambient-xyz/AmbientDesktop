@@ -36,7 +36,7 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
-import { MouseEvent as ReactMouseEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { MouseEvent as ReactMouseEvent, ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BrowserRuntimeKind } from "../../shared/browserTypes"; import type { WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/workspaceTypes";
 import { parseMarkdownBlocks } from "./markdownBlockParser";
 import { richMarkdownTableIconLabel, type RichMarkdownIconLabel } from "./richMarkdownIcons";
@@ -56,6 +56,11 @@ export type LinkContextMenuState = {
   artifactPath?: string;
   localPath?: string;
 };
+
+const INLINE_MARKDOWN_TOKEN_PATTERN = /(!\[[^\]]*]\((?:[^()]|\([^)]*\))+\)|\[[^\]]+\]\((?:[^()]|\([^)]*\))+\)|`[^`]+`|\*\*[^*]+\*\*)/g;
+const LINKED_TEXT_PATTERN = /(file:\/\/\/[^\s<>"']+|https?:\/\/[^\s<>"']+|(?:~\/|\/(?:Users|Volumes|tmp|private\/tmp|var\/folders)\/)(?:(?:(?![\n\r<>"'`]).)*?\.(?:docx?|xlsx?|pptx?|rtf|odt|pdf|png|jpe?g|gif|webp|svg|mp3|wav|m4a|mp4|mov|txt|md|markdown|html?)(?::\d+(?::\d+)?)?|[^\s<>"'`]+))/gi;
+const FENCED_CODE_PATTERN = /```([^\n`]*)\n([\s\S]*?)```/g;
+const STRONG_INLINE_CODE_PATTERN = /^`([^`]+)`$/;
 
 
 
@@ -230,7 +235,7 @@ export function RichText({
   onOpenBrowserUrl?: (url: string) => void;
   workspacePath?: string;
 }) {
-  const parts = splitFencedCode(content);
+  const parts = useMemo(() => splitFencedCode(content), [content]);
   const [linkMenu, setLinkMenu] = useState<LinkContextMenuState | undefined>();
   const [linkOpenTargets, setLinkOpenTargets] = useState<WorkspaceOpenTarget[]>([]);
 
@@ -271,7 +276,7 @@ export function RichText({
     };
   }, [linkMenu?.artifactPath, linkMenu?.localPath]);
 
-  const openLinkContextMenu = (event: ReactMouseEvent<HTMLElement>, url: string, artifactPath?: string, localPath?: string) => {
+  const openLinkContextMenu = useCallback((event: ReactMouseEvent<HTMLElement>, url: string, artifactPath?: string, localPath?: string) => {
     event.preventDefault();
     event.stopPropagation();
     setLinkMenu({
@@ -281,9 +286,32 @@ export function RichText({
       x: clampNumber(event.clientX, 8, Math.max(8, window.innerWidth - 236)),
       y: clampNumber(event.clientY, 8, Math.max(8, window.innerHeight - 320)),
     });
-  };
+  }, []);
 
-  const inlineOptions = { highlightQuery, artifactPathHints, onPreviewPath, onPreviewLocalPath, onOpenMediaModal, onOpenUrl, onOpenBrowserUrl, workspacePath, onLinkContextMenu: openLinkContextMenu };
+  const inlineOptions = useMemo(
+    () => ({
+      highlightQuery,
+      artifactPathHints,
+      onPreviewPath,
+      onPreviewLocalPath,
+      onOpenMediaModal,
+      onOpenUrl,
+      onOpenBrowserUrl,
+      workspacePath,
+      onLinkContextMenu: openLinkContextMenu,
+    }),
+    [
+      highlightQuery,
+      artifactPathHints,
+      onPreviewPath,
+      onPreviewLocalPath,
+      onOpenMediaModal,
+      onOpenUrl,
+      onOpenBrowserUrl,
+      workspacePath,
+      openLinkContextMenu,
+    ],
+  );
   const menuFilePath = linkMenu?.artifactPath ? workspaceAbsoluteArtifactPath(linkMenu.artifactPath, workspacePath) : linkMenu?.localPath;
   const hasFilePath = Boolean(linkMenu?.artifactPath || linkMenu?.localPath);
   const primaryOpenTarget = hasFilePath ? preferredWorkspaceOpenTarget(linkOpenTargets) : undefined;
@@ -608,8 +636,8 @@ const richMarkdownIconComponents: Record<RichMarkdownIconLabel, LucideIcon> = {
 
 
 
-function MarkdownText({ text, inlineOptions }: { text: string; inlineOptions: InlineRenderOptions }) {
-  const blocks = parseMarkdownBlocks(text);
+const MarkdownText = memo(function MarkdownText({ text, inlineOptions }: { text: string; inlineOptions: InlineRenderOptions }) {
+  const blocks = useMemo(() => parseMarkdownBlocks(text), [text]);
   return (
     <>
       {blocks.map((block, index) => {
@@ -667,7 +695,7 @@ function MarkdownText({ text, inlineOptions }: { text: string; inlineOptions: In
       })}
     </>
   );
-}
+});
 
 
 
@@ -687,10 +715,10 @@ function renderMarkdownTableCell(headers: readonly string[], cellIndex: number, 
 
 function renderInline(text: string, options: InlineRenderOptions): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const pattern = /(!\[[^\]]*]\((?:[^()]|\([^)]*\))+\)|\[[^\]]+\]\((?:[^()]|\([^)]*\))+\)|`[^`]+`|\*\*[^*]+\*\*)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text))) {
+  INLINE_MARKDOWN_TOKEN_PATTERN.lastIndex = 0;
+  while ((match = INLINE_MARKDOWN_TOKEN_PATTERN.exec(text))) {
     if (match.index > lastIndex) {
       nodes.push(...renderLinkedText(text.slice(lastIndex, match.index), options, `text-${lastIndex}-${match.index}`));
     }
@@ -703,7 +731,7 @@ function renderInline(text: string, options: InlineRenderOptions): ReactNode[] {
       nodes.push(renderInlineCode(token.slice(1, -1), options, `code-${match.index}-${nodes.length}`));
     } else {
       const strongText = token.slice(2, -2);
-      const codeOnly = strongText.match(/^`([^`]+)`$/);
+      const codeOnly = strongText.match(STRONG_INLINE_CODE_PATTERN);
       nodes.push(
         <strong key={`strong-${match.index}-${nodes.length}`}>
           {codeOnly
@@ -801,10 +829,10 @@ function renderMarkdownLink(token: string, options: InlineRenderOptions, key: st
 
 function renderLinkedText(text: string, options: InlineRenderOptions, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const pattern = /(file:\/\/\/[^\s<>"']+|https?:\/\/[^\s<>"']+|(?:~\/|\/(?:Users|Volumes|tmp|private\/tmp|var\/folders)\/)(?:(?:(?![\n\r<>"'`]).)*?\.(?:docx?|xlsx?|pptx?|rtf|odt|pdf|png|jpe?g|gif|webp|svg|mp3|wav|m4a|mp4|mov|txt|md|markdown|html?)(?::\d+(?::\d+)?)?|[^\s<>"'`]+))/gi;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text))) {
+  LINKED_TEXT_PATTERN.lastIndex = 0;
+  while ((match = LINKED_TEXT_PATTERN.exec(text))) {
     if (match.index > lastIndex) {
       nodes.push(...highlightTextNodes(text.slice(lastIndex, match.index), options.highlightQuery, `${keyPrefix}-text-${lastIndex}`));
     }
@@ -1108,10 +1136,10 @@ type RichPart = { kind: "text"; value: string } | { kind: "code"; value: string;
 
 function splitFencedCode(content: string): RichPart[] {
   const parts: RichPart[] = [];
-  const pattern = /```([^\n`]*)\n([\s\S]*?)```/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = pattern.exec(content))) {
+  FENCED_CODE_PATTERN.lastIndex = 0;
+  while ((match = FENCED_CODE_PATTERN.exec(content))) {
     if (match.index > lastIndex) parts.push({ kind: "text", value: content.slice(lastIndex, match.index) });
     parts.push({ kind: "code", language: match[1]?.trim() || undefined, value: match[2].replace(/\n$/, "") });
     lastIndex = match.index + match[0].length;

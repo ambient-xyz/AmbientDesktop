@@ -1,4 +1,4 @@
-import { Fragment, type ComponentProps, type ReactNode, type RefObject } from "react";
+import { Fragment, useMemo, type ComponentProps, type ReactNode, type RefObject } from "react";
 import {
   ChevronDown,
   ClipboardPaste,
@@ -53,6 +53,8 @@ import type {
 import type { ArtifactPathHints } from "./toolMessageUiModel";
 
 type ThreadVoiceStatus = ComponentProps<typeof ThreadVoiceStatusBar>["status"];
+
+const EMPTY_ORPHANED_SUBAGENT_CLUSTERS: SubagentParentClusterModel[] = [];
 
 export function AppConversationMessages({
   children,
@@ -358,9 +360,11 @@ export function AppConversationMessages({
         runActivityLinesByThread,
       }))
       .map((child) => child.runId);
-  const visibleChatMessageIds = new Set(visibleChatMessages.map((message) => message.id));
-  const orphanedSubagentClusters = [...subagentParentClustersByMessageId.values()]
-    .filter((cluster) => !visibleChatMessageIds.has(cluster.parentMessageId));
+  const orphanedSubagentClusters = useMemo(() => {
+    if (subagentParentClustersByMessageId.size === 0) return EMPTY_ORPHANED_SUBAGENT_CLUSTERS;
+    const visibleChatMessageIds = new Set(visibleChatMessages.map((message) => message.id));
+    return [...subagentParentClustersByMessageId.values()].filter((cluster) => !visibleChatMessageIds.has(cluster.parentMessageId));
+  }, [subagentParentClustersByMessageId, visibleChatMessages]);
   const renderSubagentParentCluster = (subagentCluster: SubagentParentClusterModel) => {
     const liveInlineChildRunIds = liveInlineChildRunIdsForCluster(subagentCluster);
     const subagentClusterAutoOpen = Boolean(

@@ -780,7 +780,10 @@ export function ToolMessageCard({
 }) {
   const status = messageStatus(message);
   const toolName = typeof message.metadata?.toolName === "string" ? message.metadata.toolName : "Tool";
-  const parsed = parseToolMessage(message.content, toolName, workspacePath, message.metadata);
+  const parsed = useMemo(
+    () => parseToolMessage(message.content, toolName, workspacePath, message.metadata),
+    [message.content, message.metadata, toolName, workspacePath],
+  );
   const injectedPlaybookChip = workflowRecorderInjectedPlaybookChip(message.metadata);
   const canPreviewArtifact = parsed.artifactPath && status !== "running";
   const browserTool = isBrowserToolName(toolName);

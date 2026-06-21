@@ -41,6 +41,9 @@ export type PendingSubmittedPrompt = {
   afterMessageId?: string;
 };
 
+const EMPTY_CHAT_MESSAGES: ChatMessage[] = [];
+const EMPTY_PENDING_SUBMITTED_PROMPTS: PendingSubmittedPrompt[] = [];
+
 export function appConversationArtifactWorkspacePath({
   activeWorkspacePath,
   workspacePath,
@@ -161,18 +164,86 @@ export function useAppConversationDisplayModel(input: {
   thinkingDisplayMode: ThinkingDisplayMode;
   workspacePath?: string;
 }): AppConversationDisplayModel {
+  const displayMessages = input.messages ?? EMPTY_CHAT_MESSAGES;
+  const pendingSubmittedPrompts = input.pendingSubmittedPrompts ?? EMPTY_PENDING_SUBMITTED_PROMPTS;
+  const artifactWorkspacePath = useMemo(
+    () => appConversationArtifactWorkspacePath({
+      activeWorkspacePath: input.activeWorkspacePath,
+      workspacePath: input.workspacePath,
+    }),
+    [input.activeWorkspacePath, input.workspacePath],
+  );
+  const visibleDisplayMessages = useMemo(
+    () => messagesWithPendingSubmittedPrompts({
+      activeThreadId: input.activeThreadId,
+      messages: displayMessages,
+      pendingSubmittedPrompts,
+    }),
+    [input.activeThreadId, displayMessages, pendingSubmittedPrompts],
+  );
+  const artifactPathHints = useMemo(
+    () => collectArtifactPathHints(displayMessages, artifactWorkspacePath),
+    [displayMessages, artifactWorkspacePath],
+  );
+  const latestRecoveryPrompt = useMemo(
+    () => latestUserPromptForRecovery(displayMessages),
+    [displayMessages],
+  );
+  const plannerArtifactByMessageId = useMemo(
+    () => appConversationPlannerArtifactByMessageId(input.plannerPlanArtifacts),
+    [input.plannerPlanArtifacts],
+  );
+  const promptHistory = useMemo(
+    () => userPromptHistory(displayMessages),
+    [displayMessages],
+  );
+  const retryableMessageIds = useMemo(
+    () => retryableFailedPromptIds(displayMessages),
+    [displayMessages],
+  );
+  const streamingAssistantId = useMemo(
+    () => streamingAssistantMessageId(displayMessages, input.running),
+    [displayMessages, input.running],
+  );
+  const transientThinkingActivityLines = useMemo(
+    () => transientThinkingActivityLinesForDisplay({
+      lines: input.activeRunActivityLines,
+      messages: displayMessages,
+      mode: input.thinkingDisplayMode,
+      running: input.running,
+    }),
+    [input.activeRunActivityLines, displayMessages, input.thinkingDisplayMode, input.running],
+  );
+  const visibleChatMessages = useMemo(
+    () => visibleMessages(visibleDisplayMessages, input.running, input.thinkingDisplayMode),
+    [visibleDisplayMessages, input.running, input.thinkingDisplayMode],
+  );
+  const visibleRunActivityLines = useMemo(
+    () => visibleRunActivityLinesForThinkingDisplay(input.activeRunActivityLines, input.thinkingDisplayMode),
+    [input.activeRunActivityLines, input.thinkingDisplayMode],
+  );
   return useMemo(
-    () => appConversationDisplayModel(input),
+    () => ({
+      artifactPathHints,
+      latestRecoveryPrompt,
+      plannerArtifactByMessageId,
+      promptHistory,
+      retryableMessageIds,
+      streamingAssistantId,
+      transientThinkingActivityLines,
+      visibleChatMessages,
+      visibleRunActivityLines,
+    }),
     [
-      input.activeRunActivityLines,
-      input.activeThreadId,
-      input.activeWorkspacePath,
-      input.messages,
-      input.pendingSubmittedPrompts,
-      input.plannerPlanArtifacts,
-      input.running,
-      input.thinkingDisplayMode,
-      input.workspacePath,
+      artifactPathHints,
+      latestRecoveryPrompt,
+      plannerArtifactByMessageId,
+      promptHistory,
+      retryableMessageIds,
+      streamingAssistantId,
+      transientThinkingActivityLines,
+      visibleChatMessages,
+      visibleRunActivityLines,
     ],
   );
 }

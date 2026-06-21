@@ -69,9 +69,7 @@ export interface RegisterThreadCreateIpcDependencies<
 > {
   handleIpc: HandleIpc;
   requireActiveProjectRuntimeHost(): Host;
-  prepareWorktreeForThread(thread: Thread, store: Store): MaybePromise<Thread>;
   setProjectHostActiveThreadId(host: Host, threadId: string): void;
-  emitProjectStateIfActive(host: Host, threadId: string): void;
   readStateForProjectHostAction(host: Host, threadId: string): DesktopState;
 }
 
@@ -374,9 +372,7 @@ export function registerThreadCreateIpc<
 >({
   handleIpc,
   requireActiveProjectRuntimeHost,
-  prepareWorktreeForThread,
   setProjectHostActiveThreadId,
-  emitProjectStateIfActive,
   readStateForProjectHostAction,
 }: RegisterThreadCreateIpcDependencies<Thread, Store, Host>): void {
   handleIpc("thread:create", async (_event, raw?: CreateThreadInput) => {
@@ -392,11 +388,7 @@ export function registerThreadCreateIpc<
         ...(input?.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
       })
       : targetStore.findReusableEmptyThread() ?? targetStore.createThread();
-    if (!thread.gitWorktree && thread.workspacePath === targetStore.getWorkspace().path) {
-      thread = await prepareWorktreeForThread(thread, targetStore);
-    }
     setProjectHostActiveThreadId(host, thread.id);
-    emitProjectStateIfActive(host, thread.id);
     return readStateForProjectHostAction(host, thread.id);
   });
 }

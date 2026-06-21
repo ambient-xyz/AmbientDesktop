@@ -1,15 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 
 import type { CollaborationMode } from "../../shared/threadTypes";
 import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
+import { AgentRuntime } from "./agentRuntime";
 import {
   createPlannerModeExtension,
   PLANNER_MODE_SYSTEM_PROMPT,
 } from "./agentRuntimePlannerModeExtension";
+import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 type ExtensionHandler = (event: any) => unknown | Promise<unknown>;
 
 describe("createPlannerModeExtension", () => {
+  it("makes the native question block contract explicit", () => {
+    expect(PLANNER_MODE_SYSTEM_PROMPT).toContain("Ambient Desktop native planner decision questions");
+    expect(PLANNER_MODE_SYSTEM_PROMPT).toContain("Native Planner questions only render if they are emitted as that fenced block.");
+    expect(PLANNER_MODE_SYSTEM_PROMPT).toContain("Do not write ambient-planner-questions as a heading, label, XML tag, or plain text.");
+    expect(PLANNER_MODE_SYSTEM_PROMPT).toContain("Do not use a generic ```json fence for native questions.");
+    expect(PLANNER_MODE_SYSTEM_PROMPT).toContain("Do not duplicate native planner decision questions in the plan body.");
+    expect(PLANNER_MODE_SYSTEM_PROMPT).toContain("one-at-a-time multiple choice UI with custom answer support");
+    expect(PLANNER_MODE_SYSTEM_PROMPT).toContain("Before sending, verify the response contains exactly one native question block");
+    expect(PLANNER_MODE_SYSTEM_PROMPT).toContain("the opening line is exactly ```ambient-planner-questions");
+    expect(PLANNER_MODE_SYSTEM_PROMPT).not.toContain("Codex-style decision questions");
+  });
+
   it("activates Planner Mode tools from the preserved normal tool set", async () => {
     const state = plannerState("planner", undefined);
     const pi = fakePi({
@@ -36,6 +53,46 @@ describe("createPlannerModeExtension", () => {
       "browser_screenshot",
       "ambient_visual_analyze",
     ]);
+  });
+
+  it("activates MiniCPM-V visual analysis through the AgentRuntime facade without activating setup", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-planner-vision-tool-"));
+    const store = new ProjectStore();
+    try {
+      store.openWorkspace(workspacePath);
+      const thread = store.updateThreadSettings(store.createThread("planner visual evidence").id, { collaborationMode: "planner" });
+      const runtime = new AgentRuntime(store, {} as any, {} as any, () => undefined, {
+        request: vi.fn(),
+        denyThread: () => undefined,
+      });
+      let activeTools = ["read", "browser_screenshot", "ambient_tool_search", "ambient_tool_describe", "ambient_tool_call"];
+      const handlers = new Map<string, Array<(...args: any[]) => unknown>>();
+      (runtime as any).createPlannerModeExtension(thread.id)({
+        on: (event: string, handler: (...args: any[]) => unknown) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        },
+        getActiveTools: () => activeTools,
+        getAllTools: () => [
+          { name: "read" },
+          { name: "browser_screenshot" },
+          { name: "ambient_visual_analyze" },
+          { name: "ambient_visual_minicpm_setup" },
+        ],
+        setActiveTools: (tools: string[]) => {
+          activeTools = tools;
+        },
+      });
+
+      await handlers.get("session_start")?.[0]?.();
+
+      expect(activeTools).toContain("browser_screenshot");
+      expect(activeTools).toContain("ambient_visual_analyze");
+      expect(activeTools).not.toContain("ambient_visual_minicpm_setup");
+      expect(activeTools).not.toContain("ambient_tool_call");
+    } finally {
+      store.close();
+      await rm(workspacePath, { recursive: true, force: true });
+    }
   });
 
   it("applies workflow plan edit intent filters when Planner Mode starts", async () => {

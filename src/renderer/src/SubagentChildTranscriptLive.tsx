@@ -2,6 +2,7 @@ import type { ThinkingDisplayMode } from "../../shared/desktopTypes";
 import type { AnswerPlannerDecisionQuestionInput, PlannerPlanArtifact } from "../../shared/plannerTypes";
 import type { SubagentMailboxEventSummary, SubagentRunEventSummary } from "../../shared/subagentTypes";
 import type { ChatMessage, RunStatus } from "../../shared/threadTypes";
+import { useMemo } from "react";
 import { ExternalLink } from "lucide-react";
 import { isRunStatusRunning } from "../../shared/runStatus";
 import {
@@ -27,12 +28,14 @@ import {
 } from "./subagentChildTranscriptUiModel";
 import { collectArtifactPathHints } from "./toolMessageUiModel";
 
+const EMPTY_SUBAGENT_MAILBOX_EVENTS: SubagentMailboxEventSummary[] = [];
+
 export function SubagentChildTranscriptLive({
   child,
   messages,
   workspacePath,
   runtimeEvents,
-  mailboxEvents = [],
+  mailboxEvents = EMPTY_SUBAGENT_MAILBOX_EVENTS,
   runStatus,
   parentRunning,
   thinkingDisplayMode,
@@ -101,26 +104,53 @@ export function SubagentChildTranscriptLive({
   onOpenThread?: (child: SubagentParentClusterChildModel) => void | Promise<void>;
 }) {
   const childRunning = isRunStatusRunning(runStatus);
-  const childVisibleMessages = visibleMessages(messages, childRunning, thinkingDisplayMode);
-  const childStreamingAssistantId = streamingAssistantMessageId(messages, childRunning);
-  const childToolMessageCount = childVisibleMessages.filter((message) => message.role === "tool").length;
-  const childArtifactPathHints = collectArtifactPathHints(messages, workspacePath);
-  const childRuntimeEventRows = subagentChildTranscriptRuntimeEventRows(runtimeEvents, { limit: CHILD_RUNTIME_TIMELINE_LIMIT });
-  const childMailboxTimelineRows = subagentChildTranscriptMailboxEventRows(mailboxEvents, {
-    limit: Math.max(mailboxEvents.length, CHILD_MAILBOX_TIMELINE_LIMIT),
-  });
-  const childMailboxEventRows = childMailboxTimelineRows.slice(-CHILD_MAILBOX_TIMELINE_LIMIT);
+  const childVisibleMessages = useMemo(
+    () => visibleMessages(messages, childRunning, thinkingDisplayMode),
+    [messages, childRunning, thinkingDisplayMode],
+  );
+  const childStreamingAssistantId = useMemo(
+    () => streamingAssistantMessageId(messages, childRunning),
+    [messages, childRunning],
+  );
+  const childToolMessageCount = useMemo(
+    () => childVisibleMessages.filter((message) => message.role === "tool").length,
+    [childVisibleMessages],
+  );
+  const childArtifactPathHints = useMemo(
+    () => collectArtifactPathHints(messages, workspacePath),
+    [messages, workspacePath],
+  );
+  const childRuntimeEventRows = useMemo(
+    () => subagentChildTranscriptRuntimeEventRows(runtimeEvents, { limit: CHILD_RUNTIME_TIMELINE_LIMIT }),
+    [runtimeEvents],
+  );
+  const childMailboxTimelineRows = useMemo(
+    () => subagentChildTranscriptMailboxEventRows(mailboxEvents, {
+      limit: Math.max(mailboxEvents.length, CHILD_MAILBOX_TIMELINE_LIMIT),
+    }),
+    [mailboxEvents],
+  );
+  const childMailboxEventRows = useMemo(
+    () => childMailboxTimelineRows.slice(-CHILD_MAILBOX_TIMELINE_LIMIT),
+    [childMailboxTimelineRows],
+  );
   const childRuntimeEventsOmitted = Math.max(0, runtimeEvents.length - childRuntimeEventRows.length);
   const childMailboxEventsOmitted = Math.max(0, childMailboxTimelineRows.length - childMailboxEventRows.length);
-  const childStreamingMessageCount = childVisibleMessages.filter((childMessage) =>
-    messageIsStreamingForRender(childMessage, childRunning, childStreamingAssistantId)
-  ).length;
-  const transcriptState = subagentChildTranscriptState({
-    status: child.runStatus,
-    statusLabel: child.status,
-    statusTone: child.statusTone,
-    preview: child.preview,
-  });
+  const childStreamingMessageCount = useMemo(
+    () => childVisibleMessages.filter((childMessage) =>
+      messageIsStreamingForRender(childMessage, childRunning, childStreamingAssistantId)
+    ).length,
+    [childVisibleMessages, childRunning, childStreamingAssistantId],
+  );
+  const transcriptState = useMemo(
+    () => subagentChildTranscriptState({
+      status: child.runStatus,
+      statusLabel: child.status,
+      statusTone: child.statusTone,
+      preview: child.preview,
+    }),
+    [child.runStatus, child.status, child.statusTone, child.preview],
+  );
   const transcriptHasMessages = childVisibleMessages.length > 0;
   const timelineOpenWhileLive = childRunning && !transcriptState.isTerminal;
   const runtimeTimelineOpen = timelineOpenWhileLive || !transcriptHasMessages;

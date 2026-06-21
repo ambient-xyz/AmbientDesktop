@@ -2420,36 +2420,36 @@ function isSttTool(toolName: string): boolean {
 }
 
 const MEDIA_ARTIFACT_EXTENSIONS = "apng|avif|gif|jpe?g|png|svg|webp|aac|flac|m4a|mp3|oga|ogg|opus|wav|weba|m4v|mov|mp4|ogv|webm";
+const MEDIA_ARTIFACT_PATH_PATTERN = `[^\\s"'\\\`<>|]+\\.(?:${MEDIA_ARTIFACT_EXTENSIONS})(?:[?#][^\\s"'\\\`<>|]+)?`;
+const SHELL_MEDIA_ARTIFACT_LINE_PATTERN = new RegExp(
+  `\\b(?:artifact|generated|created|saved|wrote|written|output)\\b[^\\n]*?(?:to|at|:)\\s+(${MEDIA_ARTIFACT_PATH_PATTERN})\\b`,
+  "i",
+);
+const AMBIENT_CLI_EXPLICIT_MEDIA_ARTIFACT_LINE_PATTERN = new RegExp(
+  `\\b(?:artifact|generated|created|saved|wrote|written|output(?:\\s+file)?|(?:image|audio|video|wav|mp3|webm|mp4)\\s+file)\\b[^\\n]*?(?:\\s(?:to|at|as|in)|:|\\t|->)\\s*["']?(${MEDIA_ARTIFACT_PATH_PATTERN})["']?\\b`,
+  "i",
+);
+const AMBIENT_CLI_MEDIA_ARTIFACT_PATH_PATTERN = new RegExp(`(${MEDIA_ARTIFACT_PATH_PATTERN})`, "gi");
 
 function extractShellMediaArtifactPath(result: string): string | undefined {
-  const artifactLine = new RegExp(
-    `\\b(?:artifact|generated|created|saved|wrote|written|output)\\b[^\\n]*?(?:to|at|:)\\s+(${MEDIA_ARTIFACT_PATH_PATTERN})\\b`,
-    "i",
-  );
   for (const line of result.split(/\r?\n/).reverse()) {
-    const match = artifactLine.exec(line);
+    const match = SHELL_MEDIA_ARTIFACT_LINE_PATTERN.exec(line);
     if (match?.[1]) return cleanArtifactPath(match[1]);
   }
   return undefined;
 }
 
-const MEDIA_ARTIFACT_PATH_PATTERN = `[^\\s"'\\\`<>|]+\\.(?:${MEDIA_ARTIFACT_EXTENSIONS})(?:[?#][^\\s"'\\\`<>|]+)?`;
-
 function extractAmbientCliMediaArtifactPath(result: string): string | undefined {
   const jsonPath = extractAmbientCliJsonMediaArtifactPath(result);
   if (jsonPath) return resolveAmbientCliResultPath(jsonPath, result);
 
-  const explicitLine = new RegExp(
-    `\\b(?:artifact|generated|created|saved|wrote|written|output(?:\\s+file)?|(?:image|audio|video|wav|mp3|webm|mp4)\\s+file)\\b[^\\n]*?(?:\\s(?:to|at|as|in)|:|\\t|->)\\s*["']?(${MEDIA_ARTIFACT_PATH_PATTERN})["']?\\b`,
-    "i",
-  );
   for (const line of result.split(/\r?\n/).reverse()) {
-    const match = explicitLine.exec(line);
+    const match = AMBIENT_CLI_EXPLICIT_MEDIA_ARTIFACT_LINE_PATTERN.exec(line);
     if (match?.[1]) return resolveAmbientCliResultPath(match[1], result);
   }
 
-  const mediaPath = new RegExp(`(${MEDIA_ARTIFACT_PATH_PATTERN})`, "gi");
-  const matches = [...result.matchAll(mediaPath)]
+  AMBIENT_CLI_MEDIA_ARTIFACT_PATH_PATTERN.lastIndex = 0;
+  const matches = [...result.matchAll(AMBIENT_CLI_MEDIA_ARTIFACT_PATH_PATTERN)]
     .map((match) => cleanArtifactPath(match[1]))
     .filter((path): path is string => Boolean(path));
   const unique = [...new Set(matches)];

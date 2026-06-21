@@ -120,7 +120,7 @@ describe("registerThreadCreateIpc", () => {
     expect([...handlers.keys()]).toEqual([...threadCreateIpcChannels]);
   });
 
-  it("reuses an empty thread and prepares its worktree for the active workspace", async () => {
+  it("reuses an empty thread without preparing a worktree on the create path", async () => {
     const reusableThread = sampleThread("reusable-thread", "/tmp/workspace");
     const { deps, host, invoke } = registerWithFakes({ reusableThread });
 
@@ -128,9 +128,7 @@ describe("registerThreadCreateIpc", () => {
 
     expect(host.store.findReusableEmptyThread).toHaveBeenCalledOnce();
     expect(host.store.createThread).not.toHaveBeenCalled();
-    expect(deps.prepareWorktreeForThread).toHaveBeenCalledWith(reusableThread, host.store);
     expect(deps.setProjectHostActiveThreadId).toHaveBeenCalledWith(host, "reusable-thread");
-    expect(deps.emitProjectStateIfActive).toHaveBeenCalledWith(host, "reusable-thread");
     expect(deps.readStateForProjectHostAction).toHaveBeenCalledWith(host, "reusable-thread");
   });
 
@@ -141,8 +139,8 @@ describe("registerThreadCreateIpc", () => {
 
     expect(host.store.findReusableEmptyThread).toHaveBeenCalledOnce();
     expect(host.store.createThread).toHaveBeenCalledWith();
-    expect(deps.prepareWorktreeForThread).toHaveBeenCalledWith(sampleThread("created-1", "/tmp/workspace"), host.store);
     expect(deps.setProjectHostActiveThreadId).toHaveBeenCalledWith(host, "created-1");
+    expect(deps.readStateForProjectHostAction).toHaveBeenCalledWith(host, "created-1");
   });
 
   it("creates a thread with explicit initial state without reusing an empty thread", async () => {
@@ -164,7 +162,6 @@ describe("registerThreadCreateIpc", () => {
       model: "ambient-test-model",
       thinkingLevel: "high",
     });
-    expect(deps.prepareWorktreeForThread).not.toHaveBeenCalled();
     expect(deps.setProjectHostActiveThreadId).toHaveBeenCalledWith(host, "created-1");
   });
 
@@ -177,7 +174,6 @@ describe("registerThreadCreateIpc", () => {
 
     await expect(invoke("thread:create")).resolves.toEqual(sampleDesktopState("worktree-thread"));
 
-    expect(deps.prepareWorktreeForThread).not.toHaveBeenCalled();
     expect(deps.setProjectHostActiveThreadId).toHaveBeenCalledWith(host, "worktree-thread");
   });
 
@@ -867,14 +863,9 @@ function registerWithFakes({
       handlers.set(channel, listener);
     }),
     requireActiveProjectRuntimeHost: vi.fn(() => host),
-    prepareWorktreeForThread: vi.fn(async (thread: FakeThread) => ({
-      ...thread,
-      gitWorktree: sampleThreadWorktree(thread.id, thread.workspacePath),
-    })),
     setProjectHostActiveThreadId: vi.fn((targetHost: FakeHost, threadId: string) => {
       targetHost.activeThreadId = threadId;
     }),
-    emitProjectStateIfActive: vi.fn(),
     readStateForProjectHostAction: vi.fn((_targetHost: FakeHost, threadId: string) => sampleDesktopState(threadId)),
   };
   registerThreadCreateIpc(deps);

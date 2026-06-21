@@ -22,11 +22,20 @@ describe("assistantFinalizationRetryAttemptsUsedForReason", () => {
     expect(assistantFinalizationRetryAttemptsUsedForReason(activeRetry, "provider_error_before_tool_execution", 10)).toBe(0);
   });
 
-  it("caps attempts at max retries and honors recovery state ids", () => {
+  it("caps same-reason retry attempts at the configured max", () => {
+    expect(assistantFinalizationRetryAttemptsUsedForReason({
+      sourceUserMessageId: "message-1",
+      attempt: 12,
+      maxRetries: 12,
+      reason: "provider_interruption_continuation",
+    }, "provider_interruption_continuation", 10)).toBe(10);
+  });
+
+  it("keys provider continuation retry accounting by recovery state id", () => {
     const activeRetry: AssistantFinalizationRetryState = {
       sourceUserMessageId: "message-1",
-      attempt: 5,
-      maxRetries: 5,
+      attempt: 2,
+      maxRetries: 10,
       reason: "provider_interruption_continuation",
       recoveryStateId: "state-1",
     };
@@ -34,13 +43,13 @@ describe("assistantFinalizationRetryAttemptsUsedForReason", () => {
     expect(assistantFinalizationRetryAttemptsUsedForReason(
       activeRetry,
       "provider_interruption_continuation",
-      2,
+      10,
       "state-1",
     )).toBe(2);
     expect(assistantFinalizationRetryAttemptsUsedForReason(
       activeRetry,
       "provider_interruption_continuation",
-      2,
+      10,
       "state-2",
     )).toBe(0);
   });

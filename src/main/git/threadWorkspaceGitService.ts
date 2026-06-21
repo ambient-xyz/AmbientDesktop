@@ -50,17 +50,37 @@ export function createThreadWorkspaceGitService<
 >(
   dependencies: ThreadWorkspaceGitServiceDependencies<Host, Store>,
 ) {
+  const pendingThreadWorktreePreparations = new Map<string, Promise<ThreadSummary>>();
+
   async function prepareWorktreeForThread(
     thread = dependencies.activeThread(),
     targetStore: Store = dependencies.activeStore(),
   ): Promise<ThreadSummary> {
-    const worktree = await dependencies.prepareThreadWorktree(targetStore.getWorkspace().path, thread);
-    if (!worktree) return thread;
-    targetStore.setThreadWorktree(worktree);
-    if (worktree.status === "active") {
-      return targetStore.updateThreadWorkspacePath(thread.id, worktree.worktreePath);
+    const current = targetStore.getThread(thread.id);
+    const workspace = targetStore.getWorkspace();
+    if (current.gitWorktree?.status === "active" || current.workspacePath !== workspace.path) return current;
+
+    const preparationKey = `${workspace.statePath}:${thread.id}`;
+    const pending = pendingThreadWorktreePreparations.get(preparationKey);
+    if (pending) return pending;
+
+    const preparation = (async () => {
+      const worktree = await dependencies.prepareThreadWorktree(workspace.path, current);
+      if (!worktree) return current;
+      targetStore.setThreadWorktree(worktree);
+      if (worktree.status === "active") {
+        return targetStore.updateThreadWorkspacePath(thread.id, worktree.worktreePath);
+      }
+      return targetStore.getThread(thread.id);
+    })();
+    pendingThreadWorktreePreparations.set(preparationKey, preparation);
+    try {
+      return await preparation;
+    } finally {
+      if (pendingThreadWorktreePreparations.get(preparationKey) === preparation) {
+        pendingThreadWorktreePreparations.delete(preparationKey);
+      }
     }
-    return targetStore.getThread(thread.id);
   }
 
   async function attachWorktreeForThread(

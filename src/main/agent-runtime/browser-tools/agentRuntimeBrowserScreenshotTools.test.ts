@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import type { BrowserScreenshotResult, BrowserUserActionState } from "../../../shared/browserTypes";
+import { AgentRuntime } from "../agentRuntime";
 import { AMBIENT_TOOL_CALL, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_SEARCH } from "../agentRuntimeAmbientFacade";
 import { BrowserUnavailableError } from "../agentRuntimeBrowserFacade";
+import { ProjectStore } from "../agentRuntimeProjectStoreFacade";
 import {
   browserScreenshotMediaArtifact,
   browserScreenshotVisualAnalysisAvailability,
@@ -13,6 +18,72 @@ import {
 type RegisteredTool = { name: string; executionMode?: string; execute: (...args: any[]) => Promise<any> };
 
 describe("agentRuntimeBrowserScreenshotTools", () => {
+  it("marks AgentRuntime facade screenshots as uninspected pixels and points to active visual analysis", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-browser-screenshot-vision-hint-"));
+    const store = new ProjectStore();
+    try {
+      const workspace = store.openWorkspace(workspacePath);
+      const thread = store.createThread("browser screenshot vision hint");
+      const browserState = {
+        running: true,
+        profileMode: "isolated",
+        runtime: "internal",
+        internalAvailable: true,
+        copiedProfileAvailable: false,
+        chromeAvailable: true,
+        browserLoginBrokerAvailable: false,
+      };
+      const browser = {
+        getState: vi.fn(async () => browserState),
+        screenshot: vi.fn(async () => ({
+          path: join(workspacePath, ".ambient-codex/browser/screenshots/current.png"),
+          artifactPath: ".ambient-codex/browser/screenshots/current.png",
+          title: "Fixture",
+          url: "http://127.0.0.1:4321/",
+          width: 1280,
+          height: 720,
+          bytes: 12345,
+          mimeType: "image/png",
+        })),
+      };
+      const runtime = new AgentRuntime(store, browser as any, {} as any, () => undefined, {
+        request: vi.fn(),
+        denyThread: () => undefined,
+      });
+      const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
+      (runtime as any).createBrowserToolExtension(thread.id, workspace)({
+        registerTool: (tool: any) => registeredTools.push(tool),
+        getActiveTools: () => ["browser_screenshot", "ambient_visual_analyze"],
+        getAllTools: () => [{ name: "browser_screenshot" }, { name: "ambient_visual_analyze" }],
+      });
+
+      const screenshot = registeredTools.find((tool) => tool.name === "browser_screenshot")!;
+      const result = await screenshot.execute("screenshot", {});
+      const text = result.content[0].text;
+
+      expect(text).toContain("Visual evidence status: screenshot pixels have not been inspected by the model.");
+      expect(text).toContain("Do not claim visible UI, text, layout, game state, or design quality from this screenshot result alone.");
+      expect(text).toContain("call ambient_visual_analyze");
+      expect(text).toContain("\"browserScreenshot\":{\"ref\":\"latest\"");
+      expect(result.details.visualEvidence).toEqual({
+        inspected: false,
+        analyzer: "direct",
+        artifactRef: "latest_browser_screenshot",
+        analyzeInput: {
+          browserScreenshot: {
+            ref: "latest",
+            artifactRef: "latest_browser_screenshot",
+            label: "browser screenshot",
+          },
+          task: "ui_review",
+        },
+      });
+    } finally {
+      store.close();
+      await rm(workspacePath, { recursive: true, force: true });
+    }
+  });
+
   it("registers browser_screenshot and returns visual evidence metadata", async () => {
     const registeredTools: RegisteredTool[] = [];
     const updates: any[] = [];

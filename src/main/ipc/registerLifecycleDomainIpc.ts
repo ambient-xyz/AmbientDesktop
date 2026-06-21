@@ -45,9 +45,8 @@ export interface RegisterLifecycleDomainIpcDependencies {
   createWorkspaceDirectory: RegisterWorkspaceLifecycleIpcDependencies["createDirectory"];
   switchWorkspace: RegisterWorkspaceLifecycleIpcDependencies["switchWorkspace"];
   requireActiveProjectRuntimeHost: ThreadCreateRegistrationDependencies["requireActiveProjectRuntimeHost"];
-  prepareWorktreeForThread: ThreadCreateRegistrationDependencies["prepareWorktreeForThread"];
   setProjectHostActiveThreadId: ThreadCreateRegistrationDependencies["setProjectHostActiveThreadId"];
-  emitProjectStateIfActive: ThreadCreateRegistrationDependencies["emitProjectStateIfActive"];
+  emitProjectStateIfActive: ThreadGoalRegistrationDependencies["emitProjectStateIfActive"];
   readStateForProjectHostAction: ThreadCreateRegistrationDependencies["readStateForProjectHostAction"];
   requireProjectRuntimeHostForThread: ThreadGoalRegistrationDependencies["requireProjectRuntimeHostForThread"];
   emitProjectScopedEvent: ThreadGoalRegistrationDependencies["emitProjectScopedEvent"];
@@ -60,7 +59,6 @@ export function registerLifecycleDomainIpc({
   createWorkspaceDirectory,
   switchWorkspace,
   requireActiveProjectRuntimeHost,
-  prepareWorktreeForThread,
   setProjectHostActiveThreadId,
   emitProjectStateIfActive,
   readStateForProjectHostAction,
@@ -86,9 +84,7 @@ export function registerLifecycleDomainIpc({
   registerThreadCreateIpc<any, any, any>({
     handleIpc,
     requireActiveProjectRuntimeHost,
-    prepareWorktreeForThread,
     setProjectHostActiveThreadId,
-    emitProjectStateIfActive,
     readStateForProjectHostAction,
   });
 

@@ -86,6 +86,44 @@ describe("postToolContinuationScheduler", () => {
       currentRunId: "run-1",
       currentEventSeq: 41,
     })).toBe(true);
+
+    expect(shouldDeliverPostToolContinuation({
+      snapshot: {
+        runId: "run-1",
+        toolCallId: "tool-bash-1",
+        messageId: "message-bash-1",
+        eventSeqAtEnd: 41,
+        label: "bash",
+        status: "done",
+      },
+      latestTranscriptTool: {
+        toolCallId: "tool-browser-1",
+        messageId: "message-browser-1",
+        label: "browser_search",
+        status: "done",
+      },
+      currentRunId: "run-1",
+      currentEventSeq: 41,
+    })).toBe(false);
+
+    expect(shouldDeliverPostToolContinuation({
+      snapshot: {
+        runId: "run-1",
+        toolCallId: "tool-bash-1",
+        messageId: "message-bash-1",
+        eventSeqAtEnd: 41,
+        label: "bash",
+        status: "done",
+      },
+      latestTranscriptTool: {
+        toolCallId: "tool-bash-1",
+        messageId: "message-bash-1",
+        label: "bash",
+        status: "done",
+      },
+      currentRunId: "run-1",
+      currentEventSeq: 42,
+    })).toBe(false);
   });
 
   it("plans a continuation request from the latest matching tool transcript", () => {
@@ -253,22 +291,64 @@ describe("postToolContinuationScheduler", () => {
     });
   });
 
-  it("extracts privileged and browser continuation lines", () => {
-    expect(privilegedContinuationLinesFromToolContent([
-      "privileged_action completed",
-      "Continuation:",
-      "- state: waiting-for-credential",
-      "- next: retry",
+  it("extracts privileged continuation blocks for idle post-tool recovery", () => {
+    const continuationLines = privilegedContinuationLinesFromToolContent([
+      "Ambient privileged action handoff",
+      "Status: succeeded",
       "",
-      "Other text",
-    ].join("\n"))).toEqual(["- state: waiting-for-credential", "- next: retry"]);
+      "Continuation:",
+      "- state: ready-to-resume-validation",
+      "- packageName: ambient-kokoro-tts",
+      "- resumeAction: ambient_capability_builder_validate {\"packageName\":\"ambient-kokoro-tts\",\"includeSmokeTests\":true}",
+      "- resumeRequiresApproval: true",
+      "",
+      "Reviewed command templates:",
+    ].join("\n"));
 
-    expect(browserUserActionContinuationLinesFromToolContent([
+    expect(continuationLines).toEqual([
+      "- state: ready-to-resume-validation",
+      "- packageName: ambient-kokoro-tts",
+      "- resumeAction: ambient_capability_builder_validate {\"packageName\":\"ambient-kokoro-tts\",\"includeSmokeTests\":true}",
+      "- resumeRequiresApproval: true",
+    ]);
+    expect(postToolIdleContinuationPrompt({
+      runId: "run-1",
+      toolCallId: "tool-privileged-1",
+      messageId: "message-tool-1",
+      eventSeqAtEnd: 7,
+      label: "ambient_privileged_action_request",
+      status: "done",
+      continuationLines,
+    })).toContain("resumeAction: ambient_capability_builder_validate");
+  });
+
+  it("extracts browser user-action blocks for idle post-tool recovery", () => {
+    const continuationLines = browserUserActionContinuationLinesFromToolContent([
       "Browser needs user action.",
       "Action: captcha",
-      "Provider: cloudflare",
-      "Title: Bot check",
-      "URL: https://example.test",
-    ].join("\n"))).toContain("- browserState: waiting-for-browser-user-action");
+      "Provider: recaptcha",
+      "Title: Reddit - verify",
+      "URL: https://www.reddit.com/r/books/",
+      "Complete the CAPTCHA in the browser.",
+      "Do not retry the same browser action until the user has completed the browser challenge or gives a new instruction.",
+    ].join("\n"));
+
+    expect(continuationLines).toEqual([
+      "- browserState: waiting-for-browser-user-action",
+      "- Action: captcha",
+      "- Provider: recaptcha",
+      "- Title: Reddit - verify",
+      "- URL: https://www.reddit.com/r/books/",
+      "- next: tell the user the browser challenge is blocking progress; after they complete it, retry the same browser operation against the preserved browser session instead of navigating away or switching providers.",
+    ]);
+    expect(postToolIdleContinuationPrompt({
+      runId: "run-1",
+      toolCallId: "tool-browser-1",
+      messageId: "message-tool-1",
+      eventSeqAtEnd: 7,
+      label: "browser_content",
+      status: "done",
+      continuationLines,
+    })).toContain("waiting-for-browser-user-action");
   });
 });
