@@ -660,6 +660,49 @@ describe("classifyToolPermission", () => {
     }
   });
 
+  it("prompts for dangerous async bash commands in workspace mode", async () => {
+    const decision = await classifyToolPermission({
+      ...base,
+      permissionMode: "workspace",
+      toolName: "bash_start",
+      toolInput: { cmd: "rm -rf build" },
+    });
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request.risk).toBe("destructive-command");
+      expect(decision.request.detail).toBe("rm -rf build");
+    }
+  });
+
+  it("prompts for dangerous async bash stdin writes in workspace mode", async () => {
+    const decision = await classifyToolPermission({
+      ...base,
+      permissionMode: "workspace",
+      toolName: "bash_write",
+      toolInput: { job_id: "job-1", chars: "rm -rf build\n" },
+    });
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request.risk).toBe("destructive-command");
+      expect(decision.request.detail).toBe("rm -rf build\n");
+    }
+  });
+
+  it("prompts for async bash stdin fragments in workspace mode", async () => {
+    const decision = await classifyToolPermission({
+      ...base,
+      permissionMode: "workspace",
+      toolName: "bash_write",
+      toolInput: { job_id: "job-1", chars: "rm -" },
+    });
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request.risk).toBe("workspace-command");
+      expect(decision.request.message).toContain("writes can be split across tool calls");
+      expect(decision.request.detail).toBe("rm -");
+    }
+  });
+
   it("prompts before applying workflow revisions in workspace mode", async () => {
     const decision = await classifyToolPermission({
       ...base,
@@ -1205,6 +1248,32 @@ describe("classifyToolPermission", () => {
       permissionMode: "workspace",
       toolName: "bash",
       toolInput: { command: "curl https://example.com" },
+    });
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request.risk).toBe("network-command");
+    }
+  });
+
+  it("prompts for network async bash commands in workspace mode", async () => {
+    const decision = await classifyToolPermission({
+      ...base,
+      permissionMode: "workspace",
+      toolName: "bash_start",
+      toolInput: { cmd: "curl https://example.com" },
+    });
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request.risk).toBe("network-command");
+    }
+  });
+
+  it("prompts for network async bash stdin writes in workspace mode", async () => {
+    const decision = await classifyToolPermission({
+      ...base,
+      permissionMode: "workspace",
+      toolName: "bash_write",
+      toolInput: { job_id: "job-1", chars: "curl https://example.com\n" },
     });
     expect(decision.action).toBe("prompt");
     if (decision.action === "prompt") {

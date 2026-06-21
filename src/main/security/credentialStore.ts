@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { registerSecretRedaction } from "./secretRedaction";
+import { electronSecureSecretStore } from "./secureSecretStore";
 
 const AMBIENT_API_KEY_ENV = "AMBIENT_API_KEY";
 const AMBIENT_AGENT_API_KEY_ENV = "AMBIENT_AGENT_AMBIENT_API_KEY";
@@ -51,14 +52,12 @@ export function saveAmbientApiKey(apiKey: string): void {
   if (!trimmed) {
     throw new Error(`Paste a ${getActiveAmbientProviderLabel()} API key first.`);
   }
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error("Secure credential storage is not available on this system.");
-  }
-
   const filePath = getCredentialFilePath(getActiveAmbientProviderId());
   if (!filePath) throw new Error("Secure credential storage path is unavailable.");
+  const secureStore = electronSecureSecretStore({ appAvailable: true, safeStorage });
+  secureStore.assertReady();
   mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
-  writeFileSync(filePath, safeStorage.encryptString(trimmed), { mode: 0o600 });
+  writeFileSync(filePath, secureStore.encryptString(trimmed), { mode: 0o600 });
   registerSecretRedaction(trimmed);
 }
 
@@ -146,7 +145,7 @@ function readSavedAmbientApiKey(providerId: AmbientCompatibleProviderId): string
   if (!filePath) return undefined;
   if (!existsSync(filePath)) return undefined;
   try {
-    return safeStorage.decryptString(readFileSync(filePath));
+    return electronSecureSecretStore({ appAvailable: true, safeStorage }).decryptString(readFileSync(filePath));
   } catch (error) {
     console.warn("Failed to decrypt saved Ambient API key", error);
     return undefined;
@@ -181,9 +180,9 @@ function currentGmiCloudApiKey(): string | undefined {
     readApiKeyFileCandidates([
       join(process.cwd(), gmiCloudDefaultApiKeyFile),
       join(dirname(process.cwd()), gmiCloudDefaultApiKeyFile),
-      join(dirname(process.cwd()), "AmbientDesktop", gmiCloudDefaultApiKeyFile),
-      join(homedir(), "AmbientDesktop", gmiCloudDefaultApiKeyFile),
-      join(homedir(), "Documents", "AmbientDesktop", gmiCloudDefaultApiKeyFile),
+      join(dirname(process.cwd()), "ambientCoder", gmiCloudDefaultApiKeyFile),
+      join(homedir(), "ambientCoder", gmiCloudDefaultApiKeyFile),
+      join(homedir(), "Documents", "ambientCoder", gmiCloudDefaultApiKeyFile),
     ]) ||
     startupGmiCloudApiKey
   );

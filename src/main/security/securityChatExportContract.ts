@@ -4,3 +4,6 @@ export {
   redactSensitiveText,
   redactSensitiveTextWithMetadata,
 } from "./secretRedaction";
+export {
+  redactSensitivePathsInText,
+} from "./pathRedaction";

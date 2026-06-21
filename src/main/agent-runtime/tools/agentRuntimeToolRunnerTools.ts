@@ -10,6 +10,12 @@ import {
 } from "../agentRuntimeMediaArtifacts";
 import { registerToolRunnerBashTool } from "./agentRuntimeToolRunnerBashTool";
 import { registerToolRunnerFileTools } from "./agentRuntimeToolRunnerFileTools";
+import {
+  registerAgentRuntimeAsyncBashTools,
+  type AgentRuntimeThreadWakeToolInput,
+  type AgentRuntimeThreadWakeToolResult,
+} from "./agentRuntimeAsyncBashTools";
+import type { AgentRuntimeAsyncBashJobService } from "./agentRuntimeAsyncBashJobs";
 import type { AmbientFileAuthorityRequester } from "../agentRuntimePiFacade";
 import type { ToolRunnerPolicy } from "../agentRuntimeToolRuntimeFacade";
 
@@ -34,6 +40,10 @@ export interface AgentRuntimeToolRunnerExtensionOptions<MediaSnapshot = ReturnTy
     after: MediaSnapshot,
   ) => string | undefined;
   appendMediaArtifactResult?: <T>(result: T, artifactPath: string, workspacePath: string) => T;
+  threadId?: string;
+  getRunId?: () => string | undefined;
+  asyncBashJobs?: AgentRuntimeAsyncBashJobService;
+  scheduleThreadWake?: (input: AgentRuntimeThreadWakeToolInput) => Promise<AgentRuntimeThreadWakeToolResult>;
 }
 
 export function createAgentRuntimeToolRunnerExtension<MediaSnapshot = ReturnType<typeof defaultSnapshotWorkspaceMediaFiles>>(
@@ -75,6 +85,25 @@ export function createAgentRuntimeToolRunnerExtension<MediaSnapshot = ReturnType
       newestChangedMediaArtifact,
       appendMediaArtifactResult,
     });
+    if (options.threadId && options.asyncBashJobs) {
+      registerAgentRuntimeAsyncBashTools(pi, {
+        threadId: options.threadId,
+        workspacePath: options.workspace.path,
+        getRunId: options.getRunId,
+        asyncBashJobs: options.asyncBashJobs,
+        scheduleThreadWake: options.scheduleThreadWake,
+        interruptedToolCallRecoveryToolsAvailable: options.interruptedToolCallRecoveryToolsAvailable,
+        getPolicy: () => {
+          const thread = options.getThread();
+          return agentRuntimeToolRunnerPolicy({
+            thread,
+            workspacePath: options.workspace.path,
+            authorityRootPaths: options.writeAuthorityRootPaths(),
+            includeWorkspaceRootAuthority: options.includeWorkspaceRootAuthority?.() ?? true,
+          });
+        },
+      });
+    }
   };
 }
 

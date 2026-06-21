@@ -143,6 +143,7 @@ type RightPanelSettingsPaneBaseProps = Pick<
   | "onThemePreferenceChange"
   | "onMediaPlaybackSettingsChange"
   | "onThinkingDisplaySettingsChange"
+  | "onThinkingLevelChange"
   | "onModelRuntimeSettingsChange"
   | "onFeatureFlagSettingsChange"
   | "onMemorySettingsChange"
@@ -235,6 +236,7 @@ export function RightPanelSettingsPane({
   onThemePreferenceChange,
   onMediaPlaybackSettingsChange,
   onThinkingDisplaySettingsChange,
+  onThinkingLevelChange,
   onModelRuntimeSettingsChange,
   onFeatureFlagSettingsChange,
   onMemorySettingsChange,
@@ -776,6 +778,7 @@ export function RightPanelSettingsPane({
             cancelAgentMemoryClearFromSettings={settingsPane.cancelAgentMemoryClearFromSettings}
             confirmAgentMemoryClearFromSettings={settingsPane.confirmAgentMemoryClearFromSettings}
             onThinkingDisplaySettingsChange={onThinkingDisplaySettingsChange}
+            onThinkingLevelChange={onThinkingLevelChange}
             onFeatureFlagSettingsChange={onFeatureFlagSettingsChange}
             onMemorySettingsChange={onMemorySettingsChange}
             onActiveThreadMemoryEnabledChange={onActiveThreadMemoryEnabledChange}

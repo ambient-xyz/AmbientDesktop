@@ -97,7 +97,7 @@ describe("registerMessagingRemoteSurfaceCommandApplyTools", () => {
       },
       threadId: "thread-1",
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -2044,7 +2044,7 @@ function bindingList(binding: MessagingBindingDescriptor = activeBinding()): Mes
 function runtimeSurface(): RuntimeSurfaceSnapshot {
   return {
     workspace: {
-      name: "AmbientDesktop",
+      name: "ambientCoder",
       path: "/workspace",
     },
     projects: [{

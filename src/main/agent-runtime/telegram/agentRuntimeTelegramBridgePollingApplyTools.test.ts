@@ -74,7 +74,7 @@ describe("registerTelegramBridgePollingApplyTools", () => {
     const permissionRequests: TelegramBridgePollingApplyToolPermissionRequest[] = [];
     let allowPermission = false;
     const workspace = {
-      name: "AmbientDesktop",
+      name: "ambientCoder",
       path: "/workspace",
       statePath: stateRoot,
       sessionPath: join(stateRoot, "sessions"),

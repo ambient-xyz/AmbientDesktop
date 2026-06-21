@@ -4,12 +4,14 @@ import {
 } from "../desktop-tools/desktopToolAgentRuntimeContract";
 import type { DescriptorToolRegistration as DesktopDescriptorToolRegistration } from "../desktop-tools/desktopToolAgentRuntimeContract";
 import {
+  asyncBashToolDescriptor as desktopAsyncBashToolDescriptor,
   browserToolDescriptor as desktopBrowserToolDescriptor,
   firstPartyDesktopToolDescriptors as desktopFirstPartyDesktopToolDescriptors,
   gitToolDescriptor as desktopGitToolDescriptor,
   managedDownloadToolDescriptor as desktopManagedDownloadToolDescriptor,
   mediaToolDescriptor as desktopMediaToolDescriptor,
   messagingGatewayToolDescriptor as desktopMessagingGatewayToolDescriptor,
+  modelStatusToolDescriptor as desktopModelStatusToolDescriptor,
   piToolFieldsFromDescriptor as desktopPiToolFieldsFromDescriptor,
   pluginInstallToolDescriptor as desktopPluginInstallToolDescriptor,
   privilegedActionToolDescriptor as desktopPrivilegedActionToolDescriptor,
@@ -27,12 +29,14 @@ import type {
 
 export const descriptorToolDefinition = desktopDescriptorToolDefinition;
 export const registerDesktopTool = registerDesktopToolWithDescriptor;
+export const asyncBashToolDescriptor = desktopAsyncBashToolDescriptor;
 export const browserToolDescriptor = desktopBrowserToolDescriptor;
 export const firstPartyDesktopToolDescriptors = desktopFirstPartyDesktopToolDescriptors;
 export const gitToolDescriptor = desktopGitToolDescriptor;
 export const managedDownloadToolDescriptor = desktopManagedDownloadToolDescriptor;
 export const mediaToolDescriptor = desktopMediaToolDescriptor;
 export const messagingGatewayToolDescriptor = desktopMessagingGatewayToolDescriptor;
+export const modelStatusToolDescriptor = desktopModelStatusToolDescriptor;
 export const piToolFieldsFromDescriptor = desktopPiToolFieldsFromDescriptor;
 export const pluginInstallToolDescriptor = desktopPluginInstallToolDescriptor;
 export const privilegedActionToolDescriptor = desktopPrivilegedActionToolDescriptor;

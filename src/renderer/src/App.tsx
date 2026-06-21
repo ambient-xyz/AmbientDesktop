@@ -3640,6 +3640,7 @@ export function App() {
               onThemePreferenceChange={(themePreference) => updateThemePreference(themePreference)}
               onMediaPlaybackSettingsChange={(media) => void updateMediaPlaybackSettings(media)}
               onThinkingDisplaySettingsChange={(thinkingDisplay) => void updateThinkingDisplaySettings(thinkingDisplay)}
+              onThinkingLevelChange={(thinkingLevel) => void updateThreadSettings({ thinkingLevel })}
               onModelRuntimeSettingsChange={(modelRuntime) => void updateModelRuntimeSettings(modelRuntime)}
               onSaveModelProviderCredential={(input) => saveModelProviderCredential(input)}
               onInstallModelProviderEndpoint={(input) => installModelProviderEndpoint(input)}

@@ -8,9 +8,9 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const candidates = [
   join(repoRoot, "gmicloud-api-key.txt"),
   join(dirname(repoRoot), "gmicloud-api-key.txt"),
-  join(dirname(repoRoot), "AmbientDesktop", "gmicloud-api-key.txt"),
-  join(homedir(), "AmbientDesktop", "gmicloud-api-key.txt"),
-  join(homedir(), "Documents", "AmbientDesktop", "gmicloud-api-key.txt"),
+  join(dirname(repoRoot), "ambientCoder", "gmicloud-api-key.txt"),
+  join(homedir(), "ambientCoder", "gmicloud-api-key.txt"),
+  join(homedir(), "Documents", "ambientCoder", "gmicloud-api-key.txt"),
 ];
 
 const match = candidates.find((candidate) => existsSync(candidate));

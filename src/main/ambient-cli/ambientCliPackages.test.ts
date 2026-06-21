@@ -106,6 +106,9 @@ describe("Ambient CLI packages", () => {
         args: ["payload.json", "message"],
       });
       expect(result.stdout?.trim()).toBe("hello from cli");
+      expect(result.timeoutProfile).toBe("quickProbe");
+      expect(result.timeoutMs).toBe(120_000);
+      expect(result.idleTimeoutMs).toBe(120_000);
 
       const executionWorkspace = await mkdtemp(join(tmpdir(), "ambient-cli-execution-workspace-"));
       await writeFile(join(executionWorkspace, "payload.json"), `${JSON.stringify({ message: "hello from execution workspace" })}\n`, "utf8");
@@ -290,6 +293,67 @@ describe("Ambient CLI packages", () => {
     } finally {
       if (originalPath === undefined) delete process.env.PATH;
       else process.env.PATH = originalPath;
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("surfaces timeout profiles and applies descriptor device policy during health checks", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-device-profile-"));
+    const previousDevices = process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES;
+    const previousRecommended = process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE;
+    process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES = "mps,cpu";
+    process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE = "mps";
+    try {
+      await seedCliFixture(workspace);
+      const descriptorPath = join(workspace, "cli-fixture", "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.commands["json-pick"].healthCheck = ["node", "./bin/device-probe.mjs", "--device", "cpu"];
+      descriptor.commands["json-pick"].timeoutProfile = "modelColdStart";
+      descriptor.commands["json-pick"].progressPatterns = ["Loading checkpoint"];
+      descriptor.commands["json-pick"].devicePolicy = {
+        prefer: ["mps", "cpu"],
+        requireReasonWhenCpuForced: true,
+      };
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+      await writeFile(
+        join(workspace, "cli-fixture", "bin", "device-probe.mjs"),
+        [
+          "const args = process.argv.slice(2);",
+          "const index = args.indexOf('--device');",
+          "process.stdout.write('Loading checkpoint\\n');",
+          "process.stdout.write(JSON.stringify({ selectedDevice: index >= 0 ? args[index + 1] : null }));",
+        ].join("\n"),
+        "utf8",
+      );
+
+      await installAmbientCliPackageSource(workspace, { source: "./cli-fixture" });
+      const description = await describeAmbientCliPackage(workspace, { packageName: "ambient-json-cli", command: "json-pick" });
+      const catalog = await discoverAmbientCliPackages(workspace, { includeHealth: true });
+      const health = catalog.packages[0]?.healthChecks?.[0];
+
+      expect(description.commands[0]).toMatchObject({
+        timeoutProfile: "modelColdStart",
+        progressPatterns: ["Loading checkpoint"],
+        devicePolicy: expect.objectContaining({ prefer: ["mps", "cpu"], requireReasonWhenCpuForced: true }),
+      });
+      expect(health).toMatchObject({
+        passed: true,
+        timeoutProfile: "modelColdStart",
+        deviceSelection: expect.objectContaining({
+          requestedDevice: "cpu",
+          selectedDevice: "mps",
+          cpuOverridePrevented: true,
+        }),
+      });
+      expect(health?.timeoutMs).toBeGreaterThan(120_000);
+      expect(health?.command).toContain("mps");
+      expect(health?.command).not.toContain("cpu");
+      expect(health?.stdout).toContain('"selectedDevice":"mps"');
+    } finally {
+      if (previousDevices === undefined) delete process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES;
+      else process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES = previousDevices;
+      if (previousRecommended === undefined) delete process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE;
+      else process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE = previousRecommended;
       await rm(workspace, { recursive: true, force: true });
     }
   });
@@ -2647,7 +2711,7 @@ async function readTestSecret(envName: string, fileName: string): Promise<string
   for (const candidate of [
     join(process.cwd(), fileName),
     join(dirname(process.cwd()), fileName),
-    join(dirname(process.cwd()), "AmbientDesktop", fileName),
+    join(dirname(process.cwd()), "ambientCoder", fileName),
   ]) {
     if (!existsSync(candidate)) continue;
     const value = (await readFile(candidate, "utf8")).trim();

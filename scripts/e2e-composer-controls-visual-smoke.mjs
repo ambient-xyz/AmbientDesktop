@@ -117,7 +117,7 @@ async function inspectComposerControls(cdp, scenario) {
       const mode = rect(".composer-settings-controls .collaboration-toggle");
       const permission = rect('.composer-settings-controls [aria-label="Permission scope"]');
       const thinking = rect(".composer-settings-controls .thinking-display-control");
-      const effort = rect('.composer-settings-controls select[aria-label="Thinking effort"]');
+      const reasoning = rect('.composer-settings-controls [aria-label^="Reasoning mode"]');
       const model = rect(".composer-settings-controls .model-picker-button");
       const labels = [...document.querySelectorAll(".composer-settings-controls button, .composer-settings-controls [aria-label]")]
         .map((element) => element.getAttribute("aria-label") || element.textContent?.replace(/\\s+/g, " ").trim())
@@ -133,7 +133,7 @@ async function inspectComposerControls(cdp, scenario) {
         mode,
         permission,
         thinking,
-        effort,
+        reasoning,
         model,
         visible: {
           controls: visible(".composer-controls"),
@@ -144,7 +144,7 @@ async function inspectComposerControls(cdp, scenario) {
           mode: visible(".composer-settings-controls .collaboration-toggle"),
           permission: visible('.composer-settings-controls [aria-label="Permission scope"]'),
           thinking: visible(".composer-settings-controls .thinking-display-control"),
-          effort: visible('.composer-settings-controls select[aria-label="Thinking effort"]'),
+          reasoning: visible('.composer-settings-controls [aria-label^="Reasoning mode"]'),
           model: visible(".composer-settings-controls .model-picker-button"),
         },
         labels,
@@ -164,7 +164,7 @@ async function inspectComposerControls(cdp, scenario) {
 
 function composerControlFailures(report) {
   const failures = [];
-  for (const key of ["controls", "tools", "settings", "right", "goal", "mode", "permission", "thinking", "effort", "model"]) {
+  for (const key of ["controls", "tools", "settings", "right", "goal", "mode", "permission", "thinking", "reasoning", "model"]) {
     if (!report.visible?.[key]) failures.push(`${key} is not visible`);
   }
   if (report.documentWidth > report.viewport.width + 1) {
@@ -178,7 +178,7 @@ function composerControlFailures(report) {
       failures.push(`${key} extends outside composer controls`);
     }
   }
-  for (const key of ["goal", "mode", "permission", "thinking", "effort", "model"]) {
+  for (const key of ["goal", "mode", "permission", "thinking", "reasoning", "model"]) {
     const item = report[key];
     const settings = report.settings;
     if (!settings || !item) continue;
@@ -186,7 +186,7 @@ function composerControlFailures(report) {
       failures.push(`${key} extends outside settings controls`);
     }
   }
-  for (const expected of ["Pursue goal", "Collaboration mode", "Permission scope", "Thinking display", "Thinking effort", "Model:"]) {
+  for (const expected of ["Pursue goal", "Collaboration mode", "Permission scope", "Thinking display", "Reasoning mode", "Model:"]) {
     if (!report.labels?.some((label) => String(label).includes(expected))) failures.push(`missing label ${expected}`);
   }
   return failures;

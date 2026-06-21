@@ -19,7 +19,7 @@ describe("registerMessagingRemoteSurfaceEventTools", () => {
     });
     const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
     const workspace = {
-      name: "AmbientDesktop",
+      name: "ambientCoder",
       path: "/workspace",
       statePath: stateRoot,
       sessionPath: join(stateRoot, "sessions"),
@@ -47,7 +47,7 @@ describe("registerMessagingRemoteSurfaceEventTools", () => {
           threads: [],
           workflowFolders: [],
           projects: [{
-            name: "AmbientDesktop",
+            name: "ambientCoder",
             path: "/workspace",
             updatedAt: "2026-05-15T00:00:00.000Z",
             pinned: true,

@@ -190,7 +190,7 @@ function registerWithFakes() {
     firstPartyWorkflowConnectorDescriptors: vi.fn(() => []),
     firstPartyWorkflowConnectorRegistrations: vi.fn(() => []),
     forgetActiveWorkflowRunsForController: vi.fn(),
-    getAmbientProviderStatus: vi.fn(() => ({ model: "moonshotai/kimi-k2.7-code", baseUrl: "https://ambient.example" })),
+    getAmbientProviderStatus: vi.fn(() => ({ model: "<model>", baseUrl: "https://ambient.example" })),
     getFeatureFlagSnapshot: vi.fn(() =>
       resolveAmbientFeatureFlags({
         settings: { subagents: true },

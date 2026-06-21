@@ -10,7 +10,7 @@ const repoRoot = resolve(scriptDir, "..");
 
 const DEFAULT_OUTPUT_DIR = join(repoRoot, "test-results", "workflow-model-tolerance-lab");
 const DEFAULT_GMI_CLOUD_BASE_URL = "https://api.gmi-serving.com";
-const DEFAULT_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_MODEL = "<model>";
 const DEFAULT_SEEDS = 10;
 const DEFAULT_TIMEOUT_MS = 45_000;
 const DEFAULT_MAX_TOKENS = 1800;
@@ -835,8 +835,8 @@ function readProviderCredential(providerId, env, cwd) {
       [
         join(cwd, "ambient_api_key.txt"),
         join(dirname(cwd), "ambient_api_key.txt"),
-        join(dirname(cwd), "AmbientDesktop", "ambient_api_key.txt"),
-        join(homedir(), "Documents", "AmbientDesktop", "ambient_api_key.txt"),
+        join(dirname(cwd), "ambientCoder", "ambient_api_key.txt"),
+        join(homedir(), "Documents", "ambientCoder", "ambient_api_key.txt"),
       ],
       "ambient_api_key.txt",
     );
@@ -848,8 +848,8 @@ function readProviderCredential(providerId, env, cwd) {
     [
       join(cwd, "gmicloud-api-key.txt"),
       join(dirname(cwd), "gmicloud-api-key.txt"),
-      join(dirname(cwd), "AmbientDesktop", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "AmbientDesktop", "gmicloud-api-key.txt"),
+      join(dirname(cwd), "ambientCoder", "gmicloud-api-key.txt"),
+      join(homedir(), "Documents", "ambientCoder", "gmicloud-api-key.txt"),
       join(homedir(), "Documents", "New project 3", "gmicloud-api-key.txt"),
     ],
     "gmicloud-api-key.txt",

@@ -548,7 +548,7 @@ async function ensureAmbientApiKey(): Promise<string> {
   const candidates = [
     process.env.AMBIENT_API_KEY_FILE,
     join(process.cwd(), "ambient_api_key.txt"),
-    join(dirname(process.cwd()), "AmbientDesktop", "ambient_api_key.txt"),
+    join(dirname(process.cwd()), "ambientCoder", "ambient_api_key.txt"),
     join(dirname(process.cwd()), "ambient_api_key.txt"),
     join(dirname(dirname(process.cwd())), "ambient_api_key.txt"),
     join(homedir(), "ambient_api_key.txt"),

@@ -33,28 +33,28 @@ pnpm run test:project-board-release-gate:phase8-strict-24h
 Rerun the provider matrix when a change touches source classification, source scanning, board charter prompts, planning profiles, synthesis schemas, progressive records, Add Cards, timeout semantics, or provider reasoning/streaming behavior:
 
 ```bash
-AMBIENT_API_KEY_FILE=/path/to/user/Documents/AmbientDesktop/ambient_api_key.txt \
+AMBIENT_API_KEY_FILE=<local-user>/Documents/ambientCoder/ambient_api_key.txt \
   pnpm run test:project-board-release-matrix:live
 ```
 
 Rerun the worker matrix when a change touches Local Task ticketization, worker prompts, task-action parsing, card-session reuse, proof review, runtime-budget close policy, follow-up candidates, handoffs, claims, leases, or execution-state projection:
 
 ```bash
-AMBIENT_API_KEY_FILE=/path/to/user/Documents/AmbientDesktop/ambient_api_key.txt \
+AMBIENT_API_KEY_FILE=<local-user>/Documents/ambientCoder/ambient_api_key.txt \
   pnpm run test:project-board-release-matrix:worker-live
 ```
 
 For release sweeps, or when both planning and execution behavior changed, rerun both live matrices and regenerate the combined report:
 
 ```bash
-AMBIENT_API_KEY_FILE=/path/to/user/Documents/AmbientDesktop/ambient_api_key.txt \
+AMBIENT_API_KEY_FILE=<local-user>/Documents/ambientCoder/ambient_api_key.txt \
   pnpm run test:project-board-release-gate:phase8-live
 ```
 
 To require the freshly generated live artifacts to match the current git head:
 
 ```bash
-AMBIENT_API_KEY_FILE=/path/to/user/Documents/AmbientDesktop/ambient_api_key.txt \
+AMBIENT_API_KEY_FILE=<local-user>/Documents/ambientCoder/ambient_api_key.txt \
   pnpm run test:project-board-release-gate:phase8-live-strict
 ```
 

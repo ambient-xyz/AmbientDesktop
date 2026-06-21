@@ -37,6 +37,7 @@ export const PLANNER_MODE_ALLOWED_TOOLS = [
   "ambient_stt_status",
   "ambient_visual_analyze",
   "ambient_provider_catalog",
+  "ambient_model_status",
   "ambient_local_deep_research_setup",
   "web_research_status",
   "web_research_provider_search",

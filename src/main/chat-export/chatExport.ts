@@ -8,7 +8,12 @@ import type { ChatExportSource, ChatMessage, ContextUsageSnapshot, ThreadSummary
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { getRestorablePiSessionFile, isPathInside } from "./chatExportSessionFacade";
-import { isSecretKey, REDACTED_SECRET, redactSensitiveText, redactSensitiveTextWithMetadata } from "./chatExportSecurityFacade";
+import {
+  isSecretKey,
+  REDACTED_SECRET,
+  redactSensitivePathsInText,
+  redactSensitiveTextWithMetadata,
+} from "./chatExportSecurityFacade";
 import { compactSubagentToolScopeSnapshot } from "./chatExportSubagentsFacade";
 
 export interface ChatExportDataSource {
@@ -416,7 +421,7 @@ export async function createChatExportBundle(
   const zip = new JSZip();
   let replacementCount = 0;
   const addRedactedText = (path: string, content: string) => {
-    const redacted = redactSensitiveTextWithMetadata(content);
+    const redacted = redactExportText(content);
     replacementCount += redacted.replacementCount;
     zip.file(path, redacted.text);
   };
@@ -1692,7 +1697,7 @@ function displayPath(workspace: WorkspaceState, filePath: string): string {
 }
 
 function redactStructuredValue(value: unknown, key = ""): unknown {
-  if (typeof value === "string") return isSecretKey(key) ? REDACTED_SECRET : redactSensitiveText(value);
+  if (typeof value === "string") return isSecretKey(key) ? REDACTED_SECRET : redactExportText(value).text;
   if (Array.isArray(value)) return value.map((item) => redactStructuredValue(item));
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
@@ -1703,6 +1708,15 @@ function redactStructuredValue(value: unknown, key = ""): unknown {
         : redactStructuredValue(entryValue, entryKey),
     ]),
   );
+}
+
+function redactExportText(value: string): { text: string; replacementCount: number } {
+  const secretRedaction = redactSensitiveTextWithMetadata(value);
+  const pathRedaction = redactSensitivePathsInText(secretRedaction.text);
+  return {
+    text: pathRedaction.text,
+    replacementCount: secretRedaction.replacementCount + pathRedaction.replacementCount,
+  };
 }
 
 function errorMessage(error: unknown): string {

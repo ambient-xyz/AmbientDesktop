@@ -85,9 +85,8 @@ import type {
 } from "./symphonyWorkflowBuilderUiModel";
 import {
   thinkingDisplayModeLabel,
-  thinkingLevelLabel,
-  thinkingOptions,
 } from "./thinkingDisplayUiModel";
+import { modelReasoningControlModel } from "./modelReasoningUiModel";
 import {
   type ApiKeyStatus,
   thinkingDisplayOptions,
@@ -340,6 +339,7 @@ export function AppComposerShell({
   const slashRequestIdRef = useRef(0);
   const slashPopoverOpen = slashTrigger.active && slashDismissedToken !== slashTrigger.token;
   const slashCommandEntries = slashSearchState.response?.entries ?? [];
+  const modelReasoning = modelReasoningControlModel(state.settings.model, state.settings.thinkingLevel);
 
   useEffect(() => {
     if (!localDeepResearchModeArmed) setLocalDeepResearchEffortOpen(false);
@@ -774,18 +774,36 @@ export function AppComposerShell({
                 ))}
               </select>
             </label>
-            <select
-              aria-label="Thinking effort"
-              data-tooltip={`Thinking effort: ${thinkingLevelLabel(state.settings.thinkingLevel)}`}
-              value={state.settings.thinkingLevel}
-              onChange={(event) => onThinkingLevelChange(event.target.value as ThinkingLevel)}
-            >
-              {thinkingOptions.map((option) => (
-                <option key={option} value={option}>
-                  {thinkingLevelLabel(option)}
-                </option>
-              ))}
-            </select>
+            {modelReasoning.kind === "selectable" && (
+              <label
+                className="model-reasoning-control"
+                data-tooltip={modelReasoning.tooltip}
+                aria-label={`Reasoning mode: ${modelReasoning.label}`}
+              >
+                <Brain size={14} />
+                <select
+                  aria-label="Reasoning mode"
+                  value={modelReasoning.value}
+                  onChange={(event) => onThinkingLevelChange(event.target.value as ThinkingLevel)}
+                >
+                  {modelReasoning.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {modelReasoning.kind === "fixed" && (
+              <div
+                className="model-reasoning-fixed-control"
+                data-tooltip={modelReasoning.tooltip}
+                aria-label={`Reasoning mode: ${modelReasoning.label}`}
+              >
+                <Brain size={14} />
+                <span>{modelReasoning.label}</span>
+              </div>
+            )}
             <div className="model-picker" ref={modelPickerRef}>
               <button
                 ref={modelPickerButtonRef}

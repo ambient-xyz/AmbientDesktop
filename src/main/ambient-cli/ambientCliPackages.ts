@@ -12,6 +12,13 @@ import { isPathInside } from "./ambientCliSessionFacade";
 import { executeLambdaRlm, materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolRuntimeAmbientCliContract";
 import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/setupAmbientCliContract";
 import { buildSafeProcessEnv, isSecretEnvName, isSecretReference, readSecretReference, saveSecretReference } from "../security/securityAmbientCliContract";
+import {
+  commandTimeoutProfileNames,
+  executeProfiledCommand,
+  type CommandDevicePolicy,
+  type CommandDeviceSelection,
+  type CommandTimeoutProfile,
+} from "../tool-runtime/commandExecutionProfiles";
 
 const execFileAsync = promisify(execFile);
 const cliPackageConfigPath = ".ambient/cli-packages/packages.json";
@@ -39,6 +46,16 @@ const cliRuntimeLifecycleSchema = z
   })
   .passthrough();
 
+const cliCommandDevicePolicySchema = z
+  .object({
+    prefer: z.array(z.string().min(1)).optional(),
+    requireReasonWhenCpuForced: z.boolean().optional(),
+    cpuReason: z.string().optional(),
+    forceCpuReason: z.string().optional(),
+    argName: z.string().optional(),
+  })
+  .passthrough();
+
 const cliCommandSchema = z
   .object({
     command: z.string().min(1),
@@ -46,6 +63,9 @@ const cliCommandSchema = z
     description: z.string().optional(),
     cwd: z.enum(["workspace", "package"]).default("workspace"),
     healthCheck: z.array(z.string()).optional(),
+    timeoutProfile: z.enum(commandTimeoutProfileNames).optional(),
+    progressPatterns: z.array(z.string().min(1)).optional(),
+    devicePolicy: cliCommandDevicePolicySchema.optional(),
     voiceProvider: z
       .object({
         label: z.string().optional(),
@@ -228,6 +248,9 @@ export interface AmbientCliPackageCommand {
   args: string[];
   cwd: "workspace" | "package";
   healthCheck?: string[];
+  timeoutProfile?: CommandTimeoutProfile;
+  progressPatterns?: string[];
+  devicePolicy?: CommandDevicePolicy;
   voiceProvider?: AmbientCliVoiceProviderCommandMetadata;
   sttProvider?: AmbientCliSttProviderCommandMetadata;
   embeddingProvider?: AmbientCliEmbeddingProviderCommandMetadata;
@@ -295,6 +318,11 @@ export interface AmbientCliPackageHealthCheckResult {
   stdoutOutput?: MaterializedTextOutput;
   stderrOutput?: MaterializedTextOutput;
   error?: string;
+  timeoutProfile?: CommandTimeoutProfile;
+  timeoutMs?: number;
+  idleTimeoutMs?: number;
+  lastProgressAt?: string;
+  deviceSelection?: CommandDeviceSelection;
 }
 
 export interface AmbientCliPackageDependencyInstallResult {
@@ -589,6 +617,9 @@ export interface AmbientCliCommandDescription {
   descriptorArgs: string[];
   cwd: "workspace" | "package";
   health?: "passed" | "failed" | "unknown";
+  timeoutProfile?: CommandTimeoutProfile;
+  progressPatterns?: string[];
+  devicePolicy?: CommandDevicePolicy;
   risk: string[];
   voiceProvider?: AmbientCliVoiceProviderCommandMetadata;
   sttProvider?: AmbientCliSttProviderCommandMetadata;
@@ -644,6 +675,11 @@ export interface AmbientCliRunResult {
   stderr?: string;
   stdoutOutput?: MaterializedTextOutput;
   stderrOutput?: MaterializedTextOutput;
+  timeoutProfile?: CommandTimeoutProfile;
+  timeoutMs?: number;
+  idleTimeoutMs?: number;
+  lastProgressAt?: string;
+  deviceSelection?: CommandDeviceSelection;
 }
 
 type CliDescriptor = z.infer<typeof cliDescriptorSchema>;
@@ -1177,12 +1213,18 @@ export async function checkAmbientCliPackageHealth(
     const cwd = pkg.rootPath;
     try {
       const env = await ambientCliProcessEnv(options.workspacePath ?? pkg.rootPath, pkg);
-      const { stdout, stderr } = await execFileAsync(executable, args, {
+      const output = await executeProfiledCommand({
+        command: executable,
+        args,
         cwd,
-        timeout: 30_000,
         env,
         maxBuffer: 1024 * 1024,
+        timeoutProfile: command.timeoutProfile ?? "healthCheck",
+        progressPatterns: command.progressPatterns,
+        devicePolicy: command.devicePolicy,
+        phase: `ambient-cli healthCheck ${pkg.name}:${command.name}`,
       });
+      const { stdout, stderr } = output;
       const workspacePath = options.workspacePath ?? pkg.rootPath;
       const stdoutOutput = stdout
         ? await materializeTextOutput(workspacePath, {
@@ -1200,11 +1242,16 @@ export async function checkAmbientCliPackageHealth(
         : undefined;
       results.push({
         commandName: command.name,
-        command: [rawExecutable, ...rawArgs],
+        command: [rawExecutable, ...output.args],
         cwd,
         passed: true,
         ...(stdoutOutput ? { stdout: stdoutOutput.text, stdoutOutput } : {}),
         ...(stderrOutput ? { stderr: stderrOutput.text, stderrOutput } : {}),
+        timeoutProfile: output.timeoutProfile,
+        timeoutMs: output.timeoutMs,
+        idleTimeoutMs: output.idleTimeoutMs,
+        ...(output.lastProgressAt ? { lastProgressAt: output.lastProgressAt } : {}),
+        ...(output.deviceSelection ? { deviceSelection: output.deviceSelection } : {}),
       });
     } catch (error) {
       results.push({
@@ -1336,13 +1383,22 @@ export async function runAmbientCliPackageCommand(workspacePath: string, input: 
     ...buildSafeProcessEnv({}, input.env),
     ...await ambientCliProcessEnv(workspacePath, pkg),
   };
-  const { stdout, stderr } = await execFileAsync(executable, args, {
+  const legacyTimeoutMs = input.timeoutMs ?? 120_000;
+  const output = await executeProfiledCommand({
+    command: executable,
+    args,
     cwd,
-    timeout: input.timeoutMs ?? 120_000,
     env,
     maxBuffer: 1024 * 1024 * 4,
     signal: input.signal,
+    timeoutMs: command.timeoutProfile ? input.timeoutMs : legacyTimeoutMs,
+    ...(command.timeoutProfile ? {} : { idleTimeoutMs: legacyTimeoutMs }),
+    timeoutProfile: command.timeoutProfile ?? "quickProbe",
+    progressPatterns: command.progressPatterns,
+    devicePolicy: command.devicePolicy,
+    phase: `ambient-cli command ${pkg.name}:${command.name}`,
   });
+  const { stdout, stderr } = output;
   const stdoutOutput = stdout
     ? await materializeTextOutput(executionWorkspacePath, {
         label: `ambient-cli-${pkg.name}-${command.name}-stdout`,
@@ -1361,11 +1417,16 @@ export async function runAmbientCliPackageCommand(workspacePath: string, input: 
     packageId: pkg.id,
     packageName: pkg.name,
     commandName: command.name,
-    command: [command.command, ...args],
+    command: [command.command, ...output.args],
     cwd,
     durationMs: Date.now() - startedAt,
     ...(stdoutOutput ? { stdout: stdoutOutput.text, stdoutOutput } : {}),
     ...(stderrOutput ? { stderr: stderrOutput.text, stderrOutput } : {}),
+    timeoutProfile: output.timeoutProfile,
+    timeoutMs: output.timeoutMs,
+    idleTimeoutMs: output.idleTimeoutMs,
+    ...(output.lastProgressAt ? { lastProgressAt: output.lastProgressAt } : {}),
+    ...(output.deviceSelection ? { deviceSelection: output.deviceSelection } : {}),
   };
 }
 
@@ -1540,6 +1601,9 @@ async function inspectAmbientCliPackage(workspacePath: string, rootPath: string,
     args: command.args,
     cwd: command.cwd,
     ...(command.healthCheck ? { healthCheck: command.healthCheck } : {}),
+    ...(command.timeoutProfile ? { timeoutProfile: command.timeoutProfile } : {}),
+    ...(command.progressPatterns ? { progressPatterns: command.progressPatterns } : {}),
+    ...(command.devicePolicy ? { devicePolicy: normalizeCommandDevicePolicy(command.devicePolicy) } : {}),
     ...(command.voiceProvider ? { voiceProvider: normalizeVoiceProviderCommandMetadata(command.voiceProvider) } : {}),
     ...(command.sttProvider ? { sttProvider: normalizeSttProviderCommandMetadata(command.sttProvider) } : {}),
     ...(command.embeddingProvider ? { embeddingProvider: normalizeEmbeddingProviderCommandMetadata(command.embeddingProvider) } : {}),
@@ -1829,6 +1893,20 @@ function validateCliProviderLifecycleCommands(commands: AmbientCliPackageCommand
   }
 }
 
+function normalizeCommandDevicePolicy(input: CommandDevicePolicy): CommandDevicePolicy {
+  const prefer = input.prefer?.map((item) => item.trim()).filter(Boolean);
+  const cpuReason = input.cpuReason?.trim();
+  const forceCpuReason = input.forceCpuReason?.trim();
+  const argName = input.argName?.trim();
+  return {
+    ...(prefer?.length ? { prefer } : {}),
+    ...(input.requireReasonWhenCpuForced !== undefined ? { requireReasonWhenCpuForced: input.requireReasonWhenCpuForced } : {}),
+    ...(cpuReason ? { cpuReason } : {}),
+    ...(forceCpuReason ? { forceCpuReason } : {}),
+    ...(argName ? { argName } : {}),
+  };
+}
+
 function resolveDescriptorArg(packageRoot: string, arg: string): string {
   if (!arg.startsWith("./") && !arg.startsWith("../")) return arg;
   const resolved = resolve(packageRoot, arg);
@@ -1850,6 +1928,9 @@ function ambientCliCommandDescription(
     descriptorArgs: command.args,
     cwd: command.cwd,
     health: ambientCliCommandHealth(pkg, command),
+    ...(command.timeoutProfile ? { timeoutProfile: command.timeoutProfile } : {}),
+    ...(command.progressPatterns?.length ? { progressPatterns: command.progressPatterns } : {}),
+    ...(command.devicePolicy ? { devicePolicy: command.devicePolicy } : {}),
     risk: [
       "run_process",
       ...(command.voiceProvider ? ["tts_provider"] : []),

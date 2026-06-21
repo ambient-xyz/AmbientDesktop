@@ -5,13 +5,18 @@ import type {
   AmbientApiKeyTestResult,
   ProviderStatus,
 } from "../../shared/desktopTypes";
+import type { BrokerNamedSecretUseResult, NamedSecretMetadataExport } from "../../shared/namedSecretTypes";
+import type { SecureStorageRepairGuidance, SecureStorageStatus } from "../../shared/secureStorageTypes";
 import {
   ambientApiKeyIpcChannels,
   ambientOpenKeysIpcChannels,
+  ambientSecureStorageIpcChannels,
   registerAmbientApiKeyIpc,
   registerAmbientOpenKeysIpc,
+  registerAmbientSecureStorageIpc,
   type RegisterAmbientApiKeyIpcDependencies,
   type RegisterAmbientOpenKeysIpcDependencies,
+  type RegisterAmbientSecureStorageIpcDependencies,
 } from "./registerAmbientIpc";
 
 type IpcListener = Parameters<IpcMain["handle"]>[1];
@@ -92,6 +97,40 @@ describe("registerAmbientApiKeyIpc", () => {
   });
 });
 
+describe("registerAmbientSecureStorageIpc", () => {
+  it("registers secure storage and named secret channels", () => {
+    const { handlers } = registerSecureStorageWithFakes();
+
+    expect([...handlers.keys()]).toEqual([...ambientSecureStorageIpcChannels]);
+  });
+
+  it("parses named secret operations before delegating", async () => {
+    const { deps, invoke } = registerSecureStorageWithFakes();
+
+    await expect(invoke("secure-storage:refresh")).resolves.toMatchObject({
+      status: { status: "ready" },
+    });
+    await expect(invoke("named-secrets:save", { label: "Fixture", value: "secret", kind: "login", scope: "workspace" })).resolves.toEqual([]);
+    await expect(invoke("named-secrets:update", { id: "secret-id", label: "Updated" })).resolves.toEqual([]);
+    await expect(invoke("named-secrets:delete", { id: "secret-id" })).resolves.toEqual([]);
+    await expect(invoke("named-secrets:export-metadata")).resolves.toMatchObject({ secrets: [] });
+
+    expect(deps.saveNamedSecret).toHaveBeenCalledWith({ label: "Fixture", value: "secret", kind: "login", scope: "workspace" });
+    expect(deps.updateNamedSecret).toHaveBeenCalledWith({ id: "secret-id", label: "Updated" });
+    expect(deps.deleteNamedSecret).toHaveBeenCalledWith({ id: "secret-id" });
+  });
+
+  it("rejects invalid named secret IPC inputs before delegating", () => {
+    const { deps, invoke } = registerSecureStorageWithFakes();
+
+    expect(() => invoke("named-secrets:save", { label: "", value: "secret" })).toThrow();
+    expect(() => invoke("named-secrets:broker-local-fixture", { id: "secret-id", purpose: "test", target: "chat" })).toThrow();
+
+    expect(deps.saveNamedSecret).not.toHaveBeenCalled();
+    expect(deps.brokerNamedSecretToLocalFixture).not.toHaveBeenCalled();
+  });
+});
+
 function registerOpenKeysWithFakes({
   ambientKeysUrl = "https://example.com/ambient-keys",
 }: {
@@ -106,6 +145,62 @@ function registerOpenKeysWithFakes({
     openAllowedExternalUrl: vi.fn(async () => undefined),
   };
   registerAmbientOpenKeysIpc(deps);
+
+  return {
+    deps,
+    handlers,
+    invoke: (channel: string, raw?: unknown) => {
+      const handler = handlers.get(channel);
+      expect(handler).toBeDefined();
+      if (!handler) throw new Error(`Missing handler for ${channel}`);
+      return Promise.resolve(handler({} as IpcMainInvokeEvent, raw));
+    },
+  };
+}
+
+function registerSecureStorageWithFakes() {
+  const handlers = new Map<string, IpcListener>();
+  const deps: RegisterAmbientSecureStorageIpcDependencies = {
+    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
+      handlers.set(channel, listener);
+    }),
+    refreshSecureStorageStatus: vi.fn((): { status: SecureStorageStatus; guidance: SecureStorageRepairGuidance } => ({
+      status: {
+        status: "ready",
+        platform: "darwin",
+        backend: "keychain",
+        security: "os-encrypted",
+        message: "ready",
+      },
+      guidance: {
+        platform: "darwin",
+        summary: "ready",
+        commands: [],
+        retryLabel: "Retry",
+      },
+    })),
+    saveNamedSecret: vi.fn(async () => []),
+    updateNamedSecret: vi.fn(async () => []),
+    deleteNamedSecret: vi.fn(async () => []),
+    brokerNamedSecretToLocalFixture: vi.fn(async (): Promise<BrokerNamedSecretUseResult> => ({
+      schemaVersion: "ambient-named-secret-broker-result-v1",
+      id: "secret-id",
+      label: "Fixture",
+      scope: "workspace",
+      target: "local-fixture",
+      purpose: "test",
+      approved: true,
+      delivered: true,
+      redactedEvidence: "redacted",
+      usedAt: "2026-06-20T00:00:00.000Z",
+    })),
+    exportNamedSecretMetadata: vi.fn(async (): Promise<NamedSecretMetadataExport> => ({
+      schemaVersion: "ambient-named-secret-metadata-export-v1",
+      exportedAt: "2026-06-20T00:00:00.000Z",
+      secrets: [],
+    })),
+  };
+  registerAmbientSecureStorageIpc(deps);
 
   return {
     deps,

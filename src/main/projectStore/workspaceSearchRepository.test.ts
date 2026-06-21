@@ -182,7 +182,7 @@ function insertThread(
     input.preview ?? "",
     "workspace",
     "agent",
-    "moonshotai/kimi-k2.7-code",
+    "<model>",
     "xhigh",
     1,
     input.archivedAt ?? null,

@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DEFAULT_ROOT = "~/.ambient-example";
+const DEFAULT_ROOT = "~/.ambient-hardening";
 const SCHEMA_VERSION = "ambient-local-hardening-snapshot-v1";
 
 const SECRET_RELATIVE_PATH_PATTERNS = [
@@ -461,7 +461,7 @@ function usage() {
     "  node scripts/hardening-capability-snapshot.mjs validate --workspace PATH --user-data PATH [options]",
     "",
     "Options:",
-    "  --root PATH                    Hardening root. Default: ~/.ambient-example",
+    "  --root PATH                    Hardening root. Default: ~/.ambient-hardening",
     "  --group NAME                   Snapshot group. Default: shared-secrets",
     "  --name NAME                    Snapshot name prefix.",
     "  --destination PATH             Exact destination path.",

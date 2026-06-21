@@ -371,7 +371,7 @@ describe("Workflow Agent V3 UI dogfood harness", () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "workflow-ui-snapshot-home-"));
     try {
       const homeDir = join(tempRoot, "home");
-      const sharedSecretsRoot = join(homeDir, ".ambient-example", "snapshots", "shared-secrets");
+      const sharedSecretsRoot = join(homeDir, ".ambient-hardening", "snapshots", "shared-secrets");
       const staleRoot = join(sharedSecretsRoot, "2026-04-01-invalid");
       const readyRoot = join(sharedSecretsRoot, "2026-06-10-ready");
       await mkdir(staleRoot, { recursive: true });

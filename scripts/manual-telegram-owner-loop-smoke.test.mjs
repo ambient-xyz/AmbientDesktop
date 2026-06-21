@@ -490,7 +490,7 @@ describe("manual Telegram owner-loop smoke runner", () => {
           "AMBIENT_AGENT_TELEGRAM_API_ID=123",
           "export AMBIENT_AGENT_TELEGRAM_API_HASH='hash-secret'",
           "AMBIENT_MANUAL_TELEGRAM_PROFILE_ID=owner",
-          "AMBIENT_AGENT_ROOT=/path/to/user/ambientAgent",
+          "AMBIENT_AGENT_ROOT=<local-user>/ambientAgent",
         ].join("\n"),
       );
 
@@ -510,7 +510,7 @@ describe("manual Telegram owner-loop smoke runner", () => {
         AMBIENT_AGENT_TELEGRAM_API_ID: "123",
         AMBIENT_AGENT_TELEGRAM_API_HASH: "hash-secret",
         AMBIENT_MANUAL_TELEGRAM_PROFILE_ID: "owner",
-        AMBIENT_AGENT_ROOT: "/path/to/user/ambientAgent",
+        AMBIENT_AGENT_ROOT: "<local-user>/ambientAgent",
       });
       expect(JSON.stringify(loaded)).toContain("hash-secret");
 

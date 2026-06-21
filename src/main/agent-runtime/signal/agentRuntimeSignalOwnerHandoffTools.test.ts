@@ -68,7 +68,7 @@ describe("registerSignalOwnerHandoffTools", () => {
       }, {
         threadId: "thread-1",
         workspace: {
-          name: "AmbientDesktop",
+          name: "ambientCoder",
           path: "/workspace",
           statePath: "/tmp/ambient-state",
           sessionPath: "/tmp/ambient-state/sessions",

@@ -44,6 +44,7 @@ describe("project store schema bootstrap", () => {
       "runs",
       "context_usage_snapshots",
       "thread_goals",
+      "thread_wake_continuations",
       "permission_audit",
       "permission_grants",
       "planner_plan_artifacts",
@@ -80,7 +81,7 @@ describe("project store schema bootstrap", () => {
       "artifact_drafts",
       "artifact_draft_events",
     ]);
-    expect(schemaNames(/CREATE (?:UNIQUE )?INDEX IF NOT EXISTS\s+([a-z_]+)/g)).toHaveLength(66);
+    expect(schemaNames(/CREATE (?:UNIQUE )?INDEX IF NOT EXISTS\s+([a-z_]+)/g)).toHaveLength(68);
   });
 
   it("applies the exported bootstrap SQL through the database exec boundary", () => {

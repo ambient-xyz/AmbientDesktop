@@ -26,7 +26,7 @@ describe("registerTelegramBridgeEventTools", () => {
     });
     const registeredTools: RegisteredTool[] = [];
     const workspace = {
-      name: "AmbientDesktop",
+      name: "ambientCoder",
       path: "/workspace",
       statePath: stateRoot,
       sessionPath: join(stateRoot, "sessions"),
@@ -54,7 +54,7 @@ describe("registerTelegramBridgeEventTools", () => {
           threads: [],
           workflowFolders: [],
           projects: [{
-            name: "AmbientDesktop",
+            name: "ambientCoder",
             path: "/workspace",
             updatedAt: "2026-05-19T00:00:00.000Z",
             pinned: true,

@@ -19,12 +19,12 @@ const cdpPort = Number(process.env.AMBIENT_KANBAN_RECIPE_INDEX_CDP_PORT || 0) ||
 const workerRunMaxElapsedMs = Number(process.env.AMBIENT_KANBAN_RECIPE_INDEX_RUN_MAX_TIMEOUT_MS || 0) || 1_800_000;
 const workerIdleTimeoutMs = Number(process.env.AMBIENT_KANBAN_RECIPE_INDEX_RUN_IDLE_TIMEOUT_MS || 0) || 420_000;
 const defaultRepoKeyFile = join(repoRoot, "gmicloud-api-key.txt");
-const defaultHomeCheckoutKeyFile = join(homedir(), "AmbientDesktop", "gmicloud-api-key.txt");
+const defaultHomeCheckoutKeyFile = join(homedir(), "ambientCoder", "gmicloud-api-key.txt");
 const keyFile = resolve(
   process.env.GMI_CLOUD_API_KEY_FILE ||
     (existsSync(defaultRepoKeyFile) ? defaultRepoKeyFile : defaultHomeCheckoutKeyFile),
 );
-const defaultSnapshotWorkspace = join(homedir(), "Documents", "AmbientDesktopArchive");
+const defaultSnapshotWorkspace = join(homedir(), "Documents", "ambientCoderArchive");
 const sourceWorkspace =
   process.env.AMBIENT_KANBAN_RECIPE_INDEX_SNAPSHOT_WORKSPACE ||
   process.env.AMBIENT_DESKTOP_WORKSPACE ||

@@ -59,7 +59,7 @@ describe("registerTelegramConversationDirectoryTools", () => {
       }, {
         threadId: "thread-1",
         workspace: {
-          name: "AmbientDesktop",
+          name: "ambientCoder",
           path: "/workspace",
           statePath: stateRoot,
           sessionPath: join(stateRoot, "sessions"),

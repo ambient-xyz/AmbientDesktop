@@ -13,7 +13,7 @@ describe("ProjectStoreThreadRepository", () => {
   const defaults: CreateProjectStoreThreadDefaults = {
     permissionMode: "workspace",
     collaborationMode: "agent",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "<model>",
     thinkingLevel: "xhigh",
     memoryDefaultThreadEnabled: true,
   };
@@ -172,9 +172,9 @@ describe("ProjectStoreThreadRepository", () => {
 
     expect(sessionBacked.piSessionFile).toBe("/tmp/glm-session.jsonl");
 
-    const modelChanged = repository.updateThreadSettings(thread.id, { model: "moonshotai/kimi-k2.7-code" });
+    const modelChanged = repository.updateThreadSettings(thread.id, { model: "<model>" });
 
-    expect(modelChanged.model).toBe("moonshotai/kimi-k2.7-code");
+    expect(modelChanged.model).toBe("<model>");
     expect(modelChanged.piSessionFile).toBeUndefined();
   });
 

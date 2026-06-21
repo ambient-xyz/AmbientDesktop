@@ -109,6 +109,7 @@ function options(): AgentRuntimePluginToolAssemblyOptions<any> {
       parseApplyRepairInput: () => ({ packageName: "ambient-provider" }) as any,
       parseRemovalPlanInput: () => ({ packageName: "ambient-provider" }) as any,
       parseUnregisterInput: () => ({ packageName: "ambient-provider" }) as any,
+      parseRegistrationRepairInput: () => ({ packageName: "ambient-provider" }) as any,
       parseInstallDepsInput: () => ({ packageName: "ambient-provider" }) as any,
       parseValidateInput: () => ({ packageName: "ambient-provider" }) as any,
       runCapabilityBuilderValidationWithPermission: vi.fn(),

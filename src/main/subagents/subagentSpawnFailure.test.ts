@@ -334,7 +334,7 @@ function runtimePreflight(): SubagentChildRuntimeLaunchPreflightResult {
 function childWorktree(): ThreadWorktreeSummary {
   return {
     threadId: "child-thread",
-    projectRoot: "/Users/travis/AmbientDesktop",
+    projectRoot: "/Users/travis/ambientCoder",
     worktreePath: "/tmp/ambient-child",
     branchName: "codex/child",
     baseRef: "main",

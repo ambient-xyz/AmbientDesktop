@@ -16,7 +16,7 @@ const DEFAULT_BASE_PORT = 9800;
 const DEFAULT_MIN_IMPROVEMENT = 0.1;
 const DEFAULT_HOLDOUT_MIN_IMPROVEMENT = 0;
 const DEFAULT_LATE_HOLDOUT_MIN_IMPROVEMENT = 0;
-const DEFAULT_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_MODEL = "<model>";
 const DEFAULT_BASE_URL = "https://api.ambient.xyz/v1";
 
 export function parseExperimentArgs(argv = process.argv.slice(2), env = process.env, now = () => new Date()) {
@@ -492,7 +492,7 @@ export function renderExperimentMarkdown(manifest) {
 function primeAmbientApiKey({ apiKeyFile, env, cwd }) {
   if (env.AMBIENT_API_KEY?.trim() || env.AMBIENT_AGENT_AMBIENT_API_KEY?.trim()) return "env";
   const root = cwd || process.cwd();
-  const candidates = [apiKeyFile, join(root, "ambient_api_key.txt"), join(root, "..", "AmbientDesktop", "ambient_api_key.txt")].filter(Boolean);
+  const candidates = [apiKeyFile, join(root, "ambient_api_key.txt"), join(root, "..", "ambientCoder", "ambient_api_key.txt")].filter(Boolean);
   for (const file of candidates) {
     try {
       if (!existsSync(file)) continue;
@@ -639,7 +639,7 @@ Options:
   --min-improvement 0.1
   --holdout-min-improvement 0
   --late-holdout-min-improvement 0
-  --model moonshotai/kimi-k2.7-code
+  --model <model>
   --base-url https://api.ambient.xyz/v1
   --api-key-file /path/to/ambient_api_key.txt
   --dry-run

@@ -1,5 +1,6 @@
 import { ambientModelLabel } from "../../shared/ambientModels";
 import type { DesktopState } from "../../shared/desktopTypes";
+import { modelReasoningControlModel } from "./modelReasoningUiModel";
 import {
   contextUsagePresentation,
   desktopUpdateStatusText,
@@ -12,6 +13,28 @@ import {
 } from "./RightPanelSettingsPrimitives";
 
 type SettingsSearchTermPart = SettingsSearchTarget["terms"][number];
+
+function secureStorageStatusForSearch(state: DesktopState): DesktopState["secureStorage"] {
+  return state.secureStorage ?? {
+    status: "blocked",
+    platform: "other",
+    reason: "unavailable",
+    message: "Secure credential storage status has not loaded yet.",
+  };
+}
+
+function secureStorageRepairForSearch(state: DesktopState): DesktopState["secureStorageRepair"] {
+  return state.secureStorageRepair ?? {
+    platform: secureStorageStatusForSearch(state).platform,
+    summary: "Secure credential storage status has not loaded yet.",
+    commands: [],
+    retryLabel: "Retry secure storage check",
+  };
+}
+
+function namedSecretsForSearch(state: DesktopState): DesktopState["namedSecrets"] {
+  return state.namedSecrets ?? [];
+}
 
 export type RightPanelSettingsSectionsInput = {
   appIsPackaged: boolean;
@@ -73,9 +96,20 @@ export function rightPanelSettingsSectionSearchTerms({
   modelCatalogSearchText?: string;
 }): Record<string, SettingsSearchTermPart[]> {
   return {
-    overview: ["overview", "workspace identity", "app version", "updates", "appearance", "core setup", "first run", "remote control", "remote access"],
+    overview: ["overview", "workspace identity", "app version", "updates", "appearance", "core setup", "first run", "remote control", "remote access", "secure storage", "keyring"],
     voice: ["voice output", "assistant voice settings"],
-    "model-mode": ["model mode", "model & mode", "collaboration mode", "thinking display", "model runtime catalog", "model registry", "local models"],
+    "model-mode": [
+      "model mode",
+      "model & mode",
+      "collaboration mode",
+      "thinking display",
+      "reasoning mode",
+      "model runtime catalog",
+      "model registry",
+      "local models",
+      "named secrets",
+      "secret vault",
+    ],
     "local-models": ["local models", "llama.cpp", "runtime inventory", "resident memory", "local rss", "stop blockers", "sub-agent leases", "minicpm", "voice", "embeddings", modelCatalogSearchText],
     speech: ["speech input", "push to talk settings", "transcription settings"],
     "search-web": ["search web", "web search", "search provider", "provider catalog", "web research", "local deep research", "literesearcher", "llama.cpp", "exa", "scrapling"],
@@ -315,10 +349,30 @@ export function rightPanelSettingsSearchTargets({
   const memoryEffectiveEnabled = Boolean(memoryFeatureFlag?.enabled);
   const activeThread = state.threads.find((thread) => thread.id === state.activeThreadId);
   const contextUsage = contextUsagePresentation(state.contextUsage, state.settings.compaction);
+  const secureStorage = secureStorageStatusForSearch(state);
+  const secureStorageRepair = secureStorageRepairForSearch(state);
+  const namedSecrets = namedSecretsForSearch(state);
+  const modelReasoning = modelReasoningControlModel(state.settings.model, state.settings.thinkingLevel);
 
   return [
     { id: "overview.workspace", sectionId: "overview", terms: ["workspace", state.workspace.name, state.workspace.path] },
     { id: "overview.app", sectionId: "overview", terms: ["app", state.app.name, state.app.version, state.app.platform, state.app.arch, "pi", "build"] },
+    {
+      id: "overview.secure-storage",
+      sectionId: "overview",
+      terms: [
+        "secure storage",
+        "safe storage",
+        "keyring",
+        "keychain",
+        "dpapi",
+        "linux",
+        secureStorage.status,
+        secureStorage.status === "ready" ? secureStorage.backend : secureStorage.reason,
+        secureStorage.message,
+        secureStorageRepair.summary,
+      ],
+    },
     { id: "overview.updates", sectionId: "overview", terms: ["updates", desktopUpdateStatusText(state.app.update), state.app.update.channel, state.app.update.feedUrl] },
     { id: "overview.appearance", sectionId: "overview", terms: ["appearance", "theme", state.appearance.themePreference] },
     {
@@ -392,6 +446,18 @@ export function rightPanelSettingsSearchTargets({
       ],
     },
     {
+      id: "model-mode.named-secrets",
+      sectionId: "model-mode",
+      terms: [
+        "named secrets",
+        "secret vault",
+        "credentials",
+        "brokered secret",
+        "local fixture",
+        namedSecrets.map((secret) => `${secret.label} ${secret.kind} ${secret.scope} ${secret.owner}`).join(" "),
+      ],
+    },
+    {
       id: "local-models.registry",
       sectionId: "local-models",
       terms: [
@@ -429,6 +495,21 @@ export function rightPanelSettingsSearchTargets({
     },
     { id: "model-mode.mode", sectionId: "model-mode", terms: ["mode", "planner", "agent", state.settings.collaborationMode] },
     { id: "model-mode.thinking-display", sectionId: "model-mode", terms: ["thinking display", "reasoning display", state.settings.thinkingDisplay.mode] },
+    {
+      id: "model-mode.reasoning-mode",
+      sectionId: "model-mode",
+      terms: [
+        "reasoning mode",
+        "thinking effort",
+        "standard",
+        "deep",
+        modelReasoning.label,
+        modelReasoning.kind,
+        modelReasoning.tooltip,
+        modelReasoning.settingsDescription,
+        state.settings.thinkingLevel,
+      ],
+    },
     {
       id: "model-mode.subagents",
       sectionId: "model-mode",

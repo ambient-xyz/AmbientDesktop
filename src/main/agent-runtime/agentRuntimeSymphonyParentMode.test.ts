@@ -434,7 +434,7 @@ describe("Symphony parent mode policy", () => {
       content: "run it",
       permissionMode: "workspace",
       collaborationMode: "agent",
-      model: "moonshotai/kimi-k2.7-code",
+      model: "<model>",
       thinkingLevel: "medium",
     } as const;
 
@@ -631,7 +631,7 @@ describe("Symphony parent mode policy", () => {
       content: "explain queued task",
       permissionMode: "workspace",
       collaborationMode: "agent",
-      model: "moonshotai/kimi-k2.7-code",
+      model: "<model>",
       thinkingLevel: "medium",
     } as const;
     const launch = {

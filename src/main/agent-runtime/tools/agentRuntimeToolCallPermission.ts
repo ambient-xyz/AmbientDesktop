@@ -238,11 +238,8 @@ export async function resolveAgentRuntimeToolCallPermission(
         decisionSource: "allowed_by_full_access",
       });
       options.emit({ type: "permission-audit-created", entry: auditEntry });
-    } else if (thread.permissionMode === "workspace" && permissionToolName === "bash") {
-      const command =
-        permissionInput && typeof permissionInput === "object" && typeof (permissionInput as Record<string, unknown>).command === "string"
-          ? String((permissionInput as Record<string, unknown>).command)
-          : undefined;
+    } else if (thread.permissionMode === "workspace" && isBashPermissionToolName(permissionToolName)) {
+      const command = shellCommandForPermissionInput(permissionInput);
       const auditEntry = options.store.addPermissionAudit({
         runId: activeRunId(),
         threadId,
@@ -369,6 +366,19 @@ export async function resolveAgentRuntimeToolCallPermission(
     options.emit({ type: "message-created", message: blockedMessage });
     return { reason: deniedReason };
   }
+  return undefined;
+}
+
+function isBashPermissionToolName(toolName: string): boolean {
+  return toolName === "bash" || toolName === "bash_start" || toolName === "bash_write";
+}
+
+function shellCommandForPermissionInput(input: unknown): string | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const record = input as Record<string, unknown>;
+  if (typeof record.command === "string") return record.command;
+  if (typeof record.cmd === "string") return record.cmd;
+  if (typeof record.chars === "string") return record.chars;
   return undefined;
 }
 

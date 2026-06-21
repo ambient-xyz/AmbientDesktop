@@ -25,7 +25,7 @@ describe("thread title generation", () => {
     await expect(
       generateThreadTitle({
         prompt: "Can we add brave search as a provider to Ambient?",
-        workspaceName: "AmbientDesktop",
+        workspaceName: "ambientCoder",
         model: "glm-5.1",
         apiKey: "ambient-test-key",
         fetchImpl: fetchImpl as typeof fetch,
@@ -47,7 +47,7 @@ describe("thread title generation", () => {
     await expect(
       generateThreadTitle({
         prompt: "Please build a todo tool.",
-        workspaceName: "AmbientDesktop",
+        workspaceName: "ambientCoder",
         model: "glm-5.1",
         baseUrl: "https://api.ambient.xyz",
         apiKey: "ambient-test-key",
@@ -77,7 +77,7 @@ describe("thread title generation", () => {
     await expect(
       generateThreadTitle({
         prompt: "Please build a retry UI.",
-        workspaceName: "AmbientDesktop",
+        workspaceName: "ambientCoder",
         model: "glm-5.1",
         apiKey: "ambient-test-key",
         fetchImpl: fetchImpl as typeof fetch,
@@ -100,7 +100,7 @@ describe("thread title generation", () => {
     await expect(
       generateThreadTitle({
         prompt: "Build something.",
-        workspaceName: "AmbientDesktop",
+        workspaceName: "ambientCoder",
         model: "glm-5.1",
         apiKey: "",
         fetchImpl: fetchImpl as typeof fetch,
@@ -121,7 +121,7 @@ describe("thread title generation", () => {
 
     const promise = generateThreadTitle({
       prompt: "Build something.",
-      workspaceName: "AmbientDesktop",
+      workspaceName: "ambientCoder",
       model: "glm-5.1",
       apiKey: "ambient-test-key",
       fetchImpl: fetchImpl as typeof fetch,

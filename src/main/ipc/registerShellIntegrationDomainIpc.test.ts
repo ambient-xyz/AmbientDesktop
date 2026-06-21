@@ -5,9 +5,12 @@ import type {
   AmbientApiKeyTestResult,
   ProviderStatus,
 } from "../../shared/desktopTypes";
+import type { BrokerNamedSecretUseResult, NamedSecretMetadataExport } from "../../shared/namedSecretTypes";
+import type { SecureStorageRepairGuidance, SecureStorageStatus } from "../../shared/secureStorageTypes";
 import {
   ambientApiKeyIpcChannels,
   ambientOpenKeysIpcChannels,
+  ambientSecureStorageIpcChannels,
 } from "./registerAmbientIpc";
 import { clipboardIpcChannels } from "./registerClipboardIpc";
 import { linksOpenExternalIpcChannels } from "./registerLinksIpc";
@@ -29,6 +32,7 @@ describe("registerShellIntegrationDomainIpc", () => {
       ...linksOpenExternalIpcChannels,
       ...clipboardIpcChannels,
       ...ambientApiKeyIpcChannels,
+      ...ambientSecureStorageIpcChannels,
     ]);
   });
 
@@ -66,6 +70,22 @@ describe("registerShellIntegrationDomainIpc", () => {
     expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("ambient-model");
     expect(deps.emitProviderUpdated).toHaveBeenCalledTimes(2);
     expect(deps.testAmbientApiKey).toHaveBeenCalledWith("dummy-key");
+  });
+
+  it("routes secure storage and named secret channels through storage dependencies", async () => {
+    const { deps, invoke } = registerWithFakes();
+
+    await expect(invoke("secure-storage:refresh")).resolves.toEqual({
+      status: expect.objectContaining({ status: "ready" }),
+      guidance: expect.objectContaining({ retryLabel: "Retry" }),
+    });
+    await expect(invoke("named-secrets:save", { label: "Fixture", value: "secret-value" })).resolves.toEqual([]);
+    await expect(invoke("named-secrets:broker-local-fixture", { id: "secret-id", purpose: "test", target: "local-fixture" })).resolves.toMatchObject({
+      delivered: true,
+    });
+
+    expect(deps.saveNamedSecret).toHaveBeenCalledWith({ label: "Fixture", value: "secret-value" });
+    expect(deps.brokerNamedSecretToLocalFixture).toHaveBeenCalledWith({ id: "secret-id", purpose: "test", target: "local-fixture" });
   });
 });
 
@@ -105,6 +125,41 @@ function registerWithFakes({
     readCurrentSettingsModel: vi.fn(() => "ambient-model"),
     getAmbientProviderStatus: vi.fn(() => provider),
     emitProviderUpdated: vi.fn(),
+    refreshSecureStorageStatus: vi.fn((): { status: SecureStorageStatus; guidance: SecureStorageRepairGuidance } => ({
+      status: {
+        status: "ready",
+        platform: "darwin",
+        backend: "keychain",
+        security: "os-encrypted",
+        message: "ready",
+      },
+      guidance: {
+        platform: "darwin",
+        summary: "ready",
+        commands: [],
+        retryLabel: "Retry",
+      },
+    })),
+    saveNamedSecret: vi.fn(async () => []),
+    updateNamedSecret: vi.fn(async () => []),
+    deleteNamedSecret: vi.fn(async () => []),
+    brokerNamedSecretToLocalFixture: vi.fn(async (): Promise<BrokerNamedSecretUseResult> => ({
+      schemaVersion: "ambient-named-secret-broker-result-v1",
+      id: "secret-id",
+      label: "Fixture",
+      scope: "workspace",
+      target: "local-fixture",
+      purpose: "test",
+      approved: true,
+      delivered: true,
+      redactedEvidence: "redacted",
+      usedAt: "2026-06-20T00:00:00.000Z",
+    })),
+    exportNamedSecretMetadata: vi.fn(async (): Promise<NamedSecretMetadataExport> => ({
+      schemaVersion: "ambient-named-secret-metadata-export-v1",
+      exportedAt: "2026-06-20T00:00:00.000Z",
+      secrets: [],
+    })),
   };
   registerShellIntegrationDomainIpc(deps);
 

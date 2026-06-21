@@ -4730,7 +4730,7 @@ describe("messaging gateway provider registry", () => {
   it("builds a bounded runtime surface snapshot for chat-native navigation", () => {
     const snapshot = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -4762,7 +4762,7 @@ describe("messaging gateway provider registry", () => {
             {
               id: "workflow-1",
               folderId: "folder-1",
-              projectName: "AmbientDesktop",
+              projectName: "ambientCoder",
               projectPath: "/workspace",
               title: "Find papers",
               phase: "discovery",
@@ -4853,7 +4853,7 @@ describe("messaging gateway provider registry", () => {
     });
 
     expect(snapshot).toMatchObject({
-      workspace: { name: "AmbientDesktop" },
+      workspace: { name: "ambientCoder" },
       activeChatId: "thread-1",
       limits: {
         chatCount: 1,
@@ -5044,7 +5044,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -5061,7 +5061,7 @@ describe("messaging gateway provider registry", () => {
             {
               id: "workflow-1",
               folderId: "folder-1",
-              projectName: "AmbientDesktop",
+              projectName: "ambientCoder",
               projectPath: "/workspace",
               title: "Placebo papers",
               phase: "discovery",
@@ -5158,7 +5158,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: stateRoot,
         sessionPath: join(stateRoot, "sessions"),
@@ -5175,7 +5175,7 @@ describe("messaging gateway provider registry", () => {
             {
               id: "workflow-1",
               folderId: "folder-1",
-              projectName: "AmbientDesktop",
+              projectName: "ambientCoder",
               projectPath: "/workspace",
               title: "Placebo papers",
               phase: "paused",
@@ -5300,7 +5300,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: stateRoot,
         sessionPath: join(stateRoot, "sessions"),
@@ -5425,7 +5425,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -5495,7 +5495,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: stateRoot,
         sessionPath: join(stateRoot, "sessions"),
@@ -5574,7 +5574,7 @@ describe("messaging gateway provider registry", () => {
       });
       const createdSurface = buildRuntimeSurfaceSnapshot({
         workspace: {
-          name: "AmbientDesktop",
+          name: "ambientCoder",
           path: "/workspace",
           statePath: stateRoot,
           sessionPath: join(stateRoot, "sessions"),
@@ -5591,7 +5591,7 @@ describe("messaging gateway provider registry", () => {
               {
                 id: "workflow-created",
                 folderId: "folder-1",
-                projectName: "AmbientDesktop",
+                projectName: "ambientCoder",
                 projectPath: "/workspace",
                 title: "Remote status workflow",
                 phase: "discovery",
@@ -5734,7 +5734,7 @@ describe("messaging gateway provider registry", () => {
 
       const reviewSurface = buildRuntimeSurfaceSnapshot({
         workspace: {
-          name: "AmbientDesktop",
+          name: "ambientCoder",
           path: "/workspace",
           statePath: stateRoot,
           sessionPath: join(stateRoot, "sessions"),
@@ -5751,7 +5751,7 @@ describe("messaging gateway provider registry", () => {
               {
                 id: "workflow-created",
                 folderId: "folder-1",
-                projectName: "AmbientDesktop",
+                projectName: "ambientCoder",
                 projectPath: "/workspace",
                 title: "Remote status workflow",
                 phase: "ready_for_review",
@@ -5836,7 +5836,7 @@ describe("messaging gateway provider registry", () => {
 
       const runningSurface = buildRuntimeSurfaceSnapshot({
         workspace: {
-          name: "AmbientDesktop",
+          name: "ambientCoder",
           path: "/workspace",
           statePath: stateRoot,
           sessionPath: join(stateRoot, "sessions"),
@@ -5853,7 +5853,7 @@ describe("messaging gateway provider registry", () => {
               {
                 id: "workflow-created",
                 folderId: "folder-1",
-                projectName: "AmbientDesktop",
+                projectName: "ambientCoder",
                 projectPath: "/workspace",
                 title: "Remote status workflow",
                 phase: "running",
@@ -5911,7 +5911,7 @@ describe("messaging gateway provider registry", () => {
 
       const recoverySurface = buildRuntimeSurfaceSnapshot({
         workspace: {
-          name: "AmbientDesktop",
+          name: "ambientCoder",
           path: "/workspace",
           statePath: stateRoot,
           sessionPath: join(stateRoot, "sessions"),
@@ -5928,7 +5928,7 @@ describe("messaging gateway provider registry", () => {
               {
                 id: "workflow-created",
                 folderId: "folder-1",
-                projectName: "AmbientDesktop",
+                projectName: "ambientCoder",
                 projectPath: "/workspace",
                 title: "Remote status workflow",
                 phase: "failed",
@@ -6064,7 +6064,7 @@ describe("messaging gateway provider registry", () => {
       now: () => new Date("2026-05-10T00:00:03.000Z"),
     });
     const workspace = {
-      name: "AmbientDesktop",
+      name: "ambientCoder",
       path: "/workspace/active",
       statePath: stateRoot,
       sessionPath: join(stateRoot, "sessions"),
@@ -6275,7 +6275,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: stateRoot,
         sessionPath: join(stateRoot, "sessions"),
@@ -6695,7 +6695,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -6824,7 +6824,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -6971,7 +6971,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -6988,7 +6988,7 @@ describe("messaging gateway provider registry", () => {
             {
               id: "workflow-1",
               folderId: "folder-1",
-              projectName: "AmbientDesktop",
+              projectName: "ambientCoder",
               projectPath: "/workspace",
               title: "Placebo papers",
               phase: "discovery",
@@ -7076,7 +7076,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -7433,8 +7433,8 @@ describe("messaging gateway provider registry", () => {
             state: launched ? "running" : "stopped",
             managed: launched,
             command: "pnpm",
-            args: ["--dir", "/path/to/user/ambientAgent", "telegram:bridge"],
-            cwd: "/path/to/user/ambientAgent",
+            args: ["--dir", "<local-user>/ambientAgent", "telegram:bridge"],
+            cwd: "<local-user>/ambientAgent",
             bridgeBaseUrl: "http://127.0.0.1:8091",
             stateRoot: "/workspace/.ambient-agent-state/telegram",
             envKeys: ["AMBIENT_AGENT_TELEGRAM_API_HASH", "AMBIENT_AGENT_TELEGRAM_API_ID"],
@@ -7448,8 +7448,8 @@ describe("messaging gateway provider registry", () => {
               state: "running",
               managed: true,
               command: "pnpm",
-              args: ["--dir", "/path/to/user/ambientAgent", "telegram:bridge"],
-              cwd: "/path/to/user/ambientAgent",
+              args: ["--dir", "<local-user>/ambientAgent", "telegram:bridge"],
+              cwd: "<local-user>/ambientAgent",
               bridgeBaseUrl: "http://127.0.0.1:8091",
               stateRoot: "/workspace/.ambient-agent-state/telegram",
               envKeys: ["AMBIENT_AGENT_TELEGRAM_API_HASH", "AMBIENT_AGENT_TELEGRAM_API_ID"],
@@ -7464,8 +7464,8 @@ describe("messaging gateway provider registry", () => {
               state: "stopped",
               managed: false,
               command: "pnpm",
-              args: ["--dir", "/path/to/user/ambientAgent", "telegram:bridge"],
-              cwd: "/path/to/user/ambientAgent",
+              args: ["--dir", "<local-user>/ambientAgent", "telegram:bridge"],
+              cwd: "<local-user>/ambientAgent",
               bridgeBaseUrl: "http://127.0.0.1:8091",
               stateRoot: "/workspace/.ambient-agent-state/telegram",
               envKeys: ["AMBIENT_AGENT_TELEGRAM_API_HASH", "AMBIENT_AGENT_TELEGRAM_API_ID"],
@@ -7596,7 +7596,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -7706,7 +7706,7 @@ describe("messaging gateway provider registry", () => {
 
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -7845,7 +7845,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: "/workspace/.ambient",
         sessionPath: "/workspace/.ambient/sessions",
@@ -8276,7 +8276,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: stateRoot,
         sessionPath: join(stateRoot, "sessions"),
@@ -8520,7 +8520,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: stateRoot,
         sessionPath: join(stateRoot, "sessions"),
@@ -8984,7 +8984,7 @@ describe("messaging gateway provider registry", () => {
     });
     const surface = buildRuntimeSurfaceSnapshot({
       workspace: {
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         statePath: stateRoot,
         sessionPath: join(stateRoot, "sessions"),

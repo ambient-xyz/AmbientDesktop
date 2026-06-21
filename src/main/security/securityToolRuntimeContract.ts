@@ -4,6 +4,7 @@ export {
 } from "./secretReferenceStore";
 export {
   clearRegisteredSecretRedactionsForTests,
+  registeredSecretRedactionMaxLength,
   redactSensitiveTextWithMetadata,
   registerSecretRedaction,
 } from "./secretRedaction";

@@ -19,9 +19,9 @@ const cdpPort = Number(process.env.AMBIENT_KANBAN_MARKDOWN_REGEX_PERMISSION_CDP_
 const workerIdleTimeoutMs = Number(process.env.AMBIENT_KANBAN_MARKDOWN_REGEX_PERMISSION_IDLE_TIMEOUT_MS || 0) || 240_000;
 const workerRunMaxElapsedMs = Number(process.env.AMBIENT_KANBAN_MARKDOWN_REGEX_PERMISSION_MAX_TIMEOUT_MS || 0) || 900_000;
 const defaultRepoKeyFile = join(repoRoot, "gmicloud-api-key.txt");
-const defaultHomeCheckoutKeyFile = join(homedir(), "AmbientDesktop", "gmicloud-api-key.txt");
+const defaultHomeCheckoutKeyFile = join(homedir(), "ambientCoder", "gmicloud-api-key.txt");
 const keyFile = resolve(process.env.GMI_CLOUD_API_KEY_FILE || (existsSync(defaultRepoKeyFile) ? defaultRepoKeyFile : defaultHomeCheckoutKeyFile));
-const defaultSnapshotWorkspace = join(homedir(), "Documents", "AmbientDesktopArchive");
+const defaultSnapshotWorkspace = join(homedir(), "Documents", "ambientCoderArchive");
 const sourceWorkspace =
   process.env.AMBIENT_KANBAN_MARKDOWN_REGEX_PERMISSION_SNAPSHOT_WORKSPACE ||
   process.env.AMBIENT_DESKTOP_WORKSPACE ||
@@ -98,7 +98,7 @@ try {
     permissionAudit,
     screenshots: { board: boardScreenshotPath, proof: proofScreenshotPath },
     assertions: [
-      "Desktop launched with the GMI Cloud provider against a temp copy of Documents/AmbientDesktopArchive",
+      "Desktop launched with the GMI Cloud provider against a temp copy of Documents/ambientCoderArchive",
       "A Markdown link-checker Local Task was prepared through the visible Board UI",
       "The worker ran an inline Node proof command containing a regex beginning /##",
       "The regex proof command produced link-check-report.md and link-check-report.json artifacts with zero broken links",

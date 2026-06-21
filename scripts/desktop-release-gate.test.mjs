@@ -48,7 +48,7 @@ describe("desktop release hardening gate", () => {
 
   it("fails if the publish script carries private deployment defaults", async () => {
     const facts = await readDesktopReleaseGateFacts(repoRoot);
-    facts.publishScriptSource += "\nconst host = '15.204.236.102';\nconst key = '/path/to/user/logins/ambientmarketing_ovh';\n";
+    facts.publishScriptSource += "\nconst host = '15.204.236.102';\nconst key = '<local-user>/logins/ambientmarketing_ovh';\n";
 
     const report = evaluateDesktopReleaseGateFacts(facts);
 

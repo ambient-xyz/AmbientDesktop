@@ -2,6 +2,7 @@
 
 Updated: 2026-05-01
 
+Provider note, 2026-06-16: GLM 5.1 is currently degraded. Current live rollout validation must use the Ambient provider with Kimi (`AMBIENT_PROVIDER=ambient`, `AMBIENT_LIVE_MODEL=<model>`).
 
 ## Rollout Switch
 

@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
 export const DEFAULT_WORKFLOW_UI_DOGFOOD_SHARED_SNAPSHOT_ROOT =
-  "/path/to/user/.ambient-example/snapshots/shared-secrets/shared-secrets-example-2026-05-14T02-16-32-0700";
+  "<local-user>/.ambient-hardening/snapshots/shared-secrets/primary-mac-shared-secrets-2026-05-14T02-16-32-0700";
 const DEFAULT_WORKFLOW_UI_DOGFOOD_SHARED_SNAPSHOT_NAME = basename(DEFAULT_WORKFLOW_UI_DOGFOOD_SHARED_SNAPSHOT_ROOT);
 const WORKFLOW_UI_DOGFOOD_SNAPSHOT_ROOT_ENV_VARS = [
   "AMBIENT_WORKFLOW_UI_DOGFOOD_SNAPSHOT_ROOT",
@@ -197,7 +197,7 @@ function workflowUiDogfoodGwsSnapshotRuntime(input) {
   const roots = uniqueStrings([
     input.env?.AMBIENT_WORKFLOW_UI_DOGFOOD_GWS_SNAPSHOT_ROOT,
     input.gwsSnapshotRoot,
-    join(input.homeDir ?? homedir(), ".ambient-example", "snapshots", "google-workspace-cli"),
+    join(input.homeDir ?? homedir(), ".ambient-hardening", "snapshots", "google-workspace-cli"),
   ]);
   for (const root of roots) {
     for (const candidateRoot of workflowUiDogfoodGwsSnapshotRoots(root)) {
@@ -256,7 +256,7 @@ function workflowUiDogfoodExplicitSnapshotRootCandidates(input = {}) {
 
 function workflowUiDogfoodDefaultSnapshotRootCandidates(input = {}) {
   const homeDir = input.homeDir ?? homedir();
-  const sharedSecretsRoot = join(homeDir, ".ambient-example", "snapshots", "shared-secrets");
+  const sharedSecretsRoot = join(homeDir, ".ambient-hardening", "snapshots", "shared-secrets");
   return uniqueSnapshotRootCandidates([
     {
       path: join(sharedSecretsRoot, DEFAULT_WORKFLOW_UI_DOGFOOD_SHARED_SNAPSHOT_NAME),

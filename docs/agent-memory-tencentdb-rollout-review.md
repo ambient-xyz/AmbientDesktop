@@ -62,6 +62,7 @@ flowchart TD
 3. Record the fork patch set in a manifest with upstream commit, changed files, rationale, and rebase instructions. Do not rewrite Tencent's L0/L1/L2/L3, recall/capture/search, or offload algorithms into Ambient-owned modules.
 4. Add a small Tencent-backed memory admin service that wraps upstream `IMemoryStore`, L1 writer/reader, profile sync, and scene index utilities. Target normal user edits at L1 memories, support L0 inspect/search/privacy-delete, and support L2/L3 view/edit/delete through Tencent's profile and scene paths.
 5. Add gated chat tools such as `ambient_memory_inspect`, `ambient_memory_update`, and `ambient_memory_delete` so a user can ask to see associated memories in a compact table, then edit or delete a visible memory by stable id after confirmation.
+6. Run live Ambient/Pi memory-off and memory-on dogfood with the Ambient provider and Kimi selected while provider availability note, recording recall/capture transcript evidence and context accounting.
 7. Run a live inspect/edit/delete dogfood: show associated memories in chat, edit or delete one, and verify later search/recall reflects the durable Tencent store change.
 8. Re-run native preflight on supported macOS architectures and resolve local native ABI mismatches before treating packaging as healthy.
 9. Keep short-term offload separately default-off until tool-heavy live dogfood proves that MMD injection improves behavior without hiding transcript evidence.

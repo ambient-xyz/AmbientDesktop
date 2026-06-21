@@ -1,4 +1,4 @@
-export const AMBIENT_KIMI_K2_7_CODE_MODEL = "moonshotai/kimi-k2.7-code";
+export const AMBIENT_KIMI_K2_7_CODE_MODEL = "<model>";
 export const AMBIENT_GLM_5_1_FP8_MODEL = "zai-org/GLM-5.1-FP8";
 export const AMBIENT_GLM_5_2_FP8_MODEL = "zai-org/GLM-5.2-FP8";
 export const AMBIENT_DEFAULT_MODEL = AMBIENT_KIMI_K2_7_CODE_MODEL;
@@ -20,6 +20,31 @@ export type AmbientModelStructuredOutputSupport = "none" | "json-mode" | "schema
 export type AmbientModelCostClass = "included" | "metered" | "local";
 export type AmbientModelTrustClass = "ambient-managed" | "user-configured" | "local-user-managed";
 export type AmbientProviderEndpointCompatibility = "ambient-compatible" | "openai-compatible" | "anthropic-compatible" | "local-text";
+export type AmbientModelReasoningThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
+export type AmbientModelReasoningControl = "selectable_effort" | "fixed_on" | "unsupported";
+export type AmbientModelReasoningPayloadStrategy =
+  | "zai-reasoning-effort"
+  | "omit-reasoning-controls"
+  | "preserve-reasoning-controls";
+
+export interface AmbientModelReasoningOption {
+  thinkingLevel: AmbientModelReasoningThinkingLevel;
+  label: string;
+  description: string;
+}
+
+export interface AmbientModelReasoningCapability {
+  schemaVersion: "ambient-model-reasoning-capability-v1";
+  control: AmbientModelReasoningControl;
+  fixedReasoning: boolean;
+  hiddenReasoningPreserved: boolean;
+  defaultThinkingLevel: AmbientModelReasoningThinkingLevel;
+  selectableThinkingLevels: AmbientModelReasoningOption[];
+  payloadStrategy: AmbientModelReasoningPayloadStrategy;
+  requestFields: string[];
+  effortByThinkingLevel?: Partial<Record<AmbientModelReasoningThinkingLevel, string>>;
+  notes: string[];
+}
 
 export interface AmbientProviderEndpointDescriptor {
   schemaVersion: "ambient-model-runtime-installed-provider-endpoint-v1";
@@ -62,6 +87,7 @@ export interface AmbientModelRuntimeProfile {
   privacyLabel: string;
   memoryClass?: "remote" | "small-local" | "medium-local" | "large-local";
   estimatedResidentMemoryBytes?: number;
+  reasoningCapability?: AmbientModelReasoningCapability;
   providerQuirks: string[];
 }
 
@@ -109,6 +135,66 @@ export const AMBIENT_LEGACY_MODEL_IDS = [
 ] as const;
 
 const legacyModelMap = new Map<string, string>(AMBIENT_LEGACY_MODEL_IDS);
+
+const AMBIENT_UNSUPPORTED_REASONING_CAPABILITY: AmbientModelReasoningCapability = {
+  schemaVersion: "ambient-model-reasoning-capability-v1",
+  control: "unsupported",
+  fixedReasoning: false,
+  hiddenReasoningPreserved: false,
+  defaultThinkingLevel: "medium",
+  selectableThinkingLevels: [],
+  payloadStrategy: "preserve-reasoning-controls",
+  requestFields: [],
+  notes: ["No verified model-specific reasoning contract is registered."],
+};
+
+const AMBIENT_KIMI_K2_7_REASONING_CAPABILITY: AmbientModelReasoningCapability = {
+  schemaVersion: "ambient-model-reasoning-capability-v1",
+  control: "fixed_on",
+  fixedReasoning: true,
+  hiddenReasoningPreserved: true,
+  defaultThinkingLevel: "medium",
+  selectableThinkingLevels: [],
+  payloadStrategy: "omit-reasoning-controls",
+  requestFields: [],
+  notes: [
+    "Kimi K2.7 Code documentation says thinking is always enabled and callers should not pass thinking controls.",
+    "Live Ambient probes showed attempts to suppress thinking can move reasoning-style text into visible output.",
+  ],
+};
+
+const AMBIENT_GLM_5_2_REASONING_CAPABILITY: AmbientModelReasoningCapability = {
+  schemaVersion: "ambient-model-reasoning-capability-v1",
+  control: "selectable_effort",
+  fixedReasoning: false,
+  hiddenReasoningPreserved: true,
+  defaultThinkingLevel: "medium",
+  selectableThinkingLevels: [
+    {
+      thinkingLevel: "medium",
+      label: "Standard",
+      description: "Use ZAI high effort for normal Ambient work.",
+    },
+    {
+      thinkingLevel: "xhigh",
+      label: "Deep",
+      description: "Use ZAI max effort for harder reasoning tasks.",
+    },
+  ],
+  payloadStrategy: "zai-reasoning-effort",
+  requestFields: ["enable_thinking", "reasoning_effort"],
+  effortByThinkingLevel: {
+    minimal: "high",
+    low: "high",
+    medium: "high",
+    high: "max",
+    xhigh: "max",
+  },
+  notes: [
+    "ZAI GLM 5.2 exposes reasoning_effort. Live Ambient probes showed high and max are distinct while xhigh behaves like max.",
+    "Ambient maps persisted minimal, low, and medium to Standard/high; high and xhigh map to Deep/max.",
+  ],
+};
 
 export const AMBIENT_PROVIDER_DESCRIPTORS: AmbientProviderDescriptor[] = [
   {
@@ -162,10 +248,12 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
     trustClass: "ambient-managed",
     privacyLabel: "Ambient managed cloud model",
     memoryClass: "remote",
+    reasoningCapability: AMBIENT_KIMI_K2_7_REASONING_CAPABILITY,
     providerQuirks: [
       "Qualified for main Ambient/Pi calls with live endpoint probes on 2026-06-14.",
       "OpenRouter Ambient metadata reports max_completion_tokens=262144 and structured output/tool parameters.",
       "Supports image input through the Ambient/Pi OpenAI-compatible image_url content path.",
+      "Thinking is model-fixed on; Ambient omits unsupported thinking controls while preserving reasoning_content.",
     ],
   },
   {
@@ -189,10 +277,12 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
     trustClass: "ambient-managed",
     privacyLabel: "Ambient managed cloud model",
     memoryClass: "remote",
+    reasoningCapability: AMBIENT_GLM_5_2_REASONING_CAPABILITY,
     providerQuirks: [
       "Discovered through the Ambient /v1/models endpoint after the GLM 5.2 migration.",
       "Uses Ambient/Pi streaming and timeout semantics.",
       "Streams reasoning deltas before visible content on small prompts.",
+      "Supports provider-owned reasoning_effort mapping for Standard and Deep modes.",
     ],
   },
   {
@@ -217,6 +307,7 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
     trustClass: "local-user-managed",
     privacyLabel: "Local user-managed text runtime",
     memoryClass: "small-local",
+    reasoningCapability: AMBIENT_UNSUPPORTED_REASONING_CAPABILITY,
     providerQuirks: [
       "Text-only Phase 3 placeholder; requires a configured launch descriptor before selection.",
       "No Ambient/Pi tools are exposed to this profile.",
@@ -226,12 +317,14 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
 
 export const AMBIENT_MODEL_OPTIONS = ambientModelOptionsFromRuntimeProfiles();
 
-export function ambientModelRuntimeCatalogFromProfiles(input: {
-  generatedAt?: string;
-  providers?: readonly AmbientProviderDescriptor[];
-  profiles?: readonly AmbientModelRuntimeProfile[];
-  validationIssues?: readonly AmbientModelRuntimeCatalogValidationIssue[];
-} = {}): AmbientModelRuntimeCatalog {
+export function ambientModelRuntimeCatalogFromProfiles(
+  input: {
+    generatedAt?: string;
+    providers?: readonly AmbientProviderDescriptor[];
+    profiles?: readonly AmbientModelRuntimeProfile[];
+    validationIssues?: readonly AmbientModelRuntimeCatalogValidationIssue[];
+  } = {},
+): AmbientModelRuntimeCatalog {
   const providers = input.providers ?? AMBIENT_PROVIDER_DESCRIPTORS;
   const profiles = input.profiles ?? AMBIENT_MODEL_RUNTIME_PROFILES;
   return {
@@ -250,9 +343,7 @@ export function ambientModelRuntimeCatalogFromProfiles(input: {
 export function ambientModelOptionsFromRuntimeProfiles(
   profiles: readonly AmbientModelRuntimeProfile[] = AMBIENT_MODEL_RUNTIME_PROFILES,
 ): AmbientModelOption[] {
-  const options = profiles
-    .filter((profile) => profile.available && profile.selectableAsMain)
-    .map(ambientModelOptionFromProfile);
+  const options = profiles.filter((profile) => profile.available && profile.selectableAsMain).map(ambientModelOptionFromProfile);
   if (options.length > 0) return options;
   return [ambientModelOptionFromProfile(resolveAmbientModelRuntimeProfile(AMBIENT_DEFAULT_MODEL))];
 }
@@ -292,8 +383,41 @@ export function resolveAmbientModelRuntimeProfile(modelId?: string): AmbientMode
     costClass: "metered",
     trustClass: "user-configured",
     privacyLabel: "Unknown provider",
+    reasoningCapability: AMBIENT_UNSUPPORTED_REASONING_CAPABILITY,
     providerQuirks: ["Preserved from stored settings or transcript; not eligible for new runs until registered."],
   };
+}
+
+export function resolveAmbientModelReasoningCapability(modelId?: string): AmbientModelReasoningCapability {
+  return cloneAmbientModelReasoningCapability(reasoningCapabilityForProfile(resolveAmbientModelRuntimeProfile(modelId)));
+}
+
+export function resolveAmbientModelReasoningThinkingLevel(
+  modelId: string | undefined,
+  thinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
+): AmbientModelReasoningThinkingLevel {
+  const capability = reasoningCapabilityForProfile(resolveAmbientModelRuntimeProfile(modelId));
+  if (!thinkingLevel) return capability.defaultThinkingLevel;
+  if (capability.control === "unsupported" && capability.payloadStrategy === "preserve-reasoning-controls") return thinkingLevel;
+  if (capability.control !== "selectable_effort") return capability.defaultThinkingLevel;
+  if (capability.selectableThinkingLevels.some((option) => option.thinkingLevel === thinkingLevel)) return thinkingLevel;
+  if (
+    (thinkingLevel === "high" || thinkingLevel === "xhigh") &&
+    capability.selectableThinkingLevels.some((option) => option.thinkingLevel === "xhigh")
+  ) {
+    return "xhigh";
+  }
+  return capability.defaultThinkingLevel;
+}
+
+export function ambientModelReasoningEffortForThinkingLevel(
+  modelId: string | undefined,
+  thinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
+): string | undefined {
+  const capability = reasoningCapabilityForProfile(resolveAmbientModelRuntimeProfile(modelId));
+  if (capability.payloadStrategy !== "zai-reasoning-effort") return undefined;
+  const resolvedThinkingLevel = resolveAmbientModelReasoningThinkingLevel(modelId, thinkingLevel);
+  return capability.effortByThinkingLevel?.[resolvedThinkingLevel];
 }
 
 export function createAmbientModelRuntimeSnapshotFromProfile(
@@ -310,11 +434,7 @@ export function createAmbientModelRuntimeSnapshotFromProfile(
 }
 
 export function createAmbientModelRuntimeSnapshot(modelId: string, resolvedAt = new Date().toISOString()): AmbientModelRuntimeSnapshot {
-  return createAmbientModelRuntimeSnapshotFromProfile(
-    modelId,
-    resolveAmbientModelRuntimeProfile(modelId),
-    resolvedAt,
-  );
+  return createAmbientModelRuntimeSnapshotFromProfile(modelId, resolveAmbientModelRuntimeProfile(modelId), resolvedAt);
 }
 
 function ambientModelOptionFromProfile(profile: AmbientModelRuntimeProfile): AmbientModelOption {
@@ -340,7 +460,22 @@ function cloneAmbientProviderDescriptor(provider: AmbientProviderDescriptor): Am
 function cloneAmbientModelRuntimeProfile(profile: AmbientModelRuntimeProfile): AmbientModelRuntimeProfile {
   return {
     ...profile,
+    reasoningCapability: cloneAmbientModelReasoningCapability(reasoningCapabilityForProfile(profile)),
     providerQuirks: [...profile.providerQuirks],
+  };
+}
+
+function reasoningCapabilityForProfile(profile: AmbientModelRuntimeProfile): AmbientModelReasoningCapability {
+  return profile.reasoningCapability ?? AMBIENT_UNSUPPORTED_REASONING_CAPABILITY;
+}
+
+function cloneAmbientModelReasoningCapability(capability: AmbientModelReasoningCapability): AmbientModelReasoningCapability {
+  return {
+    ...capability,
+    selectableThinkingLevels: capability.selectableThinkingLevels.map((option) => ({ ...option })),
+    requestFields: [...capability.requestFields],
+    ...(capability.effortByThinkingLevel ? { effortByThinkingLevel: { ...capability.effortByThinkingLevel } } : {}),
+    notes: [...capability.notes],
   };
 }
 

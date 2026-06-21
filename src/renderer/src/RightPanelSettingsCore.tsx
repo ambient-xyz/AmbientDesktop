@@ -1,11 +1,12 @@
-import { Activity, Brain, ChevronDown, Monitor, Moon, Play, Plug, Plus, RefreshCw, RotateCw, Square, Sun, Wrench, Zap } from "lucide-react";
-import type { ReactNode } from "react";
+import { Activity, Brain, ChevronDown, Download, KeyRound, Monitor, Moon, Play, Plug, Plus, RefreshCw, RotateCw, ShieldAlert, ShieldCheck, Square, Sun, Trash2, Wrench, Zap } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import type { AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryOperationStatus, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
 import type { AgentMemoryMode } from "../../shared/agentMemorySettings";
 import { agentMemoryStarterPrimaryAction } from "../../shared/agentMemoryStarter";
 import type { AgentMemoryStarterNextAction, AgentMemoryStarterOperationKind, AgentMemoryStarterOperationResult, AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
 import type { DesktopState, DesktopUpdateState, ThemePreference, ThinkingDisplayMode } from "../../shared/desktopTypes";
-import type { ContextUsageSnapshot } from "../../shared/threadTypes";
+import type { NamedSecretKind, NamedSecretScope } from "../../shared/namedSecretTypes";
+import type { ContextUsageSnapshot, ThinkingLevel } from "../../shared/threadTypes";
 import { ambientModelLabel } from "../../shared/ambientModels";
 import type {
   ModelRuntimeCatalogRuntimeAction,
@@ -17,6 +18,7 @@ import type {
   ModelProviderEndpointInstallDraft,
 } from "./modelProviderOnboardingUiModel";
 import { AGENT_MEMORY_PRIVACY_DISCLOSURE_LINES } from "../../shared/agentMemoryPrivacy";
+import { modelReasoningControlModel, type ModelReasoningControlModel } from "./modelReasoningUiModel";
 import { thinkingDisplayModeLabel } from "./thinkingDisplayUiModel";
 import {
   LocalModelsRuntimeInventory,
@@ -36,6 +38,30 @@ type MaybePromise<T = unknown> = T | Promise<T>;
 
 export const thinkingDisplayOptions: ThinkingDisplayMode[] = ["off", "transient", "full"];
 const agentMemoryModeOptions: AgentMemoryMode[] = ["enabled_all", "per_thread", "disabled"];
+const namedSecretKinds: NamedSecretKind[] = ["generic", "api-key", "token", "password", "login", "ssh-password"];
+const namedSecretScopes: NamedSecretScope[] = ["workspace", "global"];
+
+function secureStorageStatusForState(state: DesktopState): DesktopState["secureStorage"] {
+  return state.secureStorage ?? {
+    status: "blocked",
+    platform: "other",
+    reason: "unavailable",
+    message: "Secure credential storage status has not loaded yet.",
+  };
+}
+
+function secureStorageRepairForState(state: DesktopState): DesktopState["secureStorageRepair"] {
+  return state.secureStorageRepair ?? {
+    platform: secureStorageStatusForState(state).platform,
+    summary: "Secure credential storage status has not loaded yet.",
+    commands: [],
+    retryLabel: "Retry secure storage check",
+  };
+}
+
+function namedSecretsForState(state: DesktopState): DesktopState["namedSecrets"] {
+  return state.namedSecrets ?? [];
+}
 
 export function desktopUpdateStatusText(update: DesktopUpdateState): string {
   if (update.status === "available") return "Ready to download";
@@ -129,6 +155,248 @@ function SegmentedThinkingDisplay({
   );
 }
 
+function SegmentedModelReasoning({
+  model,
+  onChange,
+}: {
+  model: Extract<ModelReasoningControlModel, { kind: "selectable" }>;
+  onChange: (value: ThinkingLevel) => void;
+}) {
+  return (
+    <div className="permission-toggle model-reasoning-toggle">
+      {model.options.map((option) => (
+        <button type="button" key={option.value} className={model.value === option.value ? "selected" : ""} onClick={() => onChange(option.value)}>
+          <Brain size={14} />
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SecureStorageStatusCard({ state }: { state: DesktopState }) {
+  const [refreshed, setRefreshed] = useState<{ status: DesktopState["secureStorage"]; guidance: DesktopState["secureStorageRepair"] } | undefined>();
+  const [busy, setBusy] = useState(false);
+  const current = refreshed?.status ?? secureStorageStatusForState(state);
+  const repair = refreshed?.guidance ?? secureStorageRepairForState(state);
+  const ready = current.status === "ready";
+  async function refresh() {
+    setBusy(true);
+    try {
+      const next = await window.ambientDesktop.refreshSecureStorageStatus();
+      setRefreshed(next);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className={`voice-provider-diagnostics ${ready ? "success" : "warning"}`}>
+      <div className="voice-provider-diagnostics-header">
+        <strong>{ready ? "Secure storage ready" : "Secure storage blocked"}</strong>
+        <span>{current.platform}</span>
+      </div>
+      <small>{current.message}</small>
+      <ul>
+        <li>Backend: {current.status === "ready" ? current.backend : current.backend ?? current.reason}</li>
+        <li>Security: {current.status === "ready" ? current.security : "blocked"}</li>
+      </ul>
+      {!ready && repair.commands.length > 0 && (
+        <details className="settings-disclosure warning">
+          <summary>
+            <span className="settings-disclosure-title">
+              <ChevronDown size={14} />
+              <strong>Linux repair options</strong>
+            </span>
+            <small>{repair.commands.length.toLocaleString()}</small>
+          </summary>
+          <div className="settings-disclosure-body">
+            {repair.commands.map((command) => (
+              <label className="setting-field" key={command.id}>
+                <span>{command.label}</span>
+                <code>{command.command}</code>
+                <small>{command.description}</small>
+              </label>
+            ))}
+          </div>
+        </details>
+      )}
+      <button type="button" className="panel-button mini" disabled={busy} onClick={() => void refresh()}>
+        <RefreshCw size={14} />
+        {busy ? "Checking" : repair.retryLabel}
+      </button>
+    </div>
+  );
+}
+
+function NamedSecretVault({ state }: { state: DesktopState }) {
+  const [label, setLabel] = useState("");
+  const [value, setValue] = useState("");
+  const [kind, setKind] = useState<NamedSecretKind>("generic");
+  const [scope, setScope] = useState<NamedSecretScope>("workspace");
+  const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState<string | undefined>();
+  const [busy, setBusy] = useState<string | undefined>();
+  const secureStorage = secureStorageStatusForState(state);
+  const namedSecrets = namedSecretsForState(state);
+  const storageReady = secureStorage.status === "ready";
+
+  async function save() {
+    setBusy("save");
+    setStatus(undefined);
+    try {
+      await window.ambientDesktop.saveNamedSecret({
+        label,
+        value,
+        kind,
+        scope,
+        ...(notes.trim() ? { notes } : {}),
+      });
+      setLabel("");
+      setValue("");
+      setNotes("");
+      setStatus("Saved");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Save failed");
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function remove(id: string) {
+    setBusy(id);
+    setStatus(undefined);
+    try {
+      await window.ambientDesktop.deleteNamedSecret({ id });
+      setStatus("Deleted");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Delete failed");
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function broker(id: string) {
+    setBusy(`broker:${id}`);
+    setStatus(undefined);
+    try {
+      const result = await window.ambientDesktop.brokerNamedSecretToLocalFixture({
+        id,
+        target: "local-fixture",
+        purpose: "settings local fixture verification",
+      });
+      setStatus(result.delivered ? "Fixture delivered" : "Fixture not delivered");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Fixture failed");
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function exportMetadata() {
+    setBusy("export");
+    setStatus(undefined);
+    try {
+      const exported = await window.ambientDesktop.exportNamedSecretMetadata();
+      setStatus(`${exported.secrets.length.toLocaleString()} rehydration task${exported.secrets.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Export failed");
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  return (
+    <div className={`voice-provider-diagnostics ${storageReady ? "info" : "warning"}`}>
+      <div className="voice-provider-diagnostics-header">
+        <strong>Named secrets</strong>
+        <span>{namedSecrets.length.toLocaleString()}</span>
+      </div>
+      <div className="named-secret-form">
+        <label className="setting-field">
+          <span>Label</span>
+          <input className="panel-input" value={label} onChange={(event) => setLabel(event.target.value)} disabled={!storageReady || Boolean(busy)} />
+        </label>
+        <label className="setting-field">
+          <span>Value</span>
+          <input
+            className="panel-input"
+            type="password"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            disabled={!storageReady || Boolean(busy)}
+          />
+        </label>
+        <div className="named-secret-grid">
+          <label className="setting-field">
+            <span>Kind</span>
+            <select className="settings-select compact" value={kind} onChange={(event) => setKind(event.target.value as NamedSecretKind)} disabled={!storageReady || Boolean(busy)}>
+              {namedSecretKinds.map((option) => (
+                <option key={option} value={option}>{namedSecretKindLabel(option)}</option>
+              ))}
+            </select>
+          </label>
+          <label className="setting-field">
+            <span>Scope</span>
+            <select className="settings-select compact" value={scope} onChange={(event) => setScope(event.target.value as NamedSecretScope)} disabled={!storageReady || Boolean(busy)}>
+              {namedSecretScopes.map((option) => (
+                <option key={option} value={option}>{option === "global" ? "Global" : "Workspace"}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label className="setting-field">
+          <span>Notes</span>
+          <input className="panel-input" value={notes} onChange={(event) => setNotes(event.target.value)} disabled={!storageReady || Boolean(busy)} />
+        </label>
+        <div className="panel-action-row compact">
+          <button type="button" className="panel-button mini primary" disabled={!storageReady || !label.trim() || value.length === 0 || Boolean(busy)} onClick={() => void save()}>
+            <KeyRound size={14} />
+            {busy === "save" ? "Saving" : "Save"}
+          </button>
+          <button type="button" className="panel-button mini" disabled={Boolean(busy)} onClick={() => void exportMetadata()}>
+            <Download size={14} />
+            Metadata
+          </button>
+        </div>
+      </div>
+      {namedSecrets.length > 0 && (
+        <ul className="named-secret-list">
+          {namedSecrets.map((secret) => (
+            <li key={secret.id}>
+              <div>
+                <strong>{secret.label}</strong>
+                <small>{namedSecretKindLabel(secret.kind)} · {secret.scope} · {formatTimelineTime(secret.updatedAt)}</small>
+              </div>
+              <div className="panel-action-row compact">
+                <button type="button" className="panel-button mini" disabled={Boolean(busy)} onClick={() => void broker(secret.id)}>
+                  <ShieldCheck size={14} />
+                  {busy === `broker:${secret.id}` ? "Sending" : "Fixture"}
+                </button>
+                <button type="button" className="panel-button mini danger" disabled={Boolean(busy)} onClick={() => void remove(secret.id)}>
+                  <Trash2 size={14} />
+                  {busy === secret.id ? "Deleting" : "Delete"}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {status && <p className={`panel-status ${/failed|blocked|unavailable|required|not found/i.test(status) ? "error" : "success"}`}>{status}</p>}
+      {!storageReady && (
+        <small>
+          <ShieldAlert size={13} /> {secureStorage.message}
+        </small>
+      )}
+    </div>
+  );
+}
+
+function namedSecretKindLabel(kind: NamedSecretKind): string {
+  if (kind === "api-key") return "API key";
+  if (kind === "ssh-password") return "SSH password";
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
 export type RightPanelOverviewSettingsSectionProps = {
   state: DesktopState;
   running: boolean;
@@ -156,6 +424,8 @@ export function RightPanelOverviewSettingsSection({
   dismissFirstRunCapabilityOnboarding,
   startRemoteSurfaceActivation,
 }: RightPanelOverviewSettingsSectionProps) {
+  const secureStorage = secureStorageStatusForState(state);
+  const secureStorageRepair = secureStorageRepairForState(state);
   return (
     <SettingsSection
       id="overview"
@@ -172,6 +442,15 @@ export function RightPanelOverviewSettingsSection({
             Pi {state.app.piVersions.piCodingAgent} · pi-ai {state.app.piVersions.piAi}
             {state.app.build?.commit ? ` · ${state.app.build.commit}` : ""}
           </small>
+        </SettingsRow>
+      )}
+      {settingsRowVisible("overview", "overview.secure-storage") && (
+        <SettingsRow
+          label="Secure storage"
+          value={secureStorage.status === "ready" ? "Ready" : "Blocked"}
+          description={secureStorage.status === "ready" ? secureStorage.message : secureStorageRepair.summary}
+        >
+          <SecureStorageStatusCard state={state} />
         </SettingsRow>
       )}
       {settingsRowVisible("overview", "overview.updates") && (
@@ -313,6 +592,7 @@ export type RightPanelModelModeSettingsSectionProps = {
   cancelAgentMemoryClearFromSettings: () => MaybePromise;
   confirmAgentMemoryClearFromSettings: () => MaybePromise;
   onThinkingDisplaySettingsChange: (thinkingDisplay: DesktopState["settings"]["thinkingDisplay"]) => void;
+  onThinkingLevelChange: (thinkingLevel: ThinkingLevel) => void;
   onFeatureFlagSettingsChange: (featureFlags: DesktopState["settings"]["featureFlags"]) => void;
   onMemorySettingsChange: (memory: DesktopState["settings"]["memory"]) => void;
   onActiveThreadMemoryEnabledChange: (enabled: boolean) => void;
@@ -818,6 +1098,7 @@ export function RightPanelModelModeSettingsSection({
   cancelAgentMemoryClearFromSettings,
   confirmAgentMemoryClearFromSettings,
   onThinkingDisplaySettingsChange,
+  onThinkingLevelChange,
   onFeatureFlagSettingsChange,
   onMemorySettingsChange,
   onRefreshAgentMemoryDiagnostics,
@@ -826,6 +1107,8 @@ export function RightPanelModelModeSettingsSection({
   onPlannerSettingsChange,
 }: RightPanelModelModeSettingsSectionProps) {
   const contextUsage = contextUsagePresentation(state.contextUsage, state.settings.compaction);
+  const namedSecrets = namedSecretsForState(state);
+  const modelReasoning = modelReasoningControlModel(state.settings.model, state.settings.thinkingLevel);
   async function changeAgentMemoryMode(mode: AgentMemoryMode) {
     if (mode === state.settings.memory.mode && mode !== "disabled") {
       await repairAgentMemoryStarterFromSettings();
@@ -874,6 +1157,15 @@ export function RightPanelModelModeSettingsSection({
           />
         </SettingsRow>
       )}
+      {settingsRowVisible("model-mode", "model-mode.named-secrets") && (
+        <SettingsRow
+          label="Named secrets"
+          value={`${namedSecrets.length.toLocaleString()} configured`}
+          description="Store named credentials for brokered use without exposing values to chat or transcripts."
+        >
+          <NamedSecretVault state={state} />
+        </SettingsRow>
+      )}
       {settingsRowVisible("model-mode", "model-mode.mode") && (
         <SettingsRow
           label="Mode"
@@ -891,6 +1183,25 @@ export function RightPanelModelModeSettingsSection({
             value={state.settings.thinkingDisplay.mode}
             onChange={(mode) => onThinkingDisplaySettingsChange({ ...state.settings.thinkingDisplay, mode })}
           />
+        </SettingsRow>
+      )}
+      {modelReasoning.kind !== "hidden" && settingsRowVisible("model-mode", "model-mode.reasoning-mode") && (
+        <SettingsRow
+          label="Reasoning mode"
+          value={modelReasoning.label}
+          description={modelReasoning.settingsDescription}
+        >
+          {modelReasoning.kind === "selectable" ? (
+            <SegmentedModelReasoning model={modelReasoning} onChange={onThinkingLevelChange} />
+          ) : (
+            <div className="voice-provider-diagnostics info">
+              <div className="voice-provider-diagnostics-header">
+                <strong>{modelReasoning.label}</strong>
+                <span>{ambientModelLabel(state.settings.model)}</span>
+              </div>
+              <small>{modelReasoning.tooltip}</small>
+            </div>
+          )}
         </SettingsRow>
       )}
       {settingsRowVisible("model-mode", "model-mode.run-status-card") && (

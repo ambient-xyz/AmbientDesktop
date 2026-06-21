@@ -30,6 +30,10 @@ export function clearRegisteredSecretRedactionsForTests(): void {
   registeredSecretCounts.clear();
 }
 
+export function registeredSecretRedactionMaxLength(): number {
+  return registeredSecretValues().reduce((maxLength, secret) => Math.max(maxLength, secret.length), 0);
+}
+
 export function redactSensitiveText(value: string): string {
   return redactSensitiveTextWithMetadata(value).text;
 }
@@ -61,9 +65,10 @@ export function redactSensitiveTextWithMetadata(value: string): SensitiveTextRed
   ({ text, replacementCount } = replaceAndCount(
     text,
     replacementCount,
-    /\b(?:(?:sk|ak|pk|rk|zai|glm)-|ambient-(?!cli-)(?![a-z0-9-]+-v\d+\b))[A-Za-z0-9._-]{12,}\b/gi,
+    /\b(?:sk|ak|pk|rk|zai|glm)-[A-Za-z0-9._-]{12,}(?![A-Za-z0-9._-])/gi,
     REDACTED_SECRET,
   ));
+  ({ text, replacementCount } = replaceAmbientTokens(text, replacementCount));
   ({ text, replacementCount } = replaceAndCount(
     text,
     replacementCount,
@@ -115,6 +120,41 @@ function replaceAndCount(
   const matches = text.match(pattern);
   if (!matches?.length) return { text, replacementCount };
   return { text: text.replace(pattern, replacement), replacementCount: replacementCount + matches.length };
+}
+
+function replaceAmbientTokens(text: string, replacementCount: number): { text: string; replacementCount: number } {
+  let replacements = 0;
+  const next = text.replace(
+    /\bambient-(?!cli-)(?![a-z0-9-]+-v\d+\b)[A-Za-z0-9._-]{12,}(?![A-Za-z0-9._-])/gi,
+    (match, offset: number, input: string) => {
+      if (isGeneratedAmbientPathSegment(match, offset, input)) return match;
+      replacements += 1;
+      return REDACTED_SECRET;
+    },
+  );
+  return { text: next, replacementCount: replacementCount + replacements };
+}
+
+function isGeneratedAmbientPathSegment(match: string, offset: number, input: string): boolean {
+  const lower = match.toLowerCase();
+  const generated =
+    lower.startsWith("ambient-chat-export-") ||
+    lower.startsWith("ambient-fix-installs-redactions-") ||
+    lower.startsWith("ambient-provider-setup.") ||
+    lower.startsWith("ambient-provider-setup-") ||
+    lower.startsWith("ambient-provider-setup_");
+  if (!generated) return false;
+  const previous = offset > 0 ? input[offset - 1] : "";
+  const next = input[offset + match.length] ?? "";
+  if (!(previous === "/" || previous === "\\" || next === "/" || next === "\\")) return false;
+  return !isInsideUriToken(input, offset);
+}
+
+function isInsideUriToken(input: string, offset: number): boolean {
+  const whitespace = input.slice(0, offset).search(/\s[^\s]*$/);
+  const tokenPrefix = whitespace >= 0 ? input.slice(whitespace + 1, offset) : input.slice(0, offset);
+  const normalizedPrefix = tokenPrefix.replace(/^[([{'"`]+/, "");
+  return /^[A-Za-z][A-Za-z0-9+.-]*:\/\/\S*$/.test(normalizedPrefix);
 }
 
 function textOccurrences(text: string, needle: string): number {

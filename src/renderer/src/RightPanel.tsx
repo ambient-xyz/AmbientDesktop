@@ -6,7 +6,7 @@ import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
 import type { LocalDeepResearchInstallProgress, LocalDeepResearchRunHistoryResult, LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult, MiniCpmVisionDiagnosticItem, MiniCpmVisionSetupAction, MiniCpmVisionSetupResult, SttProviderCandidate, SttProviderSetupResult, SttTestAudioResult, VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
 import type { AmbientPermissionGrant, PermissionAuditEntry } from "../../shared/permissionTypes";
 import type { AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpDefaultCapabilityInstallProgress, ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
-import type { InstallModelProviderEndpointInput, InstallModelProviderEndpointResult, SaveModelProviderCredentialInput } from "../../shared/threadTypes";
+import type { InstallModelProviderEndpointInput, InstallModelProviderEndpointResult, SaveModelProviderCredentialInput, ThinkingLevel } from "../../shared/threadTypes";
 import type { GitReviewSummary, WorkspaceContextReference } from "../../shared/workspaceTypes";
 import {
   type LocalDeepResearchDiagnosticItem,
@@ -293,6 +293,7 @@ export function RightPanel({
   onThemePreferenceChange,
   onMediaPlaybackSettingsChange,
   onThinkingDisplaySettingsChange,
+  onThinkingLevelChange,
   onModelRuntimeSettingsChange,
   onSaveModelProviderCredential,
   onInstallModelProviderEndpoint,
@@ -406,6 +407,7 @@ export function RightPanel({
   onThemePreferenceChange: (themePreference: ThemePreference) => Promise<void>;
   onMediaPlaybackSettingsChange: (media: DesktopState["settings"]["media"]) => void;
   onThinkingDisplaySettingsChange: (thinkingDisplay: DesktopState["settings"]["thinkingDisplay"]) => void;
+  onThinkingLevelChange: (thinkingLevel: ThinkingLevel) => void;
   onModelRuntimeSettingsChange: (modelRuntime: DesktopState["settings"]["modelRuntime"]) => void;
   onSaveModelProviderCredential: (input: SaveModelProviderCredentialInput) => Promise<ModelProviderCredentialSaveResult>;
   onInstallModelProviderEndpoint: (input: InstallModelProviderEndpointInput) => Promise<InstallModelProviderEndpointResult>;
@@ -875,6 +877,7 @@ export function RightPanel({
         onThemePreferenceChange={onThemePreferenceChange}
         onMediaPlaybackSettingsChange={onMediaPlaybackSettingsChange}
         onThinkingDisplaySettingsChange={onThinkingDisplaySettingsChange}
+        onThinkingLevelChange={onThinkingLevelChange}
         onModelRuntimeSettingsChange={onModelRuntimeSettingsChange}
         onFeatureFlagSettingsChange={onFeatureFlagSettingsChange}
         onMemorySettingsChange={onMemorySettingsChange}

@@ -96,7 +96,7 @@ describe("container runtime probe service", () => {
           "docker",
           ["info", "--format", "{{json .ServerVersion}}"],
           "\"\"\n",
-          "Cannot connect to the Docker daemon at unix:///path/to/user/.docker/run/docker.sock. Is the docker daemon running?\n",
+          "Cannot connect to the Docker daemon at unix://<local-user>/.docker/run/docker.sock. Is the docker daemon running?\n",
           0,
         ),
         "podman --version": missingCommand("podman", ["--version"]),

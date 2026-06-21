@@ -32,7 +32,7 @@ describe("Google Workspace live dogfood resolver", () => {
     await writeExecutable(ambientBinary);
     await writeGwsAccount(ambientConfigRoot, "travis@example.test");
 
-    const snapshotRoot = join(homeDir, ".ambient-example", "snapshots", "google-workspace-cli", "primary-mac-gws-validated-test");
+    const snapshotRoot = join(homeDir, ".ambient-hardening", "snapshots", "google-workspace-cli", "primary-mac-gws-validated-test");
     const snapshotBinaryRelativePath = `userData/tools/google-workspace-cli/v0.22.3/${platformArch}/gws`;
     const snapshotBinary = join(snapshotRoot, snapshotBinaryRelativePath);
     const snapshotConfigRoot = join(snapshotRoot, "userData", "google-workspace-cli");

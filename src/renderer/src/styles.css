@@ -13223,6 +13223,8 @@ button.inline-media-preview {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .inline-artifact-link code {
@@ -13250,6 +13252,8 @@ button.inline-media-preview {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .inline-url-link:hover {
@@ -13335,7 +13339,7 @@ button.inline-media-preview {
   background: transparent;
 }
 
-.rich-code span,
+.rich-code-header,
 .code-preview > span {
   display: block;
   border-bottom: 1px solid var(--line);
@@ -13343,6 +13347,50 @@ button.inline-media-preview {
   background: var(--surface-muted);
   padding: 5px 8px;
   font-size: 11px;
+}
+
+.rich-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.rich-code-language {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rich-code-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.rich-code-copy-button,
+.rich-code-open-button {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  cursor: pointer;
+}
+
+.rich-code-copy-button:hover,
+.rich-code-open-button:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
 }
 
 .rich-code code,
@@ -14137,6 +14185,8 @@ button.inline-media-preview {
 }
 
 .composer-settings-controls > .permission-toggle,
+.composer-settings-controls > .model-reasoning-control,
+.composer-settings-controls > .model-reasoning-fixed-control,
 .composer-tool-actions > .context-usage,
 .composer-settings-controls > select {
   max-width: 100%;
@@ -14173,6 +14223,8 @@ button.inline-media-preview {
 .composer .goal-mode-toggle svg,
 .composer .project-board-plan-control svg,
 .composer .thinking-display-control > svg,
+.composer .model-reasoning-control > svg,
+.composer .model-reasoning-fixed-control > svg,
 .composer .model-picker-button > svg {
   display: block;
   flex: 0 0 auto;
@@ -14386,15 +14438,15 @@ button.inline-media-preview {
 }
 
 .composer-controls .icon-button.subtle.symphony-composer-button.active {
-  color: #276b4c;
-  border-color: rgba(49, 126, 88, 0.36);
-  background: #effaf4;
-  box-shadow: inset 0 0 0 1px rgba(49, 126, 88, 0.16);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 36%, var(--line));
+  background: color-mix(in srgb, var(--surface-success) 72%, var(--surface-elevated));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 16%, transparent);
 }
 
 .composer-controls .icon-button.subtle.symphony-composer-button.active:hover:not(:disabled) {
-  color: #1f5a3f;
-  background: #e2f6eb;
+  color: var(--success);
+  background: color-mix(in srgb, var(--surface-success) 86%, var(--surface-elevated));
 }
 
 .symphony-builder-panel {
@@ -14416,7 +14468,7 @@ button.inline-media-preview {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #276b4c;
+  color: var(--success);
   font-size: 12px;
   font-weight: 700;
 }
@@ -14574,17 +14626,68 @@ button.inline-media-preview {
 }
 
 .symphony-pattern-svg {
+  --symphony-diagram-frame: var(--surface-subtle);
+  --symphony-diagram-frame-stroke: var(--line-strong);
+  --symphony-diagram-start: var(--success);
+  --symphony-diagram-step: color-mix(in srgb, var(--info) 12%, var(--surface-elevated));
+  --symphony-diagram-step-stroke: color-mix(in srgb, var(--info) 28%, var(--line));
+  --symphony-diagram-output: color-mix(in srgb, var(--warning) 18%, var(--surface-elevated));
+  --symphony-diagram-output-stroke: color-mix(in srgb, var(--warning) 36%, var(--line));
+  --symphony-diagram-connector: var(--text-muted);
+  --symphony-diagram-label: var(--text-primary);
+  display: block;
   height: 56px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: #ffffff;
+  background: var(--symphony-diagram-frame);
 }
 
 .symphony-pattern-svg svg {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.symphony-pattern-svg .symphony-diagram-frame {
+  fill: var(--symphony-diagram-frame);
+  stroke: var(--symphony-diagram-frame-stroke);
+}
+
+.symphony-pattern-svg .symphony-diagram-start {
+  fill: var(--symphony-diagram-start);
+}
+
+.symphony-pattern-svg .symphony-diagram-step {
+  fill: var(--symphony-diagram-step);
+  stroke: var(--symphony-diagram-step-stroke);
+}
+
+.symphony-pattern-svg .symphony-diagram-output {
+  fill: var(--symphony-diagram-output);
+  stroke: var(--symphony-diagram-output-stroke);
+}
+
+.symphony-pattern-svg .symphony-diagram-connector {
+  fill: none;
+  stroke: var(--symphony-diagram-connector);
+  stroke-width: 3;
+}
+
+.symphony-pattern-svg .symphony-diagram-label {
+  fill: var(--symphony-diagram-label);
+}
+
+:root[data-theme="dark"] .symphony-pattern-svg {
+  --symphony-diagram-frame: var(--surface-subtle);
+  --symphony-diagram-frame-stroke: var(--line-strong);
+  --symphony-diagram-start: color-mix(in srgb, var(--success) 82%, var(--surface-elevated));
+  --symphony-diagram-step: color-mix(in srgb, var(--info) 22%, var(--surface-elevated));
+  --symphony-diagram-step-stroke: color-mix(in srgb, var(--info) 52%, var(--line));
+  --symphony-diagram-output: color-mix(in srgb, var(--warning) 24%, var(--surface-elevated));
+  --symphony-diagram-output-stroke: color-mix(in srgb, var(--warning) 52%, var(--line));
+  --symphony-diagram-connector: var(--text-muted);
+  --symphony-diagram-label: var(--text-primary);
 }
 
 .symphony-pattern-title {
@@ -14594,7 +14697,7 @@ button.inline-media-preview {
 .symphony-pattern-preflight {
   display: grid;
   gap: 4px;
-  border-top: 1px solid rgba(49, 126, 88, 0.18);
+  border-top: 1px solid color-mix(in srgb, var(--success) 18%, transparent);
   padding-top: 6px;
 }
 
@@ -14746,18 +14849,18 @@ button.inline-media-preview {
 }
 
 .symphony-risk-pill.high {
-  color: #8a3b16;
-  background: #fff2db;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--surface-warning) 78%, var(--surface-elevated));
 }
 
 .symphony-risk-pill.medium {
-  color: #6d4a13;
-  background: #fff7d8;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--surface-warning) 68%, var(--surface-elevated));
 }
 
 .symphony-risk-pill.low {
-  color: #276b4c;
-  background: #e6f7ee;
+  color: var(--success);
+  background: color-mix(in srgb, var(--surface-success) 76%, var(--surface-elevated));
 }
 
 .symphony-launch-facts,
@@ -14789,7 +14892,7 @@ button.inline-media-preview {
 }
 
 .symphony-launch-warnings {
-  color: #7a3415;
+  color: var(--warning);
   font-size: 12px;
 }
 
@@ -14800,8 +14903,8 @@ button.inline-media-preview {
 }
 
 .symphony-confirmation-state.ready {
-  color: #276b4c;
-  background: #e6f7ee;
+  color: var(--success);
+  background: color-mix(in srgb, var(--surface-success) 76%, var(--surface-elevated));
 }
 
 .symphony-confirmation-state.disabled {
@@ -15024,7 +15127,9 @@ button.inline-media-preview {
   max-width: 120px;
 }
 
-.thinking-display-control {
+.thinking-display-control,
+.model-reasoning-control,
+.model-reasoning-fixed-control {
   position: relative;
   height: 30px;
   flex: 0 0 auto;
@@ -15038,11 +15143,21 @@ button.inline-media-preview {
   padding-left: 8px;
 }
 
-.thinking-display-control select {
+.thinking-display-control select,
+.model-reasoning-control select {
   max-width: 136px;
   border: 0;
   background: transparent;
   padding-left: 0;
+}
+
+.model-reasoning-fixed-control span {
+  min-width: 0;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
 }
 
 .model-picker {
@@ -15375,13 +15490,20 @@ button.inline-media-preview {
     max-width: 104px;
   }
 
-  .composer .thinking-display-control {
+  .composer .thinking-display-control,
+  .composer .model-reasoning-control,
+  .composer .model-reasoning-fixed-control {
     width: var(--composer-compact-control-size);
     justify-content: center;
     padding: 0;
   }
 
-  .composer .thinking-display-control select {
+  .composer .model-reasoning-fixed-control span {
+    display: none;
+  }
+
+  .composer .thinking-display-control select,
+  .composer .model-reasoning-control select {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -15420,13 +15542,20 @@ button.inline-media-preview {
     max-width: 104px;
   }
 
-  .composer-settings-controls .thinking-display-control {
+  .composer-settings-controls .thinking-display-control,
+  .composer-settings-controls .model-reasoning-control,
+  .composer-settings-controls .model-reasoning-fixed-control {
     width: var(--composer-compact-control-size);
     justify-content: center;
     padding: 0;
   }
 
-  .composer-settings-controls .thinking-display-control select {
+  .composer-settings-controls .model-reasoning-fixed-control span {
+    display: none;
+  }
+
+  .composer-settings-controls .thinking-display-control select,
+  .composer-settings-controls .model-reasoning-control select {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -17288,6 +17417,47 @@ button.inline-media-preview {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.35;
+}
+
+.named-secret-form {
+  display: grid;
+  gap: 8px;
+}
+
+.named-secret-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.named-secret-list {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.named-secret-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-elevated);
+}
+
+.named-secret-list li > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.named-secret-list strong,
+.named-secret-list small {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .subagent-replay-evidence-group {

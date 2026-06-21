@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  AMBIENT_DEFAULT_MODEL,
-  AMBIENT_GLM_5_1_FP8_MODEL,
-  AMBIENT_GLM_5_2_FP8_MODEL,
-} from "../../shared/ambientModels";
+import { AMBIENT_DEFAULT_MODEL, AMBIENT_GLM_5_1_FP8_MODEL, AMBIENT_GLM_5_2_FP8_MODEL } from "../../shared/ambientModels";
 import { ambientModel, createAmbientProviderExtension } from "./ambientProviderModel";
 
 describe("ambientProviderModel", () => {
@@ -16,10 +12,17 @@ describe("ambientProviderModel", () => {
       baseUrl: "https://ambient.example/v1",
       compat: {
         supportsDeveloperRole: false,
-        thinkingFormat: "zai",
+        supportsReasoningEffort: true,
         zaiToolStream: true,
       },
       reasoning: true,
+      thinkingLevelMap: {
+        minimal: "high",
+        low: "high",
+        medium: "high",
+        high: "max",
+        xhigh: "max",
+      },
       input: ["text"],
       cost: {
         input: 0,
@@ -30,6 +33,39 @@ describe("ambientProviderModel", () => {
       contextWindow: 202752,
       maxTokens: 202752,
     });
+    expect(ambientModel("glm-5.1", "https://ambient.example/v1").compat).not.toHaveProperty("thinkingFormat");
+  });
+
+  it("omits ZAI request controls from the Kimi descriptor while keeping hidden reasoning enabled", () => {
+    expect(ambientModel(AMBIENT_DEFAULT_MODEL, "https://ambient.example/v1")).toMatchObject({
+      id: AMBIENT_DEFAULT_MODEL,
+      name: "Kimi K2.7 Code",
+      compat: {
+        supportsDeveloperRole: false,
+        supportsReasoningEffort: false,
+        zaiToolStream: true,
+      },
+      reasoning: true,
+      input: ["text", "image"],
+    });
+    expect(ambientModel(AMBIENT_DEFAULT_MODEL, "https://ambient.example/v1").compat).not.toHaveProperty("thinkingFormat");
+    expect(ambientModel(AMBIENT_DEFAULT_MODEL, "https://ambient.example/v1")).not.toHaveProperty("thinkingLevelMap");
+  });
+
+  it("preserves reasoning compatibility defaults for unregistered Ambient-compatible models", () => {
+    const model = ambientModel("custom/model", "https://ambient.example/v1");
+
+    expect(model).toMatchObject({
+      id: "custom/model",
+      compat: {
+        supportsDeveloperRole: false,
+        zaiToolStream: true,
+      },
+      reasoning: true,
+    });
+    expect(model.compat).not.toHaveProperty("supportsReasoningEffort");
+    expect(model.compat).not.toHaveProperty("thinkingFormat");
+    expect(model).not.toHaveProperty("thinkingLevelMap");
   });
 
   it("advertises image input only for vision-capable Ambient models", () => {

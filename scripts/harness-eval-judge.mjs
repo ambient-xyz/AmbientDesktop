@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { redactArtifactText } from "./harness-eval.mjs";
 
-const DEFAULT_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_MODEL = "<model>";
 const DEFAULT_BASE_URL = "https://api.ambient.xyz/v1";
 const MAX_TEXT_PREVIEW_CHARS = 4000;
 const MAX_CONCERNS = 8;
@@ -604,7 +604,7 @@ function readAmbientApiKey(env) {
     env.AMBIENT_API_KEY_FILE,
     env.AMBIENT_AGENT_AMBIENT_API_KEY_FILE,
     join(process.cwd(), "ambient_api_key.txt"),
-    join(process.cwd(), "..", "AmbientDesktop", "ambient_api_key.txt"),
+    join(process.cwd(), "..", "ambientCoder", "ambient_api_key.txt"),
   ].filter(Boolean);
   for (const file of fileCandidates) {
     try {

@@ -109,9 +109,12 @@ export interface WorkflowConnectorTokenVault {
 }
 
 export interface WorkflowConnectorSafeStorage {
-  isEncryptionAvailable(): boolean;
+  isEncryptionAvailable?(): boolean;
+  assertReady?(): unknown;
   encryptString(value: string): Buffer;
   decryptString(value: Buffer): string;
+  encryptStringAsync?(value: string): Promise<Buffer>;
+  decryptStringAsync?(value: Buffer): Promise<string>;
 }
 
 export class MemoryWorkflowConnectorTokenVault implements WorkflowConnectorTokenVault {
@@ -144,7 +147,8 @@ export class SafeStorageWorkflowConnectorTokenVault implements WorkflowConnector
   async save(ref: string, token: WorkflowConnectorTokenSet): Promise<void> {
     this.assertEncryptionAvailable();
     const records = await this.readEncryptedRecords();
-    records[ref] = this.safeStorage.encryptString(JSON.stringify(token)).toString("base64");
+    const encrypted = await (this.safeStorage.encryptStringAsync?.(JSON.stringify(token)) ?? this.safeStorage.encryptString(JSON.stringify(token)));
+    records[ref] = encrypted.toString("base64");
     await this.writeEncryptedRecords(records);
   }
 
@@ -153,7 +157,8 @@ export class SafeStorageWorkflowConnectorTokenVault implements WorkflowConnector
     const records = await this.readEncryptedRecords();
     const encrypted = records[ref];
     if (!encrypted) return undefined;
-    return JSON.parse(this.safeStorage.decryptString(Buffer.from(encrypted, "base64"))) as WorkflowConnectorTokenSet;
+    const decrypted = await (this.safeStorage.decryptStringAsync?.(Buffer.from(encrypted, "base64")) ?? this.safeStorage.decryptString(Buffer.from(encrypted, "base64")));
+    return JSON.parse(decrypted) as WorkflowConnectorTokenSet;
   }
 
   async delete(ref: string): Promise<void> {
@@ -163,7 +168,11 @@ export class SafeStorageWorkflowConnectorTokenVault implements WorkflowConnector
   }
 
   private assertEncryptionAvailable(): void {
-    if (!this.safeStorage.isEncryptionAvailable()) {
+    if (this.safeStorage.assertReady) {
+      this.safeStorage.assertReady();
+      return;
+    }
+    if (!this.safeStorage.isEncryptionAvailable?.()) {
       throw new Error("Workflow connector token storage encryption is unavailable.");
     }
   }

@@ -3913,7 +3913,7 @@ describe("compileWorkflowProgramIr", () => {
               id: "bind-secret",
               kind: "mutation.stage",
               tool: "ambient_cli_env_bind",
-              args: { packageName: "pi-arxiv", envName: "ARXIV_API_KEY", filePath: "/path/to/user/.secrets/arxiv.txt" },
+              args: { packageName: "pi-arxiv", envName: "ARXIV_API_KEY", filePath: "<local-user>/.secrets/arxiv.txt" },
             },
           ],
         },

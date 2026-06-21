@@ -1,10 +1,26 @@
 import type { Model } from "@mariozechner/pi-ai";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
-import { ambientModelLabel, normalizeAmbientModelId, resolveAmbientModelRuntimeProfile } from "../../shared/ambientModels";
+import {
+  ambientModelLabel,
+  normalizeAmbientModelId,
+  resolveAmbientModelReasoningCapability,
+  resolveAmbientModelRuntimeProfile,
+} from "../../shared/ambientModels";
 
 export function ambientModel(modelId: string, baseUrl: string): Model<"openai-completions"> {
   const normalizedModelId = normalizeAmbientModelId(modelId);
   const profile = resolveAmbientModelRuntimeProfile(normalizedModelId);
+  const reasoningCapability = resolveAmbientModelReasoningCapability(normalizedModelId);
+  const thinkingLevelMap =
+    reasoningCapability.payloadStrategy === "zai-reasoning-effort" && reasoningCapability.effortByThinkingLevel
+      ? { ...reasoningCapability.effortByThinkingLevel }
+      : undefined;
+  const reasoningCompat =
+    reasoningCapability.payloadStrategy === "zai-reasoning-effort"
+      ? { supportsReasoningEffort: true }
+      : reasoningCapability.payloadStrategy === "omit-reasoning-controls"
+        ? { supportsReasoningEffort: false }
+        : {};
   return {
     id: normalizedModelId,
     name: ambientModelLabel(normalizedModelId),
@@ -13,10 +29,11 @@ export function ambientModel(modelId: string, baseUrl: string): Model<"openai-co
     baseUrl,
     compat: {
       supportsDeveloperRole: false,
-      thinkingFormat: "zai",
       zaiToolStream: true,
+      ...reasoningCompat,
     },
     reasoning: true,
+    ...(thinkingLevelMap ? { thinkingLevelMap } : {}),
     input: profile.supportsVision ? ["text", "image"] : ["text"],
     cost: {
       input: 0,

@@ -76,7 +76,7 @@ describe("registerSignalBridgeReplyTools", () => {
     const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
     const approvalRequests: unknown[] = [];
     const thread = { id: "thread-1", title: "Thread 1" } as any;
-    const workspace = { name: "AmbientDesktop", path: "/workspace", statePath: "/workspace/.ambient" } as any;
+    const workspace = { name: "ambientCoder", path: "/workspace", statePath: "/workspace/.ambient" } as any;
 
     await gatewayRunner.refreshProviderReadiness("signal-cli");
 

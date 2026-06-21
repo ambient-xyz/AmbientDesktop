@@ -7,7 +7,6 @@ import {
   nativeTheme,
   protocol,
   screen,
-  safeStorage,
   shell,
 } from "electron";
 import electronUpdater from "electron-updater";
@@ -98,6 +97,8 @@ import { createDesktopStateSnapshotService } from "./desktop-shell/desktopStateS
 import { LocalPreviewServerManager } from "./browser/localPreviewServer";
 import { redactSensitiveText } from "./security/secretRedaction";
 import { readSecretReference } from "./security/secretReferenceStore";
+import { defaultNamedSecretStoreFilePath, NamedSecretStore } from "./security/namedSecretStore";
+import { currentSecureStorageStatus, electronSecureSecretStore, secureStorageRepairGuidance } from "./security/secureSecretStore";
 import { selectStartupWorkspacePath } from "./workspace/workspaceDefaults";
 import { shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate } from "../shared/agentMemorySettings";
 import type { DesktopEvent, DesktopState, ThinkingDisplaySettings } from "../shared/desktopTypes";
@@ -515,7 +516,7 @@ const projectRuntimeHostFactory = createProjectRuntimeHostFactory({
   onBrowserServiceStateChanged: (hostBrowser: BrowserService) => {
     if (activeHost?.browserService === hostBrowser) emitBrowserState();
   },
-  createBrowserCredentialStore: (hostStore: ProjectStore) => new BrowserCredentialStore(() => hostStore.getWorkspace(), safeStorage),
+  createBrowserCredentialStore: (hostStore: ProjectStore) => new BrowserCredentialStore(() => hostStore.getWorkspace(), electronSecureSecretStore({ appAvailable: true })),
   createTerminalService: (workspacePath: string) => new TerminalService(() => mainWindow, workspacePath),
   initialActiveThreadIdForStore: (hostStore: ProjectStore) => initialActiveThreadIdForStore(hostStore),
   createRuntime: ({ store: hostStore, browserService: hostBrowser, browserCredentialStore: hostBrowserCredentials, activeThreadId }) =>
@@ -786,6 +787,9 @@ const desktopStateSnapshotService = createDesktopStateSnapshotService<ProjectSto
   }),
   currentModelRuntimeCatalog: (generatedAt, targetStore) => currentModelRuntimeCatalog(generatedAt, targetStore),
   providerStatus: (model) => getAmbientProviderStatus(model),
+  secureStorageStatus: () => currentSecureStorageStatus({ appAvailable: true }),
+  secureStorageRepair: () => secureStorageRepairGuidance(currentSecureStorageStatus({ appAvailable: true })),
+  namedSecrets: () => namedSecretStore?.list() ?? [],
   queueState: (threadId) => emptyQueueState(threadId),
   sttQueueState: (workspacePath) => currentSttQueueState(workspacePath),
   sttDiagnostics: (workspacePath) => listSttDiagnostics(workspacePath),
@@ -1456,6 +1460,7 @@ let store: ProjectStore;
 let internalBrowserHost: InternalBrowserHost;
 let browserService: BrowserService;
 let browserCredentialStore: BrowserCredentialStore;
+let namedSecretStore: NamedSecretStore;
 let runtime: AgentRuntime;
 let terminals: TerminalService;
 const projectRuntimeActiveThreadService = createProjectRuntimeActiveThreadService<ProjectStore, ProjectRuntimeHost>({
@@ -1659,6 +1664,41 @@ function isActiveProjectRuntimeHost(host: ProjectRuntimeHost): boolean {
   return projectRuntimeHostActivationService.activeProjectRuntimeHost() === host;
 }
 
+function refreshSecureStorageStatus() {
+  const status = currentSecureStorageStatus({ appAvailable: true });
+  const result = { status, guidance: secureStorageRepairGuidance(status) };
+  emitDesktopState();
+  return result;
+}
+
+async function saveNamedSecret(input: Parameters<NamedSecretStore["save"]>[0]) {
+  const result = await namedSecretStore.save(input);
+  emitDesktopState();
+  return result;
+}
+
+async function updateNamedSecret(input: Parameters<NamedSecretStore["update"]>[0]) {
+  const result = await namedSecretStore.update(input);
+  emitDesktopState();
+  return result;
+}
+
+async function deleteNamedSecret(input: Parameters<NamedSecretStore["delete"]>[0]) {
+  const result = await namedSecretStore.delete(input);
+  emitDesktopState();
+  return result;
+}
+
+async function brokerNamedSecretToLocalFixture(input: Parameters<NamedSecretStore["brokerToLocalFixture"]>[0]) {
+  const result = await namedSecretStore.brokerToLocalFixture(input);
+  emitDesktopState();
+  return result;
+}
+
+function exportNamedSecretMetadata() {
+  return namedSecretStore.exportMetadata();
+}
+
 function registerIpc(): void {
   registerMainIpc({
     ...mainIpcStaticDependencies,
@@ -1717,6 +1757,7 @@ function registerIpc(): void {
     describeWorkspaceContextReferences,
     desktopUpdateService,
     dialog,
+    deleteNamedSecret,
     disablePiPrivilegedPackage,
     discardGitFile,
     discoverAmbientCliPackages,
@@ -1834,6 +1875,7 @@ function registerIpc(): void {
     recordWorkflowRevisionDecisionInChat,
     redactGoogleWorkspaceSetupState,
     refreshGoogleWorkspaceConnectorMode,
+    refreshSecureStorageStatus,
     refreshVoiceProviderCatalog,
     regenerateMessageVoice,
     rememberActiveWorkflowRun: activeWorkflowRunRegistry.rememberActiveWorkflowRun,
@@ -1877,7 +1919,9 @@ function registerIpc(): void {
     runLocalModelRuntimeLifecycleAction,
     runWorkflowArtifact,
     runWorkflowThreadExploration,
+    brokerNamedSecretToLocalFixture,
     saveModelProviderCredential,
+    saveNamedSecret,
     saveSttTestAudio,
     searchRoutingSettings,
     searchWorkflowDiscoveryCapabilities,
@@ -1909,6 +1953,7 @@ function registerIpc(): void {
     updateLocalDeepResearchSettings,
     updateMediaPlaybackSettings,
     updateModelRuntimeSettings,
+    updateNamedSecret,
     updatePlannerSettings,
     updateProjectBoardWorkflowRaw,
     updateProjectBoardWorkflowSettings,
@@ -1918,6 +1963,7 @@ function registerIpc(): void {
     updateVoiceSettings,
     updateWorkflowArtifactSource,
     updateWorkflowConnectorGrant,
+    exportNamedSecretMetadata,
     withBrowserState,
     workflowAgentControlThread,
     workflowAgentIpcContextForDiscoveryQuestion,
@@ -1948,6 +1994,11 @@ export async function startAmbientDesktopApp(): Promise<void> {
 
 async function startApp(): Promise<void> {
   const userDataPath = app.getPath("userData");
+  namedSecretStore = new NamedSecretStore({
+    filePath: defaultNamedSecretStoreFilePath(userDataPath),
+    currentWorkspacePath: () => activeWorkspacePath(),
+    globalWorkspacePath: join(userDataPath, "named-secrets", "global-scope"),
+  });
   const migration = migrateAmbientUserData({
     currentUserDataPath: userDataPath,
     legacyUserDataPaths: ambientLegacyUserDataPaths(userDataPath),
@@ -1996,7 +2047,7 @@ async function startApp(): Promise<void> {
   });
   pluginAuthService = new PluginAuthService({
     providers: googleOAuthProviders,
-    tokenVault: new SafeStorageWorkflowConnectorTokenVault(join(userDataPath, "plugin-auth", "tokens.json"), safeStorage),
+    tokenVault: new SafeStorageWorkflowConnectorTokenVault(join(userDataPath, "plugin-auth", "tokens.json"), electronSecureSecretStore({ appAvailable: true })),
   });
   if (googleWorkspaceDesktopIntegrationService.connectorMode() === "ambient_oauth") {
     googleSidecarSupervisor = new GoogleSidecarSupervisor({

@@ -238,6 +238,7 @@ import {
 } from "./agentRuntimeGoalRuntime";
 import { AgentRuntimeActiveRunHandoffController } from "./agentRuntimeActiveRunHandoffController";
 import { AgentRuntimeGoalContinuationController } from "./agentRuntimeGoalContinuationController";
+import { AgentRuntimeThreadWakeContinuationController } from "./agentRuntimeThreadWakeContinuationController";
 import { AgentRuntimePlannerFinalizationController } from "./agentRuntimePlannerFinalizationController";
 import {
   AgentRuntimeSendPreparationController,
@@ -296,6 +297,14 @@ import {
   createAgentRuntimePluginInstallToolExtension,
 } from "./agentRuntimePluginInstallToolExtension";
 import { createAgentRuntimeToolRunnerExtension } from "./tools/agentRuntimeToolRunnerTools";
+import {
+  AgentRuntimeAsyncBashJobService,
+  asyncBashJobTerminal,
+  asyncBashSnapshotDetails,
+  formatAsyncBashSnapshotForTool,
+  type AsyncBashJobSnapshot,
+} from "./tools/agentRuntimeAsyncBashJobs";
+import { runtimeToolResultMessageUpdate } from "./toolResultUpdates";
 import { AgentRuntimeInstallRouteGuard } from "./agentRuntimeInstallRouteGuard";
 import type { McpToolCallResult } from "./agentRuntimeMcpFacade";
 import {
@@ -623,6 +632,8 @@ import {
 } from "./agentRuntimeProjectBoardFacade";
 import { GlmTokenizerService, type GlmTokenizerStatus } from "./agentRuntimeTokenizationFacade";
 import { createContextAccountingExtension as createContextAccountingToolsExtension } from "./agentRuntimeContextAccountingExtension";
+import { createModelReasoningPayloadExtension as createModelReasoningPayloadToolsExtension } from "./agentRuntimeModelReasoningExtension";
+import { createModelStatusToolExtension as createModelStatusToolsExtension } from "./agentRuntimeModelStatusTools";
 import {
   recordTransientFileAuthorityForAllowedTool,
   recordTransientFileAuthorityFromPermissionRequest,
@@ -1127,7 +1138,10 @@ export class AgentRuntime {
   private readonly ambientWorkflowDescriptionState = new AmbientWorkflowDescriptionState();
   private readonly pendingProjectSwitchByThreadId = new Map<string, MessagingRemoteSurfaceCommandPendingProjectSwitch>();
   private readonly remoteSurfaceRuntimeEvents: AgentRuntimeRemoteSurfaceRuntimeEventStore;
+  private readonly asyncBashJobs: AgentRuntimeAsyncBashJobService;
+  private readonly asyncBashToolMessageIds = new Map<string, string>();
   private readonly goalContinuations: AgentRuntimeGoalContinuationController;
+  private readonly threadWakeContinuations: AgentRuntimeThreadWakeContinuationController;
   private readonly contextRecovery: AgentRuntimeContextRecoveryController;
   private readonly plannerFinalization: AgentRuntimePlannerFinalizationController;
   private readonly sendPreparation: AgentRuntimeSendPreparationController;
@@ -1177,11 +1191,29 @@ export class AgentRuntime {
         providers: createDefaultMessagingProviderRegistry(),
       }).list({ purpose: "remote_ambient_surface", includeInactive: true }).bindings,
     });
+    this.asyncBashJobs = new AgentRuntimeAsyncBashJobService({
+      onSnapshot: (snapshot) => this.upsertAsyncBashToolMessage(snapshot),
+    });
     this.goalContinuations = new AgentRuntimeGoalContinuationController({
       store: this.store,
       hasActiveRun: (threadId) => this.activeRuns.has(threadId),
       send: (input) => this.send(input as RuntimeSendMessageInput),
       emit: (event) => this.emit(event),
+    });
+    this.threadWakeContinuations = new AgentRuntimeThreadWakeContinuationController({
+      store: this.store,
+      hasActiveRun: (threadId) => this.activeRuns.has(threadId),
+      send: (input) => this.send(input as RuntimeSendMessageInput),
+      emit: (event) => this.emit(event),
+      asyncBashSnapshotText: (threadId, jobId) => {
+        try {
+          return formatAsyncBashSnapshotForTool(this.asyncBashJobs.snapshotForThread(threadId, jobId, {
+            maxBytes: 12_000,
+          }));
+        } catch {
+          return undefined;
+        }
+      },
     });
     this.contextRecovery = new AgentRuntimeContextRecoveryController({
       store: this.store,
@@ -2703,12 +2735,20 @@ export class AgentRuntime {
     });
     const interruptedToolCallRecoveryToolNames = recoveryToolNamesForSessionRecovery(recovery);
     const interruptedToolCallRecoveryToolsAvailable = interruptedToolCallRecoveryToolNames.length > 0;
+    let sessionForModelStatus: PiSession | undefined;
     const extensionFactories: ExtensionFactory[] = [
       createAmbientProviderExtension(model),
       createAmbientToolRouterResultStatusExtension(),
       createAmbientProductContextExtension(),
+      createModelStatusToolsExtension({
+        requestedModelId: () => this.store.getThread(thread.id)?.model ?? thread.model,
+        runningModel: () => sessionForModelStatus?.model ?? model,
+        providerStatus: () => getAmbientProviderStatus(sessionForModelStatus?.model?.id ?? this.store.getThread(thread.id)?.model ?? thread.model),
+        modelRuntimeCatalog: () => this.store.getModelRuntimeCatalog(),
+      }),
       this.createAmbientCompactionSummaryExtension(thread.id, workspace, model, apiKey),
       this.createProviderCallContextPreflightExtension(thread.id, workspace.path, model),
+      this.createModelReasoningPayloadExtension(thread.id, model),
       this.createContextAccountingExtension(thread.id, model),
       ...(tencentMemoryExtension ? [tencentMemoryExtension] : []),
       this.createGoalModeToolExtension(thread.id),
@@ -2927,6 +2967,7 @@ export class AgentRuntime {
       includeAllExtensionTools: false,
     });
     sessionForAmbientToolRouter = session;
+    sessionForModelStatus = session;
     session.agent.toolExecution = "sequential";
     await session.bindExtensions({});
     this.sessions.set({
@@ -5554,6 +5595,7 @@ export class AgentRuntime {
           createAmbientProviderExtension(model),
           createAmbientProductContextExtension(),
           this.createProviderCallContextPreflightExtension(thread.id, workspace.path, model),
+          this.createModelReasoningPayloadExtension(thread.id, model),
           this.createContextAccountingExtension(thread.id, model),
         ].map((factory) =>
           materializeToolResultExtensionFactory(factory, { workspacePath: workspace.path }),
@@ -5675,6 +5717,14 @@ export class AgentRuntime {
     } catch {
       return fallback;
     }
+  }
+
+  private createModelReasoningPayloadExtension(threadId: string, model: Model<"openai-completions">): ExtensionFactory {
+    return createModelReasoningPayloadToolsExtension({
+      modelId: model.id,
+      getThinkingLevel: () => this.store.getThread(threadId).thinkingLevel,
+      evidencePath: process.env.AMBIENT_MODEL_REASONING_EVIDENCE_PATH,
+    });
   }
 
   private createContextAccountingExtension(threadId: string, model: Model<"openai-completions">): ExtensionFactory {
@@ -5801,7 +5851,26 @@ export class AgentRuntime {
     options?: { interruptedToolCallRecoveryToolsAvailable?: boolean },
   ): ExtensionFactory {
     return createAgentRuntimeToolRunnerExtension({
+      threadId,
       workspace,
+      getRunId: () => this.activeRunIds.get(threadId),
+      asyncBashJobs: this.asyncBashJobs,
+      scheduleThreadWake: async (input) => {
+        const wake = this.threadWakeContinuations.schedule({
+          threadId: input.threadId,
+          dueAt: input.dueAt,
+          reason: input.reason,
+          jobId: input.jobId,
+          payload: input.payload,
+        });
+        return {
+          wakeId: wake.id,
+          threadId: wake.threadId,
+          dueAt: wake.dueAt,
+          reason: wake.reason,
+          jobId: wake.jobId,
+        };
+      },
       getThread: () => this.store.getThread(threadId),
       readOnlyAllowedPaths: () => this.store.getProjectBoardDependencyWorkspacePathsForExecutionThread(threadId),
       readAuthorityRootPaths: () => this.fileAuthorityRootPathsForThread(threadId, "read"),
@@ -5809,6 +5878,61 @@ export class AgentRuntime {
       includeWorkspaceRootAuthority: () => this.includeWorkspaceRootAuthorityForThread(threadId),
       requestFileAuthority: (request) => this.requestFileAuthorityForThread(threadId, workspace, request),
       interruptedToolCallRecoveryToolsAvailable: () => options?.interruptedToolCallRecoveryToolsAvailable ?? false,
+    });
+  }
+
+  private upsertAsyncBashToolMessage(snapshot: AsyncBashJobSnapshot): void {
+    let thread: ThreadSummary;
+    try {
+      thread = this.store.getThread(snapshot.threadId);
+    } catch {
+      return;
+    }
+    const existingMessageId = this.asyncBashToolMessageIds.get(snapshot.jobId);
+    const terminal = asyncBashJobTerminal(snapshot.status);
+    const errorTerminal = snapshot.status === "failed" ||
+      snapshot.status === "timed_out" ||
+      (snapshot.status === "exited" && snapshot.exitCode !== 0);
+    const messageStatus = terminal ? (errorTerminal ? "error" : "done") : "running";
+    const update = runtimeToolResultMessageUpdate({
+      toolCallId: `async-bash:${snapshot.jobId}`,
+      label: "bash_async",
+      inputContent: [
+        `job_id: ${snapshot.jobId}`,
+        `cwd: ${snapshot.cwd}`,
+        `cmd: ${snapshot.command}`,
+      ].join("\n"),
+      resultContent: formatAsyncBashSnapshotForTool(snapshot),
+      workspacePath: thread.workspacePath,
+      permissionMode: thread.permissionMode,
+      messageStatus,
+      statusLabel: snapshot.status,
+      eventStatus: messageStatus === "running" ? "running" : messageStatus === "done" ? "completed" : "error",
+      ...(existingMessageId ? { existingMessageId } : {}),
+      details: {
+        jobId: snapshot.jobId,
+        status: snapshot.status,
+        latestSeq: String(snapshot.latestSeq),
+      },
+      resultDetails: asyncBashSnapshotDetails(snapshot) as any,
+    });
+    const message = update.existingMessageId
+      ? this.store.replaceMessage(update.existingMessageId, update.content, update.metadata)
+      : this.store.addMessage({
+          threadId: snapshot.threadId,
+          role: "tool",
+          content: update.content,
+          metadata: update.metadata,
+        });
+    if (!existingMessageId) this.asyncBashToolMessageIds.set(snapshot.jobId, message.id);
+    this.emit({ type: update.existingMessageId ? "message-updated" : "message-created", message });
+    this.emit({
+      type: "tool-event",
+      threadId: snapshot.threadId,
+      label: update.toolEventLabel,
+      status: messageStatus === "running" ? "running" : messageStatus === "done" ? "done" : "error",
+      artifactPath: update.artifactPath,
+      details: update.toolEventDetails,
     });
   }
 

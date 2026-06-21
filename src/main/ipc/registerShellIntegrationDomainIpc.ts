@@ -2,11 +2,14 @@ import type { IpcMain } from "electron";
 
 import {
   ambientApiKeyIpcChannels,
+  ambientSecureStorageIpcChannels,
   ambientOpenKeysIpcChannels,
   registerAmbientApiKeyIpc,
   registerAmbientOpenKeysIpc,
+  registerAmbientSecureStorageIpc,
   type RegisterAmbientApiKeyIpcDependencies,
   type RegisterAmbientOpenKeysIpcDependencies,
+  type RegisterAmbientSecureStorageIpcDependencies,
 } from "./registerAmbientIpc";
 import {
   clipboardIpcChannels,
@@ -26,6 +29,7 @@ export const shellIntegrationDomainIpcChannels = [
   ...linksOpenExternalIpcChannels,
   ...clipboardIpcChannels,
   ...ambientApiKeyIpcChannels,
+  ...ambientSecureStorageIpcChannels,
 ] as const;
 
 export interface RegisterShellIntegrationDomainIpcDependencies {
@@ -46,6 +50,12 @@ export interface RegisterShellIntegrationDomainIpcDependencies {
   readCurrentSettingsModel: RegisterAmbientApiKeyIpcDependencies["readCurrentSettingsModel"];
   getAmbientProviderStatus: RegisterAmbientApiKeyIpcDependencies["getAmbientProviderStatus"];
   emitProviderUpdated: RegisterAmbientApiKeyIpcDependencies["emitProviderUpdated"];
+  refreshSecureStorageStatus: RegisterAmbientSecureStorageIpcDependencies["refreshSecureStorageStatus"];
+  saveNamedSecret: RegisterAmbientSecureStorageIpcDependencies["saveNamedSecret"];
+  updateNamedSecret: RegisterAmbientSecureStorageIpcDependencies["updateNamedSecret"];
+  deleteNamedSecret: RegisterAmbientSecureStorageIpcDependencies["deleteNamedSecret"];
+  brokerNamedSecretToLocalFixture: RegisterAmbientSecureStorageIpcDependencies["brokerNamedSecretToLocalFixture"];
+  exportNamedSecretMetadata: RegisterAmbientSecureStorageIpcDependencies["exportNamedSecretMetadata"];
 }
 
 export function registerShellIntegrationDomainIpc({
@@ -66,6 +76,12 @@ export function registerShellIntegrationDomainIpc({
   readCurrentSettingsModel,
   getAmbientProviderStatus,
   emitProviderUpdated,
+  refreshSecureStorageStatus,
+  saveNamedSecret,
+  updateNamedSecret,
+  deleteNamedSecret,
+  brokerNamedSecretToLocalFixture,
+  exportNamedSecretMetadata,
 }: RegisterShellIntegrationDomainIpcDependencies): void {
   registerAmbientOpenKeysIpc({
     handleIpc,
@@ -98,5 +114,15 @@ export function registerShellIntegrationDomainIpc({
     readCurrentSettingsModel,
     getAmbientProviderStatus,
     emitProviderUpdated,
+  });
+
+  registerAmbientSecureStorageIpc({
+    handleIpc,
+    refreshSecureStorageStatus,
+    saveNamedSecret,
+    updateNamedSecret,
+    deleteNamedSecret,
+    brokerNamedSecretToLocalFixture,
+    exportNamedSecretMetadata,
   });
 }

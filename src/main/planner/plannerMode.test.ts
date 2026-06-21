@@ -147,6 +147,7 @@ describe("isPlannerModeAllowedTool", () => {
 
   it("allows read-only search preference status but blocks search preference writes", () => {
     expect(isPlannerModeAllowedTool("ambient_provider_catalog")).toBe(true);
+    expect(isPlannerModeAllowedTool("ambient_model_status")).toBe(true);
     expect(isPlannerModeAllowedTool("web_research_status")).toBe(true);
     expect(isPlannerModeAllowedTool("web_research_provider_search")).toBe(true);
     expect(isPlannerModeAllowedTool("web_research_provider_describe")).toBe(true);

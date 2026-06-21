@@ -5,12 +5,14 @@ export {
 export type { DescriptorToolRegistration } from "./desktopToolRegistration";
 
 export {
+  asyncBashToolDescriptor,
   browserToolDescriptor,
   firstPartyDesktopToolDescriptors,
   gitToolDescriptor,
   managedDownloadToolDescriptor,
   mediaToolDescriptor,
   messagingGatewayToolDescriptor,
+  modelStatusToolDescriptor,
   piToolFieldsFromDescriptor,
   pluginInstallToolDescriptor,
   privilegedActionToolDescriptor,

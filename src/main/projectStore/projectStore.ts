@@ -318,6 +318,11 @@ import { ProjectStoreSubagentSnapshotRepository } from "./subagentSnapshotReposi
 import { ProjectStoreSubagentWaitBarrierRepository } from "./subagentWaitBarrierRepository";
 import { ProjectStoreThreadRepository, type CreateProjectStoreThreadDefaults } from "./threadRepository";
 import { ProjectStoreThreadGoalRepository } from "./threadGoalRepository";
+import {
+  ProjectStoreThreadWakeRepository,
+  type ScheduleThreadWakeContinuationInput,
+  type ThreadWakeContinuation,
+} from "./threadWakeRepository";
 import { ProjectStoreWorkspaceSearchRepository } from "./workspaceSearchRepository";
 import { ProjectStoreWorkflowAgentThreadRepository, WORKFLOW_AGENT_HOME_FOLDER_ID } from "./workflowAgentThreadRepository";
 import { ProjectStoreWorkflowArtifactRepository } from "./workflowArtifactRepository";
@@ -2968,6 +2973,26 @@ export class ProjectStore {
     options: { expectedGoalId?: string; statusReason?: string | null } = {},
   ): ThreadGoal {
     return this.threadGoals().markThreadGoalStatus(threadId, status, options);
+  }
+
+  scheduleThreadWakeContinuation(input: ScheduleThreadWakeContinuationInput): ThreadWakeContinuation {
+    return this.threadWakeContinuations().scheduleThreadWakeContinuation(input);
+  }
+
+  listPendingThreadWakeContinuations(): ThreadWakeContinuation[] {
+    return this.threadWakeContinuations().listPendingThreadWakeContinuations();
+  }
+
+  listDueThreadWakeContinuations(nowIso: string, limit?: number): ThreadWakeContinuation[] {
+    return this.threadWakeContinuations().listDueThreadWakeContinuations(nowIso, limit);
+  }
+
+  markThreadWakeContinuationDelivered(id: string): ThreadWakeContinuation | undefined {
+    return this.threadWakeContinuations().markThreadWakeContinuationDelivered(id);
+  }
+
+  markThreadWakeContinuationFailed(id: string, error: string): ThreadWakeContinuation | undefined {
+    return this.threadWakeContinuations().markThreadWakeContinuationFailed(id, error);
   }
 
   private tryGetThread(threadId: string): ThreadSummary | undefined {
@@ -5987,6 +6012,10 @@ export class ProjectStore {
 
   private threadGoals(): ProjectStoreThreadGoalRepository {
     return new ProjectStoreThreadGoalRepository(this.requireDb());
+  }
+
+  private threadWakeContinuations(): ProjectStoreThreadWakeRepository {
+    return new ProjectStoreThreadWakeRepository(this.requireDb());
   }
 
   private messages(): ProjectStoreMessageRepository {

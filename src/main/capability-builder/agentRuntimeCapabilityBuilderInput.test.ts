@@ -7,6 +7,7 @@ import {
   ambientCapabilityBuilderListFilesInput,
   ambientCapabilityBuilderPreviewInput,
   ambientCapabilityBuilderReadFileInput,
+  ambientCapabilityBuilderRegistrationRepairInput,
   ambientCapabilityBuilderScaffoldInput,
   ambientCapabilityBuilderUnregisterInput,
   ambientCapabilityBuilderValidateInput,
@@ -94,6 +95,13 @@ describe("AgentRuntime capability builder input helpers", () => {
       packageName: "ambient-demo",
       preserveBuilderSource: false,
     })).toThrow("preserveBuilderSource=false is not supported");
+    expect(ambientCapabilityBuilderRegistrationRepairInput({
+      sourcePath: ".ambient/capability-builder/packages/ambient-demo",
+      reason: "Clear stale installed refs.",
+    })).toEqual({
+      sourcePath: ".ambient/capability-builder/packages/ambient-demo",
+      reason: "Clear stale installed refs.",
+    });
   });
 
   it("parses read-only history and validate inputs", () => {

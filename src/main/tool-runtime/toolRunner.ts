@@ -740,7 +740,9 @@ function isDevServerReadyOutput(output: string): boolean {
     /\b(?:ready in|compiled successfully|server (?:started|ready)|started server|listening (?:on|at)|running (?:at|on)|accepting connections)\b/i.test(output);
 }
 
-function waitForToolProcess(child: ChildProcessByStdio<null, Readable, Readable>): Promise<number | null> {
+type ToolProcessWithOutput = ChildProcessByStdio<any, Readable, Readable> | ChildProcessWithoutNullStreams;
+
+export function waitForToolProcess(child: ToolProcessWithOutput): Promise<number | null> {
   return new Promise((resolve, reject) => {
     let settled = false;
     let exited = child.exitCode !== null || child.signalCode !== null;
@@ -809,7 +811,7 @@ function waitForToolProcess(child: ChildProcessByStdio<null, Readable, Readable>
   });
 }
 
-function killToolProcessTree(pid: number | undefined): void {
+export function killToolProcessTree(pid: number | undefined): void {
   if (!pid) return;
   if (process.platform === "win32") {
     try {

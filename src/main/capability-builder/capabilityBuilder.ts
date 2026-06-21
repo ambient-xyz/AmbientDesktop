@@ -1,7 +1,7 @@
 import { execFile, type ExecFileException } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { appendFile, chmod, mkdir, opendir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { appendFile, chmod, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { isPathInside } from "./capabilityBuilderSessionFacade";
@@ -24,77 +24,52 @@ import type {
 } from "../../shared/localRuntimeTypes";
 import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "./capabilityBuilderSetupFacade";
 import { isSecretReference, readSecretReference, redactSensitiveText, saveSecretReference } from "../security/securityCapabilityBuilderContract";
-import { materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
+import { buildManifest, normalizedInstallerShape, scaffoldFiles } from "./capabilityBuilderScaffold";
+import {
+  executeProfiledCommand,
+  isCommandTimeoutProfile,
+  type CommandDevicePolicy,
+  type CommandDeviceSelection,
+  type CommandTimeoutProfile,
+  type ProfiledCommandResult,
+  ProfiledCommandError,
+} from "../tool-runtime/commandExecutionProfiles";
+import {
+  capabilityBuilderListInventoryArtifactMaxEntries,
+  listCapabilityBuilderSourceFiles,
+  listPackageFileMetadata,
+  listPackageFiles,
+  materializeCapabilityBuilderListInventoryArtifact,
+} from "./capabilityBuilderListing";
+import type { CapabilityBuilderInstallerShape, CapabilityBuilderScaffoldInput } from "./capabilityBuilderScaffold";
+import type {
+  CapabilityBuilderFileMetadata,
+  CapabilityBuilderListFilesInput,
+  CapabilityBuilderListFilesResult,
+} from "./capabilityBuilderListing";
+
+export type { CapabilityBuilderInstallerShape, CapabilityBuilderScaffoldInput } from "./capabilityBuilderScaffold";
+export {
+  capabilityBuilderListFilesNextPageInput,
+  capabilityBuilderListFilesOutputPreview,
+  capabilityBuilderListFilesText,
+} from "./capabilityBuilderListing";
+export type {
+  CapabilityBuilderListFilesInput,
+  CapabilityBuilderListFilesNextPageInput,
+  CapabilityBuilderListFilesResult,
+  CapabilityBuilderListInventoryArtifact,
+  CapabilityBuilderOmittedDirectorySummary,
+} from "./capabilityBuilderListing";
 
 const execFileAsync = promisify(execFile);
 const builderRoot = ".ambient/capability-builder/packages";
 const dependencyOutputPreviewChars = 4_000;
-const dependencyCommandTimeoutMs = 120_000;
-const validationCommandTimeoutMs = 120_000;
+const legacyValidationCommandTimeoutMs = 120_000;
 const builderFileReadPreviewChars = 120_000;
-const builderListDefaultMaxEntries = 200;
-const builderListMaxEntries = 1_000;
-const builderListInventoryArtifactMaxEntries = 20_000;
-const builderListInventoryArtifactPreviewChars = 12_000;
-const builderListDefaultMaxDepth = 12;
-const builderListMaxDepth = 24;
-const builderListMaxOmittedDirectories = 50;
-const builderListOmittedSummaryMaxFiles = 1_000;
-const builderListOmittedSummaryMaxDirectories = 250;
-const builderListMaxCursorOffset = 50_000;
-const builderListCursorVersion = 1;
-const builderListSortOrder = "filesystem-stream-depth-first-v1";
-const builderListGeneratedDirectoryNames = new Set([
-  ".cache",
-  ".mypy_cache",
-  ".next",
-  ".parcel-cache",
-  ".pytest_cache",
-  ".ruff_cache",
-  ".tox",
-  ".turbo",
-  ".venv",
-  "build",
-  "coverage",
-  "dist",
-  "env",
-  "node_modules",
-  "site-packages",
-  "venv",
-  "__pycache__",
-]);
-
 async function ensureCapabilityBuilderManagedWorkspace(workspacePath: string): Promise<string> {
   await migrateWorkspaceManagedInstallPath(workspacePath, ".ambient/capability-builder");
   return managedInstallWorkspacePath(workspacePath);
-}
-
-interface CapabilityBuilderFileMetadata {
-  sizeBytes: number;
-  mtimeMs: number;
-}
-
-export type CapabilityBuilderInstallerShape =
-  | "tts-provider"
-  | "artifact-generator"
-  | "file-converter"
-  | "search-provider"
-  | "browser-tooling"
-  | "connector"
-  | "custom-cli";
-
-export interface CapabilityBuilderScaffoldInput {
-  name?: string;
-  goal: string;
-  installerShape?: CapabilityBuilderInstallerShape;
-  kind?: string;
-  provider?: string;
-  outputArtifactTypes?: string[];
-  responseFormats?: string[];
-  locality?: "local" | "network" | "either";
-  envNames?: string[];
-  networkHosts?: string[];
-  modelAssets?: string[];
 }
 
 export interface CapabilityBuilderSourceRef {
@@ -126,70 +101,6 @@ export interface CapabilityBuilderPreviewInput {
   path?: string;
   sourcePath?: string;
 }
-
-export interface CapabilityBuilderListFilesInput extends CapabilityBuilderPreviewInput {
-  pathPrefix?: string;
-  maxEntries?: number;
-  maxDepth?: number;
-  includeGenerated?: boolean;
-  cursor?: string;
-}
-
-export interface CapabilityBuilderOmittedDirectorySummary {
-  path: string;
-  reason: "generated" | "maxDepth";
-  fileCount: number;
-  totalBytes: number;
-  truncated: boolean;
-}
-
-export interface CapabilityBuilderListInventoryArtifact {
-  path: string;
-  bytes?: number;
-  chars: number;
-  previewChars: number;
-  truncated: boolean;
-  redacted: boolean;
-  redactionCount: number;
-  inventoryFileCount: number;
-  inventoryFileCountTruncated: boolean;
-  fileReadInput: {
-    path: string;
-  };
-  longContextProcessInput: {
-    taskType: "analysis";
-    instruction: string;
-    workspacePaths: string[];
-    maxModelCalls: number;
-  };
-}
-
-export interface CapabilityBuilderListFilesResult {
-  packageName: string;
-  rootPath: string;
-  relativeRootPath: string;
-  sourceRef: CapabilityBuilderSourceRef;
-  pathPrefix?: string;
-  maxEntries: number;
-  maxDepth: number;
-  includeGenerated: boolean;
-  totalFileCount: number;
-  totalFileCountTruncated: boolean;
-  omittedDirectoryCount: number;
-  omittedDirectories: CapabilityBuilderOmittedDirectorySummary[];
-  nextCursor?: string;
-  inventoryArtifact?: CapabilityBuilderListInventoryArtifact;
-  files: Array<{
-    path: string;
-    sizeBytes: number;
-    mtimeMs: number;
-  }>;
-}
-
-export type CapabilityBuilderListFilesNextPageInput = CapabilityBuilderListFilesInput & {
-  sourcePath: string;
-  cursor: string;
-};
 
 export interface CapabilityBuilderReadFileInput extends CapabilityBuilderPreviewInput {
   filePath: string;
@@ -280,6 +191,9 @@ export interface CapabilityBuilderDependencyCommand {
   args?: string[];
   cwd?: string;
   rationale: string;
+  timeoutProfile?: CommandTimeoutProfile;
+  progressPatterns?: string[];
+  devicePolicy?: CommandDevicePolicy;
 }
 
 export interface CapabilityBuilderInstallDepsInput extends CapabilityBuilderPreviewInput {
@@ -301,6 +215,16 @@ export interface CapabilityBuilderDependencyCommandResult {
   stderrLength: number;
   stdoutTruncated: boolean;
   stderrTruncated: boolean;
+  timeoutProfile?: CommandTimeoutProfile;
+  timeoutMs?: number;
+  idleTimeoutMs?: number;
+  timeoutPhase?: "process" | "process-idle";
+  lastProgressAt?: string;
+  lastProgressMs?: number;
+  recommendedRetryProfile?: CommandTimeoutProfile;
+  progressPatterns?: string[];
+  matchedProgressPatterns?: string[];
+  deviceSelection?: CommandDeviceSelection;
 }
 
 export interface CapabilityBuilderInstallDepsResult {
@@ -338,7 +262,7 @@ export interface CapabilityBuilderSecretSaveResult {
   configured: boolean;
 }
 
-export interface CapabilityBuilderRegisterInput extends CapabilityBuilderPreviewInput {}
+export type CapabilityBuilderRegisterInput = CapabilityBuilderPreviewInput;
 
 export interface CapabilityBuilderUnregisterInput extends CapabilityBuilderRemovalPlanInput {
   preserveBuilderSource?: boolean;
@@ -442,6 +366,26 @@ export interface CapabilityBuilderUnregisterResult {
     artifacts: boolean;
     envSecrets: boolean;
   };
+}
+
+export interface CapabilityBuilderRegistrationRepairInput extends CapabilityBuilderPreviewInput {
+  reason?: string;
+}
+
+export interface CapabilityBuilderRegistrationRepairResult {
+  packageName: string;
+  rootPath: string;
+  relativeRootPath: string;
+  gitSha?: string;
+  repairedAt: string;
+  previousStatus?: string;
+  staleInstalledPackageId?: string;
+  staleInstalledSource?: string;
+  staleInstalledRef?: string;
+  installedPresent: boolean;
+  changed: boolean;
+  refs: Record<string, string | null>;
+  reason?: string;
 }
 
 export interface CapabilityBuilderHistoryEntry {
@@ -701,12 +645,12 @@ export async function listCapabilityBuilderFiles(
   const inventoryListing = await listCapabilityBuilderSourceFiles(preview.rootPath, {
     ...input,
     cursor: undefined,
-    maxEntries: builderListInventoryArtifactMaxEntries,
+    maxEntries: capabilityBuilderListInventoryArtifactMaxEntries,
   }, {
     packageName: preview.packageName,
     sourcePath: preview.relativeRootPath,
     gitSha: preview.gitSha,
-  }, builderListInventoryArtifactMaxEntries);
+  }, capabilityBuilderListInventoryArtifactMaxEntries);
   const inventoryArtifact = await materializeCapabilityBuilderListInventoryArtifact(workspace, preview, inventoryListing);
   return {
     packageName: preview.packageName,
@@ -1252,26 +1196,31 @@ export async function installCapabilityBuilderDependencies(
   const results: CapabilityBuilderDependencyCommandResult[] = [];
 
   for (const command of commands) {
-    const start = Date.now();
     let result: CapabilityBuilderDependencyCommandResult;
     try {
-      const output = await execFileAsync(command.command, command.args, {
+      const output = await executeProfiledCommand({
+        command: command.command,
+        args: command.args,
         cwd: command.resolvedCwd,
-        timeout: dependencyCommandTimeoutMs,
         maxBuffer: 2 * 1024 * 1024,
         env: ambientRuntimeEnv(),
+        timeoutProfile: command.timeoutProfile ?? "dependencyInstall",
+        progressPatterns: command.progressPatterns,
+        devicePolicy: command.devicePolicy,
+        phase: `capability-builder dependency ${preview.packageName}`,
       });
-      result = dependencyCommandResult(command, "succeeded", Date.now() - start, output.stdout, output.stderr);
+      result = dependencyCommandResult({ ...command, args: output.args }, "succeeded", output.durationMs, output.stdout, output.stderr, undefined, undefined, output);
     } catch (error) {
       const execError = error as ExecFileException & { stdout?: string | Buffer; stderr?: string | Buffer };
       result = dependencyCommandResult(
         command,
         "failed",
-        Date.now() - start,
+        commandDurationMs(error),
         execError.stdout,
         execError.stderr,
         execError.code ?? undefined,
         execError.message,
+        error instanceof ProfiledCommandError ? error : undefined,
       );
     }
     results.push(result);
@@ -1323,28 +1272,35 @@ export async function validateCapabilityBuilderPackage(
   const validationEnv = await capabilityBuilderValidationProcessEnv(workspace, preview);
 
   for (const command of commands) {
-    const start = Date.now();
     let result: CapabilityBuilderDependencyCommandResult;
     try {
-      const output = await execFileAsync(command.command, command.args ?? [], {
+      const legacyValidationBudget = command.timeoutProfile ? undefined : legacyValidationCommandTimeoutMs;
+      const output = await executeProfiledCommand({
+        command: command.command,
+        args: command.args ?? [],
         cwd: command.resolvedCwd,
-        timeout: validationCommandTimeoutMs,
         maxBuffer: 2 * 1024 * 1024,
         env: validationEnv,
+        ...(legacyValidationBudget ? { timeoutMs: legacyValidationBudget, idleTimeoutMs: legacyValidationBudget } : {}),
+        timeoutProfile: command.timeoutProfile ?? validationCommandDefaultTimeoutProfile(command),
+        progressPatterns: command.progressPatterns,
+        devicePolicy: command.devicePolicy,
+        phase: `capability-builder validation ${preview.packageName}:${command.source}`,
       });
-      result = dependencyCommandResult({ ...command, args: command.args ?? [] }, "succeeded", Date.now() - start, output.stdout, output.stderr);
+      result = dependencyCommandResult({ ...command, args: output.args }, "succeeded", output.durationMs, output.stdout, output.stderr, undefined, undefined, output);
       if (command.source === "providerContract") {
         const providerContractError = await validateProviderContractCommandOutput(workspace, command, output.stdout);
         if (providerContractError) {
           result = {
             ...dependencyCommandResult(
-              { ...command, args: command.args ?? [] },
+              { ...command, args: output.args },
               "failed",
-              Date.now() - start,
+              output.durationMs,
               output.stdout,
               output.stderr,
               "provider-contract-invalid",
               providerContractError,
+              output,
             ),
           };
         }
@@ -1354,11 +1310,12 @@ export async function validateCapabilityBuilderPackage(
       result = dependencyCommandResult(
         { ...command, args: command.args ?? [] },
         "failed",
-        Date.now() - start,
+        commandDurationMs(error),
         execError.stdout,
         execError.stderr,
         execError.code ?? undefined,
         execError.message,
+        error instanceof ProfiledCommandError ? error : undefined,
       );
     }
     const validationResult = { ...result, source: command.source, ...(command.commandName ? { commandName: command.commandName } : {}) };
@@ -1614,6 +1571,69 @@ export async function unregisterCapabilityBuilderPackage(
   };
 }
 
+export async function repairCapabilityBuilderRegistrationMetadata(
+  workspacePath: string,
+  input: CapabilityBuilderRegistrationRepairInput,
+): Promise<CapabilityBuilderRegistrationRepairResult> {
+  const workspace = resolve(workspacePath);
+  const managedWorkspace = await ensureCapabilityBuilderManagedWorkspace(workspace);
+  const rootPath = await resolveManagedPackagePath(workspace, managedWorkspace, input);
+  const relativeRootPath = toWorkspaceRelative(managedWorkspace, rootPath);
+  if (!existsSync(rootPath)) throw new Error(`Capability builder package does not exist: ${relativeRootPath}`);
+  const preview = await previewCapabilityBuilderPackage(workspace, input);
+  const manifest = await readBuildManifest(rootPath);
+  const refs = recordField(manifest.refs);
+  const previousStatus = stringField(manifest.status);
+  const staleInstalledPackageId = stringField(manifest.installedPackageId);
+  const staleInstalledSource = stringField(manifest.installedSource);
+  const staleInstalledRef = stringField(refs.installed);
+  if (!staleInstalledPackageId && !staleInstalledSource && !staleInstalledRef && previousStatus !== "registered") {
+    throw new Error("Capability Builder registration metadata has no installed refs to repair.");
+  }
+  if (!staleInstalledPackageId && !staleInstalledSource) {
+    throw new Error("Capability Builder registration metadata repair requires installedPackageId or installedSource to prove the installed package is absent.");
+  }
+  const catalog = await discoverAmbientCliPackages(workspace);
+  if (catalog.errors.length) {
+    throw new Error(`Ambient CLI package discovery has errors; refusing registration metadata repair: ${catalog.errors.join("; ")}`);
+  }
+  const installedPresent = catalog.packages
+    .filter((pkg) => pkg.installed)
+    .some((pkg) =>
+      Boolean((staleInstalledPackageId && pkg.id === staleInstalledPackageId) ||
+        (staleInstalledSource && pkg.source === staleInstalledSource) ||
+        (pkg.generated && pkg.name === preview.packageName)),
+    );
+  if (installedPresent) {
+    throw new Error("Installed Ambient CLI package is still present. Use ambient_capability_builder_unregister instead of metadata repair.");
+  }
+  const repairedAt = new Date().toISOString();
+  const gitSha = await currentGitSha(rootPath);
+  const nextRefs = await updateRegistrationRepairManifest(rootPath, {
+    repairedAt,
+    reason: input.reason,
+    gitSha,
+    staleInstalledPackageId,
+    staleInstalledSource,
+    staleInstalledRef,
+  });
+  return {
+    packageName: preview.packageName,
+    rootPath,
+    relativeRootPath,
+    ...(gitSha ? { gitSha } : {}),
+    repairedAt,
+    ...(previousStatus ? { previousStatus } : {}),
+    ...(staleInstalledPackageId ? { staleInstalledPackageId } : {}),
+    ...(staleInstalledSource ? { staleInstalledSource } : {}),
+    ...(staleInstalledRef ? { staleInstalledRef } : {}),
+    installedPresent,
+    changed: true,
+    refs: nextRefs,
+    ...(input.reason ? { reason: input.reason } : {}),
+  };
+}
+
 export function capabilityBuilderScaffoldText(result: CapabilityBuilderScaffoldResult): string {
   return [
     "Ambient Capability Builder scaffold created",
@@ -1751,6 +1771,32 @@ export function capabilityBuilderUnregisterText(result: CapabilityBuilderUnregis
   ].join("\n");
 }
 
+export function capabilityBuilderRegistrationRepairText(result: CapabilityBuilderRegistrationRepairResult): string {
+  return [
+    "Ambient Capability Builder registration metadata repair",
+    `Package: ${result.packageName}`,
+    `Builder source: ${result.relativeRootPath}`,
+    `Git SHA: ${result.gitSha ?? "unavailable"}`,
+    `Repaired at: ${result.repairedAt}`,
+    result.previousStatus ? `Previous status: ${result.previousStatus}` : undefined,
+    "",
+    "Cleared stale installed refs:",
+    `- installed package id: ${result.staleInstalledPackageId ?? "none"}`,
+    `- installed source: ${result.staleInstalledSource ?? "none"}`,
+    `- installed git ref: ${result.staleInstalledRef ?? "none"}`,
+    `- installed package present before repair: ${result.installedPresent ? "yes" : "no"}`,
+    result.reason ? `Reason: ${result.reason}` : undefined,
+    "",
+    "Updated metadata:",
+    "- status: unregistered",
+    "- installedPackageId: null",
+    "- installedSource: null",
+    "- refs.installed: null",
+    "",
+    "No installed package files were removed by this repair. Next: retry ambient_capability_builder_register only after confirming validation metadata still matches the Builder-managed source.",
+  ].filter(Boolean).join("\n");
+}
+
 export function capabilityBuilderValidateText(result: CapabilityBuilderValidateResult): string {
   const runtimeGuidance = capabilityBuilderDependencyRuntimeGuidance(result.commands);
   const requiredEnvNames = requiredEnvRequirementNames(result.envRequirements);
@@ -1783,7 +1829,11 @@ export function capabilityBuilderValidateText(result: CapabilityBuilderValidateR
       `   source: ${command.source}${command.commandName ? ` (${command.commandName})` : ""}`,
       `   cwd: ${command.cwd}`,
       `   rationale: ${command.rationale}`,
+      command.timeoutProfile ? `   timeout profile: ${command.timeoutProfile} (${command.timeoutMs ?? "default"}ms, idle ${command.idleTimeoutMs ?? "default"}ms)` : undefined,
+      command.deviceSelection ? `   device selection: ${JSON.stringify(command.deviceSelection)}` : undefined,
+      command.progressPatterns?.length ? `   progress patterns: ${command.progressPatterns.join("; ")}` : undefined,
       `   status: ${command.status}${command.exitCode !== undefined ? ` (exit ${command.exitCode})` : ""}, ${formatDurationMs(command.durationMs)}`,
+      command.timeoutPhase ? `   timeout phase: ${command.timeoutPhase}; recommended retry profile: ${command.recommendedRetryProfile ?? "none"}` : undefined,
       `   stdout: ${formatOutputPreview(command.stdoutPreview, command.stdoutLength, command.stdoutTruncated)}`,
       `   stderr: ${formatOutputPreview(command.stderrPreview, command.stderrLength, command.stderrTruncated)}`,
       command.error ? `   error: ${command.error}` : undefined,
@@ -1832,25 +1882,6 @@ async function capabilityBuilderValidationProcessEnv(
     if (value) env[requirement.name] = value;
   }
   return env;
-}
-
-async function setCapabilityBuilderEnvBinding(
-  workspace: string,
-  preview: Pick<CapabilityBuilderPreviewResult, "packageName" | "relativeRootPath">,
-  envName: string,
-  filePath: string,
-): Promise<void> {
-  const bindingsPath = capabilityBuilderEnvBindingsPath(workspace);
-  const existing = await readCapabilityBuilderEnvBindingRows(workspace);
-  const rows = [
-    ...existing.filter((binding) =>
-      normalizeCapabilityEnvName(binding.envName) !== envName ||
-      (binding.packageName !== preview.packageName && binding.sourcePath !== preview.relativeRootPath)
-    ),
-    { packageName: preview.packageName, sourcePath: preview.relativeRootPath, envName, filePath },
-  ].sort((left, right) => left.packageName.localeCompare(right.packageName) || left.envName.localeCompare(right.envName));
-  await mkdir(dirname(bindingsPath), { recursive: true });
-  await writeFile(bindingsPath, `${JSON.stringify({ bindings: rows }, null, 2)}\n`, "utf8");
 }
 
 async function setCapabilityBuilderSecretBinding(
@@ -2009,7 +2040,10 @@ export function capabilityBuilderInstallDepsText(result: CapabilityBuilderInstal
       `${index + 1}. ${formatCommand(command.command, command.args)}`,
       `   cwd: ${command.cwd}`,
       `   rationale: ${command.rationale}`,
+      command.timeoutProfile ? `   timeout profile: ${command.timeoutProfile} (${command.timeoutMs ?? "default"}ms, idle ${command.idleTimeoutMs ?? "default"}ms)` : undefined,
+      command.progressPatterns?.length ? `   progress patterns: ${command.progressPatterns.join("; ")}` : undefined,
       `   status: ${command.status}${command.exitCode !== undefined ? ` (exit ${command.exitCode})` : ""}, ${formatDurationMs(command.durationMs)}`,
+      command.timeoutPhase ? `   timeout phase: ${command.timeoutPhase}; recommended retry profile: ${command.recommendedRetryProfile ?? "none"}` : undefined,
       `   stdout: ${formatOutputPreview(command.stdoutPreview, command.stdoutLength, command.stdoutTruncated)}`,
       `   stderr: ${formatOutputPreview(command.stderrPreview, command.stderrLength, command.stderrTruncated)}`,
       command.error ? `   error: ${command.error}` : undefined,
@@ -2129,191 +2163,6 @@ export function capabilityBuilderPreviewText(result: CapabilityBuilderPreviewRes
       ? `Next: review the findings with the user before dependency installation, validation, registration, or activation. Use this exact sourcePath in later Capability Builder tools: ${result.relativeRootPath}. Use Capability Builder file tools, not generic workspace file tools, to edit this source. For text commands, prefer file-input flags when exact text may be hard to pass as args; for artifact commands, ensure final outputs are user-visible workspace files.`
       : "Next: fix the preview errors before dependency installation, validation, registration, or activation. Use Capability Builder file tools, not generic workspace file tools, to edit this source. Do not register or reinstall a Builder-managed package with preview errors.",
   ].filter(Boolean).join("\n");
-}
-
-export function capabilityBuilderListFilesText(result: CapabilityBuilderListFilesResult): string {
-  const inventoryArtifact = result.inventoryArtifact;
-  const nextPageInput = capabilityBuilderListFilesNextPageInput(result);
-  return [
-    "Ambient Capability Builder files",
-    `Package: ${result.packageName}`,
-    `Canonical sourcePath: ${result.sourceRef.sourcePath}`,
-    result.pathPrefix ? `Path prefix: ${result.pathPrefix}` : "Path prefix: package root",
-    `Generated content: ${result.includeGenerated ? "included for this scoped request" : "omitted by default"}`,
-    `Depth limit: ${result.maxDepth}`,
-    result.totalFileCountTruncated
-      ? `Files shown: ${result.files.length}; matched at least ${result.totalFileCount} files`
-      : `Files shown: ${result.files.length} of ${result.totalFileCount}`,
-    `Page size: ${result.maxEntries}`,
-    result.nextCursor ? `Next cursor: ${result.nextCursor}` : undefined,
-    "",
-    ...result.files.map((file) => `- ${file.path} (${file.sizeBytes} bytes)`),
-    result.omittedDirectories.length ? "" : undefined,
-    result.omittedDirectories.length ? `Omitted directory summaries shown: ${result.omittedDirectories.length} of ${result.omittedDirectoryCount}` : undefined,
-    ...result.omittedDirectories.map((directory) => `- ${directory.path}/ (${directory.reason}; ${directory.fileCount}${directory.truncated ? "+" : ""} files; ${directory.totalBytes}${directory.truncated ? "+ scanned" : ""} bytes)`),
-    result.nextCursor ? "" : undefined,
-    result.nextCursor ? "For the next page, call this tool again with the same selector/filter fields and the next cursor." : undefined,
-    nextPageInput ? `Structured next page input: ${JSON.stringify(nextPageInput)}` : undefined,
-    result.includeGenerated ? undefined : "",
-    result.includeGenerated
-      ? undefined
-      : "Generated/dependency directories are summarized, not listed. To inspect one, use includeGenerated=true with a narrow pathPrefix plus bounded maxEntries/maxDepth.",
-    inventoryArtifact ? "" : undefined,
-    inventoryArtifact ? "Inventory artifact:" : undefined,
-    inventoryArtifact ? `- Filtered inventory saved at: ${inventoryArtifact.path}` : undefined,
-    inventoryArtifact
-      ? `- Captured ${inventoryArtifact.inventoryFileCount}${inventoryArtifact.inventoryFileCountTruncated ? "+" : ""} files; artifact ${inventoryArtifact.chars} chars${inventoryArtifact.bytes === undefined ? "" : `, ${inventoryArtifact.bytes} bytes`}.`
-      : undefined,
-    inventoryArtifact?.inventoryFileCountTruncated ? "- Inventory hit the artifact cap; narrow pathPrefix/maxDepth for exhaustive coverage." : undefined,
-    inventoryArtifact?.redacted ? `- Sensitive values redacted: ${inventoryArtifact.redactionCount}` : undefined,
-    inventoryArtifact
-      ? `- Use file_read with ${JSON.stringify(inventoryArtifact.fileReadInput)} for exact inventory text.`
-      : undefined,
-    inventoryArtifact
-      ? `- Use long_context_process with ${JSON.stringify(inventoryArtifact.longContextProcessInput)} for summarization, extraction, or QA over the filtered inventory.`
-      : undefined,
-    inventoryArtifact
-      ? `Structured next step: ${JSON.stringify(capabilityBuilderListInventoryStructuredNextStep(inventoryArtifact))}`
-      : undefined,
-    "",
-    "Use ambient_capability_builder_read_file for exact file contents and ambient_capability_builder_write_file for approved Builder-managed edits.",
-  ].filter((line) => line !== undefined).join("\n");
-}
-
-export function capabilityBuilderListFilesNextPageInput(
-  result: CapabilityBuilderListFilesResult,
-): CapabilityBuilderListFilesNextPageInput | undefined {
-  if (!result.nextCursor) return undefined;
-  return {
-    sourcePath: result.sourceRef.sourcePath,
-    ...(result.pathPrefix ? { pathPrefix: result.pathPrefix } : {}),
-    maxEntries: result.maxEntries,
-    maxDepth: result.maxDepth,
-    includeGenerated: result.includeGenerated,
-    cursor: result.nextCursor,
-  };
-}
-
-export function capabilityBuilderListFilesOutputPreview(result: CapabilityBuilderListFilesResult): ToolLargeOutputPreview | undefined {
-  const artifact = result.inventoryArtifact;
-  if (!artifact) return undefined;
-  const item: ToolLargeOutputPreviewItem = {
-    label: `${result.packageName} filtered file inventory`,
-    chars: artifact.chars,
-    previewChars: artifact.previewChars,
-    truncated: artifact.truncated || artifact.inventoryFileCountTruncated,
-    artifactKind: "tool-output",
-    artifactPath: artifact.path,
-    ...(artifact.bytes === undefined ? {} : { artifactBytes: artifact.bytes }),
-    suggestedTools: ["file_read", "long_context_process"],
-  };
-  return {
-    kind: "large-output",
-    summary: `Capability Builder filtered inventory artifact: ${artifact.path}`,
-    items: [item],
-  };
-}
-
-async function materializeCapabilityBuilderListInventoryArtifact(
-  workspace: string,
-  preview: Pick<CapabilityBuilderPreviewResult, "packageName" | "relativeRootPath" | "gitSha">,
-  listing: CapabilityBuilderSourceListing,
-): Promise<CapabilityBuilderListInventoryArtifact | undefined> {
-  const output = await materializeTextOutput(workspace, {
-    label: `capability-builder-${preview.packageName}-filtered-inventory`,
-    text: capabilityBuilderListInventoryArtifactText(preview, listing),
-    maxPreviewChars: builderListInventoryArtifactPreviewChars,
-    extension: "txt",
-    alwaysWriteArtifact: true,
-  });
-  if (!output.artifactPath) return undefined;
-  return capabilityBuilderListInventoryArtifactFromOutput(preview, listing, { ...output, artifactPath: output.artifactPath });
-}
-
-function capabilityBuilderListInventoryArtifactFromOutput(
-  preview: Pick<CapabilityBuilderPreviewResult, "packageName" | "relativeRootPath">,
-  listing: CapabilityBuilderSourceListing,
-  output: MaterializedTextOutput & { artifactPath: string },
-): CapabilityBuilderListInventoryArtifact {
-  const instruction = [
-    `Analyze the filtered Ambient Capability Builder file inventory for ${preview.packageName}.`,
-    `Treat ${preview.relativeRootPath} as Builder-managed source.`,
-    "The inventory follows the same generated-content filter policy as ambient_capability_builder_list_files.",
-    listing.includeGenerated
-      ? "Generated/dependency content is included only for the explicit pathPrefix in this artifact."
-      : "Generated/dependency directories are summarized but not recursively listed.",
-    listing.nextCursor
-      ? "The inventory reached its artifact cap; use a narrower pathPrefix before claiming exhaustive file coverage."
-      : "Use the inventory for exhaustive file-name QA within this filtered scope.",
-  ].join(" ");
-  return {
-    path: output.artifactPath,
-    ...(output.artifactBytes === undefined ? {} : { bytes: output.artifactBytes }),
-    chars: output.totalChars,
-    previewChars: output.previewChars,
-    truncated: output.truncated,
-    redacted: output.redacted,
-    redactionCount: output.redactionCount,
-    inventoryFileCount: listing.files.length,
-    inventoryFileCountTruncated: listing.totalFileCountTruncated,
-    fileReadInput: { path: output.artifactPath },
-    longContextProcessInput: {
-      taskType: "analysis",
-      instruction,
-      workspacePaths: [output.artifactPath],
-      maxModelCalls: 4,
-    },
-  };
-}
-
-function capabilityBuilderListInventoryArtifactText(
-  preview: Pick<CapabilityBuilderPreviewResult, "packageName" | "relativeRootPath" | "gitSha">,
-  listing: CapabilityBuilderSourceListing,
-): string {
-  return [
-    "Ambient Capability Builder filtered file inventory",
-    `Package: ${preview.packageName}`,
-    `Canonical sourcePath: ${preview.relativeRootPath}`,
-    listing.pathPrefix ? `Path prefix: ${listing.pathPrefix}` : "Path prefix: package root",
-    `Generated content: ${listing.includeGenerated ? "included for this scoped request" : "omitted by default"}`,
-    `Depth limit: ${listing.maxDepth}`,
-    `Inventory cap: ${listing.maxEntries}`,
-    preview.gitSha ? `Git SHA: ${preview.gitSha}` : undefined,
-    listing.totalFileCountTruncated
-      ? `Files captured: ${listing.files.length}+; artifact cap reached, narrow pathPrefix/maxDepth before relying on exhaustive coverage`
-      : `Files captured: ${listing.files.length} of ${listing.totalFileCount}`,
-    `Omitted directories summarized: ${listing.omittedDirectories.length} of ${listing.omittedDirectoryCount}`,
-    "",
-    "Filter policy:",
-    "- This artifact uses the same selector/filter policy as ambient_capability_builder_list_files.",
-    "- Generated/dependency directories remain summarized unless includeGenerated=true is paired with a narrow pathPrefix.",
-    "- Use ambient_capability_builder_read_file for exact file contents after choosing package-relative paths from this inventory.",
-    listing.nextCursor
-      ? "- This inventory hit its artifact cap. Narrow pathPrefix/maxDepth before relying on exhaustive coverage."
-      : "- This inventory is complete for the filtered scope shown above.",
-    "",
-    "Files:",
-    ...(listing.files.length ? listing.files.map((file) => `- ${file.path} (${file.sizeBytes} bytes)`) : ["- none"]),
-    "",
-    "Omitted directories:",
-    ...(listing.omittedDirectories.length
-      ? listing.omittedDirectories.map((directory) => `- ${directory.path}/ (${directory.reason}; ${directory.fileCount}${directory.truncated ? "+" : ""} files; ${directory.totalBytes}${directory.truncated ? "+ scanned" : ""} bytes)`)
-      : ["- none"]),
-  ].filter((line): line is string => line !== undefined).join("\n");
-}
-
-function capabilityBuilderListInventoryStructuredNextStep(artifact: CapabilityBuilderListInventoryArtifact) {
-  return {
-    artifactPath: artifact.path,
-    chars: artifact.chars,
-    previewChars: artifact.previewChars,
-    truncated: artifact.truncated,
-    inventoryFileCount: artifact.inventoryFileCount,
-    inventoryFileCountTruncated: artifact.inventoryFileCountTruncated,
-    recommendedNextTools: ["file_read", "long_context_process"],
-    fileRead: artifact.fileReadInput,
-    longContextProcess: artifact.longContextProcessInput,
-  };
 }
 
 export function capabilityBuilderReadFileText(result: CapabilityBuilderReadFileResult): string {
@@ -2603,7 +2452,17 @@ function normalizeDependencyCommand(
   if (!isPathInside(rootPath, resolvedCwd)) throw new Error(`Dependency command cwd escapes the package root: ${cwd}`);
   const rationale = command.rationale.trim();
   if (!rationale) throw new Error(`Dependency command rationale is required: ${executable}`);
-  return { command: executable, args, cwd, resolvedCwd, rationale };
+  const progressPatterns = command.progressPatterns?.map((item) => item.trim()).filter(Boolean);
+  return {
+    command: executable,
+    args,
+    cwd,
+    resolvedCwd,
+    rationale,
+    ...(command.timeoutProfile ? { timeoutProfile: command.timeoutProfile } : {}),
+    ...(progressPatterns?.length ? { progressPatterns } : {}),
+    ...(command.devicePolicy ? { devicePolicy: command.devicePolicy } : {}),
+  };
 }
 
 function dependencyCommandResult(
@@ -2614,14 +2473,16 @@ function dependencyCommandResult(
   stderrValue: string | Buffer | undefined,
   exitCode?: number | string,
   error?: string,
+  execution?: ProfiledCommandResult | ProfiledCommandError,
 ): CapabilityBuilderDependencyCommandResult {
   const stdout = outputText(stdoutValue);
   const stderr = outputText(stderrValue);
   const safeStdout = redactSensitiveText(stdout);
   const safeStderr = redactSensitiveText(stderr);
+  const args = execution instanceof ProfiledCommandError ? execution.args : execution?.args ?? command.args;
   return {
     command: command.command,
-    args: command.args.map(redactSensitiveText),
+    args: args.map(redactSensitiveText),
     cwd: command.cwd,
     rationale: command.rationale,
     status,
@@ -2634,7 +2495,27 @@ function dependencyCommandResult(
     stderrLength: safeStderr.length,
     stdoutTruncated: safeStdout.length > dependencyOutputPreviewChars,
     stderrTruncated: safeStderr.length > dependencyOutputPreviewChars,
+    ...(execution?.timeoutProfile ? { timeoutProfile: execution.timeoutProfile } : command.timeoutProfile ? { timeoutProfile: command.timeoutProfile } : {}),
+    ...(execution?.timeoutMs ? { timeoutMs: execution.timeoutMs } : {}),
+    ...(execution?.idleTimeoutMs ? { idleTimeoutMs: execution.idleTimeoutMs } : {}),
+    ...(execution instanceof ProfiledCommandError && execution.timeoutPhase ? { timeoutPhase: execution.timeoutPhase } : {}),
+    ...(execution?.lastProgressAt ? { lastProgressAt: execution.lastProgressAt } : {}),
+    ...(execution instanceof ProfiledCommandError && execution.lastProgressMs !== undefined ? { lastProgressMs: execution.lastProgressMs } : {}),
+    ...(execution instanceof ProfiledCommandError && execution.recommendedRetryProfile ? { recommendedRetryProfile: execution.recommendedRetryProfile } : {}),
+    ...(command.progressPatterns?.length ? { progressPatterns: command.progressPatterns } : {}),
+    ...(execution?.matchedProgressPatterns.length ? { matchedProgressPatterns: execution.matchedProgressPatterns } : {}),
+    ...(execution?.deviceSelection ? { deviceSelection: execution.deviceSelection } : {}),
   };
+}
+
+function commandDurationMs(error: unknown): number {
+  return error instanceof ProfiledCommandError ? error.durationMs : 0;
+}
+
+function validationCommandDefaultTimeoutProfile(command: CapabilityBuilderValidationCommand): CommandTimeoutProfile {
+  if (command.source === "providerContract") return "liveGeneration";
+  if (command.source === "smokeTest") return "quickProbe";
+  return "healthCheck";
 }
 
 function outputText(value: string | Buffer | undefined): string {
@@ -2723,6 +2604,7 @@ async function capabilityBuilderValidationCommands(
     const command = recordField(value);
     const healthCheck = stringArrayField(command.healthCheck);
     if (!healthCheck.length) continue;
+    const executionMetadata = descriptorCommandExecutionMetadata(command);
     const cwdPolicy = stringField(command.cwd) ?? "workspace";
     const cwdRoot = cwdPolicy === "package" ? rootPath : workspace;
     const normalized = normalizeDependencyCommand(cwdRoot, {
@@ -2730,6 +2612,7 @@ async function capabilityBuilderValidationCommands(
       args: healthCheck.slice(1),
       cwd: ".",
       rationale: `Run descriptor health check for ${commandName}.`,
+      ...executionMetadata,
     });
     validationCommands.push({ ...normalized, source: "healthCheck", commandName });
   }
@@ -2740,6 +2623,7 @@ async function capabilityBuilderValidationCommands(
         args: ["tests/smoke.test.mjs"],
         cwd: ".",
         rationale: "Run package smoke test.",
+        timeoutProfile: "quickProbe",
       }),
       source: "smokeTest",
     });
@@ -2787,11 +2671,14 @@ function providerContractValidationCommand(
     format,
     ...(voiceId ? ["--voice", voiceId] : []),
   ];
+  const executionMetadata = descriptorCommandExecutionMetadata(command);
   const normalized = normalizeDependencyCommand(cwdRoot, {
     command: executable,
     args: commandArgs,
     cwd: ".",
     rationale: `Run Ambient tts-provider contract synthesis for ${commandName}.`,
+    ...executionMetadata,
+    timeoutProfile: executionMetadata.timeoutProfile ?? "liveGeneration",
   });
   return {
     ...normalized,
@@ -2803,6 +2690,38 @@ function providerContractValidationCommand(
       expectedMimeType: mimeTypeForVoiceFormat(format),
       maxSizeBytes: 25 * 1024 * 1024,
     },
+  };
+}
+
+function descriptorCommandExecutionMetadata(command: Record<string, unknown>): Pick<CapabilityBuilderDependencyCommand, "timeoutProfile" | "progressPatterns" | "devicePolicy"> {
+  const timeoutProfileValue = stringField(command.timeoutProfile);
+  if (timeoutProfileValue && !isCommandTimeoutProfile(timeoutProfileValue)) {
+    throw new Error(`ambient-cli.json command timeoutProfile is invalid: ${timeoutProfileValue}`);
+  }
+  const timeoutProfile = timeoutProfileValue && isCommandTimeoutProfile(timeoutProfileValue) ? timeoutProfileValue : undefined;
+  const progressPatterns = stringArrayField(command.progressPatterns).map((item) => item.trim()).filter(Boolean);
+  const devicePolicy = descriptorCommandDevicePolicy(command.devicePolicy);
+  return {
+    ...(timeoutProfile ? { timeoutProfile } : {}),
+    ...(progressPatterns.length ? { progressPatterns } : {}),
+    ...(devicePolicy ? { devicePolicy } : {}),
+  };
+}
+
+function descriptorCommandDevicePolicy(value: unknown): CommandDevicePolicy | undefined {
+  const input = recordField(value);
+  if (!Object.keys(input).length) return undefined;
+  const prefer = stringArrayField(input.prefer).map((item) => item.trim()).filter(Boolean);
+  const cpuReason = stringField(input.cpuReason)?.trim();
+  const forceCpuReason = stringField(input.forceCpuReason)?.trim();
+  const argName = stringField(input.argName)?.trim();
+  const requireReasonWhenCpuForced = typeof input.requireReasonWhenCpuForced === "boolean" ? input.requireReasonWhenCpuForced : undefined;
+  return {
+    ...(prefer.length ? { prefer } : {}),
+    ...(requireReasonWhenCpuForced !== undefined ? { requireReasonWhenCpuForced } : {}),
+    ...(cpuReason ? { cpuReason } : {}),
+    ...(forceCpuReason ? { forceCpuReason } : {}),
+    ...(argName ? { argName } : {}),
   };
 }
 
@@ -2847,336 +2766,6 @@ async function validateProviderContractCommandOutput(
     return `Provider contract tiny synthesis output is too large: ${file.size} bytes exceeds ${contract.maxSizeBytes} bytes.`;
   }
   return undefined;
-}
-
-interface CapabilityBuilderSourceListing {
-  pathPrefix?: string;
-  maxEntries: number;
-  maxDepth: number;
-  includeGenerated: boolean;
-  totalFileCount: number;
-  totalFileCountTruncated: boolean;
-  omittedDirectoryCount: number;
-  omittedDirectories: CapabilityBuilderOmittedDirectorySummary[];
-  nextCursor?: string;
-  files: Array<{
-    path: string;
-    sizeBytes: number;
-    mtimeMs: number;
-  }>;
-}
-
-interface CapabilityBuilderListCollection {
-  files: CapabilityBuilderSourceListing["files"];
-  omittedDirectories: CapabilityBuilderOmittedDirectorySummary[];
-  omittedDirectoryCount: number;
-  matchedFileCount: number;
-  hasMoreFiles: boolean;
-}
-
-interface CapabilityBuilderListCursorScope {
-  packageName: string;
-  sourcePath: string;
-  rootKey: string;
-  pathPrefix: string;
-  includeGenerated: boolean;
-  maxEntries: number;
-  maxDepth: number;
-  sortOrder: string;
-  gitSha: string;
-  targetMtimeMs: number;
-  targetKind: "file" | "directory";
-}
-
-interface CapabilityBuilderListPackageIdentity {
-  packageName: string;
-  sourcePath: string;
-  gitSha?: string;
-}
-
-async function listCapabilityBuilderSourceFiles(
-  rootPath: string,
-  input: CapabilityBuilderListFilesInput,
-  identity: CapabilityBuilderListPackageIdentity,
-  maxEntriesCap = builderListMaxEntries,
-): Promise<CapabilityBuilderSourceListing> {
-  const pathPrefix = normalizeCapabilityBuilderListPathPrefix(rootPath, input.pathPrefix);
-  const maxEntries = boundedCapabilityBuilderListInteger(input.maxEntries, builderListDefaultMaxEntries, maxEntriesCap, "maxEntries");
-  const maxDepth = boundedCapabilityBuilderListInteger(input.maxDepth, builderListDefaultMaxDepth, builderListMaxDepth, "maxDepth");
-  const includeGenerated = input.includeGenerated === true;
-  if (includeGenerated && !pathPrefix.path) {
-    throw new Error("includeGenerated=true requires a narrow pathPrefix inside the Builder package.");
-  }
-
-  const targetStat = await stat(pathPrefix.absolutePath).catch(() => undefined);
-  if (!targetStat) throw new Error(`Capability Builder list path does not exist: ${pathPrefix.path ?? "."}`);
-  const targetKind = targetStat.isFile() ? "file" : targetStat.isDirectory() ? "directory" : undefined;
-  if (!targetKind) throw new Error(`Capability Builder list path is not a file or directory: ${pathPrefix.path ?? "."}`);
-  const cursorScope = capabilityBuilderListCursorScope(rootPath, identity, pathPrefix.path, includeGenerated, maxEntries, maxDepth, targetStat.mtimeMs, targetKind);
-  const offset = decodeCapabilityBuilderListCursor(input.cursor, cursorScope);
-  if (offset > builderListMaxCursorOffset) throw new Error(`Capability Builder list cursor is too deep; narrow pathPrefix or filters before continuing past ${builderListMaxCursorOffset} files.`);
-
-  const collection: CapabilityBuilderListCollection = {
-    files: [],
-    omittedDirectories: [],
-    omittedDirectoryCount: 0,
-    matchedFileCount: 0,
-    hasMoreFiles: false,
-  };
-  if (!includeGenerated && pathPrefix.path && capabilityBuilderGeneratedDirectoryRoot(pathPrefix.path)) {
-    if (targetStat.isDirectory()) {
-      await recordCapabilityBuilderOmittedDirectory(collection, pathPrefix.absolutePath, pathPrefix.path, "generated");
-    }
-    return {
-      ...(pathPrefix.path ? { pathPrefix: pathPrefix.path } : {}),
-      maxEntries,
-      maxDepth,
-      includeGenerated,
-      totalFileCount: 0,
-      totalFileCountTruncated: false,
-      omittedDirectoryCount: collection.omittedDirectoryCount,
-      omittedDirectories: collection.omittedDirectories,
-      files: [],
-    };
-  }
-
-  if (targetKind === "file") {
-    appendCapabilityBuilderListedFile(collection, offset, maxEntries, {
-      path: pathPrefix.path!,
-      sizeBytes: targetStat.size,
-      mtimeMs: targetStat.mtimeMs,
-    });
-  } else {
-    await collectCapabilityBuilderListedFiles(rootPath, pathPrefix.absolutePath, maxDepth, includeGenerated, offset, maxEntries, collection);
-  }
-
-  collection.omittedDirectories.sort((left, right) => left.path.localeCompare(right.path));
-  const nextOffset = offset + collection.files.length;
-  return {
-    ...(pathPrefix.path ? { pathPrefix: pathPrefix.path } : {}),
-    maxEntries,
-    maxDepth,
-    includeGenerated,
-    totalFileCount: collection.hasMoreFiles ? nextOffset + 1 : collection.matchedFileCount,
-    totalFileCountTruncated: collection.hasMoreFiles,
-    omittedDirectoryCount: collection.omittedDirectoryCount,
-    omittedDirectories: collection.omittedDirectories.slice(0, builderListMaxOmittedDirectories),
-    ...(collection.hasMoreFiles ? { nextCursor: encodeCapabilityBuilderListCursor(nextOffset, cursorScope) } : {}),
-    files: collection.files,
-  };
-}
-
-async function collectCapabilityBuilderListedFiles(
-  rootPath: string,
-  directory: string,
-  maxDepth: number,
-  includeGenerated: boolean,
-  offset: number,
-  maxEntries: number,
-  collection: CapabilityBuilderListCollection,
-  depth = 0,
-): Promise<void> {
-  if (collection.hasMoreFiles) return;
-  const entries = await opendir(directory);
-  for await (const entry of entries) {
-    if (collection.hasMoreFiles) return;
-    const absolutePath = join(directory, entry.name);
-    const relativePath = normalizeCapabilityBuilderRelativePath(relative(rootPath, absolutePath));
-    if (relativePath === ".git" || relativePath.startsWith(".git/")) continue;
-    if (entry.isDirectory()) {
-      const generatedRoot = capabilityBuilderGeneratedDirectoryRoot(relativePath);
-      if (!includeGenerated && generatedRoot === relativePath) {
-        await recordCapabilityBuilderOmittedDirectory(collection, absolutePath, relativePath, "generated");
-        continue;
-      }
-      if (depth >= maxDepth) {
-        await recordCapabilityBuilderOmittedDirectory(collection, absolutePath, relativePath, "maxDepth");
-        continue;
-      }
-      await collectCapabilityBuilderListedFiles(rootPath, absolutePath, maxDepth, includeGenerated, offset, maxEntries, collection, depth + 1);
-    } else if (entry.isFile()) {
-      const file = await stat(absolutePath);
-      appendCapabilityBuilderListedFile(collection, offset, maxEntries, { path: relativePath, sizeBytes: file.size, mtimeMs: file.mtimeMs });
-    }
-  }
-}
-
-function appendCapabilityBuilderListedFile(
-  collection: CapabilityBuilderListCollection,
-  offset: number,
-  maxEntries: number,
-  file: CapabilityBuilderSourceListing["files"][number],
-): void {
-  collection.matchedFileCount += 1;
-  if (collection.matchedFileCount <= offset) return;
-  if (collection.files.length < maxEntries) {
-    collection.files.push(file);
-    return;
-  }
-  collection.hasMoreFiles = true;
-}
-
-async function recordCapabilityBuilderOmittedDirectory(
-  collection: CapabilityBuilderListCollection,
-  absolutePath: string,
-  relativePath: string,
-  reason: CapabilityBuilderOmittedDirectorySummary["reason"],
-): Promise<void> {
-  collection.omittedDirectoryCount += 1;
-  if (collection.omittedDirectories.length >= builderListMaxOmittedDirectories) return;
-  collection.omittedDirectories.push(await summarizeCapabilityBuilderOmittedDirectory(absolutePath, relativePath, reason));
-}
-
-async function summarizeCapabilityBuilderOmittedDirectory(
-  absolutePath: string,
-  relativePath: string,
-  reason: CapabilityBuilderOmittedDirectorySummary["reason"],
-): Promise<CapabilityBuilderOmittedDirectorySummary> {
-  let fileCount = 0;
-  let totalBytes = 0;
-  let directoryCount = 0;
-  let truncated = false;
-  async function visit(directory: string): Promise<void> {
-    if (truncated) return;
-    directoryCount += 1;
-    if (directoryCount > builderListOmittedSummaryMaxDirectories) {
-      truncated = true;
-      return;
-    }
-    let entries;
-    try {
-      entries = await opendir(directory);
-    } catch {
-      return;
-    }
-    for await (const entry of entries) {
-      if (truncated) return;
-      const childPath = join(directory, entry.name);
-      if (entry.isDirectory()) {
-        await visit(childPath);
-      } else if (entry.isFile()) {
-        if (fileCount >= builderListOmittedSummaryMaxFiles) {
-          truncated = true;
-          return;
-        }
-        const file = await stat(childPath).catch(() => undefined);
-        if (!file) continue;
-        fileCount += 1;
-        totalBytes += file.size;
-      }
-    }
-  }
-  await visit(absolutePath);
-  return { path: relativePath, reason, fileCount, totalBytes, truncated };
-}
-
-function normalizeCapabilityBuilderListPathPrefix(rootPath: string, pathPrefix: string | undefined): { path?: string; absolutePath: string } {
-  const trimmed = pathPrefix?.trim();
-  if (!trimmed || trimmed === ".") return { absolutePath: rootPath };
-  if (trimmed.includes("\0")) throw new Error(`Capability Builder list path contains unsupported characters: ${trimmed}`);
-  if (isAbsolute(trimmed)) throw new Error(`Capability Builder list path must be package-relative: ${trimmed}`);
-  const absolutePath = resolve(rootPath, trimmed);
-  const relativePath = relative(rootPath, absolutePath);
-  if (!relativePath || relativePath === "." || relativePath.startsWith("..") || !isPathInside(rootPath, absolutePath)) {
-    throw new Error(`Capability Builder list path escapes the package root: ${trimmed}`);
-  }
-  if (relativePath === ".git" || relativePath.startsWith(".git/")) {
-    throw new Error(`Capability Builder file tools cannot access package Git metadata: ${trimmed}`);
-  }
-  return { path: normalizeCapabilityBuilderRelativePath(relativePath), absolutePath };
-}
-
-function capabilityBuilderGeneratedDirectoryRoot(relativePath: string): string | undefined {
-  const segments = relativePath.split(/[\\/]+/).filter(Boolean);
-  const rootSegments: string[] = [];
-  for (const segment of segments) {
-    rootSegments.push(segment);
-    if (builderListGeneratedDirectoryNames.has(segment)) return rootSegments.join("/");
-  }
-  return undefined;
-}
-
-function normalizeCapabilityBuilderRelativePath(relativePath: string): string {
-  return relativePath.split(/[\\/]+/).join("/");
-}
-
-function boundedCapabilityBuilderListInteger(value: number | undefined, defaultValue: number, maxValue: number, label: string): number {
-  if (value === undefined) return defaultValue;
-  if (!Number.isFinite(value)) throw new Error(`${label} must be a finite number.`);
-  const integer = Math.floor(value);
-  if (integer < 1) throw new Error(`${label} must be at least 1.`);
-  return Math.min(integer, maxValue);
-}
-
-function capabilityBuilderListCursorScope(
-  rootPath: string,
-  identity: CapabilityBuilderListPackageIdentity,
-  pathPrefix: string | undefined,
-  includeGenerated: boolean,
-  maxEntries: number,
-  maxDepth: number,
-  targetMtimeMs: number,
-  targetKind: "file" | "directory",
-): CapabilityBuilderListCursorScope {
-  return {
-    packageName: identity.packageName,
-    sourcePath: identity.sourcePath,
-    rootKey: createHash("sha256").update(resolve(rootPath)).digest("hex"),
-    pathPrefix: pathPrefix ?? "",
-    includeGenerated,
-    maxEntries,
-    maxDepth,
-    sortOrder: builderListSortOrder,
-    gitSha: identity.gitSha ?? "",
-    targetMtimeMs,
-    targetKind,
-  };
-}
-
-function decodeCapabilityBuilderListCursor(cursor: string | undefined, expectedScope: CapabilityBuilderListCursorScope): number {
-  if (!cursor) return 0;
-  try {
-    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
-      v?: unknown;
-      offset?: unknown;
-      scope?: unknown;
-    };
-    if (parsed.v !== builderListCursorVersion) throw new Error("unsupported cursor version");
-    if (typeof parsed.offset !== "number" || !Number.isInteger(parsed.offset) || parsed.offset < 0) throw new Error("invalid offset");
-    if (JSON.stringify(parsed.scope) !== JSON.stringify(expectedScope)) throw new Error("cursor scope mismatch");
-    return parsed.offset;
-  } catch {
-    throw new Error("Capability Builder list cursor is invalid or does not match the current package, pathPrefix, filters, sort order, or snapshot.");
-  }
-}
-
-function encodeCapabilityBuilderListCursor(offset: number, scope: CapabilityBuilderListCursorScope): string {
-  return Buffer.from(JSON.stringify({ v: builderListCursorVersion, offset, scope }), "utf8").toString("base64url");
-}
-
-async function listPackageFiles(rootPath: string): Promise<Map<string, number>> {
-  const metadata = await listPackageFileMetadata(rootPath);
-  return new Map([...metadata.entries()].map(([path, file]) => [path, file.sizeBytes]));
-}
-
-async function listPackageFileMetadata(rootPath: string): Promise<Map<string, CapabilityBuilderFileMetadata>> {
-  const files = new Map<string, CapabilityBuilderFileMetadata>();
-  async function visit(directory: string): Promise<void> {
-    const entries = await readdir(directory, { withFileTypes: true });
-    for (const entry of entries) {
-      const absolutePath = join(directory, entry.name);
-      const relativePath = relative(rootPath, absolutePath);
-      if (relativePath === ".git" || relativePath.startsWith(".git/")) continue;
-      if (entry.isDirectory()) {
-        await visit(absolutePath);
-      } else if (entry.isFile()) {
-        const file = await stat(absolutePath);
-        files.set(relativePath, { sizeBytes: file.size, mtimeMs: file.mtimeMs });
-      }
-    }
-  }
-  await visit(rootPath);
-  return files;
 }
 
 function validationArtifactFiles(
@@ -3375,6 +2964,40 @@ async function updateUnregistrationManifest(
   manifest.installedSource = null;
   manifest.refs = { ...refs, installed: null, lastUnregistered: unregistration.gitSha ?? null };
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+async function updateRegistrationRepairManifest(
+  rootPath: string,
+  repair: {
+    repairedAt: string;
+    reason?: string;
+    gitSha?: string;
+    staleInstalledPackageId?: string;
+    staleInstalledSource?: string;
+    staleInstalledRef?: string;
+  },
+): Promise<Record<string, string | null>> {
+  const manifestPath = join(rootPath, "capability-build.json");
+  const manifest = await readBuildManifest(rootPath);
+  const refs = recordField(manifest.refs);
+  manifest.status = "unregistered";
+  manifest.unregisteredAt = repair.repairedAt;
+  manifest.registrationRepairedAt = repair.repairedAt;
+  if (repair.reason) manifest.registrationRepairReason = repair.reason;
+  if (repair.staleInstalledPackageId) manifest.staleInstalledPackageId = repair.staleInstalledPackageId;
+  if (repair.staleInstalledSource) manifest.staleInstalledSource = repair.staleInstalledSource;
+  if (repair.staleInstalledRef) manifest.staleInstalledRef = repair.staleInstalledRef;
+  manifest.installedPackageId = null;
+  manifest.installedSource = null;
+  manifest.installedVersion = null;
+  const nextRefs = { ...refs, installed: null, lastRegistrationRepair: repair.gitSha ?? null };
+  manifest.refs = nextRefs;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  return Object.fromEntries(
+    Object.entries(nextRefs)
+      .filter(([, value]) => value === null || typeof value === "string")
+      .map(([key, value]) => [key, value as string | null]),
+  );
 }
 
 async function updateRepairManifest(
@@ -3705,1184 +3328,6 @@ function capabilityBuilderSourceRef(managedWorkspace: string, rootPath: string, 
   };
 }
 
-function scaffoldFiles(name: string, input: CapabilityBuilderScaffoldInput): Array<{ path: string; content: string }> {
-  const commandName = commandNameFromPackage(name);
-  const description = input.goal.trim();
-  if (isPiperVoiceProviderScaffold(input)) return piperVoiceProviderScaffoldFiles(name, commandName, description, input);
-  if (isKokoroOnnxVoiceProviderScaffold(input)) return kokoroOnnxVoiceProviderScaffoldFiles(name, commandName, description, input);
-  if (isElevenLabsVoiceProviderScaffold(input)) return elevenLabsVoiceProviderScaffoldFiles(name, commandName, description);
-  if (isCartesiaVoiceProviderScaffold(input)) return cartesiaVoiceProviderScaffoldFiles(name, commandName, description);
-  if (normalizedInstallerShape(input) === "tts-provider") return genericTtsProviderScaffoldFiles(name, commandName, description, input);
-  const outputTypes = input.outputArtifactTypes ?? [];
-  const isSearchProvider = normalizedInstallerShape(input) === "search-provider";
-  const responseFormats = input.responseFormats?.length ? input.responseFormats : isSearchProvider ? defaultSearchProviderResponseFormats(input) : [];
-  return [
-    {
-      path: "ambient-cli.json",
-      content: `${JSON.stringify(
-        {
-          name,
-          version: "0.1.0",
-          description,
-          skills: "./SKILL.md",
-          commands: {
-            [commandName]: {
-              description: `Draft command for ${description}`,
-              command: "node",
-              args: ["./scripts/run.mjs"],
-              cwd: "package",
-              healthCheck: ["node", "./scripts/run.mjs", "--health"],
-            },
-          },
-          env: [],
-          ...(responseFormats.length ? { responseFormats } : {}),
-          artifacts: {
-            outputTypes,
-            policy: isSearchProvider && !outputTypes.length
-              ? "return concise JSON/text in stdout; only write files for explicit export or large-output requests"
-              : "write large or binary outputs to files and return artifact paths",
-          },
-        },
-        null,
-        2,
-      )}\n`,
-    },
-    {
-      path: "SKILL.md",
-      content: [
-        "---",
-        `name: ${name}`,
-        `description: ${description}`,
-        "---",
-        "",
-        `Use this capability when the user asks to ${description.toLowerCase()}.`,
-        "",
-        `Run the \`${commandName}\` command through \`ambient_cli\` after describing this package.`,
-        isSearchProvider && !outputTypes.length
-          ? `Return concise search results on stdout by default${responseFormats.length ? ` (${responseFormats.join(", ")})` : ""}. Do not declare file artifacts unless the command intentionally writes output files.`
-          : "Keep stdout concise. For generated media or large outputs, write files and return artifact paths.",
-        "",
-      ].join("\n"),
-    },
-    {
-      path: "scripts/run.mjs",
-      content: [
-        "#!/usr/bin/env node",
-        "if (process.argv.includes('--health')) {",
-        "  process.stdout.write('ok\\n');",
-        "  process.exit(0);",
-        "}",
-        "process.stdout.write('Draft capability scaffold. Implement command behavior before registration.\\n');",
-        "",
-      ].join("\n"),
-    },
-    {
-      path: "tests/smoke.test.mjs",
-      content: [
-        "import { strict as assert } from 'node:assert';",
-        "import { execFileSync } from 'node:child_process';",
-        "",
-        "const output = execFileSync(process.execPath, ['./scripts/run.mjs', '--health'], { encoding: 'utf8' });",
-        "assert.equal(output, 'ok\\n');",
-        "",
-      ].join("\n"),
-    },
-  ];
-}
-
-function defaultSearchProviderResponseFormats(input: Pick<CapabilityBuilderScaffoldInput, "goal">): string[] {
-  return /\bjson\b/i.test(input.goal) ? ["JSON"] : ["text"];
-}
-
-function normalizedInstallerShape(input: Pick<CapabilityBuilderScaffoldInput, "installerShape" | "kind" | "goal">): CapabilityBuilderInstallerShape | undefined {
-  if (input.installerShape) return input.installerShape;
-  const kindText = (input.kind ?? "").toLowerCase();
-  const goalText = input.goal.toLowerCase();
-  if (kindText.includes("tts-provider") || kindText.includes("voice provider") || goalText.includes("tts-provider") || goalText.includes("voice provider")) {
-    return "tts-provider";
-  }
-  if (kindText.includes("search-provider") || kindText.includes("search provider")) return "search-provider";
-  if (kindText.includes("connector")) return "connector";
-  if (kindText.includes("artifact")) return "artifact-generator";
-  return undefined;
-}
-
-function isPiperVoiceProviderScaffold(input: CapabilityBuilderScaffoldInput): boolean {
-  const providerText = (input.provider ?? "").toLowerCase();
-  const kindText = (input.kind ?? "").toLowerCase();
-  const goalText = input.goal.toLowerCase();
-  return (
-    (providerText.includes("piper") || goalText.includes("piper")) &&
-    (normalizedInstallerShape(input) === "tts-provider" || kindText.includes("voice provider") || kindText.includes("tts-provider") || goalText.includes("voice provider") || goalText.includes("tts-provider"))
-  );
-}
-
-function isKokoroOnnxVoiceProviderScaffold(input: CapabilityBuilderScaffoldInput): boolean {
-  const providerText = (input.provider ?? "").toLowerCase();
-  const kindText = (input.kind ?? "").toLowerCase();
-  const goalText = input.goal.toLowerCase();
-  return (
-    (providerText.includes("kokoro") || providerText.includes("onnx") || goalText.includes("kokoro onnx") || goalText.includes("kokoro-onnx")) &&
-    (normalizedInstallerShape(input) === "tts-provider" || kindText.includes("voice provider") || kindText.includes("tts-provider") || goalText.includes("voice provider") || goalText.includes("tts-provider"))
-  );
-}
-
-function isElevenLabsVoiceProviderScaffold(input: CapabilityBuilderScaffoldInput): boolean {
-  const providerText = (input.provider ?? "").toLowerCase();
-  const goalText = input.goal.toLowerCase();
-  return normalizedInstallerShape(input) === "tts-provider" && (providerText.includes("eleven") || goalText.includes("elevenlabs") || goalText.includes("eleven labs"));
-}
-
-function isCartesiaVoiceProviderScaffold(input: CapabilityBuilderScaffoldInput): boolean {
-  const providerText = (input.provider ?? "").toLowerCase();
-  const goalText = input.goal.toLowerCase();
-  return normalizedInstallerShape(input) === "tts-provider" && (providerText.includes("cartesia") || goalText.includes("cartesia"));
-}
-
-function genericTtsProviderScaffoldFiles(
-  name: string,
-  commandName: string,
-  description: string,
-  input: CapabilityBuilderScaffoldInput,
-): Array<{ path: string; content: string }> {
-  const providerLabel = input.provider?.trim() || name.replace(/^ambient-/, "").split("-").map(capitalize).join(" ");
-  const format = defaultVoiceFormat(input.outputArtifactTypes);
-  const env = (input.envNames ?? []).map((envName) => ({ name: envName, required: true, description: `${providerLabel} credential or runtime setting.` }));
-  const local = input.locality === "local" ? true : input.locality === "network" ? false : undefined;
-  return [
-    {
-      path: "ambient-cli.json",
-      content: `${JSON.stringify(
-        {
-          name,
-          version: "0.1.0",
-          description,
-          skills: "./SKILL.md",
-          commands: {
-            [commandName]: {
-              description: `Synthesize assistant voice audio with ${providerLabel}.`,
-              command: "node",
-              args: ["./scripts/run.mjs"],
-              cwd: "package",
-              healthCheck: ["node", "./scripts/run.mjs", "--health"],
-              voiceProvider: {
-                label: `${providerLabel} Voice Provider`,
-                defaultFormat: format,
-                formats: [format],
-                voices: [{ id: "default", label: "Default voice" }],
-                ...(local !== undefined ? { local } : {}),
-              },
-            },
-          },
-          ...(env.length ? { env } : {}),
-          artifacts: {
-            outputTypes: [format.toUpperCase()],
-            policy: "write audio to the requested output path and return concise JSON metadata",
-          },
-          ...(input.networkHosts?.length ? { networkHosts: input.networkHosts } : {}),
-          ...(input.modelAssets?.length ? { modelAssets: input.modelAssets } : {}),
-        },
-        null,
-        2,
-      )}\n`,
-    },
-    {
-      path: "SKILL.md",
-      content: [
-        "---",
-        `name: ${name}`,
-        `description: ${description}`,
-        "---",
-        "",
-        `Use this Ambient voice provider when the user wants Ambient to speak assistant replies through ${providerLabel}.`,
-        "",
-        "## Contract",
-        "",
-        `The \`${commandName}\` command must implement Ambient's tts-provider contract:`,
-        "",
-        "- accept `--text <text>` or `--text-file <path>`, `--output <path>`, `--format <wav|mp3|ogg>`, and optional `--voice <id>`",
-        "- write audio to the exact requested output path",
-        "- print concise JSON metadata with `audioPath`, `mimeType`, optional `durationMs`, `providerId`, and `voiceId`",
-        "- never print API keys, base64 audio, long provider responses, or transcript-sized content",
-        "",
-        "This generated package is a provider scaffold. Keep the descriptor `voiceProvider` metadata aligned with the wrapper behavior before validation and registration.",
-        "",
-      ].join("\n"),
-    },
-    {
-      path: "scripts/run.mjs",
-      content: genericTtsProviderRunScript(providerLabel, format, input.envNames ?? []),
-    },
-    {
-      path: "tests/smoke.test.mjs",
-      content: [
-        "import { strict as assert } from 'node:assert';",
-        "import { execFileSync } from 'node:child_process';",
-        "",
-        "const output = execFileSync(process.execPath, ['./scripts/run.mjs', '--health'], { encoding: 'utf8' });",
-        "assert.match(output, /ok/);",
-        "",
-      ].join("\n"),
-    },
-  ];
-}
-
-function elevenLabsVoiceProviderScaffoldFiles(
-  name: string,
-  commandName: string,
-  description: string,
-): Array<{ path: string; content: string }> {
-  return cloudVoiceProviderScaffoldFiles({
-    name,
-    commandName,
-    description,
-    providerId: "elevenlabs",
-    providerLabel: "ElevenLabs",
-    envName: "ELEVENLABS_API_KEY",
-    host: "api.elevenlabs.io",
-    defaultFormat: "mp3",
-    outputType: "MP3",
-    defaultVoiceId: "21m00Tcm4TlvDq8ikWAM",
-    defaultVoiceLabel: "Rachel",
-    script: elevenLabsVoiceProviderRunScript(),
-    notes: [
-      "Uses `POST /v1/text-to-speech/{voice_id}` with the smallest practical validation text.",
-      "Default output is MP3 (`mp3_44100_128`) because ElevenLabs returns MP3 bytes directly for this endpoint.",
-    ],
-  });
-}
-
-function cartesiaVoiceProviderScaffoldFiles(
-  name: string,
-  commandName: string,
-  description: string,
-): Array<{ path: string; content: string }> {
-  return cloudVoiceProviderScaffoldFiles({
-    name,
-    commandName,
-    description,
-    providerId: "cartesia",
-    providerLabel: "Cartesia",
-    envName: "CARTESIA_API_KEY",
-    host: "api.cartesia.ai",
-    defaultFormat: "wav",
-    outputType: "WAV",
-    defaultVoiceId: "a0e99841-438c-4a64-b679-ae501e7d6091",
-    defaultVoiceLabel: "Default Cartesia voice",
-    script: cartesiaVoiceProviderRunScript(),
-    notes: [
-      "Uses `POST /tts/bytes` with `Cartesia-Version: 2025-04-16` and a tiny transcript.",
-      "Default output is WAV/PCM so Ambient can validate a simple non-empty audio artifact.",
-    ],
-  });
-}
-
-function cloudVoiceProviderScaffoldFiles(input: {
-  name: string;
-  commandName: string;
-  description: string;
-  providerId: string;
-  providerLabel: string;
-  envName: string;
-  host: string;
-  defaultFormat: "mp3" | "wav" | "ogg";
-  outputType: string;
-  defaultVoiceId: string;
-  defaultVoiceLabel: string;
-  script: string;
-  notes: string[];
-}): Array<{ path: string; content: string }> {
-  return [
-    {
-      path: "ambient-cli.json",
-      content: `${JSON.stringify(
-        {
-          name: input.name,
-          version: "0.1.0",
-          description: input.description,
-          skills: "./SKILL.md",
-          commands: {
-            [input.commandName]: {
-              description: `Synthesize assistant voice audio with ${input.providerLabel}.`,
-              command: "node",
-              args: ["./scripts/run.mjs"],
-              cwd: "package",
-              healthCheck: ["node", "./scripts/run.mjs", "--health"],
-              voiceProvider: {
-                label: `${input.providerLabel} Voice Provider`,
-                defaultFormat: input.defaultFormat,
-                formats: [input.defaultFormat],
-                voices: [{ id: input.defaultVoiceId, label: input.defaultVoiceLabel }],
-                local: false,
-                voiceDiscovery: {
-                  command: input.commandName,
-                  cacheTtlSeconds: 86400,
-                  requiresNetwork: true,
-                  requiresSecret: [input.envName],
-                  source: "cloud-api",
-                },
-                voiceCloning: {
-                  supported: true,
-                  createCommand: input.commandName,
-                  statusCommand: input.commandName,
-                  deleteCommand: input.commandName,
-                  mode: "cloud",
-                  inputs: {
-                    audioFormats: ["mp3", "wav", "m4a", "webm"],
-                    minDurationSeconds: 30,
-                    maxDurationSeconds: 1800,
-                    minSamples: 1,
-                    transcript: "optional",
-                  },
-                  requiresConsent: true,
-                  requiresSecret: [input.envName],
-                  networkHosts: [input.host],
-                  costNote: "Voice cloning may consume provider credits depending on account plan and provider policy.",
-                  privacyNote: "Source audio is uploaded to the cloud provider only during a separately approved clone workflow.",
-                  output: {
-                    creates: ["provider-voice-id", "dynamic-cache-voice"],
-                    appearsInDynamicCatalog: true,
-                  },
-                },
-              },
-            },
-          },
-          env: [{ name: input.envName, required: true, description: `${input.providerLabel} API key.` }],
-          networkHosts: [input.host],
-          artifacts: {
-            outputTypes: [input.outputType],
-            policy: "write audio to the requested output path and return concise JSON metadata",
-          },
-        },
-        null,
-        2,
-      )}\n`,
-    },
-    {
-      path: "SKILL.md",
-      content: [
-        "---",
-        `name: ${input.name}`,
-        `description: ${input.description}`,
-        "---",
-        "",
-        `Use this Ambient voice provider when the user wants Ambient to speak assistant replies through ${input.providerLabel}.`,
-        "",
-        "## Contract",
-        "",
-        `Run \`${input.commandName}\` through Ambient's voice runtime or \`ambient_cli\` with \`--text <text>\` or \`--text-file <path>\`, \`--output <path>\`, \`--format ${input.defaultFormat}\`, and optional \`--voice <id>\`.`,
-        `Requires Ambient-managed secret binding for \`${input.envName}\`; never ask the user to paste API keys into chat.`,
-        ...input.notes,
-        "Keep stdout to concise JSON metadata: `audioPath`, `mimeType`, `providerId`, and `voiceId`. Put binary audio in the requested output path.",
-        "",
-      ].join("\n"),
-    },
-    {
-      path: "scripts/run.mjs",
-      content: input.script,
-    },
-    {
-      path: "tests/smoke.test.mjs",
-      content: [
-        "import { strict as assert } from 'node:assert';",
-        "import { execFileSync, spawnSync } from 'node:child_process';",
-        "",
-        "if (process.env.AMBIENT_LIVE_TTS_SMOKE === '1') {",
-        `  const format = process.env.AMBIENT_LIVE_TTS_FORMAT || ${JSON.stringify(input.defaultFormat)};`,
-        "  const result = spawnSync(process.execPath, ['./scripts/run.mjs', '--text', 'Ambient smoke.', '--output', `ambient-live-smoke.${format}`, '--format', format], { encoding: 'utf8' });",
-        "  assert.equal(result.status, 0, result.stderr);",
-        "  assert.match(result.stdout, /audioPath/);",
-        "} else {",
-        "  const output = execFileSync(process.execPath, ['./scripts/run.mjs', '--health'], { encoding: 'utf8' });",
-        "  assert.match(output, /ok/);",
-        "}",
-        "",
-      ].join("\n"),
-    },
-  ];
-}
-
-function defaultVoiceFormat(outputArtifactTypes: string[] | undefined): "mp3" | "wav" | "ogg" {
-  for (const type of outputArtifactTypes ?? []) {
-    const normalized = normalizeVoiceOutputFormat(type);
-    if (normalized) return normalized;
-  }
-  return "wav";
-}
-
-function capitalize(value: string): string {
-  return value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
-}
-
-function genericTtsProviderRunScript(providerLabel: string, defaultFormat: "mp3" | "wav" | "ogg", envNames: string[]): string {
-  return [
-    "#!/usr/bin/env node",
-    "import { existsSync, readFileSync } from 'node:fs';",
-    "import { isAbsolute, resolve } from 'node:path';",
-    "",
-    `const PROVIDER_LABEL = ${JSON.stringify(providerLabel)};`,
-    `const DEFAULT_FORMAT = ${JSON.stringify(defaultFormat)};`,
-    `const REQUIRED_ENV = ${JSON.stringify(envNames)};`,
-    "",
-    "function parseArgs(argv) {",
-    "  const options = { text: '', textFile: '', output: '', format: DEFAULT_FORMAT, voice: 'default', health: false, help: false };",
-    "  for (let i = 2; i < argv.length; i += 1) {",
-    "    const arg = argv[i];",
-    "    if (arg === '--health') options.health = true;",
-    "    else if (arg === '--help' || arg === '-h') options.help = true;",
-    "    else if (arg === '--text') options.text = argv[++i] ?? '';",
-    "    else if (arg === '--text-file') options.textFile = argv[++i] ?? '';",
-    "    else if (arg === '--output') options.output = argv[++i] ?? '';",
-    "    else if (arg === '--format') options.format = argv[++i] ?? DEFAULT_FORMAT;",
-    "    else if (arg === '--voice') options.voice = argv[++i] ?? 'default';",
-    "  }",
-    "  return options;",
-    "}",
-    "",
-    "function resolveInputPath(path) {",
-    "  const roots = [process.cwd(), process.env.AMBIENT_WORKSPACE_PATH, process.env.AMBIENT_DESKTOP_WORKSPACE].filter(Boolean);",
-    "  const candidates = isAbsolute(path) ? [path] : [path, ...roots.map((root) => resolve(root, path))];",
-    "  for (const candidate of [...new Set(candidates)]) {",
-    "    if (existsSync(candidate)) return candidate;",
-    "  }",
-    "  return resolve(path);",
-    "}",
-    "",
-    "function loadTextInput(options) {",
-    "  if (options.text) return options.text;",
-    "  if (!options.textFile) return '';",
-    "  try {",
-    "    return readFileSync(resolveInputPath(options.textFile), 'utf8');",
-    "  } catch (error) {",
-    "    process.stderr.write(`Unable to read --text-file ${options.textFile}: ${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(2);",
-    "  }",
-    "}",
-    "",
-    "function missingEnv() {",
-    "  return REQUIRED_ENV.filter((name) => !process.env[name]);",
-    "}",
-    "",
-    "function mimeType(format) {",
-    "  if (format === 'mp3') return 'audio/mpeg';",
-    "  if (format === 'ogg') return 'audio/ogg';",
-    "  return 'audio/wav';",
-    "}",
-    "",
-    "const options = parseArgs(process.argv);",
-    "if (options.help) {",
-    "  process.stdout.write('Usage: provider (--text <text> | --text-file <path>) --output <path> --format <wav|mp3|ogg> [--voice <id>]\\n');",
-    "  process.exit(0);",
-    "}",
-    "",
-    "const missing = missingEnv();",
-    "if (options.health) {",
-    "  if (missing.length) {",
-    "    process.stderr.write(`Missing required env ${missing.join(', ')}; use Ambient-managed secret binding before validation.\\n`);",
-    "    process.exit(7);",
-    "  }",
-    "  process.stdout.write('ok\\n');",
-    "  process.exit(0);",
-    "}",
-    "",
-    "const synthesisText = loadTextInput(options);",
-    "if (!synthesisText) {",
-    "  process.stderr.write('Missing --text or --text-file for Ambient tts-provider synthesis.\\n');",
-    "  process.exit(2);",
-    "}",
-    "if (!options.output) {",
-    "  process.stderr.write('Missing --output for Ambient tts-provider synthesis.\\n');",
-    "  process.exit(2);",
-    "}",
-    "if (!['wav', 'mp3', 'ogg'].includes(options.format)) {",
-    "  process.stderr.write(`Unsupported --format: ${options.format}\\n`);",
-    "  process.exit(2);",
-    "}",
-    "if (missing.length) {",
-    "  process.stderr.write(`Missing required env ${missing.join(', ')}; use Ambient-managed secret binding before validation.\\n`);",
-    "  process.exit(7);",
-    "}",
-    "",
-    "const audioPath = resolve(options.output);",
-    "process.stderr.write(`${PROVIDER_LABEL} scaffold has not implemented provider synthesis yet. Fill in scripts/run.mjs with the provider API/binary call, write audio to ${audioPath}, then return JSON metadata.\\n`);",
-    "process.stdout.write(JSON.stringify({ audioPath, mimeType: mimeType(options.format), providerId: PROVIDER_LABEL.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), voiceId: options.voice, implemented: false }) + '\\n');",
-    "process.exit(3);",
-    "",
-  ].join("\n");
-}
-
-function cloudProviderSharedRunScript(): string[] {
-  return [
-    "#!/usr/bin/env node",
-    "import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';",
-    "import { basename, dirname, isAbsolute, resolve } from 'node:path';",
-    "",
-    "function parseArgs(argv) {",
-    "  const options = { text: '', textFile: '', output: '', format: '', voice: '', health: false, listVoices: false, cloneCreate: false, cloneStatus: false, cloneDelete: false, cloneName: '', voiceId: '', sourceAudio: [], notes: '', help: false };",
-    "  for (let i = 2; i < argv.length; i += 1) {",
-    "    const arg = argv[i];",
-    "    if (arg === '--health') options.health = true;",
-    "    else if (arg === '--list-voices') options.listVoices = true;",
-    "    else if (arg === '--clone-create') options.cloneCreate = true;",
-    "    else if (arg === '--clone-status') options.cloneStatus = true;",
-    "    else if (arg === '--clone-delete') options.cloneDelete = true;",
-    "    else if (arg === '--help' || arg === '-h') options.help = true;",
-    "    else if (arg === '--text') options.text = argv[++i] ?? '';",
-    "    else if (arg === '--text-file') options.textFile = argv[++i] ?? '';",
-    "    else if (arg === '--output') options.output = argv[++i] ?? '';",
-    "    else if (arg === '--format') options.format = argv[++i] ?? '';",
-    "    else if (arg === '--voice') options.voice = argv[++i] ?? '';",
-    "    else if (arg === '--voice-id') options.voiceId = argv[++i] ?? '';",
-    "    else if (arg === '--clone-name') options.cloneName = argv[++i] ?? '';",
-    "    else if (arg === '--source-audio') options.sourceAudio.push(argv[++i] ?? '');",
-    "    else if (arg === '--notes') options.notes = argv[++i] ?? '';",
-    "  }",
-    "  return options;",
-    "}",
-    "",
-    "function resolveInputPath(path) {",
-    "  const roots = [process.cwd(), process.env.AMBIENT_WORKSPACE_PATH, process.env.AMBIENT_DESKTOP_WORKSPACE].filter(Boolean);",
-    "  const candidates = isAbsolute(path) ? [path] : [path, ...roots.map((root) => resolve(root, path))];",
-    "  for (const candidate of [...new Set(candidates)]) {",
-    "    if (existsSync(candidate)) return candidate;",
-    "  }",
-    "  return resolve(path);",
-    "}",
-    "",
-    "function loadTextInput(options) {",
-    "  if (options.text) return options.text;",
-    "  if (!options.textFile) return '';",
-    "  try {",
-    "    return readFileSync(resolveInputPath(options.textFile), 'utf8');",
-    "  } catch (error) {",
-    "    process.stderr.write(`Unable to read --text-file ${options.textFile}: ${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(2);",
-    "  }",
-    "}",
-    "",
-    "function requireEnv(name) {",
-    "  const value = process.env[name]?.trim();",
-    "  if (!value) {",
-    "    process.stderr.write(`Missing required env ${name}; use Ambient-managed secret binding before validation.\\n`);",
-    "    process.exit(7);",
-    "  }",
-    "  return value;",
-    "}",
-    "",
-    "function requireSynthesisArgs(options, expectedFormat) {",
-    "  const text = loadTextInput(options);",
-    "  if (!text) { process.stderr.write('Missing --text or --text-file for Ambient tts-provider synthesis.\\n'); process.exit(2); }",
-    "  if (!options.output) { process.stderr.write('Missing --output for Ambient tts-provider synthesis.\\n'); process.exit(2); }",
-    "  if ((options.format || expectedFormat) !== expectedFormat) { process.stderr.write(`Unsupported --format: ${options.format}; expected ${expectedFormat}.\\n`); process.exit(2); }",
-    "  return text;",
-    "}",
-    "",
-    "async function postBytes(url, init) {",
-    "  const response = await fetch(url, init);",
-    "  const bytes = Buffer.from(await response.arrayBuffer());",
-    "  if (!response.ok) {",
-    "    const body = bytes.toString('utf8').slice(0, 800);",
-    "    throw new Error(`Provider request failed (${response.status}): ${body}`);",
-    "  }",
-    "  return bytes;",
-    "}",
-    "",
-    "async function getJson(url, init) {",
-    "  const response = await fetch(url, init);",
-    "  const text = await response.text();",
-    "  if (!response.ok) {",
-    "    throw new Error(`Provider request failed (${response.status}): ${text.slice(0, 800)}`);",
-    "  }",
-    "  return text ? JSON.parse(text) : {};",
-    "}",
-    "",
-    "function writeAudio(output, bytes) {",
-    "  const audioPath = resolve(output);",
-    "  mkdirSync(dirname(audioPath), { recursive: true });",
-    "  writeFileSync(audioPath, bytes);",
-    "  return audioPath;",
-    "}",
-    "",
-    "function requireCloneArgs(options) {",
-    "  if (!options.cloneName) { process.stderr.write('Missing --clone-name for Ambient voice clone creation.\\n'); process.exit(2); }",
-    "  if (!options.sourceAudio.length) { process.stderr.write('Missing --source-audio for Ambient voice clone creation.\\n'); process.exit(2); }",
-    "}",
-    "",
-    "function requireVoiceId(options) {",
-    "  if (!options.voiceId) { process.stderr.write('Missing --voice-id for Ambient voice clone management.\\n'); process.exit(2); }",
-    "}",
-    "",
-    "function appendAudioFiles(form, fieldName, paths) {",
-    "  for (const path of paths) {",
-    "    const absolutePath = resolve(path);",
-    "    const bytes = readFileSync(absolutePath);",
-    "    form.append(fieldName, new Blob([bytes]), basename(absolutePath));",
-    "  }",
-    "}",
-  ];
-}
-
-function elevenLabsVoiceProviderRunScript(): string {
-  return [
-    ...cloudProviderSharedRunScript(),
-    "",
-    "const ENV_NAME = 'ELEVENLABS_API_KEY';",
-    "const DEFAULT_VOICE = '21m00Tcm4TlvDq8ikWAM';",
-    "const FORMAT = 'mp3';",
-    "const options = parseArgs(process.argv);",
-    "if (options.help) { process.stdout.write('Usage: elevenlabs (--text <text> | --text-file <path>) --output <path.mp3> --format mp3 [--voice <id>] [--list-voices] [--clone-create --clone-name <name> --source-audio <path>] [--clone-status --voice-id <id>] [--clone-delete --voice-id <id>]\\n'); process.exit(0); }",
-    "const apiKey = requireEnv(ENV_NAME);",
-    "if (options.health) { process.stdout.write(JSON.stringify({ ok: true, provider: 'elevenlabs', format: FORMAT }) + '\\n'); process.exit(0); }",
-    "if (options.listVoices) {",
-    "  try {",
-    "    const data = await getJson('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': apiKey, 'accept': 'application/json' } });",
-    "    const voices = Array.isArray(data.voices) ? data.voices.map((voice) => ({",
-    "      id: String(voice.voice_id || voice.voiceId || voice.id || ''),",
-    "      label: String(voice.name || voice.label || voice.voice_id || 'Unnamed voice'),",
-    "      description: typeof voice.description === 'string' ? voice.description : undefined,",
-    "      gender: typeof voice.labels?.gender === 'string' ? voice.labels.gender : undefined,",
-    "      locale: Array.isArray(voice.verified_languages) && voice.verified_languages[0]?.locale ? String(voice.verified_languages[0].locale) : undefined,",
-    "      language: Array.isArray(voice.verified_languages) && voice.verified_languages[0]?.language ? String(voice.verified_languages[0].language) : undefined,",
-    "      style: typeof voice.labels?.accent === 'string' ? [voice.labels.accent] : undefined,",
-    "      providerMetadata: { category: voice.category, isOwner: voice.is_owner, isLegacy: voice.is_legacy },",
-    "    })).filter((voice) => voice.id) : [];",
-    "    process.stdout.write(JSON.stringify({ voices }) + '\\n');",
-    "  } catch (error) {",
-    "    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(1);",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "if (options.cloneCreate) {",
-    "  requireCloneArgs(options);",
-    "  try {",
-    "    const form = new FormData();",
-    "    form.append('name', options.cloneName);",
-    "    if (options.notes) form.append('description', options.notes);",
-    "    appendAudioFiles(form, 'files', options.sourceAudio);",
-    "    const data = await getJson('https://api.elevenlabs.io/v1/voices/add', {",
-    "      method: 'POST',",
-    "      headers: { 'xi-api-key': apiKey, 'accept': 'application/json' },",
-    "      body: form,",
-    "    });",
-    "    const voiceId = String(data.voice_id || data.voiceId || data.id || '');",
-    "    if (!voiceId) throw new Error('ElevenLabs clone response did not include voice_id.');",
-    "    process.stdout.write(JSON.stringify({ voiceId, label: options.cloneName, providerId: 'elevenlabs', cloned: true, status: data.requires_verification ? 'requires-verification' : 'ready' }) + '\\n');",
-    "  } catch (error) {",
-    "    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(1);",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "if (options.cloneStatus) {",
-    "  requireVoiceId(options);",
-    "  try {",
-    "    const data = await getJson(`https://api.elevenlabs.io/v1/voices/${encodeURIComponent(options.voiceId)}`, { headers: { 'xi-api-key': apiKey, 'accept': 'application/json' } });",
-    "    process.stdout.write(JSON.stringify({ voiceId: String(data.voice_id || data.voiceId || options.voiceId), label: data.name ? String(data.name) : undefined, status: data.requires_verification ? 'requires-verification' : 'ready', cloned: true, providerId: 'elevenlabs' }) + '\\n');",
-    "  } catch (error) {",
-    "    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(1);",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "if (options.cloneDelete) {",
-    "  requireVoiceId(options);",
-    "  try {",
-    "    const response = await fetch(`https://api.elevenlabs.io/v1/voices/${encodeURIComponent(options.voiceId)}`, { method: 'DELETE', headers: { 'xi-api-key': apiKey, 'accept': 'application/json' } });",
-    "    const text = await response.text();",
-    "    if (!response.ok) throw new Error(`Provider request failed (${response.status}): ${text.slice(0, 800)}`);",
-    "    process.stdout.write(JSON.stringify({ voiceId: options.voiceId, deleted: true, providerId: 'elevenlabs' }) + '\\n');",
-    "  } catch (error) {",
-    "    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(1);",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "const synthesisText = requireSynthesisArgs(options, FORMAT);",
-    "const voiceId = options.voice || DEFAULT_VOICE;",
-    "try {",
-    "  const bytes = await postBytes(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {",
-    "    method: 'POST',",
-    "    headers: { 'xi-api-key': apiKey, 'content-type': 'application/json', 'accept': 'audio/mpeg' },",
-    "    body: JSON.stringify({ text: synthesisText, model_id: 'eleven_multilingual_v2' }),",
-    "  });",
-    "  const audioPath = writeAudio(options.output, bytes);",
-    "  process.stdout.write(JSON.stringify({ audioPath, mimeType: 'audio/mpeg', providerId: 'elevenlabs', voiceId }) + '\\n');",
-    "} catch (error) {",
-    "  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "  process.exit(1);",
-    "}",
-    "",
-  ].join("\n");
-}
-
-function cartesiaVoiceProviderRunScript(): string {
-  return [
-    ...cloudProviderSharedRunScript(),
-    "",
-    "const ENV_NAME = 'CARTESIA_API_KEY';",
-    "const DEFAULT_VOICE = 'a0e99841-438c-4a64-b679-ae501e7d6091';",
-    "const FORMAT = 'wav';",
-    "const options = parseArgs(process.argv);",
-    "if (options.help) { process.stdout.write('Usage: cartesia (--text <text> | --text-file <path>) --output <path.wav> --format wav [--voice <id>] [--list-voices] [--clone-create --clone-name <name> --source-audio <path>] [--clone-status --voice-id <id>] [--clone-delete --voice-id <id>]\\n'); process.exit(0); }",
-    "const apiKey = requireEnv(ENV_NAME);",
-    "if (options.health) { process.stdout.write(JSON.stringify({ ok: true, provider: 'cartesia', format: FORMAT }) + '\\n'); process.exit(0); }",
-    "if (options.listVoices) {",
-    "  try {",
-    "    const data = await getJson('https://api.cartesia.ai/voices', { headers: { 'X-API-Key': apiKey, 'Cartesia-Version': '2025-04-16', 'accept': 'application/json' } });",
-    "    const rawVoices = Array.isArray(data) ? data : Array.isArray(data.voices) ? data.voices : Array.isArray(data.data) ? data.data : [];",
-    "    const voices = rawVoices.map((voice) => ({",
-    "      id: String(voice.id || voice.voice_id || voice.voiceId || ''),",
-    "      label: String(voice.name || voice.label || voice.id || 'Unnamed voice'),",
-    "      description: typeof voice.description === 'string' ? voice.description : undefined,",
-    "      language: typeof voice.language === 'string' ? voice.language : undefined,",
-    "      locale: typeof voice.locale === 'string' ? voice.locale : undefined,",
-    "      gender: typeof voice.gender === 'string' ? voice.gender : undefined,",
-    "      style: Array.isArray(voice.tags) ? voice.tags.map(String) : undefined,",
-    "      providerMetadata: { isOwner: voice.is_owner, isPublic: voice.is_public },",
-    "    })).filter((voice) => voice.id);",
-    "    process.stdout.write(JSON.stringify({ voices }) + '\\n');",
-    "  } catch (error) {",
-    "    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(1);",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "if (options.cloneCreate) {",
-    "  requireCloneArgs(options);",
-    "  if (options.sourceAudio.length !== 1) { process.stderr.write('Cartesia clone creation expects exactly one --source-audio file.\\n'); process.exit(2); }",
-    "  try {",
-    "    const form = new FormData();",
-    "    appendAudioFiles(form, 'clip', options.sourceAudio);",
-    "    form.append('name', options.cloneName);",
-    "    if (options.notes) form.append('description', options.notes);",
-    "    form.append('language', 'en');",
-    "    form.append('mode', 'similarity');",
-    "    form.append('enhance', 'true');",
-    "    const data = await getJson('https://api.cartesia.ai/voices/clone', {",
-    "      method: 'POST',",
-    "      headers: { 'X-API-Key': apiKey, 'Cartesia-Version': '2025-04-16', 'accept': 'application/json' },",
-    "      body: form,",
-    "    });",
-    "    const voiceId = String(data.id || data.voice_id || data.voiceId || '');",
-    "    if (!voiceId) throw new Error('Cartesia clone response did not include id.');",
-    "    process.stdout.write(JSON.stringify({ voiceId, label: data.name || options.cloneName, providerId: 'cartesia', cloned: true, status: 'ready' }) + '\\n');",
-    "  } catch (error) {",
-    "    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(1);",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "if (options.cloneStatus) {",
-    "  requireVoiceId(options);",
-    "  try {",
-    "    const data = await getJson(`https://api.cartesia.ai/voices/${encodeURIComponent(options.voiceId)}`, { headers: { 'X-API-Key': apiKey, 'Cartesia-Version': '2025-04-16', 'accept': 'application/json' } });",
-    "    process.stdout.write(JSON.stringify({ voiceId: String(data.id || data.voice_id || data.voiceId || options.voiceId), label: data.name ? String(data.name) : undefined, status: 'ready', cloned: true, providerId: 'cartesia' }) + '\\n');",
-    "  } catch (error) {",
-    "    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(1);",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "if (options.cloneDelete) {",
-    "  requireVoiceId(options);",
-    "  try {",
-    "    const response = await fetch(`https://api.cartesia.ai/voices/${encodeURIComponent(options.voiceId)}`, { method: 'DELETE', headers: { 'X-API-Key': apiKey, 'Cartesia-Version': '2025-04-16', 'accept': 'application/json' } });",
-    "    const text = await response.text();",
-    "    if (!response.ok) throw new Error(`Provider request failed (${response.status}): ${text.slice(0, 800)}`);",
-    "    process.stdout.write(JSON.stringify({ voiceId: options.voiceId, deleted: true, providerId: 'cartesia' }) + '\\n');",
-    "  } catch (error) {",
-    "    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "    process.exit(1);",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "const synthesisText = requireSynthesisArgs(options, FORMAT);",
-    "const voiceId = options.voice || DEFAULT_VOICE;",
-    "try {",
-    "  const bytes = await postBytes('https://api.cartesia.ai/tts/bytes', {",
-    "    method: 'POST',",
-    "    headers: { 'X-API-Key': apiKey, 'Cartesia-Version': '2025-04-16', 'content-type': 'application/json' },",
-    "    body: JSON.stringify({",
-    "      model_id: 'sonic-2',",
-    "      transcript: synthesisText,",
-    "      voice: { mode: 'id', id: voiceId },",
-    "      output_format: { container: 'wav', encoding: 'pcm_s16le', sample_rate: 44100 },",
-    "    }),",
-    "  });",
-    "  const audioPath = writeAudio(options.output, bytes);",
-    "  process.stdout.write(JSON.stringify({ audioPath, mimeType: 'audio/wav', providerId: 'cartesia', voiceId }) + '\\n');",
-    "} catch (error) {",
-    "  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`);",
-    "  process.exit(1);",
-    "}",
-    "",
-  ].join("\n");
-}
-
-function piperVoiceProviderScaffoldFiles(
-  name: string,
-  commandName: string,
-  description: string,
-  input: CapabilityBuilderScaffoldInput,
-): Array<{ path: string; content: string }> {
-  return [
-    {
-      path: "ambient-cli.json",
-      content: `${JSON.stringify(
-        {
-          name,
-          version: "0.1.0",
-          description,
-          skills: "./SKILL.md",
-          commands: {
-            [commandName]: {
-              description: "Synthesize spoken assistant text to a WAV file with Piper TTS.",
-              command: "node",
-              args: ["./scripts/run.mjs"],
-              cwd: "package",
-              healthCheck: ["node", "./scripts/run.mjs", "--health"],
-              voiceProvider: {
-                defaultFormat: "wav",
-                formats: ["wav"],
-                voices: [{ id: "default", label: "Default Piper voice" }],
-                local: true,
-              },
-            },
-          },
-          env: [],
-          networkHosts: ["huggingface.co", "pypi.org", "files.pythonhosted.org"],
-          modelAssets: [
-            {
-              name: "Piper en_US lessac medium ONNX voice",
-              url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx",
-              expectedSizeBytes: 63100000,
-              license: "Piper voice model repository terms",
-              cachePath: "models/en_US-lessac-medium.onnx",
-            },
-            {
-              name: "Piper en_US lessac medium config",
-              url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json",
-              expectedSizeBytes: 6000,
-              license: "Piper voice model repository terms",
-              cachePath: "models/en_US-lessac-medium.onnx.json",
-            },
-          ],
-          artifacts: {
-            outputTypes: input.outputArtifactTypes ?? ["WAV"],
-            policy: "write generated WAV files to the --output path and return JSON artifact metadata",
-          },
-        },
-        null,
-        2,
-      )}\n`,
-    },
-    {
-      path: "SKILL.md",
-      content: [
-        "---",
-        `name: ${name}`,
-        `description: ${description}`,
-        "---",
-        "",
-        "Use this capability when Ambient core voice dispatch or the user needs local Piper text-to-speech.",
-        "",
-        `Command contract: run \`${commandName}\` through \`ambient_cli\` with \`--text <text>\`, \`--output <path.wav>\`, \`--format wav\`, and optional \`--voice default\`.`,
-        "The wrapper uses `uvx --from piper-tts piper` and expects the declared model assets under `models/`.",
-        "Before install or repair, read Piper upstream docs/model requirements and preview dependency/model downloads for user approval.",
-        "Keep stdout to JSON metadata: `audioPath`, `mimeType`, and optional `durationMs`. Put audio in the requested output path.",
-        "",
-      ].join("\n"),
-    },
-    {
-      path: "scripts/run.mjs",
-      content: piperVoiceProviderRunScript(),
-    },
-    {
-      path: "tests/smoke.test.mjs",
-      content: piperVoiceProviderSmokeTest(),
-    },
-  ];
-}
-
-function piperVoiceProviderRunScript(): string {
-  return [
-    "#!/usr/bin/env node",
-    "import { existsSync } from 'node:fs';",
-    "import { mkdirSync } from 'node:fs';",
-    "import { dirname, resolve } from 'node:path';",
-    "import { spawnSync } from 'node:child_process';",
-    "",
-    "const args = process.argv.slice(2);",
-    "const model = resolve('models/en_US-lessac-medium.onnx');",
-    "const config = resolve('models/en_US-lessac-medium.onnx.json');",
-    "",
-    "function checkAssets() {",
-    "  if (!existsSync(model) || !existsSync(config)) {",
-    "    console.error('Missing Piper model assets. Download the descriptor modelAssets into ./models before running synthesis.');",
-    "    process.exit(3);",
-    "  }",
-    "}",
-    "",
-    "if (args.includes('--health')) {",
-    "  checkAssets();",
-    "  const uvx = spawnSync('uvx', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });",
-    "  if (uvx.error || uvx.status !== 0) {",
-    "    process.stderr.write(uvx.stderr || uvx.stdout || uvx.error?.message || 'uvx unavailable for Piper TTS. Install uv or provide a packaged Piper binary.\\n');",
-    "    process.exit(4);",
-    "  }",
-    "  process.stdout.write(JSON.stringify({ ok: true, provider: 'piper', contract: '--text --output --format wav' }) + '\\n');",
-    "  process.exit(0);",
-    "}",
-    "",
-    "function arg(name) {",
-    "  const index = args.indexOf(name);",
-    "  return index >= 0 ? args[index + 1] : undefined;",
-    "}",
-    "",
-    "const text = arg('--text');",
-    "const output = arg('--output');",
-    "const format = arg('--format') || 'wav';",
-    "if (!text || !output) {",
-    "  console.error('Usage: --text <text> --output <path.wav> --format wav [--voice default]');",
-    "  process.exit(2);",
-    "}",
-    "if (format !== 'wav') {",
-    "  console.error('Piper wrapper currently supports only wav output.');",
-    "  process.exit(2);",
-    "}",
-    "",
-    "checkAssets();",
-    "",
-    "const absoluteOutput = resolve(output);",
-    "mkdirSync(dirname(absoluteOutput), { recursive: true });",
-    "const result = spawnSync('uvx', ['--from', 'piper-tts', 'piper', '-m', model, '-c', config, '-f', absoluteOutput], {",
-    "  input: text,",
-    "  encoding: 'utf8',",
-    "  stdio: ['pipe', 'pipe', 'pipe'],",
-    "});",
-    "if (result.status !== 0) {",
-    "  process.stderr.write(result.stderr || result.stdout || `piper exited with ${result.status}\\n`);",
-    "  process.exit(result.status || 1);",
-    "}",
-    "process.stdout.write(JSON.stringify({ audioPath: absoluteOutput, mimeType: 'audio/wav' }) + '\\n');",
-    "",
-  ].join("\n");
-}
-
-function piperVoiceProviderSmokeTest(): string {
-  return [
-    "import { strict as assert } from 'node:assert';",
-    "import { spawnSync } from 'node:child_process';",
-    "import { existsSync } from 'node:fs';",
-    "",
-    "const health = spawnSync(process.execPath, ['./scripts/run.mjs', '--health'], { encoding: 'utf8' });",
-    "if (health.status === 3) {",
-    "  assert.match(health.stderr, /Missing Piper model assets/);",
-    "  process.exit(0);",
-    "}",
-    "assert.equal(health.status, 0, health.stderr);",
-    "",
-    "const output = 'ambient-piper-smoke.wav';",
-    "const result = spawnSync(process.execPath, ['./scripts/run.mjs', '--text', 'Ambient Piper smoke.', '--output', output, '--format', 'wav'], { encoding: 'utf8' });",
-    "assert.equal(result.status, 0, result.stderr);",
-    "assert.match(result.stdout, /audio\\/wav/);",
-    "assert.equal(existsSync(output), true);",
-    "",
-  ].join("\n");
-}
-
-function kokoroOnnxVoiceProviderScaffoldFiles(
-  name: string,
-  commandName: string,
-  description: string,
-  input: CapabilityBuilderScaffoldInput,
-): Array<{ path: string; content: string }> {
-  return [
-    {
-      path: "ambient-cli.json",
-      content: `${JSON.stringify(
-        {
-          name,
-          version: "0.1.0",
-          description,
-          skills: "./SKILL.md",
-          commands: {
-            [commandName]: {
-              description: "Synthesize spoken assistant text to a WAV file with Kokoro ONNX.",
-              command: "node",
-              args: ["./scripts/run.mjs"],
-              cwd: "package",
-              healthCheck: ["node", "./scripts/run.mjs", "--health"],
-              voiceProvider: {
-                label: "Kokoro ONNX Voice Provider",
-                defaultFormat: "wav",
-                formats: ["wav"],
-                voices: [{ id: "af_sarah", label: "af_sarah" }],
-                local: true,
-              },
-            },
-          },
-          env: [],
-          networkHosts: ["github.com", "objects.githubusercontent.com", "pypi.org", "files.pythonhosted.org"],
-          modelAssets: [
-            {
-              name: "Kokoro ONNX v1.0 int8 model",
-              url: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.int8.onnx",
-              expectedSizeBytes: 92361271,
-              license: "Kokoro ONNX model release terms",
-              cachePath: "models/kokoro-v1.0.int8.onnx",
-            },
-            {
-              name: "Kokoro ONNX v1.0 voices",
-              url: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin",
-              expectedSizeBytes: 28214398,
-              license: "Kokoro ONNX voice asset release terms",
-              cachePath: "models/voices-v1.0.bin",
-            },
-          ],
-          artifacts: {
-            outputTypes: input.outputArtifactTypes ?? ["WAV"],
-            policy: "write generated WAV files to the --output path and return JSON artifact metadata",
-          },
-        },
-        null,
-        2,
-      )}\n`,
-    },
-    {
-      path: "SKILL.md",
-      content: [
-        "---",
-        `name: ${name}`,
-        `description: ${description}`,
-        "---",
-        "",
-        "Use this capability when Ambient core voice dispatch or the user needs local Kokoro ONNX text-to-speech.",
-        "",
-        `Command contract: run \`${commandName}\` through \`ambient_cli\` with \`--text <text>\`, \`--output <path.wav>\`, \`--format wav\`, and optional \`--voice af_sarah\`.`,
-        "The wrapper uses `uv run --with kokoro-onnx --with soundfile python ./scripts/synthesize.py` and expects the declared model assets under `models/`.",
-        "Before install or repair, preview dependency/model downloads for user approval. Do not fall back to the heavier MLX/Kokoro path unless explicitly approved.",
-        "Keep stdout to JSON metadata: `audioPath`, `mimeType`, and optional `voiceId`. Put audio in the requested output path.",
-        "",
-      ].join("\n"),
-    },
-    {
-      path: "scripts/run.mjs",
-      content: kokoroOnnxVoiceProviderRunScript(),
-    },
-    {
-      path: "scripts/synthesize.py",
-      content: kokoroOnnxVoiceProviderPythonScript(),
-    },
-    {
-      path: "tests/smoke.test.mjs",
-      content: kokoroOnnxVoiceProviderSmokeTest(),
-    },
-  ];
-}
-
-function kokoroOnnxVoiceProviderRunScript(): string {
-  return [
-    "#!/usr/bin/env node",
-    "import { existsSync } from 'node:fs';",
-    "import { mkdirSync } from 'node:fs';",
-    "import { dirname, resolve } from 'node:path';",
-    "import { spawnSync } from 'node:child_process';",
-    "",
-    "const args = process.argv.slice(2);",
-    "const model = resolve('models/kokoro-v1.0.int8.onnx');",
-    "const voices = resolve('models/voices-v1.0.bin');",
-    "",
-    "function checkAssets() {",
-    "  if (!existsSync(model) || !existsSync(voices)) {",
-    "    console.error('Missing Kokoro ONNX model assets. Download the descriptor modelAssets into ./models before running synthesis.');",
-    "    process.exit(3);",
-    "  }",
-    "}",
-    "",
-    "if (args.includes('--health')) {",
-    "  checkAssets();",
-    "  const uv = spawnSync('uv', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });",
-    "  if (uv.error || uv.status !== 0) {",
-    "    process.stderr.write(uv.stderr || uv.stdout || uv.error?.message || 'uv unavailable for Kokoro ONNX TTS. Install uv or provide a pinned Python environment.\\n');",
-    "    process.exit(4);",
-    "  }",
-    "  process.stdout.write(JSON.stringify({ ok: true, provider: 'kokoro-onnx', contract: '--text --output --format wav' }) + '\\n');",
-    "  process.exit(0);",
-    "}",
-    "",
-    "function arg(name) {",
-    "  const index = args.indexOf(name);",
-    "  return index >= 0 ? args[index + 1] : undefined;",
-    "}",
-    "",
-    "const text = arg('--text');",
-    "const output = arg('--output');",
-    "const format = arg('--format') || 'wav';",
-    "const voice = arg('--voice') || 'af_sarah';",
-    "if (!text || !output) {",
-    "  console.error('Usage: --text <text> --output <path.wav> --format wav [--voice af_sarah]');",
-    "  process.exit(2);",
-    "}",
-    "if (format !== 'wav') {",
-    "  console.error('Kokoro ONNX wrapper currently supports only wav output.');",
-    "  process.exit(2);",
-    "}",
-    "",
-    "checkAssets();",
-    "",
-    "const absoluteOutput = resolve(output);",
-    "mkdirSync(dirname(absoluteOutput), { recursive: true });",
-    "const result = spawnSync('uv', ['run', '--with', 'kokoro-onnx', '--with', 'soundfile', 'python', './scripts/synthesize.py', model, voices, text, absoluteOutput, voice], {",
-    "  encoding: 'utf8',",
-    "  stdio: ['ignore', 'pipe', 'pipe'],",
-    "});",
-    "if (result.status !== 0) {",
-    "  process.stderr.write(result.stderr || result.stdout || `kokoro-onnx exited with ${result.status}\\n`);",
-    "  process.exit(result.status || 1);",
-    "}",
-    "process.stdout.write(JSON.stringify({ audioPath: absoluteOutput, mimeType: 'audio/wav', voiceId: voice }) + '\\n');",
-    "",
-  ].join("\n");
-}
-
-function kokoroOnnxVoiceProviderPythonScript(): string {
-  return [
-    "import sys",
-    "import soundfile as sf",
-    "from kokoro_onnx import Kokoro",
-    "",
-    "model_path, voices_path, text, output_path, voice = sys.argv[1:6]",
-    "kokoro = Kokoro(model_path, voices_path)",
-    "samples, sample_rate = kokoro.create(text, voice=voice, speed=1.0, lang='en-us')",
-    "sf.write(output_path, samples, sample_rate)",
-    "",
-  ].join("\n");
-}
-
-function kokoroOnnxVoiceProviderSmokeTest(): string {
-  return [
-    "import { strict as assert } from 'node:assert';",
-    "import { spawnSync } from 'node:child_process';",
-    "import { existsSync } from 'node:fs';",
-    "",
-    "const healthMissing = spawnSync(process.execPath, ['./scripts/run.mjs', '--health'], { encoding: 'utf8' });",
-    "if (healthMissing.status === 3) {",
-    "  assert.match(healthMissing.stderr, /Missing Kokoro ONNX model assets/);",
-    "  process.exit(0);",
-    "}",
-    "assert.equal(healthMissing.status, 0, healthMissing.stderr);",
-    "",
-    "const output = 'ambient-kokoro-onnx-smoke.wav';",
-    "const result = spawnSync(process.execPath, ['./scripts/run.mjs', '--text', 'Ambient Kokoro ONNX smoke.', '--output', output, '--format', 'wav'], { encoding: 'utf8' });",
-    "assert.equal(result.status, 0, result.stderr);",
-    "assert.match(result.stdout, /audio\\/wav/);",
-    "assert.equal(existsSync(output), true);",
-    "",
-  ].join("\n");
-}
-
 async function resolveManagedPackagePath(workspace: string, managedWorkspace: string, input: CapabilityBuilderPreviewInput): Promise<string> {
   if (!input.packageName && !input.path && !input.sourcePath) throw new Error("packageName, path, or sourcePath is required.");
   const root = resolve(managedWorkspace, builderRoot);
@@ -5055,6 +3500,18 @@ function inspectDescriptor(
     const healthCheck = stringArrayField(command.healthCheck);
     if (!healthCheck.length) warnings.push(`Command "${commandName}" has no healthCheck.`);
     if (healthCheck[0]) inspectDescriptorExecutable(rootPath, `Command "${commandName}" healthCheck executable`, healthCheck[0], errors);
+    const timeoutProfile = stringField(command.timeoutProfile);
+    if (timeoutProfile && !isCommandTimeoutProfile(timeoutProfile)) errors.push(`Command "${commandName}" timeoutProfile is unsupported: ${timeoutProfile}`);
+    const progressPatterns = stringArrayField(command.progressPatterns);
+    if (command.progressPatterns !== undefined && !Array.isArray(command.progressPatterns)) {
+      errors.push(`Command "${commandName}" progressPatterns must be an array of strings.`);
+    }
+    if (progressPatterns.some((pattern) => !pattern.trim())) errors.push(`Command "${commandName}" progressPatterns must not contain blank entries.`);
+    const devicePolicy = recordField(command.devicePolicy);
+    if (command.devicePolicy !== undefined && !Object.keys(devicePolicy).length) errors.push(`Command "${commandName}" devicePolicy must be an object.`);
+    const devicePreference = stringArrayField(devicePolicy.prefer);
+    if (devicePolicy.prefer !== undefined && !Array.isArray(devicePolicy.prefer)) errors.push(`Command "${commandName}" devicePolicy.prefer must be an array of device names.`);
+    if (devicePreference.some((device) => !device.trim())) errors.push(`Command "${commandName}" devicePolicy.prefer must not contain blank entries.`);
     if (stringField(command.command) === "bash" || stringField(command.command) === "sh") {
       risks.push(`Command "${commandName}" uses a shell entrypoint; prefer explicit binaries and args.`);
     }
@@ -5478,29 +3935,6 @@ async function commitPackageGitRevision(rootPath: string, message: string): Prom
   }
 }
 
-function buildManifest(name: string, input: CapabilityBuilderScaffoldInput, gitSha: string | undefined): Record<string, unknown> {
-  return {
-    schemaVersion: "ambient-capability-builder-v1",
-    name,
-    version: "0.1.0",
-    goal: input.goal,
-    installerShape: normalizedInstallerShape(input),
-    kind: input.kind,
-    provider: input.provider,
-    outputArtifactTypes: input.outputArtifactTypes ?? [],
-    responseFormats: input.responseFormats ?? [],
-    locality: input.locality ?? "either",
-    createdAt: new Date().toISOString(),
-    gitSha,
-    status: "draft",
-    refs: {
-      latest: gitSha,
-      installed: null,
-      lastValidated: null,
-    },
-  };
-}
-
 async function initializePackageGit(rootPath: string): Promise<string | undefined> {
   try {
     await execFileAsync("git", ["init"], { cwd: rootPath, env: gitEnv() });
@@ -5533,10 +3967,6 @@ function capabilityPackageName(value: string): string {
     .replace(/-+$/g, "");
   if (!slug) throw new Error("Capability name could not be derived.");
   return slug.startsWith("ambient-") ? slug : `ambient-${slug}`;
-}
-
-function commandNameFromPackage(name: string): string {
-  return name.replace(/^ambient-/, "").replace(/-+/g, "_") || "run";
 }
 
 function toWorkspaceRelative(workspacePath: string, absolutePath: string): string {

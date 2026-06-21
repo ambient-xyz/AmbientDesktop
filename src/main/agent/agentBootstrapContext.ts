@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import type { PermissionMode } from "../../shared/permissionTypes";
 import type { CollaborationMode } from "../../shared/threadTypes";
+import { redactSensitivePathsInText, sensitivePathAliasForDisplay } from "../security/pathRedaction";
 import type { AgentHarnessVariant } from "./agentHarnessVariant";
 
 const execFileAsync = promisify(execFile);
@@ -11,7 +12,7 @@ const MAX_TOP_LEVEL_ENTRIES = 32;
 const MAX_CHANGED_PATHS = 24;
 const MAX_PACKAGE_SCRIPTS = 18;
 const MAX_LINE_CHARS = 220;
-const SECRETISH_PATTERN = /(^|[/_.-])(?:api[_-]?key|secret|token|credential|password|passwd|auth|\.env)(?:[/_.-]|$)/i;
+const SECRETISH_PATTERN = /(^|[/_.-])(?:api[_-]?keys?|secrets?|tokens?|credentials?|passwords?|passwd|auth|\.env)(?:[/_.-]|$)/i;
 const GENERATED_OR_NOISY_ENTRIES = new Set([".git", "node_modules", "out", "build", "release", "test-results"]);
 
 export interface AgentBootstrapContextInput {
@@ -124,7 +125,7 @@ async function repoLines(
     .map((line) => line.slice(3).trim())
     .filter(Boolean)
     .map((path) => path.replace(/^.* -> /, ""));
-  const changedPaths = filterSecretLike(rawChangedPaths, omitted).slice(0, MAX_CHANGED_PATHS);
+  const changedPaths = filterSecretLike(rawChangedPaths, workspacePath, omitted).slice(0, MAX_CHANGED_PATHS);
   const extra = rawChangedPaths.length > changedPaths.length ? `; ${rawChangedPaths.length - changedPaths.length} omitted` : "";
   return [
     "Git:",
@@ -139,10 +140,12 @@ async function topLevelLines(workspacePath: string, omitted: { secretLikeEntries
   try {
     const entries = await readdir(workspacePath, { withFileTypes: true });
     const displayEntries: string[] = [];
+    const sensitiveAliases: string[] = [];
     let noisyOmitted = 0;
     for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
       if (isSecretLikePath(entry.name)) {
         omitted.secretLikeEntries += 1;
+        sensitiveAliases.push(sensitivePathAliasForDisplay(join(workspacePath, entry.name)));
         continue;
       }
       if (GENERATED_OR_NOISY_ENTRIES.has(entry.name) || /^release[-_]/i.test(entry.name)) {
@@ -155,10 +158,13 @@ async function topLevelLines(workspacePath: string, omitted: { secretLikeEntries
     const suffixes = [];
     if (entries.length > displayEntries.length) suffixes.push(`${entries.length - displayEntries.length} total entries not shown`);
     if (noisyOmitted) suffixes.push(`${noisyOmitted} generated/cache entries omitted`);
-    if (omitted.secretLikeEntries) suffixes.push(`${omitted.secretLikeEntries} secret-like entries omitted`);
+    if (omitted.secretLikeEntries) suffixes.push(`${omitted.secretLikeEntries} secret-like entries aliased or value-redacted`);
     return [
       "Top-level workspace entries:",
       displayEntries.length ? `- ${displayEntries.map(sanitizeText).join(", ")}` : "- no displayable entries",
+      ...(sensitiveAliases.length
+        ? [`- sensitive entries aliased: ${sensitiveAliases.join(", ")} (aliases are not filesystem paths)`]
+        : []),
       ...(suffixes.length ? [`- omissions: ${suffixes.join("; ")}`] : []),
       "",
     ];
@@ -254,16 +260,21 @@ async function runtimeVersionLines(
   return ["Runtime probes:", `- ${results.join("; ")}`, ""];
 }
 
-function filterSecretLike(paths: string[], omitted: { secretLikeEntries: number }): string[] {
+function filterSecretLike(paths: string[], workspacePath: string, omitted: { secretLikeEntries: number }): string[] {
   const safe: string[] = [];
   for (const path of paths) {
     if (isSecretLikePath(path)) {
       omitted.secretLikeEntries += 1;
-      continue;
+      safe.push(`${sensitivePathAliasForDisplay(canonicalWorkspacePath(workspacePath, path))} (sensitive path alias; not a filesystem path)`);
+    } else {
+      safe.push(path);
     }
-    safe.push(path);
   }
   return safe;
+}
+
+function canonicalWorkspacePath(workspacePath: string, path: string): string {
+  return isAbsolute(path) ? path : join(workspacePath, path);
 }
 
 function redactSecretLikeText(value: string, omitted: { secretLikeEntries: number }): string {
@@ -275,7 +286,9 @@ function redactSecretLikeText(value: string, omitted: { secretLikeEntries: numbe
     omitted.secretLikeEntries += 1;
     return `${prefix}[redacted]`;
   });
-  return next;
+  const pathRedaction = redactSensitivePathsInText(next);
+  omitted.secretLikeEntries += pathRedaction.replacementCount;
+  return pathRedaction.text;
 }
 
 function sanitizeText(value: string): string {
@@ -283,8 +296,10 @@ function sanitizeText(value: string): string {
 }
 
 function redactSecretLikeLiteral(value: string): string {
-  if (isSecretLikePath(value)) return "[redacted secret-like path]";
-  return value.replace(/([A-Z0-9_]*(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)[A-Z0-9_]*=)([^\s"';&]+)/gi, "$1[redacted]");
+  if (isSecretLikePath(value)) return sensitivePathAliasForDisplay(value);
+  return redactSensitivePathsInText(
+    value.replace(/([A-Z0-9_]*(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)[A-Z0-9_]*=)([^\s"';&]+)/gi, "$1[redacted]"),
+  ).text;
 }
 
 function capLine(value: string): string {

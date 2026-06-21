@@ -5,7 +5,8 @@ import type { BrowserCredentialScope, BrowserCredentialSummary, BrowserLoginCred
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 
 export interface BrowserCredentialSafeStorage {
-  isEncryptionAvailable(): boolean;
+  isEncryptionAvailable?(): boolean;
+  assertReady?(): unknown;
   encryptString(value: string): Buffer;
   decryptString(value: Buffer): string;
 }
@@ -49,9 +50,7 @@ export class BrowserCredentialStore {
   }
 
   save(input: SaveBrowserCredentialInput): BrowserCredentialSummary[] {
-    if (!this.safeStorage.isEncryptionAvailable()) {
-      throw new Error("Secure credential storage is not available on this system.");
-    }
+    assertBrowserCredentialStorageReady(this.safeStorage);
     const normalized = normalizeCredentialInput(input);
     const now = new Date().toISOString();
     const current = this.readFile();
@@ -224,6 +223,7 @@ function BooleanRecord(record: BrowserCredentialRecord | undefined): record is B
 }
 
 function decryptCredentialPayload(record: BrowserCredentialRecord, safeStorage: BrowserCredentialSafeStorage): BrowserCredentialPayload {
+  assertBrowserCredentialStorageReady(safeStorage);
   if (!record.encryptedPayload) {
     throw new Error("Stored browser credential is not integrity-bound. Re-save the credential before use.");
   }
@@ -256,6 +256,16 @@ function decryptCredentialPayload(record: BrowserCredentialRecord, safeStorage: 
     scope: payload.scope,
     password: payload.password,
   };
+}
+
+function assertBrowserCredentialStorageReady(safeStorage: BrowserCredentialSafeStorage): void {
+  if (safeStorage.assertReady) {
+    safeStorage.assertReady();
+    return;
+  }
+  if (!safeStorage.isEncryptionAvailable?.()) {
+    throw new Error("Secure credential storage is not available on this system.");
+  }
 }
 
 function assertCredentialPayloadMatchesRecord(record: BrowserCredentialRecord, payload: BrowserCredentialPayload): void {

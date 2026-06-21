@@ -40,13 +40,23 @@ export const AMBIENT_DIRECT_LOCAL_DEEP_RESEARCH_TOOL_NAMES = [
   "ambient_local_deep_research_run",
 ] as const;
 
+export const AMBIENT_DIRECT_ASYNC_BASH_TOOL_NAMES = [
+  "bash_start",
+  "bash_poll",
+  "bash_write",
+  "bash_cancel",
+  "thread_wake_schedule",
+] as const;
+
 export const AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES = [
   "read",
   "bash",
+  ...AMBIENT_DIRECT_ASYNC_BASH_TOOL_NAMES,
   "edit",
   "write",
   ...AMBIENT_ROUTER_TOOL_NAMES,
   "ambient_git_status",
+  "ambient_model_status",
 ] as const;
 
 const AMBIENT_DIRECT_SETUP_TOOL_NAMES = [

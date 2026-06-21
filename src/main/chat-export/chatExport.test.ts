@@ -127,6 +127,39 @@ describe("chat export", () => {
     }
   });
 
+  it("aliases credential-bearing paths in exports while preserving ordinary paths", async () => {
+    const store = new ProjectStore();
+    try {
+      const workspace = store.openWorkspace(workspacePath);
+      const thread = store.createThread("Path redaction");
+      const sensitivePath = join(workspace.path, "ambient_api_key.txt");
+      const ordinaryPath = join(workspace.path, "src", "index.ts");
+      store.addMessage({
+        threadId: thread.id,
+        role: "assistant",
+        content: `Debug ${sensitivePath} and then inspect ${ordinaryPath}.`,
+      });
+
+      const payload = await createChatExportBundle(store, thread.id, {
+        appName: "Ambient",
+        appVersion: "0.1.0",
+        now: new Date("2026-05-19T00:00:00.000Z"),
+      });
+      const zip = await JSZip.loadAsync(payload.archive);
+      const transcript = await zipText(zip, "visible-transcript.md");
+
+      expect(transcript).toContain("sensitive-path-ref:v1:");
+      expect(transcript).toContain(ordinaryPath);
+      expect(transcript).not.toContain("ambient_api_key.txt");
+      expect(transcript).not.toContain("[REDACTED_CREDENTIAL_PATH]");
+      expect(transcript).not.toContain("[REDACTED] and then inspect");
+      const manifest = JSON.parse(await zipText(zip, "manifest.json")) as Record<string, any>;
+      expect(manifest.redaction.replacementCount).toBeGreaterThanOrEqual(1);
+    } finally {
+      store.close();
+    }
+  });
+
   it("exports a clean visible transcript with typed tool artifacts", async () => {
     const store = new ProjectStore();
     try {

@@ -12,6 +12,7 @@ import {
   type CapabilityBuilderPreviewInput,
   type CapabilityBuilderReadFileInput,
   type CapabilityBuilderRegisterInput,
+  type CapabilityBuilderRegistrationRepairInput,
   type CapabilityBuilderRegisteredVoiceProvider,
   type CapabilityBuilderRepairPlanInput,
   type CapabilityBuilderRemovalPlanInput,
@@ -33,6 +34,7 @@ import {
   type CapabilityBuilderPlanToolInput,
 } from "./agentRuntimeCapabilityBuilderPlanTools";
 import { registerCapabilityBuilderRegisterTool } from "./agentRuntimeCapabilityBuilderRegisterTools";
+import { registerCapabilityBuilderRegistrationRepairTool } from "./agentRuntimeCapabilityBuilderRegistrationRepairTools";
 import { registerCapabilityBuilderRepairPlanTool } from "./agentRuntimeCapabilityBuilderRepairPlanTools";
 import { registerCapabilityBuilderRemovalPlanTool } from "./agentRuntimeCapabilityBuilderRemovalPlanTools";
 import { registerCapabilityBuilderScaffoldTool } from "./agentRuntimeCapabilityBuilderScaffoldTools";
@@ -103,6 +105,7 @@ export interface AgentRuntimeCapabilityBuilderToolOptions<TPlanInput extends Cap
   parseApplyRepairInput: (params: Record<string, unknown>) => CapabilityBuilderApplyRepairInput;
   parseRemovalPlanInput: (params: Record<string, unknown>) => CapabilityBuilderRemovalPlanInput;
   parseUnregisterInput: (params: Record<string, unknown>) => CapabilityBuilderUnregisterInput;
+  parseRegistrationRepairInput: (params: Record<string, unknown>) => CapabilityBuilderRegistrationRepairInput;
   parseInstallDepsInput: (params: Record<string, unknown>) => CapabilityBuilderInstallDepsInput;
   parseValidateInput: (params: Record<string, unknown>) => CapabilityBuilderValidateInput;
   runCapabilityBuilderValidationWithPermission: (
@@ -194,6 +197,14 @@ export function registerAgentRuntimeCapabilityBuilderTools<TPlanInput extends Ca
     workspace: options.workspace,
     getThread: options.getThread,
     parseUnregisterInput: options.parseUnregisterInput,
+    resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
+    markPluginToolsStale: options.markPluginToolsStale,
+  });
+
+  registerCapabilityBuilderRegistrationRepairTool(pi, {
+    workspace: options.workspace,
+    getThread: options.getThread,
+    parseRegistrationRepairInput: options.parseRegistrationRepairInput,
     resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
     markPluginToolsStale: options.markPluginToolsStale,
   });

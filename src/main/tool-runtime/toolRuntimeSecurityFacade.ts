@@ -3,6 +3,7 @@ export {
   clearRegisteredSecretRedactionsForTests,
   isSecretEnvName,
   readSecretReference,
+  registeredSecretRedactionMaxLength,
   redactSensitiveTextWithMetadata,
   registerSecretRedaction,
   saveSecretReference,

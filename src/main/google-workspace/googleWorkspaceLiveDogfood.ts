@@ -114,7 +114,7 @@ async function googleWorkspaceRuntimeCandidates(input: { env: NodeJS.ProcessEnv;
 }
 
 async function googleWorkspaceHardeningSnapshotCandidates(homeDir: string): Promise<GoogleWorkspaceRuntimeCandidate[]> {
-  const snapshotRoot = join(homeDir, ".ambient-example", "snapshots", "google-workspace-cli");
+  const snapshotRoot = join(homeDir, ".ambient-hardening", "snapshots", "google-workspace-cli");
   const entries = await readdir(snapshotRoot, { withFileTypes: true }).catch(() => []);
   const candidates = await Promise.all(
     entries

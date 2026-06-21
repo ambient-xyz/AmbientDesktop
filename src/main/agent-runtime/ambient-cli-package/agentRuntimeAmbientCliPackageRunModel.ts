@@ -73,6 +73,8 @@ export function ambientCliRunText(result: AmbientCliRunResult): string {
     `Command: ${result.commandName}`,
     `Cwd: ${result.cwd}`,
     `Duration: ${result.durationMs}ms`,
+    result.timeoutProfile ? `Timeout profile: ${result.timeoutProfile} (${result.timeoutMs}ms, idle ${result.idleTimeoutMs}ms)` : undefined,
+    result.deviceSelection ? `Device selection: ${JSON.stringify(result.deviceSelection)}` : undefined,
     result.stdout ? `Stdout:\n${result.stdout}` : "Stdout: <empty>",
     result.stdoutOutput ? materializedTextNotice("stdout", result.stdoutOutput) : undefined,
     result.stderr ? `Stderr:\n${result.stderr}` : undefined,

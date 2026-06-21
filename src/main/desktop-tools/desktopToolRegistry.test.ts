@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  asyncBashToolDescriptor,
+  asyncBashToolDescriptors,
   bashToolDescriptor,
   browserToolDescriptor,
   browserToolDescriptors,
@@ -15,6 +17,7 @@ import {
   localRuntimeToolDescriptors,
   mediaToolDescriptor,
   mediaToolDescriptors,
+  modelStatusToolDescriptor,
   piToolFieldsFromDescriptor,
   pluginMcpToolDescriptor,
   providerCatalogToolDescriptor,
@@ -37,6 +40,11 @@ describe("firstPartyDesktopToolDescriptors", () => {
   it("exposes stable first-party tool names without starting a Pi session", () => {
     expect(firstPartyDesktopToolDescriptors().map((tool) => tool.name)).toEqual([
       "bash",
+      "bash_start",
+      "bash_poll",
+      "bash_write",
+      "bash_cancel",
+      "thread_wake_schedule",
       "file_read",
       "local_directory_list",
       "local_file_read",
@@ -75,6 +83,7 @@ describe("firstPartyDesktopToolDescriptors", () => {
       "ambient_download_wait",
       "ambient_download_cancel",
       "ambient_product_context",
+      "ambient_model_status",
       "ambient_install_route_plan",
       "ambient_git_status",
       "ambient_git_commit",
@@ -214,6 +223,7 @@ describe("firstPartyDesktopToolDescriptors", () => {
       "ambient_capability_builder_apply_repair",
       "ambient_capability_builder_removal_plan",
       "ambient_capability_builder_unregister",
+      "ambient_capability_builder_repair_registration_metadata",
       "ambient_capability_builder_install_deps",
       "ambient_capability_builder_validate",
       "ambient_capability_builder_register",
@@ -266,6 +276,19 @@ describe("firstPartyDesktopToolDescriptors", () => {
     });
     expect(gitToolDescriptor("ambient_git_commit").promptGuidelines.join("\n")).toContain("active thread worktree");
     expect(gitToolDescriptor("ambient_git_finish_to_main").promptGuidelines.join("\n")).toContain("main");
+  });
+
+  it("describes Ambient model status as a read-only first-party runtime capability", () => {
+    expect(modelStatusToolDescriptor("ambient_model_status")).toMatchObject({
+      sideEffects: "none",
+      permissionScope: "model-runtime-read",
+      supportsDryRun: true,
+      supportsUndo: false,
+    });
+    expect((modelStatusToolDescriptor("ambient_model_status").inputSchema as any).properties.purpose).toMatchObject({
+      type: "string",
+    });
+    expect(modelStatusToolDescriptor("ambient_model_status").promptGuidelines.join("\n")).toContain("GLM-5.2");
   });
 
   it("provides workflow-relevant metadata for every descriptor", () => {
@@ -985,6 +1008,20 @@ describe("firstPartyDesktopToolDescriptors", () => {
         expect.stringContaining("Do not delete builder source"),
       ]),
     );
+    const registrationRepair = firstPartyDesktopToolDescriptors().find((tool) => tool.name === "ambient_capability_builder_repair_registration_metadata");
+    expect(registrationRepair).toMatchObject({
+      sideEffects: "write-workspace",
+      permissionScope: "capability-builder-registration-metadata-repair",
+      supportsDryRun: false,
+      supportsUndo: true,
+      runtimeSupport: ["chat"],
+    });
+    expect(piToolFieldsFromDescriptor(registrationRepair!).promptGuidelines).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("stale installed refs"),
+        expect.stringContaining("Do not edit capability-build.json through shell"),
+      ]),
+    );
     const installDeps = firstPartyDesktopToolDescriptors().find((tool) => tool.name === "ambient_capability_builder_install_deps");
     expect(installDeps).toMatchObject({
       sideEffects: "run-process",
@@ -1623,6 +1660,31 @@ describe("firstPartyDesktopToolDescriptors", () => {
       sideEffects: "run-process",
       permissionScope: "shell",
       supportsDryRun: false,
+    });
+  });
+
+  it("exposes async bash and thread wake descriptors next to bash", () => {
+    expect(asyncBashToolDescriptors.map((descriptor) => descriptor.name)).toEqual([
+      "bash_start",
+      "bash_poll",
+      "bash_write",
+      "bash_cancel",
+      "thread_wake_schedule",
+    ]);
+    expect(asyncBashToolDescriptor("bash_start")).toMatchObject({
+      sideEffects: "run-process",
+      permissionScope: "shell",
+      inputSchema: expect.objectContaining({ required: ["cmd"] }),
+    });
+    expect(asyncBashToolDescriptor("bash_poll").promptGuidelines).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/wait_ms/),
+        expect.stringMatching(/artifact paths/),
+      ]),
+    );
+    expect(asyncBashToolDescriptor("thread_wake_schedule")).toMatchObject({
+      sideEffects: "write-workspace",
+      permissionScope: "thread-continuation",
     });
   });
 

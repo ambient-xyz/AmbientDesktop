@@ -776,7 +776,7 @@ describe("projectBoardUiModel", () => {
   it("does not score a simple Hangman request from unrelated repository background", () => {
     const estimate = projectBoardComplexityEstimate(
       boardSummary({
-        title: "AmbientDesktop board",
+        title: "ambientCoder board",
         summary: "Kickoff is ready.",
         questions: [
           {

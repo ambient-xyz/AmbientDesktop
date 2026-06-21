@@ -545,6 +545,7 @@ function workspaceRelativeArtifactPath(path: string, workspacePath: string): str
 
 function isSafeWorkspaceRelativeArtifactPath(path: string): boolean {
   if (!path || path.startsWith("/") || path.startsWith("~")) return false;
+  if (/\s/.test(path)) return false;
   if (path.startsWith("../") || path.includes("/../") || path.includes("\\..\\")) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(path) || /^[a-z]:[\\/]/i.test(path)) return false;
   return !/[\0\r\n]/.test(path);

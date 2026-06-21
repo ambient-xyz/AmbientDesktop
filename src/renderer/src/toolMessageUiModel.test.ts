@@ -852,7 +852,7 @@ describe("tool message UI model", () => {
   });
 
   it("surfaces managed MCP output files as previewable workspace artifacts", () => {
-    const workspacePath = "/Users/travis/AmbientDesktop";
+    const workspacePath = "/Users/travis/ambientCoder";
     const workspaceArtifactPath = ".ambient/mcp-outputs/2026-06-10/ambient-csvglow-standard-mcp-csvglow.html";
     const metadata = {
       toolName: "ambient_mcp_tool_call",
@@ -905,15 +905,15 @@ describe("tool message UI model", () => {
   });
 
   it("resolves absolute workspace paths in inline code as artifact links", () => {
-    const workspacePath = "/Users/travis/Documents/AmbientDesktopArchive";
+    const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
 
-    expect(resolveInlineArtifactPath("/Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
-    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/AmbientDesktopArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
+    expect(resolveInlineArtifactPath("/Users/travis/Documents/ambientCoderArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
+    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/ambientCoderArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
     expect(resolveInlineArtifactPath("/Users/travis/Downloads/outside-summary.html", undefined, workspacePath)).toBeUndefined();
   });
 
   it("resolves explicit workspace-relative inline code paths as artifact links", () => {
-    const workspacePath = "/Users/travis/Documents/AmbientDesktopArchive";
+    const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
 
     expect(resolveInlineArtifactPath(".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md", undefined, workspacePath)).toBe(
       ".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md",
@@ -921,6 +921,12 @@ describe("tool message UI model", () => {
     expect(resolveInlineArtifactPath("reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
     expect(resolveInlineArtifactPath("../outside.md", undefined, workspacePath)).toBeUndefined();
     expect(resolveInlineArtifactPath("https://example.com/report.md", undefined, workspacePath)).toBeUndefined();
+  });
+
+  it("does not treat shell commands ending with dotted values as artifact paths", () => {
+    const command = "ssh-copy-id -i ~/.ssh/rtx6000_ed25519.pub <rtx_user>@100.99.88.49";
+
+    expect(resolveInlineArtifactPath(command, undefined, "/workspace")).toBeUndefined();
   });
 
   it("recognizes explicit media artifacts emitted by shell tools", () => {
@@ -984,7 +990,7 @@ describe("tool message UI model", () => {
   });
 
   it("normalizes workspace media artifact paths that lost the leading absolute slash", () => {
-    const workspacePath = "/path/to/user/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread";
+    const workspacePath = "<local-user>/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread";
     const parsed = parseToolMessage(
       [
         "media_download completed",
@@ -997,7 +1003,7 @@ describe("tool message UI model", () => {
       {
         toolResultDetails: {
           mediaArtifact: {
-            artifactPath: `Users/Neo/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread/.ambient/hosted-images/google-2026-06-16T05-18-43-439Z.png`,
+            artifactPath: `Users/Neo/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread/.ambient/hosted-images/google-2026-06-16T05-18-43-439Z.png`,
             mediaKind: "image",
             mimeType: "image/jpeg",
             bytes: 2048,
@@ -1101,7 +1107,7 @@ describe("tool message UI model", () => {
   });
 
   it("recognizes pretty-printed ambient cli JSON output paths without dropping absolute path roots", () => {
-    const workspacePath = "/path/to/user/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread-1";
+    const workspacePath = "<local-user>/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1";
     const parsed = parseToolMessage(
       [
         "ambient_cli completed",
@@ -1129,7 +1135,7 @@ describe("tool message UI model", () => {
   });
 
   it("repairs stored artifact metadata that lost the leading slash from an absolute workspace path", () => {
-    const workspacePath = "/path/to/user/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread-1";
+    const workspacePath = "<local-user>/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1";
     const parsed = parseToolMessage(
       [
         "ambient_cli completed",
@@ -1142,7 +1148,7 @@ describe("tool message UI model", () => {
       "ambient_cli",
       workspacePath,
       {
-        artifactPath: "Users/Neo/Documents/AmbientDesktop-main-icon-tour/.ambient-codex/worktrees/thread-1/.ambient/hosted-images/google-4k.jpg",
+        artifactPath: "Users/Neo/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1/.ambient/hosted-images/google-4k.jpg",
       },
     );
 
@@ -1150,7 +1156,7 @@ describe("tool message UI model", () => {
   });
 
   it("recognizes ambient cli audioPath JSON stdout without duplicating absolute workspace paths", () => {
-    const workspacePath = "/path/to/user/.ambient-example/bases/core-no-secrets-example-2026-05-13/workspace";
+    const workspacePath = "<local-user>/.ambient-hardening/bases/primary-mac-core-no-secrets-2026-05-13/workspace";
     const packageRoot = `${workspacePath}/.ambient/cli-packages/imported/ambient-cartesia-0.1.0`;
     const parsed = parseToolMessage(
       [

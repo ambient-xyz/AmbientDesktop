@@ -3,6 +3,7 @@ import {
   Bell,
   Bot,
   Brain,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -35,7 +36,7 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
-import { MouseEvent as ReactMouseEvent, ReactNode, useEffect, useState } from "react";
+import { MouseEvent as ReactMouseEvent, ReactNode, useEffect, useRef, useState } from "react";
 import type { BrowserRuntimeKind } from "../../shared/browserTypes"; import type { WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/workspaceTypes";
 import { parseMarkdownBlocks } from "./markdownBlockParser";
 import { richMarkdownTableIconLabel, type RichMarkdownIconLabel } from "./richMarkdownIcons";
@@ -490,33 +491,78 @@ type InlineRenderOptions = {
 
 
 function renderFencedCodeBlock(part: Extract<RichPart, { kind: "code" }>, options: InlineRenderOptions, key: number): ReactNode {
+  return <FencedCodeBlock key={key} part={part} options={options} />;
+}
+
+function FencedCodeBlock({ part, options }: { part: Extract<RichPart, { kind: "code" }>; options: InlineRenderOptions }) {
+  const [copied, setCopied] = useState(false);
+  const resetTimerRef = useRef<number | undefined>(undefined);
   const trimmed = part.value.trim();
   const singleLine = trimmed && !/[\r\n]/.test(trimmed) ? trimmed : undefined;
   const artifactPath = singleLine ? resolveInlineArtifactPath(singleLine, options.artifactPathHints, options.workspacePath) : undefined;
   const localPath = artifactPath ? undefined : singleLine ? resolveLinkLocalPath(singleLine, options) : undefined;
-  if ((artifactPath && options.onPreviewPath) || localPath) {
-    return (
-      <pre className="rich-code rich-code-artifact" key={key}>
-        {part.language && <span>{part.language}</span>}
-        <button
-          type="button"
-          className="inline-artifact-link"
-          onContextMenu={(event) => options.onLinkContextMenu?.(event, singleLine!, artifactPath, localPath)}
-          onClick={() => {
-            if (artifactPath && options.onPreviewPath) options.onPreviewPath(artifactPath);
-            else if (localPath && options.onPreviewLocalPath) options.onPreviewLocalPath(localPath);
-            else if (localPath) void window.ambientDesktop.revealLocalPath(localPath).catch(() => undefined);
-          }}
-          title={artifactPath ? `Preview ${artifactPath}` : localPath ? `${options.onPreviewLocalPath ? "Preview" : "Open"} ${localPath}` : singleLine}
-        >
-          <code>{part.value}</code>
-        </button>
-      </pre>
-    );
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current);
+    };
+  }, []);
+
+  async function copyCode() {
+    await window.ambientDesktop.writeClipboardText(part.value);
+    setCopied(true);
+    if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = window.setTimeout(() => setCopied(false), 1400);
   }
+
+  const copyLabel = copied
+    ? part.language
+      ? `Copied ${part.language} code`
+      : "Copied code"
+    : part.language
+      ? `Copy ${part.language} code`
+      : "Copy code";
+  const hasOpenAction = Boolean((artifactPath && options.onPreviewPath) || localPath);
+  const openLabel = !hasOpenAction
+    ? undefined
+    : artifactPath
+      ? `Preview ${artifactPath}`
+      : localPath
+        ? `${options.onPreviewLocalPath ? "Preview" : "Open"} ${localPath}`
+        : undefined;
+
   return (
-    <pre className="rich-code" key={key}>
-      {part.language && <span>{part.language}</span>}
+    <pre className={`rich-code ${hasOpenAction ? "rich-code-artifact" : ""}`}>
+      <div className="rich-code-header">
+        <span className="rich-code-language">{part.language || "code"}</span>
+        <div className="rich-code-actions">
+          {openLabel && (
+            <button
+              type="button"
+              className="rich-code-open-button"
+              title={openLabel}
+              aria-label={openLabel}
+              onContextMenu={(event) => options.onLinkContextMenu?.(event, singleLine!, artifactPath, localPath)}
+              onClick={() => {
+                if (artifactPath && options.onPreviewPath) options.onPreviewPath(artifactPath);
+                else if (localPath && options.onPreviewLocalPath) options.onPreviewLocalPath(localPath);
+                else if (localPath) void window.ambientDesktop.revealLocalPath(localPath).catch(() => undefined);
+              }}
+            >
+              <FileText size={13} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="rich-code-copy-button"
+            title={copyLabel}
+            aria-label={copyLabel}
+            onClick={() => void copyCode()}
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+          </button>
+        </div>
+      </div>
       <code>{part.value}</code>
     </pre>
   );

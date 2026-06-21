@@ -57,20 +57,25 @@ export function registerToolRunnerBashTool<MediaSnapshot>(
   });
 }
 
-function interruptedToolCallRecoveryBashRejected(
+export function interruptedToolCallRecoveryBashRejected(
   params: unknown,
   recoveryToolsAvailable: boolean,
+  toolName = "bash",
 ): AgentToolResult<Record<string, unknown>> | undefined {
   const input = params && typeof params === "object" && !Array.isArray(params)
-    ? params as { command?: unknown }
+    ? params as { command?: unknown; cmd?: unknown }
     : {};
-  const command = typeof input.command === "string" ? input.command : "";
+  const command = typeof input.command === "string"
+    ? input.command
+    : typeof input.cmd === "string"
+      ? input.cmd
+      : "";
   if (!command.includes(INTERRUPTED_TOOL_CALL_RECOVERY_DIR)) return undefined;
   return {
     content: [{
       type: "text",
       text: [
-        "Ambient interrupted-tool recovery artifacts are not readable through bash.",
+        "Ambient interrupted-tool recovery artifacts are not readable through bash tools.",
         recoveryToolsAvailable
           ? `Use ${RECOVERY_READ_TOOL_NAME} for exact saved arguments, or write with recoveryMode interrupted_write_suffix for write-like JSON recovery.`
           : "These artifacts are available through Ambient's interrupted-tool recovery tools only in a recovery continuation turn.",
@@ -78,7 +83,7 @@ function interruptedToolCallRecoveryBashRejected(
     }],
     details: {
       status: "error",
-      toolName: "bash",
+      toolName,
       recoveryToolsAvailable,
       ...(recoveryToolsAvailable ? { recoveryTool: RECOVERY_READ_TOOL_NAME } : {}),
     },

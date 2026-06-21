@@ -331,13 +331,13 @@ function sentenceCaseLabel(value: string): string {
 
 function patternDiagramSvg(label: string): string {
   return [
-    '<svg viewBox="0 0 360 120" role="img" aria-label="Symphony pattern preview">',
-    '<rect x="2" y="2" width="356" height="116" rx="8" fill="#fbfcfc" stroke="#d8dedf"/>',
-    '<circle cx="58" cy="60" r="24" fill="#2f7d4c"/>',
-    '<rect x="128" y="38" width="88" height="44" rx="8" fill="#e9ecfb" stroke="#c5cbed"/>',
-    '<rect x="264" y="38" width="54" height="44" rx="8" fill="#fff1d9" stroke="#e4c590"/>',
-    '<path d="M84 60 H126 M216 60 H262" fill="none" stroke="#4c5b61" stroke-width="3"/>',
-    `<text x="172" y="66" text-anchor="middle" font-size="13" fill="#17212b">${escapeXml(label)}</text>`,
+    '<svg viewBox="0 0 360 120" role="img" aria-label="Symphony pattern preview" focusable="false">',
+    '<rect class="symphony-diagram-frame" x="2" y="2" width="356" height="116" rx="8"/>',
+    '<circle class="symphony-diagram-start" cx="58" cy="60" r="24"/>',
+    '<rect class="symphony-diagram-step" x="128" y="38" width="88" height="44" rx="8"/>',
+    '<rect class="symphony-diagram-output" x="264" y="38" width="54" height="44" rx="8"/>',
+    '<path class="symphony-diagram-connector" d="M84 60 H126 M216 60 H262"/>',
+    `<text class="symphony-diagram-label" x="172" y="66" text-anchor="middle" font-size="13">${escapeXml(label)}</text>`,
     "</svg>",
   ].join("");
 }

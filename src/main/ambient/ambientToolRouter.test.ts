@@ -18,17 +18,24 @@ describe("ambient tool router", () => {
     expect(AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES).toEqual([
       "read",
       "bash",
+      "bash_start",
+      "bash_poll",
+      "bash_write",
+      "bash_cancel",
+      "thread_wake_schedule",
       "edit",
       "write",
       AMBIENT_TOOL_SEARCH,
       AMBIENT_TOOL_DESCRIBE,
       AMBIENT_TOOL_CALL,
       "ambient_git_status",
+      "ambient_model_status",
     ]);
   });
 
   it("keeps Git status direct while leaving mutating Git tools discoverable", async () => {
     expect(AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES).toContain("ambient_git_status");
+    expect(AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES).toContain("ambient_model_status");
     expect(AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES).not.toContain("ambient_git_commit");
     expect(AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES).not.toContain("ambient_git_finish_to_main");
 

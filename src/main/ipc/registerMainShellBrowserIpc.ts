@@ -78,7 +78,13 @@ export function registerMainShellBrowserIpc(
     requireActiveProjectRuntimeHost,
     resetRuntimeAndPluginServers,
     saveAmbientApiKey,
+    saveNamedSecret,
     testAmbientApiKey,
+    updateNamedSecret,
+    deleteNamedSecret,
+    brokerNamedSecretToLocalFixture,
+    exportNamedSecretMetadata,
+    refreshSecureStorageStatus,
     withBrowserState,
   } = deps as unknown as MainShellBrowserIpcDependencies;
 
@@ -104,6 +110,12 @@ export function registerMainShellBrowserIpc(
         type: "provider-updated",
         provider,
       }),
+    refreshSecureStorageStatus,
+    saveNamedSecret,
+    updateNamedSecret,
+    deleteNamedSecret,
+    brokerNamedSecretToLocalFixture,
+    exportNamedSecretMetadata,
   });
 
   registerBrowserDomainIpc({

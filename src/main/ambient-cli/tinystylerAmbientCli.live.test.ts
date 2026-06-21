@@ -16,7 +16,7 @@ import {
 import { ProjectStore } from "./ambientCliProjectStoreFacade";
 
 const itLive = process.env.AMBIENT_TINYSTYLER_LIVE === "1" ? it : it.skip;
-const kimiModel = "moonshotai/kimi-k2.7-code";
+const kimiModel = "<model>";
 const degradedLiveModelPattern = /(?:zai-org\/)?glm[-_. ]?5\.1/i;
 
 describe("TinyStyler Ambient CLI live Pi dogfood", () => {

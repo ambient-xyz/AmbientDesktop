@@ -272,6 +272,20 @@ export const PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL = `
         last_continued_at TEXT,
         FOREIGN KEY(thread_id) REFERENCES threads(id) ON DELETE CASCADE
       );
+      CREATE TABLE IF NOT EXISTS thread_wake_continuations (
+        id TEXT PRIMARY KEY,
+        thread_id TEXT NOT NULL,
+        due_at TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('pending', 'delivered', 'cancelled', 'failed')),
+        reason TEXT NOT NULL,
+        job_id TEXT,
+        payload_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        delivered_at TEXT,
+        error TEXT,
+        FOREIGN KEY(thread_id) REFERENCES threads(id) ON DELETE CASCADE
+      );
       CREATE TABLE IF NOT EXISTS permission_audit (
         id TEXT PRIMARY KEY,
         run_id TEXT,
@@ -948,7 +962,9 @@ export const PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL = `
       CREATE INDEX IF NOT EXISTS idx_subagent_maturity_evidence_kind ON subagent_maturity_evidence(kind, updated_at);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_subagent_maturity_evidence_key ON subagent_maturity_evidence(kind, evidence_key) WHERE evidence_key IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_subagent_batch_jobs_parent_run ON subagent_batch_jobs(parent_run_id, created_at);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_subagent_batch_result_reports_job_item_once ON subagent_batch_result_reports(job_id, item_id);`;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_subagent_batch_result_reports_job_item_once ON subagent_batch_result_reports(job_id, item_id);
+      CREATE INDEX IF NOT EXISTS idx_thread_wake_continuations_pending_due ON thread_wake_continuations(status, due_at);
+      CREATE INDEX IF NOT EXISTS idx_thread_wake_continuations_thread ON thread_wake_continuations(thread_id, status, due_at);`;
 
 export function applyProjectStoreBootstrapSchema(db: Database.Database): void {
   db.exec(PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL);

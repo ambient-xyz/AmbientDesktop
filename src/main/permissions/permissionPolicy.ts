@@ -91,6 +91,7 @@ const fileToolAliases = new Map([
   ["local_directory_list", "read"],
   ["local_file_read", "read"],
 ]);
+const bashToolNames = new Set(["bash", "bash_start", "bash_write"]);
 const localFileToolNames = new Set(["local_directory_list", "local_file_read"]);
 const managedSkillInstallPathPatterns = [
   /(^|\/)\.agents\/skills(?:\/|$)/i,
@@ -440,9 +441,12 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
     return classifyLongContextToolPermission(input);
   }
 
-  if (input.toolName === "bash") {
-    const command = getStringField(input.toolInput, "command");
+  if (isBashToolName(input.toolName)) {
+    const command = getShellCommandField(input.toolInput);
     if (!command) return { action: "allow" };
+    if (input.toolName === "bash_write") {
+      return bashWritePrompt(input, command);
+    }
     const intent = classifyShellCommandSemanticIntent(command);
     const managedSecretPath = await findManagedSecretCommandPath(input.workspacePath, command);
     if (managedSecretPath) {
@@ -503,6 +507,25 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
   }
 
   return { action: "allow" };
+}
+
+function bashWritePrompt(input: PermissionPolicyInput, command: string): PermissionDecision {
+  const risk = isNetworkCommand(command)
+    ? "network-command"
+    : isDangerousCommand(command)
+      ? "destructive-command"
+      : "workspace-command";
+  return {
+    action: "prompt",
+    request: {
+      threadId: input.threadId,
+      toolName: input.toolName,
+      title: "Allow async bash stdin write?",
+      message: "Workspace mode requires approval before sending stdin to an async shell job because writes can be split across tool calls and executed by an interactive shell.",
+      detail: command,
+      risk,
+    },
+  };
 }
 
 async function classifyMediaDownloadPermission(input: PermissionPolicyInput): Promise<PermissionDecision> {
@@ -792,8 +815,8 @@ async function classifyPlannerModePermission(input: PermissionPolicyInput): Prom
     }
   }
 
-  if (input.toolName === "bash") {
-    const command = getStringField(input.toolInput, "command") ?? "";
+  if (isBashToolName(input.toolName)) {
+    const command = getShellCommandField(input.toolInput) ?? "";
     const secretPath = command ? await findSecretCommandPath(input.workspacePath, command) : undefined;
     if (secretPath) {
       return classifyPlannerToolPermission({
@@ -1244,8 +1267,8 @@ async function classifyManagedSecretPathAccess(input: PermissionPolicyInput): Pr
     if (path) return denyManagedSecretPath(input, path);
   }
 
-  if (input.toolName === "bash") {
-    const command = getStringField(input.toolInput, "command");
+  if (isBashToolName(input.toolName)) {
+    const command = getShellCommandField(input.toolInput);
     const path = command ? await findManagedSecretCommandPath(input.workspacePath, command) : undefined;
     if (path) return denyManagedSecretPath(input, `${command}\n\nManaged secret path: ${path}`);
   }
@@ -1266,8 +1289,8 @@ async function classifyManagedAuthorityPathAccess(input: PermissionPolicyInput):
     if (path) return denyManagedAuthorityPath(input, path);
   }
 
-  if (input.toolName === "bash") {
-    const command = getStringField(input.toolInput, "command");
+  if (isBashToolName(input.toolName)) {
+    const command = getShellCommandField(input.toolInput);
     const path = command ? await findManagedAuthorityCommandPath(input.workspacePath, command) : undefined;
     if (path) return denyManagedAuthorityPath(input, `${command}\n\nManaged authority path: ${path}`);
   }
@@ -1296,8 +1319,8 @@ function denyManagedAuthorityPath(input: PermissionPolicyInput, detail: string):
 }
 
 function classifyUnmanagedToolHiveCommandAccess(input: PermissionPolicyInput): PermissionDecision | undefined {
-  if (input.toolName !== "bash") return undefined;
-  const command = getStringField(input.toolInput, "command");
+  if (!isBashToolName(input.toolName)) return undefined;
+  const command = getShellCommandField(input.toolInput);
   if (!command || !isUnmanagedToolHiveCommand(command)) return undefined;
   return {
     action: "prompt",
@@ -2139,8 +2162,16 @@ function browserToolDetail(toolName: string, input: unknown): string | undefined
 }
 
 function commandToolDetail(toolName: string, input: unknown): string | undefined {
-  if (toolName === "bash") return getStringField(input, "command");
+  if (isBashToolName(toolName)) return getShellCommandField(input);
   return getStringField(input, "path");
+}
+
+function isBashToolName(toolName: string): boolean {
+  return bashToolNames.has(toolName);
+}
+
+function getShellCommandField(input: unknown): string | undefined {
+  return getStringField(input, "command") ?? getStringField(input, "cmd") ?? getStringField(input, "chars");
 }
 
 function nearestExistingPath(path: string): string | undefined {

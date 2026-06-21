@@ -15,7 +15,7 @@ describe("registerRuntimeSurfaceTools", () => {
         observedLimit = limit;
         return buildRuntimeSurfaceSnapshot({
           workspace: {
-            name: "AmbientDesktop",
+            name: "ambientCoder",
             path: "/workspace",
             statePath: "/tmp/ambient-state",
             sessionPath: "/tmp/ambient-state/sessions",
@@ -24,7 +24,7 @@ describe("registerRuntimeSurfaceTools", () => {
           workflowFolders: [],
           projects: [
             {
-              name: "AmbientDesktop",
+              name: "ambientCoder",
               path: "/workspace",
               updatedAt: "2026-05-17T00:00:00.000Z",
               pinned: true,
@@ -49,7 +49,7 @@ describe("registerRuntimeSurfaceTools", () => {
     const result = await registeredTools[0]!.execute("runtime-surface-snapshot", { limit: 1 });
     expect(observedLimit).toBe(1);
     expect(result.content[0].text).toContain("Ambient runtime surface snapshot");
-    expect(result.content[0].text).toContain("Workspace: AmbientDesktop");
+    expect(result.content[0].text).toContain("Workspace: ambientCoder");
     expect(result.content[0].text).toContain("Projects: 1/2");
     expect(result.details).toMatchObject({
       runtime: "ambient-messaging-gateway",
@@ -57,7 +57,7 @@ describe("registerRuntimeSurfaceTools", () => {
       status: "complete",
       snapshot: {
         workspace: {
-          name: "AmbientDesktop",
+          name: "ambientCoder",
           path: "/workspace",
         },
         limits: {
@@ -67,7 +67,7 @@ describe("registerRuntimeSurfaceTools", () => {
           workflowAgentCount: 0,
         },
         projects: [{
-          name: "AmbientDesktop",
+          name: "ambientCoder",
           path: "/workspace",
           active: true,
         }],

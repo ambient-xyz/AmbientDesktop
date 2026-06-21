@@ -87,14 +87,14 @@ describe("workflow recorder capture", () => {
           "Result",
           "Authorization: Bearer ya29.liveOAuthTokenValue12345",
           "Opened 3 Scottsdale venue pages and kept event titles, dates, prices, and booking URLs.",
-          "Credential file was /path/to/user/.ambient-example/snapshots/shared-secrets/example/userData/credentials.json",
+          "Credential file was <local-user>/.ambient-hardening/snapshots/shared-secrets/example/userData/credentials.json",
         ].join("\n"),
         createdAt: "2026-05-19T16:00:01.000Z",
         metadata: {
           toolName: "ambient_cli",
           toolCallId: "call-secret",
           status: "done",
-          artifactPath: "/path/to/user/.ambient-example/snapshots/shared-secrets/example/tool-output.txt",
+          artifactPath: "<local-user>/.ambient-hardening/snapshots/shared-secrets/example/tool-output.txt",
         },
       },
     ];
@@ -389,7 +389,7 @@ describe("workflow recorder capture", () => {
             "Result",
             "/Users/travis/Downloads/Ambient UAE.pdf",
             "/Users/travis/Downloads/Complete_with_Docusign_OVH_US_LLC_Mechanus_L.pdf",
-            "Successfully wrote /Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html",
+            "Successfully wrote /Users/travis/Documents/ambientCoderArchive/pdf-summaries.html",
           ].join("\n"),
           createdAt: "2026-05-19T16:00:01.000Z",
           metadata: { toolName: "bash", status: "done" },
@@ -406,7 +406,7 @@ describe("workflow recorder capture", () => {
         successfulExamples: [{ toolName: "bash", resultPreview: "Confirmed Ambient UAE.pdf and Complete_with_Docusign_OVH_US_LLC_Mechanus_L.pdf were selected." }],
         doNot: [],
         validation: ["Ambient UAE.pdf and Complete_with_Docusign_OVH_US_LLC_Mechanus_L.pdf are the two largest PDFs."],
-        outputShape: ["HTML summary at /Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html"],
+        outputShape: ["HTML summary at /Users/travis/Documents/ambientCoderArchive/pdf-summaries.html"],
       },
     });
 
@@ -1013,7 +1013,7 @@ describeNative("workflow recorder store (requires Node ABI better-sqlite3 build)
     store.addMessage({
       threadId: thread.id,
       role: "tool",
-      content: "bash completed\nResult\n/Users/travis/Downloads/Ambient UAE.pdf\nSuccessfully wrote /Users/travis/Documents/AmbientDesktopArchive/pdf-summaries.html",
+      content: "bash completed\nResult\n/Users/travis/Downloads/Ambient UAE.pdf\nSuccessfully wrote /Users/travis/Documents/ambientCoderArchive/pdf-summaries.html",
       metadata: { toolName: "bash", status: "done" },
     });
     store.stopWorkflowRecording(thread.id);

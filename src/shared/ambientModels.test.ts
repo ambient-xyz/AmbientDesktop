@@ -7,12 +7,15 @@ import {
   AMBIENT_LOCAL_TEXT_MODEL,
   AMBIENT_MODEL_OPTIONS,
   AMBIENT_PROVIDER_LOCAL,
+  ambientModelReasoningEffortForThinkingLevel,
   ambientModelRuntimeCatalogFromProfiles,
   ambientModelOptionsFromRuntimeProfiles,
   ambientModelLabel,
   createAmbientModelRuntimeSnapshot,
   createAmbientModelRuntimeSnapshotFromProfile,
   normalizeAmbientModelId,
+  resolveAmbientModelReasoningCapability,
+  resolveAmbientModelReasoningThinkingLevel,
   resolveAmbientModelRuntimeProfile,
   type AmbientModelRuntimeProfile,
 } from "./ambientModels";
@@ -52,17 +55,19 @@ describe("ambient model options", () => {
       providerQuirks: ["Resolved from an active local runtime descriptor."],
     };
 
-    expect(ambientModelOptionsFromRuntimeProfiles([
-      ambientProfile,
-      configuredLocalMain,
-      {
-        ...ambientProfile,
-        profileId: "future-subagent-only",
-        modelId: "future/subagent-only",
-        selectableAsMain: false,
-        selectableAsSubagent: true,
-      },
-    ])).toEqual([
+    expect(
+      ambientModelOptionsFromRuntimeProfiles([
+        ambientProfile,
+        configuredLocalMain,
+        {
+          ...ambientProfile,
+          profileId: "future-subagent-only",
+          modelId: "future/subagent-only",
+          selectableAsMain: false,
+          selectableAsSubagent: true,
+        },
+      ]),
+    ).toEqual([
       expect.objectContaining({
         id: AMBIENT_DEFAULT_MODEL,
         providerId: "ambient",
@@ -96,9 +101,7 @@ describe("ambient model options", () => {
     expect(catalog).toMatchObject({
       schemaVersion: "ambient-model-runtime-catalog-v1",
       generatedAt: "2026-06-05T02:00:00.000Z",
-      selectableMainModelOptions: [
-        expect.objectContaining({ id: AMBIENT_DEFAULT_MODEL }),
-      ],
+      selectableMainModelOptions: [expect.objectContaining({ id: AMBIENT_DEFAULT_MODEL })],
       selectableSubagentProfiles: [
         expect.objectContaining({ modelId: AMBIENT_DEFAULT_MODEL }),
         expect.objectContaining({
@@ -127,6 +130,15 @@ describe("ambient model options", () => {
       structuredOutput: "schema",
       supportsVision: true,
       privacyLabel: "Ambient managed cloud model",
+      reasoningCapability: {
+        schemaVersion: "ambient-model-reasoning-capability-v1",
+        control: "fixed_on",
+        fixedReasoning: true,
+        hiddenReasoningPreserved: true,
+        payloadStrategy: "omit-reasoning-controls",
+        requestFields: [],
+        selectableThinkingLevels: [],
+      },
     });
     expect(resolveAmbientModelRuntimeProfile(AMBIENT_GLM_5_2_FP8_MODEL)).toMatchObject({
       providerId: "ambient",
@@ -141,7 +153,83 @@ describe("ambient model options", () => {
       structuredOutput: "schema",
       supportsVision: false,
       privacyLabel: "Ambient managed cloud model",
+      reasoningCapability: {
+        schemaVersion: "ambient-model-reasoning-capability-v1",
+        control: "selectable_effort",
+        payloadStrategy: "zai-reasoning-effort",
+        requestFields: ["enable_thinking", "reasoning_effort"],
+        selectableThinkingLevels: [
+          expect.objectContaining({ thinkingLevel: "medium", label: "Standard" }),
+          expect.objectContaining({ thinkingLevel: "xhigh", label: "Deep" }),
+        ],
+      },
     });
+  });
+
+  it("maps GLM 5.2 stored thinking levels onto Standard and Deep reasoning efforts", () => {
+    expect(resolveAmbientModelReasoningThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, undefined)).toBe("medium");
+    expect(resolveAmbientModelReasoningThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "minimal")).toBe("medium");
+    expect(resolveAmbientModelReasoningThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "low")).toBe("medium");
+    expect(resolveAmbientModelReasoningThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "medium")).toBe("medium");
+    expect(resolveAmbientModelReasoningThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "high")).toBe("xhigh");
+    expect(resolveAmbientModelReasoningThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "xhigh")).toBe("xhigh");
+
+    expect(ambientModelReasoningEffortForThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "minimal")).toBe("high");
+    expect(ambientModelReasoningEffortForThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "low")).toBe("high");
+    expect(ambientModelReasoningEffortForThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "medium")).toBe("high");
+    expect(ambientModelReasoningEffortForThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "high")).toBe("max");
+    expect(ambientModelReasoningEffortForThinkingLevel(AMBIENT_GLM_5_2_FP8_MODEL, "xhigh")).toBe("max");
+  });
+
+  it("applies the GLM 5.2 reasoning contract to removed GLM ids", () => {
+    expect(resolveAmbientModelReasoningCapability(AMBIENT_GLM_5_1_FP8_MODEL)).toMatchObject({
+      control: "selectable_effort",
+      payloadStrategy: "zai-reasoning-effort",
+    });
+    expect(ambientModelReasoningEffortForThinkingLevel("glm-5.1", "xhigh")).toBe("max");
+    expect(ambientModelReasoningEffortForThinkingLevel("ambient/large", "medium")).toBe("high");
+  });
+
+  it("omits model-controlled reasoning controls for Kimi and unregistered models", () => {
+    expect(resolveAmbientModelReasoningThinkingLevel(AMBIENT_KIMI_K2_7_CODE_MODEL, "xhigh")).toBe("medium");
+    expect(ambientModelReasoningEffortForThinkingLevel(AMBIENT_KIMI_K2_7_CODE_MODEL, "xhigh")).toBeUndefined();
+    expect(resolveAmbientModelReasoningCapability(AMBIENT_KIMI_K2_7_CODE_MODEL)).toMatchObject({
+      control: "fixed_on",
+      fixedReasoning: true,
+      hiddenReasoningPreserved: true,
+      payloadStrategy: "omit-reasoning-controls",
+      requestFields: [],
+    });
+
+    expect(resolveAmbientModelReasoningCapability("custom/model")).toMatchObject({
+      control: "unsupported",
+      fixedReasoning: false,
+      hiddenReasoningPreserved: false,
+      payloadStrategy: "preserve-reasoning-controls",
+    });
+    expect(resolveAmbientModelReasoningThinkingLevel("custom/model", "high")).toBe("high");
+    expect(resolveAmbientModelReasoningThinkingLevel("custom/model", "xhigh")).toBe("xhigh");
+  });
+
+  it("returns isolated reasoning capability objects from profile and catalog helpers", () => {
+    const profileCapability = resolveAmbientModelReasoningCapability(AMBIENT_GLM_5_2_FP8_MODEL);
+    profileCapability.selectableThinkingLevels[0].label = "Mutated";
+    profileCapability.requestFields.push("mutated");
+    profileCapability.effortByThinkingLevel = { medium: "mutated" };
+
+    expect(resolveAmbientModelReasoningCapability(AMBIENT_GLM_5_2_FP8_MODEL)).toMatchObject({
+      selectableThinkingLevels: [
+        expect.objectContaining({ thinkingLevel: "medium", label: "Standard" }),
+        expect.objectContaining({ thinkingLevel: "xhigh", label: "Deep" }),
+      ],
+      requestFields: ["enable_thinking", "reasoning_effort"],
+      effortByThinkingLevel: expect.objectContaining({ medium: "high" }),
+    });
+
+    const catalog = ambientModelRuntimeCatalogFromProfiles();
+    expect(catalog.profiles[0].reasoningCapability).toBeDefined();
+    catalog.profiles[0].reasoningCapability!.notes.push("mutated");
+    expect(resolveAmbientModelReasoningCapability(AMBIENT_DEFAULT_MODEL).notes).not.toContain("mutated");
   });
 
   it("keeps unqualified Qwen chat candidates out of main and sub-agent selection", () => {
@@ -219,11 +307,9 @@ describe("ambient model options", () => {
       providerQuirks: ["Resolved from an active local runtime descriptor."],
     };
 
-    expect(createAmbientModelRuntimeSnapshotFromProfile(
-      AMBIENT_LOCAL_TEXT_MODEL,
-      configuredLocalProfile,
-      "2026-06-05T01:00:00.000Z",
-    )).toMatchObject({
+    expect(
+      createAmbientModelRuntimeSnapshotFromProfile(AMBIENT_LOCAL_TEXT_MODEL, configuredLocalProfile, "2026-06-05T01:00:00.000Z"),
+    ).toMatchObject({
       schemaVersion: "ambient-model-runtime-snapshot-v1",
       resolvedAt: "2026-06-05T01:00:00.000Z",
       requestedModelId: AMBIENT_LOCAL_TEXT_MODEL,

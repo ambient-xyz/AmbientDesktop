@@ -12,6 +12,7 @@ import {
   capabilityBuilderInstallDepsText,
   capabilityBuilderListFilesText,
   capabilityBuilderListFilesOutputPreview,
+  capabilityBuilderRegistrationRepairText,
   capabilityBuilderRemovalPlanText,
   capabilityBuilderPreviewText,
   capabilityBuilderReadFileText,
@@ -31,13 +32,14 @@ import {
   previewCapabilityBuilderPackage,
   readCapabilityBuilderFile,
   registerCapabilityBuilderPackage,
+  repairCapabilityBuilderRegistrationMetadata,
   saveCapabilityBuilderEnvSecret,
   scaffoldCapabilityBuilderPackage,
   unregisterCapabilityBuilderPackage,
   validateCapabilityBuilderPackage,
   writeCapabilityBuilderFile,
 } from "./capabilityBuilder";
-import { runAmbientCliPackageCommand } from "./capabilityBuilderAmbientCliFacade";
+import { runAmbientCliPackageCommand, uninstallAmbientCliPackageSource } from "./capabilityBuilderAmbientCliFacade";
 import { MANAGED_INSTALL_ROOT_ENV } from "./capabilityBuilderSetupFacade";
 
 describe("Capability Builder scaffold", () => {
@@ -2286,6 +2288,11 @@ describe("Capability Builder scaffold", () => {
       expect(result.succeeded).toBe(true);
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
       expect(result.commands.map((command) => command.source)).toEqual(["healthCheck", "smokeTest"]);
+      expect(result.commands[0]).toMatchObject({
+        timeoutProfile: "healthCheck",
+        timeoutMs: 120_000,
+        idleTimeoutMs: 120_000,
+      });
       expect(result.validatedAt).toBeTruthy();
       await expect(readFile(result.logPath, "utf8")).resolves.toContain("\"source\":\"healthCheck\"");
       const manifest = JSON.parse(await readFile(scaffold.manifestPath, "utf8"));
@@ -2296,6 +2303,91 @@ describe("Capability Builder scaffold", () => {
       expect(capabilityBuilderValidateText(result)).toContain("Status: succeeded");
       expect(capabilityBuilderValidateText(result)).toContain("Total duration:");
     } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("applies descriptor timeout profiles and avoids unjustified CPU device selection during validation", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-capability-builder-"));
+    const previousDevices = process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES;
+    const previousRecommended = process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE;
+    process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES = "mps,cpu";
+    process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE = "mps";
+    try {
+      const scaffold = await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "provider-device-profile",
+        goal: "Validate provider device timeout metadata.",
+      });
+      await writeFile(
+        scaffold.descriptorPath,
+        `${JSON.stringify(
+          {
+            name: "ambient-provider-device-profile",
+            version: "0.1.0",
+            skills: "./SKILL.md",
+            commands: {
+              model_probe: {
+                command: "node",
+                args: ["./scripts/run.mjs"],
+                cwd: "package",
+                healthCheck: ["node", "./scripts/run.mjs", "--health", "--device", "cpu"],
+                timeoutProfile: "modelColdStart",
+                progressPatterns: ["Loading checkpoint", "Generating"],
+                devicePolicy: {
+                  prefer: ["mps", "cpu"],
+                  requireReasonWhenCpuForced: true,
+                },
+              },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
+      await writeFile(
+        scaffold.scriptPath,
+        [
+          "const args = process.argv.slice(2);",
+          "const index = args.indexOf('--device');",
+          "process.stdout.write('Loading checkpoint\\n');",
+          "process.stdout.write(JSON.stringify({",
+          "  argv: args,",
+          "  selectedDevice: index >= 0 ? args[index + 1] : null,",
+          "  availableDevices: process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES,",
+          "  recommendedDevice: process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE,",
+          "  expectedColdStartMs: 600000,",
+          "  requiresLongRun: true",
+          "}));",
+        ].join("\n"),
+        "utf8",
+      );
+
+      const result = await validateCapabilityBuilderPackage(workspace, { packageName: "provider-device-profile", includeSmokeTests: false });
+
+      expect(result.succeeded).toBe(true);
+      expect(result.commands).toHaveLength(1);
+      expect(result.commands[0]).toMatchObject({
+        source: "healthCheck",
+        commandName: "model_probe",
+        timeoutProfile: "modelColdStart",
+        deviceSelection: expect.objectContaining({
+          recommendedDevice: "mps",
+          requestedDevice: "cpu",
+          selectedDevice: "mps",
+          cpuOverridePrevented: true,
+        }),
+      });
+      expect(result.commands[0]?.timeoutMs).toBeGreaterThan(120_000);
+      expect(result.commands[0]?.args).toContain("mps");
+      expect(result.commands[0]?.args).not.toContain("cpu");
+      expect(result.commands[0]?.matchedProgressPatterns).toContain("Loading checkpoint");
+      expect(result.commands[0]?.stdoutPreview).toContain('"selectedDevice":"mps"');
+    } finally {
+      if (previousDevices === undefined) delete process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES;
+      else process.env.AMBIENT_COMMAND_AVAILABLE_DEVICES = previousDevices;
+      if (previousRecommended === undefined) delete process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE;
+      else process.env.AMBIENT_COMMAND_RECOMMENDED_DEVICE = previousRecommended;
       await rm(workspace, { recursive: true, force: true });
     }
   });
@@ -2743,6 +2835,108 @@ describe("Capability Builder scaffold", () => {
       ]);
       expect(capabilityBuilderHistoryText(history)).toContain("validation artifacts: sample.wav");
       expect(capabilityBuilderUnregisterText(result)).toContain("Preserved by default");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("repairs stale installed refs when the installed generated package is already absent", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-capability-builder-"));
+    try {
+      const scaffold = await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "piper-tts",
+        goal: "Generate WAV voice files from text using Piper",
+      });
+      await validateCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+      const registered = await registerCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+      await uninstallAmbientCliPackageSource(workspace, { packageId: registered.installedPackage.id });
+
+      const staleHistory = await discoverCapabilityBuilderHistory(workspace, { packageName: "piper-tts" });
+      expect(staleHistory.entries[0]).toMatchObject({
+        status: "registered",
+        installedPackageId: registered.installedPackage.id,
+        installedPresent: false,
+      });
+
+      const result = await repairCapabilityBuilderRegistrationMetadata(workspace, {
+        packageName: "piper-tts",
+        reason: "Installed package copy disappeared during failed unregister/register recovery.",
+      });
+
+      expect(result).toMatchObject({
+        packageName: "ambient-piper-tts",
+        previousStatus: "registered",
+        staleInstalledPackageId: registered.installedPackage.id,
+        staleInstalledSource: registered.installedPackage.source,
+        installedPresent: false,
+        changed: true,
+      });
+      expect(result.refs.installed).toBeNull();
+      const manifest = JSON.parse(await readFile(scaffold.manifestPath, "utf8"));
+      expect(manifest).toMatchObject({
+        status: "unregistered",
+        installedPackageId: null,
+        installedSource: null,
+        installedVersion: null,
+        staleInstalledPackageId: registered.installedPackage.id,
+        staleInstalledSource: registered.installedPackage.source,
+      });
+      expect(manifest.refs.installed).toBeNull();
+      expect(manifest.refs.lastRegistrationRepair).toMatch(/^[a-f0-9]{40}$/);
+      const repairedHistory = await discoverCapabilityBuilderHistory(workspace, { packageName: "piper-tts" });
+      expect(repairedHistory.entries[0]).toMatchObject({
+        status: "unregistered",
+        installedPresent: false,
+      });
+      expect(repairedHistory.entries[0]).not.toHaveProperty("installedPackageId");
+      expect(capabilityBuilderRegistrationRepairText(result)).toContain("registration metadata repair");
+
+      const restored = await registerCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+      expect(restored.installedPackage).toMatchObject({ name: "ambient-piper-tts", installed: true });
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses registration metadata repair when stable installed target metadata is missing", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-capability-builder-"));
+    try {
+      const scaffold = await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "piper-tts",
+        goal: "Generate WAV voice files from text using Piper",
+      });
+      await validateCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+      await registerCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+      const manifest = JSON.parse(await readFile(scaffold.manifestPath, "utf8"));
+      manifest.installedPackageId = null;
+      manifest.installedSource = null;
+      await writeFile(scaffold.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+      await expect(repairCapabilityBuilderRegistrationMetadata(workspace, {
+        packageName: "piper-tts",
+        reason: "Attempt repair with corrupt installed ids.",
+      })).rejects.toThrow("requires installedPackageId or installedSource");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses registration metadata repair when installed package discovery has errors", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-capability-builder-"));
+    try {
+      await scaffoldCapabilityBuilderPackage(workspace, {
+        name: "piper-tts",
+        goal: "Generate WAV voice files from text using Piper",
+      });
+      await validateCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+      const registered = await registerCapabilityBuilderPackage(workspace, { packageName: "piper-tts" });
+      await uninstallAmbientCliPackageSource(workspace, { packageId: registered.installedPackage.id });
+      await writeFile(join(workspace, ".ambient", "cli-packages", "packages.json"), "{not-json", "utf8");
+
+      await expect(repairCapabilityBuilderRegistrationMetadata(workspace, {
+        packageName: "piper-tts",
+        reason: "Attempt repair while package catalog is unreadable.",
+      })).rejects.toThrow("Ambient CLI package discovery has errors");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

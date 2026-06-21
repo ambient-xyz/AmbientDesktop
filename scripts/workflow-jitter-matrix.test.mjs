@@ -103,9 +103,9 @@ describe("workflow jitter matrix", () => {
         env: {},
         repoRoot: "/tmp/ambient-plan-slice",
         homeDir: "/Users/tester",
-        existsSync: (candidate) => candidate === "/Users/tester/Documents/AmbientDesktop/gmicloud-api-key.txt",
+        existsSync: (candidate) => candidate === "/Users/tester/Documents/ambientCoder/gmicloud-api-key.txt",
       }),
-    ).toBe("/Users/tester/Documents/AmbientDesktop/gmicloud-api-key.txt");
+    ).toBe("/Users/tester/Documents/ambientCoder/gmicloud-api-key.txt");
 
     expect(
       resolveGmiCloudKeyFileForChildEnv({
@@ -245,7 +245,7 @@ describe("workflow jitter matrix", () => {
       envKeys: ["AMBIENT_PROVIDER", "GMI_CLOUD_API_KEY_FILE"],
       status: "product_or_test_failure",
       providerHealth: "unknown",
-      reason: "Expected graph node source mapping to exist at /path/to/user/tmp/run-123 after 42142ms.",
+      reason: "Expected graph node source mapping to exist at <local-user>/tmp/run-123 after 42142ms.",
       totalWallClockMs: 42142,
       attempts: [
         {

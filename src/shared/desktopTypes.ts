@@ -3,6 +3,16 @@ import type { AgentMemorySettings, UpdateAgentMemorySettingsInput } from "./agen
 import type { SearchRoutingSettings } from "./webResearchTypes";
 export type * from "./webResearchTypes";
 import type {
+  BrokerNamedSecretUseInput,
+  BrokerNamedSecretUseResult,
+  DeleteNamedSecretInput,
+  NamedSecretMetadataExport,
+  NamedSecretSummary,
+  SaveNamedSecretInput,
+  UpdateNamedSecretInput,
+} from "./namedSecretTypes";
+import type { SecureStorageRepairGuidance, SecureStorageStatus } from "./secureStorageTypes";
+import type {
   AgentMemoryClearResult,
   AgentMemoryClearInput,
   AgentMemoryEmbeddingLifecycleActionInput,
@@ -600,6 +610,9 @@ export interface DesktopState {
   callableWorkflowTasks: CallableWorkflowTaskSummary[];
   subagentRepairDiagnostics?: SubagentRepairDiagnosticsReport;
   provider: ProviderStatus;
+  secureStorage: SecureStorageStatus;
+  secureStorageRepair: SecureStorageRepairGuidance;
+  namedSecrets: NamedSecretSummary[];
   queue: QueueState;
   sttQueue: SttQueueState;
   sttDiagnostics: SttDiagnosticSummary[];
@@ -1068,6 +1081,12 @@ export interface AmbientDesktopApi {
   saveAmbientApiKey(apiKey: string): Promise<ProviderStatus>;
   clearAmbientApiKey(): Promise<ProviderStatus>;
   testAmbientApiKey(apiKey?: string): Promise<AmbientApiKeyTestResult>;
+  refreshSecureStorageStatus(): Promise<{ status: SecureStorageStatus; guidance: SecureStorageRepairGuidance }>;
+  saveNamedSecret(input: SaveNamedSecretInput): Promise<NamedSecretSummary[]>;
+  updateNamedSecret(input: UpdateNamedSecretInput): Promise<NamedSecretSummary[]>;
+  deleteNamedSecret(input: DeleteNamedSecretInput): Promise<NamedSecretSummary[]>;
+  brokerNamedSecretToLocalFixture(input: BrokerNamedSecretUseInput): Promise<BrokerNamedSecretUseResult>;
+  exportNamedSecretMetadata(): Promise<NamedSecretMetadataExport>;
   getUpdateState(): Promise<DesktopUpdateState>;
   checkForUpdates(reason?: DesktopUpdateCheckReason): Promise<DesktopUpdateState>;
   downloadUpdate(): Promise<DesktopUpdateState>;

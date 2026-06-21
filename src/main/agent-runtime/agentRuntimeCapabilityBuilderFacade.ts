@@ -9,6 +9,7 @@ export {
   ambientCapabilityBuilderPreviewInput,
   ambientCapabilityBuilderReadFileInput,
   ambientCapabilityBuilderRegisterInput,
+  ambientCapabilityBuilderRegistrationRepairInput,
   ambientCapabilityBuilderRemovalPlanInput,
   ambientCapabilityBuilderRepairPlanInput,
   ambientCapabilityBuilderScaffoldInput,

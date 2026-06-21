@@ -5,7 +5,9 @@ import { join } from "node:path";
 import type { Model } from "@mariozechner/pi-ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AMBIENT_GLM_5_2_FP8_MODEL } from "../../shared/ambientModels";
 import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
+import { ambientModel } from "../ambient/ambientProviderModel";
 import { createAmbientCompactionSummaryExtension } from "./agentRuntimeCompactionSummaryExtension";
 
 const tempRoots: string[] = [];
@@ -128,6 +130,54 @@ describe("createAmbientCompactionSummaryExtension", () => {
 
     await expect(handlers.get("session_before_compact")!({ preparation: {} })).resolves.toBeUndefined();
     expect(compactPiContext).not.toHaveBeenCalled();
+  });
+
+  it("passes GLM compaction through a descriptor that supports provider reasoning_effort", async () => {
+    const handlers = new Map<string, (event: any) => Promise<any>>();
+    const compactPiContext = vi.fn(async (..._args: any[]) => ({
+      summary: "Pi summary",
+      details: {},
+    }));
+    const model = ambientModel(AMBIENT_GLM_5_2_FP8_MODEL, "https://ambient.example/v1");
+
+    createAmbientCompactionSummaryExtension({
+      threadId: "thread-1",
+      workspace: { path: "/workspace" },
+      model,
+      apiKey: "test-api-key",
+      getThread: () => thread({ model: AMBIENT_GLM_5_2_FP8_MODEL, thinkingLevel: "xhigh" }),
+      listMessages: () => visibleMessages(),
+      getBrowserState: async () => undefined,
+      getWorkspaceGitStatus: async () => undefined,
+      compactPiContext,
+      buildAmbientCompactionSummary: () => "Ambient workspace summary",
+      collectAmbientCompactionFileLists: () => ({ readFiles: [], modifiedFiles: [] }),
+    })({
+      on: (eventName: string, handler: any) => {
+        handlers.set(eventName, handler);
+      },
+    } as any);
+
+    await handlers.get("session_before_compact")!({
+      preparation: { messagesToSummarize: [], fileOps: {} },
+    });
+
+    expect(compactPiContext).toHaveBeenCalledOnce();
+    const compactArgs = compactPiContext.mock.calls[0]!;
+    expect(compactArgs[1]).toMatchObject({
+      id: AMBIENT_GLM_5_2_FP8_MODEL,
+      compat: {
+        supportsReasoningEffort: true,
+        supportsDeveloperRole: false,
+        zaiToolStream: true,
+      },
+      thinkingLevelMap: {
+        medium: "high",
+        xhigh: "max",
+      },
+    });
+    expect(compactArgs[1].compat).not.toHaveProperty("thinkingFormat");
+    expect(compactArgs[6]).toBe("xhigh");
   });
 
   it("protects compaction messages before Pi summarizes them", async () => {
@@ -367,7 +417,7 @@ describe("createAmbientCompactionSummaryExtension", () => {
   });
 });
 
-function thread(): ThreadSummary {
+function thread(overrides: Partial<ThreadSummary> = {}): ThreadSummary {
   return {
     id: "thread-1",
     title: "Compaction thread",
@@ -379,6 +429,7 @@ function thread(): ThreadSummary {
     collaborationMode: "agent",
     thinkingLevel: "medium",
     model: "ambient-test",
+    ...overrides,
   } as ThreadSummary;
 }
 

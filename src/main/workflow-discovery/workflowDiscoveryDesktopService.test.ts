@@ -184,13 +184,13 @@ describe("workflowDiscoveryDesktopService", () => {
 
     expect(service.createWorkflowDiscoveryProvider({
       baseUrl: "https://ambient.test",
-      model: "moonshotai/kimi-k2.7-code",
+      model: "<model>",
     })).toBe(provider);
 
     expect(dependencies.createProvider).toHaveBeenCalledWith({
       apiKey: "ambient-key",
       baseUrl: "https://ambient.test",
-      model: "moonshotai/kimi-k2.7-code",
+      model: "<model>",
       retryPolicy,
     });
   });

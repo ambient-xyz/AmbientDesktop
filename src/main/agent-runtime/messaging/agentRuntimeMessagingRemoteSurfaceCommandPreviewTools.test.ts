@@ -77,7 +77,7 @@ describe("registerMessagingRemoteSurfaceCommandPreviewTools", () => {
     });
     const registeredTools: RegisteredTool[] = [];
     const workspace = {
-      name: "AmbientDesktop",
+      name: "ambientCoder",
       path: "/workspace",
       statePath: stateRoot,
       sessionPath: join(stateRoot, "sessions"),
@@ -92,7 +92,7 @@ describe("registerMessagingRemoteSurfaceCommandPreviewTools", () => {
       } as any],
       workflowFolders: [],
       projects: [{
-        name: "AmbientDesktop",
+        name: "ambientCoder",
         path: "/workspace",
         updatedAt: "2026-05-28T00:00:00.000Z",
         pinned: true,

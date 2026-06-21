@@ -7,6 +7,7 @@ import type {
   CapabilityBuilderPreviewInput,
   CapabilityBuilderReadFileInput,
   CapabilityBuilderRegisterInput,
+  CapabilityBuilderRegistrationRepairInput,
   CapabilityBuilderRepairPlanInput,
   CapabilityBuilderRemovalPlanInput,
   CapabilityBuilderScaffoldInput,
@@ -857,6 +858,14 @@ export function ambientCapabilityBuilderUnregisterInput(input: Record<string, un
   return {
     ...base,
     ...(preserveBuilderSource !== undefined ? { preserveBuilderSource } : {}),
+  };
+}
+
+export function ambientCapabilityBuilderRegistrationRepairInput(input: Record<string, unknown>): CapabilityBuilderRegistrationRepairInput {
+  const base = ambientCapabilityBuilderPreviewInput(input);
+  return {
+    ...base,
+    ...(optionalString(input.reason) ? { reason: optionalString(input.reason) } : {}),
   };
 }
 

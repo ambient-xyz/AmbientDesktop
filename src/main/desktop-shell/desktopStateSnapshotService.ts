@@ -81,6 +81,9 @@ export interface DesktopStateSnapshotServiceDependencies<Store extends DesktopSt
   settingsSlots(): DesktopStateSnapshotSettingsSlots;
   currentModelRuntimeCatalog(generatedAt: string, store: Store): DesktopSettings["modelCatalog"];
   providerStatus(model: string): ProviderStatus;
+  secureStorageStatus(): DesktopState["secureStorage"];
+  secureStorageRepair(): DesktopState["secureStorageRepair"];
+  namedSecrets(): DesktopState["namedSecrets"];
   queueState(threadId: string): DesktopState["queue"];
   sttQueueState(workspacePath: string): DesktopState["sttQueue"];
   sttDiagnostics(workspacePath: string): DesktopState["sttDiagnostics"];
@@ -241,6 +244,9 @@ export function createDesktopStateSnapshotService<Store extends DesktopStateSnap
       callableWorkflowTasks,
       subagentRepairDiagnostics,
       provider: dependencies.providerStatus(settings.model),
+      secureStorage: dependencies.secureStorageStatus(),
+      secureStorageRepair: dependencies.secureStorageRepair(),
+      namedSecrets: dependencies.namedSecrets(),
       queue: dependencies.queueState(active),
       sttQueue: dependencies.sttQueueState(workspace.path),
       sttDiagnostics: dependencies.sttDiagnostics(workspace.path),

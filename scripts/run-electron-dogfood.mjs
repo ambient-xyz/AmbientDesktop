@@ -6,6 +6,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { verifyHarnessCheckout } from "./verify-harness-checkout.mjs";
 import { classifyHarnessFailure, writeHarnessManifest } from "./write-harness-manifest.mjs";
+import {
+  FIX_INSTALLS_REDACTIONS_GATES,
+  fixInstallsRedactionsLatestArtifactPath,
+} from "./fix-installs-redactions-gates-lib.mjs";
 
 const repoRoot = process.cwd();
 const args = parseArgs(process.argv.slice(2));
@@ -13,7 +17,7 @@ const manifestPath = resolve(args.manifestOut || process.env.AMBIENT_HARNESS_MAN
 const stdoutPath = manifestPath.replace(/\.manifest\.json$/i, ".stdout.txt").replace(/\.json$/i, ".stdout.txt");
 const stderrPath = manifestPath.replace(/\.manifest\.json$/i, ".stderr.txt").replace(/\.json$/i, ".stderr.txt");
 const DEFAULT_DOGFOOD_PROVIDER = "ambient";
-const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_DOGFOOD_MODEL = "<model>";
 const startedAt = new Date().toISOString();
 let checkout;
 let exitCode = 1;
@@ -105,6 +109,13 @@ function parseArgs(argv) {
 }
 
 function scenarioCommand(scenario, scenarioArgs = []) {
+  if (FIX_INSTALLS_REDACTIONS_GATES.some((gate) => gate.scenario === scenario)) {
+    return {
+      executable: "node",
+      args: ["scripts/fix-installs-redactions-gates.mjs", `--scenario=${scenario}`, ...scenarioArgs],
+      display: ["node", "scripts/fix-installs-redactions-gates.mjs", `--scenario=${scenario}`, ...scenarioArgs],
+    };
+  }
   if (scenario === "agent-memory-ux-modes") {
     return {
       executable: "node",
@@ -175,6 +186,34 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       display: ["node", "scripts/large-context-blowup-dogfood.mjs", ...scenarioArgs],
     };
   }
+  if (isSafeStorageScenario(scenario)) {
+    return {
+      executable: "node",
+      args: ["scripts/safe-storage-dogfood.mjs", `--scenario=${scenario}`, ...scenarioArgs],
+      display: ["node", "scripts/safe-storage-dogfood.mjs", `--scenario=${scenario}`, ...scenarioArgs],
+    };
+  }
+  if (scenario === "model-reasoning-modes") {
+    return {
+      executable: "node",
+      args: ["scripts/model-reasoning-modes-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/model-reasoning-modes-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "running-model-status") {
+    return {
+      executable: "node",
+      args: ["scripts/running-model-status-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/running-model-status-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "async-bash") {
+    return {
+      executable: "node",
+      args: ["scripts/async-bash-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/async-bash-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario !== "subagent-desktop-dogfood") throw new Error(`Unsupported Electron dogfood scenario: ${scenario}`);
   return {
     executable: "node",
@@ -184,6 +223,9 @@ function scenarioCommand(scenario, scenarioArgs = []) {
 }
 
 function scenarioLatestArtifactPath(scenario) {
+  if (FIX_INSTALLS_REDACTIONS_GATES.some((gate) => gate.scenario === scenario)) {
+    return fixInstallsRedactionsLatestArtifactPath(scenario);
+  }
   if (scenario === "agent-memory-ux-modes") {
     return "test-results/agent-memory-ux-modes/latest.json";
   }
@@ -200,7 +242,19 @@ function scenarioLatestArtifactPath(scenario) {
   if (scenario === "symphony-gap-phase5") return "test-results/symphony-gap-phase5-dogfood/latest.json";
   if (scenario === "symphony-gap-phase6") return "test-results/symphony-gap-phase6-dogfood/latest.json";
   if (scenario === "large-context-blowup") return "test-results/large-context-blowup/latest.json";
+  if (isSafeStorageScenario(scenario)) return "test-results/safe-storage-dogfood/latest.json";
+  if (scenario === "model-reasoning-modes") return "test-results/model-reasoning-modes/latest.json";
+  if (scenario === "running-model-status") return "test-results/running-model-status/latest.json";
+  if (scenario === "async-bash") return "test-results/async-bash-dogfood/latest.json";
   return "test-results/subagent-desktop-dogfood/latest.json";
+}
+
+function isSafeStorageScenario(scenario) {
+  return scenario === "safe-storage-linux-basic-text-blocked" ||
+    scenario === "safe-storage-linux-keyring-ready" ||
+    scenario === "named-secret-rtx-login-save" ||
+    scenario === "named-secret-brokered-local-fixture" ||
+    scenario === "safe-storage-release-gate";
 }
 
 async function runCommand(executable, commandArgs, env) {

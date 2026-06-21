@@ -5,13 +5,14 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { registerSecretRedaction } from "./secretRedaction";
+import { electronAppAvailable, electronSecureSecretStore, type SecureSecretStoreEncoding } from "./secureSecretStore";
 
 const require = createRequire(import.meta.url);
 const secretReferencePrefix = "ambient-secret-ref:v1:";
 const secretRecordSchemaVersion = "ambient-secret-reference-v1";
 const storeRootEnvName = "AMBIENT_SECRET_REFERENCE_STORE_ROOT";
 
-export type SecretReferenceScope = "ambient-cli" | "capability-builder" | "mcp-server" | "model-provider";
+export type SecretReferenceScope = "ambient-cli" | "capability-builder" | "mcp-server" | "model-provider" | "named-secret";
 
 export interface SaveSecretReferenceInput {
   scope: SecretReferenceScope;
@@ -34,7 +35,7 @@ interface SecretReferenceRecord {
   workspaceHash: string;
   ownerHash: string;
   envName: string;
-  encoding: "electron-safe-storage" | "base64-node-fallback";
+  encoding: SecureSecretStoreEncoding | "base64-node-fallback";
   value: string;
   createdAt: string;
   updatedAt: string;
@@ -42,11 +43,6 @@ interface SecretReferenceRecord {
 
 interface ElectronRuntime {
   app?: { getPath(name: string): string };
-  safeStorage?: {
-    isEncryptionAvailable(): boolean;
-    encryptString(value: string): Buffer;
-    decryptString(value: Buffer): string;
-  };
 }
 
 export function isSecretReference(value: string): boolean {
@@ -77,9 +73,9 @@ export async function findSecretReference(input: SecretReferenceAddressInput): P
 export async function saveSecretReference(input: SaveSecretReferenceInput): Promise<string> {
   const envName = normalizeEnvName(input.envName);
   const ownerId = input.ownerId.trim();
-  const value = input.value.trim();
+  const value = input.value;
   if (!ownerId) throw new Error("Secret owner id is required.");
-  if (!value) throw new Error("Secret value is empty.");
+  if (value.length === 0) throw new Error("Secret value is empty.");
 
   const secretRef = secretReferenceFor({ scope: input.scope, workspacePath: input.workspacePath, ownerId, envName });
   const path = secretReferencePath(secretRef);
@@ -124,40 +120,37 @@ export async function removeSecretReference(secretRef: string): Promise<void> {
 }
 
 function encodeSecretValue(value: string): Pick<SecretReferenceRecord, "encoding" | "value"> {
-  const electron = electronRuntime();
-  if (electron.safeStorage?.isEncryptionAvailable()) {
-    return {
-      encoding: "electron-safe-storage",
-      value: electron.safeStorage.encryptString(value).toString("base64"),
-    };
-  }
-  if (electron.app) throw new Error("Secure credential storage is not available on this system.");
+  const encoded = secretStore().encryptForRecord(value);
   return {
-    encoding: "base64-node-fallback",
-    value: Buffer.from(value, "utf8").toString("base64"),
+    encoding: encoded.encoding === "base64-node-test-fallback" ? "base64-node-fallback" : encoded.encoding,
+    value: encoded.value,
   };
 }
 
 function decodeSecretValue(record: SecretReferenceRecord): string {
-  if (record.encoding === "electron-safe-storage") {
-    const electron = electronRuntime();
-    if (!electron.safeStorage?.isEncryptionAvailable()) throw new Error("Secure credential storage is not available on this system.");
-    return electron.safeStorage.decryptString(Buffer.from(record.value, "base64"));
-  }
-  return Buffer.from(record.value, "base64").toString("utf8");
+  return secretStore().decryptFromRecord({
+    encoding: record.encoding === "base64-node-fallback" ? "base64-node-test-fallback" : record.encoding,
+    value: record.value,
+  });
 }
 
 async function readSecretRecord(path: string): Promise<SecretReferenceRecord | undefined> {
   if (!existsSync(path)) return undefined;
   const parsed = JSON.parse(await readFile(path, "utf8")) as Partial<SecretReferenceRecord>;
   if (parsed.schemaVersion !== secretRecordSchemaVersion) throw new Error("Unsupported Ambient secret reference record.");
-  if (parsed.scope !== "ambient-cli" && parsed.scope !== "capability-builder" && parsed.scope !== "mcp-server" && parsed.scope !== "model-provider") {
+  if (
+    parsed.scope !== "ambient-cli" &&
+    parsed.scope !== "capability-builder" &&
+    parsed.scope !== "mcp-server" &&
+    parsed.scope !== "model-provider" &&
+    parsed.scope !== "named-secret"
+  ) {
     throw new Error("Ambient secret reference scope is invalid.");
   }
   if (!parsed.workspaceHash || !parsed.ownerHash || !parsed.envName || !parsed.encoding || !parsed.value || !parsed.createdAt || !parsed.updatedAt) {
     throw new Error("Ambient secret reference record is incomplete.");
   }
-  if (parsed.encoding !== "electron-safe-storage" && parsed.encoding !== "base64-node-fallback") {
+  if (parsed.encoding !== "electron-safe-storage" && parsed.encoding !== "base64-node-fallback" && parsed.encoding !== "base64-node-test-fallback") {
     throw new Error("Ambient secret reference encoding is unsupported.");
   }
   return {
@@ -184,6 +177,14 @@ function secretReferenceStoreRoot(): string {
   const electron = electronRuntime();
   if (typeof electron.app?.getPath === "function") return join(electron.app.getPath("userData"), "secret-references");
   return join(tmpdir(), "ambient-secret-references");
+}
+
+function secretStore() {
+  const appAvailable = electronAppAvailable();
+  return electronSecureSecretStore({
+    appAvailable,
+    allowBase64NodeFallback: !appAvailable,
+  });
 }
 
 function electronRuntime(): ElectronRuntime {

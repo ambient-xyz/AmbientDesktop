@@ -3106,7 +3106,7 @@ function packageJson() {
       "test:subagents:desktop-dogfood:unit": "pnpm exec vitest run scripts/subagent-desktop-dogfood.test.mjs",
       "test:subagents:desktop-dogfood-repeat": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} node scripts/subagent-desktop-dogfood-repeat.mjs",
       "test:subagents:desktop-dogfood-repeat:unit": "pnpm exec vitest run scripts/subagent-desktop-dogfood-repeat.test.mjs",
-      "test:subagents:scenario-dogfood": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=${AMBIENT_LIVE_MODEL:-moonshotai/kimi-k2.7-code} AMBIENT_SUBAGENT_SCENARIO_DOGFOOD=1 node scripts/run-live-node-test.mjs -- vitest run src/main/subagents/subagentScenarioDogfood.live.test.ts",
+      "test:subagents:scenario-dogfood": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=${AMBIENT_LIVE_MODEL:-<model>} AMBIENT_SUBAGENT_SCENARIO_DOGFOOD=1 node scripts/run-live-node-test.mjs -- vitest run src/main/subagents/subagentScenarioDogfood.live.test.ts",
       "test:subagents:release-gate:live": "pnpm run test:callable-workflow-dogfood:proof && pnpm run test:callable-workflow-rehydration:proof && pnpm run test:subagents:lifecycle-edges:proof && pnpm run test:subagents:live-confidence -- --allow-blocked && pnpm run test:subagents:live-confidence:authority -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow-broader -- --allow-blocked && pnpm run test:subagents:live-confidence:local-runtime -- --allow-blocked && pnpm run test:subagents:live-confidence:restart-repair -- --allow-blocked && pnpm run test:subagents:live-confidence:lifecycle-edges -- --allow-blocked && pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked && pnpm run test:subagents:deterministic && node scripts/subagent-release-gate.mjs --require-live",
       "test:subagents:release-gate:graduation": "pnpm run test:callable-workflow-dogfood:proof && pnpm run test:callable-workflow-rehydration:proof && pnpm run test:subagents:lifecycle-edges:proof && pnpm run test:subagents:live-confidence -- --allow-blocked && pnpm run test:subagents:live-confidence:authority -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow-broader -- --allow-blocked && pnpm run test:subagents:live-confidence:local-runtime -- --allow-blocked && pnpm run test:subagents:live-confidence:restart-repair -- --allow-blocked && pnpm run test:subagents:live-confidence:lifecycle-edges -- --allow-blocked && pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked && pnpm run test:subagents:desktop-dogfood-repeat -- --require-ready && pnpm run test:workflow-jitter-release-gate:release-profile && pnpm run subagents:live-history-report -- --require-ready && pnpm run test:subagents:deterministic && node scripts/subagent-release-gate.mjs --require-live --require-maturity-history",
       "test:workflow-local-file:live": "GMI_CLOUD_API_KEY_FILE=${GMI_CLOUD_API_KEY_FILE:-$(node scripts/resolve-gmi-cloud-key-file.mjs)} AMBIENT_PROVIDER=gmi-cloud AMBIENT_WORKFLOW_LIVE=1 bash scripts/test-node-native.sh src/main/workflow/workflowDogfood.test.ts -t \"local-file report workflow with a live Ambient runtime call\"",
@@ -4169,7 +4169,7 @@ function desktopDogfoodArtifact() {
     classification: "passed",
     generatedAt: "2026-06-05T00:55:00.000Z",
     provider: "gmi-cloud",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "<model>",
     featureFlag: "ambient.subagents",
     headful: true,
     cdpPort: 49152,
@@ -4462,7 +4462,7 @@ function harnessManifestArtifact(kind = "live_node_test") {
     },
     provider: {
       providerId: "ambient",
-      modelId: "moonshotai/kimi-k2.7-code",
+      modelId: "<model>",
       usingGmiFailover: false,
     },
     ...(electron
@@ -5731,7 +5731,7 @@ function desktopWorkflowRehydratedNavigation() {
     criticalOverlapCount: 0,
     activeThreadRows: [
       {
-        text: "Desktop Dogfood Symphony Map-Reduce\nReady for preview · AmbientDesktop",
+        text: "Desktop Dogfood Symphony Map-Reduce\nReady for preview · ambientCoder",
         title: "Desktop Dogfood Symphony Map-Reduce",
       },
     ],
