@@ -17,7 +17,7 @@ const manifestPath = resolve(args.manifestOut || process.env.AMBIENT_HARNESS_MAN
 const stdoutPath = manifestPath.replace(/\.manifest\.json$/i, ".stdout.txt").replace(/\.json$/i, ".stdout.txt");
 const stderrPath = manifestPath.replace(/\.manifest\.json$/i, ".stderr.txt").replace(/\.json$/i, ".stderr.txt");
 const DEFAULT_DOGFOOD_PROVIDER = "ambient";
-const DEFAULT_DOGFOOD_MODEL = "<model>";
+const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
 const startedAt = new Date().toISOString();
 let checkout;
 let exitCode = 1;
@@ -214,6 +214,13 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       display: ["node", "scripts/async-bash-dogfood.mjs", ...scenarioArgs],
     };
   }
+  if (scenario === "provider-restart-behavior") {
+    return {
+      executable: "node",
+      args: ["scripts/provider-restart-behavior-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/provider-restart-behavior-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario !== "subagent-desktop-dogfood") throw new Error(`Unsupported Electron dogfood scenario: ${scenario}`);
   return {
     executable: "node",
@@ -246,6 +253,7 @@ function scenarioLatestArtifactPath(scenario) {
   if (scenario === "model-reasoning-modes") return "test-results/model-reasoning-modes/latest.json";
   if (scenario === "running-model-status") return "test-results/running-model-status/latest.json";
   if (scenario === "async-bash") return "test-results/async-bash-dogfood/latest.json";
+  if (scenario === "provider-restart-behavior") return "test-results/provider-restart-behavior/latest.json";
   return "test-results/subagent-desktop-dogfood/latest.json";
 }
 

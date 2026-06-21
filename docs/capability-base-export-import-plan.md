@@ -168,7 +168,7 @@ hardening helper for machine-local prepared bases:
 
 ```bash
 pnpm run hardening:snapshot -- create \
-  --source-base <local-user>/.ambient-hardening/bases/primary-mac-core-no-secrets-2026-05-13 \
+  --source-base /Users/Neo/.ambient-hardening/bases/primary-mac-core-no-secrets-2026-05-13 \
   --group shared-secrets \
   --name primary-mac-shared-secrets \
   --contains-secrets \

@@ -9,7 +9,13 @@ import type {
 } from "../../shared/threadTypes";
 import { mapThreadGoalRow, type ThreadGoalRow } from "./threadGoalMappers";
 
-const terminalThreadGoalStatuses = new Set<ThreadGoalStatus>(["blocked", "usage_limited", "budget_limited", "complete"]);
+const terminalThreadGoalStatuses = new Set<ThreadGoalStatus>([
+  "blocked",
+  "usage_limited",
+  "budget_limited",
+  "provider_unavailable",
+  "complete",
+]);
 
 export class ProjectStoreThreadGoalRepository {
   constructor(private readonly db: Database.Database) {}
@@ -48,7 +54,7 @@ export class ProjectStoreThreadGoalRepository {
       this.db
         .prepare(
           `UPDATE thread_goals
-           SET objective = ?, status = ?, token_budget = ?, no_progress_turns = ?,
+           SET objective = ?, status = ?, token_budget = ?, no_progress_turns = ?, provider_infra_failures = ?,
                status_reason = ?, updated_at = ?, completed_at = ?
            WHERE thread_id = ?`,
         )
@@ -57,6 +63,7 @@ export class ProjectStoreThreadGoalRepository {
           status,
           tokenBudget,
           resumedFromInactive ? 0 : current.noProgressTurns,
+          resumedFromInactive ? 0 : (current.providerInfraFailures ?? 0),
           statusReason,
           now,
           completedAt,
@@ -67,8 +74,8 @@ export class ProjectStoreThreadGoalRepository {
         .prepare(
           `INSERT INTO thread_goals
           (thread_id, goal_id, objective, status, token_budget, tokens_used, time_used_seconds,
-           continuation_turns, no_progress_turns, status_reason, created_at, updated_at, completed_at, last_continued_at)
-           VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?, ?, ?, NULL)`,
+           continuation_turns, no_progress_turns, provider_infra_failures, status_reason, created_at, updated_at, completed_at, last_continued_at)
+           VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, NULL)`,
         )
         .run(input.threadId, randomUUID(), objective, status, tokenBudget, statusReason, now, now, completedAt);
     }
@@ -101,7 +108,10 @@ export class ProjectStoreThreadGoalRepository {
     const tokensUsedDelta = Math.max(0, Math.floor(input.tokensUsedDelta ?? 0));
     const timeUsedSecondsDelta = Math.max(0, Math.floor(input.timeUsedSecondsDelta ?? 0));
     const continuationTurnDelta = Math.max(0, Math.floor(input.continuationTurnDelta ?? 0));
-    const noProgressTurnDelta = Math.max(0, Math.floor(input.noProgressTurnDelta ?? 0));
+    const providerInfraFailureDelta = Math.max(0, Math.floor(input.providerInfraFailureDelta ?? 0));
+    const noProgressTurnDelta = providerInfraFailureDelta > 0
+      ? 0
+      : Math.max(0, Math.floor(input.noProgressTurnDelta ?? 0));
     const tokensUsed = current.tokensUsed + tokensUsedDelta;
     const nextStatus = current.tokenBudget !== undefined && tokensUsed >= current.tokenBudget && current.status === "active"
       ? "budget_limited"
@@ -117,6 +127,7 @@ export class ProjectStoreThreadGoalRepository {
       .prepare(
         `UPDATE thread_goals
          SET tokens_used = ?, time_used_seconds = ?, continuation_turns = ?, no_progress_turns = ?,
+             provider_infra_failures = ?,
              status = ?, status_reason = ?, updated_at = ?, last_continued_at = ?
          WHERE thread_id = ? AND goal_id = ?`,
       )
@@ -125,6 +136,7 @@ export class ProjectStoreThreadGoalRepository {
         current.timeUsedSeconds + timeUsedSecondsDelta,
         current.continuationTurns + continuationTurnDelta,
         current.noProgressTurns + noProgressTurnDelta,
+        (current.providerInfraFailures ?? 0) + providerInfraFailureDelta,
         nextStatus,
         statusReason,
         now,

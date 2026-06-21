@@ -58,6 +58,7 @@ export function threadGoalStatusLabel(goal: ThreadGoal): string {
   if (goal.status === "blocked") return "Goal blocked";
   if (goal.status === "budget_limited") return "Goal budget hit";
   if (goal.status === "usage_limited") return "Goal limit hit";
+  if (goal.status === "provider_unavailable") return "Provider unavailable";
   return "Goal complete";
 }
 
@@ -85,7 +86,12 @@ export function runtimeActivityVisibleForThreadGoal(activity: RuntimeActivity, g
 
 export function ThreadGoalStatusIcon({ goal, size }: { goal: ThreadGoal; size: number }) {
   if (goal.status === "paused") return <Pause size={size} aria-hidden="true" />;
-  if (goal.status === "blocked" || goal.status === "budget_limited" || goal.status === "usage_limited") {
+  if (
+    goal.status === "blocked" ||
+    goal.status === "budget_limited" ||
+    goal.status === "usage_limited" ||
+    goal.status === "provider_unavailable"
+  ) {
     return <AlertCircle size={size} aria-hidden="true" />;
   }
   if (goal.status === "complete") return <CheckCircle2 size={size} aria-hidden="true" />;

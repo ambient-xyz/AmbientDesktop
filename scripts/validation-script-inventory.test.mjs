@@ -228,7 +228,7 @@ describe("validation script inventory", () => {
     const markdown = renderValidationScriptRecommendationsMarkdown(report);
 
     expect(markdown).toContain("# Recommended Validation Scripts");
-    expect(markdown).toContain("<model>");
+    expect(markdown).toContain("moonshotai/kimi-k2.7-code");
     expect(markdown).toContain("| project-board | `pnpm run test:project-board-pm-review-provider-fixtures` | local-fast | Vitest |");
     expect(markdown).not.toContain("health-report-artifact-promotion");
   });
@@ -244,7 +244,7 @@ describe("validation script inventory", () => {
     expect(report.providerGuidance).toBe(CURRENT_PROVIDER_GUIDANCE);
     expect(report.providerGuidance).toMatchObject({
       preferredLiveProvider: "ambient",
-      preferredLiveModel: "<model>",
+      preferredLiveModel: "moonshotai/kimi-k2.7-code",
       gmiCloudPolicy: "explicit request or approved failover only",
     });
     expect(report.entries.map((entry) => `${entry.liveProvider}:${entry.name}`)).toEqual([

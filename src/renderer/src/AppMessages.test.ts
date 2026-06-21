@@ -63,11 +63,22 @@ describe("message helpers", () => {
   it("finds retryable failed prompts from the latest visible assistant error", () => {
     const firstUser = message({ id: "u1", role: "user", content: "First" });
     const latestUser = message({ id: "u2", role: "user", content: "Retry this" });
+    const hiddenUser = message({
+      id: "hidden",
+      role: "user",
+      content: "Continue working toward the active Ambient Desktop thread goal.",
+      metadata: {
+        runtime: "ambient-internal",
+        kind: "hidden-user-message",
+        hiddenFromTranscript: true,
+        hiddenUserMessage: true,
+      },
+    });
     const thinking = message({ id: "t1", role: "assistant", content: "Thinking", metadata: { kind: "thinking" } });
     const tool = message({ id: "tool1", role: "tool", content: "Tool output" });
     const error = message({ id: "a1", role: "assistant", content: "Failed", metadata: { status: "error" } });
 
-    expect(retryableFailedPromptIds([firstUser, latestUser, thinking, tool, error])).toEqual(new Set(["u2"]));
+    expect(retryableFailedPromptIds([firstUser, latestUser, hiddenUser, thinking, tool, error])).toEqual(new Set(["u2"]));
     expect(retryableFailedPromptIds([firstUser, error, message({ id: "a2", role: "assistant", content: "Recovered" })])).toEqual(new Set());
   });
 

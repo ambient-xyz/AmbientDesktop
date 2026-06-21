@@ -1,4 +1,5 @@
 import type { ResolvedTheme, ThinkingDisplayMode } from "../../shared/desktopTypes";
+import { isHiddenTranscriptMessage } from "../../shared/threadPreview";
 import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 
 export interface ThreadMiniWindowRenderOptions {
@@ -19,7 +20,10 @@ export function renderThreadMiniWindowHtml(
 ): string {
   const theme = options.theme;
   const thinkingDisplayMode = options.thinkingDisplayMode ?? "full";
-  const visibleMessages = messages.filter((message) => thinkingDisplayMode === "full" || message.metadata?.kind !== "thinking");
+  const visibleMessages = messages.filter((message) => {
+    if (isHiddenTranscriptMessage(message)) return false;
+    return thinkingDisplayMode === "full" || message.metadata?.kind !== "thinking";
+  });
   const body = visibleMessages.length
     ? visibleMessages.map(renderMiniMessageHtml).join("")
     : `<p class="empty">No messages yet.</p>`;

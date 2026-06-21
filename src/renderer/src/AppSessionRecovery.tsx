@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 
+import { isHiddenTranscriptMessage } from "../../shared/threadPreview";
 import type { ChatMessage, ContextUsageSnapshot } from "../../shared/threadTypes";
 import {
   SessionContextRecoveryButtons,
@@ -66,5 +67,7 @@ export function isSessionContextMissing(snapshot: ContextUsageSnapshot | undefin
 }
 
 export function latestUserPromptForRecovery(messages: ChatMessage[]): ChatMessage | undefined {
-  return [...messages].reverse().find((message) => message.role === "user" && Boolean(renderableMessageContent(message)));
+  return [...messages]
+    .reverse()
+    .find((message) => message.role === "user" && !isHiddenTranscriptMessage(message) && Boolean(renderableMessageContent(message)));
 }

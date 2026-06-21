@@ -182,7 +182,7 @@ function threadSummary(id: string, title: string, workspacePath: string): Thread
     lastMessagePreview: "",
     permissionMode: "full-access",
     collaborationMode: "agent",
-    model: "<model>",
+    model: "moonshotai/kimi-k2.7-code",
     thinkingLevel: "medium",
   };
 }

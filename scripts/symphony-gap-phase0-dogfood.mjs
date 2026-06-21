@@ -12,7 +12,7 @@ const workspacePath = join(scratchRoot, "workspace");
 const userDataPath = join(scratchRoot, "userData");
 const staleLatestArtifactPath = join(repoRoot, "test-results", "symphony-gap-phase0-dogfood", "latest.json");
 const DEFAULT_DOGFOOD_PROVIDER = "ambient";
-const DEFAULT_DOGFOOD_MODEL = "<model>";
+const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
 
 let exitCode = 0;
 let dogfoodEnv;

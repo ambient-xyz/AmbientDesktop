@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureRoot = resolve(process.env.AMBIENT_PROJECT_BOARD_FIXTURE || join(repoRoot, "fixtures", "project-board-spaceship"));
-const model = process.env.AMBIENT_PROJECT_BOARD_MODEL || process.env.AMBIENT_LIVE_MODEL || "<model>";
+const model = process.env.AMBIENT_PROJECT_BOARD_MODEL || process.env.AMBIENT_LIVE_MODEL || "moonshotai/kimi-k2.7-code";
 const baseUrl = normalizeAmbientBaseUrl(process.env.AMBIENT_BASE_URL || process.env.AMBIENT_AGENT_AMBIENT_BASE_URL);
 const runRefinement = process.argv.includes("--refine") || process.env.AMBIENT_PROJECT_BOARD_SYNTHESIS_REFINEMENT === "1";
 const outputPath = resolve(
@@ -610,7 +610,7 @@ async function readAmbientApiKey() {
     join(dirname(repoRoot), "ambient_api_key.txt"),
     join(dirname(dirname(repoRoot)), "ambient_api_key.txt"),
     join(homedir(), "ambient_api_key.txt"),
-    "<local-user>/Documents/ambientCoder/ambient_api_key.txt",
+    "/Users/Neo/Documents/ambientCoder/ambient_api_key.txt",
   ].filter(Boolean);
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;

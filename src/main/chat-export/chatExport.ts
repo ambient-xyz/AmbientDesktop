@@ -4,6 +4,7 @@ import { basename, join, relative } from "node:path";
 import JSZip from "jszip";
 import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
 import type { SubagentMailboxEventSummary, SubagentParentMailboxEventSummary, SubagentRunEventSummary, SubagentRunSummary, SubagentToolScopeSnapshotSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import { isHiddenTranscriptMessage } from "../../shared/threadPreview";
 import type { ChatExportSource, ChatMessage, ContextUsageSnapshot, ThreadSummary, ToolExternalModelResponseArtifact, ToolLargeOutputPreviewItem } from "../../shared/threadTypes";
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
@@ -648,6 +649,7 @@ export async function createVisibleChatExportSnapshot(
 
 function visibleExportMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.filter((message) => {
+    if (isHiddenTranscriptMessage(message)) return false;
     if (message.metadata?.kind === "thinking") return false;
     if (message.role === "assistant" && !message.content.trim()) return false;
     return true;

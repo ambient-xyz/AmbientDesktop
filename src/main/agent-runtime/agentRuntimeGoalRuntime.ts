@@ -4,6 +4,7 @@ export const GOAL_MODE_TOOL_NAMES = ["get_goal", "create_goal", "update_goal"] a
 export const GOAL_COMPLETION_MESSAGE_KIND = "goal-completion";
 export const GOAL_MAX_CONTINUATION_TURNS = 8;
 export const GOAL_NO_PROGRESS_TURN_LIMIT = 3;
+export const GOAL_PROVIDER_INFRA_FAILURE_LIMIT = 2;
 type RuntimeGoalActivity = Extract<RuntimeActivity, { kind: "goal" }>;
 
 export interface GoalRuntimeActivityInput {
@@ -39,7 +40,13 @@ export function goalContinuationPrompt(
   thread: Pick<ThreadSummary, "id">,
   goal: Pick<
     ThreadGoal,
-    "goalId" | "objective" | "tokensUsed" | "tokenBudget" | "continuationTurns" | "noProgressTurns"
+    | "goalId"
+    | "objective"
+    | "tokensUsed"
+    | "tokenBudget"
+    | "continuationTurns"
+    | "noProgressTurns"
+    | "providerInfraFailures"
   >,
 ): string {
   return [
@@ -56,5 +63,6 @@ export function goalContinuationPrompt(
     `Estimated tokens used: ${goal.tokensUsed}${goal.tokenBudget !== undefined ? ` / ${goal.tokenBudget}` : ""}`,
     `Continuation turn: ${goal.continuationTurns}`,
     `No-progress turns: ${goal.noProgressTurns}`,
+    `Provider infrastructure failures: ${goal.providerInfraFailures ?? 0}`,
   ].join("\n");
 }

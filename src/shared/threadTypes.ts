@@ -156,7 +156,14 @@ export interface ContextUsageSnapshot {
   };
 }
 
-export type ThreadGoalStatus = "active" | "paused" | "blocked" | "usage_limited" | "budget_limited" | "complete";
+export type ThreadGoalStatus =
+  | "active"
+  | "paused"
+  | "blocked"
+  | "usage_limited"
+  | "budget_limited"
+  | "provider_unavailable"
+  | "complete";
 
 export interface ThreadGoal {
   threadId: string;
@@ -168,6 +175,7 @@ export interface ThreadGoal {
   timeUsedSeconds: number;
   continuationTurns: number;
   noProgressTurns: number;
+  providerInfraFailures?: number;
   statusReason?: string;
   createdAt: string;
   updatedAt: string;
@@ -200,6 +208,7 @@ export interface ThreadGoalAccountInput {
   timeUsedSecondsDelta?: number;
   continuationTurnDelta?: number;
   noProgressTurnDelta?: number;
+  providerInfraFailureDelta?: number;
   statusReason?: string | null;
 }
 

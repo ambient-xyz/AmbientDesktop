@@ -20,6 +20,17 @@ describe("sidebar helpers", () => {
         message({ id: "u1", role: "user", content: "First" }),
         message({ id: "u2", role: "user", content: "   " }),
         message({ id: "u3", role: "user", content: "Second" }),
+        message({
+          id: "hidden",
+          role: "user",
+          content: "Continue working toward the active Ambient Desktop thread goal.",
+          metadata: {
+            runtime: "ambient-internal",
+            kind: "hidden-user-message",
+            hiddenFromTranscript: true,
+            hiddenUserMessage: true,
+          },
+        }),
       ]),
     ).toEqual(["Second", "First"]);
   });

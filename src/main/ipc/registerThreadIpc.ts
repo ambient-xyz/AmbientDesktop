@@ -350,7 +350,15 @@ const exportChatPdfSchema = z.object({
   threadId: z.string().min(1),
   projectId: projectIdSchema.optional(),
 }) satisfies z.ZodType<ExportChatPdfInput>;
-const threadGoalStatusSchema = z.enum(["active", "paused", "blocked", "usage_limited", "budget_limited", "complete"]);
+const threadGoalStatusSchema = z.enum([
+  "active",
+  "paused",
+  "blocked",
+  "usage_limited",
+  "budget_limited",
+  "provider_unavailable",
+  "complete",
+]);
 const threadGoalGetSchema = z.object({ threadId: z.string().min(1) });
 const threadGoalSetSchema = z.object({
   threadId: z.string().min(1),

@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ambient Coder Simplification Plan</title>
+  <style>
+    :root {
+      --ink: #16202a;
+      --muted: #5d6976;
+      --line: #d8dee6;
+      --panel: #f7f9fb;
+      --paper: #ffffff;
+      --blue: #2f6fed;
+      --green: #1d8f61;
+      --amber: #b97814;
+      --red: #bd3b3b;
+      --violet: #7357d6;
+      --teal: #20858a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eef2f6;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.48;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+
+    header {
+      margin-bottom: 24px;
+      padding: 28px 32px;
+      color: #ffffff;
+      background: #182533;
+      border-radius: 8px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1.15;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 12px;
+      font-size: 1.38rem;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    .subtitle {
+      max-width: 780px;
+      margin-top: 12px;
+      color: #dce6ef;
+      font-size: 1.08rem;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 22px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      color: #dfeaf5;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 650;
+    }
+
+    section {
+      margin-top: 18px;
+      padding: 24px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .card {
+      padding: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .stat {
+      display: grid;
+      gap: 3px;
+    }
+
+    .stat strong {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .stat span,
+    .muted {
+      color: var(--muted);
+    }
+
+    .phase-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .phase {
+      display: grid;
+      grid-template-columns: 94px 1fr;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .phase:nth-child(2) {
+      border-left-color: var(--teal);
+    }
+
+    .phase:nth-child(3) {
+      border-left-color: var(--green);
+    }
+
+    .phase:nth-child(4) {
+      border-left-color: var(--violet);
+    }
+
+    .phase:nth-child(5) {
+      border-left-color: var(--amber);
+    }
+
+    .phase:nth-child(6) {
+      border-left-color: var(--red);
+    }
+
+    .phase-id {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    ul {
+      margin: 9px 0 0;
+      padding-left: 18px;
+    }
+
+    li + li {
+      margin-top: 5px;
+    }
+
+    code {
+      padding: 1px 5px;
+      background: #edf2f7;
+      border: 1px solid #dce3eb;
+      border-radius: 5px;
+      font-size: 0.92em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.94rem;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      color: #263342;
+      background: #f0f4f8;
+      font-weight: 750;
+    }
+
+    .diagram {
+      width: 100%;
+      min-height: 260px;
+      margin-top: 12px;
+      padding: 10px;
+      overflow-x: auto;
+      background: #fbfcfe;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      font-family: inherit;
+    }
+
+    .svg-title {
+      font-size: 17px;
+      font-weight: 800;
+      fill: var(--ink);
+    }
+
+    .svg-label {
+      font-size: 13px;
+      fill: var(--ink);
+      font-weight: 700;
+    }
+
+    .svg-small {
+      font-size: 11.5px;
+      fill: var(--muted);
+    }
+
+    .box {
+      fill: #ffffff;
+      stroke: #bdc7d3;
+      stroke-width: 1.2;
+      rx: 8;
+    }
+
+    .box-blue {
+      fill: #eef5ff;
+      stroke: #aac6fb;
+    }
+
+    .box-green {
+      fill: #edf8f2;
+      stroke: #a9d7bd;
+    }
+
+    .box-amber {
+      fill: #fff7e8;
+      stroke: #ebc87d;
+    }
+
+    .box-violet {
+      fill: #f3f0ff;
+      stroke: #c9bff4;
+    }
+
+    .arrow {
+      fill: none;
+      stroke: #6e7b88;
+      stroke-width: 1.7;
+    }
+
+    .warn {
+      color: var(--amber);
+      font-weight: 750;
+    }
+
+    .ok {
+      color: var(--green);
+      font-weight: 750;
+    }
+
+    footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 820px) {
+      main {
+        padding: 18px 12px 36px;
+      }
+
+      header,
+      section {
+        padding: 18px;
+      }
+
+      .grid.two,
+      .grid.three {
+        grid-template-columns: 1fr;
+      }
+
+      .phase {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Ambient Coder Simplification Plan</h1>
+      <p class="subtitle">A phased, low-risk refactor roadmap for reducing complexity while preserving product behavior, provider contracts, and live Ambient/Pi validation paths.</p>
+      <div class="meta">
+        <span class="pill">Scope: maintainability</span>
+        <span class="pill">Strategy: move-only first</span>
+        <span class="pill">Risk posture: incremental</span>
+        <span class="pill">Validation: local plus Ambient/Kimi live smoke</span>
+        <span class="pill">GLM 5.1 degraded: use Kimi</span>
+      </div>
+    </header>
+
+    <section>
+      <h2>Current Provider Note</h2>
+      <p class="muted">2026-06-16 operative note: GLM 5.1 / GLM-5.1 FP8 is currently degraded. Any live provider/Pi validation for this plan must use the real Ambient provider with Kimi selected, such as <code>AMBIENT_PROVIDER=ambient</code> with <code>AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code</code>. GMI Cloud is not the workaround for this GLM incident; use GMI only if Ambient+Kimi itself is unavailable or explicitly requested, with human approval recorded before failover.</p>
+    </section>
+
+    <section>
+      <h2>North Star</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Desired outcome</h3>
+          <p>Reduce the largest change surfaces into domain-owned modules so feature work lands in smaller, reviewable files with clear contracts and targeted tests.</p>
+        </div>
+        <div class="card">
+          <h3>Operating rule</h3>
+          <p>Each phase starts as behavior-preserving extraction. Cleanups come only after parity tests show the moved code behaves exactly the same.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Current Complexity Snapshot</h2>
+      <p class="muted">Updated from <code>pnpm run complexity:inventory</code> on 2026-06-13T04:28Z during the Phase 4 closeout inventory against latest <code>origin/main</code>. Production hotspots are shown here; large test files remain tracked in the inventory output.</p>
+      <div class="grid three">
+        <div class="card stat">
+          <strong>15.3k</strong>
+          <span><code>src/main/projectStore.ts</code> lines</span>
+        </div>
+        <div class="card stat">
+          <strong>15.0k</strong>
+          <span><code>src/renderer/src/RightPanel.tsx</code> lines</span>
+        </div>
+        <div class="card stat">
+          <strong>12.4k</strong>
+          <span><code>src/main/index.ts</code> lines</span>
+        </div>
+        <div class="card stat">
+          <strong>11.8k</strong>
+          <span><code>src/renderer/src/projectBoardUiModel.ts</code> lines</span>
+        </div>
+        <div class="card stat">
+          <strong>11.6k</strong>
+          <span><code>src/renderer/src/ProjectBoardWorkspace.tsx</code> lines</span>
+        </div>
+        <div class="card stat">
+          <strong>8.6k</strong>
+          <span><code>src/main/agentRuntime.ts</code> lines</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Current Progress Snapshot</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>What changed since this plan was written</h3>
+          <ul>
+            <li>Phase 1 moved large renderer workspaces out of <code>App.tsx</code>; <code>App.tsx</code> is now much smaller, but <code>RightPanel.tsx</code>, <code>ProjectBoardWorkspace.tsx</code>, and <code>AutomationsWorkspace.tsx</code> are the renderer hotspots.</li>
+            <li>Phase 2 moved IPC registration into domain modules under <code>src/main/ipc</code>; <code>registerIpc</code> in <code>src/main/index.ts</code> is still a large orchestration point.</li>
+            <li>Phase 3 extracted many <code>ProjectStore</code> mappers and schema helpers; <code>ProjectStore</code> remains a large facade and should be thinned only after focused mapper/schema tests stay green.</li>
+            <li>Phase 4 is complete as a capped tool-extension extraction phase: <code>src/main/agentRuntime.ts</code> is 8,331 lines, down from the original 21.7k snapshot; the approximate <code>AgentRuntime</code> declaration scan reports 7,233 lines, and <code>send</code> is still 3,077 lines.</li>
+            <li>Recent Phase 4 work moved CLI package flows, plugin option/callback wiring, plugin MCP trust bridging, permission-grant revocation bridging, first-party plugin permission audit bridging, browser audit and artifact-refresh bridging, voice-dispatch, voice-provider setup, voice-provider dogfood, desktop-event emit bridging, remote-surface runtime-event store ownership, session-file commit guarding, send-content formatting, user-message and queued-message metadata assembly, assistant/thinking message metadata and content fallback assembly, empty-assistant stall and Pi stream timeout/progress activity assembly, local tool-execution, subagent parent-control and stop/cascade activity assembly, post-tool continuation activity assembly, assistant-terminal cleanup activity assembly, provider auto-retry and scheduled provider-retry activity assembly, compaction activity assembly, finalization-blocked stream activity assembly, runtime-settings activity assembly, active-session reset planning, and goal activity assembly, chat stream-interruption notice formatting, permission-wait card/message formatting and activity assembly, goal-continuation prompt formatting, workflow-recording review request assembly, assistant-finalization retry input assembly, runtime session-recovery context assembly, visible transcript recovery message assembly, session-start recovery message seeding, session recovery seed detail derivation, visible transcript recovery message selection, visible transcript recovery session transcript context, visible transcript recovery seed decision, missing Pi session recovery plan, manual visible transcript recovery reason, visible transcript recovery summary custom-message assembly, manual visible transcript recovery message bundle, manual visible transcript recovery restorable-session plan, visible transcript recovery unavailable-context messages, visible transcript recovery session-open failure plan, visible transcript recovery session-open unavailable-context plan, visible transcript recovery seed message bundle, visible transcript recovery default seed message bundle, Pi stream timeout state helpers, interrupted-tool-call recovery input assembly, and provider-interruption continuation input assembly, plugin-install extension factory assembly, privileged-action helpers, chat/tool transcript assembly, tool-message metadata, tool-intent snapshots, provider-interruption continuation and argument persistence, provider diagnostics/preview helpers, provider-discovery helpers and options assembly, assistant-terminal diagnostics, context-usage snapshot/source helpers, context-usage session-compaction stats, active and unavailable context-usage snapshot builders, context-usage prompt preflight input helpers, prompt-preflight compaction orchestration, manual compaction event handling, runtime error formatting, browser tool heartbeat/timeout orchestration, browser profile selection, runtime utility helpers, runtime timeout helpers, composer-intent prompt helpers, Goal Mode runtime helpers, runtime retry settings helpers, runtime thread-settings update helpers, Planner finalization prompt parsing, prompt/response classification, source-artifact selection, source-response bridge removal, prior-user prompt lookup, durable-revision source-message lookup, decision-question inheritance merge, and final-artifact decision-question selection helpers, Ambient provider model/registration helpers, MCP recovered-transcript activation helpers, visible transcript recovery classification, orphaned runtime parser cleanup, Workflow Recording review tools, subagent finalization blocking helpers, subagent eventing-store adapter, subagent runtime helpers, local runtime lifecycle action orchestration, local-text main-run orchestration, callable workflow execution/resume bridges, recorded-playbook lookup, runner-store event bridge, runtime bridge, and controller lookup, first-party plugin permission resolution, context-accounting extension wiring, event workspace attribution, file-authority helper resolution, transient file-authority recording, file-authority root-path resolution, permission-tool input enrichment, messaging gateway extension wiring, messaging reply target, command response, command approval, switch-project failure and pending-event helpers, switch-project completion/cancellation patch helpers, pending project-switch completion and after-run finalization, runtime-event store, relay mark, status wrapper, and relay patch helpers, remote-surface status event helpers, remote-surface command preview, command preview resolver, command apply resolver, apply preflight, apply result, created-scope binding, project-switch plan and apply, command side-effect plan and runtime side-effect apply including settings, command create-plan and created-resource execution, command binding-plan, command binding-apply, command workflow-action apply, command setting-update apply, command result-options, workflow create-summary, and command created-resource refs helpers, workflow-recovery command-example, event-projection, and surface traversal helpers, Telegram/Signal remote-surface plan helpers and resolver factories, Telegram bridge poll/reply plan/apply helpers and poll/reply resolver factories, Telegram bridge polling preview/apply helpers, Signal/Telegram bridge reply approval helpers, runtime surface snapshot builder, remote-surface reply target resolver, Signal bridge reply plan/apply helpers, permission message/audit helpers, tool-call permission resolver, and permission gate extension wiring, MCP bridge/search helpers, web-research provider helpers and tool extension factory, Planner Mode prompt/extension wiring, browser tool modules, Scrapling descriptor routing, and the shared CLI package selector behind model or extension modules with focused parity coverage.</li>
+            <li>Latest Phase 4 closeout slice moved messaging remote-surface runtime bridge callbacks into the messaging gateway module with focused forwarding coverage.</li>
+            <li>Plan decision: the roadmap is complete through Phase 6 after the validation-discovery closeout. No further implementation phase is defined in this plan; direct <code>send</code> restructuring remains a later dedicated phase or follow-up rather than a Phase 4, Phase 5, or Phase 6 exit blocker.</li>
+            <li>Phase 5 started with a behavior-preserving prompt-contract extraction for sectioned and batch planner candidate-card examples plus shared candidate-status, scope-label, clarification, proof-scope, Lambda RLM, and JSON-only rules.</li>
+            <li>Phase 5 also moved the whole-board synthesis card example plus synthesis-specific scope, clarification, proof-scope, and Lambda RLM rules into the shared planner prompt contract module with focused prompt coverage.</li>
+            <li>Phase 5 then moved the PM Review report example, readiness/source-confidence/git-state value lists, and PM Review-only rules into the shared planner prompt contract module with focused prompt coverage.</li>
+            <li>Phase 5 final extraction moved the PM Review activation context/rules shared by whole-board, sectioned, and batch planner prompts into the shared planner prompt contract module with focused prompt coverage.</li>
+            <li>Phase 5 closeout inventory found the remaining project-board prompt builders to be operation-specific compaction, retry, source-QA, scope extraction, workspace, classifier, defaulting, refresh, proof, or summary prompts rather than duplicated planner card/PM Review contracts, so no further Phase 5 extraction pass is open.</li>
+            <li>Phase 6 is complete: generated validation inventory, checked classification anchors, filters, ranked output, the <code>--recommend</code> view, and the <code>pnpm run validation:recommend</code> alias now make validation discovery script-backed instead of prose-backed.</li>
+            <li>Phase 6 closeout verified <code>pnpm run validation:recommend</code> returns a cheapest local, no-secret command for all 15 inventory domains and <code>validation:inventory:check</code> covers 280 validation-related scripts, including 135 live/provider-backed scripts and 45 GMI Cloud scripts.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Current priority</h3>
+          <ul>
+            <li>No further implementation phase is open in this plan after Phase 6 closeout.</li>
+            <li>Treat direct <code>send</code> restructuring, renderer workspace follow-up, IPC registrar thinning, and store facade thinning as future dedicated phases or follow-up plans, not hidden Phase 6 work.</li>
+            <li>For future TypeScript slices, keep using focused tests plus <code>pnpm run typecheck</code>; add Ambient/Kimi live smoke only when the affected path needs real Pi/provider behavior. Current provider note, 2026-06-16: GLM 5.1 is degraded, so provider-dependent validation must use Kimi on Ambient; GMI Cloud is not the workaround unless Ambient+Kimi itself is unavailable or explicitly requested with human approval.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Diagram: Phased Roadmap</h2>
+      <p class="muted">Sequence the work so every phase creates a safer base for the next one.</p>
+      <div class="diagram" aria-label="Phased roadmap diagram">
+        <svg viewBox="0 0 1060 330" role="img">
+          <defs>
+            <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#6e7b88"></path>
+            </marker>
+          </defs>
+          <text x="24" y="32" class="svg-title">Low-risk simplification path</text>
+          <rect x="25" y="70" width="145" height="88" class="box box-blue"></rect>
+          <text x="45" y="98" class="svg-label">Phase 0</text>
+          <text x="45" y="122" class="svg-small">Safety rails</text>
+          <text x="45" y="141" class="svg-small">metrics, parity tests</text>
+
+          <rect x="205" y="70" width="145" height="88" class="box box-green"></rect>
+          <text x="225" y="98" class="svg-label">Phase 1</text>
+          <text x="225" y="122" class="svg-small">Renderer split</text>
+          <text x="225" y="141" class="svg-small">move UI workspaces</text>
+
+          <rect x="385" y="70" width="145" height="88" class="box box-amber"></rect>
+          <text x="405" y="98" class="svg-label">Phase 2</text>
+          <text x="405" y="122" class="svg-small">IPC domains</text>
+          <text x="405" y="141" class="svg-small">channel ownership</text>
+
+          <rect x="565" y="70" width="145" height="88" class="box box-violet"></rect>
+          <text x="585" y="98" class="svg-label">Phase 3</text>
+          <text x="585" y="122" class="svg-small">Store helpers</text>
+          <text x="585" y="141" class="svg-small">mappers, migrations</text>
+
+          <rect x="745" y="70" width="145" height="88" class="box box-blue"></rect>
+          <text x="765" y="98" class="svg-label">Phase 4</text>
+          <text x="765" y="122" class="svg-small">Runtime tools</text>
+          <text x="765" y="141" class="svg-small">extension modules</text>
+
+          <rect x="565" y="215" width="145" height="88" class="box box-green"></rect>
+          <text x="585" y="243" class="svg-label">Phase 5</text>
+          <text x="585" y="267" class="svg-small">Prompt contracts</text>
+          <text x="585" y="286" class="svg-small">shared rule sets</text>
+
+          <rect x="745" y="215" width="145" height="88" class="box box-amber"></rect>
+          <text x="765" y="243" class="svg-label">Phase 6</text>
+          <text x="765" y="267" class="svg-small">Script discovery</text>
+          <text x="765" y="286" class="svg-small">release gates map</text>
+
+          <path d="M170 114 H198" class="arrow" marker-end="url(#arrowhead)"></path>
+          <path d="M350 114 H378" class="arrow" marker-end="url(#arrowhead)"></path>
+          <path d="M530 114 H558" class="arrow" marker-end="url(#arrowhead)"></path>
+          <path d="M710 114 H738" class="arrow" marker-end="url(#arrowhead)"></path>
+          <path d="M818 160 C818 190 638 184 638 207" class="arrow" marker-end="url(#arrowhead)"></path>
+          <path d="M710 259 H738" class="arrow" marker-end="url(#arrowhead)"></path>
+
+          <rect x="915" y="70" width="120" height="233" class="box"></rect>
+          <text x="935" y="100" class="svg-label">Every phase</text>
+          <text x="935" y="126" class="svg-small">typecheck</text>
+          <text x="935" y="146" class="svg-small">targeted tests</text>
+          <text x="935" y="166" class="svg-small">move-only diff</text>
+          <text x="935" y="186" class="svg-small">small PR/commit</text>
+          <text x="935" y="206" class="svg-small">Ambient + Kimi</text>
+          <text x="935" y="226" class="svg-small">when provider path</text>
+          <text x="935" y="246" class="svg-small">is affected</text>
+        </svg>
+      </div>
+    </section>
+
+    <section>
+      <h2>Implementation Phases</h2>
+      <ol class="phase-list">
+        <li class="phase">
+          <div class="phase-id">Phase 0</div>
+          <div>
+            <h3>Install Safety Rails Before Moving Code</h3>
+            <p>Capture the current public surface and make future extractions mechanically checkable.</p>
+            <ul>
+              <li>Add a lightweight IPC parity test that confirms `AmbientDesktopApi`, preload methods, and main-process channels stay aligned.</li>
+              <li>Add a script or Vitest helper that reports top file and declaration sizes, excluding generated files.</li>
+              <li>Document validation commands by domain, including Ambient provider checks with Kimi selected for provider-dependent validation.</li>
+            </ul>
+            <p class="muted">Exit gate: parity tests fail before behavior does.</p>
+          </div>
+        </li>
+
+        <li class="phase">
+          <div class="phase-id">Phase 1</div>
+          <div>
+            <h3>Extract Renderer Workspaces from `App.tsx`</h3>
+            <p>Move large, already named UI units into domain files while preserving props, markup, state behavior, and CSS class names.</p>
+            <ul>
+              <li>Start with `RightPanel`, then `AutomationsWorkspace`, then project-board panes.</li>
+              <li>Move pure presentational helpers next, leaving app-level state orchestration in `App.tsx` until stable.</li>
+              <li>Avoid redesign and state rewrites during this phase.</li>
+            </ul>
+            <p class="muted">2026-06-10 status: initial workspace extraction is complete enough to move on, but the extracted workspace files are now the renderer follow-up targets.</p>
+            <p class="muted">Exit gate: renderer tests, UI-model smoke, and no visual surface changes except import paths.</p>
+          </div>
+        </li>
+
+        <li class="phase">
+          <div class="phase-id">Phase 2</div>
+          <div>
+            <h3>Split Main IPC Registration by Domain</h3>
+            <p>Replace the single `registerIpc` growth point with domain registration functions that receive explicit dependencies.</p>
+            <ul>
+              <li>Create `src/main/ipc/registerSettingsIpc.ts`, `registerProjectBoardIpc.ts`, `registerWorkflowIpc.ts`, and `registerBrowserIpc.ts` incrementally.</li>
+              <li>Keep `handleIpc` and trusted renderer enforcement centralized.</li>
+              <li>Move Zod schemas with their owning IPC domain, unless shared by multiple domains.</li>
+            </ul>
+            <p class="muted">2026-06-10 status: domain IPC modules exist for the main areas; remaining work is thinning large domain registrars and the central orchestration function.</p>
+            <p class="muted">Exit gate: channel parity test passes and each moved domain has targeted main-process tests.</p>
+          </div>
+        </li>
+
+        <li class="phase">
+          <div class="phase-id">Phase 3</div>
+          <div>
+            <h3>Thin `ProjectStore` into Persistence Facade plus Domain Helpers</h3>
+            <p>Keep `ProjectStore` as the public facade, but move pure mappers, migration SQL, and workflow-recording file logic to owned modules.</p>
+            <ul>
+              <li>Extract project-board parse, normalize, and row-mapping helpers first.</li>
+              <li>Move workflow recording library helpers into `workflowRecordingLibrary.ts`.</li>
+              <li>Move schema and migration SQL into `projectStoreSchema.ts` after helper extraction stabilizes.</li>
+            </ul>
+            <p class="muted">2026-06-10 status: mapper and schema modules exist; keep future work facade-preserving and test-backed because <code>ProjectStore</code> remains a major hotspot.</p>
+            <p class="muted">Exit gate: store tests and project-board import/export tests pass without public API changes.</p>
+          </div>
+        </li>
+
+        <li class="phase">
+          <div class="phase-id">Phase 4</div>
+          <div>
+            <h3>Extract `AgentRuntime` Tool Extension Modules</h3>
+            <p>Move Pi tool registration groups out of the runtime class so provider, messaging, voice, STT, browser, plugin, and workflow tools are independently testable.</p>
+            <ul>
+              <li>Begin with smaller extensions: provider catalog, media, voice, STT, and vision.</li>
+              <li>Keep new descriptor-based `registerTool` calls on the existing typed helper instead of reintroducing local casts.</li>
+              <li>Extract messaging tools only after the smaller modules prove the pattern.</li>
+            </ul>
+            <p class="muted">2026-06-13 closeout status: complete as a capped phase, refreshed after complexity inventory. <code>AgentRuntime</code> has shrunk from the original 21.7k-line snapshot to 8,331 lines. The approximate declaration scanner reports the class span at 7,233 lines; <code>send</code> is still 3,077 lines.</p>
+            <ul>
+              <li>Completed module-boundary work covers Local Deep Research setup/run/provider and broker helpers; plugin install read-only/apply/setup-final-report/core helpers and extension factory wiring; plugin/CLI discovery, trust bridge, permission, permission-audit bridge, grant, and permission-grant revocation helpers; browser audit and artifact-refresh helpers; voice-dispatch, voice-provider setup, voice-provider dogfood, desktop-event emit helpers, and remote-surface runtime-event store ownership; Ambient Workflows registration and lifecycle tools; Workflow Recording review tools and workflow-recording review request assembly; capability-builder tools; Google Workspace setup/method tools; sandboxed/privileged Pi extension tools; privileged-action wiring; tool-runner file/bash/media helpers and extension factory; chat/tool transcript helpers; tool-message metadata, tool-intent snapshot, provider-interruption continuation and argument persistence helpers, provider diagnostics/preview helpers, subagent finalization blocking helpers, subagent eventing-store adapter, subagent runtime helpers, local runtime lifecycle action orchestration, local-text main-run orchestration, callable workflow execution and resume bridges plus recorded-playbook lookup, runner-store event bridge, runtime bridge, and controller lookup, first-party plugin permission resolver, messaging gateway extension wiring, messaging reply target, command response, command approval, switch-project failure and pending-event helpers, switch-project completion/cancellation patch helpers, pending project-switch completion and after-run finalization helpers, runtime-event store, relay mark, status wrapper, and relay patch helpers, remote-surface status event helpers, remote-surface command preview, command preview resolver, command apply resolver, apply preflight, apply result, created-scope binding, project-switch plan and apply, command side-effect plan and runtime side-effect apply including settings, command create-plan and created-resource execution helpers, command binding-plan, command binding-apply, command workflow-action apply, command setting-update apply, command result-options, workflow create-summary, and command created-resource refs helpers, workflow-recovery command-example, event-projection, and surface traversal helpers, Telegram/Signal remote-surface plan helpers and resolver factories, Telegram bridge poll/reply plan/apply helpers and poll/reply resolver factories, Telegram/Signal bridge reply approval helpers, runtime surface snapshot builder, remote-surface reply target resolver, Signal bridge reply plan/apply helpers, permission message/audit, tool-call permission resolver, and subagent parent-control abort helpers.</li>
+              <li>Completed runtime-orchestration boundaries also cover MCP bridge construction, installed search aliasing, MCP recovered-transcript activation, session-file commit guarding, send-content formatting, user-message and queued-message metadata assembly, assistant/thinking message metadata and content fallback assembly, empty-assistant stall and Pi stream timeout/progress activity assembly, local tool-execution, subagent parent-control and stop/cascade activity assembly, post-tool continuation activity assembly, assistant-terminal cleanup activity assembly, provider auto-retry and scheduled provider-retry activity assembly, compaction activity assembly, finalization-blocked stream activity assembly, runtime-settings activity assembly, active-session reset planning, and goal activity assembly, chat stream-interruption notice formatting, permission-wait card/message formatting and activity assembly, goal-continuation prompt formatting, assistant-finalization retry input assembly, runtime session-recovery context assembly, visible transcript recovery message assembly, session-start recovery message seeding, session recovery seed detail derivation, visible transcript recovery message selection, visible transcript recovery session transcript context, visible transcript recovery seed decision, missing Pi session recovery plan, manual visible transcript recovery reason, visible transcript recovery summary custom-message assembly, manual visible transcript recovery message bundle, manual visible transcript recovery restorable-session plan, visible transcript recovery unavailable-context messages, visible transcript recovery session-open failure plan, visible transcript recovery session-open unavailable-context plan, visible transcript recovery seed message bundle, visible transcript recovery default seed message bundle, Pi stream timeout state helpers, interrupted-tool-call recovery input assembly, provider-interruption continuation input assembly, Ambient compaction-summary extension, context-accounting extension wiring, context-usage snapshot/source helpers, context-usage session-compaction stats, active and unavailable context-usage snapshot builders, context-usage prompt preflight input helpers, prompt-preflight compaction orchestration, manual compaction event handling, event workspace attribution, file-authority helper resolution, transient file-authority recording, file-authority root-path resolution, permission-tool input enrichment, provider-discovery helper/options wiring, assistant-terminal diagnostics, runtime error formatting, browser tool heartbeat/timeout orchestration, browser profile selection, runtime utility helpers, runtime timeout helpers, composer-intent prompt helpers, Goal Mode runtime helpers, runtime retry settings helpers, runtime thread-settings update helpers, Planner finalization prompt parsing, prompt/response classification, source-artifact selection, source-response bridge removal, prior-user prompt lookup, durable-revision source-message lookup, decision-question inheritance merge, and final-artifact decision-question selection helpers, Ambient provider model/registration helpers, visible transcript recovery classification, orphaned runtime parser cleanup, Planner Mode prompt/extension wiring, permission gate extension wiring, web-research provider tool discovery, runtime summary env wiring and the web-research tool extension factory, server and autowire tools, browser search/navigation/content/screenshot/eval/key/login/local-preview tools, Scrapling routing and descriptor resolution, web research provider/runtime helpers, local model runtime lifecycle action orchestration, messaging gateway extension factory, messaging gateway lifecycle, relay diagnostics, and status resolver factories, shared plugin and Pi package option groups, and the shared CLI package selector.</li>
+              <li>Latest callable workflow boundaries moved task cancel/pause control and task startup/error handling into <code>agentRuntimeCallableWorkflowExecution.ts</code>, and child caller provenance plus tool runtime/extension assembly into <code>agentRuntimeCallableWorkflowTools.ts</code>. Subagent tool extension assembly now lives in <code>agentRuntimeSubagentTools.ts</code>, plugin-install apply/activation callbacks now live in <code>agentRuntimePluginInstallToolExtension.ts</code>, MCP runtime bridge/search-alias orchestration now lives in <code>agentRuntimeMcpToolBridge.ts</code>, and messaging remote-surface runtime bridge callbacks now live in <code>agentRuntimeMessagingGatewayToolExtension.ts</code> with focused parity coverage.</li>
+              <li>Recent CLI package work added focused model coverage for preview parameter/text, install parameter helpers, Pi-catalog install parameter/text/grant helpers, env-bind/secret-request parameters, uninstall parameter/output helpers, search parameter/detail/text, describe parameter/detail/text, run parameter/model helpers, and shared CLI package uninstall option ownership.</li>
+              <li>Phase 4 closeout pass 4 is complete: the inventory was refreshed, the metrics were recorded, and no small in-progress Phase 4 seam remains open.</li>
+              <li>Direct <code>send</code> restructuring should move to a later dedicated phase or follow-up rather than extending Phase 4.</li>
+            </ul>
+            <p class="muted">Exit gate met: capped closeout stack complete. This plan-only closeout validates with complexity inventory and diff checks; focused agent runtime tests and <code>pnpm run typecheck</code> remain required for future TypeScript slices, and live smoke uses Ambient with Kimi selected for affected provider/tool paths while GLM 5.1 is degraded.</p>
+          </div>
+        </li>
+
+        <li class="phase">
+          <div class="phase-id">Phase 5</div>
+          <div>
+            <h3>Consolidate Planner Prompt Contracts</h3>
+            <p>Reduce schema and rule drift across project-board planning prompts without changing model semantics.</p>
+            <ul>
+              <li>Create `projectBoardPlannerPromptContracts.ts` for shared JSON examples and rule arrays.</li>
+              <li>Use the same candidate-card, clarification, proof-scope, and JSON-only rules from sectioned and batch planners.</li>
+              <li>Keep provider-specific retry and streaming behavior in provider modules, not global prompts.</li>
+            </ul>
+            <p class="muted">2026-06-13 closeout status: complete. First slice created <code>projectBoardPlannerPromptContracts.ts</code> and moved the sectioned/batch planner candidate-card JSON example plus shared candidate-status, scope-label, clarification, proof-scope, Lambda RLM, and JSON-only rules behind focused contract tests. Second slice moved the whole-board synthesis card example and synthesis-specific shared rules into the same module with prompt coverage. Third slice moved the PM Review report example, readiness/source-confidence/git-state value lists, and PM Review-only rules into the same module with prompt coverage. Fourth slice moved the PM Review activation context/rules shared by whole-board, sectioned, and batch planner prompts into the same module with prompt coverage. The closeout inventory found no remaining duplicated planner card/PM Review contract slice; remaining project-board prompt builders are operation-specific and should stay with their owning providers unless a future phase targets them directly.</p>
+            <p class="muted">Exit gate met: prompt contract tests and project-board synthesis provider tests pass.</p>
+          </div>
+        </li>
+
+        <li class="phase">
+          <div class="phase-id">Phase 6</div>
+          <div>
+            <h3>Make Script and Validation Discovery Easier</h3>
+            <p>The repository has many useful scripts. Make the intended validation path discoverable without changing release behavior.</p>
+            <ul>
+              <li>Add a script inventory grouped by domain, cost, and live-provider requirements.</li>
+              <li>Prefer a generated or checked summary over hand-maintained prose when possible.</li>
+              <li>Keep cloud GitHub workflow changes out of scope unless explicitly approved.</li>
+            </ul>
+            <p class="muted">2026-06-13 closeout status: complete. First slice adds <code>validation:inventory</code> and <code>validation:inventory:check</code>, backed by <code>scripts/validation-script-inventory.mjs</code> and focused unit coverage, so contributors can generate a domain/cost/live-provider view from <code>package.json</code> instead of relying on stale prose. Second slice adds composable filters for domain, cost, provider, secret requirements, and search text. Third slice ranks results by explicit cost/provider order so the smallest local checks surface first. Fourth slice adds <code>--recommend</code> so contributors can surface the cheapest local, no-secret <code>pnpm run</code> command for each included domain. Fifth slice exposes that view as <code>validation:recommend</code> in <code>package.json</code>. Closeout verified 15 recommended local/no-secret commands across 15 domains, plus checked inventory coverage for 280 scripts, 135 live/provider-backed scripts, and 45 GMI Cloud scripts.</p>
+            <p class="muted">Exit gate met: contributors can identify the smallest relevant local validation command for a change.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Diagram: Target Shape</h2>
+      <p class="muted">The goal is not a rewrite. It is to keep stable facades while moving domain logic behind them.</p>
+      <div class="diagram" aria-label="Target architecture simplification diagram">
+        <svg viewBox="0 0 1080 430" role="img">
+          <defs>
+            <marker id="arrowhead-target" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#6e7b88"></path>
+            </marker>
+          </defs>
+          <text x="24" y="32" class="svg-title">From central files to domain-owned modules</text>
+
+          <rect x="40" y="76" width="185" height="110" class="box box-amber"></rect>
+          <text x="60" y="106" class="svg-label">Current pressure</text>
+          <text x="60" y="132" class="svg-small">App.tsx</text>
+          <text x="60" y="152" class="svg-small">index.ts registerIpc</text>
+          <text x="60" y="172" class="svg-small">ProjectStore</text>
+
+          <rect x="40" y="230" width="185" height="110" class="box box-amber"></rect>
+          <text x="60" y="260" class="svg-label">Runtime pressure</text>
+          <text x="60" y="286" class="svg-small">AgentRuntime</text>
+          <text x="60" y="306" class="svg-small">tool extensions</text>
+          <text x="60" y="326" class="svg-small">prompt builders</text>
+
+          <rect x="330" y="54" width="185" height="76" class="box box-blue"></rect>
+          <text x="350" y="85" class="svg-label">Renderer domains</text>
+          <text x="350" y="108" class="svg-small">panels, boards, automation</text>
+
+          <rect x="330" y="154" width="185" height="76" class="box box-green"></rect>
+          <text x="350" y="185" class="svg-label">IPC domains</text>
+          <text x="350" y="208" class="svg-small">settings, workflow, browser</text>
+
+          <rect x="330" y="254" width="185" height="76" class="box box-violet"></rect>
+          <text x="350" y="285" class="svg-label">Store domains</text>
+          <text x="350" y="308" class="svg-small">mappers, migrations, library</text>
+
+          <rect x="330" y="354" width="185" height="54" class="box box-blue"></rect>
+          <text x="350" y="386" class="svg-label">Runtime tools</text>
+
+          <rect x="645" y="76" width="185" height="86" class="box box-green"></rect>
+          <text x="665" y="106" class="svg-label">Stable facades</text>
+          <text x="665" y="130" class="svg-small">App shell, handleIpc</text>
+          <text x="665" y="150" class="svg-small">ProjectStore, AgentRuntime</text>
+
+          <rect x="645" y="204" width="185" height="86" class="box box-blue"></rect>
+          <text x="665" y="234" class="svg-label">Contract tests</text>
+          <text x="665" y="258" class="svg-small">IPC parity, store behavior</text>
+          <text x="665" y="278" class="svg-small">prompt snapshots</text>
+
+          <rect x="645" y="332" width="185" height="76" class="box box-violet"></rect>
+          <text x="665" y="363" class="svg-label">Live validation</text>
+          <text x="665" y="386" class="svg-small">Ambient + Kimi when needed</text>
+
+          <rect x="905" y="154" width="140" height="136" class="box box-green"></rect>
+          <text x="925" y="185" class="svg-label">Result</text>
+          <text x="925" y="211" class="svg-small">smaller reviews</text>
+          <text x="925" y="231" class="svg-small">clear ownership</text>
+          <text x="925" y="251" class="svg-small">faster tests</text>
+          <text x="925" y="271" class="svg-small">less drift</text>
+
+          <path d="M225 126 C270 110 285 95 322 93" class="arrow" marker-end="url(#arrowhead-target)"></path>
+          <path d="M225 136 C270 160 285 186 322 190" class="arrow" marker-end="url(#arrowhead-target)"></path>
+          <path d="M225 162 C270 220 285 286 322 291" class="arrow" marker-end="url(#arrowhead-target)"></path>
+          <path d="M225 285 C270 330 285 378 322 381" class="arrow" marker-end="url(#arrowhead-target)"></path>
+
+          <path d="M515 92 H637" class="arrow" marker-end="url(#arrowhead-target)"></path>
+          <path d="M515 192 H637" class="arrow" marker-end="url(#arrowhead-target)"></path>
+          <path d="M515 292 C574 292 587 247 637 247" class="arrow" marker-end="url(#arrowhead-target)"></path>
+          <path d="M515 381 H637" class="arrow" marker-end="url(#arrowhead-target)"></path>
+          <path d="M830 222 H897" class="arrow" marker-end="url(#arrowhead-target)"></path>
+        </svg>
+      </div>
+    </section>
+
+    <section>
+      <h2>Validation Matrix</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Change area</th>
+            <th>Minimum validation</th>
+            <th>Live validation trigger</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Renderer extraction</td>
+            <td><code>pnpm run typecheck</code>, targeted renderer Vitest, UI-model smoke</td>
+            <td>Only if changed flow calls Ambient/Pi from UI</td>
+          </tr>
+          <tr>
+            <td>IPC split</td>
+            <td>IPC parity test, affected main-process tests</td>
+            <td>When channel starts or steers provider work</td>
+          </tr>
+          <tr>
+            <td>ProjectStore helper extraction</td>
+            <td><code>projectStore.test.ts</code>, project-board import/export tests</td>
+            <td>When persistence affects live board/planner session state</td>
+          </tr>
+          <tr>
+            <td>AgentRuntime tool extraction</td>
+            <td><code>agentRuntime.test.ts</code>, tool activation tests</td>
+            <td>Use <code>AMBIENT_PROVIDER=ambient</code> with Kimi selected for tool/provider loop smoke; GLM 5.1 is degraded and GMI failover needs explicit human approval</td>
+          </tr>
+          <tr>
+            <td>Prompt contract consolidation</td>
+            <td>Prompt contract and synthesis provider tests</td>
+            <td>Run the smallest live project-board planner smoke with Ambient+Kimi; record provider-blocked if unavailable</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Diagram: Risk Controls</h2>
+      <p class="muted">The plan keeps risk low by separating movement, cleanup, and behavior changes.</p>
+      <div class="diagram" aria-label="Risk control ladder diagram">
+        <svg viewBox="0 0 1040 300" role="img">
+          <defs>
+            <marker id="arrowhead-risk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#6e7b88"></path>
+            </marker>
+          </defs>
+          <text x="24" y="32" class="svg-title">Refactor safety ladder</text>
+          <rect x="50" y="72" width="180" height="74" class="box box-green"></rect>
+          <text x="70" y="103" class="svg-label">Move-only</text>
+          <text x="70" y="126" class="svg-small">same exports, same behavior</text>
+
+          <rect x="285" y="72" width="180" height="74" class="box box-blue"></rect>
+          <text x="305" y="103" class="svg-label">Parity tests</text>
+          <text x="305" y="126" class="svg-small">contracts fail early</text>
+
+          <rect x="520" y="72" width="180" height="74" class="box box-violet"></rect>
+          <text x="540" y="103" class="svg-label">Small cleanup</text>
+          <text x="540" y="126" class="svg-small">dedupe after movement</text>
+
+          <rect x="755" y="72" width="180" height="74" class="box box-amber"></rect>
+          <text x="775" y="103" class="svg-label">Live smoke</text>
+          <text x="775" y="126" class="svg-small">only affected real loops</text>
+
+          <path d="M230 109 H277" class="arrow" marker-end="url(#arrowhead-risk)"></path>
+          <path d="M465 109 H512" class="arrow" marker-end="url(#arrowhead-risk)"></path>
+          <path d="M700 109 H747" class="arrow" marker-end="url(#arrowhead-risk)"></path>
+
+          <rect x="165" y="190" width="710" height="62" class="box"></rect>
+          <text x="190" y="218" class="svg-label">Hard guardrails</text>
+          <text x="190" y="241" class="svg-small">Do not touch generated catalogs by hand. Do not add cloud workflows. Do not expose secrets. Keep provider quirks in adapters and contracts.</text>
+        </svg>
+      </div>
+    </section>
+
+    <section>
+      <h2>Phase 4 Closeout Stack</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Completed stack 1: Local Deep Research setup/run tools</h3>
+          <ul>
+            <li>Extract setup registration first, preserving readiness/install/update behavior. Completed with focused setup-tool parity coverage.</li>
+            <li>Extract run registration separately after setup parity is covered. Completed with focused run-tool parity coverage.</li>
+            <li>Use focused tool tests, <code>pnpm run typecheck</code>, and Ambient/Kimi smoke only for live provider behavior.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Completed stack 2: plugin and CLI sub-tools</h3>
+          <ul>
+            <li>Completed: read-only route/preflight/recipe/preview tools, Codex plugin commit/activate, JSON repair, capability-builder plan/scaffold/inspection/write-file/secret-request/history/update-plan/repair-plan/apply-repair/removal-plan/unregister/install-deps/validate/register tools, CLI package preview/install/Pi-catalog/env/secret/search/describe/uninstall/run helpers, shared CLI package uninstall option ownership, the shared CLI package selector, and plugin-install extension factory wiring.</li>
+            <li>Next: finish remaining CLI/plugin-adjacent apply-path seams only when each seam has a small extractable helper and parity test.</li>
+            <li>Avoid touching generated catalogs or cloud workflows.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Completed stack 3: Google Workspace setup tools</h3>
+          <ul>
+            <li>Move descriptor-based setup tools into a module with injected service dependencies. Completed for setup/method tools with focused module parity coverage.</li>
+            <li>Keep OAuth, secret, and credential material out of logs and test fixtures.</li>
+            <li>Validate with targeted setup tests plus typecheck.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Completed stack 4: browser tools</h3>
+          <ul>
+            <li>Extract registration in small clusters such as navigation/content/search/screenshot/control. Browser search, navigation, content, screenshot, and eval registration now have focused module coverage.</li>
+            <li>Preserve browser audit, profile, and managed-preview behavior. Browser audit/profile/managed-preview artifact-refresh paths now have focused helper coverage.</li>
+            <li>Use focused tests and a local browser smoke when interaction behavior changes.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Capped closeout: runtime helper islands</h3>
+          <ul>
+            <li>Pass 1 complete: plugin-install apply/activation callbacks moved into <code>agentRuntimePluginInstallToolExtension.ts</code> with focused forwarding coverage.</li>
+            <li>Pass 2 complete: MCP runtime bridge and installed-search-alias orchestration moved into <code>agentRuntimeMcpToolBridge.ts</code> with focused parity coverage.</li>
+            <li>Pass 3 complete: messaging remote-surface runtime bridge callbacks moved into <code>agentRuntimeMessagingGatewayToolExtension.ts</code> with focused forwarding coverage.</li>
+            <li>Pass 4 complete: closeout inventory refreshed metrics and closed Phase 4.</li>
+            <li>Next implementation work belongs in Phase 6; direct <code>send</code> restructuring should be tracked as a dedicated later phase or follow-up.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Definition of Done</h2>
+      <div class="grid three">
+        <div class="card">
+          <h3 class="ok">Reviewability</h3>
+          <p>Top-level files shrink steadily, and most domain changes land in one or two obvious modules.</p>
+        </div>
+        <div class="card">
+          <h3 class="ok">Safety</h3>
+          <p>Move-only phases have parity tests, targeted unit tests, and live smoke tests only where the real loop is affected.</p>
+        </div>
+        <div class="card">
+          <h3 class="ok">Ownership</h3>
+          <p>Core semantics live in stable contracts, provider quirks live in adapters, and scenario-specific lessons live in tests or dogfood harnesses.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Prepared as a crisp phased implementation plan for low-risk codebase simplification. This document intentionally avoids secrets, live credentials, and cloud workflow changes.
+    </footer>
+  </main>
+</body>
+</html>

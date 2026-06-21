@@ -18,6 +18,7 @@ import { runAbortIpcChannels } from "./registerRunIpc";
 import type { SendMessageInput } from "../../shared/desktopTypes";
 import type { SlashCommandSelection } from "../../shared/slashCommandTypes";
 import type {
+  ChatMessage,
   ContextUsageSnapshot,
   ThreadGoal,
   ThreadSummary,
@@ -106,6 +107,39 @@ describe("registerChatRuntimeDomainIpc", () => {
     expect(host.store.markThreadRead).not.toHaveBeenCalled();
   });
 
+  it("preserves transcript state when retries target hidden internal anchors", async () => {
+    const hiddenAnchor = sampleChatMessage({
+      id: "hidden-anchor",
+      content: "Continue the active goal after the provider interruption.",
+      metadata: {
+        runtime: "ambient-internal",
+        kind: "hidden-user-message",
+        hiddenFromTranscript: true,
+        hiddenUserMessage: true,
+      },
+    });
+    const { deps, host, invoke } = registerWithFakes({
+      messages: [
+        hiddenAnchor,
+        sampleChatMessage({ id: "assistant-after-anchor", role: "assistant", content: "Recovered state." }),
+      ],
+      thread: sampleThread({ gitWorktree: sampleThreadWorktree() }),
+    });
+    const input = {
+      ...sampleSendInput(),
+      delivery: "prompt",
+      preserveActiveThread: true,
+      retryOfMessageId: hiddenAnchor.id,
+    } satisfies SendMessageInput;
+
+    await expect(invoke("message:send", input)).resolves.toBeUndefined();
+
+    expect(host.store.listMessages).toHaveBeenCalledWith("thread-1");
+    expect(host.store.deleteMessagesAfter).not.toHaveBeenCalled();
+    expect(deps.emitProjectStateIfActive).not.toHaveBeenCalled();
+    expect(host.runtime.send).toHaveBeenCalledWith({ ...input, context: undefined });
+  });
+
   it("captures E2E message sends without dispatching to the runtime", async () => {
     const { deps, host, invoke, rawInput } = registerWithFakes({
       env: { AMBIENT_E2E_CAPTURE_MESSAGES: "1" },
@@ -167,11 +201,13 @@ describe("registerChatRuntimeDomainIpc", () => {
 function registerWithFakes({
   currentGoal,
   env = {},
+  messages = [sampleChatMessage({ id: "message-1" })],
   thread = sampleThread(),
   validateSlashCommandSelection,
 }: {
   currentGoal?: ThreadGoal;
   env?: NodeJS.ProcessEnv;
+  messages?: ChatMessage[];
   thread?: ThreadSummary;
   validateSlashCommandSelection?: (host: ChatRuntimeDomainHost, selection: SlashCommandSelection) => Promise<void>;
 } = {}) {
@@ -190,6 +226,7 @@ function registerWithFakes({
   const store: ChatRuntimeStore = {
     getThread: vi.fn(() => thread),
     getWorkspace: vi.fn(() => ({ path: "/workspace" })),
+    listMessages: vi.fn(() => messages),
     deleteMessagesAfter: vi.fn(),
     getThreadGoal: vi.fn(() => currentGoal),
     setThreadGoal: vi.fn(() => nextGoal),
@@ -261,6 +298,17 @@ function sampleSendInput(): SendMessageInput {
     collaborationMode: "agent",
     model: "ambient-test-model",
     thinkingLevel: "medium",
+  };
+}
+
+function sampleChatMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    id: "message-1",
+    threadId: "thread-1",
+    role: "user",
+    content: "Build a tiny app.",
+    createdAt: "2026-06-16T00:00:00.000Z",
+    ...overrides,
   };
 }
 

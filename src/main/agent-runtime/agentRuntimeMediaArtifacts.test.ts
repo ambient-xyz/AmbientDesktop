@@ -69,7 +69,7 @@ describe("AgentRuntime media artifact helpers", () => {
     expect(normalizeWorkspaceArtifactPath(`${workspacePath}/assets/photo.jpg`, workspacePath)).toBe("assets/photo.jpg");
     expect(normalizeWorkspaceArtifactPath(`tmp/ambient-workspace/assets/photo.jpg`, workspacePath)).toBe("assets/photo.jpg");
     expect(normalizeWorkspaceArtifactPath(`Wrote ${workspacePath}/assets/photo.jpg`, workspacePath)).toBe("assets/photo.jpg");
-    expect(normalizeWorkspaceArtifactPath("tmp<local-user>/ambient-workspace/assets/photo.jpg", "<local-user>/ambient-workspace")).toBe("assets/photo.jpg");
+    expect(normalizeWorkspaceArtifactPath("tmp/Users/Neo/ambient-workspace/assets/photo.jpg", "/Users/Neo/ambient-workspace")).toBe("assets/photo.jpg");
     expect(mediaArtifactKindFromPath("assets/photo.jpg")).toBe("image");
     expect(mediaArtifactKindFromPath("audio/output.mp3")).toBe("audio");
     expect(mediaArtifactKindFromPath("video/clip.webm?download=1")).toBe("video");

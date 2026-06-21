@@ -15329,7 +15329,8 @@ button.inline-media-preview {
 
 .goal-status-chip.blocked,
 .goal-status-chip.budget_limited,
-.goal-status-chip.usage_limited {
+.goal-status-chip.usage_limited,
+.goal-status-chip.provider_unavailable {
   color: #8a650d;
   border-color: rgba(184, 125, 0, 0.28);
   background: #fffaf0;
@@ -15343,7 +15344,10 @@ button.inline-media-preview {
 .goal-status-chip.budget_limited[aria-expanded="true"],
 .goal-status-chip.usage_limited:hover,
 .goal-status-chip.usage_limited:focus-visible,
-.goal-status-chip.usage_limited[aria-expanded="true"] {
+.goal-status-chip.usage_limited[aria-expanded="true"],
+.goal-status-chip.provider_unavailable:hover,
+.goal-status-chip.provider_unavailable:focus-visible,
+.goal-status-chip.provider_unavailable[aria-expanded="true"] {
   color: #7b5708;
   border-color: rgba(184, 125, 0, 0.36);
   background: #fff5df;

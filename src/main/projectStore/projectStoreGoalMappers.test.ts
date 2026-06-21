@@ -17,6 +17,7 @@ describe("project store goal mappers", () => {
       time_used_seconds: 7,
       continuation_turns: 2,
       no_progress_turns: 0,
+      provider_infra_failures: 3,
       status_reason: null,
       created_at: "2026-06-06T19:00:00.000Z",
       updated_at: "2026-06-06T19:01:00.000Z",
@@ -34,6 +35,7 @@ describe("project store goal mappers", () => {
       timeUsedSeconds: 7,
       continuationTurns: 2,
       noProgressTurns: 0,
+      providerInfraFailures: 3,
       statusReason: undefined,
       createdAt: "2026-06-06T19:00:00.000Z",
       updatedAt: "2026-06-06T19:01:00.000Z",
@@ -44,5 +46,6 @@ describe("project store goal mappers", () => {
 
   it("keeps legacy unknown thread goal statuses paused", () => {
     expect(normalizeThreadGoalStatus("legacy")).toBe("paused");
+    expect(normalizeThreadGoalStatus("provider_unavailable")).toBe("provider_unavailable");
   });
 });

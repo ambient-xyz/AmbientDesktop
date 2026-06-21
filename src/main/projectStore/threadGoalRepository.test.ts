@@ -22,6 +22,7 @@ describe("ProjectStoreThreadGoalRepository", () => {
         time_used_seconds INTEGER NOT NULL DEFAULT 0,
         continuation_turns INTEGER NOT NULL DEFAULT 0,
         no_progress_turns INTEGER NOT NULL DEFAULT 0,
+        provider_infra_failures INTEGER NOT NULL DEFAULT 0,
         status_reason TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -52,6 +53,7 @@ describe("ProjectStoreThreadGoalRepository", () => {
       tokensUsed: 0,
       continuationTurns: 0,
       noProgressTurns: 0,
+      providerInfraFailures: 0,
     });
     expect(() => repository.createThreadGoalIfAbsent({ threadId: "thread-1", objective: "Duplicate goal" })).toThrow(
       "Thread already has a goal.",
@@ -119,7 +121,62 @@ describe("ProjectStoreThreadGoalRepository", () => {
       status: "budget_limited",
       tokensUsed: 12,
       noProgressTurns: 1,
+      providerInfraFailures: 0,
       statusReason: "Goal token budget reached.",
+    });
+  });
+
+  it("keeps provider infrastructure failures out of semantic no-progress accounting", () => {
+    const created = repository.createThreadGoalIfAbsent({
+      threadId: "thread-1",
+      objective: "Recover provider stalls",
+    });
+
+    const updated = repository.accountThreadGoalUsage({
+      threadId: "thread-1",
+      goalId: created.goalId,
+      noProgressTurnDelta: 1,
+      providerInfraFailureDelta: 1,
+    });
+
+    expect(updated).toMatchObject({
+      noProgressTurns: 0,
+      providerInfraFailures: 1,
+    });
+  });
+
+  it("records provider-unavailable goals as inactive but resumable", () => {
+    const created = repository.createThreadGoalIfAbsent({
+      threadId: "thread-1",
+      objective: "Recover provider stalls",
+    });
+    repository.accountThreadGoalUsage({
+      threadId: "thread-1",
+      goalId: created.goalId,
+      providerInfraFailureDelta: 2,
+    });
+
+    const stopped = repository.markThreadGoalStatus("thread-1", "provider_unavailable", {
+      expectedGoalId: created.goalId,
+      statusReason: "Provider availability retry limit reached after 2 provider infrastructure failures.",
+    });
+    expect(stopped).toMatchObject({
+      status: "provider_unavailable",
+      statusReason: "Provider availability retry limit reached after 2 provider infrastructure failures.",
+      completedAt: undefined,
+      providerInfraFailures: 2,
+    });
+
+    const resumed = repository.setThreadGoal({
+      threadId: "thread-1",
+      expectedGoalId: created.goalId,
+      status: "active",
+    });
+    expect(resumed).toMatchObject({
+      status: "active",
+      statusReason: undefined,
+      noProgressTurns: 0,
+      providerInfraFailures: 0,
     });
   });
 

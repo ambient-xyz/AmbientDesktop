@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "screenshots": [
+    {
+      "scenario": "01-main-shell",
+      "file": "01-main-shell.png",
+      "bytes": 91272,
+      "width": 1440,
+      "height": 900,
+      "sha256": "2db5ba8ffc2c9b4725b627319f82c6b9dacd6d05558dbbd12d3f86d1fc2b21fd"
+    },
+    {
+      "scenario": "01a-project-board",
+      "file": "01a-project-board.png",
+      "bytes": 128522,
+      "width": 1440,
+      "height": 900,
+      "sha256": "72550258265dff5d7520492463fb17dc6fccd48f6d0cc6e1106d2c21f800b1f2"
+    },
+    {
+      "scenario": "02-progress-tool-artifact",
+      "file": "02-progress-tool-artifact.png",
+      "bytes": 123487,
+      "width": 1440,
+      "height": 900,
+      "sha256": "f5ff0337d4c6ee44f722755dfbb7e3da2cb06a8151070b610e208d32fbbfc324"
+    },
+    {
+      "scenario": "03-artifact-preview",
+      "file": "03-artifact-preview.png",
+      "bytes": 165378,
+      "width": 1440,
+      "height": 900,
+      "sha256": "d0a3207a0444aa012cd12a12ce6753f9f916eb792745021983c9a1a9abbb59cd"
+    },
+    {
+      "scenario": "04-git-summary",
+      "file": "04-git-summary.png",
+      "bytes": 195201,
+      "width": 1440,
+      "height": 900,
+      "sha256": "9518a0c643eb2224e7c4041a5658b7863138ed0d37322621a039ed47eafec9f8"
+    },
+    {
+      "scenario": "04a-git-pr-status",
+      "file": "04a-git-pr-status.png",
+      "bytes": 192590,
+      "width": 1440,
+      "height": 900,
+      "sha256": "af660a0501cd15b40e0db7145152d69ce13e54ec1aed4f07efed87e0149e235c"
+    },
+    {
+      "scenario": "04b-git-branch-menu",
+      "file": "04b-git-branch-menu.png",
+      "bytes": 201558,
+      "width": 1440,
+      "height": 900,
+      "sha256": "5403b36db2bf16ee2e10e64c8844dc38180b577fa8577806ab65af24b1a6d301"
+    },
+    {
+      "scenario": "04c-git-review",
+      "file": "04c-git-review.png",
+      "bytes": 183748,
+      "width": 1440,
+      "height": 900,
+      "sha256": "76fe4c57f704e7905d309de0f023c1688f212680219376c261d774b4173c4d4f"
+    },
+    {
+      "scenario": "05-plugin-import-candidate",
+      "file": "05-plugin-import-candidate.png",
+      "bytes": 237945,
+      "width": 1440,
+      "height": 900,
+      "sha256": "e09329e2b5a54826aafdc69370327da62a39684ea1d94a2267e5e60107865f1d"
+    },
+    {
+      "scenario": "05a-workflow-discovery",
+      "file": "05a-workflow-discovery.png",
+      "bytes": 190684,
+      "width": 1440,
+      "height": 900,
+      "sha256": "6f59d3d2cc5d313b2755f819c9e0cee227fb4f3d24fc08cf7dee9afbbc577deb"
+    },
+    {
+      "scenario": "05c-workflow-compile-progress",
+      "file": "05c-workflow-compile-progress.png",
+      "bytes": 187228,
+      "width": 1440,
+      "height": 900,
+      "sha256": "9ad287a667e4632104c81759638782c7f8c69608d18e25ef6c6467ed8683bbd0"
+    },
+    {
+      "scenario": "05d-workflow-compile-failure",
+      "file": "05d-workflow-compile-failure.png",
+      "bytes": 192638,
+      "width": 1440,
+      "height": 900,
+      "sha256": "9c27b85f342828b746b314e66b8a526b6ffff21398f53678ce69c443abe8fcdd"
+    },
+    {
+      "scenario": "05b-workflow-agent-diagram",
+      "file": "05b-workflow-agent-diagram.png",
+      "bytes": 238459,
+      "width": 1440,
+      "height": 900,
+      "sha256": "722b839a10e015575ce8cf44ca072f8bf91826ba492ce68046852919fca8cf32"
+    },
+    {
+      "scenario": "05e-workflow-recovery-cards",
+      "file": "05e-workflow-recovery-cards.png",
+      "bytes": 273904,
+      "width": 1440,
+      "height": 900,
+      "sha256": "5982186e80bd40a37e70862efe026ffe381f52c77072fe8a814e76ca90a0a1e4"
+    },
+    {
+      "scenario": "05f-workflow-revision-diff",
+      "file": "05f-workflow-revision-diff.png",
+      "bytes": 227050,
+      "width": 1440,
+      "height": 900,
+      "sha256": "179f77dec946e8fd8d7de1c66bbd3f1c6ae3ad76f076f047d5412b3795ee7e37"
+    },
+    {
+      "scenario": "05g-workflow-schedule-targeting",
+      "file": "05g-workflow-schedule-targeting.png",
+      "bytes": 225606,
+      "width": 1440,
+      "height": 900,
+      "sha256": "a84ffefd8d6a7dd9701ebb047111e8dcc2689a17289be303e33cf788eb1e3fde"
+    },
+    {
+      "scenario": "05j-workflow-schedule-focus",
+      "file": "05j-workflow-schedule-focus.png",
+      "bytes": 153726,
+      "width": 1440,
+      "height": 900,
+      "sha256": "204adaeb9cfb1b7b4c486ed76d0f1ce33a58d9574afd56a001c0a0486e32f84a"
+    },
+    {
+      "scenario": "05i-workflow-schedule-grant-action",
+      "file": "05i-workflow-schedule-grant-action.png",
+      "bytes": 255398,
+      "width": 1440,
+      "height": 900,
+      "sha256": "e0f5142f5f2514a63cbfc4381c235331808c381d0d47f693c06a5fa09c3112f3"
+    },
+    {
+      "scenario": "05h-workflow-permission-grant-prompt",
+      "file": "05h-workflow-permission-grant-prompt.png",
+      "bytes": 276151,
+      "width": 1440,
+      "height": 900,
+      "sha256": "dc1005a417dbcae910a93dbe72408a3f1a9091fda7c6dc4a89aa356a2e103cbe"
+    },
+    {
+      "scenario": "06-compact-layout",
+      "file": "06-compact-layout.png",
+      "bytes": 147926,
+      "width": 880,
+      "height": 720,
+      "sha256": "8a51d25492c4224ae17d323ebda39aa4d08bc4074701c2f25c5266bca3f1c3f8"
+    },
+    {
+      "scenario": "07-browser-profile-copy",
+      "file": "07-browser-profile-copy.png",
+      "bytes": 267472,
+      "width": 1440,
+      "height": 900,
+      "sha256": "2e71542e50f5527f69454df2695c916eee63040d7a352c4020e9ae5c8834e24e"
+    },
+    {
+      "scenario": "08-browser-picker-active",
+      "file": "08-browser-picker-active.png",
+      "bytes": 247661,
+      "width": 1440,
+      "height": 900,
+      "sha256": "fd943a3ac9ef079f5caf7e9669e34e186c95632fe89d408be7f88afbfca7c29d"
+    }
+  ]
+}

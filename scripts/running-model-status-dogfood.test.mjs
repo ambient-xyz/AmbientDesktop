@@ -14,7 +14,7 @@ describe("running model status Desktop dogfood harness wiring", () => {
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood"]).toContain("test:running-model-status:desktop-dogfood:glm52");
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:kimi"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:kimi"]).toContain("--scenario=running-model-status");
-    expect(packageJson.scripts["test:running-model-status:desktop-dogfood:kimi"]).toContain("<model>");
+    expect(packageJson.scripts["test:running-model-status:desktop-dogfood:kimi"]).toContain("moonshotai/kimi-k2.7-code");
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:glm52"]).toContain("--scenario=running-model-status");
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:glm52"]).toContain("zai-org/GLM-5.2-FP8");
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:unit"]).toContain("scripts/running-model-status-dogfood.test.mjs");

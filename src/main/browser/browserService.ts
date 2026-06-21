@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { cp, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, relative } from "node:path";
-import type { BrowserCapabilityState, BrowserContentInput, BrowserEvaluateInput, BrowserKeypressFocusResult, BrowserKeypressInput, BrowserKeypressKeyInput, BrowserKeypressKeyResult, BrowserKeypressResult, BrowserLoginRequest, BrowserLoginResult, BrowserNavigateInput, BrowserPageContent, BrowserPickInput, BrowserPickResult, BrowserPickSelection, BrowserProfileMode, BrowserRevealInput, BrowserRevealResult, BrowserRuntimeKind, BrowserScreenshotResult, BrowserSearchInput, BrowserSearchResult, BrowserSessionLifecycleEvent, BrowserStartInput, BrowserTabSnapshot, BrowserUserActionKind, BrowserUserActionProvider, BrowserUserActionState, BrowserViewBoundsInput } from "../../shared/browserTypes";
+import type { BrowserCapabilityState, BrowserContentInput, BrowserEvaluateInput, BrowserKeypressFocusResult, BrowserKeypressInput, BrowserKeypressKeyInput, BrowserKeypressKeyResult, BrowserKeypressResult, BrowserLoginRequest, BrowserLoginResult, BrowserNavigateInput, BrowserPageContent, BrowserPickInput, BrowserPickResult, BrowserPickSelection, BrowserProfileMode, BrowserRevealInput, BrowserRevealResult, BrowserRuntimeKind, BrowserScreenshotResult, BrowserSearchInput, BrowserSearchResult, BrowserSessionLifecycleEvent, BrowserStartInput, BrowserTabSnapshot, BrowserUserActionState, BrowserViewBoundsInput } from "../../shared/browserTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import {
   BrowserChromeTargetController,
@@ -30,6 +30,11 @@ import {
   normalizeBrowserUrl,
 } from "./browserNavigation";
 import { shouldReloadBrowserUrlForWorkspaceChange } from "./browserRefresh";
+import {
+  BrowserServiceUserActionController,
+  browserUserActionDetectionExpression,
+  type BrowserUserActionDetection,
+} from "./browserUserActionController";
 
 export {
   assertBrowserScreenshotTargetLoaded,
@@ -48,6 +53,13 @@ export {
   normalizeBrowserUrl,
   PAGE_READY_TIMEOUT_MS,
 } from "./browserNavigation";
+
+export {
+  BrowserUserActionCanceledError,
+  BrowserUserActionTimedOutError,
+  browserUserActionDetectionExpression,
+  normalizeBrowserUserActionDetection,
+} from "./browserUserActionController";
 
 export interface ChromeDevToolsEndpoint {
   port: number;
@@ -128,8 +140,6 @@ export const PICK_TIMEOUT_MS = 300_000;
 export const MAX_BROWSER_TEXT = 12_000;
 const MAX_PICK_HTML = 500;
 const MAX_PICK_TEXT = 220;
-const USER_ACTION_TIMEOUT_MS = 15 * 60_000;
-const USER_ACTION_ACTIVITY_HEARTBEAT_MS = 30_000;
 const MANAGED_CHROME_WIDTH = 1280;
 const MANAGED_CHROME_HIDDEN_HEIGHT = 720;
 const MANAGED_CHROME_REVEALED_HEIGHT = 900;
@@ -150,19 +160,6 @@ export interface ManagedChromeWorkArea {
   width: number;
   height: number;
 }
-
-interface BrowserUserActionDetection {
-  detected?: boolean;
-  kind?: BrowserUserActionKind;
-  provider?: BrowserUserActionProvider;
-  url?: string;
-  title?: string;
-  origin?: string;
-  pageExcerpt?: string;
-  message?: string;
-}
-
-type BrowserUserActionResolution = "resume" | "cancel" | "timeout";
 
 export interface ManagedChromeRevealInput {
   platform: NodeJS.Platform;
@@ -203,17 +200,10 @@ export class BrowserService {
   private activeRuntime: BrowserRuntimeKind;
   private readonly instanceId = `${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
   private activePicker: { prompt: string; profileMode: BrowserProfileMode; startedAt: string } | undefined;
-  private userAction: BrowserUserActionState | undefined;
-  private userActionWaiter:
-    | {
-        resolve: (value: BrowserUserActionResolution) => void;
-        timeout: NodeJS.Timeout;
-        activityTimer?: NodeJS.Timeout;
-      }
-    | undefined;
   private readonly chromeSessions: BrowserChromeSessionStore;
   private readonly chromeTargets: BrowserChromeTargetController;
   private readonly chromeScreenshots: BrowserChromeScreenshotController;
+  private readonly userActions: BrowserServiceUserActionController;
 
   constructor(
     private readonly getWorkspace: () => WorkspaceState,
@@ -254,6 +244,27 @@ export class BrowserService {
         this.lastError = message;
       },
     });
+    this.userActions = new BrowserServiceUserActionController({
+      currentChromeTargetId: () => this.activeTargetId,
+      captureChromeScreenshot: (input) => this.screenshotChrome(input),
+      ensureChromeStarted: (profileMode) => this.ensureChromeStarted(profileMode),
+      ensureChromeTarget: (targetId) => this.ensureChromeTarget(targetId),
+      detectChromeUserAction: () => this.detectChromeUserAction(),
+      ensureInternalStarted: () => this.ensureInternalStarted(),
+      detectInternalUserAction: async () =>
+        this.internalBrowser?.evaluate({
+          code: browserUserActionDetectionExpression(),
+          profileMode: "isolated",
+          runtime: "internal",
+        }),
+      setLastActivity: (message) => {
+        this.lastActivity = message;
+      },
+      setLastError: (message) => {
+        this.lastError = message;
+      },
+      notifyStateChanged: () => this.notifyStateChanged(),
+    });
     this.activeRuntime = internalBrowser?.isAvailable() ? "internal" : "chrome";
   }
 
@@ -290,7 +301,7 @@ export class BrowserService {
   async stop(): Promise<BrowserCapabilityState> {
     if (this.internalBrowser?.isRunning()) await this.internalBrowser.stop();
     await this.stopChrome("Explicit browser stop requested.");
-    this.clearUserAction("Browser stopped.");
+    this.userActions.clear("Browser stopped.");
     this.lastActivity = "Browser stopped.";
     this.activeRuntime = this.hasInternalBrowser() ? "internal" : "chrome";
     return this.getState();
@@ -311,8 +322,8 @@ export class BrowserService {
     }
 
     const revealUserAction =
-      this.userAction?.runtime === "chrome" && (!input.userActionId || this.userAction.id === input.userActionId)
-        ? this.userAction
+      this.userActions.current?.runtime === "chrome" && (!input.userActionId || this.userActions.current.id === input.userActionId)
+        ? this.userActions.current
         : undefined;
     const profileMode = revealUserAction?.profileMode ?? this.profileMode;
     const targetId = input.targetId ?? revealUserAction?.targetId;
@@ -373,7 +384,7 @@ export class BrowserService {
   }
 
   async shutdown(): Promise<void> {
-    this.clearUserAction("Browser shutting down.");
+    this.userActions.clear("Browser shutting down.");
     await this.internalBrowser?.shutdown().catch(() => undefined);
     await this.stopChrome("Ambient Desktop is shutting down.").catch(() => undefined);
   }
@@ -426,17 +437,17 @@ export class BrowserService {
     const paths = this.chromeSessions.paths();
     await this.chromeSessions.clear("isolated").catch(() => undefined);
     await rm(paths.isolatedProfile, { recursive: true, force: true });
-    this.clearUserAction("Cleared isolated browser profile.");
+    this.userActions.clear("Cleared isolated browser profile.");
     this.lastActivity = "Cleared isolated browser profile.";
     this.lastError = undefined;
     return this.getState();
   }
 
   async navigate(input: BrowserNavigateInput & BrowserActivityInput): Promise<BrowserNavigateResult> {
-    const blocked = this.activeUserActionBlock(input);
+    const blocked = this.userActions.activeBlock(input);
     if (blocked) {
       if (input.waitForUserAction === false) return blocked;
-      await this.waitForBrowserUserActionClear(blocked, input.onActivity);
+      await this.userActions.waitForClear(blocked, input.onActivity);
     }
     if (this.runtimeForInput(input) === "internal") {
       const url = normalizeBrowserUrl(input.url);
@@ -446,7 +457,7 @@ export class BrowserService {
       const content = await this.internalBrowser!.navigate({ ...input, url, profileMode: "isolated", runtime: "internal" });
       this.recordInternalPreviewUrl(url);
       input.onActivity?.("Internal browser navigation completed; checking page state.");
-      const userAction = this.normalizeUserActionDetection(
+      const userAction = this.userActions.normalizeDetection(
         await this.internalBrowser!.evaluate({ code: browserUserActionDetectionExpression(), profileMode: "isolated", runtime: "internal" }).catch(
           () => undefined,
         ),
@@ -454,13 +465,13 @@ export class BrowserService {
       );
       if (userAction) {
         if (input.waitForUserAction === false) return userAction;
-        await this.waitForInternalUserActionClear(userAction, input.onActivity);
+        await this.userActions.waitForInternalClear(userAction, input.onActivity);
         return assertBrowserNavigationReachedRequestedPage(
           url,
           await this.internalBrowser!.content({ profileMode: "isolated", runtime: "internal" }),
         );
       }
-      this.clearResolvedUserAction({
+      this.userActions.clearResolved({
         runtime: "internal",
         profileMode: "isolated",
         message: "Browser user action no longer detected after navigation.",
@@ -472,10 +483,10 @@ export class BrowserService {
   }
 
   async content(input: BrowserContentInput & BrowserActivityInput = {}): Promise<BrowserContentResult> {
-    const blocked = this.activeUserActionBlock(input);
+    const blocked = this.userActions.activeBlock(input);
     if (blocked) {
       if (input.waitForUserAction === false) return blocked;
-      await this.waitForBrowserUserActionClear(blocked, input.onActivity);
+      await this.userActions.waitForClear(blocked, input.onActivity);
     }
     if (this.runtimeForInput(input) === "internal") {
       await this.ensureInternalStarted();
@@ -483,7 +494,7 @@ export class BrowserService {
       input.onActivity?.("Internal browser runtime is ready.");
       const content = await this.internalBrowser!.content({ ...input, profileMode: "isolated", runtime: "internal" });
       input.onActivity?.("Internal browser content was read; checking page state.");
-      const userAction = this.normalizeUserActionDetection(
+      const userAction = this.userActions.normalizeDetection(
         await this.internalBrowser!.evaluate({ code: browserUserActionDetectionExpression(), profileMode: "isolated", runtime: "internal" }).catch(
           () => undefined,
         ),
@@ -491,10 +502,10 @@ export class BrowserService {
       );
       if (userAction) {
         if (input.waitForUserAction === false) return userAction;
-        await this.waitForInternalUserActionClear(userAction, input.onActivity);
+        await this.userActions.waitForInternalClear(userAction, input.onActivity);
         return this.internalBrowser!.content({ profileMode: "isolated", runtime: "internal" });
       }
-      this.clearResolvedUserAction({
+      this.userActions.clearResolved({
         runtime: "internal",
         profileMode: "isolated",
         message: "Browser user action no longer detected while reading the page.",
@@ -506,17 +517,17 @@ export class BrowserService {
   }
 
   async search(input: BrowserSearchInput & BrowserActivityInput): Promise<BrowserSearchResults> {
-    const blocked = this.activeUserActionBlock(input);
+    const blocked = this.userActions.activeBlock(input);
     if (blocked) {
       if (input.waitForUserAction === false) return blocked;
-      await this.waitForBrowserUserActionClear(blocked, input.onActivity);
+      await this.userActions.waitForClear(blocked, input.onActivity);
     }
     if (this.runtimeForInput(input) === "internal") {
       await this.ensureInternalStarted();
       input.onActivity?.("Internal browser runtime is ready.");
       const results = await this.internalBrowser!.search({ ...input, profileMode: "isolated", runtime: "internal" });
       input.onActivity?.("Internal browser search results were read; checking page state.");
-      const userAction = this.normalizeUserActionDetection(
+      const userAction = this.userActions.normalizeDetection(
         await this.internalBrowser!.evaluate({ code: browserUserActionDetectionExpression(), profileMode: "isolated", runtime: "internal" }).catch(
           () => undefined,
         ),
@@ -524,10 +535,10 @@ export class BrowserService {
       );
       if (userAction) {
         if (input.waitForUserAction === false) return userAction;
-        await this.waitForInternalUserActionClear(userAction, input.onActivity);
+        await this.userActions.waitForInternalClear(userAction, input.onActivity);
         return this.internalBrowser!.search({ ...input, profileMode: "isolated", runtime: "internal" });
       }
-      this.clearResolvedUserAction({
+      this.userActions.clearResolved({
         runtime: "internal",
         profileMode: "isolated",
         message: "Browser user action no longer detected after search.",
@@ -539,7 +550,7 @@ export class BrowserService {
   }
 
   async evaluate(input: BrowserEvaluateInput & BrowserActivityInput): Promise<unknown> {
-    const blocked = this.activeUserActionBlock();
+    const blocked = this.userActions.activeBlock();
     if (blocked) return blocked;
     if (this.runtimeForInput(input) === "internal") {
       await this.ensureInternalStarted();
@@ -553,7 +564,7 @@ export class BrowserService {
   }
 
   async keypress(input: BrowserKeypressInput): Promise<BrowserKeypressResult | BrowserUserActionState> {
-    const blocked = this.activeUserActionBlock();
+    const blocked = this.userActions.activeBlock();
     if (blocked) return blocked;
     const normalized = normalizeBrowserKeypressInput(input);
     if (this.runtimeForInput(normalized) === "internal") {
@@ -565,7 +576,7 @@ export class BrowserService {
   }
 
   async login(input: BrowserLoginRequest): Promise<BrowserLoginResult | BrowserUserActionState> {
-    const blocked = this.activeUserActionBlock();
+    const blocked = this.userActions.activeBlock();
     if (blocked) return blocked;
     const normalized = normalizeBrowserLoginRequest(input);
     if (this.runtimeForInput(normalized) === "internal") {
@@ -580,7 +591,7 @@ export class BrowserService {
   }
 
   async screenshot(input: BrowserStartInput & BrowserActivityInput = {}): Promise<BrowserScreenshotResult | BrowserUserActionState> {
-    const blocked = this.activeUserActionBlock();
+    const blocked = this.userActions.activeBlock();
     if (blocked) return blocked;
     if (input.runtime === "internal") {
       await this.ensureInternalStarted();
@@ -638,7 +649,7 @@ export class BrowserService {
   }
 
   async pick(input: BrowserPickInput): Promise<BrowserPickResult | BrowserUserActionState> {
-    const blocked = this.activeUserActionBlock();
+    const blocked = this.userActions.activeBlock();
     if (blocked) return blocked;
     const profileMode = input.profileMode ?? DEFAULT_PROFILE_MODE;
     this.activePicker = { prompt: input.prompt, profileMode, startedAt: new Date().toISOString() };
@@ -674,32 +685,12 @@ export class BrowserService {
   }
 
   async resumeUserAction(): Promise<BrowserCapabilityState> {
-    if (!this.userAction?.active) {
-      this.lastActivity = "No browser user action is waiting.";
-      return this.getState();
-    }
-    if (!this.userActionWaiter) {
-      await this.checkDetachedUserActionCompletion(this.userAction);
-      return this.getState();
-    }
-    this.userAction = {
-      ...this.userAction,
-      status: "resuming",
-      lastCheckedAt: new Date().toISOString(),
-      message: "Checking whether the browser warning is complete.",
-    };
-    this.lastActivity = "Browser user action completion requested.";
-    this.notifyStateChanged();
-    this.resolveUserAction("resume");
+    await this.userActions.resume();
     return this.getState();
   }
 
   async cancelUserAction(): Promise<BrowserCapabilityState> {
-    if (!this.userAction?.active) {
-      this.lastActivity = "No browser user action is waiting.";
-      return this.getState();
-    }
-    this.clearUserAction("Browser warning dismissed.", "cancel");
+    this.userActions.cancel();
     return this.getState();
   }
 
@@ -811,7 +802,7 @@ export class BrowserService {
   }
 
   private shouldPreserveChromeForRuntimeSwitch(): boolean {
-    return Boolean(this.userAction?.active && this.userAction.runtime === "chrome" && this.userAction.profileMode === this.profileMode);
+    return Boolean(this.userActions.current?.active && this.userActions.current.runtime === "chrome" && this.userActions.current.profileMode === this.profileMode);
   }
 
   private async closeOrPreserveChromeForRuntimeSwitch(reason: string): Promise<void> {
@@ -878,7 +869,7 @@ export class BrowserService {
       throw error;
     }
     input.onActivity?.("Chrome navigation completed; checking page state.");
-    const userAction = this.normalizeUserActionDetection(await this.detectChromeUserAction().catch(() => undefined), {
+    const userAction = this.userActions.normalizeDetection(await this.detectChromeUserAction().catch(() => undefined), {
       toolName: "browser_nav",
       runtime: "chrome",
       profileMode: this.profileMode,
@@ -886,9 +877,9 @@ export class BrowserService {
       sourceThreadId: input.sourceThreadId,
     });
     if (userAction) {
-      const evidencedUserAction = await this.attachChromeUserActionEvidence(userAction, input);
+      const evidencedUserAction = await this.userActions.attachChromeEvidence(userAction, input);
       if (input.waitForUserAction === false) return evidencedUserAction;
-      await this.waitForChromeUserActionClear(evidencedUserAction, input.onActivity);
+      await this.userActions.waitForChromeClear(evidencedUserAction, input.onActivity);
     }
     this.lastActivity = `Navigated to ${url}.`;
     const content = await this.contentChrome({});
@@ -911,7 +902,7 @@ export class BrowserService {
       }
       input.onActivity?.("Chrome navigation completed for content read.");
     }
-    const userAction = this.normalizeUserActionDetection(await this.detectChromeUserAction().catch(() => undefined), {
+    const userAction = this.userActions.normalizeDetection(await this.detectChromeUserAction().catch(() => undefined), {
       toolName: "browser_content",
       runtime: "chrome",
       profileMode: this.profileMode,
@@ -919,13 +910,13 @@ export class BrowserService {
       sourceThreadId: input.sourceThreadId,
     });
     if (userAction) {
-      const evidencedUserAction = await this.attachChromeUserActionEvidence(userAction, input);
+      const evidencedUserAction = await this.userActions.attachChromeEvidence(userAction, input);
       if (input.waitForUserAction === false) return evidencedUserAction;
-      await this.waitForChromeUserActionClear(evidencedUserAction, input.onActivity);
+      await this.userActions.waitForChromeClear(evidencedUserAction, input.onActivity);
     }
     const content = await this.evaluatePage<BrowserPageContent>(contentExpression(MAX_BROWSER_TEXT));
     input.onActivity?.("Chrome DOM content was extracted.");
-    this.clearResolvedUserAction({
+    this.userActions.clearResolved({
       runtime: "chrome",
       profileMode: this.profileMode,
       targetId: this.activeTargetId,
@@ -943,7 +934,7 @@ export class BrowserService {
     const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(input.query)}`;
     await this.navigateActiveTarget(searchUrl);
     input.onActivity?.("Chrome search page navigation completed.");
-    const userAction = this.normalizeUserActionDetection(await this.detectChromeUserAction().catch(() => undefined), {
+    const userAction = this.userActions.normalizeDetection(await this.detectChromeUserAction().catch(() => undefined), {
       toolName: "browser_search",
       runtime: "chrome",
       profileMode: this.profileMode,
@@ -951,13 +942,13 @@ export class BrowserService {
       sourceThreadId: input.sourceThreadId,
     });
     if (userAction) {
-      const evidencedUserAction = await this.attachChromeUserActionEvidence(userAction, input);
+      const evidencedUserAction = await this.userActions.attachChromeEvidence(userAction, input);
       if (input.waitForUserAction === false) return evidencedUserAction;
-      await this.waitForChromeUserActionClear(evidencedUserAction, input.onActivity);
+      await this.userActions.waitForChromeClear(evidencedUserAction, input.onActivity);
     }
     const results = await this.evaluatePage<BrowserSearchResult[]>(searchExpression(limit));
     input.onActivity?.("Chrome search results were extracted.");
-    this.clearResolvedUserAction({
+    this.userActions.clearResolved({
       runtime: "chrome",
       profileMode: this.profileMode,
       targetId: this.activeTargetId,
@@ -1113,7 +1104,7 @@ export class BrowserService {
   }
 
   private async ensureChromeStarted(profileMode: BrowserProfileMode = DEFAULT_PROFILE_MODE): Promise<void> {
-    profileMode = this.userAction?.active && this.userAction.runtime === "chrome" ? this.userAction.profileMode : profileMode;
+    profileMode = this.userActions.current?.active && this.userActions.current.runtime === "chrome" ? this.userActions.current.profileMode : profileMode;
     if (this.internalBrowser?.isRunning()) await this.internalBrowser.stop();
     this.activeRuntime = "chrome";
     if (this.isChromeRunning() && this.profileMode === profileMode) return;
@@ -1213,7 +1204,7 @@ export class BrowserService {
           }
         : {}),
       ...(input.activeTab ? { activeTab: input.activeTab } : {}),
-      ...(this.userAction ? { userAction: this.userAction } : {}),
+      ...(this.userActions.current ? { userAction: this.userActions.current } : {}),
       ...(this.chromeSessionId ? { sessionId: this.chromeSessionId } : {}),
       ...(input.runtime === "chrome" && input.running && this.chromeProcessId ? { processId: this.chromeProcessId } : {}),
       ...(input.runtime === "chrome" && input.running && this.port ? { devToolsPort: this.port } : {}),
@@ -1230,15 +1221,6 @@ export class BrowserService {
     void this.options.onStateChanged?.();
   }
 
-  private resolveUserAction(value: BrowserUserActionResolution): void {
-    const waiter = this.userActionWaiter;
-    if (!waiter) return;
-    clearTimeout(waiter.timeout);
-    if (waiter.activityTimer) clearInterval(waiter.activityTimer);
-    this.userActionWaiter = undefined;
-    waiter.resolve(value);
-  }
-
   private beginUserAction(input: {
     toolName: string;
     runtime: BrowserRuntimeKind;
@@ -1247,236 +1229,7 @@ export class BrowserService {
     sourceThreadId?: string;
     detection: BrowserUserActionDetection;
   }): BrowserUserActionState {
-    const now = new Date().toISOString();
-    const existing = this.userAction?.active ? this.userAction : undefined;
-    const state: BrowserUserActionState = {
-      id: existing?.id ?? randomUUID(),
-      active: true,
-      status: "waiting",
-      kind: input.detection.kind ?? "unknown-user-action",
-      provider: input.detection.provider ?? "unknown",
-      toolName: input.toolName,
-      runtime: input.runtime,
-      profileMode: input.profileMode,
-      ...(input.sourceThreadId ?? existing?.sourceThreadId ? { sourceThreadId: input.sourceThreadId ?? existing?.sourceThreadId } : {}),
-      ...(input.targetId ? { targetId: input.targetId } : {}),
-      url: input.detection.url,
-      title: input.detection.title,
-      origin: input.detection.origin,
-      ...(input.detection.pageExcerpt ? { pageExcerpt: input.detection.pageExcerpt } : {}),
-      message: input.detection.message ?? "Browser needs user action before Ambient can continue.",
-      startedAt: existing?.startedAt ?? now,
-      lastCheckedAt: now,
-      canAutoResume: true,
-    };
-    this.userAction = state;
-    this.lastActivity = state.message;
-    this.lastError = undefined;
-    this.notifyStateChanged();
-    return state;
-  }
-
-  private async attachChromeUserActionEvidence(state: BrowserUserActionState, input: unknown = {}): Promise<BrowserUserActionState> {
-    if (state.runtime !== "chrome" || state.screenshot) return state;
-    try {
-      const screenshot = await this.screenshotChrome({
-        profileMode: state.profileMode,
-        artifactWorkspacePath: browserArtifactWorkspacePath(input),
-      });
-      const next: BrowserUserActionState = { ...state, screenshot };
-      if (this.userAction?.id === state.id) {
-        this.userAction = next;
-        this.notifyStateChanged();
-      }
-      return next;
-    } catch (error) {
-      this.lastError = errorMessage(error);
-      return state;
-    }
-  }
-
-  private clearUserAction(message = "Browser user action cleared.", resolution: BrowserUserActionResolution = "cancel"): void {
-    this.resolveUserAction(resolution);
-    if (!this.userAction) return;
-    this.userAction = undefined;
-    this.lastActivity = message;
-    this.notifyStateChanged();
-  }
-
-  private clearResolvedUserAction(input: {
-    runtime: BrowserRuntimeKind;
-    profileMode: BrowserProfileMode;
-    targetId?: string;
-    message?: string;
-  }): void {
-    const current = this.userAction;
-    if (!current) return;
-    if (current.runtime !== input.runtime || current.profileMode !== input.profileMode) return;
-    if (current.targetId && input.targetId && current.targetId !== input.targetId) return;
-    this.clearUserAction(input.message ?? "Browser user action completed.", "resume");
-  }
-
-  private async waitForUserAction(
-    state: BrowserUserActionState,
-    onActivity?: (message: string) => void,
-  ): Promise<BrowserUserActionResolution> {
-    if (this.userActionWaiter) return "resume";
-    return new Promise<BrowserUserActionResolution>((resolve) => {
-      const activityMessage = browserUserActionWaitingActivity(state);
-      onActivity?.(activityMessage);
-      const activityTimer = onActivity
-        ? setInterval(() => {
-            onActivity(activityMessage);
-          }, USER_ACTION_ACTIVITY_HEARTBEAT_MS)
-        : undefined;
-      const timeout = setTimeout(() => {
-        if (activityTimer) clearInterval(activityTimer);
-        this.userActionWaiter = undefined;
-        if (this.userAction?.id === state.id) {
-          this.userAction = {
-            ...this.userAction,
-            active: false,
-            status: "timed-out",
-            lastCheckedAt: new Date().toISOString(),
-            message: "Browser user action timed out.",
-          };
-          this.lastActivity = "Browser user action timed out.";
-          this.notifyStateChanged();
-        }
-        resolve("timeout");
-      }, USER_ACTION_TIMEOUT_MS);
-      this.userActionWaiter = { resolve, timeout, ...(activityTimer ? { activityTimer } : {}) };
-    });
-  }
-
-  private async checkDetachedUserActionCompletion(state: BrowserUserActionState): Promise<void> {
-    const checking: BrowserUserActionState = {
-      ...state,
-      status: "resuming",
-      lastCheckedAt: new Date().toISOString(),
-      message: "Checking whether the browser warning is complete.",
-    };
-    this.userAction = checking;
-    this.lastActivity = "Browser user action completion requested.";
-    this.lastError = undefined;
-    this.notifyStateChanged();
-
-    let raw: unknown;
-    try {
-      if (state.runtime === "chrome") {
-        await this.ensureChromeStarted(state.profileMode);
-        await this.ensureChromeTarget(state.targetId);
-        raw = await this.detectChromeUserAction();
-      } else {
-        await this.ensureInternalStarted();
-        raw = await this.internalBrowser!.evaluate({
-          code: browserUserActionDetectionExpression(),
-          profileMode: "isolated",
-          runtime: "internal",
-        });
-      }
-    } catch (error) {
-      const message = `Could not confirm whether the browser warning is complete. ${errorMessage(error)}`.trim();
-      this.userAction = {
-        ...state,
-        status: "waiting",
-        lastCheckedAt: new Date().toISOString(),
-        message,
-      };
-      this.lastActivity = message;
-      this.lastError = errorMessage(error);
-      this.notifyStateChanged();
-      return;
-    }
-
-    const next = this.normalizeUserActionDetection(raw, {
-      toolName: state.toolName,
-      runtime: state.runtime,
-      profileMode: state.profileMode,
-      targetId: state.targetId,
-      sourceThreadId: state.sourceThreadId,
-    });
-    if (next) {
-      this.lastActivity = "Browser user action still needs attention.";
-      return;
-    }
-    this.clearUserAction("Browser user action completed.", "resume");
-  }
-
-  private normalizeUserActionDetection(
-    raw: unknown,
-    input: { toolName: string; runtime: BrowserRuntimeKind; profileMode: BrowserProfileMode; targetId?: string; sourceThreadId?: string },
-  ): BrowserUserActionState | undefined {
-    const detection = normalizeBrowserUserActionDetection(raw);
-    if (!detection) return undefined;
-    return this.beginUserAction({ ...input, detection });
-  }
-
-  private activeUserActionBlock(input?: { userActionId?: string }): BrowserUserActionState | undefined {
-    const current = this.userAction?.active ? this.userAction : undefined;
-    if (!current) return undefined;
-    if (input?.userActionId && input.userActionId === current.id) return undefined;
-    this.lastActivity = "Browser warning is waiting for user action; new browser tool calls are paused.";
-    this.notifyStateChanged();
-    return current;
-  }
-
-  private async waitForBrowserUserActionClear(
-    initial: BrowserUserActionState,
-    onActivity?: (message: string) => void,
-  ): Promise<void> {
-    if (initial.runtime === "internal") return this.waitForInternalUserActionClear(initial, onActivity);
-    return this.waitForChromeUserActionClear(initial, onActivity);
-  }
-
-  private async waitForChromeUserActionClear(
-    initial: BrowserUserActionState,
-    onActivity?: (message: string) => void,
-  ): Promise<void> {
-    let current = initial;
-    while (true) {
-      const resolution = await this.waitForUserAction(current, onActivity);
-      if (resolution === "cancel") throw new BrowserUserActionCanceledError(current);
-      if (resolution === "timeout") throw new BrowserUserActionTimedOutError(current);
-      const next = this.normalizeUserActionDetection(
-        await this.evaluatePage<BrowserUserActionDetection>(browserUserActionDetectionExpression(), 5_000).catch(() => undefined),
-        {
-          toolName: current.toolName,
-          runtime: "chrome",
-          profileMode: current.profileMode,
-          targetId: current.targetId ?? this.activeTargetId,
-          sourceThreadId: current.sourceThreadId,
-        },
-      );
-      if (!next) {
-        this.clearUserAction("Browser user action completed.", "resume");
-        return;
-      }
-      current = next;
-    }
-  }
-
-  private async waitForInternalUserActionClear(
-    initial: BrowserUserActionState,
-    onActivity?: (message: string) => void,
-  ): Promise<void> {
-    let current = initial;
-    while (true) {
-      const resolution = await this.waitForUserAction(current, onActivity);
-      if (resolution === "cancel") throw new BrowserUserActionCanceledError(current);
-      if (resolution === "timeout") throw new BrowserUserActionTimedOutError(current);
-      const next = this.normalizeUserActionDetection(
-        await this.internalBrowser
-          ?.evaluate({ code: browserUserActionDetectionExpression(), profileMode: "isolated", runtime: "internal" })
-          .catch(() => undefined),
-        { toolName: current.toolName, runtime: "internal", profileMode: current.profileMode, sourceThreadId: current.sourceThreadId },
-      );
-      if (!next) {
-        this.clearUserAction("Browser user action completed.", "resume");
-        return;
-      }
-      current = next;
-    }
+    return this.userActions.begin(input);
   }
 
   private async reattachChrome(profileMode: BrowserProfileMode): Promise<boolean> {
@@ -1712,26 +1465,6 @@ export class BrowserUnavailableError extends Error {
   }
 }
 
-export class BrowserUserActionCanceledError extends Error {
-  constructor(readonly state: BrowserUserActionState) {
-    super(state.message || "Browser user action was canceled.");
-    this.name = "BrowserUserActionCanceledError";
-  }
-}
-
-export class BrowserUserActionTimedOutError extends Error {
-  constructor(readonly state: BrowserUserActionState) {
-    super(state.message || "Browser user action timed out.");
-    this.name = "BrowserUserActionTimedOutError";
-  }
-}
-
-function browserUserActionWaitingActivity(state: BrowserUserActionState): string {
-  const subject = state.kind === "unknown-user-action" ? "browser user action" : `browser ${state.kind}`;
-  const provider = state.provider && state.provider !== "unknown" ? ` from ${state.provider}` : "";
-  return `Waiting for the user to complete the ${subject}${provider} and click Confirmed.`;
-}
-
 function childProcessExited(child: ChildProcess): boolean {
   return child.exitCode !== null || child.signalCode !== null;
 }
@@ -1782,12 +1515,6 @@ function clampManagedChromeDimension(preferred: number, available: number, minim
   const insetAvailable = Math.max(0, Math.round(available) - MANAGED_CHROME_REVEAL_MARGIN * 2);
   if (insetAvailable >= minimum) return Math.min(preferred, insetAvailable);
   return Math.min(preferred, Math.round(available));
-}
-
-function browserArtifactWorkspacePath(input: unknown): string | undefined {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
-  const value = (input as { artifactWorkspacePath?: unknown }).artifactWorkspacePath;
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 export function normalizeBrowserLoginOrigin(input: string): string {
@@ -2480,183 +2207,6 @@ export function parseChromeDevToolsEndpoint(raw: string): ChromeDevToolsEndpoint
 function readChromeDevToolsEndpoint(path: string): ChromeDevToolsEndpoint | undefined {
   if (!existsSync(path)) return undefined;
   return parseChromeDevToolsEndpoint(readFileSync(path, "utf8"));
-}
-
-export function browserUserActionDetectionExpression(): string {
-  return `(${browserUserActionDetectionFunction.toString()})()`;
-}
-
-function browserUserActionDetectionFunction(): BrowserUserActionDetection {
-  const clean = (value: unknown): string => String(value || "").replace(/\s+/g, " ").trim();
-  const text = clean(document.body?.innerText || "").slice(0, 20_000);
-  const pageExcerpt = text.slice(0, 1_200);
-  const lowerText = text.toLowerCase();
-  const title = document.title || "";
-  const lowerTitle = title.toLowerCase();
-  const pageText = `${lowerTitle} ${lowerText}`;
-  const url = location.href;
-  const origin = location.origin;
-  const visible = (element: Element): boolean => {
-    const rect = (element as HTMLElement).getBoundingClientRect?.();
-    const style = window.getComputedStyle?.(element);
-    if (style && (style.display === "none" || style.visibility === "hidden" || style.opacity === "0")) return false;
-    if (element.getAttribute?.("aria-hidden") === "true") return false;
-    if (rect && (rect.width <= 0 || rect.height <= 0)) return false;
-    return true;
-  };
-  const visibleSelectors = (query: string): boolean => Array.from(document.querySelectorAll(query)).some((element) => visible(element));
-  const scriptsAndFrames = Array.from(document.querySelectorAll("script[src], iframe[src]"))
-    .map((element) => (element as HTMLScriptElement | HTMLIFrameElement).src || "")
-    .join("\n")
-    .toLowerCase();
-  const explicitCaptchaText =
-    /\b(unusual traffic|automated queries|not a robot|verify that you are human|prove your humanity|prove you are human|prove you're human|confirm you are human|confirm you're human|human verification|complete the captcha|solve the captcha)\b/i.test(
-      pageText,
-    );
-  const hasRecaptchaWidget = visibleSelectors(".g-recaptcha, iframe[src*='recaptcha'], [data-sitekey][data-callback]");
-  const hasHcaptchaWidget = visibleSelectors(".h-captcha, iframe[src*='hcaptcha']");
-  const hasTurnstileWidget = visibleSelectors(".cf-turnstile, iframe[src*='challenges.cloudflare.com']");
-  const hasRecaptcha = hasRecaptchaWidget || (/recaptcha|g-recaptcha/.test(scriptsAndFrames) && explicitCaptchaText);
-  const hasHcaptcha = hasHcaptchaWidget || (/hcaptcha/.test(scriptsAndFrames) && explicitCaptchaText);
-  const hasTurnstile = hasTurnstileWidget || (/turnstile|challenges.cloudflare.com/.test(scriptsAndFrames) && explicitCaptchaText);
-
-  if (/^https:\/\/(?:www\.|ipv4\.)?google\.[^/]+\/sorry(?:\/|$)/i.test(url)) {
-    return {
-      detected: true,
-      kind: "captcha",
-      provider: "google",
-      url,
-      title,
-      origin,
-      pageExcerpt,
-      message: "Google is asking for a CAPTCHA or unusual-traffic verification. Complete it in the browser, then continue.",
-    };
-  }
-
-  if (hasRecaptcha) {
-    return {
-      detected: true,
-      kind: "captcha",
-      provider: "recaptcha",
-      url,
-      title,
-      origin,
-      pageExcerpt,
-      message: "The page is asking for a reCAPTCHA verification. Complete it in the browser, then continue.",
-    };
-  }
-
-  if (hasHcaptcha) {
-    return {
-      detected: true,
-      kind: "captcha",
-      provider: "hcaptcha",
-      url,
-      title,
-      origin,
-      pageExcerpt,
-      message: "The page is asking for an hCaptcha verification. Complete it in the browser, then continue.",
-    };
-  }
-
-  if (
-    hasTurnstile ||
-    /\b(checking your browser|verify you are human|cf-browser-verification|please wait while we verify|needs to review the security of your connection)\b/i.test(pageText)
-  ) {
-    return {
-      detected: true,
-      kind: hasTurnstile ? "captcha" : "bot-check",
-      provider: hasTurnstile ? "turnstile" : "cloudflare",
-      url,
-      title,
-      origin,
-      pageExcerpt,
-      message: "The page is asking for browser or human verification. Complete it in the browser, then continue.",
-    };
-  }
-
-  if (explicitCaptchaText) {
-    return {
-      detected: true,
-      kind: "captcha",
-      provider: "unknown",
-      url,
-      title,
-      origin,
-      pageExcerpt,
-      message: "The page appears to require a CAPTCHA or human verification. Complete it in the browser, then continue.",
-    };
-  }
-
-  if (/\b(two-factor|two factor|2fa|mfa|verification code|one-time code|otp|security key|passkey)\b/i.test(pageText)) {
-    return {
-      detected: true,
-      kind: "mfa",
-      provider: "unknown",
-      url,
-      title,
-      origin,
-      pageExcerpt,
-      message: "The page appears to require MFA or another user verification step. Complete it in the browser, then continue.",
-    };
-  }
-
-  return { detected: false, url, title, origin };
-}
-
-export function normalizeBrowserUserActionDetection(raw: unknown): BrowserUserActionDetection | undefined {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
-  const record = raw as Record<string, unknown>;
-  if (record.detected !== true) return undefined;
-  const kind = browserUserActionKind(record.kind);
-  const provider = browserUserActionProvider(record.provider);
-  const url = typeof record.url === "string" ? record.url : undefined;
-  return {
-    detected: true,
-    kind,
-    provider,
-    ...(url ? { url } : {}),
-    ...(typeof record.title === "string" ? { title: record.title.slice(0, 220) } : {}),
-    ...(typeof record.origin === "string" ? { origin: record.origin } : originFromUrl(url)),
-    ...(typeof record.pageExcerpt === "string" && record.pageExcerpt.trim()
-      ? { pageExcerpt: record.pageExcerpt.replace(/\s+/g, " ").trim().slice(0, 1_200) }
-      : {}),
-    message:
-      typeof record.message === "string" && record.message.trim()
-        ? record.message.slice(0, 400)
-        : "Browser needs user action before Ambient can continue.",
-  };
-}
-
-function browserUserActionKind(value: unknown): BrowserUserActionKind {
-  return value === "captcha" ||
-    value === "mfa" ||
-    value === "login" ||
-    value === "bot-check" ||
-    value === "consent" ||
-    value === "unknown-user-action"
-    ? value
-    : "unknown-user-action";
-}
-
-function browserUserActionProvider(value: unknown): BrowserUserActionProvider {
-  return value === "google" ||
-    value === "cloudflare" ||
-    value === "hcaptcha" ||
-    value === "recaptcha" ||
-    value === "turnstile" ||
-    value === "unknown"
-    ? value
-    : "unknown";
-}
-
-function originFromUrl(url: string | undefined): { origin?: string } {
-  if (!url) return {};
-  try {
-    return { origin: new URL(url).origin };
-  } catch {
-    return {};
-  }
 }
 
 function isSubpath(root: string, candidate: string): boolean {

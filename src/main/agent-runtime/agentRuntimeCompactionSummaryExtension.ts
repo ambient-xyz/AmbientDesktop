@@ -10,6 +10,7 @@ import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
 import {
   buildAmbientCompactionSummary as defaultBuildAmbientCompactionSummary,
   collectAmbientCompactionFileLists as defaultCollectAmbientCompactionFileLists,
+  visibleTranscriptMessagesForModelContext,
   type AmbientCompactionFileLists,
   type AmbientCompactionSummaryInput,
 } from "./recovery/compactionSummary";
@@ -64,7 +65,7 @@ export function createAmbientCompactionSummaryExtension(
     (pi as any).on("session_before_compact", async (event: any) => {
       if (!options.apiKey) return undefined;
       const thread = options.getThread(options.threadId);
-      const visibleMessages = options.listMessages(options.threadId);
+      const visibleMessages = visibleTranscriptMessagesForModelContext(options.listMessages(options.threadId));
       const [gitStatus, browserState] = await Promise.all([
         Promise.resolve(getWorkspaceGitStatus(options.workspace.path)).catch(() => undefined),
         Promise.resolve(options.getBrowserState()).catch(() => undefined),

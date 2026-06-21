@@ -33,14 +33,14 @@ describe("fix-installs-redactions gates", () => {
   it("keeps live gates on Ambient Kimi and rejects degraded GLM 5.1", () => {
     expect(assertFixInstallsRedactionsProviderAllowed({
       providerId: "ambient",
-      modelId: "<model>",
+      modelId: "moonshotai/kimi-k2.7-code",
     })).toEqual({
       providerId: "ambient",
-      modelId: "<model>",
+      modelId: "moonshotai/kimi-k2.7-code",
     });
     expect(() => assertFixInstallsRedactionsProviderAllowed({
       providerId: "gmi-cloud",
-      modelId: "<model>",
+      modelId: "moonshotai/kimi-k2.7-code",
     })).toThrow(/AMBIENT_PROVIDER=ambient/);
     expect(() => assertFixInstallsRedactionsProviderAllowed({
       providerId: "ambient",
@@ -52,7 +52,7 @@ describe("fix-installs-redactions gates", () => {
     const gate = fixInstallsRedactionsGateForScenario("provider-setup-baseline");
     expect(fixInstallsRedactionsGatePrompt(gate)).toContain("Do not call tools");
     const report = newFixInstallsRedactionsReport(gate, {
-      provider: { providerId: "ambient", modelId: "<model>" },
+      provider: { providerId: "ambient", modelId: "moonshotai/kimi-k2.7-code" },
       git: { branch: "branch", commit: "abc" },
       workspacePath: "/tmp/workspace",
       userDataPath: "/tmp/userData",

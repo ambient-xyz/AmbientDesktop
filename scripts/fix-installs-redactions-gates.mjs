@@ -17,7 +17,7 @@ import {
 } from "./fix-installs-redactions-gates-lib.mjs";
 
 const repoRoot = process.cwd();
-const defaultDogfoodModel = "<model>";
+const defaultDogfoodModel = "moonshotai/kimi-k2.7-code";
 const appWaitTimeoutMs = 90_000;
 const cdpCommandTimeoutMs = 20_000;
 const chatTurnTimeoutMs = Number(process.env.AMBIENT_FIX_INSTALLS_REDACTIONS_CHAT_TIMEOUT_MS ?? 180_000);

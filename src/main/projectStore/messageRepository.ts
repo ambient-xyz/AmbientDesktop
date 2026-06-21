@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type { ChatMessage } from "../../shared/threadTypes";
-import { chooseThreadPreview, formatThreadPreview, isAssistantThinkingMessage } from "../../shared/threadPreview";
+import { chooseThreadPreview, formatThreadPreview, isAssistantThinkingMessage, isHiddenTranscriptMessage } from "../../shared/threadPreview";
 import { mapMessageRow, type MessageRow } from "./messageMappers";
 
 export interface AddProjectStoreMessageInput {
@@ -100,5 +100,5 @@ export class ProjectStoreMessageRepository {
 }
 
 function messageCanUpdateThreadPreview(message: ChatMessage): boolean {
-  return message.role !== "tool" && message.content.trim().length > 0 && !isAssistantThinkingMessage(message);
+  return message.role !== "tool" && message.content.trim().length > 0 && !isAssistantThinkingMessage(message) && !isHiddenTranscriptMessage(message);
 }

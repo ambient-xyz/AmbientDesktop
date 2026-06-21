@@ -1,3 +1,4 @@
+import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import {
   applyProjectStoreBootstrapSchema,
@@ -7,6 +8,7 @@ import {
   ensureProjectStoreColumn,
   ensureProjectStoreColumnGroup,
   ensureProjectStoreIndex,
+  ensureThreadGoalProviderStatusCheck,
   migrateProjectStorePermissionModeDefaultsToWorkspace,
   PROJECT_STORE_DATA_MIGRATION_SQL,
   PROJECT_STORE_MIGRATION_COLUMN_GROUPS,
@@ -285,6 +287,7 @@ describe("project store schema bootstrap", () => {
       ["thread_goals", "status_reason", "TEXT"],
       ["thread_goals", "completed_at", "TEXT"],
       ["thread_goals", "last_continued_at", "TEXT"],
+      ["thread_goals", "provider_infra_failures", "INTEGER NOT NULL DEFAULT 0"],
     ]);
   });
 
@@ -484,7 +487,7 @@ describe("project store schema bootstrap", () => {
     ]);
     expect(calls.slice(-2)).toEqual([
       "PRAGMA table_info(thread_goals)",
-      "ALTER TABLE thread_goals ADD COLUMN last_continued_at TEXT",
+      "ALTER TABLE thread_goals ADD COLUMN provider_infra_failures INTEGER NOT NULL DEFAULT 0",
     ]);
   });
 
@@ -542,6 +545,7 @@ describe("project store schema bootstrap", () => {
       { kind: "columnGroup", key: "workflowModelCalls" },
       { kind: "columnGroup", key: "workflowDiscoveryQuestions" },
       { kind: "columnGroup", key: "plannerThreadGoals" },
+      { kind: "threadGoalProviderStatusCheck" },
     ]);
     expect(PROJECT_STORE_SCHEMA_MIGRATION_STEPS_AFTER_PLANNER_REPAIR).toEqual([
       { kind: "columnGroup", key: "workflowDiscoveryFinal" },
@@ -565,6 +569,61 @@ describe("project store schema bootstrap", () => {
       "CREATE INDEX IF NOT EXISTS idx_workflow_discovery_questions_revision ON workflow_discovery_questions(revision_id, question_order)",
       "run",
     ]);
+  });
+
+  it("rebuilds the thread goal status check for provider-unavailable goals", () => {
+    const db = new Database(":memory:");
+    try {
+      db.exec(`
+        CREATE TABLE threads (
+          id TEXT PRIMARY KEY
+        );
+        CREATE TABLE thread_goals (
+          thread_id TEXT PRIMARY KEY,
+          goal_id TEXT NOT NULL,
+          objective TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN (
+            'active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'complete'
+          )),
+          token_budget INTEGER,
+          tokens_used INTEGER NOT NULL DEFAULT 0,
+          time_used_seconds INTEGER NOT NULL DEFAULT 0,
+          continuation_turns INTEGER NOT NULL DEFAULT 0,
+          no_progress_turns INTEGER NOT NULL DEFAULT 0,
+          provider_infra_failures INTEGER NOT NULL DEFAULT 0,
+          status_reason TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          completed_at TEXT,
+          last_continued_at TEXT,
+          FOREIGN KEY(thread_id) REFERENCES threads(id) ON DELETE CASCADE
+        );
+        INSERT INTO threads (id) VALUES ('thread-1');
+        INSERT INTO thread_goals
+          (thread_id, goal_id, objective, status, token_budget, tokens_used, time_used_seconds,
+           continuation_turns, no_progress_turns, provider_infra_failures, status_reason, created_at, updated_at, completed_at, last_continued_at)
+        VALUES
+          ('thread-1', 'goal-1', 'Recover provider stalls', 'active', NULL, 11, 3, 2, 0, 3,
+           'Provider recovery stopped without pausing the goal.', '2026-06-21T00:00:00.000Z',
+           '2026-06-21T00:01:00.000Z', NULL, '2026-06-21T00:02:00.000Z');
+      `);
+      expect(() => {
+        db.prepare("UPDATE thread_goals SET status = 'provider_unavailable' WHERE thread_id = 'thread-1'").run();
+      }).toThrow();
+
+      ensureThreadGoalProviderStatusCheck(db);
+      ensureThreadGoalProviderStatusCheck(db);
+
+      db.prepare("UPDATE thread_goals SET status = 'provider_unavailable' WHERE thread_id = 'thread-1'").run();
+      expect(db.prepare("SELECT status, provider_infra_failures FROM thread_goals WHERE thread_id = 'thread-1'").get()).toEqual({
+        status: "provider_unavailable",
+        provider_infra_failures: 3,
+      });
+      const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'thread_goals'").get() as { sql: string };
+      expect(schema.sql).toContain("'provider_unavailable'");
+    } finally {
+      db.close();
+    }
   });
 
   it("keeps data migration SQL in the schema module", () => {

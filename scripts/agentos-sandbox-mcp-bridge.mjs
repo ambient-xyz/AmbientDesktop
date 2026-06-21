@@ -449,7 +449,7 @@ async function runDockerNetworkDisabledBridgeLivePiSmoke() {
 }
 
 async function runLivePiBridgePlanner({ service, pending, apiKey }) {
-  const modelId = process.env.AMBIENT_AGENTOS_MCP_BRIDGE_LIVE_MODEL || "<model>";
+  const modelId = process.env.AMBIENT_AGENTOS_MCP_BRIDGE_LIVE_MODEL || "moonshotai/kimi-k2.7-code";
   const sessionId = `ambient-sandbox-mcp-bridge-live-${Date.now()}`;
   const workbookPath = "/tmp/ambient-sandbox-mcp-bridge-live-pi/live-pi-workbook.xlsx";
   const tool = sandboxMcpBridgeTool();
@@ -831,7 +831,7 @@ async function readAmbientApiKey() {
     join(process.cwd(), "..", "ambient_api_key.txt"),
     join(process.cwd(), "..", "..", "ambient_api_key.txt"),
     join(homedir(), "ambient_api_key.txt"),
-    "<local-user>/Documents/ambientCoder/ambient_api_key.txt",
+    "/Users/Neo/Documents/ambientCoder/ambient_api_key.txt",
   ].filter(Boolean);
   for (const candidate of candidates) {
     try {

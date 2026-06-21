@@ -8,6 +8,7 @@ export function chooseThreadPreview(
   messages: Array<Pick<ChatMessage, "role" | "content" | "createdAt"> & Partial<Pick<ChatMessage, "metadata">>>,
 ): string {
   const nonEmptyMessages = messages
+    .filter((message) => !isHiddenTranscriptMessage(message))
     .filter((message) => message.content.trim())
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   const previewCandidates = nonEmptyMessages.filter((message) => !isAssistantThinkingMessage(message));
@@ -19,4 +20,8 @@ export function chooseThreadPreview(
 
 export function isAssistantThinkingMessage(message: Pick<ChatMessage, "role"> & Partial<Pick<ChatMessage, "metadata">>): boolean {
   return message.role === "assistant" && message.metadata?.kind === "thinking";
+}
+
+export function isHiddenTranscriptMessage(message: Partial<Pick<ChatMessage, "metadata">>): boolean {
+  return message.metadata?.hiddenFromTranscript === true;
 }

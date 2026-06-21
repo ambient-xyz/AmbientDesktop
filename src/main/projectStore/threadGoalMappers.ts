@@ -6,6 +6,7 @@ export const THREAD_GOAL_STATUSES: readonly ThreadGoalStatus[] = [
   "blocked",
   "usage_limited",
   "budget_limited",
+  "provider_unavailable",
   "complete",
 ];
 
@@ -19,6 +20,7 @@ export interface ThreadGoalRow {
   time_used_seconds: number;
   continuation_turns: number;
   no_progress_turns: number;
+  provider_infra_failures?: number | null;
   status_reason: string | null;
   created_at: string;
   updated_at: string;
@@ -41,6 +43,7 @@ export function mapThreadGoalRow(row: ThreadGoalRow): ThreadGoal {
     timeUsedSeconds: row.time_used_seconds,
     continuationTurns: row.continuation_turns,
     noProgressTurns: row.no_progress_turns,
+    providerInfraFailures: row.provider_infra_failures ?? 0,
     statusReason: row.status_reason ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

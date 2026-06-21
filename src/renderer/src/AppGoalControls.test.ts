@@ -33,6 +33,7 @@ describe("goal controls helpers", () => {
       "Budget: 10,000 tokens",
       "Running.",
     ].join("\n"));
+    expect(threadGoalStatusLabel(threadGoal({ status: "provider_unavailable" }))).toBe("Provider unavailable");
   });
 
   it("keeps only active matching goal continuation activity visible", () => {

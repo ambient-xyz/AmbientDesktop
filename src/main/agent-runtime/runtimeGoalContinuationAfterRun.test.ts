@@ -56,6 +56,8 @@ describe("finalizeRuntimeGoalContinuationAfterRun", () => {
       abortRequested: false,
       runStatus: "done",
       runErrorMessage: undefined,
+      providerInterruptionContinuationScheduled: undefined,
+      internalFollowUpScheduled: undefined,
     } satisfies AccountFinishedGoalRunInput);
     expect(input.scheduleGoalContinuation).toHaveBeenCalledWith("thread-1", "goal-1", 0);
     expect(result).toEqual({

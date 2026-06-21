@@ -129,6 +129,8 @@ export async function finalizeRuntimeSendAfterRun(input: RuntimeSendAfterRunInpu
     abortRequested: input.abortRequested,
     runStatus: runRecord?.status,
     runErrorMessage: runRecord?.errorMessage,
+    providerInterruptionContinuationScheduled: Boolean(input.pendingProviderInterruptionContinuation),
+    internalFollowUpScheduled: hasPendingInternalFollowUp,
     hasPendingInternalFollowUp,
     hasQueuedUserInput,
     accountFinishedGoalRun: input.accountFinishedGoalRun,

@@ -1,5 +1,6 @@
 import type { ChatMessage } from "../../shared/threadTypes";
 import type { SubagentForkMode } from "../../shared/subagentProtocol";
+import { isHiddenTranscriptMessage } from "../../shared/threadPreview";
 import type { SubagentInheritedContextItem, SubagentStrippedContextRef } from "./subagentPromptRuntime";
 
 export function subagentParentContextForMessages(
@@ -15,6 +16,10 @@ export function subagentParentContextForMessages(
       sourceMessageId: message.id,
       role: message.role,
     };
+    if (isHiddenTranscriptMessage(message)) {
+      stripped.push({ ...base, reason: "hidden_internal_message" });
+      continue;
+    }
     if (message.role === "tool") {
       stripped.push({ ...base, reason: "tool_message" });
       continue;

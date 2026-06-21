@@ -737,7 +737,7 @@ describe("registerGitCreatePullRequestUrlIpc", () => {
 
   it("creates and opens the pull request URL for the active workspace", async () => {
     const context = sampleGitWorkspaceActionContext();
-    const url = "https://github.com/ambient-xyz/AmbientDesktop/compare/main...feature";
+    const url = "https://github.com/AmbientCrypto/ambientCoder/compare/main...feature";
     const { deps, invoke } = registerCreatePullRequestUrlWithFakes({ context, url });
 
     await expect(invoke()).resolves.toBe(url);
@@ -771,7 +771,7 @@ describe("registerGitCreatePullRequestUrlIpc", () => {
 
   it("propagates external URL open failures", async () => {
     const error = new Error("external URL blocked");
-    const url = "https://github.com/ambient-xyz/AmbientDesktop/compare/main...feature";
+    const url = "https://github.com/AmbientCrypto/ambientCoder/compare/main...feature";
     const { deps, invoke } = registerCreatePullRequestUrlWithFakes({ url, openAllowedExternalUrlError: error });
 
     await expect(invoke()).rejects.toThrow(error);
@@ -1252,7 +1252,7 @@ function registerCreatePullRequestUrlWithFakes(options: {
     createPullRequestUrlError,
     openAllowedExternalUrlError,
   } = options;
-  const url = "url" in options ? options.url : "https://github.com/ambient-xyz/AmbientDesktop/compare/main...feature";
+  const url = "url" in options ? options.url : "https://github.com/AmbientCrypto/ambientCoder/compare/main...feature";
   const handlers = new Map<string, IpcListener>();
   const deps = {
     handleIpc: vi.fn((channel: string, listener: IpcListener) => {

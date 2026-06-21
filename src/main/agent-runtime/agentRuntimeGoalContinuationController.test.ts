@@ -112,9 +112,37 @@ describe("AgentRuntimeGoalContinuationController", () => {
     }
   });
 
-  it("pauses active goals when the goal run ends in an error", async () => {
+  it("pauses active goals when the goal run ends in a semantic error", async () => {
     await withController(async ({ store, controller, threadId }) => {
       const goal = store.createThreadGoalIfAbsent({ threadId, objective: "Keep working through failures" });
+
+      const updated = controller.accountFinishedGoalRun({
+        threadId,
+        goalId: goal.goalId,
+        startedAtMs: Date.now() - 1_000,
+        promptChars: 80,
+        assistantChars: 0,
+        thinkingChars: 0,
+        toolMessageCount: 0,
+        abortRequested: false,
+        runStatus: "error",
+        runErrorMessage: "Completion audit failed because required files are missing.",
+      });
+
+      expect(updated).toMatchObject({
+        goalId: goal.goalId,
+        status: "paused",
+        statusReason: "Paused because the goal run failed: Completion audit failed because required files are missing.",
+      });
+      expect(store.getThreadGoal(threadId)).toMatchObject({
+        status: "paused",
+      });
+    });
+  });
+
+  it("keeps active goals alive when provider infrastructure fails before recovery can continue", async () => {
+    await withController(async ({ store, controller, threadId, events }) => {
+      const goal = store.createThreadGoalIfAbsent({ threadId, objective: "Keep working through provider stalls" });
 
       const updated = controller.accountFinishedGoalRun({
         threadId,
@@ -131,11 +159,200 @@ describe("AgentRuntimeGoalContinuationController", () => {
 
       expect(updated).toMatchObject({
         goalId: goal.goalId,
-        status: "paused",
-        statusReason: "Paused because the goal run failed: Ambient/Pi stream stalled after 30000ms without stream activity.",
+        status: "active",
+        noProgressTurns: 0,
+        providerInfraFailures: 1,
+        statusReason: "Provider recovery stopped without pausing the goal: Ambient/Pi stream stalled after 30000ms without stream activity.",
       });
       expect(store.getThreadGoal(threadId)).toMatchObject({
-        status: "paused",
+        status: "active",
+        noProgressTurns: 0,
+        providerInfraFailures: 1,
+      });
+      expect(events).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: "runtime-activity",
+          activity: expect.objectContaining({
+            kind: "goal",
+            status: "skipped",
+            goalId: goal.goalId,
+          }),
+        }),
+      ]));
+    });
+  });
+
+  it("marks provider-unavailable when a terminal provider failure reaches the retry cap", async () => {
+    await withController(async ({ store, controller, threadId, events }) => {
+      const goal = store.createThreadGoalIfAbsent({ threadId, objective: "Stop after repeated provider stalls" });
+      store.accountThreadGoalUsage({ threadId, goalId: goal.goalId, providerInfraFailureDelta: 1 });
+
+      const updated = controller.accountFinishedGoalRun({
+        threadId,
+        goalId: goal.goalId,
+        startedAtMs: Date.now() - 1_000,
+        promptChars: 80,
+        assistantChars: 0,
+        thinkingChars: 0,
+        toolMessageCount: 0,
+        abortRequested: false,
+        runStatus: "error",
+        runErrorMessage: "Ambient/Pi stream stalled after 30000ms without stream activity.",
+      });
+
+      expect(updated).toMatchObject({
+        goalId: goal.goalId,
+        status: "provider_unavailable",
+        noProgressTurns: 0,
+        providerInfraFailures: 2,
+        statusReason:
+          "Provider availability retry limit reached after 2 provider infrastructure failures. Last recovery status: Provider recovery stopped without pausing the goal: Ambient/Pi stream stalled after 30000ms without stream activity.",
+      });
+      expect(store.getThreadGoal(threadId)).toMatchObject({
+        status: "provider_unavailable",
+        providerInfraFailures: 2,
+      });
+      expect(events).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: "runtime-activity",
+          activity: expect.objectContaining({
+            kind: "goal",
+            status: "skipped",
+            goalId: goal.goalId,
+            message: expect.stringContaining("Provider availability retry limit reached"),
+          }),
+        }),
+        expect.objectContaining({
+          type: "thread-goal-updated",
+          goal: expect.objectContaining({ status: "provider_unavailable", goalId: goal.goalId }),
+        }),
+      ]));
+    });
+  });
+
+  it("does not count retry-scheduled provider stalls as semantic no-progress turns", async () => {
+    await withController(async ({ store, controller, threadId, events }) => {
+      const goal = store.createThreadGoalIfAbsent({ threadId, objective: "Keep working through provider retry stalls" });
+
+      const updated = controller.accountFinishedGoalRun({
+        threadId,
+        goalId: goal.goalId,
+        startedAtMs: Date.now() - 1_000,
+        promptChars: 80,
+        assistantChars: 0,
+        thinkingChars: 0,
+        toolMessageCount: 0,
+        abortRequested: false,
+        runStatus: "done",
+        providerInterruptionContinuationScheduled: true,
+      });
+
+      expect(updated).toMatchObject({
+        goalId: goal.goalId,
+        status: "active",
+        noProgressTurns: 0,
+        providerInfraFailures: 1,
+      });
+      expect(updated?.statusReason ?? null).toBeNull();
+      expect(store.getThreadGoal(threadId)).toMatchObject({
+        status: "active",
+        noProgressTurns: 0,
+        providerInfraFailures: 1,
+      });
+      expect(events).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: "runtime-activity",
+          activity: expect.objectContaining({
+            kind: "goal",
+            status: "skipped",
+            goalId: goal.goalId,
+          }),
+        }),
+      ]));
+    });
+  });
+
+  it("stops hidden goal continuation with a provider-specific status after repeated provider infrastructure failures", async () => {
+    await withController(async ({ store, controller, threadId, send, events }) => {
+      const goal = store.createThreadGoalIfAbsent({ threadId, objective: "Keep working through repeated provider stalls" });
+      store.accountThreadGoalUsage({
+        threadId,
+        goalId: goal.goalId,
+        continuationTurnDelta: 8,
+        providerInfraFailureDelta: 2,
+        statusReason: "Provider recovery stopped without pausing the goal: Ambient/Pi stream stalled after 30000ms without stream activity.",
+      });
+
+      await controller.maybeContinueGoalIfIdle(threadId, goal.goalId);
+
+      expect(store.getThreadGoal(threadId)).toMatchObject({
+        status: "provider_unavailable",
+        noProgressTurns: 0,
+        providerInfraFailures: 2,
+        statusReason:
+          "Provider availability retry limit reached after 2 provider infrastructure failures. Last recovery status: Provider recovery stopped without pausing the goal: Ambient/Pi stream stalled after 30000ms without stream activity.",
+      });
+      expect(send).not.toHaveBeenCalled();
+      expect(events).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: "runtime-activity",
+          activity: expect.objectContaining({
+            kind: "goal",
+            status: "skipped",
+            goalId: goal.goalId,
+            message: expect.stringContaining("Provider availability retry limit reached"),
+          }),
+        }),
+      ]));
+    });
+  });
+
+  it("does not count substantial thinking-only turns as semantic no-progress", async () => {
+    await withController(async ({ store, controller, threadId }) => {
+      const goal = store.createThreadGoalIfAbsent({ threadId, objective: "Keep working through hidden reasoning" });
+
+      const updated = controller.accountFinishedGoalRun({
+        threadId,
+        goalId: goal.goalId,
+        startedAtMs: Date.now() - 1_000,
+        promptChars: 80,
+        assistantChars: 0,
+        thinkingChars: 160,
+        toolMessageCount: 0,
+        abortRequested: false,
+        runStatus: "done",
+      });
+
+      expect(updated).toMatchObject({
+        goalId: goal.goalId,
+        status: "active",
+        noProgressTurns: 0,
+        providerInfraFailures: 0,
+      });
+    });
+  });
+
+  it("does not count runs with pending internal recovery follow-ups as semantic no-progress", async () => {
+    await withController(async ({ store, controller, threadId }) => {
+      const goal = store.createThreadGoalIfAbsent({ threadId, objective: "Keep working through recovery follow-ups" });
+
+      const updated = controller.accountFinishedGoalRun({
+        threadId,
+        goalId: goal.goalId,
+        startedAtMs: Date.now() - 1_000,
+        promptChars: 80,
+        assistantChars: 0,
+        thinkingChars: 0,
+        toolMessageCount: 0,
+        abortRequested: false,
+        runStatus: "done",
+        internalFollowUpScheduled: true,
+      });
+
+      expect(updated).toMatchObject({
+        goalId: goal.goalId,
+        status: "active",
+        noProgressTurns: 0,
       });
     });
   });

@@ -14,6 +14,8 @@ export interface AccountFinishedGoalRunInput {
   abortRequested: boolean;
   runStatus?: RuntimeGoalRunStatus | undefined;
   runErrorMessage?: string | undefined;
+  providerInterruptionContinuationScheduled?: boolean | undefined;
+  internalFollowUpScheduled?: boolean | undefined;
 }
 
 export interface RuntimeGoalContinuationAfterRunInput {
@@ -28,6 +30,8 @@ export interface RuntimeGoalContinuationAfterRunInput {
   abortRequested: boolean;
   runStatus?: RuntimeGoalRunStatus | undefined;
   runErrorMessage?: string | undefined;
+  providerInterruptionContinuationScheduled?: boolean | undefined;
+  internalFollowUpScheduled?: boolean | undefined;
   hasPendingInternalFollowUp: boolean;
   hasQueuedUserInput: boolean;
   accountFinishedGoalRun: (input: AccountFinishedGoalRunInput) => ThreadGoal | undefined;
@@ -55,6 +59,8 @@ export function finalizeRuntimeGoalContinuationAfterRun(
       abortRequested: input.abortRequested,
       runStatus: input.runStatus,
       runErrorMessage: input.runErrorMessage,
+      providerInterruptionContinuationScheduled: input.providerInterruptionContinuationScheduled,
+      internalFollowUpScheduled: input.internalFollowUpScheduled,
     });
   }
 

@@ -560,6 +560,7 @@ import {
   type WelcomeSetupSection,
 } from "./welcomeSetupUiModel";
 import { welcomeOnboardingPageKindFromMetadata, type WelcomeOnboardingPageKind } from "../../shared/welcomeOnboarding";
+import { isHiddenTranscriptMessage } from "../../shared/threadPreview";
 import { googleWorkspaceGrantReview } from "./googleWorkspaceGrantUiModel";
 import { permissionGrantRegistryModel, permissionGrantRevocationImpact, workflowPermissionGrantRegistryModel } from "./permissionGrantRegistryUiModel";
 import {
@@ -1748,7 +1749,7 @@ export function retryableFailedPromptIds(messages: ChatMessage[]): Set<string> {
   const user = messages
     .slice(0, latestIndex)
     .reverse()
-    .find((message) => message.role === "user" && message.content.trim());
+    .find((message) => message.role === "user" && !isHiddenTranscriptMessage(message) && message.content.trim());
   return user ? new Set([user.id]) : new Set();
 }
 

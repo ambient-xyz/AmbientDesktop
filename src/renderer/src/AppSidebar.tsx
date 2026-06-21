@@ -331,6 +331,7 @@ import {
   sttMessageMetadataFromUnknown,
 } from "../../shared/sttMessageMetadata";
 import { isRunStatusRunning, RUN_ABORT_ARM_DELAY_MS } from "../../shared/runStatus";
+import { isHiddenTranscriptMessage } from "../../shared/threadPreview";
 import {
   workflowAmbientCliCallSummaries,
   workflowAmbientCliCapabilityRows,
@@ -739,7 +740,7 @@ export type SidebarOrganizeSettings = {
 
 export function userPromptHistory(messages: ChatMessage[]): string[] {
   return messages
-    .filter((message) => message.role === "user" && message.content.trim())
+    .filter((message) => message.role === "user" && !isHiddenTranscriptMessage(message) && message.content.trim())
     .map((message) => message.content)
     .reverse();
 }

@@ -108,12 +108,26 @@ describe("AgentRuntimeSendPreparationController", () => {
         delivery: "follow-up",
       } as RuntimeSendMessageInput);
 
-      expect(store.listMessages(thread.id)).toHaveLength(0);
+      const messages = store.listMessages(thread.id);
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toMatchObject({
+        role: "user",
+        content: expect.stringContaining("Visible fallback content."),
+        metadata: expect.objectContaining({
+          runtime: "ambient-internal",
+          kind: "hidden-user-message",
+          hiddenFromTranscript: true,
+          hiddenUserMessage: true,
+          visibleUserContent: "Continue the goal.",
+          goalId: "goal-1",
+        }),
+      });
       expect(context.visibleUserContent).toBe("Continue the goal.");
       expect(context.shouldInjectBootstrap).toBe(false);
-      expect(context.retrySourceUserMessageId).toBeUndefined();
+      expect(context.retrySourceUserMessageId).toBe(messages[0]!.id);
       expect(generateTitleIfNeeded).not.toHaveBeenCalled();
       expect(emitted).toEqual([
+        { type: "message-created", message: expect.objectContaining({ id: messages[0]!.id }) },
         {
           type: "runtime-activity",
           activity: expect.objectContaining({
@@ -124,6 +138,41 @@ describe("AgentRuntimeSendPreparationController", () => {
           }),
         },
       ]);
+    });
+  });
+
+  it("allows pre-output retries to target persisted hidden goal continuation anchors", async () => {
+    await withController(({ store, controller }) => {
+      const thread = store.createThread("hidden continuation retry");
+
+      const original = controller.prepareRuntimeSendLoopContext({
+        ...sendInput(thread.id, { content: "Continue hidden goal." }),
+        hiddenUserMessage: true,
+        visibleUserContent: "Continuing goal...",
+        goalContinuation: { goalId: "goal-1" },
+        delivery: "follow-up",
+      } as RuntimeSendMessageInput);
+
+      const retry = controller.prepareRuntimeSendLoopContext({
+        ...sendInput(thread.id, { content: "Continue hidden goal." }),
+        hiddenUserMessage: true,
+        visibleUserContent: "Continuing goal...",
+        goalContinuation: { goalId: "goal-1" },
+        retryOfMessageId: original.retrySourceUserMessageId,
+        assistantFinalizationRetry: {
+          sourceUserMessageId: original.retrySourceUserMessageId!,
+          attempt: 1,
+          maxRetries: 3,
+          reason: "pre_output_stream_stall",
+        },
+      } as RuntimeSendMessageInput);
+
+      expect(retry.retrySourceUserMessageId).toBe(original.retrySourceUserMessageId);
+      expect(retry.activeAssistantFinalizationRetry).toMatchObject({
+        sourceUserMessageId: original.retrySourceUserMessageId,
+        reason: "pre_output_stream_stall",
+      });
+      expect(store.listMessages(thread.id)).toHaveLength(1);
     });
   });
 

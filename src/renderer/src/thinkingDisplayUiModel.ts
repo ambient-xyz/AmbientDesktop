@@ -1,5 +1,6 @@
 import type { ThinkingDisplayMode, ThinkingDisplaySettings } from "../../shared/desktopTypes";
 import type { ChatMessage, ThinkingLevel } from "../../shared/threadTypes";
+import { isHiddenTranscriptMessage } from "../../shared/threadPreview";
 
 export type ThinkingDisplayRunActivityLine = {
   id: string;
@@ -30,6 +31,7 @@ export function visibleMessagesForThinkingDisplay<T extends ChatMessage>(
 ): T[] {
   return messages.filter((message) => {
     const content = renderableMessageContentForDisplay(message);
+    if (isHiddenTranscriptMessage(message)) return false;
     if (isThinkingMessageForDisplay(message)) return mode === "full" && (Boolean(content) || messageStatus(message) === "thinking");
     if (message.role === "assistant" && !content) return false;
     return true;

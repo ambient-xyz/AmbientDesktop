@@ -22,6 +22,7 @@ import {
   visibleTranscriptRecoveryManualMessages,
   visibleTranscriptRecoveryReason,
   visibleTranscriptRecoveryRestorableSessionPlan,
+  visibleTranscriptMessagesForModelContext,
 } from "./recovery/compactionSummary";
 
 export interface AgentRuntimeContextRecoverySession extends ActiveContextUsageSnapshotSession {
@@ -158,7 +159,7 @@ export class AgentRuntimeContextRecoveryController {
       }
     }
 
-    const visibleMessages = this.options.store.listMessages(thread.id);
+    const visibleMessages = visibleTranscriptMessagesForModelContext(this.options.store.listMessages(thread.id));
     if (visibleMessages.length === 0) {
       this.options.store.updateThreadSettings(thread.id, { piSessionFile: null });
       throw new Error("There is no visible transcript to rebuild model context from.");

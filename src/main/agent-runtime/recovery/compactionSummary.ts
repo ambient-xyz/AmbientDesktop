@@ -1,4 +1,5 @@
 import type { BrowserCapabilityState } from "../../../shared/browserTypes";
+import { isHiddenTranscriptMessage } from "../../../shared/threadPreview";
 import type { ChatMessage, ThreadSummary } from "../../../shared/threadTypes";
 import type { WorkspaceGitStatus } from "../../../shared/workspaceTypes";
 
@@ -203,16 +204,17 @@ export const VISIBLE_TRANSCRIPT_RECOVERY_SYSTEM_MESSAGE =
   "Model context was rebuilt from the visible transcript. This recovery is lossy; hidden tool state and exact prior model context were not available.";
 
 export function buildAmbientCompactionSummary(input: AmbientCompactionSummaryInput): string {
-  const latestUser = latestMessage(input.visibleMessages, "user");
-  const recentAssistant = recentMessages(input.visibleMessages, "assistant", 3)
+  const visibleMessages = visibleTranscriptMessagesForModelContext(input.visibleMessages);
+  const latestUser = latestMessage(visibleMessages, "user");
+  const recentAssistant = recentMessages(visibleMessages, "assistant", 3)
     .map((message) => redactedSnippet(message.content))
     .filter(Boolean);
-  const toolErrors = input.visibleMessages
+  const toolErrors = visibleMessages
     .filter((message) => message.role === "tool" && message.metadata?.status === "error")
     .slice(-5)
     .map((message) => `${metadataString(message.metadata?.toolName) ?? "tool"}: ${redactedSnippet(message.content)}`);
-  const contextReferences = collectContextReferences(input.visibleMessages);
-  const { readFiles, modifiedFiles } = collectAmbientCompactionFileLists(input);
+  const contextReferences = collectContextReferences(visibleMessages);
+  const { readFiles, modifiedFiles } = collectAmbientCompactionFileLists({ ...input, visibleMessages });
   const canonicalSnippets = (input.summarizedMessages ?? []).map(messageSnippet).filter(Boolean).slice(-6);
 
   return [
@@ -276,7 +278,7 @@ export function collectAmbientCompactionFileLists(input: {
   visibleMessages: ChatMessage[];
   fileOps?: AmbientCompactionSummaryInput["fileOps"];
 }): AmbientCompactionFileLists {
-  const toolFiles = collectToolFiles(input.visibleMessages);
+  const toolFiles = collectToolFiles(visibleTranscriptMessagesForModelContext(input.visibleMessages));
   return {
     readFiles: uniqueStrings([...iterableValues(input.fileOps?.read), ...toolFiles.read]).slice(0, MAX_LINES_PER_SECTION),
     modifiedFiles: uniqueStrings([
@@ -288,7 +290,7 @@ export function collectAmbientCompactionFileLists(input: {
 }
 
 export function buildVisibleTranscriptRecoverySummary(input: VisibleTranscriptRecoveryInput): string {
-  const messages = input.visibleMessages
+  const messages = visibleTranscriptMessagesForModelContext(input.visibleMessages)
     .map((message) => ({ message, content: visibleTranscriptRecoveryContent(message) }))
     .filter((entry): entry is { message: ChatMessage; content: string } => Boolean(entry.content))
     .slice(-30);
@@ -348,7 +350,8 @@ export function isVisibleTranscriptRecoveryNormalCompactionRequiredError(message
 }
 
 export function selectVisibleTranscriptRecoveryMessages(messages: ChatMessage[]): VisibleTranscriptRecoveryMessageSelection {
-  const visibleTranscriptMessages = messages.filter((message) => message.content.trim() || message.role === "tool");
+  const visibleTranscriptMessages = visibleTranscriptMessagesForModelContext(messages)
+    .filter((message) => message.content.trim() || message.role === "tool");
   const recoveryTranscriptMessages =
     visibleTranscriptMessages.at(-1)?.role === "user" ? visibleTranscriptMessages.slice(0, -1) : visibleTranscriptMessages;
   return { visibleTranscriptMessages, recoveryTranscriptMessages };
@@ -359,16 +362,21 @@ export function visibleTranscriptRecoverySessionTranscriptContext(
 ): VisibleTranscriptRecoverySessionTranscriptContext {
   return {
     ...selectVisibleTranscriptRecoveryMessages(messages),
-    hasVisibleTranscript: messages.length > 0,
+    hasVisibleTranscript: visibleTranscriptMessagesForModelContext(messages).length > 0,
   };
 }
 
 export function hasSeedableVisibleTranscriptRecoveryMessages(messages: ChatMessage[]): boolean {
   return messages.some((message) => {
+    if (isHiddenTranscriptMessage(message)) return false;
     if (message.role === "tool") return true;
     if (message.role !== "assistant") return false;
     return Boolean(visibleTranscriptRecoveryContent(message));
   });
+}
+
+export function visibleTranscriptMessagesForModelContext(messages: ChatMessage[]): ChatMessage[] {
+  return messages.filter((message) => !isHiddenTranscriptMessage(message));
 }
 
 export function visibleTranscriptRecoverySessionSeedDecision(

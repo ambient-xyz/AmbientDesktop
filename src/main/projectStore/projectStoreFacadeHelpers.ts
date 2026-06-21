@@ -146,7 +146,13 @@ export interface CreateThreadOptions {
   childStatus?: SubagentRunStatus;
 }
 
-export const terminalThreadGoalStatuses = new Set<ThreadGoalStatus>(["blocked", "usage_limited", "budget_limited", "complete"]);
+export const terminalThreadGoalStatuses = new Set<ThreadGoalStatus>([
+  "blocked",
+  "usage_limited",
+  "budget_limited",
+  "provider_unavailable",
+  "complete",
+]);
 
 export function positiveIntegerOrNull(value: number | null): number | null {
   if (value === null || value === undefined) return null;

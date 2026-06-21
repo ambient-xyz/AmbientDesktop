@@ -74,10 +74,10 @@ describe("miniCpmVisualActionUiModel", () => {
       image: { path: "screens/main.webp", source: "workspace_file" },
     });
     expect(miniCpmVisualAnalyzeInputForWorkspaceFile({
-      path: "<local-user>/Desktop/Screenshot 2026-05-14 at 3.07.45 pm.png",
+      path: "/Users/Neo/Desktop/Screenshot 2026-05-14 at 3.07.45 pm.png",
       name: "Screenshot 2026-05-14 at 3.07.45 pm.png",
       source: "local",
-      absolutePath: "<local-user>/Desktop/Screenshot 2026-05-14 at 3.07.45 pm.png",
+      absolutePath: "/Users/Neo/Desktop/Screenshot 2026-05-14 at 3.07.45 pm.png",
       content: "",
       size: 256,
       truncated: false,
@@ -85,7 +85,7 @@ describe("miniCpmVisualActionUiModel", () => {
       kind: "image",
     })).toMatchObject({
       image: {
-        path: "<local-user>/Desktop/Screenshot 2026-05-14 at 3.07.45 pm.png",
+        path: "/Users/Neo/Desktop/Screenshot 2026-05-14 at 3.07.45 pm.png",
         absolute: true,
         source: "workspace_file",
       },

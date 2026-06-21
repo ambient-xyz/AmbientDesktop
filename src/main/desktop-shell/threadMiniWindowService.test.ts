@@ -68,7 +68,7 @@ const thread: ThreadSummary = {
   lastMessagePreview: "Preview",
   permissionMode: "full-access",
   collaborationMode: "agent",
-  model: "<model>",
+  model: "moonshotai/kimi-k2.7-code",
   thinkingLevel: "high",
 };
 

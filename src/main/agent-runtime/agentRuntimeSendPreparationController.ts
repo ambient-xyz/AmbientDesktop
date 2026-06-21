@@ -152,6 +152,22 @@ export class AgentRuntimeSendPreparationController {
     if (retryUserMessage) {
       this.options.emit({ type: "thread-updated", thread: this.options.store.markThreadRead(input.threadId) });
     } else if (runtimeInput.hiddenUserMessage) {
+      const userMessage = this.options.store.addMessage({
+        threadId: input.threadId,
+        role: "user",
+        content: promptContent,
+        metadata: {
+          ...(agentRuntimeUserMessageMetadata(input, { dedicatedSessionKind: runtimeInput.dedicatedSessionKind }) ?? {}),
+          runtime: "ambient-internal",
+          kind: "hidden-user-message",
+          hiddenFromTranscript: true,
+          hiddenUserMessage: true,
+          visibleUserContent,
+          ...(runtimeInput.goalContinuation?.goalId ? { goalId: runtimeInput.goalContinuation.goalId } : {}),
+        },
+      });
+      retrySourceUserMessageId = userMessage.id;
+      this.options.emit({ type: "message-created", message: userMessage });
       this.options.emit({
         type: "runtime-activity",
         activity: goalRuntimeActivity({

@@ -208,7 +208,7 @@ async function seedVoiceArtifactState(root) {
       last_message_preview TEXT NOT NULL DEFAULT '',
       permission_mode TEXT NOT NULL DEFAULT 'full-access',
       collaboration_mode TEXT NOT NULL DEFAULT 'agent',
-      model TEXT NOT NULL DEFAULT '<model>',
+      model TEXT NOT NULL DEFAULT 'moonshotai/kimi-k2.7-code',
       thinking_level TEXT NOT NULL DEFAULT 'xhigh',
       pi_session_file TEXT,
       archived_at TEXT,
@@ -633,7 +633,7 @@ async function seedRegisteredProject(root) {
       last_read_at TEXT,
       last_message_preview TEXT NOT NULL DEFAULT '',
       permission_mode TEXT NOT NULL DEFAULT 'full-access',
-      model TEXT NOT NULL DEFAULT '<model>',
+      model TEXT NOT NULL DEFAULT 'moonshotai/kimi-k2.7-code',
       thinking_level TEXT NOT NULL DEFAULT 'xhigh',
       pi_session_file TEXT
     );
@@ -679,7 +679,7 @@ async function seedLegacyGitProject(root) {
       last_read_at TEXT,
       last_message_preview TEXT NOT NULL DEFAULT '',
       permission_mode TEXT NOT NULL DEFAULT 'full-access',
-      model TEXT NOT NULL DEFAULT '<model>',
+      model TEXT NOT NULL DEFAULT 'moonshotai/kimi-k2.7-code',
       thinking_level TEXT NOT NULL DEFAULT 'xhigh',
       pi_session_file TEXT
     );

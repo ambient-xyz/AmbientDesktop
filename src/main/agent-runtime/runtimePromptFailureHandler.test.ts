@@ -4,6 +4,7 @@ import type { ChatMessage, ProviderContinuationState } from "../../shared/thread
 import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 import { handleRuntimePromptFailure, type RuntimePromptFailureHandlerInput } from "./runtimePromptFailureHandler";
 import { SYMPHONY_PARENT_MODE_MISSING_WORKFLOW_TASK_ERROR } from "./agentRuntimeSymphonyParentMode";
+import { AmbientStreamFailureError } from "./agentRuntimeAmbientFacade";
 import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import type { RuntimeToolMessageController } from "./runtimeToolMessageController";
 import {
@@ -291,6 +292,61 @@ describe("handleRuntimePromptFailure", () => {
     expect(runtimeMessages.replaceCurrentAssistant).toHaveBeenCalledWith(
       expect.stringContaining("Retrying assistant finalization attempt 1/3"),
       expect.objectContaining({ status: "done", retryingStreamStall: true }),
+    );
+    expect(finishedRuns).toEqual([{ status: "done", errorMessage: undefined }]);
+    expect(events).toContainEqual({ type: "run-status", threadId: "thread-1", status: "idle" });
+  });
+
+  it("continues from durable transcript state after completed tool output and no open tool calls", async () => {
+    const { input, retryFollowUp, runtimeMessages, events, finishedRuns, pending } = setup({
+      error: new AmbientStreamFailureError(
+        "stream_idle_timeout",
+        "Ambient/Pi stream stalled after 30000ms without stream activity.",
+        { semanticOutputSeen: true, toolCallSeen: true },
+      ),
+      retrySourceUserMessageId: "user-1",
+      streamWatchdogTimedOut: vi.fn(() => true),
+      currentPiStreamFailureKind: vi.fn(() => "stream_idle_timeout" as const),
+      receivedAnyText: vi.fn(() => true),
+      currentAssistantFinalText: vi.fn(() => "The tool finished; I need to inspect its result."),
+      toolMessages: {
+        ...setup().input.toolMessages,
+        size: vi.fn(() => 1),
+      } as RuntimePromptFailureHandlerInput["toolMessages"],
+      collectOpenProviderInterruptionToolSnapshots: vi.fn(() => []),
+      canScheduleAssistantFinalizationRetryFor: vi.fn(() => true),
+    });
+
+    await handleRuntimePromptFailure(input);
+
+    expect(pending().pendingProviderInterruptionContinuation).toBe(retryFollowUp);
+    expect(input.createProviderContinuationState).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "stream_idle_timeout",
+      retryScheduled: true,
+      replaySafe: false,
+      continuationSafe: true,
+      retryReason: "provider_interruption_continuation",
+      openToolCalls: [],
+      completedToolMessageCount: 1,
+      receivedAnyText: true,
+    }));
+    expect(input.chatStreamInterruptionDiagnostic).toHaveBeenCalledWith(
+      "Ambient/Pi stream stalled after 30000ms without stream activity.",
+      expect.objectContaining({
+        kind: "stream_idle_timeout",
+        retryScheduled: true,
+        replaySafe: false,
+        continuationSafe: true,
+        retryReason: "provider_interruption_continuation",
+        completedToolMessageCount: 1,
+      }),
+    );
+    expect(runtimeMessages.replaceCurrentAssistant).toHaveBeenCalledWith(
+      expect.stringContaining("Ambient is starting a continuation turn from the durable recovery state"),
+      expect.objectContaining({
+        status: "done",
+        providerInterruptionContinuation: true,
+      }),
     );
     expect(finishedRuns).toEqual([{ status: "done", errorMessage: undefined }]);
     expect(events).toContainEqual({ type: "run-status", threadId: "thread-1", status: "idle" });

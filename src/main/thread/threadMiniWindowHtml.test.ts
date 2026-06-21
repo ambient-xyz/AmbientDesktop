@@ -5,7 +5,7 @@ import { miniWindowHeaderPaddingLeft, renderThreadMiniWindowHtml } from "./threa
 const thread: ThreadSummary = {
   id: "thread-1",
   title: "Flying Goats Starry Night Sky",
-  workspacePath: "<local-user>/moreExperimentalFollies",
+  workspacePath: "/Users/Neo/moreExperimentalFollies",
   createdAt: "2026-05-01T00:00:00.000Z",
   updatedAt: "2026-05-01T00:00:00.000Z",
   lastMessagePreview: "",
@@ -83,5 +83,36 @@ describe("thread mini window html", () => {
     expect(full).toContain("Thinking about repository setup.");
     expect(off).not.toContain("Thinking about repository setup.");
     expect(transient).not.toContain("Thinking about repository setup.");
+  });
+
+  it("does not render hidden internal transcript anchors", () => {
+    const html = renderThreadMiniWindowHtml(
+      thread,
+      [
+        ...messages,
+        {
+          id: "hidden-goal-anchor",
+          threadId: "thread-1",
+          role: "user",
+          content: "Continue working toward the active Ambient Desktop thread goal.",
+          createdAt: "2026-05-01T00:00:02.000Z",
+          metadata: {
+            runtime: "ambient-internal",
+            kind: "hidden-user-message",
+            hiddenFromTranscript: true,
+            hiddenUserMessage: true,
+          },
+        },
+      ],
+      thread.workspacePath,
+      {
+        theme: "light",
+        platform: "darwin",
+        thinkingDisplayMode: "full",
+      },
+    );
+
+    expect(html).not.toContain("Continue working toward the active Ambient Desktop thread goal.");
+    expect(html).toContain("Initialized empty Git repository.");
   });
 });

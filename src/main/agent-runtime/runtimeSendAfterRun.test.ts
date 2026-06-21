@@ -168,4 +168,25 @@ describe("finalizeRuntimeSendAfterRun", () => {
       scheduledGoalContinuation: true,
     });
   });
+
+  it("marks goal accounting with scheduled provider interruption continuations", async () => {
+    const input = baseInput({
+      assistantChars: 0,
+      thinkingChars: 0,
+      toolMessageCount: 0,
+      pendingProviderInterruptionContinuation: followUp("provider continuation"),
+    });
+
+    await finalizeRuntimeSendAfterRun(input);
+
+    expect(input.accountFinishedGoalRun).toHaveBeenCalledWith(expect.objectContaining({
+      threadId: "thread-1",
+      goalId: "goal-1",
+      runStatus: "done",
+      runErrorMessage: undefined,
+      providerInterruptionContinuationScheduled: true,
+      internalFollowUpScheduled: true,
+    }));
+    expect(input.scheduleGoalContinuation).not.toHaveBeenCalled();
+  });
 });

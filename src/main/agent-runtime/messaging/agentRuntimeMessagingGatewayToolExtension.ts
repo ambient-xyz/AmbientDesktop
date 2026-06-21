@@ -22,10 +22,12 @@ import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
 import type { WorkflowAgentFolderSummary } from "../../../shared/workflowTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
-import type { AgentRuntimeFeatures } from "../agentRuntime";
 import { discoverAmbientCliPackages } from "../agentRuntimeAmbientCliFacade";
 import { registerMessagingOverviewTools } from "./agentRuntimeMessagingOverviewTools";
-import { registerTelegramSessionTools } from "../telegram/agentRuntimeTelegramSessionTools";
+import {
+  registerTelegramSessionTools,
+  type TelegramSessionToolRegistrationOptions,
+} from "../telegram/agentRuntimeTelegramSessionTools";
 import { registerSignalSessionTools } from "../signal/agentRuntimeSignalSessionTools";
 import { registerMessagingBindingTools } from "./agentRuntimeMessagingBindingTools";
 import { registerTelegramOwnerLoopTools } from "../telegram/agentRuntimeTelegramOwnerLoopTools";
@@ -143,11 +145,11 @@ export interface AgentRuntimeMessagingGatewayToolExtensionOptions {
   workflowRecoveryEvents: () => RuntimeSurfaceWorkflowRecoveryEvent[];
   listProjects?: () => ProjectSummary[];
   resolveFirstPartyPluginPermission: (input: AgentRuntimeMessagingFirstPartyPermissionRequest) => Promise<boolean>;
-  secureInputs: AgentRuntimeFeatures["secureInputs"];
+  secureInputs: TelegramSessionToolRegistrationOptions["secureInputs"];
   messagingGatewayStatusWithRemoteSurfaceEvents: (status: MessagingGatewayRuntimeStatus) => MessagingGatewayRuntimeStatus;
   markRemoteSurfaceRuntimeEventRelay: (result: AgentRuntimeRemoteSurfaceRuntimeEventRelayMarkInput) => void;
   isRunActive: () => boolean;
-  createProject?: NonNullable<AgentRuntimeFeatures["projects"]>["createProject"];
+  createProject?: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["createProject"];
   createChatThread: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["createChatThread"];
   createWorkflowAgentThreadSummary: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["createWorkflowAgentThreadSummary"];
   switchProjectAvailable: () => boolean;
@@ -157,15 +159,15 @@ export interface AgentRuntimeMessagingGatewayToolExtensionOptions {
   answerWorkflowDiscoveryQuestion: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["answerWorkflowDiscoveryQuestion"];
   getWorkflowDiscoveryQuestion: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["getWorkflowDiscoveryQuestion"];
   getWorkflowThreadSummary: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["getWorkflowThreadSummary"];
-  workflowAgents: AgentRuntimeFeatures["workflowAgents"];
+  workflowAgents: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["workflowAgents"];
   emit: (event: DesktopEvent) => void;
   updateThreadSettings: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["updateThreadSettings"];
-  voice: AgentRuntimeFeatures["voice"];
-  stt: AgentRuntimeFeatures["stt"];
+  voice: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["voice"];
+  stt: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["stt"];
   listSttProviders: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["listSttProviders"];
-  media: AgentRuntimeFeatures["media"];
-  planner: AgentRuntimeFeatures["planner"];
-  search: AgentRuntimeFeatures["search"];
+  media: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["media"];
+  planner: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["planner"];
+  search: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["search"];
   respondToPermissionPrompt?: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["respondToPermissionPrompt"];
   revokePermissionGrant: MessagingRemoteSurfaceCommandApplyResolverOptions<AmbientPermissionGrant>["revokePermissionGrant"];
 }

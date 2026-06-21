@@ -87,7 +87,7 @@ describe("ProjectStoreSubagentRunRepository", () => {
     const canonicalTaskPath = overrides.canonicalTaskPath ?? "root/0:explorer";
     const roleId = (overrides.roleId ?? "explorer") as SubagentRoleId;
     const createdAt = overrides.createdAt ?? now;
-    const modelRuntimeSnapshot = overrides.modelRuntimeSnapshot ?? createAmbientModelRuntimeSnapshot("<model>", createdAt);
+    const modelRuntimeSnapshot = overrides.modelRuntimeSnapshot ?? createAmbientModelRuntimeSnapshot("moonshotai/kimi-k2.7-code", createdAt);
     const roleProfileSnapshot = overrides.roleProfileSnapshot ?? getDefaultSubagentRoleProfile(roleId);
     const capacityLeaseSnapshot = overrides.capacityLeaseSnapshot ?? materializeSubagentCapacityLeaseForRun(
       fallbackSubagentCapacityLease({
@@ -127,7 +127,7 @@ describe("ProjectStoreSubagentRunRepository", () => {
   }
 
   it("creates a reserved subagent run and spawn-edge linkage", () => {
-    const modelRuntimeSnapshot = createAmbientModelRuntimeSnapshot("<model>", now);
+    const modelRuntimeSnapshot = createAmbientModelRuntimeSnapshot("moonshotai/kimi-k2.7-code", now);
     const roleProfileSnapshot = getDefaultSubagentRoleProfile("explorer");
     const capacityLeaseSnapshot = materializeSubagentCapacityLeaseForRun(
       fallbackSubagentCapacityLease({

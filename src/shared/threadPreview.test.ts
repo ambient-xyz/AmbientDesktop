@@ -56,6 +56,20 @@ describe("chooseThreadPreview", () => {
     ).toBe("inspect memory");
   });
 
+  it("skips hidden internal transcript anchors when choosing sidebar-safe previews", () => {
+    expect(
+      chooseThreadPreview([
+        { role: "assistant", content: "Still working.", createdAt: "2026-04-29T00:00:00.000Z" },
+        {
+          role: "user",
+          content: "Continue working toward the active Ambient Desktop thread goal.",
+          createdAt: "2026-04-29T00:00:01.000Z",
+          metadata: { hiddenFromTranscript: true, kind: "hidden-user-message" },
+        },
+      ]),
+    ).toBe("Still working.");
+  });
+
   it("falls back to the latest non-empty message when a thread only has tool messages", () => {
     expect(
       chooseThreadPreview([

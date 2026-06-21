@@ -18,7 +18,7 @@ describe("ProjectStoreWorkflowRecordingRepository", () => {
   const defaults: CreateProjectStoreThreadDefaults = {
     permissionMode: "workspace",
     collaborationMode: "agent",
-    model: "<model>",
+    model: "moonshotai/kimi-k2.7-code",
     thinkingLevel: "xhigh",
     memoryDefaultThreadEnabled: true,
   };

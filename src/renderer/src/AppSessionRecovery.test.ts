@@ -49,6 +49,17 @@ describe("session recovery helpers", () => {
         message({ id: "assistant", role: "assistant", content: "Answer" }),
         message({ id: "blank", role: "user", content: "  \u200B " }),
         latest,
+        message({
+          id: "hidden",
+          role: "user",
+          content: "Continue working toward the active Ambient Desktop thread goal.",
+          metadata: {
+            runtime: "ambient-internal",
+            kind: "hidden-user-message",
+            hiddenFromTranscript: true,
+            hiddenUserMessage: true,
+          },
+        }),
       ]),
     ).toBe(latest);
   });

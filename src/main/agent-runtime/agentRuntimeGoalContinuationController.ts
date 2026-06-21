@@ -7,6 +7,7 @@ import {
   GOAL_COMPLETION_MESSAGE_KIND,
   GOAL_MAX_CONTINUATION_TURNS,
   GOAL_NO_PROGRESS_TURN_LIMIT,
+  GOAL_PROVIDER_INFRA_FAILURE_LIMIT,
 } from "./agentRuntimeGoalRuntime";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import type { AccountFinishedGoalRunInput } from "./runtimeGoalContinuationAfterRun";
@@ -48,13 +49,23 @@ export class AgentRuntimeGoalContinuationController {
   accountFinishedGoalRun(input: AccountFinishedGoalRunInput): ThreadGoal | undefined {
     const seconds = Math.max(0, Math.ceil((this.now() - input.startedAtMs) / 1000));
     const tokenEstimate = Math.max(1, Math.ceil((input.promptChars + input.assistantChars + input.thinkingChars) / 4));
-    const noProgress = input.toolMessageCount === 0 && input.assistantChars < 40;
+    const providerInfrastructureFailure =
+      input.providerInterruptionContinuationScheduled === true || isProviderInfrastructureFailure(input);
+    const failedTerminalRun = input.runStatus === "error" || input.runStatus === "interrupted" || input.runStatus === "aborted";
+    const providerInfrastructureTerminalFailure = failedTerminalRun && providerInfrastructureFailure;
+    const observedAgentProgress =
+      input.toolMessageCount > 0 || input.assistantChars >= 40 || input.thinkingChars >= 40;
+    const noProgress = !providerInfrastructureFailure && !input.internalFollowUpScheduled && !observedAgentProgress;
     const accounted = this.options.store.accountThreadGoalUsage({
       threadId: input.threadId,
       goalId: input.goalId,
       tokensUsedDelta: tokenEstimate,
       timeUsedSecondsDelta: seconds,
       noProgressTurnDelta: noProgress ? 1 : 0,
+      providerInfraFailureDelta: providerInfrastructureFailure ? 1 : 0,
+      ...(providerInfrastructureTerminalFailure
+        ? { statusReason: providerInfrastructureGoalStatusReason(input.runErrorMessage) }
+        : {}),
     });
     if (!accounted) return undefined;
     let goal = accounted;
@@ -73,7 +84,38 @@ export class AgentRuntimeGoalContinuationController {
         }),
       });
     }
-    const failedTerminalRun = input.runStatus === "error" || input.runStatus === "interrupted" || input.runStatus === "aborted";
+    if (!input.abortRequested && providerInfrastructureTerminalFailure && goal.status === "active" && providerInfrastructureLimitReached(goal)) {
+      const statusReason = providerInfrastructureLimitStatusReason(goal);
+      goal = this.options.store.markThreadGoalStatus(input.threadId, "provider_unavailable", {
+        expectedGoalId: input.goalId,
+        statusReason,
+      });
+      this.options.emit({
+        type: "runtime-activity",
+        activity: goalRuntimeActivity({
+          threadId: input.threadId,
+          status: "skipped",
+          message: statusReason,
+          goalId: goal.goalId,
+        }),
+      });
+      this.options.emit({ type: "thread-goal-updated", goal });
+      return goal;
+    }
+    if (!input.abortRequested && failedTerminalRun && providerInfrastructureFailure && goal.status === "active") {
+      const statusReason = providerInfrastructureGoalStatusReason(input.runErrorMessage);
+      this.options.emit({
+        type: "runtime-activity",
+        activity: goalRuntimeActivity({
+          threadId: input.threadId,
+          status: "skipped",
+          message: statusReason,
+          goalId: goal.goalId,
+        }),
+      });
+      this.options.emit({ type: "thread-goal-updated", goal });
+      return goal;
+    }
     if (!input.abortRequested && failedTerminalRun && goal.status === "active") {
       const detail = input.runErrorMessage?.trim().slice(0, 240);
       const statusReason =
@@ -153,6 +195,24 @@ export class AgentRuntimeGoalContinuationController {
       this.options.emit({ type: "thread-goal-updated", goal: stopped });
       return;
     }
+    if (providerInfrastructureLimitReached(goal)) {
+      const statusReason = providerInfrastructureLimitStatusReason(goal);
+      const stopped = this.options.store.markThreadGoalStatus(threadId, "provider_unavailable", {
+        expectedGoalId,
+        statusReason,
+      });
+      this.options.emit({ type: "thread-goal-updated", goal: stopped });
+      this.options.emit({
+        type: "runtime-activity",
+        activity: goalRuntimeActivity({
+          threadId,
+          status: "skipped",
+          message: statusReason,
+          goalId: stopped.goalId,
+        }),
+      });
+      return;
+    }
     if (goal.continuationTurns >= GOAL_MAX_CONTINUATION_TURNS) {
       const stopped = this.options.store.markThreadGoalStatus(threadId, "usage_limited", {
         expectedGoalId,
@@ -203,4 +263,30 @@ export class AgentRuntimeGoalContinuationController {
       internal: true,
     });
   }
+}
+
+function isProviderInfrastructureFailure(input: AccountFinishedGoalRunInput): boolean {
+  if (input.abortRequested) return false;
+  const text = input.runErrorMessage ?? "";
+  return /\b(?:Ambient\/Pi\s+(?:stream|provider)|provider\s+(?:stream|interrupted|failed)|stream_idle_timeout|pre_stream_timeout|stream stalled|did not start streaming|stream interrupted|Request was aborted)\b/i.test(text);
+}
+
+function providerInfrastructureGoalStatusReason(message: string | undefined): string {
+  const detail = message?.trim().slice(0, 240);
+  return detail
+    ? `Provider recovery stopped without pausing the goal: ${detail}`
+    : "Provider recovery stopped without pausing the goal.";
+}
+
+function providerInfrastructureLimitReached(goal: Pick<ThreadGoal, "providerInfraFailures">): boolean {
+  return (goal.providerInfraFailures ?? 0) >= GOAL_PROVIDER_INFRA_FAILURE_LIMIT;
+}
+
+function providerInfrastructureLimitStatusReason(goal: Pick<ThreadGoal, "providerInfraFailures" | "statusReason">): string {
+  const failureCount = Math.max(0, Math.floor(goal.providerInfraFailures ?? 0));
+  const countLabel = `${failureCount} provider infrastructure ${failureCount === 1 ? "failure" : "failures"}`;
+  const lastStatus = goal.statusReason?.trim();
+  return lastStatus
+    ? `Provider availability retry limit reached after ${countLabel}. Last recovery status: ${lastStatus}`
+    : `Provider availability retry limit reached after ${countLabel}.`;
 }

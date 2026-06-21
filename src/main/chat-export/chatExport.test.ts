@@ -168,6 +168,17 @@ describe("chat export", () => {
       store.addMessage({ threadId: thread.id, role: "user", content: "Ask the local model." });
       store.addMessage({ threadId: thread.id, role: "assistant", content: "", metadata: { status: "done" } });
       store.addMessage({ threadId: thread.id, role: "assistant", content: "Inspecting route.", metadata: { kind: "thinking", status: "done" } });
+      store.addMessage({
+        threadId: thread.id,
+        role: "user",
+        content: "Continue working toward the active Ambient Desktop thread goal.",
+        metadata: {
+          runtime: "ambient-internal",
+          kind: "hidden-user-message",
+          hiddenFromTranscript: true,
+          hiddenUserMessage: true,
+        },
+      });
       store.addMessage({ threadId: thread.id, role: "assistant", content: "I will delegate this." });
       store.addMessage({
         threadId: thread.id,
@@ -228,6 +239,7 @@ describe("chat export", () => {
         artifactCount: 2,
       });
       expect(visible.messages.some((message: any) => message.metadata?.kind === "thinking")).toBe(false);
+      expect(visible.messages.some((message: any) => message.metadata?.hiddenFromTranscript === true)).toBe(false);
       expect(visible.messages.some((message: any) => message.role === "assistant" && !message.content.trim())).toBe(false);
       expect(artifacts.artifacts).toEqual(expect.arrayContaining([
         expect.objectContaining({
@@ -244,6 +256,7 @@ describe("chat export", () => {
         }),
       ]));
       expect(markdown).not.toContain("Inspecting route.");
+      expect(markdown).not.toContain("Continue working toward the active Ambient Desktop thread goal.");
       expect(markdown).toContain("external-model-response: delegated local model");
     } finally {
       store.close();

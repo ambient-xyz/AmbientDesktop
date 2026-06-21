@@ -258,13 +258,14 @@ export const PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL = `
         goal_id TEXT NOT NULL,
         objective TEXT NOT NULL,
         status TEXT NOT NULL CHECK(status IN (
-          'active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'complete'
+          'active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'provider_unavailable', 'complete'
         )),
         token_budget INTEGER,
         tokens_used INTEGER NOT NULL DEFAULT 0,
         time_used_seconds INTEGER NOT NULL DEFAULT 0,
         continuation_turns INTEGER NOT NULL DEFAULT 0,
         no_progress_turns INTEGER NOT NULL DEFAULT 0,
+        provider_infra_failures INTEGER NOT NULL DEFAULT 0,
         status_reason TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -1290,6 +1291,7 @@ export const PROJECT_STORE_MIGRATION_COLUMN_GROUPS = {
     ["thread_goals", "status_reason", "TEXT"],
     ["thread_goals", "completed_at", "TEXT"],
     ["thread_goals", "last_continued_at", "TEXT"],
+    ["thread_goals", "provider_infra_failures", "INTEGER NOT NULL DEFAULT 0"],
   ],
   workflowDiscoveryFinal: [
     ["workflow_discovery_questions", "cache_checkpoint_json", "TEXT"],
@@ -1304,7 +1306,8 @@ export type ProjectStoreMigrationColumnGroupKey = keyof typeof PROJECT_STORE_MIG
 
 export type ProjectStoreSchemaMigrationStep =
   | { kind: "columnGroup"; key: ProjectStoreMigrationColumnGroupKey }
-  | { kind: "index"; key: ProjectStoreMigrationIndexKey };
+  | { kind: "index"; key: ProjectStoreMigrationIndexKey }
+  | { kind: "threadGoalProviderStatusCheck" };
 
 export const PROJECT_STORE_SCHEMA_MIGRATION_STEPS_BEFORE_ORCHESTRATION_BACKFILL: readonly ProjectStoreSchemaMigrationStep[] = [
   { kind: "columnGroup", key: "coreThreadSubagent" },
@@ -1326,6 +1329,7 @@ export const PROJECT_STORE_SCHEMA_MIGRATION_STEPS_AFTER_ORCHESTRATION_BACKFILL_B
   { kind: "columnGroup", key: "workflowModelCalls" },
   { kind: "columnGroup", key: "workflowDiscoveryQuestions" },
   { kind: "columnGroup", key: "plannerThreadGoals" },
+  { kind: "threadGoalProviderStatusCheck" },
 ] as const;
 
 export const PROJECT_STORE_SCHEMA_MIGRATION_STEPS_AFTER_PLANNER_REPAIR: readonly ProjectStoreSchemaMigrationStep[] = [
@@ -1341,8 +1345,10 @@ export function applyProjectStoreSchemaMigrationSteps(
   for (const step of steps) {
     if (step.kind === "columnGroup") {
       ensureProjectStoreColumnGroup(db, step.key);
-    } else {
+    } else if (step.kind === "index") {
       ensureProjectStoreIndex(db, step.key);
+    } else {
+      ensureThreadGoalProviderStatusCheck(db);
     }
   }
 }
@@ -1357,4 +1363,60 @@ export function ensureProjectStoreColumn(db: Database.Database, table: string, c
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
   if (columns.some((item) => item.name === column)) return;
   db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+export function ensureThreadGoalProviderStatusCheck(db: Database.Database): void {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'thread_goals'").get() as
+    | { sql?: string }
+    | undefined;
+  if (!row?.sql || row.sql.includes("'provider_unavailable'")) return;
+  db.exec(`
+    DROP TABLE IF EXISTS thread_goals_status_migration;
+    CREATE TABLE thread_goals_status_migration (
+      thread_id TEXT PRIMARY KEY,
+      goal_id TEXT NOT NULL,
+      objective TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN (
+        'active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'provider_unavailable', 'complete'
+      )),
+      token_budget INTEGER,
+      tokens_used INTEGER NOT NULL DEFAULT 0,
+      time_used_seconds INTEGER NOT NULL DEFAULT 0,
+      continuation_turns INTEGER NOT NULL DEFAULT 0,
+      no_progress_turns INTEGER NOT NULL DEFAULT 0,
+      provider_infra_failures INTEGER NOT NULL DEFAULT 0,
+      status_reason TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT,
+      last_continued_at TEXT,
+      FOREIGN KEY(thread_id) REFERENCES threads(id) ON DELETE CASCADE
+    );
+    INSERT INTO thread_goals_status_migration
+      (thread_id, goal_id, objective, status, token_budget, tokens_used, time_used_seconds,
+       continuation_turns, no_progress_turns, provider_infra_failures, status_reason, created_at, updated_at, completed_at, last_continued_at)
+    SELECT
+      thread_id,
+      goal_id,
+      objective,
+      CASE
+        WHEN status IN ('active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'provider_unavailable', 'complete')
+          THEN status
+        ELSE 'paused'
+      END,
+      token_budget,
+      tokens_used,
+      time_used_seconds,
+      continuation_turns,
+      no_progress_turns,
+      provider_infra_failures,
+      status_reason,
+      created_at,
+      updated_at,
+      completed_at,
+      last_continued_at
+    FROM thread_goals;
+    DROP TABLE thread_goals;
+    ALTER TABLE thread_goals_status_migration RENAME TO thread_goals;
+  `);
 }

@@ -49,6 +49,24 @@ describe("thinkingDisplayUiModel", () => {
     expect(visibleMessagesForThinkingDisplay(messages, "off").map((item) => item.id)).toEqual(["user-1", "assistant-1"]);
   });
 
+  it("filters hidden internal transcript anchors from display", () => {
+    const messagesWithHiddenAnchor = [
+      ...messages,
+      {
+        id: "hidden-goal-anchor",
+        threadId: "thread-1",
+        role: "user" as const,
+        content: "Continue working toward the active Ambient Desktop thread goal.",
+        createdAt: "2026-04-29T00:00:03.000Z",
+        metadata: { hiddenFromTranscript: true, kind: "hidden-user-message" },
+      },
+    ];
+
+    expect(visibleMessagesForThinkingDisplay(messagesWithHiddenAnchor, "full").map((item) => item.id)).not.toContain(
+      "hidden-goal-anchor",
+    );
+  });
+
   it("matches chat find text only against visible messages", () => {
     expect(visibleTextMatchCountForThinkingDisplay({ messages, mode: "full", query: "dashboard" })).toBe(3);
     expect(visibleTextMatchCountForThinkingDisplay({ messages, mode: "transient", query: "dashboard" })).toBe(2);

@@ -44,6 +44,12 @@ describe("compaction summary helpers", () => {
       message("u1", "user", "Build a todo app with apiKey=ambient-abcdefghijklmnopqrstuvwxyz", {
         context: [{ path: "src/App.tsx" }],
       }),
+      message("hidden", "user", "Continue working toward the active Ambient Desktop thread goal.", {
+        runtime: "ambient-internal",
+        kind: "hidden-user-message",
+        hiddenFromTranscript: true,
+        hiddenUserMessage: true,
+      }),
       message("a1", "assistant", "Implemented the first screen."),
       message("t1", "tool", "Edited file", { toolName: "edit", artifactPath: "src/App.tsx", status: "done" }),
       message("t2", "tool", "Permission denied", { toolName: "bash", status: "error" }),
@@ -76,6 +82,7 @@ describe("compaction summary helpers", () => {
     expect(summary).toContain("- src/App.tsx");
     expect(summary).toContain("Canonical span: user: Need responsive UI.");
     expect(summary).toContain("apiKey=[REDACTED]");
+    expect(summary).not.toContain("Continue working toward the active Ambient Desktop thread goal.");
   });
 
   it("preserves browser session and user-action state for compaction recovery", () => {
@@ -226,8 +233,15 @@ describe("compaction summary helpers", () => {
     const toolWithoutContent = message("t1", "tool", "");
     const assistant = message("a1", "assistant", "Created the app.");
     const trailingUser = message("u1", "user", "Continue.");
+    const hiddenGoalAnchor = message("hidden", "user", "Continue working toward the active Ambient Desktop thread goal.", {
+      runtime: "ambient-internal",
+      kind: "hidden-user-message",
+      hiddenFromTranscript: true,
+      hiddenUserMessage: true,
+    });
 
     expect(selectVisibleTranscriptRecoveryMessages([
+      hiddenGoalAnchor,
       blankAssistant,
       toolWithoutContent,
       assistant,
@@ -247,6 +261,7 @@ describe("compaction summary helpers", () => {
     });
 
     expect(visibleTranscriptRecoverySessionTranscriptContext([
+      hiddenGoalAnchor,
       blankAssistant,
       toolWithoutContent,
       assistant,
@@ -255,6 +270,12 @@ describe("compaction summary helpers", () => {
       visibleTranscriptMessages: [toolWithoutContent, assistant, trailingUser],
       recoveryTranscriptMessages: [toolWithoutContent, assistant],
       hasVisibleTranscript: true,
+    });
+
+    expect(visibleTranscriptRecoverySessionTranscriptContext([hiddenGoalAnchor])).toEqual({
+      visibleTranscriptMessages: [],
+      recoveryTranscriptMessages: [],
+      hasVisibleTranscript: false,
     });
 
     expect(visibleTranscriptRecoverySessionTranscriptContext([blankAssistant])).toEqual({

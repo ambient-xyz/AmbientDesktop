@@ -137,7 +137,7 @@ export function RightPanelMediaSettingsSection({
                 className="panel-input"
                 value={miniCpmVisionRuntimePath}
                 onChange={(event) => onMiniCpmVisionRuntimePathChange(event.target.value)}
-                placeholder="<local-user>/RCLI/deps/llama.cpp/build/bin/llama-server"
+                placeholder="/Users/Neo/RCLI/deps/llama.cpp/build/bin/llama-server"
                 disabled={miniCpmVisionSetup.status === "running" || Boolean(miniCpmVisionEndpointUrl.trim())}
               />
               <small>Optional. Leave blank to use PATH, known local installs, or the workspace binding from previous setup. Disabled when using an existing endpoint.</small>

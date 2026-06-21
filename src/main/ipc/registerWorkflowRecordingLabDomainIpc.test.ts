@@ -64,10 +64,10 @@ describe("registerWorkflowRecordingLabDomainIpc", () => {
     await expect(invoke("workflow-lab:start-run", { runId: " lab-run-1 " })).resolves.toBe(runningLabRun);
 
     expect(deps.requireProjectRuntimeHostForWorkflowLabRun).toHaveBeenCalledWith("lab-run-1");
-    expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("<model>");
+    expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("moonshotai/kimi-k2.7-code");
     expect(deps.ambientRetryPolicyFromSettings).toHaveBeenCalledWith({ modelRuntime: host.store.modelRuntime });
     expect(JudgeProvider).toHaveBeenCalledWith({
-      model: "<model>",
+      model: "moonshotai/kimi-k2.7-code",
       baseUrl: "https://ambient.example",
       idleTimeoutMs: 30_000,
       retryPolicy,
@@ -90,7 +90,7 @@ describe("registerWorkflowRecordingLabDomainIpc", () => {
 
     expect(deps.ambientRetryPolicyFromSettings).not.toHaveBeenCalled();
     expect(JudgeProvider).toHaveBeenCalledWith({
-      model: "<model>",
+      model: "moonshotai/kimi-k2.7-code",
       baseUrl: "https://ambient.example",
       idleTimeoutMs: 30_000,
       retryPolicy: undefined,
@@ -124,7 +124,7 @@ function registerWithFakes({
   const runWorkflowLab = vi.fn<RegisterWorkflowRecordingLabDomainIpcDependencies["runWorkflowLab"]>(async () => runningLabRun);
   const store = {
     modelRuntime,
-    getDefaultSettings: vi.fn(() => ({ model: "<model>" })),
+    getDefaultSettings: vi.fn(() => ({ model: "moonshotai/kimi-k2.7-code" })),
     getModelRuntimeSettings: vi.fn(() => modelRuntime),
     getWorkspace: vi.fn(() => ({ path: "/workspace" })),
     createWorkflowRecordingThread: vi.fn(() => thread),
@@ -158,7 +158,7 @@ function registerWithFakes({
     emitProjectStateIfActive: vi.fn(),
     emitWorkflowRecordingLibraryStateChanged: vi.fn(),
     getAmbientProviderStatus: vi.fn(() => ({
-      model: "<model>",
+      model: "moonshotai/kimi-k2.7-code",
       baseUrl: "https://ambient.example",
     })),
     getFeatureFlagSnapshot: vi.fn(() =>
@@ -260,7 +260,7 @@ function sampleJudgeResult() {
     generalization: 0.85,
     intentPreservation: 0.95,
     rationale: "Strong variant.",
-    model: "<model>",
+    model: "moonshotai/kimi-k2.7-code",
   };
 }
 

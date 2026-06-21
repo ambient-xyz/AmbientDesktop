@@ -22,10 +22,12 @@ import type {
 } from "../../shared/desktopTypes";
 import type { SlashCommandSelection } from "../../shared/slashCommandTypes";
 import type {
+  ChatMessage,
   ContextUsageSnapshot,
   ThreadGoal,
   ThreadSummary,
 } from "../../shared/threadTypes";
+import { isHiddenTranscriptMessage } from "../../shared/threadPreview";
 
 type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
 type MaybePromise<T> = T | Promise<T>;
@@ -41,6 +43,7 @@ export const chatRuntimeDomainIpcChannels = [
 export interface ChatRuntimeStore {
   getThread(threadId: string): ThreadSummary;
   getWorkspace(): { path: string };
+  listMessages(threadId: string): ChatMessage[];
   deleteMessagesAfter(threadId: string, messageId: string): unknown;
   getThreadGoal(threadId: string): ThreadGoal | undefined;
   setThreadGoal(input: {
@@ -149,8 +152,13 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
           )
         : undefined;
       if (input.retryOfMessageId) {
-        targetStore.deleteMessagesAfter(input.threadId, input.retryOfMessageId);
-        emitProjectStateIfActive(host, stateThreadId);
+        const retryTarget = targetStore
+          .listMessages(input.threadId)
+          .find((message) => message.id === input.retryOfMessageId);
+        if (!retryTarget || !isHiddenTranscriptMessage(retryTarget)) {
+          targetStore.deleteMessagesAfter(input.threadId, input.retryOfMessageId);
+          emitProjectStateIfActive(host, stateThreadId);
+        }
       }
       if (input.goalMode?.enabled) {
         if (input.collaborationMode === "planner") {

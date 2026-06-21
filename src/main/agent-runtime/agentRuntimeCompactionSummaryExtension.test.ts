@@ -51,7 +51,7 @@ describe("createAmbientCompactionSummaryExtension", () => {
       model: { id: "ambient-test" } as Model<"openai-completions">,
       apiKey: "test-api-key",
       getThread: () => thread(),
-      listMessages: () => visibleMessages(),
+      listMessages: () => [...visibleMessages(), hiddenGoalAnchorMessage()],
       getBrowserState: async () => browserState as any,
       getWorkspaceGitStatus: async () => gitStatus as any,
       compactPiContext,
@@ -443,4 +443,20 @@ function visibleMessages(): ChatMessage[] {
       createdAt: "2026-06-12T04:59:00.000Z",
     } as ChatMessage,
   ];
+}
+
+function hiddenGoalAnchorMessage(): ChatMessage {
+  return {
+    id: "hidden-goal-anchor",
+    threadId: "thread-1",
+    role: "user",
+    content: "Continue working toward the active Ambient Desktop thread goal.",
+    createdAt: "2026-06-12T04:59:30.000Z",
+    metadata: {
+      runtime: "ambient-internal",
+      kind: "hidden-user-message",
+      hiddenFromTranscript: true,
+      hiddenUserMessage: true,
+    },
+  } as ChatMessage;
 }

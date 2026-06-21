@@ -40,4 +40,4 @@ Use this index to find the current plan of record, archived predecessor plans, a
 | MCP default runtime | `pnpm run test:mcp-default-runtime-release-gate` |
 | Project board Phase 8 | `pnpm run test:project-board-release-gate:phase8` |
 
-Provider-dependent validation follows `Agents.md`: while provider availability note, use Ambient with Kimi (`AMBIENT_PROVIDER=ambient`, `AMBIENT_LIVE_MODEL=<model>`). Treat GMI Cloud as explicit-request or approved-failover inventory only.
+Provider-dependent validation follows `Agents.md`: while GLM 5.1 is degraded, use Ambient with Kimi (`AMBIENT_PROVIDER=ambient`, `AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code`). Treat GMI Cloud as explicit-request or approved-failover inventory only.

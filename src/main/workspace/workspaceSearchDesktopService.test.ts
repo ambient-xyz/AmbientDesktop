@@ -18,7 +18,7 @@ function thread(id: string, workspacePath = "/workspace/main"): ThreadSummary {
     lastMessagePreview: "",
     permissionMode: "workspace",
     collaborationMode: "agent",
-    model: "<model>",
+    model: "moonshotai/kimi-k2.7-code",
     thinkingLevel: "medium",
   };
 }
