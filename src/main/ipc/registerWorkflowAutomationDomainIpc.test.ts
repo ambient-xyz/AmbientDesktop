@@ -91,6 +91,18 @@ describe("registerWorkflowAutomationDomainIpc", () => {
 
     expect(deps.requireProjectRuntimeHostForAutomationSchedule).toHaveBeenCalledWith("schedule-1");
     expect(host.store.updateAutomationSchedule).toHaveBeenCalledWith({ id: "schedule-1", enabled: false });
+    expect(deps.emitProjectStateIfActive).toHaveBeenCalledWith(host);
+  });
+
+  it("emits project state after schedule occurrence mutations that can clear timer indicators", () => {
+    const { deps, host, invoke } = registerWithFakes();
+
+    expect(invoke("automations:skip-schedule-occurrence", { scheduleId: "schedule-1" })).toEqual({ scheduleId: "schedule-1" });
+    expect(invoke("automations:reschedule-schedule-occurrence", { scheduleId: "schedule-1" })).toEqual({ scheduleId: "schedule-1" });
+
+    expect(deps.emitProjectStateIfActive).toHaveBeenCalledTimes(2);
+    expect(deps.emitProjectStateIfActive).toHaveBeenNthCalledWith(1, host);
+    expect(deps.emitProjectStateIfActive).toHaveBeenNthCalledWith(2, host);
   });
 
   it("creates workflow samples through the active host and emits workflow updates", () => {
@@ -183,6 +195,7 @@ function registerWithFakes() {
     createWorkflowSampleArtifact: vi.fn(() => workflowDashboard),
     describeWorkflowDiscoveryCapability: vi.fn(),
     emitPermissionGrantCreated: vi.fn(),
+    emitProjectStateIfActive: vi.fn(),
     emitWorkflowEvent: vi.fn(),
     emitWorkflowUpdated: vi.fn(),
     ensureWorkflowPluginTrusted: vi.fn(),

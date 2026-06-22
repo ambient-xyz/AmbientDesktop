@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AgentRuntimeFeatures } from "./agentRuntime";
+import type { AgentRuntimeFeatures } from "./agentRuntimeFeatures";
 import {
   createAgentRuntimeFeatureFactory,
   type AgentRuntimeFeatureFactoryDependencies,

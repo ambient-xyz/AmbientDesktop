@@ -1,4 +1,4 @@
-import type { AgentRuntimeFeatures } from "./agentRuntime";
+import type { AgentRuntimeFeatures } from "./agentRuntimeFeatures";
 
 type FeatureSection<Key extends keyof AgentRuntimeFeatures> = NonNullable<AgentRuntimeFeatures[Key]>;
 type FeatureCallback<Callback> = NonNullable<Callback>;

@@ -41,7 +41,7 @@ import type { UtilityPanel } from "./RightPanel";
 
 export type SidebarArea = "projects" | "automations";
 
-type AppShellSidebarProps = {
+export type AppShellSidebarProps = {
   width: number;
   minWidth: number;
   maxWidth: number;

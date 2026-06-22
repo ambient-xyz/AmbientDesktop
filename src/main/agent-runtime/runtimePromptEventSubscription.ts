@@ -28,7 +28,8 @@ export function subscribeRuntimePromptEvents(input: RuntimePromptEventSubscripti
     input.markPostToolEvent();
     const normalized = normalizePiEvent(event);
     const assistantStartEvent = isAssistantStartEvent(event);
-    if (normalized.kind !== "unknown" || assistantStartEvent) {
+    const streamActivityEvent = isPiStreamActivityEvent(normalized, assistantStartEvent);
+    if (streamActivityEvent) {
       input.recordPiStreamTraceEvent(
         event,
         assistantStartEvent && normalized.kind === "unknown" ? { kind: "assistant-start" } : normalized,
@@ -45,4 +46,9 @@ export function subscribeRuntimePromptEvents(input: RuntimePromptEventSubscripti
 function isAssistantStartEvent(event: unknown): boolean {
   const candidate = event as { type?: unknown; message?: { role?: unknown } } | null | undefined;
   return candidate?.type === "message_start" && candidate.message?.role === "assistant";
+}
+
+function isPiStreamActivityEvent(event: NormalizedPiEvent, assistantStartEvent: boolean): boolean {
+  if (assistantStartEvent) return true;
+  return event.kind !== "unknown";
 }

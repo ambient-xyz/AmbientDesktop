@@ -20,7 +20,7 @@ describe("externalUrlPolicy", () => {
 
   it("rejects file, script, data, custom, and non-loopback http links", () => {
     for (const url of [
-      "file:///Users/Neo/.ssh/id_rsa",
+      "file:///Users/example/.ssh/id_rsa",
       "javascript:alert(1)",
       "data:text/html,<script>alert(1)</script>",
       "ambient://dangerous-action",

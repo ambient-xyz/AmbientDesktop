@@ -18,8 +18,8 @@ import packageJson from "../../package.json";
 import {
   AgentRuntime,
   RUNTIME_RESET_INTERRUPTED_RUN_MESSAGE,
-  type AgentRuntimeFeatures,
 } from "./agent-runtime/agentRuntime";
+import type { AgentRuntimeFeatures } from "./agent-runtime/agentRuntimeFeatures";
 import {
   createAgentRuntimeFeatureFactory,
   type AgentRuntimeFeatureFactoryContext,

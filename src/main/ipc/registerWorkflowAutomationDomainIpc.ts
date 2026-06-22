@@ -126,6 +126,7 @@ export function registerWorkflowAutomationDomainIpc(deps: RegisterWorkflowAutoma
     createWorkflowSampleArtifact,
     describeWorkflowDiscoveryCapability,
     emitPermissionGrantCreated,
+    emitProjectStateIfActive,
     emitWorkflowEvent,
     emitWorkflowUpdated,
     ensureWorkflowPluginTrusted,
@@ -464,7 +465,9 @@ export function registerWorkflowAutomationDomainIpc(deps: RegisterWorkflowAutoma
     handleIpc,
     createAutomationSchedule: (input) => {
       const host = requireProjectRuntimeHostForAutomationScheduleTarget(input);
-      return host.store.createAutomationSchedule(input);
+      const schedules = host.store.createAutomationSchedule(input);
+      emitProjectStateIfActive(host);
+      return schedules;
     },
   });
 
@@ -472,7 +475,9 @@ export function registerWorkflowAutomationDomainIpc(deps: RegisterWorkflowAutoma
     handleIpc,
     updateAutomationSchedule: (input) => {
       const host = requireProjectRuntimeHostForAutomationSchedule(input.id);
-      return host.store.updateAutomationSchedule(input);
+      const schedules = host.store.updateAutomationSchedule(input);
+      emitProjectStateIfActive(host);
+      return schedules;
     },
   });
 
@@ -490,7 +495,9 @@ export function registerWorkflowAutomationDomainIpc(deps: RegisterWorkflowAutoma
     handleIpc,
     skipAutomationScheduleOccurrence: (input) => {
       const host = requireProjectRuntimeHostForAutomationSchedule(input.scheduleId);
-      return host.store.skipAutomationScheduleOccurrence(input);
+      const result = host.store.skipAutomationScheduleOccurrence(input);
+      emitProjectStateIfActive(host);
+      return result;
     },
   });
 
@@ -498,7 +505,9 @@ export function registerWorkflowAutomationDomainIpc(deps: RegisterWorkflowAutoma
     handleIpc,
     rescheduleAutomationScheduleOccurrence: (input) => {
       const host = requireProjectRuntimeHostForAutomationSchedule(input.scheduleId);
-      return host.store.rescheduleAutomationScheduleOccurrence(input);
+      const result = host.store.rescheduleAutomationScheduleOccurrence(input);
+      emitProjectStateIfActive(host);
+      return result;
     },
   });
 

@@ -3,6 +3,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { SttProviderSetupResult, SttTestAudioInput, SttTestAudioResult } from "../../shared/localRuntimeTypes";
 import type { SttMicTestUiState, SttProviderSetupUiState } from "./RightPanel";
+import type { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
 import {
   listSttMicrophoneDevices,
   startSttMicrophoneRecorder,
@@ -142,4 +143,38 @@ export function createAppSttMicrophoneActions({
     startSttMicTest,
     stopSttMicTestAndValidate,
   };
+}
+
+type AppSttMicrophoneRuntimeStateInput = Pick<
+  ReturnType<typeof useAppProviderRuntimeState>,
+  | "setSttMicTest"
+  | "setSttMicrophoneDevices"
+  | "setSttMicrophoneDevicesError"
+  | "setSttMicrophoneDevicesLoading"
+  | "sttMicRecorderRef"
+  | "sttProviderSetup"
+>;
+
+export function createAppSttMicrophoneActionsForRuntimeState({
+  providerRuntimeState,
+  setupSttProvider,
+  state,
+}: {
+  providerRuntimeState: AppSttMicrophoneRuntimeStateInput;
+  setupSttProvider: (
+    action: "install" | "repair" | "validate",
+    options?: { validationAudioPath?: string; enable?: boolean },
+  ) => Promise<SttProviderSetupResult | undefined>;
+  state: DesktopState | undefined;
+}): ReturnType<typeof createAppSttMicrophoneActions> {
+  return createAppSttMicrophoneActions({
+    setSttMicTest: providerRuntimeState.setSttMicTest,
+    setSttMicrophoneDevices: providerRuntimeState.setSttMicrophoneDevices,
+    setSttMicrophoneDevicesError: providerRuntimeState.setSttMicrophoneDevicesError,
+    setSttMicrophoneDevicesLoading: providerRuntimeState.setSttMicrophoneDevicesLoading,
+    setupSttProvider,
+    state,
+    sttMicRecorderRef: providerRuntimeState.sttMicRecorderRef,
+    sttProviderSetup: providerRuntimeState.sttProviderSetup,
+  });
 }

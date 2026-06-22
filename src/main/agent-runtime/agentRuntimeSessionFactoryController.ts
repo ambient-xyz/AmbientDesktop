@@ -35,7 +35,7 @@ import {
   resolveAmbientCliSkillMount,
   type AmbientCliSkillMountDiagnostics,
 } from "./agentRuntimeAmbientCliSkillMount";
-import type { AgentRuntimeFeatures } from "./agentRuntime";
+import type { AgentRuntimeFeatures } from "./agentRuntimeFeatures";
 import type { RuntimeSessionRecoveryContext } from "./agentRuntimeAssistantRetryInput";
 import {
   CALLABLE_WORKFLOW_CATALOG_DESCRIBE_TOOL_NAME,

@@ -1,4 +1,5 @@
 import type { AmbientModelRuntimeProfile, AmbientProviderDescriptor } from "./ambientModels";
+import type { AutomationScheduleTargetKind } from "./automationTypes";
 import type {
   ModelProviderCapabilityEligibility,
   ModelProviderCapabilityProbeId,
@@ -322,6 +323,13 @@ export interface ThreadWorktreeSummary {
   error?: string;
 }
 
+export interface ThreadScheduledCheckInSummary {
+  scheduleId: string;
+  nextRunAt: string;
+  targetKind: AutomationScheduleTargetKind;
+  targetLabel: string;
+}
+
 export interface ThreadSummary {
   id: string;
   title: string;
@@ -349,6 +357,7 @@ export interface ThreadSummary {
   gitWorktree?: ThreadWorktreeSummary;
   pinned?: boolean;
   workflowRecording?: WorkflowRecordingState;
+  scheduledCheckIn?: ThreadScheduledCheckInSummary;
 }
 
 export type ThreadKind = "chat" | "subagent_child";

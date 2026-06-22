@@ -389,7 +389,7 @@ function readLiveAmbientApiKey(): string {
     join(repoRoot, "ambient_api_key.txt"),
     join(dirname(repoRoot), "ambient_api_key.txt"),
     join(dirname(dirname(repoRoot)), "ambient_api_key.txt"),
-    "/Users/Neo/Documents/ambientCoder/ambient_api_key.txt",
+    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
   ].filter((candidate): candidate is string => Boolean(candidate));
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;

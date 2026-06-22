@@ -294,6 +294,10 @@ function repoInput() {
         "src/renderer/src/App.tsx",
         "src/renderer/src/AppModalHost.tsx",
         "src/renderer/src/AppDialogs.tsx",
+        "src/renderer/src/AppModalHostProps.ts",
+        "src/renderer/src/AppRightPanelHostProps.ts",
+        "src/renderer/src/RightPanel.tsx",
+        "src/renderer/src/RightPanelMcpController.ts",
       ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n"),
     },
     descriptors: readdirSync(join(process.cwd(), "resources", "mcp-catalog", "default"))

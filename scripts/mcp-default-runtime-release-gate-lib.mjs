@@ -420,7 +420,7 @@ function defaultArtifactResolutionSurfaceCheck(sourceFiles) {
       terms: ["formatToolHiveRunImportFailure", "Actionable diagnosis", "platform-specific Linux child manifest"],
     },
     {
-      label: "App.tsx",
+      label: "renderer default capability handoff surface",
       text: files.rendererAppTsx,
       terms: ["LocalDeepResearchFollowupDialog", "openSearchWebSettings", "onDefaultCapabilityInstalled"],
     },

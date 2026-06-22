@@ -847,7 +847,15 @@ export function threadIndicator(thread: ThreadSummary, status?: RunStatus, activ
   if (unread) {
     return { kind: "awaiting", label: "New work" };
   }
+  if (!active && thread.scheduledCheckIn?.nextRunAt) {
+    return { kind: "scheduled", label: scheduledCheckInIndicatorLabel(thread.scheduledCheckIn) };
+  }
   return { kind: "idle", label: "Idle" };
+}
+
+function scheduledCheckInIndicatorLabel(checkIn: NonNullable<ThreadSummary["scheduledCheckIn"]>): string {
+  const nextRunAt = formatTimelineTime(checkIn.nextRunAt);
+  return nextRunAt ? `Scheduled check-in for ${checkIn.targetLabel} at ${nextRunAt}` : `Scheduled check-in for ${checkIn.targetLabel}`;
 }
 
 export function threadHasUnreadWork(thread: ThreadSummary): boolean {
@@ -1447,6 +1455,7 @@ export function WorkflowAgentSidebar({
 export function ThreadIndicatorIcon({ kind }: { kind: ThreadIndicatorKind }) {
   if (kind === "running") return <LoaderCircle size={12} className="spin" />;
   if (kind === "error") return <AlertCircle size={12} />;
+  if (kind === "scheduled") return <Clock size={12} />;
   if (kind === "awaiting") return <span aria-hidden="true" />;
   return <span aria-hidden="true" />;
 }

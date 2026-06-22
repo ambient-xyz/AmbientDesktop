@@ -793,7 +793,7 @@ export function WorkflowRuntimeBrowserScreenshotPreview({
   );
 }
 
-export type ThreadIndicatorKind = "running" | "awaiting" | "error" | "idle";
+export type ThreadIndicatorKind = "running" | "scheduled" | "awaiting" | "error" | "idle";
 
 export function automationIndicatorKind(status: string): ThreadIndicatorKind {
   if (["running", "preparing", "claimed", "created"].includes(status)) return "running";

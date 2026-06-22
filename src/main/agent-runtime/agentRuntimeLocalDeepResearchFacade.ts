@@ -15,6 +15,7 @@ export {
 export type {
   LocalDeepResearchInstallRequest,
   LocalDeepResearchInstallServiceResult,
+  LocalDeepResearchManagedAssetDetection,
   LocalDeepResearchModelProfileId,
   LocalDeepResearchProviderSnapshot,
   LocalDeepResearchRunRequest,

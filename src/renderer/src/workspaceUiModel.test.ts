@@ -19,8 +19,8 @@ describe("isPreparedLocalTaskWorkspace", () => {
   it("matches orchestration prepared local task workspaces", () => {
     expect(
       isPreparedLocalTaskWorkspace(
-        "/Users/Neo/Documents/project",
-        "/Users/Neo/Documents/project/.ambient-codex/orchestration/workspaces/task-123",
+        "/Users/example/Documents/project",
+        "/Users/example/Documents/project/.ambient-codex/orchestration/workspaces/task-123",
       ),
     ).toBe(true);
   });
@@ -28,18 +28,18 @@ describe("isPreparedLocalTaskWorkspace", () => {
   it("does not match ordinary thread git worktrees", () => {
     expect(
       isPreparedLocalTaskWorkspace(
-        "/Users/Neo/Documents/alexDemo",
-        "/Users/Neo/Documents/alexDemo/.ambient-codex/worktrees/77bbe97a-01ff-40e9-bf1b-1c5e0c41a731",
+        "/Users/example/Documents/alexDemo",
+        "/Users/example/Documents/alexDemo/.ambient-codex/worktrees/77bbe97a-01ff-40e9-bf1b-1c5e0c41a731",
       ),
     ).toBe(false);
   });
 
   it("does not match the project root or sibling paths with a similar prefix", () => {
-    expect(isPreparedLocalTaskWorkspace("/Users/Neo/Documents/project", "/Users/Neo/Documents/project")).toBe(false);
+    expect(isPreparedLocalTaskWorkspace("/Users/example/Documents/project", "/Users/example/Documents/project")).toBe(false);
     expect(
       isPreparedLocalTaskWorkspace(
-        "/Users/Neo/Documents/project",
-        "/Users/Neo/Documents/project-copy/.ambient-codex/orchestration/workspaces/task-123",
+        "/Users/example/Documents/project",
+        "/Users/example/Documents/project-copy/.ambient-codex/orchestration/workspaces/task-123",
       ),
     ).toBe(false);
   });

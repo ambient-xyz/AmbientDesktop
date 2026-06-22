@@ -131,6 +131,7 @@ describe("AgentRuntime Local Deep Research setup facade tools", () => {
     try {
       const workspace = store.openWorkspace(workspacePath);
       const runtimeStateDir = join(workspacePath, ".ambient/local-model-runtime/local-text-runtime");
+      const activeLeaseAt = new Date().toISOString();
       await mkdir(runtimeStateDir, { recursive: true });
       await writeFile(join(runtimeStateDir, "runtime-state.json"), JSON.stringify({
         schemaVersion: "ambient-local-model-runtime-state-v1",
@@ -146,8 +147,8 @@ describe("AgentRuntime Local Deep Research setup facade tools", () => {
         subagentThreadId: "child-thread",
         ownerDisplayName: "Review worker",
         estimatedResidentMemoryBytes: 6 * gib,
-        startedAt: "2026-06-05T00:00:00.000Z",
-        lastUsedAt: "2026-06-05T00:00:00.000Z",
+        startedAt: activeLeaseAt,
+        lastUsedAt: activeLeaseAt,
       }, null, 2), "utf8");
       const runtime = new AgentRuntime(store, {} as any, {} as any, () => undefined, {
         request: vi.fn(),
@@ -176,8 +177,8 @@ describe("AgentRuntime Local Deep Research setup facade tools", () => {
           estimatedResidentMemoryBytes: 6 * gib,
           pid: process.pid,
           endpoint: "http://127.0.0.1:43123/health",
-          acquiredAt: "2026-06-05T00:00:00.000Z",
-          lastHeartbeatAt: "2026-06-05T00:01:00.000Z",
+          acquiredAt: activeLeaseAt,
+          lastHeartbeatAt: activeLeaseAt,
           status: "running",
         }],
       };

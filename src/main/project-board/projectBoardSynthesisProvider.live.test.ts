@@ -379,7 +379,7 @@ describe("AmbientProjectBoardSynthesisProvider live", () => {
     "elaborates additive cards from the actual Last Vector spaceship game design document",
     async () => {
       const apiKey = readLiveAmbientApiKey();
-      const designDocPath = "/Users/Neo/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
+      const designDocPath = "/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
       expect(existsSync(designDocPath)).toBe(true);
       const designDoc = readFileSync(designDocPath, "utf8");
       const progress: string[] = [];
@@ -1168,7 +1168,7 @@ describe("AmbientProjectBoardSynthesisProvider live", () => {
     "sectioned planning imports progressive records from the actual Last Vector design document",
     async () => {
       const apiKey = readLiveAmbientApiKey();
-      const designDocPath = "/Users/Neo/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
+      const designDocPath = "/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
       expect(existsSync(designDocPath)).toBe(true);
       const designDoc = readFileSync(designDocPath, "utf8");
       const progress: string[] = [];
@@ -1212,7 +1212,7 @@ describe("AmbientProjectBoardSynthesisProvider live", () => {
     "compares sectioned planning quality with normal and capped reasoning on the actual Last Vector design document",
     async () => {
       const apiKey = readLiveAmbientApiKey();
-      const designDocPath = "/Users/Neo/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
+      const designDocPath = "/Users/example/Documents/testStarshipGame/GAME_DESIGN_DOCUMENT.md";
       expect(existsSync(designDocPath)).toBe(true);
       const designDoc = readFileSync(designDocPath, "utf8");
       const sources: ProjectBoardSynthesisSource[] = [

@@ -19,6 +19,7 @@ describe("AgentRuntimeProviderRuntimeController", () => {
     try {
       const workspace = store.openWorkspace(workspacePath);
       const thread = store.createThread("provider runtime");
+      const localModelRuntimeManager = new LocalModelRuntimeManager();
       const controller = new AgentRuntimeProviderRuntimeController({
         store,
         features: {
@@ -31,7 +32,7 @@ describe("AgentRuntimeProviderRuntimeController", () => {
             listProviders: () => [],
           },
         },
-        localModelRuntimeManager: new LocalModelRuntimeManager(),
+        localModelRuntimeManager: () => localModelRuntimeManager,
         resolveFirstPartyPluginPermission: vi.fn(async () => true),
         resolveLocalRuntimeOwnershipForForcedAction: vi.fn(async () => {
           throw new Error("forced ownership resolution should not run during registration");

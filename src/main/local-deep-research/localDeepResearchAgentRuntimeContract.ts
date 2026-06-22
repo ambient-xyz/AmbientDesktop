@@ -20,6 +20,9 @@ export {
   detectLocalDeepResearchManagedAssets,
   localDeepResearchModelCachePath,
 } from "./localDeepResearchManagedAssets";
+export type {
+  LocalDeepResearchManagedAssetDetection,
+} from "./localDeepResearchManagedAssets";
 
 export {
   localDeepResearchProfileById,

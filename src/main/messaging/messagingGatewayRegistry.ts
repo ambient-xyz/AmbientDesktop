@@ -133,16 +133,16 @@ export function telegramMessagingProviderDescriptor(): MessagingProviderDescript
       messaging_connector: true,
     },
     installNotes: [
-      "First-party provider target should reuse or adapt /Users/Neo/ambientAgent/packages/telegram/src/bridge.ts.",
+      "First-party provider target should reuse or adapt /Users/example/ambientAgent/packages/telegram/src/bridge.ts.",
       "The provider registry slice only declares capability/health metadata; it does not start the Telegram bridge yet.",
     ],
     referencePaths: [
-      "/Users/Neo/ambientAgent/packages/telegram/src/bridge.ts",
-      "/Users/Neo/ambientAgent/packages/telegram/src/api.ts",
-      "/Users/Neo/ambientAgent/internal/telegram/service.go",
-      "/Users/Neo/ambientAgent/internal/httpapi/operator_channel_bindings.go",
-      "/Users/Neo/hermes-agent/gateway/platforms/telegram.py",
-      "/Users/Neo/hermes-agent/gateway/platforms/base.py",
+      "/Users/example/ambientAgent/packages/telegram/src/bridge.ts",
+      "/Users/example/ambientAgent/packages/telegram/src/api.ts",
+      "/Users/example/ambientAgent/internal/telegram/service.go",
+      "/Users/example/ambientAgent/internal/httpapi/operator_channel_bindings.go",
+      "/Users/example/hermes-agent/gateway/platforms/telegram.py",
+      "/Users/example/hermes-agent/gateway/platforms/base.py",
     ],
   });
 }
@@ -215,11 +215,11 @@ export function signalMessagingProviderDescriptor(): MessagingProviderDescriptor
       "Compare Hermes Signal gateway pieces before implementing: gateway/platforms/signal.py, tests/gateway/test_signal.py, tests/gateway/test_signal_format.py, and website/docs/user-guide/messaging/signal.md.",
     ],
     referencePaths: [
-      "/Users/Neo/hermes-agent/gateway/platforms/signal.py",
-      "/Users/Neo/hermes-agent/gateway/platforms/signal_rate_limit.py",
-      "/Users/Neo/hermes-agent/tests/gateway/test_signal.py",
-      "/Users/Neo/hermes-agent/tests/gateway/test_signal_format.py",
-      "/Users/Neo/hermes-agent/website/docs/user-guide/messaging/signal.md",
+      "/Users/example/hermes-agent/gateway/platforms/signal.py",
+      "/Users/example/hermes-agent/gateway/platforms/signal_rate_limit.py",
+      "/Users/example/hermes-agent/tests/gateway/test_signal.py",
+      "/Users/example/hermes-agent/tests/gateway/test_signal_format.py",
+      "/Users/example/hermes-agent/website/docs/user-guide/messaging/signal.md",
     ],
   });
 }

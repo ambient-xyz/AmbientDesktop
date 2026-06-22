@@ -831,7 +831,7 @@ async function readAmbientApiKey() {
     join(process.cwd(), "..", "ambient_api_key.txt"),
     join(process.cwd(), "..", "..", "ambient_api_key.txt"),
     join(homedir(), "ambient_api_key.txt"),
-    "/Users/Neo/Documents/ambientCoder/ambient_api_key.txt",
+    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
   ].filter(Boolean);
   for (const candidate of candidates) {
     try {

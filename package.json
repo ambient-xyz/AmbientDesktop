@@ -1,6 +1,6 @@
 {
   "name": "ambient-desktop",
-  "version": "0.1.84",
+  "version": "0.1.85",
   "description": "A local-first developer workstation for durable, inspectable agentic work.",
   "author": "Mechanus Labs Inc.",
   "license": "MIT",
@@ -68,7 +68,6 @@
     "test:provider-restart:desktop-dogfood": "AMBIENT_PROVIDER=ambient AMBIENT_LIVE_MODEL=${AMBIENT_LIVE_MODEL:-moonshotai/kimi-k2.7-code} node scripts/run-provider-restart-behavior-live-gates.mjs",
     "test:provider-restart:desktop-dogfood:unit": "pnpm exec vitest run scripts/provider-restart-behavior-dogfood.test.mjs",
     "test:running-model-status:desktop-dogfood": "pnpm run test:running-model-status:desktop-dogfood:kimi && pnpm run test:running-model-status:desktop-dogfood:glm52",
-    "test:running-model-status:desktop-dogfood:kimi": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=moonshotai/kimi-k2.7-code node scripts/run-electron-dogfood.mjs --manifest-out=test-results/harness/running-model-status-kimi.manifest.json --scenario=running-model-status -- --expected-model=moonshotai/kimi-k2.7-code",
     "test:running-model-status:desktop-dogfood:glm52": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=zai-org/GLM-5.2-FP8 node scripts/run-electron-dogfood.mjs --manifest-out=test-results/harness/running-model-status-glm52.manifest.json --scenario=running-model-status -- --expected-model=zai-org/GLM-5.2-FP8",
     "test:running-model-status:desktop-dogfood:unit": "pnpm exec vitest run scripts/running-model-status-dogfood.test.mjs",
     "test:memory:repair:desktop-dogfood": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} node scripts/run-electron-dogfood.mjs --manifest-out=test-results/harness/agent-memory-repair-resident-conflict.manifest.json --scenario=agent-memory-repair-resident-conflict",
@@ -385,7 +384,8 @@
     "verify:native:node": "node scripts/verify-node-native-modules.mjs",
     "verify:native:electron": "node scripts/verify-electron-native-modules.mjs",
     "verify:packaged-native": "node scripts/verify-electron-native-modules.mjs --packaged",
-    "postinstall": "pnpm run prepare:node-native"
+    "postinstall": "pnpm run prepare:node-native",
+    "test:running-model-status:desktop-dogfood:kimi": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=${AMBIENT_LIVE_MODEL:-moonshotai/kimi-k2.7-code} node scripts/run-electron-dogfood.mjs --manifest-out=test-results/harness/running-model-status-kimi.manifest.json --scenario=running-model-status -- --expected-model=moonshotai/kimi-k2.7-code"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.71",

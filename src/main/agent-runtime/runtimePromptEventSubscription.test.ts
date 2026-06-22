@@ -112,6 +112,45 @@ describe("subscribeRuntimePromptEvents", () => {
     );
   });
 
+  it("does not treat user or custom message_end events as stream activity", () => {
+    const harness = createHarness({ streamHandled: false });
+    const userEvent = {
+      type: "message_end",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "Remember that my favorite day is the ides of march" }],
+      },
+    };
+    const customEvent = {
+      type: "message_end",
+      message: {
+        role: "custom",
+        customType: "ambient-provider-selection-context",
+        content: "Ambient provider-selection reminder",
+      },
+    };
+
+    harness.emit(userEvent);
+    harness.emit(customEvent);
+
+    expect(harness.recordPiStreamTraceEvent).not.toHaveBeenCalled();
+    expect(harness.markPiStreamActivity).not.toHaveBeenCalled();
+    expect(harness.streamEventDispatcher.handle).toHaveBeenNthCalledWith(
+      1,
+      { kind: "unknown" },
+      userEvent,
+      { assistantStartEvent: false },
+    );
+    expect(harness.streamEventDispatcher.handle).toHaveBeenNthCalledWith(
+      2,
+      { kind: "unknown" },
+      customEvent,
+      { assistantStartEvent: false },
+    );
+    expect(harness.toolEventDispatcher.handle).toHaveBeenNthCalledWith(1, { kind: "unknown" }, userEvent, 1);
+    expect(harness.toolEventDispatcher.handle).toHaveBeenNthCalledWith(2, { kind: "unknown" }, customEvent, 2);
+  });
+
   it("still dispatches unknown non-assistant events without stream trace activity", () => {
     const harness = createHarness({ streamHandled: false });
     const event = { type: "custom_provider_signal" };

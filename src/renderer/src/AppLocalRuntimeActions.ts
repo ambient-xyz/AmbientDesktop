@@ -1,20 +1,16 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { LocalDeepResearchRunHistoryResult, MiniCpmVisionSetupAction, MiniCpmVisionSetupInput, MiniCpmVisionSetupResult } from "../../shared/localRuntimeTypes";
-import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
 import type {
-  LocalDeepResearchRunHistoryUiState,
-  LocalDeepResearchSetupUiState,
-  MiniCpmVisionSetupUiState,
-} from "./RightPanel";
-import {
-  type LocalDeepResearchSetupAction,
-  type LocalDeepResearchSetupResult,
-} from "./localDeepResearchUiModel";
-import {
-  localDeepResearchSetupResultState,
-  localDeepResearchSetupRunningState,
-} from "./AppLocalDeepResearchLifecycle";
+  LocalDeepResearchRunHistoryResult,
+  MiniCpmVisionSetupAction,
+  MiniCpmVisionSetupInput,
+  MiniCpmVisionSetupResult,
+} from "../../shared/localRuntimeTypes";
+import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
+import type { LocalDeepResearchRunHistoryUiState, LocalDeepResearchSetupUiState, MiniCpmVisionSetupUiState } from "./RightPanel";
+import { type LocalDeepResearchSetupAction, type LocalDeepResearchSetupResult } from "./localDeepResearchUiModel";
+import { localDeepResearchSetupResultState, localDeepResearchSetupRunningState } from "./AppLocalDeepResearchLifecycle";
+import type { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
 import { miniCpmVisionSetupResultModel } from "./miniCpmVisionUiModel";
 
 export function miniCpmVisionSetupRunningMessage(action: MiniCpmVisionSetupAction): string {
@@ -24,9 +20,9 @@ export function miniCpmVisionSetupRunningMessage(action: MiniCpmVisionSetupActio
       ? "Repairing MiniCPM-V..."
       : action === "stop"
         ? "Stopping MiniCPM-V runtime..."
-      : action === "uninstall"
-        ? "Cleaning up MiniCPM-V..."
-        : "Validating MiniCPM-V...";
+        : action === "uninstall"
+          ? "Cleaning up MiniCPM-V..."
+          : "Validating MiniCPM-V...";
 }
 
 export function miniCpmVisionSetupInputForSettings({
@@ -117,7 +113,9 @@ export function createAppLocalRuntimeActions({
     }
   }
 
-  async function setupLocalDeepResearchFromSettings(action: LocalDeepResearchSetupAction): Promise<LocalDeepResearchSetupResult | undefined> {
+  async function setupLocalDeepResearchFromSettings(
+    action: LocalDeepResearchSetupAction,
+  ): Promise<LocalDeepResearchSetupResult | undefined> {
     const runningMessage = localDeepResearchSetupRunningMessage(action);
     setLocalDeepResearchSetup((current) => localDeepResearchSetupRunningState(current, action, runningMessage));
     try {
@@ -133,13 +131,15 @@ export function createAppLocalRuntimeActions({
         status: "error",
         action,
         message,
-        diagnostics: [{
-          code: "setup-ipc-failed",
-          severity: "error",
-          title: "Local Deep Research setup failed",
-          detail: message,
-          nextAction: "Retry setup after checking the active workspace and managed install state.",
-        }],
+        diagnostics: [
+          {
+            code: "setup-ipc-failed",
+            severity: "error",
+            title: "Local Deep Research setup failed",
+            detail: message,
+            nextAction: "Retry setup after checking the active workspace and managed install state.",
+          },
+        ],
         progress: current.action === action ? current.progress : undefined,
       }));
       return undefined;
@@ -176,4 +176,29 @@ export function createAppLocalRuntimeActions({
     setupLocalDeepResearchFromSettings,
     setupMiniCpmVisionProviderFromSettings,
   };
+}
+
+type AppLocalRuntimeStateInput = Pick<
+  ReturnType<typeof useAppProviderRuntimeState>,
+  | "localDeepResearchQ8Override"
+  | "miniCpmVisionEndpointUrl"
+  | "miniCpmVisionRuntimePath"
+  | "setLocalDeepResearchFollowupOpen"
+  | "setLocalDeepResearchRunHistory"
+  | "setLocalDeepResearchSetup"
+  | "setMiniCpmVisionSetup"
+>;
+
+export function createAppLocalRuntimeActionsForRuntimeState(
+  providerRuntimeState: AppLocalRuntimeStateInput,
+): ReturnType<typeof createAppLocalRuntimeActions> {
+  return createAppLocalRuntimeActions({
+    localDeepResearchQ8Override: providerRuntimeState.localDeepResearchQ8Override,
+    miniCpmVisionEndpointUrl: providerRuntimeState.miniCpmVisionEndpointUrl,
+    miniCpmVisionRuntimePath: providerRuntimeState.miniCpmVisionRuntimePath,
+    setLocalDeepResearchFollowupOpen: providerRuntimeState.setLocalDeepResearchFollowupOpen,
+    setLocalDeepResearchRunHistory: providerRuntimeState.setLocalDeepResearchRunHistory,
+    setLocalDeepResearchSetup: providerRuntimeState.setLocalDeepResearchSetup,
+    setMiniCpmVisionSetup: providerRuntimeState.setMiniCpmVisionSetup,
+  });
 }

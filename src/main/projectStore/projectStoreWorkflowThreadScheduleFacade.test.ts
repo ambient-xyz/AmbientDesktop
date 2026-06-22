@@ -705,6 +705,18 @@ describeNative("ProjectStore workflow thread and schedule facade (requires Node 
     expect(store.getThread(schedules[0].dedicatedThreadId!)).toMatchObject({
       title: "Scheduled: Summarize weekly customer emails. (current)",
     });
+    expect(store.listThreads().find((thread) => thread.id === schedules[0].dedicatedThreadId)).toMatchObject({
+      scheduledCheckIn: {
+        scheduleId: schedules[0].id,
+        nextRunAt: schedules[0].nextRunAt,
+        targetKind: "workflow_playbook",
+        targetLabel: "Summarize weekly customer emails. (current v1)",
+      },
+    });
+
+    schedules = store.updateAutomationSchedule({ id: schedules[0].id, enabled: false });
+    expect(schedules[0].nextRunAt).toBeUndefined();
+    expect(store.listThreads().find((thread) => thread.id === schedules[0].dedicatedThreadId)?.scheduledCheckIn).toBeUndefined();
 
     const previewArtifact = store.createWorkflowArtifact({
       title: "Preview schedule target",

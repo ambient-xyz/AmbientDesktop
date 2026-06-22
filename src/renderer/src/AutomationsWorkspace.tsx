@@ -1,709 +1,104 @@
-import {
-  Archive,
-  Bell,
-  BookOpenText,
-  Bot,
-  ChevronDown,
-  Code2,
-  Command,
-  Copy,
-  Download,
-  Film,
-  FileCode2,
-  FileText,
-  Folder,
-  FolderOpen,
-  GitBranch,
-  Home,
-  Info,
-  Kanban,
-  KeyRound,
-  Minimize2,
-  Mic,
-  Moon,
-  Music,
-  PanelLeft,
-  PanelRight,
-  Paperclip,
-  Pause,
-  Package,
-  Pencil,
-  Pin,
-  Play,
-  Plug,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Settings,
-  Star,
-  Sun,
-  Target,
-  Terminal,
-  Trash2,
-  X,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  FormEvent,
-  ClipboardEvent as ReactClipboardEvent,
-  FocusEvent as ReactFocusEvent,
-  forwardRef,
-  KeyboardEvent as ReactKeyboardEvent,
-  memo,
-  ReactNode,
-  RefObject,
-  startTransition,
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
-import { flushSync } from "react-dom";
-import {
-  projectBoardActionState,
-  projectBoardActiveCardDetail,
-  projectBoardActiveCardOverviewModel,
-  projectBoardAddCardsSourceScope,
-  projectBoardCardCanSplit,
-  projectBoardCardCanMarkReady,
-  projectBoardCardClaimBlocksLocalTicketization,
-  projectBoardCardClaimActionState,
-  projectBoardCardClaimLabel,
-  projectBoardCardClaimTitle,
-  projectBoardCardCanEditDependencies,
-  projectBoardCardIsDraftInboxCandidate,
-  projectBoardCardEditCanSave,
-  projectBoardCardEditDraft,
-  projectBoardCardEditHasChanges,
-  projectBoardCardEditInput,
-  projectBoardCardEditWithClarificationAnswerInput,
-  projectBoardCanonicalCardProjection,
-  projectBoardCardVisualTone,
-  projectBoardCharterReviewActionState,
-  projectBoardClarificationAnswerInput,
-  projectBoardCandidateClarificationItems,
-  projectBoardPlanningWarningActionTitle,
-  projectBoardPlanningWarningsForCard,
-  projectBoardSynthesisRunProofScopeWarnings,
-  projectBoardSynthesisRunPromptBudgetAudit,
-  projectBoardSynthesisRunPromptBudgetMetrics,
-  projectBoardCardSourceBasis,
-  projectBoardCardsForSourceGroup,
-  projectBoardBoardTabShowsDraftCallout,
-  projectBoardBoardTabShowsExecutionPanels,
-  projectBoardBoardTabStatusLabel,
-  projectBoardColumns,
-  projectBoardCollaborationReadiness,
-  projectBoardComplexityEstimate,
-  projectBoardCandidateStatusForDraftColumn,
-  projectBoardCreateReadyTasksState,
-  projectBoardDependencyEditOptions,
-  projectBoardDependencyChangeImpactPreview,
-  projectBoardCardDependencyBadges,
-  projectBoardDependencyHealth,
-  projectBoardDependencyRows,
-  projectBoardBoardDecisionImpactRail,
-  projectBoardDecisionImpactPreview,
-  projectBoardDecisionQueue,
-  projectBoardDeliverableIntegrationQueue,
-  projectBoardDraftInboxCreateReadyPreview,
-  projectBoardDraftInboxFilterOptions,
-  projectBoardDraftColumns,
-  projectBoardDraftColumnMoveState,
-  projectBoardPiUpdateReviewQueue,
-  projectBoardEmptyMessage,
-  projectBoardEventGroups,
-  projectBoardEventHasSupersededCardReview,
-  projectBoardEventKindLabel,
-  projectBoardEventSummary,
-  projectBoardHistoryCollaborationAudit,
-  projectBoardHistoryImpactAudit,
-  projectBoardHistoryRecoveryQueue,
-  projectBoardLiveSessionPreviewModel,
-  projectBoardOverviewModel,
-  projectBoardExecutionControlModel,
-  projectBoardExecutionOverview,
-  projectBoardExecutionReadinessRail,
-  projectBoardExecutionPmReview,
-  projectBoardWorkflowImpactPreview,
-  projectBoardPhaseGroups,
-  projectBoardPendingClarificationDecisions,
-  projectBoardPendingClarificationQuestions,
-  projectBoardPlanningSnapshotTicketizationState,
-  projectBoardPrimaryBlockingCard,
-  projectBoardProofDecisionModel,
-  projectBoardProofFollowUpImpactModel,
-  projectBoardProofCoverageForBoard,
-  projectBoardProofReviewQueueSummary,
-  projectBoardPmReviewReportUiModel,
-  projectBoardProjectionReview,
-  projectBoardProjectionReviewResolutionState,
-  projectBoardResetImpact,
-  projectBoardSourceFilterItems,
-  projectBoardSourceChangeDetail,
-  projectBoardSourceChangeFilterItems,
-  projectBoardSourceChangeSummary,
-  projectBoardSourceGroups,
-  projectBoardSourceGroupsForChangeFilter,
-  projectBoardSourceGroupsForFilter,
-  projectBoardSourceGroupCanElaborate,
-  projectBoardSourceGroupIncludedSourceIds,
-  projectBoardSourceImpactPreview,
-  projectBoardSourceInclusion,
-  projectBoardSourceKindText,
-  projectBoardSourceObservationLabel,
-  projectBoardStatusLabel,
-  projectBoardSupersededCardReview,
-  projectBoardSuppressedForWorkflowRecordingThread,
-  projectBoardSynthesisRunControlState,
-  projectBoardTabs,
-  projectBoardTestSummaryForBoard,
-  projectBoardThreadPlanActionState,
-  projectBoardUiMockReviewPanelModel,
-  projectBoardUiMockReviewBadges,
-  projectBoardKickoffDefaultProviderErrorMessage,
-  projectBoardKickoffDefaultAnswer,
-  projectBoardUnattachedLocalTasks,
-  defaultProjectBoardTab,
-  type ProjectBoardCardEditDraft,
-  type ProjectBoardCardClaimAction,
-  type ProjectBoardComplexityEstimate,
-  type ProjectBoardDecisionQueueAuditFilterId,
-  type ProjectBoardDecisionQueueRow,
-  type ProjectBoardPlanningWarning,
-  type ProjectBoardSourceGroup,
-  type ProjectBoardSourceChangeFilterKind,
-  type ProjectBoardSourceFilterKind,
-  type ProjectBoardSupersededCardReview,
-  type ProjectBoardSupersededCardReviewKind,
-  type ProjectBoardTabId,
-  type ProjectBoardDecisionImpactPreview,
-  type ProjectBoardDraftInboxCreateReadyPreview,
-  type ProjectBoardDraftInboxFilterId,
-  type ProjectBoardDraftInboxFilterOption,
-  type ProjectBoardHistoryRecoveryAction,
-  type ProjectBoardHistoryRecoveryActionId,
-  type ProjectBoardHistoryRecoveryRun,
-  type ProjectBoardLiveSessionActivityLine,
-  type ProjectBoardPiUpdateReviewQueue,
-} from "./projectBoardUiModel";
-import {
-  moveWebResearchProvider,
-  resetWebResearchRole,
-  setWebResearchBrowserFallback,
-  setWebResearchProviderEnabled,
-  webResearchProviderHealthBadge,
-  webResearchProviderSetupAction,
-  webResearchProvidersForRole,
-  webResearchStackWithDefaults,
-} from "./searchWebSettingsModel";
-import {
-  latestReadyVoiceAutoplayTarget,
-  messageVoiceStripModel,
-  nextVoiceAutoplayDecision,
-  voiceSettingsAuditRows,
-  voiceThreadStatusModel,
-  voiceSettingsProviderModel,
-  voiceProviderForCapabilityId,
-  voiceProviderLabelMap,
-  voiceStateMatchesSelectedProvider,
-} from "./voiceUiModel";
-import {
-  projectBoardKickoffAnswerState,
-  projectBoardRunBlocksPlanning,
-  projectBoardRunIsKickoffDefaults,
-} from "../../shared/projectBoardSynthesisGate";
-import {
-  queuedSpeechFollowUpCount,
-  sttDraftMetadataForSubmit,
-  sttInsertTranscriptIntoDraft,
-  sttProviderForCapabilityId,
-  sttProviderCacheChanges,
-  sttQueuedCountLabel,
-  sttRuntimeQueuedCount,
-  sttSettingsProviderModel,
-  sttDiagnosticsModel,
-  sttSetupResultModel,
-  sttTranscriptReadyAction,
-  type SttDraftMetadataState,
-} from "./sttUiModel";
-import {
-  miniCpmVisionSetupActions,
-  miniCpmVisionSetupResultModel,
-} from "./miniCpmVisionUiModel";
-import {
-  localDeepResearchInstallProgressModel,
-  localDeepResearchSetupActions,
-  localDeepResearchSetupResultModel,
-  type LocalDeepResearchDiagnosticItem,
-  type LocalDeepResearchSetupAction,
-  type LocalDeepResearchSetupResult,
-} from "./localDeepResearchUiModel";
-import {
-  shortcutFromKeyboardEvent,
-  sttShortcutLabel,
-  sttShortcutMatchesEvent,
-  sttShortcutReleaseMatchesEvent,
-} from "./sttShortcut";
-import { advanceTrailingSilence, listSttMicrophoneDevices, startSttMicrophoneRecorder, type SttMicrophoneRecorder } from "./sttMicrophoneRecorder";
-import type { SttMicrophoneDevice, SttMicrophoneLevel, SttTrailingSilenceState } from "./sttMicrophoneRecorder";
-import { parseMarkdownBlocks } from "./markdownBlockParser";
-import { richMarkdownTableIconLabel, type RichMarkdownIconLabel } from "./richMarkdownIcons";
-import { canRefreshOfficePreview, isPreparedLocalTaskWorkspace } from "./workspaceUiModel";
-import {
-  desktopEventMatchesProject,
-  workspaceProjectAliasesForState,
-  type WorkspaceProjectAliases,
-} from "./workspaceEventMatching";
-import {
-  miniCpmVisualAnalyzeInputForBrowserScreenshot,
-  miniCpmVisualAnalyzeInputForContextAttachment,
-  miniCpmVisualAnalyzeInputForWorkspaceFile,
-  miniCpmVisualMediaKindFromPath,
-} from "./miniCpmVisualActionUiModel";
-import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
-import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
-import type { AutomationFolderSummary, AutomationScheduleSummary, AutomationThreadSummary } from "../../shared/automationTypes";
-import type { BrowserCapabilityState, BrowserCredentialSummary, BrowserPickResult, BrowserProfileMode, BrowserRuntimeKind, BrowserScreenshotResult, BrowserUserActionState, SaveBrowserCredentialInput } from "../../shared/browserTypes";
-import type { DesktopEvent, DesktopState, DesktopUpdateState, MenuCommand, ProviderCatalogSettingsCard, ProviderStatus, SendMessageComposerIntent, ThemePreference, ThinkingDisplayMode } from "../../shared/desktopTypes";
-import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
-import type { LocalDeepResearchInstallProgress, LocalDeepResearchRunHistoryEntry, LocalDeepResearchRunHistoryResult, MessageVoiceState, MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionDiagnosticItem, MiniCpmVisionSetupAction, MiniCpmVisionSetupResult, SttMessageMetadata, SttProviderCandidate, SttProviderSetupResult, SttTestAudioResult, SttTranscriptionState, VoiceArtifactRetentionSummary, VoiceOnboardingHostFacts, VoiceProviderCandidate, VoiceProviderVoiceCandidate } from "../../shared/localRuntimeTypes";
-import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionAuditEntry, PermissionGrantScopeKind, PermissionMode, PermissionRequest, PrivilegedCredentialRequest, SecureInputRequest } from "../../shared/permissionTypes";
-import type { AnswerPlannerDecisionQuestionInput, PlannerDecisionQuestion, PlannerPlanArtifact, PlannerPlanWorkflowState } from "../../shared/plannerTypes";
-import type { AmbientGeneratedCapabilitySummary, AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallProgress, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, AmbientPluginAuthStartResult, AmbientPluginCapabilityDiagnostics, AmbientPluginRuntime, AmbientPluginSourceKind, CapabilityBuilderHistoryEntry, CapabilityBuilderHistoryResult, CodexHostedMarketplaceReport, CodexMarketplaceSourceSummary, CodexPluginCatalog, CodexPluginCompatibilityTier, CodexPluginMcpInspectionCatalog, CodexPluginSummary, FirstPartyGoogleIntegrationState, ManagedDevServerSummary, PiExtensionSandboxCatalog, PiExtensionSandboxInstallPreview, PiExtensionSandboxPackageSummary, PiPackageCatalog, PiPackageInstallScope, PiPackageResourceKind, PiPrivilegedCatalog, PiPrivilegedInstallSummary, PiPrivilegedSecurityScan, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
-import type { AddProjectBoardCardRunFeedbackInput, ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, CreateReadyProjectBoardTasksInput, DeferProjectBoardSynthesisSectionsInput, ProjectBoardAddCardsObjectiveProvenance, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardCardRunFeedbackSource, ProjectBoardEvent, ProjectBoardExecutionArtifact, ProjectBoardGitProjectionResolution, ProjectBoardGitSyncStatus, ProjectBoardProofDecisionAction, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSourceChangeState, ProjectBoardSourceKind, ProjectBoardSplitDecisionAction, ProjectBoardSummary, ProjectBoardSynthesisProposal, ProjectBoardSynthesisProposalCardReviewStatus, ProjectBoardSynthesisRun, ProjectBoardSynthesisRunProgressiveRecord, ProjectSummary, RecomputeProjectBoardProofCoverageInput, RefineProjectBoardSynthesisInput, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, RerunProjectBoardProofInput, ResolveProjectBoardCardPiUpdateInput, ResolveProjectBoardDeliverableIntegrationInput, RetryProjectBoardSynthesisInput, SplitProjectBoardCardInput, SuggestProjectBoardClarificationDefaultsInput, SuggestProjectBoardKickoffDefaultsInput, SuggestProjectBoardProofInput, UpdateProjectBoardCardInput, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
-import type { TerminalSession } from "../../shared/terminalTypes";
-import type { CollaborationMode, ContextUsageSnapshot, MessageDelivery, RunStatus, ThinkingLevel, ThreadGoal, ThreadSummary, ToolLargeOutputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
-import type { OrchestrationRun, OrchestrationTask, RepairOrchestrationWorkflowAction, ResolveOrchestrationWorkflowImpactAction, UpdateOrchestrationWorkflowRawInput, UpdateOrchestrationWorkflowSettingsInput, WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileAuditSummary, WorkflowCompileProgress, WorkflowDiscoveryProgress, WorkflowExplorationProgress, WorkflowModelCallRecord, WorkflowPluginCapabilityGrant, WorkflowRecordingEditContext, WorkflowRecordingLibraryEntry, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingState, WorkflowRevisionSummary, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunSummary, WorkflowVersionSummary } from "../../shared/workflowTypes";
-import type { FileTreeEntry, GitReviewFile, GitReviewSummary, GitSimpleAction, WorkspaceContextReference, WorkspaceFileTree, WorkspaceGitStatus, WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/workspaceTypes";
-import {
-  projectBoardProofCoverageDrift,
-  projectBoardProofCoverageRecheck,
-  projectBoardLatestProofCoverageRecheckEvent,
-} from "../../shared/projectBoardProofImpact";
-import {
-  DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS,
-  projectBoardSynthesisOutputCapRecovery,
-  projectBoardSynthesisPartialStatus,
-  projectBoardSynthesisSectionStatuses,
-  projectBoardSynthesisStaleRecovery,
-  sectionStatusLabel,
-  type ProjectBoardSectionStatusView,
-} from "../../shared/projectBoardSynthesisRecovery";
-import { AMBIENT_MODEL_OPTIONS, ambientModelLabel } from "../../shared/ambientModels";
-import { resolveMessageDelivery } from "../../shared/messageDelivery";
-import {
-  sttMessageArtifactEntries,
-  sttMessageMetadataFromTranscription,
-  sttMessageMetadataFromUnknown,
-} from "../../shared/sttMessageMetadata";
-import { isRunStatusRunning, RUN_ABORT_ARM_DELAY_MS } from "../../shared/runStatus";
-import {
-  workflowRunEventDetailLabels,
-} from "./workflowUiModel";
-import { findWorkflowGraphNodeReviewActionTarget } from "./workflowGraphNodeReviewRouting";
-import type { WorkflowGraphNodeReviewAction } from "./workflowGraphNodeReviewUiModel";
-import {
-  workflowReviewArtifactRunBlocked,
-  workflowReviewWorkspaceViewModel,
-} from "./workflowReviewUiModel";
-import { workflowExplorationGateForThread } from "./workflowExplorationGateUiModel";
-import {
-  automationWorkspaceSelectionModel,
-} from "./automationWorkspaceSelectionModel";
-import { workflowThreadTranscriptCards, type WorkflowThreadTranscriptCard } from "./workflowThreadTranscriptUiModel";
-import { useAutomationsWorkflowThreadController } from "./AutomationsWorkflowThreadController";
-import { useAutomationsWorkflowDashboardController } from "./AutomationsWorkflowDashboardController";
+import { useEffect, useMemo, useState } from "react";
+import type { AutomationFolderSummary, AutomationThreadSummary } from "../../shared/automationTypes";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type {
+  AmbientPermissionGrant,
+  CreateAmbientPermissionGrantInput,
+  PermissionAuditEntry,
+  PermissionMode,
+} from "../../shared/permissionTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { ThinkingLevel } from "../../shared/threadTypes";
+import type {
+  OrchestrationRun,
+  OrchestrationTask,
+  WorkflowAgentFolderSummary,
+  WorkflowAgentThreadSummary,
+  WorkflowArtifactSummary,
+  WorkflowCompileProgress,
+  WorkflowDiscoveryProgress,
+  WorkflowExplorationProgress,
+  WorkflowRecordingLibraryEntry,
+  WorkflowRevisionSummary,
+  WorkflowRunDetail,
+  WorkflowRunSummary,
+} from "../../shared/workflowTypes";
+import { LocalTaskBoard, LocalTasksPane } from "./AutomationsLocalTaskBoard";
+import { useAutomationsLocalTaskController } from "./AutomationsLocalTaskController";
+import { ProofOfWorkPreview } from "./AutomationsProofPreviewViews";
+import { AutoDispatchStatusView, AutoDispatchToggle, LocalTaskRunList, PrepareResultView } from "./AutomationsRunHistory";
+import { automationScheduleTargetSourcesModel, useAutomationScheduleController } from "./AutomationsScheduleController";
+import { AutomationSchedulesFallbackPane, WorkflowFocusedSchedulesPane, workflowSchedulesPaneRouteModel } from "./AutomationsScheduleViews";
+import { AutomationSelectedThreadDetailView } from "./AutomationsThreadDetailViews";
 import { useAutomationsWorkflowArtifactController } from "./AutomationsWorkflowArtifactController";
+import { workflowArtifactPanelRenderers } from "./AutomationsWorkflowArtifactInspectorViews";
+import { WorkflowBuildWorkspace, workflowBuildWorkspaceViewModel } from "./AutomationsWorkflowBuildViews";
+import { useAutomationsWorkflowDashboardController } from "./AutomationsWorkflowDashboardController";
+import { WorkflowAgentDiagramPane } from "./AutomationsWorkflowDiagramViews";
 import {
   activeDraftWorkflowRevisionForThread,
   latestWorkflowRunForArtifact,
   useAutomationsWorkflowDiscoveryController,
 } from "./AutomationsWorkflowDiscoveryController";
-import { useAutomationsWorkflowWorkspaceController } from "./AutomationsWorkflowWorkspaceController";
-import { useAutomationsWorkflowRecordingLibraryController } from "./AutomationsWorkflowRecordingLibraryController";
-import { useAutomationsWorkspaceSurfaceController } from "./AutomationsWorkspaceSurfaceController";
+import {
+  WorkflowDiscoveryThreadWorkspace,
+  workflowDiscoveryThreadWorkspaceViewModel,
+  WorkflowRequestEditor,
+} from "./AutomationsWorkflowDiscoveryViews";
+import { workflowConnectorAccountsByConnector } from "./AutomationsWorkflowEvidenceViews";
+import { WorkflowExplorationPanel } from "./AutomationsWorkflowExplorationViews";
+import { useWorkflowLabController } from "./AutomationsWorkflowLabController";
 import { createAutomationsWorkflowNavigationController } from "./AutomationsWorkflowNavigationController";
+import { WorkflowSplitHandle } from "./AutomationsWorkflowPanelRouting";
+import { WorkflowLabPlaybookLibrarySection, WorkflowRecordingPlaybookPane } from "./AutomationsWorkflowPlaybookViews";
+import { useAutomationsWorkflowRecordingLibraryController } from "./AutomationsWorkflowRecordingLibraryController";
+import { WorkflowCompileActivity, WorkflowReviewWorkspace } from "./AutomationsWorkflowReviewViews";
+import { WorkflowFocusedRunsPane, WorkflowRunCards } from "./AutomationsWorkflowRuntimeViews";
+import { WorkflowThreadComposerView } from "./AutomationsWorkflowThreadComposerViews";
+import { useAutomationsWorkflowThreadController } from "./AutomationsWorkflowThreadController";
+import {
+  AutomationFolderPane,
+  WorkflowAgentCompilerStartPane,
+  WorkflowLegacyHiddenPane,
+  WorkflowRecorderStartPane,
+} from "./AutomationsWorkflowUtilityViews";
+import { useAutomationsWorkflowWorkspaceController } from "./AutomationsWorkflowWorkspaceController";
+import {
+  AutomationsWorkspaceHomePane,
+  AutomationsWorkspaceRunsReviewsPane,
+  AutomationsWorkspaceTabsView,
+} from "./AutomationsWorkspaceHomeViews";
+import {
+  AutomationPaneRouter,
+  AutomationProjectField,
+  automationWorkspaceActivePaneTooltip,
+  AutomationWorkspaceHeader,
+  automationWorkspacePaneTitle,
+  automationWorkspaceShellModel,
+  WorkflowAgentPaneRouter,
+  type AutomationPane,
+} from "./AutomationsWorkspaceShellViews";
+import { useAutomationsWorkspaceSurfaceController } from "./AutomationsWorkspaceSurfaceController";
+import { workflowCompileActionState } from "./automationUiModel";
+import { automationWorkspaceSelectionModel } from "./automationWorkspaceSelectionModel";
+import "./styles.css";
+import { workflowExplorationGateForThread } from "./workflowExplorationGateUiModel";
+import { findWorkflowGraphNodeReviewActionTarget } from "./workflowGraphNodeReviewRouting";
+import type { WorkflowGraphNodeReviewAction } from "./workflowGraphNodeReviewUiModel";
 import {
   workflowRecorderLegacyCompilerEnabled,
-  workflowRecorderInjectedPlaybookChip,
-  workflowRecorderLibrarySidebarRows,
-  workflowRecorderReviewDraftUpdateFromEditorFields,
-  workflowRecorderReviewEditorFieldsFromDraft,
-  workflowRecorderReviewModel,
   workflowRecorderStartActionState,
   workflowRecorderSurfaceModel,
-  type WorkflowRecorderReviewEditorFields,
 } from "./workflowRecorderUiModel";
-import {
-  WorkflowSplitHandle,
-} from "./AutomationsWorkflowPanelRouting";
+import { workflowReviewArtifactRunBlocked, workflowReviewWorkspaceViewModel } from "./workflowReviewUiModel";
 import {
   DEFAULT_WORKFLOW_FOREGROUND_IDLE_TIMEOUT_MS,
   DEFAULT_WORKFLOW_FOREGROUND_TOTAL_LIMIT_MODE,
   type WorkflowRunTotalLimitMode,
 } from "./workflowRunLimitsUiModel";
-import {
-  workflowCompileActionState,
-} from "./automationUiModel";
-import {
-  filterGitBranches,
-  gitCommitActionState,
-  gitCreateBranchActionState,
-  gitPullRequestActionState,
-  gitPullRequestReadiness,
-  gitStatusDetail,
-  gitWorkModeSummary,
-} from "./gitUiModel";
-import { isScrolledToBottom, scrollToBottom } from "./scrolling";
-import { applyDocumentAppearance } from "./appearance";
-import {
-  clampSidebarWidth,
-  DEFAULT_SIDEBAR_WIDTH,
-  MAX_SIDEBAR_WIDTH,
-  MIN_SIDEBAR_WIDTH,
-  parseStoredSidebarWidth,
-  SIDEBAR_WIDTH_STORAGE_KEY,
-} from "./sidebarLayout";
-import {
-  buildCapabilityBuilderPrompt,
-  buildFirstRunCapabilityOnboardingPrompt,
-  buildProviderCatalogCardOnboardingPrompt,
-  buildRemoteSurfaceActivationPrompt,
-  buildVoiceProviderCapabilityPrompt,
-  buildCapabilityBuilderHistoryPreviewPrompt,
-  buildCapabilityBuilderHistoryRepairPlanPrompt,
-  buildCapabilityBuilderHistoryReregisterPrompt,
-  buildGeneratedCapabilityRemovalPlanPrompt,
-  buildGeneratedCapabilityUpdatePlanPrompt,
-  buildGeneratedCapabilityValidationPrompt,
-  capabilityBuilderHistoryPreviewActionState,
-  capabilityBuilderHistoryRepairPlanActionState,
-  capabilityBuilderHistoryReregisterActionState,
-  capabilityBuilderHistorySourceActionState,
-  capabilityDiagnosticsActionState,
-  codexImportActionState,
-  codexMarketplaceAddActionState,
-  codexMarketplaceRemoveActionState,
-  defaultCapabilityBuilderLauncherDraft,
-  filterAmbientCapabilities,
-  filterAmbientPluginsBySource,
-  formatAmbientAvailability,
-  formatAmbientCapabilityKind,
-  formatAmbientPluginSourceKind,
-  formatAmbientRuntimeSupport,
-  formatPluginMcpLaunchCommand,
-  formatPluginMcpRuntimeEvent,
-  generatedCapabilityRemovalPlanActionState,
-  generatedCapabilitySummaryFromHistoryEntry,
-  generatedCapabilitySourceActionState,
-  generatedCapabilityUpdatePlanActionState,
-  generatedCapabilityValidationActionState,
-  googleWorkspaceAccountRows,
-  googleWorkspaceActionState,
-  googleWorkspaceConnectorLabel,
-  googleWorkspaceStatusItems,
-  googleWorkspaceValidationButtonView,
-  googleWorkspaceValidationFeedbackForAccount,
-  groupCodexImportCandidates,
-  mcpContainerRuntimeDetailRows,
-  mcpContainerRuntimeDiagnosticsActionState,
-  mcpContainerRuntimeInstallActionViews,
-  mcpContainerRuntimePrimaryActionLabel,
-  mcpContainerRuntimeSetupResumeRows,
-  mcpContainerRuntimeShouldOpenStartupPanel,
-  mcpContainerRuntimeStatusLabel,
-  mcpContainerRuntimeTone,
-  mcpDefaultCapabilityInstallActionState,
-  mcpDefaultCapabilityRuntimeHandoffCandidate,
-  mcpInstalledServerStatusLabel,
-  mcpServerInstallActionState,
-  mcpServerSearchResultSubtitle,
-  mcpServerUninstallActionState,
-  mcpToolReviewAcceptActionState,
-  piExtensionSandboxUninstallActionState,
-  type AmbientPluginRuntimeFilter,
-  type AmbientPluginSourceFilter,
-  type CapabilityBuilderLauncherDraft,
-  type GoogleWorkspaceValidationFeedback,
-  piPackageEnableActionState,
-  piPackageInstallActionState,
-  piPackageUninstallActionState,
-  piPrivilegedDisableActionState,
-  piPrivilegedUninstallActionState,
-  pluginAuthCompleteActionState,
-  pluginDetailsActionState,
-  providerCatalogSettingsCardsForArea,
-  providerCatalogSettingsCardView,
-} from "./pluginUiModel";
-import {
-  welcomeCoreSetupSections,
-  welcomeOnboardingPageKindForMessages,
-  welcomeOnboardingPageShouldOpenAtTop,
-  type WelcomeSetupSection,
-} from "./welcomeSetupUiModel";
-import { welcomeOnboardingPageKindFromMetadata, type WelcomeOnboardingPageKind } from "../../shared/welcomeOnboarding";
-import { googleWorkspaceGrantReview } from "./googleWorkspaceGrantUiModel";
-import { permissionGrantRegistryModel, permissionGrantRevocationImpact } from "./permissionGrantRegistryUiModel";
-import {
-  collectArtifactPathHints,
-  mediaPreviewUnavailableMessage,
-  parseToolMessage,
-  resolveInlineArtifactPath,
-  toolLargeOutputPreviewViewModel,
-  toolLongformInputPreviewDisplaySummary,
-  toolMessagingConversationDirectorySetupCardViewModel,
-  toolMessagingRemoteSurfaceActivationCardViewModel,
-  type ArtifactMediaKind,
-  type ArtifactPathHints,
-  type ToolEditPreviewData,
-  type ToolInstallRoutePreviewData,
-  type ToolMessagingConversationDirectorySetupPreviewData,
-  type ToolMessagingRemoteSurfaceActivationPreviewData,
-  type ToolSttPreviewData,
-  type ToolTelegramSessionSetupPreviewData,
-  type ToolVoicePreviewData,
-} from "./toolMessageUiModel";
-import {
-  parseCollaborationSlashCommand,
-  parseSecretSlashCommand,
-  plannerCanRefineWithAdditionalFeedback,
-  plannerDecisionAnswerStatusLabel,
-  plannerDecisionAnswerText,
-  plannerDecisionQuestionsComplete,
-  plannerDurableRevisionPrompt,
-  plannerImplementationGoalMode,
-  plannerImplementationPrompt,
-  plannerNextDecisionQuestion,
-  plannerRefinementPrompt,
-  plannerRequiredDecisionQuestionsAnswered,
-  plannerShouldAutoFinalizeAfterAnswer,
-  plannerSortedOptions,
-  plannerWorkflowStateLabel,
-} from "./plannerModeUiModel";
-import {
-  messageContentWithoutDiagnostic,
-  messageDiagnosticCardModel,
-} from "./messageDiagnosticUiModel";
-import { mergeRunActivityLine, normalizeRunActivityLineText } from "./runActivityUiModel";
-import {
-  shouldClearTransientErrorForActiveScope,
-  type TransientErrorScope,
-} from "./transientErrorUiModel";
-import {
-  isThinkingMessageForDisplay,
-  shouldShowRunStatusCard,
-  thinkingDisplayModeLabel,
-  transientThinkingActivityLinesForDisplay,
-  visibleMessagesForThinkingDisplay,
-  visibleRunActivityLinesForThinkingDisplay,
-} from "./thinkingDisplayUiModel";
-import "./styles.css";
-import {
-  thinkingDisplayOptions,
-  ApiKeyStatus,
-  UtilityPanel,
-  SettingsFocusRequest,
-  ArtifactPreviewRequest,
-  GitPanelTabRequest,
-  GitConfirmation,
-  VoiceProviderCacheStatus,
-  VoiceProviderCacheActivity,
-  VoiceCatalogRefreshState,
-  SttProviderCacheStatus,
-  SttProviderCacheActivity,
-  SttProviderSetupUiState,
-  MiniCpmVisionSetupUiState,
-  LocalDeepResearchSetupUiState,
-  LocalDeepResearchRunHistoryUiState,
-  SttMicTestUiState,
-  InfoTooltip,
-  ProviderCatalogSettingsCards,
-  LocalDeepResearchDiagnosticsList,
-  InlineArtifactMedia,
-  ambientBrowserRuntimeForUrl,
-  desktopUpdateStatusText,
-  contextAttachmentKey,
-  clampNumber,
-  contextUsagePresentation,
-  RightPanel,
-  GitConfirmationDialog,
-  DiffOutput,
-  formatTimelineTime,
-  formatTaskState,
-} from "./RightPanel";
-import {
-  LocalTasksPane,
-  LocalTaskBoard,
-} from "./AutomationsLocalTaskBoard";
-import { useAutomationsLocalTaskController } from "./AutomationsLocalTaskController";
-import { AutomationSelectedThreadDetailView } from "./AutomationsThreadDetailViews";
-import {
-  AutomationPaneRouter,
-  AutomationProjectField,
-  AutomationWorkspaceHeader,
-  AutomationWorkspaceTabs,
-  WorkflowAgentPaneRouter,
-  automationWorkspaceActivePaneTooltip,
-  automationWorkspacePaneTitle,
-  automationWorkspaceShellModel,
-  type AutomationPane,
-  type AutomationWorkspaceTab,
-} from "./AutomationsWorkspaceShellViews";
-import {
-  AutomationSchedulesFallbackPane,
-  WorkflowFocusedSchedulesPane,
-  workflowSchedulesPaneRouteModel,
-} from "./AutomationsScheduleViews";
-import {
-  automationScheduleTargetSourcesModel,
-  useAutomationScheduleController,
-} from "./AutomationsScheduleController";
-import { useWorkflowLabController } from "./AutomationsWorkflowLabController";
-import {
-  WorkflowLabPlaybookLibrarySection,
-  WorkflowRecordingPlaybookLibrarySection,
-  WorkflowRecordingPlaybookPane,
-} from "./AutomationsWorkflowPlaybookViews";
-import {
-  AutomationHomePane,
-  AutomationFolderPane,
-  AutomationRunsReviewsPane,
-  AutomationThreadCardGrid,
-  WorkflowAgentCompilerStartPane,
-  WorkflowLegacyHiddenPane,
-  WorkflowRecorderStartPane,
-  WorkflowRuntimeBrowserScreenshotPreview,
-  automationThreadStatusGroups,
-} from "./AutomationsWorkflowUtilityViews";
-import { WorkflowBuildWorkspace, workflowBuildWorkspaceViewModel } from "./AutomationsWorkflowBuildViews";
-import {
-  WorkflowFocusedRunsPane,
-  WorkflowRunCards,
-} from "./AutomationsWorkflowRuntimeViews";
-import {
-  AutoDispatchStatusView,
-  AutoDispatchToggle,
-  LocalTaskRunList,
-  PrepareResultView,
-} from "./AutomationsRunHistory";
-import {
-  WorkflowAmbientCliCapabilityList,
-  workflowConnectorAccountsByConnector,
-} from "./AutomationsWorkflowEvidenceViews";
-import {
-  WorkflowCompileActivity,
-  WorkflowReviewWorkspace,
-} from "./AutomationsWorkflowReviewViews";
-import {
-  WorkflowAgentDiagramPane,
-} from "./AutomationsWorkflowDiagramViews";
-import {
-  WorkflowExplorationPanel,
-} from "./AutomationsWorkflowExplorationViews";
-import {
-  WorkflowDiscoveryThreadWorkspace,
-  WorkflowRequestEditor,
-  workflowDiscoveryThreadWorkspaceViewModel,
-} from "./AutomationsWorkflowDiscoveryViews";
-import { WorkflowThreadComposerView } from "./AutomationsWorkflowThreadComposerViews";
-import {
-  workflowArtifactPanelRenderers,
-} from "./AutomationsWorkflowArtifactInspectorViews";
-import {
-  ProofEvidencePathLink,
-  ProofOfWorkPreview,
-} from "./AutomationsProofPreviewViews";
+import { workflowThreadTranscriptCards, type WorkflowThreadTranscriptCard } from "./workflowThreadTranscriptUiModel";
 
 export { AutomationHeadingLabel } from "./AutomationsHeading";
-export { useRunningClock } from "./AutomationsRunningClock";
-export { AutomationSelectedThreadDetailView } from "./AutomationsThreadDetailViews";
-export {
-  AutomationWorkspaceHeader,
-  AutomationWorkspaceTabs,
-  automationWorkspaceActivePaneTooltip,
-  automationWorkspaceHeaderModel,
-  automationWorkspacePaneTitle,
-  automationWorkspaceProjectSelectionModel,
-  automationWorkspaceShellModel,
-  type AutomationPane,
-  type AutomationWorkspaceTab,
-} from "./AutomationsWorkspaceShellViews";
-export {
-  AutomationSchedulesPane,
-  WorkflowScheduleHistoryPanel,
-  WorkflowSchedulesWorkspace,
-  WorkflowScheduleOccurrenceEditor,
-  datetimeLocalValueFromIso,
-  defaultScheduleReplacementLocal,
-  isoFromDatetimeLocalValue,
-  workflowSchedulesPaneRouteModel,
-  type WorkflowScheduleOccurrenceEditorState,
-} from "./AutomationsScheduleViews";
-export {
-  WorkflowLabPanel,
-  workflowLabPanelModel,
-  type WorkflowLabBusy,
-} from "./AutomationsWorkflowLabViews";
-export {
-  WorkflowLabPlaybookLibrarySection,
-  WorkflowRecordingPlaybookLibrarySection,
-  WorkflowRecordingPlaybookPane,
-  workflowRecordingPlaybookMatchesQuery,
-} from "./AutomationsWorkflowPlaybookViews";
-export {
-  AutomationHomeStatusGrid,
-  AutomationHomePane,
-  AutomationFolderPane,
-  AutomationRunsReviewsPane,
-  AutomationThreadCardGrid,
-  AutomationExplainer,
-  WorkflowAgentCompilerStartPane,
-  WorkflowLegacyHiddenPane,
-  WorkflowRecorderStartPane,
-  WorkflowRuntimeBrowserScreenshotPreview,
-  WorkflowThreadTranscript,
-  automationIndicatorKind,
-  automationThreadStatusGroups,
-  type ThreadIndicatorKind,
-} from "./AutomationsWorkflowUtilityViews";
-export { WorkflowBuildWorkspace } from "./AutomationsWorkflowBuildViews";
-export {
-  WorkflowFocusedRunsPane,
-  WorkflowPersistentStatusView,
-  WorkflowRunCards,
-  WorkflowRunConsole,
-  WorkflowThreadRunsWorkspace,
-  WorkflowRuntimeInputPanel,
-} from "./AutomationsWorkflowRuntimeViews";
-export {
-  WorkflowExplorationPanel,
-  WorkflowExplorationPreflightView,
-} from "./AutomationsWorkflowExplorationViews";
-export {
-  WorkflowDiscoveryActivity,
-  WorkflowDiscoveryContextReview,
-  WorkflowDiscoveryQuestionView,
-  WorkflowDiscoverySummary,
-  WorkflowDiscoveryThreadWorkspace,
-  WorkflowRequestEditor,
-  WorkflowRevisionPanel,
-  discoveryAccessResponseLabel,
-  formatDiscoveryCapability,
-  formatWorkflowTimeoutMode,
-  workflowDiscoveryLiveStatusSubtitle,
-  workflowDiscoveryLiveStatusTitle,
-  workflowDiscoveryProgressDetail,
-} from "./AutomationsWorkflowDiscoveryViews";
-export { WorkflowOutputsPanel } from "./AutomationsWorkflowOutputViews";
-export { WorkflowThreadComposerView } from "./AutomationsWorkflowThreadComposerViews";
-export {
-  WorkflowManifestPanel,
-  WorkflowPermissionsPanel,
-  WorkflowVersionHistoryPanel,
-} from "./AutomationsWorkflowArtifactInspectorViews";
 export {
   compareKanbanTasks,
   LocalTasksPane,
@@ -716,72 +111,145 @@ export {
   taskUserLabels,
 } from "./AutomationsLocalTaskBoard";
 export {
+  proofCspRenderableImageSrc,
+  proofEvidenceFileHref,
+  proofEvidenceLinkTarget,
+  ProofEvidencePathLink,
+  ProofOfWorkPreview,
+  ProofPacketInspectionPanel,
+  ProofPreviewImage,
+  proofPreviewImageLocalPath,
+  ProofRichText,
+  ProofVisualEvidenceGallery,
+  ProofVisualEvidenceIcon,
+  type ProofEvidenceLinkTarget,
+  type ProofPreviewImageState,
+} from "./AutomationsProofPreviewViews";
+export {
   AutoDispatchStatusView,
   AutoDispatchToggle,
-  LocalTaskRunList,
-  PrepareResultView,
-  RunTimeline,
   formatAutoDispatchStartedRun,
   formatDelay,
   formatOrchestrationRunStatus,
   formatRunDuration,
   isRestartInterruptedLocalTaskRun,
+  LocalTaskRunList,
   orchestrationRunActionLabel,
   orchestrationTimelineEntries,
+  PrepareResultView,
+  RunTimeline,
   terminalRunLabel,
 } from "./AutomationsRunHistory";
+export { useRunningClock } from "./AutomationsRunningClock";
 export {
-  WorkflowAmbientCliCallList,
-  WorkflowAmbientCliCapabilityList,
-  WorkflowConnectorCallList,
-  WorkflowConnectorGrantList,
-  WorkflowEventList,
-  WorkflowModelCallList,
-  WorkflowPluginCapabilityList,
-  WorkflowStepList,
-  workflowConnectorAccountsByConnector,
-} from "./AutomationsWorkflowEvidenceViews";
-export {
-  WorkflowCompileActivity,
-  WorkflowCompileAuditInlineCard,
-  WorkflowCompileAuditReview,
-  WorkflowProgramInspector,
-  WorkflowReviewEvidenceStrip,
-  WorkflowReviewWorkspace,
-  WorkflowReviewTile,
-  formatWorkflowCompileAuditList,
-  workflowCompileActionIcon,
-  workflowCompileAuditRuleIds,
-} from "./AutomationsWorkflowReviewViews";
+  AutomationSchedulesPane,
+  datetimeLocalValueFromIso,
+  defaultScheduleReplacementLocal,
+  isoFromDatetimeLocalValue,
+  WorkflowScheduleHistoryPanel,
+  WorkflowScheduleOccurrenceEditor,
+  workflowSchedulesPaneRouteModel,
+  WorkflowSchedulesWorkspace,
+  type WorkflowScheduleOccurrenceEditorState,
+} from "./AutomationsScheduleViews";
+export { AutomationSelectedThreadDetailView } from "./AutomationsThreadDetailViews";
+export { WorkflowManifestPanel, WorkflowPermissionsPanel, WorkflowVersionHistoryPanel } from "./AutomationsWorkflowArtifactInspectorViews";
+export { WorkflowBuildWorkspace } from "./AutomationsWorkflowBuildViews";
 export {
   WorkflowAgentDiagramCanvas,
   WorkflowAgentDiagramPane,
   WorkflowAgentEdge,
-  WorkflowAgentNode,
   workflowAgentEdgeTypes,
+  WorkflowAgentNode,
   workflowAgentNodeTypes,
   workflowDiagramNodeBounds,
   workflowGraphSnapshotWithActiveNode,
   workflowRecoveryBusyLabel,
 } from "./AutomationsWorkflowDiagramViews";
 export {
-  ProofEvidencePathLink,
-  ProofOfWorkPreview,
-  ProofPacketInspectionPanel,
-  ProofPreviewImage,
-  ProofRichText,
-  ProofVisualEvidenceGallery,
-  ProofVisualEvidenceIcon,
-  proofCspRenderableImageSrc,
-  proofEvidenceFileHref,
-  proofEvidenceLinkTarget,
-  proofPreviewImageLocalPath,
-  type ProofEvidenceLinkTarget,
-  type ProofPreviewImageState,
-} from "./AutomationsProofPreviewViews";
+  discoveryAccessResponseLabel,
+  formatDiscoveryCapability,
+  formatWorkflowTimeoutMode,
+  WorkflowDiscoveryActivity,
+  WorkflowDiscoveryContextReview,
+  workflowDiscoveryLiveStatusSubtitle,
+  workflowDiscoveryLiveStatusTitle,
+  workflowDiscoveryProgressDetail,
+  WorkflowDiscoveryQuestionView,
+  WorkflowDiscoverySummary,
+  WorkflowDiscoveryThreadWorkspace,
+  WorkflowRequestEditor,
+  WorkflowRevisionPanel,
+} from "./AutomationsWorkflowDiscoveryViews";
+export {
+  WorkflowAmbientCliCallList,
+  WorkflowAmbientCliCapabilityList,
+  workflowConnectorAccountsByConnector,
+  WorkflowConnectorCallList,
+  WorkflowConnectorGrantList,
+  WorkflowEventList,
+  WorkflowModelCallList,
+  WorkflowPluginCapabilityList,
+  WorkflowStepList,
+} from "./AutomationsWorkflowEvidenceViews";
+export { WorkflowExplorationPanel, WorkflowExplorationPreflightView } from "./AutomationsWorkflowExplorationViews";
+export { WorkflowLabPanel, workflowLabPanelModel, type WorkflowLabBusy } from "./AutomationsWorkflowLabViews";
+export { WorkflowOutputsPanel } from "./AutomationsWorkflowOutputViews";
+export {
+  WorkflowLabPlaybookLibrarySection,
+  WorkflowRecordingPlaybookLibrarySection,
+  workflowRecordingPlaybookMatchesQuery,
+  WorkflowRecordingPlaybookPane,
+} from "./AutomationsWorkflowPlaybookViews";
 export { chatExportStatusMessage } from "./AutomationsWorkflowRecordingLibraryController";
-
-
+export {
+  formatWorkflowCompileAuditList,
+  workflowCompileActionIcon,
+  WorkflowCompileActivity,
+  WorkflowCompileAuditInlineCard,
+  WorkflowCompileAuditReview,
+  workflowCompileAuditRuleIds,
+  WorkflowProgramInspector,
+  WorkflowReviewEvidenceStrip,
+  WorkflowReviewTile,
+  WorkflowReviewWorkspace,
+} from "./AutomationsWorkflowReviewViews";
+export {
+  WorkflowFocusedRunsPane,
+  WorkflowPersistentStatusView,
+  WorkflowRunCards,
+  WorkflowRunConsole,
+  WorkflowRuntimeInputPanel,
+  WorkflowThreadRunsWorkspace,
+} from "./AutomationsWorkflowRuntimeViews";
+export { WorkflowThreadComposerView } from "./AutomationsWorkflowThreadComposerViews";
+export {
+  AutomationExplainer,
+  AutomationFolderPane,
+  AutomationHomePane,
+  AutomationHomeStatusGrid,
+  automationIndicatorKind,
+  AutomationRunsReviewsPane,
+  AutomationThreadCardGrid,
+  automationThreadStatusGroups,
+  WorkflowAgentCompilerStartPane,
+  WorkflowLegacyHiddenPane,
+  WorkflowRecorderStartPane,
+  WorkflowRuntimeBrowserScreenshotPreview,
+  WorkflowThreadTranscript,
+  type ThreadIndicatorKind,
+} from "./AutomationsWorkflowUtilityViews";
+export {
+  automationWorkspaceActivePaneTooltip,
+  AutomationWorkspaceHeader,
+  automationWorkspaceHeaderModel,
+  automationWorkspacePaneTitle,
+  automationWorkspaceProjectSelectionModel,
+  automationWorkspaceShellModel,
+  AutomationWorkspaceTabs,
+  type AutomationPane,
+  type AutomationWorkspaceTab,
+} from "./AutomationsWorkspaceShellViews";
 
 export const workflowRecorderSurface = workflowRecorderSurfaceModel({
   legacyCompilerEnabled: workflowRecorderLegacyCompilerEnabled(import.meta.env.AMBIENT_LEGACY_WORKFLOW_COMPILER),
@@ -793,26 +261,30 @@ export const automationHeadingTooltips = {
   home: workflowRecorderSurface.homeTooltip,
   folders: workflowRecorderSurface.foldersTooltip,
   workflowAgent: workflowRecorderSurface.workflowTooltip,
-  localTasks: "Local Tasks are project-scoped automation jobs. Prepare next creates runnable workspaces, and auto-dispatch starts eligible prepared runs.",
+  localTasks:
+    "Local Tasks are project-scoped automation jobs. Prepare next creates runnable workspaces, and auto-dispatch starts eligible prepared runs.",
   workflowLab: "Choose a saved workflow playbook, state the improvement goal, and run bounded Workflow Lab variants.",
-  schedules: "Schedules define whether automation work runs manually, through auto-dispatch, or on a cron-like cadence once scheduled execution is connected.",
-  runsReviews: "Runs and Reviews collects active runs, failed runs, workflow approvals, checkpoints, run chats, workspaces, and audit reports.",
+  schedules:
+    "Schedules define whether automation work runs manually, through auto-dispatch, or on a cron-like cadence once scheduled execution is connected.",
+  runsReviews:
+    "Runs and Reviews collects active runs, failed runs, workflow approvals, checkpoints, run chats, workspaces, and audit reports.",
   project: "Project is the workspace whose workflow configuration and files the automation will use.",
-  triggerMode: "Trigger mode tells Ambient whether this work is manual, auto-dispatched when eligible, or intended for a scheduled cadence.",
-  autoDispatch: "Auto-dispatch checks for ready local tasks on a timer and starts eligible prepared runs. Use the switch to pause or resume it for this workspace.",
+  triggerMode:
+    "Trigger mode tells Ambient whether this work is manual, auto-dispatched when eligible, or intended for a scheduled cadence.",
+  autoDispatch:
+    "Auto-dispatch checks for ready local tasks on a timer and starts eligible prepared runs. Use the switch to pause or resume it for this workspace.",
   runConsole: "Run Console shows the selected workflow run, including approvals, checkpoints, events, and the generated audit preview.",
   recentRuns: "Recent Runs lists the newest local task runs in the selected automation scope.",
   reviewQueue: "Review Queue contains workflow changes that need approval before an automation can continue.",
   checkpoints: "Checkpoints are resumable workflow state. They let a run skip completed deterministic work after a pause or retry.",
   auditPreview: "Audit Preview summarizes what ran, what tools and connectors were allowed, and the proof collected for the run.",
-  connectorGrants: "Connector Grants show which external data sources, scopes, operations, and retention policy the workflow is allowed to use.",
+  connectorGrants:
+    "Connector Grants show which external data sources, scopes, operations, and retention policy the workflow is allowed to use.",
 } as const;
-
 
 export function workflowArtifactRunBlocked(artifact: WorkflowArtifactSummary): boolean {
   return workflowReviewArtifactRunBlocked(artifact);
 }
-
 
 export function automationPaneTitle(pane: AutomationPane, folder?: AutomationFolderSummary): string {
   return automationWorkspacePaneTitle(pane, folder, {
@@ -821,11 +293,9 @@ export function automationPaneTitle(pane: AutomationPane, folder?: AutomationFol
   });
 }
 
-
 export function activePaneTooltip(pane: AutomationPane): string {
   return automationWorkspaceActivePaneTooltip(pane, automationHeadingTooltips);
 }
-
 
 export function AutomationsWorkspace({
   activePane,
@@ -967,7 +437,9 @@ export function AutomationsWorkspace({
   } = useWorkflowLabController({ selectedWorkflowRecording, onDesktopStateChanged });
   const [workflowBusy, setWorkflowBusy] = useState<string | undefined>();
   const [workflowRunIdleTimeoutMs, setWorkflowRunIdleTimeoutMs] = useState(DEFAULT_WORKFLOW_FOREGROUND_IDLE_TIMEOUT_MS);
-  const [workflowRunTotalLimitMode, setWorkflowRunTotalLimitMode] = useState<WorkflowRunTotalLimitMode>(DEFAULT_WORKFLOW_FOREGROUND_TOTAL_LIMIT_MODE);
+  const [workflowRunTotalLimitMode, setWorkflowRunTotalLimitMode] = useState<WorkflowRunTotalLimitMode>(
+    DEFAULT_WORKFLOW_FOREGROUND_TOTAL_LIMIT_MODE,
+  );
   const workflowRecordingLibraryController = useAutomationsWorkflowRecordingLibraryController({
     onRefreshWorkflowRecordingLibrary,
     onWorkflowErrorChanged: setWorkflowError,
@@ -1292,7 +764,10 @@ export function AutomationsWorkspace({
   useEffect(() => {
     setTaskProjectPath(activeProjectPath);
   }, [activeProjectPath]);
-  const workflowConnectorAccounts = useMemo(() => workflowConnectorAccountsByConnector(automationPluginRegistry), [automationPluginRegistry]);
+  const workflowConnectorAccounts = useMemo(
+    () => workflowConnectorAccountsByConnector(automationPluginRegistry),
+    [automationPluginRegistry],
+  );
 
   useEffect(() => {
     if (projectOptions.some((project) => project.path === taskProjectPath)) return;
@@ -1300,7 +775,14 @@ export function AutomationsWorkspace({
   }, [activeProjectPath, projectOptions, taskProjectPath]);
 
   async function loadAutomationSurface() {
-    await Promise.all([loadOrchestrationBoard(), loadAutoDispatchStatus(), loadWorkflowDashboard(), loadAutomationPluginRegistry(), scheduleController.loadAutomationSchedules(), refreshAutomationFolders()]);
+    await Promise.all([
+      loadOrchestrationBoard(),
+      loadAutoDispatchStatus(),
+      loadWorkflowDashboard(),
+      loadAutomationPluginRegistry(),
+      scheduleController.loadAutomationSchedules(),
+      refreshAutomationFolders(),
+    ]);
   }
 
   const workflowNavigationController = createAutomationsWorkflowNavigationController({
@@ -1322,7 +804,6 @@ export function AutomationsWorkspace({
     openWorkflowArtifactThread,
     openWorkflowPanelFromTranscript,
     openWorkflowPersistentStatusTarget,
-    workflowAgentThreadForArtifact,
   } = workflowNavigationController;
 
   function automationScheduleTargetSources() {
@@ -1357,23 +838,19 @@ export function AutomationsWorkspace({
     );
   }
 
-  function renderThreadCards(threads: AutomationThreadSummary[], emptyText: string) {
-    return (
-      <AutomationThreadCardGrid
-        threads={threads}
-        emptyText={emptyText}
-        routeDetailForThread={automationThreadRouteDetail}
-        onOpenThread={openAutomationThreadCard}
-      />
-    );
-  }
-
   function renderAutoDispatchStatus() {
     return <AutoDispatchStatusView status={autoDispatchStatus} workflowReadiness={orchestrationBoard?.workflowReadiness} />;
   }
 
   function renderAutoDispatchToggle() {
-    return <AutoDispatchToggle status={autoDispatchStatus} busy={autoDispatchBusy} tooltip={automationHeadingTooltips.autoDispatch} onChange={localTaskController.setAutoDispatch} />;
+    return (
+      <AutoDispatchToggle
+        status={autoDispatchStatus}
+        busy={autoDispatchBusy}
+        tooltip={automationHeadingTooltips.autoDispatch}
+        onChange={localTaskController.setAutoDispatch}
+      />
+    );
   }
 
   function renderPrepareResult() {
@@ -1544,7 +1021,9 @@ export function AutomationsWorkspace({
         onSchedulePresetChange={scheduleController.setSchedulePreset}
         onScheduleExpressionChange={scheduleController.setScheduleExpression}
         onScheduleEnabledChange={scheduleController.setScheduleEnabled}
-        onCreateSchedule={(targetKind, targetId) => scheduleController.createWorkflowReviewSchedule(targetKind, targetId, selectedWorkflowAgentArtifact)}
+        onCreateSchedule={(targetKind, targetId) =>
+          scheduleController.createWorkflowReviewSchedule(targetKind, targetId, selectedWorkflowAgentArtifact)
+        }
         onCreateScheduleGrant={(schedule) => scheduleController.createWorkflowScheduleGrant(thread, schedule)}
         onSetExpandedScheduleHistoryId={scheduleController.setExpandedScheduleHistoryId}
         onConnectorAccountChange={(connector, nextAccountId) => updateWorkflowConnectorAccount(artifact.id, connector, nextAccountId)}
@@ -1727,11 +1206,19 @@ export function AutomationsWorkspace({
         selectedWorkflowRecordingActive={Boolean(selectedWorkflowRecording)}
         selectedWorkflowAgentThread={selectedWorkflowAgentThread}
         selectedDraftRevisionActive={Boolean(selectedDraftRevision)}
-        renderWorkflowRecordingPlaybookPane={() => (selectedWorkflowRecording ? renderWorkflowRecordingPlaybookPane(selectedWorkflowRecording) : null)}
-        renderLegacyWorkflowHiddenPane={() => (selectedWorkflowAgentThread ? renderLegacyWorkflowHiddenPane(selectedWorkflowAgentThread) : null)}
+        renderWorkflowRecordingPlaybookPane={() =>
+          selectedWorkflowRecording ? renderWorkflowRecordingPlaybookPane(selectedWorkflowRecording) : null
+        }
+        renderLegacyWorkflowHiddenPane={() =>
+          selectedWorkflowAgentThread ? renderLegacyWorkflowHiddenPane(selectedWorkflowAgentThread) : null
+        }
         renderWorkflowRecorderStartPane={renderWorkflowRecorderStartPane}
-        renderWorkflowDiscoveryThread={() => (selectedWorkflowAgentThread ? renderWorkflowDiscoveryThread(selectedWorkflowAgentThread, selectedDraftRevision) : null)}
-        renderWorkflowThreadDetail={() => (selectedWorkflowAgentThread ? renderWorkflowThreadDetail(selectedWorkflowAgentThread, selectedWorkflowAgentArtifact) : null)}
+        renderWorkflowDiscoveryThread={() =>
+          selectedWorkflowAgentThread ? renderWorkflowDiscoveryThread(selectedWorkflowAgentThread, selectedDraftRevision) : null
+        }
+        renderWorkflowThreadDetail={() =>
+          selectedWorkflowAgentThread ? renderWorkflowThreadDetail(selectedWorkflowAgentThread, selectedWorkflowAgentArtifact) : null
+        }
         renderWorkflowAgentCompilerStartPane={renderWorkflowAgentCompilerStartPane}
       />
     );
@@ -1750,7 +1237,9 @@ export function AutomationsWorkspace({
         textareaRef={workflowRequestRef}
         ariaLabel={ariaLabel}
         onDraftChange={(threadId, value) => setWorkflowRequestRestartDrafts((current) => ({ ...current, [threadId]: value }))}
-        onReset={(workflowThread) => setWorkflowRequestRestartDrafts((current) => ({ ...current, [workflowThread.id]: workflowThread.initialRequest }))}
+        onReset={(workflowThread) =>
+          setWorkflowRequestRestartDrafts((current) => ({ ...current, [workflowThread.id]: workflowThread.initialRequest }))
+        }
         onRestart={(workflowThread) => void restartWorkflowDiscoveryThread(workflowThread)}
       />
     );
@@ -1767,7 +1256,11 @@ export function AutomationsWorkspace({
     });
   }
 
-  function renderWorkflowExplorationPanel(thread: WorkflowAgentThreadSummary, artifact?: WorkflowArtifactSummary, revision?: WorkflowRevisionSummary) {
+  function renderWorkflowExplorationPanel(
+    thread: WorkflowAgentThreadSummary,
+    artifact?: WorkflowArtifactSummary,
+    revision?: WorkflowRevisionSummary,
+  ) {
     const traces = workflowExplorationTracesByThreadId[thread.id] ?? [];
     const gate = workflowExplorationGate(thread, revision);
     const explorationBudgets = workflowExplorationBudgetsForThread(thread.id);
@@ -1881,7 +1374,10 @@ export function AutomationsWorkspace({
   }
 
   function renderWorkflowPersistentDiagramPane(thread: WorkflowAgentThreadSummary, artifact?: WorkflowArtifactSummary) {
-    const detail = selectedWorkflowAgentDetail && (!artifact || selectedWorkflowAgentDetail.artifact.id === artifact.id) ? selectedWorkflowAgentDetail : undefined;
+    const detail =
+      selectedWorkflowAgentDetail && (!artifact || selectedWorkflowAgentDetail.artifact.id === artifact.id)
+        ? selectedWorkflowAgentDetail
+        : undefined;
     return (
       <section className="automation-section workflow-persistent-diagram-pane" data-workflow-artifact-panel="diagram">
         <WorkflowAgentDiagramPane
@@ -1972,8 +1468,14 @@ export function AutomationsWorkspace({
 
   function renderWorkflowDiscoveryThread(thread: WorkflowAgentThreadSummary, revision?: WorkflowRevisionSummary) {
     const discoveryModel = workflowDiscoveryThreadWorkspaceViewModel({
-      thread, revision, artifact: selectedWorkflowAgentArtifact,
-      workflowBusy, workflowCompileThreadId, workflowCompileProgress, workflowDiscoveryBusy, workflowDiscoveryProgress,
+      thread,
+      revision,
+      artifact: selectedWorkflowAgentArtifact,
+      workflowBusy,
+      workflowCompileThreadId,
+      workflowCompileProgress,
+      workflowDiscoveryBusy,
+      workflowDiscoveryProgress,
     });
     return (
       <WorkflowDiscoveryThreadWorkspace
@@ -1983,7 +1485,11 @@ export function AutomationsWorkspace({
         splitHandle={renderWorkflowSplitHandle()}
         diagramPane={
           <section className="automation-section workflow-agent-diagram-section">
-            <WorkflowAgentDiagramPane thread={thread} selectedNodeId={selectedWorkflowGraphNodeId} onSelectNode={setSelectedWorkflowGraphNodeId} />
+            <WorkflowAgentDiagramPane
+              thread={thread}
+              selectedNodeId={selectedWorkflowGraphNodeId}
+              onSelectNode={setSelectedWorkflowGraphNodeId}
+            />
           </section>
         }
         model={discoveryModel}
@@ -1999,7 +1505,9 @@ export function AutomationsWorkspace({
         renderExplorationPanel={renderWorkflowExplorationPanel}
         onCustomValueChange={(questionId, value) => setWorkflowDiscoveryAnswers((current) => ({ ...current, [questionId]: value }))}
         onAnswer={(questionId, choiceId, freeform) => void answerWorkflowDiscoveryQuestion(questionId, choiceId, freeform)}
-        onResolveAccessRequest={(questionId, accessRequestId, response) => void resolveWorkflowDiscoveryAccessRequest(questionId, accessRequestId, response)}
+        onResolveAccessRequest={(questionId, accessRequestId, response) =>
+          void resolveWorkflowDiscoveryAccessRequest(questionId, accessRequestId, response)
+        }
         onCompile={(workflowThread, workflowRevision) => void compileWorkflowThreadPreview(workflowThread, workflowRevision)}
         onOpenCompileDiagnostics={(path) => void openWorkflowCompileDiagnostics(path)}
         onEditRequest={focusWorkflowRequestEditor}
@@ -2048,45 +1556,6 @@ export function AutomationsWorkspace({
         onTaskDescriptionChange={setTaskDescription}
         onTaskPriorityChange={setTaskPriority}
         onTaskLabelsChange={setTaskLabels}
-      />
-    );
-  }
-
-  function renderHomePane() {
-    const threadGroups = automationThreadStatusGroups(allAutomationThreads);
-    return (
-      <AutomationHomePane
-        homeExplainer={workflowRecorderSurface.homeExplainer}
-        legacyCompilerEnabled={workflowRecorderSurface.legacyCompilerEnabled}
-        newWorkflowLabel={workflowRecorderSurface.newWorkflowLabel}
-        threadGroups={threadGroups}
-        reviewTooltip={automationHeadingTooltips.reviewQueue}
-        routeDetailForThread={automationThreadRouteDetail}
-        onOpenThread={openAutomationThreadCard}
-        onSelectPane={onSelectPane}
-        playbookLibrary={
-          !workflowRecorderSurface.legacyCompilerEnabled ? (
-          <WorkflowRecordingPlaybookLibrarySection
-            playbooks={workflowRecordingLibrary}
-            query={workflowLibraryQuery}
-            includeArchived={workflowLibraryIncludeArchived}
-            refreshing={workflowLibraryRefreshing}
-            exportBusyThreadId={workflowRecordingExportBusyThreadId}
-            exportStatus={workflowRecordingExportStatus}
-            onQueryChange={setWorkflowLibraryQuery}
-            onIncludeArchivedChange={onWorkflowLibraryIncludeArchivedChange}
-            onRefresh={refreshWorkflowRecordingLibraryFromHome}
-            onEditPlaybook={onEditWorkflowRecordingPlaybook}
-            onOpenPlaybook={onSelectWorkflowRecordingPlaybook}
-            onPreviewLocalPath={onPreviewLocalPath}
-            onExportPlaybookSession={exportWorkflowRecordingPlaybookSession}
-            onRestoreVersion={onRestoreWorkflowRecordingVersion}
-            onSetEnabled={onSetWorkflowRecordingEnabled}
-            onUnarchivePlaybook={onUnarchiveWorkflowRecordingPlaybook}
-            onArchivePlaybook={onArchiveWorkflowRecordingPlaybook}
-          />
-          ) : undefined
-        }
       />
     );
   }
@@ -2225,26 +1694,6 @@ export function AutomationsWorkspace({
     );
   }
 
-  function renderRunsReviewsPane() {
-    if (selectedWorkflowAgentThread) {
-      return workflowRecorderSurface.legacyCompilerEnabled
-        ? renderWorkflowThreadRunsPane(selectedWorkflowAgentThread, selectedWorkflowAgentArtifact)
-        : renderLegacyWorkflowHiddenPane(selectedWorkflowAgentThread);
-    }
-    const threadGroups = automationThreadStatusGroups(allAutomationThreads);
-    return (
-      <AutomationRunsReviewsPane
-        threadGroups={threadGroups}
-        reviewTooltip={automationHeadingTooltips.reviewQueue}
-        localTaskRuns={renderTaskRuns(allTaskRuns, 8)}
-        workflowRuns={renderWorkflowRunCards(workflowRuns, 8)}
-        workflowConsole={workflowArtifactPanels.renderRunConsole(workflowDetail)}
-        routeDetailForThread={automationThreadRouteDetail}
-        onOpenThread={openAutomationThreadCard}
-      />
-    );
-  }
-
   function renderFolderPane() {
     const folderName = selectedFolder?.name ?? "Folder";
     return (
@@ -2265,47 +1714,70 @@ export function AutomationsWorkspace({
       <AutomationPaneRouter
         activePane={activePane}
         selectedWorkflowRecordingActive={Boolean(selectedWorkflowRecording)}
-        renderWorkflowRecordingPlaybookPane={() => (selectedWorkflowRecording ? renderWorkflowRecordingPlaybookPane(selectedWorkflowRecording) : null)}
+        renderWorkflowRecordingPlaybookPane={() =>
+          selectedWorkflowRecording ? renderWorkflowRecordingPlaybookPane(selectedWorkflowRecording) : null
+        }
         renderLocalTasksPane={renderLocalTasksPane}
         renderWorkflowAgentPane={renderWorkflowAgentPane}
         renderWorkflowLabHomePane={renderWorkflowLabHomePane}
         renderSchedulesPane={renderSchedulesPane}
-        renderRunsReviewsPane={renderRunsReviewsPane}
+        renderRunsReviewsPane={() => (
+          <AutomationsWorkspaceRunsReviewsPane
+            selectedWorkflowAgentThread={selectedWorkflowAgentThread}
+            selectedWorkflowAgentArtifact={selectedWorkflowAgentArtifact}
+            legacyCompilerEnabled={workflowRecorderSurface.legacyCompilerEnabled}
+            allAutomationThreads={allAutomationThreads}
+            reviewTooltip={automationHeadingTooltips.reviewQueue}
+            localTaskRuns={renderTaskRuns(allTaskRuns, 8)}
+            workflowRuns={renderWorkflowRunCards(workflowRuns, 8)}
+            workflowConsole={workflowArtifactPanels.renderRunConsole(workflowDetail)}
+            routeDetailForThread={automationThreadRouteDetail}
+            onOpenThread={openAutomationThreadCard}
+            renderWorkflowThreadRunsPane={renderWorkflowThreadRunsPane}
+            renderLegacyWorkflowHiddenPane={renderLegacyWorkflowHiddenPane}
+          />
+        )}
         renderFolderPane={renderFolderPane}
-        renderHomePane={renderHomePane}
-      />
-    );
-  }
-
-  function renderWorkflowAgentTabs() {
-    const tabs: AutomationWorkspaceTab[] = [
-      { id: "home", label: "Home", title: workflowRecorderSurface.homeTooltip },
-      { id: "local_tasks", label: "Local Tasks", title: automationHeadingTooltips.localTasks },
-      { id: "workflow_agent", label: workflowRecorderSurface.newWorkflowLabel, title: automationHeadingTooltips.workflowAgent },
-      { id: "workflow_lab", label: "Workflow Lab", title: activePaneTooltip("workflow_lab") },
-      { id: "schedules", label: "Schedules", title: automationHeadingTooltips.schedules },
-      { id: "runs_reviews", label: "Runs", title: automationHeadingTooltips.runsReviews },
-    ];
-    return (
-      <AutomationWorkspaceTabs
-        homeTitle={workflowRecorderSurface.homeTitle}
-        tabs={tabs}
-        activePane={activePane}
-        selectedThreadActive={Boolean(selectedThread)}
-        onSelectPane={onSelectPane}
+        renderHomePane={() => (
+          <AutomationsWorkspaceHomePane
+            allAutomationThreads={allAutomationThreads}
+            homeExplainer={workflowRecorderSurface.homeExplainer}
+            legacyCompilerEnabled={workflowRecorderSurface.legacyCompilerEnabled}
+            newWorkflowLabel={workflowRecorderSurface.newWorkflowLabel}
+            reviewTooltip={automationHeadingTooltips.reviewQueue}
+            routeDetailForThread={automationThreadRouteDetail} onOpenThread={openAutomationThreadCard}
+            onSelectPane={onSelectPane} playbooks={workflowRecordingLibrary}
+            query={workflowLibraryQuery} includeArchived={workflowLibraryIncludeArchived}
+            refreshing={workflowLibraryRefreshing} exportBusyThreadId={workflowRecordingExportBusyThreadId}
+            exportStatus={workflowRecordingExportStatus} onQueryChange={setWorkflowLibraryQuery}
+            onIncludeArchivedChange={onWorkflowLibraryIncludeArchivedChange} onRefresh={refreshWorkflowRecordingLibraryFromHome}
+            onEditPlaybook={onEditWorkflowRecordingPlaybook} onOpenPlaybook={onSelectWorkflowRecordingPlaybook}
+            onPreviewLocalPath={onPreviewLocalPath} onExportPlaybookSession={exportWorkflowRecordingPlaybookSession}
+            onRestoreVersion={onRestoreWorkflowRecordingVersion} onSetEnabled={onSetWorkflowRecordingEnabled}
+            onUnarchivePlaybook={onUnarchiveWorkflowRecordingPlaybook} onArchivePlaybook={onArchiveWorkflowRecordingPlaybook}
+          />
+        )}
       />
     );
   }
 
   return (
     <section className="automation-workspace">
-      <AutomationWorkspaceHeader
-        model={automationHeaderModel}
-        helpText={automationHelpText}
-        stats={automationShellModel.stats}
-      />
+      <AutomationWorkspaceHeader model={automationHeaderModel} helpText={automationHelpText} stats={automationShellModel.stats} />
 
-      {renderWorkflowAgentTabs()}
+      <AutomationsWorkspaceTabsView
+        homeTitle={workflowRecorderSurface.homeTitle}
+        homeTooltip={workflowRecorderSurface.homeTooltip}
+        localTasksTooltip={automationHeadingTooltips.localTasks}
+        workflowAgentLabel={workflowRecorderSurface.newWorkflowLabel}
+        workflowAgentTooltip={automationHeadingTooltips.workflowAgent}
+        workflowLabTooltip={activePaneTooltip("workflow_lab")}
+        schedulesTooltip={automationHeadingTooltips.schedules}
+        runsReviewsTooltip={automationHeadingTooltips.runsReviews}
+        activePane={activePane}
+        selectedThreadActive={Boolean(selectedThread)}
+        onSelectPane={onSelectPane}
+      />
 
       {selectedThread ? (
         <AutomationSelectedThreadDetailView
@@ -2330,9 +1802,7 @@ export function AutomationsWorkspace({
           onStartRun={localTaskController.startOrchestrationRun}
         />
       ) : (
-        <>
-          {renderAutomationPane()}
-        </>
+        <>{renderAutomationPane()}</>
       )}
     </section>
   );
@@ -2340,13 +1810,11 @@ export function AutomationsWorkspace({
 
 export type AutomationsWorkspaceProps = Parameters<typeof AutomationsWorkspace>[0];
 
-
 export function workflowAuditReportPreview(value: string | undefined): string {
   const report = value || "No audit report was generated for this run.";
   if (report.length <= 12_000) return report;
   return `${report.slice(0, 11_400).trimEnd()}\n\n[Audit preview truncated ${report.length - 11_400} chars. Open the run evidence panels for bounded events, model calls, checkpoints, and outputs.]`;
 }
-
 
 export async function rendererPermissionGrantTargetHash(
   actionKind: CreateAmbientPermissionGrantInput["actionKind"],

@@ -245,7 +245,7 @@ describe("workflow jitter matrix", () => {
       envKeys: ["AMBIENT_PROVIDER", "GMI_CLOUD_API_KEY_FILE"],
       status: "product_or_test_failure",
       providerHealth: "unknown",
-      reason: "Expected graph node source mapping to exist at /Users/Neo/tmp/run-123 after 42142ms.",
+      reason: "Expected graph node source mapping to exist at /Users/example/tmp/run-123 after 42142ms.",
       totalWallClockMs: 42142,
       attempts: [
         {

@@ -216,6 +216,7 @@ export function normalizePiEvent(event: any): NormalizedPiEvent {
 
   if (event?.type === "message_update") {
     const update = event.assistantMessageEvent;
+    if (!update && event.message?.role !== "assistant") return { kind: "unknown" };
     const error = extractAssistantError(update?.partial ?? event.message);
     const thinkingEvent = normalizeThinkingEvent(update);
     if (thinkingEvent) return thinkingEvent;
@@ -260,6 +261,7 @@ export function normalizePiEvent(event: any): NormalizedPiEvent {
       };
     }
 
+    if (event.message?.role !== "assistant") return { kind: "unknown" };
     const error = extractAssistantError(event.message);
     const finalText = extractAssistantText(event.message);
     return {

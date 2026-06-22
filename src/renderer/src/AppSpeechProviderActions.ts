@@ -2,13 +2,8 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { SttProviderCandidate, SttProviderSetupResult, VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
-import {
-  sttProviderCacheChanges,
-  sttSetupResultModel,
-} from "./sttUiModel";
-import {
-  voiceProviderCacheChanges,
-} from "./voiceUiModel";
+import { sttProviderCacheChanges, sttSetupResultModel } from "./sttUiModel";
+import { voiceProviderCacheChanges } from "./voiceUiModel";
 import type {
   SttProviderCacheActivity,
   SttProviderCacheStatus,
@@ -17,6 +12,7 @@ import type {
   VoiceProviderCacheActivity,
   VoiceProviderCacheStatus,
 } from "./RightPanel";
+import type { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
 
 export const SPEECH_PROVIDER_CACHE_ACTIVITY_LIMIT = 5;
 
@@ -24,11 +20,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function speechProviderCacheActivityId(input: {
-  at: string;
-  trigger: string;
-  currentLength: number;
-}): string {
+export function speechProviderCacheActivityId(input: { at: string; trigger: string; currentLength: number }): string {
   return `${input.at}:${input.trigger}:${input.currentLength}`;
 }
 
@@ -55,11 +47,7 @@ export function speechProviderCacheActivityList<T extends { at: string; trigger:
 }
 
 export function sttSetupRunningMessage(action: "install" | "repair" | "validate"): string {
-  return action === "install"
-    ? "Installing Qwen3-ASR..."
-    : action === "repair"
-      ? "Repairing Qwen3-ASR..."
-      : "Validating Qwen3-ASR...";
+  return action === "install" ? "Installing Qwen3-ASR..." : action === "repair" ? "Repairing Qwen3-ASR..." : "Validating Qwen3-ASR...";
 }
 
 export function desktopStateWithSttSetupResult(input: {
@@ -311,7 +299,11 @@ export function createAppSpeechProviderActions({
 
   async function refreshVoiceCatalog(providerCapabilityId: string) {
     const provider = voiceProvidersRef.current.find((candidate) => candidate.capabilityId === providerCapabilityId);
-    setVoiceCatalogRefresh({ providerCapabilityId, status: "running", message: provider ? `Refreshing ${provider.label} voices...` : "Refreshing voices..." });
+    setVoiceCatalogRefresh({
+      providerCapabilityId,
+      status: "running",
+      message: provider ? `Refreshing ${provider.label} voices...` : "Refreshing voices...",
+    });
     try {
       const result = await window.ambientDesktop.refreshVoiceProviderVoices({ providerCapabilityId });
       setVoiceCatalogRefresh({
@@ -351,4 +343,59 @@ export function createAppSpeechProviderActions({
     scheduleVoiceProviderRefresh,
     setupSttProvider,
   };
+}
+
+type AppSpeechProviderRuntimeStateInput = Pick<
+  ReturnType<typeof useAppProviderRuntimeState>,
+  | "setSttProviderCacheActivity"
+  | "setSttProviderCacheStatus"
+  | "setSttProviderSetup"
+  | "setSttProviders"
+  | "setSttProvidersError"
+  | "setSttProvidersLoading"
+  | "setVoiceCatalogRefresh"
+  | "setVoiceProviderCacheActivity"
+  | "setVoiceProviderCacheStatus"
+  | "setVoiceProviders"
+  | "setVoiceProvidersError"
+  | "setVoiceProvidersLoading"
+  | "sttProviderRefreshTimerRef"
+  | "sttProviderRequestIdRef"
+  | "sttProvidersRef"
+  | "voiceProviderRefreshTimerRef"
+  | "voiceProviderRequestIdRef"
+  | "voiceProvidersRef"
+>;
+
+export function createAppSpeechProviderActionsForRuntimeState({
+  providerRuntimeState,
+  setState,
+  state,
+}: {
+  providerRuntimeState: AppSpeechProviderRuntimeStateInput;
+  setState: Dispatch<SetStateAction<DesktopState | undefined>>;
+  state: DesktopState | undefined;
+}): ReturnType<typeof createAppSpeechProviderActions> {
+  return createAppSpeechProviderActions({
+    setState,
+    setSttProviderCacheActivity: providerRuntimeState.setSttProviderCacheActivity,
+    setSttProviderCacheStatus: providerRuntimeState.setSttProviderCacheStatus,
+    setSttProviderSetup: providerRuntimeState.setSttProviderSetup,
+    setSttProviders: providerRuntimeState.setSttProviders,
+    setSttProvidersError: providerRuntimeState.setSttProvidersError,
+    setSttProvidersLoading: providerRuntimeState.setSttProvidersLoading,
+    setVoiceCatalogRefresh: providerRuntimeState.setVoiceCatalogRefresh,
+    setVoiceProviderCacheActivity: providerRuntimeState.setVoiceProviderCacheActivity,
+    setVoiceProviderCacheStatus: providerRuntimeState.setVoiceProviderCacheStatus,
+    setVoiceProviders: providerRuntimeState.setVoiceProviders,
+    setVoiceProvidersError: providerRuntimeState.setVoiceProvidersError,
+    setVoiceProvidersLoading: providerRuntimeState.setVoiceProvidersLoading,
+    state,
+    sttProviderRefreshTimerRef: providerRuntimeState.sttProviderRefreshTimerRef,
+    sttProviderRequestIdRef: providerRuntimeState.sttProviderRequestIdRef,
+    sttProvidersRef: providerRuntimeState.sttProvidersRef,
+    voiceProviderRefreshTimerRef: providerRuntimeState.voiceProviderRefreshTimerRef,
+    voiceProviderRequestIdRef: providerRuntimeState.voiceProviderRequestIdRef,
+    voiceProvidersRef: providerRuntimeState.voiceProvidersRef,
+  });
 }

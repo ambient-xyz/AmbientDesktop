@@ -12,9 +12,8 @@ import {
   runGuidedLocalBridgePreflight,
   type McpGuidedLocalBridgePreview,
 } from "./mcpGuidedLocalBridge";
-import { McpToolBridge, mcpToolDescriptorReviewText, type FetchLike, type McpToolDescriptor } from "./mcpToolBridge";
+import { McpToolBridge, mcpToolDescriptorReviewText, type McpToolDescriptor } from "./mcpToolBridge";
 import {
-  McpInstallCatalog,
   mcpDefaultCatalogUpdatePreviewText,
   mcpDefaultCapabilityInstallPreviewText,
   mcpInstallPreviewText,
@@ -35,8 +34,6 @@ import {
 } from "./mcpInstallCatalog";
 import { mcpInstallGateSummary, type McpInstallGateResult } from "./mcpInstallGate";
 import { mcpDefaultCatalogDescriptorHash } from "./mcpDefaultCatalog";
-import type { ContainerRuntimeImagePullResult, PullContainerRuntimeImageInput } from "./mcpContainerRuntimeFacade";
-import type { OciImageResolution } from "./mcpContainerRuntimeFacade";
 import { installMcpDefaultCapability as installDefaultMcpCapability } from "./mcpDefaultCapabilityInstaller";
 import { type ToolHiveCommandResult, type ToolHiveInstalledServerState, type ToolHiveOperationProgress, type ToolHiveRuntimeService, type ToolHiveRunVolume, type ToolHiveWorkloadSummary } from "./mcpToolRuntimeFacade";
 import { parseMcpAutowireCandidate, validateMcpAutowireCandidate } from "./mcpAutowireFacade";
@@ -51,106 +48,44 @@ import {
   describeMcpAutowireRuntimeRepair,
   mcpAutowireRuntimeRepairText,
   type McpAutowirePlanRevision,
-  type McpAutowirePlanRevisionStore,
-  type McpAutowireRuntimeRepairDescribeResult,
 } from "./mcpAutowireFacade";
 import { backfillMcpAutowirePlanRevisionFromInstalledServer } from "./mcpAutowireFacade";
+import type { McpServerInstallPreviewForApproval, McpServerPiToolOptions, McpServerPiToolThread, McpServerPiToolWorkspace } from "./mcpServerPiToolTypes";
+export type {
+  McpGuidedLocalBridgePreflightApprovalInput,
+  McpGuidedLocalBridgeRegisterApprovalInput,
+  McpRuntimeRepairApprovalInput,
+  McpServerInstallApprovalInput,
+  McpServerInstallPreviewForApproval,
+  McpServerPiToolOptions,
+  McpServerPiToolThread,
+  McpServerPiToolWorkspace,
+  McpServerUninstallApprovalInput,
+} from "./mcpServerPiToolTypes";
 
-export interface McpServerPiToolThread {
-  id: string;
-  collaborationMode: "agent" | "planner";
-  permissionMode: string;
-}
-
-export interface McpServerPiToolWorkspace {
-  path: string;
-  name?: string;
-}
-
-export interface McpServerInstallApprovalInput {
-  thread: McpServerPiToolThread;
-  workspace: McpServerPiToolWorkspace;
-  preview: McpServerInstallPreviewForApproval;
-  preflight: ToolHiveCommandResult;
-  detail: string;
-}
-
-type McpServerInstallPreviewForApproval = McpInstallPreview | McpDefaultCapabilityInstallPreview;
+type McpServerPiToolDefinition = ToolDefinition<any, any, any>;
 type McpPiToolUpdate = (update: { content: Array<{ type: "text"; text: string }>; details: Record<string, unknown> }) => void;
 type InstalledMcpAutowireRevisionRecord = {
   revision: McpAutowirePlanRevision;
   previousActiveRevisionId?: string;
 };
 
-export interface McpServerUninstallApprovalInput {
-  thread: McpServerPiToolThread;
-  workspace: McpServerPiToolWorkspace;
-  server: McpInstalledServerSummary;
-  detail: string;
+export function createMcpServerPiToolDefinitions(options: McpServerPiToolOptions): McpServerPiToolDefinition[] {
+  return [
+    ...createMcpServerDiscoveryPiToolDefinitions(options),
+    ...createMcpStandardImportPiToolDefinitions(options),
+    ...createMcpRemoteProxyPiToolDefinitions(options),
+    ...createMcpGuidedBridgePiToolDefinitions(options),
+    ...createMcpServerLifecyclePiToolDefinitions(options),
+  ];
 }
 
-export interface McpGuidedLocalBridgePreflightApprovalInput {
-  thread: McpServerPiToolThread;
-  workspace: McpServerPiToolWorkspace;
-  preview: McpGuidedLocalBridgePreview;
-  detail: string;
-}
-
-export interface McpGuidedLocalBridgeRegisterApprovalInput {
-  thread: McpServerPiToolThread;
-  workspace: McpServerPiToolWorkspace;
-  preview: McpGuidedLocalBridgePreview;
-  detail: string;
-}
-
-export interface McpServerPiToolOptions {
-  catalog: McpInstallCatalog;
-  toolHive: ToolHiveRuntimeService;
-  getThread: () => McpServerPiToolThread;
-  workspace: McpServerPiToolWorkspace;
-  authorizeInstall?: (input: McpServerInstallApprovalInput) => Promise<boolean> | boolean;
-  authorizeUninstall?: (input: McpServerUninstallApprovalInput) => Promise<boolean> | boolean;
-  authorizeGuidedLocalBridgePreflight?: (input: McpGuidedLocalBridgePreflightApprovalInput) => Promise<boolean> | boolean;
-  authorizeGuidedLocalBridgeRegister?: (input: McpGuidedLocalBridgeRegisterApprovalInput) => Promise<boolean> | boolean;
-  guidedLocalBridgeFetchImpl?: (input: string | URL, init?: RequestInit) => Promise<Response>;
-  mcpToolFetchImpl?: FetchLike;
-  resolveCandidateRef?: (candidateRef: string) => Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined;
-  containerRuntimeProbe?: () => Promise<ContainerRuntimeProbeResult>;
-  installGate?: () => Promise<McpInstallGateResult>;
-  defaultCapabilityImageResolver?: (input: { image: string; platform?: NodeJS.Platform | string; arch?: NodeJS.Architecture | string; fetchImpl?: typeof fetch }) => Promise<OciImageResolution>;
-  defaultCapabilityImagePuller?: (input: PullContainerRuntimeImageInput) => Promise<ContainerRuntimeImagePullResult>;
-  onContainerRuntimeSetupNeeded?: (input: { capabilityId?: "scrapling"; serverId?: string; reason: string }) => void;
-  requestMcpSecret?: (input: { serverId?: string; candidateId?: string; candidateRef?: string; displayName?: string; envName: string }) => void;
-  planRevisions?: McpAutowirePlanRevisionStore;
-  putCandidateRef?: (candidate: Record<string, unknown>, candidateHash?: string) => string | undefined;
-  authorizeRuntimeRepair?: (input: McpRuntimeRepairApprovalInput) => Promise<boolean> | boolean;
-}
-
-export interface McpRuntimeRepairApprovalInput {
-  thread: McpServerPiToolThread;
-  workspace: McpServerPiToolWorkspace;
-  preview: McpAutowireRuntimeRepairDescribeResult;
-  detail: string;
-}
-
-export function createMcpServerPiToolDefinitions(options: McpServerPiToolOptions): ToolDefinition<any, any, any>[] {
+function createMcpServerDiscoveryPiToolDefinitions(options: McpServerPiToolOptions): McpServerPiToolDefinition[] {
   const search = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_search"));
   const describe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_describe"));
-  const importDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_standard_import_describe"));
-  const importInstall = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_standard_import_install"));
-  const remoteDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_remote_proxy_describe"));
-  const remoteInstall = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_remote_proxy_install"));
-  const guidedDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_guided_bridge_describe"));
-  const guidedPreflight = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_guided_bridge_preflight"));
-  const guidedRegister = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_guided_bridge_register"));
-  const install = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_install"));
   const list = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_list"));
   const diagnostics = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_diagnostics"));
   const defaultUpdateDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_default_update_describe"));
-  const mcpSecretRequest = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_secret_request"));
-  const runtimeRepairDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_runtime_repair_describe"));
-  const runtimeRepairApply = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_runtime_repair_apply"));
-  const uninstall = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_uninstall"));
   return [
     {
       ...search,
@@ -351,6 +286,13 @@ export function createMcpServerPiToolDefinitions(options: McpServerPiToolOptions
         });
       },
     },
+  ];
+}
+
+function createMcpStandardImportPiToolDefinitions(options: McpServerPiToolOptions): McpServerPiToolDefinition[] {
+  const importDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_standard_import_describe"));
+  const importInstall = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_standard_import_install"));
+  return [
     {
       ...importDescribe,
       parameters: importDescribe.parameters as any,
@@ -712,6 +654,13 @@ export function createMcpServerPiToolDefinitions(options: McpServerPiToolOptions
         });
       },
     },
+  ];
+}
+
+function createMcpRemoteProxyPiToolDefinitions(options: McpServerPiToolOptions): McpServerPiToolDefinition[] {
+  const remoteDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_remote_proxy_describe"));
+  const remoteInstall = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_remote_proxy_install"));
+  return [
     {
       ...remoteDescribe,
       parameters: remoteDescribe.parameters as any,
@@ -914,6 +863,14 @@ export function createMcpServerPiToolDefinitions(options: McpServerPiToolOptions
         });
       },
     },
+  ];
+}
+
+function createMcpGuidedBridgePiToolDefinitions(options: McpServerPiToolOptions): McpServerPiToolDefinition[] {
+  const guidedDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_guided_bridge_describe"));
+  const guidedPreflight = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_guided_bridge_preflight"));
+  const guidedRegister = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_guided_bridge_register"));
+  return [
     {
       ...guidedDescribe,
       parameters: guidedDescribe.parameters as any,
@@ -1141,6 +1098,16 @@ export function createMcpServerPiToolDefinitions(options: McpServerPiToolOptions
         }
       },
     },
+  ];
+}
+
+function createMcpServerLifecyclePiToolDefinitions(options: McpServerPiToolOptions): McpServerPiToolDefinition[] {
+  const install = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_install"));
+  const runtimeRepairDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_runtime_repair_describe"));
+  const runtimeRepairApply = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_runtime_repair_apply"));
+  const mcpSecretRequest = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_secret_request"));
+  const uninstall = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_server_uninstall"));
+  return [
     {
       ...install,
       parameters: install.parameters as any,

@@ -1,699 +1,139 @@
 import "@xyflow/react/dist/style.css";
 import {
-  FormEvent,
-  ClipboardEvent as ReactClipboardEvent,
-  DragEvent as ReactDragEvent,
-  FocusEvent as ReactFocusEvent,
-  KeyboardEvent as ReactKeyboardEvent,
-  memo,
-  MouseEvent as ReactMouseEvent,
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
-import { flushSync } from "react-dom";
-import { isAmbientSubagentsEnabled, isAmbientTencentDbMemoryEnabled } from "../../shared/featureFlags";
-import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
+import type {
+  DesktopEvent,
+  DesktopState,
+} from "../../shared/desktopTypes";
 import {
-  projectBoardActiveCardDetail,
-  projectBoardActiveCardOverviewModel,
-  projectBoardAddCardsSourceScope,
-  projectBoardCardCanSplit,
-  projectBoardCardCanMarkReady,
-  projectBoardCardClaimBlocksLocalTicketization,
-  projectBoardCardClaimActionState,
-  projectBoardCardClaimLabel,
-  projectBoardCardClaimTitle,
-  projectBoardCardCanEditDependencies,
-  projectBoardCardIsDraftInboxCandidate,
-  projectBoardCardEditCanSave,
-  projectBoardCardEditDraft,
-  projectBoardCardEditHasChanges,
-  projectBoardCardEditInput,
-  projectBoardCardEditWithClarificationAnswerInput,
-  projectBoardCanonicalCardProjection,
-  projectBoardCardVisualTone,
-  projectBoardCharterReviewActionState,
-  projectBoardClarificationAnswerInput,
-  projectBoardCandidateClarificationItems,
-  projectBoardPlanningWarningActionTitle,
-  projectBoardPlanningWarningsForCard,
-  projectBoardSynthesisRunProofScopeWarnings,
-  projectBoardSynthesisRunPromptBudgetAudit,
-  projectBoardSynthesisRunPromptBudgetMetrics,
-  projectBoardCardSourceBasis,
-  projectBoardCardsForSourceGroup,
-  projectBoardBoardTabShowsDraftCallout,
-  projectBoardBoardTabShowsExecutionPanels,
-  projectBoardBoardTabStatusLabel,
-  projectBoardColumns,
-  projectBoardCollaborationReadiness,
-  projectBoardComplexityEstimate,
-  projectBoardCandidateStatusForDraftColumn,
-  projectBoardCreateReadyTasksState,
-  projectBoardDependencyEditOptions,
-  projectBoardDependencyChangeImpactPreview,
-  projectBoardCardDependencyBadges,
-  projectBoardDependencyHealth,
-  projectBoardDependencyRows,
-  projectBoardBoardDecisionImpactRail,
-  projectBoardDecisionImpactPreview,
-  projectBoardDecisionQueue,
-  projectBoardDeliverableIntegrationQueue,
-  projectBoardDraftInboxCreateReadyPreview,
-  projectBoardDraftInboxFilterOptions,
-  projectBoardDraftColumns,
-  projectBoardDraftColumnMoveState,
-  projectBoardPiUpdateReviewQueue,
-  projectBoardEmptyMessage,
-  projectBoardEventGroups,
-  projectBoardEventHasSupersededCardReview,
-  projectBoardEventKindLabel,
-  projectBoardEventSummary,
-  projectBoardHistoryCollaborationAudit,
-  projectBoardHistoryImpactAudit,
-  projectBoardHistoryRecoveryQueue,
-  projectBoardLiveSessionPreviewModel,
-  projectBoardOverviewModel,
-  projectBoardExecutionControlModel,
-  projectBoardExecutionOverview,
-  projectBoardExecutionReadinessRail,
-  projectBoardExecutionPmReview,
-  projectBoardWorkflowImpactPreview,
-  projectBoardPhaseGroups,
-  projectBoardPendingClarificationDecisions,
-  projectBoardPendingClarificationQuestions,
-  projectBoardPlanningSnapshotTicketizationState,
-  projectBoardPrimaryBlockingCard,
-  projectBoardProofDecisionModel,
-  projectBoardProofEvidenceModel,
-  projectBoardProofFollowUpImpactModel,
-  projectBoardProofInspectionNavigationModel,
-  projectBoardProofCoverageForBoard,
-  projectBoardProofReviewQueueSummary,
-  projectBoardPmReviewReportUiModel,
-  projectBoardProjectionReview,
-  projectBoardProjectionReviewResolutionState,
-  projectBoardResetImpact,
-  projectBoardTaskActionEvidenceFromProof,
-  projectBoardSourceFilterItems,
-  projectBoardSourceChangeDetail,
-  projectBoardSourceChangeFilterItems,
-  projectBoardSourceChangeSummary,
-  projectBoardSourceGroups,
-  projectBoardSourceGroupsForChangeFilter,
-  projectBoardSourceGroupsForFilter,
-  projectBoardSourceGroupCanElaborate,
-  projectBoardSourceGroupIncludedSourceIds,
-  projectBoardSourceImpactPreview,
-  projectBoardSourceInclusion,
-  projectBoardSourceKindText,
-  projectBoardSourceObservationLabel,
-  projectBoardStatusLabel,
-  projectBoardSupersededCardReview,
-  projectBoardSynthesisRunControlState,
-  projectBoardTabs,
-  projectBoardTestSummaryForBoard,
-  projectBoardUiMockReviewPanelModel,
-  projectBoardUiMockReviewBadges,
-  projectBoardKickoffDefaultProviderErrorMessage,
-  projectBoardKickoffDefaultAnswer,
-  projectBoardUnattachedLocalTasks,
-  defaultProjectBoardTab,
-  type ProjectBoardCardEditDraft,
-  type ProjectBoardCardClaimAction,
-  type ProjectBoardComplexityEstimate,
-  type ProjectBoardDecisionQueueAuditFilterId,
-  type ProjectBoardDecisionQueueRow,
-  type ProjectBoardPlanningWarning,
-  type ProjectBoardSourceGroup,
-  type ProjectBoardSourceChangeFilterKind,
-  type ProjectBoardSourceFilterKind,
-  type ProjectBoardSupersededCardReview,
-  type ProjectBoardSupersededCardReviewKind,
-  type ProjectBoardTabId,
-  type ProjectBoardDecisionImpactPreview,
-  type ProjectBoardDraftInboxCreateReadyPreview,
-  type ProjectBoardDraftInboxFilterId,
-  type ProjectBoardDraftInboxFilterOption,
-  type ProjectBoardHistoryRecoveryAction,
-  type ProjectBoardHistoryRecoveryActionId,
-  type ProjectBoardHistoryRecoveryRun,
-  type ProjectBoardLiveSessionActivityLine,
-  type ProjectBoardPiUpdateReviewQueue,
-} from "./projectBoardUiModel";
-import {
-  moveWebResearchProvider,
-  resetWebResearchRole,
-  setWebResearchBrowserFallback,
-  setWebResearchProviderEnabled,
-  webResearchProviderHealthBadge,
-  webResearchProviderSetupAction,
-  webResearchProvidersForRole,
-  webResearchStackWithDefaults,
-} from "./searchWebSettingsModel";
-import {
-  messageVoiceStripModel,
-  voiceSettingsAuditRows,
-  voiceSettingsProviderModel,
-} from "./voiceUiModel";
-import {
-  projectBoardKickoffAnswerState,
-  projectBoardRunBlocksPlanning,
-  projectBoardRunIsKickoffDefaults,
-} from "../../shared/projectBoardSynthesisGate";
-import {
-  queuedSpeechFollowUpCount,
-  sttProviderForCapabilityId,
-  sttQueuedCountLabel,
-  sttRuntimeQueuedCount,
-  sttSettingsProviderModel,
-  sttDiagnosticsModel,
-} from "./sttUiModel";
-import {
-  miniCpmVisionSetupActions,
-} from "./miniCpmVisionUiModel";
-import {
-  localDeepResearchInstallProgressModel,
-  localDeepResearchSetupActions,
-  type LocalDeepResearchDiagnosticItem,
-} from "./localDeepResearchUiModel";
-import {
-  shortcutFromKeyboardEvent,
-  sttShortcutLabel,
-} from "./sttShortcut";
-import { parseMarkdownBlocks } from "./markdownBlockParser";
-import { richMarkdownTableIconLabel, type RichMarkdownIconLabel } from "./richMarkdownIcons";
-import { canRefreshOfficePreview } from "./workspaceUiModel";
-import { createAppDesktopEventGuards } from "./AppDesktopEventGuards";
-import { createAppDesktopStateAppliers } from "./AppDesktopStateAppliers";
-import { createAppProjectThreadActions } from "./AppProjectThreadActions";
-import { createAppWorkspaceNavigationControls } from "./AppWorkspaceNavigationControls";
-import {
-  miniCpmVisualAnalyzeInputForBrowserScreenshot,
-  miniCpmVisualAnalyzeInputForContextAttachment,
-  miniCpmVisualAnalyzeInputForWorkspaceFile,
-  miniCpmVisualMediaKindFromPath,
-} from "./miniCpmVisualActionUiModel";
-import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
-import type { AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult } from "../../shared/agentMemoryDiagnostics";
-import type { AutomationScheduleExceptionSummary, AutomationScheduleSummary, AutomationThreadSummary } from "../../shared/automationTypes";
-import type { BrowserCredentialSummary, BrowserPickResult, BrowserProfileMode, BrowserRuntimeKind, BrowserScreenshotResult, SaveBrowserCredentialInput } from "../../shared/browserTypes";
-import type { DesktopEvent, DesktopState, DesktopUpdateState, MenuCommand, ThemePreference, ThinkingDisplayMode } from "../../shared/desktopTypes";
-import type { LocalDeepResearchEffort, LocalDeepResearchInstallProgress, MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, SttProviderSetupResult, VoiceArtifactRetentionSummary, VoiceProviderVoiceCandidate } from "../../shared/localRuntimeTypes";
-import type { CreateAmbientPermissionGrantInput, PermissionMode, PermissionPromptResponseMode } from "../../shared/permissionTypes";
-import type { AmbientGeneratedCapabilitySummary, AmbientMcpContainerRuntimeStatus, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, AmbientPluginAuthAccountSummary, AmbientPluginAuthStartResult, AmbientPluginCapabilityDiagnostics, AmbientPluginRuntime, AmbientPluginSourceKind, CapabilityBuilderHistoryEntry, CapabilityBuilderHistoryResult, CodexHostedMarketplaceReport, CodexMarketplaceSourceSummary, CodexPluginCatalog, CodexPluginCompatibilityTier, CodexPluginMcpInspectionCatalog, CodexPluginSummary, FirstPartyGoogleIntegrationState, ManagedDevServerSummary, PiExtensionSandboxCatalog, PiExtensionSandboxInstallPreview, PiExtensionSandboxPackageSummary, PiPackageCatalog, PiPackageInstallScope, PiPackageResourceKind, PiPrivilegedCatalog, PiPrivilegedInstallSummary, PiPrivilegedSecurityScan, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
-import type { AddProjectBoardCardRunFeedbackInput, ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, CreateReadyProjectBoardTasksInput, DeferProjectBoardSynthesisSectionsInput, ProjectBoardAddCardsObjectiveProvenance, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardCardRunFeedbackSource, ProjectBoardEvent, ProjectBoardExecutionArtifact, ProjectBoardGitProjectionResolution, ProjectBoardGitSyncStatus, ProjectBoardProofDecisionAction, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSourceChangeState, ProjectBoardSourceKind, ProjectBoardSplitDecisionAction, ProjectBoardSummary, ProjectBoardSynthesisProposal, ProjectBoardSynthesisProposalCardReviewStatus, ProjectBoardSynthesisRun, ProjectBoardSynthesisRunProgressiveRecord, ProjectSummary, RecomputeProjectBoardProofCoverageInput, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, RerunProjectBoardProofInput, ResolveProjectBoardCardPiUpdateInput, ResolveProjectBoardDeliverableIntegrationInput, RetryProjectBoardSynthesisInput, SplitProjectBoardCardInput, SuggestProjectBoardClarificationDefaultsInput, SuggestProjectBoardKickoffDefaultsInput, SuggestProjectBoardProofInput, UpdateProjectBoardCardInput, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
-import type { SlashCommandCatalogEntry } from "../../shared/slashCommandTypes";
-import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
-import type { TerminalSession } from "../../shared/terminalTypes";
-import type { ChatMessage, MessageDelivery, ThinkingLevel, ThreadSummary, ToolLargeOutputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
-import type { OrchestrationAutoDispatchStatus, OrchestrationBoard, OrchestrationPrepareResult, OrchestrationRun, OrchestrationTask, RepairOrchestrationWorkflowAction, ResolveOrchestrationWorkflowImpactAction, UpdateOrchestrationWorkflowRawInput, UpdateOrchestrationWorkflowSettingsInput, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileAuditSummary, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowDashboard, WorkflowDiscoveryAccessRequest, WorkflowExplorationTraceSummary, WorkflowGraphNode, WorkflowLabRun, WorkflowModelCallRecord, WorkflowPluginCapabilityGrant, WorkflowRecordingState, WorkflowRecoveryAction, WorkflowRevisionSummary, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunLimitOverrides, WorkflowRunSummary, WorkflowUserInputResponse, WorkflowVersionSummary } from "../../shared/workflowTypes";
-import type { FileTreeEntry, GitReviewFile, GitSimpleAction, WorkspaceFileContent, WorkspaceFileTree, WorkspaceOpenTarget, WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/workspaceTypes";
-import {
-  projectBoardProofCoverageDrift,
-  projectBoardProofCoverageRecheck,
-  projectBoardLatestProofCoverageRecheckEvent,
-} from "../../shared/projectBoardProofImpact";
-import {
-  DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS,
-  projectBoardSynthesisOutputCapRecovery,
-  projectBoardSynthesisPartialStatus,
-  projectBoardSynthesisSectionStatuses,
-  projectBoardSynthesisStaleRecovery,
-  sectionStatusLabel,
-  type ProjectBoardSectionStatusView,
-} from "../../shared/projectBoardSynthesisRecovery";
-import {
-  sttMessageArtifactEntries,
-  sttMessageMetadataFromUnknown,
-} from "../../shared/sttMessageMetadata";
-import { isRunStatusRunning, RUN_ABORT_ARM_DELAY_MS } from "../../shared/runStatus";
-import {
-  workflowAmbientCliCallSummaries,
-  workflowAmbientCliCapabilityRows,
-  workflowConnectorCallSummaries,
-  workflowRunEventDetailLabels,
-  workflowRunEventSummaryCards,
-  workflowStepSummaries,
-} from "./workflowUiModel";
-import {
-  workflowDiagramInitialViewportNodeIds,
-  workflowGraphDraftOverlayModel,
-  workflowGraphEventCards,
-  workflowLatestDiscoveryGraphChange,
-  workflowLatestRuntimeGraphNodeId,
-  workflowGraphToReactFlow,
-  workflowGraphWithRunEvents,
-  type WorkflowAgentDiagramEdge,
-  type WorkflowAgentDiagramNode,
-  type WorkflowGraphChangeFocus,
-  type WorkflowGraphDraftOverlay,
-  type WorkflowGraphEventCard,
-} from "./workflowAgentGraphUiModel";
-import { findWorkflowGraphNodeReviewActionTarget } from "./workflowGraphNodeReviewRouting";
-import { workflowGraphNodeReviewModel, type WorkflowGraphNodeReviewAction } from "./workflowGraphNodeReviewUiModel";
-import {
-  workflowReviewActionLabel,
-  workflowReviewActionTitle,
-  workflowScheduleCreationModel,
-  workflowScheduleExceptionLedgerItems,
-  workflowScheduleGrantReadinessModel,
-  workflowReviewWorkspaceModel,
-  workflowScheduleRunHistoryItems,
-  workflowThreadScheduleState,
-  type WorkflowDiscoveryContextReviewModel,
-  type WorkflowReviewEvidenceItem,
-  type WorkflowReviewSection,
-  type WorkflowSchedulePanelId,
-  type WorkflowScheduleEditScopeId,
-  type WorkflowThreadScheduleItem,
-  type WorkflowThreadScheduleGrantAction,
-} from "./workflowReviewUiModel";
-import { workflowRevisionCards } from "./workflowRevisionUiModel";
-import { workflowExplorationGateModel } from "./workflowExplorationGateUiModel";
-import { workflowExplorationProgressCard, workflowExplorationTraceCards } from "./workflowExplorationUiModel";
-import { workflowExplorationPreflightModel, type WorkflowExplorationPreflightModel } from "./workflowExplorationPreflightUiModel";
-import {
-  normalizeWorkflowExplorationBudgets,
-  workflowExplorationBudgetWithField,
-  workflowExplorationElapsedBudgetOptions,
-  workflowExplorationRunInput,
-} from "./workflowExplorationBudgetUiModel";
-import { workflowCompileActivityModel, type WorkflowCompileActivityAction } from "./workflowCompileActivityUiModel";
-import { workflowSourceHighlightModel, workflowSourceMappingRows } from "./workflowSourceHighlightUiModel";
-import { workflowArtifactThreadRoute } from "./workflowThreadFirstUiModel";
-import { workflowThreadTranscriptCards, type WorkflowThreadTranscriptCard } from "./workflowThreadTranscriptUiModel";
-import { workflowThreadComposerModel } from "./workflowThreadComposerUiModel";
-import { workflowThreadSessionUiModel } from "./workflowThreadSessionUiModel";
-import {
-  workflowRecorderLegacyCompilerEnabled,
-  workflowRecorderInjectedPlaybookChip,
-  workflowRecorderLibrarySidebarRows,
-  workflowRecorderStartActionState,
-  workflowRecorderSurfaceModel,
-} from "./workflowRecorderUiModel";
-import { workflowPersistentStatusModel, type WorkflowPersistentStatusModel, type WorkflowPersistentStatusTarget } from "./workflowPersistentStatusUiModel";
-import { workflowRuntimeInputCards, type WorkflowRuntimeInputCard } from "./workflowRuntimeInputUiModel";
-import { workflowRunOutputCards, type WorkflowRunOutputCard } from "./workflowRunOutputUiModel";
-import { normalizeWorkflowRunsPanelId, workflowRunsPanelTabs, type WorkflowRunsPanelId } from "./workflowRunsPanelUiModel";
-import {
-  workflowDecisionRecoveryAction,
-  workflowGraphRecoveryDecisionCard,
-  workflowRuntimeInputDecisionCard,
-  workflowTotalRuntimePauseDecisionCard,
-  type WorkflowRuntimeDecisionAction,
-} from "./workflowRuntimeDecisionUiModel";
-import { workflowDiagramFollowToggle, workflowDiagramShouldAutoFit, workflowDiagramShouldFollowActiveNode } from "./workflowDiagramViewportUiModel";
-import {
-  normalizeWorkflowBuildPanelId,
-  workflowArtifactPanelIdForBuildPanel,
-  workflowBuildPanelIdForArtifactPanel,
-  workflowBuildPanelTabs,
-  type WorkflowArtifactPanelId,
-  type WorkflowBuildPanelId,
-} from "./workflowArtifactPanelUiModel";
-import { workflowVersionHistoryModel } from "./workflowVersionHistoryUiModel";
-import {
-  DEFAULT_WORKFLOW_FOREGROUND_IDLE_TIMEOUT_MS,
-  DEFAULT_WORKFLOW_FOREGROUND_TOTAL_LIMIT_MODE,
-  DEFAULT_WORKFLOW_SCHEDULE_TOTAL_LIMIT_MODE,
-  workflowExtendTotalRunLimitOverrides,
-  workflowRemoveTotalRunLimitOverrides,
-  workflowRunIdleTimeoutOptions,
-  workflowRunLimitOverridesForSettings,
-  workflowRunLimitSummary,
-  workflowTotalRuntimePauseModel,
-  type WorkflowRunTotalLimitMode,
-} from "./workflowRunLimitsUiModel";
-import type { WorkflowExplorationBudgets } from "../../shared/workflowExplorationBudgets";
-import { workflowDiscoveryAnswerText } from "../../shared/workflowDiscovery";
-import {
-  appendLocalTaskBlocker,
-  localTaskCreateActionState,
-  localTaskBlockerLabels,
-  localTaskBlockerOptions,
-  localTaskEditActionState,
-  latestRunForTask,
-  parseLocalTaskLabels,
-  parseLocalTaskPriority,
-  removeLocalTaskBlocker,
-  sanitizeLocalTaskPriorityInput,
-  scheduleNextRunLabel,
-  schedulePresetLabel,
-  stepLocalTaskPriority,
-  taskTriggerLabels,
-  triggerPreviewLabel,
-  workflowArtifactRevisionRequest,
-  workflowCompileActionState,
-  workflowConnectorAccountOptions,
-  workflowConnectorConsentSummary,
-  decodeWorkflowSourceDrafts,
-  encodeWorkflowSourceDrafts,
-  workflowModelCallReviewSummary,
-  workflowSourceEditDiffSummary,
-  workflowSourceDraftStorageKey,
-  type AutomationSchedulePreset,
-  type AutomationTriggerMode,
-} from "./automationUiModel";
-import { applyDocumentAppearance } from "./appearance";
-import {
-  MAX_SIDEBAR_WIDTH,
-  MIN_SIDEBAR_WIDTH,
-} from "./sidebarLayout";
-import {
-  buildCapabilityBuilderPrompt,
-  buildVoiceProviderCapabilityPrompt,
-  buildCapabilityBuilderHistoryPreviewPrompt,
-  buildCapabilityBuilderHistoryRepairPlanPrompt,
-  buildCapabilityBuilderHistoryReregisterPrompt,
-  buildGeneratedCapabilityRemovalPlanPrompt,
-  buildGeneratedCapabilityUpdatePlanPrompt,
-  buildGeneratedCapabilityValidationPrompt,
-  capabilityBuilderHistoryPreviewActionState,
-  capabilityBuilderHistoryRepairPlanActionState,
-  capabilityBuilderHistoryReregisterActionState,
-  capabilityBuilderHistorySourceActionState,
-  capabilityDiagnosticsActionState,
-  codexImportActionState,
-  codexMarketplaceAddActionState,
-  codexMarketplaceRemoveActionState,
-  defaultCapabilityBuilderLauncherDraft,
-  filterAmbientCapabilities,
-  filterAmbientPluginsBySource,
-  formatAmbientRuntimeSupport,
-  formatPluginMcpLaunchCommand,
-  formatPluginMcpRuntimeEvent,
-  generatedCapabilityRemovalPlanActionState,
-  generatedCapabilitySummaryFromHistoryEntry,
-  generatedCapabilitySourceActionState,
-  generatedCapabilityUpdatePlanActionState,
-  generatedCapabilityValidationActionState,
-  googleWorkspaceAccountRows,
-  googleWorkspaceActionState,
-  googleWorkspaceConnectorLabel,
-  googleWorkspaceStatusItems,
-  googleWorkspaceValidationButtonView,
-  googleWorkspaceValidationFeedbackForAccount,
-  groupCodexImportCandidates,
-  mcpContainerRuntimeDetailRows,
-  mcpContainerRuntimeDiagnosticsActionState,
-  mcpContainerRuntimeInstallActionViews,
-  mcpContainerRuntimePrimaryActionLabel,
-  mcpContainerRuntimeSetupResumeRows,
-  mcpContainerRuntimeStatusLabel,
-  mcpContainerRuntimeTone,
-  mcpDefaultCapabilityInstallActionState,
-  mcpDefaultCapabilityRuntimeHandoffCandidate,
-  mcpInstalledServerStatusLabel,
-  mcpServerInstallActionState,
-  mcpServerSearchResultSubtitle,
-  mcpServerUninstallActionState,
-  mcpToolReviewAcceptActionState,
-  piExtensionSandboxUninstallActionState,
-  type AmbientPluginRuntimeFilter,
-  type AmbientPluginSourceFilter,
-  type CapabilityBuilderLauncherDraft,
-  type GoogleWorkspaceValidationFeedback,
-  piPackageEnableActionState,
-  piPackageInstallActionState,
-  piPackageUninstallActionState,
-  piPrivilegedDisableActionState,
-  piPrivilegedUninstallActionState,
-  pluginAuthCompleteActionState,
-  pluginDetailsActionState,
-  providerCatalogSettingsCardsForArea,
-  providerCatalogSettingsCardView,
-  workflowPluginRequirementRows,
-} from "./pluginUiModel";
-import {
-  welcomeOnboardingPageKindForMessages,
-} from "./welcomeSetupUiModel";
-import { googleWorkspaceGrantReview } from "./googleWorkspaceGrantUiModel";
-import { permissionGrantRegistryModel, workflowPermissionGrantRegistryModel } from "./permissionGrantRegistryUiModel";
-import {
-  artifactMediaKindFromPath,
-  mediaPreviewUnavailableMessage,
-  parseToolMessage,
-  resolveInlineArtifactPath,
-  toolLargeOutputPreviewViewModel,
-  toolLongformInputPreviewDisplaySummary,
-  toolMessagingConversationDirectorySetupCardViewModel,
-  toolMessagingRemoteSurfaceActivationCardViewModel,
-  type ArtifactMediaKind,
-  type ToolEditPreviewData,
-  type ToolInstallRoutePreviewData,
-  type ToolMessagingConversationDirectorySetupPreviewData,
-  type ToolMessagingRemoteSurfaceActivationPreviewData,
-  type ToolSttPreviewData,
-  type ToolTelegramSessionSetupPreviewData,
-  type ToolVoicePreviewData,
-} from "./toolMessageUiModel";
-import {
-  messageContentWithoutDiagnostic,
-  messageDiagnosticCardModel,
-} from "./messageDiagnosticUiModel";
-import {
-  thinkingDisplayModeLabel,
-  thinkingLevelLabel,
-  thinkingOptions,
-} from "./thinkingDisplayUiModel";
-import "./styles.css";
-import {
-  thinkingDisplayOptions,
-  LinkContextMenuState,
-  InfoTooltip,
-  LocalDeepResearchDiagnosticsList,
-  formatDurationMs,
-  formatBytes,
-  InlineArtifactMedia,
-  RichText,
-  externalLinkMenuLabel,
-  workspaceAbsoluteArtifactPath,
-  isAbsoluteFilePath,
-  isHtmlArtifactPath,
-  stripLinkLineSuffix,
-  preferredWorkspaceOpenTarget,
-  desktopUpdateStatusText,
-  HTML_PREVIEW_AUTO_PAUSE_MS,
-  formatHtmlPreviewAutoPauseLabel,
-  PermissionFullAccessReceiptList,
-  DiffOutput,
-  LazyHtmlPreview,
-  OpenTargetIcon,
-  truncateUiText,
-  formatTaskState,
-} from "./RightPanel";
-import {
-  activePaneTooltip,
-  automationHelpText,
-  automationIndicatorKind,
-  formatOrchestrationRunStatus,
-  formatRunDuration,
-  ProofEvidencePathLink,
-  ProofOfWorkPreview,
-  RunTimeline,
-  useRunningClock,
-  workflowRecorderSurface
-} from "./AutomationsWorkspace";
-import {
-  type CommandPaletteItem,
-  DesktopUpdateNotice,
-  PermissionFullAccessNote,
-} from "./AppDialogs";
-import {
-  SidebarMenuDivider,
-  SidebarMenuItem,
-  SidebarMenuLabel,
-} from "./AppActionDialogs";
-import { AppModalHost } from "./AppModalHost";
-import { createAppModalHostProps } from "./AppModalHostProps";
-import { AppRightPanelHost } from "./AppRightPanelHost";
-import {
-  AppShellSidebar,
-} from "./AppShellSidebar";
-import { createAppSidebarAreaControls } from "./AppSidebarAreaControls";
-import {
-  createAppAutomationSelectionControls,
-} from "./AppAutomationSelectionControls";
-import { createAppAutomationsWorkspaceProps } from "./AppAutomationsWorkspaceProps";
+  isRunStatusRunning,
+} from "../../shared/runStatus";
+import { useAppAgentMemoryPanelControls } from "./AppAgentMemoryControls";
+import { useAppActiveThreadModel } from "./AppActiveThreadModel";
+import { createAppAutomationFolderControls } from "./AppAutomationFolderControls";
+import { createAppAutomationSelectionControls } from "./AppAutomationSelectionControls";
 import { useAppAutomationShellState } from "./AppAutomationShellState";
-import { useAppSidebarSelectionModel } from "./AppSidebarSelectionModel";
+import { createAppAutomationsWorkspaceProps } from "./AppAutomationsWorkspaceProps";
+import { createAppBrowserActionControls } from "./AppBrowserActionControls";
+import { createAppCapabilityPromptActions } from "./AppCapabilityPromptActions";
+import { useAppChatFindControls } from "./AppChatFindControls";
+import { useAppComposerModelPickerControls } from "./AppComposerModelPickerControls";
+import { createAppComposerProps } from "./AppComposerProps";
+import { createAppComposerRetryActions } from "./AppComposerRetryActions";
+import { useAppComposerShellState } from "./AppComposerShellState";
+import { createAppComposerSubmitActions } from "./AppComposerSubmitActions";
 import {
-  useAppSidebarLifecycleEffects,
-} from "./AppSidebarLifecycleEffects";
+  createAppComposerInteractionControls,
+  createAppLocalDeepResearchModeControls,
+  createAppPendingSubmittedPromptControls,
+  useAppPendingSubmittedPromptCleanup,
+} from "./AppComposerInteractionControls";
+import { createAppComposerShellProps } from "./AppComposerShellProps";
+import { createAppContextAttachmentActions } from "./AppContextAttachmentActions";
+import { useAppCoreLifecycleControls } from "./AppCoreLifecycleControls";
 import {
-  EMPTY_RUN_ACTIVITY_LINES,
-  formatRuntimeActivity,
-  runRetryStatsFromActivity,
-  shouldRenderRuntimeActivityUpdate,
-  useAppRunActivityControls,
-} from "./AppRunActivity";
-import { useAppRunActivityState } from "./AppRunActivityState";
-import {
-  chatBrowserUserActionForThread,
-} from "./AppChatChrome";
-import { useAppShellGlobalEffects } from "./AppShellGlobalEffects";
-import {
-  beginAppRightPanelResize,
-  beginAppSidebarResize,
-  beginAppWorkflowRecorderReviewResize,
-} from "./AppShellResize";
-import { useAppStatusSubscriptions } from "./AppStatusSubscriptions";
-import { AppWorkspaceRouter } from "./AppWorkspaceRouter";
-import {
-  isGoalCompletionMessage,
-  messageKindForActivity,
-} from "./AppMessages";
-import {
-  pendingSubmittedPromptHasPersistedMatch,
   useAppConversationDisplayModel,
-  type PendingSubmittedPrompt,
 } from "./AppConversationDisplayModel";
 import { createAppConversationMessagesProps } from "./AppConversationMessagesProps";
-import { useAppChatFindControls } from "./AppChatFindControls";
-import { useAppVoiceThreadControls } from "./AppVoiceThreadControls";
-import { useAppWorkflowRecordingLibraryControls } from "./AppWorkflowRecordingLibraryControls";
-import { createAppWorkflowRecordingActions } from "./AppWorkflowRecordingActions";
-import { createAppWorkflowRecordingPlaybookActions } from "./AppWorkflowRecordingPlaybookActions";
-import { useAppWorkflowRecordingReviewControls } from "./AppWorkflowRecordingReviewControls";
-import { createAppUpdateActions } from "./AppUpdateActions";
-import { createAppAutomationFolderControls } from "./AppAutomationFolderControls";
-import { createAppBrowserActionControls } from "./AppBrowserActionControls";
-import { createAppSettingsActions, desktopStateWithUpdatedSettings } from "./AppSettingsActions";
-import { createAppGitActions } from "./AppGitActions";
-import { createAppThreadMaintenanceActions } from "./AppThreadMaintenanceActions";
-import { createAppProjectBoardActions } from "./AppProjectBoardActions";
-import { useAppProjectBoardShellControls } from "./AppProjectBoardShellControls";
-import { createAppProjectBoardWorkspaceProps } from "./AppProjectBoardWorkspaceProps";
-import { useAppProjectShellState } from "./AppProjectShellState";
-import {
-  createAppPermissionActions,
-  selectActivePermissionRequest,
-} from "./AppPermissionActions";
-import { useAppSecurityPromptState } from "./AppSecurityPromptState";
-import { createAppSpeechProviderActions } from "./AppSpeechProviderActions";
-import { createAppSttMicrophoneActions } from "./AppSttMicrophoneActions";
-import { createAppSttComposerActions } from "./AppSttComposerActions";
-import { createAppComposerSubmitActions } from "./AppComposerSubmitActions";
-import { activeThreadHasRunningLocalDeepResearch } from "./AppLocalDeepResearchRunState";
-import { createAppComposerRetryActions } from "./AppComposerRetryActions";
-import { createAppMessageVoiceActions } from "./AppMessageVoiceActions";
-import { createAppPromptHistoryControls } from "./AppPromptHistoryControls";
-import { createAppContextAttachmentActions } from "./AppContextAttachmentActions";
-import { useAppSubagentShellControls } from "./AppSubagentShellControls";
-import {
-  GOAL_COMPLETION_CELEBRATION_MS,
-  runtimeActivityVisibleForThreadGoal,
-} from "./AppGoalControls";
-import { createAppGoalActions } from "./AppGoalActions";
-import {
-  desktopStateCommitDecision,
-  desktopStateFreshnessDecision,
-  desktopStateWithoutClearedGoal,
-  threadGoalKey,
-} from "./AppDesktopStateFreshness";
-import { AppTopbar } from "./AppTopbar";
-import { useAppRightPanelState } from "./AppRightPanelState";
-import { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
-import { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
-import { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
-import { useAppComposerShellState } from "./AppComposerShellState";
-import { useAppComposerModelPickerControls } from "./AppComposerModelPickerControls";
-import { useAppWorkspaceProjectModel } from "./AppWorkspaceProjectModel";
-import { createAppCommandPaletteItems } from "./AppCommandPaletteModel";
-import { useAppMessageScrollControls } from "./AppMessageScrollControls";
-import {
-  rememberAppDesktopStateRefs,
-  useAppThreadLifecycleEffects,
-} from "./AppThreadLifecycleEffects";
-import { useAppSttLifecycleEffects } from "./AppSttLifecycleEffects";
-import {
-  appBootstrapRunStatus,
-  useAppStartupLifecycleEffects,
-} from "./AppStartupLifecycleEffects";
-import {
-  localDeepResearchInstallProgressState,
-  localDeepResearchSetupResultState,
-  useAppLocalDeepResearchLifecycle,
-} from "./AppLocalDeepResearchLifecycle";
-import {
-  slashCommandDraftAfterSelection,
-  slashCommandSelectionFromEntry,
-} from "./slashCommandUiModel";
-import {
-  useAppComposerModeThreadLifecycleEffects,
-  useAppLocalDeepResearchReadinessLifecycleEffect,
-  useAppSpeechProviderLifecycleEffects,
-  useAppUnmountCleanupLifecycleEffect,
-  useAppWelcomePluginRegistryLifecycleEffect,
-} from "./AppShellLifecycleEffects";
-import {
-  coalesceWorkflowCompileProgress,
-} from "./AppWorkflowRecording";
 import { createAppCredentialDialogActions } from "./AppCredentialDialogActions";
 import {
-  STATE_REDUCER_DESKTOP_EVENT_TYPES,
-  upsertSortedDesktopEventItem,
-} from "./AppDesktopEvents";
+  createAppDesktopEventHandlerDependencies,
+  handleAppDesktopEvent,
+} from "./AppDesktopEventHandler";
+import { createAppDesktopEventGuards } from "./AppDesktopEventGuards";
+import { createAppDesktopStateMemoryControls } from "./AppDesktopStateMemoryControls";
+import { createAppDesktopStateAppliers } from "./AppDesktopStateAppliers";
+import { createAppGitActions } from "./AppGitActions";
+import { createAppGoalActions } from "./AppGoalActions";
 import {
-  applyChildThreadMessageDelta,
-  upsertChildThreadMessage,
-} from "./subagentChildMessagesState";
+  GOAL_COMPLETION_CELEBRATION_MS,
+} from "./AppGoalControls";
+import {
+  useAppLocalDeepResearchLifecycle,
+} from "./AppLocalDeepResearchLifecycle";
+import { createAppLocalRuntimeActionsForRuntimeState } from "./AppLocalRuntimeActions";
+import { createAppMessageVoiceActions } from "./AppMessageVoiceActions";
+import { createAppModalHostProps } from "./AppModalHostProps";
+import { createAppPermissionActions } from "./AppPermissionActions";
+import { createAppPlannerActions } from "./AppPlannerActions";
+import { useAppProjectBoardControls } from "./AppProjectBoardControls";
+import { createAppProjectBoardWorkspaceProps } from "./AppProjectBoardWorkspaceProps";
+import { useAppProjectShellState } from "./AppProjectShellState";
+import { createAppProjectThreadActions } from "./AppProjectThreadActions";
+import { createAppPromptHistoryControls } from "./AppPromptHistoryControls";
+import { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
+import { createAppRightPanelHostProps } from "./AppRightPanelHostProps";
+import { useAppRightPanelState } from "./AppRightPanelState";
+import {
+  EMPTY_RUN_ACTIVITY_LINES,
+} from "./AppRunActivity";
+import { useAppRunActivityState } from "./AppRunActivityState";
+import { useAppSecurityPromptState } from "./AppSecurityPromptState";
+import { createAppSettingsActions } from "./AppSettingsActions";
+import {
+  useAppLocalDeepResearchReadinessLifecycleEffect,
+} from "./AppShellLifecycleEffects";
+import {
+  createAppShellCommandActions,
+  createAppWorkflowComposerNavigation,
+} from "./AppShellCommandActions";
+import { createAppShellSidebarProps } from "./AppShellSidebarProps";
+import { useAppShellUiState } from "./AppShellUiState";
+import { createAppSidebarAreaControls } from "./AppSidebarAreaControls";
+import { useAppSidebarLifecycleEffects } from "./AppSidebarLifecycleEffects";
+import { useAppSidebarSelectionModel } from "./AppSidebarSelectionModel";
+import { createAppSpeechProviderActionsForRuntimeState } from "./AppSpeechProviderActions";
+import { createAppSttComposerActions } from "./AppSttComposerActions";
+import { createAppSttMicrophoneActionsForRuntimeState } from "./AppSttMicrophoneActions";
+import { createAppSubagentParentClusterActions } from "./AppSubagentParentClusterActions";
+import { useAppSubagentShellControls } from "./AppSubagentShellControls";
 import {
   createAppSymphonyBuilderControls,
-  shouldRouteComposerSubmitThroughSymphony,
 } from "./AppSymphonyBuilderControls";
-import { createAppCapabilityPromptActions } from "./AppCapabilityPromptActions";
-import { createAppPlannerActions } from "./AppPlannerActions";
-import { createAppLocalRuntimeActions } from "./AppLocalRuntimeActions";
-import { createAppSubagentParentClusterActions } from "./AppSubagentParentClusterActions";
-import { useAppShellUiState } from "./AppShellUiState";
-
-function toolEventActivityMessage(details: unknown): string | undefined {
-  const record = details && typeof details === "object" && !Array.isArray(details) ? details as Record<string, unknown> : undefined;
-  const direct = typeof record?.activityMessage === "string" && record.activityMessage.trim() ? record.activityMessage.trim() : undefined;
-  if (direct) return direct;
-  const status = record?.localDeepResearchStatus && typeof record.localDeepResearchStatus === "object" && !Array.isArray(record.localDeepResearchStatus)
-    ? record.localDeepResearchStatus as Record<string, unknown>
-    : undefined;
-  for (const key of ["activityMessage", "message"]) {
-    const value = status?.[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return undefined;
-}
+import { createAppThreadMaintenanceActions } from "./AppThreadMaintenanceActions";
+import {
+  AppShellLayout,
+  createAppShellLayoutProps,
+} from "./AppShellLayout";
+import { createAppUpdateActions } from "./AppUpdateActions";
+import { useAppVoiceThreadControls } from "./AppVoiceThreadControls";
+import { createAppWorkflowRecordingActions } from "./AppWorkflowRecordingActions";
+import { useAppWorkflowRecordingLibraryControls } from "./AppWorkflowRecordingLibraryControls";
+import { createAppWorkflowRecordingPlaybookActions } from "./AppWorkflowRecordingPlaybookActions";
+import { useAppWorkflowRecordingReviewControls } from "./AppWorkflowRecordingReviewControls";
+import { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
+import { createAppWorkspaceNavigationControls } from "./AppWorkspaceNavigationControls";
+import { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
+import { workflowRecorderSurface } from "./AutomationsWorkspace";
+import "./styles.css";
 
 export function App() {
   const [state, setState] = useState<DesktopState | undefined>();
+  const runActivityState = useAppRunActivityState();
   const {
     runStatus, setRunStatus, threadRunStatuses, setThreadRunStatuses, activity, setActivity,
     abortArmed, setAbortArmed, retryStatsByThread, setRetryStatsByThread,
     runActivityLinesByThread, setRunActivityLinesByThread, runActivityCounterRef,
     runActivityLastEventAtRef, runActivityHeartbeatIndexRef, runActivityLinesByThreadRef,
     runtimeActivityRenderStateRef, thinkingDeltaBuffersRef, previousRunningRef,
-  } = useAppRunActivityState();
+  } = runActivityState;
+  const shellUiState = useAppShellUiState();
   const {
     sidebarOpen, setSidebarOpen, sidebarWidth, setSidebarWidth, sidebarArea, setSidebarArea,
-    workflowRecorderReviewPanelWidth, setWorkflowRecorderReviewPanelWidth, searchRoutingHydrating,
-    setSearchRoutingHydrating, searchRoutingHydrationError, setSearchRoutingHydrationError,
+    workflowRecorderReviewPanelWidth, setWorkflowRecorderReviewPanelWidth,
+    setSearchRoutingHydrating, setSearchRoutingHydrationError,
     mediaPreviewModal, setMediaPreviewModal, commandPaletteOpen, setCommandPaletteOpen,
     commandPaletteQuery, setCommandPaletteQuery, error, setError, setScopedError, clearError,
     errorScope, setErrorScope, setErrorState, updatePopoverOpen, setUpdatePopoverOpen, updateBusy,
     setUpdateBusy,
-  } = useAppShellUiState();
+  } = shellUiState;
+  const rightPanelState = useAppRightPanelState();
   const {
     rightPanel,
     setRightPanel,
-    rightPanelWidth,
     setRightPanelWidth,
-    settingsFocusRequest,
-    artifactPreviewRequest,
-    localFilePreviewRequest,
-    gitPanelTabRequest,
     togglePanel,
     openPanel,
     openMcpRuntimeSettings,
@@ -701,7 +141,8 @@ export function App() {
     openGitSummaryPanel,
     previewArtifact,
     previewLocalFile,
-  } = useAppRightPanelState();
+  } = rightPanelState;
+  const workspaceShellState = useAppWorkspaceShellState();
   const {
     workspaceRevision, setWorkspaceRevision, gitStatus, setGitStatus, gitStatusError, setGitStatusError,
     activeGitReview, setActiveGitReview, activeGitReviewError, setActiveGitReviewError,
@@ -710,41 +151,29 @@ export function App() {
     chatBrowserUserAction, setChatBrowserUserAction, chatBrowserUserActionBusy, setChatBrowserUserActionBusy,
     activeThreadIdRef, activeProjectRootRef, workspaceProjectAliasesRef, messageKindsRef,
     mcpContainerRuntimeStartupCheckRef,
-  } = useAppWorkspaceShellState();
+  } = workspaceShellState;
+  const securityPromptState = useAppSecurityPromptState();
   const {
     permissionRequests, setPermissionRequests, privilegedCredentialRequests, setPrivilegedCredentialRequests,
     secureInputRequests, setSecureInputRequests, permissionAuditRevision, setPermissionAuditRevision,
-    permissionAudit, setPermissionAudit, permissionGrants, setPermissionGrants, permissionAuditError,
-    setPermissionAuditError, permissionGrantError, setPermissionGrantError, permissionGrantRevoking,
+    permissionAudit, setPermissionAudit, permissionGrants, setPermissionGrants, setPermissionAuditError,
+    setPermissionGrantError, permissionGrantRevoking,
     setPermissionGrantRevoking, apiDialogOpen, setApiDialogOpen, apiKeyDraft, setApiKeyDraft,
     clipboardCandidate, setClipboardCandidate, apiKeyStatus, setApiKeyStatus, apiKeyBusy, setApiKeyBusy,
     ambientCliSecretDialog, setAmbientCliSecretDialog, apiKeyInputRef, ambientCliSecretInputRef,
-  } = useAppSecurityPromptState();
+  } = securityPromptState;
+  const providerRuntimeState = useAppProviderRuntimeState();
   const {
-    agentMemoryDiagnostics, setAgentMemoryDiagnostics, agentMemoryDiagnosticsLoading, setAgentMemoryDiagnosticsLoading,
-    agentMemoryDiagnosticsError, setAgentMemoryDiagnosticsError, agentMemoryDiagnosticsRequestSeqRef,
-    agentMemoryEmbeddingActionLoading, setAgentMemoryEmbeddingActionLoading, agentMemoryEmbeddingActionResult,
-    setAgentMemoryEmbeddingActionResult, agentMemoryEmbeddingActionError, setAgentMemoryEmbeddingActionError,
-    voiceProviders, setVoiceProviders, voiceProvidersLoading, setVoiceProvidersLoading, voiceProvidersError,
-    setVoiceProvidersError, voiceProviderCacheStatus, setVoiceProviderCacheStatus, voiceProviderCacheActivity,
-    setVoiceProviderCacheActivity, voiceCatalogRefresh, setVoiceCatalogRefresh, voiceProviderRefreshTimerRef,
-    voiceProviderRequestIdRef, voiceProvidersRef,
-    sttProviders, setSttProviders, sttProvidersLoading, setSttProvidersLoading, sttProvidersError,
-    setSttProvidersError, sttProviderCacheStatus, setSttProviderCacheStatus, sttProviderCacheActivity,
-    setSttProviderCacheActivity, sttProviderSetup, setSttProviderSetup, sttProviderRefreshTimerRef,
-    sttProviderRequestIdRef, sttProvidersRef,
-    sttMicrophoneDevices, setSttMicrophoneDevices, sttMicrophoneDevicesLoading, setSttMicrophoneDevicesLoading,
-    sttMicrophoneDevicesError, setSttMicrophoneDevicesError, sttMicTest, setSttMicTest, sttComposer, setSttComposer,
+    voiceProviders, voiceProviderRefreshTimerRef,
+    sttProviders, sttProviderRefreshTimerRef, sttProvidersRef,
+    sttComposer, setSttComposer,
     sttDraftMetadata, setSttDraftMetadata, sttMicRecorderRef, sttComposerRecorderRef, sttComposerSilenceRef,
     sttComposerShortcutActiveRef, sttComposerOperationIdRef, sttComposerThreadRef,
-    miniCpmVisionSetup, setMiniCpmVisionSetup, miniCpmVisionRuntimePath, setMiniCpmVisionRuntimePath,
-    miniCpmVisionEndpointUrl, setMiniCpmVisionEndpointUrl,
     localDeepResearchSetup, setLocalDeepResearchSetup, localDeepResearchQ8Override, setLocalDeepResearchQ8Override,
-    localDeepResearchRunHistory, setLocalDeepResearchRunHistory, localDeepResearchFollowupOpen,
-    setLocalDeepResearchFollowupOpen,
-    mcpContainerRuntimeInstallProgress, setMcpContainerRuntimeInstallProgress, mcpDefaultCapabilityInstallProgress,
-    setMcpDefaultCapabilityInstallProgress,
-  } = useAppProviderRuntimeState();
+    localDeepResearchFollowupOpen, setLocalDeepResearchFollowupOpen,
+    setMcpContainerRuntimeInstallProgress, setMcpDefaultCapabilityInstallProgress,
+  } = providerRuntimeState;
+  const workflowRuntimeState = useAppWorkflowRuntimeState();
   const {
     orchestrationRevision, setOrchestrationRevision, orchestrationAutoRevision, setOrchestrationAutoRevision,
     workflowRevision, setWorkflowRevision, workflowCompileProgress, setWorkflowCompileProgress,
@@ -766,7 +195,7 @@ export function App() {
     localRuntimeInventorySettingsRefreshKeyRef, pendingSubmittedPrompts, setPendingSubmittedPrompts,
     pendingProjectComposerDraft, setPendingProjectComposerDraft, pendingWorkflowRecordingEditContext,
     setPendingWorkflowRecordingEditContext, goalCompletionCelebrationTimerRef,
-  } = useAppWorkflowRuntimeState();
+  } = workflowRuntimeState;
   const {
     projectPopover, setProjectPopover, projectContextMenu, setProjectContextMenu, projectActionDialog,
     setProjectActionDialog, projectBoardResetDialog, setProjectBoardResetDialog, plannerRevisionDialog,
@@ -780,8 +209,10 @@ export function App() {
     setProjectBoardSynthesisRetryBusy, projectBoardSynthesisDeferBusy, setProjectBoardSynthesisDeferBusy,
     projectBoardSynthesisPauseBusy, setProjectBoardSynthesisPauseBusy, projectBoardRevisionBusy,
     setProjectBoardRevisionBusy, threadContextMenu, setThreadContextMenu, threadActionDialog, setThreadActionDialog,
-    projectsCollapsed, setProjectsCollapsed,
+    projectsCollapsed,
+    setProjectsCollapsed,
   } = useAppProjectShellState();
+  const automationShellState = useAppAutomationShellState();
   const {
     automationPopover, setAutomationPopover, automationsCollapsed, setAutomationsCollapsed,
     automationFolders, setAutomationFolders, setAutomationNavigationError, selectedAutomationPane,
@@ -790,36 +221,38 @@ export function App() {
     workflowAgentNavigationError, setWorkflowAgentNavigationError, selectedWorkflowAgentFolderId,
     setSelectedWorkflowAgentFolderId, selectedWorkflowAgentThreadId, setSelectedWorkflowAgentThreadId,
     sidebarOrganize, setSidebarOrganize, updateSidebarOrganize, sidebarAgeNow, setSidebarAgeNow,
-  } = useAppAutomationShellState();
+  } = automationShellState;
+  const composerShellState = useAppComposerShellState();
   const {
-    composerCanSubmit,
     composerInputRef,
-    composerDraftStore,
-    selectedSlashCommand,
     selectedSlashCommandRef,
     getComposerDraft,
     setComposerDraft,
     setSelectedSlashCommand,
     updateComposerDraftValue,
     focusComposerEnd,
-  } = useAppComposerShellState();
-  const {
-    applyRunStatusDesktopState,
-    applyCreatedThreadState,
-    applyProjectActionState,
-    applyAutomationDesktopState,
-  } = createAppDesktopStateAppliers({
-    activeWorkspacePath: state?.activeWorkspace.path,
-    closeProjectBoard,
-    rememberDesktopState,
-    setComposerDraft,
-    setRunStatus,
-    setSidebarArea,
-    setState,
-    setThreadRunStatuses,
-    setWorkspaceRevision,
-    threadRunStatuses,
-  });
+  } = composerShellState;
+  const { rememberClearedGoal, rememberCommittedDesktopState, rememberDesktopState } =
+    createAppDesktopStateMemoryControls({
+      activeProjectRootRef,
+      activeThreadIdRef,
+      clearedGoalKeysRef,
+      latestDesktopStateRevisionRef,
+      workspaceProjectAliasesRef,
+    });
+  const { applyRunStatusDesktopState, applyCreatedThreadState, applyProjectActionState, applyAutomationDesktopState } =
+    createAppDesktopStateAppliers({
+      activeWorkspacePath: state?.activeWorkspace.path,
+      closeProjectBoard,
+      rememberDesktopState,
+      setComposerDraft,
+      setRunStatus,
+      setSidebarArea,
+      setState,
+      setThreadRunStatuses,
+      setWorkspaceRevision,
+      threadRunStatuses,
+    });
   const {
     workflowLibraryIncludeArchived,
     setWorkflowLibraryIncludeArchived,
@@ -870,61 +303,58 @@ export function App() {
     threadActionDialog,
     threadContextMenu,
   });
-  const {
-    createThread,
-    createThreadInProject,
-    createWorkspace,
-    openWorkspace,
-    runPrimaryCreateAction,
-    selectProject,
-    selectThread,
-  } = createAppWorkspaceNavigationControls({
-    activeWorkspacePath: state?.activeWorkspace.path,
-    applyCreatedThreadState,
-    closeProjectBoard,
-    currentWorkspacePath: state?.workspace.path,
-    openNewWorkflowComposer,
-    projectIdForWorkspacePath,
-    rememberDesktopState,
-    scheduleComposerFocusEnd: () => {
-      window.setTimeout(() => composerInputRef.current?.focusEnd(), 0);
-    },
-    setComposerDraft,
-    setProjectPopover,
-    setProjectsCollapsed,
-    setRunStatus,
-    setSidebarArea,
-    setState,
-    setThreadRunStatuses,
-    setWorkspaceRevision,
-    sidebarArea,
-    threadRunStatuses,
-  });
-  const {
-    createWorkflowAgentFolder,
-    loadAutomationFolders,
+  const { createWorkflowAgentFolder, loadAutomationFolders, loadWorkflowAgentFolders, moveAutomationThread } =
+    createAppAutomationFolderControls({
+      selectedAutomationFolderId,
+      selectedAutomationThreadId,
+      selectedWorkflowAgentFolderId,
+      selectedWorkflowAgentThreadId,
+      setAutomationFolders,
+      setAutomationNavigationError,
+      setAutomationPopover,
+      setSelectedAutomationFolderId,
+      setSelectedAutomationThreadId,
+      setSelectedWorkflowAgentFolderId,
+      setSelectedWorkflowAgentThreadId,
+      setWorkflowAgentFolders,
+      setWorkflowAgentNavigationError,
+    });
+  const { openNewWorkflowComposer } = createAppWorkflowComposerNavigation({
     loadWorkflowAgentFolders,
-    moveAutomationThread,
-  } = createAppAutomationFolderControls({
-    selectedAutomationFolderId,
-    selectedAutomationThreadId,
-    selectedWorkflowAgentFolderId,
-    selectedWorkflowAgentThreadId,
-    setAutomationFolders,
-    setAutomationNavigationError,
     setAutomationPopover,
-    setSelectedAutomationFolderId,
+    setProjectPopover,
+    setRightPanel,
+    setSelectedAutomationPane,
     setSelectedAutomationThreadId,
     setSelectedWorkflowAgentFolderId,
     setSelectedWorkflowAgentThreadId,
-    setWorkflowAgentFolders,
-    setWorkflowAgentNavigationError,
+    setSelectedWorkflowRecordingId,
+    setSidebarArea,
   });
-  const {
-    openSidebarArea,
-    openWorkflowRecordingsArea,
-    openWorkflowLabArea,
-  } = createAppSidebarAreaControls({
+  const { createThread, createThreadInProject, createWorkspace, openWorkspace, runPrimaryCreateAction, selectProject, selectThread } =
+    createAppWorkspaceNavigationControls({
+      activeWorkspacePath: state?.activeWorkspace.path,
+      applyCreatedThreadState,
+      closeProjectBoard,
+      currentWorkspacePath: state?.workspace.path,
+      openNewWorkflowComposer,
+      projectIdForWorkspacePath,
+      rememberDesktopState,
+      scheduleComposerFocusEnd: () => {
+        window.setTimeout(() => composerInputRef.current?.focusEnd(), 0);
+      },
+      setComposerDraft,
+      setProjectPopover,
+      setProjectsCollapsed,
+      setRunStatus,
+      setSidebarArea,
+      setState,
+      setThreadRunStatuses,
+      setWorkspaceRevision,
+      sidebarArea,
+      threadRunStatuses,
+    });
+  const { openSidebarArea, openWorkflowRecordingsArea, openWorkflowLabArea } = createAppSidebarAreaControls({
     sidebarArea,
     setSidebarArea,
     setProjectPopover,
@@ -985,13 +415,11 @@ export function App() {
     setState,
   });
   const running = isRunStatusRunning(runStatus);
-  const activeRunActivityLines = state?.activeThreadId ? runActivityLinesByThread[state.activeThreadId] ?? EMPTY_RUN_ACTIVITY_LINES : EMPTY_RUN_ACTIVITY_LINES;
+  const activeRunActivityLines = state?.activeThreadId
+    ? (runActivityLinesByThread[state.activeThreadId] ?? EMPTY_RUN_ACTIVITY_LINES)
+    : EMPTY_RUN_ACTIVITY_LINES;
   const thinkingDisplayMode = state?.settings.thinkingDisplay.mode ?? "transient";
-  const {
-    navigatePromptHistory,
-    resetPromptHistory,
-    shouldNavigatePromptHistory,
-  } = createAppPromptHistoryControls({
+  const { navigatePromptHistory, resetPromptHistory, shouldNavigatePromptHistory } = createAppPromptHistoryControls({
     clearSttDraftMetadata: () => setSttDraftMetadata(undefined),
     draftBeforePromptHistory,
     getComposerDraft,
@@ -1000,6 +428,13 @@ export function App() {
     setComposerDraft,
     setDraftBeforePromptHistory,
     setPromptHistoryCursor,
+  });
+  const voiceThreadControls = useAppVoiceThreadControls({
+    activeThreadId: state?.activeThreadId,
+    messages: state?.messages,
+    messageVoiceStates: state?.messageVoiceStates,
+    settings: state?.settings.voice,
+    voiceProviders,
   });
   const {
     voiceProviderLabels,
@@ -1011,13 +446,7 @@ export function App() {
     activeThreadVoiceStatusDismissKey,
     activeThreadVoiceStatusVisible,
     dismissActiveThreadVoiceStatus,
-  } = useAppVoiceThreadControls({
-    activeThreadId: state?.activeThreadId,
-    messages: state?.messages,
-    messageVoiceStates: state?.messageVoiceStates,
-    settings: state?.settings.voice,
-    voiceProviders,
-  });
+  } = voiceThreadControls;
   const {
     chatFindOpen,
     setChatFindOpen,
@@ -1035,15 +464,7 @@ export function App() {
     running,
     thinkingDisplayMode,
   });
-  const {
-    modelPickerRef,
-    modelPickerButtonRef,
-    modelPickerOpen,
-    setModelPickerOpen,
-    composerModelOptions,
-    selectedComposerModelOption,
-    focusModelPickerOption,
-  } = useAppComposerModelPickerControls({
+  const composerModelPickerControls = useAppComposerModelPickerControls({
     activeThreadId: state?.activeThreadId,
     catalogOptions: state?.settings.modelCatalog?.selectableMainModelOptions,
     selectedModelId: state?.settings.model,
@@ -1056,59 +477,25 @@ export function App() {
     scheduleSttProviderRefresh,
     scheduleVoiceProviderRefresh,
     setupSttProvider,
-  } = createAppSpeechProviderActions({
-    setState,
-    setSttProviderCacheActivity,
-    setSttProviderCacheStatus,
-    setSttProviderSetup,
-    setSttProviders,
-    setSttProvidersError,
-    setSttProvidersLoading,
-    setVoiceCatalogRefresh,
-    setVoiceProviderCacheActivity,
-    setVoiceProviderCacheStatus,
-    setVoiceProviders,
-    setVoiceProvidersError,
-    setVoiceProvidersLoading,
+  } = createAppSpeechProviderActionsForRuntimeState({
+    providerRuntimeState,
     state,
-    sttProviderRefreshTimerRef,
-    sttProviderRequestIdRef,
-    sttProvidersRef,
-    voiceProviderRefreshTimerRef,
-    voiceProviderRequestIdRef,
-    voiceProvidersRef,
+    setState,
   });
 
-  const {
-    cancelSttMicTest,
-    loadSttMicrophoneDeviceList,
-    startSttMicTest,
-    stopSttMicTestAndValidate,
-  } = createAppSttMicrophoneActions({
-    setSttMicTest,
-    setSttMicrophoneDevices,
-    setSttMicrophoneDevicesError,
-    setSttMicrophoneDevicesLoading,
-    setupSttProvider,
-    state,
-    sttMicRecorderRef,
-    sttProviderSetup,
-  });
+  const { cancelSttMicTest, loadSttMicrophoneDeviceList, startSttMicTest, stopSttMicTestAndValidate } =
+    createAppSttMicrophoneActionsForRuntimeState({
+      providerRuntimeState,
+      setupSttProvider,
+      state,
+    });
 
   const {
     loadLocalDeepResearchRunHistory,
     openLocalDeepResearchFollowupIfSetupNeeded,
     setupLocalDeepResearchFromSettings,
     setupMiniCpmVisionProviderFromSettings,
-  } = createAppLocalRuntimeActions({
-    localDeepResearchQ8Override,
-    miniCpmVisionEndpointUrl,
-    miniCpmVisionRuntimePath,
-    setLocalDeepResearchFollowupOpen,
-    setLocalDeepResearchRunHistory,
-    setLocalDeepResearchSetup,
-    setMiniCpmVisionSetup,
-  });
+  } = createAppLocalRuntimeActionsForRuntimeState(providerRuntimeState);
 
   useAppLocalDeepResearchLifecycle({
     localDeepResearchSetup,
@@ -1158,37 +545,6 @@ export function App() {
     sttProvidersRef,
   });
 
-  function rememberClearedGoal(threadId: string, goalId: string | undefined): void {
-    if (goalId) clearedGoalKeysRef.current.add(`${threadId}:${goalId}`);
-  }
-
-  function applyDesktopStateFreshness(next: DesktopState): boolean {
-    const decision = desktopStateFreshnessDecision(latestDesktopStateRevisionRef.current, next);
-    latestDesktopStateRevisionRef.current = decision.latestRevision;
-    return decision.apply;
-  }
-
-  function rememberDesktopState(next: DesktopState): DesktopState | false {
-    const nextState = desktopStateWithoutClearedGoal(next, clearedGoalKeysRef.current);
-    if (!applyDesktopStateFreshness(nextState)) return false;
-    rememberAppDesktopStateRefs(nextState, {
-      activeProjectRootRef,
-      activeThreadIdRef,
-      workspaceProjectAliasesRef,
-    });
-    return nextState;
-  }
-
-  function rememberCommittedDesktopState(next: DesktopState): void {
-    const decision = desktopStateFreshnessDecision(latestDesktopStateRevisionRef.current, next);
-    latestDesktopStateRevisionRef.current = decision.latestRevision;
-    rememberAppDesktopStateRefs(next, {
-      activeProjectRootRef,
-      activeThreadIdRef,
-      workspaceProjectAliasesRef,
-    });
-  }
-
   const {
     loadPendingPermissionRequests,
     loadPermissionAudit,
@@ -1214,42 +570,95 @@ export function App() {
     state,
   });
 
-  useAppStartupLifecycleEffects({
-    loadPendingPermissionRequests,
-    loadPermissionAudit,
-    loadPermissionGrants,
-    mcpContainerRuntimeStartupCheckRef,
-    onBootstrapError: (err) => setError(String(err)),
-    onBootstrapState: (next) => {
-      const nextState = rememberDesktopState(next);
-      if (!nextState) return;
-      applyDocumentAppearance(nextState.appearance);
-      setThreadRunStatuses(nextState.threadRunStatuses ?? {});
-      setRunStatus(appBootstrapRunStatus(nextState));
-      setState(nextState);
-    },
-    onDesktopEvent: handleEvent,
-    openMcpRuntimeSettings,
-    permissionAuditRevision,
+  const localDeepResearchReady = localDeepResearchSetup.result?.setupStatus === "ready";
+  const { setLocalDeepResearchModeArmed, toggleLocalDeepResearchMode } = createAppLocalDeepResearchModeControls({
+    focusComposerEnd,
+    localDeepResearchModeArmedRef,
+    localDeepResearchReady,
+    setContextError,
+    setGoalModeArmed,
+    setLocalDeepResearchBudgetOverride,
+    setLocalDeepResearchModeArmedState,
+    setSymphonyBuilderDraft,
     state,
   });
 
-  useAppSpeechProviderLifecycleEffects({
-    activeWorkspacePath: state?.activeWorkspace.path,
+  const {
+    activeWelcomeOnboardingPageKind,
+    appendRunActivityLine,
+    appendThinkingDeltaLine,
+    handleMessagesScroll,
+    jumpToLatestMessage,
+    requestMessageTail,
+    resetRunActivityLines,
+    scrollRef,
+    showScrollToBottom,
+  } = useAppCoreLifecycleControls({
+    activeProjectRootRef,
+    activeRunActivityLines,
+    activeThreadIdRef,
+    browserRevision,
+    cancelSttComposerRecording,
+    chatBrowserUserAction,
+    chatBrowserUserActionId: chatBrowserUserAction?.id,
+    chatBrowserUserActionStatus: chatBrowserUserAction?.status,
+    chatFindInputRef,
+    closeContextMenus: () => {
+      setProjectContextMenu(undefined);
+      setThreadContextMenu(undefined);
+    },
+    contextMenusOpen: Boolean(projectContextMenu || threadContextMenu),
+    errorScope,
+    goalCompletionCelebrationTimerRef,
+    handleEvent,
+    loadPendingPermissionRequests,
+    loadPermissionAudit,
+    loadPermissionGrants,
     loadSttMicrophoneDeviceList,
     loadSttProviders,
     loadVoiceProviders,
+    mcpContainerRuntimeStartupCheckRef,
+    messageKindsRef,
+    openMcpRuntimeSettings,
+    permissionAuditRevision,
     pluginCatalogRevision,
     previousRunningRef,
+    rememberDesktopState,
+    resetPromptHistory,
+    runActivityCounterRef,
+    runActivityHeartbeatIndexRef,
+    runActivityLastEventAtRef,
+    runActivityLinesByThreadRef,
     running,
     scheduleVoiceProviderRefresh,
-    stateAvailable: Boolean(state),
-  });
-
-  useAppSttLifecycleEffects({
-    cancelSttComposerRecording,
-    loadSttMicrophoneDeviceList,
-    running,
+    setAbortArmed,
+    setActiveGitReview,
+    setActiveGitReviewError,
+    setAutomationFolders,
+    setChatBrowserUserAction,
+    setChatFindOpen,
+    setCommandPaletteOpen,
+    setCommandPaletteQuery,
+    setContextAttachments,
+    setContextError,
+    setError,
+    setErrorScope,
+    setErrorState,
+    setGitStatus,
+    setGitStatusError,
+    setGoalMenuOpen,
+    setGoalModeArmed,
+    setLocalDeepResearchModeArmed,
+    setRetryStatsByThread,
+    setRightPanel,
+    setRunActivityLinesByThread,
+    setRunStatus,
+    setSidebarAgeNow,
+    setSidebarWidth,
+    setState,
+    setThreadRunStatuses,
+    setWelcomeAmbientPluginRegistry,
+    setWorkflowAgentFolders,
     startSttComposerRecording,
     state,
     stopSttComposerRecording,
@@ -1257,129 +666,13 @@ export function App() {
     sttComposerShortcutActiveRef,
     sttComposerStatus: sttComposer.status,
     sttComposerThreadRef,
-  });
-
-  useAppComposerModeThreadLifecycleEffects({
-    activeThreadId: state?.activeThreadId,
-    collaborationMode: state?.settings.collaborationMode,
-    setGoalMenuOpen,
-    setGoalModeArmed,
-    setLocalDeepResearchModeArmed,
-  });
-
-  useAppUnmountCleanupLifecycleEffect({
-    goalCompletionCelebrationTimerRef,
-    sttComposerRecorderRef,
-    sttComposerShortcutActiveRef,
     sttMicRecorderRef,
     sttProviderRefreshTimerRef,
-    voiceProviderRefreshTimerRef,
-  });
-
-  useAppShellGlobalEffects({
-    chatFindInputRef,
-    contextMenusOpen: Boolean(projectContextMenu || threadContextMenu),
-    onCloseContextMenus: () => {
-      setProjectContextMenu(undefined);
-      setThreadContextMenu(undefined);
-    },
-    setChatFindOpen,
-    setCommandPaletteOpen,
-    setCommandPaletteQuery,
-    setSidebarAgeNow,
-    setSidebarWidth,
-  });
-
-  const activeWelcomeOnboardingPageKind = useMemo(() => welcomeOnboardingPageKindForMessages(state?.messages ?? []), [state?.messages]);
-  const {
-    handleMessagesScroll,
-    jumpToLatestMessage,
-    requestMessageTail,
-    scrollRef,
-    showScrollToBottom,
-  } = useAppMessageScrollControls({
-    activeRunActivityLines,
-    activeThreadId: state?.activeThreadId,
-    activeThreadIdRef,
-    chatBrowserUserActionId: chatBrowserUserAction?.id,
-    chatBrowserUserActionStatus: chatBrowserUserAction?.status,
-    messages: state?.messages,
-    welcomeOnboardingPageKind: activeWelcomeOnboardingPageKind,
-  });
-
-  useAppWelcomePluginRegistryLifecycleEffect({
-    pageKind: activeWelcomeOnboardingPageKind,
-    pluginCatalogRevision,
-    setWelcomeAmbientPluginRegistry,
-  });
-
-  useAppThreadLifecycleEffects({
-    activeProjectRootRef,
-    activeThreadIdRef,
-    errorScope,
-    messageKindsRef,
-    resetPromptHistory,
-    setAutomationFolders,
-    setContextAttachments,
-    setContextError,
-    setErrorScope,
-    setErrorState,
-    setWorkflowAgentFolders,
-    state,
     thinkingDeltaBuffersRef,
-    workspaceProjectAliasesRef,
-  });
-
-  useEffect(() => {
-    if (!state) return;
-    applyDocumentAppearance(state.appearance);
-    const nextRunStatuses = state.threadRunStatuses ?? {};
-    setThreadRunStatuses((current) => {
-      for (const [threadId, status] of Object.entries(nextRunStatuses)) {
-        if (current[threadId] !== status) return { ...current, ...nextRunStatuses };
-      }
-      return current;
-    });
-    const nextRunStatus = nextRunStatuses[state.activeThreadId] ?? "idle";
-    setRunStatus((current) => (current === nextRunStatus ? current : nextRunStatus));
-  }, [state?.activeThreadId, state?.appearance, state?.threadRunStatuses]);
-
-  const {
-    appendRunActivityLine,
-    appendThinkingDeltaLine,
-    resetRunActivityLines,
-  } = useAppRunActivityControls({
-    activeThreadIdRef,
-    requestMessageTail,
-    runActivityCounterRef,
-    runActivityHeartbeatIndexRef,
-    runActivityLastEventAtRef,
-    runActivityLinesByThreadRef,
-    setRetryStatsByThread,
-    setRunActivityLinesByThread,
-    thinkingDeltaBuffersRef,
-  });
-
-  useAppStatusSubscriptions({
-    state,
-    running,
     threadRunStatuses,
-    chatBrowserUserAction,
-    browserRevision,
+    voiceProviderRefreshTimerRef,
+    workspaceProjectAliasesRef,
     workspaceRevision,
-    abortArmDelayMs: RUN_ABORT_ARM_DELAY_MS,
-    runActivityLastEventAtRef,
-    runActivityHeartbeatIndexRef,
-    setState,
-    setRunStatus,
-    setChatBrowserUserAction,
-    setRightPanel,
-    setAbortArmed,
-    appendRunActivityLine,
-    setGitStatus,
-    setGitStatusError,
-    setActiveGitReview,
-    setActiveGitReviewError,
   });
 
   function triggerGoalCompletionCelebration(messageId: string) {
@@ -1391,532 +684,64 @@ export function App() {
     }, GOAL_COMPLETION_CELEBRATION_MS);
   }
 
-  const {
-    desktopEventMatchesWorkspace,
-    desktopEventMatchesActiveProject,
-    promptRequestMatchesActiveProject,
-  } = createAppDesktopEventGuards({ activeProjectRootRef, workspaceProjectAliasesRef });
+  const desktopEventGuards = createAppDesktopEventGuards({ activeProjectRootRef, workspaceProjectAliasesRef });
+  const { promptRequestMatchesActiveProject } = desktopEventGuards;
 
   function handleEvent(event: DesktopEvent) {
-    if (event.type === "state") {
-      const nextState = desktopStateWithoutClearedGoal(event.state, clearedGoalKeysRef.current);
-      const freshness = desktopStateFreshnessDecision(latestDesktopStateRevisionRef.current, nextState);
-      if (!freshness.apply) return;
-      latestDesktopStateRevisionRef.current = freshness.latestRevision;
-      // Full desktop snapshots can be large while board synthesis streams; keep them interruptible
-      // so local input, scrolling, and close/tab clicks stay responsive.
-      startTransition(() => {
-        setState((current) => {
-          const decision = desktopStateCommitDecision(
-            latestDesktopStateRevisionRef.current,
-            nextState,
-            clearedGoalKeysRef.current,
-            current,
-          );
-          if (!decision.apply) return current;
-          rememberCommittedDesktopState(decision.state);
-          return decision.state;
-        });
-      });
-      return;
-    }
-    if (
-      event.type === "thread-goal-cleared" &&
-      event.threadId === activeThreadIdRef.current &&
-      desktopEventMatchesActiveProject(event)
-    ) {
-      rememberClearedGoal(event.threadId, event.goalId);
-    }
-    if (event.type === "appearance-updated") {
-      applyDocumentAppearance(event.appearance);
-      setState((current) => (current ? { ...current, appearance: event.appearance } : current));
-      return;
-    }
-    if (event.type === "run-status") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      if (event.status === "starting") delete runtimeActivityRenderStateRef.current[event.threadId];
-      setThreadRunStatuses((statuses) => (
-        statuses[event.threadId] === event.status ? statuses : { ...statuses, [event.threadId]: event.status }
-      ));
-      if (event.status === "starting") appendRunActivityLine("Starting Ambient session.", "state", {}, event.threadId);
-      if (event.status === "streaming") appendRunActivityLine("Waiting for model output.", "state", {}, event.threadId);
-      if (event.status === "tool") appendRunActivityLine("Tool execution is in progress.", "tool", {}, event.threadId);
-      if (event.status === "compacting") appendRunActivityLine("Compacting context before continuing.", "state", {}, event.threadId);
-      if (event.status === "retrying") appendRunActivityLine("Retrying after a recoverable model error.", "state", {}, event.threadId);
-      if (event.threadId === activeThreadIdRef.current) {
-        setRunStatus((current) => (current === event.status ? current : event.status));
-        if (event.status === "idle" || event.status === "error") setActivity(undefined);
-      }
-      return;
-    }
-    if (event.type === "runtime-activity") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      if (event.activity.kind === "retry") {
-        const retryActivity = event.activity;
-        setRetryStatsByThread((current) => ({
-          ...current,
-          [retryActivity.threadId]: runRetryStatsFromActivity(current[retryActivity.threadId], retryActivity),
-        }));
-      }
-      const activityText = formatRuntimeActivity(event.activity);
-      const now = Date.now();
-      const shouldRenderActivity = shouldRenderRuntimeActivityUpdate({
-        activity: event.activity,
-        now,
-        previous: runtimeActivityRenderStateRef.current[event.activity.threadId],
-        text: activityText,
-      });
-      if (shouldRenderActivity) {
-        runtimeActivityRenderStateRef.current[event.activity.threadId] = { text: activityText, renderedAt: now };
-        appendRunActivityLine(
-          activityText,
-          event.activity.kind === "retry" ||
-            (event.activity.kind === "stream" && event.activity.status === "timeout") ||
-            (event.activity.kind === "tool" && event.activity.status === "timeout")
-            ? "error"
-            : "state",
-          {},
-          event.activity.threadId,
-        );
-      }
-      if (shouldRenderActivity && event.activity.threadId === activeThreadIdRef.current) setActivity(event.activity);
-      return;
-    }
-    if (event.type === "thread-goal-updated" && event.goal.threadId === activeThreadIdRef.current && event.goal.status !== "active") {
-      setActivity((current) =>
-        current?.kind === "goal" && current.goalId === event.goal.goalId ? undefined : current,
-      );
-    }
-    if (event.type === "mcp-container-runtime-install-progress") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setMcpContainerRuntimeInstallProgress(event.progress);
-      return;
-    }
-    if (event.type === "mcp-default-capability-install-progress") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setMcpDefaultCapabilityInstallProgress(event.progress);
-      return;
-    }
-    if (event.type === "local-deep-research-install-progress") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setLocalDeepResearchSetup((current) => localDeepResearchInstallProgressState(current, event.progress));
-      return;
-    }
-    if (event.type === "local-deep-research-setup-updated") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setLocalDeepResearchSetup((current) => localDeepResearchSetupResultState(event.result, current));
-      return;
-    }
-    if (event.type === "context-usage-updated") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setState((current) =>
-        current && current.activeThreadId === event.snapshot.threadId
-          ? { ...current, contextUsage: event.snapshot }
-          : current,
-      );
-      return;
-    }
-    if (event.type === "error") {
-      if (event.threadId && event.threadId !== activeThreadIdRef.current) return;
-      if (event.workspacePath && event.workspacePath !== activeProjectRootRef.current) return;
-      setScopedError(
-        event.message,
-        event.threadId || event.workspacePath ? { threadId: event.threadId, workspacePath: event.workspacePath } : undefined,
-      );
-      return;
-    }
-    if (event.type === "open-api-key-dialog") {
-      void openApiKeyDialog();
-      return;
-    }
-    if (event.type === "mcp-container-runtime-setup-needed") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      openMcpRuntimeSettings();
-      return;
-    }
-    if (event.type === "ambient-cli-secret-requested") {
-      openAmbientCliSecretDialog({
-        packageId: event.packageId,
-        packageName: event.packageName,
-        builderSourcePath: event.builderSourcePath,
-        mcpServerId: event.mcpServerId,
-        mcpCandidateId: event.mcpCandidateId,
-        mcpCandidateRef: event.mcpCandidateRef,
-        envName: event.envName,
-      });
-      return;
-    }
-    if (event.type === "menu-command") {
-      void handleMenuCommand(event.command);
-      return;
-    }
-    if (event.type === "permission-request") {
-      const request = {
-        ...event.request,
-        ...(!event.request.workspacePath && event.workspacePath ? { workspacePath: event.workspacePath } : {}),
-      };
-      setPermissionRequests((requests) =>
-        requests.some((existing) => existing.id === request.id) ? requests : [...requests, request],
-      );
-      return;
-    }
-    if (event.type === "permission-resolved") {
-      setPermissionRequests((requests) => requests.filter((request) => request.id !== event.id));
-      return;
-    }
-    if (event.type === "privileged-credential-request") {
-      const request = {
-        ...event.request,
-        ...(!event.request.workspacePath && event.workspacePath ? { workspacePath: event.workspacePath } : {}),
-      };
-      setPrivilegedCredentialRequests((requests) =>
-        requests.some((existing) => existing.id === request.id) ? requests : [...requests, request],
-      );
-      return;
-    }
-    if (event.type === "privileged-credential-resolved") {
-      setPrivilegedCredentialRequests((requests) => requests.filter((request) => request.id !== event.id));
-      return;
-    }
-    if (event.type === "secure-input-request") {
-      const request = {
-        ...event.request,
-        ...(!event.request.workspacePath && event.workspacePath ? { workspacePath: event.workspacePath } : {}),
-      };
-      setSecureInputRequests((requests) =>
-        requests.some((existing) => existing.id === request.id) ? requests : [...requests, request],
-      );
-      return;
-    }
-    if (event.type === "secure-input-resolved") {
-      setSecureInputRequests((requests) => requests.filter((request) => request.id !== event.id));
-      return;
-    }
-    if (event.type === "permission-audit-created") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setPermissionAuditRevision((revision) => revision + 1);
-      return;
-    }
-    if (event.type === "permission-grant-created" || event.type === "permission-grant-revoked") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setPermissionAuditRevision((revision) => revision + 1);
-      return;
-    }
-    if (event.type === "e2e-permission-fixture") {
-      if (event.grants) setPermissionGrants(event.grants);
-      if (event.audit) setPermissionAudit(event.audit);
-      return;
-    }
-    if (event.type === "plugin-catalog-updated") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setPluginCatalogRevision((revision) => revision + 1);
-      scheduleVoiceProviderRefresh(150, "plugin catalog updated");
-      scheduleSttProviderRefresh(150, "plugin catalog updated");
-      return;
-    }
-    if (event.type === "browser-updated") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setChatBrowserUserAction(chatBrowserUserActionForThread(event.state.userAction, activeThreadIdRef.current));
-      setBrowserRevision((revision) => revision + 1);
-      return;
-    }
-    if (event.type === "tool-event") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      const baseLabel = event.details?.pluginName && event.details.toolName ? `${event.details.pluginName}: ${event.details.toolName}` : event.label || "tool";
-      const label = event.artifactPath ? `${baseLabel} for ${event.artifactPath}` : baseLabel;
-      const argumentStatus = event.details?.toolArgumentProgress?.uiStatus;
-      const toolActivityMessage = toolEventActivityMessage(event.details);
-      if (event.status === "running") appendRunActivityLine(toolActivityMessage ?? argumentStatus ?? `Running ${label}.`, "tool", {}, event.threadId);
-      if (event.status === "done") appendRunActivityLine(`${label} completed.`, "tool", {}, event.threadId);
-      if (event.status === "error") appendRunActivityLine(`${label} failed.`, "error", {}, event.threadId);
-      if (event.status === "done" || event.status === "error") {
-        setWorkspaceRevision((revision) => revision + 1);
-        scheduleVoiceProviderRefresh(500, `tool ${event.status}`);
-        scheduleSttProviderRefresh(500, `tool ${event.status}`);
-      }
-      return;
-    }
-    if (event.type === "orchestration-updated") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setOrchestrationRevision((revision) => revision + 1);
-      return;
-    }
-    if (event.type === "orchestration-auto-dispatch-updated") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setOrchestrationAutoRevision((revision) => revision + 1);
-      return;
-    }
-    if (event.type === "workflow-updated") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setWorkflowRevision((revision) => revision + 1);
-      return;
-    }
-    if (event.type === "workflow-discovery-progress") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setWorkflowDiscoveryProgress(event.progress);
-      setSelectedWorkflowAgentThreadId((current) => current ?? event.progress.workflowThreadId);
-      if (event.progress.phase !== "model" || event.progress.status !== "running") setWorkflowRevision((revision) => revision + 1);
-      return;
-    }
-    if (event.type === "workflow-exploration-progress") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setWorkflowExplorationProgressByThreadId((current) => ({ ...current, [event.progress.workflowThreadId]: event.progress }));
-      setSelectedWorkflowAgentThreadId((current) => current ?? event.progress.workflowThreadId);
-      return;
-    }
-    if (event.type === "workflow-compile-progress") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      setWorkflowCompileProgress((current) => coalesceWorkflowCompileProgress(current, event.progress));
-      return;
-    }
-    if (event.type === "workflow-run-started") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      if (event.workflowThreadId) setSelectedWorkflowAgentThreadId(event.workflowThreadId);
-      setWorkflowRevision((revision) => revision + 1);
-      return;
-    }
-    if (event.type === "message-created" && desktopEventMatchesActiveProject(event) && event.message.threadId === activeThreadIdRef.current) {
-      messageKindsRef.current[event.message.id] = messageKindForActivity(event.message);
-      if (isGoalCompletionMessage(event.message)) {
-        appendRunActivityLine("Goal completed and cleared.", "state", { dedupe: false });
-        triggerGoalCompletionCelebration(event.message.id);
-      } else if (event.message.metadata?.kind === "thinking") appendRunActivityLine("Receiving Ambient reasoning.", "thinking");
-      else if (event.message.role === "assistant" && !event.message.content.trim()) appendRunActivityLine("Ambient response channel opened.");
-    }
-    if (event.type === "message-delta") {
-      if (!desktopEventMatchesActiveProject(event)) return;
-      const kind = messageKindsRef.current[event.messageId];
-      if (kind === "thinking") appendThinkingDeltaLine(event.messageId, event.delta);
-      if (kind === "assistant") appendRunActivityLine("Streaming response text.");
-    }
-    if (event.type === "message-updated" && desktopEventMatchesActiveProject(event) && event.message.threadId === activeThreadIdRef.current) {
-      messageKindsRef.current[event.message.id] = messageKindForActivity(event.message);
-    }
-    if (event.type === "stt-stop-tts-requested") {
-      if (!event.workspacePath || event.workspacePath === activeProjectRootRef.current) setActiveVoiceMessageId(undefined);
-      return;
-    }
-    if (!STATE_REDUCER_DESKTOP_EVENT_TYPES.has(event.type)) return;
-    setState((current) => {
-      if (!current) return current;
-      if (event.type === "provider-updated") {
-        return { ...current, provider: event.provider };
-      }
-      if (event.type === "update-status") {
-        return { ...current, app: { ...current.app, update: event.update } };
-      }
-      if (event.type === "queue-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (event.queue.threadId && event.queue.threadId !== current.activeThreadId) return current;
-        return { ...current, queue: event.queue };
-      }
-      if (event.type === "stt-queue-updated") {
-        if (event.workspacePath && event.workspacePath !== current.workspace.path) return current;
-        return { ...current, sttQueue: event.queue };
-      }
-      if (event.type === "stt-diagnostic-recorded") {
-        if (event.workspacePath && event.workspacePath !== current.workspace.path) return current;
-        return { ...current, sttDiagnostics: event.diagnostics };
-      }
-      if (event.type === "message-created") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (event.message.threadId !== current.activeThreadId) return upsertChildThreadMessage(current, event.message);
-        return { ...current, messages: [...current.messages, event.message] };
-      }
-      if (event.type === "message-delta") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (!current.messages.some((message) => message.id === event.messageId)) return applyChildThreadMessageDelta(current, event);
-        return {
-          ...current,
-          messages: current.messages.map((message) =>
-            message.id === event.messageId ? { ...message, content: message.content + event.delta } : message,
-          ),
-        };
-      }
-      if (event.type === "message-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (event.message.threadId !== current.activeThreadId) return upsertChildThreadMessage(current, event.message);
-        return {
-          ...current,
-          messages: current.messages.map((message) => (message.id === event.message.id ? event.message : message)),
-        };
-      }
-      if (event.type === "planner-plan-artifact-created" || event.type === "planner-plan-artifact-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (event.artifact.threadId !== current.activeThreadId) return current;
-        const exists = current.plannerPlanArtifacts.some((artifact) => artifact.id === event.artifact.id);
-        return {
-          ...current,
-          plannerPlanArtifacts: exists
-            ? current.plannerPlanArtifacts.map((artifact) => (artifact.id === event.artifact.id ? event.artifact : artifact))
-            : [event.artifact, ...current.plannerPlanArtifacts],
-        };
-      }
-      if (event.type === "thread-goal-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (event.goal.threadId !== current.activeThreadId) return current;
-        if (clearedGoalKeysRef.current.has(threadGoalKey(event.goal))) return current;
-        return { ...current, activeThreadGoal: event.goal };
-      }
-      if (event.type === "thread-goal-cleared") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (event.threadId !== current.activeThreadId) return current;
-        return { ...current, activeThreadGoal: undefined };
-      }
-      if (event.type === "thread-updated") {
-        const upsertThread = (threads: ThreadSummary[]) =>
-          threads.some((thread) => thread.id === event.thread.id)
-            ? threads.map((thread) => (thread.id === event.thread.id ? event.thread : thread))
-            : [...threads, event.thread];
-        const projects = current.projects.map((project) =>
-          desktopEventMatchesWorkspace(event, project.path)
-            ? {
-                ...project,
-                threads: upsertThread(project.threads),
-              }
-            : project,
-        );
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) {
-          return { ...current, projects };
-        }
-        return {
-          ...current,
-          threads: upsertThread(current.threads),
-          projects,
-          settings:
-            event.thread.id === current.activeThreadId
-              ? {
-                  ...current.settings,
-                  permissionMode: event.thread.permissionMode,
-                  collaborationMode: event.thread.collaborationMode,
-                  model: event.thread.model,
-                  thinkingLevel: event.thread.thinkingLevel,
-                }
-              : current.settings,
-        };
-      }
-      if (event.type === "subagent-run-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
-        if (event.run.parentThreadId !== current.activeThreadId && event.run.childThreadId !== current.activeThreadId) return current;
-        const subagentRuns = upsertSortedDesktopEventItem(
-          current.subagentRuns,
-          event.run,
-          (run) => run.id,
-          (left, right) => left.createdAt.localeCompare(right.createdAt),
-        );
-        return subagentRuns === current.subagentRuns ? current : { ...current, subagentRuns };
-      }
-      if (event.type === "subagent-run-event-created") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
-        if (event.run.parentThreadId !== current.activeThreadId && event.run.childThreadId !== current.activeThreadId) return current;
-        const subagentRuns = upsertSortedDesktopEventItem(
-          current.subagentRuns,
-          event.run,
-          (run) => run.id,
-          (left, right) => left.createdAt.localeCompare(right.createdAt),
-        );
-        const subagentRunEvents = upsertSortedDesktopEventItem(
-          current.subagentRunEvents,
-          event.event,
-          (candidate) => `${candidate.runId}:${candidate.sequence}`,
-          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.sequence - right.sequence,
-        );
-        return subagentRuns === current.subagentRuns && subagentRunEvents === current.subagentRunEvents
-          ? current
-          : { ...current, subagentRuns, subagentRunEvents };
-      }
-      if (event.type === "subagent-mailbox-event-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
-        if (event.run.parentThreadId !== current.activeThreadId && event.run.childThreadId !== current.activeThreadId) return current;
-        const subagentRuns = upsertSortedDesktopEventItem(
-          current.subagentRuns,
-          event.run,
-          (run) => run.id,
-          (left, right) => left.createdAt.localeCompare(right.createdAt),
-        );
-        const subagentMailboxEvents = upsertSortedDesktopEventItem(
-          current.subagentMailboxEvents,
-          event.mailboxEvent,
-          (mailboxEvent) => mailboxEvent.id,
-          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
-        );
-        return subagentRuns === current.subagentRuns && subagentMailboxEvents === current.subagentMailboxEvents
-          ? current
-          : { ...current, subagentRuns, subagentMailboxEvents };
-      }
-      if (event.type === "subagent-tool-scope-snapshot-recorded") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
-        if (event.run.parentThreadId !== current.activeThreadId && event.run.childThreadId !== current.activeThreadId) return current;
-        const subagentRuns = upsertSortedDesktopEventItem(
-          current.subagentRuns,
-          event.run,
-          (run) => run.id,
-          (left, right) => left.createdAt.localeCompare(right.createdAt),
-        );
-        const subagentToolScopeSnapshots = upsertSortedDesktopEventItem(
-          current.subagentToolScopeSnapshots,
-          event.snapshot,
-          (snapshot) => `${snapshot.runId}:${snapshot.sequence}`,
-          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.sequence - right.sequence,
-        );
-        return subagentRuns === current.subagentRuns && subagentToolScopeSnapshots === current.subagentToolScopeSnapshots
-          ? current
-          : { ...current, subagentRuns, subagentToolScopeSnapshots };
-      }
-      if (event.type === "subagent-wait-barrier-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
-        const activeRunIds = new Set(current.subagentRuns.map((run) => run.id));
-        if (event.barrier.parentThreadId !== current.activeThreadId && !event.barrier.childRunIds.some((runId) => activeRunIds.has(runId))) {
-          return current;
-        }
-        const subagentWaitBarriers = upsertSortedDesktopEventItem(
-          current.subagentWaitBarriers,
-          event.barrier,
-          (barrier) => barrier.id,
-          (left, right) => left.createdAt.localeCompare(right.createdAt),
-        );
-        return subagentWaitBarriers === current.subagentWaitBarriers ? current : { ...current, subagentWaitBarriers };
-      }
-      if (event.type === "subagent-parent-mailbox-event-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
-        const activeParentRunIds = new Set(current.subagentRuns.map((run) => run.parentRunId));
-        if (event.mailboxEvent.parentThreadId !== current.activeThreadId && !activeParentRunIds.has(event.mailboxEvent.parentRunId)) return current;
-        const subagentParentMailboxEvents = upsertSortedDesktopEventItem(
-          current.subagentParentMailboxEvents,
-          event.mailboxEvent,
-          (mailboxEvent) => mailboxEvent.id,
-          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
-        );
-        return subagentParentMailboxEvents === current.subagentParentMailboxEvents
-          ? current
-          : { ...current, subagentParentMailboxEvents };
-      }
-      if (event.type === "callable-workflow-task-updated") {
-        if (!desktopEventMatchesWorkspace(event, current.workspace.path)) return current;
-        if (!isAmbientSubagentsEnabled(current.featureFlagSnapshot)) return current;
-        if (event.task.parentThreadId !== current.activeThreadId) return current;
-        const callableWorkflowTasks = upsertSortedDesktopEventItem(
-          current.callableWorkflowTasks,
-          event.task,
-          (task) => task.id,
-          (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
-        );
-        return callableWorkflowTasks === current.callableWorkflowTasks ? current : { ...current, callableWorkflowTasks };
-      }
-      return current;
-    });
+    handleAppDesktopEvent(
+      event,
+      createAppDesktopEventHandlerDependencies({
+        automationShellState,
+        appendRunActivityLine,
+        appendThinkingDeltaLine,
+        desktopEventGuards,
+        handleMenuCommand,
+        openAmbientCliSecretDialog,
+        openApiKeyDialog,
+        providerRuntimeState,
+        rememberClearedGoal,
+        rememberCommittedDesktopState,
+        rightPanelState,
+        runActivityState,
+        scheduleSttProviderRefresh,
+        scheduleVoiceProviderRefresh,
+        securityPromptState,
+        setState,
+        shellUiState,
+        triggerGoalCompletionCelebration,
+        voiceThreadControls,
+        workflowRuntimeState,
+        workspaceShellState,
+      }),
+    );
   }
 
-  const activeThread = useMemo(
-    () => state?.threads.find((thread) => thread.id === state.activeThreadId),
-    [state?.activeThreadId, state?.threads],
-  );
+  const {
+    activeActivity,
+    activeChatBrowserUserAction,
+    activePermissionRequest,
+    activePrivilegedCredentialRequest,
+    activeSecureInputRequest,
+    activeThread,
+    isMac,
+    localDeepResearchRunActive,
+    localDeepResearchRunBudget,
+    showTopbarThreadMemoryToggle,
+  } = useAppActiveThreadModel({
+    activity,
+    chatBrowserUserAction,
+    localDeepResearchBudgetOverride,
+    localDeepResearchReady,
+    permissionRequests,
+    platform: navigator.platform,
+    privilegedCredentialRequests,
+    promptRequestMatchesActiveProject,
+    secureInputRequests,
+    sidebarArea,
+    state,
+    threadRunStatuses,
+  });
+  localDeepResearchRunBudgetRef.current = localDeepResearchRunBudget;
   const {
     activeSubagentChildHiddenByFeatureFlag,
     activeSubagentInspector,
@@ -1989,62 +814,42 @@ export function App() {
   });
   const {
     activeProject,
-    activeWorkspaceIsPreparedLocalTask,
-    errorNeedsSessionRecovery,
-    latestDurablePlannerPlanArtifact,
-    readyPlannerPlanArtifacts,
-    sessionContextMissing,
-  } = useAppWorkspaceProjectModel({
-    activeWorkspacePath: state?.activeWorkspace.path,
-    contextUsage: state?.contextUsage,
-    error,
-    plannerPlanArtifacts: state?.plannerPlanArtifacts,
-    projects: state?.projects,
-    workspacePath: state?.workspace.path,
-  });
-  const projectBoardActionsRef = useRef<ReturnType<typeof createAppProjectBoardActions> | undefined>(undefined);
-  const {
     activeProjectBoardBusy,
     activeProjectBoardTopbarAction,
     activeThreadSuppressesProjectBoard,
+    activeWorkspaceIsPreparedLocalTask,
+    errorNeedsSessionRecovery,
+    latestDurablePlannerPlanArtifact,
+    projectBoardActions,
     projectBoardOpen,
     setProjectBoardOpen,
     setProjectBoardPlanBusy,
     projectBoardPlanPickerOpen,
     setProjectBoardPlanPickerOpen,
     projectBoardThreadPlanAction,
+    readyPlannerPlanArtifacts,
     runProjectBoardThreadPlanAction,
-  } = useAppProjectBoardShellControls({
-    activeProject,
+    sessionContextMissing,
+  } = useAppProjectBoardControls({
     activeThread,
     activeThreadId: state?.activeThreadId,
     activeWorkspacePath: state?.activeWorkspace.path,
-    projectBoardBusyProjectIds,
-    readyPlannerPlanArtifacts,
-    workspaceName: state?.workspace.name,
-    workspacePath: state?.workspace.path,
-    onAddPlannerPlanToBoard: (artifact) => projectBoardActionsRef.current?.addPlannerPlanToBoard(artifact),
-    onBuildProjectBoard: (project) => projectBoardActionsRef.current?.buildProjectBoard(project),
-    onOpenProjectBoard: (project) => projectBoardActionsRef.current?.openProjectBoard(project),
-  });
-  const projectBoardActions = createAppProjectBoardActions({
-    activeThread,
-    activeWorkspacePath: state?.activeWorkspace.path,
     applyCreatedThreadState,
     applyProjectActionState,
+    contextUsage: state?.contextUsage,
+    error,
+    plannerPlanArtifacts: state?.plannerPlanArtifacts,
+    previewArtifact,
+    projects: state?.projects,
     projectBoardBusyProjectIds,
     projectBoardKickoffDefaultsBusy,
     projectBoardResetDialog,
-    previewArtifact,
     selectProject,
     selectThread,
     setError,
     setProjectBoardBusyProjectIds,
     setProjectBoardFinalizeBusy,
     setProjectBoardKickoffDefaultsBusy,
-    setProjectBoardOpen,
-    setProjectBoardPlanBusy,
-    setProjectBoardPlanPickerOpen,
     setProjectBoardProposalAnswerBusy,
     setProjectBoardProposalApplyBusy,
     setProjectBoardProposalCardReviewBusy,
@@ -2060,26 +865,12 @@ export function App() {
     setSidebarArea,
     setState,
     state,
+    workspaceName: state?.workspace.name,
+    workspacePath: state?.workspace.path,
   });
-  projectBoardActionsRef.current = projectBoardActions;
   function closeProjectBoard() {
     setProjectBoardOpen(false);
   }
-  const localDeepResearchReady = localDeepResearchSetup.result?.setupStatus === "ready";
-  const localDeepResearchRunActive = useMemo(
-    () => activeThreadHasRunningLocalDeepResearch(state?.messages),
-    [state?.messages],
-  );
-  const localDeepResearchRunBudget = useMemo(
-    () => resolveLocalDeepResearchRunBudget(state?.settings.localDeepResearch.runBudget, localDeepResearchBudgetOverride),
-    [
-      state?.settings.localDeepResearch.runBudget.defaultEffort,
-      state?.settings.localDeepResearch.runBudget.customMaxToolCalls,
-      state?.settings.localDeepResearch.runBudget.onExhausted,
-      localDeepResearchBudgetOverride,
-    ],
-  );
-  localDeepResearchRunBudgetRef.current = localDeepResearchRunBudget;
   useAppLocalDeepResearchReadinessLifecycleEffect({
     localDeepResearchReady,
     setLocalDeepResearchModeArmed,
@@ -2107,20 +898,11 @@ export function App() {
   });
   promptHistoryRef.current = promptHistory;
 
-  useEffect(() => {
-    if (!state) return;
-    const now = Date.now();
-    setPendingSubmittedPrompts((current) => {
-      const next = current.filter((prompt) => {
-        const createdAt = Date.parse(prompt.createdAt);
-        if (Number.isFinite(createdAt) && now - createdAt > 5 * 60 * 1000) return false;
-        if (prompt.threadId !== state.activeThreadId) return true;
-        if (!running && pendingSubmittedPromptHasPersistedMatch(prompt, state.messages)) return false;
-        return true;
-      });
-      return next.length === current.length ? current : next;
-    });
-  }, [running, setPendingSubmittedPrompts, state]);
+  useAppPendingSubmittedPromptCleanup({
+    running,
+    setPendingSubmittedPrompts,
+    state,
+  });
 
   const {
     selectedAutomationFolder,
@@ -2201,9 +983,7 @@ export function App() {
     workflowLibraryIncludeArchived,
   });
 
-  const {
-    editWorkflowRecordingPlaybookInChat,
-  } = createAppWorkflowRecordingPlaybookActions({
+  const { editWorkflowRecordingPlaybookInChat } = createAppWorkflowRecordingPlaybookActions({
     closeProjectBoard,
     previewLocalFile,
     setAutomationPopover,
@@ -2225,111 +1005,6 @@ export function App() {
     setUpdateBusy,
     setUpdatePopoverOpen,
   });
-
-  function openNewWorkflowComposer(folderId?: string) {
-    setSidebarArea("automations");
-    setProjectPopover(undefined);
-    setAutomationPopover(undefined);
-    setSelectedAutomationPane("workflow_agent");
-    if (folderId) setSelectedWorkflowAgentFolderId(folderId);
-    setSelectedWorkflowAgentThreadId(undefined);
-    setSelectedWorkflowRecordingId(undefined);
-    setSelectedAutomationThreadId(undefined);
-    setRightPanel((current) => (current === "search" || current === "settings" ? current : undefined));
-    void loadWorkflowAgentFolders();
-  }
-
-  async function updateThreadSettings(
-    input: Partial<Pick<ThreadSummary, "collaborationMode" | "model" | "thinkingLevel" | "memoryEnabled">>,
-  ) {
-    if (!state) return undefined;
-    const threadId = state.activeThreadId;
-    const thread = await window.ambientDesktop.updateThreadSettings({
-      threadId,
-      ...input,
-    });
-    setState((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        threads: current.threads.map((item) => (item.id === thread.id ? thread : item)),
-        settings: current.activeThreadId === thread.id
-          ? {
-              ...current.settings,
-              permissionMode: thread.permissionMode,
-              collaborationMode: thread.collaborationMode,
-              model: thread.model,
-              thinkingLevel: thread.thinkingLevel,
-            }
-          : current.settings,
-      };
-    });
-    return thread;
-  }
-
-  async function updateThemePreference(themePreference: ThemePreference) {
-    const appearance = await window.ambientDesktop.setThemePreference({ themePreference });
-    applyDocumentAppearance(appearance);
-    setState((current) => (current ? { ...current, appearance } : current));
-  }
-
-  async function handleMenuCommand(command: MenuCommand) {
-    if (command === "new-chat") {
-      await createThread();
-      return;
-    }
-    if (command === "open-folder") {
-      await openWorkspace();
-      return;
-    }
-    if (command === "toggle-sidebar") {
-      setSidebarOpen((open) => !open);
-      return;
-    }
-    if (command === "toggle-terminal") {
-      togglePanel("terminal");
-      return;
-    }
-    if (command === "toggle-file-tree") {
-      togglePanel("files");
-      return;
-    }
-    if (command === "toggle-diff-panel") {
-      togglePanel("diff");
-      return;
-    }
-    if (command === "toggle-browser-panel") {
-      togglePanel("browser");
-      return;
-    }
-    if (command === "performance-trace") {
-      openPanel("performance");
-      return;
-    }
-    if (command === "export-diagnostics") {
-      try {
-        await exportDiagnostics();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    }
-  }
-
-  function beginSidebarResize(event: ReactMouseEvent<HTMLDivElement>) {
-    beginAppSidebarResize(event, setSidebarWidth);
-  }
-
-  function beginRightPanelResize(event: ReactMouseEvent<HTMLDivElement>) {
-    beginAppRightPanelResize(event, setRightPanelWidth);
-  }
-
-  function beginWorkflowRecorderReviewResize(event: ReactMouseEvent<HTMLDivElement>) {
-    beginAppWorkflowRecorderReviewResize(event, setWorkflowRecorderReviewPanelWidth);
-  }
-
-  function openMediaPreviewModal(path: string, mediaKind: "image" | "video") {
-    setMediaPreviewModal({ path, mediaKind });
-  }
 
   const {
     clearAgentMemory,
@@ -2355,78 +1030,14 @@ export function App() {
     state,
   });
 
-  const refreshAgentMemoryDiagnostics = useCallback(async () => {
-    const requestId = agentMemoryDiagnosticsRequestSeqRef.current + 1;
-    agentMemoryDiagnosticsRequestSeqRef.current = requestId;
-    setAgentMemoryDiagnosticsError(undefined);
-    setAgentMemoryDiagnosticsLoading(true);
-    try {
-      const diagnostics = await window.ambientDesktop.getAgentMemoryDiagnostics();
-      if (requestId !== agentMemoryDiagnosticsRequestSeqRef.current) return;
-      setAgentMemoryDiagnostics(diagnostics);
-    } catch (err) {
-      if (requestId !== agentMemoryDiagnosticsRequestSeqRef.current) return;
-      setAgentMemoryDiagnosticsError(err instanceof Error ? err.message : String(err));
-    } finally {
-      if (requestId !== agentMemoryDiagnosticsRequestSeqRef.current) return;
-      setAgentMemoryDiagnosticsLoading(false);
-    }
-  }, [
-    agentMemoryDiagnosticsRequestSeqRef,
-    setAgentMemoryDiagnostics,
-    setAgentMemoryDiagnosticsError,
-    setAgentMemoryDiagnosticsLoading,
-  ]);
+  const { refreshAgentMemoryDiagnostics, runAgentMemoryEmbeddingLifecycleAction } = useAppAgentMemoryPanelControls({
+    activeThreadMemoryEnabled: Boolean(activeThread?.memoryEnabled),
+    panel: rightPanel,
+    providerRuntimeState,
+    state,
+  });
 
-  const agentMemoryDiagnosticsRefreshKey = state
-    ? [
-        state.workspace.path,
-        state.activeThreadId,
-        Boolean(activeThread?.memoryEnabled),
-        state.settings.featureFlags.tencentDbMemory ?? "default",
-        state.settings.memory.mode,
-        state.settings.memory.enabled,
-        state.settings.memory.defaultThreadEnabled,
-        state.settings.memory.shortTermOffloadEnabled,
-        state.settings.memory.storageScope,
-        state.settings.memory.embeddings.enabled,
-        state.settings.memory.embeddings.providerMode,
-        state.settings.memory.embeddings.providerCapabilityId ?? "",
-        state.settings.memory.embeddings.autoStartProvider,
-        state.settings.memory.embeddings.sendDimensions,
-        state.settings.memory.embeddings.maxInputChars,
-        state.settings.memory.embeddings.timeoutMs,
-      ].join("\u001f")
-    : "";
-
-  useEffect(() => {
-    if (rightPanel !== "settings" || !state) return;
-    void refreshAgentMemoryDiagnostics();
-  }, [rightPanel, agentMemoryDiagnosticsRefreshKey, refreshAgentMemoryDiagnostics]);
-
-  async function runAgentMemoryEmbeddingLifecycleAction(action: AgentMemoryEmbeddingLifecycleActionKind): Promise<AgentMemoryEmbeddingLifecycleActionResult | undefined> {
-    setAgentMemoryEmbeddingActionError(undefined);
-    setAgentMemoryEmbeddingActionLoading(action);
-    try {
-      const result = await window.ambientDesktop.runAgentMemoryEmbeddingLifecycleAction({ action });
-      setAgentMemoryEmbeddingActionResult(result);
-      agentMemoryDiagnosticsRequestSeqRef.current += 1;
-      setAgentMemoryDiagnosticsLoading(false);
-      setAgentMemoryDiagnostics(result.diagnostics);
-      return result;
-    } catch (err) {
-      setAgentMemoryEmbeddingActionError(err instanceof Error ? err.message : String(err));
-      return undefined;
-    } finally {
-      setAgentMemoryEmbeddingActionLoading(undefined);
-    }
-  }
-
-  const {
-    clearMessageVoiceArtifact,
-    regenerateMessageVoice,
-    revealMessageVoiceArtifact,
-  } = createAppMessageVoiceActions({
+  const { clearMessageVoiceArtifact, regenerateMessageVoice, revealMessageVoiceArtifact } = createAppMessageVoiceActions({
     scheduleVoiceProviderRefresh,
     setError,
     setState,
@@ -2454,9 +1065,7 @@ export function App() {
     state,
   });
 
-  const {
-    retryFailedPrompt,
-  } = createAppComposerRetryActions({
+  const { retryFailedPrompt } = createAppComposerRetryActions({
     resetPromptHistory,
     resetRunActivityLines,
     running,
@@ -2496,46 +1105,46 @@ export function App() {
     state,
   });
 
-  function commandItems(): CommandPaletteItem[] {
-    return createAppCommandPaletteItems({
-      contextUsage: state?.contextUsage,
-      handlers: {
-        compactActiveThread,
-        createThread,
-        exportActiveChat: () => void exportActiveChat(),
-        exportDiagnostics: async () => {
-          await exportDiagnostics();
-        },
-        openApiKeyDialog,
-        openMcpRuntimeSettings,
-        openPanel,
-        openWorkflowLabArea,
-        openWorkflowRecordingsArea,
-        openWorkspace,
-        recoverActiveThreadContext: async () => {
-          await recoverActiveThreadContext();
-        },
-        setSidebarOpen,
-        togglePanel,
-      },
-      rightPanel,
-      sidebarOpen,
-      workflowRecorderNavLabel: workflowRecorderSurface.navLabel,
-    });
-  }
-
-  async function runPaletteCommand(command: CommandPaletteItem) {
-    setCommandPaletteOpen(false);
-    setCommandPaletteQuery("");
-    await command.run();
-  }
-
   const {
-    attachExistingWorktreeFromFooter,
-    createBranchFromFooter,
-    createThreadWorktreeFromFooter,
-    switchBranch,
-  } = createAppGitActions({
+    beginRightPanelResize,
+    beginSidebarResize,
+    beginWorkflowRecorderReviewResize,
+    commandItems,
+    handleMenuCommand,
+    openMediaPreviewModal,
+    runPaletteCommand,
+    updateThemePreference,
+    updateThreadSettings,
+  } = createAppShellCommandActions({
+    compactActiveThread,
+    contextUsage: state?.contextUsage,
+    createThread,
+    exportActiveChat,
+    exportDiagnostics,
+    openApiKeyDialog,
+    openMcpRuntimeSettings,
+    openPanel,
+    openWorkflowLabArea,
+    openWorkflowRecordingsArea,
+    openWorkspace,
+    recoverActiveThreadContext,
+    rightPanel,
+    setCommandPaletteOpen,
+    setCommandPaletteQuery,
+    setError,
+    setMediaPreviewModal,
+    setRightPanelWidth,
+    setSidebarOpen,
+    setSidebarWidth,
+    setState,
+    setWorkflowRecorderReviewPanelWidth,
+    sidebarOpen,
+    state,
+    togglePanel,
+    workflowRecorderNavLabel: workflowRecorderSurface.navLabel,
+  });
+
+  const { attachExistingWorktreeFromFooter, createBranchFromFooter, createThreadWorktreeFromFooter, switchBranch } = createAppGitActions({
     activeWorkspacePath: state?.activeWorkspace.path,
     gitStatus,
     setActiveGitReview,
@@ -2547,31 +1156,15 @@ export function App() {
     workspacePath: state?.workspace.path,
   });
 
-  const {
-    addContextAttachments,
-    attachComposerFiles,
-    clearContextAttachments,
-    removeContextAttachment,
-  } = createAppContextAttachmentActions({
-    allowExternalContext: state?.settings.permissionMode === "full-access",
-    openAttachmentsPanel: () => openPanel("attachments"),
-    setContextAttachments,
-    setContextError,
-  });
+  const { addContextAttachments, attachComposerFiles, clearContextAttachments, removeContextAttachment } =
+    createAppContextAttachmentActions({
+      allowExternalContext: state?.settings.permissionMode === "full-access",
+      openAttachmentsPanel: () => openPanel("attachments"),
+      setContextAttachments,
+      setContextError,
+    });
 
-  function setLocalDeepResearchModeArmed(next: boolean) {
-    localDeepResearchModeArmedRef.current = next;
-    if (!next) setLocalDeepResearchBudgetOverride(undefined);
-    setLocalDeepResearchModeArmedState(next);
-  }
-
-  const {
-    clearActiveGoal,
-    editActiveGoalObjective,
-    pauseOrResumeActiveGoal,
-    setActiveGoalBudget,
-    toggleGoalMode,
-  } = createAppGoalActions({
+  const { clearActiveGoal, editActiveGoalObjective, pauseOrResumeActiveGoal, setActiveGoalBudget, toggleGoalMode } = createAppGoalActions({
     goalModeArmed,
     onGoalCleared: rememberClearedGoal,
     setError,
@@ -2580,68 +1173,18 @@ export function App() {
     setGoalModeArmed,
     setLocalDeepResearchModeArmed,
     setSymphonyBuilderOpen: (open) => {
-      setSymphonyBuilderDraft((current) => current.open === open ? current : { ...current, open });
+      setSymphonyBuilderDraft((current) => (current.open === open ? current : { ...current, open }));
     },
     setState,
     state,
   });
 
-  function chooseSymphonyPreflightCustom(goal: string): void {
-    const trimmedGoal = goal.trim();
-    const customDraft = trimmedGoal
-      ? `${trimmedGoal}\n\nCustom Symphony pattern: `
-      : "Custom Symphony pattern: ";
-    setComposerDraft(customDraft, { focusEnd: true, clearSlashCommandSelection: true });
-    setContextError("Add enough custom orchestration detail for Symphony to choose one of the six execution patterns, then send again.");
-  }
+  const { registerPendingSubmittedPrompt, removePendingSubmittedPrompt } = createAppPendingSubmittedPromptControls({
+    state,
+    setPendingSubmittedPrompts,
+  });
 
-  function selectSlashCommandEntry(entry: SlashCommandCatalogEntry, query: string, draft: string): void {
-    if (entry.kind === "app") {
-      setSelectedSlashCommand(undefined);
-      setComposerDraft(slashCommandDraftAfterSelection(draft, entry), { focusEnd: true });
-      return;
-    }
-    setSelectedSlashCommand(slashCommandSelectionFromEntry(entry, query));
-    setComposerDraft(slashCommandDraftAfterSelection(draft, entry), { focusEnd: true });
-    if (localDeepResearchModeArmedRef.current) setLocalDeepResearchModeArmed(false);
-    setContextError(undefined);
-  }
-
-  function removeSlashCommandSelection(): void {
-    setSelectedSlashCommand(undefined);
-    focusComposerEnd();
-  }
-
-  function showUnavailableSlashCommand(entry: SlashCommandCatalogEntry): void {
-    setContextError(entry.availabilityReason ?? `${entry.title} is ${entry.availability}.`);
-  }
-
-  function registerPendingSubmittedPrompt(input: { threadId: string; content: string; delivery: MessageDelivery }): string | undefined {
-    if (!input.content.trim()) return undefined;
-    const id = `pending-submitted-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const prompt: PendingSubmittedPrompt = {
-      id,
-      threadId: input.threadId,
-      content: input.content,
-      delivery: input.delivery,
-      createdAt: new Date().toISOString(),
-      ...(state?.activeThreadId === input.threadId && state.messages.length > 0
-        ? { afterMessageId: state.messages[state.messages.length - 1]?.id }
-        : {}),
-    };
-    setPendingSubmittedPrompts((current) => [...current, prompt].slice(-10));
-    return id;
-  }
-
-  function removePendingSubmittedPrompt(id: string | undefined): void {
-    if (!id) return;
-    setPendingSubmittedPrompts((current) => current.filter((prompt) => prompt.id !== id));
-  }
-
-  const {
-    submitComposerDraft,
-    submitDraft,
-  } = createAppComposerSubmitActions({
+  const { submitComposerDraft, submitDraft } = createAppComposerSubmitActions({
     activeThreadWorkflowRecordingStopped: activeThread?.workflowRecording?.status === "stopped",
     appendRunActivityLine,
     compactActiveThread,
@@ -2719,16 +1262,7 @@ export function App() {
     updateThreadSettings,
   });
 
-  const {
-    changeSymphonyBlocking,
-    changeSymphonyMetric,
-    changeSymphonyStepCustomText,
-    selectSymphonyPattern,
-    selectSymphonyStepChoice,
-    submitSymphonyBuilderAction,
-    submitSymphonyComposerPrompt,
-    toggleSymphonyBuilder,
-  } = createAppSymphonyBuilderControls({
+  const symphonyBuilderControls = createAppSymphonyBuilderControls({
     appendRunActivityLine,
     focusComposerEnd: () => composerInputRef.current?.focusEnd(),
     getComposerDraft,
@@ -2748,148 +1282,106 @@ export function App() {
     symphonyBuilderDraft,
     symphonyBuilderModel,
   });
+  const { submitSymphonyBuilderAction, submitSymphonyComposerPrompt } = symphonyBuilderControls;
 
-  function toggleLocalDeepResearchMode() {
-    if (!state || !localDeepResearchReady || state.settings.collaborationMode === "planner") {
-      return;
-    }
-    setContextError(undefined);
-    const next = !localDeepResearchModeArmedRef.current;
-    setLocalDeepResearchModeArmed(next);
-    if (next) {
-      setGoalModeArmed(false);
-      setSymphonyBuilderDraft((current) => current.open ? { ...current, open: false } : current);
-    }
-    focusComposerEnd();
-  }
-
-  function selectLocalDeepResearchEffort(effort: LocalDeepResearchEffort) {
-    setLocalDeepResearchBudgetOverride({ effort });
-  }
-
-  function setLocalDeepResearchCustomMaxToolCalls(maxToolCalls: number) {
-    setLocalDeepResearchBudgetOverride({ effort: "custom", maxToolCalls });
-  }
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (state && shouldRouteComposerSubmitThroughSymphony({
-      subagentUiEnabled,
-      symphonyBuilderOpen: symphonyBuilderDraft.open,
-      localDeepResearchModeArmed: localDeepResearchModeArmedRef.current,
-      slashCommandSelected: Boolean(selectedSlashCommandRef.current),
-      running,
-      goalModeArmed,
-      workflowRecordingReviewFeedbackActive,
-      workflowRecordingEditActive: Boolean(pendingWorkflowRecordingEditContext),
-      composerDraft: getComposerDraft(),
-      collaborationMode: state.settings.collaborationMode,
-    })) {
-      void submitSymphonyComposerPrompt();
-      return;
-    }
-    void submitComposerDraft("prompt");
-  }
-
-  function handleComposerChange(value: string) {
-    updateComposerDraftValue(value);
-    if (pendingWorkflowRecordingEditContext && !value.startsWith(pendingWorkflowRecordingEditContext.draftPrefix)) {
-      setPendingWorkflowRecordingEditContext(undefined);
-    }
-    if (sttDraftMetadata && value.trim() !== sttDraftMetadata.content.trim()) setSttDraftMetadata(undefined);
-    resetPromptHistory();
-  }
-
-  function handleComposerPaste(event: ReactClipboardEvent<HTMLTextAreaElement>) {
-    const text = event.clipboardData.getData("text");
-    if (!text) return;
-    event.preventDefault();
-    const textarea = event.currentTarget;
-    const currentDraft = textarea.value;
-    const start = textarea.selectionStart ?? currentDraft.length;
-    const end = textarea.selectionEnd ?? currentDraft.length;
-    const next = `${currentDraft.slice(0, start)}${text}${currentDraft.slice(end)}`;
-    setComposerDraft(next);
-    handleComposerChange(next);
-    window.requestAnimationFrame(() => {
-      textarea.focus();
-      const cursor = start + text.length;
-      textarea.selectionStart = cursor;
-      textarea.selectionEnd = cursor;
-    });
-  }
-
-  function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
-    const plainArrow = !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
-    if (plainArrow && event.key === "ArrowUp" && shouldNavigatePromptHistory(event.currentTarget, "older")) {
-      event.preventDefault();
-      navigatePromptHistory("older");
-      return;
-    }
-    if (plainArrow && event.key === "ArrowDown" && shouldNavigatePromptHistory(event.currentTarget, "newer")) {
-      event.preventDefault();
-      navigatePromptHistory("newer");
-      return;
-    }
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      if (state && shouldRouteComposerSubmitThroughSymphony({
-        subagentUiEnabled,
-        symphonyBuilderOpen: symphonyBuilderDraft.open,
-        localDeepResearchModeArmed: localDeepResearchModeArmedRef.current,
-        slashCommandSelected: Boolean(selectedSlashCommandRef.current),
-        running,
-        goalModeArmed,
-        workflowRecordingReviewFeedbackActive,
-        workflowRecordingEditActive: Boolean(pendingWorkflowRecordingEditContext),
-        composerDraft: getComposerDraft(),
-        collaborationMode: state.settings.collaborationMode,
-      })) {
-        void submitSymphonyComposerPrompt(event.altKey);
-        return;
-      }
-      void submitComposerDraft("prompt", event.altKey);
-    }
-  }
+  const composerInteractionControls = createAppComposerInteractionControls({
+    focusComposerEnd,
+    getComposerDraft,
+    goalModeArmed,
+    localDeepResearchModeArmedRef,
+    navigatePromptHistory,
+    pendingWorkflowRecordingEditContext,
+    resetPromptHistory,
+    running,
+    selectedSlashCommandRef,
+    setComposerDraft,
+    setContextError,
+    setLocalDeepResearchModeArmed,
+    setPendingWorkflowRecordingEditContext,
+    setSelectedSlashCommand,
+    setSttDraftMetadata,
+    shouldNavigatePromptHistory,
+    state,
+    sttDraftMetadata,
+    subagentUiEnabled,
+    submitComposerDraft,
+    submitSymphonyComposerPrompt,
+    symphonyBuilderOpen: symphonyBuilderDraft.open,
+    updateComposerDraftValue,
+    workflowRecordingReviewFeedbackActive,
+  });
 
   if (!state || !activeThread || activeSubagentChildHiddenByFeatureFlag) {
     return <div className="boot">Ambient</div>;
   }
 
-  const isMac = navigator.platform.toLowerCase().includes("mac");
-  const activeActivity =
-    activity?.threadId === state.activeThreadId && runtimeActivityVisibleForThreadGoal(activity, state.activeThreadGoal)
-      ? activity
-      : undefined;
-  const composerSttProvider = sttProviderForCapabilityId(sttProviders, state.settings.stt.providerCapabilityId);
-  const sttComposerRecording = sttComposer.status === "recording";
-  const sttComposerBusy = sttComposer.status === "saving" || sttComposer.status === "transcribing";
-  const sttComposerDisabled =
-    sttComposerBusy || (!sttComposerRecording && (!state.settings.stt.enabled || !state.settings.stt.providerCapabilityId || !composerSttProvider?.available));
-  const sttComposerShortcutLabel = state.settings.stt.pushToTalkShortcut
-    ? sttShortcutLabel(state.settings.stt.pushToTalkShortcut)
-    : undefined;
-  const sttRuntimeQueueCount = sttRuntimeQueuedCount(state.sttQueue);
-  const sttSpeechFollowUpCount = queuedSpeechFollowUpCount(state.messages);
-  const sttQueuedSpeechCount = sttRuntimeQueueCount + sttSpeechFollowUpCount;
-  const sttQueuedSpeechLabel = sttQueuedCountLabel(sttQueuedSpeechCount);
-  const showSttComposerStrip = (sttComposer.status !== "idle" && Boolean(sttComposer.message)) || sttQueuedSpeechCount > 0;
-  const sttComposerStripStatus = sttComposer.status === "idle" && sttQueuedSpeechCount > 0 ? "queued" : sttComposer.status;
-  const sttComposerTitle = sttComposerRecording
-    ? "Stop recording and transcribe"
-    : !state.settings.stt.enabled || !state.settings.stt.providerCapabilityId || !composerSttProvider?.available
-      ? "Enable speech input and select an available STT provider in Settings"
-      : sttComposerBusy
-        ? sttComposer.message ?? "Processing speech"
-        : `Push to talk${sttComposerShortcutLabel ? ` (${sttComposerShortcutLabel})` : ""}`;
-  const activeChatBrowserUserAction = chatBrowserUserActionForThread(chatBrowserUserAction, state.activeThreadId);
-  const activePermissionRequest = selectActivePermissionRequest(
-    permissionRequests.filter(promptRequestMatchesActiveProject),
-    state.activeThreadId,
-    threadRunStatuses,
-  );
-  const activePrivilegedCredentialRequest = privilegedCredentialRequests.find(promptRequestMatchesActiveProject);
-  const activeSecureInputRequest = secureInputRequests.find(promptRequestMatchesActiveProject);
+  const composerShellProps = createAppComposerShellProps({
+    state,
+    sttComposer,
+    attachComposerFiles,
+    attachExistingWorktreeFromFooter,
+    clearActiveGoal,
+    compactActiveThread,
+    duplicateActiveThreadFromTranscript,
+    editActiveGoalObjective,
+    exportActiveChat,
+    getComposerDraft,
+    latestDurablePlannerPlanArtifact,
+    openGitSummaryPanel,
+    openPlannerRevisionDialog,
+    pauseOrResumeActiveGoal,
+    previewArtifact,
+    projectBoardActions,
+    recoverActiveThreadContext,
+    recoverActiveThreadContextAndRetryLatest,
+    requestThreadPermissionModeChange,
+    retrySttComposerTranscription,
+    runProjectBoardThreadPlanAction,
+    sendPlannerDurableRevision,
+    setActiveGoalBudget,
+    setChatExportStatus,
+    setGoalMenuOpen,
+    setLocalDeepResearchBudgetOverride,
+    startSttComposerRecording,
+    stopSttComposerRecording,
+    sttProviders,
+    submitSymphonyBuilderAction,
+    switchBranch,
+    toggleGoalMode,
+    updateThinkingDisplaySettings,
+    updateThreadSettings,
+  });
+  const composerProps = createAppComposerProps({
+    state,
+    composerShellState,
+    composerShellProps,
+    composerInteractionControls,
+    composerModelPickerControls,
+    symphonyBuilderControls,
+    workflowRuntimeState,
+    workspaceShellState,
+    providerRuntimeState,
+    running,
+    abortArmed,
+    workflowRecordingReviewFeedbackActive,
+    symphonyBuilderModel,
+    sessionContextMissing,
+    canRetryContextRecovery: Boolean(latestRecoveryPrompt),
+    localDeepResearchReady,
+    localDeepResearchRunActive,
+    localDeepResearchRunBudget,
+    activeThreadSuppressesProjectBoard,
+    projectBoardThreadPlanAction,
+    projectBoardPlanPickerOpen,
+    readyPlannerPlanArtifacts,
+    onRemoveContextAttachment: removeContextAttachment,
+    onClearContextAttachments: clearContextAttachments,
+    onCancelSttComposerRecording: cancelSttComposerRecording,
+    onDiscardSttComposerResult: discardSttComposerResult,
+    onToggleLocalDeepResearchMode: toggleLocalDeepResearchMode,
+    onCreateThreadWorktree: createThreadWorktreeFromFooter,
+    onCreateBranch: createBranchFromFooter,
+  });
   const modalHostProps = createAppModalHostProps({
     activePermissionRequest,
     activePrivilegedCredentialRequest,
@@ -3134,395 +1626,180 @@ export function App() {
     activeActivity,
     state,
   });
-  const showTopbarThreadMemoryToggle = sidebarArea === "projects" &&
-    activeThread?.kind !== "subagent_child" &&
-    isAmbientTencentDbMemoryEnabled(state.featureFlagSnapshot);
-  return (
-    <div className={`app-shell ${isMac ? "platform-macos" : ""}`}>
-      <DesktopUpdateNotice
-        update={state.app.update}
-        open={updatePopoverOpen}
-        busy={updateBusy}
-        onToggle={() => setUpdatePopoverOpen((open) => !open)}
-        onCheck={() => void runUpdateAction("check")}
-        onDownload={() => void runUpdateAction("download")}
-        onInstall={() => void runUpdateAction("install")}
-        onDismiss={() => void runUpdateAction("dismiss")}
-      />
-      {sidebarOpen && (
-        <AppShellSidebar
-          width={sidebarWidth}
-          minWidth={MIN_SIDEBAR_WIDTH}
-          maxWidth={MAX_SIDEBAR_WIDTH}
-          sidebarArea={sidebarArea}
-          selectedAutomationPane={selectedAutomationPane}
-          projectPopover={projectPopover}
-          projectsCollapsed={projectsCollapsed}
-          sidebarOrganize={sidebarOrganize}
-          sidebarProjects={sidebarProjects}
-          sidebarThreads={sidebarThreads}
-          activeProjectPath={state.workspace.path}
-          activeThreadId={state.activeThreadId}
-          activeThreadSuppressesProjectBoard={activeThreadSuppressesProjectBoard}
-          projectBoardBusyProjectIds={projectBoardBusyProjectIds}
-          projectBoardOpen={projectBoardOpen}
-          threadRunStatuses={threadRunStatuses}
-          sidebarAgeNow={sidebarAgeNow}
-          workflowAgentFolders={workflowAgentFolders}
-          workflowRecordingLibrary={state.workflowRecordingLibrary}
-          selectedWorkflowAgentFolderId={selectedWorkflowAgentFolder?.id}
-          selectedWorkflowAgentThreadId={selectedWorkflowAgentThreadId}
-          selectedWorkflowRecordingId={selectedWorkflowRecordingId}
-          automationsCollapsed={automationsCollapsed}
-          automationPopover={automationPopover}
-          workflowAgentNavigationError={workflowAgentNavigationError}
-          projectContextMenu={projectContextMenu}
-          threadContextMenu={threadContextMenu}
-          onCloseSidebar={() => setSidebarOpen(false)}
-          onPrimaryCreate={() => void runPrimaryCreateAction()}
-          onOpenSidebarArea={openSidebarArea}
-          onOpenPanel={openPanel}
-          onOpenWorkflowRecordingsArea={openWorkflowRecordingsArea}
-          onOpenWorkflowLabArea={openWorkflowLabArea}
-          onToggleProjectsCollapsed={() => setProjectsCollapsed((collapsed) => !collapsed)}
-          onToggleProjectPopover={(popover) => setProjectPopover((current) => (current === popover ? undefined : popover))}
-          onCreateWorkspace={() => {
-            setProjectPopover(undefined);
-            void createWorkspace();
-          }}
-          onOpenWorkspace={() => {
-            setProjectPopover(undefined);
-            void openWorkspace();
-          }}
-          onOrganizeChange={updateSidebarOrganize}
-          onSelectProject={(projectPath) => selectProject(projectPath)}
-          onOpenProjectContextMenu={openProjectContextMenu}
-          onBuildProjectBoard={(project) => void projectBoardActions.buildProjectBoard(project)}
-          onCloseProjectBoard={() => setProjectBoardOpen(false)}
-          onOpenProjectBoard={(project) => void projectBoardActions.openProjectBoard(project)}
-          onCreateThreadInProject={(projectPath) => createThreadInProject(projectPath)}
-          onSelectThread={(threadId, workspacePath) => selectThread(threadId, workspacePath)}
-          onOpenThreadContextMenu={openThreadContextMenu}
-          onToggleAutomationsCollapsed={() => setAutomationsCollapsed((collapsed) => !collapsed)}
-          onToggleAutomationPopover={(popover) => setAutomationPopover((current) => (current === popover ? undefined : popover))}
-          onCreateWorkflowAgentFolder={createWorkflowAgentFolder}
-          onRefreshWorkflowAgentFolders={() => void loadWorkflowAgentFolders()}
-          onComposeInWorkflowAgentFolder={(folderId) => openNewWorkflowComposer(folderId)}
-          onSelectWorkflowAgentFolder={selectWorkflowAgentFolder}
-          onSelectWorkflowAgentThread={selectWorkflowAgentThread}
-          onSelectWorkflowRecording={selectWorkflowRecordingForSidebar}
-          onToggleProjectPinned={(project) => void toggleProjectPinned(project)}
-          onRevealProject={(project) => void revealProject(project)}
-          onCreatePermanentProjectWorktree={(project) => void createPermanentProjectWorktree(project)}
-          onRenameProject={renameProject}
-          onArchiveProjectChats={archiveProjectChats}
-          onRemoveProject={removeProject}
-          onToggleThreadPinned={() => void toggleThreadPinned()}
-          onRenameThread={renameThread}
-          onArchiveThread={archiveThread}
-          onMarkThreadUnread={() => void markThreadUnread()}
-          onRevealThread={() => void revealThread()}
-          onCopyThreadWorkingDirectory={() => void copyThreadWorkingDirectory()}
-          onCopyThreadSessionId={() => void copyThreadSessionId()}
-          onCopyThreadDeeplink={() => void copyThreadDeeplink()}
-          onExportThreadPdf={() => {
-            const input = threadActionInput(threadContextMenu);
-            setThreadContextMenu(undefined);
-            void exportChatPdfThread(input);
-          }}
-          onForkThread={(mode) => void forkThread(mode)}
-          onOpenThreadMiniWindow={() => void openThreadMiniWindow()}
-          onBeginResize={beginSidebarResize}
-        />
-      )}
+  const sidebarProps = createAppShellSidebarProps({
+    width: sidebarWidth,
+    sidebarArea,
+    selectedAutomationPane,
+    projectPopover,
+    projectsCollapsed,
+    sidebarOrganize,
+    sidebarProjects,
+    sidebarThreads,
+    activeThreadSuppressesProjectBoard,
+    projectBoardBusyProjectIds,
+    projectBoardOpen,
+    threadRunStatuses,
+    sidebarAgeNow,
+    workflowAgentFolders,
+    selectedWorkflowAgentFolder,
+    selectedWorkflowAgentThreadId,
+    selectedWorkflowRecordingId,
+    automationsCollapsed,
+    automationPopover,
+    workflowAgentNavigationError,
+    projectContextMenu,
+    threadContextMenu,
+    onOpenSidebarArea: openSidebarArea,
+    onOpenPanel: openPanel,
+    onOpenWorkflowRecordingsArea: openWorkflowRecordingsArea,
+    onOpenWorkflowLabArea: openWorkflowLabArea,
+    onOrganizeChange: updateSidebarOrganize,
+    onSelectProject: selectProject,
+    onOpenProjectContextMenu: openProjectContextMenu,
+    onCreateThreadInProject: createThreadInProject,
+    onSelectThread: selectThread,
+    onOpenThreadContextMenu: openThreadContextMenu,
+    onCreateWorkflowAgentFolder: createWorkflowAgentFolder,
+    onSelectWorkflowAgentFolder: selectWorkflowAgentFolder,
+    onSelectWorkflowAgentThread: selectWorkflowAgentThread,
+    onSelectWorkflowRecording: selectWorkflowRecordingForSidebar,
+    onRenameProject: renameProject,
+    onArchiveProjectChats: archiveProjectChats,
+    onRemoveProject: removeProject,
+    onRenameThread: renameThread,
+    onArchiveThread: archiveThread,
+    onForkThread: forkThread,
+    onBeginResize: beginSidebarResize,
+    copyThreadDeeplink,
+    copyThreadSessionId,
+    copyThreadWorkingDirectory,
+    createPermanentProjectWorktree,
+    createWorkspace,
+    exportChatPdfThread,
+    loadWorkflowAgentFolders,
+    markThreadUnread,
+    openNewWorkflowComposer,
+    openThreadMiniWindow,
+    openWorkspace,
+    projectBoardActions,
+    revealProject,
+    revealThread,
+    runPrimaryCreateAction,
+    setAutomationPopover,
+    setAutomationsCollapsed,
+    setProjectBoardOpen,
+    setProjectPopover,
+    setProjectsCollapsed,
+    setSidebarOpen,
+    setThreadContextMenu,
+    state,
+    threadActionInput,
+    toggleProjectPinned,
+    toggleThreadPinned,
+  });
+  const rightPanelHostProps = createAppRightPanelHostProps({
+    actions: {
+      addContextAttachments,
+      cancelSttMicTest,
+      clearAgentMemory,
+      clearContextAttachments,
+      continueAfterBrowserUserActionIfReady,
+      exportDiagnostics,
+      hydrateSearchRoutingSettingsForSettingsPanel,
+      importDiagnostics,
+      installModelProviderEndpoint,
+      loadLocalDeepResearchRunHistory,
+      loadPermissionAudit,
+      loadPermissionGrants,
+      loadSttMicrophoneDeviceList,
+      loadSttProviders,
+      loadVoiceProviders,
+      openAmbientCliSecretDialog,
+      openApiKeyDialog,
+      openLocalDeepResearchFollowupIfSetupNeeded,
+      refreshAgentMemoryDiagnostics,
+      refreshVoiceCatalog,
+      removeContextAttachment,
+      revokePermissionGrant,
+      revokePermissionGrantIds,
+      runAgentMemoryEmbeddingLifecycleAction,
+      runLocalModelRuntimeLifecycleAction,
+      runUpdateAction,
+      saveModelProviderCredential,
+      selectThread,
+      setupLocalDeepResearchFromSettings,
+      setupMiniCpmVisionProviderFromSettings,
+      setupSttProvider,
+      startCapabilityBuilderPrompt,
+      startSttMicTest,
+      stopSttMicTestAndValidate,
+      updateFeatureFlagSettings,
+      updateLocalDeepResearchSettings,
+      updateMediaPlaybackSettings,
+      updateMemorySettings,
+      updateModelRuntimeSettings,
+      updatePlannerSettings,
+      updateSearchRoutingSettings,
+      updateSttSettings,
+      updateThemePreference,
+      updateThinkingDisplaySettings,
+      updateThreadSettings,
+      updateVoiceSettings,
+    },
+    onBeginResize: beginRightPanelResize,
+    providerRuntimeState,
+    rightPanelState,
+    running,
+    securityPromptState,
+    setState,
+    shellUiState,
+    state,
+    workflowRuntimeState,
+    workspaceShellState,
+  });
+  const shellLayoutProps = createAppShellLayoutProps({
+    activeGitReview,
+    activeGitReviewError,
+    activeProjectBoardTopbarAction,
+    activeThread,
+    automationsWorkspaceProps,
+    beginWorkflowRecorderReviewResize,
+    composerInputRef,
+    composerProps,
+    confirmActiveWorkflowRecordingReview,
+    conversationMessagesProps,
+    conversationReviewPanelDocked,
+    isMac,
+    modalHostProps,
+    openApiKeyDialog,
+    openGitSummaryPanel,
+    projectBoardWorkspaceProps,
+    rightPanel,
+    rightPanelHostProps,
+    runUpdateAction,
+    running,
+    selectedWorkflowAgentFolder,
+    selectedWorkflowAgentThread,
+    sendWorkflowRecordingReviewPrompt,
+    setError,
+    setSidebarOpen,
+    setUpdatePopoverOpen,
+    setWorkflowRecordingReviewPanelOpen,
+    showTopbarThreadMemoryToggle,
+    sidebarArea,
+    sidebarOpen,
+    sidebarProps,
+    state,
+    togglePanel,
+    updateActiveWorkflowRecordingReview,
+    updateBusy,
+    updatePopoverOpen,
+    updateThreadSettings,
+    workflowRecorderReviewPanelWidth,
+    workflowRecordingReviewFeedbackActive,
+    workflowRecordingReviewPanelOpen,
+    applyLatestWorkflowRecordingSummary,
+  });
 
-      <main className="main">
-        <AppTopbar
-          sidebarOpen={sidebarOpen}
-          title={
-            sidebarArea === "automations"
-              ? selectedWorkflowAgentThread?.title || selectedWorkflowAgentFolder?.name || workflowRecorderSurface.homeTitle
-              : activeThread.title
-          }
-          providerHasApiKey={state.provider.hasApiKey}
-          providerLabel={state.provider.providerLabel}
-          memoryMode={showTopbarThreadMemoryToggle ? state.settings.memory.mode : undefined}
-          threadMemoryEnabled={Boolean(activeThread?.memoryEnabled)}
-          threadMemoryToggleDisabled={!activeThread}
-          projectBoardAction={activeProjectBoardTopbarAction}
-          gitReview={activeGitReview}
-          gitReviewError={activeGitReviewError}
-          rightPanel={rightPanel}
-          onShowSidebar={() => setSidebarOpen(true)}
-          onOpenApiKey={() => void openApiKeyDialog()}
-          onToggleThreadMemory={showTopbarThreadMemoryToggle ? (enabled) => void updateThreadSettings({ memoryEnabled: enabled }) : undefined}
-          onOpenGitSummary={openGitSummaryPanel}
-          onTogglePanel={togglePanel}
-        />
-
-          <div className="content-row">
-            <AppWorkspaceRouter
-              sidebarArea={sidebarArea}
-              automationsProps={automationsWorkspaceProps}
-              projectBoardProps={projectBoardWorkspaceProps}
-              conversationReviewPanelDocked={conversationReviewPanelDocked}
-              workflowRecorderReviewPanelWidth={workflowRecorderReviewPanelWidth}
-              onBeginWorkflowRecorderReviewResize={beginWorkflowRecorderReviewResize}
-              conversationMessagesProps={conversationMessagesProps}
-              composerProps={{
-                state: state,
-                composerInputRef: composerInputRef,
-                composerDraftStore: composerDraftStore,
-                composerCanSubmit: composerCanSubmit,
-                selectedSlashCommand: selectedSlashCommand,
-                running: running,
-                abortArmed: abortArmed,
-                workflowRecordingReviewFeedbackActive: workflowRecordingReviewFeedbackActive,
-                symphonyBuilderModel: symphonyBuilderModel,
-                symphonyBuilderDraft: symphonyBuilderDraft,
-                symphonyBuilderActionBusy: symphonyBuilderActionBusy,
-                contextAttachments: contextAttachments,
-                contextError: contextError,
-                sessionContextMissing: sessionContextMissing,
-                contextRecoveryBusy: contextRecoveryBusy,
-                canRetryContextRecovery: Boolean(latestRecoveryPrompt),
-                chatExportStatus: chatExportStatus,
-                chatExportBusy: chatExportBusy,
-                showSttComposerStrip: showSttComposerStrip,
-                sttComposer: sttComposer,
-                sttQueuedSpeechLabel: sttQueuedSpeechLabel,
-                sttComposerStripStatus: sttComposerStripStatus,
-                sttComposerRecording: sttComposerRecording,
-                sttComposerBusy: sttComposerBusy,
-                sttComposerDisabled: sttComposerDisabled,
-                sttComposerShortcutLabel: sttComposerShortcutLabel,
-                sttComposerTitle: sttComposerTitle,
-                localDeepResearchReady: localDeepResearchReady,
-                localDeepResearchRunActive: localDeepResearchRunActive,
-                localDeepResearchModeArmed: localDeepResearchModeArmed,
-                localDeepResearchRunBudget: localDeepResearchRunBudget,
-                goalModeArmed: goalModeArmed,
-                goalBusy: goalBusy,
-                showRevisePlanControl: Boolean(latestDurablePlannerPlanArtifact),
-                activeThreadSuppressesProjectBoard: activeThreadSuppressesProjectBoard,
-                projectBoardThreadPlanAction: projectBoardThreadPlanAction,
-                projectBoardPlanPickerOpen: projectBoardPlanPickerOpen,
-                readyPlannerPlanArtifacts: readyPlannerPlanArtifacts,
-                modelPickerRef: modelPickerRef,
-                modelPickerButtonRef: modelPickerButtonRef,
-                modelPickerOpen: modelPickerOpen,
-                composerModelOptions: composerModelOptions,
-                selectedComposerModelOption: selectedComposerModelOption,
-                activeGitReview: activeGitReview,
-                activeGitReviewError: activeGitReviewError,
-                gitStatus: gitStatus,
-                gitStatusError: gitStatusError,
-                goalMenuOpen: goalMenuOpen,
-                onSubmit: submit,
-                onComposerChange: handleComposerChange,
-                onComposerPaste: handleComposerPaste,
-                onComposerKeyDown: handleComposerKeyDown,
-                onSelectSlashCommandEntry: selectSlashCommandEntry,
-                onRemoveSlashCommand: removeSlashCommandSelection,
-                onUnavailableSlashCommand: showUnavailableSlashCommand,
-                onSelectSymphonyPattern: selectSymphonyPattern,
-                onSelectSymphonyStepChoice: selectSymphonyStepChoice,
-                onChangeSymphonyStepCustomText: changeSymphonyStepCustomText,
-                onChangeSymphonyMetric: changeSymphonyMetric,
-                onChangeSymphonyBlocking: changeSymphonyBlocking,
-                onChooseSymphonyPreflightCustom: chooseSymphonyPreflightCustom,
-                onRunSymphonyOnce: () => void submitSymphonyBuilderAction("run-once"),
-                onSaveSymphonyRecipe: () => void submitSymphonyBuilderAction("save-recipe"),
-                onRemoveContextAttachment: removeContextAttachment,
-                onClearContextAttachments: clearContextAttachments,
-                onRecoverActiveThreadContext: () => void recoverActiveThreadContext(),
-                onRecoverAndRetryLatest: () => void recoverActiveThreadContextAndRetryLatest(),
-                onDuplicateActiveThreadFromTranscript: () => void duplicateActiveThreadFromTranscript(),
-                onDismissChatExportStatus: () => setChatExportStatus(undefined),
-                onPreviewSttArtifact: previewArtifact,
-                onCancelSttComposerRecording: cancelSttComposerRecording,
-                onRetrySttComposerTranscription: () => void retrySttComposerTranscription(),
-                onDiscardSttComposerResult: discardSttComposerResult,
-                onAttachComposerFiles: () => void attachComposerFiles(),
-                onToggleSymphonyBuilder: toggleSymphonyBuilder,
-                onToggleLocalDeepResearchMode: toggleLocalDeepResearchMode,
-                onSelectLocalDeepResearchEffort: selectLocalDeepResearchEffort,
-                onLocalDeepResearchCustomMaxToolCallsChange: setLocalDeepResearchCustomMaxToolCalls,
-                onCompactActiveThread: () => void compactActiveThread(),
-                onExportActiveChat: () => void exportActiveChat(),
-                onCollaborationModeChange: (collaborationMode) => void updateThreadSettings({ collaborationMode }),
-                onToggleGoalMode: () => void toggleGoalMode(),
-                onPermissionModeChange: (permissionMode) => void requestThreadPermissionModeChange(permissionMode),
-                onReviseLatestPlannerPlan: () => {
-                  if (!latestDurablePlannerPlanArtifact) return;
-                  const feedback = getComposerDraft().trim();
-                  if (feedback) {
-                    void sendPlannerDurableRevision(latestDurablePlannerPlanArtifact, feedback, { clearComposer: true }).catch(() => undefined);
-                  } else {
-                    openPlannerRevisionDialog(latestDurablePlannerPlanArtifact);
-                  }
-                },
-                onRunProjectBoardThreadPlanAction: runProjectBoardThreadPlanAction,
-                onAddPlannerPlanToBoard: (artifact) => void projectBoardActions.addPlannerPlanToBoard(artifact),
-                onThinkingDisplayModeChange: (mode) => void updateThinkingDisplaySettings({ ...state.settings.thinkingDisplay, mode }),
-                onThinkingLevelChange: (thinkingLevel) => void updateThreadSettings({ thinkingLevel }),
-                setModelPickerOpen: setModelPickerOpen,
-                onFocusModelPickerOption: focusModelPickerOption,
-                onSelectComposerModel: (model) => void updateThreadSettings({ model }),
-                onStartSttComposerRecording: () => void startSttComposerRecording(),
-                onStopSttComposerRecording: () => void stopSttComposerRecording(),
-                onAbortRun: () => void window.ambientDesktop.abortRun(state.activeThreadId),
-                onCreateThreadWorktree: createThreadWorktreeFromFooter,
-                onAttachExistingWorktree: () => void attachExistingWorktreeFromFooter(),
-                onOpenGitSummary: openGitSummaryPanel,
-                onSwitchBranch: (branch) => void switchBranch(branch),
-                onCreateBranch: (name) => createBranchFromFooter(name),
-                onToggleGoalMenu: () => setGoalMenuOpen((open) => !open),
-                onPauseResumeGoal: () => void pauseOrResumeActiveGoal(),
-                onEditGoalObjective: () => void editActiveGoalObjective(),
-                onSetGoalBudget: () => void setActiveGoalBudget(),
-                onClearGoal: () => void clearActiveGoal(),
-              }}
-              workflowReviewPanelProps={{
-                recording: activeThread.workflowRecording,
-                open: workflowRecordingReviewPanelOpen,
-                running: running,
-                onClose: () => setWorkflowRecordingReviewPanelOpen(false),
-                onRetryReview: sendWorkflowRecordingReviewPrompt,
-                onApplyLatestSummary: applyLatestWorkflowRecordingSummary,
-                onSaveReviewEdit: updateActiveWorkflowRecordingReview,
-                onDraftValidationError: setError,
-                onFocusFeedback: () => {
-                  if (workflowRecordingReviewFeedbackActive) composerInputRef.current?.focusEnd();
-                },
-                onConfirmReview: confirmActiveWorkflowRecordingReview,
-              }}
-            />
-
-            <AppRightPanelHost
-              panel={rightPanel}
-              onBeginResize={beginRightPanelResize}
-              panelWidth={rightPanelWidth}
-              state={state}
-              workspaceRevision={workspaceRevision}
-              pluginCatalogRevision={pluginCatalogRevision}
-              permissionAuditRevision={permissionAuditRevision}
-              browserRevision={browserRevision}
-              orchestrationRevision={orchestrationRevision}
-              orchestrationAutoRevision={orchestrationAutoRevision}
-              workflowRevision={workflowRevision}
-              artifactPreviewRequest={artifactPreviewRequest}
-              localFilePreviewRequest={localFilePreviewRequest}
-              gitPanelTabRequest={gitPanelTabRequest}
-              settingsFocusRequest={settingsFocusRequest}
-              contextAttachments={contextAttachments}
-              permissionAudit={permissionAudit}
-              permissionGrants={permissionGrants}
-              permissionAuditError={permissionAuditError}
-              permissionGrantError={permissionGrantError}
-              permissionGrantRevoking={permissionGrantRevoking}
-              voiceProviders={voiceProviders}
-              voiceProvidersLoading={voiceProvidersLoading}
-              voiceProvidersError={voiceProvidersError}
-              voiceProviderCacheStatus={voiceProviderCacheStatus}
-              voiceProviderCacheActivity={voiceProviderCacheActivity}
-              voiceCatalogRefresh={voiceCatalogRefresh}
-              sttProviders={sttProviders}
-              sttProvidersLoading={sttProvidersLoading}
-              sttProvidersError={sttProvidersError}
-              sttProviderCacheStatus={sttProviderCacheStatus}
-              sttProviderCacheActivity={sttProviderCacheActivity}
-              sttProviderSetup={sttProviderSetup}
-              sttMicrophoneDevices={sttMicrophoneDevices}
-              sttMicrophoneDevicesLoading={sttMicrophoneDevicesLoading}
-              sttMicrophoneDevicesError={sttMicrophoneDevicesError}
-              miniCpmVisionSetup={miniCpmVisionSetup}
-              miniCpmVisionRuntimePath={miniCpmVisionRuntimePath}
-              miniCpmVisionEndpointUrl={miniCpmVisionEndpointUrl}
-              localDeepResearchSetup={localDeepResearchSetup}
-              localDeepResearchQ8Override={localDeepResearchQ8Override}
-              localDeepResearchRunHistory={localDeepResearchRunHistory}
-              sttMicTest={sttMicTest}
-              mcpContainerRuntimeInstallProgress={mcpContainerRuntimeInstallProgress}
-              mcpDefaultCapabilityInstallProgress={mcpDefaultCapabilityInstallProgress}
-              searchRoutingHydrating={searchRoutingHydrating}
-              searchRoutingHydrationError={searchRoutingHydrationError}
-              agentMemoryDiagnostics={agentMemoryDiagnostics}
-              agentMemoryDiagnosticsLoading={agentMemoryDiagnosticsLoading}
-              agentMemoryDiagnosticsError={agentMemoryDiagnosticsError}
-              agentMemoryEmbeddingActionLoading={agentMemoryEmbeddingActionLoading}
-              agentMemoryEmbeddingActionResult={agentMemoryEmbeddingActionResult}
-              agentMemoryEmbeddingActionError={agentMemoryEmbeddingActionError}
-              updateBusy={updateBusy}
-              running={running}
-              onLoadPermissionAudit={loadPermissionAudit}
-              onLoadPermissionGrants={loadPermissionGrants}
-              onRevokePermissionGrant={revokePermissionGrant}
-              onRevokePermissionGrantIds={revokePermissionGrantIds}
-              onOpenApiKey={() => void openApiKeyDialog()}
-              onCheckUpdates={() => void runUpdateAction("check")}
-              onThemePreferenceChange={(themePreference) => updateThemePreference(themePreference)}
-              onMediaPlaybackSettingsChange={(media) => void updateMediaPlaybackSettings(media)}
-              onThinkingDisplaySettingsChange={(thinkingDisplay) => void updateThinkingDisplaySettings(thinkingDisplay)}
-              onThinkingLevelChange={(thinkingLevel) => void updateThreadSettings({ thinkingLevel })}
-              onModelRuntimeSettingsChange={(modelRuntime) => void updateModelRuntimeSettings(modelRuntime)}
-              onSaveModelProviderCredential={(input) => saveModelProviderCredential(input)}
-              onInstallModelProviderEndpoint={(input) => installModelProviderEndpoint(input)}
-              onRunLocalModelRuntimeLifecycleAction={(input) => runLocalModelRuntimeLifecycleAction(input)}
-              onFeatureFlagSettingsChange={(featureFlags) => void updateFeatureFlagSettings(featureFlags)}
-              onMemorySettingsChange={(memory) => void updateMemorySettings(memory)}
-              onApplyMemorySettingsSnapshot={(memory) =>
-                setState((current) => current ? desktopStateWithUpdatedSettings(current, "memory", memory) : current)
-              }
-              onActiveThreadMemoryEnabledChange={(memoryEnabled) => void updateThreadSettings({ memoryEnabled })}
-              onRefreshAgentMemoryDiagnostics={refreshAgentMemoryDiagnostics}
-              onRunAgentMemoryEmbeddingLifecycleAction={runAgentMemoryEmbeddingLifecycleAction}
-              onClearAgentMemory={clearAgentMemory}
-              onPlannerSettingsChange={(planner) => void updatePlannerSettings(planner)}
-              onHydrateSearchRoutingSettings={() => void hydrateSearchRoutingSettingsForSettingsPanel()}
-              onSearchRoutingSettingsChange={(search) => void updateSearchRoutingSettings(search)}
-              onLocalDeepResearchSettingsChange={(localDeepResearch) => void updateLocalDeepResearchSettings(localDeepResearch)}
-              onOpenAmbientCliSecretDialog={openAmbientCliSecretDialog}
-              onVoiceSettingsChange={(voice) => void updateVoiceSettings(voice)}
-              onLoadVoiceProviders={loadVoiceProviders}
-              onRefreshVoiceCatalog={(providerCapabilityId) => void refreshVoiceCatalog(providerCapabilityId)}
-              onSttSettingsChange={(stt) => void updateSttSettings(stt)}
-              onLoadSttProviders={loadSttProviders}
-              onLoadSttMicrophoneDevices={(requestPermission) => void loadSttMicrophoneDeviceList({ requestPermission })}
-              onSetupSttProvider={(action) => void setupSttProvider(action)}
-              onSetupMiniCpmVisionProvider={(action) => void setupMiniCpmVisionProviderFromSettings(action)}
-              onMiniCpmVisionRuntimePathChange={setMiniCpmVisionRuntimePath}
-              onMiniCpmVisionEndpointUrlChange={setMiniCpmVisionEndpointUrl}
-              onSetupLocalDeepResearch={(action) => void setupLocalDeepResearchFromSettings(action)}
-              onLocalDeepResearchQ8OverrideChange={setLocalDeepResearchQ8Override}
-              onLoadLocalDeepResearchRunHistory={() => void loadLocalDeepResearchRunHistory()}
-              onStartSttMicTest={() => void startSttMicTest()}
-              onStopSttMicTest={() => void stopSttMicTestAndValidate()}
-              onCancelSttMicTest={cancelSttMicTest}
-              onClearMcpContainerRuntimeInstallProgress={() => setMcpContainerRuntimeInstallProgress(undefined)}
-              onClearMcpDefaultCapabilityInstallProgress={() => setMcpDefaultCapabilityInstallProgress(undefined)}
-              onExportDiagnostics={() => exportDiagnostics()}
-              onImportDiagnostics={() => importDiagnostics()}
-              onSelectThread={(threadId, workspacePath) => selectThread(threadId, workspacePath)}
-              onAddContext={addContextAttachments}
-              onRemoveContext={removeContextAttachment}
-              onClearContext={clearContextAttachments}
-              onContextError={setContextError}
-              onGitReviewChanged={setActiveGitReview}
-              onWorkspaceChanged={() => setWorkspaceRevision((revision) => revision + 1)}
-              onStartCapabilityBuilder={(prompt, newChat, activityLine) => startCapabilityBuilderPrompt(prompt, newChat, activityLine)}
-              onOpenPluginCapabilities={() => setRightPanel("plugins")}
-              onOpenMcpRuntimeSettings={openMcpRuntimeSettings}
-              onDefaultCapabilityInstalled={() => {
-                void openLocalDeepResearchFollowupIfSetupNeeded();
-              }}
-              onBrowserUserActionCompleted={(action, browserState) => continueAfterBrowserUserActionIfReady(action, browserState)}
-              onClose={() => setRightPanel(undefined)}
-            />
-        </div>
-      </main>
-
-      <AppModalHost {...modalHostProps} />
-    </div>
-  );
+  return <AppShellLayout {...shellLayoutProps} />;
 }

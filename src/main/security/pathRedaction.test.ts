@@ -9,7 +9,7 @@ import {
 
 describe("pathRedaction", () => {
   it("keeps ordinary paths visible", () => {
-    const text = "Read /Users/Neo/project/src/app.ts and docs/setup.md.";
+    const text = "Read /Users/example/project/src/app.ts and docs/setup.md.";
 
     expect(redactSensitivePathsInText(text)).toEqual({
       text,
@@ -17,11 +17,11 @@ describe("pathRedaction", () => {
       replacementCount: 0,
       refs: [],
     });
-    expect(isSensitivePathAliasCandidate("/Users/Neo/project/src/app.ts")).toBe(false);
+    expect(isSensitivePathAliasCandidate("/Users/example/project/src/app.ts")).toBe(false);
   });
 
   it("creates stable non-path refs for secret-like paths", () => {
-    const path = "/Users/Neo/Documents/ambientCoder/ambient_api_key.txt";
+    const path = "/Users/example/Documents/ambientCoder/ambient_api_key.txt";
     const first = sensitivePathRef(path);
     const second = sensitivePathRef(path);
 
@@ -33,8 +33,8 @@ describe("pathRedaction", () => {
 
   it("replaces secret-like path tokens without literal redacted placeholders", () => {
     const input = [
-      "Use --api-key-file=/Users/Neo/Documents/ambientCoder/ambient_api_key.txt",
-      "then inspect /Users/Neo/project/src/app.ts.",
+      "Use --api-key-file=/Users/example/Documents/ambientCoder/ambient_api_key.txt",
+      "then inspect /Users/example/project/src/app.ts.",
     ].join(" ");
 
     const result = redactSensitivePathsInText(input);
@@ -43,7 +43,7 @@ describe("pathRedaction", () => {
     expect(result.replacementCount).toBe(1);
     expect(result.text).toContain("--api-key-file=<sensitive-path-ref:v1:");
     expect(result.text).toContain("sensitive-path-ref:v1:");
-    expect(result.text).toContain("/Users/Neo/project/src/app.ts");
+    expect(result.text).toContain("/Users/example/project/src/app.ts");
     expect(result.text).not.toContain("ambient_api_key.txt");
     expect(result.text).not.toContain("[REDACTED]");
   });

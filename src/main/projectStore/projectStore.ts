@@ -8,6 +8,7 @@ import type {
   AutomationScheduleExceptionSummary,
   AutomationScheduleOccurrenceActionInput,
   AutomationScheduleOccurrenceActionResult,
+  AutomationScheduleTargetKind,
   AutomationScheduleSummary,
   CreateAutomationScheduleInput,
   UpdateAutomationScheduleInput,
@@ -28,6 +29,7 @@ import type {
   ThreadGoalCreateInput,
   ThreadGoalSetInput,
   ThreadGoalStatus,
+  ThreadScheduledCheckInSummary,
   ThreadSummary,
   ThreadWorktreeSummary
 } from "../../shared/threadTypes";
@@ -2932,11 +2934,32 @@ export class ProjectStore {
   }
 
   listThreads(): ThreadSummary[] {
-    return this.threads().listThreads();
+    return this.withThreadScheduledCheckIns(this.threads().listThreads());
   }
 
   private listThreadsForSubagentStateInspection(): ThreadSummary[] {
     return this.threads().listThreadsForStateInspection();
+  }
+
+  private withThreadScheduledCheckIns(threads: ThreadSummary[]): ThreadSummary[] {
+    const scheduledByThreadId = new Map<string, ThreadScheduledCheckInSummary>();
+    for (const schedule of this.automations().listAutomationSchedules()) {
+      if (!schedule.enabled || !schedule.nextRunAt || !schedule.dedicatedThreadId) continue;
+      const existing = scheduledByThreadId.get(schedule.dedicatedThreadId);
+      if (existing && existing.nextRunAt <= schedule.nextRunAt) continue;
+      scheduledByThreadId.set(schedule.dedicatedThreadId, {
+        scheduleId: schedule.id,
+        nextRunAt: schedule.nextRunAt,
+        targetKind: schedule.targetKind as AutomationScheduleTargetKind,
+        targetLabel: schedule.targetLabel,
+      });
+    }
+
+    if (!scheduledByThreadId.size) return threads;
+    return threads.map((thread) => {
+      const scheduledCheckIn = scheduledByThreadId.get(thread.id);
+      return scheduledCheckIn ? { ...thread, scheduledCheckIn } : thread;
+    });
   }
 
   findReusableEmptyThread(): ThreadSummary | undefined {

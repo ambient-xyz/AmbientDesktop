@@ -96,7 +96,7 @@ interface AgentRuntimeProviderRuntimeFeatures {
 export interface AgentRuntimeProviderRuntimeControllerOptions {
   store: ProjectStore;
   features: AgentRuntimeProviderRuntimeFeatures;
-  localModelRuntimeManager: LocalModelRuntimeManager;
+  localModelRuntimeManager: () => LocalModelRuntimeManager;
   resolveFirstPartyPluginPermission: (input: ResolveFirstPartyPluginPermissionInput) => Promise<boolean>;
   resolveLocalRuntimeOwnershipForForcedAction: (
     request: LocalRuntimeOwnershipResolutionRequest,
@@ -144,12 +144,12 @@ export class AgentRuntimeProviderRuntimeController {
       workspace,
       getLocalModelResourceSettings: () => this.options.features.localDeepResearch?.readSettings?.()?.localModelResources,
       getHostMemory: () => this.options.features.localModelHostMemory?.(),
-      getActiveRuntimeLeases: () => this.options.localModelRuntimeManager.activeRuntimeLeases(),
+      getActiveRuntimeLeases: () => this.localModelRuntimeManager().activeRuntimeLeases(),
       getVoiceProviders: () => this.listVoiceProvidersWithCachedVoices(workspace.path),
       getEmbeddingProviders: () => this.listEmbeddingProvidersForTools(workspace.path),
-      startRuntime: (input) => this.options.localModelRuntimeManager.startRuntime(input),
-      stopRuntime: (input) => this.options.localModelRuntimeManager.stopRuntime(input),
-      restartRuntime: (input) => this.options.localModelRuntimeManager.restartRuntime(input),
+      startRuntime: (input) => this.localModelRuntimeManager().startRuntime(input),
+      stopRuntime: (input) => this.localModelRuntimeManager().stopRuntime(input),
+      restartRuntime: (input) => this.localModelRuntimeManager().restartRuntime(input),
       resolveLocalRuntimeOwnership: (request) => this.options.resolveLocalRuntimeOwnershipForForcedAction(request),
     });
   }
@@ -232,9 +232,9 @@ export class AgentRuntimeProviderRuntimeController {
       input,
       workspacePath: workspace.path,
       readStatus: (workspacePath, requestedLaunch) => this.readLocalModelRuntimeLifecycleStatus(workspacePath, requestedLaunch),
-      startRuntime: (startInput) => this.options.localModelRuntimeManager.startRuntime(startInput),
-      stopRuntime: (stopInput) => this.options.localModelRuntimeManager.stopRuntime(stopInput),
-      restartRuntime: (restartInput) => this.options.localModelRuntimeManager.restartRuntime(restartInput),
+      startRuntime: (startInput) => this.localModelRuntimeManager().startRuntime(startInput),
+      stopRuntime: (stopInput) => this.localModelRuntimeManager().stopRuntime(stopInput),
+      restartRuntime: (restartInput) => this.localModelRuntimeManager().restartRuntime(restartInput),
       resolveOwnershipForStopPlan: (plan) => this.options.resolveLocalRuntimeOwnershipForStopPlan(plan),
       resolveOwnershipForRestartPlan: (plan) => this.options.resolveLocalRuntimeOwnershipForRestartPlan(plan),
     });
@@ -264,7 +264,7 @@ export class AgentRuntimeProviderRuntimeController {
       settings: this.options.features.localDeepResearch?.readSettings?.()?.localModelResources,
       hostMemory: this.options.features.localModelHostMemory?.(),
       requestedLaunch,
-      leases: this.options.localModelRuntimeManager.activeRuntimeLeases(),
+      leases: this.localModelRuntimeManager().activeRuntimeLeases(),
       voiceProviders,
       embeddingProviders,
       ...(residentProcesses ? { residentProcesses } : {}),
@@ -327,5 +327,9 @@ export class AgentRuntimeProviderRuntimeController {
       store: this.options.store,
       features: this.options.features,
     });
+  }
+
+  private localModelRuntimeManager(): LocalModelRuntimeManager {
+    return this.options.localModelRuntimeManager();
   }
 }

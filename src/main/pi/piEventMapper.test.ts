@@ -118,6 +118,41 @@ describe("normalizePiEvent", () => {
     ).toEqual({ kind: "assistant-end", error: "Request was aborted" });
   });
 
+  it("ignores pre-assistant user and custom message terminal events", () => {
+    expect(
+      normalizePiEvent({
+        type: "message_end",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "Remember that my favorite day is the ides of march" }],
+        },
+      }),
+    ).toEqual({ kind: "unknown" });
+
+    expect(
+      normalizePiEvent({
+        type: "message_end",
+        message: {
+          role: "custom",
+          customType: "ambient-provider-selection-context",
+          content: "Ambient provider-selection reminder",
+        },
+      }),
+    ).toEqual({ kind: "unknown" });
+  });
+
+  it("ignores non-assistant message updates", () => {
+    expect(
+      normalizePiEvent({
+        type: "message_update",
+        message: {
+          role: "custom",
+          content: "Ambient provider-selection reminder",
+        },
+      }),
+    ).toEqual({ kind: "unknown" });
+  });
+
   it("maps agent_end summaries across assistant messages", () => {
     expect(
       normalizePiEvent({
