@@ -58,6 +58,7 @@ export interface VoiceProviderDiagnosticsModel {
   commandLabel?: string;
   cwdLabel?: string;
   errorLabel?: string;
+  cacheLabel?: string;
   runtimeLabels?: string[];
   artifactLabels: string[];
   missingHints: string[];
@@ -505,6 +506,9 @@ export function voiceProviderDiagnosticsModel(provider: VoiceProviderCandidate):
     diagnostics?.stdoutArtifactPath ? `stdout artifact ${diagnostics.stdoutArtifactPath}` : "",
     diagnostics?.stderrArtifactPath ? `stderr artifact ${diagnostics.stderrArtifactPath}` : "",
   ].filter(Boolean);
+  const cacheLabel = diagnostics?.healthCheckedAt
+    ? `Health checked ${diagnostics.healthCached ? "from cache" : "fresh"} at ${diagnostics.healthCheckedAt}${diagnostics.healthCacheAgeMs !== undefined ? ` (${diagnostics.healthCacheAgeMs} ms old)` : ""}`
+    : undefined;
   const runtimeLabels = voiceProviderRuntimeLabels(diagnostics?.runtimeState);
   return {
     statusLabel,
@@ -512,6 +516,7 @@ export function voiceProviderDiagnosticsModel(provider: VoiceProviderCandidate):
     ...(diagnostics?.healthCommand?.length ? { commandLabel: diagnostics.healthCommand.join(" ") } : {}),
     ...(diagnostics?.healthCwd ? { cwdLabel: diagnostics.healthCwd } : {}),
     ...(diagnostics?.healthError ? { errorLabel: diagnostics.healthError } : {}),
+    ...(cacheLabel ? { cacheLabel } : {}),
     ...(runtimeLabels.length ? { runtimeLabels } : {}),
     artifactLabels,
     missingHints: diagnostics?.missingHints ?? [],

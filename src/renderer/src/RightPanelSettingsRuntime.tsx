@@ -152,6 +152,7 @@ type SettingsProviderDiagnosticsModel = {
   commandLabel?: string;
   cwdLabel?: string;
   errorLabel?: string;
+  cacheLabel?: string;
   runtimeLabels?: string[];
   artifactLabels: string[];
   missingHints: string[];
@@ -174,6 +175,7 @@ export function SettingsProviderDiagnosticsDisclosure({
       diagnostics.commandLabel ||
       diagnostics.cwdLabel ||
       diagnostics.errorLabel ||
+      diagnostics.cacheLabel ||
       diagnostics.runtimeLabels?.length ||
       diagnostics.artifactLabels.length ||
       diagnostics.missingHints.length,
@@ -196,6 +198,7 @@ export function SettingsProviderDiagnosticsDisclosure({
         {diagnostics.commandLabel && <small>Command: {diagnostics.commandLabel}</small>}
         {diagnostics.cwdLabel && <small>Working directory: {diagnostics.cwdLabel}</small>}
         {diagnostics.errorLabel && <small className="error-text">Error: {diagnostics.errorLabel}</small>}
+        {diagnostics.cacheLabel && <small>{diagnostics.cacheLabel}</small>}
         {diagnostics.runtimeLabels?.map((label) => (
           <small key={label}>{label}</small>
         ))}

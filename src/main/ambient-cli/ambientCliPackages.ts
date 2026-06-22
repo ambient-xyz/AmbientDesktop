@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,7 @@ import type { EmbeddingProviderCandidate, EmbeddingProviderDiagnostics, Embeddin
 import { isPathInside } from "./ambientCliSessionFacade";
 import { executeLambdaRlm, materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolRuntimeAmbientCliContract";
 import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/setupAmbientCliContract";
-import { buildSafeProcessEnv, isSecretEnvName, isSecretReference, readSecretReference, saveSecretReference } from "../security/securityAmbientCliContract";
+import { buildSafeProcessEnv, isSecretEnvName, isSecretReference, readSecretReference, saveSecretReference, secretReferenceFor } from "../security/securityAmbientCliContract";
 import {
   commandTimeoutProfileNames,
   executeProfiledCommand,
@@ -23,11 +23,16 @@ import {
 const execFileAsync = promisify(execFile);
 const cliPackageConfigPath = ".ambient/cli-packages/packages.json";
 const cliPackageEnvBindingsPath = ".ambient/cli-packages/env-bindings.json";
+export const ambientCliWorkspaceProviderMarkerPath = ".ambient/cli-packages/workspace-provider-state.json";
+const legacyVoiceDiscoveryCachePath = ".ambient/voice/voice-discovery-cache.json";
+const legacyQwenSttValidationMetadataPath = ".ambient/stt/qwen3-asr/validation.json";
 const cliPackageImportRoot = ".ambient/cli-packages/imported";
 const cliSkillSummaryCacheRoot = ".ambient/cli-packages/summaries";
 const cliPackageDescriptorName = "ambient-cli.json";
 const packageJsonName = "package.json";
 const cliSkillSummarySchemaVersion = "ambient-cli-skill-summary-v1";
+const ambientCliPackageHealthCacheTtlMs = 20_000;
+const healthCacheIgnoredEnvNames = new Set(["AMBIENT_WORKSPACE_PATH", "AMBIENT_DESKTOP_WORKSPACE"]);
 
 const cliRuntimeLifecycleActionSchema = z
   .object({
@@ -323,6 +328,9 @@ export interface AmbientCliPackageHealthCheckResult {
   idleTimeoutMs?: number;
   lastProgressAt?: string;
   deviceSelection?: CommandDeviceSelection;
+  cached?: boolean;
+  checkedAt?: string;
+  cacheAgeMs?: number;
 }
 
 export interface AmbientCliPackageDependencyInstallResult {
@@ -764,6 +772,9 @@ const firstPartyAmbientCliPackages: FirstPartyAmbientCliPackage[] = [
   },
 ];
 const firstPartyAmbientCliPackageInstallLocks = new Map<string, Promise<FirstPartyAmbientCliPackageInstallStatus>>();
+const ambientCliPackageDiscoveryLocks = new Map<string, Promise<AmbientCliPackageCatalog>>();
+const ambientCliPackageHealthLocks = new Map<string, Promise<AmbientCliPackageHealthCheckResult>>();
+const ambientCliPackageHealthCache = new Map<string, { checkedAt: string; checkedAtMs: number; result: AmbientCliPackageHealthCheckResult }>();
 
 async function ensureAmbientCliManagedInstallWorkspace(workspacePath: string): Promise<string> {
   await migrateWorkspaceManagedInstallPath(workspacePath, ".ambient/cli-packages");
@@ -785,6 +796,27 @@ function resolveAmbientCliPackageSourcePath(workspacePath: string, installWorksp
 export async function discoverAmbientCliPackages(
   workspacePath: string,
   options: DiscoverAmbientCliPackagesOptions = {},
+): Promise<AmbientCliPackageCatalog> {
+  const lockKey = options.includeHealth ? resolve(workspacePath) : undefined;
+  if (lockKey) {
+    const existing = ambientCliPackageDiscoveryLocks.get(lockKey);
+    if (existing) return existing;
+    const pending = discoverAmbientCliPackagesUncached(workspacePath, options);
+    ambientCliPackageDiscoveryLocks.set(lockKey, pending);
+    try {
+      return await pending;
+    } finally {
+      if (ambientCliPackageDiscoveryLocks.get(lockKey) === pending) {
+        ambientCliPackageDiscoveryLocks.delete(lockKey);
+      }
+    }
+  }
+  return discoverAmbientCliPackagesUncached(workspacePath, options);
+}
+
+async function discoverAmbientCliPackagesUncached(
+  workspacePath: string,
+  options: DiscoverAmbientCliPackagesOptions,
 ): Promise<AmbientCliPackageCatalog> {
   const installWorkspace = await ensureAmbientCliManagedInstallWorkspace(workspacePath);
   const configPath = join(installWorkspace, cliPackageConfigPath);
@@ -1205,65 +1237,230 @@ export async function checkAmbientCliPackageHealth(
   const checks = pkg.commands.filter((command) => command.healthCheck?.length);
   const results: AmbientCliPackageHealthCheckResult[] = [];
   for (const command of checks) {
-    const healthCheck = command.healthCheck ?? [];
-    const [rawExecutable, ...rawArgs] = healthCheck;
-    if (!rawExecutable) continue;
-    const executable = resolveCliExecutable(pkg.rootPath, rawExecutable);
-    const args = rawArgs.map((arg) => resolveDescriptorArg(pkg.rootPath, arg));
-    const cwd = pkg.rootPath;
-    try {
-      const env = await ambientCliProcessEnv(options.workspacePath ?? pkg.rootPath, pkg);
-      const output = await executeProfiledCommand({
-        command: executable,
-        args,
-        cwd,
-        env,
-        maxBuffer: 1024 * 1024,
-        timeoutProfile: command.timeoutProfile ?? "healthCheck",
-        progressPatterns: command.progressPatterns,
-        devicePolicy: command.devicePolicy,
-        phase: `ambient-cli healthCheck ${pkg.name}:${command.name}`,
-      });
-      const { stdout, stderr } = output;
-      const workspacePath = options.workspacePath ?? pkg.rootPath;
-      const stdoutOutput = stdout
-        ? await materializeTextOutput(workspacePath, {
-            label: `ambient-cli-health-${pkg.name}-${command.name}-stdout`,
-            text: stdout,
-            maxPreviewChars: 4_000,
-          })
-        : undefined;
-      const stderrOutput = stderr
-        ? await materializeTextOutput(workspacePath, {
-            label: `ambient-cli-health-${pkg.name}-${command.name}-stderr`,
-            text: stderr,
-            maxPreviewChars: 4_000,
-          })
-        : undefined;
-      results.push({
-        commandName: command.name,
-        command: [rawExecutable, ...output.args],
-        cwd,
-        passed: true,
-        ...(stdoutOutput ? { stdout: stdoutOutput.text, stdoutOutput } : {}),
-        ...(stderrOutput ? { stderr: stderrOutput.text, stderrOutput } : {}),
-        timeoutProfile: output.timeoutProfile,
-        timeoutMs: output.timeoutMs,
-        idleTimeoutMs: output.idleTimeoutMs,
-        ...(output.lastProgressAt ? { lastProgressAt: output.lastProgressAt } : {}),
-        ...(output.deviceSelection ? { deviceSelection: output.deviceSelection } : {}),
-      });
-    } catch (error) {
-      results.push({
-        commandName: command.name,
-        command: [rawExecutable, ...rawArgs],
-        cwd,
-        passed: false,
-        error: errorMessage(error),
-      });
-    }
+    const result = await checkAmbientCliPackageCommandHealth(pkg, command, options.workspacePath ?? pkg.rootPath);
+    if (result) results.push(result);
   }
   return results;
+}
+
+async function checkAmbientCliPackageCommandHealth(
+  pkg: AmbientCliPackageSummary,
+  command: AmbientCliPackageCommand,
+  workspacePath: string,
+): Promise<AmbientCliPackageHealthCheckResult | undefined> {
+  const healthCheck = command.healthCheck ?? [];
+  const [rawExecutable, ...rawArgs] = healthCheck;
+  if (!rawExecutable) return undefined;
+  const executable = resolveCliExecutable(pkg.rootPath, rawExecutable);
+  const args = rawArgs.map((arg) => resolveDescriptorArg(pkg.rootPath, arg));
+  const cwd = pkg.rootPath;
+  let env: NodeJS.ProcessEnv | undefined;
+  try {
+    env = await ambientCliProcessEnv(workspacePath, pkg);
+    const cacheKey = ambientCliPackageHealthCacheKey(pkg, command, {
+      executable,
+      args,
+      cwd,
+      env,
+      workspacePath,
+    });
+    return await withAmbientCliPackageHealthCache(cacheKey, () =>
+      runAmbientCliPackageCommandHealth({
+        pkg,
+        command,
+        rawExecutable,
+        executable,
+        args,
+        cwd,
+        env: env!,
+        workspacePath,
+      }),
+    );
+  } catch (error) {
+    const checkedAt = new Date().toISOString();
+    return {
+      commandName: command.name,
+      command: [rawExecutable, ...rawArgs],
+      cwd,
+      passed: false,
+      error: errorMessage(error),
+      cached: false,
+      checkedAt,
+      cacheAgeMs: 0,
+    };
+  }
+}
+
+async function withAmbientCliPackageHealthCache(
+  cacheKey: string,
+  run: () => Promise<AmbientCliPackageHealthCheckResult>,
+): Promise<AmbientCliPackageHealthCheckResult> {
+  const now = Date.now();
+  const cached = ambientCliPackageHealthCache.get(cacheKey);
+  if (cached && now - cached.checkedAtMs <= ambientCliPackageHealthCacheTtlMs) {
+    return {
+      ...cached.result,
+      cached: true,
+      checkedAt: cached.checkedAt,
+      cacheAgeMs: now - cached.checkedAtMs,
+    };
+  }
+  const existing = ambientCliPackageHealthLocks.get(cacheKey);
+  if (existing) return existing;
+  const pending = (async () => {
+    const result = await run();
+    const checkedAtMs = Date.now();
+    const checkedAt = new Date(checkedAtMs).toISOString();
+    const fresh = {
+      ...result,
+      cached: false,
+      checkedAt,
+      cacheAgeMs: 0,
+    };
+    ambientCliPackageHealthCache.set(cacheKey, { checkedAt, checkedAtMs, result: fresh });
+    pruneAmbientCliPackageHealthCache(checkedAtMs);
+    return fresh;
+  })();
+  ambientCliPackageHealthLocks.set(cacheKey, pending);
+  try {
+    return await pending;
+  } finally {
+    if (ambientCliPackageHealthLocks.get(cacheKey) === pending) ambientCliPackageHealthLocks.delete(cacheKey);
+  }
+}
+
+async function runAmbientCliPackageCommandHealth(input: {
+  pkg: AmbientCliPackageSummary;
+  command: AmbientCliPackageCommand;
+  rawExecutable: string;
+  executable: string;
+  args: string[];
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  workspacePath: string;
+}): Promise<AmbientCliPackageHealthCheckResult> {
+  try {
+    const output = await executeProfiledCommand({
+      command: input.executable,
+      args: input.args,
+      cwd: input.cwd,
+      env: input.env,
+      maxBuffer: 1024 * 1024,
+      timeoutProfile: input.command.timeoutProfile ?? "healthCheck",
+      progressPatterns: input.command.progressPatterns,
+      devicePolicy: input.command.devicePolicy,
+      phase: `ambient-cli healthCheck ${input.pkg.name}:${input.command.name}`,
+    });
+    const { stdout, stderr } = output;
+    const stdoutOutput = stdout
+      ? await materializeTextOutput(input.workspacePath, {
+          label: `ambient-cli-health-${input.pkg.name}-${input.command.name}-stdout`,
+          text: stdout,
+          maxPreviewChars: 4_000,
+        })
+      : undefined;
+    const stderrOutput = stderr
+      ? await materializeTextOutput(input.workspacePath, {
+          label: `ambient-cli-health-${input.pkg.name}-${input.command.name}-stderr`,
+          text: stderr,
+          maxPreviewChars: 4_000,
+        })
+      : undefined;
+    return {
+      commandName: input.command.name,
+      command: [input.rawExecutable, ...output.args],
+      cwd: input.cwd,
+      passed: true,
+      ...(stdoutOutput ? { stdout: stdoutOutput.text, stdoutOutput } : {}),
+      ...(stderrOutput ? { stderr: stderrOutput.text, stderrOutput } : {}),
+      timeoutProfile: output.timeoutProfile,
+      timeoutMs: output.timeoutMs,
+      idleTimeoutMs: output.idleTimeoutMs,
+      ...(output.lastProgressAt ? { lastProgressAt: output.lastProgressAt } : {}),
+      ...(output.deviceSelection ? { deviceSelection: output.deviceSelection } : {}),
+    };
+  } catch (error) {
+    return {
+      commandName: input.command.name,
+      command: input.command.healthCheck ?? [input.rawExecutable],
+      cwd: input.cwd,
+      passed: false,
+      error: errorMessage(error),
+    };
+  }
+}
+
+function ambientCliPackageHealthCacheKey(
+  pkg: AmbientCliPackageSummary,
+  command: AmbientCliPackageCommand,
+  input: { executable: string; args: string[]; cwd: string; env: NodeJS.ProcessEnv; workspacePath: string },
+): string {
+  return contentHash(JSON.stringify({
+    packageId: pkg.id,
+    packageName: pkg.name,
+    packageVersion: pkg.version ?? "",
+    rootPath: resolve(pkg.rootPath),
+    source: pkg.source,
+    commandName: command.name,
+    healthCheck: command.healthCheck ?? [],
+    executable: input.executable,
+    args: input.args,
+    cwd: resolve(input.cwd),
+    workspacePath: resolve(input.workspacePath),
+    files: ambientCliPackageHealthFileSignature(pkg, input),
+    timeoutProfile: command.timeoutProfile ?? "healthCheck",
+    progressPatterns: command.progressPatterns ?? [],
+    devicePolicy: command.devicePolicy ?? {},
+    env: ambientCliHealthEnvSignature(input.env),
+  }));
+}
+
+function ambientCliPackageHealthFileSignature(
+  pkg: AmbientCliPackageSummary,
+  input: { executable: string; args: string[] },
+): string {
+  const packageRoot = resolve(pkg.rootPath);
+  const candidates = new Set([resolve(packageRoot, cliPackageDescriptorName), input.executable, ...input.args]);
+  const entries: AmbientCliPackageHealthFileSignatureEntry[] = Array.from(candidates).flatMap((candidate): AmbientCliPackageHealthFileSignatureEntry[] => {
+    const absolutePath = resolve(candidate);
+    if (!isPathInside(packageRoot, absolutePath) && absolutePath !== packageRoot) return [];
+    const relativePath = relative(packageRoot, absolutePath).split(sep).join("/") || ".";
+    try {
+      const stat = statSync(absolutePath);
+      return [{
+        path: relativePath,
+        kind: stat.isDirectory() ? "directory" : stat.isFile() ? "file" : "other",
+        size: stat.size,
+        mtimeMs: stat.mtimeMs,
+      }];
+    } catch (error) {
+      if (isErrno(error, "ENOENT")) return [{ path: relativePath, missing: true }];
+      throw error;
+    }
+  }).sort((left, right) => left.path.localeCompare(right.path));
+  return contentHash(JSON.stringify(entries));
+}
+
+interface AmbientCliPackageHealthFileSignatureEntry {
+  path: string;
+  kind?: "directory" | "file" | "other";
+  size?: number;
+  mtimeMs?: number;
+  missing?: boolean;
+}
+
+function ambientCliHealthEnvSignature(env: NodeJS.ProcessEnv): string {
+  const entries = Object.entries(env)
+    .filter(([name, value]) => typeof value === "string" && !healthCacheIgnoredEnvNames.has(name))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => [name, contentHash(value ?? "")]);
+  return contentHash(JSON.stringify(entries));
+}
+
+function pruneAmbientCliPackageHealthCache(now: number): void {
+  for (const [key, value] of ambientCliPackageHealthCache) {
+    if (now - value.checkedAtMs > ambientCliPackageHealthCacheTtlMs * 3) ambientCliPackageHealthCache.delete(key);
+  }
 }
 
 export async function enabledAmbientCliSkillPaths(workspacePath: string): Promise<string[]> {
@@ -1504,6 +1701,7 @@ export async function setAmbientCliPackageEnvBinding(
   ].sort((left, right) => left.packageName.localeCompare(right.packageName) || left.envName.localeCompare(right.envName));
   await mkdir(dirname(bindingsPath), { recursive: true });
   await writeFile(bindingsPath, `${JSON.stringify({ bindings }, null, 2)}\n`, "utf8");
+  await markAmbientCliWorkspaceProviderState(workspacePath, { reason: "env-binding", packageName });
   return {
     name: envName,
     required: true,
@@ -1533,6 +1731,7 @@ export async function setAmbientCliPackageSecretBinding(
   ].sort((left, right) => left.packageName.localeCompare(right.packageName) || left.envName.localeCompare(right.envName));
   await mkdir(dirname(bindingsPath), { recursive: true });
   await writeFile(bindingsPath, `${JSON.stringify({ bindings }, null, 2)}\n`, "utf8");
+  await markAmbientCliWorkspaceProviderState(workspacePath, { reason: "secret-binding", packageName });
   return {
     name: envName,
     required: true,
@@ -1561,6 +1760,7 @@ export async function removeAmbientCliPackageEnvBindings(
   if (!removed) return 0;
   await mkdir(dirname(bindingsPath), { recursive: true });
   await writeFile(bindingsPath, `${JSON.stringify({ bindings }, null, 2)}\n`, "utf8");
+  await markAmbientCliWorkspaceProviderState(workspacePath, { reason: "env-binding-removed", packageName });
   return removed;
 }
 
@@ -2264,6 +2464,19 @@ function ambientCliCommandHealth(pkg: AmbientCliPackageSummary, command: Ambient
   return health.passed ? "passed" : "failed";
 }
 
+function ambientCliHealthCacheDiagnostics(health: AmbientCliPackageHealthCheckResult | undefined): {
+  healthCached?: boolean;
+  healthCheckedAt?: string;
+  healthCacheAgeMs?: number;
+} {
+  if (!health) return {};
+  return {
+    ...(health.cached !== undefined ? { healthCached: health.cached } : {}),
+    ...(health.checkedAt ? { healthCheckedAt: health.checkedAt } : {}),
+    ...(health.cacheAgeMs !== undefined ? { healthCacheAgeMs: health.cacheAgeMs } : {}),
+  };
+}
+
 function ambientCliVoiceProviderAvailabilityReason(pkg: AmbientCliPackageSummary, command: AmbientCliPackageCommand): string {
   if (pkg.errors[0]) return pkg.errors[0];
   const health = pkg.healthChecks?.find((check) => check.commandName === command.name);
@@ -2292,6 +2505,7 @@ function ambientCliVoiceProviderDiagnostics(pkg: AmbientCliPackageSummary, comma
     ...(healthCommand?.length ? { healthCommand } : {}),
     ...(healthCwd ? { healthCwd } : {}),
     ...(healthError ? { healthError } : {}),
+    ...ambientCliHealthCacheDiagnostics(health),
     ...(health?.stdoutOutput?.artifactPath ? { stdoutArtifactPath: health.stdoutOutput.artifactPath } : {}),
     ...(health?.stderrOutput?.artifactPath ? { stderrArtifactPath: health.stderrOutput.artifactPath } : {}),
     missingHints: Array.from(new Set([...ambientCliVoiceProviderMissingHints(pkg, healthError), ...(healthPayload?.missingHints ?? [])])),
@@ -2391,6 +2605,7 @@ function ambientCliEmbeddingProviderDiagnostics(pkg: AmbientCliPackageSummary, c
     ...(healthCommand?.length ? { healthCommand } : {}),
     ...(healthCwd ? { healthCwd } : {}),
     ...(healthError ? { healthError } : {}),
+    ...ambientCliHealthCacheDiagnostics(health),
     ...(health?.stdoutOutput?.artifactPath ? { stdoutArtifactPath: health.stdoutOutput.artifactPath } : {}),
     ...(health?.stderrOutput?.artifactPath ? { stderrArtifactPath: health.stderrOutput.artifactPath } : {}),
     missingHints: Array.from(new Set([...ambientCliEmbeddingProviderMissingHints(pkg, healthError), ...(healthPayload?.missingHints ?? [])])),
@@ -2536,6 +2751,7 @@ function ambientCliSttProviderDiagnostics(pkg: AmbientCliPackageSummary, command
     ...(healthCommand?.length ? { healthCommand } : {}),
     ...(healthCwd ? { healthCwd } : {}),
     ...(healthError ? { healthError } : {}),
+    ...ambientCliHealthCacheDiagnostics(health),
     ...(health?.stdoutOutput?.artifactPath ? { stdoutArtifactPath: health.stdoutOutput.artifactPath } : {}),
     ...(health?.stderrOutput?.artifactPath ? { stderrArtifactPath: health.stderrOutput.artifactPath } : {}),
     missingHints: Array.from(new Set([...ambientCliSttProviderMissingHints(pkg, healthError), ...(healthPayload?.missingHints ?? [])])),
@@ -3818,6 +4034,7 @@ async function upsertCliPackageConfig(workspacePath: string, source: string, pac
   }
   packages.push({ source });
   await writeFile(configPath, `${JSON.stringify({ packages }, null, 2)}\n`, "utf8");
+  await markAmbientCliWorkspaceProviderState(workspacePath, { reason: "package-config", packageName });
 }
 
 async function cliPackageEntryName(workspacePath: string, installWorkspace: string, source: string): Promise<string | undefined> {
@@ -3842,6 +4059,70 @@ async function removeCliPackageConfig(workspacePath: string, source: string): Pr
   const packages = existing.packages.filter((entry) => entry.source !== source);
   await mkdir(dirname(configPath), { recursive: true });
   await writeFile(configPath, `${JSON.stringify({ packages }, null, 2)}\n`, "utf8");
+  await markAmbientCliWorkspaceProviderState(workspacePath, { reason: "package-config-removed" });
+}
+
+export function hasAmbientCliWorkspaceProviderMarker(workspacePath: string): boolean {
+  return existsSync(resolve(workspacePath, ambientCliWorkspaceProviderMarkerPath));
+}
+
+export function hasAmbientCliWorkspaceProviderDiscoverySignal(workspacePath: string): boolean {
+  const workspace = resolve(workspacePath);
+  if (hasAmbientCliWorkspaceProviderMarker(workspace)) return true;
+  if (existsSync(resolve(workspace, cliPackageConfigPath))) return true;
+  if (!existsSync(join(managedInstallWorkspacePath(workspace), cliPackageConfigPath))) return false;
+  return existsSync(resolve(workspace, legacyVoiceDiscoveryCachePath)) ||
+    existsSync(resolve(workspace, legacyQwenSttValidationMetadataPath)) ||
+    ambientCliWorkspaceHasExistingProviderEnvBinding(workspace);
+}
+
+function ambientCliWorkspaceHasExistingProviderEnvBinding(workspacePath: string): boolean {
+  const workspace = resolve(workspacePath);
+  const bindingsPath = join(managedInstallWorkspacePath(workspace), cliPackageEnvBindingsPath);
+  if (!existsSync(bindingsPath)) return false;
+  try {
+    const parsed = cliPackageEnvBindingsSchema.parse(JSON.parse(readFileSync(bindingsPath, "utf8")));
+    return parsed.bindings.some((binding) =>
+      ambientCliEnvBindingFileExistsInWorkspace(workspace, binding) ||
+      ambientCliEnvBindingSecretMatchesWorkspace(workspace, binding));
+  } catch {
+    return false;
+  }
+}
+
+function ambientCliEnvBindingFileExistsInWorkspace(workspacePath: string, binding: AmbientCliPackageEnvBindingRow): boolean {
+  if (!binding.filePath) return false;
+  const absolutePath = resolve(workspacePath, binding.filePath);
+  return isPathInside(workspacePath, absolutePath) && existsSync(absolutePath);
+}
+
+function ambientCliEnvBindingSecretMatchesWorkspace(workspacePath: string, binding: AmbientCliPackageEnvBindingRow): boolean {
+  if (!binding.secretRef) return false;
+  try {
+    return binding.secretRef === secretReferenceFor({
+      scope: "ambient-cli",
+      workspacePath,
+      ownerId: binding.packageName,
+      envName: binding.envName,
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function markAmbientCliWorkspaceProviderState(
+  workspacePath: string,
+  input: { reason: string; packageName?: string },
+): Promise<void> {
+  const markerPath = resolve(workspacePath, ambientCliWorkspaceProviderMarkerPath);
+  if (!isPathInside(resolve(workspacePath), markerPath)) throw new Error("Ambient CLI workspace provider marker must stay inside the workspace.");
+  await mkdir(dirname(markerPath), { recursive: true });
+  await writeFile(markerPath, `${JSON.stringify({
+    schemaVersion: "ambient-cli-workspace-provider-state-v1",
+    updatedAt: new Date().toISOString(),
+    reason: input.reason,
+    ...(input.packageName ? { packageName: input.packageName } : {}),
+  }, null, 2)}\n`, "utf8");
 }
 
 function parseSkillHeader(content: string): Pick<AmbientCliPackageSkill, "name" | "description"> {
@@ -3904,4 +4185,8 @@ function truncateText(value: string, maxLength: number): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isErrno(error: unknown, code: string): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as NodeJS.ErrnoException).code === code);
 }

@@ -3,15 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { PermissionRequest, PrivilegedCredentialRequest, SecureInputRequest } from "../../shared/permissionTypes";
-import type {
-  PlannerRevisionDialogState,
-  ProjectActionDialogState,
-  ThreadActionDialogState,
-} from "./AppActionDialogs";
+import type { PlannerRevisionDialogState, ProjectActionDialogState, ThreadActionDialogState } from "./AppActionDialogs";
 import type { AppModalHostProps } from "./AppModalHost";
 import { subagentApprovalInitialScope, subagentApprovalScopeOptions } from "./AppModalHost";
 import {
   createAppModalHostProps,
+  createAppModalHostPropsForApp,
+  type AppModalHostPropsForAppInput,
   type AppModalHostPropsInput,
 } from "./AppModalHostProps";
 import type { MediaPreviewModalRequest } from "./AppToolMessages";
@@ -66,11 +64,13 @@ describe("App modal host props", () => {
     } as NonNullable<AppModalHostProps["subagentApprovalDecisionDialog"]>["action"];
 
     expect(subagentApprovalInitialScope(action)).toBe("this_action");
-    expect(subagentApprovalInitialScope({
-      ...action,
-      requestedScope: undefined,
-      effectiveScope: undefined,
-    })).toBe("this_action");
+    expect(
+      subagentApprovalInitialScope({
+        ...action,
+        requestedScope: undefined,
+        effectiveScope: undefined,
+      }),
+    ).toBe("this_action");
   });
 
   it("derives modal state props from desktop state and keeps core handoffs stable", () => {
@@ -79,21 +79,65 @@ describe("App modal host props", () => {
     const previewArtifact = vi.fn();
     const saveApiKey = vi.fn();
     const openSearchWebSettings = vi.fn();
-    const props = createAppModalHostProps(baseInput({
-      clipboardCandidate: "clip-key",
-      previewArtifact,
-      saveApiKey,
-      setLocalDeepResearchFollowupOpen: followupOpen.set,
-      setMediaPreviewModal: media.set,
-      openSearchWebSettings,
-      state: desktopState({
-        provider: { providerLabel: "Ambient" },
-        settings: {
-          media: { generatedMediaAutoplay: true },
-          permissionMode: "full-access",
-        },
+    const props = createAppModalHostProps(
+      baseInput({
+        clipboardCandidate: "clip-key",
+        previewArtifact,
+        saveApiKey,
+        setLocalDeepResearchFollowupOpen: followupOpen.set,
+        setMediaPreviewModal: media.set,
+        openSearchWebSettings,
+        state: desktopState({
+          provider: { providerLabel: "Ambient" },
+          settings: {
+            media: { generatedMediaAutoplay: true },
+            permissionMode: "full-access",
+          },
+        }),
       }),
-    }));
+    );
+
+    expect(props.generatedMediaAutoplay).toBe(true);
+    expect(props.provider.providerLabel).toBe("Ambient");
+    expect(props.permissionMode).toBe("full-access");
+
+    props.onCloseMediaPreview();
+    props.onOpenMediaPreviewInFiles("/tmp/image.png");
+    props.onUseClipboardApiKey();
+    props.onOpenSearchWebSettings();
+
+    expect(media.value).toBeUndefined();
+    expect(previewArtifact).toHaveBeenCalledWith("/tmp/image.png");
+    expect(saveApiKey).toHaveBeenCalledWith("clip-key");
+    expect(followupOpen.value).toBe(false);
+    expect(openSearchWebSettings).toHaveBeenCalledOnce();
+  });
+
+  it("adapts grouped App state and action owners into modal host props", () => {
+    const media = statefulSetter<MediaPreviewModalRequest | undefined>({ path: "/tmp/image.png", mediaKind: "image" });
+    const followupOpen = statefulSetter(true);
+    const previewArtifact = vi.fn();
+    const saveApiKey = vi.fn();
+    const openSearchWebSettings = vi.fn();
+    const props = createAppModalHostPropsForApp(
+      appInputFromBase(
+        baseInput({
+          clipboardCandidate: "clip-key",
+          previewArtifact,
+          saveApiKey,
+          setLocalDeepResearchFollowupOpen: followupOpen.set,
+          setMediaPreviewModal: media.set,
+          openSearchWebSettings,
+          state: desktopState({
+            provider: { providerLabel: "Ambient" },
+            settings: {
+              media: { generatedMediaAutoplay: true },
+              permissionMode: "full-access",
+            },
+          }),
+        }),
+      ),
+    );
 
     expect(props.generatedMediaAutoplay).toBe(true);
     expect(props.provider.providerLabel).toBe("Ambient");
@@ -127,12 +171,14 @@ describe("App modal host props", () => {
       requestedScope: "this_action",
       userDecision: "approve",
     } as AppModalHostProps["subagentApprovalDecisionDialog"]);
-    const props = createAppModalHostProps(baseInput({
-      setSubagentApprovalDecisionDialog: approval.set,
-      setSubagentBarrierDecisionDialog: barrier.set,
-      subagentApprovalDecisionDialog: approval.value,
-      subagentBarrierDecisionDialog: barrier.value,
-    }));
+    const props = createAppModalHostProps(
+      baseInput({
+        setSubagentApprovalDecisionDialog: approval.set,
+        setSubagentBarrierDecisionDialog: barrier.set,
+        subagentApprovalDecisionDialog: approval.value,
+        subagentBarrierDecisionDialog: barrier.value,
+      }),
+    );
 
     props.onChangeSubagentBarrierDecision({ userDecision: "continue" });
     props.onChangeSubagentApprovalDecision({ requestedScope: "project" });
@@ -159,12 +205,14 @@ describe("App modal host props", () => {
       requestedScope: "this_action",
       userDecision: "approve",
     } as AppModalHostProps["subagentApprovalDecisionDialog"]);
-    const busyProps = createAppModalHostProps(baseInput({
-      setSubagentApprovalDecisionDialog: busyApproval.set,
-      setSubagentBarrierDecisionDialog: busyBarrier.set,
-      subagentApprovalDecisionDialog: busyApproval.value,
-      subagentBarrierDecisionDialog: busyBarrier.value,
-    }));
+    const busyProps = createAppModalHostProps(
+      baseInput({
+        setSubagentApprovalDecisionDialog: busyApproval.set,
+        setSubagentBarrierDecisionDialog: busyBarrier.set,
+        subagentApprovalDecisionDialog: busyApproval.value,
+        subagentBarrierDecisionDialog: busyBarrier.value,
+      }),
+    );
 
     busyProps.onCancelSubagentBarrierDecision();
     busyProps.onCancelSubagentApprovalDecision();
@@ -190,11 +238,13 @@ describe("App modal host props", () => {
       thread: { id: "thread-1" },
       workspacePath: "/repo",
     } as ThreadActionDialogState);
-    const props = createAppModalHostProps(baseInput({
-      setPlannerRevisionDialog: plannerDialog.set,
-      setProjectActionDialog: projectDialog.set,
-      setThreadActionDialog: threadDialog.set,
-    }));
+    const props = createAppModalHostProps(
+      baseInput({
+        setPlannerRevisionDialog: plannerDialog.set,
+        setProjectActionDialog: projectDialog.set,
+        setThreadActionDialog: threadDialog.set,
+      }),
+    );
 
     props.onChangeProjectActionName("New project");
     props.onPlannerRevisionFeedbackChange();
@@ -213,10 +263,12 @@ describe("App modal host props", () => {
       thread: { id: "thread-1" },
       workspacePath: "/repo",
     } as ThreadActionDialogState);
-    const archiveProps = createAppModalHostProps(baseInput({
-      setProjectActionDialog: archiveProjectDialog.set,
-      setThreadActionDialog: archiveThreadDialog.set,
-    }));
+    const archiveProps = createAppModalHostProps(
+      baseInput({
+        setProjectActionDialog: archiveProjectDialog.set,
+        setThreadActionDialog: archiveThreadDialog.set,
+      }),
+    );
 
     archiveProps.onChangeProjectActionName("Ignored");
     archiveProps.onChangeThreadActionName("Ignored");
@@ -234,13 +286,15 @@ describe("App modal host props", () => {
     const respondPrivilegedCredentialRequest = vi.fn();
     const respondSecureInputRequest = vi.fn();
     const requestThreadPermissionModeChange = vi.fn();
-    const props = createAppModalHostProps(baseInput({
-      requestThreadPermissionModeChange,
-      respondPermissionRequest,
-      respondPrivilegedCredentialRequest,
-      respondSecureInputRequest,
-      setGitConfirmation,
-    }));
+    const props = createAppModalHostProps(
+      baseInput({
+        requestThreadPermissionModeChange,
+        respondPermissionRequest,
+        respondPrivilegedCredentialRequest,
+        respondSecureInputRequest,
+        setGitConfirmation,
+      }),
+    );
     const confirmation: GitConfirmation = {
       confirmLabel: "Confirm",
       message: "Message",
@@ -333,6 +387,101 @@ function baseInput(input: Partial<AppModalHostPropsInput> = {}): AppModalHostPro
     updateAmbientCliSecretDialog: noop,
     ...input,
   } as AppModalHostPropsInput;
+}
+
+function appInputFromBase(base: AppModalHostPropsInput): AppModalHostPropsForAppInput {
+  return {
+    activePermissionRequest: base.activePermissionRequest,
+    activePrivilegedCredentialRequest: base.activePrivilegedCredentialRequest,
+    activeSecureInputRequest: base.activeSecureInputRequest,
+    actions: {
+      credentialDialogActions: {
+        clearSavedApiKey: base.clearSavedApiKey,
+        openAmbientKeys: base.openAmbientKeys,
+        pasteAmbientCliSecret: base.pasteAmbientCliSecret,
+        pasteApiKey: base.pasteApiKey,
+        saveAmbientCliSecret: base.saveAmbientCliSecret,
+        saveApiKey: base.saveApiKey,
+        testApiKey: base.testApiKey,
+        updateAmbientCliSecretDialog: base.updateAmbientCliSecretDialog,
+      },
+      localRuntimeActions: {
+        setupLocalDeepResearchFromSettings: base.setupLocalDeepResearchFromSettings,
+      },
+      openSearchWebSettings: base.openSearchWebSettings,
+      permissionActions: {
+        requestThreadPermissionModeChange: base.requestThreadPermissionModeChange,
+        respondPermissionRequest: base.respondPermissionRequest,
+        respondPrivilegedCredentialRequest: base.respondPrivilegedCredentialRequest,
+        respondSecureInputRequest: base.respondSecureInputRequest,
+      },
+      previewArtifact: base.previewArtifact,
+      projectBoardActions: {
+        confirmProjectBoardReset: base.confirmProjectBoardReset,
+      },
+      projectThreadActions: {
+        confirmProjectActionDialog: base.confirmProjectActionDialog,
+        confirmThreadActionDialog: base.confirmThreadActionDialog,
+      },
+      shellCommandActions: {
+        commandItems: base.commandItems,
+        runPaletteCommand: base.runPaletteCommand,
+      },
+      submitPlannerRevisionDialog: base.submitPlannerRevisionDialog,
+      submitSubagentApprovalDecisionDialog: base.submitSubagentApprovalDecisionDialog,
+      submitSubagentBarrierDecisionDialog: base.submitSubagentBarrierDecisionDialog,
+    },
+    providerRuntimeState: {
+      localDeepResearchFollowupOpen: base.localDeepResearchFollowupOpen,
+      localDeepResearchQ8Override: base.localDeepResearchQ8Override,
+      localDeepResearchSetup: base.localDeepResearchSetup,
+      setLocalDeepResearchFollowupOpen: base.setLocalDeepResearchFollowupOpen,
+      setLocalDeepResearchQ8Override: statefulSetter(base.localDeepResearchQ8Override).set,
+    },
+    projectShellState: {
+      plannerRevisionDialog: base.plannerRevisionDialog,
+      projectActionDialog: base.projectActionDialog,
+      projectBoardResetDialog: base.projectBoardResetDialog,
+      setPlannerRevisionDialog: base.setPlannerRevisionDialog,
+      setProjectActionDialog: base.setProjectActionDialog,
+      setProjectBoardResetDialog: base.setProjectBoardResetDialog,
+      setThreadActionDialog: base.setThreadActionDialog,
+      threadActionDialog: base.threadActionDialog,
+    },
+    securityPromptState: {
+      ambientCliSecretDialog: base.ambientCliSecretDialog,
+      ambientCliSecretInputRef: base.ambientCliSecretInputRef,
+      apiDialogOpen: base.apiDialogOpen,
+      apiKeyBusy: base.apiKeyBusy,
+      apiKeyDraft: base.apiKeyDraft,
+      apiKeyInputRef: base.apiKeyInputRef,
+      apiKeyStatus: base.apiKeyStatus,
+      clipboardCandidate: base.clipboardCandidate,
+      setAmbientCliSecretDialog: base.setAmbientCliSecretDialog,
+      setApiDialogOpen: base.setApiDialogOpen,
+      setApiKeyDraft: statefulSetter(base.apiKeyDraft).set,
+    },
+    shellUiState: {
+      commandPaletteOpen: base.commandPaletteOpen,
+      commandPaletteQuery: base.commandPaletteQuery,
+      mediaPreviewModal: base.mediaPreviewModal,
+      setCommandPaletteOpen: base.setCommandPaletteOpen,
+      setCommandPaletteQuery: statefulSetter(base.commandPaletteQuery).set,
+      setMediaPreviewModal: base.setMediaPreviewModal,
+    },
+    state: base.state,
+    subagentUiEnabled: base.subagentUiEnabled,
+    workflowRuntimeState: {
+      setSubagentApprovalDecisionDialog: base.setSubagentApprovalDecisionDialog,
+      setSubagentBarrierDecisionDialog: base.setSubagentBarrierDecisionDialog,
+      subagentApprovalDecisionDialog: base.subagentApprovalDecisionDialog,
+      subagentBarrierDecisionDialog: base.subagentBarrierDecisionDialog,
+    },
+    workspaceShellState: {
+      gitConfirmation: base.gitConfirmation,
+      setGitConfirmation: base.setGitConfirmation,
+    },
+  };
 }
 
 function desktopState(input: Record<string, unknown> = {}): DesktopState {

@@ -19,6 +19,7 @@ describe("buildAmbientModelStatus", () => {
     const status = buildAmbientModelStatus({
       requestedModelId: AMBIENT_KIMI_K2_7_CODE_MODEL,
       runningModelId: AMBIENT_KIMI_K2_7_CODE_MODEL,
+      selectedThinkingLevel: "xhigh",
       providerStatus: providerStatus({ hasApiKey: true, model: AMBIENT_KIMI_K2_7_CODE_MODEL }),
       catalog: createModelRuntimeCatalog({ generatedAt: "2026-06-20T00:00:00.000Z" }),
     });
@@ -51,6 +52,11 @@ describe("buildAmbientModelStatus", () => {
         control: "fixed_on",
         fixedReasoning: true,
         payloadStrategy: "omit-reasoning-controls",
+        current: {
+          requestedThinkingLevel: "xhigh",
+          effectiveThinkingLevel: "medium",
+          label: "Reasoning on",
+        },
         requestFields: [],
         selectableThinkingLevels: [],
       },
@@ -62,6 +68,7 @@ describe("buildAmbientModelStatus", () => {
     const status = buildAmbientModelStatus({
       requestedModelId: "glm-5.1",
       runningModelId: AMBIENT_GLM_5_2_FP8_MODEL,
+      selectedThinkingLevel: "xhigh",
       providerStatus: providerStatus({ hasApiKey: true, model: AMBIENT_GLM_5_2_FP8_MODEL }),
       catalog: createModelRuntimeCatalog({ generatedAt: "2026-06-20T00:00:00.000Z" }),
     });
@@ -83,6 +90,13 @@ describe("buildAmbientModelStatus", () => {
     });
     expect(status.reasoning).toMatchObject({
       control: "selectable_effort",
+      defaultThinkingLevel: "medium",
+      current: {
+        requestedThinkingLevel: "xhigh",
+        effectiveThinkingLevel: "xhigh",
+        label: "Deep",
+        providerEffort: "max",
+      },
       payloadStrategy: "zai-reasoning-effort",
       requestFields: ["enable_thinking", "reasoning_effort"],
       selectableThinkingLevels: [
@@ -94,10 +108,29 @@ describe("buildAmbientModelStatus", () => {
     expect(status.warnings).toEqual([]);
   });
 
+  it("reports stored high as the current GLM Deep/max mode instead of the medium default", () => {
+    const status = buildAmbientModelStatus({
+      requestedModelId: AMBIENT_GLM_5_2_FP8_MODEL,
+      runningModelId: AMBIENT_GLM_5_2_FP8_MODEL,
+      selectedThinkingLevel: "high",
+      providerStatus: providerStatus({ hasApiKey: true, model: AMBIENT_GLM_5_2_FP8_MODEL }),
+      catalog: createModelRuntimeCatalog({ generatedAt: "2026-06-20T00:00:00.000Z" }),
+    });
+
+    expect(status.reasoning.defaultThinkingLevel).toBe("medium");
+    expect(status.reasoning.current).toMatchObject({
+      requestedThinkingLevel: "high",
+      effectiveThinkingLevel: "xhigh",
+      label: "Deep",
+      providerEffort: "max",
+    });
+  });
+
   it("surfaces selected-vs-running model mismatches without blocking status", () => {
     const status = buildAmbientModelStatus({
       requestedModelId: AMBIENT_KIMI_K2_7_CODE_MODEL,
       runningModelId: AMBIENT_GLM_5_2_FP8_MODEL,
+      selectedThinkingLevel: "medium",
       providerStatus: providerStatus({ hasApiKey: true, model: AMBIENT_GLM_5_2_FP8_MODEL }),
       catalog: createModelRuntimeCatalog({ generatedAt: "2026-06-20T00:00:00.000Z" }),
     });
@@ -110,6 +143,12 @@ describe("buildAmbientModelStatus", () => {
     });
     expect(status.reasoning).toMatchObject({
       control: "selectable_effort",
+      current: {
+        requestedThinkingLevel: "medium",
+        effectiveThinkingLevel: "medium",
+        label: "Standard",
+        providerEffort: "high",
+      },
       payloadStrategy: "zai-reasoning-effort",
       requestFields: ["enable_thinking", "reasoning_effort"],
     });
@@ -122,6 +161,7 @@ describe("buildAmbientModelStatus", () => {
     const status = buildAmbientModelStatus({
       requestedModelId: "custom/model",
       runningModelId: "custom/model",
+      selectedThinkingLevel: "high",
       providerStatus: providerStatus({ hasApiKey: false, model: "custom/model" }),
       catalog: createModelRuntimeCatalog({ generatedAt: "2026-06-20T00:00:00.000Z" }),
     });
@@ -139,6 +179,11 @@ describe("buildAmbientModelStatus", () => {
     });
     expect(status.reasoning).toMatchObject({
       control: "unsupported",
+      current: {
+        requestedThinkingLevel: "high",
+        effectiveThinkingLevel: "high",
+        label: "High",
+      },
       payloadStrategy: "preserve-reasoning-controls",
     });
     expect(status.warnings).toContain("Model is not registered in this Ambient Desktop build.");
@@ -153,6 +198,7 @@ describe("registerModelStatusTools", () => {
       registerTool: (tool: any) => registeredTools.push(tool),
     }, {
       requestedModelId: () => "glm-5.1",
+      thinkingLevel: () => "xhigh",
       runningModel: () => ({ id: AMBIENT_GLM_5_2_FP8_MODEL, name: "GLM-5.2 FP8" }),
       providerStatus: () => providerStatus({
         hasApiKey: true,
@@ -173,9 +219,17 @@ describe("registerModelStatusTools", () => {
       },
     ]);
     expect(result.content[0].text).toContain("Ambient model status");
+    expect(result.content[0].text).toContain("Reasoning: current Deep");
+    expect(result.content[0].text).toContain("provider effort max");
     expect(result.content[0].text).toContain(AMBIENT_GLM_5_2_FP8_MODEL);
     expect(result.details.selected.requestedModelId).toBe("glm-5.1");
     expect(result.details.selected.effectiveModelId).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
+    expect(result.details.reasoning.current).toMatchObject({
+      requestedThinkingLevel: "xhigh",
+      effectiveThinkingLevel: "xhigh",
+      label: "Deep",
+      providerEffort: "max",
+    });
     expect(result.details.provider.secretStatus).toBe("available");
     expect(JSON.stringify(result)).not.toContain("ambient_api_key");
     expect(JSON.stringify(result)).not.toContain("api-key");
@@ -189,6 +243,7 @@ describe("registerModelStatusTools", () => {
       registerTool: (tool: any) => registeredTools.push(tool),
     }, {
       requestedModelId: () => AMBIENT_KIMI_K2_7_CODE_MODEL,
+      thinkingLevel: () => "xhigh",
       runningModel: () => runningModel,
       providerStatus: () => providerStatus({ hasApiKey: true, model: runningModel.id }),
       modelRuntimeCatalog: () => createModelRuntimeCatalog({ generatedAt: "2026-06-20T00:00:00.000Z" }),
@@ -199,6 +254,11 @@ describe("registerModelStatusTools", () => {
       modelId: AMBIENT_KIMI_K2_7_CODE_MODEL,
       matchesSelected: true,
     });
+    expect(first.details.reasoning.current).toMatchObject({
+      requestedThinkingLevel: "xhigh",
+      effectiveThinkingLevel: "medium",
+      label: "Reasoning on",
+    });
 
     runningModel = { id: AMBIENT_GLM_5_2_FP8_MODEL, name: "GLM-5.2 FP8" };
     const second = await registeredTools[0]!.execute("model-status", {}, undefined);
@@ -208,6 +268,12 @@ describe("registerModelStatusTools", () => {
     });
     expect(second.details.reasoning).toMatchObject({
       control: "selectable_effort",
+      current: {
+        requestedThinkingLevel: "xhigh",
+        effectiveThinkingLevel: "xhigh",
+        label: "Deep",
+        providerEffort: "max",
+      },
       payloadStrategy: "zai-reasoning-effort",
     });
   });

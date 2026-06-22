@@ -50,6 +50,7 @@ export class AgentRuntimeThreadWakeContinuationController {
   schedule(input: ScheduleThreadWakeContinuationInput): ThreadWakeContinuation {
     const wake = this.options.store.scheduleThreadWakeContinuation(input);
     this.scheduleTimer(wake);
+    this.emitThreadUpdated(wake.threadId);
     return wake;
   }
 
@@ -69,6 +70,7 @@ export class AgentRuntimeThreadWakeContinuationController {
       void this.deliverWakeIfIdle(wake).catch((error) => {
         const message = error instanceof Error ? error.message : String(error);
         this.options.store.markThreadWakeContinuationFailed(wake.id, message);
+        this.emitThreadUpdated(wake.threadId);
         this.options.emit({ type: "error", message: `Thread wake continuation failed: ${message}`, threadId: wake.threadId });
       });
     }, Math.min(delayMs, MAX_TIMEOUT_DELAY_MS));
@@ -92,6 +94,7 @@ export class AgentRuntimeThreadWakeContinuationController {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.options.store.markThreadWakeContinuationFailed(wake.id, message);
+      this.emitThreadUpdated(wake.threadId);
       return;
     }
 
@@ -114,6 +117,15 @@ export class AgentRuntimeThreadWakeContinuationController {
       internal: true,
     });
     this.options.store.markThreadWakeContinuationDelivered(wake.id);
+    this.emitThreadUpdated(wake.threadId);
+  }
+
+  private emitThreadUpdated(threadId: string): void {
+    try {
+      this.options.emit({ type: "thread-updated", thread: this.options.store.getThread(threadId) });
+    } catch {
+      // Missing threads are handled by the delivery path and should not mask wake lifecycle updates.
+    }
   }
 }
 

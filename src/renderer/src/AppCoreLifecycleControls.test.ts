@@ -175,7 +175,6 @@ function optionsStub(): AppCoreLifecycleControlsOptions {
     runActivityLastEventAtRef: { current: 0 },
     runActivityLinesByThreadRef: { current: {} },
     running: true,
-    scheduleVoiceProviderRefresh: vi.fn(),
     setAbortArmed: vi.fn(),
     setActiveGitReview: vi.fn(),
     setActiveGitReviewError: vi.fn(),

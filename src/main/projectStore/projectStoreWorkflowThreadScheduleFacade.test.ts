@@ -707,6 +707,7 @@ describeNative("ProjectStore workflow thread and schedule facade (requires Node 
     });
     expect(store.listThreads().find((thread) => thread.id === schedules[0].dedicatedThreadId)).toMatchObject({
       scheduledCheckIn: {
+        sourceKind: "automation_schedule",
         scheduleId: schedules[0].id,
         nextRunAt: schedules[0].nextRunAt,
         targetKind: "workflow_playbook",

@@ -838,7 +838,7 @@ export function compareSidebarThreads(
   return b[key].localeCompare(a[key]) || aIndex - bIndex;
 }
 
-export function threadIndicator(thread: ThreadSummary, status?: RunStatus, active = false): { kind: ThreadIndicatorKind; label: string } {
+export function threadIndicator(thread: ThreadSummary, status?: RunStatus, active = false, now = Date.now()): { kind: ThreadIndicatorKind; label: string } {
   if (status && isRunStatusRunning(status)) return { kind: "running", label: "Running" };
   const unread = !active && threadHasUnreadWork(thread);
   if (status === "error" || (unread && /runtime returned an error|failed|upstream request failed/i.test(thread.lastMessagePreview))) {
@@ -847,15 +847,38 @@ export function threadIndicator(thread: ThreadSummary, status?: RunStatus, activ
   if (unread) {
     return { kind: "awaiting", label: "New work" };
   }
-  if (!active && thread.scheduledCheckIn?.nextRunAt) {
-    return { kind: "scheduled", label: scheduledCheckInIndicatorLabel(thread.scheduledCheckIn) };
+  if (thread.scheduledCheckIn?.nextRunAt) {
+    return { kind: "scheduled", label: scheduledCheckInIndicatorLabel(thread.scheduledCheckIn, now) };
   }
   return { kind: "idle", label: "Idle" };
 }
 
-function scheduledCheckInIndicatorLabel(checkIn: NonNullable<ThreadSummary["scheduledCheckIn"]>): string {
+function scheduledCheckInIndicatorLabel(checkIn: NonNullable<ThreadSummary["scheduledCheckIn"]>, now: number): string {
   const nextRunAt = formatTimelineTime(checkIn.nextRunAt);
-  return nextRunAt ? `Scheduled check-in for ${checkIn.targetLabel} at ${nextRunAt}` : `Scheduled check-in for ${checkIn.targetLabel}`;
+  const remaining = scheduledCheckInTimeRemainingLabel(checkIn.nextRunAt, now);
+  const remainingDetail = remaining ? ` ${remaining}` : "";
+  return nextRunAt
+    ? `Scheduled check-in for ${checkIn.targetLabel}${remainingDetail} (at ${nextRunAt})`
+    : `Scheduled check-in for ${checkIn.targetLabel}${remainingDetail}`;
+}
+
+function scheduledCheckInTimeRemainingLabel(nextRunAt: string, now: number): string | undefined {
+  const timestamp = Date.parse(nextRunAt);
+  if (!Number.isFinite(timestamp)) return undefined;
+  const remainingMs = timestamp - now;
+  if (remainingMs <= 0) return "due now";
+  const totalMinutes = Math.max(1, Math.ceil(remainingMs / 60_000));
+  if (totalMinutes < 60) return `in ${totalMinutes}m`;
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (totalHours < 24) return `in ${durationParts(totalHours, "h", minutes, "m")}`;
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  return `in ${durationParts(days, "d", hours, "h")}`;
+}
+
+function durationParts(primary: number, primaryUnit: string, secondary: number, secondaryUnit: string): string {
+  return secondary > 0 ? `${primary}${primaryUnit} ${secondary}${secondaryUnit}` : `${primary}${primaryUnit}`;
 }
 
 export function threadHasUnreadWork(thread: ThreadSummary): boolean {

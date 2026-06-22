@@ -4,12 +4,17 @@ import type {
   AmbientModelProviderId,
   AmbientModelReasoningCapability,
   AmbientModelReasoningOption,
+  AmbientModelReasoningThinkingLevel,
   AmbientModelRuntimeCatalog,
   AmbientModelRuntimeProfile,
   AmbientModelStructuredOutputSupport,
   AmbientModelToolUseSupport,
 } from "../../shared/ambientModels";
-import { normalizeAmbientModelId } from "../../shared/ambientModels";
+import {
+  ambientModelReasoningEffortForThinkingLevel,
+  normalizeAmbientModelId,
+  resolveAmbientModelReasoningThinkingLevel,
+} from "../../shared/ambientModels";
 import type { ProviderStatus } from "../../shared/desktopTypes";
 import { modelStatusToolDescriptor } from "./agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "./agentRuntimeDesktopToolFacade";
@@ -52,11 +57,20 @@ export interface AmbientModelStatusCapabilities {
   structuredOutput: AmbientModelStructuredOutputSupport;
 }
 
+export interface AmbientModelStatusCurrentReasoning {
+  requestedThinkingLevel?: AmbientModelReasoningThinkingLevel;
+  effectiveThinkingLevel: AmbientModelReasoningThinkingLevel;
+  label: string;
+  description: string;
+  providerEffort?: string;
+}
+
 export interface AmbientModelStatusReasoning {
   control: AmbientModelReasoningCapability["control"];
   fixedReasoning: boolean;
   hiddenReasoningPreserved: boolean;
   defaultThinkingLevel: AmbientModelReasoningCapability["defaultThinkingLevel"];
+  current: AmbientModelStatusCurrentReasoning;
   payloadStrategy: AmbientModelReasoningCapability["payloadStrategy"];
   selectableThinkingLevels: AmbientModelReasoningOption[];
   requestFields: string[];
@@ -76,12 +90,14 @@ export interface AmbientModelStatusResult {
 export interface BuildAmbientModelStatusInput {
   requestedModelId: string;
   runningModelId: string;
+  selectedThinkingLevel?: AmbientModelReasoningThinkingLevel;
   providerStatus: ProviderStatus;
   catalog: AmbientModelRuntimeCatalog;
 }
 
 export interface ModelStatusToolRegistrationOptions {
   requestedModelId: () => string;
+  thinkingLevel?: () => AmbientModelReasoningThinkingLevel | undefined;
   runningModel: () => { id: string; name?: string };
   providerStatus: () => ProviderStatus;
   modelRuntimeCatalog: () => AmbientModelRuntimeCatalog;
@@ -102,9 +118,11 @@ export function registerModelStatusTools(
     execute: async (_toolCallId, _params, _signal, onUpdate) => {
       onUpdate?.(modelStatusToolUpdate("Inspecting Ambient model runtime status."));
       const runningModel = options.runningModel();
+      const selectedThinkingLevel = options.thinkingLevel?.();
       const result = buildAmbientModelStatus({
         requestedModelId: options.requestedModelId(),
         runningModelId: runningModel.id,
+        ...(selectedThinkingLevel ? { selectedThinkingLevel } : {}),
         providerStatus: options.providerStatus(),
         catalog: options.modelRuntimeCatalog(),
       });
@@ -160,7 +178,7 @@ export function buildAmbientModelStatus(input: BuildAmbientModelStatusInput): Am
       toolUse: runningProfile.toolUse,
       structuredOutput: runningProfile.structuredOutput,
     },
-    reasoning: reasoningStatus(runningProfile.reasoningCapability),
+    reasoning: reasoningStatus(runningProfile.reasoningCapability, runningModelId, input.selectedThinkingLevel),
     warnings,
   };
 }
@@ -194,7 +212,11 @@ function providerSecretStatus(
   return hasApiKey ? "available" : "missing";
 }
 
-function reasoningStatus(reasoningCapability: AmbientModelRuntimeProfile["reasoningCapability"]): AmbientModelStatusReasoning {
+function reasoningStatus(
+  reasoningCapability: AmbientModelRuntimeProfile["reasoningCapability"],
+  modelId: string,
+  selectedThinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
+): AmbientModelStatusReasoning {
   const capability = reasoningCapability ?? {
     schemaVersion: "ambient-model-reasoning-capability-v1",
     control: "unsupported",
@@ -211,11 +233,48 @@ function reasoningStatus(reasoningCapability: AmbientModelRuntimeProfile["reason
     fixedReasoning: capability.fixedReasoning,
     hiddenReasoningPreserved: capability.hiddenReasoningPreserved,
     defaultThinkingLevel: capability.defaultThinkingLevel,
+    current: currentReasoningStatus(capability, modelId, selectedThinkingLevel),
     payloadStrategy: capability.payloadStrategy,
     selectableThinkingLevels: capability.selectableThinkingLevels.map((option) => ({ ...option })),
     requestFields: [...capability.requestFields],
     ...(capability.effortByThinkingLevel ? { effortByThinkingLevel: { ...capability.effortByThinkingLevel } } : {}),
   };
+}
+
+function currentReasoningStatus(
+  capability: AmbientModelReasoningCapability,
+  modelId: string,
+  selectedThinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
+): AmbientModelStatusCurrentReasoning {
+  const effectiveThinkingLevel = resolveAmbientModelReasoningThinkingLevel(modelId, selectedThinkingLevel);
+  const selectedOption = capability.selectableThinkingLevels.find((option) => option.thinkingLevel === effectiveThinkingLevel);
+  const providerEffort = ambientModelReasoningEffortForThinkingLevel(modelId, selectedThinkingLevel);
+  const fixedDescription =
+    "This model controls reasoning internally; Ambient preserves hidden reasoning and omits unsupported request controls.";
+  const genericDescription =
+    "No verified model-specific reasoning contract is registered; Ambient preserves generic thinking controls.";
+  return {
+    ...(selectedThinkingLevel ? { requestedThinkingLevel: selectedThinkingLevel } : {}),
+    effectiveThinkingLevel,
+    label: selectedOption?.label ?? (capability.control === "fixed_on" ? "Reasoning on" : genericThinkingLevelLabel(effectiveThinkingLevel)),
+    description: selectedOption?.description ?? (capability.control === "fixed_on" ? fixedDescription : genericDescription),
+    ...(providerEffort ? { providerEffort } : {}),
+  };
+}
+
+function genericThinkingLevelLabel(thinkingLevel: AmbientModelReasoningThinkingLevel): string {
+  switch (thinkingLevel) {
+    case "minimal":
+      return "Minimal";
+    case "low":
+      return "Low";
+    case "medium":
+      return "Medium";
+    case "high":
+      return "High";
+    case "xhigh":
+      return "Extra High";
+  }
 }
 
 function modelStatusWarnings(input: {
@@ -292,7 +351,7 @@ function modelStatusToolResult(
           `Selected: ${result.selected.label} (${result.selected.effectiveModelId})`,
           `Running: ${result.running.label} (${result.running.modelId})`,
           `Provider: ${result.provider.label} (${result.provider.id})`,
-          `Reasoning: ${result.reasoning.control} via ${result.reasoning.payloadStrategy}`,
+          currentReasoningSummary(result.reasoning),
           result.warnings.length ? `Warnings: ${result.warnings.join(" ")}` : "Warnings: none",
           "",
           "```json",
@@ -303,6 +362,14 @@ function modelStatusToolResult(
     ],
     details: result,
   };
+}
+
+function currentReasoningSummary(reasoning: AmbientModelStatusReasoning): string {
+  const requested = reasoning.current.requestedThinkingLevel && reasoning.current.requestedThinkingLevel !== reasoning.current.effectiveThinkingLevel
+    ? `requested ${reasoning.current.requestedThinkingLevel} -> `
+    : "";
+  const effort = reasoning.current.providerEffort ? `; provider effort ${reasoning.current.providerEffort}` : "";
+  return `Reasoning: current ${reasoning.current.label} (${requested}${reasoning.current.effectiveThinkingLevel}${effort}); control ${reasoning.control} via ${reasoning.payloadStrategy}`;
 }
 
 function modelStatusToolUpdate(text: string): { content: { type: "text"; text: string }[]; details: Record<string, unknown> } {

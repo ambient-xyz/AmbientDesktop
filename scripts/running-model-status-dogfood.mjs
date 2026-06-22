@@ -283,6 +283,12 @@ function assertRunningModelStatusEvidence(input) {
   assertEqualStatusField(statusPayload.running?.matchesSelected, true, "running.matchesSelected");
   assertEqualStatusField(statusPayload.provider?.secretStatus, "available", "provider.secretStatus");
   assertEqualStatusField(statusPayload.reasoning?.control, expected.reasoningControl, "reasoning.control");
+  assertEqualStatusField(statusPayload.reasoning?.current?.requestedThinkingLevel, expected.thinkingLevel, "reasoning.current.requestedThinkingLevel");
+  assertEqualStatusField(statusPayload.reasoning?.current?.effectiveThinkingLevel, expected.effectiveThinkingLevel, "reasoning.current.effectiveThinkingLevel");
+  assertEqualStatusField(statusPayload.reasoning?.current?.label, expected.reasoningLabel, "reasoning.current.label");
+  if (expected.providerEffort) {
+    assertEqualStatusField(statusPayload.reasoning?.current?.providerEffort, expected.providerEffort, "reasoning.current.providerEffort");
+  }
   assertPayloadStrategyStatusField(statusPayload.reasoning?.payloadStrategy, expected.payloadStrategy);
   if (expected.payloadStrategy === "zai-reasoning-effort") {
     assertArrayIncludes(statusPayload.reasoning?.requestFields, "enable_thinking", "reasoning.requestFields");
@@ -318,6 +324,12 @@ function assertRunningModelStatusEvidence(input) {
       effectiveModelId: expected.effectiveModelId,
       requestedModelId: expected.requestedModelId,
       reasoningControl: expected.reasoningControl,
+      reasoningCurrent: {
+        requestedThinkingLevel: expected.thinkingLevel,
+        effectiveThinkingLevel: expected.effectiveThinkingLevel,
+        label: expected.reasoningLabel,
+        providerEffort: expected.providerEffort,
+      },
       payloadStrategy: expected.payloadStrategy,
     },
   };
@@ -818,6 +830,8 @@ function expectedModelContract(modelId, requestedModelId) {
       requestedModelId,
       effectiveModelId: kimiModel,
       thinkingLevel: "xhigh",
+      effectiveThinkingLevel: "medium",
+      reasoningLabel: "Reasoning on",
       reasoningControl: "fixed_on",
       payloadStrategy: "omit-reasoning-controls",
     };
@@ -828,7 +842,10 @@ function expectedModelContract(modelId, requestedModelId) {
       label: "GLM-5.2 FP8",
       requestedModelId,
       effectiveModelId: glm52Model,
-      thinkingLevel: "medium",
+      thinkingLevel: "xhigh",
+      effectiveThinkingLevel: "xhigh",
+      reasoningLabel: "Deep",
+      providerEffort: "max",
       reasoningControl: "selectable_effort",
       payloadStrategy: "zai-reasoning-effort",
     };

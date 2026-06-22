@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import {
+  ambientCliWorkspaceProviderMarkerPath,
   bundledAmbientCliPackageRootCandidates,
   describeAmbientCliPackage,
   discoverAmbientCliEmbeddingProviders,
@@ -15,6 +16,7 @@ import {
   discoverAmbientCliVoiceProviders,
   enabledAmbientCliSkillPaths,
   ensureFirstPartyAmbientCliPackages,
+  hasAmbientCliWorkspaceProviderMarker,
   hydrateAmbientCliPackageSummaries,
   installAmbientCliPackagePiCatalogSource,
   installAmbientCliPackageSource,
@@ -167,6 +169,8 @@ describe("Ambient CLI packages", () => {
       await seedCliFixture(workspaceA);
       const installed = await installAmbientCliPackageSource(workspaceA, { source: "./cli-fixture" });
       expect(installed.rootPath).toContain(appInstallRoot);
+      expect(hasAmbientCliWorkspaceProviderMarker(workspaceA)).toBe(true);
+      await expect(readFile(join(workspaceA, ambientCliWorkspaceProviderMarkerPath), "utf8")).resolves.toContain("ambient-json-cli");
 
       const catalog = await discoverAmbientCliPackages(workspaceB);
       expect(catalog.packages.map((pkg) => pkg.name)).toContain("ambient-json-cli");
@@ -294,6 +298,106 @@ describe("Ambient CLI packages", () => {
       if (originalPath === undefined) delete process.env.PATH;
       else process.env.PATH = originalPath;
       await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("coalesces and briefly caches health-enabled package discovery by package command signature", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-health-singleflight-"));
+    try {
+      await seedCliFixture(workspace);
+      const installed = await installAmbientCliPackageSource(workspace, { source: "./cli-fixture" });
+      const descriptorPath = join(installed.rootPath, "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.commands["json-pick"].healthCheck = ["node", "./bin/health-count.mjs"];
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+      await writeFile(
+        join(installed.rootPath, "bin", "health-count.mjs"),
+        [
+          "import { appendFileSync } from 'node:fs';",
+          "import { join } from 'node:path';",
+          "const workspace = process.env.AMBIENT_WORKSPACE_PATH;",
+          "if (!workspace) throw new Error('AMBIENT_WORKSPACE_PATH missing');",
+          "appendFileSync(join(workspace, 'health-count.log'), '1\\n');",
+          "await new Promise((resolve) => setTimeout(resolve, 100));",
+          "process.stdout.write('healthy');",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+      await rm(join(workspace, "health-count.log"), { force: true });
+
+      const results = await Promise.all([
+        discoverAmbientCliPackages(workspace, { includeHealth: true }),
+        discoverAmbientCliPackages(workspace, { includeHealth: true }),
+        discoverAmbientCliPackages(workspace, { includeHealth: true }),
+      ]);
+
+      expect(results.every((catalog) => catalog.packages[0]?.healthChecks?.[0]?.stdout === "healthy")).toBe(true);
+      expect(results.every((catalog) => catalog.packages[0]?.healthChecks?.[0]?.cached === false)).toBe(true);
+      expect(await readFile(join(workspace, "health-count.log"), "utf8")).toBe("1\n");
+
+      const cachedCatalog = await discoverAmbientCliPackages(workspace, { includeHealth: true });
+      expect(await readFile(join(workspace, "health-count.log"), "utf8")).toBe("1\n");
+      expect(cachedCatalog.packages[0]?.healthChecks?.[0]).toMatchObject({
+        cached: true,
+        checkedAt: expect.any(String),
+      });
+      expect(cachedCatalog.packages[0]?.healthChecks?.[0]?.cacheAgeMs).toBeGreaterThanOrEqual(0);
+
+      await writeFile(
+        join(installed.rootPath, "bin", "health-count.mjs"),
+        [
+          "import { appendFileSync } from 'node:fs';",
+          "import { join } from 'node:path';",
+          "const workspace = process.env.AMBIENT_WORKSPACE_PATH;",
+          "if (!workspace) throw new Error('AMBIENT_WORKSPACE_PATH missing');",
+          "appendFileSync(join(workspace, 'health-count.log'), '2\\n');",
+          "process.stdout.write('healthy after edit');",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+      const afterEditCatalog = await discoverAmbientCliPackages(workspace, { includeHealth: true });
+      expect(afterEditCatalog.packages[0]?.healthChecks?.[0]).toMatchObject({
+        cached: false,
+        stdout: "healthy after edit",
+      });
+      expect(await readFile(join(workspace, "health-count.log"), "utf8")).toBe("1\n2\n");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("does not reuse health cache entries across workspace paths", async () => {
+    const appInstallRoot = await mkdtemp(join(tmpdir(), "ambient-cli-health-workspace-cache-"));
+    const workspaceA = await mkdtemp(join(tmpdir(), "ambient-cli-health-workspace-a-"));
+    const workspaceB = await mkdtemp(join(tmpdir(), "ambient-cli-health-workspace-b-"));
+    const previousRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = appInstallRoot;
+    try {
+      await seedCliFixture(workspaceA);
+      const installed = await installAmbientCliPackageSource(workspaceA, { source: "./cli-fixture" });
+      const descriptorPath = join(installed.rootPath, "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.commands["json-pick"].healthCheck = ["node", "./bin/health-workspace.mjs"];
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+      await writeFile(
+        join(installed.rootPath, "bin", "health-workspace.mjs"),
+        "process.stdout.write(process.env.AMBIENT_WORKSPACE_PATH || 'missing');\n",
+        "utf8",
+      );
+
+      const catalogA = await discoverAmbientCliPackages(workspaceA, { includeHealth: true });
+      const catalogB = await discoverAmbientCliPackages(workspaceB, { includeHealth: true });
+
+      expect(catalogA.packages[0]?.healthChecks?.[0]?.stdout).toBe(workspaceA);
+      expect(catalogB.packages[0]?.healthChecks?.[0]?.stdout).toBe(workspaceB);
+    } finally {
+      if (previousRoot === undefined) delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      else process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousRoot;
+      await rm(appInstallRoot, { recursive: true, force: true });
+      await rm(workspaceA, { recursive: true, force: true });
+      await rm(workspaceB, { recursive: true, force: true });
     }
   });
 
@@ -1079,6 +1183,13 @@ describe("Ambient CLI packages", () => {
     try {
       process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS = "fake Ambient visual evidence";
       process.env.AMBIENT_MINICPM_V_LLAMA_SERVER = join(workspace, "missing-llama-server");
+      const healthStateDir = join(workspace, ".ambient", "vision", "minicpm-v", "state");
+      await mkdir(healthStateDir, { recursive: true });
+      await writeFile(join(healthStateDir, "server-state.json"), `${JSON.stringify({
+        status: "stopped",
+        previousPid: 31337,
+        stoppedAt: "2026-06-12T00:00:00.000Z",
+      })}\n`);
       const statuses = await ensureFirstPartyAmbientCliPackages(workspace, {
         packageNames: ["ambient-minicpm-v-vision"],
         bundledPackageRootPath: join(process.cwd(), "resources", "ambient-cli-packages"),
@@ -1090,14 +1201,6 @@ describe("Ambient CLI packages", () => {
           status: "installed",
         }),
       ]);
-
-      const healthStateDir = join(workspace, ".ambient", "vision", "minicpm-v", "state");
-      await mkdir(healthStateDir, { recursive: true });
-      await writeFile(join(healthStateDir, "server-state.json"), `${JSON.stringify({
-        status: "stopped",
-        previousPid: 31337,
-        stoppedAt: "2026-06-12T00:00:00.000Z",
-      })}\n`);
 
       const catalog = await discoverAmbientCliPackages(workspace, { includeHealth: true });
       const minicpm = catalog.packages.find((pkg) => pkg.name === "ambient-minicpm-v-vision");

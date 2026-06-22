@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type {
   EmbeddingProviderCandidate,
@@ -6,6 +9,8 @@ import type {
   VoiceSettings,
 } from "../../shared/localRuntimeTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
+import { ambientCliWorkspaceProviderMarkerPath } from "../ambient-cli/ambientCliPackages";
+import { secretReferenceFor } from "../security/securityAmbientCliContract";
 import {
   createVoiceSettingsDesktopService,
   type VoiceSettingsDesktopProviders,
@@ -56,11 +61,12 @@ function createStore(input: { workspacePath?: string; threadWorkspaces?: string[
 
 function createHarness(input: {
   initialSettings?: VoiceSettings;
+  store?: FakeStore;
   voiceProvidersByWorkspace?: Record<string, VoiceProviderCandidate[]>;
   memoryEmbeddingProvidersByWorkspace?: Record<string, EmbeddingProviderCandidate[] | Error>;
   cliEmbeddingProvidersByWorkspace?: Record<string, EmbeddingProviderCandidate[] | Error>;
 } = {}) {
-  const store = createStore();
+  const store = input.store ?? createStore();
   const voiceProvidersByWorkspace = input.voiceProvidersByWorkspace ?? {
     "/workspace/project": [voiceProvider({ capabilityId: "voice-package:tool:speak" })],
     "/workspace/child": [voiceProvider({ capabilityId: "voice-package:tool:speak" }), voiceProvider({ capabilityId: "voice-package:tool:narrate" })],
@@ -202,8 +208,17 @@ describe("createVoiceSettingsDesktopService", () => {
     expect(service.listVoiceSettingsAudit()[0]?.summary).toContain("Settings updated voice settings");
   });
 
-  it("lists voice providers with cached voices across unique workspace paths", async () => {
-    const { providers, service, store } = createHarness();
+  it("lists voice providers with cached voices across configured workspace paths", async () => {
+    const root = await tempWorkspace("voice-root");
+    const child = await tempWorkspace("voice-child", true);
+    const store = createStore({ workspacePath: root, threadWorkspaces: [root, child, child] });
+    const { providers, service } = createHarness({
+      store,
+      voiceProvidersByWorkspace: {
+        [root]: [voiceProvider({ capabilityId: "voice-package:tool:speak" })],
+        [child]: [voiceProvider({ capabilityId: "voice-package:tool:speak" }), voiceProvider({ capabilityId: "voice-package:tool:narrate" })],
+      },
+    });
 
     await expect(service.listVoiceProvidersWithCachedVoices(store)).resolves.toEqual([
       expect.objectContaining({ capabilityId: "voice-package:tool:speak" }),
@@ -211,22 +226,108 @@ describe("createVoiceSettingsDesktopService", () => {
     ]);
 
     expect(providers.discoverAmbientCliVoiceProviders).toHaveBeenCalledTimes(2);
-    expect(providers.discoverAmbientCliVoiceProviders).toHaveBeenCalledWith("/workspace/project");
-    expect(providers.discoverAmbientCliVoiceProviders).toHaveBeenCalledWith("/workspace/child");
+    expect(providers.discoverAmbientCliVoiceProviders).toHaveBeenCalledWith(root);
+    expect(providers.discoverAmbientCliVoiceProviders).toHaveBeenCalledWith(child);
     expect(providers.readVoiceDiscoveryCache).toHaveBeenCalledTimes(2);
     expect(providers.mergeVoiceProvidersWithCachedVoices).toHaveBeenCalledTimes(2);
-    expect(service.voiceProviderWorkspacePaths(store)).toEqual(["/workspace/project", "/workspace/child"]);
+    expect(service.voiceProviderWorkspacePaths(store)).toEqual([root, child]);
+  });
+
+  it("skips historical thread workspaces without provider package config during settings discovery", async () => {
+    const root = await tempWorkspace("voice-root-only");
+    const child = await tempWorkspace("voice-unconfigured-child");
+    const store = createStore({ workspacePath: root, threadWorkspaces: [root, child, child] });
+    const { providers, service } = createHarness({
+      store,
+      voiceProvidersByWorkspace: {
+        [root]: [voiceProvider({ capabilityId: "voice-package:tool:speak" })],
+        [child]: [voiceProvider({ capabilityId: "voice-package:tool:narrate" })],
+      },
+    });
+
+    await expect(service.listVoiceProvidersWithCachedVoices(store)).resolves.toEqual([
+      expect.objectContaining({ capabilityId: "voice-package:tool:speak" }),
+    ]);
+
+    expect(providers.discoverAmbientCliVoiceProviders).toHaveBeenCalledTimes(1);
+    expect(providers.discoverAmbientCliVoiceProviders).toHaveBeenCalledWith(root);
+    expect(service.voiceProviderWorkspacePaths(store)).toEqual([root]);
+  });
+
+  it("does not treat shared app managed package state as local thread provider config", async () => {
+    const root = await tempWorkspace("voice-managed-root");
+    const child = await tempWorkspace("voice-managed-child");
+    const managedRoot = await tempWorkspace("voice-managed-install-root", true);
+    const previousRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      const store = createStore({ workspacePath: root, threadWorkspaces: [root, child] });
+      const { service } = createHarness({ store });
+
+      expect(service.voiceProviderWorkspacePaths(store)).toEqual([root]);
+
+      await writeWorkspaceProviderMarker(child);
+      expect(service.voiceProviderWorkspacePaths(store)).toEqual([root, child]);
+    } finally {
+      if (previousRoot === undefined) delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      else process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousRoot;
+    }
+  });
+
+  it("includes pre-marker managed workspaces that have local provider state", async () => {
+    const root = await tempWorkspace("voice-legacy-managed-root");
+    const child = await tempWorkspace("voice-legacy-managed-child");
+    const managedRoot = await tempWorkspace("voice-legacy-managed-install-root", true);
+    const previousRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      const store = createStore({ workspacePath: root, threadWorkspaces: [root, child] });
+      const { service } = createHarness({ store });
+
+      expect(service.voiceProviderWorkspacePaths(store)).toEqual([root]);
+
+      await writeLegacyVoiceDiscoveryCache(child);
+      expect(service.voiceProviderWorkspacePaths(store)).toEqual([root, child]);
+    } finally {
+      if (previousRoot === undefined) delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      else process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousRoot;
+    }
+  });
+
+  it("includes only the pre-marker managed workspace that owns a scoped secret binding", async () => {
+    const root = await tempWorkspace("voice-legacy-secret-managed-root");
+    const child = await tempWorkspace("voice-legacy-secret-managed-child");
+    const other = await tempWorkspace("voice-legacy-secret-managed-other");
+    const managedRoot = await tempWorkspace("voice-legacy-secret-managed-install-root", true);
+    const previousRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      const store = createStore({ workspacePath: root, threadWorkspaces: [root, child, other] });
+      const { service } = createHarness({ store });
+
+      expect(service.voiceProviderWorkspacePaths(store)).toEqual([root]);
+
+      await writeManagedSecretEnvBinding(managedRoot, child);
+      expect(service.voiceProviderWorkspacePaths(store)).toEqual([root, child]);
+    } finally {
+      if (previousRoot === undefined) delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      else process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousRoot;
+    }
   });
 
   it("lists embedding providers for settings while tolerating per-source discovery failures", async () => {
-    const { service, store } = createHarness({
+    const root = await tempWorkspace("embedding-root");
+    const child = await tempWorkspace("embedding-child", true);
+    const store = createStore({ workspacePath: root, threadWorkspaces: [root, child] });
+    const { service } = createHarness({
+      store,
       memoryEmbeddingProvidersByWorkspace: {
-        "/workspace/project": new Error("memory discovery failed"),
-        "/workspace/child": [embeddingProvider({ capabilityId: "memory-package:tool:embed-child" })],
+        [root]: new Error("memory discovery failed"),
+        [child]: [embeddingProvider({ capabilityId: "memory-package:tool:embed-child" })],
       },
       cliEmbeddingProvidersByWorkspace: {
-        "/workspace/project": [embeddingProvider({ capabilityId: "cli-package:tool:embed" })],
-        "/workspace/child": [embeddingProvider({ capabilityId: "cli-package:tool:embed" })],
+        [root]: [embeddingProvider({ capabilityId: "cli-package:tool:embed" })],
+        [child]: [embeddingProvider({ capabilityId: "cli-package:tool:embed" })],
       },
     });
 
@@ -237,15 +338,19 @@ describe("createVoiceSettingsDesktopService", () => {
   });
 
   it("resolves provider workspace paths and refreshes provider voice catalogs", async () => {
-    const { providers, service, store } = createHarness({
+    const root = await tempWorkspace("refresh-root");
+    const child = await tempWorkspace("refresh-child", true);
+    const store = createStore({ workspacePath: root, threadWorkspaces: [root, child] });
+    const { providers, service } = createHarness({
+      store,
       voiceProvidersByWorkspace: {
-        "/workspace/project": [],
-        "/workspace/child": [voiceProvider({ capabilityId: "voice-package:tool:narrate", label: "Narrate" })],
+        [root]: [],
+        [child]: [voiceProvider({ capabilityId: "voice-package:tool:narrate", label: "Narrate" })],
       },
     });
 
-    await expect(service.resolveVoiceProviderWorkspacePath("voice-package:tool:narrate", store)).resolves.toBe("/workspace/child");
-    await expect(service.resolveVoiceProviderWorkspacePath(undefined, store)).resolves.toBe("/workspace/project");
+    await expect(service.resolveVoiceProviderWorkspacePath("voice-package:tool:narrate", store)).resolves.toBe(child);
+    await expect(service.resolveVoiceProviderWorkspacePath(undefined, store)).resolves.toBe(root);
     await expect(service.refreshVoiceProviderCatalog({ providerCapabilityId: "voice-package:tool:narrate" }, store)).resolves.toEqual({
       providerCapabilityId: "voice-package:tool:narrate",
       providerLabel: "Narrate",
@@ -259,7 +364,7 @@ describe("createVoiceSettingsDesktopService", () => {
     });
 
     expect(providers.refreshVoiceProviderVoices).toHaveBeenCalledWith(
-      "/workspace/child",
+      child,
       [expect.objectContaining({ capabilityId: "voice-package:tool:narrate" })],
       { providerCapabilityId: "voice-package:tool:narrate" },
       expect.any(Function),
@@ -326,4 +431,50 @@ function embeddingProvider(input: Partial<EmbeddingProviderCandidate> = {}): Emb
     availabilityReason: "ready",
     ...input,
   };
+}
+
+async function tempWorkspace(label: string, withCliConfig = false): Promise<string> {
+  const workspace = await mkdtemp(join(tmpdir(), `ambient-voice-settings-${label}-`));
+  if (withCliConfig) await writeCliPackageConfig(workspace);
+  return workspace;
+}
+
+async function writeCliPackageConfig(workspace: string): Promise<void> {
+  await mkdir(join(workspace, ".ambient", "cli-packages"), { recursive: true });
+  await writeFile(join(workspace, ".ambient", "cli-packages", "packages.json"), `${JSON.stringify({ packages: [] })}\n`, "utf8");
+}
+
+async function writeWorkspaceProviderMarker(workspace: string): Promise<void> {
+  await mkdir(join(workspace, ".ambient", "cli-packages"), { recursive: true });
+  await writeFile(
+    join(workspace, ambientCliWorkspaceProviderMarkerPath),
+    `${JSON.stringify({ schemaVersion: "ambient-cli-workspace-provider-state-v1" })}\n`,
+    "utf8",
+  );
+}
+
+async function writeLegacyVoiceDiscoveryCache(workspace: string): Promise<void> {
+  await mkdir(join(workspace, ".ambient", "voice"), { recursive: true });
+  await writeFile(
+    join(workspace, ".ambient", "voice", "voice-discovery-cache.json"),
+    `${JSON.stringify({ schemaVersion: "ambient-voice-discovery-cache-v1", providers: {} })}\n`,
+    "utf8",
+  );
+}
+
+async function writeManagedSecretEnvBinding(managedRoot: string, workspace: string): Promise<void> {
+  const packageName = "secret-provider";
+  const envName = "SECRET_API_KEY";
+  await mkdir(join(managedRoot, ".ambient", "cli-packages"), { recursive: true });
+  await writeFile(
+    join(managedRoot, ".ambient", "cli-packages", "env-bindings.json"),
+    `${JSON.stringify({
+      bindings: [{
+        packageName,
+        envName,
+        secretRef: secretReferenceFor({ scope: "ambient-cli", workspacePath: workspace, ownerId: packageName, envName }),
+      }],
+    }, null, 2)}\n`,
+    "utf8",
+  );
 }

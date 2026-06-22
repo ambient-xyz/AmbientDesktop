@@ -183,6 +183,40 @@ describeNative("ProjectStore orchestration tasks (requires Node ABI better-sqlit
     expect(store.getDefaultSettings().permissionMode).toBe("workspace");
   });
 
+  it("exposes pending thread wake continuations as scheduled thread check-ins", () => {
+    const thread = store.createThread("Wake me");
+    const later = store.scheduleThreadWakeContinuation({
+      threadId: thread.id,
+      dueAt: "2026-06-04T13:00:00.000Z",
+      reason: "Check the long-running job.",
+    });
+    const earlier = store.scheduleThreadWakeContinuation({
+      threadId: thread.id,
+      dueAt: "2026-06-04T12:30:00.000Z",
+      reason: "Check progress first.",
+    });
+
+    expect(store.getThread(thread.id).scheduledCheckIn).toMatchObject({
+      sourceKind: "thread_wake",
+      wakeId: earlier.id,
+      nextRunAt: "2026-06-04T12:30:00.000Z",
+      targetKind: "thread_wake",
+      targetLabel: "this thread",
+    });
+    expect(store.listThreads().find((candidate) => candidate.id === thread.id)?.scheduledCheckIn).toMatchObject({
+      wakeId: earlier.id,
+    });
+
+    store.markThreadWakeContinuationDelivered(earlier.id);
+    expect(store.getThread(thread.id).scheduledCheckIn).toMatchObject({
+      wakeId: later.id,
+      nextRunAt: "2026-06-04T13:00:00.000Z",
+    });
+
+    store.markThreadWakeContinuationDelivered(later.id);
+    expect(store.getThread(thread.id).scheduledCheckIn).toBeUndefined();
+  });
+
   it("persists aggressive retry runtime settings with safe defaults", () => {
     expect(store.getDefaultSettings().modelRuntime).toEqual({
       aggressiveRetries: true,

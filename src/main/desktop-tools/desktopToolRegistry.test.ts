@@ -289,6 +289,7 @@ describe("firstPartyDesktopToolDescriptors", () => {
       type: "string",
     });
     expect(modelStatusToolDescriptor("ambient_model_status").promptGuidelines.join("\n")).toContain("GLM-5.2");
+    expect(modelStatusToolDescriptor("ambient_model_status").promptGuidelines.join("\n")).toContain("reasoning.current");
   });
 
   it("provides workflow-relevant metadata for every descriptor", () => {

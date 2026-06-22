@@ -313,14 +313,13 @@ export function AppShellSidebar({
                           <div className="thread-list nested">
                             {project.threads.map((thread) => {
                               const isActiveThread = thread.id === activeThreadId && isActiveProject;
-                              const indicator = threadIndicator(thread, threadRunStatuses[thread.id], isActiveThread);
+                              const indicator = threadIndicator(thread, threadRunStatuses[thread.id], isActiveThread, sidebarAgeNow);
                               const ageLabel = sidebarThreadAgeLabel(thread.updatedAt, sidebarAgeNow);
                               const previewText = thread.lastMessagePreview || project.name;
                               return (
                                 <button
                                   key={`${project.path}:${thread.id}`}
                                   className={`thread-row ${thread.kind === "subagent_child" ? "subagent-child" : ""} ${isActiveThread ? "active" : ""}`}
-                                  title={thread.title}
                                   onClick={() => void onSelectThread(thread.id, project.path)}
                                   onContextMenu={(event) => onOpenThreadContextMenu(event, thread, project.path)}
                                 >
@@ -334,7 +333,11 @@ export function AppShellSidebar({
                                     </span>
                                     <span className="thread-row-meta">
                                       {ageLabel && <span className="thread-age">{ageLabel}</span>}
-                                      <span className={`thread-indicator ${indicator.kind}`} title={indicator.label}>
+                                      <span
+                                        className={`thread-indicator ${indicator.kind}`}
+                                        aria-label={indicator.label}
+                                        data-tooltip={indicator.kind === "scheduled" ? indicator.label : undefined}
+                                      >
                                         <ThreadIndicatorIcon kind={indicator.kind} />
                                       </span>
                                     </span>
@@ -362,7 +365,7 @@ export function AppShellSidebar({
                     const project = sidebarProjects.find((item) => item.threads.some((candidate) => candidate.id === thread.id));
                     const threadProjectPath = project?.path ?? thread.workspacePath;
                     const isActiveThread = thread.id === activeThreadId;
-                    const indicator = threadIndicator(thread, threadRunStatuses[thread.id], isActiveThread);
+                    const indicator = threadIndicator(thread, threadRunStatuses[thread.id], isActiveThread, sidebarAgeNow);
                     const ageLabel = sidebarThreadAgeLabel(thread.updatedAt, sidebarAgeNow);
                     const previewText = project?.name || thread.workspacePath;
                     return (

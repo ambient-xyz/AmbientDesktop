@@ -135,6 +135,7 @@ function diagnosticHttpStatus(value: string | number | undefined): number | unde
 
 export function isContinuableAmbientProviderInterruption(error: unknown): boolean {
   if (error instanceof AmbientStreamFailureError) {
+    if (error.kind === "pre_stream_timeout") return false;
     if (error.kind === "user_abort") return false;
     if (/\b(?:api key|unauthori[sz]ed|forbidden|invalid request|schema|validation|permission)\b/i.test(error.message)) return false;
     return true;

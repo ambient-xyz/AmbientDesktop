@@ -107,6 +107,7 @@ export class AgentRuntimeModelContextController {
   private createModelStatusToolExtension(input: AgentRuntimeModelContextExtensionFactoriesInput): ExtensionFactory {
     return createModelStatusToolsExtension({
       requestedModelId: () => this.options.store.getThread(input.thread.id)?.model ?? input.thread.model,
+      thinkingLevel: () => this.options.store.getThread(input.thread.id)?.thinkingLevel ?? input.thread.thinkingLevel,
       runningModel: () => input.getRunningModel?.() ?? input.model,
       providerStatus: () => {
         const runningModel = input.getRunningModel?.();

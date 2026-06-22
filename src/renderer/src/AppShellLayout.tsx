@@ -3,6 +3,7 @@ import type { ComponentProps, Dispatch, RefObject, SetStateAction } from "react"
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { WorkflowAgentFolderSummary, WorkflowAgentThreadSummary } from "../../shared/workflowTypes";
+import type { AppActiveThreadModel } from "./AppActiveThreadModel";
 import type { ChatComposerInputHandle } from "./AppComposerControls";
 import { DesktopUpdateNotice } from "./AppDialogs";
 import { AppModalHost } from "./AppModalHost";
@@ -10,6 +11,10 @@ import { AppRightPanelHost } from "./AppRightPanelHost";
 import { AppShellSidebar } from "./AppShellSidebar";
 import { AppTopbar, type AppTopbarProjectBoardAction } from "./AppTopbar";
 import type { AppUpdateAction } from "./AppUpdateActions";
+import type { useAppShellUiState } from "./AppShellUiState";
+import type { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
+import type { useAppRightPanelState } from "./AppRightPanelState";
+import type { useAppWorkflowRecordingReviewControls } from "./AppWorkflowRecordingReviewControls";
 import { AppWorkspaceRouter } from "./AppWorkspaceRouter";
 import { workflowRecorderSurface } from "./AutomationsWorkspace";
 import type { UtilityPanel } from "./RightPanel";
@@ -72,6 +77,84 @@ export type AppShellLayoutPropsInput = {
   workflowRecordingReviewPanelOpen: boolean;
   applyLatestWorkflowRecordingSummary: WorkflowReviewPanelProps["onApplyLatestSummary"];
 };
+
+export type AppShellLayoutPropsForAppInput = Omit<
+  AppShellLayoutPropsInput,
+  | "activeGitReview"
+  | "activeGitReviewError"
+  | "conversationReviewPanelDocked"
+  | "isMac"
+  | "rightPanel"
+  | "runUpdateAction"
+  | "setSidebarOpen"
+  | "setUpdatePopoverOpen"
+  | "setWorkflowRecordingReviewPanelOpen"
+  | "showTopbarThreadMemoryToggle"
+  | "sidebarArea"
+  | "sidebarOpen"
+  | "togglePanel"
+  | "updateBusy"
+  | "updatePopoverOpen"
+  | "workflowRecorderReviewPanelWidth"
+  | "workflowRecordingReviewFeedbackActive"
+  | "workflowRecordingReviewPanelOpen"
+> & {
+  activeThreadModel: Pick<AppActiveThreadModel, "isMac" | "showTopbarThreadMemoryToggle">;
+  rightPanelState: Pick<ReturnType<typeof useAppRightPanelState>, "rightPanel" | "togglePanel">;
+  shellUiState: Pick<
+    ReturnType<typeof useAppShellUiState>,
+    | "setSidebarOpen"
+    | "setUpdatePopoverOpen"
+    | "sidebarArea"
+    | "sidebarOpen"
+    | "updateBusy"
+    | "updatePopoverOpen"
+    | "workflowRecorderReviewPanelWidth"
+  >;
+  updateActions: {
+    runUpdateAction: (action: AppUpdateAction) => unknown;
+  };
+  workflowRecordingReviewControls: Pick<
+    ReturnType<typeof useAppWorkflowRecordingReviewControls>,
+    | "conversationReviewPanelDocked"
+    | "setWorkflowRecordingReviewPanelOpen"
+    | "workflowRecordingReviewFeedbackActive"
+    | "workflowRecordingReviewPanelOpen"
+  >;
+  workspaceShellState: Pick<ReturnType<typeof useAppWorkspaceShellState>, "activeGitReview" | "activeGitReviewError">;
+};
+
+export function createAppShellLayoutPropsForApp({
+  activeThreadModel,
+  rightPanelState,
+  shellUiState,
+  updateActions,
+  workflowRecordingReviewControls,
+  workspaceShellState,
+  ...input
+}: AppShellLayoutPropsForAppInput): AppShellLayoutProps {
+  return createAppShellLayoutProps({
+    ...input,
+    activeGitReview: workspaceShellState.activeGitReview,
+    activeGitReviewError: workspaceShellState.activeGitReviewError,
+    conversationReviewPanelDocked: workflowRecordingReviewControls.conversationReviewPanelDocked,
+    isMac: activeThreadModel.isMac,
+    rightPanel: rightPanelState.rightPanel,
+    runUpdateAction: updateActions.runUpdateAction,
+    setSidebarOpen: shellUiState.setSidebarOpen,
+    setUpdatePopoverOpen: shellUiState.setUpdatePopoverOpen,
+    setWorkflowRecordingReviewPanelOpen: workflowRecordingReviewControls.setWorkflowRecordingReviewPanelOpen,
+    showTopbarThreadMemoryToggle: activeThreadModel.showTopbarThreadMemoryToggle,
+    sidebarArea: shellUiState.sidebarArea,
+    sidebarOpen: shellUiState.sidebarOpen,
+    togglePanel: rightPanelState.togglePanel,
+    updateBusy: shellUiState.updateBusy,
+    updatePopoverOpen: shellUiState.updatePopoverOpen,
+    workflowRecorderReviewPanelWidth: shellUiState.workflowRecorderReviewPanelWidth,
+    workflowRecordingReviewFeedbackActive: workflowRecordingReviewControls.workflowRecordingReviewFeedbackActive,
+    workflowRecordingReviewPanelOpen: workflowRecordingReviewControls.workflowRecordingReviewPanelOpen,
+  });
+}
 
 export function createAppShellLayoutProps({
   activeGitReview,

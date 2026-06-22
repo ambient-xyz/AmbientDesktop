@@ -6,18 +6,6 @@ import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
 import type { WelcomeOnboardingPageKind } from "../../shared/welcomeOnboarding";
 import type { SttMicrophoneRecorder } from "./sttMicrophoneRecorder";
 
-export function shouldRefreshVoiceProviderAfterRun({
-  previousRunning,
-  running,
-  stateAvailable,
-}: {
-  previousRunning: boolean;
-  running: boolean;
-  stateAvailable: boolean;
-}): boolean {
-  return stateAvailable && previousRunning && !running;
-}
-
 export function shouldDisarmComposerModesForCollaborationMode(
   collaborationMode: DesktopState["settings"]["collaborationMode"] | undefined,
 ): boolean {
@@ -40,7 +28,6 @@ export function useAppSpeechProviderLifecycleEffects({
   pluginCatalogRevision,
   previousRunningRef,
   running,
-  scheduleVoiceProviderRefresh,
   stateAvailable,
 }: {
   activeWorkspacePath: string | undefined;
@@ -50,7 +37,6 @@ export function useAppSpeechProviderLifecycleEffects({
   pluginCatalogRevision: number;
   previousRunningRef: MutableRefObject<boolean>;
   running: boolean;
-  scheduleVoiceProviderRefresh: (delayMs?: number, trigger?: string) => void;
   stateAvailable: boolean;
 }): void {
   useEffect(() => {
@@ -61,15 +47,8 @@ export function useAppSpeechProviderLifecycleEffects({
   }, [activeWorkspacePath, pluginCatalogRevision]);
 
   useEffect(() => {
-    if (shouldRefreshVoiceProviderAfterRun({
-      previousRunning: previousRunningRef.current,
-      running,
-      stateAvailable,
-    })) {
-      scheduleVoiceProviderRefresh(500, "run completed");
-    }
     if (stateAvailable) previousRunningRef.current = running;
-  }, [running, activeWorkspacePath]);
+  }, [running, activeWorkspacePath, stateAvailable]);
 }
 
 export function useAppComposerModeThreadLifecycleEffects({

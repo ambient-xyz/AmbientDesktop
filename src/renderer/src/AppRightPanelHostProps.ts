@@ -170,6 +170,128 @@ export type AppRightPanelHostPropsInput = {
   workspaceShellState: WorkspaceShellStateInput;
 };
 
+export type AppRightPanelHostPropsForAppActions = {
+  agentMemoryControls: Pick<AppRightPanelHostActions, "refreshAgentMemoryDiagnostics" | "runAgentMemoryEmbeddingLifecycleAction">;
+  browserActionControls: Pick<AppRightPanelHostActions, "continueAfterBrowserUserActionIfReady">;
+  capabilityPromptActions: Pick<AppRightPanelHostActions, "startCapabilityBuilderPrompt">;
+  contextAttachmentActions: Pick<AppRightPanelHostActions, "addContextAttachments" | "clearContextAttachments" | "removeContextAttachment">;
+  credentialDialogActions: Pick<AppRightPanelHostActions, "openAmbientCliSecretDialog" | "openApiKeyDialog">;
+  navigationActions: Pick<AppRightPanelHostActions, "selectThread">;
+  permissionActions: Pick<
+    AppRightPanelHostActions,
+    "loadPermissionAudit" | "loadPermissionGrants" | "revokePermissionGrant" | "revokePermissionGrantIds"
+  >;
+  providerRuntimeActions: Pick<
+    AppRightPanelHostActions,
+    | "cancelSttMicTest"
+    | "loadLocalDeepResearchRunHistory"
+    | "loadSttMicrophoneDeviceList"
+    | "loadSttProviders"
+    | "loadVoiceProviders"
+    | "openLocalDeepResearchFollowupIfSetupNeeded"
+    | "refreshVoiceCatalog"
+    | "setupLocalDeepResearchFromSettings"
+    | "setupMiniCpmVisionProviderFromSettings"
+    | "setupSttProvider"
+    | "startSttMicTest"
+    | "stopSttMicTestAndValidate"
+  >;
+  settingsActions: Pick<
+    AppRightPanelHostActions,
+    | "clearAgentMemory"
+    | "hydrateSearchRoutingSettingsForSettingsPanel"
+    | "installModelProviderEndpoint"
+    | "runLocalModelRuntimeLifecycleAction"
+    | "saveModelProviderCredential"
+    | "updateFeatureFlagSettings"
+    | "updateLocalDeepResearchSettings"
+    | "updateMediaPlaybackSettings"
+    | "updateMemorySettings"
+    | "updateModelRuntimeSettings"
+    | "updatePlannerSettings"
+    | "updateSearchRoutingSettings"
+    | "updateSttSettings"
+    | "updateThinkingDisplaySettings"
+    | "updateVoiceSettings"
+  >;
+  shellCommandActions: Pick<AppRightPanelHostActions, "updateThemePreference" | "updateThreadSettings">;
+  threadMaintenanceActions: Pick<AppRightPanelHostActions, "exportDiagnostics" | "importDiagnostics">;
+  updateActions: Pick<AppRightPanelHostActions, "runUpdateAction">;
+};
+
+export type AppRightPanelHostPropsForAppInput = Omit<AppRightPanelHostPropsInput, "actions"> & {
+  actions: AppRightPanelHostPropsForAppActions;
+};
+
+export function createAppRightPanelHostPropsForApp({ actions, ...input }: AppRightPanelHostPropsForAppInput): AppRightPanelHostProps {
+  const {
+    agentMemoryControls,
+    browserActionControls,
+    capabilityPromptActions,
+    contextAttachmentActions,
+    credentialDialogActions,
+    navigationActions,
+    permissionActions,
+    providerRuntimeActions,
+    settingsActions,
+    shellCommandActions,
+    threadMaintenanceActions,
+    updateActions,
+  } = actions;
+
+  return createAppRightPanelHostProps({
+    ...input,
+    actions: {
+      addContextAttachments: contextAttachmentActions.addContextAttachments,
+      cancelSttMicTest: providerRuntimeActions.cancelSttMicTest,
+      clearAgentMemory: settingsActions.clearAgentMemory,
+      clearContextAttachments: contextAttachmentActions.clearContextAttachments,
+      continueAfterBrowserUserActionIfReady: browserActionControls.continueAfterBrowserUserActionIfReady,
+      exportDiagnostics: threadMaintenanceActions.exportDiagnostics,
+      hydrateSearchRoutingSettingsForSettingsPanel: settingsActions.hydrateSearchRoutingSettingsForSettingsPanel,
+      importDiagnostics: threadMaintenanceActions.importDiagnostics,
+      installModelProviderEndpoint: settingsActions.installModelProviderEndpoint,
+      loadLocalDeepResearchRunHistory: providerRuntimeActions.loadLocalDeepResearchRunHistory,
+      loadPermissionAudit: permissionActions.loadPermissionAudit,
+      loadPermissionGrants: permissionActions.loadPermissionGrants,
+      loadSttMicrophoneDeviceList: providerRuntimeActions.loadSttMicrophoneDeviceList,
+      loadSttProviders: providerRuntimeActions.loadSttProviders,
+      loadVoiceProviders: providerRuntimeActions.loadVoiceProviders,
+      openAmbientCliSecretDialog: credentialDialogActions.openAmbientCliSecretDialog,
+      openApiKeyDialog: credentialDialogActions.openApiKeyDialog,
+      openLocalDeepResearchFollowupIfSetupNeeded: providerRuntimeActions.openLocalDeepResearchFollowupIfSetupNeeded,
+      refreshAgentMemoryDiagnostics: agentMemoryControls.refreshAgentMemoryDiagnostics,
+      refreshVoiceCatalog: providerRuntimeActions.refreshVoiceCatalog,
+      removeContextAttachment: contextAttachmentActions.removeContextAttachment,
+      revokePermissionGrant: permissionActions.revokePermissionGrant,
+      revokePermissionGrantIds: permissionActions.revokePermissionGrantIds,
+      runAgentMemoryEmbeddingLifecycleAction: agentMemoryControls.runAgentMemoryEmbeddingLifecycleAction,
+      runLocalModelRuntimeLifecycleAction: settingsActions.runLocalModelRuntimeLifecycleAction,
+      runUpdateAction: updateActions.runUpdateAction,
+      saveModelProviderCredential: settingsActions.saveModelProviderCredential,
+      selectThread: navigationActions.selectThread,
+      setupLocalDeepResearchFromSettings: providerRuntimeActions.setupLocalDeepResearchFromSettings,
+      setupMiniCpmVisionProviderFromSettings: providerRuntimeActions.setupMiniCpmVisionProviderFromSettings,
+      setupSttProvider: providerRuntimeActions.setupSttProvider,
+      startCapabilityBuilderPrompt: capabilityPromptActions.startCapabilityBuilderPrompt,
+      startSttMicTest: providerRuntimeActions.startSttMicTest,
+      stopSttMicTestAndValidate: providerRuntimeActions.stopSttMicTestAndValidate,
+      updateFeatureFlagSettings: settingsActions.updateFeatureFlagSettings,
+      updateLocalDeepResearchSettings: settingsActions.updateLocalDeepResearchSettings,
+      updateMediaPlaybackSettings: settingsActions.updateMediaPlaybackSettings,
+      updateMemorySettings: settingsActions.updateMemorySettings,
+      updateModelRuntimeSettings: settingsActions.updateModelRuntimeSettings,
+      updatePlannerSettings: settingsActions.updatePlannerSettings,
+      updateSearchRoutingSettings: settingsActions.updateSearchRoutingSettings,
+      updateSttSettings: settingsActions.updateSttSettings,
+      updateThemePreference: shellCommandActions.updateThemePreference,
+      updateThinkingDisplaySettings: settingsActions.updateThinkingDisplaySettings,
+      updateThreadSettings: shellCommandActions.updateThreadSettings,
+      updateVoiceSettings: settingsActions.updateVoiceSettings,
+    },
+  });
+}
+
 export function createAppRightPanelHostProps({
   actions,
   onBeginResize,

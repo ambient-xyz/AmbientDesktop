@@ -6,4 +6,5 @@ export {
   isSecretReference,
   readSecretReference,
   saveSecretReference,
+  secretReferenceFor,
 } from "./secretReferenceStore";

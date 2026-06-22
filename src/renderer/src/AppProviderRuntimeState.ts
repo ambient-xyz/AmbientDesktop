@@ -73,9 +73,13 @@ export function useAppProviderRuntimeState() {
   const [sttComposer, setSttComposer] = useState<SttComposerUiState>({ status: "idle" });
   const [sttDraftMetadata, setSttDraftMetadata] = useState<SttDraftMetadataState | undefined>();
   const voiceProviderRefreshTimerRef = useRef<number | undefined>(undefined);
+  const voiceProviderLoadPromiseRef = useRef<Promise<void> | undefined>(undefined);
+  const voiceProviderQueuedRefreshTriggerRef = useRef<string | undefined>(undefined);
   const voiceProviderRequestIdRef = useRef(0);
   const voiceProvidersRef = useRef<VoiceProviderCandidate[]>([]);
   const sttProviderRefreshTimerRef = useRef<number | undefined>(undefined);
+  const sttProviderLoadPromiseRef = useRef<Promise<void> | undefined>(undefined);
+  const sttProviderQueuedRefreshTriggerRef = useRef<string | undefined>(undefined);
   const sttProviderRequestIdRef = useRef(0);
   const sttProvidersRef = useRef<SttProviderCandidate[]>([]);
   const sttMicRecorderRef = useRef<SttMicrophoneRecorder | undefined>(undefined);
@@ -157,9 +161,13 @@ export function useAppProviderRuntimeState() {
     sttDraftMetadata,
     setSttDraftMetadata,
     voiceProviderRefreshTimerRef,
+    voiceProviderLoadPromiseRef,
+    voiceProviderQueuedRefreshTriggerRef,
     voiceProviderRequestIdRef,
     voiceProvidersRef,
     sttProviderRefreshTimerRef,
+    sttProviderLoadPromiseRef,
+    sttProviderQueuedRefreshTriggerRef,
     sttProviderRequestIdRef,
     sttProvidersRef,
     sttMicRecorderRef,

@@ -324,9 +324,11 @@ export interface ThreadWorktreeSummary {
 }
 
 export interface ThreadScheduledCheckInSummary {
-  scheduleId: string;
+  sourceKind: "automation_schedule" | "thread_wake";
+  scheduleId?: string;
+  wakeId?: string;
   nextRunAt: string;
-  targetKind: AutomationScheduleTargetKind;
+  targetKind: AutomationScheduleTargetKind | "thread_wake";
   targetLabel: string;
 }
 

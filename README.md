@@ -45,7 +45,7 @@ pnpm install
 pnpm run dev
 ```
 
-Current provider note, 2026-06-16: Use an available supported provider for live validation. Contributors who need provider-dependent local validation should use the Ambient provider with Kimi selected:
+Current provider note, 2026-06-16: The currently selected provider may be degraded. Contributors who need provider-dependent local validation should use the Ambient provider with Kimi selected:
 
 ```bash
 AMBIENT_PROVIDER=ambient AMBIENT_LIVE_MODEL=<model-id> pnpm run dev

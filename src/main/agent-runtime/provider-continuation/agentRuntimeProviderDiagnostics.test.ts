@@ -149,6 +149,9 @@ describe("agentRuntimeProviderDiagnostics", () => {
       new AmbientStreamFailureError("stream_idle_timeout", "Ambient/Pi stream stalled.", { toolCallSeen: true }),
     )).toBe(true);
     expect(isContinuableAmbientProviderInterruption(
+      new AmbientStreamFailureError("pre_stream_timeout", "Ambient/Pi did not start streaming."),
+    )).toBe(false);
+    expect(isContinuableAmbientProviderInterruption(
       new AmbientStreamFailureError("user_abort", "User stopped the run."),
     )).toBe(false);
     expect(isContinuableAmbientProviderInterruption(

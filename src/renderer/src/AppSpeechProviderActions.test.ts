@@ -105,6 +105,141 @@ describe("App speech provider actions", () => {
     });
   });
 
+  it("shares an in-flight voice provider refresh instead of issuing duplicate IPC calls", async () => {
+    const providers = [voiceProvider({ capabilityId: "voice:one", available: true })];
+    let resolveList: ((value: VoiceProviderCandidate[]) => void) | undefined;
+    const listVoiceProviders = vi.fn(() => new Promise<VoiceProviderCandidate[]>((resolve) => {
+      resolveList = resolve;
+    }));
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        listVoiceProviders,
+      },
+    });
+    const controller = createController();
+
+    const first = controller.actions.loadVoiceProviders("initial");
+    const second = controller.actions.loadVoiceProviders("manual refresh");
+    expect(first).toBe(second);
+    expect(listVoiceProviders).toHaveBeenCalledTimes(1);
+
+    resolveList?.(providers);
+    await first;
+
+    expect(controller.voiceProviders.value).toEqual(providers);
+    expect(controller.voiceCacheStatus.value).toMatchObject({
+      lastTrigger: "manual refresh",
+      providerCount: 1,
+    });
+    expect(controller.voiceCacheActivity.value).toHaveLength(1);
+    expect(controller.voiceLoading.value).toBe(false);
+  });
+
+  it("queues provider inventory voice refreshes requested during an in-flight load", async () => {
+    const firstProviders = [voiceProvider({ capabilityId: "voice:old", available: true })];
+    const secondProviders = [voiceProvider({ capabilityId: "voice:new", available: true })];
+    const resolvers: Array<(value: VoiceProviderCandidate[]) => void> = [];
+    const listVoiceProviders = vi.fn(() => new Promise<VoiceProviderCandidate[]>((resolve) => {
+      resolvers.push(resolve);
+    }));
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        listVoiceProviders,
+      },
+    });
+    const controller = createController();
+
+    const first = controller.actions.loadVoiceProviders("initial");
+    const second = controller.actions.loadVoiceProviders("provider inventory tool done");
+    expect(first).toBe(second);
+    expect(listVoiceProviders).toHaveBeenCalledTimes(1);
+
+    resolvers[0]?.(firstProviders);
+    await first;
+
+    expect(listVoiceProviders).toHaveBeenCalledTimes(2);
+    const queued = controller.refs.voiceLoadPromise.current;
+    expect(queued).toBeDefined();
+
+    resolvers[1]?.(secondProviders);
+    await queued;
+
+    expect(controller.voiceProviders.value).toEqual(secondProviders);
+    expect(controller.voiceCacheActivity.value.map((activity) => activity.trigger)).toEqual([
+      "provider inventory tool done",
+      "initial",
+    ]);
+    expect(controller.voiceLoading.value).toBe(false);
+  });
+
+  it("queues voice catalog refreshes requested during an in-flight load", async () => {
+    const firstProviders = [voiceProvider({ capabilityId: "voice:old", available: true })];
+    const secondProviders = [voiceProvider({ capabilityId: "voice:catalog", available: true })];
+    const resolvers: Array<(value: VoiceProviderCandidate[]) => void> = [];
+    const listVoiceProviders = vi.fn(() => new Promise<VoiceProviderCandidate[]>((resolve) => {
+      resolvers.push(resolve);
+    }));
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        listVoiceProviders,
+      },
+    });
+    const controller = createController();
+
+    const first = controller.actions.loadVoiceProviders("initial");
+    const second = controller.actions.loadVoiceProviders("voice catalog refresh: voice:catalog");
+    expect(first).toBe(second);
+    expect(listVoiceProviders).toHaveBeenCalledTimes(1);
+
+    resolvers[0]?.(firstProviders);
+    await first;
+
+    expect(listVoiceProviders).toHaveBeenCalledTimes(2);
+    const queued = controller.refs.voiceLoadPromise.current;
+    resolvers[1]?.(secondProviders);
+    await queued;
+
+    expect(controller.voiceProviders.value).toEqual(secondProviders);
+    expect(controller.voiceCacheActivity.value[0]?.trigger).toBe("voice catalog refresh: voice:catalog");
+  });
+
+  it("queues provider inventory STT refreshes requested during an in-flight load", async () => {
+    const firstProviders = [sttProvider({ capabilityId: "stt:old", available: true })];
+    const secondProviders = [sttProvider({ capabilityId: "stt:new", available: true })];
+    const resolvers: Array<(value: SttProviderCandidate[]) => void> = [];
+    const listSttProviders = vi.fn(() => new Promise<SttProviderCandidate[]>((resolve) => {
+      resolvers.push(resolve);
+    }));
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        listSttProviders,
+      },
+    });
+    const controller = createController();
+
+    const first = controller.actions.loadSttProviders("initial");
+    const second = controller.actions.loadSttProviders("provider inventory tool done");
+    expect(first).toBe(second);
+    expect(listSttProviders).toHaveBeenCalledTimes(1);
+
+    resolvers[0]?.(firstProviders);
+    await first;
+
+    expect(listSttProviders).toHaveBeenCalledTimes(2);
+    const queued = controller.refs.sttLoadPromise.current;
+    expect(queued).toBeDefined();
+
+    resolvers[1]?.(secondProviders);
+    await queued;
+
+    expect(controller.sttProviders.value).toEqual(secondProviders);
+    expect(controller.sttCacheActivity.value.map((activity) => activity.trigger)).toEqual([
+      "provider inventory tool done",
+      "initial",
+    ]);
+    expect(controller.sttLoading.value).toBe(false);
+  });
+
   it("sets up Qwen3-ASR and mirrors selected provider settings", async () => {
     const selectedProvider = sttProvider({ capabilityId: "stt:qwen3", available: true });
     const result = sttSetupResult({
@@ -203,6 +338,10 @@ function createController({
     sttRequestId: mutableRef(0),
     voiceTimer: mutableRef<number | undefined>(undefined),
     sttTimer: mutableRef<number | undefined>(undefined),
+    voiceLoadPromise: mutableRef<Promise<void> | undefined>(undefined),
+    sttLoadPromise: mutableRef<Promise<void> | undefined>(undefined),
+    voiceQueuedTrigger: mutableRef<string | undefined>(undefined),
+    sttQueuedTrigger: mutableRef<string | undefined>(undefined),
   };
   return {
     actions: createAppSpeechProviderActions({
@@ -221,9 +360,13 @@ function createController({
       setVoiceProvidersLoading: voiceLoading.set,
       state,
       sttProviderRefreshTimerRef: refs.sttTimer,
+      sttProviderLoadPromiseRef: refs.sttLoadPromise,
+      sttProviderQueuedRefreshTriggerRef: refs.sttQueuedTrigger,
       sttProviderRequestIdRef: refs.sttRequestId,
       sttProvidersRef,
       voiceProviderRefreshTimerRef: refs.voiceTimer,
+      voiceProviderLoadPromiseRef: refs.voiceLoadPromise,
+      voiceProviderQueuedRefreshTriggerRef: refs.voiceQueuedTrigger,
       voiceProviderRequestIdRef: refs.voiceRequestId,
       voiceProvidersRef,
     }),

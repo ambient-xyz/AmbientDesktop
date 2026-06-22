@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import type { UpdateVoiceSettingsInput } from "../../shared/desktopTypes";
 import type {
   EmbeddingProviderCandidate,
@@ -13,6 +14,7 @@ import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   discoverAmbientCliEmbeddingProviders,
   discoverAmbientCliVoiceProviders,
+  hasAmbientCliWorkspaceProviderDiscoverySignal,
   runAmbientCliPackageCommand,
 } from "../ambient-cli/ambientCliPackages";
 import { writeVoiceSettings as writeVoiceSettingsFile, DEFAULT_VOICE_SETTINGS } from "../desktop-shell/appAppearanceDefaultPreferences";
@@ -204,10 +206,17 @@ export function createVoiceSettingsDesktopService<Store extends VoiceSettingsDes
   }
 
   function voiceProviderWorkspacePaths(targetStore: Store = defaultStore()): string[] {
-    return Array.from(new Set([
-      targetStore.getWorkspace().path,
-      ...targetStore.listThreads().map((thread) => thread.workspacePath),
-    ]));
+    const rootWorkspacePath = targetStore.getWorkspace().path;
+    const workspacePaths: string[] = [];
+    const seenDiscoveryRoots = new Set<string>();
+    for (const workspacePath of [rootWorkspacePath, ...targetStore.listThreads().map((thread) => thread.workspacePath)]) {
+      const discoveryRoot = voiceProviderDiscoveryRoot(workspacePath);
+      if (seenDiscoveryRoots.has(discoveryRoot)) continue;
+      if (workspacePath !== rootWorkspacePath && !voiceProviderHasPackageConfig(workspacePath)) continue;
+      seenDiscoveryRoots.add(discoveryRoot);
+      workspacePaths.push(workspacePath);
+    }
+    return workspacePaths;
   }
 
   async function resolveVoiceProviderWorkspacePath(
@@ -303,4 +312,12 @@ function voiceSettingsAuditSummary(source: VoiceSettingsAuditSource, changes: Vo
     : source === "settings-ui"
       ? `Settings updated voice settings: ${fieldList}.`
       : `Ambient updated voice settings: ${fieldList}.`;
+}
+
+function voiceProviderDiscoveryRoot(workspacePath: string): string {
+  return resolve(workspacePath);
+}
+
+function voiceProviderHasPackageConfig(workspacePath: string): boolean {
+  return hasAmbientCliWorkspaceProviderDiscoverySignal(workspacePath);
 }

@@ -5,8 +5,16 @@ import type {
 
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { ExportChatPdfInput } from "../../shared/threadTypes";
+import type { createAppNavigationActionsForApp } from "./AppNavigationActions";
 import type { AppProjectBoardActions } from "./AppProjectBoardActions";
+import type { useAppProjectBoardControls } from "./AppProjectBoardControls";
+import type { useAppAutomationShellState } from "./AppAutomationShellState";
+import type { useAppProjectShellState } from "./AppProjectShellState";
 import type { AppShellSidebarProps } from "./AppShellSidebar";
+import type { AppSidebarSelectionModel } from "./AppSidebarSelectionModel";
+import type { useAppRunActivityState } from "./AppRunActivityState";
+import type { useAppShellUiState } from "./AppShellUiState";
+import type { useAppRightPanelState } from "./AppRightPanelState";
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from "./sidebarLayout";
 
 type Setter<T> = Dispatch<SetStateAction<T>>;
@@ -71,6 +79,27 @@ export type AppShellSidebarPropsInput = Omit<AppShellSidebarProps, AdaptedSideba
   copyThreadSessionId: () => MaybePromise;
   copyThreadDeeplink: () => MaybePromise;
   markThreadUnread: () => MaybePromise;
+};
+
+export type AppShellSidebarPropsForAppInput = {
+  automationShellState: ReturnType<typeof useAppAutomationShellState>;
+  beginSidebarResize: AppShellSidebarProps["onBeginResize"];
+  exportChatPdfThread: AppShellSidebarPropsInput["exportChatPdfThread"];
+  navigationActions: ReturnType<typeof createAppNavigationActionsForApp>;
+  projectBoardControls: Pick<
+    ReturnType<typeof useAppProjectBoardControls>,
+    "activeThreadSuppressesProjectBoard" | "projectBoardActions" | "projectBoardOpen" | "setProjectBoardOpen"
+  >;
+  projectShellState: ReturnType<typeof useAppProjectShellState>;
+  rightPanelState: Pick<ReturnType<typeof useAppRightPanelState>, "openPanel">;
+  runActivityState: Pick<ReturnType<typeof useAppRunActivityState>, "threadRunStatuses">;
+  selectionModel: AppSidebarSelectionModel;
+  selectedWorkflowRecordingId: string | undefined;
+  shellUiState: Pick<
+    ReturnType<typeof useAppShellUiState>,
+    "sidebarArea" | "sidebarWidth" | "setSidebarOpen"
+  >;
+  state: DesktopState;
 };
 
 export function createAppShellSidebarProps({
@@ -174,4 +203,91 @@ export function createAppShellSidebarProps({
       void openThreadMiniWindow();
     },
   };
+}
+
+export function createAppShellSidebarPropsForApp({
+  automationShellState,
+  beginSidebarResize,
+  exportChatPdfThread,
+  navigationActions,
+  projectBoardControls,
+  projectShellState,
+  rightPanelState,
+  runActivityState,
+  selectionModel,
+  selectedWorkflowRecordingId,
+  shellUiState,
+  state,
+}: AppShellSidebarPropsForAppInput): AppShellSidebarProps {
+  return createAppShellSidebarProps({
+    activeThreadSuppressesProjectBoard: projectBoardControls.activeThreadSuppressesProjectBoard,
+    automationPopover: automationShellState.automationPopover,
+    automationsCollapsed: automationShellState.automationsCollapsed,
+    copyThreadDeeplink: navigationActions.copyThreadDeeplink,
+    copyThreadSessionId: navigationActions.copyThreadSessionId,
+    copyThreadWorkingDirectory: navigationActions.copyThreadWorkingDirectory,
+    createPermanentProjectWorktree: navigationActions.createPermanentProjectWorktree,
+    createWorkspace: navigationActions.createWorkspace,
+    exportChatPdfThread,
+    loadWorkflowAgentFolders: navigationActions.loadWorkflowAgentFolders,
+    markThreadUnread: navigationActions.markThreadUnread,
+    onArchiveProjectChats: navigationActions.archiveProjectChats,
+    onArchiveThread: navigationActions.archiveThread,
+    onBeginResize: beginSidebarResize,
+    onCreateThreadInProject: navigationActions.createThreadInProject,
+    onCreateWorkflowAgentFolder: navigationActions.createWorkflowAgentFolder,
+    onForkThread: navigationActions.forkThread,
+    onOpenPanel: rightPanelState.openPanel,
+    onOpenProjectContextMenu: navigationActions.openProjectContextMenu,
+    onOpenSidebarArea: navigationActions.openSidebarArea,
+    onOpenThreadContextMenu: navigationActions.openThreadContextMenu,
+    onOpenWorkflowLabArea: navigationActions.openWorkflowLabArea,
+    onOpenWorkflowRecordingsArea: navigationActions.openWorkflowRecordingsArea,
+    onOrganizeChange: automationShellState.updateSidebarOrganize,
+    onRemoveProject: navigationActions.removeProject,
+    onRenameProject: navigationActions.renameProject,
+    onRenameThread: navigationActions.renameThread,
+    onSelectProject: navigationActions.selectProject,
+    onSelectThread: navigationActions.selectThread,
+    onSelectWorkflowAgentFolder: navigationActions.selectWorkflowAgentFolder,
+    onSelectWorkflowAgentThread: navigationActions.selectWorkflowAgentThread,
+    onSelectWorkflowRecording: navigationActions.selectWorkflowRecordingForSidebar,
+    openNewWorkflowComposer: navigationActions.openNewWorkflowComposer,
+    openThreadMiniWindow: navigationActions.openThreadMiniWindow,
+    openWorkspace: navigationActions.openWorkspace,
+    projectBoardActions: projectBoardControls.projectBoardActions,
+    projectBoardBusyProjectIds: projectShellState.projectBoardBusyProjectIds,
+    projectBoardOpen: projectBoardControls.projectBoardOpen,
+    projectContextMenu: projectShellState.projectContextMenu,
+    projectPopover: projectShellState.projectPopover,
+    projectsCollapsed: projectShellState.projectsCollapsed,
+    revealProject: navigationActions.revealProject,
+    revealThread: navigationActions.revealThread,
+    runPrimaryCreateAction: navigationActions.runPrimaryCreateAction,
+    selectedAutomationPane: automationShellState.selectedAutomationPane,
+    selectedWorkflowAgentFolder: selectionModel.selectedWorkflowAgentFolder,
+    selectedWorkflowAgentThreadId: automationShellState.selectedWorkflowAgentThreadId,
+    selectedWorkflowRecordingId,
+    setAutomationPopover: automationShellState.setAutomationPopover,
+    setAutomationsCollapsed: automationShellState.setAutomationsCollapsed,
+    setProjectBoardOpen: projectBoardControls.setProjectBoardOpen,
+    setProjectPopover: projectShellState.setProjectPopover,
+    setProjectsCollapsed: projectShellState.setProjectsCollapsed,
+    setSidebarOpen: shellUiState.setSidebarOpen,
+    setThreadContextMenu: projectShellState.setThreadContextMenu,
+    sidebarAgeNow: automationShellState.sidebarAgeNow,
+    sidebarArea: shellUiState.sidebarArea,
+    sidebarOrganize: automationShellState.sidebarOrganize,
+    sidebarProjects: selectionModel.sidebarProjects,
+    sidebarThreads: selectionModel.sidebarThreads,
+    state,
+    threadActionInput: navigationActions.threadActionInput,
+    threadContextMenu: projectShellState.threadContextMenu,
+    threadRunStatuses: runActivityState.threadRunStatuses,
+    toggleProjectPinned: navigationActions.toggleProjectPinned,
+    toggleThreadPinned: navigationActions.toggleThreadPinned,
+    width: shellUiState.sidebarWidth,
+    workflowAgentFolders: automationShellState.workflowAgentFolders,
+    workflowAgentNavigationError: automationShellState.workflowAgentNavigationError,
+  });
 }

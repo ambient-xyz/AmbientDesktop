@@ -2,10 +2,13 @@ import type { Dispatch, SetStateAction } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopState } from "../../shared/desktopTypes";
+import type { ProjectSummary } from "../../shared/projectBoardTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import type { WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
+import type { WorkflowAgentFolderSummary, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 import {
   createAppShellSidebarProps,
+  createAppShellSidebarPropsForApp,
+  type AppShellSidebarPropsForAppInput,
   type AppShellSidebarPropsInput,
 } from "./AppShellSidebarProps";
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from "./sidebarLayout";
@@ -122,6 +125,70 @@ describe("App shell sidebar props", () => {
     expect(threadContextMenuState.get()).toBeUndefined();
     expect(exportChatPdfThread).toHaveBeenCalledWith({ threadId: "thread-1", workspacePath: "/workspace" });
   });
+
+  it("packs App owner groups into sidebar props", () => {
+    const workflowRecordingLibrary = [workflowRecordingEntry({ id: "recording-1" })];
+    const sidebarProject = project({ id: "project-1", path: "/project" });
+    const sidebarThread = thread({ id: "thread-2", workspacePath: "/workspace" });
+    const setSidebarOpen = stateSetter(true);
+    const openPanel = vi.fn();
+    const selectThread = vi.fn();
+    const updateSidebarOrganize = vi.fn();
+    const selectWorkflowRecordingForSidebar = vi.fn();
+    const props = createAppShellSidebarPropsForApp(forAppInput({
+      automationShellState: {
+        ...forAppInput().automationShellState,
+        updateSidebarOrganize,
+      } as AppShellSidebarPropsForAppInput["automationShellState"],
+      navigationActions: {
+        ...forAppInput().navigationActions,
+        selectThread,
+        selectWorkflowRecordingForSidebar,
+      } as AppShellSidebarPropsForAppInput["navigationActions"],
+      rightPanelState: { openPanel },
+      selectionModel: {
+        selectedAutomationFolder: undefined,
+        selectedAutomationThread: undefined,
+        selectedWorkflowAgentFolder: workflowAgentFolder({ id: "folder-1" }),
+        selectedWorkflowAgentThread: undefined,
+        sidebarProjects: [sidebarProject],
+        sidebarThreads: [sidebarThread],
+      },
+      selectedWorkflowRecordingId: "recording-1",
+      shellUiState: {
+        sidebarArea: "automations",
+        sidebarWidth: 312,
+        setSidebarOpen: setSidebarOpen.set,
+      },
+      state: desktopState({
+        activeThreadId: "thread-2",
+        workflowRecordingLibrary,
+        workspace: { path: "/workspace-root" },
+      }),
+    }));
+
+    expect(props.width).toBe(312);
+    expect(props.sidebarArea).toBe("automations");
+    expect(props.activeProjectPath).toBe("/workspace-root");
+    expect(props.activeThreadId).toBe("thread-2");
+    expect(props.workflowRecordingLibrary).toBe(workflowRecordingLibrary);
+    expect(props.selectedWorkflowAgentFolderId).toBe("folder-1");
+    expect(props.selectedWorkflowRecordingId).toBe("recording-1");
+    expect(props.sidebarProjects).toEqual([sidebarProject]);
+    expect(props.sidebarThreads).toEqual([sidebarThread]);
+
+    props.onCloseSidebar();
+    props.onOpenPanel("browser");
+    void props.onSelectThread("thread-2", "/workspace");
+    props.onOrganizeChange({ sort: "created" });
+    props.onSelectWorkflowRecording(workflowRecordingLibrary[0]);
+
+    expect(setSidebarOpen.get()).toBe(false);
+    expect(openPanel).toHaveBeenCalledWith("browser");
+    expect(selectThread).toHaveBeenCalledWith("thread-2", "/workspace");
+    expect(updateSidebarOrganize).toHaveBeenCalledWith({ sort: "created" });
+    expect(selectWorkflowRecordingForSidebar).toHaveBeenCalledWith(workflowRecordingLibrary[0]);
+  });
 });
 
 function stateSetter<T>(initial: T): {
@@ -219,6 +286,104 @@ function baseInput(input: Partial<AppShellSidebarPropsInput> = {}): AppShellSide
   } as AppShellSidebarPropsInput;
 }
 
+function forAppInput(input: Partial<AppShellSidebarPropsForAppInput> = {}): AppShellSidebarPropsForAppInput {
+  const base = baseInput();
+  const noop = vi.fn();
+  const projectBoardOpen = stateSetter(false);
+  return {
+    automationShellState: {
+      automationPopover: base.automationPopover,
+      automationsCollapsed: base.automationsCollapsed,
+      selectedAutomationPane: base.selectedAutomationPane,
+      selectedWorkflowAgentThreadId: base.selectedWorkflowAgentThreadId,
+      setAutomationPopover: base.setAutomationPopover,
+      setAutomationsCollapsed: base.setAutomationsCollapsed,
+      sidebarAgeNow: base.sidebarAgeNow,
+      sidebarOrganize: base.sidebarOrganize,
+      updateSidebarOrganize: base.onOrganizeChange,
+      workflowAgentFolders: base.workflowAgentFolders,
+      workflowAgentNavigationError: base.workflowAgentNavigationError,
+    },
+    beginSidebarResize: base.onBeginResize,
+    exportChatPdfThread: base.exportChatPdfThread,
+    navigationActions: {
+      archiveProjectChats: base.onArchiveProjectChats,
+      archiveThread: base.onArchiveThread,
+      copyThreadDeeplink: base.copyThreadDeeplink,
+      copyThreadSessionId: base.copyThreadSessionId,
+      copyThreadWorkingDirectory: base.copyThreadWorkingDirectory,
+      createPermanentProjectWorktree: base.createPermanentProjectWorktree,
+      createThreadInProject: base.onCreateThreadInProject,
+      createWorkflowAgentFolder: base.onCreateWorkflowAgentFolder,
+      createWorkspace: base.createWorkspace,
+      exportChatPdfThread: base.exportChatPdfThread,
+      forkThread: base.onForkThread,
+      loadWorkflowAgentFolders: base.loadWorkflowAgentFolders,
+      markThreadUnread: base.markThreadUnread,
+      openNewWorkflowComposer: base.openNewWorkflowComposer,
+      openProjectContextMenu: base.onOpenProjectContextMenu,
+      openSidebarArea: base.onOpenSidebarArea,
+      openThreadContextMenu: base.onOpenThreadContextMenu,
+      openThreadMiniWindow: base.openThreadMiniWindow,
+      openWorkflowLabArea: base.onOpenWorkflowLabArea,
+      openWorkflowRecordingsArea: base.onOpenWorkflowRecordingsArea,
+      openWorkspace: base.openWorkspace,
+      removeProject: base.onRemoveProject,
+      renameProject: base.onRenameProject,
+      renameThread: base.onRenameThread,
+      revealProject: base.revealProject,
+      revealThread: base.revealThread,
+      runPrimaryCreateAction: base.runPrimaryCreateAction,
+      selectProject: base.onSelectProject,
+      selectThread: base.onSelectThread,
+      selectWorkflowAgentFolder: base.onSelectWorkflowAgentFolder,
+      selectWorkflowAgentThread: base.onSelectWorkflowAgentThread,
+      selectWorkflowRecordingForSidebar: base.onSelectWorkflowRecording,
+      threadActionInput: base.threadActionInput,
+      toggleProjectPinned: base.toggleProjectPinned,
+      toggleThreadPinned: base.toggleThreadPinned,
+    },
+    projectBoardControls: {
+      activeThreadSuppressesProjectBoard: base.activeThreadSuppressesProjectBoard,
+      projectBoardActions: base.projectBoardActions,
+      projectBoardOpen: projectBoardOpen.get(),
+      setProjectBoardOpen: projectBoardOpen.set,
+    },
+    projectShellState: {
+      projectBoardBusyProjectIds: base.projectBoardBusyProjectIds,
+      projectContextMenu: base.projectContextMenu,
+      projectPopover: base.projectPopover,
+      projectsCollapsed: base.projectsCollapsed,
+      setProjectPopover: base.setProjectPopover,
+      setProjectsCollapsed: base.setProjectsCollapsed,
+      setThreadContextMenu: base.setThreadContextMenu,
+      threadContextMenu: base.threadContextMenu,
+    },
+    rightPanelState: {
+      openPanel: base.onOpenPanel,
+    },
+    runActivityState: {
+      threadRunStatuses: base.threadRunStatuses,
+    },
+    selectionModel: {
+      selectedAutomationFolder: undefined,
+      selectedAutomationThread: undefined,
+      selectedWorkflowAgentFolder: base.selectedWorkflowAgentFolder,
+      selectedWorkflowAgentThread: undefined,
+      sidebarProjects: base.sidebarProjects,
+      sidebarThreads: base.sidebarThreads,
+    },
+    selectedWorkflowRecordingId: base.selectedWorkflowRecordingId,
+    shellUiState: {
+      sidebarArea: base.sidebarArea,
+      sidebarWidth: base.width,
+      setSidebarOpen: base.setSidebarOpen,
+    },
+    state: base.state,
+    ...input,
+  } as unknown as AppShellSidebarPropsForAppInput;
+}
+
 function desktopState(input: DesktopStateInput = {}): DesktopState {
   const {
     workspace,
@@ -252,6 +417,29 @@ function workflowRecordingEntry(input: Partial<WorkflowRecordingLibraryEntry> & 
     toolNames: [],
     outputShape: [],
     versions: [],
+    ...input,
+  };
+}
+
+function workflowAgentFolder(input: Partial<WorkflowAgentFolderSummary> & Pick<WorkflowAgentFolderSummary, "id">): WorkflowAgentFolderSummary {
+  return {
+    kind: "custom",
+    name: input.id,
+    createdAt: "2026-06-21T00:00:00.000Z",
+    updatedAt: "2026-06-21T00:00:00.000Z",
+    threads: [],
+    ...input,
+  };
+}
+
+function project(input: Partial<ProjectSummary> & Pick<ProjectSummary, "id" | "path">): ProjectSummary {
+  return {
+    name: input.id,
+    statePath: `${input.path}/.ambient/state`,
+    sessionPath: `${input.path}/.ambient/session`,
+    createdAt: "2026-06-21T00:00:00.000Z",
+    updatedAt: "2026-06-21T00:00:00.000Z",
+    threads: [],
     ...input,
   };
 }

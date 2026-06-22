@@ -20,6 +20,15 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function speechProviderLoadTriggerRequiresFollowUp(trigger: string): boolean {
+  const normalized = trigger.toLowerCase();
+  return normalized.includes("provider inventory") ||
+    normalized.includes("provider state") ||
+    normalized.includes("plugin catalog") ||
+    normalized.includes("voice catalog") ||
+    normalized.includes("voice regeneration");
+}
+
 export function speechProviderCacheActivityId(input: { at: string; trigger: string; currentLength: number }): string {
   return `${input.at}:${input.trigger}:${input.currentLength}`;
 }
@@ -88,9 +97,13 @@ export function createAppSpeechProviderActions({
   setVoiceProvidersLoading,
   state,
   sttProviderRefreshTimerRef,
+  sttProviderLoadPromiseRef,
+  sttProviderQueuedRefreshTriggerRef,
   sttProviderRequestIdRef,
   sttProvidersRef,
   voiceProviderRefreshTimerRef,
+  voiceProviderLoadPromiseRef,
+  voiceProviderQueuedRefreshTriggerRef,
   voiceProviderRequestIdRef,
   voiceProvidersRef,
 }: {
@@ -109,9 +122,13 @@ export function createAppSpeechProviderActions({
   setVoiceProvidersLoading: Dispatch<SetStateAction<boolean>>;
   state: DesktopState | undefined;
   sttProviderRefreshTimerRef: MutableRefObject<number | undefined>;
+  sttProviderLoadPromiseRef: MutableRefObject<Promise<void> | undefined>;
+  sttProviderQueuedRefreshTriggerRef: MutableRefObject<string | undefined>;
   sttProviderRequestIdRef: MutableRefObject<number>;
   sttProvidersRef: MutableRefObject<SttProviderCandidate[]>;
   voiceProviderRefreshTimerRef: MutableRefObject<number | undefined>;
+  voiceProviderLoadPromiseRef: MutableRefObject<Promise<void> | undefined>;
+  voiceProviderQueuedRefreshTriggerRef: MutableRefObject<string | undefined>;
   voiceProviderRequestIdRef: MutableRefObject<number>;
   voiceProvidersRef: MutableRefObject<VoiceProviderCandidate[]>;
 }): {
@@ -129,7 +146,18 @@ export function createAppSpeechProviderActions({
     setVoiceProviderCacheActivity((current) => speechProviderCacheActivityList(current, activity));
   }
 
-  async function loadVoiceProviders(trigger = "manual") {
+  function loadVoiceProviders(trigger = "manual"): Promise<void> {
+    if (voiceProviderLoadPromiseRef.current) {
+      if (speechProviderLoadTriggerRequiresFollowUp(trigger)) {
+        voiceProviderQueuedRefreshTriggerRef.current = trigger;
+      }
+      setVoiceProviderCacheStatus((current) => ({
+        ...current,
+        lastRequestedAt: new Date().toISOString(),
+        lastTrigger: trigger,
+      }));
+      return voiceProviderLoadPromiseRef.current;
+    }
     const requestId = voiceProviderRequestIdRef.current + 1;
     voiceProviderRequestIdRef.current = requestId;
     setVoiceProvidersLoading(true);
@@ -140,7 +168,7 @@ export function createAppSpeechProviderActions({
       lastTrigger: trigger,
       error: undefined,
     }));
-    try {
+    const loadPromise = (async () => {
       const providers = await window.ambientDesktop.listVoiceProviders();
       if (requestId === voiceProviderRequestIdRef.current) {
         const previousProviders = voiceProvidersRef.current;
@@ -160,7 +188,7 @@ export function createAppSpeechProviderActions({
           error: undefined,
         }));
       }
-    } catch (err) {
+    })().catch((err) => {
       const message = errorMessage(err);
       if (requestId === voiceProviderRequestIdRef.current) {
         const counts = speechProviderAvailabilityCounts(voiceProvidersRef.current);
@@ -179,16 +207,36 @@ export function createAppSpeechProviderActions({
           error: message,
         }));
       }
-    } finally {
+    }).finally(() => {
+      let queuedTrigger: string | undefined;
+      if (voiceProviderLoadPromiseRef.current === loadPromise) {
+        voiceProviderLoadPromiseRef.current = undefined;
+        queuedTrigger = voiceProviderQueuedRefreshTriggerRef.current;
+        voiceProviderQueuedRefreshTriggerRef.current = undefined;
+      }
       if (requestId === voiceProviderRequestIdRef.current) setVoiceProvidersLoading(false);
-    }
+      if (queuedTrigger) void loadVoiceProviders(queuedTrigger);
+    });
+    voiceProviderLoadPromiseRef.current = loadPromise;
+    return loadPromise;
   }
 
   function appendSttProviderCacheActivity(activity: Omit<SttProviderCacheActivity, "id">) {
     setSttProviderCacheActivity((current) => speechProviderCacheActivityList(current, activity));
   }
 
-  async function loadSttProviders(trigger = "manual") {
+  function loadSttProviders(trigger = "manual"): Promise<void> {
+    if (sttProviderLoadPromiseRef.current) {
+      if (speechProviderLoadTriggerRequiresFollowUp(trigger)) {
+        sttProviderQueuedRefreshTriggerRef.current = trigger;
+      }
+      setSttProviderCacheStatus((current) => ({
+        ...current,
+        lastRequestedAt: new Date().toISOString(),
+        lastTrigger: trigger,
+      }));
+      return sttProviderLoadPromiseRef.current;
+    }
     const requestId = sttProviderRequestIdRef.current + 1;
     sttProviderRequestIdRef.current = requestId;
     setSttProvidersLoading(true);
@@ -199,7 +247,7 @@ export function createAppSpeechProviderActions({
       lastTrigger: trigger,
       error: undefined,
     }));
-    try {
+    const loadPromise = (async () => {
       const providers = await window.ambientDesktop.listSttProviders();
       if (requestId === sttProviderRequestIdRef.current) {
         const previousProviders = sttProvidersRef.current;
@@ -219,7 +267,7 @@ export function createAppSpeechProviderActions({
           error: undefined,
         }));
       }
-    } catch (err) {
+    })().catch((err) => {
       const message = errorMessage(err);
       if (requestId === sttProviderRequestIdRef.current) {
         const counts = speechProviderAvailabilityCounts(sttProvidersRef.current);
@@ -238,9 +286,18 @@ export function createAppSpeechProviderActions({
           error: message,
         }));
       }
-    } finally {
+    }).finally(() => {
+      let queuedTrigger: string | undefined;
+      if (sttProviderLoadPromiseRef.current === loadPromise) {
+        sttProviderLoadPromiseRef.current = undefined;
+        queuedTrigger = sttProviderQueuedRefreshTriggerRef.current;
+        sttProviderQueuedRefreshTriggerRef.current = undefined;
+      }
       if (requestId === sttProviderRequestIdRef.current) setSttProvidersLoading(false);
-    }
+      if (queuedTrigger) void loadSttProviders(queuedTrigger);
+    });
+    sttProviderLoadPromiseRef.current = loadPromise;
+    return loadPromise;
   }
 
   function scheduleSttProviderRefresh(delayMs = 300, trigger = "scheduled") {
@@ -360,9 +417,13 @@ type AppSpeechProviderRuntimeStateInput = Pick<
   | "setVoiceProvidersError"
   | "setVoiceProvidersLoading"
   | "sttProviderRefreshTimerRef"
+  | "sttProviderLoadPromiseRef"
+  | "sttProviderQueuedRefreshTriggerRef"
   | "sttProviderRequestIdRef"
   | "sttProvidersRef"
   | "voiceProviderRefreshTimerRef"
+  | "voiceProviderLoadPromiseRef"
+  | "voiceProviderQueuedRefreshTriggerRef"
   | "voiceProviderRequestIdRef"
   | "voiceProvidersRef"
 >;
@@ -392,9 +453,13 @@ export function createAppSpeechProviderActionsForRuntimeState({
     setVoiceProvidersLoading: providerRuntimeState.setVoiceProvidersLoading,
     state,
     sttProviderRefreshTimerRef: providerRuntimeState.sttProviderRefreshTimerRef,
+    sttProviderLoadPromiseRef: providerRuntimeState.sttProviderLoadPromiseRef,
+    sttProviderQueuedRefreshTriggerRef: providerRuntimeState.sttProviderQueuedRefreshTriggerRef,
     sttProviderRequestIdRef: providerRuntimeState.sttProviderRequestIdRef,
     sttProvidersRef: providerRuntimeState.sttProvidersRef,
     voiceProviderRefreshTimerRef: providerRuntimeState.voiceProviderRefreshTimerRef,
+    voiceProviderLoadPromiseRef: providerRuntimeState.voiceProviderLoadPromiseRef,
+    voiceProviderQueuedRefreshTriggerRef: providerRuntimeState.voiceProviderQueuedRefreshTriggerRef,
     voiceProviderRequestIdRef: providerRuntimeState.voiceProviderRequestIdRef,
     voiceProvidersRef: providerRuntimeState.voiceProvidersRef,
   });

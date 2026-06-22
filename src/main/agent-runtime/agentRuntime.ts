@@ -6,12 +6,15 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import type {
   MessagingGatewayRemoteSurfaceRuntimeEvent,
-  RuntimeSurfaceWorkflowRecoveryEvent,
 } from "../../shared/messagingGateway";
 import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
 import { LocalPreviewServerManager } from "./agentRuntimeBrowserFacade";
 import type { AgentRuntimeFeatures } from "./agentRuntimeFeatures";
 import { createAgentRuntimeFoundationControllers } from "./agentRuntimeFoundationControllers";
+import {
+  createAgentRuntimeServiceControllerCallbackAdapters,
+  createAgentRuntimeSubagentWorkflowCallbackAdapters,
+} from "./agentRuntimeControllerCallbackAdapters";
 import { createAgentRuntimeServiceControllers } from "./agentRuntimeServiceControllers";
 import type { PiSessionFileCommitReason } from "./agentRuntimeSessionFacade";
 import { commitAgentRuntimeThreadPiSessionFile } from "./agentRuntimeSessionFileCommit";
@@ -57,7 +60,6 @@ import type {
 } from "../../shared/webResearchTypes";
 import type { ContextUsageSnapshot, ModelRuntimeSettings, RunStatus, ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import {
-  normalizeAmbientModelId,
   resolveAmbientModelRuntimeProfile,
   type AmbientModelRuntimeProfile,
 } from "../../shared/ambientModels";
@@ -74,6 +76,7 @@ import {
 import {
   createAgentRuntimePromptPipelineControllers,
 } from "./agentRuntimePromptPipelineControllers";
+import { createAgentRuntimePromptPipelineCallbackAdapters } from "./agentRuntimePromptPipelineCallbackAdapters";
 import {
   createAgentRuntimeSubagentWorkflowControllers,
 } from "./agentRuntimeSubagentWorkflowControllers";
@@ -99,13 +102,11 @@ import {
   resolvePostToolFinalizationTickMs,
   resolveWorkflowRecordingReviewStreamIdleTimeoutMs,
 } from "./agentRuntimeTimeouts";
-import { createRuntimeSendStreamDiagnostics } from "./agentRuntimeSendStreamDiagnostics";
 import { AgentRuntimeSessionRegistry } from "./agentRuntimeSessionRegistry";
 import type {
   AgentRuntimeSessionFactoryController,
   AgentRuntimePiSession,
 } from "./agentRuntimeSessionFactoryController";
-import { piAssistantMessageMetadata } from "./agentRuntimeAssistantMessageMetadata";
 import { AgentRuntimeActiveRunHandoffController } from "./agentRuntimeActiveRunHandoffController";
 import type { AgentRuntimeGoalContinuationController } from "./agentRuntimeGoalContinuationController";
 import type { AgentRuntimeThreadWakeContinuationController } from "./agentRuntimeThreadWakeContinuationController";
@@ -186,12 +187,7 @@ import type {
 } from "./agentRuntimePiFacade";
 import type { WebResearchRuntimeSummary } from "./web-research/agentRuntimeWebResearchRuntimeSummary";
 import {
-  completeMessagingRemoteSurfaceCommandPendingProjectSwitch,
-  type MessagingRemoteSurfaceCommandPendingProjectSwitch,
-} from "./messaging/agentRuntimeMessagingRemoteSurfaceCommandApplyTools";
-import {
   carrySymphonyParentModePolicy,
-  carrySymphonyParentModeVerifiedLaunch,
   resolveSymphonyParentModePolicyForRuntimeSend,
   type SymphonyParentModePolicy,
   type SymphonyParentModeVerifiedLaunch,
@@ -218,7 +214,7 @@ import {
 import {
   type LocalTextSubagentRuntimeStore,
 } from "./agentRuntimeLocalRuntimeFacade";
-import { agentRuntimeWorkflowRecoveryEventsForRemoteSurface } from "./workflow-support/agentRuntimeWorkflowRecoveryEvents";
+import { createAgentRuntimeRemoteSurfaceControls } from "./agentRuntimeRemoteSurfaceControls";
 import {
   AgentRuntimeRemoteSurfaceRuntimeEventStore,
   type AgentRuntimeRemoteSurfaceRuntimeEventCreateInput,
@@ -236,47 +232,16 @@ import {
 import { AgentRuntimeFileAuthorityController } from "./agentRuntimeFileAuthorityController";
 import { AgentRuntimeToolPermissionController } from "./agentRuntimeToolPermissionController";
 import {
-  type RuntimeOpenToolFailureReason,
-} from "./openToolFailureUpdates";
-import { createRuntimeAssistantRetryPlanning } from "./runtimeAssistantRetryPlanning";
-import {
   type RuntimePermissionWaitControl,
 } from "./runtimePermissionWaitController";
-import { createRuntimePermissionWaitSetup } from "./runtimePermissionWaitSetup";
-import {
-  createRuntimeQueuedMessageController,
-} from "./runtimeQueuedMessageController";
 import { createRuntimeRunEventScope } from "./runtimeRunEventScope";
 import { AgentRuntimePromptOutcomeController } from "./agentRuntimePromptOutcomeController";
-import {
-  type RuntimeAssistantTerminalCompletion,
-} from "./runtimeAssistantTerminalCompletion";
-import {
-  type RuntimeEmptyAssistantStallWatchdog,
-} from "./runtimeEmptyAssistantStallWatchdog";
-import {
-  type RuntimeToolArgumentWatchdog,
-} from "./runtimeToolArgumentWatchdog";
-import {
-  type RuntimeToolExecutionWatchdog,
-} from "./runtimeToolExecutionWatchdog";
-import type { RuntimeStreamWatchdogController } from "./runtimeStreamWatchdogController";
-import { createRuntimeStreamActivityTracker } from "./runtimeStreamActivityTracker";
-import { createRuntimeSendSessionLifecycle } from "./runtimeSendSessionLifecycle";
-import { createRuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
-import { createRuntimeToolContextSetup } from "./runtimeToolContextSetup";
-import { createRuntimeProviderContinuationSetup } from "./runtimeProviderContinuationSetup";
-import { createRuntimeAbortContextSetup } from "./runtimeAbortContextSetup";
 import type { RuntimeAbortContextActiveRun } from "./runtimeAbortContext";
-import { createRuntimeTextOutputState } from "./runtimeTextOutputState";
-import { createRuntimeProviderRetryState } from "./runtimeProviderRetryState";
-import { createRuntimeStreamTraceState } from "./runtimeStreamTraceState";
-import { createRuntimeSendPendingFollowUps } from "./runtimeSendPendingFollowUps";
-import { createRuntimePromptControlState } from "./runtimePromptControlState";
-import { createRuntimePromptLifecycleControls } from "./runtimePromptLifecycleControls";
 import { AgentRuntimePromptExecutionController } from "./agentRuntimePromptExecutionController";
 import { resolveAgentRuntimeImageInputs } from "./agentRuntimeImageInputs";
 import { AgentRuntimeSendPreflightController } from "./agentRuntimeSendPreflightController";
+import { createAgentRuntimeSendRunState } from "./agentRuntimeSendRunState";
+import { runAgentRuntimeSendPromptRun } from "./agentRuntimeSendPromptRun";
 
 export {
   buildRuntimeProviderFailureDiagnostic,
@@ -355,7 +320,6 @@ export class AgentRuntime {
   private readonly ambientCliSkillMountDiagnostics = new Map<string, AmbientCliSkillMountDiagnostics>();
   private readonly ambientCliPackageDescriptionState = new AmbientCliPackageDescriptionState();
   private readonly ambientWorkflowDescriptionState = new AmbientWorkflowDescriptionState();
-  private readonly pendingProjectSwitchByThreadId = new Map<string, MessagingRemoteSurfaceCommandPendingProjectSwitch>();
   private readonly remoteSurfaceRuntimeEvents: AgentRuntimeRemoteSurfaceRuntimeEventStore;
   private readonly asyncBashJobs: AgentRuntimeAsyncBashJobService;
   private readonly toolRunner: AgentRuntimeToolRunnerController;
@@ -418,6 +382,12 @@ export class AgentRuntime {
     },
     private readonly features: AgentRuntimeFeatures = {},
   ) {
+    const remoteSurfaceControls = createAgentRuntimeRemoteSurfaceControls({
+      store: this.store,
+      features: this.features,
+      remoteSurfaceRuntimeEvents: () => this.remoteSurfaceRuntimeEvents,
+      emitError: (event) => this.emit({ type: "error", ...event }),
+    });
     const foundationControllers = createAgentRuntimeFoundationControllers({
       store: this.store,
       browser: this.browser,
@@ -425,12 +395,12 @@ export class AgentRuntime {
       permissions: this.permissions,
       sessions: this.sessions,
       activeRuns: this.activeRuns,
-      pendingProjectSwitchByThreadId: this.pendingProjectSwitchByThreadId,
+      pendingProjectSwitchByThreadId: remoteSurfaceControls.pendingProjectSwitchByThreadId,
       permissionWaitControls: this.permissionWaitControls,
       localModelRuntimeManager: this.localModelRuntimeManager,
       callbacks: {
         completePendingProjectSwitch: (projectSwitch, input) =>
-          this.completePendingRemoteProjectSwitch(projectSwitch, input),
+          remoteSurfaceControls.completePendingProjectSwitch(projectSwitch, input),
         currentFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
         emit: (event) => this.emit(event),
         emitBrowserState: () => this.emitBrowserState(),
@@ -447,7 +417,7 @@ export class AgentRuntime {
           this.resolveLocalRuntimeOwnershipForStopPlan(plan),
         revokeMcpPermissionGrantsForDescriptorDrift: (event) =>
           this.revokeMcpPermissionGrantsForDescriptorDrift(event),
-        workflowRecoveryEvents: () => this.workflowRecoveryEventsForRemoteSurface(),
+        workflowRecoveryEvents: () => remoteSurfaceControls.workflowRecoveryEvents(),
       },
     });
     this.glmTokenizer = foundationControllers.glmTokenizer;
@@ -483,51 +453,31 @@ export class AgentRuntime {
       webResearch: this.webResearch,
       localDeepResearch: this.localDeepResearch,
       installRouteGuard: this.installRouteGuard,
-      callbacks: {
-        commitThreadPiSessionFile: (input) => this.commitThreadPiSessionFile(input),
-        createCallableWorkflowToolExtension: (
-          threadId,
-          workspace,
-          initialRecordedWorkflowPlaybooks,
-          childCallableWorkflowToolNames,
-          symphonyParentModePolicy,
-          symphonyParentModeVerifiedLaunch,
-        ) => this.createCallableWorkflowToolExtension(
-          threadId,
-          workspace,
-          initialRecordedWorkflowPlaybooks,
-          childCallableWorkflowToolNames,
-          symphonyParentModePolicy,
-          symphonyParentModeVerifiedLaunch,
-        ),
-        createInterruptedToolCallRecoveryToolExtension: (threadId, workspace) =>
-          this.createInterruptedToolCallRecoveryToolExtension(threadId, workspace),
-        createPermissionGateExtension: (threadId, workspace) => this.createPermissionGateExtension(threadId, workspace),
-        createSubagentToolExtension: (threadId, pluginMcpTools) =>
-          this.createSubagentToolExtension(threadId, pluginMcpTools),
-        currentFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
-        emit: (event) => this.emit(event),
-        ensurePluginMcpToolTrusted: (threadId, workspace, registration) =>
-          this.ensurePluginMcpToolTrusted(threadId, workspace, registration),
-        fileAuthorityRootPathsForThread: (threadId, access) =>
-          this.fileAuthorityRootPathsForThread(threadId, access),
-        includeWorkspaceRootAuthorityForThread: (threadId) => this.includeWorkspaceRootAuthorityForThread(threadId),
-        markPluginToolsStale: (threadId) => this.markPluginToolsStale(threadId),
-        recordContextUsageSnapshot: (threadId, session, message) =>
-          this.recordContextUsageSnapshot(threadId, session, message),
-        recordUnavailableContextUsageSnapshot: (thread, message) =>
-          this.store.recordContextUsageSnapshot(this.unavailableContextUsageSnapshot(thread, message)),
-        requestFileAuthorityForThread: (threadId, workspace, request) =>
-          this.requestFileAuthorityForThread(threadId, workspace, request),
-        resolveFirstPartyPluginPermission: (input) => this.resolveFirstPartyPluginPermission(input),
-        resolveToolCallPermission: (threadId, workspace, toolName, toolInput) =>
-          this.resolveToolCallPermission(threadId, workspace, toolName, toolInput),
-        revokePluginGrantsForLabels: (labels) => this.revokePluginGrantsForLabels(labels),
-        runCapabilityBuilderValidationWithPermission: (input) =>
-          this.runCapabilityBuilderValidationWithPermission(input),
-        send: (input) => this.send(input),
-        tryRouteBrowserContentThroughScrapling: (input) => this.tryRouteBrowserContentThroughScrapling(input),
-      },
+      callbacks: createAgentRuntimeServiceControllerCallbackAdapters({
+        store: this.store,
+        runtime: {
+          commitThreadPiSessionFile: this.commitThreadPiSessionFile.bind(this),
+          createCallableWorkflowToolExtension: this.createCallableWorkflowToolExtension.bind(this),
+          createInterruptedToolCallRecoveryToolExtension: this.createInterruptedToolCallRecoveryToolExtension.bind(this),
+          createPermissionGateExtension: this.createPermissionGateExtension.bind(this),
+          createSubagentToolExtension: this.createSubagentToolExtension.bind(this),
+          currentFeatureFlagSnapshot: this.currentFeatureFlagSnapshot.bind(this),
+          emit: this.emit.bind(this),
+          ensurePluginMcpToolTrusted: this.ensurePluginMcpToolTrusted.bind(this),
+          fileAuthorityRootPathsForThread: this.fileAuthorityRootPathsForThread.bind(this),
+          includeWorkspaceRootAuthorityForThread: this.includeWorkspaceRootAuthorityForThread.bind(this),
+          markPluginToolsStale: this.markPluginToolsStale.bind(this),
+          recordContextUsageSnapshot: this.recordContextUsageSnapshot.bind(this),
+          requestFileAuthorityForThread: this.requestFileAuthorityForThread.bind(this),
+          resolveFirstPartyPluginPermission: this.resolveFirstPartyPluginPermission.bind(this),
+          resolveToolCallPermission: this.resolveToolCallPermission.bind(this),
+          revokePluginGrantsForLabels: this.revokePluginGrantsForLabels.bind(this),
+          runCapabilityBuilderValidationWithPermission: this.runCapabilityBuilderValidationWithPermission.bind(this),
+          send: this.send.bind(this),
+          tryRouteBrowserContentThroughScrapling: this.tryRouteBrowserContentThroughScrapling.bind(this),
+          unavailableContextUsageSnapshot: this.unavailableContextUsageSnapshot.bind(this),
+        },
+      }),
     });
     this.toolRunner = serviceControllers.toolRunner;
     this.browserTools = serviceControllers.browserTools;
@@ -551,19 +501,17 @@ export class AgentRuntime {
       callableWorkflowRunTaskIds: this.callableWorkflowRunTaskIds,
       localModelRuntimeManager: this.localModelRuntimeManager,
       modelContext: this.modelContext,
-      callbacks: {
-        abortChildThread: (threadId, options) => this.abort(threadId, options),
-        currentFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
-        emit: (event) => this.emit(event),
-        emitCallableWorkflowTaskUpdated: (task) => this.emitCallableWorkflowTaskUpdated(task),
-        ensurePluginMcpToolTrusted: (threadId, workspace, registration) =>
-          this.ensurePluginMcpToolTrusted(threadId, workspace, registration),
-        prepareChildWorktree: (run) => this.prepareSubagentChildWorktree(run),
-        recordContextUsageSnapshot: (threadId, session, message) =>
-          this.recordContextUsageSnapshot(threadId, session, message),
-        resolveModelRuntimeProfile: (modelId) => this.resolveSubagentModelRuntimeProfile(modelId),
-        send: (input, hooks) => this.send(input, hooks),
-      },
+      callbacks: createAgentRuntimeSubagentWorkflowCallbackAdapters({
+        abortChildThread: this.abort.bind(this),
+        currentFeatureFlagSnapshot: this.currentFeatureFlagSnapshot.bind(this),
+        emit: this.emit.bind(this),
+        emitCallableWorkflowTaskUpdated: this.emitCallableWorkflowTaskUpdated.bind(this),
+        ensurePluginMcpToolTrusted: this.ensurePluginMcpToolTrusted.bind(this),
+        prepareChildWorktree: this.prepareSubagentChildWorktree.bind(this),
+        recordContextUsageSnapshot: this.recordContextUsageSnapshot.bind(this),
+        resolveModelRuntimeProfile: this.resolveSubagentModelRuntimeProfile.bind(this),
+        send: this.send.bind(this),
+      }),
     });
     this.subagentActions = subagentWorkflowControllers.subagentActions;
     this.subagentStopCascade = subagentWorkflowControllers.subagentStopCascade;
@@ -621,63 +569,44 @@ export class AgentRuntime {
         defaultInterruptedToolCallRecoveryMaxRetries: DEFAULT_INTERRUPTED_TOOL_CALL_RECOVERY_MAX_RETRIES,
         localToolIdleTimeoutMs,
       },
-      callbacks: {
-        applyThreadModelSettings: (threadId) => this.applyThreadModelSettings(threadId),
-        clearWorkflowPlanEditIntent: (threadId) => {
-          this.workflowPlanEditIntentByThreadId.delete(threadId);
-          this.workflowPlanEditWorkflowThreadByThreadId.delete(threadId);
+      callbacks: createAgentRuntimePromptPipelineCallbackAdapters({
+        store: this.store,
+        workflowPlanEditIntentByThreadId: this.workflowPlanEditIntentByThreadId,
+        workflowPlanEditWorkflowThreadByThreadId: this.workflowPlanEditWorkflowThreadByThreadId,
+        pendingProjectSwitches: remoteSurfaceControls,
+        runtime: {
+          abortSessionRun: (executionSession, threadId) => this.abortSessionRunForThread(executionSession, threadId),
+          applyThreadModelSettings: (threadId) => this.applyThreadModelSettings(threadId),
+          commitThreadPiSessionFile: (input) => this.commitThreadPiSessionFile(input),
+          currentFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
+          emit: (event) => this.emit(event),
+          generateTitleIfNeeded: (thread, prompt) => this.generateTitleIfNeeded(thread, prompt),
+          getSession: (thread) => this.getSession(thread),
+          preflightBeforePrompt: (thread, session, promptContent, setActiveRunStatus, isRunStoreActive, emitRunEvent) =>
+            this.preflightBeforePrompt(
+              thread,
+              session,
+              promptContent,
+              setActiveRunStatus,
+              isRunStoreActive,
+              emitRunEvent,
+            ),
+          recordCallableWorkflowFinalizationBlockedParentMailbox: (threadId, runId, block) =>
+            this.recordCallableWorkflowFinalizationBlockedParentMailbox(threadId, runId, block),
+          recordContextUsageSnapshot: (threadId, session, snapshotMessage) =>
+            this.recordContextUsageSnapshot(threadId, session, snapshotMessage),
+          recordSubagentFinalizationBlockedParentMailbox: (threadId, runId, block) =>
+            this.recordSubagentFinalizationBlockedParentMailbox(threadId, runId, block),
+          refreshBrowsersForArtifactChange: (threadId, workspacePath, artifactPath) =>
+            this.refreshBrowsersForArtifactChange(threadId, workspacePath, artifactPath),
+          resolveCallableWorkflowFinalizationBlock: (threadId, runId, verifiedLaunch) =>
+            this.callableWorkflowFinalizationBlock(threadId, runId, verifiedLaunch),
+          resolveSubagentFinalizationBlock: (threadId, runId) => this.subagentFinalizationBarrierBlock(threadId, runId),
+          send: (followUp, followUpHooks) => this.send(followUp, followUpHooks),
+          suppressCallableWorkflowParentAssistantMessages: (block, options) =>
+            this.suppressCallableWorkflowParentAssistantMessages(block, options),
         },
-        commitThreadPiSessionFile: (input) => this.commitThreadPiSessionFile(input),
-        completePendingProjectSwitch: (projectSwitch, switchInput) =>
-          this.completePendingRemoteProjectSwitch(projectSwitch, switchInput),
-        currentFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
-        emit: (event) => this.emit(event),
-        generateTitleIfNeeded: (thread, prompt) => this.generateTitleIfNeeded(thread, prompt),
-        getRunRecord: (runId) => {
-          try {
-            return this.store.getRunRecord(runId);
-          } catch {
-            return undefined;
-          }
-        },
-        getSession: (thread) => this.getSession(thread),
-        preflightBeforePrompt: (preflightInput) =>
-          this.preflightBeforePrompt(
-            preflightInput.thread,
-            preflightInput.session,
-            preflightInput.promptContent,
-            preflightInput.setActiveRunStatus,
-            preflightInput.isRunStoreActive,
-            preflightInput.emitRunEvent,
-          ),
-        abortSessionRun: (executionSession, threadId) => this.abortSessionRunForThread(executionSession, threadId),
-        recordContextUsageSnapshot: (threadId, session, snapshotMessage) =>
-          this.recordContextUsageSnapshot(threadId, session, snapshotMessage),
-        refreshBrowsersForArtifactChange: (threadId, workspacePath, artifactPath) =>
-          this.refreshBrowsersForArtifactChange(threadId, workspacePath, artifactPath),
-        resolveSubagentFinalizationBlock: (threadId, runId) => this.subagentFinalizationBarrierBlock(threadId, runId),
-        resolveCallableWorkflowFinalizationBlock: (threadId, runId, verifiedLaunch) =>
-          this.callableWorkflowFinalizationBlock(threadId, runId, verifiedLaunch),
-        recordSubagentFinalizationBlockedParentMailbox: (threadId, runId, block) =>
-          this.recordSubagentFinalizationBlockedParentMailbox(threadId, runId, block),
-        recordCallableWorkflowFinalizationBlockedParentMailbox: (threadId, runId, block) =>
-          this.recordCallableWorkflowFinalizationBlockedParentMailbox(threadId, runId, block),
-        suppressCallableWorkflowParentAssistantMessages: (block, options) =>
-          this.suppressCallableWorkflowParentAssistantMessages(block, options),
-        send: (followUp, followUpHooks) => this.send(followUp, followUpHooks),
-        setWorkflowPlanEditIntent: (threadId, intent, workflowThreadId) => {
-          this.workflowPlanEditIntentByThreadId.set(threadId, intent);
-          this.workflowPlanEditWorkflowThreadByThreadId.set(threadId, workflowThreadId);
-        },
-        takePendingProjectSwitch: (threadId) => {
-          const pendingProjectSwitch = this.pendingProjectSwitchByThreadId.get(threadId);
-          this.pendingProjectSwitchByThreadId.delete(threadId);
-          return pendingProjectSwitch;
-        },
-        deletePendingProjectSwitch: (threadId) => {
-          this.pendingProjectSwitchByThreadId.delete(threadId);
-        },
-      },
+      }),
     });
     this.contextRecovery = promptPipelineControllers.contextRecovery;
     this.plannerFinalization = promptPipelineControllers.plannerFinalization;
@@ -736,30 +665,6 @@ export class AgentRuntime {
     input: AgentRuntimeRemoteSurfaceRuntimeEventCreateInput,
   ): MessagingGatewayRemoteSurfaceRuntimeEvent {
     return this.remoteSurfaceRuntimeEvents.record(input);
-  }
-
-  private workflowRecoveryEventsForRemoteSurface(): RuntimeSurfaceWorkflowRecoveryEvent[] {
-    return agentRuntimeWorkflowRecoveryEventsForRemoteSurface({
-      workflowFolders: this.store.listWorkflowAgentFolders(),
-      getWorkflowArtifact: (artifactId) => this.store.getWorkflowArtifact(artifactId),
-      listWorkflowRunEvents: (runId) => this.store.listWorkflowRunEvents(runId),
-    });
-  }
-
-  private async completePendingRemoteProjectSwitch(
-    projectSwitch: MessagingRemoteSurfaceCommandPendingProjectSwitch,
-    input: { threadId?: string; workspacePath?: string; throwOnFailure?: boolean } = {},
-  ): Promise<"completed" | "failed"> {
-    const switchProject = this.features.projects?.switchProject;
-    return completeMessagingRemoteSurfaceCommandPendingProjectSwitch({
-      projectSwitch,
-      ...(switchProject ? { switchProject } : {}),
-      ...(input.threadId ? { threadId: input.threadId } : {}),
-      ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
-      ...(input.throwOnFailure !== undefined ? { throwOnFailure: input.throwOnFailure } : {}),
-      updateRuntimeEvent: (eventId, patch) => this.remoteSurfaceRuntimeEvents.update(eventId, patch),
-      emitError: (event) => this.emit({ type: "error", ...event }),
-    });
   }
 
   async requestWorkflowRecordingReview(input: { threadId: string; feedback?: string }): Promise<void> {
@@ -835,9 +740,7 @@ export class AgentRuntime {
       onActivity: hooks.onActivity,
     });
     const {
-      isRunStoreActive,
       emitRunEvent,
-      markRunActivity,
       finishPlannerFinalizationSources,
     } = runEventScope;
 
@@ -861,526 +764,149 @@ export class AgentRuntime {
     promptContent = sendPreflight.promptContent;
     const { runtimeModel } = sendPreflight;
 
-    const assistantMessage = this.store.addMessage({
-      threadId: input.threadId,
-      role: "assistant",
-      content: "",
-      metadata: piAssistantMessageMetadata("streaming"),
-    });
-    const run = this.store.startRun({ threadId: input.threadId, assistantMessageId: assistantMessage.id });
-    this.activeRunIds.set(input.threadId, run.id);
-    this.emit({ type: "message-created", message: assistantMessage });
-    this.emit({ type: "run-status", threadId: input.threadId, status: "starting" });
-
-    const runStartedAt = new Date().toISOString();
-    const runGoal = this.store.getThreadGoal(input.threadId);
-    const runGoalId = runGoal?.status === "active" ? runGoal.goalId : undefined;
-    const runGoalStartedAtMs = Date.now();
-    let session: PiSession | undefined;
-    const promptLifecycleControls = createRuntimePromptLifecycleControls({
-      threadId: input.threadId,
-      runId: run.id,
-      initialStatus: "starting",
-      isRunStoreActive,
-      updateRunStatus: (runId, status) => {
-        this.store.updateRunStatus(runId, status);
-      },
-      emitRunEvent,
-    });
+    const sessionRef: { current: PiSession | undefined } = { current: undefined };
     const {
-      assistantFinalizationRetryAttemptsUsedFor,
-      assistantFinalizationRetryNextAttemptFor,
-      canScheduleAssistantFinalizationRetryFor,
-      sessionRecoveryForCurrentSession,
-      persistCurrentSessionPointerForRetry,
-      createAssistantFinalizationRetryInput,
-      createInterruptedToolCallRecoveryInput,
-    } = createRuntimeAssistantRetryPlanning({
-      baseInput: sendInputWithSymphonyParentModePolicy,
+      runId,
+      runGoalId,
+      runGoalStartedAtMs,
+      sendPromptState,
+      sendExecutionState,
+    } = createAgentRuntimeSendRunState<PiSession>({
       threadId: input.threadId,
+      runWorkspacePath,
+      threadWorkspacePath: thread.workspacePath,
+      permissionMode: thread.permissionMode,
+      visibleUserContent,
+      retrySourceUserMessageId,
+      baseInput: sendInputWithSymphonyParentModePolicy,
+      runtimeInput,
       usesDedicatedReviewSession,
+      runtimeModel,
       activeAssistantFinalizationRetry,
       assistantFinalizationRetryMaxRetries,
-      retrySourceUserMessageId,
       interruptedToolCallRecoveryAttemptsUsed,
       interruptedToolCallRecoveryMaxRetries,
-      getPermissionMode: () => this.store.getThread(input.threadId).permissionMode,
-      getCurrentSessionFile: () => session?.sessionFile,
-      getCurrentThreadPiSessionFile: () => this.store.getThread(input.threadId).piSessionFile,
-      shouldUseCurrentSessionForRetry: () => normalizeAmbientModelId(this.store.getThread(input.threadId).model) === normalizeAmbientModelId(runtimeModel),
-      commitThreadPiSessionFile: (commitInput) => this.commitThreadPiSessionFile(commitInput),
-      emit: emitRunEvent,
-    });
-    const promptControlState = createRuntimePromptControlState();
-    const outputState = createRuntimeTextOutputState();
-    let streamWatchdog: RuntimeStreamWatchdogController | undefined;
-    let toolArgumentWatchdog: RuntimeToolArgumentWatchdog | undefined;
-    let toolExecutionWatchdog: RuntimeToolExecutionWatchdog | undefined;
-    let emptyAssistantStallWatchdog: RuntimeEmptyAssistantStallWatchdog;
-    let assistantTerminalCompletion: RuntimeAssistantTerminalCompletion;
-    const streamTraceState = createRuntimeStreamTraceState();
-    const providerRetryState = createRuntimeProviderRetryState();
-    const pendingFollowUps = createRuntimeSendPendingFollowUps({
+      piPreStreamTimeoutMs,
+      piStreamIdleTimeoutMs,
+      progressThrottleMs: CHAT_PI_STREAM_PROGRESS_THROTTLE_MS,
+      progressCharDelta: CHAT_PI_STREAM_PROGRESS_CHAR_DELTA,
+      recentEventLimit: CHAT_PI_STREAM_TRACE_RECENT_EVENT_LIMIT,
       emptyResponseRetryDelayMs: ASSISTANT_FINALIZATION_RETRY_DELAY_MS,
-    });
-    const runtimeMessages = createRuntimeAssistantMessageController({
-      threadId: input.threadId,
-      initialAssistantMessage: assistantMessage,
-      markRunActivity,
-      resetAssistantStreamState: outputState.resetAssistantStreamState,
-      resetThinkingStreamState: outputState.resetThinkingStreamState,
-      listMessages: () => this.store.listMessages(input.threadId),
+      symphonyParentModePolicy,
+      runEventScope,
+      sessionRef,
+      getPromptContentLength: () => promptContent.length,
+      startRun: (runInput) => this.store.startRun(runInput),
+      getThreadGoal: (threadId) => this.store.getThreadGoal(threadId),
+      setActiveRunId: (threadId, runId) => {
+        this.activeRunIds.set(threadId, runId);
+      },
+      setActiveRun: (threadId, activeRun) => {
+        this.activeRuns.set(threadId, activeRun as ActiveRun);
+      },
       addAssistantMessage: (messageInput) => this.store.addMessage({
         threadId: messageInput.threadId,
         role: "assistant",
         content: messageInput.content,
         metadata: messageInput.metadata,
       }),
-      appendToMessage: (messageId, delta) => this.store.appendToMessage(messageId, delta),
-      replaceMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
-      emitRunEvent,
-    });
-    const queuedMessages = createRuntimeQueuedMessageController({
-      threadId: input.threadId,
-      workspacePath: runWorkspacePath,
-      isRunStoreActive,
-      markRunActivity,
-      getSession: () => session,
-      isQueueReady: promptControlState.isQueueReady,
-      incrementRunEventSeq: promptControlState.incrementRunEventSeq,
-      replaceMessage: (messageId, content, metadata) =>
-        this.store.replaceMessage(messageId, content, metadata),
-      emitRunEvent,
-    });
-    const piStreamActivity = createRuntimeStreamActivityTracker({
-      threadId: input.threadId,
-      idleTimeoutMs: piStreamIdleTimeoutMs,
-      progressThrottleMs: CHAT_PI_STREAM_PROGRESS_THROTTLE_MS,
-      progressCharDelta: CHAT_PI_STREAM_PROGRESS_CHAR_DELTA,
-      getOutputChars: outputState.assistantOutputChars,
-      getThinkingChars: outputState.thinkingOutputChars,
-      resetStreamWatchdog: () => {
-        streamWatchdog?.reset();
-      },
-      refreshEmptyAssistantStallWatchdog: () => {
-        emptyAssistantStallWatchdog?.refreshOnStreamActivity();
-      },
-      resetAssistantTerminalCompletion: () => {
-        assistantTerminalCompletion?.resetOnActivity();
-      },
-      emitRunEvent,
-    });
-    let resolveActiveRunSettled: (() => void) | undefined;
-    const activeRunSettled = new Promise<void>((resolve) => {
-      resolveActiveRunSettled = resolve;
-    });
-    const {
-      currentPiStreamFailureKind,
-      currentPiStreamTimeoutMessage,
-      currentPiStreamIdleSource,
-      chatStreamSemanticOutputSeen,
-      recordPiStreamTraceEvent,
-      persistPiStreamTrace,
-      chatStreamInterruptionDiagnostic,
-      chatStreamInterruptionNotice,
-    } = createRuntimeSendStreamDiagnostics({
-      runId: run.id,
-      threadId: input.threadId,
-      recentEventLimit: CHAT_PI_STREAM_TRACE_RECENT_EVENT_LIMIT,
-      recentEvents: streamTraceState.recentEvents(),
-      getWorkspaceStatePath: () => this.store.getWorkspace().statePath,
-      getTraceReference: streamTraceState.traceReference,
-      setTraceReference: streamTraceState.setTraceReference,
-      updateRunDiagnostics: (diagnostics) => this.store.updateRunDiagnostics(run.id, diagnostics),
-      getState: () => {
-        const streamActivity = piStreamActivity.snapshot();
-        const output = outputState.snapshot();
-        const providerRetry = providerRetryState.snapshot();
-        return {
-          piStreamEventCount: streamActivity.eventCount,
-          streamWatchdogTimeoutMessage: promptControlState.streamWatchdogTimeoutMessage(),
-          piPreStreamTimeoutMs,
-          piStreamIdleTimeoutMs,
-          runStartedAt,
-          assistantOutputChars: output.assistantOutputChars,
-          thinkingOutputChars: output.thinkingOutputChars,
-          currentAssistantFinalText: output.currentAssistantFinalText,
-          currentThinkingFinalText: output.currentThinkingFinalText,
-          receivedAnyText: output.receivedAnyText,
-          currentAssistantReceivedText: output.currentAssistantReceivedText,
-          currentThinkingReceivedText: output.currentThinkingReceivedText,
-          toolMessageCount: toolMessages.size(),
-          sessionFile: session?.sessionFile,
-          piPromptStartLine: streamTraceState.piPromptStartLine(),
-          piPromptUserLine: streamTraceState.piPromptUserLine(),
-          promptContentSha256: streamTraceState.promptContentSha256(),
-          promptContentLength: promptContent.length,
-          currentAssistantMessageId: runtimeMessages.currentAssistantMessageId(),
-          runtimeModel,
-          piStreamApproximatePayloadBytes: streamActivity.approximatePayloadBytes,
-          firstPiStreamEventAt: streamActivity.firstEventAt,
-          firstPiStreamEventType: streamActivity.firstEventType,
-          lastPiStreamEventAt: streamActivity.lastEventAt,
-          lastPiStreamEventType: streamActivity.lastEventType,
-          firstAssistantVisibleTextAt: output.firstAssistantVisibleTextAt,
-          firstToolArgumentAt: streamTraceState.firstToolArgumentAt(),
-          firstToolExecutionStartedAt: streamTraceState.firstToolExecutionStartedAt(),
-          providerRetryAttemptCount: providerRetry.providerRetryAttemptCount,
-          providerRetryLastError: providerRetry.providerRetryLastError,
-        };
-      },
-    });
-    const toolContext = createRuntimeToolContextSetup({
-      threadId: input.threadId,
-      workspacePath: thread.workspacePath,
-      permissionMode: thread.permissionMode,
-      runId: run.id,
-      outputState,
-      visibleUserContent,
-      isRunStoreActive,
-      retrySourceUserMessageId: () => retrySourceUserMessageId,
-      listMessages: () => this.store.listMessages(input.threadId),
       addToolMessage: (messageInput) => this.store.addMessage({
         threadId: messageInput.threadId,
         role: "tool",
         content: messageInput.content,
         metadata: messageInput.metadata,
       }),
+      appendToMessage: (messageId, delta) => this.store.appendToMessage(messageId, delta),
       replaceMessage: (messageId, content, metadata) => this.store.replaceMessage(messageId, content, metadata),
-      updateRunDiagnostics: (diagnostics) => this.store.updateRunDiagnostics(run.id, diagnostics),
-      emitRunEvent,
-    });
-    const { toolArgumentProgress, startedToolCallIds, toolMessages, toolRecovery } = toolContext;
-    const {
-      interruptedToolCallRecovery,
-      toolIntentSnapshots,
-      persistToolArgumentDiagnostics,
-      forceInterruptedToolCallRecovery,
-    } = toolRecovery;
-
-    const abortContext = createRuntimeAbortContextSetup<PiSession>({
-      threadId: input.threadId,
-      runId: run.id,
-      dedicatedSessionKind: runtimeInput.dedicatedSessionKind,
-      activeRunSettled,
-      runEventScope,
-      queuedMessages,
-      outputState,
-      promptLifecycleControls,
-      isRunStoreActive,
+      listMessages: () => this.store.listMessages(input.threadId),
+      updateRunStatus: (runId, status) => {
+        this.store.updateRunStatus(runId, status);
+      },
+      updateRunDiagnostics: (runId, diagnostics) => this.store.updateRunDiagnostics(runId, diagnostics),
       finishRun: (runId, status, errorMessage) => {
         this.store.finishRun(runId, status, errorMessage);
       },
       denyThread: (threadId) => this.permissions.denyThread(threadId),
-      getSession: () => session,
+      getPermissionMode: () => this.store.getThread(input.threadId).permissionMode,
+      getCurrentThreadPiSessionFile: () => this.store.getThread(input.threadId).piSessionFile,
+      getCurrentThreadModel: () => this.store.getThread(input.threadId).model,
+      commitThreadPiSessionFile: (commitInput) => this.commitThreadPiSessionFile(commitInput),
+      getWorkspaceStatePath: () => this.store.getWorkspace().statePath,
       abortSessionRun: (abortSession, threadId) => this.abortSessionRunForThread(abortSession, threadId),
       markSubagentParentControlBarrierReconciled: (reconcileInput) =>
         this.store.markSubagentParentControlBarrierReconciled(reconcileInput),
       cascadeSubagentsForStoppedParentRun: (threadId, runId, reason) =>
         this.subagentStopCascade.cascadeSubagentsForStoppedParentRun(threadId, runId, reason),
-      emitRunEvent,
-    });
-    const {
-      abortRequested: isAbortRequested,
-      subagentParentControlAbortIntent: currentSubagentParentControlAbortIntent,
-      finishParentRun,
-      consumeSubagentParentControlAbort,
-      requestSubagentParentControlAbort,
-    } = abortContext;
-    this.activeRuns.set(input.threadId, abortContext.activeRun as ActiveRun);
-
-    const permissionWaits = createRuntimePermissionWaitSetup({
-      threadId: input.threadId,
-      toolMessages,
-      toolArgumentProgress,
-      getToolExecutionWatchdog: () => toolExecutionWatchdog,
-      getToolArgumentWatchdog: () => toolArgumentWatchdog,
-      getStreamWatchdog: () => streamWatchdog,
-      markRunActivity,
-      replaceMessage: (messageId, content, metadata) =>
-        this.store.replaceMessage(messageId, content, metadata),
-      emitRunEvent,
-    });
-    this.permissionWaitControls.set(input.threadId, permissionWaits);
-
-    let markOpenToolMessagesFailed: (reason: RuntimeOpenToolFailureReason) => void = () => undefined;
-
-    const providerContinuation = createRuntimeProviderContinuationSetup({
-      baseInput: sendInputWithSymphonyParentModePolicy,
-      workspacePath: thread.workspacePath,
-      runId: run.id,
-      threadId: input.threadId,
-      runtimeModel,
-      piPreStreamTimeoutMs,
-      piStreamIdleTimeoutMs,
-      assistantFinalizationRetryMaxRetries,
-      toolMessages,
-      toolArgumentProgress,
-      interruptedToolCallRecovery,
-      startedToolCallIds,
-      toolIntents: toolIntentSnapshots,
-      runtimeMessages,
-      outputState,
-      streamActivity: piStreamActivity,
-      streamTraceState,
-      getPermissionMode: () => this.store.getThread(input.threadId).permissionMode,
-      getModel: () => this.store.getThread(input.threadId).model,
-      getRetrySourceUserMessageId: () => retrySourceUserMessageId,
-      getSessionFile: () => session?.sessionFile,
-      chatStreamSemanticOutputSeen,
-      currentPiStreamIdleSource,
-      assistantFinalizationRetryNextAttemptFor,
-      sessionRecoveryForCurrentSession,
-      updateRunDiagnostics: (diagnostics) => this.store.updateRunDiagnostics(run.id, diagnostics),
-    });
-    const {
-      collectOpenProviderInterruptionToolSnapshots,
-      createProviderContinuationState,
-      persistProviderContinuationState,
-      createProviderInterruptionContinuationInput,
-    } = providerContinuation;
-
-    const sendSessionLifecycle = createRuntimeSendSessionLifecycle<PiSession>({
-      threadId: input.threadId,
-      runId: run.id,
-      getSession: () => session,
-      removeActiveSessionIfCurrent: (cleanupSession) => {
-        if (this.sessions.get(input.threadId) !== cleanupSession) return false;
-        this.sessions.delete(input.threadId);
-        return true;
+      setPermissionWaitControl: (threadId, control) => {
+        this.permissionWaitControls.set(threadId, control);
       },
-      usesDedicatedReviewSession,
-      currentThreadPiSessionFile: () => this.store.getThread(input.threadId).piSessionFile,
+      getModel: () => this.store.getThread(input.threadId).model,
       clearThreadPiSessionFile: () => {
         emitRunEvent({
           type: "thread-updated",
           thread: this.store.updateThreadSettings(input.threadId, { piSessionFile: null }),
         });
       },
-      symphonyParentModePolicy,
-      initialSymphonyParentModeVerifiedLaunch: runtimeInput.symphonyParentModeVerifiedLaunch,
+      removeActiveSessionIfCurrent: (cleanupSession) => {
+        if (this.sessions.get(input.threadId) !== cleanupSession) return false;
+        this.sessions.delete(input.threadId);
+        return true;
+      },
       listCallableWorkflowTasksForParentRun: (runId) =>
         this.store.listCallableWorkflowTasksForParentRun(runId),
+      emit: (event) => this.emit(event),
     });
-    const { cleanupCurrentSession } = sendSessionLifecycle;
 
-    try {
-      session = usesDedicatedReviewSession
-        ? await this.createWorkflowRecordingReviewSession(thread)
-        : await this.getSession(
-            thread,
-            runtimeInput.sessionRecovery,
-            symphonyParentModePolicy,
-            runtimeInput.symphonyParentModeVerifiedLaunch,
-          );
-      if (!isRunStoreActive()) return;
-      if (isAbortRequested()) {
-        await this.abortSessionRunForThread(session, input.threadId);
-        throw new Error("Run stopped.");
-      }
-
-      const promptExecutionResult = await this.promptExecutions.runPrompt({
-        thread,
-        runId: run.id,
-        session,
-        promptContent,
-        images: promptImageInputs.images,
-        preStreamTimeoutMs: piPreStreamTimeoutMs,
-        streamIdleTimeoutMs: piStreamIdleTimeoutMs,
-        defaultToolExecutionIdleTimeoutMs,
-        emptyAssistantStallTimeoutMs,
-        assistantTerminalGraceMs: ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS,
-        postToolContinuationIdleMs: POST_TOOL_CONTINUATION_IDLE_MS,
-        postToolFinalizationIdleMs: POST_TOOL_FINALIZATION_IDLE_MS,
-        postToolFinalizationTickMs: POST_TOOL_FINALIZATION_TICK_MS,
-        abortGraceMs: POST_TOOL_ABORT_GRACE_MS,
-        assistantFinalizationRetryMaxRetries,
-        isRunStoreActive,
-        permissionWaits,
-        promptControlState,
-        promptLifecycleControls,
-        streamTimeoutMessage: currentPiStreamTimeoutMessage,
-        persistPiStreamTrace,
-        toolArgumentProgress,
-        forceInterruptedToolCallRecovery,
-        outputState,
-        runtimeMessages,
-        getMessages: () => this.store.listMessages(input.threadId),
-        queuedMessages,
-        streamActivity: piStreamActivity,
-        streamTraceState,
-        providerRetryState,
-        toolMessages,
-        toolRecovery,
-        startedToolCallIds,
-        markRunActivity,
-        recordPiStreamTraceEvent,
-        requestSubagentParentControlAbort,
-        setStreamWatchdog: (controller) => {
-          streamWatchdog = controller;
-        },
-        setToolExecutionWatchdog: (watchdog) => {
-          toolExecutionWatchdog = watchdog;
-        },
-        setToolArgumentWatchdog: (watchdog) => {
-          toolArgumentWatchdog = watchdog;
-        },
-        setEmptyAssistantStallWatchdog: (watchdog) => {
-          emptyAssistantStallWatchdog = watchdog;
-        },
-        setAssistantTerminalCompletion: (completion) => {
-          assistantTerminalCompletion = completion;
-        },
-        setMarkOpenToolMessagesFailed: (handler) => {
-          markOpenToolMessagesFailed = handler;
-        },
-        emitRunEvent,
-      });
-      if (!promptExecutionResult.completed) return;
-
-      const providerRetry = providerRetryState.snapshot();
-      const promptRunState = promptExecutionResult.promptRunState;
-      const promptRun = promptRunState.snapshot();
-      const symphonyParentModeVerifiedLaunch =
-        sendSessionLifecycle.resolveAndStoreCurrentSymphonyParentModeVerifiedLaunch();
-      sendSessionLifecycle.assertRequiredSymphonyParentModeLaunch(symphonyParentModeVerifiedLaunch);
-      const promptSuccess = await this.promptOutcomes.handlePromptSuccess({
-        sendInput: input,
-        runId: run.id,
-        runWorkspacePath,
-        session,
-        runtimeMessages,
-        toolMessages,
-        plannerFinalizationSources,
-        runtimeError: promptRun.runtimeError,
-        abortRequested: isAbortRequested(),
-        finalizedAfterToolIdle: promptRun.finalizedAfterToolIdle,
-        currentThinkingFinalText: outputState.currentThinkingFinalText(),
-        currentAssistantFinalText: outputState.currentAssistantFinalText(),
-        receivedAnyText: outputState.receivedAnyText(),
-        pendingEmptyResponseRetryDelayMs: pendingFollowUps.pendingEmptyResponseRetryDelayMs(),
-        activeRetryReason: activeAssistantFinalizationRetry?.reason,
-        retrySourceUserMessageId,
-        lastAssistantTerminalEvent: promptRun.lastAssistantTerminalEvent,
-        assistantTerminalCleanupDiagnostic: promptRun.assistantTerminalCleanupDiagnostic,
-        subagentParentControlAbortIntent: currentSubagentParentControlAbortIntent(),
-        providerRetryBeforeVisibleOutput: providerRetry.providerRetryBeforeVisibleOutput,
-        providerRetryRecovered: providerRetry.providerRetryRecovered,
-        providerRetryAttemptCount: providerRetry.providerRetryAttemptCount,
-        providerRetryLastError: providerRetry.providerRetryLastError,
-        usesDedicatedReviewSession,
-        symphonyParentModeVerifiedLaunch,
-        assistantFinalizationRetryMaxRetries,
-        canScheduleAssistantFinalizationRetryFor,
-        assistantFinalizationRetryAttemptsUsedFor,
-        assistantFinalizationRetryNextAttemptFor,
-        createAssistantFinalizationRetryInput,
-        consumeSubagentParentControlAbort,
-        cleanupCurrentSession,
-        finishPlannerFinalizationSources,
-        finishParentRun,
-        emitRunEvent,
-      });
-      pendingFollowUps.applyPromptSuccess({
-        ...promptSuccess,
-        pendingEmptyResponseRetry: carrySymphonyParentModeVerifiedLaunch(
-          promptSuccess.pendingEmptyResponseRetry,
-          symphonyParentModeVerifiedLaunch,
-        ),
-      });
-    } catch (error) {
-      const symphonyParentModeVerifiedLaunch =
-        sendSessionLifecycle.refreshStoredSymphonyParentModeVerifiedLaunch();
-      await this.promptOutcomes.handlePromptFailure({
-        error,
-        sendInput: input,
-        runId: run.id,
-        runWorkspacePath,
-        usesDedicatedReviewSession,
-        activeAssistantFinalizationRetry,
-        assistantFinalizationRetryMaxRetries,
-        interruptedToolCallRecoveryAttemptsUsed,
-        interruptedToolCallRecoveryMaxRetries,
-        canScheduleInterruptedToolCallRecovery,
-        pendingEmptyResponseRetryDelayMs: pendingFollowUps.pendingEmptyResponseRetryDelayMs(),
-        retrySourceUserMessageId,
-        runtimeMessages,
-        toolMessages,
-        toolArgumentProgress,
-        interruptedToolCallRecovery,
-        startedToolCallIds,
-        abortRequested: isAbortRequested,
-        streamWatchdogTimedOut: promptControlState.isStreamTimedOut,
-        currentPiStreamFailureKind,
-        currentAssistantFinalText: outputState.currentAssistantFinalText,
-        currentThinkingFinalText: outputState.currentThinkingFinalText,
-        receivedAnyText: outputState.receivedAnyText,
-        subagentParentControlAbortIntent: currentSubagentParentControlAbortIntent,
-        isRunStoreActive,
-        consumeSubagentParentControlAbort,
-        persistPiStreamTrace,
-        canScheduleAssistantFinalizationRetryFor,
-        assistantFinalizationRetryAttemptsUsedFor,
-        assistantFinalizationRetryNextAttemptFor,
-        sessionRecoveryForCurrentSession,
-        createAssistantFinalizationRetryInput,
-        createInterruptedToolCallRecoveryInput,
-        collectOpenProviderInterruptionToolSnapshots,
-        createProviderContinuationState,
-        persistProviderContinuationState,
-        persistCurrentSessionPointerForRetry,
-        createProviderInterruptionContinuationInput,
-        setPendingEmptyResponseRetry: pendingFollowUps.setPendingEmptyResponseRetry,
-        setPendingInterruptedToolCallRecoveryFollowUp: pendingFollowUps.setPendingInterruptedToolCallRecoveryFollowUp,
-        setPendingProviderInterruptionContinuation: pendingFollowUps.setPendingProviderInterruptionContinuation,
-        providerRetryAttemptCount: providerRetryState.providerRetryAttemptCount,
-        setProviderRetryAttemptCount: providerRetryState.setProviderRetryAttemptCount,
-        setProviderRetryLastError: providerRetryState.setProviderRetryLastError,
-        cleanupCurrentSession,
-        markOpenToolMessagesFailed,
-        persistToolArgumentDiagnostics,
-        finishPlannerFinalizationSources,
-        finishParentRun,
-        getThread: () => this.store.getThread(input.threadId),
-        symphonyParentModePolicy,
-        symphonyParentModeVerifiedLaunch,
-        chatStreamInterruptionDiagnostic,
-        chatStreamInterruptionNotice,
-        emitRunEvent,
-      });
-    } finally {
-      const pendingFollowUpsSnapshot = pendingFollowUps.snapshot();
-      await this.promptOutcomes.finalizeSendAfterRun({
-        sendInput: input,
-        hooks,
-        runId: run.id,
-        runWorkspacePath,
-        runGoalId,
-        runGoalStartedAtMs,
-        promptContent,
-        currentAssistantFinalText: outputState.currentAssistantFinalText(),
-        assistantOutputChars: outputState.assistantOutputChars(),
-        currentThinkingFinalText: outputState.currentThinkingFinalText(),
-        thinkingOutputChars: outputState.thinkingOutputChars(),
-        abortRequested: isAbortRequested(),
-        pendingPlannerRepairFollowUp: pendingFollowUpsSnapshot.pendingPlannerRepairFollowUp,
-        pendingEmptyResponseRetry: pendingFollowUpsSnapshot.pendingEmptyResponseRetry,
-        pendingInterruptedToolCallRecoveryFollowUp: pendingFollowUpsSnapshot.pendingInterruptedToolCallRecoveryFollowUp,
-        pendingProviderInterruptionContinuation: pendingFollowUpsSnapshot.pendingProviderInterruptionContinuation,
-        pendingEmptyResponseRetryDelayMs: pendingFollowUpsSnapshot.pendingEmptyResponseRetryDelayMs,
-        usesDedicatedReviewSession,
-        session,
-        hasWorkflowPlanEditIntent,
-        isRunStoreActive,
-        cleanupCurrentSession,
-        emitRunEvent,
-        toolArgumentWatchdog,
-        toolExecutionWatchdog,
-        queuedMessages,
-        toolMessages,
-        resolveActiveRunSettled,
-      });
-    }
+    await runAgentRuntimeSendPromptRun({
+      sendInput: input,
+      hooks,
+      thread,
+      runId,
+      runWorkspacePath,
+      promptContent,
+      images: promptImageInputs.images,
+      piPreStreamTimeoutMs,
+      piStreamIdleTimeoutMs,
+      defaultToolExecutionIdleTimeoutMs,
+      emptyAssistantStallTimeoutMs,
+      assistantTerminalGraceMs: ASSISTANT_TERMINAL_TEXT_IDLE_GRACE_MS,
+      postToolContinuationIdleMs: POST_TOOL_CONTINUATION_IDLE_MS,
+      postToolFinalizationIdleMs: POST_TOOL_FINALIZATION_IDLE_MS,
+      postToolFinalizationTickMs: POST_TOOL_FINALIZATION_TICK_MS,
+      abortGraceMs: POST_TOOL_ABORT_GRACE_MS,
+      assistantFinalizationRetryMaxRetries,
+      activeAssistantFinalizationRetry,
+      retrySourceUserMessageId,
+      interruptedToolCallRecoveryAttemptsUsed,
+      interruptedToolCallRecoveryMaxRetries,
+      canScheduleInterruptedToolCallRecovery,
+      plannerFinalizationSources,
+      usesDedicatedReviewSession,
+      hasWorkflowPlanEditIntent,
+      runGoalId,
+      runGoalStartedAtMs,
+      symphonyParentModePolicy,
+      sendPromptState,
+      sendExecutionState,
+      runEventScope,
+      promptExecutions: this.promptExecutions,
+      promptOutcomes: this.promptOutcomes,
+      createSession: () =>
+        usesDedicatedReviewSession
+          ? this.createWorkflowRecordingReviewSession(thread)
+          : this.getSession(
+              thread,
+              runtimeInput.sessionRecovery,
+              symphonyParentModePolicy,
+              runtimeInput.symphonyParentModeVerifiedLaunch,
+            ),
+      setSession: (createdSession) => {
+        sessionRef.current = createdSession;
+      },
+      abortSessionRun: (abortSession, threadId) => this.abortSessionRunForThread(abortSession, threadId),
+      getMessages: () => this.store.listMessages(input.threadId),
+      getThread: () => this.store.getThread(input.threadId),
+    });
   }
 
   continueGoalIfIdle(threadId: string, expectedGoalId: string, delayMs = 0): void {

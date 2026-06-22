@@ -775,6 +775,41 @@ button {
   color: var(--signal-blue);
 }
 
+.thread-indicator[data-tooltip] {
+  position: relative;
+}
+
+.thread-indicator[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  z-index: 120;
+  right: 0;
+  top: calc(100% + 7px);
+  width: max-content;
+  max-width: 240px;
+  transform: translateY(2px);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.16);
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+}
+
+.thread-indicator[data-tooltip]:hover::after {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
 .thread-preview {
   color: var(--muted);
   font-size: 12px;

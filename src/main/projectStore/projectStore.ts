@@ -2943,15 +2943,30 @@ export class ProjectStore {
 
   private withThreadScheduledCheckIns(threads: ThreadSummary[]): ThreadSummary[] {
     const scheduledByThreadId = new Map<string, ThreadScheduledCheckInSummary>();
+    const setScheduledCheckIn = (threadId: string, checkIn: ThreadScheduledCheckInSummary): void => {
+      const existing = scheduledByThreadId.get(threadId);
+      if (existing && existing.nextRunAt <= checkIn.nextRunAt) return;
+      scheduledByThreadId.set(threadId, checkIn);
+    };
+
     for (const schedule of this.automations().listAutomationSchedules()) {
       if (!schedule.enabled || !schedule.nextRunAt || !schedule.dedicatedThreadId) continue;
-      const existing = scheduledByThreadId.get(schedule.dedicatedThreadId);
-      if (existing && existing.nextRunAt <= schedule.nextRunAt) continue;
-      scheduledByThreadId.set(schedule.dedicatedThreadId, {
+      setScheduledCheckIn(schedule.dedicatedThreadId, {
+        sourceKind: "automation_schedule",
         scheduleId: schedule.id,
         nextRunAt: schedule.nextRunAt,
         targetKind: schedule.targetKind as AutomationScheduleTargetKind,
         targetLabel: schedule.targetLabel,
+      });
+    }
+
+    for (const wake of this.threadWakeContinuations().listPendingThreadWakeContinuations()) {
+      setScheduledCheckIn(wake.threadId, {
+        sourceKind: "thread_wake",
+        wakeId: wake.id,
+        nextRunAt: wake.dueAt,
+        targetKind: "thread_wake",
+        targetLabel: "this thread",
       });
     }
 
@@ -2967,7 +2982,8 @@ export class ProjectStore {
   }
 
   getThread(threadId: string): ThreadSummary {
-    return this.threads().getThread(threadId);
+    const thread = this.threads().getThread(threadId);
+    return this.withThreadScheduledCheckIns([thread])[0] ?? thread;
   }
 
   getThreadGoal(threadId: string): ThreadGoal | undefined {

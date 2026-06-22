@@ -7,7 +7,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { DesktopState } from "../../shared/desktopTypes";
 import {
   createAppRightPanelHostProps,
+  createAppRightPanelHostPropsForApp,
   type AppRightPanelHostActions,
+  type AppRightPanelHostPropsForAppInput,
   type AppRightPanelHostPropsInput,
 } from "./AppRightPanelHostProps";
 import type { UtilityPanel } from "./RightPanel";
@@ -156,7 +158,78 @@ describe("App right panel host props", () => {
     expect(rightPanel.get()).toBeUndefined();
     expect(openLocalDeepResearchFollowupIfSetupNeeded).toHaveBeenCalled();
   });
+
+  it("adapts grouped App owner actions into right-panel host props", () => {
+    const currentState = stateSetter<DesktopState | undefined>(desktopState());
+    const rightPanel = stateSetter<UtilityPanel | undefined>("settings");
+    const openApiKeyDialog = vi.fn();
+    const runUpdateAction = vi.fn();
+    const updateThreadSettings = vi.fn();
+    const refreshVoiceCatalog = vi.fn();
+    const loadSttMicrophoneDeviceList = vi.fn();
+    const props = createAppRightPanelHostPropsForApp(
+      appInputFromBase(
+        baseInput({
+          actions: baseActions({
+            loadSttMicrophoneDeviceList,
+            openApiKeyDialog,
+            refreshVoiceCatalog,
+            runUpdateAction,
+            updateThreadSettings,
+          }),
+          rightPanelState: {
+            ...baseRightPanelState(),
+            rightPanel: "plugins",
+            rightPanelWidth: 700,
+            setRightPanel: rightPanel.set,
+          },
+          setState: currentState.set,
+          state: currentState.get() ?? desktopState(),
+        }),
+      ),
+    );
+
+    expect(props.panel).toBe("plugins");
+    expect(props.panelWidth).toBe(700);
+
+    props.onOpenApiKey();
+    props.onCheckUpdates();
+    props.onThinkingLevelChange("medium");
+    props.onRefreshVoiceCatalog("voice-provider");
+    props.onLoadSttMicrophoneDevices(false);
+    props.onClose();
+
+    expect(openApiKeyDialog).toHaveBeenCalled();
+    expect(runUpdateAction).toHaveBeenCalledWith("check");
+    expect(updateThreadSettings).toHaveBeenCalledWith({ thinkingLevel: "medium" });
+    expect(refreshVoiceCatalog).toHaveBeenCalledWith("voice-provider");
+    expect(loadSttMicrophoneDeviceList).toHaveBeenCalledWith({ requestPermission: false });
+    expect(rightPanel.get()).toBeUndefined();
+  });
 });
+
+function appInputFromBase({
+  actions,
+  ...input
+}: AppRightPanelHostPropsInput): AppRightPanelHostPropsForAppInput {
+  return {
+    ...input,
+    actions: {
+      agentMemoryControls: actions,
+      browserActionControls: actions,
+      capabilityPromptActions: actions,
+      contextAttachmentActions: actions,
+      credentialDialogActions: actions,
+      navigationActions: actions,
+      permissionActions: actions,
+      providerRuntimeActions: actions,
+      settingsActions: actions,
+      shellCommandActions: actions,
+      threadMaintenanceActions: actions,
+      updateActions: actions,
+    },
+  };
+}
 
 function baseInput(input: Partial<AppRightPanelHostPropsInput> = {}): AppRightPanelHostPropsInput {
   return {

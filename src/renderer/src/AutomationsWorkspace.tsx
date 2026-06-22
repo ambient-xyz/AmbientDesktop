@@ -10,8 +10,6 @@ import type {
 import type { ProjectSummary } from "../../shared/projectBoardTypes";
 import type { ThinkingLevel } from "../../shared/threadTypes";
 import type {
-  OrchestrationRun,
-  OrchestrationTask,
   WorkflowAgentFolderSummary,
   WorkflowAgentThreadSummary,
   WorkflowArtifactSummary,
@@ -23,10 +21,10 @@ import type {
   WorkflowRunDetail,
   WorkflowRunSummary,
 } from "../../shared/workflowTypes";
-import { LocalTaskBoard, LocalTasksPane } from "./AutomationsLocalTaskBoard";
+import { createAutomationsWorkflowAgentPaneRenderers } from "./AutomationsWorkflowAgentPaneRenderers";
+import { createAutomationsLocalTaskPaneRenderers } from "./AutomationsLocalTaskPaneRenderers";
 import { useAutomationsLocalTaskController } from "./AutomationsLocalTaskController";
-import { ProofOfWorkPreview } from "./AutomationsProofPreviewViews";
-import { AutoDispatchStatusView, AutoDispatchToggle, LocalTaskRunList, PrepareResultView } from "./AutomationsRunHistory";
+import { WorkflowRunCards } from "./AutomationsWorkflowRuntimeViews";
 import { automationScheduleTargetSourcesModel, useAutomationScheduleController } from "./AutomationsScheduleController";
 import { AutomationSchedulesFallbackPane, WorkflowFocusedSchedulesPane, workflowSchedulesPaneRouteModel } from "./AutomationsScheduleViews";
 import { AutomationSelectedThreadDetailView } from "./AutomationsThreadDetailViews";
@@ -35,11 +33,7 @@ import { workflowArtifactPanelRenderers } from "./AutomationsWorkflowArtifactIns
 import { WorkflowBuildWorkspace, workflowBuildWorkspaceViewModel } from "./AutomationsWorkflowBuildViews";
 import { useAutomationsWorkflowDashboardController } from "./AutomationsWorkflowDashboardController";
 import { WorkflowAgentDiagramPane } from "./AutomationsWorkflowDiagramViews";
-import {
-  activeDraftWorkflowRevisionForThread,
-  latestWorkflowRunForArtifact,
-  useAutomationsWorkflowDiscoveryController,
-} from "./AutomationsWorkflowDiscoveryController";
+import { latestWorkflowRunForArtifact, useAutomationsWorkflowDiscoveryController } from "./AutomationsWorkflowDiscoveryController";
 import {
   WorkflowDiscoveryThreadWorkspace,
   workflowDiscoveryThreadWorkspaceViewModel,
@@ -50,18 +44,11 @@ import { WorkflowExplorationPanel } from "./AutomationsWorkflowExplorationViews"
 import { useWorkflowLabController } from "./AutomationsWorkflowLabController";
 import { createAutomationsWorkflowNavigationController } from "./AutomationsWorkflowNavigationController";
 import { WorkflowSplitHandle } from "./AutomationsWorkflowPanelRouting";
-import { WorkflowLabPlaybookLibrarySection, WorkflowRecordingPlaybookPane } from "./AutomationsWorkflowPlaybookViews";
 import { useAutomationsWorkflowRecordingLibraryController } from "./AutomationsWorkflowRecordingLibraryController";
-import { WorkflowCompileActivity, WorkflowReviewWorkspace } from "./AutomationsWorkflowReviewViews";
-import { WorkflowFocusedRunsPane, WorkflowRunCards } from "./AutomationsWorkflowRuntimeViews";
+import { WorkflowReviewWorkspace } from "./AutomationsWorkflowReviewViews";
+import { WorkflowFocusedRunsPane } from "./AutomationsWorkflowRuntimeViews";
 import { WorkflowThreadComposerView } from "./AutomationsWorkflowThreadComposerViews";
 import { useAutomationsWorkflowThreadController } from "./AutomationsWorkflowThreadController";
-import {
-  AutomationFolderPane,
-  WorkflowAgentCompilerStartPane,
-  WorkflowLegacyHiddenPane,
-  WorkflowRecorderStartPane,
-} from "./AutomationsWorkflowUtilityViews";
 import { useAutomationsWorkflowWorkspaceController } from "./AutomationsWorkflowWorkspaceController";
 import {
   AutomationsWorkspaceHomePane,
@@ -70,26 +57,19 @@ import {
 } from "./AutomationsWorkspaceHomeViews";
 import {
   AutomationPaneRouter,
-  AutomationProjectField,
   automationWorkspaceActivePaneTooltip,
   AutomationWorkspaceHeader,
   automationWorkspacePaneTitle,
   automationWorkspaceShellModel,
-  WorkflowAgentPaneRouter,
   type AutomationPane,
 } from "./AutomationsWorkspaceShellViews";
 import { useAutomationsWorkspaceSurfaceController } from "./AutomationsWorkspaceSurfaceController";
-import { workflowCompileActionState } from "./automationUiModel";
 import { automationWorkspaceSelectionModel } from "./automationWorkspaceSelectionModel";
 import "./styles.css";
 import { workflowExplorationGateForThread } from "./workflowExplorationGateUiModel";
 import { findWorkflowGraphNodeReviewActionTarget } from "./workflowGraphNodeReviewRouting";
 import type { WorkflowGraphNodeReviewAction } from "./workflowGraphNodeReviewUiModel";
-import {
-  workflowRecorderLegacyCompilerEnabled,
-  workflowRecorderStartActionState,
-  workflowRecorderSurfaceModel,
-} from "./workflowRecorderUiModel";
+import { workflowRecorderLegacyCompilerEnabled, workflowRecorderSurfaceModel } from "./workflowRecorderUiModel";
 import { workflowReviewArtifactRunBlocked, workflowReviewWorkspaceViewModel } from "./workflowReviewUiModel";
 import {
   DEFAULT_WORKFLOW_FOREGROUND_IDLE_TIMEOUT_MS,
@@ -485,38 +465,6 @@ export function AutomationsWorkspace({
     onAutoDispatchStatusChanged: setAutoDispatchStatus,
   });
   const {
-    autoDispatchBusy,
-    taskTitle,
-    setTaskTitle,
-    taskDescription,
-    setTaskDescription,
-    taskPriority,
-    setTaskPriority,
-    taskLabels,
-    setTaskLabels,
-    taskInitialState,
-    setTaskInitialState,
-    taskTriggerMode,
-    setTaskTriggerMode,
-    taskSchedulePreset,
-    setTaskSchedulePreset,
-    taskScheduleExpression,
-    setTaskScheduleExpression,
-    taskEditId,
-    taskEditTitle,
-    setTaskEditTitle,
-    taskEditDescription,
-    setTaskEditDescription,
-    taskEditBusyId,
-    taskBlockerDrafts,
-    draggingTaskId,
-    taskBusy,
-    prepareBusy,
-    prepareResult,
-    startingRunId,
-    cancelingRunId,
-  } = localTaskController;
-  const {
     scheduleTargetType,
     scheduleTargetId,
     schedulePreset,
@@ -826,53 +774,89 @@ export function AutomationsWorkspace({
     }
   }
 
-  function renderProjectField() {
-    return (
-      <AutomationProjectField
-        projects={projectOptions}
-        selectedPath={selectedTaskProjectPath}
-        tooltip={automationHeadingTooltips.project}
-        onProjectPathChange={setTaskProjectPath}
-        onCreateProject={createProjectForLocalTask}
-      />
-    );
-  }
+  const localTaskPaneRenderers = createAutomationsLocalTaskPaneRenderers({
+    autoDispatchStatus,
+    orchestrationBoard,
+    orchestrationError,
+    projectOptions,
+    legacyCompilerEnabled: workflowRecorderSurface.legacyCompilerEnabled,
+    routeDetailForThread: automationThreadRouteDetail,
+    selectedFolder,
+    selectedTaskProjectPath,
+    tooltips: automationHeadingTooltips,
+    visibleTaskRuns,
+    visibleTasks,
+    visibleThreads,
+    taskById,
+    localTaskController,
+    onCreateProject: createProjectForLocalTask,
+    onOpenRunThread,
+    onOpenThread: openAutomationThreadCard,
+    onProjectPathChange: setTaskProjectPath,
+    onRefresh: loadAutomationSurface,
+  });
 
-  function renderAutoDispatchStatus() {
-    return <AutoDispatchStatusView status={autoDispatchStatus} workflowReadiness={orchestrationBoard?.workflowReadiness} />;
-  }
-
-  function renderAutoDispatchToggle() {
-    return (
-      <AutoDispatchToggle
-        status={autoDispatchStatus}
-        busy={autoDispatchBusy}
-        tooltip={automationHeadingTooltips.autoDispatch}
-        onChange={localTaskController.setAutoDispatch}
-      />
-    );
-  }
-
-  function renderPrepareResult() {
-    return <PrepareResultView result={prepareResult} />;
-  }
-
-  function renderTaskRuns(runs: OrchestrationRun[], limit = 6) {
-    return (
-      <LocalTaskRunList
-        runs={runs}
-        limit={limit}
-        taskById={taskById}
-        startingRunId={startingRunId}
-        cancelingRunId={cancelingRunId}
-        onOpenRunThread={onOpenRunThread}
-        onRevealWorkspace={localTaskController.revealOrchestrationWorkspace}
-        onStartRun={localTaskController.startOrchestrationRun}
-        onCancelRun={localTaskController.cancelOrchestrationRun}
-        renderProofOfWorkPreview={(run) => <ProofOfWorkPreview run={run} />}
-      />
-    );
-  }
+  const { renderLegacyWorkflowHiddenPane, renderWorkflowAgentPane, renderWorkflowLabHomePane, renderWorkflowRecordingPlaybookPane } =
+    createAutomationsWorkflowAgentPaneRenderers({
+      localTaskPaneRenderers,
+      selectedWorkflowAgentArtifact,
+      selectedWorkflowAgentThread,
+      selectedWorkflowRecording,
+      surface: {
+        disabledStartTitle: workflowRecorderSurface.startPane.disabledStartTitle,
+        legacyCompilerEnabled: workflowRecorderSurface.legacyCompilerEnabled,
+        legacyHidden: workflowRecorderSurface.legacyHidden,
+        primaryCreateLabel: workflowRecorderSurface.primaryCreateLabel,
+        startPane: workflowRecorderSurface.startPane,
+        workflowAgentTooltip: automationHeadingTooltips.workflowAgent,
+        workflowLabTooltip: activePaneTooltip("workflow_lab"),
+      },
+      workflowBusy,
+      workflowCompileProgress,
+      workflowDiscoveryBusy,
+      workflowError,
+      workflowLabBusy,
+      workflowLabGoal,
+      workflowLabRun,
+      workflowLabStatus,
+      workflowRecordingExportBusyThreadId,
+      workflowRecordingExportStatus,
+      workflowRecordingLibrary,
+      workflowRequest,
+      workflowRequestRef,
+      workflowRevisions,
+      workflowRevisionSource,
+      clearFocusedSchedule: scheduleController.clearFocusedSchedule,
+      clearWorkflowRevisionDraft,
+      compileWorkflowPreview,
+      copyWorkflowCompileFailureReport,
+      createWorkflowLabRunForPlaybook,
+      createWorkflowSample,
+      exportWorkflowRecordingPlaybookSession,
+      focusWorkflowRequestEditor,
+      loadWorkflowDashboard,
+      onArchiveWorkflowRecordingPlaybook,
+      onEditWorkflowRecordingPlaybook,
+      openWorkflowCompileDiagnostics,
+      onPreviewLocalPath,
+      onRestoreWorkflowRecordingVersion,
+      onSelectPane,
+      onSelectWorkflowRecordingPlaybook,
+      onSetWorkflowRecordingEnabled,
+      onStartWorkflowRecording,
+      onUnarchiveWorkflowRecordingPlaybook,
+      renderWorkflowDiscoveryThread,
+      renderWorkflowThreadDetail,
+      setScheduleTarget: scheduleController.setScheduleTarget,
+      setWorkflowBusy,
+      setWorkflowError,
+      setWorkflowLabGoal,
+      setWorkflowRequest,
+      startWorkflowDiscoveryFromRequest,
+      startWorkflowLabRun,
+      stopWorkflowLabRun,
+      adoptWorkflowLabBestVariant,
+    });
 
   function renderWorkflowRunCards(runs: WorkflowRunSummary[], limit = 6) {
     return (
@@ -1037,189 +1021,6 @@ export function AutomationsWorkspace({
         onSourceDraftClear={() => clearWorkflowSourceDraft(artifact.id)}
         onSourceSave={(source) => saveWorkflowArtifactSource(artifact.id, source)}
         onResolveApproval={(runId, approvalId, decision) => resolveWorkflowApproval(runId, approvalId, decision)}
-      />
-    );
-  }
-
-  function renderLocalTaskBoard(tasks: OrchestrationTask[]) {
-    return (
-      <LocalTaskBoard
-        loaded={Boolean(orchestrationBoard)}
-        tasks={tasks}
-        runs={orchestrationBoard?.runs ?? []}
-        draggingTaskId={draggingTaskId}
-        taskEditId={taskEditId}
-        taskEditTitle={taskEditTitle}
-        taskEditDescription={taskEditDescription}
-        taskEditBusyId={taskEditBusyId}
-        taskBlockerDrafts={taskBlockerDrafts}
-        onAllowTaskDrop={localTaskController.allowTaskDrop}
-        onDropTaskOnState={(event, state) => localTaskController.dropTaskOnState(event, state, orchestrationBoard?.tasks ?? [])}
-        onStartTaskDrag={localTaskController.startTaskDrag}
-        onTaskDragEnd={localTaskController.endTaskDrag}
-        onUpdateTaskState={localTaskController.updateTaskState}
-        onTaskEditTitleChange={setTaskEditTitle}
-        onTaskEditDescriptionChange={setTaskEditDescription}
-        onSaveTaskEdit={localTaskController.saveTaskEdit}
-        onCancelTaskEdit={localTaskController.cancelTaskEdit}
-        onStartTaskEdit={localTaskController.startTaskEdit}
-        onUpdateTaskPriority={localTaskController.updateTaskPriority}
-        onUpdateTaskLabels={localTaskController.updateTaskLabels}
-        onUpdateTaskBlockers={localTaskController.updateTaskBlockers}
-        onSetTaskBlockerDraft={localTaskController.setTaskBlockerDraft}
-        onClearTaskBlockerDraft={localTaskController.clearTaskBlockerDraft}
-        onOpenRunThread={onOpenRunThread}
-        onRevealWorkspace={localTaskController.revealOrchestrationWorkspace}
-      />
-    );
-  }
-
-  function renderWorkflowRecorderStartPane() {
-    const recorder = workflowRecorderSurface.startPane;
-    const recorderStartBusy = workflowBusy === "recorder:start";
-    const recorderStartAction = workflowRecorderStartActionState({
-      request: workflowRequest,
-      busy: recorderStartBusy,
-      readyTitle: recorder.disabledStartTitle,
-    });
-    const startRecordingFromPane = async () => {
-      if (recorderStartAction.needsRequest) {
-        setWorkflowError(recorderStartAction.title);
-        workflowRequestRef.current?.focus();
-        return;
-      }
-      setWorkflowBusy("recorder:start");
-      setWorkflowError(undefined);
-      try {
-        const started = await onStartWorkflowRecording(workflowRequest);
-        if (started) setWorkflowRequest("");
-      } catch (err) {
-        setWorkflowError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setWorkflowBusy(undefined);
-      }
-    };
-    return (
-      <WorkflowRecorderStartPane
-        recorder={recorder}
-        workflowAgentTooltip={automationHeadingTooltips.workflowAgent}
-        workflowRequest={workflowRequest}
-        workflowError={workflowError}
-        recorderStartBusy={recorderStartBusy}
-        recorderStartAction={recorderStartAction}
-        projectField={renderProjectField()}
-        requestTextareaRef={workflowRequestRef}
-        onWorkflowRequestChange={setWorkflowRequest}
-        onStartRecording={startRecordingFromPane}
-      />
-    );
-  }
-
-  function renderLegacyWorkflowHiddenPane(thread: WorkflowAgentThreadSummary) {
-    const hidden = workflowRecorderSurface.legacyHidden;
-    return (
-      <WorkflowLegacyHiddenPane
-        thread={thread}
-        hidden={hidden}
-        primaryCreateLabel={workflowRecorderSurface.primaryCreateLabel}
-        workflowAgentTooltip={automationHeadingTooltips.workflowAgent}
-      />
-    );
-  }
-
-  function renderWorkflowRecordingPlaybookPane(playbook: WorkflowRecordingLibraryEntry) {
-    return (
-      <WorkflowRecordingPlaybookPane
-        playbook={playbook}
-        workflowRecordingExportBusyThreadId={workflowRecordingExportBusyThreadId}
-        workflowRecordingExportStatus={workflowRecordingExportStatus}
-        workflowLabRun={workflowLabRun}
-        workflowLabBusy={workflowLabBusy}
-        workflowLabGoal={workflowLabGoal}
-        workflowLabStatus={workflowLabStatus}
-        onEditWorkflowRecordingPlaybook={onEditWorkflowRecordingPlaybook}
-        onPreviewLocalPath={onPreviewLocalPath}
-        onExportWorkflowRecordingPlaybookSession={exportWorkflowRecordingPlaybookSession}
-        onRestoreWorkflowRecordingVersion={onRestoreWorkflowRecordingVersion}
-        onSchedulePlaybook={(entry) => {
-          scheduleController.clearFocusedSchedule();
-          scheduleController.setScheduleTarget("workflow_playbook", entry.id);
-          onSelectPane("schedules");
-        }}
-        onSetWorkflowRecordingEnabled={onSetWorkflowRecordingEnabled}
-        onUnarchiveWorkflowRecordingPlaybook={onUnarchiveWorkflowRecordingPlaybook}
-        onArchiveWorkflowRecordingPlaybook={onArchiveWorkflowRecordingPlaybook}
-        onWorkflowLabGoalChange={setWorkflowLabGoal}
-        onCreateWorkflowLabRun={(entry) => void createWorkflowLabRunForPlaybook(entry)}
-        onStartWorkflowLabRun={() => void startWorkflowLabRun()}
-        onStopWorkflowLabRun={() => void stopWorkflowLabRun()}
-        onAdoptWorkflowLabBestVariant={() => void adoptWorkflowLabBestVariant()}
-      />
-    );
-  }
-
-  function renderWorkflowAgentCompilerStartPane() {
-    const compileAction = workflowCompileActionState({
-      request: workflowRequest,
-      compiling: workflowBusy === "compile",
-      blocked: Boolean(workflowBusy) && workflowBusy !== "compile",
-    });
-    const discoveryDisabled = !workflowRequest.trim() || Boolean(workflowDiscoveryBusy) || Boolean(workflowBusy);
-
-    return (
-      <WorkflowAgentCompilerStartPane
-        workflowRequest={workflowRequest}
-        workflowError={workflowError}
-        workflowBusy={workflowBusy}
-        workflowAgentTooltip={automationHeadingTooltips.workflowAgent}
-        startDiscoveryBusy={workflowDiscoveryBusy === "start"}
-        discoveryDisabled={discoveryDisabled}
-        compileAction={compileAction}
-        revisionSourceTitle={workflowRevisionSource?.title}
-        projectField={renderProjectField()}
-        compileActivity={
-          <WorkflowCompileActivity
-            active={workflowBusy === "compile"}
-            progress={workflowCompileProgress}
-            onRetrySameContext={() => void compileWorkflowPreview()}
-            onOpenDiagnostics={(path) => void openWorkflowCompileDiagnostics(path)}
-            onEditRequest={focusWorkflowRequestEditor}
-            onReportUnsupported={(reportText) => void copyWorkflowCompileFailureReport(reportText)}
-          />
-        }
-        requestTextareaRef={workflowRequestRef}
-        onWorkflowRequestChange={setWorkflowRequest}
-        onRefreshDashboard={loadWorkflowDashboard}
-        onCreateSample={createWorkflowSample}
-        onStartDiscovery={startWorkflowDiscoveryFromRequest}
-        onCompile={compileWorkflowPreview}
-        onClearRevision={clearWorkflowRevisionDraft}
-      />
-    );
-  }
-
-  function renderWorkflowAgentPane() {
-    const selectedDraftRevision = activeDraftWorkflowRevision(selectedWorkflowAgentThread?.id);
-    return (
-      <WorkflowAgentPaneRouter
-        legacyCompilerEnabled={workflowRecorderSurface.legacyCompilerEnabled}
-        selectedWorkflowRecordingActive={Boolean(selectedWorkflowRecording)}
-        selectedWorkflowAgentThread={selectedWorkflowAgentThread}
-        selectedDraftRevisionActive={Boolean(selectedDraftRevision)}
-        renderWorkflowRecordingPlaybookPane={() =>
-          selectedWorkflowRecording ? renderWorkflowRecordingPlaybookPane(selectedWorkflowRecording) : null
-        }
-        renderLegacyWorkflowHiddenPane={() =>
-          selectedWorkflowAgentThread ? renderLegacyWorkflowHiddenPane(selectedWorkflowAgentThread) : null
-        }
-        renderWorkflowRecorderStartPane={renderWorkflowRecorderStartPane}
-        renderWorkflowDiscoveryThread={() =>
-          selectedWorkflowAgentThread ? renderWorkflowDiscoveryThread(selectedWorkflowAgentThread, selectedDraftRevision) : null
-        }
-        renderWorkflowThreadDetail={() =>
-          selectedWorkflowAgentThread ? renderWorkflowThreadDetail(selectedWorkflowAgentThread, selectedWorkflowAgentArtifact) : null
-        }
-        renderWorkflowAgentCompilerStartPane={renderWorkflowAgentCompilerStartPane}
       />
     );
   }
@@ -1462,10 +1263,6 @@ export function AutomationsWorkspace({
     );
   }
 
-  function activeDraftWorkflowRevision(workflowThreadId?: string): WorkflowRevisionSummary | undefined {
-    return activeDraftWorkflowRevisionForThread(workflowRevisions, workflowThreadId);
-  }
-
   function renderWorkflowDiscoveryThread(thread: WorkflowAgentThreadSummary, revision?: WorkflowRevisionSummary) {
     const discoveryModel = workflowDiscoveryThreadWorkspaceViewModel({
       thread,
@@ -1514,60 +1311,6 @@ export function AutomationsWorkspace({
         onReportCompileUnsupported={(reportText) => void copyWorkflowCompileFailureReport(reportText)}
         onStartRevision={(artifact) => void startWorkflowArtifactRevision(artifact)}
         onResolveRevision={(revisionId, decision) => void resolveWorkflowRevisionProposal(revisionId, decision)}
-      />
-    );
-  }
-
-  function renderLocalTasksPane() {
-    return (
-      <LocalTasksPane
-        tooltips={{
-          localTasks: automationHeadingTooltips.localTasks,
-          autoDispatch: automationHeadingTooltips.autoDispatch,
-          triggerMode: automationHeadingTooltips.triggerMode,
-          schedules: automationHeadingTooltips.schedules,
-          recentRuns: automationHeadingTooltips.recentRuns,
-        }}
-        projectField={renderProjectField()}
-        autoDispatchToggle={renderAutoDispatchToggle()}
-        autoDispatchStatus={renderAutoDispatchStatus()}
-        prepareResult={renderPrepareResult()}
-        recentRuns={renderTaskRuns(visibleTaskRuns, 5)}
-        taskBoard={renderLocalTaskBoard(visibleTasks)}
-        taskTriggerMode={taskTriggerMode}
-        taskInitialState={taskInitialState}
-        taskSchedulePreset={taskSchedulePreset}
-        taskScheduleExpression={taskScheduleExpression}
-        taskTitle={taskTitle}
-        taskDescription={taskDescription}
-        taskPriority={taskPriority}
-        taskLabels={taskLabels}
-        prepareBusy={prepareBusy}
-        taskBusy={taskBusy}
-        orchestrationError={orchestrationError}
-        onRefresh={loadAutomationSurface}
-        onPrepareNext={localTaskController.prepareNextTasks}
-        onCreateTask={() => localTaskController.createTask(selectedTaskProjectPath)}
-        onTaskTriggerModeChange={setTaskTriggerMode}
-        onTaskInitialStateChange={setTaskInitialState}
-        onTaskSchedulePresetChange={setTaskSchedulePreset}
-        onTaskScheduleExpressionChange={setTaskScheduleExpression}
-        onTaskTitleChange={setTaskTitle}
-        onTaskDescriptionChange={setTaskDescription}
-        onTaskPriorityChange={setTaskPriority}
-        onTaskLabelsChange={setTaskLabels}
-      />
-    );
-  }
-
-  function renderWorkflowLabHomePane() {
-    return (
-      <WorkflowLabPlaybookLibrarySection
-        playbooks={workflowRecordingLibrary}
-        headingTooltip={activePaneTooltip("workflow_lab")}
-        onNewRecording={() => onSelectPane("workflow_agent")}
-        onOpenPlaybook={onSelectWorkflowRecordingPlaybook}
-        onPreviewLocalPath={onPreviewLocalPath}
       />
     );
   }
@@ -1662,9 +1405,9 @@ export function AutomationsWorkspace({
     const workflowRuns = workflowDashboard?.runs ?? [];
     return (
       <AutomationSchedulesFallbackPane
-        projectField={renderProjectField()}
-        autoDispatchToggle={renderAutoDispatchToggle()}
-        autoDispatchStatus={renderAutoDispatchStatus()}
+        projectField={localTaskPaneRenderers.renderProjectField()}
+        autoDispatchToggle={localTaskPaneRenderers.renderAutoDispatchToggle()}
+        autoDispatchStatus={localTaskPaneRenderers.renderAutoDispatchStatus()}
         scheduleTooltip={automationHeadingTooltips.schedules}
         autoDispatchTooltip={automationHeadingTooltips.autoDispatch}
         schedules={automationSchedules}
@@ -1694,21 +1437,6 @@ export function AutomationsWorkspace({
     );
   }
 
-  function renderFolderPane() {
-    const folderName = selectedFolder?.name ?? "Folder";
-    return (
-      <AutomationFolderPane
-        folderName={folderName}
-        legacyCompilerEnabled={workflowRecorderSurface.legacyCompilerEnabled}
-        localTasksTooltip={automationHeadingTooltips.localTasks}
-        threads={visibleThreads}
-        taskBoard={renderLocalTaskBoard(visibleTasks)}
-        routeDetailForThread={automationThreadRouteDetail}
-        onOpenThread={openAutomationThreadCard}
-      />
-    );
-  }
-
   function renderAutomationPane() {
     return (
       <AutomationPaneRouter
@@ -1717,7 +1445,7 @@ export function AutomationsWorkspace({
         renderWorkflowRecordingPlaybookPane={() =>
           selectedWorkflowRecording ? renderWorkflowRecordingPlaybookPane(selectedWorkflowRecording) : null
         }
-        renderLocalTasksPane={renderLocalTasksPane}
+        renderLocalTasksPane={localTaskPaneRenderers.renderLocalTasksPane}
         renderWorkflowAgentPane={renderWorkflowAgentPane}
         renderWorkflowLabHomePane={renderWorkflowLabHomePane}
         renderSchedulesPane={renderSchedulesPane}
@@ -1728,7 +1456,7 @@ export function AutomationsWorkspace({
             legacyCompilerEnabled={workflowRecorderSurface.legacyCompilerEnabled}
             allAutomationThreads={allAutomationThreads}
             reviewTooltip={automationHeadingTooltips.reviewQueue}
-            localTaskRuns={renderTaskRuns(allTaskRuns, 8)}
+            localTaskRuns={localTaskPaneRenderers.renderTaskRuns(allTaskRuns, 8)}
             workflowRuns={renderWorkflowRunCards(workflowRuns, 8)}
             workflowConsole={workflowArtifactPanels.renderRunConsole(workflowDetail)}
             routeDetailForThread={automationThreadRouteDetail}
@@ -1737,7 +1465,7 @@ export function AutomationsWorkspace({
             renderLegacyWorkflowHiddenPane={renderLegacyWorkflowHiddenPane}
           />
         )}
-        renderFolderPane={renderFolderPane}
+        renderFolderPane={localTaskPaneRenderers.renderFolderPane}
         renderHomePane={() => (
           <AutomationsWorkspaceHomePane
             allAutomationThreads={allAutomationThreads}
@@ -1745,16 +1473,26 @@ export function AutomationsWorkspace({
             legacyCompilerEnabled={workflowRecorderSurface.legacyCompilerEnabled}
             newWorkflowLabel={workflowRecorderSurface.newWorkflowLabel}
             reviewTooltip={automationHeadingTooltips.reviewQueue}
-            routeDetailForThread={automationThreadRouteDetail} onOpenThread={openAutomationThreadCard}
-            onSelectPane={onSelectPane} playbooks={workflowRecordingLibrary}
-            query={workflowLibraryQuery} includeArchived={workflowLibraryIncludeArchived}
-            refreshing={workflowLibraryRefreshing} exportBusyThreadId={workflowRecordingExportBusyThreadId}
-            exportStatus={workflowRecordingExportStatus} onQueryChange={setWorkflowLibraryQuery}
-            onIncludeArchivedChange={onWorkflowLibraryIncludeArchivedChange} onRefresh={refreshWorkflowRecordingLibraryFromHome}
-            onEditPlaybook={onEditWorkflowRecordingPlaybook} onOpenPlaybook={onSelectWorkflowRecordingPlaybook}
-            onPreviewLocalPath={onPreviewLocalPath} onExportPlaybookSession={exportWorkflowRecordingPlaybookSession}
-            onRestoreVersion={onRestoreWorkflowRecordingVersion} onSetEnabled={onSetWorkflowRecordingEnabled}
-            onUnarchivePlaybook={onUnarchiveWorkflowRecordingPlaybook} onArchivePlaybook={onArchiveWorkflowRecordingPlaybook}
+            routeDetailForThread={automationThreadRouteDetail}
+            onOpenThread={openAutomationThreadCard}
+            onSelectPane={onSelectPane}
+            playbooks={workflowRecordingLibrary}
+            query={workflowLibraryQuery}
+            includeArchived={workflowLibraryIncludeArchived}
+            refreshing={workflowLibraryRefreshing}
+            exportBusyThreadId={workflowRecordingExportBusyThreadId}
+            exportStatus={workflowRecordingExportStatus}
+            onQueryChange={setWorkflowLibraryQuery}
+            onIncludeArchivedChange={onWorkflowLibraryIncludeArchivedChange}
+            onRefresh={refreshWorkflowRecordingLibraryFromHome}
+            onEditPlaybook={onEditWorkflowRecordingPlaybook}
+            onOpenPlaybook={onSelectWorkflowRecordingPlaybook}
+            onPreviewLocalPath={onPreviewLocalPath}
+            onExportPlaybookSession={exportWorkflowRecordingPlaybookSession}
+            onRestoreVersion={onRestoreWorkflowRecordingVersion}
+            onSetEnabled={onSetWorkflowRecordingEnabled}
+            onUnarchivePlaybook={onUnarchiveWorkflowRecordingPlaybook}
+            onArchivePlaybook={onArchiveWorkflowRecordingPlaybook}
           />
         )}
       />
@@ -1789,7 +1527,7 @@ export function AutomationsWorkspace({
           selectedArtifactWorkflowThread={selectedArtifactWorkflowThread}
           selectedTask={selectedTask}
           visibleTaskRuns={visibleTaskRuns}
-          startingRunId={startingRunId}
+          startingRunId={localTaskController.startingRunId}
           workflowAgentTooltip={automationHeadingTooltips.workflowAgent}
           localTasksTooltip={automationHeadingTooltips.localTasks}
           recentRunsTooltip={automationHeadingTooltips.recentRuns}

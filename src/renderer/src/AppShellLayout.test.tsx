@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopState } from "../../shared/desktopTypes";
-import { createAppShellLayoutProps, type AppShellLayoutPropsInput } from "./AppShellLayout";
+import {
+  createAppShellLayoutProps,
+  createAppShellLayoutPropsForApp,
+  type AppShellLayoutPropsForAppInput,
+  type AppShellLayoutPropsInput,
+} from "./AppShellLayout";
 
 describe("AppShellLayout props", () => {
   it("adapts update actions, project title, memory toggle, and workflow review focus", () => {
@@ -65,6 +70,27 @@ describe("AppShellLayout props", () => {
     ).toBe("Workflow folder");
     expect(createAppShellLayoutProps(baseInput({ sidebarArea: "automations" })).topbarProps.title).toBe("Workflow Recordings");
   });
+
+  it("adapts grouped App owner state into shell layout props", () => {
+    const runUpdateAction = vi.fn();
+    const setUpdatePopoverOpen = vi.fn();
+    const props = createAppShellLayoutPropsForApp(appInputFromBase(baseInput({
+      sidebarArea: "automations",
+      selectedWorkflowAgentFolder: { name: "Folder" } as AppShellLayoutPropsInput["selectedWorkflowAgentFolder"],
+      showTopbarThreadMemoryToggle: true,
+    }), {
+      runUpdateAction,
+      setUpdatePopoverOpen,
+    }));
+
+    expect(props.topbarProps.title).toBe("Folder");
+    expect(props.isMac).toBe(true);
+    expect(props.topbarProps.memoryMode).toBe("per_thread");
+    props.updateNoticeProps.onCheck();
+    props.updateNoticeProps.onToggle();
+    expect(runUpdateAction).toHaveBeenCalledWith("check");
+    expect(setUpdatePopoverOpen).toHaveBeenCalled();
+  });
 });
 
 function baseInput(input: Partial<AppShellLayoutPropsInput> = {}): AppShellLayoutPropsInput {
@@ -113,6 +139,70 @@ function baseInput(input: Partial<AppShellLayoutPropsInput> = {}): AppShellLayou
     applyLatestWorkflowRecordingSummary: noop,
     ...input,
   } as AppShellLayoutPropsInput;
+}
+
+function appInputFromBase(
+  base: AppShellLayoutPropsInput,
+  overrides: {
+    runUpdateAction?: AppShellLayoutPropsForAppInput["updateActions"]["runUpdateAction"];
+    setUpdatePopoverOpen?: AppShellLayoutPropsInput["setUpdatePopoverOpen"];
+  } = {},
+): AppShellLayoutPropsForAppInput {
+  return {
+    activeProjectBoardTopbarAction: base.activeProjectBoardTopbarAction,
+    activeThread: base.activeThread,
+    activeThreadModel: {
+      isMac: true,
+      showTopbarThreadMemoryToggle: base.showTopbarThreadMemoryToggle,
+    },
+    automationsWorkspaceProps: base.automationsWorkspaceProps,
+    beginWorkflowRecorderReviewResize: base.beginWorkflowRecorderReviewResize,
+    composerInputRef: base.composerInputRef,
+    composerProps: base.composerProps,
+    confirmActiveWorkflowRecordingReview: base.confirmActiveWorkflowRecordingReview,
+    conversationMessagesProps: base.conversationMessagesProps,
+    modalHostProps: base.modalHostProps,
+    openApiKeyDialog: base.openApiKeyDialog,
+    openGitSummaryPanel: base.openGitSummaryPanel,
+    projectBoardWorkspaceProps: base.projectBoardWorkspaceProps,
+    rightPanelHostProps: base.rightPanelHostProps,
+    rightPanelState: {
+      rightPanel: base.rightPanel,
+      togglePanel: base.togglePanel,
+    },
+    running: base.running,
+    selectedWorkflowAgentFolder: base.selectedWorkflowAgentFolder,
+    selectedWorkflowAgentThread: base.selectedWorkflowAgentThread,
+    sendWorkflowRecordingReviewPrompt: base.sendWorkflowRecordingReviewPrompt,
+    setError: base.setError,
+    shellUiState: {
+      setSidebarOpen: base.setSidebarOpen,
+      setUpdatePopoverOpen: overrides.setUpdatePopoverOpen ?? base.setUpdatePopoverOpen,
+      sidebarArea: base.sidebarArea,
+      sidebarOpen: base.sidebarOpen,
+      updateBusy: base.updateBusy,
+      updatePopoverOpen: base.updatePopoverOpen,
+      workflowRecorderReviewPanelWidth: base.workflowRecorderReviewPanelWidth,
+    },
+    sidebarProps: base.sidebarProps,
+    state: base.state,
+    updateActions: {
+      runUpdateAction: overrides.runUpdateAction ?? base.runUpdateAction,
+    },
+    updateActiveWorkflowRecordingReview: base.updateActiveWorkflowRecordingReview,
+    updateThreadSettings: base.updateThreadSettings,
+    workflowRecordingReviewControls: {
+      conversationReviewPanelDocked: base.conversationReviewPanelDocked,
+      setWorkflowRecordingReviewPanelOpen: base.setWorkflowRecordingReviewPanelOpen,
+      workflowRecordingReviewFeedbackActive: base.workflowRecordingReviewFeedbackActive,
+      workflowRecordingReviewPanelOpen: base.workflowRecordingReviewPanelOpen,
+    },
+    workspaceShellState: {
+      activeGitReview: base.activeGitReview,
+      activeGitReviewError: base.activeGitReviewError,
+    },
+    applyLatestWorkflowRecordingSummary: base.applyLatestWorkflowRecordingSummary,
+  } as AppShellLayoutPropsForAppInput;
 }
 
 function desktopState(): DesktopState {

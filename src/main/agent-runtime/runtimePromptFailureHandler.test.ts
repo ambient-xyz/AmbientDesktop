@@ -297,6 +297,41 @@ describe("handleRuntimePromptFailure", () => {
     expect(events).toContainEqual({ type: "run-status", threadId: "thread-1", status: "idle" });
   });
 
+  it("does not continue pre-output stream stalls after the fresh-session retry budget is exhausted", async () => {
+    const message = "Ambient/Pi did not start streaming within 45000 ms";
+    const { input, runtimeMessages, events, finishedRuns, pending } = setup({
+      error: new Error(message),
+      retrySourceUserMessageId: "user-1",
+      streamWatchdogTimedOut: vi.fn(() => true),
+      currentPiStreamFailureKind: vi.fn(() => "pre_stream_timeout" as const),
+      canScheduleAssistantFinalizationRetryFor: vi.fn(() => false),
+    });
+
+    await handleRuntimePromptFailure(input);
+
+    expect(pending().pendingEmptyResponseRetry).toBeUndefined();
+    expect(pending().pendingProviderInterruptionContinuation).toBeUndefined();
+    expect(input.createProviderContinuationState).not.toHaveBeenCalled();
+    expect(input.persistCurrentSessionPointerForRetry).not.toHaveBeenCalled();
+    expect(input.finishPlannerFinalizationSources).toHaveBeenCalledWith("failed", {
+      error: message,
+      workflowState: "failed",
+    });
+    expect(finishedRuns).toEqual([{ status: "error", errorMessage: message }]);
+    expect(runtimeMessages.replaceCurrentAssistant).toHaveBeenCalledWith(
+      expect.stringContaining(message),
+      expect.objectContaining({
+        status: "error",
+        piStreamInterruption: expect.objectContaining({
+          kind: "pre_stream_timeout",
+          retryScheduled: false,
+        }),
+      }),
+    );
+    expect(events).toContainEqual({ type: "run-status", threadId: "thread-1", status: "error" });
+    expect(events).toContainEqual({ type: "error", message, threadId: "thread-1", workspacePath: "/workspace" });
+  });
+
   it("continues from durable transcript state after completed tool output and no open tool calls", async () => {
     const { input, retryFollowUp, runtimeMessages, events, finishedRuns, pending } = setup({
       error: new AmbientStreamFailureError(

@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import type {
   EmbeddingProviderCandidate,
   SttProviderCandidate,
@@ -9,6 +10,7 @@ import {
   discoverAmbientCliSttProviders as defaultDiscoverSttProviders,
   discoverAmbientCliVoiceProviders as defaultDiscoverVoiceProviders,
 } from "./agentRuntimeAmbientCliFacade";
+import { hasAmbientCliWorkspaceProviderDiscoverySignal } from "../ambient-cli/ambientCliPackages";
 import { discoverAmbientMemoryEmbeddingProviders as defaultDiscoverManagedMemoryEmbeddingProviders } from "./agentRuntimeMemoryFacade";
 import {
   mergeSttProvidersWithValidation as defaultMergeSttProvidersWithValidation,
@@ -77,7 +79,17 @@ export function agentRuntimeProviderDiscoveryOptions(
 }
 
 export function agentRuntimeProviderDiscoveryWorkspacePaths(options: AgentRuntimeProviderDiscoveryOptions): string[] {
-  return Array.from(new Set([options.getRootWorkspacePath(), ...options.getThreadWorkspacePaths()]));
+  const rootWorkspacePath = options.getRootWorkspacePath();
+  const workspacePaths: string[] = [];
+  const seenDiscoveryRoots = new Set<string>();
+  for (const workspacePath of [rootWorkspacePath, ...options.getThreadWorkspacePaths()]) {
+    const discoveryRoot = providerDiscoveryRoot(workspacePath);
+    if (seenDiscoveryRoots.has(discoveryRoot)) continue;
+    if (workspacePath !== rootWorkspacePath && !providerDiscoveryHasPackageConfig(workspacePath)) continue;
+    seenDiscoveryRoots.add(discoveryRoot);
+    workspacePaths.push(workspacePath);
+  }
+  return workspacePaths;
 }
 
 export function listVoiceProvidersForTools(
@@ -153,4 +165,12 @@ export async function listSttProvidersForTools(
   const providers = await listProviders(workspacePath);
   const validation = await readValidation(workspacePath);
   return mergeProviders(providers, validation);
+}
+
+function providerDiscoveryRoot(workspacePath: string): string {
+  return resolve(workspacePath);
+}
+
+function providerDiscoveryHasPackageConfig(workspacePath: string): boolean {
+  return hasAmbientCliWorkspaceProviderDiscoverySignal(workspacePath);
 }

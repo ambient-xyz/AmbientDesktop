@@ -164,21 +164,26 @@ describe("sidebar helpers", () => {
 
     const scheduled = thread({
       scheduledCheckIn: {
+        sourceKind: "automation_schedule",
         scheduleId: "schedule-1",
         nextRunAt: "2026-06-04T13:00:00.000Z",
         targetKind: "workflow_playbook",
         targetLabel: "Daily summary",
       },
     });
-    expect(threadIndicator(scheduled)).toMatchObject({
+    const now = Date.parse("2026-06-04T12:00:00.000Z");
+    expect(threadIndicator(scheduled, undefined, false, now)).toMatchObject({
       kind: "scheduled",
-      label: expect.stringContaining("Scheduled check-in for Daily summary at"),
+      label: expect.stringContaining("Scheduled check-in for Daily summary in 1h"),
     });
+    expect(threadIndicator(scheduled, undefined, false, now).label).toContain("(at ");
     expect(threadIndicator(scheduled, "streaming")).toEqual({ kind: "running", label: "Running" });
-    expect(threadIndicator(scheduled, undefined, true)).toEqual({ kind: "idle", label: "Idle" });
+    expect(threadIndicator(scheduled, undefined, true, now)).toMatchObject({
+      kind: "scheduled",
+      label: expect.stringContaining("Scheduled check-in for Daily summary in 1h"),
+    });
     expect(threadIndicator({ ...scheduled, ...unread })).toEqual({ kind: "awaiting", label: "New work" });
 
-    const now = Date.parse("2026-06-04T12:00:00.000Z");
     expect(sidebarThreadAgeLabel("2026-06-04T11:30:00.000Z", now)).toBeUndefined();
     expect(sidebarThreadAgeLabel("2026-06-04T10:00:00.000Z", now)).toBe("2h");
     expect(sidebarThreadAgeLabel("2026-06-01T12:00:00.000Z", now)).toBe("3d");

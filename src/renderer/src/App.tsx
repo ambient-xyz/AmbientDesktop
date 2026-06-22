@@ -1,21 +1,11 @@
 import "@xyflow/react/dist/style.css";
-import {
-  useRef,
-  useState,
-} from "react";
-import type {
-  DesktopEvent,
-  DesktopState,
-} from "../../shared/desktopTypes";
-import {
-  isRunStatusRunning,
-} from "../../shared/runStatus";
+import { useState } from "react";
+import type { DesktopEvent, DesktopState } from "../../shared/desktopTypes";
+import { isRunStatusRunning } from "../../shared/runStatus";
 import { useAppAgentMemoryPanelControls } from "./AppAgentMemoryControls";
 import { useAppActiveThreadModel } from "./AppActiveThreadModel";
-import { createAppAutomationFolderControls } from "./AppAutomationFolderControls";
-import { createAppAutomationSelectionControls } from "./AppAutomationSelectionControls";
 import { useAppAutomationShellState } from "./AppAutomationShellState";
-import { createAppAutomationsWorkspaceProps } from "./AppAutomationsWorkspaceProps";
+import { createAppAutomationsWorkspacePropsForApp } from "./AppAutomationsWorkspaceProps";
 import { createAppBrowserActionControls } from "./AppBrowserActionControls";
 import { createAppCapabilityPromptActions } from "./AppCapabilityPromptActions";
 import { useAppChatFindControls } from "./AppChatFindControls";
@@ -33,78 +23,49 @@ import {
 import { createAppComposerShellProps } from "./AppComposerShellProps";
 import { createAppContextAttachmentActions } from "./AppContextAttachmentActions";
 import { useAppCoreLifecycleControls } from "./AppCoreLifecycleControls";
-import {
-  useAppConversationDisplayModel,
-} from "./AppConversationDisplayModel";
-import { createAppConversationMessagesProps } from "./AppConversationMessagesProps";
+import { useAppConversationDisplayModel } from "./AppConversationDisplayModel";
+import { createAppConversationMessagesPropsForApp } from "./AppConversationMessagesProps";
 import { createAppCredentialDialogActions } from "./AppCredentialDialogActions";
-import {
-  createAppDesktopEventHandlerDependencies,
-  handleAppDesktopEvent,
-} from "./AppDesktopEventHandler";
+import { createAppDesktopEventHandlerDependencies, handleAppDesktopEvent } from "./AppDesktopEventHandler";
 import { createAppDesktopEventGuards } from "./AppDesktopEventGuards";
 import { createAppDesktopStateMemoryControls } from "./AppDesktopStateMemoryControls";
 import { createAppDesktopStateAppliers } from "./AppDesktopStateAppliers";
 import { createAppGitActions } from "./AppGitActions";
 import { createAppGoalActions } from "./AppGoalActions";
-import {
-  GOAL_COMPLETION_CELEBRATION_MS,
-} from "./AppGoalControls";
-import {
-  useAppLocalDeepResearchLifecycle,
-} from "./AppLocalDeepResearchLifecycle";
-import { createAppLocalRuntimeActionsForRuntimeState } from "./AppLocalRuntimeActions";
-import { createAppMessageVoiceActions } from "./AppMessageVoiceActions";
-import { createAppModalHostProps } from "./AppModalHostProps";
+import { GOAL_COMPLETION_CELEBRATION_MS } from "./AppGoalControls";
+import { createAppModalHostPropsForApp } from "./AppModalHostProps";
+import { createAppNavigationActionsForApp } from "./AppNavigationActions";
 import { createAppPermissionActions } from "./AppPermissionActions";
 import { createAppPlannerActions } from "./AppPlannerActions";
+import { useAppProviderRuntimeActionsForApp } from "./AppProviderRuntimeActions";
 import { useAppProjectBoardControls } from "./AppProjectBoardControls";
 import { createAppProjectBoardWorkspaceProps } from "./AppProjectBoardWorkspaceProps";
 import { useAppProjectShellState } from "./AppProjectShellState";
-import { createAppProjectThreadActions } from "./AppProjectThreadActions";
 import { createAppPromptHistoryControls } from "./AppPromptHistoryControls";
 import { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
-import { createAppRightPanelHostProps } from "./AppRightPanelHostProps";
+import { createAppRightPanelHostPropsForApp } from "./AppRightPanelHostProps";
 import { useAppRightPanelState } from "./AppRightPanelState";
-import {
-  EMPTY_RUN_ACTIVITY_LINES,
-} from "./AppRunActivity";
+import { EMPTY_RUN_ACTIVITY_LINES } from "./AppRunActivity";
 import { useAppRunActivityState } from "./AppRunActivityState";
 import { useAppSecurityPromptState } from "./AppSecurityPromptState";
 import { createAppSettingsActions } from "./AppSettingsActions";
-import {
-  useAppLocalDeepResearchReadinessLifecycleEffect,
-} from "./AppShellLifecycleEffects";
-import {
-  createAppShellCommandActions,
-  createAppWorkflowComposerNavigation,
-} from "./AppShellCommandActions";
-import { createAppShellSidebarProps } from "./AppShellSidebarProps";
+import { useAppLocalDeepResearchReadinessLifecycleEffect } from "./AppShellLifecycleEffects";
+import { createAppShellCommandActions } from "./AppShellCommandActions";
+import { createAppShellSidebarPropsForApp } from "./AppShellSidebarProps";
 import { useAppShellUiState } from "./AppShellUiState";
-import { createAppSidebarAreaControls } from "./AppSidebarAreaControls";
 import { useAppSidebarLifecycleEffects } from "./AppSidebarLifecycleEffects";
 import { useAppSidebarSelectionModel } from "./AppSidebarSelectionModel";
-import { createAppSpeechProviderActionsForRuntimeState } from "./AppSpeechProviderActions";
-import { createAppSttComposerActions } from "./AppSttComposerActions";
-import { createAppSttMicrophoneActionsForRuntimeState } from "./AppSttMicrophoneActions";
 import { createAppSubagentParentClusterActions } from "./AppSubagentParentClusterActions";
 import { useAppSubagentShellControls } from "./AppSubagentShellControls";
-import {
-  createAppSymphonyBuilderControls,
-} from "./AppSymphonyBuilderControls";
+import { createAppSymphonyBuilderControls } from "./AppSymphonyBuilderControls";
 import { createAppThreadMaintenanceActions } from "./AppThreadMaintenanceActions";
-import {
-  AppShellLayout,
-  createAppShellLayoutProps,
-} from "./AppShellLayout";
+import { AppShellLayout, createAppShellLayoutPropsForApp } from "./AppShellLayout";
 import { createAppUpdateActions } from "./AppUpdateActions";
-import { useAppVoiceThreadControls } from "./AppVoiceThreadControls";
 import { createAppWorkflowRecordingActions } from "./AppWorkflowRecordingActions";
 import { useAppWorkflowRecordingLibraryControls } from "./AppWorkflowRecordingLibraryControls";
 import { createAppWorkflowRecordingPlaybookActions } from "./AppWorkflowRecordingPlaybookActions";
 import { useAppWorkflowRecordingReviewControls } from "./AppWorkflowRecordingReviewControls";
 import { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
-import { createAppWorkspaceNavigationControls } from "./AppWorkspaceNavigationControls";
 import { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
 import { workflowRecorderSurface } from "./AutomationsWorkspace";
 import "./styles.css";
@@ -113,20 +74,20 @@ export function App() {
   const [state, setState] = useState<DesktopState | undefined>();
   const runActivityState = useAppRunActivityState();
   const {
-    runStatus, setRunStatus, threadRunStatuses, setThreadRunStatuses, activity, setActivity,
-    abortArmed, setAbortArmed, retryStatsByThread, setRetryStatsByThread,
+    runStatus, setRunStatus, threadRunStatuses, setThreadRunStatuses, activity,
+    abortArmed, setAbortArmed, setRetryStatsByThread,
     runActivityLinesByThread, setRunActivityLinesByThread, runActivityCounterRef,
     runActivityLastEventAtRef, runActivityHeartbeatIndexRef, runActivityLinesByThreadRef,
-    runtimeActivityRenderStateRef, thinkingDeltaBuffersRef, previousRunningRef,
+    thinkingDeltaBuffersRef, previousRunningRef,
   } = runActivityState;
   const shellUiState = useAppShellUiState();
   const {
-    sidebarOpen, setSidebarOpen, sidebarWidth, setSidebarWidth, sidebarArea, setSidebarArea,
-    workflowRecorderReviewPanelWidth, setWorkflowRecorderReviewPanelWidth,
+    sidebarOpen, setSidebarOpen, setSidebarWidth, sidebarArea, setSidebarArea,
+    setWorkflowRecorderReviewPanelWidth,
     setSearchRoutingHydrating, setSearchRoutingHydrationError,
-    mediaPreviewModal, setMediaPreviewModal, commandPaletteOpen, setCommandPaletteOpen,
-    commandPaletteQuery, setCommandPaletteQuery, error, setError, setScopedError, clearError,
-    errorScope, setErrorScope, setErrorState, updatePopoverOpen, setUpdatePopoverOpen, updateBusy,
+    setMediaPreviewModal, setCommandPaletteOpen, setCommandPaletteQuery,
+    error, setError,
+    errorScope, setErrorScope, setErrorState, setUpdatePopoverOpen,
     setUpdateBusy,
   } = shellUiState;
   const rightPanelState = useAppRightPanelState();
@@ -144,61 +105,59 @@ export function App() {
   } = rightPanelState;
   const workspaceShellState = useAppWorkspaceShellState();
   const {
-    workspaceRevision, setWorkspaceRevision, gitStatus, setGitStatus, gitStatusError, setGitStatusError,
-    activeGitReview, setActiveGitReview, activeGitReviewError, setActiveGitReviewError,
-    gitConfirmation, setGitConfirmation, pluginCatalogRevision, setPluginCatalogRevision,
-    welcomeAmbientPluginRegistry, setWelcomeAmbientPluginRegistry, browserRevision, setBrowserRevision,
-    chatBrowserUserAction, setChatBrowserUserAction, chatBrowserUserActionBusy, setChatBrowserUserActionBusy,
+    workspaceRevision, setWorkspaceRevision, gitStatus, setGitStatus, setGitStatusError,
+    setActiveGitReview, setActiveGitReviewError,
+    setGitConfirmation, pluginCatalogRevision,
+    setWelcomeAmbientPluginRegistry, browserRevision, setBrowserRevision,
+    chatBrowserUserAction, setChatBrowserUserAction, setChatBrowserUserActionBusy,
     activeThreadIdRef, activeProjectRootRef, workspaceProjectAliasesRef, messageKindsRef,
     mcpContainerRuntimeStartupCheckRef,
   } = workspaceShellState;
   const securityPromptState = useAppSecurityPromptState();
   const {
     permissionRequests, setPermissionRequests, privilegedCredentialRequests, setPrivilegedCredentialRequests,
-    secureInputRequests, setSecureInputRequests, permissionAuditRevision, setPermissionAuditRevision,
+    secureInputRequests, setSecureInputRequests, permissionAuditRevision,
     permissionAudit, setPermissionAudit, permissionGrants, setPermissionGrants, setPermissionAuditError,
     setPermissionGrantError, permissionGrantRevoking,
-    setPermissionGrantRevoking, apiDialogOpen, setApiDialogOpen, apiKeyDraft, setApiKeyDraft,
-    clipboardCandidate, setClipboardCandidate, apiKeyStatus, setApiKeyStatus, apiKeyBusy, setApiKeyBusy,
+    setPermissionGrantRevoking, setApiDialogOpen, apiKeyDraft, setApiKeyDraft,
+    setClipboardCandidate, setApiKeyStatus, setApiKeyBusy,
     ambientCliSecretDialog, setAmbientCliSecretDialog, apiKeyInputRef, ambientCliSecretInputRef,
   } = securityPromptState;
   const providerRuntimeState = useAppProviderRuntimeState();
   const {
-    voiceProviders, voiceProviderRefreshTimerRef,
-    sttProviders, sttProviderRefreshTimerRef, sttProvidersRef,
-    sttComposer, setSttComposer,
-    sttDraftMetadata, setSttDraftMetadata, sttMicRecorderRef, sttComposerRecorderRef, sttComposerSilenceRef,
-    sttComposerShortcutActiveRef, sttComposerOperationIdRef, sttComposerThreadRef,
-    localDeepResearchSetup, setLocalDeepResearchSetup, localDeepResearchQ8Override, setLocalDeepResearchQ8Override,
-    localDeepResearchFollowupOpen, setLocalDeepResearchFollowupOpen,
-    setMcpContainerRuntimeInstallProgress, setMcpDefaultCapabilityInstallProgress,
+    voiceProviderRefreshTimerRef,
+    sttProviders, sttProviderRefreshTimerRef,
+    sttComposer,
+    sttDraftMetadata, setSttDraftMetadata, sttMicRecorderRef, sttComposerRecorderRef,
+    sttComposerShortcutActiveRef, sttComposerThreadRef,
+    localDeepResearchSetup, setLocalDeepResearchSetup,
   } = providerRuntimeState;
   const workflowRuntimeState = useAppWorkflowRuntimeState();
   const {
-    orchestrationRevision, setOrchestrationRevision, orchestrationAutoRevision, setOrchestrationAutoRevision,
-    workflowRevision, setWorkflowRevision, workflowCompileProgress, setWorkflowCompileProgress,
-    workflowDiscoveryProgress, setWorkflowDiscoveryProgress, workflowExplorationProgressByThreadId,
-    setWorkflowExplorationProgressByThreadId, chatExportBusy, setChatExportBusy, chatExportStatus,
-    setChatExportStatus, contextRecoveryBusy, setContextRecoveryBusy, callableWorkflowTaskCancelBusy,
-    setCallableWorkflowTaskCancelBusy, callableWorkflowTaskPauseBusy, setCallableWorkflowTaskPauseBusy,
-    callableWorkflowTaskResumeBusy, setCallableWorkflowTaskResumeBusy, subagentChildCancelBusy,
-    setSubagentChildCancelBusy, subagentChildCloseBusy, setSubagentChildCloseBusy, subagentBarrierActionBusy,
+    orchestrationRevision, orchestrationAutoRevision,
+    workflowRevision,
+    chatExportBusy, setChatExportBusy,
+    setChatExportStatus, contextRecoveryBusy, setContextRecoveryBusy,
+    setCallableWorkflowTaskCancelBusy, setCallableWorkflowTaskPauseBusy,
+    setCallableWorkflowTaskResumeBusy,
+    setSubagentChildCancelBusy, setSubagentChildCloseBusy,
     setSubagentBarrierActionBusy, subagentBarrierDecisionDialog, setSubagentBarrierDecisionDialog,
-    subagentApprovalActionBusy, setSubagentApprovalActionBusy, subagentApprovalDecisionDialog,
-    setSubagentApprovalDecisionDialog, contextAttachments, setContextAttachments, contextError, setContextError,
-    localDeepResearchModeArmed, setLocalDeepResearchModeArmedState, localDeepResearchBudgetOverride,
+    setSubagentApprovalActionBusy, subagentApprovalDecisionDialog,
+    setSubagentApprovalDecisionDialog, contextAttachments, setContextAttachments, setContextError,
+    setLocalDeepResearchModeArmedState, localDeepResearchBudgetOverride,
     setLocalDeepResearchBudgetOverride, symphonyBuilderDraft, setSymphonyBuilderDraft, symphonyBuilderActionBusy,
-    setSymphonyBuilderActionBusy, goalModeArmed, setGoalModeArmed, goalMenuOpen, setGoalMenuOpen, goalBusy,
-    setGoalBusy, goalCompletionCelebrationId, setGoalCompletionCelebrationId, latestDesktopStateRevisionRef,
+    setSymphonyBuilderActionBusy, goalModeArmed, setGoalModeArmed, setGoalMenuOpen,
+    setGoalBusy, setGoalCompletionCelebrationId, latestDesktopStateRevisionRef,
     clearedGoalKeysRef, promptHistoryCursor, setPromptHistoryCursor, draftBeforePromptHistory,
     setDraftBeforePromptHistory, promptHistoryRef, localDeepResearchModeArmedRef, localDeepResearchRunBudgetRef,
-    localRuntimeInventorySettingsRefreshKeyRef, pendingSubmittedPrompts, setPendingSubmittedPrompts,
+    pendingSubmittedPrompts, setPendingSubmittedPrompts,
     pendingProjectComposerDraft, setPendingProjectComposerDraft, pendingWorkflowRecordingEditContext,
     setPendingWorkflowRecordingEditContext, goalCompletionCelebrationTimerRef,
   } = workflowRuntimeState;
+  const projectShellState = useAppProjectShellState();
   const {
-    projectPopover, setProjectPopover, projectContextMenu, setProjectContextMenu, projectActionDialog,
-    setProjectActionDialog, projectBoardResetDialog, setProjectBoardResetDialog, plannerRevisionDialog,
+    setProjectPopover, projectContextMenu, setProjectContextMenu,
+    projectBoardResetDialog, setProjectBoardResetDialog, plannerRevisionDialog,
     setPlannerRevisionDialog, projectBoardBusyProjectIds, setProjectBoardBusyProjectIds, projectBoardSourceBusy,
     setProjectBoardSourceBusy, projectBoardSourceImpactBusy, setProjectBoardSourceImpactBusy,
     projectBoardKickoffDefaultsBusy, setProjectBoardKickoffDefaultsBusy, projectBoardRefineBusy,
@@ -208,19 +167,17 @@ export function App() {
     projectBoardFinalizeBusy, setProjectBoardFinalizeBusy, projectBoardSynthesisRetryBusy,
     setProjectBoardSynthesisRetryBusy, projectBoardSynthesisDeferBusy, setProjectBoardSynthesisDeferBusy,
     projectBoardSynthesisPauseBusy, setProjectBoardSynthesisPauseBusy, projectBoardRevisionBusy,
-    setProjectBoardRevisionBusy, threadContextMenu, setThreadContextMenu, threadActionDialog, setThreadActionDialog,
-    projectsCollapsed,
-    setProjectsCollapsed,
-  } = useAppProjectShellState();
+    setProjectBoardRevisionBusy, threadContextMenu, setThreadContextMenu,
+  } = projectShellState;
   const automationShellState = useAppAutomationShellState();
   const {
-    automationPopover, setAutomationPopover, automationsCollapsed, setAutomationsCollapsed,
-    automationFolders, setAutomationFolders, setAutomationNavigationError, selectedAutomationPane,
-    setSelectedAutomationPane, selectedAutomationFolderId, setSelectedAutomationFolderId,
+    automationPopover, setAutomationPopover,
+    automationFolders, setAutomationFolders,
+    setSelectedAutomationPane, selectedAutomationFolderId,
     selectedAutomationThreadId, setSelectedAutomationThreadId, workflowAgentFolders, setWorkflowAgentFolders,
-    workflowAgentNavigationError, setWorkflowAgentNavigationError, selectedWorkflowAgentFolderId,
+    setWorkflowAgentNavigationError, selectedWorkflowAgentFolderId,
     setSelectedWorkflowAgentFolderId, selectedWorkflowAgentThreadId, setSelectedWorkflowAgentThreadId,
-    sidebarOrganize, setSidebarOrganize, updateSidebarOrganize, sidebarAgeNow, setSidebarAgeNow,
+    sidebarOrganize, setSidebarAgeNow,
   } = automationShellState;
   const composerShellState = useAppComposerShellState();
   const {
@@ -232,14 +189,13 @@ export function App() {
     updateComposerDraftValue,
     focusComposerEnd,
   } = composerShellState;
-  const { rememberClearedGoal, rememberCommittedDesktopState, rememberDesktopState } =
-    createAppDesktopStateMemoryControls({
-      activeProjectRootRef,
-      activeThreadIdRef,
-      clearedGoalKeysRef,
-      latestDesktopStateRevisionRef,
-      workspaceProjectAliasesRef,
-    });
+  const { rememberClearedGoal, rememberCommittedDesktopState, rememberDesktopState } = createAppDesktopStateMemoryControls({
+    activeProjectRootRef,
+    activeThreadIdRef,
+    clearedGoalKeysRef,
+    latestDesktopStateRevisionRef,
+    workspaceProjectAliasesRef,
+  });
   const { applyRunStatusDesktopState, applyCreatedThreadState, applyProjectActionState, applyAutomationDesktopState } =
     createAppDesktopStateAppliers({
       activeWorkspacePath: state?.activeWorkspace.path,
@@ -253,150 +209,51 @@ export function App() {
       setWorkspaceRevision,
       threadRunStatuses,
     });
-  const {
-    workflowLibraryIncludeArchived,
-    setWorkflowLibraryIncludeArchived,
-    workflowRecordingLibrary,
-    selectedWorkflowRecording,
-    selectedWorkflowRecordingId,
-    setSelectedWorkflowRecordingId,
-    refreshWorkflowRecordingLibrary,
-    refreshWorkflowRecordingLibraryOverride,
-  } = useAppWorkflowRecordingLibraryControls({
+  const workflowRecordingLibraryControls = useAppWorkflowRecordingLibraryControls({
     applyDesktopState: applyAutomationDesktopState,
     setError,
     state,
   });
   const {
-    archiveProjectChats,
-    archiveThread,
-    confirmProjectActionDialog,
-    confirmThreadActionDialog,
-    copyThreadDeeplink,
-    copyThreadSessionId,
-    copyThreadWorkingDirectory,
-    createPermanentProjectWorktree,
-    forkThread,
-    markThreadUnread,
-    openProjectContextMenu,
-    openThreadContextMenu,
-    openThreadMiniWindow,
-    projectIdForWorkspacePath,
-    removeProject,
-    renameProject,
-    renameThread,
-    revealProject,
-    revealThread,
-    threadActionInput,
-    toggleProjectPinned,
-    toggleThreadPinned,
-  } = createAppProjectThreadActions({
+    workflowLibraryIncludeArchived,
+    selectedWorkflowRecording,
+    selectedWorkflowRecordingId,
+    setSelectedWorkflowRecordingId,
+    refreshWorkflowRecordingLibraryOverride,
+  } = workflowRecordingLibraryControls;
+  const navigationActions = createAppNavigationActionsForApp({
+    automationShellState,
+    closeProjectBoard,
+    composerShellState,
+    projectShellState,
+    rememberDesktopState,
+    rightPanelState,
+    runActivityState,
+    setSelectedWorkflowRecordingId,
+    setState,
+    shellUiState,
+    state,
+    workspaceShellState,
+    applyCreatedThreadState,
     applyProjectActionState,
-    projectActionDialog,
-    projects: state?.projects,
-    setError,
-    setProjectActionDialog,
-    setProjectContextMenu,
-    setProjectPopover,
-    setThreadActionDialog,
-    setThreadContextMenu,
-    threadActionDialog,
-    threadContextMenu,
   });
-  const { createWorkflowAgentFolder, loadAutomationFolders, loadWorkflowAgentFolders, moveAutomationThread } =
-    createAppAutomationFolderControls({
-      selectedAutomationFolderId,
-      selectedAutomationThreadId,
-      selectedWorkflowAgentFolderId,
-      selectedWorkflowAgentThreadId,
-      setAutomationFolders,
-      setAutomationNavigationError,
-      setAutomationPopover,
-      setSelectedAutomationFolderId,
-      setSelectedAutomationThreadId,
-      setSelectedWorkflowAgentFolderId,
-      setSelectedWorkflowAgentThreadId,
-      setWorkflowAgentFolders,
-      setWorkflowAgentNavigationError,
-    });
-  const { openNewWorkflowComposer } = createAppWorkflowComposerNavigation({
-    loadWorkflowAgentFolders,
-    setAutomationPopover,
-    setProjectPopover,
-    setRightPanel,
-    setSelectedAutomationPane,
-    setSelectedAutomationThreadId,
-    setSelectedWorkflowAgentFolderId,
-    setSelectedWorkflowAgentThreadId,
-    setSelectedWorkflowRecordingId,
-    setSidebarArea,
-  });
-  const { createThread, createThreadInProject, createWorkspace, openWorkspace, runPrimaryCreateAction, selectProject, selectThread } =
-    createAppWorkspaceNavigationControls({
-      activeWorkspacePath: state?.activeWorkspace.path,
-      applyCreatedThreadState,
-      closeProjectBoard,
-      currentWorkspacePath: state?.workspace.path,
-      openNewWorkflowComposer,
-      projectIdForWorkspacePath,
-      rememberDesktopState,
-      scheduleComposerFocusEnd: () => {
-        window.setTimeout(() => composerInputRef.current?.focusEnd(), 0);
-      },
-      setComposerDraft,
-      setProjectPopover,
-      setProjectsCollapsed,
-      setRunStatus,
-      setSidebarArea,
-      setState,
-      setThreadRunStatuses,
-      setWorkspaceRevision,
-      sidebarArea,
-      threadRunStatuses,
-    });
-  const { openSidebarArea, openWorkflowRecordingsArea, openWorkflowLabArea } = createAppSidebarAreaControls({
-    sidebarArea,
-    setSidebarArea,
-    setProjectPopover,
-    setAutomationPopover,
-    setSidebarOrganize,
-    setRightPanel,
-    setSelectedAutomationPane,
-    setSelectedAutomationThreadId,
-    setSelectedWorkflowAgentThreadId,
-    setSelectedWorkflowRecordingId,
+  const {
+    projectIdForWorkspacePath,
+    projectThreadActions,
+    automationFolderControls,
+    automationSelectionControls,
+    workspaceNavigationControls,
     loadAutomationFolders,
-  });
-  const {
-    selectWorkflowAgentFolder,
-    selectWorkflowAgentThread,
-    selectWorkflowRecordingForSidebar,
-    selectWorkflowRecordingForLab,
-    selectAutomationPane,
-    selectAutomationThread,
-    openAutomationRunThread,
-  } = createAppAutomationSelectionControls({
-    setSidebarArea,
-    setSelectedAutomationPane,
-    setSelectedAutomationFolderId,
-    setSelectedAutomationThreadId,
-    setSelectedWorkflowAgentFolderId,
-    setSelectedWorkflowAgentThreadId,
-    setSelectedWorkflowRecordingId,
+    loadWorkflowAgentFolders,
+    createThread,
+    createWorkspace,
+    openWorkspace,
+    selectProject,
     selectThread,
-  });
-  const {
-    clearSavedApiKey,
-    openAmbientCliSecretDialog,
-    openAmbientKeys,
-    openApiKeyDialog,
-    pasteAmbientCliSecret,
-    pasteApiKey,
-    saveAmbientCliSecret,
-    saveApiKey,
-    testApiKey,
-    updateAmbientCliSecretDialog,
-  } = createAppCredentialDialogActions({
+    openWorkflowRecordingsArea,
+    openWorkflowLabArea,
+  } = navigationActions;
+  const credentialDialogActions = createAppCredentialDialogActions({
     ambientCliSecretDialog,
     apiKeyDraft,
     focusAmbientCliSecretInput: (delayMs) => {
@@ -414,6 +271,7 @@ export function App() {
     setClipboardCandidate,
     setState,
   });
+  const { openAmbientCliSecretDialog, openApiKeyDialog } = credentialDialogActions;
   const running = isRunStatusRunning(runStatus);
   const activeRunActivityLines = state?.activeThreadId
     ? (runActivityLinesByThread[state.activeThreadId] ?? EMPTY_RUN_ACTIVITY_LINES)
@@ -429,133 +287,50 @@ export function App() {
     setDraftBeforePromptHistory,
     setPromptHistoryCursor,
   });
-  const voiceThreadControls = useAppVoiceThreadControls({
-    activeThreadId: state?.activeThreadId,
-    messages: state?.messages,
-    messageVoiceStates: state?.messageVoiceStates,
-    settings: state?.settings.voice,
-    voiceProviders,
-  });
-  const {
-    voiceProviderLabels,
-    latestReadyVoiceAutoplay,
-    autoplayVoiceKey,
-    activeVoiceMessageId,
-    setActiveVoiceMessageId,
-    activeThreadVoiceStatus,
-    activeThreadVoiceStatusDismissKey,
-    activeThreadVoiceStatusVisible,
-    dismissActiveThreadVoiceStatus,
-  } = voiceThreadControls;
-  const {
-    chatFindOpen,
-    setChatFindOpen,
-    chatFindInputRef,
-    chatFindQuery,
-    chatFindCount,
-    chatFindIndex,
-    setChatFindQuery,
-    onChatFindPrevious,
-    onChatFindNext,
-    onChatFindClose,
-  } = useAppChatFindControls({
+  const chatFindControls = useAppChatFindControls({
     activeThreadId: state?.activeThreadId,
     messages: state?.messages,
     running,
     thinkingDisplayMode,
   });
+  const { setChatFindOpen, chatFindInputRef } = chatFindControls;
   const composerModelPickerControls = useAppComposerModelPickerControls({
     activeThreadId: state?.activeThreadId,
     catalogOptions: state?.settings.modelCatalog?.selectableMainModelOptions,
     selectedModelId: state?.settings.model,
   });
 
+  const providerRuntimeActions = useAppProviderRuntimeActionsForApp({
+    appendRunActivityLine: (line) => appendRunActivityLine(line),
+    composerShellState,
+    providerRuntimeState,
+    resetPromptHistory,
+    resetRunActivityLines: (line) => resetRunActivityLines(line),
+    rightPanelState,
+    runActivityState,
+    state,
+    running,
+    setError,
+    setState,
+    workflowRuntimeState,
+  });
   const {
+    voiceThreadControls,
     loadSttProviders,
     loadVoiceProviders,
-    refreshVoiceCatalog,
     scheduleSttProviderRefresh,
     scheduleVoiceProviderRefresh,
-    setupSttProvider,
-  } = createAppSpeechProviderActionsForRuntimeState({
-    providerRuntimeState,
-    state,
-    setState,
-  });
-
-  const { cancelSttMicTest, loadSttMicrophoneDeviceList, startSttMicTest, stopSttMicTestAndValidate } =
-    createAppSttMicrophoneActionsForRuntimeState({
-      providerRuntimeState,
-      setupSttProvider,
-      state,
-    });
-
-  const {
-    loadLocalDeepResearchRunHistory,
-    openLocalDeepResearchFollowupIfSetupNeeded,
-    setupLocalDeepResearchFromSettings,
-    setupMiniCpmVisionProviderFromSettings,
-  } = createAppLocalRuntimeActionsForRuntimeState(providerRuntimeState);
-
-  useAppLocalDeepResearchLifecycle({
-    localDeepResearchSetup,
-    localRuntimeInventorySettingsRefreshKeyRef,
-    panel: rightPanel,
-    setLocalDeepResearchSetup,
-    setupLocalDeepResearchFromSettings,
-    workspacePath: state?.workspace.path,
-  });
-
-  function appendSttRunActivityLine(line: string) {
-    appendRunActivityLine(line);
-  }
-
-  function resetSttRunActivityLines(line: string) {
-    resetRunActivityLines(line);
-  }
-
-  const {
+    loadSttMicrophoneDeviceList,
+    localRuntimeActions,
     cancelSttComposerRecording,
     discardSttComposerResult,
     retrySttComposerTranscription,
     startSttComposerRecording,
     stopSttComposerRecording,
-  } = createAppSttComposerActions({
-    activeVoiceMessageId,
-    appendRunActivityLine: appendSttRunActivityLine,
-    getComposerDraft,
-    resetPromptHistory,
-    resetRunActivityLines: resetSttRunActivityLines,
-    running,
-    setActiveVoiceMessageId,
-    setComposerDraft,
-    setContextError,
-    setError,
-    setRunStatus,
-    setSttComposer,
-    setSttDraftMetadata,
-    setThreadRunStatuses,
-    state,
-    sttComposer,
-    sttComposerOperationIdRef,
-    sttComposerRecorderRef,
-    sttComposerShortcutActiveRef,
-    sttComposerSilenceRef,
-    sttComposerThreadRef,
-    sttProvidersRef,
-  });
+    messageVoiceActions,
+  } = providerRuntimeActions;
 
-  const {
-    loadPendingPermissionRequests,
-    loadPermissionAudit,
-    loadPermissionGrants,
-    requestThreadPermissionModeChange,
-    respondPermissionRequest,
-    respondPrivilegedCredentialRequest,
-    respondSecureInputRequest,
-    revokePermissionGrant,
-    revokePermissionGrantIds,
-  } = createAppPermissionActions({
+  const permissionActions = createAppPermissionActions({
     permissionAudit,
     permissionGrants,
     setPermissionAudit,
@@ -569,6 +344,12 @@ export function App() {
     setState,
     state,
   });
+  const {
+    loadPendingPermissionRequests,
+    loadPermissionAudit,
+    loadPermissionGrants,
+    requestThreadPermissionModeChange,
+  } = permissionActions;
 
   const localDeepResearchReady = localDeepResearchSetup.result?.setupStatus === "ready";
   const { setLocalDeepResearchModeArmed, toggleLocalDeepResearchMode } = createAppLocalDeepResearchModeControls({
@@ -584,12 +365,10 @@ export function App() {
   });
 
   const {
-    activeWelcomeOnboardingPageKind,
     appendRunActivityLine,
     appendThinkingDeltaLine,
     handleMessagesScroll,
     jumpToLatestMessage,
-    requestMessageTail,
     resetRunActivityLines,
     scrollRef,
     showScrollToBottom,
@@ -630,7 +409,6 @@ export function App() {
     runActivityLastEventAtRef,
     runActivityLinesByThreadRef,
     running,
-    scheduleVoiceProviderRefresh,
     setAbortArmed,
     setActiveGitReview,
     setActiveGitReviewError,
@@ -716,18 +494,7 @@ export function App() {
     );
   }
 
-  const {
-    activeActivity,
-    activeChatBrowserUserAction,
-    activePermissionRequest,
-    activePrivilegedCredentialRequest,
-    activeSecureInputRequest,
-    activeThread,
-    isMac,
-    localDeepResearchRunActive,
-    localDeepResearchRunBudget,
-    showTopbarThreadMemoryToggle,
-  } = useAppActiveThreadModel({
+  const activeThreadModel = useAppActiveThreadModel({
     activity,
     chatBrowserUserAction,
     localDeepResearchBudgetOverride,
@@ -741,14 +508,16 @@ export function App() {
     state,
     threadRunStatuses,
   });
-  localDeepResearchRunBudgetRef.current = localDeepResearchRunBudget;
   const {
-    activeSubagentChildHiddenByFeatureFlag,
-    activeSubagentInspector,
-    subagentParentClustersByMessageId,
-    subagentUiEnabled,
-    symphonyBuilderModel,
-  } = useAppSubagentShellControls({
+    activePermissionRequest,
+    activePrivilegedCredentialRequest,
+    activeSecureInputRequest,
+    activeThread,
+    localDeepResearchRunActive,
+    localDeepResearchRunBudget,
+  } = activeThreadModel;
+  localDeepResearchRunBudgetRef.current = localDeepResearchRunBudget;
+  const subagentShellControls = useAppSubagentShellControls({
     activeThread,
     setSubagentApprovalActionBusy,
     setSubagentApprovalDecisionDialog,
@@ -760,19 +529,9 @@ export function App() {
     state,
     symphonyBuilderDraft,
   });
+  const { activeSubagentChildHiddenByFeatureFlag, subagentUiEnabled, symphonyBuilderModel } = subagentShellControls;
 
-  const {
-    cancelCallableWorkflowTask,
-    cancelSubagentChild,
-    closeSubagentChild,
-    openCallableWorkflowThread,
-    pauseCallableWorkflowTask,
-    resolveSubagentApprovalAction,
-    resolveSubagentBarrierAction,
-    resumeCallableWorkflowTask,
-    submitSubagentApprovalDecisionDialog,
-    submitSubagentBarrierDecisionDialog,
-  } = createAppSubagentParentClusterActions({
+  const subagentParentClusterActions = createAppSubagentParentClusterActions({
     clearAutomationPopover: () => setAutomationPopover(undefined),
     clearProjectPopover: () => setProjectPopover(undefined),
     setCallableWorkflowTaskCancelBusy,
@@ -797,40 +556,16 @@ export function App() {
     subagentApprovalDecisionDialog,
     subagentBarrierDecisionDialog,
   });
+  const { submitSubagentApprovalDecisionDialog, submitSubagentBarrierDecisionDialog } = subagentParentClusterActions;
 
-  const {
-    conversationReviewPanelDocked,
-    runStatusCardVisible,
-    workflowRecorderEmptyChatState,
-    workflowRecordingReviewFeedbackActive,
-    workflowRecordingReviewPanelOpen,
-    setWorkflowRecordingReviewPanelOpen,
-    workflowRecordingReviewRunning,
-  } = useAppWorkflowRecordingReviewControls({
+  const workflowRecordingReviewControls = useAppWorkflowRecordingReviewControls({
     activeThread,
     running,
     thinkingDisplay: state?.settings.thinkingDisplay,
     workflowRecorderSurface,
   });
-  const {
-    activeProject,
-    activeProjectBoardBusy,
-    activeProjectBoardTopbarAction,
-    activeThreadSuppressesProjectBoard,
-    activeWorkspaceIsPreparedLocalTask,
-    errorNeedsSessionRecovery,
-    latestDurablePlannerPlanArtifact,
-    projectBoardActions,
-    projectBoardOpen,
-    setProjectBoardOpen,
-    setProjectBoardPlanBusy,
-    projectBoardPlanPickerOpen,
-    setProjectBoardPlanPickerOpen,
-    projectBoardThreadPlanAction,
-    readyPlannerPlanArtifacts,
-    runProjectBoardThreadPlanAction,
-    sessionContextMissing,
-  } = useAppProjectBoardControls({
+  const { workflowRecordingReviewFeedbackActive } = workflowRecordingReviewControls;
+  const projectBoardControls = useAppProjectBoardControls({
     activeThread,
     activeThreadId: state?.activeThreadId,
     activeWorkspacePath: state?.activeWorkspace.path,
@@ -868,6 +603,21 @@ export function App() {
     workspaceName: state?.workspace.name,
     workspacePath: state?.workspace.path,
   });
+  const {
+    activeProject,
+    activeProjectBoardBusy,
+    activeProjectBoardTopbarAction,
+    activeThreadSuppressesProjectBoard,
+    latestDurablePlannerPlanArtifact,
+    projectBoardActions,
+    projectBoardOpen,
+    setProjectBoardOpen,
+    projectBoardPlanPickerOpen,
+    projectBoardThreadPlanAction,
+    readyPlannerPlanArtifacts,
+    runProjectBoardThreadPlanAction,
+    sessionContextMissing,
+  } = projectBoardControls;
   function closeProjectBoard() {
     setProjectBoardOpen(false);
   }
@@ -875,17 +625,7 @@ export function App() {
     localDeepResearchReady,
     setLocalDeepResearchModeArmed,
   });
-  const {
-    artifactPathHints,
-    latestRecoveryPrompt,
-    plannerArtifactByMessageId,
-    promptHistory,
-    retryableMessageIds,
-    streamingAssistantId,
-    transientThinkingActivityLines,
-    visibleChatMessages,
-    visibleRunActivityLines,
-  } = useAppConversationDisplayModel({
+  const conversationDisplayModel = useAppConversationDisplayModel({
     activeThreadId: state?.activeThreadId,
     activeRunActivityLines,
     activeWorkspacePath: state?.activeWorkspace.path,
@@ -896,6 +636,7 @@ export function App() {
     thinkingDisplayMode,
     workspacePath: state?.workspace.path,
   });
+  const { latestRecoveryPrompt, promptHistory } = conversationDisplayModel;
   promptHistoryRef.current = promptHistory;
 
   useAppPendingSubmittedPromptCleanup({
@@ -904,14 +645,7 @@ export function App() {
     state,
   });
 
-  const {
-    selectedAutomationFolder,
-    selectedAutomationThread,
-    selectedWorkflowAgentFolder,
-    selectedWorkflowAgentThread,
-    sidebarProjects,
-    sidebarThreads,
-  } = useAppSidebarSelectionModel({
+  const sidebarSelectionModel = useAppSidebarSelectionModel({
     activeThreadId: state?.activeThreadId,
     activeWorkspacePath: state?.workspace.path,
     automationFolders,
@@ -924,6 +658,12 @@ export function App() {
     subagentUiEnabled,
     workflowAgentFolders,
   });
+  const {
+    selectedAutomationFolder,
+    selectedAutomationThread,
+    selectedWorkflowAgentFolder,
+    selectedWorkflowAgentThread,
+  } = sidebarSelectionModel;
   useAppSidebarLifecycleEffects({
     activeThreadId: activeThread?.id,
     activeThreadKind: activeThread?.kind,
@@ -944,19 +684,7 @@ export function App() {
     workspacePath: state?.workspace.path,
   });
 
-  const {
-    applyLatestWorkflowRecordingSummary,
-    archiveWorkflowRecordingPlaybook,
-    confirmActiveWorkflowRecordingReview,
-    retryWorkflowRecordingReview,
-    restoreWorkflowRecordingVersion,
-    sendWorkflowRecordingReviewPrompt,
-    setWorkflowRecordingEnabled,
-    startWorkflowRecording,
-    stopActiveWorkflowRecording,
-    unarchiveWorkflowRecordingPlaybook,
-    updateActiveWorkflowRecordingReview,
-  } = createAppWorkflowRecordingActions({
+  const workflowRecordingActions = createAppWorkflowRecordingActions({
     abortArmed,
     activeThread,
     applyCreatedThreadState,
@@ -982,8 +710,14 @@ export function App() {
     state,
     workflowLibraryIncludeArchived,
   });
+  const {
+    applyLatestWorkflowRecordingSummary,
+    confirmActiveWorkflowRecordingReview,
+    sendWorkflowRecordingReviewPrompt,
+    updateActiveWorkflowRecordingReview,
+  } = workflowRecordingActions;
 
-  const { editWorkflowRecordingPlaybookInChat } = createAppWorkflowRecordingPlaybookActions({
+  const workflowRecordingPlaybookActions = createAppWorkflowRecordingPlaybookActions({
     closeProjectBoard,
     previewLocalFile,
     setAutomationPopover,
@@ -998,59 +732,30 @@ export function App() {
     setSelectedWorkflowRecordingId,
     setSidebarArea,
   });
-
-  const { runUpdateAction } = createAppUpdateActions({
+  const updateActions = createAppUpdateActions({
     setError,
     setState,
     setUpdateBusy,
     setUpdatePopoverOpen,
   });
 
-  const {
-    clearAgentMemory,
-    hydrateSearchRoutingSettingsForSettingsPanel,
-    installModelProviderEndpoint,
-    runLocalModelRuntimeLifecycleAction,
-    saveModelProviderCredential,
-    updateFeatureFlagSettings,
-    updateLocalDeepResearchSettings,
-    updateMediaPlaybackSettings,
-    updateMemorySettings,
-    updateModelRuntimeSettings,
-    updatePlannerSettings,
-    updateSearchRoutingSettings,
-    updateSttSettings,
-    updateThinkingDisplaySettings,
-    updateVoiceSettings,
-  } = createAppSettingsActions({
+  const settingsActions = createAppSettingsActions({
     setLocalDeepResearchSetup,
     setSearchRoutingHydrationError,
     setSearchRoutingHydrating,
     setState,
     state,
   });
+  const { updateThinkingDisplaySettings } = settingsActions;
 
-  const { refreshAgentMemoryDiagnostics, runAgentMemoryEmbeddingLifecycleAction } = useAppAgentMemoryPanelControls({
+  const agentMemoryControls = useAppAgentMemoryPanelControls({
     activeThreadMemoryEnabled: Boolean(activeThread?.memoryEnabled),
     panel: rightPanel,
     providerRuntimeState,
     state,
   });
 
-  const { clearMessageVoiceArtifact, regenerateMessageVoice, revealMessageVoiceArtifact } = createAppMessageVoiceActions({
-    scheduleVoiceProviderRefresh,
-    setError,
-    setState,
-  });
-
-  const {
-    cancelBrowserUserActionFromChat,
-    continueAfterBrowserUserActionIfReady,
-    openBrowserForUserAction,
-    openExternalUrl,
-    openUrlInAmbientBrowser,
-    resumeBrowserUserActionFromChat,
-  } = createAppBrowserActionControls({
+  const browserActionControls = createAppBrowserActionControls({
     appendRunActivityLine,
     chatBrowserUserAction,
     resetRunActivityLines,
@@ -1064,8 +769,7 @@ export function App() {
     setThreadRunStatuses,
     state,
   });
-
-  const { retryFailedPrompt } = createAppComposerRetryActions({
+  const composerRetryActions = createAppComposerRetryActions({
     resetPromptHistory,
     resetRunActivityLines,
     running,
@@ -1076,17 +780,9 @@ export function App() {
     setThreadRunStatuses,
     state,
   });
+  const { retryFailedPrompt } = composerRetryActions;
 
-  const {
-    compactActiveThread,
-    duplicateActiveThreadFromTranscript,
-    exportActiveChat,
-    exportChatPdfThread,
-    exportDiagnostics,
-    importDiagnostics,
-    recoverActiveThreadContext,
-    recoverActiveThreadContextAndRetryLatest,
-  } = createAppThreadMaintenanceActions({
+  const threadMaintenanceActions = createAppThreadMaintenanceActions({
     applyProjectActionState,
     chatExportBusy,
     contextRecoveryBusy,
@@ -1104,18 +800,17 @@ export function App() {
     setThreadRunStatuses,
     state,
   });
-
   const {
-    beginRightPanelResize,
-    beginSidebarResize,
-    beginWorkflowRecorderReviewResize,
-    commandItems,
-    handleMenuCommand,
-    openMediaPreviewModal,
-    runPaletteCommand,
-    updateThemePreference,
-    updateThreadSettings,
-  } = createAppShellCommandActions({
+    compactActiveThread,
+    duplicateActiveThreadFromTranscript,
+    exportActiveChat,
+    exportChatPdfThread,
+    exportDiagnostics,
+    recoverActiveThreadContext,
+    recoverActiveThreadContextAndRetryLatest,
+  } = threadMaintenanceActions;
+
+  const shellCommandActions = createAppShellCommandActions({
     compactActiveThread,
     contextUsage: state?.contextUsage,
     createThread,
@@ -1143,6 +838,14 @@ export function App() {
     togglePanel,
     workflowRecorderNavLabel: workflowRecorderSurface.navLabel,
   });
+  const {
+    beginRightPanelResize,
+    beginSidebarResize,
+    beginWorkflowRecorderReviewResize,
+    handleMenuCommand,
+    openMediaPreviewModal,
+    updateThreadSettings,
+  } = shellCommandActions;
 
   const { attachExistingWorktreeFromFooter, createBranchFromFooter, createThreadWorktreeFromFooter, switchBranch } = createAppGitActions({
     activeWorkspacePath: state?.activeWorkspace.path,
@@ -1156,13 +859,13 @@ export function App() {
     workspacePath: state?.workspace.path,
   });
 
-  const { addContextAttachments, attachComposerFiles, clearContextAttachments, removeContextAttachment } =
-    createAppContextAttachmentActions({
-      allowExternalContext: state?.settings.permissionMode === "full-access",
-      openAttachmentsPanel: () => openPanel("attachments"),
-      setContextAttachments,
-      setContextError,
-    });
+  const contextAttachmentActions = createAppContextAttachmentActions({
+    allowExternalContext: state?.settings.permissionMode === "full-access",
+    openAttachmentsPanel: () => openPanel("attachments"),
+    setContextAttachments,
+    setContextError,
+  });
+  const { attachComposerFiles, clearContextAttachments, removeContextAttachment } = contextAttachmentActions;
 
   const { clearActiveGoal, editActiveGoalObjective, pauseOrResumeActiveGoal, setActiveGoalBudget, toggleGoalMode } = createAppGoalActions({
     goalModeArmed,
@@ -1219,14 +922,7 @@ export function App() {
     workflowRecordingReviewFeedbackActive,
   });
 
-  const {
-    sendRemoteSurfaceActivationPrompt,
-    sendTelegramSessionSetupPrompt,
-    startCapabilityBuilderPrompt,
-    startWelcomeFirstRunCapabilityOnboarding,
-    startWelcomeProviderCatalogCardOnboarding,
-    startWelcomeRemoteSurfaceActivation,
-  } = createAppCapabilityPromptActions({
+  const capabilityPromptActions = createAppCapabilityPromptActions({
     applyCreatedThreadState,
     resetPromptHistory,
     resetRunActivityLines,
@@ -1238,15 +934,7 @@ export function App() {
     setThreadRunStatuses,
     state,
   });
-
-  const {
-    answerPlannerDecisionQuestion,
-    finalizePlannerPlan,
-    implementPlannerPlan,
-    openPlannerRevisionDialog,
-    sendPlannerDurableRevision,
-    submitPlannerRevisionDialog,
-  } = createAppPlannerActions({
+  const plannerActions = createAppPlannerActions({
     getComposerDraft,
     plannerRevisionDialog,
     resetRunActivityLines,
@@ -1261,6 +949,7 @@ export function App() {
     state,
     updateThreadSettings,
   });
+  const { openPlannerRevisionDialog, sendPlannerDurableRevision, submitPlannerRevisionDialog } = plannerActions;
 
   const symphonyBuilderControls = createAppSymphonyBuilderControls({
     appendRunActivityLine,
@@ -1382,119 +1071,63 @@ export function App() {
     onCreateThreadWorktree: createThreadWorktreeFromFooter,
     onCreateBranch: createBranchFromFooter,
   });
-  const modalHostProps = createAppModalHostProps({
+  const modalHostProps = createAppModalHostPropsForApp({
     activePermissionRequest,
     activePrivilegedCredentialRequest,
     activeSecureInputRequest,
-    ambientCliSecretDialog,
-    ambientCliSecretInputRef,
-    apiDialogOpen,
-    apiKeyBusy,
-    apiKeyDraft,
-    apiKeyInputRef,
-    apiKeyStatus,
-    clearSavedApiKey,
-    clipboardCandidate,
-    commandItems,
-    commandPaletteOpen,
-    commandPaletteQuery,
-    confirmProjectActionDialog,
-    confirmProjectBoardReset: projectBoardActions.confirmProjectBoardReset,
-    confirmThreadActionDialog,
-    gitConfirmation,
-    localDeepResearchFollowupOpen,
-    localDeepResearchQ8Override,
-    localDeepResearchSetup,
-    mediaPreviewModal,
-    onApiKeyChange: setApiKeyDraft,
-    onCommandPaletteQueryChange: setCommandPaletteQuery,
-    onLocalDeepResearchQ8OverrideChange: setLocalDeepResearchQ8Override,
-    openAmbientKeys,
-    openSearchWebSettings,
-    pasteAmbientCliSecret,
-    pasteApiKey,
-    plannerRevisionDialog,
-    previewArtifact,
-    projectActionDialog,
-    projectBoardResetDialog,
-    requestThreadPermissionModeChange,
-    respondPermissionRequest,
-    respondPrivilegedCredentialRequest,
-    respondSecureInputRequest,
-    runPaletteCommand,
-    saveAmbientCliSecret,
-    saveApiKey,
-    setAmbientCliSecretDialog,
-    setApiDialogOpen,
-    setCommandPaletteOpen,
-    setGitConfirmation,
-    setLocalDeepResearchFollowupOpen,
-    setMediaPreviewModal,
-    setPlannerRevisionDialog,
-    setProjectActionDialog,
-    setProjectBoardResetDialog,
-    setSubagentApprovalDecisionDialog,
-    setSubagentBarrierDecisionDialog,
-    setThreadActionDialog,
-    setupLocalDeepResearchFromSettings,
+    actions: {
+      credentialDialogActions,
+      localRuntimeActions,
+      openSearchWebSettings,
+      permissionActions,
+      previewArtifact,
+      projectBoardActions,
+      projectThreadActions,
+      shellCommandActions,
+      submitPlannerRevisionDialog,
+      submitSubagentApprovalDecisionDialog,
+      submitSubagentBarrierDecisionDialog,
+    },
+    providerRuntimeState,
+    projectShellState,
+    securityPromptState,
+    shellUiState,
     state,
-    subagentApprovalDecisionDialog,
-    subagentBarrierDecisionDialog,
     subagentUiEnabled,
-    submitPlannerRevisionDialog,
-    submitSubagentApprovalDecisionDialog,
-    submitSubagentBarrierDecisionDialog,
-    testApiKey,
-    threadActionDialog,
-    updateAmbientCliSecretDialog,
+    workflowRuntimeState,
+    workspaceShellState,
   });
-  const automationsWorkspaceProps = createAppAutomationsWorkspaceProps({
-    folders: automationFolders,
-    onArchiveWorkflowRecordingPlaybook: archiveWorkflowRecordingPlaybook,
-    onCreateProject: createWorkspace,
-    onDesktopStateChanged: applyAutomationDesktopState,
-    onEditWorkflowRecordingPlaybook: editWorkflowRecordingPlaybookInChat,
-    onFoldersChanged: setAutomationFolders,
-    onMoveThread: moveAutomationThread,
-    onOpenMediaModal: openMediaPreviewModal,
-    onOpenRunThread: openAutomationRunThread,
-    onPreviewLocalPath: previewLocalFile,
-    onPreviewPath: previewArtifact,
-    onRestoreWorkflowRecordingVersion: restoreWorkflowRecordingVersion,
-    onRevokePermissionGrant: revokePermissionGrant,
-    onRevokePermissionGrantIds: revokePermissionGrantIds,
-    onSelectPane: selectAutomationPane,
-    onSelectThread: selectAutomationThread,
-    onSelectWorkflowAgentThread: selectWorkflowAgentThread,
-    onSelectWorkflowRecordingPlaybook: selectWorkflowRecordingForLab,
-    onSetWorkflowRecordingEnabled: setWorkflowRecordingEnabled,
-    onStartWorkflowRecording: startWorkflowRecording,
-    onUnarchiveWorkflowRecordingPlaybook: unarchiveWorkflowRecordingPlaybook,
-    onWorkflowAgentFoldersChanged: setWorkflowAgentFolders,
-    orchestrationAutoRevision,
-    orchestrationRevision,
-    permissionAudit,
-    permissionGrantRevoking,
-    permissionGrants,
-    refreshWorkflowRecordingLibrary,
-    selectedAutomationPane,
-    selectedFolder: selectedAutomationFolder,
-    selectedThread: selectedAutomationThread,
-    selectedWorkflowAgentFolder,
-    selectedWorkflowAgentThread,
-    selectedWorkflowRecording,
-    setWorkflowCompileProgress,
-    setWorkflowExplorationProgressByThreadId,
-    setWorkflowRevision,
+  const automationsWorkspaceProps = createAppAutomationsWorkspacePropsForApp({
+    automationFolderControls,
+    automationSelectionControls,
+    automationShellState,
+    permissionActions,
+    permissions: {
+      permissionAudit,
+      permissionGrantRevoking,
+      permissionGrants,
+    },
+    previewActions: {
+      onOpenMediaModal: openMediaPreviewModal,
+      onPreviewLocalPath: previewLocalFile,
+      onPreviewPath: previewArtifact,
+    },
+    projectActions: {
+      onCreateProject: createWorkspace,
+      onDesktopStateChanged: applyAutomationDesktopState,
+    },
+    selected: {
+      selectedFolder: selectedAutomationFolder,
+      selectedThread: selectedAutomationThread,
+      selectedWorkflowAgentFolder,
+      selectedWorkflowAgentThread,
+      selectedWorkflowRecording,
+    },
     state,
-    workflowAgentFolders,
-    workflowCompileProgress,
-    workflowDiscoveryProgress,
-    workflowExplorationProgressByThreadId,
-    workflowLibraryIncludeArchived,
-    workflowRecordingLibrary,
-    workflowRevision,
-    onWorkflowLibraryIncludeArchivedChange: setWorkflowLibraryIncludeArchived,
+    workflowRecordingActions,
+    workflowRecordingLibraryControls,
+    workflowRecordingPlaybookActions,
+    workflowRuntimeState,
   });
   const projectBoardWorkspaceProps = createAppProjectBoardWorkspaceProps({
     actions: projectBoardActions,
@@ -1520,231 +1153,75 @@ export function App() {
     threadRunStatuses,
     onClose: closeProjectBoard,
   });
-  const conversationMessagesProps = createAppConversationMessagesProps({
-    goalCompletionCelebrationId,
-    chatFindOpen,
-    chatFindInputRef,
-    chatFindQuery,
-    chatFindCount,
-    chatFindIndex,
-    onChatFindQueryChange: setChatFindQuery,
-    onChatFindPrevious,
-    onChatFindNext,
-    onChatFindClose,
-    activeThreadVoiceStatusVisible,
-    activeThreadVoiceStatus,
-    activeThreadVoiceStatusDismissKey,
-    onDismissActiveThreadVoiceStatus: dismissActiveThreadVoiceStatus,
-    activeSubagentInspector,
-    activeThread,
-    activeProjectHasBoard: Boolean(activeProject?.board),
-    workflowRecordingReviewRunning,
-    running,
-    abortArmed,
-    activeRunActivityLines,
-    runStatus,
-    retryStats: retryStatsByThread[state.activeThreadId],
-    chatExportBusy,
-    onRetryWorkflowRecordingReview: retryWorkflowRecordingReview,
-    onStopWorkflowRecording: stopActiveWorkflowRecording,
-    onExportActiveChat: exportActiveChat,
-    scrollRef,
-    onMessagesScroll: handleMessagesScroll,
-    visibleChatMessages,
-    activeChatBrowserUserAction,
-    workflowRecorderEmptyChatState,
-    welcomeAmbientPluginRegistry,
-    onOpenAmbientKeys: openAmbientKeys,
-    onOpenApiKeyDialog: openApiKeyDialog,
-    onStartWelcomeFirstRunCapabilityOnboarding: startWelcomeFirstRunCapabilityOnboarding,
-    onStartWelcomeProviderCatalogCardOnboarding: startWelcomeProviderCatalogCardOnboarding,
-    onStartWelcomeRemoteSurfaceActivation: startWelcomeRemoteSurfaceActivation,
-    onOpenPanel: openPanel,
-    voiceProviderLabels,
-    streamingAssistantId,
-    retryableMessageIds,
-    onRetryMessage: retryFailedPrompt,
-    onSendTelegramSessionSetupPrompt: sendTelegramSessionSetupPrompt,
-    onSendRemoteSurfaceActivationPrompt: sendRemoteSurfaceActivationPrompt,
-    onPreviewPath: previewArtifact,
-    onPreviewLocalPath: previewLocalFile,
-    onOpenMediaModal: openMediaPreviewModal,
-    latestReadyVoiceAutoplay,
-    autoplayVoiceKey,
-    activeVoiceMessageId,
-    onActiveVoiceMessageChange: setActiveVoiceMessageId,
-    onRegenerateVoice: regenerateMessageVoice,
-    onRevealVoiceArtifact: revealMessageVoiceArtifact,
-    onClearVoiceArtifact: clearMessageVoiceArtifact,
-    onOpenUrl: openExternalUrl,
-    onOpenBrowserUrl: openUrlInAmbientBrowser,
-    artifactPathHints,
-    plannerArtifactByMessageId,
-    onImplementPlannerPlan: implementPlannerPlan,
-    onRefinePlannerPlan: openPlannerRevisionDialog,
-    onRetryPlannerFinalization: finalizePlannerPlan,
-    projectBoardActions,
-    onAnswerPlannerDecisionQuestion: answerPlannerDecisionQuestion,
-    contextRecoveryBusy,
-    canRetryContextRecovery: Boolean(latestRecoveryPrompt),
-    onRecoverActiveThreadContext: recoverActiveThreadContext,
-    onRecoverAndRetryLatest: recoverActiveThreadContextAndRetryLatest,
-    onDuplicateActiveThreadFromTranscript: duplicateActiveThreadFromTranscript,
-    threadRunStatuses,
-    thinkingDisplayMode,
-    runActivityLinesByThread,
-    subagentParentClustersByMessageId,
-    onSelectThread: selectThread,
-    onCancelSubagentChild: cancelSubagentChild,
-    onCloseSubagentChild: closeSubagentChild,
-    onOpenCallableWorkflowThread: openCallableWorkflowThread,
-    onPauseCallableWorkflowTask: pauseCallableWorkflowTask,
-    onResumeCallableWorkflowTask: resumeCallableWorkflowTask,
-    onCancelCallableWorkflowTask: cancelCallableWorkflowTask,
-    onResolveSubagentBarrierAction: resolveSubagentBarrierAction,
-    onResolveSubagentApprovalAction: resolveSubagentApprovalAction,
-    subagentChildCancelBusy,
-    subagentChildCloseBusy,
-    callableWorkflowTaskPauseBusy,
-    callableWorkflowTaskResumeBusy,
-    callableWorkflowTaskCancelBusy,
-    subagentBarrierActionBusy,
-    subagentApprovalActionBusy,
-    chatBrowserUserActionBusy,
-    onResumeBrowserUserAction: resumeBrowserUserActionFromChat,
-    onCancelBrowserUserAction: cancelBrowserUserActionFromChat,
-    onOpenBrowserForUserAction: openBrowserForUserAction,
-    transientThinkingActivityLines,
-    visibleRunActivityLines,
-    runStatusCardVisible,
-    showScrollToBottom,
-    onJumpToLatestMessage: jumpToLatestMessage,
-    errorNeedsSessionRecovery,
-    error,
-    onDismissError: clearError,
-    activeWorkspaceIsPreparedLocalTask,
-    activeActivity,
+  const conversationMessagesProps = createAppConversationMessagesPropsForApp({
+    activeThreadModel,
+    browserActionControls,
+    capabilityPromptActions,
+    chatFindControls,
+    composerRetryActions,
+    conversationDisplayModel,
+    coreLifecycleControls: {
+      handleMessagesScroll,
+      jumpToLatestMessage,
+      scrollRef,
+      showScrollToBottom,
+    },
+    credentialDialogActions,
+    messageVoiceActions,
+    plannerActions,
+    previewActions: {
+      onOpenMediaModal: openMediaPreviewModal,
+      onPreviewLocalPath: previewLocalFile,
+      onPreviewPath: previewArtifact,
+    },
+    projectBoardControls,
+    rightPanelState,
+    runActivityState,
+    runDerivedState: {
+      activeRunActivityLines,
+      running,
+      thinkingDisplayMode,
+    },
+    shellUiState,
     state,
+    subagentParentClusterActions,
+    subagentShellControls,
+    threadMaintenanceActions,
+    voiceThreadControls,
+    workflowRecordingActions,
+    workflowRecordingReviewControls,
+    workflowRuntimeState,
+    workspaceNavigationControls,
+    workspaceShellState,
   });
-  const sidebarProps = createAppShellSidebarProps({
-    width: sidebarWidth,
-    sidebarArea,
-    selectedAutomationPane,
-    projectPopover,
-    projectsCollapsed,
-    sidebarOrganize,
-    sidebarProjects,
-    sidebarThreads,
-    activeThreadSuppressesProjectBoard,
-    projectBoardBusyProjectIds,
-    projectBoardOpen,
-    threadRunStatuses,
-    sidebarAgeNow,
-    workflowAgentFolders,
-    selectedWorkflowAgentFolder,
-    selectedWorkflowAgentThreadId,
-    selectedWorkflowRecordingId,
-    automationsCollapsed,
-    automationPopover,
-    workflowAgentNavigationError,
-    projectContextMenu,
-    threadContextMenu,
-    onOpenSidebarArea: openSidebarArea,
-    onOpenPanel: openPanel,
-    onOpenWorkflowRecordingsArea: openWorkflowRecordingsArea,
-    onOpenWorkflowLabArea: openWorkflowLabArea,
-    onOrganizeChange: updateSidebarOrganize,
-    onSelectProject: selectProject,
-    onOpenProjectContextMenu: openProjectContextMenu,
-    onCreateThreadInProject: createThreadInProject,
-    onSelectThread: selectThread,
-    onOpenThreadContextMenu: openThreadContextMenu,
-    onCreateWorkflowAgentFolder: createWorkflowAgentFolder,
-    onSelectWorkflowAgentFolder: selectWorkflowAgentFolder,
-    onSelectWorkflowAgentThread: selectWorkflowAgentThread,
-    onSelectWorkflowRecording: selectWorkflowRecordingForSidebar,
-    onRenameProject: renameProject,
-    onArchiveProjectChats: archiveProjectChats,
-    onRemoveProject: removeProject,
-    onRenameThread: renameThread,
-    onArchiveThread: archiveThread,
-    onForkThread: forkThread,
-    onBeginResize: beginSidebarResize,
-    copyThreadDeeplink,
-    copyThreadSessionId,
-    copyThreadWorkingDirectory,
-    createPermanentProjectWorktree,
-    createWorkspace,
+  const sidebarProps = createAppShellSidebarPropsForApp({
+    automationShellState,
+    beginSidebarResize,
     exportChatPdfThread,
-    loadWorkflowAgentFolders,
-    markThreadUnread,
-    openNewWorkflowComposer,
-    openThreadMiniWindow,
-    openWorkspace,
-    projectBoardActions,
-    revealProject,
-    revealThread,
-    runPrimaryCreateAction,
-    setAutomationPopover,
-    setAutomationsCollapsed,
-    setProjectBoardOpen,
-    setProjectPopover,
-    setProjectsCollapsed,
-    setSidebarOpen,
-    setThreadContextMenu,
+    navigationActions,
+    projectBoardControls,
+    projectShellState,
+    rightPanelState,
+    runActivityState,
+    selectionModel: sidebarSelectionModel,
+    selectedWorkflowRecordingId,
+    shellUiState,
     state,
-    threadActionInput,
-    toggleProjectPinned,
-    toggleThreadPinned,
   });
-  const rightPanelHostProps = createAppRightPanelHostProps({
+  const rightPanelHostProps = createAppRightPanelHostPropsForApp({
     actions: {
-      addContextAttachments,
-      cancelSttMicTest,
-      clearAgentMemory,
-      clearContextAttachments,
-      continueAfterBrowserUserActionIfReady,
-      exportDiagnostics,
-      hydrateSearchRoutingSettingsForSettingsPanel,
-      importDiagnostics,
-      installModelProviderEndpoint,
-      loadLocalDeepResearchRunHistory,
-      loadPermissionAudit,
-      loadPermissionGrants,
-      loadSttMicrophoneDeviceList,
-      loadSttProviders,
-      loadVoiceProviders,
-      openAmbientCliSecretDialog,
-      openApiKeyDialog,
-      openLocalDeepResearchFollowupIfSetupNeeded,
-      refreshAgentMemoryDiagnostics,
-      refreshVoiceCatalog,
-      removeContextAttachment,
-      revokePermissionGrant,
-      revokePermissionGrantIds,
-      runAgentMemoryEmbeddingLifecycleAction,
-      runLocalModelRuntimeLifecycleAction,
-      runUpdateAction,
-      saveModelProviderCredential,
-      selectThread,
-      setupLocalDeepResearchFromSettings,
-      setupMiniCpmVisionProviderFromSettings,
-      setupSttProvider,
-      startCapabilityBuilderPrompt,
-      startSttMicTest,
-      stopSttMicTestAndValidate,
-      updateFeatureFlagSettings,
-      updateLocalDeepResearchSettings,
-      updateMediaPlaybackSettings,
-      updateMemorySettings,
-      updateModelRuntimeSettings,
-      updatePlannerSettings,
-      updateSearchRoutingSettings,
-      updateSttSettings,
-      updateThemePreference,
-      updateThinkingDisplaySettings,
-      updateThreadSettings,
-      updateVoiceSettings,
+      agentMemoryControls,
+      browserActionControls,
+      capabilityPromptActions,
+      contextAttachmentActions,
+      credentialDialogActions,
+      navigationActions: { selectThread },
+      permissionActions,
+      providerRuntimeActions,
+      settingsActions,
+      shellCommandActions,
+      threadMaintenanceActions,
+      updateActions,
     },
     onBeginResize: beginRightPanelResize,
     providerRuntimeState,
@@ -1757,9 +1234,8 @@ export function App() {
     workflowRuntimeState,
     workspaceShellState,
   });
-  const shellLayoutProps = createAppShellLayoutProps({
-    activeGitReview,
-    activeGitReviewError,
+  const shellLayoutProps = createAppShellLayoutPropsForApp({
+    activeThreadModel,
     activeProjectBoardTopbarAction,
     activeThread,
     automationsWorkspaceProps,
@@ -1768,36 +1244,25 @@ export function App() {
     composerProps,
     confirmActiveWorkflowRecordingReview,
     conversationMessagesProps,
-    conversationReviewPanelDocked,
-    isMac,
     modalHostProps,
     openApiKeyDialog,
     openGitSummaryPanel,
     projectBoardWorkspaceProps,
-    rightPanel,
+    rightPanelState,
     rightPanelHostProps,
-    runUpdateAction,
     running,
     selectedWorkflowAgentFolder,
     selectedWorkflowAgentThread,
     sendWorkflowRecordingReviewPrompt,
     setError,
-    setSidebarOpen,
-    setUpdatePopoverOpen,
-    setWorkflowRecordingReviewPanelOpen,
-    showTopbarThreadMemoryToggle,
-    sidebarArea,
-    sidebarOpen,
+    shellUiState,
     sidebarProps,
     state,
-    togglePanel,
+    updateActions,
     updateActiveWorkflowRecordingReview,
-    updateBusy,
-    updatePopoverOpen,
     updateThreadSettings,
-    workflowRecorderReviewPanelWidth,
-    workflowRecordingReviewFeedbackActive,
-    workflowRecordingReviewPanelOpen,
+    workflowRecordingReviewControls,
+    workspaceShellState,
     applyLatestWorkflowRecordingSummary,
   });
 

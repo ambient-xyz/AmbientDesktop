@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DesktopState } from "../../shared/desktopTypes";
 import {
   createAppConversationMessagesProps,
+  createAppConversationMessagesPropsForApp,
   type AppConversationMessagesPropsInput,
+  type AppConversationMessagesPropsForAppInput,
 } from "./AppConversationMessagesProps";
 
 describe("App conversation message props", () => {
@@ -15,19 +17,21 @@ describe("App conversation message props", () => {
     const abortRun = vi.fn(async () => undefined);
     vi.stubGlobal("window", { ambientDesktop: { abortRun } });
     const onOpenPanel = vi.fn();
-    const props = createAppConversationMessagesProps(baseInput({
-      activeProjectHasBoard: true,
-      canRetryContextRecovery: true,
-      onOpenPanel,
-      state: desktopState({
-        activeThreadId: "thread-2",
-        activeWorkspace: { path: "/workspace-copy" },
-        provider: { providerLabel: "Ambient" },
-        providerCatalog: { cards: [] },
-        settings: { media: { generatedMediaAutoplay: true } },
-        workspace: { path: "/project-root" },
+    const props = createAppConversationMessagesProps(
+      baseInput({
+        activeProjectHasBoard: true,
+        canRetryContextRecovery: true,
+        onOpenPanel,
+        state: desktopState({
+          activeThreadId: "thread-2",
+          activeWorkspace: { path: "/workspace-copy" },
+          provider: { providerLabel: "Ambient" },
+          providerCatalog: { cards: [] },
+          settings: { media: { generatedMediaAutoplay: true } },
+          workspace: { path: "/project-root" },
+        }),
       }),
-    }));
+    );
 
     expect(props.activeThreadId).toBe("thread-2");
     expect(props.activeWorkspacePath).toBe("/workspace-copy");
@@ -55,19 +59,21 @@ describe("App conversation message props", () => {
     const onOpenBrowserForUserAction = vi.fn();
     const onResolveSubagentApprovalAction = vi.fn();
     const onSelectThread = vi.fn();
-    const props = createAppConversationMessagesProps(baseInput({
-      onCancelSubagentChild,
-      onOpenBrowserForUserAction,
-      onOpenCallableWorkflowThread,
-      onResolveSubagentApprovalAction,
-      onSelectThread,
-      projectBoardActions: { addPlannerPlanToBoard, generatePlannerDurableArtifact },
-      state: desktopState({
-        activeWorkspace: { path: "/workspace-fallback" },
-        projects: [{ id: "project-1", path: "/parent-workspace" }],
-        threads: [{ id: "parent-thread-1", workspacePath: "/parent-workspace" }],
+    const props = createAppConversationMessagesProps(
+      baseInput({
+        onCancelSubagentChild,
+        onOpenBrowserForUserAction,
+        onOpenCallableWorkflowThread,
+        onResolveSubagentApprovalAction,
+        onSelectThread,
+        projectBoardActions: { addPlannerPlanToBoard, generatePlannerDurableArtifact },
+        state: desktopState({
+          activeWorkspace: { path: "/workspace-fallback" },
+          projects: [{ id: "project-1", path: "/parent-workspace" }],
+          threads: [{ id: "parent-thread-1", workspacePath: "/parent-workspace" }],
+        }),
       }),
-    }));
+    );
     const child = { childThreadId: "child-thread-1" };
     const childInspector = {
       runId: "child-run-1",
@@ -98,16 +104,54 @@ describe("App conversation message props", () => {
     expect(onOpenBrowserForUserAction).toHaveBeenCalledWith(browserAction);
   });
 
+  it("packs App owner groups into conversation message props", () => {
+    const onOpenPanel = vi.fn();
+    const retryFailedPrompt = vi.fn();
+    const openExternalUrl = vi.fn();
+    const input = baseInput({
+      activeProjectHasBoard: true,
+      canRetryContextRecovery: true,
+      onOpenPanel,
+      onOpenUrl: openExternalUrl,
+      onRetryMessage: retryFailedPrompt,
+      state: desktopState({
+        activeThreadId: "thread-2",
+        activeWorkspace: { path: "/workspace-copy" },
+        workspace: { path: "/project-root" },
+      }),
+    });
+    const props = createAppConversationMessagesPropsForApp(appInputFromBase(input));
+
+    expect(props.activeThreadId).toBe("thread-2");
+    expect(props.activeWorkspacePath).toBe("/workspace-copy");
+    expect(props.projectRootPath).toBe("/project-root");
+    expect(props.hasProjectBoard).toBe(true);
+    expect(props.canRetryContextRecovery).toBe(true);
+
+    const retryMessage = { id: "message-1" } as Parameters<typeof props.onRetryMessage>[0];
+    props.onOpenSettingsPanel();
+    props.onOpenPluginsPanel();
+    props.onOpenBrowserPanel();
+    props.onRetryMessage(retryMessage);
+    props.onOpenUrl("https://example.com");
+
+    expect(onOpenPanel.mock.calls).toEqual([["settings"], ["plugins"], ["browser"]]);
+    expect(retryFailedPrompt).toHaveBeenCalledWith(retryMessage);
+    expect(openExternalUrl).toHaveBeenCalledWith("https://example.com");
+  });
+
   it("opens subagent parent threads in-place when the child worktree path is not a registered project", () => {
     const onSelectThread = vi.fn();
-    const props = createAppConversationMessagesProps(baseInput({
-      onSelectThread,
-      state: desktopState({
-        activeWorkspace: { path: "/workspace/.ambient-codex/worktrees/child" },
-        projects: [{ id: "project-1", path: "/workspace" }],
-        threads: [{ id: "parent-thread-1", workspacePath: "/workspace/.ambient-codex/worktrees/child" }],
+    const props = createAppConversationMessagesProps(
+      baseInput({
+        onSelectThread,
+        state: desktopState({
+          activeWorkspace: { path: "/workspace/.ambient-codex/worktrees/child" },
+          projects: [{ id: "project-1", path: "/workspace" }],
+          threads: [{ id: "parent-thread-1", workspacePath: "/workspace/.ambient-codex/worktrees/child" }],
+        }),
       }),
-    }));
+    );
 
     props.onOpenSubagentParentThread({
       runId: "child-run-1",
@@ -232,6 +276,165 @@ function baseInput(input: Partial<AppConversationMessagesPropsInput> = {}): AppC
     workflowRecordingReviewRunning: false,
     ...input,
   } as unknown as AppConversationMessagesPropsInput;
+}
+
+function appInputFromBase(input: AppConversationMessagesPropsInput): AppConversationMessagesPropsForAppInput {
+  return {
+    activeThreadModel: {
+      activeActivity: input.activeActivity,
+      activeChatBrowserUserAction: input.activeChatBrowserUserAction,
+      activeThread: input.activeThread,
+    },
+    browserActionControls: {
+      cancelBrowserUserActionFromChat: input.onCancelBrowserUserAction,
+      openBrowserForUserAction: input.onOpenBrowserForUserAction,
+      openExternalUrl: input.onOpenUrl,
+      openUrlInAmbientBrowser: input.onOpenBrowserUrl,
+      resumeBrowserUserActionFromChat: input.onResumeBrowserUserAction,
+    },
+    capabilityPromptActions: {
+      sendRemoteSurfaceActivationPrompt: input.onSendRemoteSurfaceActivationPrompt,
+      sendTelegramSessionSetupPrompt: input.onSendTelegramSessionSetupPrompt,
+      startWelcomeFirstRunCapabilityOnboarding: input.onStartWelcomeFirstRunCapabilityOnboarding,
+      startWelcomeProviderCatalogCardOnboarding: input.onStartWelcomeProviderCatalogCardOnboarding,
+      startWelcomeRemoteSurfaceActivation: input.onStartWelcomeRemoteSurfaceActivation,
+    },
+    chatFindControls: {
+      chatFindCount: input.chatFindCount,
+      chatFindIndex: input.chatFindIndex,
+      chatFindInputRef: input.chatFindInputRef,
+      chatFindOpen: input.chatFindOpen,
+      chatFindQuery: input.chatFindQuery,
+      onChatFindClose: input.onChatFindClose,
+      onChatFindNext: input.onChatFindNext,
+      onChatFindPrevious: input.onChatFindPrevious,
+      setChatFindQuery: input.onChatFindQueryChange,
+    },
+    composerRetryActions: {
+      retryFailedPrompt: input.onRetryMessage,
+    },
+    conversationDisplayModel: {
+      artifactPathHints: input.artifactPathHints,
+      latestRecoveryPrompt: input.canRetryContextRecovery ? { id: "recovery-prompt" } : undefined,
+      plannerArtifactByMessageId: input.plannerArtifactByMessageId,
+      retryableMessageIds: input.retryableMessageIds,
+      streamingAssistantId: input.streamingAssistantId,
+      transientThinkingActivityLines: input.transientThinkingActivityLines,
+      visibleChatMessages: input.visibleChatMessages,
+      visibleRunActivityLines: input.visibleRunActivityLines,
+    },
+    coreLifecycleControls: {
+      handleMessagesScroll: input.onMessagesScroll,
+      jumpToLatestMessage: input.onJumpToLatestMessage,
+      scrollRef: input.scrollRef,
+      showScrollToBottom: input.showScrollToBottom,
+    },
+    credentialDialogActions: {
+      openAmbientKeys: input.onOpenAmbientKeys,
+      openApiKeyDialog: input.onOpenApiKeyDialog,
+    },
+    messageVoiceActions: {
+      clearMessageVoiceArtifact: input.onClearVoiceArtifact,
+      regenerateMessageVoice: input.onRegenerateVoice,
+      revealMessageVoiceArtifact: input.onRevealVoiceArtifact,
+    },
+    plannerActions: {
+      answerPlannerDecisionQuestion: input.onAnswerPlannerDecisionQuestion,
+      finalizePlannerPlan: input.onRetryPlannerFinalization,
+      implementPlannerPlan: input.onImplementPlannerPlan,
+      openPlannerRevisionDialog: input.onRefinePlannerPlan,
+    },
+    previewActions: {
+      onOpenMediaModal: input.onOpenMediaModal,
+      onPreviewLocalPath: input.onPreviewLocalPath,
+      onPreviewPath: input.onPreviewPath,
+    },
+    projectBoardControls: {
+      activeProject: input.activeProjectHasBoard ? { board: {} } : undefined,
+      activeWorkspaceIsPreparedLocalTask: input.activeWorkspaceIsPreparedLocalTask,
+      errorNeedsSessionRecovery: input.errorNeedsSessionRecovery,
+      projectBoardActions: input.projectBoardActions,
+    },
+    rightPanelState: {
+      openPanel: input.onOpenPanel,
+    },
+    runActivityState: {
+      abortArmed: input.abortArmed,
+      retryStatsByThread: { [input.state.activeThreadId]: input.retryStats },
+      runActivityLinesByThread: input.runActivityLinesByThread,
+      runStatus: input.runStatus,
+      threadRunStatuses: input.threadRunStatuses,
+    },
+    runDerivedState: {
+      activeRunActivityLines: input.activeRunActivityLines,
+      running: input.running,
+      thinkingDisplayMode: input.thinkingDisplayMode,
+    },
+    shellUiState: {
+      clearError: input.onDismissError,
+      error: input.error,
+    },
+    state: input.state,
+    subagentParentClusterActions: {
+      cancelCallableWorkflowTask: input.onCancelCallableWorkflowTask,
+      cancelSubagentChild: input.onCancelSubagentChild,
+      closeSubagentChild: input.onCloseSubagentChild,
+      openCallableWorkflowThread: input.onOpenCallableWorkflowThread,
+      pauseCallableWorkflowTask: input.onPauseCallableWorkflowTask,
+      resolveSubagentApprovalAction: input.onResolveSubagentApprovalAction,
+      resolveSubagentBarrierAction: input.onResolveSubagentBarrierAction,
+      resumeCallableWorkflowTask: input.onResumeCallableWorkflowTask,
+    },
+    subagentShellControls: {
+      activeSubagentInspector: input.activeSubagentInspector,
+      subagentParentClustersByMessageId: input.subagentParentClustersByMessageId,
+    },
+    threadMaintenanceActions: {
+      duplicateActiveThreadFromTranscript: input.onDuplicateActiveThreadFromTranscript,
+      exportActiveChat: input.onExportActiveChat,
+      recoverActiveThreadContext: input.onRecoverActiveThreadContext,
+      recoverActiveThreadContextAndRetryLatest: input.onRecoverAndRetryLatest,
+    },
+    voiceThreadControls: {
+      activeThreadVoiceStatus: input.activeThreadVoiceStatus,
+      activeThreadVoiceStatusDismissKey: input.activeThreadVoiceStatusDismissKey,
+      activeThreadVoiceStatusVisible: input.activeThreadVoiceStatusVisible,
+      activeVoiceMessageId: input.activeVoiceMessageId,
+      autoplayVoiceKey: input.autoplayVoiceKey,
+      dismissActiveThreadVoiceStatus: input.onDismissActiveThreadVoiceStatus,
+      latestReadyVoiceAutoplay: input.latestReadyVoiceAutoplay,
+      setActiveVoiceMessageId: input.onActiveVoiceMessageChange,
+      voiceProviderLabels: input.voiceProviderLabels,
+    },
+    workflowRecordingActions: {
+      retryWorkflowRecordingReview: input.onRetryWorkflowRecordingReview,
+      stopActiveWorkflowRecording: input.onStopWorkflowRecording,
+    },
+    workflowRecordingReviewControls: {
+      runStatusCardVisible: input.runStatusCardVisible,
+      workflowRecorderEmptyChatState: input.workflowRecorderEmptyChatState,
+      workflowRecordingReviewRunning: input.workflowRecordingReviewRunning,
+    },
+    workflowRuntimeState: {
+      callableWorkflowTaskCancelBusy: input.callableWorkflowTaskCancelBusy,
+      callableWorkflowTaskPauseBusy: input.callableWorkflowTaskPauseBusy,
+      callableWorkflowTaskResumeBusy: input.callableWorkflowTaskResumeBusy,
+      chatExportBusy: input.chatExportBusy,
+      contextRecoveryBusy: input.contextRecoveryBusy,
+      goalCompletionCelebrationId: input.goalCompletionCelebrationId,
+      subagentApprovalActionBusy: input.subagentApprovalActionBusy,
+      subagentBarrierActionBusy: input.subagentBarrierActionBusy,
+      subagentChildCancelBusy: input.subagentChildCancelBusy,
+      subagentChildCloseBusy: input.subagentChildCloseBusy,
+    },
+    workspaceNavigationControls: {
+      selectThread: input.onSelectThread,
+    },
+    workspaceShellState: {
+      chatBrowserUserActionBusy: input.chatBrowserUserActionBusy,
+      welcomeAmbientPluginRegistry: input.welcomeAmbientPluginRegistry,
+    },
+  } as unknown as AppConversationMessagesPropsForAppInput;
 }
 
 function desktopState(input: Record<string, unknown> = {}): DesktopState {

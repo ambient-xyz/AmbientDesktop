@@ -314,12 +314,14 @@ export async function handleRuntimePromptFailure(input: RuntimePromptFailureHand
     return;
   }
   const preOutputStreamStallRetryReason: AssistantFinalizationRetryReason = "pre_output_stream_stall";
-  const retryPreOutputStreamStall =
+  const preOutputStreamStall =
     input.streamWatchdogTimedOut() &&
-    input.canScheduleAssistantFinalizationRetryFor(preOutputStreamStallRetryReason) &&
     !input.receivedAnyText() &&
     input.toolMessages.size() === 0 &&
     !input.currentAssistantFinalText().trim();
+  const retryPreOutputStreamStall =
+    preOutputStreamStall &&
+    input.canScheduleAssistantFinalizationRetryFor(preOutputStreamStallRetryReason);
   if (retryPreOutputStreamStall && input.retrySourceUserMessageId) {
     const preOutputStreamStallRetryNextAttempt = input.assistantFinalizationRetryNextAttemptFor(preOutputStreamStallRetryReason);
     input.cleanupCurrentSession({ clearPersistedSessionFileIfCurrent: true });
@@ -502,6 +504,7 @@ export async function handleRuntimePromptFailure(input: RuntimePromptFailureHand
       : `provider-continuation-${randomUUID()}`;
   const handleProviderInterruption =
     !input.abortRequested() &&
+    !preOutputStreamStall &&
     Boolean(input.retrySourceUserMessageId) &&
     isContinuableAmbientProviderInterruption(input.error) &&
     !input.usesDedicatedReviewSession;

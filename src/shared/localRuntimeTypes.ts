@@ -714,6 +714,9 @@ export interface VoiceProviderDiagnostics {
   healthCommand?: string[];
   healthCwd?: string;
   healthError?: string;
+  healthCached?: boolean;
+  healthCheckedAt?: string;
+  healthCacheAgeMs?: number;
   stdoutArtifactPath?: string;
   stderrArtifactPath?: string;
   missingHints: string[];
@@ -750,6 +753,9 @@ export interface EmbeddingProviderDiagnostics {
   healthCommand?: string[];
   healthCwd?: string;
   healthError?: string;
+  healthCached?: boolean;
+  healthCheckedAt?: string;
+  healthCacheAgeMs?: number;
   stdoutArtifactPath?: string;
   stderrArtifactPath?: string;
   missingHints: string[];
@@ -1801,6 +1807,9 @@ export interface SttProviderDiagnostics {
   healthCommand?: string[];
   healthCwd?: string;
   healthError?: string;
+  healthCached?: boolean;
+  healthCheckedAt?: string;
+  healthCacheAgeMs?: number;
   stdoutArtifactPath?: string;
   stderrArtifactPath?: string;
   missingHints: string[];

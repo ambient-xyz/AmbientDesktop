@@ -175,6 +175,21 @@ export function toolEventActivityMessage(details: unknown): string | undefined {
   return undefined;
 }
 
+export function toolEventCouldAffectSpeechProviderState(details: unknown): boolean {
+  const record = details && typeof details === "object" && !Array.isArray(details) ? (details as Record<string, unknown>) : undefined;
+  const toolName = typeof record?.toolName === "string" ? record.toolName.toLowerCase() : "";
+  return (
+    toolName === "ambient_cli_package_install" ||
+    toolName === "ambient_cli_package_install_pi_catalog" ||
+    toolName === "ambient_cli_package_uninstall" ||
+    toolName === "ambient_cli_env_bind" ||
+    toolName === "ambient_cli_secret_request" ||
+    toolName === "ambient_capability_builder_register" ||
+    toolName === "ambient_capability_builder_unregister" ||
+    toolName === "ambient_capability_builder_repair_registration_metadata"
+  );
+}
+
 export function handleAppDesktopEvent(event: DesktopEvent, deps: AppDesktopEventHandlerDependencies): void {
   if (event.type === "state") {
     const nextState = desktopStateWithoutClearedGoal(event.state, deps.clearedGoalKeysRef.current);
@@ -407,8 +422,10 @@ export function handleAppDesktopEvent(event: DesktopEvent, deps: AppDesktopEvent
     if (event.status === "error") deps.appendRunActivityLine(`${label} failed.`, "error", {}, event.threadId);
     if (event.status === "done" || event.status === "error") {
       deps.setWorkspaceRevision((revision) => revision + 1);
-      deps.scheduleVoiceProviderRefresh(500, `tool ${event.status}`);
-      deps.scheduleSttProviderRefresh(500, `tool ${event.status}`);
+      if (toolEventCouldAffectSpeechProviderState(event.details)) {
+        deps.scheduleVoiceProviderRefresh(500, `provider state tool ${event.status}`);
+        deps.scheduleSttProviderRefresh(500, `provider state tool ${event.status}`);
+      }
     }
     return;
   }

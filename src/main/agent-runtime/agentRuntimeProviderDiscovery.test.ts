@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type {
   EmbeddingProviderCandidate,
@@ -5,6 +8,8 @@ import type {
   SttProviderValidationMetadata,
   VoiceProviderCandidate,
 } from "../../shared/localRuntimeTypes";
+import { ambientCliWorkspaceProviderMarkerPath } from "../ambient-cli/ambientCliPackages";
+import { secretReferenceFor } from "../security/securityAmbientCliContract";
 import {
   agentRuntimeProviderDiscoveryOptions,
   agentRuntimeProviderDiscoveryWorkspacePaths,
@@ -19,12 +24,14 @@ import type { VoiceDiscoveryCache } from "./agentRuntimeVoiceFacade";
 
 describe("agent runtime provider discovery", () => {
   it("builds runtime discovery options from store workspace paths and feature listers", async () => {
+    const root = await tempWorkspace("root");
+    const child = await tempWorkspace("child", true);
     const options = agentRuntimeProviderDiscoveryOptions({
       store: {
-        getWorkspace: () => ({ path: "/workspace/root" }),
+        getWorkspace: () => ({ path: root }),
         listThreads: () => [
-          { workspacePath: "/workspace/a" },
-          { workspacePath: "/workspace/root" },
+          { workspacePath: child },
+          { workspacePath: root },
         ],
       },
       features: {
@@ -40,41 +47,119 @@ describe("agent runtime provider discovery", () => {
       },
     });
 
-    expect(agentRuntimeProviderDiscoveryWorkspacePaths(options)).toEqual(["/workspace/root", "/workspace/a"]);
-    await expect(options.listVoiceProviders?.("/workspace/a")).resolves.toEqual([expect.objectContaining({ capabilityId: "voice:/workspace/a" })]);
-    await expect(options.listEmbeddingProviders?.("/workspace/a")).resolves.toEqual([expect.objectContaining({ capabilityId: "embedding:/workspace/a" })]);
-    await expect(options.listSttProviders?.("/workspace/a")).resolves.toEqual([expect.objectContaining({ capabilityId: "stt:/workspace/a" })]);
+    expect(agentRuntimeProviderDiscoveryWorkspacePaths(options)).toEqual([root, child]);
+    await expect(options.listVoiceProviders?.(child)).resolves.toEqual([expect.objectContaining({ capabilityId: `voice:${child}` })]);
+    await expect(options.listEmbeddingProviders?.(child)).resolves.toEqual([expect.objectContaining({ capabilityId: `embedding:${child}` })]);
+    await expect(options.listSttProviders?.(child)).resolves.toEqual([expect.objectContaining({ capabilityId: `stt:${child}` })]);
   });
 
-  it("dedupes provider workspaces while preserving root-first order", () => {
+  it("dedupes configured provider workspaces while preserving root-first order", async () => {
+    const root = await tempWorkspace("root");
+    const a = await tempWorkspace("a", true);
+    const b = await tempWorkspace("b", true);
     expect(agentRuntimeProviderDiscoveryWorkspacePaths(options({
-      rootWorkspacePath: "/workspace/root",
-      threadWorkspacePaths: ["/workspace/a", "/workspace/root", "/workspace/b", "/workspace/a"],
-    }))).toEqual(["/workspace/root", "/workspace/a", "/workspace/b"]);
+      rootWorkspacePath: root,
+      threadWorkspacePaths: [a, root, b, a],
+    }))).toEqual([root, a, b]);
+  });
+
+  it("does not scan every historical workspace just because the app managed install root has packages", async () => {
+    const root = await tempWorkspace("managed-root");
+    const child = await tempWorkspace("managed-child");
+    const managedRoot = await tempWorkspace("managed-install-root", true);
+    const previousRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      expect(agentRuntimeProviderDiscoveryWorkspacePaths(options({
+        rootWorkspacePath: root,
+        threadWorkspacePaths: [child],
+      }))).toEqual([root]);
+
+      await writeWorkspaceProviderMarker(child);
+      expect(agentRuntimeProviderDiscoveryWorkspacePaths(options({
+        rootWorkspacePath: root,
+        threadWorkspacePaths: [child],
+      }))).toEqual([root, child]);
+    } finally {
+      if (previousRoot === undefined) delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      else process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousRoot;
+    }
+  });
+
+  it("includes pre-marker managed workspaces that have local provider state", async () => {
+    const root = await tempWorkspace("legacy-managed-root");
+    const child = await tempWorkspace("legacy-managed-child");
+    const managedRoot = await tempWorkspace("legacy-managed-install-root", true);
+    const previousRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      expect(agentRuntimeProviderDiscoveryWorkspacePaths(options({
+        rootWorkspacePath: root,
+        threadWorkspacePaths: [child],
+      }))).toEqual([root]);
+
+      await writeLegacyVoiceDiscoveryCache(child);
+      expect(agentRuntimeProviderDiscoveryWorkspacePaths(options({
+        rootWorkspacePath: root,
+        threadWorkspacePaths: [child],
+      }))).toEqual([root, child]);
+    } finally {
+      if (previousRoot === undefined) delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      else process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousRoot;
+    }
+  });
+
+  it("includes only the pre-marker managed workspace that owns a scoped secret binding", async () => {
+    const root = await tempWorkspace("legacy-secret-managed-root");
+    const child = await tempWorkspace("legacy-secret-managed-child");
+    const other = await tempWorkspace("legacy-secret-managed-other");
+    const managedRoot = await tempWorkspace("legacy-secret-managed-install-root", true);
+    const previousRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      expect(agentRuntimeProviderDiscoveryWorkspacePaths(options({
+        rootWorkspacePath: root,
+        threadWorkspacePaths: [child, other],
+      }))).toEqual([root]);
+
+      await writeManagedSecretEnvBinding(managedRoot, child);
+      expect(agentRuntimeProviderDiscoveryWorkspacePaths(options({
+        rootWorkspacePath: root,
+        threadWorkspacePaths: [child, other],
+      }))).toEqual([root, child]);
+    } finally {
+      if (previousRoot === undefined) delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      else process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousRoot;
+    }
   });
 
   it("resolves voice provider workspace paths by capability id", async () => {
+    const root = await tempWorkspace("root");
+    const a = await tempWorkspace("a", true);
+    const b = await tempWorkspace("b", true);
     const calls: string[] = [];
     const result = await voiceProviderWorkspacePathForCapabilityId(options({
-      rootWorkspacePath: "/workspace/root",
-      threadWorkspacePaths: ["/workspace/a", "/workspace/b"],
+      rootWorkspacePath: root,
+      threadWorkspacePaths: [a, b],
       listVoiceProviders: async (workspacePath) => {
         calls.push(workspacePath);
-        return workspacePath === "/workspace/b" ? [voiceProvider("voice:b")] : [voiceProvider(`voice:${workspacePath}`)];
+        return workspacePath === b ? [voiceProvider("voice:b")] : [voiceProvider(`voice:${workspacePath}`)];
       },
     }), "voice:b");
 
-    expect(result).toBe("/workspace/b");
-    expect(calls).toEqual(["/workspace/root", "/workspace/a", "/workspace/b"]);
-    await expect(voiceProviderWorkspacePathForCapabilityId(options({ rootWorkspacePath: "/workspace/root" }), undefined)).resolves.toBe("/workspace/root");
+    expect(result).toBe(b);
+    expect(calls).toEqual([root, a, b]);
+    await expect(voiceProviderWorkspacePathForCapabilityId(options({ rootWorkspacePath: root }), undefined)).resolves.toBe(root);
   });
 
   it("merges cached voice providers from each workspace and keeps the first capability match", async () => {
+    const root = await tempWorkspace("root");
+    const child = await tempWorkspace("child", true);
     const cachesRead: string[] = [];
     const result = await listVoiceProvidersWithCachedVoices(options({
-      rootWorkspacePath: "/workspace/root",
-      threadWorkspacePaths: ["/workspace/a"],
-      listVoiceProviders: async (workspacePath) => workspacePath === "/workspace/root"
+      rootWorkspacePath: root,
+      threadWorkspacePaths: [child],
+      listVoiceProviders: async (workspacePath) => workspacePath === root
         ? [voiceProvider("voice:shared"), voiceProvider("voice:root")]
         : [voiceProvider("voice:shared"), voiceProvider("voice:a")],
       readVoiceDiscoveryCache: async (workspacePath) => {
@@ -87,7 +172,7 @@ describe("agent runtime provider discovery", () => {
       })),
     }), "/workspace/root");
 
-    expect(cachesRead).toEqual(["/workspace/root", "/workspace/a"]);
+    expect(cachesRead).toEqual([root, child]);
     expect(result.map((provider) => [provider.capabilityId, provider.label])).toEqual([
       ["voice:shared", "voice:shared cached"],
       ["voice:root", "voice:root cached"],
@@ -96,13 +181,15 @@ describe("agent runtime provider discovery", () => {
   });
 
   it("dedupes embedding providers across runtime workspaces while preserving the managed memory provider", async () => {
+    const root = await tempWorkspace("root");
+    const child = await tempWorkspace("child", true);
     const result = await listEmbeddingProvidersForTools(options({
-      rootWorkspacePath: "/workspace/root",
-      threadWorkspacePaths: ["/workspace/a"],
-      listEmbeddingProviders: async (workspacePath) => workspacePath === "/workspace/root"
+      rootWorkspacePath: root,
+      threadWorkspacePaths: [child],
+      listEmbeddingProviders: async (workspacePath) => workspacePath === root
         ? [embeddingProvider("embedding:shared"), embeddingProvider("embedding:root")]
         : [embeddingProvider("embedding:shared"), embeddingProvider("embedding:a")],
-    }), "/workspace/root");
+    }), root);
 
     expect(result.map((provider) => provider.capabilityId)).toEqual([
       AMBIENT_MEMORY_EMBEDDING_PROVIDER_ID,
@@ -241,4 +328,48 @@ function emptyVoiceCache(): VoiceDiscoveryCache {
     schemaVersion: "ambient-voice-discovery-cache-v1",
     providers: {},
   };
+}
+
+async function tempWorkspace(label: string, withCliConfig = false): Promise<string> {
+  const workspace = await mkdtemp(join(tmpdir(), `ambient-provider-discovery-${label}-`));
+  if (withCliConfig) await writeCliPackageConfig(workspace);
+  return workspace;
+}
+
+async function writeCliPackageConfig(workspace: string): Promise<void> {
+  const configPath = join(workspace, ".ambient", "cli-packages", "packages.json");
+  await mkdir(join(workspace, ".ambient", "cli-packages"), { recursive: true });
+  await writeFile(configPath, `${JSON.stringify({ packages: [] })}\n`, "utf8");
+}
+
+async function writeWorkspaceProviderMarker(workspace: string): Promise<void> {
+  const markerPath = join(workspace, ambientCliWorkspaceProviderMarkerPath);
+  await mkdir(join(workspace, ".ambient", "cli-packages"), { recursive: true });
+  await writeFile(markerPath, `${JSON.stringify({ schemaVersion: "ambient-cli-workspace-provider-state-v1" })}\n`, "utf8");
+}
+
+async function writeLegacyVoiceDiscoveryCache(workspace: string): Promise<void> {
+  await mkdir(join(workspace, ".ambient", "voice"), { recursive: true });
+  await writeFile(
+    join(workspace, ".ambient", "voice", "voice-discovery-cache.json"),
+    `${JSON.stringify({ schemaVersion: "ambient-voice-discovery-cache-v1", providers: {} })}\n`,
+    "utf8",
+  );
+}
+
+async function writeManagedSecretEnvBinding(managedRoot: string, workspace: string): Promise<void> {
+  const packageName = "secret-provider";
+  const envName = "SECRET_API_KEY";
+  await mkdir(join(managedRoot, ".ambient", "cli-packages"), { recursive: true });
+  await writeFile(
+    join(managedRoot, ".ambient", "cli-packages", "env-bindings.json"),
+    `${JSON.stringify({
+      bindings: [{
+        packageName,
+        envName,
+        secretRef: secretReferenceFor({ scope: "ambient-cli", workspacePath: workspace, ownerId: packageName, envName }),
+      }],
+    }, null, 2)}\n`,
+    "utf8",
+  );
 }

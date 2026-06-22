@@ -54,7 +54,6 @@ export interface AppCoreLifecycleControlsOptions {
   loadVoiceProviders: SpeechProviderOptions["loadVoiceProviders"];
   pluginCatalogRevision: SpeechProviderOptions["pluginCatalogRevision"];
   previousRunningRef: SpeechProviderOptions["previousRunningRef"];
-  scheduleVoiceProviderRefresh: SpeechProviderOptions["scheduleVoiceProviderRefresh"];
   cancelSttComposerRecording: SttLifecycleOptions["cancelSttComposerRecording"];
   startSttComposerRecording: SttLifecycleOptions["startSttComposerRecording"];
   stopSttComposerRecording: SttLifecycleOptions["stopSttComposerRecording"];
@@ -152,7 +151,6 @@ export function useAppCoreLifecycleControls({
   runActivityLastEventAtRef,
   runActivityLinesByThreadRef,
   running,
-  scheduleVoiceProviderRefresh,
   setAbortArmed,
   setActiveGitReview,
   setActiveGitReviewError,
@@ -224,7 +222,6 @@ export function useAppCoreLifecycleControls({
     pluginCatalogRevision,
     previousRunningRef,
     running,
-    scheduleVoiceProviderRefresh,
     stateAvailable: Boolean(state),
   });
 

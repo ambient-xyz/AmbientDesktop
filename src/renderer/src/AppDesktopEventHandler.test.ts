@@ -6,6 +6,7 @@ import type { PermissionRequest } from "../../shared/permissionTypes";
 import {
   createAppDesktopEventHandlerDependencies,
   handleAppDesktopEvent,
+  toolEventCouldAffectSpeechProviderState,
   toolEventActivityMessage,
   type AppDesktopEventHandlerDependencies,
 } from "./AppDesktopEventHandler";
@@ -20,6 +21,15 @@ describe("App desktop event handler", () => {
       }),
     ).toBe("Indexing corpus");
     expect(toolEventActivityMessage({ localDeepResearchStatus: { message: " " } })).toBeUndefined();
+  });
+
+  it("identifies only provider-state tools as speech-provider refresh triggers", () => {
+    expect(toolEventCouldAffectSpeechProviderState({ toolName: "ambient_capability_builder_register" })).toBe(true);
+    expect(toolEventCouldAffectSpeechProviderState({ toolName: "ambient_cli_package_install" })).toBe(true);
+    expect(toolEventCouldAffectSpeechProviderState({ toolName: "ambient_cli_env_bind" })).toBe(true);
+    expect(toolEventCouldAffectSpeechProviderState({ toolName: "ambient_cli_secret_request" })).toBe(true);
+    expect(toolEventCouldAffectSpeechProviderState({ toolName: "read" })).toBe(false);
+    expect(toolEventCouldAffectSpeechProviderState(undefined)).toBe(false);
   });
 
   it("deduplicates permission prompts and fills the event workspace path", () => {
@@ -72,7 +82,7 @@ describe("App desktop event handler", () => {
     expect(packed.setState).toBe(deps.setState);
   });
 
-  it("routes tool activity lines and refreshes workspace/provider state after completion", () => {
+  it("routes ordinary tool activity lines without refreshing speech providers after completion", () => {
     const workspaceRevision = stateCell(0);
     const lines: Array<{ text: string; kind: RunActivityLine["kind"] | undefined; threadId: string | undefined }> = [];
     const refreshes: Array<{ kind: "voice" | "stt"; delayMs: number; reason: string }> = [];
@@ -118,9 +128,35 @@ describe("App desktop event handler", () => {
       { text: "Files: read for /repo/output.txt completed.", kind: "tool", threadId: "thread-1" },
     ]);
     expect(workspaceRevision.current).toBe(1);
+    expect(refreshes).toEqual([]);
+  });
+
+  it("refreshes speech providers after provider-state tools complete", () => {
+    const refreshes: Array<{ kind: "voice" | "stt"; delayMs: number; reason: string }> = [];
+    const deps = appDesktopEventHandlerDependencies({
+      scheduleSttProviderRefresh: (delayMs, reason) => {
+        refreshes.push({ kind: "stt", delayMs, reason });
+      },
+      scheduleVoiceProviderRefresh: (delayMs, reason) => {
+        refreshes.push({ kind: "voice", delayMs, reason });
+      },
+    });
+
+    handleAppDesktopEvent(
+      {
+        type: "tool-event",
+        threadId: "thread-1",
+        label: "register",
+        status: "done",
+        details: { toolName: "ambient_capability_builder_register" },
+        workspacePath: "/repo",
+      },
+      deps,
+    );
+
     expect(refreshes).toEqual([
-      { kind: "voice", delayMs: 500, reason: "tool done" },
-      { kind: "stt", delayMs: 500, reason: "tool done" },
+      { kind: "voice", delayMs: 500, reason: "provider state tool done" },
+      { kind: "stt", delayMs: 500, reason: "provider state tool done" },
     ]);
   });
 });
