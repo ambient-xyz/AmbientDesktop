@@ -16,6 +16,13 @@ export type {
   ContainerRuntimeProbeResult,
   ContainerRuntimeProbeStatus,
 } from "./containerRuntimeProbeService";
+export {
+  previewContainerRuntimeLifecycleAction,
+  runContainerRuntimeLifecycleAction,
+} from "./containerRuntimeLifecycleService";
+export {
+  writeContainerRuntimeLifecycleRedactedLog,
+} from "./containerRuntimeLifecycleLogs";
 
 export {
   ociImageResolutionSummary,

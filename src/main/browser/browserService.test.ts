@@ -535,10 +535,12 @@ describe("BrowserService about:blank cleanup", () => {
     Object.assign(service as any, {
       activeTargetId: "target-blank",
       lastActiveTab: { id: "target-blank", title: "", url: "about:blank" },
-      targets: vi.fn(async () => [{ id: "target-blank", type: "page", url: "about:blank" }]),
-      connectBrowser: vi.fn(async () => ({ request, close })),
       writeChromeSessionManifest: vi.fn(async () => undefined),
     });
+    vi.spyOn((service as any).chromeTargets, "targets").mockResolvedValue([
+      { id: "target-blank", type: "page", url: "about:blank" },
+    ]);
+    vi.spyOn((service as any).chromeTargets, "connectBrowser").mockResolvedValue({ request, close });
 
     await expect((service as any).closeActiveAboutBlankTarget()).resolves.toBe(true);
 
@@ -784,19 +786,47 @@ describe("BrowserService feature state", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const previewUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/calculator.html`;
-    const service = new BrowserService(() => ({
-      path: join(root, "workspace"),
-      name: "workspace",
-      statePath: join(root, "state"),
-      sessionPath: join(root, "sessions"),
-    }));
-    Object.assign(service as any, { lastInternalPreviewUrl: previewUrl });
+    let activeTab = { id: "internal", title: "Calculator", url: previewUrl };
+    const backend = {
+      isAvailable: () => true,
+      isRunning: () => true,
+      getState: async () => ({
+        running: true,
+        viewVisible: true,
+        activeTab,
+      }),
+      start: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      shutdown: vi.fn(async () => undefined),
+      setViewBounds: vi.fn(),
+      navigate: vi.fn(async (input: any) => {
+        activeTab = { id: "internal", title: "Calculator", url: input.url };
+        return { title: "Calculator", url: input.url, text: "5", links: [] };
+      }),
+      content: vi.fn(),
+      search: vi.fn(),
+      evaluate: vi.fn(async () => undefined),
+      login: vi.fn(),
+      screenshot: vi.fn(),
+      pick: vi.fn(),
+      cancelPick: vi.fn(),
+    };
+    const service = new BrowserService(
+      () => ({
+        path: join(root, "workspace"),
+        name: "workspace",
+        statePath: join(root, "state"),
+        sessionPath: join(root, "sessions"),
+      }),
+      backend as any,
+    );
+    await service.navigate({ url: previewUrl, runtime: "internal" });
     vi.spyOn(service as any, "ensureChromeStarted").mockResolvedValue(undefined);
-    const getActiveTabSnapshot = vi.spyOn(service as any, "getActiveTabSnapshot")
+    const getActiveTabSnapshot = vi.spyOn((service as any).chromeTargets, "getActiveTabSnapshot")
       .mockResolvedValue({ id: "chrome", title: "", url: "about:blank" });
-    const navigateActiveTarget = vi.spyOn(service as any, "navigateActiveTarget").mockResolvedValue(undefined);
-    vi.spyOn(service as any, "waitForPageReady").mockResolvedValue(undefined);
-    vi.spyOn(service as any, "captureChromeScreenshotData").mockResolvedValue(tinyPngBase64());
+    const navigateActiveTarget = vi.spyOn((service as any).chromeTargets, "navigateActiveTarget").mockResolvedValue(undefined);
+    vi.spyOn((service as any).chromeTargets, "waitForPageReady").mockResolvedValue(undefined);
+    vi.spyOn((service as any).chromeScreenshots, "captureChromeScreenshotData").mockResolvedValue(tinyPngBase64());
 
     try {
       await expect(service.screenshot({})).rejects.toThrow(/fresh page load and lose prior click\/assert state/);
@@ -820,12 +850,12 @@ describe("BrowserService feature state", () => {
       lastChromeBrowserActionTarget: { id: "target-1", title: "Calculator", url: "http://127.0.0.1:4100/calculator.html" },
     });
     vi.spyOn(service as any, "ensureChromeStarted").mockResolvedValue(undefined);
-    vi.spyOn(service as any, "getActiveTabSnapshot").mockResolvedValue({
+    vi.spyOn((service as any).chromeTargets, "getActiveTabSnapshot").mockResolvedValue({
       id: "target-1",
       title: "Calculator",
       url: "http://127.0.0.1:4100/calculator.html",
     });
-    vi.spyOn(service as any, "captureChromeScreenshotData").mockResolvedValue(tinyPngBase64());
+    vi.spyOn((service as any).chromeScreenshots, "captureChromeScreenshotData").mockResolvedValue(tinyPngBase64());
 
     const result = await service.screenshot({});
 

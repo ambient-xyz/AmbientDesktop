@@ -25,9 +25,11 @@ import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
 import type { createAppWorkspaceNavigationControls } from "./AppWorkspaceNavigationControls";
 import type { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
 import type { UtilityPanel } from "./RightPanel";
+import { visibleRuntimeStatusIndicatorsForThread } from "./runtimeStatusIndicatorUiModel";
 
 type AdaptedConversationPropKey =
   | "activeThreadId"
+  | "activeThreadGoal"
   | "workflowRecording"
   | "provider"
   | "providerCatalog"
@@ -182,7 +184,7 @@ export interface AppConversationMessagesPropsForAppInput {
   >;
   coreLifecycleControls: Pick<
     AppCoreLifecycleControls,
-    "handleMessagesScroll" | "jumpToLatestMessage" | "scrollRef" | "showScrollToBottom"
+    "handleMessagesScroll" | "jumpToLatestMessage" | "messageTailVisible" | "scrollRef" | "showScrollToBottom"
   >;
   credentialDialogActions: Pick<AppCredentialDialogActions, "openAmbientKeys" | "openApiKeyDialog">;
   messageVoiceActions: Pick<AppMessageVoiceActions, "clearMessageVoiceArtifact" | "regenerateMessageVoice" | "revealMessageVoiceArtifact">;
@@ -198,7 +200,7 @@ export interface AppConversationMessagesPropsForAppInput {
   rightPanelState: Pick<AppRightPanelState, "openPanel">;
   runActivityState: Pick<
     AppRunActivityState,
-    "abortArmed" | "retryStatsByThread" | "runActivityLinesByThread" | "runStatus" | "threadRunStatuses"
+    "abortArmed" | "retryStatsByThread" | "runActivityLinesByThread" | "runStatus" | "runtimeStatusIndicatorsByThread" | "threadRunStatuses"
   >;
   runDerivedState: AppConversationMessagesRunDerivedState;
   shellUiState: Pick<AppShellUiState, "clearError" | "error">;
@@ -354,6 +356,11 @@ export function createAppConversationMessagesPropsForApp({
     threadRunStatuses: runActivityState.threadRunStatuses,
     thinkingDisplayMode: runDerivedState.thinkingDisplayMode,
     runActivityLinesByThread: runActivityState.runActivityLinesByThread,
+    runtimeStatusIndicators: visibleRuntimeStatusIndicatorsForThread(
+      runActivityState.runtimeStatusIndicatorsByThread,
+      state.activeThreadId,
+      state.activeThreadGoal,
+    ),
     subagentParentClustersByMessageId: subagentShellControls.subagentParentClustersByMessageId,
     onSelectThread: workspaceNavigationControls.selectThread,
     onCancelSubagentChild: subagentParentClusterActions.cancelSubagentChild,
@@ -378,6 +385,7 @@ export function createAppConversationMessagesPropsForApp({
     transientThinkingActivityLines: conversationDisplayModel.transientThinkingActivityLines,
     visibleRunActivityLines: conversationDisplayModel.visibleRunActivityLines,
     runStatusCardVisible: workflowRecordingReviewControls.runStatusCardVisible,
+    messageTailVisible: coreLifecycleControls.messageTailVisible,
     showScrollToBottom: coreLifecycleControls.showScrollToBottom,
     onJumpToLatestMessage: coreLifecycleControls.jumpToLatestMessage,
     errorNeedsSessionRecovery: projectBoardControls.errorNeedsSessionRecovery,
@@ -422,6 +430,8 @@ export function createAppConversationMessagesProps({
   return {
     ...props,
     activeThreadId: state.activeThreadId,
+    activeThreadGoal: state.activeThreadGoal,
+    showPromptCacheStatus: state.settings.modelRuntime.showPromptCacheStatus,
     workflowRecording: activeThread.workflowRecording,
     provider: state.provider,
     providerCatalog: state.providerCatalog,

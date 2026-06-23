@@ -9,6 +9,7 @@ export {
   browserToolDescriptor,
   firstPartyDesktopToolDescriptors,
   gitToolDescriptor,
+  longContextToolDescriptor,
   managedDownloadToolDescriptor,
   mediaToolDescriptor,
   messagingGatewayToolDescriptor,

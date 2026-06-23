@@ -190,6 +190,7 @@ function ambientMcpContainerRuntimeStatus(
     checkedAt: result.checkedAt,
     durationMs: result.durationMs,
     message: result.message,
+    ...(result.reason ? { reason: result.reason } : {}),
     nextAction: result.nextAction,
     toolHive: {
       status: result.toolHive.status,
@@ -204,6 +205,7 @@ function ambientMcpContainerRuntimeStatus(
     hosts: result.hosts.map((host) => ({
       kind: host.kind,
       status: host.status,
+      ...(host.reason ? { reason: host.reason } : {}),
       ...(host.version ? { version: host.version } : {}),
       message: host.message,
     })),

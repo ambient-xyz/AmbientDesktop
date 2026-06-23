@@ -7,6 +7,7 @@ import { AgentRuntimeSettingsSessionController } from "./agentRuntimeSettingsSes
 
 const modelRuntimeSettings: ModelRuntimeSettings = {
   aggressiveRetries: true,
+  showPromptCacheStatus: false,
   providerPreStreamTimeoutMs: 45_000,
   providerStreamIdleTimeoutMs: 30_000,
   installedProviders: [],

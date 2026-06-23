@@ -7,9 +7,7 @@ import type {
   ProjectBoardSynthesisRunEvent,
   ProjectBoardSynthesisRunProgressiveRecord,
   ProjectBoardSynthesisRunStage,
-  ProjectBoardSynthesisRunStatus,
 } from "../../shared/projectBoardTypes";
-import { projectBoardSynthesisPartialStatus } from "../../shared/projectBoardSynthesisRecovery";
 import { parseJsonArray } from "./projectStoreJson";
 import {
   dedupeProjectBoardSynthesisRunProgressiveRecords,
@@ -19,16 +17,26 @@ import {
   type ProjectBoardStoreRow,
   type ProjectBoardSynthesisRunStoreRow,
 } from "./projectBoardMappers";
+import {
+  ProjectStoreProjectBoardSynthesisRunLifecycleRepository,
+  type ProjectBoardSynthesisRunEventRecordInput,
+} from "./projectBoardSynthesisRunLifecycleRepository";
 
 export interface ProjectStoreProjectBoardSynthesisRunRepositoryDeps {
   appendProjectBoardPlanningSnapshotForRun(runId: string, kind: ProjectBoardPlanningSnapshotKind): ProjectBoardPlanningSnapshot | undefined;
 }
 
 export class ProjectStoreProjectBoardSynthesisRunRepository {
+  private readonly lifecycleRepository: ProjectStoreProjectBoardSynthesisRunLifecycleRepository;
+
   constructor(
     private readonly db: Database.Database,
     private readonly deps: ProjectStoreProjectBoardSynthesisRunRepositoryDeps,
-  ) {}
+  ) {
+    this.lifecycleRepository = new ProjectStoreProjectBoardSynthesisRunLifecycleRepository(db, {
+      recordProjectBoardSynthesisRunEvent: (runId, input) => this.recordProjectBoardSynthesisRunEvent(runId, input),
+    });
+  }
 
   createProjectBoardSynthesisRun(input: {
     boardId: string;
@@ -73,8 +81,12 @@ export class ProjectStoreProjectBoardSynthesisRunRepository {
         initialStage,
         input.model?.trim() || null,
         typeof input.sourceCount === "number" && Number.isFinite(input.sourceCount) ? Math.max(0, Math.round(input.sourceCount)) : 0,
-        typeof input.includedSourceCount === "number" && Number.isFinite(input.includedSourceCount) ? Math.max(0, Math.round(input.includedSourceCount)) : 0,
-        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount) ? Math.max(0, Math.round(input.sourceCharCount)) : 0,
+        typeof input.includedSourceCount === "number" && Number.isFinite(input.includedSourceCount)
+          ? Math.max(0, Math.round(input.includedSourceCount))
+          : 0,
+        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount)
+          ? Math.max(0, Math.round(input.sourceCharCount))
+          : 0,
         null,
         null,
         null,
@@ -124,85 +136,15 @@ export class ProjectStoreProjectBoardSynthesisRunRepository {
   }
 
   failStaleProjectBoardSynthesisRuns(input: { boardId: string; staleBefore: string; reason: string }): ProjectBoardSynthesisRun[] {
-    const board = this.db.prepare("SELECT id FROM project_boards WHERE id = ?").get(input.boardId) as { id: string } | undefined;
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    if (!Number.isFinite(Date.parse(input.staleBefore))) throw new Error(`Invalid project board synthesis stale cutoff: ${input.staleBefore}`);
-    const rows = this.db
-      .prepare(
-        `SELECT * FROM project_board_synthesis_runs
-         WHERE board_id = ? AND status IN ('running', 'pause_requested') AND updated_at < ?
-         ORDER BY updated_at ASC, started_at ASC, rowid ASC`,
-      )
-      .all(input.boardId, input.staleBefore) as ProjectBoardSynthesisRunStoreRow[];
-    return rows.map((row) =>
-      this.recordProjectBoardSynthesisRunEvent(row.id, {
-        stage: "failed",
-        title: "Synthesis run marked stale",
-        summary: input.reason,
-        metadata: { staleBefore: input.staleBefore, previousStage: row.stage, previousUpdatedAt: row.updated_at },
-        status: "failed",
-        error: input.reason,
-        completedAt: new Date().toISOString(),
-      }),
-    );
+    return this.lifecycleRepository.failStaleProjectBoardSynthesisRuns(input);
   }
 
   markProjectBoardSynthesisRunStalled(input: { boardId: string; runId: string; reason?: string }): ProjectBoardSynthesisRun {
-    const row = this.db.prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(input.runId) as
-      | ProjectBoardSynthesisRunStoreRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${input.runId}`);
-    if (row.board_id !== input.boardId) throw new Error(`Project board synthesis run ${input.runId} does not belong to board ${input.boardId}`);
-    const run = mapProjectBoardSynthesisRunRow(row);
-    if (run.status !== "running") throw new Error(`Only a running project-board synthesis run can be marked stalled: ${input.runId}`);
-    const partial = projectBoardSynthesisPartialStatus(run);
-    const reason = input.reason?.trim() || "No visible project-board synthesis progress is being received.";
-    const reusableCount = partial.completedCount;
-    return this.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: "failed",
-      title: "Synthesis run marked stalled",
-      summary: `${reason} Retry will reuse ${reusableCount} completed or reused section record${reusableCount === 1 ? "" : "s"} where possible and resume uncovered work.`,
-      metadata: {
-        decision: "retry_stalled_run",
-        retryable: true,
-        previousStage: row.stage,
-        previousUpdatedAt: row.updated_at,
-        completedSectionCount: partial.completedCount,
-        reusedSectionCount: partial.reusedCount,
-        failedSectionCount: partial.failedCount,
-        sectionCount: partial.sectionCount,
-      },
-      status: "failed",
-      error: reason,
-      completedAt: new Date().toISOString(),
-    });
+    return this.lifecycleRepository.markProjectBoardSynthesisRunStalled(input);
   }
 
   requestProjectBoardSynthesisRunPause(input: { boardId: string; runId: string; reason?: string }): ProjectBoardSynthesisRun {
-    const row = this.db.prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(input.runId) as
-      | ProjectBoardSynthesisRunStoreRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${input.runId}`);
-    if (row.board_id !== input.boardId) throw new Error(`Project board synthesis run ${input.runId} does not belong to board ${input.boardId}`);
-    const run = mapProjectBoardSynthesisRunRow(row);
-    if (run.status === "paused") return run;
-    if (run.status === "pause_requested") return run;
-    if (run.status !== "running") throw new Error(`Only a running project-board synthesis run can be paused: ${input.runId}`);
-    const reason = input.reason?.trim() || "Pause requested from the project-board progress panel.";
-    return this.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: run.stage,
-      title: "Pause requested",
-      summary: "Ambient will stop at the next safe planner checkpoint, flush validated records, and leave the run resumable.",
-      metadata: {
-        decision: "pause_planning",
-        reason,
-        previousStatus: run.status,
-        previousStage: run.stage,
-        previousUpdatedAt: run.updatedAt,
-        checkpointPolicy: "safe_planner_boundary",
-      },
-      status: "pause_requested",
-    });
+    return this.lifecycleRepository.requestProjectBoardSynthesisRunPause(input);
   }
 
   markProjectBoardSynthesisRunPaused(input: {
@@ -211,85 +153,14 @@ export class ProjectStoreProjectBoardSynthesisRunRepository {
     reason?: string;
     metadata?: Record<string, unknown>;
   }): ProjectBoardSynthesisRun {
-    const row = this.db.prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(input.runId) as
-      | ProjectBoardSynthesisRunStoreRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${input.runId}`);
-    if (row.board_id !== input.boardId) throw new Error(`Project board synthesis run ${input.runId} does not belong to board ${input.boardId}`);
-    const run = mapProjectBoardSynthesisRunRow(row);
-    if (run.status === "paused") return run;
-    if (run.status !== "running" && run.status !== "pause_requested") {
-      throw new Error(`Only an active project-board synthesis run can be marked paused: ${input.runId}`);
-    }
-    const reason = input.reason?.trim() || "Planning paused at a safe checkpoint.";
-    return this.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: "paused",
-      title: "Planning paused",
-      summary: `${reason} Resume will reuse validated planner records and ask Ambient/Pi only for remaining cards.`,
-      metadata: {
-        decision: "planning_paused",
-        previousStatus: run.status,
-        previousStage: run.stage,
-        previousUpdatedAt: run.updatedAt,
-        retryable: true,
-        checkpointPolicy: "validated_progressive_records",
-        ...(input.metadata ?? {}),
-      },
-      status: "paused",
-      completedAt: new Date().toISOString(),
-    });
+    return this.lifecycleRepository.markProjectBoardSynthesisRunPaused(input);
   }
 
   abandonProjectBoardSynthesisRunPause(input: { boardId: string; runId: string; reason?: string }): ProjectBoardSynthesisRun {
-    const row = this.db.prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(input.runId) as
-      | ProjectBoardSynthesisRunStoreRow
-      | undefined;
-    if (!row) throw new Error(`Project board synthesis run not found: ${input.runId}`);
-    if (row.board_id !== input.boardId) throw new Error(`Project board synthesis run ${input.runId} does not belong to board ${input.boardId}`);
-    const run = mapProjectBoardSynthesisRunRow(row);
-    if (run.status === "abandoned") return run;
-    if (run.status !== "paused") throw new Error(`Only a paused project-board synthesis run can be abandoned: ${input.runId}`);
-    const reason = input.reason?.trim() || "Start Fresh requested from the paused project-board synthesis run.";
-    return this.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: "paused",
-      title: "Paused planning abandoned",
-      summary: `${reason} A fresh synthesis run will start from the current board and source context without reusing this paused checkpoint.`,
-      metadata: {
-        decision: "abandon_paused_planning",
-        previousStatus: run.status,
-        previousStage: run.stage,
-        previousUpdatedAt: run.updatedAt,
-        retryable: false,
-        checkpointPolicy: "start_fresh",
-      },
-      status: "abandoned",
-      completedAt: new Date().toISOString(),
-    });
+    return this.lifecycleRepository.abandonProjectBoardSynthesisRunPause(input);
   }
 
-  recordProjectBoardSynthesisRunEvent(
-    runId: string,
-    input: {
-      stage: ProjectBoardSynthesisRunStage;
-      title: string;
-      summary: string;
-      metadata?: Record<string, unknown>;
-      status?: ProjectBoardSynthesisRunStatus;
-      proposalId?: string;
-      model?: string;
-      sourceCount?: number;
-      includedSourceCount?: number;
-      sourceCharCount?: number;
-      promptCharCount?: number;
-      responseCharCount?: number;
-      cardCount?: number;
-      questionCount?: number;
-      warningCount?: number;
-      error?: string;
-      completedAt?: string;
-      skipPlanningSnapshot?: boolean;
-    },
-  ): ProjectBoardSynthesisRun {
+  recordProjectBoardSynthesisRunEvent(runId: string, input: ProjectBoardSynthesisRunEventRecordInput): ProjectBoardSynthesisRun {
     const row = this.db.prepare("SELECT * FROM project_board_synthesis_runs WHERE id = ?").get(runId) as
       | ProjectBoardSynthesisRunStoreRow
       | undefined;
@@ -335,11 +206,19 @@ export class ProjectStoreProjectBoardSynthesisRunRepository {
         typeof input.includedSourceCount === "number" && Number.isFinite(input.includedSourceCount)
           ? Math.max(0, Math.round(input.includedSourceCount))
           : null,
-        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount) ? Math.max(0, Math.round(input.sourceCharCount)) : null,
-        typeof input.promptCharCount === "number" && Number.isFinite(input.promptCharCount) ? Math.max(0, Math.round(input.promptCharCount)) : null,
-        typeof input.responseCharCount === "number" && Number.isFinite(input.responseCharCount) ? Math.max(0, Math.round(input.responseCharCount)) : null,
+        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount)
+          ? Math.max(0, Math.round(input.sourceCharCount))
+          : null,
+        typeof input.promptCharCount === "number" && Number.isFinite(input.promptCharCount)
+          ? Math.max(0, Math.round(input.promptCharCount))
+          : null,
+        typeof input.responseCharCount === "number" && Number.isFinite(input.responseCharCount)
+          ? Math.max(0, Math.round(input.responseCharCount))
+          : null,
         typeof input.cardCount === "number" && Number.isFinite(input.cardCount) ? Math.max(0, Math.round(input.cardCount)) : null,
-        typeof input.questionCount === "number" && Number.isFinite(input.questionCount) ? Math.max(0, Math.round(input.questionCount)) : null,
+        typeof input.questionCount === "number" && Number.isFinite(input.questionCount)
+          ? Math.max(0, Math.round(input.questionCount))
+          : null,
         typeof input.warningCount === "number" && Number.isFinite(input.warningCount) ? Math.max(0, Math.round(input.warningCount)) : null,
         input.error?.trim().slice(0, 1000) || null,
         JSON.stringify(events),
@@ -426,11 +305,19 @@ export class ProjectStoreProjectBoardSynthesisRunRepository {
         typeof input.includedSourceCount === "number" && Number.isFinite(input.includedSourceCount)
           ? Math.max(0, Math.round(input.includedSourceCount))
           : null,
-        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount) ? Math.max(0, Math.round(input.sourceCharCount)) : null,
-        typeof input.promptCharCount === "number" && Number.isFinite(input.promptCharCount) ? Math.max(0, Math.round(input.promptCharCount)) : null,
-        typeof input.responseCharCount === "number" && Number.isFinite(input.responseCharCount) ? Math.max(0, Math.round(input.responseCharCount)) : null,
+        typeof input.sourceCharCount === "number" && Number.isFinite(input.sourceCharCount)
+          ? Math.max(0, Math.round(input.sourceCharCount))
+          : null,
+        typeof input.promptCharCount === "number" && Number.isFinite(input.promptCharCount)
+          ? Math.max(0, Math.round(input.promptCharCount))
+          : null,
+        typeof input.responseCharCount === "number" && Number.isFinite(input.responseCharCount)
+          ? Math.max(0, Math.round(input.responseCharCount))
+          : null,
         typeof input.cardCount === "number" && Number.isFinite(input.cardCount) ? Math.max(0, Math.round(input.cardCount)) : null,
-        typeof input.questionCount === "number" && Number.isFinite(input.questionCount) ? Math.max(0, Math.round(input.questionCount)) : null,
+        typeof input.questionCount === "number" && Number.isFinite(input.questionCount)
+          ? Math.max(0, Math.round(input.questionCount))
+          : null,
         typeof input.warningCount === "number" && Number.isFinite(input.warningCount) ? Math.max(0, Math.round(input.warningCount)) : null,
         now,
         runId,
@@ -462,9 +349,7 @@ export class ProjectStoreProjectBoardSynthesisRunRepository {
     const eventSummary =
       input.summary?.trim() ||
       [
-        summary.candidateCardCount
-          ? `${summary.candidateCardCount} candidate card${summary.candidateCardCount === 1 ? "" : "s"}`
-          : "",
+        summary.candidateCardCount ? `${summary.candidateCardCount} candidate card${summary.candidateCardCount === 1 ? "" : "s"}` : "",
         summary.questionCount ? `${summary.questionCount} question${summary.questionCount === 1 ? "" : "s"}` : "",
         summary.sourceCoverageCount
           ? `${summary.sourceCoverageCount} source coverage record${summary.sourceCoverageCount === 1 ? "" : "s"}`
@@ -479,10 +364,9 @@ export class ProjectStoreProjectBoardSynthesisRunRepository {
       {
         stage: "schema_validation" as const,
         title: (input.title?.trim() || "Persisted progressive planning records").slice(0, 180),
-        summary: (eventSummary || `Persisted ${summary.recordCount} progressive planning record${summary.recordCount === 1 ? "" : "s"}.`).slice(
-          0,
-          1000,
-        ),
+        summary: (
+          eventSummary || `Persisted ${summary.recordCount} progressive planning record${summary.recordCount === 1 ? "" : "s"}.`
+        ).slice(0, 1000),
         metadata: { progressiveSummary: summary },
         createdAt: now,
       },

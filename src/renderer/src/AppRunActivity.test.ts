@@ -204,5 +204,14 @@ describe("summarizeRunActivity", () => {
         message: "Network pause",
       }),
     ).toBe("Retrying attempt 2/5 in 2s: Network pause");
+
+    expect(
+      formatRuntimeActivity({
+        threadId: "thread-id",
+        kind: "compaction",
+        status: "starting",
+        reason: "overflow",
+      }),
+    ).toBe("Compacting context (provider context overflow).");
   });
 });

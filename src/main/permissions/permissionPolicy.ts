@@ -11,6 +11,25 @@ import { googleWorkspaceMethodApprovalDetail, googleWorkspaceMethodGrantIdentity
 import { isDotEnvPath, isEnvTemplatePath } from "../../shared/pathSensitivity";
 import { classifyPlannerToolPermission } from "./permissionsPlannerFacade";
 import { isPathInside } from "./permissionsSessionFacade";
+import {
+  classifyShellCommandSemanticIntent,
+  isDangerousCommand,
+  isNetworkCommand,
+  isUnmanagedToolHiveCommand,
+  shellCommandIntentLabel,
+  shellCommandIntentSubject,
+  shellCommandIntentTitleVerb,
+  splitShellWords,
+} from "./permissionPolicyShellCommands";
+import type { ShellCommandSemanticIntentKind } from "./permissionPolicyShellCommands";
+
+export {
+  classifyShellCommandSemanticIntent,
+  isDangerousCommand,
+  isNetworkCommand,
+  shellCommandAuditReason,
+} from "./permissionPolicyShellCommands";
+export type { ShellCommandSemanticIntentKind } from "./permissionPolicyShellCommands";
 
 type PermissionPrompt = Omit<PermissionRequest, "id">;
 
@@ -26,15 +45,6 @@ export type PermissionDecision =
       reason: string;
     };
 
-export type ShellCommandSemanticIntentKind =
-  | "proof-command"
-  | "scratch-output"
-  | "dependency-artifact-import"
-  | "local-server-launch"
-  | "browser-proof"
-  | "project-root-material-write"
-  | "unknown";
-
 export interface PermissionPolicyInput {
   threadId: string;
   permissionMode: PermissionMode;
@@ -46,16 +56,6 @@ export interface PermissionPolicyInput {
   toolInput: unknown;
 }
 
-const dangerousCommandPatterns = [
-  /\brm\s+(-rf?|--recursive|--force)/i,
-  /\bsudo\b/i,
-  /\bchmod\b[^\n;&|]*\b777\b/i,
-  /\bchown\b/i,
-  /\bmkfs\b/i,
-  /\bdd\b[^\n;&|]*\bof=/i,
-];
-
-const networkCommandPatterns = [/\b(curl|wget|scp|sftp|ssh|rsync|nc|netcat|nmap|rclone)\b/i];
 const managedSecretPathPatterns = [
   /(^|\/)\.ambient\/(?:[^/]+\/)*secrets?(?:\/|$)/i,
   /(^|\/)\.ambient-codex\/(?:[^/]+\/)*secrets?(?:\/|$)/i,
@@ -437,7 +437,7 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
     };
   }
 
-  if (input.toolName === "long_context_process") {
+  if (isLongContextReadToolName(input.toolName)) {
     return classifyLongContextToolPermission(input);
   }
 
@@ -798,7 +798,7 @@ async function classifyPlannerModePermission(input: PermissionPolicyInput): Prom
     }
   }
 
-  if (input.toolName === "long_context_process") {
+  if (isLongContextReadToolName(input.toolName)) {
     const paths = getStringArrayField(input.toolInput, "workspacePaths");
     for (const requestedPath of paths) {
       const pathCheck = await resolvePolicyPath(input.workspacePath, requestedPath);
@@ -1071,8 +1071,8 @@ async function classifyLongContextToolPermission(input: PermissionPolicyInput): 
           toolName: input.toolName,
           title: "Allow long-context access to this sensitive path?",
           message: envPath
-            ? "long_context_process wants to read an environment file. Pi may need this file to configure or run the project, but it can contain secrets."
-            : "long_context_process wants to read a path that looks like it may contain secrets or credentials.",
+            ? `${input.toolName} wants to read an environment file. Pi may need this file to configure or run the project, but it can contain secrets.`
+            : `${input.toolName} wants to read a path that looks like it may contain secrets or credentials.`,
           detail: pathCheck.absolutePath,
           risk: "secret-path",
           ...envPathGrantFields(input, pathCheck.absolutePath, input.toolName),
@@ -1090,7 +1090,7 @@ async function classifyLongContextToolPermission(input: PermissionPolicyInput): 
           threadId: input.threadId,
           toolName: input.toolName,
           title: "Allow outside-workspace long-context file access?",
-          message: `long_context_process wants to read a path outside ${input.workspacePath}.`,
+          message: `${input.toolName} wants to read a path outside ${input.workspacePath}.`,
           detail: pathCheck.absolutePath,
           risk: "outside-workspace",
         },
@@ -1099,6 +1099,10 @@ async function classifyLongContextToolPermission(input: PermissionPolicyInput): 
   }
 
   return { action: "allow" };
+}
+
+function isLongContextReadToolName(toolName: string): boolean {
+  return toolName === "long_context_process" || toolName === "long_context_start";
 }
 
 function classifyBrowserToolPermission(input: PermissionPolicyInput): PermissionDecision {
@@ -1177,35 +1181,6 @@ function classifyBrowserToolPermission(input: PermissionPolicyInput): Permission
   }
 
   return { action: "allow" };
-}
-
-export function isDangerousCommand(command: string): boolean {
-  return dangerousCommandPatterns.some((pattern) => pattern.test(command));
-}
-
-export function isNetworkCommand(command: string): boolean {
-  return networkCommandPatterns.some((pattern) => pattern.test(command));
-}
-
-export function classifyShellCommandSemanticIntent(command: string): ShellCommandSemanticIntentKind {
-  const normalized = command.trim();
-  if (!normalized) return "unknown";
-  const lower = normalized.toLowerCase();
-
-  if (isBrowserProofShellCommand(lower)) return "browser-proof";
-  if (isLocalServerLaunchShellCommand(lower)) return "local-server-launch";
-  if (isDependencyArtifactImportShellCommand(lower)) return "dependency-artifact-import";
-  if (isProjectRootMaterialWriteShellCommand(lower)) return "project-root-material-write";
-  if (isScratchOutputShellCommand(lower)) return "scratch-output";
-  if (isProofShellCommand(lower)) return "proof-command";
-  return "unknown";
-}
-
-export function shellCommandAuditReason(command: string | undefined): string {
-  if (!command) return "Allowed workspace-scoped shell command.";
-  const intent = classifyShellCommandSemanticIntent(command);
-  if (intent === "unknown") return "Allowed workspace-scoped shell command.";
-  return `Allowed workspace-scoped ${shellCommandIntentLabel(intent)}.`;
 }
 
 export function isManagedSecretPath(path: string): boolean {
@@ -1343,17 +1318,6 @@ function classifyUnmanagedToolHiveCommandAccess(input: PermissionPolicyInput): P
       },
     },
   };
-}
-
-function isUnmanagedToolHiveCommand(command: string): boolean {
-  const words = splitShellWords(command);
-  if (words?.some((word) => unmanagedToolHiveExecutableName(word))) return true;
-  return /(?:^|[\s;&|([{])(?:\S*\/)?(?:thv|toolhive)(?:\s|$)/i.test(command);
-}
-
-function unmanagedToolHiveExecutableName(token: string): boolean {
-  const executable = token.trim().split("/").pop()?.toLowerCase();
-  return executable === "thv" || executable === "toolhive" || executable === "thv.exe" || executable === "toolhive.exe";
 }
 
 function denyManagedSecretPath(input: PermissionPolicyInput, detail: string): PermissionDecision {
@@ -1623,66 +1587,6 @@ function standardPathReusableScopes(input: PermissionPolicyInput): PermissionGra
   return scopes;
 }
 
-function shellCommandIntentLabel(intent: ShellCommandSemanticIntentKind): string {
-  if (intent === "proof-command") return "proof command";
-  if (intent === "scratch-output") return "scratch proof output";
-  return intent.replace(/-/g, " ");
-}
-
-function shellCommandIntentTitleVerb(intent: ShellCommandSemanticIntentKind): string {
-  if (intent === "proof-command") return "Run proof command";
-  if (intent === "scratch-output") return "Write scratch proof output";
-  if (intent === "dependency-artifact-import") return "Import dependency artifacts";
-  if (intent === "browser-proof") return "Run browser proof";
-  if (intent === "local-server-launch") return "Launch local server";
-  if (intent === "project-root-material-write") return "Write project deliverable";
-  return "Run shell command";
-}
-
-function shellCommandIntentSubject(intent: ShellCommandSemanticIntentKind): string {
-  if (intent === "proof-command") return "A proof command";
-  if (intent === "scratch-output") return "A scratch proof output command";
-  return `A ${shellCommandIntentLabel(intent)}`;
-}
-
-function isProofShellCommand(lowerCommand: string): boolean {
-  return (
-    /\b(?:pnpm|npm|yarn|bun)\s+(?:run\s+)?(?:test|check|lint|typecheck|verify)\b/.test(lowerCommand) ||
-    /\b(?:vitest|jest|mocha|ava|tsx|tsc|eslint)\b/.test(lowerCommand) ||
-    /\bnode\s+(?:--check|--test)\b/.test(lowerCommand) ||
-    /\bnode\b[^\n;&|]*\b(?:tests?|spec|verify|check|proof)[\w./-]*\.(?:mjs|cjs|js|ts)\b/.test(lowerCommand) ||
-    /\bnode\s+--input-type=module\s+-e\b/.test(lowerCommand) ||
-    /\b(?:verify|check|test|proof)[\w./-]*\.(?:mjs|cjs|js|ts)\b/.test(lowerCommand)
-  );
-}
-
-function isScratchOutputShellCommand(lowerCommand: string): boolean {
-  return (
-    /(?:^|[\s])(?:>|1>|2>|&>)\s*(?:\/dev\/null|\/tmp\/|\/var\/tmp\/|\.ambient\/|\.ambient-codex\/|tmp\/|temp\/|test-results\/|reports?\/)/.test(lowerCommand) ||
-    /\b(?:tee|cp|mv)\b[^\n;&|]*(?:\/tmp\/|\/var\/tmp\/|\.ambient\/|\.ambient-codex\/|tmp\/|temp\/|test-results\/|reports?\/)/.test(lowerCommand)
-  );
-}
-
-function isDependencyArtifactImportShellCommand(lowerCommand: string): boolean {
-  return lowerCommand.includes(".ambient/dependency-artifacts") || lowerCommand.includes("dependency-artifacts/manifest.json");
-}
-
-function isLocalServerLaunchShellCommand(lowerCommand: string): boolean {
-  return (
-    /\b(?:pnpm|npm|yarn|bun)\s+(?:run\s+)?(?:dev|start|preview|serve)\b/.test(lowerCommand) ||
-    /\b(?:vite|next|astro|svelte-kit|webpack-dev-server|http-server|serve)\b/.test(lowerCommand) ||
-    /\bpython(?:3)?\s+-m\s+http\.server\b/.test(lowerCommand)
-  );
-}
-
-function isBrowserProofShellCommand(lowerCommand: string): boolean {
-  return /\b(?:playwright|cypress)\b/.test(lowerCommand) || /\bbrowser[-_ ]proof\b/.test(lowerCommand);
-}
-
-function isProjectRootMaterialWriteShellCommand(lowerCommand: string): boolean {
-  return /\b(?:git\s+apply|git\s+add|apply to root|apply-to-root|integration queue|project-root)\b/.test(lowerCommand);
-}
-
 async function resolveManagedAuthorityPath(workspacePath: string, requestedPath: string): Promise<string | undefined> {
   const pathCheck = await resolvePolicyPath(workspacePath, requestedPath);
   return isManagedAuthorityPath(pathCheck.absolutePath) || isManagedAuthorityPath(requestedPath) ? pathCheck.absolutePath : undefined;
@@ -1861,48 +1765,6 @@ function splitSimpleShellConjunctions(command: string): string[] | undefined {
   if (!segment) return undefined;
   segments.push(segment);
   return segments;
-}
-
-function splitShellWords(command: string): string[] | undefined {
-  const words: string[] = [];
-  let current = "";
-  let quote: "'" | "\"" | undefined;
-  let escaped = false;
-  for (let index = 0; index < command.length; index += 1) {
-    const char = command[index];
-    if (escaped) {
-      current += char;
-      escaped = false;
-      continue;
-    }
-    if (char === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (quote) {
-      if (char === quote) {
-        quote = undefined;
-      } else {
-        current += char;
-      }
-      continue;
-    }
-    if (char === "'" || char === "\"") {
-      quote = char;
-      continue;
-    }
-    if (/\s/.test(char)) {
-      if (current) {
-        words.push(current);
-        current = "";
-      }
-      continue;
-    }
-    current += char;
-  }
-  if (quote || escaped) return undefined;
-  if (current) words.push(current);
-  return words;
 }
 
 function shellExecutableBaseName(executable: string): string {

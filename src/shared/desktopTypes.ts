@@ -127,6 +127,11 @@ import type {
   AmbientCliSecretSaveResult,
   AmbientMcpContainerRuntimeInstallLaunchInput,
   AmbientMcpContainerRuntimeInstallLaunchResult,
+  AmbientMcpContainerRuntimeLifecyclePreview,
+  AmbientMcpContainerRuntimeLifecyclePreviewInput,
+  AmbientMcpContainerRuntimeLifecycleProgress,
+  AmbientMcpContainerRuntimeLifecycleResult,
+  AmbientMcpContainerRuntimeLifecycleRunInput,
   AmbientMcpContainerRuntimeManagedInstallProgress,
   AmbientMcpContainerRuntimeStatus,
   AmbientMcpDefaultCapabilityInstallInput,
@@ -907,6 +912,7 @@ export type DesktopEvent =
   | { type: "stt-stop-tts-requested"; workspacePath?: string }
   | { type: "runtime-activity"; activity: RuntimeActivity; workspacePath?: string }
   | { type: "mcp-container-runtime-install-progress"; progress: AmbientMcpContainerRuntimeManagedInstallProgress; workspacePath?: string }
+  | { type: "mcp-container-runtime-lifecycle-progress"; progress: AmbientMcpContainerRuntimeLifecycleProgress; workspacePath?: string }
   | { type: "mcp-default-capability-install-progress"; progress: AmbientMcpDefaultCapabilityInstallProgress; workspacePath?: string }
   | { type: "local-deep-research-install-progress"; progress: LocalDeepResearchInstallProgress; workspacePath?: string }
   | { type: "local-deep-research-setup-updated"; result: LocalDeepResearchSetupResult; workspacePath?: string }
@@ -1143,6 +1149,8 @@ export interface AmbientDesktopApi {
   getMcpContainerRuntimeStatus(): Promise<AmbientMcpContainerRuntimeStatus>;
   launchMcpContainerRuntimeInstaller(input?: AmbientMcpContainerRuntimeInstallLaunchInput): Promise<AmbientMcpContainerRuntimeInstallLaunchResult>;
   deferMcpContainerRuntimeSetup(): Promise<AmbientMcpContainerRuntimeStatus>;
+  previewMcpContainerRuntimeLifecycle(input: AmbientMcpContainerRuntimeLifecyclePreviewInput): Promise<AmbientMcpContainerRuntimeLifecyclePreview>;
+  runMcpContainerRuntimeLifecycle(input: AmbientMcpContainerRuntimeLifecycleRunInput): Promise<AmbientMcpContainerRuntimeLifecycleResult>;
   installMcpDefaultCapability(input: AmbientMcpDefaultCapabilityInstallInput): Promise<AmbientMcpServerInstallResult>;
   installMcpRegistryServer(input: AmbientMcpServerInstallInput): Promise<AmbientMcpServerInstallResult>;
   uninstallMcpServer(input: AmbientMcpServerUninstallInput): Promise<AmbientMcpServerUninstallResult>;

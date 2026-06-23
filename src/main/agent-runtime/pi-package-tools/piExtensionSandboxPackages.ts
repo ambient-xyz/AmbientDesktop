@@ -8,8 +8,14 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { isPathInside } from "../agentRuntimeSessionFacade";
-import { discoverPiExtensionHostTools, runPiExtensionHostTool, type PiExtensionHostTool, type PiExtensionHostRunResult } from "../agentRuntimePiFacade";
+import {
+  discoverPiExtensionHostTools,
+  runPiExtensionHostTool,
+  type PiExtensionHostTool,
+  type PiExtensionHostRunResult,
+} from "../agentRuntimePiFacade";
 import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../agentRuntimeSetupFacade";
+import { hardenedGitEnv, normalizeGitRepositoryUrl, safeGitCloneSource } from "../../security/securityAgentRuntimeContract";
 
 const execFileAsync = promisify(execFile);
 const sandboxConfigPath = ".ambient/pi-extension-sandboxes/packages.json";
@@ -177,7 +183,12 @@ export async function previewPiExtensionSandboxInstall(
       };
     });
   } catch (error) {
-    return { source: input.source, allowedNetworkHosts: input.allowedNetworkHosts ?? [], installable: false, errors: [errorMessage(error)] };
+    return {
+      source: input.source,
+      allowedNetworkHosts: input.allowedNetworkHosts ?? [],
+      installable: false,
+      errors: [errorMessage(error)],
+    };
   }
 }
 
@@ -190,9 +201,12 @@ export async function installPiExtensionSandboxPackage(
   const resolved = await resolvePiExtensionSource(input);
   const managedWorkspace = await ensurePiExtensionSandboxManagedWorkspace(workspacePath);
   return withResolvedPiExtensionPackage(resolved, async (packageRoot) => {
-    const importName = safeName(`${resolved.packageName}-${resolved.version ?? "pi"}-${shortHash([resolved.resolvedSource, resolved.packagePath, resolved.sha].join(":"))}`);
+    const importName = safeName(
+      `${resolved.packageName}-${resolved.version ?? "pi"}-${shortHash([resolved.resolvedSource, resolved.packagePath, resolved.sha].join(":"))}`,
+    );
     const destination = resolve(managedWorkspace, sandboxImportRoot, importName);
-    if (!isPathInside(managedWorkspace, destination)) throw new Error("Resolved Pi extension sandbox import path is outside Ambient-managed install state.");
+    if (!isPathInside(managedWorkspace, destination))
+      throw new Error("Resolved Pi extension sandbox import path is outside Ambient-managed install state.");
     await rm(destination, { recursive: true, force: true });
     await mkdir(dirname(destination), { recursive: true });
     try {
@@ -252,7 +266,8 @@ export async function runPiExtensionSandboxTool(
   const catalog = await discoverPiExtensionSandboxPackages(workspacePath);
   const pkg = selectPiExtensionSandboxPackage(catalog.packages, input);
   if (pkg.errors.length) throw new Error(`Sandboxed Pi extension package "${pkg.name}" has errors: ${pkg.errors.join("; ")}`);
-  if (!pkg.tools.some((tool) => tool.name === input.toolName)) throw new Error(`Sandboxed Pi extension package "${pkg.name}" does not register tool "${input.toolName}".`);
+  if (!pkg.tools.some((tool) => tool.name === input.toolName))
+    throw new Error(`Sandboxed Pi extension package "${pkg.name}" does not register tool "${input.toolName}".`);
   const result = await runPiExtensionHostTool({
     packageRoot: pkg.rootPath,
     entrypoint: pkg.entrypoint,
@@ -317,7 +332,8 @@ export function selectPiExtensionSandboxPackage(
   if (selector.packageName) {
     const matches = packages.filter((candidate) => candidate.name === selector.packageName);
     if (matches.length === 1) return matches[0];
-    if (matches.length > 1) throw new Error(`Sandboxed Pi extension package name "${selector.packageName}" matched multiple packages. Specify packageId.`);
+    if (matches.length > 1)
+      throw new Error(`Sandboxed Pi extension package name "${selector.packageName}" matched multiple packages. Specify packageId.`);
     throw new Error(`Sandboxed Pi extension package "${selector.packageName}" was not found.`);
   }
   throw new Error("packageId or packageName is required.");
@@ -337,14 +353,16 @@ async function inspectPiExtensionSandboxPackage(
   } catch (error) {
     errors.push(`package.json: ${errorMessage(error)}`);
   }
-  const tools = errors.length ? [] : await discoverPiExtensionHostTools({
-    packageRoot: rootPath,
-    entrypoint: source.entrypoint,
-    allowedNetworkHosts: source.allowedNetworkHosts,
-  }).catch((error) => {
-    errors.push(`host: ${errorMessage(error)}`);
-    return [];
-  });
+  const tools = errors.length
+    ? []
+    : await discoverPiExtensionHostTools({
+        packageRoot: rootPath,
+        entrypoint: source.entrypoint,
+        allowedNetworkHosts: source.allowedNetworkHosts,
+      }).catch((error) => {
+        errors.push(`host: ${errorMessage(error)}`);
+        return [];
+      });
   const name = source.packageName || pkgJson?.name || "pi-extension";
   return {
     id: `ambient-pi-extension:${source.resolvedSource}:${source.packagePath}:${source.sha}:${name}`,
@@ -380,9 +398,10 @@ async function resolvePiExtensionSource(input: PiExtensionSandboxInstallInput): 
   const resolvedSource = repository.url && repository.directory ? repository.url : tarball;
   if (!resolvedSource) throw new Error(`npm package "${npmPackageName}" does not declare an inspectable package source.`);
   const packagePath = repository.url && repository.directory ? repository.directory : ".";
-  const sha = typeof version.gitHead === "string" && version.gitHead.trim()
-    ? version.gitHead.trim()
-    : version.dist?.integrity || version.dist?.shasum || (repository.url ? await resolveGitHead(repository.url) : latest);
+  const sha =
+    typeof version.gitHead === "string" && version.gitHead.trim()
+      ? version.gitHead.trim()
+      : version.dist?.integrity || version.dist?.shasum || (repository.url ? await resolveGitHead(repository.url) : latest);
   const allowedNetworkHosts = normalizeAllowedHosts(input.allowedNetworkHosts ?? inferredAllowedNetworkHosts(npmPackageName));
   const rawEntrypoint = await withResolvedPiExtensionPackage(
     {
@@ -427,7 +446,11 @@ async function resolvePiExtensionSource(input: PiExtensionSandboxInstallInput): 
   };
 }
 
-async function resolveLocalPiExtensionSource(source: string, localPath: string, allowedNetworkHosts?: string[]): Promise<ResolvedPiExtensionSource> {
+async function resolveLocalPiExtensionSource(
+  source: string,
+  localPath: string,
+  allowedNetworkHosts?: string[],
+): Promise<ResolvedPiExtensionSource> {
   const localStat = await stat(localPath);
   if (!localStat.isDirectory()) throw new Error(`Local Pi extension source is not a directory: ${localPath}`);
   const pkg = packageJsonSchema.parse(await readJson(join(localPath, "package.json")));
@@ -447,7 +470,10 @@ async function resolveLocalPiExtensionSource(source: string, localPath: string, 
   };
 }
 
-async function withResolvedPiExtensionPackage<T>(input: ResolvedPiExtensionSource, action: (packageRoot: string) => Promise<T>): Promise<T> {
+async function withResolvedPiExtensionPackage<T>(
+  input: ResolvedPiExtensionSource,
+  action: (packageRoot: string) => Promise<T>,
+): Promise<T> {
   if (input.resolvedSource.startsWith("file://")) {
     const rootPath = fileURLToPath(input.resolvedSource);
     const packageRoot = resolve(rootPath, input.packagePath);
@@ -474,16 +500,16 @@ async function withResolvedPiExtensionPackage<T>(input: ResolvedPiExtensionSourc
   const tempRoot = await mkdtemp(join(tmpdir(), "ambient-pi-extension-git-"));
   try {
     const repoPath = join(tempRoot, "repo");
-    await execFileAsync("git", ["clone", "--quiet", input.resolvedSource, repoPath], {
+    await execFileAsync("git", ["clone", "--quiet", "--", safeGitCloneSource(input.resolvedSource), repoPath], {
       cwd: tempRoot,
       timeout: 60_000,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: gitEnv(),
       maxBuffer: 1024 * 1024,
     });
     await execFileAsync("git", ["-C", repoPath, "checkout", "--quiet", input.sha], {
       cwd: tempRoot,
       timeout: 30_000,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: gitEnv(),
       maxBuffer: 1024 * 1024,
     });
     await verifyGitCheckoutSha(repoPath, input.sha);
@@ -586,18 +612,13 @@ function normalizeNpmRepository(value: unknown): { url?: string; directory?: str
 }
 
 function normalizeGitUrl(value: string): string {
-  return value
-    .replace(/^git\+/, "")
-    .replace(/^git:\/\//, "https://")
-    .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/")
-    .replace(/^git@github\.com:/, "https://github.com/")
-    .replace(/\.git$/, "");
+  return normalizeGitRepositoryUrl(value);
 }
 
 async function resolveGitHead(source: string): Promise<string> {
-  const { stdout } = await execFileAsync("git", ["ls-remote", source, "HEAD"], {
+  const { stdout } = await execFileAsync("git", ["ls-remote", "--", safeGitCloneSource(source), "HEAD"], {
     timeout: 30_000,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env: gitEnv(),
     maxBuffer: 1024 * 1024,
   });
   const sha = String(stdout).trim().split(/\s+/)[0];
@@ -608,13 +629,17 @@ async function resolveGitHead(source: string): Promise<string> {
 async function verifyGitCheckoutSha(repoPath: string, expectedSha: string): Promise<void> {
   const { stdout } = await execFileAsync("git", ["-C", repoPath, "rev-parse", "HEAD"], {
     timeout: 30_000,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env: gitEnv(),
     maxBuffer: 1024 * 1024,
   });
   const actualSha = String(stdout).trim();
   if (actualSha.toLowerCase() !== expectedSha.toLowerCase()) {
     throw new Error(`Pi extension sandbox Git checkout SHA mismatch: expected ${expectedSha}, got ${actualSha}.`);
   }
+}
+
+function gitEnv(): NodeJS.ProcessEnv {
+  return hardenedGitEnv(process.env);
 }
 
 async function upsertSandboxConfig(workspacePath: string, entry: SandboxConfigEntry): Promise<void> {
@@ -633,7 +658,11 @@ async function upsertSandboxConfig(workspacePath: string, entry: SandboxConfigEn
     ),
     entry,
   ];
-  await writeFile(configPath, `${JSON.stringify({ packages, history: existing.history.filter((item) => item.id !== id) }, null, 2)}\n`, "utf8");
+  await writeFile(
+    configPath,
+    `${JSON.stringify({ packages, history: existing.history.filter((item) => item.id !== id) }, null, 2)}\n`,
+    "utf8",
+  );
 }
 
 function normalizeAllowedHosts(hosts: string[]): string[] {
@@ -650,7 +679,12 @@ async function readJson(path: string): Promise<unknown> {
 }
 
 function safeName(value: string): string {
-  return value.replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 96) || "pi-extension";
+  return (
+    value
+      .replace(/[^a-z0-9._-]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 96) || "pi-extension"
+  );
 }
 
 function shortHash(value: string): string {

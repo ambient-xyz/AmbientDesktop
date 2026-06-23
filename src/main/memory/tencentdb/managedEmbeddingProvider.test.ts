@@ -134,14 +134,66 @@ describe("managed Tencent memory embedding provider", () => {
     expect(release).toHaveBeenCalledTimes(1);
   });
 
-  it("does not expose a release handle when reusing an existing workspace lease", async () => {
-    const workspace = await tempWorkspace("existing-lease-no-release");
+  it("exposes independent release handles when reusing an existing workspace lease", async () => {
+    const workspace = await tempWorkspace("existing-lease-release");
+    await installSparseModel(workspace);
+    await installRuntime(workspace);
+    const releases = [
+      vi.fn(async () => undefined),
+      vi.fn(async () => undefined),
+    ];
+    const states: LocalLlamaServerState[] = [];
+    let leaseIndex = 0;
+    const acquire = vi.fn(async (input: LocalLlamaServerAcquireInput): Promise<LocalLlamaServerLease> => {
+      const index = leaseIndex;
+      leaseIndex += 1;
+      const state = llamaState(workspace, input);
+      states.push(state);
+      return {
+        leaseId: `lease-memory-embedding-existing-${index + 1}`,
+        state,
+        release: releases[index],
+      };
+    });
+
+    const first = await startAmbientMemoryEmbeddingRuntime({
+      workspacePath: workspace,
+      supervisor: { acquire },
+      detectResidents: () => [],
+    });
+    await writeManagedEmbeddingState(states[0]);
+    const second = await startAmbientMemoryEmbeddingRuntime({
+      workspacePath: workspace,
+      supervisor: { acquire },
+      detectResidents: () => [{
+        capability: "local-text",
+        id: "untracked-llama:45678",
+        pid: 45678,
+        running: true,
+        statePath: "process:45678",
+        trackingStatus: "untracked",
+      }],
+    });
+
+    expect(first.status).toBe("started");
+    expect(second.status).toBe("ready");
+    expect(second.leaseId).toBe("lease-memory-embedding-existing-2");
+    expect(second.release).toEqual(expect.any(Function));
+    await second.release?.();
+    expect(releases[0]).not.toHaveBeenCalled();
+    expect(releases[1]).toHaveBeenCalledTimes(1);
+    await first.release?.();
+    expect(releases[0]).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs resident conflict checks when an existing lease has no live managed state", async () => {
+    const workspace = await tempWorkspace("existing-stale-lease-resident-block");
     await installSparseModel(workspace);
     await installRuntime(workspace);
     const release = vi.fn(async () => undefined);
     const acquire = vi.fn(async (input: LocalLlamaServerAcquireInput): Promise<LocalLlamaServerLease> => ({
-      leaseId: "lease-memory-embedding-existing",
-      state: llamaState(workspace, input),
+      leaseId: "lease-memory-embedding-stale",
+      state: { ...llamaState(workspace, input), pid: 987_654_321 },
       release,
     }));
 
@@ -153,15 +205,260 @@ describe("managed Tencent memory embedding provider", () => {
     const second = await startAmbientMemoryEmbeddingRuntime({
       workspacePath: workspace,
       supervisor: { acquire },
-      detectResidents: () => [],
+      detectResidents: () => [{
+        capability: "local-text",
+        id: "untracked-llama:56789",
+        pid: 56789,
+        running: true,
+        statePath: "process:56789",
+        trackingStatus: "untracked",
+      }],
     });
 
     expect(first.status).toBe("started");
-    expect(second.status).toBe("ready");
-    expect(second.leaseId).toBe("lease-memory-embedding-existing");
-    expect(second.release).toBeUndefined();
+    expect(second.status).toBe("blocked");
+    expect(second.reason).toContain("Another llama.cpp runtime is already resident");
+    expect(acquire).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledTimes(1);
     await first.release?.();
     expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not share the first release handle with concurrent start joiners", async () => {
+    const workspace = await tempWorkspace("concurrent-start-no-shared-release");
+    await installSparseModel(workspace);
+    await installRuntime(workspace);
+    const barrier = deferred<void>();
+    const releases = [
+      vi.fn(async () => undefined),
+      vi.fn(async () => undefined),
+    ];
+    let leaseIndex = 0;
+    const acquire = vi.fn(async (input: LocalLlamaServerAcquireInput): Promise<LocalLlamaServerLease> => {
+      const index = leaseIndex;
+      leaseIndex += 1;
+      if (index === 0) await barrier.promise;
+      return {
+        leaseId: `lease-memory-embedding-concurrent-${index + 1}`,
+        state: llamaState(workspace, input),
+        release: releases[index],
+      };
+    });
+
+    const firstPromise = startAmbientMemoryEmbeddingRuntime({
+      workspacePath: workspace,
+      supervisor: { acquire },
+      detectResidents: () => [],
+    });
+    const secondPromise = startAmbientMemoryEmbeddingRuntime({
+      workspacePath: workspace,
+      supervisor: { acquire },
+      detectResidents: () => [],
+    });
+
+    barrier.resolve(undefined);
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(first.status).toBe("started");
+    expect(first.leaseId).toBe("lease-memory-embedding-concurrent-1");
+    expect(first.release).toEqual(expect.any(Function));
+    expect(second.status).toBe("ready");
+    expect(second.leaseId).toBe("lease-memory-embedding-concurrent-2");
+    expect(second.release).toEqual(expect.any(Function));
+    await second.release?.();
+    expect(releases[0]).not.toHaveBeenCalled();
+    expect(releases[1]).toHaveBeenCalledTimes(1);
+    await first.release?.();
+    expect(releases[0]).toHaveBeenCalledTimes(1);
+  });
+
+  it("single-flights cold starts across workspaces that share the managed embedding root", async () => {
+    const previousManagedRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    const managedRoot = await tempWorkspace("global-managed-root");
+    const workspaceA = await tempWorkspace("global-workspace-a");
+    const workspaceB = await tempWorkspace("global-workspace-b");
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      await installSparseModel(workspaceA);
+      await installRuntime(workspaceA);
+      const barrier = deferred<void>();
+      const releases = [
+        vi.fn(async () => undefined),
+        vi.fn(async () => undefined),
+      ];
+      let activeAcquires = 0;
+      let maxActiveAcquires = 0;
+      let leaseIndex = 0;
+      const acquire = vi.fn(async (input: LocalLlamaServerAcquireInput): Promise<LocalLlamaServerLease> => {
+        activeAcquires += 1;
+        maxActiveAcquires = Math.max(maxActiveAcquires, activeAcquires);
+        const index = leaseIndex;
+        leaseIndex += 1;
+        try {
+          if (index === 0) await barrier.promise;
+          return {
+            leaseId: `lease-memory-embedding-global-${index + 1}`,
+            state: llamaState(workspaceA, input),
+            release: releases[index],
+          };
+        } finally {
+          activeAcquires -= 1;
+        }
+      });
+
+      const firstPromise = startAmbientMemoryEmbeddingRuntime({
+        workspacePath: workspaceA,
+        supervisor: { acquire },
+        detectResidents: () => [],
+      });
+      const secondPromise = startAmbientMemoryEmbeddingRuntime({
+        workspacePath: workspaceB,
+        supervisor: { acquire },
+        detectResidents: () => [],
+      });
+
+      await vi.waitFor(() => expect(acquire).toHaveBeenCalledTimes(1));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(acquire).toHaveBeenCalledTimes(1);
+
+      barrier.resolve(undefined);
+      const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+      expect(maxActiveAcquires).toBe(1);
+      expect(first.status).toBe("started");
+      expect(second.status).toBe("ready");
+      expect(acquire).toHaveBeenCalledTimes(2);
+      await first.release?.();
+      await second.release?.();
+      expect(releases[0]).toHaveBeenCalledTimes(1);
+      expect(releases[1]).toHaveBeenCalledTimes(1);
+    } finally {
+      if (previousManagedRoot === undefined) {
+        delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      } else {
+        process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousManagedRoot;
+      }
+    }
+  });
+
+  it("stops only the requesting workspace leases for a shared managed embedding root", async () => {
+    const previousManagedRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    const managedRoot = await tempWorkspace("global-stop-managed-root");
+    const workspaceA = await tempWorkspace("global-stop-workspace-a");
+    const workspaceB = await tempWorkspace("global-stop-workspace-b");
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      await installSparseModel(workspaceA);
+      await installRuntime(workspaceA);
+      const releases = [
+        vi.fn(async () => undefined),
+        vi.fn(async () => undefined),
+      ];
+      let leaseIndex = 0;
+      const acquire = vi.fn(async (input: LocalLlamaServerAcquireInput): Promise<LocalLlamaServerLease> => {
+        const index = leaseIndex;
+        leaseIndex += 1;
+        return {
+          leaseId: `lease-memory-embedding-stop-global-${index + 1}`,
+          state: llamaState(workspaceA, input),
+          release: releases[index],
+        };
+      });
+      const stopProfile = vi.fn();
+
+      const first = await startAmbientMemoryEmbeddingRuntime({
+        workspacePath: workspaceA,
+        supervisor: { acquire },
+        detectResidents: () => [],
+      });
+      const second = await startAmbientMemoryEmbeddingRuntime({
+        workspacePath: workspaceB,
+        supervisor: { acquire },
+        detectResidents: () => [],
+      });
+      const stopped = await runAmbientMemoryEmbeddingLifecycleAction({
+        workspacePath: workspaceA,
+        action: "stop",
+        supervisor: { acquire, stopProfile },
+      });
+
+      expect(stopped.status).toBe("stopped");
+      expect(stopped.reason).toContain("runtime remains leased by 1 other owner");
+      expect(releases[0]).toHaveBeenCalledTimes(1);
+      expect(releases[1]).not.toHaveBeenCalled();
+      expect(stopProfile).not.toHaveBeenCalled();
+
+      await first.release?.();
+      await second.release?.();
+      expect(releases[0]).toHaveBeenCalledTimes(1);
+      expect(releases[1]).toHaveBeenCalledTimes(1);
+    } finally {
+      if (previousManagedRoot === undefined) {
+        delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      } else {
+        process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousManagedRoot;
+      }
+    }
+  });
+
+  it("blocks restart while another workspace still leases the shared managed embedding root", async () => {
+    const previousManagedRoot = process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+    const managedRoot = await tempWorkspace("global-restart-managed-root");
+    const workspaceA = await tempWorkspace("global-restart-workspace-a");
+    const workspaceB = await tempWorkspace("global-restart-workspace-b");
+    process.env.AMBIENT_MANAGED_INSTALL_ROOT = managedRoot;
+    try {
+      await installSparseModel(workspaceA);
+      await installRuntime(workspaceA);
+      const releases = [
+        vi.fn(async () => undefined),
+        vi.fn(async () => undefined),
+      ];
+      let leaseIndex = 0;
+      const acquire = vi.fn(async (input: LocalLlamaServerAcquireInput): Promise<LocalLlamaServerLease> => {
+        const index = leaseIndex;
+        leaseIndex += 1;
+        return {
+          leaseId: `lease-memory-embedding-restart-global-${index + 1}`,
+          state: llamaState(workspaceA, input),
+          release: releases[index],
+        };
+      });
+      const stopProfile = vi.fn();
+
+      const first = await startAmbientMemoryEmbeddingRuntime({
+        workspacePath: workspaceA,
+        supervisor: { acquire },
+        detectResidents: () => [],
+      });
+      const second = await startAmbientMemoryEmbeddingRuntime({
+        workspacePath: workspaceB,
+        supervisor: { acquire },
+        detectResidents: () => [],
+      });
+      const restarted = await runAmbientMemoryEmbeddingLifecycleAction({
+        workspacePath: workspaceA,
+        action: "restart",
+        supervisor: { acquire, stopProfile },
+      });
+
+      expect(restarted.status).toBe("blocked");
+      expect(restarted.reason).toContain("restart would interrupt another workspace");
+      expect(acquire).toHaveBeenCalledTimes(2);
+      expect(stopProfile).not.toHaveBeenCalled();
+      expect(releases[0]).not.toHaveBeenCalled();
+      expect(releases[1]).not.toHaveBeenCalled();
+
+      await first.release?.();
+      await second.release?.();
+    } finally {
+      if (previousManagedRoot === undefined) {
+        delete process.env.AMBIENT_MANAGED_INSTALL_ROOT;
+      } else {
+        process.env.AMBIENT_MANAGED_INSTALL_ROOT = previousManagedRoot;
+      }
+    }
   });
 
   it("blocks auto-start when another llama.cpp runtime is already resident", async () => {
@@ -432,6 +729,19 @@ async function installRuntime(workspace: string): Promise<void> {
   );
   await mkdir(dirname(runtimePath), { recursive: true });
   await writeFile(runtimePath, "#!/bin/sh\n", "utf8");
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T | PromiseLike<T>) => void } {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+async function writeManagedEmbeddingState(state: LocalLlamaServerState): Promise<void> {
+  await mkdir(state.stateDir, { recursive: true });
+  await writeFile(join(state.stateDir, "server-state.json"), `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
 function ambientMemoryOrphanResident(pid: number): LocalLlamaResidentProcess {

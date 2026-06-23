@@ -79,6 +79,33 @@ export interface RunProviderCallContextPreflightBeforePromptInput extends Provid
   promptContent: string;
 }
 
+export interface ProviderContextPreflightBlockErrorDetails {
+  threadId: string;
+  workspacePath: string;
+  sessionFile?: string;
+  budgetTokens: number;
+  estimate: ProviderPayloadContextProtectionEstimate;
+  artifactPath?: string;
+  largeTextHint: string;
+}
+
+export class ProviderContextPreflightBlockError extends Error {
+  readonly details: ProviderContextPreflightBlockErrorDetails;
+
+  constructor(message: string, details: ProviderContextPreflightBlockErrorDetails) {
+    super(message);
+    this.name = "ProviderContextPreflightBlockError";
+    this.details = details;
+    Object.setPrototypeOf(this, ProviderContextPreflightBlockError.prototype);
+  }
+}
+
+export function isProviderContextPreflightBlockError(error: unknown): error is ProviderContextPreflightBlockError {
+  if (error instanceof ProviderContextPreflightBlockError) return true;
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return message.includes("Ambient/Pi provider call blocked before streaming") && message.includes("protected context");
+}
+
 interface ProviderTextPart {
   messageIndex: number;
   role: string;
@@ -142,9 +169,17 @@ export async function runProviderCallContextPreflightBeforePrompt(
   const largeTextHint = estimate.largeTextCount > 0
     ? ` ${estimate.largeTextCount} oversized text part(s) were eligible for deterministic offload, but the protected context is still too large.`
     : " No single oversized text part was available for deterministic offload.";
-  throw new Error(
-    `Ambient/Pi provider call blocked before streaming because the protected context is estimated at ${formatCount(estimate.afterTokens)} tokens, above the ${formatCount(budgetTokens)} token safety budget.${largeTextHint}${artifactHint} Compact or start a fresh thread, then use file_read or long_context_process for large artifacts instead of replaying the full transcript.`,
-  );
+  const message =
+    `Ambient/Pi provider call blocked before streaming because the protected context is estimated at ${formatCount(estimate.afterTokens)} tokens, above the ${formatCount(budgetTokens)} token safety budget.${largeTextHint}${artifactHint} Compact or start a fresh thread, then use file_read or long_context_process for large artifacts instead of replaying the full transcript.`;
+  throw new ProviderContextPreflightBlockError(message, {
+    threadId: input.threadId,
+    workspacePath: input.workspacePath,
+    sessionFile: input.session.sessionFile,
+    budgetTokens,
+    estimate,
+    artifactPath: reportArtifact.artifactPath,
+    largeTextHint,
+  });
 }
 
 export async function materializeProviderPayloadContext(input: {

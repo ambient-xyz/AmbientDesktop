@@ -145,6 +145,74 @@ describe("compaction summary helpers", () => {
     expect(summary).toContain("assistant: I changed src/App.tsx");
   });
 
+  it("preserves recent conversation turns in full during visible transcript recovery", () => {
+    const longAssistant =
+      `${"Progress detail. ".repeat(80)}` +
+      "Bottom line: make the fixes I mentioned, use a meaningful validation set of 10,000 items, and do not bias toward Dickens alone.";
+    const visibleMessages: ChatMessage[] = [
+      ...Array.from({ length: 9 }, (_, index) => [
+        message(`u${index}`, "user", `Earlier prompt ${index}`),
+        message(`a${index}`, "assistant", `Earlier answer ${index}`),
+      ]).flat(),
+      message("u9", "user", "Ok. Please make the fixes you mention, and then I think we want to run training."),
+      message("a9", "assistant", longAssistant),
+      ...Array.from({ length: 35 }, (_, index) =>
+        message(`t${index}`, "tool", `Tool output ${index}: ${"payload ".repeat(120)}tail-${index}`),
+      ),
+    ];
+
+    const summary = buildVisibleTranscriptRecoverySummary({
+      thread,
+      reason: "Missing session file",
+      visibleMessages,
+    });
+
+    expect(summary).toContain(`assistant: ${longAssistant}`);
+    expect(summary).toContain("user: Ok. Please make the fixes you mention");
+  });
+
+  it("uses bounded head-tail snippets for older transcript entries and tool output", () => {
+    const oldAssistant = `OLD_HEAD ${"middle ".repeat(120)}OLD_TAIL`;
+    const recentAssistant = `RECENT_HEAD ${"middle ".repeat(120)}RECENT_TAIL`;
+    const toolOutput = `TOOL_HEAD ${"payload ".repeat(120)}TOOL_TAIL`;
+    const visibleMessages: ChatMessage[] = [
+      message("u0", "user", "Old prompt"),
+      message("a0", "assistant", oldAssistant),
+      ...Array.from({ length: 10 }, (_, index) => [
+        message(`u${index + 1}`, "user", `Recent prompt ${index}`),
+        message(`a${index + 1}`, "assistant", index === 9 ? recentAssistant : `Recent answer ${index}`),
+      ]).flat(),
+      message("t1", "tool", toolOutput),
+    ];
+
+    const summary = buildVisibleTranscriptRecoverySummary({
+      thread,
+      reason: "Missing session file",
+      visibleMessages,
+    });
+
+    expect(summary).not.toContain(`assistant: ${oldAssistant}`);
+    expect(summary).toContain("OLD_HEAD");
+    expect(summary).toContain("OLD_TAIL");
+    expect(summary).toContain(`assistant: ${recentAssistant}`);
+    expect(summary).not.toContain(`tool: ${toolOutput}`);
+    expect(summary).toContain("TOOL_HEAD");
+    expect(summary).toContain("TOOL_TAIL");
+  });
+
+  it("bounds oversized recent conversation entries during visible transcript recovery", () => {
+    const hugeAssistant = `HUGE_HEAD ${"middle ".repeat(3_000)}HUGE_TAIL`;
+    const summary = buildVisibleTranscriptRecoverySummary({
+      thread,
+      reason: "Missing session file",
+      visibleMessages: [message("u1", "user", "Continue the work"), message("a1", "assistant", hugeAssistant)],
+    });
+
+    expect(summary).not.toContain(`assistant: ${hugeAssistant}`);
+    expect(summary).toContain("HUGE_HEAD");
+    expect(summary).toContain("HUGE_TAIL");
+  });
+
   it("selects the manual visible transcript recovery reason", () => {
     expect(visibleTranscriptRecoveryReason({
       requestedReason: "User requested recovery.",

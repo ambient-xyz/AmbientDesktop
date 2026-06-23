@@ -1,6 +1,15 @@
 export {
   completeAmbientText,
   createLambdaRlmToolDefinition,
+  executeLambdaRlmToolCall,
+  executeLambdaRlmToolExecution,
+} from "./lambdaRlm";
+export type {
+  CreateLambdaRlmToolOptions,
+  LambdaRlmToolExecutionContext,
+  LambdaRlmToolExecutionResult,
+  LambdaRlmToolResult,
+  LambdaRlmToolUpdate,
 } from "./lambdaRlm";
 export { ToolArgumentProgressTracker } from "./toolArgumentProgress";
 export { ToolHiveRuntimeService } from "./toolHiveRuntimeService";

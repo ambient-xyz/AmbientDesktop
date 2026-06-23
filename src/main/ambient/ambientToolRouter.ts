@@ -48,10 +48,17 @@ export const AMBIENT_DIRECT_ASYNC_BASH_TOOL_NAMES = [
   "thread_wake_schedule",
 ] as const;
 
+export const AMBIENT_DIRECT_ASYNC_LONG_CONTEXT_TOOL_NAMES = [
+  "long_context_start",
+  "long_context_poll",
+  "long_context_cancel",
+] as const;
+
 export const AMBIENT_DEFAULT_ACTIVE_TOOL_NAMES = [
   "read",
   "bash",
   ...AMBIENT_DIRECT_ASYNC_BASH_TOOL_NAMES,
+  ...AMBIENT_DIRECT_ASYNC_LONG_CONTEXT_TOOL_NAMES,
   "edit",
   "write",
   ...AMBIENT_ROUTER_TOOL_NAMES,
@@ -1175,7 +1182,7 @@ function categoryForToolName(name: string): string {
   if (name.startsWith("ambient_workflows_")) return "workflow";
   if (name.startsWith("workflow_")) return "workflow";
   if (name.startsWith("task_")) return "project-board";
-  if (name === "long_context_process") return "long-context";
+  if (name === "long_context_process" || name.startsWith("long_context_")) return "long-context";
   return "ambient";
 }
 

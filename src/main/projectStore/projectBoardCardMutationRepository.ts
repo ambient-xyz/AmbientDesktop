@@ -9,6 +9,7 @@ import type {
   RefreshProjectBoardDecisionDraftsInput,
   ProjectBoardSplitDecisionAction,
 } from "../../shared/projectBoardTypes";
+import type { StageProjectBoardDecisionDraftPiUpdatesInput } from "./projectStoreFacadeHelpers";
 import type { OrchestrationRun } from "../../shared/workflowTypes";
 import {
   ProjectStoreProjectBoardCardCandidateSplitRepository,
@@ -160,6 +161,10 @@ export class ProjectStoreProjectBoardCardMutationRepository {
 
   refreshDecisionDrafts(input: RefreshProjectBoardDecisionDraftsInput): ProjectBoardCard {
     return this.runFeedbackMutations.refreshDecisionDrafts(input);
+  }
+
+  stageDecisionDraftPiUpdates(input: StageProjectBoardDecisionDraftPiUpdatesInput): ProjectBoardCard {
+    return this.runFeedbackMutations.stageDecisionDraftPiUpdates(input);
   }
 
 }

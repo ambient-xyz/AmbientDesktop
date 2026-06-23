@@ -1,10 +1,9 @@
+export { buildSafeProcessEnv, isSecretEnvName } from "./safeProcessEnv";
 export {
-  buildSafeProcessEnv,
-  isSecretEnvName,
-} from "./safeProcessEnv";
-export {
-  isSecretReference,
-  readSecretReference,
-  saveSecretReference,
-  secretReferenceFor,
-} from "./secretReferenceStore";
+  hardenedGitEnv,
+  normalizeGitRepositoryUrl,
+  redactGitSourceCredentials,
+  safeGitCloneSource,
+  validateGitSource,
+} from "./gitSourcePolicy";
+export { isSecretReference, readSecretReference, saveSecretReference, secretReferenceFor } from "./secretReferenceStore";

@@ -1,4 +1,8 @@
 import type { AppProjectBoardActions } from "./AppProjectBoardActions";
+import type { useAppProjectBoardControlsForApp } from "./AppProjectBoardControls";
+import type { useAppProjectShellState } from "./AppProjectShellState";
+import type { useAppRunActivityState } from "./AppRunActivityState";
+import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
 import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspace";
 
 type ProjectBoardWorkspaceActionKey =
@@ -54,6 +58,50 @@ export type AppProjectBoardWorkspacePropsInput = ProjectBoardWorkspaceStateProps
   activeThreadSuppressesProjectBoard: boolean;
   onClose: () => void;
   projectBoardOpen: boolean;
+};
+
+type AppProjectBoardControlsForWorkspaceProps = Pick<
+  ReturnType<typeof useAppProjectBoardControlsForApp>,
+  | "activeProject"
+  | "activeProjectBoardBusy"
+  | "activeThreadSuppressesProjectBoard"
+  | "projectBoardActions"
+  | "projectBoardOpen"
+  | "setProjectBoardOpen"
+>;
+
+type AppProjectShellStateForWorkspaceProps = Pick<
+  ReturnType<typeof useAppProjectShellState>,
+  | "projectBoardSourceBusy"
+  | "projectBoardSourceImpactBusy"
+  | "projectBoardKickoffDefaultsBusy"
+  | "projectBoardRefineBusy"
+  | "projectBoardRefineMode"
+  | "projectBoardProposalAnswerBusy"
+  | "projectBoardProposalCardReviewBusy"
+  | "projectBoardProposalApplyBusy"
+  | "projectBoardFinalizeBusy"
+  | "projectBoardSynthesisRetryBusy"
+  | "projectBoardSynthesisDeferBusy"
+  | "projectBoardSynthesisPauseBusy"
+  | "projectBoardRevisionBusy"
+>;
+
+type AppRunActivityStateForWorkspaceProps = Pick<
+  ReturnType<typeof useAppRunActivityState>,
+  "runActivityLinesByThread" | "threadRunStatuses"
+>;
+
+type AppWorkflowRuntimeStateForWorkspaceProps = Pick<
+  ReturnType<typeof useAppWorkflowRuntimeState>,
+  "orchestrationRevision"
+>;
+
+export type AppProjectBoardWorkspacePropsForAppInput = {
+  projectBoardControls: AppProjectBoardControlsForWorkspaceProps;
+  projectShellState: AppProjectShellStateForWorkspaceProps;
+  runActivityState: AppRunActivityStateForWorkspaceProps;
+  workflowRuntimeState: AppWorkflowRuntimeStateForWorkspaceProps;
 };
 
 export function createAppProjectBoardWorkspaceProps({
@@ -165,4 +213,36 @@ export function createAppProjectBoardWorkspaceProps({
     onOpenRunThread: actions.openProjectBoardRunThread,
     onClose,
   };
+}
+
+export function createAppProjectBoardWorkspacePropsForApp({
+  projectBoardControls,
+  projectShellState,
+  runActivityState,
+  workflowRuntimeState,
+}: AppProjectBoardWorkspacePropsForAppInput): ProjectBoardWorkspaceProps | undefined {
+  return createAppProjectBoardWorkspaceProps({
+    actions: projectBoardControls.projectBoardActions,
+    activeProject: projectBoardControls.activeProject,
+    activeThreadSuppressesProjectBoard: projectBoardControls.activeThreadSuppressesProjectBoard,
+    busy: projectBoardControls.activeProjectBoardBusy,
+    sourceBusy: projectShellState.projectBoardSourceBusy,
+    sourceImpactBusy: projectShellState.projectBoardSourceImpactBusy,
+    kickoffDefaultsBusy: projectShellState.projectBoardKickoffDefaultsBusy,
+    refineBusy: projectShellState.projectBoardRefineBusy,
+    refineMode: projectShellState.projectBoardRefineMode,
+    proposalAnswerBusy: projectShellState.projectBoardProposalAnswerBusy,
+    proposalCardReviewBusy: projectShellState.projectBoardProposalCardReviewBusy,
+    proposalApplyBusy: projectShellState.projectBoardProposalApplyBusy,
+    finalizeBusy: projectShellState.projectBoardFinalizeBusy,
+    synthesisRetryBusy: projectShellState.projectBoardSynthesisRetryBusy,
+    synthesisDeferBusy: projectShellState.projectBoardSynthesisDeferBusy,
+    synthesisPauseBusy: projectShellState.projectBoardSynthesisPauseBusy,
+    revisionBusy: projectShellState.projectBoardRevisionBusy,
+    orchestrationRevision: workflowRuntimeState.orchestrationRevision,
+    projectBoardOpen: projectBoardControls.projectBoardOpen,
+    runActivityLinesByThread: runActivityState.runActivityLinesByThread,
+    threadRunStatuses: runActivityState.threadRunStatuses,
+    onClose: () => projectBoardControls.setProjectBoardOpen(false),
+  });
 }

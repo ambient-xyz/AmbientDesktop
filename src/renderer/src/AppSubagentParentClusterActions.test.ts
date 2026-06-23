@@ -23,8 +23,10 @@ import {
   SUBAGENT_CHILD_CLOSE_REASON,
   appStateWithCallableWorkflowTaskSummary,
   createAppSubagentParentClusterActions,
+  createAppSubagentParentClusterActionsForApp,
   subagentApprovalActionBusyKey,
   subagentBarrierActionBusyKey,
+  type AppSubagentParentClusterActionsForAppInput,
 } from "./AppSubagentParentClusterActions";
 
 describe("App subagent parent-cluster actions", () => {
@@ -212,6 +214,47 @@ describe("App subagent parent-cluster actions", () => {
     expect(controller.selectedWorkflowAgentFolderId.value).toBe("folder-1");
     expect(controller.selectedWorkflowAgentThreadId.value).toBe("workflow-agent-thread-1");
   });
+
+  it("maps App owner state into parent-cluster actions", async () => {
+    const childRun = subagentRun({ id: "run-canceled" });
+    const pausedTask = callableWorkflowTask({ id: "task-paused" });
+    const folders = [{ id: "folder-1" }] as WorkflowAgentFolderSummary[];
+    const cancelSubagentRun = vi.fn(async () => childRun);
+    const pauseCallableWorkflowTask = vi.fn(async () => pausedTask);
+    const ensureWorkflowAgentChatThread = vi.fn(async () => ({ id: "workflow-agent-thread-1", folderId: "folder-1" }));
+    const listWorkflowAgentFolders = vi.fn(async () => folders);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        cancelSubagentRun,
+        ensureWorkflowAgentChatThread,
+        listWorkflowAgentFolders,
+        pauseCallableWorkflowTask,
+      },
+    });
+    const controller = createForAppController();
+
+    controller.actions.resolveSubagentApprovalAction(approvalAction());
+    controller.actions.resolveSubagentBarrierAction(barrierAction());
+    await controller.actions.cancelSubagentChild(childModel());
+    await controller.actions.pauseCallableWorkflowTask(workflowTaskModel());
+    await controller.actions.openCallableWorkflowThread(workflowTaskModel());
+
+    expect(controller.approvalDialog.value?.action.approvalId).toBe("approval-1");
+    expect(controller.barrierDialog.value?.action.waitBarrierId).toBe("barrier-1");
+    expect(controller.childCancelBusy.calls).toEqual(["child-run-1", undefined]);
+    expect(controller.taskPauseBusy.calls).toEqual(["task-1", undefined]);
+    expect(controller.state.value?.subagentRuns).toEqual([childRun]);
+    expect(controller.state.value?.callableWorkflowTasks).toEqual([pausedTask]);
+    expect(controller.workflowAgentFolders.value).toBe(folders);
+    expect(controller.projectPopover.value).toBeUndefined();
+    expect(controller.automationPopover.value).toBeUndefined();
+    expect(controller.sidebarArea.value).toBe("automations");
+    expect(controller.selectedAutomationPane.value).toBe("workflow_agent");
+    expect(controller.selectedAutomationThreadId.value).toBeUndefined();
+    expect(controller.selectedWorkflowRecordingId.value).toBeUndefined();
+    expect(controller.selectedWorkflowAgentFolderId.value).toBe("folder-1");
+    expect(controller.selectedWorkflowAgentThreadId.value).toBe("workflow-agent-thread-1");
+  });
 });
 
 function createController({
@@ -280,6 +323,91 @@ function createController({
     clearAutomationPopover,
     clearProjectPopover,
     errors,
+    selectedAutomationPane,
+    selectedAutomationThreadId,
+    selectedWorkflowAgentFolderId,
+    selectedWorkflowAgentThreadId,
+    selectedWorkflowRecordingId,
+    sidebarArea,
+    state,
+    taskCancelBusy,
+    taskPauseBusy,
+    taskResumeBusy,
+    workflowAgentFolders,
+    workflowAgentNavigationError,
+  };
+}
+
+function createForAppController() {
+  const state = statefulSetter<DesktopState | undefined>(desktopState());
+  const approvalDialog = statefulSetter<SubagentApprovalDecisionDialogState | undefined>(undefined);
+  const barrierDialog = statefulSetter<SubagentBarrierDecisionDialogState | undefined>(undefined);
+  const approvalBusy = statefulSetter<string | undefined>(undefined);
+  const barrierBusy = statefulSetter<string | undefined>(undefined);
+  const childCancelBusy = statefulSetter<string | undefined>(undefined);
+  const childCloseBusy = statefulSetter<string | undefined>(undefined);
+  const taskCancelBusy = statefulSetter<string | undefined>(undefined);
+  const taskPauseBusy = statefulSetter<string | undefined>(undefined);
+  const taskResumeBusy = statefulSetter<string | undefined>(undefined);
+  const workflowAgentFolders = statefulSetter<WorkflowAgentFolderSummary[]>([]);
+  const workflowAgentNavigationError = statefulSetter<string | undefined>(undefined);
+  const sidebarArea = statefulSetter<SidebarArea>("projects");
+  const automationPopover = statefulSetter<string | undefined>("create");
+  const projectPopover = statefulSetter<string | undefined>("create");
+  const selectedAutomationPane = statefulSetter<AutomationPane>("home");
+  const selectedAutomationThreadId = statefulSetter<string | undefined>("automation-thread");
+  const selectedWorkflowAgentFolderId = statefulSetter<string>("home");
+  const selectedWorkflowAgentThreadId = statefulSetter<string | undefined>(undefined);
+  const selectedWorkflowRecordingId = statefulSetter<string | undefined>("recording-1");
+  const errors: Array<string | undefined> = [];
+
+  const actions = createAppSubagentParentClusterActionsForApp({
+    automationShellState: {
+      setAutomationPopover: automationPopover.set,
+      setSelectedAutomationPane: selectedAutomationPane.set,
+      setSelectedAutomationThreadId: selectedAutomationThreadId.set,
+      setSelectedWorkflowAgentFolderId: selectedWorkflowAgentFolderId.set,
+      setSelectedWorkflowAgentThreadId: selectedWorkflowAgentThreadId.set,
+      setWorkflowAgentFolders: workflowAgentFolders.set,
+      setWorkflowAgentNavigationError: workflowAgentNavigationError.set,
+    },
+    projectShellState: {
+      setProjectPopover: projectPopover.set,
+    },
+    setState: state.set,
+    shellUiState: {
+      setError: (message: string | undefined) => errors.push(message),
+      setSidebarArea: sidebarArea.set,
+    },
+    workflowRecordingLibraryControls: {
+      setSelectedWorkflowRecordingId: selectedWorkflowRecordingId.set,
+    },
+    workflowRuntimeState: {
+      setCallableWorkflowTaskCancelBusy: taskCancelBusy.set,
+      setCallableWorkflowTaskPauseBusy: taskPauseBusy.set,
+      setCallableWorkflowTaskResumeBusy: taskResumeBusy.set,
+      setSubagentApprovalActionBusy: approvalBusy.set,
+      setSubagentApprovalDecisionDialog: approvalDialog.set,
+      setSubagentBarrierActionBusy: barrierBusy.set,
+      setSubagentBarrierDecisionDialog: barrierDialog.set,
+      setSubagentChildCancelBusy: childCancelBusy.set,
+      setSubagentChildCloseBusy: childCloseBusy.set,
+      subagentApprovalDecisionDialog: approvalDialog.value,
+      subagentBarrierDecisionDialog: barrierDialog.value,
+    },
+  } as unknown as AppSubagentParentClusterActionsForAppInput);
+
+  return {
+    actions,
+    approvalBusy,
+    approvalDialog,
+    automationPopover,
+    barrierBusy,
+    barrierDialog,
+    childCancelBusy,
+    childCloseBusy,
+    errors,
+    projectPopover,
     selectedAutomationPane,
     selectedAutomationThreadId,
     selectedWorkflowAgentFolderId,

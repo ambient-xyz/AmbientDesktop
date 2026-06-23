@@ -202,6 +202,12 @@ describe("agent memory settings", () => {
     })).toBe(true);
     expect(isAgentMemoryActiveForThread({
       featureEnabled: true,
+      settings: enabledAll,
+      threadMemoryEnabled: true,
+      threadKind: "subagent_child",
+    })).toBe(false);
+    expect(isAgentMemoryActiveForThread({
+      featureEnabled: true,
       settings: perThread,
       threadMemoryEnabled: false,
     })).toBe(false);

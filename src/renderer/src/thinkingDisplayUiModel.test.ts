@@ -86,7 +86,7 @@ describe("thinkingDisplayUiModel", () => {
     expect(visibleRunActivityLinesForThinkingDisplay(lines, "off").map((item) => item.id)).toEqual(["activity-1", "activity-3"]);
   });
 
-  it("shows transient thinking only while a thinking message is active", () => {
+  it("shows transient thinking lines for the active run even after the thinking message finalizes", () => {
     expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "transient", running: true }).map((item) => item.id)).toEqual([
       "activity-2",
       "activity-4",
@@ -101,14 +101,19 @@ describe("thinkingDisplayUiModel", () => {
         mode: "transient",
         running: true,
       }),
-    ).toEqual([]);
+    ).toEqual([
+      lines[1],
+      lines[3],
+    ]);
   });
 
-  it("keeps the run status card hidden unless the setting is enabled during a run", () => {
+  it("keeps the run status card hidden unless the setting is enabled or compaction is active during a run", () => {
     expect(shouldShowRunStatusCard(undefined, true)).toBe(false);
     expect(shouldShowRunStatusCard({ showRunStatusCard: false }, true)).toBe(false);
     expect(shouldShowRunStatusCard({ showRunStatusCard: true }, false)).toBe(false);
     expect(shouldShowRunStatusCard({ showRunStatusCard: true }, true)).toBe(true);
+    expect(shouldShowRunStatusCard({ showRunStatusCard: false }, true, "compacting")).toBe(true);
+    expect(shouldShowRunStatusCard({ showRunStatusCard: false }, false, "compacting")).toBe(false);
   });
 });
 

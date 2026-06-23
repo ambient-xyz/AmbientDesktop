@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import type { ThinkingDisplaySettings } from "../../shared/desktopTypes";
-import type { ThreadSummary } from "../../shared/threadTypes";
+import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
 import { shouldShowRunStatusCard } from "./thinkingDisplayUiModel";
 import type { WorkflowRecorderSurfaceModel } from "./workflowRecorderUiModel";
 
@@ -43,23 +43,27 @@ export function workflowRecorderEmptyChatStateForThread({
 export function workflowReviewRunStatusCardVisible({
   reviewRunning,
   running,
+  runStatus,
   thinkingDisplay,
 }: {
   reviewRunning: boolean;
   running: boolean;
+  runStatus?: RunStatus;
   thinkingDisplay: Pick<ThinkingDisplaySettings, "showRunStatusCard"> | undefined;
 }): boolean {
-  return shouldShowRunStatusCard(thinkingDisplay, running) && !reviewRunning;
+  return shouldShowRunStatusCard(thinkingDisplay, running, runStatus) && !reviewRunning;
 }
 
 export function useAppWorkflowRecordingReviewControls({
   activeThread,
   running,
+  runStatus,
   thinkingDisplay,
   workflowRecorderSurface,
 }: {
   activeThread: WorkflowRecordingReviewThread | undefined;
   running: boolean;
+  runStatus?: RunStatus;
   thinkingDisplay: Pick<ThinkingDisplaySettings, "showRunStatusCard"> | undefined;
   workflowRecorderSurface: WorkflowRecorderSurfaceModel;
 }): {
@@ -89,6 +93,7 @@ export function useAppWorkflowRecordingReviewControls({
   const runStatusCardVisible = workflowReviewRunStatusCardVisible({
     reviewRunning: workflowRecordingReviewRunning,
     running,
+    runStatus,
     thinkingDisplay,
   });
 

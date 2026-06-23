@@ -58,6 +58,32 @@ describe("createLambdaRlmToolExtension", () => {
     expect(authorityRootPaths).toHaveBeenCalledTimes(1);
     expect(includeWorkspaceRootAuthority).toHaveBeenCalledTimes(1);
   });
+
+  it("registers async long-context tools when thread job ownership is available", () => {
+    const registeredTools: RegisteredTool[] = [];
+    const modelReference = {} as Model<"openai-completions">;
+
+    createLambdaRlmToolExtension({
+      threadId: "thread-1",
+      workspace: workspace(),
+      authorityRootPaths: () => ["/tmp/workspace"],
+      model: modelReference,
+      apiKey: undefined,
+      getRunId: () => "run-1",
+      asyncLongContextJobs: {} as any,
+    })({
+      registerTool: (tool: any) => {
+        registeredTools.push(tool);
+      },
+    } as any);
+
+    expect(registeredTools.map((tool) => tool.name)).toEqual([
+      "long_context_process",
+      "long_context_start",
+      "long_context_poll",
+      "long_context_cancel",
+    ]);
+  });
 });
 
 function workspace(): WorkspaceState {

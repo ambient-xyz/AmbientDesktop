@@ -2,7 +2,12 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useAppProjectBoardControls, type AppProjectBoardControlsOptions } from "./AppProjectBoardControls";
+import {
+  useAppProjectBoardControls,
+  useAppProjectBoardControlsForApp,
+  type AppProjectBoardControlsForAppInput,
+  type AppProjectBoardControlsOptions,
+} from "./AppProjectBoardControls";
 
 const mocks = vi.hoisted(() => ({
   createAppProjectBoardActions: vi.fn(),
@@ -121,20 +126,116 @@ describe("AppProjectBoardControls", () => {
     expect(actions.openProjectBoard).toHaveBeenCalledWith(project);
     expect(actions.addPlannerPlanToBoard).toHaveBeenCalledWith(readyPlan);
   });
+
+  it("maps App owner state into project-board controls", () => {
+    const model = {
+      activeProject: { id: "project-1", name: "Project", path: "/workspace" },
+      activeWorkspaceIsPreparedLocalTask: false,
+      errorNeedsSessionRecovery: false,
+      latestDurablePlannerPlanArtifact: undefined,
+      readyPlannerPlanArtifacts: [],
+      sessionContextMissing: false,
+    };
+    const shellControls = {
+      activeProjectBoardBusy: false,
+      activeProjectBoardTopbarAction: undefined,
+      activeThreadSuppressesProjectBoard: false,
+      projectBoardOpen: false,
+      projectBoardPlanBusy: false,
+      projectBoardPlanPickerOpen: false,
+      projectBoardThreadPlanAction: undefined,
+      runProjectBoardThreadPlanAction: vi.fn(),
+      setProjectBoardOpen: vi.fn(),
+      setProjectBoardPlanBusy: vi.fn(),
+      setProjectBoardPlanPickerOpen: vi.fn(),
+    };
+    const actions = { openProjectBoard: vi.fn() };
+    mocks.useAppWorkspaceProjectModel.mockReturnValue(model);
+    mocks.useAppProjectBoardShellControls.mockReturnValue(shellControls);
+    mocks.createAppProjectBoardActions.mockReturnValue(actions);
+
+    const options = optionsStub();
+    const input = forAppInputStub(options);
+
+    function Harness() {
+      useAppProjectBoardControlsForApp(input);
+      return React.createElement("div");
+    }
+
+    renderToStaticMarkup(React.createElement(Harness));
+
+    expect(mocks.useAppWorkspaceProjectModel).toHaveBeenCalledWith({
+      activeWorkspacePath: "/workspace",
+      contextUsage: options.contextUsage,
+      error: options.error,
+      plannerPlanArtifacts: options.plannerPlanArtifacts,
+      projects: options.projects,
+      workspacePath: "/workspace",
+    });
+    expect(mocks.useAppProjectBoardShellControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activeThread: options.activeThread,
+        activeThreadId: "thread-1",
+        activeWorkspacePath: "/workspace",
+        projectBoardBusyProjectIds: options.projectBoardBusyProjectIds,
+        workspaceName: "Workspace",
+        workspacePath: "/workspace",
+      }),
+    );
+    expect(mocks.createAppProjectBoardActions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activeThread: options.activeThread,
+        activeWorkspacePath: "/workspace",
+        applyCreatedThreadState: options.applyCreatedThreadState,
+        applyProjectActionState: options.applyProjectActionState,
+        previewArtifact: options.previewArtifact,
+        projectBoardBusyProjectIds: options.projectBoardBusyProjectIds,
+        projectBoardKickoffDefaultsBusy: options.projectBoardKickoffDefaultsBusy,
+        projectBoardResetDialog: options.projectBoardResetDialog,
+        selectProject: options.selectProject,
+        selectThread: options.selectThread,
+        setError: options.setError,
+        setProjectBoardBusyProjectIds: options.setProjectBoardBusyProjectIds,
+        setProjectBoardFinalizeBusy: options.setProjectBoardFinalizeBusy,
+        setProjectBoardKickoffDefaultsBusy: options.setProjectBoardKickoffDefaultsBusy,
+        setProjectBoardOpen: shellControls.setProjectBoardOpen,
+        setProjectBoardPlanBusy: shellControls.setProjectBoardPlanBusy,
+        setProjectBoardPlanPickerOpen: shellControls.setProjectBoardPlanPickerOpen,
+        setProjectBoardProposalAnswerBusy: options.setProjectBoardProposalAnswerBusy,
+        setProjectBoardProposalApplyBusy: options.setProjectBoardProposalApplyBusy,
+        setProjectBoardProposalCardReviewBusy: options.setProjectBoardProposalCardReviewBusy,
+        setProjectBoardRefineBusy: options.setProjectBoardRefineBusy,
+        setProjectBoardRefineMode: options.setProjectBoardRefineMode,
+        setProjectBoardResetDialog: options.setProjectBoardResetDialog,
+        setProjectBoardRevisionBusy: options.setProjectBoardRevisionBusy,
+        setProjectBoardSourceBusy: options.setProjectBoardSourceBusy,
+        setProjectBoardSourceImpactBusy: options.setProjectBoardSourceImpactBusy,
+        setProjectBoardSynthesisDeferBusy: options.setProjectBoardSynthesisDeferBusy,
+        setProjectBoardSynthesisPauseBusy: options.setProjectBoardSynthesisPauseBusy,
+        setProjectBoardSynthesisRetryBusy: options.setProjectBoardSynthesisRetryBusy,
+        setSidebarArea: options.setSidebarArea,
+        setState: options.setState,
+        state: options.state,
+      }),
+    );
+  });
 });
 
 function optionsStub(): AppProjectBoardControlsOptions {
+  const contextUsage = { usedTokens: 10, maxTokens: 100 };
+  const plannerPlanArtifacts = [{ id: "plan-1", status: "ready" }];
+  const projects = [{ id: "project-1", name: "Project", path: "/workspace" }];
   return {
     activeThread: { id: "thread-1" },
     activeThreadId: "thread-1",
     activeWorkspacePath: "/workspace",
     applyCreatedThreadState: vi.fn(),
     applyProjectActionState: vi.fn(),
-    contextUsage: { usedTokens: 10, maxTokens: 100 },
+    contextUsage,
     error: "recoverable",
-    plannerPlanArtifacts: [{ id: "plan-1", status: "ready" }],
+    plannerPlanArtifacts,
     previewArtifact: vi.fn(),
-    projects: [{ id: "project-1", name: "Project", path: "/workspace" }],
+    projects,
     projectBoardBusyProjectIds: new Set(["project-1"]),
     projectBoardKickoffDefaultsBusy: false,
     projectBoardResetDialog: undefined,
@@ -158,8 +259,71 @@ function optionsStub(): AppProjectBoardControlsOptions {
     setProjectBoardSynthesisRetryBusy: vi.fn(),
     setSidebarArea: vi.fn(),
     setState: vi.fn(),
-    state: { activeThreadId: "thread-1" },
+    state: {
+      activeThreadId: "thread-1",
+      activeWorkspace: { path: "/workspace" },
+      contextUsage,
+      plannerPlanArtifacts,
+      projects,
+      workspace: { name: "Workspace", path: "/workspace" },
+    },
     workspaceName: "Workspace",
     workspacePath: "/workspace",
   } as unknown as AppProjectBoardControlsOptions;
+}
+
+function forAppInputStub(options: AppProjectBoardControlsOptions): AppProjectBoardControlsForAppInput {
+  return {
+    activeThread: options.activeThread,
+    appDesktopStateAppliers: {
+      applyCreatedThreadState: options.applyCreatedThreadState,
+      applyProjectActionState: options.applyProjectActionState,
+    },
+    navigationActions: {
+      selectProject: options.selectProject,
+      selectThread: options.selectThread,
+    },
+    projectShellState: {
+      projectBoardBusyProjectIds: options.projectBoardBusyProjectIds,
+      projectBoardFinalizeBusy: false,
+      projectBoardKickoffDefaultsBusy: options.projectBoardKickoffDefaultsBusy,
+      projectBoardProposalAnswerBusy: false,
+      projectBoardProposalApplyBusy: false,
+      projectBoardProposalCardReviewBusy: false,
+      projectBoardRefineBusy: false,
+      projectBoardRefineMode: "inline",
+      projectBoardResetDialog: options.projectBoardResetDialog,
+      projectBoardRevisionBusy: false,
+      projectBoardSourceBusy: false,
+      projectBoardSourceImpactBusy: false,
+      projectBoardSynthesisDeferBusy: false,
+      projectBoardSynthesisPauseBusy: false,
+      projectBoardSynthesisRetryBusy: false,
+      setProjectBoardBusyProjectIds: options.setProjectBoardBusyProjectIds,
+      setProjectBoardFinalizeBusy: options.setProjectBoardFinalizeBusy,
+      setProjectBoardKickoffDefaultsBusy: options.setProjectBoardKickoffDefaultsBusy,
+      setProjectBoardProposalAnswerBusy: options.setProjectBoardProposalAnswerBusy,
+      setProjectBoardProposalApplyBusy: options.setProjectBoardProposalApplyBusy,
+      setProjectBoardProposalCardReviewBusy: options.setProjectBoardProposalCardReviewBusy,
+      setProjectBoardRefineBusy: options.setProjectBoardRefineBusy,
+      setProjectBoardRefineMode: options.setProjectBoardRefineMode,
+      setProjectBoardResetDialog: options.setProjectBoardResetDialog,
+      setProjectBoardRevisionBusy: options.setProjectBoardRevisionBusy,
+      setProjectBoardSourceBusy: options.setProjectBoardSourceBusy,
+      setProjectBoardSourceImpactBusy: options.setProjectBoardSourceImpactBusy,
+      setProjectBoardSynthesisDeferBusy: options.setProjectBoardSynthesisDeferBusy,
+      setProjectBoardSynthesisPauseBusy: options.setProjectBoardSynthesisPauseBusy,
+      setProjectBoardSynthesisRetryBusy: options.setProjectBoardSynthesisRetryBusy,
+    },
+    rightPanelState: {
+      previewArtifact: options.previewArtifact,
+    },
+    setState: options.setState,
+    shellUiState: {
+      error: options.error,
+      setError: options.setError,
+      setSidebarArea: options.setSidebarArea,
+    },
+    state: options.state,
+  } as unknown as AppProjectBoardControlsForAppInput;
 }

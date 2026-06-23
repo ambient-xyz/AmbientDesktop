@@ -7,6 +7,7 @@ import {
 } from "./agentRuntimeRetrySettings";
 
 const baseSettings = {
+  showPromptCacheStatus: false,
   providerPreStreamTimeoutMs: 45_000,
   providerStreamIdleTimeoutMs: 30_000,
   installedProviders: [],

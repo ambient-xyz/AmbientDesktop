@@ -5,7 +5,7 @@ import type {
   PlannerPlanWorkflowState,
 } from "../../shared/plannerTypes";
 import type { SubagentParentMailboxEventSummary } from "../../shared/subagentTypes";
-import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
+import type { ChatMessage, PromptCacheTelemetry, ThreadSummary } from "../../shared/threadTypes";
 import type { CallableWorkflowParentBlockingBlock } from "./agentRuntimeCallableWorkflowFacade";
 import type { AssistantTerminalCleanupDiagnostic } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
 import {
@@ -52,6 +52,7 @@ export interface RuntimeSuccessfulRunFinalizationInput {
   discardProviderRetrySession: boolean;
   providerRetrySessionFile?: string | undefined;
   providerRetryLastError?: string | undefined;
+  promptCacheTelemetry?: PromptCacheTelemetry | undefined;
   hasPlannerFinalizationSources: boolean;
   preResolvedCallableWorkflowFinalizationBlock?: CallableWorkflowParentBlockingBlock | undefined;
   resolveSubagentFinalizationBlock: () => SubagentFinalizationBarrierBlock | undefined;
@@ -138,6 +139,7 @@ export async function finalizeSuccessfulRuntimeRun(
     discardProviderRetrySession: input.discardProviderRetrySession,
     providerRetrySessionFile: input.providerRetrySessionFile,
     providerRetryLastError: input.providerRetryLastError,
+    promptCacheTelemetry: input.promptCacheTelemetry,
   });
   const finalStatus = finalAssistantMessage.status;
   const finalizationErrorText = finalAssistantMessage.finalizationErrorText;

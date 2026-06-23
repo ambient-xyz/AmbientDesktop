@@ -1,49 +1,25 @@
-import { Fragment, useMemo, type ComponentProps, type ReactNode, type RefObject } from "react";
-import {
-  ChevronDown,
-  ClipboardPaste,
-  Download,
-  Kanban,
-  RefreshCw,
-  Target,
-  Zap,
-} from "lucide-react";
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from "react";
+import { ChevronDown } from "lucide-react";
 
 import type { BrowserUserActionState } from "../../shared/browserTypes";
 import type { DesktopState, ProviderCatalogSettingsCard, ThinkingDisplayMode } from "../../shared/desktopTypes";
 import type { AnswerPlannerDecisionQuestionInput, PlannerPlanArtifact } from "../../shared/plannerTypes";
-import { isRunStatusRunning } from "../../shared/runStatus";
 import type { AmbientPluginRegistry } from "../../shared/pluginTypes";
-import type { ChatMessage, RunStatus, RuntimeActivity } from "../../shared/threadTypes";
+import type { ChatMessage, RunStatus, RuntimeActivity, ThreadGoal } from "../../shared/threadTypes";
 import type { WorkflowRecordingState } from "../../shared/workflowTypes";
-import { welcomeOnboardingPageKindFromMetadata } from "../../shared/welcomeOnboarding";
-import { ambientMiniLogoUrl } from "./AppBranding";
-import {
-  BrowserUserActionChatCard,
-  ChatFindBar,
-  DismissibleErrorStrip,
-  ThreadVoiceStatusBar,
-} from "./AppChatChrome";
+import { BrowserUserActionChatCard, ChatFindBar, DismissibleErrorStrip, ThreadVoiceStatusBar } from "./AppChatChrome";
 import type { CapabilityBuilderPromptResult } from "./AppCapabilityPromptActions";
 import type { ChatComposerInputHandle } from "./AppComposerControls";
 import type { MediaPreviewModalRequest } from "./AppToolMessages";
-import {
-  MessageBubble,
-  messageIsStreamingForRender,
-} from "./AppMessages";
+import { AppConversationEmptyState } from "./AppConversationEmptyState";
+import { AppConversationMessageRenderer } from "./AppConversationMessageRenderer";
+import { AppConversationSubagentChildStartingState, useAppConversationSubagentSurfaces } from "./AppConversationSubagentSurfaces";
 import { GoalCompletionConfetti } from "./AppGoalControls";
-import {
-  EMPTY_RUN_ACTIVITY_LINES,
-  formatRuntimeActivity,
-  RunActivityFeed,
-  type RunActivityLine,
-  type RunRetryStats,
-} from "./AppRunActivity";
+import { formatRuntimeActivity, RunActivityFeed, type RunActivityLine, type RunRetryStats } from "./AppRunActivity";
+import { RuntimeStatusStrips } from "./AppRuntimeStatusStrips";
 import { SessionContextRecoveryStrip } from "./AppSessionRecovery";
-import { WelcomeSetupMessage } from "./AppWelcomeSetup";
-import { WorkflowRecordingChatBanner, WorkflowRecorderEmptyChatState } from "./AppWorkflowRecording";
-import { SubagentParentCluster, type SubagentParentClusterProps } from "./SubagentParentCluster";
-import { SubagentChildTranscriptLive } from "./SubagentChildTranscriptLive";
+import { WorkflowRecordingChatBanner } from "./AppWorkflowRecording";
+import type { SubagentParentClusterProps } from "./SubagentParentCluster";
 import { SubagentThreadInspector } from "./SubagentThreadInspector";
 import type {
   SubagentParentClusterChildModel,
@@ -51,133 +27,12 @@ import type {
   SubagentParentClusterWorkflowTaskModel,
 } from "./subagentParentClusterUiModel";
 import type { ArtifactPathHints } from "./toolMessageUiModel";
+import type { RuntimeStatusIndicator } from "./runtimeStatusIndicatorUiModel";
+import { shouldVirtualizeMessages, useVirtualMessageRows } from "./messageVirtualization";
 
 type ThreadVoiceStatus = ComponentProps<typeof ThreadVoiceStatusBar>["status"];
 
-const EMPTY_ORPHANED_SUBAGENT_CLUSTERS: SubagentParentClusterModel[] = [];
-
-export function AppConversationMessages({
-  children,
-  goalCompletionCelebrationId,
-  chatFindOpen,
-  chatFindInputRef,
-  chatFindQuery,
-  chatFindCount,
-  chatFindIndex,
-  onChatFindQueryChange,
-  onChatFindPrevious,
-  onChatFindNext,
-  onChatFindClose,
-  activeThreadVoiceStatusVisible,
-  activeThreadVoiceStatus,
-  activeThreadVoiceStatusDismissKey,
-  onDismissActiveThreadVoiceStatus,
-  activeSubagentInspector,
-  workflowRecording,
-  workflowRecordingReviewRunning,
-  running,
-  abortArmed,
-  activeThreadId,
-  activeRunActivityLines,
-  runStatus,
-  retryStats,
-  chatExportBusy,
-  onRetryWorkflowRecordingReview,
-  onAbortRun,
-  onStopWorkflowRecording,
-  onExportActiveChat,
-  scrollRef,
-  onMessagesScroll,
-  visibleChatMessages,
-  activeChatBrowserUserAction,
-  workflowRecorderEmptyChatState,
-  provider,
-  providerCatalog,
-  welcomeAmbientPluginRegistry,
-  onOpenAmbientKeys,
-  onOpenApiKeyDialog,
-  onStartWelcomeFirstRunCapabilityOnboarding,
-  onStartWelcomeProviderCatalogCardOnboarding,
-  onStartWelcomeRemoteSurfaceActivation,
-  onOpenSettingsPanel,
-  onOpenPluginsPanel,
-  messageVoiceStates,
-  voiceProviderLabels,
-  streamingAssistantId,
-  retryableMessageIds,
-  onRetryMessage,
-  onSendTelegramSessionSetupPrompt,
-  onSendRemoteSurfaceActivationPrompt,
-  activeWorkspacePath,
-  onPreviewPath,
-  onPreviewLocalPath,
-  onOpenMediaModal,
-  generatedMediaAutoplay,
-  latestReadyVoiceAutoplay,
-  autoplayVoiceKey,
-  activeVoiceMessageId,
-  onActiveVoiceMessageChange,
-  onRegenerateVoice,
-  onRevealVoiceArtifact,
-  onClearVoiceArtifact,
-  onOpenUrl,
-  onOpenBrowserUrl,
-  onOpenBrowserPanel,
-  artifactPathHints,
-  plannerArtifactByMessageId,
-  onImplementPlannerPlan,
-  onRefinePlannerPlan,
-  onRetryPlannerFinalization,
-  onAddPlannerPlanToBoard,
-  onGeneratePlannerDurableArtifact,
-  hasProjectBoard,
-  onAnswerPlannerDecisionQuestion,
-  contextRecoveryBusy,
-  canRetryContextRecovery,
-  onRecoverActiveThreadContext,
-  onRecoverAndRetryLatest,
-  onDuplicateActiveThreadFromTranscript,
-  childMessagesByThreadId,
-  threads,
-  subagentRunEvents,
-  subagentMailboxEvents,
-  threadRunStatuses,
-  thinkingDisplayMode,
-  runActivityLinesByThread,
-  subagentParentClustersByMessageId,
-  onOpenSubagentThread,
-  onOpenSubagentParentThread,
-  onCancelSubagentChild,
-  onCloseSubagentChild,
-  onOpenCallableWorkflowThread,
-  onPauseCallableWorkflowTask,
-  onResumeCallableWorkflowTask,
-  onCancelCallableWorkflowTask,
-  onResolveSubagentBarrierAction,
-  onResolveSubagentApprovalAction,
-  subagentChildCancelBusy,
-  subagentChildCloseBusy,
-  callableWorkflowTaskPauseBusy,
-  callableWorkflowTaskResumeBusy,
-  callableWorkflowTaskCancelBusy,
-  subagentBarrierActionBusy,
-  subagentApprovalActionBusy,
-  chatBrowserUserActionBusy,
-  onResumeBrowserUserAction,
-  onCancelBrowserUserAction,
-  onOpenBrowserForUserAction,
-  transientThinkingActivityLines,
-  visibleRunActivityLines,
-  runStatusCardVisible,
-  showScrollToBottom,
-  onJumpToLatestMessage,
-  errorNeedsSessionRecovery,
-  error,
-  onDismissError,
-  activeWorkspaceIsPreparedLocalTask,
-  projectRootPath,
-  activeActivity,
-}: {
+export type AppConversationMessagesProps = {
   children?: ReactNode;
   goalCompletionCelebrationId?: string;
   chatFindOpen: boolean;
@@ -199,6 +54,7 @@ export function AppConversationMessages({
   running: boolean;
   abortArmed: boolean;
   activeThreadId: string;
+  activeThreadGoal?: ThreadGoal;
   activeRunActivityLines: RunActivityLine[];
   runStatus: RunStatus;
   retryStats?: RunRetryStats;
@@ -268,6 +124,7 @@ export function AppConversationMessages({
   subagentMailboxEvents: DesktopState["subagentMailboxEvents"];
   threadRunStatuses: Record<string, RunStatus>;
   thinkingDisplayMode: ThinkingDisplayMode;
+  showPromptCacheStatus?: boolean;
   runActivityLinesByThread: Record<string, RunActivityLine[]>;
   subagentParentClustersByMessageId: Map<string, SubagentParentClusterModel>;
   onOpenSubagentThread: (child: SubagentParentClusterChildModel) => void | Promise<void>;
@@ -294,6 +151,7 @@ export function AppConversationMessages({
   transientThinkingActivityLines: RunActivityLine[];
   visibleRunActivityLines: RunActivityLine[];
   runStatusCardVisible: boolean;
+  messageTailVisible: boolean;
   showScrollToBottom: boolean;
   onJumpToLatestMessage: () => void;
   errorNeedsSessionRecovery: boolean;
@@ -301,102 +159,300 @@ export function AppConversationMessages({
   onDismissError: () => void;
   activeWorkspaceIsPreparedLocalTask: boolean;
   projectRootPath: string;
+  runtimeStatusIndicators: RuntimeStatusIndicator[];
   activeActivity?: RuntimeActivity;
-}) {
+};
+
+function TransientThinkingActivitySlot({ lines, status, visible }: { lines: RunActivityLine[]; status: RunStatus; visible: boolean }) {
+  const slotRef = useRef<HTMLDivElement>(null);
+  const [slotMinHeight, setSlotMinHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    if (!visible) return;
+    const element = slotRef.current;
+    if (!element) return;
+    const updateSlotHeight = () => {
+      const nextHeight = Math.ceil(element.getBoundingClientRect().height);
+      if (nextHeight <= 0) return;
+      setSlotMinHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
+    };
+    updateSlotHeight();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateSlotHeight);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [lines, status, visible]);
+
+  if (!visible && slotMinHeight <= 0) return null;
+
+  return (
+    <div
+      className="transient-thinking-slot"
+      ref={slotRef}
+      aria-hidden={visible ? undefined : true}
+      style={!visible && slotMinHeight > 0 ? { minHeight: slotMinHeight } : undefined}
+    >
+      {visible ? <RunActivityFeed lines={lines} status={status} variant="thinking-transient" /> : null}
+    </div>
+  );
+}
+
+export function AppConversationMessages({
+  children,
+  goalCompletionCelebrationId,
+  chatFindOpen,
+  chatFindInputRef,
+  chatFindQuery,
+  chatFindCount,
+  chatFindIndex,
+  onChatFindQueryChange,
+  onChatFindPrevious,
+  onChatFindNext,
+  onChatFindClose,
+  activeThreadVoiceStatusVisible,
+  activeThreadVoiceStatus,
+  activeThreadVoiceStatusDismissKey,
+  onDismissActiveThreadVoiceStatus,
+  activeSubagentInspector,
+  workflowRecording,
+  workflowRecordingReviewRunning,
+  running,
+  abortArmed,
+  activeThreadId,
+  activeThreadGoal,
+  activeRunActivityLines,
+  runStatus,
+  retryStats,
+  chatExportBusy,
+  onRetryWorkflowRecordingReview,
+  onAbortRun,
+  onStopWorkflowRecording,
+  onExportActiveChat,
+  scrollRef,
+  onMessagesScroll,
+  visibleChatMessages,
+  activeChatBrowserUserAction,
+  workflowRecorderEmptyChatState,
+  provider,
+  providerCatalog,
+  welcomeAmbientPluginRegistry,
+  onOpenAmbientKeys,
+  onOpenApiKeyDialog,
+  onStartWelcomeFirstRunCapabilityOnboarding,
+  onStartWelcomeProviderCatalogCardOnboarding,
+  onStartWelcomeRemoteSurfaceActivation,
+  onOpenSettingsPanel,
+  onOpenPluginsPanel,
+  messageVoiceStates,
+  voiceProviderLabels,
+  streamingAssistantId,
+  retryableMessageIds,
+  onRetryMessage,
+  onSendTelegramSessionSetupPrompt,
+  onSendRemoteSurfaceActivationPrompt,
+  activeWorkspacePath,
+  onPreviewPath,
+  onPreviewLocalPath,
+  onOpenMediaModal,
+  generatedMediaAutoplay,
+  latestReadyVoiceAutoplay,
+  autoplayVoiceKey,
+  activeVoiceMessageId,
+  onActiveVoiceMessageChange,
+  onRegenerateVoice,
+  onRevealVoiceArtifact,
+  onClearVoiceArtifact,
+  onOpenUrl,
+  onOpenBrowserUrl,
+  onOpenBrowserPanel,
+  artifactPathHints,
+  plannerArtifactByMessageId,
+  onImplementPlannerPlan,
+  onRefinePlannerPlan,
+  onRetryPlannerFinalization,
+  onAddPlannerPlanToBoard,
+  onGeneratePlannerDurableArtifact,
+  hasProjectBoard,
+  onAnswerPlannerDecisionQuestion,
+  contextRecoveryBusy,
+  canRetryContextRecovery,
+  onRecoverActiveThreadContext,
+  onRecoverAndRetryLatest,
+  onDuplicateActiveThreadFromTranscript,
+  childMessagesByThreadId,
+  threads,
+  subagentRunEvents,
+  subagentMailboxEvents,
+  threadRunStatuses,
+  thinkingDisplayMode,
+  showPromptCacheStatus = false,
+  runActivityLinesByThread,
+  subagentParentClustersByMessageId,
+  onOpenSubagentThread,
+  onOpenSubagentParentThread,
+  onCancelSubagentChild,
+  onCloseSubagentChild,
+  onOpenCallableWorkflowThread,
+  onPauseCallableWorkflowTask,
+  onResumeCallableWorkflowTask,
+  onCancelCallableWorkflowTask,
+  onResolveSubagentBarrierAction,
+  onResolveSubagentApprovalAction,
+  subagentChildCancelBusy,
+  subagentChildCloseBusy,
+  callableWorkflowTaskPauseBusy,
+  callableWorkflowTaskResumeBusy,
+  callableWorkflowTaskCancelBusy,
+  subagentBarrierActionBusy,
+  subagentApprovalActionBusy,
+  chatBrowserUserActionBusy,
+  onResumeBrowserUserAction,
+  onCancelBrowserUserAction,
+  onOpenBrowserForUserAction,
+  transientThinkingActivityLines,
+  visibleRunActivityLines,
+  runStatusCardVisible,
+  messageTailVisible,
+  showScrollToBottom,
+  onJumpToLatestMessage,
+  errorNeedsSessionRecovery,
+  error,
+  onDismissError,
+  activeWorkspaceIsPreparedLocalTask,
+  projectRootPath,
+  runtimeStatusIndicators,
+  activeActivity,
+}: AppConversationMessagesProps) {
   const subagentThreadHasNoMessages = Boolean(activeSubagentInspector && visibleChatMessages.length === 0);
-  const renderSubagentChildTranscript = (child: SubagentParentClusterChildModel) => {
-    const childMessages = childMessagesByThreadId?.[child.childThreadId] ?? [];
-    const childThread = threads.find((thread) => thread.id === child.childThreadId);
-    const childWorkspacePath = child.workspacePath || childThread?.workspacePath || activeWorkspacePath;
-    const inferredChildRunStatus: RunStatus = child.statusTone === "active" ? "streaming" : "idle";
-    const childRunStatus = threadRunStatuses[child.childThreadId] ?? inferredChildRunStatus;
-    const childRuntimeEvents = subagentRunEvents.filter((event) => event.runId === child.runId);
-    const childMailboxEvents = subagentMailboxEvents.filter((event) => event.runId === child.runId);
-    return (
-      <SubagentChildTranscriptLive
-        child={child}
-        messages={childMessages}
-        workspacePath={childWorkspacePath}
-        runtimeEvents={childRuntimeEvents}
-        mailboxEvents={childMailboxEvents}
-        runStatus={childRunStatus}
-        parentRunning={running}
-        thinkingDisplayMode={thinkingDisplayMode}
-        voiceProviderLabels={voiceProviderLabels}
-        generatedMediaAutoplay={generatedMediaAutoplay}
-        activeVoiceMessageId={activeVoiceMessageId}
-        runActivityLines={runActivityLinesByThread[child.childThreadId] ?? EMPTY_RUN_ACTIVITY_LINES}
-        hasProjectBoard={hasProjectBoard}
-        highlightQuery={chatFindOpen ? chatFindQuery : ""}
-        onSendTelegramSessionSetupPrompt={onSendTelegramSessionSetupPrompt}
-        onSendRemoteSurfaceActivationPrompt={onSendRemoteSurfaceActivationPrompt}
-        onPreviewPath={onPreviewPath}
-        onPreviewLocalPath={onPreviewLocalPath}
-        onOpenMediaModal={onOpenMediaModal}
-        onActiveVoiceMessageChange={onActiveVoiceMessageChange}
-        onRegenerateVoice={onRegenerateVoice}
-        onRevealVoiceArtifact={onRevealVoiceArtifact}
-        onClearVoiceArtifact={onClearVoiceArtifact}
-        onOpenUrl={onOpenUrl}
-        onOpenBrowserUrl={onOpenBrowserUrl}
-        onOpenBrowserPanel={onOpenBrowserPanel}
-        onImplementPlannerPlan={onImplementPlannerPlan}
-        onRefinePlannerPlan={onRefinePlannerPlan}
-        onRetryPlannerFinalization={onRetryPlannerFinalization}
-        onAddPlannerPlanToBoard={onAddPlannerPlanToBoard}
-        onGeneratePlannerDurableArtifact={onGeneratePlannerDurableArtifact}
-        onAnswerPlannerDecisionQuestion={onAnswerPlannerDecisionQuestion}
-        onOpenThread={onOpenSubagentThread}
-      />
-    );
-  };
-  const liveInlineChildRunIdsForCluster = (cluster: SubagentParentClusterModel): string[] =>
-    cluster.children
-      .filter((child) => childShouldAutoOpenInlineTranscript(child, {
-        childMessagesByThreadId,
-        subagentRunEvents,
-        subagentMailboxEvents,
-        threadRunStatuses,
-        runActivityLinesByThread,
-      }))
-      .map((child) => child.runId);
-  const orphanedSubagentClusters = useMemo(() => {
-    if (subagentParentClustersByMessageId.size === 0) return EMPTY_ORPHANED_SUBAGENT_CLUSTERS;
-    const visibleChatMessageIds = new Set(visibleChatMessages.map((message) => message.id));
-    return [...subagentParentClustersByMessageId.values()].filter((cluster) => !visibleChatMessageIds.has(cluster.parentMessageId));
-  }, [subagentParentClustersByMessageId, visibleChatMessages]);
-  const renderSubagentParentCluster = (subagentCluster: SubagentParentClusterModel) => {
-    const liveInlineChildRunIds = liveInlineChildRunIdsForCluster(subagentCluster);
-    const subagentClusterAutoOpen = Boolean(
-      liveInlineChildRunIds.length > 0 ||
-      (subagentCluster.parentBlocking && subagentCluster.statusTone !== "success") ||
-      subagentCluster.workflowTasks.some((task) => task.childWait),
-    );
-    return (
-      <SubagentParentCluster
-        model={subagentCluster}
-        autoOpen={subagentClusterAutoOpen}
-        liveChildRunIds={liveInlineChildRunIds}
-        onOpenThread={onOpenSubagentThread}
-        onCancelChild={onCancelSubagentChild}
-        onCloseChild={onCloseSubagentChild}
-        onOpenWorkflowThread={onOpenCallableWorkflowThread}
-        onPauseWorkflowTask={onPauseCallableWorkflowTask}
-        onResumeWorkflowTask={onResumeCallableWorkflowTask}
-        onCancelWorkflowTask={onCancelCallableWorkflowTask}
-        onResolveBarrierAction={onResolveSubagentBarrierAction}
-        onResolveApprovalAction={onResolveSubagentApprovalAction}
-        renderChildTranscript={renderSubagentChildTranscript}
-        cancelChildBusyId={subagentChildCancelBusy}
-        closeChildBusyId={subagentChildCloseBusy}
-        pauseWorkflowTaskBusyId={callableWorkflowTaskPauseBusy}
-        resumeWorkflowTaskBusyId={callableWorkflowTaskResumeBusy}
-        cancelWorkflowTaskBusyId={callableWorkflowTaskCancelBusy}
-        barrierActionBusyId={subagentBarrierActionBusy}
-        approvalActionBusyId={subagentApprovalActionBusy}
-      />
-    );
-  };
+  const activeVirtualMessageIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (streamingAssistantId) ids.add(streamingAssistantId);
+    const latestMessage = visibleChatMessages[visibleChatMessages.length - 1];
+    if (running && latestMessage) ids.add(latestMessage.id);
+    return ids;
+  }, [running, streamingAssistantId, visibleChatMessages]);
+  const virtualMessagesEnabled = shouldVirtualizeMessages({
+    messageCount: visibleChatMessages.length,
+    chatFindOpen,
+    activeSubagentInspector: Boolean(activeSubagentInspector),
+  });
+  const virtualMessages = useVirtualMessageRows({
+    items: visibleChatMessages,
+    scrollRef,
+    enabled: virtualMessagesEnabled,
+    activeIds: activeVirtualMessageIds,
+  });
+  const { orphanedSubagentClusters, renderSubagentParentCluster } = useAppConversationSubagentSurfaces({
+    visibleChatMessages,
+    childMessagesByThreadId,
+    threads,
+    subagentRunEvents,
+    subagentMailboxEvents,
+    threadRunStatuses,
+    thinkingDisplayMode,
+    runActivityLinesByThread,
+    subagentParentClustersByMessageId,
+    running,
+    activeWorkspacePath,
+    voiceProviderLabels,
+    generatedMediaAutoplay,
+    showPromptCacheStatus,
+    activeVoiceMessageId,
+    hasProjectBoard,
+    chatFindOpen,
+    chatFindQuery,
+    onSendTelegramSessionSetupPrompt,
+    onSendRemoteSurfaceActivationPrompt,
+    onPreviewPath,
+    onPreviewLocalPath,
+    onOpenMediaModal,
+    onActiveVoiceMessageChange,
+    onRegenerateVoice,
+    onRevealVoiceArtifact,
+    onClearVoiceArtifact,
+    onOpenUrl,
+    onOpenBrowserUrl,
+    onOpenBrowserPanel,
+    onImplementPlannerPlan,
+    onRefinePlannerPlan,
+    onRetryPlannerFinalization,
+    onAddPlannerPlanToBoard,
+    onGeneratePlannerDurableArtifact,
+    onAnswerPlannerDecisionQuestion,
+    onOpenSubagentThread,
+    onCancelSubagentChild,
+    onCloseSubagentChild,
+    onOpenCallableWorkflowThread,
+    onPauseCallableWorkflowTask,
+    onResumeCallableWorkflowTask,
+    onCancelCallableWorkflowTask,
+    onResolveSubagentBarrierAction,
+    onResolveSubagentApprovalAction,
+    subagentChildCancelBusy,
+    subagentChildCloseBusy,
+    callableWorkflowTaskPauseBusy,
+    callableWorkflowTaskResumeBusy,
+    callableWorkflowTaskCancelBusy,
+    subagentBarrierActionBusy,
+    subagentApprovalActionBusy,
+  });
+
+  const renderConversationMessage = (message: ChatMessage) => (
+    <AppConversationMessageRenderer
+      message={message}
+      subagentCluster={subagentParentClustersByMessageId.get(message.id)}
+      renderSubagentParentCluster={renderSubagentParentCluster}
+      running={running}
+      providerCatalog={providerCatalog}
+      welcomeAmbientPluginRegistry={welcomeAmbientPluginRegistry}
+      onStartWelcomeFirstRunCapabilityOnboarding={onStartWelcomeFirstRunCapabilityOnboarding}
+      onStartWelcomeProviderCatalogCardOnboarding={onStartWelcomeProviderCatalogCardOnboarding}
+      onStartWelcomeRemoteSurfaceActivation={onStartWelcomeRemoteSurfaceActivation}
+      onOpenSettingsPanel={onOpenSettingsPanel}
+      onOpenPluginsPanel={onOpenPluginsPanel}
+      messageVoiceStates={messageVoiceStates}
+      voiceProviderLabels={voiceProviderLabels}
+      streamingAssistantId={streamingAssistantId}
+      retryableMessageIds={retryableMessageIds}
+      onRetryMessage={onRetryMessage}
+      onSendTelegramSessionSetupPrompt={onSendTelegramSessionSetupPrompt}
+      onSendRemoteSurfaceActivationPrompt={onSendRemoteSurfaceActivationPrompt}
+      activeWorkspacePath={activeWorkspacePath}
+      onPreviewPath={onPreviewPath}
+      onPreviewLocalPath={onPreviewLocalPath}
+      onOpenMediaModal={onOpenMediaModal}
+      generatedMediaAutoplay={generatedMediaAutoplay}
+      latestReadyVoiceAutoplay={latestReadyVoiceAutoplay}
+      autoplayVoiceKey={autoplayVoiceKey}
+      activeVoiceMessageId={activeVoiceMessageId}
+      onActiveVoiceMessageChange={onActiveVoiceMessageChange}
+      onRegenerateVoice={onRegenerateVoice}
+      onRevealVoiceArtifact={onRevealVoiceArtifact}
+      onClearVoiceArtifact={onClearVoiceArtifact}
+      onOpenUrl={onOpenUrl}
+      onOpenBrowserUrl={onOpenBrowserUrl}
+      onOpenBrowserPanel={onOpenBrowserPanel}
+      artifactPathHints={artifactPathHints}
+      plannerArtifactByMessageId={plannerArtifactByMessageId}
+      activeRunActivityLines={activeRunActivityLines}
+      runStatus={runStatus}
+      onImplementPlannerPlan={onImplementPlannerPlan}
+      onRefinePlannerPlan={onRefinePlannerPlan}
+      onRetryPlannerFinalization={onRetryPlannerFinalization}
+      onAddPlannerPlanToBoard={onAddPlannerPlanToBoard}
+      onGeneratePlannerDurableArtifact={onGeneratePlannerDurableArtifact}
+      hasProjectBoard={hasProjectBoard}
+      onAnswerPlannerDecisionQuestion={onAnswerPlannerDecisionQuestion}
+      chatFindOpen={chatFindOpen}
+      chatFindQuery={chatFindQuery}
+      contextRecoveryBusy={contextRecoveryBusy}
+      canRetryContextRecovery={canRetryContextRecovery}
+      onRecoverActiveThreadContext={onRecoverActiveThreadContext}
+      onRecoverAndRetryLatest={onRecoverAndRetryLatest}
+      onDuplicateActiveThreadFromTranscript={onDuplicateActiveThreadFromTranscript}
+      showPromptCacheStatus={showPromptCacheStatus}
+    />
+  );
 
   return (
     <section className={activeSubagentInspector ? "conversation subagent-inspector-docked" : "conversation"}>
@@ -437,139 +493,31 @@ export function AppConversationMessages({
       />
       <div className="messages" ref={scrollRef} onScroll={onMessagesScroll}>
         {visibleChatMessages.length === 0 && !activeChatBrowserUserAction?.active && !running && !activeSubagentInspector ? (
-          workflowRecorderEmptyChatState ? (
-            <WorkflowRecorderEmptyChatState title={workflowRecorderEmptyChatState.title} paragraphs={workflowRecorderEmptyChatState.paragraphs}>
-              {!provider.hasApiKey && (
-                <SetupCallout provider={provider} onOpenAmbientKeys={onOpenAmbientKeys} onOpenApiKeyDialog={onOpenApiKeyDialog} />
-              )}
-            </WorkflowRecorderEmptyChatState>
-          ) : (
-            <div className="empty-state">
-              <img className="ambient-mark large" src={ambientMiniLogoUrl} alt="" />
-              <h1>Ambient</h1>
-              <div className="empty-project-guidance">
-                <p>Build iteratively in threads.</p>
-                <p>
-                  When a project is ready for formal execution, click{" "}
-                  <span className="empty-guidance-icon" aria-label="Plan">
-                    <ClipboardPaste size={13} aria-hidden="true" />
-                    <span>Plan</span>
-                  </span>{" "}
-                  to create a durable plan.
-                </p>
-                <p>Then choose how you want Ambient to carry it out:</p>
-                <p>
-                  <span className="empty-guidance-icon" aria-label="Goal mode loops">
-                    <Target size={13} aria-hidden="true" />
-                    <span>Goal mode loops</span>
-                  </span>{" "}
-                  can implement the plan fully autonomously, continuing until the goal is complete, blocked, or needs your input.
-                </p>
-                <p>
-                  <span className="empty-guidance-icon" aria-label="Project Board">
-                    <Kanban size={13} aria-hidden="true" />
-                    <span>Project Board</span>
-                  </span>{" "}
-                  turns the plan into visible Kanban work, giving you more control, approval points, and involvement as tasks move forward.
-                </p>
-                <p>
-                  Click{" "}
-                  <span className="empty-guidance-icon" aria-label="Full access">
-                    <Zap size={13} aria-hidden="true" />
-                  </span>{" "}
-                  to turn on full access mode when Ambient needs broader local permissions.
-                </p>
-                <p>
-                  Ambient is in beta. If you encounter problems, click{" "}
-                  <span className="empty-guidance-icon" aria-label="Download">
-                    <Download size={13} aria-hidden="true" />
-                  </span>{" "}
-                  to download a report and email it to support@ambientcrypto.ai.
-                </p>
-                <p>
-                  <span className="empty-guidance-icon" aria-label="Updates">
-                    <RefreshCw size={13} aria-hidden="true" />
-                  </span>{" "}
-                  Ambient updates itself; when an update is available, it appears in the upper-left corner.
-                </p>
-              </div>
-              {!provider.hasApiKey && (
-                <SetupCallout provider={provider} onOpenAmbientKeys={onOpenAmbientKeys} onOpenApiKeyDialog={onOpenApiKeyDialog} />
-              )}
-            </div>
-          )
+          <AppConversationEmptyState
+            workflowRecorderEmptyChatState={workflowRecorderEmptyChatState}
+            provider={provider}
+            onOpenAmbientKeys={onOpenAmbientKeys}
+            onOpenApiKeyDialog={onOpenApiKeyDialog}
+          />
         ) : (
           <>
-            {visibleChatMessages.map((message) => {
-              const welcomePageKind = welcomeOnboardingPageKindFromMetadata(message.metadata);
-              if (welcomePageKind === "core_setup" || welcomePageKind === "plugin_setup") {
-                return (
-                  <WelcomeSetupMessage
-                    key={message.id}
-                    pageKind={welcomePageKind}
-                    catalogCards={providerCatalog.cards}
-                    catalogVersion={providerCatalog.catalogVersion}
-                    generatedAt={providerCatalog.generatedAt}
-                    running={running}
-                    registry={welcomeAmbientPluginRegistry}
-                    onStartFirstRun={onStartWelcomeFirstRunCapabilityOnboarding}
-                    onStartProviderCard={onStartWelcomeProviderCatalogCardOnboarding}
-                    onStartRemoteSurfaceActivation={onStartWelcomeRemoteSurfaceActivation}
-                    onOpenSettings={onOpenSettingsPanel}
-                    onOpenPlugins={onOpenPluginsPanel}
-                    onOpenCapabilityBuilder={onOpenPluginsPanel}
-                  />
-                );
-              }
-              const subagentCluster = subagentParentClustersByMessageId.get(message.id);
-              return (
-                <Fragment key={message.id}>
-                  <MessageBubble
-                    message={message}
-                    voiceState={messageVoiceStates[message.id]}
-                    voiceProviderLabels={voiceProviderLabels}
-                    streaming={messageIsStreamingForRender(message, running, streamingAssistantId)}
-                    retryable={retryableMessageIds.has(message.id) && !running}
-                    onRetry={onRetryMessage}
-                    toolActionDisabled={running}
-                    onSendTelegramSessionSetupPrompt={onSendTelegramSessionSetupPrompt}
-                    onSendRemoteSurfaceActivationPrompt={onSendRemoteSurfaceActivationPrompt}
-                    workspacePath={activeWorkspacePath}
-                    onPreviewPath={onPreviewPath}
-                    onPreviewLocalPath={onPreviewLocalPath}
-                    onOpenMediaModal={onOpenMediaModal}
-                    generatedMediaAutoplay={generatedMediaAutoplay}
-                    voiceShouldAutoplay={message.id === latestReadyVoiceAutoplay?.messageId && autoplayVoiceKey === latestReadyVoiceAutoplay?.key}
-                    activeVoiceMessageId={activeVoiceMessageId}
-                    onActiveVoiceMessageChange={onActiveVoiceMessageChange}
-                    onRegenerateVoice={onRegenerateVoice}
-                    onRevealVoiceArtifact={onRevealVoiceArtifact}
-                    onClearVoiceArtifact={onClearVoiceArtifact}
-                    onOpenUrl={onOpenUrl}
-                    onOpenBrowserUrl={onOpenBrowserUrl}
-                    onOpenBrowserPanel={onOpenBrowserPanel}
-                    artifactPathHints={artifactPathHints}
-                    plannerPlanArtifact={plannerArtifactByMessageId.get(message.id)}
-                    runActivityLines={activeRunActivityLines}
-                    runStatus={runStatus}
-                    onImplementPlannerPlan={onImplementPlannerPlan}
-                    onRefinePlannerPlan={onRefinePlannerPlan}
-                    onRetryPlannerFinalization={onRetryPlannerFinalization}
-                    onAddPlannerPlanToBoard={onAddPlannerPlanToBoard}
-                    onGeneratePlannerDurableArtifact={onGeneratePlannerDurableArtifact}
-                    hasProjectBoard={hasProjectBoard}
-                    onAnswerPlannerDecisionQuestion={onAnswerPlannerDecisionQuestion}
-                    highlightQuery={chatFindOpen ? chatFindQuery : ""}
-                    contextRecoveryBusy={contextRecoveryBusy}
-                    contextRecoveryCanRetry={canRetryContextRecovery}
-                    onRecoverContext={onRecoverActiveThreadContext}
-                    onRecoverContextAndRetry={onRecoverAndRetryLatest}
-                    onDuplicateThreadFromTranscript={onDuplicateActiveThreadFromTranscript}
-                  />
-                  {subagentCluster && renderSubagentParentCluster(subagentCluster)}
-                </Fragment>
-              );
-            })}
+            {virtualMessages.enabled ? (
+              <div className="messages-virtual-list" style={{ height: virtualMessages.totalHeight }}>
+                {virtualMessages.rows.map((row) => (
+                  <div
+                    key={row.item.id}
+                    className="messages-virtual-row"
+                    data-message-id={row.item.id}
+                    ref={(element) => virtualMessages.measureElement(row.item, element)}
+                    style={{ transform: `translateY(${row.start}px)` }}
+                  >
+                    {renderConversationMessage(row.item)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              visibleChatMessages.map((message) => <Fragment key={message.id}>{renderConversationMessage(message)}</Fragment>)
+            )}
             {orphanedSubagentClusters.map((subagentCluster) => (
               <Fragment key={`orphan-subagent-cluster:${subagentCluster.parentMessageId}`}>
                 {renderSubagentParentCluster(subagentCluster)}
@@ -585,13 +533,13 @@ export function AppConversationMessages({
               />
             )}
             {transientThinkingActivityLines.length > 0 && !workflowRecordingReviewRunning && (
-              <RunActivityFeed lines={transientThinkingActivityLines} status={runStatus} variant="thinking-transient" />
+              <TransientThinkingActivitySlot lines={transientThinkingActivityLines} status={runStatus} visible={messageTailVisible} />
             )}
             {runStatusCardVisible && <RunActivityFeed lines={visibleRunActivityLines} status={runStatus} />}
           </>
         )}
         {subagentThreadHasNoMessages && activeSubagentInspector && (
-          <SubagentChildStartingState
+          <AppConversationSubagentChildStartingState
             model={activeSubagentInspector}
             runStatus={runStatus}
             activeRunActivityLines={activeRunActivityLines}
@@ -637,138 +585,14 @@ export function AppConversationMessages({
         <div className="workspace-context-strip" title={`Project root: ${projectRootPath}\nCurrent chat workspace: ${activeWorkspacePath}`}>
           <strong>Local Task workspace</strong>
           <span>
-            This chat is running in a prepared workspace. Project board actions still use the owning project root, while file, terminal, and artifact actions use the current workspace.
+            This chat is running in a prepared workspace. Project board actions still use the owning project root, while file, terminal, and
+            artifact actions use the current workspace.
           </span>
         </div>
       )}
+      <RuntimeStatusStrips indicators={runtimeStatusIndicators} activeGoal={activeThreadGoal} />
       {activeActivity && <div className="activity-strip">{formatRuntimeActivity(activeActivity)}</div>}
       {children}
     </section>
-  );
-}
-
-function childShouldAutoOpenInlineTranscript(
-  child: SubagentParentClusterChildModel,
-  input: {
-    childMessagesByThreadId?: DesktopState["childMessagesByThreadId"];
-    subagentRunEvents: DesktopState["subagentRunEvents"];
-    subagentMailboxEvents: DesktopState["subagentMailboxEvents"];
-    threadRunStatuses: Record<string, RunStatus>;
-    runActivityLinesByThread: Record<string, RunActivityLine[]>;
-  },
-): boolean {
-  const childMessages = input.childMessagesByThreadId?.[child.childThreadId] ?? [];
-  const childRunStatus = input.threadRunStatuses[child.childThreadId];
-  const childRunning = childRunStatus ? isRunStatusRunning(childRunStatus) : child.statusTone === "active";
-  const childRuntimeEventsVisible = input.subagentRunEvents.some((event) => event.runId === child.runId);
-  const childMailboxEventsVisible = input.subagentMailboxEvents.some((event) =>
-    event.runId === child.runId && event.type !== "subagent.task"
-  );
-  const childActivityVisible = (input.runActivityLinesByThread[child.childThreadId]?.length ?? 0) > 0;
-  const childHasLiveEvidence = childMessages.length > 0 ||
-    childRuntimeEventsVisible ||
-    childMailboxEventsVisible ||
-    childActivityVisible;
-  const childNeedsParentControl = Boolean(child.parentBlocker && child.parentBlocker.statusTone !== "success");
-  if (childNeedsParentControl) return true;
-  if (child.isTerminal) return false;
-  return childRunning || child.statusTone === "active" || childHasLiveEvidence;
-}
-
-export type AppConversationMessagesProps = ComponentProps<typeof AppConversationMessages>;
-
-function SubagentChildStartingState({
-  model,
-  runStatus,
-  activeRunActivityLines,
-}: {
-  model: ComponentProps<typeof SubagentThreadInspector>["model"];
-  runStatus: RunStatus;
-  activeRunActivityLines: RunActivityLine[];
-}) {
-  return (
-    <section
-      className={`subagent-child-starting-state tone-${model.statusTone}`}
-      aria-label={`Child thread startup status for ${model.title}`}
-      aria-live="polite"
-      data-subagent-child-starting-state="true"
-      data-subagent-child-run-id={model.runId}
-      data-subagent-child-status={model.status}
-      data-subagent-child-activity-count={activeRunActivityLines.length}
-    >
-      <div className="subagent-child-starting-header">
-        <div>
-          <span className="subagent-thread-kicker">Child thread</span>
-          <strong>{model.title}</strong>
-        </div>
-        <span className={`subagent-thread-status tone-${model.statusTone}`}>{model.status}</span>
-      </div>
-      <div className="subagent-child-starting-body">
-        <div className="subagent-child-starting-pulse" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
-        <div>
-          <strong>{childStartingTitle(model.statusTone)}</strong>
-          <span>{childStartingDetail(model)}</span>
-        </div>
-      </div>
-      {activeRunActivityLines.length > 0 ? (
-        <div className="subagent-child-starting-activity">
-          <RunActivityFeed lines={activeRunActivityLines} status={runStatus} />
-        </div>
-      ) : (
-        <div className="subagent-child-starting-empty">
-          Waiting for the first child stream event...
-        </div>
-      )}
-    </section>
-  );
-}
-
-function childStartingTitle(tone: ComponentProps<typeof SubagentThreadInspector>["model"]["statusTone"]): string {
-  if (tone === "danger") return "Child run needs attention before transcript arrives";
-  if (tone === "warning") return "Child run is paused before transcript arrives";
-  if (tone === "success") return "Child result is recorded while transcript loads";
-  return "Child run is starting";
-}
-
-function childStartingDetail(model: ComponentProps<typeof SubagentThreadInspector>["model"]): string {
-  if (model.parentBarrier) {
-    return `${model.parentBarrier.label}: ${model.parentBarrier.detail}`;
-  }
-  if (model.statusTone === "success") {
-    return "Ambient has a terminal child status; the transcript area will fill as stored messages finish loading.";
-  }
-  if (model.statusTone === "danger" || model.statusTone === "warning") {
-    return "The child status is visible now; assistant text, tool calls, approvals, and errors will appear in this thread once they arrive.";
-  }
-  return "Assistant text, tool calls, approvals, and errors will appear in this thread as soon as the child session emits them.";
-}
-
-function SetupCallout({
-  provider,
-  onOpenAmbientKeys,
-  onOpenApiKeyDialog,
-}: {
-  provider: DesktopState["provider"];
-  onOpenAmbientKeys: () => void | Promise<void>;
-  onOpenApiKeyDialog: () => void | Promise<void>;
-}) {
-  return (
-    <div className="setup-callout">
-      <p>Add a {provider.providerLabel} API key to start working.</p>
-      <div>
-        {provider.providerId === "ambient" && (
-          <button type="button" onClick={() => void onOpenAmbientKeys()}>
-            Get key
-          </button>
-        )}
-        <button type="button" onClick={() => void onOpenApiKeyDialog()}>
-          Paste key
-        </button>
-      </div>
-    </div>
   );
 }

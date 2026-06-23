@@ -194,6 +194,11 @@ export interface AmbientCompactionFileLists {
 
 const MAX_LINES_PER_SECTION = 12;
 const MAX_SNIPPET_CHARS = 360;
+const RECENT_VISIBLE_TRANSCRIPT_ENTRY_COUNT = 30;
+const FULL_VISIBLE_TRANSCRIPT_TURN_COUNT = 10;
+const OLDER_VISIBLE_TRANSCRIPT_SNIPPET_CHARS = 360;
+const MAX_FULL_VISIBLE_TRANSCRIPT_ENTRY_CHARS = 8_000;
+const MAX_FULL_VISIBLE_TRANSCRIPT_TOTAL_CHARS = 40_000;
 const VISIBLE_TRANSCRIPT_RECOVERY_ALREADY_REBUILT_CONTEXT_MESSAGE =
   "Model context was already rebuilt from the visible transcript.";
 const VISIBLE_TRANSCRIPT_RECOVERY_NORMAL_COMPACTION_REQUIRED_ERROR =
@@ -290,10 +295,7 @@ export function collectAmbientCompactionFileLists(input: {
 }
 
 export function buildVisibleTranscriptRecoverySummary(input: VisibleTranscriptRecoveryInput): string {
-  const messages = visibleTranscriptMessagesForModelContext(input.visibleMessages)
-    .map((message) => ({ message, content: visibleTranscriptRecoveryContent(message) }))
-    .filter((entry): entry is { message: ChatMessage; content: string } => Boolean(entry.content))
-    .slice(-30);
+  const messages = visibleTranscriptRecoveryEntries(input.visibleMessages);
   return [
     "# Ambient Visible Transcript Recovery",
     "",
@@ -310,7 +312,7 @@ export function buildVisibleTranscriptRecoverySummary(input: VisibleTranscriptRe
     "",
     "## Recent Visible Transcript",
     ...listOrFallback(
-      messages.map((entry) => `- ${entry.message.role}: ${redactedSnippet(entry.content)}`),
+      messages.map(visibleTranscriptRecoveryLine),
       "- No visible messages were available.",
     ),
     "",
@@ -575,6 +577,74 @@ export function visibleTranscriptRecoveryDefaultSessionSeedMessages(
   });
 }
 
+interface VisibleTranscriptRecoveryEntry {
+  index: number;
+  message: ChatMessage;
+  content: string;
+  preserveFull: boolean;
+  fullCharLimit?: number;
+}
+
+function visibleTranscriptRecoveryEntries(messages: ChatMessage[]): VisibleTranscriptRecoveryEntry[] {
+  const entries = visibleTranscriptMessagesForModelContext(messages)
+    .map((message, index) => ({ index, message, content: visibleTranscriptRecoveryContent(message), preserveFull: false }))
+    .filter((entry): entry is VisibleTranscriptRecoveryEntry => Boolean(entry.content));
+  const fullTurnMessageIndexes = recentConversationTurnMessageIndexes(entries);
+  const recentEntryIndexes = new Set(entries.slice(-RECENT_VISIBLE_TRANSCRIPT_ENTRY_COUNT).map((entry) => entry.index));
+  const selectedEntries = entries
+    .filter((entry) => recentEntryIndexes.has(entry.index) || fullTurnMessageIndexes.has(entry.index))
+    .map((entry) => ({
+      ...entry,
+      preserveFull: fullTurnMessageIndexes.has(entry.index) && isConversationRole(entry.message.role),
+    }));
+  const fullCharLimits = recentFullTranscriptCharLimits(selectedEntries);
+  return selectedEntries.map((entry) => ({ ...entry, fullCharLimit: fullCharLimits.get(entry.index) }));
+}
+
+function recentConversationTurnMessageIndexes(entries: VisibleTranscriptRecoveryEntry[]): Set<number> {
+  const turns: VisibleTranscriptRecoveryEntry[][] = [];
+  let currentTurn: VisibleTranscriptRecoveryEntry[] = [];
+  for (const entry of entries) {
+    if (!isConversationRole(entry.message.role)) continue;
+    if (entry.message.role === "user" && currentTurn.length > 0) {
+      turns.push(currentTurn);
+      currentTurn = [];
+    }
+    currentTurn.push(entry);
+  }
+  if (currentTurn.length > 0) turns.push(currentTurn);
+
+  return new Set(
+    turns
+      .slice(-FULL_VISIBLE_TRANSCRIPT_TURN_COUNT)
+      .flatMap((turn) => turn.map((entry) => entry.index)),
+  );
+}
+
+function isConversationRole(role: ChatMessage["role"]): boolean {
+  return role === "user" || role === "assistant";
+}
+
+function recentFullTranscriptCharLimits(entries: VisibleTranscriptRecoveryEntry[]): Map<number, number> {
+  const limits = new Map<number, number>();
+  let remaining = MAX_FULL_VISIBLE_TRANSCRIPT_TOTAL_CHARS;
+  for (const entry of [...entries].reverse()) {
+    if (!entry.preserveFull) continue;
+    const limit = Math.min(MAX_FULL_VISIBLE_TRANSCRIPT_ENTRY_CHARS, remaining);
+    if (limit <= 0) continue;
+    limits.set(entry.index, limit);
+    remaining -= Math.min(redactedTranscriptContent(entry.content).length, limit);
+  }
+  return limits;
+}
+
+function visibleTranscriptRecoveryLine(entry: VisibleTranscriptRecoveryEntry): string {
+  const content = entry.preserveFull && entry.fullCharLimit
+    ? redactedBoundedTranscriptContent(entry.content, entry.fullCharLimit)
+    : redactedHeadTailSnippet(entry.content, OLDER_VISIBLE_TRANSCRIPT_SNIPPET_CHARS);
+  return `- ${entry.message.role}: ${content}`;
+}
+
 function visibleTranscriptRecoveryContent(message: ChatMessage): string | undefined {
   if (isRecoveryNoiseMessage(message)) return undefined;
   const content = message.content.trim();
@@ -687,13 +757,31 @@ function messageContent(content: unknown): string {
 }
 
 function redactedSnippet(value: string, maxChars = MAX_SNIPPET_CHARS): string {
-  const redacted = value
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi, "Bearer [REDACTED]")
-    .replace(/\b(?:sk|zai|ambient|glm)-[A-Za-z0-9._-]{20,}\b/gi, "[REDACTED]")
-    .replace(/\b((?:api[_-]?key|authorization|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*["']?)([^"',}\s]{8,})/gi, "$1[REDACTED]");
-  const compact = redacted.replace(/\s+/g, " ").trim();
+  const compact = redactedTranscriptContent(value).replace(/\s+/g, " ").trim();
   if (compact.length <= maxChars) return compact;
   return `${compact.slice(0, maxChars)}...`;
+}
+
+function redactedHeadTailSnippet(value: string, maxChars = MAX_SNIPPET_CHARS): string {
+  const compact = redactedTranscriptContent(value).replace(/\s+/g, " ").trim();
+  if (compact.length <= maxChars) return compact;
+  const headLength = Math.ceil(maxChars / 2);
+  const tailLength = Math.floor(maxChars / 2);
+  return `${compact.slice(0, headLength)} ... ${compact.slice(-tailLength)}`;
+}
+
+function redactedBoundedTranscriptContent(value: string, maxChars: number): string {
+  const redacted = redactedTranscriptContent(value);
+  if (redacted.length <= maxChars) return redacted;
+  return redactedHeadTailSnippet(redacted, Math.max(1, maxChars - " ... ".length));
+}
+
+function redactedTranscriptContent(value: string): string {
+  return value
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi, "Bearer [REDACTED]")
+    .replace(/\b(?:sk|zai|ambient|glm)-[A-Za-z0-9._-]{20,}\b/gi, "[REDACTED]")
+    .replace(/\b((?:api[_-]?key|authorization|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*["']?)([^"',}\s]{8,})/gi, "$1[REDACTED]")
+    .trim();
 }
 
 function listOrFallback(lines: string[], fallback: string): string[] {

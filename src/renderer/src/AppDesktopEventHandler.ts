@@ -16,6 +16,11 @@ import {
   type AppendRunActivityLine,
 } from "./AppRunActivity";
 import { coalesceWorkflowCompileProgress } from "./AppWorkflowRecording";
+import {
+  runtimeStatusIndicatorsAfterGoalUpdated,
+  runtimeStatusIndicatorsAfterRunStatus,
+  runtimeStatusIndicatorsAfterRuntimeActivity,
+} from "./runtimeStatusIndicatorUiModel";
 import type { useAppAutomationShellState } from "./AppAutomationShellState";
 import type { createAppDesktopEventGuards } from "./AppDesktopEventGuards";
 import type { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
@@ -45,7 +50,12 @@ type AppDesktopEventWorkspaceDependencies = Pick<
 
 type AppDesktopEventRunDependencies = Pick<
   ReturnType<typeof useAppRunActivityState>,
-  "setActivity" | "setRetryStatsByThread" | "setRunStatus" | "setThreadRunStatuses" | "runtimeActivityRenderStateRef"
+  | "setActivity"
+  | "setRetryStatsByThread"
+  | "setRunStatus"
+  | "setRuntimeStatusIndicatorsByThread"
+  | "setThreadRunStatuses"
+  | "runtimeActivityRenderStateRef"
 >;
 
 type AppDesktopEventShellDependencies = Pick<ReturnType<typeof useAppShellUiState>, "setScopedError">;
@@ -190,6 +200,12 @@ export function toolEventCouldAffectSpeechProviderState(details: unknown): boole
   );
 }
 
+export function thinkingActivityTextFromMessageContent(content: string): string | undefined {
+  const normalized = content.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  if (!normalized) return undefined;
+  return normalized.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).at(-1);
+}
+
 export function handleAppDesktopEvent(event: DesktopEvent, deps: AppDesktopEventHandlerDependencies): void {
   if (event.type === "state") {
     const nextState = desktopStateWithoutClearedGoal(event.state, deps.clearedGoalKeysRef.current);
@@ -227,6 +243,13 @@ export function handleAppDesktopEvent(event: DesktopEvent, deps: AppDesktopEvent
   }
   if (event.type === "run-status") {
     if (!deps.desktopEventMatchesActiveProject(event)) return;
+    deps.setRuntimeStatusIndicatorsByThread((current) =>
+      runtimeStatusIndicatorsAfterRunStatus(current, {
+        threadId: event.threadId,
+        status: event.status,
+        now: Date.now(),
+      }),
+    );
     if (event.status === "starting") delete deps.runtimeActivityRenderStateRef.current[event.threadId];
     deps.setThreadRunStatuses((statuses) =>
       statuses[event.threadId] === event.status ? statuses : { ...statuses, [event.threadId]: event.status },
@@ -244,6 +267,9 @@ export function handleAppDesktopEvent(event: DesktopEvent, deps: AppDesktopEvent
   }
   if (event.type === "runtime-activity") {
     if (!deps.desktopEventMatchesActiveProject(event)) return;
+    deps.setRuntimeStatusIndicatorsByThread((current) =>
+      runtimeStatusIndicatorsAfterRuntimeActivity(current, event.activity, Date.now()),
+    );
     if (event.activity.kind === "retry") {
       const retryActivity = event.activity;
       deps.setRetryStatsByThread((current) => ({
@@ -275,8 +301,12 @@ export function handleAppDesktopEvent(event: DesktopEvent, deps: AppDesktopEvent
     if (shouldRenderActivity && event.activity.threadId === deps.activeThreadIdRef.current) deps.setActivity(event.activity);
     return;
   }
-  if (event.type === "thread-goal-updated" && event.goal.threadId === deps.activeThreadIdRef.current && event.goal.status !== "active") {
-    deps.setActivity((current) => (current?.kind === "goal" && current.goalId === event.goal.goalId ? undefined : current));
+  if (event.type === "thread-goal-updated") {
+    if (!deps.desktopEventMatchesActiveProject(event)) return;
+    deps.setRuntimeStatusIndicatorsByThread((current) => runtimeStatusIndicatorsAfterGoalUpdated(current, event.goal, Date.now()));
+    if (event.goal.threadId === deps.activeThreadIdRef.current && event.goal.status !== "active") {
+      deps.setActivity((current) => (current?.kind === "goal" && current.goalId === event.goal.goalId ? undefined : current));
+    }
   }
   if (event.type === "mcp-container-runtime-install-progress") {
     if (!deps.desktopEventMatchesActiveProject(event)) return;
@@ -493,6 +523,10 @@ export function handleAppDesktopEvent(event: DesktopEvent, deps: AppDesktopEvent
     event.message.threadId === deps.activeThreadIdRef.current
   ) {
     deps.messageKindsRef.current[event.message.id] = messageKindForActivity(event.message);
+    if (event.message.metadata?.kind === "thinking") {
+      const thinkingText = thinkingActivityTextFromMessageContent(event.message.content);
+      if (thinkingText) deps.appendRunActivityLine(thinkingText, "thinking", { dedupe: true });
+    }
   }
   if (event.type === "stt-stop-tts-requested") {
     if (!event.workspacePath || event.workspacePath === deps.activeProjectRootRef.current) deps.setActiveVoiceMessageId(undefined);

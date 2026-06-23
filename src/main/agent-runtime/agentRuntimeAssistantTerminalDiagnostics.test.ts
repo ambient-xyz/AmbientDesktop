@@ -48,9 +48,11 @@ describe("agentRuntimeAssistantTerminalDiagnostics", () => {
         type: undefined,
         message: {
           usage: {
-            input: Number.POSITIVE_INFINITY,
+            input: -1,
             output: "20",
             cacheRead: 0,
+            cacheWrite: -2,
+            totalTokens: Number.POSITIVE_INFINITY,
           },
         },
       },

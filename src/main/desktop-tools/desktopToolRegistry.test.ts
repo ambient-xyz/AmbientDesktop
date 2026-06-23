@@ -8,6 +8,8 @@ import {
   fileToolDescriptors,
   firstPartyDesktopToolDescriptors,
   gitToolDescriptor,
+  longContextToolDescriptor,
+  longContextToolDescriptors,
   googleWorkspaceSetupToolDescriptor,
   googleWorkspaceSetupToolDescriptors,
   installRouteToolDescriptor,
@@ -50,6 +52,9 @@ describe("firstPartyDesktopToolDescriptors", () => {
       "local_file_read",
       "file_write",
       "long_context_process",
+      "long_context_start",
+      "long_context_poll",
+      "long_context_cancel",
       "media_download",
       "ambient_voice_status",
       "ambient_voice_select",
@@ -1619,6 +1624,35 @@ describe("firstPartyDesktopToolDescriptors", () => {
     );
   });
 
+  it("exposes async long-context descriptors next to the synchronous RLM tool", () => {
+    expect(longContextToolDescriptors.map((descriptor) => descriptor.name)).toEqual([
+      "long_context_process",
+      "long_context_start",
+      "long_context_poll",
+      "long_context_cancel",
+    ]);
+    expect(longContextToolDescriptor("long_context_start")).toMatchObject({
+      sideEffects: "none",
+      permissionScope: "long-context",
+      inputSchema: expect.objectContaining({
+        properties: expect.objectContaining({
+          yield_ms: expect.any(Object),
+          poll_hint_ms: expect.any(Object),
+        }),
+      }),
+    });
+    expect(longContextToolDescriptor("long_context_start").promptGuidelines).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/thread_wake_schedule/),
+      ]),
+    );
+    expect(longContextToolDescriptor("long_context_poll").promptGuidelines).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/next_since_seq/),
+      ]),
+    );
+  });
+
   it("describes media download as a validated workspace artifact tool", () => {
     expect(mediaToolDescriptors.map((descriptor) => descriptor.name)).toEqual(["media_download"]);
     expect((mediaToolDescriptors[0].inputSchema as { required: string[] }).required).toEqual(["url", "outputPath"]);
@@ -1687,6 +1721,11 @@ describe("firstPartyDesktopToolDescriptors", () => {
       sideEffects: "write-workspace",
       permissionScope: "thread-continuation",
     });
+    expect(asyncBashToolDescriptor("thread_wake_schedule").promptGuidelines).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/job_kind.*long_context/),
+      ]),
+    );
   });
 
   it("guides task scratch artifacts into the active workspace", () => {

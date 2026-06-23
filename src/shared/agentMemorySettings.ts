@@ -208,8 +208,10 @@ export function isAgentMemoryActiveForThread(input: {
   featureEnabled: boolean;
   settings?: AgentMemorySettingsInput | null;
   threadMemoryEnabled: boolean;
+  threadKind?: ThreadKind;
   storageHealthy?: boolean;
 }): boolean {
+  if (input.threadKind === "subagent_child") return false;
   const settings = normalizeAgentMemorySettings(input.settings);
   const policyAllowsThread = settings.mode === "enabled_all" ||
     (settings.mode === "per_thread" && input.threadMemoryEnabled);
@@ -248,3 +250,4 @@ export function shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
   return !previousManagedAutoStart ||
     previous.embeddings.providerCapabilityId !== next.embeddings.providerCapabilityId;
 }
+import type { ThreadKind } from "./threadTypes";

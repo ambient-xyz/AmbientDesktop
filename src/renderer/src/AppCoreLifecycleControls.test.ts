@@ -5,7 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DesktopState } from "../../shared/desktopTypes";
 import {
   useAppCoreLifecycleControls,
+  useAppCoreLifecycleControlsForApp,
   type AppCoreLifecycleControls,
+  type AppCoreLifecycleControlsForAppInput,
   type AppCoreLifecycleControlsOptions,
 } from "./AppCoreLifecycleControls";
 
@@ -16,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   messageScroll: vi.fn(() => ({
     handleMessagesScroll: vi.fn(),
     jumpToLatestMessage: vi.fn(),
+    messageTailVisible: true,
     requestMessageTail: vi.fn(),
     scrollRef: { current: null },
     showScrollToBottom: false,
@@ -134,6 +137,44 @@ describe("AppCoreLifecycleControls", () => {
     expect(options.setRunStatus).toHaveBeenCalledWith("running");
     expect(options.setState).toHaveBeenCalledWith(bootstrapState);
   });
+
+  it("maps App owner groups into core lifecycle hook options", () => {
+    const options = optionsStub();
+    const input = forAppInputStub(options);
+
+    function Harness() {
+      useAppCoreLifecycleControlsForApp(input);
+      return React.createElement("div");
+    }
+
+    renderToStaticMarkup(React.createElement(Harness));
+
+    expect(mocks.startup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        loadPendingPermissionRequests: input.permissionActions.loadPendingPermissionRequests,
+        onDesktopEvent: input.handleEvent,
+        openMcpRuntimeSettings: input.rightPanelState.openMcpRuntimeSettings,
+        permissionAuditRevision: input.securityPromptState.permissionAuditRevision,
+      }),
+    );
+    expect(mocks.shellGlobal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contextMenusOpen: true,
+        setChatFindOpen: input.chatFindControls.setChatFindOpen,
+        setSidebarAgeNow: input.automationShellState.setSidebarAgeNow,
+      }),
+    );
+    mocks.shellGlobal.mock.calls[0][0].onCloseContextMenus();
+    expect(input.projectShellState.setProjectContextMenu).toHaveBeenCalledWith(undefined);
+    expect(input.projectShellState.setThreadContextMenu).toHaveBeenCalledWith(undefined);
+    expect(mocks.statusSubscriptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        browserRevision: input.workspaceShellState.browserRevision,
+        chatBrowserUserAction: input.workspaceShellState.chatBrowserUserAction,
+        setRightPanel: input.rightPanelState.setRightPanel,
+      }),
+    );
+  });
 });
 
 function optionsStub(): AppCoreLifecycleControlsOptions {
@@ -218,6 +259,114 @@ function optionsStub(): AppCoreLifecycleControlsOptions {
     workspaceProjectAliasesRef: { current: new Map() },
     workspaceRevision: 3,
   } as unknown as AppCoreLifecycleControlsOptions;
+}
+
+function forAppInputStub(options: AppCoreLifecycleControlsOptions): AppCoreLifecycleControlsForAppInput {
+  return {
+    activeRunActivityLines: options.activeRunActivityLines,
+    automationShellState: {
+      setAutomationFolders: options.setAutomationFolders,
+      setSidebarAgeNow: options.setSidebarAgeNow,
+      setWorkflowAgentFolders: options.setWorkflowAgentFolders,
+    },
+    cancelSttComposerRecording: options.cancelSttComposerRecording,
+    chatFindControls: {
+      chatFindInputRef: options.chatFindInputRef,
+      setChatFindOpen: options.setChatFindOpen,
+    },
+    handleEvent: options.handleEvent,
+    loadSttMicrophoneDeviceList: options.loadSttMicrophoneDeviceList,
+    loadSttProviders: options.loadSttProviders,
+    loadVoiceProviders: options.loadVoiceProviders,
+    permissionActions: {
+      loadPendingPermissionRequests: async () => {
+        await options.loadPendingPermissionRequests();
+      },
+      loadPermissionAudit: async () => {
+        await options.loadPermissionAudit();
+      },
+      loadPermissionGrants: async () => {
+        await options.loadPermissionGrants();
+      },
+    },
+    projectShellState: {
+      projectContextMenu: {} as unknown as AppCoreLifecycleControlsForAppInput["projectShellState"]["projectContextMenu"],
+      setProjectContextMenu: vi.fn(),
+      setThreadContextMenu: vi.fn(),
+      threadContextMenu: undefined,
+    },
+    providerRuntimeState: {
+      sttComposer: { status: options.sttComposerStatus } as AppCoreLifecycleControlsForAppInput["providerRuntimeState"]["sttComposer"],
+      sttComposerRecorderRef: options.sttComposerRecorderRef,
+      sttComposerShortcutActiveRef: options.sttComposerShortcutActiveRef,
+      sttComposerThreadRef: options.sttComposerThreadRef,
+      sttMicRecorderRef: options.sttMicRecorderRef,
+      sttProviderRefreshTimerRef: options.sttProviderRefreshTimerRef,
+      voiceProviderRefreshTimerRef: options.voiceProviderRefreshTimerRef,
+    },
+    rememberDesktopState: options.rememberDesktopState,
+    resetPromptHistory: options.resetPromptHistory,
+    rightPanelState: {
+      openMcpRuntimeSettings: options.openMcpRuntimeSettings,
+      setRightPanel: options.setRightPanel,
+    },
+    runActivityState: {
+      previousRunningRef: options.previousRunningRef,
+      runActivityCounterRef: options.runActivityCounterRef,
+      runActivityHeartbeatIndexRef: options.runActivityHeartbeatIndexRef,
+      runActivityLastEventAtRef: options.runActivityLastEventAtRef,
+      runActivityLinesByThreadRef: options.runActivityLinesByThreadRef,
+      setAbortArmed: options.setAbortArmed,
+      setRetryStatsByThread: options.setRetryStatsByThread,
+      setRunActivityLinesByThread: options.setRunActivityLinesByThread,
+      setRunStatus: options.setRunStatus,
+      setThreadRunStatuses: options.setThreadRunStatuses,
+      thinkingDeltaBuffersRef: options.thinkingDeltaBuffersRef,
+      threadRunStatuses: options.threadRunStatuses,
+    },
+    running: options.running,
+    securityPromptState: {
+      permissionAuditRevision: options.permissionAuditRevision,
+    },
+    setLocalDeepResearchModeArmed: options.setLocalDeepResearchModeArmed,
+    setState: options.setState,
+    shellUiState: {
+      errorScope: options.errorScope,
+      setCommandPaletteOpen: options.setCommandPaletteOpen,
+      setCommandPaletteQuery: options.setCommandPaletteQuery,
+      setError: vi.fn(),
+      setErrorScope: options.setErrorScope,
+      setErrorState: options.setErrorState,
+      setSidebarWidth: options.setSidebarWidth,
+    },
+    startSttComposerRecording: options.startSttComposerRecording,
+    state: options.state,
+    stopSttComposerRecording: options.stopSttComposerRecording,
+    workflowRuntimeState: {
+      goalCompletionCelebrationTimerRef: options.goalCompletionCelebrationTimerRef,
+      setContextAttachments: options.setContextAttachments,
+      setContextError: options.setContextError,
+      setGoalMenuOpen: options.setGoalMenuOpen,
+      setGoalModeArmed: options.setGoalModeArmed,
+    },
+    workspaceShellState: {
+      activeProjectRootRef: options.activeProjectRootRef,
+      activeThreadIdRef: options.activeThreadIdRef,
+      browserRevision: options.browserRevision,
+      chatBrowserUserAction: options.chatBrowserUserAction,
+      mcpContainerRuntimeStartupCheckRef: options.mcpContainerRuntimeStartupCheckRef,
+      messageKindsRef: options.messageKindsRef,
+      pluginCatalogRevision: options.pluginCatalogRevision,
+      setActiveGitReview: options.setActiveGitReview,
+      setActiveGitReviewError: options.setActiveGitReviewError,
+      setChatBrowserUserAction: options.setChatBrowserUserAction,
+      setGitStatus: options.setGitStatus,
+      setGitStatusError: options.setGitStatusError,
+      setWelcomeAmbientPluginRegistry: options.setWelcomeAmbientPluginRegistry,
+      workspaceProjectAliasesRef: options.workspaceProjectAliasesRef,
+      workspaceRevision: options.workspaceRevision,
+    },
+  };
 }
 
 function desktopState(overrides: Partial<DesktopState> = {}): DesktopState {

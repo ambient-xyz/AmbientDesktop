@@ -9,7 +9,9 @@ import {
   createProviderCallContextPreflightExtension,
   estimateProviderPayloadContextProtection,
   materializeProviderPayloadContext,
+  ProviderContextPreflightBlockError,
   providerContextPreflightTokenBudget,
+  isProviderContextPreflightBlockError,
   runProviderCallContextPreflightBeforePrompt,
 } from "./agentRuntimeProviderContextPreflight";
 
@@ -469,9 +471,24 @@ describe("provider context preflight", () => {
 
     expect(thrown?.message).toContain("provider call blocked before streaming");
     expect(thrown?.message).toContain("No single oversized text part");
+    expect(thrown).toBeInstanceOf(ProviderContextPreflightBlockError);
+    expect(isProviderContextPreflightBlockError(thrown)).toBe(true);
+    expect((thrown as ProviderContextPreflightBlockError).details).toMatchObject({
+      threadId: "thread-1",
+      workspacePath,
+      sessionFile: "/tmp/session.jsonl",
+      budgetTokens: 9_000,
+    });
     const artifactPath = thrown?.message.match(/Diagnostic artifact: ([^ ]+\.txt)\./)?.[1];
     expect(artifactPath).toMatch(/^\.ambient\/tool-outputs\//);
     expect(existsSync(join(workspacePath, artifactPath!))).toBe(true);
+  });
+
+  it("classifies legacy provider context block messages for retry handling", () => {
+    expect(isProviderContextPreflightBlockError(
+      new Error("Ambient/Pi provider call blocked before streaming because the protected context is estimated at 191,440 tokens."),
+    )).toBe(true);
+    expect(isProviderContextPreflightBlockError(new Error("ordinary provider failure"))).toBe(false);
   });
 
   it("registers a before_provider_request hook that returns the protected payload only when changed", async () => {

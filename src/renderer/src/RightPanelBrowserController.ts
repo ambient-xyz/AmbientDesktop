@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import type { BrowserCapabilityState, BrowserCredentialSummary, BrowserPickResult, BrowserProfileMode, BrowserScreenshotResult, BrowserUserActionState, SaveBrowserCredentialInput } from "../../shared/browserTypes";
-import type { MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionDiagnosticItem } from "../../shared/localRuntimeTypes";
-import type { WorkspaceContextReference, WorkspaceFileContent } from "../../shared/workspaceTypes";
-import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
-import {
-  miniCpmVisualAnalyzeInputForBrowserScreenshot,
-  miniCpmVisualAnalyzeInputForContextAttachment,
-  miniCpmVisualAnalyzeInputForWorkspaceFile,
-} from "./miniCpmVisualActionUiModel";
+import type { BrowserCapabilityState, BrowserPickResult, BrowserProfileMode, BrowserUserActionState } from "../../shared/browserTypes";
 import { browserPickReferenceText } from "./RightPanelBrowserPane";
 import {
-  contextAttachmentKey,
-  truncateUiText,
-} from "./RightPanelDetailPanels";
+  browserCredentialSaveInputFromForm,
+  emptyBrowserCredentialForm,
+  useRightPanelBrowserCredentialController,
+} from "./RightPanelBrowserCredentialController";
+import type { BrowserCredentialForm } from "./RightPanelBrowserCredentialController";
+import { useRightPanelBrowserVisualAnalysisController } from "./RightPanelBrowserVisualAnalysisController";
 import { ambientBrowserRuntimeForUrl } from "./RightPanelRichText";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
+
+export { browserCredentialSaveInputFromForm, emptyBrowserCredentialForm };
+export type { BrowserCredentialForm };
 
 export type BrowserInspectResult = {
   result: BrowserPickResult;
@@ -23,28 +21,10 @@ export type BrowserInspectResult = {
   copyError?: string;
 };
 
-export type BrowserCredentialForm = SaveBrowserCredentialInput & {
-  id?: string;
-  password: string;
-};
-
-export function emptyBrowserCredentialForm(): BrowserCredentialForm {
-  return { label: "", origin: "", username: "", password: "", scope: "workspace" };
-}
-
 export function browserProfileModeForState(browserState?: BrowserCapabilityState): BrowserProfileMode {
   if (browserState?.profileMode === "copied") return "copied";
   if (browserState?.chromeAvailable && (browserState.copiedProfileAvailable || browserState.sourceProfilePath)) return "copied";
   return "isolated";
-}
-
-export function browserCredentialSaveInputFromForm(browserCredentialForm: BrowserCredentialForm): SaveBrowserCredentialInput {
-  return {
-    ...browserCredentialForm,
-    label: browserCredentialForm.label.trim(),
-    origin: browserCredentialForm.origin.trim(),
-    username: browserCredentialForm.username.trim(),
-  };
 }
 
 export function useRightPanelBrowserController({
@@ -66,22 +46,32 @@ export function useRightPanelBrowserController({
   const [browserUserActionBusy, setBrowserUserActionBusy] = useState<string | undefined>();
   const [browserError, setBrowserError] = useState<string | undefined>();
   const [browserStatus, setBrowserStatus] = useState<ApiKeyStatus | undefined>();
-  const [latestBrowserScreenshot, setLatestBrowserScreenshot] = useState<BrowserScreenshotResult | undefined>();
-  const [visualAnalysisBusy, setVisualAnalysisBusy] = useState<string | undefined>();
-  const [visualAnalysisStatus, setVisualAnalysisStatus] = useState<ApiKeyStatus | undefined>();
-  const [visualAnalysisDiagnostics, setVisualAnalysisDiagnostics] = useState<MiniCpmVisionDiagnosticItem[]>([]);
   const [browserCopyDialogOpen, setBrowserCopyDialogOpen] = useState(false);
   const [browserFocused, setBrowserFocused] = useState(false);
   const [browserInspectResult, setBrowserInspectResult] = useState<BrowserInspectResult | undefined>();
-  const [browserCredentials, setBrowserCredentials] = useState<BrowserCredentialSummary[]>([]);
-  const [browserCredentialForm, setBrowserCredentialForm] = useState<BrowserCredentialForm>(emptyBrowserCredentialForm);
-  const [browserCredentialBusy, setBrowserCredentialBusy] = useState<string | undefined>();
-  const [browserCredentialStatus, setBrowserCredentialStatus] = useState<ApiKeyStatus | undefined>();
   const browserHostRef = useRef<HTMLDivElement>(null);
-
-  function resetBrowserCredentialForm() {
-    setBrowserCredentialForm(emptyBrowserCredentialForm());
-  }
+  const {
+    browserCredentials,
+    browserCredentialForm,
+    setBrowserCredentialForm,
+    browserCredentialBusy,
+    browserCredentialStatus,
+    loadBrowserCredentials,
+    resetBrowserCredentialForm,
+    editBrowserCredential,
+    saveBrowserCredential,
+    deleteBrowserCredential,
+  } = useRightPanelBrowserCredentialController({ workspacePath });
+  const {
+    latestBrowserScreenshot,
+    setLatestBrowserScreenshot,
+    visualAnalysisBusy,
+    visualAnalysisStatus,
+    visualAnalysisDiagnostics,
+    analyzeLatestBrowserScreenshot,
+    analyzeContextAttachmentWithMiniCpm,
+    analyzeWorkspaceFileWithMiniCpm,
+  } = useRightPanelBrowserVisualAnalysisController({ setBrowserStatus });
 
   useEffect(() => {
     if (panel === "browser") {
@@ -149,72 +139,12 @@ export function useRightPanelBrowserController({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [browserFocused]);
 
-  useEffect(() => {
-    setBrowserCredentials([]);
-    resetBrowserCredentialForm();
-  }, [workspacePath]);
-
   async function loadBrowserState() {
     setBrowserError(undefined);
     try {
       setBrowserState(await window.ambientDesktop.getBrowserState());
     } catch (error) {
       setBrowserError(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  async function loadBrowserCredentials() {
-    setBrowserCredentialStatus(undefined);
-    try {
-      setBrowserCredentials(await window.ambientDesktop.listBrowserCredentials());
-    } catch (error) {
-      setBrowserCredentialStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
-    }
-  }
-
-  function editBrowserCredential(credential: BrowserCredentialSummary) {
-    setBrowserCredentialForm({
-      id: credential.id,
-      label: credential.label,
-      origin: credential.origin,
-      username: credential.username,
-      password: "",
-      scope: credential.scope,
-    });
-    setBrowserCredentialStatus({ kind: "info", message: "Enter the password again to update this stored credential." });
-  }
-
-  async function saveBrowserCredential() {
-    const input = browserCredentialSaveInputFromForm(browserCredentialForm);
-    if (!input.label || !input.origin || !input.username || !input.password) {
-      setBrowserCredentialStatus({ kind: "error", message: "Label, origin, username, and password are required." });
-      return;
-    }
-    setBrowserCredentialBusy("save");
-    setBrowserCredentialStatus(undefined);
-    try {
-      const next = await window.ambientDesktop.saveBrowserCredential(input);
-      setBrowserCredentials(next);
-      resetBrowserCredentialForm();
-      setBrowserCredentialStatus({ kind: "success", message: "Stored browser credential metadata saved." });
-    } catch (error) {
-      setBrowserCredentialStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
-    } finally {
-      setBrowserCredentialBusy(undefined);
-    }
-  }
-
-  async function deleteBrowserCredential(id: string) {
-    setBrowserCredentialBusy(id);
-    setBrowserCredentialStatus(undefined);
-    try {
-      setBrowserCredentials(await window.ambientDesktop.deleteBrowserCredential({ id }));
-      if (browserCredentialForm.id === id) resetBrowserCredentialForm();
-      setBrowserCredentialStatus({ kind: "success", message: "Stored browser credential deleted." });
-    } catch (error) {
-      setBrowserCredentialStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
-    } finally {
-      setBrowserCredentialBusy(undefined);
     }
   }
 
@@ -322,64 +252,6 @@ export function useRightPanelBrowserController({
       setLatestBrowserScreenshot(screenshot);
       setBrowserStatus({ kind: "success", message: `Saved screenshot to ${screenshot.path}.` });
     }
-  }
-
-  async function runMiniCpmVisualAnalysis(
-    input: MiniCpmVisionAnalyzeInput,
-    busyKey: string,
-    label: string,
-  ): Promise<MiniCpmVisionAnalysisResult | undefined> {
-    setVisualAnalysisBusy(busyKey);
-    setVisualAnalysisStatus({ kind: "info", message: `Analyzing ${label} with MiniCPM-V...` });
-    setVisualAnalysisDiagnostics([]);
-    try {
-      const result = await window.ambientDesktop.analyzeMiniCpmVisionInput(input);
-      const artifact = result.artifacts.jsonPath ? ` Artifact: ${result.artifacts.jsonPath}` : "";
-      setVisualAnalysisStatus({
-        kind: "success",
-        message: `MiniCPM-V analyzed ${label}. ${truncateUiText(result.summary, 180)}${artifact}`,
-      });
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setVisualAnalysisDiagnostics(miniCpmVisionDiagnosticsForFailure({ error: message }));
-      setVisualAnalysisStatus({
-        kind: "error",
-        message,
-      });
-      return undefined;
-    } finally {
-      setVisualAnalysisBusy(undefined);
-    }
-  }
-
-  async function analyzeLatestBrowserScreenshot() {
-    if (!latestBrowserScreenshot) return;
-    const input = miniCpmVisualAnalyzeInputForBrowserScreenshot(latestBrowserScreenshot);
-    const result = await runMiniCpmVisualAnalysis(input, "browser-screenshot", "latest browser screenshot");
-    if (result) {
-      setBrowserStatus({ kind: "success", message: `MiniCPM-V: ${truncateUiText(result.summary, 180)}` });
-    }
-  }
-
-  async function analyzeContextAttachmentWithMiniCpm(item: WorkspaceContextReference) {
-    const input = miniCpmVisualAnalyzeInputForContextAttachment(item);
-    if (!input) {
-      setVisualAnalysisDiagnostics(miniCpmVisionDiagnosticsForFailure({ error: "Unsupported MiniCPM-V image or video input extension." }));
-      setVisualAnalysisStatus({ kind: "error", message: "MiniCPM-V can analyze PNG, JPG, WebP, MP4, MOV, M4V, or WebM attachments." });
-      return;
-    }
-    await runMiniCpmVisualAnalysis(input, `context:${contextAttachmentKey(item)}`, item.name || item.path);
-  }
-
-  async function analyzeWorkspaceFileWithMiniCpm(file: WorkspaceFileContent) {
-    const input = miniCpmVisualAnalyzeInputForWorkspaceFile(file);
-    if (!input) {
-      setVisualAnalysisDiagnostics(miniCpmVisionDiagnosticsForFailure({ error: "Unsupported MiniCPM-V image or video input extension." }));
-      setVisualAnalysisStatus({ kind: "error", message: "MiniCPM-V can analyze PNG, JPG, WebP, MP4, MOV, M4V, or WebM files." });
-      return;
-    }
-    await runMiniCpmVisualAnalysis(input, `file:${file.path}`, file.name || file.path);
   }
 
   async function revealBrowser(input?: { userActionId?: string; targetId?: string }) {

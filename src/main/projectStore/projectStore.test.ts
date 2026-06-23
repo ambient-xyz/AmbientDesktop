@@ -220,12 +220,14 @@ describeNative("ProjectStore orchestration tasks (requires Node ABI better-sqlit
   it("persists aggressive retry runtime settings with safe defaults", () => {
     expect(store.getDefaultSettings().modelRuntime).toEqual({
       aggressiveRetries: true,
+      showPromptCacheStatus: false,
       providerPreStreamTimeoutMs: 45_000,
       providerStreamIdleTimeoutMs: 30_000,
       installedProviders: [],
     });
     expect(store.getModelRuntimeSettings()).toEqual({
       aggressiveRetries: true,
+      showPromptCacheStatus: false,
       providerPreStreamTimeoutMs: 45_000,
       providerStreamIdleTimeoutMs: 30_000,
       installedProviders: [],
@@ -233,6 +235,7 @@ describeNative("ProjectStore orchestration tasks (requires Node ABI better-sqlit
 
     expect(store.setModelRuntimeSettings({ aggressiveRetries: false, providerPreStreamTimeoutMs: 60_000, providerStreamIdleTimeoutMs: 120_000 })).toEqual({
       aggressiveRetries: false,
+      showPromptCacheStatus: false,
       providerPreStreamTimeoutMs: 60_000,
       providerStreamIdleTimeoutMs: 120_000,
       installedProviders: [],
@@ -242,6 +245,7 @@ describeNative("ProjectStore orchestration tasks (requires Node ABI better-sqlit
 
     expect(store.getModelRuntimeSettings()).toEqual({
       aggressiveRetries: false,
+      showPromptCacheStatus: false,
       providerPreStreamTimeoutMs: 60_000,
       providerStreamIdleTimeoutMs: 120_000,
       installedProviders: [],
@@ -255,6 +259,7 @@ describeNative("ProjectStore orchestration tasks (requires Node ABI better-sqlit
 
     expect(store.getModelRuntimeSettings()).toEqual({
       aggressiveRetries: true,
+      showPromptCacheStatus: false,
       providerPreStreamTimeoutMs: 5_000,
       providerStreamIdleTimeoutMs: 600_000,
       installedProviders: [],

@@ -202,6 +202,7 @@ function registerWithFakes({
 function sampleModelRuntimeSettings(overrides: Partial<ModelRuntimeSettings> = {}): ModelRuntimeSettings {
   return {
     aggressiveRetries: true,
+    showPromptCacheStatus: false,
     providerPreStreamTimeoutMs: 10_000,
     providerStreamIdleTimeoutMs: 30_000,
     installedProviders: [],

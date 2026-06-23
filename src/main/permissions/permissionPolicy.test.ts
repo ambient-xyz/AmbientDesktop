@@ -1206,6 +1206,21 @@ describe("classifyToolPermission", () => {
     }
   });
 
+  it("prompts for async long-context start outside-workspace file access", async () => {
+    const decision = await classifyToolPermission({
+      ...base,
+      permissionMode: "workspace",
+      toolName: "long_context_start",
+      toolInput: { workspacePaths: ["../outside.txt"] },
+    });
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request.risk).toBe("outside-workspace");
+      expect(decision.request.message).toContain("long_context_start");
+      expect(decision.request.detail).toBe("/tmp/outside.txt");
+    }
+  });
+
   it("allows long-context reads from declared dependency workspaces", async () => {
     const decision = await classifyToolPermission({
       ...base,

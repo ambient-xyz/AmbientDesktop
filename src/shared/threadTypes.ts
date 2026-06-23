@@ -235,6 +235,7 @@ export interface AmbientCompactionSettings {
 
 export interface ModelRuntimeSettings {
   aggressiveRetries: boolean;
+  showPromptCacheStatus: boolean;
   providerPreStreamTimeoutMs: number;
   providerStreamIdleTimeoutMs: number;
   installedProviders: ModelRuntimeInstalledProvider[];
@@ -364,13 +365,32 @@ export interface ThreadSummary {
 
 export type ThreadKind = "chat" | "subagent_child";
 
+export type PromptCacheStatus = "pending" | "hit" | "miss" | "unknown";
+
+export interface PromptCacheUsageTokens {
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  totalTokens?: number;
+}
+
+export interface PromptCacheTelemetry {
+  status: PromptCacheStatus;
+  usage?: PromptCacheUsageTokens;
+}
+
+export interface ChatMessageMetadata extends Record<string, unknown> {
+  promptCache?: PromptCacheTelemetry;
+}
+
 export interface ChatMessage {
   id: string;
   threadId: string;
   role: MessageRole;
   content: string;
   createdAt: string;
-  metadata?: Record<string, unknown>;
+  metadata?: ChatMessageMetadata;
 }
 
 export interface ToolLongformInputPreviewItem {

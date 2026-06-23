@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { editTextCountLabel, fileBaseName, isBrowserToolName } from "./AppToolMessages";
+import { editTextCountLabel, fileBaseName, isBrowserToolName, shouldRenderToolResultSection } from "./AppToolMessages";
 
 describe("tool message helpers", () => {
   it("recognizes browser tool names with the existing prefix rule", () => {
@@ -19,5 +19,14 @@ describe("tool message helpers", () => {
     expect(editTextCountLabel(1200, 300, true)).toBe("1,200 chars total · 300 preview");
     expect(editTextCountLabel(42, 42, false)).toBe("42 chars");
     expect(editTextCountLabel(undefined, 42, true)).toBeUndefined();
+  });
+
+  it("keeps completed large tool outputs bounded to the large-output preview", () => {
+    expect(shouldRenderToolResultSection({ result: "small residual output", hasLargeOutputPreview: true, status: "done" })).toBe(true);
+    expect(shouldRenderToolResultSection({ result: "small residual output", hasLargeOutputPreview: true, status: undefined })).toBe(true);
+    expect(shouldRenderToolResultSection({ result: "x".repeat(2_001), hasLargeOutputPreview: true, status: "done" })).toBe(false);
+    expect(shouldRenderToolResultSection({ result: "full output", hasLargeOutputPreview: true, status: "running" })).toBe(true);
+    expect(shouldRenderToolResultSection({ result: "full output", hasLargeOutputPreview: true, status: "error" })).toBe(true);
+    expect(shouldRenderToolResultSection({ result: "full output", hasLargeOutputPreview: false, status: "done" })).toBe(true);
   });
 });

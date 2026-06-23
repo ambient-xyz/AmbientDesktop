@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, CodexPluginMcpInspectionCatalog, ManagedDevServerSummary, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
+import type {
+  AmbientMcpContainerRuntimeStatus,
+  AmbientMcpDefaultCapabilityInstallInput,
+  AmbientMcpInstalledServerSummary,
+  AmbientMcpInstallPreview,
+  AmbientMcpServerSearchResult,
+  CodexPluginMcpInspectionCatalog,
+  ManagedDevServerSummary,
+  PluginMcpRuntimeSnapshot,
+} from "../../shared/pluginTypes";
 import { mcpDefaultCapabilityRuntimeHandoffCandidate } from "./pluginUiModel";
+import { useRightPanelMcpContainerRuntimeLifecycleController } from "./RightPanelMcpContainerRuntimeLifecycleController";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 
 export function useRightPanelMcpController({
@@ -40,6 +50,14 @@ export function useRightPanelMcpController({
   const [containerRuntimeModalOpen, setContainerRuntimeModalOpen] = useState(false);
   const [containerRuntimeModalDismissed, setContainerRuntimeModalDismissed] = useState(false);
   const defaultCapabilityHandoffInFlightRef = useRef<AmbientMcpDefaultCapabilityInstallInput["capabilityId"] | undefined>(undefined);
+  const containerRuntimeLifecycle = useRightPanelMcpContainerRuntimeLifecycleController({
+    workspacePath,
+    containerRuntimeStatus,
+    setContainerRuntimeStatus,
+    setContainerRuntimeActionStatus,
+    setServerStatus,
+    refreshContainerRuntimeStatus,
+  });
 
   function prepareCatalogLoad() {
     setInspection(undefined);
@@ -64,7 +82,7 @@ export function useRightPanelMcpController({
     } catch (error) {
       setServerError(error instanceof Error ? error.message : String(error));
     } finally {
-      setServerBusy((busy) => busy === "installed" ? undefined : busy);
+      setServerBusy((busy) => (busy === "installed" ? undefined : busy));
     }
   }
 
@@ -76,7 +94,7 @@ export function useRightPanelMcpController({
     } catch (error) {
       setManagedDevServerError(error instanceof Error ? error.message : String(error));
     } finally {
-      setManagedDevServerBusy((busy) => busy === "list" ? undefined : busy);
+      setManagedDevServerBusy((busy) => (busy === "list" ? undefined : busy));
     }
   }
 
@@ -93,10 +111,7 @@ export function useRightPanelMcpController({
     }
   }
 
-  async function refreshContainerRuntimeStatus(
-    openWhenNeedsAction = false,
-    options: { continueDefaultCapabilitySetup?: boolean } = {},
-  ) {
+  async function refreshContainerRuntimeStatus(openWhenNeedsAction = false, options: { continueDefaultCapabilitySetup?: boolean } = {}) {
     setContainerRuntimeBusy(true);
     setContainerRuntimeError(undefined);
     let handoffCapabilityId: AmbientMcpDefaultCapabilityInstallInput["capabilityId"] | undefined;
@@ -145,7 +160,7 @@ export function useRightPanelMcpController({
         actionId: actionId ?? containerRuntimeStatus?.installPlan?.primaryAction.id,
         mode,
       });
-      setContainerRuntimeStatus((current) => current ? { ...current, installPlan: result.plan } : current);
+      setContainerRuntimeStatus((current) => (current ? { ...current, installPlan: result.plan } : current));
       const managedDryRun = result.managedResult?.status === "not-executed";
       const managedInstallFailed = Boolean(result.managedResult && result.managedResult.status !== "succeeded" && !managedDryRun);
       if (managedInstallFailed) setContainerRuntimeError(result.message);
@@ -224,7 +239,9 @@ export function useRightPanelMcpController({
       setRegistryResults(results);
       setServerStatus({
         kind: "info",
-        message: results.length ? `Found ${results.length} ToolHive registry server${results.length === 1 ? "" : "s"}.` : "No registry servers matched.",
+        message: results.length
+          ? `Found ${results.length} ToolHive registry server${results.length === 1 ? "" : "s"}.`
+          : "No registry servers matched.",
       });
       if (selectedPreview && !results.some((result) => result.serverId === selectedPreview.serverId)) {
         setSelectedPreview(undefined);
@@ -355,10 +372,11 @@ export function useRightPanelMcpController({
 
   useEffect(() => {
     return window.ambientDesktop.onEvent((event) => {
-      if (event.type !== "mcp-container-runtime-setup-needed") return;
-      if (event.workspacePath && event.workspacePath !== workspacePath) return;
-      setContainerRuntimeModalDismissed(false);
-      void refreshContainerRuntimeStatus(true, { continueDefaultCapabilitySetup: false });
+      if (event.type === "mcp-container-runtime-setup-needed") {
+        if (event.workspacePath && event.workspacePath !== workspacePath) return;
+        setContainerRuntimeModalDismissed(false);
+        void refreshContainerRuntimeStatus(true, { continueDefaultCapabilitySetup: false });
+      }
     });
   }, [workspacePath]);
 
@@ -393,6 +411,11 @@ export function useRightPanelMcpController({
     containerRuntimeLaunchBusy,
     containerRuntimeError,
     containerRuntimeActionStatus,
+    containerRuntimeLifecyclePreview: containerRuntimeLifecycle.containerRuntimeLifecyclePreview,
+    containerRuntimeLifecycleResult: containerRuntimeLifecycle.containerRuntimeLifecycleResult,
+    containerRuntimeLifecycleProgress: containerRuntimeLifecycle.containerRuntimeLifecycleProgress,
+    containerRuntimeLifecycleBusyKey: containerRuntimeLifecycle.containerRuntimeLifecycleBusyKey,
+    containerRuntimeLifecycleError: containerRuntimeLifecycle.containerRuntimeLifecycleError,
     containerRuntimeModalOpen,
     setContainerRuntimeModalOpen,
     prepareCatalogLoad,
@@ -405,6 +428,8 @@ export function useRightPanelMcpController({
     stopManagedDevServerProcess,
     refreshContainerRuntimeStatus,
     launchContainerRuntimeInstaller,
+    previewContainerRuntimeLifecycle: containerRuntimeLifecycle.previewContainerRuntimeLifecycle,
+    runContainerRuntimeLifecycle: containerRuntimeLifecycle.runContainerRuntimeLifecycle,
     installDefaultCapability,
     dismissContainerRuntimeSetup,
     searchRegistryServers,

@@ -62,6 +62,12 @@ describe("AppWorkflowRecordingReviewControls", () => {
       running: true,
       thinkingDisplay: { showRunStatusCard: true },
     })).toBe(false);
+    expect(workflowReviewRunStatusCardVisible({
+      reviewRunning: false,
+      running: true,
+      runStatus: "compacting",
+      thinkingDisplay: { showRunStatusCard: false },
+    })).toBe(true);
   });
 });
 

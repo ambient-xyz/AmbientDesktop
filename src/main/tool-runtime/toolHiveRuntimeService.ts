@@ -1,63 +1,31 @@
-import { createHash } from "node:crypto";
-import { execFile } from "node:child_process";
-import { chmod, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { promisify } from "node:util";
-import { ambientRuntimeEnv } from "./toolRuntimeSetupFacade";
-import { resolveOrExtractToolHiveExecutable, type ResolveToolHiveExecutableOptions } from "./toolHiveBundle";
-import { ensureMcpManagedFileExchangeHostPath, managedFileExchangeFromVolumes, type McpManagedFileExchange } from "./toolRuntimeMcpManagedFileExchangeFacade";
-import { readSecretReference } from "./toolRuntimeSecurityFacade";
+import { realpath } from "node:fs/promises";
+import type { ResolveToolHiveExecutableOptions } from "./toolHiveBundle";
+import { ensureMcpManagedFileExchangeHostPath, type McpManagedFileExchange } from "./toolRuntimeMcpManagedFileExchangeFacade";
+import { ToolHiveStandardMcpImportController } from "./toolHiveStandardMcpImportController";
+import { ToolHiveRuntimeEnvironmentOwner, cleanupRuntimeSecretFiles } from "./toolHiveRuntimeEnvironment";
+import { looksToolHiveSecretLike as looksSecretLike } from "./toolHiveRuntimeStringGuards";
+import {
+  TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION,
+  ToolHiveRuntimeStateStore,
+  isRecord,
+} from "./toolHiveRuntimeStateStore";
+import {
+  ToolHiveCommandRunner,
+  redactToolHiveText,
+  type ToolHiveCommandExecutor,
+  type ToolHiveCommandResult,
+  type ToolHiveOperationProgress,
+} from "./toolHiveCommandRunner";
 
-const execFileAsync = promisify(execFile);
-
-export const TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION = "ambient-toolhive-runtime-state-v1";
+export { TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION };
+export type {
+  ToolHiveAllowedCommand,
+  ToolHiveCommandExecutor,
+  ToolHiveCommandInvocation,
+  ToolHiveCommandResult,
+  ToolHiveOperationProgress,
+} from "./toolHiveCommandRunner";
 export const TOOLHIVE_AMBIENT_GROUP = "ambient";
-const defaultTimeoutMs = 30_000;
-const maxOutputBufferBytes = 8 * 1024 * 1024;
-
-export type ToolHiveAllowedCommand =
-  | "version"
-  | "build"
-  | "group-list"
-  | "group-create"
-  | "registry-list"
-  | "registry-info"
-  | "runtime-check"
-  | "run-registry"
-  | "run-import"
-  | "run-remote"
-  | "list"
-  | "logs"
-  | "stop"
-  | "rm";
-
-export interface ToolHiveCommandResult {
-  command: ToolHiveAllowedCommand;
-  args: string[];
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  durationMs: number;
-}
-
-export interface ToolHiveCommandInvocation {
-  executablePath: string;
-  args: string[];
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  timeoutMs: number;
-}
-
-export type ToolHiveCommandExecutor = (invocation: ToolHiveCommandInvocation) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
-
-export interface ToolHiveOperationProgress {
-  phase: string;
-  status: "running" | "complete";
-  message: string;
-  workloadName?: string;
-  command?: ToolHiveAllowedCommand;
-  elapsedMs?: number;
-}
 
 export interface ToolHiveRuntimeServiceOptions extends ResolveToolHiveExecutableOptions {
   userDataPath: string;
@@ -324,20 +292,61 @@ export interface ToolHiveRuntimeState {
 
 export class ToolHiveRuntimeService {
   private readonly options: ToolHiveRuntimeServiceOptions;
+  private readonly stateStore: ToolHiveRuntimeStateStore;
+  private readonly runtimeEnvironment: ToolHiveRuntimeEnvironmentOwner;
+  private readonly commandRunner: ToolHiveCommandRunner;
+  private readonly standardMcpImportController: ToolHiveStandardMcpImportController;
 
   constructor(options: ToolHiveRuntimeServiceOptions) {
     if (!options.userDataPath.trim()) throw new Error("ToolHiveRuntimeService requires userDataPath.");
     this.options = options;
+    this.stateStore = new ToolHiveRuntimeStateStore({ userDataPath: options.userDataPath, now: options.now });
+    this.runtimeEnvironment = new ToolHiveRuntimeEnvironmentOwner({
+      env: () => this.options.env ?? process.env,
+      stateRoot: () => this.stateRoot(),
+    });
+    this.commandRunner = new ToolHiveCommandRunner({
+      ...options,
+      containerRuntimeEnv: () => this.runtimeEnvironment.containerRuntimeEnv(),
+    });
+    this.standardMcpImportController = new ToolHiveStandardMcpImportController({
+      ambientGroup: TOOLHIVE_AMBIENT_GROUP,
+      timeoutMs: () => this.commandRunner.timeoutMs(),
+      ensureAmbientGroup: () => this.ensureAmbientGroup(),
+      writePermissionProfile: (input) => this.writePermissionProfile(input),
+      prepareRunVolumes: (volumes) => prepareToolHiveRunVolumes(volumes),
+      prepareSecretRuntimeDelivery: (workloadName, secretBindings, allowedKinds, plainEnvVars) =>
+        this.runtimeEnvironment.prepareSecretRuntimeDelivery(workloadName, secretBindings, allowedKinds, plainEnvVars),
+      cleanupRuntimeSecretFiles: (paths) => cleanupRuntimeSecretFiles(paths),
+      runAllowedWithProgress: (command, args, runOptions) => this.commandRunner.runAllowedWithProgress(command, args, runOptions),
+      waitForAmbientWorkload: (workloadName, waitOptions) => this.waitForAmbientWorkload(workloadName, waitOptions),
+      listAmbientWorkloadSummaries: (listOptions) => this.listAmbientWorkloadSummaries(listOptions),
+      readState: () => this.readState(),
+      upsertInstalledServer: (input) => this.stateStore.upsertInstalledServer(input),
+      updateInstalledServerInstallValidation: (input) => this.updateInstalledServerInstallValidation(input),
+      formatRunImportFailure: (result) => formatToolHiveRunImportFailure(result),
+      appendImageVerificationArgs: (args, policy) => appendImageVerificationArgs(args, policy),
+      toolHiveRunVolumeArg: (volume) => toolHiveRunVolumeArg(volume),
+      toolHiveLabelValue: (value) => toolHiveLabelValue(value),
+      redactToolHiveText: (value) => redactToolHiveText(value),
+      validators: {
+        assertSafeToolHiveRef,
+        assertSafeWorkloadName,
+        assertSafeToolHiveRunSource,
+        assertSafeToolHiveRuntimeImage,
+        assertSafeServerArg,
+      },
+    });
   }
 
   async version(): Promise<ToolHiveCommandResult> {
-    return this.runAllowed("version", ["version"]);
+    return this.commandRunner.runAllowed("version", ["version"]);
   }
 
   async registryList(options: ToolHiveRegistryListOptions = {}): Promise<unknown[]> {
     const args = ["registry", "list", "--format", "json"];
     if (options.refresh) args.push("--refresh");
-    const result = await this.runAllowed("registry-list", args);
+    const result = await this.commandRunner.runAllowed("registry-list", args);
     const parsed = parseJsonOutput(result.stdout, "ToolHive registry list");
     if (!Array.isArray(parsed)) throw new Error("ToolHive registry list returned JSON that is not an array.");
     return parsed;
@@ -347,7 +356,7 @@ export class ToolHiveRuntimeService {
     assertSafeToolHiveRef(serverId, "serverId");
     const args = ["registry", "info", serverId, "--format", "json"];
     if (options.refresh) args.push("--refresh");
-    const result = await this.runAllowed("registry-info", args);
+    const result = await this.commandRunner.runAllowed("registry-info", args);
     const parsed = parseJsonOutput(result.stdout, "ToolHive registry info");
     if (!isRecord(parsed)) throw new Error("ToolHive registry info returned JSON that is not an object.");
     return parsed;
@@ -355,7 +364,7 @@ export class ToolHiveRuntimeService {
 
   async preflightRuntime(timeoutSeconds = 5): Promise<ToolHiveRuntimePreflight> {
     const timeout = Math.max(1, Math.min(60, Math.floor(timeoutSeconds)));
-    const command = await this.runAllowed("runtime-check", ["runtime", "check", "--timeout", String(timeout)], { throwOnNonZero: false, timeoutMs: (timeout + 2) * 1000 });
+    const command = await this.commandRunner.runAllowed("runtime-check", ["runtime", "check", "--timeout", String(timeout)], { throwOnNonZero: false, timeoutMs: (timeout + 2) * 1000 });
     const output = [command.stdout, command.stderr].join("\n").trim();
     return {
       ok: command.exitCode === 0,
@@ -379,25 +388,25 @@ export class ToolHiveRuntimeService {
       args.push("--");
       args.push(...serverArgs);
     }
-    return this.runAllowed("build", args, { timeoutMs: Math.max(this.timeoutMs(), 300_000) });
+    return this.commandRunner.runAllowed("build", args, { timeoutMs: Math.max(this.commandRunner.timeoutMs(), 300_000) });
   }
 
   async listGroups(): Promise<string[]> {
-    const result = await this.runAllowed("group-list", ["group", "list"]);
+    const result = await this.commandRunner.runAllowed("group-list", ["group", "list"]);
     return parseToolHiveGroupList(result.stdout);
   }
 
   async ensureAmbientGroup(): Promise<ToolHiveCommandResult | undefined> {
     const groups = await this.listGroups();
     if (groups.includes(TOOLHIVE_AMBIENT_GROUP)) return undefined;
-    return this.runAllowed("group-create", ["group", "create", TOOLHIVE_AMBIENT_GROUP]);
+    return this.commandRunner.runAllowed("group-create", ["group", "create", TOOLHIVE_AMBIENT_GROUP]);
   }
 
   async listWorkloads(options: ToolHiveListWorkloadsOptions = {}): Promise<unknown[]> {
     const args = ["list", "--format", "json"];
     if (options.all) args.push("--all");
     args.push("--group", options.group ?? TOOLHIVE_AMBIENT_GROUP);
-    const result = await this.runAllowed("list", args);
+    const result = await this.commandRunner.runAllowed("list", args);
     const parsed = parseJsonOutput(result.stdout, "ToolHive workload list");
     if (!Array.isArray(parsed)) throw new Error("ToolHive workload list returned JSON that is not an array.");
     return parsed;
@@ -448,37 +457,12 @@ export class ToolHiveRuntimeService {
   async writePermissionProfile(input: ToolHivePermissionProfileWriteInput): Promise<ToolHivePermissionProfileWriteResult> {
     assertSafeToolHiveRef(input.serverId, "serverId");
     assertSafeWorkloadName(input.workloadName);
-    const profileText = `${JSON.stringify(sortJsonValue(input.profile), null, 2)}\n`;
-    const sha256 = sha256Hex(profileText);
-    const fileName = `${safeFileSegment(input.workloadName)}-${sha256.slice(0, 12)}.json`;
-    const path = join(this.stateRoot(), "permission-profiles", fileName);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, profileText, { encoding: "utf8", mode: 0o600 });
-    try {
-      await chmod(path, 0o600);
-    } catch {
-      // chmod is best-effort on platforms/filesystems that do not preserve POSIX modes.
-    }
-    return { path, sha256 };
+    return this.stateStore.writePermissionProfile(input);
   }
 
   async readInstalledServerPermissionProfile(workloadName: string): Promise<ToolHivePermissionProfileReadResult> {
     assertSafeWorkloadName(workloadName);
-    const state = await this.readState();
-    const server = state.installedServers.find((candidate) => candidate.workloadName === workloadName);
-    if (!server) throw new Error(`No Ambient ToolHive install state exists for workload ${workloadName}.`);
-    const text = await readFile(server.permissionProfilePath, "utf8");
-    const parsed = JSON.parse(text) as unknown;
-    if (!isRecord(parsed)) throw new Error(`ToolHive permission profile for workload ${workloadName} is not a JSON object.`);
-    const sha256 = sha256Hex(text);
-    return {
-      server,
-      profile: parsed,
-      path: server.permissionProfilePath,
-      sha256,
-      expectedSha256: server.permissionProfileSha256,
-      sha256Verified: sha256 === server.permissionProfileSha256,
-    };
+    return this.stateStore.readInstalledServerPermissionProfile(workloadName);
   }
 
   async runRegistryServer(input: ToolHiveRunRegistryServerInput): Promise<ToolHiveCommandResult> {
@@ -514,7 +498,11 @@ export class ToolHiveRuntimeService {
     for (const volume of runVolumes) {
       args.push("--volume", toolHiveRunVolumeArg(volume));
     }
-    const secretDelivery = await this.prepareSecretRuntimeDelivery(input.workloadName, input.secretBindings ?? [], ["container-env-file"]);
+    const secretDelivery = await this.runtimeEnvironment.prepareSecretRuntimeDelivery(
+      input.workloadName,
+      input.secretBindings ?? [],
+      ["container-env-file"],
+    );
     args.push(...secretDelivery.args);
     args.push(input.serverId);
     if (serverArgs.length) {
@@ -522,8 +510,8 @@ export class ToolHiveRuntimeService {
       args.push(...serverArgs);
     }
     try {
-      const result = await this.runAllowed("run-registry", args, { timeoutMs: Math.max(this.timeoutMs(), 120_000) });
-      await this.upsertInstalledServer({
+      const result = await this.commandRunner.runAllowed("run-registry", args, { timeoutMs: Math.max(this.commandRunner.timeoutMs(), 120_000) });
+      await this.stateStore.upsertInstalledServer({
         serverId: input.serverId,
         workloadName: input.workloadName,
         registrySource: input.registrySource,
@@ -546,165 +534,11 @@ export class ToolHiveRuntimeService {
   }
 
   async runStandardMcpImport(input: ToolHiveRunStandardMcpImportInput): Promise<ToolHiveCommandResult> {
-    assertSafeToolHiveRef(input.serverId, "serverId");
-    assertSafeWorkloadName(input.workloadName);
-    assertSafeToolHiveRunSource(input.sourceRef);
-    if (input.runtimeImage) assertSafeToolHiveRuntimeImage(input.runtimeImage);
-    const serverArgs = input.serverArgs ?? [];
-    for (const arg of serverArgs) {
-      assertSafeServerArg(arg);
-    }
-    const volumes = input.volumes ?? [];
-    const runVolumes = await prepareToolHiveRunVolumes(volumes);
-    await this.ensureAmbientGroup();
-    const profile = await this.writePermissionProfile({
-      serverId: input.serverId,
-      workloadName: input.workloadName,
-      profile: input.permissionProfile,
-    });
-    const args = [
-      "run",
-      "--name",
-      input.workloadName,
-      "--group",
-      TOOLHIVE_AMBIENT_GROUP,
-      "--isolate-network",
-      "--permission-profile",
-      profile.path,
-      "--label",
-      `ambient.serverId=${toolHiveLabelValue(input.serverId)}`,
-      "--label",
-      `ambient.importSource=${toolHiveLabelValue(input.registrySource ?? "standard-mcp-import")}`,
-    ];
-    if (input.transport) args.push("--transport", input.transport);
-    if (input.proxyMode) args.push("--proxy-mode", input.proxyMode);
-    appendImageVerificationArgs(args, input.imageVerificationPolicy);
-    if (input.runtimeImage) args.push("--runtime-image", input.runtimeImage);
-    for (const volume of runVolumes) {
-      args.push("--volume", toolHiveRunVolumeArg(volume));
-    }
-    const secretDelivery = await this.prepareSecretRuntimeDelivery(input.workloadName, input.secretBindings ?? [], ["container-env-file"], input.envVars ?? []);
-    args.push(...secretDelivery.args);
-    args.push(input.sourceRef);
-    if (serverArgs.length) {
-      args.push("--");
-      args.push(...serverArgs);
-    }
-    try {
-      const result = await this.runAllowedWithProgress("run-import", args, {
-        timeoutMs: Math.max(this.timeoutMs(), 120_000),
-        throwOnNonZero: false,
-        onProgress: input.onProgress,
-        workloadName: input.workloadName,
-        phase: "toolhive-run",
-        message: `Starting ToolHive Standard MCP workload ${input.workloadName}.`,
-      });
-      if (result.exitCode !== 0) {
-        if (!isExistingWorkloadConflict(result, input.workloadName)) {
-          const failure = formatToolHiveRunImportFailure(result);
-          await this.markInstalledServerValidationFailedIfPresent(input.workloadName, failure);
-          throw new Error(failure);
-        }
-        emitToolHiveProgress(input.onProgress, {
-          phase: "same-name-conflict",
-          status: "running",
-          workloadName: input.workloadName,
-          message: `ToolHive reported existing workload ${input.workloadName}; inspecting whether Ambient can adopt or replace it.`,
-        });
-        const workload = await this.waitForAmbientWorkload(input.workloadName, { timeoutMs: 30_000 });
-        const adoptable = isAdoptableStandardMcpImportWorkload(workload, input);
-        if (!adoptable && !isReplaceableSameNameStandardMcpImportConflict(workload, input)) {
-          throw new Error(`ToolHive workload ${input.workloadName} already exists but does not match the expected Ambient import source.`);
-        }
-        if (!adoptable || !(await this.canAdoptStandardMcpImportRuntime(input, volumes, profile.sha256))) {
-          await this.removeStandardMcpImportWorkloadForReinstall(input.workloadName, input.onProgress);
-          const retry = await this.runAllowedWithProgress("run-import", args, {
-            timeoutMs: Math.max(this.timeoutMs(), 120_000),
-            throwOnNonZero: false,
-            onProgress: input.onProgress,
-            workloadName: input.workloadName,
-            phase: "toolhive-rerun",
-            message: `Recreating ToolHive Standard MCP workload ${input.workloadName}.`,
-          });
-          if (retry.exitCode !== 0) {
-            const failure = formatToolHiveRunImportFailure(retry);
-            await this.markInstalledServerValidationFailedIfPresent(input.workloadName, failure);
-            throw new Error(failure);
-          }
-          emitToolHiveProgress(input.onProgress, {
-            phase: "persist-state",
-            status: "running",
-            workloadName: input.workloadName,
-            message: `Recording Ambient install state for ToolHive workload ${input.workloadName}.`,
-          });
-          await this.persistStandardMcpImportState(input, profile, { lastRunCommand: args });
-          return {
-            ...retry,
-            stdout: [
-              retry.stdout.trim(),
-              adoptable
-                ? `Replaced stale ToolHive workload ${input.workloadName} to apply Ambient runtime volumes.`
-                : `Replaced same-name ToolHive workload ${input.workloadName} to apply reviewed Ambient Standard MCP import metadata.`,
-            ].filter(Boolean).join("\n"),
-            exitCode: 0,
-          };
-        }
-        emitToolHiveProgress(input.onProgress, {
-          phase: "persist-state",
-          status: "running",
-          workloadName: input.workloadName,
-          message: `Recording adopted ToolHive workload ${input.workloadName}.`,
-        });
-        await this.persistStandardMcpImportState(input, profile, { endpoint: workload.endpoint, lastRunCommand: args });
-        return {
-          ...result,
-          stdout: [result.stdout.trim(), `Adopted existing ToolHive workload ${input.workloadName}.`].filter(Boolean).join("\n"),
-          exitCode: 0,
-        };
-      }
-      emitToolHiveProgress(input.onProgress, {
-        phase: "persist-state",
-        status: "running",
-        workloadName: input.workloadName,
-        message: `Recording Ambient install state for ToolHive workload ${input.workloadName}.`,
-      });
-      await this.persistStandardMcpImportState(input, profile, { lastRunCommand: args });
-      return result;
-    } finally {
-      await cleanupRuntimeSecretFiles(secretDelivery.cleanupPaths);
-    }
+    return this.standardMcpImportController.runStandardMcpImport(input);
   }
 
   async adoptExistingStandardMcpImportWorkload(input: ToolHiveAdoptStandardMcpImportWorkloadInput): Promise<ToolHiveWorkloadSummary | undefined> {
-    assertSafeToolHiveRef(input.serverId, "serverId");
-    assertSafeWorkloadName(input.workloadName);
-    assertSafeToolHiveRunSource(input.sourceRef);
-    if (input.runtimeImage) assertSafeToolHiveRuntimeImage(input.runtimeImage);
-    const serverArgs = input.serverArgs ?? [];
-    for (const arg of serverArgs) {
-      assertSafeServerArg(arg);
-    }
-    await prepareToolHiveRunVolumes(input.volumes ?? []);
-
-    const workload = (await this.listAmbientWorkloadSummaries({ all: true }))
-      .find((candidate) => candidate.name === input.workloadName);
-    if (!workload || !isReadyToolHiveWorkload(workload) || !isAdoptableStandardMcpImportWorkload(workload, input)) {
-      return undefined;
-    }
-    const profile = await this.writePermissionProfile({
-      serverId: input.serverId,
-      workloadName: input.workloadName,
-      profile: input.permissionProfile,
-    });
-    await this.persistStandardMcpImportState(input, profile, {
-      endpoint: workload.endpoint ?? input.endpoint,
-      lastRunCommand: [
-        "adopt-existing",
-        input.workloadName,
-        input.sourceRef,
-      ],
-    });
-    return workload;
+    return this.standardMcpImportController.adoptExistingStandardMcpImportWorkload(input);
   }
 
   async runRemoteMcpProxy(input: ToolHiveRunRemoteMcpProxyInput): Promise<ToolHiveCommandResult> {
@@ -734,12 +568,16 @@ export class ToolHiveRuntimeService {
       input.transport,
     ];
     if (input.proxyMode) args.push("--proxy-mode", input.proxyMode);
-    const secretDelivery = await this.prepareSecretRuntimeDelivery(input.workloadName, input.secretBindings ?? [], ["remote-bearer-token-file"]);
+    const secretDelivery = await this.runtimeEnvironment.prepareSecretRuntimeDelivery(
+      input.workloadName,
+      input.secretBindings ?? [],
+      ["remote-bearer-token-file"],
+    );
     args.push(...secretDelivery.args);
     args.push(input.remoteUrl);
     try {
-      const result = await this.runAllowed("run-remote", args, { timeoutMs: Math.max(this.timeoutMs(), 120_000) });
-      await this.upsertInstalledServer({
+      const result = await this.commandRunner.runAllowed("run-remote", args, { timeoutMs: Math.max(this.commandRunner.timeoutMs(), 120_000) });
+      await this.stateStore.upsertInstalledServer({
         serverId: input.serverId,
         workloadName: input.workloadName,
         registrySource: input.registrySource ?? "remote-mcp-proxy",
@@ -766,7 +604,7 @@ export class ToolHiveRuntimeService {
       workloadName: input.workloadName,
       profile: input.permissionProfile,
     });
-    await this.upsertInstalledServer({
+    await this.stateStore.upsertInstalledServer({
       serverId: input.serverId,
       workloadName: input.workloadName,
       endpoint: input.endpoint,
@@ -787,32 +625,32 @@ export class ToolHiveRuntimeService {
   async stopWorkload(workloadName: string, timeoutSeconds = 30): Promise<ToolHiveCommandResult> {
     assertSafeWorkloadName(workloadName);
     const timeout = Math.max(1, Math.min(300, Math.floor(timeoutSeconds)));
-    return this.runAllowed("stop", ["stop", workloadName, "--timeout", String(timeout)]);
+    return this.commandRunner.runAllowed("stop", ["stop", workloadName, "--timeout", String(timeout)]);
   }
 
   async removeWorkload(workloadName: string): Promise<ToolHiveCommandResult> {
     assertSafeWorkloadName(workloadName);
-    const result = await this.runAllowed("rm", ["rm", workloadName]);
-    if (result.exitCode === 0) await this.removeInstalledServer(workloadName);
+    const result = await this.commandRunner.runAllowed("rm", ["rm", workloadName]);
+    if (result.exitCode === 0) await this.stateStore.removeInstalledServer(workloadName);
     return result;
   }
 
   async removeInstalledServerState(workloadName: string): Promise<void> {
     assertSafeWorkloadName(workloadName);
-    await this.removeInstalledServer(workloadName);
+    await this.stateStore.removeInstalledServer(workloadName);
   }
 
   async readWorkloadLogs(workloadName: string, lines = 80): Promise<ToolHiveCommandResult> {
     assertSafeWorkloadName(workloadName);
     const tail = Math.max(1, Math.min(500, Math.floor(lines)));
-    const result = await this.runAllowed("logs", ["logs", workloadName, "--tail", String(tail)], {
+    const result = await this.commandRunner.runAllowed("logs", ["logs", workloadName, "--tail", String(tail)], {
       throwOnNonZero: false,
-      timeoutMs: Math.max(this.timeoutMs(), 15_000),
+      timeoutMs: Math.max(this.commandRunner.timeoutMs(), 15_000),
     });
     if (result.exitCode === 0 || !toolHiveLogsTailFlagUnsupported(result)) return result;
-    const fallback = await this.runAllowed("logs", ["logs", workloadName], {
+    const fallback = await this.commandRunner.runAllowed("logs", ["logs", workloadName], {
       throwOnNonZero: false,
-      timeoutMs: Math.max(this.timeoutMs(), 15_000),
+      timeoutMs: Math.max(this.commandRunner.timeoutMs(), 15_000),
     });
     return {
       ...fallback,
@@ -823,47 +661,12 @@ export class ToolHiveRuntimeService {
 
   async snapshotInstalledServerToolDescriptors(workloadName: string, descriptors: unknown[]): Promise<ToolHiveToolDescriptorSnapshotResult> {
     assertSafeWorkloadName(workloadName);
-    const state = await this.readState();
-    const server = state.installedServers.find((candidate) => candidate.workloadName === workloadName);
-    if (!server) throw new Error(`No Ambient ToolHive install state exists for workload ${workloadName}.`);
-    const now = this.nowIso();
-    const stableDescriptors = stableToolDescriptorSnapshot(descriptors);
-    const descriptorHash = sha256Hex(JSON.stringify(stableDescriptors));
-    const previousHash = server.lastKnownToolDescriptorHash;
-    const changed = Boolean(previousHash && previousHash !== descriptorHash);
-    server.lastKnownToolDescriptors = stableDescriptors;
-    server.lastKnownToolDescriptorHash = descriptorHash;
-    server.lastToolDiscoveryAt = now;
-    if (changed || server.toolDescriptorReviewStatus === "needs-review") {
-      server.toolDescriptorReviewStatus = "needs-review";
-      server.toolDescriptorReviewReason = changed
-        ? `MCP tool descriptors changed from ${previousHash} to ${descriptorHash}.`
-        : server.toolDescriptorReviewReason ?? "MCP tool descriptors require review.";
-    } else {
-      server.toolDescriptorReviewStatus = "trusted";
-      delete server.toolDescriptorReviewReason;
-    }
-    server.updatedAt = now;
-    await this.writeState(state);
-    return { state: server, changed, ...(previousHash ? { previousHash } : {}), descriptorHash };
+    return this.stateStore.snapshotInstalledServerToolDescriptors(workloadName, descriptors);
   }
 
   async trustInstalledServerToolDescriptors(workloadName: string, expectedDescriptorHash?: string): Promise<ToolHiveToolDescriptorTrustResult> {
     assertSafeWorkloadName(workloadName);
-    const state = await this.readState();
-    const server = state.installedServers.find((candidate) => candidate.workloadName === workloadName);
-    if (!server) throw new Error(`No Ambient ToolHive install state exists for workload ${workloadName}.`);
-    const descriptorHash = server.lastKnownToolDescriptorHash;
-    if (!descriptorHash) throw new Error(`No MCP tool descriptor snapshot exists for workload ${workloadName}.`);
-    if (expectedDescriptorHash && expectedDescriptorHash !== descriptorHash) {
-      throw new Error(`MCP tool descriptor snapshot changed before review could be accepted. Expected ${expectedDescriptorHash}, found ${descriptorHash}.`);
-    }
-    const wasReviewRequired = server.toolDescriptorReviewStatus === "needs-review";
-    server.toolDescriptorReviewStatus = "trusted";
-    delete server.toolDescriptorReviewReason;
-    server.updatedAt = this.nowIso();
-    await this.writeState(state);
-    return { state: server, descriptorHash, wasReviewRequired };
+    return this.stateStore.trustInstalledServerToolDescriptors(workloadName, expectedDescriptorHash);
   }
 
   async updateInstalledServerInstallValidation(input: {
@@ -872,20 +675,7 @@ export class ToolHiveRuntimeService {
     error?: string;
   }): Promise<ToolHiveInstalledServerState> {
     assertSafeWorkloadName(input.workloadName);
-    const state = await this.readState();
-    const server = state.installedServers.find((candidate) => candidate.workloadName === input.workloadName);
-    if (!server) throw new Error(`No Ambient ToolHive install state exists for workload ${input.workloadName}.`);
-    const now = this.nowIso();
-    server.installValidationStatus = input.status;
-    server.installValidationAt = now;
-    if (input.status === "validation_failed" && input.error) {
-      server.installValidationError = input.error;
-    } else {
-      delete server.installValidationError;
-    }
-    server.updatedAt = now;
-    await this.writeState(state);
-    return server;
+    return this.stateStore.updateInstalledServerInstallValidation(input);
   }
 
   async updateInstalledServerEndpoint(input: {
@@ -894,14 +684,7 @@ export class ToolHiveRuntimeService {
   }): Promise<ToolHiveInstalledServerState> {
     assertSafeWorkloadName(input.workloadName);
     if (input.endpoint) assertSafeLoopbackMcpEndpoint(input.endpoint);
-    const state = await this.readState();
-    const server = state.installedServers.find((candidate) => candidate.workloadName === input.workloadName);
-    if (!server) throw new Error(`No Ambient ToolHive install state exists for workload ${input.workloadName}.`);
-    if (input.endpoint) server.endpoint = input.endpoint;
-    else delete server.endpoint;
-    server.updatedAt = this.nowIso();
-    await this.writeState(state);
-    return server;
+    return this.stateStore.updateInstalledServerEndpoint(input);
   }
 
   async updateInstalledServerAutowireRevision(input: {
@@ -914,20 +697,7 @@ export class ToolHiveRuntimeService {
     assertSafeAutowireRevisionId(input.activeRevisionId);
     if (input.candidateRef) assertSafeAutowireCandidateRef(input.candidateRef);
     if (input.candidateHash) assertSafeSha256(input.candidateHash, "candidateHash");
-    const state = await this.readState();
-    const server = state.installedServers.find((candidate) => candidate.workloadName === input.workloadName);
-    if (!server) throw new Error(`No Ambient ToolHive install state exists for workload ${input.workloadName}.`);
-    server.activeRevisionId = input.activeRevisionId;
-    if (input.candidateRef || input.candidateHash) {
-      server.sourceIdentity = {
-        ...(server.sourceIdentity ?? { runtimeLane: "unknown" as const }),
-        ...(input.candidateRef ? { candidateRef: input.candidateRef } : {}),
-        ...(input.candidateHash ? { candidateHash: input.candidateHash } : {}),
-      };
-    }
-    server.updatedAt = this.nowIso();
-    await this.writeState(state);
-    return server;
+    return this.stateStore.updateInstalledServerAutowireRevision(input);
   }
 
   async updateInstalledServerToolPolicy(
@@ -937,332 +707,32 @@ export class ToolHiveRuntimeService {
   ): Promise<ToolHiveInstalledServerState> {
     assertSafeWorkloadName(workloadName);
     assertSafeMcpToolName(toolName);
-    const state = await this.readState();
-    const server = state.installedServers.find((candidate) => candidate.workloadName === workloadName);
-    if (!server) throw new Error(`No Ambient ToolHive install state exists for workload ${workloadName}.`);
-    const now = this.nowIso();
-    const normalized = normalizeToolPolicy(policy, now);
-    const nextPolicies = { ...(server.toolPolicies ?? {}) };
-    if (normalized) {
-      nextPolicies[toolName] = normalized;
-      server.toolPolicies = nextPolicies;
-    } else {
-      delete nextPolicies[toolName];
-      if (Object.keys(nextPolicies).length) server.toolPolicies = nextPolicies;
-      else delete server.toolPolicies;
-    }
-    server.updatedAt = now;
-    await this.writeState(state);
-    return server;
+    return this.stateStore.updateInstalledServerToolPolicy(workloadName, toolName, policy);
   }
 
   async readState(): Promise<ToolHiveRuntimeState> {
-    try {
-      const parsed = JSON.parse(await readFile(this.statePath(), "utf8")) as unknown;
-      if (!isRecord(parsed) || parsed.schemaVersion !== TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION || !Array.isArray(parsed.installedServers)) {
-        return emptyState();
-      }
-      return {
-        schemaVersion: TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION,
-        installedServers: parsed.installedServers.filter(isInstalledServerState),
-      };
-    } catch {
-      return emptyState();
-    }
+    return this.stateStore.readState();
   }
 
   async writeState(state: ToolHiveRuntimeState): Promise<void> {
-    await mkdir(dirname(this.statePath()), { recursive: true });
-    await writeFile(this.statePath(), `${JSON.stringify(state, null, 2)}\n`, "utf8");
+    await this.stateStore.writeState(state);
   }
 
   async removeState(): Promise<void> {
-    await rm(this.statePath(), { force: true });
+    await this.stateStore.removeState();
   }
 
   stateRoot(): string {
-    return join(this.options.userDataPath, "mcp", "toolhive");
+    return this.stateStore.stateRoot();
   }
 
   statePath(): string {
-    return join(this.stateRoot(), "state.json");
+    return this.stateStore.statePath();
   }
 
   async containerRuntimeEnv(): Promise<NodeJS.ProcessEnv> {
-    const dockerConfig = await this.ensureAmbientDockerConfig();
-    return ambientRuntimeEnv(this.options.env ?? process.env, {
-      TOOLHIVE_NO_TELEMETRY: "1",
-      DOCKER_CONFIG: dockerConfig,
-    });
+    return this.runtimeEnvironment.containerRuntimeEnv();
   }
-
-  private async upsertInstalledServer(input: Omit<ToolHiveInstalledServerState, "createdAt" | "updatedAt">): Promise<void> {
-    const state = await this.readState();
-    const now = this.nowIso();
-    const existing = state.installedServers.find((server) => server.workloadName === input.workloadName);
-    if (existing) {
-      Object.assign(existing, input, { updatedAt: now });
-    } else {
-      state.installedServers.push({ ...input, createdAt: now, updatedAt: now });
-    }
-    const current = state.installedServers.find((server) => server.workloadName === input.workloadName);
-    if (current && (input.installValidationStatus === "validation_pending" || input.installValidationStatus === "ready")) {
-      delete current.installValidationError;
-    }
-    await this.writeState(state);
-  }
-
-  private async persistStandardMcpImportState(
-    input: ToolHiveRunStandardMcpImportInput,
-    profile: ToolHivePermissionProfileWriteResult,
-    options: { endpoint?: string; lastRunCommand?: string[] } = {},
-  ): Promise<void> {
-    const managedFileExchange = managedFileExchangeFromVolumes(input.volumes);
-    await this.upsertInstalledServer({
-      serverId: input.serverId,
-      workloadName: input.workloadName,
-      ...(options.endpoint ? { endpoint: options.endpoint } : {}),
-      registrySource: input.registrySource ?? "standard-mcp-import",
-      ...(input.sourceIdentity ? { sourceIdentity: input.sourceIdentity } : {}),
-      ...(input.defaultCatalogDescriptorHash ? { defaultCatalogDescriptorHash: input.defaultCatalogDescriptorHash } : {}),
-      ...(input.defaultCatalogReviewedAt ? { defaultCatalogReviewedAt: input.defaultCatalogReviewedAt } : {}),
-      ...(input.installReview ? { installReview: input.installReview } : {}),
-      ...(input.secretBindings ? { secretBindings: input.secretBindings } : {}),
-      ...(input.imageVerificationPolicy ? { imageVerificationPolicy: input.imageVerificationPolicy } : {}),
-      ...(input.volumes?.length ? { runtimeVolumes: input.volumes } : {}),
-      ...(managedFileExchange ? { managedFileExchange } : {}),
-      permissionProfilePath: profile.path,
-      permissionProfileSha256: profile.sha256,
-      installValidationStatus: "validation_pending",
-      ...(options.lastRunCommand ? { lastRunCommand: options.lastRunCommand } : {}),
-    });
-  }
-
-  private async canAdoptStandardMcpImportRuntime(input: ToolHiveRunStandardMcpImportInput, volumes: ToolHiveRunVolume[], permissionProfileSha256: string): Promise<boolean> {
-    const state = await this.readState();
-    const existing = state.installedServers.find((server) => server.workloadName === input.workloadName);
-    return Boolean(
-      existing &&
-      isAmbientOwnedStandardMcpImportState(existing, input) &&
-      existing.permissionProfileSha256 === permissionProfileSha256 &&
-      toolHiveRunVolumesEqual(existing.runtimeVolumes ?? [], volumes)
-    );
-  }
-
-  private async markInstalledServerValidationFailedIfPresent(workloadName: string, error: string): Promise<void> {
-    await this.updateInstalledServerInstallValidation({
-      workloadName,
-      status: "validation_failed",
-      error,
-    }).catch(() => undefined);
-  }
-
-  private async removeStandardMcpImportWorkloadForReinstall(
-    workloadName: string,
-    onProgress?: (progress: ToolHiveOperationProgress) => void,
-  ): Promise<void> {
-    await this.runAllowedWithProgress("stop", ["stop", workloadName, "--timeout", "30"], {
-      throwOnNonZero: false,
-      timeoutMs: Math.max(this.timeoutMs(), 35_000),
-      onProgress,
-      workloadName,
-      phase: "toolhive-stop-existing",
-      message: `Stopping existing ToolHive workload ${workloadName} before reinstall.`,
-    });
-    const remove = await this.runAllowedWithProgress("rm", ["rm", workloadName], {
-      throwOnNonZero: false,
-      timeoutMs: Math.max(this.timeoutMs(), 30_000),
-      onProgress,
-      workloadName,
-      phase: "toolhive-remove-existing",
-      message: `Removing existing ToolHive workload ${workloadName} before reinstall.`,
-    });
-    if (remove.exitCode !== 0 && !isMissingWorkloadRemoval(remove)) {
-      throw new Error(`ToolHive workload ${workloadName} has stale Ambient runtime volumes, but ToolHive could not remove it for reinstall: ${redactToolHiveText(remove.stderr || remove.stdout)}`);
-    }
-  }
-
-  private async removeInstalledServer(workloadName: string): Promise<void> {
-    const state = await this.readState();
-    state.installedServers = state.installedServers.filter((server) => server.workloadName !== workloadName);
-    await this.writeState(state);
-  }
-
-  private async prepareSecretRuntimeDelivery(
-    workloadName: string,
-    secretBindings: ToolHiveSecretBindingState[],
-    allowedKinds: ToolHiveSecretDerivedBindingKind[],
-    plainEnvVars: ToolHivePlainEnvVar[] = [],
-  ): Promise<{ args: string[]; cleanupPaths: string[] }> {
-    const derivedBindings = secretBindings.flatMap((binding) => (binding.derivedBindings ?? []).map((derived) => ({ binding, derived })));
-    if (!derivedBindings.length && !plainEnvVars.length) return { args: [], cleanupPaths: [] };
-
-    const envEntries: Array<{ name: string; value: string }> = [];
-    const bearerTokenEntries: Array<{ name: string; value: string }> = [];
-    for (const entry of plainEnvVars) {
-      assertSafeEnvName(entry.name);
-      assertSafePlainEnvDeliveryValue(entry.value);
-      envEntries.push({ name: entry.name, value: entry.value });
-    }
-    for (const { binding, derived } of derivedBindings) {
-      if (binding.envName !== derived.envName || binding.secretRef !== derived.secretRef) {
-        throw new Error(`Secret binding ${binding.envName} has inconsistent derived runtime binding metadata.`);
-      }
-      if (!allowedKinds.includes(derived.kind)) {
-        throw new Error(`Secret binding ${binding.envName} uses unsupported runtime delivery ${derived.kind} for this ToolHive run path.`);
-      }
-      const secretValue = await readSecretReference(derived.secretRef);
-      if (secretValue === undefined) throw new Error(`Ambient secret reference for ${derived.envName} was not found.`);
-      assertSafeSecretDeliveryValue(secretValue);
-      if (derived.kind === "container-env-file") {
-        assertSafeEnvName(derived.runtimeName);
-        envEntries.push({ name: derived.runtimeName, value: secretValue });
-      } else if (derived.kind === "remote-bearer-token-file") {
-        if (derived.runtimeName.toLowerCase() !== "authorization") {
-          throw new Error(`Remote bearer-token delivery only supports Authorization, got ${derived.runtimeName}.`);
-        }
-        const tokenValue = normalizedBearerToken(secretValue);
-        if (!tokenValue) throw new Error(`Ambient secret reference for ${derived.envName} did not contain a bearer token value.`);
-        bearerTokenEntries.push({ name: derived.envName, value: tokenValue });
-      }
-    }
-
-    if (bearerTokenEntries.length > 1) {
-      throw new Error("Remote MCP proxy can bind only one bearer token secret in this ToolHive run path.");
-    }
-
-    const args: string[] = [];
-    const cleanupPaths: string[] = [];
-    const root = join(this.stateRoot(), "runtime-secret-bindings");
-    await mkdir(root, { recursive: true, mode: 0o700 });
-
-    if (envEntries.length) {
-      const body = `${envEntries.map((entry) => `${entry.name}=${entry.value}`).join("\n")}\n`;
-      const path = join(root, `${safeFileSegment(workloadName)}-${sha256Hex(body).slice(0, 12)}.env`);
-      await writeRuntimeSecretFile(path, body);
-      args.push("--env-file", path);
-      cleanupPaths.push(path);
-    }
-
-    if (bearerTokenEntries.length) {
-      const entry = bearerTokenEntries[0];
-      const body = `${entry.value}\n`;
-      const path = join(root, `${safeFileSegment(workloadName)}-${sha256Hex(`${entry.name}\0${body}`).slice(0, 12)}.token`);
-      await writeRuntimeSecretFile(path, body);
-      args.push("--remote-auth", "--remote-auth-bearer-token-file", path);
-      cleanupPaths.push(path);
-    }
-
-    return { args, cleanupPaths };
-  }
-
-  private async runAllowed(command: ToolHiveAllowedCommand, args: string[], options: { throwOnNonZero?: boolean; timeoutMs?: number } = {}): Promise<ToolHiveCommandResult> {
-    assertAllowedCommandShape(command, args);
-    const startedAt = Date.now();
-    const executablePath = (await resolveOrExtractToolHiveExecutable({
-      ...this.options,
-      env: this.options.env ?? process.env,
-      extractionRoot: join(this.options.userDataPath, "mcp", "toolhive", "bundle"),
-    })).executablePath;
-    const executor = this.options.executor ?? defaultExecutor;
-    const result = await executor({
-      executablePath,
-      args,
-      cwd: this.options.cwd ?? process.cwd(),
-      env: await this.containerRuntimeEnv(),
-      timeoutMs: options.timeoutMs ?? this.timeoutMs(),
-    });
-    const commandResult: ToolHiveCommandResult = {
-      command,
-      args,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: result.exitCode,
-      durationMs: Date.now() - startedAt,
-    };
-    if (result.exitCode !== 0 && options.throwOnNonZero !== false) {
-      throw new Error(`ToolHive ${command} failed with exit code ${result.exitCode}: ${redactToolHiveText(result.stderr || result.stdout)}`);
-    }
-    return commandResult;
-  }
-
-  private timeoutMs(): number {
-    return Math.max(1, Math.floor(this.options.timeoutMs ?? defaultTimeoutMs));
-  }
-
-  private async runAllowedWithProgress(
-    command: ToolHiveAllowedCommand,
-    args: string[],
-    options: {
-      throwOnNonZero?: boolean;
-      timeoutMs?: number;
-      onProgress?: (progress: ToolHiveOperationProgress) => void;
-      workloadName?: string;
-      phase: string;
-      message: string;
-    },
-  ): Promise<ToolHiveCommandResult> {
-    const startedAt = Date.now();
-    const emit = (status: ToolHiveOperationProgress["status"], message = options.message) => {
-      emitToolHiveProgress(options.onProgress, {
-        phase: options.phase,
-        status,
-        message,
-        command,
-        workloadName: options.workloadName,
-        elapsedMs: Math.max(0, Date.now() - startedAt),
-      });
-    };
-    emit("running");
-    const heartbeat = setInterval(() => {
-      emit("running", `${options.message} (${formatElapsedMs(Date.now() - startedAt)} elapsed).`);
-    }, 5_000);
-    heartbeat.unref?.();
-    try {
-      const result = await this.runAllowed(command, args, options);
-      emit("complete", `ToolHive ${command} completed for ${options.workloadName ?? "workload"} in ${formatElapsedMs(Date.now() - startedAt)}.`);
-      return result;
-    } finally {
-      clearInterval(heartbeat);
-    }
-  }
-
-  private async ensureAmbientDockerConfig(): Promise<string> {
-    const root = join(this.stateRoot(), "docker-config");
-    await mkdir(root, { recursive: true, mode: 0o700 });
-    await chmod(root, 0o700).catch(() => undefined);
-    const configPath = join(root, "config.json");
-    await writeFile(configPath, `${JSON.stringify({})}\n`, { encoding: "utf8", mode: 0o600 });
-    await chmod(configPath, 0o600).catch(() => undefined);
-    return root;
-  }
-
-  private nowIso(): string {
-    return (this.options.now?.() ?? new Date()).toISOString();
-  }
-}
-
-function assertAllowedCommandShape(command: ToolHiveAllowedCommand, args: string[]): void {
-  const twoPartCommands: ToolHiveAllowedCommand[] = ["group-list", "group-create", "registry-list", "registry-info", "runtime-check"];
-  const commandPrefix = args.slice(0, twoPartCommands.includes(command) ? 2 : 1).join(" ");
-  const allowed: Record<ToolHiveAllowedCommand, string> = {
-    version: "version",
-    build: "build",
-    "group-list": "group list",
-    "group-create": "group create",
-    "registry-list": "registry list",
-    "registry-info": "registry info",
-    "runtime-check": "runtime check",
-    "run-registry": "run",
-    "run-import": "run",
-    "run-remote": "run",
-    list: "list",
-    logs: "logs",
-    stop: "stop",
-    rm: "rm",
-  };
-  if (commandPrefix !== allowed[command]) throw new Error(`ToolHive command ${command} attempted unexpected argv: ${args.join(" ")}`);
-  if (args.some((arg) => arg.includes("\0"))) throw new Error("ToolHive command arguments cannot contain NUL bytes.");
 }
 
 function appendImageVerificationArgs(args: string[], policy?: ToolHiveImageVerificationPolicy): void {
@@ -1274,43 +744,6 @@ function toolHiveImageVerificationMode(policy?: ToolHiveImageVerificationPolicy)
   if (!policy || policy === "strict") return undefined;
   if (policy === "ambient-reviewed" || policy === "disabled") return "disabled";
   return policy;
-}
-
-async function defaultExecutor(invocation: ToolHiveCommandInvocation): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  try {
-    const { stdout, stderr } = await execFileAsync(invocation.executablePath, invocation.args, {
-      cwd: invocation.cwd,
-      env: invocation.env,
-      encoding: "utf8",
-      timeout: invocation.timeoutMs,
-      maxBuffer: maxOutputBufferBytes,
-    });
-    return { stdout, stderr, exitCode: 0 };
-  } catch (error) {
-    const stdout = execErrorText(error, "stdout");
-    const rawStderr = execErrorText(error, "stderr");
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      stdout,
-      stderr: rawStderr || message,
-      exitCode: execErrorExitCode(error),
-    };
-  }
-}
-
-function execErrorText(error: unknown, key: "stdout" | "stderr"): string {
-  const value = error && typeof error === "object" ? (error as Record<string, unknown>)[key] : undefined;
-  if (typeof value === "string") return value;
-  if (Buffer.isBuffer(value)) return value.toString("utf8");
-  return "";
-}
-
-function execErrorExitCode(error: unknown): number {
-  if (!error || typeof error !== "object") return 1;
-  const record = error as Record<string, unknown>;
-  if (typeof record.code === "number") return record.code;
-  if (typeof record.signal === "string" || record.killed === true) return 124;
-  return 1;
 }
 
 function parseJsonOutput(stdout: string, label: string): unknown {
@@ -1378,136 +811,9 @@ export function toolHiveWorkloadEndpoint(workload: unknown): string | undefined 
   return undefined;
 }
 
-function isExistingWorkloadConflict(result: ToolHiveCommandResult, workloadName: string): boolean {
-  const output = `${result.stderr}\n${result.stdout}`;
-  return new RegExp(`workload\\s+with\\s+name\\s+['"]?${escapeRegExp(workloadName)}['"]?\\s+already\\s+exists`, "i").test(output);
-}
-
-function isAdoptableStandardMcpImportWorkload(
-  workload: ToolHiveWorkloadSummary,
-  input: Pick<ToolHiveRunStandardMcpImportInput, "serverId" | "sourceRef" | "registrySource">,
-): boolean {
-  if (!workload.endpoint) return false;
-  const packageRef = stringField(workload.raw, ["package", "image", "source", "sourceRef", "package_ref"]);
-  if (!isAdoptableStandardMcpPackageRef(packageRef, input.sourceRef, input.registrySource)) return false;
-  const labels = isRecord(workload.raw) && isRecord(workload.raw.labels) ? workload.raw.labels : undefined;
-  if (!labels) return false;
-  const serverId = typeof labels["ambient.serverId"] === "string" ? labels["ambient.serverId"] : undefined;
-  const importSource = typeof labels["ambient.importSource"] === "string" ? labels["ambient.importSource"] : undefined;
-  return serverId === toolHiveLabelValue(input.serverId) && importSource === toolHiveLabelValue(input.registrySource ?? "standard-mcp-import");
-}
-
-function isReplaceableSameNameStandardMcpImportConflict(
-  workload: ToolHiveWorkloadSummary,
-  input: Pick<ToolHiveRunStandardMcpImportInput, "workloadName" | "sourceRef" | "registrySource">,
-): boolean {
-  if (workload.name !== input.workloadName) return false;
-  if (!input.workloadName.startsWith("ambient-") || !input.workloadName.includes("-standard-mcp")) return false;
-  const packageRef = stringField(workload.raw, ["package", "image", "source", "sourceRef", "package_ref"]);
-  return !packageRef || isAdoptableStandardMcpPackageRef(packageRef, input.sourceRef, input.registrySource);
-}
-
-function isAdoptableStandardMcpPackageRef(packageRef: string | undefined, sourceRef: string, registrySource: string | undefined): boolean {
-  return Boolean(
-    packageRef &&
-    (sameToolHiveRunPackageRef(packageRef, sourceRef) ||
-      isToolHiveLocalBuiltPackageRef(packageRef, sourceRef) ||
-      isAdoptableDefaultOciImageRef(packageRef, sourceRef, registrySource))
-  );
-}
-
-function sameToolHiveRunPackageRef(left: string, right: string): boolean {
-  if (left === right) return true;
-  const normalizedLeft = normalizedToolHivePackageRef(left);
-  const normalizedRight = normalizedToolHivePackageRef(right);
-  return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
-}
-
-function normalizedToolHivePackageRef(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const withoutScheme = trimmed
-    .replace(/^(?:npx|uvx):\/\//i, "")
-    .replace(/^npm:\/\//i, "")
-    .replace(/^npm:/i, "");
-  return withoutScheme || undefined;
-}
-
-function isToolHiveLocalBuiltPackageRef(packageRef: string, sourceRef: string): boolean {
-  const match = /^docker\.io\/toolhivelocal\/([^:]+)(?::[^/]+)?$/i.exec(packageRef.trim());
-  const expectedSlug = toolHiveLocalBuildSlugForRunSource(sourceRef);
-  return Boolean(match?.[1] && expectedSlug && match[1] === expectedSlug);
-}
-
-function toolHiveLocalBuildSlugForRunSource(sourceRef: string): string | undefined {
-  const match = /^(npx|uvx):\/\/(.+)$/i.exec(sourceRef.trim());
-  if (!match) return undefined;
-  const packageName = match[2]?.trim();
-  if (!packageName) return undefined;
-  const packageSlug = packageName
-    .replace(/^@/, "")
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
-  return packageSlug ? `${match[1]!.toLowerCase()}-${packageSlug}` : undefined;
-}
-
-function isAmbientOwnedStandardMcpImportState(
-  server: ToolHiveInstalledServerState,
-  input: Pick<ToolHiveRunStandardMcpImportInput, "serverId" | "sourceRef" | "registrySource">,
-): boolean {
-  if (server.serverId !== input.serverId) return false;
-  if ((server.registrySource ?? "standard-mcp-import") !== (input.registrySource ?? "standard-mcp-import")) return false;
-  if (server.sourceIdentity?.runtimeLane && server.sourceIdentity.runtimeLane !== "standard-mcp-import" && server.sourceIdentity.runtimeLane !== "ambient-default-oci") {
-    return false;
-  }
-  const previousSource = server.sourceIdentity?.toolHiveRunSource;
-  return !previousSource || previousSource === input.sourceRef || isAdoptableDefaultOciImageRef(previousSource, input.sourceRef, input.registrySource);
-}
-
-function toolHiveRunVolumesEqual(left: ToolHiveRunVolume[], right: ToolHiveRunVolume[]): boolean {
-  if (left.length !== right.length) return false;
-  return stableRunVolumes(left) === stableRunVolumes(right);
-}
-
 function toolHiveRunVolumeArg(volume: ToolHiveRunVolume): string {
   const base = `${volume.hostPath}:${volume.containerPath}`;
   return volume.mode === "ro" ? `${base}:ro` : base;
-}
-
-function stableRunVolumes(volumes: ToolHiveRunVolume[]): string {
-  return JSON.stringify(volumes
-    .map((volume) => ({
-      hostPath: volume.hostPath.replace(/\/+$/, "") || "/",
-      containerPath: volume.containerPath.replace(/\/+$/, "") || "/",
-      mode: volume.mode,
-      purpose: volume.purpose ?? "",
-    }))
-    .sort((left, right) => `${left.containerPath}\0${left.hostPath}\0${left.mode}\0${left.purpose}`
-      .localeCompare(`${right.containerPath}\0${right.hostPath}\0${right.mode}\0${right.purpose}`)));
-}
-
-function isMissingWorkloadRemoval(result: ToolHiveCommandResult): boolean {
-  const output = `${result.stderr}\n${result.stdout}`;
-  return /\b(?:not found|no such workload|does not exist|unknown workload)\b/i.test(output);
-}
-
-function isAdoptableDefaultOciImageRef(packageRef: string | undefined, sourceRef: string, registrySource: string | undefined): boolean {
-  if (registrySource !== "ambient-default-oci" || !packageRef) return false;
-  const workloadImage = ociImageRepositoryAndDigest(packageRef);
-  const expectedImage = ociImageRepositoryAndDigest(sourceRef);
-  return Boolean(workloadImage && expectedImage && workloadImage.repository === expectedImage.repository);
-}
-
-function ociImageRepositoryAndDigest(ref: string): { repository: string; digest: string } | undefined {
-  const match = /^([^@]+)@sha256:([a-f0-9]{64})$/i.exec(ref.trim());
-  if (!match?.[1] || !match[2]) return undefined;
-  return { repository: match[1].toLowerCase(), digest: `sha256:${match[2].toLowerCase()}` };
-}
-
-function isReadyToolHiveWorkload(workload: ToolHiveWorkloadSummary): boolean {
-  const status = workload.status?.trim().toLowerCase();
-  return Boolean(workload.endpoint) && (!status || status === "running" || status === "started" || status === "healthy");
 }
 
 function stringField(value: unknown, keys: string[]): string | undefined {
@@ -1517,10 +823,6 @@ function stringField(value: unknown, keys: string[]): string | undefined {
     if (typeof entry === "string" && entry.trim()) return entry.trim();
   }
   return undefined;
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function numberField(value: unknown, keys: string[]): number | undefined {
@@ -1728,41 +1030,8 @@ function assertSafeMcpToolName(value: string): void {
   }
 }
 
-function normalizeToolPolicy(
-  policy: Partial<Omit<ToolHiveMcpToolPolicy, "updatedAt">>,
-  updatedAt: string,
-): ToolHiveMcpToolPolicy | undefined {
-  const visibility = policy.visibility === "hidden" ? "hidden" : policy.visibility === "visible" ? "visible" : undefined;
-  const callPolicy =
-    policy.callPolicy === "blocked" || policy.callPolicy === "approval-required"
-      ? policy.callPolicy
-      : policy.callPolicy === "default"
-        ? "default"
-        : undefined;
-  const reason = typeof policy.reason === "string" && policy.reason.trim() ? policy.reason.trim().slice(0, 1_000) : undefined;
-  const isDefaultVisibility = !visibility || visibility === "visible";
-  const isDefaultCallPolicy = !callPolicy || callPolicy === "default";
-  if (isDefaultVisibility && isDefaultCallPolicy && !reason) return undefined;
-  return {
-    ...(visibility ? { visibility } : {}),
-    ...(callPolicy ? { callPolicy } : {}),
-    ...(reason ? { reason } : {}),
-    updatedAt,
-  };
-}
-
-function looksSecretLike(value: string): boolean {
-  return /\b(?:sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9_]{12,}|github_pat_[A-Za-z0-9_]{12,}|xox[baprs]-[A-Za-z0-9-]{12,}|Bearer\s+[A-Za-z0-9._~+/=-]{12,})\b/i.test(value);
-}
-
 function toolHiveLabelValue(value: string): string {
   return value.replace(/[^A-Za-z0-9_.-]+/g, ".").replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "").slice(0, 128) || "mcp-server";
-}
-
-function redactToolHiveText(value: string): string {
-  return value
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi, "Bearer [REDACTED]")
-    .replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9_]{12,}|github_pat_[A-Za-z0-9_]{12,}|xox[baprs]-[A-Za-z0-9-]{12,})\b/g, "[REDACTED]");
 }
 
 function toolHiveLogsTailFlagUnsupported(result: Pick<ToolHiveCommandResult, "stdout" | "stderr">): boolean {
@@ -1811,107 +1080,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function emptyState(): ToolHiveRuntimeState {
-  return { schemaVersion: TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION, installedServers: [] };
-}
-
-async function writeRuntimeSecretFile(path: string, body: string): Promise<void> {
-  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  await writeFile(path, body, { encoding: "utf8", mode: 0o600 });
-  await chmod(path, 0o600).catch(() => undefined);
-}
-
-async function cleanupRuntimeSecretFiles(paths: string[]): Promise<void> {
-  await Promise.all(paths.map((path) => rm(path, { force: true }).catch(() => undefined)));
-}
-
 async function ensureManagedRuntimeVolumeDirectories(volumes: ToolHiveRunVolume[]): Promise<void> {
   await Promise.all(volumes
     .filter((volume) => volume.purpose === "ambient-mcp-file-exchange")
     .map((volume) => ensureMcpManagedFileExchangeHostPath(volume)));
-}
-
-function assertSafeEnvName(value: string): void {
-  if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(value)) {
-    throw new Error(`Invalid runtime environment variable name: ${value}`);
-  }
-}
-
-function assertSafeSecretDeliveryValue(value: string): void {
-  if (!value || value.includes("\0") || value.includes("\n") || value.includes("\r")) {
-    throw new Error("Ambient secret value cannot be delivered to ToolHive because it is empty or multi-line.");
-  }
-}
-
-function assertSafePlainEnvDeliveryValue(value: string): void {
-  if (!value || value.length > 4_000 || value.includes("\0") || value.includes("\n") || value.includes("\r") || looksSecretLike(value)) {
-    throw new Error("Plain MCP runtime environment values must be bounded, non-empty, single-line, and non-secret.");
-  }
-}
-
-function normalizedBearerToken(value: string): string {
-  return value.replace(/^Bearer\s+/i, "").trim();
-}
-
-function isInstalledServerState(value: unknown): value is ToolHiveInstalledServerState {
-  if (!isRecord(value)) return false;
-  return (
-    typeof value.serverId === "string" &&
-    typeof value.workloadName === "string" &&
-    typeof value.permissionProfilePath === "string" &&
-    typeof value.permissionProfileSha256 === "string" &&
-    typeof value.createdAt === "string" &&
-    typeof value.updatedAt === "string"
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function safeFileSegment(value: string): string {
-  return value.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "toolhive-profile";
-}
-
-function sha256Hex(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function emitToolHiveProgress(
-  onProgress: ((progress: ToolHiveOperationProgress) => void) | undefined,
-  progress: ToolHiveOperationProgress,
-): void {
-  if (!onProgress) return;
-  try {
-    onProgress(progress);
-  } catch {
-    // Progress observers must not change ToolHive command semantics.
-  }
-}
-
-function formatElapsedMs(ms: number): string {
-  const seconds = Math.max(0, Math.round(ms / 1_000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
-}
-
-function stableToolDescriptorSnapshot(descriptors: unknown[]): unknown[] {
-  return descriptors
-    .map(sortJsonValue)
-    .sort((left, right) => stableDescriptorSortKey(left).localeCompare(stableDescriptorSortKey(right)));
-}
-
-function stableDescriptorSortKey(value: unknown): string {
-  const name = stringField(value, ["name"]) ?? "";
-  return `${name}\0${JSON.stringify(value)}`;
-}
-
-function sortJsonValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortJsonValue);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => [key, sortJsonValue(entry)]));
 }
 
 function delay(ms: number): Promise<void> {

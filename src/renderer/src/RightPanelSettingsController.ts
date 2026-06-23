@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { AgentMemoryClearResult } from "../../shared/agentMemoryDiagnostics";
-import type { AgentMemoryStarterEnableInput, AgentMemoryStarterOperationKind, AgentMemoryStarterOperationResult, AgentMemoryStarterStatus } from "../../shared/agentMemoryStarter";
-import type { AgentMemoryMode } from "../../shared/agentMemorySettings";
 import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
 import type { LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult, VoiceArtifactRetentionSummary, VoiceOnboardingHostFacts } from "../../shared/localRuntimeTypes";
 import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
@@ -23,6 +21,7 @@ import {
   type ModelProviderEndpointInstallDraft,
 } from "./modelProviderOnboardingUiModel";
 import type { ModelRuntimeCatalogRuntimeAction, ModelRuntimeCatalogRuntimeRow } from "./modelRuntimeCatalogUiModel";
+import { useRightPanelSettingsAgentMemoryController } from "./RightPanelSettingsAgentMemoryController";
 import { firstLine, localRuntimeLifecycleResultStatusKind, type ApiKeyStatus } from "./RightPanelSettingsRuntime";
 import { shortcutFromKeyboardEvent } from "./sttShortcut";
 
@@ -76,37 +75,7 @@ function readInitialFirstRunCapabilityOnboardingDismissed(): boolean {
   }
 }
 
-function agentMemoryStarterSettingsRefreshKey(settings: DesktopState["settings"]): string {
-  const memory = settings.memory;
-  const embeddings = memory.embeddings;
-  return [
-    settings.featureFlags?.tencentDbMemory ?? "default",
-    memory.mode,
-    memory.enabled,
-    memory.defaultThreadEnabled,
-    memory.adapter,
-    memory.shortTermOffloadEnabled,
-    memory.storageScope,
-    embeddings.enabled,
-    embeddings.providerMode,
-    embeddings.providerCapabilityId ?? "",
-    embeddings.autoStartProvider,
-    embeddings.modelId ?? "",
-    embeddings.dimensions ?? "",
-    embeddings.sendDimensions,
-    embeddings.maxInputChars,
-    embeddings.timeoutMs,
-    embeddings.preflightEnabled,
-  ].join("|");
-}
-
-export function agentMemoryStarterEnableInputForMode(
-  mode: DesktopState["settings"]["memory"]["mode"],
-): AgentMemoryStarterEnableInput {
-  if (mode === "disabled") return { enableCurrentThread: true, enableNewThreads: true };
-  if (mode === "enabled_all") return { enableCurrentThread: false, enableNewThreads: true };
-  return { enableCurrentThread: false, enableNewThreads: false };
-}
+export { agentMemoryStarterEnableInputForMode } from "./RightPanelSettingsAgentMemoryController";
 
 export function useRightPanelSettingsController({
   panel,
@@ -143,15 +112,6 @@ export function useRightPanelSettingsController({
   const [modelProviderInstallStatus, setModelProviderInstallStatus] = useState<ApiKeyStatus | undefined>();
   const [localRuntimeLifecycleBusyId, setLocalRuntimeLifecycleBusyId] = useState<string | undefined>();
   const [localRuntimeLifecycleStatus, setLocalRuntimeLifecycleStatus] = useState<ApiKeyStatus | undefined>();
-  const [agentMemoryStarterStatus, setAgentMemoryStarterStatus] = useState<AgentMemoryStarterStatus | undefined>();
-  const [agentMemoryStarterLoading, setAgentMemoryStarterLoading] = useState(false);
-  const [agentMemoryStarterError, setAgentMemoryStarterError] = useState<string | undefined>();
-  const [agentMemoryStarterOperationLoading, setAgentMemoryStarterOperationLoading] = useState<AgentMemoryStarterOperationKind | undefined>();
-  const [agentMemoryStarterOperationResult, setAgentMemoryStarterOperationResult] = useState<AgentMemoryStarterOperationResult | undefined>();
-  const [agentMemoryClearConfirming, setAgentMemoryClearConfirming] = useState(false);
-  const [agentMemoryClearWorkspacePath, setAgentMemoryClearWorkspacePath] = useState<string | undefined>();
-  const [agentMemoryClearLoading, setAgentMemoryClearLoading] = useState(false);
-  const [agentMemoryClearStatus, setAgentMemoryClearStatus] = useState<{ kind: "success" | "error"; message: string } | undefined>();
   const [capabilityOnboardingDismissed, setCapabilityOnboardingDismissed] = useState(readInitialFirstRunCapabilityOnboardingDismissed);
   const [capabilityOnboardingStarting, setCapabilityOnboardingStarting] = useState(false);
   const [voiceArtifactRetention, setVoiceArtifactRetention] = useState<VoiceArtifactRetentionSummary | undefined>();
@@ -165,19 +125,23 @@ export function useRightPanelSettingsController({
   const voiceSettingsRowRef = useRef<HTMLElement | null>(null);
   const searchWebSettingsRowRef = useRef<HTMLElement | null>(null);
   const mcpRuntimeSettingsRowRef = useRef<HTMLElement | null>(null);
-  const workspacePathRef = useRef(workspacePath);
 
   const modelProviderEndpointInstall = modelProviderEndpointInstallDraftModel(modelProviderInstallDraft);
   const modelProviderCredentialSave = modelProviderCredentialSaveDraftModel(modelProviderInstallDraft, modelProviderCredentialValue);
-  const agentMemoryStarterSettingsKey = agentMemoryStarterSettingsRefreshKey(settings);
+  const agentMemorySettingsController = useRightPanelSettingsAgentMemoryController({
+    panel,
+    activeThreadId,
+    activeThreadMemoryEnabled,
+    workspacePath,
+    settings,
+    onRefreshAgentMemoryDiagnostics,
+    onApplyMemorySettingsSnapshot,
+    onClearAgentMemory,
+  });
 
   useEffect(() => {
     setVoiceSearchQuery("");
   }, [settings.voice.providerCapabilityId]);
-
-  useEffect(() => {
-    workspacePathRef.current = workspacePath;
-  }, [workspacePath]);
 
   useEffect(() => {
     if (!sttShortcutCapture) return;
@@ -302,124 +266,6 @@ export function useRightPanelSettingsController({
     }
   }
 
-  async function loadAgentMemoryStarterStatus() {
-    setAgentMemoryStarterLoading(true);
-    setAgentMemoryStarterError(undefined);
-    try {
-      setAgentMemoryStarterStatus(await window.ambientDesktop.getAgentMemoryStarterStatus());
-    } catch (error) {
-      setAgentMemoryStarterError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setAgentMemoryStarterLoading(false);
-    }
-  }
-
-  function applyAgentMemoryStarterStatus(status: AgentMemoryStarterStatus) {
-    setAgentMemoryStarterError(undefined);
-    setAgentMemoryStarterStatus(status);
-  }
-
-  async function runAgentMemoryStarterOperation(
-    operation: AgentMemoryStarterOperationKind,
-    targetMode?: AgentMemoryMode,
-  ) {
-    setAgentMemoryStarterOperationLoading(operation);
-    setAgentMemoryStarterError(undefined);
-    try {
-      const enableInput = agentMemoryStarterEnableInputForMode(targetMode ?? settings.memory.mode);
-      const repairInput = {
-        enableCurrentThread: false,
-        enableNewThreads: settings.memory.mode === "enabled_all",
-      };
-      const result = operation === "enable"
-        ? await window.ambientDesktop.enableAgentMemoryStarter(enableInput)
-        : operation === "repair"
-          ? await window.ambientDesktop.repairAgentMemoryStarter(repairInput)
-          : await window.ambientDesktop.disableAgentMemoryStarter({});
-      setAgentMemoryStarterOperationResult(result);
-      setAgentMemoryStarterStatus(result.status);
-      onApplyMemorySettingsSnapshot(result.status.settings.memory);
-      await onRefreshAgentMemoryDiagnostics();
-    } catch (error) {
-      setAgentMemoryStarterError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setAgentMemoryStarterOperationLoading((current) => current === operation ? undefined : current);
-    }
-  }
-
-  function requestAgentMemoryClearFromSettings() {
-    setAgentMemoryClearStatus(undefined);
-    setAgentMemoryClearWorkspacePath(workspacePath);
-    setAgentMemoryClearConfirming(true);
-  }
-
-  function cancelAgentMemoryClearFromSettings() {
-    if (agentMemoryClearLoading) return;
-    setAgentMemoryClearConfirming(false);
-    setAgentMemoryClearWorkspacePath(undefined);
-  }
-
-  async function confirmAgentMemoryClearFromSettings() {
-    if (agentMemoryClearLoading) return;
-    const confirmedWorkspacePath = agentMemoryClearWorkspacePath;
-    if (!confirmedWorkspacePath || confirmedWorkspacePath !== workspacePath) {
-      setAgentMemoryClearConfirming(false);
-      setAgentMemoryClearWorkspacePath(undefined);
-      setAgentMemoryClearStatus({
-        kind: "error",
-        message: "Agent Memory clear confirmation expired because the active workspace changed. Review this workspace and try again.",
-      });
-      return;
-    }
-    setAgentMemoryClearLoading(true);
-    setAgentMemoryClearStatus(undefined);
-    try {
-      const result = await onClearAgentMemory();
-      if (workspacePathRef.current !== confirmedWorkspacePath) {
-        setAgentMemoryClearConfirming(false);
-        setAgentMemoryClearWorkspacePath(undefined);
-        return;
-      }
-      await onRefreshAgentMemoryDiagnostics();
-      if (workspacePathRef.current !== confirmedWorkspacePath) {
-        setAgentMemoryClearConfirming(false);
-        setAgentMemoryClearWorkspacePath(undefined);
-        return;
-      }
-      await loadAgentMemoryStarterStatus();
-      if (workspacePathRef.current !== confirmedWorkspacePath) {
-        setAgentMemoryClearConfirming(false);
-        setAgentMemoryClearWorkspacePath(undefined);
-        return;
-      }
-      setAgentMemoryClearConfirming(false);
-      setAgentMemoryClearWorkspacePath(undefined);
-      setAgentMemoryClearStatus({
-        kind: "success",
-        message: `Cleared ${result.removedFileCount.toLocaleString()} Agent Memory files and reset ${result.activeSessionsReset.disposedSessions.toLocaleString()} active sessions.`,
-      });
-    } catch (error) {
-      if (workspacePathRef.current !== confirmedWorkspacePath) {
-        setAgentMemoryClearConfirming(false);
-        setAgentMemoryClearWorkspacePath(undefined);
-        return;
-      }
-      setAgentMemoryClearStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setAgentMemoryClearLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!agentMemoryClearConfirming) return;
-    if (panel === "settings" && agentMemoryClearWorkspacePath === workspacePath) return;
-    setAgentMemoryClearConfirming(false);
-    setAgentMemoryClearWorkspacePath(undefined);
-  }, [agentMemoryClearConfirming, agentMemoryClearWorkspacePath, panel, workspacePath]);
-
   useEffect(() => {
     if (panel === "settings") {
       void onLoadPermissionAudit();
@@ -431,10 +277,6 @@ export function useRightPanelSettingsController({
       void mcp.loadManagedDevServers();
     }
   }, [panel, workspacePath, permissionAuditRevision]);
-
-  useEffect(() => {
-    if (panel === "settings") void loadAgentMemoryStarterStatus();
-  }, [panel, workspacePath, activeThreadId, activeThreadMemoryEnabled, agentMemoryStarterSettingsKey]);
 
   useEffect(() => {
     if (panel === "settings") void loadVoiceArtifactRetention();
@@ -590,14 +432,7 @@ export function useRightPanelSettingsController({
     modelProviderCredentialSave,
     localRuntimeLifecycleBusyId,
     localRuntimeLifecycleStatus,
-    agentMemoryStarterStatus,
-    agentMemoryStarterLoading,
-    agentMemoryStarterError,
-    agentMemoryStarterOperationLoading,
-    agentMemoryStarterOperationResult,
-    agentMemoryClearConfirming,
-    agentMemoryClearLoading,
-    agentMemoryClearStatus,
+    ...agentMemorySettingsController,
     firstRunCapabilityOnboardingDismissed: capabilityOnboardingDismissed,
     firstRunCapabilityOnboardingStarting: capabilityOnboardingStarting,
     voiceArtifactRetention,
@@ -622,14 +457,6 @@ export function useRightPanelSettingsController({
     resumeFirstRunCapabilityOnboarding,
     loadVoiceArtifactRetention,
     pruneVoiceArtifactRetention,
-    loadAgentMemoryStarterStatus,
-    applyAgentMemoryStarterStatus,
-    enableAgentMemoryStarterFromSettings: (targetMode?: AgentMemoryMode) => runAgentMemoryStarterOperation("enable", targetMode),
-    repairAgentMemoryStarterFromSettings: () => runAgentMemoryStarterOperation("repair"),
-    disableAgentMemoryStarterFromSettings: () => runAgentMemoryStarterOperation("disable"),
-    requestAgentMemoryClearFromSettings,
-    cancelAgentMemoryClearFromSettings,
-    confirmAgentMemoryClearFromSettings,
     saveModelProviderCredentialFromSettings,
     installModelProviderEndpointFromSettings,
     runLocalRuntimeLifecycleActionFromSettings,

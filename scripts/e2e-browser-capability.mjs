@@ -187,7 +187,9 @@ async function runBrowserPanelSmoke(cdp) {
   if (!initialState.chromeAvailable) {
     throw new Error("Chrome is not available. Set AMBIENT_BROWSER_CHROME_PATH to run browser capability tests.");
   }
-  if (!initialState.copiedProfileAvailable) {
+  if (!initialState.copiedProfileAvailable && initialState.sourceProfilePath) {
+    await waitForButtonEnabled(cdp, ".browser-status-card", "Start copied", 30_000);
+  } else if (!initialState.copiedProfileAvailable) {
     await assertButtonDisabled(cdp, ".browser-status-card", "Start copied");
   }
 

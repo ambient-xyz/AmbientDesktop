@@ -4,6 +4,7 @@ import type { DesktopState } from "../../shared/desktopTypes";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import {
   createAppComposerShellProps,
+  createAppComposerShellPropsForApp,
   type AppComposerShellPropsInput,
 } from "./AppComposerShellProps";
 
@@ -143,6 +144,128 @@ describe("App composer shell props", () => {
 
     expect(setLocalDeepResearchBudgetOverride).toHaveBeenCalledWith({ effort: "deep" });
     expect(setLocalDeepResearchBudgetOverride).toHaveBeenCalledWith({ effort: "custom", maxToolCalls: 24 });
+  });
+
+  it("maps grouped App owner objects into composer shell props", () => {
+    const artifact = { id: "plan-3" } as PlannerPlanArtifact;
+    const attachComposerFiles = vi.fn();
+    const compactActiveThread = vi.fn();
+    const clearActiveGoal = vi.fn();
+    const openGitSummaryPanel = vi.fn();
+    const requestThreadPermissionModeChange = vi.fn();
+    const retrySttComposerTranscription = vi.fn();
+    const sendPlannerDurableRevision = vi.fn();
+    const submitSymphonyBuilderAction = vi.fn();
+    const updateThinkingDisplaySettings = vi.fn();
+    const updateThreadSettings = vi.fn();
+    const setGoalMenuOpen = vi.fn();
+    const setLocalDeepResearchBudgetOverride = vi.fn();
+    const projectBoardActions = { addPlannerPlanToBoard: vi.fn() };
+    const props = createAppComposerShellPropsForApp({
+      composerShellState: { getComposerDraft: () => " ship it " },
+      contextAttachmentActions: { attachComposerFiles },
+      gitActions: {
+        attachExistingWorktreeFromFooter: vi.fn(),
+        switchBranch: vi.fn(),
+      },
+      goalActions: {
+        clearActiveGoal,
+        editActiveGoalObjective: vi.fn(),
+        pauseOrResumeActiveGoal: vi.fn(),
+        setActiveGoalBudget: vi.fn(),
+        toggleGoalMode: vi.fn(),
+      },
+      permissionActions: { requestThreadPermissionModeChange },
+      plannerActions: {
+        openPlannerRevisionDialog: vi.fn(),
+        sendPlannerDurableRevision,
+      },
+      projectBoardControls: {
+        latestDurablePlannerPlanArtifact: artifact,
+        projectBoardActions,
+        runProjectBoardThreadPlanAction: vi.fn(),
+      },
+      providerRuntimeActions: {
+        retrySttComposerTranscription,
+        startSttComposerRecording: vi.fn(),
+        stopSttComposerRecording: vi.fn(),
+      },
+      providerRuntimeState: {
+        sttComposer: { status: "idle" },
+        sttProviders: [
+          {
+            available: true,
+            availabilityReason: "",
+            capabilityId: "qwen-asr",
+            command: "transcribe",
+            installed: true,
+            languages: [],
+            label: "Qwen3-ASR",
+            packageId: "ambient-stt-qwen",
+            packageName: "ambient-stt-qwen",
+            providerId: "qwen",
+          },
+        ],
+      },
+      rightPanelState: {
+        openGitSummaryPanel,
+        previewArtifact: vi.fn(),
+      },
+      settingsActions: { updateThinkingDisplaySettings },
+      shellCommandActions: { updateThreadSettings },
+      state: desktopState({
+        settings: {
+          stt: {
+            enabled: true,
+            providerCapabilityId: "qwen-asr",
+          },
+          thinkingDisplay: { mode: "transient" },
+        },
+      }),
+      symphonyBuilderControls: { submitSymphonyBuilderAction },
+      threadMaintenanceActions: {
+        compactActiveThread,
+        duplicateActiveThreadFromTranscript: vi.fn(),
+        exportActiveChat: vi.fn(),
+        recoverActiveThreadContext: vi.fn(),
+        recoverActiveThreadContextAndRetryLatest: vi.fn(),
+      },
+      workflowRuntimeState: {
+        setChatExportStatus: vi.fn(),
+        setGoalMenuOpen,
+        setLocalDeepResearchBudgetOverride,
+      },
+    });
+
+    expect(props.sttComposerDisabled).toBe(false);
+
+    props.onAttachComposerFiles();
+    props.onCompactActiveThread();
+    props.onRetrySttComposerTranscription();
+    props.onReviseLatestPlannerPlan();
+    props.onRunSymphonyOnce();
+    props.onAddPlannerPlanToBoard(artifact);
+    props.onThinkingDisplayModeChange("full");
+    props.onPermissionModeChange("full-access");
+    props.onToggleGoalMenu();
+    props.onSelectLocalDeepResearchEffort("quick");
+    props.onClearGoal();
+    props.onOpenGitSummary();
+    props.onSelectComposerModel("moonshotai/kimi-k2.7-code");
+
+    expect(attachComposerFiles).toHaveBeenCalledTimes(1);
+    expect(compactActiveThread).toHaveBeenCalledTimes(1);
+    expect(retrySttComposerTranscription).toHaveBeenCalledTimes(1);
+    expect(sendPlannerDurableRevision).toHaveBeenCalledWith(artifact, "ship it", { clearComposer: true });
+    expect(submitSymphonyBuilderAction).toHaveBeenCalledWith("run-once");
+    expect(projectBoardActions.addPlannerPlanToBoard).toHaveBeenCalledWith(artifact);
+    expect(updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "full", showRunStatusCard: true });
+    expect(requestThreadPermissionModeChange).toHaveBeenCalledWith("full-access");
+    expect(setGoalMenuOpen).toHaveBeenCalledTimes(1);
+    expect(setLocalDeepResearchBudgetOverride).toHaveBeenCalledWith({ effort: "quick" });
+    expect(clearActiveGoal).toHaveBeenCalledTimes(1);
+    expect(openGitSummaryPanel).toHaveBeenCalledTimes(1);
+    expect(updateThreadSettings).toHaveBeenCalledWith({ model: "moonshotai/kimi-k2.7-code" });
   });
 });
 

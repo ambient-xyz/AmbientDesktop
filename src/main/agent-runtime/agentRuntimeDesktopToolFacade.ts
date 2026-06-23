@@ -8,6 +8,7 @@ import {
   browserToolDescriptor as desktopBrowserToolDescriptor,
   firstPartyDesktopToolDescriptors as desktopFirstPartyDesktopToolDescriptors,
   gitToolDescriptor as desktopGitToolDescriptor,
+  longContextToolDescriptor as desktopLongContextToolDescriptor,
   managedDownloadToolDescriptor as desktopManagedDownloadToolDescriptor,
   mediaToolDescriptor as desktopMediaToolDescriptor,
   messagingGatewayToolDescriptor as desktopMessagingGatewayToolDescriptor,
@@ -33,6 +34,7 @@ export const asyncBashToolDescriptor = desktopAsyncBashToolDescriptor;
 export const browserToolDescriptor = desktopBrowserToolDescriptor;
 export const firstPartyDesktopToolDescriptors = desktopFirstPartyDesktopToolDescriptors;
 export const gitToolDescriptor = desktopGitToolDescriptor;
+export const longContextToolDescriptor = desktopLongContextToolDescriptor;
 export const managedDownloadToolDescriptor = desktopManagedDownloadToolDescriptor;
 export const mediaToolDescriptor = desktopMediaToolDescriptor;
 export const messagingGatewayToolDescriptor = desktopMessagingGatewayToolDescriptor;

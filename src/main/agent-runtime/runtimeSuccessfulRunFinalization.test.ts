@@ -159,6 +159,40 @@ describe("finalizeSuccessfulRuntimeRun", () => {
     ]));
   });
 
+  it("includes prompt cache telemetry in final assistant metadata", async () => {
+    const input = baseInput({
+      promptCacheTelemetry: {
+        status: "miss",
+        usage: {
+          input: 1200,
+          output: 48,
+          cacheRead: 0,
+          cacheWrite: 64,
+          totalTokens: 1248,
+        },
+      },
+    });
+
+    await finalizeSuccessfulRuntimeRun(input);
+
+    expect(input.replaceAssistantMessage).toHaveBeenCalledWith(
+      "assistant-1",
+      "Final answer",
+      expect.objectContaining({
+        promptCache: {
+          status: "miss",
+          usage: {
+            input: 1200,
+            output: 48,
+            cacheRead: 0,
+            cacheWrite: 64,
+            totalTokens: 1248,
+          },
+        },
+      }),
+    );
+  });
+
   it("blocks parent finalization without planner or voice side effects", async () => {
     const block = subagentBlock();
     const mailboxEvent = { id: "mailbox-1" } as SubagentParentMailboxEventSummary;

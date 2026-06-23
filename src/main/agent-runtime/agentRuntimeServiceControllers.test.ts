@@ -27,6 +27,7 @@ import { AgentRuntimeSettingsSessionController } from "./agentRuntimeSettingsSes
 import { AgentRuntimeThreadWakeContinuationController } from "./agentRuntimeThreadWakeContinuationController";
 import { AgentRuntimeToolRunnerController } from "./agentRuntimeToolRunnerController";
 import { AgentRuntimeAsyncBashJobService } from "./tools/agentRuntimeAsyncBashJobs";
+import { AgentRuntimeAsyncLongContextJobService } from "./tools/agentRuntimeAsyncLongContextJobs";
 
 describe("AgentRuntime service controllers", () => {
   it("creates the service/controller set from explicit runtime dependencies", () => {
@@ -63,6 +64,7 @@ describe("AgentRuntime service controllers", () => {
     });
 
     expect(controllers.asyncBashJobs).toBeInstanceOf(AgentRuntimeAsyncBashJobService);
+    expect(controllers.asyncLongContextJobs).toBeInstanceOf(AgentRuntimeAsyncLongContextJobService);
     expect(controllers.browserTools).toBeInstanceOf(AgentRuntimeBrowserToolController);
     expect(controllers.extensionAssembly).toBeInstanceOf(AgentRuntimeExtensionAssemblyController);
     expect(controllers.goalContinuations).toBeInstanceOf(AgentRuntimeGoalContinuationController);

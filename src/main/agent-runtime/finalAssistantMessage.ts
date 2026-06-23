@@ -1,3 +1,4 @@
+import type { PromptCacheTelemetry } from "../../shared/threadTypes";
 import type { CallableWorkflowParentBlockingBlock } from "./agentRuntimeCallableWorkflowFacade";
 import type { AssistantTerminalCleanupDiagnostic } from "../agent-runtime/agentRuntimeAssistantTerminalDiagnostics";
 import type { SubagentFinalizationBarrierBlock } from "../agent-runtime/agentRuntimeFinalizationBlocking";
@@ -31,6 +32,7 @@ export interface FinalAssistantMessageInput {
   discardProviderRetrySession: boolean;
   providerRetrySessionFile?: string | undefined;
   providerRetryLastError?: string | undefined;
+  promptCacheTelemetry?: PromptCacheTelemetry | undefined;
 }
 
 export interface FinalAssistantMessageModel {
@@ -82,6 +84,7 @@ export function finalAssistantMessageModel(input: FinalAssistantMessageInput): F
       provider: "ambient",
       finalizedAfterToolIdle: input.finalizedAfterToolIdle,
       awaitingInputAfterTools: input.awaitingInputAfterTools,
+      ...(input.promptCacheTelemetry ? { promptCache: input.promptCacheTelemetry } : {}),
       ...(input.subagentParentControlAbortIntent ? { subagentParentControlAbort: input.subagentParentControlAbortIntent } : {}),
       ...(input.assistantTerminalCleanupInterrupted ? { terminalCleanupInterrupted: true } : {}),
       ...(input.assistantTerminalCleanupDiagnostic ? { piTerminalCleanup: input.assistantTerminalCleanupDiagnostic } : {}),

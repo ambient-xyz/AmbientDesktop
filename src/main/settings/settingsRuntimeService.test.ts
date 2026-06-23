@@ -148,6 +148,7 @@ describe("settingsRuntimeService", () => {
 class FakeSettingsStore implements SettingsRuntimeProjectStore {
   modelRuntime: ModelRuntimeSettings = {
     aggressiveRetries: false,
+    showPromptCacheStatus: false,
     providerPreStreamTimeoutMs: 30_000,
     providerStreamIdleTimeoutMs: 30_000,
     installedProviders: [],

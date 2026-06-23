@@ -63,13 +63,22 @@ function setup() {
 
 describe("createRuntimeAssistantMessageController", () => {
   it("reuses the initial assistant message for the first assistant start", () => {
-    const { controller, initial, events } = setup();
+    const { controller, initial, events, messages } = setup();
 
     controller.startAssistantMessage();
 
     expect(controller.currentAssistantMessageId()).toBe(initial.id);
     expect(controller.assistantStartCount()).toBe(1);
-    expect(events).toEqual([]);
+    expect(messages.get(initial.id)?.metadata).toEqual(expect.objectContaining({
+      status: "streaming",
+      promptCache: { status: "pending" },
+    }));
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: "message-updated",
+        message: expect.objectContaining({ id: initial.id }),
+      }),
+    ]);
   });
 
   it("creates and emits subsequent assistant messages", () => {
@@ -84,7 +93,12 @@ describe("createRuntimeAssistantMessageController", () => {
       type: "message-created",
       message: expect.objectContaining({
         id: "created-1",
-        metadata: expect.objectContaining({ status: "streaming", runtime: "pi", provider: "ambient" }),
+        metadata: expect.objectContaining({
+          status: "streaming",
+          runtime: "pi",
+          provider: "ambient",
+          promptCache: { status: "pending" },
+        }),
       }),
     }));
     expect(events).toContainEqual({
@@ -144,13 +158,122 @@ describe("createRuntimeAssistantMessageController", () => {
 
     expect(messages.get("created-1")).toMatchObject({
       content: "step one",
-      metadata: expect.objectContaining({ status: "done", kind: "thinking" }),
+      metadata: expect.objectContaining({ status: "done", kind: "thinking", promptCache: { status: "pending" } }),
     });
     expect(messages.get("created-2")).toMatchObject({
       content: "step two",
-      metadata: expect.objectContaining({ status: "thinking", kind: "thinking" }),
+      metadata: expect.objectContaining({ status: "thinking", kind: "thinking", promptCache: { status: "pending" } }),
     });
     expect(events.filter((event) => event.type === "message-created")).toHaveLength(2);
+  });
+
+  it("applies final prompt cache telemetry to current assistant and completed thinking messages", () => {
+    const { controller, messages, events } = setup();
+
+    controller.startAssistantMessage();
+    controller.appendThinkingDelta("internal");
+    controller.finishCurrentThinkingMessage("done", "fallback");
+    controller.appendAssistantDelta("answer");
+
+    const updated = controller.applyPromptCacheTelemetry({
+      status: "hit",
+      usage: { input: 1200, output: 50, cacheRead: 900, cacheWrite: 0, totalTokens: 1250 },
+    });
+
+    expect(updated.map((message) => message.id).sort()).toEqual(["assistant-initial", "created-1"]);
+    expect(messages.get("assistant-initial")?.metadata).toMatchObject({
+      status: "streaming",
+      promptCache: { status: "hit", usage: { cacheRead: 900 } },
+    });
+    expect(messages.get("created-1")?.metadata).toMatchObject({
+      status: "done",
+      kind: "thinking",
+      promptCache: { status: "hit", usage: { cacheRead: 900 } },
+    });
+    expect(events.filter((event) =>
+      event.type === "message-updated" &&
+      event.message.metadata?.promptCache?.status === "hit"
+    )).toHaveLength(2);
+  });
+
+  it("resets pending telemetry for a subsequent assistant request", () => {
+    const { controller, messages } = setup();
+
+    controller.startAssistantMessage();
+    controller.applyPromptCacheTelemetry({ status: "hit", usage: { cacheRead: 100 } });
+    controller.startAssistantMessage();
+    controller.appendThinkingDelta("second request thinking");
+
+    expect(messages.get("created-1")?.metadata).toMatchObject({
+      status: "streaming",
+      promptCache: { status: "pending" },
+    });
+    expect(messages.get("created-2")?.metadata).toMatchObject({
+      status: "thinking",
+      kind: "thinking",
+      promptCache: { status: "pending" },
+    });
+    expect(controller.currentPromptCacheTelemetry()).toEqual({ status: "pending" });
+  });
+
+  it("preserves each assistant message prompt cache telemetry during suppression", () => {
+    const { controller, messages } = setup();
+
+    controller.startAssistantMessage();
+    controller.appendAssistantDelta("first");
+    controller.applyPromptCacheTelemetry({ status: "hit", usage: { cacheRead: 100 } });
+    controller.startAssistantMessage();
+    controller.appendAssistantDelta("second");
+    controller.applyPromptCacheTelemetry({ status: "miss", usage: { cacheRead: 0 } });
+
+    controller.suppressAssistantMessagesExceptCurrent("error");
+
+    expect(messages.get("assistant-initial")?.metadata).toMatchObject({
+      status: "error",
+      promptCache: { status: "hit", usage: { cacheRead: 100 } },
+    });
+    expect(messages.get("created-1")?.metadata).toMatchObject({
+      status: "streaming",
+      promptCache: { status: "miss", usage: { cacheRead: 0 } },
+    });
+  });
+
+  it("preserves each thinking message prompt cache telemetry during suppression", () => {
+    const { controller, messages } = setup();
+
+    controller.startAssistantMessage();
+    controller.appendThinkingDelta("first thinking");
+    controller.finishCurrentThinkingMessage("done", "first fallback");
+    controller.applyPromptCacheTelemetry({ status: "hit", usage: { cacheRead: 100 } });
+    controller.startAssistantMessage();
+    controller.appendThinkingDelta("second thinking");
+    controller.applyPromptCacheTelemetry({ status: "miss", usage: { cacheRead: 0 } });
+
+    controller.suppressCurrentThinkingMessage("done");
+
+    expect(messages.get("created-1")?.metadata).toMatchObject({
+      status: "done",
+      kind: "thinking",
+      promptCache: { status: "hit", usage: { cacheRead: 100 } },
+    });
+    expect(messages.get("created-3")?.metadata).toMatchObject({
+      status: "done",
+      kind: "thinking",
+      promptCache: { status: "miss", usage: { cacheRead: 0 } },
+    });
+  });
+
+  it("only completes pending telemetry as unknown", () => {
+    const { controller, messages } = setup();
+
+    controller.startAssistantMessage();
+    controller.completePromptCacheTelemetryIfPending({ status: "unknown" });
+    controller.completePromptCacheTelemetryIfPending({ status: "miss", usage: { cacheRead: 0 } });
+
+    expect(messages.get("assistant-initial")?.metadata).toMatchObject({
+      promptCache: { status: "unknown" },
+    });
+    expect(controller.currentPromptCacheTelemetry()).toEqual({ status: "unknown" });
   });
 
   it("suppresses thinking messages without creating one", () => {

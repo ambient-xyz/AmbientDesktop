@@ -1,13 +1,17 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
-import { closeSync, openSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { LocalRuntimeLeaseRecord } from "../../shared/localRuntimeTypes";
 import { sampleProcessResidentMemory, type LocalLlamaResidentMemorySample } from "./localRuntimeLocalLlamaFacade";
-import {
-  DEFAULT_LOCAL_RUNTIME_LEASE_STALE_MS,
-  isActiveLocalRuntimeLease,
-} from "./localRuntimeInventory";
+import { LocalModelRuntimeLaunchController, probeLocalModelRuntimeHealth } from "./localModelRuntimeLaunchController";
+import { LocalModelRuntimeLifecycleController } from "./localModelRuntimeLifecycleController";
+import { DEFAULT_LOCAL_RUNTIME_LEASE_STALE_MS, isActiveLocalRuntimeLease } from "./localRuntimeInventory";
+
+export {
+  LocalModelRuntimeStartupError,
+  isLocalModelRuntimeStartupError,
+  probeLocalModelRuntimeHealth,
+} from "./localModelRuntimeLaunchController";
 
 export interface LocalModelRuntimeAcquireInput {
   runtimeId: string;
@@ -103,16 +107,6 @@ export interface LocalModelRuntimeStartupFailure {
   stderrPath: string;
   startupTimeoutMs: number;
   health: LocalModelRuntimeHealthProbe;
-}
-
-export class LocalModelRuntimeStartupError extends Error {
-  readonly failure: LocalModelRuntimeStartupFailure;
-
-  constructor(failure: LocalModelRuntimeStartupFailure) {
-    super(failure.message);
-    this.name = "LocalModelRuntimeStartupError";
-    this.failure = failure;
-  }
 }
 
 export interface LocalModelRuntimeLease {
@@ -267,7 +261,7 @@ interface ActiveRuntime {
   idleTimer?: ReturnType<typeof setTimeout>;
 }
 
-interface ActiveRuntimeLeaseMetadata {
+export interface ActiveRuntimeLeaseMetadata {
   acquiredAt: string;
   parentThreadId?: string;
   subagentThreadId?: string;
@@ -275,11 +269,14 @@ interface ActiveRuntimeLeaseMetadata {
   ownerDisplayName?: string;
 }
 
-interface ActiveRuntimeLeaseReservation extends ActiveRuntimeLeaseMetadata {
+export interface ActiveRuntimeLeaseReservation extends ActiveRuntimeLeaseMetadata {
   leaseId: string;
 }
 
-interface NormalizedAcquireInput extends Omit<LocalModelRuntimeAcquireInput, "providerId" | "stateRootPath" | "args" | "cwd" | "startupTimeoutMs" | "idleTimeoutMs"> {
+export interface NormalizedAcquireInput extends Omit<
+  LocalModelRuntimeAcquireInput,
+  "providerId" | "stateRootPath" | "args" | "cwd" | "startupTimeoutMs" | "idleTimeoutMs"
+> {
   providerId: string;
   stateRootPath: string;
   args: string[];
@@ -296,22 +293,51 @@ const maxLocalRuntimeLeaseJournalEntries = 50;
 export class LocalModelRuntimeManager {
   private readonly activeRuntimes = new Map<string, ActiveRuntime>();
   private readonly leases = new Map<string, ActiveRuntime>();
-  private readonly spawnProcess: (command: string, args: string[], options: SpawnOptions) => ChildProcess;
   private readonly fetchImpl: typeof fetch;
   private readonly processAlive: (pid: number) => boolean;
   private readonly killProcess: (pid: number, signal?: NodeJS.Signals) => void;
   private readonly sampleMemory: (pid: number) => Promise<LocalLlamaResidentMemorySample | undefined>;
   private readonly now: () => Date;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly launchController: LocalModelRuntimeLaunchController;
+  private readonly lifecycleController: LocalModelRuntimeLifecycleController;
 
   constructor(options: LocalModelRuntimeManagerOptions = {}) {
-    this.spawnProcess = options.spawnProcess ?? spawn;
+    const spawnProcess = options.spawnProcess ?? spawn;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.processAlive = options.processAlive ?? defaultProcessAlive;
     this.killProcess = options.killProcess ?? defaultKillProcess;
     this.sampleMemory = options.sampleMemory ?? sampleProcessResidentMemory;
     this.now = options.now ?? (() => new Date());
     this.sleep = options.sleep ?? ((ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms)));
+    this.launchController = new LocalModelRuntimeLaunchController({
+      spawnProcess,
+      fetchImpl: this.fetchImpl,
+      processAlive: (pid) => this.processAlive(pid),
+      now: () => this.now(),
+      sleep: (ms) => this.sleep(ms),
+      stateDirForRuntime: localModelRuntimeStateDir,
+      writeRuntimeState: (state) => writeLocalModelRuntimeState(state),
+      writeLeaseJournalRecord: (stateDir, lease) => writeLocalModelRuntimeLeaseJournalRecord(stateDir, lease),
+      leaseRecordFromAcquireInput: localModelRuntimeLeaseRecordFromAcquireInput,
+      leaseRecordFromState: (input) => localModelRuntimeLeaseRecord(input),
+      clearRuntimeState: (state) => this.clearState(state),
+      sampleAndWriteState: (state) => this.sampleAndWriteState(state),
+    });
+    this.lifecycleController = new LocalModelRuntimeLifecycleController({
+      findActiveRuntime: (runtimeId) => this.findActiveRuntime(runtimeId),
+      activeLeaseRecords: (active, leaseIds) => this.activeLeaseRecords(active as ActiveRuntime, leaseIds),
+      activePersistedLeaseRecords: (stateRootPath, runtimeId) => this.activePersistedLeaseRecords(stateRootPath, runtimeId),
+      readRuntimeState: (stateRootPath, runtimeId) => readLocalModelRuntimeState(stateRootPath, runtimeId),
+      processAlive: (pid) => this.processAlive(pid),
+      now: () => this.now(),
+      dropInactiveRuntime: (active) => this.dropInactiveRuntime(active as ActiveRuntime),
+      stopActiveRuntime: (active) => this.stopActive(active as ActiveRuntime),
+      stopPersistedRuntime: (state) => this.stopState(state),
+      startPersistedRuntime: (state, stateRootPath) => this.launchIdleRuntimeFromState(state, stateRootPath),
+      restartActiveRuntime: (active, stateRootPath) => this.restartActiveRuntime(active as ActiveRuntime, stateRootPath),
+      restartPersistedRuntime: (state, stateRootPath) => this.restartPersistedRuntime(state, stateRootPath),
+    });
   }
 
   async acquire(input: LocalModelRuntimeAcquireInput): Promise<LocalModelRuntimeLease> {
@@ -340,7 +366,7 @@ export class LocalModelRuntimeManager {
       await this.stopState(persisted);
     }
 
-    const state = await this.launchRuntime(normalized, command, reservation);
+    const state = await this.launchController.launchRuntime(normalized, command, reservation);
     const active = this.rememberActive(key, state);
     return this.createLease(active, "started", reservation, { acquiringJournaled: true });
   }
@@ -392,332 +418,15 @@ export class LocalModelRuntimeManager {
   }
 
   async stopRuntime(input: LocalModelRuntimeStopInput): Promise<LocalModelRuntimeStopResult> {
-    const runtimeId = input.runtimeId.trim();
-    const forceRequested = input.force === true;
-    if (!runtimeId) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-stop-v1",
-        status: "failed",
-        runtimeId,
-        forceRequested,
-        error: "Local model runtime Stop requires a runtimeId.",
-      };
-    }
-    const active = [...this.activeRuntimes.values()].find((candidate) => candidate.state.runtimeId === runtimeId);
-    if (active) {
-      const activeLeaseIds = [...active.leases.keys()];
-      if (activeLeaseIds.length > 0) {
-        const activeLeases = this.activeLeaseRecords(active, activeLeaseIds);
-        return {
-          schemaVersion: "ambient-local-model-runtime-stop-v1",
-          status: "blocked",
-          runtimeId,
-          forceRequested,
-          pid: active.state.pid,
-          activeLeaseIds,
-          activeLeases,
-          reason: forceRequested
-            ? "Forced termination requires explicit cancellation or failure marking for active sub-agent leases before Ambient stops their local runtime."
-            : "Active local runtime leases block ordinary Stop.",
-        };
-      }
-      try {
-        const pid = active.state.pid;
-        await this.stopActive(active);
-        return {
-          schemaVersion: "ambient-local-model-runtime-stop-v1",
-          status: "stopped",
-          runtimeId,
-          forceRequested,
-          pid,
-          stoppedAt: this.now().toISOString(),
-        };
-      } catch (error) {
-        return {
-          schemaVersion: "ambient-local-model-runtime-stop-v1",
-          status: "failed",
-          runtimeId,
-          forceRequested,
-          pid: active.state.pid,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }
-
-    if (!input.stateRootPath) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-stop-v1",
-        status: "not-found",
-        runtimeId,
-        forceRequested,
-        reason: "Ambient has no active in-process runtime with that id and no persisted state root was provided.",
-      };
-    }
-    const persisted = await readLocalModelRuntimeState(input.stateRootPath, runtimeId);
-    if (!persisted?.pid) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-stop-v1",
-        status: "not-found",
-        runtimeId,
-        forceRequested,
-        reason: "No persisted managed local runtime state was found for that runtime id.",
-      };
-    }
-    const persistedActiveLeases = await this.activePersistedLeaseRecords(input.stateRootPath, runtimeId);
-    if (persistedActiveLeases.length > 0) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-stop-v1",
-        status: "blocked",
-        runtimeId,
-        forceRequested,
-        pid: persisted.pid,
-        activeLeaseIds: persistedActiveLeases.map((lease) => lease.leaseId),
-        activeLeases: persistedActiveLeases,
-        reason: forceRequested
-          ? "Forced termination requires explicit cancellation or failure marking for active sub-agent leases before Ambient stops their local runtime."
-          : "Active local runtime leases block ordinary Stop.",
-      };
-    }
-    try {
-      await this.stopState(persisted);
-      return {
-        schemaVersion: "ambient-local-model-runtime-stop-v1",
-        status: "stopped",
-        runtimeId,
-        forceRequested,
-        pid: persisted.pid,
-        stoppedAt: this.now().toISOString(),
-      };
-    } catch (error) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-stop-v1",
-        status: "failed",
-        runtimeId,
-        forceRequested,
-        pid: persisted.pid,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+    return this.lifecycleController.stopRuntime(input);
   }
 
   async startRuntime(input: LocalModelRuntimeStartInput): Promise<LocalModelRuntimeStartResult> {
-    const runtimeId = input.runtimeId.trim();
-    if (!runtimeId) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-start-v1",
-        status: "failed",
-        runtimeId,
-        error: "Local model runtime Start requires a runtimeId.",
-      };
-    }
-
-    const active = [...this.activeRuntimes.values()].find((candidate) => candidate.state.runtimeId === runtimeId);
-    if (active) {
-      const activeLeaseIds = [...active.leases.keys()];
-      if (activeLeaseIds.length > 0) {
-        const activeLeases = this.activeLeaseRecords(active, activeLeaseIds);
-        return {
-          schemaVersion: "ambient-local-model-runtime-start-v1",
-          status: "blocked",
-          runtimeId,
-          previousPid: active.state.pid,
-          activeLeaseIds,
-          activeLeases,
-          reason: "Active local runtime leases block ordinary Start.",
-        };
-      }
-      if (this.processAlive(active.state.pid)) {
-        return {
-          schemaVersion: "ambient-local-model-runtime-start-v1",
-          status: "blocked",
-          runtimeId,
-          previousPid: active.state.pid,
-          reason: "Local runtime is already running.",
-        };
-      }
-      if (active.idleTimer) clearTimeout(active.idleTimer);
-      this.activeRuntimes.delete(active.key);
-    }
-
-    if (!input.stateRootPath) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-start-v1",
-        status: "not-found",
-        runtimeId,
-        reason: "Ambient has no active in-process runtime with that id and no persisted state root was provided.",
-      };
-    }
-    const persisted = await readLocalModelRuntimeState(input.stateRootPath, runtimeId);
-    if (!persisted?.pid) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-start-v1",
-        status: "not-found",
-        runtimeId,
-        reason: "No persisted managed local runtime state was found for that runtime id.",
-      };
-    }
-    const persistedActiveLeases = await this.activePersistedLeaseRecords(input.stateRootPath, runtimeId);
-    if (persistedActiveLeases.length > 0) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-start-v1",
-        status: "blocked",
-        runtimeId,
-        previousPid: persisted.pid,
-        activeLeaseIds: persistedActiveLeases.map((lease) => lease.leaseId),
-        activeLeases: persistedActiveLeases,
-        reason: "Active local runtime leases block ordinary Start.",
-      };
-    }
-    if (persisted.status === "running" && this.processAlive(persisted.pid)) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-start-v1",
-        status: "blocked",
-        runtimeId,
-        previousPid: persisted.pid,
-        reason: "Local runtime is already running.",
-      };
-    }
-    const previousPid = persisted.pid;
-    try {
-      const normalized = normalizedAcquireInputFromState(persisted, input.stateRootPath);
-      const state = await this.launchRuntime(normalized, [normalized.command, ...normalized.args]);
-      this.rememberIdleRuntime(runtimeKey(normalized), state);
-      return {
-        schemaVersion: "ambient-local-model-runtime-start-v1",
-        status: "started",
-        runtimeId,
-        previousPid,
-        pid: state.pid,
-        startedAt: this.now().toISOString(),
-      };
-    } catch (error) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-start-v1",
-        status: "failed",
-        runtimeId,
-        previousPid,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+    return this.lifecycleController.startRuntime(input);
   }
 
   async restartRuntime(input: LocalModelRuntimeRestartInput): Promise<LocalModelRuntimeRestartResult> {
-    const runtimeId = input.runtimeId.trim();
-    const forceRequested = input.force === true;
-    if (!runtimeId) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-restart-v1",
-        status: "failed",
-        runtimeId,
-        forceRequested,
-        error: "Local model runtime Restart requires a runtimeId.",
-      };
-    }
-
-    const active = [...this.activeRuntimes.values()].find((candidate) => candidate.state.runtimeId === runtimeId);
-    if (active) {
-      const activeLeaseIds = [...active.leases.keys()];
-      if (activeLeaseIds.length > 0) {
-        const activeLeases = this.activeLeaseRecords(active, activeLeaseIds);
-        return {
-          schemaVersion: "ambient-local-model-runtime-restart-v1",
-          status: "blocked",
-          runtimeId,
-          forceRequested,
-          previousPid: active.state.pid,
-          activeLeaseIds,
-          activeLeases,
-          reason: forceRequested
-            ? "Forced restart requires explicit cancellation or failure marking for active sub-agent leases before Ambient restarts their local runtime."
-            : "Active local runtime leases block ordinary Restart.",
-        };
-      }
-      const previousPid = active.state.pid;
-      try {
-        const normalized = normalizedAcquireInputFromState(active.state, input.stateRootPath);
-        await this.stopActive(active);
-        const state = await this.launchRuntime(normalized, [normalized.command, ...normalized.args]);
-        this.rememberIdleRuntime(runtimeKey(normalized), state);
-        return {
-          schemaVersion: "ambient-local-model-runtime-restart-v1",
-          status: "restarted",
-          runtimeId,
-          forceRequested,
-          previousPid,
-          pid: state.pid,
-          restartedAt: this.now().toISOString(),
-        };
-      } catch (error) {
-        return {
-          schemaVersion: "ambient-local-model-runtime-restart-v1",
-          status: "failed",
-          runtimeId,
-          forceRequested,
-          previousPid,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }
-
-    if (!input.stateRootPath) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-restart-v1",
-        status: "not-found",
-        runtimeId,
-        forceRequested,
-        reason: "Ambient has no active in-process runtime with that id and no persisted state root was provided.",
-      };
-    }
-    const persisted = await readLocalModelRuntimeState(input.stateRootPath, runtimeId);
-    if (!persisted?.pid) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-restart-v1",
-        status: "not-found",
-        runtimeId,
-        forceRequested,
-        reason: "No persisted managed local runtime state was found for that runtime id.",
-      };
-    }
-    const persistedActiveLeases = await this.activePersistedLeaseRecords(input.stateRootPath, runtimeId);
-    if (persistedActiveLeases.length > 0) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-restart-v1",
-        status: "blocked",
-        runtimeId,
-        forceRequested,
-        previousPid: persisted.pid,
-        activeLeaseIds: persistedActiveLeases.map((lease) => lease.leaseId),
-        activeLeases: persistedActiveLeases,
-        reason: forceRequested
-          ? "Forced restart requires explicit cancellation or failure marking for active sub-agent leases before Ambient restarts their local runtime."
-          : "Active local runtime leases block ordinary Restart.",
-      };
-    }
-    const previousPid = persisted.pid;
-    try {
-      const normalized = normalizedAcquireInputFromState(persisted, input.stateRootPath);
-      await this.stopState(persisted);
-      const state = await this.launchRuntime(normalized, [normalized.command, ...normalized.args]);
-      this.rememberIdleRuntime(runtimeKey(normalized), state);
-      return {
-        schemaVersion: "ambient-local-model-runtime-restart-v1",
-        status: "restarted",
-        runtimeId,
-        forceRequested,
-        previousPid,
-        pid: state.pid,
-        restartedAt: this.now().toISOString(),
-      };
-    } catch (error) {
-      return {
-        schemaVersion: "ambient-local-model-runtime-restart-v1",
-        status: "failed",
-        runtimeId,
-        forceRequested,
-        previousPid,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+    return this.lifecycleController.restartRuntime(input);
   }
 
   activeRuntimeLeases(): LocalRuntimeLeaseRecord[] {
@@ -734,6 +443,10 @@ export class LocalModelRuntimeManager {
     return readLocalModelRuntimeLeaseJournals(stateRootPath);
   }
 
+  private findActiveRuntime(runtimeId: string): ActiveRuntime | undefined {
+    return [...this.activeRuntimes.values()].find((candidate) => candidate.state.runtimeId === runtimeId);
+  }
+
   private activeLeaseRecords(active: ActiveRuntime, leaseIds: string[]): LocalRuntimeLeaseRecord[] {
     return leaseIds.map((leaseId) =>
       localModelRuntimeLeaseRecord({
@@ -742,6 +455,11 @@ export class LocalModelRuntimeManager {
         state: active.state,
       })
     );
+  }
+
+  private dropInactiveRuntime(active: ActiveRuntime): void {
+    if (active.idleTimer) clearTimeout(active.idleTimer);
+    this.activeRuntimes.delete(active.key);
   }
 
   private async activePersistedLeaseRecords(stateRootPath: string, runtimeId: string): Promise<LocalRuntimeLeaseRecord[]> {
@@ -758,135 +476,27 @@ export class LocalModelRuntimeManager {
     );
   }
 
-  private async launchRuntime(
-    input: NormalizedAcquireInput,
-    command: string[],
-    reservation?: ActiveRuntimeLeaseReservation,
-  ): Promise<LocalModelRuntimeState> {
-    const stateDir = localModelRuntimeStateDir(input.stateRootPath, input.runtimeId);
-    await mkdir(stateDir, { recursive: true });
-    if (reservation) {
-      await writeLocalModelRuntimeLeaseJournalRecord(stateDir, localModelRuntimeLeaseRecordFromAcquireInput({
-        reservation,
-        input,
-        status: "acquiring",
-      }));
-    }
-    const stdoutPath = join(stateDir, "runtime.stdout.log");
-    const stderrPath = join(stateDir, "runtime.stderr.log");
-    const stdoutFd = openAppend(stdoutPath);
-    const stderrFd = openAppend(stderrPath);
-    let child: ChildProcess;
-    try {
-      child = this.spawnProcess(input.command, input.args, {
-        cwd: input.cwd,
-        detached: true,
-        stdio: ["ignore", stdoutFd, stderrFd],
-        env: { ...process.env, ...input.env },
-      });
-    } catch (error) {
-      if (reservation) {
-        await writeLocalModelRuntimeLeaseJournalRecord(stateDir, localModelRuntimeLeaseRecordFromAcquireInput({
-          reservation,
-          input,
-          status: "crashed",
-          lastHeartbeatAt: this.now().toISOString(),
-        }));
-      }
-      throw error;
-    } finally {
-      closeFd(stdoutFd);
-      closeFd(stderrFd);
-    }
-    if (!child.pid) {
-      if (reservation) {
-        await writeLocalModelRuntimeLeaseJournalRecord(stateDir, localModelRuntimeLeaseRecordFromAcquireInput({
-          reservation,
-          input,
-          status: "crashed",
-          lastHeartbeatAt: this.now().toISOString(),
-        }));
-      }
-      throw new Error("Local model runtime process did not expose a process id.");
-    }
-    child.unref();
-    const now = this.now().toISOString();
-    const state: LocalModelRuntimeState = {
-      schemaVersion: "ambient-local-model-runtime-state-v1",
-      runtimeId: input.runtimeId,
-      providerId: input.providerId,
-      modelId: input.modelId,
-      ...(input.profileId ? { profileId: input.profileId } : {}),
-      pid: child.pid,
-      status: "running",
-      command,
-      cwd: input.cwd,
-      stateDir,
-      stdoutPath,
-      stderrPath,
-      startedAt: now,
-      lastUsedAt: now,
-      idleTimeoutMs: input.idleTimeoutMs,
-      ...(input.healthUrl ? { healthUrl: input.healthUrl } : {}),
-      ...(input.ownerThreadId ? { ownerThreadId: input.ownerThreadId } : {}),
-      ...(input.parentThreadId ? { parentThreadId: input.parentThreadId } : {}),
-      ...(input.subagentThreadId ? { subagentThreadId: input.subagentThreadId } : {}),
-      ...(input.subagentRunId ? { subagentRunId: input.subagentRunId } : {}),
-      ...(input.ownerDisplayName ? { ownerDisplayName: input.ownerDisplayName } : {}),
-      ...(input.estimatedResidentMemoryBytes !== undefined ? { estimatedResidentMemoryBytes: input.estimatedResidentMemoryBytes } : {}),
-    };
-    await writeLocalModelRuntimeState(state);
-    const health = await this.waitForHealth(state, input.startupTimeoutMs);
-    if (!health.ok) {
-      const failure = localModelRuntimeStartupFailure({
-        state,
-        startupTimeoutMs: input.startupTimeoutMs,
-        health,
-      });
-      if (reservation) {
-        await writeLocalModelRuntimeLeaseJournalRecord(stateDir, localModelRuntimeLeaseRecord({
-          leaseId: reservation.leaseId,
-          metadata: reservation,
-          state: {
-            ...state,
-            lastUsedAt: this.now().toISOString(),
-          },
-          status: "crashed",
-        }));
-      }
-      await this.clearState(state);
-      throw new LocalModelRuntimeStartupError(failure);
-    }
-    return this.sampleAndWriteState(state);
+  private async launchIdleRuntimeFromState(state: LocalModelRuntimeState, stateRootPath?: string): Promise<LocalModelRuntimeState> {
+    const normalized = normalizedAcquireInputFromState(state, stateRootPath);
+    const launched = await this.launchController.launchRuntime(normalized, [normalized.command, ...normalized.args]);
+    this.rememberIdleRuntime(runtimeKey(normalized), launched);
+    return launched;
   }
 
-  private async waitForHealth(state: LocalModelRuntimeState, startupTimeoutMs: number): Promise<LocalModelRuntimeHealthProbe> {
-    const started = Date.now();
-    let last: LocalModelRuntimeHealthProbe | undefined;
-    while (Date.now() - started < startupTimeoutMs) {
-      if (!this.processAlive(state.pid)) {
-        return { ok: false, healthUrl: state.healthUrl, error: "Local model runtime exited during startup." };
-      }
-      last = await probeLocalModelRuntimeHealth(state.healthUrl, { fetchImpl: this.fetchImpl, timeoutMs: 3000 });
-      if (last.ok) return last;
-      await this.sleep(250);
-    }
-    if (last) {
-      return {
-        ...last,
-        ok: false,
-        timedOut: true,
-        error: last.error
-          ? `Local model runtime did not become healthy within ${startupTimeoutMs}ms. Last error: ${last.error}`
-          : `Local model runtime did not become healthy within ${startupTimeoutMs}ms.`,
-      };
-    }
-    return {
-      ok: false,
-      healthUrl: state.healthUrl,
-      timedOut: true,
-      error: `Local model runtime did not become healthy within ${startupTimeoutMs}ms.`,
-    };
+  private async restartActiveRuntime(active: ActiveRuntime, stateRootPath?: string): Promise<LocalModelRuntimeState> {
+    const normalized = normalizedAcquireInputFromState(active.state, stateRootPath);
+    await this.stopActive(active);
+    const state = await this.launchController.launchRuntime(normalized, [normalized.command, ...normalized.args]);
+    this.rememberIdleRuntime(runtimeKey(normalized), state);
+    return state;
+  }
+
+  private async restartPersistedRuntime(state: LocalModelRuntimeState, stateRootPath?: string): Promise<LocalModelRuntimeState> {
+    const normalized = normalizedAcquireInputFromState(state, stateRootPath);
+    await this.stopState(state);
+    const launched = await this.launchController.launchRuntime(normalized, [normalized.command, ...normalized.args]);
+    this.rememberIdleRuntime(runtimeKey(normalized), launched);
+    return launched;
   }
 
   private async createLease(
@@ -1125,54 +735,6 @@ function createLocalRuntimeLeaseReservation(
     ...(input.subagentRunId ? { subagentRunId: input.subagentRunId } : {}),
     ...(input.ownerDisplayName ? { ownerDisplayName: input.ownerDisplayName } : {}),
   };
-}
-
-export function isLocalModelRuntimeStartupError(error: unknown): error is LocalModelRuntimeStartupError {
-  if (error instanceof LocalModelRuntimeStartupError) return true;
-  if (!error || typeof error !== "object") return false;
-  const failure = (error as { failure?: unknown }).failure;
-  return Boolean(
-    failure &&
-    typeof failure === "object" &&
-    (failure as { schemaVersion?: unknown }).schemaVersion === "ambient-local-model-runtime-startup-failure-v1",
-  );
-}
-
-export async function probeLocalModelRuntimeHealth(
-  healthUrl: string | undefined,
-  options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {},
-): Promise<LocalModelRuntimeHealthProbe> {
-  if (!healthUrl) {
-    return {
-      ok: true,
-      textPreview: "No health URL configured; process liveness is the health signal.",
-    };
-  }
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 3000);
-  const started = Date.now();
-  try {
-    const response = await fetchImpl(healthUrl, { signal: controller.signal });
-    const text = await response.text();
-    return {
-      ok: response.ok,
-      healthUrl,
-      statusCode: response.status,
-      latencyMs: Date.now() - started,
-      body: parseJsonLenient(text),
-      textPreview: previewText(text, 2000),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      healthUrl,
-      latencyMs: Date.now() - started,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 export function localModelRuntimeStateDir(stateRootPath: string, runtimeId: string): string {
@@ -1585,64 +1147,10 @@ function normalizeNonNegativeInteger(value: number, name: string): number {
   return normalized;
 }
 
-function localModelRuntimeStartupFailure(input: {
-  state: LocalModelRuntimeState;
-  startupTimeoutMs: number;
-  health: LocalModelRuntimeHealthProbe;
-}): LocalModelRuntimeStartupFailure {
-  const reason: LocalModelRuntimeStartupFailureReason = input.health.error === "Local model runtime exited during startup."
-    ? "process_exited"
-    : input.health.timedOut
-      ? "startup_timeout"
-      : "health_unhealthy";
-  return {
-    schemaVersion: "ambient-local-model-runtime-startup-failure-v1",
-    reason,
-    message: `Local model runtime did not become healthy: ${input.health.error ?? input.health.textPreview ?? "unknown health response"}`,
-    runtimeId: input.state.runtimeId,
-    providerId: input.state.providerId,
-    modelId: input.state.modelId,
-    ...(input.state.profileId ? { profileId: input.state.profileId } : {}),
-    pid: input.state.pid,
-    command: input.state.command,
-    cwd: input.state.cwd,
-    stateDir: input.state.stateDir,
-    stdoutPath: input.state.stdoutPath,
-    stderrPath: input.state.stderrPath,
-    startupTimeoutMs: input.startupTimeoutMs,
-    health: input.health,
-  };
-}
-
 function localModelRuntimeIdleCleanupDueAt(releasedAt: string, idleTimeoutMs: number): string | undefined {
   const timestamp = Date.parse(releasedAt);
   if (!Number.isFinite(timestamp)) return undefined;
   return new Date(timestamp + idleTimeoutMs).toISOString();
-}
-
-function openAppend(path: string): number {
-  return openSync(path, "a");
-}
-
-function closeFd(fd: number): void {
-  try {
-    closeSync(fd);
-  } catch {
-    // The descriptor may already have been consumed by a failed spawn on some platforms.
-  }
-}
-
-function parseJsonLenient(text: string): unknown {
-  try {
-    return text.trim() ? JSON.parse(text) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function previewText(text: string, limit: number): string {
-  if (text.length <= limit) return text;
-  return `${text.slice(0, Math.max(0, limit - 3))}...`;
 }
 
 function sanitizePathSegment(value: string): string {

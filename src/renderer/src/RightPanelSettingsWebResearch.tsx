@@ -1,13 +1,8 @@
-import { ChevronLeft, ChevronRight, Download, KeyRound, LoaderCircle, Play, Plug, RefreshCw, RotateCcw } from "lucide-react";
+import { Download, Plug, RefreshCw } from "lucide-react";
 import type { RefObject } from "react";
-import {
-  LOCAL_DEEP_RESEARCH_EFFORT_ORDER,
-  localDeepResearchEffortLabel,
-  localDeepResearchMaxToolCallsForEffort,
-} from "../../shared/localDeepResearchBudget";
 import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
-import type { LocalDeepResearchBudgetExhaustionBehavior, LocalDeepResearchEffort, LocalDeepResearchRunHistoryEntry } from "../../shared/localRuntimeTypes";
-import type { AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilitySummary, AmbientMcpInstalledServerSummary, ManagedDevServerSummary } from "../../shared/pluginTypes";
+import type { LocalDeepResearchRunHistoryEntry } from "../../shared/localRuntimeTypes";
+import type { AmbientMcpContainerRuntimeLifecycleAction, AmbientMcpContainerRuntimeLifecyclePreview, AmbientMcpContainerRuntimeLifecycleProgress, AmbientMcpContainerRuntimeLifecycleResult, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilitySummary, AmbientMcpInstalledServerSummary, ManagedDevServerSummary } from "../../shared/pluginTypes";
 import type { WebResearchProviderConfig, WebResearchProviderStackSettings } from "../../shared/webResearchTypes";
 import type {
   LocalDeepResearchDiagnosticItem,
@@ -24,27 +19,17 @@ import type {
   SettingsFocusRequest,
 } from "./RightPanel";
 import { formatTaskState } from "./RightPanelDetailPanels";
-import {
-  LocalDeepResearchDiagnosticsList,
-  LocalDeepResearchRunHistoryList,
-  ProviderCatalogSettingsCards,
-  formatDurationMs,
-  formatMemoryBytes,
-  formatRatioPercent,
-  formatTimelineTime,
-} from "./RightPanelSettingsRuntime";
+import { McpContainerRuntimeLifecycleControls } from "./RightPanelMcpRuntimeLifecycleControls";
+import { formatTimelineTime } from "./RightPanelSettingsRuntime";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 import { SettingsRow, SettingsSection } from "./RightPanelSettingsPrimitives";
-import { mcpContainerRuntimeDetailRows, mcpInstalledServerStatusLabel } from "./pluginUiModel";
 import {
-  moveWebResearchProvider,
-  resetWebResearchRole,
-  setWebResearchBrowserFallback,
-  setWebResearchProviderEnabled,
-  webResearchProviderHealthBadge,
-  webResearchProviderSetupAction,
-  type WebResearchProviderSetupAction,
-} from "./searchWebSettingsModel";
+  RightPanelLocalDeepResearchSettingsRow,
+  RightPanelSearchCatalogSettingsRow,
+  RightPanelWebResearchProviderStackRow,
+} from "./RightPanelSettingsWebResearchRows";
+import { mcpContainerRuntimeDetailRows, mcpInstalledServerStatusLabel } from "./pluginUiModel";
+import type { WebResearchProviderSetupAction } from "./searchWebSettingsModel";
 
 type SettingsRowVisible = (sectionId: string, rowId: string) => boolean;
 type MaybePromise<T = unknown> = T | Promise<T>;
@@ -139,12 +124,6 @@ export function RightPanelSearchWebSettingsSection({
   onLoadLocalDeepResearchRunHistory,
   startProviderCatalogCardOnboarding,
 }: RightPanelSearchWebSettingsSectionProps) {
-  const localDeepResearchRunBudget = state.settings.localDeepResearch.runBudget;
-  const localDeepResearchDefaultToolCalls = localDeepResearchMaxToolCallsForEffort(
-    localDeepResearchRunBudget.defaultEffort,
-    localDeepResearchRunBudget.customMaxToolCalls,
-  );
-
   return (
 <SettingsSection
           id="search-web"
@@ -155,561 +134,48 @@ export function RightPanelSearchWebSettingsSection({
           sectionRef={searchWebSettingsRowRef}
         >
           {settingsRowVisible("search-web", "search-web.research-stack") && (
-          <SettingsRow
-            label="Web research provider stack"
-            value="Global"
-            className="web-research-settings-row"
-            description="Ambient routes Pi's public search and public URL reads through these ordered providers, with a fallback ledger on every broker call."
-          >
-            <div className="settings-mini-row">
-              <span>
-                <strong>Installed provider catalog</strong>
-                <small>{searchRoutingHydrating ? "Refreshing installed Ambient CLI and MCP providers." : "Settings refreshes installed web research providers when opened."}</small>
-              </span>
-              <span className="button-row">
-                <button
-                  type="button"
-                  className="panel-button mini icon-panel-button"
-                  disabled={searchRoutingHydrating}
-                  onClick={onHydrateSearchRoutingSettings}
-                  title="Refresh installed Ambient CLI and MCP web research providers."
-                >
-                  {searchRoutingHydrating ? <LoaderCircle size={13} className="spin" /> : <RefreshCw size={13} />}
-                  Refresh
-                </button>
-              </span>
-            </div>
-            {searchRoutingHydrationError && <p className="panel-status error">Could not refresh installed web research providers: {searchRoutingHydrationError}</p>}
-            <div className="provider-catalog-settings-grid">
-              <section className="provider-catalog-settings-card recommended">
-                <div className="provider-catalog-settings-card-header">
-                  <div>
-                    <strong>Search order</strong>
-                    <span>{webResearchSearchStatus || "No providers configured"}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="panel-button mini icon-panel-button"
-                    onClick={() => void onSearchRoutingSettingsChange({
-                      ...state.settings.search,
-                      webResearch: resetWebResearchRole(webResearchStack, "search"),
-                    })}
-                    title="Reset search provider order to Ambient defaults."
-                  >
-                    <RotateCcw size={13} />
-                    Reset
-                  </button>
-                </div>
-                <div className="plugin-badges">
-                  {webResearchSearchProviders.map((provider, index) => (
-                    <span key={provider.providerId}>{index + 1}. {provider.label}</span>
-                  ))}
-                </div>
-                {webResearchSearchProviders.map((provider, index) => {
-                  const health = webResearchProviderHealthBadge(provider, { scraplingDefaultCapability: mcpDefaultWebResearchCapability });
-                  const setupAction = webResearchProviderSetupAction(provider, {
-                    scraplingDefaultCapability: mcpDefaultWebResearchCapability,
-                    scraplingRuntimeReady: mcpContainerRuntimeStatus?.status === "ready",
-                    scraplingBusy: mcpServerBusy === "default-capability:scrapling",
-                  });
-                  return (
-                  <div className="settings-mini-row web-research-provider-row" key={provider.providerId}>
-                    <span>
-                      <span className="web-research-provider-heading">
-                        <strong>{provider.label}</strong>
-                        <span className={`web-research-health-badge tone-${health.tone}`} title={health.detail}>{health.label}</span>
-                      </span>
-                      <small>{provider.privacyLabel ?? provider.kind}</small>
-                    </span>
-                    <span className="button-row">
-                      {setupAction && (
-                        <button
-                          type="button"
-                          className="panel-button mini"
-                          disabled={setupAction.disabled}
-                          title={setupAction.title}
-                          onClick={() => runWebResearchProviderSetupAction(setupAction)}
-                        >
-                          {setupAction.kind === "configure-ambient-cli-secret" && <KeyRound size={13} />}
-                          {setupAction.label}
-                        </button>
-                      )}
-                      <label className="setting-toggle mini-toggle">
-                        <input
-                          type="checkbox"
-                          checked={provider.status !== "disabled"}
-                          onChange={(event) => void onSearchRoutingSettingsChange({
-                            ...state.settings.search,
-                            webResearch: setWebResearchProviderEnabled(webResearchStack, provider.providerId, event.target.checked),
-                          })}
-                        />
-                        <span>{provider.status === "disabled" ? "Disabled" : "Enabled"}</span>
-                      </label>
-                      <button
-                        type="button"
-                        className="panel-button mini icon-panel-button"
-                        disabled={index === 0}
-                        onClick={() => void onSearchRoutingSettingsChange({
-                          ...state.settings.search,
-                          webResearch: moveWebResearchProvider(webResearchStack, "search", provider.providerId, -1),
-                        })}
-                      >
-                        <ChevronLeft size={13} /> Up
-                      </button>
-                      <button
-                        type="button"
-                        className="panel-button mini icon-panel-button"
-                        disabled={index === webResearchSearchProviders.length - 1}
-                        onClick={() => void onSearchRoutingSettingsChange({
-                          ...state.settings.search,
-                          webResearch: moveWebResearchProvider(webResearchStack, "search", provider.providerId, 1),
-                        })}
-                      >
-                        <ChevronRight size={13} /> Down
-                      </button>
-                    </span>
-                  </div>
-                  );
-                })}
-              </section>
-              <section className="provider-catalog-settings-card recommended">
-                <div className="provider-catalog-settings-card-header">
-                  <div>
-                    <strong>Page read order</strong>
-                    <span>{webResearchFetchStatus || "No providers configured"}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="panel-button mini icon-panel-button"
-                    onClick={() => void onSearchRoutingSettingsChange({
-                      ...state.settings.search,
-                      webResearch: resetWebResearchRole(webResearchStack, "fetch"),
-                    })}
-                    title="Reset page read provider order to Ambient defaults."
-                  >
-                    <RotateCcw size={13} />
-                    Reset
-                  </button>
-                </div>
-                <div className="plugin-badges">
-                  {webResearchFetchProviders.map((provider, index) => (
-                    <span key={provider.providerId}>{index + 1}. {provider.label}</span>
-                  ))}
-                </div>
-                {webResearchFetchProviders.map((provider, index) => {
-                  const health = webResearchProviderHealthBadge(provider, { scraplingDefaultCapability: mcpDefaultWebResearchCapability });
-                  const setupAction = webResearchProviderSetupAction(provider, {
-                    scraplingDefaultCapability: mcpDefaultWebResearchCapability,
-                    scraplingRuntimeReady: mcpContainerRuntimeStatus?.status === "ready",
-                    scraplingBusy: mcpServerBusy === "default-capability:scrapling",
-                  });
-                  return (
-                  <div className="settings-mini-row web-research-provider-row" key={provider.providerId}>
-                    <span>
-                      <span className="web-research-provider-heading">
-                        <strong>{provider.label}</strong>
-                        <span className={`web-research-health-badge tone-${health.tone}`} title={health.detail}>{health.label}</span>
-                      </span>
-                      <small>{provider.privacyLabel ?? provider.kind}</small>
-                    </span>
-                    <span className="button-row">
-                      {setupAction && (
-                        <button
-                          type="button"
-                          className="panel-button mini"
-                          disabled={setupAction.disabled}
-                          title={setupAction.title}
-                          onClick={() => runWebResearchProviderSetupAction(setupAction)}
-                        >
-                          {setupAction.kind === "configure-ambient-cli-secret" && <KeyRound size={13} />}
-                          {setupAction.label}
-                        </button>
-                      )}
-                      <label className="setting-toggle mini-toggle">
-                        <input
-                          type="checkbox"
-                          checked={provider.status !== "disabled"}
-                          onChange={(event) => void onSearchRoutingSettingsChange({
-                            ...state.settings.search,
-                            webResearch: setWebResearchProviderEnabled(webResearchStack, provider.providerId, event.target.checked),
-                          })}
-                        />
-                        <span>{provider.status === "disabled" ? "Disabled" : "Enabled"}</span>
-                      </label>
-                      <button
-                        type="button"
-                        className="panel-button mini icon-panel-button"
-                        disabled={index === 0}
-                        onClick={() => void onSearchRoutingSettingsChange({
-                          ...state.settings.search,
-                          webResearch: moveWebResearchProvider(webResearchStack, "fetch", provider.providerId, -1),
-                        })}
-                      >
-                        <ChevronLeft size={13} /> Up
-                      </button>
-                      <button
-                        type="button"
-                        className="panel-button mini icon-panel-button"
-                        disabled={index === webResearchFetchProviders.length - 1}
-                        onClick={() => void onSearchRoutingSettingsChange({
-                          ...state.settings.search,
-                          webResearch: moveWebResearchProvider(webResearchStack, "fetch", provider.providerId, 1),
-                        })}
-                      >
-                        <ChevronRight size={13} /> Down
-                      </button>
-                    </span>
-                  </div>
-                  );
-                })}
-              </section>
-            </div>
-            <small>Exa is enabled by default for public search without a key. Scrapling remains preferred for public URL reads when ToolHive is installed and running.</small>
-            <label className="setting-toggle">
-              <input
-                type="checkbox"
-                checked={webResearchStack.fallbackPolicy.allowBrowserFallback}
-                onChange={(event) => void onSearchRoutingSettingsChange({
-                  ...state.settings.search,
-                  webResearch: setWebResearchBrowserFallback(webResearchStack, event.target.checked),
-                })}
-              />
-              <span>Allow Ambient Browser fallback when configured research providers cannot complete</span>
-            </label>
-          </SettingsRow>
+            <RightPanelWebResearchProviderStackRow
+              state={state}
+              searchRoutingHydrating={searchRoutingHydrating}
+              searchRoutingHydrationError={searchRoutingHydrationError}
+              webResearchStack={webResearchStack}
+              webResearchSearchProviders={webResearchSearchProviders}
+              webResearchFetchProviders={webResearchFetchProviders}
+              webResearchSearchStatus={webResearchSearchStatus}
+              webResearchFetchStatus={webResearchFetchStatus}
+              mcpDefaultWebResearchCapability={mcpDefaultWebResearchCapability}
+              mcpContainerRuntimeStatus={mcpContainerRuntimeStatus}
+              mcpServerBusy={mcpServerBusy}
+              onHydrateSearchRoutingSettings={onHydrateSearchRoutingSettings}
+              onSearchRoutingSettingsChange={onSearchRoutingSettingsChange}
+              runWebResearchProviderSetupAction={runWebResearchProviderSetupAction}
+            />
           )}
           {settingsRowVisible("search-web", "search-web.local-deep-research") && (
-          <SettingsRow
-            label="Local Deep Research"
-            value={
-              localDeepResearchSetup.status === "running"
-                ? "Working"
-                : localDeepResearchSetupModel?.statusLabel ?? localDeepResearchSetup.message ?? "Not checked"
-            }
-            className="web-research-settings-row"
-            description="Ambient-managed LiteResearcher uses the current web research provider stack for search and page reads, then runs synthesis through the local llama.cpp runtime."
-          >
-            <div className="settings-mini-row">
-              <span>
-                <strong>Selected model</strong>
-                <small>
-                  {localDeepResearchSetup.result
-                    ? `${localDeepResearchSetup.result.modelSelection.profile.displayName} · ${localDeepResearchSetup.result.modelSelection.contextTokens.toLocaleString()} context tokens`
-                    : "Check status to choose Q4 or Q8 from current machine and memory policy."}
-                </small>
-              </span>
-              <span className="button-row">
-                {localDeepResearchActions.map((action) => (
-                  <button
-                    type="button"
-                    className={`panel-button mini icon-panel-button ${action.primary ? "primary" : ""}`}
-                    key={action.action}
-                    onClick={() => onSetupLocalDeepResearch(action.action)}
-                    disabled={localDeepResearchSetup.status === "running"}
-                    title={action.title}
-                  >
-                    {localDeepResearchSetup.status === "running" && localDeepResearchSetup.action === action.action ? <LoaderCircle size={13} className="spin" /> : action.action === "install" ? <Download size={13} /> : action.action === "smoke" ? <Play size={13} /> : <RefreshCw size={13} />}
-                    {localDeepResearchSetup.status === "running" && localDeepResearchSetup.action === action.action ? "Working" : action.label}
-                  </button>
-                ))}
-              </span>
-            </div>
-            <label className="setting-toggle">
-              <input
-                type="checkbox"
-                checked={localDeepResearchQ8Override}
-                onChange={(event) => onLocalDeepResearchQ8OverrideChange(event.target.checked)}
-                disabled={localDeepResearchSetup.status === "running"}
-              />
-              <span>Request Q8 override on the next setup check, install, or validation</span>
-            </label>
-            {localDeepResearchQ8 && (
-              <small title={localDeepResearchQ8.title}>
-                {localDeepResearchQ8.label}
-              </small>
-            )}
-            <div className="settings-mini-row local-deep-research-budget-row">
-              <span>
-                <strong>Default research effort</strong>
-                <small>
-                  {localDeepResearchEffortLabel(localDeepResearchRunBudget.defaultEffort)} · {localDeepResearchDefaultToolCalls.toLocaleString()} tool calls
-                </small>
-              </span>
-              <span className="button-row">
-                <select
-                  className="settings-select compact"
-                  value={localDeepResearchRunBudget.defaultEffort}
-                  aria-label="Default Local Deep Research effort"
-                  onChange={(event) => updateLocalDeepResearchRunBudgetSettings({
-                    defaultEffort: event.target.value as LocalDeepResearchEffort,
-                  })}
-                >
-                  {LOCAL_DEEP_RESEARCH_EFFORT_ORDER.map((effort) => (
-                    <option key={effort} value={effort}>
-                      {localDeepResearchEffortLabel(effort)}
-                    </option>
-                  ))}
-                  <option value="custom">Custom</option>
-                </select>
-                <input
-                  className="settings-memory-input"
-                  type="number"
-                  min={1}
-                  max={500}
-                  step={1}
-                  value={localDeepResearchRunBudget.customMaxToolCalls ?? ""}
-                  placeholder="Custom calls"
-                  aria-label="Default custom Local Deep Research max tool calls"
-                  onChange={(event) => {
-                    const parsed = Number.parseInt(event.target.value, 10);
-                    updateLocalDeepResearchRunBudgetSettings({
-                      defaultEffort: "custom",
-                      customMaxToolCalls: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined,
-                    });
-                  }}
-                />
-                <select
-                  className="settings-select compact"
-                  value={localDeepResearchRunBudget.onExhausted}
-                  aria-label="Local Deep Research budget exhaustion behavior"
-                  onChange={(event) => updateLocalDeepResearchRunBudgetSettings({
-                    onExhausted: event.target.value as LocalDeepResearchBudgetExhaustionBehavior,
-                  })}
-                >
-                  <option value="ask_to_continue">Ask</option>
-                  <option value="summarize">Summarize</option>
-                </select>
-              </span>
-            </div>
-            <div className="settings-mini-row local-model-resource-row">
-              <span>
-                <strong>Local model memory policy</strong>
-                <small>{localModelMemoryPolicySummary}</small>
-                <small>{localModelResourceStatus}</small>
-                {localModelResourcePolicy && localModelResourcePolicy.outcome !== "unlimited" && (
-                  <small>{localModelResourcePolicy.reason}</small>
-                )}
-              </span>
-              <span className="button-row">
-                <input
-                  className="settings-memory-input"
-                  type="number"
-                  min={0}
-                  max={512}
-                  step={1}
-                  value={localModelMemoryLimitGiB}
-                  placeholder="No GiB override"
-                  aria-label="Advanced local model resident memory ceiling in GiB"
-                  onChange={(event) => {
-                    const parsed = Number.parseInt(event.target.value, 10);
-                    updateLocalModelResourceSettings({
-                      maxResidentMemoryBytes: Number.isFinite(parsed) && parsed > 0 ? parsed * (1024 ** 3) : undefined,
-                    });
-                  }}
-                />
-                <select
-                  className="settings-select compact"
-                  value={localModelResourceSettings.memoryLimitBehavior}
-                  aria-label="Local model memory policy behavior"
-                  onChange={(event) => updateLocalModelResourceSettings({
-                    memoryLimitBehavior: event.target.value as DesktopState["settings"]["localDeepResearch"]["localModelResources"]["memoryLimitBehavior"],
-                  })}
-                >
-                  <option value="warn">Warn</option>
-                  <option value="refuse">Refuse</option>
-                  <option value="unload-idle">Unload idle</option>
-                  <option value="ask-to-exceed">Ask</option>
-                </select>
-              </span>
-            </div>
-            {localDeepResearchSetup.message && (
-              <div className={`voice-provider-diagnostics ${localDeepResearchSetup.status === "error" ? "error" : localDeepResearchSetupModel?.statusTone ?? "info"}`}>
-                <strong>{localDeepResearchSetupModel?.statusLabel ?? localDeepResearchSetup.message}</strong>
-                {localDeepResearchSetupModel?.detailLabels.map((label) => (
-                  <small key={label}>{label}</small>
-                ))}
-                {localDeepResearchSetup.status === "error" && <small className="error-text">{localDeepResearchSetup.message}</small>}
-              </div>
-            )}
-            {localDeepResearchProgress && (
-              <div className={`voice-provider-diagnostics local-deep-research-progress ${localDeepResearchProgress.tone}`} role="status" aria-live="polite">
-                <div className="voice-provider-diagnostics-header">
-                  <strong>Managed install progress</strong>
-                  {localDeepResearchProgress.percent !== undefined && <span>{Math.round(localDeepResearchProgress.percent)}%</span>}
-                </div>
-                <small>{localDeepResearchProgress.title}</small>
-                {localDeepResearchProgress.percent !== undefined && (
-                  <div className="local-deep-research-progress-track" aria-hidden="true">
-                    <span style={{ width: `${Math.max(3, localDeepResearchProgress.percent)}%` }} />
-                  </div>
-                )}
-                {localDeepResearchProgress.detail && <small>{localDeepResearchProgress.detail}</small>}
-              </div>
-            )}
-            {!localDeepResearchSetup.result && (
-              <div className="plugin-badges">
-                <span>Search: {webResearchSearchStatus || "No providers configured"}</span>
-                <span>Fetch: {webResearchFetchStatus || "No providers configured"}</span>
-              </div>
-            )}
-            <LocalDeepResearchDiagnosticsList diagnostics={localDeepResearchDiagnostics} />
-            {localDeepResearchSetup.result?.validation && (
-              <div className="settings-mini-row">
-                <span>
-                  <strong>Validation evidence</strong>
-                  <small>
-                    {formatTaskState(localDeepResearchSetup.result.validation.status)} · {formatTimelineTime(localDeepResearchSetup.result.validation.checkedAt)}
-                  </small>
-                </span>
-                <span className="button-row">
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.openWorkspacePath(localDeepResearchSetup.result!.validation!.artifactPath).catch(() => undefined)}
-                  >
-                    Open validation
-                  </button>
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.revealWorkspacePath(localDeepResearchSetup.result!.validation!.artifactPath).catch(() => undefined)}
-                  >
-                    Reveal
-                  </button>
-                </span>
-              </div>
-            )}
-            {localDeepResearchSetup.result?.validation?.memoryTelemetry && (
-              <div className="settings-mini-row">
-                <span>
-                  <strong>Memory telemetry evidence</strong>
-                  <small>
-                    {formatTaskState(localDeepResearchSetup.result.validation.memoryTelemetry.status)} · {localDeepResearchSetup.result.validation.memoryTelemetry.physicalMemoryClass} · {formatTimelineTime(localDeepResearchSetup.result.validation.memoryTelemetry.capturedAt)}
-                  </small>
-                </span>
-                <span className="button-row">
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.openWorkspacePath(localDeepResearchSetup.result!.validation!.memoryTelemetry!.artifactPath).catch(() => undefined)}
-                  >
-                    Open telemetry
-                  </button>
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.openWorkspacePath(localDeepResearchSetup.result!.validation!.memoryTelemetry!.markdownPath).catch(() => undefined)}
-                  >
-                    Open report
-                  </button>
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.revealWorkspacePath(localDeepResearchSetup.result!.validation!.memoryTelemetry!.artifactPath).catch(() => undefined)}
-                  >
-                    Reveal
-                  </button>
-                </span>
-              </div>
-            )}
-            {localDeepResearchSetup.result?.validation?.providerPreferenceSmoke && (
-              <div className="settings-mini-row">
-                <span>
-                  <strong>Provider preference evidence</strong>
-                  <small>
-                    {formatTaskState(localDeepResearchSetup.result.validation.providerPreferenceSmoke.status)} · {localDeepResearchSetup.result.validation.providerPreferenceSmoke.checkCount} checks · {formatTimelineTime(localDeepResearchSetup.result.validation.providerPreferenceSmoke.checkedAt)}
-                  </small>
-                </span>
-                <span className="button-row">
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.openWorkspacePath(localDeepResearchSetup.result!.validation!.providerPreferenceSmoke!.artifactPath).catch(() => undefined)}
-                  >
-                    Open smoke
-                  </button>
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.openWorkspacePath(localDeepResearchSetup.result!.validation!.providerPreferenceSmoke!.markdownPath).catch(() => undefined)}
-                  >
-                    Open report
-                  </button>
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.revealWorkspacePath(localDeepResearchSetup.result!.validation!.providerPreferenceSmoke!.artifactPath).catch(() => undefined)}
-                  >
-                    Reveal
-                  </button>
-                </span>
-              </div>
-            )}
-            {localDeepResearchSetup.result?.smoke && (
-              <div className="settings-mini-row">
-                <span>
-                  <strong>Smoke evidence</strong>
-                  <small>
-                    {formatTaskState(localDeepResearchSetup.result.smoke.status)} · {formatTimelineTime(localDeepResearchSetup.result.smoke.checkedAt)}
-                    {localDeepResearchSetup.result.smoke.chat ? ` · ${formatDurationMs(localDeepResearchSetup.result.smoke.chat.durationMs)}` : ""}
-                  </small>
-                </span>
-                <span className="button-row">
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.openWorkspacePath(localDeepResearchSetup.result!.smoke!.artifactPath).catch(() => undefined)}
-                  >
-                    Open smoke
-                  </button>
-                  <button
-                    type="button"
-                    className="panel-button mini"
-                    onClick={() => void window.ambientDesktop.revealWorkspacePath(localDeepResearchSetup.result!.smoke!.artifactPath).catch(() => undefined)}
-                  >
-                    Reveal
-                  </button>
-                </span>
-              </div>
-            )}
-            <div className="settings-mini-row">
-              <span>
-                <strong>Run evidence</strong>
-                <small>
-                  {localDeepResearchRunHistory.status === "loading"
-                    ? "Loading persisted Local Deep Research artifacts..."
-                    : localDeepResearchRunHistory.message ?? "Recent run artifacts appear after the first completed local research run."}
-                </small>
-              </span>
-              <span className="button-row">
-                <button
-                  type="button"
-                  className="panel-button mini icon-panel-button"
-                  disabled={localDeepResearchRunHistory.status === "loading"}
-                  onClick={onLoadLocalDeepResearchRunHistory}
-                  title="Refresh recent Local Deep Research JSON and Markdown artifacts."
-                >
-                  {localDeepResearchRunHistory.status === "loading" ? <LoaderCircle size={13} className="spin" /> : <RefreshCw size={13} />}
-                  Refresh runs
-                </button>
-                <button
-                  type="button"
-                  className="panel-button mini"
-                  onClick={() => void window.ambientDesktop.revealWorkspacePath(".ambient/local-deep-research/runs").catch(() => undefined)}
-                  title="Reveal the Local Deep Research run artifact folder in the workspace."
-                >
-                  Reveal folder
-                </button>
-              </span>
-            </div>
-            {localDeepResearchRunHistory.status === "error" && <small className="error-text">{localDeepResearchRunHistory.message}</small>}
-            <LocalDeepResearchRunHistoryList
-              entries={localDeepResearchRuns}
-              truncated={Boolean(localDeepResearchRunHistory.result?.truncated)}
-              onOpen={(path) => void window.ambientDesktop.openWorkspacePath(path).catch(() => undefined)}
-              onReveal={(path) => void window.ambientDesktop.revealWorkspacePath(path).catch(() => undefined)}
+            <RightPanelLocalDeepResearchSettingsRow
+              localDeepResearchSetup={localDeepResearchSetup}
+              localDeepResearchSetupModel={localDeepResearchSetupModel}
+              localDeepResearchActions={localDeepResearchActions}
+              localDeepResearchQ8Override={localDeepResearchQ8Override}
+              localDeepResearchQ8={localDeepResearchQ8}
+              localModelMemoryPolicySummary={localModelMemoryPolicySummary}
+              localModelResourceStatus={localModelResourceStatus}
+              localModelResourcePolicy={localModelResourcePolicy}
+              localModelMemoryLimitGiB={localModelMemoryLimitGiB}
+              localModelResourceSettings={localModelResourceSettings}
+              localDeepResearchProgress={localDeepResearchProgress}
+              localDeepResearchDiagnostics={localDeepResearchDiagnostics}
+              localDeepResearchRunHistory={localDeepResearchRunHistory}
+              localDeepResearchRuns={localDeepResearchRuns}
+              webResearchSearchStatus={webResearchSearchStatus}
+              webResearchFetchStatus={webResearchFetchStatus}
+              localDeepResearchRunBudget={state.settings.localDeepResearch.runBudget}
+              onSetupLocalDeepResearch={onSetupLocalDeepResearch}
+              onLocalDeepResearchQ8OverrideChange={onLocalDeepResearchQ8OverrideChange}
+              updateLocalModelResourceSettings={updateLocalModelResourceSettings}
+              updateLocalDeepResearchRunBudgetSettings={updateLocalDeepResearchRunBudgetSettings}
+              onLoadLocalDeepResearchRunHistory={onLoadLocalDeepResearchRunHistory}
             />
-          </SettingsRow>
           )}
           {settingsRowVisible("search-web", "search-web.routing") && (
           <SettingsRow
@@ -722,20 +188,12 @@ export function RightPanelSearchWebSettingsSection({
           </SettingsRow>
           )}
           {settingsRowVisible("search-web", "search-web.catalog") && (
-          <SettingsRow
-            label="Known providers"
-            value={`${searchCatalogCards.length} catalog card${searchCatalogCards.length === 1 ? "" : "s"}`}
-            className="web-research-settings-row"
-            description="Launch approval-gated web-search or Local Deep Research setup from the same catalog source Pi sees."
-          >
-            <ProviderCatalogSettingsCards
-              cards={searchCatalogCards}
-              catalogVersion={state.providerCatalog.catalogVersion}
-              generatedAt={state.providerCatalog.generatedAt}
+            <RightPanelSearchCatalogSettingsRow
+              state={state}
               running={running}
-              onStart={(card) => void startProviderCatalogCardOnboarding(card)}
+              searchCatalogCards={searchCatalogCards}
+              startProviderCatalogCardOnboarding={startProviderCatalogCardOnboarding}
             />
-          </SettingsRow>
           )}
         </SettingsSection>
   );
@@ -758,6 +216,14 @@ export type RightPanelMcpRuntimeSettingsSectionProps = {
   mcpContainerRuntimeError?: string;
   mcpContainerRuntimeInstallProgressStatusView?: StatusMessage;
   mcpContainerRuntimeActionStatus?: ApiKeyStatus;
+  mcpServerBusy?: string;
+  mcpContainerRuntimeLifecyclePreview?: AmbientMcpContainerRuntimeLifecyclePreview;
+  mcpContainerRuntimeLifecycleResult?: AmbientMcpContainerRuntimeLifecycleResult;
+  mcpContainerRuntimeLifecycleProgress: AmbientMcpContainerRuntimeLifecycleProgress[];
+  mcpContainerRuntimeLifecycleBusyKey?: string;
+  mcpContainerRuntimeLifecycleError?: string;
+  previewMcpContainerRuntimeLifecycle: (action: AmbientMcpContainerRuntimeLifecycleAction) => MaybePromise;
+  runMcpContainerRuntimeLifecycle: (action: AmbientMcpContainerRuntimeLifecycleAction) => MaybePromise;
   mcpDefaultWebResearchCapability?: AmbientMcpDefaultCapabilitySummary;
   mcpDefaultWebResearchAction: PluginAction;
   installMcpDefaultCapability: (capabilityId: "scrapling") => MaybePromise;
@@ -790,6 +256,14 @@ export function RightPanelMcpRuntimeSettingsSection({
   mcpContainerRuntimeError,
   mcpContainerRuntimeInstallProgressStatusView,
   mcpContainerRuntimeActionStatus,
+  mcpServerBusy,
+  mcpContainerRuntimeLifecyclePreview,
+  mcpContainerRuntimeLifecycleResult,
+  mcpContainerRuntimeLifecycleProgress,
+  mcpContainerRuntimeLifecycleBusyKey,
+  mcpContainerRuntimeLifecycleError,
+  previewMcpContainerRuntimeLifecycle,
+  runMcpContainerRuntimeLifecycle,
   mcpDefaultWebResearchCapability,
   mcpDefaultWebResearchAction,
   installMcpDefaultCapability,
@@ -870,6 +344,17 @@ export function RightPanelMcpRuntimeSettingsSection({
             )}
             {mcpContainerRuntimeInstallProgressStatusView && <small>{mcpContainerRuntimeInstallProgressStatusView.message}</small>}
             {mcpContainerRuntimeActionStatus && <small>{mcpContainerRuntimeActionStatus.message}</small>}
+            <McpContainerRuntimeLifecycleControls
+              status={mcpContainerRuntimeStatus}
+              preview={mcpContainerRuntimeLifecyclePreview}
+              result={mcpContainerRuntimeLifecycleResult}
+              progress={mcpContainerRuntimeLifecycleProgress}
+              error={mcpContainerRuntimeLifecycleError}
+              busyKey={mcpContainerRuntimeLifecycleBusyKey}
+              disabled={mcpContainerRuntimeBusy || mcpContainerRuntimeLaunchBusy || diagnosticBusy || Boolean(mcpServerBusy?.startsWith("default-capability:"))}
+              onPreview={(action) => void previewMcpContainerRuntimeLifecycle(action)}
+              onRun={(action) => void runMcpContainerRuntimeLifecycle(action)}
+            />
           </SettingsRow>
           )}
           {settingsRowVisible("mcp-runtime", "mcp-runtime.scrapling") && (

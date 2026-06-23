@@ -6,6 +6,7 @@ import {
   type AmbientCliPackageInstallPreview,
   type PreviewAmbientCliPackageInput,
 } from "../agentRuntimeAmbientCliFacade";
+import { redactGitSourceCredentials } from "../../security/securityAgentRuntimeContract";
 import { ambientCliPackagePreviewInput, ambientCliPackagePreviewText } from "./agentRuntimeAmbientCliPackageInstallModel";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
@@ -36,12 +37,13 @@ export function registerAmbientCliPackagePreviewTool(
     executionMode: "sequential",
     execute: async (_toolCallId, params, _signal, onUpdate?: ToolUpdateHandler) => {
       const input = ambientCliPackagePreviewInput(params as Record<string, unknown>);
+      const displaySource = redactGitSourceCredentials(input.source);
       onUpdate?.({
-        content: [{ type: "text", text: `Previewing Ambient CLI package source ${input.source}.` }],
+        content: [{ type: "text", text: `Previewing Ambient CLI package source ${displaySource}.` }],
         details: {
           runtime: "ambient-cli",
           toolName: "ambient_cli_package_preview",
-          source: input.source,
+          source: displaySource,
           path: input.path,
           ref: input.ref,
           sha: input.sha,
@@ -56,7 +58,7 @@ export function registerAmbientCliPackagePreviewTool(
         details: {
           runtime: "ambient-cli",
           toolName: "ambient_cli_package_preview",
-          source: input.source,
+          source: redactGitSourceCredentials(preview.source),
           packageName: preview.candidate?.name,
           installable: preview.installable,
           errorCount: preview.errors.length,

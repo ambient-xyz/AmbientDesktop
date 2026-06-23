@@ -1,36 +1,33 @@
-import type {
-  ComponentProps,
-  Dispatch,
-  SetStateAction,
-} from "react";
+import type { Dispatch, SetStateAction } from "react";
 
 import type { DesktopState } from "../../shared/desktopTypes";
-import type {
-  LocalDeepResearchEffort,
-  LocalDeepResearchRunBudget,
-  SttProviderCandidate,
-} from "../../shared/localRuntimeTypes";
+import type { LocalDeepResearchEffort, LocalDeepResearchRunBudget, SttProviderCandidate } from "../../shared/localRuntimeTypes";
 import type { PermissionMode } from "../../shared/permissionTypes";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import type { AppComposerShell } from "./AppComposerShell";
+import type { createAppContextAttachmentActions } from "./AppContextAttachmentActions";
+import type { AppComposerShellProps } from "./AppComposerShell";
+import type { useAppComposerShellState } from "./AppComposerShellState";
+import type { createAppGitActions } from "./AppGitActions";
+import type { createAppGoalActions } from "./AppGoalActions";
+import type { createAppPermissionActions } from "./AppPermissionActions";
+import type { createAppPlannerActions } from "./AppPlannerActions";
 import type { AppProjectBoardActions } from "./AppProjectBoardActions";
+import type { useAppProjectBoardControlsForApp } from "./AppProjectBoardControls";
+import type { useAppProviderRuntimeActionsForApp } from "./AppProviderRuntimeActions";
+import type { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
+import type { useAppRightPanelState } from "./AppRightPanelState";
+import type { createAppSettingsActions } from "./AppSettingsActions";
+import type { AppShellCommandActions } from "./AppShellCommandActions";
+import type { createAppSymphonyBuilderControls } from "./AppSymphonyBuilderControls";
+import type { AppThreadMaintenanceActions } from "./AppThreadMaintenanceActions";
+import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
 import { sttShortcutLabel } from "./sttShortcut";
-import {
-  queuedSpeechFollowUpCount,
-  sttProviderForCapabilityId,
-  sttQueuedCountLabel,
-  sttRuntimeQueuedCount,
-} from "./sttUiModel";
+import { queuedSpeechFollowUpCount, sttProviderForCapabilityId, sttQueuedCountLabel, sttRuntimeQueuedCount } from "./sttUiModel";
 
-type AppComposerShellProps = ComponentProps<typeof AppComposerShell>;
 type MaybePromise<T = unknown> = T | Promise<T>;
-type ThreadSettingsPatch = Partial<Pick<
-  ThreadSummary,
-  "collaborationMode" | "model" | "thinkingLevel" | "memoryEnabled"
->>;
-type LocalDeepResearchBudgetOverride =
-  Partial<Pick<LocalDeepResearchRunBudget, "effort" | "maxToolCalls" | "onExhausted">> | undefined;
+type ThreadSettingsPatch = Partial<Pick<ThreadSummary, "collaborationMode" | "model" | "thinkingLevel" | "memoryEnabled">>;
+type LocalDeepResearchBudgetOverride = Partial<Pick<LocalDeepResearchRunBudget, "effort" | "maxToolCalls" | "onExhausted">> | undefined;
 
 type CreatedComposerShellPropKey =
   | "showSttComposerStrip"
@@ -96,11 +93,7 @@ export type AppComposerShellPropsInput = {
   requestThreadPermissionModeChange: (permissionMode: PermissionMode) => MaybePromise;
   retrySttComposerTranscription: () => MaybePromise;
   runProjectBoardThreadPlanAction: () => MaybePromise;
-  sendPlannerDurableRevision: (
-    artifact: PlannerPlanArtifact,
-    feedback: string,
-    options: { clearComposer: true },
-  ) => MaybePromise;
+  sendPlannerDurableRevision: (artifact: PlannerPlanArtifact, feedback: string, options: { clearComposer: true }) => MaybePromise;
   setActiveGoalBudget: () => MaybePromise;
   setChatExportStatus: Dispatch<SetStateAction<AppComposerShellProps["chatExportStatus"]>>;
   setGoalMenuOpen: Dispatch<SetStateAction<boolean>>;
@@ -115,6 +108,67 @@ export type AppComposerShellPropsInput = {
   toggleGoalMode: () => MaybePromise;
   updateThinkingDisplaySettings: (thinkingDisplay: DesktopState["settings"]["thinkingDisplay"]) => MaybePromise;
   updateThreadSettings: (input: ThreadSettingsPatch) => MaybePromise;
+};
+
+type AppComposerShellStateForComposerShellProps = Pick<ReturnType<typeof useAppComposerShellState>, "getComposerDraft">;
+type AppContextAttachmentActionsForComposerShellProps = Pick<ReturnType<typeof createAppContextAttachmentActions>, "attachComposerFiles">;
+type AppGitActionsForComposerShellProps = Pick<ReturnType<typeof createAppGitActions>, "attachExistingWorktreeFromFooter" | "switchBranch">;
+type AppGoalActionsForComposerShellProps = Pick<
+  ReturnType<typeof createAppGoalActions>,
+  "clearActiveGoal" | "editActiveGoalObjective" | "pauseOrResumeActiveGoal" | "setActiveGoalBudget" | "toggleGoalMode"
+>;
+type AppPermissionActionsForComposerShellProps = Pick<ReturnType<typeof createAppPermissionActions>, "requestThreadPermissionModeChange">;
+type AppPlannerActionsForComposerShellProps = Pick<
+  ReturnType<typeof createAppPlannerActions>,
+  "openPlannerRevisionDialog" | "sendPlannerDurableRevision"
+>;
+type AppProjectBoardControlsForComposerShellProps = Pick<
+  ReturnType<typeof useAppProjectBoardControlsForApp>,
+  "latestDurablePlannerPlanArtifact" | "runProjectBoardThreadPlanAction"
+> & {
+  projectBoardActions: Pick<AppProjectBoardActions, "addPlannerPlanToBoard">;
+};
+type AppProviderRuntimeActionsForComposerShellProps = Pick<
+  ReturnType<typeof useAppProviderRuntimeActionsForApp>,
+  "retrySttComposerTranscription" | "startSttComposerRecording" | "stopSttComposerRecording"
+>;
+type AppProviderRuntimeStateForComposerShellProps = Pick<ReturnType<typeof useAppProviderRuntimeState>, "sttComposer" | "sttProviders">;
+type AppRightPanelStateForComposerShellProps = Pick<ReturnType<typeof useAppRightPanelState>, "openGitSummaryPanel" | "previewArtifact">;
+type AppSettingsActionsForComposerShellProps = Pick<ReturnType<typeof createAppSettingsActions>, "updateThinkingDisplaySettings">;
+type AppSymphonyBuilderControlsForComposerShellProps = Pick<
+  ReturnType<typeof createAppSymphonyBuilderControls>,
+  "submitSymphonyBuilderAction"
+>;
+type AppThreadMaintenanceActionsForComposerShellProps = Pick<
+  AppThreadMaintenanceActions,
+  | "compactActiveThread"
+  | "duplicateActiveThreadFromTranscript"
+  | "exportActiveChat"
+  | "recoverActiveThreadContext"
+  | "recoverActiveThreadContextAndRetryLatest"
+>;
+type AppWorkflowRuntimeStateForComposerShellProps = Pick<
+  ReturnType<typeof useAppWorkflowRuntimeState>,
+  "setChatExportStatus" | "setGoalMenuOpen" | "setLocalDeepResearchBudgetOverride"
+>;
+
+export type AppComposerShellPropsForAppInput = {
+  composerShellState: AppComposerShellStateForComposerShellProps;
+  contextAttachmentActions: AppContextAttachmentActionsForComposerShellProps;
+  gitActions: AppGitActionsForComposerShellProps;
+  goalActions: AppGoalActionsForComposerShellProps;
+  permissionActions: AppPermissionActionsForComposerShellProps;
+  plannerActions: AppPlannerActionsForComposerShellProps;
+  projectBoardControls: AppProjectBoardControlsForComposerShellProps;
+  providerRuntimeActions: AppProviderRuntimeActionsForComposerShellProps;
+  providerRuntimeState: AppProviderRuntimeStateForComposerShellProps;
+  rightPanelState: AppRightPanelStateForComposerShellProps;
+  settingsActions: AppSettingsActionsForComposerShellProps;
+  shellCommandActions: Pick<AppShellCommandActions, "updateThreadSettings">;
+  state: DesktopState;
+  symphonyBuilderControls: AppSymphonyBuilderControlsForComposerShellProps;
+  threadMaintenanceActions: AppThreadMaintenanceActionsForComposerShellProps;
+  workflowRuntimeState: AppWorkflowRuntimeStateForComposerShellProps;
 };
 
 export function createAppComposerShellProps({
@@ -157,7 +211,8 @@ export function createAppComposerShellProps({
   const sttComposerRecording = sttComposer.status === "recording";
   const sttComposerBusy = sttComposer.status === "saving" || sttComposer.status === "transcribing";
   const sttComposerDisabled =
-    sttComposerBusy || (!sttComposerRecording && (!state.settings.stt.enabled || !state.settings.stt.providerCapabilityId || !composerSttProvider?.available));
+    sttComposerBusy ||
+    (!sttComposerRecording && (!state.settings.stt.enabled || !state.settings.stt.providerCapabilityId || !composerSttProvider?.available));
   const sttComposerShortcutLabel = state.settings.stt.pushToTalkShortcut
     ? sttShortcutLabel(state.settings.stt.pushToTalkShortcut)
     : undefined;
@@ -172,7 +227,7 @@ export function createAppComposerShellProps({
     : !state.settings.stt.enabled || !state.settings.stt.providerCapabilityId || !composerSttProvider?.available
       ? "Enable speech input and select an available STT provider in Settings"
       : sttComposerBusy
-        ? sttComposer.message ?? "Processing speech"
+        ? (sttComposer.message ?? "Processing speech")
         : `Push to talk${sttComposerShortcutLabel ? ` (${sttComposerShortcutLabel})` : ""}`;
 
   return {
@@ -285,4 +340,60 @@ export function createAppComposerShellProps({
       void clearActiveGoal();
     },
   };
+}
+
+export function createAppComposerShellPropsForApp({
+  composerShellState,
+  contextAttachmentActions,
+  gitActions,
+  goalActions,
+  permissionActions,
+  plannerActions,
+  projectBoardControls,
+  providerRuntimeActions,
+  providerRuntimeState,
+  rightPanelState,
+  settingsActions,
+  shellCommandActions,
+  state,
+  symphonyBuilderControls,
+  threadMaintenanceActions,
+  workflowRuntimeState,
+}: AppComposerShellPropsForAppInput): Pick<AppComposerShellProps, CreatedComposerShellPropKey> {
+  return createAppComposerShellProps({
+    attachComposerFiles: contextAttachmentActions.attachComposerFiles,
+    attachExistingWorktreeFromFooter: gitActions.attachExistingWorktreeFromFooter,
+    clearActiveGoal: goalActions.clearActiveGoal,
+    compactActiveThread: threadMaintenanceActions.compactActiveThread,
+    duplicateActiveThreadFromTranscript: threadMaintenanceActions.duplicateActiveThreadFromTranscript,
+    editActiveGoalObjective: goalActions.editActiveGoalObjective,
+    exportActiveChat: threadMaintenanceActions.exportActiveChat,
+    getComposerDraft: composerShellState.getComposerDraft,
+    latestDurablePlannerPlanArtifact: projectBoardControls.latestDurablePlannerPlanArtifact,
+    openGitSummaryPanel: rightPanelState.openGitSummaryPanel,
+    openPlannerRevisionDialog: plannerActions.openPlannerRevisionDialog,
+    pauseOrResumeActiveGoal: goalActions.pauseOrResumeActiveGoal,
+    previewArtifact: rightPanelState.previewArtifact,
+    projectBoardActions: projectBoardControls.projectBoardActions,
+    recoverActiveThreadContext: threadMaintenanceActions.recoverActiveThreadContext,
+    recoverActiveThreadContextAndRetryLatest: threadMaintenanceActions.recoverActiveThreadContextAndRetryLatest,
+    requestThreadPermissionModeChange: permissionActions.requestThreadPermissionModeChange,
+    retrySttComposerTranscription: providerRuntimeActions.retrySttComposerTranscription,
+    runProjectBoardThreadPlanAction: projectBoardControls.runProjectBoardThreadPlanAction,
+    sendPlannerDurableRevision: plannerActions.sendPlannerDurableRevision,
+    setActiveGoalBudget: goalActions.setActiveGoalBudget,
+    setChatExportStatus: workflowRuntimeState.setChatExportStatus,
+    setGoalMenuOpen: workflowRuntimeState.setGoalMenuOpen,
+    setLocalDeepResearchBudgetOverride: workflowRuntimeState.setLocalDeepResearchBudgetOverride,
+    startSttComposerRecording: providerRuntimeActions.startSttComposerRecording,
+    state,
+    stopSttComposerRecording: providerRuntimeActions.stopSttComposerRecording,
+    sttComposer: providerRuntimeState.sttComposer,
+    sttProviders: providerRuntimeState.sttProviders,
+    submitSymphonyBuilderAction: symphonyBuilderControls.submitSymphonyBuilderAction,
+    switchBranch: gitActions.switchBranch,
+    toggleGoalMode: goalActions.toggleGoalMode,
+    updateThinkingDisplaySettings: settingsActions.updateThinkingDisplaySettings,
+    updateThreadSettings: shellCommandActions.updateThreadSettings,
+  });
 }

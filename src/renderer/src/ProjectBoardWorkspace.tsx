@@ -56,21 +56,15 @@ import { Background, BaseEdge, Controls, EdgeLabelRenderer, getBezierPath, Handl
 import {
   FormEvent,
   ClipboardEvent as ReactClipboardEvent,
-  CSSProperties,
   DragEvent as ReactDragEvent,
-  FocusEvent as ReactFocusEvent,
   forwardRef,
   KeyboardEvent as ReactKeyboardEvent,
   memo,
-  MouseEvent as ReactMouseEvent,
   ReactNode,
   RefObject,
   startTransition,
-  useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { flushSync } from "react-dom";
@@ -87,8 +81,6 @@ import {
   projectBoardProofInspectionNavigationModel,
   projectBoardProofCoverageForBoard,
   projectBoardProofReviewQueueSummary,
-  projectBoardProjectionReview,
-  projectBoardProjectionReviewResolutionState,
   projectBoardResetImpact,
   projectBoardTaskActionEvidenceFromProof,
   projectBoardSourceChangeDetail,
@@ -105,7 +97,6 @@ import {
   projectBoardTestSummaryForBoard,
   projectBoardThreadPlanActionState,
   projectBoardUiMockReviewBadges,
-  type ProjectBoardCardClaimAction,
   type ProjectBoardSourceGroup,
   type ProjectBoardLiveSessionActivityLine,
 } from "./projectBoardUiModel";
@@ -113,7 +104,9 @@ import {
   projectBoardDraftColumns,
 } from "./projectBoardDraftInboxUiModel";
 import { useProjectBoardWorkspaceNavigationController } from "./ProjectBoardWorkspaceNavigationController";
+import { useProjectBoardWorkspaceGitControls } from "./ProjectBoardWorkspaceGitControls";
 import { useProjectBoardWorkspaceRunController } from "./ProjectBoardWorkspaceRunController";
+import { useProjectBoardWorkspaceTitleTooltip } from "./ProjectBoardWorkspaceTitleTooltip";
 import {
   moveWebResearchProvider,
   resetWebResearchRole,
@@ -193,7 +186,7 @@ import type { LocalDeepResearchInstallProgress, LocalDeepResearchRunHistoryEntry
 import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionAuditEntry, PermissionGrantScopeKind, PermissionMode, PermissionPromptResponseMode, PermissionRequest, PrivilegedCredentialRequest, SecureInputRequest } from "../../shared/permissionTypes";
 import type { AnswerPlannerDecisionQuestionInput, PlannerDecisionQuestion, PlannerPlanArtifact, PlannerPlanWorkflowState } from "../../shared/plannerTypes";
 import type { AmbientGeneratedCapabilitySummary, AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallProgress, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, AmbientPluginAuthAccountSummary, AmbientPluginAuthStartResult, AmbientPluginCapabilityDiagnostics, AmbientPluginRegistry, AmbientPluginRuntime, AmbientPluginSourceKind, CapabilityBuilderHistoryEntry, CapabilityBuilderHistoryResult, CodexHostedMarketplaceReport, CodexMarketplaceSourceSummary, CodexPluginCatalog, CodexPluginCompatibilityTier, CodexPluginMcpInspectionCatalog, CodexPluginSummary, FirstPartyGoogleIntegrationState, ManagedDevServerSummary, PiExtensionSandboxCatalog, PiExtensionSandboxInstallPreview, PiExtensionSandboxPackageSummary, PiPackageCatalog, PiPackageInstallScope, PiPackageResourceKind, PiPrivilegedCatalog, PiPrivilegedInstallSummary, PiPrivilegedSecurityScan, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
-import type { AddProjectBoardCardRunFeedbackInput, ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, CreateReadyProjectBoardTasksInput, DeferProjectBoardSynthesisSectionsInput, ProjectBoardAddCardsObjectiveProvenance, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardCardRunFeedbackSource, ProjectBoardExecutionArtifact, ProjectBoardGitProjectionResolution, ProjectBoardGitSyncStatus, ProjectBoardProofDecisionAction, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSourceChangeState, ProjectBoardSourceKind, ProjectBoardSplitDecisionAction, ProjectBoardSummary, ProjectBoardSynthesisProposal, ProjectBoardSynthesisProposalCardReviewStatus, ProjectBoardSynthesisRun, ProjectSummary, RecomputeProjectBoardProofCoverageInput, RefineProjectBoardSynthesisInput, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, RerunProjectBoardProofInput, ResolveProjectBoardCardPiUpdateInput, ResolveProjectBoardDeliverableIntegrationInput, RetryProjectBoardSynthesisInput, SplitProjectBoardCardInput, SuggestProjectBoardClarificationDefaultsInput, SuggestProjectBoardKickoffDefaultsInput, SuggestProjectBoardProofInput, UpdateProjectBoardCardInput, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
+import type { AddProjectBoardCardRunFeedbackInput, ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, CreateReadyProjectBoardTasksInput, DeferProjectBoardSynthesisSectionsInput, ProjectBoardAddCardsObjectiveProvenance, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardCardRunFeedbackSource, ProjectBoardExecutionArtifact, ProjectBoardProofDecisionAction, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSourceChangeState, ProjectBoardSourceKind, ProjectBoardSplitDecisionAction, ProjectBoardSummary, ProjectBoardSynthesisProposal, ProjectBoardSynthesisProposalCardReviewStatus, ProjectBoardSynthesisRun, ProjectSummary, RecomputeProjectBoardProofCoverageInput, RefineProjectBoardSynthesisInput, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, RerunProjectBoardProofInput, ResolveProjectBoardCardPiUpdateInput, ResolveProjectBoardDeliverableIntegrationInput, RetryProjectBoardSynthesisInput, SplitProjectBoardCardInput, SuggestProjectBoardClarificationDefaultsInput, SuggestProjectBoardKickoffDefaultsInput, SuggestProjectBoardProofInput, UpdateProjectBoardCardInput, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
 import type { TerminalSession } from "../../shared/terminalTypes";
 import type { ChatMessage, CollaborationMode, ContextUsageSnapshot, ExportChatResult, MessageDelivery, RunStatus, RuntimeActivity, ThinkingLevel, ThreadGoal, ThreadSummary, ToolLargeOutputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
 import type { OrchestrationAutoDispatchStatus, OrchestrationRun, OrchestrationTask, WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileAuditSummary, WorkflowCompileProgress, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowDashboard, WorkflowDiscoveryAccessRequest, WorkflowDiscoveryProgress, WorkflowExplorationProgress, WorkflowExplorationTraceSummary, WorkflowGraphNode, WorkflowLabRun, WorkflowModelCallRecord, WorkflowPluginCapabilityGrant, WorkflowRecordingEditContext, WorkflowRecordingLibraryEntry, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingState, WorkflowRecoveryAction, WorkflowRevisionSummary, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunLimitOverrides, WorkflowRunSummary, WorkflowUserInputResponse, WorkflowVersionSummary } from "../../shared/workflowTypes";
@@ -534,7 +527,6 @@ import {
   HTML_PREVIEW_AUTO_PAUSE_MS,
   formatHtmlPreviewAutoPauseLabel,
   contextAttachmentKey,
-  clampNumber,
   contextUsagePresentation,
   PermissionFullAccessReceiptList,
   RightPanel,
@@ -599,10 +591,13 @@ import {
   ProjectBoardCollaborationReadinessPanel,
   ProjectBoardGitSyncControls,
   ProjectBoardProjectionReviewPanel,
-  projectBoardProjectionResolutionLabel,
-  projectBoardProjectionReviewActionLabel,
 } from "./ProjectBoardCollaborationViews";
 import { ProjectBoardBoardTab } from "./ProjectBoardBoardViews";
+import {
+  ProjectBoardWorkspaceEmptyPanel,
+  ProjectBoardWorkspaceHeader,
+} from "./ProjectBoardWorkspaceChrome";
+import { ProjectBoardWorkspaceBoardSurface } from "./ProjectBoardWorkspaceSurface";
 
 export {
   ProjectBoardCardShell,
@@ -753,57 +748,12 @@ export {
   projectBoardProjectionReviewKindLabel,
 } from "./ProjectBoardCollaborationViews";
 export { ProjectBoardBoardTab } from "./ProjectBoardBoardViews";
-
-export type ProjectBoardTitleTooltip = {
-  text: string;
-  anchor: {
-    left: number;
-    right: number;
-    top: number;
-    bottom: number;
-    width: number;
-    height: number;
-  };
-  left: number;
-  top: number;
-  arrowLeft: number;
-  placement: "above" | "below";
-  ready: boolean;
-};
-
-
-export function projectBoardTitleTooltipTrigger(target: EventTarget | null): HTMLElement | undefined {
-  if (!(target instanceof Element)) return undefined;
-  const trigger = target.closest<HTMLElement>("[data-project-board-tooltip], button[title]");
-  if (!trigger) return undefined;
-  return (trigger.dataset.projectBoardTooltip ?? trigger.getAttribute("title"))?.trim() ? trigger : undefined;
-}
-
-
-export function projectBoardTitleTooltipAnchor(trigger: HTMLElement): ProjectBoardTitleTooltip["anchor"] {
-  const rect = trigger.getBoundingClientRect();
-  return {
-    left: rect.left,
-    right: rect.right,
-    top: rect.top,
-    bottom: rect.bottom,
-    width: rect.width,
-    height: rect.height,
-  };
-}
-
-
-export function sameProjectBoardTitleTooltipAnchor(
-  left: ProjectBoardTitleTooltip["anchor"],
-  right: ProjectBoardTitleTooltip["anchor"],
-): boolean {
-  return (
-    Math.abs(left.left - right.left) < 0.5 &&
-    Math.abs(left.top - right.top) < 0.5 &&
-    Math.abs(left.width - right.width) < 0.5 &&
-    Math.abs(left.height - right.height) < 0.5
-  );
-}
+export {
+  projectBoardTitleTooltipAnchor,
+  projectBoardTitleTooltipTrigger,
+  sameProjectBoardTitleTooltipAnchor,
+} from "./ProjectBoardWorkspaceTitleTooltip";
+export type { ProjectBoardTitleTooltip } from "./ProjectBoardWorkspaceTitleTooltip";
 
 export type ProjectBoardWorkspaceProps = {
   project: ProjectSummary;
@@ -939,44 +889,18 @@ export function ProjectBoardWorkspace({
   onClose,
 }: ProjectBoardWorkspaceProps) {
   const board = project.board;
-  const status = board ? projectBoardStatusLabel(board) : "No board";
-  const isRevisionDraft = board?.status === "draft" && (board.charter?.version ?? 1) > 1;
-  const draftColumns = projectBoardDraftColumns(board?.cards ?? [], { board });
-  const boardSourceGroups = useMemo(() => projectBoardSourceGroups(board?.sources ?? []), [board?.sources]);
-  const boardSourceChangeSummary = useMemo(
-    () => projectBoardSourceChangeSummary(boardSourceGroups, board?.events ?? []),
-    [board?.events, boardSourceGroups],
-  );
   const [projectBoardCreateCardBusy, setProjectBoardCreateCardBusy] = useState(false);
-  const [projectBoardGitStatus, setProjectBoardGitStatus] = useState<ProjectBoardGitSyncStatus | undefined>();
-  const [projectBoardGitBusy, setProjectBoardGitBusy] = useState<"export" | "commit" | "push" | "pull" | "apply" | undefined>();
-  const [projectBoardGitError, setProjectBoardGitError] = useState<string | undefined>();
-  const [projectBoardProjectionResolutions, setProjectBoardProjectionResolutions] = useState<Record<string, ProjectBoardGitProjectionResolution | undefined>>({});
-  const [projectBoardClaimBusy, setProjectBoardClaimBusy] = useState<string | undefined>();
-  const [titleTooltip, setTitleTooltip] = useState<ProjectBoardTitleTooltip | undefined>();
-  const projectBoardWorkspaceRef = useRef<HTMLElement>(null);
-  const titleTooltipRef = useRef<HTMLDivElement>(null);
-  const projectBoardNavigationController = useProjectBoardWorkspaceNavigationController({ board, finalizeBusy });
   const {
-    activeCardInspectorRequest,
-    activeTab,
-    closeProjectBoardSourcePicker,
-    draftInspectorMode,
-    jumpProjectBoardToBlocker,
-    openProjectBoardCardInspector,
-    openProjectBoardInboxDetail,
-    openProjectBoardSourcePicker,
-    openProjectBoardSourceReview,
-    revealProjectBoardDraftCard,
-    selectProjectBoardActiveCard,
-    selectProjectBoardDraftCard,
-    selectedActiveCard,
-    selectedActiveCardId,
-    selectedDraftCard,
-    selectedDraftCardId,
-    setActiveTab,
-    sourceReviewRequest,
-  } = projectBoardNavigationController;
+    projectBoardWorkspaceRef,
+    handleProjectBoardTooltipMouseOver,
+    handleProjectBoardTooltipMouseOut,
+    handleProjectBoardTooltipFocus,
+    handleProjectBoardTooltipBlur,
+    hideProjectBoardTitleTooltip,
+    titleTooltipNode,
+  } = useProjectBoardWorkspaceTitleTooltip();
+  const projectBoardNavigationController = useProjectBoardWorkspaceNavigationController({ board, finalizeBusy });
+  const { revealProjectBoardDraftCard } = projectBoardNavigationController;
   const projectBoardRunController = useProjectBoardWorkspaceRunController({
     board,
     orchestrationRevision,
@@ -993,122 +917,14 @@ export function ProjectBoardWorkspace({
     onSuggestProof,
   });
   const {
-    addProjectBoardRunFeedback,
     applyProjectBoardOrchestration,
-    attachProjectBoardTask,
-    cancelProjectBoardRun,
-    copyProjectBoardRunSession,
-    createProjectBoardReadyTasks,
-    openProjectBoardRunThread,
-    prepareProjectBoardRuns,
-    projectBoardCreateReadyTasksBusy,
-    projectBoardDeliverableBusy,
-    projectBoardOrchestration,
-    projectBoardOrchestrationError,
-    projectBoardRunBusy,
-    projectBoardTaskImportBusy,
-    recomputeProjectBoardProofCoverage,
-    repairProjectBoardWorkflow,
-    resolveProjectBoardDeliverableIntegration,
-    resolveProjectBoardProofDecision,
-    resolveProjectBoardSplitDecision,
-    resolveProjectBoardWorkflowImpact,
-    revealProjectBoardWorkspace,
-    rerunProjectBoardProof,
     setProjectBoardOrchestrationError,
-    startProjectBoardRun,
-    suggestProjectBoardProof,
-    updateProjectBoardWorkflowRaw,
-    updateProjectBoardWorkflowSettings,
   } = projectBoardRunController;
-  const columns = projectBoardColumns(board?.cards ?? [], projectBoardOrchestration);
-  const tabs = board ? projectBoardTabs(board, projectBoardOrchestration) : [];
-  const latestSynthesisRun = board ? projectBoardLatestVisibleSynthesisRun(board.synthesisRuns) : undefined;
-  const complexityEstimate = useMemo(() => (board ? projectBoardComplexityEstimate(board) : undefined), [board]);
-  const latestSynthesisRunIsKickoffDefaults = latestSynthesisRun?.stage === "kickoff_defaults";
-  const runningSynthesisRun =
-    latestSynthesisRun?.status === "running" || latestSynthesisRun?.status === "pause_requested" ? latestSynthesisRun : undefined;
-  const pausableSynthesisRun = latestSynthesisRun?.status === "running" ? latestSynthesisRun : undefined;
-  const pausedSynthesisRun = latestSynthesisRun?.status === "paused" ? latestSynthesisRun : undefined;
-  const failedSynthesisRun = latestSynthesisRun?.status === "failed" && latestSynthesisRun.stage !== "kickoff_defaults" ? latestSynthesisRun : undefined;
-  const showSynthesisActivity = Boolean(board && latestSynthesisRun);
-  const projectionReview = projectBoardProjectionReview(projectBoardGitStatus, projectBoardGitError);
-  const projectionResolutionState = projectBoardProjectionReviewResolutionState(projectionReview, projectBoardProjectionResolutions);
-  const synthesisActivityAction = finalizeBusy
-    ? "Applying board synthesis"
-    : synthesisRetryBusy
-      ? "Retrying board synthesis"
-    : refineBusy && refineMode === "source_elaboration"
-      ? "Elaborating source-scoped cards with Pi"
-      : refineBusy && refineMode === "board_synthesis"
-        ? "Generating draft board with Pi"
-    : refineBusy
-        ? "Reviewing charter with Pi"
-      : latestSynthesisRunIsKickoffDefaults && latestSynthesisRun?.status === "running"
-        ? "Suggesting kickoff defaults"
-      : latestSynthesisRunIsKickoffDefaults && latestSynthesisRun?.status === "succeeded"
-        ? "Latest kickoff defaults"
-      : latestSynthesisRunIsKickoffDefaults && latestSynthesisRun?.status === "failed"
-        ? "Kickoff defaults failed"
-      : latestSynthesisRun?.status === "succeeded"
-        ? "Latest board planning run"
-        : latestSynthesisRun?.status === "paused"
-          ? "Board planning paused"
-        : latestSynthesisRun?.status === "pause_requested"
-          ? "Pausing Ambient/Pi synthesis"
-        : failedSynthesisRun
-          ? "Board planning failed"
-          : runningSynthesisRun
-            ? "Running Ambient/Pi synthesis"
-            : "Latest board planning run";
-  const projectBoardReadinessRail = board
-    ? projectBoardExecutionReadinessRail(board, projectBoardOrchestration?.tasks ?? [], projectBoardOrchestration?.runs ?? [], {
-        runBusy: projectBoardRunBusy,
-        orchestrationError: projectBoardOrchestrationError,
-        workflowReadiness: projectBoardOrchestration?.workflowReadiness,
-        gitStatus: projectBoardGitStatus,
-        gitError: projectBoardGitError,
-      })
-    : undefined;
-  const showProjectBoardReadinessRail = Boolean(projectBoardReadinessRail?.visible);
-
-  useEffect(() => {
-    setProjectBoardProjectionResolutions({});
-  }, [
-    projectBoardGitStatus?.projection?.valid,
-    projectBoardGitStatus?.projection?.ok,
-    projectBoardGitStatus?.projection?.differenceCount,
-    projectBoardGitStatus?.projection?.changes?.map((change) => change.id).join("|"),
-  ]);
-
-  useEffect(() => {
-    if (!board) {
-      setProjectBoardGitStatus(undefined);
-      setProjectBoardGitError(undefined);
-      return;
-    }
-    const visualGitStatus = import.meta.env.DEV
-      ? (window as Window & { __ambientVisualProjectBoardGitStatus?: ProjectBoardGitSyncStatus }).__ambientVisualProjectBoardGitStatus
-      : undefined;
-    if (visualGitStatus?.boardId === board.id) {
-      setProjectBoardGitError(undefined);
-      setProjectBoardGitStatus(visualGitStatus);
-      return;
-    }
-    let disposed = false;
-    setProjectBoardGitError(undefined);
-    void window.ambientDesktop
-      .getProjectBoardGitSyncStatus({ boardId: board.id })
-      .then((next) => {
-        if (!disposed) setProjectBoardGitStatus(next);
-      })
-      .catch((error) => {
-        if (!disposed) setProjectBoardGitError(error instanceof Error ? error.message : String(error));
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [board?.id, board?.updatedAt]);
+  const projectBoardGitControls = useProjectBoardWorkspaceGitControls({
+    applyProjectBoardOrchestration,
+    board,
+    setProjectBoardOrchestrationError,
+  });
 
   async function createProjectBoardDraftCard(boardId: string) {
     setProjectBoardCreateCardBusy(true);
@@ -1128,251 +944,6 @@ export function ProjectBoardWorkspace({
     }
   }
 
-  async function runProjectBoardGitAction(action: "export" | "commit" | "push" | "pull" | "apply") {
-    if (!board) return;
-    if (action === "apply") {
-      const review = projectionReview;
-      const resolutionState = projectBoardProjectionReviewResolutionState(review, projectBoardProjectionResolutions);
-      if (!resolutionState.canApply) {
-        setProjectBoardGitError(resolutionState.applyTitle);
-        return;
-      }
-      const resolutionLines = review.rows
-        .filter((row) => row.conflict)
-        .map((row) => {
-          const resolution = projectBoardProjectionResolutions[row.id];
-          return `- ${row.label}: ${projectBoardProjectionResolutionLabel(resolution)}`;
-        });
-      const confirmed = window.confirm(
-        [
-          "Apply the pulled .ambient/board projection to this local board?",
-          "",
-          resolutionLines.length > 0
-            ? `This will apply non-conflicting pulled changes for ${board.title} and use your card decisions below for conflicts.`
-            : `This will replace local board cards, sources, charter, events, and synthesis records with the validated Git projection for ${board.title}.`,
-          review.summary,
-          resolutionState.applyImpact,
-          resolutionLines.length > 0 ? "Conflict resolutions:" : "",
-          ...resolutionLines,
-          review.rows.length > 0 ? "" : "",
-          ...review.rows.slice(0, 8).map((row) => `- ${projectBoardProjectionReviewActionLabel(row.action)} ${row.label}: ${row.detail}`),
-          review.overflowCount > 0 ? `- Plus ${review.overflowCount} more projection difference${review.overflowCount === 1 ? "" : "s"}.` : "",
-        ]
-          .filter(Boolean)
-          .join("\n"),
-      );
-      if (!confirmed) return;
-    }
-    setProjectBoardGitBusy(action);
-    setProjectBoardGitError(undefined);
-    try {
-      const resolutionInput = Object.entries(projectBoardProjectionResolutions)
-        .filter((entry): entry is [string, Exclude<ProjectBoardGitProjectionResolution, "manual_resolution_required">] =>
-          entry[1] === "apply_pulled" || entry[1] === "keep_local" || entry[1] === "defer",
-        )
-        .map(([changeId, resolution]) => {
-          const row = projectionReview.rows.find((candidate) => candidate.id === changeId);
-          return { changeId, entityId: row?.entityId, resolution };
-        });
-      const input = { boardId: board.id, ...(resolutionInput.length ? { resolutions: resolutionInput } : {}) };
-      if (action === "apply") {
-        await window.ambientDesktop.applyPulledProjectBoardGitProjection(input);
-        setProjectBoardGitStatus(await window.ambientDesktop.getProjectBoardGitSyncStatus(input));
-        setProjectBoardProjectionResolutions({});
-      } else {
-        const next =
-          action === "export"
-            ? await window.ambientDesktop.exportProjectBoardGitArtifacts(input)
-            : action === "commit"
-              ? await window.ambientDesktop.commitProjectBoardGitArtifacts(input)
-              : action === "push"
-                ? await window.ambientDesktop.pushProjectBoardGitArtifacts(input)
-                : await window.ambientDesktop.pullProjectBoardGitArtifacts(input);
-        setProjectBoardGitStatus(next);
-      }
-    } catch (error) {
-      setProjectBoardGitError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setProjectBoardGitBusy(undefined);
-    }
-  }
-
-  async function updateProjectBoardGitClaim(card: ProjectBoardCard, action: ProjectBoardCardClaimAction) {
-    if (!board) return;
-    if (action === "force_release") {
-      const confirmed = window.confirm(
-        [
-          `Force-release the Git claim for "${card.title}"?`,
-          "",
-          "This records an audit event and makes the card available to this desktop. Use it only when the current owner is stale, blocked, or has explicitly handed off the card.",
-        ].join("\n"),
-      );
-      if (!confirmed) return;
-    } else if (action === "resolve_conflict") {
-      const confirmed = window.confirm(
-        [
-          `Resolve competing Git claims for "${card.title}"?`,
-          "",
-          "This records expiry audit events for later conflicting claim attempts. The earliest still-active claim remains the owner, and normal claim/release controls decide who proceeds after the conflict is cleared.",
-        ].join("\n"),
-      );
-      if (!confirmed) return;
-    }
-    setProjectBoardClaimBusy(`${action}:${card.id}`);
-    setProjectBoardGitError(undefined);
-    setProjectBoardOrchestrationError(undefined);
-    const input = { boardId: board.id, cardId: card.id };
-    try {
-      if (action === "claim") {
-        await window.ambientDesktop.claimProjectBoardGitCard(input);
-      } else if (action === "expire") {
-        await window.ambientDesktop.expireProjectBoardGitCardClaim({
-          ...input,
-          reason: "Expired claim recorded from Ambient Desktop before reclaim.",
-        });
-      } else if (action === "resolve_conflict") {
-        await window.ambientDesktop.resolveProjectBoardGitCardClaimConflicts({
-          ...input,
-          reason: "Resolved competing claim events from Ambient Desktop.",
-        });
-      } else {
-        await window.ambientDesktop.releaseProjectBoardGitCardClaim({
-          ...input,
-          force: action === "force_release",
-          reason: action === "force_release" ? "Force release requested from Ambient Desktop." : "Released from Ambient Desktop.",
-        });
-      }
-  setProjectBoardGitStatus(await window.ambientDesktop.getProjectBoardGitSyncStatus({ boardId: board.id }));
-      applyProjectBoardOrchestration(await window.ambientDesktop.listOrchestrationBoard());
-    } catch (error) {
-      setProjectBoardGitError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setProjectBoardClaimBusy(undefined);
-    }
-  }
-
-  const showProjectBoardTitleTooltip = (target: EventTarget | null) => {
-    const button = projectBoardTitleTooltipTrigger(target);
-    if (!button) return;
-    const text = (button.dataset.projectBoardTooltip ?? button.getAttribute("title"))?.trim();
-    if (!text) return;
-    const anchor = projectBoardTitleTooltipAnchor(button);
-    setTitleTooltip((current) =>
-      current?.text === text && sameProjectBoardTitleTooltipAnchor(current.anchor, anchor)
-        ? current
-        : {
-            text,
-            anchor,
-            left: anchor.left,
-            top: anchor.bottom + 10,
-            arrowLeft: Math.max(12, Math.min(anchor.width / 2, 320)),
-            placement: "below",
-            ready: false,
-          },
-    );
-  };
-
-  const hideProjectBoardTitleTooltip = () => setTitleTooltip(undefined);
-
-  const handleProjectBoardTooltipMouseOver = (event: ReactMouseEvent<HTMLElement>) => {
-    showProjectBoardTitleTooltip(event.target);
-  };
-
-  const handleProjectBoardTooltipMouseOut = (event: ReactMouseEvent<HTMLElement>) => {
-    const nextButton = projectBoardTitleTooltipTrigger(event.relatedTarget);
-    const currentButton = projectBoardTitleTooltipTrigger(event.target);
-    if (nextButton && nextButton === currentButton) return;
-    if (nextButton) {
-      showProjectBoardTitleTooltip(nextButton);
-      return;
-    }
-    hideProjectBoardTitleTooltip();
-  };
-
-  const handleProjectBoardTooltipFocus = (event: ReactFocusEvent<HTMLElement>) => {
-    showProjectBoardTitleTooltip(event.target);
-  };
-
-  const handleProjectBoardTooltipBlur = (event: ReactFocusEvent<HTMLElement>) => {
-    const nextButton = projectBoardTitleTooltipTrigger(event.relatedTarget);
-    if (nextButton) showProjectBoardTitleTooltip(nextButton);
-    else hideProjectBoardTitleTooltip();
-  };
-
-  useLayoutEffect(() => {
-    if (!titleTooltip) return;
-    const bubble = titleTooltipRef.current;
-    if (!bubble) return;
-    const margin = 12;
-    const gap = 10;
-    const bubbleRect = bubble.getBoundingClientRect();
-    const bubbleWidth = Math.min(bubbleRect.width || 320, Math.max(120, window.innerWidth - margin * 2));
-    const bubbleHeight = bubbleRect.height || 42;
-    const triggerCenterX = titleTooltip.anchor.left + titleTooltip.anchor.width / 2;
-    const left = clampNumber(triggerCenterX - bubbleWidth / 2, margin, Math.max(margin, window.innerWidth - bubbleWidth - margin));
-    const belowTop = titleTooltip.anchor.bottom + gap;
-    const aboveTop = titleTooltip.anchor.top - bubbleHeight - gap;
-    const placement = belowTop + bubbleHeight <= window.innerHeight - margin || aboveTop < margin ? "below" : "above";
-    const top =
-      placement === "below"
-        ? clampNumber(belowTop, margin, Math.max(margin, window.innerHeight - bubbleHeight - margin))
-        : clampNumber(aboveTop, margin, Math.max(margin, window.innerHeight - bubbleHeight - margin));
-    const arrowLeft = clampNumber(triggerCenterX - left, 14, Math.max(14, bubbleWidth - 14));
-    setTitleTooltip((current) =>
-      current && current.text === titleTooltip.text && sameProjectBoardTitleTooltipAnchor(current.anchor, titleTooltip.anchor)
-        ? { ...current, left, top, arrowLeft, placement, ready: true }
-        : current,
-    );
-  }, [titleTooltip?.anchor.bottom, titleTooltip?.anchor.height, titleTooltip?.anchor.left, titleTooltip?.anchor.top, titleTooltip?.anchor.width, titleTooltip?.text]);
-
-  useEffect(() => {
-    const handleDocumentMouseMove = (event: MouseEvent) => {
-      const workspace = projectBoardWorkspaceRef.current;
-      if (!workspace) return;
-      const target = document.elementFromPoint(event.clientX, event.clientY);
-      if (!target || !workspace.contains(target)) {
-        setTitleTooltip(undefined);
-        return;
-      }
-      const button = projectBoardTitleTooltipTrigger(target);
-      if (button && workspace.contains(button)) showProjectBoardTitleTooltip(button);
-      else setTitleTooltip(undefined);
-    };
-    document.addEventListener("mousemove", handleDocumentMouseMove);
-    return () => document.removeEventListener("mousemove", handleDocumentMouseMove);
-  }, []);
-
-  const buildBoardTitle = busy
-    ? "Project board creation is already running. Watch the progress feed for source scan and card generation activity."
-    : "Create a project board, start the charter workflow, scan project sources, and ask Ambient/Pi to propose draft cards.";
-  const resetBoardBlockReason = sourceBusy
-    ? "Wait for source refresh to finish before resetting the board."
-    : sourceImpactBusy
-      ? "Wait for source draft refresh to finish before resetting the board."
-      : kickoffDefaultsBusy
-        ? "Wait for Ambient/Pi kickoff defaults to finish before resetting the board."
-        : refineBusy
-          ? "Wait for the active Ambient/Pi board review or source elaboration to finish before resetting."
-          : finalizeBusy
-            ? "Wait for charter activation or revision apply to finish before resetting."
-            : synthesisRetryBusy
-              ? "Wait for the synthesis retry to finish before resetting."
-              : synthesisDeferBusy
-                ? "Wait for section deferral to finish before resetting."
-                : synthesisPauseBusy
-                  ? "Wait for the planning pause request to finish before resetting."
-                  : revisionBusy
-                    ? "Wait for the revision draft to finish starting before resetting."
-                    : proposalApplyBusy
-                      ? "Wait for proposal apply to finish before resetting."
-                      : undefined;
-  const resetBoardDisabled = Boolean(board && resetBoardBlockReason);
-  const resetBoardTitle = !board
-    ? "No project board exists yet."
-    : resetBoardDisabled
-      ? (resetBoardBlockReason ?? "Wait for the active board operation to finish before resetting.")
-      : "Reset this project board after confirmation. Project files, threads, and Local Task history are preserved.";
-
   return (
     <section
       ref={projectBoardWorkspaceRef}
@@ -1384,329 +955,82 @@ export function ProjectBoardWorkspace({
       onBlurCapture={handleProjectBoardTooltipBlur}
       onClickCapture={hideProjectBoardTitleTooltip}
     >
-      <header className="project-board-header">
-        <div className="project-board-title-block">
-          <span className="project-board-kicker">Project board</span>
-          <h2>{board?.title || `${project.name} board`}</h2>
-          <p>{projectBoardEmptyMessage(board)}</p>
-        </div>
-        <div className="project-board-header-actions">
-          <span className="project-board-status">{status}</span>
-          {board && (
-            <>
-              <ProjectBoardGitSyncControls
-                status={projectBoardGitStatus}
-                error={projectBoardGitError}
-                busy={projectBoardGitBusy}
-                projectionResolutionState={projectionResolutionState}
-                onAction={runProjectBoardGitAction}
-              />
-              {board.status !== "draft" && (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => onReviseBoard(board.id)}
-                  disabled={revisionBusy}
-                  title={revisionBusy ? "A draft charter revision is already starting." : "Start a draft charter revision using the current charter answers as the starting point."}
-                >
-                  <Pencil size={14} className={revisionBusy ? "spin" : ""} />
-                  <span>{revisionBusy ? "Starting Revision" : "Revise Board"}</span>
-                </button>
-              )}
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => onRefreshSources(board.id)}
-                disabled={sourceBusy}
-                title={sourceBusy ? "A source refresh is already scanning project material." : boardSourceChangeSummary.refreshTitle}
-              >
-                <RefreshCw size={14} className={sourceBusy ? "spin" : ""} />
-                <span>{sourceBusy ? "Scanning" : "Refresh Sources"}</span>
-              </button>
-              <button
-                type="button"
-                className="secondary-button danger"
-                onClick={onResetBoard}
-                disabled={resetBoardDisabled}
-                title={resetBoardTitle}
-              >
-                <Trash2 size={14} />
-                <span>Reset Board</span>
-              </button>
-            </>
-          )}
-          {!board && (
-            <button type="button" className="primary-button" onClick={onBuild} disabled={busy} title={buildBoardTitle}>
-              <Kanban size={15} />
-              <span>{busy ? "Building" : "Build Board"}</span>
-            </button>
-          )}
-          <button type="button" className="icon-button" onClick={onClose} title="Close project board" aria-label="Close project board">
-            <X size={16} />
-          </button>
-        </div>
-      </header>
-
-      {board && complexityEstimate && <ProjectBoardComplexityShadowPanel estimate={complexityEstimate} />}
-
-      {isRevisionDraft && (
-        <section className="project-board-revision-banner" aria-label="Project board revision status">
-          <div>
-            <span className="project-board-kicker">Revision draft active</span>
-            <p>Review the prefilled charter answers below. Applying the revision will run live Ambient/Pi synthesis and replace unticketized draft candidates; canceling restores the previous active charter.</p>
-          </div>
-          <span className="project-board-status warning">Needs apply or cancel</span>
-        </section>
-      )}
+      <ProjectBoardWorkspaceHeader
+        project={project}
+        board={board}
+        busy={busy}
+        sourceBusy={sourceBusy}
+        sourceImpactBusy={sourceImpactBusy}
+        kickoffDefaultsBusy={kickoffDefaultsBusy}
+        refineBusy={refineBusy}
+        finalizeBusy={finalizeBusy}
+        synthesisRetryBusy={synthesisRetryBusy}
+        synthesisDeferBusy={synthesisDeferBusy}
+        synthesisPauseBusy={synthesisPauseBusy}
+        revisionBusy={revisionBusy}
+        proposalApplyBusy={proposalApplyBusy}
+        gitControls={board ? projectBoardGitControls : undefined}
+        onBuild={onBuild}
+        onReviseBoard={onReviseBoard}
+        onRefreshSources={onRefreshSources}
+        onResetBoard={onResetBoard}
+        onClose={onClose}
+      />
 
       {board ? (
-        <>
-          <ProjectBoardCollaborationReadinessPanel status={projectBoardGitStatus} error={projectBoardGitError} />
-          <ProjectBoardProjectionReviewPanel
-            status={projectBoardGitStatus}
-            error={projectBoardGitError}
-            resolutions={projectBoardProjectionResolutions}
-            onResolve={(changeId, resolution) =>
-              setProjectBoardProjectionResolutions((current) => ({
-                ...current,
-                [changeId]: current[changeId] === resolution ? undefined : resolution,
-              }))
-            }
-          />
-          {showProjectBoardReadinessRail && projectBoardReadinessRail && (
-            <ProjectBoardExecutionReadinessRailPanel
-              rail={projectBoardReadinessRail}
-              onSelectCard={openProjectBoardCardInspector}
-              onSelectTab={setActiveTab}
-              onOpenSourcePicker={openProjectBoardSourcePicker}
-              onPrepareRuns={() => void prepareProjectBoardRuns()}
-              onStartRun={(runId) => void startProjectBoardRun(runId)}
-              runBusy={projectBoardRunBusy}
-            />
-          )}
-          <ProjectBoardTabs tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} />
-          {showSynthesisActivity && (
-            <ProjectBoardSynthesisActivity
-              run={latestSynthesisRun}
-              action={synthesisActivityAction}
-              retryBusy={synthesisRetryBusy}
-              pauseBusy={synthesisPauseBusy}
-              onRetry={!latestSynthesisRunIsKickoffDefaults && failedSynthesisRun ? () => onRetrySynthesis(board.id, failedSynthesisRun.id) : undefined}
-              onRetryStalledRun={
-                !latestSynthesisRunIsKickoffDefaults && runningSynthesisRun ? () => onRetrySynthesis(board.id, runningSynthesisRun.id, "stalled_run") : undefined
-              }
-              onPause={!latestSynthesisRunIsKickoffDefaults && pausableSynthesisRun ? () => onPauseSynthesis(board.id, pausableSynthesisRun.id) : undefined}
-              onResumePausedRun={
-                !latestSynthesisRunIsKickoffDefaults && pausedSynthesisRun ? () => onRetrySynthesis(board.id, pausedSynthesisRun.id, "paused_run") : undefined
-              }
-            />
-          )}
-          {activeTab === "overview" && (
-            <ProjectBoardOverviewTab
-              board={board}
-              orchestrationBoard={projectBoardOrchestration}
-              gitStatus={projectBoardGitStatus}
-              gitError={projectBoardGitError}
-              onSelectTab={setActiveTab}
-              onSelectCard={openProjectBoardCardInspector}
-            />
-          )}
-          {activeTab === "board" && (
-            <ProjectBoardBoardTab
-              board={board}
-              columns={columns}
-              boardStatus={board.status}
-              latestSynthesisRun={latestSynthesisRun}
-              synthesisRetryBusy={synthesisRetryBusy}
-              orchestrationBoard={projectBoardOrchestration}
-              orchestrationError={projectBoardOrchestrationError}
-              runActivityLinesByThread={runActivityLinesByThread}
-              threadRunStatuses={threadRunStatuses}
-              selectedCard={selectedActiveCard}
-              selectedCardId={selectedActiveCardId}
-              onSelectCard={selectProjectBoardActiveCard}
-              onSelectTab={setActiveTab}
-              onOpenSourcePicker={openProjectBoardSourcePicker}
-              onJumpToBlocker={jumpProjectBoardToBlocker}
-              onJumpToInbox={openProjectBoardInboxDetail}
-              runBusy={projectBoardRunBusy}
-              onPrepareRuns={() => void prepareProjectBoardRuns()}
-              onResolveWorkflowImpact={(action, runIds) => void resolveProjectBoardWorkflowImpact(action, runIds)}
-              onRepairWorkflow={(action) => void repairProjectBoardWorkflow(action)}
-              onUpdateWorkflowSettings={(input) => void updateProjectBoardWorkflowSettings(input)}
-              onUpdateWorkflowRaw={(input) => void updateProjectBoardWorkflowRaw(input)}
-              onStartRun={(runId) => void startProjectBoardRun(runId)}
-              onCancelRun={(runId) => void cancelProjectBoardRun(runId)}
-              onRevealWorkspace={(workspacePath) => void revealProjectBoardWorkspace(workspacePath)}
-              onOpenRunThread={(threadId, workspacePath) => void openProjectBoardRunThread(threadId, workspacePath)}
-              onCopySessionToThread={(input) => void copyProjectBoardRunSession(input)}
-              onResolveProofDecision={(cardId, action, reason) => void resolveProjectBoardProofDecision(cardId, action, reason)}
-              onResolveSplitDecision={(cardId, action) => void resolveProjectBoardSplitDecision(cardId, action)}
-              onAddRunFeedback={(input) => void addProjectBoardRunFeedback(input)}
-              onRetrySynthesis={(retryOfRunId, mode) => onRetrySynthesis(board.id, retryOfRunId, mode)}
-              synthesisDeferBusy={synthesisDeferBusy}
-              onDeferSynthesisSections={(runId) => onDeferSynthesisSections(board.id, runId)}
-              taskImportBusy={projectBoardTaskImportBusy}
-              onAttachLocalTask={(taskId, mode) => void attachProjectBoardTask(taskId, mode)}
-              gitStatus={projectBoardGitStatus}
-              gitError={projectBoardGitError}
-              claimBusy={projectBoardClaimBusy}
-              onClaimAction={(card, action) => void updateProjectBoardGitClaim(card, action)}
-              inspectorRequest={activeCardInspectorRequest}
-            />
-          )}
-          {activeTab === "map" && <ProjectBoardMapTab board={board} onUpdateCard={onUpdateCard} onInspectCard={openProjectBoardCardInspector} />}
-          {activeTab === "proof" && (
-            <ProjectBoardProofTab
-              board={board}
-              orchestrationBoard={projectBoardOrchestration}
-              runBusy={projectBoardRunBusy}
-              onSelectCard={openProjectBoardCardInspector}
-              onResolveProofDecision={(cardId, action, reason) => void resolveProjectBoardProofDecision(cardId, action, reason)}
-              onRerunProof={(input) => void rerunProjectBoardProof(input)}
-              onRecomputeProofCoverage={(boardId) => void recomputeProjectBoardProofCoverage(boardId)}
-              onSuggestProof={(boardId, cardIds) => void suggestProjectBoardProof(boardId, cardIds)}
-            />
-          )}
-          {activeTab === "integration" && (
-            <ProjectBoardIntegrationTab
-              board={board}
-              orchestrationBoard={projectBoardOrchestration}
-              busy={projectBoardDeliverableBusy}
-              onResolve={(input) => void resolveProjectBoardDeliverableIntegration(input)}
-            />
-          )}
-          {activeTab === "charter" && (
-            <ProjectBoardCharterTab
-              board={board}
-              finalizeBusy={finalizeBusy}
-              sourceBusy={sourceBusy}
-              sourceImpactBusy={sourceImpactBusy}
-              kickoffDefaultsBusy={kickoffDefaultsBusy}
-              refineBusy={refineBusy}
-              onAnswerQuestion={onAnswerQuestion}
-              onFinalizeKickoff={onFinalizeKickoff}
-              onCancelRevision={onCancelRevision}
-              onRefreshSources={onRefreshSources}
-              onSuggestKickoffDefaults={onSuggestKickoffDefaults}
-              onRefreshSourceDrafts={onRefreshSourceDrafts}
-              onRegenerateSourceDrafts={onRegenerateSourceDrafts}
-              onApplySourceImpactFeedback={onApplySourceImpactFeedback}
-              onRefineWithPi={onRefineWithPi}
-              onElaborateSources={onElaborateSources}
-              onUpdateSource={onUpdateSource}
-              sourcePickerRequestId={sourceReviewRequest.requestId}
-              sourceFocusSourceId={sourceReviewRequest.sourceId}
-              onOpenSourceReview={openProjectBoardSourceReview}
-              onInspectCard={openProjectBoardCardInspector}
-            />
-          )}
-          {activeTab === "decisions" && (
-            <ProjectBoardSynthesisProposalTab
-              board={board}
-              refineBusy={refineBusy}
-              answerBusy={proposalAnswerBusy}
-              cardReviewBusy={proposalCardReviewBusy}
-              applyBusy={proposalApplyBusy}
-              onRefineProposal={onRefineProposal}
-              onAnswerQuestion={onAnswerProposalQuestion}
-              onReviewCard={onReviewProposalCard}
-              onApplyProposal={onApplyProposal}
-              retryBusy={synthesisRetryBusy}
-              deferBusy={synthesisDeferBusy}
-              onRetrySynthesis={(runId, mode = "failed_sections") => onRetrySynthesis(board.id, runId, mode)}
-              onDeferSynthesisSections={(runId) => onDeferSynthesisSections(board.id, runId)}
-              onSelectCard={openProjectBoardCardInspector}
-              onUpdateCard={onUpdateCard}
-              onSuggestClarificationDefaults={onSuggestClarificationDefaults}
-              onApplyDecisionImpactFeedback={onApplyDecisionImpactFeedback}
-              onRefreshDecisionDrafts={onRefreshDecisionDrafts}
-              onRegenerateDecisionDrafts={onRegenerateDecisionDrafts}
-            />
-          )}
-          {activeTab === "history" && (
-            <ProjectBoardHistoryTab
-              board={board}
-              orchestrationBoard={projectBoardOrchestration}
-              gitStatus={projectBoardGitStatus}
-              gitError={projectBoardGitError}
-              retryBusy={synthesisRetryBusy}
-              deferBusy={synthesisDeferBusy}
-              onRetrySynthesis={(runId, mode) => onRetrySynthesis(board.id, runId, mode)}
-              onDeferSynthesisSections={(runId) => onDeferSynthesisSections(board.id, runId)}
-              onOpenSourceContext={() => openProjectBoardSourceReview()}
-              onSelectTab={setActiveTab}
-              onSelectCard={openProjectBoardCardInspector}
-            />
-          )}
-          {activeTab === "draft_inbox" && (
-            <ProjectBoardDraftInboxTab
-              board={board}
-              columns={draftColumns}
-              selectedCard={selectedDraftCard}
-              selectedCardId={selectedDraftCardId}
-              inspectorMode={draftInspectorMode}
-              refineBusy={refineBusy && refineMode === "source_elaboration"}
-              sourceBusy={sourceBusy}
-              sourceImpactBusy={sourceImpactBusy}
-              onSelectCard={selectProjectBoardDraftCard}
-              onCloseSourcePicker={closeProjectBoardSourcePicker}
-              createCardBusy={projectBoardCreateCardBusy}
-              createReadyTasksBusy={projectBoardCreateReadyTasksBusy}
-              onCreateCard={(boardId) => void createProjectBoardDraftCard(boardId)}
-              onCreateReadyTasks={(boardId) => void createProjectBoardReadyTasks(boardId)}
-              onRefreshSources={onRefreshSources}
-              onRefreshSourceDrafts={onRefreshSourceDrafts}
-              onRegenerateSourceDrafts={onRegenerateSourceDrafts}
-              onApplySourceImpactFeedback={onApplySourceImpactFeedback}
-              onElaborateSources={onElaborateSources}
-              onApproveCard={onApproveCard}
-              onSplitCard={onSplitCard}
-              onUpdateCard={onUpdateCard}
-              onUpdateCardCandidate={onUpdateCardCandidate}
-              onResolveCardPiUpdate={onResolveCardPiUpdate}
-              onApplyDecisionImpactFeedback={onApplyDecisionImpactFeedback}
-              onRefreshDecisionDrafts={onRefreshDecisionDrafts}
-              onRegenerateDecisionDrafts={onRegenerateDecisionDrafts}
-              onOpenSourcePicker={openProjectBoardSourcePicker}
-              onReviewSources={() => openProjectBoardSourceReview()}
-              onInspectSource={openProjectBoardSourceReview}
-              latestSynthesisRun={latestSynthesisRun}
-              gitStatus={projectBoardGitStatus}
-              claimBusy={projectBoardClaimBusy}
-              onClaimAction={(card, action) => void updateProjectBoardGitClaim(card, action)}
-            />
-          )}
-        </>
+        <ProjectBoardWorkspaceBoardSurface
+          board={board}
+          gitControls={projectBoardGitControls}
+          navigationController={projectBoardNavigationController}
+          runController={projectBoardRunController}
+          projectBoardCreateCardBusy={projectBoardCreateCardBusy}
+          onCreateCard={(boardId) => void createProjectBoardDraftCard(boardId)}
+          sourceBusy={sourceBusy}
+          sourceImpactBusy={sourceImpactBusy}
+          kickoffDefaultsBusy={kickoffDefaultsBusy}
+          refineBusy={refineBusy}
+          refineMode={refineMode}
+          proposalAnswerBusy={proposalAnswerBusy}
+          proposalCardReviewBusy={proposalCardReviewBusy}
+          proposalApplyBusy={proposalApplyBusy}
+          finalizeBusy={finalizeBusy}
+          synthesisRetryBusy={synthesisRetryBusy}
+          synthesisDeferBusy={synthesisDeferBusy}
+          synthesisPauseBusy={synthesisPauseBusy}
+          runActivityLinesByThread={runActivityLinesByThread}
+          threadRunStatuses={threadRunStatuses}
+          onApproveCard={onApproveCard}
+          onSplitCard={onSplitCard}
+          onUpdateCard={onUpdateCard}
+          onUpdateCardCandidate={onUpdateCardCandidate}
+          onResolveCardPiUpdate={onResolveCardPiUpdate}
+          onSuggestClarificationDefaults={onSuggestClarificationDefaults}
+          onSuggestKickoffDefaults={onSuggestKickoffDefaults}
+          onApplyDecisionImpactFeedback={onApplyDecisionImpactFeedback}
+          onRefreshDecisionDrafts={onRefreshDecisionDrafts}
+          onRegenerateDecisionDrafts={onRegenerateDecisionDrafts}
+          onRefreshSourceDrafts={onRefreshSourceDrafts}
+          onRegenerateSourceDrafts={onRegenerateSourceDrafts}
+          onApplySourceImpactFeedback={onApplySourceImpactFeedback}
+          onRefreshSources={onRefreshSources}
+          onRefineWithPi={onRefineWithPi}
+          onRefineProposal={onRefineProposal}
+          onElaborateSources={onElaborateSources}
+          onAnswerProposalQuestion={onAnswerProposalQuestion}
+          onReviewProposalCard={onReviewProposalCard}
+          onApplyProposal={onApplyProposal}
+          onUpdateSource={onUpdateSource}
+          onAnswerQuestion={onAnswerQuestion}
+          onFinalizeKickoff={onFinalizeKickoff}
+          onCancelRevision={onCancelRevision}
+          onRetrySynthesis={onRetrySynthesis}
+          onPauseSynthesis={onPauseSynthesis}
+          onDeferSynthesisSections={onDeferSynthesisSections}
+        />
       ) : (
-        <div className="project-board-empty-panel">
-          {busy && <ProjectBoardSynthesisActivity action="Creating project board and scanning sources" />}
-          <Kanban size={28} />
-          <h3>Build a board when the project is ready for formal execution.</h3>
-          <p>
-            The board starts with a kickoff charter. Later phases will scan threads and project markdown, ask targeted questions,
-            and create executable cards only after the plan is clear.
-          </p>
-          <button type="button" className="primary-button" onClick={onBuild} disabled={busy} title={buildBoardTitle}>
-            <Kanban size={15} />
-            <span>{busy ? "Building" : "Build Board"}</span>
-          </button>
-        </div>
+        <ProjectBoardWorkspaceEmptyPanel busy={busy} onBuild={onBuild} />
       )}
-      {titleTooltip && (
-        <div
-          ref={titleTooltipRef}
-          className={`project-board-title-tooltip ${titleTooltip.ready ? "visible" : ""} placement-${titleTooltip.placement}`}
-          role="tooltip"
-          style={{
-            left: titleTooltip.left,
-            top: titleTooltip.top,
-            "--project-board-title-tooltip-arrow-left": `${titleTooltip.arrowLeft}px`,
-          } as CSSProperties}
-        >
-          {titleTooltip.text}
-        </div>
-      )}
+      {titleTooltipNode}
     </section>
   );
 }

@@ -5,8 +5,16 @@ import type { DesktopEvent, DesktopState } from "../../shared/desktopTypes";
 import type { RunStatus } from "../../shared/threadTypes";
 import { RUN_ABORT_ARM_DELAY_MS } from "../../shared/runStatus";
 import { applyDocumentAppearance } from "./appearance";
+import type { useAppAutomationShellState } from "./AppAutomationShellState";
+import type { useAppChatFindControls } from "./AppChatFindControls";
 import { useAppMessageScrollControls } from "./AppMessageScrollControls";
+import type { createAppPermissionActions } from "./AppPermissionActions";
+import type { useAppProjectShellState } from "./AppProjectShellState";
+import type { useAppProviderRuntimeState } from "./AppProviderRuntimeState";
+import type { useAppRightPanelState } from "./AppRightPanelState";
 import { useAppRunActivityControls } from "./AppRunActivity";
+import type { useAppRunActivityState } from "./AppRunActivityState";
+import type { useAppSecurityPromptState } from "./AppSecurityPromptState";
 import {
   useAppComposerModeThreadLifecycleEffects,
   useAppSpeechProviderLifecycleEffects,
@@ -14,10 +22,13 @@ import {
   useAppWelcomePluginRegistryLifecycleEffect,
 } from "./AppShellLifecycleEffects";
 import { useAppShellGlobalEffects } from "./AppShellGlobalEffects";
+import type { useAppShellUiState } from "./AppShellUiState";
 import { appBootstrapRunStatus, useAppStartupLifecycleEffects } from "./AppStartupLifecycleEffects";
 import { useAppStatusSubscriptions } from "./AppStatusSubscriptions";
 import { useAppSttLifecycleEffects } from "./AppSttLifecycleEffects";
 import { useAppThreadLifecycleEffects } from "./AppThreadLifecycleEffects";
+import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
+import type { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
 import { welcomeOnboardingPageKindForMessages } from "./welcomeSetupUiModel";
 
 type StartupOptions = Parameters<typeof useAppStartupLifecycleEffects>[0];
@@ -116,6 +127,220 @@ export type AppCoreLifecycleControls = MessageScrollControls &
   RunActivityControls & {
     activeWelcomeOnboardingPageKind: ReturnType<typeof welcomeOnboardingPageKindForMessages>;
   };
+
+type AppAutomationShellStateForCoreLifecycle = Pick<
+  ReturnType<typeof useAppAutomationShellState>,
+  "setAutomationFolders" | "setSidebarAgeNow" | "setWorkflowAgentFolders"
+>;
+
+type AppChatFindControlsForCoreLifecycle = Pick<ReturnType<typeof useAppChatFindControls>, "chatFindInputRef" | "setChatFindOpen">;
+
+type AppPermissionActionsForCoreLifecycle = Pick<
+  ReturnType<typeof createAppPermissionActions>,
+  "loadPendingPermissionRequests" | "loadPermissionAudit" | "loadPermissionGrants"
+>;
+
+type AppProjectShellStateForCoreLifecycle = Pick<
+  ReturnType<typeof useAppProjectShellState>,
+  "projectContextMenu" | "setProjectContextMenu" | "setThreadContextMenu" | "threadContextMenu"
+>;
+
+type AppProviderRuntimeStateForCoreLifecycle = Pick<
+  ReturnType<typeof useAppProviderRuntimeState>,
+  | "sttComposer"
+  | "sttComposerRecorderRef"
+  | "sttComposerShortcutActiveRef"
+  | "sttComposerThreadRef"
+  | "sttMicRecorderRef"
+  | "sttProviderRefreshTimerRef"
+  | "voiceProviderRefreshTimerRef"
+>;
+
+type AppRightPanelStateForCoreLifecycle = Pick<ReturnType<typeof useAppRightPanelState>, "openMcpRuntimeSettings" | "setRightPanel">;
+
+type AppRunActivityStateForCoreLifecycle = Pick<
+  ReturnType<typeof useAppRunActivityState>,
+  | "previousRunningRef"
+  | "runActivityCounterRef"
+  | "runActivityHeartbeatIndexRef"
+  | "runActivityLastEventAtRef"
+  | "runActivityLinesByThreadRef"
+  | "setAbortArmed"
+  | "setRetryStatsByThread"
+  | "setRunActivityLinesByThread"
+  | "setRunStatus"
+  | "setThreadRunStatuses"
+  | "thinkingDeltaBuffersRef"
+  | "threadRunStatuses"
+>;
+
+type AppSecurityPromptStateForCoreLifecycle = Pick<ReturnType<typeof useAppSecurityPromptState>, "permissionAuditRevision">;
+
+type AppShellUiStateForCoreLifecycle = Pick<
+  ReturnType<typeof useAppShellUiState>,
+  "errorScope" | "setCommandPaletteOpen" | "setCommandPaletteQuery" | "setError" | "setErrorScope" | "setErrorState" | "setSidebarWidth"
+>;
+
+type AppWorkflowRuntimeStateForCoreLifecycle = Pick<
+  ReturnType<typeof useAppWorkflowRuntimeState>,
+  "goalCompletionCelebrationTimerRef" | "setContextAttachments" | "setContextError" | "setGoalMenuOpen" | "setGoalModeArmed"
+>;
+
+type AppWorkspaceShellStateForCoreLifecycle = Pick<
+  ReturnType<typeof useAppWorkspaceShellState>,
+  | "activeProjectRootRef"
+  | "activeThreadIdRef"
+  | "browserRevision"
+  | "chatBrowserUserAction"
+  | "mcpContainerRuntimeStartupCheckRef"
+  | "messageKindsRef"
+  | "pluginCatalogRevision"
+  | "setActiveGitReview"
+  | "setActiveGitReviewError"
+  | "setChatBrowserUserAction"
+  | "setGitStatus"
+  | "setGitStatusError"
+  | "setWelcomeAmbientPluginRegistry"
+  | "workspaceProjectAliasesRef"
+  | "workspaceRevision"
+>;
+
+export type AppCoreLifecycleControlsForAppInput = {
+  activeRunActivityLines: AppCoreLifecycleControlsOptions["activeRunActivityLines"];
+  automationShellState: AppAutomationShellStateForCoreLifecycle;
+  cancelSttComposerRecording: AppCoreLifecycleControlsOptions["cancelSttComposerRecording"];
+  chatFindControls: AppChatFindControlsForCoreLifecycle;
+  handleEvent: AppCoreLifecycleControlsOptions["handleEvent"];
+  loadSttMicrophoneDeviceList: AppCoreLifecycleControlsOptions["loadSttMicrophoneDeviceList"];
+  loadSttProviders: AppCoreLifecycleControlsOptions["loadSttProviders"];
+  loadVoiceProviders: AppCoreLifecycleControlsOptions["loadVoiceProviders"];
+  permissionActions: AppPermissionActionsForCoreLifecycle;
+  projectShellState: AppProjectShellStateForCoreLifecycle;
+  providerRuntimeState: AppProviderRuntimeStateForCoreLifecycle;
+  rememberDesktopState: AppCoreLifecycleControlsOptions["rememberDesktopState"];
+  resetPromptHistory: AppCoreLifecycleControlsOptions["resetPromptHistory"];
+  rightPanelState: AppRightPanelStateForCoreLifecycle;
+  runActivityState: AppRunActivityStateForCoreLifecycle;
+  running: AppCoreLifecycleControlsOptions["running"];
+  securityPromptState: AppSecurityPromptStateForCoreLifecycle;
+  setLocalDeepResearchModeArmed: AppCoreLifecycleControlsOptions["setLocalDeepResearchModeArmed"];
+  setState: AppCoreLifecycleControlsOptions["setState"];
+  shellUiState: AppShellUiStateForCoreLifecycle;
+  startSttComposerRecording: AppCoreLifecycleControlsOptions["startSttComposerRecording"];
+  state: AppCoreLifecycleControlsOptions["state"];
+  stopSttComposerRecording: AppCoreLifecycleControlsOptions["stopSttComposerRecording"];
+  workflowRuntimeState: AppWorkflowRuntimeStateForCoreLifecycle;
+  workspaceShellState: AppWorkspaceShellStateForCoreLifecycle;
+};
+
+export function useAppCoreLifecycleControlsForApp({
+  activeRunActivityLines,
+  automationShellState,
+  cancelSttComposerRecording,
+  chatFindControls,
+  handleEvent,
+  loadSttMicrophoneDeviceList,
+  loadSttProviders,
+  loadVoiceProviders,
+  permissionActions,
+  projectShellState,
+  providerRuntimeState,
+  rememberDesktopState,
+  resetPromptHistory,
+  rightPanelState,
+  runActivityState,
+  running,
+  securityPromptState,
+  setLocalDeepResearchModeArmed,
+  setState,
+  shellUiState,
+  startSttComposerRecording,
+  state,
+  stopSttComposerRecording,
+  workflowRuntimeState,
+  workspaceShellState,
+}: AppCoreLifecycleControlsForAppInput): AppCoreLifecycleControls {
+  return useAppCoreLifecycleControls({
+    activeProjectRootRef: workspaceShellState.activeProjectRootRef,
+    activeRunActivityLines,
+    activeThreadIdRef: workspaceShellState.activeThreadIdRef,
+    browserRevision: workspaceShellState.browserRevision,
+    cancelSttComposerRecording,
+    chatBrowserUserAction: workspaceShellState.chatBrowserUserAction,
+    chatBrowserUserActionId: workspaceShellState.chatBrowserUserAction?.id,
+    chatBrowserUserActionStatus: workspaceShellState.chatBrowserUserAction?.status,
+    chatFindInputRef: chatFindControls.chatFindInputRef,
+    closeContextMenus: () => {
+      projectShellState.setProjectContextMenu(undefined);
+      projectShellState.setThreadContextMenu(undefined);
+    },
+    contextMenusOpen: Boolean(projectShellState.projectContextMenu || projectShellState.threadContextMenu),
+    errorScope: shellUiState.errorScope,
+    goalCompletionCelebrationTimerRef: workflowRuntimeState.goalCompletionCelebrationTimerRef,
+    handleEvent,
+    loadPendingPermissionRequests: permissionActions.loadPendingPermissionRequests,
+    loadPermissionAudit: permissionActions.loadPermissionAudit,
+    loadPermissionGrants: permissionActions.loadPermissionGrants,
+    loadSttMicrophoneDeviceList,
+    loadSttProviders,
+    loadVoiceProviders,
+    mcpContainerRuntimeStartupCheckRef: workspaceShellState.mcpContainerRuntimeStartupCheckRef,
+    messageKindsRef: workspaceShellState.messageKindsRef,
+    openMcpRuntimeSettings: rightPanelState.openMcpRuntimeSettings,
+    permissionAuditRevision: securityPromptState.permissionAuditRevision,
+    pluginCatalogRevision: workspaceShellState.pluginCatalogRevision,
+    previousRunningRef: runActivityState.previousRunningRef,
+    rememberDesktopState,
+    resetPromptHistory,
+    runActivityCounterRef: runActivityState.runActivityCounterRef,
+    runActivityHeartbeatIndexRef: runActivityState.runActivityHeartbeatIndexRef,
+    runActivityLastEventAtRef: runActivityState.runActivityLastEventAtRef,
+    runActivityLinesByThreadRef: runActivityState.runActivityLinesByThreadRef,
+    running,
+    setAbortArmed: runActivityState.setAbortArmed,
+    setActiveGitReview: workspaceShellState.setActiveGitReview,
+    setActiveGitReviewError: workspaceShellState.setActiveGitReviewError,
+    setAutomationFolders: automationShellState.setAutomationFolders,
+    setChatBrowserUserAction: workspaceShellState.setChatBrowserUserAction,
+    setChatFindOpen: chatFindControls.setChatFindOpen,
+    setCommandPaletteOpen: shellUiState.setCommandPaletteOpen,
+    setCommandPaletteQuery: shellUiState.setCommandPaletteQuery,
+    setContextAttachments: workflowRuntimeState.setContextAttachments,
+    setContextError: workflowRuntimeState.setContextError,
+    setError: shellUiState.setError,
+    setErrorScope: shellUiState.setErrorScope,
+    setErrorState: shellUiState.setErrorState,
+    setGitStatus: workspaceShellState.setGitStatus,
+    setGitStatusError: workspaceShellState.setGitStatusError,
+    setGoalMenuOpen: workflowRuntimeState.setGoalMenuOpen,
+    setGoalModeArmed: workflowRuntimeState.setGoalModeArmed,
+    setLocalDeepResearchModeArmed,
+    setRetryStatsByThread: runActivityState.setRetryStatsByThread,
+    setRightPanel: rightPanelState.setRightPanel,
+    setRunActivityLinesByThread: runActivityState.setRunActivityLinesByThread,
+    setRunStatus: runActivityState.setRunStatus,
+    setSidebarAgeNow: automationShellState.setSidebarAgeNow,
+    setSidebarWidth: shellUiState.setSidebarWidth,
+    setState,
+    setThreadRunStatuses: runActivityState.setThreadRunStatuses,
+    setWelcomeAmbientPluginRegistry: workspaceShellState.setWelcomeAmbientPluginRegistry,
+    setWorkflowAgentFolders: automationShellState.setWorkflowAgentFolders,
+    startSttComposerRecording,
+    state,
+    stopSttComposerRecording,
+    sttComposerRecorderRef: providerRuntimeState.sttComposerRecorderRef,
+    sttComposerShortcutActiveRef: providerRuntimeState.sttComposerShortcutActiveRef,
+    sttComposerStatus: providerRuntimeState.sttComposer.status,
+    sttComposerThreadRef: providerRuntimeState.sttComposerThreadRef,
+    sttMicRecorderRef: providerRuntimeState.sttMicRecorderRef,
+    sttProviderRefreshTimerRef: providerRuntimeState.sttProviderRefreshTimerRef,
+    thinkingDeltaBuffersRef: runActivityState.thinkingDeltaBuffersRef,
+    threadRunStatuses: runActivityState.threadRunStatuses,
+    voiceProviderRefreshTimerRef: providerRuntimeState.voiceProviderRefreshTimerRef,
+    workspaceProjectAliasesRef: workspaceShellState.workspaceProjectAliasesRef,
+    workspaceRevision: workspaceShellState.workspaceRevision,
+  });
+}
 
 export function useAppCoreLifecycleControls({
   activeProjectRootRef,

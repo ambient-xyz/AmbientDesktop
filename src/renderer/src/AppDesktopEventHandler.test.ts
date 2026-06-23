@@ -6,6 +6,7 @@ import type { PermissionRequest } from "../../shared/permissionTypes";
 import {
   createAppDesktopEventHandlerDependencies,
   handleAppDesktopEvent,
+  thinkingActivityTextFromMessageContent,
   toolEventCouldAffectSpeechProviderState,
   toolEventActivityMessage,
   type AppDesktopEventHandlerDependencies,
@@ -30,6 +31,11 @@ describe("App desktop event handler", () => {
     expect(toolEventCouldAffectSpeechProviderState({ toolName: "ambient_cli_secret_request" })).toBe(true);
     expect(toolEventCouldAffectSpeechProviderState({ toolName: "read" })).toBe(false);
     expect(toolEventCouldAffectSpeechProviderState(undefined)).toBe(false);
+  });
+
+  it("extracts the latest finalized thinking line from message content", () => {
+    expect(thinkingActivityTextFromMessageContent("")).toBeUndefined();
+    expect(thinkingActivityTextFromMessageContent("Looking at state.\n\nChoosing next step.")).toBe("Choosing next step.");
   });
 
   it("deduplicates permission prompts and fills the event workspace path", () => {
@@ -159,6 +165,30 @@ describe("App desktop event handler", () => {
       { kind: "stt", delayMs: 500, reason: "provider state tool done" },
     ]);
   });
+
+  it("adds finalized thinking message updates to run activity when deltas were sparse", () => {
+    const lines: Array<{ text: string; kind: RunActivityLine["kind"] | undefined }> = [];
+    const deps = appDesktopEventHandlerDependencies({
+      appendRunActivityLine: (text, kind) => {
+        lines.push({ text, kind });
+      },
+    });
+
+    handleAppDesktopEvent({
+      type: "message-updated",
+      workspacePath: "/repo",
+      message: {
+        id: "thinking-1",
+        threadId: "thread-1",
+        role: "assistant",
+        content: "Reading the prior state.\nPlanning the next move.",
+        createdAt: "2026-06-22T00:00:00.000Z",
+        metadata: { kind: "thinking", status: "done" },
+      },
+    }, deps);
+
+    expect(lines).toEqual([{ text: "Planning the next move.", kind: "thinking" }]);
+  });
 });
 
 function appDesktopEventHandlerDependencies(
@@ -200,6 +230,7 @@ function appDesktopEventHandlerDependencies(
     setPrivilegedCredentialRequests: noopDispatch(),
     setRetryStatsByThread: noopDispatch(),
     setRunStatus: noopDispatch(),
+    setRuntimeStatusIndicatorsByThread: noopDispatch(),
     setScopedError: () => undefined,
     setSecureInputRequests: noopDispatch(),
     setSelectedWorkflowAgentThreadId: noopDispatch(),

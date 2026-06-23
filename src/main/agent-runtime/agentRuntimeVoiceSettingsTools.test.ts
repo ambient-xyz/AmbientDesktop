@@ -58,11 +58,21 @@ describe("AgentRuntime voice settings tools", () => {
 
       const status = registeredTools.find((tool) => tool.name === "ambient_voice_status")!;
       const listVoices = registeredTools.find((tool) => tool.name === "ambient_voice_list_voices")!;
+      const clonePlan = registeredTools.find((tool) => tool.name === "ambient_voice_clone_plan")!;
+      const cloneCreatePreview = registeredTools.find((tool) => tool.name === "ambient_voice_clone_create_preview")!;
+      const cloneCreate = registeredTools.find((tool) => tool.name === "ambient_voice_clone_create")!;
+      const cloneStatus = registeredTools.find((tool) => tool.name === "ambient_voice_clone_status")!;
+      const cloneDelete = registeredTools.find((tool) => tool.name === "ambient_voice_clone_delete")!;
       const select = registeredTools.find((tool) => tool.name === "ambient_voice_select")!;
       const policy = registeredTools.find((tool) => tool.name === "ambient_voice_policy_update")!;
       const test = registeredTools.find((tool) => tool.name === "ambient_voice_test")!;
       expect(status).toBeDefined();
       expect(listVoices).toBeDefined();
+      expect(clonePlan).toBeDefined();
+      expect(cloneCreatePreview).toBeDefined();
+      expect(cloneCreate).toBeDefined();
+      expect(cloneStatus).toBeDefined();
+      expect(cloneDelete).toBeDefined();
       expect(select).toBeDefined();
       expect(policy).toBeDefined();
       expect(test).toBeDefined();
@@ -93,6 +103,18 @@ describe("AgentRuntime voice settings tools", () => {
         matchedVoices: 1,
         returnedVoices: 1,
         voices: [expect.objectContaining({ id: "voice-bright", label: "Bright Narrator" })],
+      });
+
+      const clonePlanResult = await clonePlan.execute("clone-plan", {
+        providerCapabilityId: provider.capabilityId,
+      });
+      expect(clonePlanResult.details).toMatchObject({
+        runtime: "ambient-voice",
+        toolName: "ambient_voice_clone_plan",
+        status: "complete",
+        providerCapabilityId: provider.capabilityId,
+        selected: true,
+        supported: false,
       });
 
       const selectResult = await select.execute("select", {

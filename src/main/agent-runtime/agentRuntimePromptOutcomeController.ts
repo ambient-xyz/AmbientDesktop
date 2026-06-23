@@ -267,6 +267,8 @@ export class AgentRuntimePromptOutcomeController {
       emptyAssistantRetryAttemptsUsed: input.assistantFinalizationRetryAttemptsUsedFor(emptyAssistantRetryReason),
       emptyAssistantRetryNextAttempt: input.assistantFinalizationRetryNextAttemptFor(emptyAssistantRetryReason),
       consumeSubagentParentControlAbort: input.consumeSubagentParentControlAbort,
+      currentPromptCacheTelemetry: input.runtimeMessages.currentPromptCacheTelemetry,
+      completePromptCacheTelemetryIfPending: input.runtimeMessages.completePromptCacheTelemetryIfPending,
       finishCurrentThinkingMessage: input.runtimeMessages.finishCurrentThinkingMessage,
       suppressAssistantMessagesExceptCurrent: input.runtimeMessages.suppressAssistantMessagesExceptCurrent,
       suppressCurrentThinkingMessage: input.runtimeMessages.suppressCurrentThinkingMessage,

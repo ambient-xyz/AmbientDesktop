@@ -1,7 +1,12 @@
 import { useRef } from "react";
 
 import { createAppProjectBoardActions } from "./AppProjectBoardActions";
+import type { createAppDesktopStateAppliers } from "./AppDesktopStateAppliers";
+import type { createAppNavigationActionsForApp } from "./AppNavigationActions";
 import { useAppProjectBoardShellControls } from "./AppProjectBoardShellControls";
+import type { useAppProjectShellState } from "./AppProjectShellState";
+import type { useAppRightPanelState } from "./AppRightPanelState";
+import type { useAppShellUiState } from "./AppShellUiState";
 import { useAppWorkspaceProjectModel } from "./AppWorkspaceProjectModel";
 
 type WorkspaceProjectModelOptions = Parameters<typeof useAppWorkspaceProjectModel>[0];
@@ -46,6 +51,118 @@ export interface AppProjectBoardControlsOptions {
   state: ProjectBoardActionsOptions["state"];
   workspaceName: ProjectBoardShellOptions["workspaceName"];
   workspacePath: WorkspaceProjectModelOptions["workspacePath"];
+}
+
+type AppDesktopStateAppliersForProjectBoardControls = Pick<
+  ReturnType<typeof createAppDesktopStateAppliers>,
+  "applyCreatedThreadState" | "applyProjectActionState"
+>;
+
+type AppNavigationActionsForProjectBoardControls = Pick<
+  ReturnType<typeof createAppNavigationActionsForApp>,
+  "selectProject" | "selectThread"
+>;
+
+type AppProjectShellStateForProjectBoardControls = Pick<
+  ReturnType<typeof useAppProjectShellState>,
+  | "projectBoardBusyProjectIds"
+  | "projectBoardFinalizeBusy"
+  | "projectBoardKickoffDefaultsBusy"
+  | "projectBoardProposalAnswerBusy"
+  | "projectBoardProposalApplyBusy"
+  | "projectBoardProposalCardReviewBusy"
+  | "projectBoardRefineBusy"
+  | "projectBoardRefineMode"
+  | "projectBoardResetDialog"
+  | "projectBoardRevisionBusy"
+  | "projectBoardSourceBusy"
+  | "projectBoardSourceImpactBusy"
+  | "projectBoardSynthesisDeferBusy"
+  | "projectBoardSynthesisPauseBusy"
+  | "projectBoardSynthesisRetryBusy"
+  | "setProjectBoardBusyProjectIds"
+  | "setProjectBoardFinalizeBusy"
+  | "setProjectBoardKickoffDefaultsBusy"
+  | "setProjectBoardProposalAnswerBusy"
+  | "setProjectBoardProposalApplyBusy"
+  | "setProjectBoardProposalCardReviewBusy"
+  | "setProjectBoardRefineBusy"
+  | "setProjectBoardRefineMode"
+  | "setProjectBoardResetDialog"
+  | "setProjectBoardRevisionBusy"
+  | "setProjectBoardSourceBusy"
+  | "setProjectBoardSourceImpactBusy"
+  | "setProjectBoardSynthesisDeferBusy"
+  | "setProjectBoardSynthesisPauseBusy"
+  | "setProjectBoardSynthesisRetryBusy"
+>;
+
+type AppRightPanelStateForProjectBoardControls = Pick<ReturnType<typeof useAppRightPanelState>, "previewArtifact">;
+
+type AppShellUiStateForProjectBoardControls = Pick<
+  ReturnType<typeof useAppShellUiState>,
+  "error" | "setError" | "setSidebarArea"
+>;
+
+export type AppProjectBoardControlsForAppInput = {
+  activeThread: AppProjectBoardControlsOptions["activeThread"];
+  appDesktopStateAppliers: AppDesktopStateAppliersForProjectBoardControls;
+  navigationActions: AppNavigationActionsForProjectBoardControls;
+  projectShellState: AppProjectShellStateForProjectBoardControls;
+  rightPanelState: AppRightPanelStateForProjectBoardControls;
+  setState: AppProjectBoardControlsOptions["setState"];
+  shellUiState: AppShellUiStateForProjectBoardControls;
+  state: AppProjectBoardControlsOptions["state"];
+};
+
+export function useAppProjectBoardControlsForApp({
+  activeThread,
+  appDesktopStateAppliers,
+  navigationActions,
+  projectShellState,
+  rightPanelState,
+  setState,
+  shellUiState,
+  state,
+}: AppProjectBoardControlsForAppInput) {
+  return useAppProjectBoardControls({
+    activeThread,
+    activeThreadId: state?.activeThreadId,
+    activeWorkspacePath: state?.activeWorkspace.path,
+    applyCreatedThreadState: appDesktopStateAppliers.applyCreatedThreadState,
+    applyProjectActionState: appDesktopStateAppliers.applyProjectActionState,
+    contextUsage: state?.contextUsage,
+    error: shellUiState.error,
+    plannerPlanArtifacts: state?.plannerPlanArtifacts,
+    previewArtifact: rightPanelState.previewArtifact,
+    projects: state?.projects,
+    projectBoardBusyProjectIds: projectShellState.projectBoardBusyProjectIds,
+    projectBoardKickoffDefaultsBusy: projectShellState.projectBoardKickoffDefaultsBusy,
+    projectBoardResetDialog: projectShellState.projectBoardResetDialog,
+    selectProject: navigationActions.selectProject,
+    selectThread: navigationActions.selectThread,
+    setError: shellUiState.setError,
+    setProjectBoardBusyProjectIds: projectShellState.setProjectBoardBusyProjectIds,
+    setProjectBoardFinalizeBusy: projectShellState.setProjectBoardFinalizeBusy,
+    setProjectBoardKickoffDefaultsBusy: projectShellState.setProjectBoardKickoffDefaultsBusy,
+    setProjectBoardProposalAnswerBusy: projectShellState.setProjectBoardProposalAnswerBusy,
+    setProjectBoardProposalApplyBusy: projectShellState.setProjectBoardProposalApplyBusy,
+    setProjectBoardProposalCardReviewBusy: projectShellState.setProjectBoardProposalCardReviewBusy,
+    setProjectBoardRefineBusy: projectShellState.setProjectBoardRefineBusy,
+    setProjectBoardRefineMode: projectShellState.setProjectBoardRefineMode,
+    setProjectBoardResetDialog: projectShellState.setProjectBoardResetDialog,
+    setProjectBoardRevisionBusy: projectShellState.setProjectBoardRevisionBusy,
+    setProjectBoardSourceBusy: projectShellState.setProjectBoardSourceBusy,
+    setProjectBoardSourceImpactBusy: projectShellState.setProjectBoardSourceImpactBusy,
+    setProjectBoardSynthesisDeferBusy: projectShellState.setProjectBoardSynthesisDeferBusy,
+    setProjectBoardSynthesisPauseBusy: projectShellState.setProjectBoardSynthesisPauseBusy,
+    setProjectBoardSynthesisRetryBusy: projectShellState.setProjectBoardSynthesisRetryBusy,
+    setSidebarArea: shellUiState.setSidebarArea,
+    setState,
+    state,
+    workspaceName: state?.workspace.name,
+    workspacePath: state?.workspace.path,
+  });
 }
 
 export function useAppProjectBoardControls({

@@ -2,10 +2,51 @@ import type { Dispatch, SetStateAction } from "react";
 
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
-import type { AddProjectBoardCardRunFeedbackInput, ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, CreateReadyProjectBoardTasksInput, DeferProjectBoardSynthesisSectionsInput, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardProofDecisionAction, ProjectBoardQuestion, ProjectBoardSplitDecisionAction, ProjectBoardSynthesisProposalCardReviewStatus, ProjectSummary, RecomputeProjectBoardProofCoverageInput, RefineProjectBoardSynthesisInput, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, RerunProjectBoardProofInput, ResolveProjectBoardCardPiUpdateInput, ResolveProjectBoardDeliverableIntegrationInput, RetryProjectBoardSynthesisInput, SplitProjectBoardCardInput, SuggestProjectBoardClarificationDefaultsInput, SuggestProjectBoardKickoffDefaultsInput, SuggestProjectBoardProofInput, UpdateProjectBoardCardInput, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
+import type {
+  AddProjectBoardCardRunFeedbackInput,
+  ApplyProjectBoardDecisionImpactFeedbackInput,
+  ApplyProjectBoardSourceImpactFeedbackInput,
+  AttachProjectBoardLocalTaskMode,
+  CopyProjectBoardSessionToThreadInput,
+  CreateReadyProjectBoardTasksInput,
+  DeferProjectBoardSynthesisSectionsInput,
+  ProjectBoardCard,
+  ProjectBoardCardCandidateStatus,
+  ProjectBoardProofDecisionAction,
+  ProjectBoardQuestion,
+  ProjectBoardSplitDecisionAction,
+  ProjectBoardSynthesisProposalCardReviewStatus,
+  ProjectSummary,
+  RecomputeProjectBoardProofCoverageInput,
+  RefineProjectBoardSynthesisInput,
+  RefreshProjectBoardDecisionDraftsInput,
+  RefreshProjectBoardSourceDraftsInput,
+  RegenerateProjectBoardDecisionDraftsInput,
+  RegenerateProjectBoardSourceDraftsInput,
+  RerunProjectBoardProofInput,
+  ResolveProjectBoardCardPiUpdateInput,
+  ResolveProjectBoardDeliverableIntegrationInput,
+  RetryProjectBoardSynthesisInput,
+  SplitProjectBoardCardInput,
+  SuggestProjectBoardClarificationDefaultsInput,
+  SuggestProjectBoardKickoffDefaultsInput,
+  SuggestProjectBoardProofInput,
+  UpdateProjectBoardCardInput,
+  UpdateProjectBoardSourceInput,
+} from "../../shared/projectBoardTypes";
 import type { ProjectBoardResetDialogState } from "./AppActionDialogs";
+import { projectBoardActionErrorMessage } from "./AppProjectBoardActionSupport";
+import { createAppProjectBoardDraftSourceActions } from "./AppProjectBoardDraftSourceActions";
+import { createAppProjectBoardProofActions } from "./AppProjectBoardProofActions";
 import type { SidebarArea } from "./AppShellSidebar";
+import { createAppProjectBoardSynthesisActions } from "./AppProjectBoardSynthesisActions";
 import { projectBoardSuppressedForWorkflowRecordingThread } from "./projectBoardUiModel";
+
+export {
+  projectBoardProposalCardReviewBusyKey,
+  projectBoardProposalQuestionBusyKey,
+  projectBoardSynthesisPauseReason,
+} from "./AppProjectBoardSynthesisActions";
 
 type ProjectBoardActionsThread = {
   workflowRecording?: unknown;
@@ -14,35 +55,11 @@ type ProjectBoardActionsThread = {
 export const PROJECT_BOARD_RESET_BRIDGE_UNAVAILABLE_MESSAGE =
   "Reset Board requires a fresh Ambient Desktop window so the updated main/preload bridge is active.";
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function normalizedError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
-}
-
-export function projectBoardBusyProjectIdsWith(
-  current: Set<string>,
-  projectId: string,
-  busy: boolean,
-): Set<string> {
+export function projectBoardBusyProjectIdsWith(current: Set<string>, projectId: string, busy: boolean): Set<string> {
   const next = new Set(current);
   if (busy) next.add(projectId);
   else next.delete(projectId);
   return next;
-}
-
-export function projectBoardProposalQuestionBusyKey(proposalId: string, questionIndex: number): string {
-  return `${proposalId}:${questionIndex}`;
-}
-
-export function projectBoardProposalCardReviewBusyKey(proposalId: string, sourceId: string): string {
-  return `${proposalId}:${sourceId}`;
-}
-
-export function projectBoardSynthesisPauseReason(): string {
-  return "Pause requested from the project-board progress panel.";
 }
 
 export function createAppProjectBoardActions({
@@ -175,6 +192,63 @@ export function createAppProjectBoardActions({
     if (applyProjectActionState(next)) setProjectBoardOpen(true);
   }
 
+  const {
+    answerProjectBoardSynthesisProposalQuestion,
+    applyProjectBoardSynthesisProposal,
+    deferProjectBoardSynthesisSections,
+    pauseProjectBoardSynthesis,
+    refineProjectBoardWithPi,
+    retryProjectBoardSynthesis,
+    reviewProjectBoardSynthesisProposalCard,
+  } = createAppProjectBoardSynthesisActions({
+    applyProjectBoardState,
+    setError,
+    setProjectBoardProposalAnswerBusy,
+    setProjectBoardProposalApplyBusy,
+    setProjectBoardProposalCardReviewBusy,
+    setProjectBoardRefineBusy,
+    setProjectBoardRefineMode,
+    setProjectBoardSynthesisDeferBusy,
+    setProjectBoardSynthesisPauseBusy,
+    setProjectBoardSynthesisRetryBusy,
+  });
+
+  const {
+    approveProjectBoardCard,
+    createReadyProjectBoardTasks,
+    recomputeProjectBoardProofCoverage,
+    resolveProjectBoardDeliverableIntegration,
+    resolveProjectBoardProofDecision,
+    resolveProjectBoardSplitDecision,
+    rerunProjectBoardProof,
+    splitProjectBoardCard,
+    suggestProjectBoardProof,
+  } = createAppProjectBoardProofActions({
+    applyProjectBoardState,
+    setError,
+  });
+
+  const {
+    applyProjectBoardDecisionImpactFeedback,
+    applyProjectBoardSourceImpactFeedback,
+    refreshProjectBoardDecisionDrafts,
+    refreshProjectBoardSourceDrafts,
+    refreshProjectBoardSources,
+    regenerateProjectBoardDecisionDrafts,
+    regenerateProjectBoardSourceDrafts,
+    resolveProjectBoardCardPiUpdate,
+    suggestProjectBoardClarificationDefaults,
+    suggestProjectBoardKickoffDefaults,
+    updateProjectBoardSource,
+  } = createAppProjectBoardDraftSourceActions({
+    applyProjectBoardState,
+    projectBoardKickoffDefaultsBusy,
+    setError,
+    setProjectBoardKickoffDefaultsBusy,
+    setProjectBoardSourceBusy,
+    setProjectBoardSourceImpactBusy,
+  });
+
   async function buildProjectBoard(project: ProjectSummary) {
     if (suppressesProjectBoard()) return;
     if (projectBoardBusyProjectIds.has(project.id)) return;
@@ -186,7 +260,7 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.createProjectBoard({ projectId: project.id });
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     } finally {
       setProjectBoardBusyProjectIds((current) => projectBoardBusyProjectIdsWith(current, project.id, false));
     }
@@ -211,7 +285,7 @@ export function createAppProjectBoardActions({
       applyProjectBoardState(next);
       setProjectBoardPlanPickerOpen(false);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     } finally {
       setProjectBoardPlanBusy(false);
     }
@@ -232,101 +306,7 @@ export function createAppProjectBoardActions({
       );
       if (updated.durableArtifactPath) previewArtifact(updated.durableArtifactPath);
     } catch (error) {
-      setError(errorMessage(error));
-    }
-  }
-
-  async function approveProjectBoardCard(card: ProjectBoardCard) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.approveProjectBoardCard({ cardId: card.id });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    }
-  }
-
-  async function resolveProjectBoardProofDecision(cardId: string, action: ProjectBoardProofDecisionAction, reason?: string) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.resolveProjectBoardProofDecision({ cardId, action, reason });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    }
-  }
-
-  async function rerunProjectBoardProof(input: RerunProjectBoardProofInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.rerunProjectBoardProof(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-      throw error;
-    }
-  }
-
-  async function resolveProjectBoardDeliverableIntegration(input: ResolveProjectBoardDeliverableIntegrationInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.resolveProjectBoardDeliverableIntegration(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-      throw error;
-    }
-  }
-
-  async function recomputeProjectBoardProofCoverage(input: RecomputeProjectBoardProofCoverageInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.recomputeProjectBoardProofCoverage(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-      throw error;
-    }
-  }
-
-  async function suggestProjectBoardProof(input: SuggestProjectBoardProofInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.suggestProjectBoardProof(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-      throw error;
-    }
-  }
-
-  async function resolveProjectBoardSplitDecision(cardId: string, action: ProjectBoardSplitDecisionAction) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.resolveProjectBoardSplitDecision({ cardId, action });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    }
-  }
-
-  async function createReadyProjectBoardTasks(input: CreateReadyProjectBoardTasksInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.createReadyProjectBoardTasks(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    }
-  }
-
-  async function splitProjectBoardCard(input: SplitProjectBoardCardInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.splitProjectBoardCard(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     }
   }
 
@@ -337,7 +317,7 @@ export function createAppProjectBoardActions({
       applyProjectBoardState(next);
       return next;
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
       return undefined;
     }
   }
@@ -349,7 +329,7 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.reviseProjectBoard({ boardId });
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     } finally {
       setProjectBoardRevisionBusy(false);
     }
@@ -361,7 +341,7 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.cancelProjectBoardRevision({ boardId });
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     }
   }
 
@@ -383,7 +363,7 @@ export function createAppProjectBoardActions({
       applyProjectBoardState(next);
       setProjectBoardResetDialog(undefined);
     } catch (error) {
-      const message = errorMessage(error);
+      const message = projectBoardActionErrorMessage(error);
       setProjectBoardResetDialog((current) => (current ? { ...current, busy: false, error: message } : current));
       setError(message);
     }
@@ -395,7 +375,7 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.attachProjectBoardLocalTask({ taskId, mode });
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     }
   }
 
@@ -405,7 +385,7 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.updateProjectBoardCardCandidate({ cardId: card.id, candidateStatus });
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     }
   }
 
@@ -415,7 +395,7 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.updateProjectBoardCard(input);
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     }
   }
 
@@ -425,7 +405,7 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.addProjectBoardCardRunFeedback(input);
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     }
   }
 
@@ -436,220 +416,8 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.copyProjectBoardSessionToThread(input);
       applyCreatedThreadState(next, previousWorkspacePath);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
       throw error;
-    }
-  }
-
-  async function suggestProjectBoardClarificationDefaults(input: SuggestProjectBoardClarificationDefaultsInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.suggestProjectBoardClarificationDefaults(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      const normalized = normalizedError(error);
-      setError(normalized.message);
-      throw normalized;
-    }
-  }
-
-  async function suggestProjectBoardKickoffDefaults(input: SuggestProjectBoardKickoffDefaultsInput) {
-    if (projectBoardKickoffDefaultsBusy) return;
-    setProjectBoardKickoffDefaultsBusy(true);
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.suggestProjectBoardKickoffDefaults(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      const normalized = normalizedError(error);
-      setError(normalized.message);
-      throw normalized;
-    } finally {
-      setProjectBoardKickoffDefaultsBusy(false);
-    }
-  }
-
-  async function applyProjectBoardDecisionImpactFeedback(input: ApplyProjectBoardDecisionImpactFeedbackInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.applyProjectBoardDecisionImpactFeedback(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      const normalized = normalizedError(error);
-      setError(normalized.message);
-      throw normalized;
-    }
-  }
-
-  async function refreshProjectBoardDecisionDrafts(input: RefreshProjectBoardDecisionDraftsInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.refreshProjectBoardDecisionDrafts(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      const normalized = normalizedError(error);
-      setError(normalized.message);
-      throw normalized;
-    }
-  }
-
-  async function regenerateProjectBoardDecisionDrafts(input: RegenerateProjectBoardDecisionDraftsInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.regenerateProjectBoardDecisionDrafts(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      const normalized = normalizedError(error);
-      setError(normalized.message);
-      throw normalized;
-    }
-  }
-
-  async function regenerateProjectBoardSourceDrafts(input: RegenerateProjectBoardSourceDraftsInput) {
-    setError(undefined);
-    setProjectBoardSourceImpactBusy(true);
-    try {
-      const next = await window.ambientDesktop.regenerateProjectBoardSourceDrafts(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      const normalized = normalizedError(error);
-      setError(normalized.message);
-      throw normalized;
-    } finally {
-      setProjectBoardSourceImpactBusy(false);
-    }
-  }
-
-  async function refreshProjectBoardSourceDrafts(input: RefreshProjectBoardSourceDraftsInput) {
-    setError(undefined);
-    setProjectBoardSourceImpactBusy(true);
-    try {
-      const next = await window.ambientDesktop.refreshProjectBoardSourceDrafts(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      const normalized = normalizedError(error);
-      setError(normalized.message);
-      throw normalized;
-    } finally {
-      setProjectBoardSourceImpactBusy(false);
-    }
-  }
-
-  async function applyProjectBoardSourceImpactFeedback(input: ApplyProjectBoardSourceImpactFeedbackInput) {
-    setError(undefined);
-    setProjectBoardSourceImpactBusy(true);
-    try {
-      const next = await window.ambientDesktop.applyProjectBoardSourceImpactFeedback(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      const normalized = normalizedError(error);
-      setError(normalized.message);
-      throw normalized;
-    } finally {
-      setProjectBoardSourceImpactBusy(false);
-    }
-  }
-
-  async function resolveProjectBoardCardPiUpdate(input: ResolveProjectBoardCardPiUpdateInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.resolveProjectBoardCardPiUpdate(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    }
-  }
-
-  async function refreshProjectBoardSources(boardId: string) {
-    setProjectBoardSourceBusy(true);
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.refreshProjectBoardSources({ boardId });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    } finally {
-      setProjectBoardSourceBusy(false);
-    }
-  }
-
-  async function refineProjectBoardWithPi(
-    boardId: string,
-    proposalId?: string,
-    input?: Pick<RefineProjectBoardSynthesisInput, "mode" | "sourceIds" | "objective">,
-  ) {
-    setProjectBoardRefineBusy(true);
-    setProjectBoardRefineMode(input?.mode ?? "charter_review");
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.refineProjectBoardSynthesis({ boardId, proposalId, ...input });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    } finally {
-      setProjectBoardRefineBusy(false);
-      setProjectBoardRefineMode(undefined);
-    }
-  }
-
-  async function answerProjectBoardSynthesisProposalQuestion(proposalId: string, questionIndex: number, answer: string) {
-    setProjectBoardProposalAnswerBusy(projectBoardProposalQuestionBusyKey(proposalId, questionIndex));
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.answerProjectBoardSynthesisProposalQuestion({ proposalId, questionIndex, answer });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    } finally {
-      setProjectBoardProposalAnswerBusy(undefined);
-    }
-  }
-
-  async function reviewProjectBoardSynthesisProposalCard(
-    proposalId: string,
-    sourceId: string,
-    reviewStatus: ProjectBoardSynthesisProposalCardReviewStatus,
-    reason?: string,
-    mergeTargetCardId?: string,
-  ) {
-    setProjectBoardProposalCardReviewBusy(projectBoardProposalCardReviewBusyKey(proposalId, sourceId));
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.reviewProjectBoardSynthesisProposalCard({
-        proposalId,
-        sourceId,
-        reviewStatus,
-        reason,
-        mergeTargetCardId,
-      });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    } finally {
-      setProjectBoardProposalCardReviewBusy(undefined);
-    }
-  }
-
-  async function applyProjectBoardSynthesisProposal(proposalId: string) {
-    setProjectBoardProposalApplyBusy(true);
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.applyProjectBoardSynthesisProposal({ proposalId, replaceExistingDraft: true });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    } finally {
-      setProjectBoardProposalApplyBusy(false);
-    }
-  }
-
-  async function updateProjectBoardSource(input: UpdateProjectBoardSourceInput) {
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.updateProjectBoardSource(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
     }
   }
 
@@ -659,7 +427,7 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.answerProjectBoardQuestion({ questionId: question.id, answer });
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     }
   }
 
@@ -670,52 +438,9 @@ export function createAppProjectBoardActions({
       const next = await window.ambientDesktop.finalizeProjectBoardKickoff({ boardId });
       applyProjectBoardState(next);
     } catch (error) {
-      setError(errorMessage(error));
+      setError(projectBoardActionErrorMessage(error));
     } finally {
       setProjectBoardFinalizeBusy(false);
-    }
-  }
-
-  async function retryProjectBoardSynthesis(input: RetryProjectBoardSynthesisInput) {
-    setProjectBoardSynthesisRetryBusy(true);
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.retryProjectBoardSynthesis(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    } finally {
-      setProjectBoardSynthesisRetryBusy(false);
-    }
-  }
-
-  async function pauseProjectBoardSynthesis(boardId: string, runId: string) {
-    setProjectBoardSynthesisPauseBusy(true);
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.pauseProjectBoardSynthesis({
-        boardId,
-        runId,
-        reason: projectBoardSynthesisPauseReason(),
-      });
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    } finally {
-      setProjectBoardSynthesisPauseBusy(false);
-    }
-  }
-
-  async function deferProjectBoardSynthesisSections(input: DeferProjectBoardSynthesisSectionsInput) {
-    setProjectBoardSynthesisDeferBusy(true);
-    setError(undefined);
-    try {
-      const next = await window.ambientDesktop.deferProjectBoardSynthesisSections(input);
-      applyProjectBoardState(next);
-    } catch (error) {
-      setError(errorMessage(error));
-    } finally {
-      setProjectBoardSynthesisDeferBusy(false);
     }
   }
 

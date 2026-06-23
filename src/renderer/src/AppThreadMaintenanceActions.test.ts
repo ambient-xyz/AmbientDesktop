@@ -1,18 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DesktopState } from "../../shared/desktopTypes";
-import type { RunStatus } from "../../shared/threadTypes";
+import type { ChatMessage, ExportChatResult, RunStatus } from "../../shared/threadTypes";
+import type { ApiKeyStatus } from "./RightPanel";
 import {
   COMPACT_CONTEXT_ACTIVITY,
   EXPORT_CHAT_CANCELED_STATUS,
   RECOVER_CONTEXT_ACTIVITY,
   canStartActiveThreadMaintenance,
   chatPdfExportStatusMessage,
+  createAppThreadMaintenanceActionsForApp,
+  type AppThreadMaintenanceActionsForAppInput,
   desktopStateWithContextUsage,
   threadRunStatusesWithStatus,
 } from "./AppThreadMaintenanceActions";
 
 describe("App thread maintenance actions", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("updates context usage without replacing sibling desktop state", () => {
     const state = {
       activeThreadId: "thread-1",
@@ -59,4 +66,122 @@ describe("App thread maintenance actions", () => {
       source: "visible-chat-pdf",
     })).toBe("Exported visible transcript PDF: debug-chat.pdf");
   });
+
+  it("maps App owner state into thread maintenance actions", async () => {
+    const state = desktopState();
+    const setState = stateSetter<DesktopState | undefined>(state);
+    const setChatExportBusy = stateSetter(false);
+    const setChatExportStatus = stateSetter<ApiKeyStatus | undefined>(undefined);
+    const setContextRecoveryBusy = stateSetter(false);
+    const setRunStatus = stateSetter<RunStatus>("idle");
+    const setThreadRunStatuses = stateSetter<Record<string, RunStatus>>({});
+    const applyProjectActionState = vi.fn();
+    const projectIdForWorkspacePath = vi.fn(() => "project-1");
+    const resetRunActivityLines = vi.fn();
+    const retryFailedPrompt = vi.fn(async () => undefined);
+    const setError = vi.fn();
+    const latestRecoveryPrompt = chatMessage({ id: "message-retry", content: "Retry this prompt" });
+    const exportedChat: ExportChatResult = {
+      path: "/tmp/thread-1.json",
+      bytes: 256,
+      createdAt: "2026-06-22T00:00:00.000Z",
+      source: "pi-session",
+    };
+    const forkedState = desktopState({ activeThreadId: "thread-copy" });
+    const recoveredContext = { percent: 18, diagnostics: { message: "Recovered" } } as DesktopState["contextUsage"];
+    const exportChat = vi.fn(async () => exportedChat);
+    const recoverThreadContext = vi.fn(async () => recoveredContext);
+    const forkThread = vi.fn(async () => forkedState);
+    vi.stubGlobal("window", {
+      ambientDesktop: {
+        exportChat,
+        forkThread,
+        recoverThreadContext,
+      },
+    });
+
+    const actions = createAppThreadMaintenanceActionsForApp({
+      appDesktopStateAppliers: { applyProjectActionState },
+      composerRetryActions: { retryFailedPrompt },
+      conversationDisplayModel: { latestRecoveryPrompt },
+      coreLifecycleControls: { resetRunActivityLines },
+      navigationActions: { projectIdForWorkspacePath },
+      runActivityState: {
+        setRunStatus: setRunStatus.set,
+        setThreadRunStatuses: setThreadRunStatuses.set,
+      },
+      running: false,
+      setState: setState.set,
+      shellUiState: { setError },
+      state,
+      workflowRuntimeState: {
+        chatExportBusy: false,
+        contextRecoveryBusy: false,
+        setChatExportBusy: setChatExportBusy.set,
+        setChatExportStatus: setChatExportStatus.set,
+        setContextRecoveryBusy: setContextRecoveryBusy.set,
+      },
+    });
+
+    await expect(actions.exportActiveChat()).resolves.toBe(exportedChat);
+    expect(exportChat).toHaveBeenCalledWith({ threadId: "thread-1" });
+    expect(setChatExportBusy.value).toBe(false);
+    expect(setChatExportStatus.value).toEqual({
+      kind: "success",
+      message: "Exported Pi session: thread-1.json",
+    });
+
+    await actions.recoverActiveThreadContextAndRetryLatest();
+    expect(setContextRecoveryBusy.value).toBe(false);
+    expect(resetRunActivityLines).toHaveBeenCalledWith(RECOVER_CONTEXT_ACTIVITY);
+    expect(recoverThreadContext).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      reason: "Nearly full",
+    });
+    expect(setState.value?.contextUsage).toEqual(recoveredContext);
+    expect(retryFailedPrompt).toHaveBeenCalledWith(latestRecoveryPrompt);
+
+    await actions.duplicateActiveThreadFromTranscript();
+    expect(projectIdForWorkspacePath).toHaveBeenCalledWith("/repo");
+    expect(forkThread).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      projectId: "project-1",
+      mode: "local",
+    });
+    expect(applyProjectActionState).toHaveBeenCalledWith(forkedState);
+    expect(setError).toHaveBeenCalledWith(undefined);
+  });
 });
+
+function stateSetter<T>(initialValue: T) {
+  let value = initialValue;
+  const set = vi.fn((next: T | ((current: T) => T)) => {
+    value = typeof next === "function" ? (next as (current: T) => T)(value) : next;
+  });
+  return {
+    get value() {
+      return value;
+    },
+    set,
+  };
+}
+
+function desktopState(overrides: Partial<DesktopState> = {}): DesktopState {
+  return {
+    activeThreadId: "thread-1",
+    contextUsage: { percent: 95, diagnostics: { message: "Nearly full" } },
+    workspace: { path: "/repo", name: "Repo" },
+    ...overrides,
+  } as unknown as DesktopState;
+}
+
+function chatMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    id: "message-1",
+    threadId: "thread-1",
+    role: "user",
+    content: "Run the build",
+    createdAt: "2026-06-22T00:00:00.000Z",
+    ...overrides,
+  };
+}

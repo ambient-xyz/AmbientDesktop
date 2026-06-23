@@ -5,6 +5,7 @@ import type { AppAppearance, DesktopState } from "../../shared/desktopTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   createAppShellCommandActions,
+  createAppShellCommandActionsForApp,
   createAppWorkflowComposerNavigation,
 } from "./AppShellCommandActions";
 import type { AutomationPane } from "./AutomationsWorkspace";
@@ -97,6 +98,41 @@ describe("AppShellCommandActions", () => {
     expect(controller.togglePanel).toHaveBeenCalledWith("terminal");
     expect(controller.openPanel).toHaveBeenCalledWith("performance");
     expect(controller.error.value).toBe("zip failed");
+  });
+
+  it("maps App owner state into shell command actions", async () => {
+    const controller = createForAppController();
+    controller.threadMaintenanceActions.exportDiagnostics.mockRejectedValueOnce(new Error("zip failed"));
+
+    await controller.actions.handleMenuCommand("new-chat");
+    await controller.actions.handleMenuCommand("open-folder");
+    await controller.actions.handleMenuCommand("toggle-sidebar");
+    await controller.actions.handleMenuCommand("toggle-terminal");
+    await controller.actions.handleMenuCommand("performance-trace");
+    await controller.actions.handleMenuCommand("export-diagnostics");
+
+    expect(controller.navigationActions.createThread).toHaveBeenCalledOnce();
+    expect(controller.navigationActions.openWorkspace).toHaveBeenCalledOnce();
+    expect(controller.sidebarOpen.value).toBe(false);
+    expect(controller.rightPanelState.togglePanel).toHaveBeenCalledWith("terminal");
+    expect(controller.rightPanelState.openPanel).toHaveBeenCalledWith("performance");
+    expect(controller.shellUiState.error.value).toBe("zip failed");
+
+    await controller.actions.commandItems().find((item) => item.id === "api-key")?.run();
+    await controller.actions.commandItems().find((item) => item.id === "mcp-runtime-settings")?.run();
+    await controller.actions.commandItems().find((item) => item.id === "automations")?.run();
+    await controller.actions.commandItems().find((item) => item.id === "compact")?.run();
+
+    expect(controller.credentialDialogActions.openApiKeyDialog).toHaveBeenCalledOnce();
+    expect(controller.rightPanelState.openMcpRuntimeSettings).toHaveBeenCalledOnce();
+    expect(controller.navigationActions.openWorkflowRecordingsArea).toHaveBeenCalledOnce();
+    expect(controller.threadMaintenanceActions.compactActiveThread).toHaveBeenCalledOnce();
+
+    controller.actions.openMediaPreviewModal("/tmp/screenshot.png", "image");
+    expect(controller.shellUiState.mediaPreviewModal.value).toEqual({
+      path: "/tmp/screenshot.png",
+      mediaKind: "image",
+    });
   });
 
   it("closes the palette and runs the selected command", async () => {
@@ -240,6 +276,76 @@ function createController({ state: initialState = undefined }: { state?: Desktop
     state,
     togglePanel,
     workflowRecorderReviewPanelWidth,
+  };
+}
+
+function createForAppController({ state: initialState = desktopState() }: { state?: DesktopState } = {}) {
+  const state = statefulSetter<DesktopState | undefined>(initialState);
+  const commandPaletteOpen = statefulSetter(false);
+  const commandPaletteQuery = statefulSetter("");
+  const error = statefulSetter<string | undefined>(undefined);
+  const mediaPreviewModal = statefulSetter<{ path: string; mediaKind: "image" | "video" } | undefined>(undefined);
+  const rightPanelWidth = statefulSetter(520);
+  const sidebarOpen = statefulSetter(true);
+  const sidebarWidth = statefulSetter(280);
+  const workflowRecorderReviewPanelWidth = statefulSetter(420);
+  const credentialDialogActions = {
+    openApiKeyDialog: vi.fn(),
+  };
+  const navigationActions = {
+    createThread: vi.fn(),
+    openWorkflowLabArea: vi.fn(),
+    openWorkflowRecordingsArea: vi.fn(),
+    openWorkspace: vi.fn(),
+  };
+  const rightPanelState = {
+    openMcpRuntimeSettings: vi.fn(),
+    openPanel: vi.fn(),
+    rightPanel: "browser" as UtilityPanel | undefined,
+    setRightPanelWidth: rightPanelWidth.set,
+    togglePanel: vi.fn(),
+  };
+  const shellUiState = {
+    commandPaletteOpen,
+    commandPaletteQuery,
+    error,
+    mediaPreviewModal,
+    setCommandPaletteOpen: commandPaletteOpen.set,
+    setCommandPaletteQuery: commandPaletteQuery.set,
+    setError: error.set,
+    setMediaPreviewModal: mediaPreviewModal.set,
+    setSidebarOpen: sidebarOpen.set,
+    setSidebarWidth: sidebarWidth.set,
+    setWorkflowRecorderReviewPanelWidth: workflowRecorderReviewPanelWidth.set,
+    sidebarOpen: sidebarOpen.value,
+    sidebarWidth,
+    workflowRecorderReviewPanelWidth,
+  };
+  const threadMaintenanceActions = {
+    compactActiveThread: vi.fn(),
+    exportActiveChat: vi.fn(),
+    exportDiagnostics: vi.fn(),
+    recoverActiveThreadContext: vi.fn(),
+  };
+
+  return {
+    actions: createAppShellCommandActionsForApp({
+      credentialDialogActions,
+      navigationActions,
+      rightPanelState,
+      setState: state.set,
+      shellUiState,
+      state: state.value,
+      threadMaintenanceActions,
+      workflowRecorderNavLabel: "Automations",
+    }),
+    credentialDialogActions,
+    navigationActions,
+    rightPanelState,
+    sidebarOpen,
+    shellUiState,
+    state,
+    threadMaintenanceActions,
   };
 }
 

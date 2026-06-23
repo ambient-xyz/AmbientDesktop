@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { providerCatalogSettingsState } from "../../main/provider/providerCatalog";
 import type { ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
-import type { AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilitySummary, AmbientPluginAppAuthSummary, AmbientPluginCapabilitySummary, AmbientPluginRegistry, AmbientPluginSummary, CapabilityBuilderHistoryEntry, CodexPluginSummary, FirstPartyGoogleIntegrationState } from "../../shared/pluginTypes";
+import type { AmbientMcpContainerRuntimeLifecyclePreview, AmbientMcpContainerRuntimeLifecycleProgress, AmbientMcpContainerRuntimeLifecycleResult, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilitySummary, AmbientPluginAppAuthSummary, AmbientPluginCapabilitySummary, AmbientPluginRegistry, AmbientPluginSummary, CapabilityBuilderHistoryEntry, CodexPluginSummary, FirstPartyGoogleIntegrationState } from "../../shared/pluginTypes";
 import {
   buildCapabilityBuilderPrompt,
   buildFirstRunCapabilityOnboardingPrompt,
@@ -47,6 +47,13 @@ import {
   mcpContainerRuntimeDetailRows,
   mcpContainerRuntimeDiagnosticsActionState,
   mcpContainerRuntimeInstallActionViews,
+  mcpContainerRuntimeLifecycleActionViews,
+  mcpContainerRuntimeLifecycleCommandPreview,
+  mcpContainerRuntimeLifecycleForceWarningText,
+  mcpContainerRuntimeLifecyclePreviewRows,
+  mcpContainerRuntimeLifecycleRunActionState,
+  mcpContainerRuntimeLifecycleStatusView,
+  mcpContainerRuntimeLifecycleWarnings,
   mcpContainerRuntimePrimaryActionLabel,
   mcpContainerRuntimeSetupResumeRows,
   mcpContainerRuntimeShouldOpenStartupPanel,
@@ -1927,6 +1934,147 @@ describe("plugin UI model", () => {
         title: expect.stringContaining("Commands: brew install --cask podman-desktop"),
       }),
     ]);
+  });
+
+  it("models MCP runtime lifecycle restart controls", () => {
+    const wedgedStatus: AmbientMcpContainerRuntimeStatus = {
+      schemaVersion: "ambient-container-runtime-probe-v1",
+      status: "installed-not-running",
+      runtime: "docker",
+      reason: "desktop-app-not-responding",
+      platform: "darwin",
+      arch: "arm64",
+      checkedAt: "2026-05-23T20:10:00.000Z",
+      durationMs: 12,
+      message: "Docker Desktop is installed but not responding.",
+      nextAction: "start-runtime",
+      toolHive: {
+        status: "ready",
+        message: "ToolHive is ready.",
+      },
+      hosts: [
+        {
+          kind: "docker",
+          status: "installed-not-running",
+          reason: "desktop-app-not-responding",
+          message: "Docker Desktop did not respond to probe.",
+        },
+      ],
+      setup: {
+        userDecision: "none",
+        shouldPrompt: false,
+        promptSuppressed: false,
+        reason: "runtime-not-missing",
+      },
+      postInstallQueue: [],
+      defaultCapabilities: [],
+    };
+
+    expect(mcpContainerRuntimeLifecycleActionViews(undefined)).toEqual([]);
+    expect(mcpContainerRuntimeLifecycleActionViews({ ...wedgedStatus, status: "ready", nextAction: "none" })).toEqual([]);
+    expect(mcpContainerRuntimeLifecycleActionViews({ ...wedgedStatus, status: "missing", nextAction: "install-runtime" })).toEqual([]);
+
+    const actions = mcpContainerRuntimeLifecycleActionViews(wedgedStatus);
+    expect(actions).toEqual([
+      expect.objectContaining({ action: "restart", label: "Preview restart", primary: true, danger: false, disabled: false }),
+      expect.objectContaining({ action: "force-quit-and-restart", label: "Preview force quit", primary: false, danger: true, disabled: false }),
+      expect.objectContaining({ action: "open-recovery", label: "Preview recovery", primary: false, danger: false, disabled: false }),
+    ]);
+    expect(actions[1]?.title).toContain("including non-Ambient containers");
+    expect(mcpContainerRuntimeLifecycleActionViews(wedgedStatus, { busyKey: "preview:restart" })).toEqual([
+      expect.objectContaining({ action: "restart", label: "Previewing", disabled: true }),
+      expect.objectContaining({ action: "force-quit-and-restart", disabled: true }),
+      expect.objectContaining({ action: "open-recovery", disabled: true }),
+    ]);
+    expect(mcpContainerRuntimeLifecycleActionViews({
+      ...wedgedStatus,
+      status: "blocked-by-permissions",
+      reason: "permission-denied",
+      nextAction: "repair-permissions",
+    }).map((action) => action.action)).toEqual(["open-recovery"]);
+  });
+
+  it("models MCP runtime lifecycle preview, confirmation, progress, and result status", () => {
+    const preview: AmbientMcpContainerRuntimeLifecyclePreview = {
+      schemaVersion: "ambient-container-runtime-lifecycle-preview-v1",
+      previewId: "docker:force-quit-and-restart:desktop-app-not-responding:darwin",
+      action: "force-quit-and-restart",
+      runtime: "docker",
+      platform: "darwin",
+      status: "available",
+      reason: "desktop-app-not-responding",
+      summary: "Force quit Docker Desktop, relaunch it, and poll ToolHive until the runtime is ready.",
+      requiresConfirmation: true,
+      warnings: ["Force quit may terminate Docker Desktop before it can stop containers cleanly."],
+      targets: [
+        {
+          kind: "process",
+          runtime: "docker",
+          label: "Docker Desktop process",
+          identifier: "Docker",
+          platform: "darwin",
+          verified: true,
+          reason: "Allowlisted Docker Desktop process identity for force quit.",
+        },
+      ],
+      commands: [
+        {
+          exe: "osascript",
+          args: ["-e", "tell application \"Docker\" to quit"],
+          rationale: "Ask Docker Desktop to quit.",
+          destructive: true,
+        },
+      ],
+      expectedInterruption: "Restarting Docker can interrupt all containers using that runtime, including non-Ambient containers.",
+      createdAt: "2026-05-23T20:10:00.000Z",
+    };
+    const progress: AmbientMcpContainerRuntimeLifecycleProgress = {
+      schemaVersion: "ambient-container-runtime-lifecycle-progress-v1",
+      action: "force-quit-and-restart",
+      runtime: "docker",
+      phase: "force-stop-started",
+      status: "running",
+      message: "Force quitting Docker Desktop.",
+      recordedAt: "2026-05-23T20:10:01.000Z",
+    };
+    const result: AmbientMcpContainerRuntimeLifecycleResult = {
+      schemaVersion: "ambient-container-runtime-lifecycle-result-v1",
+      action: "force-quit-and-restart",
+      runtime: "docker",
+      status: "ready",
+      reason: "none",
+      message: "Docker restart completed and ToolHive preflight is ready.",
+      preview,
+      progress: [progress],
+      logPath: "/tmp/ambient/mcp-container-runtime/restart.json",
+      durationMs: 1200,
+    };
+
+    expect(mcpContainerRuntimeLifecyclePreviewRows(preview)).toEqual(expect.arrayContaining([
+      "Action: Force Quit And Restart",
+      "Runtime: Docker",
+      "Interruption: Restarting Docker can interrupt all containers using that runtime, including non-Ambient containers.",
+      "Targets: 1",
+      "Commands: 1",
+    ]));
+    expect(mcpContainerRuntimeLifecycleWarnings(preview)).toEqual([
+      mcpContainerRuntimeLifecycleForceWarningText,
+      "Force quit may terminate Docker Desktop before it can stop containers cleanly.",
+    ]);
+    expect(mcpContainerRuntimeLifecycleCommandPreview(preview.commands[0]!)).toBe("osascript -e tell application \"Docker\" to quit");
+    expect(mcpContainerRuntimeLifecycleRunActionState(preview)).toMatchObject({
+      label: "Confirm force quit and restart",
+      disabled: false,
+      danger: true,
+      title: mcpContainerRuntimeLifecycleForceWarningText,
+    });
+    expect(mcpContainerRuntimeLifecycleRunActionState({ ...preview, status: "blocked" })).toMatchObject({
+      disabled: true,
+    });
+    expect(mcpContainerRuntimeLifecycleStatusView({ preview })).toEqual({ kind: "info", message: preview.summary });
+    expect(mcpContainerRuntimeLifecycleStatusView({ progress })).toEqual({ kind: "info", message: progress.message });
+    expect(mcpContainerRuntimeLifecycleStatusView({ result })).toEqual({ kind: "success", message: result.message });
+    expect(mcpContainerRuntimeLifecycleStatusView({ error: "Lifecycle IPC failed" })).toEqual({ kind: "error", message: "Lifecycle IPC failed" });
   });
 
   it("models preserved generated capability history actions and prompts", () => {

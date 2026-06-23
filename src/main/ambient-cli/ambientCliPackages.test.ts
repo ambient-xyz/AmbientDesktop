@@ -113,7 +113,11 @@ describe("Ambient CLI packages", () => {
       expect(result.idleTimeoutMs).toBe(120_000);
 
       const executionWorkspace = await mkdtemp(join(tmpdir(), "ambient-cli-execution-workspace-"));
-      await writeFile(join(executionWorkspace, "payload.json"), `${JSON.stringify({ message: "hello from execution workspace" })}\n`, "utf8");
+      await writeFile(
+        join(executionWorkspace, "payload.json"),
+        `${JSON.stringify({ message: "hello from execution workspace" })}\n`,
+        "utf8",
+      );
       const executionResult = await runAmbientCliPackageCommand(workspace, {
         packageName: "ambient-json-cli",
         command: "json-pick",
@@ -828,18 +832,23 @@ describe("Ambient CLI packages", () => {
         }),
       ]);
 
-      const search = await searchAmbientCliCapabilities(workspace, { query: "deterministic title card authored motion video mp4", limit: 5 });
-      expect(search.results).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          packageName: "ambient-hyperframes",
-          availability: "available",
-          commands: expect.arrayContaining([
-            expect.objectContaining({ name: "hyperframes_doctor", health: "passed" }),
-            expect.objectContaining({ name: "hyperframes_render", health: "passed" }),
-          ]),
-          skills: [expect.objectContaining({ name: "hyperframes" })],
-        }),
-      ]));
+      const search = await searchAmbientCliCapabilities(workspace, {
+        query: "deterministic title card authored motion video mp4",
+        limit: 5,
+      });
+      expect(search.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            packageName: "ambient-hyperframes",
+            availability: "available",
+            commands: expect.arrayContaining([
+              expect.objectContaining({ name: "hyperframes_doctor", health: "passed" }),
+              expect.objectContaining({ name: "hyperframes_render", health: "passed" }),
+            ]),
+            skills: [expect.objectContaining({ name: "hyperframes" })],
+          }),
+        ]),
+      );
 
       const description = await describeAmbientCliPackage(workspace, {
         packageName: "ambient-hyperframes",
@@ -920,18 +929,23 @@ describe("Ambient CLI packages", () => {
         }),
       ]);
 
-      const search = await searchAmbientCliCapabilities(workspace, { query: "Google Nano Banana Pro Flux OpenAI hosted image generation", limit: 5 });
-      expect(search.results).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          packageName: "ambient-imagegen",
-          availability: "available",
-          commands: expect.arrayContaining([
-            expect.objectContaining({ name: "hosted_image_doctor", health: "passed" }),
-            expect.objectContaining({ name: "hosted_image_generate", health: "passed" }),
-          ]),
-          skills: [expect.objectContaining({ name: "ambient-imagegen" })],
-        }),
-      ]));
+      const search = await searchAmbientCliCapabilities(workspace, {
+        query: "Google Nano Banana Pro Flux OpenAI hosted image generation",
+        limit: 5,
+      });
+      expect(search.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            packageName: "ambient-imagegen",
+            availability: "available",
+            commands: expect.arrayContaining([
+              expect.objectContaining({ name: "hosted_image_doctor", health: "passed" }),
+              expect.objectContaining({ name: "hosted_image_generate", health: "passed" }),
+            ]),
+            skills: [expect.objectContaining({ name: "ambient-imagegen" })],
+          }),
+        ]),
+      );
 
       const description = await describeAmbientCliPackage(workspace, {
         packageName: "ambient-imagegen",
@@ -941,14 +955,16 @@ describe("Ambient CLI packages", () => {
         name: "ambient-imagegen",
         availability: "available",
       });
-      expect(description.env.map((env) => env.name)).toEqual(expect.arrayContaining([
-        "OPENAI_API_KEY",
-        "GEMINI_API_KEY",
-        "FAL_KEY",
-        "REPLICATE_API_TOKEN",
-        "STABILITY_API_KEY",
-        "IDEOGRAM_API_KEY",
-      ]));
+      expect(description.env.map((env) => env.name)).toEqual(
+        expect.arrayContaining([
+          "OPENAI_API_KEY",
+          "GEMINI_API_KEY",
+          "FAL_KEY",
+          "REPLICATE_API_TOKEN",
+          "STABILITY_API_KEY",
+          "IDEOGRAM_API_KEY",
+        ]),
+      );
       expect(description.skills[0]?.text).toContain("Google Nano Banana Pro");
 
       const doctor = await runAmbientCliPackageCommand(workspace, {
@@ -1050,16 +1066,20 @@ describe("Ambient CLI packages", () => {
       const shadowRoot = join(workspace, "shadow-launch-cwd");
       const shadowPackageRoot = join(shadowRoot, "resources", "ambient-cli-packages", "ambient-tinystyler");
       await mkdir(shadowPackageRoot, { recursive: true });
-      await writeFile(join(shadowPackageRoot, "ambient-cli.json"), JSON.stringify({
-        name: "ambient-tinystyler-shadow",
-        version: "9.9.9",
-        commands: {
-          shadow: {
-            command: "python3",
-            args: ["-c", "raise SystemExit(99)"],
+      await writeFile(
+        join(shadowPackageRoot, "ambient-cli.json"),
+        JSON.stringify({
+          name: "ambient-tinystyler-shadow",
+          version: "9.9.9",
+          commands: {
+            shadow: {
+              command: "python3",
+              args: ["-c", "raise SystemExit(99)"],
+            },
           },
-        },
-      }), "utf8");
+        }),
+        "utf8",
+      );
       process.env.PWD = shadowRoot;
 
       const preview = await previewAmbientCliPackageInstallSource(workspace, {
@@ -1080,7 +1100,10 @@ describe("Ambient CLI packages", () => {
         installed: true,
       });
 
-      const search = await searchAmbientCliCapabilities(workspace, { query: "TinyStyler writing style transfer profile examples", limit: 5 });
+      const search = await searchAmbientCliCapabilities(workspace, {
+        query: "TinyStyler writing style transfer profile examples",
+        limit: 5,
+      });
       const tinystylerSearch = search.results.find((result) => result.packageName === "ambient-tinystyler");
       expect(tinystylerSearch).toMatchObject({
         packageName: "ambient-tinystyler",
@@ -1136,7 +1159,18 @@ describe("Ambient CLI packages", () => {
       const profile = await runAmbientCliPackageCommand(workspace, {
         packageName: "ambient-tinystyler",
         command: "tinystyler_profile",
-        args: ["--examples-file", examplesPath, "--output-profile", profilePath, "--profile-name", "support-replies", "--seed", "11", "--fake", "--json"],
+        args: [
+          "--examples-file",
+          examplesPath,
+          "--output-profile",
+          profilePath,
+          "--profile-name",
+          "support-replies",
+          "--seed",
+          "11",
+          "--fake",
+          "--json",
+        ],
       });
       expect(JSON.parse(profile.stdout ?? "{}")).toMatchObject({
         packageName: "ambient-tinystyler",
@@ -1185,11 +1219,14 @@ describe("Ambient CLI packages", () => {
       process.env.AMBIENT_MINICPM_V_LLAMA_SERVER = join(workspace, "missing-llama-server");
       const healthStateDir = join(workspace, ".ambient", "vision", "minicpm-v", "state");
       await mkdir(healthStateDir, { recursive: true });
-      await writeFile(join(healthStateDir, "server-state.json"), `${JSON.stringify({
-        status: "stopped",
-        previousPid: 31337,
-        stoppedAt: "2026-06-12T00:00:00.000Z",
-      })}\n`);
+      await writeFile(
+        join(healthStateDir, "server-state.json"),
+        `${JSON.stringify({
+          status: "stopped",
+          previousPid: 31337,
+          stoppedAt: "2026-06-12T00:00:00.000Z",
+        })}\n`,
+      );
       const statuses = await ensureFirstPartyAmbientCliPackages(workspace, {
         packageNames: ["ambient-minicpm-v-vision"],
         bundledPackageRootPath: join(process.cwd(), "resources", "ambient-cli-packages"),
@@ -1218,7 +1255,7 @@ describe("Ambient CLI packages", () => {
       const statusHealth = minicpm?.healthChecks?.find((check) => check.commandName === "minicpm_vision_status");
       const statusHealthText = statusHealth?.stdoutOutput?.artifactPath
         ? await readFile(join(workspace, statusHealth.stdoutOutput.artifactPath), "utf8")
-        : statusHealth?.stdout ?? "{}";
+        : (statusHealth?.stdout ?? "{}");
       expect(JSON.parse(statusHealthText).server).toMatchObject({
         previousPid: 31337,
         stoppedAt: "2026-06-12T00:00:00.000Z",
@@ -1259,7 +1296,7 @@ describe("Ambient CLI packages", () => {
         expect.objectContaining({ basename: "screen.png" }),
         expect.objectContaining({ basename: "reference.png" }),
       ]);
-      await expect(readFile(comparisonJson, "utf8")).resolves.toContain("\"images\"");
+      await expect(readFile(comparisonJson, "utf8")).resolves.toContain('"images"');
     } finally {
       if (previousFakeAnalysis === undefined) {
         delete process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
@@ -1356,8 +1393,14 @@ describe("Ambient CLI packages", () => {
         )}\n`,
         "utf8",
       );
-      await writeFile(join(workspace, ".ambient", "cli-packages", "imported", "voice-fixture", "SKILL.md"), "---\nname: ambient-broken-tts\n---\n");
-      await writeFile(join(workspace, ".ambient", "cli-packages", "packages.json"), `${JSON.stringify({ packages: [{ source }] }, null, 2)}\n`);
+      await writeFile(
+        join(workspace, ".ambient", "cli-packages", "imported", "voice-fixture", "SKILL.md"),
+        "---\nname: ambient-broken-tts\n---\n",
+      );
+      await writeFile(
+        join(workspace, ".ambient", "cli-packages", "packages.json"),
+        `${JSON.stringify({ packages: [{ source }] }, null, 2)}\n`,
+      );
 
       const providers = await discoverAmbientCliVoiceProviders(workspace);
       expect(providers).toEqual([
@@ -1371,7 +1414,9 @@ describe("Ambient CLI packages", () => {
             healthStatus: "failed",
             healthCommand: ["node", "-e", "throw new Error('model file missing')"],
             healthError: expect.stringContaining("model file missing"),
-            missingHints: expect.arrayContaining(["Verify model files are downloaded and descriptor paths point at the repaired model location."]),
+            missingHints: expect.arrayContaining([
+              "Verify model files are downloaded and descriptor paths point at the repaired model location.",
+            ]),
           }),
         }),
       ]);
@@ -1456,8 +1501,14 @@ describe("Ambient CLI packages", () => {
         )}\n`,
         "utf8",
       );
-      await writeFile(join(workspace, ".ambient", "cli-packages", "imported", "voice-runtime-fixture", "SKILL.md"), "---\nname: ambient-piper-runtime\n---\n");
-      await writeFile(join(workspace, ".ambient", "cli-packages", "packages.json"), `${JSON.stringify({ packages: [{ source }] }, null, 2)}\n`);
+      await writeFile(
+        join(workspace, ".ambient", "cli-packages", "imported", "voice-runtime-fixture", "SKILL.md"),
+        "---\nname: ambient-piper-runtime\n---\n",
+      );
+      await writeFile(
+        join(workspace, ".ambient", "cli-packages", "packages.json"),
+        `${JSON.stringify({ packages: [{ source }] }, null, 2)}\n`,
+      );
 
       const providers = await discoverAmbientCliVoiceProviders(workspace);
       expect(providers).toEqual([
@@ -1553,7 +1604,10 @@ describe("Ambient CLI packages", () => {
         "utf8",
       );
       await writeFile(join(root, "SKILL.md"), "---\nname: ambient-piper-runtime\n---\n");
-      await writeFile(join(workspace, ".ambient", "cli-packages", "packages.json"), `${JSON.stringify({ packages: [{ source }] }, null, 2)}\n`);
+      await writeFile(
+        join(workspace, ".ambient", "cli-packages", "packages.json"),
+        `${JSON.stringify({ packages: [{ source }] }, null, 2)}\n`,
+      );
 
       const providers = await discoverAmbientCliVoiceProviders(workspace);
       expect(providers[0]).toMatchObject({
@@ -1638,8 +1692,14 @@ describe("Ambient CLI packages", () => {
         )}\n`,
         "utf8",
       );
-      await writeFile(join(workspace, ".ambient", "cli-packages", "imported", "embedding-runtime-fixture", "SKILL.md"), "---\nname: ambient-bge-embeddings\n---\n");
-      await writeFile(join(workspace, ".ambient", "cli-packages", "packages.json"), `${JSON.stringify({ packages: [{ source }] }, null, 2)}\n`);
+      await writeFile(
+        join(workspace, ".ambient", "cli-packages", "imported", "embedding-runtime-fixture", "SKILL.md"),
+        "---\nname: ambient-bge-embeddings\n---\n",
+      );
+      await writeFile(
+        join(workspace, ".ambient", "cli-packages", "packages.json"),
+        `${JSON.stringify({ packages: [{ source }] }, null, 2)}\n`,
+      );
 
       const providers = await discoverAmbientCliEmbeddingProviders(workspace);
       expect(providers).toEqual([
@@ -1689,213 +1749,235 @@ describe("Ambient CLI packages", () => {
     }
   });
 
-  itLivePiCatalog("installs pi-arxiv from a Pi catalog URL and runs a real arXiv lookup", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-pi-catalog-"));
-    try {
-      const source = "https://pi.dev/packages/pi-arxiv?name=arxiv";
-      const preview = await previewAmbientCliPackagePiCatalogSource(workspace, source);
-      expect(preview.installable).toBe(true);
-      expect(preview.resolution).toMatchObject({
-        npmPackageName: "pi-arxiv",
-        repositoryUrl: "https://github.com/nicehiro/dotfiles",
-        repositoryDirectory: ".pi/agent/extensions/arxiv",
-        adapter: "pi-arxiv",
-      });
-      const installed = await installAmbientCliPackagePiCatalogSource(workspace, source);
-      expect(installed).toMatchObject({
-        name: "pi-arxiv",
-        commands: [expect.objectContaining({ name: "arxiv_search" }), expect.objectContaining({ name: "arxiv_paper" })],
-      });
-      const result = await runAmbientCliPackageCommand(workspace, {
-        packageName: "pi-arxiv",
-        command: "arxiv_paper",
-        args: ["2303.04137"],
-      });
-      expect(result.stdout).toMatch(/\b\d{4}\.\d{4,5}(v\d+)?\b/);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  }, 180_000);
-
-  itLivePiCatalog("installs youtube-transcript from badlogic pi-skills and runs a real transcript lookup", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-youtube-transcript-"));
-    try {
-      const source = "https://github.com/badlogic/pi-skills/blob/main/youtube-transcript/SKILL.md";
-      const preview = await previewAmbientCliPackagePiCatalogSource(workspace, source);
-      expect(preview).toMatchObject({
-        installable: true,
-        resolution: expect.objectContaining({
-          npmPackageName: "youtube-transcript",
-          repositoryUrl: "https://github.com/badlogic/pi-skills",
-          repositoryDirectory: "youtube-transcript",
-          adapter: "youtube-transcript",
-          installDependencies: true,
-        }),
-      });
-      const installed = await installAmbientCliPackagePiCatalogSource(workspace, source);
-      expect(installed).toMatchObject({
-        name: "youtube-transcript",
-        commands: [expect.objectContaining({ name: "youtube_transcript" })],
-        skills: [expect.objectContaining({ name: "youtube-transcript" })],
-      });
-      const result = await runAmbientCliPackageCommand(workspace, {
-        packageName: "youtube-transcript",
-        command: "youtube_transcript",
-        args: ["EBw7gsDPAYQ"],
-      });
-      expect(result.stdout).toMatch(/\[\d+:\d{2}\]\s+\S+/);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  }, 180_000);
-
-  itLivePiCatalog("installs brave-search from badlogic pi-skills and runs a real Brave query through an Ambient-managed secret binding", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-brave-search-pi-"));
-    try {
-      const source = "https://github.com/badlogic/pi-skills/blob/main/brave-search/SKILL.md";
-      const preview = await previewAmbientCliPackagePiCatalogSource(workspace, source);
-      expect(preview).toMatchObject({
-        installable: true,
-        resolution: expect.objectContaining({
-          npmPackageName: "brave-search",
-          repositoryUrl: "https://github.com/badlogic/pi-skills",
-          repositoryDirectory: "brave-search",
-          adapter: "brave-search",
-        }),
-      });
-      const installed = await installAmbientCliPackagePiCatalogSource(workspace, source);
-      expect(installed).toMatchObject({
-        name: "brave-search",
-        commands: [expect.objectContaining({ name: "search" })],
-        skills: [expect.objectContaining({ name: "brave-search" })],
-      });
-
-      const braveKey = await readTestSecret("BRAVE_API_KEY", "brave_api_key.txt");
-      await writeFile(join(workspace, "brave_api_key.txt"), `${braveKey}\n`, { encoding: "utf8", mode: 0o600 });
-      await expect(
-        setAmbientCliPackageEnvBinding(workspace, {
-          packageName: "brave-search",
-          envName: "BRAVE_API_KEY",
-          filePath: "./brave_api_key.txt",
-        }),
-      ).resolves.toMatchObject({ configured: true, source: "file" });
-
-      const result = await runAmbientCliPackageCommand(workspace, {
-        packageName: "brave-search",
-        command: "search",
-        args: ["Ambient Desktop install routing", "-n", "1"],
-      });
-      const parsed = JSON.parse(result.stdout ?? "");
-      expect(parsed).toMatchObject({
-        provider: "brave-search",
-        host: "api.search.brave.com",
-        query: "Ambient Desktop install routing",
-      });
-      expect(parsed.resultCount).toBeGreaterThanOrEqual(1);
-      expect(result.stdout).not.toContain(braveKey);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  }, 180_000);
-
-  itLivePiCatalog("ensures first-party Ambient CLI packages are installed for lazy discovery", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-first-party-"));
-    try {
-      await expect(discoverAmbientCliPackages(workspace)).resolves.toMatchObject({ packages: [] });
-      const statuses = await ensureFirstPartyAmbientCliPackages(workspace);
-      expect(statuses).toEqual([
-        expect.objectContaining({
-          packageName: "youtube-transcript",
-          status: "installed",
-        }),
-        expect.objectContaining({
-          packageName: "brave-search",
-          status: "installed",
-        }),
-        expect.objectContaining({
+  itLivePiCatalog(
+    "installs pi-arxiv from a Pi catalog URL and runs a real arXiv lookup",
+    async () => {
+      const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-pi-catalog-"));
+      try {
+        const source = "https://pi.dev/packages/pi-arxiv?name=arxiv";
+        const preview = await previewAmbientCliPackagePiCatalogSource(workspace, source);
+        expect(preview.installable).toBe(true);
+        expect(preview.resolution).toMatchObject({
+          npmPackageName: "pi-arxiv",
+          repositoryUrl: "https://github.com/nicehiro/dotfiles",
+          repositoryDirectory: ".pi/agent/extensions/arxiv",
+          adapter: "pi-arxiv",
+        });
+        const installed = await installAmbientCliPackagePiCatalogSource(workspace, source);
+        expect(installed).toMatchObject({
+          name: "pi-arxiv",
+          commands: [expect.objectContaining({ name: "arxiv_search" }), expect.objectContaining({ name: "arxiv_paper" })],
+        });
+        const result = await runAmbientCliPackageCommand(workspace, {
           packageName: "pi-arxiv",
-          status: "installed",
-        }),
-        expect.objectContaining({
-          packageName: "ambient-qwen3-asr",
-          status: "installed",
-        }),
-        expect.objectContaining({
-          packageName: "ambient-faster-whisper-stt",
-          status: "installed",
-        }),
-        expect.objectContaining({
-          packageName: "ambient-hyperframes",
-          status: "installed",
-        }),
-        expect.objectContaining({
-          packageName: "ambient-imagegen",
-          status: "installed",
-        }),
-      ]);
+          command: "arxiv_paper",
+          args: ["2303.04137"],
+        });
+        expect(result.stdout).toMatch(/\b\d{4}\.\d{4,5}(v\d+)?\b/);
+      } finally {
+        await rm(workspace, { recursive: true, force: true });
+      }
+    },
+    180_000,
+  );
 
-      const youtubeSearch = await searchAmbientCliCapabilities(workspace, { query: "youtube video transcript captions", limit: 5 });
-      expect(youtubeSearch.results).toEqual(expect.arrayContaining([
-        expect.objectContaining({
+  itLivePiCatalog(
+    "installs youtube-transcript from badlogic pi-skills and runs a real transcript lookup",
+    async () => {
+      const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-youtube-transcript-"));
+      try {
+        const source = "https://github.com/badlogic/pi-skills/blob/main/youtube-transcript/SKILL.md";
+        const preview = await previewAmbientCliPackagePiCatalogSource(workspace, source);
+        expect(preview).toMatchObject({
+          installable: true,
+          resolution: expect.objectContaining({
+            npmPackageName: "youtube-transcript",
+            repositoryUrl: "https://github.com/badlogic/pi-skills",
+            repositoryDirectory: "youtube-transcript",
+            adapter: "youtube-transcript",
+            installDependencies: true,
+          }),
+        });
+        const installed = await installAmbientCliPackagePiCatalogSource(workspace, source);
+        expect(installed).toMatchObject({
+          name: "youtube-transcript",
+          commands: [expect.objectContaining({ name: "youtube_transcript" })],
+          skills: [expect.objectContaining({ name: "youtube-transcript" })],
+        });
+        const result = await runAmbientCliPackageCommand(workspace, {
           packageName: "youtube-transcript",
-          commands: [expect.objectContaining({ name: "youtube_transcript", health: "passed" })],
-        }),
-      ]));
+          command: "youtube_transcript",
+          args: ["EBw7gsDPAYQ"],
+        });
+        expect(result.stdout).toMatch(/\[\d+:\d{2}\]\s+\S+/);
+      } finally {
+        await rm(workspace, { recursive: true, force: true });
+      }
+    },
+    180_000,
+  );
 
-      const braveSearch = await searchAmbientCliCapabilities(workspace, { query: "brave search web", limit: 5 });
-      expect(braveSearch.results).toEqual(expect.arrayContaining([
-        expect.objectContaining({
+  itLivePiCatalog(
+    "installs brave-search from badlogic pi-skills and runs a real Brave query through an Ambient-managed secret binding",
+    async () => {
+      const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-brave-search-pi-"));
+      try {
+        const source = "https://github.com/badlogic/pi-skills/blob/main/brave-search/SKILL.md";
+        const preview = await previewAmbientCliPackagePiCatalogSource(workspace, source);
+        expect(preview).toMatchObject({
+          installable: true,
+          resolution: expect.objectContaining({
+            npmPackageName: "brave-search",
+            repositoryUrl: "https://github.com/badlogic/pi-skills",
+            repositoryDirectory: "brave-search",
+            adapter: "brave-search",
+          }),
+        });
+        const installed = await installAmbientCliPackagePiCatalogSource(workspace, source);
+        expect(installed).toMatchObject({
+          name: "brave-search",
+          commands: [expect.objectContaining({ name: "search" })],
+          skills: [expect.objectContaining({ name: "brave-search" })],
+        });
+
+        const braveKey = await readTestSecret("BRAVE_API_KEY", "brave_api_key.txt");
+        await writeFile(join(workspace, "brave_api_key.txt"), `${braveKey}\n`, { encoding: "utf8", mode: 0o600 });
+        await expect(
+          setAmbientCliPackageEnvBinding(workspace, {
+            packageName: "brave-search",
+            envName: "BRAVE_API_KEY",
+            filePath: "./brave_api_key.txt",
+          }),
+        ).resolves.toMatchObject({ configured: true, source: "file" });
+
+        const result = await runAmbientCliPackageCommand(workspace, {
           packageName: "brave-search",
-          commands: [expect.objectContaining({ name: "search", health: "passed" })],
-        }),
-      ]));
+          command: "search",
+          args: ["Ambient Desktop install routing", "-n", "1"],
+        });
+        const parsed = JSON.parse(result.stdout ?? "");
+        expect(parsed).toMatchObject({
+          provider: "brave-search",
+          host: "api.search.brave.com",
+          query: "Ambient Desktop install routing",
+        });
+        expect(parsed.resultCount).toBeGreaterThanOrEqual(1);
+        expect(result.stdout).not.toContain(braveKey);
+      } finally {
+        await rm(workspace, { recursive: true, force: true });
+      }
+    },
+    180_000,
+  );
 
-      const arxivSearch = await searchAmbientCliCapabilities(workspace, { query: "arxiv paper search", limit: 5 });
-      expect(arxivSearch.results).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          packageName: "pi-arxiv",
-          commands: expect.arrayContaining([
-            expect.objectContaining({ name: "arxiv_search", health: "passed" }),
-            expect.objectContaining({ name: "arxiv_paper", health: "passed" }),
+  itLivePiCatalog(
+    "ensures first-party Ambient CLI packages are installed for lazy discovery",
+    async () => {
+      const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-first-party-"));
+      try {
+        await expect(discoverAmbientCliPackages(workspace)).resolves.toMatchObject({ packages: [] });
+        const statuses = await ensureFirstPartyAmbientCliPackages(workspace);
+        expect(statuses).toEqual([
+          expect.objectContaining({
+            packageName: "youtube-transcript",
+            status: "installed",
+          }),
+          expect.objectContaining({
+            packageName: "brave-search",
+            status: "installed",
+          }),
+          expect.objectContaining({
+            packageName: "pi-arxiv",
+            status: "installed",
+          }),
+          expect.objectContaining({
+            packageName: "ambient-qwen3-asr",
+            status: "installed",
+          }),
+          expect.objectContaining({
+            packageName: "ambient-faster-whisper-stt",
+            status: "installed",
+          }),
+          expect.objectContaining({
+            packageName: "ambient-hyperframes",
+            status: "installed",
+          }),
+          expect.objectContaining({
+            packageName: "ambient-imagegen",
+            status: "installed",
+          }),
+        ]);
+
+        const youtubeSearch = await searchAmbientCliCapabilities(workspace, { query: "youtube video transcript captions", limit: 5 });
+        expect(youtubeSearch.results).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              packageName: "youtube-transcript",
+              commands: [expect.objectContaining({ name: "youtube_transcript", health: "passed" })],
+            }),
           ]),
-        }),
-      ]));
+        );
 
-      const repeated = await ensureFirstPartyAmbientCliPackages(workspace);
-      expect(repeated).toEqual([
-        expect.objectContaining({
-          packageName: "youtube-transcript",
-          status: "already_installed",
-        }),
-        expect.objectContaining({
-          packageName: "brave-search",
-          status: "already_installed",
-        }),
-        expect.objectContaining({
-          packageName: "pi-arxiv",
-          status: "already_installed",
-        }),
-        expect.objectContaining({
-          packageName: "ambient-qwen3-asr",
-          status: "already_installed",
-        }),
-        expect.objectContaining({
-          packageName: "ambient-faster-whisper-stt",
-          status: "already_installed",
-        }),
-        expect.objectContaining({
-          packageName: "ambient-hyperframes",
-          status: "already_installed",
-        }),
-        expect.objectContaining({
-          packageName: "ambient-imagegen",
-          status: "already_installed",
-        }),
-      ]);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  }, 180_000);
+        const braveSearch = await searchAmbientCliCapabilities(workspace, { query: "brave search web", limit: 5 });
+        expect(braveSearch.results).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              packageName: "brave-search",
+              commands: [expect.objectContaining({ name: "search", health: "passed" })],
+            }),
+          ]),
+        );
+
+        const arxivSearch = await searchAmbientCliCapabilities(workspace, { query: "arxiv paper search", limit: 5 });
+        expect(arxivSearch.results).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              packageName: "pi-arxiv",
+              commands: expect.arrayContaining([
+                expect.objectContaining({ name: "arxiv_search", health: "passed" }),
+                expect.objectContaining({ name: "arxiv_paper", health: "passed" }),
+              ]),
+            }),
+          ]),
+        );
+
+        const repeated = await ensureFirstPartyAmbientCliPackages(workspace);
+        expect(repeated).toEqual([
+          expect.objectContaining({
+            packageName: "youtube-transcript",
+            status: "already_installed",
+          }),
+          expect.objectContaining({
+            packageName: "brave-search",
+            status: "already_installed",
+          }),
+          expect.objectContaining({
+            packageName: "pi-arxiv",
+            status: "already_installed",
+          }),
+          expect.objectContaining({
+            packageName: "ambient-qwen3-asr",
+            status: "already_installed",
+          }),
+          expect.objectContaining({
+            packageName: "ambient-faster-whisper-stt",
+            status: "already_installed",
+          }),
+          expect.objectContaining({
+            packageName: "ambient-hyperframes",
+            status: "already_installed",
+          }),
+          expect.objectContaining({
+            packageName: "ambient-imagegen",
+            status: "already_installed",
+          }),
+        ]);
+      } finally {
+        await rm(workspace, { recursive: true, force: true });
+      }
+    },
+    180_000,
+  );
 
   it("searches installed Ambient CLI capabilities without reading uninstalled package sources", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-search-"));
@@ -1913,7 +1995,15 @@ describe("Ambient CLI packages", () => {
           sourceKind: "ambient-cli",
           packageName: "ambient-json-cli",
           availability: "available",
-          commands: [expect.objectContaining({ capabilityId: `${installed.id}:tool:json-pick`, sourceKind: "ambient-cli", name: "json-pick", health: "passed", risk: ["run_process"] })],
+          commands: [
+            expect.objectContaining({
+              capabilityId: `${installed.id}:tool:json-pick`,
+              sourceKind: "ambient-cli",
+              name: "json-pick",
+              health: "passed",
+              risk: ["run_process"],
+            }),
+          ],
           skills: [expect.objectContaining({ sourceKind: "ambient-cli", name: "ambient-json-cli", path: "skills/json-cli/SKILL.md" })],
           missingEnv: [],
         }),
@@ -1938,7 +2028,15 @@ describe("Ambient CLI packages", () => {
       await writeFile(join(root, "search.js"), "process.stdout.write('ok');\n", "utf8");
       await writeFile(
         join(root, "SKILL.md"),
-        ["---", "name: brave-search", "description: Web search and content extraction via Brave Search API.", "---", "", "# Brave Search", ""].join("\n"),
+        [
+          "---",
+          "name: brave-search",
+          "description: Web search and content extraction via Brave Search API.",
+          "---",
+          "",
+          "# Brave Search",
+          "",
+        ].join("\n"),
         "utf8",
       );
       await installAmbientCliPackageSource(workspace, {
@@ -1994,7 +2092,14 @@ describe("Ambient CLI packages", () => {
             },
           }),
         ],
-        skills: [expect.objectContaining({ capabilityId: expect.stringContaining(`${installed.id}:skill:`), sourceKind: "ambient-cli", name: "ambient-json-cli", summaryStatus: "missing" })],
+        skills: [
+          expect.objectContaining({
+            capabilityId: expect.stringContaining(`${installed.id}:skill:`),
+            sourceKind: "ambient-cli",
+            name: "ambient-json-cli",
+            summaryStatus: "missing",
+          }),
+        ],
         env: [],
       });
       expect(withoutSkill.skills[0]).not.toHaveProperty("text");
@@ -2175,19 +2280,23 @@ describe("Ambient CLI packages", () => {
         summaryStatuses: [expect.objectContaining({ skillName: "ambient-json-cli", status: "missing" })],
       });
 
-      const hydrated = await hydrateAmbientCliPackageSummaries(workspace, { packageId: installed.id }, {
-        generateMissingSummaries: true,
-        now: () => new Date("2026-05-05T12:00:00.000Z"),
-        modelComplete: async () =>
-          JSON.stringify({
-            capabilityBrief: "Extract one top-level JSON field from a workspace file.",
-            whenToUse: ["Use for simple JSON field extraction."],
-            commands: { "json-pick": "Reads a JSON file and prints one top-level key." },
-            arguments: ["workspace JSON file path", "top-level key"],
-            safety: ["Runs through ambient_cli approval."],
-            fallbacks: ["Ask for the file path or key if either is unclear."],
-          }),
-      });
+      const hydrated = await hydrateAmbientCliPackageSummaries(
+        workspace,
+        { packageId: installed.id },
+        {
+          generateMissingSummaries: true,
+          now: () => new Date("2026-05-05T12:00:00.000Z"),
+          modelComplete: async () =>
+            JSON.stringify({
+              capabilityBrief: "Extract one top-level JSON field from a workspace file.",
+              whenToUse: ["Use for simple JSON field extraction."],
+              commands: { "json-pick": "Reads a JSON file and prints one top-level key." },
+              arguments: ["workspace JSON file path", "top-level key"],
+              safety: ["Runs through ambient_cli approval."],
+              fallbacks: ["Ask for the file path or key if either is unclear."],
+            }),
+        },
+      );
       expect(hydrated).toMatchObject({
         packageId: installed.id,
         attempted: true,
@@ -2219,7 +2328,15 @@ describe("Ambient CLI packages", () => {
       await writeFile(join(root, "search.js"), "process.stdout.write('ok');\n", "utf8");
       await writeFile(
         join(root, "SKILL.md"),
-        ["---", "name: brave-search", "description: Web search and content extraction via Brave Search API.", "---", "", "# Brave Search", ""].join("\n"),
+        [
+          "---",
+          "name: brave-search",
+          "description: Web search and content extraction via Brave Search API.",
+          "---",
+          "",
+          "# Brave Search",
+          "",
+        ].join("\n"),
         "utf8",
       );
       await installAmbientCliPackageSource(workspace, {
@@ -2244,7 +2361,9 @@ describe("Ambient CLI packages", () => {
       await expect(installAmbientCliPackageSource(workspace, { source: "./cli-fixture" })).rejects.toThrow(
         'Ambient CLI package health check failed for "json-pick"',
       );
-      await expect(readFile(join(workspace, ".ambient", "cli-packages", "packages.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(workspace, ".ambient", "cli-packages", "packages.json"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT",
+      });
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -2279,12 +2398,22 @@ describe("Ambient CLI packages", () => {
       await writeFile(join(root, "bin", "echo.mjs"), "process.stdout.write(process.argv.slice(2).join(' '));\n", "utf8");
       await writeFile(
         join(root, "SKILL.md"),
-        ["---", "name: ambient-root-skill-cli", "description: Root skill mounted from package root.", "---", "", "Use ambient_cli.", ""].join("\n"),
+        [
+          "---",
+          "name: ambient-root-skill-cli",
+          "description: Root skill mounted from package root.",
+          "---",
+          "",
+          "Use ambient_cli.",
+          "",
+        ].join("\n"),
         "utf8",
       );
 
       const installed = await installAmbientCliPackageSource(workspace, { source: "./cli-fixture" });
-      expect(installed.skills).toEqual([expect.objectContaining({ name: "ambient-root-skill-cli", path: expect.stringContaining("SKILL.md") })]);
+      expect(installed.skills).toEqual([
+        expect.objectContaining({ name: "ambient-root-skill-cli", path: expect.stringContaining("SKILL.md") }),
+      ]);
       await expect(enabledAmbientCliSkillPaths(workspace)).resolves.toEqual([installed.rootPath]);
     } finally {
       await rm(workspace, { recursive: true, force: true });
@@ -2303,7 +2432,15 @@ describe("Ambient CLI packages", () => {
       );
       await writeFile(
         join(root, "SKILL.md"),
-        ["---", "name: brave-search", "description: Web search and content extraction via Brave Search API.", "---", "", "# Brave Search", ""].join("\n"),
+        [
+          "---",
+          "name: brave-search",
+          "description: Web search and content extraction via Brave Search API.",
+          "---",
+          "",
+          "# Brave Search",
+          "",
+        ].join("\n"),
         "utf8",
       );
 
@@ -2334,14 +2471,18 @@ describe("Ambient CLI packages", () => {
         `${JSON.stringify({ name: "brave-search", version: "1.0.0", description: "Headless web search via Brave Search" }, null, 2)}\n`,
         "utf8",
       );
-      await writeFile(
-        join(root, "search.js"),
-        "process.stdout.write(`query:${process.argv.slice(2).join(' ')}`);\n",
-        "utf8",
-      );
+      await writeFile(join(root, "search.js"), "process.stdout.write(`query:${process.argv.slice(2).join(' ')}`);\n", "utf8");
       await writeFile(
         join(root, "SKILL.md"),
-        ["---", "name: brave-search", "description: Web search and content extraction via Brave Search API.", "---", "", "# Brave Search", ""].join("\n"),
+        [
+          "---",
+          "name: brave-search",
+          "description: Web search and content extraction via Brave Search API.",
+          "---",
+          "",
+          "# Brave Search",
+          "",
+        ].join("\n"),
         "utf8",
       );
       const descriptor = braveSearchOverlayDescriptor();
@@ -2393,7 +2534,15 @@ describe("Ambient CLI packages", () => {
       );
       await writeFile(
         join(root, "SKILL.md"),
-        ["---", "name: brave-search", "description: Web search and content extraction via Brave Search API.", "---", "", "# Brave Search", ""].join("\n"),
+        [
+          "---",
+          "name: brave-search",
+          "description: Web search and content extraction via Brave Search API.",
+          "---",
+          "",
+          "# Brave Search",
+          "",
+        ].join("\n"),
         "utf8",
       );
       const descriptor = { ...braveSearchOverlayDescriptor(), env: ["BRAVE_API_KEY"] };
@@ -2478,7 +2627,15 @@ describe("Ambient CLI packages", () => {
       );
       await writeFile(
         join(root, "SKILL.md"),
-        ["---", "name: brave-search", "description: Web search and content extraction via Brave Search API.", "---", "", "# Brave Search", ""].join("\n"),
+        [
+          "---",
+          "name: brave-search",
+          "description: Web search and content extraction via Brave Search API.",
+          "---",
+          "",
+          "# Brave Search",
+          "",
+        ].join("\n"),
         "utf8",
       );
       const descriptor = { ...braveSearchOverlayDescriptor(), env: ["BRAVE_API_KEY"] };
@@ -2489,13 +2646,19 @@ describe("Ambient CLI packages", () => {
       await writeFile(legacySecretPath, "legacy-brave-key\n", "utf8");
       await writeFile(
         join(workspace, ".ambient", "cli-packages", "env-bindings.json"),
-        `${JSON.stringify({
-          bindings: [{
-            packageName: "brave-search",
-            envName: "BRAVE_API_KEY",
-            filePath: "./.ambient/cli-packages/secrets/brave-search/BRAVE_API_KEY.secret",
-          }],
-        }, null, 2)}\n`,
+        `${JSON.stringify(
+          {
+            bindings: [
+              {
+                packageName: "brave-search",
+                envName: "BRAVE_API_KEY",
+                filePath: "./.ambient/cli-packages/secrets/brave-search/BRAVE_API_KEY.secret",
+              },
+            ],
+          },
+          null,
+          2,
+        )}\n`,
         "utf8",
       );
 
@@ -2664,6 +2827,139 @@ describe("Ambient CLI packages", () => {
     }
   });
 
+  it("rejects external Git helper sources before preview cloning CLI packages", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-unsafe-git-"));
+    try {
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "ext::sh -c touch /tmp/ambient-cli-ext-owned",
+        path: "./cli-fixture",
+        sha: "0123456789abcdef0123456789abcdef01234567",
+      });
+      expect(preview).toMatchObject({
+        installable: false,
+        errors: [expect.stringMatching(/external Git helper protocols are not allowed|Unsupported Git source/i)],
+      });
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("redacts credential-bearing Git sources in failed CLI package previews", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-credential-git-"));
+    try {
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "https://user:token@example.test/repo.git",
+        path: "./cli-fixture",
+        sha: "0123456789abcdef0123456789abcdef01234567",
+      });
+      expect(preview.installable).toBe(false);
+      expect(preview.source).toBe("https://example.test/repo.git");
+      expect(JSON.stringify(preview)).not.toContain("token");
+      expect(preview.errors.join("\n")).toMatch(/must not embed credentials/i);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("redacts credential-bearing Git sources in no-sha CLI package previews", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-no-sha-credential-git-"));
+    try {
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "https://user:token@example.test/repo.git",
+        path: "./cli-fixture",
+      });
+      expect(preview.installable).toBe(false);
+      expect(preview.source).toBe("https://example.test/repo.git");
+      expect(JSON.stringify(preview)).not.toContain("token");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("does not treat Windows absolute local preview paths as credential-bearing Git URLs", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-windows-path-preview-"));
+    try {
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "C:\\workspace\\cli-fixture",
+      });
+      expect(preview.installable).toBe(false);
+      expect(preview.source).toBe("C:\\workspace\\cli-fixture");
+      expect(preview.errors.join("\n")).not.toMatch(/credentials|query strings|fragments/i);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("redacts credentials embedded in rejected helper-shaped Git preview sources", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-helper-credential-git-"));
+    try {
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "git+ext::https://user:token@example.test/repo.git",
+        path: "./cli-fixture",
+        sha: "0123456789abcdef0123456789abcdef01234567",
+      });
+      expect(preview.installable).toBe(false);
+      expect(preview.source).toBe("git+ext::https://example.test/repo.git");
+      expect(JSON.stringify(preview)).not.toContain("token");
+      expect(preview.errors.join("\n")).toMatch(/external Git helper protocols are not allowed/i);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("redacts token query strings in failed CLI package Git previews", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-query-token-git-"));
+    try {
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "https://example.test/repo.git?token=secret#access_token=also",
+        path: "./cli-fixture",
+        sha: "0123456789abcdef0123456789abcdef01234567",
+      });
+      expect(preview.installable).toBe(false);
+      expect(preview.source).toBe("https://example.test/repo.git");
+      expect(JSON.stringify(preview)).not.toContain("secret");
+      expect(JSON.stringify(preview)).not.toContain("also");
+      expect(preview.errors.join("\n")).toMatch(/must not include query strings/i);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("strips helper-wrapped Git preview query strings even without credential-shaped names", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-helper-query-git-"));
+    try {
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "git+ext::https://example.test/repo.git?auth=secret",
+        path: "./cli-fixture",
+        sha: "0123456789abcdef0123456789abcdef01234567",
+      });
+      expect(preview.installable).toBe(false);
+      expect(preview.source).toBe("git+ext::https://example.test/repo.git");
+      expect(JSON.stringify(preview)).not.toContain("secret");
+      expect(preview.errors.join("\n")).toMatch(/external Git helper protocols are not allowed/i);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("redacts helper-wrapped Git preview credentials when query strings are also present", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-helper-combined-credential-git-"));
+    try {
+      const preview = await previewAmbientCliPackageInstallSource(workspace, {
+        source: "git+ext::https://user:token@example.test/repo.git?auth=secret",
+        path: "./cli-fixture",
+        sha: "0123456789abcdef0123456789abcdef01234567",
+      });
+      expect(preview.installable).toBe(false);
+      expect(preview.source).toBe("git+ext::https://example.test/repo.git");
+      expect(JSON.stringify(preview)).not.toContain("token");
+      expect(JSON.stringify(preview)).not.toContain("secret");
+      expect(preview.errors.join("\n")).toMatch(/external Git helper protocols are not allowed/i);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("previews and installs pinned Git package subdirectories with a descriptor overlay", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-git-overlay-"));
     try {
@@ -2679,7 +2975,15 @@ describe("Ambient CLI packages", () => {
       await writeFile(join(packageRoot, "search.js"), "process.stdout.write(process.argv.slice(2).join('|'));\n", "utf8");
       await writeFile(
         join(packageRoot, "SKILL.md"),
-        ["---", "name: brave-search", "description: Web search and content extraction via Brave Search API.", "---", "", "# Brave Search", ""].join("\n"),
+        [
+          "---",
+          "name: brave-search",
+          "description: Web search and content extraction via Brave Search API.",
+          "---",
+          "",
+          "# Brave Search",
+          "",
+        ].join("\n"),
         "utf8",
       );
       await git(["init"], repo);
@@ -2752,7 +3056,15 @@ async function seedCliFixture(workspace: string, options: { healthCheck?: string
   await writeFile(join(root, "health.json"), `${JSON.stringify({ message: "healthy" })}\n`, "utf8");
   await writeFile(
     join(root, "skills", "json-cli", "SKILL.md"),
-    ["---", "name: ambient-json-cli", "description: Use ambient_cli json-pick for JSON field extraction.", "---", "", "Use ambient_cli.", ""].join("\n"),
+    [
+      "---",
+      "name: ambient-json-cli",
+      "description: Use ambient_cli json-pick for JSON field extraction.",
+      "---",
+      "",
+      "Use ambient_cli.",
+      "",
+    ].join("\n"),
     "utf8",
   );
 }
@@ -2792,12 +3104,32 @@ async function seedCliPackageWithLocalDependency(root: string): Promise<void> {
     )}\n`,
     "utf8",
   );
-  await writeFile(join(root, "deps", "ambient-helper", "package.json"), `${JSON.stringify({ name: "ambient-helper", version: "1.0.0", type: "module" }, null, 2)}\n`, "utf8");
-  await writeFile(join(root, "deps", "ambient-helper", "index.js"), "export function format(value) { return `formatted:${value}`; }\n", "utf8");
-  await writeFile(join(root, "search.js"), "import { format } from 'ambient-helper';\nprocess.stdout.write(format(process.argv[2] ?? ''));\n", "utf8");
+  await writeFile(
+    join(root, "deps", "ambient-helper", "package.json"),
+    `${JSON.stringify({ name: "ambient-helper", version: "1.0.0", type: "module" }, null, 2)}\n`,
+    "utf8",
+  );
+  await writeFile(
+    join(root, "deps", "ambient-helper", "index.js"),
+    "export function format(value) { return `formatted:${value}`; }\n",
+    "utf8",
+  );
+  await writeFile(
+    join(root, "search.js"),
+    "import { format } from 'ambient-helper';\nprocess.stdout.write(format(process.argv[2] ?? ''));\n",
+    "utf8",
+  );
   await writeFile(
     join(root, "SKILL.md"),
-    ["---", "name: brave-search", "description: Web search and content extraction via Brave Search API.", "---", "", "# Brave Search", ""].join("\n"),
+    [
+      "---",
+      "name: brave-search",
+      "description: Web search and content extraction via Brave Search API.",
+      "---",
+      "",
+      "# Brave Search",
+      "",
+    ].join("\n"),
     "utf8",
   );
   await execFileAsync("npm", ["install", "--package-lock-only", "--ignore-scripts"], { cwd: root, env: { ...process.env } });

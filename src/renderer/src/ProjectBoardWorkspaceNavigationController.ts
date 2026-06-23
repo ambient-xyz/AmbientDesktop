@@ -207,3 +207,5 @@ export function useProjectBoardWorkspaceNavigationController({
     sourceReviewRequest,
   };
 }
+
+export type ProjectBoardWorkspaceNavigationController = ReturnType<typeof useProjectBoardWorkspaceNavigationController>;

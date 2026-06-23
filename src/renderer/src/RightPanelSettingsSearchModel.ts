@@ -589,6 +589,18 @@ export function rightPanelSettingsSearchTargets({
     },
     { id: "model-mode.aggressive-retries", sectionId: "model-mode", terms: ["aggressive retries", "retry", "429", "rate limit", state.settings.modelRuntime.aggressiveRetries] },
     {
+      id: "model-mode.prompt-cache-status",
+      sectionId: "model-mode",
+      terms: [
+        "prompt cache status",
+        "cache hit",
+        "cache miss",
+        "cacheRead",
+        "cached input tokens",
+        state.settings.modelRuntime.showPromptCacheStatus ? "shown" : "hidden",
+      ],
+    },
+    {
       id: "model-mode.provider-idle-timeout",
       sectionId: "model-mode",
       terms: [

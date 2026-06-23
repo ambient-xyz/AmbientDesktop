@@ -4,7 +4,15 @@ import type { DesktopState, SendMessageInput } from "../../shared/desktopTypes";
 import type { RunStatus, ThreadSummary } from "../../shared/threadTypes";
 import type { WorkflowRecordingLibraryEntry, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingState } from "../../shared/workflowTypes";
 import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
+import type { createAppDesktopStateAppliers } from "./AppDesktopStateAppliers";
+import type { useAppComposerShellState } from "./AppComposerShellState";
+import type { useAppCoreLifecycleControlsForApp } from "./AppCoreLifecycleControls";
+import type { useAppProjectBoardControls } from "./AppProjectBoardControls";
+import type { useAppRunActivityState } from "./AppRunActivityState";
 import type { SidebarArea } from "./AppShellSidebar";
+import type { useAppShellUiState } from "./AppShellUiState";
+import type { useAppWorkflowRecordingLibraryControls } from "./AppWorkflowRecordingLibraryControls";
+import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
 
 export function workflowRecordingGoalFromInput(goalInput: string): string | undefined {
   const goal = goalInput.trim();
@@ -87,6 +95,125 @@ export function workflowRecordingRunStatusesWithStarting(
   return { ...current, [threadId]: "starting" };
 }
 
+export interface AppWorkflowRecordingActionsOptions {
+  abortArmed: boolean;
+  activeThread: Pick<ThreadSummary, "workflowRecording"> | undefined;
+  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => boolean;
+  applyRunStatusDesktopState: (next: DesktopState) => void;
+  closeProjectBoard: () => void;
+  refreshWorkflowRecordingLibraryOverride: (includeArchived?: boolean) => Promise<void>;
+  resetPromptHistory: () => void;
+  resetRunActivityLines: (initialText?: string, threadId?: string) => void;
+  running: boolean;
+  scheduleComposerDraftFocus: (draft: string) => void;
+  setContextAttachments: Dispatch<SetStateAction<WorkspaceContextReference[]>>;
+  setContextError: (message: string | undefined) => void;
+  setError: (message: string | undefined) => void;
+  setRunStatus: Dispatch<SetStateAction<RunStatus>>;
+  setSelectedWorkflowRecordingId: Dispatch<SetStateAction<string | undefined>>;
+  setSidebarArea: Dispatch<SetStateAction<SidebarArea>>;
+  setThreadRunStatuses: Dispatch<SetStateAction<Record<string, RunStatus>>>;
+  state: DesktopState | undefined;
+  workflowLibraryIncludeArchived: boolean;
+}
+
+type AppDesktopStateAppliersForWorkflowRecordingActions = Pick<
+  ReturnType<typeof createAppDesktopStateAppliers>,
+  "applyCreatedThreadState" | "applyRunStatusDesktopState"
+>;
+
+type AppComposerShellStateForWorkflowRecordingActions = Pick<
+  ReturnType<typeof useAppComposerShellState>,
+  "composerInputRef" | "setComposerDraft"
+>;
+
+type AppCoreLifecycleControlsForWorkflowRecordingActions = Pick<
+  ReturnType<typeof useAppCoreLifecycleControlsForApp>,
+  "resetRunActivityLines"
+>;
+
+type AppProjectBoardControlsForWorkflowRecordingActions = Pick<
+  ReturnType<typeof useAppProjectBoardControls>,
+  "setProjectBoardOpen"
+>;
+
+type AppRunActivityStateForWorkflowRecordingActions = Pick<
+  ReturnType<typeof useAppRunActivityState>,
+  "abortArmed" | "setRunStatus" | "setThreadRunStatuses"
+>;
+
+type AppShellUiStateForWorkflowRecordingActions = Pick<
+  ReturnType<typeof useAppShellUiState>,
+  "setError" | "setSidebarArea"
+>;
+
+type AppWorkflowRecordingLibraryControlsForWorkflowRecordingActions = Pick<
+  ReturnType<typeof useAppWorkflowRecordingLibraryControls>,
+  "refreshWorkflowRecordingLibraryOverride" | "setSelectedWorkflowRecordingId" | "workflowLibraryIncludeArchived"
+>;
+
+type AppWorkflowRuntimeStateForWorkflowRecordingActions = Pick<
+  ReturnType<typeof useAppWorkflowRuntimeState>,
+  "setContextAttachments" | "setContextError"
+>;
+
+export type AppWorkflowRecordingActionsForAppInput = {
+  activeThread: AppWorkflowRecordingActionsOptions["activeThread"];
+  appDesktopStateAppliers: AppDesktopStateAppliersForWorkflowRecordingActions;
+  composerShellState: AppComposerShellStateForWorkflowRecordingActions;
+  coreLifecycleControls: AppCoreLifecycleControlsForWorkflowRecordingActions;
+  projectBoardControls: AppProjectBoardControlsForWorkflowRecordingActions;
+  resetPromptHistory: AppWorkflowRecordingActionsOptions["resetPromptHistory"];
+  runActivityState: AppRunActivityStateForWorkflowRecordingActions;
+  running: boolean;
+  shellUiState: AppShellUiStateForWorkflowRecordingActions;
+  state: DesktopState | undefined;
+  workflowRecordingLibraryControls: AppWorkflowRecordingLibraryControlsForWorkflowRecordingActions;
+  workflowRuntimeState: AppWorkflowRuntimeStateForWorkflowRecordingActions;
+};
+
+export function createAppWorkflowRecordingActionsForApp({
+  activeThread,
+  appDesktopStateAppliers,
+  composerShellState,
+  coreLifecycleControls,
+  projectBoardControls,
+  resetPromptHistory,
+  runActivityState,
+  running,
+  shellUiState,
+  state,
+  workflowRecordingLibraryControls,
+  workflowRuntimeState,
+}: AppWorkflowRecordingActionsForAppInput) {
+  return createAppWorkflowRecordingActions({
+    abortArmed: runActivityState.abortArmed,
+    activeThread,
+    applyCreatedThreadState: appDesktopStateAppliers.applyCreatedThreadState,
+    applyRunStatusDesktopState: appDesktopStateAppliers.applyRunStatusDesktopState,
+    closeProjectBoard: () => projectBoardControls.setProjectBoardOpen(false),
+    refreshWorkflowRecordingLibraryOverride: workflowRecordingLibraryControls.refreshWorkflowRecordingLibraryOverride,
+    resetPromptHistory,
+    resetRunActivityLines: coreLifecycleControls.resetRunActivityLines,
+    running,
+    scheduleComposerDraftFocus: (draft) => {
+      window.setTimeout(() => {
+        composerShellState.setComposerDraft(draft);
+        composerShellState.composerInputRef.current?.focusEnd();
+      }, 0);
+    },
+    setContextAttachments: workflowRuntimeState.setContextAttachments,
+    setContextError: workflowRuntimeState.setContextError,
+    setError: shellUiState.setError,
+    setRunStatus: runActivityState.setRunStatus,
+    setSelectedWorkflowRecordingId: workflowRecordingLibraryControls.setSelectedWorkflowRecordingId,
+    setSidebarArea: shellUiState.setSidebarArea,
+    setThreadRunStatuses: runActivityState.setThreadRunStatuses,
+    state,
+    workflowLibraryIncludeArchived: workflowRecordingLibraryControls.workflowLibraryIncludeArchived,
+  });
+}
+
 export function createAppWorkflowRecordingActions({
   abortArmed,
   activeThread,
@@ -107,27 +234,7 @@ export function createAppWorkflowRecordingActions({
   setThreadRunStatuses,
   state,
   workflowLibraryIncludeArchived,
-}: {
-  abortArmed: boolean;
-  activeThread: Pick<ThreadSummary, "workflowRecording"> | undefined;
-  applyCreatedThreadState: (next: DesktopState, previousWorkspacePath?: string) => boolean;
-  applyRunStatusDesktopState: (next: DesktopState) => void;
-  closeProjectBoard: () => void;
-  refreshWorkflowRecordingLibraryOverride: (includeArchived?: boolean) => Promise<void>;
-  resetPromptHistory: () => void;
-  resetRunActivityLines: (initialText?: string, threadId?: string) => void;
-  running: boolean;
-  scheduleComposerDraftFocus: (draft: string) => void;
-  setContextAttachments: Dispatch<SetStateAction<WorkspaceContextReference[]>>;
-  setContextError: (message: string | undefined) => void;
-  setError: (message: string | undefined) => void;
-  setRunStatus: Dispatch<SetStateAction<RunStatus>>;
-  setSelectedWorkflowRecordingId: Dispatch<SetStateAction<string | undefined>>;
-  setSidebarArea: Dispatch<SetStateAction<SidebarArea>>;
-  setThreadRunStatuses: Dispatch<SetStateAction<Record<string, RunStatus>>>;
-  state: DesktopState | undefined;
-  workflowLibraryIncludeArchived: boolean;
-}): {
+}: AppWorkflowRecordingActionsOptions): {
   applyLatestWorkflowRecordingSummary: () => Promise<void>;
   archiveWorkflowRecordingPlaybook: (playbook: WorkflowRecordingLibraryEntry) => Promise<void>;
   confirmActiveWorkflowRecordingReview: () => Promise<void>;

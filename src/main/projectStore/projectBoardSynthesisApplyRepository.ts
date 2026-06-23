@@ -1,24 +1,15 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type {
-  ProjectBoardCardPendingPiUpdate,
   ProjectBoardEvent,
   ProjectBoardPlanningSnapshot,
   ProjectBoardQuestion,
   ProjectBoardSource,
   ProjectBoardSummary,
 } from "../../shared/projectBoardTypes";
-import { dedupeProjectBoardQuestions, projectBoardQuestionsAreNearDuplicates } from "../../shared/projectBoardQuestionDedupe";
 import type { ProjectBoardSynthesisDraft } from "./projectStoreProjectBoardFacade";
-import { parseJsonObject } from "./projectStoreJson";
+import { projectBoardSynthesisCardThreadId, type ProjectBoardSynthesisApplyOptions } from "./projectStoreFacadeHelpers";
 import {
-  MAX_PROJECT_BOARD_SYNTHESIS_CARDS,
-  projectBoardSynthesisCardAllowedForBoardSources,
-  projectBoardSynthesisCardThreadId,
-  type ProjectBoardSynthesisApplyOptions,
-} from "./projectStoreFacadeHelpers";
-import {
-  buildProjectBoardCharterProjectSummary,
   normalizeCardTextList,
   normalizeProjectBoardCardTestPlan,
   normalizeProjectBoardClarificationSuggestions,
@@ -27,21 +18,14 @@ import {
   normalizeTaskLabels,
   normalizeTaskReferences,
   objectiveProvenanceJson,
-  projectBoardClaimSummaryFromEvents,
-  projectBoardCardPendingPiUpdateFromSynthesisCard,
   projectBoardRequiresUiMockApprovalForSynthesisCard,
-  mapProjectBoardSynthesisProposalRow,
-  projectBoardSynthesisCardRowProtectedFromDraftReplacement,
-  projectBoardSynthesisDraftWithSourceIdNamespace,
-  projectBoardSynthesisMarkdown,
-  projectBoardSynthesisStartFreshCardSnapshot,
   projectBoardUiMockRoleForSynthesisCard,
   type ProjectBoardCardStoreRow,
   type ProjectBoardCharterStoreRow,
-  type ProjectBoardSynthesisProposalStoreRow,
-  type ProjectBoardSynthesisRunStoreRow,
   type ProjectBoardStoreRow,
 } from "./projectBoardMappers";
+import { buildProjectBoardSynthesisApplyPlan } from "./projectBoardSynthesisApplyPlan";
+import { ProjectStoreProjectBoardSynthesisProposalApplyRepository } from "./projectBoardSynthesisProposalApplyRepository";
 
 export type ProjectBoardSynthesisApplyEventInput = Omit<ProjectBoardEvent, "id" | "createdAt"> & {
   createdAt?: string;
@@ -61,110 +45,66 @@ export interface ProjectStoreProjectBoardSynthesisApplyRepositoryDeps {
   appendProjectBoardEvent(input: ProjectBoardSynthesisApplyEventInput): void;
 }
 
-export interface SupersedeProjectBoardSynthesisCardsForStartFreshResult {
-  supersededDraftCardIds: string[];
-  demotedPreservedCardIds: string[];
-  preservedCardIds: string[];
-}
-
 export class ProjectStoreProjectBoardSynthesisApplyRepository {
+  private readonly proposalApplyRepository: ProjectStoreProjectBoardSynthesisProposalApplyRepository;
+
   constructor(
     private readonly db: Database.Database,
     private readonly deps: ProjectStoreProjectBoardSynthesisApplyRepositoryDeps,
-  ) {}
+  ) {
+    this.proposalApplyRepository = new ProjectStoreProjectBoardSynthesisProposalApplyRepository(db, deps, {
+      applyProjectBoardSynthesis: (boardId, synthesis, options) => this.applyProjectBoardSynthesis(boardId, synthesis, options),
+    });
+  }
 
   applyProjectBoardSynthesis(
     boardId: string,
     synthesis: ProjectBoardSynthesisDraft,
     options: ProjectBoardSynthesisApplyOptions = {},
   ): ProjectBoardSummary {
-    synthesis = projectBoardSynthesisDraftWithSourceIdNamespace(synthesis, options.sourceIdNamespace);
     const board = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(boardId) as ProjectBoardStoreRow | undefined;
     if (!board) throw new Error(`Project board not found: ${boardId}`);
     if (board.status === "archived") throw new Error("Archived project boards cannot be synthesized.");
     this.deps.ensureProjectBoardQuestions(boardId);
 
     const now = new Date().toISOString();
-    const existingSynthesisRows = this.db
-      .prepare(
-        `SELECT * FROM project_board_cards
-         WHERE board_id = ? AND source_kind = 'board_synthesis'`,
-      )
-      .all(boardId) as ProjectBoardCardStoreRow[];
-    const claimSummary = options.replaceExistingDraft ? projectBoardClaimSummaryFromEvents(this.deps.listProjectBoardEvents(boardId)) : undefined;
-    const protectedClaimCardIds = new Set([
-      ...(claimSummary?.active.map((claim) => claim.cardId) ?? []),
-      ...(claimSummary?.conflicts.map((claim) => claim.cardId) ?? []),
-    ]);
-    const existingSynthesisRowsBySourceId = new Map(existingSynthesisRows.map((row) => [row.source_id, row]));
-    const isProtectedExistingSynthesisCard = (row: ProjectBoardCardStoreRow) =>
-      projectBoardSynthesisCardRowProtectedFromDraftReplacement(row, protectedClaimCardIds);
-    const protectedExistingCardRows = options.replaceExistingDraft
-      ? existingSynthesisRows.filter(isProtectedExistingSynthesisCard)
-      : existingSynthesisRows;
-    const protectedExistingCardSourceIds = new Set(protectedExistingCardRows.map((row) => row.source_id));
-    const replaceableExistingCardRows = options.replaceExistingDraft
-      ? existingSynthesisRows.filter((row) => !isProtectedExistingSynthesisCard(row))
-      : [];
-    const replaceableExistingRowsBySourceId = new Map(replaceableExistingCardRows.map((row) => [row.source_id, row]));
-    const boardSourceThreadId = board.source_thread_id?.trim() || undefined;
-    const boardSources = this.deps.listProjectBoardSources(boardId);
-    const pendingPiUpdates = options.replaceExistingDraft
-      ? synthesis.cards
-          .filter((card) => projectBoardSynthesisCardAllowedForBoardSources({ card, sources: boardSources, boardSourceThreadId }))
-          .map((card) => {
-            const existing = existingSynthesisRowsBySourceId.get(card.sourceId.trim());
-            if (!existing || !isProtectedExistingSynthesisCard(existing)) return undefined;
-            const update = projectBoardCardPendingPiUpdateFromSynthesisCard(existing, card, now);
-            return update ? { cardId: existing.id, update } : undefined;
-          })
-          .filter((entry): entry is { cardId: string; update: ProjectBoardCardPendingPiUpdate } => Boolean(entry))
-      : [];
-    const candidateCards = synthesis.cards
-      .filter((card) =>
-        card.title.trim() &&
-        card.sourceId.trim() &&
-        !protectedExistingCardSourceIds.has(card.sourceId.trim()) &&
-        projectBoardSynthesisCardAllowedForBoardSources({ card, sources: boardSources, boardSourceThreadId })
-      )
-      .slice(0, MAX_PROJECT_BOARD_SYNTHESIS_CARDS);
-    const candidateCardSourceIds = new Set(candidateCards.map((card) => card.sourceId.trim()));
-    const cardsToUpdate = options.replaceExistingDraft
-      ? candidateCards.flatMap((card): { existing: ProjectBoardCardStoreRow; update: ProjectBoardCardPendingPiUpdate | undefined }[] => {
-          const existing = replaceableExistingRowsBySourceId.get(card.sourceId.trim());
-          if (!existing) return [];
-          return [
-            {
-              existing,
-              update: projectBoardCardPendingPiUpdateFromSynthesisCard(existing, card, now),
-            },
-          ];
-        })
-      : [];
-    const cardsToInsert = candidateCards.filter((card) => !replaceableExistingRowsBySourceId.has(card.sourceId.trim()));
-    const deleteStaleDraftCards = options.replaceExistingDraft ? (options.deleteStaleDraftCards ?? true) : false;
-    const staleReplaceableDraftCardIds = deleteStaleDraftCards
-      ? replaceableExistingCardRows.filter((row) => !candidateCardSourceIds.has(row.source_id)).map((row) => row.id)
-      : [];
-    const existingQuestions = this.deps.listProjectBoardQuestions(boardId);
-    const existingQuestionTexts = existingQuestions.map((question) => question.question.trim());
-    const questionsToInsert =
-      options.insertQuestions === false
-        ? []
-        : dedupeProjectBoardQuestions(synthesis.questions, 8)
-            .filter((question) => !existingQuestionTexts.some((existing) => projectBoardQuestionsAreNearDuplicates(existing, question)))
-            .slice(0, 8);
-    const summaryQuestions: ProjectBoardQuestion[] = [
-      ...existingQuestions,
-      ...questionsToInsert.map((question, index) => ({
-        id: `pending-synthesis-question-${index + 1}`,
-        boardId,
-        question,
-        required: true,
-        createdAt: now,
-        updatedAt: now,
-      })),
-    ];
+    const activeCharterRow = board.charter_id
+      ? (this.db.prepare("SELECT * FROM project_board_charters WHERE id = ?").get(board.charter_id) as
+          | ProjectBoardCharterStoreRow
+          | undefined)
+      : undefined;
+    const synthesisPlan = buildProjectBoardSynthesisApplyPlan({
+      board,
+      synthesis,
+      options,
+      now,
+      existingSynthesisRows: this.db
+        .prepare(
+          `SELECT * FROM project_board_cards
+           WHERE board_id = ? AND source_kind = 'board_synthesis'`,
+        )
+        .all(boardId) as ProjectBoardCardStoreRow[],
+      existingQuestions: this.deps.listProjectBoardQuestions(boardId),
+      boardSources: this.deps.listProjectBoardSources(boardId),
+      boardEvents: options.replaceExistingDraft ? this.deps.listProjectBoardEvents(boardId) : [],
+      activeCharterRow,
+    });
+    synthesis = synthesisPlan.synthesis;
+    const {
+      boardSources,
+      boardSourceThreadId,
+      existingSynthesisRows,
+      pendingPiUpdates,
+      cardsToUpdate,
+      cardsToInsert,
+      deleteStaleDraftCards,
+      staleReplaceableDraftCardIds,
+      questionsToInsert,
+      markdown,
+      mergedBudgetPolicy,
+      synthesizedSourcePolicy,
+      synthesizedCharterSummary,
+    } = synthesisPlan;
     const maxOrder = this.db
       .prepare("SELECT COALESCE(MAX(question_order), -1) AS question_order FROM project_board_questions WHERE board_id = ?")
       .get(boardId) as { question_order: number };
@@ -175,56 +115,6 @@ export class ProjectStoreProjectBoardSynthesisApplyRepository {
     const insertedQuestionIds: string[] = [];
     const protectedPiUpdateCardIds: string[] = [];
     const protectedPiUpdateSourceIds: string[] = [];
-    const markdown = projectBoardSynthesisMarkdown(board, synthesis);
-    const activeCharterRow = board.charter_id
-      ? (this.db.prepare("SELECT * FROM project_board_charters WHERE id = ?").get(board.charter_id) as ProjectBoardCharterStoreRow | undefined)
-      : undefined;
-    const existingBudgetPolicy = activeCharterRow ? parseJsonObject<Record<string, unknown>>(activeCharterRow.budget_policy_json, {}) : {};
-    const synthesizedBudgetPolicy = {
-      maxPassesPerCard: 6,
-      maxRuntimeMsPerCard: 1_200_000,
-      pauseOnTerminalBlocker: true,
-    };
-    const mergedBudgetPolicy = {
-      ...synthesizedBudgetPolicy,
-      ...existingBudgetPolicy,
-    };
-    const synthesizedSourcePolicy = {
-      includeThreads: true,
-      includeMarkdown: true,
-      requireUserApproval: true,
-      synthesizedAt: now,
-      sourceNotes: synthesis.sourceNotes,
-    };
-    const synthesizedCharterSummary = buildProjectBoardCharterProjectSummary({
-      board,
-      questions: summaryQuestions,
-      sources: boardSources,
-      compiled: {
-        goal: synthesis.goal.trim().slice(0, 2000),
-        currentState: synthesis.currentState.trim().slice(0, 2000),
-        targetUser: synthesis.targetUser.trim().slice(0, 1000),
-        nonGoals: [],
-        qualityBar: synthesis.qualityBar.trim().slice(0, 2000),
-        testPolicy: {
-          defaultProof: synthesis.qualityBar,
-          requireProofSpec: true,
-          unit: true,
-          integration: true,
-          visual: true,
-          manual: true,
-          proofScopeWarningPolicy: "advisory",
-          synthesizedAt: now,
-        },
-        decisionPolicy: { default: "ask_when_ambiguous", assumptions: synthesis.assumptions },
-        dependencyPolicy: { ordering: "blockers_first", source: "board_synthesis", explicitBlockers: true },
-        budgetPolicy: mergedBudgetPolicy,
-        sourcePolicy: synthesizedSourcePolicy,
-        summary: synthesis.summary.trim().slice(0, 500),
-        markdown,
-      },
-      generatedAt: now,
-    });
     const transaction = this.db.transaction(() => {
       if (pendingPiUpdates.length > 0) {
         const updatePendingPi = this.db.prepare(
@@ -245,7 +135,12 @@ export class ProjectStoreProjectBoardSynthesisApplyRepository {
             summary: `Pi proposed updates to a protected card (${entry.update.changedFields.join(", ")}).`,
             entityKind: "project_board_card",
             entityId: entry.cardId,
-            metadata: { cardId: entry.cardId, sourceId: entry.update.sourceId, changedFields: entry.update.changedFields, protectedPiUpdate: true },
+            metadata: {
+              cardId: entry.cardId,
+              sourceId: entry.update.sourceId,
+              changedFields: entry.update.changedFields,
+              protectedPiUpdate: true,
+            },
             createdAt: now,
           });
         }
@@ -470,7 +365,10 @@ export class ProjectStoreProjectBoardSynthesisApplyRepository {
           sourceNotes: synthesis.sourceNotes,
           assumptions: synthesis.assumptions,
           cardSources: synthesis.cards.map((card) => ({ sourceId: card.sourceId, sourceRefs: card.sourceRefs })),
-          cardClarificationQuestions: synthesis.cards.map((card) => ({ sourceId: card.sourceId, clarificationQuestions: card.clarificationQuestions ?? [] })),
+          cardClarificationQuestions: synthesis.cards.map((card) => ({
+            sourceId: card.sourceId,
+            clarificationQuestions: card.clarificationQuestions ?? [],
+          })),
         },
         createdAt: now,
       });
@@ -487,283 +385,6 @@ export class ProjectStoreProjectBoardSynthesisApplyRepository {
   }
 
   applyProjectBoardSynthesisProposal(input: { proposalId: string; replaceExistingDraft?: boolean }): ProjectBoardSummary {
-    const row = this.db
-      .prepare("SELECT * FROM project_board_synthesis_proposals WHERE id = ?")
-      .get(input.proposalId) as ProjectBoardSynthesisProposalStoreRow | undefined;
-    if (!row) throw new Error(`Project board synthesis proposal not found: ${input.proposalId}`);
-    if (row.status !== "pending") throw new Error(`Project board synthesis proposal is ${row.status}, not pending.`);
-    const proposal = mapProjectBoardSynthesisProposalRow(row);
-    if (proposal.reviewReport && proposal.cards.length === 0) {
-      throw new Error("Lightweight PM review reports do not apply cards. Generate a draft board from the recommendation first.");
-    }
-    const pendingCards = proposal.cards.filter((card) => card.reviewStatus === "pending");
-    if (pendingCards.length > 0) {
-      throw new Error("Review every proposal card before applying accepted cards.");
-    }
-    const acceptedCards = proposal.cards.filter((card) => card.reviewStatus === "accepted");
-    const mergedCards = proposal.cards.filter((card) => card.reviewStatus === "merged" && card.mergeTargetCardId);
-    if (acceptedCards.length + mergedCards.length === 0) {
-      throw new Error("Accept or merge at least one proposal card before applying.");
-    }
-    for (const card of mergedCards) {
-      const target = this.db
-        .prepare("SELECT id FROM project_board_cards WHERE id = ? AND board_id = ? AND status = 'draft' AND orchestration_task_id IS NULL")
-        .get(card.mergeTargetCardId, proposal.boardId) as { id: string } | undefined;
-      if (!target) throw new Error(`Merge target card is no longer an unlinked draft card: ${card.mergeTargetCardId}`);
-    }
-    const synthesis: ProjectBoardSynthesisDraft = {
-      summary: proposal.summary,
-      goal: proposal.goal,
-      currentState: proposal.currentState,
-      targetUser: proposal.targetUser,
-      qualityBar: proposal.qualityBar,
-      assumptions: proposal.assumptions,
-      questions: proposal.questions,
-      sourceNotes: proposal.sourceNotes,
-      cards: acceptedCards.map((card) => ({
-        sourceId: card.sourceId,
-        title: card.title,
-        description: card.description,
-        candidateStatus: card.candidateStatus,
-        priority: card.priority,
-        phase: card.phase,
-        labels: card.labels,
-        blockedBy: card.blockedBy,
-        acceptanceCriteria: card.acceptanceCriteria,
-        testPlan: card.testPlan,
-        sourceRefs: card.sourceRefs,
-        clarificationQuestions: card.clarificationQuestions ?? [],
-        clarificationSuggestions: card.clarificationSuggestions ?? [],
-        clarificationDecisions: card.clarificationDecisions ?? [],
-        objectiveProvenance: card.objectiveProvenance,
-        uiMockRole: card.uiMockRole,
-        requiresUiMockApproval: card.requiresUiMockApproval,
-      })),
-    };
-
-    // Keep proposal apply aligned with the board-build path: once synthesis cards
-    // exist, untouched planner-plan drafts become evidence instead of duplicate work.
-    this.applyProjectBoardSynthesis(proposal.boardId, synthesis, {
-      replaceExistingDraft: false,
-      coverPlannerPlanDrafts: true,
-    });
-    const now = new Date().toISOString();
-    const updateMergedCard = this.db.prepare(
-      `UPDATE project_board_cards
-       SET title = ?,
-           description = ?,
-           candidate_status = ?,
-           priority = ?,
-           phase = ?,
-           labels_json = ?,
-           blocked_by_json = ?,
-           acceptance_criteria_json = ?,
-           test_plan_json = ?,
-           source_refs_json = ?,
-           clarification_questions_json = ?,
-           clarification_suggestions_json = ?,
-           clarification_decisions_json = ?,
-           objective_provenance_json = COALESCE(?, objective_provenance_json),
-           ui_mock_role = ?,
-           requires_ui_mock_approval = ?,
-           updated_at = ?
-       WHERE id = ? AND board_id = ? AND status = 'draft' AND orchestration_task_id IS NULL`,
-    );
-    const mergedCardIds: string[] = [];
-    for (const card of mergedCards) {
-      const clarification = normalizeProjectBoardSynthesisClarificationFields({
-        clarificationQuestions: card.clarificationQuestions,
-        clarificationSuggestions: card.clarificationSuggestions,
-        clarificationDecisions: card.clarificationDecisions,
-        createdAt: now,
-        updatedAt: now,
-      });
-      const result = updateMergedCard.run(
-        card.title.trim().slice(0, 180),
-        card.description.trim().slice(0, 4000),
-        card.candidateStatus,
-        typeof card.priority === "number" ? Math.max(1, Math.round(card.priority)) : null,
-        card.phase?.trim().slice(0, 120) || null,
-        JSON.stringify(normalizeTaskLabels(card.labels)),
-        JSON.stringify(normalizeTaskReferences(card.blockedBy)),
-        JSON.stringify(normalizeCardTextList(card.acceptanceCriteria, 30)),
-        JSON.stringify(normalizeProjectBoardCardTestPlan(card.testPlan)),
-        JSON.stringify(normalizeCardTextList(card.sourceRefs, 20)),
-        JSON.stringify(clarification.clarificationQuestions),
-        JSON.stringify(clarification.clarificationSuggestions),
-        JSON.stringify(clarification.clarificationDecisions),
-        objectiveProvenanceJson(card.objectiveProvenance),
-        normalizeProjectBoardUiMockRole(card.uiMockRole) ?? null,
-        card.requiresUiMockApproval ? 1 : 0,
-        now,
-        card.mergeTargetCardId,
-        proposal.boardId,
-      );
-      if (result.changes > 0 && card.mergeTargetCardId) mergedCardIds.push(card.mergeTargetCardId);
-    }
-    this.db
-      .prepare("UPDATE project_board_synthesis_proposals SET status = 'applied', updated_at = ?, applied_at = ? WHERE id = ?")
-      .run(now, now, input.proposalId);
-    this.db.prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, proposal.boardId);
-    const appliedPlanningSnapshot = this.appendProjectBoardPlanningSnapshotForProposal(proposal.boardId, proposal.id);
-    this.deps.appendProjectBoardEvent({
-      boardId: proposal.boardId,
-      kind: "synthesis_proposal_applied",
-      title: "Pi proposal accepted cards applied",
-      summary: `${acceptedCards.length} accepted card${acceptedCards.length === 1 ? "" : "s"} applied and ${mergedCardIds.length} proposal card${mergedCardIds.length === 1 ? "" : "s"} merged.`,
-      entityKind: "project_board_synthesis_proposal",
-      entityId: proposal.id,
-      metadata: {
-        proposalId: proposal.id,
-        acceptedSourceIds: acceptedCards.map((card) => card.sourceId),
-        mergedSourceIds: mergedCards.map((card) => card.sourceId),
-        mergedCardIds,
-        deferredSourceIds: proposal.cards.filter((card) => card.reviewStatus === "deferred").map((card) => card.sourceId),
-        rejectedSourceIds: proposal.cards.filter((card) => card.reviewStatus === "rejected").map((card) => card.sourceId),
-        ...(appliedPlanningSnapshot
-          ? {
-              planningSnapshotId: appliedPlanningSnapshot.snapshot.id,
-              planningSnapshotRunId: appliedPlanningSnapshot.runId,
-              planningSnapshotKind: appliedPlanningSnapshot.snapshot.kind,
-              planningSnapshotFingerprint: appliedPlanningSnapshot.snapshot.renderFingerprint,
-              planningSnapshotCardIds: appliedPlanningSnapshot.snapshot.cardIds,
-            }
-          : {}),
-      },
-      createdAt: now,
-    });
-    const boardRow = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(proposal.boardId) as ProjectBoardStoreRow | undefined;
-    if (!boardRow) throw new Error(`Project board not found after proposal apply: ${proposal.boardId}`);
-    return this.deps.mapProjectBoard(boardRow);
-  }
-
-  private appendProjectBoardPlanningSnapshotForProposal(
-    boardId: string,
-    proposalId: string,
-  ): { runId: string; snapshot: ProjectBoardPlanningSnapshot } | undefined {
-    const row = this.db
-      .prepare(
-        `SELECT * FROM project_board_synthesis_runs
-         WHERE board_id = ?
-           AND proposal_id = ?
-           AND status IN ('paused', 'succeeded')
-         ORDER BY updated_at DESC, started_at DESC, rowid DESC
-         LIMIT 1`,
-      )
-      .get(boardId, proposalId) as ProjectBoardSynthesisRunStoreRow | undefined;
-    if (!row) return undefined;
-    const snapshot = this.deps.appendProjectBoardPlanningSnapshotForRun(row.id, row.status === "paused" ? "paused" : "final");
-    return snapshot ? { runId: row.id, snapshot } : undefined;
-  }
-
-  supersedeProjectBoardSynthesisCardsForStartFresh(input: {
-    boardId: string;
-    runId: string;
-    reason?: string;
-  }): SupersedeProjectBoardSynthesisCardsForStartFreshResult {
-    const board = this.db.prepare("SELECT * FROM project_boards WHERE id = ?").get(input.boardId) as ProjectBoardStoreRow | undefined;
-    if (!board) throw new Error(`Project board not found: ${input.boardId}`);
-    const rows = this.db
-      .prepare(
-        `SELECT * FROM project_board_cards
-         WHERE board_id = ?
-           AND source_kind = 'board_synthesis'
-           AND status != 'archived'`,
-      )
-      .all(input.boardId) as ProjectBoardCardStoreRow[];
-    if (rows.length === 0) return { supersededDraftCardIds: [], demotedPreservedCardIds: [], preservedCardIds: [] };
-
-    const claimSummary = projectBoardClaimSummaryFromEvents(this.deps.listProjectBoardEvents(input.boardId));
-    const protectedClaimCardIds = new Set([
-      ...claimSummary.active.map((claim) => claim.cardId),
-      ...claimSummary.conflicts.map((claim) => claim.cardId),
-    ]);
-    const artifactRows = this.db
-      .prepare("SELECT DISTINCT card_id FROM project_board_execution_artifacts WHERE board_id = ?")
-      .all(input.boardId) as Array<{ card_id: string }>;
-    const executionArtifactCardIds = new Set(artifactRows.map((row) => row.card_id));
-    const isReplaceable = (row: ProjectBoardCardStoreRow): boolean =>
-      !projectBoardSynthesisCardRowProtectedFromDraftReplacement(row, protectedClaimCardIds) &&
-      !row.execution_thread_id &&
-      !row.proof_review_json &&
-      !row.split_outcome_json &&
-      !executionArtifactCardIds.has(row.id);
-    const replaceableRows = rows.filter(isReplaceable);
-    const preservedRows = rows.filter((row) => !isReplaceable(row));
-    const demotableRows = preservedRows.filter(
-      (row) =>
-        row.status === "ready" ||
-        row.status === "in_progress" ||
-        row.status === "blocked" ||
-        Boolean(row.orchestration_task_id) ||
-        Boolean(row.execution_thread_id) ||
-        row.candidate_status === "ready_to_create",
-    );
-    const supersededDraftCardIds = replaceableRows.map((row) => row.id);
-    const preservedCardIds = preservedRows.map((row) => row.id);
-    const demotedPreservedCardIds = demotableRows.map((row) => row.id);
-    const detachedTaskIds = demotableRows.map((row) => row.orchestration_task_id).filter((value): value is string => Boolean(value));
-    const now = new Date().toISOString();
-    const reason = input.reason?.trim() || "Start Fresh requested from a paused project-board synthesis run.";
-    const archiveReplaceable = this.db.prepare(
-      `UPDATE project_board_cards
-       SET status = 'archived',
-           candidate_status = 'duplicate',
-           clarification_questions_json = '[]',
-           clarification_answers_json = '[]',
-           clarification_decisions_json = '[]',
-           pending_pi_update_json = NULL,
-           updated_at = ?
-       WHERE id = ?`,
-    );
-    const demotePreserved = this.db.prepare(
-      `UPDATE project_board_cards
-       SET status = 'draft',
-           candidate_status = CASE WHEN candidate_status = 'ready_to_create' THEN 'needs_clarification' ELSE candidate_status END,
-           orchestration_task_id = NULL,
-           execution_thread_id = NULL,
-           pending_pi_update_json = NULL,
-           updated_at = ?
-       WHERE id = ?`,
-    );
-    const transaction = this.db.transaction(() => {
-      for (const row of replaceableRows) archiveReplaceable.run(now, row.id);
-      for (const row of demotableRows) demotePreserved.run(now, row.id);
-      this.db.prepare("UPDATE project_boards SET updated_at = ? WHERE id = ?").run(now, input.boardId);
-      this.deps.appendProjectBoardEvent({
-        boardId: input.boardId,
-        kind: "card_updated",
-        title: "Start Fresh cleared draft synthesis cards",
-        summary: [
-          supersededDraftCardIds.length
-            ? `Superseded ${supersededDraftCardIds.length} untouched draft synthesis card${supersededDraftCardIds.length === 1 ? "" : "s"}.`
-            : "No untouched draft synthesis cards needed superseding.",
-          demotedPreservedCardIds.length
-            ? `Moved ${demotedPreservedCardIds.length} preserved card${demotedPreservedCardIds.length === 1 ? "" : "s"} back to non-active review.`
-            : "",
-        ]
-          .filter(Boolean)
-          .join(" "),
-        entityKind: "project_board_synthesis_run",
-        entityId: input.runId,
-        metadata: {
-          decision: "start_fresh_supersede_drafts",
-          abandonedRunId: input.runId,
-          reason,
-          supersededDraftCardIds,
-          supersededDraftCardCount: supersededDraftCardIds.length,
-          supersededDraftCards: replaceableRows.slice(0, 80).map(projectBoardSynthesisStartFreshCardSnapshot),
-          preservedCardIds,
-          preservedCardCount: preservedCardIds.length,
-          preservedCards: preservedRows.slice(0, 80).map(projectBoardSynthesisStartFreshCardSnapshot),
-          demotedPreservedCardIds,
-          demotedPreservedCardCount: demotedPreservedCardIds.length,
-          detachedTaskIds,
-        },
-        createdAt: now,
-      });
-    });
-    transaction();
-    return { supersededDraftCardIds, demotedPreservedCardIds, preservedCardIds };
+    return this.proposalApplyRepository.applyProjectBoardSynthesisProposal(input);
   }
 }

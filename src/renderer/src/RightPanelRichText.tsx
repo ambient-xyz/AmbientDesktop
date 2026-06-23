@@ -216,6 +216,7 @@ export function RichText({
   content,
   compact = false,
   highlightQuery,
+  maxInteractiveInlineControls = 24,
   artifactPathHints,
   onPreviewPath,
   onPreviewLocalPath,
@@ -227,6 +228,7 @@ export function RichText({
   content: string;
   compact?: boolean;
   highlightQuery?: string;
+  maxInteractiveInlineControls?: number;
   artifactPathHints?: ArtifactPathHints;
   onPreviewPath?: (path: string) => void;
   onPreviewLocalPath?: (path: string) => void;
@@ -236,8 +238,17 @@ export function RichText({
   workspacePath?: string;
 }) {
   const parts = useMemo(() => splitFencedCode(content), [content]);
+  const potentialInlineControlCount = useMemo(
+    () => countPotentialInlineControls(parts, { artifactPathHints, workspacePath }),
+    [artifactPathHints, parts, workspacePath],
+  );
   const [linkMenu, setLinkMenu] = useState<LinkContextMenuState | undefined>();
   const [linkOpenTargets, setLinkOpenTargets] = useState<WorkspaceOpenTarget[]>([]);
+  const [showAllInlineControls, setShowAllInlineControls] = useState(false);
+
+  useEffect(() => {
+    setShowAllInlineControls(false);
+  }, [content, maxInteractiveInlineControls, workspacePath]);
 
   useEffect(() => {
     if (!linkMenu) return;
@@ -288,7 +299,7 @@ export function RichText({
     });
   }, []);
 
-  const inlineOptions = useMemo(
+  const baseInlineOptions = useMemo(
     () => ({
       highlightQuery,
       artifactPathHints,
@@ -312,6 +323,15 @@ export function RichText({
       openLinkContextMenu,
     ],
   );
+  const inlineControlBudget =
+    showAllInlineControls || maxInteractiveInlineControls < 1
+      ? undefined
+      : { remaining: maxInteractiveInlineControls, overflowed: false };
+  const inlineControlsOverflow =
+    !showAllInlineControls && maxInteractiveInlineControls > 0 && potentialInlineControlCount > maxInteractiveInlineControls;
+  const inlineOptions = inlineControlBudget
+    ? { ...baseInlineOptions, inlineControlBudget }
+    : baseInlineOptions;
   const menuFilePath = linkMenu?.artifactPath ? workspaceAbsoluteArtifactPath(linkMenu.artifactPath, workspacePath) : linkMenu?.localPath;
   const hasFilePath = Boolean(linkMenu?.artifactPath || linkMenu?.localPath);
   const primaryOpenTarget = hasFilePath ? preferredWorkspaceOpenTarget(linkOpenTargets) : undefined;
@@ -350,6 +370,11 @@ export function RichText({
         ) : (
           <MarkdownText key={index} text={part.value} inlineOptions={inlineOptions} />
         ),
+      )}
+      {inlineControlsOverflow && (
+        <button type="button" className="inline-link-overflow-action" onClick={() => setShowAllInlineControls(true)}>
+          Show remaining links
+        </button>
       )}
       {linkMenu && (
         <div
@@ -503,6 +528,50 @@ export function RichText({
   );
 }
 
+function countPotentialInlineControls(
+  parts: readonly RichPart[],
+  options: Pick<InlineRenderOptions, "artifactPathHints" | "workspacePath">,
+): number {
+  let count = 0;
+  for (const part of parts) {
+    if (part.kind !== "text") continue;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    INLINE_MARKDOWN_TOKEN_PATTERN.lastIndex = 0;
+    while ((match = INLINE_MARKDOWN_TOKEN_PATTERN.exec(part.value))) {
+      if (match.index > lastIndex) count += countLinkedTextControls(part.value.slice(lastIndex, match.index));
+      const token = match[0];
+      if (token.startsWith("![") || token.startsWith("[")) count += 1;
+      else if (token.startsWith("`")) count += inlineCodeCanRenderControl(token.slice(1, -1), options) ? 1 : 0;
+      else {
+        const strongText = token.slice(2, -2);
+        const codeOnly = strongText.match(STRONG_INLINE_CODE_PATTERN);
+        count += codeOnly ? (inlineCodeCanRenderControl(codeOnly[1], options) ? 1 : 0) : countLinkedTextControls(strongText);
+      }
+      lastIndex = match.index + token.length;
+    }
+    if (lastIndex < part.value.length) count += countLinkedTextControls(part.value.slice(lastIndex));
+  }
+  return count;
+}
+
+function inlineCodeCanRenderControl(
+  value: string,
+  options: Pick<InlineRenderOptions, "artifactPathHints" | "workspacePath">,
+): boolean {
+  return Boolean(
+    resolveInlineArtifactPath(value, options.artifactPathHints, options.workspacePath) ||
+      resolveLinkLocalPath(value, { artifactPathHints: options.artifactPathHints, workspacePath: options.workspacePath }),
+  );
+}
+
+function countLinkedTextControls(text: string): number {
+  let count = 0;
+  LINKED_TEXT_PATTERN.lastIndex = 0;
+  while (LINKED_TEXT_PATTERN.exec(text)) count += 1;
+  return count;
+}
+
 
 
 type InlineRenderOptions = {
@@ -515,6 +584,10 @@ type InlineRenderOptions = {
   onOpenBrowserUrl?: (url: string) => void;
   workspacePath?: string;
   onLinkContextMenu?: (event: ReactMouseEvent<HTMLElement>, url: string, artifactPath?: string, localPath?: string) => void;
+  inlineControlBudget?: {
+    remaining: number;
+    overflowed: boolean;
+  };
 };
 
 
@@ -756,6 +829,13 @@ function renderMarkdownImage(token: string, options: InlineRenderOptions, key: s
   if (!artifactPath || mediaKind !== "image" || !options.onPreviewPath || !options.onOpenMediaModal) {
     return renderMarkdownLink(`[${parsed.label || parsed.target}](${parsed.target})`, options, key);
   }
+  if (!consumeInlineControlBudget(options)) {
+    return (
+      <span className="inline-link-suppressed" key={key}>
+        {highlightTextNodes(parsed.label || parsed.target, options.highlightQuery, `${key}-label`)}
+      </span>
+    );
+  }
   return (
     <InlineArtifactMedia
       key={key}
@@ -775,6 +855,7 @@ function renderInlineCode(value: string, options: InlineRenderOptions, key: stri
   const artifactPath = resolveInlineArtifactPath(value, options.artifactPathHints, options.workspacePath);
   const localPath = artifactPath ? undefined : resolveLinkLocalPath(value, options);
   if ((artifactPath && options.onPreviewPath) || localPath) {
+    if (!consumeInlineControlBudget(options)) return <code key={key}>{content}</code>;
     return (
       <button
         type="button"
@@ -803,6 +884,13 @@ function renderMarkdownLink(token: string, options: InlineRenderOptions, key: st
   const artifactPath = resolveLinkArtifactPath(parsed.target, options);
   const localPath = artifactPath ? undefined : resolveLinkLocalPath(parsed.target, options);
   const label = highlightTextNodes(parsed.label, options.highlightQuery, `${key}-label`);
+  if (!consumeInlineControlBudget(options)) {
+    return (
+      <span className="inline-link-suppressed" key={key}>
+        {label}
+      </span>
+    );
+  }
   return (
     <button
       type="button"
@@ -858,6 +946,13 @@ function renderInlineUrl(url: string, options: InlineRenderOptions, key: string)
   const artifactPath = workspacePath ? fileUrlToWorkspacePath(url, workspacePath) : undefined;
   const localPath = artifactPath ? undefined : resolveLinkLocalPath(url, options);
   const title = artifactPath ? `Preview ${artifactPath}` : localPath ? `${options.onPreviewLocalPath ? "Preview" : "Open"} ${localPath}` : `Open ${url}`;
+  if (!consumeInlineControlBudget(options)) {
+    return (
+      <span className="inline-link-suppressed" key={key}>
+        {highlightTextNodes(url, options.highlightQuery, `${key}-label`)}
+      </span>
+    );
+  }
   return (
     <button
       type="button"
@@ -886,6 +981,13 @@ function renderInlineLocalPath(path: string, options: InlineRenderOptions, key: 
   const artifactPath = resolveLinkArtifactPath(path, options);
   const localPath = artifactPath ? undefined : resolveLinkLocalPath(path, options);
   const title = artifactPath ? `Preview ${artifactPath}` : localPath ? `${options.onPreviewLocalPath ? "Preview" : "Open"} ${localPath}` : path;
+  if (!consumeInlineControlBudget(options)) {
+    return (
+      <span className="inline-link-suppressed" key={key}>
+        {highlightTextNodes(path, options.highlightQuery, `${key}-label`)}
+      </span>
+    );
+  }
   return (
     <button
       type="button"
@@ -902,6 +1004,17 @@ function renderInlineLocalPath(path: string, options: InlineRenderOptions, key: 
       {highlightTextNodes(path, options.highlightQuery, `${key}-label`)}
     </button>
   );
+}
+
+function consumeInlineControlBudget(options: InlineRenderOptions): boolean {
+  const budget = options.inlineControlBudget;
+  if (!budget) return true;
+  if (budget.remaining > 0) {
+    budget.remaining -= 1;
+    return true;
+  }
+  budget.overflowed = true;
+  return false;
 }
 
 

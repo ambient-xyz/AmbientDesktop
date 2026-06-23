@@ -1,8 +1,5 @@
 export type { CallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
-export {
-  buildCallableWorkflowRegistry,
-  recordedWorkflowToolName,
-} from "./callableWorkflowRegistry";
+export { buildCallableWorkflowRegistry, recordedWorkflowToolName } from "./callableWorkflowRegistry";
 export {
   analyzeCallableWorkflowTaskRestartState,
   buildCallableWorkflowCompilerHandoffPlan,
@@ -15,6 +12,7 @@ export {
 export type {
   CallableWorkflowCompilerHandoffPlan,
   CallableWorkflowPatternGraphChildBindingRequest,
+  CallableWorkflowTaskParentRunSnapshot,
   CallableWorkflowQueuedTaskDraft,
   CallableWorkflowTaskControlAction,
 } from "./callableWorkflowTaskQueue";

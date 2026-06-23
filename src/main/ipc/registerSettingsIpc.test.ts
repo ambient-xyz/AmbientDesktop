@@ -557,6 +557,7 @@ function registerWithFakes() {
     updateThinkingDisplaySettings: vi.fn(async (input) => input),
     updateModelRuntimeSettings: vi.fn(async (input) => ({
       aggressiveRetries: Boolean(input.aggressiveRetries),
+      showPromptCacheStatus: Boolean(input.showPromptCacheStatus),
       providerPreStreamTimeoutMs: input.providerPreStreamTimeoutMs ?? 10_000,
       providerStreamIdleTimeoutMs: input.providerStreamIdleTimeoutMs ?? 10_000,
       installedProviders: input.installedProviders ?? [],
@@ -850,6 +851,7 @@ function sampleInstallModelProviderEndpointResult(): InstallModelProviderEndpoin
     installedProviderKey: "generic-openai-compatible:customer-router:CUSTOM/Router Model v2",
     settings: {
       aggressiveRetries: true,
+      showPromptCacheStatus: false,
       providerPreStreamTimeoutMs: 45_000,
       providerStreamIdleTimeoutMs: 30_000,
       installedProviders: [],

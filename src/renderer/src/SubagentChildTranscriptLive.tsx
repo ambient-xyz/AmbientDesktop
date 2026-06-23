@@ -41,6 +41,7 @@ export function SubagentChildTranscriptLive({
   thinkingDisplayMode,
   voiceProviderLabels,
   generatedMediaAutoplay,
+  showPromptCacheStatus = false,
   activeVoiceMessageId,
   runActivityLines = EMPTY_RUN_ACTIVITY_LINES,
   hasProjectBoard,
@@ -75,6 +76,7 @@ export function SubagentChildTranscriptLive({
   thinkingDisplayMode: ThinkingDisplayMode;
   voiceProviderLabels: Record<string, string>;
   generatedMediaAutoplay: boolean;
+  showPromptCacheStatus?: boolean;
   activeVoiceMessageId?: string;
   runActivityLines?: RunActivityLine[];
   hasProjectBoard: boolean;
@@ -272,6 +274,7 @@ export function SubagentChildTranscriptLive({
                 onPreviewLocalPath={onPreviewLocalPath}
                 onOpenMediaModal={onOpenMediaModal}
                 generatedMediaAutoplay={generatedMediaAutoplay}
+                showPromptCacheStatus={showPromptCacheStatus}
                 voiceShouldAutoplay={false}
                 activeVoiceMessageId={activeVoiceMessageId}
                 onActiveVoiceMessageChange={onActiveVoiceMessageChange}

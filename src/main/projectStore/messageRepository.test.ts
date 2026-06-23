@@ -58,6 +58,53 @@ describe("ProjectStoreMessageRepository", () => {
     expect(threadPreview()).toBe("Done");
   });
 
+  it("persists prompt cache metadata on add and replace", () => {
+    const assistant = repository.addMessage({
+      threadId: "thread-1",
+      role: "assistant",
+      content: "Working",
+      metadata: {
+        status: "streaming",
+        promptCache: {
+          status: "pending",
+        },
+      },
+    });
+
+    expect(assistant.metadata).toMatchObject({
+      status: "streaming",
+      promptCache: { status: "pending" },
+    });
+
+    const replaced = repository.replaceMessage(assistant.id, "Done", {
+      status: "done",
+      promptCache: {
+        status: "hit",
+        usage: {
+          input: 15,
+          output: 64,
+          cacheRead: 29152,
+          cacheWrite: 0,
+          totalTokens: 29231,
+        },
+      },
+    });
+
+    expect(replaced.metadata).toMatchObject({
+      status: "done",
+      promptCache: {
+        status: "hit",
+        usage: {
+          input: 15,
+          output: 64,
+          cacheRead: 29152,
+          cacheWrite: 0,
+          totalTokens: 29231,
+        },
+      },
+    });
+  });
+
   it("keeps assistant thinking out of thread previews", () => {
     repository.addMessage({ threadId: "thread-1", role: "user", content: "Inspect memory." });
     const thinking = repository.addMessage({

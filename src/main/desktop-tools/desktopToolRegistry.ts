@@ -13,6 +13,7 @@ import type {
   PluginMcpDescriptorInput,
   WorkflowCapabilityGuidanceDescriptor,
 } from "./desktopToolDescriptorTypes";
+import { longContextToolDescriptors } from "./desktopToolLongContextDescriptors";
 import { pluginInstallToolDescriptors } from "./desktopToolPluginInstallDescriptors";
 import { messagingGatewayToolDescriptors } from "./desktopToolMessagingGatewayDescriptors";
 
@@ -30,6 +31,7 @@ export type {
 
 export { pluginInstallToolDescriptors };
 export { messagingGatewayToolDescriptors };
+export { longContextToolDescriptors };
 
 export const productContextToolDescriptors: DesktopToolDescriptor[] = [
   {
@@ -546,10 +548,12 @@ export const asyncBashToolDescriptors: DesktopToolDescriptor[] = [
     name: "thread_wake_schedule",
     label: "Thread Wake Schedule",
     description: "Schedule this Ambient thread to wake later with a follow-up continuation.",
-    promptSnippet: "thread_wake_schedule: Schedule this thread to continue later, optionally tied to an async bash job.",
+    promptSnippet:
+      "thread_wake_schedule: Schedule this thread to continue later, optionally tied to an async bash or async long-context job.",
     promptGuidelines: [
       "Use thread_wake_schedule when a running async job should be checked after the current turn ends.",
-      "Include job_id for async bash check-ins so the continuation receives the latest available job snapshot.",
+      "Include job_id for async job check-ins so the continuation receives the latest available job snapshot.",
+      "For async long-context check-ins, include payload {\"job_kind\":\"long_context\"}; omitted job_kind keeps legacy async bash behavior.",
       "Prefer short, concrete reasons that explain what the continuation should inspect.",
       "Do not use this as a general sleep command inside a running turn; use bash_poll wait_ms for bounded waits.",
     ],
@@ -559,7 +563,7 @@ export const asyncBashToolDescriptors: DesktopToolDescriptor[] = [
         after_ms: { type: "number", description: "Delay from now in milliseconds." },
         at: { type: "string", description: "Absolute ISO timestamp. Used when after_ms is absent." },
         reason: { type: "string", description: "Reason and instruction for the wake continuation." },
-        job_id: { type: "string", description: "Optional async bash job id to include in the continuation." },
+        job_id: { type: "string", description: "Optional async job id to include in the continuation." },
         payload: { type: "object", description: "Optional small structured payload for the continuation." },
       },
       required: ["reason"],
@@ -741,83 +745,6 @@ export const fileToolDescriptors: DesktopToolDescriptor[] = [
     supportsUndo: false,
     idempotency: "recommended",
     defaultTimeoutMs: 10_000,
-  },
-];
-
-export const longContextToolDescriptors: DesktopToolDescriptor[] = [
-  {
-    name: "long_context_process",
-    label: "Long Context Process",
-    description:
-      "Process long text, structured workflow evidence, or workspace-readable text with Lambda-RLM-style split/filter/map/reduce summarization, QA, classification, extraction, and analysis.",
-    promptSnippet:
-      "long_context_process: Use Lambda-RLM-style long-context processing when workflow evidence is too large or deeply structured for a direct model.call.",
-    promptGuidelines: [
-      "Use long_context_process before model.call when connector/tool outputs have many records, long fields, or deeply nested JSON that would make the model input large or incomplete.",
-      "For workspace-local long documents, pass workspacePaths containing UTF-8 text files, PDFs with extractable text, or supported Office documents (.docx/.pptx/.xlsx) instead of using bash or package installs.",
-      "In workflows, pass structured connector or tool output in text when needed; Desktop serializes JSON-compatible values for the long-context runtime.",
-      "Use taskType classification, summarization, extraction, analysis, or qa to create a bounded intermediate result, then pass that result to model.call for final schema shaping.",
-      "Keep maxModelCalls bounded and preserve source counts/truncation metadata in the downstream model.call input.",
-      "Do not use long_context_process for short inputs where ordinary deterministic shaping or model.call is enough.",
-    ],
-    workflowGuidance: [
-      {
-        id: "long-context-preprocess",
-        summary: "Large or deeply structured evidence is preprocessed before final model shaping.",
-        text:
-          "Long-context workflow guidance: when long_context_process is available and workflow evidence has many records, long fields, or deeply nested JSON, insert a long_context_process tool.call before final model.call. Do not pass connector.map.items, connector.paginate.items, tool.paginate.items, collection.map.items, collection.dedupe.items, or collection.chunk.chunks directly to one model.call; feed the long-context response plus source counts and truncation metadata into final schema shaping.",
-        applicabilityTags: ["long_context_process", "large-collection", "model.call", "connector-output"],
-        risk: "high",
-        validatorRefs: ["validateWorkflowProgramStatic"],
-      },
-    ],
-    inputSchema: {
-      type: "object",
-      properties: {
-        taskType: {
-          type: "string",
-          enum: ["summarization", "qa", "translation", "classification", "extraction", "analysis", "general"],
-          description: "Optional Lambda-RLM task type.",
-        },
-        instruction: { type: "string", description: "Goal or extraction/classification instruction." },
-        question: { type: "string", description: "Question for QA or relevance filtering." },
-        text: { description: "String or structured JSON-compatible evidence to process." },
-        workspacePaths: {
-          type: "array",
-          items: { type: "string" },
-          description: "Workspace-relative UTF-8 text files, PDFs with extractable text, or supported Office documents (.docx/.pptx/.xlsx) to read and append to the input.",
-        },
-        contextWindowChars: { type: "number", description: "Character window for each Lambda-RLM pass." },
-        accuracyTarget: { type: "number", description: "Planner accuracy target." },
-        aLeaf: { type: "number", description: "Estimated leaf-call accuracy." },
-        aCompose: { type: "number", description: "Estimated reducer-call accuracy." },
-        maxModelCalls: { type: "number", description: "Bounded maximum model calls." },
-        timeoutMs: { type: "number", description: "Per-model-call timeout in milliseconds." },
-        maxOutputChars: { type: "number", description: "Maximum returned response characters." },
-      },
-      required: ["maxModelCalls"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        response: { type: "string" },
-        taskType: { type: "string" },
-        inputLength: { type: "number" },
-        chunkCount: { type: "number" },
-        modelCalls: { type: "number" },
-        truncated: { type: "boolean" },
-      },
-      required: ["response", "taskType", "inputLength", "chunkCount", "modelCalls"],
-    },
-    source: "first-party",
-    sideEffects: "none",
-    permissionScope: "long-context",
-    supportsDryRun: false,
-    supportsUndo: false,
-    idempotency: "not-supported",
-    defaultTimeoutMs: 300_000,
-    runtimeSupport: ["chat", "workflow"],
   },
 ];
 
@@ -3740,6 +3667,12 @@ export function firstPartyDesktopToolDescriptors(): DesktopToolDescriptor[] {
 export function asyncBashToolDescriptor(name: string): DesktopToolDescriptor {
   const descriptor = asyncBashToolDescriptors.find((tool) => tool.name === name);
   if (!descriptor) throw new Error(`Unknown async bash tool descriptor: ${name}`);
+  return descriptor;
+}
+
+export function longContextToolDescriptor(name: string): DesktopToolDescriptor {
+  const descriptor = longContextToolDescriptors.find((tool) => tool.name === name);
+  if (!descriptor) throw new Error(`Unknown long-context tool descriptor: ${name}`);
   return descriptor;
 }
 

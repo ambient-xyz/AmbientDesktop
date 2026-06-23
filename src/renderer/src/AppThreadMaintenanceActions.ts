@@ -5,6 +5,14 @@ import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
 import type { ChatMessage, ExportChatPdfInput, ExportChatPdfResult, ExportChatResult, RunStatus } from "../../shared/threadTypes";
 import type { ApiKeyStatus } from "./RightPanel";
 import { chatExportStatusMessage } from "./AutomationsWorkspace";
+import type { createAppComposerRetryActions } from "./AppComposerRetryActions";
+import type { useAppConversationDisplayModel } from "./AppConversationDisplayModel";
+import type { useAppCoreLifecycleControlsForApp } from "./AppCoreLifecycleControls";
+import type { createAppDesktopStateAppliers } from "./AppDesktopStateAppliers";
+import type { createAppNavigationActionsForApp } from "./AppNavigationActions";
+import type { useAppRunActivityState } from "./AppRunActivityState";
+import type { useAppShellUiState } from "./AppShellUiState";
+import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
 
 export const COMPACT_CONTEXT_ACTIVITY = "Compacting context.";
 export const RECOVER_CONTEXT_ACTIVITY = "Rebuilding model context from the visible transcript.";
@@ -46,6 +54,128 @@ export function chatPdfExportStatusMessage(result: ExportChatPdfResult): string 
   return `Exported visible transcript PDF: ${fileName}`;
 }
 
+export interface AppThreadMaintenanceActionsOptions {
+  applyProjectActionState: (next: DesktopState) => void;
+  chatExportBusy: boolean;
+  contextRecoveryBusy: boolean;
+  latestRecoveryPrompt: ChatMessage | undefined;
+  projectIdForWorkspacePath: (workspacePath: string) => string;
+  resetRunActivityLines: (initialText?: string, threadId?: string) => void;
+  retryFailedPrompt: (message: ChatMessage) => Promise<void>;
+  running: boolean;
+  setChatExportBusy: Dispatch<SetStateAction<boolean>>;
+  setChatExportStatus: Dispatch<SetStateAction<ApiKeyStatus | undefined>>;
+  setContextRecoveryBusy: Dispatch<SetStateAction<boolean>>;
+  setError: (message: string | undefined) => void;
+  setRunStatus: Dispatch<SetStateAction<RunStatus>>;
+  setState: Dispatch<SetStateAction<DesktopState | undefined>>;
+  setThreadRunStatuses: Dispatch<SetStateAction<Record<string, RunStatus>>>;
+  state: DesktopState | undefined;
+}
+
+export type AppThreadMaintenanceActions = {
+  compactActiveThread: (customInstructions?: string) => Promise<void>;
+  duplicateActiveThreadFromTranscript: () => Promise<void>;
+  exportActiveChat: () => Promise<ExportChatResult | undefined>;
+  exportChatPdfThread: (input: ExportChatPdfInput | undefined) => Promise<ExportChatPdfResult | undefined>;
+  exportChatThread: (threadId: string | undefined) => Promise<ExportChatResult | undefined>;
+  exportDiagnostics: () => Promise<DiagnosticExportResult | undefined>;
+  importDiagnostics: () => Promise<DiagnosticExportResult | undefined>;
+  recoverActiveThreadContext: () => Promise<boolean>;
+  recoverActiveThreadContextAndRetryLatest: () => Promise<void>;
+};
+
+type AppComposerRetryActionsForThreadMaintenanceActions = Pick<
+  ReturnType<typeof createAppComposerRetryActions>,
+  "retryFailedPrompt"
+>;
+
+type AppConversationDisplayModelForThreadMaintenanceActions = Pick<
+  ReturnType<typeof useAppConversationDisplayModel>,
+  "latestRecoveryPrompt"
+>;
+
+type AppCoreLifecycleControlsForThreadMaintenanceActions = Pick<
+  ReturnType<typeof useAppCoreLifecycleControlsForApp>,
+  "resetRunActivityLines"
+>;
+
+type AppDesktopStateAppliersForThreadMaintenanceActions = Pick<
+  ReturnType<typeof createAppDesktopStateAppliers>,
+  "applyProjectActionState"
+>;
+
+type AppNavigationActionsForThreadMaintenanceActions = Pick<
+  ReturnType<typeof createAppNavigationActionsForApp>,
+  "projectIdForWorkspacePath"
+>;
+
+type AppRunActivityStateForThreadMaintenanceActions = Pick<
+  ReturnType<typeof useAppRunActivityState>,
+  "setRunStatus" | "setThreadRunStatuses"
+>;
+
+type AppShellUiStateForThreadMaintenanceActions = Pick<
+  ReturnType<typeof useAppShellUiState>,
+  "setError"
+>;
+
+type AppWorkflowRuntimeStateForThreadMaintenanceActions = Pick<
+  ReturnType<typeof useAppWorkflowRuntimeState>,
+  | "chatExportBusy"
+  | "contextRecoveryBusy"
+  | "setChatExportBusy"
+  | "setChatExportStatus"
+  | "setContextRecoveryBusy"
+>;
+
+export type AppThreadMaintenanceActionsForAppInput = {
+  appDesktopStateAppliers: AppDesktopStateAppliersForThreadMaintenanceActions;
+  composerRetryActions: AppComposerRetryActionsForThreadMaintenanceActions;
+  conversationDisplayModel: AppConversationDisplayModelForThreadMaintenanceActions;
+  coreLifecycleControls: AppCoreLifecycleControlsForThreadMaintenanceActions;
+  navigationActions: AppNavigationActionsForThreadMaintenanceActions;
+  runActivityState: AppRunActivityStateForThreadMaintenanceActions;
+  running: boolean;
+  setState: AppThreadMaintenanceActionsOptions["setState"];
+  shellUiState: AppShellUiStateForThreadMaintenanceActions;
+  state: DesktopState | undefined;
+  workflowRuntimeState: AppWorkflowRuntimeStateForThreadMaintenanceActions;
+};
+
+export function createAppThreadMaintenanceActionsForApp({
+  appDesktopStateAppliers,
+  composerRetryActions,
+  conversationDisplayModel,
+  coreLifecycleControls,
+  navigationActions,
+  runActivityState,
+  running,
+  setState,
+  shellUiState,
+  state,
+  workflowRuntimeState,
+}: AppThreadMaintenanceActionsForAppInput): AppThreadMaintenanceActions {
+  return createAppThreadMaintenanceActions({
+    applyProjectActionState: appDesktopStateAppliers.applyProjectActionState,
+    chatExportBusy: workflowRuntimeState.chatExportBusy,
+    contextRecoveryBusy: workflowRuntimeState.contextRecoveryBusy,
+    latestRecoveryPrompt: conversationDisplayModel.latestRecoveryPrompt,
+    projectIdForWorkspacePath: navigationActions.projectIdForWorkspacePath,
+    resetRunActivityLines: coreLifecycleControls.resetRunActivityLines,
+    retryFailedPrompt: composerRetryActions.retryFailedPrompt,
+    running,
+    setChatExportBusy: workflowRuntimeState.setChatExportBusy,
+    setChatExportStatus: workflowRuntimeState.setChatExportStatus,
+    setContextRecoveryBusy: workflowRuntimeState.setContextRecoveryBusy,
+    setError: shellUiState.setError,
+    setRunStatus: runActivityState.setRunStatus,
+    setState,
+    setThreadRunStatuses: runActivityState.setThreadRunStatuses,
+    state,
+  });
+}
+
 export function createAppThreadMaintenanceActions({
   applyProjectActionState,
   chatExportBusy,
@@ -63,34 +193,7 @@ export function createAppThreadMaintenanceActions({
   setState,
   setThreadRunStatuses,
   state,
-}: {
-  applyProjectActionState: (next: DesktopState) => void;
-  chatExportBusy: boolean;
-  contextRecoveryBusy: boolean;
-  latestRecoveryPrompt: ChatMessage | undefined;
-  projectIdForWorkspacePath: (workspacePath: string) => string;
-  resetRunActivityLines: (initialText?: string, threadId?: string) => void;
-  retryFailedPrompt: (message: ChatMessage) => Promise<void>;
-  running: boolean;
-  setChatExportBusy: Dispatch<SetStateAction<boolean>>;
-  setChatExportStatus: Dispatch<SetStateAction<ApiKeyStatus | undefined>>;
-  setContextRecoveryBusy: Dispatch<SetStateAction<boolean>>;
-  setError: (message: string | undefined) => void;
-  setRunStatus: Dispatch<SetStateAction<RunStatus>>;
-  setState: Dispatch<SetStateAction<DesktopState | undefined>>;
-  setThreadRunStatuses: Dispatch<SetStateAction<Record<string, RunStatus>>>;
-  state: DesktopState | undefined;
-}): {
-  compactActiveThread: (customInstructions?: string) => Promise<void>;
-  duplicateActiveThreadFromTranscript: () => Promise<void>;
-  exportActiveChat: () => Promise<ExportChatResult | undefined>;
-  exportChatPdfThread: (input: ExportChatPdfInput | undefined) => Promise<ExportChatPdfResult | undefined>;
-  exportChatThread: (threadId: string | undefined) => Promise<ExportChatResult | undefined>;
-  exportDiagnostics: () => Promise<DiagnosticExportResult | undefined>;
-  importDiagnostics: () => Promise<DiagnosticExportResult | undefined>;
-  recoverActiveThreadContext: () => Promise<boolean>;
-  recoverActiveThreadContextAndRetryLatest: () => Promise<void>;
-} {
+}: AppThreadMaintenanceActionsOptions): AppThreadMaintenanceActions {
   async function exportDiagnostics(): Promise<DiagnosticExportResult | undefined> {
     setError(undefined);
     return window.ambientDesktop.exportDiagnosticBundle();

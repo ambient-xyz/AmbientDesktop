@@ -47,7 +47,13 @@ export {
 } from "./managedEmbeddingRuntimeMetadata";
 
 const defaultSupervisor = new LocalLlamaServerSupervisor();
-const activeMemoryEmbeddingLeases = new Map<string, LocalLlamaServerLease>();
+const activeMemoryEmbeddingLeases = new Map<string, Map<string, ActiveMemoryEmbeddingLeaseRecord>>();
+const activeMemoryEmbeddingStarts = new Map<string, Promise<StartAmbientMemoryEmbeddingRuntimeResult>>();
+
+interface ActiveMemoryEmbeddingLeaseRecord {
+  workspacePath: string;
+  lease: LocalLlamaServerLease;
+}
 
 export interface AmbientMemoryEmbeddingAssetDetection {
   managedRoot: string;
@@ -288,6 +294,26 @@ export async function runAmbientMemoryEmbeddingLifecycleAction(
 export async function startAmbientMemoryEmbeddingRuntime(
   input: StartAmbientMemoryEmbeddingRuntimeInput,
 ): Promise<StartAmbientMemoryEmbeddingRuntimeResult> {
+  const runtimeKey = memoryEmbeddingRuntimeKey(input.workspacePath);
+  const activeStart = activeMemoryEmbeddingStarts.get(runtimeKey);
+  if (activeStart) {
+    const result = await activeStart;
+    if (result.status !== "started" && result.status !== "ready") return result;
+    return startAmbientMemoryEmbeddingRuntimeUnlocked(input, runtimeKey);
+  }
+  const start = startAmbientMemoryEmbeddingRuntimeUnlocked(input, runtimeKey).finally(() => {
+    if (activeMemoryEmbeddingStarts.get(runtimeKey) === start) {
+      activeMemoryEmbeddingStarts.delete(runtimeKey);
+    }
+  });
+  activeMemoryEmbeddingStarts.set(runtimeKey, start);
+  return start;
+}
+
+async function startAmbientMemoryEmbeddingRuntimeUnlocked(
+  input: StartAmbientMemoryEmbeddingRuntimeInput,
+  runtimeKey = memoryEmbeddingRuntimeKey(input.workspacePath),
+): Promise<StartAmbientMemoryEmbeddingRuntimeResult> {
   const detection = await detectAmbientMemoryEmbeddingAssets(input.workspacePath);
   const provider = ambientMemoryEmbeddingProviderCandidate(input.workspacePath, detection);
   if (detection.model.status !== "present") {
@@ -297,12 +323,26 @@ export async function startAmbientMemoryEmbeddingRuntime(
     return { status: "blocked", reason: detection.runtime.reason ?? "Shared llama.cpp runtime is not installed.", provider };
   }
 
-  const existingLease = activeMemoryEmbeddingLeases.get(input.workspacePath);
-  if (existingLease) {
-    return { status: "ready", leaseId: existingLease.leaseId, provider };
+  let alreadyLeased = activeMemoryEmbeddingLeaseCount(runtimeKey) > 0;
+  const managedRuntimeAppearsLive = Boolean(
+    (detection.state?.pid && processAlive(detection.state.pid)) ||
+    activeMemoryEmbeddingLeaseStateAppearsLive(runtimeKey),
+  );
+  if (alreadyLeased && !managedRuntimeAppearsLive) {
+    try {
+      await releaseAllMemoryEmbeddingLeases(runtimeKey);
+      alreadyLeased = false;
+    } catch (error) {
+      return {
+        status: "failed",
+        reason: `Ambient-managed memory embeddings could not clear stale leases before restart: ${errorMessage(error)}`,
+        provider,
+      };
+    }
   }
-
-  const residents = await Promise.resolve((input.detectResidents ?? detectLocalLlamaResidentProcesses)(input.workspacePath)).catch(() => []);
+  const residents = alreadyLeased && managedRuntimeAppearsLive
+    ? []
+    : await Promise.resolve((input.detectResidents ?? detectLocalLlamaResidentProcesses)(input.workspacePath)).catch(() => []);
   const blockers = residents.filter((resident) => resident.running && resident.pid !== detection.state?.pid);
   if (blockers.length > 0) {
     const classifications = blockers.map((resident) => classifyAmbientMemoryResident(resident, detection.state?.pid));
@@ -331,11 +371,12 @@ export async function startAmbientMemoryEmbeddingRuntime(
         AMBIENT_MEMORY_EMBEDDING_MODEL_ID,
       ],
     });
-    activeMemoryEmbeddingLeases.set(input.workspacePath, lease);
+    rememberMemoryEmbeddingLease(runtimeKey, input.workspacePath, lease);
     return {
-      status: "started",
+      status: alreadyLeased ? "ready" : "started",
+      ...(alreadyLeased ? { reason: "Ambient-managed memory embeddings are already running." } : {}),
       leaseId: lease.leaseId,
-      release: releaseMemoryEmbeddingLease(input.workspacePath, lease.leaseId),
+      release: releaseMemoryEmbeddingLease(runtimeKey, lease.leaseId),
       provider: ambientMemoryEmbeddingProviderCandidate(input.workspacePath, {
         ...detection,
         state: lease.state,
@@ -384,11 +425,16 @@ async function stopMemoryEmbeddingLifecycle(
 ): Promise<RunAmbientMemoryEmbeddingLifecycleActionResult> {
   const detection = await detectAmbientMemoryEmbeddingAssets(input.workspacePath);
   let provider = ambientMemoryEmbeddingProviderCandidate(input.workspacePath, detection);
-  const existingLease = activeMemoryEmbeddingLeases.get(input.workspacePath);
-  if (existingLease) {
+  const runtimeKey = memoryEmbeddingRuntimeKey(input.workspacePath);
+  const existingLeases = activeMemoryEmbeddingLeases.get(runtimeKey);
+  const workspaceLeaseEntries = existingLeases
+    ? [...existingLeases.entries()].filter(([, record]) => record.workspacePath === input.workspacePath)
+    : [];
+  if (workspaceLeaseEntries.length > 0) {
     try {
-      await existingLease.release();
-      activeMemoryEmbeddingLeases.delete(input.workspacePath);
+      await Promise.all(workspaceLeaseEntries.map(([, record]) => record.lease.release()));
+      for (const [leaseId] of workspaceLeaseEntries) existingLeases?.delete(leaseId);
+      if (existingLeases?.size === 0) activeMemoryEmbeddingLeases.delete(runtimeKey);
     } catch (error) {
       return lifecycleResult({
         action: "stop",
@@ -398,10 +444,13 @@ async function stopMemoryEmbeddingLifecycle(
       });
     }
     provider = (await discoverAmbientMemoryEmbeddingProviders(input.workspacePath))[0];
+    const remainingLeases = activeMemoryEmbeddingLeases.get(runtimeKey)?.size ?? 0;
     return lifecycleResult({
       action: "stop",
       status: "stopped",
-      reason: "Ambient-managed memory embeddings stopped.",
+      reason: remainingLeases > 0
+        ? `Released this workspace's Ambient-managed memory embedding leases; runtime remains leased by ${remainingLeases} other owner${remainingLeases === 1 ? "" : "s"}.`
+        : "Ambient-managed memory embeddings stopped.",
       provider,
     });
   }
@@ -440,6 +489,16 @@ async function stopMemoryEmbeddingLifecycle(
 async function restartMemoryEmbeddingLifecycle(
   input: RunAmbientMemoryEmbeddingLifecycleActionInput,
 ): Promise<RunAmbientMemoryEmbeddingLifecycleActionResult> {
+  const otherWorkspaceLeaseCount = activeMemoryEmbeddingOtherWorkspaceLeaseCount(input.workspacePath);
+  if (otherWorkspaceLeaseCount > 0) {
+    const provider = (await discoverAmbientMemoryEmbeddingProviders(input.workspacePath))[0];
+    return lifecycleResult({
+      action: "restart",
+      status: "blocked",
+      reason: `Ambient-managed memory embeddings are still leased by ${otherWorkspaceLeaseCount} other owner${otherWorkspaceLeaseCount === 1 ? "" : "s"}; restart would interrupt another workspace.`,
+      provider,
+    });
+  }
   const stopped = await stopMemoryEmbeddingLifecycle({ ...input, action: "stop" });
   if (!["stopped", "not-found"].includes(stopped.status)) {
     return lifecycleResult({
@@ -828,12 +887,54 @@ function boundedPreview(value: string, maxLength = 240): string {
   return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 3)}...`;
 }
 
-function releaseMemoryEmbeddingLease(workspacePath: string, leaseId: string): () => Promise<void> {
+function memoryEmbeddingRuntimeKey(workspacePath: string): string {
+  const stateRootPath = ambientMemoryEmbeddingServerStateRoot(managedInstallWorkspacePath(workspacePath));
+  return `${stateRootPath}\0${AMBIENT_MEMORY_EMBEDDING_PROFILE_ID}`;
+}
+
+function activeMemoryEmbeddingLeaseCount(runtimeKey: string): number {
+  return activeMemoryEmbeddingLeases.get(runtimeKey)?.size ?? 0;
+}
+
+function activeMemoryEmbeddingOtherWorkspaceLeaseCount(workspacePath: string): number {
+  const leases = activeMemoryEmbeddingLeases.get(memoryEmbeddingRuntimeKey(workspacePath));
+  if (!leases) return 0;
+  return [...leases.values()].filter((record) =>
+    record.workspacePath !== workspacePath && processAlive(record.lease.state.pid)
+  ).length;
+}
+
+function activeMemoryEmbeddingLeaseStateAppearsLive(runtimeKey: string): boolean {
+  const leases = activeMemoryEmbeddingLeases.get(runtimeKey);
+  if (!leases) return false;
+  return [...leases.values()].some((record) => processAlive(record.lease.state.pid));
+}
+
+function rememberMemoryEmbeddingLease(runtimeKey: string, workspacePath: string, lease: LocalLlamaServerLease): void {
+  let leases = activeMemoryEmbeddingLeases.get(runtimeKey);
+  if (!leases) {
+    leases = new Map();
+    activeMemoryEmbeddingLeases.set(runtimeKey, leases);
+  }
+  leases.set(lease.leaseId, { workspacePath, lease });
+}
+
+async function releaseAllMemoryEmbeddingLeases(runtimeKey: string): Promise<void> {
+  const leases = activeMemoryEmbeddingLeases.get(runtimeKey);
+  if (!leases?.size) return;
+  await Promise.all([...leases.values()].map((record) => record.lease.release()));
+  activeMemoryEmbeddingLeases.delete(runtimeKey);
+}
+
+function releaseMemoryEmbeddingLease(runtimeKey: string, leaseId: string): () => Promise<void> {
   return async () => {
-    const lease = activeMemoryEmbeddingLeases.get(workspacePath);
-    if (!lease || lease.leaseId !== leaseId) return;
-    activeMemoryEmbeddingLeases.delete(workspacePath);
-    await lease.release();
+    const leases = activeMemoryEmbeddingLeases.get(runtimeKey);
+    if (!leases) return;
+    const record = leases.get(leaseId);
+    if (!record) return;
+    leases.delete(leaseId);
+    if (leases.size === 0) activeMemoryEmbeddingLeases.delete(runtimeKey);
+    await record.lease.release();
   };
 }
 

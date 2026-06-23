@@ -226,6 +226,7 @@ export class AgentRuntimeSessionFactoryController {
       featureEnabled: isAmbientTencentDbMemoryEnabled(featureFlagSnapshot),
       settings: memorySettings,
       threadMemoryEnabled: Boolean(thread.memoryEnabled),
+      threadKind: thread.kind,
       storageHealthy: this.options.features.memory?.storageHealthy?.() ?? true,
     });
     const provider = getAmbientProviderStatus(thread.model);

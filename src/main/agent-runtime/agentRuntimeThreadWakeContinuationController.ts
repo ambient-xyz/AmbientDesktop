@@ -26,6 +26,7 @@ export interface AgentRuntimeThreadWakeContinuationControllerOptions {
   send: (input: ThreadWakeContinuationSendInput) => Promise<void>;
   emit: (event: DesktopEvent) => void;
   asyncBashSnapshotText?: (threadId: string, jobId: string) => string | undefined;
+  asyncLongContextSnapshotText?: (threadId: string, jobId: string) => string | undefined;
   setTimeout?: (callback: () => void, delayMs: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
   now?: () => number;
@@ -101,6 +102,9 @@ export class AgentRuntimeThreadWakeContinuationController {
     const prompt = threadWakeContinuationPrompt(wake, {
       thread,
       asyncBashSnapshotText: wake.jobId ? this.options.asyncBashSnapshotText?.(wake.threadId, wake.jobId) : undefined,
+      asyncLongContextSnapshotText: wake.jobId
+        ? this.options.asyncLongContextSnapshotText?.(wake.threadId, wake.jobId)
+        : undefined,
     });
     await this.options.send({
       threadId: wake.threadId,
@@ -131,8 +135,9 @@ export class AgentRuntimeThreadWakeContinuationController {
 
 function threadWakeContinuationPrompt(
   wake: ThreadWakeContinuation,
-  context: { thread: ThreadSummary; asyncBashSnapshotText?: string },
+  context: { thread: ThreadSummary; asyncBashSnapshotText?: string; asyncLongContextSnapshotText?: string },
 ): string {
+  const jobKind = wakeJobKind(wake);
   return [
     "Ambient scheduled this thread to wake and continue.",
     "",
@@ -142,12 +147,42 @@ function threadWakeContinuationPrompt(
     wake.jobId ? `job_id: ${wake.jobId}` : undefined,
     wake.payload ? `payload_json: ${JSON.stringify(wake.payload)}` : undefined,
     "",
-    context.asyncBashSnapshotText
-      ? ["Latest async bash snapshot:", context.asyncBashSnapshotText].join("\n")
-      : wake.jobId
-        ? "Latest async bash snapshot: unavailable in this process. Treat the job as orphaned unless bash_poll can still find it, and report the limitation clearly."
-        : undefined,
+    wakeSnapshotText(wake, context, jobKind),
     "",
-    "Continue from the thread context. If this is for an async bash job, call bash_poll with wait_ms 0 to inspect current status, report meaningful progress, and schedule another thread_wake_schedule only if the job still needs a later check-in.",
+    wakeInstruction(jobKind),
   ].filter((line): line is string => line !== undefined).join("\n");
+}
+
+type ThreadWakeJobKind = "bash" | "long_context" | "unknown";
+
+function wakeJobKind(wake: ThreadWakeContinuation): ThreadWakeJobKind {
+  if (wake.payload?.job_kind === "long_context") return "long_context";
+  if (wake.payload?.job_kind === "bash") return "bash";
+  return wake.jobId ? "bash" : "unknown";
+}
+
+function wakeSnapshotText(
+  wake: ThreadWakeContinuation,
+  context: { asyncBashSnapshotText?: string; asyncLongContextSnapshotText?: string },
+  jobKind: ThreadWakeJobKind,
+): string | undefined {
+  if (!wake.jobId) return undefined;
+  if (jobKind === "long_context") {
+    return context.asyncLongContextSnapshotText
+      ? ["Latest async long-context snapshot:", context.asyncLongContextSnapshotText].join("\n")
+      : "Latest async long-context snapshot: unavailable in this process. Treat the job as orphaned unless long_context_poll can still find it, and report the limitation clearly.";
+  }
+  return context.asyncBashSnapshotText
+    ? ["Latest async bash snapshot:", context.asyncBashSnapshotText].join("\n")
+    : "Latest async bash snapshot: unavailable in this process. Treat the job as orphaned unless bash_poll can still find it, and report the limitation clearly.";
+}
+
+function wakeInstruction(jobKind: ThreadWakeJobKind): string {
+  if (jobKind === "long_context") {
+    return "Continue from the thread context. This wake is for an async long-context job: call long_context_poll with wait_ms 0 to inspect current status, report meaningful progress, and schedule another thread_wake_schedule only if the job still needs a later check-in.";
+  }
+  if (jobKind === "bash") {
+    return "Continue from the thread context. This wake is for an async bash job: call bash_poll with wait_ms 0 to inspect current status, report meaningful progress, and schedule another thread_wake_schedule only if the job still needs a later check-in.";
+  }
+  return "Continue from the thread context. Inspect the reason and payload, report meaningful progress, and schedule another thread_wake_schedule only if a later check-in is still needed.";
 }

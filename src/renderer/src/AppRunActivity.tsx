@@ -191,6 +191,7 @@ export function useAppRunActivityControls({
     setRunActivityLinesByThread((current) => {
       const lines = current[threadId] ?? [];
       const next = mergeRunActivityLine(lines, createRunActivityLine(normalized, kind), {
+        coalesceMinIntervalMs: RUN_ACTIVITY_STREAM_UPDATE_MIN_MS,
         dedupe: options.dedupe,
         maxLines: RUN_ACTIVITY_MAX_LINES,
       });
@@ -249,6 +250,7 @@ export function RunActivityFeed({
   const visibleLines = lines.length > 0 ? lines : [RUN_ACTIVITY_PLACEHOLDER];
   const latestLineId = visibleLines.at(-1)?.id;
   const scrollRevision = visibleLines.map((line) => `${line.id}:${line.kind}:${line.text}`).join("\n");
+  const showCompactionProgress = status === "compacting" && variant === "default";
 
   useLayoutEffect(() => {
     if (!shouldTailFeedRef.current) return;
@@ -282,6 +284,11 @@ export function RunActivityFeed({
           </div>
           <LoaderCircle size={15} className="spin" />
         </div>
+        {showCompactionProgress && (
+          <div className="run-activity-progress" role="progressbar" aria-label="Compacting context">
+            <span />
+          </div>
+        )}
         <div className="run-activity-metrics">
           {summary.metrics.map((metric) => (
             <span key={metric}>{metric}</span>
@@ -408,14 +415,19 @@ export function formatRuntimeActivity(activity: RuntimeActivity): string {
     return `Retry attempt ${activity.attempt} failed${activity.message ? `: ${activity.message}` : "."}`;
   }
 
-  if (activity.status === "starting") {
-    return `Compacting context (${activity.reason}).`;
-  }
+  const reason = compactionReasonLabel(activity.reason);
+  if (activity.status === "starting") return `Compacting context (${reason}).`;
   if (activity.aborted) {
-    return `Compaction stopped (${activity.reason}).`;
+    return `Compaction stopped (${reason}).`;
   }
   if (activity.message) {
-    return `Compaction ${activity.willRetry ? "will retry" : "finished"} (${activity.reason}): ${activity.message}`;
+    return `Compaction ${activity.willRetry ? "will retry" : "finished"} (${reason}): ${activity.message}`;
   }
-  return `Compaction finished (${activity.reason}).`;
+  return `Compaction finished (${reason}).`;
+}
+
+function compactionReasonLabel(reason: Extract<RuntimeActivity, { kind: "compaction" }>["reason"]): string {
+  if (reason === "overflow") return "provider context overflow";
+  if (reason === "threshold") return "context threshold";
+  return "manual";
 }

@@ -747,6 +747,8 @@ import {
 
 export type MediaPreviewModalRequest = { path: string; mediaKind: "image" | "video" };
 
+const COMPLETED_LARGE_OUTPUT_RESULT_INLINE_LIMIT = 2_000;
+
 function messageStatus(message: ChatMessage): string | undefined {
   return typeof message.metadata?.status === "string" ? message.metadata.status : undefined;
 }
@@ -798,6 +800,11 @@ export function ToolMessageCard({
     parsed.messagingRemoteSurfaceActivation,
   );
   const showProgressPreview = Boolean(parsed.progressPreview && !hasStructuredBodyPreview);
+  const showResultSection = shouldRenderToolResultSection({
+    result: parsed.result,
+    hasLargeOutputPreview: Boolean(parsed.largeOutputPreview),
+    status,
+  });
   return (
     <article className={`message tool status-${status ?? "done"}`}>
       <details className="tool-card" open={status === "running" || status === "error"}>
@@ -847,7 +854,7 @@ export function ToolMessageCard({
             )}
           </span>
         </summary>
-        {parsed.input || parsed.result || showProgressPreview || parsed.managedFileArtifacts.length > 0 ? (
+        {parsed.input || showResultSection || parsed.largeOutputPreview || showProgressPreview || parsed.managedFileArtifacts.length > 0 ? (
           <div
             className="tool-output"
             onClick={(event) => event.stopPropagation()}
@@ -902,7 +909,7 @@ export function ToolMessageCard({
                 onPreviewLocalPath={onPreviewLocalPath}
               />
             )}
-            {parsed.result && (
+            {showResultSection && (
               <ToolSection
                 title="Result"
                 content={parsed.result}
@@ -929,6 +936,21 @@ export function ToolMessageCard({
       )}
     </article>
   );
+}
+
+export function shouldRenderToolResultSection({
+  result,
+  hasLargeOutputPreview,
+  status,
+}: {
+  result?: string;
+  hasLargeOutputPreview: boolean;
+  status?: string;
+}): boolean {
+  if (!result) return false;
+  if (!hasLargeOutputPreview) return true;
+  if (status === "running" || status === "error") return true;
+  return result.trim().length > 0 && result.length <= COMPLETED_LARGE_OUTPUT_RESULT_INLINE_LIMIT;
 }
 
 export function ToolManagedFileArtifactsPreview({

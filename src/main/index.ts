@@ -205,6 +205,7 @@ import {
   releaseAgentMemoryEmbeddingRuntimeForHost,
   repairAgentMemoryStarter,
   runAgentMemoryEmbeddingLifecycleAction,
+  runAgentMemoryStartupReconciliation,
   startAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
   stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
 } from "./memory/agentMemoryDesktopService";
@@ -563,7 +564,7 @@ const projectRuntimeHostFactory = createProjectRuntimeHostFactory({
 const projectRuntimeHostActivationService = createProjectRuntimeHostActivationService<ProjectRuntimeHost>({
   normalizeWorkspacePath,
   createProjectRuntimeHost: (workspacePath, options) => projectRuntimeHostFactory.createProjectRuntimeHost(workspacePath, options),
-  runStartupReconciliation: (reason, host) => runSubagentRuntimeStartupReconciliation(reason, host),
+  runStartupReconciliation: (reason, host) => runProjectRuntimeStartupReconciliation(reason, host),
   registerProjectWorkspacePath: (workspacePath) => projectRegistry.register(workspacePath),
   onActiveHostChanged: (host) => syncActiveProjectRuntimeHost(host),
 });
@@ -1599,6 +1600,11 @@ function managedChromeRevealBoundsForAmbientWindow(): ManagedChromeWindowBounds 
 
 function runSubagentRuntimeStartupReconciliation(reason: "project-runtime-created", host: ProjectRuntimeHost): void {
   subagentRuntimeStartupReconciliationService.runSubagentRuntimeStartupReconciliation(reason, host);
+}
+
+function runProjectRuntimeStartupReconciliation(reason: "project-runtime-created", host: ProjectRuntimeHost): void {
+  runSubagentRuntimeStartupReconciliation(reason, host);
+  runAgentMemoryStartupReconciliation(reason, host);
 }
 
 function projectRuntimeHostForStore(targetStore: ProjectStore): ProjectRuntimeHost | undefined {

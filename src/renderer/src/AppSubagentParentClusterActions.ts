@@ -3,8 +3,13 @@ import type { Dispatch, SetStateAction } from "react";
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 import type { CallableWorkflowTaskSummary, WorkflowAgentFolderSummary } from "../../shared/workflowTypes";
+import type { useAppAutomationShellState } from "./AppAutomationShellState";
 import type { AutomationPane } from "./AutomationsWorkspace";
+import type { useAppProjectShellState } from "./AppProjectShellState";
 import type { SidebarArea } from "./AppShellSidebar";
+import type { useAppShellUiState } from "./AppShellUiState";
+import type { useAppWorkflowRecordingLibraryControls } from "./AppWorkflowRecordingLibraryControls";
+import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
 import {
   subagentApprovalInitialScope,
   type SubagentApprovalDecisionDialogState,
@@ -87,6 +92,91 @@ export function appStateWithSubagentParentMailboxEventSummary(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+type AppAutomationShellStateForSubagentParentClusterActions = Pick<
+  ReturnType<typeof useAppAutomationShellState>,
+  | "setAutomationPopover"
+  | "setSelectedAutomationPane"
+  | "setSelectedAutomationThreadId"
+  | "setSelectedWorkflowAgentFolderId"
+  | "setSelectedWorkflowAgentThreadId"
+  | "setWorkflowAgentFolders"
+  | "setWorkflowAgentNavigationError"
+>;
+
+type AppProjectShellStateForSubagentParentClusterActions = Pick<
+  ReturnType<typeof useAppProjectShellState>,
+  "setProjectPopover"
+>;
+
+type AppShellUiStateForSubagentParentClusterActions = Pick<
+  ReturnType<typeof useAppShellUiState>,
+  "setError" | "setSidebarArea"
+>;
+
+type AppWorkflowRecordingLibraryControlsForSubagentParentClusterActions = Pick<
+  ReturnType<typeof useAppWorkflowRecordingLibraryControls>,
+  "setSelectedWorkflowRecordingId"
+>;
+
+type AppWorkflowRuntimeStateForSubagentParentClusterActions = Pick<
+  ReturnType<typeof useAppWorkflowRuntimeState>,
+  | "setCallableWorkflowTaskCancelBusy"
+  | "setCallableWorkflowTaskPauseBusy"
+  | "setCallableWorkflowTaskResumeBusy"
+  | "setSubagentApprovalActionBusy"
+  | "setSubagentApprovalDecisionDialog"
+  | "setSubagentBarrierActionBusy"
+  | "setSubagentBarrierDecisionDialog"
+  | "setSubagentChildCancelBusy"
+  | "setSubagentChildCloseBusy"
+  | "subagentApprovalDecisionDialog"
+  | "subagentBarrierDecisionDialog"
+>;
+
+export type AppSubagentParentClusterActionsForAppInput = {
+  automationShellState: AppAutomationShellStateForSubagentParentClusterActions;
+  projectShellState: AppProjectShellStateForSubagentParentClusterActions;
+  setState: Dispatch<SetStateAction<DesktopState | undefined>>;
+  shellUiState: AppShellUiStateForSubagentParentClusterActions;
+  workflowRecordingLibraryControls: AppWorkflowRecordingLibraryControlsForSubagentParentClusterActions;
+  workflowRuntimeState: AppWorkflowRuntimeStateForSubagentParentClusterActions;
+};
+
+export function createAppSubagentParentClusterActionsForApp({
+  automationShellState,
+  projectShellState,
+  setState,
+  shellUiState,
+  workflowRecordingLibraryControls,
+  workflowRuntimeState,
+}: AppSubagentParentClusterActionsForAppInput) {
+  return createAppSubagentParentClusterActions({
+    clearAutomationPopover: () => automationShellState.setAutomationPopover(undefined),
+    clearProjectPopover: () => projectShellState.setProjectPopover(undefined),
+    setCallableWorkflowTaskCancelBusy: workflowRuntimeState.setCallableWorkflowTaskCancelBusy,
+    setCallableWorkflowTaskPauseBusy: workflowRuntimeState.setCallableWorkflowTaskPauseBusy,
+    setCallableWorkflowTaskResumeBusy: workflowRuntimeState.setCallableWorkflowTaskResumeBusy,
+    setError: shellUiState.setError,
+    setSelectedAutomationPane: automationShellState.setSelectedAutomationPane,
+    setSelectedAutomationThreadId: automationShellState.setSelectedAutomationThreadId,
+    setSelectedWorkflowAgentFolderId: automationShellState.setSelectedWorkflowAgentFolderId,
+    setSelectedWorkflowAgentThreadId: automationShellState.setSelectedWorkflowAgentThreadId,
+    setSelectedWorkflowRecordingId: workflowRecordingLibraryControls.setSelectedWorkflowRecordingId,
+    setSidebarArea: shellUiState.setSidebarArea,
+    setState,
+    setSubagentApprovalActionBusy: workflowRuntimeState.setSubagentApprovalActionBusy,
+    setSubagentApprovalDecisionDialog: workflowRuntimeState.setSubagentApprovalDecisionDialog,
+    setSubagentBarrierActionBusy: workflowRuntimeState.setSubagentBarrierActionBusy,
+    setSubagentBarrierDecisionDialog: workflowRuntimeState.setSubagentBarrierDecisionDialog,
+    setSubagentChildCancelBusy: workflowRuntimeState.setSubagentChildCancelBusy,
+    setSubagentChildCloseBusy: workflowRuntimeState.setSubagentChildCloseBusy,
+    setWorkflowAgentFolders: automationShellState.setWorkflowAgentFolders,
+    setWorkflowAgentNavigationError: automationShellState.setWorkflowAgentNavigationError,
+    subagentApprovalDecisionDialog: workflowRuntimeState.subagentApprovalDecisionDialog,
+    subagentBarrierDecisionDialog: workflowRuntimeState.subagentBarrierDecisionDialog,
+  });
 }
 
 export function createAppSubagentParentClusterActions({

@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DesktopState } from "../../shared/desktopTypes";
-import type { ProjectSummary } from "../../shared/projectBoardTypes";
+import type { ProjectBoardCard, ProjectSummary } from "../../shared/projectBoardTypes";
 import type { ProjectBoardResetDialogState } from "./AppActionDialogs";
 import {
   PROJECT_BOARD_RESET_BRIDGE_UNAVAILABLE_MESSAGE,
@@ -105,6 +105,21 @@ describe("App project board actions", () => {
       },
     ]);
     expect(calls.errors).toEqual([undefined, PROJECT_BOARD_RESET_BRIDGE_UNAVAILABLE_MESSAGE]);
+  });
+
+  it("keeps extracted proof actions available through the root action factory", async () => {
+    const nextState = desktopState();
+    const approveProjectBoardCard = vi.fn(async () => nextState);
+    const { actions, calls } = createController({
+      ambientDesktop: { approveProjectBoardCard },
+    });
+
+    await actions.approveProjectBoardCard({ id: "card-1" } as ProjectBoardCard);
+
+    expect(approveProjectBoardCard).toHaveBeenCalledWith({ cardId: "card-1" });
+    expect(calls.errors).toEqual([undefined]);
+    expect(calls.projectActionStates).toEqual([nextState]);
+    expect(calls.projectBoardOpen).toEqual([true]);
   });
 });
 

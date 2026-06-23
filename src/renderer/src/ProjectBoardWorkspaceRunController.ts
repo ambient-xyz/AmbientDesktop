@@ -403,3 +403,5 @@ export function useProjectBoardWorkspaceRunController({
     updateProjectBoardWorkflowSettings,
   };
 }
+
+export type ProjectBoardWorkspaceRunController = ReturnType<typeof useProjectBoardWorkspaceRunController>;

@@ -12,7 +12,10 @@ import type {
 import type { ThreadSummary } from "../../shared/threadTypes";
 import { applyDocumentAppearance } from "./appearance";
 import { createAppCommandPaletteItems } from "./AppCommandPaletteModel";
+import type { createAppCredentialDialogActions } from "./AppCredentialDialogActions";
 import type { CommandPaletteItem } from "./AppDialogs";
+import type { createAppNavigationActionsForApp } from "./AppNavigationActions";
+import type { useAppRightPanelState } from "./AppRightPanelState";
 import type { AutomationPopover, ProjectPopover } from "./AppSidebar";
 import type { SidebarArea } from "./AppShellSidebar";
 import {
@@ -20,6 +23,8 @@ import {
   beginAppSidebarResize,
   beginAppWorkflowRecorderReviewResize,
 } from "./AppShellResize";
+import type { useAppShellUiState } from "./AppShellUiState";
+import type { AppThreadMaintenanceActions } from "./AppThreadMaintenanceActions";
 import type { AutomationPane } from "./AutomationsWorkspace";
 import type { UtilityPanel } from "./RightPanel";
 
@@ -33,6 +38,130 @@ type MediaPreviewModal = {
   path: string;
   mediaKind: "image" | "video";
 };
+
+export interface AppShellCommandActionsOptions {
+  compactActiveThread: () => MaybePromise;
+  contextUsage: DesktopState["contextUsage"] | undefined;
+  createThread: () => MaybePromise;
+  exportActiveChat: () => MaybePromise;
+  exportDiagnostics: () => MaybePromise;
+  openApiKeyDialog: () => MaybePromise;
+  openMcpRuntimeSettings: () => MaybePromise;
+  openPanel: (panel: UtilityPanel) => MaybePromise;
+  openWorkflowLabArea: () => MaybePromise;
+  openWorkflowRecordingsArea: () => MaybePromise;
+  openWorkspace: () => MaybePromise;
+  recoverActiveThreadContext: () => MaybePromise;
+  rightPanel: UtilityPanel | undefined;
+  setCommandPaletteOpen: Setter<boolean>;
+  setCommandPaletteQuery: Setter<string>;
+  setError: (message: string | undefined) => void;
+  setMediaPreviewModal: Setter<MediaPreviewModal | undefined>;
+  setRightPanelWidth: Setter<number>;
+  setSidebarOpen: Setter<boolean>;
+  setSidebarWidth: Setter<number>;
+  setState: Setter<DesktopState | undefined>;
+  setWorkflowRecorderReviewPanelWidth: Setter<number>;
+  sidebarOpen: boolean;
+  state: DesktopState | undefined;
+  togglePanel: (panel: UtilityPanel) => MaybePromise;
+  workflowRecorderNavLabel: string;
+}
+
+export type AppShellCommandActions = {
+  beginRightPanelResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  beginSidebarResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  beginWorkflowRecorderReviewResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  commandItems: () => CommandPaletteItem[];
+  handleMenuCommand: (command: MenuCommand) => Promise<void>;
+  openMediaPreviewModal: (path: string, mediaKind: "image" | "video") => void;
+  runPaletteCommand: (command: CommandPaletteItem) => Promise<void>;
+  updateThemePreference: (themePreference: ThemePreference) => Promise<void>;
+  updateThreadSettings: (input: ThreadSettingsPatch) => Promise<ThreadSummary | undefined>;
+};
+
+type AppCredentialDialogActionsForShellCommandActions = Pick<
+  ReturnType<typeof createAppCredentialDialogActions>,
+  "openApiKeyDialog"
+>;
+
+type AppNavigationActionsForShellCommandActions = Pick<
+  ReturnType<typeof createAppNavigationActionsForApp>,
+  "createThread" | "openWorkflowLabArea" | "openWorkflowRecordingsArea" | "openWorkspace"
+>;
+
+type AppRightPanelStateForShellCommandActions = Pick<
+  ReturnType<typeof useAppRightPanelState>,
+  "openMcpRuntimeSettings" | "openPanel" | "rightPanel" | "setRightPanelWidth" | "togglePanel"
+>;
+
+type AppShellUiStateForShellCommandActions = Pick<
+  ReturnType<typeof useAppShellUiState>,
+  | "setCommandPaletteOpen"
+  | "setCommandPaletteQuery"
+  | "setError"
+  | "setMediaPreviewModal"
+  | "setSidebarOpen"
+  | "setSidebarWidth"
+  | "setWorkflowRecorderReviewPanelWidth"
+  | "sidebarOpen"
+>;
+
+type AppThreadMaintenanceActionsForShellCommandActions = Pick<
+  AppThreadMaintenanceActions,
+  "compactActiveThread" | "exportActiveChat" | "exportDiagnostics" | "recoverActiveThreadContext"
+>;
+
+export type AppShellCommandActionsForAppInput = {
+  credentialDialogActions: AppCredentialDialogActionsForShellCommandActions;
+  navigationActions: AppNavigationActionsForShellCommandActions;
+  rightPanelState: AppRightPanelStateForShellCommandActions;
+  setState: AppShellCommandActionsOptions["setState"];
+  shellUiState: AppShellUiStateForShellCommandActions;
+  state: DesktopState | undefined;
+  threadMaintenanceActions: AppThreadMaintenanceActionsForShellCommandActions;
+  workflowRecorderNavLabel: string;
+};
+
+export function createAppShellCommandActionsForApp({
+  credentialDialogActions,
+  navigationActions,
+  rightPanelState,
+  setState,
+  shellUiState,
+  state,
+  threadMaintenanceActions,
+  workflowRecorderNavLabel,
+}: AppShellCommandActionsForAppInput): AppShellCommandActions {
+  return createAppShellCommandActions({
+    compactActiveThread: threadMaintenanceActions.compactActiveThread,
+    contextUsage: state?.contextUsage,
+    createThread: navigationActions.createThread,
+    exportActiveChat: threadMaintenanceActions.exportActiveChat,
+    exportDiagnostics: threadMaintenanceActions.exportDiagnostics,
+    openApiKeyDialog: credentialDialogActions.openApiKeyDialog,
+    openMcpRuntimeSettings: rightPanelState.openMcpRuntimeSettings,
+    openPanel: rightPanelState.openPanel,
+    openWorkflowLabArea: navigationActions.openWorkflowLabArea,
+    openWorkflowRecordingsArea: navigationActions.openWorkflowRecordingsArea,
+    openWorkspace: navigationActions.openWorkspace,
+    recoverActiveThreadContext: threadMaintenanceActions.recoverActiveThreadContext,
+    rightPanel: rightPanelState.rightPanel,
+    setCommandPaletteOpen: shellUiState.setCommandPaletteOpen,
+    setCommandPaletteQuery: shellUiState.setCommandPaletteQuery,
+    setError: shellUiState.setError,
+    setMediaPreviewModal: shellUiState.setMediaPreviewModal,
+    setRightPanelWidth: rightPanelState.setRightPanelWidth,
+    setSidebarOpen: shellUiState.setSidebarOpen,
+    setSidebarWidth: shellUiState.setSidebarWidth,
+    setState,
+    setWorkflowRecorderReviewPanelWidth: shellUiState.setWorkflowRecorderReviewPanelWidth,
+    sidebarOpen: shellUiState.sidebarOpen,
+    state,
+    togglePanel: rightPanelState.togglePanel,
+    workflowRecorderNavLabel,
+  });
+}
 
 export function createAppWorkflowComposerNavigation({
   loadWorkflowAgentFolders,
@@ -102,44 +231,7 @@ export function createAppShellCommandActions({
   state,
   togglePanel,
   workflowRecorderNavLabel,
-}: {
-  compactActiveThread: () => MaybePromise;
-  contextUsage: DesktopState["contextUsage"] | undefined;
-  createThread: () => MaybePromise;
-  exportActiveChat: () => MaybePromise;
-  exportDiagnostics: () => MaybePromise;
-  openApiKeyDialog: () => MaybePromise;
-  openMcpRuntimeSettings: () => MaybePromise;
-  openPanel: (panel: UtilityPanel) => MaybePromise;
-  openWorkflowLabArea: () => MaybePromise;
-  openWorkflowRecordingsArea: () => MaybePromise;
-  openWorkspace: () => MaybePromise;
-  recoverActiveThreadContext: () => MaybePromise;
-  rightPanel: UtilityPanel | undefined;
-  setCommandPaletteOpen: Setter<boolean>;
-  setCommandPaletteQuery: Setter<string>;
-  setError: (message: string | undefined) => void;
-  setMediaPreviewModal: Setter<MediaPreviewModal | undefined>;
-  setRightPanelWidth: Setter<number>;
-  setSidebarOpen: Setter<boolean>;
-  setSidebarWidth: Setter<number>;
-  setState: Setter<DesktopState | undefined>;
-  setWorkflowRecorderReviewPanelWidth: Setter<number>;
-  sidebarOpen: boolean;
-  state: DesktopState | undefined;
-  togglePanel: (panel: UtilityPanel) => MaybePromise;
-  workflowRecorderNavLabel: string;
-}): {
-  beginRightPanelResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
-  beginSidebarResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
-  beginWorkflowRecorderReviewResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
-  commandItems: () => CommandPaletteItem[];
-  handleMenuCommand: (command: MenuCommand) => Promise<void>;
-  openMediaPreviewModal: (path: string, mediaKind: "image" | "video") => void;
-  runPaletteCommand: (command: CommandPaletteItem) => Promise<void>;
-  updateThemePreference: (themePreference: ThemePreference) => Promise<void>;
-  updateThreadSettings: (input: ThreadSettingsPatch) => Promise<ThreadSummary | undefined>;
-} {
+}: AppShellCommandActionsOptions): AppShellCommandActions {
   async function updateThreadSettings(input: ThreadSettingsPatch): Promise<ThreadSummary | undefined> {
     if (!state) return undefined;
     const threadId = state.activeThreadId;

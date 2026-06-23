@@ -1,4 +1,3 @@
-import { ReactNode, useEffect } from "react";
 import type { AgentMemoryClearResult, AgentMemoryEmbeddingLifecycleActionKind, AgentMemoryEmbeddingLifecycleActionResult, AgentMemoryStorageDiagnostics } from "../../shared/agentMemoryDiagnostics";
 import type { BrowserCapabilityState, BrowserUserActionState } from "../../shared/browserTypes";
 import type { DesktopState, ThemePreference } from "../../shared/desktopTypes";
@@ -14,47 +13,16 @@ import {
   type LocalDeepResearchSetupResult,
 } from "./localDeepResearchUiModel";
 import type { CapabilityBuilderPromptResult } from "./AppCapabilityPromptActions";
-import { useRightPanelCapabilityBuilderController } from "./RightPanelCapabilityBuilderController";
-import { useRightPanelBrowserController } from "./RightPanelBrowserController";
-import { RightPanelBrowserPane } from "./RightPanelBrowserPane";
+import { useRightPanelControllerGraph } from "./RightPanelControllerGraph";
 import {
   BrowserProfileCopyDialog,
-  fileIconForEntry,
-  fileTreeEntryTitle,
   GitConfirmationDialog,
 } from "./RightPanelDetailPanels";
-import { useRightPanelDiagnosticsController } from "./RightPanelDiagnosticsController";
 import {
   CapabilityBuilderLauncherDialog,
   McpContainerRuntimeDialog,
 } from "./RightPanelDialogs";
-import { RightPanelContextPane } from "./RightPanelContextPane";
-import { FilePreview, formatPanelFileSize } from "./RightPanelFilePreview";
-import { useRightPanelGitController } from "./RightPanelGitController";
-import { RightPanelGitPane } from "./RightPanelGitPane";
-import { useRightPanelGoogleIntegrationBridge } from "./RightPanelGoogleIntegrationBridge";
-import { useRightPanelMcpController } from "./RightPanelMcpController";
-import { useRightPanelPiPackageController } from "./RightPanelPiPackageController";
-import { useRightPanelPluginAuthController } from "./RightPanelPluginAuthController";
-import { useRightPanelPluginCatalogController } from "./RightPanelPluginCatalogController";
-import { RightPanelPluginsPane } from "./RightPanelPluginsPane";
-import { RichText } from "./RightPanelRichText";
-import { useRightPanelSettingsController } from "./RightPanelSettingsController";
-import { RightPanelSettingsPane } from "./RightPanelSettingsPane";
-import { formatTimelineTime } from "./RightPanelSettingsRuntime";
 import { RightPanelShell } from "./RightPanelShell";
-import { InfoTooltip, PermissionFullAccessReceiptList } from "./RightPanelStatusWidgets";
-import {
-  fileContextReference,
-  useRightPanelFilesController,
-  useRightPanelSearchController,
-  useRightPanelTerminalController,
-} from "./RightPanelUtilityPaneControllers";
-import {
-  RightPanelFilesPane,
-  RightPanelSearchPane,
-  RightPanelTerminalPane,
-} from "./RightPanelUtilityPanes";
 import type { SttMicrophoneDevice, SttMicrophoneLevel } from "./sttMicrophoneRecorder";
 import "./styles.css";
 export {
@@ -229,121 +197,7 @@ export type SttMicTestUiState = {
 };
 
 
-export function RightPanel({
-  panel,
-  panelWidth,
-  state,
-  workspaceRevision,
-  pluginCatalogRevision,
-  permissionAuditRevision,
-  browserRevision,
-  orchestrationRevision,
-  orchestrationAutoRevision,
-  workflowRevision,
-  artifactPreviewRequest,
-  localFilePreviewRequest,
-  gitPanelTabRequest,
-  settingsFocusRequest,
-  contextAttachments,
-  permissionAudit,
-  permissionGrants,
-  permissionAuditError,
-  permissionGrantError,
-  permissionGrantRevoking,
-  voiceProviders,
-  voiceProvidersLoading,
-  voiceProvidersError,
-  voiceProviderCacheStatus,
-  voiceProviderCacheActivity,
-  voiceCatalogRefresh,
-  sttProviders,
-  sttProvidersLoading,
-  sttProvidersError,
-  sttProviderCacheStatus,
-  sttProviderCacheActivity,
-  sttProviderSetup,
-  sttMicrophoneDevices,
-  sttMicrophoneDevicesLoading,
-  sttMicrophoneDevicesError,
-  miniCpmVisionSetup,
-  miniCpmVisionRuntimePath,
-  miniCpmVisionEndpointUrl,
-  localDeepResearchSetup,
-  localDeepResearchQ8Override,
-  localDeepResearchRunHistory,
-  sttMicTest,
-  mcpContainerRuntimeInstallProgress,
-  mcpDefaultCapabilityInstallProgress,
-  searchRoutingHydrating,
-  searchRoutingHydrationError,
-  agentMemoryDiagnostics,
-  agentMemoryDiagnosticsLoading,
-  agentMemoryDiagnosticsError,
-  agentMemoryEmbeddingActionLoading,
-  agentMemoryEmbeddingActionResult,
-  agentMemoryEmbeddingActionError,
-  updateBusy,
-  running,
-  onLoadPermissionAudit,
-  onLoadPermissionGrants,
-  onRevokePermissionGrant,
-  onRevokePermissionGrantIds,
-  onOpenApiKey,
-  onCheckUpdates,
-  onThemePreferenceChange,
-  onMediaPlaybackSettingsChange,
-  onThinkingDisplaySettingsChange,
-  onThinkingLevelChange,
-  onModelRuntimeSettingsChange,
-  onSaveModelProviderCredential,
-  onInstallModelProviderEndpoint,
-  onRunLocalModelRuntimeLifecycleAction,
-  onFeatureFlagSettingsChange,
-  onMemorySettingsChange,
-  onApplyMemorySettingsSnapshot,
-  onActiveThreadMemoryEnabledChange,
-  onRefreshAgentMemoryDiagnostics,
-  onRunAgentMemoryEmbeddingLifecycleAction,
-  onClearAgentMemory,
-  onPlannerSettingsChange,
-  onHydrateSearchRoutingSettings,
-  onSearchRoutingSettingsChange,
-  onLocalDeepResearchSettingsChange,
-  onOpenAmbientCliSecretDialog,
-  onVoiceSettingsChange,
-  onLoadVoiceProviders,
-  onRefreshVoiceCatalog,
-  onSttSettingsChange,
-  onLoadSttProviders,
-  onLoadSttMicrophoneDevices,
-  onSetupSttProvider,
-  onSetupMiniCpmVisionProvider,
-  onMiniCpmVisionRuntimePathChange,
-  onMiniCpmVisionEndpointUrlChange,
-  onSetupLocalDeepResearch,
-  onLocalDeepResearchQ8OverrideChange,
-  onLoadLocalDeepResearchRunHistory,
-  onStartSttMicTest,
-  onStopSttMicTest,
-  onCancelSttMicTest,
-  onClearMcpContainerRuntimeInstallProgress,
-  onClearMcpDefaultCapabilityInstallProgress,
-  onExportDiagnostics,
-  onImportDiagnostics,
-  onSelectThread,
-  onAddContext,
-  onRemoveContext,
-  onClearContext,
-  onContextError,
-  onGitReviewChanged,
-  onWorkspaceChanged,
-  onStartCapabilityBuilder,
-  onOpenPluginCapabilities,
-  onOpenMcpRuntimeSettings,
-  onDefaultCapabilityInstalled,
-  onBrowserUserActionCompleted,
-  onClose,
-}: {
+export type RightPanelProps = {
   panel: UtilityPanel;
   panelWidth: number;
   state: DesktopState;
@@ -457,511 +311,26 @@ export function RightPanel({
   onDefaultCapabilityInstalled: () => void;
   onBrowserUserActionCompleted: (action: BrowserUserActionState, browserState: BrowserCapabilityState) => Promise<void>;
   onClose: () => void;
-}) {
-  const searchPane = useRightPanelSearchController({
-    panel,
-    workspacePath: state.workspace.path,
-    activeThreadId: state.activeThreadId,
-  });
-  const filesPane = useRightPanelFilesController({
-    panel,
-    activeWorkspacePath: state.activeWorkspace.path,
-    workspaceRevision,
-    panelWidth,
-    artifactPreviewRequest,
-    localFilePreviewRequest,
-  });
-  const gitPane = useRightPanelGitController({
-    panel,
-    activeWorkspacePath: state.activeWorkspace.path,
-    workspacePath: state.workspace.path,
-    workspaceRevision,
-    gitPanelTabRequest,
-    onGitReviewChanged,
-    onWorkspaceChanged,
-  });
-  const terminalPane = useRightPanelTerminalController({
-    panel,
-    activeWorkspacePath: state.activeWorkspace.path,
-    eventWorkspacePath: state.workspace.path,
-    activeThreadId: state.activeThreadId,
-    permissionMode: state.settings.permissionMode,
-  });
-  const diagnosticsPane = useRightPanelDiagnosticsController({
-    onExportDiagnostics,
-    onImportDiagnostics,
-  });
+};
+
+export function RightPanel(props: RightPanelProps) {
   const {
-    browserState,
-    browserUrl,
-    setBrowserUrl,
-    browserSearch,
-    setBrowserSearch,
-    browserPickPrompt,
-    setBrowserPickPrompt,
-    browserBusy,
-    browserUserActionBusy,
-    browserError,
-    browserStatus,
-    latestBrowserScreenshot,
-    visualAnalysisBusy,
-    visualAnalysisStatus,
-    visualAnalysisDiagnostics,
-    browserCopyDialogOpen,
-    setBrowserCopyDialogOpen,
-    browserFocused,
-    setBrowserFocused,
-    browserInspectResult,
-    browserCredentials,
-    browserCredentialForm,
-    setBrowserCredentialForm,
-    browserCredentialBusy,
-    browserCredentialStatus,
-    browserHostRef,
-    loadBrowserState,
-    loadBrowserCredentials,
-    resetBrowserCredentialForm,
-    editBrowserCredential,
-    saveBrowserCredential,
-    deleteBrowserCredential,
-    startBrowser,
-    stopBrowser,
-    clearIsolatedBrowserProfile,
-    copyChromeProfile,
-    clearCopiedChromeProfile,
-    navigateBrowser,
-    refreshBrowserPage,
-    searchBrowser,
-    screenshotBrowser,
-    analyzeLatestBrowserScreenshot,
-    analyzeContextAttachmentWithMiniCpm,
-    analyzeWorkspaceFileWithMiniCpm,
-    revealBrowser,
-    copyBrowserInspectReference,
-    pickBrowserElement,
-    cancelBrowserPicker,
-    resumeBrowserUserAction,
-    cancelBrowserUserAction,
-  } = useRightPanelBrowserController({
     panel,
-    workspacePath: state.activeWorkspace.path,
-    browserRevision,
-    onBrowserUserActionCompleted,
-  });
-  const mcpPane = useRightPanelMcpController({
-    activeWorkspacePath: state.activeWorkspace.path,
-    workspacePath: state.workspace.path,
-    onClearMcpContainerRuntimeInstallProgress,
-    onClearMcpDefaultCapabilityInstallProgress,
-    onDefaultCapabilityInstalled,
-  });
-  const settingsPane = useRightPanelSettingsController({
-    panel,
+    panelWidth,
+    mcpContainerRuntimeInstallProgress,
+    mcpDefaultCapabilityInstallProgress,
     running,
-    activeThreadId: state.activeThreadId,
-    activeThreadMemoryEnabled: Boolean(state.threads.find((thread) => thread.id === state.activeThreadId)?.memoryEnabled),
-    workspacePath: state.workspace.path,
-    activeWorkspacePath: state.activeWorkspace.path,
-    permissionAuditRevision,
-    settings: state.settings,
-    providerCatalogCards: state.providerCatalog.cards,
-    subagentsEffectiveEnabled: Boolean(state.featureFlagSnapshot?.flags["ambient.subagents"]?.enabled),
-    settingsFocusRequest,
-    mcp: {
-      refreshContainerRuntimeStatus: mcpPane.refreshContainerRuntimeStatus,
-      loadInstalledServers: mcpPane.loadInstalledServers,
-      loadManagedDevServers: mcpPane.loadManagedDevServers,
-    },
-    onLoadPermissionAudit,
-    onLoadPermissionGrants,
-    onLoadVoiceProviders,
-    onRefreshAgentMemoryDiagnostics,
-    onClearAgentMemory,
-    onStartCapabilityBuilder,
-    onHydrateSearchRoutingSettings,
-    onApplyMemorySettingsSnapshot,
-    onSttSettingsChange,
-    onSaveModelProviderCredential,
-    onInstallModelProviderEndpoint,
-    onRunLocalModelRuntimeLifecycleAction,
-  });
-  async function runAgentMemoryEmbeddingLifecycleActionFromSettings(action: AgentMemoryEmbeddingLifecycleActionKind) {
-    const result = await onRunAgentMemoryEmbeddingLifecycleAction(action);
-    if (result?.starterStatus) {
-      settingsPane.applyAgentMemoryStarterStatus(result.starterStatus);
-      return;
-    }
-    await settingsPane.loadAgentMemoryStarterStatus();
-  }
-  const googleIntegrationBridge = useRightPanelGoogleIntegrationBridge();
-  const pluginCatalogPane = useRightPanelPluginCatalogController({
-    workspacePath: state.activeWorkspace.path,
-    onStartCapabilityBuilder,
-    onGoogleIntegrationChanged: googleIntegrationBridge.onGoogleIntegrationChanged,
-    mcp: {
-      prepareCatalogLoad: mcpPane.prepareCatalogLoad,
-      clearInspection: mcpPane.clearInspection,
-      clearRuntimeSnapshots: mcpPane.clearRuntimeSnapshots,
-      setRuntimeSnapshots: mcpPane.setRuntimeSnapshots,
-      setManagedDevServers: mcpPane.setManagedDevServers,
-    },
-  });
-  const pluginAuthPane = useRightPanelPluginAuthController({
-    panel,
-    workspacePath: state.activeWorkspace.path,
-    googleIntegration: googleIntegrationBridge.googleIntegration,
-    onGoogleIntegrationChanged: googleIntegrationBridge.onGoogleIntegrationChanged,
-    loadAmbientPluginRegistry: pluginCatalogPane.loadAmbientPluginRegistry,
-    setPluginCatalogError: pluginCatalogPane.setPluginCatalogError,
-  });
-  const capabilityBuilderLauncher = useRightPanelCapabilityBuilderController({
-    running,
-    onStartCapabilityBuilder,
-  });
-  const piPackagePane = useRightPanelPiPackageController({
-    panel,
-    resetWorkspacePath: state.activeWorkspace.path,
-    eventWorkspacePath: state.workspace.path,
-    onLoadPermissionAudit,
-    loadAmbientPluginRegistry: pluginCatalogPane.loadAmbientPluginRegistry,
-    loadPluginCatalog: pluginCatalogPane.loadPluginCatalog,
-  });
-
-  const title =
-    panel === "terminal"
-      ? "Terminal"
-      : panel === "files"
-        ? "Files"
-        : panel === "diff"
-          ? "Diff"
-          : panel === "search"
-            ? "Search"
-            : panel === "browser"
-              ? "Browser"
-                : panel === "plugins"
-                  ? "Plugins"
-                  : panel === "attachments"
-                    ? "Context"
-                    : panel === "performance"
-                      ? "Performance"
-                      : "Settings";
-
-  useEffect(() => {
-    if (panel === "plugins") {
-      pluginCatalogPane.setPluginView("capabilities");
-      void pluginCatalogPane.loadPluginCatalog();
-      void pluginCatalogPane.loadCapabilityBuilderHistory();
-      void mcpPane.loadInstalledServers();
-      void mcpPane.loadManagedDevServers();
-      void mcpPane.refreshContainerRuntimeStatus(true, { continueDefaultCapabilitySetup: true });
-      void mcpPane.searchRegistryServers(false);
-    }
-  }, [panel, state.workspace.path]);
-
-  useEffect(() => {
-    if (panel === "plugins" && pluginCatalogRevision > 0) {
-      void pluginCatalogPane.loadPluginCatalog();
-      void pluginCatalogPane.loadCapabilityBuilderHistory();
-      void piPackagePane.inspectPiPackages();
-      void mcpPane.loadInstalledServers();
-      void mcpPane.loadManagedDevServers();
-    }
-  }, [pluginCatalogRevision]);
-
-  let body: ReactNode;
-  if (panel === "terminal") {
-    body = (
-      <RightPanelTerminalPane
-        terminal={terminalPane.terminal}
-        terminalOutput={terminalPane.terminalOutput}
-        terminalInput={terminalPane.terminalInput}
-        terminalError={terminalPane.terminalError}
-        permissionMode={state.settings.permissionMode}
-        terminalOutputRef={terminalPane.terminalOutputRef}
-        terminalCommandInputRef={terminalPane.terminalCommandInputRef}
-        onTerminalInputChange={terminalPane.updateTerminalInput}
-        onTerminalKey={terminalPane.handleTerminalKey}
-        onTerminalPaste={terminalPane.handleTerminalPaste}
-        onSendTerminalInput={() => terminalPane.sendTerminalInput()}
-      />
-    );
-  } else if (panel === "search") {
-    body = (
-      <RightPanelSearchPane
-        query={searchPane.query}
-        searchScope={searchPane.searchScope}
-        searchScopeOptions={searchPane.searchScopeOptions}
-        searchResults={searchPane.searchResults}
-        searchBusy={searchPane.searchBusy}
-        searchError={searchPane.searchError}
-        searchScopePlaceholder={searchPane.searchScopePlaceholder}
-        searchScopeLabel={searchPane.searchScopeLabel}
-        onQueryChange={searchPane.setQuery}
-        onSearchScopeChange={searchPane.setSearchScope}
-        onSelectThread={onSelectThread}
-      />
-    );
-  } else if (panel === "browser") {
-    body = (
-      <RightPanelBrowserPane
-        browserFocused={browserFocused}
-        browserState={browserState}
-        browserHostRef={browserHostRef}
-        browserUrl={browserUrl}
-        browserSearch={browserSearch}
-        browserPickPrompt={browserPickPrompt}
-        browserBusy={browserBusy}
-        browserUserActionBusy={browserUserActionBusy}
-        browserError={browserError}
-        browserStatus={browserStatus}
-        latestBrowserScreenshot={latestBrowserScreenshot}
-        visualAnalysisBusy={visualAnalysisBusy}
-        visualAnalysisStatus={visualAnalysisStatus}
-        visualAnalysisDiagnostics={visualAnalysisDiagnostics}
-        browserInspectResult={browserInspectResult}
-        browserCredentialStatus={browserCredentialStatus}
-        browserCredentialBusy={browserCredentialBusy}
-        browserCredentialForm={browserCredentialForm}
-        browserCredentials={browserCredentials}
-        formatTimelineTime={formatTimelineTime}
-        onBrowserFocusedChange={setBrowserFocused}
-        onBrowserUrlChange={setBrowserUrl}
-        onBrowserSearchChange={setBrowserSearch}
-        onBrowserPickPromptChange={setBrowserPickPrompt}
-        onStartBrowser={(profileMode) => startBrowser(profileMode)}
-        onStopBrowser={() => stopBrowser()}
-        onClearIsolatedBrowserProfile={() => clearIsolatedBrowserProfile()}
-        onClearCopiedChromeProfile={() => clearCopiedChromeProfile()}
-        onRefreshBrowserPage={() => refreshBrowserPage()}
-        onScreenshotBrowser={() => screenshotBrowser()}
-        onAnalyzeLatestBrowserScreenshot={() => analyzeLatestBrowserScreenshot()}
-        onRevealBrowser={(input) => revealBrowser(input)}
-        onNavigateBrowser={() => navigateBrowser()}
-        onSearchBrowser={() => searchBrowser()}
-        onPickBrowserElement={() => pickBrowserElement()}
-        onCancelBrowserPicker={() => cancelBrowserPicker()}
-        onResumeBrowserUserAction={() => resumeBrowserUserAction()}
-        onCancelBrowserUserAction={() => cancelBrowserUserAction()}
-        onOpenBrowserCopyDialog={() => setBrowserCopyDialogOpen(true)}
-        onLoadBrowserState={() => loadBrowserState()}
-        onLoadBrowserCredentials={() => loadBrowserCredentials()}
-        onSaveBrowserCredential={() => saveBrowserCredential()}
-        onBrowserCredentialFormChange={setBrowserCredentialForm}
-        onResetBrowserCredentialForm={resetBrowserCredentialForm}
-        onEditBrowserCredential={editBrowserCredential}
-        onDeleteBrowserCredential={(id) => deleteBrowserCredential(id)}
-        onCopyBrowserInspectReference={(result) => copyBrowserInspectReference(result)}
-      />
-    );
-  } else if (panel === "files") {
-    body = (
-      <RightPanelFilesPane
-        fileTree={filesPane.fileTree}
-        fileTreeError={filesPane.fileTreeError}
-        visibleEntries={filesPane.visibleEntries}
-        selectedFile={filesPane.selectedFile}
-        selectedFileError={filesPane.selectedFileError}
-        openTargets={filesPane.openTargets}
-        openTargetsError={filesPane.openTargetsError}
-        visualAnalysisBusy={visualAnalysisBusy}
-        visualAnalysisStatus={visualAnalysisStatus}
-        visualAnalysisDiagnostics={visualAnalysisDiagnostics}
-        filePaneWidth={filesPane.filePaneWidth}
-        collapsedDirs={filesPane.collapsedDirs}
-        officePreviewRefreshingPath={filesPane.officePreviewRefreshingPath}
-        renderFileIcon={fileIconForEntry}
-        renderFilePreview={({ file, openTargets, visualAnalysisBusy, officePreviewRefreshing }) => (
-          <FilePreview
-            file={file}
-            openTargets={openTargets}
-            onOpen={(targetId) => void filesPane.openPreviewFilePath(file, targetId)}
-            onAddContext={(file) => onAddContext([fileContextReference(file)])}
-            onAnalyzeVisual={(file) => void analyzeWorkspaceFileWithMiniCpm(file)}
-            visualAnalysisBusy={visualAnalysisBusy}
-            onRefreshOfficePreview={(file) => void filesPane.refreshOfficePreview(file)}
-            officePreviewRefreshing={officePreviewRefreshing}
-            renderRichText={(content) => <RichText content={content} />}
-          />
-        )}
-        fileTreeEntryTitle={fileTreeEntryTitle}
-        formatPanelFileSize={formatPanelFileSize}
-        previewFileActionPath={filesPane.previewFileActionPath}
-        onLoadFileTree={filesPane.loadFileTree}
-        onToggleDirectory={filesPane.toggleDirectory}
-        onOpenFile={filesPane.openFile}
-        onBeginFilePaneResize={filesPane.beginFilePaneResize}
-      />
-    );
-  } else if (panel === "diff") {
-    body = (
-      <RightPanelGitPane
-        review={gitPane.review}
-        reviewError={gitPane.reviewError}
-        actionNotice={gitPane.actionNotice}
-        busy={gitPane.busy}
-        activeTab={gitPane.activeTab}
-        commitMessage={gitPane.commitMessage}
-        branchName={gitPane.branchName}
-        unversionedAcknowledged={gitPane.unversionedAcknowledged}
-        sharedWorkspaceAcknowledged={gitPane.sharedWorkspaceAcknowledged}
-        formatTimelineTime={formatTimelineTime}
-        onActiveTabChange={gitPane.setActiveTab}
-        onRefresh={gitPane.loadReview}
-        onCommitMessageChange={gitPane.setCommitMessage}
-        onBranchNameChange={gitPane.setBranchName}
-        onCommit={gitPane.commitReview}
-        onCreateBranch={gitPane.createBranchFromReview}
-        onAction={gitPane.runSimpleAction}
-        onCreatePullRequest={gitPane.openPullRequestUrl}
-        onInitializeRepository={gitPane.initializeRepository}
-        onContinueWithoutGit={gitPane.continueWithoutGit}
-        onCreateThreadWorktree={gitPane.createThreadWorktree}
-        onAttachExistingWorktree={gitPane.attachExistingWorktree}
-        onKeepSharedWorkspace={gitPane.keepSharedWorkspace}
-        onStageAll={gitPane.stageAll}
-        onUnstageAll={gitPane.unstageAll}
-        onStage={gitPane.stage}
-        onUnstage={gitPane.unstage}
-        onDiscard={gitPane.discardFile}
-      />
-    );
-  } else if (panel === "settings") {
-    body = (
-      <RightPanelSettingsPane
-        state={state}
-        running={running}
-        updateBusy={updateBusy}
-        permissionAudit={permissionAudit}
-        permissionGrants={permissionGrants}
-        permissionAuditError={permissionAuditError}
-        permissionGrantError={permissionGrantError}
-        permissionGrantRevoking={permissionGrantRevoking}
-        voiceProviders={voiceProviders}
-        voiceProvidersLoading={voiceProvidersLoading}
-        voiceProvidersError={voiceProvidersError}
-        voiceProviderCacheStatus={voiceProviderCacheStatus}
-        voiceProviderCacheActivity={voiceProviderCacheActivity}
-        voiceCatalogRefresh={voiceCatalogRefresh}
-        sttProviders={sttProviders}
-        sttProvidersLoading={sttProvidersLoading}
-        sttProvidersError={sttProvidersError}
-        sttProviderCacheStatus={sttProviderCacheStatus}
-        sttProviderCacheActivity={sttProviderCacheActivity}
-        sttProviderSetup={sttProviderSetup}
-        sttMicrophoneDevices={sttMicrophoneDevices}
-        sttMicrophoneDevicesLoading={sttMicrophoneDevicesLoading}
-        sttMicrophoneDevicesError={sttMicrophoneDevicesError}
-        miniCpmVisionSetup={miniCpmVisionSetup}
-        miniCpmVisionRuntimePath={miniCpmVisionRuntimePath}
-        miniCpmVisionEndpointUrl={miniCpmVisionEndpointUrl}
-        localDeepResearchSetup={localDeepResearchSetup}
-        localDeepResearchQ8Override={localDeepResearchQ8Override}
-        localDeepResearchRunHistory={localDeepResearchRunHistory}
-        sttMicTest={sttMicTest}
-        mcpContainerRuntimeInstallProgress={mcpContainerRuntimeInstallProgress}
-        mcpDefaultCapabilityInstallProgress={mcpDefaultCapabilityInstallProgress}
-        searchRoutingHydrating={searchRoutingHydrating}
-        searchRoutingHydrationError={searchRoutingHydrationError}
-        agentMemoryDiagnostics={agentMemoryDiagnostics}
-        agentMemoryDiagnosticsLoading={agentMemoryDiagnosticsLoading}
-        agentMemoryDiagnosticsError={agentMemoryDiagnosticsError}
-        agentMemoryEmbeddingActionLoading={agentMemoryEmbeddingActionLoading}
-        agentMemoryEmbeddingActionResult={agentMemoryEmbeddingActionResult}
-        agentMemoryEmbeddingActionError={agentMemoryEmbeddingActionError}
-        onLoadPermissionAudit={onLoadPermissionAudit}
-        onLoadPermissionGrants={onLoadPermissionGrants}
-        onRevokePermissionGrant={onRevokePermissionGrant}
-        onRevokePermissionGrantIds={onRevokePermissionGrantIds}
-        onOpenApiKey={onOpenApiKey}
-        onCheckUpdates={onCheckUpdates}
-        onThemePreferenceChange={onThemePreferenceChange}
-        onMediaPlaybackSettingsChange={onMediaPlaybackSettingsChange}
-        onThinkingDisplaySettingsChange={onThinkingDisplaySettingsChange}
-        onThinkingLevelChange={onThinkingLevelChange}
-        onModelRuntimeSettingsChange={onModelRuntimeSettingsChange}
-        onFeatureFlagSettingsChange={onFeatureFlagSettingsChange}
-        onMemorySettingsChange={onMemorySettingsChange}
-        onActiveThreadMemoryEnabledChange={onActiveThreadMemoryEnabledChange}
-        onRefreshAgentMemoryDiagnostics={onRefreshAgentMemoryDiagnostics}
-        onRunAgentMemoryEmbeddingLifecycleAction={(action) => void runAgentMemoryEmbeddingLifecycleActionFromSettings(action)}
-        onPlannerSettingsChange={onPlannerSettingsChange}
-        onHydrateSearchRoutingSettings={onHydrateSearchRoutingSettings}
-        onSearchRoutingSettingsChange={onSearchRoutingSettingsChange}
-        onLocalDeepResearchSettingsChange={onLocalDeepResearchSettingsChange}
-        onOpenAmbientCliSecretDialog={onOpenAmbientCliSecretDialog}
-        onVoiceSettingsChange={onVoiceSettingsChange}
-        onLoadVoiceProviders={onLoadVoiceProviders}
-        onRefreshVoiceCatalog={onRefreshVoiceCatalog}
-        onSttSettingsChange={onSttSettingsChange}
-        onLoadSttProviders={onLoadSttProviders}
-        onLoadSttMicrophoneDevices={onLoadSttMicrophoneDevices}
-        onSetupSttProvider={onSetupSttProvider}
-        onSetupMiniCpmVisionProvider={onSetupMiniCpmVisionProvider}
-        onMiniCpmVisionRuntimePathChange={onMiniCpmVisionRuntimePathChange}
-        onMiniCpmVisionEndpointUrlChange={onMiniCpmVisionEndpointUrlChange}
-        onSetupLocalDeepResearch={onSetupLocalDeepResearch}
-        onLocalDeepResearchQ8OverrideChange={onLocalDeepResearchQ8OverrideChange}
-        onLoadLocalDeepResearchRunHistory={onLoadLocalDeepResearchRunHistory}
-        onStartSttMicTest={onStartSttMicTest}
-        onStopSttMicTest={onStopSttMicTest}
-        onCancelSttMicTest={onCancelSttMicTest}
-        onOpenPluginCapabilities={onOpenPluginCapabilities}
-        onOpenMcpRuntimeSettings={onOpenMcpRuntimeSettings}
-        settingsPane={settingsPane}
-        mcpPane={mcpPane}
-        diagnosticsPane={diagnosticsPane}
-        PermissionFullAccessReceiptList={PermissionFullAccessReceiptList}
-        onOpenMcpPlugins={() => {
-          pluginCatalogPane.setPluginView("mcp");
-          onOpenPluginCapabilities();
-        }}
-      />
-    );
-  } else if (panel === "plugins") {
-    body = (
-      <RightPanelPluginsPane
-        InfoTooltip={InfoTooltip}
-        state={state}
-        running={running}
-        voiceProviders={voiceProviders}
-        sttProviders={sttProviders}
-        permissionAudit={permissionAudit}
-        mcpContainerRuntimeInstallProgress={mcpContainerRuntimeInstallProgress}
-        mcpDefaultCapabilityInstallProgress={mcpDefaultCapabilityInstallProgress}
-        pluginCatalogPane={pluginCatalogPane}
-        mcpPane={mcpPane}
-        settingsPane={settingsPane}
-        diagnosticsPane={diagnosticsPane}
-        pluginAuthPane={pluginAuthPane}
-        googleIntegrationBridge={googleIntegrationBridge}
-        capabilityBuilderLauncher={capabilityBuilderLauncher}
-        piPackagePane={piPackagePane}
-        onOpenMcpRuntimeSettings={onOpenMcpRuntimeSettings}
-      />
-    );
-  } else if (panel === "attachments") {
-    body = (
-      <RightPanelContextPane
-        attachments={contextAttachments}
-        allowExternal={state.settings.permissionMode === "full-access"}
-        visualAnalysisBusy={visualAnalysisBusy}
-        visualAnalysisStatus={visualAnalysisStatus}
-        visualAnalysisDiagnostics={visualAnalysisDiagnostics}
-        onAddContext={onAddContext}
-        onRemoveContext={onRemoveContext}
-        onClearContext={onClearContext}
-        onContextError={onContextError}
-        onAnalyzeVisual={analyzeContextAttachmentWithMiniCpm}
-      />
-    );
-  } else {
-    const copy = "Performance tracing is not wired yet.";
-    body = (
-      <div className="panel-empty">
-        <span>{copy}</span>
-      </div>
-    );
-  }
+    onOpenMcpRuntimeSettings,
+    onClose,
+  } = props;
+  const { title, body, controllers } = useRightPanelControllerGraph(props);
+  const {
+    gitPane,
+    browserPane,
+    mcpPane,
+    diagnosticsPane,
+    capabilityBuilderLauncher,
+  } = controllers;
 
   return (
     <>
@@ -969,7 +338,7 @@ export function RightPanel({
         panel={panel}
         title={title}
         panelWidth={panelWidth}
-        browserFocused={browserFocused}
+        browserFocused={browserPane.browserFocused}
         onClose={onClose}
       >
         {body}
@@ -981,12 +350,12 @@ export function RightPanel({
           onConfirm={gitPane.confirmConfirmation}
         />
       )}
-      {browserCopyDialogOpen && (
+      {browserPane.browserCopyDialogOpen && (
         <BrowserProfileCopyDialog
-          state={browserState}
-          busy={browserBusy === "copy-profile"}
-          onCancel={() => setBrowserCopyDialogOpen(false)}
-          onConfirm={() => void copyChromeProfile()}
+          state={browserPane.browserState}
+          busy={browserPane.browserBusy === "copy-profile"}
+          onCancel={() => browserPane.setBrowserCopyDialogOpen(false)}
+          onConfirm={() => void browserPane.copyChromeProfile()}
         />
       )}
       {mcpPane.containerRuntimeModalOpen && (
@@ -997,12 +366,19 @@ export function RightPanel({
           diagnosticBusy={diagnosticsPane.diagnosticBusy}
           diagnosticStatus={diagnosticsPane.diagnosticStatus}
           actionStatus={mcpPane.containerRuntimeActionStatus}
+          lifecyclePreview={mcpPane.containerRuntimeLifecyclePreview}
+          lifecycleResult={mcpPane.containerRuntimeLifecycleResult}
+          lifecycleProgress={mcpPane.containerRuntimeLifecycleProgress}
+          lifecycleBusyKey={mcpPane.containerRuntimeLifecycleBusyKey}
+          lifecycleError={mcpPane.containerRuntimeLifecycleError}
           installProgress={mcpContainerRuntimeInstallProgress}
           defaultCapabilityInstallProgress={mcpDefaultCapabilityInstallProgress}
           defaultCapabilityBusyKey={mcpPane.serverBusy}
           error={mcpPane.containerRuntimeError}
           onRefresh={() => void mcpPane.refreshContainerRuntimeStatus(false, { continueDefaultCapabilitySetup: true })}
           onLaunchInstall={(actionId, mode) => void mcpPane.launchContainerRuntimeInstaller(actionId, mode)}
+          onPreviewLifecycle={(action) => void mcpPane.previewContainerRuntimeLifecycle(action)}
+          onRunLifecycle={(action) => void mcpPane.runContainerRuntimeLifecycle(action)}
           onExportDiagnostics={() => void diagnosticsPane.exportDiagnostics()}
           onInstallDefaultCapability={(capabilityId) => void mcpPane.installDefaultCapability(capabilityId)}
           onOpenPlugins={() => {
@@ -1027,4 +403,3 @@ export function RightPanel({
     </>
   );
 }
-export type RightPanelProps = Parameters<typeof RightPanel>[0];

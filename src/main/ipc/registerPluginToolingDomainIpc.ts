@@ -23,6 +23,8 @@ import {
 import {
   mcpContainerRuntimeDeferIpcChannels,
   mcpContainerRuntimeLaunchInstallIpcChannels,
+  mcpContainerRuntimeLifecyclePreviewIpcChannels,
+  mcpContainerRuntimeLifecycleRunIpcChannels,
   mcpContainerRuntimeStatusIpcChannels,
   mcpDefaultCapabilityInstallIpcChannels,
   mcpInstalledListIpcChannels,
@@ -33,6 +35,8 @@ import {
   mcpToolReviewAcceptIpcChannels,
   registerMcpContainerRuntimeDeferIpc,
   registerMcpContainerRuntimeLaunchInstallIpc,
+  registerMcpContainerRuntimeLifecyclePreviewIpc,
+  registerMcpContainerRuntimeLifecycleRunIpc,
   registerMcpContainerRuntimeStatusIpc,
   registerMcpDefaultCapabilityInstallIpc,
   registerMcpInstalledListIpc,
@@ -101,6 +105,8 @@ export const pluginToolingDomainIpcChannels = [
   ...mcpContainerRuntimeStatusIpcChannels,
   ...mcpContainerRuntimeLaunchInstallIpcChannels,
   ...mcpContainerRuntimeDeferIpcChannels,
+  ...mcpContainerRuntimeLifecyclePreviewIpcChannels,
+  ...mcpContainerRuntimeLifecycleRunIpcChannels,
   ...mcpDefaultCapabilityInstallIpcChannels,
   ...mcpRegistryInstallIpcChannels,
   ...mcpServerUninstallIpcChannels,
@@ -158,6 +164,7 @@ export interface RegisterPluginToolingDomainIpcDependencies {
   pluginStateReaderForStore: any;
   privilegedActionAdapterSelectionFromEnv: any;
   privilegedCredentials: any;
+  previewContainerRuntimeLifecycleAction: any;
   probeAmbientMcpContainerRuntimeStatus: any;
   probeContainerRuntime: any;
   readAmbientPluginRegistry: any;
@@ -171,10 +178,12 @@ export interface RegisterPluginToolingDomainIpcDependencies {
   requireActiveProjectRuntimeHost: any;
   resetProjectRuntimeAndPluginServers: any;
   resetRuntimeAndPluginServers: any;
+  runContainerRuntimeLifecycleAction: any;
   restartProjectRuntimeMcpRuntime: any;
   stopManagedDevServer: any;
   stopProjectRuntimeMcpRuntime: any;
   uninstallMcpServerForDesktop: any;
+  writeContainerRuntimeLifecycleRedactedLog: any;
   writeContainerRuntimeManagedInstallRedactedLog: any;
   writePrivilegedActionRedactedLog: any;
 }
@@ -210,6 +219,7 @@ export function registerPluginToolingDomainIpc({
   pluginStateReaderForStore,
   privilegedActionAdapterSelectionFromEnv,
   privilegedCredentials,
+  previewContainerRuntimeLifecycleAction,
   probeAmbientMcpContainerRuntimeStatus,
   probeContainerRuntime,
   readAmbientPluginRegistry,
@@ -223,10 +233,12 @@ export function registerPluginToolingDomainIpc({
   requireActiveProjectRuntimeHost,
   resetProjectRuntimeAndPluginServers,
   resetRuntimeAndPluginServers,
+  runContainerRuntimeLifecycleAction,
   restartProjectRuntimeMcpRuntime,
   stopManagedDevServer,
   stopProjectRuntimeMcpRuntime,
   uninstallMcpServerForDesktop,
+  writeContainerRuntimeLifecycleRedactedLog,
   writeContainerRuntimeManagedInstallRedactedLog,
   writePrivilegedActionRedactedLog,
 }: RegisterPluginToolingDomainIpcDependencies): void {
@@ -362,6 +374,36 @@ export function registerPluginToolingDomainIpc({
         appVersion: packageJson.version,
       });
       return probeAmbientMcpContainerRuntimeStatus();
+    },
+  });
+
+  registerMcpContainerRuntimeLifecyclePreviewIpc({
+    handleIpc,
+    previewContainerRuntimeLifecycle: async (input) => {
+      const status = await probeAmbientMcpContainerRuntimeStatus();
+      return previewContainerRuntimeLifecycleAction({
+        action: input.action,
+        runtime: input.runtime,
+        status,
+      });
+    },
+  });
+
+  registerMcpContainerRuntimeLifecycleRunIpc({
+    handleIpc,
+    runContainerRuntimeLifecycle: async (input) => {
+      const result = await runContainerRuntimeLifecycleAction(input, {
+        getStatus: probeAmbientMcpContainerRuntimeStatus,
+        onProgress: (progress: any) => emitMainWindowDesktopEvent({
+          type: "mcp-container-runtime-lifecycle-progress",
+          progress,
+        }),
+      });
+      const logPath = await writeContainerRuntimeLifecycleRedactedLog(app.getPath("userData"), result);
+      return {
+        ...result,
+        logPath,
+      };
     },
   });
 

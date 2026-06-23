@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   AmbientMcpContainerRuntimeInstallLaunchInput,
   AmbientMcpContainerRuntimeInstallLaunchResult,
+  AmbientMcpContainerRuntimeLifecyclePreview,
+  AmbientMcpContainerRuntimeLifecyclePreviewInput,
+  AmbientMcpContainerRuntimeLifecycleResult,
+  AmbientMcpContainerRuntimeLifecycleRunInput,
   AmbientMcpContainerRuntimeStatus,
   AmbientMcpDefaultCapabilityInstallInput,
   AmbientMcpInstalledServerSummary,
@@ -21,6 +25,8 @@ import type {
 import {
   mcpContainerRuntimeDeferIpcChannels,
   mcpContainerRuntimeLaunchInstallIpcChannels,
+  mcpContainerRuntimeLifecyclePreviewIpcChannels,
+  mcpContainerRuntimeLifecycleRunIpcChannels,
   mcpContainerRuntimeStatusIpcChannels,
   mcpDefaultCapabilityInstallIpcChannels,
   mcpInstalledListIpcChannels,
@@ -31,6 +37,8 @@ import {
   mcpToolReviewAcceptIpcChannels,
   registerMcpContainerRuntimeDeferIpc,
   registerMcpContainerRuntimeLaunchInstallIpc,
+  registerMcpContainerRuntimeLifecyclePreviewIpc,
+  registerMcpContainerRuntimeLifecycleRunIpc,
   registerMcpContainerRuntimeStatusIpc,
   registerMcpDefaultCapabilityInstallIpc,
   registerMcpInstalledListIpc,
@@ -41,6 +49,8 @@ import {
   registerMcpToolReviewAcceptIpc,
   type RegisterMcpContainerRuntimeDeferIpcDependencies,
   type RegisterMcpContainerRuntimeLaunchInstallIpcDependencies,
+  type RegisterMcpContainerRuntimeLifecyclePreviewIpcDependencies,
+  type RegisterMcpContainerRuntimeLifecycleRunIpcDependencies,
   type RegisterMcpContainerRuntimeStatusIpcDependencies,
   type RegisterMcpDefaultCapabilityInstallIpcDependencies,
   type RegisterMcpInstalledListIpcDependencies,
@@ -262,6 +272,72 @@ describe("registerMcpContainerRuntimeDeferIpc", () => {
     await expect(invoke("mcp:container-runtime-defer")).rejects.toThrow("container runtime defer unavailable");
 
     expect(deps.deferContainerRuntimeSetup).toHaveBeenCalledOnce();
+  });
+});
+
+describe("registerMcpContainerRuntimeLifecyclePreviewIpc", () => {
+  it("registers the MCP container runtime lifecycle preview channel", () => {
+    const { handlers } = registerContainerRuntimeLifecyclePreviewWithFakes();
+
+    expect([...handlers.keys()]).toEqual([...mcpContainerRuntimeLifecyclePreviewIpcChannels]);
+  });
+
+  it("previews lifecycle actions with parsed input", async () => {
+    const { deps, invoke, preview } = registerContainerRuntimeLifecyclePreviewWithFakes();
+
+    await expect(invoke("mcp:container-runtime-lifecycle-preview", {
+      action: "restart",
+      runtime: "docker",
+      extra: true,
+    })).resolves.toEqual(preview);
+
+    expect(deps.previewContainerRuntimeLifecycle).toHaveBeenCalledWith({
+      action: "restart",
+      runtime: "docker",
+    });
+  });
+
+  it("rejects invalid lifecycle preview input before calling the dependency", () => {
+    const { deps, invoke } = registerContainerRuntimeLifecyclePreviewWithFakes();
+
+    expect(() => invoke("mcp:container-runtime-lifecycle-preview", { action: "restart", runtime: "containerd" })).toThrow();
+
+    expect(deps.previewContainerRuntimeLifecycle).not.toHaveBeenCalled();
+  });
+});
+
+describe("registerMcpContainerRuntimeLifecycleRunIpc", () => {
+  it("registers the MCP container runtime lifecycle run channel", () => {
+    const { handlers } = registerContainerRuntimeLifecycleRunWithFakes();
+
+    expect([...handlers.keys()]).toEqual([...mcpContainerRuntimeLifecycleRunIpcChannels]);
+  });
+
+  it("runs lifecycle actions with parsed input", async () => {
+    const { deps, invoke, result } = registerContainerRuntimeLifecycleRunWithFakes();
+
+    await expect(invoke("mcp:container-runtime-lifecycle-run", {
+      action: "force-quit-and-restart",
+      runtime: "docker",
+      expectedPreviewId: "docker:force-quit-and-restart:desktop-app-not-responding:darwin",
+      confirmForce: true,
+      extra: true,
+    })).resolves.toEqual(result);
+
+    expect(deps.runContainerRuntimeLifecycle).toHaveBeenCalledWith({
+      action: "force-quit-and-restart",
+      runtime: "docker",
+      expectedPreviewId: "docker:force-quit-and-restart:desktop-app-not-responding:darwin",
+      confirmForce: true,
+    });
+  });
+
+  it("rejects invalid lifecycle run input before calling the dependency", () => {
+    const { deps, invoke } = registerContainerRuntimeLifecycleRunWithFakes();
+
+    expect(() => invoke("mcp:container-runtime-lifecycle-run", { action: "force-quit-and-restart", confirmForce: "yes" })).toThrow();
+
+    expect(deps.runContainerRuntimeLifecycle).not.toHaveBeenCalled();
   });
 });
 
@@ -623,6 +699,70 @@ function registerContainerRuntimeDeferWithFakes({
   };
 }
 
+function registerContainerRuntimeLifecyclePreviewWithFakes({
+  preview = sampleContainerRuntimeLifecyclePreview(),
+  error,
+}: {
+  preview?: AmbientMcpContainerRuntimeLifecyclePreview;
+  error?: Error;
+} = {}) {
+  const handlers = new Map<string, IpcListener>();
+  const deps = {
+    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
+      handlers.set(channel, listener);
+    }),
+    previewContainerRuntimeLifecycle: vi.fn(async (_input: AmbientMcpContainerRuntimeLifecyclePreviewInput) => {
+      if (error) throw error;
+      return preview;
+    }),
+  } satisfies RegisterMcpContainerRuntimeLifecyclePreviewIpcDependencies;
+  registerMcpContainerRuntimeLifecyclePreviewIpc(deps);
+
+  return {
+    deps,
+    handlers,
+    invoke: (channel: string, raw?: unknown) => {
+      const handler = handlers.get(channel);
+      expect(handler).toBeDefined();
+      if (!handler) throw new Error(`Missing handler for ${channel}`);
+      return Promise.resolve(handler({} as IpcMainInvokeEvent, raw));
+    },
+    preview,
+  };
+}
+
+function registerContainerRuntimeLifecycleRunWithFakes({
+  result = sampleContainerRuntimeLifecycleResult(),
+  error,
+}: {
+  result?: AmbientMcpContainerRuntimeLifecycleResult;
+  error?: Error;
+} = {}) {
+  const handlers = new Map<string, IpcListener>();
+  const deps = {
+    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
+      handlers.set(channel, listener);
+    }),
+    runContainerRuntimeLifecycle: vi.fn(async (_input: AmbientMcpContainerRuntimeLifecycleRunInput) => {
+      if (error) throw error;
+      return result;
+    }),
+  } satisfies RegisterMcpContainerRuntimeLifecycleRunIpcDependencies;
+  registerMcpContainerRuntimeLifecycleRunIpc(deps);
+
+  return {
+    deps,
+    handlers,
+    invoke: (channel: string, raw?: unknown) => {
+      const handler = handlers.get(channel);
+      expect(handler).toBeDefined();
+      if (!handler) throw new Error(`Missing handler for ${channel}`);
+      return Promise.resolve(handler({} as IpcMainInvokeEvent, raw));
+    },
+    result,
+  };
+}
+
 function registerDefaultCapabilityInstallWithFakes({
   result = sampleMcpServerInstallResult(),
   error,
@@ -828,6 +968,69 @@ function sampleContainerRuntimeInstallLaunchResult(): AmbientMcpContainerRuntime
       postInstallSteps: [],
     },
     message: "Container runtime install launched.",
+  };
+}
+
+function sampleContainerRuntimeLifecyclePreview(): AmbientMcpContainerRuntimeLifecyclePreview {
+  return {
+    schemaVersion: "ambient-container-runtime-lifecycle-preview-v1",
+    previewId: "docker:restart:daemon-unreachable:darwin",
+    action: "restart",
+    runtime: "docker",
+    platform: "darwin",
+    status: "available",
+    reason: "daemon-unreachable",
+    summary: "Restart Docker Desktop.",
+    requiresConfirmation: false,
+    warnings: ["Restarting Docker can interrupt containers."],
+    targets: [
+      {
+        kind: "application",
+        runtime: "docker",
+        label: "Docker Desktop",
+        identifier: "Docker",
+        platform: "darwin",
+        verified: true,
+        reason: "Allowlisted Docker Desktop application target.",
+      },
+    ],
+    commands: [
+      {
+        exe: "/usr/bin/open",
+        args: ["-a", "Docker"],
+        rationale: "Open Docker Desktop.",
+        destructive: false,
+      },
+    ],
+    expectedInterruption: "Docker restart can interrupt containers.",
+    createdAt: "2026-06-04T12:00:00.000Z",
+  };
+}
+
+function sampleContainerRuntimeLifecycleResult(): AmbientMcpContainerRuntimeLifecycleResult {
+  return {
+    schemaVersion: "ambient-container-runtime-lifecycle-result-v1",
+    action: "restart",
+    runtime: "docker",
+    status: "ready",
+    reason: "none",
+    message: "Docker restart completed.",
+    preview: sampleContainerRuntimeLifecyclePreview(),
+    before: sampleContainerRuntimeStatus(),
+    after: sampleContainerRuntimeStatus(),
+    progress: [
+      {
+        schemaVersion: "ambient-container-runtime-lifecycle-progress-v1",
+        action: "restart",
+        runtime: "docker",
+        phase: "ready",
+        status: "succeeded",
+        message: "Docker is ready.",
+        recordedAt: "2026-06-04T12:00:01.000Z",
+      },
+    ],
+    logPath: "/tmp/user-data/mcp-container-runtime/docker-restart.json",
+    durationMs: 25,
   };
 }
 

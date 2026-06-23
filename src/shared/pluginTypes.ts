@@ -1131,6 +1131,19 @@ export type AmbientMcpContainerRuntimeStatusKind =
   | "blocked-by-permissions"
   | "blocked-by-policy";
 
+export type AmbientMcpContainerRuntimeProbeReason =
+  | "none"
+  | "runtime-missing"
+  | "toolhive-unavailable"
+  | "permission-denied"
+  | "probe-timeout"
+  | "daemon-unreachable"
+  | "desktop-app-not-responding"
+  | "machine-stopped"
+  | "wsl-unavailable"
+  | "policy-blocked"
+  | "unknown-error";
+
 export type AmbientMcpContainerRuntimeNextAction =
   | "none"
   | "install-runtime"
@@ -1242,6 +1255,105 @@ export interface AmbientMcpContainerRuntimeInstallLaunchResult {
   managedResult?: AmbientMcpContainerRuntimeManagedInstallResult;
 }
 
+export type AmbientMcpContainerRuntimeLifecycleAction =
+  | "restart"
+  | "force-quit-and-restart"
+  | "open-recovery";
+
+export type AmbientMcpContainerRuntimeLifecyclePhase =
+  | "previewed"
+  | "graceful-stop-started"
+  | "graceful-stop-failed"
+  | "force-stop-started"
+  | "launch-started"
+  | "probe-poll"
+  | "ready"
+  | "failed";
+
+export type AmbientMcpContainerRuntimeLifecycleStatus =
+  | "preview"
+  | "running"
+  | "ready"
+  | "blocked"
+  | "failed";
+
+export interface AmbientMcpContainerRuntimeLifecycleCommand {
+  exe: string;
+  candidateExecutables?: string[];
+  args: string[];
+  cwd?: string;
+  rationale: string;
+  destructive: boolean;
+}
+
+export interface AmbientMcpContainerRuntimeLifecycleTarget {
+  kind: "application" | "process" | "machine" | "service" | "documentation";
+  runtime: "docker" | "podman" | "colima";
+  label: string;
+  identifier: string;
+  platform: string;
+  verified: boolean;
+  reason: string;
+}
+
+export interface AmbientMcpContainerRuntimeLifecyclePreview {
+  schemaVersion: "ambient-container-runtime-lifecycle-preview-v1";
+  previewId: string;
+  action: AmbientMcpContainerRuntimeLifecycleAction;
+  runtime: "docker" | "podman" | "colima";
+  platform: string;
+  status: "available" | "blocked";
+  reason: AmbientMcpContainerRuntimeProbeReason;
+  summary: string;
+  requiresConfirmation: boolean;
+  warnings: string[];
+  targets: AmbientMcpContainerRuntimeLifecycleTarget[];
+  commands: AmbientMcpContainerRuntimeLifecycleCommand[];
+  expectedInterruption: string;
+  createdAt: string;
+}
+
+export interface AmbientMcpContainerRuntimeLifecyclePreviewInput {
+  action: AmbientMcpContainerRuntimeLifecycleAction;
+  runtime?: "docker" | "podman" | "colima";
+}
+
+export interface AmbientMcpContainerRuntimeLifecycleRunInput {
+  action: AmbientMcpContainerRuntimeLifecycleAction;
+  runtime?: "docker" | "podman" | "colima";
+  expectedPreviewId?: string;
+  confirmForce?: boolean;
+}
+
+export interface AmbientMcpContainerRuntimeLifecycleProgress {
+  schemaVersion: "ambient-container-runtime-lifecycle-progress-v1";
+  action: AmbientMcpContainerRuntimeLifecycleAction;
+  runtime: "docker" | "podman" | "colima";
+  phase: AmbientMcpContainerRuntimeLifecyclePhase;
+  status: "running" | "succeeded" | "failed";
+  message: string;
+  command?: AmbientMcpContainerRuntimeLifecycleCommand;
+  target?: AmbientMcpContainerRuntimeLifecycleTarget;
+  pollCount?: number;
+  logPath?: string;
+  recordedAt: string;
+}
+
+export interface AmbientMcpContainerRuntimeLifecycleResult {
+  schemaVersion: "ambient-container-runtime-lifecycle-result-v1";
+  action: AmbientMcpContainerRuntimeLifecycleAction;
+  runtime: "docker" | "podman" | "colima";
+  status: AmbientMcpContainerRuntimeLifecycleStatus;
+  reason: AmbientMcpContainerRuntimeProbeReason;
+  message: string;
+  preview?: AmbientMcpContainerRuntimeLifecyclePreview;
+  before?: AmbientMcpContainerRuntimeStatus;
+  after?: AmbientMcpContainerRuntimeStatus;
+  progress: AmbientMcpContainerRuntimeLifecycleProgress[];
+  logPath?: string;
+  durationMs: number;
+}
+
 export type AmbientMcpContainerRuntimeSetupDecision = "none" | "deferred" | "install-launched";
 
 export interface AmbientMcpContainerRuntimeSetupState {
@@ -1259,6 +1371,7 @@ export interface AmbientMcpContainerRuntimeSetupState {
 export interface AmbientMcpContainerRuntimeHostStatus {
   kind: "docker" | "podman" | "colima" | "wsl2";
   status: "ready" | "installed" | "installed-not-running" | "permission-blocked" | "missing" | "error";
+  reason?: AmbientMcpContainerRuntimeProbeReason;
   version?: string;
   message: string;
 }
@@ -1309,6 +1422,7 @@ export interface AmbientMcpContainerRuntimeStatus {
   checkedAt: string;
   durationMs: number;
   message: string;
+  reason?: AmbientMcpContainerRuntimeProbeReason;
   nextAction: AmbientMcpContainerRuntimeNextAction;
   toolHive: {
     status: "ready" | "missing" | "error";

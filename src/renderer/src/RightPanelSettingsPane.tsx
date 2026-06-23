@@ -901,6 +901,14 @@ export function RightPanelSettingsPane({
             mcpContainerRuntimeError={mcpPane.containerRuntimeError}
             mcpContainerRuntimeInstallProgressStatusView={mcpContainerRuntimeInstallProgressStatusView}
             mcpContainerRuntimeActionStatus={mcpPane.containerRuntimeActionStatus}
+            mcpServerBusy={mcpPane.serverBusy}
+            mcpContainerRuntimeLifecyclePreview={mcpPane.containerRuntimeLifecyclePreview}
+            mcpContainerRuntimeLifecycleResult={mcpPane.containerRuntimeLifecycleResult}
+            mcpContainerRuntimeLifecycleProgress={mcpPane.containerRuntimeLifecycleProgress}
+            mcpContainerRuntimeLifecycleBusyKey={mcpPane.containerRuntimeLifecycleBusyKey}
+            mcpContainerRuntimeLifecycleError={mcpPane.containerRuntimeLifecycleError}
+            previewMcpContainerRuntimeLifecycle={mcpPane.previewContainerRuntimeLifecycle}
+            runMcpContainerRuntimeLifecycle={mcpPane.runContainerRuntimeLifecycle}
             mcpDefaultWebResearchCapability={mcpDefaultWebResearchCapability}
             mcpDefaultWebResearchAction={mcpDefaultWebResearchAction}
             installMcpDefaultCapability={mcpPane.installDefaultCapability}

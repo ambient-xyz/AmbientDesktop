@@ -109,8 +109,9 @@ describe("AgentRuntime install route gates", () => {
         request: permissionRequest,
         denyThread: () => undefined,
       });
+      const controllers = (runtime as any).controllers;
       const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
-      (runtime as any).createPluginInstallToolExtension(thread.id, workspace, {} as any, undefined)({
+      controllers.pluginSetupTools.createPluginInstallToolExtension(thread.id, workspace, {} as any, undefined)({
         registerTool: (tool: any) => registeredTools.push(tool),
       });
 
@@ -127,7 +128,7 @@ describe("AgentRuntime install route gates", () => {
         lane: "needs-clarification",
       });
 
-      const blocked = await (runtime as any).resolveToolCallPermission(thread.id, workspace, "bash", {
+      const blocked = await controllers.toolPermissions.resolveToolCallPermission(thread.id, workspace, "bash", {
         command: "mkdir -p ~/.agents/skills/mystery",
       });
       expect(blocked?.reason).toContain("needs-clarification");
@@ -149,7 +150,7 @@ describe("AgentRuntime install route gates", () => {
         lane: "normal-app-setup",
       });
 
-      await expect((runtime as any).resolveToolCallPermission(thread.id, workspace, "bash", {
+      await expect(controllers.toolPermissions.resolveToolCallPermission(thread.id, workspace, "bash", {
         command: "echo ok",
       })).resolves.toBeUndefined();
     } finally {
@@ -174,17 +175,18 @@ describe("AgentRuntime install route gates", () => {
         request: permissionRequest,
         denyThread: () => undefined,
       });
+      const controllers = (runtime as any).controllers;
 
-      const blocked = await (runtime as any).resolveToolCallPermission(thread.id, workspace, "bash", {
+      const blocked = await controllers.toolPermissions.resolveToolCallPermission(thread.id, workspace, "bash", {
         command: "git clone https://github.com/alanpcf/brasil-data-mcp /tmp/brasil-data-mcp",
       });
-      const blockedReadmeFetch = await (runtime as any).resolveToolCallPermission(thread.id, workspace, "bash", {
+      const blockedReadmeFetch = await controllers.toolPermissions.resolveToolCallPermission(thread.id, workspace, "bash", {
         command: "curl -L https://raw.githubusercontent.com/Ratnaditya-J/csvglow/main/README.md",
       });
-      const blockedToolHiveRun = await (runtime as any).resolveToolCallPermission(thread.id, workspace, "bash", {
+      const blockedToolHiveRun = await controllers.toolPermissions.resolveToolCallPermission(thread.id, workspace, "bash", {
         command: "thv run uvx://csvglow --name ambient-csvglow",
       });
-      const allowedReadOnlyPathCheck = await (runtime as any).resolveToolCallPermission(thread.id, workspace, "bash", {
+      const allowedReadOnlyPathCheck = await controllers.toolPermissions.resolveToolCallPermission(thread.id, workspace, "bash", {
         command: "ls -la /private/tmp/ambient-mcp-toolhive-route-detection && find . -name 'test_csvglow*' -maxdepth 2",
       });
 
@@ -220,8 +222,9 @@ describe("AgentRuntime install route gates", () => {
         request: vi.fn(async () => ({ allowed: true, mode: "allow_once" as const })),
         denyThread: () => undefined,
       });
+      const controllers = (runtime as any).controllers;
 
-      await expect((runtime as any).resolveToolCallPermission(thread.id, workspace, "bash", {
+      await expect(controllers.toolPermissions.resolveToolCallPermission(thread.id, workspace, "bash", {
         command: "toolhive version",
       })).resolves.toBeUndefined();
     } finally {

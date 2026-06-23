@@ -27,6 +27,7 @@ import {
 } from "./agentRuntimeCapabilityBuilderFacade";
 import { registerGoogleWorkspaceSetupTools, type AgentRuntimeGoogleWorkspaceTools } from "./agentRuntimeGoogleWorkspaceFacade";
 import { createLambdaRlmToolExtension as createLambdaRlmToolsExtension } from "./agentRuntimeLambdaRlmTools";
+import type { AgentRuntimeAsyncLongContextJobService } from "./tools/agentRuntimeAsyncLongContextJobs";
 import type { AgentRuntimeMcpToolOrchestration } from "./mcp/agentRuntimeMcpToolBridge";
 import { getAmbientProviderStatus } from "./agentRuntimeProviderFacade";
 import type { ResolveFirstPartyPluginPermissionInput } from "./agentRuntimeFirstPartyPluginPermission";
@@ -91,6 +92,8 @@ export interface AgentRuntimePluginSetupToolControllerOptions {
       options?: { onRequest?: (request: PermissionRequest) => void },
     ) => Promise<PermissionPromptResolution>;
   };
+  asyncLongContextJobs: () => AgentRuntimeAsyncLongContextJobService;
+  getRunId: (threadId: string) => string | undefined;
   pluginHost: AmbientPluginHost;
   mcpToolOrchestration: Pick<AgentRuntimeMcpToolOrchestration, "createMcpRuntime">;
   installRouteGuard: AgentRuntimeInstallRouteGuard;
@@ -184,12 +187,15 @@ export class AgentRuntimePluginSetupToolController {
     apiKey: string | undefined,
   ): ExtensionFactory {
     return createLambdaRlmToolsExtension({
+      threadId,
       workspace,
       authorityRootPaths: () => this.options.fileAuthorityRootPathsForThread(threadId, "read"),
       includeWorkspaceRootAuthority: () => this.options.includeWorkspaceRootAuthorityForThread(threadId),
       requestFileAuthority: (request) => this.options.requestFileAuthority(threadId, workspace, request),
       model,
       apiKey,
+      getRunId: () => this.options.getRunId(threadId),
+      asyncLongContextJobs: this.options.asyncLongContextJobs(),
     });
   }
 

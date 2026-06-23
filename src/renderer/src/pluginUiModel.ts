@@ -1,6 +1,6 @@
 import type { ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
 import type { VoiceOnboardingHostFacts } from "../../shared/localRuntimeTypes";
-import type { AmbientGeneratedCapabilitySummary, AmbientMcpContainerRuntimeInstallAction, AmbientMcpContainerRuntimeStatus, AmbientMcpContainerRuntimeStatusKind, AmbientMcpDefaultCapabilitySummary, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, AmbientPluginAppAuthSummary, AmbientPluginAuthAccountSummary, AmbientPluginCapabilitySummary, AmbientPluginRegistry, AmbientPluginRuntime, AmbientPluginSourceKind, AmbientPluginSummary, CapabilityBuilderHistoryEntry, CodexMarketplaceSourceSummary, CodexPluginSummary, FirstPartyGoogleIntegrationState, PiPackageInstallScope, PiPackageSummary, PluginMcpRuntimeEvent } from "../../shared/pluginTypes";
+import type { AmbientGeneratedCapabilitySummary, AmbientMcpContainerRuntimeInstallAction, AmbientMcpContainerRuntimeLifecycleAction, AmbientMcpContainerRuntimeLifecycleCommand, AmbientMcpContainerRuntimeLifecyclePreview, AmbientMcpContainerRuntimeLifecycleProgress, AmbientMcpContainerRuntimeLifecycleResult, AmbientMcpContainerRuntimeStatus, AmbientMcpContainerRuntimeStatusKind, AmbientMcpDefaultCapabilitySummary, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, AmbientPluginAppAuthSummary, AmbientPluginAuthAccountSummary, AmbientPluginCapabilitySummary, AmbientPluginRegistry, AmbientPluginRuntime, AmbientPluginSourceKind, AmbientPluginSummary, CapabilityBuilderHistoryEntry, CodexMarketplaceSourceSummary, CodexPluginSummary, FirstPartyGoogleIntegrationState, PiPackageInstallScope, PiPackageSummary, PluginMcpRuntimeEvent } from "../../shared/pluginTypes";
 import type { WorkflowPluginCapabilityGrant } from "../../shared/workflowTypes";
 import { welcomeCoreSetupSectionDefinitions } from "./welcomeSetupUiModel";
 import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
@@ -24,6 +24,21 @@ export interface McpContainerRuntimeInstallActionView extends PluginActionState 
   commandPreview?: string;
   managedExecution?: string;
 }
+
+export interface McpContainerRuntimeLifecycleActionView extends PluginActionState {
+  action: AmbientMcpContainerRuntimeLifecycleAction;
+  primary: boolean;
+  danger: boolean;
+  busyLabel: string;
+}
+
+export type McpContainerRuntimeLifecycleStatusView = {
+  kind: "info" | "success" | "error";
+  message: string;
+};
+
+export const mcpContainerRuntimeLifecycleForceWarningText =
+  "Force quit and restart can interrupt every container on this runtime, including non-Ambient containers.";
 
 export interface WorkflowPluginRequirementRow {
   capabilityId: string;
@@ -1662,6 +1677,159 @@ export function mcpContainerRuntimeInstallActionViews(
         : action.reason,
     };
   });
+}
+
+export function mcpContainerRuntimeLifecycleActionViews(
+  status: AmbientMcpContainerRuntimeStatus | undefined,
+  input: { busyKey?: string; disabled?: boolean } = {},
+): McpContainerRuntimeLifecycleActionView[] {
+  if (!status || status.status === "ready" || status.status === "missing") return [];
+  const hasRuntimeTarget = Boolean(
+    status.runtime === "docker" ||
+    status.runtime === "podman" ||
+    status.runtime === "colima" ||
+    status.hosts.some((host) => (
+      host.kind === "docker" ||
+      host.kind === "podman" ||
+      host.kind === "colima"
+    ) && host.status !== "missing"),
+  );
+  if (!hasRuntimeTarget) return [];
+  const actions: AmbientMcpContainerRuntimeLifecycleAction[] =
+    status.status === "installed-not-running"
+      ? ["restart", "force-quit-and-restart", "open-recovery"]
+      : ["open-recovery"];
+  return actions.map((action, index) => {
+    const previewBusy = input.busyKey === `preview:${action}`;
+    const runBusy = input.busyKey === `run:${action}`;
+    const busy = previewBusy || runBusy;
+    const danger = action === "force-quit-and-restart";
+    return {
+      action,
+      label: busy ? lifecycleBusyLabel(action, previewBusy) : lifecycleActionLabel(action),
+      disabled: Boolean(input.disabled || input.busyKey),
+      visible: true,
+      primary: index === 0,
+      danger,
+      busyLabel: lifecycleBusyLabel(action, false),
+      title: lifecycleActionTitle(action),
+    };
+  });
+}
+
+export function mcpContainerRuntimeLifecycleRunActionState(
+  preview: AmbientMcpContainerRuntimeLifecyclePreview | undefined,
+  input: { busyKey?: string } = {},
+): PluginActionState & { danger: boolean } {
+  const action = preview?.action ?? "restart";
+  const busy = Boolean(preview && input.busyKey === `run:${preview.action}`);
+  const blocked = !preview || preview.status !== "available";
+  const force = preview?.action === "force-quit-and-restart";
+  return {
+    label: busy
+      ? lifecycleBusyLabel(action, false)
+      : !preview
+        ? "Preview first"
+        : force
+          ? "Confirm force quit and restart"
+          : preview.action === "open-recovery"
+            ? "Open recovery"
+            : "Run restart",
+    disabled: busy || blocked || Boolean(input.busyKey && !busy),
+    visible: Boolean(preview),
+    danger: force,
+    title: !preview
+      ? "Preview the runtime lifecycle action before running it."
+      : blocked
+        ? preview.summary
+        : force
+          ? mcpContainerRuntimeLifecycleForceWarningText
+          : preview.summary,
+  };
+}
+
+export function mcpContainerRuntimeLifecycleStatusView(
+  input: {
+    preview?: AmbientMcpContainerRuntimeLifecyclePreview;
+    progress?: AmbientMcpContainerRuntimeLifecycleProgress;
+    result?: AmbientMcpContainerRuntimeLifecycleResult;
+    error?: string;
+  },
+): McpContainerRuntimeLifecycleStatusView | undefined {
+  if (input.error) return { kind: "error", message: input.error };
+  if (input.result) {
+    return {
+      kind: input.result.status === "ready" || input.result.status === "running" ? "success" : "error",
+      message: input.result.message,
+    };
+  }
+  if (input.progress) {
+    return {
+      kind: input.progress.status === "failed" ? "error" : input.progress.status === "succeeded" ? "success" : "info",
+      message: input.progress.message,
+    };
+  }
+  if (input.preview) {
+    return {
+      kind: input.preview.status === "blocked" ? "error" : "info",
+      message: input.preview.summary,
+    };
+  }
+  return undefined;
+}
+
+export function mcpContainerRuntimeLifecyclePreviewRows(
+  preview: AmbientMcpContainerRuntimeLifecyclePreview | undefined,
+): string[] {
+  if (!preview) return [];
+  return [
+    `Action: ${formatPluginToken(preview.action)}`,
+    `Runtime: ${formatPluginToken(preview.runtime)}`,
+    `Platform: ${preview.platform}`,
+    `Reason: ${formatPluginToken(preview.reason)}`,
+    `Interruption: ${preview.expectedInterruption}`,
+    `Targets: ${preview.targets.length}`,
+    `Commands: ${preview.commands.length}`,
+  ];
+}
+
+export function mcpContainerRuntimeLifecycleWarnings(
+  preview: AmbientMcpContainerRuntimeLifecyclePreview | undefined,
+): string[] {
+  if (!preview) return [];
+  const warnings = [...preview.warnings];
+  if (preview.requiresConfirmation && !warnings.includes(mcpContainerRuntimeLifecycleForceWarningText)) {
+    warnings.unshift(mcpContainerRuntimeLifecycleForceWarningText);
+  }
+  return warnings;
+}
+
+export function mcpContainerRuntimeLifecycleCommandPreview(
+  command: AmbientMcpContainerRuntimeLifecycleCommand,
+): string {
+  return [command.exe, ...command.args].join(" ");
+}
+
+function lifecycleActionLabel(action: AmbientMcpContainerRuntimeLifecycleAction): string {
+  if (action === "force-quit-and-restart") return "Preview force quit";
+  if (action === "open-recovery") return "Preview recovery";
+  return "Preview restart";
+}
+
+function lifecycleBusyLabel(
+  action: AmbientMcpContainerRuntimeLifecycleAction,
+  previewing: boolean,
+): string {
+  if (previewing) return "Previewing";
+  if (action === "force-quit-and-restart") return "Force restarting";
+  if (action === "open-recovery") return "Opening";
+  return "Restarting";
+}
+
+function lifecycleActionTitle(action: AmbientMcpContainerRuntimeLifecycleAction): string {
+  if (action === "force-quit-and-restart") return mcpContainerRuntimeLifecycleForceWarningText;
+  if (action === "open-recovery") return "Preview recovery guidance for this runtime and platform.";
+  return "Preview the graceful runtime restart plan before running it.";
 }
 
 export function mcpDefaultCapabilityRuntimeHandoffCandidate(

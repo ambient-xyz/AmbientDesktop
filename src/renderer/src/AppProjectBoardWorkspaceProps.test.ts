@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppProjectBoardActions } from "./AppProjectBoardActions";
 import {
   createAppProjectBoardWorkspaceProps,
+  createAppProjectBoardWorkspacePropsForApp,
   type AppProjectBoardWorkspacePropsInput,
 } from "./AppProjectBoardWorkspaceProps";
 import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspace";
@@ -82,6 +83,66 @@ describe("App project-board workspace props", () => {
     expect(actions.resolveProjectBoardProofDecision).toHaveBeenCalledWith("card-1", "retry", "Needs stronger proof");
     expect(actions.resolveProjectBoardSplitDecision).toHaveBeenCalledWith("card-1", "approve_split");
     expect(actions.answerProjectBoardQuestion).toHaveBeenCalledWith(question, "yes");
+  });
+
+  it("maps grouped App owner objects into project-board workspace props", () => {
+    const actions = projectBoardActions();
+    const setProjectBoardOpen = vi.fn();
+    const project = projectSummary({ id: "project-grouped" });
+    const props = createAppProjectBoardWorkspacePropsForApp({
+      projectBoardControls: {
+        activeProject: project,
+        activeProjectBoardBusy: true,
+        activeThreadSuppressesProjectBoard: false,
+        projectBoardActions: actions,
+        projectBoardOpen: true,
+        setProjectBoardOpen,
+      },
+      projectShellState: {
+        projectBoardSourceBusy: true,
+        projectBoardSourceImpactBusy: false,
+        projectBoardKickoffDefaultsBusy: true,
+        projectBoardRefineBusy: true,
+        projectBoardRefineMode: "charter_review",
+        projectBoardProposalAnswerBusy: "question-1",
+        projectBoardProposalCardReviewBusy: "source-1",
+        projectBoardProposalApplyBusy: true,
+        projectBoardFinalizeBusy: false,
+        projectBoardSynthesisRetryBusy: true,
+        projectBoardSynthesisDeferBusy: false,
+        projectBoardSynthesisPauseBusy: true,
+        projectBoardRevisionBusy: false,
+      },
+      runActivityState: {
+        runActivityLinesByThread: { "thread-1": [] },
+        threadRunStatuses: { "thread-1": "streaming" },
+      },
+      workflowRuntimeState: {
+        orchestrationRevision: 42,
+      },
+    });
+
+    expect(props).toMatchObject({
+      project,
+      busy: true,
+      sourceBusy: true,
+      kickoffDefaultsBusy: true,
+      refineBusy: true,
+      refineMode: "charter_review",
+      proposalAnswerBusy: "question-1",
+      proposalCardReviewBusy: "source-1",
+      proposalApplyBusy: true,
+      synthesisRetryBusy: true,
+      synthesisPauseBusy: true,
+      orchestrationRevision: 42,
+      threadRunStatuses: { "thread-1": "streaming" },
+    });
+
+    props?.onBuild();
+    props?.onClose();
+
+    expect(actions.buildProjectBoard).toHaveBeenCalledWith(project);
+    expect(setProjectBoardOpen).toHaveBeenCalledWith(false);
   });
 });
 

@@ -64,6 +64,8 @@ function runtimeMessages(): RuntimeAssistantMessageController {
   return {
     currentAssistantMessageId: vi.fn(() => "assistant-1"),
     currentMessageContent: vi.fn(() => "Final answer"),
+    currentPromptCacheTelemetry: vi.fn(() => ({ status: "unknown" })),
+    completePromptCacheTelemetryIfPending: vi.fn(() => []),
     finishCurrentThinkingMessage: vi.fn(),
     suppressAssistantMessagesExceptCurrent: vi.fn(),
     suppressCurrentThinkingMessage: vi.fn(),
@@ -86,6 +88,8 @@ function failureRuntimeMessages(): RuntimeAssistantMessageController {
   return {
     currentAssistantMessageId: vi.fn(() => "assistant-1"),
     currentMessageContent: vi.fn((_, fallback) => fallback),
+    currentPromptCacheTelemetry: vi.fn(() => ({ status: "unknown" })),
+    completePromptCacheTelemetryIfPending: vi.fn(() => []),
     finishCurrentThinkingMessage: vi.fn(),
     suppressAssistantMessagesExceptCurrent: vi.fn(),
     suppressCurrentThinkingMessage: vi.fn(),

@@ -4,6 +4,10 @@ import { z } from "zod";
 import type {
   AmbientMcpContainerRuntimeInstallLaunchInput,
   AmbientMcpContainerRuntimeInstallLaunchResult,
+  AmbientMcpContainerRuntimeLifecyclePreview,
+  AmbientMcpContainerRuntimeLifecyclePreviewInput,
+  AmbientMcpContainerRuntimeLifecycleResult,
+  AmbientMcpContainerRuntimeLifecycleRunInput,
   AmbientMcpContainerRuntimeStatus,
   AmbientMcpDefaultCapabilityInstallInput,
   AmbientMcpInstalledServerSummary,
@@ -28,6 +32,8 @@ export const mcpInstalledListIpcChannels = ["mcp:installed-list"] as const;
 export const mcpContainerRuntimeStatusIpcChannels = ["mcp:container-runtime-status"] as const;
 export const mcpContainerRuntimeLaunchInstallIpcChannels = ["mcp:container-runtime-launch-install"] as const;
 export const mcpContainerRuntimeDeferIpcChannels = ["mcp:container-runtime-defer"] as const;
+export const mcpContainerRuntimeLifecyclePreviewIpcChannels = ["mcp:container-runtime-lifecycle-preview"] as const;
+export const mcpContainerRuntimeLifecycleRunIpcChannels = ["mcp:container-runtime-lifecycle-run"] as const;
 export const mcpDefaultCapabilityInstallIpcChannels = ["mcp:default-capability-install"] as const;
 export const mcpRegistryInstallIpcChannels = ["mcp:registry-install"] as const;
 export const mcpServerUninstallIpcChannels = ["mcp:server-uninstall"] as const;
@@ -63,6 +69,16 @@ export interface RegisterMcpContainerRuntimeDeferIpcDependencies {
   deferContainerRuntimeSetup(): MaybePromise<AmbientMcpContainerRuntimeStatus>;
 }
 
+export interface RegisterMcpContainerRuntimeLifecyclePreviewIpcDependencies {
+  handleIpc: HandleIpc;
+  previewContainerRuntimeLifecycle(input: AmbientMcpContainerRuntimeLifecyclePreviewInput): MaybePromise<AmbientMcpContainerRuntimeLifecyclePreview>;
+}
+
+export interface RegisterMcpContainerRuntimeLifecycleRunIpcDependencies {
+  handleIpc: HandleIpc;
+  runContainerRuntimeLifecycle(input: AmbientMcpContainerRuntimeLifecycleRunInput): MaybePromise<AmbientMcpContainerRuntimeLifecycleResult>;
+}
+
 export interface RegisterMcpDefaultCapabilityInstallIpcDependencies {
   handleIpc: HandleIpc;
   installDefaultCapability(input: AmbientMcpDefaultCapabilityInstallInput): MaybePromise<AmbientMcpServerInstallResult>;
@@ -87,6 +103,18 @@ const mcpContainerRuntimeInstallLaunchSchema = z.object({
   actionId: z.string().min(1).max(128).optional(),
   mode: z.enum(["execute", "dry-run"]).optional(),
 }) satisfies z.ZodType<AmbientMcpContainerRuntimeInstallLaunchInput>;
+const mcpContainerRuntimeLifecycleActionSchema = z.enum(["restart", "force-quit-and-restart", "open-recovery"]);
+const mcpContainerRuntimeLifecycleRuntimeSchema = z.enum(["docker", "podman", "colima"]);
+const mcpContainerRuntimeLifecyclePreviewSchema = z.object({
+  action: mcpContainerRuntimeLifecycleActionSchema,
+  runtime: mcpContainerRuntimeLifecycleRuntimeSchema.optional(),
+}) satisfies z.ZodType<AmbientMcpContainerRuntimeLifecyclePreviewInput>;
+const mcpContainerRuntimeLifecycleRunSchema = z.object({
+  action: mcpContainerRuntimeLifecycleActionSchema,
+  runtime: mcpContainerRuntimeLifecycleRuntimeSchema.optional(),
+  expectedPreviewId: z.string().min(1).max(256).optional(),
+  confirmForce: z.boolean().optional(),
+}) satisfies z.ZodType<AmbientMcpContainerRuntimeLifecycleRunInput>;
 const mcpDefaultCapabilityInstallSchema = z.object({
   capabilityId: z.literal("scrapling"),
 }) satisfies z.ZodType<AmbientMcpDefaultCapabilityInstallInput>;
@@ -174,6 +202,26 @@ export function registerMcpContainerRuntimeDeferIpc({
   deferContainerRuntimeSetup,
 }: RegisterMcpContainerRuntimeDeferIpcDependencies): void {
   handleIpc("mcp:container-runtime-defer", () => deferContainerRuntimeSetup());
+}
+
+export function registerMcpContainerRuntimeLifecyclePreviewIpc({
+  handleIpc,
+  previewContainerRuntimeLifecycle,
+}: RegisterMcpContainerRuntimeLifecyclePreviewIpcDependencies): void {
+  handleIpc("mcp:container-runtime-lifecycle-preview", (_event, raw: unknown) => {
+    const input = mcpContainerRuntimeLifecyclePreviewSchema.parse(raw);
+    return previewContainerRuntimeLifecycle(input);
+  });
+}
+
+export function registerMcpContainerRuntimeLifecycleRunIpc({
+  handleIpc,
+  runContainerRuntimeLifecycle,
+}: RegisterMcpContainerRuntimeLifecycleRunIpcDependencies): void {
+  handleIpc("mcp:container-runtime-lifecycle-run", (_event, raw: unknown) => {
+    const input = mcpContainerRuntimeLifecycleRunSchema.parse(raw);
+    return runContainerRuntimeLifecycle(input);
+  });
 }
 
 export function registerMcpDefaultCapabilityInstallIpc({

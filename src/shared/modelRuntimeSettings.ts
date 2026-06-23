@@ -26,6 +26,7 @@ export const MODEL_RUNTIME_INSTALLED_PROVIDER_ENDPOINT_SCHEMA_VERSION = "ambient
 
 export const DEFAULT_MODEL_RUNTIME_SETTINGS: ModelRuntimeSettings = {
   aggressiveRetries: true,
+  showPromptCacheStatus: false,
   providerPreStreamTimeoutMs: DEFAULT_MODEL_RUNTIME_PROVIDER_PRE_STREAM_TIMEOUT_MS,
   providerStreamIdleTimeoutMs: DEFAULT_MODEL_RUNTIME_PROVIDER_STREAM_IDLE_TIMEOUT_MS,
   installedProviders: [],
@@ -43,6 +44,9 @@ export function normalizeModelRuntimeSettings(value: unknown): ModelRuntimeSetti
   const input = value && typeof value === "object" && !Array.isArray(value) ? (value as Partial<ModelRuntimeSettings>) : {};
   return {
     aggressiveRetries: typeof input.aggressiveRetries === "boolean" ? input.aggressiveRetries : DEFAULT_MODEL_RUNTIME_SETTINGS.aggressiveRetries,
+    showPromptCacheStatus: typeof input.showPromptCacheStatus === "boolean"
+      ? input.showPromptCacheStatus
+      : DEFAULT_MODEL_RUNTIME_SETTINGS.showPromptCacheStatus,
     providerPreStreamTimeoutMs: normalizeModelRuntimeTimeoutMs(
       input.providerPreStreamTimeoutMs,
       DEFAULT_MODEL_RUNTIME_SETTINGS.providerPreStreamTimeoutMs,

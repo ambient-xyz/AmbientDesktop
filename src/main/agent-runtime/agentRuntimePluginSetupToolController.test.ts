@@ -20,6 +20,7 @@ import {
 } from "./agentRuntimePluginSetupToolController";
 import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { AmbientWorkflowDescriptionState } from "./ambient-workflow/agentRuntimeAmbientWorkflowDescriptionState";
+import { AgentRuntimeAsyncLongContextJobService } from "./tools/agentRuntimeAsyncLongContextJobs";
 
 type RegisteredTool = {
   name: string;
@@ -49,6 +50,9 @@ describe("AgentRuntimePluginSetupToolController", () => {
       const names = registeredTools.map((tool) => tool.name);
       expect(names).toEqual(expect.arrayContaining([
         "long_context_process",
+        "long_context_start",
+        "long_context_poll",
+        "long_context_cancel",
         "ambient_install_route_plan",
         "ambient_capability_builder_validate",
         "google_workspace_status",
@@ -92,6 +96,8 @@ function options(store: ProjectStore): AgentRuntimePluginSetupToolControllerOpti
     permissions: {
       request: vi.fn(async (): Promise<PermissionPromptResolution> => ({ allowed: true, mode: "allow_once" })),
     },
+    asyncLongContextJobs: () => new AgentRuntimeAsyncLongContextJobService(),
+    getRunId: () => undefined,
     pluginHost,
     mcpToolOrchestration: {
       createMcpRuntime: vi.fn(),

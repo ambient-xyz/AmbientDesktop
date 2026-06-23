@@ -1,4 +1,6 @@
 import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
+import { promptCacheTelemetryFromUsage } from "../../shared/promptCacheTelemetry";
+import type { PromptCacheTelemetry } from "../../shared/threadTypes";
 import type { AssistantFinalizationRetryReason } from "../agent-runtime/agentRuntimeAssistantRetryInput";
 import type {
   AssistantTerminalCleanupDiagnostic,
@@ -45,6 +47,8 @@ export interface RuntimePromptSuccessHandlerInput {
   emptyAssistantRetryAttemptsUsed: number;
   emptyAssistantRetryNextAttempt: number;
   consumeSubagentParentControlAbort: () => Promise<void>;
+  currentPromptCacheTelemetry: () => PromptCacheTelemetry;
+  completePromptCacheTelemetryIfPending: (telemetry: PromptCacheTelemetry) => void;
   finishCurrentThinkingMessage: (status: "done" | "aborted", text: string) => void;
   suppressAssistantMessagesExceptCurrent: (status: "done" | "error" | "aborted") => void;
   suppressCurrentThinkingMessage: (status: "done" | "aborted") => void;
@@ -88,6 +92,8 @@ export async function handleRuntimePromptSuccess(
     throw new Error(input.runtimeError);
   }
 
+  input.completePromptCacheTelemetryIfPending(promptCacheTelemetryFromUsage(input.lastAssistantTerminalEvent?.usage));
+  const promptCacheTelemetry = input.currentPromptCacheTelemetry();
   input.finishCurrentThinkingMessage(input.abortRequested ? "aborted" : "done", input.currentThinkingFinalText);
   input.recordContextUsageSnapshot();
 
@@ -171,6 +177,7 @@ export async function handleRuntimePromptSuccess(
     discardProviderRetrySession: sessionDisposition.discardProviderRetrySession,
     providerRetrySessionFile: input.sessionFile,
     providerRetryLastError: input.providerRetryLastError,
+    promptCacheTelemetry,
     hasPlannerFinalizationSources: input.hasPlannerFinalizationSources,
     preResolvedCallableWorkflowFinalizationBlock,
     resolveSubagentFinalizationBlock: input.resolveSubagentFinalizationBlock,

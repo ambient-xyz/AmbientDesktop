@@ -12,6 +12,12 @@ import {
   type AgentRuntimeAsyncBashJobService,
   type AsyncBashJobSnapshot,
 } from "./tools/agentRuntimeAsyncBashJobs";
+import {
+  asyncLongContextJobTerminal,
+  asyncLongContextSnapshotDetails,
+  formatAsyncLongContextSnapshotForTool,
+  type AsyncLongContextJobSnapshot,
+} from "./tools/agentRuntimeAsyncLongContextJobs";
 import type {
   AgentRuntimeThreadWakeToolInput,
   AgentRuntimeThreadWakeToolResult,
@@ -39,6 +45,7 @@ export interface AgentRuntimeToolRunnerControllerOptions {
 
 export class AgentRuntimeToolRunnerController {
   private readonly asyncBashToolMessageIds = new Map<string, string>();
+  private readonly asyncLongContextToolMessageIds = new Map<string, string>();
 
   constructor(private readonly options: AgentRuntimeToolRunnerControllerOptions) {}
 
@@ -107,6 +114,59 @@ export class AgentRuntimeToolRunnerController {
           metadata: update.metadata,
         });
     if (!existingMessageId) this.asyncBashToolMessageIds.set(snapshot.jobId, message.id);
+    this.emitToolMessageUpdate(update.existingMessageId ? "message-updated" : "message-created", message);
+    this.options.emit({
+      type: "tool-event",
+      threadId: snapshot.threadId,
+      label: update.toolEventLabel,
+      status: messageStatus === "running" ? "running" : messageStatus === "done" ? "done" : "error",
+      artifactPath: update.artifactPath,
+      details: update.toolEventDetails,
+    });
+  }
+
+  upsertAsyncLongContextToolMessage(snapshot: AsyncLongContextJobSnapshot): void {
+    let thread: ThreadSummary;
+    try {
+      thread = this.options.store.getThread(snapshot.threadId);
+    } catch {
+      return;
+    }
+    const existingMessageId = this.asyncLongContextToolMessageIds.get(snapshot.jobId);
+    const terminal = asyncLongContextJobTerminal(snapshot.status);
+    const errorTerminal = snapshot.status === "failed" || snapshot.status === "orphaned";
+    const messageStatus = terminal ? (errorTerminal ? "error" : "done") : "running";
+    const update = runtimeToolResultMessageUpdate({
+      toolCallId: `async-long-context:${snapshot.jobId}`,
+      label: "long_context_async",
+      inputContent: [
+        `job_id: ${snapshot.jobId}`,
+        snapshot.taskType ? `task_type: ${snapshot.taskType}` : undefined,
+        snapshot.inputLength !== undefined ? `input_characters: ${snapshot.inputLength}` : undefined,
+      ].filter((line): line is string => line !== undefined).join("\n"),
+      resultContent: formatAsyncLongContextSnapshotForTool(snapshot),
+      workspacePath: thread.workspacePath,
+      permissionMode: thread.permissionMode,
+      messageStatus,
+      statusLabel: snapshot.status,
+      eventStatus: messageStatus === "running" ? "running" : messageStatus === "done" ? "completed" : "error",
+      ...(existingMessageId ? { existingMessageId } : {}),
+      details: {
+        jobId: snapshot.jobId,
+        status: snapshot.status,
+        latestSeq: String(snapshot.latestSeq),
+      },
+      resultDetails: asyncLongContextSnapshotDetails(snapshot),
+    });
+    const message = update.existingMessageId
+      ? this.options.store.replaceMessage(update.existingMessageId, update.content, update.metadata)
+      : this.options.store.addMessage({
+          threadId: snapshot.threadId,
+          role: "tool",
+          content: update.content,
+          metadata: update.metadata,
+        });
+    if (!existingMessageId) this.asyncLongContextToolMessageIds.set(snapshot.jobId, message.id);
     this.emitToolMessageUpdate(update.existingMessageId ? "message-updated" : "message-created", message);
     this.options.emit({
       type: "tool-event",

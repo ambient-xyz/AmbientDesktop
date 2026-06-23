@@ -4,11 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { LocalDeepResearchRunBudget, SttMessageMetadata } from "../../shared/localRuntimeTypes";
 import type { SlashCommandSelection } from "../../shared/slashCommandTypes";
-import type { RunStatus, ThreadGoal } from "../../shared/threadTypes";
+import type { RunStatus, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
 import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { resolveLocalDeepResearchRunBudget } from "../../shared/localDeepResearchBudget";
 import {
   createAppComposerSubmitActions,
+  createAppComposerSubmitActionsForApp,
   localDeepResearchSubmitOptions,
   shouldArmComposerGoal,
   submittedComposerDelivery,
@@ -66,6 +67,40 @@ describe("App composer submit actions", () => {
     expect(workflowRecordingEditContextForContent(pending, "Edit: add a retry step")).toEqual(pending);
     expect(workflowRecordingEditContextForContent(pending, "Different prompt")).toBeUndefined();
     expect(workflowRecordingEditContextForContent(undefined, "Edit: add a retry step")).toBeUndefined();
+  });
+
+  it("maps App owner groups into normal submit actions", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    vi.stubGlobal("window", { ambientDesktop: { sendMessage } });
+    const context = [contextRef("README.md")];
+    const controller = createController({
+      contextAttachments: context,
+      draft: "Hello from the App adapter",
+      useAppAdapter: true,
+    });
+
+    await controller.actions.submitDraft("prompt");
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      content: "Hello from the App adapter",
+      permissionMode: "full-access",
+      collaborationMode: "agent",
+      model: "ambient",
+      thinkingLevel: "medium",
+      delivery: "prompt",
+      context,
+    });
+    expect(controller.registerPendingSubmittedPrompt).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      content: "Hello from the App adapter",
+      delivery: "prompt",
+    });
+    expect(controller.resetRunActivityLines).toHaveBeenCalledWith("Prompt sent to Ambient.");
+    expect(controller.draft.value).toBe("");
+    expect(controller.contextAttachments.value).toEqual([]);
+    expect(controller.runStatus.value).toBe("starting");
+    expect(controller.threadRunStatuses.value).toEqual({ "thread-1": "starting" });
   });
 
   it("intercepts secret slash commands before sending", async () => {
@@ -528,6 +563,7 @@ function createController({
   selectedSlashCommand = undefined,
   state = desktopState(),
   sttDraftMetadata = undefined,
+  useAppAdapter = false,
   workflowRecordingReviewFeedbackActive = false,
 }: {
   activeThreadWorkflowRecordingStopped?: boolean;
@@ -542,6 +578,7 @@ function createController({
   selectedSlashCommand?: SlashCommandSelection;
   state?: DesktopState | undefined;
   sttDraftMetadata?: SttDraftMetadataState;
+  useAppAdapter?: boolean;
   workflowRecordingReviewFeedbackActive?: boolean;
 } = {}) {
   const draftState = { value: draft };
@@ -564,46 +601,103 @@ function createController({
   const resetRunActivityLines = vi.fn();
   const setError = vi.fn();
   const updateThreadSettings = vi.fn(async () => undefined);
+  const selectedSlashCommandRef = { current: selectedSlashCommand };
+  const setComposerDraft = (value: string) => {
+    draftState.value = value;
+  };
+  const setLocalDeepResearchModeArmed = (next: boolean) => {
+    localDeepResearchModeArmedRef.current = next;
+  };
+  const setSlashCommandSelection = (selection: SlashCommandSelection | undefined) => {
+    selectedSlashCommandRef.current = selection;
+    slashCommandSelectionState.set(selection);
+  };
+  const actions = useAppAdapter
+    ? createAppComposerSubmitActionsForApp({
+        activeThread: {
+          workflowRecording: activeThreadWorkflowRecordingStopped ? { status: "stopped" } : undefined,
+        } as Pick<ThreadSummary, "workflowRecording">,
+        composerShellState: {
+          getComposerDraft: () => draftState.value,
+          selectedSlashCommandRef,
+          setComposerDraft,
+          setSelectedSlashCommand: setSlashCommandSelection,
+        },
+        coreLifecycleControls: {
+          appendRunActivityLine,
+          resetRunActivityLines,
+        },
+        credentialDialogActions: { openAmbientCliSecretDialog },
+        localDeepResearchRunActive,
+        pendingSubmittedPromptControls: {
+          registerPendingSubmittedPrompt,
+          removePendingSubmittedPrompt,
+        },
+        providerRuntimeState: {
+          setSttDraftMetadata: sttDraftMetadataState.set,
+          sttDraftMetadata,
+        },
+        resetPromptHistory,
+        runActivityState: {
+          setRunStatus: runStatus.set,
+          setThreadRunStatuses: threadRunStatuses.set,
+        },
+        running,
+        setLocalDeepResearchModeArmed,
+        shellCommandActions: { updateThreadSettings },
+        shellUiState: { setError },
+        state,
+        threadMaintenanceActions: { compactActiveThread },
+        workflowRecordingReviewControls: { workflowRecordingReviewFeedbackActive },
+        workflowRuntimeState: {
+          contextAttachments,
+          goalModeArmed,
+          localDeepResearchModeArmedRef,
+          localDeepResearchRunBudgetRef,
+          pendingWorkflowRecordingEditContext,
+          setContextAttachments: contextAttachmentsState.set,
+          setContextError: contextError.set,
+          setGoalModeArmed: goalModeArmedState.set,
+          setPendingWorkflowRecordingEditContext: pendingWorkflowRecordingEditContextState.set,
+        },
+      })
+    : createAppComposerSubmitActions({
+        activeThreadWorkflowRecordingStopped,
+        appendRunActivityLine,
+        compactActiveThread,
+        contextAttachments,
+        getComposerDraft: () => draftState.value,
+        getSlashCommandSelection: () => slashCommandSelectionState.value,
+        goalModeArmed,
+        localDeepResearchRunActive,
+        localDeepResearchModeArmedRef,
+        localDeepResearchRunBudgetRef,
+        openAmbientCliSecretDialog,
+        registerPendingSubmittedPrompt,
+        pendingWorkflowRecordingEditContext,
+        resetPromptHistory,
+        removePendingSubmittedPrompt,
+        resetRunActivityLines,
+        running,
+        setComposerDraft,
+        setContextAttachments: contextAttachmentsState.set,
+        setContextError: contextError.set,
+        setError,
+        setGoalModeArmed: goalModeArmedState.set,
+        setLocalDeepResearchModeArmed,
+        setPendingWorkflowRecordingEditContext: pendingWorkflowRecordingEditContextState.set,
+        setRunStatus: runStatus.set,
+        setSlashCommandSelection,
+        setSttDraftMetadata: sttDraftMetadataState.set,
+        setThreadRunStatuses: threadRunStatuses.set,
+        state,
+        sttDraftMetadata,
+        updateThreadSettings,
+        workflowRecordingReviewFeedbackActive,
+      });
 
   return {
-    actions: createAppComposerSubmitActions({
-      activeThreadWorkflowRecordingStopped,
-      appendRunActivityLine,
-      compactActiveThread,
-      contextAttachments,
-      getComposerDraft: () => draftState.value,
-      getSlashCommandSelection: () => slashCommandSelectionState.value,
-      goalModeArmed,
-      localDeepResearchRunActive,
-      localDeepResearchModeArmedRef,
-      localDeepResearchRunBudgetRef,
-      openAmbientCliSecretDialog,
-      registerPendingSubmittedPrompt,
-      pendingWorkflowRecordingEditContext,
-      resetPromptHistory,
-      removePendingSubmittedPrompt,
-      resetRunActivityLines,
-      running,
-      setComposerDraft: (value) => {
-        draftState.value = value;
-      },
-      setContextAttachments: contextAttachmentsState.set,
-      setContextError: contextError.set,
-      setError,
-      setGoalModeArmed: goalModeArmedState.set,
-      setLocalDeepResearchModeArmed: (next) => {
-        localDeepResearchModeArmedRef.current = next;
-      },
-      setPendingWorkflowRecordingEditContext: pendingWorkflowRecordingEditContextState.set,
-      setRunStatus: runStatus.set,
-      setSlashCommandSelection: slashCommandSelectionState.set,
-      setSttDraftMetadata: sttDraftMetadataState.set,
-      setThreadRunStatuses: threadRunStatuses.set,
-      state,
-      sttDraftMetadata,
-      updateThreadSettings,
-      workflowRecordingReviewFeedbackActive,
-    }),
+    actions,
     appendRunActivityLine,
     compactActiveThread,
     contextAttachments: contextAttachmentsState,

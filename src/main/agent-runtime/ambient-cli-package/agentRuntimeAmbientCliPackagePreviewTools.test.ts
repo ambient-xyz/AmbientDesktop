@@ -109,6 +109,43 @@ describe("agentRuntimeAmbientCliPackagePreviewTools", () => {
     });
   });
 
+  it("redacts credential-bearing Git sources from progress and result metadata", async () => {
+    const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
+    const previewAmbientCliPackageInstallSource = vi.fn(async () => ({
+      ...previewFixture(),
+      source: "git+ext::https://example.test/repo.git",
+      installable: false,
+      errors: ["Unsupported Git source."],
+    }));
+    const onUpdate = vi.fn();
+
+    registerAmbientCliPackagePreviewTool({
+      registerTool: (tool: any) => registeredTools.push(tool),
+    }, {
+      workspace: { path: "/workspace" },
+      previewAmbientCliPackageInstallSource,
+    });
+
+    const source = "git+ext::https://user:secret@example.test/repo.git?auth=secret";
+    const result = await registeredTools[0].execute("preview", {
+      source,
+      sha: "0123456789abcdef0123456789abcdef01234567",
+    }, undefined, onUpdate);
+
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: [{ type: "text", text: "Previewing Ambient CLI package source git+ext::https://example.test/repo.git." }],
+      details: expect.objectContaining({
+        source: "git+ext::https://example.test/repo.git",
+      }),
+    }));
+    expect(previewAmbientCliPackageInstallSource).toHaveBeenCalledWith("/workspace", {
+      source,
+      sha: "0123456789abcdef0123456789abcdef01234567",
+    });
+    expect(result.details.source).toBe("git+ext::https://example.test/repo.git");
+    expect(JSON.stringify({ update: onUpdate.mock.calls, result })).not.toContain("secret");
+  });
+
   it("requires a non-empty source before previewing", async () => {
     const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
     const previewAmbientCliPackageInstallSource = vi.fn();

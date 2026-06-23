@@ -1,4 +1,5 @@
 import type { RuntimeActivity } from "../../shared/threadTypes";
+import { promptCacheUsageTokens } from "../../shared/promptCacheTelemetry";
 
 type RuntimeStreamActivity = Extract<RuntimeActivity, { kind: "stream" }>;
 
@@ -57,6 +58,7 @@ export interface AssistantTerminalCleanupActivityInput {
 export function assistantTerminalEventDiagnostic(event: any, finalText?: string, error?: string): AssistantTerminalEventDiagnostic | undefined {
   const message = event?.message;
   const usage = message?.usage && typeof message.usage === "object" ? message.usage : undefined;
+  const usageTokens = promptCacheUsageTokens(usage);
   const content = Array.isArray(message?.content) ? message.content : undefined;
   const diagnostic: AssistantTerminalEventDiagnostic = {
     eventType: String(event?.type ?? "unknown"),
@@ -65,15 +67,9 @@ export function assistantTerminalEventDiagnostic(event: any, finalText?: string,
     ...(content ? { contentBlockCount: content.length } : {}),
     ...(finalText !== undefined ? { finalTextChars: finalText.length } : {}),
     ...(error ? { error: error.slice(0, 240) } : {}),
-    ...(usage
+    ...(usageTokens
       ? {
-          usage: {
-            ...(Number.isFinite(usage.input) ? { input: Number(usage.input) } : {}),
-            ...(Number.isFinite(usage.output) ? { output: Number(usage.output) } : {}),
-            ...(Number.isFinite(usage.cacheRead) ? { cacheRead: Number(usage.cacheRead) } : {}),
-            ...(Number.isFinite(usage.cacheWrite) ? { cacheWrite: Number(usage.cacheWrite) } : {}),
-            ...(Number.isFinite(usage.totalTokens) ? { totalTokens: Number(usage.totalTokens) } : {}),
-          },
+          usage: usageTokens,
         }
       : {}),
   };

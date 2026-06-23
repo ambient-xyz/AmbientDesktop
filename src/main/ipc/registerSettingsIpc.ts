@@ -244,6 +244,7 @@ const updateThinkingDisplaySettingsSchema = z.object({
 });
 const updateModelRuntimeSettingsSchema = z.object({
   aggressiveRetries: z.boolean().optional(),
+  showPromptCacheStatus: z.boolean().optional(),
   providerPreStreamTimeoutMs: z.number().int().min(MIN_MODEL_RUNTIME_PROVIDER_TIMEOUT_MS).max(MAX_MODEL_RUNTIME_PROVIDER_TIMEOUT_MS).optional(),
   providerStreamIdleTimeoutMs: z.number().int().min(MIN_MODEL_RUNTIME_PROVIDER_TIMEOUT_MS).max(MAX_MODEL_RUNTIME_PROVIDER_TIMEOUT_MS).optional(),
   installedProviders: z.array(z.unknown()).optional(),

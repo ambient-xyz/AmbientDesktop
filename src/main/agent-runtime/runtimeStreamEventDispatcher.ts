@@ -1,4 +1,5 @@
 import type { DesktopEvent } from "../../shared/desktopTypes";
+import { promptCacheTelemetryFromUsage } from "../../shared/promptCacheTelemetry";
 import {
   assistantTerminalEventDiagnostic,
   type AssistantTerminalEventDiagnostic,
@@ -93,7 +94,9 @@ export function createRuntimeStreamEventDispatcher(
     });
     if (assistantEnd.runtimeError.kind === "set") input.state.setRuntimeError(assistantEnd.runtimeError.message);
     if (assistantEnd.shouldRecordTerminalDiagnostic) {
-      input.state.setLastAssistantTerminalEvent(assistantTerminalEventDiagnostic(rawEvent, event.finalText ?? "", event.error));
+      const diagnostic = assistantTerminalEventDiagnostic(rawEvent, event.finalText ?? "", event.error);
+      input.state.setLastAssistantTerminalEvent(diagnostic);
+      if (diagnostic) input.runtimeMessages.applyPromptCacheTelemetry(promptCacheTelemetryFromUsage(diagnostic.usage));
     }
     input.state.setReceivedAnyText(assistantEnd.receivedAnyText);
     input.state.setCurrentAssistantReceivedText(assistantEnd.currentAssistantReceivedText);
@@ -220,6 +223,7 @@ export function createRuntimeStreamEventDispatcher(
   const applyRuntimeAgentEndEvent = (event: RuntimeAgentEndEvent, rawEvent: unknown) => {
     clearEmptyAssistantStallWatchdog();
     input.postToolContinuation.markAgentEnd();
+    const previousTerminalDiagnostic = input.state.lastAssistantTerminalEvent();
     const agentEnd = runtimeAgentEndEventModel(event, {
       rawEvent,
       shouldIgnoreError: input.shouldIgnoreAssistantTerminalCleanupError,
@@ -228,7 +232,11 @@ export function createRuntimeStreamEventDispatcher(
       assistantTextObservedAfterLastToolEnd: input.state.assistantTextObservedAfterLastToolEnd(),
       hasLastCompletedTool: input.state.hasLastCompletedTool(),
     });
-    input.state.setLastAssistantTerminalEvent(agentEnd.terminalDiagnostic);
+    const terminalDiagnostic = previousTerminalDiagnostic?.usage && !agentEnd.terminalDiagnostic.usage
+      ? { ...agentEnd.terminalDiagnostic, usage: previousTerminalDiagnostic.usage }
+      : agentEnd.terminalDiagnostic;
+    input.state.setLastAssistantTerminalEvent(terminalDiagnostic);
+    input.runtimeMessages.completePromptCacheTelemetryIfPending(promptCacheTelemetryFromUsage(terminalDiagnostic.usage));
     if (agentEnd.runtimeError.kind === "set") input.state.setRuntimeError(agentEnd.runtimeError.message);
     input.state.setCurrentAssistantFinalText(agentEnd.currentAssistantFinalText);
     input.state.setAssistantTextObservedAfterLastToolEnd(agentEnd.assistantTextObservedAfterLastToolEnd);
@@ -238,6 +246,7 @@ export function createRuntimeStreamEventDispatcher(
   return {
     handle(event, rawEvent, handleInput = {}) {
       if (handleInput.assistantStartEvent) {
+        input.state.setLastAssistantTerminalEvent(undefined);
         input.runtimeMessages.startAssistantMessage();
         input.emptyAssistantStallWatchdog.schedule();
         return true;

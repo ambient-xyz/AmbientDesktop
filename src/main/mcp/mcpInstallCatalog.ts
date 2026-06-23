@@ -1,39 +1,59 @@
-import { createHash } from "node:crypto";
 import {
-  MCP_INSTALL_REVIEW_SCHEMA_VERSION,
   TOOLHIVE_RUN_PLAN_SCHEMA_VERSION,
   parseMcpAutowireCandidate,
   parseMcpInstallReview,
   parseToolHiveRunPlan,
   validateMcpAutowireCandidate,
   type McpAutowireCandidate,
-  type McpAutowireOutcome,
   type McpAutowireValidationReport,
   type McpInstallReview,
   type ToolHiveRunPlan,
 } from "./mcpAutowireFacade";
 import { defaultMcpCatalogByServerId, loadDefaultMcpCatalog, mcpDefaultCatalogDescriptorHash, type McpDefaultCatalogDescriptor } from "./mcpDefaultCatalog";
 import { mcpAutowirePhase0Fixtures } from "./mcpAutowireFacade";
+import { buildInstallReview } from "./mcpInstallReviewBuilder";
 import {
-  mcpManagedFileExchangeForWorkload,
-  mcpManagedFileExchangePermissionMount,
-  mcpManagedFileExchangeVolume,
-  type McpManagedFileExchange,
-} from "./mcpManagedFileExchange";
+  McpInstallCatalogStandardImportPreviewOwner,
+  type McpPackageMetadataResolver,
+  type McpSecretBinding,
+  type McpStandardImportFallbackRoute,
+  type McpStandardImportPreview,
+  type McpStandardImportPreviewInput,
+} from "./mcpInstallCatalogStandardImportPreview";
+import {
+  ambientWorkloadName,
+  candidateHashMismatchBlocker,
+  candidatePermissionProfile,
+  errorMessage,
+  normalizeMcpTransport,
+  normalizeRepositoryUrl,
+  safeContainerMountPath,
+  safeHostMountPath,
+  safeIdSegment,
+  sha256Hex,
+} from "./mcpInstallCatalogUtilities";
 import {
   TOOLHIVE_AMBIENT_GROUP,
   type ToolHiveSecretDerivedBindingKind,
   type ToolHiveInstalledServerSourceIdentity,
   type ToolHiveInstalledServerState,
   type ToolHiveInstallReviewState,
-  type ToolHiveImageVerificationPolicy,
-  type ToolHivePlainEnvVar,
   type ToolHiveRuntimeService,
   type ToolHiveRunVolume,
   type ToolHiveSecretBindingState,
   type ToolHiveWorkloadSummary,
 } from "./mcpToolRuntimeFacade";
-import { isSecretReference } from "./mcpSecurityFacade";
+
+export type {
+  McpPackageMetadataResolution,
+  McpPackageMetadataResolver,
+  McpSecretBinding,
+  McpStandardImportFallbackRoute,
+  McpStandardImportPreview,
+  McpStandardImportPreviewInput,
+} from "./mcpInstallCatalogStandardImportPreview";
+export { standardMcpImportSpec } from "./mcpStandardImportSpec";
+export type { McpStandardImportBlockedLaunchShape, StandardMcpImportSpec } from "./mcpStandardImportSpec";
 
 export interface McpServerSearchInput {
   query?: string;
@@ -56,11 +76,6 @@ export interface McpServerSearchResult {
   workloadName?: string;
   riskHints: string[];
   nextAction?: string;
-}
-
-export interface McpSecretBinding {
-  envName: string;
-  secretRef: string;
 }
 
 export interface McpRegistryInstallPreviewInput {
@@ -86,83 +101,6 @@ export interface McpRegistryInstallPreview {
     profile: Record<string, unknown>;
   };
 }
-
-export interface McpStandardImportPreviewInput {
-  candidate: unknown;
-  candidateRef?: string;
-  expectedCandidateHash?: string;
-  secretBindings?: McpSecretBinding[];
-}
-
-export interface McpPackageMetadataResolution {
-  registryType: "npm" | "pypi";
-  identifier: string;
-  found: boolean;
-  normalizedIdentifier?: string;
-  repositoryUrl?: string;
-  error?: string;
-}
-
-export type McpPackageMetadataResolver = (input: {
-  registryType: "npm" | "pypi";
-  identifier: string;
-}) => Promise<McpPackageMetadataResolution>;
-
-export interface McpStandardImportPreview {
-  serverId: string;
-  catalogSource: "standard-mcp-import";
-  candidateRef?: string;
-  candidate: McpAutowireCandidate;
-  validation: McpAutowireValidationReport;
-  review: McpInstallReview;
-  runPlan?: ToolHiveRunPlan;
-  fallbackRoutes: McpStandardImportFallbackRoute[];
-  toolHiveRunSource?: string;
-  toolHiveEntrypoint?: string;
-  toolHiveServerArgs: string[];
-  toolHiveEnvVars: ToolHivePlainEnvVar[];
-  toolHiveVolumes: ToolHiveRunVolume[];
-  toolHiveRuntimeImage?: string;
-  imageVerificationPolicy?: ToolHiveImageVerificationPolicy;
-  permissionProfile: {
-    path: string;
-    sha256: string;
-    profile: Record<string, unknown>;
-  };
-}
-
-export type McpStandardImportBlockedLaunchShape = {
-  kind: "package-bin-entrypoint";
-  registryType: NonNullable<McpAutowireCandidate["runtime"]["package"]>["registryType"];
-  packageIdentifier: string;
-  command: string;
-  fromPackage?: string;
-} | {
-  kind: "module-entrypoint";
-  registryType: NonNullable<McpAutowireCandidate["runtime"]["package"]>["registryType"];
-  packageIdentifier: string;
-  module: string;
-};
-
-export type McpStandardImportFallbackRoute = {
-  kind: "toolhive-registry-install";
-  status: "ready";
-  blockedShape: McpStandardImportBlockedLaunchShape["kind"];
-  serverId: string;
-  title?: string;
-  reason: string;
-  evidenceRefs: string[];
-  nextToolName: "ambient_mcp_server_describe";
-  nextToolInput: { serverId: string };
-} | {
-  kind: "custom-source-build";
-  status: "available";
-  blockedShape: McpStandardImportBlockedLaunchShape["kind"];
-  reason: string;
-  evidenceRefs: string[];
-  nextToolName: "ambient_mcp_autowire_source_build_describe";
-  nextToolInput: ({ candidateRef: string } | { candidate: McpAutowireCandidate }) & { expectedCandidateHash?: string };
-};
 
 export interface McpRemoteMcpProxyPreviewInput {
   candidate: unknown;
@@ -737,7 +675,7 @@ function stripUndefined<T extends Record<string, unknown>>(value: T): T {
 export class McpInstallCatalog {
   private readonly defaultCatalog: McpDefaultCatalogDescriptor[];
   private readonly defaultCatalogByServerId: Map<string, McpDefaultCatalogDescriptor>;
-  private readonly packageMetadataResolver?: McpPackageMetadataResolver;
+  private readonly standardImportPreviewOwner: McpInstallCatalogStandardImportPreviewOwner;
 
   constructor(
     private readonly toolHive: ToolHiveRuntimeService,
@@ -745,7 +683,11 @@ export class McpInstallCatalog {
   ) {
     this.defaultCatalog = options.defaultCatalog ?? loadDefaultMcpCatalog();
     this.defaultCatalogByServerId = defaultMcpCatalogByServerId(this.defaultCatalog);
-    this.packageMetadataResolver = options.packageMetadataResolver;
+    this.standardImportPreviewOwner = new McpInstallCatalogStandardImportPreviewOwner({
+      toolHive: this.toolHive,
+      packageMetadataResolver: options.packageMetadataResolver,
+      registryListWithDefaults: (input) => this.registryListWithDefaults(input),
+    });
   }
 
   async listInstalledServers(): Promise<McpInstalledServerSummary[]> {
@@ -949,177 +891,7 @@ export class McpInstallCatalog {
   }
 
   async previewStandardMcpImport(input: McpStandardImportPreviewInput): Promise<McpStandardImportPreview> {
-    const candidate = parseMcpAutowireCandidate(input.candidate);
-    const validation = validateMcpAutowireCandidate(candidate);
-    const importSpec = standardMcpImportSpec(candidate);
-    const imageVerificationPolicy = standardImportImageVerificationPolicy(candidate);
-    const packageMetadataBlockers = await this.standardImportPackageMetadataBlockers(candidate);
-    const secretBindings = input.secretBindings ?? [];
-    const hashBlockers = candidateHashMismatchBlocker(input.expectedCandidateHash, validation.candidateHash);
-    const fallbackRoutes = await this.standardImportFallbackRoutes({
-      candidate,
-      importSpec,
-      candidateRef: input.candidateRef,
-      expectedCandidateHash: input.expectedCandidateHash,
-      packageMetadataBlockers,
-      hashBlockers,
-    });
-    const workloadName = ambientWorkloadName(candidate.id);
-    const managedFileExchange = mcpManagedFileExchangeForWorkload(this.toolHive.stateRoot(), workloadName);
-    const permissionProfile = candidatePermissionProfile(candidate, managedFileExchange);
-    const profileWrite = await this.toolHive.writePermissionProfile({
-      serverId: candidate.id,
-      workloadName,
-      profile: permissionProfile,
-    });
-    const review = parseMcpInstallReview(buildInstallReview({
-      candidate,
-      validation,
-      sourceLabel: "Standard MCP import",
-      secretBindings,
-      extraBlockers: [
-        ...hashBlockers,
-        ...importSpec.blockers,
-        ...packageMetadataBlockers,
-      ],
-      blockedOutcome: hashBlockers.length ? undefined : importSpec.blockedOutcome,
-      summary: `${candidate.displayName} will be imported as a reviewed Standard MCP source and run in the Ambient ToolHive group.`,
-      evidenceRefs: candidate.evidence.map((entry) => entry.id).slice(0, 20),
-    }));
-    const runPlan = review.blockers.length === 0 && importSpec.toolHiveRunSource
-      ? parseToolHiveRunPlan({
-          schemaVersion: TOOLHIVE_RUN_PLAN_SCHEMA_VERSION,
-          serverId: candidate.id,
-          workloadName,
-          group: TOOLHIVE_AMBIENT_GROUP,
-          isolateNetwork: true,
-          permissionProfilePath: profileWrite.path,
-          sourceRef: importSpec.sourceRef,
-          transport: normalizeMcpTransport(candidate.runtime.transport),
-          envSecretRefs: secretBindings,
-          evidenceRefs: candidate.runtime.evidenceRefs,
-        })
-      : undefined;
-    return {
-      serverId: candidate.id,
-      catalogSource: "standard-mcp-import",
-      ...(input.candidateRef ? { candidateRef: input.candidateRef } : {}),
-      candidate,
-      validation,
-      review,
-      ...(runPlan ? { runPlan } : {}),
-      fallbackRoutes,
-      ...(importSpec.toolHiveRunSource ? { toolHiveRunSource: importSpec.toolHiveRunSource } : {}),
-      ...(importSpec.entrypointSummary ? { toolHiveEntrypoint: importSpec.entrypointSummary } : {}),
-      toolHiveServerArgs: importSpec.serverArgs,
-      toolHiveEnvVars: importSpec.envVars,
-      toolHiveVolumes: [...importSpec.volumes, mcpManagedFileExchangeVolume(managedFileExchange)],
-      ...(importSpec.runtimeImage ? { toolHiveRuntimeImage: importSpec.runtimeImage } : {}),
-      ...(imageVerificationPolicy ? { imageVerificationPolicy } : {}),
-      permissionProfile: {
-        path: profileWrite.path,
-        sha256: profileWrite.sha256,
-        profile: permissionProfile,
-      },
-    };
-  }
-
-  private async standardImportFallbackRoutes(input: {
-    candidate: McpAutowireCandidate;
-    importSpec: StandardMcpImportSpec;
-    candidateRef?: string;
-    expectedCandidateHash?: string;
-    packageMetadataBlockers: string[];
-    hashBlockers: string[];
-  }): Promise<McpStandardImportFallbackRoute[]> {
-    const blockedShape = input.importSpec.blockedLaunchShape;
-    if (!blockedShape) return [];
-    if (input.hashBlockers.length) return [];
-    if (input.packageMetadataBlockers.length) return [];
-    const routes: McpStandardImportFallbackRoute[] = [];
-    const registryRoute = await this.exactRegistryFallbackRoute(input.candidate, blockedShape);
-    if (registryRoute) routes.push(registryRoute);
-    if (input.candidate.source.kind === "github" && input.candidate.source.url) {
-      routes.push({
-        kind: "custom-source-build",
-        status: "available",
-        blockedShape: blockedShape.kind,
-        reason: [
-          "Direct ToolHive package protocol cannot encode this package entrypoint shape.",
-          "If no exact ToolHive registry route is acceptable, continue through Ambient's reviewed source-build lane instead of unmanaged shell commands.",
-        ].join(" "),
-        evidenceRefs: input.candidate.evidence.map((entry) => entry.id).slice(0, 20),
-        nextToolName: "ambient_mcp_autowire_source_build_describe",
-        nextToolInput: {
-          ...(input.candidateRef ? { candidateRef: input.candidateRef } : { candidate: input.candidate }),
-          ...(input.expectedCandidateHash ? { expectedCandidateHash: input.expectedCandidateHash } : {}),
-        },
-      });
-    }
-    return routes;
-  }
-
-  private async exactRegistryFallbackRoute(
-    candidate: McpAutowireCandidate,
-    blockedShape: McpStandardImportBlockedLaunchShape,
-  ): Promise<McpStandardImportFallbackRoute | undefined> {
-    let registry: Record<string, unknown>[];
-    try {
-      registry = await this.registryListWithDefaults({});
-    } catch {
-      return undefined;
-    }
-    const match = selectExactRegistryFallback(candidate, blockedShape, registry);
-    if (!match) return undefined;
-    const serverId = requiredStringField(match, ["name"], "registry server name");
-    const title = stringField(match, ["title"]) ?? serverId;
-    return {
-      kind: "toolhive-registry-install",
-      status: "ready",
-      blockedShape: blockedShape.kind,
-      serverId,
-      title,
-      reason: [
-        "Direct ToolHive package protocol cannot encode this package entrypoint shape.",
-        "Ambient found an exact ToolHive registry entry with matching repository and package/source identity, so use the registry install lane.",
-      ].join(" "),
-      evidenceRefs: ["toolhive-registry-list", ...candidate.evidence.map((entry) => entry.id).slice(0, 12)],
-      nextToolName: "ambient_mcp_server_describe",
-      nextToolInput: { serverId },
-    };
-  }
-
-  private async standardImportPackageMetadataBlockers(candidate: McpAutowireCandidate): Promise<string[]> {
-    const pkg = candidate.runtime.package;
-    if (!this.packageMetadataResolver || !pkg || pkg.registryType === "oci" || pkg.registryType === "mcpb") return [];
-    if (pkg.registryType !== "npm" && pkg.registryType !== "pypi") return [];
-    const blockers: string[] = [];
-    let metadata: McpPackageMetadataResolution;
-    try {
-      metadata = await this.packageMetadataResolver({
-        registryType: pkg.registryType,
-        identifier: pkg.identifier,
-      });
-    } catch (error) {
-      blockers.push(`${registryLabel(pkg.registryType)} package ${pkg.identifier} could not be validated before ToolHive import: ${errorMessage(error)}.`);
-      return blockers;
-    }
-    if (!metadata.found) {
-      blockers.push(packageMetadataNotFoundBlocker(candidate, pkg, metadata));
-      return blockers;
-    }
-    if (metadata.normalizedIdentifier && !samePackageIdentifier(pkg.registryType, metadata.normalizedIdentifier, pkg.identifier)) {
-      blockers.push(`${registryLabel(pkg.registryType)} package validation resolved ${pkg.identifier} to ${metadata.normalizedIdentifier}; rerun autowire with the resolved package coordinate before installing.`);
-    }
-    if (candidate.source.packageName && !samePackageIdentifier(pkg.registryType, candidate.source.packageName, pkg.identifier)) {
-      blockers.push(`Candidate source package ${candidate.source.packageName} conflicts with runtime package ${pkg.identifier}. Rerun autowire or review the candidate before installing.`);
-    }
-    const sourceRepo = candidate.source.url ? githubRepoKey(candidate.source.url) : undefined;
-    const metadataRepo = metadata.repositoryUrl ? githubRepoKey(metadata.repositoryUrl) : undefined;
-    if (pkg.registryType === "npm" && sourceRepo && metadataRepo && sourceRepo !== metadataRepo) {
-      blockers.push(`Package metadata repository ${metadata.repositoryUrl} does not match candidate source ${candidate.source.url}. Rerun autowire with evidence for the intended package before installing.`);
-    }
-    return blockers;
+    return this.standardImportPreviewOwner.previewStandardMcpImport(input);
   }
 
   async previewRemoteMcpProxy(input: McpRemoteMcpProxyPreviewInput): Promise<McpRemoteMcpProxyPreview> {
@@ -1517,26 +1289,10 @@ export function registryInfoToAutowireCandidate(info: Record<string, unknown>): 
   };
 }
 
-export interface StandardMcpImportSpec {
-  toolHiveRunSource?: string;
-  sourceRef: string;
-  entrypointSummary?: string;
-  blockedLaunchShape?: McpStandardImportBlockedLaunchShape;
-  serverArgs: string[];
-  envVars: ToolHivePlainEnvVar[];
-  volumes: ToolHiveRunVolume[];
-  runtimeImage?: string;
-  blockers: string[];
-  blockedOutcome?: McpAutowireOutcome;
-}
-
 interface RemoteMcpProxySpec {
   remoteUrl?: string;
   blockers: string[];
 }
-
-type McpRuntimePackage = NonNullable<McpAutowireCandidate["runtime"]["package"]>;
-type McpRuntimePackageArgument = McpRuntimePackage["packageArguments"][number];
 
 export function createPublicMcpPackageMetadataResolver(fetchImpl: typeof fetch = fetch): McpPackageMetadataResolver {
   return async (input) => {
@@ -1619,168 +1375,6 @@ function repositoryUrlFromPackageMetadata(record: Record<string, unknown>): stri
   return normalizeRepositoryUrl(stringField(record, ["home_page", "homepage", "url"]));
 }
 
-function normalizeRepositoryUrl(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  let normalized = value.trim();
-  normalized = normalized.replace(/^git\+/, "").replace(/^github:/, "https://github.com/");
-  normalized = normalized.replace(/^git@github\.com:/, "https://github.com/");
-  normalized = normalized.replace(/\.git$/i, "");
-  return normalized || undefined;
-}
-
-function registryLabel(registryType: "npm" | "pypi"): string {
-  return registryType === "npm" ? "NPM" : "PyPI";
-}
-
-function packageMetadataNotFoundBlocker(
-  candidate: McpAutowireCandidate,
-  pkg: NonNullable<McpAutowireCandidate["runtime"]["package"]>,
-  metadata: McpPackageMetadataResolution,
-): string {
-  const base = `${registryLabel(metadata.registryType)} package ${pkg.identifier} was not found by package metadata validation${metadata.error ? `: ${metadata.error}` : ""}.`;
-  if (candidate.source.kind !== "github" || !candidate.source.url || candidate.runtime.provider !== "toolhive") {
-    return `${base} Rerun ambient_mcp_autowire_plan with the correct package coordinate before installing.`;
-  }
-  return `${base} This candidate is backed by GitHub source ${candidate.source.url}; do not fall back to unmanaged local commands. Continue through the custom ToolHive source lane: resolve and pin the GitHub commit, create or review a source-build plan or reviewed OCI image, then install only after the candidate uses runtime.sourceKind=custom-image with an OCI image digest and updatePolicy.mode=pinned. If later evidence proves a standard package exists, rerun ambient_mcp_autowire_plan with that coordinate.`;
-}
-
-function samePackageIdentifier(registryType: "npm" | "pypi", left: string, right: string): boolean {
-  return registryType === "npm"
-    ? left.toLowerCase() === right.toLowerCase()
-    : normalizePyPiName(left) === normalizePyPiName(right);
-}
-
-function normalizePyPiName(value: string): string {
-  return value.toLowerCase().replace(/[-_.]+/g, "-");
-}
-
-function githubRepoKey(value: string): string | undefined {
-  try {
-    const normalized = normalizeRepositoryUrl(value);
-    if (!normalized) return undefined;
-    const url = new URL(normalized);
-    if (url.hostname.toLowerCase() !== "github.com") return undefined;
-    const [owner, repoRaw] = url.pathname.split("/").filter(Boolean);
-    if (!owner || !repoRaw) return undefined;
-    return `${owner.toLowerCase()}/${repoRaw.replace(/\.git$/i, "").toLowerCase()}`;
-  } catch {
-    return undefined;
-  }
-}
-
-export function standardMcpImportSpec(candidate: McpAutowireCandidate): StandardMcpImportSpec {
-  const blockers: string[] = [];
-  let blockedOutcome: McpAutowireOutcome | undefined;
-  if (candidate.recommendedLane !== "standard-mcp") {
-    blockers.push(`Standard MCP import requires recommendedLane standard-mcp, got ${candidate.recommendedLane}.`);
-  }
-  if (candidate.runtime.provider !== "toolhive") {
-    blockers.push(`Standard MCP import requires ToolHive runtime provider, got ${candidate.runtime.provider}.`);
-  }
-  if (candidate.runtime.sourceKind === "registry") {
-    blockers.push("Registry-backed candidates must use ambient_mcp_server_describe/install, not Standard MCP import.");
-  }
-  const volumeResult = reviewedToolHiveVolumes(candidate.permissions.filesystem);
-  blockers.push(...volumeResult.blockers);
-  if (volumeResult.blockers.length) {
-    blockedOutcome = "deferred-unsupported-lane";
-  }
-  const pkg = candidate.runtime.package;
-  if (!pkg) {
-    blockers.push("Standard MCP import requires package or image metadata.");
-    return { sourceRef: `standard-mcp:${candidate.runtime.sourceKind}:${candidate.id}`, serverArgs: [], envVars: [], volumes: volumeResult.volumes, blockers, ...(blockedOutcome ? { blockedOutcome } : {}) };
-  }
-  const argResult = fixedToolHiveServerArgs(pkg.packageArguments);
-  blockers.push(...argResult.blockers);
-  const serverArgs = reviewedStandardMcpServerArgs(pkg, argResult.args, volumeResult.volumes, blockers);
-  const entrypointResult = reviewedToolHivePackageEntrypoint(pkg);
-  blockers.push(...entrypointResult.blockers);
-  const envVars = toolHiveRuntimeCompatibilityEnvVars(pkg.registryType, argResult.envVars);
-  const runtimeImage = reviewedToolHiveRuntimeImage(pkg.runtimeImage, pkg.registryType, blockers);
-  const version = pkg.version ? `@${pkg.version}` : "";
-  const source = (() => {
-    if (pkg.registryType === "pypi") return `uvx://${pkg.identifier}${version}`;
-    if (pkg.registryType === "npm") return `npx://${pkg.identifier}${version}`;
-    if (pkg.registryType === "oci") return pkg.identifier;
-    if (pkg.registryType === "mcpb") {
-      blockers.push("MCPB package imports are recognized but deferred until ToolHive run support is validated for MCPB sources.");
-      blockedOutcome = "deferred-unsupported-lane";
-      return undefined;
-    }
-    blockers.push(`Unsupported Standard MCP package registry type ${pkg.registryType}.`);
-    blockedOutcome = "deferred-unsupported-lane";
-    return undefined;
-  })();
-  return {
-    ...(source ? { toolHiveRunSource: source } : {}),
-    sourceRef: `${candidate.runtime.sourceKind}:${candidate.source.url ?? candidate.source.packageName ?? candidate.id}`,
-    ...(entrypointResult.summary ? { entrypointSummary: entrypointResult.summary } : {}),
-    ...(entrypointResult.blockedLaunchShape ? { blockedLaunchShape: entrypointResult.blockedLaunchShape } : {}),
-    serverArgs,
-    envVars,
-    volumes: volumeResult.volumes,
-    ...(runtimeImage ? { runtimeImage } : {}),
-    blockers,
-    ...(blockedOutcome || entrypointResult.blockedOutcome ? { blockedOutcome: blockedOutcome ?? entrypointResult.blockedOutcome } : {}),
-  };
-}
-
-function reviewedToolHiveVolumes(filesystem: McpAutowireCandidate["permissions"]["filesystem"]): { volumes: ToolHiveRunVolume[]; blockers: string[] } {
-  const volumes: ToolHiveRunVolume[] = [];
-  const blockers: string[] = [];
-  if (filesystem.workspaceRead) {
-    blockers.push("Standard MCP import requires explicit reviewed extraMounts instead of workspace-wide read access.");
-  }
-  if (filesystem.workspaceWrite) {
-    blockers.push("Standard MCP import does not support workspace-wide write access.");
-  }
-  filesystem.extraMounts.forEach((mount, index) => {
-    const label = `filesystem.extraMounts[${index}]`;
-    if (mount.mode !== "read-only") {
-      blockers.push(`${label} requests ${mount.mode}; Standard MCP import currently supports only read-only ToolHive mounts.`);
-      return;
-    }
-    if (!safeHostMountPath(mount.path)) {
-      blockers.push(`${label} host path is not safe for reviewed ToolHive --volume delivery: ${mount.path}.`);
-      return;
-    }
-    if (!mount.containerPath || !safeContainerMountPath(mount.containerPath)) {
-      blockers.push(`${label} requires a safe absolute containerPath before Ambient can pass it to ToolHive --volume.`);
-      return;
-    }
-    volumes.push({
-      hostPath: mount.path,
-      containerPath: mount.containerPath,
-      mode: "ro",
-    });
-  });
-  return { volumes, blockers };
-}
-
-function reviewedStandardMcpServerArgs(
-  pkg: McpRuntimePackage,
-  fixedArgs: string[],
-  volumes: ToolHiveRunVolume[],
-  blockers: string[],
-): string[] {
-  if (!isModelContextProtocolFilesystemPackage(pkg)) return fixedArgs;
-  const mountArgs = volumes
-    .map((volume) => volume.containerPath)
-    .filter((containerPath) => safeContainerMountPath(containerPath));
-  if (!mountArgs.length) {
-    blockers.push("The @modelcontextprotocol/server-filesystem package requires at least one explicit reviewed read-only extraMount; Ambient passes each reviewed containerPath as an allowed directory argument.");
-    return fixedArgs;
-  }
-  const next = [...fixedArgs];
-  for (const mountArg of mountArgs) {
-    if (!next.includes(mountArg)) next.push(mountArg);
-  }
-  return next;
-}
-
-function isModelContextProtocolFilesystemPackage(pkg: McpRuntimePackage): boolean {
-  return pkg.registryType === "npm" && pkg.identifier.toLowerCase() === "@modelcontextprotocol/server-filesystem";
-}
 
 function reviewedRegistryRuntimeVolumes(inputVolumes: ToolHiveRunVolume[]): { volumes: ToolHiveRunVolume[]; blockers: string[] } {
   const volumes: ToolHiveRunVolume[] = [];
@@ -1844,208 +1438,6 @@ function registryServerNeedsExplicitFilesystemMount(info: Record<string, unknown
   const text = `${serverId} ${title} ${description} ${tags}`.toLowerCase();
   if (/\bfilesystem\b/.test(text)) return true;
   return /\blocal[-\s]?files?\b/.test(text);
-}
-
-function standardImportImageVerificationPolicy(candidate: McpAutowireCandidate): ToolHiveImageVerificationPolicy | undefined {
-  if (candidate.runtime.sourceKind === "custom-image" && candidate.runtime.package?.registryType === "oci") return "ambient-reviewed";
-  return undefined;
-}
-
-function fixedToolHiveServerArgs(args: McpRuntimePackageArgument[]): { args: string[]; envVars: ToolHivePlainEnvVar[]; blockers: string[] } {
-  const result: string[] = [];
-  const envVars: ToolHivePlainEnvVar[] = [];
-  const blockers: string[] = [];
-  for (const arg of args ?? []) {
-    if (!arg.isFixed) {
-      blockers.push(`Package argument ${arg.name ?? arg.valueHint} is not fixed and needs user review before import.`);
-      continue;
-    }
-    if (arg.type === "positional" && arg.valueHint) {
-      result.push(arg.valueHint);
-    } else if (arg.type === "positional") {
-      blockers.push("Positional package arguments require a fixed valueHint.");
-    } else if (arg.type === "switch" && arg.name) {
-      result.push(arg.name);
-    } else if (arg.type === "switch") {
-      blockers.push("Switch package arguments require a fixed flag name.");
-    } else if (arg.type === "flag" && arg.name && arg.valueHint) {
-      result.push(arg.name);
-      result.push(arg.valueHint);
-    } else if (arg.type === "flag") {
-      blockers.push("Flag package arguments require a fixed flag name and valueHint.");
-    } else if (arg.type === "env" && arg.name) {
-      if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(arg.name)) {
-        blockers.push(`Environment argument ${arg.name} is not a valid environment variable name.`);
-      } else if (looksSecretEnvName(arg.name)) {
-        blockers.push(`Environment argument ${arg.name} looks secret-like; declare it as a secret and bind it with an Ambient-managed secret ref.`);
-      } else if (!arg.valueHint || arg.valueHint.length > 4_000 || /[\0\r\n]/.test(arg.valueHint)) {
-        blockers.push(`Environment argument ${arg.name} must be a bounded single-line non-secret value.`);
-      } else {
-        envVars.push({ name: arg.name, value: arg.valueHint });
-      }
-    } else {
-      blockers.push(`Package argument type ${arg.type} is not supported by Standard MCP import yet.`);
-    }
-  }
-  return { args: result, envVars, blockers };
-}
-
-function reviewedToolHivePackageEntrypoint(pkg: McpRuntimePackage): { summary?: string; blockers: string[]; blockedLaunchShape?: McpStandardImportBlockedLaunchShape; blockedOutcome?: McpAutowireOutcome } {
-  const entrypoint = pkg.entrypoint;
-  if (!entrypoint || entrypoint.kind === "default") return { summary: "default package executable", blockers: [] };
-  const blockers: string[] = [];
-  if (entrypoint.kind === "package-bin") {
-    const command = entrypoint.command?.trim();
-    if (!command) {
-      blockers.push("Package-bin entrypoint override requires a command.");
-      return { blockers };
-    }
-    if (!safePackageEntrypointCommand(command)) {
-      blockers.push(`Package-bin entrypoint command is not safe for ToolHive import: ${command}`);
-      return { blockers };
-    }
-    if (sameToolHiveProtocolDefaultExecutable(pkg, command)) {
-      return { summary: `package-bin ${command}`, blockers };
-    }
-    blockers.push([
-      `Package-bin entrypoint ${command} from ${pkg.identifier} cannot be encoded by ToolHive ${pkg.registryType} protocol schemes yet.`,
-      "Use fixed packageArguments when the default executable has an MCP/server flag, or route through a reviewed custom ToolHive source image.",
-    ].join(" "));
-    return {
-      summary: `package-bin ${command} from ${entrypoint.fromPackage ?? pkg.identifier}`,
-      blockers,
-      blockedOutcome: "deferred-unsupported-lane",
-      blockedLaunchShape: {
-        kind: "package-bin-entrypoint",
-        registryType: pkg.registryType,
-        packageIdentifier: pkg.identifier,
-        command,
-        ...(entrypoint.fromPackage ? { fromPackage: entrypoint.fromPackage } : {}),
-      },
-    };
-  }
-  if (entrypoint.kind === "module") {
-    blockers.push([
-      `Module entrypoint ${entrypoint.module ?? "(missing)"} from ${pkg.identifier} cannot be encoded by ToolHive ${pkg.registryType} protocol schemes yet.`,
-      "Route through a reviewed custom ToolHive source image unless ToolHive adds python -m/module execution support for protocol schemes.",
-    ].join(" "));
-    return {
-      summary: `module ${entrypoint.module ?? "(missing)"}`,
-      blockers,
-      blockedOutcome: "deferred-unsupported-lane",
-      ...(entrypoint.module
-        ? {
-            blockedLaunchShape: {
-              kind: "module-entrypoint" as const,
-              registryType: pkg.registryType,
-              packageIdentifier: pkg.identifier,
-              module: entrypoint.module,
-            },
-          }
-        : {}),
-    };
-  }
-  return { blockers: [`Unsupported package entrypoint kind ${(entrypoint as { kind?: string }).kind ?? "unknown"}.`] };
-}
-
-function sameToolHiveProtocolDefaultExecutable(pkg: McpRuntimePackage, command: string): boolean {
-  if (pkg.registryType === "pypi") return normalizePackageExecutableName(command) === normalizePackageExecutableName(pkg.identifier);
-  if (pkg.registryType === "npm") return command.toLowerCase() === defaultNpmExecutableName(pkg.identifier).toLowerCase();
-  return false;
-}
-
-function defaultNpmExecutableName(identifier: string): string {
-  const parts = identifier.split("/");
-  return parts[parts.length - 1] ?? identifier;
-}
-
-function normalizePackageExecutableName(value: string): string {
-  return value.trim().toLowerCase().replace(/[-_.]+/g, "-");
-}
-
-function safePackageEntrypointCommand(value: string): boolean {
-  return value.length <= 160 &&
-    !value.startsWith("-") &&
-    !value.includes("/") &&
-    !value.includes("\\") &&
-    !value.includes(":") &&
-    !value.includes("\0") &&
-    !value.includes("\n") &&
-    !value.includes("\r") &&
-    /^[A-Za-z0-9][A-Za-z0-9_.@+-]*$/.test(value);
-}
-
-function toolHiveRuntimeCompatibilityEnvVars(registryType: McpRuntimePackage["registryType"], envVars: ToolHivePlainEnvVar[]): ToolHivePlainEnvVar[] {
-  if (registryType !== "npm") return envVars;
-  if (envVars.some((entry) => entry.name === "NODE_USE_ENV_PROXY")) return envVars;
-  return [...envVars, { name: "NODE_USE_ENV_PROXY", value: "1" }];
-}
-
-function looksSecretEnvName(name: string): boolean {
-  return /(?:^|_)(?:API_?KEY|TOKEN|SECRET|PASSWORD|PASS|BEARER|CREDENTIAL|PRIVATE_?KEY)(?:_|$)/i.test(name);
-}
-
-function looksSecretLike(value: string): boolean {
-  return /\b(?:sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9_]{12,}|github_pat_[A-Za-z0-9_]{12,}|xox[baprs]-[A-Za-z0-9-]{12,}|Bearer\s+[A-Za-z0-9._~+/=-]{12,})\b/i.test(value);
-}
-
-function reviewedToolHiveRuntimeImage(
-  runtimeImage: string | undefined,
-  registryType: NonNullable<McpAutowireCandidate["runtime"]["package"]>["registryType"],
-  blockers: string[],
-): string | undefined {
-  if (!runtimeImage) return undefined;
-  if (registryType !== "npm" && registryType !== "pypi") {
-    blockers.push(`ToolHive runtime image overrides apply only to npm/npx and PyPI/uvx Standard MCP protocol builds, not ${registryType}.`);
-    return undefined;
-  }
-  if (runtimeImage.length > 512 || runtimeImage.includes("\0") || looksSecretLike(runtimeImage)) {
-    blockers.push("ToolHive runtime image override must be a bounded non-secret image reference.");
-    return undefined;
-  }
-  if (runtimeImage.startsWith("-") || runtimeImage.startsWith("./") || runtimeImage.startsWith("../") || runtimeImage.includes("://")) {
-    blockers.push(`ToolHive runtime image override cannot be a flag, local path, or URL: ${runtimeImage}`);
-    return undefined;
-  }
-  if (!/^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}$/.test(runtimeImage)) {
-    blockers.push(`Invalid ToolHive runtime image override: ${runtimeImage}`);
-    return undefined;
-  }
-  return runtimeImage;
-}
-
-function safeHostMountPath(value: string): boolean {
-  if (
-    value.length > 1_000 ||
-    value.includes("\0") ||
-    value.includes("\n") ||
-    value.includes("\r") ||
-    value.includes(":") ||
-    value.startsWith("-") ||
-    looksSecretLike(value)
-  ) {
-    return false;
-  }
-  if (!value.startsWith("/")) return false;
-  const normalized = value.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
-  if (["/", "/Users", "/private", "/tmp", "/var", "/System", "/Library"].includes(normalized)) return false;
-  return !normalized.split("/").includes("..");
-}
-
-function safeContainerMountPath(value: string): boolean {
-  if (
-    value.length > 240 ||
-    value.includes("\0") ||
-    value.includes("\n") ||
-    value.includes("\r") ||
-    value.includes(":") ||
-    value.startsWith("-") ||
-    looksSecretLike(value)
-  ) {
-    return false;
-  }
-  const normalized = value.replace(/\/+$/, "") || "/";
-  return normalized.startsWith("/") && normalized !== "/" && !normalized.split("/").includes("..");
 }
 
 function remoteMcpProxySpec(candidate: McpAutowireCandidate, secretBindings: McpSecretBinding[]): RemoteMcpProxySpec {
@@ -2142,28 +1534,6 @@ function remoteSecretHeaderNames(candidate: McpAutowireCandidate): string[] {
   return [...new Set((candidate.runtime.remote?.headers ?? []).map((header) => header.trim()).filter(Boolean))];
 }
 
-function candidatePermissionProfile(candidate: McpAutowireCandidate, managedFileExchange?: McpManagedFileExchange): Record<string, unknown> {
-  const network = candidate.permissions.network;
-  const filesystem = candidate.permissions.filesystem;
-  return {
-    network: {
-      outbound: {
-        insecure_allow_all: network.mode === "broad",
-        allow_host: network.allowHosts,
-        allow_port: network.allowPorts,
-      },
-    },
-    filesystem: {
-      workspaceRead: filesystem.workspaceRead,
-      workspaceWrite: filesystem.workspaceWrite,
-      extraMounts: [
-        ...filesystem.extraMounts,
-        ...(managedFileExchange ? [mcpManagedFileExchangePermissionMount(managedFileExchange)] : []),
-      ],
-    },
-  };
-}
-
 function safeRemoteMcpUrl(value: string): { ok: true } | { ok: false; message: string } {
   try {
     const parsed = new URL(value);
@@ -2177,60 +1547,6 @@ function safeRemoteMcpUrl(value: string): { ok: true } | { ok: false; message: s
   } catch {
     return { ok: false, message: `Invalid remote MCP URL: ${value}` };
   }
-}
-
-function candidateHashMismatchBlocker(expected: string | undefined, actual: string | undefined): string[] {
-  if (!expected || !actual || expected === actual) return [];
-  return [`Candidate hash mismatch: expected ${expected}, got ${actual}. Re-run autowire plan or review the current candidate before proceeding.`];
-}
-
-function buildInstallReview(input: {
-  candidate: McpAutowireCandidate;
-  validation: McpAutowireValidationReport;
-  sourceLabel: string;
-  secretBindings: McpSecretBinding[];
-  summary: string;
-  evidenceRefs: string[];
-  extraBlockers?: string[];
-  blockedOutcome?: McpAutowireOutcome;
-}): McpInstallReview {
-  const requiredSecrets = input.candidate.secrets.filter((secret) => secret.required);
-  const declaredSecretNames = new Set(input.candidate.secrets.map((secret) => secret.name));
-  const boundSecretNames = new Set(input.secretBindings.map((binding) => binding.envName));
-  const missingRequiredSecrets = requiredSecrets.filter((secret) => !boundSecretNames.has(secret.name));
-  const unknownSecretBindings = input.secretBindings.filter((binding) => !declaredSecretNames.has(binding.envName));
-  const duplicateSecretBindings = input.secretBindings.filter((binding, index) => input.secretBindings.findIndex((item) => item.envName === binding.envName) !== index);
-  const invalidSecretRefs = input.secretBindings.filter((binding) => !isSecretReference(binding.secretRef.trim()));
-  const blockers = [
-    ...input.validation.blockers.map((issue) => `${issue.code}: ${issue.message}`),
-    ...missingRequiredSecrets.map((secret) => `Required secret ${secret.name} must be bound through ambient_mcp_secret_request before install; never ask for the value in chat or create placeholder secret files.`),
-    ...unknownSecretBindings.map((binding) => `Secret binding ${binding.envName} is not declared by ${input.sourceLabel} metadata for this server.`),
-    ...duplicateSecretBindings.map((binding) => `Secret binding ${binding.envName} is duplicated.`),
-    ...invalidSecretRefs.map((binding) => `Secret binding ${binding.envName} must use an Ambient-managed secret reference.`),
-    ...(input.extraBlockers ?? []),
-  ];
-  const warnings = [
-    ...input.validation.warnings.map((issue) => `${issue.code}: ${issue.message}`),
-    ...input.candidate.secrets.filter((secret) => !secret.required && !boundSecretNames.has(secret.name)).map((secret) => `Optional secret ${secret.name} is not bound; the server may run with lower limits or reduced functionality.`),
-  ];
-  return {
-    schemaVersion: MCP_INSTALL_REVIEW_SCHEMA_VERSION,
-    candidateId: input.candidate.id,
-    title: `Install ${input.candidate.displayName}`,
-    recommendedLane: input.candidate.recommendedLane,
-    outcome: blockers.length
-      ? input.blockedOutcome ?? (input.validation.outcome === "ready" ? "needs-evidence" : input.validation.outcome)
-      : input.validation.outcome,
-    summary: input.summary,
-    sourceSummary: sourceSummary(input.candidate),
-    runtimeSummary: runtimeSummary(input.candidate),
-    permissionSummary: permissionSummary(input.candidate),
-    secretSummary: secretSummary(input.candidate),
-    validationSummary: validationSummary(input.candidate),
-    blockers,
-    warnings,
-    evidenceRefs: input.evidenceRefs,
-  };
 }
 
 function registrySearchResult(entry: Record<string, unknown>, installed: { workloadName: string } | undefined, catalogSource: McpCatalogSource): McpServerSearchResult {
@@ -2261,156 +1577,6 @@ function registrySearchResult(entry: Record<string, unknown>, installed: { workl
       : {}),
   };
 }
-
-function selectExactRegistryFallback(
-  candidate: McpAutowireCandidate,
-  blockedShape: McpStandardImportBlockedLaunchShape,
-  registry: Record<string, unknown>[],
-): Record<string, unknown> | undefined {
-  const sourceRepo = candidate.source.url ? githubRepoKey(candidate.source.url) : undefined;
-  if (!sourceRepo) return undefined;
-  const candidateIds = standardImportSemanticIdentifiers(candidate, blockedShape);
-  if (!candidateIds.size) return undefined;
-  const matches = registry
-    .filter((entry) => {
-      const registryRepo = stringField(entry, ["repository_url", "repositoryUrl"]);
-      if (!registryRepo || githubRepoKey(registryRepo) !== sourceRepo) return false;
-      const registryIds = registrySemanticIdentifiers(entry);
-      return [...candidateIds].some((id) => registryIds.has(id));
-    })
-    .map((entry) => ({
-      entry,
-      score: exactRegistryFallbackScore(candidate, blockedShape, entry),
-    }))
-    .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score || (stringField(left.entry, ["name"]) ?? "").localeCompare(stringField(right.entry, ["name"]) ?? ""));
-  return matches[0]?.entry;
-}
-
-function exactRegistryFallbackScore(
-  candidate: McpAutowireCandidate,
-  blockedShape: McpStandardImportBlockedLaunchShape,
-  entry: Record<string, unknown>,
-): number {
-  const candidateIds = standardImportSemanticIdentifiers(candidate, blockedShape);
-  const registryIds = registrySemanticIdentifiers(entry);
-  let score = 0;
-  for (const id of candidateIds) {
-    if (registryIds.has(id)) score += id.length >= 8 ? 12 : 8;
-  }
-  const expectedTools = new Set(candidate.validationPlan.expectedTools.map(normalizeIdentifierToken).filter(Boolean));
-  const registryTools = stringArrayField(entry, ["tools"]).map(normalizeIdentifierToken).filter(Boolean);
-  for (const tool of registryTools) {
-    if (expectedTools.has(tool)) score += 2;
-  }
-  return score;
-}
-
-function standardImportSemanticIdentifiers(
-  candidate: McpAutowireCandidate,
-  blockedShape: McpStandardImportBlockedLaunchShape,
-): Set<string> {
-  const values = new Set<string>();
-  addSemanticIdentifier(values, candidate.id);
-  addSemanticIdentifier(values, candidate.displayName);
-  addSemanticIdentifier(values, candidate.source.packageName);
-  addSemanticIdentifier(values, candidate.runtime.package?.identifier);
-  addSemanticIdentifier(values, blockedShape.packageIdentifier);
-  if (blockedShape.kind === "package-bin-entrypoint") {
-    addSemanticIdentifier(values, blockedShape.command);
-    addSemanticIdentifier(values, blockedShape.fromPackage);
-  } else {
-    addSemanticIdentifier(values, blockedShape.module);
-  }
-  const sourcePathTail = candidate.source.url ? githubSourcePathTail(candidate.source.url) : undefined;
-  addSemanticIdentifier(values, sourcePathTail);
-  return values;
-}
-
-function registrySemanticIdentifiers(entry: Record<string, unknown>): Set<string> {
-  const values = new Set<string>();
-  addSemanticIdentifier(values, stringField(entry, ["name"]));
-  addSemanticIdentifier(values, stringField(entry, ["title"]));
-  addSemanticIdentifier(values, stringField(entry, ["image"]));
-  addSemanticIdentifier(values, stringField(entry, ["repository_url", "repositoryUrl"]));
-  for (const tag of stringArrayField(entry, ["tags"])) addSemanticIdentifier(values, tag);
-  return values;
-}
-
-function addSemanticIdentifier(values: Set<string>, raw: string | undefined): void {
-  for (const token of semanticIdentifierTokens(raw)) values.add(token);
-}
-
-function semanticIdentifierTokens(raw: string | undefined): string[] {
-  if (!raw) return [];
-  const tokens = raw
-    .split(/[^A-Za-z0-9@._+-]+/)
-    .flatMap((part) => {
-      const trimmed = part.trim();
-      if (!trimmed) return [];
-      const segments = trimmed.split(/[/.]+/).filter(Boolean);
-      return [trimmed, ...segments];
-    })
-    .map(normalizeIdentifierToken)
-    .filter((token) => token.length >= 3 && !SEMANTIC_IDENTIFIER_STOP_TOKENS.has(token));
-  const expanded = new Set(tokens);
-  for (const token of tokens) {
-    const stripped = stripServerAffixes(token);
-    if (stripped.length >= 3 && !SEMANTIC_IDENTIFIER_STOP_TOKENS.has(stripped)) expanded.add(stripped);
-  }
-  return [...expanded];
-}
-
-function normalizeIdentifierToken(raw: string): string {
-  return raw.trim().toLowerCase().replace(/^@/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function stripServerAffixes(token: string): string {
-  let value = token;
-  let changed = true;
-  while (changed) {
-    const before = value;
-    value = value
-      .replace(/^(?:mcp|server|mcp-server|modelcontextprotocol)-+/, "")
-      .replace(/-+(?:mcp|server|mcp-server|standard-mcp|source-mcp)$/, "");
-    changed = before !== value;
-  }
-  return value;
-}
-
-function githubSourcePathTail(value: string): string | undefined {
-  try {
-    const url = new URL(value);
-    if (url.hostname.toLowerCase() !== "github.com") return undefined;
-    const segments = url.pathname.split("/").filter(Boolean);
-    const treeIndex = segments.findIndex((segment) => segment === "tree" || segment === "blob");
-    if (treeIndex >= 0 && segments.length > treeIndex + 2) return segments[segments.length - 1];
-    return segments[1];
-  } catch {
-    return undefined;
-  }
-}
-
-const SEMANTIC_IDENTIFIER_STOP_TOKENS = new Set([
-  "https",
-  "github",
-  "com",
-  "docker",
-  "io",
-  "ghcr",
-  "latest",
-  "main",
-  "src",
-  "tree",
-  "blob",
-  "mcp",
-  "modelcontextprotocol",
-  "package",
-  "server",
-  "servers",
-  "source",
-  "standard",
-]);
 
 function recommendedStandardMcpImportSearchResults(installedByServerId: Map<string, { workloadName: string }>): McpServerSearchResult[] {
   const scrapling = mcpAutowirePhase0Fixtures.scrapling as McpAutowireCandidate;
@@ -2538,67 +1704,6 @@ function registryRuntimeUpdatePolicy(info: Record<string, unknown>): McpAutowire
     reason: "ToolHive registry metadata indicates browser automation/runtime behavior; Ambient treats browser engine updates as a managed security-update lane while the MCP server package/image identity remains separately reviewed.",
     evidenceRefs: ["toolhive-registry-info"],
   };
-}
-
-function sourceSummary(candidate: McpAutowireCandidate): string {
-  const parts = [
-    `source kind ${candidate.source.kind}`,
-    candidate.source.registryId ? `registry id ${candidate.source.registryId}` : undefined,
-    candidate.source.packageName ? `package ${candidate.source.packageName}` : undefined,
-    candidate.source.url ? `url ${candidate.source.url}` : undefined,
-    candidate.source.resolvedCommit ? `commit ${candidate.source.resolvedCommit}` : undefined,
-  ].filter(Boolean);
-  return `${parts.join("; ")}.`;
-}
-
-function runtimeSummary(candidate: McpAutowireCandidate): string {
-  const entrypoint = candidate.runtime.package?.entrypoint
-    ? ` entrypoint ${candidate.runtime.package.entrypoint.kind}${candidate.runtime.package.entrypoint.command ? `:${candidate.runtime.package.entrypoint.command}` : ""}${candidate.runtime.package.entrypoint.module ? `:${candidate.runtime.package.entrypoint.module}` : ""}`
-    : "";
-  const args = candidate.runtime.package?.packageArguments?.length
-    ? ` args ${candidate.runtime.package.packageArguments.map((arg) => packageArgumentSummary(arg)).join(" ")}`
-    : "";
-  const pkg = candidate.runtime.package
-    ? ` using ${candidate.runtime.package.registryType}:${candidate.runtime.package.identifier}${candidate.runtime.package.version ? `@${candidate.runtime.package.version}` : ""}${entrypoint}${args}`
-    : "";
-  const runtimeImage = candidate.runtime.package?.runtimeImage ? ` with runtime image ${candidate.runtime.package.runtimeImage}` : "";
-  const remote = candidate.runtime.remote?.url ? ` remote ${candidate.runtime.remote.url}` : "";
-  const updatePolicy = candidate.runtime.updatePolicy ? ` Update policy: ${candidate.runtime.updatePolicy.mode}.` : "";
-  return `ToolHive ${candidate.runtime.sourceKind}/${candidate.runtime.transport} MCP runtime${pkg}${runtimeImage}${remote}; workload will run in group ${TOOLHIVE_AMBIENT_GROUP}.${updatePolicy}`;
-}
-
-function packageArgumentSummary(arg: NonNullable<McpAutowireCandidate["runtime"]["package"]>["packageArguments"][number]): string {
-  if (arg.type === "switch") return arg.name ?? "(switch?)";
-  if (arg.type === "flag") return `${arg.name ?? "(flag?)"}=${arg.valueHint ?? "(value?)"}`;
-  if (arg.type === "env") return `${arg.name ?? "(env?)"}=<non-secret>`;
-  return arg.valueHint ?? arg.name ?? "(arg?)";
-}
-
-function permissionSummary(candidate: McpAutowireCandidate): string {
-  const network = candidate.permissions.network;
-  const hosts = network.allowHosts.length ? ` hosts ${network.allowHosts.join(", ")}` : "";
-  const ports = network.allowPorts.length ? ` ports ${network.allowPorts.join(", ")}` : "";
-  const mounts = candidate.permissions.filesystem.extraMounts.length
-    ? ` extra mounts=${candidate.permissions.filesystem.extraMounts.map((mount) => `${mount.path}${mount.containerPath ? `->${mount.containerPath}` : ""}:${mount.mode}`).join(", ")}`
-    : "";
-  return `Network ${network.mode}${hosts}${ports}; workspace read=${candidate.permissions.filesystem.workspaceRead}; workspace write=${candidate.permissions.filesystem.workspaceWrite};${mounts || " extra mounts=none"}.`;
-}
-
-function secretSummary(candidate: McpAutowireCandidate): string {
-  if (!candidate.secrets.length) return "No secrets declared by MCP metadata.";
-  return candidate.secrets.map((secret) => `${secret.required ? "Required" : "Optional"} ${secret.name}: ${secret.purpose}`).join(" ");
-}
-
-function validationSummary(candidate: McpAutowireCandidate): string {
-  const tools = candidate.validationPlan.expectedTools.length
-    ? ` Expected tools: ${candidate.validationPlan.expectedTools.slice(0, 12).join(", ")}${candidate.validationPlan.expectedTools.length > 12 ? ", ..." : ""}.`
-    : "";
-  return `Preflight: ${candidate.validationPlan.preflights.join(", ")}.${tools}`;
-}
-
-function normalizeMcpTransport(value: string | undefined): "stdio" | "streamable-http" | "sse" {
-  if (value === "streamable-http" || value === "sse") return value;
-  return "stdio";
 }
 
 function normalizeRemoteMcpTransport(value: string | undefined): "streamable-http" | "sse" {
@@ -2747,22 +1852,6 @@ function ociImageTag(image: string): string | undefined {
   if (colonIndex <= slashIndex) return undefined;
   const tag = withoutDigest.slice(colonIndex + 1).trim();
   return tag && tag !== "latest" ? tag : undefined;
-}
-
-function ambientWorkloadName(serverId: string): string {
-  return `ambient-${safeIdSegment(serverId).slice(0, 52)}-${sha256Hex(serverId).slice(0, 8)}`;
-}
-
-function safeIdSegment(value: string): string {
-  return value.toLowerCase().replace(/^io\.github\./, "").replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "mcp-server";
-}
-
-function sha256Hex(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

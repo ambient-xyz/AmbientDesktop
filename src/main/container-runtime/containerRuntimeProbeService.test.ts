@@ -27,6 +27,7 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "ready",
+      reason: "none",
       runtime: "docker",
       checkedAt: "2026-05-23T20:00:00.000Z",
       postInstallQueue: [{ kind: "default-capability", capabilityId: "scrapling", status: "queued" }],
@@ -37,6 +38,7 @@ describe("container runtime probe service", () => {
     });
     expect(result.hosts.find((host) => host.kind === "docker")).toMatchObject({
       status: "ready",
+      reason: "none",
       version: "27.3.1",
     });
     expect(containerRuntimeProbeSummary(result)).toContain("Post-install queue: scrapling=queued");
@@ -56,6 +58,7 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "missing",
+      reason: "runtime-missing",
       nextAction: "install-runtime",
       postInstallQueue: [{ capabilityId: "scrapling", status: "blocked" }],
     });
@@ -77,12 +80,14 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "installed-not-running",
+      reason: "daemon-unreachable",
       runtime: "docker",
       nextAction: "start-runtime",
       postInstallQueue: [{ capabilityId: "scrapling", status: "blocked" }],
     });
     expect(result.message).toContain("Docker appears installed");
     expect(result.message).toContain("Start or repair");
+    expect(containerRuntimeProbeSummary(result)).toContain("Reason: daemon-unreachable");
   });
 
   it("does not treat Docker Desktop's empty formatted info response as ready", async () => {
@@ -107,12 +112,14 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "installed-not-running",
+      reason: "daemon-unreachable",
       runtime: "docker",
       nextAction: "start-runtime",
       postInstallQueue: [{ capabilityId: "scrapling", status: "blocked" }],
     });
     expect(result.hosts.find((host) => host.kind === "docker")).toMatchObject({
       status: "installed-not-running",
+      reason: "daemon-unreachable",
       version: "27.5.0",
     });
     expect(result.message).toContain("Docker Desktop must be open");
@@ -138,11 +145,46 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "ready",
+      reason: "none",
       runtime: "podman",
     });
     expect(result.hosts.find((host) => host.kind === "podman")).toMatchObject({
       status: "ready",
+      reason: "none",
       message: expect.stringContaining("/opt/homebrew/bin/podman"),
+    });
+  });
+
+  it("finds Colima installed at a Homebrew absolute path when the app PATH is sparse", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: false, preflightMessage: "docker daemon unavailable" }),
+      platform: "darwin",
+      arch: "arm64",
+      commandRunner: fakeRunner({
+        "docker --version": missingCommand("docker", ["--version"]),
+        "/opt/homebrew/bin/docker --version": missingCommand("/opt/homebrew/bin/docker", ["--version"]),
+        "/usr/local/bin/docker --version": missingCommand("/usr/local/bin/docker", ["--version"]),
+        "podman --version": missingCommand("podman", ["--version"]),
+        "/opt/homebrew/bin/podman --version": missingCommand("/opt/homebrew/bin/podman", ["--version"]),
+        "/usr/local/bin/podman --version": missingCommand("/usr/local/bin/podman", ["--version"]),
+        "colima version": missingCommand("colima", ["version"]),
+        "/opt/homebrew/bin/colima version": okCommand("/opt/homebrew/bin/colima", ["version"], "colima version 0.8.1\n"),
+        "/opt/homebrew/bin/colima status": failedCommand("/opt/homebrew/bin/colima", ["status"], "colima is not running"),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "installed-not-running",
+      reason: "machine-stopped",
+      runtime: "colima",
+      nextAction: "start-runtime",
+    });
+    expect(result.hosts.find((host) => host.kind === "colima")).toMatchObject({
+      status: "installed-not-running",
+      reason: "machine-stopped",
+      version: "0.8.1",
+      message: "colima is not running",
     });
   });
 
@@ -165,11 +207,41 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "installed-not-running",
+      reason: "machine-stopped",
       runtime: "podman",
       nextAction: "start-runtime",
     });
     expect(result.message).toContain("WSL 2");
     expect(result.hosts.find((host) => host.kind === "podman")?.message).toContain("open Podman Desktop");
+    expect(result.hosts.find((host) => host.kind === "podman")).toMatchObject({
+      reason: "machine-stopped",
+    });
+  });
+
+  it("classifies Docker Desktop probe timeouts as desktop app not responding", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: false, preflightMessage: "runtime probe timed out" }),
+      platform: "darwin",
+      arch: "arm64",
+      commandRunner: fakeRunner({
+        "docker --version": okCommand("docker", ["--version"], "Docker version 28.1.1\n"),
+        "docker info --format {{json .ServerVersion}}": timedOutCommand("docker", ["info", "--format", "{{json .ServerVersion}}"]),
+        "podman --version": missingCommand("podman", ["--version"]),
+        "colima version": missingCommand("colima", ["version"]),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "installed-not-running",
+      reason: "desktop-app-not-responding",
+      runtime: "docker",
+      nextAction: "start-runtime",
+    });
+    expect(result.hosts.find((host) => host.kind === "docker")).toMatchObject({
+      reason: "desktop-app-not-responding",
+    });
+    expect(containerRuntimeProbeSummary(result)).toContain("reason=desktop-app-not-responding");
   });
 
   it("classifies a Linux Docker socket permission denial distinctly from a stopped daemon", async () => {
@@ -191,12 +263,14 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "blocked-by-permissions",
+      reason: "permission-denied",
       runtime: "docker",
       nextAction: "repair-permissions",
       postInstallQueue: [{ capabilityId: "scrapling", status: "blocked" }],
     });
     expect(result.hosts.find((host) => host.kind === "docker")).toMatchObject({
       status: "permission-blocked",
+      reason: "permission-denied",
     });
     expect(result.message).toContain("cannot access it as this OS user");
     expect(containerRuntimeProbeSummary(result)).toContain("docker: permission-blocked");
@@ -217,6 +291,7 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "missing",
+      reason: "runtime-missing",
       nextAction: "install-runtime",
     });
     expect(result.hosts.find((host) => host.kind === "wsl2")).toMatchObject({
@@ -239,6 +314,7 @@ describe("container runtime probe service", () => {
 
     expect(result).toMatchObject({
       status: "unsupported",
+      reason: "toolhive-unavailable",
       runtime: "docker",
       nextAction: "repair-toolhive",
       toolHive: { status: "missing" },
@@ -299,6 +375,13 @@ function okCommand(command: string, args: string[], stdout = ""): ContainerRunti
 
 function failedCommand(command: string, args: string[], stderr: string): ContainerRuntimeCommandResult {
   return commandResult(command, args, "", stderr, 1);
+}
+
+function timedOutCommand(command: string, args: string[]): ContainerRuntimeCommandResult {
+  return {
+    ...commandResult(command, args, "", "probe timed out", 1, "ETIMEDOUT"),
+    timedOut: true,
+  };
 }
 
 function missingCommand(command: string, args: string[]): ContainerRuntimeCommandResult {

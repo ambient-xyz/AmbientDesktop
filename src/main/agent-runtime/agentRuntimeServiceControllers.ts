@@ -14,6 +14,11 @@ import type { AmbientPluginHost } from "./agentRuntimePluginsFacade";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import type { RuntimeSendMessageInput } from "./agentRuntimeSendPreparationController";
 import { AgentRuntimeAsyncBashJobService, formatAsyncBashSnapshotForTool } from "./tools/agentRuntimeAsyncBashJobs";
+import {
+  AgentRuntimeAsyncLongContextJobService,
+  formatAsyncLongContextOrphanedSnapshotForTool,
+  formatAsyncLongContextSnapshotForTool,
+} from "./tools/agentRuntimeAsyncLongContextJobs";
 import { AgentRuntimeBrowserToolController } from "./agentRuntimeBrowserToolController";
 import { AgentRuntimeExtensionAssemblyController } from "./agentRuntimeExtensionAssemblyController";
 import { AgentRuntimeGoalContinuationController } from "./agentRuntimeGoalContinuationController";
@@ -111,12 +116,18 @@ export function createAgentRuntimeServiceControllers({
   workflowPlanEditWorkflowThreadByThreadId,
 }: AgentRuntimeServiceControllerOptions) {
   const asyncBashJobsRef: { current?: AgentRuntimeAsyncBashJobService } = {};
+  const asyncLongContextJobsRef: { current?: AgentRuntimeAsyncLongContextJobService } = {};
   const goalContinuationsRef: { current?: AgentRuntimeGoalContinuationController } = {};
   const threadWakeContinuationsRef: { current?: AgentRuntimeThreadWakeContinuationController } = {};
   const resolveAsyncBashJobs = (): AgentRuntimeAsyncBashJobService => {
     const asyncBashJobs = asyncBashJobsRef.current;
     if (!asyncBashJobs) throw new Error("Async bash jobs were used before initialization.");
     return asyncBashJobs;
+  };
+  const resolveAsyncLongContextJobs = (): AgentRuntimeAsyncLongContextJobService => {
+    const asyncLongContextJobs = asyncLongContextJobsRef.current;
+    if (!asyncLongContextJobs) throw new Error("Async long-context jobs were used before initialization.");
+    return asyncLongContextJobs;
   };
   const resolveGoalContinuations = (): AgentRuntimeGoalContinuationController => {
     const goalContinuations = goalContinuationsRef.current;
@@ -168,6 +179,8 @@ export function createAgentRuntimeServiceControllers({
     store,
     browser,
     permissions,
+    asyncLongContextJobs: resolveAsyncLongContextJobs,
+    getRunId: (threadId) => activeRunIds.get(threadId),
     pluginHost,
     mcpToolOrchestration,
     installRouteGuard,
@@ -274,6 +287,10 @@ export function createAgentRuntimeServiceControllers({
     onSnapshot: (snapshot) => toolRunner.upsertAsyncBashToolMessage(snapshot),
   });
   asyncBashJobsRef.current = asyncBashJobs;
+  const asyncLongContextJobs = new AgentRuntimeAsyncLongContextJobService({
+    onSnapshot: (snapshot) => toolRunner.upsertAsyncLongContextToolMessage(snapshot),
+  });
+  asyncLongContextJobsRef.current = asyncLongContextJobs;
   const goalContinuations = new AgentRuntimeGoalContinuationController({
     store,
     hasActiveRun: (threadId) => activeRuns.has(threadId),
@@ -297,6 +314,17 @@ export function createAgentRuntimeServiceControllers({
         return undefined;
       }
     },
+    asyncLongContextSnapshotText: (threadId, jobId) => {
+      try {
+        return formatAsyncLongContextSnapshotForTool(
+          asyncLongContextJobs.snapshotForThread(threadId, jobId, {
+            maxBytes: 12_000,
+          }),
+        );
+      } catch {
+        return formatAsyncLongContextOrphanedSnapshotForTool(threadId, jobId);
+      }
+    },
   });
   threadWakeContinuationsRef.current = threadWakeContinuations;
   const settingsSessions = new AgentRuntimeSettingsSessionController({
@@ -311,6 +339,7 @@ export function createAgentRuntimeServiceControllers({
 
   return {
     asyncBashJobs,
+    asyncLongContextJobs,
     browserTools,
     extensionAssembly,
     goalContinuations,

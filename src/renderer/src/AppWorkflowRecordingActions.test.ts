@@ -9,6 +9,8 @@ import {
   activeThreadHasWorkflowRecordingStatus,
   activeWorkflowRecordingForState,
   createAppWorkflowRecordingActions,
+  createAppWorkflowRecordingActionsForApp,
+  type AppWorkflowRecordingActionsForAppInput,
   workflowRecordingInitialGoalMessageInput,
   workflowRecordingArchiveConfirmation,
   workflowRecordingArchiveInput,
@@ -21,6 +23,7 @@ import {
 describe("App workflow recording actions", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("trims optional start goals while preserving workspace path", () => {
@@ -56,7 +59,10 @@ describe("App workflow recording actions", () => {
     const next = desktopState({ activeThreadId: "recording-thread" });
     const startWorkflowRecording = vi.fn(async () => next);
     const sendMessage = vi.fn(async () => undefined);
-    vi.stubGlobal("window", { ambientDesktop: { startWorkflowRecording, sendMessage } });
+    vi.stubGlobal("window", {
+      ambientDesktop: { startWorkflowRecording, sendMessage },
+      setTimeout: (handler: TimerHandler, timeout?: number) => globalThis.setTimeout(handler, timeout),
+    });
     const controller = createController();
 
     await controller.actions.startWorkflowRecording("  Make the weekly report  ");
@@ -118,11 +124,46 @@ describe("App workflow recording actions", () => {
     });
     const controller = createController();
 
-    await expect(controller.actions.startWorkflowRecording("Make the weekly report")).resolves.toBe(true);
+    const started = await controller.actions.startWorkflowRecording("Make the weekly report");
+
+    expect(started, JSON.stringify(controller.setError.mock.calls)).toBe(true);
 
     expect(controller.setError).toHaveBeenLastCalledWith("send failed");
     expect(controller.runStatus.value).toBe("error");
     expect(controller.scheduleComposerDraftFocus).toHaveBeenCalledWith("Make the weekly report");
+  });
+
+  it("maps App owner state into workflow recording actions", async () => {
+    vi.useFakeTimers();
+    const next = desktopState({ activeThreadId: "recording-thread" });
+    const startWorkflowRecording = vi.fn(async () => next);
+    const sendMessage = vi.fn(async () => {
+      throw new Error("send failed");
+    });
+    vi.stubGlobal("window", {
+      ambientDesktop: { startWorkflowRecording, sendMessage },
+      setTimeout: (handler: TimerHandler, timeout?: number) => globalThis.setTimeout(handler, timeout),
+    });
+    const controller = createForAppController();
+
+    const started = await controller.actions.startWorkflowRecording("Make the weekly report");
+
+    expect(started, JSON.stringify(controller.setError.mock.calls)).toBe(true);
+
+    expect(controller.applyCreatedThreadState).toHaveBeenCalledWith(next, "/repo");
+    expect(controller.projectBoardOpen.value).toBe(false);
+    expect(controller.resetPromptHistory).toHaveBeenCalledOnce();
+    expect(controller.resetRunActivityLines).toHaveBeenCalledWith(
+      "Workflow recording prompt sent to Ambient.",
+      "recording-thread",
+    );
+    expect(controller.runStatus.value).toBe("error");
+    expect(controller.threadRunStatuses.value).toEqual({ "recording-thread": "starting" });
+
+    await vi.runAllTimersAsync();
+
+    expect(controller.setComposerDraft).toHaveBeenCalledWith("Make the weekly report");
+    expect(controller.focusEnd).toHaveBeenCalledOnce();
   });
 
   it("finds the active recording from a returned desktop state", () => {
@@ -298,6 +339,80 @@ function createController({
     resetRunActivityLines,
     runStatus,
     scheduleComposerDraftFocus,
+    setContextError,
+    setError,
+    setSelectedWorkflowRecordingId,
+    setSidebarArea,
+    threadRunStatuses,
+  };
+}
+
+function createForAppController() {
+  const runStatus = statefulSetter<RunStatus>("idle");
+  const threadRunStatuses = statefulSetter<Record<string, RunStatus>>({});
+  const contextAttachments = statefulSetter<WorkspaceContextReference[]>([]);
+  const projectBoardOpen = statefulSetter(true);
+  const applyCreatedThreadState = vi.fn(() => true);
+  const applyRunStatusDesktopState = vi.fn();
+  const resetPromptHistory = vi.fn();
+  const resetRunActivityLines = vi.fn();
+  const setComposerDraft = vi.fn();
+  const focusEnd = vi.fn();
+  const setContextError = vi.fn();
+  const setError = vi.fn();
+  const setSelectedWorkflowRecordingId = vi.fn();
+  const setSidebarArea = vi.fn();
+  const refreshWorkflowRecordingLibraryOverride = vi.fn(async () => undefined);
+
+  return {
+    actions: createAppWorkflowRecordingActionsForApp({
+      activeThread: thread(),
+      appDesktopStateAppliers: {
+        applyCreatedThreadState,
+        applyRunStatusDesktopState,
+      },
+      composerShellState: {
+        composerInputRef: { current: { focusEnd } },
+        setComposerDraft,
+      },
+      coreLifecycleControls: {
+        resetRunActivityLines,
+      },
+      projectBoardControls: {
+        setProjectBoardOpen: projectBoardOpen.set,
+      },
+      resetPromptHistory,
+      runActivityState: {
+        abortArmed: false,
+        setRunStatus: runStatus.set,
+        setThreadRunStatuses: threadRunStatuses.set,
+      },
+      running: false,
+      shellUiState: {
+        setError,
+        setSidebarArea,
+      },
+      state: desktopState(),
+      workflowRecordingLibraryControls: {
+        refreshWorkflowRecordingLibraryOverride,
+        setSelectedWorkflowRecordingId,
+        workflowLibraryIncludeArchived: false,
+      },
+      workflowRuntimeState: {
+        setContextAttachments: contextAttachments.set,
+        setContextError,
+      },
+    } as unknown as AppWorkflowRecordingActionsForAppInput),
+    applyCreatedThreadState,
+    applyRunStatusDesktopState,
+    contextAttachments,
+    focusEnd,
+    projectBoardOpen,
+    refreshWorkflowRecordingLibraryOverride,
+    resetPromptHistory,
+    resetRunActivityLines,
+    runStatus,
+    setComposerDraft,
     setContextError,
     setError,
     setSelectedWorkflowRecordingId,

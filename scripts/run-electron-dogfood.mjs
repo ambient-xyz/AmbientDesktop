@@ -207,6 +207,13 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       display: ["node", "scripts/running-model-status-dogfood.mjs", ...scenarioArgs],
     };
   }
+  if (scenario === "prompt-cache-status") {
+    return {
+      executable: "node",
+      args: ["scripts/prompt-cache-status-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/prompt-cache-status-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario === "async-bash") {
     return {
       executable: "node",
@@ -214,11 +221,46 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       display: ["node", "scripts/async-bash-dogfood.mjs", ...scenarioArgs],
     };
   }
+  if (scenario === "security-git-source-hardening") {
+    return {
+      executable: "node",
+      args: ["scripts/security-git-source-hardening-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/security-git-source-hardening-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "async-long-context") {
+    return {
+      executable: "node",
+      args: ["scripts/async-long-context-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/async-long-context-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario === "provider-restart-behavior") {
     return {
       executable: "node",
       args: ["scripts/provider-restart-behavior-dogfood.mjs", ...scenarioArgs],
       display: ["node", "scripts/provider-restart-behavior-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "provider-overflow-auto-compact") {
+    return {
+      executable: "node",
+      args: ["scripts/provider-overflow-auto-compact-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/provider-overflow-auto-compact-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "render-optimization") {
+    return {
+      executable: "node",
+      args: ["scripts/render-optimization-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/render-optimization-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "container-runtime-lifecycle") {
+    return {
+      executable: "node",
+      args: ["scripts/container-runtime-lifecycle-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/container-runtime-lifecycle-dogfood.mjs", ...scenarioArgs],
     };
   }
   if (scenario !== "subagent-desktop-dogfood") throw new Error(`Unsupported Electron dogfood scenario: ${scenario}`);
@@ -252,8 +294,14 @@ function scenarioLatestArtifactPath(scenario) {
   if (isSafeStorageScenario(scenario)) return "test-results/safe-storage-dogfood/latest.json";
   if (scenario === "model-reasoning-modes") return "test-results/model-reasoning-modes/latest.json";
   if (scenario === "running-model-status") return "test-results/running-model-status/latest.json";
+  if (scenario === "prompt-cache-status") return "test-results/prompt-cache-status/latest.json";
   if (scenario === "async-bash") return "test-results/async-bash-dogfood/latest.json";
+  if (scenario === "security-git-source-hardening") return "test-results/security-git-source-hardening/latest.json";
+  if (scenario === "async-long-context") return "test-results/async-long-context-dogfood/latest.json";
   if (scenario === "provider-restart-behavior") return "test-results/provider-restart-behavior/latest.json";
+  if (scenario === "provider-overflow-auto-compact") return "test-results/provider-overflow-auto-compact/latest.json";
+  if (scenario === "render-optimization") return "test-results/render-optimization/latest.json";
+  if (scenario === "container-runtime-lifecycle") return "test-results/container-runtime-lifecycle-dogfood/latest.json";
   return "test-results/subagent-desktop-dogfood/latest.json";
 }
 

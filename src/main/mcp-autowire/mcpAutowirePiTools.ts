@@ -1,14 +1,11 @@
-import type { AgentToolResult, ToolDefinition } from "@mariozechner/pi-coding-agent";
+import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import type { Model } from "@mariozechner/pi-ai";
 import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "./mcpAutowireDesktopToolsFacade";
 import {
-  mcpAutowirePlanResultText,
-  planMcpAutowire,
   type McpAutowirePlanInput,
   type McpAutowirePlanResult,
   type McpAutowirePlannerOptions,
 } from "./mcpAutowirePlanner";
-import { validateMcpAutowireCandidate } from "./mcpAutowireSchemas";
 import { mcpAutowireReviewResultText, reviewMcpAutowireCandidate, reviewNextToolInput } from "./mcpAutowireReview";
 import {
   applyMcpAutowirePlanEdit,
@@ -21,17 +18,18 @@ import {
   type McpAutowirePlanRevision,
   type McpAutowirePlanRevisionStore,
 } from "./mcpAutowirePlanEdits";
-import {
-  createMcpCustomSourceBuildImage,
-  describeMcpCustomSourceBuild,
-  mcpCustomSourceBuildCreateText,
-  mcpCustomSourceBuildDescribeText,
-  mcpCustomSourceBuildReviewText,
-  reviewMcpCustomSourceBuildPlan,
-  type McpCustomSourceBuildCommandRunner,
-} from "./mcpAutowireMcpInstallFacade";
+import type { McpCustomSourceBuildCommandRunner } from "./mcpAutowireMcpInstallFacade";
 import type { McpAutowireCandidateRefStore } from "./mcpAutowireCandidateRefs";
-import type { WorkflowPiProgress } from "./mcpAutowireWorkflowFacade";
+import { createMcpAutowirePlanToolDefinition } from "./mcpAutowirePiPlanTool";
+import { createMcpAutowireSourceBuildPiToolDefinitions } from "./mcpAutowireSourceBuildPiTools";
+import {
+  arrayInput,
+  objectInput,
+  optionalNumber,
+  optionalString,
+  requiredString,
+  toolResult,
+} from "./mcpAutowirePiToolSupport";
 
 export interface McpAutowirePiToolThread {
   id: string;
@@ -66,180 +64,15 @@ export interface McpAutowirePlanEditApprovalInput {
   detail: string;
 }
 
-const MCP_AUTOWIRE_PLAN_HEARTBEAT_MS = 5_000;
-
 export function createMcpAutowirePiToolDefinitions(options: McpAutowirePiToolOptions): ToolDefinition<any, any, any>[] {
-  const plan = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_plan"));
   const review = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_review"));
   const evidenceRead = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_evidence_read"));
   const revisionList = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_plan_revision_list"));
   const revisionRead = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_plan_revision_read"));
   const editDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_plan_edit_describe"));
   const editApply = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_plan_edit_apply"));
-  const sourceBuildDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_source_build_describe"));
-  const sourceBuildCreate = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_source_build_create"));
-  const customSourceDescribe = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_autowire_custom_source_describe"));
   return [
-    {
-      ...plan,
-      parameters: plan.parameters as any,
-      executionMode: "sequential",
-      execute: async (_toolCallId, params, signal, onUpdate) => {
-        const thread = options.getThread();
-        const input = objectInput(params);
-        const targetUrl = requiredString(input, "targetUrl");
-        const instructions = optionalString(input.instructions);
-        const allowedDiscovery = objectInput(input.allowedDiscovery);
-        const planInput: McpAutowirePlanInput = {
-          targetUrl,
-          ...(instructions ? { instructions } : {}),
-          allowedDiscovery: {
-            urlFetch: optionalBoolean(allowedDiscovery.urlFetch),
-            githubRaw: optionalBoolean(allowedDiscovery.githubRaw),
-            search: optionalBoolean(allowedDiscovery.search),
-            maxFetches: optionalNumber(allowedDiscovery.maxFetches),
-            maxSearches: optionalNumber(allowedDiscovery.maxSearches),
-            maxBytesPerFetch: optionalNumber(allowedDiscovery.maxBytesPerFetch),
-          },
-          signal,
-        };
-
-        onUpdate?.({
-          content: [{ type: "text", text: `Planning MCP autowire for ${targetUrl}.` }],
-          details: {
-            runtime: "ambient-mcp",
-            toolName: "ambient_mcp_autowire_plan",
-            status: "planning",
-            targetUrl,
-            threadId: thread.id,
-            collaborationMode: thread.collaborationMode,
-          },
-        });
-
-        const startedAt = Date.now();
-        let latestPlannerProgress: WorkflowPiProgress | undefined;
-        const emitPlannerProgress = (progress: WorkflowPiProgress) => {
-          latestPlannerProgress = progress;
-          onUpdate?.({
-            content: [{
-              type: "text",
-              text: mcpAutowirePlanProgressText(targetUrl, progress),
-            }],
-            details: {
-              runtime: "ambient-mcp",
-              toolName: "ambient_mcp_autowire_plan",
-              status: "planning",
-              stage: progress.stage,
-              targetUrl,
-              threadId: thread.id,
-              collaborationMode: thread.collaborationMode,
-              elapsedMs: progress.elapsedMs,
-              outputChars: progress.outputChars,
-              thinkingChars: progress.thinkingChars,
-              idleElapsedMs: progress.idleElapsedMs,
-              idleTimeoutMs: progress.idleTimeoutMs,
-              timeoutMode: progress.timeoutMode,
-            },
-          });
-        };
-        const emitDiscoveryToolProgress: NonNullable<McpAutowirePlannerOptions["onToolProgress"]> = (progress) => {
-          onUpdate?.({
-            content: [{
-              type: "text",
-              text: mcpAutowireDiscoveryToolProgressText(targetUrl, progress),
-            }],
-            details: {
-              runtime: "ambient-mcp",
-              toolName: "ambient_mcp_autowire_plan",
-              status: "planning",
-              stage: `discovery-tool-${progress.status}`,
-              targetUrl,
-              threadId: thread.id,
-              collaborationMode: thread.collaborationMode,
-              elapsedMs: Date.now() - startedAt,
-              outputChars: latestPlannerProgress?.outputChars,
-              thinkingChars: latestPlannerProgress?.thinkingChars,
-              idleElapsedMs: latestPlannerProgress?.idleElapsedMs,
-              idleTimeoutMs: latestPlannerProgress?.idleTimeoutMs,
-              timeoutMode: latestPlannerProgress?.timeoutMode,
-              ...(progress.status === "running" ? { waitingOn: progress.toolName } : {}),
-            },
-          });
-        };
-        const stopHeartbeat = startMcpAutowirePlanHeartbeat({
-          onUpdate,
-          targetUrl,
-          thread,
-          startedAt,
-          progress: () => latestPlannerProgress,
-        });
-        let result: McpAutowirePlanResult;
-        try {
-          result = await (options.planner ?? planMcpAutowire)(planInput, {
-            apiKey: options.apiKey,
-            model: options.model.id,
-            baseUrl: (options.model as { baseUrl?: string }).baseUrl,
-            onProgress: emitPlannerProgress,
-            onToolProgress: emitDiscoveryToolProgress,
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          onUpdate?.({
-            content: [{ type: "text", text: `MCP autowire planning failed for ${targetUrl}: ${message}` }],
-            details: {
-              runtime: "ambient-mcp",
-              toolName: "ambient_mcp_autowire_plan",
-              status: "failed",
-              targetUrl,
-              threadId: thread.id,
-              collaborationMode: thread.collaborationMode,
-              error: message,
-            },
-          });
-          throw error;
-        } finally {
-          stopHeartbeat();
-        }
-        const candidateRef = result.candidate
-          ? options.candidateRefs?.put(result.candidate as unknown as Record<string, unknown>, result.validation.candidateHash, "planned")
-          : undefined;
-        if (result.candidate && candidateRef) {
-          options.planRevisions?.recordCandidate({
-            candidate: result.candidate as unknown as Record<string, unknown>,
-            source: "plan",
-            summary: `Planned MCP autowire candidate for ${targetUrl}.`,
-            candidateRef,
-            targetUrl,
-          });
-        }
-        options.onPlanResult?.(result);
-        return toolResult(mcpAutowirePlanResultText(result, { candidateRef }), {
-          runtime: "ambient-mcp",
-          toolName: "ambient_mcp_autowire_plan",
-          status: result.validation.status,
-          outcome: result.validation.outcome,
-          targetUrl: result.targetUrl,
-          candidateId: result.candidate?.id,
-          displayName: result.candidate?.displayName,
-          recommendedLane: result.candidate?.recommendedLane,
-          runtimeProvider: result.candidate?.runtime.provider,
-          runtimeSourceKind: result.candidate?.runtime.sourceKind,
-          sourceClassification: result.sourceClassification?.kind,
-          sourceClassificationConfidence: result.sourceClassification?.confidence,
-          setupRecipe: result.sourceClassification?.setupRecipe,
-          readyForUserReview: result.validation.readyForUserReview,
-          readyForToolHiveRun: result.validation.readyForToolHiveRun,
-          blockerCount: result.validation.blockers.length,
-          warningCount: result.validation.warnings.length,
-          fetchCount: result.discovery.fetches.filter((fetch) => fetch.status === "fetched").length,
-          blockedFetchCount: result.discovery.fetches.filter((fetch) => fetch.status === "blocked").length,
-          searchCount: result.discovery.searches.filter((search) => search.status === "searched").length,
-          blockedSearchCount: result.discovery.searches.filter((search) => search.status === "blocked").length,
-          ...(result.validation.candidateHash ? { candidateHash: result.validation.candidateHash } : {}),
-          ...(candidateRef ? { candidateRef } : {}),
-        });
-      },
-    },
+    createMcpAutowirePlanToolDefinition(options),
     {
       ...review,
       parameters: review.parameters as any,
@@ -532,272 +365,8 @@ export function createMcpAutowirePiToolDefinitions(options: McpAutowirePiToolOpt
         });
       },
     },
-    {
-      ...sourceBuildDescribe,
-      parameters: sourceBuildDescribe.parameters as any,
-      executionMode: "sequential",
-      execute: async (_toolCallId, params, _signal, onUpdate) => {
-        const thread = options.getThread();
-        const input = objectInput(params);
-        const candidateRef = optionalString(input.candidateRef);
-        const candidate = candidateRef
-          ? options.candidateRefs?.get(candidateRef)
-          : input.candidate;
-        if (candidateRef && (!candidate || typeof candidate !== "object" || Array.isArray(candidate))) {
-          throw new Error(`No MCP autowire candidate is available for candidateRef ${candidateRef}. Rerun ambient_mcp_autowire_plan or pass the exact candidate JSON.`);
-        }
-        if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) throw new Error("candidate or candidateRef is required.");
-        const expectedCandidateHash = optionalString(input.expectedCandidateHash);
-        const ref = optionalString(input.ref);
-        const sourceBuild = input.sourceBuild;
-
-        onUpdate?.({
-          content: [{ type: "text", text: "Deriving custom ToolHive source-build plan." }],
-          details: {
-            runtime: "ambient-mcp",
-            toolName: "ambient_mcp_autowire_source_build_describe",
-            status: "planning",
-            threadId: thread.id,
-            collaborationMode: thread.collaborationMode,
-          },
-        });
-
-        const result = await describeMcpCustomSourceBuild({
-          candidate,
-          expectedCandidateHash,
-          sourceBuild,
-          ref,
-        }, {
-          commandRunner: options.sourceBuildCommandRunner,
-        });
-        const candidateHash = result.status === "ready-to-build"
-          ? expectedCandidateHash ?? validateMcpAutowireCandidate(result.candidate).candidateHash
-          : undefined;
-        const sourceBuildForCreate = result.nextToolInput?.sourceBuild ?? result.sourceBuild;
-        const nextToolInput = result.nextToolName
-          ? {
-              ...(candidateRef ? { candidateRef } : { candidate: result.candidate }),
-              ...(candidateHash ? { expectedCandidateHash: candidateHash } : {}),
-              sourceBuild: sourceBuildForCreate,
-            }
-          : undefined;
-        return toolResult(mcpCustomSourceBuildDescribeText(result, { candidateRef, expectedCandidateHash: candidateHash }), {
-          runtime: "ambient-mcp",
-          toolName: "ambient_mcp_autowire_source_build_describe",
-          status: result.status,
-          sourceCandidateId: result.candidate.id,
-          candidateRef,
-          candidateHash,
-          imageIdentifier: result.sourceBuild.image.identifier,
-          resolvedCommit: result.sourceBuild.resolvedCommit,
-          buildKind: result.sourceBuild.recipe.kind,
-          blockerCount: result.blockers.length,
-          warningCount: result.warnings.length,
-          forbiddenAlternatives: result.forbiddenAlternatives,
-          nextToolName: result.nextToolName,
-          nextToolInput,
-        });
-      },
-    },
-    {
-      ...sourceBuildCreate,
-      parameters: sourceBuildCreate.parameters as any,
-      executionMode: "sequential",
-      execute: async (_toolCallId, params, signal, onUpdate) => {
-        const thread = options.getThread();
-        const input = objectInput(params);
-        const candidateRef = optionalString(input.candidateRef);
-        const candidate = candidateRef
-          ? options.candidateRefs?.get(candidateRef)
-          : input.candidate;
-        if (candidateRef && (!candidate || typeof candidate !== "object" || Array.isArray(candidate))) {
-          throw new Error(`No MCP autowire candidate is available for candidateRef ${candidateRef}. Rerun ambient_mcp_autowire_plan or pass the exact candidate JSON.`);
-        }
-        if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) throw new Error("candidate or candidateRef is required.");
-        if (!options.sourceBuildUserDataPath) throw new Error("Ambient MCP userData path is unavailable, so source builds cannot run in this session.");
-        const expectedCandidateHash = optionalString(input.expectedCandidateHash);
-        const sourceBuild = input.sourceBuild;
-
-        onUpdate?.({
-          content: [{ type: "text", text: "Building custom ToolHive source image in Ambient-managed source-build state." }],
-          details: {
-            runtime: "ambient-mcp",
-            toolName: "ambient_mcp_autowire_source_build_create",
-            status: "building",
-            threadId: thread.id,
-            collaborationMode: thread.collaborationMode,
-          },
-        });
-
-        const result = await createMcpCustomSourceBuildImage({
-          candidate,
-          expectedCandidateHash,
-          sourceBuild,
-          userDataPath: options.sourceBuildUserDataPath,
-          signal,
-        }, {
-          commandRunner: options.sourceBuildCommandRunner,
-        });
-        const customImageCandidateHash = result.customImageValidation?.candidateHash;
-        const customImageCandidateRef = result.customImageCandidate
-          ? options.candidateRefs?.put(result.customImageCandidate as unknown as Record<string, unknown>, customImageCandidateHash, "reviewed")
-          : undefined;
-        const nextToolInput = result.nextToolName
-          ? customImageCandidateRef
-            ? { candidateRef: customImageCandidateRef, ...(customImageCandidateHash ? { expectedCandidateHash: customImageCandidateHash } : {}) }
-            : result.nextToolInput
-          : undefined;
-        return toolResult(mcpCustomSourceBuildCreateText(result, { customImageCandidateRef, customImageCandidateHash }), {
-          runtime: "ambient-mcp",
-          toolName: "ambient_mcp_autowire_source_build_create",
-          status: result.status,
-          sourceCandidateId: result.candidate.id,
-          customImageCandidateId: result.customImageCandidate?.id,
-          customImageCandidateRef,
-          candidateHash: customImageCandidateHash,
-          imageIdentifier: result.build.imageIdentifier,
-          imageDigest: result.build.imageDigest,
-          buildRuntime: result.build.runtime,
-          buildLogPath: result.build.buildLogPath,
-          commandCount: result.build.commandCount,
-          blockerCount: result.review.blockers.length,
-          warningCount: result.review.warnings.length,
-          forbiddenAlternatives: result.forbiddenAlternatives,
-          nextToolName: result.nextToolName,
-          nextToolInput,
-        });
-      },
-    },
-    {
-      ...customSourceDescribe,
-      parameters: customSourceDescribe.parameters as any,
-      executionMode: "sequential",
-      execute: async (_toolCallId, params, _signal, onUpdate) => {
-        const thread = options.getThread();
-        const input = objectInput(params);
-        const candidateRef = optionalString(input.candidateRef);
-        const candidate = candidateRef
-          ? options.candidateRefs?.get(candidateRef)
-          : input.candidate;
-        if (candidateRef && (!candidate || typeof candidate !== "object" || Array.isArray(candidate))) {
-          throw new Error(`No MCP autowire candidate is available for candidateRef ${candidateRef}. The reference may be from an earlier or reset Pi session; rerun ambient_mcp_autowire_plan or pass the exact candidate JSON.`);
-        }
-        if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) throw new Error("candidate or candidateRef is required.");
-        const expectedCandidateHash = optionalString(input.expectedCandidateHash);
-        const sourceBuild = requiredObject(input, "sourceBuild");
-
-        onUpdate?.({
-          content: [{ type: "text", text: "Reviewing custom ToolHive source build plan." }],
-          details: {
-            runtime: "ambient-mcp",
-            toolName: "ambient_mcp_autowire_custom_source_describe",
-            status: "reviewing",
-            threadId: thread.id,
-            collaborationMode: thread.collaborationMode,
-          },
-        });
-
-        const result = reviewMcpCustomSourceBuildPlan({ candidate, expectedCandidateHash, sourceBuild });
-        const customImageCandidateHash = result.customImageValidation?.candidateHash;
-        const customImageCandidateRef = result.customImageCandidate
-          ? options.candidateRefs?.put(result.customImageCandidate as unknown as Record<string, unknown>, customImageCandidateHash, "reviewed")
-          : undefined;
-        const nextToolInput = result.status === "ready-for-import"
-          ? customImageCandidateRef
-            ? { candidateRef: customImageCandidateRef, ...(customImageCandidateHash ? { expectedCandidateHash: customImageCandidateHash } : {}) }
-            : { candidate: result.customImageCandidate, ...(customImageCandidateHash ? { expectedCandidateHash: customImageCandidateHash } : {}) }
-          : undefined;
-        return toolResult(mcpCustomSourceBuildReviewText(result, { customImageCandidateRef: customImageCandidateRef }), {
-          runtime: "ambient-mcp",
-          toolName: "ambient_mcp_autowire_custom_source_describe",
-          status: result.status,
-          sourceCandidateId: result.candidate.id,
-          customImageCandidateId: result.customImageCandidate?.id,
-          customImageCandidateRef,
-          candidateHash: customImageCandidateHash,
-          buildKind: result.sourceBuild.recipe.kind,
-          imageIdentifier: result.sourceBuild.image.identifier,
-          imageDigest: result.sourceBuild.image.digest,
-          blockerCount: result.blockers.length,
-          warningCount: result.warnings.length,
-          nextToolName: result.status === "ready-for-import" ? "ambient_mcp_standard_import_describe" : undefined,
-          nextToolInput,
-        });
-      },
-    },
+    ...createMcpAutowireSourceBuildPiToolDefinitions(options),
   ];
-}
-
-function startMcpAutowirePlanHeartbeat(input: {
-  onUpdate?: Parameters<NonNullable<ToolDefinition<any, any, any>["execute"]>>[3];
-  targetUrl: string;
-  thread: McpAutowirePiToolThread;
-  startedAt?: number;
-  progress?: () => WorkflowPiProgress | undefined;
-}): () => void {
-  if (!input.onUpdate) return () => undefined;
-  const startedAt = input.startedAt ?? Date.now();
-  let heartbeatCount = 0;
-  const timer = setInterval(() => {
-    heartbeatCount += 1;
-    const elapsedMs = Date.now() - startedAt;
-    const progress = input.progress?.();
-    input.onUpdate?.({
-      content: [{
-        type: "text",
-        text: `Still planning MCP autowire for ${input.targetUrl} (${formatElapsedMs(elapsedMs)} elapsed).`,
-      }],
-      details: {
-        runtime: "ambient-mcp",
-        toolName: "ambient_mcp_autowire_plan",
-        status: "planning",
-        stage: "heartbeat",
-        targetUrl: input.targetUrl,
-        threadId: input.thread.id,
-        collaborationMode: input.thread.collaborationMode,
-        elapsedMs,
-        heartbeatCount,
-        outputChars: progress?.outputChars,
-        thinkingChars: progress?.thinkingChars,
-        idleElapsedMs: progress?.idleElapsedMs,
-        idleTimeoutMs: progress?.idleTimeoutMs,
-        timeoutMode: progress?.timeoutMode,
-      },
-    });
-  }, MCP_AUTOWIRE_PLAN_HEARTBEAT_MS);
-  if (typeof timer === "object" && "unref" in timer && typeof timer.unref === "function") {
-    timer.unref();
-  }
-  return () => clearInterval(timer);
-}
-
-function mcpAutowirePlanProgressText(targetUrl: string, progress: WorkflowPiProgress): string {
-  const counts = [
-    progress.outputChars > 0 ? `${progress.outputChars.toLocaleString()} output chars` : undefined,
-    progress.thinkingChars > 0 ? `${progress.thinkingChars.toLocaleString()} thinking chars` : undefined,
-  ].filter(Boolean).join(", ");
-  const suffix = counts ? `, ${counts}` : "";
-  return `Planning MCP autowire for ${targetUrl} (${formatElapsedMs(progress.elapsedMs)} elapsed${suffix}).`;
-}
-
-function mcpAutowireDiscoveryToolProgressText(
-  targetUrl: string,
-  progress: Parameters<NonNullable<McpAutowirePlannerOptions["onToolProgress"]>>[0],
-): string {
-  const verb = progress.status === "done" ? "finished" : progress.status === "error" ? "failed" : "is running";
-  const elapsed = progress.elapsedMs === undefined ? "" : ` after ${formatElapsedMs(progress.elapsedMs)}`;
-  const summary = (progress.error ?? progress.resultSummary ?? progress.inputSummary ?? "").trim();
-  return [
-    `Autowire discovery ${verb} ${progress.toolName} for ${targetUrl}${elapsed}.`,
-    summary ? ` ${summary}` : "",
-  ].join("");
-}
-
-function toolResult(text: string, details: Record<string, unknown>): AgentToolResult<Record<string, unknown>> {
-  return {
-    content: [{ type: "text", text }],
-    details,
-  };
 }
 
 function candidateOrRevisionInput(
@@ -846,46 +415,4 @@ function revisionSummaryForDetails(revision: McpAutowirePlanRevision): Record<st
     ...(revision.serverId ? { serverId: revision.serverId } : {}),
     ...(revision.workloadName ? { workloadName: revision.workloadName } : {}),
   };
-}
-
-function formatElapsedMs(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return "0s";
-  if (ms < 60_000) return `${Math.max(1, Math.round(ms / 1000))}s`;
-  return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
-}
-
-function objectInput(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return value as Record<string, unknown>;
-}
-
-function requiredObject(input: Record<string, unknown>, key: string): Record<string, unknown> {
-  const value = input[key];
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${key} is required.`);
-  return value as Record<string, unknown>;
-}
-
-function arrayInput(value: unknown): Record<string, unknown>[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)));
-}
-
-function requiredString(input: Record<string, unknown>, key: string): string {
-  const value = optionalString(input[key]);
-  if (!value) throw new Error(`${key} is required.`);
-  return value;
-}
-
-function optionalString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed || undefined;
-}
-
-function optionalBoolean(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
-}
-
-function optionalNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }

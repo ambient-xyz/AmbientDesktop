@@ -27,6 +27,7 @@ import {
   cliPackageInstallGrantIdentity,
   cliPackagePiCatalogInstallGrantIdentity,
 } from "./agentRuntimeAmbientCliPackageInstallModel";
+import { redactGitSourceCredentials } from "../../security/securityAgentRuntimeContract";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 
@@ -130,11 +131,11 @@ export function registerAmbientCliPackageInstallTool(
       if (!allowed) throw new Error("Ambient CLI package install blocked by approval prompt.");
 
       onUpdate?.({
-        content: [{ type: "text", text: `Installing Ambient CLI package from ${input.source}.` }],
+        content: [{ type: "text", text: `Installing Ambient CLI package from ${redactGitSourceCredentials(input.source)}.` }],
         details: {
           runtime: "ambient-cli",
           toolName: "ambient_cli_package_install",
-          source: input.source,
+          source: redactGitSourceCredentials(input.source),
           path: input.path,
           ref: input.ref,
           sha: input.sha,

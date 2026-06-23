@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { AgentRuntimeThreadWakeContinuationController } from "./agentRuntimeThreadWakeContinuationController";
+import {
+  AgentRuntimeThreadWakeContinuationController,
+  type ThreadWakeContinuationSendInput,
+} from "./agentRuntimeThreadWakeContinuationController";
 import type { ThreadWakeContinuation } from "../projectStore/threadWakeRepository";
 
 describe("AgentRuntimeThreadWakeContinuationController", () => {
@@ -65,6 +68,62 @@ describe("AgentRuntimeThreadWakeContinuationController", () => {
 
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ threadId: wake.threadId, delivery: "follow-up" }));
     expect(threadUpdateEvents(events).at(-1)?.thread.scheduledCheckIn).toBeUndefined();
+  });
+
+  it("prompts long-context wake continuations to poll async long-context jobs", async () => {
+    const dueAt = "2026-06-04T12:30:00.000Z";
+    const wake: ThreadWakeContinuation = {
+      id: "wake-1",
+      threadId: "thread-1",
+      dueAt,
+      status: "pending",
+      reason: "Check long-context progress.",
+      jobId: "lc-job-1",
+      payload: { job_kind: "long_context", next_since_seq: 3 },
+      createdAt: "2026-06-04T12:00:00.000Z",
+      updatedAt: "2026-06-04T12:00:00.000Z",
+    };
+    const timerCallbacks: Array<() => void> = [];
+    const sentInputs: ThreadWakeContinuationSendInput[] = [];
+    const send = vi.fn(async (input: ThreadWakeContinuationSendInput) => {
+      sentInputs.push(input);
+    });
+    const store = {
+      getThread: vi.fn(() => thread(wake)),
+      listPendingThreadWakeContinuations: vi.fn(() => [wake]),
+      scheduleThreadWakeContinuation: vi.fn(),
+      markThreadWakeContinuationDelivered: vi.fn(() => ({
+        ...wake,
+        status: "delivered" as const,
+        deliveredAt: dueAt,
+      })),
+      markThreadWakeContinuationFailed: vi.fn(),
+    };
+
+    new AgentRuntimeThreadWakeContinuationController({
+      store,
+      hasActiveRun: () => false,
+      send,
+      emit: vi.fn(),
+      asyncBashSnapshotText: vi.fn(() => "bash snapshot should not be used"),
+      asyncLongContextSnapshotText: vi.fn(() => "job_kind: long_context\nstatus: running"),
+      now: () => Date.parse(dueAt),
+      setTimeout: (callback) => {
+        timerCallbacks.push(callback);
+        return callback;
+      },
+      clearTimeout: vi.fn(),
+    });
+
+    timerCallbacks.at(-1)?.();
+    await vi.waitFor(() => expect(send).toHaveBeenCalled());
+
+    const input = sentInputs[0]!;
+    expect(input.modelContentOverride).toContain("Latest async long-context snapshot:");
+    expect(input.modelContentOverride).toContain("job_kind: long_context");
+    expect(input.modelContentOverride).toContain("long_context_poll with wait_ms 0");
+    expect(input.modelContentOverride).not.toContain("bash_poll with wait_ms 0");
+    expect(store.markThreadWakeContinuationDelivered).toHaveBeenCalledWith(wake.id);
   });
 });
 

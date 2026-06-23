@@ -5,13 +5,21 @@ const diagnosticsControllerSource = readFileSync(new URL("./RightPanelDiagnostic
 const settingsPaneSource = readFileSync(new URL("./RightPanelSettingsPane.tsx", import.meta.url), "utf8");
 const settingsRuntimeSource = readFileSync(new URL("./RightPanelSettingsRuntime.tsx", import.meta.url), "utf8");
 const settingsWebResearchSource = readFileSync(new URL("./RightPanelSettingsWebResearch.tsx", import.meta.url), "utf8");
+const settingsWebResearchRowsSource = readFileSync(new URL("./RightPanelSettingsWebResearchRows.tsx", import.meta.url), "utf8");
+const settingsWebResearchSurfaceSource = `${settingsWebResearchSource}\n${settingsWebResearchRowsSource}`;
 const settingsSystemSource = readFileSync(new URL("./RightPanelSettingsSystem.tsx", import.meta.url), "utf8");
 const settingsControllerSource = readFileSync(new URL("./RightPanelSettingsController.ts", import.meta.url), "utf8");
+const settingsAgentMemoryControllerSource = readFileSync(
+  new URL("./RightPanelSettingsAgentMemoryController.ts", import.meta.url),
+  "utf8",
+);
 const settingsSearchSource = readFileSync(new URL("./RightPanelSettingsSearchModel.ts", import.meta.url), "utf8");
 const settingsCoreSource = readFileSync(new URL("./RightPanelSettingsCore.tsx", import.meta.url), "utf8");
-const rightPanelSource = readFileSync(new URL("./RightPanel.tsx", import.meta.url), "utf8");
+const rightPanelControllerGraphSource = readFileSync(new URL("./RightPanelControllerGraph.ts", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const appActiveThreadModelSource = readFileSync(new URL("./AppActiveThreadModel.ts", import.meta.url), "utf8");
 const appAgentMemoryControlsSource = readFileSync(new URL("./AppAgentMemoryControls.ts", import.meta.url), "utf8");
+const appProviderRuntimeStateSource = readFileSync(new URL("./AppProviderRuntimeState.ts", import.meta.url), "utf8");
 const appShellLayoutSource = readFileSync(new URL("./AppShellLayout.tsx", import.meta.url), "utf8");
 const appShellCommandActionsSource = readFileSync(new URL("./AppShellCommandActions.ts", import.meta.url), "utf8");
 const appTopbarSource = readFileSync(new URL("./AppTopbar.tsx", import.meta.url), "utf8");
@@ -20,8 +28,8 @@ const stylesSource = readFileSync(new URL("./styles.css", import.meta.url), "utf
 
 describe("settings layout", () => {
   it("keeps Search & Web provider controls full-width and responsive", () => {
-    expect(settingsWebResearchSource).toContain('className="web-research-settings-row"');
-    expect(settingsWebResearchSource).toContain('className="settings-mini-row web-research-provider-row"');
+    expect(settingsWebResearchSurfaceSource).toContain('className="web-research-settings-row"');
+    expect(settingsWebResearchSurfaceSource).toContain('className="settings-mini-row web-research-provider-row"');
     expect(stylesSource).toContain(".settings-row.web-research-settings-row");
     expect(stylesSource).toContain("justify-items: stretch;");
     expect(stylesSource).toContain(".settings-row.web-research-settings-row .settings-row-control > *");
@@ -118,32 +126,34 @@ describe("settings layout", () => {
   it("surfaces experimental agent memory diagnostics in settings", () => {
     expect(settingsCoreSource).toContain("AgentMemoryStarterCard");
     expect(settingsCoreSource).toContain("Advanced controls");
-    expect(settingsControllerSource).toContain("loadAgentMemoryStarterStatus");
-    expect(settingsControllerSource).toContain("applyAgentMemoryStarterStatus");
-    expect(settingsControllerSource).toContain("confirmAgentMemoryClearFromSettings");
-    expect(settingsControllerSource).toContain("setAgentMemoryClearWorkspacePath(workspacePath)");
-    expect(settingsControllerSource).toContain("confirmedWorkspacePath !== workspacePath");
-    expect(settingsControllerSource).toContain("workspacePathRef.current !== confirmedWorkspacePath");
-    expect(settingsControllerSource).toContain("confirmation expired because the active workspace changed");
-    expect(settingsControllerSource).toContain("await onRefreshAgentMemoryDiagnostics()");
-    expect(settingsControllerSource).toContain("await loadAgentMemoryStarterStatus()");
+    expect(settingsControllerSource).toContain("useRightPanelSettingsAgentMemoryController");
+    expect(settingsControllerSource).toContain("...agentMemorySettingsController");
+    expect(settingsAgentMemoryControllerSource).toContain("loadAgentMemoryStarterStatus");
+    expect(settingsAgentMemoryControllerSource).toContain("applyAgentMemoryStarterStatus");
+    expect(settingsAgentMemoryControllerSource).toContain("confirmAgentMemoryClearFromSettings");
+    expect(settingsAgentMemoryControllerSource).toContain("setAgentMemoryClearWorkspacePath(workspacePath)");
+    expect(settingsAgentMemoryControllerSource).toContain("confirmedWorkspacePath !== workspacePath");
+    expect(settingsAgentMemoryControllerSource).toContain("workspacePathRef.current !== confirmedWorkspacePath");
+    expect(settingsAgentMemoryControllerSource).toContain("confirmation expired because the active workspace changed");
+    expect(settingsAgentMemoryControllerSource).toContain("await onRefreshAgentMemoryDiagnostics()");
+    expect(settingsAgentMemoryControllerSource).toContain("await loadAgentMemoryStarterStatus()");
     expect(appSettingsActionsSource).toContain("clearAgentMemory({ workspacePath: current.workspace.path })");
-    expect(settingsControllerSource).toContain("agentMemoryStarterEnableInputForMode(targetMode ?? settings.memory.mode)");
-    expect(settingsControllerSource).toContain('if (mode === "disabled") return { enableCurrentThread: true, enableNewThreads: true }');
-    expect(settingsControllerSource).toContain("return { enableCurrentThread: false, enableNewThreads: false }");
-    expect(settingsControllerSource).toContain("const repairInput");
-    expect(settingsControllerSource).toContain("enableCurrentThread: false");
-    expect(settingsControllerSource).toContain("enableAgentMemoryStarter(enableInput)");
-    expect(settingsControllerSource).toContain("agentMemoryStarterSettingsRefreshKey");
-    expect(settingsControllerSource).toContain(
+    expect(settingsAgentMemoryControllerSource).toContain("agentMemoryStarterEnableInputForMode(targetMode ?? settings.memory.mode)");
+    expect(settingsAgentMemoryControllerSource).toContain('if (mode === "disabled") return { enableCurrentThread: true, enableNewThreads: true }');
+    expect(settingsAgentMemoryControllerSource).toContain("return { enableCurrentThread: false, enableNewThreads: false }");
+    expect(settingsAgentMemoryControllerSource).toContain("const repairInput");
+    expect(settingsAgentMemoryControllerSource).toContain("enableCurrentThread: false");
+    expect(settingsAgentMemoryControllerSource).toContain("enableAgentMemoryStarter(enableInput)");
+    expect(settingsAgentMemoryControllerSource).toContain("agentMemoryStarterSettingsRefreshKey");
+    expect(settingsAgentMemoryControllerSource).toContain(
       "[panel, workspacePath, activeThreadId, activeThreadMemoryEnabled, agentMemoryStarterSettingsKey]",
     );
-    expect(settingsControllerSource).not.toContain("settings.memory]");
-    expect(settingsControllerSource).toContain("onApplyMemorySettingsSnapshot(result.status.settings.memory)");
-    expect(rightPanelSource).toContain(
+    expect(settingsAgentMemoryControllerSource).not.toContain("settings.memory]");
+    expect(settingsAgentMemoryControllerSource).toContain("onApplyMemorySettingsSnapshot(result.status.settings.memory)");
+    expect(rightPanelControllerGraphSource).toContain(
       "activeThreadMemoryEnabled: Boolean(state.threads.find((thread) => thread.id === state.activeThreadId)?.memoryEnabled)",
     );
-    expect(rightPanelSource).toContain("onApplyMemorySettingsSnapshot");
+    expect(rightPanelControllerGraphSource).toContain("onApplyMemorySettingsSnapshot");
     expect(settingsCoreSource).toContain("agentMemoryStarterPrimaryAction(status)");
     expect(settingsCoreSource).toContain("agentMemoryStarterSetupAction(status)");
     expect(settingsCoreSource).toContain("agentMemoryStarterRepairButtonLabel(status, setupAction)");
@@ -160,8 +170,8 @@ describe("settings layout", () => {
     expect(settingsCoreSource).toContain('if (actionsDisabled && nextMode !== "disabled") return;');
     expect(settingsCoreSource).toContain('disabled={actionsDisabled && mode !== "disabled"}');
     expect(appTopbarSource).toContain('aria-label="Memory for this thread"');
-    expect(appSource).toContain('activeThread?.kind !== "subagent_child" &&');
-    expect(appSource).toContain("isAmbientTencentDbMemoryEnabled(state.featureFlagSnapshot)");
+    expect(appActiveThreadModelSource).toContain('activeThread?.kind !== "subagent_child" &&');
+    expect(appActiveThreadModelSource).toContain("isAmbientTencentDbMemoryEnabled(state.featureFlagSnapshot)");
     expect(appShellLayoutSource).toContain("memoryMode: showTopbarThreadMemoryToggle ? state.settings.memory.mode : undefined");
     expect(appShellLayoutSource).toContain("void updateThreadSettings({ memoryEnabled: enabled });");
     expect(appShellCommandActionsSource).toContain("setState((current) => {");
@@ -175,11 +185,13 @@ describe("settings layout", () => {
     expect(settingsCoreSource).toContain("Memory privacy");
     expect(settingsCoreSource).toContain("Embeddings endpoint");
     expect(settingsCoreSource).toContain("onRunAgentMemoryEmbeddingLifecycleAction");
-    expect(rightPanelSource).toContain("runAgentMemoryEmbeddingLifecycleActionFromSettings");
-    expect(rightPanelSource).toContain("settingsPane.applyAgentMemoryStarterStatus(result.starterStatus)");
-    expect(rightPanelSource).toContain("await settingsPane.loadAgentMemoryStarterStatus()");
-    expect(rightPanelSource).toContain("void runAgentMemoryEmbeddingLifecycleActionFromSettings(action)");
-    expect(appSource).toContain("agentMemoryDiagnosticsRequestSeq");
+    expect(rightPanelControllerGraphSource).toContain("runAgentMemoryEmbeddingLifecycleActionFromSettings");
+    expect(rightPanelControllerGraphSource).toContain("settingsPane.applyAgentMemoryStarterStatus(result.starterStatus)");
+    expect(rightPanelControllerGraphSource).toContain("await settingsPane.loadAgentMemoryStarterStatus()");
+    expect(rightPanelControllerGraphSource).toContain(
+      "onRunAgentMemoryEmbeddingLifecycleActionFromSettings: runAgentMemoryEmbeddingLifecycleActionFromSettings",
+    );
+    expect(appProviderRuntimeStateSource).toContain("agentMemoryDiagnosticsRequestSeq");
     expect(appAgentMemoryControlsSource).toContain("requestId !== agentMemoryDiagnosticsRequestSeqRef.current");
     expect(appAgentMemoryControlsSource).toContain(
       "agentMemoryDiagnosticsRequestSeqRef.current += 1;\n      setAgentMemoryDiagnosticsLoading(false);",

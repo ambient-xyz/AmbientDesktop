@@ -18,6 +18,7 @@ import type {
   MessagingSyntheticRouteResult,
   RuntimeSurfaceSnapshot,
 } from "../../shared/messagingGateway";
+import { MessagingGatewayLifecycleController } from "./messagingGatewayLifecycleController";
 import { messagingProjectionText, routeMessagingInboundEvent, routeSyntheticMessagingEvent } from "./messagingGatewayProjection";
 import type { MessagingGatewayReadinessProbe } from "./messagingProviderReadiness";
 import { buildRemoteSurfaceRelaySummaries, relaySummaryTextLines } from "./messagingRelayStatus";
@@ -75,7 +76,7 @@ export interface MessagingGatewayInboundDispatchResult {
   runtimeStatus: MessagingGatewayRuntimeStatus;
 }
 
-interface AdapterRuntimeRecord {
+export interface AdapterRuntimeRecord {
   state: MessagingGatewayAdapterState;
   mode: MessagingGatewayAdapterMode;
   syntheticEventCount: number;
@@ -90,6 +91,7 @@ export class MessagingGatewayRunner {
   private readonly providers: MessagingGatewayProviderRegistryLike;
   private readonly readinessProbes: Record<string, MessagingGatewayReadinessProbe>;
   private readonly bridgeSupervisors: Record<string, MessagingGatewayBridgeSupervisor>;
+  private readonly lifecycleController: MessagingGatewayLifecycleController;
   private readonly now: () => Date;
   private readonly maxQueuedProjections: number;
   private readonly maxRecentEvents: number;
@@ -110,6 +112,19 @@ export class MessagingGatewayRunner {
     for (const descriptor of this.providers.descriptors()) {
       this.adapterStates.set(descriptor.providerId, stoppedRecord());
     }
+    this.lifecycleController = new MessagingGatewayLifecycleController({
+      providers: this.providers,
+      bridgeSupervisors: this.bridgeSupervisors,
+      now: () => this.now(),
+      adapterRecord: (providerId) => this.adapterRecord(providerId),
+      refreshProviderReadiness: (providerId) => this.refreshProviderReadiness(providerId),
+      runtimeStatus: () => this.runtimeStatus(),
+      recordError: (providerId, message) => this.recordError(providerId, message),
+      setRuntimeState: (status, lastError) => {
+        this.status = status;
+        this.lastError = lastError;
+      },
+    });
   }
 
   runtimeStatus(): MessagingGatewayRuntimeStatus {
@@ -135,80 +150,7 @@ export class MessagingGatewayRunner {
     providerId: string;
     mode?: MessagingGatewayLifecycleMode;
   }): MessagingGatewayLifecyclePreview {
-    const action = input.action;
-    if (action !== "start" && action !== "stop") throw new Error("action must be start or stop.");
-    const providerId = input.providerId.trim();
-    const provider = this.providers.get(providerId)?.descriptor;
-    if (!provider) throw this.recordError(providerId, `Ambient messaging provider not found: ${input.providerId}`);
-    const mode = input.mode ?? "synthetic";
-    if (mode !== "synthetic" && mode !== "real") throw new Error("mode must be synthetic or real.");
-    const realStart = action === "start" && mode === "real";
-    const realStop = action === "stop" && mode === "real";
-    const record = this.adapterRecord(provider.providerId);
-    const readiness = record.readiness;
-    const bridgeSupervisor = this.bridgeSupervisors[provider.providerId]?.status();
-    const canLaunchBridgeProcess = Boolean(bridgeSupervisor && bridgeSupervisor.state !== "missing");
-    const implementationReady = provider.implementation.runtimeLifecycleEnabled;
-    const canApplyRealStart = Boolean(readiness?.configured && readiness.apiCredentialsPresent && (readiness.bridgeReachable || canLaunchBridgeProcess));
-    const implementationPolicyNotes = implementationReady
-      ? [`Provider implementation status: ${provider.implementation.status}; runtime lifecycle is enabled.`]
-      : [
-        `Provider implementation status: ${provider.implementation.status}; runtime lifecycle is disabled until a reviewed adapter is implemented.`,
-        ...provider.implementation.notes,
-      ];
-    const readinessPolicyNotes = readiness
-      ? [
-        `Current readiness: ${readiness.status}; configured=${readiness.configured ? "yes" : "no"}; bridgeReachable=${readiness.bridgeReachable ? "yes" : "no"}; authNeeded=${readiness.authNeeded ? "yes" : "no"}.`,
-      ]
-      : [
-        "Current readiness has not been refreshed in this runner instance; call ambient_messaging_gateway_status before real startup planning.",
-      ];
-    const realModeNextSteps = readiness
-      ? readinessNextSteps(readiness)
-      : ["Refresh provider readiness before applying or explaining any real provider bridge startup."];
-    return {
-      action,
-      providerId: provider.providerId,
-      label: provider.label,
-      mode,
-      approvalRequired: mode === "real",
-      canApplyNow: implementationReady && (mode === "synthetic" || (mode === "real" && (action === "stop" || canApplyRealStart))),
-      wouldStartRealBridge: implementationReady && realStart,
-      wouldStopRealBridge: implementationReady && realStop,
-      wouldAttachExistingBridge: implementationReady && realStart && readiness?.bridgeReachable === true,
-      wouldLaunchBridgeProcess: implementationReady && realStart && readiness?.bridgeReachable !== true && canLaunchBridgeProcess,
-      wouldStopBridgeProcess: implementationReady && realStop && bridgeSupervisor?.managed === true,
-      wouldDetachRunnerOnly: implementationReady && realStop && bridgeSupervisor?.managed !== true,
-      wouldReadProviderMessages: false,
-      wouldSendProviderMessages: false,
-      ...(bridgeSupervisor ? { bridgeSupervisor } : {}),
-      ...(readiness ? { readiness } : {}),
-      policyNotes: [
-        "Provider lifecycle is separate from binding lifecycle; a provider bridge does not grant permission to expose Ambient runtime state.",
-        "Real provider bridge startup must be approval-gated and tied to configured auth/session state before later ingestion can read provider messages.",
-        "This lifecycle layer starts or attaches bridge process state only; inbound ingestion and outbound sending remain disabled.",
-        "Messaging Connector and Remote Ambient Surface sessions remain purpose-isolated even when they share a provider adapter.",
-        ...implementationPolicyNotes,
-        ...readinessPolicyNotes,
-      ],
-      nextSteps: !implementationReady
-        ? [
-          "Treat this provider as metadata-only for now.",
-          provider.implementation.bindingLifecycleEnabled
-            ? "Only provider-specific binding tools documented in the provider notes may persist metadata; do not start lifecycle, ingest messages, or send replies until implementation status is available."
-            : "Do not create bindings, start lifecycle, ingest messages, or send replies for this provider until implementation status is available.",
-          "Use ambient_messaging_provider_status to inspect the provider implementation notes and plan the adapter.",
-        ]
-        : mode === "synthetic"
-        ? [
-          "Use ambient_messaging_synthetic_route to dogfood normalized inbound routing without provider network access.",
-          "Use ambient_messaging_gateway_status to inspect synthetic events and queued projections.",
-        ]
-        : [
-          ...realModeNextSteps,
-          "Show the user provider auth/session, storage, network, read, and send consequences before approval.",
-        ],
-    };
+    return this.lifecycleController.previewLifecycle(input);
   }
 
   async applyLifecycle(input: {
@@ -217,107 +159,11 @@ export class MessagingGatewayRunner {
     mode?: MessagingGatewayLifecycleMode;
     approvalRecorded?: boolean;
   }): Promise<MessagingGatewayLifecycleApplyResult> {
-    const preview = this.previewLifecycle(input);
-    const approvalRecorded = input.approvalRecorded === true;
-    const provider = this.providers.get(preview.providerId)?.descriptor;
-    if (!provider?.implementation.runtimeLifecycleEnabled) {
-      return this.blockedLifecycleApply(preview, `Messaging provider lifecycle is not implemented for ${preview.providerId}.`, approvalRecorded);
-    }
-    if (preview.mode === "real" && !approvalRecorded) {
-      return this.blockedLifecycleApply(preview, "Real provider lifecycle changes require explicit user approval before apply.", approvalRecorded);
-    }
-    const record = this.adapterRecord(preview.providerId);
-    const appliedAt = this.now().toISOString();
-
-    if (preview.mode === "synthetic") {
-      if (preview.action === "start") {
-        record.state = "synthetic-active";
-        record.mode = "synthetic";
-        record.lastError = undefined;
-      } else {
-        record.state = "stopped";
-        record.mode = "none";
-        record.lastError = undefined;
-      }
-      record.lastActivityAt = appliedAt;
-      this.status = "idle";
-      this.lastError = undefined;
-      return this.lifecycleApplyResult(preview, {
-        applyStatus: "applied",
-        applied: true,
-        approvalRecorded,
-      });
-    }
-
-    if (preview.action === "start") {
-      const readiness = preview.readiness;
-      if (!readiness) {
-        return this.blockedLifecycleApply(preview, "Provider readiness must be refreshed before real bridge startup.", approvalRecorded);
-      }
-      if (!readiness.configured) {
-        return this.blockedLifecycleApply(preview, "Telegram session metadata is not configured.", approvalRecorded);
-      }
-      if (!readiness.apiCredentialsPresent) {
-        return this.blockedLifecycleApply(preview, "Telegram API credentials are not available to the runtime.", approvalRecorded);
-      }
-      if (!readiness.bridgeReachable) {
-        const supervisor = this.bridgeSupervisors[preview.providerId];
-        if (!supervisor) {
-          return this.blockedLifecycleApply(preview, "No reachable Telegram bridge root was found, and no bridge process supervisor is registered.", approvalRecorded);
-        }
-        const supervisorStatus = supervisor.status();
-        if (supervisorStatus.state === "missing") {
-          return this.blockedLifecycleApply(preview, supervisorStatus.lastError ?? "Telegram bridge process supervisor is missing its launch target.", approvalRecorded);
-        }
-        const record = this.adapterRecord(preview.providerId);
-        record.state = "starting";
-        record.mode = "real";
-        record.lastError = undefined;
-        record.lastActivityAt = appliedAt;
-        await supervisor.start({ readiness });
-        const [refreshed] = await this.refreshProviderReadiness(preview.providerId);
-        if (!refreshed?.bridgeReachable) {
-          return this.blockedLifecycleApply(
-            this.previewLifecycle(input),
-            "Telegram bridge process was launched, but the safe root health probe is still not reachable.",
-            approvalRecorded,
-          );
-        }
-      }
-      record.state = "running";
-      record.mode = "real";
-      record.lastActivityAt = appliedAt;
-      record.lastError = undefined;
-      this.status = "idle";
-      this.lastError = undefined;
-      return this.lifecycleApplyResult(preview, {
-        applyStatus: "applied",
-        applied: true,
-        approvalRecorded,
-      });
-    }
-
-    const supervisor = this.bridgeSupervisors[preview.providerId];
-    if (supervisor?.status().managed) {
-      await supervisor.stop();
-    }
-    record.state = "stopped";
-    record.mode = "none";
-    record.lastActivityAt = appliedAt;
-    record.lastError = undefined;
-    this.status = "idle";
-    this.lastError = undefined;
-    return this.lifecycleApplyResult(preview, {
-      applyStatus: "applied",
-      applied: true,
-      approvalRecorded,
-    });
+    return this.lifecycleController.applyLifecycle(input);
   }
 
   async refreshProviderReadiness(providerId?: string): Promise<MessagingGatewayProviderReadiness[]> {
-    const ids = providerId?.trim()
-      ? [providerId.trim()]
-      : Object.keys(this.readinessProbes);
+    const ids = providerId?.trim() ? [providerId.trim()] : Object.keys(this.readinessProbes);
     const results: MessagingGatewayProviderReadiness[] = [];
     for (const id of ids) {
       const provider = this.providers.get(id)?.descriptor;
@@ -499,9 +345,12 @@ export class MessagingGatewayRunner {
     const unknownStatuses = [...this.adapterStates.entries()]
       .filter(([providerId]) => !knownProviderIds.has(providerId))
       .map(([providerId]) => this.statusForProvider(providerId, providerId));
-    return [...knownStatuses, ...unknownStatuses].sort((a, b) => this.runtimeProviderSortRank(a.providerId) - this.runtimeProviderSortRank(b.providerId)
-      || a.label.localeCompare(b.label)
-      || a.providerId.localeCompare(b.providerId));
+    return [...knownStatuses, ...unknownStatuses].sort(
+      (a, b) =>
+        this.runtimeProviderSortRank(a.providerId) - this.runtimeProviderSortRank(b.providerId) ||
+        a.label.localeCompare(b.label) ||
+        a.providerId.localeCompare(b.providerId),
+    );
   }
 
   private statusForProvider(providerId: string, label: string): MessagingGatewayAdapterRuntimeStatus {
@@ -535,41 +384,6 @@ export class MessagingGatewayRunner {
   private runtimeProviderSortRank(providerId: string): number {
     return this.providers.get(providerId)?.descriptor.implementation.status === "available" ? 0 : 1;
   }
-
-  private blockedLifecycleApply(preview: MessagingGatewayLifecyclePreview, blockedReason: string, approvalRecorded = false): MessagingGatewayLifecycleApplyResult {
-    const record = this.adapterRecord(preview.providerId);
-    record.lastActivityAt = this.now().toISOString();
-    record.lastError = blockedReason;
-    this.status = "error";
-    this.lastError = blockedReason;
-    return this.lifecycleApplyResult(preview, {
-      applyStatus: "blocked",
-      applied: false,
-      approvalRecorded,
-      blockedReason,
-    });
-  }
-
-  private lifecycleApplyResult(
-    preview: MessagingGatewayLifecyclePreview,
-    apply: {
-      applyStatus: MessagingGatewayLifecycleApplyResult["applyStatus"];
-      applied: boolean;
-      approvalRecorded: boolean;
-      blockedReason?: string;
-    },
-  ): MessagingGatewayLifecycleApplyResult {
-    const bridgeSupervisor = this.bridgeSupervisors[preview.providerId]?.status();
-    return {
-      ...preview,
-      ...(bridgeSupervisor ? { bridgeSupervisor } : {}),
-      applyStatus: apply.applyStatus,
-      applied: apply.applied,
-      approvalRecorded: apply.approvalRecorded,
-      ...(apply.blockedReason ? { blockedReason: apply.blockedReason } : {}),
-      runtimeStatus: this.runtimeStatus(),
-    };
-  }
 }
 
 export function messagingGatewayRuntimeStatusText(status: MessagingGatewayRuntimeStatus): string {
@@ -583,10 +397,18 @@ export function messagingGatewayRuntimeStatusText(status: MessagingGatewayRuntim
     `Queued projections: ${status.queuedProjectionCount}`,
     `Recent events: ${status.recentEventCount}`,
     `Outbound deliveries: ${status.outboundDeliveryCount}`,
-    typeof status.pendingRemoteSurfaceRuntimeEventCount === "number" ? `Pending Remote Ambient Surface runtime events: ${status.pendingRemoteSurfaceRuntimeEventCount}` : undefined,
-    typeof status.recentRemoteSurfaceRuntimeEventCount === "number" ? `Recent Remote Ambient Surface runtime events: ${status.recentRemoteSurfaceRuntimeEventCount}` : undefined,
-    typeof status.relayableRemoteSurfaceRuntimeEventCount === "number" ? `Relayable Remote Ambient Surface runtime events: ${status.relayableRemoteSurfaceRuntimeEventCount}` : undefined,
-    typeof status.alreadyRelayedRemoteSurfaceRuntimeEventCount === "number" ? `Already relayed Remote Ambient Surface runtime events: ${status.alreadyRelayedRemoteSurfaceRuntimeEventCount}` : undefined,
+    typeof status.pendingRemoteSurfaceRuntimeEventCount === "number"
+      ? `Pending Remote Ambient Surface runtime events: ${status.pendingRemoteSurfaceRuntimeEventCount}`
+      : undefined,
+    typeof status.recentRemoteSurfaceRuntimeEventCount === "number"
+      ? `Recent Remote Ambient Surface runtime events: ${status.recentRemoteSurfaceRuntimeEventCount}`
+      : undefined,
+    typeof status.relayableRemoteSurfaceRuntimeEventCount === "number"
+      ? `Relayable Remote Ambient Surface runtime events: ${status.relayableRemoteSurfaceRuntimeEventCount}`
+      : undefined,
+    typeof status.alreadyRelayedRemoteSurfaceRuntimeEventCount === "number"
+      ? `Already relayed Remote Ambient Surface runtime events: ${status.alreadyRelayedRemoteSurfaceRuntimeEventCount}`
+      : undefined,
     status.lastError ? `Last error: ${status.lastError}` : undefined,
     "",
     "Providers:",
@@ -607,7 +429,8 @@ export function messagingGatewayRuntimeStatusText(status: MessagingGatewayRuntim
       lines.push(`  Auth needed: ${provider.readiness.authNeeded ? "yes" : "no"}`);
       lines.push(`  API credentials present: ${provider.readiness.apiCredentialsPresent ? "yes" : "no"}`);
       lines.push(`  Persisted sessions: ${provider.readiness.persistedSessionCount}`);
-      if (typeof provider.readiness.bridgeSessionCount === "number") lines.push(`  Bridge sessions: ${provider.readiness.bridgeSessionCount}`);
+      if (typeof provider.readiness.bridgeSessionCount === "number")
+        lines.push(`  Bridge sessions: ${provider.readiness.bridgeSessionCount}`);
       lines.push(`  Readiness message: ${provider.readiness.message}`);
       if (provider.readiness.repairHint) lines.push(`  Readiness repair: ${provider.readiness.repairHint}`);
       if (provider.readiness.diagnostics.length) {
@@ -731,7 +554,9 @@ export function messagingGatewayLifecyclePreviewText(preview: MessagingGatewayLi
     "",
     "Next steps:",
     ...preview.nextSteps.map((step) => `- ${step}`),
-  ].filter((line): line is string => line !== undefined).join("\n");
+  ]
+    .filter((line): line is string => line !== undefined)
+    .join("\n");
 }
 
 export function messagingGatewayLifecycleApplyResultText(result: MessagingGatewayLifecycleApplyResult): string {
@@ -762,7 +587,9 @@ export function messagingGatewayLifecycleApplyResultText(result: MessagingGatewa
     "",
     "Policy notes:",
     ...result.policyNotes.map((note) => `- ${note}`),
-  ].filter((line): line is string => line !== undefined).join("\n");
+  ]
+    .filter((line): line is string => line !== undefined)
+    .join("\n");
 }
 
 export function messagingGatewayQueuedProjectionText(projection: MessagingGatewayQueuedProjection): string {
@@ -776,7 +603,9 @@ export function messagingGatewayQueuedProjectionText(projection: MessagingGatewa
     `Queued at: ${projection.queuedAt}`,
     "",
     messagingProjectionText(projection.projection),
-  ].filter((line): line is string => Boolean(line)).join("\n");
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
 }
 
 function stoppedRecord(): AdapterRuntimeRecord {
@@ -794,31 +623,6 @@ function inboundDropReason(result: MessagingSyntheticRouteResult): string | unde
   if (result.binding.purpose !== "remote_ambient_surface") return "Matched binding is not a Remote Ambient Surface binding.";
   if (result.projection.kind === "sender_not_authorized") return "Sender does not match the Remote Ambient Surface owner binding.";
   return undefined;
-}
-
-function readinessNextSteps(readiness: MessagingGatewayProviderReadiness): string[] {
-  if (!readiness.configured) {
-    return [
-      "Create or bind a Telegram auth profile/session before real bridge startup.",
-      "Keep real inbound ingestion disabled until the approved session exists.",
-    ];
-  }
-  if (!readiness.apiCredentialsPresent) {
-    return [
-      "Bind Telegram API credentials through Ambient-managed secret/env flow before real bridge startup.",
-      "Keep secret values out of chat, tool arguments, logs, descriptors, and artifacts.",
-    ];
-  }
-  if (!readiness.bridgeReachable) {
-    return [
-      "Preview and approve starting the local Telegram bridge process.",
-      "After startup, refresh readiness again before enabling inbound ingestion.",
-    ];
-  }
-  return [
-    "Refresh or verify Telegram session status through an approval-gated adapter path before inbound ingestion.",
-    "Keep outbound send disabled until a purpose-scoped binding and send approval policy are in place.",
-  ];
 }
 
 function trimStart<T>(items: T[], max: number): void {

@@ -1,5 +1,5 @@
 import { Plug, Plus, Shield, Zap } from "lucide-react";
-import type { AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, AmbientMcpDefaultCapabilityInstallProgress } from "../../shared/pluginTypes";
+import type { AmbientMcpContainerRuntimeLifecycleAction, AmbientMcpContainerRuntimeLifecyclePreview, AmbientMcpContainerRuntimeLifecycleProgress, AmbientMcpContainerRuntimeLifecycleResult, AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, AmbientMcpDefaultCapabilityInstallProgress } from "../../shared/pluginTypes";
 import {
   mcpContainerRuntimeDetailRows,
   mcpContainerRuntimeDiagnosticsActionState,
@@ -16,6 +16,7 @@ import {
   mcpContainerRuntimeInstallProgressStatus,
   mcpDefaultCapabilityInstallProgressStatus,
 } from "./RightPanelPluginHost";
+import { McpContainerRuntimeLifecycleControls } from "./RightPanelMcpRuntimeLifecycleControls";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 
 export function mcpContainerRuntimeInstallBusyLabel(kind?: string): string {
@@ -29,12 +30,19 @@ export function McpContainerRuntimeDialog({
   diagnosticBusy,
   diagnosticStatus,
   actionStatus,
+  lifecyclePreview,
+  lifecycleResult,
+  lifecycleProgress,
+  lifecycleBusyKey,
+  lifecycleError,
   installProgress,
   defaultCapabilityInstallProgress,
   defaultCapabilityBusyKey,
   error,
   onRefresh,
   onLaunchInstall,
+  onPreviewLifecycle,
+  onRunLifecycle,
   onExportDiagnostics,
   onInstallDefaultCapability,
   onOpenPlugins,
@@ -46,12 +54,19 @@ export function McpContainerRuntimeDialog({
   diagnosticBusy: boolean;
   diagnosticStatus?: ApiKeyStatus;
   actionStatus?: ApiKeyStatus;
+  lifecyclePreview?: AmbientMcpContainerRuntimeLifecyclePreview;
+  lifecycleResult?: AmbientMcpContainerRuntimeLifecycleResult;
+  lifecycleProgress: AmbientMcpContainerRuntimeLifecycleProgress[];
+  lifecycleBusyKey?: string;
+  lifecycleError?: string;
   installProgress?: AmbientMcpContainerRuntimeManagedInstallProgress;
   defaultCapabilityInstallProgress?: AmbientMcpDefaultCapabilityInstallProgress;
   defaultCapabilityBusyKey?: string;
   error?: string;
   onRefresh: () => void;
   onLaunchInstall: (actionId?: string, mode?: "execute" | "dry-run") => void;
+  onPreviewLifecycle: (action: AmbientMcpContainerRuntimeLifecycleAction) => void;
+  onRunLifecycle: (action: AmbientMcpContainerRuntimeLifecycleAction) => void;
   onExportDiagnostics: () => void;
   onInstallDefaultCapability: (capabilityId: AmbientMcpDefaultCapabilityInstallInput["capabilityId"]) => void;
   onOpenPlugins: () => void;
@@ -173,6 +188,17 @@ export function McpContainerRuntimeDialog({
               </div>
             </div>
           )}
+          <McpContainerRuntimeLifecycleControls
+            status={status}
+            preview={lifecyclePreview}
+            result={lifecycleResult}
+            progress={lifecycleProgress}
+            error={lifecycleError}
+            busyKey={lifecycleBusyKey}
+            disabled={busy || launchBusy || diagnosticBusy || Boolean(defaultCapabilityBusyKey)}
+            onPreview={onPreviewLifecycle}
+            onRun={onRunLifecycle}
+          />
           {status?.defaultCapabilities.length ? (
             <div className="plugin-detail-panel">
               <div className="panel-section-heading">

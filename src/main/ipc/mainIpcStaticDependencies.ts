@@ -12,6 +12,11 @@ import {
   launchContainerRuntimeInstallAction,
 } from "../container-runtime/containerRuntimeInstallLauncher";
 import { executeContainerRuntimeManagedInstallAction } from "../container-runtime/containerRuntimeManagedInstaller";
+import {
+  previewContainerRuntimeLifecycleAction,
+  runContainerRuntimeLifecycleAction,
+} from "../container-runtime/containerRuntimeLifecycleService";
+import { writeContainerRuntimeLifecycleRedactedLog } from "../container-runtime/containerRuntimeLifecycleLogs";
 import { probeContainerRuntime } from "../container-runtime/containerRuntimeProbeService";
 import {
   recordContainerRuntimeDeferred,
@@ -102,6 +107,7 @@ type MainIpcStaticDependencyKey =
   | "parseThreadSettingsUpdate"
   | "permissionModeChangeAuditDetail"
   | "privilegedActionAdapterSelectionFromEnv"
+  | "previewContainerRuntimeLifecycleAction"
   | "probeContainerRuntime"
   | "recordContainerRuntimeDeferred"
   | "recordContainerRuntimeInstallLaunched"
@@ -110,6 +116,7 @@ type MainIpcStaticDependencyKey =
   | "restoreLatestGitCheckpoint"
   | "revalidateWorkflowArtifact"
   | "runWorkflowLab"
+  | "runContainerRuntimeLifecycleAction"
   | "saveAmbientApiKey"
   | "saveAmbientCliPackageEnvSecret"
   | "saveCapabilityBuilderEnvSecret"
@@ -123,6 +130,7 @@ type MainIpcStaticDependencyKey =
   | "unstageAllGitFiles"
   | "unstageGitFile"
   | "writeContainerRuntimeManagedInstallRedactedLog"
+  | "writeContainerRuntimeLifecycleRedactedLog"
   | "writeFile"
   | "writePrivilegedActionRedactedLog";
 
@@ -159,6 +167,7 @@ export const mainIpcStaticDependencies = {
   parseThreadSettingsUpdate,
   permissionModeChangeAuditDetail,
   privilegedActionAdapterSelectionFromEnv,
+  previewContainerRuntimeLifecycleAction,
   probeContainerRuntime,
   recordContainerRuntimeDeferred,
   recordContainerRuntimeInstallLaunched,
@@ -166,6 +175,7 @@ export const mainIpcStaticDependencies = {
   resolveWorkflowApproval,
   restoreLatestGitCheckpoint,
   revalidateWorkflowArtifact,
+  runContainerRuntimeLifecycleAction,
   runWorkflowLab,
   saveAmbientApiKey,
   saveAmbientCliPackageEnvSecret,
@@ -180,6 +190,7 @@ export const mainIpcStaticDependencies = {
   unstageAllGitFiles,
   unstageGitFile,
   writeContainerRuntimeManagedInstallRedactedLog,
+  writeContainerRuntimeLifecycleRedactedLog,
   writeFile,
   writePrivilegedActionRedactedLog,
 } satisfies Pick<RegisterMainIpcDependencies, MainIpcStaticDependencyKey>;

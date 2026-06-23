@@ -21,13 +21,17 @@ describe("App conversation message props", () => {
       baseInput({
         activeProjectHasBoard: true,
         canRetryContextRecovery: true,
+        messageTailVisible: false,
         onOpenPanel,
         state: desktopState({
           activeThreadId: "thread-2",
           activeWorkspace: { path: "/workspace-copy" },
           provider: { providerLabel: "Ambient" },
           providerCatalog: { cards: [] },
-          settings: { media: { generatedMediaAutoplay: true } },
+          settings: {
+            media: { generatedMediaAutoplay: true },
+            modelRuntime: { showPromptCacheStatus: false },
+          },
           workspace: { path: "/project-root" },
         }),
       }),
@@ -41,6 +45,7 @@ describe("App conversation message props", () => {
     expect(props.generatedMediaAutoplay).toBe(true);
     expect(props.hasProjectBoard).toBe(true);
     expect(props.canRetryContextRecovery).toBe(true);
+    expect(props.messageTailVisible).toBe(false);
 
     props.onOpenSettingsPanel();
     props.onOpenPluginsPanel();
@@ -256,7 +261,9 @@ function baseInput(input: Partial<AppConversationMessagesPropsInput> = {}): AppC
     running: false,
     runStatus: "idle",
     runStatusCardVisible: false,
+    runtimeStatusIndicators: [],
     scrollRef: { current: null },
+    messageTailVisible: true,
     showScrollToBottom: false,
     state: desktopState(),
     streamingAssistantId: undefined,
@@ -326,6 +333,7 @@ function appInputFromBase(input: AppConversationMessagesPropsInput): AppConversa
     coreLifecycleControls: {
       handleMessagesScroll: input.onMessagesScroll,
       jumpToLatestMessage: input.onJumpToLatestMessage,
+      messageTailVisible: input.messageTailVisible,
       scrollRef: input.scrollRef,
       showScrollToBottom: input.showScrollToBottom,
     },
@@ -363,6 +371,7 @@ function appInputFromBase(input: AppConversationMessagesPropsInput): AppConversa
       retryStatsByThread: { [input.state.activeThreadId]: input.retryStats },
       runActivityLinesByThread: input.runActivityLinesByThread,
       runStatus: input.runStatus,
+      runtimeStatusIndicatorsByThread: {},
       threadRunStatuses: input.threadRunStatuses,
     },
     runDerivedState: {
@@ -445,7 +454,10 @@ function desktopState(input: Record<string, unknown> = {}): DesktopState {
     messageVoiceStates: {},
     provider: { providerLabel: "Provider" },
     providerCatalog: {},
-    settings: { media: { generatedMediaAutoplay: false } },
+    settings: {
+      media: { generatedMediaAutoplay: false },
+      modelRuntime: { showPromptCacheStatus: false },
+    },
     subagentRunEvents: [],
     subagentMailboxEvents: [],
     threads: [],

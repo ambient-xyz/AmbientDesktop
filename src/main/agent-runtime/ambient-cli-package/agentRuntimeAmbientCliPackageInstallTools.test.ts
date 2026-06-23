@@ -176,6 +176,42 @@ describe("agentRuntimeAmbientCliPackageInstallTools", () => {
     expect(installAmbientCliPackageSource).not.toHaveBeenCalled();
   });
 
+  it("redacts credential-bearing Git sources from install progress metadata", async () => {
+    const workspace = { path: "/workspace" } as any;
+    const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
+    const installAmbientCliPackageSource = vi.fn(async () => packageFixture());
+    const onUpdate = vi.fn();
+    const source = "git+ext::https://user:secret@example.test/repo.git?auth=secret";
+
+    registerAmbientCliPackageInstallTool({
+      registerTool: (tool: any) => registeredTools.push(tool),
+    }, {
+      workspace,
+      getThread: () => ({ collaborationMode: "agent" }) as any,
+      previewAmbientCliPackageInstallSource: vi.fn(async () => previewFixture()),
+      installAmbientCliPackageSource,
+      resolveFirstPartyPluginPermission: vi.fn(async () => true),
+      markPluginToolsStale: vi.fn(),
+    });
+
+    await registeredTools[0].execute("install", {
+      source,
+      sha: "0123456789abcdef0123456789abcdef01234567",
+    }, undefined, onUpdate);
+
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: [{ type: "text", text: "Installing Ambient CLI package from git+ext::https://example.test/repo.git." }],
+      details: expect.objectContaining({
+        source: "git+ext::https://example.test/repo.git",
+      }),
+    }));
+    expect(installAmbientCliPackageSource).toHaveBeenCalledWith(workspace.path, {
+      source,
+      sha: "0123456789abcdef0123456789abcdef01234567",
+    });
+    expect(JSON.stringify(onUpdate.mock.calls)).not.toContain("secret");
+  });
+
   it("stops before install when approval is denied", async () => {
     const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
     const installAmbientCliPackageSource = vi.fn();

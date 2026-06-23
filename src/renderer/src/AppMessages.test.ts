@@ -4,6 +4,7 @@ import type { ChatMessage } from "../../shared/threadTypes";
 import {
   contextReferencesFromMetadata,
   countTextMatches,
+  formatMessageWallClockTime,
   isSessionContextMissingError,
   messageIsStreaming,
   messageIsStreamingForRender,
@@ -38,6 +39,19 @@ describe("message helpers", () => {
       { path: "README.md", name: "README.md", kind: "file", size: 12 },
       { path: "src", name: "src", kind: "directory", absolute: true },
     ]);
+  });
+
+  it("formats message timestamps as wall-clock time", () => {
+    const utcFormatter = new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone: "UTC",
+    });
+
+    expect(formatMessageWallClockTime("2026-06-04T18:18:30.000Z", utcFormatter)).toBe("18:18");
+    expect(formatMessageWallClockTime("not-a-date", utcFormatter)).toBeUndefined();
+    expect(formatMessageWallClockTime(undefined, utcFormatter)).toBeUndefined();
   });
 
   it("detects session context missing errors", () => {

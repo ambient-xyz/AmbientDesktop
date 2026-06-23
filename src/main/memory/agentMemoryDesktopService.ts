@@ -16,6 +16,7 @@ import {
 } from "../../shared/agentMemoryDiagnostics";
 import {
   agentMemoryModeAllowsManagedRuntime,
+  normalizeAgentMemorySettings,
   shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
   type AgentMemorySettings,
   type UpdateAgentMemorySettingsInput,
@@ -203,6 +204,51 @@ export function stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate(
     await runAgentMemoryEmbeddingLifecycleActionWithoutQueue({ action: "stop" }, host);
     emitProjectStateIfActive(host);
   });
+}
+
+export function runAgentMemoryStartupReconciliation(
+  reason: "project-runtime-created",
+  host: AgentMemoryDesktopProjectRuntimeHost,
+  options: {
+    featureEnabled?: boolean;
+    start?: typeof runAgentMemoryEmbeddingLifecycleAction;
+    stop?: typeof runAgentMemoryEmbeddingLifecycleAction;
+    warn?: (message: string) => void;
+  } = {},
+): void {
+  const start = options.start ?? runAgentMemoryEmbeddingLifecycleAction;
+  const stop = options.stop ?? runAgentMemoryEmbeddingLifecycleAction;
+  const warn = options.warn ?? console.warn;
+  const settings = normalizeAgentMemorySettings(host.store.getMemorySettings());
+  if (!settings.enabled || settings.adapter !== "tencentdb" || !agentMemoryModeAllowsManagedRuntime(settings)) return;
+  const featureEnabled = options.featureEnabled ?? isAmbientTencentDbMemoryEnabled(currentFeatureFlagSnapshot(host.store));
+  if (!shouldRunAgentMemoryStartupReconciliation(host, settings, featureEnabled)) return;
+  void start({ action: "start" }, host).then((result) => {
+    const currentSettings = normalizeAgentMemorySettings(host.store.getMemorySettings());
+    const currentFeatureEnabled = options.featureEnabled ?? isAmbientTencentDbMemoryEnabled(currentFeatureFlagSnapshot(host.store));
+    if (!shouldRunAgentMemoryStartupReconciliation(host, currentSettings, currentFeatureEnabled)) {
+      void stop({ action: "stop" }, host).catch((error) => {
+        warn(`Agent Memory ${reason} startup stop after opt-out failed: ${agentMemoryStarterErrorMessage(error)}`);
+      });
+      return;
+    }
+    if (result.status === "ready" || result.status === "started" || host.disposed) return;
+    warn(`[memory] ${reason} startup start completed with status=${result.status}: ${result.message}`);
+  }, (error) => {
+    warn(`Agent Memory ${reason} startup start failed: ${agentMemoryStarterErrorMessage(error)}`);
+  });
+}
+
+function shouldRunAgentMemoryStartupReconciliation(
+  host: AgentMemoryDesktopProjectRuntimeHost,
+  settings: AgentMemorySettings,
+  featureEnabled: boolean,
+): boolean {
+  if (host.disposed) return false;
+  if (!agentMemoryDefaultManagedEmbeddingAutoStartEnabledForFeature(settings, featureEnabled)) return false;
+  if (settings.mode === "enabled_all") return true;
+  if (settings.mode !== "per_thread") return false;
+  return host.store.listThreads().some((thread) => thread.kind !== "subagent_child" && Boolean(thread.memoryEnabled));
 }
 
 export async function getAgentMemoryDiagnostics(
@@ -680,7 +726,7 @@ function retainAgentMemoryEmbeddingRuntimeLease(
     (action === "start" || action === "restart") &&
     lifecycle.release &&
     lifecycle.leaseId &&
-    ["started", "restarted"].includes(lifecycle.status)
+    ["ready", "started", "restarted"].includes(lifecycle.status)
   ) {
     if (host.agentMemoryEmbeddingRuntimeLeaseId && host.agentMemoryEmbeddingRuntimeLeaseId !== lifecycle.leaseId) {
       releaseAgentMemoryEmbeddingRuntimeForHost(host, "Agent Memory embedding runtime lease replaced.");

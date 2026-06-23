@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
-import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
+import type { ChatMessage, PromptCacheTelemetry, ThreadSummary } from "../../shared/threadTypes";
 import {
   handleRuntimePromptSuccess,
   type RuntimePromptSuccessHandlerInput,
@@ -139,6 +139,7 @@ function baseInput(
 ): RuntimePromptSuccessHandlerInput & { events: DesktopEvent[] } {
   const events: DesktopEvent[] = [];
   const finalMessage = message();
+  let promptCacheTelemetry: PromptCacheTelemetry = { status: "pending" };
   return {
     threadId: "thread-1",
     runId: "run-1",
@@ -165,6 +166,10 @@ function baseInput(
     emptyAssistantRetryAttemptsUsed: 0,
     emptyAssistantRetryNextAttempt: 1,
     consumeSubagentParentControlAbort: vi.fn(async () => undefined),
+    currentPromptCacheTelemetry: vi.fn(() => promptCacheTelemetry),
+    completePromptCacheTelemetryIfPending: vi.fn((telemetry: PromptCacheTelemetry) => {
+      if (promptCacheTelemetry.status === "pending") promptCacheTelemetry = telemetry;
+    }),
     finishCurrentThinkingMessage: vi.fn(),
     suppressAssistantMessagesExceptCurrent: vi.fn(),
     suppressCurrentThinkingMessage: vi.fn(),
@@ -209,6 +214,7 @@ describe("handleRuntimePromptSuccess", () => {
 
     expect(input.consumeSubagentParentControlAbort).toHaveBeenCalledTimes(1);
     expect(input.finishCurrentThinkingMessage).toHaveBeenCalledWith("done", "thinking");
+    expect(input.completePromptCacheTelemetryIfPending).toHaveBeenCalledWith({ status: "unknown" });
     expect(input.recordContextUsageSnapshot).toHaveBeenCalledTimes(1);
     expect(input.commitThreadPiSessionFile).toHaveBeenCalledWith({
       sessionFile: "/tmp/current-session.jsonl",
@@ -220,13 +226,62 @@ describe("handleRuntimePromptSuccess", () => {
     expect(input.replaceAssistantMessage).toHaveBeenCalledWith(
       "assistant-1",
       "Final answer",
-      expect.objectContaining({ status: "done", runtime: "pi", provider: "ambient" }),
+      expect.objectContaining({
+        status: "done",
+        runtime: "pi",
+        provider: "ambient",
+        promptCache: { status: "unknown" },
+      }),
     );
     expect(input.finishParentRun).toHaveBeenCalledWith("done", undefined);
     expect(input.recordVoiceDispatch).toHaveBeenCalledWith(plannerMessage);
     expect(input.createPlannerRepairFollowUp).toHaveBeenCalledWith("Repair the durable plan.");
     expect(result.pendingPlannerRepairFollowUp).toMatchObject({ content: "Repair the durable plan." });
     expect(result.pendingEmptyResponseRetry).toBeUndefined();
+  });
+
+  it("persists prompt cache usage on successful final assistant metadata", async () => {
+    const input = baseInput({
+      lastAssistantTerminalEvent: {
+        eventType: "message_stop",
+        usage: {
+          input: 1400,
+          output: 60,
+          cacheRead: 1024,
+          cacheWrite: 0,
+          totalTokens: 1460,
+        },
+      },
+    });
+
+    await handleRuntimePromptSuccess(input);
+
+    expect(input.completePromptCacheTelemetryIfPending).toHaveBeenCalledWith({
+      status: "hit",
+      usage: {
+        input: 1400,
+        output: 60,
+        cacheRead: 1024,
+        cacheWrite: 0,
+        totalTokens: 1460,
+      },
+    });
+    expect(input.replaceAssistantMessage).toHaveBeenCalledWith(
+      "assistant-1",
+      "Final answer",
+      expect.objectContaining({
+        promptCache: {
+          status: "hit",
+          usage: {
+            input: 1400,
+            output: 60,
+            cacheRead: 1024,
+            cacheWrite: 0,
+            totalTokens: 1460,
+          },
+        },
+      }),
+    );
   });
 
   it("schedules empty assistant retries, disposes the current session, and clears the persisted session pointer", async () => {

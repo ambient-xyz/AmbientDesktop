@@ -1,6 +1,16 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
+import type {
+  AmbientMcpContainerRuntimeLifecycleCommand,
+  AmbientMcpContainerRuntimeLifecycleRunInput,
+  AmbientMcpContainerRuntimeStatus,
+} from "../../shared/pluginTypes";
+import {
+  previewContainerRuntimeLifecycleAction,
+  runContainerRuntimeLifecycleAction,
+  type ContainerRuntimeLifecycleRunOptions,
+} from "../container-runtime/containerRuntimeLifecycleService";
 import {
   pluginToolingDomainIpcChannels,
   registerPluginToolingDomainIpc,
@@ -33,7 +43,190 @@ describe("registerPluginToolingDomainIpc", () => {
     expect(deps.createMcpInstallCatalog).toHaveBeenCalledOnce();
     expect(searchRegistryServers).toHaveBeenCalledWith({ query: "browser", limit: 5 });
   });
+
+  it("runs container runtime lifecycle through the service and emits progress", async () => {
+    const { deps, invoke, lifecycleProgress, lifecycleResult } = registerWithFakes();
+
+    await expect(invoke("mcp:container-runtime-lifecycle-run", {
+      action: "restart",
+      expectedPreviewId: "docker:restart:daemon-unreachable:darwin",
+    })).resolves.toEqual({
+      ...lifecycleResult,
+      logPath: "/tmp/user-data/mcp-container-runtime/lifecycle-log.json",
+    });
+
+    expect(deps.runContainerRuntimeLifecycleAction).toHaveBeenCalledWith({
+      action: "restart",
+      expectedPreviewId: "docker:restart:daemon-unreachable:darwin",
+    }, expect.objectContaining({
+      getStatus: deps.probeAmbientMcpContainerRuntimeStatus,
+      onProgress: expect.any(Function),
+    }));
+    expect(deps.emitMainWindowDesktopEvent).toHaveBeenCalledWith({
+      type: "mcp-container-runtime-lifecycle-progress",
+      progress: lifecycleProgress,
+    });
+    expect(deps.writeContainerRuntimeLifecycleRedactedLog).toHaveBeenCalledWith("/tmp/user-data", lifecycleResult);
+  });
+
+  it("exercises a deterministic preview-run-progress-status lifecycle path without real runtime commands", async () => {
+    const { deps, invoke } = registerWithFakes();
+    const commands: AmbientMcpContainerRuntimeLifecycleCommand[] = [];
+    const wedged = lifecycleRuntimeStatus({
+      status: "installed-not-running",
+      reason: "daemon-unreachable",
+      message: "Docker Desktop is installed but unreachable.",
+    });
+    const ready = lifecycleRuntimeStatus({
+      status: "ready",
+      reason: "none",
+      message: "ToolHive preflight passed.",
+    });
+    const probeQueue = [wedged, wedged, ready];
+
+    deps.probeAmbientMcpContainerRuntimeStatus.mockImplementation(async () => probeQueue.shift() ?? ready);
+    deps.previewContainerRuntimeLifecycleAction.mockImplementation(previewContainerRuntimeLifecycleAction);
+    deps.runContainerRuntimeLifecycleAction.mockImplementation((input: AmbientMcpContainerRuntimeLifecycleRunInput, options: ContainerRuntimeLifecycleRunOptions) =>
+      runContainerRuntimeLifecycleAction(input, {
+        ...options,
+        commandRunner: async ({ command }) => {
+          commands.push(command);
+          return {
+            command,
+            stdout: "",
+            stderr: "",
+            exitCode: 0,
+            durationMs: 1,
+          };
+        },
+        pollIntervalMs: 0,
+        now: fixedLifecycleNow,
+      }));
+
+    const preview = await invoke("mcp:container-runtime-lifecycle-preview", {
+      action: "restart",
+      runtime: "docker",
+    });
+
+    expect(preview).toMatchObject({
+      schemaVersion: "ambient-container-runtime-lifecycle-preview-v1",
+      previewId: "docker:restart:daemon-unreachable:darwin",
+      status: "available",
+      runtime: "docker",
+      expectedInterruption: expect.stringContaining("including non-Ambient containers"),
+      commands: [
+        expect.objectContaining({ exe: "/usr/bin/osascript" }),
+        expect.objectContaining({ exe: "/usr/bin/open" }),
+      ],
+    });
+
+    const result = await invoke("mcp:container-runtime-lifecycle-run", {
+      action: "restart",
+      runtime: "docker",
+      expectedPreviewId: "docker:restart:daemon-unreachable:darwin",
+    });
+
+    expect(commands.map((command) => [command.exe, ...command.args].join(" "))).toEqual([
+      "/usr/bin/osascript -e tell application \"Docker\" to quit",
+      "/usr/bin/open -a Docker",
+    ]);
+    expect(result).toMatchObject({
+      schemaVersion: "ambient-container-runtime-lifecycle-result-v1",
+      status: "ready",
+      after: {
+        status: "ready",
+        message: "ToolHive preflight passed.",
+      },
+      logPath: "/tmp/user-data/mcp-container-runtime/lifecycle-log.json",
+    });
+    expect((result as { progress: Array<{ phase: string }> }).progress.map((progress) => progress.phase)).toEqual([
+      "previewed",
+      "graceful-stop-started",
+      "launch-started",
+      "probe-poll",
+      "ready",
+    ]);
+    const lifecycleEvents = (deps.emitMainWindowDesktopEvent.mock.calls as Array<[unknown]>).map((call) => call[0]);
+    expect(lifecycleEvents).toEqual([
+      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "previewed" }) }),
+      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "graceful-stop-started" }) }),
+      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "launch-started" }) }),
+      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "probe-poll" }) }),
+      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "ready" }) }),
+    ]);
+    expect(deps.writeContainerRuntimeLifecycleRedactedLog).toHaveBeenCalledWith("/tmp/user-data", expect.objectContaining({
+      status: "ready",
+      after: expect.objectContaining({ status: "ready" }),
+    }));
+    expect(deps.installMcpDefaultCapabilityForDesktop).not.toHaveBeenCalled();
+  });
 });
+
+function fixedLifecycleNow(): Date {
+  return new Date("2026-06-04T12:00:00.000Z");
+}
+
+function lifecycleRuntimeStatus(input: {
+  status: AmbientMcpContainerRuntimeStatus["status"];
+  reason: NonNullable<AmbientMcpContainerRuntimeStatus["reason"]>;
+  message: string;
+}): AmbientMcpContainerRuntimeStatus {
+  return {
+    schemaVersion: "ambient-container-runtime-probe-v1",
+    status: input.status,
+    runtime: "docker",
+    platform: "darwin",
+    arch: "arm64",
+    checkedAt: "2026-06-04T12:00:00.000Z",
+    durationMs: 10,
+    message: input.message,
+    reason: input.reason,
+    nextAction: input.status === "ready" ? "none" : "start-runtime",
+    toolHive: {
+      status: "ready",
+      message: input.status === "ready" ? "ToolHive ready" : "ToolHive ready but runtime unreachable",
+      preflightOk: input.status === "ready",
+    },
+    hosts: [
+      {
+        kind: "docker",
+        status: input.status === "ready" ? "ready" : "installed-not-running",
+        reason: input.reason,
+        message: input.message,
+      },
+    ],
+    setup: {
+      userDecision: "none",
+      shouldPrompt: false,
+      promptSuppressed: false,
+      reason: input.status === "ready" ? "runtime-ready" : "runtime-not-missing",
+    },
+    postInstallQueue: [
+      {
+        kind: "default-capability",
+        capabilityId: "scrapling",
+        status: input.status === "ready" ? "queued" : "blocked",
+      },
+    ],
+    defaultCapabilities: [
+      {
+        schemaVersion: "ambient-mcp-default-capability-v1",
+        capabilityId: "scrapling",
+        title: "Scrapling",
+        status: input.status === "ready" ? "blocked_approval" : "blocked_runtime",
+        nextAction: input.status === "ready" ? "approve-default-capability" : "install-runtime",
+        message: input.status === "ready"
+          ? "Runtime is ready. Scrapling is waiting for default capability approval."
+          : "Scrapling is blocked until the isolated runtime is ready.",
+        serverId: "io.github.d4vinci/scrapling",
+        workloadName: "ambient-scrapling",
+        runtimeStatus: input.status,
+        lastReconciledAt: "2026-06-04T12:00:00.000Z",
+        appVersion: "0.0.0-test",
+      },
+    ],
+  };
+}
 
 function registerWithFakes(): {
   catalog: { plugins: unknown[] };
@@ -41,6 +234,8 @@ function registerWithFakes(): {
   handlers: Map<string, IpcListener>;
   host: { workspacePath: string; store: Record<string, unknown> };
   invoke(channel: string, raw?: unknown): Promise<unknown>;
+  lifecycleProgress: { phase: string };
+  lifecycleResult: { schemaVersion: string; action: string; runtime: string; status: string; reason: string; message: string; progress: Array<{ phase: string }>; durationMs: number };
   searchRegistryServers: ReturnType<typeof vi.fn>;
   searchResults: Array<{ id: string }>;
 } {
@@ -48,6 +243,17 @@ function registerWithFakes(): {
   const catalog = { plugins: [] };
   const searchResults = [{ id: "server-1" }];
   const searchRegistryServers = vi.fn(() => searchResults);
+  const lifecycleProgress = { phase: "ready" };
+  const lifecycleResult = {
+    schemaVersion: "ambient-container-runtime-lifecycle-result-v1",
+    action: "restart",
+    runtime: "docker",
+    status: "ready",
+    reason: "none",
+    message: "Docker restart completed.",
+    progress: [lifecycleProgress],
+    durationMs: 10,
+  };
   const host = {
     workspacePath: "/tmp/workspace",
     store: {
@@ -120,7 +326,44 @@ function registerWithFakes(): {
     pluginStateReaderForStore: vi.fn(() => ({ plugins: [] })),
     privilegedActionAdapterSelectionFromEnv: vi.fn(),
     privilegedCredentials: { request: vi.fn() },
-    probeAmbientMcpContainerRuntimeStatus: vi.fn(),
+    previewContainerRuntimeLifecycleAction: vi.fn(() => ({
+      schemaVersion: "ambient-container-runtime-lifecycle-preview-v1",
+      previewId: "docker:restart:daemon-unreachable:darwin",
+      action: "restart",
+      runtime: "docker",
+      platform: "darwin",
+      status: "available",
+      reason: "daemon-unreachable",
+      summary: "Restart Docker Desktop.",
+      requiresConfirmation: false,
+      warnings: [],
+      targets: [],
+      commands: [],
+      expectedInterruption: "Docker restart can interrupt containers.",
+      createdAt: "2026-06-04T12:00:00.000Z",
+    })),
+    probeAmbientMcpContainerRuntimeStatus: vi.fn(async () => ({
+      schemaVersion: "ambient-container-runtime-probe-v1",
+      status: "installed-not-running",
+      runtime: "docker",
+      platform: "darwin",
+      arch: "arm64",
+      checkedAt: "2026-06-04T12:00:00.000Z",
+      durationMs: 10,
+      message: "Docker is not reachable.",
+      reason: "daemon-unreachable",
+      nextAction: "start-runtime",
+      toolHive: { status: "ready", message: "ToolHive ready" },
+      hosts: [],
+      setup: {
+        userDecision: "none",
+        shouldPrompt: false,
+        promptSuppressed: false,
+        reason: "runtime-not-missing",
+      },
+      postInstallQueue: [],
+      defaultCapabilities: [],
+    })),
     probeContainerRuntime: vi.fn(),
     readAmbientPluginRegistry: vi.fn(),
     readCodexHostedMarketplaceReport: vi.fn(),
@@ -133,10 +376,15 @@ function registerWithFakes(): {
     requireActiveProjectRuntimeHost: vi.fn(() => host),
     resetProjectRuntimeAndPluginServers: vi.fn(),
     resetRuntimeAndPluginServers: vi.fn(),
+    runContainerRuntimeLifecycleAction: vi.fn(async (_input, options) => {
+      options.onProgress(lifecycleProgress);
+      return lifecycleResult;
+    }),
     restartProjectRuntimeMcpRuntime: vi.fn(),
     stopManagedDevServer: vi.fn(),
     stopProjectRuntimeMcpRuntime: vi.fn(),
     uninstallMcpServerForDesktop: vi.fn(),
+    writeContainerRuntimeLifecycleRedactedLog: vi.fn(async () => "/tmp/user-data/mcp-container-runtime/lifecycle-log.json"),
     writeContainerRuntimeManagedInstallRedactedLog: vi.fn(),
     writePrivilegedActionRedactedLog: vi.fn(),
   };
@@ -153,6 +401,8 @@ function registerWithFakes(): {
       if (!handler) throw new Error(`Missing handler for ${channel}`);
       return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
     },
+    lifecycleProgress,
+    lifecycleResult,
     searchRegistryServers,
     searchResults,
   };

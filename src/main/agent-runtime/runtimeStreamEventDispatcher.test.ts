@@ -103,6 +103,9 @@ function setup() {
     replaceCurrentAssistant: vi.fn((content, metadata) => message({ id: "assistant-1", content, metadata })),
     finishCurrentAssistantMessage: vi.fn(),
     suppressAssistantMessagesExceptCurrent: vi.fn(),
+    currentPromptCacheTelemetry: vi.fn(() => ({ status: "pending" as const })),
+    applyPromptCacheTelemetry: vi.fn(() => []),
+    completePromptCacheTelemetryIfPending: vi.fn(() => []),
     ensureThinkingMessage: vi.fn(() => "thinking-1"),
     appendThinkingDelta: vi.fn((delta) => message({ id: "thinking-1", content: delta })),
     replaceCurrentThinking: vi.fn((content, metadata) => message({ id: "thinking-1", content, metadata })),
@@ -171,6 +174,32 @@ describe("createRuntimeStreamEventDispatcher", () => {
     expect(stateValues.assistantOutputChars).toBe(5);
     expect(runtimeMessages.appendAssistantDelta).toHaveBeenCalledWith("hello");
     expect(activeRunStatuses).toEqual(["streaming"]);
+  });
+
+  it("clears previous terminal usage when a new assistant request starts", () => {
+    const { dispatcher, stateValues, runtimeMessages, emptyAssistantStallWatchdog } = setup();
+    stateValues.lastAssistantTerminalEvent = {
+      eventType: "message_stop",
+      usage: {
+        input: 1200,
+        output: 24,
+        cacheRead: 900,
+        cacheWrite: 0,
+        totalTokens: 1224,
+      },
+    };
+
+    expect(dispatcher.handle({ kind: "unknown" }, {}, { assistantStartEvent: true })).toBe(true);
+    expect(stateValues.lastAssistantTerminalEvent).toBeUndefined();
+    expect(runtimeMessages.startAssistantMessage).toHaveBeenCalledTimes(1);
+    expect(emptyAssistantStallWatchdog.schedule).toHaveBeenCalledTimes(1);
+
+    expect(dispatcher.handle({
+      kind: "agent-end",
+      finalTexts: ["Done"],
+      errors: [],
+    }, { type: "agent_end" })).toBe(true);
+    expect(runtimeMessages.completePromptCacheTelemetryIfPending).toHaveBeenCalledWith({ status: "unknown" });
   });
 
   it("applies thinking events and finishes visible thinking messages", () => {
@@ -242,7 +271,85 @@ describe("createRuntimeStreamEventDispatcher", () => {
       "Visible  answer",
       expect.objectContaining({ status: "error", runtime: "pi", provider: "ambient" }),
     );
+    expect(runtimeMessages.applyPromptCacheTelemetry).toHaveBeenCalledWith({ status: "unknown" });
     expect(assistantTerminalCompletion.schedule).toHaveBeenCalledWith(25);
     expect(emittedEvents).toContainEqual(expect.objectContaining({ type: "message-updated" }));
+  });
+
+  it("applies prompt cache telemetry from assistant terminal usage", () => {
+    const { dispatcher, stateValues, runtimeMessages } = setup();
+
+    expect(dispatcher.handle({
+      kind: "assistant-end",
+      finalText: "Cached answer",
+    }, {
+      type: "message_stop",
+      message: {
+        usage: {
+          input: 1200,
+          output: 24,
+          cacheRead: 900,
+          cacheWrite: 0,
+          totalTokens: 1224,
+        },
+      },
+    })).toBe(true);
+
+    expect(stateValues.lastAssistantTerminalEvent?.usage).toEqual({
+      input: 1200,
+      output: 24,
+      cacheRead: 900,
+      cacheWrite: 0,
+      totalTokens: 1224,
+    });
+    expect(runtimeMessages.applyPromptCacheTelemetry).toHaveBeenCalledWith({
+      status: "hit",
+      usage: {
+        input: 1200,
+        output: 24,
+        cacheRead: 900,
+        cacheWrite: 0,
+        totalTokens: 1224,
+      },
+    });
+  });
+
+  it("keeps assistant terminal usage when agent-end replaces the terminal diagnostic", () => {
+    const { dispatcher, stateValues, runtimeMessages } = setup();
+    stateValues.lastAssistantTerminalEvent = {
+      eventType: "message_stop",
+      usage: {
+        input: 1200,
+        output: 24,
+        cacheRead: 900,
+        cacheWrite: 0,
+        totalTokens: 1224,
+      },
+    };
+
+    expect(dispatcher.handle({
+      kind: "agent-end",
+      finalTexts: ["Done"],
+      errors: [],
+    }, { type: "agent_end" })).toBe(true);
+
+    expect(stateValues.lastAssistantTerminalEvent?.eventType).toBe("agent_end");
+    expect(stateValues.lastAssistantTerminalEvent?.usage).toEqual({
+      input: 1200,
+      output: 24,
+      cacheRead: 900,
+      cacheWrite: 0,
+      totalTokens: 1224,
+    });
+    expect(runtimeMessages.completePromptCacheTelemetryIfPending).toHaveBeenCalledWith({
+      status: "hit",
+      usage: {
+        input: 1200,
+        output: 24,
+        cacheRead: 900,
+        cacheWrite: 0,
+        totalTokens: 1224,
+      },
+    });
   });
 });

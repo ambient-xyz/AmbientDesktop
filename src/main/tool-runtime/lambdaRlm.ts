@@ -121,6 +121,26 @@ export interface CreateLambdaRlmToolOptions {
   getRecentToolResultMessages?: () => Promise<unknown[]> | unknown[];
 }
 
+export interface LambdaRlmToolExecutionContext {
+  sessionManager?: {
+    getBranch?: () => unknown[];
+    getEntries?: () => unknown[];
+    buildSessionContext?: () => { messages?: unknown[] };
+  };
+}
+
+export type LambdaRlmToolUpdate = { content: { type: "text"; text: string }[]; details: Record<string, unknown> };
+
+export interface LambdaRlmToolResult {
+  content: { type: "text"; text: string }[];
+  details: Record<string, unknown>;
+}
+
+export interface LambdaRlmToolExecutionResult {
+  toolResult: LambdaRlmToolResult;
+  rawResponse: string;
+}
+
 const DEFAULT_CONTEXT_WINDOW_CHARS = 100_000;
 const DEFAULT_ACCURACY_TARGET = 0.80;
 const DEFAULT_A_LEAF = 0.95;
@@ -519,61 +539,78 @@ export function createLambdaRlmToolDefinition(options: CreateLambdaRlmToolOption
       onUpdate?: (update: LambdaRlmToolUpdate) => void,
       ctx?: LambdaRlmToolExecutionContext,
     ) => {
-      const input = normalizeToolInput(params);
-      const recentToolResultMessages = input.recentToolResults ? await resolveRecentToolResultMessages(options, ctx) : [];
-      const collected = await collectToolText(options, input, recentToolResultMessages, signal);
-      const timeoutMs = positiveNumber(input.timeoutMs, DEFAULT_MODEL_TIMEOUT_MS);
-      const maxOutputChars = Math.max(1, Math.floor(input.maxOutputChars ?? DEFAULT_MAX_OUTPUT_CHARS));
-      const query = input.question || input.instruction || "";
-
-      const result = await executeLambdaRlm({
-        text: collected.text,
-        taskType: input.taskType,
-        query,
-        contextWindowChars: input.contextWindowChars,
-        accuracyTarget: input.accuracyTarget,
-        aLeaf: input.aLeaf,
-        aCompose: input.aCompose,
-        maxModelCalls: input.maxModelCalls,
-        signal,
-        onProgress: (progress) => onUpdate?.(lambdaRlmToolUpdate(progress.message, progress)),
-        modelComplete:
-          options.modelComplete ??
-          ((prompt, callSignal) =>
-            completeAmbientText(options.model, prompt, {
-              apiKey: options.apiKey,
-              signal: callSignal,
-              timeoutMs,
-            })),
-      });
-
-      const truncated = result.response.length > maxOutputChars;
-      const response = truncated ? `${result.response.slice(0, maxOutputChars)}\n\n... truncated ...` : result.response;
-      return lambdaRlmToolResult(formatLambdaRlmResultText({ ...result, response }, truncated), {
-        runtime: "ambient-lambda-rlm",
-        toolName: "long_context_process",
-        sourceRepository: LAMBDA_RLM_SOURCE_REPOSITORY,
-        sourceCommit: LAMBDA_RLM_SOURCE_COMMIT,
-        taskType: result.taskType,
-        composeOp: result.composeOp,
-        plan: result.plan,
-        inputLength: result.inputLength,
-        chunkCount: result.chunkCount,
-        leafCount: result.leafCount,
-        inputSources: collected.sources,
-        modelCalls: result.modelCalls,
-        elapsedMs: result.elapsedMs,
-        truncated,
-      });
+      return executeLambdaRlmToolCall(options, params, signal, onUpdate, ctx);
     },
   };
 }
 
-interface LambdaRlmToolExecutionContext {
-  sessionManager?: {
-    getBranch?: () => unknown[];
-    getEntries?: () => unknown[];
-    buildSessionContext?: () => { messages?: unknown[] };
+export async function executeLambdaRlmToolCall(
+  options: CreateLambdaRlmToolOptions,
+  params: unknown,
+  signal?: AbortSignal,
+  onUpdate?: (update: LambdaRlmToolUpdate) => void,
+  ctx?: LambdaRlmToolExecutionContext,
+  toolName = "long_context_process",
+): Promise<LambdaRlmToolResult> {
+  return (await executeLambdaRlmToolExecution(options, params, signal, onUpdate, ctx, toolName)).toolResult;
+}
+
+export async function executeLambdaRlmToolExecution(
+  options: CreateLambdaRlmToolOptions,
+  params: unknown,
+  signal?: AbortSignal,
+  onUpdate?: (update: LambdaRlmToolUpdate) => void,
+  ctx?: LambdaRlmToolExecutionContext,
+  toolName = "long_context_process",
+): Promise<LambdaRlmToolExecutionResult> {
+  const input = normalizeToolInput(params, toolName);
+  const recentToolResultMessages = input.recentToolResults ? await resolveRecentToolResultMessages(options, ctx) : [];
+  const collected = await collectToolText(options, input, recentToolResultMessages, signal, toolName);
+  const timeoutMs = positiveNumber(input.timeoutMs, DEFAULT_MODEL_TIMEOUT_MS);
+  const maxOutputChars = Math.max(1, Math.floor(input.maxOutputChars ?? DEFAULT_MAX_OUTPUT_CHARS));
+  const query = input.question || input.instruction || "";
+
+  const result = await executeLambdaRlm({
+    text: collected.text,
+    taskType: input.taskType,
+    query,
+    contextWindowChars: input.contextWindowChars,
+    accuracyTarget: input.accuracyTarget,
+    aLeaf: input.aLeaf,
+    aCompose: input.aCompose,
+    maxModelCalls: input.maxModelCalls,
+    signal,
+    onProgress: (progress) => onUpdate?.(lambdaRlmToolUpdate(progress.message, progress, toolName)),
+    modelComplete:
+      options.modelComplete ??
+      ((prompt, callSignal) =>
+        completeAmbientText(options.model, prompt, {
+          apiKey: options.apiKey,
+          signal: callSignal,
+          timeoutMs,
+        })),
+  });
+
+  const truncated = result.response.length > maxOutputChars;
+  const response = truncated ? `${result.response.slice(0, maxOutputChars)}\n\n... truncated ...` : result.response;
+  return {
+    toolResult: lambdaRlmToolResult(formatLambdaRlmResultText({ ...result, response }, truncated), {
+      runtime: "ambient-lambda-rlm",
+      toolName,
+      sourceRepository: LAMBDA_RLM_SOURCE_REPOSITORY,
+      sourceCommit: LAMBDA_RLM_SOURCE_COMMIT,
+      taskType: result.taskType,
+      composeOp: result.composeOp,
+      plan: result.plan,
+      inputLength: result.inputLength,
+      chunkCount: result.chunkCount,
+      leafCount: result.leafCount,
+      inputSources: collected.sources,
+      modelCalls: result.modelCalls,
+      elapsedMs: result.elapsedMs,
+      truncated,
+    }),
+    rawResponse: result.response,
   };
 }
 
@@ -689,6 +726,7 @@ async function collectToolText(
   input: LambdaRlmToolInput,
   recentToolResultMessages: unknown[],
   signal?: AbortSignal,
+  toolName = "long_context_process",
 ): Promise<CollectedLambdaRlmText> {
   const workspacePath = options.workspacePath;
   const parts: string[] = [];
@@ -700,7 +738,7 @@ async function collectToolText(
 
   for (const requestedPath of input.workspacePaths ?? []) {
     throwIfAborted(signal);
-    const absolutePath = await resolveAuthorizedWorkspacePath(options, requestedPath);
+    const absolutePath = await resolveAuthorizedWorkspacePath(options, requestedPath, toolName);
     const pathStat = await stat(absolutePath);
     if (!pathStat.isFile()) throw new Error(`Lambda-RLM can only read files: ${requestedPath}`);
     const pdfInput = extname(absolutePath).toLowerCase() === ".pdf";
@@ -793,21 +831,21 @@ async function collectToolText(
   return { text, sources };
 }
 
-async function resolveAuthorizedWorkspacePath(options: CreateLambdaRlmToolOptions, requestedPath: string): Promise<string> {
+async function resolveAuthorizedWorkspacePath(options: CreateLambdaRlmToolOptions, requestedPath: string, toolName: string): Promise<string> {
   const workspacePath = resolve(options.workspacePath);
   const absolutePath = isAbsolute(requestedPath) ? resolve(requestedPath) : resolve(workspacePath, requestedPath);
   if (!isAuthorizedWorkspacePath(options, absolutePath)) {
     const approved = await options.requestFileAuthority?.({
       access: "read",
-      toolName: "long_context_process",
+      toolName,
       requestedPath,
       absolutePath,
-      reason: "long_context_process path is outside the current workspace authority.",
+      reason: `${toolName} path is outside the current workspace authority.`,
     });
     if (approved && isAuthorizedWorkspacePath(options, absolutePath)) {
       return absolutePath;
     }
-    throw new Error(`long_context_process path is outside the current workspace authority: ${requestedPath}`);
+    throw new Error(`${toolName} path is outside the current workspace authority: ${requestedPath}`);
   }
   return absolutePath;
 }
@@ -855,8 +893,8 @@ function officeTextHeader(officeText: OfficeTextExtraction): string {
     .join("\n");
 }
 
-function normalizeToolInput(params: unknown): LambdaRlmToolInput {
-  if (!params || typeof params !== "object") throw new Error("long_context_process requires an object input.");
+function normalizeToolInput(params: unknown, toolName = "long_context_process"): LambdaRlmToolInput {
+  if (!params || typeof params !== "object") throw new Error(`${toolName} requires an object input.`);
   const record = params as Record<string, unknown>;
   const taskType = record.taskType === undefined ? undefined : record.taskType;
   if (taskType !== undefined && !isLambdaRlmTaskType(taskType)) throw new Error(`Invalid Lambda-RLM taskType: ${String(taskType)}`);
@@ -1077,21 +1115,19 @@ function formatLambdaRlmResultText(result: LambdaRlmExecutionResult, truncated: 
     .join("\n");
 }
 
-type LambdaRlmToolUpdate = { content: { type: "text"; text: string }[]; details: Record<string, unknown> };
-
-function lambdaRlmToolUpdate(text: string, progress: LambdaRlmExecutionProgress): LambdaRlmToolUpdate {
+function lambdaRlmToolUpdate(text: string, progress: LambdaRlmExecutionProgress, toolName = "long_context_process"): LambdaRlmToolUpdate {
   return {
     content: [{ type: "text", text }],
     details: {
       runtime: "ambient-lambda-rlm",
-      toolName: "long_context_process",
+      toolName,
       status: "running",
       ...progress,
     },
   };
 }
 
-function lambdaRlmToolResult(text: string, details: Record<string, unknown>): { content: { type: "text"; text: string }[]; details: Record<string, unknown> } {
+function lambdaRlmToolResult(text: string, details: Record<string, unknown>): LambdaRlmToolResult {
   return {
     content: [{ type: "text", text }],
     details,

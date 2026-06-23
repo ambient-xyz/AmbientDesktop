@@ -30,13 +30,18 @@ function sourceContext(label: string, filePath: string): SourceContext {
 
 const sourceContexts = [
   sourceContext("App.tsx", fileURLToPath(new URL("./App.tsx", import.meta.url))),
+  sourceContext("AppComposerSettingsControls.tsx", fileURLToPath(new URL("./AppComposerSettingsControls.tsx", import.meta.url))),
   sourceContext("AppComposerShell.tsx", fileURLToPath(new URL("./AppComposerShell.tsx", import.meta.url))),
   sourceContext("AppShellSidebar.tsx", fileURLToPath(new URL("./AppShellSidebar.tsx", import.meta.url))),
   sourceContext("AppTopbar.tsx", fileURLToPath(new URL("./AppTopbar.tsx", import.meta.url))),
+  sourceContext("ProjectBoardActiveCardDetailViews.tsx", fileURLToPath(new URL("./ProjectBoardActiveCardDetailViews.tsx", import.meta.url))),
+  sourceContext("ProjectBoardCandidateDetailViews.tsx", fileURLToPath(new URL("./ProjectBoardCandidateDetailViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardDraftInboxViews.tsx", fileURLToPath(new URL("./ProjectBoardDraftInboxViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardExecutionViews.tsx", fileURLToPath(new URL("./ProjectBoardExecutionViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardHistoryViews.tsx", fileURLToPath(new URL("./ProjectBoardHistoryViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardLaneViews.tsx", fileURLToPath(new URL("./ProjectBoardLaneViews.tsx", import.meta.url))),
+  sourceContext("ProjectBoardMapViews.tsx", fileURLToPath(new URL("./ProjectBoardMapViews.tsx", import.meta.url))),
+  sourceContext("ProjectBoardSourceViews.tsx", fileURLToPath(new URL("./ProjectBoardSourceViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardSynthesisViews.tsx", fileURLToPath(new URL("./ProjectBoardSynthesisViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardWorkspace.tsx", fileURLToPath(new URL("./ProjectBoardWorkspace.tsx", import.meta.url))),
 ];

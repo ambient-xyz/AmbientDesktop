@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AgentRuntimeToolRunnerController } from "./agentRuntimeToolRunnerController";
 import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { AgentRuntimeAsyncBashJobService, type AsyncBashJobSnapshot } from "./tools/agentRuntimeAsyncBashJobs";
+import type { AsyncLongContextJobSnapshot } from "./tools/agentRuntimeAsyncLongContextJobs";
 
 describe("AgentRuntimeToolRunnerController", () => {
   it("creates and updates async bash tool messages with tool events", async () => {
@@ -76,6 +77,75 @@ describe("AgentRuntimeToolRunnerController", () => {
       await rm(workspacePath, { recursive: true, force: true });
     }
   });
+
+  it("creates and updates async long-context tool messages with tool events", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-tool-runner-long-context-"));
+    const store = new ProjectStore();
+    const events: DesktopEvent[] = [];
+    try {
+      store.openWorkspace(workspacePath);
+      const thread = store.createThread("async long context");
+      const controller = new AgentRuntimeToolRunnerController({
+        store,
+        asyncBashJobs: () => new AgentRuntimeAsyncBashJobService(),
+        getRunId: () => undefined,
+        scheduleThreadWake: vi.fn(),
+        fileAuthorityRootPathsForThread: () => [workspacePath],
+        includeWorkspaceRootAuthorityForThread: () => true,
+        requestFileAuthorityForThread: async () => true,
+        emit: (event) => events.push(event),
+      });
+
+      controller.upsertAsyncLongContextToolMessage(longContextSnapshot({
+        threadId: thread.id,
+        status: "running",
+        latestSeq: 1,
+        nextSinceSeq: 1,
+        events: [{ seq: 1, at: "2026-06-21T00:00:00.000Z", kind: "status", text: "running" }],
+      }));
+      controller.upsertAsyncLongContextToolMessage(longContextSnapshot({
+        threadId: thread.id,
+        status: "completed",
+        latestSeq: 3,
+        nextSinceSeq: 3,
+        events: [{ seq: 3, at: "2026-06-21T00:00:02.000Z", kind: "status", text: "completed" }],
+        completedAt: "2026-06-21T00:00:02.000Z",
+        resultPreview: "summary result",
+        resultChars: 14,
+      }));
+
+      const toolMessages = store.listMessages(thread.id).filter((message) => message.role === "tool");
+      expect(toolMessages).toHaveLength(1);
+      expect(toolMessages[0]).toEqual(expect.objectContaining({
+        content: expect.stringContaining("status: completed"),
+        metadata: expect.objectContaining({
+          status: "done",
+          toolName: "long_context_async",
+        }),
+      }));
+      expect(events.map((event) => event.type)).toEqual([
+        "message-created",
+        "tool-event",
+        "message-updated",
+        "tool-event",
+      ]);
+      expect(events[1]).toEqual(expect.objectContaining({
+        type: "tool-event",
+        threadId: thread.id,
+        label: "long_context_async",
+        status: "running",
+      }));
+      expect(events[3]).toEqual(expect.objectContaining({
+        type: "tool-event",
+        threadId: thread.id,
+        label: "long_context_async",
+        status: "done",
+      }));
+    } finally {
+      store.close();
+      await rm(workspacePath, { recursive: true, force: true });
+    }
+  });
 });
 
 function snapshot(input: {
@@ -118,5 +188,45 @@ function snapshot(input: {
     stdoutChars: input.events.filter((event) => event.kind === "stdout").reduce((sum, event) => sum + event.text.length, 0),
     stderrChars: input.events.filter((event) => event.kind === "stderr").reduce((sum, event) => sum + event.text.length, 0),
     artifacts: {},
+  };
+}
+
+function longContextSnapshot(input: {
+  threadId: string;
+  status: AsyncLongContextJobSnapshot["status"];
+  latestSeq: number;
+  nextSinceSeq?: number;
+  events: AsyncLongContextJobSnapshot["events"];
+  completedAt?: string;
+  resultPreview?: string;
+  resultChars?: number;
+}): AsyncLongContextJobSnapshot {
+  return {
+    jobId: "lc-job-1",
+    kind: "long_context",
+    threadId: input.threadId,
+    status: input.status,
+    startedAt: "2026-06-21T00:00:00.000Z",
+    ...(input.completedAt ? { completedAt: input.completedAt } : {}),
+    latestSeq: input.latestSeq,
+    firstAvailableSeq: 1,
+    nextSinceSeq: input.nextSinceSeq ?? input.latestSeq,
+    events: input.events,
+    eventsPruned: false,
+    resultPreview: input.resultPreview ?? "",
+    resultTruncated: false,
+    resultChars: input.resultChars ?? 0,
+    inputSources: [],
+    taskType: "summarization",
+    inputLength: 12000,
+    chunkCount: 3,
+    modelCalls: 2,
+    artifacts: {
+      result: {
+        path: ".ambient/tool-outputs/2026-06-21/result.txt",
+        bytes: input.resultChars ?? 0,
+        totalChars: input.resultChars ?? 0,
+      },
+    },
   };
 }

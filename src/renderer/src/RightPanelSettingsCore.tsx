@@ -1391,6 +1391,22 @@ export function RightPanelModelModeSettingsSection({
           </label>
         </SettingsRow>
       )}
+      {settingsRowVisible("model-mode", "model-mode.prompt-cache-status") && (
+        <SettingsRow
+          label="Show prompt cache status"
+          value={state.settings.modelRuntime.showPromptCacheStatus ? "Shown" : "Hidden"}
+          description="Shows provider-reported prompt-cache hits, misses, or unknown status on assistant and visible thinking messages."
+        >
+          <label className="setting-toggle">
+            <input
+              type="checkbox"
+              checked={state.settings.modelRuntime.showPromptCacheStatus}
+              onChange={(event) => onModelRuntimeSettingsChange({ ...state.settings.modelRuntime, showPromptCacheStatus: event.target.checked })}
+            />
+            <span>{state.settings.modelRuntime.showPromptCacheStatus ? "Shown" : "Hidden"}</span>
+          </label>
+        </SettingsRow>
+      )}
       {settingsRowVisible("model-mode", "model-mode.provider-idle-timeout") && (
         <SettingsRow
           label="Provider stream idle retry"

@@ -1,12 +1,4 @@
-import {
-  Archive,
-  ChevronRight,
-  ExternalLink,
-  GitBranch,
-  Play,
-  Square,
-  X,
-} from "lucide-react";
+import { Archive, ChevronRight, ExternalLink, GitBranch, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -24,6 +16,11 @@ import type {
   SubagentPatternGraphOverflowChildModel,
   SubagentPatternGraphRendererModel,
 } from "./subagentPatternGraphUiModel";
+import {
+  SubagentParentClusterBarrierList,
+  SubagentParentClusterMailboxActivityList,
+  SubagentParentClusterWorkflowTaskList,
+} from "./SubagentParentClusterStatusLists";
 
 export interface SubagentParentClusterProps {
   model: SubagentParentClusterModel;
@@ -76,10 +73,7 @@ export function SubagentParentCluster({
   const childToggleIntentRunIds = useRef(new Set<string>());
   const userCollapsedChildRunIds = useRef(new Set<string>());
   const liveChildRunIdsKey = childRunIdListKey([...liveChildRunIds]);
-  const liveChildRunIdSet = useMemo(
-    () => new Set(runIdsFromListKey(liveChildRunIdsKey)),
-    [liveChildRunIdsKey],
-  );
+  const liveChildRunIdSet = useMemo(() => new Set(runIdsFromListKey(liveChildRunIdsKey)), [liveChildRunIdsKey]);
   const [clusterOpen, setClusterOpen] = useState(autoOpen);
   const defaultExpandedChildRunIds = defaultExpandedChildRunIdsForModel(model, liveChildRunIdSet);
   const defaultExpandedChildRunIdsKey = childRunIdListKey(defaultExpandedChildRunIds);
@@ -97,11 +91,13 @@ export function SubagentParentCluster({
   const markClusterToggleIntent = useCallback(() => {
     clusterToggleIntent.current = true;
   }, []);
-  const registerChildDetails = useCallback((runId: string) =>
-    (element: HTMLDetailsElement | null) => {
+  const registerChildDetails = useCallback(
+    (runId: string) => (element: HTMLDetailsElement | null) => {
       if (element) childDetailsByRunId.current.set(runId, element);
       else childDetailsByRunId.current.delete(runId);
-    }, []);
+    },
+    [],
+  );
   const markChildToggleIntent = useCallback((runId: string) => {
     childToggleIntentRunIds.current.add(runId);
   }, []);
@@ -162,26 +158,32 @@ export function SubagentParentCluster({
     }
     return { byRunId, byThreadId };
   }, [model.mailboxActivities]);
-  const approvalActionForGraphNode = useCallback((node: SubagentPatternGraphNodeModel) => {
-    const actions = [
-      ...(node.childRunId ? approvalActionsByChildIdentity.byRunId.get(node.childRunId) ?? [] : []),
-      ...(node.childThreadId ? approvalActionsByChildIdentity.byThreadId.get(node.childThreadId) ?? [] : []),
-    ];
-    return actions.find((action) => action.decision === "approved") ?? actions[0];
-  }, [approvalActionsByChildIdentity]);
-  const expandChildTranscriptFromGraph = useCallback((child: SubagentParentClusterChildModel) => {
-    setChildExpanded(child.runId, true, "programmatic");
-    const details = childDetailsByRunId.current.get(child.runId);
-    if (!details) {
-      if (child.canOpenThread) onOpenThread(child);
-      return;
-    }
-    details.open = true;
-    requestAnimationFrame(() => {
-      scrollExpandedDetailsIntoView(details);
-      details.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
-    });
-  }, [onOpenThread, scrollExpandedDetailsIntoView, setChildExpanded]);
+  const approvalActionForGraphNode = useCallback(
+    (node: SubagentPatternGraphNodeModel) => {
+      const actions = [
+        ...(node.childRunId ? (approvalActionsByChildIdentity.byRunId.get(node.childRunId) ?? []) : []),
+        ...(node.childThreadId ? (approvalActionsByChildIdentity.byThreadId.get(node.childThreadId) ?? []) : []),
+      ];
+      return actions.find((action) => action.decision === "approved") ?? actions[0];
+    },
+    [approvalActionsByChildIdentity],
+  );
+  const expandChildTranscriptFromGraph = useCallback(
+    (child: SubagentParentClusterChildModel) => {
+      setChildExpanded(child.runId, true, "programmatic");
+      const details = childDetailsByRunId.current.get(child.runId);
+      if (!details) {
+        if (child.canOpenThread) onOpenThread(child);
+        return;
+      }
+      details.open = true;
+      requestAnimationFrame(() => {
+        scrollExpandedDetailsIntoView(details);
+        details.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
+      });
+    },
+    [onOpenThread, scrollExpandedDetailsIntoView, setChildExpanded],
+  );
 
   return (
     <details
@@ -227,19 +229,27 @@ export function SubagentParentCluster({
       )}
       <div className="subagent-parent-cluster-list">
         {model.children.map((child) => {
-          const childApprovalActions = child.parentBlocker?.kind === "approval"
-            ? uniqueApprovalActions(model.mailboxActivities.flatMap((activity) => activity.approvalActions ?? [])
-              .filter((action) => action.childRunId === child.runId)
-            )
-            : [];
-          const childBarrierActions = child.parentBlocker && child.parentBlocker.kind !== "approval"
-            ? uniqueBarrierActions(model.mailboxActivities.flatMap((activity) => activity.actions ?? [])
-              .filter((action) => action.childRunIds?.includes(child.runId))
-            )
-            : [];
+          const childApprovalActions =
+            child.parentBlocker?.kind === "approval"
+              ? uniqueApprovalActions(
+                  model.mailboxActivities
+                    .flatMap((activity) => activity.approvalActions ?? [])
+                    .filter((action) => action.childRunId === child.runId),
+                )
+              : [];
+          const childBarrierActions =
+            child.parentBlocker && child.parentBlocker.kind !== "approval"
+              ? uniqueBarrierActions(
+                  model.mailboxActivities
+                    .flatMap((activity) => activity.actions ?? [])
+                    .filter((action) => action.childRunIds?.includes(child.runId)),
+                )
+              : [];
           return (
             <details
-              className={["subagent-parent-cluster-child-thread", child.canOpenThread ? undefined : "is-retained"].filter(Boolean).join(" ")}
+              className={["subagent-parent-cluster-child-thread", child.canOpenThread ? undefined : "is-retained"]
+                .filter(Boolean)
+                .join(" ")}
               key={child.runId}
               data-child-run-id={child.runId}
               data-child-thread-id={child.childThreadId}
@@ -313,38 +323,7 @@ export function SubagentParentCluster({
           );
         })}
       </div>
-      {model.barriers.length > 0 && (
-        <div className="subagent-parent-cluster-barriers" aria-label="Sub-agent wait barriers">
-          {model.barriers.map((barrier) => (
-            <div key={barrier.id}>
-              <span className={`subagent-parent-cluster-barrier-status tone-${barrier.statusTone}`}>{barrier.status}</span>
-              <span>{barrier.dependencyLabel}</span>
-              <span>{barrier.childCountLabel}</span>
-              {barrier.blockingChildren.map((child) => (
-                <span
-                  key={child.runId}
-                  className={`subagent-parent-cluster-barrier-child tone-${child.statusTone}`}
-                  title={child.detail}
-                >
-                  {child.label}
-                </span>
-              ))}
-              <span>{barrier.failurePolicyLabel}</span>
-              {barrier.timeoutLabel && <span>{barrier.timeoutLabel}</span>}
-              {barrier.decisionLabel && <span title={barrier.decisionSummary}>{barrier.decisionLabel}</span>}
-              {barrier.effectRows?.map((effect) => (
-                <span
-                  key={effect.key}
-                  className={`subagent-parent-cluster-lifecycle-effect tone-${effect.statusTone}`}
-                  title={effect.detail}
-                >
-                  {effect.label}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+      <SubagentParentClusterBarrierList barriers={model.barriers} />
       {model.patternGraphs.length > 0 && (
         <div className="subagent-parent-cluster-pattern-graphs" aria-label="Sub-agent pattern graphs">
           {model.patternGraphs.map((graph) => (
@@ -354,28 +333,29 @@ export function SubagentParentCluster({
               approvalActionForNode={approvalActionForGraphNode}
               approvalActionBusyId={approvalActionBusyId}
               onOpenNode={(node) => {
-                const child = model.children.find((candidate) =>
-                  candidate.runId === node.childRunId || candidate.childThreadId === node.childThreadId
+                const child = model.children.find(
+                  (candidate) => candidate.runId === node.childRunId || candidate.childThreadId === node.childThreadId,
                 );
                 if (child) {
                   expandChildTranscriptFromGraph(child);
                   return;
                 }
-                const workflowTask = model.workflowTasks.find((candidate) =>
-                  candidate.id === node.workflowTaskId ||
-                  Boolean(node.workflowRunId && candidate.idLabels?.some((label) => label.includes(node.workflowRunId!)))
+                const workflowTask = model.workflowTasks.find(
+                  (candidate) =>
+                    candidate.id === node.workflowTaskId ||
+                    Boolean(node.workflowRunId && candidate.idLabels?.some((label) => label.includes(node.workflowRunId!))),
                 );
                 if (workflowTask) onOpenWorkflowThread(workflowTask);
               }}
               onOpenApprovalBadge={(_node, action) => onResolveApprovalAction(action)}
               canOpenOverflowChild={(overflowChild) =>
-                model.children.some((candidate) =>
-                  candidate.runId === overflowChild.childRunId || candidate.childThreadId === overflowChild.childThreadId
+                model.children.some(
+                  (candidate) => candidate.runId === overflowChild.childRunId || candidate.childThreadId === overflowChild.childThreadId,
                 )
               }
               onOpenOverflowChild={(overflowChild) => {
-                const child = model.children.find((candidate) =>
-                  candidate.runId === overflowChild.childRunId || candidate.childThreadId === overflowChild.childThreadId
+                const child = model.children.find(
+                  (candidate) => candidate.runId === overflowChild.childRunId || candidate.childThreadId === overflowChild.childThreadId,
                 );
                 if (child) expandChildTranscriptFromGraph(child);
               }}
@@ -383,225 +363,28 @@ export function SubagentParentCluster({
           ))}
         </div>
       )}
-      {model.workflowTasks.length > 0 && (
-        <div className="subagent-parent-cluster-workflows" aria-label="Callable workflow background tasks">
-          {model.workflowTasks.map((task) => (
-            <div key={task.id}>
-              <span className={`subagent-parent-cluster-workflow-status tone-${task.statusTone}`}>{task.status}</span>
-              <span title={task.title}>{task.title}</span>
-              <span>{task.modeLabel}</span>
-              <span>{task.progressLabel}</span>
-              <span>{task.sourceLabel}</span>
-              {task.workflowThreadLabel && <span title={task.workflowThreadLabel}>{task.workflowThreadLabel}</span>}
-              {task.capabilityLabels.length > 0 && <span title={task.capabilityLabels.join(" / ")}>{task.capabilityLabels.join(" / ")}</span>}
-              {task.idLabels?.map((label) => (
-                <span
-                  key={`id-${label}`}
-                  className="subagent-parent-cluster-workflow-id"
-                  title={`Workflow identity: ${label}`}
-                >
-                  {label}
-                </span>
-              ))}
-              {task.launchCardLabels?.map((label) => (
-                <span
-                  key={`launch-card-${label}`}
-                  className="subagent-parent-cluster-workflow-launch-card"
-                  title={`Launch card: ${label}`}
-                >
-                  {label}
-                </span>
-              ))}
-              {task.provenanceLabels?.map((label) => (
-                <span
-                  key={`provenance-${label}`}
-                  className="subagent-parent-cluster-workflow-provenance"
-                  title={`Workflow provenance: ${label}`}
-                >
-                  {label}
-                </span>
-              ))}
-              {task.mutationEvidenceLabels?.map((label) => (
-                <span
-                  key={`mutation-evidence-${label}`}
-                  className="subagent-parent-cluster-workflow-mutation-evidence"
-                  title={`Mutating workflow evidence: ${label}`}
-                >
-                  {label}
-                </span>
-              ))}
-              {task.telemetryLabels.map((label) => (
-                <span key={label}>{label}</span>
-              ))}
-              {task.parentBlocker && (
-                <span
-                  className={`subagent-parent-cluster-workflow-blocker tone-${task.parentBlocker.statusTone}`}
-                  title={task.parentBlocker.detail}
-                >
-                  {task.parentBlocker.label}
-                </span>
-              )}
-              {task.childWait && (
-                <span
-                  className={`subagent-parent-cluster-workflow-child-wait tone-${task.childWait.statusTone}`}
-                  title={task.childWait.detail}
-                >
-                  {task.childWait.label}
-                </span>
-              )}
-              {task.childWait?.childLabels.map((label) => (
-                <span
-                  key={`child-wait-${label}`}
-                  className={`subagent-parent-cluster-workflow-child-wait-child tone-${task.childWait?.statusTone ?? "neutral"}`}
-                  title={`Workflow child wait: ${label}`}
-                >
-                  {label}
-                </span>
-              ))}
-              {task.detail && <span title={task.detail}>{task.detail}</span>}
-              {task.canOpenWorkflowThread && (
-                <button
-                  type="button"
-                  className="subagent-parent-cluster-workflow-action is-open"
-                  title={task.openWorkflowThreadTitle}
-                  aria-label={`Open workflow thread for ${task.title}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onOpenWorkflowThread(task);
-                  }}
-                >
-                  <ExternalLink size={12} aria-hidden="true" />
-                </button>
-              )}
-              {task.canPause && (
-                <button
-                  type="button"
-                  className="subagent-parent-cluster-workflow-action is-pause"
-                  disabled={pauseWorkflowTaskBusyId === task.id}
-                  title={pauseWorkflowTaskBusyId === task.id ? "Pausing workflow task" : task.pauseTitle}
-                  aria-label={`Pause workflow task ${task.title}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onPauseWorkflowTask(task);
-                  }}
-                >
-                  <Square size={12} aria-hidden="true" />
-                </button>
-              )}
-              {task.canResume && (
-                <button
-                  type="button"
-                  className="subagent-parent-cluster-workflow-action is-resume"
-                  disabled={resumeWorkflowTaskBusyId === task.id}
-                  title={resumeWorkflowTaskBusyId === task.id ? "Resuming workflow task" : task.resumeTitle}
-                  aria-label={`Resume workflow task ${task.title}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onResumeWorkflowTask(task);
-                  }}
-                >
-                  <Play size={12} aria-hidden="true" />
-                </button>
-              )}
-              {task.canCancel && (
-                <button
-                  type="button"
-                  className="subagent-parent-cluster-workflow-action"
-                  disabled={cancelWorkflowTaskBusyId === task.id}
-                  title={cancelWorkflowTaskBusyId === task.id ? "Canceling workflow task" : task.cancelTitle}
-                  aria-label={`Cancel workflow task ${task.title}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onCancelWorkflowTask(task);
-                  }}
-                >
-                  <X size={12} aria-hidden="true" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      {model.mailboxActivities.length > 0 && (
-        <div className="subagent-parent-cluster-mailbox" aria-label="Sub-agent mailbox activity">
-          {model.mailboxActivities.map((activity) => (
-            <div key={activity.id}>
-              <span className={`subagent-parent-cluster-mailbox-status tone-${activity.statusTone}`}>{activity.label}</span>
-              {activity.sourceLabel && <span title={activity.sourceLabel}>{activity.sourceLabel}</span>}
-              <span>{activity.summary}</span>
-              {activity.approvalActions?.map((action) => {
-                const busyKey = `${action.childRunId}:${action.approvalId}`;
-                const isApprovalBusy = approvalActionBusyId === busyKey;
-                return (
-                  <button
-                    key={`${activity.id}:${busyKey}:${action.decision}`}
-                    type="button"
-                    className={`subagent-parent-cluster-mailbox-action is-button ${action.decision === "denied" ? "is-danger" : "is-approve"}`}
-                    disabled={isApprovalBusy}
-                    title={isApprovalBusy ? "Resolving child approval" : action.title}
-                    aria-label={isApprovalBusy ? "Resolving child approval" : action.title}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onResolveApprovalAction(action);
-                    }}
-                  >
-                    {action.label}
-                  </button>
-                );
-              })}
-              {activity.actions?.map((action) => {
-                const busyKey = `${action.waitBarrierId}:${action.decision}`;
-                const isBarrierBusy = barrierActionBusyId?.startsWith(`${action.waitBarrierId}:`) === true;
-                return (
-                  <button
-                    key={`${activity.id}:${busyKey}`}
-                    type="button"
-                    className="subagent-parent-cluster-mailbox-action is-button"
-                    disabled={isBarrierBusy}
-                    title={isBarrierBusy ? "Resolving wait barrier" : action.title}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onResolveBarrierAction(action);
-                    }}
-                  >
-                    {action.label}
-                  </button>
-                );
-              })}
-              {activity.actionLabels?.filter((label) =>
-                !activity.actions?.some((action) => action.label === label) &&
-                !activity.approvalActions?.some((action) => action.label === label)
-              ).map((label) => (
-                <span key={label} className="subagent-parent-cluster-mailbox-action">{label}</span>
-              ))}
-              {activity.effectRows?.map((effect) => (
-                <span
-                  key={effect.key}
-                  className={`subagent-parent-cluster-lifecycle-effect tone-${effect.statusTone}`}
-                  title={effect.detail}
-                >
-                  {effect.label}
-                </span>
-              ))}
-              {activity.detail && <span title={activity.detail}>{activity.detail}</span>}
-            </div>
-          ))}
-        </div>
-      )}
+      <SubagentParentClusterWorkflowTaskList
+        tasks={model.workflowTasks}
+        pauseWorkflowTaskBusyId={pauseWorkflowTaskBusyId}
+        resumeWorkflowTaskBusyId={resumeWorkflowTaskBusyId}
+        cancelWorkflowTaskBusyId={cancelWorkflowTaskBusyId}
+        onOpenWorkflowThread={onOpenWorkflowThread}
+        onPauseWorkflowTask={onPauseWorkflowTask}
+        onResumeWorkflowTask={onResumeWorkflowTask}
+        onCancelWorkflowTask={onCancelWorkflowTask}
+      />
+      <SubagentParentClusterMailboxActivityList
+        activities={model.mailboxActivities}
+        approvalActionBusyId={approvalActionBusyId}
+        barrierActionBusyId={barrierActionBusyId}
+        onResolveApprovalAction={onResolveApprovalAction}
+        onResolveBarrierAction={onResolveBarrierAction}
+      />
     </details>
   );
 }
 
-function defaultExpandedChildRunIdsForModel(
-  model: SubagentParentClusterModel,
-  liveChildRunIds: ReadonlySet<string> = new Set(),
-): string[] {
+function defaultExpandedChildRunIdsForModel(model: SubagentParentClusterModel, liveChildRunIds: ReadonlySet<string> = new Set()): string[] {
   const parentBlockingRunIds = new Set(model.parentBlocking?.blockingChildren.map((child) => child.runId) ?? []);
   return model.children
     .filter((child) => liveChildRunIds.has(child.runId) || shouldDefaultExpandChild(child, parentBlockingRunIds))
@@ -616,19 +399,16 @@ function runIdsFromListKey(key: string): string[] {
   return key ? key.split("\u001f") : [];
 }
 
-function shouldDefaultExpandChild(
-  child: SubagentParentClusterChildModel,
-  parentBlockingRunIds: ReadonlySet<string>,
-): boolean {
+function shouldDefaultExpandChild(child: SubagentParentClusterChildModel, parentBlockingRunIds: ReadonlySet<string>): boolean {
   if (!child.isSynthesisSafe && !child.retentionLabel) return true;
   if (child.parentBlocker && child.parentBlocker.statusTone !== "success") return true;
   if (!child.isTerminal && (child.statusTone === "warning" || child.statusTone === "danger")) return true;
-  if (!child.isSynthesisSafe && /\b(needs attention|approval|blocking|waiting)\b/i.test([
-    child.status,
-    child.preview,
-    child.parentBlocker?.label,
-    child.parentBlocker?.detail,
-  ].filter(Boolean).join(" "))) {
+  if (
+    !child.isSynthesisSafe &&
+    /\b(needs attention|approval|blocking|waiting)\b/i.test(
+      [child.status, child.preview, child.parentBlocker?.label, child.parentBlocker?.detail].filter(Boolean).join(" "),
+    )
+  ) {
     return true;
   }
   return parentBlockingRunIds.has(child.runId) && !child.isTerminal;
@@ -865,95 +645,102 @@ function SubagentPatternGraphPanel({
             if (node.canOpen) onOpenNode(node);
           };
           return (
-          <g
-            key={node.id}
-            className={[
-              "subagent-pattern-graph-node",
-              `tone-${node.tone}`,
-              node.blockingParent ? "blocking-parent" : undefined,
-              nodeCanInteract ? "can-open" : undefined,
-              node.canExpandOverflow ? "can-expand-overflow" : undefined,
-              overflowExpanded ? "is-expanded" : undefined,
-            ].filter(Boolean).join(" ")}
-            role={nodeCanInteract ? "button" : "img"}
-            tabIndex={nodeCanInteract ? 0 : undefined}
-            focusable={nodeCanInteract ? "true" : undefined}
-            aria-keyshortcuts={nodeCanInteract ? "Enter Space" : undefined}
-            aria-expanded={node.canExpandOverflow ? overflowExpanded : undefined}
-            aria-controls={overflowPanelId}
-            data-graph-node-id={node.id}
-            data-child-run-id={node.childRunId}
-            data-child-thread-id={node.childThreadId}
-            data-workflow-task-id={node.workflowTaskId}
-            data-workflow-run-id={node.workflowRunId}
-            data-node-badges={node.badges.map((badge) => badge.key).join(",")}
-            data-keyboard-openable={nodeCanInteract ? "true" : "false"}
-            data-overflow-expandable={node.canExpandOverflow ? "true" : "false"}
-            data-overflow-expanded={node.canExpandOverflow ? String(overflowExpanded) : undefined}
-            data-overflow-count={node.overflowChildren?.length ? String(node.overflowChildren.length) : undefined}
-            aria-label={ariaLabel}
-            onClick={activateNode}
-            onKeyDown={(event) => {
-              if (!nodeCanInteract) return;
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                activateNode();
-              }
-            }}
-          >
-            <rect x={node.x} y={node.y} width={node.width} height={node.height} rx="8">
-              <title>{node.title}</title>
-            </rect>
-            <text x={node.centerX} y={node.y + 20} textAnchor="middle" className="node-label">{svgLabel(node.label, 18)}</text>
-            <text x={node.centerX} y={node.y + 36} textAnchor="middle" className="node-status">{svgLabel(node.statusLabel, 18)}</text>
-            {node.blockingParent && <circle cx={node.x + node.width - 10} cy={node.y + 10} r="5" className="node-blocker-dot" />}
-            {node.badges.slice(0, 2).map((badge, index) => {
-              const approvalAction = badge.key === "approval" ? approvalActionForNode?.(node) : undefined;
-              const approvalBusy = Boolean(
-                approvalAction &&
-                approvalActionBusyId === `${approvalAction.childRunId}:${approvalAction.approvalId}`,
-              );
-              const canOpenApproval = Boolean(approvalAction && onOpenApprovalBadge && !approvalBusy);
-              const approvalLabel = approvalAction
-                ? `Open approval request ${approvalAction.approvalId} for ${node.label} from ${graph.label}`
-                : undefined;
-              const openApproval = (event: { preventDefault: () => void; stopPropagation: () => void }) => {
-                if (!approvalAction || !onOpenApprovalBadge || approvalBusy) return;
-                event.preventDefault();
-                event.stopPropagation();
-                onOpenApprovalBadge(node, approvalAction);
-              };
-              return (
-                <g
-                  key={`${node.id}:${badge.key}`}
-                  className={`node-badge tone-${badge.tone} ${canOpenApproval ? "can-open-approval" : ""}`}
-                  role={canOpenApproval ? "button" : undefined}
-                  tabIndex={canOpenApproval ? 0 : undefined}
-                  focusable={canOpenApproval ? "true" : undefined}
-                  aria-label={approvalLabel}
-                  aria-keyshortcuts={canOpenApproval ? "Enter Space" : undefined}
-                  aria-disabled={approvalBusy ? "true" : undefined}
-                  data-badge-key={badge.key}
-                  data-approval-id={approvalAction?.approvalId}
-                  data-approval-child-run-id={approvalAction?.childRunId}
-                  data-approval-child-thread-id={approvalAction?.childThreadId}
-                  data-approval-busy={approvalAction ? String(approvalBusy) : undefined}
-                  data-approval-openable={approvalAction ? String(canOpenApproval) : undefined}
-                  transform={`translate(${node.x + 6 + index * 52}, ${node.y + node.height - 17})`}
-                  onClick={openApproval}
-                  onKeyDown={(event) => {
-                    if (!canOpenApproval) return;
-                    if (event.key === "Enter" || event.key === " ") openApproval(event);
-                  }}
-                >
-                  <rect width="48" height="12" rx="6">
-                    <title>{approvalLabel ?? badge.label}</title>
-                  </rect>
-                  <text x="24" y="8.5" textAnchor="middle">{svgLabel(shortBadgeLabel(badge.label), 9)}</text>
-                </g>
-              );
-            })}
-          </g>
+            <g
+              key={node.id}
+              className={[
+                "subagent-pattern-graph-node",
+                `tone-${node.tone}`,
+                node.blockingParent ? "blocking-parent" : undefined,
+                nodeCanInteract ? "can-open" : undefined,
+                node.canExpandOverflow ? "can-expand-overflow" : undefined,
+                overflowExpanded ? "is-expanded" : undefined,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              role={nodeCanInteract ? "button" : "img"}
+              tabIndex={nodeCanInteract ? 0 : undefined}
+              focusable={nodeCanInteract ? "true" : undefined}
+              aria-keyshortcuts={nodeCanInteract ? "Enter Space" : undefined}
+              aria-expanded={node.canExpandOverflow ? overflowExpanded : undefined}
+              aria-controls={overflowPanelId}
+              data-graph-node-id={node.id}
+              data-child-run-id={node.childRunId}
+              data-child-thread-id={node.childThreadId}
+              data-workflow-task-id={node.workflowTaskId}
+              data-workflow-run-id={node.workflowRunId}
+              data-node-badges={node.badges.map((badge) => badge.key).join(",")}
+              data-keyboard-openable={nodeCanInteract ? "true" : "false"}
+              data-overflow-expandable={node.canExpandOverflow ? "true" : "false"}
+              data-overflow-expanded={node.canExpandOverflow ? String(overflowExpanded) : undefined}
+              data-overflow-count={node.overflowChildren?.length ? String(node.overflowChildren.length) : undefined}
+              aria-label={ariaLabel}
+              onClick={activateNode}
+              onKeyDown={(event) => {
+                if (!nodeCanInteract) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  activateNode();
+                }
+              }}
+            >
+              <rect x={node.x} y={node.y} width={node.width} height={node.height} rx="8">
+                <title>{node.title}</title>
+              </rect>
+              <text x={node.centerX} y={node.y + 20} textAnchor="middle" className="node-label">
+                {svgLabel(node.label, 18)}
+              </text>
+              <text x={node.centerX} y={node.y + 36} textAnchor="middle" className="node-status">
+                {svgLabel(node.statusLabel, 18)}
+              </text>
+              {node.blockingParent && <circle cx={node.x + node.width - 10} cy={node.y + 10} r="5" className="node-blocker-dot" />}
+              {node.badges.slice(0, 2).map((badge, index) => {
+                const approvalAction = badge.key === "approval" ? approvalActionForNode?.(node) : undefined;
+                const approvalBusy = Boolean(
+                  approvalAction && approvalActionBusyId === `${approvalAction.childRunId}:${approvalAction.approvalId}`,
+                );
+                const canOpenApproval = Boolean(approvalAction && onOpenApprovalBadge && !approvalBusy);
+                const approvalLabel = approvalAction
+                  ? `Open approval request ${approvalAction.approvalId} for ${node.label} from ${graph.label}`
+                  : undefined;
+                const openApproval = (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+                  if (!approvalAction || !onOpenApprovalBadge || approvalBusy) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onOpenApprovalBadge(node, approvalAction);
+                };
+                return (
+                  <g
+                    key={`${node.id}:${badge.key}`}
+                    className={`node-badge tone-${badge.tone} ${canOpenApproval ? "can-open-approval" : ""}`}
+                    role={canOpenApproval ? "button" : undefined}
+                    tabIndex={canOpenApproval ? 0 : undefined}
+                    focusable={canOpenApproval ? "true" : undefined}
+                    aria-label={approvalLabel}
+                    aria-keyshortcuts={canOpenApproval ? "Enter Space" : undefined}
+                    aria-disabled={approvalBusy ? "true" : undefined}
+                    data-badge-key={badge.key}
+                    data-approval-id={approvalAction?.approvalId}
+                    data-approval-child-run-id={approvalAction?.childRunId}
+                    data-approval-child-thread-id={approvalAction?.childThreadId}
+                    data-approval-busy={approvalAction ? String(approvalBusy) : undefined}
+                    data-approval-openable={approvalAction ? String(canOpenApproval) : undefined}
+                    transform={`translate(${node.x + 6 + index * 52}, ${node.y + node.height - 17})`}
+                    onClick={openApproval}
+                    onKeyDown={(event) => {
+                      if (!canOpenApproval) return;
+                      if (event.key === "Enter" || event.key === " ") openApproval(event);
+                    }}
+                  >
+                    <rect width="48" height="12" rx="6">
+                      <title>{approvalLabel ?? badge.label}</title>
+                    </rect>
+                    <text x="24" y="8.5" textAnchor="middle">
+                      {svgLabel(shortBadgeLabel(badge.label), 9)}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
           );
         })}
       </svg>
@@ -981,9 +768,11 @@ function SubagentPatternGraphPanel({
                       className={`subagent-pattern-graph-overflow-child tone-${child.tone}`}
                       disabled={!childCanOpen}
                       title={child.title}
-                      aria-label={childCanOpen
-                        ? `Open grouped child ${child.label} from ${graph.label}`
-                        : `Grouped child ${child.label} from ${graph.label}`}
+                      aria-label={
+                        childCanOpen
+                          ? `Open grouped child ${child.label} from ${graph.label}`
+                          : `Grouped child ${child.label} from ${graph.label}`
+                      }
                       data-overflow-child-run-id={child.childRunId}
                       data-overflow-child-thread-id={child.childThreadId}
                       data-overflow-child-status={child.statusLabel}
@@ -1008,11 +797,15 @@ function SubagentPatternGraphPanel({
         </div>
       )}
       <div className="subagent-pattern-graph-legend">
-        {graph.nodes.filter((node) => node.blockingParent || node.approvalLabel || node.overflowLabel).slice(0, 4).map((node) => (
-          <span key={`${graph.id}:${node.id}`} className={`tone-${node.tone}`}>
-            {node.label}: {[node.blockingParent ? "blocks parent" : undefined, node.approvalLabel, node.overflowLabel].filter(Boolean).join(" / ")}
-          </span>
-        ))}
+        {graph.nodes
+          .filter((node) => node.blockingParent || node.approvalLabel || node.overflowLabel)
+          .slice(0, 4)
+          .map((node) => (
+            <span key={`${graph.id}:${node.id}`} className={`tone-${node.tone}`}>
+              {node.label}:{" "}
+              {[node.blockingParent ? "blocks parent" : undefined, node.approvalLabel, node.overflowLabel].filter(Boolean).join(" / ")}
+            </span>
+          ))}
       </div>
     </section>
   );
@@ -1121,9 +914,7 @@ function SubagentParentClusterChildContent({ child }: { child: SubagentParentClu
             <span className={`subagent-parent-cluster-child-blocker tone-${child.parentBlocker.statusTone}`}>
               {child.parentBlocker.label}
             </span>
-            <span className="subagent-parent-cluster-child-blocker-meta">
-              {child.parentBlocker.metaLabels.join(" · ")}
-            </span>
+            <span className="subagent-parent-cluster-child-blocker-meta">{child.parentBlocker.metaLabels.join(" · ")}</span>
           </span>
         )}
         {child.closedLabel && <span>{child.closedLabel}</span>}

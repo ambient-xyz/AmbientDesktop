@@ -15,6 +15,7 @@ describe("modelRuntimeSettings", () => {
     expect(DEFAULT_MODEL_RUNTIME_SETTINGS.installedProviders).toEqual([]);
     expect(normalizeModelRuntimeSettings(undefined)).toEqual({
       aggressiveRetries: true,
+      showPromptCacheStatus: false,
       providerPreStreamTimeoutMs: 45_000,
       providerStreamIdleTimeoutMs: 30_000,
       installedProviders: [],
@@ -24,6 +25,7 @@ describe("modelRuntimeSettings", () => {
   it("normalizes installed provider records while preserving exact custom provider and model ids", () => {
     const settings = normalizeModelRuntimeSettings({
       aggressiveRetries: false,
+      showPromptCacheStatus: true,
       providerPreStreamTimeoutMs: 60_000,
       providerStreamIdleTimeoutMs: 30_000,
       installedProviders: [installedProvider({
@@ -32,6 +34,7 @@ describe("modelRuntimeSettings", () => {
       })],
     });
 
+    expect(settings.showPromptCacheStatus).toBe(true);
     expect(settings.installedProviders).toEqual([
       expect.objectContaining({
         schemaVersion: "ambient-model-runtime-installed-provider-v1",
@@ -68,6 +71,10 @@ describe("modelRuntimeSettings", () => {
       }),
     ]);
     expect(modelRuntimeProfilesFromSettings(settings).map((profile) => profile.modelId)).toEqual(["CUSTOM/Router Model v2"]);
+  });
+
+  it("defaults invalid prompt cache status visibility to off", () => {
+    expect(normalizeModelRuntimeSettings({ showPromptCacheStatus: "yes" }).showPromptCacheStatus).toBe(false);
   });
 
   it("keeps disabled installed providers visible as unavailable runtime profiles", () => {
