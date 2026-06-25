@@ -1,8 +1,5 @@
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
-import type {
-  MessagingGatewayRuntimeStatus,
-  RuntimeSurfaceWorkflowRecoveryEvent,
-} from "../../../shared/messagingGateway";
+import type { MessagingGatewayRuntimeStatus, RuntimeSurfaceWorkflowRecoveryEvent } from "../../../shared/messagingGateway";
 import type {
   AmbientPermissionGrant,
   PermissionAuditEntry,
@@ -11,90 +8,18 @@ import type {
   PermissionRisk,
 } from "../../../shared/permissionTypes";
 import type { DesktopEvent } from "../../../shared/desktopTypes";
-import type {
-  MediaPlaybackSettings,
-  SttSettings,
-  VoiceSettings,
-} from "../../../shared/localRuntimeTypes";
+import type { MediaPlaybackSettings, SttSettings, VoiceSettings } from "../../../shared/localRuntimeTypes";
 import type { PlannerSettings } from "../../../shared/plannerTypes";
 import type { ProjectSummary } from "../../../shared/projectBoardTypes";
 import type { SearchRoutingSettings } from "../../../shared/webResearchTypes";
 import type { WorkflowAgentFolderSummary } from "../../../shared/workflowTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
-import { discoverAmbientCliPackages } from "../agentRuntimeAmbientCliFacade";
-import { registerMessagingOverviewTools } from "./agentRuntimeMessagingOverviewTools";
+import type { TelegramSessionToolRegistrationOptions } from "../telegram/agentRuntimeTelegramSessionTools";
 import {
-  registerTelegramSessionTools,
-  type TelegramSessionToolRegistrationOptions,
-} from "../telegram/agentRuntimeTelegramSessionTools";
-import { registerSignalSessionTools } from "../signal/agentRuntimeSignalSessionTools";
-import { registerMessagingBindingTools } from "./agentRuntimeMessagingBindingTools";
-import { registerTelegramOwnerLoopTools } from "../telegram/agentRuntimeTelegramOwnerLoopTools";
-import { registerMessagingConversationDirectoryTools } from "./agentRuntimeMessagingConversationDirectoryTools";
-import { registerTelegramConversationDirectoryTools } from "../telegram/agentRuntimeTelegramConversationDirectoryTools";
-import { registerTelegramOwnerHandoffTools } from "../telegram/agentRuntimeTelegramOwnerHandoffTools";
-import { registerSignalConversationDirectoryTools } from "../signal/agentRuntimeSignalConversationDirectoryTools";
-import { registerSignalUnreadWindowTools } from "../signal/agentRuntimeSignalUnreadWindowTools";
-import { registerSignalRealPollingTools } from "../signal/agentRuntimeSignalRealPollingTools";
-import { registerSignalBridgeReplyTools } from "../signal/agentRuntimeSignalBridgeReplyTools";
-import {
-  createSignalBridgeReplyResolvers,
-  signalBridgeReplyApprovalRequest,
-} from "../signal/agentRuntimeSignalBridgeReplyPlan";
-import { registerSignalBindingReadinessTools } from "../signal/agentRuntimeSignalBindingReadinessTools";
-import { registerSignalOwnerHandoffTools } from "../signal/agentRuntimeSignalOwnerHandoffTools";
-import {
-  createSignalRemoteSurfacePlanResolvers,
-  registerSignalRemoteSurfaceTools,
-} from "./agentRuntimeSignalRemoteSurfaceTools";
-import { registerMessagingRemoteSurfaceBindingTools } from "./agentRuntimeMessagingRemoteSurfaceBindingTools";
-import { registerMessagingRemoteSurfaceEventTools } from "./agentRuntimeMessagingRemoteSurfaceEventTools";
-import {
-  createTelegramRemoteSurfacePlanResolvers,
-  registerTelegramRemoteSurfaceTools,
-} from "./agentRuntimeTelegramRemoteSurfaceTools";
-import { registerRuntimeSurfaceTools } from "../agentRuntimeRuntimeSurfaceTools";
-import { registerMessagingSyntheticRouteTools } from "./agentRuntimeMessagingSyntheticRouteTools";
-import { registerTelegramBridgeEventTools } from "../telegram/agentRuntimeTelegramBridgeEventTools";
-import { registerTelegramBridgePollPreviewTools } from "../telegram/agentRuntimeTelegramBridgePollPreviewTools";
-import { registerTelegramBridgePollApplyTools } from "../telegram/agentRuntimeTelegramBridgePollApplyTools";
-import {
-  createTelegramBridgePollResolvers,
-  createTelegramBridgePollingResolvers,
-} from "../telegram/agentRuntimeTelegramBridgePollPlan";
-import { registerTelegramBridgePollingStatusTools } from "../telegram/agentRuntimeTelegramBridgePollingStatusTools";
-import { registerTelegramBridgePollingPreviewTools } from "../telegram/agentRuntimeTelegramBridgePollingPreviewTools";
-import { registerTelegramBridgePollingApplyTools } from "../telegram/agentRuntimeTelegramBridgePollingApplyTools";
-import { registerTelegramBridgeReplyPreviewTools } from "../telegram/agentRuntimeTelegramBridgeReplyPreviewTools";
-import { registerTelegramBridgeReplyApplyTools } from "../telegram/agentRuntimeTelegramBridgeReplyApplyTools";
-import {
-  createTelegramBridgeReplyResolvers,
-  telegramBridgeReplyApprovalRequest,
-} from "../telegram/agentRuntimeTelegramBridgeReplyPlan";
-import { registerMessagingRemoteSurfaceReplyPreviewTools } from "./agentRuntimeMessagingRemoteSurfaceReplyPreviewTools";
-import { registerMessagingRemoteSurfaceReplyApplyTools } from "./agentRuntimeMessagingRemoteSurfaceReplyApplyTools";
-import {
-  createMessagingRemoteSurfaceReplyTargetResolver,
-  messagingRemoteSurfaceReplyInputFromParams,
-} from "./agentRuntimeMessagingRemoteSurfaceReplyTarget";
-import { registerMessagingRemoteSurfaceCommandPreviewTools } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewTools";
-import {
-  createMessagingRemoteSurfaceCommandApplyResolver,
-  registerMessagingRemoteSurfaceCommandApplyTools,
   type MessagingRemoteSurfaceCommandPendingProjectSwitch,
   type MessagingRemoteSurfaceCommandApplyResolverOptions,
 } from "./agentRuntimeMessagingRemoteSurfaceCommandApplyTools";
-import { createMessagingRemoteSurfaceCommandPreviewResolver } from "./agentRuntimeMessagingRemoteSurfaceCommandPreviewPlan";
-import { registerTelegramRelayDiagnosticsTools } from "../telegram/agentRuntimeTelegramRelayDiagnosticsTools";
-import { registerSignalRelayDiagnosticsTools } from "../signal/agentRuntimeSignalRelayDiagnosticsTools";
-import { createMessagingRelayDiagnosticsResolvers } from "../agentRuntimeRelayDiagnosticsResolvers";
-import * as messagingGatewayStatusTools from "./agentRuntimeMessagingGatewayStatusTools";
-import {
-  registerMessagingGatewayLifecyclePreviewTools,
-} from "./agentRuntimeMessagingGatewayLifecyclePreviewTools";
-import { registerMessagingGatewayLifecycleApplyTools } from "./agentRuntimeMessagingGatewayLifecycleApplyTools";
-import { createMessagingGatewayLifecycleResolvers } from "./agentRuntimeMessagingGatewayLifecycleResolvers";
 import { createDefaultMessagingProviderRegistry } from "../agentRuntimeMessagingFacade";
 import { MessagingGatewayRunner } from "../agentRuntimeMessagingFacade";
 import { TelegramBridgeSupervisor } from "../agentRuntimeTelegramFacade";
@@ -106,6 +31,7 @@ import { createDefaultMessagingConversationDirectoryAdapterRegistry } from "../a
 import { SignalRealPollingRunner } from "../signal/signalRealPolling";
 import { createAgentRuntimeMessagingSurfaceSnapshot } from "./agentRuntimeMessagingSurfaceSnapshot";
 import { TelegramBridgePollingRunner } from "../agentRuntimeTelegramFacade";
+import { registerAgentRuntimeMessagingGatewayTools } from "./agentRuntimeMessagingGatewayToolRegistrations";
 import type {
   AgentRuntimeRemoteSurfaceRuntimeEventStore,
   AgentRuntimeRemoteSurfaceRuntimeEventRelayMarkInput,
@@ -207,11 +133,12 @@ export function createAgentRuntimeMessagingRuntimeBridge(
     storePendingProjectSwitch: (projectSwitch) => {
       input.pendingProjectSwitchByThreadId.set(input.threadId, projectSwitch);
     },
-    completeProjectSwitch: (projectSwitch) => input.completePendingProjectSwitch(projectSwitch, {
-      threadId: input.threadId,
-      workspacePath: input.workspacePath,
-      throwOnFailure: true,
-    }),
+    completeProjectSwitch: (projectSwitch) =>
+      input.completePendingProjectSwitch(projectSwitch, {
+        threadId: input.threadId,
+        workspacePath: input.workspacePath,
+        throwOnFailure: true,
+      }),
   };
 }
 
@@ -254,361 +181,17 @@ export function createAgentRuntimeMessagingGatewayToolExtension(
       ...(options.listProjects ? { listProjects: options.listProjects } : {}),
     });
 
-    registerMessagingOverviewTools(pi, {
-      registry,
-      bindings,
-      gatewayRunner,
-      telegramBridgePollingRunner,
-    });
-
-    registerTelegramSessionTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      gatewayRunner,
-      telegramBridgeSupervisor,
-      secureInputs: options.secureInputs,
-    });
-
-    registerSignalSessionTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      gatewayRunner,
-    });
-
-    registerMessagingBindingTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      bindings,
-    });
-
-    registerTelegramOwnerLoopTools(pi, {
-      bindings,
-      gatewayRunner,
-      telegramBridgePollingRunner,
-    });
-
-    registerMessagingConversationDirectoryTools(pi, {
+    registerAgentRuntimeMessagingGatewayTools({
+      pi,
+      options,
       registry,
       directoryAdapters,
       bindings,
       gatewayRunner,
-    });
-
-    registerTelegramConversationDirectoryTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      gatewayRunner,
-    });
-
-    registerTelegramOwnerHandoffTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      gatewayRunner,
-    });
-
-    registerSignalConversationDirectoryTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      registry,
-      gatewayRunner,
-    });
-
-    registerSignalUnreadWindowTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      runtimeSurfaceSnapshot,
-      bindings,
-      gatewayRunner,
-    });
-
-    registerSignalRealPollingTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      runtimeSurfaceSnapshot,
-      bindings,
-      gatewayRunner,
-      signalRealPollingRunner,
-    });
-
-    const signalBridgeReply = createSignalBridgeReplyResolvers({
-      bindings,
-      refreshProviderReadiness: (providerId) => gatewayRunner.refreshProviderReadiness(providerId),
-      gatewayRuntimeStatus: () => options.messagingGatewayStatusWithRemoteSurfaceEvents(gatewayRunner.runtimeStatus()),
-      signalDescriptor: () => registry.get("signal-cli")?.descriptor,
-      requestApproval: async (preview) => await options.resolveFirstPartyPluginPermission(signalBridgeReplyApprovalRequest({
-        preview,
-        thread: options.getThread(options.threadId),
-        workspace: options.workspace,
-      })),
-      onResult: (result) => {
-        gatewayRunner.recordOutboundDelivery(result.delivery);
-        options.markRemoteSurfaceRuntimeEventRelay(result);
-      },
-    });
-
-    registerSignalBridgeReplyTools(pi, {
-      previewForParams: signalBridgeReply.previewForParams,
-      applyForParams: signalBridgeReply.applyForParams,
-      gatewayRuntimeStatus: () => options.messagingGatewayStatusWithRemoteSurfaceEvents(gatewayRunner.runtimeStatus()),
-    });
-
-    registerSignalBindingReadinessTools(pi, {
-      bindings,
-      gatewayRunner,
-      signalDescriptor: () => registry.get("signal-cli")?.descriptor,
-    });
-
-    registerSignalOwnerHandoffTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      bindings,
-      gatewayRunner,
-      signalDescriptor: () => registry.get("signal-cli")?.descriptor,
-    });
-
-    const signalRemoteSurface = createSignalRemoteSurfacePlanResolvers({
-      bindings,
-      gatewayRunner,
-      signalDescriptor: () => registry.get("signal-cli")?.descriptor,
-    });
-
-    registerSignalRemoteSurfaceTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      bindings,
-      createPlanForParams: signalRemoteSurface.createPlanForParams,
-      revokePlanForParams: signalRemoteSurface.revokePlanForParams,
-    });
-
-    const telegramRemoteSurface = createTelegramRemoteSurfacePlanResolvers({
-      bindings,
-      gatewayRunner,
-    });
-
-    registerMessagingRemoteSurfaceBindingTools(pi, {
-      registry,
-      bindings,
-      gatewayRunner,
-      telegramPlan: telegramRemoteSurface.planForInput,
-    });
-
-    registerMessagingRemoteSurfaceEventTools(pi, {
-      registry,
-      bindings,
-      runtimeSurfaceSnapshot: () => runtimeSurfaceSnapshot(),
-    });
-
-    registerTelegramRemoteSurfaceTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      bindings,
-      planForParams: telegramRemoteSurface.planForParams,
-    });
-
-    registerRuntimeSurfaceTools(pi, {
-      runtimeSurfaceSnapshot,
-    });
-
-    registerMessagingSyntheticRouteTools(pi, {
-      bindings,
-      gatewayRunner,
-      runtimeSurfaceSnapshot,
-    });
-
-    registerTelegramBridgeEventTools(pi, {
-      bindings,
-      gatewayRunner,
-      runtimeSurfaceSnapshot,
-    });
-
-    const telegramBridgePoll = createTelegramBridgePollResolvers({
-      bindings,
-      gatewayRunner,
-      runtimeSurfaceSnapshot: () => runtimeSurfaceSnapshot(),
-      stateRoot: options.workspace.statePath,
-    });
-
-    const telegramBridgePolling = createTelegramBridgePollingResolvers({
-      bindings,
-      gatewayRunner,
-      stateRoot: options.workspace.statePath,
-      telegramBridgePollingRunner,
-      applyPollForParams: telegramBridgePoll.applyPollForParams,
-    });
-
-    registerTelegramBridgePollPreviewTools(pi, {
-      planForParams: telegramBridgePoll.planForParams,
-    });
-
-    registerTelegramBridgePollApplyTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      planForParams: telegramBridgePoll.planForParams,
-      applyPollForParams: telegramBridgePoll.applyPollForParams,
-    });
-
-    registerTelegramBridgePollingStatusTools(pi, {
-      telegramBridgePollingRunner,
-    });
-
-    registerTelegramBridgePollingPreviewTools(pi, {
-      previewForParams: (params) => telegramBridgePolling.previewForParams(params).preview,
-    });
-
-    registerTelegramBridgePollingApplyTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      previewForParams: telegramBridgePolling.previewForParams,
-      applyPolling: telegramBridgePolling.applyPolling,
-    });
-
-    const telegramBridgeReply = createTelegramBridgeReplyResolvers({
-      bindings,
-      gatewayRuntimeStatus: () => options.messagingGatewayStatusWithRemoteSurfaceEvents(gatewayRunner.runtimeStatus()),
-      requestApproval: async (preview) => await options.resolveFirstPartyPluginPermission(telegramBridgeReplyApprovalRequest({
-        preview,
-        thread: options.getThread(options.threadId),
-        workspace: options.workspace,
-      })),
-      onResult: (result) => {
-        gatewayRunner.recordOutboundDelivery(result.delivery);
-        options.markRemoteSurfaceRuntimeEventRelay(result);
-      },
-    });
-
-    registerTelegramBridgeReplyPreviewTools(pi, {
-      previewForParams: telegramBridgeReply.previewForParams,
-    });
-
-    registerTelegramBridgeReplyApplyTools(pi, {
-      applyForParams: telegramBridgeReply.applyForParams,
-      gatewayRuntimeStatus: () => options.messagingGatewayStatusWithRemoteSurfaceEvents(gatewayRunner.runtimeStatus()),
-    });
-
-    const remoteSurfaceReplyTargetForInput = createMessagingRemoteSurfaceReplyTargetResolver({
-      gatewayRuntimeStatus: () => options.messagingGatewayStatusWithRemoteSurfaceEvents(gatewayRunner.runtimeStatus()),
-      listBindings: () => bindings.list({ includeInactive: true }).bindings,
-    });
-    registerMessagingRemoteSurfaceReplyPreviewTools(pi, {
-      inputForParams: messagingRemoteSurfaceReplyInputFromParams,
-      targetForInput: remoteSurfaceReplyTargetForInput,
-      telegramPreviewForParams: telegramBridgeReply.previewForParams,
-      signalPreviewForParams: signalBridgeReply.previewForParams,
-    });
-
-    registerMessagingRemoteSurfaceReplyApplyTools(pi, {
-      inputForParams: messagingRemoteSurfaceReplyInputFromParams,
-      targetForInput: remoteSurfaceReplyTargetForInput,
-      telegramApplyForParams: telegramBridgeReply.applyForParams,
-      signalApplyForParams: signalBridgeReply.applyForParams,
-      gatewayRuntimeStatus: () => options.messagingGatewayStatusWithRemoteSurfaceEvents(gatewayRunner.runtimeStatus()),
-    });
-
-    const remoteSurfaceCommandPreviewForParams = createMessagingRemoteSurfaceCommandPreviewResolver({
-      bindings,
-      gatewayRuntimeStatus: () => gatewayRunner.runtimeStatus(),
-      runtimeSurfaceSnapshot: () => runtimeSurfaceSnapshot(),
-    });
-
-    registerMessagingRemoteSurfaceCommandPreviewTools(pi, {
-      previewForParams: remoteSurfaceCommandPreviewForParams,
-    });
-
-    const remoteSurfaceCommandApplyForParams = createMessagingRemoteSurfaceCommandApplyResolver({
-      previewForParams: remoteSurfaceCommandPreviewForParams,
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      bindings,
-      runtimeSurfaceSnapshot,
-      isRunActive: options.isRunActive,
-      ...(options.createProject ? { createProject: options.createProject } : {}),
-      createChatThread: options.createChatThread,
-      createWorkflowAgentThreadSummary: options.createWorkflowAgentThreadSummary,
-      switchProjectAvailable: options.switchProjectAvailable,
-      recordRuntimeEvent: options.recordRuntimeEvent,
-      storePendingProjectSwitch: options.storePendingProjectSwitch,
-      completeProjectSwitch: options.completeProjectSwitch,
-      answerWorkflowDiscoveryQuestion: options.answerWorkflowDiscoveryQuestion,
-      getWorkflowDiscoveryQuestion: options.getWorkflowDiscoveryQuestion,
-      getWorkflowThreadSummary: options.getWorkflowThreadSummary,
-      workflowAgents: options.workflowAgents,
-      onWorkflowUpdated: () => options.emit({ type: "workflow-updated" }),
-      updateThreadSettings: options.updateThreadSettings,
-      onThreadUpdated: (thread) => options.emit({ type: "thread-updated", thread }),
-      voice: options.voice,
-      stt: options.stt,
-      listSttProviders: options.listSttProviders,
-      media: options.media,
-      planner: options.planner,
-      search: options.search,
-      discoverAmbientCliPackages,
-      ...(options.respondToPermissionPrompt ? {
-        respondToPermissionPrompt: options.respondToPermissionPrompt,
-      } : {}),
-      revokePermissionGrant: options.revokePermissionGrant,
-      onPermissionGrantRevoked: (grant) => options.emit({ type: "permission-grant-revoked", grant }),
-    });
-    registerMessagingRemoteSurfaceCommandApplyTools(pi, {
-      applyForParams: remoteSurfaceCommandApplyForParams,
-    });
-
-    const relayDiagnostics = createMessagingRelayDiagnosticsResolvers({
-      bindings,
-      gatewayRunner,
-      runtimeStatus: () => options.messagingGatewayStatusWithRemoteSurfaceEvents(gatewayRunner.runtimeStatus()),
-    });
-
-    registerTelegramRelayDiagnosticsTools(pi, relayDiagnostics.telegram);
-
-    registerSignalRelayDiagnosticsTools(pi, relayDiagnostics.signal);
-
-    messagingGatewayStatusTools.registerMessagingGatewayStatusTools(pi, messagingGatewayStatusTools.createMessagingGatewayStatusResolvers({
-      bindings,
-      gatewayRunner,
-      runtimeStatus: () => options.messagingGatewayStatusWithRemoteSurfaceEvents(gatewayRunner.runtimeStatus()),
+      telegramBridgeSupervisor,
       telegramBridgePollingRunner,
       signalRealPollingRunner,
-      signalProviderDescriptor: () => registry.get("signal-cli")?.descriptor,
-    }));
-
-    const gatewayLifecycle = createMessagingGatewayLifecycleResolvers(gatewayRunner);
-
-    registerMessagingGatewayLifecyclePreviewTools(pi, gatewayLifecycle);
-
-    registerMessagingGatewayLifecycleApplyTools(pi, {
-      threadId: options.threadId,
-      workspace: options.workspace,
-      getThread: options.getThread,
-      resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
-      ...gatewayLifecycle,
+      runtimeSurfaceSnapshot,
     });
   };
 }

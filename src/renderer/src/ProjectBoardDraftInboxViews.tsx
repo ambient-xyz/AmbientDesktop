@@ -1,55 +1,33 @@
-import {
-  AlertCircle,
-  Bot,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  ClipboardPaste,
-  Clock,
-  FileText,
-  GitBranch,
-  Info,
-  Kanban,
-  ListFilter,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  X,
-} from "lucide-react";
-import { DragEvent as ReactDragEvent, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, Check, ChevronDown, ListFilter, Plus, RefreshCw, Search, X } from "lucide-react";
+import { DragEvent as ReactDragEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { projectBoardSynthesisPartialStatus } from "../../shared/projectBoardSynthesisRecovery";
+import type {
+  ApplyProjectBoardDecisionImpactFeedbackInput,
+  ApplyProjectBoardSourceImpactFeedbackInput,
+  ProjectBoardCard,
+  ProjectBoardCardCandidateStatus,
+  ProjectBoardGitSyncStatus,
+  ProjectBoardSynthesisRun,
+  ProjectSummary,
+  RefreshProjectBoardDecisionDraftsInput,
+  RefreshProjectBoardSourceDraftsInput,
+  RegenerateProjectBoardDecisionDraftsInput,
+  RegenerateProjectBoardSourceDraftsInput,
+  ResolveProjectBoardCardPiUpdateInput,
+  UpdateProjectBoardCardInput,
+} from "../../shared/projectBoardTypes";
+import { ProjectBoardCandidateDetail } from "./ProjectBoardCandidateDetailViews";
 import {
-  projectBoardRunBlocksPlanning,
-  projectBoardRunIsKickoffDefaults,
-} from "../../shared/projectBoardSynthesisGate";
-import type { ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardGitSyncStatus, ProjectBoardQuestion, ProjectBoardSynthesisRun, ProjectSummary, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, ResolveProjectBoardCardPiUpdateInput, SuggestProjectBoardKickoffDefaultsInput, UpdateProjectBoardCardInput } from "../../shared/projectBoardTypes";
-import {
-  ProjectBoardCandidateDetail,
-  ProjectBoardProofScopeWarningSummary,
-} from "./ProjectBoardCandidateDetailViews";
-import {
-  ProjectBoardCardShell,
-  projectBoardCandidateStatusLabel,
-  projectBoardDraftColumnEmptyText,
-} from "./ProjectBoardLaneViews";
-import {
-  ProjectBoardSourceImpactPreviewPanel,
-  projectBoardSourceChangeStateLabel,
-} from "./ProjectBoardSourceViews";
-import {
-  projectBoardCardCanMarkReady,
-  projectBoardCardCanSplit,
-  projectBoardCandidateClarificationItems,
-  projectBoardKickoffDefaultAnswer,
-  projectBoardKickoffDefaultProviderErrorMessage,
-} from "./projectBoardCardEditUiModel";
+  ProjectBoardDraftBoardControls,
+  ProjectBoardDraftBoardHeader,
+  ProjectBoardDraftColumnsGrid,
+  ProjectBoardDraftCreateReadyPreviewPanel,
+} from "./ProjectBoardDraftBoardSections";
+import { ProjectBoardSourceImpactPreviewPanel, projectBoardSourceChangeStateLabel } from "./ProjectBoardSourceViews";
+import { projectBoardCardCanMarkReady } from "./projectBoardCardEditUiModel";
 import {
   projectBoardAddCardsSourceScope,
-  projectBoardCardDependencyBadges,
-  projectBoardCreateReadyTasksState,
-  projectBoardPlanningSnapshotTicketizationState,
   projectBoardSourceChangeDetail,
   projectBoardSourceChangeSummary,
   projectBoardSourceFilterItems,
@@ -75,33 +53,12 @@ import {
   type ProjectBoardDraftInboxFilterOption,
   type ProjectBoardPiUpdateReviewQueue,
 } from "./projectBoardDraftInboxUiModel";
-import {
-  projectBoardPlanningWarningActionTitle,
-  projectBoardPlanningWarningsForCard,
-} from "./projectBoardPlanningWarningUiModel";
-
-export function projectBoardKickoffDefaultDraftingStatus(board: NonNullable<ProjectSummary["board"]>, questionId?: string): string | undefined {
-  if (!questionId) return undefined;
-  const run = projectBoardLatestVisibleSynthesisRun(board.synthesisRuns);
-  if (!run || run.status !== "running" || run.stage !== "kickoff_defaults") return undefined;
-  const latestQuestionEvent = [...run.events].reverse().find((event) => event.metadata.questionId === questionId);
-  if (!latestQuestionEvent || latestQuestionEvent.stage !== "kickoff_defaults") return undefined;
-  const total = typeof latestQuestionEvent.metadata.total === "number" ? latestQuestionEvent.metadata.total : undefined;
-  const position = typeof latestQuestionEvent.metadata.position === "number" ? latestQuestionEvent.metadata.position : undefined;
-  const received = run.responseCharCount && run.responseCharCount > 0 ? `${run.responseCharCount.toLocaleString()} response characters received. ` : "";
-  const progress = position && total ? `Question ${position}/${total}. ` : "";
-  return `${progress}${received}The editable answer will appear here as soon as Ambient/Pi finishes a valid response for this question.`;
-}
-
-function projectBoardLatestVisibleSynthesisRun(runs?: ProjectBoardSynthesisRun[]): ProjectBoardSynthesisRun | undefined {
-  if (!runs?.length) return undefined;
-  return (
-    runs.find(projectBoardRunBlocksPlanning) ??
-    runs.find((run) => (run.status === "running" || run.status === "pause_requested") && projectBoardRunIsKickoffDefaults(run)) ??
-    runs.find((run) => (run.status === "paused" || run.status === "succeeded") && !projectBoardRunIsKickoffDefaults(run)) ??
-    runs[0]
-  );
-}
+export {
+  ProjectBoardKickoffInterview,
+  projectBoardKickoffDefaultDraftingStatus,
+  projectBoardQuestionSectionLabel,
+} from "./ProjectBoardDraftKickoffInterview";
+export { ProjectBoardDraftCardView, ProjectBoardDraftCreateReadyPreviewPanel } from "./ProjectBoardDraftBoardSections";
 
 export function ProjectBoardDraftInboxTab({
   board,
@@ -260,7 +217,6 @@ export function ProjectBoardDraftInboxTab({
   );
 }
 
-
 export function ProjectBoardDraftSourcePicker({
   board,
   sourceBusy,
@@ -296,10 +252,7 @@ export function ProjectBoardDraftSourcePicker({
   const scope = projectBoardAddCardsSourceScope(sourceGroups, selectedGroupIds, elaborateBusy);
   const sourceImpact = useMemo(() => projectBoardSourceImpactPreview(board, { selectedGroupIds }), [board, selectedGroupIds]);
   const selectedSourceIds = useMemo(
-    () =>
-      sourceGroups
-        .filter((group) => selectedGroupIds.has(group.id))
-        .flatMap((group) => group.observations.map((source) => source.id)),
+    () => sourceGroups.filter((group) => selectedGroupIds.has(group.id)).flatMap((group) => group.observations.map((source) => source.id)),
     [selectedGroupIds, sourceGroups],
   );
   const objectiveText = objective.trim();
@@ -315,7 +268,9 @@ export function ProjectBoardDraftSourcePicker({
     ? "Select sources or enter an objective before asking Pi to elaborate additive Draft Inbox cards."
     : objectiveText
       ? `Ask Pi to elaborate additive Draft Inbox cards for this objective${
-          scope.selectedGroupCount > 0 ? ` using ${scope.selectedGroupCount} selected source group${scope.selectedGroupCount === 1 ? "" : "s"}` : ""
+          scope.selectedGroupCount > 0
+            ? ` using ${scope.selectedGroupCount} selected source group${scope.selectedGroupCount === 1 ? "" : "s"}`
+            : ""
         }. Existing board cards are preserved.`
       : scope.title;
 
@@ -384,8 +339,12 @@ export function ProjectBoardDraftSourcePicker({
       </label>
       <div className="project-board-source-detail-meta">
         <span>{scope.selectedGroupCount} selected</span>
-        <span>{scope.selectedObservationCount} observation{scope.selectedObservationCount === 1 ? "" : "s"}</span>
-        <span>{sourceGroups.length} source group{sourceGroups.length === 1 ? "" : "s"}</span>
+        <span>
+          {scope.selectedObservationCount} observation{scope.selectedObservationCount === 1 ? "" : "s"}
+        </span>
+        <span>
+          {sourceGroups.length} source group{sourceGroups.length === 1 ? "" : "s"}
+        </span>
       </div>
       <ProjectBoardSourceImpactPreviewPanel
         preview={sourceImpact}
@@ -490,8 +449,12 @@ export function ProjectBoardDraftSourcePicker({
             <pre>{activeGroup.primary.excerpt.trim()}</pre>
           )}
           <div className="project-board-source-provenance">
-            <span title={projectBoardSourceInclusion(activeGroup.primary).detail}>{projectBoardSourceInclusion(activeGroup.primary).badgeLabel}</span>
-            <span>{activeGroup.primary.path || activeGroup.primary.threadId || activeGroup.primary.artifactId || activeGroup.primary.id}</span>
+            <span title={projectBoardSourceInclusion(activeGroup.primary).detail}>
+              {projectBoardSourceInclusion(activeGroup.primary).badgeLabel}
+            </span>
+            <span>
+              {activeGroup.primary.path || activeGroup.primary.threadId || activeGroup.primary.artifactId || activeGroup.primary.id}
+            </span>
             <span>{projectBoardSourceKindText(activeGroup.primary.kind)}</span>
             {activeGroup.primary.changeState && <span>{projectBoardSourceChangeStateLabel(activeGroup.primary.changeState)}</span>}
           </div>
@@ -513,7 +476,6 @@ export function ProjectBoardDraftSourcePicker({
     </aside>
   );
 }
-
 
 export function ProjectBoardDraftBoard({
   columns,
@@ -567,8 +529,6 @@ export function ProjectBoardDraftBoard({
   latestSynthesisRun?: ProjectBoardSynthesisRun;
 }) {
   const count = columns.reduce((total, column) => total + column.cards.length, 0);
-  const createReadyTasksState = board ? projectBoardCreateReadyTasksState(board, createReadyTasksBusy) : undefined;
-  const planningSnapshotState = board ? projectBoardPlanningSnapshotTicketizationState(board) : undefined;
   const partialStatus = latestSynthesisRun ? projectBoardSynthesisPartialStatus(latestSynthesisRun) : undefined;
   const visibleCards = useMemo(() => columns.flatMap((column) => column.cards), [columns]);
   const draftCardsById = useMemo(() => new Map(visibleCards.map((card) => [card.id, card])), [visibleCards]);
@@ -648,11 +608,16 @@ export function ProjectBoardDraftBoard({
     setDraggingCardId(undefined);
     setDragTargetColumnId(undefined);
   };
-  const updateColumnDropEffect = (
-    event: ReactDragEvent<HTMLElement>,
-    column: ReturnType<typeof projectBoardDraftColumns>[number],
-  ) => {
-    const cardId = draggingCardId || event.dataTransfer.getData("application/x-project-board-card-id") || event.dataTransfer.getData("text/plain");
+  const clearDragTarget = () => setDragTargetColumnId(undefined);
+  const startCardDrag = (event: ReactDragEvent<HTMLElement>, card: ProjectBoardCard) => {
+    setDraggingCardId(card.id);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-project-board-card-id", card.id);
+    event.dataTransfer.setData("text/plain", card.id);
+  };
+  const updateColumnDropEffect = (event: ReactDragEvent<HTMLElement>, column: ReturnType<typeof projectBoardDraftColumns>[number]) => {
+    const cardId =
+      draggingCardId || event.dataTransfer.getData("application/x-project-board-card-id") || event.dataTransfer.getData("text/plain");
     const card = cardId ? draftCardsById.get(cardId) : undefined;
     const moveState = projectBoardDraftColumnMoveState(column, card, board);
     event.preventDefault();
@@ -675,147 +640,36 @@ export function ProjectBoardDraftBoard({
   };
   return (
     <section className="project-board-draft-board" aria-label="Project board draft candidates">
-      <header>
-        <div>
-          <span className="project-board-kicker">Draft board</span>
-          <h3>
-            {count} of {allCandidateCount} candidate card{allCandidateCount === 1 ? "" : "s"}
-          </h3>
-        </div>
-        <div className="project-board-card-actions">
-          <span className="project-board-status">Triage before execution</span>
-          {board && (
-            <>
-              <button
-                type="button"
-                className="secondary-button"
-                title="Open Add Cards From Sources and choose included source groups for additive card elaboration."
-                onClick={onOpenSourcePicker}
-              >
-                <Plus size={14} />
-                <span>Add Cards From Sources</span>
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                title="Open the Charter source review. Source inspection and source-scoped Add Cards live there so source provenance stays in one place."
-                onClick={onReviewSources}
-              >
-                <FileText size={14} />
-                <span>Open Source Review</span>
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={createReadyTasksState?.disabled}
-                title={createReadyTasksState?.title}
-                onClick={() => onCreateReadyTasks(board.id)}
-              >
-                <ClipboardPaste size={14} />
-                <span>{createReadyTasksState?.label}</span>
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={createCardBusy}
-                title="Create a blank candidate card in the Draft Inbox for manual PM triage."
-                onClick={() => onCreateCard(board.id)}
-              >
-                <Plus size={14} />
-                <span>{createCardBusy ? "Creating" : "New Draft Card"}</span>
-              </button>
-            </>
-          )}
-        </div>
-      </header>
-      {planningSnapshotState && planningSnapshotState.kind !== "no_snapshot" && (
-        <section className={`project-board-planning-snapshot-state ${planningSnapshotState.tone}`} aria-label="Planning snapshot ticketization state">
-          {planningSnapshotState.kind === "planning_running" ? <Clock size={15} /> : <CheckCircle2 size={15} />}
-          <div>
-            <strong>{planningSnapshotState.label}</strong>
-            <p>{planningSnapshotState.detail}</p>
-          </div>
-          <span className={`project-board-status ${planningSnapshotState.tone === "warning" ? "warning" : planningSnapshotState.tone === "ready" ? "ready" : ""}`}>
-            {planningSnapshotState.statusLabel}
-          </span>
-        </section>
-      )}
-      <section className="project-board-draft-controls" aria-label="Draft Inbox search and bulk controls">
-        <div className="project-board-draft-search-row">
-          <label className="project-board-search-field">
-            <Search size={15} />
-            <input
-              type="search"
-              value={query}
-              placeholder="Search title, phase, source, decision id, dependency, or proof text"
-              aria-label="Search Draft Inbox candidates"
-              onChange={(event) => onQueryChange(event.currentTarget.value)}
-            />
-          </label>
-          <label className="project-board-draft-toggle" title="Hide rejected, duplicate, and covered cards from the working columns.">
-            <input type="checkbox" checked={includeSkipped} onChange={(event) => onIncludeSkippedChange(event.currentTarget.checked)} />
-            <span>Show skipped</span>
-          </label>
-        </div>
-        <div className="project-board-draft-filter-row" aria-label="Draft Inbox filters">
-          <ListFilter size={15} />
-          {filterOptions.map((option) => (
-            <button
-              type="button"
-              key={option.id}
-              className={filterId === option.id ? "active" : ""}
-              title={option.title}
-              onClick={() => onFilterChange(option.id)}
-            >
-              <span>{option.label}</span>
-              <strong>{option.count}</strong>
-            </button>
-          ))}
-        </div>
-        <div className="project-board-draft-bulk-row">
-          <span>
-            {selectedBulkCards.length} selected · {createReadyPreview.ticketizableCards.length} ready to create · {createReadyPreview.markReadyCards.length} can be marked ready
-          </span>
-          <div className="project-board-card-actions">
-            <button type="button" className="secondary-button" disabled={visibleCards.length === 0} title="Select every visible candidate card." onClick={selectVisibleCards}>
-              <Check size={14} />
-              <span>Select visible</span>
-            </button>
-            <button type="button" className="secondary-button" disabled={selectedBulkCards.length === 0} title="Clear the current bulk selection." onClick={clearBulkSelection}>
-              <X size={14} />
-              <span>Clear</span>
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={selectedBulkReadyCandidates.length === 0}
-              title={
-                selectedBulkReadyCandidates.length === 0
-                  ? "Select candidates that have no open decisions, proof gaps, claim conflicts, or strict proof warnings."
-                  : `Mark ${selectedBulkReadyCandidates.length} selected candidate${selectedBulkReadyCandidates.length === 1 ? "" : "s"} Ready To Create.`
-              }
-              onClick={() => markCardsReady(selectedBulkReadyCandidates)}
-            >
-              <CheckCircle2 size={14} />
-              <span>Ready selected</span>
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={markAllReadyCandidates.length === 0}
-              title={
-                markAllReadyCandidates.length === 0
-                  ? "No visible candidates can be safely marked Ready To Create."
-                  : `Mark ${markAllReadyCandidates.length} visible eligible candidate${markAllReadyCandidates.length === 1 ? "" : "s"} Ready To Create.`
-              }
-              onClick={() => markCardsReady(markAllReadyCandidates)}
-            >
-              <CheckCircle2 size={14} />
-              <span>Ready eligible</span>
-            </button>
-          </div>
-        </div>
-      </section>
+      <ProjectBoardDraftBoardHeader
+        count={count}
+        allCandidateCount={allCandidateCount}
+        board={board}
+        createCardBusy={createCardBusy}
+        createReadyTasksBusy={createReadyTasksBusy}
+        onOpenSourcePicker={onOpenSourcePicker}
+        onReviewSources={onReviewSources}
+        onCreateReadyTasks={onCreateReadyTasks}
+        onCreateCard={onCreateCard}
+      />
+      <ProjectBoardDraftBoardControls
+        query={query}
+        includeSkipped={includeSkipped}
+        filterOptions={filterOptions}
+        filterId={filterId}
+        selectedBulkCardsCount={selectedBulkCards.length}
+        ticketizableCardsCount={createReadyPreview.ticketizableCards.length}
+        markReadyCardsCount={createReadyPreview.markReadyCards.length}
+        visibleCardsCount={visibleCards.length}
+        selectedBulkReadyCandidatesCount={selectedBulkReadyCandidates.length}
+        markAllReadyCandidatesCount={markAllReadyCandidates.length}
+        onQueryChange={onQueryChange}
+        onIncludeSkippedChange={onIncludeSkippedChange}
+        onFilterChange={onFilterChange}
+        onSelectVisibleCards={selectVisibleCards}
+        onClearBulkSelection={clearBulkSelection}
+        onReadySelected={() => markCardsReady(selectedBulkReadyCandidates)}
+        onReadyEligible={() => markCardsReady(markAllReadyCandidates)}
+      />
       {piUpdateQueue?.visible && (
         <ProjectBoardPiUpdateReviewPanel
           queue={piUpdateQueue}
@@ -836,71 +690,38 @@ export function ProjectBoardDraftBoard({
         <div className={`project-board-partial-warning ${partialStatus.deferred ? "deferred" : ""}`}>
           <AlertCircle size={15} />
           <p>
-            <strong>{partialStatus.deferred ? "Draft inbox is based on a deferred partial synthesis." : "Draft inbox is based on a partial synthesis."}</strong>{" "}
-            {partialStatus.summary} Review or approve the available candidates, but retry failed sections before assuming the whole project source set has been decomposed.
+            <strong>
+              {partialStatus.deferred
+                ? "Draft inbox is based on a deferred partial synthesis."
+                : "Draft inbox is based on a partial synthesis."}
+            </strong>{" "}
+            {partialStatus.summary} Review or approve the available candidates, but retry failed sections before assuming the whole project
+            source set has been decomposed.
           </p>
         </div>
       )}
-      <div className="project-board-draft-grid">
-        {columns.map((column) => {
-          const moveState = projectBoardDraftColumnMoveState(column, draggingCard, board);
-          const activeDropTarget = draggingCard && dragTargetColumnId === column.id;
-          return (
-            <section
-              className={`project-board-draft-column ${draggingCard ? "dragging-card" : ""} ${activeDropTarget ? `drop-target ${moveState.disabled ? "drop-blocked" : `drop-${moveState.tone}`}` : ""}`}
-              key={column.id}
-              title={moveState.title}
-              aria-label={`${column.title}. ${moveState.title}`}
-              onDragEnter={(event) => updateColumnDropEffect(event, column)}
-              onDragOver={(event) => updateColumnDropEffect(event, column)}
-              onDragLeave={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragTargetColumnId(undefined);
-              }}
-              onDrop={(event) => dropCardIntoColumn(event, column.id)}
-            >
-              <header>
-                <div>
-                  <span>{column.title}</span>
-                  <small className={`project-board-draft-drop-hint ${activeDropTarget ? moveState.tone : ""}`}>{moveState.label}</small>
-                </div>
-                <strong>{column.cards.length}</strong>
-              </header>
-              <div className="project-board-card-list">
-                {column.cards.length > 0 ? (
-                  column.cards.map((card) => (
-                    <ProjectBoardDraftCardView
-                      card={card}
-                      key={card.id}
-                      selected={selectedCardId === card.id}
-                      focusRef={selectedCardId === card.id ? selectedCardElementRef : undefined}
-                      bulkSelected={selectedBulkCardIds.has(card.id)}
-                      board={board}
-                      onSelectCard={onSelectCard}
-                      onToggleBulkSelected={toggleBulkCard}
-                      onDragStart={(event) => {
-                        setDraggingCardId(card.id);
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("application/x-project-board-card-id", card.id);
-                        event.dataTransfer.setData("text/plain", card.id);
-                      }}
-                      onDragEnd={clearDragState}
-                      onApproveCard={onApproveCard}
-                      onSplitCard={onSplitCard}
-                      onUpdateCardCandidate={onUpdateCardCandidate}
-                    />
-                  ))
-                ) : (
-                  <div className="project-board-column-empty">{projectBoardDraftColumnEmptyText(column.title)}</div>
-                )}
-              </div>
-            </section>
-          );
-        })}
-      </div>
+      <ProjectBoardDraftColumnsGrid
+        columns={columns}
+        board={board}
+        selectedCardId={selectedCardId}
+        draggingCard={draggingCard}
+        dragTargetColumnId={dragTargetColumnId}
+        selectedBulkCardIds={selectedBulkCardIds}
+        selectedCardElementRef={selectedCardElementRef}
+        onSelectCard={onSelectCard}
+        onToggleBulkCard={toggleBulkCard}
+        onDragStartCard={startCardDrag}
+        onClearDragTarget={clearDragTarget}
+        onClearDragState={clearDragState}
+        onUpdateColumnDropEffect={updateColumnDropEffect}
+        onDropCardIntoColumn={dropCardIntoColumn}
+        onApproveCard={onApproveCard}
+        onSplitCard={onSplitCard}
+        onUpdateCardCandidate={onUpdateCardCandidate}
+      />
     </section>
   );
 }
-
 
 export function ProjectBoardPiUpdateReviewPanel({
   queue,
@@ -931,7 +752,12 @@ export function ProjectBoardPiUpdateReviewPanel({
           <p>{queue.detail}</p>
         </div>
         <div className="project-board-card-actions">
-          <button type="button" className="secondary-button" title="Show only candidates with staged Pi updates or stale impact markers." onClick={onShowImpactFilter}>
+          <button
+            type="button"
+            className="secondary-button"
+            title="Show only candidates with staged Pi updates or stale impact markers."
+            onClick={onShowImpactFilter}
+          >
             <ListFilter size={14} />
             <span>Show impacted</span>
           </button>
@@ -948,10 +774,18 @@ export function ProjectBoardPiUpdateReviewPanel({
         </div>
       </header>
       <div className="project-board-pi-update-metrics" aria-label="Pi update sources">
-        <span title="Draft cards updated by PM decision targeted refreshes."><strong>{queue.decisionCount}</strong> Decisions</span>
-        <span title="Draft cards updated by source-authority targeted refreshes."><strong>{queue.sourceCount}</strong> Sources</span>
-        <span title="Draft cards updated by proof-suggestion refreshes."><strong>{queue.proofCount}</strong> Proof</span>
-        <span title="Draft cards updated by other planner refreshes."><strong>{queue.planningCount}</strong> Other</span>
+        <span title="Draft cards updated by PM decision targeted refreshes.">
+          <strong>{queue.decisionCount}</strong> Decisions
+        </span>
+        <span title="Draft cards updated by source-authority targeted refreshes.">
+          <strong>{queue.sourceCount}</strong> Sources
+        </span>
+        <span title="Draft cards updated by proof-suggestion refreshes.">
+          <strong>{queue.proofCount}</strong> Proof
+        </span>
+        <span title="Draft cards updated by other planner refreshes.">
+          <strong>{queue.planningCount}</strong> Other
+        </span>
       </div>
       <div className="project-board-pi-update-bulk-actions">
         <span>{queue.actionableItems.length} reviewable before ticketization</span>
@@ -980,7 +814,10 @@ export function ProjectBoardPiUpdateReviewPanel({
       </div>
       <div className="project-board-pi-update-review-list">
         {previewItems.map((item) => (
-          <article className={`project-board-pi-update-review-item ${item.sourceKind} ${item.actionable ? "" : "blocked"}`} key={item.card.id}>
+          <article
+            className={`project-board-pi-update-review-item ${item.sourceKind} ${item.actionable ? "" : "blocked"}`}
+            key={item.card.id}
+          >
             <div>
               <span>{item.sourceLabel}</span>
               <strong>{item.card.title}</strong>
@@ -993,7 +830,12 @@ export function ProjectBoardPiUpdateReviewPanel({
               {item.blocker && <li>{item.blocker}</li>}
             </ul>
             <div className="project-board-card-actions">
-              <button type="button" className="secondary-button" title="Open this candidate in the inspector." onClick={() => onSelectCard(item.card.id)}>
+              <button
+                type="button"
+                className="secondary-button"
+                title="Open this candidate in the inspector."
+                onClick={() => onSelectCard(item.card.id)}
+              >
                 <Search size={14} />
                 <span>Inspect</span>
               </button>
@@ -1020,541 +862,12 @@ export function ProjectBoardPiUpdateReviewPanel({
             </div>
           </article>
         ))}
-        {hiddenCount > 0 && <p>{hiddenCount} more staged update{hiddenCount === 1 ? "" : "s"} hidden.</p>}
+        {hiddenCount > 0 && (
+          <p>
+            {hiddenCount} more staged update{hiddenCount === 1 ? "" : "s"} hidden.
+          </p>
+        )}
       </div>
     </section>
   );
-}
-
-
-export function ProjectBoardDraftCreateReadyPreviewPanel({
-  preview,
-  showSkipped,
-  onToggleSkipped,
-}: {
-  preview: ProjectBoardDraftInboxCreateReadyPreview;
-  showSkipped: boolean;
-  onToggleSkipped: () => void;
-}) {
-  const skippedPreview = preview.skippedCards.slice(0, 8);
-  return (
-    <section className="project-board-create-ready-preview" aria-label="Create ready task preview">
-      <header>
-        <div>
-          <span className="project-board-kicker">Create-ready preview</span>
-          <h4>{preview.ticketizableCards.length} candidate{preview.ticketizableCards.length === 1 ? "" : "s"} will become Local Tasks</h4>
-        </div>
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={preview.skippedCards.length === 0}
-          title={preview.skippedCards.length === 0 ? "No skipped candidates to show." : "Show skipped cards and their blocker reasons."}
-          onClick={onToggleSkipped}
-        >
-          <ChevronDown size={14} className={showSkipped ? "rotated" : ""} />
-          <span>{showSkipped ? "Hide skipped" : "Show skipped"}</span>
-        </button>
-      </header>
-      <div className="project-board-create-ready-metrics">
-        <span title="Candidate cards that match the exact bulk Create Ready Tasks policy.">
-          <strong>{preview.ticketizableCards.length}</strong>
-          Ready now
-        </span>
-        <span title="Candidates that can be moved to Ready To Create without a Pi call.">
-          <strong>{preview.markReadyCards.length}</strong>
-          Can mark ready
-        </span>
-        <span title="Cards with open canonical clarification decisions.">
-          <strong>{preview.decisionBlockedCount}</strong>
-          Decisions
-        </span>
-        <span title="Cards missing proof expectations required by the board proof policy.">
-          <strong>{preview.proofGapCount}</strong>
-          Proof gaps
-        </span>
-        <span title="Cards with dependency blockers that will become Local Task blockers after ticketization.">
-          <strong>{preview.dependencyBlockerCount}</strong>
-          Dependencies
-        </span>
-        <span title="Cards with pending Pi updates or stale impact markers.">
-          <strong>{preview.staleImpactCount}</strong>
-          Pi updates
-        </span>
-      </div>
-      {showSkipped && (
-        <div className="project-board-create-ready-skipped">
-          {skippedPreview.length > 0 ? (
-            skippedPreview.map((item) => (
-              <article key={item.card.id}>
-                <strong>{item.card.title}</strong>
-                <ul>
-                  {item.reasons.slice(0, 3).map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
-              </article>
-            ))
-          ) : (
-            <div className="project-board-column-empty">No skipped candidates match the current preview.</div>
-          )}
-          {preview.skippedCards.length > skippedPreview.length && (
-            <p>{preview.skippedCards.length - skippedPreview.length} more skipped candidate{preview.skippedCards.length - skippedPreview.length === 1 ? "" : "s"} hidden.</p>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-
-export function ProjectBoardDraftCardView({
-  card,
-  selected,
-  focusRef,
-  bulkSelected,
-  board,
-  onSelectCard,
-  onToggleBulkSelected,
-  onDragStart,
-  onDragEnd,
-  onApproveCard,
-  onSplitCard,
-  onUpdateCardCandidate,
-}: {
-  card: ProjectBoardCard;
-  selected: boolean;
-  focusRef?: RefObject<HTMLElement | null>;
-  bulkSelected: boolean;
-  board?: NonNullable<ProjectSummary["board"]>;
-  onSelectCard: (cardId: string) => void;
-  onToggleBulkSelected: (cardId: string) => void;
-  onDragStart: (event: ReactDragEvent<HTMLElement>) => void;
-  onDragEnd: () => void;
-  onApproveCard: (card: ProjectBoardCard) => void;
-  onSplitCard: (cardId: string) => void;
-  onUpdateCardCandidate: (card: ProjectBoardCard, candidateStatus: ProjectBoardCardCandidateStatus) => void;
-}) {
-  const canSplit = projectBoardCardCanSplit(card);
-  const canMarkReady = projectBoardCardCanMarkReady(card, board);
-  const clarificationItems = projectBoardCandidateClarificationItems(card, board);
-  const primaryClarification = clarificationItems[0];
-  const primaryClarificationText = primaryClarification ? `${primaryClarification.label}: ${primaryClarification.detail}` : "";
-  const planningWarnings = projectBoardPlanningWarningsForCard(card, board);
-  const proofGateTitle = "Add at least one proof expectation before marking this card ready.";
-  const proofScopeTitle = projectBoardPlanningWarningActionTitle(planningWarnings);
-  const markReadyTitle = canMarkReady
-    ? proofScopeTitle ?? "Mark candidate ready"
-    : proofGateTitle;
-  const approveTitle = canMarkReady
-    ? proofScopeTitle ?? "Approve candidate card"
-    : proofGateTitle;
-  const dependencyBadges = board ? projectBoardCardDependencyBadges(card, board.cards, { executionArtifacts: board.executionArtifacts }) : undefined;
-  return (
-    <ProjectBoardCardShell
-      card={card}
-      meta={projectBoardCandidateStatusLabel(card.candidateStatus)}
-      selected={selected}
-      focusRef={focusRef}
-      allCards={board?.cards}
-      dependencyBadges={dependencyBadges}
-      onSelectDependencyCard={onSelectCard}
-      role="button"
-      tabIndex={0}
-      draggable
-      title="Click to inspect this candidate. Drag it between Draft Inbox columns to change triage state."
-      onClick={() => onSelectCard(card.id)}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        onSelectCard(card.id);
-      }}
-    >
-      <label className="project-board-card-select" onClick={(event) => event.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={bulkSelected}
-          aria-label={`Select ${card.title} for bulk Draft Inbox actions`}
-          onChange={() => onToggleBulkSelected(card.id)}
-        />
-        <span>Bulk select</span>
-      </label>
-      <div className="project-board-drag-affordance" aria-hidden="true">
-        <Kanban size={13} />
-        <span>Click for inspector · drag to triage</span>
-      </div>
-      {primaryClarification && (
-        <div className={`project-board-clarification-summary ${primaryClarification.tone}`} title={primaryClarificationText} data-ui-allow-truncation="true">
-          <Info size={13} />
-          <span title={primaryClarificationText}>
-            <strong>{primaryClarification.label}:</strong> {primaryClarification.detail}
-          </span>
-        </div>
-      )}
-      {planningWarnings.length > 0 && (
-        <ProjectBoardProofScopeWarningSummary warnings={planningWarnings} compact />
-      )}
-      <div className="project-board-card-actions" onClick={(event) => event.stopPropagation()}>
-        {card.candidateStatus === "ready_to_create" ? (
-          <button type="button" className="project-board-card-action" disabled={!canMarkReady} title={approveTitle} onClick={() => onApproveCard(card)}>
-            <Check size={14} />
-            <span>Approve</span>
-          </button>
-        ) : (
-          <button type="button" className="project-board-card-action" disabled={!canMarkReady} title={markReadyTitle} onClick={() => onUpdateCardCandidate(card, "ready_to_create")}>
-            <Check size={14} />
-            <span>Mark Ready</span>
-          </button>
-        )}
-        {card.candidateStatus !== "rejected" && (
-          <button type="button" className="project-board-card-action secondary" title="Reject this candidate or mark it as duplicate work." onClick={() => onUpdateCardCandidate(card, "rejected")}>
-            <X size={14} />
-            <span>Reject</span>
-          </button>
-        )}
-        {!canMarkReady && (
-          <span className="project-board-proof-required">
-            <AlertCircle size={13} />
-            Proof required
-          </span>
-        )}
-        <button type="button" className="project-board-card-action secondary" title="Open this candidate in the detail inspector." onClick={() => onSelectCard(card.id)}>
-          <FileText size={14} />
-          <span>Details</span>
-        </button>
-        {card.candidateStatus !== "needs_clarification" && (
-          <button type="button" className="project-board-card-action secondary" title="Move this card to Needs Clarification." onClick={() => onUpdateCardCandidate(card, "needs_clarification")}>
-            <Info size={14} />
-            <span>Needs Info</span>
-          </button>
-        )}
-        {card.candidateStatus !== "evidence" && (
-          <button type="button" className="project-board-card-action secondary" title="Move this candidate to Covered / Done because the work is already represented or no longer needs execution." onClick={() => onUpdateCardCandidate(card, "evidence")}>
-            <CheckCircle2 size={14} />
-            <span>Mark Covered</span>
-          </button>
-        )}
-        {canSplit && (
-          <button type="button" className="project-board-card-action secondary" title="Split acceptance criteria into smaller candidate cards." onClick={() => onSplitCard(card.id)}>
-            <GitBranch size={14} />
-            <span>Split</span>
-          </button>
-        )}
-      </div>
-    </ProjectBoardCardShell>
-  );
-}
-
-
-export function ProjectBoardKickoffInterview({
-  board,
-  finalizeBusy,
-  suggestDefaultsBusy,
-  questions,
-  onAnswerQuestion,
-  onFinalizeKickoff,
-  onCancelRevision,
-  onSuggestKickoffDefaults,
-  onReviewIgnoredThreads,
-}: {
-  board: NonNullable<ProjectSummary["board"]>;
-  finalizeBusy: boolean;
-  suggestDefaultsBusy: boolean;
-  questions: ProjectBoardQuestion[];
-  onAnswerQuestion: (question: ProjectBoardQuestion, answer: string) => void;
-  onFinalizeKickoff: (boardId: string) => void;
-  onCancelRevision: (boardId: string) => void;
-  onSuggestKickoffDefaults: (input: SuggestProjectBoardKickoffDefaultsInput) => Promise<void> | void;
-  onReviewIgnoredThreads: (sourceId?: string) => void;
-}) {
-  const isRevision = (board.charter?.version ?? 1) > 1;
-  const firstUnansweredIndex = questions.findIndex((question) => !question.answer);
-  const initialQuestionIndex = isRevision ? 0 : firstUnansweredIndex >= 0 ? firstUnansweredIndex : questions.length;
-  const [activeQuestionIndex, setActiveQuestionIndex] = useState(initialQuestionIndex);
-  const activeQuestion = questions[activeQuestionIndex];
-  const activeSuggestion = activeQuestion?.suggestedAnswer?.trim() ?? "";
-  const activeProviderError = projectBoardKickoffDefaultProviderErrorMessage(activeQuestion?.suggestedAnswerProviderError);
-  const activeDraftingStatus = projectBoardKickoffDefaultDraftingStatus(board, activeQuestion?.id);
-  const activeSuggestionFresh = Boolean(activeSuggestion && !activeQuestion?.suggestedAnswerStale);
-  const activeStaticDefault = activeQuestion ? projectBoardKickoffDefaultAnswer(board, activeQuestion, activeQuestionIndex) : "";
-  const activeDraftDefault = activeQuestion?.answer ?? (activeSuggestionFresh ? activeSuggestion : activeStaticDefault);
-  const [draft, setDraft] = useState(activeDraftDefault);
-  // Tracks whether the user has typed into the active answer. Without this, a kickoff
-  // defaults run completing in the background changes activeDraftDefault and the sync
-  // effect would overwrite the user's in-progress answer with the suggestion.
-  const [draftDirty, setDraftDirty] = useState(false);
-  const unansweredQuestionIds = questions.filter((question) => !question.answer?.trim()).map((question) => question.id);
-  const missingSuggestionQuestionIds = questions
-    .filter((question) => !question.answer?.trim() && (!question.suggestedAnswer?.trim() || question.suggestedAnswerStale))
-    .map((question) => question.id);
-  const suggestedCount = questions.filter((question) => !question.answer?.trim() && question.suggestedAnswer?.trim()).length;
-  const staleSuggestionCount = questions.filter((question) => !question.answer?.trim() && question.suggestedAnswer?.trim() && question.suggestedAnswerStale).length;
-
-  useEffect(() => {
-    const nextIndex = isRevision ? 0 : firstUnansweredIndex >= 0 ? firstUnansweredIndex : questions.length;
-    setActiveQuestionIndex(nextIndex);
-  }, [board.id, board.charter?.id, firstUnansweredIndex, isRevision, questions.length]);
-
-  useEffect(() => {
-    setDraft(activeDraftDefault);
-    setDraftDirty(false);
-    // Reset only when the question changes; a changing default must not clobber typing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeQuestion?.id]);
-
-  useEffect(() => {
-    if (!draftDirty) setDraft(activeDraftDefault);
-  }, [activeDraftDefault, draftDirty]);
-
-  const answered = questions.filter((question) => question.answer?.trim()).length;
-  const displayStep = questions.length === 0 ? 0 : activeQuestion ? activeQuestionIndex + 1 : questions.length;
-  const currentSection = activeQuestion ? projectBoardQuestionSectionLabel(activeQuestion, activeQuestionIndex) : undefined;
-  const ignoredThreads = board.sources.filter((source) => source.kind === "thread" && !projectBoardSourceInclusion(source).included);
-  const ignoredThreadCount = ignoredThreads.length;
-  const canMoveNext = Boolean(activeQuestion && draft.trim());
-  const statusText =
-    board.status === "active"
-      ? "Charter active"
-      : !activeQuestion
-        ? "Ready to activate"
-        : isRevision || activeQuestion.answer?.trim()
-          ? "Review answer"
-          : "Needs input";
-  const moveNext = () => {
-    if (!activeQuestion || !draft.trim()) return;
-    const trimmed = draft.trim();
-    if (trimmed !== activeQuestion.answer?.trim()) onAnswerQuestion(activeQuestion, trimmed);
-    const nextIndex = Math.min(activeQuestionIndex + 1, questions.length);
-    setActiveQuestionIndex(nextIndex);
-  };
-  const requestDefaults = async (questionIds: string[]) => {
-    const targetIds = questionIds.filter(Boolean);
-    if (suggestDefaultsBusy || targetIds.length === 0) return;
-    try {
-      await onSuggestKickoffDefaults({ boardId: board.id, questionIds: targetIds });
-    } catch {
-      // The top-level project board error banner carries provider failures.
-    }
-  };
-  const showReady = !activeQuestion;
-  return (
-    <section className={`project-board-kickoff ${board.status === "draft" && activeQuestion ? "needs-input" : ""}`} aria-label="Project board kickoff interview">
-      <header>
-        <div>
-          <span className="project-board-kicker">{isRevision ? "Charter revision interview" : "Kickoff interview"}</span>
-          <h3>{displayStep} of {questions.length}</h3>
-          {board.status === "draft" && (
-            <p>
-              {isRevision
-                ? "Review or adjust the existing answers before applying this charter revision."
-                : "Answer these questions to create the project charter."}{" "}
-              {answered} answered. The execution board stays empty until the charter is active and draft candidates are ticketized.
-            </p>
-          )}
-        </div>
-        {questions.length > 0 && (
-          <div className="project-board-kickoff-actions">
-            <span className="project-board-status">{statusText}</span>
-            {board.status === "draft" && unansweredQuestionIds.length > 0 && (
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={suggestDefaultsBusy || missingSuggestionQuestionIds.length === 0}
-                title={
-                  missingSuggestionQuestionIds.length === 0
-                    ? "All unanswered kickoff questions already have current Ambient/Pi defaults."
-                    : "Ask Ambient/Pi for editable source-derived defaults for unanswered kickoff questions."
-                }
-                onClick={() => void requestDefaults(missingSuggestionQuestionIds)}
-              >
-                <Bot size={14} className={suggestDefaultsBusy ? "spin" : ""} />
-                <span>{suggestDefaultsBusy ? "Suggesting" : staleSuggestionCount > 0 ? "Regenerate Defaults" : "Suggest Defaults"}</span>
-              </button>
-            )}
-          </div>
-        )}
-      </header>
-      {activeQuestion ? (
-        <div className="project-board-question">
-          <label>
-            <span>{activeQuestion.question}</span>
-            {currentSection && <em>Updates charter section: {currentSection}</em>}
-            <textarea
-              value={draft}
-              onChange={(event) => {
-                setDraft(event.target.value);
-                setDraftDirty(true);
-              }}
-              placeholder="Answer for the project charter"
-            />
-          </label>
-          {!activeQuestion.answer?.trim() && activeSuggestion && (
-            <div className="project-board-kickoff-default" aria-label="Suggested kickoff default">
-              <div>
-                <Bot size={14} />
-                <strong>Ambient/Pi editable default</strong>
-                <span className={`project-board-kickoff-default-badge ${activeQuestion.suggestedAnswerStale ? "stale" : ""}`}>
-                  {activeQuestion.suggestedAnswerStale ? "Needs review" : activeQuestion.suggestedAnswerConfidence ?? "Suggested"}
-                </span>
-              </div>
-              <p className="project-board-kickoff-default-answer">{activeSuggestion}</p>
-              {activeQuestion.suggestedAnswerRationale && <p className="project-board-kickoff-default-rationale">{activeQuestion.suggestedAnswerRationale}</p>}
-              {activeQuestion.suggestedAnswerStale && (
-                <p className="project-board-kickoff-default-warning">
-                  This suggestion was generated before the latest source or question changes. Review it, regenerate it, or use it as a draft.
-                </p>
-              )}
-              {activeQuestion.suggestedAnswerSourceIds && activeQuestion.suggestedAnswerSourceIds.length > 0 && (
-                <p className="project-board-kickoff-default-sources">
-                  {activeQuestion.suggestedAnswerSourceIds.length} cited source{activeQuestion.suggestedAnswerSourceIds.length === 1 ? "" : "s"}
-                </p>
-              )}
-              <div className="project-board-kickoff-default-actions">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  title={
-                    activeQuestion.suggestedAnswerStale
-                      ? "Copy this older Ambient/Pi suggestion into the editable draft answer so you can review or revise it."
-                      : "Use this Ambient/Pi default as the editable draft answer."
-                  }
-                  onClick={() => {
-                    setDraft(activeSuggestion);
-                    setDraftDirty(true);
-                  }}
-                >
-                  <RotateCcw size={14} />
-                  <span>{activeQuestion.suggestedAnswerStale ? "Use Anyway" : "Use Default"}</span>
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={suggestDefaultsBusy}
-                  title="Regenerate this default from the current source scan."
-                  onClick={() => void requestDefaults([activeQuestion.id])}
-                >
-                  <RefreshCw size={14} className={suggestDefaultsBusy ? "spin" : ""} />
-                  <span>Regenerate</span>
-                </button>
-              </div>
-            </div>
-          )}
-          {!activeQuestion.answer?.trim() && !activeSuggestion && activeProviderError && (
-            <div className="project-board-kickoff-default warning" aria-label="Kickoff default unavailable">
-              <div>
-                <Bot size={14} />
-                <strong>Ambient/Pi default unavailable</strong>
-              </div>
-              <p className="project-board-kickoff-default-answer">{activeProviderError}</p>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={suggestDefaultsBusy}
-                title="Retry Ambient/Pi default generation for this question."
-                onClick={() => void requestDefaults([activeQuestion.id])}
-              >
-                <RefreshCw size={14} className={suggestDefaultsBusy ? "spin" : ""} />
-                <span>Retry</span>
-              </button>
-            </div>
-          )}
-          {!activeQuestion.answer?.trim() && !activeSuggestion && !activeProviderError && activeDraftingStatus && (
-            <div className="project-board-kickoff-default streaming" aria-label="Kickoff default drafting">
-              <div>
-                <Bot size={14} />
-                <strong>Ambient/Pi is drafting</strong>
-                <span className="project-board-kickoff-default-badge">Live</span>
-              </div>
-              <p className="project-board-kickoff-default-answer">{activeDraftingStatus}</p>
-            </div>
-          )}
-          <div className="project-board-question-actions">
-            {isRevision && (
-              <button
-                type="button"
-                className="secondary-button"
-                title="Cancel this draft charter revision and restore the previous active charter."
-                onClick={() => onCancelRevision(board.id)}
-              >
-                <X size={14} />
-                <span>Cancel Revision</span>
-              </button>
-            )}
-            <button
-              type="button"
-              className="primary-button"
-              disabled={!canMoveNext}
-              title={canMoveNext ? "Save this charter answer and move to the next section." : "Enter an answer before moving to the next charter section."}
-              onClick={moveNext}
-            >
-              <Check size={14} />
-              <span>{activeQuestionIndex >= questions.length - 1 ? "Finish Questions" : "Next"}</span>
-            </button>
-          </div>
-        </div>
-      ) : showReady && board.status === "draft" ? (
-        <div className="project-board-kickoff-ready">
-          {suggestedCount > 0 && (
-            <span className="project-board-status ready">
-              {suggestedCount} Pi default{suggestedCount === 1 ? "" : "s"} reviewed
-            </span>
-          )}
-          {ignoredThreadCount > 0 && (
-            <button
-              type="button"
-              className="project-board-source-authority-callout compact interactive"
-              aria-label="Review ignored threads before activation"
-              title="Jump to the ignored thread in Source review."
-              onClick={() => onReviewIgnoredThreads(ignoredThreads[0]?.id)}
-            >
-              <Info size={15} />
-              <div>
-                <strong>{ignoredThreadCount} ignored thread{ignoredThreadCount === 1 ? "" : "s"} before activation</strong>
-                <p>Open Source review and include any ignored thread that should influence synthesis before activating this charter.</p>
-              </div>
-            </button>
-          )}
-          <p className="project-board-kickoff-complete">The charter answers are captured. Activate the board to freeze the charter, unlock ticketized execution, and make ready candidates eligible for Local Task creation.</p>
-          <div className="project-board-card-actions">
-            {isRevision && (
-              <button
-                type="button"
-                className="secondary-button"
-                title="Cancel this draft charter revision and restore the previous active charter."
-                onClick={() => onCancelRevision(board.id)}
-              >
-                <X size={14} />
-                <span>Cancel Revision</span>
-              </button>
-            )}
-            <button
-              type="button"
-              className="primary-button"
-              disabled={finalizeBusy}
-              title="Activate this charter so ready candidate cards can be ticketized into Local Tasks."
-              onClick={() => onFinalizeKickoff(board.id)}
-            >
-              <CheckCircle2 size={14} className={finalizeBusy ? "spin" : ""} />
-              <span>{finalizeBusy ? (isRevision ? "Applying Revision" : "Activating Board") : isRevision ? "Apply Revision" : "Activate Board"}</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p className="project-board-kickoff-complete">The project charter is active and will guide future board cards.</p>
-      )}
-    </section>
-  );
-}
-
-
-export function projectBoardQuestionSectionLabel(question: ProjectBoardQuestion, index: number): string {
-  const text = question.question.toLowerCase();
-  if (text.includes("primary outcome") || text.includes("goal")) return "Project goal";
-  if (text.includes("source") || text.includes("authority")) return "Source authority";
-  if (text.includes("proof") || text.includes("test") || text.includes("quality")) return "Proof bar";
-  if (text.includes("decision") || text.includes("judgment") || text.includes("ambiguous")) return "Judgment policy";
-  if (text.includes("dependency") || text.includes("order")) return "Dependency policy";
-  if (text.includes("scope") || text.includes("non-goal")) return "Scope boundaries";
-  return ["Project goal", "Source authority", "Judgment policy", "Proof bar", "Execution policy"][index] ?? "Project charter";
 }

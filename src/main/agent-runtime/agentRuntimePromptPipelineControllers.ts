@@ -184,7 +184,8 @@ export function createAgentRuntimePromptPipelineControllers({
     replaceMessage: (messageId, content, metadata) => store.replaceMessage(messageId, content, metadata),
     commitThreadPiSessionFile: (input) => callbacks.commitThreadPiSessionFile(input),
     recordContextUsageSnapshot: (threadId, session) => callbacks.recordContextUsageSnapshot(threadId, session as PiSession),
-    createPlannerPlanArtifactFromMessage: (message) => plannerFinalization.createPlannerPlanArtifactFromMessage(message),
+    createPlannerPlanArtifactFromMessage: (message, options) =>
+      plannerFinalization.createPlannerPlanArtifactFromMessage(message, options),
     resolveSubagentFinalizationBlock: (threadId, runId) => callbacks.resolveSubagentFinalizationBlock(threadId, runId),
     resolveCallableWorkflowFinalizationBlock: (threadId, runId, verifiedLaunch) =>
       callbacks.resolveCallableWorkflowFinalizationBlock(threadId, runId, verifiedLaunch),

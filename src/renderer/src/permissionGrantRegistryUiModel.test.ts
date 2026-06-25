@@ -75,6 +75,7 @@ describe("permissionGrantRegistryUiModel", () => {
     expect(model.rows.find((row) => row.id === "workflow-gmail")).toMatchObject({
       actionLabel: "Connector Content Read",
       targetKindLabel: "Connector",
+      conditionLabel: expect.stringContaining("Account Hint=neo@example.test"),
       riskLabel: "Review",
       expiryLabel: "Expires 2026-05-10",
       auditCount: 1,
@@ -111,10 +112,12 @@ describe("permissionGrantRegistryUiModel", () => {
       id: "google-drive",
       scopeLabel: "Project",
       targetLabel: "Google Workspace drive.files.export (neo@example.test)",
+      conditionLabel: expect.stringContaining("Method Id=drive.files.export"),
       risk: "medium",
       sourceLabel: "Permission Prompt",
       impactLabel: expect.stringContaining("connector content read access"),
     });
+    expect(model.rows[0]?.impactLabel).toContain("conditions:");
   });
 
   it("filters workflow review grants to workflow, project, workspace, and plugin scopes", () => {
@@ -225,6 +228,26 @@ describe("permissionGrantRegistryUiModel", () => {
     });
     expect(impact?.detail).toContain("1 high-risk grant included.");
     expect(impact?.detail).toContain("Targets: Gmail read; git push.");
+  });
+
+  it("includes grant conditions in revocation previews", () => {
+    const impact = permissionGrantRevocationImpact({
+      grants: [
+        grant({
+          id: "conditioned-google",
+          scopeKind: "project",
+          projectPath: "/tmp/project",
+          actionKind: "connector_content_read",
+          targetLabel: "Google Workspace drive.files.export (neo@example.test)",
+          conditions: { provider: "google.workspace.cli", accountHint: "neo@example.test", methodId: "drive.files.export" },
+        }),
+      ],
+      auditEntries: [],
+      grantIds: ["conditioned-google"],
+    });
+
+    expect(impact?.detail).toContain("Conditions:");
+    expect(impact?.detail).toContain("Method Id=drive.files.export");
   });
 });
 

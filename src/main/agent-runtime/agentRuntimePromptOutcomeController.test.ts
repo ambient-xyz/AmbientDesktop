@@ -290,6 +290,7 @@ describe("AgentRuntimePromptOutcomeController", () => {
       sendInput: followUp("user request"),
       runId: "run-1",
       runWorkspacePath: "/workspace",
+      startedInPlannerMode: true,
       session: { sessionFile: "/tmp/current-session.jsonl" },
       runtimeMessages: runtimeMessageController,
       toolMessages: toolMessages(),
@@ -333,6 +334,10 @@ describe("AgentRuntimePromptOutcomeController", () => {
       "assistant-1",
       "Final answer",
       expect.objectContaining({ status: "done", runtime: "pi" }),
+    );
+    expect(options.createPlannerPlanArtifactFromMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "assistant-1" }),
+      { startedInPlannerMode: true },
     );
     expect(cleanupCurrentSession).not.toHaveBeenCalled();
     expect(result.pendingEmptyResponseRetry).toBeUndefined();

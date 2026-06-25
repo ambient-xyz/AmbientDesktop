@@ -80,8 +80,14 @@ export function threadGoalTitle(goal: ThreadGoal): string {
 
 export function runtimeActivityVisibleForThreadGoal(activity: RuntimeActivity, goal?: ThreadGoal): boolean {
   if (activity.kind !== "goal") return true;
-  if (activity.status === "continuing") return Boolean(goal && goal.status === "active" && goal.goalId === activity.goalId);
+  if (activity.status === "continuing" && goalActivityIsGoalContinuation(activity)) {
+    return Boolean(goal && goal.status === "active" && goal.goalId === activity.goalId);
+  }
   return true;
+}
+
+function goalActivityIsGoalContinuation(activity: Extract<RuntimeActivity, { kind: "goal" }>): boolean {
+  return (activity.continuationSource ?? (activity.goalId ? "goal-continuation" : undefined)) === "goal-continuation";
 }
 
 export function ThreadGoalStatusIcon({ goal, size }: { goal: ThreadGoal; size: number }) {

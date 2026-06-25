@@ -118,6 +118,8 @@ function privilegedScan(): PiPrivilegedSecurityScan {
     packageName: "privileged-helper",
     version: "3.0.0",
     description: "Privileged helper package.",
+    descriptorHash: "descriptor-hash",
+    packageTreeHash: "package-tree-hash",
     fingerprint: "abcdef1234567890",
     resources: {
       piExtensions: ["pi-extension.json"],

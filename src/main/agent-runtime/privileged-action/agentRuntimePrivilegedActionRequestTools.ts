@@ -99,6 +99,7 @@ export function registerPrivilegedActionRequestTools(
         detail,
         risk: "privileged-action",
         reusableScopes: [],
+        requireFreshPrompt: true,
         grantTargetLabel: `Privileged action ${plan.template.purpose}`,
         grantTargetIdentity: [
           "ambient_privileged_action_request",

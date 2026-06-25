@@ -6,12 +6,12 @@ import type {
   AmbientMcpInstalledServerSummary,
   AmbientMcpInstallPreview,
   AmbientMcpServerSearchResult,
-  CodexPluginMcpInspectionCatalog,
   ManagedDevServerSummary,
-  PluginMcpRuntimeSnapshot,
 } from "../../shared/pluginTypes";
 import { mcpDefaultCapabilityRuntimeHandoffCandidate } from "./pluginUiModel";
 import { useRightPanelMcpContainerRuntimeLifecycleController } from "./RightPanelMcpContainerRuntimeLifecycleController";
+import { useRightPanelMcpPluginRuntimeController } from "./RightPanelMcpPluginRuntimeController";
+import { createRightPanelMcpServerActions } from "./RightPanelMcpServerActions";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 
 export function useRightPanelMcpController({
@@ -27,11 +27,7 @@ export function useRightPanelMcpController({
   onClearMcpDefaultCapabilityInstallProgress: () => void;
   onDefaultCapabilityInstalled: () => void;
 }) {
-  const [inspection, setInspection] = useState<CodexPluginMcpInspectionCatalog | undefined>();
-  const [runtimeSnapshots, setRuntimeSnapshots] = useState<PluginMcpRuntimeSnapshot[]>([]);
-  const [inspectionError, setInspectionError] = useState<string | undefined>();
-  const [runtimeBusy, setRuntimeBusy] = useState<string | undefined>();
-  const [inspecting, setInspecting] = useState(false);
+  const pluginRuntime = useRightPanelMcpPluginRuntimeController();
   const [serverQuery, setServerQuery] = useState("context7");
   const [registryResults, setRegistryResults] = useState<AmbientMcpServerSearchResult[]>([]);
   const [installedServers, setInstalledServers] = useState<AmbientMcpInstalledServerSummary[]>([]);
@@ -59,56 +55,31 @@ export function useRightPanelMcpController({
     refreshContainerRuntimeStatus,
   });
 
-  function prepareCatalogLoad() {
-    setInspection(undefined);
-    setInspectionError(undefined);
+  const mcpServerActions = createRightPanelMcpServerActions({
+    serverQuery,
+    selectedPreview,
+    setRegistryResults,
+    setInstalledServers,
+    setSelectedPreview,
+    setServerBusy,
+    setServerStatus,
+    setServerError,
+    setManagedDevServers,
+    setManagedDevServerBusy,
+    setManagedDevServerError,
+    refreshContainerRuntimeStatus,
+  });
+
+  function loadInstalledServers() {
+    return mcpServerActions.loadInstalledServers();
   }
 
-  function clearInspection() {
-    setInspection(undefined);
-    setRuntimeSnapshots([]);
-    setInspectionError(undefined);
+  function loadManagedDevServers() {
+    return mcpServerActions.loadManagedDevServers();
   }
 
-  function clearRuntimeSnapshots() {
-    setRuntimeSnapshots([]);
-  }
-
-  async function loadInstalledServers() {
-    setServerBusy((busy) => busy ?? "installed");
-    setServerError(undefined);
-    try {
-      setInstalledServers(await window.ambientDesktop.listMcpInstalledServers());
-    } catch (error) {
-      setServerError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setServerBusy((busy) => (busy === "installed" ? undefined : busy));
-    }
-  }
-
-  async function loadManagedDevServers() {
-    setManagedDevServerBusy((busy) => busy ?? "list");
-    setManagedDevServerError(undefined);
-    try {
-      setManagedDevServers(await window.ambientDesktop.listManagedDevServers());
-    } catch (error) {
-      setManagedDevServerError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setManagedDevServerBusy((busy) => (busy === "list" ? undefined : busy));
-    }
-  }
-
-  async function stopManagedDevServerProcess(serverId: string) {
-    setManagedDevServerBusy(serverId);
-    setManagedDevServerError(undefined);
-    try {
-      setManagedDevServers(await window.ambientDesktop.stopManagedDevServer({ id: serverId }));
-      setServerStatus({ kind: "success", message: "Managed dev server stopped." });
-    } catch (error) {
-      setManagedDevServerError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setManagedDevServerBusy(undefined);
-    }
+  function stopManagedDevServerProcess(serverId: string) {
+    return mcpServerActions.stopManagedDevServerProcess(serverId);
   }
 
   async function refreshContainerRuntimeStatus(openWhenNeedsAction = false, options: { continueDefaultCapabilitySetup?: boolean } = {}) {
@@ -227,147 +198,24 @@ export function useRightPanelMcpController({
     }
   }
 
-  async function searchRegistryServers(refresh = false) {
-    setServerBusy("search");
-    setServerError(undefined);
-    try {
-      const results = await window.ambientDesktop.searchMcpRegistryServers({
-        query: serverQuery.trim() || undefined,
-        limit: 25,
-        refresh,
-      });
-      setRegistryResults(results);
-      setServerStatus({
-        kind: "info",
-        message: results.length
-          ? `Found ${results.length} ToolHive registry server${results.length === 1 ? "" : "s"}.`
-          : "No registry servers matched.",
-      });
-      if (selectedPreview && !results.some((result) => result.serverId === selectedPreview.serverId)) {
-        setSelectedPreview(undefined);
-      }
-    } catch (error) {
-      setServerError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setServerBusy(undefined);
-    }
+  function searchRegistryServers(refresh = false) {
+    return mcpServerActions.searchRegistryServers(refresh);
   }
 
-  async function describeRegistryServer(serverId: string, refresh = false) {
-    setServerBusy(`describe:${serverId}`);
-    setServerError(undefined);
-    try {
-      const preview = await window.ambientDesktop.describeMcpRegistryServer({ serverId, refresh });
-      setSelectedPreview(preview);
-      setServerStatus({
-        kind: preview.blockers.length ? "error" : "info",
-        message: preview.blockers.length
-          ? `${preview.title} has ${preview.blockers.length} install blocker${preview.blockers.length === 1 ? "" : "s"}.`
-          : `${preview.title} is ready for install review.`,
-      });
-    } catch (error) {
-      setServerError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setServerBusy(undefined);
-    }
+  function describeRegistryServer(serverId: string, refresh = false) {
+    return mcpServerActions.describeRegistryServer(serverId, refresh);
   }
 
-  async function installRegistryServer(serverId: string) {
-    setServerBusy(`install:${serverId}`);
-    setServerError(undefined);
-    try {
-      const result = await window.ambientDesktop.installMcpRegistryServer({ serverId });
-      if (result.installed) setInstalledServers(result.installed);
-      setServerStatus({
-        kind: result.status === "installed" || result.status === "already-installed" ? "success" : "error",
-        message: result.message.split("\n")[0] ?? result.message,
-      });
-      if (result.status === "runtime-preflight-failed") {
-        await refreshContainerRuntimeStatus(true, { continueDefaultCapabilitySetup: true });
-      }
-      await searchRegistryServers(false);
-    } catch (error) {
-      setServerError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setServerBusy(undefined);
-    }
+  function installRegistryServer(serverId: string) {
+    return mcpServerActions.installRegistryServer(serverId);
   }
 
-  async function uninstallServer(server: AmbientMcpInstalledServerSummary) {
-    setServerBusy(`uninstall:${server.serverId}:${server.workloadName}`);
-    setServerError(undefined);
-    try {
-      const result = await window.ambientDesktop.uninstallMcpServer({
-        serverId: server.serverId,
-        workloadName: server.workloadName,
-      });
-      setInstalledServers(result.installed);
-      setServerStatus({ kind: "success", message: result.message.split("\n")[0] ?? result.message });
-      await searchRegistryServers(false);
-    } catch (error) {
-      setServerError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setServerBusy(undefined);
-    }
+  function uninstallServer(server: AmbientMcpInstalledServerSummary) {
+    return mcpServerActions.uninstallServer(server);
   }
 
-  async function acceptToolDescriptorReview(server: AmbientMcpInstalledServerSummary) {
-    setServerBusy(`tool-review:${server.serverId}:${server.workloadName}`);
-    setServerError(undefined);
-    try {
-      const result = await window.ambientDesktop.acceptMcpToolDescriptorReview({
-        serverId: server.serverId,
-        workloadName: server.workloadName,
-        expectedDescriptorHash: server.lastKnownToolDescriptorHash,
-      });
-      setInstalledServers(result.installed);
-      setServerStatus({
-        kind: result.status === "trusted" || result.status === "already-trusted" ? "success" : "info",
-        message: result.message,
-      });
-    } catch (error) {
-      setServerError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setServerBusy(undefined);
-    }
-  }
-
-  async function inspectPluginMcp() {
-    setInspectionError(undefined);
-    setInspecting(true);
-    try {
-      setInspection(await window.ambientDesktop.inspectCodexPluginMcp());
-      setRuntimeSnapshots(await window.ambientDesktop.listPluginMcpRuntimeSnapshots());
-    } catch (error) {
-      setInspection(undefined);
-      setInspectionError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setInspecting(false);
-    }
-  }
-
-  async function restartPluginMcpRuntime(key: string) {
-    setInspectionError(undefined);
-    setRuntimeBusy(`restart:${key}`);
-    try {
-      setRuntimeSnapshots(await window.ambientDesktop.restartPluginMcpRuntime({ key }));
-    } catch (error) {
-      setInspectionError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setRuntimeBusy(undefined);
-    }
-  }
-
-  async function stopPluginMcpRuntime(key: string) {
-    setInspectionError(undefined);
-    setRuntimeBusy(`stop:${key}`);
-    try {
-      setRuntimeSnapshots(await window.ambientDesktop.stopPluginMcpRuntime({ key }));
-    } catch (error) {
-      setInspectionError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setRuntimeBusy(undefined);
-    }
+  function acceptToolDescriptorReview(server: AmbientMcpInstalledServerSummary) {
+    return mcpServerActions.acceptToolDescriptorReview(server);
   }
 
   useEffect(() => {
@@ -390,11 +238,11 @@ export function useRightPanelMcpController({
   }, [activeWorkspacePath]);
 
   return {
-    inspection,
-    runtimeSnapshots,
-    inspectionError,
-    runtimeBusy,
-    inspecting,
+    inspection: pluginRuntime.inspection,
+    runtimeSnapshots: pluginRuntime.runtimeSnapshots,
+    inspectionError: pluginRuntime.inspectionError,
+    runtimeBusy: pluginRuntime.runtimeBusy,
+    inspecting: pluginRuntime.inspecting,
     serverQuery,
     setServerQuery,
     registryResults,
@@ -418,10 +266,10 @@ export function useRightPanelMcpController({
     containerRuntimeLifecycleError: containerRuntimeLifecycle.containerRuntimeLifecycleError,
     containerRuntimeModalOpen,
     setContainerRuntimeModalOpen,
-    prepareCatalogLoad,
-    clearInspection,
-    clearRuntimeSnapshots,
-    setRuntimeSnapshots,
+    prepareCatalogLoad: pluginRuntime.prepareCatalogLoad,
+    clearInspection: pluginRuntime.clearInspection,
+    clearRuntimeSnapshots: pluginRuntime.clearRuntimeSnapshots,
+    setRuntimeSnapshots: pluginRuntime.setRuntimeSnapshots,
     setManagedDevServers,
     loadInstalledServers,
     loadManagedDevServers,
@@ -437,9 +285,9 @@ export function useRightPanelMcpController({
     installRegistryServer,
     uninstallServer,
     acceptToolDescriptorReview,
-    inspectPluginMcp,
-    restartPluginMcpRuntime,
-    stopPluginMcpRuntime,
+    inspectPluginMcp: pluginRuntime.inspectPluginMcp,
+    restartPluginMcpRuntime: pluginRuntime.restartPluginMcpRuntime,
+    stopPluginMcpRuntime: pluginRuntime.stopPluginMcpRuntime,
   };
 }
 

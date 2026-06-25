@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { AmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
-import { buildPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
-import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
-import type { ThreadSummary } from "../../shared/threadTypes";
-import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
-import { CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON } from "../../shared/callableWorkflowTaskGuards";
+import type { SubagentRunSummary } from "../../shared/subagentTypes";
 import { subagentParentClusterModelsByMessageId } from "./subagentParentClusterUiModel";
+import {
+  barrier,
+  barrierChildToneForTest,
+  barrierDecisionArtifact,
+  callableWorkflowTask,
+  parentMailboxEvent,
+  run,
+  spawnFailurePayload,
+  thread,
+  waitBarrierDecisionPayload,
+} from "./subagentParentClusterUiModelTestSupport";
 
 describe("subagent parent cluster UI model", () => {
   it("groups child runs by parent message and sorts by child order", () => {
@@ -53,7 +59,12 @@ describe("subagent parent cluster UI model", () => {
     const clusters = subagentParentClusterModelsByMessageId(
       [
         run({ id: "run-complete", childThreadId: "child-complete", status: "completed", canonicalTaskPath: "root/complete:reviewer" }),
-        run({ id: "run-attention", childThreadId: "child-attention", status: "needs_attention", canonicalTaskPath: "root/attention:worker" }),
+        run({
+          id: "run-attention",
+          childThreadId: "child-attention",
+          status: "needs_attention",
+          canonicalTaskPath: "root/attention:worker",
+        }),
         run({
           id: "run-closed",
           childThreadId: "child-closed",
@@ -144,7 +155,8 @@ describe("subagent parent cluster UI model", () => {
           canCancel: false,
           canClose: false,
           retentionLabel: "Summary retained",
-          retentionTitle: "Sub-agent root/archived:summarizer transcript was collapsed by retention; result metadata and artifacts remain available.",
+          retentionTitle:
+            "Sub-agent root/archived:summarizer transcript was collapsed by retention; result metadata and artifacts remain available.",
         }),
         expect.objectContaining({
           runId: "run-summary-only",
@@ -200,10 +212,7 @@ describe("subagent parent cluster UI model", () => {
   });
 
   it("labels supervisor-attention children separately from background work", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [run({ dependencyMode: "supervisor_attention" })],
-      [thread({ id: "child-1" })],
-    );
+    const clusters = subagentParentClusterModelsByMessageId([run({ dependencyMode: "supervisor_attention" })], [thread({ id: "child-1" })]);
 
     expect(clusters.get("message-1")).toMatchObject({
       summary: "1 child · 1 attention",
@@ -243,9 +252,7 @@ describe("subagent parent cluster UI model", () => {
               detail: "Required child / root/0:summarizer / Running / Latest: Reading repository context",
             },
           ],
-          blockingChildLabels: [
-            "Required child / root/0:summarizer / Running / Latest: Reading repository context",
-          ],
+          blockingChildLabels: ["Required child / root/0:summarizer / Running / Latest: Reading repository context"],
           failurePolicyLabel: "Ask user on failure",
           timeoutLabel: "30s timeout",
         },
@@ -257,10 +264,12 @@ describe("subagent parent cluster UI model", () => {
     const clusters = subagentParentClusterModelsByMessageId(
       [run({ id: "run-1", status: "failed" })],
       [thread({ id: "child-1", title: "Background workflow child" })],
-      [barrier({
-        ownerKind: "callable_workflow_symphony_launch_bridge",
-        ownerId: "callable-task-1",
-      })],
+      [
+        barrier({
+          ownerKind: "callable_workflow_symphony_launch_bridge",
+          ownerId: "callable-task-1",
+        }),
+      ],
       [],
       [callableWorkflowTask({ id: "callable-task-1", blocking: false })],
     );
@@ -274,29 +283,33 @@ describe("subagent parent cluster UI model", () => {
     const clusters = subagentParentClusterModelsByMessageId(
       [run({ id: "run-1", status: "failed" })],
       [thread({ id: "child-1", title: "Background workflow child" })],
-      [barrier({
-        ownerKind: "callable_workflow_symphony_launch_bridge",
-        ownerId: "callable-task-1",
-        status: "timed_out",
-      })],
-      [parentMailboxEvent({
-        type: "subagent.wait_barrier_attention",
-        deliveryState: "queued",
-        payload: {
-          schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          waitBarrierId: "barrier-1",
-          barrierStatus: "timed_out",
-          dependencyMode: "required_all",
-          parentResolution: {
-            schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
-            action: "ask_user",
-            status: "blocked",
+      [
+        barrier({
+          ownerKind: "callable_workflow_symphony_launch_bridge",
+          ownerId: "callable-task-1",
+          status: "timed_out",
+        }),
+      ],
+      [
+        parentMailboxEvent({
+          type: "subagent.wait_barrier_attention",
+          deliveryState: "queued",
+          payload: {
+            schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            waitBarrierId: "barrier-1",
+            barrierStatus: "timed_out",
+            dependencyMode: "required_all",
+            parentResolution: {
+              schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
+              action: "ask_user",
+              status: "blocked",
+            },
+            reason: "Background workflow bridge needs attention.",
           },
-          reason: "Background workflow bridge needs attention.",
-        },
-      })],
+        }),
+      ],
       [callableWorkflowTask({ id: "callable-task-1", blocking: false })],
     );
 
@@ -310,21 +323,23 @@ describe("subagent parent cluster UI model", () => {
       [run({ status: "needs_attention" })],
       [thread({ id: "child-1", title: "Workspace writer", lastMessagePreview: "Waiting for approval" })],
       [barrier()],
-      [parentMailboxEvent({
-        type: "subagent.child_approval_requested",
-        deliveryState: "queued",
-        payload: {
-          schemaVersion: "ambient-subagent-approval-bridge-v1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:summarizer",
-          approvalId: "approval-worker-write",
-          title: "Allow workspace write",
-          prompt: "Child wants to edit files in an isolated worktree.",
-          requestedToolCategory: "workspace.write",
-          effectiveScope: "this_child_thread",
-        },
-      })],
+      [
+        parentMailboxEvent({
+          type: "subagent.child_approval_requested",
+          deliveryState: "queued",
+          payload: {
+            schemaVersion: "ambient-subagent-approval-bridge-v1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:summarizer",
+            approvalId: "approval-worker-write",
+            title: "Allow workspace write",
+            prompt: "Child wants to edit files in an isolated worktree.",
+            requestedToolCategory: "workspace.write",
+            effectiveScope: "this_child_thread",
+          },
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -341,7 +356,8 @@ describe("subagent parent cluster UI model", () => {
             childThreadId: "child-1",
             title: "Workspace writer",
             label: "Workspace writer: approval",
-            detail: "Allow workspace write / workspace.write / This child thread / Child wants to edit files in an isolated worktree. / Child: Workspace writer / Path: root/0:summarizer / Status: Needs attention / Elapsed: <1s / Latest: Waiting for approval",
+            detail:
+              "Allow workspace write / workspace.write / This child thread / Child wants to edit files in an isolated worktree. / Child: Workspace writer / Path: root/0:summarizer / Status: Needs attention / Elapsed: <1s / Latest: Waiting for approval",
             statusTone: "warning",
             kind: "approval",
           },
@@ -375,7 +391,8 @@ describe("subagent parent cluster UI model", () => {
           approvalActions: [
             {
               label: "Approve child",
-              title: "Approve child approval approval-worker-write: Allow workspace write / Child source: root/0:summarizer / run run-1 / thread child-1",
+              title:
+                "Approve child approval approval-worker-write: Allow workspace write / Child source: root/0:summarizer / run run-1 / thread child-1",
               decision: "approved",
               childRunId: "run-1",
               childThreadId: "child-1",
@@ -388,7 +405,8 @@ describe("subagent parent cluster UI model", () => {
             },
             {
               label: "Deny child",
-              title: "Deny child approval approval-worker-write: Allow workspace write / Child source: root/0:summarizer / run run-1 / thread child-1",
+              title:
+                "Deny child approval approval-worker-write: Allow workspace write / Child source: root/0:summarizer / run run-1 / thread child-1",
               decision: "denied",
               childRunId: "run-1",
               childThreadId: "child-1",
@@ -410,22 +428,24 @@ describe("subagent parent cluster UI model", () => {
       [run({ status: "needs_attention" })],
       [thread({ id: "child-1", title: "Workspace writer", lastMessagePreview: "Waiting for approval" })],
       [barrier()],
-      [parentMailboxEvent({
-        type: "subagent.child_approval_requested",
-        deliveryState: "queued",
-        payload: {
-          schemaVersion: "ambient-subagent-approval-bridge-v1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:summarizer",
-          approvalId: "approval-worker-write",
-          title: "Allow workspace write",
-          prompt: "Child wants to edit files in an isolated worktree.",
-          requestedToolCategory: "workspace.write",
-          requestedScope: "this_action",
-          effectiveScope: "this_action",
-        },
-      })],
+      [
+        parentMailboxEvent({
+          type: "subagent.child_approval_requested",
+          deliveryState: "queued",
+          payload: {
+            schemaVersion: "ambient-subagent-approval-bridge-v1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:summarizer",
+            approvalId: "approval-worker-write",
+            title: "Allow workspace write",
+            prompt: "Child wants to edit files in an isolated worktree.",
+            requestedToolCategory: "workspace.write",
+            requestedScope: "this_action",
+            effectiveScope: "this_action",
+          },
+        }),
+      ],
     );
 
     const cluster = clusters.get("message-1");
@@ -507,13 +527,15 @@ describe("subagent parent cluster UI model", () => {
         },
       ],
     });
-    expect(cluster?.mailboxActivities).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: "approval-forwarded",
-        label: "Approval forwarded",
-        statusTone: "success",
-      }),
-    ]));
+    expect(cluster?.mailboxActivities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "approval-forwarded",
+          label: "Approval forwarded",
+          statusTone: "success",
+        }),
+      ]),
+    );
     expect(cluster?.mailboxActivities.find((activity) => activity.id === "approval-request")?.approvalActions).toBeUndefined();
   });
 
@@ -638,41 +660,48 @@ describe("subagent parent cluster UI model", () => {
       ["waiting", "Waiting", "Blocking: child waiting"],
     ];
     const clusters = subagentParentClusterModelsByMessageId(
-      activeStatuses.map(([status], index) => run({
-        id: `run-${status}`,
-        childThreadId: `child-${status}`,
-        canonicalTaskPath: `root/${index}:${status}`,
-        status,
-        updatedAt: "2026-06-05T00:01:30.000Z",
-      })),
-      activeStatuses.map(([status], index) => thread({
-        id: `child-${status}`,
-        title: `${status} child`,
-        lastMessagePreview: `${status} activity`,
-        childOrder: index + 1,
-      })),
+      activeStatuses.map(([status], index) =>
+        run({
+          id: `run-${status}`,
+          childThreadId: `child-${status}`,
+          canonicalTaskPath: `root/${index}:${status}`,
+          status,
+          updatedAt: "2026-06-05T00:01:30.000Z",
+        }),
+      ),
+      activeStatuses.map(([status], index) =>
+        thread({
+          id: `child-${status}`,
+          title: `${status} child`,
+          lastMessagePreview: `${status} activity`,
+          childOrder: index + 1,
+        }),
+      ),
       [barrier({ childRunIds: activeStatuses.map(([status]) => `run-${status}`) })],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
       status: "Waiting",
       statusTone: "active",
-      barriers: [{
-        blockingChildren: activeStatuses.map(([status, statusLabel], index) => ({
-          runId: `run-${status}`,
-          childThreadId: `child-${status}`,
-          title: `${status} child`,
-          canonicalTaskPath: `root/${index}:${status}`,
-          status: statusLabel,
-          statusTone: barrierChildToneForTest(status),
-          latestLabel: `Latest: ${status} activity`,
-          label: `${status} child / root/${index}:${status} / ${statusLabel} / Latest: ${status} activity`,
-          detail: `${status} child / root/${index}:${status} / ${statusLabel} / Latest: ${status} activity`,
-        })),
-        blockingChildLabels: activeStatuses.map(([status, statusLabel]) =>
-          `${status} child / root/${activeStatuses.findIndex(([candidate]) => candidate === status)}:${status} / ${statusLabel} / Latest: ${status} activity`
-        ),
-      }],
+      barriers: [
+        {
+          blockingChildren: activeStatuses.map(([status, statusLabel], index) => ({
+            runId: `run-${status}`,
+            childThreadId: `child-${status}`,
+            title: `${status} child`,
+            canonicalTaskPath: `root/${index}:${status}`,
+            status: statusLabel,
+            statusTone: barrierChildToneForTest(status),
+            latestLabel: `Latest: ${status} activity`,
+            label: `${status} child / root/${index}:${status} / ${statusLabel} / Latest: ${status} activity`,
+            detail: `${status} child / root/${index}:${status} / ${statusLabel} / Latest: ${status} activity`,
+          })),
+          blockingChildLabels: activeStatuses.map(
+            ([status, statusLabel]) =>
+              `${status} child / root/${activeStatuses.findIndex(([candidate]) => candidate === status)}:${status} / ${statusLabel} / Latest: ${status} activity`,
+          ),
+        },
+      ],
       children: activeStatuses.map(([status, statusLabel, blockerLabel]) => ({
         runId: `run-${status}`,
         status: statusLabel,
@@ -813,17 +842,15 @@ describe("subagent parent cluster UI model", () => {
         run({ id: "run-2", childThreadId: "child-2", status: "completed" }),
         run({ id: "run-3", childThreadId: "child-3", status: "running" }),
       ],
+      [thread({ id: "child-1" }), thread({ id: "child-2" }), thread({ id: "child-3" })],
       [
-        thread({ id: "child-1" }),
-        thread({ id: "child-2" }),
-        thread({ id: "child-3" }),
+        barrier({
+          childRunIds: ["run-1", "run-2", "run-3"],
+          dependencyMode: "quorum",
+          quorumThreshold: 2,
+          status: "satisfied",
+        }),
       ],
-      [barrier({
-        childRunIds: ["run-1", "run-2", "run-3"],
-        dependencyMode: "quorum",
-        quorumThreshold: 2,
-        status: "satisfied",
-      })],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -841,15 +868,17 @@ describe("subagent parent cluster UI model", () => {
     const clusters = subagentParentClusterModelsByMessageId(
       [run({ status: "completed" })],
       [thread({ id: "child-1" })],
-      [barrier({
-        status: "satisfied",
-        resolvedAt: "2026-06-05T00:01:00.000Z",
-        resolutionArtifact: barrierDecisionArtifact({
-          decision: "continue_with_partial",
-          userDecision: "Proceed with the completed evidence.",
-          partialSummary: "Use the completed child summary and mark missing work as unavailable.",
+      [
+        barrier({
+          status: "satisfied",
+          resolvedAt: "2026-06-05T00:01:00.000Z",
+          resolutionArtifact: barrierDecisionArtifact({
+            decision: "continue_with_partial",
+            userDecision: "Proceed with the completed evidence.",
+            partialSummary: "Use the completed child summary and mark missing work as unavailable.",
+          }),
         }),
-      })],
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -868,16 +897,18 @@ describe("subagent parent cluster UI model", () => {
     const clusters = subagentParentClusterModelsByMessageId(
       [run({ status: "running", updatedAt: "2026-06-05T00:01:30.000Z" })],
       [thread({ id: "child-1" })],
-      [barrier({
-        status: "waiting_on_children",
-        resolutionArtifact: barrierDecisionArtifact({
-          decision: "retry_child",
-          userDecision: "Retry this child before parent synthesis.",
-          retryRequestedRunIds: ["run-1"],
-          retryAcceptedRunIds: ["run-1"],
-          retryMailboxEventIds: ["mailbox-retry"],
+      [
+        barrier({
+          status: "waiting_on_children",
+          resolutionArtifact: barrierDecisionArtifact({
+            decision: "retry_child",
+            userDecision: "Retry this child before parent synthesis.",
+            retryRequestedRunIds: ["run-1"],
+            retryAcceptedRunIds: ["run-1"],
+            retryMailboxEventIds: ["mailbox-retry"],
+          }),
         }),
-      })],
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -925,14 +956,16 @@ describe("subagent parent cluster UI model", () => {
     const clusters = subagentParentClusterModelsByMessageId(
       [run({ status: "failed" })],
       [thread({ id: "child-1" })],
-      [barrier({
-        status: "waiting_on_children",
-        resolutionArtifact: barrierDecisionArtifact({
-          decision: "retry_child",
-          retryRequestedRunIds: ["run-1"],
-          retryMailboxEventIds: ["mailbox-retry"],
+      [
+        barrier({
+          status: "waiting_on_children",
+          resolutionArtifact: barrierDecisionArtifact({
+            decision: "retry_child",
+            retryRequestedRunIds: ["run-1"],
+            retryMailboxEventIds: ["mailbox-retry"],
+          }),
         }),
-      })],
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -964,14 +997,16 @@ describe("subagent parent cluster UI model", () => {
     const detachClusters = subagentParentClusterModelsByMessageId(
       [run({ status: "detached" })],
       [thread({ id: "child-1" })],
-      [barrier({
-        status: "failed",
-        resolvedAt: "2026-06-05T00:01:00.000Z",
-        resolutionArtifact: barrierDecisionArtifact({
-          decision: "detach_child",
-          detachedRunIds: ["run-1"],
+      [
+        barrier({
+          status: "failed",
+          resolvedAt: "2026-06-05T00:01:00.000Z",
+          resolutionArtifact: barrierDecisionArtifact({
+            decision: "detach_child",
+            detachedRunIds: ["run-1"],
+          }),
         }),
-      })],
+      ],
     );
 
     expect(detachClusters.get("message-1")).toMatchObject({
@@ -981,12 +1016,14 @@ describe("subagent parent cluster UI model", () => {
           statusTone: "danger",
           decisionLabel: "Child detached",
           decisionSummary: "Detached 1 child",
-          effectRows: [{
-            key: "detached-runs",
-            label: "Detached 1 child",
-            detail: "Runs: run-1",
-            statusTone: "warning",
-          }],
+          effectRows: [
+            {
+              key: "detached-runs",
+              label: "Detached 1 child",
+              detail: "Runs: run-1",
+              statusTone: "warning",
+            },
+          ],
         },
       ],
     });
@@ -994,18 +1031,20 @@ describe("subagent parent cluster UI model", () => {
     const cancelClusters = subagentParentClusterModelsByMessageId(
       [run({ status: "cancelled" })],
       [thread({ id: "child-1" })],
-      [barrier({
-        status: "cancelled",
-        resolvedAt: "2026-06-05T00:01:00.000Z",
-        resolutionArtifact: barrierDecisionArtifact({
-          decision: "cancel_parent",
-          cancelledRunIds: ["run-1"],
-          unchangedRunIds: ["done-child"],
-          cancelledWaitBarrierIds: ["barrier-2"],
-          cancelledMailboxEventIds: ["mailbox-1"],
-          parentCancellationRequested: true,
+      [
+        barrier({
+          status: "cancelled",
+          resolvedAt: "2026-06-05T00:01:00.000Z",
+          resolutionArtifact: barrierDecisionArtifact({
+            decision: "cancel_parent",
+            cancelledRunIds: ["run-1"],
+            unchangedRunIds: ["done-child"],
+            cancelledWaitBarrierIds: ["barrier-2"],
+            cancelledMailboxEventIds: ["mailbox-1"],
+            parentCancellationRequested: true,
+          }),
         }),
-      })],
+      ],
     );
 
     expect(cancelClusters.get("message-1")).toMatchObject({
@@ -1014,7 +1053,8 @@ describe("subagent parent cluster UI model", () => {
           status: "Cancelled",
           statusTone: "warning",
           decisionLabel: "Parent cancelled",
-          decisionSummary: "Cancelled 1 child / Unchanged 1 child / 1 wait barrier cancelled / Parent cancellation requested / 1 pending mailbox event cancelled",
+          decisionSummary:
+            "Cancelled 1 child / Unchanged 1 child / 1 wait barrier cancelled / Parent cancellation requested / 1 pending mailbox event cancelled",
           effectRows: [
             {
               key: "cancelled-runs",
@@ -1057,31 +1097,38 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        type: "subagent.wait_barrier_attention",
-        payload: {
-          schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:summarizer",
-          waitBarrierId: "barrier-1",
-          dependencyMode: "required_all",
-          barrierStatus: "timed_out",
-          failurePolicy: "degrade_partial",
-          reason: "Child wait timed out before producing a synthesis-safe result.",
-          parentResolution: {
-            schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
-            action: "ask_user",
-            status: "blocked",
+      [
+        parentMailboxEvent({
+          type: "subagent.wait_barrier_attention",
+          payload: {
+            schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:summarizer",
+            waitBarrierId: "barrier-1",
+            dependencyMode: "required_all",
+            barrierStatus: "timed_out",
+            failurePolicy: "degrade_partial",
+            reason: "Child wait timed out before producing a synthesis-safe result.",
+            parentResolution: {
+              schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
+              action: "ask_user",
+              status: "blocked",
+            },
+            allowedUserChoices: [
+              {
+                id: "continue_with_partial",
+                label: "Continue with partial",
+                toolAction: "resolve_barrier",
+                decision: "continue_with_partial",
+              },
+              { id: "retry_child", label: "Retry child", toolAction: "resolve_barrier", decision: "retry_child" },
+              { id: "detach_child", label: "Detach child", toolAction: "resolve_barrier", decision: "detach_child" },
+              { id: "cancel_parent", label: "Cancel parent run", toolAction: "resolve_barrier", decision: "cancel_parent" },
+            ],
           },
-          allowedUserChoices: [
-            { id: "continue_with_partial", label: "Continue with partial", toolAction: "resolve_barrier", decision: "continue_with_partial" },
-            { id: "retry_child", label: "Retry child", toolAction: "resolve_barrier", decision: "retry_child" },
-            { id: "detach_child", label: "Detach child", toolAction: "resolve_barrier", decision: "detach_child" },
-            { id: "cancel_parent", label: "Cancel parent run", toolAction: "resolve_barrier", decision: "cancel_parent" },
-          ],
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -1093,12 +1140,7 @@ describe("subagent parent cluster UI model", () => {
           sourceLabel: "Child source: root/0:summarizer / run run-1 / thread child-1",
           statusTone: "warning",
           summary: "Ask user / Timed Out / Required all",
-          actionLabels: [
-            "Continue with partial",
-            "Retry child",
-            "Detach child",
-            "Cancel parent run",
-          ],
+          actionLabels: ["Continue with partial", "Retry child", "Detach child", "Cancel parent run"],
           actions: [
             {
               label: "Continue with partial",
@@ -1141,7 +1183,8 @@ describe("subagent parent cluster UI model", () => {
               sourceLabel: "Child source: root/0:summarizer / run run-1 / thread child-1",
             },
           ],
-          detail: "Child wait timed out before producing a synthesis-safe result. | Choices: Continue with partial, Retry child, Detach child, Cancel parent run",
+          detail:
+            "Child wait timed out before producing a synthesis-safe result. | Choices: Continue with partial, Retry child, Detach child, Cancel parent run",
         },
       ],
     });
@@ -1152,51 +1195,47 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        type: "subagent.wait_barrier_attention",
-        payload: {
-          schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:researcher",
-          waitBarrierId: "barrier-1",
-          dependencyMode: "required_all",
-          barrierStatus: "failed",
-          failurePolicy: "degrade_partial",
-          reason: "Child needs a scope decision before retry.",
-          parentResolution: {
-            schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
-            action: "ask_user",
-            status: "blocked",
+      [
+        parentMailboxEvent({
+          type: "subagent.wait_barrier_attention",
+          payload: {
+            schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:researcher",
+            waitBarrierId: "barrier-1",
+            dependencyMode: "required_all",
+            barrierStatus: "failed",
+            failurePolicy: "degrade_partial",
+            reason: "Child needs a scope decision before retry.",
+            parentResolution: {
+              schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
+              action: "ask_user",
+              status: "blocked",
+            },
+            childDecisionRequest: {
+              schemaVersion: "ambient-symphony-child-decision-request-v1",
+              requestId: "decision-1",
+              barrierId: "barrier-1",
+              parentRunId: "parent-run",
+              childRunIds: ["run-1"],
+              reason: "tool_scope_denied",
+              options: ["grant_scope", "retry_child", "accept_partial", "cancel_group", "exit_symphony_mode"],
+              recommendedOption: "grant_scope",
+              evidenceRefs: ["wait-barrier:barrier-1", "subagent-run:run-1"],
+            },
+            allowedUserChoices: [{ id: "retry_child", label: "Retry child", toolAction: "resolve_barrier", decision: "retry_child" }],
           },
-          childDecisionRequest: {
-            schemaVersion: "ambient-symphony-child-decision-request-v1",
-            requestId: "decision-1",
-            barrierId: "barrier-1",
-            parentRunId: "parent-run",
-            childRunIds: ["run-1"],
-            reason: "tool_scope_denied",
-            options: ["grant_scope", "retry_child", "accept_partial", "cancel_group", "exit_symphony_mode"],
-            recommendedOption: "grant_scope",
-            evidenceRefs: ["wait-barrier:barrier-1", "subagent-run:run-1"],
-          },
-          allowedUserChoices: [
-            { id: "retry_child", label: "Retry child", toolAction: "resolve_barrier", decision: "retry_child" },
-          ],
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")?.mailboxActivities[0]).toMatchObject({
       label: "Barrier attention",
-      detail: expect.stringContaining("Symphony options: Grant or re-scope child authority (recommended), Retry child, Accept partial, Cancel group, Exit Symphony"),
-      actionLabels: [
-        "Retry child",
-        "Grant or re-scope child authority (recommended)",
-        "Accept partial",
-        "Cancel group",
-        "Exit Symphony",
-      ],
+      detail: expect.stringContaining(
+        "Symphony options: Grant or re-scope child authority (recommended), Retry child, Accept partial, Cancel group, Exit Symphony",
+      ),
+      actionLabels: ["Retry child", "Grant or re-scope child authority (recommended)", "Accept partial", "Cancel group", "Exit Symphony"],
       actions: [
         expect.objectContaining({
           label: "Retry child",
@@ -1237,71 +1276,74 @@ describe("subagent parent cluster UI model", () => {
           lastMessagePreview: "Summary complete",
         }),
       ],
-      [barrier({
-        status: "failed",
-        childRunIds: ["run-failed", "run-done"],
-        failurePolicy: "ask_user",
-        resolutionArtifact: {
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
+      [
+        barrier({
+          status: "failed",
           childRunIds: ["run-failed", "run-done"],
-          childStatuses: [
-            { childRunId: "run-failed", status: "failed" },
-            { childRunId: "run-done", status: "completed" },
-          ],
-          synthesisAllowed: false,
-          resultArtifact: null,
-          waitBarrierEvaluation: {
-            schemaVersion: "ambient-subagent-wait-barrier-evaluation-v1",
-            waitBarrierId: "barrier-1",
-            dependencyMode: "required_all",
+          failurePolicy: "ask_user",
+          resolutionArtifact: {
+            schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
             childRunIds: ["run-failed", "run-done"],
             childStatuses: [
               { childRunId: "run-failed", status: "failed" },
               { childRunId: "run-done", status: "completed" },
             ],
-            requiredSynthesisCount: 2,
-            validSynthesisCount: 1,
-            potentialSynthesisCount: 1,
             synthesisAllowed: false,
-            partial: false,
-            timedOut: false,
-            impossible: true,
-            activeChildRunIds: [],
-            terminalUnsafeChildRunIds: ["run-failed"],
-            childResults: [
-              {
-                childRunId: "run-failed",
-                childThreadId: "child-failed",
-                status: "failed",
-                synthesisAllowed: false,
-                partial: false,
-                reason: "long_context_process failed",
-                resultValidation: {
-                  valid: false,
+            resultArtifact: null,
+            waitBarrierEvaluation: {
+              schemaVersion: "ambient-subagent-wait-barrier-evaluation-v1",
+              waitBarrierId: "barrier-1",
+              dependencyMode: "required_all",
+              childRunIds: ["run-failed", "run-done"],
+              childStatuses: [
+                { childRunId: "run-failed", status: "failed" },
+                { childRunId: "run-done", status: "completed" },
+              ],
+              requiredSynthesisCount: 2,
+              validSynthesisCount: 1,
+              potentialSynthesisCount: 1,
+              synthesisAllowed: false,
+              partial: false,
+              timedOut: false,
+              impossible: true,
+              activeChildRunIds: [],
+              terminalUnsafeChildRunIds: ["run-failed"],
+              childResults: [
+                {
+                  childRunId: "run-failed",
+                  childThreadId: "child-failed",
+                  status: "failed",
                   synthesisAllowed: false,
                   partial: false,
-                  status: "failed",
                   reason: "long_context_process failed",
+                  resultValidation: {
+                    valid: false,
+                    synthesisAllowed: false,
+                    partial: false,
+                    status: "failed",
+                    reason: "long_context_process failed",
+                  },
                 },
-              },
-              {
-                childRunId: "run-done",
-                childThreadId: "child-done",
-                status: "completed",
-                synthesisAllowed: true,
-                partial: false,
-                resultValidation: {
-                  valid: true,
+                {
+                  childRunId: "run-done",
+                  childThreadId: "child-done",
+                  status: "completed",
                   synthesisAllowed: true,
                   partial: false,
-                  status: "completed",
+                  resultValidation: {
+                    valid: true,
+                    synthesisAllowed: true,
+                    partial: false,
+                    status: "completed",
+                  },
                 },
-              },
-            ],
-            reason: "required_all barrier cannot reach 2 synthesis-safe child results; 1 child result is terminal and unsafe for synthesis.",
+              ],
+              reason:
+                "required_all barrier cannot reach 2 synthesis-safe child results; 1 child result is terminal and unsafe for synthesis.",
+            },
           },
-        },
-      })],
+        }),
+      ],
     );
 
     const cluster = clusters.get("message-1");
@@ -1316,7 +1358,9 @@ describe("subagent parent cluster UI model", () => {
             runId: "run-failed",
             title: "Reader",
             label: "Reader: child failed",
-            detail: expect.stringContaining("Failed / Failed / long_context_process failed / Required all / Ask user on failure / 30s timeout"),
+            detail: expect.stringContaining(
+              "Failed / Failed / long_context_process failed / Required all / Ask user on failure / 30s timeout",
+            ),
             statusTone: "danger",
             kind: "attention",
           },
@@ -1356,56 +1400,62 @@ describe("subagent parent cluster UI model", () => {
 
   it("marks completion-guard wait-barrier attention on the blocking child", () => {
     const clusters = subagentParentClusterModelsByMessageId(
-      [run({
-        status: "completed",
-        updatedAt: "2026-06-05T00:01:30.000Z",
-      })],
-      [thread({
-        id: "child-1",
-        title: "Workspace writer",
-        lastMessagePreview: "Implementation completed",
-      })],
+      [
+        run({
+          status: "completed",
+          updatedAt: "2026-06-05T00:01:30.000Z",
+        }),
+      ],
+      [
+        thread({
+          id: "child-1",
+          title: "Workspace writer",
+          lastMessagePreview: "Implementation completed",
+        }),
+      ],
       [],
-      [parentMailboxEvent({
-        type: "subagent.wait_barrier_attention",
-        payload: {
-          schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:summarizer",
-          waitBarrierId: "barrier-1",
-          dependencyMode: "required_all",
-          barrierStatus: "failed",
-          failurePolicy: "ask_user",
-          reason: "Child result is not synthesis-safe.",
-          resultValidation: {
-            valid: false,
-            synthesisAllowed: false,
-            partial: false,
-            status: "completed",
-            reason: "Missing approval provenance.",
-            completionGuardValidation: {
+      [
+        parentMailboxEvent({
+          type: "subagent.wait_barrier_attention",
+          payload: {
+            schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:summarizer",
+            waitBarrierId: "barrier-1",
+            dependencyMode: "required_all",
+            barrierStatus: "failed",
+            failurePolicy: "ask_user",
+            reason: "Child result is not synthesis-safe.",
+            resultValidation: {
               valid: false,
               synthesisAllowed: false,
-              required: true,
-              structuredEvidenceCount: 1,
-              ambientEvidenceCount: 1,
-              isolatedWorktreeEvidenceCount: 1,
-              approvalEvidenceCount: 0,
+              partial: false,
+              status: "completed",
               reason: "Missing approval provenance.",
+              completionGuardValidation: {
+                valid: false,
+                synthesisAllowed: false,
+                required: true,
+                structuredEvidenceCount: 1,
+                ambientEvidenceCount: 1,
+                isolatedWorktreeEvidenceCount: 1,
+                approvalEvidenceCount: 0,
+                reason: "Missing approval provenance.",
+              },
             },
+            parentResolution: {
+              schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
+              action: "ask_user",
+              status: "blocked",
+            },
+            allowedUserChoices: [
+              { id: "retry_child", label: "Retry child", toolAction: "resolve_barrier", decision: "retry_child" },
+              { id: "detach_child", label: "Detach child", toolAction: "resolve_barrier", decision: "detach_child" },
+            ],
           },
-          parentResolution: {
-            schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
-            action: "ask_user",
-            status: "blocked",
-          },
-          allowedUserChoices: [
-            { id: "retry_child", label: "Retry child", toolAction: "resolve_barrier", decision: "retry_child" },
-            { id: "detach_child", label: "Detach child", toolAction: "resolve_barrier", decision: "detach_child" },
-          ],
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -1421,7 +1471,9 @@ describe("subagent parent cluster UI model", () => {
             kind: "attention",
             label: "Blocking: completion guard",
             statusTone: "danger",
-            detail: expect.stringContaining("Completion guard blocked / Mutation evidence: structured 1 / Ambient 1 / isolated worktree 1 / approval 0 / Missing approval provenance."),
+            detail: expect.stringContaining(
+              "Completion guard blocked / Mutation evidence: structured 1 / Ambient 1 / isolated worktree 1 / approval 0 / Missing approval provenance.",
+            ),
             metaLabels: [
               "Child: Workspace writer",
               "Path: root/0:summarizer",
@@ -1437,7 +1489,9 @@ describe("subagent parent cluster UI model", () => {
           label: "Barrier attention",
           statusTone: "danger",
           summary: "Ask user / Failed / Required all",
-          detail: expect.stringContaining("Completion guard blocked / Mutation evidence: structured 1 / Ambient 1 / isolated worktree 1 / approval 0 / Missing approval provenance."),
+          detail: expect.stringContaining(
+            "Completion guard blocked / Mutation evidence: structured 1 / Ambient 1 / isolated worktree 1 / approval 0 / Missing approval provenance.",
+          ),
         },
       ],
     });
@@ -1448,25 +1502,27 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        type: "subagent.wait_barrier_attention",
-        payload: {
-          schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
-          childRunId: "run-1",
-          waitBarrierId: "barrier-1",
-          dependencyMode: "required_all",
-          barrierStatus: "waiting",
-          parentResolution: {
-            schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
-            action: "ask_user",
-            status: "blocked",
+      [
+        parentMailboxEvent({
+          type: "subagent.wait_barrier_attention",
+          payload: {
+            schemaVersion: "ambient-subagent-wait-barrier-attention-v1",
+            childRunId: "run-1",
+            waitBarrierId: "barrier-1",
+            dependencyMode: "required_all",
+            barrierStatus: "waiting",
+            parentResolution: {
+              schemaVersion: "ambient-subagent-parent-policy-resolution-v1",
+              action: "ask_user",
+              status: "blocked",
+            },
+            allowedUserChoices: [
+              { id: "send_child_steering", label: "Send child steering", toolAction: "send_child_steering" },
+              { id: "wait_again", label: "Wait again", toolAction: "wait_agent" },
+            ],
           },
-          allowedUserChoices: [
-            { id: "send_child_steering", label: "Send child steering", toolAction: "send_child_steering" },
-            { id: "wait_again", label: "Wait again", toolAction: "wait_agent" },
-          ],
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")?.mailboxActivities[0]).toMatchObject({
@@ -1481,18 +1537,20 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        type: "subagent.wait_barrier_decision",
-        payload: {
-          schemaVersion: "ambient-subagent-wait-barrier-decision-v1",
-          waitBarrierId: "barrier-1",
-          barrierStatus: "satisfied",
-          childRunIds: ["run-1"],
-          decision: "continue_with_partial",
-          userDecisionPreview: "Continue without the failed reviewer.",
-          partialSummaryPreview: "Use verified parent context only.",
-        },
-      })],
+      [
+        parentMailboxEvent({
+          type: "subagent.wait_barrier_decision",
+          payload: {
+            schemaVersion: "ambient-subagent-wait-barrier-decision-v1",
+            waitBarrierId: "barrier-1",
+            barrierStatus: "satisfied",
+            childRunIds: ["run-1"],
+            decision: "continue_with_partial",
+            userDecisionPreview: "Continue without the failed reviewer.",
+            partialSummaryPreview: "Use verified parent context only.",
+          },
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -1649,7 +1707,12 @@ describe("subagent parent cluster UI model", () => {
               status: "blocked",
             },
             allowedUserChoices: [
-              { id: "continue_with_partial", label: "Continue with partial", toolAction: "resolve_barrier", decision: "continue_with_partial" },
+              {
+                id: "continue_with_partial",
+                label: "Continue with partial",
+                toolAction: "resolve_barrier",
+                decision: "continue_with_partial",
+              },
               { id: "retry_child", label: "Retry child", toolAction: "resolve_barrier", decision: "retry_child" },
               { id: "detach_child", label: "Detach child", toolAction: "resolve_barrier", decision: "detach_child" },
             ],
@@ -1665,11 +1728,13 @@ describe("subagent parent cluster UI model", () => {
       "partial-decision",
       "timeout-attention",
     ]);
-    expect(clusters.get("message-1")?.mailboxActivities).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "timeout-attention", label: "Barrier attention" }),
-      expect.objectContaining({ id: "retry-decision", summary: "Retry accepted / Waiting On Children" }),
-      expect.objectContaining({ id: "restart-interruption", label: "Child interrupted" }),
-    ]));
+    expect(clusters.get("message-1")?.mailboxActivities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "timeout-attention", label: "Barrier attention" }),
+        expect.objectContaining({ id: "retry-decision", summary: "Retry accepted / Waiting On Children" }),
+        expect.objectContaining({ id: "restart-interruption", label: "Child interrupted" }),
+      ]),
+    );
   });
 
   it("labels child approval requests and forwarded decisions in the collapsed cluster", () => {
@@ -1732,7 +1797,8 @@ describe("subagent parent cluster UI model", () => {
           sourceLabel: "Child source: root/approval:worker / run run-approval / thread child-approval",
           statusTone: "success",
           summary: "Approved / This child thread / approval-worker-write",
-          detail: "Approve writes for this child only. | Always defaulted to this child thread. | Parent returned to waiting on this child.",
+          detail:
+            "Approve writes for this child only. | Always defaulted to this child thread. | Parent returned to waiting on this child.",
         },
         {
           id: "approval-request",
@@ -1800,7 +1866,8 @@ describe("subagent parent cluster UI model", () => {
           sourceLabel: "Child source: run run-2",
           statusTone: "danger",
           summary: "Parent cancelled / Cancelled",
-          detail: "Cancel the parent instead of waiting. | Cancelled 1 child / Stopped 1 child / Unchanged 1 child / 1 wait barrier cancelled / Parent cancellation requested / 2 pending mailbox events cancelled",
+          detail:
+            "Cancel the parent instead of waiting. | Cancelled 1 child / Stopped 1 child / Unchanged 1 child / 1 wait barrier cancelled / Parent cancellation requested / 2 pending mailbox events cancelled",
           effectRows: [
             {
               key: "cancelled-runs",
@@ -1845,7 +1912,8 @@ describe("subagent parent cluster UI model", () => {
           sourceLabel: "Child source: run run-1",
           statusTone: "warning",
           summary: "Child detached / Failed",
-          detail: "Keep the child running separately. | Detached 1 child / Unchanged 1 child / 1 wait barrier cancelled / 1 pending mailbox event cancelled",
+          detail:
+            "Keep the child running separately. | Detached 1 child / Unchanged 1 child / 1 wait barrier cancelled / 1 pending mailbox event cancelled",
           effectRows: [
             {
               key: "detached-runs",
@@ -1882,19 +1950,21 @@ describe("subagent parent cluster UI model", () => {
       [run({ status: "completed" })],
       [thread({ id: "child-1" })],
       [],
-      [parentMailboxEvent({
-        type: "subagent.batch_progress",
-        payload: {
-          schemaVersion: "ambient-subagent-batch-progress-mailbox-v1",
-          summary: {
-            schemaVersion: "ambient-subagent-batch-progress-v1",
-            jobId: "subagent-batch:implementation",
-            itemCount: 3,
-            acceptedReportCount: 2,
-            pendingCount: 1,
+      [
+        parentMailboxEvent({
+          type: "subagent.batch_progress",
+          payload: {
+            schemaVersion: "ambient-subagent-batch-progress-mailbox-v1",
+            summary: {
+              schemaVersion: "ambient-subagent-batch-progress-v1",
+              jobId: "subagent-batch:implementation",
+              itemCount: 3,
+              acceptedReportCount: 2,
+              pendingCount: 1,
+            },
           },
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -1917,17 +1987,19 @@ describe("subagent parent cluster UI model", () => {
       [run({ status: "completed", dependencyMode: "optional_background" })],
       [thread({ id: "child-1" })],
       [],
-      [parentMailboxEvent({
-        type: "subagent.grouped_completion",
-        payload: {
-          schemaVersion: "ambient-subagent-grouped-completion-v1",
-          notificationCount: 2,
-          childRuns: [
-            { runId: "run-1", roleId: "worker", status: "completed" },
-            { runId: "run-2", roleId: "reviewer", status: "completed" },
-          ],
-        },
-      })],
+      [
+        parentMailboxEvent({
+          type: "subagent.grouped_completion",
+          payload: {
+            schemaVersion: "ambient-subagent-grouped-completion-v1",
+            notificationCount: 2,
+            childRuns: [
+              { runId: "run-1", roleId: "worker", status: "completed" },
+              { runId: "run-2", roleId: "reviewer", status: "completed" },
+            ],
+          },
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -1949,20 +2021,22 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "subagent.batch_progress",
-        payload: {
-          schemaVersion: "ambient-subagent-batch-progress-mailbox-v1",
-          summary: {
-            schemaVersion: "ambient-subagent-batch-progress-v1",
-            jobId: "subagent-batch:implementation",
-            itemCount: 3,
-            acceptedReportCount: 2,
-            pendingCount: 1,
+      [
+        parentMailboxEvent({
+          parentMessageId: "message-1",
+          type: "subagent.batch_progress",
+          payload: {
+            schemaVersion: "ambient-subagent-batch-progress-mailbox-v1",
+            summary: {
+              schemaVersion: "ambient-subagent-batch-progress-v1",
+              jobId: "subagent-batch:implementation",
+              itemCount: 3,
+              acceptedReportCount: 2,
+              pendingCount: 1,
+            },
           },
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -1987,19 +2061,21 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "subagent.grouped_completion",
-        payload: {
-          schemaVersion: "ambient-subagent-grouped-completion-v1",
+      [
+        parentMailboxEvent({
           parentMessageId: "message-1",
-          notificationCount: 2,
-          childRuns: [
-            { runId: "run-1", roleId: "worker", status: "completed" },
-            { runId: "run-2", roleId: "reviewer", status: "completed" },
-          ],
-        },
-      })],
+          type: "subagent.grouped_completion",
+          payload: {
+            schemaVersion: "ambient-subagent-grouped-completion-v1",
+            parentMessageId: "message-1",
+            notificationCount: 2,
+            childRuns: [
+              { runId: "run-1", roleId: "worker", status: "completed" },
+              { runId: "run-2", roleId: "reviewer", status: "completed" },
+            ],
+          },
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -2024,28 +2100,30 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "subagent.lifecycle_interrupted",
-        payload: {
-          schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
+      [
+        parentMailboxEvent({
           parentMessageId: "message-1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:explorer",
-          roleId: "explorer",
-          previousStatus: "running",
-          status: "cancelled",
-          source: "direct_child_stop",
-          reason: "Sub-agent child thread stopped by user.",
-          cancelledWaitBarrierIds: ["barrier-cancel"],
-          resultArtifact: {
+          type: "subagent.lifecycle_interrupted",
+          payload: {
+            schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
+            parentMessageId: "message-1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:explorer",
+            roleId: "explorer",
+            previousStatus: "running",
             status: "cancelled",
-            partial: false,
-            summary: "Sub-agent child thread stopped by user.",
+            source: "direct_child_stop",
+            reason: "Sub-agent child thread stopped by user.",
+            cancelledWaitBarrierIds: ["barrier-cancel"],
+            resultArtifact: {
+              status: "cancelled",
+              partial: false,
+              summary: "Sub-agent child thread stopped by user.",
+            },
           },
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -2079,29 +2157,31 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "subagent.lifecycle_interrupted",
-        payload: {
-          schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
+      [
+        parentMailboxEvent({
           parentMessageId: "message-1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:explorer",
-          roleId: "explorer",
-          previousStatus: "running",
-          status: "aborted_partial",
-          source: "runtime_budget_exceeded",
-          reason: "Child exceeded its role runtime budget before completing.",
-          partialWaitBarrierIds: ["barrier-partial"],
-          resultArtifact: {
+          type: "subagent.lifecycle_interrupted",
+          payload: {
+            schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
+            parentMessageId: "message-1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:explorer",
+            roleId: "explorer",
+            previousStatus: "running",
             status: "aborted_partial",
-            partial: true,
-            summary: "Partial transcript retained.",
-            artifactPath: "ambient://threads/child-1/transcript",
+            source: "runtime_budget_exceeded",
+            reason: "Child exceeded its role runtime budget before completing.",
+            partialWaitBarrierIds: ["barrier-partial"],
+            resultArtifact: {
+              status: "aborted_partial",
+              partial: true,
+              summary: "Partial transcript retained.",
+              artifactPath: "ambient://threads/child-1/transcript",
+            },
           },
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -2135,24 +2215,26 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "subagent.cancellation_cascade",
-        payload: {
-          schemaVersion: "ambient-subagent-cancellation-cascade-v1",
+      [
+        parentMailboxEvent({
           parentMessageId: "message-1",
-          parentThreadId: "parent-1",
-          parentRunId: "parent-run-1",
-          reason: "Parent run stopped by user.",
-          parentStopped: true,
-          parentCancellationRequested: true,
-          cancelledRunIds: ["run-1"],
-          detachedRunIds: ["run-2"],
-          unchangedRunIds: ["run-3"],
-          cancelledWaitBarrierIds: ["barrier-1"],
-          cancelledMailboxEventIds: ["mailbox-1"],
-        },
-      })],
+          type: "subagent.cancellation_cascade",
+          payload: {
+            schemaVersion: "ambient-subagent-cancellation-cascade-v1",
+            parentMessageId: "message-1",
+            parentThreadId: "parent-1",
+            parentRunId: "parent-run-1",
+            reason: "Parent run stopped by user.",
+            parentStopped: true,
+            parentCancellationRequested: true,
+            cancelledRunIds: ["run-1"],
+            detachedRunIds: ["run-2"],
+            unchangedRunIds: ["run-3"],
+            cancelledWaitBarrierIds: ["barrier-1"],
+            cancelledMailboxEventIds: ["mailbox-1"],
+          },
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -2180,775 +2262,82 @@ describe("subagent parent cluster UI model", () => {
     });
   });
 
-  it("creates a parent cluster for anchored blocking workflow tasks without child runs", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "callable_workflow.parent_finalization_blocked",
-        payload: callableWorkflowBlockingPayload({
-          tasks: [
-            {
-              id: "callable-task-1",
-              launchId: "callable-workflow:launch-1",
-              title: "Symphony Map-Reduce",
-              status: "queued",
-              statusLabel: "Queued",
-              statusGroup: "waiting_on_workflow",
-              runnerDeferredReason: "callable_workflow_runner_not_connected",
-              workflowArtifactId: "workflow-artifact-1",
-              workflowRunId: "workflow-run-1",
-            },
-          ],
-          taskIds: ["callable-task-1"],
-          waitingTaskIds: ["callable-task-1"],
-          attentionTaskIds: [],
-          workflowArtifactIds: ["workflow-artifact-1"],
-          workflowRunIds: ["workflow-run-1"],
-        }),
-      })],
-    );
-
-    expect(clusters.get("message-1")).toMatchObject({
-      parentMessageId: "message-1",
-      summary: "0 children · 1 workflow blocked",
-      status: "Waiting",
-      statusTone: "active",
-      children: [],
-      mailboxActivities: [
-        {
-          label: "Workflow blocked",
-          sourceLabel: "Workflow source: task callable-task-1 / run workflow-run-1 / artifact workflow-artifact-1",
-          statusTone: "active",
-          summary: "1 blocking workflow / 1 waiting / Symphony Map-Reduce (Queued)",
-          detail: "Parent final answer blocked because blocking callable workflow work is not safe for synthesis. | Choices: Wait again, Cancel parent run",
-        },
-      ],
-    });
-  });
-
-  it("surfaces failed blocking workflow tasks as needs-attention mailbox activity", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "callable_workflow.parent_finalization_blocked",
-        payload: callableWorkflowBlockingPayload({
-          tasks: [
-            {
-              id: "callable-task-failed",
-              launchId: "callable-workflow:failed",
-              title: "Imitate & Verify",
-              status: "failed",
-              statusLabel: "Failed",
-              statusGroup: "needs_attention",
-              runnerDeferredReason: "failed",
-              errorMessage: "Workflow verifier failed.",
-            },
-          ],
-          taskIds: ["callable-task-failed"],
-          waitingTaskIds: [],
-          attentionTaskIds: ["callable-task-failed"],
-          workflowArtifactIds: [],
-          workflowRunIds: [],
-        }),
-      })],
-    );
-
-    expect(clusters.get("message-1")).toMatchObject({
-      parentMessageId: "message-1",
-      summary: "0 children · 1 workflow blocked",
-      status: "Needs attention",
-      statusTone: "danger",
-      children: [],
-      mailboxActivities: [
-        {
-          label: "Workflow blocked",
-          sourceLabel: "Workflow source: task callable-task-failed",
-          statusTone: "danger",
-          summary: "1 blocking workflow / 1 attention / Imitate & Verify (Failed)",
-        },
-      ],
-    });
-  });
-
-  it("marks callable workflow task rows that are blocking parent finalization", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "callable_workflow.parent_finalization_blocked",
-        payload: callableWorkflowBlockingPayload({
-          tasks: [
-            {
-              id: "callable-task-1",
-              launchId: "callable-workflow:launch-1",
-              title: "Symphony Map-Reduce",
-              status: "running",
-              statusLabel: "Running",
-              statusGroup: "waiting_on_workflow",
-              runnerDeferredReason: "workflow_run_started",
-              workflowArtifactId: "workflow-artifact-1",
-              workflowRunId: "workflow-run-1",
-            },
-            {
-              id: "callable-task-failed",
-              launchId: "callable-workflow:failed",
-              title: "Imitate & Verify",
-              status: "failed",
-              statusLabel: "Failed",
-              statusGroup: "needs_attention",
-              runnerDeferredReason: "failed",
-              workflowArtifactId: "workflow-artifact-failed",
-              errorMessage: "Workflow verifier failed.",
-            },
-          ],
-          taskIds: ["callable-task-1", "callable-task-failed"],
-          waitingTaskIds: ["callable-task-1"],
-          attentionTaskIds: ["callable-task-failed"],
-          workflowArtifactIds: ["workflow-artifact-1", "workflow-artifact-failed"],
-          workflowRunIds: ["workflow-run-1"],
-        }),
-      })],
-      [
-        callableWorkflowTask({
-          id: "callable-task-1",
-          status: "running",
-          statusLabel: "Running",
-          runnerDeferredReason: "workflow_run_started",
-          workflowArtifactId: "workflow-artifact-1",
-          workflowRunId: "workflow-run-1",
-        }),
-        callableWorkflowTask({
-          id: "callable-task-failed",
-          title: "Imitate & Verify",
-          sourceKind: "recorded_workflow",
-          status: "failed",
-          statusLabel: "Failed",
-          runnerDeferredReason: "failed",
-          workflowArtifactId: "workflow-artifact-failed",
-          errorMessage: "Workflow verifier failed.",
-        }),
-      ],
-    );
-
-    expect(clusters.get("message-1")?.workflowTasks).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "callable-task-1",
-          parentBlocker: {
-            kind: "waiting",
-            label: "Blocking: workflow work",
-            statusTone: "active",
-            detail: expect.stringContaining("Symphony Map-Reduce / Running / Workflow run started"),
-          },
-        }),
-        expect.objectContaining({
-          id: "callable-task-failed",
-          parentBlocker: {
-            kind: "attention",
-            label: "Blocking: workflow attention",
-            statusTone: "danger",
-            detail: expect.stringContaining("Workflow verifier failed."),
-          },
-        }),
-      ]),
-    );
-  });
-
-  it("surfaces queued callable workflow tasks as visible background rows", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [],
-      [callableWorkflowTask({
-        title: "Symphony Map-Reduce",
-        sourceKind: "symphony_recipe",
-        status: "queued",
-        statusLabel: "Queued",
-        blocking: true,
-      })],
-    );
-
-    expect(clusters.get("message-1")).toMatchObject({
-      parentMessageId: "message-1",
-      summary: "0 children · 1 workflow task · 1 blocking · 1 active",
-      status: "Waiting",
-      statusTone: "active",
-      workflowTasks: [
-        {
-          id: "callable-task-1",
-          title: "Symphony Map-Reduce",
-          status: "Queued",
-          statusTone: "active",
-          modeLabel: "Blocking",
-          sourceLabel: "Symphony recipe",
-          progressLabel: "Queued",
-          capabilityLabels: ["Progress visible", "Token/cost", "Pause/resume/cancel"],
-          canCancel: true,
-          cancelTitle: "Cancel blocking workflow task",
-          detail: "Runner: workflowCompilerService / State: Waiting for workflow runner",
-        },
-      ],
-      children: [],
-      mailboxActivities: [],
-    });
-  });
-
-  it("surfaces runtime-owned pattern graph snapshots attached to workflow tasks", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [
-        run({ id: "mapper-run-1", childThreadId: "mapper-thread-1", roleId: "explorer", status: "completed" }),
-        run({ id: "reducer-run-1", childThreadId: "reducer-thread-1", roleId: "summarizer", status: "needs_attention" }),
-      ],
-      [
-        thread({ id: "mapper-thread-1", title: "Mapper 1 live", childOrder: 1, lastMessagePreview: "Mapper finished with extracted evidence." }),
-        thread({ id: "reducer-thread-1", title: "Reducer live", childOrder: 2, lastMessagePreview: "Reducer needs approval." }),
-      ],
-      [],
-      [],
-      [callableWorkflowTask({
-        id: "workflow-task-graph",
-        workflowRunId: "workflow-run-graph",
-        patternGraphSnapshot: buildPatternGraphSnapshot({
-          patternId: "map_reduce",
-          parentThreadId: "parent-1",
-          parentMessageId: "message-1",
-          workflowTaskId: "workflow-task-graph",
-          workflowRunId: "workflow-run-graph",
-          updatedAt: "2026-06-13T00:00:00.000Z",
-          childBindings: [
-            {
-              roleNodeId: "mapper",
-              childRunId: "mapper-run-1",
-              childThreadId: "mapper-thread-1",
-              label: "Mapper stale",
-              status: "running",
-              blockingParent: true,
-              summary: "Stale mapper summary.",
-            },
-            {
-              roleNodeId: "reducer",
-              childRunId: "reducer-run-1",
-              childThreadId: "reducer-thread-1",
-              label: "Reducer stale",
-              status: "running",
-              approvalState: "pending",
-              blockingParent: true,
-              summary: "Stale reducer summary.",
-            },
-          ],
-        }),
-      })],
-    );
-
-    expect(clusters.get("message-1")).toMatchObject({
-      summary: "2 children · 2 required · 1 attention · 1 pattern graph · 1 workflow task · 1 blocking · 1 active",
-      status: "Needs attention",
-      statusTone: "warning",
-      patternGraphs: [
-        {
-          patternId: "map_reduce",
-          label: "Map-Reduce",
-          nodes: expect.arrayContaining([
-            expect.objectContaining({
-              label: "Mapper 1 live",
-              childRunId: "mapper-run-1",
-              childThreadId: "mapper-thread-1",
-              canOpen: true,
-              statusLabel: "Completed",
-              tone: "success",
-              blockingParent: false,
-              title: expect.stringContaining("Mapper finished with extracted evidence."),
-            }),
-            expect.objectContaining({
-              label: "Reducer live",
-              approvalLabel: "Approval needed",
-              tone: "warning",
-              statusLabel: "Needs attention",
-              blockingParent: true,
-              title: expect.stringContaining("Reducer needs approval."),
-            }),
-          ]),
-        },
-      ],
-    });
-  });
-
-  it("surfaces callable workflow launch-card labels in collapsed parent clusters", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [],
-      [callableWorkflowTask({
-        launchCard: callableWorkflowLaunchCard(),
-      })],
-    );
-
-    expect(clusters.get("message-1")?.workflowTasks[0]).toMatchObject({
-      id: "callable-task-1",
-      launchCardLabels: [
-        "Risk: High",
-        "Up to 12 agents",
-        "Budget: 180,000 tokens",
-        "Confirmation required",
-        "Small slice recommended",
-      ],
-      detail: expect.stringContaining("Launch: high risk, up to 12 agents"),
-    });
-    expect(clusters.get("message-1")?.workflowTasks[0]?.detail).toContain("Local memory: 8 GiB");
-  });
-
-  it("surfaces callable workflow caller provenance in collapsed parent clusters", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [],
-      [callableWorkflowTask({
-        runnerTarget: "",
-        runnerDeferredReason: "",
-        executionPlan: {
-          callerProvenance: {
-            kind: "subagent_child_thread",
-            threadId: "child-thread-1",
-            runId: "child-run-1",
-            subagentRunId: "child-run-1",
-            canonicalTaskPath: "root/0:implementer",
-            parentThreadId: "parent-1",
-            parentRunId: "parent-run-1",
-            approval: {
-              required: true,
-              source: "child_bridge_policy",
-              failureHandling: "block_parent",
-              scopeHint: "this_child_thread",
-            },
-            worktree: {
-              required: true,
-              isolated: true,
-              status: "active",
-              branchName: "child",
-            },
-            nestedFanout: {
-              required: true,
-              source: "child_bridge_policy",
-            },
-          },
-        },
-      })],
-    );
-
-    expect(clusters.get("message-1")?.workflowTasks[0]).toMatchObject({
-      id: "callable-task-1",
-      provenanceLabels: [
-        "Caller: sub-agent child",
-        "Child run: child-run-1",
-        "Approval: Child Bridge Policy",
-        "Worktree: isolated",
-        "Nested fanout: Child Bridge Policy",
-      ],
-      detail: expect.stringContaining(
-        "Provenance: sub-agent child / thread child-thread-1 / run child-run-1 / path root/0:implementer",
-      ),
-    });
-    expect(clusters.get("message-1")?.workflowTasks[0]?.detail).toContain("approval child bridge policy required scope this child thread");
-    expect(clusters.get("message-1")?.workflowTasks[0]?.detail).toContain("worktree isolated active branch child");
-    expect(clusters.get("message-1")?.workflowTasks[0]?.detail).toContain("nested fanout required via child bridge policy");
-  });
-
-  it("surfaces child mutating workflow evidence from persisted provenance and progress", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [],
-      [callableWorkflowTask({
-        status: "succeeded",
-        statusLabel: "Succeeded",
-        blocking: false,
-        runnerDeferredReason: "workflow_run_succeeded",
-        workflowArtifactId: "workflow-artifact-1",
-        workflowRunId: "workflow-run-1",
-        workflowThreadId: "workflow-thread-1",
-        launchCard: callableWorkflowLaunchCard(),
-        progressSnapshot: {
-          workflowRunStatus: "succeeded",
-          eventCount: 4,
-          modelCallCount: 1,
-          completedStepCount: 1,
-          activeStepCount: 0,
-          lastEventType: "mutation.stage",
-          lastEventMessage: "Staged mutation: src/feature.txt; output preview retained; parent workspace unchanged.",
-          lastEventAt: "2026-06-05T00:02:30.000Z",
-        },
-        executionPlan: {
-          callerProvenance: {
-            kind: "subagent_child_thread",
-            threadId: "child-thread-1",
-            runId: "child-run-1",
-            subagentRunId: "child-run-1",
-            canonicalTaskPath: "root/0:implementer",
-            parentThreadId: "parent-1",
-            parentRunId: "parent-run-1",
-            approval: {
-              required: true,
-              source: "child_bridge_policy",
-              failureHandling: "forward approval to parent",
-              scopeHint: "this_child_thread",
-            },
-            worktree: {
-              required: true,
-              isolated: true,
-              status: "active",
-              branchName: "child",
-            },
-            nestedFanout: {
-              required: true,
-              source: "child_bridge_policy",
-            },
-          },
-        },
-      })],
-    );
-
-    expect(clusters.get("message-1")?.workflowTasks[0]).toMatchObject({
-      status: "Succeeded",
-      modeLabel: "Background",
-      idLabels: [
-        "Task: callable-task-1",
-        "Artifact: workflow-artifact-1",
-        "Run: workflow-run-1",
-        "Thread: workflow-thread-1",
-      ],
-      mutationEvidenceLabels: [
-        "Mutating child worker",
-        "Approval: child bridge policy",
-        "Isolated worktree active",
-        "Nested fanout granted",
-        "Staged mutation: src/feature.txt",
-        "Parent workspace unchanged",
-        "Output preview retained",
-      ],
-    });
-  });
-
-  it("surfaces callable workflow task progress and usage telemetry", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [],
-      [callableWorkflowTask({
-        status: "running",
-        statusLabel: "Running",
-        workflowThreadId: "workflow-thread-1",
-        workflowArtifactId: "workflow-artifact-1",
-        workflowRunId: "workflow-run-1",
-        runnerDeferredReason: "workflow_run_started",
-        progressSnapshot: {
-          workflowRunStatus: "running",
-          eventCount: 3,
-          modelCallCount: 1,
-          completedStepCount: 1,
-          activeStepCount: 0,
-          lastEventType: "step.end",
-          lastEventMessage: "Inspect files complete",
-          lastEventAt: "2026-06-06T18:04:00.000Z",
-        },
-        usageSnapshot: {
-          modelCallCount: 1,
-          tokenCount: 42,
-          tokenCountEstimated: true,
-          costMicros: 9,
-          costEstimated: false,
-        },
-      })],
-    );
-
-    expect(clusters.get("message-1")).toMatchObject({
-      summary: "0 children · 1 workflow task · 1 blocking · 1 active",
-      status: "Waiting",
-      statusTone: "active",
-      workflowTasks: [
-        {
-          id: "callable-task-1",
-          status: "Running",
-          progressLabel: "Inspect files complete",
-          workflowThreadId: "workflow-thread-1",
-          workflowThreadLabel: "Workflow thread: workflow-thread-1",
-          canOpenWorkflowThread: true,
-          openWorkflowThreadTitle: "Open workflow thread workflow-thread-1",
-          telemetryLabels: ["3 events", "1 step done", "1 model call", "~42 tokens", "$0.000009"],
-          canPause: true,
-          pauseTitle: "Pause blocking workflow task",
-          canCancel: true,
-          detail: "Runner: workflowCompilerService / State: Workflow run started / Thread: workflow-thread-1 / Artifact: workflow-artifact-1 / Run: workflow-run-1",
-        },
-      ],
-    });
-  });
-
-  it("marks paused callable workflow tasks resumeable only when a linked run or guarded pre-compile wait can resume", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [],
-      [
-        callableWorkflowTask({
-          id: "callable-task-paused",
-          status: "paused",
-          statusLabel: "Paused",
-          runnerDeferredReason: "workflow_run_paused",
-          workflowArtifactId: "workflow-artifact-1",
-          workflowRunId: "workflow-run-paused",
-          progressSnapshot: {
-            workflowRunStatus: "paused",
-            eventCount: 2,
-            modelCallCount: 0,
-            completedStepCount: 1,
-            activeStepCount: 0,
-          },
-        }),
-        callableWorkflowTask({
-          id: "callable-task-input",
-          status: "paused",
-          statusLabel: "Needs input",
-          runnerDeferredReason: "workflow_run_needs_input",
-          workflowArtifactId: "workflow-artifact-2",
-          workflowRunId: "workflow-run-input",
-          progressSnapshot: {
-            workflowRunStatus: "needs_input",
-            eventCount: 2,
-            modelCallCount: 0,
-            completedStepCount: 1,
-            activeStepCount: 0,
-          },
-        }),
-        callableWorkflowTask({
-          id: "callable-task-child-wait",
-          status: "paused",
-          statusLabel: "Child wait needs attention",
-          runnerDeferredReason: CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
-          errorMessage: "Symphony children are not synthesis-safe.",
-        }),
-      ],
-    );
-
-    expect(clusters.get("message-1")?.workflowTasks).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "callable-task-paused",
-          progressLabel: "Paused",
-          canResume: true,
-          resumeTitle: "Resume blocking workflow task",
-          canPause: false,
-          canCancel: true,
-          detail: "Runner: workflowCompilerService / State: Workflow run paused / Artifact: workflow-artifact-1 / Run: workflow-run-paused",
-        }),
-        expect.objectContaining({
-          id: "callable-task-input",
-          progressLabel: "Needs input",
-          canResume: false,
-          canPause: false,
-          canCancel: true,
-          detail: "Runner: workflowCompilerService / State: Workflow run needs input / Artifact: workflow-artifact-2 / Run: workflow-run-input",
-        }),
-        expect.objectContaining({
-          id: "callable-task-child-wait",
-          progressLabel: "Child wait needs attention",
-          canResume: true,
-          canPause: false,
-          canCancel: true,
-          detail: "Runner: workflowCompilerService / State: Symphony Child Wait Needs Attention / Error: Symphony children are not synthesis-safe.",
-        }),
-      ]),
-    );
-  });
-
-  it("surfaces background Symphony child wait barriers on the workflow task row without parent-blocking children", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [
-        run({
-          id: "drafter-run",
-          childThreadId: "drafter-thread",
-          roleId: "drafter",
-          status: "completed",
-          canonicalTaskPath: "root/0:drafter",
-        }),
-        run({
-          id: "verifier-run",
-          childThreadId: "verifier-thread",
-          roleId: "reviewer",
-          status: "failed",
-          canonicalTaskPath: "root/1:verifier",
-        }),
-      ],
-      [
-        thread({ id: "drafter-thread", title: "Drafter sub-agent", childOrder: 1 }),
-        thread({ id: "verifier-thread", title: "Verifier sub-agent", childOrder: 2 }),
-      ],
-      [barrier({
-        id: "symphony-child-wait",
-        childRunIds: ["drafter-run", "verifier-run"],
-        ownerKind: "callable_workflow_symphony_launch_bridge",
-        ownerId: "callable-task-child-wait",
-        status: "failed",
-        timeoutMs: 600_000,
-      })],
-      [],
-      [callableWorkflowTask({
-        id: "callable-task-child-wait",
-        title: "Symphony Imitate and Verify",
-        toolName: "ambient_workflow_symphony_imitate_and_verify",
-        status: "paused",
-        statusLabel: "Child wait needs attention",
-        blocking: false,
-        runnerDeferredReason: CALLABLE_WORKFLOW_SYMPHONY_CHILD_WAIT_DEFERRED_REASON,
-        errorMessage: "Symphony children are not synthesis-safe.",
-      })],
-    );
-
-    const cluster = clusters.get("message-1");
-    expect(cluster).toMatchObject({
-      summary: expect.stringContaining("Waiting on Drafter sub-agent: Completed, Verifier sub-agent: Failed"),
-      status: "Needs attention",
-      statusTone: "danger",
-    });
-    expect(cluster?.children.find((child) => child.runId === "verifier-run")?.parentBlocker).toBeUndefined();
-    expect(cluster?.workflowTasks[0]).toMatchObject({
-      id: "callable-task-child-wait",
-      status: "Child wait needs attention",
-      modeLabel: "Background",
-      childWait: {
-        label: "Waiting on Symphony children",
-        statusTone: "danger",
-        childLabels: ["Drafter sub-agent: Completed", "Verifier sub-agent: Failed"],
-        detail: expect.stringContaining("Symphony Imitate and Verify / Failed / Required all / Ask user on failure / 10m timeout"),
-      },
-    });
-  });
-
-  it("surfaces failed callable workflow tasks as needs-attention rows", () => {
-    const clusters = subagentParentClusterModelsByMessageId(
-      [],
-      [],
-      [],
-      [],
-      [callableWorkflowTask({
-        id: "callable-task-failed",
-        title: "Recorded deploy workflow",
-        sourceKind: "recorded_workflow",
-        status: "failed",
-        statusLabel: "Failed",
-        blocking: false,
-        runnerDeferredReason: "failed",
-        errorMessage: "Workflow verifier failed.",
-      })],
-    );
-
-    expect(clusters.get("message-1")).toMatchObject({
-      summary: "0 children · 1 workflow task · 1 workflow attention",
-      status: "Needs attention",
-      statusTone: "danger",
-      workflowTasks: [
-        {
-          id: "callable-task-failed",
-          title: "Recorded deploy workflow",
-          status: "Failed",
-          statusTone: "danger",
-          modeLabel: "Background",
-          sourceLabel: "Recorded workflow",
-          progressLabel: "Failed",
-          canCancel: false,
-          cancelTitle: "Cancel background workflow task",
-          detail: "Runner: workflowCompilerService / State: Workflow task failed / Error: Workflow verifier failed.",
-        },
-      ],
-    });
-  });
-
   it("surfaces spawn-failure model diagnostics from parent mailbox activity", () => {
     const clusters = subagentParentClusterModelsByMessageId(
       [run({ status: "completed" })],
       [thread({ id: "child-1" })],
       [],
-      [parentMailboxEvent({
-        type: "subagent.spawn_failed",
-        payload: {
-          schemaVersion: "ambient-subagent-spawn-failure-v1",
-          failureStage: "model_scope",
-          parentThreadId: "parent-1",
-          parentRunId: "parent-run-1",
-          toolCallId: "spawn-bad-model",
-          requestedRoleId: "explorer",
-          roleId: "explorer",
-          reason: "Selected model is not eligible for sub-agent runs (custom/unregistered-model): Model is not registered in this Ambient Desktop build.",
-          modelScope: {
-            schemaVersion: "ambient-subagent-model-scope-v1",
-            source: "caller_override",
-            requestedModelId: "custom/unregistered-model",
-            roleDefaultModelId: "local/text-4b",
-            selectedModelId: "custom/unregistered-model",
-            profile: {
-              profileId: "unknown:custom/unregistered-model",
-              providerId: "unknown",
-              modelId: "custom/unregistered-model",
-              label: "Unknown model",
-              locality: "cloud",
-              toolUse: "none",
-              structuredOutput: "none",
-              available: false,
-              selectableAsSubagent: false,
-              supportsStreaming: false,
-              unavailableReason: "Model is not registered in this Ambient Desktop build.",
-            },
-            warnings: [],
-            blockingReasons: [
-              "Model is not registered in this Ambient Desktop build.",
-              "Model custom/unregistered-model is not selectable for sub-agent delegation.",
-              "Model custom/unregistered-model does not support required sub-agent streaming.",
-            ],
-            candidateDiagnostics: [
-              {
-                schemaVersion: "ambient-subagent-model-scope-candidate-v1",
-                source: "caller_override",
-                modelId: "custom/unregistered-model",
+      [
+        parentMailboxEvent({
+          type: "subagent.spawn_failed",
+          payload: {
+            schemaVersion: "ambient-subagent-spawn-failure-v1",
+            failureStage: "model_scope",
+            parentThreadId: "parent-1",
+            parentRunId: "parent-run-1",
+            toolCallId: "spawn-bad-model",
+            requestedRoleId: "explorer",
+            roleId: "explorer",
+            reason:
+              "Selected model is not eligible for sub-agent runs (custom/unregistered-model): Model is not registered in this Ambient Desktop build.",
+            modelScope: {
+              schemaVersion: "ambient-subagent-model-scope-v1",
+              source: "caller_override",
+              requestedModelId: "custom/unregistered-model",
+              roleDefaultModelId: "local/text-4b",
+              selectedModelId: "custom/unregistered-model",
+              profile: {
                 profileId: "unknown:custom/unregistered-model",
                 providerId: "unknown",
+                modelId: "custom/unregistered-model",
                 label: "Unknown model",
-                selected: true,
-                eligible: false,
                 locality: "cloud",
                 toolUse: "none",
                 structuredOutput: "none",
+                available: false,
                 selectableAsSubagent: false,
                 supportsStreaming: false,
-                available: false,
                 unavailableReason: "Model is not registered in this Ambient Desktop build.",
-                capabilityDiagnostics: [
-                  {
-                    capability: "availability",
-                    status: "fail",
-                    required: "registered and available runtime profile",
-                    actual: "unavailable",
-                    reason: "Model is not registered in this Ambient Desktop build.",
-                  },
-                ],
-                blockingReasons: ["Model is not registered in this Ambient Desktop build."],
               },
-            ],
+              warnings: [],
+              blockingReasons: [
+                "Model is not registered in this Ambient Desktop build.",
+                "Model custom/unregistered-model is not selectable for sub-agent delegation.",
+                "Model custom/unregistered-model does not support required sub-agent streaming.",
+              ],
+              candidateDiagnostics: [
+                {
+                  schemaVersion: "ambient-subagent-model-scope-candidate-v1",
+                  source: "caller_override",
+                  modelId: "custom/unregistered-model",
+                  profileId: "unknown:custom/unregistered-model",
+                  providerId: "unknown",
+                  label: "Unknown model",
+                  selected: true,
+                  eligible: false,
+                  locality: "cloud",
+                  toolUse: "none",
+                  structuredOutput: "none",
+                  selectableAsSubagent: false,
+                  supportsStreaming: false,
+                  available: false,
+                  unavailableReason: "Model is not registered in this Ambient Desktop build.",
+                  capabilityDiagnostics: [
+                    {
+                      capability: "availability",
+                      status: "fail",
+                      required: "registered and available runtime profile",
+                      actual: "unavailable",
+                      reason: "Model is not registered in this Ambient Desktop build.",
+                    },
+                  ],
+                  blockingReasons: ["Model is not registered in this Ambient Desktop build."],
+                },
+              ],
+            },
           },
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -2960,7 +2349,8 @@ describe("subagent parent cluster UI model", () => {
           label: "Spawn failed",
           statusTone: "danger",
           summary: "Model scope blocked / Explorer / Unknown model (custom/unregistered-model)",
-          detail: "Selected model is not eligible for sub-agent runs (custom/unregistered-model): Model is not registered in this Ambient Desktop build. | Model blockers: Model is not registered in this Ambient Desktop build.; Model custom/unregistered-mod...",
+          detail:
+            "Selected model is not eligible for sub-agent runs (custom/unregistered-model): Model is not registered in this Ambient Desktop build. | Model blockers: Model is not registered in this Ambient Desktop build.; Model custom/unregistered-mod...",
         },
       ],
     });
@@ -2971,42 +2361,44 @@ describe("subagent parent cluster UI model", () => {
       [run({ status: "failed" })],
       [thread({ id: "child-1" })],
       [],
-      [parentMailboxEvent({
-        type: "subagent.spawn_failed",
-        payload: {
-          schemaVersion: "ambient-subagent-spawn-failure-v1",
-          failureStage: "tool_scope",
-          approvalMode: "non_interactive",
-          approvalUnavailable: true,
-          parentThreadId: "parent-1",
-          parentRunId: "parent-run-1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:explorer",
-          toolCallId: "spawn-noninteractive-approval",
-          requestedRoleId: "explorer",
-          roleId: "explorer",
-          reason: "Requested sub-agent tool scope was denied.",
-          toolScopeSnapshot: {
-            schemaVersion: "ambient-subagent-tool-scope-v1",
+      [
+        parentMailboxEvent({
+          type: "subagent.spawn_failed",
+          payload: {
+            schemaVersion: "ambient-subagent-spawn-failure-v1",
+            failureStage: "tool_scope",
             approvalMode: "non_interactive",
-            deniedCategories: [
-              {
-                id: "connector.read",
-                reason: "Capability requires interactive approval, but this launch is non-interactive.",
-              },
-            ],
-            deniedTools: [
-              {
-                source: "connector_app",
-                id: "gmail.search",
-                categoryId: "connector.read",
-                reason: "Capability requires interactive approval, but this launch is non-interactive.",
-              },
-            ],
+            approvalUnavailable: true,
+            parentThreadId: "parent-1",
+            parentRunId: "parent-run-1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:explorer",
+            toolCallId: "spawn-noninteractive-approval",
+            requestedRoleId: "explorer",
+            roleId: "explorer",
+            reason: "Requested sub-agent tool scope was denied.",
+            toolScopeSnapshot: {
+              schemaVersion: "ambient-subagent-tool-scope-v1",
+              approvalMode: "non_interactive",
+              deniedCategories: [
+                {
+                  id: "connector.read",
+                  reason: "Capability requires interactive approval, but this launch is non-interactive.",
+                },
+              ],
+              deniedTools: [
+                {
+                  source: "connector_app",
+                  id: "gmail.search",
+                  categoryId: "connector.read",
+                  reason: "Capability requires interactive approval, but this launch is non-interactive.",
+                },
+              ],
+            },
           },
-        },
-      })],
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -3034,40 +2426,42 @@ describe("subagent parent cluster UI model", () => {
       [run({ status: "failed" })],
       [thread({ id: "child-1" })],
       [],
-      [parentMailboxEvent({
-        type: "subagent.spawn_failed",
-        payload: {
-          schemaVersion: "ambient-subagent-spawn-failure-v1",
-          failureStage: "tool_scope",
-          approvalMode: "interactive",
-          parentThreadId: "parent-1",
-          parentRunId: "parent-run-1",
-          childRunId: "run-1",
-          childThreadId: "child-1",
-          canonicalTaskPath: "root/0:explorer",
-          requestedRoleId: "explorer",
-          roleId: "explorer",
-          reason: "Sub-agent role/tool scope is not launchable in Phase 4.",
-          toolScopeSnapshot: {
-            schemaVersion: "ambient-subagent-tool-scope-v1",
+      [
+        parentMailboxEvent({
+          type: "subagent.spawn_failed",
+          payload: {
+            schemaVersion: "ambient-subagent-spawn-failure-v1",
+            failureStage: "tool_scope",
             approvalMode: "interactive",
-            deniedCategories: [
-              {
-                id: "workflow.call",
-                reason: "Callable workflow child bridge is unavailable.",
-              },
-            ],
-            deniedTools: [
-              {
-                source: "callable_workflow",
-                id: "ambient_workflow_symphony_map_reduce",
-                categoryId: "workflow.call",
-                reason: "Callable workflow child bridge is unavailable.",
-              },
-            ],
+            parentThreadId: "parent-1",
+            parentRunId: "parent-run-1",
+            childRunId: "run-1",
+            childThreadId: "child-1",
+            canonicalTaskPath: "root/0:explorer",
+            requestedRoleId: "explorer",
+            roleId: "explorer",
+            reason: "Sub-agent role/tool scope is not launchable in Phase 4.",
+            toolScopeSnapshot: {
+              schemaVersion: "ambient-subagent-tool-scope-v1",
+              approvalMode: "interactive",
+              deniedCategories: [
+                {
+                  id: "workflow.call",
+                  reason: "Callable workflow child bridge is unavailable.",
+                },
+              ],
+              deniedTools: [
+                {
+                  source: "callable_workflow",
+                  id: "ambient_workflow_symphony_map_reduce",
+                  categoryId: "workflow.call",
+                  reason: "Callable workflow child bridge is unavailable.",
+                },
+              ],
+            },
           },
-        },
-      })],
+        }),
+      ],
     );
 
     const detail = clusters.get("message-1")?.mailboxActivities[0].detail ?? "";
@@ -3080,11 +2474,13 @@ describe("subagent parent cluster UI model", () => {
       [],
       [],
       [],
-      [parentMailboxEvent({
-        parentMessageId: "message-1",
-        type: "subagent.spawn_failed",
-        payload: spawnFailurePayload(),
-      })],
+      [
+        parentMailboxEvent({
+          parentMessageId: "message-1",
+          type: "subagent.spawn_failed",
+          payload: spawnFailurePayload(),
+        }),
+      ],
     );
 
     expect(clusters.get("message-1")).toMatchObject({
@@ -3103,369 +2499,3 @@ describe("subagent parent cluster UI model", () => {
     });
   });
 });
-
-function thread(overrides: Partial<ThreadSummary> = {}): ThreadSummary {
-  return {
-    id: "child-1",
-    title: "Child",
-    workspacePath: "/workspace",
-    createdAt: "2026-06-05T00:00:00.000Z",
-    updatedAt: "2026-06-05T00:00:00.000Z",
-    messageCount: 0,
-    lastMessagePreview: "",
-    permissionMode: "workspace",
-    collaborationMode: "agent",
-    model: "local/text-4b",
-    thinkingLevel: "medium",
-    kind: "subagent_child",
-    parentThreadId: "parent-1",
-    parentRunId: "parent-run-1",
-    subagentRunId: "run-1",
-    collapsedByDefault: true,
-    childStatus: "running",
-    ...overrides,
-  } as ThreadSummary;
-}
-
-function run(overrides: Partial<SubagentRunSummary> = {}): SubagentRunSummary {
-  return {
-    id: "run-1",
-    protocolVersion: "ambient-subagent-protocol-v1",
-    parentThreadId: "parent-1",
-    parentRunId: "parent-run-1",
-    parentMessageId: "message-1",
-    childThreadId: "child-1",
-    canonicalTaskPath: "root/0:summarizer",
-    roleId: "summarizer",
-    dependencyMode: "required",
-    status: "running",
-    featureFlagSnapshot: {
-      schemaVersion: "ambient-feature-flags-v1",
-      generatedAt: "2026-06-05T00:00:00.000Z",
-      flags: {
-        "ambient.subagents": {
-          id: "ambient.subagents",
-          enabled: true,
-          source: "settings",
-          defaultEnabled: false,
-          settingsEnabled: true,
-        },
-      },
-    },
-    modelRuntimeSnapshot: modelRuntimeSnapshot(),
-    createdAt: "2026-06-05T00:00:00.000Z",
-    updatedAt: "2026-06-05T00:00:00.000Z",
-    ...overrides,
-  } as SubagentRunSummary;
-}
-
-function barrier(overrides: Partial<SubagentWaitBarrierSummary> = {}): SubagentWaitBarrierSummary {
-  return {
-    id: "barrier-1",
-    parentThreadId: "parent-1",
-    parentRunId: "parent-run-1",
-    childRunIds: ["run-1"],
-    dependencyMode: "required_all",
-    status: "waiting_on_children",
-    failurePolicy: "ask_user",
-    timeoutMs: 30_000,
-    createdAt: "2026-06-05T00:00:00.000Z",
-    updatedAt: "2026-06-05T00:00:00.000Z",
-    ...overrides,
-  };
-}
-
-function parentMailboxEvent(overrides: Partial<SubagentParentMailboxEventSummary> = {}): SubagentParentMailboxEventSummary {
-  return {
-    id: "parent-mailbox-1",
-    parentThreadId: "parent-1",
-    parentRunId: "parent-run-1",
-    parentMessageId: "message-1",
-    type: "subagent.batch_progress",
-    payload: {},
-    deliveryState: "queued",
-    createdAt: "2026-06-05T00:00:00.000Z",
-    updatedAt: "2026-06-05T00:00:10.000Z",
-    ...overrides,
-  };
-}
-
-function waitBarrierDecisionPayload(input: {
-  waitBarrierId: string;
-  decision: "continue_with_partial" | "retry_child" | "detach_child" | "cancel_parent" | "fail_parent";
-  barrierStatus: string;
-  childRunIds: string[];
-  userDecisionPreview?: string;
-  partialSummaryPreview?: string;
-  retryRequestedRunIds?: string[];
-  retryAcceptedRunIds?: string[];
-  retryMailboxEventIds?: string[];
-  detachedRunIds?: string[];
-  cancelledRunIds?: string[];
-  stoppedChildRunIds?: string[];
-  unchangedRunIds?: string[];
-  cancelledMailboxEventIds?: string[];
-  parentCancellationRequested?: boolean;
-}): Record<string, unknown> {
-  return {
-    schemaVersion: "ambient-subagent-wait-barrier-decision-v1",
-    waitBarrierId: input.waitBarrierId,
-    decision: input.decision,
-    barrierStatus: input.barrierStatus,
-    dependencyMode: "required_all",
-    failurePolicy: "ask_user",
-    childRunIds: input.childRunIds,
-    childStatuses: input.childRunIds.map((childRunId) => ({ childRunId, status: "failed" })),
-    ...(input.userDecisionPreview ? { userDecisionPreview: input.userDecisionPreview } : {}),
-    ...(input.partialSummaryPreview ? { partialSummaryPreview: input.partialSummaryPreview } : {}),
-    ...(input.retryRequestedRunIds?.length ? { retryRequestedRunIds: input.retryRequestedRunIds } : {}),
-    ...(input.retryAcceptedRunIds?.length ? { retryAcceptedRunIds: input.retryAcceptedRunIds } : {}),
-    ...(input.retryMailboxEventIds?.length ? { retryMailboxEventIds: input.retryMailboxEventIds } : {}),
-    ...(input.detachedRunIds?.length ? { detachedRunIds: input.detachedRunIds } : {}),
-    ...(input.cancelledRunIds?.length ? { cancelledRunIds: input.cancelledRunIds } : {}),
-    ...(input.stoppedChildRunIds?.length ? { stoppedChildRunIds: input.stoppedChildRunIds } : {}),
-    ...(input.unchangedRunIds?.length ? { unchangedRunIds: input.unchangedRunIds } : {}),
-    ...(input.cancelledMailboxEventIds?.length ? { cancelledMailboxEventIds: input.cancelledMailboxEventIds } : {}),
-    ...(input.parentCancellationRequested ? { parentCancellationRequested: true } : {}),
-  };
-}
-
-function callableWorkflowTask(overrides: Partial<CallableWorkflowTaskSummary> = {}): CallableWorkflowTaskSummary {
-  return {
-    id: "callable-task-1",
-    launchId: "callable-workflow:launch-1",
-    parentThreadId: "parent-1",
-    parentRunId: "parent-run-1",
-    parentMessageId: "message-1",
-    toolCallId: "tool-call-1",
-    toolId: "symphony.map_reduce",
-    toolName: "symphony_map_reduce",
-    sourceKind: "symphony_recipe",
-    title: "Symphony Map-Reduce",
-    status: "queued",
-    statusLabel: "Queued",
-    blocking: true,
-    defaultCollapsed: true,
-    progressVisible: true,
-    tokenCostTracking: true,
-    pauseResumeCancel: true,
-    cancelHandle: "callable-workflow-task:callable-task-1",
-    runnerTarget: "workflowCompilerService",
-    runnerDeferredReason: "callable_workflow_runner_not_connected",
-    executionPlan: {},
-    createdAt: "2026-06-05T00:00:00.000Z",
-    updatedAt: "2026-06-05T00:00:00.000Z",
-    ...overrides,
-  };
-}
-
-function callableWorkflowLaunchCard(): NonNullable<CallableWorkflowTaskSummary["launchCard"]> {
-  return {
-    schemaVersion: "ambient-callable-workflow-launch-card-v1",
-    title: "Symphony Map-Reduce",
-    sourceKind: "symphony_recipe",
-    riskLevel: "high",
-    estimatedAgents: 12,
-    maxFanout: 12,
-    maxDepth: 2,
-    estimatedTokenBudget: 180_000,
-    tokenBudgetEstimated: true,
-    estimatedLocalMemoryBytes: 8 * 1024 * 1024 * 1024,
-    localMemoryEstimated: true,
-    costEstimateLabel: "Budgeted up to 180,000 tokens; provider dollar cost is estimated after runtime pricing is known.",
-    toolMutationScope: "Recipe and user scope define allowed tools; mutating child actions require approval, child identifiers, and worktree isolation.",
-    checkpointResume: "Compile to a persisted workflow artifact before running; visible runs must expose progress, pause/resume/cancel, and restart evidence.",
-    approvalFailureHandling: "Denied, unavailable, or non-interactive approvals leave the workflow blocked or needing attention; the parent must not synthesize it as complete.",
-    defaultCollapsed: true,
-    blocking: true,
-    smallSliceRecommended: true,
-    requireConfirmation: true,
-    requirementIds: [
-      "estimated_agents",
-      "token_cost_budget",
-      "tool_mutation_scope",
-      "checkpoint_resume",
-      "approval_failure_handling",
-    ],
-    metricTemplateIds: ["map_reduce-metric"],
-    policyWarnings: ["May fan out to as many as 12 child threads."],
-  };
-}
-
-function callableWorkflowBlockingPayload(overrides: {
-  tasks: Array<Record<string, unknown>>;
-  taskIds: string[];
-  waitingTaskIds: string[];
-  attentionTaskIds: string[];
-  workflowArtifactIds: string[];
-  workflowRunIds: string[];
-}) {
-  return {
-    schemaVersion: "ambient-callable-workflow-parent-blocking-v1",
-    reason: "blocking_callable_workflow_not_synthesis_safe",
-    message: "Parent final answer blocked because blocking callable workflow work is not safe for synthesis.",
-    instruction: "Do not synthesize workflow work.",
-    parentThreadId: "parent-1",
-    parentRunId: "parent-run-1",
-    parentMessageId: "message-1",
-    synthesisAllowed: false,
-    parentFinalizationBlocked: true,
-    launchIds: overrides.tasks.map((task) => String(task.launchId ?? task.id ?? "")),
-    allowedUserChoices: [
-      { id: "wait_again", label: "Wait again", action: "wait_for_workflow" },
-      { id: "cancel_parent", label: "Cancel parent run", action: "cancel_parent_run" },
-    ],
-    ...overrides,
-  };
-}
-
-function spawnFailurePayload() {
-  return {
-    schemaVersion: "ambient-subagent-spawn-failure-v1",
-    failureStage: "model_scope",
-    parentThreadId: "parent-1",
-    parentRunId: "parent-run-1",
-    toolCallId: "spawn-bad-model",
-    requestedRoleId: "explorer",
-    roleId: "explorer",
-    reason: "Selected model is not eligible for sub-agent runs (custom/unregistered-model): Model is not registered in this Ambient Desktop build.",
-    modelScope: {
-      schemaVersion: "ambient-subagent-model-scope-v1",
-      source: "caller_override",
-      requestedModelId: "custom/unregistered-model",
-      roleDefaultModelId: "local/text-4b",
-      selectedModelId: "custom/unregistered-model",
-      profile: {
-        profileId: "unknown:custom/unregistered-model",
-        providerId: "unknown",
-        modelId: "custom/unregistered-model",
-        label: "Unknown model",
-        locality: "cloud",
-        toolUse: "none",
-        structuredOutput: "none",
-        available: false,
-        selectableAsSubagent: false,
-        supportsStreaming: false,
-        unavailableReason: "Model is not registered in this Ambient Desktop build.",
-      },
-      warnings: [],
-      blockingReasons: [
-        "Model is not registered in this Ambient Desktop build.",
-        "Model custom/unregistered-model is not selectable for sub-agent delegation.",
-        "Model custom/unregistered-model does not support required sub-agent streaming.",
-      ],
-      candidateDiagnostics: [
-        {
-          schemaVersion: "ambient-subagent-model-scope-candidate-v1",
-          source: "caller_override",
-          modelId: "custom/unregistered-model",
-          profileId: "unknown:custom/unregistered-model",
-          providerId: "unknown",
-          label: "Unknown model",
-          selected: true,
-          eligible: false,
-          locality: "cloud",
-          toolUse: "none",
-          structuredOutput: "none",
-          selectableAsSubagent: false,
-          supportsStreaming: false,
-          available: false,
-          unavailableReason: "Model is not registered in this Ambient Desktop build.",
-          capabilityDiagnostics: [
-            {
-              capability: "availability",
-              status: "fail",
-              required: "registered and available runtime profile",
-              actual: "unavailable",
-              reason: "Model is not registered in this Ambient Desktop build.",
-            },
-          ],
-          blockingReasons: ["Model is not registered in this Ambient Desktop build."],
-        },
-      ],
-    },
-  };
-}
-
-function barrierDecisionArtifact(input: {
-  decision: "continue_with_partial" | "retry_child" | "detach_child" | "cancel_parent" | "fail_parent";
-  userDecision?: string;
-  partialSummary?: string;
-  retryRequestedRunIds?: string[];
-  retryAcceptedRunIds?: string[];
-  retryMailboxEventIds?: string[];
-  detachedRunIds?: string[];
-  cancelledRunIds?: string[];
-  stoppedChildRunIds?: string[];
-  unchangedRunIds?: string[];
-  cancelledWaitBarrierIds?: string[];
-  cancelledMailboxEventIds?: string[];
-  parentCancellationRequested?: boolean;
-}): NonNullable<SubagentWaitBarrierSummary["resolutionArtifact"]> {
-  return {
-    schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
-    childRunIds: ["run-1"],
-    childStatuses: [{ childRunId: "run-1", status: "failed" }],
-    synthesisAllowed: input.decision === "continue_with_partial",
-    explicitPartial: input.decision === "continue_with_partial",
-    resultArtifact: null,
-    ...(input.retryRequestedRunIds?.length ? { retryRequestedRunIds: input.retryRequestedRunIds } : {}),
-    ...(input.retryAcceptedRunIds?.length ? { retryAcceptedRunIds: input.retryAcceptedRunIds } : {}),
-    ...(input.retryMailboxEventIds?.length ? { retryMailboxEventIds: input.retryMailboxEventIds } : {}),
-    ...(input.detachedRunIds?.length ? { detachedRunIds: input.detachedRunIds } : {}),
-    ...(input.cancelledRunIds?.length ? { cancelledRunIds: input.cancelledRunIds } : {}),
-    ...(input.stoppedChildRunIds?.length ? { stoppedChildRunIds: input.stoppedChildRunIds } : {}),
-    ...(input.unchangedRunIds?.length ? { unchangedRunIds: input.unchangedRunIds } : {}),
-    ...(input.cancelledWaitBarrierIds?.length ? { cancelledWaitBarrierIds: input.cancelledWaitBarrierIds } : {}),
-    ...(input.cancelledMailboxEventIds?.length ? { cancelledMailboxEventIds: input.cancelledMailboxEventIds } : {}),
-    ...(input.parentCancellationRequested ? { parentCancellationRequested: true } : {}),
-    userDecision: {
-      schemaVersion: "ambient-subagent-user-decision-v1",
-      decision: input.decision,
-      userDecision: input.userDecision ?? null,
-      partialSummary: input.partialSummary ?? null,
-      decidedAt: "2026-06-05T00:01:00.000Z",
-      toolCallId: "tool-call-1",
-      idempotencyKey: "barrier-decision:test",
-    },
-  };
-}
-
-function barrierChildToneForTest(status: SubagentRunSummary["status"]) {
-  if (status === "running" || status === "starting") return "active";
-  if (status === "reserved") return "warning";
-  if (status === "completed") return "success";
-  if (status === "failed" || status === "stopped" || status === "cancelled") return "danger";
-  return "neutral";
-}
-
-function modelRuntimeSnapshot(): AmbientModelRuntimeSnapshot {
-  return {
-    schemaVersion: "ambient-model-runtime-snapshot-v1",
-    resolvedAt: "2026-06-05T00:00:00.000Z",
-    requestedModelId: "local/text-4b",
-    profile: {
-      schemaVersion: "ambient-model-runtime-profile-v1",
-      profileId: "local:local/text-4b:startup",
-      providerId: "local",
-      modelId: "local/text-4b",
-      label: "Local Text startup runtime",
-      selectableAsMain: false,
-      selectableAsSubagent: true,
-      available: true,
-      contextWindowTokens: 8192,
-      maxOutputTokens: 2048,
-      supportsStreaming: true,
-      toolUse: "none",
-      structuredOutput: "none",
-      supportsVision: false,
-      supportsAudio: false,
-      locality: "local",
-      costClass: "local",
-      trustClass: "local-user-managed",
-      privacyLabel: "Local user-managed text runtime",
-      memoryClass: "small-local",
-      providerQuirks: [],
-    },
-  };
-}

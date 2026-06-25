@@ -91,6 +91,7 @@ export interface HandleAgentRuntimePromptSuccessInput {
   sendInput: SendMessageInput;
   runId: string;
   runWorkspacePath: string;
+  startedInPlannerMode: boolean;
   session: AgentRuntimePromptOutcomeSession;
   runtimeMessages: RuntimeAssistantMessageController;
   toolMessages: RuntimeToolMessageController;
@@ -236,6 +237,7 @@ export class AgentRuntimePromptOutcomeController {
       threadId: input.sendInput.threadId,
       runId: input.runId,
       workspacePath: input.runWorkspacePath,
+      startedInPlannerMode: input.startedInPlannerMode,
       currentAssistantMessageId: input.runtimeMessages.currentAssistantMessageId(),
       runtimeError: input.runtimeError,
       abortRequested: input.abortRequested,
@@ -317,7 +319,7 @@ export class AgentRuntimePromptOutcomeController {
         this.options.recordCallableWorkflowFinalizationBlockedParentMailbox(input.sendInput.threadId, input.runId, block),
       suppressCallableWorkflowParentAssistantMessages: this.options.suppressCallableWorkflowParentAssistantMessages,
       replaceAssistantMessage: (messageId, content, metadata) => this.options.replaceMessage(messageId, content, metadata),
-      createPlannerPlanArtifactFromMessage: (message) => this.options.createPlannerPlanArtifactFromMessage(message),
+      createPlannerPlanArtifactFromMessage: (message, options) => this.options.createPlannerPlanArtifactFromMessage(message, options),
       finishPlannerFinalizationSources: input.finishPlannerFinalizationSources,
       finishParentRun: input.finishParentRun,
       recordVoiceDispatch: this.options.recordVoiceDispatch,

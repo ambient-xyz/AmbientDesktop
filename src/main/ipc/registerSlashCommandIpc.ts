@@ -51,10 +51,12 @@ export const slashCommandIpcChannels = [
 
 const slashCommandKindSchema = z.enum(["app", "skill", "workflow", "callable-workflow"]);
 const slashCommandSourceKindSchema = z.enum(["builtin", "codex-plugin", "ambient-cli", "workflow-recorder", "symphony"]);
+const slashCommandSearchModeSchema = z.enum(["query", "catalog"]);
 
 const slashCommandSearchSchema = z.object({
   query: z.string().max(500).optional(),
-  limit: z.number().int().positive().max(50).optional(),
+  mode: slashCommandSearchModeSchema.optional(),
+  limit: z.number().int().positive().max(200).optional(),
   includeUnavailable: z.boolean().optional(),
   kinds: z.array(slashCommandKindSchema).max(8).optional(),
   sourceKinds: z.array(slashCommandSourceKindSchema).max(8).optional(),
@@ -145,7 +147,7 @@ export async function slashCommandCatalogSourcesForHost<Host extends ProjectRunt
       kind: rawInput?.ambientCliKind,
       packageId: rawInput?.ambientCliPackageId,
       command: rawInput?.ambientCliCommand,
-      limit: Math.min(Math.max(rawInput?.limit ?? 12, 1), 20),
+      limit: Math.min(Math.max(rawInput?.limit ?? 12, 1), 200),
     }).catch((error) => {
       diagnostics.push(`Ambient CLI catalog unavailable: ${errorMessage(error)}`);
       return undefined;

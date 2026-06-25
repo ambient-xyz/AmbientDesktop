@@ -119,6 +119,7 @@ describe("AgentRuntimeSendPreparationController", () => {
           hiddenFromTranscript: true,
           hiddenUserMessage: true,
           visibleUserContent: "Continue the goal.",
+          continuationSource: "goal-continuation",
           goalId: "goal-1",
         }),
       });
@@ -135,9 +136,35 @@ describe("AgentRuntimeSendPreparationController", () => {
             kind: "goal",
             status: "continuing",
             goalId: "goal-1",
+            continuationSource: "goal-continuation",
           }),
         },
       ]);
+    });
+  });
+
+  it("labels hidden internal continuations by their explicit source", async () => {
+    await withController(({ store, controller, emitted }) => {
+      const thread = store.createThread("hidden wake continuation");
+
+      controller.prepareRuntimeSendLoopContext({
+        ...sendInput(thread.id, { content: "Wake up." }),
+        hiddenUserMessage: true,
+        visibleUserContent: "Continuing scheduled check-in: Check progress.",
+        continuationSource: "thread-wake",
+        delivery: "follow-up",
+      } as RuntimeSendMessageInput);
+
+      expect(emitted.at(-1)).toEqual({
+        type: "runtime-activity",
+        activity: expect.objectContaining({
+          threadId: thread.id,
+          kind: "goal",
+          status: "continuing",
+          goalId: undefined,
+          continuationSource: "thread-wake",
+        }),
+      });
     });
   });
 

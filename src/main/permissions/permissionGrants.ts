@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionGrantActionKind, PermissionGrantScopeKind, PermissionGrantTargetKind, PermissionMode, PermissionPromptResolution, PermissionPromptResponseMode, PermissionRequest } from "../../shared/permissionTypes";
+import { googleWorkspaceGrantTargetIdentityCondition } from "../../shared/googleWorkspaceGrantTargets";
 import type { ProjectStore } from "./permissionsProjectStoreFacade";
+import { grantIncludesDescendants, permissionGrantAllowsRequestPath } from "./localFolderAllowlistGrants";
 
 export interface PermissionGrantContext {
   permissionMode: PermissionMode;
@@ -88,10 +90,31 @@ export function findMatchingPermissionGrant(
   now = new Date(),
 ): AmbientPermissionGrant | undefined {
   const enriched = enrichPermissionRequest(request, context);
+  if (enriched.risk === "privileged-action") return undefined;
   return grants.find((grant) => {
+    const grantActionKind = enriched.grantActionKind;
+    if (!grantActionKind) return false;
     if (grant.revokedAt) return false;
     if (grant.expiresAt && new Date(grant.expiresAt).getTime() <= now.getTime()) return false;
-    if (grant.actionKind !== enriched.grantActionKind || grant.targetKind !== enriched.grantTargetKind || grant.targetHash !== enriched.grantTargetHash) return false;
+    if (grant.actionKind !== grantActionKind || grant.targetKind !== enriched.grantTargetKind) return false;
+    const requestedPaths = requestedPathsFromGrantRequest(enriched);
+    const matchedByPathGrant =
+      grantIncludesDescendants(grant) &&
+      requestedPaths.length > 0 &&
+      requestedPaths.every((requestedPath) =>
+        permissionGrantAllowsRequestPath(grant, context, requestedPath, grantActionKind, now),
+      );
+    if (grant.targetHash !== enriched.grantTargetHash && !matchedByPathGrant) return false;
+    if (
+      !matchedByPathGrant &&
+      !permissionGrantConditionsEqual(
+        grant.conditions,
+        enriched.grantConditions,
+        { actionKind: grant.actionKind, targetKind: grant.targetKind },
+      )
+    ) {
+      return false;
+    }
     if (grant.scopeKind === "thread") return Boolean(context.threadId && grant.threadId === context.threadId);
     if (grant.scopeKind === "workflow_thread") return Boolean(context.workflowThreadId && grant.workflowThreadId === context.workflowThreadId);
     if (grant.scopeKind === "project") return Boolean(context.projectPath && grant.projectPath === context.projectPath);
@@ -106,6 +129,7 @@ export function grantInputFromPromptResponse(
   response: PermissionPromptResponseMode,
 ): CreateAmbientPermissionGrantInput | undefined {
   const enriched = enrichPermissionRequest(request, context);
+  if (enriched.risk === "privileged-action") return undefined;
   const scopeKind = scopeKindFromResponse(response);
   if (!scopeKind || !(enriched.reusableScopes ?? []).includes(scopeKind)) return undefined;
   return {
@@ -127,6 +151,165 @@ export function grantInputFromPromptResponse(
 
 export function permissionGrantTargetHash(actionKind: PermissionGrantActionKind, targetKind: PermissionGrantTargetKind, targetLabel: string): string {
   return createHash("sha256").update(`${actionKind}\0${targetKind}\0${targetLabel}`).digest("hex");
+}
+
+export function permissionGrantConditionsEqual(
+  left: unknown,
+  right: unknown,
+  context?: Pick<AmbientPermissionGrant, "actionKind" | "targetKind">,
+): boolean {
+  if (!context) return stableConditionString(left) === stableConditionString(right);
+  return stableConditionString(permissionGrantConditionIdentity(left, context)) ===
+    stableConditionString(permissionGrantConditionIdentity(right, context));
+}
+
+function stableConditionString(value: unknown): string {
+  return value === undefined ? "undefined" : JSON.stringify(stableConditionValue(value));
+}
+
+function permissionGrantConditionIdentity(value: unknown, context: Pick<AmbientPermissionGrant, "actionKind" | "targetKind">): unknown {
+  const record = recordConditionValue(value);
+  if (!record) return value;
+  if (isChildBrowserAuthorityConditions(record, context)) {
+    return pickConditionIdentity(record, ["provider", "source", "operation", "domain"]);
+  }
+  if (isFileAuthorityAdapterConditions(record, context)) {
+    return pickConditionIdentity(record, ["provider", "source", "path", "canonicalPath", "access"]);
+  }
+  if (record.discoveryOnly === true) {
+    return pickConditionIdentity(record, ["discoveryOnly"]);
+  }
+  if (isGoogleWorkspaceConditions(record)) {
+    return googleWorkspaceConditionIdentity(record);
+  }
+  if (record.kind === "ambient-mcp-tool-call" && record.schemaVersion === "ambient-mcp-permission-policy-v1") {
+    return omitConditionIdentity(record, ["profileReason", "observedPriorHosts", "observedPriorEndpoints", "observedPriorPaths"]);
+  }
+  if (isPathGrantConditions(record, context)) {
+    return pathGrantConditionIdentity(record);
+  }
+  return record;
+}
+
+function isChildBrowserAuthorityConditions(
+  conditions: Record<string, unknown>,
+  context: Pick<AmbientPermissionGrant, "actionKind" | "targetKind">,
+): boolean {
+  return conditions.provider === "ambient.desktop" &&
+    conditions.source === "subagent-child-browser-authority" &&
+    (context.actionKind === "browser_network" ||
+      context.actionKind === "browser_control" ||
+      context.actionKind === "browser_profile" ||
+      context.actionKind === "browser_login") &&
+    (context.targetKind === "browser_origin" || context.targetKind === "tool");
+}
+
+function isFileAuthorityAdapterConditions(
+  conditions: Record<string, unknown>,
+  context: Pick<AmbientPermissionGrant, "actionKind" | "targetKind">,
+): boolean {
+  return conditions.source === "file-authority-adapter" &&
+    context.targetKind === "path" &&
+    (context.actionKind === "file_content_read" || context.actionKind === "local_file_write");
+}
+
+function isGoogleWorkspaceConditions(conditions: Record<string, unknown>): boolean {
+  return conditions.provider === "google.workspace" ||
+    conditions.provider === "google.workspace.cli" ||
+    typeof conditions[googleWorkspaceGrantTargetIdentityCondition] === "string";
+}
+
+function isPathGrantConditions(
+  conditions: Record<string, unknown>,
+  context: Pick<AmbientPermissionGrant, "actionKind" | "targetKind">,
+): boolean {
+  return context.targetKind === "path" &&
+    (context.actionKind === "file_content_read" ||
+      context.actionKind === "local_file_write" ||
+      context.actionKind === "secret_path_read") &&
+    (typeof conditions.path === "string" ||
+      typeof conditions.canonicalPath === "string" ||
+      typeof conditions.requestedPath === "string" ||
+      Array.isArray(conditions.paths));
+}
+
+function pathGrantConditionIdentity(record: Record<string, unknown>): Record<string, unknown> {
+  const identity = omitConditionIdentity(record, ["requestedPath", "requestedPaths"]);
+  if (typeof record.canonicalPath === "string") {
+    identity.path = record.canonicalPath;
+  }
+  return identity;
+}
+
+function googleWorkspaceConditionIdentity(record: Record<string, unknown>): Record<string, unknown> {
+  if (typeof record[googleWorkspaceGrantTargetIdentityCondition] === "string") {
+    return pickConditionIdentity(record, [
+      "provider",
+      googleWorkspaceGrantTargetIdentityCondition,
+      "googleWorkspaceConnectorId",
+      "googleWorkspaceAccountId",
+      "googleWorkspaceAccess",
+      "operation",
+      "methodId",
+      "sideEffect",
+    ]);
+  }
+  const identity = omitConditionIdentity(record, ["requestedAccountHint"]);
+  if (record.resolvedAccountHint !== undefined) identity.accountHint = record.resolvedAccountHint;
+  return identity;
+}
+
+function pickConditionIdentity(record: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (record[key] !== undefined) picked[key] = record[key];
+  }
+  return picked;
+}
+
+function omitConditionIdentity(record: Record<string, unknown>, omittedKeys: string[]): Record<string, unknown> {
+  const omitted = new Set(omittedKeys);
+  const picked: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (!omitted.has(key) && value !== undefined) picked[key] = value;
+  }
+  return picked;
+}
+
+function recordConditionValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function stableConditionValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableConditionValue);
+  if (!value || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(record).sort()) {
+    const item = record[key];
+    if (item !== undefined) sorted[key] = stableConditionValue(item);
+  }
+  return sorted;
+}
+
+function requestedPathsFromGrantRequest(request: Omit<PermissionRequest, "id">): string[] {
+  if (request.grantTargetKind !== "path") return [];
+  const conditionsPaths = request.grantConditions &&
+    Array.isArray(request.grantConditions.paths) &&
+    request.grantConditions.paths.every((path): path is string => typeof path === "string")
+    ? request.grantConditions.paths
+    : undefined;
+  if (conditionsPaths?.length) return conditionsPaths;
+  const canonicalConditionsPath = request.grantConditions && typeof request.grantConditions.canonicalPath === "string"
+    ? request.grantConditions.canonicalPath
+    : undefined;
+  const conditionsPath = request.grantConditions && typeof request.grantConditions.path === "string"
+    ? request.grantConditions.path
+    : undefined;
+  const path = canonicalConditionsPath ?? conditionsPath ?? request.grantTargetLabel;
+  return path ? [path] : [];
 }
 
 function permissionGrantActionKind(request: Omit<PermissionRequest, "id">): PermissionGrantActionKind {
@@ -176,7 +359,8 @@ function isLoopbackHost(host: string): boolean {
 }
 
 function reusableScopesForRequest(request: Omit<PermissionRequest, "id">, context: PermissionGrantContext): PermissionGrantScopeKind[] {
-  if (request.risk === "browser-login" || request.risk === "browser-credential" || request.risk === "secret-path" || request.risk === "privileged-action") {
+  if (request.risk === "privileged-action") return [];
+  if (request.risk === "browser-login" || request.risk === "browser-credential" || request.risk === "secret-path") {
     return context.workflowThreadId ? ["thread", "workflow_thread"] : ["thread"];
   }
   const scopes: PermissionGrantScopeKind[] = ["thread"];

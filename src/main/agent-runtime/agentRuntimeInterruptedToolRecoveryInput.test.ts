@@ -30,6 +30,7 @@ describe("buildInterruptedToolCallRecoveryInput", () => {
       delivery: "follow-up",
       preserveActiveThread: true,
       internal: true,
+      continuationSource: "post-tool-continuation",
       context: [{ kind: "file", path: "/workspace/notes.md", name: "notes.md" }],
       workflowThreadId: "workflow-thread-1",
       sessionRecovery: {

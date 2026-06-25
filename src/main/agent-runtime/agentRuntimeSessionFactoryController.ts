@@ -316,7 +316,7 @@ export class AgentRuntimeSessionFactoryController {
       store: this.options.store,
     });
     const enabledPlugins = skillDiscovery.enabledPlugins;
-    const cliCatalog = await discoverAmbientCliPackages(workspace.path).catch(() => ({ packages: [], errors: [] }));
+    const cliCatalog = await discoverAmbientCliPackages(workspace.path, { includeHealth: false }).catch(() => ({ packages: [], errors: [] }));
     const cliSkillMount = resolveAmbientCliSkillMount({
       cliSkillPaths: skillDiscovery.ambientCliSkillPaths,
       installedCliPackageCount: cliCatalog.packages.filter((pkg) => pkg.installed).length,

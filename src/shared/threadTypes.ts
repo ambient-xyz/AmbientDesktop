@@ -28,6 +28,12 @@ export interface QueueState {
   followUp: string[];
 }
 
+export type RuntimeContinuationSource =
+  | "thread-wake"
+  | "post-tool-continuation"
+  | "goal-continuation"
+  | "compaction-continuation";
+
 export type RuntimeActivity =
   | {
       threadId: string;
@@ -115,6 +121,7 @@ export type RuntimeActivity =
       status: "continuing" | "paused" | "completed" | "blocked" | "skipped";
       message: string;
       goalId?: string;
+      continuationSource?: RuntimeContinuationSource;
     };
 
 export type ContextUsageSource =

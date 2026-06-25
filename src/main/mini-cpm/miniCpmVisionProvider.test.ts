@@ -9,6 +9,7 @@ import JSZip from "jszip";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   analyzeMiniCpmVisionInput,
+  installMiniCpmManagedRuntimeFromDownload,
   readMiniCpmVisionValidationMetadata,
   setupMiniCpmVisionProvider,
 } from "./miniCpmVisionProvider";
@@ -340,10 +341,12 @@ describe("MiniCPM-V vision provider adapter", () => {
     const archiveRoot = await mkdtemp(join(tmpdir(), "ambient-minicpm-runtime-download-src-"));
     const previousServer = process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
     const previousFake = process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
+    const previousLocalHttpEgress = process.env.AMBIENT_EGRESS_ALLOW_LOCAL_HTTP;
     let server: Awaited<ReturnType<typeof localRuntimeArchiveServer>> | undefined;
     try {
       delete process.env.AMBIENT_MINICPM_V_LLAMA_SERVER;
       delete process.env.AMBIENT_MINICPM_V_FAKE_ANALYSIS;
+      process.env.AMBIENT_EGRESS_ALLOW_LOCAL_HTTP = "1";
       const sourceRoot = join(archiveRoot, "src");
       const runtimeDir = join(sourceRoot, "llama-b9122");
       const runtimeBinary = join(runtimeDir, "llama-server");
@@ -482,10 +485,86 @@ describe("MiniCPM-V vision provider adapter", () => {
     } finally {
       restoreEnv("AMBIENT_MINICPM_V_LLAMA_SERVER", previousServer);
       restoreEnv("AMBIENT_MINICPM_V_FAKE_ANALYSIS", previousFake);
+      restoreEnv("AMBIENT_EGRESS_ALLOW_LOCAL_HTTP", previousLocalHttpEgress);
       const activeServer = server;
       if (activeServer) await new Promise((resolveClose) => activeServer.close(resolveClose));
       await rm(workspace, { recursive: true, force: true });
       await rm(archiveRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks MiniCPM managed runtime loopback downloads unless local-dev egress is explicit", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-minicpm-managed-download-blocked-"));
+    const server = await localRuntimeArchiveServer(Buffer.from("should not be fetched"));
+    try {
+      const artifactId = "llama-cpp-test-blocked-loopback-runtime";
+      const result = await installMiniCpmManagedRuntimeFromDownload(workspace, {
+        artifactId,
+        now: () => new Date("2026-05-12T05:10:00.000Z"),
+        manifest: {
+          schemaVersion: "ambient-minicpm-v-runtime-release-manifest-v1",
+          manifestId: "test-managed-download-blocked-runtime-manifest",
+          downloadEnabled: true,
+          checksumAlgorithm: "sha256",
+          requiredArtifactFields: [
+            "id",
+            "platform",
+            "arch",
+            "lane",
+            "supportTier",
+            "acceleration",
+            "defaultDownloadEnabled",
+            "releaseTag",
+            "sourceUrl",
+            "archiveName",
+            "archiveFormat",
+            "archiveSha256",
+            "binaryRelativePath",
+            "expectedBinaryNames",
+            "cacheSubdir",
+            "license",
+            "pinStatus",
+            "smokeRequirements",
+          ],
+          artifacts: [
+            {
+              id: artifactId,
+              platform: platform() as "darwin" | "linux" | "win32",
+              arch: arch(),
+              lane: "test-blocked-loopback-runtime",
+              supportTier: "conditional",
+              acceleration: "test",
+              defaultDownloadEnabled: true,
+              releaseTag: "b9122-test",
+              sourceUrl: `http://127.0.0.1:${server.port}/llama-b9122-bin-download-test.tar.gz`,
+              archiveName: "llama-b9122-bin-download-test.tar.gz",
+              archiveFormat: "tar.gz",
+              archiveSha256: "a".repeat(64),
+              binaryRelativePath: "llama-b9122/llama-server",
+              binarySha256: "b".repeat(64),
+              expectedBinaryNames: ["llama-server"],
+              cacheSubdir: "b9122/test-blocked-loopback-runtime",
+              license: "test",
+              pinStatus: "pinned",
+              smokeRequirements: ["test"],
+            },
+          ],
+          blockers: [],
+          notes: ["test manifest"],
+        },
+      });
+
+      expect(result).toMatchObject({
+        attempted: true,
+        status: "unsupported",
+        source: "managed-download",
+        artifactId,
+      });
+      expect(result.error).toMatch(/blocked loopback network target/i);
+      expect(server.requests).toBe(0);
+    } finally {
+      await new Promise((resolveClose) => server.close(resolveClose));
+      await rm(workspace, { recursive: true, force: true });
     }
   });
 

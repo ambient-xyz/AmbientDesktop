@@ -1,7 +1,6 @@
-import { spawn } from "node:child_process";
 import { statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import type {
   BrowserCapabilityState,
   BrowserContentInput,
@@ -27,45 +26,26 @@ import type {
   BrowserViewBoundsInput,
 } from "../../shared/browserTypes";
 import {
+  foregroundManagedChromeWindow,
+  managedChromeRevealBoundsForWorkArea as defaultManagedChromeRevealBoundsForWorkArea,
   type ManagedChromeRevealInput,
   type ManagedChromeRevealResult,
   type ManagedChromeWindowBounds,
-  type ManagedChromeWorkArea,
 } from "./browserChromeRevealController";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import {
-  chromeProfileSourcePath,
-} from "./browserChromeProfileController";
-import {
-  type ChromeVersionInfo,
-} from "./browserChromeTargetController";
+import { chromeProfileSourcePath } from "./browserChromeProfileController";
+import { type ChromeVersionInfo } from "./browserChromeTargetController";
 import { BrowserChromeLifecycleController } from "./browserChromeLifecycleController";
+import { BrowserChromeStartupController, BrowserUnavailableError } from "./browserChromeStartupController";
 import {
-  BrowserChromeStartupController,
-  BrowserUnavailableError,
-  MANAGED_CHROME_WIDTH,
-} from "./browserChromeStartupController";
-import { assertBrowserScreenshotTargetLoaded } from "./browserChromeScreenshotController";
-import {
-  assertLoginOrigin,
-  cancelBrowserPickExpression,
-  normalizeBrowserKeypressInput,
-  normalizeBrowserLoginRequest,
-  normalizeBrowserLoginResult,
   type BrowserActivityInput,
   type BrowserContentResult,
   type BrowserNavigateResult,
   type BrowserSearchResults,
 } from "./browserChromeRuntimeController";
 import { type BrowserServiceInternalStateSnapshot } from "./browserServiceStateSnapshot";
-import {
-  browserUserActionDetectionExpression,
-  type BrowserUserActionDetection,
-} from "./browserUserActionController";
-import {
-  createBrowserServiceControllers,
-  type BrowserServiceControllerBundle,
-} from "./browserServiceControllers";
+import { browserUserActionDetectionExpression, type BrowserUserActionDetection } from "./browserUserActionController";
+import { createBrowserServiceControllers, type BrowserServiceControllerBundle } from "./browserServiceControllers";
 import {
   createBrowserChromeLifecycleState,
   createBrowserServiceControllerStateAccessors,
@@ -73,6 +53,12 @@ import {
   defineBrowserServiceMutableStateProperties,
   type BrowserServiceMutableState,
 } from "./browserServiceMutableState";
+import {
+  BrowserServiceRequestController,
+  DEFAULT_BROWSER_PROFILE_MODE as DEFAULT_PROFILE_MODE,
+  type BrowserRequestInput,
+} from "./browserServiceRequestController";
+import { BrowserServiceLifecycleController } from "./browserServiceLifecycleController";
 
 export {
   BooleanPickSelection,
@@ -111,10 +97,7 @@ export {
   type BrowserScreenshotStorageTarget,
 } from "./browserChromeScreenshotController";
 
-export {
-  chromeProfileSourcePath,
-  shouldCopyChromeProfilePath,
-} from "./browserChromeProfileController";
+export { chromeProfileSourcePath, shouldCopyChromeProfilePath } from "./browserChromeProfileController";
 
 export type {
   ManagedChromeRevealInput,
@@ -123,11 +106,9 @@ export type {
   ManagedChromeWorkArea,
 } from "./browserChromeRevealController";
 
-export {
-  BrowserUnavailableError,
-  managedChromeLaunchArgs,
-  parseChromeDevToolsEndpoint,
-} from "./browserChromeStartupController";
+export { chromeAppNameFromExecutable, managedChromeRevealBoundsForWorkArea } from "./browserChromeRevealController";
+
+export { BrowserUnavailableError, managedChromeLaunchArgs, parseChromeDevToolsEndpoint } from "./browserChromeStartupController";
 
 export {
   assertBrowserNavigationReachedRequestedPage,
@@ -175,23 +156,12 @@ export interface InternalBrowserBackend {
   cancelPick(): Promise<void>;
 }
 
-type BrowserRequestInput = {
-  profileMode?: BrowserProfileMode;
-  runtime?: BrowserRuntimeKind;
-};
-
 export interface BrowserServiceOptions {
   browserLoginBrokerAvailable?: boolean;
   onStateChanged?: () => void | Promise<void>;
   revealManagedChromeWindow?: (input: ManagedChromeRevealInput) => Promise<ManagedChromeRevealResult>;
   managedChromeRevealBounds?: () => ManagedChromeWindowBounds | undefined;
 }
-
-const DEFAULT_PROFILE_MODE: BrowserProfileMode = "isolated";
-const MANAGED_CHROME_REVEALED_HEIGHT = 900;
-const MANAGED_CHROME_REVEAL_MARGIN = 40;
-const MANAGED_CHROME_MIN_WIDTH = 720;
-const MANAGED_CHROME_MIN_HEIGHT = 520;
 
 export class BrowserService {
   private readonly state: BrowserServiceMutableState;
@@ -208,6 +178,8 @@ export class BrowserService {
   private readonly stateSnapshots: BrowserServiceControllerBundle["stateSnapshots"];
   private readonly chromeReveal: BrowserServiceControllerBundle["chromeReveal"];
   private readonly workspaceRefresh: BrowserServiceControllerBundle["workspaceRefresh"];
+  private readonly lifecycle: BrowserServiceLifecycleController;
+  private readonly requests: BrowserServiceRequestController;
 
   constructor(
     private readonly getWorkspace: () => WorkspaceState,
@@ -246,7 +218,7 @@ export class BrowserService {
       dependencies: {
         chromeAvailability: () => chromeAvailability(),
         chromeProfileSourcePath: () => chromeProfileSourcePath(),
-        defaultManagedChromeRevealBounds: () => managedChromeRevealBoundsForWorkArea({ x: 0, y: 0, width: 1440, height: 900 }),
+        defaultManagedChromeRevealBounds: () => defaultManagedChromeRevealBoundsForWorkArea({ x: 0, y: 0, width: 1440, height: 900 }),
       },
     });
     this.chromeSessions = controllers.chromeSessions;
@@ -278,55 +250,56 @@ export class BrowserService {
       instanceId: this.instanceId,
       state: createBrowserChromeLifecycleState(this.state),
     });
+    this.lifecycle = new BrowserServiceLifecycleController({
+      state: this.state,
+      stateSnapshots: this.stateSnapshots,
+      chromeTargets: this.chromeTargets,
+      chromeReveal: this.chromeReveal,
+      userActions: this.userActions,
+      internalBrowser: this.internalBrowser,
+      actions: {
+        refreshChromeRunningState: () => this.refreshChromeRunningState(),
+        isChromeRunning: () => this.isChromeRunning(),
+        startChrome: (profileMode) => this.startChrome(profileMode),
+        stopChrome: (reason) => this.stopChrome(reason),
+        ensureInternalStarted: () => this.ensureInternalStarted(),
+        runtimeForRequest: (profileMode, runtime) => this.runtimeForRequest(profileMode, runtime),
+        hasInternalBrowser: () => this.hasInternalBrowser(),
+      },
+    });
+    this.requests = new BrowserServiceRequestController({
+      chromeRuntime: this.chromeRuntime,
+      chromeTargets: this.chromeTargets,
+      internalBrowser: this.internalBrowser,
+      internalRuntime: this.internalRuntime,
+      userActions: this.userActions,
+      state: this.state,
+      ensureInternalStarted: () => this.ensureInternalStarted(),
+      getState: () => this.getState(),
+      isChromeRunning: () => this.isChromeRunning(),
+      runtimeForInput: (input) => this.runtimeForInput(input),
+      screenshotChrome: (input) => this.screenshotChrome(input),
+    });
   }
 
   async getState(): Promise<BrowserCapabilityState> {
-    await this.refreshChromeRunningState();
-    if (this.state.activeRuntime === "internal" && this.internalBrowser?.isAvailable()) {
-      return this.stateSnapshots.internalStateSnapshot();
-    }
-    if (this.internalBrowser?.isRunning()) {
-      this.state.activeRuntime = "internal";
-      return this.stateSnapshots.internalStateSnapshot();
-    }
-    if (this.isChromeRunning()) {
-      try {
-        this.state.lastActiveTab = await this.chromeTargets.getActiveTabSnapshot();
-      } catch (error) {
-        this.state.lastError = errorMessage(error);
-      }
-    }
-    return this.stateSnapshots.chromeStateSnapshot();
+    return this.lifecycle.getState();
   }
 
   async start(input: BrowserProfileMode | BrowserStartInput | undefined = DEFAULT_PROFILE_MODE): Promise<BrowserCapabilityState> {
-    const normalized = normalizeStartInput(input);
-    const profileMode = normalized.profileMode ?? DEFAULT_PROFILE_MODE;
-    const runtime = this.runtimeForRequest(profileMode, normalized.runtime);
-    if (runtime === "internal") {
-      await this.ensureInternalStarted();
-      return this.getState();
-    }
-    return this.startChrome(profileMode);
+    return this.lifecycle.start(input);
   }
 
   async stop(): Promise<BrowserCapabilityState> {
-    if (this.internalBrowser?.isRunning()) await this.internalBrowser.stop();
-    await this.stopChrome("Explicit browser stop requested.");
-    this.userActions.clear("Browser stopped.");
-    this.state.lastActivity = "Browser stopped.";
-    this.state.activeRuntime = this.hasInternalBrowser() ? "internal" : "chrome";
-    return this.getState();
+    return this.lifecycle.stop();
   }
 
   async revealActiveBrowser(input: BrowserRevealInput = {}): Promise<BrowserRevealResult> {
-    return this.chromeReveal.revealActiveBrowser(input);
+    return this.lifecycle.revealActiveBrowser(input);
   }
 
   async shutdown(): Promise<void> {
-    this.userActions.clear("Browser shutting down.");
-    await this.internalBrowser?.shutdown().catch(() => undefined);
-    await this.stopChrome("Ambient Desktop is shutting down.").catch(() => undefined);
+    return this.lifecycle.shutdown();
   }
 
   async copyChromeProfile(): Promise<BrowserCapabilityState> {
@@ -345,82 +318,31 @@ export class BrowserService {
   }
 
   async navigate(input: BrowserNavigateInput & BrowserActivityInput): Promise<BrowserNavigateResult> {
-    const blocked = this.userActions.activeBlock(input);
-    if (blocked) {
-      if (input.waitForUserAction === false) return blocked;
-      await this.userActions.waitForClear(blocked, input.onActivity);
-    }
-    if (this.runtimeForInput(input) === "internal") {
-      return this.internalRuntime.navigate(input);
-    }
-    return this.chromeRuntime.navigate(input);
+    return this.requests.navigate(input);
   }
 
   async content(input: BrowserContentInput & BrowserActivityInput = {}): Promise<BrowserContentResult> {
-    const blocked = this.userActions.activeBlock(input);
-    if (blocked) {
-      if (input.waitForUserAction === false) return blocked;
-      await this.userActions.waitForClear(blocked, input.onActivity);
-    }
-    if (this.runtimeForInput(input) === "internal") {
-      return this.internalRuntime.content(input);
-    }
-    return this.chromeRuntime.content(input);
+    return this.requests.content(input);
   }
 
   async search(input: BrowserSearchInput & BrowserActivityInput): Promise<BrowserSearchResults> {
-    const blocked = this.userActions.activeBlock(input);
-    if (blocked) {
-      if (input.waitForUserAction === false) return blocked;
-      await this.userActions.waitForClear(blocked, input.onActivity);
-    }
-    if (this.runtimeForInput(input) === "internal") {
-      return this.internalRuntime.search(input);
-    }
-    return this.chromeRuntime.search(input);
+    return this.requests.search(input);
   }
 
   async evaluate(input: BrowserEvaluateInput & BrowserActivityInput): Promise<unknown> {
-    const blocked = this.userActions.activeBlock();
-    if (blocked) return blocked;
-    if (this.runtimeForInput(input) === "internal") {
-      return this.internalRuntime.evaluate(input);
-    }
-    return this.chromeRuntime.evaluate(input);
+    return this.requests.evaluate(input);
   }
 
   async keypress(input: BrowserKeypressInput): Promise<BrowserKeypressResult | BrowserUserActionState> {
-    const blocked = this.userActions.activeBlock();
-    if (blocked) return blocked;
-    const normalized = normalizeBrowserKeypressInput(input);
-    if (this.runtimeForInput(normalized) === "internal") {
-      return this.internalRuntime.keypress(normalized);
-    }
-    return this.chromeRuntime.keypress(normalized);
+    return this.requests.keypress(input);
   }
 
   async login(input: BrowserLoginRequest): Promise<BrowserLoginResult | BrowserUserActionState> {
-    const blocked = this.userActions.activeBlock();
-    if (blocked) return blocked;
-    const normalized = normalizeBrowserLoginRequest(input);
-    if (this.runtimeForInput(normalized) === "internal") {
-      await this.ensureInternalStarted();
-      const tab = (await this.internalBrowser!.getState()).activeTab;
-      assertLoginOrigin(normalized.expectedOrigin, normalized.credential.origin, tab?.url);
-      const result = await this.internalBrowser!.login({ ...normalized, profileMode: "isolated", runtime: "internal" });
-      this.state.lastActivity = `Filled stored credential "${normalized.credential.label}" for ${normalized.expectedOrigin}.`;
-      return normalizeBrowserLoginResult(result, normalized);
-    }
-    return this.chromeRuntime.login(normalized);
+    return this.requests.login(input);
   }
 
   async screenshot(input: BrowserStartInput & BrowserActivityInput = {}): Promise<BrowserScreenshotResult | BrowserUserActionState> {
-    const blocked = this.userActions.activeBlock();
-    if (blocked) return blocked;
-    if (input.runtime === "internal") {
-      return this.internalRuntime.screenshot(input);
-    }
-    return this.screenshotChrome(input);
+    return this.requests.screenshot(input);
   }
 
   async refreshWorkspaceArtifact(input: { workspacePath: string; changedPath: string }): Promise<boolean> {
@@ -428,39 +350,11 @@ export class BrowserService {
   }
 
   async pick(input: BrowserPickInput): Promise<BrowserPickResult | BrowserUserActionState> {
-    const blocked = this.userActions.activeBlock();
-    if (blocked) return blocked;
-    const profileMode = input.profileMode ?? DEFAULT_PROFILE_MODE;
-    this.state.activePicker = { prompt: input.prompt, profileMode, startedAt: new Date().toISOString() };
-    this.state.lastActivity = `Waiting for browser picker selection: ${input.prompt}`;
-    this.state.lastError = undefined;
-    try {
-      if (this.runtimeForInput(input) === "internal") {
-        await this.ensureInternalStarted();
-        return await this.internalBrowser!.pick({ ...input, profileMode: "isolated", runtime: "internal" });
-      }
-      return await this.chromeRuntime.pick(input);
-    } finally {
-      this.state.activePicker = undefined;
-    }
+    return this.requests.pick(input);
   }
 
   async cancelPick(): Promise<BrowserCapabilityState> {
-    if (!this.state.activePicker) {
-      this.state.lastActivity = "No active browser picker to cancel.";
-      return this.getState();
-    }
-    const runtime = this.state.activeRuntime;
-    this.state.activePicker = undefined;
-    if (runtime === "internal" && this.internalBrowser?.isRunning()) {
-      await this.internalBrowser.cancelPick();
-    } else if (this.isChromeRunning()) {
-      await this.chromeTargets.evaluatePage<boolean>(cancelBrowserPickExpression(), 2_500).catch((error) => {
-        this.state.lastError = errorMessage(error);
-      });
-    }
-    this.state.lastActivity = "Browser picker cancellation requested.";
-    return this.getState();
+    return this.requests.cancelPick();
   }
 
   async resumeUserAction(): Promise<BrowserCapabilityState> {
@@ -600,24 +494,6 @@ export class BrowserService {
   }
 }
 
-export function managedChromeRevealBoundsForWorkArea(workArea: ManagedChromeWorkArea): ManagedChromeWindowBounds {
-  const width = clampManagedChromeDimension(MANAGED_CHROME_WIDTH, workArea.width, MANAGED_CHROME_MIN_WIDTH);
-  const height = clampManagedChromeDimension(MANAGED_CHROME_REVEALED_HEIGHT, workArea.height, MANAGED_CHROME_MIN_HEIGHT);
-  const left = workArea.x + Math.round((workArea.width - width) / 2);
-  const centeredTop = workArea.y + Math.round((workArea.height - height) / 2);
-  const preferredTop = workArea.y + MANAGED_CHROME_REVEAL_MARGIN;
-  const maxTop = workArea.y + Math.max(0, Math.round(workArea.height) - height);
-  const top = Math.min(maxTop, Math.max(workArea.y, Math.max(preferredTop, centeredTop)));
-  return { left, top, width, height };
-}
-
-function clampManagedChromeDimension(preferred: number, available: number, minimum: number): number {
-  if (!Number.isFinite(available) || available <= 0) return preferred;
-  const insetAvailable = Math.max(0, Math.round(available) - MANAGED_CHROME_REVEAL_MARGIN * 2);
-  if (insetAvailable >= minimum) return Math.min(preferred, insetAvailable);
-  return Math.min(preferred, Math.round(available));
-}
-
 export function browserRuntimeForRequest(
   profileMode: BrowserProfileMode = DEFAULT_PROFILE_MODE,
   requestedRuntime?: BrowserRuntimeKind,
@@ -629,16 +505,15 @@ export function browserRuntimeForRequest(
   return internalAvailable ? "internal" : "chrome";
 }
 
-function normalizeStartInput(input: BrowserProfileMode | BrowserStartInput | undefined): BrowserStartInput {
-  if (!input) return {};
-  return typeof input === "string" ? { profileMode: input } : input;
-}
-
 export function chromeExecutable(platform = process.platform, env: NodeJS.ProcessEnv = process.env, home = homedir()): string | undefined {
   return chromeAvailability(platform, env, home).executable;
 }
 
-export function chromeAvailability(platform = process.platform, env: NodeJS.ProcessEnv = process.env, home = homedir()): ChromeAvailability {
+export function chromeAvailability(
+  platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+  home = homedir(),
+): ChromeAvailability {
   const configured = env.AMBIENT_BROWSER_CHROME_PATH;
   if (configured) {
     if (isExecutableFile(configured)) return { available: true, executable: configured };
@@ -657,9 +532,7 @@ export function chromeAvailability(platform = process.platform, env: NodeJS.Proc
   }
   if (platform === "win32") {
     const roots = [env.PROGRAMFILES, env["PROGRAMFILES(X86)"], env.LOCALAPPDATA].filter((value): value is string => Boolean(value));
-    const executable = roots
-      .map((root) => join(root, "Google", "Chrome", "Application", "chrome.exe"))
-      .find(isExecutableFile);
+    const executable = roots.map((root) => join(root, "Google", "Chrome", "Application", "chrome.exe")).find(isExecutableFile);
     return executable ? { available: true, executable } : { available: false, unavailableReason: defaultChromeUnavailableReason() };
   }
   const executable = findExecutableOnPath(["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"], env.PATH);
@@ -668,191 +541,6 @@ export function chromeAvailability(platform = process.platform, env: NodeJS.Proc
 
 function defaultChromeUnavailableReason(): string {
   return "Google Chrome or Chromium was not found. Install Chrome/Chromium or set AMBIENT_BROWSER_CHROME_PATH to a Chrome executable.";
-}
-
-interface ForegroundResult {
-  attempted: boolean;
-  succeeded: boolean;
-  method?: string;
-  reason?: string;
-  unsupported?: boolean;
-}
-
-async function foregroundManagedChromeWindow(input: ManagedChromeRevealInput): Promise<ForegroundResult> {
-  if (input.platform === "darwin") return foregroundManagedChromeOnMac(input);
-  if (input.platform === "win32") return foregroundManagedChromeOnWindows(input.processId);
-  if (input.platform === "linux") return foregroundManagedChromeOnLinux(input.processId);
-  return {
-    attempted: false,
-    succeeded: false,
-    unsupported: true,
-    reason: `Foregrounding managed Chrome is not implemented on ${input.platform}.`,
-  };
-}
-
-async function foregroundManagedChromeOnMac(input: ManagedChromeRevealInput): Promise<ForegroundResult> {
-  const pid = Number.isInteger(input.processId) && input.processId! > 0 ? String(input.processId) : undefined;
-  const names = uniqueStrings([chromeAppNameFromExecutable(input.executable), "Google Chrome", "Chromium"]);
-  let lastReason = "";
-  for (const name of names) {
-    const script = [
-      `tell application ${JSON.stringify(name)}`,
-      "  activate",
-      "  reopen",
-      "  if (count windows) > 0 then set index of window 1 to 1",
-      "end tell",
-      ...(pid
-        ? [
-            "try",
-            'tell application "System Events"',
-            `  set matches to every process whose unix id is ${pid}`,
-            "  if (count matches) > 0 then set frontmost of item 1 of matches to true",
-            "end tell",
-            "end try",
-          ]
-        : []),
-    ].join("\n");
-    const result = await runExternalCommand("osascript", ["-e", script], 3_000);
-    if (result.ok) return { attempted: true, succeeded: true, method: pid ? `osascript:${name}:pid` : `osascript:${name}` };
-    lastReason = result.error ?? result.stderr ?? `osascript exited with ${result.code ?? "unknown"}`;
-  }
-  return {
-    attempted: true,
-    succeeded: false,
-    reason: lastReason || "macOS did not activate Chrome.",
-  };
-}
-
-async function foregroundManagedChromeOnWindows(processId: number | undefined): Promise<ForegroundResult> {
-  const pidValue = Number.isInteger(processId) && processId! > 0 ? String(processId) : "0";
-  const script = `
-$pidValue = ${pidValue}
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class AmbientWindowFocus {
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-  [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-}
-"@
-$handles = @()
-if ($pidValue -gt 0) {
-  $process = Get-Process -Id $pidValue -ErrorAction SilentlyContinue
-  if ($process -and $process.MainWindowHandle -ne 0) { $handles += $process.MainWindowHandle }
-}
-if ($handles.Count -eq 0) {
-  $handles += Get-Process chrome,chromium,msedge -ErrorAction SilentlyContinue |
-    Where-Object { $_.MainWindowHandle -ne 0 } |
-    ForEach-Object { $_.MainWindowHandle }
-}
-foreach ($handle in $handles) {
-  [AmbientWindowFocus]::ShowWindowAsync($handle, 9) | Out-Null
-  Start-Sleep -Milliseconds 50
-  if ([AmbientWindowFocus]::SetForegroundWindow($handle)) { exit 0 }
-}
-exit 1
-`.trim();
-  const result = await runExternalCommand("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script], 4_000);
-  return result.ok
-    ? { attempted: true, succeeded: true, method: "powershell:SetForegroundWindow" }
-    : {
-        attempted: true,
-        succeeded: false,
-        reason: result.error ?? result.stderr ?? `PowerShell exited with ${result.code ?? "unknown"}`,
-      };
-}
-
-async function foregroundManagedChromeOnLinux(processId: number | undefined): Promise<ForegroundResult> {
-  const attempts: Array<{ command: string; args: string[]; method: string }> = [];
-  if (Number.isInteger(processId) && processId! > 0) {
-    attempts.push({
-      command: "xdotool",
-      args: ["search", "--pid", String(processId), "windowactivate", "%@"],
-      method: "xdotool:pid",
-    });
-  }
-  for (const windowClass of ["google-chrome.Google-chrome", "chromium.Chromium", "chromium-browser.Chromium-browser", "Google-chrome"]) {
-    attempts.push({ command: "wmctrl", args: ["-x", "-a", windowClass], method: `wmctrl:${windowClass}` });
-  }
-
-  let sawMissingTool = false;
-  let lastReason = "";
-  for (const attempt of attempts) {
-    const result = await runExternalCommand(attempt.command, attempt.args, 3_000);
-    if (result.ok) return { attempted: true, succeeded: true, method: attempt.method };
-    if (result.notFound) sawMissingTool = true;
-    lastReason = result.error ?? result.stderr ?? `${attempt.command} exited with ${result.code ?? "unknown"}`;
-  }
-
-  const wayland = process.env.XDG_SESSION_TYPE?.toLowerCase() === "wayland";
-  return {
-    attempted: attempts.length > 0,
-    succeeded: false,
-    unsupported: wayland || sawMissingTool,
-    reason: wayland
-      ? "Wayland commonly blocks apps from forcing another app to the foreground."
-      : lastReason || "Linux window activation requires xdotool or wmctrl.",
-  };
-}
-
-export function chromeAppNameFromExecutable(executable: string | undefined): string | undefined {
-  if (!executable) return undefined;
-  const segments = executable.split(/[\\/]+/);
-  const appSegment = [...segments].reverse().find((segment) => segment.endsWith(".app"));
-  if (appSegment) return appSegment.slice(0, -".app".length);
-  const base = (segments.at(-1) ?? basename(executable)).toLowerCase();
-  if (base === "chrome.exe" || base === "google-chrome" || base === "google-chrome-stable") return "Google Chrome";
-  if (base === "chromium" || base === "chromium-browser") return "Chromium";
-  return undefined;
-}
-
-function uniqueStrings(values: Array<string | undefined>): string[] {
-  return [...new Set(values.filter((value): value is string => Boolean(value)))];
-}
-
-interface ExternalCommandResult {
-  ok: boolean;
-  code?: number | null;
-  stdout?: string;
-  stderr?: string;
-  error?: string;
-  notFound?: boolean;
-}
-
-function runExternalCommand(command: string, args: string[], timeoutMs: number): Promise<ExternalCommandResult> {
-  return new Promise((resolve) => {
-    let settled = false;
-    let timedOut = false;
-    let stdout = "";
-    let stderr = "";
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      child.kill();
-    }, timeoutMs);
-    const finish = (result: ExternalCommandResult) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      resolve({
-        ...result,
-        stdout: stdout.slice(0, 1_000),
-        stderr: stderr.slice(0, 1_000),
-      });
-    };
-    child.stdout?.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.once("error", (error: NodeJS.ErrnoException) => {
-      finish({ ok: false, error: error.message, notFound: error.code === "ENOENT" });
-    });
-    child.once("exit", (code) => {
-      finish({ ok: code === 0 && !timedOut, code, error: timedOut ? `${command} timed out.` : undefined });
-    });
-  });
 }
 
 function findExecutableOnPath(names: string[], pathValue: string | undefined): string | undefined {

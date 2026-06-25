@@ -1,0 +1,3103 @@
+import { existsSync } from "node:fs";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { firstPartyDesktopToolDescriptors } from "./workflowDesktopToolFacade";
+import { ProjectStore } from "./workflowProjectStoreFacade";
+import type { WorkflowDashboard } from "../../shared/workflowTypes";
+import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { AmbientWorkflowRunProvider } from "./workflowAmbientProvider";
+import { AmbientWorkflowCompilerProvider, compileWorkflowArtifact } from "./workflowWorkflowCompilerServiceFacade";
+import { AmbientWorkflowDiscoveryProvider, startWorkflowDiscovery } from "./workflowWorkflowDiscoveryFacade";
+import { readWorkflowRunDetail, resolveWorkflowApproval, reviewWorkflowArtifact } from "./workflowDashboard";
+import { googleWorkspaceConnectorDescriptors } from "./workflowGoogleWorkspaceFacade";
+import { buildPluginMcpToolRegistrations } from "./workflowPluginsFacade";
+import { workflowPluginCapabilityGrant } from "./workflowPluginCapabilities";
+import { runWorkflowThreadExploration } from "./workflowExplorationService";
+import { runWorkflowArtifact } from "./workflowRunService";
+import { workflowGraphEventCards, workflowGraphWithRunEvents } from "../../renderer/src/workflowAgentGraphUiModel";
+import { workflowGraphNodeReviewModel } from "../../renderer/src/workflowGraphNodeReviewUiModel";
+import { workflowExplorationGateModel } from "../../renderer/src/workflowExplorationGateUiModel";
+import { workflowExplorationTraceCards } from "../../renderer/src/workflowExplorationUiModel";
+import { workflowExplorationPreflightModel } from "../../renderer/src/workflowExplorationPreflightUiModel";
+import { workflowRuntimeInputCards } from "../../renderer/src/workflowRuntimeInputUiModel";
+import { workflowRunOutputCards } from "../../renderer/src/workflowRunOutputUiModel";
+import { workflowReviewWorkspaceModel } from "../../renderer/src/workflowReviewUiModel";
+import { workflowThreadComposerModel } from "../../renderer/src/workflowThreadComposerUiModel";
+import { workflowThreadTranscriptCards } from "../../renderer/src/workflowThreadTranscriptUiModel";
+import { workflowTraceRetentionReviewModel } from "../../renderer/src/workflowTraceRetentionUiModel";
+import { ensureFirstPartyAmbientCliPackages, searchAmbientCliCapabilities } from "./workflowAmbientCliFacade";
+import { registerWorkflowLivePlanEditDogfoodTests } from "./workflowLivePlanEditDogfoodCases";
+import {
+  fakeResearchBrowser,
+  fakeScottsdaleEntertainmentBrowser,
+  fakeScottsdaleEntertainmentBrowserWithIntervention,
+  recordingWorkflowBrowser,
+  createManagedBrowserChallengeServer,
+  sleep,
+  liveAmbientApiKey,
+  liveAmbientBaseUrl,
+  liveWorkflowModel,
+  latestRunForArtifact,
+  eventCountsByType,
+  requiredWorkflowApprovalId,
+  fixtureCodexMcpPlugin,
+  sequenceExplorationProvider,
+  writeGraphFirstReviewDogfoodArtifact,
+  snapshotHarnessWorkspaceIfEnabled,
+  writeWorkflowGraphReviewHarnessTrace,
+  writeRetentionTraceDogfoodArtifact,
+  writeLocalFileRunDogfoodArtifact,
+  writeLocalDirectoryRunDogfoodArtifact,
+  writeLocalImageRunDogfoodArtifact,
+  writeBrowserResearchRunDogfoodArtifact,
+  writeBrowserExplorationReviewDogfoodArtifact,
+  writeBrowserInterventionRecoveryDogfoodArtifact,
+  writeManagedBrowserInterventionDogfoodArtifact,
+  writeExternalManagedBrowserDogfoodArtifact,
+  writeArtifactReviewRunDogfoodArtifact,
+  writeMutationReviewRunDogfoodArtifact,
+  writePluginMcpRunDogfoodArtifact,
+  writeExplorationToDeterministicDogfoodArtifact,
+  writeCapabilityAwareDiscoveryDogfoodArtifact,
+  writeCapabilityAwareAmbientCliDiscoveryDogfoodArtifact,
+  writeAmbientCliExplorationCompileRunDogfoodArtifact,
+  createLocalDownloadsFixture,
+  createLocalDownloadsImageFixture,
+  fakeMiniCpmVision,
+  localFileReportCompilerOutput,
+  browserResearchCompilerOutput,
+  browserExplorationReviewCompilerOutput,
+  browserInterventionRecoveryCompilerOutput,
+  managedBrowserInterventionCompilerOutput,
+  externalManagedBrowserArxivCompilerOutput,
+  artifactReviewClassificationCompilerOutput,
+  mutationReviewCompilerOutput,
+  pluginMcpSummaryCompilerOutput,
+  explorationDrivenCompilerOutput,
+  retentionTraceCompilerOutput,
+} from "./workflowDogfoodFixtures";
+
+const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
+const itLive = process.env.AMBIENT_WORKFLOW_LIVE === "1" ? it : it.skip;
+const LIVE_WORKFLOW_COMPILE_TIMEOUT_MS = Math.max(240_000, Number(process.env.AMBIENT_WORKFLOW_LIVE_TIMEOUT_MS ?? "480000"));
+const LIVE_GMAIL_RUN_TIMEOUT_MS = Math.max(
+  600_000,
+  Number(process.env.AMBIENT_WORKFLOW_GMAIL_RUN_TIMEOUT_MS ?? process.env.AMBIENT_WORKFLOW_LIVE_TIMEOUT_MS ?? "900000"),
+);
+
+function expectGraphFirstReviewWalkthrough(store: ProjectStore, dashboard: WorkflowDashboard): Record<string, unknown> {
+  const artifact = dashboard.artifacts[0];
+  expect(artifact).toMatchObject({ status: "ready_for_preview" });
+  expect(artifact.workflowThreadId).toBeTruthy();
+
+  const thread = store.getWorkflowAgentThreadSummary(artifact.workflowThreadId!);
+  const latestRun = store.listWorkflowRuns(artifact.id, 1)[0];
+  const detail = latestRun ? readWorkflowRunDetail(store, latestRun.id) : undefined;
+  const review = workflowReviewWorkspaceModel({ thread, artifact, latestRun, detail });
+  const graph = thread.graph ?? store.listWorkflowGraphSnapshots(artifact.workflowThreadId!)[0];
+  const executableNodes = graph.nodes.filter((node) => !["request", "output", "error_handler"].includes(node.type));
+  const mappedExecutableNodes = executableNodes.filter((node) => node.sourceRanges?.length);
+  const selectedNode =
+    mappedExecutableNodes.find((node) => node.type === "model_call") ??
+    mappedExecutableNodes.find((node) => node.type === "connector_call") ??
+    mappedExecutableNodes[0];
+
+  expect(review.noticeTone).toBe("review");
+  expect(review.sections).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: "diagram", tone: "ready" }),
+      expect.objectContaining({ id: "source", tone: "ready" }),
+    ]),
+  );
+  expect(graph.nodes.length).toBeGreaterThan(1);
+  expect(mappedExecutableNodes.length).toBeGreaterThan(0);
+  expect(selectedNode).toBeTruthy();
+
+  const nodeReview = workflowGraphNodeReviewModel({
+    node: selectedNode!,
+    manifest: artifact.manifest,
+    traceMode: thread.traceMode,
+    events: detail?.events,
+    modelCalls: detail?.modelCalls,
+    checkpoints: detail?.checkpoints,
+  });
+  expect(nodeReview.facts).toEqual(expect.arrayContaining([expect.objectContaining({ label: "Program mapping", tone: "ready" })]));
+  expect(nodeReview.sourceMappings.length).toBeGreaterThan(0);
+  expect(nodeReview.actions).toEqual(
+    expect.arrayContaining([expect.objectContaining({ id: "open_source", targetSection: "source", tone: "ready" })]),
+  );
+
+  const approvedDashboard = reviewWorkflowArtifact(store, { artifactId: artifact.id, decision: "approved" });
+  const approvedArtifact = approvedDashboard.artifacts.find((candidate) => candidate.id === artifact.id);
+  if (!approvedArtifact) throw new Error(`Approved artifact missing from dashboard: ${artifact.id}`);
+  const approvedThread = store.getWorkflowAgentThreadSummary(artifact.workflowThreadId!);
+  const approvedReview = workflowReviewWorkspaceModel({
+    thread: approvedThread,
+    artifact: approvedArtifact,
+    latestRun,
+    detail: detail ? { ...detail, artifact: approvedArtifact } : undefined,
+  });
+  expect(approvedArtifact.status).toBe("approved");
+  expect(approvedReview.noticeTone).toBe("ready");
+
+  return {
+    artifactId: artifact.id,
+    title: artifact.title,
+    selectedNode: { id: selectedNode!.id, type: selectedNode!.type, label: selectedNode!.label },
+    graphNodes: graph.nodes.length,
+    mappedExecutableNodes: mappedExecutableNodes.length,
+    sourceMappings: nodeReview.sourceMappings.map((mapping) => mapping.label),
+    actions: nodeReview.actions.map((action) => action.id),
+    approvedNotice: approvedReview.noticeTitle,
+  };
+}
+
+describeNative("Workflow Agent live dogfood", () => {
+  let workspacePath = "";
+
+  let store: ProjectStore;
+
+  beforeEach(async () => {
+    workspacePath = await mkdtemp(join(tmpdir(), "ambient-workflow-dogfood-"));
+    store = new ProjectStore();
+    store.openWorkspace(workspacePath);
+    await writeFile(
+      join(workspacePath, "qa-fixture.html"),
+      [
+        "<!doctype html>",
+        "<html>",
+        "  <head><title>Dogfood QA Fixture</title></head>",
+        "  <body>",
+        "    <main>",
+        "      <h1>Dogfood QA Fixture</h1>",
+        '      <button aria-label="Run report">Run report</button>',
+        "      <p>Status: ready</p>",
+        "    </main>",
+        "  </body>",
+        "</html>",
+      ].join("\n"),
+      "utf8",
+    );
+  });
+
+  afterEach(async () => {
+    store.close();
+    await rm(workspacePath, { recursive: true, force: true });
+  });
+
+  itLive(
+    "compiles a browser QA workflow with live Ambient when explicitly enabled",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+
+      const targetUrl = `file://${join(workspacePath, "qa-fixture.html")}`;
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        userRequest: `Create a read-only browser QA workflow for ${targetUrl}. Navigate to it, read content, capture a screenshot, ask Ambient for a JSON diagnosis, and checkpoint the evidence.`,
+        workspaceSummary: `Local fixture URL: ${targetUrl}`,
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model: liveWorkflowModel(),
+        baseUrl: liveAmbientBaseUrl(),
+        provider: new AmbientWorkflowCompilerProvider({
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          timeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        }),
+      });
+
+      expect(dashboard.artifacts[0]).toMatchObject({ status: "ready_for_preview" });
+      await expect(readFile(dashboard.artifacts[0].sourcePath, "utf8")).resolves.toContain("export");
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods graph-first review and approval with live Ambient",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const targetUrl = `file://${join(workspacePath, "qa-fixture.html")}`;
+      const beforeWorkspace = await snapshotHarnessWorkspaceIfEnabled(workspacePath);
+      let review: unknown;
+      try {
+        const dashboard = await compileWorkflowArtifact({
+          store,
+          userRequest: [
+            `Create a read-only browser QA workflow for ${targetUrl}.`,
+            "Navigate to it, read content, capture a screenshot, ask Ambient for a structured JSON diagnosis, checkpoint the evidence, and include graph node ids for source mapping.",
+          ].join(" "),
+          workspaceSummary: `Graph-first review live dogfood. Local fixture URL: ${targetUrl}`,
+          toolDescriptors: firstPartyDesktopToolDescriptors(),
+          stateRoot: store.getWorkspace().statePath,
+          model: liveWorkflowModel(),
+          baseUrl: liveAmbientBaseUrl(),
+          provider: new AmbientWorkflowCompilerProvider({
+            apiKey,
+            baseUrl: liveAmbientBaseUrl(),
+            timeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+          }),
+        });
+
+        review = expectGraphFirstReviewWalkthrough(store, dashboard);
+        await writeGraphFirstReviewDogfoodArtifact(review);
+      } finally {
+        await writeWorkflowGraphReviewHarnessTrace(workspacePath, beforeWorkspace, review);
+      }
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods debug versus production trace retention with live Ambient runs",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const productionThread = store.createWorkflowAgentThreadSummary({
+        initialRequest: "Production retention trace dogfood.",
+        traceMode: "production",
+      });
+      const debugThread = store.createWorkflowAgentThreadSummary({
+        initialRequest: "Debug retention trace dogfood.",
+        traceMode: "debug",
+      });
+      const productionDashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: productionThread.id,
+        userRequest: "Create a tiny production trace workflow that calls Ambient once and checkpoints the result.",
+        workspaceSummary: "Live retention dogfood production trace.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: { compileProgramIr: vi.fn(async () => retentionTraceCompilerOutput("production")) },
+      });
+      const debugDashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: debugThread.id,
+        userRequest: "Create a tiny debug trace workflow that calls Ambient once and checkpoints the result.",
+        workspaceSummary: "Live retention dogfood debug trace.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: { compileProgramIr: vi.fn(async () => retentionTraceCompilerOutput("debug")) },
+      });
+      const productionArtifact = productionDashboard.artifacts[0];
+      const debugArtifact = debugDashboard.artifacts[0];
+      const productionRunDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: productionArtifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        model,
+        baseUrl: liveAmbientBaseUrl(),
+        ambientProvider: new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: productionThread.id,
+          idleTimeoutMs: 90_000,
+          absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        }),
+      });
+      const debugRunDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: debugArtifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        model,
+        baseUrl: liveAmbientBaseUrl(),
+        ambientProvider: new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: debugThread.id,
+          idleTimeoutMs: 90_000,
+          absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        }),
+      });
+      const productionRun = latestRunForArtifact(productionRunDashboard, productionArtifact.id);
+      const debugRun = latestRunForArtifact(debugRunDashboard, debugArtifact.id);
+      const productionDetail = readWorkflowRunDetail(store, productionRun.id);
+      const debugDetail = readWorkflowRunDetail(store, debugRun.id);
+      const productionRetention = workflowTraceRetentionReviewModel({
+        traceMode: "production",
+        events: productionDetail.events,
+        modelCalls: productionDetail.modelCalls,
+      });
+      const debugRetention = workflowTraceRetentionReviewModel({
+        traceMode: "debug",
+        events: debugDetail.events,
+        modelCalls: debugDetail.modelCalls,
+      });
+
+      await writeRetentionTraceDogfoodArtifact({
+        production: {
+          run: { id: productionRun.id, status: productionRun.status },
+          retention: productionRetention,
+          events: productionDetail.events.length,
+          modelCalls: productionDetail.modelCalls.length,
+        },
+        debug: {
+          run: { id: debugRun.id, status: debugRun.status },
+          retention: debugRetention,
+          events: debugDetail.events.length,
+          modelCalls: debugDetail.modelCalls.length,
+        },
+      });
+
+      expect(productionRun).toMatchObject({ status: "succeeded" });
+      expect(debugRun).toMatchObject({ status: "succeeded" });
+      expect(productionRetention).toMatchObject({
+        value: "Production trace, Essentials retained",
+        tone: "ready",
+        compactedPayloadCount: 0,
+      });
+      expect(debugRetention).toMatchObject({
+        value: "Debug trace, 30-day debug cleanup",
+        tone: "review",
+        compactedPayloadCount: 0,
+      });
+      expect(productionRetention.retainedEvidenceCount).toBeGreaterThan(0);
+      expect(debugRetention.retainedEvidenceCount).toBeGreaterThan(0);
+      expect(productionDetail.modelCalls).toEqual(expect.arrayContaining([expect.objectContaining({ status: "succeeded" })]));
+      expect(debugDetail.modelCalls).toEqual(expect.arrayContaining([expect.objectContaining({ status: "succeeded" })]));
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods a local-file report workflow with a live Ambient runtime call",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      await mkdir(join(workspacePath, "local-report"), { recursive: true });
+      await writeFile(
+        join(workspacePath, "local-report", "events.md"),
+        ["# Events", "- Library story time on Tuesday", "- Park picnic on Friday", "- Museum craft table on Sunday"].join("\n"),
+        "utf8",
+      );
+      await writeFile(
+        join(workspacePath, "local-report", "notes.txt"),
+        ["Constraints:", "Prefer indoor backup options.", "Keep travel under 20 minutes.", "Flag anything needing registration."].join(
+          "\n",
+        ),
+        "utf8",
+      );
+      const thread = store.createWorkflowAgentThreadSummary({
+        initialRequest: "Read local event notes and write a concise planning report.",
+        traceMode: "debug",
+      });
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest: "Create a read-only local-file workflow that reads event notes and asks Ambient to summarize them.",
+        workspaceSummary: "Local-file live dogfood with two small text files in local-report/.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: {
+          compileProgramIr: vi.fn(async () => localFileReportCompilerOutput(["local-report/events.md", "local-report/notes.txt"])),
+        },
+      });
+      const artifact = dashboard.artifacts[0];
+      const runDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        model,
+        ambientProvider: new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: thread.id,
+          idleTimeoutMs: 90_000,
+          absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        }),
+      });
+      const run = latestRunForArtifact(runDashboard, artifact.id);
+      const detail = readWorkflowRunDetail(store, run.id);
+      const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+        checkpoints?: Record<string, { value?: { report?: { report?: string; files?: string[] } } }>;
+      };
+
+      await writeLocalFileRunDogfoodArtifact({
+        run: { id: run.id, status: run.status },
+        artifact: { id: artifact.id, workflowThreadId: artifact.workflowThreadId },
+        events: detail.events.length,
+        fileReads: detail.events.filter((event) => event.type === "desktop-tool.end" && event.message === "file_read").length,
+        modelCalls: detail.modelCalls.map((call) => ({ task: call.task, status: call.status, latencyMs: call.latencyMs })),
+        checkpoint: state.checkpoints?.localFileReport?.value,
+      });
+
+      expect(run).toMatchObject({ status: "succeeded" });
+      expect(detail.events.filter((event) => event.type === "desktop-tool.end" && event.message === "file_read").length).toBe(2);
+      expect(detail.modelCalls).toEqual(
+        expect.arrayContaining([expect.objectContaining({ task: "dogfood.local_file_report", status: "succeeded" })]),
+      );
+      expect(state.checkpoints?.localFileReport?.value?.report?.report).toMatch(/story|picnic|museum|registration|travel/i);
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods a local Downloads classification workflow with live Ambient compile and run",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const downloadsFixture = await createLocalDownloadsFixture();
+      const thread = store.createWorkflowAgentThreadSummary({
+        initialRequest: `Review the local Downloads fixture at ${downloadsFixture} and classify it into up to 7 categories.`,
+        traceMode: "debug",
+      });
+      try {
+        const dashboard = await compileWorkflowArtifact({
+          store,
+          workflowThreadId: thread.id,
+          userRequest: [
+            `Please review the documents and folders in my Downloads fixture directory at ${downloadsFixture}.`,
+            "Classify them into up to 7 categories.",
+            "Use local_directory_list for the folder inventory, do not use Google Drive, do not use shell, and ask Ambient for a JSON classification from the directory metadata.",
+          ].join(" "),
+          workspaceSummary: `External local Downloads fixture directory: ${downloadsFixture}`,
+          toolDescriptors: firstPartyDesktopToolDescriptors(),
+          stateRoot: store.getWorkspace().statePath,
+          model,
+          baseUrl: liveAmbientBaseUrl(),
+          provider: new AmbientWorkflowCompilerProvider({
+            apiKey,
+            baseUrl: liveAmbientBaseUrl(),
+            timeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+          }),
+        });
+        const artifact = dashboard.artifacts[0];
+        const source = await readFile(artifact.sourcePath, "utf8");
+
+        expect(artifact).toMatchObject({ status: "ready_for_preview" });
+        expect(artifact.manifest.tools).toEqual(expect.arrayContaining(["local_directory_list", "ambient.responses"]));
+        expect(artifact.manifest.tools).not.toContain("google_workspace_call");
+        expect(source).toContain("local_directory_list");
+
+        const runDashboard = await runWorkflowArtifact({
+          store,
+          artifactId: artifact.id,
+          workspacePath,
+          permissionMode: "full-access",
+          model,
+          baseUrl: liveAmbientBaseUrl(),
+          ambientProvider: new AmbientWorkflowRunProvider({
+            model,
+            apiKey,
+            baseUrl: liveAmbientBaseUrl(),
+            workflowThreadId: thread.id,
+            idleTimeoutMs: 90_000,
+            absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+            enforceAbsoluteTimeout: true,
+          }),
+        });
+        const run = latestRunForArtifact(runDashboard, artifact.id);
+        const detail = readWorkflowRunDetail(store, run.id);
+        const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+          checkpoints?: Record<string, { value?: unknown }>;
+        };
+
+        await writeLocalDirectoryRunDogfoodArtifact({
+          mode: "live-provider",
+          run: { id: run.id, status: run.status },
+          artifact: { id: artifact.id, workflowThreadId: artifact.workflowThreadId, manifest: artifact.manifest },
+          directoryToolCalls: detail.events.filter((event) => event.type === "desktop-tool.end" && event.message === "local_directory_list")
+            .length,
+          modelCalls: detail.modelCalls.map((call) => ({ task: call.task, status: call.status, latencyMs: call.latencyMs })),
+          checkpoint: state.checkpoints?.localDirectoryClassification?.value,
+        });
+
+        expect(run).toMatchObject({ status: "succeeded" });
+        expect(
+          detail.events.filter((event) => event.type === "desktop-tool.end" && event.message === "local_directory_list").length,
+        ).toBeGreaterThanOrEqual(1);
+        expect(detail.modelCalls).toEqual(expect.arrayContaining([expect.objectContaining({ status: "succeeded" })]));
+      } finally {
+        await rm(downloadsFixture, { recursive: true, force: true });
+      }
+    },
+    Math.max(900_000, LIVE_WORKFLOW_COMPILE_TIMEOUT_MS),
+  );
+
+  itLive(
+    "dogfoods a local Downloads image categorization workflow with live Ambient compile and run",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const downloadsFixture = await createLocalDownloadsImageFixture();
+      const thread = store.createWorkflowAgentThreadSummary({
+        initialRequest: `Categorize 10 images from my Downloads image fixture at ${downloadsFixture}.`,
+        traceMode: "debug",
+      });
+      try {
+        const dashboard = await compileWorkflowArtifact({
+          store,
+          workflowThreadId: thread.id,
+          userRequest: [
+            `Please categorize 10 images from my Downloads image fixture directory at ${downloadsFixture}.`,
+            "Use local_directory_list to inventory the folder.",
+            "Use ambient_visual_analyze for MiniCPM-V visual evidence for exactly 10 image files.",
+            "Then ask the selected Ambient Desktop model to categorize the visual evidence.",
+            "Do not use Google Drive, shell, raw ambient_cli, or a generic cloud/local LLM choice.",
+          ].join(" "),
+          workspaceSummary: `External local Downloads image fixture directory: ${downloadsFixture}. It contains exactly 10 PNG files for live workflow compiler dogfood.`,
+          toolDescriptors: firstPartyDesktopToolDescriptors(),
+          stateRoot: store.getWorkspace().statePath,
+          model,
+          baseUrl: liveAmbientBaseUrl(),
+          provider: new AmbientWorkflowCompilerProvider({
+            apiKey,
+            baseUrl: liveAmbientBaseUrl(),
+            timeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+          }),
+        });
+        const artifact = dashboard.artifacts[0];
+        const source = await readFile(artifact.sourcePath, "utf8");
+
+        expect(artifact).toMatchObject({ status: "ready_for_preview" });
+        expect(artifact.manifest.tools).toEqual(
+          expect.arrayContaining(["local_directory_list", "ambient_visual_analyze", "ambient.responses"]),
+        );
+        expect(artifact.manifest.tools).not.toEqual(expect.arrayContaining(["google_workspace_call", "bash", "ambient_cli"]));
+        expect(source).toContain("ambient_visual_analyze");
+
+        const vision = fakeMiniCpmVision();
+        const runDashboard = await runWorkflowArtifact({
+          store,
+          artifactId: artifact.id,
+          workspacePath,
+          permissionMode: "full-access",
+          model,
+          baseUrl: liveAmbientBaseUrl(),
+          vision,
+          ambientProvider: new AmbientWorkflowRunProvider({
+            model,
+            apiKey,
+            baseUrl: liveAmbientBaseUrl(),
+            workflowThreadId: thread.id,
+            idleTimeoutMs: 90_000,
+            absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+            enforceAbsoluteTimeout: true,
+          }),
+        });
+        const run = latestRunForArtifact(runDashboard, artifact.id);
+        const detail = readWorkflowRunDetail(store, run.id);
+        const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+          checkpoints?: Record<string, { value?: unknown }>;
+        };
+
+        await writeLocalImageRunDogfoodArtifact({
+          mode: "live-provider",
+          run: { id: run.id, status: run.status },
+          artifact: { id: artifact.id, workflowThreadId: artifact.workflowThreadId, manifest: artifact.manifest },
+          directoryToolCalls: detail.events.filter((event) => event.type === "desktop-tool.end" && event.message === "local_directory_list")
+            .length,
+          visualToolCalls: detail.events.filter((event) => event.type === "desktop-tool.end" && event.message === "ambient_visual_analyze")
+            .length,
+          modelCalls: detail.modelCalls.map((call) => ({ task: call.task, status: call.status, latencyMs: call.latencyMs })),
+          checkpoint: state.checkpoints?.localImageCategorization?.value,
+        });
+
+        expect(run).toMatchObject({ status: "succeeded" });
+        expect(vision.analyzeMiniCpm).toHaveBeenCalledTimes(10);
+        expect(
+          detail.events.filter((event) => event.type === "desktop-tool.end" && event.message === "ambient_visual_analyze"),
+        ).toHaveLength(10);
+        expect(detail.modelCalls).toEqual(expect.arrayContaining([expect.objectContaining({ status: "succeeded" })]));
+      } finally {
+        await rm(downloadsFixture, { recursive: true, force: true });
+      }
+    },
+    Math.max(900_000, LIVE_WORKFLOW_COMPILE_TIMEOUT_MS),
+  );
+
+  itLive(
+    "dogfoods a browser-research workflow with a live Ambient runtime call",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const query = "KV cache optimization techniques for long-context LLM inference";
+      const browser = fakeResearchBrowser();
+      const thread = store.createWorkflowAgentThreadSummary({
+        initialRequest: "Research KV cache optimization techniques and cite browser source evidence.",
+        traceMode: "debug",
+      });
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest:
+          "Create a read-only browser research workflow that searches, opens sources, reads page content, and asks Ambient to synthesize a cited report.",
+        workspaceSummary: "Browser-research live dogfood with deterministic browser fixtures and live Ambient synthesis.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: { compileProgramIr: vi.fn(async () => browserResearchCompilerOutput(query)) },
+      });
+      const artifact = dashboard.artifacts[0];
+      const runDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        browser,
+        model,
+        ambientProvider: new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: thread.id,
+          idleTimeoutMs: 90_000,
+          absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        }),
+      });
+      const run = latestRunForArtifact(runDashboard, artifact.id);
+      const detail = readWorkflowRunDetail(store, run.id);
+      const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+        checkpoints?: Record<string, { value?: { query?: string; sources?: string[]; report?: { report?: string; sources?: string[] } } }>;
+      };
+      const browserToolEnds = detail.events.filter((event) => event.type === "desktop-tool.end" && event.message?.startsWith("browser_"));
+      const progressEvents = detail.events.filter((event) => event.type === "ambient.call.progress");
+
+      await writeBrowserResearchRunDogfoodArtifact({
+        run: { id: run.id, status: run.status, error: run.error },
+        artifact: { id: artifact.id, workflowThreadId: artifact.workflowThreadId },
+        eventCounts: eventCountsByType(detail.events),
+        browserToolEnds: browserToolEnds.map((event) => ({ message: event.message, graphNodeId: event.graphNodeId })),
+        progressEvents: progressEvents.map((event) => ({
+          message: event.message,
+          outputChars: event.data?.outputChars,
+          thinkingChars: event.data?.thinkingChars,
+          providerStage: event.data?.providerStage,
+        })),
+        modelCalls: detail.modelCalls.map((call) => ({
+          task: call.task,
+          status: call.status,
+          latencyMs: call.latencyMs,
+          model: call.model,
+        })),
+        checkpoint: state.checkpoints?.browserResearchReport?.value,
+      });
+
+      expect(run).toMatchObject({ status: "succeeded" });
+      expect(browser.search).toHaveBeenCalledOnce();
+      expect(browser.navigate).toHaveBeenCalledTimes(2);
+      expect(browser.content).toHaveBeenCalledTimes(2);
+      expect(browserToolEnds).toEqual(expect.arrayContaining([expect.objectContaining({ message: "browser_search" })]));
+      expect(browserToolEnds.filter((event) => event.message === "browser_nav")).toHaveLength(2);
+      expect(browserToolEnds.filter((event) => event.message === "browser_content")).toHaveLength(2);
+      expect(detail.modelCalls).toEqual(
+        expect.arrayContaining([expect.objectContaining({ task: "dogfood.browser_research_report", status: "succeeded" })]),
+      );
+      expect(progressEvents.length).toBeGreaterThan(0);
+      expect(state.checkpoints?.browserResearchReport?.value?.sources).toHaveLength(2);
+      expect(state.checkpoints?.browserResearchReport?.value?.report?.report).toMatch(/cache|inference|attention|memory|source/i);
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods artifact-backed runtime input and rendered output cards with live Ambient",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const fixtureDir = join(workspacePath, "classification-review");
+      await mkdir(fixtureDir, { recursive: true });
+      await writeFile(
+        join(fixtureDir, "receipts.csv"),
+        ["date,vendor,total", "2026-05-01,Stationery Co,42.19", "2026-05-03,Coffee Shop,18.75"].join("\n"),
+        "utf8",
+      );
+      await writeFile(
+        join(fixtureDir, "research-notes.md"),
+        ["# Notes", "- Compare event venues by family friendliness.", "- Verify sources before final recommendations."].join("\n"),
+        "utf8",
+      );
+      await writeFile(join(fixtureDir, "todo.txt"), ["Book library room", "Send draft agenda", "Confirm snack policy"].join("\n"), "utf8");
+      const paths = ["classification-review/receipts.csv", "classification-review/research-notes.md", "classification-review/todo.txt"];
+      const thread = store.createWorkflowAgentThreadSummary({
+        initialRequest: "Classify a directory of files, ask me for qualitative feedback, then return a labeled HTML report.",
+        traceMode: "debug",
+      });
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest:
+          "Create a read-only workflow that reads a few local files, asks Ambient for draft classifications, pauses with an artifact-backed preview for user feedback, then asks Ambient to produce a final labeled HTML report.",
+        workspaceSummary: "Artifact-backed runtime input dogfood with three small local files in classification-review/.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: { compileProgramIr: vi.fn(async () => artifactReviewClassificationCompilerOutput(paths)) },
+      });
+      const artifact = dashboard.artifacts[0];
+      const ambientProvider = new AmbientWorkflowRunProvider({
+        model,
+        apiKey,
+        baseUrl: liveAmbientBaseUrl(),
+        workflowThreadId: thread.id,
+        idleTimeoutMs: 90_000,
+        absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+      });
+      const pausedDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        model,
+        ambientProvider,
+      });
+      const pausedRun = latestRunForArtifact(pausedDashboard, artifact.id);
+      const pausedDetail = readWorkflowRunDetail(store, pausedRun.id);
+      const [inputCard] = workflowRuntimeInputCards(pausedDetail);
+      if (!inputCard) throw new Error("Expected artifact-backed runtime input card.");
+      const inputComposer = workflowThreadComposerModel({
+        draft: "Keep the labels, but make receipts Finance and notes Planning in the final report.",
+        detail: pausedDetail,
+      });
+
+      const resumedDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        resumeFromRunId: pausedRun.id,
+        userInputs: [
+          {
+            requestId: inputCard.requestId,
+            choiceId: "revise",
+            text: "Keep the labels, but make receipts Finance and notes Planning in the final report.",
+          },
+        ],
+        model,
+        ambientProvider,
+      });
+      const resumedRun = latestRunForArtifact(resumedDashboard, artifact.id);
+      const resumedDetail = readWorkflowRunDetail(store, resumedRun.id);
+      const outputCards = workflowRunOutputCards(resumedDetail);
+      const allModelCalls = [...pausedDetail.modelCalls, ...resumedDetail.modelCalls];
+      const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+        checkpoints?: Record<string, { value?: { html?: string; markdown?: string; summary?: string; artifactPath?: string } }>;
+      };
+
+      await writeArtifactReviewRunDogfoodArtifact({
+        pausedRun: { id: pausedRun.id, status: pausedRun.status },
+        inputCard: {
+          requestId: inputCard.requestId,
+          graphNodeId: inputCard.graphNodeId,
+          allowFreeform: inputCard.allowFreeform,
+          contextItems: inputCard.contextItems,
+        },
+        inputComposer: {
+          mode: inputComposer.mode,
+          submitLabel: inputComposer.submitLabel,
+          disabled: inputComposer.disabled,
+        },
+        resumedRun: { id: resumedRun.id, status: resumedRun.status, error: resumedRun.error },
+        eventCounts: eventCountsByType(resumedDetail.events),
+        modelCalls: allModelCalls.map((call) => ({
+          runId: call.runId,
+          task: call.task,
+          status: call.status,
+          graphNodeId: call.graphNodeId,
+          latencyMs: call.latencyMs,
+        })),
+        outputCards: outputCards.map((card) => ({
+          kind: card.kind,
+          label: card.label,
+          format: card.format,
+          artifactPath: card.artifactPath,
+          metadata: card.metadata,
+          preview: card.preview?.slice(0, 360),
+        })),
+        finalOutput: state.checkpoints?.final_output?.value,
+      });
+
+      expect(pausedRun).toMatchObject({ status: "needs_input" });
+      expect(inputCard).toMatchObject({ graphNodeId: "review-classifications", allowFreeform: true });
+      expect(inputCard.contextItems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: "Classification preview",
+            kind: "artifact",
+            format: "html",
+            artifactPath: "reports/classification-preview.html",
+          }),
+        ]),
+      );
+      expect(inputComposer).toMatchObject({
+        mode: "run_input",
+        disabled: false,
+        runtimeInputCard: expect.objectContaining({ requestId: inputCard.requestId }),
+      });
+      expect(resumedRun).toMatchObject({ status: "succeeded" });
+      expect(resumedDetail.events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "workflow.input.received", graphNodeId: "review-classifications" }),
+          expect.objectContaining({ type: "workflow.output.ready", graphNodeId: "output" }),
+        ]),
+      );
+      expect(allModelCalls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ task: "dogfood.file_classification_draft", status: "succeeded", graphNodeId: "classify-files" }),
+          expect.objectContaining({ task: "dogfood.file_classification_final", status: "succeeded", graphNodeId: "final-report" }),
+        ]),
+      );
+      expect(outputCards).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            format: "html",
+            artifactPath: "reports/classification-final.html",
+            preview: expect.stringMatching(/classification|finance|planning|receipt|notes/i),
+          }),
+        ]),
+      );
+      expect(state.checkpoints?.final_output?.value?.html).toMatch(/<h1|classification/i);
+      expect(state.checkpoints?.final_output?.value?.summary).toMatch(/classification|file|report/i);
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods browser exploration into artifact review and final rendered output",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const query = "best movies and live shows for couples in Scottsdale Arizona this week";
+      const browser = fakeScottsdaleEntertainmentBrowser();
+      const thread = store.createWorkflowAgentThreadSummary({
+        title: "Scottsdale Couples Entertainment Browser Dogfood",
+        initialRequest: "Find the best movies and live shows for couples playing in Scottsdale Arizona this week.",
+        projectPath: workspacePath,
+        traceMode: "debug",
+        phase: "planned",
+      });
+      const recommendedGate = workflowExplorationGateModel({ chatTurnCount: 1 });
+      const explorationProgress: Array<{ status: string; phase: string; message: string; graphNodeId?: string }> = [];
+      const exploration = await runWorkflowThreadExploration({
+        store,
+        workflowThreadId: thread.id,
+        workspacePath,
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        permissionMode: "full-access",
+        browser,
+        provider: sequenceExplorationProvider([
+          {
+            action: "call_tool",
+            toolName: "browser_search",
+            input: { query, maxResults: 5, fetchContent: false },
+            reason: "Probe live-search result shape before compiling a deterministic browser workflow.",
+            nodeId: "explore-search",
+          },
+          {
+            action: "call_tool",
+            toolName: "browser_content",
+            input: { url: "https://example.test/scottsdale/couples-movies" },
+            reason: "Inspect one promising result so compile can model source cards and review artifacts.",
+            nodeId: "explore-read",
+          },
+          {
+            action: "finish",
+            distillation: {
+              summary:
+                "Exploration found browser-search result cards and source-page text suitable for a deterministic entertainment shortlist workflow with a user review gate.",
+              observedCalls: [
+                {
+                  kind: "tool",
+                  name: "browser_search",
+                  status: "succeeded",
+                  inputSummary: query,
+                  outputSummary: "Three compact Scottsdale entertainment result cards with title, url, and snippet.",
+                },
+                {
+                  kind: "tool",
+                  name: "browser_content",
+                  status: "succeeded",
+                  inputSummary: "https://example.test/scottsdale/couples-movies",
+                  outputSummary: "Movie listings with date-night and couples-friendly evidence.",
+                },
+              ],
+              successfulPatterns: [
+                "Use browser_search for the first result set, then browser_nav/browser_content on a bounded shortlist instead of opening many windows.",
+                "Checkpoint normalized source cards before asking Ambient to synthesize recommendations.",
+                "Pause with an HTML shortlist artifact so the user can adjust source preference before final output.",
+              ],
+              dataShapes: [
+                "Search result: {title,url,snippet}",
+                "Source page: {url,title,text,links}",
+                "Review artifact: {artifactPath,html,markdown,summary,sources[]}",
+              ],
+              requiredGrants: ["browser network/search access"],
+              recommendedGraph: {
+                summary: "Request -> browser search -> read source pages -> Ambient shortlist -> user review -> final report.",
+                nodes: [
+                  { id: "request", type: "request", label: "Entertainment request" },
+                  { id: "search-sources", type: "data_source", label: "Search entertainment sources" },
+                  { id: "read-source-pages", type: "data_source", label: "Read top sources" },
+                  {
+                    id: "draft-shortlist",
+                    type: "model_call",
+                    label: "Draft shortlist",
+                    modelRole: "Create a source-backed shortlist for user review.",
+                    inputSummary: "Search results and page text.",
+                    outputSummary: "Draft picks plus source evidence.",
+                    retryPolicy: "Retry invalid structured output.",
+                  },
+                  { id: "review-shortlist", type: "review_gate", label: "Review shortlist" },
+                  {
+                    id: "final-recommendations",
+                    type: "model_call",
+                    label: "Final recommendations",
+                    modelRole: "Apply feedback and produce final report.",
+                    inputSummary: "Draft shortlist and user feedback.",
+                    outputSummary: "Readable HTML/Markdown recommendation report.",
+                    retryPolicy: "Retry invalid structured output.",
+                  },
+                  { id: "output", type: "output", label: "Rendered report" },
+                ],
+                edges: [
+                  {
+                    id: "request-search",
+                    source: "request",
+                    target: "search-sources",
+                    type: "control_flow",
+                    label: "needs current listings",
+                  },
+                  { id: "search-read", source: "search-sources", target: "read-source-pages", type: "data_flow", label: "top sources" },
+                  { id: "read-draft", source: "read-source-pages", target: "draft-shortlist", type: "data_flow", label: "source evidence" },
+                  { id: "draft-review", source: "draft-shortlist", target: "review-shortlist", type: "control_flow", label: "ask user" },
+                  { id: "review-final", source: "review-shortlist", target: "final-recommendations", type: "data_flow", label: "feedback" },
+                  { id: "final-output", source: "final-recommendations", target: "output", type: "data_flow", label: "report" },
+                ],
+              },
+              recommendedManifest: {
+                tools: ["browser_search", "browser_nav", "browser_content", "ambient.responses"],
+                mutationPolicy: "read_only",
+                maxToolCalls: 8,
+                maxModelCalls: 2,
+              },
+              deterministicSourceStrategy:
+                "Search once, read two source pages in the same browser adapter, checkpoint normalized evidence, ask Ambient for a draft shortlist, pause for user review with an artifact preview, then ask Ambient for final rendered output.",
+              unresolvedQuestions: [],
+            },
+          },
+        ]),
+        budgets: { maxModelTurns: 4, maxToolCalls: 2, maxElapsedMs: 90_000 },
+        onProgress: (progress) => {
+          explorationProgress.push({
+            status: progress.status,
+            phase: progress.phase,
+            message: progress.message,
+            graphNodeId: progress.graphNodeId,
+          });
+        },
+      });
+      const traceCards = workflowExplorationTraceCards(store.listWorkflowExplorationTraces(thread.id));
+      const completedGate = workflowExplorationGateModel({ chatTurnCount: 1, traceCount: traceCards.length });
+
+      let compilerPrompt = "";
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest: "Compile the deterministic browser workflow from the retained exploration trace.",
+        workspaceSummary:
+          "Browser exploration dogfood. Use the observed browser_search/browser_content pattern, keep browser calls bounded, and include a runtime input review artifact before the final report.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: {
+          compileProgramIr: vi.fn(async (input) => {
+            compilerPrompt = input.prompt;
+            return browserExplorationReviewCompilerOutput(query);
+          }),
+        },
+      });
+      const artifact = dashboard.artifacts[0];
+      const graph = store.getWorkflowAgentThreadSummary(thread.id).graph ?? store.listWorkflowGraphSnapshots(thread.id)[0];
+      const ambientProvider = new AmbientWorkflowRunProvider({
+        model,
+        apiKey,
+        baseUrl: liveAmbientBaseUrl(),
+        workflowThreadId: thread.id,
+        idleTimeoutMs: 90_000,
+        absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+      });
+      const pausedDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        browser,
+        model,
+        ambientProvider,
+      });
+      const pausedRun = latestRunForArtifact(pausedDashboard, artifact.id);
+      const pausedDetail = readWorkflowRunDetail(store, pausedRun.id);
+      const [inputCard] = workflowRuntimeInputCards(pausedDetail);
+      if (!inputCard) throw new Error("Expected browser shortlist runtime input card.");
+      const inputComposer = workflowThreadComposerModel({
+        draft: "Prioritize date-night atmosphere, include one movie and one live show, and explain why each is couples-friendly.",
+        detail: pausedDetail,
+      });
+
+      const resumedDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        resumeFromRunId: pausedRun.id,
+        userInputs: [
+          {
+            requestId: inputCard.requestId,
+            choiceId: "revise",
+            text: "Prioritize date-night atmosphere, include one movie and one live show, and explain why each is couples-friendly.",
+          },
+        ],
+        browser,
+        model,
+        ambientProvider,
+      });
+      const resumedRun = latestRunForArtifact(resumedDashboard, artifact.id);
+      const resumedDetail = readWorkflowRunDetail(store, resumedRun.id);
+      const allEvents = [...pausedDetail.events, ...resumedDetail.events];
+      const allModelCalls = [...pausedDetail.modelCalls, ...resumedDetail.modelCalls];
+      const graphWithRunState = workflowGraphWithRunEvents(graph, allEvents);
+      const graphEventCards = workflowGraphEventCards(allEvents, graph, {
+        modelCalls: allModelCalls,
+        checkpoints: resumedDetail.checkpoints,
+        limit: 10,
+      });
+      const graphCoverageCards = workflowGraphEventCards(allEvents, graph, {
+        modelCalls: allModelCalls,
+        checkpoints: resumedDetail.checkpoints,
+        limit: allEvents.length,
+      });
+      const outputCards = workflowRunOutputCards(resumedDetail);
+      const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+        checkpoints?: Record<
+          string,
+          { value?: { html?: string; markdown?: string; summary?: string; artifactPath?: string; picks?: unknown[]; sources?: unknown[] } }
+        >;
+      };
+
+      await writeBrowserExplorationReviewDogfoodArtifact({
+        threadId: thread.id,
+        explorationTraceId: exploration.trace.id,
+        recommendedGate,
+        completedGate,
+        traceCard: traceCards[0],
+        explorationProgress,
+        compilerPromptIncludesTrace: compilerPrompt.includes(exploration.trace.id),
+        pausedRun: { id: pausedRun.id, status: pausedRun.status },
+        inputCard: {
+          requestId: inputCard.requestId,
+          graphNodeId: inputCard.graphNodeId,
+          contextItems: inputCard.contextItems,
+        },
+        inputComposer: {
+          mode: inputComposer.mode,
+          submitLabel: inputComposer.submitLabel,
+          disabled: inputComposer.disabled,
+        },
+        resumedRun: { id: resumedRun.id, status: resumedRun.status, error: resumedRun.error },
+        browserCalls: {
+          search: browser.search.mock.calls.length,
+          navigate: browser.navigate.mock.calls.length,
+          content: browser.content.mock.calls.length,
+        },
+        eventCounts: eventCountsByType(allEvents),
+        graphStates: graphWithRunState.nodes.map((node) => ({ id: node.id, type: node.type, runState: node.runState })),
+        graphEventCards: graphEventCards.map((card) => ({
+          label: card.label,
+          state: card.state,
+          graphNodeId: card.graphNodeId,
+          detail: card.detail,
+          summaries: card.summaries,
+        })),
+        modelCalls: allModelCalls.map((call) => ({
+          task: call.task,
+          status: call.status,
+          graphNodeId: call.graphNodeId,
+          latencyMs: call.latencyMs,
+        })),
+        outputCards: outputCards.map((card) => ({
+          kind: card.kind,
+          label: card.label,
+          format: card.format,
+          artifactPath: card.artifactPath,
+          preview: card.preview?.slice(0, 420),
+          metadata: card.metadata,
+        })),
+        finalOutput: state.checkpoints?.final_output?.value,
+      });
+
+      expect(recommendedGate).toMatchObject({ state: "recommended", canRun: true, canSkip: true });
+      expect(completedGate).toMatchObject({ state: "completed", canCompileFromExploration: true });
+      expect(traceCards[0]).toMatchObject({
+        summary: expect.stringMatching(/browser-search|search result|shortlist/i),
+        deterministicSourceStrategy: expect.stringMatching(/Search once|pause|review/i),
+      });
+      expect(compilerPrompt).toContain(exploration.trace.id);
+      expect(compilerPrompt).toContain("browser_search");
+      expect(pausedRun).toMatchObject({ status: "needs_input" });
+      expect(inputCard).toMatchObject({ graphNodeId: "review-shortlist", allowFreeform: true });
+      expect(inputCard.contextItems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: "Source shortlist",
+            kind: "artifact",
+            format: "html",
+            artifactPath: "reports/scottsdale-entertainment-shortlist.html",
+          }),
+        ]),
+      );
+      expect(inputComposer).toMatchObject({ mode: "run_input", disabled: false });
+      expect(resumedRun).toMatchObject({ status: "succeeded" });
+      expect(browser.search).toHaveBeenCalledTimes(2);
+      expect(browser.navigate).toHaveBeenCalledTimes(2);
+      expect(browser.content).toHaveBeenCalledTimes(3);
+      expect(allModelCalls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ task: "dogfood.browser_source_shortlist", status: "succeeded", graphNodeId: "draft-shortlist" }),
+          expect.objectContaining({
+            task: "dogfood.browser_final_recommendations",
+            status: "succeeded",
+            graphNodeId: "final-recommendations",
+          }),
+        ]),
+      );
+      expect(graphWithRunState.nodes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "review-shortlist", runState: "completed" }),
+          expect.objectContaining({ id: "final-recommendations", runState: "completed" }),
+          expect.objectContaining({ id: "output", runState: "completed" }),
+        ]),
+      );
+      expect(graphCoverageCards).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ graphNodeId: "review-shortlist" }),
+          expect.objectContaining({ graphNodeId: "final-recommendations" }),
+        ]),
+      );
+      expect(outputCards).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            format: "html",
+            artifactPath: "reports/scottsdale-entertainment-final.html",
+            preview: expect.stringMatching(/Scottsdale|movie|show|couples|date/i),
+          }),
+        ]),
+      );
+      expect(state.checkpoints?.final_output?.value?.html).toMatch(/Scottsdale|movie|show|couples|date/i);
+      expect(state.checkpoints?.sourceEvidence?.value?.sources).toHaveLength(2);
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods browser user intervention pause and resume with live Ambient",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const query = "best live shows appropriate for children in Scottsdale Arizona in the next week";
+      const browser = fakeScottsdaleEntertainmentBrowserWithIntervention();
+      const thread = store.createWorkflowAgentThreadSummary({
+        title: "Scottsdale Family Shows Browser Intervention Dogfood",
+        initialRequest:
+          "Find the best live shows appropriate for children playing in Scottsdale Arizona in the next week, and pause if browser verification blocks source access.",
+        projectPath: workspacePath,
+        traceMode: "debug",
+        phase: "planned",
+      });
+      let compilerPrompt = "";
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest: "Compile a browser workflow that pauses cleanly if a browser CAPTCHA or verification page blocks source access.",
+        workspaceSummary:
+          "Browser intervention dogfood. The workflow must checkpoint search results, pause with workflow.askUser when browser tools return BrowserUserActionState, then retry the same browser operation after the user completes the challenge.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: {
+          compileProgramIr: vi.fn(async (input) => {
+            compilerPrompt = input.prompt;
+            return browserInterventionRecoveryCompilerOutput(query);
+          }),
+        },
+      });
+      const artifact = dashboard.artifacts[0];
+      const graph = store.getWorkflowAgentThreadSummary(thread.id).graph ?? store.listWorkflowGraphSnapshots(thread.id)[0];
+      const ambientProvider = new AmbientWorkflowRunProvider({
+        model,
+        apiKey,
+        baseUrl: liveAmbientBaseUrl(),
+        workflowThreadId: thread.id,
+        idleTimeoutMs: 90_000,
+        absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+      });
+
+      const pausedDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        browser,
+        model,
+        ambientProvider,
+      });
+      const pausedRun = latestRunForArtifact(pausedDashboard, artifact.id);
+      const pausedDetail = readWorkflowRunDetail(store, pausedRun.id);
+      const [inputCard] = workflowRuntimeInputCards(pausedDetail);
+      if (!inputCard) {
+        throw new Error(
+          `Expected browser intervention runtime input card. run=${JSON.stringify({
+            status: pausedRun.status,
+            error: pausedRun.error,
+            events: pausedDetail.events
+              .map((event) => ({ type: event.type, message: event.message, graphNodeId: event.graphNodeId, data: event.data }))
+              .slice(-12),
+          })}`,
+        );
+      }
+      const inputComposer = workflowThreadComposerModel({
+        draft: "I completed the browser verification. Continue from the same page.",
+        detail: pausedDetail,
+      });
+
+      const resumedDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        resumeFromRunId: pausedRun.id,
+        userInputs: [
+          {
+            requestId: inputCard.requestId,
+            choiceId: "completed",
+            text: "I completed the browser verification. Continue from the same page.",
+          },
+        ],
+        browser,
+        model,
+        ambientProvider,
+      });
+      const resumedRun = latestRunForArtifact(resumedDashboard, artifact.id);
+      const resumedDetail = readWorkflowRunDetail(store, resumedRun.id);
+      const allEvents = [...pausedDetail.events, ...resumedDetail.events];
+      const allModelCalls = [...pausedDetail.modelCalls, ...resumedDetail.modelCalls];
+      const graphWithRunState = workflowGraphWithRunEvents(graph, allEvents);
+      const graphEventCards = workflowGraphEventCards(allEvents, graph, {
+        modelCalls: allModelCalls,
+        checkpoints: resumedDetail.checkpoints,
+        limit: allEvents.length,
+      });
+      const outputCards = workflowRunOutputCards(resumedDetail);
+      const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+        checkpoints?: Record<string, { value?: { html?: string; sources?: unknown[]; browserIntervention?: unknown } }>;
+      };
+
+      await writeBrowserInterventionRecoveryDogfoodArtifact({
+        threadId: thread.id,
+        pausedRun: { id: pausedRun.id, status: pausedRun.status },
+        resumedRun: { id: resumedRun.id, status: resumedRun.status, error: resumedRun.error },
+        compilerPromptIncludesBrowserInterventionRule: compilerPrompt.includes("Browser user-action rule"),
+        inputCard: {
+          requestId: inputCard.requestId,
+          graphNodeId: inputCard.graphNodeId,
+          prompt: inputCard.prompt,
+          choices: inputCard.choices,
+          browserIntervention: inputCard.browserIntervention,
+          contextItems: inputCard.contextItems,
+        },
+        inputComposer: {
+          mode: inputComposer.mode,
+          submitLabel: inputComposer.submitLabel,
+          disabled: inputComposer.disabled,
+        },
+        browserCalls: {
+          search: browser.search.mock.calls.length,
+          navigate: browser.navigate.mock.calls.map((call) => call[0]),
+          content: browser.content.mock.calls.map((call) => call[0]),
+        },
+        eventCounts: eventCountsByType(allEvents),
+        graphStates: graphWithRunState.nodes.map((node) => ({ id: node.id, type: node.type, runState: node.runState })),
+        graphEventCards: graphEventCards.map((card) => ({
+          label: card.label,
+          state: card.state,
+          graphNodeId: card.graphNodeId,
+          detail: card.detail,
+          summaries: card.summaries,
+        })),
+        modelCalls: allModelCalls.map((call) => ({
+          task: call.task,
+          status: call.status,
+          graphNodeId: call.graphNodeId,
+          latencyMs: call.latencyMs,
+        })),
+        outputCards: outputCards.map((card) => ({
+          kind: card.kind,
+          label: card.label,
+          format: card.format,
+          artifactPath: card.artifactPath,
+          preview: card.preview?.slice(0, 420),
+          metadata: card.metadata,
+        })),
+        finalOutput: state.checkpoints?.final_output?.value,
+      });
+
+      expect(compilerPrompt).toContain("Browser user-action rule");
+      expect(compilerPrompt).toContain("options.data.browserIntervention");
+      expect(pausedRun).toMatchObject({ status: "needs_input" });
+      expect(inputCard).toMatchObject({ graphNodeId: "browser-intervention", allowFreeform: true });
+      expect(inputCard.browserIntervention).toEqual(
+        expect.objectContaining({
+          title: "Browser challenge",
+          kind: "captcha",
+          provider: "recaptcha",
+          toolName: "browser_nav",
+          browserUserActionId: "browser-action-family-shows",
+          url: "https://example.test/scottsdale/family-shows",
+          message: expect.stringMatching(/managed browser/i),
+          preview: expect.objectContaining({
+            textExcerpt: expect.stringMatching(/captcha|managed browser/i),
+            screenshotArtifactPath: ".ambient-codex/browser/screenshots/scottsdale-family-shows-verification.png",
+            screenshotWidth: 1200,
+            screenshotHeight: 800,
+          }),
+        }),
+      );
+      expect(inputCard.choices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "completed", label: "I completed it" }),
+          expect.objectContaining({ id: "skip", label: "Skip this source" }),
+        ]),
+      );
+      expect(inputCard.contextItems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: "Scottsdale Family Shows Calendar",
+            kind: "data",
+            format: "json",
+            value: expect.stringMatching(/family shows|example\.test/i),
+          }),
+        ]),
+      );
+      expect(inputComposer).toMatchObject({ mode: "run_input", disabled: false, submitLabel: "Continue workflow" });
+      if (resumedRun.status !== "succeeded") {
+        throw new Error(
+          `Expected browser intervention recovery dogfood run to succeed. run=${JSON.stringify({
+            resumedRun: { id: resumedRun.id, status: resumedRun.status, error: resumedRun.error },
+            eventCounts: eventCountsByType(allEvents),
+            modelCalls: allModelCalls.map((call) => ({
+              task: call.task,
+              status: call.status,
+              graphNodeId: call.graphNodeId,
+              validationError: call.validationError,
+              latencyMs: call.latencyMs,
+            })),
+          })}`,
+        );
+      }
+      expect(resumedRun).toMatchObject({ status: "succeeded" });
+      expect(browser.search).toHaveBeenCalledTimes(1);
+      expect(browser.navigate.mock.calls).toEqual([
+        [expect.objectContaining({ url: "https://example.test/scottsdale/family-shows", waitForUserAction: false })],
+        [
+          expect.objectContaining({
+            url: "https://example.test/scottsdale/family-shows",
+            waitForUserAction: false,
+            userActionId: "browser-action-family-shows",
+          }),
+        ],
+      ]);
+      expect(browser.content).toHaveBeenCalledTimes(1);
+      expect(allEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "workflow.input.required", graphNodeId: "browser-intervention" }),
+          expect.objectContaining({ type: "workflow.input.received", graphNodeId: "browser-intervention" }),
+        ]),
+      );
+      expect(allModelCalls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            task: "dogfood.browser_intervention_family_shows",
+            status: "succeeded",
+            graphNodeId: "final-recommendations",
+          }),
+        ]),
+      );
+      expect(graphWithRunState.nodes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "search-sources", runState: "completed" }),
+          expect.objectContaining({ id: "browser-intervention", runState: "completed" }),
+          expect.objectContaining({ id: "final-recommendations", runState: "completed" }),
+          expect.objectContaining({ id: "output", runState: "completed" }),
+        ]),
+      );
+      expect(graphEventCards).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ graphNodeId: "browser-intervention" }),
+          expect.objectContaining({ graphNodeId: "final-recommendations" }),
+        ]),
+      );
+      expect(outputCards).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            format: "html",
+            artifactPath: "reports/scottsdale-family-shows.html",
+            preview: expect.stringMatching(/Scottsdale|family|show|children/i),
+          }),
+        ]),
+      );
+      expect(state.checkpoints?.final_output?.value?.html).toMatch(/Scottsdale|family|show|children/i);
+      expect(state.checkpoints?.sourceEvidence?.value?.sources).toHaveLength(1);
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods real managed-browser intervention and reveal with live Ambient",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const challenge = await createManagedBrowserChallengeServer();
+      const revealInputs: unknown[] = [];
+      const browserService = new BrowserService(() => store.getWorkspace(), undefined, {
+        revealManagedChromeWindow: async (input) => {
+          revealInputs.push(input);
+          return {
+            cdpActivated: true,
+            foregroundAttempted: true,
+            foregroundSucceeded: true,
+            method: "dogfood-stub",
+          };
+        },
+      });
+      const { browser, calls } = recordingWorkflowBrowser(browserService);
+      try {
+        const thread = store.createWorkflowAgentThreadSummary({
+          title: "Real Managed Browser Intervention Dogfood",
+          initialRequest:
+            "Find live shows appropriate for children in Scottsdale next week, using the managed browser and pausing if source access asks for human verification.",
+          projectPath: workspacePath,
+          traceMode: "debug",
+          phase: "planned",
+        });
+        let compilerPrompt = "";
+        const dashboard = await compileWorkflowArtifact({
+          store,
+          workflowThreadId: thread.id,
+          userRequest:
+            "Compile a workflow that opens a current-looking web source in the real managed browser, pauses with a typed browser-intervention card if verification appears, then resumes in the same browser session and produces rendered output.",
+          workspaceSummary:
+            "Real managed-browser dogfood. The source URL is a deterministic local web page that first shows a human-verification interstitial and then unlocks into Scottsdale family-show content. Browser calls must use an isolated profile and must not create extra tabs.",
+          toolDescriptors: firstPartyDesktopToolDescriptors(),
+          stateRoot: store.getWorkspace().statePath,
+          model,
+          provider: {
+            compileProgramIr: vi.fn(async (input) => {
+              compilerPrompt = input.prompt;
+              return managedBrowserInterventionCompilerOutput(challenge.url);
+            }),
+          },
+        });
+        const artifact = dashboard.artifacts[0];
+        const graph = store.getWorkflowAgentThreadSummary(thread.id).graph ?? store.listWorkflowGraphSnapshots(thread.id)[0];
+        const ambientProvider = new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: thread.id,
+          idleTimeoutMs: 90_000,
+          absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        });
+
+        const pausedDashboard = await runWorkflowArtifact({
+          store,
+          artifactId: artifact.id,
+          workspacePath,
+          permissionMode: "full-access",
+          browser,
+          model,
+          ambientProvider,
+        });
+        const pausedRun = latestRunForArtifact(pausedDashboard, artifact.id);
+        const pausedDetail = readWorkflowRunDetail(store, pausedRun.id);
+        const [inputCard] = workflowRuntimeInputCards(pausedDetail);
+        if (!inputCard) {
+          throw new Error(
+            `Expected real managed-browser intervention card. run=${JSON.stringify({
+              status: pausedRun.status,
+              error: pausedRun.error,
+              events: pausedDetail.events
+                .map((event) => ({ type: event.type, message: event.message, graphNodeId: event.graphNodeId, data: event.data }))
+                .slice(-12),
+            })}`,
+          );
+        }
+        const revealResult = await browserService.revealActiveBrowser({
+          userActionId: inputCard.browserIntervention?.browserUserActionId,
+          targetId: inputCard.browserIntervention?.targetId,
+        });
+        await sleep(2_750);
+
+        const resumedDashboard = await runWorkflowArtifact({
+          store,
+          artifactId: artifact.id,
+          workspacePath,
+          permissionMode: "full-access",
+          resumeFromRunId: pausedRun.id,
+          userInputs: [
+            {
+              requestId: inputCard.requestId,
+              choiceId: "completed",
+              text: "I completed the browser verification in the managed browser.",
+            },
+          ],
+          browser,
+          model,
+          ambientProvider,
+        });
+        const resumedRun = latestRunForArtifact(resumedDashboard, artifact.id);
+        const resumedDetail = readWorkflowRunDetail(store, resumedRun.id);
+        if (resumedRun.status !== "succeeded") {
+          throw new Error(
+            `Expected resumed real managed-browser run to succeed. run=${JSON.stringify({
+              status: resumedRun.status,
+              error: resumedRun.error,
+              events: resumedDetail.events
+                .map((event) => ({ type: event.type, message: event.message, graphNodeId: event.graphNodeId, data: event.data }))
+                .slice(-18),
+            })}`,
+          );
+        }
+        const finalBrowserState = await browserService.getState();
+        const allEvents = [...pausedDetail.events, ...resumedDetail.events];
+        const allModelCalls = [...pausedDetail.modelCalls, ...resumedDetail.modelCalls];
+        const graphWithRunState = workflowGraphWithRunEvents(graph, allEvents);
+        const graphEventCards = workflowGraphEventCards(allEvents, graph, {
+          modelCalls: allModelCalls,
+          checkpoints: resumedDetail.checkpoints,
+          limit: allEvents.length,
+        });
+        const outputCards = workflowRunOutputCards(resumedDetail);
+        const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+          checkpoints?: Record<string, { value?: { html?: string; sources?: unknown[] } }>;
+        };
+
+        await writeManagedBrowserInterventionDogfoodArtifact({
+          threadId: thread.id,
+          sourceUrl: challenge.url,
+          pausedRun: { id: pausedRun.id, status: pausedRun.status, error: pausedRun.error },
+          resumedRun: { id: resumedRun.id, status: resumedRun.status, error: resumedRun.error },
+          compilerPromptIncludesBrowserInterventionRule: compilerPrompt.includes("Browser user-action rule"),
+          inputCard: {
+            requestId: inputCard.requestId,
+            graphNodeId: inputCard.graphNodeId,
+            prompt: inputCard.prompt,
+            choices: inputCard.choices,
+            browserIntervention: inputCard.browserIntervention,
+            contextItems: inputCard.contextItems,
+          },
+          revealResult,
+          revealInputs,
+          finalBrowserState: {
+            running: finalBrowserState.running,
+            runtime: finalBrowserState.runtime,
+            profileMode: finalBrowserState.profileMode,
+            userAction: finalBrowserState.userAction,
+            activeTab: finalBrowserState.activeTab,
+          },
+          browserCalls: {
+            search: calls.search,
+            navigate: calls.navigate,
+            content: calls.content,
+            screenshot: calls.screenshot,
+          },
+          serverHits: challenge.hits,
+          eventCounts: eventCountsByType(allEvents),
+          graphStates: graphWithRunState.nodes.map((node) => ({ id: node.id, type: node.type, runState: node.runState })),
+          graphEventCards: graphEventCards.map((card) => ({
+            label: card.label,
+            state: card.state,
+            graphNodeId: card.graphNodeId,
+            detail: card.detail,
+            summaries: card.summaries,
+          })),
+          modelCalls: allModelCalls.map((call) => ({
+            task: call.task,
+            status: call.status,
+            graphNodeId: call.graphNodeId,
+            latencyMs: call.latencyMs,
+          })),
+          outputCards: outputCards.map((card) => ({
+            kind: card.kind,
+            label: card.label,
+            format: card.format,
+            artifactPath: card.artifactPath,
+            preview: card.preview?.slice(0, 420),
+            metadata: card.metadata,
+          })),
+          finalOutput: state.checkpoints?.final_output?.value,
+        });
+
+        expect(compilerPrompt).toContain("Browser user-action rule");
+        expect(pausedRun).toMatchObject({ status: "needs_input" });
+        expect(inputCard).toMatchObject({ graphNodeId: "browser-intervention", allowFreeform: true });
+        expect(inputCard.browserIntervention).toEqual(
+          expect.objectContaining({
+            title: "Managed browser verification",
+            toolName: "browser_nav",
+            runtime: "chrome",
+            profileMode: "isolated",
+            browserUserActionId: expect.any(String),
+            targetId: expect.any(String),
+            url: challenge.url,
+            message: expect.stringMatching(/browser|verification|human/i),
+            preview: expect.objectContaining({
+              textExcerpt: expect.stringMatching(/human|verification/i),
+              screenshotArtifactPath: expect.stringMatching(/\.ambient-codex\/browser\/screenshots\/browser-.*\.png/),
+              screenshotWidth: expect.any(Number),
+              screenshotHeight: expect.any(Number),
+            }),
+          }),
+        );
+        expect(["captcha", "bot-check"]).toContain(inputCard.browserIntervention?.kind);
+        expect(inputCard.choices).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: "completed", label: "I completed it" }),
+            expect.objectContaining({ id: "skip", label: "Skip source" }),
+          ]),
+        );
+        expect(inputCard.contextItems).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              label: "Family shows challenge source",
+              kind: "data",
+              format: "json",
+              value: expect.stringMatching(/human-verification|Scottsdale|managed browser/i),
+            }),
+          ]),
+        );
+        expect(revealResult).toMatchObject({ runtime: "chrome", status: "revealed" });
+        expect(revealInputs).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              targetId: inputCard.browserIntervention?.targetId,
+              profileMode: "isolated",
+            }),
+          ]),
+        );
+        expect(resumedRun).toMatchObject({ status: "succeeded" });
+        expect(finalBrowserState.userAction?.active).not.toBe(true);
+        expect(calls.search).toHaveLength(0);
+        expect(calls.navigate).toEqual([
+          expect.objectContaining({ url: challenge.url, waitForUserAction: false, profileMode: "isolated" }),
+          expect.objectContaining({
+            url: challenge.url,
+            waitForUserAction: false,
+            profileMode: "isolated",
+            userActionId: inputCard.browserIntervention?.browserUserActionId,
+          }),
+        ]);
+        expect(calls.navigate.every((input) => !(input as { newTab?: boolean }).newTab)).toBe(true);
+        expect(calls.content).toEqual([expect.objectContaining({ url: challenge.url, waitForUserAction: false, profileMode: "isolated" })]);
+        expect(calls.screenshot).toEqual([expect.objectContaining({ profileMode: "isolated" })]);
+        expect(challenge.hits.shows).toBeGreaterThanOrEqual(2);
+        expect(allEvents).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ type: "workflow.input.required", graphNodeId: "browser-intervention" }),
+            expect.objectContaining({ type: "workflow.input.received", graphNodeId: "browser-intervention" }),
+            expect.objectContaining({ type: "ambient.call.progress", graphNodeId: "final-recommendations" }),
+            expect.objectContaining({ type: "workflow.output.ready", graphNodeId: "output" }),
+          ]),
+        );
+        expect(allModelCalls).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              task: "dogfood.real_managed_browser_family_shows",
+              status: "succeeded",
+              graphNodeId: "final-recommendations",
+            }),
+          ]),
+        );
+        expect(graphWithRunState.nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: "browser-intervention", runState: "completed" }),
+            expect.objectContaining({ id: "read-source", runState: "completed" }),
+            expect.objectContaining({ id: "final-recommendations", runState: "completed" }),
+            expect.objectContaining({ id: "output", runState: "completed" }),
+          ]),
+        );
+        expect(graphEventCards).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ graphNodeId: "browser-intervention" }),
+            expect.objectContaining({ graphNodeId: "read-source" }),
+            expect.objectContaining({ graphNodeId: "final-recommendations" }),
+          ]),
+        );
+        expect(outputCards).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              format: "html",
+              artifactPath: "reports/managed-browser-family-shows.html",
+              preview: expect.stringMatching(/Scottsdale|family|show|children/i),
+            }),
+          ]),
+        );
+        expect(state.checkpoints?.final_output?.value?.html).toMatch(/Scottsdale|family|show|children/i);
+        expect(state.checkpoints?.sourceEvidence?.value?.sources).toHaveLength(1);
+      } finally {
+        await browserService.stop().catch(() => undefined);
+        await challenge.close();
+      }
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods an external-site managed-browser workflow with live Ambient",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const sourceUrl =
+        process.env.AMBIENT_WORKFLOW_EXTERNAL_BROWSER_URL ??
+        "https://arxiv.org/search/?query=placebo+effect&searchtype=all&abstracts=show&order=-announced_date_first&size=25";
+      const query = "Find recent papers on the placebo effect from arxiv and create summaries of them";
+      const revealInputs: unknown[] = [];
+      const browserService = new BrowserService(() => store.getWorkspace(), undefined, {
+        revealManagedChromeWindow: async (input) => {
+          revealInputs.push(input);
+          return {
+            cdpActivated: true,
+            foregroundAttempted: true,
+            foregroundSucceeded: true,
+            method: "external-dogfood-stub",
+          };
+        },
+      });
+      const { browser, calls } = recordingWorkflowBrowser(browserService);
+      try {
+        const thread = store.createWorkflowAgentThreadSummary({
+          title: "External Managed Browser Arxiv Dogfood",
+          initialRequest: query,
+          projectPath: workspacePath,
+          traceMode: "debug",
+          phase: "planned",
+        });
+        let compilerPrompt = "";
+        const dashboard = await compileWorkflowArtifact({
+          store,
+          workflowThreadId: thread.id,
+          userRequest:
+            "Compile a read-only workflow that opens an external arxiv search page in the managed browser, captures bounded page evidence and a screenshot, handles browser user-action pauses if they appear, then asks Ambient for a rendered summary report.",
+          workspaceSummary:
+            "External-site managed-browser dogfood. The workflow should use the real isolated managed browser, avoid opening extra tabs, keep page text bounded, and produce a readable HTML report rather than raw JSON.",
+          toolDescriptors: firstPartyDesktopToolDescriptors(),
+          stateRoot: store.getWorkspace().statePath,
+          model,
+          provider: {
+            compileProgramIr: vi.fn(async (input) => {
+              compilerPrompt = input.prompt;
+              return externalManagedBrowserArxivCompilerOutput({ query, sourceUrl });
+            }),
+          },
+        });
+        const artifact = dashboard.artifacts[0];
+        const graph = store.getWorkflowAgentThreadSummary(thread.id).graph ?? store.listWorkflowGraphSnapshots(thread.id)[0];
+        const ambientProvider = new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: thread.id,
+          idleTimeoutMs: 90_000,
+          absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        });
+
+        const firstDashboard = await runWorkflowArtifact({
+          store,
+          artifactId: artifact.id,
+          workspacePath,
+          permissionMode: "full-access",
+          browser,
+          model,
+          ambientProvider,
+        });
+        const firstRun = latestRunForArtifact(firstDashboard, artifact.id);
+        const firstDetail = readWorkflowRunDetail(store, firstRun.id);
+        const [inputCard] = workflowRuntimeInputCards(firstDetail);
+        let finalRun = firstRun;
+        let finalDetail = firstDetail;
+        let interventionResolution: unknown;
+        if (firstRun.status === "needs_input" && inputCard?.browserIntervention) {
+          const revealResult = await browserService.revealActiveBrowser({
+            userActionId: inputCard.browserIntervention.browserUserActionId,
+            targetId: inputCard.browserIntervention.targetId,
+          });
+          const resumedDashboard = await runWorkflowArtifact({
+            store,
+            artifactId: artifact.id,
+            workspacePath,
+            permissionMode: "full-access",
+            resumeFromRunId: firstRun.id,
+            userInputs: [
+              {
+                requestId: inputCard.requestId,
+                choiceId: "skip",
+                text: "Skip this external source after recording the browser challenge evidence for dogfood.",
+              },
+            ],
+            browser,
+            model,
+            ambientProvider,
+          });
+          finalRun = latestRunForArtifact(resumedDashboard, artifact.id);
+          finalDetail = readWorkflowRunDetail(store, finalRun.id);
+          interventionResolution = {
+            pausedRun: { id: firstRun.id, status: firstRun.status, error: firstRun.error },
+            revealResult,
+            inputCard: {
+              requestId: inputCard.requestId,
+              graphNodeId: inputCard.graphNodeId,
+              prompt: inputCard.prompt,
+              browserIntervention: inputCard.browserIntervention,
+              contextItems: inputCard.contextItems,
+            },
+          };
+        }
+        if (finalRun.status !== "succeeded") {
+          throw new Error(
+            `Expected external managed-browser dogfood run to succeed. run=${JSON.stringify({
+              firstRun: { status: firstRun.status, error: firstRun.error },
+              finalRun: { status: finalRun.status, error: finalRun.error },
+              events: finalDetail.events
+                .map((event) => ({ type: event.type, message: event.message, graphNodeId: event.graphNodeId, data: event.data }))
+                .slice(-18),
+            })}`,
+          );
+        }
+
+        const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+          checkpoints?: Record<string, { value?: { html?: string; summary?: string; sources?: unknown[]; sourceEvidence?: unknown } }>;
+        };
+        const allEvents = firstRun.id === finalRun.id ? finalDetail.events : [...firstDetail.events, ...finalDetail.events];
+        const allModelCalls = firstRun.id === finalRun.id ? finalDetail.modelCalls : [...firstDetail.modelCalls, ...finalDetail.modelCalls];
+        const graphWithRunState = workflowGraphWithRunEvents(graph, allEvents);
+        const outputCards = workflowRunOutputCards(finalDetail);
+        const finalBrowserState = await browserService.getState();
+        const sourceEvidence = state.checkpoints?.sourceEvidence?.value as
+          | {
+              sources?: Array<{
+                skipped?: boolean;
+                textChars?: number;
+                screenshot?: { artifactPath?: string; width?: number; height?: number };
+                browserIntervention?: unknown;
+              }>;
+            }
+          | undefined;
+        const sourceRecord = sourceEvidence?.sources?.[0];
+
+        await writeExternalManagedBrowserDogfoodArtifact({
+          threadId: thread.id,
+          sourceUrl,
+          query,
+          compilerPromptIncludesBrowserInterventionRule: compilerPrompt.includes("Browser user-action rule"),
+          run: { id: finalRun.id, status: finalRun.status, error: finalRun.error },
+          interventionResolution,
+          eventCounts: eventCountsByType(allEvents),
+          browserCalls: {
+            search: calls.search,
+            navigate: calls.navigate,
+            content: calls.content,
+            screenshot: calls.screenshot,
+          },
+          finalBrowserState: {
+            running: finalBrowserState.running,
+            runtime: finalBrowserState.runtime,
+            profileMode: finalBrowserState.profileMode,
+            userAction: finalBrowserState.userAction,
+            activeTab: finalBrowserState.activeTab,
+          },
+          sourceEvidence: {
+            skipped: sourceRecord?.skipped,
+            textChars: sourceRecord?.textChars,
+            screenshot: sourceRecord?.screenshot,
+            browserIntervention: sourceRecord?.browserIntervention,
+          },
+          graphStates: graphWithRunState.nodes.map((node) => ({ id: node.id, type: node.type, runState: node.runState })),
+          modelCalls: allModelCalls.map((call) => ({
+            task: call.task,
+            status: call.status,
+            graphNodeId: call.graphNodeId,
+            latencyMs: call.latencyMs,
+            outputChars: call.output === undefined ? undefined : JSON.stringify(call.output).length,
+          })),
+          outputCards: outputCards.map((card) => ({
+            kind: card.kind,
+            label: card.label,
+            format: card.format,
+            artifactPath: card.artifactPath,
+            preview: card.preview?.slice(0, 420),
+            metadata: card.metadata,
+          })),
+          finalOutput: state.checkpoints?.final_output?.value,
+        });
+
+        expect(compilerPrompt).toContain("Browser user-action rule");
+        expect(finalRun).toMatchObject({ status: "succeeded" });
+        expect(calls.search).toHaveLength(0);
+        expect(calls.navigate).toEqual(
+          expect.arrayContaining([expect.objectContaining({ url: sourceUrl, waitForUserAction: false, profileMode: "isolated" })]),
+        );
+        expect(calls.navigate.every((input) => !(input as { newTab?: boolean }).newTab)).toBe(true);
+        expect(calls.content.length).toBeGreaterThanOrEqual(interventionResolution ? 0 : 1);
+        expect(calls.screenshot.length).toBeLessThanOrEqual(1);
+        expect(finalBrowserState.profileMode).toBe("isolated");
+        expect(allModelCalls).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ task: "dogfood.external_managed_browser_arxiv", status: "succeeded", graphNodeId: "final-report" }),
+          ]),
+        );
+        expect(allEvents).toEqual(
+          expect.arrayContaining([expect.objectContaining({ type: "ambient.call.progress", graphNodeId: "final-report" })]),
+        );
+        expect(graphWithRunState.nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: "open-source", runState: "completed" }),
+            expect.objectContaining({ id: "final-report", runState: "completed" }),
+            expect.objectContaining({ id: "output", runState: "completed" }),
+          ]),
+        );
+        expect(outputCards).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              format: "html",
+              artifactPath: "reports/external-arxiv-placebo-summary.html",
+              preview: expect.stringMatching(/arxiv|placebo|browser|source|blocked/i),
+            }),
+          ]),
+        );
+        expect(state.checkpoints?.final_output?.value?.html).toMatch(/arxiv|placebo|browser|source|blocked/i);
+        if (interventionResolution) {
+          expect(outputCards).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                label: "Browser challenge screenshot",
+                format: "image",
+                artifactPath: expect.stringMatching(/\.ambient-codex\/browser\/screenshots\/browser-.*\.png/),
+                metadata: expect.arrayContaining(["browser challenge"]),
+              }),
+            ]),
+          );
+          expect(interventionResolution).toEqual(
+            expect.objectContaining({
+              inputCard: expect.objectContaining({
+                browserIntervention: expect.objectContaining({
+                  preview: expect.objectContaining({
+                    textExcerpt: expect.any(String),
+                    screenshotArtifactPath: expect.stringMatching(/\.ambient-codex\/browser\/screenshots\/browser-.*\.png/),
+                  }),
+                }),
+              }),
+            }),
+          );
+        } else {
+          expect(sourceRecord?.skipped).not.toBe(true);
+          expect(sourceRecord?.textChars ?? 0).toBeGreaterThan(200);
+          expect(sourceRecord?.screenshot?.artifactPath).toMatch(/\.ambient-codex\/browser\/screenshots\/browser-.*\.png/);
+          expect(outputCards).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                label: "Source evidence screenshot",
+                format: "image",
+                artifactPath: expect.stringMatching(/\.ambient-codex\/browser\/screenshots\/browser-.*\.png/),
+              }),
+            ]),
+          );
+        }
+      } finally {
+        await browserService.stop().catch(() => undefined);
+      }
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods staged mutation review with a live Ambient runtime call",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const outputPath = "reports/mutation-review-report.md";
+      const thread = store.createWorkflowAgentThreadSummary({
+        initialRequest: "Draft a report and stage writing it to a local file for approval.",
+        traceMode: "debug",
+      });
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest:
+          "Create a workflow that asks Ambient to draft a short report, stages a workspace file write for review, and applies the write only after approval.",
+        workspaceSummary:
+          "Mutation-review live dogfood. The workspace has no reports directory yet; the workflow may write reports/mutation-review-report.md only after staged approval.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: { compileProgramIr: vi.fn(async () => mutationReviewCompilerOutput(outputPath)) },
+      });
+      const artifact = dashboard.artifacts[0];
+      const ambientProvider = new AmbientWorkflowRunProvider({
+        model,
+        apiKey,
+        baseUrl: liveAmbientBaseUrl(),
+        workflowThreadId: thread.id,
+        idleTimeoutMs: 90_000,
+        absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+      });
+
+      const pausedDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        model,
+        ambientProvider,
+      });
+      const pausedRun = latestRunForArtifact(pausedDashboard, artifact.id);
+      const pausedDetail = readWorkflowRunDetail(store, pausedRun.id);
+      const pausedState = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+        checkpoints?: Record<string, { value?: unknown; runId?: string }>;
+      };
+
+      expect(pausedRun).toMatchObject({ status: "paused" });
+      expect(existsSync(join(workspacePath, outputPath))).toBe(false);
+      expect(pausedDetail.events.map((event) => event.type)).toEqual(
+        expect.arrayContaining(["ambient.call.progress", "checkpoint.write", "mutation.staged", "approval.required", "workflow.paused"]),
+      );
+      expect(pausedDetail.modelCalls).toEqual(
+        expect.arrayContaining([expect.objectContaining({ task: "dogfood.mutation_review_draft", status: "succeeded" })]),
+      );
+      expect(pausedState.checkpoints?.mutationReviewDraft).toBeTruthy();
+
+      const approvalId = requiredWorkflowApprovalId(store, pausedRun.id);
+      const approvedDetail = resolveWorkflowApproval(store, { runId: pausedRun.id, approvalId, decision: "approved" });
+      expect(approvedDetail.approvals).toEqual(expect.arrayContaining([expect.objectContaining({ id: approvalId, status: "approved" })]));
+
+      const resumedDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        resumeFromRunId: pausedRun.id,
+        model,
+        ambientProvider,
+      });
+      const resumedRun = latestRunForArtifact(resumedDashboard, artifact.id);
+      const resumedDetail = readWorkflowRunDetail(store, resumedRun.id);
+      const report = await readFile(join(workspacePath, outputPath), "utf8");
+      const finalState = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+        checkpoints?: Record<string, { value?: { path?: string; bytes?: number; title?: string }; runId?: string }>;
+      };
+
+      await writeMutationReviewRunDogfoodArtifact({
+        artifact: { id: artifact.id, workflowThreadId: artifact.workflowThreadId },
+        pausedRun: { id: pausedRun.id, status: pausedRun.status },
+        resumedRun: { id: resumedRun.id, status: resumedRun.status, error: resumedRun.error },
+        approvalId,
+        pausedEventCounts: eventCountsByType(pausedDetail.events),
+        resumedEventCounts: eventCountsByType(resumedDetail.events),
+        pausedModelCalls: pausedDetail.modelCalls.map((call) => ({ task: call.task, status: call.status, latencyMs: call.latencyMs })),
+        resumedModelCalls: resumedDetail.modelCalls.map((call) => ({ task: call.task, status: call.status, latencyMs: call.latencyMs })),
+        output: { path: outputPath, chars: report.length, preview: report.slice(0, 240) },
+        checkpoint: finalState.checkpoints?.mutationReviewOutput?.value,
+      });
+
+      expect(resumedRun).toMatchObject({ status: "succeeded" });
+      expect(resumedDetail.events.map((event) => event.type)).toEqual(
+        expect.arrayContaining([
+          "workflow.resume",
+          "checkpoint.resume",
+          "approval.approved",
+          "desktop-tool.start",
+          "desktop-tool.end",
+          "mutation.applied",
+          "checkpoint.write",
+        ]),
+      );
+      expect(resumedDetail.modelCalls).toHaveLength(0);
+      expect(report).toMatch(/Workflow|mutation|approval|report/i);
+      expect(finalState.checkpoints?.mutationReviewOutput?.value).toMatchObject({ path: outputPath });
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  registerWorkflowLivePlanEditDogfoodTests({
+    BrowserCredentialStore,
+    BrowserService,
+    getStore: () => store,
+    getWorkspacePath: () => workspacePath,
+    workflowGraphEventCards,
+    workflowGraphWithRunEvents,
+    workflowThreadTranscriptCards,
+  });
+
+  itLive(
+    "dogfoods a workflow-safe plugin MCP tool with a live Ambient runtime call",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const pluginRoot = join(workspacePath, "plugins", "ambient-fixture");
+      await cp(join(process.cwd(), "plugins", "ambient-fixture"), pluginRoot, { recursive: true });
+      const plugin = fixtureCodexMcpPlugin(pluginRoot);
+      const registrations = await buildPluginMcpToolRegistrations([plugin], { timeoutMs: 4_000, permissionMode: "full-access" });
+      const registration = registrations.find((candidate) => candidate.originalName === "ambient_fixture_workspace_summary");
+      if (!registration) throw new Error("Fixture MCP registration was not built.");
+      const thread = store.createWorkflowAgentThreadSummary({
+        initialRequest: "Use a trusted workflow-safe plugin MCP tool and summarize the evidence.",
+        traceMode: "debug",
+      });
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest:
+          "Create a read-only workflow that calls the trusted ambient fixture MCP plugin tool, asks Ambient to summarize the plugin result, and checkpoints the summary.",
+        workspaceSummary:
+          "Plugin MCP workflow dogfood with the trusted ambient-fixture plugin available as ambient_fixture_workspace_summary.",
+        toolDescriptors: [...firstPartyDesktopToolDescriptors(), registration.descriptor],
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: { compileProgramIr: vi.fn(async () => pluginMcpSummaryCompilerOutput(workflowPluginCapabilityGrant(registration))) },
+      });
+      const artifact = dashboard.artifacts[0];
+      const runDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        pluginRegistrations: [registration],
+        ensurePluginTrusted: vi.fn(async () => true),
+        model,
+        ambientProvider: new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: thread.id,
+          idleTimeoutMs: 180_000,
+          absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        }),
+      });
+      const run = latestRunForArtifact(runDashboard, artifact.id);
+      const detail = readWorkflowRunDetail(store, run.id);
+      const state = (existsSync(artifact.statePath) ? JSON.parse(await readFile(artifact.statePath, "utf8")) : { checkpoints: {} }) as {
+        checkpoints?: Record<
+          string,
+          { value?: { summary?: { summary?: string; pluginTool?: string; evidence?: string[] }; pluginText?: string }; runId?: string }
+        >;
+      };
+
+      await writePluginMcpRunDogfoodArtifact({
+        plugin: { id: plugin.id, name: plugin.name, rootPath: plugin.rootPath },
+        registration: {
+          registeredName: registration.registeredName,
+          originalName: registration.originalName,
+          pluginName: registration.tool.pluginName,
+          serverName: registration.tool.serverName,
+        },
+        run: { id: run.id, status: run.status, error: run.error },
+        eventCounts: eventCountsByType(detail.events),
+        pluginEvents: detail.events
+          .filter((event) => event.type.startsWith("plugin-mcp") || event.message === registration.registeredName)
+          .map((event) => ({
+            type: event.type,
+            message: event.message,
+          })),
+        modelCalls: detail.modelCalls.map((call) => ({
+          task: call.task,
+          status: call.status,
+          latencyMs: call.latencyMs,
+          model: call.model,
+        })),
+        checkpoint: state.checkpoints?.pluginMcpSummary?.value,
+      });
+
+      expect(run).toMatchObject({ status: "succeeded" });
+      expect(detail.events.map((event) => event.type)).toEqual(
+        expect.arrayContaining([
+          "desktop-tool.start",
+          "plugin-mcp.start",
+          "plugin-mcp.end",
+          "desktop-tool.end",
+          "ambient.call.progress",
+          "checkpoint.write",
+          "workflow.succeeded",
+        ]),
+      );
+      expect(detail.modelCalls).toEqual(
+        expect.arrayContaining([expect.objectContaining({ task: "dogfood.plugin_mcp_summary", status: "succeeded" })]),
+      );
+      expect(state.checkpoints?.pluginMcpSummary?.value?.pluginText).toMatch(/Ambient fixture MCP summary/);
+      expect(state.checkpoints?.pluginMcpSummary?.value?.summary?.summary).toMatch(/fixture|plugin|MCP|workspace/i);
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods exploration trace to deterministic workflow execution",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      await writeFile(
+        join(workspacePath, "event_sources.md"),
+        [
+          "# Event Source Notes",
+          "- Local seed categories: parks, library activities, museums.",
+          "- Verify dates externally before recommending a real outing.",
+          "- Output should preserve source provenance.",
+        ].join("\n"),
+        "utf8",
+      );
+      const thread = store.createWorkflowAgentThreadSummary({
+        title: "Exploration to deterministic dogfood",
+        initialRequest:
+          "Explore event_sources.md, then compile a deterministic workflow that reads the file and summarizes the source strategy.",
+        projectPath: workspacePath,
+        traceMode: "debug",
+        phase: "planned",
+      });
+      const exploration = await runWorkflowThreadExploration({
+        store,
+        workflowThreadId: thread.id,
+        workspacePath,
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        permissionMode: "full-access",
+        provider: sequenceExplorationProvider([
+          {
+            action: "call_tool",
+            toolName: "file_read",
+            input: { path: "event_sources.md" },
+            reason: "Inspect local seed source notes before deterministic compile.",
+          },
+          {
+            action: "finish",
+            distillation: {
+              summary:
+                "Compile a deterministic workflow that reads event_sources.md and asks Ambient to summarize the source strategy with provenance.",
+              observedCalls: [
+                {
+                  kind: "tool",
+                  name: "file_read",
+                  status: "succeeded",
+                  inputSummary: "event_sources.md",
+                  outputSummary: "Local event source notes",
+                },
+              ],
+              successfulPatterns: ["Use file_read for local seed notes before model synthesis."],
+              dataShapes: ["markdown notes with seed categories, verification warning, provenance requirement"],
+              requiredGrants: ["workspace file read"],
+              deterministicSourceStrategy:
+                "Read event_sources.md, call Ambient once for a structured strategy summary, and checkpoint the result.",
+              unresolvedQuestions: [],
+            },
+          },
+        ]),
+        budgets: { maxModelTurns: 3, maxToolCalls: 1, maxElapsedMs: 60_000 },
+      });
+      let compilerPrompt = "";
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest: "Compile the deterministic workflow from the persisted exploration trace.",
+        workspaceSummary: "Exploration-to-deterministic dogfood. Use the observed file_read pattern from the thread exploration trace.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        provider: {
+          compileProgramIr: vi.fn(async (input) => {
+            compilerPrompt = input.prompt;
+            return explorationDrivenCompilerOutput("event_sources.md");
+          }),
+        },
+      });
+      const artifact = dashboard.artifacts[0];
+      const compileContext = await readFile(join(dirname(artifact.sourcePath), "compile-context.json"), "utf8");
+
+      expect(compilerPrompt).toContain("Workflow exploration traces:");
+      expect(compilerPrompt).toContain(exploration.trace.id);
+      expect(compilerPrompt).toContain("event_sources.md");
+      expect(compileContext).toContain(exploration.trace.id);
+      expect(store.listWorkflowExplorationTraces(thread.id)).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: exploration.trace.id })]),
+      );
+
+      const runDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        model,
+        ambientProvider: new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: thread.id,
+          idleTimeoutMs: 90_000,
+          absoluteTimeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        }),
+      });
+      const run = latestRunForArtifact(runDashboard, artifact.id);
+      const detail = readWorkflowRunDetail(store, run.id);
+      const state = JSON.parse(await readFile(artifact.statePath, "utf8")) as {
+        checkpoints?: Record<string, { value?: { path?: string; strategy?: { summary?: string; provenance?: string[] } }; runId?: string }>;
+      };
+
+      await writeExplorationToDeterministicDogfoodArtifact({
+        threadId: thread.id,
+        explorationTraceId: exploration.trace.id,
+        explorationObservationNames: exploration.trace.observations.map((observation) =>
+          observation && typeof observation === "object" && "name" in observation ? String(observation.name) : "unknown",
+        ),
+        artifact: { id: artifact.id, workflowThreadId: artifact.workflowThreadId },
+        run: { id: run.id, status: run.status, error: run.error },
+        eventCounts: eventCountsByType(detail.events),
+        modelCalls: detail.modelCalls.map((call) => ({
+          task: call.task,
+          status: call.status,
+          latencyMs: call.latencyMs,
+          model: call.model,
+        })),
+        checkpoint: state.checkpoints?.explorationDrivenStrategy?.value,
+      });
+
+      expect(run).toMatchObject({ status: "succeeded" });
+      expect(detail.events.filter((event) => event.type === "desktop-tool.end" && event.message === "file_read")).toHaveLength(1);
+      expect(detail.modelCalls).toEqual(
+        expect.arrayContaining([expect.objectContaining({ task: "dogfood.exploration_driven_strategy", status: "succeeded" })]),
+      );
+      expect(state.checkpoints?.explorationDrivenStrategy?.value?.strategy?.summary).toMatch(/source|event|provenance|verify/i);
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods live capability-aware Gmail discovery into exploration preflight",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const connectorDescriptors = googleWorkspaceConnectorDescriptors({
+        adapter: "gws",
+        states: {
+          "google.gmail": {
+            status: "available",
+            accounts: [{ id: "default", label: "Default Google account" }],
+          },
+          "google.calendar": {
+            status: "available",
+            accounts: [{ id: "default", label: "Default Google account" }],
+          },
+          "google.drive": {
+            status: "available",
+            accounts: [{ id: "default", label: "Default Google account" }],
+          },
+        },
+      });
+      const gmailDescriptor = connectorDescriptors.find((descriptor) => descriptor.id === "google.gmail");
+      if (!gmailDescriptor) throw new Error("Google Workspace Gmail connector descriptor was not available.");
+      const request =
+        "Review my last 10 Gmail emails and produce a read-only categorization report grouped by urgency, action required, sender domain, and recurring theme.";
+      const discoveryProgress: unknown[] = [];
+      const discovery = await startWorkflowDiscovery(
+        store,
+        {
+          initialRequest: request,
+          projectPath: workspacePath,
+        },
+        {
+          connectorDescriptors,
+          provider: new AmbientWorkflowDiscoveryProvider({
+            apiKey,
+            baseUrl: liveAmbientBaseUrl(),
+            model,
+            timeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+            idleTimeoutMs: 120_000,
+          }),
+          onProgress: (progress) => discoveryProgress.push(progress),
+        },
+      );
+      const capabilitySearch = discovery.thread.discoveryQuestions.find((question) => question.capabilitySearch)?.capabilitySearch;
+      if (!capabilitySearch) throw new Error("Live discovery did not persist capability-search metadata.");
+      const serializedQuestions = JSON.stringify(discovery.thread.discoveryQuestions);
+      const gate = workflowExplorationGateModel({
+        chatTurnCount: 1,
+        capabilitySearch,
+      });
+      const preflight = workflowExplorationPreflightModel({
+        gate,
+        thread: discovery.thread,
+      });
+      const connectorCalls: unknown[] = [];
+      const exploration = await runWorkflowThreadExploration({
+        store,
+        workflowThreadId: discovery.thread.id,
+        workspacePath,
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        connectorDescriptors: [gmailDescriptor],
+        permissionMode: "full-access",
+        provider: sequenceExplorationProvider([
+          {
+            action: "call_connector",
+            connectorId: "google.gmail",
+            operation: "search",
+            accountId: "default",
+            input: { query: "newer_than:30d", maxResults: 10, readThread: false },
+            reason: "Verify the Gmail search shape and connector budget before deterministic compile.",
+            nodeId: "gmail-search-shape",
+          },
+          {
+            action: "finish",
+            distillation: {
+              summary: "Gmail connector metadata and search result shape are sufficient for deterministic compile planning.",
+              observedCalls: [
+                {
+                  kind: "connector",
+                  name: "google.gmail.search",
+                  status: "succeeded",
+                  inputSummary: "newer_than:30d, maxResults 10, no message bodies",
+                  outputSummary: "10 redacted Gmail message metadata rows and next-page cursor shape",
+                },
+              ],
+              successfulPatterns: [
+                "Use google.gmail.search for bounded message ids, then readThread only for selected threads when the user grants Gmail read access.",
+              ],
+              dataShapes: ["messages[].id, threadId, snippet, internalDate, fromDomain, labelIds; nextPageToken for pagination"],
+              requiredGrants: ["Gmail read grant for message metadata and thread reads"],
+              recommendedGraph: {
+                summary: "Request -> Gmail search -> selected thread reads -> Ambient categorization -> rendered report.",
+                nodes: [
+                  { id: "request", type: "request", label: "Gmail report request", description: request },
+                  {
+                    id: "gmail-search",
+                    type: "connector_call",
+                    label: "Search Gmail",
+                    description: "Search recent Gmail messages with a bounded maxResults limit.",
+                    connectorIds: ["google.gmail"],
+                  },
+                  {
+                    id: "ambient-categorize",
+                    type: "model_call",
+                    label: "Categorize emails",
+                    description: "Categorize redacted message evidence by urgency, action, sender domain, and theme.",
+                  },
+                  { id: "output", type: "output", label: "Rendered report", description: "Return a readable categorization report." },
+                ],
+                edges: [
+                  { id: "request-search", source: "request", target: "gmail-search", type: "control_flow" },
+                  { id: "search-model", source: "gmail-search", target: "ambient-categorize", type: "data_flow" },
+                  { id: "model-output", source: "ambient-categorize", target: "output", type: "data_flow" },
+                ],
+              },
+              recommendedManifest: {
+                connectors: [
+                  {
+                    connectorId: "google.gmail",
+                    accountId: "default",
+                    scopes: ["gmail.readonly"],
+                    operations: ["search", "readThread"],
+                    dataRetention: "redacted_audit",
+                  },
+                ],
+                maxConnectorCalls: 11,
+                mutationPolicy: "read_only",
+              },
+              deterministicSourceStrategy:
+                "Search Gmail with maxResults 10, read only the threads needed for categorization, preserve redacted snippets, and ask Ambient for the final report.",
+              unresolvedQuestions: [],
+            },
+          },
+        ]),
+        connectorCaller: async (input) => {
+          connectorCalls.push(input);
+          if (input.connectorId !== "google.gmail" || input.operation !== "search") {
+            throw new Error(`Unexpected connector exploration call: ${input.connectorId}.${input.operation}`);
+          }
+          return {
+            messages: Array.from({ length: 10 }, (_, index) => ({
+              id: `message-${index + 1}`,
+              threadId: `thread-${Math.floor(index / 2) + 1}`,
+              snippet: `Redacted message ${index + 1} preview`,
+              fromDomain: index % 2 === 0 ? "example.com" : "ambient.test",
+              labelIds: index % 3 === 0 ? ["INBOX", "IMPORTANT"] : ["INBOX"],
+            })),
+            nextPageToken: "cursor-redacted",
+            redacted: true,
+          };
+        },
+        budgets: { maxModelTurns: 2, maxConnectorCalls: 1, maxElapsedMs: 60_000 },
+      });
+
+      await writeCapabilityAwareDiscoveryDogfoodArtifact({
+        threadId: discovery.thread.id,
+        providerQuestions: discovery.thread.discoveryQuestions.map((question) => ({
+          id: question.id,
+          category: question.category,
+          provider: question.provider,
+          providerModel: question.providerModel,
+          question: question.question,
+          context: question.context,
+          accessRequests: question.accessRequests?.map((request) => ({
+            capability: request.capability,
+            targetLabel: request.targetLabel,
+            recommendedResponse: request.recommendedResponse,
+          })),
+          activityEvents: question.activityEvents?.map((event) => ({
+            kind: event.kind,
+            status: event.status,
+            label: event.label,
+            detail: event.detail,
+          })),
+        })),
+        capabilitySearch,
+        gate,
+        preflight,
+        discoveryProgressTail: discoveryProgress.slice(-8),
+        explorationTraceId: exploration.trace.id,
+        explorationEvents: exploration.trace.events
+          .map((event) => ({ type: event.type, message: event.message, data: event.data }))
+          .slice(-12),
+        explorationObservations: exploration.result.observations.map((observation) => ({
+          action: observation.action,
+          name: observation.name,
+          status: observation.status,
+          inputSummary: observation.inputSummary,
+          outputSummary: observation.outputSummary,
+        })),
+        connectorCalls,
+        distillation: exploration.result.distillation,
+      });
+
+      expect(capabilitySearch.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "connector",
+            connectorId: "google.gmail",
+            label: "Gmail",
+            permissionCapability: "connector_content",
+          }),
+        ]),
+      );
+      expect(capabilitySearch.results.find((result) => result.connectorId === "google.calendar")).toBeUndefined();
+      expect(capabilitySearch.results.find((result) => result.connectorId === "google.drive")).toBeUndefined();
+      expect(serializedQuestions).toMatch(/gmail|email|mail|inbox/i);
+      expect(serializedQuestions).not.toContain("message body fixture");
+      expect(discovery.thread.discoveryQuestions[0]?.activityEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "capability_search",
+            status: "completed",
+            detail: expect.stringContaining("Gmail"),
+          }),
+        ]),
+      );
+      expect(discovery.thread.discoveryQuestions[0]?.accessRequests).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            capability: "connector_content",
+            targetLabel: expect.stringContaining("Gmail content"),
+            recommendedResponse: "allow_once",
+          }),
+        ]),
+      );
+      expect(gate).toMatchObject({
+        state: "recommended",
+        detail: expect.stringContaining("Capability search found Gmail"),
+        reasonLabels: expect.arrayContaining(["Connector: Gmail"]),
+      });
+      expect(preflight.sections.find((section) => section.id === "likely_access")?.items).toEqual(
+        expect.arrayContaining(["Connector metadata: Gmail"]),
+      );
+      expect(preflight.sections.find((section) => section.id === "grants")?.items.join("\n")).toContain(
+        "Connector read grant: Gmail content",
+      );
+      expect(exploration.result.observations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: "call_connector",
+            name: "google.gmail.search",
+            status: "succeeded",
+          }),
+        ]),
+      );
+      expect(exploration.result.distillation.requiredGrants.join("\n")).toMatch(/Gmail read/i);
+      expect(connectorCalls).toEqual([
+        expect.objectContaining({
+          connectorId: "google.gmail",
+          operation: "search",
+          accountId: "default",
+        }),
+      ]);
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods live capability-aware Ambient CLI arxiv discovery into exploration preflight",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const installStatuses = await ensureFirstPartyAmbientCliPackages(workspacePath, { packageNames: ["pi-arxiv"] });
+      expect(installStatuses).toEqual([
+        expect.objectContaining({
+          packageName: "pi-arxiv",
+          status: expect.stringMatching(/^(installed|already_installed)$/),
+        }),
+      ]);
+      const request = "Find recent papers on the placebo effect from arxiv and create concise summaries of them.";
+      const discoveryProgress: unknown[] = [];
+      const discovery = await startWorkflowDiscovery(
+        store,
+        {
+          initialRequest: request,
+          projectPath: workspacePath,
+        },
+        {
+          provider: new AmbientWorkflowDiscoveryProvider({
+            apiKey,
+            baseUrl: liveAmbientBaseUrl(),
+            model,
+            timeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+            idleTimeoutMs: 120_000,
+          }),
+          onProgress: (progress) => discoveryProgress.push(progress),
+        },
+      );
+      const capabilitySearch = discovery.thread.discoveryQuestions.find((question) => question.capabilitySearch)?.capabilitySearch;
+      if (!capabilitySearch) throw new Error("Live arxiv discovery did not persist capability-search metadata.");
+      const arxivCapability = capabilitySearch.results.find(
+        (result) => result.kind === "ambient_cli" && result.label === "pi-arxiv:arxiv_search",
+      );
+      if (!arxivCapability?.capabilityId)
+        throw new Error(`Live arxiv discovery did not find pi-arxiv:arxiv_search. Results: ${JSON.stringify(capabilitySearch.results)}`);
+      const serializedQuestions = JSON.stringify(discovery.thread.discoveryQuestions);
+      const gate = workflowExplorationGateModel({
+        chatTurnCount: 1,
+        capabilitySearch,
+      });
+      const preflight = workflowExplorationPreflightModel({
+        gate,
+        thread: discovery.thread,
+      });
+      const cliSearch = await searchAmbientCliCapabilities(workspacePath, {
+        query: request,
+        kind: "command",
+        limit: 6,
+        includeHealth: false,
+      });
+      const ambientCliCapabilities = cliSearch.results.flatMap((result) =>
+        result.commands.map((command) => ({
+          capabilityId: command.capabilityId,
+          registryPluginId: result.registryPluginId,
+          packageId: result.packageId,
+          packageName: result.packageName,
+          command: command.name,
+        })),
+      );
+      const exploration = await runWorkflowThreadExploration({
+        store,
+        workflowThreadId: discovery.thread.id,
+        workspacePath,
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        permissionMode: "full-access",
+        ambientCliCapabilities,
+        provider: sequenceExplorationProvider([
+          {
+            action: "call_tool",
+            toolName: "ambient_cli",
+            input: {
+              packageName: "pi-arxiv",
+              command: "arxiv_search",
+              args: ["placebo effect", "--max-results", "3", "--sort-by", "submittedDate"],
+            },
+            reason: "Verify the installed arxiv search command shape and retained evidence before deterministic compile.",
+            nodeId: "arxiv-search-shape",
+          },
+          {
+            action: "finish",
+            distillation: {
+              summary: "Installed pi-arxiv can provide bounded arxiv search evidence for deterministic workflow compilation.",
+              observedCalls: [
+                {
+                  kind: "tool",
+                  name: "ambient_cli.pi-arxiv.arxiv_search",
+                  status: "succeeded",
+                  inputSummary: "placebo effect, maxResults 3",
+                  outputSummary: "Bounded arxiv search stdout with paper metadata.",
+                },
+              ],
+              successfulPatterns: [
+                "Use pi-arxiv:arxiv_search for query discovery, then pi-arxiv:arxiv_paper for selected IDs when full abstracts/details are needed.",
+              ],
+              dataShapes: ["stdout text includes arxiv ids, titles, authors, dates, summaries, and source URLs"],
+              requiredGrants: ["Ambient CLI execution grant for pi-arxiv arxiv_search and arxiv_paper commands"],
+              recommendedGraph: {
+                summary: "Request -> pi-arxiv search -> paper detail selection -> Ambient summary report.",
+                nodes: [
+                  { id: "request", type: "request", label: "Arxiv summary request", description: request },
+                  {
+                    id: "arxiv-search",
+                    type: "deterministic_step",
+                    label: "Search arxiv via pi-arxiv",
+                    description: "Call ambient_cli pi-arxiv:arxiv_search with a bounded query and max-results limit.",
+                    toolNames: ["ambient_cli"],
+                  },
+                  {
+                    id: "ambient-summarize",
+                    type: "model_call",
+                    label: "Summarize papers",
+                    description: "Summarize retained arxiv paper evidence into concise user-facing notes.",
+                  },
+                  {
+                    id: "output",
+                    type: "output",
+                    label: "Rendered summary report",
+                    description: "Return concise summaries with source links.",
+                  },
+                ],
+                edges: [
+                  { id: "request-search", source: "request", target: "arxiv-search", type: "control_flow" },
+                  { id: "search-model", source: "arxiv-search", target: "ambient-summarize", type: "data_flow" },
+                  { id: "model-output", source: "ambient-summarize", target: "output", type: "data_flow" },
+                ],
+              },
+              recommendedManifest: {
+                tools: ["ambient_cli", "ambient.responses"],
+                ambientCliCapabilities,
+                mutationPolicy: "read_only",
+                maxToolCalls: 4,
+                maxModelCalls: 1,
+              },
+              deterministicSourceStrategy:
+                "Call ambient_cli with pi-arxiv:arxiv_search for a bounded query, optionally fetch selected papers with arxiv_paper, materialize full stdout, and ask Ambient for the final report from retained evidence only.",
+              unresolvedQuestions: [],
+            },
+          },
+        ]),
+        budgets: { maxModelTurns: 2, maxToolCalls: 1, maxConnectorCalls: 0, maxAmbientCalls: 0, maxElapsedMs: 120_000 },
+      });
+
+      await writeCapabilityAwareAmbientCliDiscoveryDogfoodArtifact({
+        installStatuses,
+        threadId: discovery.thread.id,
+        providerQuestions: discovery.thread.discoveryQuestions.map((question) => ({
+          id: question.id,
+          category: question.category,
+          provider: question.provider,
+          providerModel: question.providerModel,
+          question: question.question,
+          context: question.context,
+          accessRequests: question.accessRequests?.map((request) => ({
+            capability: request.capability,
+            targetLabel: request.targetLabel,
+            recommendedResponse: request.recommendedResponse,
+          })),
+          activityEvents: question.activityEvents?.map((event) => ({
+            kind: event.kind,
+            status: event.status,
+            label: event.label,
+            detail: event.detail,
+          })),
+        })),
+        capabilitySearch,
+        gate,
+        preflight,
+        discoveryProgressTail: discoveryProgress.slice(-8),
+        ambientCliCapabilities,
+        explorationTraceId: exploration.trace.id,
+        explorationEvents: exploration.trace.events
+          .map((event) => ({ type: event.type, message: event.message, data: event.data }))
+          .slice(-12),
+        explorationObservations: exploration.result.observations.map((observation) => ({
+          action: observation.action,
+          name: observation.name,
+          status: observation.status,
+          inputSummary: observation.inputSummary,
+          outputSummary: observation.outputSummary,
+        })),
+        distillation: exploration.result.distillation,
+      });
+
+      expect(arxivCapability).toMatchObject({
+        kind: "ambient_cli",
+        label: "pi-arxiv:arxiv_search",
+        permissionCapability: "plugin_tool_execute",
+        targetLabel: "Ambient CLI/pi-arxiv:arxiv_search",
+      });
+      expect(serializedQuestions).toMatch(/pi-arxiv|arxiv_search|Ambient CLI|arxiv/i);
+      expect(discovery.thread.discoveryQuestions[0]?.activityEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "capability_search",
+            status: "completed",
+            detail: expect.stringContaining("pi-arxiv:arxiv_search"),
+          }),
+        ]),
+      );
+      expect(discovery.thread.discoveryQuestions[0]?.accessRequests).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            capability: "plugin_tool_execute",
+            targetLabel: "Ambient CLI/pi-arxiv:arxiv_search",
+            recommendedResponse: "allow_once",
+          }),
+        ]),
+      );
+      expect(gate).toMatchObject({
+        state: "recommended",
+        detail: expect.stringContaining("Capability search found pi-arxiv:arxiv_search"),
+        reasonLabels: expect.arrayContaining(["Ambient CLI: pi-arxiv:arxiv_search"]),
+      });
+      expect(preflight.sections.find((section) => section.id === "likely_access")?.items).toEqual(
+        expect.arrayContaining(["Ambient CLI capability: pi-arxiv:arxiv_search"]),
+      );
+      expect(preflight.sections.find((section) => section.id === "grants")?.items.join("\n")).toContain(
+        "Ambient CLI execution grant: Ambient CLI/pi-arxiv:arxiv_search",
+      );
+      expect(exploration.result.observations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: "call_tool",
+            name: "ambient_cli",
+            status: "succeeded",
+            outputSummary: expect.stringMatching(/arxiv|placebo|paper/i),
+          }),
+        ]),
+      );
+    },
+    LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+  );
+
+  itLive(
+    "dogfoods Ambient CLI exploration trace into compiled arxiv workflow execution",
+    async () => {
+      const apiKey = liveAmbientApiKey();
+      const model = liveWorkflowModel();
+      const installStatuses = await ensureFirstPartyAmbientCliPackages(workspacePath, { packageNames: ["pi-arxiv"] });
+      const request = "Find recent papers on the placebo effect from arxiv and create concise summaries of them.";
+      const cliSearch = await searchAmbientCliCapabilities(workspacePath, {
+        query: request,
+        kind: "command",
+        limit: 6,
+        includeHealth: false,
+      });
+      const ambientCliCapabilities = cliSearch.results.flatMap((result) =>
+        result.commands.map((command) => ({
+          capabilityId: command.capabilityId,
+          registryPluginId: result.registryPluginId,
+          packageId: result.packageId,
+          packageName: result.packageName,
+          command: command.name,
+        })),
+      );
+      const arxivSearchGrant = ambientCliCapabilities.find(
+        (capability) => capability.packageName === "pi-arxiv" && capability.command === "arxiv_search",
+      );
+      if (!arxivSearchGrant) throw new Error(`pi-arxiv arxiv_search capability was not available: ${JSON.stringify(cliSearch)}`);
+      const thread = store.createWorkflowAgentThreadSummary({
+        title: "Arxiv Ambient CLI exploration compile",
+        initialRequest: request,
+        projectPath: workspacePath,
+        traceMode: "debug",
+        phase: "planned",
+      });
+      const exploration = await runWorkflowThreadExploration({
+        store,
+        workflowThreadId: thread.id,
+        workspacePath,
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        permissionMode: "full-access",
+        ambientCliCapabilities,
+        provider: sequenceExplorationProvider([
+          {
+            action: "call_tool",
+            toolName: "ambient_cli",
+            input: {
+              packageName: "pi-arxiv",
+              command: "arxiv_search",
+              args: ["placebo effect", "--max-results", "2", "--sort-by", "submittedDate"],
+            },
+            reason: "Verify the installed arxiv command and capture bounded stdout before deterministic compile.",
+            nodeId: "arxiv-search-evidence",
+          },
+          {
+            action: "finish",
+            distillation: {
+              summary: "The installed pi-arxiv command returned bounded paper metadata that can seed deterministic workflow generation.",
+              observedCalls: [
+                {
+                  kind: "tool",
+                  name: "ambient_cli.pi-arxiv.arxiv_search",
+                  status: "succeeded",
+                  inputSummary: "placebo effect, max results 2, newest first",
+                  outputSummary: "arxiv IDs, titles, authors, dates, summaries, and links",
+                },
+              ],
+              successfulPatterns: ["Call pi-arxiv:arxiv_search with a bounded query before Ambient synthesis."],
+              dataShapes: ["stdout text contains paper metadata and summaries suitable for a compact final Ambient call"],
+              requiredGrants: ["Ambient CLI execution grant for pi-arxiv arxiv_search"],
+              recommendedGraph: {
+                summary: "Request -> pi-arxiv search -> Ambient summary report -> output.",
+                nodes: [
+                  { id: "request", type: "request", label: "Arxiv summary request", description: request },
+                  {
+                    id: "arxiv-search",
+                    type: "deterministic_step",
+                    label: "Search arxiv with pi-arxiv",
+                    description: "Use the observed pi-arxiv arxiv_search command with a small max-results limit.",
+                    toolNames: ["ambient_cli"],
+                  },
+                  {
+                    id: "summarize",
+                    type: "model_call",
+                    label: "Summarize papers",
+                    modelRole: "Summarize retained arxiv paper metadata without inventing missing details.",
+                    inputSummary: "bounded pi-arxiv stdout",
+                    outputSummary: "concise paper summaries with source links",
+                    retryPolicy: "retry with retained CLI output",
+                    toolNames: ["ambient.responses"],
+                  },
+                  { id: "output", type: "output", label: "Paper summary report" },
+                ],
+                edges: [
+                  { id: "request-search", source: "request", target: "arxiv-search", type: "control_flow" },
+                  { id: "search-summarize", source: "arxiv-search", target: "summarize", type: "data_flow" },
+                  { id: "summarize-output", source: "summarize", target: "output", type: "data_flow" },
+                ],
+              },
+              recommendedManifest: {
+                tools: ["ambient_cli", "ambient.responses"],
+                ambientCliCapabilities: [arxivSearchGrant],
+                mutationPolicy: "read_only",
+                maxToolCalls: 2,
+                maxModelCalls: 1,
+              },
+              deterministicSourceStrategy:
+                "Wrap a tools.ambient_cli pi-arxiv arxiv_search call in workflow.step with nodeId arxiv-search, checkpoint the bounded stdout, and call Ambient once with nodeId summarize for the final report.",
+              unresolvedQuestions: [],
+            },
+          },
+        ]),
+        budgets: { maxModelTurns: 2, maxToolCalls: 1, maxConnectorCalls: 0, maxAmbientCalls: 0, maxElapsedMs: 120_000 },
+      });
+
+      const compileProgress: unknown[] = [];
+      const dashboard = await compileWorkflowArtifact({
+        store,
+        workflowThreadId: thread.id,
+        userRequest: "Compile the deterministic workflow from the persisted arxiv Ambient CLI exploration trace.",
+        workspaceSummary:
+          "Use retained exploration trace evidence and the exact Ambient CLI grant from the trace; do not use browser search for this workflow.",
+        toolDescriptors: firstPartyDesktopToolDescriptors(),
+        stateRoot: store.getWorkspace().statePath,
+        model,
+        baseUrl: liveAmbientBaseUrl(),
+        provider: new AmbientWorkflowCompilerProvider({
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          timeoutMs: LIVE_WORKFLOW_COMPILE_TIMEOUT_MS,
+        }),
+        onProgress: (progress) => compileProgress.push(progress),
+      });
+      const artifact = dashboard.artifacts[0];
+      const source = await readFile(artifact.sourcePath, "utf8");
+      const compileContext = await readFile(join(dirname(artifact.sourcePath), "compile-context.json"), "utf8");
+      const compilerCall = store.listWorkflowModelCalls({ artifactId: artifact.id }).find((call) => call.task === "workflow.compiler");
+      const compilerPrompt = JSON.stringify(compilerCall?.input ?? {});
+
+      expect(artifact.manifest.tools).toContain("ambient_cli");
+      expect(artifact.manifest.ambientCliCapabilities).toEqual(
+        expect.arrayContaining([expect.objectContaining({ packageName: "pi-arxiv", command: "arxiv_search" })]),
+      );
+      expect(source).toContain("tools.ambient_cli");
+      expect(source).toContain("pi-arxiv");
+      expect(source).toContain("arxiv_search");
+      expect(compileContext).toContain(exploration.trace.id);
+      expect(compileContext).toContain("ambientCliCapabilities");
+      expect(compilerPrompt).toContain("workflow exploration trace");
+      expect(compilerPrompt).toContain("pi-arxiv:arxiv_search");
+
+      const runDashboard = await runWorkflowArtifact({
+        store,
+        artifactId: artifact.id,
+        workspacePath,
+        permissionMode: "full-access",
+        model,
+        ambientProvider: new AmbientWorkflowRunProvider({
+          model,
+          apiKey,
+          baseUrl: liveAmbientBaseUrl(),
+          workflowThreadId: thread.id,
+          idleTimeoutMs: 120_000,
+          absoluteTimeoutMs: LIVE_GMAIL_RUN_TIMEOUT_MS,
+        }),
+      });
+      const run = latestRunForArtifact(runDashboard, artifact.id);
+      const detail = readWorkflowRunDetail(store, run.id);
+      const state = (existsSync(artifact.statePath) ? JSON.parse(await readFile(artifact.statePath, "utf8")) : {}) as {
+        checkpoints?: Record<string, unknown>;
+      };
+
+      await writeAmbientCliExplorationCompileRunDogfoodArtifact({
+        installStatuses,
+        threadId: thread.id,
+        explorationTraceId: exploration.trace.id,
+        compileProgressTail: compileProgress.slice(-12),
+        artifact: {
+          id: artifact.id,
+          title: artifact.title,
+          manifest: artifact.manifest,
+          sourcePath: artifact.sourcePath,
+        },
+        run: { id: run.id, status: run.status, error: run.error, reportPath: run.reportPath },
+        eventCounts: eventCountsByType(detail.events),
+        ambientCliEvents: detail.events
+          .filter((event) => event.type.startsWith("desktop-tool") && event.message === "ambient_cli")
+          .map((event) => ({ type: event.type, graphNodeId: event.graphNodeId, data: event.data })),
+        modelCalls: detail.modelCalls.map((call) => ({
+          task: call.task,
+          status: call.status,
+          latencyMs: call.latencyMs,
+          model: call.model,
+        })),
+        checkpointKeys: Object.keys(state.checkpoints ?? {}),
+      });
+
+      expect(run).toMatchObject({ status: "succeeded" });
+      expect(detail.events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "desktop-tool.start",
+            message: "ambient_cli",
+            data: expect.objectContaining({
+              ambientCliInput: expect.objectContaining({ packageName: "pi-arxiv", command: "arxiv_search" }),
+            }),
+          }),
+          expect.objectContaining({
+            type: "desktop-tool.end",
+            message: "ambient_cli",
+            data: expect.objectContaining({
+              ambientCliOutput: expect.objectContaining({
+                packageName: "pi-arxiv",
+                commandName: "arxiv_search",
+                stdout: expect.objectContaining({ preview: expect.any(String) }),
+              }),
+            }),
+          }),
+        ]),
+      );
+      expect(detail.modelCalls).toEqual(expect.arrayContaining([expect.objectContaining({ status: "succeeded" })]));
+    },
+    LIVE_GMAIL_RUN_TIMEOUT_MS,
+  );
+});

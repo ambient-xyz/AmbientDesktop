@@ -1,5 +1,5 @@
 import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
-import type { ThreadGoal } from "../../shared/threadTypes";
+import type { RuntimeContinuationSource, ThreadGoal } from "../../shared/threadTypes";
 import {
   goalCompletionChatMessage,
   goalContinuationPrompt,
@@ -17,6 +17,7 @@ export type GoalContinuationSendInput = SendMessageInput & {
   modelContentOverride?: string;
   visibleUserContent?: string;
   hiddenUserMessage?: true;
+  continuationSource?: RuntimeContinuationSource;
   goalContinuation?: { goalId: string };
 };
 
@@ -253,6 +254,7 @@ export class AgentRuntimeGoalContinuationController {
       visibleUserContent: "Continuing goal...",
       modelContentOverride: prompt,
       hiddenUserMessage: true,
+      continuationSource: "goal-continuation",
       goalContinuation: { goalId: updated.goalId },
       permissionMode: thread.permissionMode,
       collaborationMode: "agent",

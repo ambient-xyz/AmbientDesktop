@@ -12,6 +12,9 @@ import { registerToolRunnerBashTool } from "./agentRuntimeToolRunnerBashTool";
 import { registerToolRunnerFileTools } from "./agentRuntimeToolRunnerFileTools";
 import {
   registerAgentRuntimeAsyncBashTools,
+  type AgentRuntimeThreadWakeCancelToolInput,
+  type AgentRuntimeThreadWakeLifecycleToolResult,
+  type AgentRuntimeThreadWakeResolveToolInput,
   type AgentRuntimeThreadWakeToolInput,
   type AgentRuntimeThreadWakeToolResult,
 } from "./agentRuntimeAsyncBashTools";
@@ -44,6 +47,8 @@ export interface AgentRuntimeToolRunnerExtensionOptions<MediaSnapshot = ReturnTy
   getRunId?: () => string | undefined;
   asyncBashJobs?: AgentRuntimeAsyncBashJobService;
   scheduleThreadWake?: (input: AgentRuntimeThreadWakeToolInput) => Promise<AgentRuntimeThreadWakeToolResult>;
+  cancelThreadWake?: (input: AgentRuntimeThreadWakeCancelToolInput) => Promise<AgentRuntimeThreadWakeLifecycleToolResult>;
+  resolveThreadWake?: (input: AgentRuntimeThreadWakeResolveToolInput) => Promise<AgentRuntimeThreadWakeLifecycleToolResult>;
 }
 
 export function createAgentRuntimeToolRunnerExtension<MediaSnapshot = ReturnType<typeof defaultSnapshotWorkspaceMediaFiles>>(
@@ -92,6 +97,8 @@ export function createAgentRuntimeToolRunnerExtension<MediaSnapshot = ReturnType
         getRunId: options.getRunId,
         asyncBashJobs: options.asyncBashJobs,
         scheduleThreadWake: options.scheduleThreadWake,
+        cancelThreadWake: options.cancelThreadWake,
+        resolveThreadWake: options.resolveThreadWake,
         interruptedToolCallRecoveryToolsAvailable: options.interruptedToolCallRecoveryToolsAvailable,
         getPolicy: () => {
           const thread = options.getThread();

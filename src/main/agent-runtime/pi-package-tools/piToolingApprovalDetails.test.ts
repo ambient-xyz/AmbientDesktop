@@ -26,6 +26,8 @@ describe("piToolingApprovalDetails", () => {
       "Version: 1.2.3",
       "Source: ./privileged-pi",
       "Scan origin: explicit",
+      "Descriptor hash: descriptor-hash-1",
+      "Package tree hash: package-tree-hash-1",
       "Fingerprint: fingerprint-1",
       "Recommendation: privileged-review-required",
       "Findings: 0",
@@ -119,6 +121,8 @@ function privilegedScan(overrides: Partial<PiPrivilegedSecurityScan> = {}): PiPr
     scanOrigin: "explicit",
     packageName: "privileged-pi",
     version: "1.2.3",
+    descriptorHash: "descriptor-hash-1",
+    packageTreeHash: "package-tree-hash-1",
     fingerprint: "fingerprint-1",
     resources: {
       piExtensions: [],

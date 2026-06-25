@@ -125,9 +125,13 @@ export function registerMainProjectWorkspaceIpc(
     requireProjectRuntimeHostForPlannerPlanArtifact,
     requireProjectRuntimeHostForThread,
     requireProjectRuntimeHostForThreadAction,
-    resolveLocalFilePath,
+    resolveCanonicalLocalFilePath,
     resolveRegisteredProjectPathForHost,
     resolveWorkspacePathForOpen,
+    requestPermissionWithGrantRegistry,
+    createThreadLocalFolderAllowlistGrant,
+    localPathVisibleToThread,
+    localPathInsideActiveWorkspace,
     restoreLatestGitCheckpoint,
     searchWorkspace,
     setProjectHostActiveThreadId,
@@ -233,14 +237,25 @@ export function registerMainProjectWorkspaceIpc(
     readActiveWorkspaceFile,
     readGitReviewForProjectHost,
     rendererOfficePreviewService: officePreviewService,
-    resolveLocalFilePath,
+    resolveCanonicalLocalFilePath,
     resolveWorkspacePathForOpen,
+    requestPermissionWithGrantRegistry,
+    createThreadLocalFolderAllowlistGrant,
+    localPathVisibleToThread,
+    localPathInsideActiveWorkspace,
     restoreLatestGitCheckpoint,
     searchWorkspace,
     setProjectHostActiveThreadId,
     shell,
-    showOpenDialog: (options: OpenDialogOptions) =>
-      dialog.showOpenDialog(mainWindow!, options),
+    showOpenDialog: (options: OpenDialogOptions) => {
+      const e2eAllowlistFolder = process.env.AMBIENT_E2E === "1"
+        ? process.env.AMBIENT_E2E_LOCAL_FOLDER_ALLOWLIST_DIALOG_PATH
+        : undefined;
+      if (e2eAllowlistFolder && options.title === "Add Folder to Allow List for Thread") {
+        return { canceled: false, filePaths: [e2eAllowlistFolder] };
+      }
+      return dialog.showOpenDialog(mainWindow!, options);
+    },
     stageAllGitFiles,
     stageGitFile,
     switchWorkspaceBranch,

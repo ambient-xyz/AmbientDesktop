@@ -358,7 +358,7 @@ export function registerPiToolingDomainIpc({
       });
       emitPermissionAuditCreated(entry, host.workspacePath);
       if (!response.allowed) throw new Error("Privileged Pi install was not approved.");
-      await installPiPrivilegedPackage(host.workspacePath, input);
+      await installPiPrivilegedPackage(host.workspacePath, { ...input, reviewedScan: scan });
       resetProjectRuntimeAndPluginServers(host);
       emitPluginCatalogUpdated(host.workspacePath);
       return discoverPiPrivilegedPackages(host.workspacePath);

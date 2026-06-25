@@ -36,6 +36,7 @@ import { knownCodexPluginProfile } from "./codexPluginProfiles";
 import { isPathInside } from "../pluginsSessionFacade";
 import { materializeTextOutput } from "../pluginsToolRuntimeFacade";
 import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../pluginsSetupFacade";
+import { allowLocalDevUrlEgressFromEnv, assertAllowedUrlEgressWithDns, fetchWithUrlEgressPolicy } from "../../security/urlEgressPolicy";
 
 const execFileAsync = promisify(execFile);
 const marketplaceLocations = [".agents/plugins/marketplace.json", ".claude-plugin/marketplace.json"];
@@ -460,7 +461,7 @@ export async function commitCodexPluginInstallSource(
   }
   if (!canInstallRemoteGitCandidate(candidate)) {
     throw new Error(
-      `Codex plugin "${candidate.displayName ?? candidate.name}" is not installable from this source. Remote Git installs require a Git-backed source with source.sha, a local Git URL, or an Ambient-curated marketplace entry.`,
+      `Codex plugin "${candidate.displayName ?? candidate.name}" is not installable from this source. Remote Git installs require a local Git path or file URL until Ambient-managed clone transport enforces URL egress at connection time.`,
     );
   }
   const plugin = await installRemoteGitCodexPlugin(workspacePath, candidate);
@@ -1252,6 +1253,7 @@ async function installRemoteGitCodexPlugin(workspacePath: string, candidate: Cod
   const curatedGitInstall = candidate.marketplaceKind === "ambient-curated";
   if (curatedGitInstall) validateCuratedGitInstallCandidate(candidate);
   const managedWorkspace = await ensureCodexPluginManagedInstallWorkspace(workspacePath);
+  await assertRemoteGitInstallUrlAllowed(candidate);
   const sourceRoot = remoteGitCloneSource(candidate.sourceUrl);
   const importName = safeImportName(candidate.name, `${candidate.version || "remote"}-${shortHash(remoteSourceInstallKey(candidate))}`, candidate.rootPath);
   const destination = resolve(managedWorkspace, localImportRoot, importName);
@@ -1317,7 +1319,16 @@ async function installRemoteGitCodexPlugin(workspacePath: string, candidate: Cod
 function canInstallRemoteGitCandidate(candidate: CodexPluginSummary): boolean {
   if (!candidate.sourceType?.startsWith("git")) return false;
   if (!candidate.sourceUrl) return false;
-  return isLocalGitSource(candidate.sourceUrl) || Boolean(candidate.sourceSha) || candidate.marketplaceKind === "ambient-curated";
+  return isLocalGitSource(candidate.sourceUrl);
+}
+
+async function assertRemoteGitInstallUrlAllowed(candidate: CodexPluginSummary): Promise<void> {
+  if (!candidate.sourceUrl || isLocalGitSource(candidate.sourceUrl)) return;
+  await assertAllowedUrlEgressWithDns(candidate.sourceUrl, {
+    useCase: "plugin-install",
+    allowLocalDevLoopbackHttp: allowLocalDevUrlEgressFromEnv(),
+    dnsTimeoutMs: remoteMarketplaceTimeoutMs,
+  });
 }
 
 function validateCuratedGitInstallCandidate(candidate: CodexPluginSummary): void {
@@ -1652,12 +1663,20 @@ async function readRemoteMarketplaceJson(source: RemoteMarketplaceSource): Promi
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), remoteMarketplaceTimeoutMs);
+  let cleanup: (() => Promise<void>) | undefined;
   try {
-    const response = await fetch(source.url, { signal: controller.signal });
+    const fetched = await fetchWithUrlEgressPolicy(source.url, { signal: controller.signal }, {
+      useCase: "plugin-preview",
+      allowLocalDevLoopbackHttp: allowLocalDevUrlEgressFromEnv(),
+      dnsTimeoutMs: remoteMarketplaceTimeoutMs,
+    });
+    cleanup = fetched.cleanup;
+    const { response } = fetched;
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const content = await response.text();
     return { value: JSON.parse(content), content, contentChecksum: sha256Digest(content) };
   } finally {
+    await cleanup?.();
     clearTimeout(timeout);
   }
 }
@@ -1693,12 +1712,20 @@ async function readRemoteMarketplaceSignatureJson(source: RemoteMarketplaceSourc
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), remoteMarketplaceTimeoutMs);
+  let cleanup: (() => Promise<void>) | undefined;
   try {
-    const response = await fetch(signatureUrlForMarketplaceUrl(source.url), { signal: controller.signal });
+    const fetched = await fetchWithUrlEgressPolicy(signatureUrlForMarketplaceUrl(source.url), { signal: controller.signal }, {
+      useCase: "plugin-preview",
+      allowLocalDevLoopbackHttp: allowLocalDevUrlEgressFromEnv(),
+      dnsTimeoutMs: remoteMarketplaceTimeoutMs,
+    });
+    cleanup = fetched.cleanup;
+    const { response } = fetched;
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return JSON.parse(await response.text());
   } finally {
+    await cleanup?.();
     clearTimeout(timeout);
   }
 }

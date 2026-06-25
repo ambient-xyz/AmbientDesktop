@@ -1,6 +1,8 @@
 import { join, resolve } from "node:path";
 import { z } from "zod";
+import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
 import type { WorkspaceFileContent } from "../../shared/workspaceTypes";
+import { permissionGrantAllowsLocalPath } from "../permissions/localFolderAllowlistGrants";
 import { readLocalFilePreview, readWorkspaceFile, type ReadWorkspaceFileOptions } from "./workspaceFiles";
 import { isPathInside } from "./workspaceSessionFacade";
 
@@ -16,6 +18,8 @@ export interface ActiveWorkspaceFileThread {
 export interface ActiveWorkspaceFileStore<Thread extends ActiveWorkspaceFileThread> {
   getThread(threadId: string): Thread;
   getProjectArtifactWorkspacePath(): string;
+  getWorkspace?(): { path: string };
+  listPermissionGrants(): readonly AmbientPermissionGrant[];
 }
 
 export interface ActiveWorkspaceFileHost<Store> {
@@ -45,6 +49,7 @@ export interface ActiveWorkspaceFileServiceDependencies<
   getAppPath(name: ActiveWorkspaceFileSpecialPath): string;
   normalizePath(path: string): string;
   pathExists(path: string): boolean;
+  realpath(path: string): string;
   createMediaUrl: NonNullable<ReadWorkspaceFileOptions["createMediaUrl"]>;
   createOfficePreview: NonNullable<ReadWorkspaceFileOptions["createOfficePreview"]>;
 }
@@ -60,10 +65,28 @@ export interface ActiveWorkspaceFileService<
     requestedPath: string,
     context?: ActiveWorkspaceFileContext<Host, Store, Thread>,
   ): Promise<WorkspaceFileContent>;
-  readActiveLocalFilePreview(requestedPath: string, workspacePath?: string): Promise<WorkspaceFileContent>;
+  readActiveLocalFilePreview(
+    requestedPath: string,
+    context?: ActiveWorkspaceFileContext<Host, Store, Thread>,
+  ): Promise<WorkspaceFileContent>;
   resolveLocalFilePath(requestedPath: string): string;
-  resolveLocalPreviewPath(requestedPath: string, workspacePath?: string): string;
-  assertLocalPreviewAllowed(absolutePath: string, workspacePath?: string): void;
+  resolveCanonicalLocalFilePath(requestedPath: string): string;
+  resolveLocalPreviewPath(
+    requestedPath: string,
+    context?: ActiveWorkspaceFileContext<Host, Store, Thread> | string,
+  ): string;
+  assertLocalPreviewAllowed(
+    absolutePath: string,
+    context?: ActiveWorkspaceFileContext<Host, Store, Thread> | string,
+  ): void;
+  localPathVisibleToThread(
+    absolutePath: string,
+    context?: ActiveWorkspaceFileContext<Host, Store, Thread>,
+  ): boolean;
+  localPathInsideActiveWorkspace(
+    absolutePath: string,
+    context?: ActiveWorkspaceFileContext<Host, Store, Thread>,
+  ): boolean;
 }
 
 export function createActiveWorkspaceFileService<
@@ -116,10 +139,10 @@ export function createActiveWorkspaceFileService<
 
   async function readActiveLocalFilePreview(
     requestedPath: string,
-    workspacePath = activeWorkspaceFileContextForProjectHost().workspacePath,
+    context = activeWorkspaceFileContextForProjectHost(),
   ): Promise<WorkspaceFileContent> {
-    const absolutePath = resolveLocalPreviewPath(requestedPath, workspacePath);
-    return readLocalFilePreview(workspacePath, absolutePath, readOptions());
+    const absolutePath = resolveLocalPreviewPath(requestedPath, context);
+    return readLocalFilePreview(context.workspacePath, absolutePath, readOptions());
   }
 
   function resolveLocalFilePath(requestedPath: string): string {
@@ -145,39 +168,77 @@ export function createActiveWorkspaceFileService<
     return absolutePath;
   }
 
-  function resolveLocalPreviewPath(requestedPath: string, workspacePath = dependencies.activeWorkspacePath()): string {
-    const absolutePath = resolveLocalFilePath(localPathSchema.parse(requestedPath));
-    assertLocalPreviewAllowed(absolutePath, workspacePath);
+  function resolveCanonicalLocalFilePath(requestedPath: string): string {
+    const absolutePath = resolveLocalFilePath(requestedPath);
+    return dependencies.realpath(absolutePath);
+  }
+
+  function resolveLocalPreviewPath(
+    requestedPath: string,
+    context: ActiveWorkspaceFileContext<Host, Store, Thread> | string = activeWorkspaceFileContextForProjectHost(),
+  ): string {
+    const absolutePath = resolveCanonicalLocalFilePath(localPathSchema.parse(requestedPath));
+    assertLocalPreviewAllowed(absolutePath, context);
     return absolutePath;
   }
 
-  function assertLocalPreviewAllowed(absolutePath: string, workspacePath = dependencies.activeWorkspacePath()): void {
-    const resolvedPath = resolve(absolutePath);
-    const roots = [
-      workspacePath,
-      safeAppPath("downloads"),
-      safeAppPath("desktop"),
-      safeAppPath("documents"),
-    ]
-      .filter((root): root is string => Boolean(root))
-      .map((root) => resolve(root));
-    if (roots.some((root) => resolvedPath === root || isPathInside(root, resolvedPath))) return;
-    throw new Error("Local file preview is limited to the current workspace, Downloads, Desktop, and Documents.");
+  function assertLocalPreviewAllowed(
+    absolutePath: string,
+    context: ActiveWorkspaceFileContext<Host, Store, Thread> | string = activeWorkspaceFileContextForProjectHost(),
+  ): void {
+    const fallbackContext = typeof context === "string" ? undefined : context;
+    const workspacePath = typeof context === "string" ? context : context.workspacePath;
+    if (isPathInside(resolve(workspacePath), resolve(absolutePath))) return;
+    if (fallbackContext && localPathAllowedByGrant(absolutePath, fallbackContext)) return;
+    throw new Error("Local file preview is limited to the current workspace or folders explicitly allowed for this thread.");
   }
 
-  function safeAppPath(name: Exclude<ActiveWorkspaceFileSpecialPath, "home">): string | undefined {
+  function localPathVisibleToThread(
+    absolutePath: string,
+    context = activeWorkspaceFileContextForProjectHost(),
+  ): boolean {
     try {
-      return dependencies.getAppPath(name);
+      assertLocalPreviewAllowed(absolutePath, context);
+      return true;
     } catch {
-      return undefined;
+      return false;
     }
+  }
+
+  function localPathInsideActiveWorkspace(
+    absolutePath: string,
+    context = activeWorkspaceFileContextForProjectHost(),
+  ): boolean {
+    return isPathInside(resolve(context.workspacePath), resolve(absolutePath));
+  }
+
+  function localPathAllowedByGrant(
+    absolutePath: string,
+    context: ActiveWorkspaceFileContext<Host, Store, Thread>,
+  ): boolean {
+    const projectPath = context.targetStore.getWorkspace?.().path;
+    return context.targetStore.listPermissionGrants().some((grant) =>
+      permissionGrantAllowsLocalPath(
+        grant,
+        {
+          threadId: context.threadId,
+          workspacePath: context.workspacePath,
+          projectPath,
+        },
+        absolutePath,
+        "file_content_read",
+      ),
+    );
   }
 
   return {
     activeWorkspaceFileContextForProjectHost,
     assertLocalPreviewAllowed,
+    localPathInsideActiveWorkspace,
+    localPathVisibleToThread,
     readActiveLocalFilePreview,
     readActiveWorkspaceFile,
+    resolveCanonicalLocalFilePath,
     resolveLocalFilePath,
     resolveLocalPreviewPath,
     workspacePathForRelativeArtifactPath,

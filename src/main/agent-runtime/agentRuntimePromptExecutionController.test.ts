@@ -165,6 +165,11 @@ describe("AgentRuntimePromptExecutionController", () => {
     const toolMessages = {
       markOpenToolMessagesFailed: vi.fn(() => 1),
     };
+    const outputState = createRuntimeTextOutputState();
+    const runtimeMessages = {
+      assistantStartCount: vi.fn(() => 0),
+      finishCurrentThinkingMessage: vi.fn(),
+    } as unknown as RuntimePromptStreamDispatcherSetupInput["runtimeMessages"];
     const toolRecovery = {
       rememberToolIntent: vi.fn(),
       trackInterruptedToolCallRecovery: vi.fn(),
@@ -209,10 +214,8 @@ describe("AgentRuntimePromptExecutionController", () => {
         stalledActiveArgument: vi.fn(() => undefined),
       },
       forceInterruptedToolCallRecovery: vi.fn((snapshot) => snapshot),
-      outputState: createRuntimeTextOutputState(),
-      runtimeMessages: {
-        assistantStartCount: vi.fn(() => 0),
-      } as unknown as RuntimePromptStreamDispatcherSetupInput["runtimeMessages"],
+      outputState,
+      runtimeMessages,
       getMessages: vi.fn(() => []),
       queuedMessages: {
         flushPending: vi.fn(async () => undefined),
@@ -267,6 +270,8 @@ describe("AgentRuntimePromptExecutionController", () => {
     expect(options.recordContextUsageSnapshot).toHaveBeenCalledWith("thread-1", testSession, "snapshot message");
     toolInputs[0]!.refreshBrowsersForArtifactChange("thread-1", "/workspace", "artifact.html");
     expect(options.refreshBrowsersForArtifactChange).toHaveBeenCalledWith("thread-1", "/workspace", "artifact.html");
+    expect(toolInputs[0]!.runtimeMessages).toBe(runtimeMessages);
+    expect(toolInputs[0]!.outputState).toBe(outputState);
 
     const streamWatchdog = {
       reset: vi.fn(),

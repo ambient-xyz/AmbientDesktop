@@ -195,6 +195,62 @@ describe("agentRuntimeFirstPartyPluginPermission", () => {
     }
   });
 
+  it("requires a prompt for privileged actions even in full-access mode", async () => {
+    const { store, workspacePath, root } = await openTempStore();
+    const audits: Array<Omit<FirstPartyPluginPermissionAuditInput, "runId">> = [];
+    const grantEvents: AmbientPermissionGrant[] = [];
+    const requests: unknown[] = [];
+
+    try {
+      const allowed = await resolveFirstPartyPluginPermission({
+        thread: { id: "thread-full-access", permissionMode: "full-access" },
+        workspace: { path: workspacePath },
+        toolName: "ambient_privileged_action_request",
+        title: "Review privileged action?",
+        message: "Review typed admin boundary.",
+        detail: "Purpose: install_system_package\nCommand: brew install example",
+        risk: "privileged-action",
+        grantTargetLabel: "Privileged action install_system_package",
+        allowedReason: "Privileged action approved.",
+        deniedReason: "Privileged action denied.",
+      }, {
+        store,
+        requestPermission: async (request) => {
+          requests.push(request);
+          return { allowed: true, mode: "always_thread" };
+        },
+        emitPermissionAudit: (audit) => audits.push(audit),
+        emitPermissionGrantCreated: (grant) => grantEvents.push(grant),
+      });
+
+      expect(allowed).toBe(true);
+      expect(requests).toEqual([
+        expect.objectContaining({
+          toolName: "ambient_privileged_action_request",
+          risk: "privileged-action",
+          reusableScopes: [],
+          grantTargetLabel: "Privileged action install_system_package",
+        }),
+      ]);
+      expect(audits).toEqual([{
+        threadId: "thread-full-access",
+        permissionMode: "full-access",
+        toolName: "ambient_privileged_action_request",
+        allowed: true,
+        detail: "Purpose: install_system_package\nCommand: brew install example",
+        risk: "privileged-action",
+        reason: "Privileged action approved.",
+        decisionSource: "prompt_allow_once",
+        grantId: undefined,
+      }]);
+      expect(grantEvents).toEqual([]);
+      expect(store.listPermissionGrants()).toEqual([]);
+    } finally {
+      store.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("tracks prompt wait lifecycle and emits audits for newly-created grants", async () => {
     const { store, workspacePath, root } = await openTempStore();
     const thread = store.updateThreadSettings(store.createThread("permissions").id, { permissionMode: "workspace" });

@@ -150,6 +150,7 @@ export function createAgentRuntimeServiceControllers({
         dueAt: input.dueAt,
         reason: input.reason,
         jobId: input.jobId,
+        operationKey: input.operationKey,
         payload: input.payload,
       });
       return {
@@ -158,6 +159,35 @@ export function createAgentRuntimeServiceControllers({
         dueAt: wake.dueAt,
         reason: wake.reason,
         jobId: wake.jobId,
+        operationKey: wake.operationKey,
+        supersedesWakeIds: wake.supersedesWakeIds,
+      };
+    },
+    cancelThreadWake: async (input) => {
+      const wake = resolveThreadWakeContinuations().cancel({
+        threadId: input.threadId,
+        wakeId: input.wakeId,
+      });
+      return {
+        wakeId: wake.id,
+        threadId: wake.threadId,
+        status: wake.status,
+        reason: wake.resolutionReason,
+        operationKey: wake.operationKey,
+      };
+    },
+    resolveThreadWake: async (input) => {
+      const wake = resolveThreadWakeContinuations().resolve({
+        threadId: input.threadId,
+        wakeId: input.wakeId,
+        reason: input.reason,
+      });
+      return {
+        wakeId: wake.id,
+        threadId: wake.threadId,
+        status: wake.status,
+        reason: wake.resolutionReason,
+        operationKey: wake.operationKey,
       };
     },
     fileAuthorityRootPathsForThread: (threadId, access) => callbacks.fileAuthorityRootPathsForThread(threadId, access),

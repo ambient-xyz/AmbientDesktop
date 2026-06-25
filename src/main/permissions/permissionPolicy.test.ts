@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
@@ -338,6 +338,44 @@ describe("classifyToolPermission", () => {
     if (readDecision.action === "prompt") {
       expect(readDecision.request.detail).toContain(join(homedir(), "Downloads", "notes.md"));
       expect(readDecision.request.detail).toContain("Approved path:");
+    }
+  });
+
+  it("canonicalizes outside-workspace file-tool grant paths before prompting", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ambient-policy-file-tool-"));
+    const workspace = join(root, "workspace");
+    const allowed = join(root, "allowed");
+    const outside = join(root, "outside");
+    const targetPath = join(outside, "public-note.txt");
+    const symlinkPath = join(allowed, "linked-note.txt");
+    await mkdir(workspace);
+    await mkdir(allowed);
+    await mkdir(outside);
+    await writeFile(targetPath, "outside\n", "utf8");
+    await symlink(targetPath, symlinkPath);
+    const canonicalTarget = await realpath(targetPath);
+
+    const decision = await classifyToolPermission({
+      ...base,
+      workspacePath: workspace,
+      permissionMode: "workspace",
+      toolName: "local_file_read",
+      toolInput: { path: symlinkPath },
+    });
+
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request).toMatchObject({
+        risk: "outside-workspace",
+        grantActionKind: "file_content_read",
+        grantTargetKind: "path",
+        grantTargetLabel: canonicalTarget,
+        grantConditions: {
+          path: canonicalTarget,
+          canonicalPath: canonicalTarget,
+          requestedPath: symlinkPath,
+        },
+      });
     }
   });
 
@@ -1218,6 +1256,33 @@ describe("classifyToolPermission", () => {
       expect(decision.request.risk).toBe("outside-workspace");
       expect(decision.request.message).toContain("long_context_start");
       expect(decision.request.detail).toBe("/tmp/outside.txt");
+    }
+  });
+
+  it("includes every outside long-context path in canonical grant metadata", async () => {
+    const decision = await classifyToolPermission({
+      ...base,
+      permissionMode: "workspace",
+      toolName: "long_context_process",
+      toolInput: { workspacePaths: ["../outside-a.txt", "../outside-b.txt"] },
+    });
+
+    expect(decision.action).toBe("prompt");
+    if (decision.action === "prompt") {
+      expect(decision.request).toMatchObject({
+        risk: "outside-workspace",
+        grantActionKind: "file_content_read",
+        grantTargetKind: "path",
+        grantTargetLabel: "2 outside-workspace long-context paths",
+        grantConditions: {
+          paths: ["/tmp/outside-a.txt", "/tmp/outside-b.txt"],
+          path: "/tmp/outside-a.txt",
+          canonicalPath: "/tmp/outside-a.txt",
+          requestedPaths: ["/tmp/outside-a.txt", "/tmp/outside-b.txt"],
+        },
+      });
+      expect(decision.request.detail).toContain("Outside path: /tmp/outside-a.txt");
+      expect(decision.request.detail).toContain("Outside path: /tmp/outside-b.txt");
     }
   });
 

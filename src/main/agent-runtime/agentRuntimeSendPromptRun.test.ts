@@ -48,6 +48,7 @@ describe("runAgentRuntimeSendPromptRun", () => {
     expect(input.promptOutcomes.handlePromptSuccess).toHaveBeenCalledWith(
       expect.objectContaining({
         session,
+        startedInPlannerMode: false,
         finalizedAfterToolIdle: true,
         providerRetryAttemptCount: 2,
       }),
@@ -252,6 +253,7 @@ function baseInput(
     sendInput: sendMessageInput("Prompt"),
     sendPromptState: sendPromptState as unknown as AgentRuntimeSendPromptRunInput<TestSession>["sendPromptState"],
     setSession: vi.fn(),
+    startedInPlannerMode: false,
     thread: threadSummary(),
     usesDedicatedReviewSession: false,
   } satisfies AgentRuntimeSendPromptRunInput<TestSession>;

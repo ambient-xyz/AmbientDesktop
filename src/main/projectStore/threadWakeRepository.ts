@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 
-export type ThreadWakeContinuationStatus = "pending" | "delivered" | "cancelled" | "failed";
+export type ThreadWakeContinuationStatus = "pending" | "delivered" | "cancelled" | "failed" | "resolved" | "superseded";
 
 export interface ThreadWakeContinuation {
   id: string;
@@ -10,10 +10,14 @@ export interface ThreadWakeContinuation {
   status: ThreadWakeContinuationStatus;
   reason: string;
   jobId?: string;
+  operationKey?: string;
+  supersedesWakeIds: string[];
   payload?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   deliveredAt?: string;
+  resolvedAt?: string;
+  resolutionReason?: string;
   error?: string;
 }
 
@@ -22,6 +26,8 @@ export interface ScheduleThreadWakeContinuationInput {
   dueAt: string;
   reason: string;
   jobId?: string;
+  operationKey?: string;
+  supersedeExisting?: boolean;
   payload?: Record<string, unknown>;
 }
 
@@ -32,10 +38,14 @@ interface ThreadWakeContinuationRow {
   status: ThreadWakeContinuationStatus;
   reason: string;
   job_id: string | null;
+  operation_key: string | null;
+  supersedes_wake_ids_json: string | null;
   payload_json: string | null;
   created_at: string;
   updated_at: string;
   delivered_at: string | null;
+  resolved_at: string | null;
+  resolution_reason: string | null;
   error: string | null;
 }
 
@@ -47,24 +57,43 @@ export class ProjectStoreThreadWakeRepository {
     const reason = input.reason.trim();
     if (!reason) throw new Error("Thread wake reason is required.");
     const dueAt = normalizeIsoTime(input.dueAt, "Thread wake due_at must be a valid ISO timestamp.");
+    const operationKey = normalizedOptionalString(input.operationKey);
     const now = new Date().toISOString();
     const id = randomUUID();
-    this.db
-      .prepare(
-        `INSERT INTO thread_wake_continuations
-         (id, thread_id, due_at, status, reason, job_id, payload_json, created_at, updated_at, delivered_at, error)
-         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, NULL, NULL)`,
-      )
-      .run(
-        id,
-        input.threadId,
-        dueAt,
-        reason,
-        normalizedOptionalString(input.jobId),
-        input.payload ? JSON.stringify(input.payload) : null,
-        now,
-        now,
-      );
+    const supersedeExisting = input.supersedeExisting ?? true;
+    const supersededWakeIds = operationKey && supersedeExisting
+      ? this.pendingThreadWakeContinuationsForOperation(input.threadId, operationKey).map((wake) => wake.id)
+      : [];
+    this.db.transaction(() => {
+      this.db
+        .prepare(
+          `INSERT INTO thread_wake_continuations
+           (id, thread_id, due_at, status, reason, job_id, operation_key, supersedes_wake_ids_json,
+            payload_json, created_at, updated_at, delivered_at, resolved_at, resolution_reason, error)
+           VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)`,
+        )
+        .run(
+          id,
+          input.threadId,
+          dueAt,
+          reason,
+          normalizedOptionalString(input.jobId),
+          operationKey,
+          JSON.stringify(supersededWakeIds),
+          input.payload ? JSON.stringify(input.payload) : null,
+          now,
+          now,
+        );
+      if (supersededWakeIds.length) {
+        const resolutionReason = `Superseded by wake ${id}.`;
+        const statement = this.db.prepare(
+          `UPDATE thread_wake_continuations
+           SET status = 'superseded', updated_at = ?, resolved_at = ?, resolution_reason = ?, error = NULL
+           WHERE id = ? AND status = 'pending'`,
+        );
+        for (const wakeId of supersededWakeIds) statement.run(now, now, resolutionReason, wakeId);
+      }
+    })();
     return this.getThreadWakeContinuation(id)!;
   }
 
@@ -120,8 +149,26 @@ export class ProjectStoreThreadWakeRepository {
     if (!current || current.status !== "pending") return current;
     const now = new Date().toISOString();
     this.db
-      .prepare("UPDATE thread_wake_continuations SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = 'pending'")
-      .run(now, id);
+      .prepare(
+        `UPDATE thread_wake_continuations
+         SET status = 'cancelled', updated_at = ?, resolved_at = ?, resolution_reason = ?
+         WHERE id = ? AND status = 'pending'`,
+      )
+      .run(now, now, "Cancelled before delivery.", id);
+    return this.getThreadWakeContinuation(id);
+  }
+
+  resolveThreadWakeContinuation(id: string, reason?: string): ThreadWakeContinuation | undefined {
+    const current = this.getThreadWakeContinuation(id);
+    if (!current || current.status !== "pending") return current;
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `UPDATE thread_wake_continuations
+         SET status = 'resolved', updated_at = ?, resolved_at = ?, resolution_reason = ?
+         WHERE id = ? AND status = 'pending'`,
+      )
+      .run(now, now, normalizeResolutionReason(reason, "Resolved before delivery."), id);
     return this.getThreadWakeContinuation(id);
   }
 
@@ -136,6 +183,17 @@ export class ProjectStoreThreadWakeRepository {
     const row = this.db.prepare("SELECT id FROM threads WHERE id = ?").get(threadId) as { id: string } | undefined;
     if (!row) throw new Error(`Thread not found: ${threadId}`);
   }
+
+  private pendingThreadWakeContinuationsForOperation(threadId: string, operationKey: string): ThreadWakeContinuation[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM thread_wake_continuations
+         WHERE thread_id = ? AND operation_key = ? AND status = 'pending'
+         ORDER BY due_at ASC, created_at ASC`,
+      )
+      .all(threadId, operationKey) as ThreadWakeContinuationRow[];
+    return rows.map(mapThreadWakeContinuationRow);
+  }
 }
 
 function mapThreadWakeContinuationRow(row: ThreadWakeContinuationRow): ThreadWakeContinuation {
@@ -146,18 +204,33 @@ function mapThreadWakeContinuationRow(row: ThreadWakeContinuationRow): ThreadWak
     status: normalizeStatus(row.status),
     reason: row.reason,
     ...(row.job_id ? { jobId: row.job_id } : {}),
+    ...(row.operation_key ? { operationKey: row.operation_key } : {}),
+    supersedesWakeIds: parseStringArray(row.supersedes_wake_ids_json),
     ...(row.payload_json ? { payload: parsePayload(row.payload_json) } : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.delivered_at ? { deliveredAt: row.delivered_at } : {}),
+    ...(row.resolved_at ? { resolvedAt: row.resolved_at } : {}),
+    ...(row.resolution_reason ? { resolutionReason: row.resolution_reason } : {}),
     ...(row.error ? { error: row.error } : {}),
   };
 }
 
 function normalizeStatus(status: string): ThreadWakeContinuationStatus {
-  return status === "pending" || status === "delivered" || status === "cancelled" || status === "failed"
+  return status === "pending" || status === "delivered" || status === "cancelled" || status === "failed" ||
+    status === "resolved" || status === "superseded"
     ? status
     : "failed";
+}
+
+function parseStringArray(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && Boolean(item)) : [];
+  } catch {
+    return [];
+  }
 }
 
 function parsePayload(value: string): Record<string, unknown> | undefined {
@@ -178,4 +251,8 @@ function normalizeIsoTime(value: string, message: string): string {
 function normalizedOptionalString(value: string | undefined): string | null {
   const normalized = value?.trim();
   return normalized ? normalized : null;
+}
+
+function normalizeResolutionReason(value: string | undefined, fallback: string): string {
+  return value?.trim().slice(0, 1000) || fallback;
 }

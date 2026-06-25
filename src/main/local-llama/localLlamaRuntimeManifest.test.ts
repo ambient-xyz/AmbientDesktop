@@ -116,6 +116,26 @@ describe("local llama runtime release manifest", () => {
       platform: "win32",
       arch: "x64",
     })).toBe("Local Deep Research default managed download is disabled for llama-cpp-windows-x64-cpu.");
+    expect(localLlamaManagedRuntimeDownloadEligibility({
+      capabilityLabel: "Local Deep Research",
+      manifest: {
+        ...manifest,
+        artifacts: [{ ...mac, sourceUrl: "http://example.com/llama.tar.gz" }],
+      },
+      artifact: { ...mac, sourceUrl: "http://example.com/llama.tar.gz" },
+      platform: "darwin",
+      arch: "arm64",
+    })).toMatch(/requires HTTPS/i);
+    expect(localLlamaManagedRuntimeDownloadEligibility({
+      capabilityLabel: "Local Deep Research",
+      manifest: {
+        ...manifest,
+        artifacts: [{ ...mac, sourceUrl: "https://192.168.1.12/llama.tar.gz" }],
+      },
+      artifact: { ...mac, sourceUrl: "https://192.168.1.12/llama.tar.gz" },
+      platform: "darwin",
+      arch: "arm64",
+    })).toMatch(/blocked private network target/i);
   });
 });
 

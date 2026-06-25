@@ -1,4 +1,4 @@
-import type { RuntimeActivity, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
+import type { RuntimeActivity, RuntimeContinuationSource, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
 
 export const GOAL_MODE_TOOL_NAMES = ["get_goal", "create_goal", "update_goal"] as const;
 export const GOAL_COMPLETION_MESSAGE_KIND = "goal-completion";
@@ -12,6 +12,7 @@ export interface GoalRuntimeActivityInput {
   status: RuntimeGoalActivity["status"];
   message: string;
   goalId?: string;
+  continuationSource?: RuntimeContinuationSource;
 }
 
 function goalUsageCountLabel(value: number, singular: string): string {
@@ -27,12 +28,16 @@ export function goalCompletionChatMessage(goal: Pick<ThreadGoal, "tokensUsed" | 
 }
 
 export function goalRuntimeActivity(input: GoalRuntimeActivityInput): RuntimeGoalActivity {
+  const continuationSource = input.continuationSource ?? (
+    input.status === "continuing" ? "goal-continuation" : undefined
+  );
   return {
     threadId: input.threadId,
     kind: "goal",
     status: input.status,
     message: input.message,
     goalId: input.goalId,
+    ...(continuationSource ? { continuationSource } : {}),
   };
 }
 

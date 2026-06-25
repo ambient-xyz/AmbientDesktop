@@ -144,6 +144,7 @@ function baseInput(
     threadId: "thread-1",
     runId: "run-1",
     workspacePath: "/workspace",
+    startedInPlannerMode: false,
     currentAssistantMessageId: "assistant-1",
     abortRequested: false,
     finalizedAfterToolIdle: false,
@@ -232,6 +233,10 @@ describe("handleRuntimePromptSuccess", () => {
         provider: "ambient",
         promptCache: { status: "unknown" },
       }),
+    );
+    expect(input.createPlannerPlanArtifactFromMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "assistant-1" }),
+      { startedInPlannerMode: false },
     );
     expect(input.finishParentRun).toHaveBeenCalledWith("done", undefined);
     expect(input.recordVoiceDispatch).toHaveBeenCalledWith(plannerMessage);

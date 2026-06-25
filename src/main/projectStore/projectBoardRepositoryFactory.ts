@@ -12,6 +12,8 @@ import {
   ProjectStoreProjectBoardCardMutationRepository,
   type ProjectStoreProjectBoardCardMutationRepositoryDeps,
 } from "./projectBoardCardMutationRepository";
+import { assertProjectBoardCardClaimAllowsLocalTicketization } from "./projectBoardCardTicketizationClaimGuard";
+import { ProjectStoreProjectBoardCardReadinessGateRepository } from "./projectBoardCardReadinessGateRepository";
 import {
   ProjectStoreProjectBoardClarificationDefaultRepository,
   type ProjectStoreProjectBoardClarificationDefaultRepositoryDeps,
@@ -127,12 +129,23 @@ export type ProjectStoreProjectBoardRepositoryFactoryHost = Omit<
   | "listProjectBoardEvents"
   | "projectBoardCardDependencyExecutionContext"
   | "materializeProjectBoardPulledHandoffFollowUps"
+  | "projectBoardRequiresProofSpec"
+  | "assertProjectBoardCardProofReady"
+  | "assertProjectBoardCardClarificationsResolved"
+  | "assertProjectBoardCardClaimAllowsLocalTicketization"
+  | "assertProjectBoardRunFollowUpStillActionable"
+  | "assertProjectBoardUxMockGateOpen"
 >;
 
 export function createProjectStoreProjectBoardRepositoryFactory(
   host: ProjectStoreProjectBoardRepositoryFactoryHost,
 ): ProjectStoreProjectBoardRepositoryFactory {
+  // eslint-disable-next-line prefer-const -- dependency callbacks close over the factory before it is assigned below.
   let factory: ProjectStoreProjectBoardRepositoryFactory;
+  const cardReadinessGates = () =>
+    new ProjectStoreProjectBoardCardReadinessGateRepository(host.requireDb(), {
+      listProjectBoardCards: (boardId) => factory.projectBoards().listProjectBoardCards(boardId),
+    });
   factory = new ProjectStoreProjectBoardRepositoryFactory({
     requireDb: () => host.requireDb(),
     getWorkspace: () => host.getWorkspace(),
@@ -154,12 +167,13 @@ export function createProjectStoreProjectBoardRepositoryFactory(
     appendProjectBoardEvent: (input) => host.appendProjectBoardEvent(input),
     appendProjectBoardPlanningSnapshotForRun: (runId, kind = "manual") => host.appendProjectBoardPlanningSnapshotForRun(runId, kind),
     latestStableProjectBoardPlanningSnapshot: (boardId) => host.latestStableProjectBoardPlanningSnapshot(boardId),
-    projectBoardRequiresProofSpec: (boardId) => host.projectBoardRequiresProofSpec(boardId),
-    assertProjectBoardCardProofReady: (card) => host.assertProjectBoardCardProofReady(card),
-    assertProjectBoardCardClarificationsResolved: (card) => host.assertProjectBoardCardClarificationsResolved(card),
-    assertProjectBoardCardClaimAllowsLocalTicketization: (card) => host.assertProjectBoardCardClaimAllowsLocalTicketization(card),
-    assertProjectBoardRunFollowUpStillActionable: (card) => host.assertProjectBoardRunFollowUpStillActionable(card),
-    assertProjectBoardUxMockGateOpen: (card, boardCards) => host.assertProjectBoardUxMockGateOpen(card, boardCards),
+    projectBoardRequiresProofSpec: (boardId) => cardReadinessGates().projectBoardRequiresProofSpec(boardId),
+    assertProjectBoardCardProofReady: (card) => cardReadinessGates().assertProjectBoardCardProofReady(card),
+    assertProjectBoardCardClarificationsResolved: (card) => cardReadinessGates().assertProjectBoardCardClarificationsResolved(card),
+    assertProjectBoardCardClaimAllowsLocalTicketization: (card) =>
+      assertProjectBoardCardClaimAllowsLocalTicketization(card, factory.projectBoards().listProjectBoardEvents(card.boardId)),
+    assertProjectBoardRunFollowUpStillActionable: (card) => cardReadinessGates().assertProjectBoardRunFollowUpStillActionable(card),
+    assertProjectBoardUxMockGateOpen: (card, boardCards) => cardReadinessGates().assertProjectBoardUxMockGateOpen(card, boardCards),
     syncProjectBoardTaskBlockers: (boardId) => host.syncProjectBoardTaskBlockers(boardId),
     syncProjectBoardCardsForLinkedTasks: () => host.syncProjectBoardCardsForLinkedTasks(),
     projectBoardCardTaskDescription: (card) => host.projectBoardCardTaskDescription(card),

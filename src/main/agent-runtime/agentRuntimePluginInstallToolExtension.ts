@@ -249,6 +249,7 @@ export function createAgentRuntimePluginInstallToolExtension(
 
     piPackages: {
       ...pluginEventOptions,
+      latestInstallRouteLane: options.latestInstallRouteLane,
       revokePluginGrantsForLabels: options.revokePluginGrantsForLabels,
     },
   });

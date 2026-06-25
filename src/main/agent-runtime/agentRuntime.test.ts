@@ -1,27 +1,15 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, vi } from "vitest";
-import type { PermissionRequest } from "../../shared/permissionTypes";
-import {
-  AMBIENT_KIMI_K2_7_CODE_MODEL,
-  AMBIENT_LOCAL_TEXT_MODEL,
-  createAmbientModelRuntimeSnapshot,
-  resolveAmbientModelRuntimeProfile,
-  type AmbientModelRuntimeProfile,
-} from "../../shared/ambientModels";
+import { createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import { AgentRuntime } from "./agentRuntime";
 import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
-import type { LocalModelRuntimeLease, LocalModelRuntimeReleaseResult } from "./agentRuntimeLocalRuntimeFacade";
-import { resolveSubagentApprovalDecision } from "./agentRuntimeSubagentsFacade";
-import { resolveSubagentChildActiveToolNames } from "./agentRuntimeSubagentsFacade";
-import { appendMappedSubagentRuntimeEvent } from "./agentRuntimeSubagentsFacade";
 
-const gib = 1024 ** 3;
 const execFileAsync = promisify(execFile);
 
 async function git(cwd: string, args: string[]): Promise<void> {
@@ -38,660 +26,7 @@ async function initializeGitWorkspace(workspacePath: string): Promise<void> {
   await git(workspacePath, ["commit", "-m", "initial"]);
 }
 
-function agentRuntimeLocalTextProfile(overrides: Partial<AmbientModelRuntimeProfile> = {}): AmbientModelRuntimeProfile {
-  return {
-    ...resolveAmbientModelRuntimeProfile(AMBIENT_LOCAL_TEXT_MODEL),
-    profileId: `local:${AMBIENT_LOCAL_TEXT_MODEL}:configured`,
-    selectableAsSubagent: true,
-    available: true,
-    unavailableReason: undefined,
-    providerQuirks: ["Resolved from an active local runtime descriptor."],
-    ...overrides,
-  };
-}
-
-function agentRuntimeLocalModelLease(
-  workspacePath: string,
-  options: { release?: () => Promise<LocalModelRuntimeReleaseResult> } = {},
-): LocalModelRuntimeLease {
-  const state = {
-    schemaVersion: "ambient-local-model-runtime-state-v1" as const,
-    runtimeId: "local-text-runtime",
-    providerId: "local",
-    modelId: AMBIENT_LOCAL_TEXT_MODEL,
-    profileId: `local:${AMBIENT_LOCAL_TEXT_MODEL}:configured`,
-    pid: 5001,
-    status: "running" as const,
-    command: ["/runtime/local-text", "serve"],
-    cwd: workspacePath,
-    stateDir: join(workspacePath, ".ambient/local-model-runtime/local-text-runtime"),
-    stdoutPath: join(workspacePath, ".ambient/local-model-runtime/local-text-runtime/runtime.stdout.log"),
-    stderrPath: join(workspacePath, ".ambient/local-model-runtime/local-text-runtime/runtime.stderr.log"),
-    startedAt: "2026-06-05T00:00:00.000Z",
-    lastUsedAt: "2026-06-05T00:00:00.000Z",
-    idleTimeoutMs: 300000,
-    estimatedResidentMemoryBytes: 6 * gib,
-    actualResidentMemoryBytes: 4 * gib,
-    memorySampledAt: "2026-06-05T00:00:01.000Z",
-  };
-  const runtimeLeaseRecord = {
-    schemaVersion: "ambient-local-runtime-lease-v1" as const,
-    leaseId: "lease-1",
-    modelRuntimeId: state.runtimeId,
-    modelProfileId: state.profileId,
-    modelId: state.modelId,
-    providerId: state.providerId,
-    capabilityKind: "local-text" as const,
-    estimatedResidentMemoryBytes: state.estimatedResidentMemoryBytes,
-    actualResidentMemoryBytes: state.actualResidentMemoryBytes,
-    pid: state.pid,
-    acquiredAt: state.lastUsedAt,
-    lastHeartbeatAt: state.lastUsedAt,
-    status: "running" as const,
-  };
-  return {
-    leaseId: "lease-1",
-    state,
-    acquisition: {
-      schemaVersion: "ambient-local-model-runtime-acquisition-v1",
-      source: "started",
-      leaseId: "lease-1",
-      runtimeId: state.runtimeId,
-      providerId: state.providerId,
-      modelId: state.modelId,
-      ...(state.profileId ? { profileId: state.profileId } : {}),
-      pid: state.pid,
-      acquiredAt: state.lastUsedAt,
-      activeLeases: 1,
-      runtimeLease: runtimeLeaseRecord,
-    },
-    runtimeLease: runtimeLeaseRecord,
-    release: options.release ?? (async () => agentRuntimeLocalModelRelease()),
-    touch: async () => state,
-  };
-}
-
-function agentRuntimeLocalModelRelease(overrides: Partial<LocalModelRuntimeReleaseResult> = {}): LocalModelRuntimeReleaseResult {
-  return {
-    status: "released",
-    leaseId: "lease-1",
-    pid: 5001,
-    remainingLeases: 0,
-    ...overrides,
-  };
-}
-
-function agentRuntimeJsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-async function agentRuntimeBudgetOverrunFixture(input: { roleId: "explorer" | "reviewer"; allowPartialResult: boolean }) {
-  const workspacePath = await mkdtemp(join(tmpdir(), `ambient-runtime-subagent-budget-${input.allowPartialResult ? "partial" : "failed"}-`));
-  const store = new ProjectStore();
-  store.openWorkspace(workspacePath);
-  store.setFeatureFlagSettings({ subagents: true });
-  const parent = store.createThread("parent with budgeted child");
-  const assistant = store.addMessage({
-    threadId: parent.id,
-    role: "assistant",
-    content: "",
-    metadata: { status: "streaming", runtime: "pi" },
-  });
-  const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-  const featureFlags = resolveAmbientFeatureFlags({
-    settings: store.getFeatureFlagSettings(),
-    generatedAt: "2026-06-05T00:00:00.000Z",
-  });
-  const baseRoleProfile = getDefaultSubagentRoleProfile(input.roleId);
-  const roleProfileSnapshot = {
-    ...baseRoleProfile,
-    guardPolicy: {
-      ...baseRoleProfile.guardPolicy,
-      maxRuntimeMs: 0,
-      allowPartialResult: input.allowPartialResult,
-    },
-  };
-  const created = store.createSubagentRun({
-    parentThreadId: parent.id,
-    parentRunId: parentRun.id,
-    parentMessageId: assistant.id,
-    title: "Budgeted child",
-    roleId: input.roleId,
-    roleProfileSnapshot,
-    canonicalTaskPath: `root/0:${input.roleId}`,
-    featureFlagSnapshot: featureFlags,
-    modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-    dependencyMode: "required",
-  });
-  const running = store.markSubagentRunStatus(created.id, "running");
-  const waitBarrier = store.createSubagentWaitBarrier({
-    parentThreadId: parent.id,
-    parentRunId: parentRun.id,
-    childRunIds: [running.id],
-    dependencyMode: "required_all",
-    failurePolicy: input.allowPartialResult ? "degrade_partial" : "ask_user",
-    timeoutMs: 60_000,
-  });
-  const abort = vi.fn(async () => undefined);
-  const emitted: any[] = [];
-  const runtimeEvents: any[] = [];
-  const runtime = new AgentRuntime(
-    store,
-    {} as any,
-    {} as any,
-    () =>
-      ({
-        isDestroyed: () => false,
-        webContents: {
-          isDestroyed: () => false,
-          isCrashed: () => false,
-          send: (_channel: string, event: any) => emitted.push(event),
-        },
-      }) as any,
-    {
-      request: vi.fn(),
-      denyThread: () => undefined,
-    },
-  );
-  (runtime as any).activeRuns.set(running.childThreadId, {
-    abort,
-    detach: vi.fn(),
-    queue: vi.fn(),
-  });
-  (runtime as any).subagentChildExecutions.set(running.id, {
-    childThreadId: running.childThreadId,
-    promise: new Promise<void>(() => undefined),
-    startedAt: new Date().toISOString(),
-  });
-
-  const waited = await (runtime as any).waitForResolvedSubagentChildRun({
-    run: running,
-    timeoutMs: 1,
-    emitEvent: (event: any) => {
-      const persisted = appendMappedSubagentRuntimeEvent(store, {
-        run: running,
-        source: "wait_agent",
-        event,
-      });
-      runtimeEvents.push(persisted.runtimeEvent);
-      return persisted.runEvent;
-    },
-  });
-
-  return {
-    workspacePath,
-    store,
-    assistant,
-    waitBarrier,
-    running,
-    waited,
-    run: store.getSubagentRun(running.id),
-    abort,
-    emitted,
-    runtime,
-    runtimeEvents,
-    close: async () => {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    },
-  };
-}
-
 describe("AgentRuntime sub-agent local runtime routing", () => {
-  it("blocks explicit subagent prompts before opening a Pi session when the feature is disabled", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-preflight-"));
-    const store = new ProjectStore();
-    try {
-      store.openWorkspace(workspacePath);
-      const thread = store.createThread("subagent feature disabled");
-      const runtime = new AgentRuntime(store, {} as any, {} as any, () => undefined, {
-        request: vi.fn(),
-        denyThread: () => undefined,
-      });
-      const getSession = vi.spyOn(runtime as any, "getSession");
-
-      await runtime.send({
-        threadId: thread.id,
-        content: "Use one feedback subagent and one separate judge subagent for this draft.",
-        permissionMode: "workspace",
-        collaborationMode: "agent",
-        model: "ambient-preview",
-        thinkingLevel: "medium",
-        delivery: "prompt",
-        context: [],
-      });
-
-      const assistant = store.listMessages(thread.id).find((message) => message.role === "assistant");
-      expect(getSession).not.toHaveBeenCalled();
-      expect(assistant?.metadata).toMatchObject({
-        status: "error",
-        preflightBlock: "subagent_unavailable",
-      });
-      expect(assistant?.content).toContain("ambient.subagents is disabled");
-      expect(assistant?.content).toContain("I will not simulate sub-agents");
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("routes configured local text main chat through the local runtime without Pi", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-local-main-"));
-    const store = new ProjectStore();
-    const emitted: any[] = [];
-    try {
-      store.openWorkspace(workspacePath);
-      const thread = store.updateThreadSettings(store.createThread("local main").id, {
-        model: AMBIENT_LOCAL_TEXT_MODEL,
-      });
-      const release = vi.fn(async () => agentRuntimeLocalModelRelease());
-      const runtimeManager = { acquire: vi.fn(async () => agentRuntimeLocalModelLease(workspacePath, { release })) };
-      const fetchImpl = vi.fn(async () => agentRuntimeJsonResponse({ output_text: "Local main answer." }));
-      const getWindow = () =>
-        ({
-          isDestroyed: () => false,
-          webContents: {
-            isDestroyed: () => false,
-            isCrashed: () => false,
-            send: (_channel: string, event: any) => emitted.push(event),
-          },
-        }) as any;
-      const localProfile = agentRuntimeLocalTextProfile({ selectableAsMain: true });
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        getWindow,
-        {
-          request: vi.fn(async () => ({ allowed: true, mode: "allow_once" as const })),
-          denyThread: () => undefined,
-        },
-        {
-          localTextSubagents: {
-            resolveModelRuntimeProfile: (modelId) => {
-              if (modelId === AMBIENT_LOCAL_TEXT_MODEL) return localProfile;
-              return resolveAmbientModelRuntimeProfile(modelId);
-            },
-            resolveRuntimeForMain: ({ thread: mainThread, runId, model }) => ({
-              launch: {
-                runtimeId: "local-text-runtime",
-                command: "/runtime/local-text",
-                args: ["serve"],
-                cwd: mainThread.workspacePath,
-                estimatedResidentMemoryBytes: 6 * gib,
-                profileId: model.profileId,
-              },
-              completionUrl: "http://127.0.0.1:43123/v1/chat/completions",
-              artifactRootPath: join(mainThread.workspacePath, ".ambient/local-main", runId),
-              maxInlineChars: 1024,
-            }),
-            runtimeManager,
-            fetchImpl: fetchImpl as typeof fetch,
-          },
-        },
-      );
-      const getSessionSpy = vi.spyOn(runtime as any, "getSession");
-
-      await runtime.send({
-        threadId: thread.id,
-        content: "Answer locally.",
-        permissionMode: thread.permissionMode,
-        collaborationMode: thread.collaborationMode,
-        model: AMBIENT_LOCAL_TEXT_MODEL,
-        thinkingLevel: thread.thinkingLevel,
-      });
-
-      const messages = store.listMessages(thread.id);
-      const assistant = messages.find((message) => message.role === "assistant");
-      expect(assistant).toMatchObject({
-        content: "Local main answer.",
-        metadata: expect.objectContaining({
-          status: "completed",
-          runtime: "local_text",
-          provider: "local",
-          model: AMBIENT_LOCAL_TEXT_MODEL,
-          localTextResult: expect.objectContaining({
-            schemaVersion: "ambient-local-text-result-v1",
-            runId: expect.any(String),
-            textPreview: "Local main answer.",
-          }),
-        }),
-      });
-      expect(store.listActiveRuns()).toEqual([]);
-      expect(emitted.map((event) => event.type)).toEqual(expect.arrayContaining([
-        "message-created",
-        "message-updated",
-        "run-status",
-        "thread-updated",
-      ]));
-      expect(emitted.filter((event) => event.type === "run-status").map((event) => event.status)).toEqual([
-        "starting",
-        "streaming",
-        "idle",
-      ]);
-      expect(runtimeManager.acquire).toHaveBeenCalledWith(expect.objectContaining({
-        runtimeId: "local-text-runtime",
-        ownerThreadId: thread.id,
-        modelId: AMBIENT_LOCAL_TEXT_MODEL,
-      }));
-      expect(fetchImpl).toHaveBeenCalledTimes(1);
-      expect(release).toHaveBeenCalledTimes(1);
-      expect(getSessionSpy).not.toHaveBeenCalled();
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("keeps Symphony parent mode on the tool-capable Pi path when a local text main model is selected", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-local-main-symphony-"));
-    const store = new ProjectStore();
-    const emitted: any[] = [];
-    try {
-      const workspace = store.openWorkspace(workspacePath);
-      store.setFeatureFlagSettings({ subagents: true });
-      const threadSessionDir = join(workspace.sessionPath, "local-symphony-session");
-      await mkdir(threadSessionDir, { recursive: true });
-      const sessionFile = join(threadSessionDir, "session.jsonl");
-      await writeFile(sessionFile, "", "utf8");
-      const thread = store.updateThreadSettings(store.createThread("local main Symphony").id, {
-        model: AMBIENT_LOCAL_TEXT_MODEL,
-        piSessionFile: sessionFile,
-      });
-      const release = vi.fn(async () => agentRuntimeLocalModelRelease());
-      const runtimeManager = { acquire: vi.fn(async () => agentRuntimeLocalModelLease(workspacePath, { release })) };
-      const fetchImpl = vi.fn(async () => agentRuntimeJsonResponse({ output_text: "Local main should not answer." }));
-      const getWindow = () =>
-        ({
-          isDestroyed: () => false,
-          webContents: {
-            isDestroyed: () => false,
-            isCrashed: () => false,
-            send: (_channel: string, event: any) => emitted.push(event),
-          },
-        }) as any;
-      const localProfile = agentRuntimeLocalTextProfile({ selectableAsMain: true });
-      const subscribers: Array<(event: any) => void> = [];
-      const emit = (event: any) => {
-        for (const subscriber of [...subscribers]) subscriber(event);
-      };
-      const session = {
-        ...fakePiSession(sessionFile),
-        isStreaming: true,
-        subscribe: vi.fn((subscriber: (event: any) => void) => {
-          subscribers.push(subscriber);
-          return () => {
-            const index = subscribers.indexOf(subscriber);
-            if (index >= 0) subscribers.splice(index, 1);
-          };
-        }),
-        prompt: vi.fn(async () => {
-          emit({
-            type: "message_end",
-            message: {
-              role: "assistant",
-              stopReason: "stop",
-              content: [{ type: "text", text: "I cannot run local text for Symphony." }],
-            },
-          });
-        }),
-        steer: vi.fn(async () => undefined),
-        compact: vi.fn(async () => undefined),
-        agent: {
-          abort: vi.fn(),
-          waitForIdle: vi.fn(async () => undefined),
-        },
-      };
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        getWindow,
-        {
-          request: vi.fn(async () => ({ allowed: true, mode: "allow_once" as const })),
-          denyThread: () => undefined,
-        },
-        {
-          localTextSubagents: {
-            resolveModelRuntimeProfile: (modelId) => {
-              if (modelId === AMBIENT_LOCAL_TEXT_MODEL) return localProfile;
-              return resolveAmbientModelRuntimeProfile(modelId);
-            },
-            resolveRuntimeForMain: ({ thread: mainThread, runId, model }) => ({
-              launch: {
-                runtimeId: "local-text-runtime",
-                command: "/runtime/local-text",
-                args: ["serve"],
-                cwd: mainThread.workspacePath,
-                estimatedResidentMemoryBytes: 6 * gib,
-                profileId: model.profileId,
-              },
-              completionUrl: "http://127.0.0.1:43123/v1/chat/completions",
-              artifactRootPath: join(mainThread.workspacePath, ".ambient/local-main", runId),
-              maxInlineChars: 1024,
-            }),
-            runtimeManager,
-            fetchImpl: fetchImpl as typeof fetch,
-          },
-        },
-      );
-      const getSessionSpy = vi.spyOn(runtime as any, "getSession").mockResolvedValue(session);
-
-      await runtime.send({
-        threadId: thread.id,
-        content: "Use Symphony to compare these options.",
-        permissionMode: thread.permissionMode,
-        collaborationMode: thread.collaborationMode,
-        model: AMBIENT_LOCAL_TEXT_MODEL,
-        thinkingLevel: thread.thinkingLevel,
-        composerIntent: {
-          kind: "symphony-workflow",
-          action: "run-once",
-          patternId: "map_reduce",
-          metricCustomizations: {
-            "map_reduce-metric": "Reducer must cite each child result before synthesis.",
-          },
-        },
-      });
-
-      expect(runtimeManager.acquire).not.toHaveBeenCalled();
-      expect(fetchImpl).not.toHaveBeenCalled();
-      expect(getSessionSpy).toHaveBeenCalledTimes(1);
-      expect(getSessionSpy.mock.calls[0]?.[0]).toMatchObject({ model: AMBIENT_KIMI_K2_7_CODE_MODEL });
-      expect(store.getThread(thread.id).model).toBe(AMBIENT_KIMI_K2_7_CODE_MODEL);
-      expect(session.prompt).toHaveBeenCalledTimes(1);
-      const prompt = String((session.prompt as any).mock.calls[0]?.[0] ?? "");
-      expect(prompt).toContain("ambient_workflow_symphony_map_reduce");
-      expect(prompt).not.toContain("Use ambient_subagent");
-      expect(prompt).not.toContain("Ambient sub-agent orchestration pattern detected");
-      expect(store.listCallableWorkflowTasksForParentThread(thread.id)).toEqual([]);
-      expect(store.listMessages(thread.id).at(-1)).toMatchObject({
-        metadata: expect.objectContaining({ status: "error", runtime: "pi" }),
-      });
-      expect(store.listMessages(thread.id).at(-1)?.metadata?.localTextResult).toBeUndefined();
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("routes configured local text child runs through the local runtime adapter", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-local-subagent-"));
-    const store = new ProjectStore();
-    const emitted: any[] = [];
-    try {
-      store.openWorkspace(workspacePath);
-      const parent = store.createThread("local sub-agent parent");
-      const assistant = store.addMessage({ threadId: parent.id, role: "assistant", content: "" });
-      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-      const release = vi.fn(async () => agentRuntimeLocalModelRelease());
-      const runtimeManager = { acquire: vi.fn(async () => agentRuntimeLocalModelLease(workspacePath, { release })) };
-      const fetchImpl = vi.fn(async () => agentRuntimeJsonResponse({ output_text: "Local sub-agent result." }));
-      const getWindow = () =>
-        ({
-          isDestroyed: () => false,
-          webContents: {
-            isDestroyed: () => false,
-            isCrashed: () => false,
-            send: (_channel: string, event: any) => emitted.push(event),
-          },
-        }) as any;
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        getWindow,
-        {
-          request: vi.fn(async () => ({ allowed: true, mode: "allow_once" as const })),
-          denyThread: () => undefined,
-        },
-        {
-        featureFlags: {
-          readSnapshot: () => resolveAmbientFeatureFlags({
-            startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-            generatedAt: "2026-06-05T00:00:00.000Z",
-          }),
-        },
-        localTextSubagents: {
-          resolveModelRuntimeProfile: (modelId) => {
-            if (modelId === AMBIENT_LOCAL_TEXT_MODEL) return agentRuntimeLocalTextProfile();
-            return resolveAmbientModelRuntimeProfile(modelId);
-          },
-          resolveRuntime: ({ parentThread, run, model }) => ({
-            launch: {
-              runtimeId: "local-text-runtime",
-              command: "/runtime/local-text",
-              args: ["serve"],
-              cwd: parentThread.workspacePath,
-              estimatedResidentMemoryBytes: 6 * gib,
-              profileId: model.profileId,
-            },
-            completionUrl: "http://127.0.0.1:43123/v1/chat/completions",
-            artifactRootPath: join(parentThread.workspacePath, ".ambient/subagents", run.id),
-            maxInlineChars: 1024,
-          }),
-          runtimeManager,
-          fetchImpl: fetchImpl as typeof fetch,
-          now: () => new Date("2026-06-05T00:00:00.000Z"),
-        },
-      });
-      const sendSpy = vi.spyOn(runtime as any, "send").mockRejectedValue(new Error("Pi child session should not run."));
-      (runtime as any).activeRunIds.set(parent.id, parentRun.id);
-      const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
-        registerTool: (tool: any) => registeredTools.push(tool),
-      });
-      const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
-      if (!subagentTool) throw new Error("ambient_subagent tool was not registered.");
-
-      const spawned = await subagentTool.execute("spawn-local-text", {
-        action: "spawn_agent",
-        roleId: "summarizer",
-        task: "Summarize the local evidence.",
-        modelId: AMBIENT_LOCAL_TEXT_MODEL,
-        dependencyMode: "required",
-        forkMode: "no_history",
-        promptMode: "fresh",
-        toolScope: { requestedCategories: ["artifact.read"] },
-        idempotencyKey: "spawn:agent-runtime-local-text",
-      });
-      const runId = spawned.details.run.id as string;
-      const waited = await subagentTool.execute("wait-local-text", {
-        action: "wait_agent",
-        childRunId: runId,
-        wait: { timeoutMs: 5000 },
-      });
-      const run = store.getSubagentRun(runId);
-
-      expect(waited.details).toMatchObject({
-        status: "completed",
-        synthesisAllowed: true,
-      });
-      expect(run).toMatchObject({
-        status: "completed",
-        modelRuntimeSnapshot: {
-          requestedModelId: AMBIENT_LOCAL_TEXT_MODEL,
-          profile: {
-            modelId: AMBIENT_LOCAL_TEXT_MODEL,
-            locality: "local",
-            available: true,
-          },
-        },
-        resultArtifact: {
-          status: "completed",
-          summary: "Local sub-agent result.",
-        },
-      });
-      expect(store.listMessages(run.childThreadId).map((message) => message.role)).toEqual([
-        "system",
-        "system",
-        "assistant",
-      ]);
-      const runUpdates = emitted.filter((event) => event.type === "subagent-run-updated");
-      expect(runUpdates.map((event) => event.run.status)).toEqual(expect.arrayContaining(["reserved", "starting", "running", "completed"]));
-      expect(runUpdates.at(-1)).toMatchObject({
-        type: "subagent-run-updated",
-        run: expect.objectContaining({ id: runId, status: "completed" }),
-        workspacePath,
-      });
-      const runEventUpdates = emitted.filter((event) => event.type === "subagent-run-event-created");
-      expect(runEventUpdates.map((event) => event.event.type)).toEqual(expect.arrayContaining([
-        "subagent.reserved",
-        "subagent.spawn_requested",
-        "subagent.status_changed",
-        "subagent.runtime_event",
-        "subagent.local_text_completed",
-      ]));
-      expect(runEventUpdates).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent-run-event-created",
-          run: expect.objectContaining({ id: runId }),
-          event: expect.objectContaining({ runId, type: "subagent.local_text_completed" }),
-          workspacePath,
-        }),
-      ]));
-      expect(emitted).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent-tool-scope-snapshot-recorded",
-          run: expect.objectContaining({ id: runId }),
-          snapshot: expect.objectContaining({
-            runId,
-            scope: expect.objectContaining({
-              piVisibleCategories: ["artifact.read"],
-            }),
-          }),
-          workspacePath,
-        }),
-      ]));
-      const barrierUpdates = emitted.filter((event) => event.type === "subagent-wait-barrier-updated");
-      expect(barrierUpdates.map((event) => event.barrier.status)).toEqual(expect.arrayContaining(["waiting_on_children", "satisfied"]));
-      expect(barrierUpdates.at(-1)).toMatchObject({
-        type: "subagent-wait-barrier-updated",
-        barrier: expect.objectContaining({
-          parentThreadId: parent.id,
-          parentRunId: parentRun.id,
-          childRunIds: [runId],
-          status: "satisfied",
-        }),
-        workspacePath,
-      });
-      expect(runtimeManager.acquire).toHaveBeenCalledWith(expect.objectContaining({
-        runtimeId: "local-text-runtime",
-        ownerThreadId: run.childThreadId,
-        modelId: AMBIENT_LOCAL_TEXT_MODEL,
-      }));
-      expect(fetchImpl).toHaveBeenCalledTimes(1);
-      expect(release).toHaveBeenCalledTimes(1);
-      expect(sendSpy).not.toHaveBeenCalled();
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
   it("uses structured child JSON when the result status marker is present without a colon", async () => {
     const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-malformed-status-"));
     const store = new ProjectStore();
@@ -721,10 +56,11 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
         {
           featureFlags: {
-            readSnapshot: () => resolveAmbientFeatureFlags({
-              startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-              generatedAt: "2026-06-05T00:00:00.000Z",
-            }),
+            readSnapshot: () =>
+              resolveAmbientFeatureFlags({
+                startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+                generatedAt: "2026-06-05T00:00:00.000Z",
+              }),
           },
         },
       );
@@ -771,7 +107,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       });
       (runtime as any).activeRunIds.set(parent.id, parentRun.id);
       const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
+      (runtime as any).controllers.subagentToolExtensions.createToolExtension(parent.id)({
         registerTool: (tool: any) => registeredTools.push(tool),
       });
       const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
@@ -808,9 +144,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
       });
       expect(store.listSubagentParentMailboxEventsForParentRun(parentRun.id)).toEqual([]);
-      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(expect.arrayContaining([
-        "subagent.result_ready",
-      ]));
+      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(expect.arrayContaining(["subagent.result_ready"]));
       expect(store.listMessages(run.childThreadId).filter((message) => message.metadata?.runtime === "ambient-recovery")).toEqual([]);
     } finally {
       store.close();
@@ -847,10 +181,11 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
         {
           featureFlags: {
-            readSnapshot: () => resolveAmbientFeatureFlags({
-              startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-              generatedAt: "2026-06-05T00:00:00.000Z",
-            }),
+            readSnapshot: () =>
+              resolveAmbientFeatureFlags({
+                startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+                generatedAt: "2026-06-05T00:00:00.000Z",
+              }),
           },
         },
       );
@@ -885,7 +220,9 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           risks: [],
           nextActions: [],
           roleOutput: {
-            findings: [{ summary: "The child task result was recovered from the visible transcript.", provenance: ["visible child transcript"] }],
+            findings: [
+              { summary: "The child task result was recovered from the visible transcript.", provenance: ["visible child transcript"] },
+            ],
             openQuestions: [],
           },
         };
@@ -902,7 +239,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       });
       (runtime as any).activeRunIds.set(parent.id, parentRun.id);
       const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
+      (runtime as any).controllers.subagentToolExtensions.createToolExtension(parent.id)({
         registerTool: (tool: any) => registeredTools.push(tool),
       });
       const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
@@ -1000,10 +337,11 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
         {
           featureFlags: {
-            readSnapshot: () => resolveAmbientFeatureFlags({
-              startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-              generatedAt: "2026-06-05T00:00:00.000Z",
-            }),
+            readSnapshot: () =>
+              resolveAmbientFeatureFlags({
+                startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+                generatedAt: "2026-06-05T00:00:00.000Z",
+              }),
           },
         },
       );
@@ -1068,7 +406,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       });
       (runtime as any).activeRunIds.set(parent.id, parentRun.id);
       const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
+      (runtime as any).controllers.subagentToolExtensions.createToolExtension(parent.id)({
         registerTool: (tool: any) => registeredTools.push(tool),
       });
       const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
@@ -1099,7 +437,9 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         delivery: "follow-up",
         preserveActiveThread: true,
         internal: true,
-        visibleUserContent: expect.stringContaining("Sub-agent runtime follow-up: Structured result roleId must match child role explorer."),
+        visibleUserContent: expect.stringContaining(
+          "Sub-agent runtime follow-up: Structured result roleId must match child role explorer.",
+        ),
       });
       expect(sent[1].modelContentOverride).toContain("summarize that answer in the structured result");
       expect(contractFollowups).toMatchObject([
@@ -1121,11 +461,13 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           },
         },
       });
-      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(expect.arrayContaining([
-        "subagent.result_contract_followup_required",
-        "subagent.internal_post_tool_followup_started",
-        "subagent.result_ready",
-      ]));
+      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(
+        expect.arrayContaining([
+          "subagent.result_contract_followup_required",
+          "subagent.internal_post_tool_followup_started",
+          "subagent.result_ready",
+        ]),
+      );
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });
@@ -1161,10 +503,11 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
         {
           featureFlags: {
-            readSnapshot: () => resolveAmbientFeatureFlags({
-              startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-              generatedAt: "2026-06-05T00:00:00.000Z",
-            }),
+            readSnapshot: () =>
+              resolveAmbientFeatureFlags({
+                startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+                generatedAt: "2026-06-05T00:00:00.000Z",
+              }),
           },
         },
       );
@@ -1203,7 +546,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       });
       (runtime as any).activeRunIds.set(parent.id, parentRun.id);
       const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
+      (runtime as any).controllers.subagentToolExtensions.createToolExtension(parent.id)({
         registerTool: (tool: any) => registeredTools.push(tool),
       });
       const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
@@ -1229,10 +572,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       expect(sent.slice(1).every((input) => input.delivery === "follow-up")).toBe(true);
       expect(eventTypes.filter((type) => type === "subagent.result_contract_followup_required")).toHaveLength(4);
       expect(eventTypes.filter((type) => type === "subagent.internal_post_tool_followup_started")).toHaveLength(3);
-      expect(eventTypes).toEqual(expect.arrayContaining([
-        "subagent.result_contract_repair_exhausted",
-        "subagent.child_session_failed",
-      ]));
+      expect(eventTypes).toEqual(expect.arrayContaining(["subagent.result_contract_repair_exhausted", "subagent.child_session_failed"]));
       expect(run).toMatchObject({
         status: "failed",
         resultArtifact: {
@@ -1298,10 +638,11 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
         {
           featureFlags: {
-            readSnapshot: () => resolveAmbientFeatureFlags({
-              startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-              generatedAt: "2026-06-05T00:00:00.000Z",
-            }),
+            readSnapshot: () =>
+              resolveAmbientFeatureFlags({
+                startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+                generatedAt: "2026-06-05T00:00:00.000Z",
+              }),
           },
         },
       );
@@ -1361,7 +702,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       });
       (runtime as any).activeRunIds.set(parent.id, parentRun.id);
       const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
+      (runtime as any).controllers.subagentToolExtensions.createToolExtension(parent.id)({
         registerTool: (tool: any) => registeredTools.push(tool),
       });
       const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
@@ -1409,11 +750,13 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           },
         },
       });
-      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(expect.arrayContaining([
-        "subagent.post_tool_followup_required",
-        "subagent.internal_post_tool_followup_started",
-        "subagent.result_ready",
-      ]));
+      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(
+        expect.arrayContaining([
+          "subagent.post_tool_followup_required",
+          "subagent.internal_post_tool_followup_started",
+          "subagent.result_ready",
+        ]),
+      );
       expect(store.listMessages(run.childThreadId).map((message) => message.role)).toEqual([
         "system",
         "user",
@@ -1457,10 +800,11 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
         {
           featureFlags: {
-            readSnapshot: () => resolveAmbientFeatureFlags({
-              startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-              generatedAt: "2026-06-05T00:00:00.000Z",
-            }),
+            readSnapshot: () =>
+              resolveAmbientFeatureFlags({
+                startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+                generatedAt: "2026-06-05T00:00:00.000Z",
+              }),
           },
         },
       );
@@ -1477,27 +821,30 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         const completeSummary = `Inspected restart-smoke fixture. ${"Preserved full child output in the transcript artifact. ".repeat(40)}`;
         const structuredOutput = firstTurn
           ? {
-            schemaVersion: "ambient-subagent-structured-result-v1",
-            roleId: "explorer",
-            status: "needs_attention",
-            summary: "Need the parent to pick a fixture.",
-            evidence: [],
-            artifacts: [],
-            risks: [],
-            nextActions: ["Send the chosen fixture name as a follow-up."],
-            roleOutput: { findings: [], openQuestions: ["Which fixture should I inspect?"] },
-          }
+              schemaVersion: "ambient-subagent-structured-result-v1",
+              roleId: "explorer",
+              status: "needs_attention",
+              summary: "Need the parent to pick a fixture.",
+              evidence: [],
+              artifacts: [],
+              risks: [],
+              nextActions: ["Send the chosen fixture name as a follow-up."],
+              roleOutput: { findings: [], openQuestions: ["Which fixture should I inspect?"] },
+            }
           : {
-            schemaVersion: "ambient-subagent-structured-result-v1",
-            roleId: "explorer",
-            status: "complete",
-            summary: completeSummary,
-            evidence: ["Parent follow-up selected restart-smoke."],
-            artifacts: [],
-            risks: [],
-            nextActions: [],
-            roleOutput: { findings: [{ summary: "restart-smoke fixture is ready.", provenance: ["parent follow-up"] }], openQuestions: [] },
-          };
+              schemaVersion: "ambient-subagent-structured-result-v1",
+              roleId: "explorer",
+              status: "complete",
+              summary: completeSummary,
+              evidence: ["Parent follow-up selected restart-smoke."],
+              artifacts: [],
+              risks: [],
+              nextActions: [],
+              roleOutput: {
+                findings: [{ summary: "restart-smoke fixture is ready.", provenance: ["parent follow-up"] }],
+                openQuestions: [],
+              },
+            };
         store.addMessage({
           threadId: input.threadId,
           role: "assistant",
@@ -1511,7 +858,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       });
       (runtime as any).activeRunIds.set(parent.id, parentRun.id);
       const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
+      (runtime as any).controllers.subagentToolExtensions.createToolExtension(parent.id)({
         registerTool: (tool: any) => registeredTools.push(tool),
       });
       const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
@@ -1560,12 +907,10 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       });
       const run = store.getSubagentRun(runId);
       const followupMailbox = store.listSubagentMailboxEvents(runId).find((event) => event.type === "subagent.followup");
-      const assistantRuntimeEvents = store
-        .listSubagentRunEvents(runId)
-        .filter((event) => {
-          const preview = event.preview as { type?: string } | undefined;
-          return preview?.type === "assistant_delta";
-        });
+      const assistantRuntimeEvents = store.listSubagentRunEvents(runId).filter((event) => {
+        const preview = event.preview as { type?: string } | undefined;
+        return preview?.type === "assistant_delta";
+      });
 
       expect(sendSpy).toHaveBeenCalledTimes(2);
       expect(sendSpy.mock.calls[0]?.[1]).toMatchObject({ awaitInternalRetryCompletion: true });
@@ -1615,22 +960,26 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           },
         },
       });
-      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(expect.arrayContaining([
-        "subagent.followup_child_session_starting",
-        "subagent.followup_child_session_started",
-        "subagent.followup_consumed",
-        "subagent.result_ready",
-      ]));
-      expect(assistantRuntimeEvents).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          artifactPath: `ambient://threads/${run.childThreadId}/transcript`,
-          preview: expect.objectContaining({
-            type: "assistant_delta",
+      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(
+        expect.arrayContaining([
+          "subagent.followup_child_session_starting",
+          "subagent.followup_child_session_started",
+          "subagent.followup_consumed",
+          "subagent.result_ready",
+        ]),
+      );
+      expect(assistantRuntimeEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
             artifactPath: `ambient://threads/${run.childThreadId}/transcript`,
-            textPreview: expect.stringMatching(/\.\.\.$/),
+            preview: expect.objectContaining({
+              type: "assistant_delta",
+              artifactPath: `ambient://threads/${run.childThreadId}/transcript`,
+              textPreview: expect.stringMatching(/\.\.\.$/),
+            }),
           }),
-        }),
-      ]));
+        ]),
+      );
       expect(store.listMessages(run.childThreadId).map((message) => message.role)).toEqual([
         "system",
         "user",
@@ -1682,10 +1031,11 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         },
         {
           featureFlags: {
-            readSnapshot: () => resolveAmbientFeatureFlags({
-              startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-              generatedAt: "2026-06-05T00:00:00.000Z",
-            }),
+            readSnapshot: () =>
+              resolveAmbientFeatureFlags({
+                startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
+                generatedAt: "2026-06-05T00:00:00.000Z",
+              }),
           },
         },
       );
@@ -1735,14 +1085,16 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           roleOutput: {
             changes: ["README.md"],
             validation: ["stubbed"],
-            mutationEvidence: [{
-              toolCallId: "tool-call-worker",
-              path: "README.md",
-              category: "workspace.write",
-              worktreeIsolated: true,
-              worktreePath: childThread.workspacePath,
-              approvalId: "approval-worker",
-            }],
+            mutationEvidence: [
+              {
+                toolCallId: "tool-call-worker",
+                path: "README.md",
+                category: "workspace.write",
+                worktreeIsolated: true,
+                worktreePath: childThread.workspacePath,
+                approvalId: "approval-worker",
+              },
+            ],
           },
         };
         store.addMessage({
@@ -1758,7 +1110,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       });
       (runtime as any).activeRunIds.set(parent.id, parentRun.id);
       const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
+      (runtime as any).controllers.subagentToolExtensions.createToolExtension(parent.id)({
         registerTool: (tool: any) => registeredTools.push(tool),
       });
       const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
@@ -1824,33 +1176,33 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           },
         },
       });
-      expect(store.listSubagentRunEvents(runId)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.runtime_event",
-          preview: expect.objectContaining({
-            type: "tool_result",
-            source: "child_runtime",
-            runId,
-            childThreadId: run.childThreadId,
-            toolName: "write",
-            details: expect.objectContaining({
-              status: "done",
-              toolCallId: "tool-call-worker",
-              category: "workspace.write",
-              path: "README.md",
-              worktreeIsolated: true,
-              worktreePath: childThread.workspacePath,
-              approvalId: permissionAuditId,
-              approvalSource: "policy",
+      expect(store.listSubagentRunEvents(runId)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "subagent.runtime_event",
+            preview: expect.objectContaining({
+              type: "tool_result",
+              source: "child_runtime",
+              runId,
+              childThreadId: run.childThreadId,
+              toolName: "write",
+              details: expect.objectContaining({
+                status: "done",
+                toolCallId: "tool-call-worker",
+                category: "workspace.write",
+                path: "README.md",
+                worktreeIsolated: true,
+                worktreePath: childThread.workspacePath,
+                approvalId: permissionAuditId,
+                approvalSource: "policy",
+              }),
             }),
           }),
-        }),
-      ]));
-      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(expect.arrayContaining([
-        "subagent.worktree_prepared",
-        "subagent.spawn_requested",
-        "subagent.child_session_starting",
-      ]));
+        ]),
+      );
+      expect(store.listSubagentRunEvents(runId).map((event) => event.type)).toEqual(
+        expect.arrayContaining(["subagent.worktree_prepared", "subagent.spawn_requested", "subagent.child_session_starting"]),
+      );
       expect(spawned.details).toMatchObject({
         childWorktree: {
           threadId: run.childThreadId,
@@ -1862,1398 +1214,18 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           loadedCategories: expect.arrayContaining(["workspace.write", "artifact.write"]),
         },
       });
-      expect(emitted).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "thread-updated",
-          thread: expect.objectContaining({
-            id: run.childThreadId,
-            workspacePath: childThread.workspacePath,
-            gitWorktree: expect.objectContaining({ status: "active" }),
-          }),
-        }),
-      ]));
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("does not abort an active child only because the role runtime budget elapsed when partial output is allowed", async () => {
-    const fixture = await agentRuntimeBudgetOverrunFixture({ roleId: "explorer", allowPartialResult: true });
-    try {
-      expect(fixture.waited).toMatchObject({
-        timedOut: false,
-        outcome: { kind: "progress_return", reason: "parent_wait_window_elapsed" },
-        run: {
-          status: "running",
-        },
-      });
-      expect(fixture.run).toMatchObject({
-        status: "running",
-      });
-      expect(fixture.run.resultArtifact).toBeUndefined();
-      expect(fixture.abort).not.toHaveBeenCalled();
-      expect((fixture.runtime as any).activeRuns.has(fixture.running.childThreadId)).toBe(true);
-      expect(fixture.runtimeEvents).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "status",
-          source: "wait_agent",
-          status: "running",
-          message: "wait_agent timed out before the child run reached a terminal status; child runtime remains active.",
-          details: expect.objectContaining({
-            childRunId: fixture.running.id,
-            childThreadId: fixture.running.childThreadId,
-            waitTimeoutMs: 1,
-            childIdleTimeoutMs: 600_000,
-            childHardTimeoutMs: 600_000,
-            lastChildActivityAt: expect.any(String),
-            lastChildActivitySource: expect.any(String),
-          }),
-        }),
-      ]));
-      expect(fixture.store.listSubagentMailboxEvents(fixture.running.id)).toEqual([]);
-      expect(fixture.store.listSubagentParentMailboxEventsForParentRun(fixture.running.parentRunId)).toEqual([]);
-      expect(fixture.emitted).not.toEqual(expect.arrayContaining([
-        expect.objectContaining({ type: "subagent-parent-mailbox-event-updated" }),
-        expect.objectContaining({ type: "run-status", threadId: fixture.running.childThreadId, status: "idle" }),
-      ]));
-    } finally {
-      await fixture.close();
-    }
-  });
-
-  it("emits wait heartbeats while a live child runtime is still pending", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-wait-heartbeat-"));
-    const store = new ProjectStore();
-    store.openWorkspace(workspacePath);
-    try {
-      store.setFeatureFlagSettings({ subagents: true });
-      const parent = store.createThread("parent waiting on child heartbeat");
-      const assistant = store.addMessage({
-        threadId: parent.id,
-        role: "assistant",
-        content: "",
-        metadata: { status: "streaming", runtime: "pi" },
-      });
-      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-      const featureFlags = resolveAmbientFeatureFlags({
-        settings: store.getFeatureFlagSettings(),
-        generatedAt: "2026-06-05T00:00:00.000Z",
-      });
-      const baseRoleProfile = getDefaultSubagentRoleProfile("explorer");
-      const roleProfileSnapshot = {
-        ...baseRoleProfile,
-        guardPolicy: {
-          ...baseRoleProfile.guardPolicy,
-          maxRuntimeMs: 120_000,
-        },
-      };
-      const created = store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: parentRun.id,
-        parentMessageId: assistant.id,
-        title: "Heartbeat child",
-        roleId: "explorer",
-        roleProfileSnapshot,
-        canonicalTaskPath: "root/0:explorer",
-        featureFlagSnapshot: featureFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-        dependencyMode: "required",
-      });
-      const running = store.markSubagentRunStatus(created.id, "running");
-      const runtimeEvents: any[] = [];
-      const runtime = new AgentRuntime(store, {} as any, {} as any, () => undefined, {
-        request: vi.fn(),
-        denyThread: () => undefined,
-      });
-
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2026-06-05T00:00:00.000Z"));
-      try {
-        (runtime as any).subagentChildExecutions.set(running.id, {
-          childThreadId: running.childThreadId,
-          promise: new Promise<void>(() => undefined),
-          startedAt: "2026-06-05T00:00:00.000Z",
-        });
-
-        const waitedPromise = (runtime as any).waitForResolvedSubagentChildRun({
-          run: running,
-          timeoutMs: 35_000,
-          emitEvent: (event: any) => {
-            const persisted = appendMappedSubagentRuntimeEvent(store, {
-              run: store.getSubagentRun(running.id),
-              source: "wait_agent",
-              event,
-            });
-            runtimeEvents.push(persisted.runtimeEvent);
-            return persisted.runEvent;
-          },
-        });
-
-        await vi.advanceTimersByTimeAsync(15_000);
-        await vi.advanceTimersByTimeAsync(15_000);
-        await vi.advanceTimersByTimeAsync(5_000);
-        const waited = await waitedPromise;
-
-        expect(waited).toMatchObject({
-          timedOut: false,
-          outcome: { kind: "progress_return", reason: "parent_wait_window_elapsed" },
-          run: {
-            id: running.id,
-            status: "running",
-          },
-        });
-        expect(runtimeEvents).toEqual(expect.arrayContaining([
+      expect(emitted).toEqual(
+        expect.arrayContaining([
           expect.objectContaining({
-            type: "status",
-            source: "wait_agent",
-            status: "running",
-            message: "wait_agent is still waiting on the live child runtime.",
-            details: expect.objectContaining({
-              childRunId: running.id,
-              childThreadId: running.childThreadId,
-              waitElapsedMs: 15_000,
+            type: "thread-updated",
+            thread: expect.objectContaining({
+              id: run.childThreadId,
+              workspacePath: childThread.workspacePath,
+              gitWorktree: expect.objectContaining({ status: "active" }),
             }),
           }),
-          expect.objectContaining({
-            type: "status",
-            source: "wait_agent",
-            status: "running",
-            message: "wait_agent is still waiting on the live child runtime.",
-            details: expect.objectContaining({
-              waitElapsedMs: 30_000,
-            }),
-          }),
-          expect.objectContaining({
-            type: "status",
-            source: "wait_agent",
-            status: "running",
-            message: "wait_agent timed out before the child run reached a terminal status; child runtime remains active.",
-          }),
-        ]));
-      } finally {
-        vi.useRealTimers();
-      }
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("does not abort an active child only because the role runtime budget elapsed when partial output is forbidden", async () => {
-    const fixture = await agentRuntimeBudgetOverrunFixture({ roleId: "reviewer", allowPartialResult: false });
-    try {
-      expect(fixture.waited).toMatchObject({
-        timedOut: false,
-        outcome: { kind: "progress_return", reason: "parent_wait_window_elapsed" },
-        run: {
-          status: "running",
-        },
-      });
-      expect(fixture.run).toMatchObject({
-        status: "running",
-      });
-      expect(fixture.run.resultArtifact).toBeUndefined();
-      expect(fixture.abort).not.toHaveBeenCalled();
-      expect((fixture.runtime as any).activeRuns.has(fixture.running.childThreadId)).toBe(true);
-      expect(fixture.runtimeEvents).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "status",
-          source: "wait_agent",
-          status: "running",
-          message: "wait_agent timed out before the child run reached a terminal status; child runtime remains active.",
-          details: expect.objectContaining({
-            childRunId: fixture.running.id,
-            childThreadId: fixture.running.childThreadId,
-            waitTimeoutMs: 1,
-            childIdleTimeoutMs: 600_000,
-            childHardTimeoutMs: 600_000,
-            lastChildActivityAt: expect.any(String),
-            lastChildActivitySource: expect.any(String),
-          }),
-        }),
-      ]));
-      expect(fixture.store.listSubagentMailboxEvents(fixture.running.id)).toEqual([]);
-      expect(fixture.store.listSubagentParentMailboxEventsForParentRun(fixture.running.parentRunId)).toEqual([]);
-    } finally {
-      await fixture.close();
-    }
-  });
-
-  it("settles a child only after the child activity idle timeout elapses with liveness evidence", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-05T00:00:00.000Z"));
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-idle-timeout-"));
-    const store = new ProjectStore();
-    try {
-      store.openWorkspace(workspacePath);
-      store.setFeatureFlagSettings({ subagents: true });
-      const parent = store.createThread("parent with idle child");
-      const assistant = store.addMessage({
-        threadId: parent.id,
-        role: "assistant",
-        content: "",
-        metadata: { status: "streaming", runtime: "pi" },
-      });
-      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-      const featureFlags = resolveAmbientFeatureFlags({
-        settings: store.getFeatureFlagSettings(),
-        generatedAt: "2026-06-05T00:00:00.000Z",
-      });
-      const baseRoleProfile = getDefaultSubagentRoleProfile("reviewer");
-      const roleProfileSnapshot = {
-        ...baseRoleProfile,
-        guardPolicy: {
-          ...baseRoleProfile.guardPolicy,
-          maxRuntimeMs: 20 * 60_000,
-          allowPartialResult: false,
-        },
-      };
-      const created = store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: parentRun.id,
-        parentMessageId: assistant.id,
-        title: "Idle child",
-        roleId: "reviewer",
-        roleProfileSnapshot,
-        canonicalTaskPath: "root/0:reviewer",
-        featureFlagSnapshot: featureFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-        dependencyMode: "required",
-      });
-      const running = store.markSubagentRunStatus(created.id, "running");
-      store.createSubagentWaitBarrier({
-        parentThreadId: parent.id,
-        parentRunId: parentRun.id,
-        childRunIds: [running.id],
-        dependencyMode: "required_all",
-        failurePolicy: "ask_user",
-        timeoutMs: 12 * 60_000,
-      });
-      const abort = vi.fn(async () => undefined);
-      const runtimeEvents: any[] = [];
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        () => undefined,
-        {
-          request: vi.fn(),
-          denyThread: () => undefined,
-        },
+        ]),
       );
-      (runtime as any).activeRuns.set(running.childThreadId, {
-        abort,
-        detach: vi.fn(),
-        queue: vi.fn(),
-      });
-      (runtime as any).subagentChildExecutions.set(running.id, {
-        childThreadId: running.childThreadId,
-        promise: new Promise<void>(() => undefined),
-        startedAt: "2026-06-05T00:00:00.000Z",
-      });
-
-      const waitedPromise = (runtime as any).waitForResolvedSubagentChildRun({
-        run: running,
-        timeoutMs: 12 * 60_000,
-        emitEvent: (event: any) => {
-          const persisted = appendMappedSubagentRuntimeEvent(store, {
-            run: store.getSubagentRun(running.id),
-            source: "wait_agent",
-            event,
-          });
-          runtimeEvents.push(persisted.runtimeEvent);
-          return persisted.runEvent;
-        },
-      });
-
-      await vi.advanceTimersByTimeAsync(10 * 60_000);
-      const waited = await waitedPromise;
-
-      expect(waited).toMatchObject({
-        timedOut: true,
-        outcome: { kind: "child_runtime_timeout", reason: "runtime_idle_timeout" },
-        run: {
-          id: running.id,
-          status: "timed_out",
-          resultArtifact: expect.objectContaining({
-            status: "timed_out",
-            partial: false,
-          }),
-        },
-      });
-      expect(abort).toHaveBeenCalledTimes(1);
-      expect(runtimeEvents).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "error",
-          source: "child_runtime",
-          status: "timed_out",
-          artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
-          details: expect.objectContaining({
-            reason: "runtime_idle_timeout",
-            maxRuntimeMs: 600_000,
-            idleElapsedMs: 600_000,
-            elapsedMs: 600_000,
-            lastChildActivityAt: "2026-06-05T00:00:00.000Z",
-            lastChildActivitySource: expect.any(String),
-          }),
-        }),
-      ]));
-      expect(store.listSubagentMailboxEvents(running.id)).toEqual([
-        expect.objectContaining({
-          direction: "child_to_parent",
-          type: "subagent.failed",
-          payload: expect.objectContaining({
-            status: "timed_out",
-            partial: false,
-            reason: "runtime_idle_timeout",
-            idleElapsedMs: 600_000,
-            artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
-          }),
-        }),
-      ]);
-      expect(store.listSubagentRunEvents(running.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.runtime_idle_timeout",
-          preview: expect.objectContaining({
-            status: "timed_out",
-            partial: false,
-            reason: "runtime_idle_timeout",
-            maxRuntimeMs: 600_000,
-            idleElapsedMs: 600_000,
-            artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
-          }),
-        }),
-      ]));
-      expect(store.listSubagentParentMailboxEventsForParentRun(running.parentRunId)).toEqual([
-        expect.objectContaining({
-          parentMessageId: assistant.id,
-          type: "subagent.lifecycle_interrupted",
-          payload: expect.objectContaining({
-            schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
-            childRunId: running.id,
-            childThreadId: running.childThreadId,
-            previousStatus: "running",
-            status: "timed_out",
-            source: "runtime_idle_timeout",
-          }),
-        }),
-      ]);
-    } finally {
-      vi.useRealTimers();
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("settles an active child at the hard cap even when recent activity prevents idle timeout", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-05T00:00:00.000Z"));
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-hard-cap-"));
-    const store = new ProjectStore();
-    try {
-      store.openWorkspace(workspacePath);
-      store.setFeatureFlagSettings({ subagents: true });
-      const parent = store.createThread("parent with hard-cap child");
-      const assistant = store.addMessage({
-        threadId: parent.id,
-        role: "assistant",
-        content: "",
-        metadata: { status: "streaming", runtime: "pi" },
-      });
-      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-      const featureFlags = resolveAmbientFeatureFlags({
-        settings: store.getFeatureFlagSettings(),
-        generatedAt: "2026-06-05T00:00:00.000Z",
-      });
-      const baseRoleProfile = getDefaultSubagentRoleProfile("reviewer");
-      const roleProfileSnapshot = {
-        ...baseRoleProfile,
-        guardPolicy: {
-          ...baseRoleProfile.guardPolicy,
-          maxRuntimeMs: 10 * 60_000,
-          allowPartialResult: false,
-        },
-      };
-      const created = store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: parentRun.id,
-        parentMessageId: assistant.id,
-        title: "Hard cap child",
-        roleId: "reviewer",
-        roleProfileSnapshot,
-        canonicalTaskPath: "root/0:reviewer",
-        featureFlagSnapshot: featureFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-        dependencyMode: "required",
-      });
-      const running = store.markSubagentRunStatus(created.id, "running");
-      store.createSubagentWaitBarrier({
-        parentThreadId: parent.id,
-        parentRunId: parentRun.id,
-        childRunIds: [running.id],
-        dependencyMode: "required_all",
-        failurePolicy: "ask_user",
-        timeoutMs: 12 * 60_000,
-      });
-      const abort = vi.fn(async () => undefined);
-      const runtimeEvents: any[] = [];
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        () => undefined,
-        {
-          request: vi.fn(),
-          denyThread: () => undefined,
-        },
-      );
-      (runtime as any).activeRuns.set(running.childThreadId, {
-        abort,
-        detach: vi.fn(),
-        queue: vi.fn(),
-      });
-      (runtime as any).subagentChildExecutions.set(running.id, {
-        childThreadId: running.childThreadId,
-        promise: new Promise<void>(() => undefined),
-        startedAt: "2026-06-05T00:00:00.000Z",
-      });
-
-      vi.setSystemTime(new Date("2026-06-05T00:09:59.000Z"));
-      const activityMessage = store.addMessage({
-        threadId: running.childThreadId,
-        role: "assistant",
-        content: "Still working with fresh activity before the hard cap.",
-      });
-
-      const waitedPromise = (runtime as any).waitForResolvedSubagentChildRun({
-        run: running,
-        timeoutMs: 12 * 60_000,
-        emitEvent: (event: any) => {
-          const persisted = appendMappedSubagentRuntimeEvent(store, {
-            run: store.getSubagentRun(running.id),
-            source: "wait_agent",
-            event,
-          });
-          runtimeEvents.push(persisted.runtimeEvent);
-          return persisted.runEvent;
-        },
-      });
-
-      await vi.advanceTimersByTimeAsync(1_000);
-      const waited = await waitedPromise;
-
-      expect(waited).toMatchObject({
-        timedOut: true,
-        outcome: { kind: "child_runtime_timeout", reason: "runtime_hard_cap_exceeded" },
-        run: {
-          id: running.id,
-          status: "timed_out",
-          resultArtifact: expect.objectContaining({
-            status: "timed_out",
-            partial: false,
-          }),
-        },
-      });
-      expect(abort).toHaveBeenCalledTimes(1);
-      expect(runtimeEvents).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "error",
-          source: "child_runtime",
-          status: "timed_out",
-          artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
-          details: expect.objectContaining({
-            reason: "runtime_hard_cap_exceeded",
-            maxRuntimeMs: 600_000,
-            elapsedMs: 600_000,
-            idleElapsedMs: 1_000,
-            lastChildActivityAt: "2026-06-05T00:09:59.000Z",
-            lastChildActivitySource: "message:assistant",
-            lastChildActivityDetail: `message ${activityMessage.id}`,
-          }),
-        }),
-      ]));
-      expect(store.listSubagentMailboxEvents(running.id)).toEqual([
-        expect.objectContaining({
-          direction: "child_to_parent",
-          type: "subagent.failed",
-          payload: expect.objectContaining({
-            status: "timed_out",
-            partial: false,
-            reason: "runtime_hard_cap_exceeded",
-            elapsedMs: 600_000,
-            idleElapsedMs: 1_000,
-            lastChildActivityAt: "2026-06-05T00:09:59.000Z",
-            lastChildActivitySource: "message:assistant",
-            artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
-          }),
-        }),
-      ]);
-      expect(store.listSubagentRunEvents(running.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.runtime_hard_cap_exceeded",
-          preview: expect.objectContaining({
-            status: "timed_out",
-            partial: false,
-            reason: "runtime_hard_cap_exceeded",
-            maxRuntimeMs: 600_000,
-            elapsedMs: 600_000,
-            idleElapsedMs: 1_000,
-            lastChildActivityAt: "2026-06-05T00:09:59.000Z",
-            lastChildActivitySource: "message:assistant",
-            artifactPath: `ambient://threads/${running.childThreadId}/transcript`,
-          }),
-        }),
-      ]));
-      expect(store.listSubagentParentMailboxEventsForParentRun(running.parentRunId)).toEqual([
-        expect.objectContaining({
-          parentMessageId: assistant.id,
-          type: "subagent.lifecycle_interrupted",
-          payload: expect.objectContaining({
-            schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
-            childRunId: running.id,
-            childThreadId: running.childThreadId,
-            previousStatus: "running",
-            status: "timed_out",
-            source: "runtime_hard_cap_exceeded",
-          }),
-        }),
-      ]);
-    } finally {
-      vi.useRealTimers();
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("surfaces native child permission prompts as parent-forwarded approval requests", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-permission-wait-"));
-    const store = new ProjectStore();
-    try {
-      store.openWorkspace(workspacePath);
-      store.setFeatureFlagSettings({ subagents: true });
-      const parent = store.createThread("parent with child permission wait");
-      const assistant = store.addMessage({
-        threadId: parent.id,
-        role: "assistant",
-        content: "",
-        metadata: { status: "streaming", runtime: "pi" },
-      });
-      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-      const featureFlags = resolveAmbientFeatureFlags({
-        settings: store.getFeatureFlagSettings(),
-        generatedAt: "2026-06-06T00:00:00.000Z",
-      });
-      const created = store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: parentRun.id,
-        parentMessageId: assistant.id,
-        title: "Child write",
-        roleId: "worker",
-        roleProfileSnapshot: getDefaultSubagentRoleProfile("worker"),
-        canonicalTaskPath: "root/0:worker",
-        featureFlagSnapshot: featureFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-06T00:00:00.000Z"),
-        dependencyMode: "required",
-      });
-      const running = store.markSubagentRunStatus(created.id, "running");
-      const pendingPermission: PermissionRequest = {
-        id: "permission-child-write",
-        threadId: running.childThreadId,
-        toolName: "write",
-        title: "Allow child write?",
-        message: "The child wants to write a file.",
-        detail: "Target path: /repo/child-output.md",
-        risk: "outside-workspace",
-        reusableScopes: ["thread", "project"],
-        grantActionKind: "local_file_write",
-        grantTargetKind: "path",
-        grantTargetLabel: "/repo/child-output.md",
-        grantTargetHash: "hash-child-output",
-      };
-      const runtimeEvents: any[] = [];
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        () => undefined,
-        {
-          request: vi.fn(),
-          denyThread: () => undefined,
-          listPending: () => [pendingPermission],
-        },
-      );
-      (runtime as any).subagentChildExecutions.set(running.id, {
-        childThreadId: running.childThreadId,
-        promise: new Promise<void>(() => undefined),
-        startedAt: "2026-06-06T00:00:00.000Z",
-      });
-
-      const waited = await (runtime as any).waitForResolvedSubagentChildRun({
-        run: running,
-        timeoutMs: 60_000,
-        emitEvent: (event: any) => {
-          const persisted = appendMappedSubagentRuntimeEvent(store, {
-            run: store.getSubagentRun(running.id),
-            source: "wait_agent",
-            event,
-          });
-          runtimeEvents.push(persisted.runtimeEvent);
-          return persisted.runEvent;
-        },
-      });
-
-      expect(waited).toMatchObject({
-        timedOut: false,
-        run: {
-          id: running.id,
-          status: "needs_attention",
-        },
-        approvalRequests: [
-          {
-            approvalId: "permission-child-write",
-            title: "Allow child write?",
-            prompt: expect.stringContaining("Target path: /repo/child-output.md"),
-            requestedAction: "local_file_write",
-            requestedToolId: "write",
-            requestedToolCategory: "outside-workspace",
-            requestedScope: "project",
-            idempotencyKey: `subagent:native-permission-request:${running.id}:permission-child-write:write`,
-          },
-        ],
-      });
-      expect(store.getSubagentRun(running.id).status).toBe("needs_attention");
-      expect(runtimeEvents).toEqual([
-        expect.objectContaining({
-          type: "status",
-          source: "wait_agent",
-          status: "needs_attention",
-          message: "Child runtime is waiting for parent approval.",
-          details: {
-            approvalIds: ["permission-child-write"],
-            pendingApprovalCount: 1,
-          },
-        }),
-      ]);
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("round-trips native child permission prompts through parent approval and child resume", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-permission-roundtrip-"));
-    const store = new ProjectStore();
-    try {
-      store.openWorkspace(workspacePath);
-      store.setFeatureFlagSettings({ subagents: true });
-      const parent = store.createThread("parent with child permission roundtrip");
-      const assistant = store.addMessage({
-        threadId: parent.id,
-        role: "assistant",
-        content: "",
-        metadata: { status: "streaming", runtime: "pi" },
-      });
-      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-      const pendingPermissions: PermissionRequest[] = [];
-      const permissionResponses: Array<{ id: string; response: string }> = [];
-      const respond = vi.fn((id: string, response: string) => {
-        permissionResponses.push({ id, response });
-        const index = pendingPermissions.findIndex((request) => request.id === id);
-        if (index >= 0) pendingPermissions.splice(index, 1);
-      });
-      let resolveChildSendStarted!: () => void;
-      const childSendStarted = new Promise<void>((resolve) => {
-        resolveChildSendStarted = resolve;
-      });
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        () => undefined,
-        {
-          request: vi.fn(),
-          denyThread: () => undefined,
-          listPending: () => pendingPermissions,
-          respond,
-        },
-      );
-      const sendSpy = vi.spyOn(runtime as any, "send").mockImplementation(async (input: any) => {
-        store.addMessage({
-          threadId: input.threadId,
-          role: "user",
-          content: input.visibleUserContent ?? input.content,
-          metadata: { delivery: input.delivery, internal: input.internal },
-        });
-        if (!pendingPermissions.length) {
-          pendingPermissions.push({
-            id: "permission-child-write",
-            threadId: input.threadId,
-            toolName: "write",
-            title: "Allow child write?",
-            message: "The child wants to write a file.",
-            detail: "Target path: /repo/child-output.md",
-            risk: "outside-workspace",
-            reusableScopes: ["thread", "project"],
-            grantActionKind: "local_file_write",
-            grantTargetKind: "path",
-            grantTargetLabel: "/repo/child-output.md",
-            grantTargetHash: "hash-child-output",
-          });
-        }
-        resolveChildSendStarted();
-        await new Promise<void>(() => undefined);
-      });
-      (runtime as any).activeRunIds.set(parent.id, parentRun.id);
-      const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
-        registerTool: (tool: any) => registeredTools.push(tool),
-      });
-      const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
-      if (!subagentTool) throw new Error("ambient_subagent tool was not registered.");
-
-      const spawned = await subagentTool.execute("spawn-native-approval-roundtrip", {
-        action: "spawn_agent",
-        roleId: "summarizer",
-        task: "Wait for a native child approval prompt before continuing.",
-        dependencyMode: "required",
-        forkMode: "no_history",
-        promptMode: "fresh",
-        toolScope: { requestedCategories: ["artifact.read"] },
-        idempotencyKey: "spawn:native-approval-roundtrip",
-      });
-      expect(spawned.details).toMatchObject({
-        orchestrationStarted: true,
-        toolScopeSnapshot: {
-          loadedCategories: ["artifact.read"],
-          piVisibleCategories: ["artifact.read"],
-        },
-      });
-      const runId = spawned.details.run.id as string;
-      await Promise.race([
-        childSendStarted,
-        new Promise((_, reject) => setTimeout(
-          () => reject(new Error(`Child permission roundtrip send did not start: ${JSON.stringify(spawned.details)}`)),
-          1_000,
-        )),
-      ]);
-
-      const waited = await subagentTool.execute("wait-native-approval-roundtrip", {
-        action: "wait_agent",
-        childRunId: runId,
-        wait: { timeoutMs: 5000 },
-        idempotencyKey: "wait:native-approval-roundtrip-request",
-      });
-
-      expect(waited.details).toMatchObject({
-        status: "needs_attention",
-        waitSatisfied: false,
-        synthesisAllowed: false,
-        waitNotice: "Child requested approval; parent approval was forwarded to the parent mailbox and the parent remains blocked on this child.",
-        parentResolution: {
-          status: "blocked",
-          action: "ask_user",
-          canSynthesize: false,
-          requiresUserInput: true,
-          childRunId: runId,
-          childStatus: "needs_attention",
-        },
-        approvalRequestRecords: [
-          {
-            idempotencyKey: `subagent:native-permission-request:${runId}:permission-child-write:write`,
-            childMailboxEvent: {
-              runId,
-              direction: "child_to_parent",
-              type: "subagent.approval_requested",
-              deliveryState: "delivered",
-            },
-            parentMailboxEvent: {
-              parentThreadId: parent.id,
-              parentRunId: parentRun.id,
-              parentMessageId: assistant.id,
-              type: "subagent.child_approval_requested",
-              deliveryState: "queued",
-              childRunIds: [runId],
-            },
-          },
-        ],
-      });
-      expect(store.getSubagentRun(runId).status).toBe("needs_attention");
-      expect(store.listSubagentParentMailboxEventsForParentRun(parentRun.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.child_approval_requested",
-          deliveryState: "queued",
-          payload: expect.objectContaining({
-            childRunId: runId,
-            childThreadId: store.getSubagentRun(runId).childThreadId,
-            approvalId: "permission-child-write",
-            requestedToolId: "write",
-            requestedScope: "project",
-            parentBlockingState: expect.objectContaining({
-              action: "forward_child_approval_then_wait",
-              childRunId: runId,
-              resumeParentBlocking: true,
-              resumeAction: "wait_agent",
-            }),
-          }),
-        }),
-      ]));
-
-      const decision = resolveSubagentApprovalDecision(store, {
-        childRunId: runId,
-        approvalId: "permission-child-write",
-        decision: "approved",
-        requestedScope: "this_child_thread",
-        userDecision: "Approve this child write for the rest of this child thread.",
-      }, { now: "2026-06-06T00:01:00.000Z" });
-
-      expect(decision).toMatchObject({
-        approvalId: "permission-child-write",
-        decision: "approved",
-        requestedScope: "this_child_thread",
-        effectiveScope: "this_child_thread",
-        parentRemainsBlocked: true,
-        approvalRequestParentMailboxEvent: {
-          deliveryState: "consumed",
-        },
-        approvalResponseChildMailboxEvent: {
-          type: "subagent.approval_response",
-          deliveryState: "queued",
-        },
-      });
-
-      const resumed = await subagentTool.execute("wait-native-approval-response-roundtrip", {
-        action: "wait_agent",
-        childRunId: runId,
-        wait: { timeoutMs: 1 },
-        idempotencyKey: "wait:native-approval-roundtrip-response",
-      });
-
-      expect(sendSpy).toHaveBeenCalledTimes(1);
-      expect(respond).toHaveBeenCalledWith("permission-child-write", "always_thread");
-      expect(permissionResponses).toEqual([
-        { id: "permission-child-write", response: "always_thread" },
-      ]);
-      expect(pendingPermissions).toEqual([]);
-      expect(resumed.details).toMatchObject({
-        status: "running",
-        waitSatisfied: false,
-        waitTimedOut: false,
-        waitSessionExpired: true,
-        waitOutcome: { kind: "progress_return", reason: "parent_wait_window_elapsed" },
-        synthesisAllowed: false,
-        waitNotice: "Child approval response was delivered to the child runtime; the parent remains blocked until the child reaches a synthesis-safe result.",
-        parentResolution: {
-          status: "blocked",
-          action: "wait_for_child",
-          canSynthesize: false,
-          requiresUserInput: false,
-          childRunId: runId,
-          childStatus: "running",
-        },
-        approvalResponseDeliveries: [
-          {
-            accepted: true,
-            run: {
-              id: runId,
-              status: "running",
-            },
-            mailboxEvent: {
-              runId,
-              direction: "parent_to_child",
-              type: "subagent.approval_response",
-              deliveryState: "consumed",
-            },
-            message: "Child approval response was delivered and the parent remains blocked until the child completes or needs more attention.",
-          },
-        ],
-      });
-      expect(store.getSubagentRun(runId).status).toBe("running");
-      expect(store.listSubagentRunEvents(runId)).toEqual(expect.arrayContaining([
-        expect.objectContaining({ type: "subagent.approval_requested" }),
-        expect.objectContaining({ type: "subagent.child_approval_forwarded" }),
-        expect.objectContaining({ type: "subagent.approval_response.consumed" }),
-      ]));
-      expect(store.listSubagentWaitBarriersForParentRun(parentRun.id)).toEqual([
-        expect.objectContaining({
-          parentRunId: parentRun.id,
-          childRunIds: [runId],
-          status: "waiting_on_children",
-        }),
-      ]);
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("launches ordinary child web research with brokered tools and without browser fallback", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-web-research-scope-"));
-    const store = new ProjectStore();
-    try {
-      store.openWorkspace(workspacePath);
-      store.setFeatureFlagSettings({ subagents: true });
-      const parent = store.createThread("parent with brokered child web research");
-      const assistant = store.addMessage({
-        threadId: parent.id,
-        role: "assistant",
-        content: "",
-        metadata: { status: "streaming", runtime: "pi" },
-      });
-      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        () => undefined,
-        {
-          request: vi.fn(async () => ({ allowed: true, mode: "allow_once" as const })),
-          denyThread: () => undefined,
-        },
-      );
-      vi.spyOn(runtime as any, "send").mockImplementation(async (input: any) => {
-        const structuredOutput = {
-          schemaVersion: "ambient-subagent-structured-result-v1",
-          roleId: "explorer",
-          status: "complete",
-          summary: "Brokered web research scope was prepared.",
-          evidence: ["tool scope snapshot"],
-          artifacts: [],
-          risks: [],
-          nextActions: [],
-          roleOutput: {
-            findings: [{ summary: "Child launch uses brokered web research tools.", provenance: ["tool scope snapshot"] }],
-            openQuestions: [],
-          },
-        };
-        store.addMessage({
-          threadId: input.threadId,
-          role: "user",
-          content: input.visibleUserContent ?? input.content,
-          metadata: { delivery: input.delivery, internal: input.internal },
-        });
-        store.addMessage({
-          threadId: input.threadId,
-          role: "assistant",
-          content: [
-            "Brokered web research scope was prepared.",
-            `SUBAGENT_RESULT_JSON: ${JSON.stringify(structuredOutput)}`,
-            "SUBAGENT_RESULT_STATUS: complete",
-          ].join("\n"),
-          metadata: { status: "done" },
-        });
-      });
-      (runtime as any).activeRunIds.set(parent.id, parentRun.id);
-      const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
-        registerTool: (tool: any) => registeredTools.push(tool),
-      });
-      const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
-      if (!subagentTool) throw new Error("ambient_subagent tool was not registered.");
-
-      const spawned = await subagentTool.execute("spawn-brokered-web-research-child", {
-        action: "spawn_agent",
-        roleId: "explorer",
-        task: "Research current travel details using ordinary web research; do not use an interactive browser.",
-        dependencyMode: "required",
-        forkMode: "recent_turns",
-        promptMode: "fresh",
-        toolScope: {
-          requestedCategories: ["connector.read", "browser.read"],
-          childAuthority: {
-            taskIntent: "web_research",
-            network: "allow",
-            mutation: "deny",
-          },
-        },
-        idempotencyKey: "spawn:brokered-web-research-child",
-      });
-      const runId = spawned.details.run.id as string;
-      const snapshots = store.listSubagentToolScopeSnapshots(runId);
-
-      expect(snapshots).toHaveLength(1);
-      expect(snapshots[0]).toMatchObject({
-        runId,
-        scope: {
-          loadedCategories: ["connector.read"],
-          piVisibleCategories: ["connector.read"],
-          deniedCategories: [
-            {
-              id: "browser.read",
-              reason: "Denied by child task intent web_research; allowed categories: workspace.read, artifact.read, connector.read.",
-            },
-          ],
-        },
-      });
-      expect(resolveSubagentChildActiveToolNames({
-        subagentToolScopeSnapshots: snapshots,
-      })).toEqual([
-        "web_research_status",
-        "web_research_search",
-        "web_research_fetch",
-      ]);
-      expect(JSON.stringify(snapshots[0].scope)).not.toContain("browser_search");
-      expect(JSON.stringify(snapshots[0].scope)).not.toContain("browser_content");
-      expect(spawned.details).toMatchObject({
-        toolScopeSnapshot: {
-          loadedCategories: ["connector.read"],
-          deniedCategories: [
-            {
-              id: "browser.read",
-              reason: "Denied by child task intent web_research; allowed categories: workspace.read, artifact.read, connector.read.",
-            },
-          ],
-        },
-      });
-    } finally {
-      store.close();
-      await rm(workspacePath, { recursive: true, force: true });
-    }
-  });
-
-  it("round-trips child browser authority prompts through parent approval and child resume", async () => {
-    vi.useRealTimers();
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-runtime-subagent-browser-approval-"));
-    const store = new ProjectStore();
-    try {
-      store.openWorkspace(workspacePath);
-      store.setFeatureFlagSettings({ subagents: true });
-      const parentBase = store.createThread("parent with child browser approval");
-      const parent = store.updateThreadSettings(parentBase.id, { permissionMode: "full-access" });
-      const assistant = store.addMessage({
-        threadId: parent.id,
-        role: "assistant",
-        content: "",
-        metadata: { status: "streaming", runtime: "pi" },
-      });
-      const parentRun = store.startRun({ threadId: parent.id, assistantMessageId: assistant.id });
-      const pendingPermissions: PermissionRequest[] = [];
-      const permissionResponses: Array<{ id: string; response: string }> = [];
-      const permissionResolvers = new Map<string, (resolution: { allowed: boolean; mode: any }) => void>();
-      let resolveBrowserPromptStarted!: () => void;
-      const browserPromptStarted = new Promise<void>((resolve) => {
-        resolveBrowserPromptStarted = resolve;
-      });
-      const requestPermission = vi.fn((
-        input: Omit<PermissionRequest, "id">,
-        options?: { onRequest?: (request: PermissionRequest) => void },
-      ) => new Promise<{ allowed: boolean; mode: any }>((resolve) => {
-        const request = { ...input, id: "permission-child-browser" };
-        pendingPermissions.push(request);
-        permissionResolvers.set(request.id, resolve);
-        options?.onRequest?.(request);
-        resolveBrowserPromptStarted();
-      }));
-      const respond = vi.fn((id: string, response: string) => {
-        permissionResponses.push({ id, response });
-        const index = pendingPermissions.findIndex((request) => request.id === id);
-        if (index >= 0) pendingPermissions.splice(index, 1);
-        permissionResolvers.get(id)?.({ allowed: response !== "deny", mode: response });
-        permissionResolvers.delete(id);
-      });
-      let resolveChildSendStarted!: () => void;
-      const childSendStarted = new Promise<void>((resolve) => {
-        resolveChildSendStarted = resolve;
-      });
-      let resolveChildSendFinished!: () => void;
-      const childSendFinished = new Promise<void>((resolve) => {
-        resolveChildSendFinished = resolve;
-      });
-      const runtime = new AgentRuntime(
-        store,
-        {} as any,
-        {} as any,
-        () => undefined,
-        {
-          request: requestPermission,
-          denyThread: () => undefined,
-          listPending: () => pendingPermissions,
-          respond,
-        },
-      );
-      const sendSpy = vi.spyOn(runtime as any, "send").mockImplementation(async (input: any) => {
-        store.addMessage({
-          threadId: input.threadId,
-          role: "user",
-          content: input.visibleUserContent ?? input.content,
-          metadata: { delivery: input.delivery, internal: input.internal },
-        });
-        resolveChildSendStarted();
-        await childSendFinished;
-        const structuredOutput = {
-          schemaVersion: "ambient-subagent-structured-result-v1",
-          roleId: "explorer",
-          status: "complete",
-          summary: "Child browser approval response was consumed.",
-          evidence: ["permission-child-browser"],
-          artifacts: [],
-          risks: [],
-          nextActions: [],
-          roleOutput: {
-            findings: [{ summary: "Browser permission response reached the child runtime.", provenance: ["permission-child-browser"] }],
-            openQuestions: [],
-          },
-        };
-        store.addMessage({
-          threadId: input.threadId,
-          role: "assistant",
-          content: [
-            "Child browser approval response was consumed.",
-            `SUBAGENT_RESULT_JSON: ${JSON.stringify(structuredOutput)}`,
-            "SUBAGENT_RESULT_STATUS: complete",
-          ].join("\n"),
-          metadata: { status: "done" },
-        });
-      });
-      (runtime as any).activeRunIds.set(parent.id, parentRun.id);
-      const registeredTools: any[] = [];
-      (runtime as any).createSubagentToolExtension(parent.id)({
-        registerTool: (tool: any) => registeredTools.push(tool),
-      });
-      const subagentTool = registeredTools.find((tool) => tool.name === "ambient_subagent");
-      if (!subagentTool) throw new Error("ambient_subagent tool was not registered.");
-
-      const spawned = await Promise.race([
-        subagentTool.execute("spawn-browser-approval-roundtrip", {
-          action: "spawn_agent",
-          roleId: "explorer",
-          task: "Read one browser URL only if the parent approves child browser network access.",
-          dependencyMode: "required",
-          forkMode: "recent_turns",
-          promptMode: "fresh",
-          toolScope: {
-            requestedCategories: ["browser.interactive"],
-            childAuthority: {
-              taskIntent: "analysis",
-              network: "ask_parent",
-              mutation: "deny",
-            },
-          },
-          idempotencyKey: "spawn:browser-approval-roundtrip",
-        }),
-        new Promise<any>((_, reject) => setTimeout(
-          () => reject(new Error(`Browser approval spawn did not return: ${JSON.stringify({
-            parentRun,
-            runs: store.listSubagentRunsForParentThread(parent.id),
-          })}`)),
-          1_000,
-        )),
-      ]);
-      const runId = spawned.details.run.id as string;
-      await childSendStarted;
-      const run = store.getSubagentRun(runId);
-      store.recordSubagentToolScopeSnapshot(run.id, {
-        resolverInputs: {
-          childAuthorityProfile: {
-            childRunId: run.id,
-            childThreadId: run.childThreadId,
-            approvalRouting: { mode: "interactive" },
-            resourceScopes: {
-              browser: {
-                networkDecision: "ask_parent",
-                domains: ["ambient.test"],
-              },
-            },
-          },
-        },
-        scope: {
-          schemaVersion: "ambient-subagent-tool-scope-v1",
-          loadedCategories: ["browser.interactive"],
-          piVisibleCategories: ["browser.interactive"],
-          deniedCategories: [],
-          loadedTools: ["browser_content"],
-          piVisibleTools: ["browser_content"],
-          deniedTools: [],
-          approvalMode: "interactive",
-          worktreeIsolated: false,
-          fanoutAvailable: false,
-        } as any,
-      });
-
-      const browserPermissionPromise = (runtime as any).resolveToolCallPermission(
-        run.childThreadId,
-        store.getWorkspace(),
-        "browser_content",
-        { url: "https://ambient.test/current-child-browser-approval-behavior" },
-      ) as Promise<{ reason: string } | undefined>;
-      await Promise.race([
-        browserPromptStarted,
-        new Promise((_, reject) => setTimeout(
-          () => reject(new Error(`Browser approval prompt did not start: ${JSON.stringify({
-            run: store.getSubagentRun(run.id),
-            snapshots: store.listSubagentToolScopeSnapshots(run.id),
-            pendingPermissions,
-          })}`)),
-          1_000,
-        )),
-      ]);
-
-      expect(pendingPermissions).toEqual([
-        expect.objectContaining({
-          id: "permission-child-browser",
-          threadId: run.childThreadId,
-          toolName: "browser_content",
-          title: "Allow child browser network access?",
-          risk: "browser-network",
-          grantActionKind: "browser_network",
-          grantTargetKind: "browser_origin",
-          grantTargetLabel: "ambient.test",
-          grantConditions: expect.objectContaining({
-            childRunId: run.id,
-            childThreadId: run.childThreadId,
-            domain: "ambient.test",
-            source: "subagent-child-browser-authority",
-          }),
-        }),
-      ]);
-
-      const waited = await Promise.race([
-        subagentTool.execute("wait-browser-approval-roundtrip", {
-          action: "wait_agent",
-          childRunId: run.id,
-          wait: { timeoutMs: 50 },
-          idempotencyKey: "wait:browser-approval-roundtrip-request",
-        }),
-        new Promise<any>((_, reject) => setTimeout(
-          () => reject(new Error(`Browser approval wait did not return: ${JSON.stringify({
-            run: store.getSubagentRun(run.id),
-            pendingPermissions,
-            parentMailbox: store.listSubagentParentMailboxEventsForParentRun(parentRun.id),
-            runEvents: store.listSubagentRunEvents(run.id).map((event) => event.type),
-          })}`)),
-          1_000,
-        )),
-      ]);
-
-      expect(waited.details).toMatchObject({
-        status: "needs_attention",
-        waitSatisfied: false,
-        synthesisAllowed: false,
-        waitNotice: "Child requested approval; parent approval was forwarded to the parent mailbox and the parent remains blocked on this child.",
-        parentResolution: {
-          status: "blocked",
-          action: "ask_user",
-          canSynthesize: false,
-          requiresUserInput: true,
-          childRunId: run.id,
-          childStatus: "needs_attention",
-        },
-        approvalRequestRecords: [
-          {
-            idempotencyKey: `subagent:native-permission-request:${run.id}:permission-child-browser:browser_content`,
-            parentMailboxEvent: {
-              parentThreadId: parent.id,
-              parentRunId: parentRun.id,
-              parentMessageId: assistant.id,
-              type: "subagent.child_approval_requested",
-              deliveryState: "queued",
-              childRunIds: [run.id],
-            },
-          },
-        ],
-      });
-      expect(store.listSubagentParentMailboxEventsForParentRun(parentRun.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.child_approval_requested",
-          deliveryState: "queued",
-          payload: expect.objectContaining({
-            childRunId: run.id,
-            childThreadId: run.childThreadId,
-            approvalId: "permission-child-browser",
-            requestedToolId: "browser_content",
-            requestedAction: "browser_network",
-            requestedToolCategory: "browser-network",
-            parentBlockingState: expect.objectContaining({
-              action: "forward_child_approval_then_wait",
-              childRunId: run.id,
-              childThreadId: run.childThreadId,
-              resumeParentBlocking: true,
-              resumeAction: "wait_agent",
-            }),
-          }),
-        }),
-      ]));
-
-      const decision = resolveSubagentApprovalDecision(store, {
-        childRunId: run.id,
-        approvalId: "permission-child-browser",
-        decision: "approved",
-        requestedScope: "this_child_thread",
-        userDecision: "Approve child browser content for the rest of this child thread.",
-      }, { now: "2026-06-06T00:02:00.000Z" });
-
-      expect(decision).toMatchObject({
-        approvalId: "permission-child-browser",
-        decision: "approved",
-        effectiveScope: "this_child_thread",
-        parentRemainsBlocked: true,
-        approvalRequestParentMailboxEvent: {
-          deliveryState: "consumed",
-        },
-        approvalResponseChildMailboxEvent: {
-          type: "subagent.approval_response",
-          deliveryState: "queued",
-        },
-      });
-      resolveChildSendFinished();
-
-      const resumed = await Promise.race([
-        subagentTool.execute("wait-browser-approval-response-roundtrip", {
-          action: "wait_agent",
-          childRunId: run.id,
-          wait: { timeoutMs: 5000 },
-          idempotencyKey: "wait:browser-approval-roundtrip-response",
-        }),
-        new Promise<any>((_, reject) => setTimeout(
-          () => reject(new Error(`Browser approval response wait did not return: ${JSON.stringify({
-            run: store.getSubagentRun(run.id),
-            pendingPermissions,
-            parentMailbox: store.listSubagentParentMailboxEventsForParentRun(parentRun.id),
-            childMailbox: store.listSubagentMailboxEvents(run.id),
-            runEvents: store.listSubagentRunEvents(run.id).map((event) => event.type),
-          })}`)),
-          1_000,
-        )),
-      ]);
-
-      expect(sendSpy).toHaveBeenCalledTimes(1);
-      expect(respond).toHaveBeenCalledWith("permission-child-browser", "always_thread");
-      expect(permissionResponses).toEqual([
-        { id: "permission-child-browser", response: "always_thread" },
-      ]);
-      expect(pendingPermissions).toEqual([]);
-      await expect(Promise.race([
-        browserPermissionPromise,
-        new Promise((_, reject) => setTimeout(
-          () => reject(new Error(`Browser permission promise did not resolve: ${JSON.stringify({
-            run: store.getSubagentRun(run.id),
-            pendingPermissions,
-            permissionResponses,
-          })}`)),
-          1_000,
-        )),
-      ])).resolves.toBeUndefined();
-      expect(resumed.details).toMatchObject({
-        status: "completed",
-        waitSatisfied: true,
-        waitTimedOut: false,
-        waitOutcome: { kind: "child_terminal" },
-        synthesisAllowed: true,
-        parentResolution: {
-          status: "ready",
-          action: "synthesize",
-          canSynthesize: true,
-          requiresUserInput: false,
-          childRunId: run.id,
-          childStatus: "completed",
-        },
-      });
-      expect(store.listSubagentRunEvents(run.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({ type: "subagent.approval_requested" }),
-        expect.objectContaining({ type: "subagent.child_approval_forwarded" }),
-        expect.objectContaining({ type: "subagent.approval_response.consumed" }),
-      ]));
-      await Promise.resolve();
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });
@@ -3298,7 +1270,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         denyThread: () => undefined,
       });
 
-      const started = await (runtime as any).startResolvedSubagentChildRun({
+      const started = await (runtime as any).controllers.subagentToolExtensions.startResolvedChildRun({
         parentThread: parent,
         run: created,
         task: "This should not start while the feature flag is off.",
@@ -3359,17 +1331,19 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           }),
         }),
       ]);
-      expect(store.listSubagentRunEvents(created.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({ type: "subagent.status_changed" }),
-        expect.objectContaining({ type: "subagent.lifecycle_stopped" }),
-        expect.objectContaining({
-          type: "subagent.child_runtime_refused",
-          preview: expect.objectContaining({
-            reason: "ambient_subagents_disabled",
-            idempotencyKey: "start:disabled-feature",
+      expect(store.listSubagentRunEvents(created.id)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "subagent.status_changed" }),
+          expect.objectContaining({ type: "subagent.lifecycle_stopped" }),
+          expect.objectContaining({
+            type: "subagent.child_runtime_refused",
+            preview: expect.objectContaining({
+              reason: "ambient_subagents_disabled",
+              idempotencyKey: "start:disabled-feature",
+            }),
           }),
-        }),
-      ]));
+        ]),
+      );
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });
@@ -3424,14 +1398,16 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       const runtime = new AgentRuntime(store, {} as any, {} as any, () => undefined, {
         request: vi.fn(),
         denyThread: () => undefined,
-        listPending: () => [{
-          id: "approval-disabled",
-          threadId: waiting.childThreadId,
-          toolName: "read",
-          title: "Allow child read?",
-          message: "The child wants to read a file.",
-          risk: "workspace-command",
-        }],
+        listPending: () => [
+          {
+            id: "approval-disabled",
+            threadId: waiting.childThreadId,
+            toolName: "read",
+            title: "Allow child read?",
+            message: "The child wants to read a file.",
+            risk: "workspace-command",
+          },
+        ],
         respond,
       });
       const markFollowupDelivered = vi.fn(() => store.updateSubagentMailboxEventDeliveryState(followupMailbox.id, "delivered"));
@@ -3443,7 +1419,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         return {} as any;
       };
 
-      const followup = await (runtime as any).followupResolvedSubagentChildRun({
+      const followup = await (runtime as any).controllers.subagentToolExtensions.followupResolvedChildRun({
         run: waiting,
         message: "Please inspect the retry path.",
         mailboxEvent: followupMailbox,
@@ -3452,7 +1428,7 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
         markMailboxDelivered: markFollowupDelivered,
         markMailboxConsumed: markFollowupConsumed,
       });
-      const approval = await (runtime as any).resolveResolvedSubagentChildApprovalResponse({
+      const approval = await (runtime as any).controllers.subagentToolExtensions.resolveResolvedChildApprovalResponse({
         run: waiting,
         mailboxEvent: approvalMailbox,
         approvalId: "approval-disabled",
@@ -3509,26 +1485,28 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           }),
         }),
       ]);
-      expect(store.listSubagentRunEvents(waiting.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.followup_refused",
-          preview: expect.objectContaining({
-            reason: "ambient_subagents_disabled",
-            mailboxEventId: followupMailbox.id,
-            idempotencyKey: "followup:disabled-feature",
+      expect(store.listSubagentRunEvents(waiting.id)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "subagent.followup_refused",
+            preview: expect.objectContaining({
+              reason: "ambient_subagents_disabled",
+              mailboxEventId: followupMailbox.id,
+              idempotencyKey: "followup:disabled-feature",
+            }),
           }),
-        }),
-        expect.objectContaining({
-          type: "subagent.approval_response.refused",
-          preview: expect.objectContaining({
-            reason: "ambient_subagents_disabled",
-            mailboxEventId: approvalMailbox.id,
-            approvalId: "approval-disabled",
-            effectiveScope: "this_child_thread",
-            idempotencyKey: "approval:disabled-feature",
+          expect.objectContaining({
+            type: "subagent.approval_response.refused",
+            preview: expect.objectContaining({
+              reason: "ambient_subagents_disabled",
+              mailboxEventId: approvalMailbox.id,
+              approvalId: "approval-disabled",
+              effectiveScope: "this_child_thread",
+              idempotencyKey: "approval:disabled-feature",
+            }),
           }),
-        }),
-      ]));
+        ]),
+      );
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });
@@ -3649,27 +1627,29 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
       expect(store.getThread(child.childThreadId).childStatus).toBe("cancelled");
       expect(store.getThread(sibling.childThreadId).childStatus).toBe("running");
       expect(store.listSubagentMailboxEvents(child.id)).toHaveLength(3);
-      expect(store.listSubagentMailboxEvents(child.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.task",
-          direction: "parent_to_child",
-          deliveryState: "cancelled",
-        }),
-        expect.objectContaining({
-          type: "subagent.followup",
-          direction: "parent_to_child",
-          deliveryState: "cancelled",
-        }),
-        expect.objectContaining({
-          type: "subagent.cancelled",
-          direction: "child_to_parent",
-          payload: expect.objectContaining({
-            status: "cancelled",
-            source: "child_stop",
-            childThreadId: child.childThreadId,
+      expect(store.listSubagentMailboxEvents(child.id)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "subagent.task",
+            direction: "parent_to_child",
+            deliveryState: "cancelled",
           }),
-        }),
-      ]));
+          expect.objectContaining({
+            type: "subagent.followup",
+            direction: "parent_to_child",
+            deliveryState: "cancelled",
+          }),
+          expect.objectContaining({
+            type: "subagent.cancelled",
+            direction: "child_to_parent",
+            payload: expect.objectContaining({
+              status: "cancelled",
+              source: "child_stop",
+              childThreadId: child.childThreadId,
+            }),
+          }),
+        ]),
+      );
       expect(store.getSubagentWaitBarrier(barrier.id)).toMatchObject({
         status: "cancelled",
         resolutionArtifact: expect.objectContaining({
@@ -3693,19 +1673,21 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           }),
         }),
       });
-      expect(store.listSubagentRunEvents(child.id)).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent.child_stopped",
-          preview: expect.objectContaining({
-            previousStatus: "running",
-            source: "direct_child_stop",
-            cancelledMailboxEvents: expect.arrayContaining([
-              expect.objectContaining({ type: "subagent.task", deliveryState: "cancelled" }),
-              expect.objectContaining({ type: "subagent.followup", deliveryState: "cancelled" }),
-            ]),
+      expect(store.listSubagentRunEvents(child.id)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "subagent.child_stopped",
+            preview: expect.objectContaining({
+              previousStatus: "running",
+              source: "direct_child_stop",
+              cancelledMailboxEvents: expect.arrayContaining([
+                expect.objectContaining({ type: "subagent.task", deliveryState: "cancelled" }),
+                expect.objectContaining({ type: "subagent.followup", deliveryState: "cancelled" }),
+              ]),
+            }),
           }),
-        }),
-      ]));
+        ]),
+      );
       expect(store.listSubagentParentMailboxEventsForParentRun(parentRun.id)).toEqual([
         expect.objectContaining({
           parentMessageId: assistant.id,
@@ -3736,62 +1718,45 @@ describe("AgentRuntime sub-agent local runtime routing", () => {
           }),
         }),
       ]);
-      expect(emitted).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          type: "subagent-run-updated",
-          run: expect.objectContaining({ id: child.id, status: "cancelled" }),
-          workspacePath,
-        }),
-        expect.objectContaining({
-          type: "subagent-wait-barrier-updated",
-          barrier: expect.objectContaining({ id: barrier.id, status: "cancelled" }),
-          workspacePath,
-        }),
-        expect.objectContaining({
-          type: "subagent-parent-mailbox-event-updated",
-          mailboxEvent: expect.objectContaining({
-            type: "subagent.lifecycle_interrupted",
-            parentMessageId: assistant.id,
+      expect(emitted).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "subagent-run-updated",
+            run: expect.objectContaining({ id: child.id, status: "cancelled" }),
+            workspacePath,
           }),
-          workspacePath,
-        }),
-        expect.objectContaining({
-          type: "runtime-activity",
-          activity: expect.objectContaining({
-            threadId: parent.id,
-            message: expect.stringContaining("sibling children continue"),
+          expect.objectContaining({
+            type: "subagent-wait-barrier-updated",
+            barrier: expect.objectContaining({ id: barrier.id, status: "cancelled" }),
+            workspacePath,
           }),
-          workspacePath,
-        }),
-        expect.objectContaining({
-          type: "run-status",
-          threadId: child.childThreadId,
-          status: "idle",
-          workspacePath,
-        }),
-      ]));
+          expect.objectContaining({
+            type: "subagent-parent-mailbox-event-updated",
+            mailboxEvent: expect.objectContaining({
+              type: "subagent.lifecycle_interrupted",
+              parentMessageId: assistant.id,
+            }),
+            workspacePath,
+          }),
+          expect.objectContaining({
+            type: "runtime-activity",
+            activity: expect.objectContaining({
+              threadId: parent.id,
+              message: expect.stringContaining("sibling children continue"),
+            }),
+            workspacePath,
+          }),
+          expect.objectContaining({
+            type: "run-status",
+            threadId: child.childThreadId,
+            status: "idle",
+            workspacePath,
+          }),
+        ]),
+      );
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });
     }
   });
 });
-
-function fakePiSession(sessionFile: string) {
-  return {
-    sessionFile,
-    sessionManager: {
-      getEntries: () => [],
-    },
-    model: {
-      contextWindow: 128_000,
-    },
-    getContextUsage: () => ({
-      tokens: 512,
-      contextWindow: 128_000,
-      percent: 0.4,
-    }),
-    sendCustomMessage: vi.fn(async () => undefined),
-    dispose: vi.fn(),
-  };
-}

@@ -6,7 +6,7 @@ import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import { isAmbientSubagentsEnabled } from "../../shared/featureFlags";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
-import type { ChatMessage, ModelRuntimeSettings, ThreadSummary } from "../../shared/threadTypes";
+import type { ChatMessage, ModelRuntimeSettings, RuntimeContinuationSource, ThreadSummary } from "../../shared/threadTypes";
 import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import { classifyWorkflowPlanEditIntent, type WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlanEdit";
 import type {
@@ -36,6 +36,7 @@ export type RuntimeSendMessageInput = SendMessageInput & {
   modelContentOverride?: string;
   visibleUserContent?: string;
   hiddenUserMessage?: true;
+  continuationSource?: RuntimeContinuationSource;
   goalContinuation?: { goalId: string };
   symphonyParentModePolicy?: SymphonyParentModePolicy | undefined;
   symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined;
@@ -163,6 +164,7 @@ export class AgentRuntimeSendPreparationController {
           hiddenFromTranscript: true,
           hiddenUserMessage: true,
           visibleUserContent,
+          continuationSource: hiddenContinuationSource(runtimeInput),
           ...(runtimeInput.goalContinuation?.goalId ? { goalId: runtimeInput.goalContinuation.goalId } : {}),
         },
       });
@@ -175,6 +177,7 @@ export class AgentRuntimeSendPreparationController {
           status: "continuing",
           message: visibleUserContent,
           goalId: runtimeInput.goalContinuation?.goalId,
+          continuationSource: hiddenContinuationSource(runtimeInput),
         }),
       });
     } else {
@@ -230,4 +233,10 @@ export class AgentRuntimeSendPreparationController {
       canScheduleInterruptedToolCallRecovery,
     };
   }
+}
+
+function hiddenContinuationSource(input: RuntimeSendMessageInput): RuntimeContinuationSource {
+  if (input.continuationSource) return input.continuationSource;
+  if (input.goalContinuation?.goalId) return "goal-continuation";
+  return "post-tool-continuation";
 }

@@ -46,6 +46,8 @@ export const AMBIENT_DIRECT_ASYNC_BASH_TOOL_NAMES = [
   "bash_write",
   "bash_cancel",
   "thread_wake_schedule",
+  "thread_wake_cancel",
+  "thread_wake_resolve",
 ] as const;
 
 export const AMBIENT_DIRECT_ASYNC_LONG_CONTEXT_TOOL_NAMES = [

@@ -14014,11 +14014,15 @@ button.inline-media-preview {
 }
 
 .slash-command-group-label {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
   height: 22px;
   display: flex;
   align-items: center;
   padding: 0 8px;
   color: var(--muted);
+  background: var(--surface-elevated);
   font-size: 11px;
   font-weight: 650;
   text-transform: uppercase;

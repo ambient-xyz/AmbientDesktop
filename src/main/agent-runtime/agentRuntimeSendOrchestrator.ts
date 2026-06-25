@@ -130,6 +130,7 @@ export async function runAgentRuntimeSendOrchestrator<Session extends AgentRunti
     runtimeModel,
     promptContent,
   } = sendStart.context;
+  const startedInPlannerMode = thread.collaborationMode === "planner";
 
   const sessionRef: { current: Session | undefined } = { current: undefined };
   const {
@@ -199,6 +200,7 @@ export async function runAgentRuntimeSendOrchestrator<Session extends AgentRunti
     interruptedToolCallRecoveryMaxRetries,
     canScheduleInterruptedToolCallRecovery,
     plannerFinalizationSources,
+    startedInPlannerMode,
     usesDedicatedReviewSession,
     hasWorkflowPlanEditIntent,
     runGoalId,

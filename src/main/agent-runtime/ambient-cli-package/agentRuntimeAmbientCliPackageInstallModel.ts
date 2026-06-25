@@ -59,18 +59,17 @@ export function ambientCliPackagePreviewText(preview: AmbientCliPackageInstallPr
     preview.path ? `Path: ${preview.path}` : undefined,
     preview.ref ? `Ref: ${preview.ref}` : undefined,
     preview.sha ? `SHA: ${preview.sha}` : undefined,
+    preview.contentHash ? `Content hash: ${preview.contentHash}` : undefined,
     pkg ? `Package: ${pkg.name}` : undefined,
     pkg?.description ? `Description: ${pkg.description}` : undefined,
     pkg ? `Commands: ${pkg.commands.map((command) => command.name).join(", ") || "none"}` : undefined,
     pkg ? `Skills: ${pkg.skills.map((skill) => skill.name).join(", ") || "none"}` : undefined,
-    preview.dependencyInstall
-      ? `Dependencies: ${preview.dependencyInstall.passed ? preview.dependencyInstall.skipped ? "skipped" : "installed" : "failed"} via ${preview.dependencyInstall.command.join(" ")}`
-      : "Dependencies: not requested",
+    ambientCliPackageDependencyApprovalLine(preview),
     preview.dependencyInstall?.reason ? `Dependency note: ${preview.dependencyInstall.reason}` : undefined,
     preview.envStatus.length
       ? `Env requirements: ${preview.envStatus.map((env) => `${env.name}=${env.configured ? env.source ?? "configured" : "missing"}`).join(", ")}`
       : "Env requirements: none",
-    `Health checks: ${preview.healthChecks.length}`,
+    ambientCliPackageHealthLine(preview, "preview"),
     `Installable: ${preview.installable ? "yes" : "no"}`,
     ...preview.errors.slice(0, 8).map((error) => `Error: ${error}`),
   ]
@@ -132,17 +131,17 @@ export function ambientCliPackageInstallApprovalDetail(
     preview.path ? `Path: ${preview.path}` : undefined,
     preview.ref ? `Ref: ${preview.ref}` : undefined,
     preview.sha ? `SHA: ${preview.sha}` : undefined,
+    preview.contentHash ? `Content hash: ${preview.contentHash}` : undefined,
     pkg ? `Package: ${pkg.name}` : undefined,
     pkg ? `Commands: ${pkg.commands.map((command) => command.name).join(", ") || "none"}` : undefined,
     pkg ? `Skills: ${pkg.skills.map((skill) => skill.name).join(", ") || "none"}` : undefined,
-    preview.dependencyInstall
-      ? `Dependencies: ${preview.dependencyInstall.passed ? preview.dependencyInstall.skipped ? "skipped" : "installed" : "failed"} via ${preview.dependencyInstall.command.join(" ")}`
-      : "Dependencies: not requested",
+    ambientCliPackageDependencyApprovalLine(preview),
     preview.dependencyInstall?.reason ? `Dependency note: ${preview.dependencyInstall.reason}` : undefined,
     preview.envStatus.length
       ? `Env requirements: ${preview.envStatus.map((env) => `${env.name}=${env.configured ? env.source ?? "configured" : "missing"}`).join(", ")}`
       : "Env requirements: none",
-    `Health checks: ${preview.healthChecks.length}`,
+    ambientCliPackageHealthLine(preview, "install-approval"),
+    ambientCliPackageHealthCommandLine(pkg),
     "Effect: copy package into Ambient-managed CLI package state.",
   ]
     .filter(Boolean)
@@ -165,9 +164,11 @@ export function ambientCliPackagePiCatalogInstallApprovalDetail(
     pkg ? `Package: ${pkg.name}` : undefined,
     pkg ? `Commands: ${pkg.commands.map((command) => command.name).join(", ") || "none"}` : undefined,
     pkg ? `Skills: ${pkg.skills.map((skill) => skill.name).join(", ") || "none"}` : undefined,
-    "Dependencies: not installed; the Ambient adapter uses only Node built-ins and fetch.",
+    ambientCliPiCatalogDependencyLine(preview),
+    preview.dependencyInstall?.reason ? `Dependency note: ${preview.dependencyInstall.reason}` : undefined,
     resolution ? `Security scan:\n${resolution.securityScan.map((item) => `- ${item}`).join("\n")}` : undefined,
-    `Health checks: ${preview.healthChecks.length}`,
+    ambientCliPackageHealthLine(preview, "install-approval"),
+    ambientCliPackageHealthCommandLine(pkg),
     "Effect: copy reviewed package source plus a first-party Ambient CLI adapter into Ambient-managed CLI package state.",
   ]
     .filter(Boolean)
@@ -196,7 +197,17 @@ export function cliPackagePiCatalogInstallGrantIdentity(input: {
   source: string;
   preview: AmbientCliPiCatalogInstallPreview;
 }): string {
-  return ["ambient_cli_package_install_pi_catalog", input.source, input.preview.resolution?.sha ?? "unknown"].join("\0");
+  const healthSignature = ambientCliPackageHealthGrantSignature(input.preview.candidate);
+  const commandSignature =
+    input.preview.candidate?.commands.map((command) => ambientCliPackageCommandGrantSignature(command)).join("\u0002") ?? "";
+  return [
+    "ambient_cli_package_install_pi_catalog",
+    input.source,
+    input.preview.resolution?.sha ?? "unknown",
+    ambientCliPackageDependencyGrantSignature(input.preview),
+    commandSignature,
+    ...(healthSignature ? [healthSignature] : []),
+  ].join("\0");
 }
 
 export function cliPackageInstallGrantIdentity(input: {
@@ -215,13 +226,35 @@ export function cliPackageInstallGrantIdentity(input: {
     input.path ?? "",
     input.ref ?? "",
     input.sha ?? "",
+    input.preview.contentHash ?? "",
     input.installDependencies ? "install-dependencies" : "no-dependencies",
     pkg?.name ?? "",
     pkg?.version ?? "",
-    pkg?.commands.map((command) => `${command.name}:${command.command}:${command.args.join("\u0001")}:${command.cwd}`).join("\u0002") ?? "",
+    pkg?.commands.map((command) => ambientCliPackageCommandGrantSignature(command)).join("\u0002") ?? "",
     pkg?.skills.map((skill) => skill.name).join("\u0002") ?? "",
     input.descriptor ? stableJson(input.descriptor) : "",
   ].join("\0");
+}
+
+export function ambientCliPackageInstallRequiresPinnedSource(input: {
+  source: string;
+  sha?: string;
+  installDependencies: boolean;
+  preview: AmbientCliPackageInstallPreview;
+}): boolean {
+  if (input.sha) return false;
+  if (input.source.trim().startsWith("bundled:")) return false;
+  if (!input.installDependencies) return false;
+  const dependencyInstall = input.preview.dependencyInstall;
+  if (
+    !dependencyInstall ||
+    !dependencyInstall.passed ||
+    dependencyInstall.reason === "Missing package.json." ||
+    dependencyInstall.reason === "No package dependencies declared."
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export function stableJson(value: unknown): string {
@@ -232,6 +265,72 @@ export function stableJson(value: unknown): string {
     .sort()
     .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
     .join(",")}}`;
+}
+
+function ambientCliPackageHealthLine(
+  preview: Pick<AmbientCliPackageInstallPreview, "candidate" | "healthChecks" | "source" | "sha">,
+  mode: "preview" | "install-approval",
+): string {
+  const declaredHealthCheckCount = preview.candidate?.commands.filter((command) => command.healthCheck?.length).length ?? 0;
+  if (preview.healthChecks.length) return `Health checks: ${preview.healthChecks.length}`;
+  if (!declaredHealthCheckCount) return "Health checks: none declared";
+  const plural = declaredHealthCheckCount === 1 ? "health check" : "health checks";
+  const immutableInstallSource = Boolean(preview.sha) || preview.source.trim().startsWith("bundled:");
+  if (!immutableInstallSource) {
+    return `Health checks: not run during preview or unpinned local install (${declaredHealthCheckCount} declared; approved execution/provider validation may run ${plural})`;
+  }
+  if (mode === "preview") {
+    return `Health checks: not run during preview (${declaredHealthCheckCount} declared; install or provider validation runs approved checks)`;
+  }
+  return `Health checks: not run during preview; approved install will run ${declaredHealthCheckCount} declared package-controlled ${plural} before completion`;
+}
+
+function ambientCliPiCatalogDependencyLine(preview: AmbientCliPiCatalogInstallPreview): string {
+  if (preview.dependencyInstall) {
+    return `Dependencies: approved install will run ${preview.dependencyInstall.command.join(" ")}.`;
+  }
+  if (preview.resolution?.installDependencies) {
+    return "Dependencies: approved install will run npm ci --ignore-scripts.";
+  }
+  return "Dependencies: not installed; the reviewed Ambient adapter uses only Node built-ins and fetch.";
+}
+
+function ambientCliPackageDependencyApprovalLine(preview: AmbientCliPackageInstallPreview): string {
+  if (!preview.dependencyInstall) return "Dependencies: not requested";
+  if (preview.dependencyInstall.skipped && preview.dependencyInstall.passed && preview.dependencyInstall.reason?.includes("not run during package preview")) {
+    return `Dependencies: approved install will run ${preview.dependencyInstall.command.join(" ")}.`;
+  }
+  return `Dependencies: ${preview.dependencyInstall.passed ? preview.dependencyInstall.skipped ? "skipped" : "installed" : "failed"} via ${preview.dependencyInstall.command.join(" ")}`;
+}
+
+function ambientCliPackageDependencyGrantSignature(preview: AmbientCliPiCatalogInstallPreview): string {
+  const command = preview.dependencyInstall?.command ?? (preview.resolution?.installDependencies ? ["npm", "ci", "--ignore-scripts"] : []);
+  return command.length ? `deps=${command.join("\u0001")}` : "deps=none";
+}
+
+function ambientCliPackageHealthCommandLine(pkg: AmbientCliPackageSummary | undefined): string | undefined {
+  const commands = pkg?.commands.flatMap((command) =>
+    command.healthCheck?.length ? [`${command.name}: ${command.healthCheck.join(" ")}`] : [],
+  ) ?? [];
+  return commands.length ? `Health check commands: ${commands.join("; ")}` : undefined;
+}
+
+function ambientCliPackageHealthGrantSignature(pkg: AmbientCliPackageSummary | undefined): string {
+  return pkg?.commands.map((command) => ambientCliPackageCommandHealthGrantSignature(command)).filter(Boolean).join("\u0002") ?? "";
+}
+
+function ambientCliPackageCommandGrantSignature(command: AmbientCliPackageSummary["commands"][number]): string {
+  return stableJson({
+    name: command.name,
+    command: command.command,
+    args: command.args,
+    cwd: command.cwd,
+    healthCheck: command.healthCheck ?? [],
+  });
+}
+
+function ambientCliPackageCommandHealthGrantSignature(command: AmbientCliPackageSummary["commands"][number]): string {
+  return command.healthCheck?.length ? stableJson({ name: command.name, healthCheck: command.healthCheck }) : "";
 }
 
 function requiredString(input: Record<string, unknown>, key: string): string {

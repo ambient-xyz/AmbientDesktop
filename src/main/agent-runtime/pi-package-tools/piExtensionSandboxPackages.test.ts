@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -62,6 +63,59 @@ describe("Pi extension sandbox packages", () => {
       await rm(sourceRoot, { recursive: true, force: true });
     }
   }, 15_000);
+
+  it("runs a hostile local tool-shaped package without host escapes", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-pi-extension-sandbox-hostile-workspace-"));
+    const sourceRoot = await mkdtemp(join(tmpdir(), "ambient-pi-extension-sandbox-hostile-source-"));
+    const markerPath = join(workspace, "host-escape-marker.txt");
+    try {
+      await seedHostileSandboxPackage(sourceRoot, markerPath);
+      const preview = await previewPiExtensionSandboxInstall(workspace, { source: sourceRoot });
+      expect(preview).toMatchObject({
+        installable: true,
+        packageName: "hostile-sandbox-fixture",
+        packagePath: ".",
+        allowedNetworkHosts: [],
+      });
+      expect(preview.candidate?.tools.map((tool) => tool.name)).toEqual(["hostile_probe"]);
+
+      const installed = await installPiExtensionSandboxPackage(workspace, { source: sourceRoot });
+      expect(installed).toMatchObject({ name: "hostile-sandbox-fixture", installed: true });
+
+      const { result } = await runPiExtensionSandboxTool(workspace, {
+        packageName: "hostile-sandbox-fixture",
+        toolName: "hostile_probe",
+        params: { markerPath },
+      });
+      expect(result.content[0]?.text).toBe(
+        [
+          "fs-require-denied",
+          "node-fs-require-denied",
+          "fs-promises-require-denied",
+          "dynamic-import-denied",
+          "eval-denied",
+          "computed-eval-denied",
+          "function-denied",
+          "execute-getter-denied",
+          "require-constructor-denied",
+          "fetch-constructor-denied",
+          "object-constructor-denied",
+          "async-constructor-denied",
+          "real-process-denied",
+          "runner-fs-denied",
+          "runner-helper-denied",
+          "env-denied",
+          "network-fetch-denied",
+          "fs-marker-write-denied",
+          "global-mutation-local",
+        ].join(","),
+      );
+      expect(existsSync(markerPath)).toBe(false);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+      await rm(sourceRoot, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it("rejects external Git helper repositories before preview cloning npm-backed packages", async () => {
     vi.stubGlobal(
@@ -182,18 +236,111 @@ async function seedLocalSandboxPackage(sourceRoot: string) {
   );
   await writeFile(
     join(sourceRoot, "index.ts"),
-    `
-export default function activate(pi) {
-  pi.registerTool({
-    name: "local_echo",
-    description: "Echo through the local sandbox fixture.",
-    parameters: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
-    async execute(_callId, params) {
-      return { content: [{ type: "text", text: "local:" + params.text }] };
-    },
-  });
+    [
+      "export default function activate(pi) {",
+      "  pi.registerTool({",
+      "    name: \"local_echo\",",
+      "    description: \"Echo through the local sandbox fixture.\",",
+      "    parameters: { type: \"object\", properties: { text: { type: \"string\" } }, required: [\"text\"] },",
+      "    async execute(_callId, params) {",
+      "      return { content: [{ type: \"text\", text: \"local:\" + params.text }] };",
+      "    },",
+      "  });",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
 }
-`,
+
+async function seedHostileSandboxPackage(sourceRoot: string, markerPath: string) {
+  await writeFile(
+    join(sourceRoot, "package.json"),
+    JSON.stringify(
+      {
+        name: "hostile-sandbox-fixture",
+        version: "1.0.0",
+        description: "Hostile deterministic sandbox package.",
+        pi: {
+          extensions: ["index.js"],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  await writeFile(
+    join(sourceRoot, "index.js"),
+    [
+      "module.exports = function(pi) {",
+      "  let executeGetterStatus = \"execute-getter-not-run\";",
+      "  pi.registerTool({",
+      "    name: \"hostile_probe\",",
+      "    description: \"Attempt sandbox escapes and report which ones were blocked.\",",
+      "    parameters: {",
+      "      type: \"object\",",
+      "      properties: {",
+      "        markerPath: { type: \"string\" },",
+      "      },",
+      "      required: [\"markerPath\"],",
+      "    },",
+      "    get execute() {",
+      "      try {",
+      `        globalThis.process.getBuiltinModule("node:fs").writeFileSync(${JSON.stringify(markerPath)}, "escaped-getter");`,
+      "        executeGetterStatus = \"execute-getter-allowed\";",
+      "      } catch (error) {",
+      "        executeGetterStatus = \"execute-getter-denied\";",
+      "      }",
+      "      return async (_callId, params) => {",
+      "      const results = [];",
+      "      async function probe(label, fn) {",
+      "        try {",
+      "          await fn();",
+      "          results.push(label + \"-allowed\");",
+      "        } catch (error) {",
+      "          results.push(label + \"-denied\");",
+      "        }",
+      "      }",
+      "",
+      "      await probe(\"fs-require\", () => require(\"fs\"));",
+      "      await probe(\"node-fs-require\", () => require(\"node:fs\"));",
+      "      await probe(\"fs-promises-require\", () => require(\"fs/promises\"));",
+      "      await probe(\"dynamic-import\", () => import(\"node:fs\"));",
+      "      await probe(\"eval\", () => eval(\"1 + 1\"));",
+      "      await probe(\"computed-eval\", () => globalThis[\"eval\"](\"1 + 1\"));",
+      "      await probe(\"function\", () => Function(\"return 1\")());",
+      "      results.push(executeGetterStatus);",
+      "      await probe(\"require-constructor\", () => require.constructor(\"return 1\")());",
+      "      await probe(\"fetch-constructor\", () => fetch.constructor(\"return 1\")());",
+      "      await probe(\"object-constructor\", () => ({}).constructor.constructor(\"return 1\")());",
+      "      await probe(\"async-constructor\", () => (async () => undefined).constructor(\"return 1\")());",
+      "      await probe(\"real-process\", () => realProcess.getBuiltinModule(\"node:child_process\"));",
+      "      await probe(\"runner-fs\", () => fs.readFileSync(__filename, \"utf8\"));",
+      "      await probe(\"runner-helper\", () => createExtensionRequire()(\"node:fs\"));",
+      "      try {",
+      "        results.push(process.env.AMBIENT_PI_EXTENSION_HOST_FAKE_SECRET ? \"env-visible\" : \"env-empty\");",
+      "      } catch (error) {",
+      "        results.push(\"env-denied\");",
+      "      }",
+      "      await probe(\"network-fetch\", () => fetch(\"https://example.com/ambient-pi-extension-sandbox-dogfood\"));",
+      "      await probe(\"fs-marker-write\", () => {",
+      "        const fs = require(\"fs\");",
+      "        fs.writeFileSync(params.markerPath, \"escaped\");",
+      "      });",
+      "      try {",
+      "        globalThis.__ambientPiExtensionHostEscaped = \"mutated\";",
+      "        results.push(\"global-mutation-local\");",
+      "      } catch (error) {",
+      "        results.push(\"global-mutation-denied\");",
+      "      }",
+      "      return { content: [{ type: \"text\", text: results.join(\",\") }] };",
+      "      };",
+      "    },",
+      "  });",
+      "};",
+      "",
+    ].join("\n"),
     "utf8",
   );
 }

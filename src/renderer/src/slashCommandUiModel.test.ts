@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SlashCommandCatalogEntry } from "../../shared/slashCommandTypes";
 import {
+  slashCommandCatalogNeedsRefreshEvent,
   slashCommandComposerCanSubmit,
   slashCommandDraftAfterSelection,
   slashCommandGroupLabel,
@@ -38,13 +39,15 @@ describe("slash command UI model", () => {
   it("requests callable workflow entries for concrete picker searches", () => {
     expect(slashCommandPickerSearchInput("")).toEqual({
       query: "",
+      mode: "catalog",
       includeUnavailable: true,
-      limit: 12,
+      limit: 80,
     });
     expect(slashCommandPickerSearchInput("report")).toMatchObject({
       query: "report",
+      mode: "query",
       includeUnavailable: true,
-      limit: 12,
+      limit: 50,
       kinds: ["app", "skill", "workflow", "callable-workflow"],
     });
   });
@@ -60,7 +63,13 @@ describe("slash command UI model", () => {
       sourceId: "plugin-1",
       userQuery: "aud",
     });
-    expect(slashCommandGroupLabel(entry({ kind: "callable-workflow", sourceKind: "symphony" }))).toBe("Symphony");
+    expect(slashCommandGroupLabel(entry({ kind: "callable-workflow", sourceKind: "symphony", groupLabel: "" }))).toBe("Symphony");
+    expect(slashCommandGroupLabel(entry({ groupLabel: "Ambient CLI commands" }))).toBe("Ambient CLI commands");
+  });
+
+  it("refreshes an open picker for catalog update events", () => {
+    expect(slashCommandCatalogNeedsRefreshEvent({ type: "plugin-catalog-updated", workspacePath: "/repo" })).toBe(true);
+    expect(slashCommandCatalogNeedsRefreshEvent({ type: "run-status", threadId: "thread-1", status: "idle" })).toBe(false);
   });
 });
 
@@ -75,6 +84,8 @@ function entry(overrides: Partial<SlashCommandCatalogEntry> = {}): SlashCommandC
     invocationKind: "codex-plugin-skill",
     availability: "available",
     badges: ["Skill"],
+    groupKey: "codex-plugin-skill",
+    groupLabel: "Codex plugin skills",
     icon: "sparkles",
     requiresParameters: false,
     searchText: "/audit audit skill",

@@ -89,6 +89,7 @@ function baseInput(
     threadId: "thread-1",
     runId: "run-1",
     workspacePath: "/workspace",
+    startedInPlannerMode: false,
     currentAssistantMessageId: "assistant-1",
     currentAssistantVisibleContent: "Final answer",
     abortRequested: false,
@@ -146,6 +147,10 @@ describe("finalizeSuccessfulRuntimeRun", () => {
       "Final answer",
       expect.objectContaining({ status: "done", runtime: "pi", provider: "ambient" }),
     );
+    expect(input.createPlannerPlanArtifactFromMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "assistant-1" }),
+      { startedInPlannerMode: false },
+    );
     expect(input.finishParentRun).toHaveBeenCalledWith("done", undefined);
     expect(input.finishPlannerFinalizationSources).not.toHaveBeenCalled();
     expect(input.recordVoiceDispatch).toHaveBeenCalledWith(plannerMessage);
@@ -190,6 +195,19 @@ describe("finalizeSuccessfulRuntimeRun", () => {
           },
         },
       }),
+    );
+  });
+
+  it("passes the Planner Mode run-start snapshot into planner artifact finalization", async () => {
+    const input = baseInput({
+      startedInPlannerMode: true,
+    });
+
+    await finalizeSuccessfulRuntimeRun(input);
+
+    expect(input.createPlannerPlanArtifactFromMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "assistant-1" }),
+      { startedInPlannerMode: true },
     );
   });
 

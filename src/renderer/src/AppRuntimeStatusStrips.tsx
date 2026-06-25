@@ -2,8 +2,10 @@ import {
   AlertTriangle,
   Archive,
   CheckCircle2,
+  Clock,
   LoaderCircle,
   Target,
+  Wrench,
 } from "lucide-react";
 
 import type { ThreadGoal } from "../../shared/threadTypes";
@@ -51,6 +53,9 @@ function runtimeStatusIndicatorIcon(indicator: RuntimeStatusIndicator) {
   if (indicator.phase !== "finished") return <LoaderCircle size={15} className="spin" />;
   if (indicator.tone === "warning") return <AlertTriangle size={15} />;
   if (indicator.kind === "compaction") return <Archive size={15} />;
+  if (indicator.kind === "thread-wake") return <Clock size={15} />;
+  if (indicator.kind === "post-tool-continuation") return <Wrench size={15} />;
+  if (indicator.kind === "compaction-continuation") return <Archive size={15} />;
   if (indicator.kind === "goal-continuation") return <Target size={15} />;
   return <CheckCircle2 size={15} />;
 }

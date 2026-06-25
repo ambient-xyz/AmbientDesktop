@@ -1,7 +1,5 @@
 import {
   AlertCircle,
-  Archive,
-  Bot,
   Check,
   CheckCircle2,
   ClipboardPaste,
@@ -15,17 +13,26 @@ import {
   Play,
   RefreshCw,
   RotateCcw,
-  SquarePen,
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { ApplyProjectBoardDecisionImpactFeedbackInput, ProjectBoardCard, ProjectBoardSynthesisProposal, ProjectBoardSynthesisProposalCardReviewStatus, ProjectBoardSynthesisRun, ProjectSummary, RefineProjectBoardSynthesisInput, RefreshProjectBoardDecisionDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RetryProjectBoardSynthesisInput, SuggestProjectBoardClarificationDefaultsInput, UpdateProjectBoardCardInput } from "../../shared/projectBoardTypes";
-import {
-  projectBoardRunBlocksPlanning,
-  projectBoardRunIsKickoffDefaults,
-} from "../../shared/projectBoardSynthesisGate";
+import type {
+  ApplyProjectBoardDecisionImpactFeedbackInput,
+  ProjectBoardCard,
+  ProjectBoardSynthesisProposal,
+  ProjectBoardSynthesisProposalCardReviewStatus,
+  ProjectBoardSynthesisRun,
+  ProjectSummary,
+  RefineProjectBoardSynthesisInput,
+  RefreshProjectBoardDecisionDraftsInput,
+  RegenerateProjectBoardDecisionDraftsInput,
+  RetryProjectBoardSynthesisInput,
+  SuggestProjectBoardClarificationDefaultsInput,
+  UpdateProjectBoardCardInput,
+} from "../../shared/projectBoardTypes";
+import { projectBoardRunBlocksPlanning, projectBoardRunIsKickoffDefaults } from "../../shared/projectBoardSynthesisGate";
 import {
   DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS,
   projectBoardSynthesisOutputCapRecovery,
@@ -36,10 +43,8 @@ import {
   type ProjectBoardSectionStatusView,
 } from "../../shared/projectBoardSynthesisRecovery";
 import { formatDelay, formatRunDuration, useRunningClock } from "./AutomationsWorkspace";
-import {
-  ProjectBoardDecisionImpactSummary,
-  ProjectBoardProofScopeWarningSummary,
-} from "./ProjectBoardCandidateDetailViews";
+import { ProjectBoardProofScopeWarningSummary } from "./ProjectBoardCandidateDetailViews";
+import { ProjectBoardDecisionQueuePanel } from "./ProjectBoardDecisionQueueViews";
 import {
   ProjectBoardObjectiveProvenanceBlock,
   projectBoardCandidateStatusLabel,
@@ -47,16 +52,12 @@ import {
 } from "./ProjectBoardLaneViews";
 import { ProjectBoardCharterPolicy } from "./ProjectBoardSourceViews";
 import {
-  projectBoardClarificationAnswerInput,
-  projectBoardDecisionImpactPreview,
   projectBoardDecisionQueue,
   projectBoardExecutionPmReview,
   projectBoardPmReviewReportUiModel,
   projectBoardSynthesisRunControlState,
   projectBoardSynthesisRunPromptBudgetAudit,
   projectBoardSynthesisRunPromptBudgetMetrics,
-  type ProjectBoardDecisionQueueAuditFilterId,
-  type ProjectBoardDecisionQueueRow,
 } from "./projectBoardUiModel";
 import {
   projectBoardPlanningWarningActionTitle,
@@ -66,380 +67,7 @@ import {
 } from "./projectBoardPlanningWarningUiModel";
 import { formatTimelineTime } from "./RightPanel";
 
-export function ProjectBoardDecisionQueuePanel({
-  board,
-  queue,
-  onSelectCard,
-  onSaveDecisionAnswer,
-  onSuggestClarificationDefaults,
-  onApplyDecisionImpactFeedback,
-  onRefreshDecisionDrafts,
-  onRegenerateDecisionDrafts,
-}: {
-  board: NonNullable<ProjectSummary["board"]>;
-  queue: ReturnType<typeof projectBoardDecisionQueue>;
-  onSelectCard: (cardId: string) => void;
-  onSaveDecisionAnswer: (input: UpdateProjectBoardCardInput) => Promise<void> | void;
-  onSuggestClarificationDefaults: (input: SuggestProjectBoardClarificationDefaultsInput) => Promise<void> | void;
-  onApplyDecisionImpactFeedback: (input: ApplyProjectBoardDecisionImpactFeedbackInput) => Promise<void> | void;
-  onRefreshDecisionDrafts: (input: RefreshProjectBoardDecisionDraftsInput) => Promise<void> | void;
-  onRegenerateDecisionDrafts: (input: RegenerateProjectBoardDecisionDraftsInput) => Promise<void> | void;
-}) {
-  const [decisionDrafts, setDecisionDrafts] = useState<Record<string, string>>({});
-  const [decisionBusyRow, setDecisionBusyRow] = useState<string | undefined>();
-  const [suggestDefaultsBusy, setSuggestDefaultsBusy] = useState(false);
-  const [auditFilter, setAuditFilter] = useState<ProjectBoardDecisionQueueAuditFilterId>("all");
-  const [auditExpanded, setAuditExpanded] = useState(false);
-  const cardById = useMemo(() => new Map(board.cards.map((card) => [card.id, card])), [board.cards]);
-  const visibleOpenRows = queue.openRows.slice(0, 8);
-  const auditFilterRows = queue.auditRows.filter((row) => {
-    if (auditFilter === "answered") return row.state === "answered";
-    if (auditFilter === "duplicate") return row.state === "duplicate";
-    if (auditFilter === "suggested") return Boolean(row.suggestedAnswer);
-    return true;
-  });
-  const visibleAuditRows = auditExpanded ? auditFilterRows : auditFilterRows.slice(0, 4);
-  const hiddenAuditCount = Math.max(0, auditFilterRows.length - visibleAuditRows.length);
-  const currentAuditFilterCount = queue.auditFilterItems.find((item) => item.id === auditFilter)?.count ?? 0;
-  const hiddenAuditLabel =
-    auditFilter === "answered"
-      ? "answered decision"
-      : auditFilter === "duplicate"
-        ? "duplicate decision"
-        : auditFilter === "suggested"
-          ? "suggestion-trail row"
-          : "decision audit row";
-  const setDecisionDraft = (row: ProjectBoardDecisionQueueRow, value: string) => {
-    setDecisionDrafts((current) => ({ ...current, [row.id]: value }));
-  };
-  const decisionAnswerForRow = (row: ProjectBoardDecisionQueueRow, explicitAnswer?: string): string => {
-    const draftAnswer = decisionDrafts[row.id]?.trim();
-    if (explicitAnswer?.trim()) return explicitAnswer.trim();
-    if (draftAnswer) return draftAnswer;
-    return row.safeToAccept ? row.suggestedAnswer?.trim() ?? "" : "";
-  };
-  const clearDecisionDraft = (row: ProjectBoardDecisionQueueRow) => {
-    setDecisionDrafts((current) => {
-      const next = { ...current };
-      delete next[row.id];
-      return next;
-    });
-  };
-  const suggestClarificationDefaults = async () => {
-    if (suggestDefaultsBusy || queue.missingSuggestionCount === 0) return;
-    setSuggestDefaultsBusy(true);
-    try {
-      await onSuggestClarificationDefaults({ boardId: board.id, cardIds: queue.openRows.filter((row) => !row.suggestedAnswer?.trim()).map((row) => row.cardId) });
-    } catch {
-      // Top-level board actions surface the provider failure and store a fallback when possible.
-    } finally {
-      setSuggestDefaultsBusy(false);
-    }
-  };
-  const submitDecisionAnswer = async (
-    row: ProjectBoardDecisionQueueRow,
-    mode: "save" | "feedback" | "refresh" | "regenerate",
-    explicitAnswer?: string,
-  ) => {
-    const card = cardById.get(row.cardId);
-    const answer = decisionAnswerForRow(row, explicitAnswer);
-    if (!card || !answer) return;
-    setDecisionBusyRow(row.id);
-    try {
-      if (mode === "refresh") {
-        await onRefreshDecisionDrafts({ cardId: row.cardId, question: row.question, answer });
-      } else if (mode === "regenerate") {
-        await onRegenerateDecisionDrafts({ cardId: row.cardId, question: row.question, answer });
-      } else if (mode === "feedback" || card.status !== "draft" || card.orchestrationTaskId) {
-        await onApplyDecisionImpactFeedback({ cardId: row.cardId, question: row.question, answer });
-      } else {
-        await onSaveDecisionAnswer(projectBoardClarificationAnswerInput(card, row.question, answer));
-      }
-      clearDecisionDraft(row);
-    } catch {
-      // Top-level board actions already surface the failure; keep the draft answer in place.
-    } finally {
-      setDecisionBusyRow(undefined);
-    }
-  };
-  return (
-    <section className="project-board-proposal-history" aria-label="Canonical board decisions">
-      <header>
-        <div>
-          <span className="project-board-kicker">Decisions</span>
-          <h3>{queue.summary}</h3>
-          <p className="project-board-proposal-note">{queue.detail}</p>
-        </div>
-        <div className="project-board-proposal-meta">
-          <span>{queue.openCount} open</span>
-          <span>{queue.missingSuggestionCount} need suggestions</span>
-          <span>{queue.safeSuggestionCount} safe defaults</span>
-          <span>{queue.userOwnedCount} user-owned</span>
-          <span>{queue.answeredCount} answered</span>
-          <span>{queue.duplicateCount} duplicate</span>
-          <span>{queue.proposalGapCount} proposal gaps</span>
-          {queue.missingSuggestionCount > 0 && (
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={suggestDefaultsBusy}
-              title="Ask Ambient/Pi for expert defaults on open card decisions that do not already have suggestions. This only enriches decision metadata."
-              onClick={() => void suggestClarificationDefaults()}
-            >
-              <Bot size={14} className={suggestDefaultsBusy ? "spin" : ""} />
-              <span>{suggestDefaultsBusy ? "Suggesting" : "Suggest defaults"}</span>
-            </button>
-          )}
-        </div>
-      </header>
-
-      {queue.proposalGaps.length > 0 && (
-        <div className="project-board-source-counts" aria-label="Proposal gap questions">
-          {queue.proposalGaps.slice(0, 4).map((gap) => (
-            <span key={`${gap.proposalId}:${gap.questionIndex}`} title={gap.question}>
-              {gap.answered ? "Answered" : "Open"} proposal gap · {gap.question}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {visibleOpenRows.length > 0 ? (
-        <div className="project-board-card-list">
-          {visibleOpenRows.map((row) => {
-            const draftAnswer = decisionDrafts[row.id] ?? "";
-            const effectiveAnswer = decisionAnswerForRow(row);
-            const currentImpact = projectBoardDecisionImpactPreview(board, {
-              question: row.question,
-              answer: effectiveAnswer,
-              answeredCardId: row.cardId,
-            });
-            const card = cardById.get(row.cardId);
-            const draftSource = Boolean(card && card.status === "draft" && !card.orchestrationTaskId);
-            const busy = decisionBusyRow === row.id;
-            return (
-              <article className={`project-board-card status-${row.cardStatus}`} key={row.id}>
-                <div className="project-board-card-header-row">
-                  <span className="project-board-kicker">{row.sourceLabel}</span>
-                  <span className={`project-board-status ${row.safeToAccept ? "" : "warning"}`}>{row.actionLabel}</span>
-                </div>
-                <h4>{row.question}</h4>
-                <p>{row.detail}</p>
-                {row.suggestedAnswer && (
-                  <div className={`project-board-clarification-suggestion ${row.safeToAccept ? "safe" : "manual"}`}>
-                    <strong>{row.safeToAccept ? "Suggested expert default" : "Suggestion requires PM review"}</strong>
-                    <p>{row.suggestedAnswer}</p>
-                    {row.rationale && <small>{row.rationale}</small>}
-                    <div className="project-board-card-actions">
-                      <span className="project-board-inspector-badge">
-                        {row.questionKind?.replace(/_/g, " ") ?? "clarification"} · {row.confidence ?? "low"} confidence
-                      </span>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        disabled={busy}
-                        title={
-                          row.safeToAccept
-                            ? "Save this expert default as the decision answer. Use the impact actions below when linked drafts or ticketized cards also need updates."
-                            : "Copy this suggestion into the editable answer so it can be reviewed before saving."
-                        }
-                        onClick={() =>
-                          row.safeToAccept
-                            ? void submitDecisionAnswer(row, "save", row.suggestedAnswer)
-                            : setDecisionDraft(row, row.suggestedAnswer ?? "")
-                        }
-                      >
-                        <Check size={14} />
-                        <span>{row.safeToAccept ? "Accept default" : "Use as draft"}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <div className="project-board-decision-answer" aria-label="Decision answer">
-                  <label>
-                    <span>Answer</span>
-                    <textarea
-                      value={draftAnswer}
-                      onChange={(event) => setDecisionDraft(row, event.target.value)}
-                      placeholder={
-                        row.safeToAccept && row.suggestedAnswer
-                          ? "Use the expert default above or enter a different answer."
-                          : "Answer once here. Linked draft refresh and run-feedback actions stay deterministic."
-                      }
-                    />
-                  </label>
-                  <ProjectBoardDecisionImpactSummary
-                    impact={currentImpact.visible ? currentImpact : row.impact}
-                    actionBusy={busy}
-                    onApplyReadyFeedback={() => void submitDecisionAnswer(row, "feedback")}
-                    onRefreshDrafts={draftSource ? () => void submitDecisionAnswer(row, "refresh") : undefined}
-                    onRegenerateDrafts={draftSource ? () => void submitDecisionAnswer(row, "regenerate") : undefined}
-                  />
-                  <div className="project-board-decision-answer-actions">
-                    <button
-                      type="button"
-                      className="primary-button"
-                      disabled={!draftAnswer.trim() || busy}
-                      title={
-                        draftAnswer.trim()
-                          ? "Save this answer on the linked decision row. Ticketized cards receive additive feedback instead of protected field rewrites."
-                          : "Enter an answer or accept the suggested default."
-                      }
-                      onClick={() => void submitDecisionAnswer(row, "save")}
-                    >
-                      <Check size={14} className={busy ? "spin" : ""} />
-                      <span>{busy ? "Saving" : "Save answer"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => onSelectCard(row.cardId)}
-                      title="Open the linked card inspector for full source basis, proof, and dependency context."
-                    >
-                      <SquarePen size={14} />
-                      <span>Review card</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="project-board-proposal-meta">
-                  <span>{row.cardTitle}</span>
-                  {row.questionKind && <span>{row.questionKind.replace(/_/g, " ")}</span>}
-                  {row.confidence && <span>{row.confidence} confidence</span>}
-                  {currentImpact.visible && <span>{currentImpact.headline}</span>}
-                  {currentImpact.visible && <span>0 model calls</span>}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="project-board-column-empty">No open card-level clarification decisions. Answered and duplicate decisions stay below for audit.</p>
-      )}
-
-      {visibleAuditRows.length > 0 && (
-        <section className="project-board-decision-audit" aria-label="Decision audit rows">
-          <header>
-            <div>
-              <span className="project-board-kicker">Decision audit</span>
-              <h4>Answered and duplicate questions stay traceable</h4>
-            </div>
-            <div className="project-board-decision-audit-actions">
-              <span className="project-board-status">
-                {queue.answeredCount} answered · {queue.duplicateCount} duplicate
-                {queue.suggestedAuditCount > 0 ? ` · ${queue.suggestedAuditCount} with suggestions` : ""}
-              </span>
-              {auditFilterRows.length > 4 && (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setAuditExpanded((current) => !current)}
-                  title={auditExpanded ? "Collapse the retained decision audit rows." : "Show every retained decision audit row."}
-                >
-                  {auditExpanded ? "Show less" : `Show all ${auditFilterRows.length}`}
-                </button>
-              )}
-            </div>
-          </header>
-          <div className="project-board-source-counts" aria-label="Decision audit filters">
-            {queue.auditFilterItems.map((item) => (
-              <button
-                type="button"
-                className={auditFilter === item.id ? "active" : ""}
-                key={item.id}
-                title={`Show ${item.count} ${item.label.toLowerCase()} decision audit row${item.count === 1 ? "" : "s"}.`}
-                onClick={() => {
-                  setAuditFilter(item.id);
-                  setAuditExpanded(false);
-                }}
-              >
-                {item.label} {item.count}
-              </button>
-            ))}
-          </div>
-          <div className="project-board-decision-audit-list">
-            {visibleAuditRows.map((row) => (
-              <article className={`project-board-decision-audit-row ${row.state}`} key={row.id}>
-                <div className="project-board-decision-audit-icon" aria-hidden="true">
-                  {row.state === "answered" ? <CheckCircle2 size={16} /> : <Archive size={16} />}
-                </div>
-                <div>
-                  <div className="project-board-card-header-row">
-                    <span className="project-board-kicker">{row.state === "answered" ? "Answered decision" : "Hidden duplicate"}</span>
-                    <span className="project-board-status">{row.sourceLabel}</span>
-                  </div>
-                  <h5>{row.question}</h5>
-                  <p>{row.detail}</p>
-                  {row.answer && <p className="project-board-decision-audit-answer">Answer: {row.answer}</p>}
-                  {row.suggestedAnswer && (
-                    <div className={`project-board-clarification-suggestion ${row.safeToAccept ? "safe" : "manual"}`}>
-                      <strong>{row.state === "answered" ? "Suggestion trail" : "Duplicate inherited suggestion"}</strong>
-                      <p>{row.suggestedAnswer}</p>
-                      {row.rationale && <small>{row.rationale}</small>}
-                      <div className="project-board-proposal-meta">
-                        {row.questionKind && <span>{row.questionKind.replace(/_/g, " ")}</span>}
-                        {row.confidence && <span>{row.confidence} confidence</span>}
-                        <span>{row.safeToAccept ? "Safe expert default" : "PM reviewed"}</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="project-board-proposal-meta">
-                    <span>{row.cardTitle}</span>
-                    {row.duplicateOf && <span>Duplicate of {row.duplicateOf}</span>}
-                    {row.answeredAt && <span>{row.answeredAt.slice(0, 10)}</span>}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => onSelectCard(row.cardId)}
-                  title="Open the linked card inspector for full context."
-                >
-                  <SquarePen size={14} />
-                  <span>Review card</span>
-                </button>
-              </article>
-            ))}
-          </div>
-          {hiddenAuditCount > 0 && (
-            <p className="project-board-decision-audit-overflow">
-              {hiddenAuditCount} more {hiddenAuditLabel}
-              {hiddenAuditCount === 1 ? "" : "s"} hidden. Show all to review the full decision trail.
-            </p>
-          )}
-        </section>
-      )}
-      {queue.auditRows.length > 0 && visibleAuditRows.length === 0 && (
-        <section className="project-board-decision-audit" aria-label="Decision audit rows">
-          <header>
-            <div>
-              <span className="project-board-kicker">Decision audit</span>
-              <h4>No rows match this audit filter</h4>
-              <p className="project-board-proposal-note">
-                {currentAuditFilterCount === 0 ? "This board has no matching retained decision records." : "Choose another filter to inspect retained answers and duplicates."}
-              </p>
-            </div>
-          </header>
-          <div className="project-board-source-counts" aria-label="Decision audit filters">
-            {queue.auditFilterItems.map((item) => (
-              <button
-                type="button"
-                className={auditFilter === item.id ? "active" : ""}
-                key={item.id}
-                title={`Show ${item.count} ${item.label.toLowerCase()} decision audit row${item.count === 1 ? "" : "s"}.`}
-                onClick={() => {
-                  setAuditFilter(item.id);
-                  setAuditExpanded(false);
-                }}
-              >
-                {item.label} {item.count}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-    </section>
-  );
-}
-
+export { ProjectBoardDecisionQueuePanel } from "./ProjectBoardDecisionQueueViews";
 
 export function ProjectBoardSynthesisProposalTab({
   board,
@@ -469,7 +97,11 @@ export function ProjectBoardSynthesisProposalTab({
   applyBusy: boolean;
   retryBusy: boolean;
   deferBusy: boolean;
-  onRefineProposal: (boardId: string, proposalId: string, mode?: Extract<RefineProjectBoardSynthesisInput["mode"], "charter_review" | "board_synthesis">) => void;
+  onRefineProposal: (
+    boardId: string,
+    proposalId: string,
+    mode?: Extract<RefineProjectBoardSynthesisInput["mode"], "charter_review" | "board_synthesis">,
+  ) => void;
   onAnswerQuestion: (proposalId: string, questionIndex: number, answer: string) => void;
   onReviewCard: (
     proposalId: string,
@@ -543,23 +175,11 @@ export function ProjectBoardSynthesisProposalTab({
   const cardCount = proposal.cards.length;
   const reviewReport = proposal.reviewReport;
   const isLightweightReview = Boolean(reviewReport && cardCount === 0);
-  const proofCount = proposal.cards.reduce(
-    (total, card) => total + card.testPlan.unit.length + card.testPlan.integration.length + card.testPlan.visual.length + card.testPlan.manual.length,
-    0,
-  );
   const pending = proposal.status === "pending";
   const answeredQuestionIndexes = new Set(proposal.answers.map((answer) => answer.questionIndex));
-  const allQuestionsAnswered = proposal.questions.length > 0 && proposal.questions.every((_question, index) => answeredQuestionIndexes.has(index));
-  const reviewCounts = projectBoardProposalReviewCounts(proposal);
-  const actionableCardCount = reviewCounts.accepted + reviewCounts.merged;
-  const proposalProofScopeWarningCount = proposal.cards.reduce((total, card) => total + projectBoardPlanningWarningsForCard(card, board).length, 0);
-  const planningRunning = (latestRun?.status === "running" || latestRun?.status === "pause_requested") && latestRun.proposalId === proposal.id;
-  const generationRequiresActiveCharter = board.status !== "active";
-  const applyDisabled = isLightweightReview || applyBusy || planningRunning || reviewCounts.pending > 0 || actionableCardCount === 0;
+  const allQuestionsAnswered =
+    proposal.questions.length > 0 && proposal.questions.every((_question, index) => answeredQuestionIndexes.has(index));
   const mergeTargets = board.cards.filter((card) => card.status === "draft" && !card.orchestrationTaskId);
-  const partialStatus = latestRun ? projectBoardSynthesisPartialStatus(latestRun) : undefined;
-  const updateMode: Extract<RefineProjectBoardSynthesisInput["mode"], "charter_review" | "board_synthesis"> = isLightweightReview ? "charter_review" : "board_synthesis";
-  const updateLabel = isLightweightReview ? "Update Charter Review" : "Refine Draft Board";
   return (
     <section className="project-board-tab-panel project-board-proposal-panel" aria-label="Project board decisions">
       <ProjectBoardDecisionQueuePanel
@@ -572,106 +192,15 @@ export function ProjectBoardSynthesisProposalTab({
         onRefreshDecisionDrafts={onRefreshDecisionDrafts}
         onRegenerateDecisionDrafts={onRegenerateDecisionDrafts}
       />
-      <section className="project-board-charter-preview project-board-proposal-summary">
-        <header>
-          <div>
-            <span className="project-board-kicker">Pi proposal</span>
-            <h3>{proposal.summary || "Pi board synthesis proposal"}</h3>
-          </div>
-          <div className="project-board-card-actions">
-            <span className={`project-board-status ${pending ? "warning" : ""}`}>{projectBoardProposalStatusLabel(proposal.status)}</span>
-            {pending && (
-              <>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={refineBusy || proposal.answers.length === 0}
-                  title={
-                    proposal.answers.length === 0
-                      ? "Answer at least one charter-gap question before asking Pi to revise this proposal."
-                      : isLightweightReview
-                        ? "Ask Pi to update the lightweight PM review using the charter-gap answers below."
-                        : "Ask Pi to refine the draft board using the charter-gap answers below."
-                  }
-                  onClick={() => onRefineProposal(board.id, proposal.id, updateMode)}
-                >
-                  <Zap size={14} className={refineBusy ? "spin" : ""} />
-                  <span>{refineBusy ? (isLightweightReview ? "Reviewing" : "Refining") : updateLabel}</span>
-                </button>
-                {isLightweightReview ? (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={refineBusy || planningRunning || generationRequiresActiveCharter}
-                    title={
-                      generationRequiresActiveCharter
-                        ? "Activate the project charter before generating draft board cards."
-                        : planningRunning
-                        ? "Wait for Ambient/Pi planning to finish or pause before generating draft cards."
-                        : "Run full board synthesis from this PM review recommendation and put generated cards in the Draft Inbox."
-                    }
-                    onClick={() => onRefineProposal(board.id, proposal.id, "board_synthesis")}
-                  >
-                    <ClipboardPaste size={14} />
-                    <span>{refineBusy ? "Generating" : "Generate Draft Board"}</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={applyDisabled}
-                    title={
-                      planningRunning
-                        ? "Wait for Ambient/Pi planning to finish or fail before applying this live proposal."
-                        : reviewCounts.pending > 0
-                        ? "Review every proposal card before applying accepted cards."
-                        : actionableCardCount === 0
-                          ? "Accept or merge at least one proposal card before applying."
-                          : proposalProofScopeWarningCount > 0
-                            ? `Apply accepted and merged proposal cards to the draft inbox. ${proposalProofScopeWarningCount} proof-scope warning${proposalProofScopeWarningCount === 1 ? "" : "s"} should be reviewed before ticketization.`
-                            : "Apply accepted and merged proposal cards to the draft inbox."
-                    }
-                    onClick={() => onApplyProposal(proposal.id)}
-                  >
-                    <CheckCircle2 size={14} />
-                    <span>{applyBusy ? "Applying" : `Apply ${actionableCardCount} Card${actionableCardCount === 1 ? "" : "s"}`}</span>
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </header>
-        <div className="project-board-charter-grid">
-          <ProjectBoardCharterPolicy label="Project goal" value={proposal.goal} />
-          <ProjectBoardCharterPolicy label="Current state" value={proposal.currentState} />
-          <ProjectBoardCharterPolicy label="Proof bar" value={proposal.qualityBar} />
-        </div>
-        <div className="project-board-proposal-meta">
-          {reviewReport && <span>{projectBoardPmReviewReadinessLabel(reviewReport.readiness)}</span>}
-          {isLightweightReview && <span>zero generated cards</span>}
-          <span>{cardCount} proposed card{cardCount === 1 ? "" : "s"}</span>
-          <span>{reviewCounts.accepted} accepted</span>
-          <span>{reviewCounts.merged} merged</span>
-          <span>{reviewCounts.deferred} deferred</span>
-          <span>{reviewCounts.rejected} rejected</span>
-          <span>{reviewCounts.pending} pending</span>
-          <span>{proposal.questions.length} question{proposal.questions.length === 1 ? "" : "s"}</span>
-          <span>{proofCount} proof expectation{proofCount === 1 ? "" : "s"}</span>
-          {proposalProofScopeWarningCount > 0 && <span>{proposalProofScopeWarningCount} proof-scope warning{proposalProofScopeWarningCount === 1 ? "" : "s"}</span>}
-          {proposal.model && <span>{proposal.model}</span>}
-          {proposal.durationMs !== undefined && <span>{formatDelay(proposal.durationMs)}</span>}
-          <span>{formatTimelineTime(proposal.createdAt)}</span>
-        </div>
-        {partialStatus?.hasPartialProposal && (
-          <div className={`project-board-partial-warning ${partialStatus.deferred ? "deferred" : ""}`}>
-            <AlertCircle size={15} />
-            <p>
-              <strong>{partialStatus.deferred ? "Partial proposal accepted with deferred sections." : "Partial proposal has unresolved source sections."}</strong>{" "}
-              {partialStatus.summary} Retry failed sections from the synthesis run ledger, or explicitly defer them before treating source coverage as complete.
-            </p>
-          </div>
-        )}
-      </section>
+      <ProjectBoardSynthesisProposalSummary
+        board={board}
+        proposal={proposal}
+        latestRun={latestRun}
+        refineBusy={refineBusy}
+        applyBusy={applyBusy}
+        onRefineProposal={onRefineProposal}
+        onApplyProposal={onApplyProposal}
+      />
       <ProjectBoardExecutionPmReviewPanel review={executionReview} />
       {latestRun && (
         <ProjectBoardSynthesisRunLedger
@@ -690,7 +219,9 @@ export function ProjectBoardSynthesisProposalTab({
         <section className="project-board-proposal-questions">
           <header>
             <span className="project-board-kicker">Charter gaps</span>
-            <h3>{proposal.questions.length} unresolved question{proposal.questions.length === 1 ? "" : "s"}</h3>
+            <h3>
+              {proposal.questions.length} unresolved question{proposal.questions.length === 1 ? "" : "s"}
+            </h3>
           </header>
           {proposal.questions.length > 0 ? (
             <div className="project-board-proposal-answer-list">
@@ -768,7 +299,11 @@ export function ProjectBoardSynthesisProposalTab({
         <section className="project-board-proposal-cards">
           <header>
             <span className="project-board-kicker">{isLightweightReview ? "Recommendation" : "Proposed draft inbox"}</span>
-            <h3>{isLightweightReview ? projectBoardPmReviewReadinessLabel(reviewReport!.readiness) : `${cardCount} card${cardCount === 1 ? "" : "s"}`}</h3>
+            <h3>
+              {isLightweightReview
+                ? projectBoardPmReviewReadinessLabel(reviewReport!.readiness)
+                : `${cardCount} card${cardCount === 1 ? "" : "s"}`}
+            </h3>
           </header>
           {isLightweightReview && reviewReport ? (
             <ProjectBoardPmReviewReport report={reviewReport} />
@@ -799,7 +334,8 @@ export function ProjectBoardSynthesisProposalTab({
           <div className="project-board-source-counts">
             {proposals.slice(0, 6).map((candidate) => (
               <span key={candidate.id}>
-                {projectBoardProposalStatusLabel(candidate.status)} · {candidate.cards.length} cards · {formatTimelineTime(candidate.createdAt)}
+                {projectBoardProposalStatusLabel(candidate.status)} · {candidate.cards.length} cards ·{" "}
+                {formatTimelineTime(candidate.createdAt)}
               </span>
             ))}
           </div>
@@ -809,6 +345,169 @@ export function ProjectBoardSynthesisProposalTab({
   );
 }
 
+function ProjectBoardSynthesisProposalSummary({
+  board,
+  proposal,
+  latestRun,
+  refineBusy,
+  applyBusy,
+  onRefineProposal,
+  onApplyProposal,
+}: {
+  board: NonNullable<ProjectSummary["board"]>;
+  proposal: ProjectBoardSynthesisProposal;
+  latestRun?: ProjectBoardSynthesisRun;
+  refineBusy: boolean;
+  applyBusy: boolean;
+  onRefineProposal: (
+    boardId: string,
+    proposalId: string,
+    mode?: Extract<RefineProjectBoardSynthesisInput["mode"], "charter_review" | "board_synthesis">,
+  ) => void;
+  onApplyProposal: (proposalId: string) => void;
+}) {
+  const cardCount = proposal.cards.length;
+  const reviewReport = proposal.reviewReport;
+  const isLightweightReview = Boolean(reviewReport && cardCount === 0);
+  const proofCount = proposal.cards.reduce(
+    (total, card) =>
+      total + card.testPlan.unit.length + card.testPlan.integration.length + card.testPlan.visual.length + card.testPlan.manual.length,
+    0,
+  );
+  const pending = proposal.status === "pending";
+  const reviewCounts = projectBoardProposalReviewCounts(proposal);
+  const actionableCardCount = reviewCounts.accepted + reviewCounts.merged;
+  const proposalProofScopeWarningCount = proposal.cards.reduce(
+    (total, card) => total + projectBoardPlanningWarningsForCard(card, board).length,
+    0,
+  );
+  const planningRunning =
+    (latestRun?.status === "running" || latestRun?.status === "pause_requested") && latestRun.proposalId === proposal.id;
+  const generationRequiresActiveCharter = board.status !== "active";
+  const applyDisabled = isLightweightReview || applyBusy || planningRunning || reviewCounts.pending > 0 || actionableCardCount === 0;
+  const partialStatus = latestRun ? projectBoardSynthesisPartialStatus(latestRun) : undefined;
+  const updateMode: Extract<RefineProjectBoardSynthesisInput["mode"], "charter_review" | "board_synthesis"> = isLightweightReview
+    ? "charter_review"
+    : "board_synthesis";
+  const updateLabel = isLightweightReview ? "Update Charter Review" : "Refine Draft Board";
+  return (
+    <section className="project-board-charter-preview project-board-proposal-summary">
+      <header>
+        <div>
+          <span className="project-board-kicker">Pi proposal</span>
+          <h3>{proposal.summary || "Pi board synthesis proposal"}</h3>
+        </div>
+        <div className="project-board-card-actions">
+          <span className={`project-board-status ${pending ? "warning" : ""}`}>{projectBoardProposalStatusLabel(proposal.status)}</span>
+          {pending && (
+            <>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={refineBusy || proposal.answers.length === 0}
+                title={
+                  proposal.answers.length === 0
+                    ? "Answer at least one charter-gap question before asking Pi to revise this proposal."
+                    : isLightweightReview
+                      ? "Ask Pi to update the lightweight PM review using the charter-gap answers below."
+                      : "Ask Pi to refine the draft board using the charter-gap answers below."
+                }
+                onClick={() => onRefineProposal(board.id, proposal.id, updateMode)}
+              >
+                <Zap size={14} className={refineBusy ? "spin" : ""} />
+                <span>{refineBusy ? (isLightweightReview ? "Reviewing" : "Refining") : updateLabel}</span>
+              </button>
+              {isLightweightReview ? (
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={refineBusy || planningRunning || generationRequiresActiveCharter}
+                  title={
+                    generationRequiresActiveCharter
+                      ? "Activate the project charter before generating draft board cards."
+                      : planningRunning
+                        ? "Wait for Ambient/Pi planning to finish or pause before generating draft cards."
+                        : "Run full board synthesis from this PM review recommendation and put generated cards in the Draft Inbox."
+                  }
+                  onClick={() => onRefineProposal(board.id, proposal.id, "board_synthesis")}
+                >
+                  <ClipboardPaste size={14} />
+                  <span>{refineBusy ? "Generating" : "Generate Draft Board"}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={applyDisabled}
+                  title={
+                    planningRunning
+                      ? "Wait for Ambient/Pi planning to finish or fail before applying this live proposal."
+                      : reviewCounts.pending > 0
+                        ? "Review every proposal card before applying accepted cards."
+                        : actionableCardCount === 0
+                          ? "Accept or merge at least one proposal card before applying."
+                          : proposalProofScopeWarningCount > 0
+                            ? `Apply accepted and merged proposal cards to the draft inbox. ${proposalProofScopeWarningCount} proof-scope warning${proposalProofScopeWarningCount === 1 ? "" : "s"} should be reviewed before ticketization.`
+                            : "Apply accepted and merged proposal cards to the draft inbox."
+                  }
+                  onClick={() => onApplyProposal(proposal.id)}
+                >
+                  <CheckCircle2 size={14} />
+                  <span>{applyBusy ? "Applying" : `Apply ${actionableCardCount} Card${actionableCardCount === 1 ? "" : "s"}`}</span>
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </header>
+      <div className="project-board-charter-grid">
+        <ProjectBoardCharterPolicy label="Project goal" value={proposal.goal} />
+        <ProjectBoardCharterPolicy label="Current state" value={proposal.currentState} />
+        <ProjectBoardCharterPolicy label="Proof bar" value={proposal.qualityBar} />
+      </div>
+      <div className="project-board-proposal-meta">
+        {reviewReport && <span>{projectBoardPmReviewReadinessLabel(reviewReport.readiness)}</span>}
+        {isLightweightReview && <span>zero generated cards</span>}
+        <span>
+          {cardCount} proposed card{cardCount === 1 ? "" : "s"}
+        </span>
+        <span>{reviewCounts.accepted} accepted</span>
+        <span>{reviewCounts.merged} merged</span>
+        <span>{reviewCounts.deferred} deferred</span>
+        <span>{reviewCounts.rejected} rejected</span>
+        <span>{reviewCounts.pending} pending</span>
+        <span>
+          {proposal.questions.length} question{proposal.questions.length === 1 ? "" : "s"}
+        </span>
+        <span>
+          {proofCount} proof expectation{proofCount === 1 ? "" : "s"}
+        </span>
+        {proposalProofScopeWarningCount > 0 && (
+          <span>
+            {proposalProofScopeWarningCount} proof-scope warning{proposalProofScopeWarningCount === 1 ? "" : "s"}
+          </span>
+        )}
+        {proposal.model && <span>{proposal.model}</span>}
+        {proposal.durationMs !== undefined && <span>{formatDelay(proposal.durationMs)}</span>}
+        <span>{formatTimelineTime(proposal.createdAt)}</span>
+      </div>
+      {partialStatus?.hasPartialProposal && (
+        <div className={`project-board-partial-warning ${partialStatus.deferred ? "deferred" : ""}`}>
+          <AlertCircle size={15} />
+          <p>
+            <strong>
+              {partialStatus.deferred
+                ? "Partial proposal accepted with deferred sections."
+                : "Partial proposal has unresolved source sections."}
+            </strong>{" "}
+            {partialStatus.summary} Retry failed sections from the synthesis run ledger, or explicitly defer them before treating source
+            coverage as complete.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function ProjectBoardExecutionPmReviewPanel({ review }: { review: ReturnType<typeof projectBoardExecutionPmReview> }) {
   if (review.total === 0) return null;
@@ -820,13 +519,25 @@ export function ProjectBoardExecutionPmReviewPanel({ review }: { review: ReturnT
           <h3>{review.summary}</h3>
         </div>
         <div className="project-board-proposal-meta">
-          <span>{review.total} artifact{review.total === 1 ? "" : "s"}</span>
-          <span>{review.completed} completion{review.completed === 1 ? "" : "s"}</span>
+          <span>
+            {review.total} artifact{review.total === 1 ? "" : "s"}
+          </span>
+          <span>
+            {review.completed} completion{review.completed === 1 ? "" : "s"}
+          </span>
           {review.failed > 0 && <span>{review.failed} failed</span>}
           {review.blocked > 0 && <span>{review.blocked} blocked</span>}
           {review.stalled > 0 && <span>{review.stalled} stalled</span>}
-          {review.riskCount > 0 && <span>{review.riskCount} risk note{review.riskCount === 1 ? "" : "s"}</span>}
-          {review.followUpCount > 0 && <span>{review.followUpCount} follow-up{review.followUpCount === 1 ? "" : "s"}</span>}
+          {review.riskCount > 0 && (
+            <span>
+              {review.riskCount} risk note{review.riskCount === 1 ? "" : "s"}
+            </span>
+          )}
+          {review.followUpCount > 0 && (
+            <span>
+              {review.followUpCount} follow-up{review.followUpCount === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
       </header>
       {review.impacts.length > 0 ? (
@@ -835,7 +546,9 @@ export function ProjectBoardExecutionPmReviewPanel({ review }: { review: ReturnT
             <article className={`project-board-card status-${impact.card?.status ?? "draft"}`} key={impact.artifact.id}>
               <div className="project-board-card-header-row">
                 <span className="project-board-kicker">{impact.card ? "Card handoff" : "Unmatched handoff"}</span>
-                <span className={`project-board-status ${impact.tone === "danger" ? "danger" : impact.tone === "warning" ? "warning" : ""}`}>
+                <span
+                  className={`project-board-status ${impact.tone === "danger" ? "danger" : impact.tone === "warning" ? "warning" : ""}`}
+                >
                   {impact.artifact.status}
                 </span>
               </div>
@@ -848,7 +561,9 @@ export function ProjectBoardExecutionPmReviewPanel({ review }: { review: ReturnT
                 {impact.unblocks.length > 0 && <span>Unblocks {impact.unblocks.length}</span>}
                 {impact.newlyReadyUnblocks.length > 0 && <span>{impact.newlyReadyUnblocks.length} newly ready</span>}
                 {(impact.artifact.handoff?.risks.length ?? 0) > 0 && <span>{impact.artifact.handoff?.risks.length} risks</span>}
-                {(impact.artifact.handoff?.followUps.length ?? 0) > 0 && <span>{impact.artifact.handoff?.followUps.length} follow-ups</span>}
+                {(impact.artifact.handoff?.followUps.length ?? 0) > 0 && (
+                  <span>{impact.artifact.handoff?.followUps.length} follow-ups</span>
+                )}
               </div>
             </article>
           ))}
@@ -860,7 +575,9 @@ export function ProjectBoardExecutionPmReviewPanel({ review }: { review: ReturnT
         <section className="project-board-handoff-followups" aria-label="Pulled handoff follow-up cards">
           <header>
             <span className="project-board-kicker">Draft Inbox follow-ups</span>
-            <h4>{review.materializedFollowUps.length} handoff follow-up{review.materializedFollowUps.length === 1 ? "" : "s"} created</h4>
+            <h4>
+              {review.materializedFollowUps.length} handoff follow-up{review.materializedFollowUps.length === 1 ? "" : "s"} created
+            </h4>
           </header>
           <div className="project-board-handoff-followup-grid">
             {review.materializedFollowUps.slice(0, 6).map((followUp) => (
@@ -886,7 +603,6 @@ export function ProjectBoardExecutionPmReviewPanel({ review }: { review: ReturnT
     </section>
   );
 }
-
 
 export function ProjectBoardSynthesisRunLedger({
   run,
@@ -956,7 +672,9 @@ export function ProjectBoardSynthesisRunLedger({
           <h3>{projectBoardSynthesisRunStageLabel(run.stage)}</h3>
         </div>
         <div className="project-board-synthesis-run-header-actions">
-          <span className={`project-board-status ${run.status === "running" || run.status === "pause_requested" ? "warning" : run.status === "failed" ? "danger" : ""}`}>
+          <span
+            className={`project-board-status ${run.status === "running" || run.status === "pause_requested" ? "warning" : run.status === "failed" ? "danger" : ""}`}
+          >
             {projectBoardSynthesisRunStatusLabel(run.status)}
           </span>
           {staleRecovery.stale && onRetryStalledRun && (
@@ -1032,7 +750,9 @@ export function ProjectBoardSynthesisRunLedger({
       <div className="project-board-proposal-meta">
         {run.model && <span>{run.model}</span>}
         {metrics.map((item) => (
-          <span key={item.label} title={item.title}>{item.label}: {item.value}</span>
+          <span key={item.label} title={item.title}>
+            {item.label}: {item.value}
+          </span>
         ))}
         <span>{formatTimelineTime(run.startedAt)}</span>
       </div>
@@ -1059,8 +779,9 @@ export function ProjectBoardSynthesisRunLedger({
         <p className="project-board-synthesis-run-partial">
           <Pause size={14} />
           <span>
-            Planning is paused at a validated checkpoint. Resume will create a new run, reuse saved planner records, and continue with remaining cards.
-            Start Fresh abandons this checkpoint and asks Ambient/Pi to synthesize from the current board and source context instead.
+            Planning is paused at a validated checkpoint. Resume will create a new run, reuse saved planner records, and continue with
+            remaining cards. Start Fresh abandons this checkpoint and asks Ambient/Pi to synthesize from the current board and source
+            context instead.
           </span>
         </p>
       )}
@@ -1077,7 +798,9 @@ export function ProjectBoardSynthesisRunLedger({
             Runtime records: {progressiveSummary.candidateCardCount} cards, {progressiveSummary.questionCount} questions,{" "}
             {progressiveSummary.sourceCoverageCount} source coverage records, {progressiveSummary.dependencyEdgeCount} dependency edges
             {progressiveSummary.warningCount ? `, ${progressiveSummary.warningCount} warnings` : ""}
-            {progressiveSummary.semanticIdleSectionCount ? `, ${progressiveSummary.semanticIdleSectionCount} semantic idle section${progressiveSummary.semanticIdleSectionCount === 1 ? "" : "s"}` : ""}
+            {progressiveSummary.semanticIdleSectionCount
+              ? `, ${progressiveSummary.semanticIdleSectionCount} semantic idle section${progressiveSummary.semanticIdleSectionCount === 1 ? "" : "s"}`
+              : ""}
             {progressiveSummary.latestError ? `. Latest recoverable error: ${progressiveSummary.latestError}` : "."}
           </span>
         </p>
@@ -1092,7 +815,9 @@ export function ProjectBoardSynthesisRunLedger({
         <section className="project-board-proof-scope-warning-list" aria-label="Proof-scope warnings">
           <header>
             <span className="project-board-kicker">Proof ownership warnings</span>
-            <strong>{proofScopeWarnings.length} card{proofScopeWarnings.length === 1 ? "" : "s"} need proof-scope review</strong>
+            <strong>
+              {proofScopeWarnings.length} card{proofScopeWarnings.length === 1 ? "" : "s"} need proof-scope review
+            </strong>
           </header>
           <div>
             {proofScopeWarnings.slice(0, 5).map((warning) => (
@@ -1123,7 +848,9 @@ export function ProjectBoardSynthesisRunLedger({
             <div>
               <strong>{event.title}</strong>
               <p>{event.summary}</p>
-              <small>{formatTimelineTime(event.createdAt)} · {projectBoardSynthesisRunStageLabel(event.stage)}</small>
+              <small>
+                {formatTimelineTime(event.createdAt)} · {projectBoardSynthesisRunStageLabel(event.stage)}
+              </small>
             </div>
           </li>
         ))}
@@ -1131,7 +858,6 @@ export function ProjectBoardSynthesisRunLedger({
     </section>
   );
 }
-
 
 export function ProjectBoardPromptBudgetAudit({
   audit,
@@ -1148,7 +874,13 @@ export function ProjectBoardPromptBudgetAudit({
           <strong>{audit.headline}</strong>
           {!compact && <p>{audit.detail}</p>}
         </div>
-        {compact && <span className={`project-board-status ${audit.tone === "warning" ? "warning" : audit.tone === "danger" ? "danger" : audit.tone === "ready" ? "ready" : ""}`}>{audit.tone === "ready" ? "Compacted" : audit.tone === "warning" ? "Review" : "Tracked"}</span>}
+        {compact && (
+          <span
+            className={`project-board-status ${audit.tone === "warning" ? "warning" : audit.tone === "danger" ? "danger" : audit.tone === "ready" ? "ready" : ""}`}
+          >
+            {audit.tone === "ready" ? "Compacted" : audit.tone === "warning" ? "Review" : "Tracked"}
+          </span>
+        )}
       </header>
       {!compact && audit.metrics.length > 0 && (
         <div className="project-board-prompt-budget-audit-metrics">
@@ -1170,7 +902,6 @@ export function ProjectBoardPromptBudgetAudit({
     </section>
   );
 }
-
 
 export function ProjectBoardSynthesisSectionStatusList({
   run,
@@ -1233,7 +964,8 @@ export function ProjectBoardSynthesisSectionStatusList({
       </header>
       {failedCount > 0 && (
         <p className="project-board-section-status-note">
-          Failed sections are unresolved source coverage, not invisible background state. Retry failed sections to ask Pi for the missing slices, or defer them when the current partial proposal is enough to keep moving.
+          Failed sections are unresolved source coverage, not invisible background state. Retry failed sections to ask Pi for the missing
+          slices, or defer them when the current partial proposal is enough to keep moving.
         </p>
       )}
       <div className="project-board-section-status-list">
@@ -1263,7 +995,6 @@ export function ProjectBoardSynthesisSectionStatusList({
     </section>
   );
 }
-
 
 export function ProjectBoardSynthesisActivity({
   run,
@@ -1335,7 +1066,12 @@ export function ProjectBoardSynthesisActivity({
   }, [eventScrollKey, run?.id, status]);
 
   return (
-    <section className="project-board-synthesis-activity run-activity-card" role="status" aria-live="polite" aria-label="Project board synthesis progress">
+    <section
+      className="project-board-synthesis-activity run-activity-card"
+      role="status"
+      aria-live="polite"
+      aria-label="Project board synthesis progress"
+    >
       <div className="run-activity-header">
         <div>
           <strong>{title}</strong>
@@ -1415,7 +1151,9 @@ export function ProjectBoardSynthesisActivity({
       {metrics.length > 0 && (
         <div className="run-activity-metrics">
           {metrics.map((metric) => (
-            <span key={metric.label} title={metric.title}>{metric.label}: {metric.value}</span>
+            <span key={metric.label} title={metric.title}>
+              {metric.label}: {metric.value}
+            </span>
           ))}
         </div>
       )}
@@ -1430,7 +1168,10 @@ export function ProjectBoardSynthesisActivity({
         {eventRows.map(({ event, index }) => {
           const active = index === (run?.events.length ?? 0) - 1 && (run?.status === "running" || run?.status === "pause_requested");
           return (
-            <div key={`${event.createdAt}:${index}`} className={`run-activity-line ${event.stage === "failed" ? "error" : "thinking"} ${active ? "heartbeat active" : ""}`}>
+            <div
+              key={`${event.createdAt}:${index}`}
+              className={`run-activity-line ${event.stage === "failed" ? "error" : "thinking"} ${active ? "heartbeat active" : ""}`}
+            >
               <span />
               <p>
                 {event.title}
@@ -1446,20 +1187,24 @@ export function ProjectBoardSynthesisActivity({
   );
 }
 
-
-export function projectBoardSynthesisActivityEvents(run: ProjectBoardSynthesisRun): Array<{ event: ProjectBoardSynthesisRun["events"][number]; index: number }> {
+export function projectBoardSynthesisActivityEvents(
+  run: ProjectBoardSynthesisRun,
+): Array<{ event: ProjectBoardSynthesisRun["events"][number]; index: number }> {
   const rows = run.events.map((event, index) => ({ event, index }));
   const recentLimit = run.status === "running" || run.status === "pause_requested" ? 10 : 14;
   const important = rows.filter(({ event }) => {
     const text = `${event.title} ${event.summary}`.toLowerCase();
-    return event.stage === "charter_summary" || event.stage === "failed" || /\b(retry|retrying|failed|failure|transient|stalled|error)\b/.test(text);
+    return (
+      event.stage === "charter_summary" ||
+      event.stage === "failed" ||
+      /\b(retry|retrying|failed|failure|transient|stalled|error)\b/.test(text)
+    );
   });
   const selected = new Set<number>();
   for (const row of rows.slice(-recentLimit)) selected.add(row.index);
   for (const row of important.slice(-8)) selected.add(row.index);
   return rows.filter((row) => selected.has(row.index));
 }
-
 
 export function projectBoardSynthesisSectionMetric(run: ProjectBoardSynthesisRun): string | undefined {
   const summary = run.progressiveSummary;
@@ -1477,7 +1222,6 @@ export function projectBoardSynthesisSectionMetric(run: ProjectBoardSynthesisRun
   if (skipped > 0) parts.push(`${skipped} reused`);
   return parts.join(" · ");
 }
-
 
 export function projectBoardRenderedCardLedgerSummary(summary?: ProjectBoardSynthesisRun["progressiveSummary"]): string | undefined {
   const ledger = summary?.renderedCardLedger ?? [];
@@ -1502,7 +1246,6 @@ export function projectBoardRenderedCardLedgerSummary(summary?: ProjectBoardSynt
   return `Rendered-card restart ledger: ${parts.join(", ")}.${checksum}`;
 }
 
-
 export function projectBoardSynthesisRunPercent(run?: ProjectBoardSynthesisRun): number {
   if (!run) return 8;
   if (run.status === "paused") return 100;
@@ -1521,7 +1264,6 @@ export function projectBoardSynthesisRunPercent(run?: ProjectBoardSynthesisRun):
   return 8;
 }
 
-
 export function projectBoardSynthesisRunStatusLabel(status: ProjectBoardSynthesisRun["status"]): string {
   if (status === "running") return "Running";
   if (status === "pause_requested") return "Pause requested";
@@ -1530,7 +1272,6 @@ export function projectBoardSynthesisRunStatusLabel(status: ProjectBoardSynthesi
   if (status === "succeeded") return "Succeeded";
   return "Failed";
 }
-
 
 export function projectBoardSynthesisRunStageLabel(stage: ProjectBoardSynthesisRun["stage"]): string {
   if (stage === "source_scan") return "Scanning sources";
@@ -1548,7 +1289,6 @@ export function projectBoardSynthesisRunStageLabel(stage: ProjectBoardSynthesisR
   return "Failed";
 }
 
-
 export function projectBoardKickoffDefaultsRunMetric(run?: ProjectBoardSynthesisRun): { label: string; value?: string; title?: string } {
   if (run?.stage !== "kickoff_defaults") return { label: "Defaults" };
   const targetCount = projectBoardKickoffDefaultsRunTargetCount(run);
@@ -1560,7 +1300,6 @@ export function projectBoardKickoffDefaultsRunMetric(run?: ProjectBoardSynthesis
   };
 }
 
-
 export function projectBoardKickoffDefaultsRunTargetCount(run: ProjectBoardSynthesisRun): number {
   for (const event of run.events) {
     const total = event.metadata.total;
@@ -1571,7 +1310,6 @@ export function projectBoardKickoffDefaultsRunTargetCount(run: ProjectBoardSynth
   return 0;
 }
 
-
 export function projectBoardLatestVisibleSynthesisRun(runs?: ProjectBoardSynthesisRun[]): ProjectBoardSynthesisRun | undefined {
   if (!runs?.length) return undefined;
   return (
@@ -1581,7 +1319,6 @@ export function projectBoardLatestVisibleSynthesisRun(runs?: ProjectBoardSynthes
     runs[0]
   );
 }
-
 
 export function ProjectBoardPmReviewReport({ report }: { report: NonNullable<ProjectBoardSynthesisProposal["reviewReport"]> }) {
   const model = projectBoardPmReviewReportUiModel(report);
@@ -1604,11 +1341,12 @@ export function ProjectBoardPmReviewReport({ report }: { report: NonNullable<Pro
           </ul>
         </section>
       ))}
-      {model.sections.length === 0 && <p className="project-board-column-empty">Pi did not flag blocking questions, risks, or source conflicts.</p>}
+      {model.sections.length === 0 && (
+        <p className="project-board-column-empty">Pi did not flag blocking questions, risks, or source conflicts.</p>
+      )}
     </div>
   );
 }
-
 
 export function ProjectBoardProposalCard({
   card,
@@ -1633,7 +1371,8 @@ export function ProjectBoardProposalCard({
     mergeTargetCardId?: string,
   ) => void;
 }) {
-  const proofCount = card.testPlan.unit.length + card.testPlan.integration.length + card.testPlan.visual.length + card.testPlan.manual.length;
+  const proofCount =
+    card.testPlan.unit.length + card.testPlan.integration.length + card.testPlan.visual.length + card.testPlan.manual.length;
   const firstMergeTargetId = mergeTargets[0]?.id ?? "";
   const proofScopeTitle = projectBoardPlanningWarningActionTitle(planningWarnings);
   const [reason, setReason] = useState(card.reviewReason ?? "");
@@ -1651,7 +1390,8 @@ export function ProjectBoardProposalCard({
   return (
     <article className={`project-board-card status-draft candidate-${card.candidateStatus} proposal-${card.reviewStatus}`}>
       <div className="project-board-card-meta">
-        {projectBoardPhaseDisplayName(card.phase || "Unassigned")} · {projectBoardCandidateStatusLabel(card.candidateStatus)} · {projectBoardProposalCardReviewLabel(card.reviewStatus)}
+        {projectBoardPhaseDisplayName(card.phase || "Unassigned")} · {projectBoardCandidateStatusLabel(card.candidateStatus)} ·{" "}
+        {projectBoardProposalCardReviewLabel(card.reviewStatus)}
       </div>
       <h3>{card.title}</h3>
       <p className="project-board-card-description" title={card.description}>
@@ -1662,7 +1402,11 @@ export function ProjectBoardProposalCard({
         {card.labels.map((label) => (
           <span key={label}>{label}</span>
         ))}
-        {proofCount > 0 && <span>{proofCount} proof item{proofCount === 1 ? "" : "s"}</span>}
+        {proofCount > 0 && (
+          <span>
+            {proofCount} proof item{proofCount === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
       {card.objectiveProvenance && <ProjectBoardObjectiveProvenanceBlock provenance={card.objectiveProvenance} />}
       {card.blockedBy.length > 0 && (
@@ -1710,7 +1454,11 @@ export function ProjectBoardProposalCard({
               type="button"
               className="project-board-card-action"
               disabled={busy}
-              title={busy ? "This proposal card review is already saving." : proofScopeTitle ?? "Accept this Pi proposal card so it can be applied to the Draft Inbox."}
+              title={
+                busy
+                  ? "This proposal card review is already saving."
+                  : (proofScopeTitle ?? "Accept this Pi proposal card so it can be applied to the Draft Inbox.")
+              }
               onClick={() => review("accepted")}
             >
               <Check size={14} />
@@ -1720,7 +1468,11 @@ export function ProjectBoardProposalCard({
               type="button"
               className="project-board-card-action secondary"
               disabled={busy}
-              title={busy ? "This proposal card review is already saving." : "Defer this proposed card so it stays out of the current Draft Inbox apply."}
+              title={
+                busy
+                  ? "This proposal card review is already saving."
+                  : "Defer this proposed card so it stays out of the current Draft Inbox apply."
+              }
               onClick={() => review("deferred")}
             >
               <Clock size={14} />
@@ -1730,7 +1482,11 @@ export function ProjectBoardProposalCard({
               type="button"
               className="project-board-card-action secondary"
               disabled={busy}
-              title={busy ? "This proposal card review is already saving." : "Reject this proposed card as incorrect, duplicate, or out of scope."}
+              title={
+                busy
+                  ? "This proposal card review is already saving."
+                  : "Reject this proposed card as incorrect, duplicate, or out of scope."
+              }
               onClick={() => review("rejected")}
             >
               <X size={14} />
@@ -1761,8 +1517,9 @@ export function ProjectBoardProposalCard({
   );
 }
 
-
-export function projectBoardProposalReviewCounts(proposal: ProjectBoardSynthesisProposal): Record<ProjectBoardSynthesisProposalCardReviewStatus, number> {
+export function projectBoardProposalReviewCounts(
+  proposal: ProjectBoardSynthesisProposal,
+): Record<ProjectBoardSynthesisProposalCardReviewStatus, number> {
   return proposal.cards.reduce<Record<ProjectBoardSynthesisProposalCardReviewStatus, number>>(
     (counts, card) => {
       counts[card.reviewStatus] += 1;
@@ -1772,7 +1529,6 @@ export function projectBoardProposalReviewCounts(proposal: ProjectBoardSynthesis
   );
 }
 
-
 export function projectBoardProposalCardReviewLabel(status: ProjectBoardSynthesisProposalCardReviewStatus): string {
   if (status === "accepted") return "Accepted";
   if (status === "deferred") return "Deferred";
@@ -1781,15 +1537,15 @@ export function projectBoardProposalCardReviewLabel(status: ProjectBoardSynthesi
   return "Pending review";
 }
 
-
-export function projectBoardPmReviewReadinessLabel(readiness: NonNullable<ProjectBoardSynthesisProposal["reviewReport"]>["readiness"]): string {
+export function projectBoardPmReviewReadinessLabel(
+  readiness: NonNullable<ProjectBoardSynthesisProposal["reviewReport"]>["readiness"],
+): string {
   if (readiness === "ready_for_activation") return "Ready for activation";
   if (readiness === "ready_for_card_generation") return "Ready for card generation";
   if (readiness === "needs_source_refresh") return "Needs source refresh";
   if (readiness === "blocked") return "Blocked";
   return "Needs answers";
 }
-
 
 export function projectBoardProposalStatusLabel(status: ProjectBoardSynthesisProposal["status"]): string {
   if (status === "pending") return "Pending review";

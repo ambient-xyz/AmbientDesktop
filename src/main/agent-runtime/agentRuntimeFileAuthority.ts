@@ -1,4 +1,4 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { dirname, isAbsolute } from "node:path";
 
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
@@ -35,7 +35,10 @@ export interface TransientFileAuthorityAllowedToolInput {
 export interface TransientFileAuthorityAllowedToolDependencies {
   fileToolAccess: (toolName: string) => FileToolAccess | undefined;
   pathForTool: (toolName: string, requestedPath: string) => string;
-  resolvePolicyPath: (workspacePath: string, requestedPath: string) => Promise<{ absolutePath: string }>;
+  resolvePolicyPath: (
+    workspacePath: string,
+    requestedPath: string,
+  ) => Promise<{ absolutePath: string; canonicalPath: string; insideWorkspace: boolean }>;
 }
 
 export interface TransientFileAuthorityRootsForAccessResult {
@@ -252,7 +255,7 @@ export async function transientFileAuthorityRootFromAllowedTool(
     dependencies.pathForTool(input.toolName, requestedPath),
   );
   return {
-    path: pathCheck.absolutePath,
+    path: pathCheck.canonicalPath,
     actionKind: fileTool === "read" ? "file_content_read" : "local_file_write",
     reason: input.reason,
   };
@@ -264,10 +267,13 @@ export function transientFileAuthorityRootFromPermissionRequest(
 ): TransientFileAuthorityRootDraft | undefined {
   if (request.grantTargetKind !== "path") return undefined;
   if (request.grantActionKind !== "file_content_read" && request.grantActionKind !== "local_file_write") return undefined;
+  const canonicalConditionsPath = request.grantConditions && typeof request.grantConditions.canonicalPath === "string"
+    ? request.grantConditions.canonicalPath
+    : undefined;
   const conditionsPath = request.grantConditions && typeof request.grantConditions.path === "string"
     ? request.grantConditions.path
     : undefined;
-  const path = conditionsPath ?? request.grantTargetLabel;
+  const path = canonicalConditionsPath ?? conditionsPath ?? request.grantTargetLabel;
   if (!path || !isAbsolute(path)) return undefined;
   return { path, actionKind: request.grantActionKind, reason };
 }
@@ -322,13 +328,28 @@ export function fileAuthorityPathFromGrant(
   if (grant.scopeKind === "project" && grant.projectPath !== projectPath) return undefined;
   if (grant.scopeKind === "workspace" && grant.workspacePath !== thread.workspacePath) return undefined;
   if (grant.scopeKind === "workflow_thread" || grant.scopeKind === "global_plugin") return undefined;
-  const conditionsPath = grant.conditions && typeof grant.conditions === "object" && typeof (grant.conditions as { path?: unknown }).path === "string"
-    ? (grant.conditions as { path: string }).path
+  const conditions = grant.conditions && typeof grant.conditions === "object"
+    ? grant.conditions as { canonicalPath?: unknown; operation?: unknown; path?: unknown }
     : undefined;
-  const path = conditionsPath ?? grant.targetLabel;
+  const canonicalConditionsPath = typeof conditions?.canonicalPath === "string"
+    ? conditions.canonicalPath
+    : undefined;
+  const conditionsPath = typeof conditions?.path === "string"
+    ? conditions.path
+    : undefined;
+  const path = canonicalConditionsPath ?? conditionsPath ?? grant.targetLabel;
   if (!path || !isAbsolute(path)) return undefined;
+  if (conditions?.operation === "local_folder_allowlist" && !currentRealpathMatchesCapturedPath(path)) return undefined;
   if (access === "write") return nearestExistingDirectoryForAuthority(path);
   return path;
+}
+
+function currentRealpathMatchesCapturedPath(capturedPath: string): boolean {
+  try {
+    return realpathSync.native(capturedPath) === capturedPath;
+  } catch {
+    return false;
+  }
 }
 
 function stringField(value: unknown, key: string): string | undefined {

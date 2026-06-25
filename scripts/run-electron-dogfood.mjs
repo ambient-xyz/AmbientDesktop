@@ -41,6 +41,7 @@ try {
   const command = scenarioCommand(args.scenario, args.scenarioArgs);
   launchEnv = dogfoodLaunchEnv({
     ...process.env,
+    ...(command.env ?? {}),
     AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_PORT: String(cdpPort),
     AMBIENT_HARNESS_CDP_PORT: String(cdpPort),
     AMBIENT_HARNESS_HEADFUL: "1",
@@ -228,6 +229,63 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       display: ["node", "scripts/security-git-source-hardening-dogfood.mjs", ...scenarioArgs],
     };
   }
+  if (scenario === "security-managed-download-search") {
+    return {
+      executable: "node",
+      args: ["scripts/security-managed-download-search-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/security-managed-download-search-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "security-plugin-preview-egress" || scenario === "security-managed-download-egress") {
+    return {
+      executable: "node",
+      args: ["scripts/security-url-egress-dogfood.mjs", `--scenario=${scenario}`, ...scenarioArgs],
+      display: ["node", "scripts/security-url-egress-dogfood.mjs", `--scenario=${scenario}`, ...scenarioArgs],
+    };
+  }
+  if (scenario === "security-privileged-fresh-prompt") {
+    return {
+      executable: "node",
+      args: ["scripts/security-privileged-fresh-prompt-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/security-privileged-fresh-prompt-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "security-browser-login-prompt") {
+    return {
+      executable: "node",
+      args: ["scripts/e2e-browser-login-live.mjs", ...scenarioArgs],
+      display: ["node", "scripts/e2e-browser-login-live.mjs", ...scenarioArgs],
+      env: { AMBIENT_BROWSER_LOGIN_PROMPT_ONLY: "1" },
+    };
+  }
+  if (scenario === "security-grant-conditions") {
+    return {
+      executable: "node",
+      args: ["scripts/security-grant-conditions-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/security-grant-conditions-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "security-local-folder-allowlist" || scenario === "security-local-file-open") {
+    return {
+      executable: "node",
+      args: ["scripts/security-local-folder-allowlist-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/security-local-folder-allowlist-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "security-pi-privileged-toctou") {
+    return {
+      executable: "node",
+      args: ["scripts/security-pi-privileged-toctou-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/security-pi-privileged-toctou-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "security-pi-extension-sandbox") {
+    return {
+      executable: "node",
+      args: ["scripts/security-pi-extension-sandbox-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/security-pi-extension-sandbox-dogfood.mjs", ...scenarioArgs],
+    };
+  }
   if (scenario === "async-long-context") {
     return {
       executable: "node",
@@ -261,6 +319,13 @@ function scenarioCommand(scenario, scenarioArgs = []) {
       executable: "node",
       args: ["scripts/container-runtime-lifecycle-dogfood.mjs", ...scenarioArgs],
       display: ["node", "scripts/container-runtime-lifecycle-dogfood.mjs", ...scenarioArgs],
+    };
+  }
+  if (scenario === "skill-install-polish") {
+    return {
+      executable: "node",
+      args: ["scripts/skill-install-polish-dogfood.mjs", ...scenarioArgs],
+      display: ["node", "scripts/skill-install-polish-dogfood.mjs", ...scenarioArgs],
     };
   }
   if (scenario !== "subagent-desktop-dogfood") throw new Error(`Unsupported Electron dogfood scenario: ${scenario}`);
@@ -297,11 +362,22 @@ function scenarioLatestArtifactPath(scenario) {
   if (scenario === "prompt-cache-status") return "test-results/prompt-cache-status/latest.json";
   if (scenario === "async-bash") return "test-results/async-bash-dogfood/latest.json";
   if (scenario === "security-git-source-hardening") return "test-results/security-git-source-hardening/latest.json";
+  if (scenario === "security-managed-download-search") return "test-results/security-managed-download-search/latest.json";
+  if (scenario === "security-plugin-preview-egress") return "test-results/security-plugin-preview-egress/latest.json";
+  if (scenario === "security-managed-download-egress") return "test-results/security-managed-download-egress/latest.json";
+  if (scenario === "security-privileged-fresh-prompt") return "test-results/security-privileged-fresh-prompt/latest.json";
+  if (scenario === "security-browser-login-prompt") return "test-results/security-browser-login-prompt/latest.json";
+  if (scenario === "security-grant-conditions") return "test-results/security-grant-conditions/latest.json";
+  if (scenario === "security-local-file-open") return "test-results/security-local-folder-allowlist/latest.json";
+  if (scenario === "security-local-folder-allowlist") return "test-results/security-local-folder-allowlist/latest.json";
+  if (scenario === "security-pi-privileged-toctou") return "test-results/security-pi-privileged-toctou/latest.json";
+  if (scenario === "security-pi-extension-sandbox") return "test-results/security-pi-extension-sandbox/latest.json";
   if (scenario === "async-long-context") return "test-results/async-long-context-dogfood/latest.json";
   if (scenario === "provider-restart-behavior") return "test-results/provider-restart-behavior/latest.json";
   if (scenario === "provider-overflow-auto-compact") return "test-results/provider-overflow-auto-compact/latest.json";
   if (scenario === "render-optimization") return "test-results/render-optimization/latest.json";
   if (scenario === "container-runtime-lifecycle") return "test-results/container-runtime-lifecycle-dogfood/latest.json";
+  if (scenario === "skill-install-polish") return "test-results/skill-install-polish/latest.json";
   return "test-results/subagent-desktop-dogfood/latest.json";
 }
 

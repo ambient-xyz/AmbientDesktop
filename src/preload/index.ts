@@ -208,6 +208,7 @@ const api: AmbientDesktopApi = {
   refreshOfficePreview: (path: string) => ipcRenderer.invoke("workspace:refresh-office-preview", path),
   previewLocalFile: (path: string) => ipcRenderer.invoke("local-file:preview", path),
   refreshLocalOfficePreview: (path: string) => ipcRenderer.invoke("local-file:refresh-office-preview", path),
+  addLocalFolderAllowlistForThread: () => ipcRenderer.invoke("local-file:add-folder-allowlist"),
   pickWorkspaceContext: (input: PickWorkspaceContextInput) => ipcRenderer.invoke("workspace:pick-context", input),
   revealWorkspacePath: (path: string) => ipcRenderer.invoke("workspace:reveal-path", path),
   openWorkspacePath: (path: string) => ipcRenderer.invoke("workspace:open-path", path),
@@ -417,6 +418,7 @@ const api: AmbientDesktopApi = {
     return () => ipcRenderer.removeListener("desktop:event", wrapped);
   },
   emitE2eEvent: (event: DesktopEvent) => ipcRenderer.invoke("e2e:emit-event", event),
+  resolveE2ePermissionGrant: (input) => ipcRenderer.invoke("e2e:resolve-permission-grant", input),
 };
 
 contextBridge.exposeInMainWorld("ambientDesktop", api);

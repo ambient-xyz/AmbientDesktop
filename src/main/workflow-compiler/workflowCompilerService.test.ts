@@ -5,67 +5,29 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowCompileProgress } from "../../shared/workflowTypes";
 import { installAmbientCliPackageSource } from "./workflowCompilerAmbientCliFacade";
-import { bashToolDescriptor, firstPartyDesktopToolDescriptors, pluginMcpToolDescriptor } from "./workflowCompilerDesktopToolFacade";
-import type { PluginMcpToolRegistration } from "./workflowCompilerPluginsFacade";
-import { aggressiveAmbientRetryPolicy } from "./workflowCompilerAmbientFacade";
+import { bashToolDescriptor, firstPartyDesktopToolDescriptors } from "./workflowCompilerDesktopToolFacade";
 import { ProjectStore } from "./workflowCompilerProjectStoreFacade";
 import { readWorkflowRunDetail } from "./workflowCompilerWorkflowDashboardFacade";
 import {
-  AmbientWorkflowCompilerProvider,
   WORKFLOW_COMPILER_CALLABLE_INVOCATION_CONTEXT_SCHEMA_VERSION,
-  buildWorkflowPlanDslPromptParts,
-  buildWorkflowProgramIrPromptParts,
   compileWorkflowArtifact,
   parseCompilerJson,
-  type WorkflowCompilerCallableInvocationContext,
 } from "./workflowCompilerService";
 import { WorkflowProgramIrRepairRejectedError } from "./workflowCompilerIrRepair";
 import { WorkflowProgramCompileError } from "./workflowCompilerWorkflowProgramFacade";
+import {
+  bashClassifierProgram,
+  callableRecordedWorkflowInvocationContext,
+  callableSymphonyWorkflowInvocationContext,
+  childCallableWorkflowCallerProvenance,
+  classifierProgram,
+  finalOnlyProgram,
+  fixturePluginRegistration,
+  seedWorkflowCliFixture,
+} from "./workflowCompilerServiceTestSupport";
 import { fixtureWorkflowConnector, workspaceInventoryConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
-import { googleWorkspaceConnectorDescriptors } from "./workflowCompilerGoogleWorkspaceFacade";
-import type { WorkflowPiTextCallInput } from "./workflowCompilerWorkflowFacade";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
-
-function fixturePluginRegistration(): PluginMcpToolRegistration {
-  const descriptor = pluginMcpToolDescriptor({
-    registeredName: "fixture_tool",
-    label: "Fixture tool",
-    description: "Fixture plugin tool.",
-    promptSnippet: "fixture_tool: Fixture plugin tool.",
-    promptGuidelines: [],
-    parameters: { type: "object", properties: {}, additionalProperties: false },
-  });
-  return {
-    registeredName: "fixture_tool",
-    originalName: "fixture_original",
-    label: descriptor.label,
-    description: descriptor.description,
-    promptSnippet: descriptor.promptSnippet,
-    promptGuidelines: descriptor.promptGuidelines,
-    parameters: descriptor.inputSchema,
-    descriptor,
-    launchPlan: {
-      pluginId: "plugin-1",
-      pluginName: "Fixture",
-      pluginVersion: "1.0.0",
-      pluginFingerprint: "fixture-fingerprint",
-      serverName: "server",
-      cwd: process.cwd(),
-      command: "node",
-      args: [],
-      envKeys: [],
-      enabled: true,
-      startable: true,
-    },
-    tool: {
-      pluginId: "plugin-1",
-      pluginName: "Fixture",
-      serverName: "server",
-      name: "fixture_original",
-    },
-  };
-}
 
 describe("parseCompilerJson", () => {
   it("accepts plain and fenced JSON", () => {
@@ -74,9 +36,7 @@ describe("parseCompilerJson", () => {
   });
 
   it("does not truncate fenced JSON when source text mentions code fences", () => {
-    const parsed = parseCompilerJson(
-      '```json\n{"title":"Fenced","source":"```ts\\nexport default async function run() {}\\n```"}\n```',
-    );
+    const parsed = parseCompilerJson('```json\n{"title":"Fenced","source":"```ts\\nexport default async function run() {}\\n```"}\n```');
 
     expect(parsed).toEqual({
       title: "Fenced",
@@ -86,928 +46,6 @@ describe("parseCompilerJson", () => {
 
   it("falls back to the outer JSON object when a leading fence is malformed", () => {
     expect(parseCompilerJson('Compiler output:\n```json\npartial ```\n{"title":"Recovered"}')).toEqual({ title: "Recovered" });
-  });
-});
-
-async function seedWorkflowCliFixture(workspace: string): Promise<void> {
-  const root = join(workspace, "cli-fixture");
-  await mkdir(join(root, "bin"), { recursive: true });
-  await mkdir(join(root, "skills", "json-cli"), { recursive: true });
-  await writeFile(
-    join(root, "ambient-cli.json"),
-    `${JSON.stringify(
-      {
-        name: "ambient-json-cli",
-        version: "0.1.0",
-        description: "Fixture JSON CLI package.",
-        skills: "./skills",
-        commands: {
-          "json-pick": {
-            command: "node",
-            args: ["./bin/json-pick.mjs"],
-            cwd: "workspace",
-            description: "Print a top-level JSON field.",
-          },
-        },
-      },
-      null,
-      2,
-    )}\n`,
-    "utf8",
-  );
-  await writeFile(join(root, "bin", "json-pick.mjs"), "process.stdout.write('ok');\n", "utf8");
-  await writeFile(
-    join(root, "skills", "json-cli", "SKILL.md"),
-    ["---", "name: ambient-json-cli", "description: Use ambient_cli json-pick for JSON field extraction.", "---", "", "Raw skill instructions.", ""].join("\n"),
-    "utf8",
-  );
-}
-
-function finalOnlyProgram(title: string, goal = "Compile a deterministic no-op workflow."): unknown {
-  return {
-    version: 1,
-    title,
-    goal,
-    nodes: [{ id: "final", kind: "output.final", value: { literal: { ok: true } } }],
-  };
-}
-
-function bashClassifierProgram(): unknown {
-  return {
-    version: 1,
-    title: "Test Failure Classifier",
-    goal: "Run local tests and classify failures.",
-    summary: "Runs tests and asks Ambient for structured failure categories.",
-    successCriteria: ["Tests executed", "Report generated"],
-    nodes: [
-      { id: "test", kind: "tool.call", tool: "bash", args: { command: "pnpm test" } },
-      {
-        id: "ambient-model",
-        kind: "model.call",
-        dependsOn: ["test"],
-        task: "classify.tests",
-        input: { result: { fromNode: "test" } },
-        output: { schema: { summary: "string" } },
-      },
-      { id: "final", kind: "output.final", dependsOn: ["ambient-model"], value: { result: { fromNode: "ambient-model" } } },
-    ],
-    budgets: { maxToolCalls: 1, maxModelCalls: 1 },
-  };
-}
-
-function classifierProgram(title: string, goal = "Classify records."): unknown {
-  return {
-    version: 1,
-    title,
-    goal,
-    summary: goal,
-    nodes: [
-      {
-        id: "classify",
-        kind: "model.call",
-        task: "classify.records",
-        input: { records: [] },
-        output: { schema: { labels: "array" } },
-      },
-      { id: "report", kind: "output.final", dependsOn: ["classify"], value: { labels: { fromNode: "classify", path: "labels" } } },
-    ],
-    budgets: { maxModelCalls: 1 },
-  };
-}
-
-function callableRecordedWorkflowInvocationContext(input: {
-  callerProvenance?: WorkflowCompilerCallableInvocationContext["callerProvenance"];
-} = {}): WorkflowCompilerCallableInvocationContext {
-  return {
-    schemaVersion: WORKFLOW_COMPILER_CALLABLE_INVOCATION_CONTEXT_SCHEMA_VERSION,
-    taskId: "callable-task-1",
-    launchId: "callable-launch-1",
-    parentThreadId: "parent-thread-1",
-    parentRunId: "parent-run-1",
-    parentMessageId: "parent-message-1",
-    toolName: "ambient_workflow_recorded_release_triage_v4",
-    toolId: "recorded:release-triage:v4",
-    sourceKind: "recorded_workflow",
-    blocking: true,
-    ...(input.callerProvenance ? { callerProvenance: input.callerProvenance } : {}),
-    input: {
-      goal: "Triage the supplied release notes.",
-      blocking: true,
-      input1: "docs/release-notes.md",
-    },
-    launchCard: {
-      schemaVersion: "ambient-callable-workflow-launch-card-v1",
-      title: "Workflow Release Triage",
-      sourceKind: "recorded_workflow",
-      riskLevel: "medium",
-      estimatedAgents: 1,
-      maxFanout: 1,
-      maxDepth: 1,
-      estimatedTokenBudget: 60_000,
-      tokenBudgetEstimated: true,
-      estimatedLocalMemoryBytes: 2 * 1024 * 1024 * 1024,
-      localMemoryEstimated: true,
-      costEstimateLabel: "Estimated token use is bounded by workflow policy.",
-      toolMutationScope: "Read-only unless the compiled workflow asks for explicit mutation approval.",
-      checkpointResume: "Compile to a persisted workflow artifact before running.",
-      approvalFailureHandling: "Approval failures keep the workflow visible and resumable.",
-      defaultCollapsed: true,
-      blocking: true,
-      smallSliceRecommended: true,
-      requireConfirmation: true,
-      requirementIds: ["recorded_playbook_confirmed", "input_schema_confirmed", "trace_diagnostics_artifact"],
-      metricTemplateIds: ["recorded-validation-1"],
-      policyWarnings: [],
-    },
-    sourceContext: {
-      kind: "recorded_workflow",
-      title: "Release Triage",
-      summary: "Reusable release-risk triage from a confirmed recorded workflow.",
-      playbookId: "release-triage",
-      playbookVersion: 4,
-      playbookSource: "user_edit",
-      intent: "Triage release notes against regression risk.",
-      inputs: ["Release notes", "Known failing checks"],
-      successfulExamples: [],
-      doNot: [],
-      validation: ["Every failing check has a triage status."],
-      outputShape: ["Risk-ranked release triage with citations."],
-      markdownPreview: "# Release Triage\n",
-      recorderCompactInvocationByDefault: true,
-      fullTraceArtifact: true,
-      callableInvocation: {
-        schemaVersion: "ambient-workflow-recording-callable-invocation-v1",
-        mode: "compact_callable_invocation",
-        source: "workflow_recorder",
-        defaultInvocation: "compact",
-        invocationArtifact: "./workflow-invocation.json",
-        diagnosticsTraceArtifact: "./diagnostics/full-trace.jsonl",
-        inputKeys: ["goal", "blocking", "input_1"],
-        inputSchemaHintKeys: ["goal", "blocking", "input_1"],
-      },
-    },
-    launchBridgeContract: {
-      schemaVersion: "ambient-callable-workflow-symphony-launch-bridge-v1",
-      workflowTaskId: "symphony-task-1",
-      launchId: "symphony-launch-1",
-      parentThreadId: "parent-thread-1",
-      parentRunId: "parent-run-1",
-      parentMessageId: "parent-message-1",
-      expectedWorkflowToolName: "ambient_workflow_symphony_map_reduce",
-      expectedWorkflowToolId: "symphony:map_reduce",
-      sourceKind: "symphony_recipe",
-      pattern: {
-        id: "map_reduce",
-        label: "Map-Reduce",
-        blocking: true,
-      },
-      childLaunches: [
-        {
-          roleNodeId: "mapper",
-          label: "Mapper",
-          title: "Mapper sub-agent",
-          task: "Map implementation evidence into schema-valid findings.",
-          roleId: "explorer",
-          dependencyMode: "required",
-          forkMode: "recent_turns",
-          promptMode: "append",
-          effectiveRole: {
-            schemaVersion: "ambient-subagent-effective-role-v1",
-            baseRole: "explorer",
-            patternRole: "mapper",
-            displayLabel: "Explorer + Mapper",
-            roleOverlayIds: ["mapper.slice-assignment"],
-            overlays: [
-              {
-                id: "mapper.slice-assignment",
-                label: "slice assignment",
-                narrowsAuthority: true,
-                widensAuthority: false,
-                adds: ["slice assignment"],
-              },
-            ],
-            nonWidening: true,
-            outputContract: "Return mapped evidence with citations and blockers.",
-          },
-          patternRole: "mapper",
-          patternGraphBinding: {
-            workflowTaskId: "symphony-task-1",
-            roleNodeId: "mapper",
-            label: "Mapper",
-            approvalState: "none",
-            blockingParent: true,
-          },
-          toolScope: {
-            mode: "role_defaults",
-            rationale: "Use the selected role's least-privilege defaults.",
-          },
-          idempotencyKey: "callable-workflow:symphony-task-1:symphony-child:mapper",
-        },
-        {
-          roleNodeId: "reducer",
-          label: "Reducer",
-          title: "Reducer sub-agent",
-          task: "Reduce mapped evidence into a synthesis-safe answer.",
-          roleId: "summarizer",
-          dependencyMode: "required",
-          forkMode: "no_history",
-          promptMode: "fresh",
-          effectiveRole: {
-            schemaVersion: "ambient-subagent-effective-role-v1",
-            baseRole: "summarizer",
-            patternRole: "reducer",
-            displayLabel: "Summarizer + Reducer",
-            roleOverlayIds: ["reducer.merge-rules"],
-            overlays: [
-              {
-                id: "reducer.merge-rules",
-                label: "merge rules",
-                narrowsAuthority: true,
-                widensAuthority: false,
-                adds: ["merge rules"],
-              },
-            ],
-            nonWidening: true,
-            outputContract: "Return reduced findings and coverage validation.",
-          },
-          patternRole: "reducer",
-          patternGraphBinding: {
-            workflowTaskId: "symphony-task-1",
-            roleNodeId: "reducer",
-            label: "Reducer",
-            approvalState: "none",
-            blockingParent: true,
-          },
-          toolScope: {
-            mode: "role_defaults",
-            rationale: "Use the selected role's least-privilege defaults.",
-          },
-          idempotencyKey: "callable-workflow:symphony-task-1:symphony-child:reducer",
-        },
-      ],
-      wait: {
-        mode: "required_all",
-        failurePolicy: "ask_user",
-        timeoutMs: 600000,
-        blocking: true,
-        childRoleNodeIds: ["mapper", "reducer"],
-      },
-      expectedEvidence: [
-        "Every required child launch has a childRunId bound to this workflow task's pattern graph.",
-      ],
-    },
-  };
-}
-
-function childCallableWorkflowCallerProvenance(): NonNullable<WorkflowCompilerCallableInvocationContext["callerProvenance"]> {
-  return {
-    kind: "subagent_child_thread",
-    threadId: "child-thread-1",
-    runId: "child-run-1",
-    messageId: "child-message-1",
-    subagentRunId: "subagent-run-1",
-    canonicalTaskPath: "parent/1",
-    parentThreadId: "parent-thread-1",
-    parentRunId: "parent-run-1",
-    approval: {
-      required: true,
-      source: "child_bridge_policy",
-      failureHandling: "Forward approval to the parent and keep the child blocked.",
-      scopeHint: "this_child_thread",
-    },
-    worktree: {
-      required: true,
-      isolated: true,
-      status: "active",
-      workspacePath: "/tmp/ambient-child-worktree",
-      worktreePath: "/tmp/ambient-child-worktree",
-      branchName: "ambient/child-workflow",
-    },
-    nestedFanout: {
-      required: true,
-      source: "child_bridge_policy",
-    },
-  };
-}
-
-function callableSymphonyWorkflowInvocationContext(): WorkflowCompilerCallableInvocationContext {
-  return {
-    schemaVersion: WORKFLOW_COMPILER_CALLABLE_INVOCATION_CONTEXT_SCHEMA_VERSION,
-    taskId: "symphony-task-1",
-    launchId: "symphony-launch-1",
-    parentThreadId: "parent-thread-1",
-    parentRunId: "parent-run-1",
-    parentMessageId: "parent-message-1",
-    toolName: "ambient_workflow_symphony_map_reduce",
-    toolId: "symphony:map_reduce",
-    sourceKind: "symphony_recipe",
-    blocking: true,
-    input: {
-      goal: "Audit implementation evidence.",
-      blocking: true,
-      builderSelections: [
-        {
-          stepId: "pattern-scope",
-          selectedChoiceId: "files",
-          resolvedText: "Files: Split across selected workspace files or search results.",
-        },
-      ],
-      metricCriteria: [
-        {
-          templateId: "map_reduce-metric",
-          value: "Every mapped implementation section has cited evidence.",
-        },
-      ],
-    },
-    launchCard: {
-      schemaVersion: "ambient-callable-workflow-launch-card-v1",
-      title: "Symphony Map-Reduce",
-      sourceKind: "symphony_recipe",
-      riskLevel: "high",
-      estimatedAgents: 12,
-      maxFanout: 12,
-      maxDepth: 2,
-      estimatedTokenBudget: 180_000,
-      tokenBudgetEstimated: true,
-      estimatedLocalMemoryBytes: 8 * 1024 * 1024 * 1024,
-      localMemoryEstimated: true,
-      costEstimateLabel: "Estimated token use is bounded by workflow policy.",
-      toolMutationScope: "Read-only unless the compiled workflow asks for explicit mutation approval.",
-      checkpointResume: "Compile to a persisted workflow artifact before running.",
-      approvalFailureHandling: "Approval failures keep the workflow visible and resumable.",
-      defaultCollapsed: true,
-      blocking: true,
-      smallSliceRecommended: true,
-      requireConfirmation: true,
-      requirementIds: ["estimated_agents", "token_cost_budget", "tool_mutation_scope", "checkpoint_resume", "approval_failure_handling"],
-      metricTemplateIds: ["map_reduce-metric"],
-      policyWarnings: ["Parent final synthesis is blocked until this workflow reaches a synthesis-safe terminal state."],
-    },
-    sourceContext: {
-      kind: "symphony_recipe",
-      title: "Symphony Map-Reduce",
-      summary: "Fan out over files, sources, or slices, then reduce schema-valid child results into one cited answer.",
-      recipeId: "map_reduce",
-      recipeSchemaVersion: "ambient-symphony-workflow-recipe-v1",
-      defaultRoles: ["explorer", "summarizer"],
-      builderSteps: [
-        {
-          id: "pattern-scope",
-          question: "What collection should Symphony split across child threads?",
-          impact: "Defines child thread fanout, role assignment, and result aggregation.",
-          choices: ["Files: Split across selected workspace files or search results."],
-        },
-      ],
-      metricTemplates: [
-        {
-          id: "map_reduce-metric",
-          kind: "objective_metric",
-          label: "Reducer success metric",
-          prompt: "What objective extraction schema, count, or validation check proves the reducer has enough coverage?",
-        },
-      ],
-      invocationCustomization: {
-        schemaVersion: "ambient-callable-workflow-symphony-invocation-v1",
-        stepSelections: [
-          {
-            stepId: "pattern-scope",
-            question: "What collection should Symphony split across child threads?",
-            selectedChoiceId: "files",
-            selectedChoiceLabel: "Files",
-            selectedChoiceDescription: "Split across selected workspace files or search results.",
-            resolvedText: "Files: Split across selected workspace files or search results.",
-          },
-        ],
-        metricCriteria: [
-          {
-            templateId: "map_reduce-metric",
-            kind: "objective_metric",
-            label: "Reducer success metric",
-            prompt: "What objective extraction schema, count, or validation check proves the reducer has enough coverage?",
-            value: "Every mapped implementation section has cited evidence.",
-          },
-        ],
-      },
-      hardLimits: {
-        maxFanout: 12,
-        maxDepth: 2,
-        maxTokenBudget: 180_000,
-        maxLocalMemoryBytes: 8 * 1024 * 1024 * 1024,
-        allowSmallSliceRun: true,
-      },
-      recorderPolicy: {
-        compactInvocationByDefault: true,
-        fullTraceArtifact: true,
-      },
-    },
-  };
-}
-
-describe("AmbientWorkflowCompilerProvider", () => {
-  it("keeps in-app HTML and report outputs separate from staged file-write exports in the Plan DSL prompt", () => {
-    const planPrompt = buildWorkflowPlanDslPromptParts({
-      userRequest: "Create a simple HTML study card and return it in the workflow output.",
-      workspaceSummary: "Test workspace.",
-      toolDescriptors: [],
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-    });
-
-    expect(planPrompt.stablePrefix).toContain("Output and mutation semantics:");
-    expect(planPrompt.stablePrefix).toContain("For a simple in-app HTML page, report, card, preview, or final answer, use model_interaction");
-    expect(planPrompt.stablePrefix).toContain("Use staged_document_export only when the user explicitly asks to save, write, export to a local path");
-    expect(planPrompt.stablePrefix).toContain("Do not infer a local file write merely from words like artifact, report, HTML, card, preview, or output.");
-  });
-
-  it("adds callable workflow invocation provenance to compiler prompt mutable context", () => {
-    const callableWorkflowInvocation = callableRecordedWorkflowInvocationContext({
-      callerProvenance: childCallableWorkflowCallerProvenance(),
-    });
-    const programPrompt = buildWorkflowProgramIrPromptParts({
-      userRequest: "Compile the supplied recorded workflow invocation.",
-      workspaceSummary: "Test workspace.",
-      toolDescriptors: [],
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-      callableWorkflowInvocation,
-    });
-    const planPrompt = buildWorkflowPlanDslPromptParts({
-      userRequest: "Compile the supplied recorded workflow invocation.",
-      workspaceSummary: "Test workspace.",
-      toolDescriptors: [],
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-      callableWorkflowInvocation,
-    });
-
-    expect(programPrompt.stablePrefix).not.toContain("Callable workflow invocation context:");
-    expect(programPrompt.mutableSuffix).toContain("Callable workflow invocation context:");
-    expect(programPrompt.mutableSuffix).toContain("Task: callable-task-1 / launch callable-launch-1");
-    expect(programPrompt.mutableSuffix).toContain("Caller: subagent_child_thread thread child-thread-1, run child-run-1, message child-message-1");
-    expect(programPrompt.mutableSuffix).toContain("Child bridge: sub-agent run subagent-run-1, task path parent/1");
-    expect(programPrompt.mutableSuffix).toContain("Worktree isolation: required, isolated, path /tmp/ambient-child-worktree");
-    expect(programPrompt.mutableSuffix).toContain("Approval provenance: required via child_bridge_policy, scope this_child_thread");
-    expect(programPrompt.mutableSuffix).toContain("Recorded playbook: release-triage v4");
-    expect(programPrompt.mutableSuffix).toContain("Compact invocation artifact: ./workflow-invocation.json");
-    expect(programPrompt.mutableSuffix).toContain("Diagnostics trace artifact: ./diagnostics/full-trace.jsonl");
-    expect(programPrompt.mutableSuffix).toContain('"goal": "Triage the supplied release notes."');
-    expect(programPrompt.promptAssembly.modules.map((module) => module.id)).toContain("dynamic-callable-workflow-invocation");
-    expect(planPrompt.mutableSuffix).toContain("Callable workflow invocation context:");
-    expect(planPrompt.promptAssembly.modules.map((module) => module.id)).toContain("dynamic-callable-workflow-invocation");
-  });
-
-  it("adds Symphony invocation choices and criteria to compiler prompt mutable context", () => {
-    const callableWorkflowInvocation = callableSymphonyWorkflowInvocationContext();
-    const programPrompt = buildWorkflowProgramIrPromptParts({
-      userRequest: "Compile the supplied Symphony workflow invocation.",
-      workspaceSummary: "Test workspace.",
-      toolDescriptors: [],
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-      callableWorkflowInvocation,
-    });
-
-    expect(programPrompt.mutableSuffix).toContain("Callable workflow invocation context:");
-    expect(programPrompt.mutableSuffix).toContain("Symphony recipe: map_reduce");
-    expect(programPrompt.mutableSuffix).toContain("Symphony invocation customization: ambient-callable-workflow-symphony-invocation-v1");
-    expect(programPrompt.mutableSuffix).toContain("Selected builder choices: pattern-scope=Files: Split across selected workspace files or search results.");
-    expect(programPrompt.mutableSuffix).toContain("Required metric criteria: map_reduce-metric=Every mapped implementation section has cited evidence.");
-  });
-
-  it("instructs local directory workflows to preserve skipped metadata through final artifacts", () => {
-    const localDirectoryTool = firstPartyDesktopToolDescriptors().find((tool) => tool.name === "local_directory_list");
-    expect(localDirectoryTool).toBeTruthy();
-
-    const prompt = buildWorkflowProgramIrPromptParts({
-      userRequest: "Categorize my Downloads folder using metadata only.",
-      workspaceSummary: "Test workspace.",
-      toolDescriptors: [localDirectoryTool!],
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-    });
-    const fullPrompt = `${prompt.stablePrefix}\n${prompt.mutableSuffix}`;
-
-    expect(fullPrompt).toContain("Capability guidance local-directory-skipped-metadata");
-    expect(fullPrompt).toContain("Local-directory workflow guidance");
-    expect(fullPrompt).toContain('{"fromHandle":"listNode.skipped"}');
-    expect(fullPrompt).toContain("checkpoint.write");
-    expect(fullPrompt).toContain("model.call input");
-    expect(fullPrompt).toContain("document.render input");
-    expect(fullPrompt).toContain("output.final");
-    expect(fullPrompt).toContain("never read or expose skipped file contents");
-  });
-
-  it("instructs large Gmail metadata-first workflows to gate full-body detail reads", () => {
-    const prompt = buildWorkflowProgramIrPromptParts({
-      userRequest: "Categorize 1,000 Gmail messages, but ask before reading full bodies.",
-      workspaceSummary: "Test workspace with Gmail available.",
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-    });
-    const fullPrompt = `${prompt.stablePrefix}\n${prompt.mutableSuffix}`;
-
-    expect(fullPrompt).toContain("Recipe metadata_first_personal_data_review");
-    expect(fullPrompt).toContain("connector.paginate with google.gmail search");
-    expect(fullPrompt).toContain("metadata-only");
-    expect(fullPrompt).toContain("review.input");
-    expect(fullPrompt).toContain("google.gmail readThread or readAttachment");
-    expect(fullPrompt).toContain("never include Gmail draft/send/delete/update operations");
-  });
-
-  it("instructs bounded Gmail detail workflows to read threads before synthesis", () => {
-    const prompt = buildWorkflowProgramIrPromptParts({
-      userRequest:
-        "Review the last 100 emails in Gmail, fetch enough message or thread detail, and report action required, urgency, sender/domain, and recurring themes.",
-      workspaceSummary: "Test workspace with Gmail available.",
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      ambientCliCapabilities: [],
-      connectorDescriptors: googleWorkspaceConnectorDescriptors({
-        adapter: "gws",
-        states: {
-          "google.gmail": {
-            status: "available",
-            accounts: [{ id: "default", label: "Default Google account" }],
-          },
-        },
-      }).filter((connector) => connector.id === "google.gmail"),
-      discoveryQuestions: [],
-      explorationTraces: [],
-    });
-    const fullPrompt = `${prompt.stablePrefix}\n${prompt.mutableSuffix}`;
-
-    expect(fullPrompt).toContain("Gmail detail rule");
-    expect(fullPrompt).toContain("do not synthesize from search snippets alone");
-    expect(fullPrompt).toContain("connector.map google.gmail readThread");
-    expect(fullPrompt).not.toContain("Recipe metadata_first_personal_data_review");
-  });
-
-  it("instructs current-data workflows to preserve location in final output", () => {
-    const prompt = buildWorkflowProgramIrPromptParts({
-      userRequest: "Recommend whether to go to a movie tonight in Scottsdale.",
-      workspaceSummary: "Test workspace.",
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-    });
-    const fullPrompt = `${prompt.stablePrefix}\n${prompt.mutableSuffix}`;
-
-    expect(fullPrompt).toContain("Recipe current_web_research");
-    expect(fullPrompt).not.toContain("Current-data rule");
-    expect(fullPrompt).toContain("location when location-specific");
-    expect(fullPrompt).toContain("Do not rely on model knowledge for current facts");
-  });
-
-  it("publishes stable output reference paths for review gates and rendered documents", () => {
-    const prompt = buildWorkflowProgramIrPromptParts({
-      userRequest: "Build a PDF report and ask before writing it.",
-      workspaceSummary: "Test workspace.",
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-    });
-    const fullPrompt = `${prompt.stablePrefix}\n${prompt.mutableSuffix}`;
-
-    expect(fullPrompt).toContain("Known reference path contract");
-    expect(fullPrompt).toContain("review.input outputs requestId, choiceId, text, and prompt");
-    expect(fullPrompt).toContain("use choiceId, never choice or selectedChoice");
-    expect(fullPrompt).toContain("document.render outputs artifactPath, path, content, bytes, and mimeType");
-    expect(fullPrompt).toContain("mutation.stage/file_write outputs path and bytes");
-  });
-
-  it("teaches WorkflowProgramIR planning to prefer registry handles over raw paths", () => {
-    const prompt = buildWorkflowProgramIrPromptParts({
-      userRequest: "Ask for one decision, synthesize a short report, and stage a rendered file.",
-      workspaceSummary: "Test workspace.",
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      ambientCliCapabilities: [],
-      connectorDescriptors: [],
-      discoveryQuestions: [],
-      explorationTraces: [],
-    });
-    const fullPrompt = `${prompt.stablePrefix}\n${prompt.mutableSuffix}`;
-
-    expect(fullPrompt).toContain('use {"fromHandle":"producerAlias.outputField"}');
-    expect(fullPrompt).toContain("askUser.choiceId");
-    expect(fullPrompt).toContain("renderReport.artifactPath");
-    expect(fullPrompt).toContain('"fromHandle": "askUser.choiceId"');
-    expect(fullPrompt).toContain('"fromHandle": "synthesize.summary"');
-    expect(fullPrompt).not.toContain('Reference prior outputs with {"fromNode":"node-id","path":"optional.field.path"}');
-  });
-
-  it("uses a no-reasoning JSON-only Pi call for compiler capability discovery", async () => {
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        calls.push(input);
-        input.onProgress?.({
-          outputChars: 64,
-          thinkingChars: 0,
-          elapsedMs: 250,
-          idleElapsedMs: 0,
-          idleTimeoutMs: input.idleTimeoutMs,
-          timeoutMode: "idle_watchdog",
-          stage: "streaming",
-        });
-        return '{"queries":[{"query":"web research"}],"requiredToolNames":["browser_content"],"openQuestions":[]}';
-      },
-    });
-    const progress: string[] = [];
-
-    await expect(
-      provider.discoverCapabilities({
-        prompt: "discover",
-        model: AMBIENT_DEFAULT_MODEL,
-        onProgress: (event) => progress.push(event.stage),
-      }),
-    ).resolves.toEqual({
-      queries: [{ query: "web research" }],
-      requiredToolNames: ["browser_content"],
-      requiredConnectorIds: [],
-      openQuestions: [],
-    });
-    expect(calls[0]).toMatchObject({
-      prompt: "discover",
-      maxTokens: 1_200,
-      reasoning: false,
-      responseFormat: {
-        type: "json_schema",
-        json_schema: expect.objectContaining({
-          name: "workflow_compiler_capability_discovery",
-          strict: true,
-        }),
-      },
-      idleTimeoutMs: 60_000,
-      absoluteTimeoutMs: 120_000,
-    });
-    expect(progress).toContain("streaming");
-  });
-
-  it("uses a no-source JSON-only Pi call for WorkflowProgramIR planning", async () => {
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        calls.push(input);
-        return '{"version":1,"title":"IR","goal":"Compile IR.","nodes":[{"id":"final","kind":"output.final","value":{"literal":"ok"}}]}';
-      },
-    });
-    const cacheCheckpoint = {
-      id: "cache",
-      stage: "compile" as const,
-      workflowThreadId: "thread-1",
-      stablePrefixHash: "stable",
-      stablePrefixChars: 1,
-      stablePrefixEstimatedTokens: 1,
-      mutableSuffixHash: "mutable",
-      mutableSuffixChars: 1,
-      mutableSuffixEstimatedTokens: 1,
-      requestHash: "request",
-      requestEstimatedTokens: 1,
-      boundaryLabel: "boundary",
-      createdAt: "2026-05-15T00:00:00.000Z",
-    };
-
-    await provider.compileProgramIr?.({ prompt: "program-ir", model: AMBIENT_DEFAULT_MODEL, cacheCheckpoint });
-
-    expect(calls[0]).toMatchObject({
-      prompt: "program-ir",
-      sessionId: "thread-1",
-      responseFormat: { type: "json_object" },
-      reasoning: false,
-      maxTokens: 6_000,
-    });
-    expect(calls[0].systemPrompt).toContain("WorkflowProgramIR");
-    expect(calls[0].systemPrompt).toContain("Do not generate source code");
-  });
-
-  it("uses a typed-operation no-source Pi call for WorkflowProgramIR repair", async () => {
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        calls.push(input);
-        return '{"repairOperations":[{"kind":"replace_with_alternative","path":"/nodes/0/tool","value":"browser_search"}]}';
-      },
-    });
-    const cacheCheckpoint = {
-      id: "cache",
-      stage: "compile" as const,
-      workflowThreadId: "thread-1",
-      stablePrefixHash: "stable",
-      stablePrefixChars: 1,
-      stablePrefixEstimatedTokens: 1,
-      mutableSuffixHash: "mutable",
-      mutableSuffixChars: 1,
-      mutableSuffixEstimatedTokens: 1,
-      requestHash: "request",
-      requestEstimatedTokens: 1,
-      boundaryLabel: "boundary",
-      createdAt: "2026-05-15T00:00:00.000Z",
-    };
-
-    await expect(provider.repairProgramIr?.({ prompt: "repair-ir", model: AMBIENT_DEFAULT_MODEL, cacheCheckpoint, attempt: 1 })).resolves.toEqual({
-      repairOperations: [{ kind: "replace_with_alternative", path: "/nodes/0/tool", value: "browser_search" }],
-    });
-
-    expect(calls[0]).toMatchObject({
-      prompt: "repair-ir",
-      sessionId: "thread-1",
-      responseFormat: { type: "json_object" },
-      reasoning: false,
-      maxTokens: 2_000,
-    });
-    expect(calls[0].systemPrompt).toContain("WorkflowProgramIR repairer");
-    expect(calls[0].systemPrompt).toContain("\"repairOperations\"");
-    expect(calls[0].systemPrompt).toContain("typed repair operations");
-    expect(calls[0].systemPrompt).toContain("Do not generate source code");
-  });
-
-  it("uses Pi transport with the workflow compiler idle watchdog", async () => {
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        calls.push(input);
-        input.onProgress?.({
-          outputChars: 17,
-          thinkingChars: 3,
-          elapsedMs: 500,
-          idleElapsedMs: 0,
-          idleTimeoutMs: input.idleTimeoutMs,
-          timeoutMode: "idle_watchdog",
-          stage: "streaming",
-        });
-        return '{"title":"Compiled"}';
-      },
-    });
-    const progress: string[] = [];
-
-    await expect(provider.compileProgramIr({ prompt: "program-ir", model: AMBIENT_DEFAULT_MODEL, onProgress: (event) => progress.push(event.timeoutMode ?? "") })).resolves.toEqual({
-      title: "Compiled",
-    });
-    expect(calls[0]).toMatchObject({
-      idleTimeoutMs: 120_000,
-      reasoning: false,
-      responseFormat: { type: "json_object" },
-      sessionId: undefined,
-    });
-    expect(calls[0].timeoutMs).toBe(480_000);
-    expect(progress).toContain("idle_watchdog");
-  });
-
-  it("retries an empty Pi compiler response with the same compiler contract", async () => {
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        calls.push(input);
-        return calls.length === 1 ? "" : '{"title":"Compiled after retry"}';
-      },
-    });
-    const stages: string[] = [];
-
-    await expect(provider.compileProgramIr({ prompt: "program-ir", model: AMBIENT_DEFAULT_MODEL, onProgress: (event) => stages.push(event.stage) })).resolves.toEqual({
-      title: "Compiled after retry",
-    });
-
-    expect(calls).toHaveLength(2);
-    expect(calls[0].prompt).toBe("program-ir");
-    expect(calls[1].prompt).toContain("Workflow compiler retry instruction:");
-    expect(calls[1].prompt).toContain("Ambient workflow compiler returned an empty response.");
-    expect(calls[1].prompt).toContain("Do not generate TypeScript or JavaScript.");
-    expect(calls.map((call) => call.reasoning)).toEqual([false, false]);
-    expect(stages).toContain("retrying");
-  });
-
-  it("retries transient Pi compiler provider failures before surfacing them", async () => {
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        calls.push(input);
-        if (calls.length === 1) throw new Error("429 Upstream request failed after 378ms");
-        return '{"title":"Compiled after provider retry"}';
-      },
-    });
-    const stages: string[] = [];
-
-    await expect(provider.compileProgramIr({ prompt: "program-ir", model: AMBIENT_DEFAULT_MODEL, onProgress: (event) => stages.push(event.stage) })).resolves.toEqual({
-      title: "Compiled after provider retry",
-    });
-
-    expect(calls).toHaveLength(2);
-    expect(calls[1].prompt).toBe("program-ir");
-    expect(calls.map((call) => call.reasoning)).toEqual([false, false]);
-    expect(stages).toContain("retrying");
-  });
-
-  it("passes aggressive retry policy to compiler Pi calls", async () => {
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      retryPolicy: aggressiveAmbientRetryPolicy(),
-      textCall: async (input) => {
-        calls.push(input);
-        return '{"title":"Compiled with aggressive policy"}';
-      },
-    });
-
-    await expect(provider.compileProgramIr({ prompt: "program-ir", model: AMBIENT_DEFAULT_MODEL })).resolves.toEqual({
-      title: "Compiled with aggressive policy",
-    });
-
-    expect(calls).toHaveLength(1);
-    expect(calls[0].retryPolicy).toMatchObject({ enabled: true, maxRetries: 10, providerMaxRetryDelayMs: 5_000 });
-    expect(calls[0].retryPolicy?.backoffMs).toEqual([1_000, 2_000, 3_000, 4_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000]);
-  });
-
-  it("retries compiler calls without thinking when Pi emits only thinking and no JSON output", async () => {
-    const previousThinkingChars = process.env.AMBIENT_WORKFLOW_COMPILER_NO_OUTPUT_THINKING_CHARS;
-    process.env.AMBIENT_WORKFLOW_COMPILER_NO_OUTPUT_THINKING_CHARS = "10";
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        calls.push(input);
-        if (calls.length === 1) {
-          input.onProgress?.({
-            outputChars: 0,
-            thinkingChars: 10,
-            elapsedMs: 1_000,
-            idleElapsedMs: 0,
-            idleTimeoutMs: input.idleTimeoutMs,
-            timeoutMode: "idle_watchdog",
-            stage: "thinking",
-          });
-          if (input.signal?.aborted) throw input.signal.reason ?? new Error("aborted");
-        }
-        return '{"title":"Compiled without thinking"}';
-      },
-    });
-    const stages: string[] = [];
-
-    try {
-      await expect(provider.compileProgramIr({ prompt: "program-ir", model: AMBIENT_DEFAULT_MODEL, onProgress: (event) => stages.push(event.stage) })).resolves.toEqual({
-        title: "Compiled without thinking",
-      });
-    } finally {
-      if (previousThinkingChars === undefined) delete process.env.AMBIENT_WORKFLOW_COMPILER_NO_OUTPUT_THINKING_CHARS;
-      else process.env.AMBIENT_WORKFLOW_COMPILER_NO_OUTPUT_THINKING_CHARS = previousThinkingChars;
-    }
-
-    expect(calls).toHaveLength(2);
-    expect(calls.map((call) => call.reasoning)).toEqual([false, false]);
-    expect(calls[1].prompt).toContain("thinking without emitting workflow JSON output");
-    expect(stages).toEqual(expect.arrayContaining(["thinking", "retrying"]));
-  });
-
-  it("surfaces the validation error when Pi compiler retry still returns invalid JSON", async () => {
-    const calls: WorkflowPiTextCallInput[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        calls.push(input);
-        return calls.length === 1 ? "" : "{";
-      },
-    });
-
-    await expect(provider.compileProgramIr({ prompt: "program-ir", model: AMBIENT_DEFAULT_MODEL })).rejects.toThrow("Ambient workflow compiler did not return valid JSON");
-    expect(calls).toHaveLength(2);
-  });
-
-  it("forwards compiler output progress character counts", async () => {
-    const progress: number[] = [];
-    const provider = new AmbientWorkflowCompilerProvider({
-      apiKey: "test-key",
-      textCall: async (input) => {
-        input.onProgress?.({ outputChars: 9, thinkingChars: 0, elapsedMs: 100, idleTimeoutMs: input.idleTimeoutMs, timeoutMode: "idle_watchdog", stage: "streaming" });
-        input.onProgress?.({ outputChars: 20, thinkingChars: 0, elapsedMs: 200, idleTimeoutMs: input.idleTimeoutMs, timeoutMode: "idle_watchdog", stage: "streaming" });
-        return '{"title":"Streamed"}';
-      },
-    });
-
-    await expect(provider.compileProgramIr({ prompt: "program-ir", model: AMBIENT_DEFAULT_MODEL, onProgress: (event) => progress.push(event.outputChars) })).resolves.toEqual({
-      title: "Streamed",
-    });
-    expect(progress).toEqual([9, 20]);
   });
 });
 
@@ -1089,11 +127,18 @@ describeNative("compileWorkflowArtifact", () => {
           y: expect.any(Number),
           width: 220,
           height: 92,
-          sourceRanges: expect.arrayContaining([expect.objectContaining({ kind: "ambient_call", snippet: expect.stringContaining("ambient.call") })]),
+          sourceRanges: expect.arrayContaining([
+            expect.objectContaining({ kind: "ambient_call", snippet: expect.stringContaining("ambient.call") }),
+          ]),
         }),
       ]),
     });
-    expect(persistedGraph.nodes.every((node: { x?: number; y?: number; width?: number; height?: number }) => node.x! >= 0 && node.y! >= 0 && node.width === 220 && node.height === 92)).toBe(true);
+    expect(
+      persistedGraph.nodes.every(
+        (node: { x?: number; y?: number; width?: number; height?: number }) =>
+          node.x! >= 0 && node.y! >= 0 && node.width === 220 && node.height === 92,
+      ),
+    ).toBe(true);
     expect(store.listWorkflowGraphSnapshots(artifact.workflowThreadId!)[0]).toMatchObject({
       source: "compile",
       summary: "Runs tests and asks Ambient for structured failure categories.",
@@ -1107,7 +152,12 @@ describeNative("compileWorkflowArtifact", () => {
         }),
       ]),
     });
-    expect(store.listWorkflowAgentFolders().flatMap((folder) => folder.threads).find((thread) => thread.id === artifact.workflowThreadId)).toMatchObject({
+    expect(
+      store
+        .listWorkflowAgentFolders()
+        .flatMap((folder) => folder.threads)
+        .find((thread) => thread.id === artifact.workflowThreadId),
+    ).toMatchObject({
       phase: "ready_for_review",
       activeArtifactId: artifact.id,
       activeGraphSnapshotId: expect.any(String),
@@ -1316,9 +366,7 @@ describeNative("compileWorkflowArtifact", () => {
         kind: "symphony_recipe",
         recipeId: "map_reduce",
         invocationCustomization: {
-          stepSelections: [
-            expect.objectContaining({ stepId: "pattern-scope", selectedChoiceId: "files" }),
-          ],
+          stepSelections: [expect.objectContaining({ stepId: "pattern-scope", selectedChoiceId: "files" })],
           metricCriteria: [
             expect.objectContaining({
               templateId: "map_reduce-metric",
@@ -1375,9 +423,7 @@ describeNative("compileWorkflowArtifact", () => {
         sourceContext: {
           kind: "symphony_recipe",
           invocationCustomization: {
-            metricCriteria: [
-              expect.objectContaining({ templateId: "map_reduce-metric" }),
-            ],
+            metricCriteria: [expect.objectContaining({ templateId: "map_reduce-metric" })],
           },
         },
       },
@@ -1402,7 +448,9 @@ describeNative("compileWorkflowArtifact", () => {
       onProgress: (event) => progress.push(event),
     });
 
-    const streamedProgress = progress.find((event) => event.phase === "model" && event.status === "running" && event.metrics?.rawResponseChars === 256);
+    const streamedProgress = progress.find(
+      (event) => event.phase === "model" && event.status === "running" && event.metrics?.rawResponseChars === 256,
+    );
     expect(streamedProgress).toMatchObject({
       message: "Receiving the workflow program IR.",
       metrics: {
@@ -1467,7 +515,9 @@ describeNative("compileWorkflowArtifact", () => {
         expect.objectContaining({ id: "current_web_research", confidence: expect.any(Number) }),
         expect.objectContaining({ id: "staged_document_export", confidence: expect.any(Number) }),
       ]),
-      rejected: expect.arrayContaining([expect.objectContaining({ id: "metadata_first_personal_data_review", missingSignals: expect.any(Array) })]),
+      rejected: expect.arrayContaining([
+        expect.objectContaining({ id: "metadata_first_personal_data_review", missingSignals: expect.any(Array) }),
+      ]),
       policyImplications: expect.arrayContaining([expect.objectContaining({ id: "recipe.staged_document_export.approval_gate" })]),
       summary: expect.objectContaining({
         selectedRecipeIds: expect.arrayContaining(["current_web_research", "staged_document_export"]),
@@ -1654,7 +704,8 @@ describeNative("compileWorkflowArtifact", () => {
     await expect(
       compileWorkflowArtifact({
         store,
-        userRequest: "Use browser_search exactly for current public web evidence about compact workflow engines, then summarize the sources.",
+        userRequest:
+          "Use browser_search exactly for current public web evidence about compact workflow engines, then summarize the sources.",
         workspaceSummary: "Temp workspace",
         toolDescriptors: firstPartyDesktopToolDescriptors(),
         stateRoot: store.getWorkspace().statePath,
@@ -1736,7 +787,12 @@ describeNative("compileWorkflowArtifact", () => {
         model: AMBIENT_DEFAULT_MODEL,
         provider: {
           discoverCapabilities: async () => ({
-            queries: [{ query: "local_directory_list Downloads metadata inventory", reason: "The request names the built-in local-directory tool." }],
+            queries: [
+              {
+                query: "local_directory_list Downloads metadata inventory",
+                reason: "The request names the built-in local-directory tool.",
+              },
+            ],
             requiredToolNames: ["local_directory_list"],
             openQuestions: [],
           }),
@@ -1858,15 +914,23 @@ describeNative("compileWorkflowArtifact", () => {
     expect(source).toContain("outputContract");
     expect(source).toContain("tools.browser_search");
     expect(source).toContain("tools.file_write");
-    await expect(readFile(join(dirname(dashboard.artifacts[0].sourcePath), "lowered-plan.json"), "utf8")).resolves.toContain('"operationPlanHash"');
-    await expect(readFile(join(dirname(dashboard.artifacts[0].sourcePath), "lowered-plan.json"), "utf8")).resolves.toContain('"nodeId": "write"');
-    expect(progress.find((event) => event.message === "Workflow program IR passed static validation, codegen, and dry-run.")?.metrics).toMatchObject({
+    await expect(readFile(join(dirname(dashboard.artifacts[0].sourcePath), "lowered-plan.json"), "utf8")).resolves.toContain(
+      '"operationPlanHash"',
+    );
+    await expect(readFile(join(dirname(dashboard.artifacts[0].sourcePath), "lowered-plan.json"), "utf8")).resolves.toContain(
+      '"nodeId": "write"',
+    );
+    expect(
+      progress.find((event) => event.message === "Workflow program IR passed static validation, codegen, and dry-run.")?.metrics,
+    ).toMatchObject({
       compilerMode: "program_ir",
       dryRunCallCount: expect.any(Number),
       loweredOperationCount: 5,
       loweringCacheMisses: 5,
     });
-    const modelCall = store.listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id }).find((call) => call.task === "workflow.compiler");
+    const modelCall = store
+      .listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id })
+      .find((call) => call.task === "workflow.compiler");
     expect(modelCall?.output).toMatchObject({
       normalizedProgram: expect.objectContaining({ version: 1 }),
       loweredPlan: expect.objectContaining({
@@ -1933,7 +997,12 @@ describeNative("compileWorkflowArtifact", () => {
                 input: { records: { fromNode: "read-records", path: "records" } },
                 output: { schema: { summary: "string" } },
               },
-              { id: "final", kind: "output.final", dependsOn: ["summarize"], value: { summary: { fromNode: "summarize", path: "summary" } } },
+              {
+                id: "final",
+                kind: "output.final",
+                dependsOn: ["summarize"],
+                value: { summary: { fromNode: "summarize", path: "summary" } },
+              },
             ],
           };
         },
@@ -1955,7 +1024,9 @@ describeNative("compileWorkflowArtifact", () => {
     expect(source).toContain('"nodeId": "read-records"');
     expect(prompt).toContain("fixture.readonly");
     expect(prompt).not.toContain("slack.workspace");
-    const modelCall = store.listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id }).find((call) => call.task === "workflow.compiler");
+    const modelCall = store
+      .listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id })
+      .find((call) => call.task === "workflow.compiler");
     expect(modelCall?.input).toMatchObject({ selectedConnectorIds: ["fixture.readonly"], availableConnectorCount: 2 });
   });
 
@@ -2190,7 +1261,9 @@ describeNative("compileWorkflowArtifact", () => {
     });
 
     expect(dashboard.artifacts[0].title).toBe("Model-only excluded connector summary");
-    const modelCall = store.listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id }).find((call) => call.task === "workflow.compiler");
+    const modelCall = store
+      .listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id })
+      .find((call) => call.task === "workflow.compiler");
     expect(modelCall?.input).toMatchObject({ selectedConnectorIds: [] });
   });
 
@@ -2226,7 +1299,9 @@ describeNative("compileWorkflowArtifact", () => {
     });
 
     expect(dashboard.artifacts[0].title).toBe("Forbidden connector exclusion summary");
-    const modelCall = store.listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id }).find((call) => call.task === "workflow.compiler");
+    const modelCall = store
+      .listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id })
+      .find((call) => call.task === "workflow.compiler");
     expect(modelCall?.input).toMatchObject({ selectedConnectorIds: [] });
   });
 
@@ -2305,7 +1380,9 @@ describeNative("compileWorkflowArtifact", () => {
     });
 
     expect(dashboard.artifacts[0].title).toBe("Model-only connector exclusion summary");
-    const modelCall = store.listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id }).find((call) => call.task === "workflow.compiler");
+    const modelCall = store
+      .listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id })
+      .find((call) => call.task === "workflow.compiler");
     expect(modelCall?.input).toMatchObject({ selectedConnectorIds: [] });
   });
 
@@ -2335,7 +1412,9 @@ describeNative("compileWorkflowArtifact", () => {
           },
         },
       }),
-    ).rejects.toThrow(/Workflow connector is not available: .*Google Calendar \(google\.calendar\).*Google Drive \(google\.drive\).*workspace\.inventory/);
+    ).rejects.toThrow(
+      /Workflow connector is not available: .*Google Calendar \(google\.calendar\).*Google Drive \(google\.drive\).*workspace\.inventory/,
+    );
     expect(compileCalled).toBe(false);
   });
 
@@ -2366,7 +1445,15 @@ describeNative("compileWorkflowArtifact", () => {
         ambientCliCapabilities: [grant],
         ambient: { enabled: true, model: AMBIENT_DEFAULT_MODEL, callShape: "structured_json" },
       },
-      observations: [{ action: "call_tool", name: "ambient_cli", status: "succeeded", inputSummary: "pi-arxiv arxiv_search", outputSummary: "bounded arxiv output" }],
+      observations: [
+        {
+          action: "call_tool",
+          name: "ambient_cli",
+          status: "succeeded",
+          inputSummary: "pi-arxiv arxiv_search",
+          outputSummary: "bounded arxiv output",
+        },
+      ],
       distillation: {
         summary: "Use pi-arxiv arxiv_search for paper search.",
         recommendedManifest: { tools: ["ambient_cli"], ambientCliCapabilities: [grant], mutationPolicy: "read_only" },
@@ -2400,7 +1487,12 @@ describeNative("compileWorkflowArtifact", () => {
               dependsOn: ["describe-arxiv"],
               args: { packageName: "pi-arxiv", command: "arxiv_search", args: ["workflow compiler", "--max-results", "3"] },
             },
-            { id: "final-output", kind: "output.final", dependsOn: ["search-arxiv"], value: { stdout: { fromNode: "search-arxiv", path: "stdout" } } },
+            {
+              id: "final-output",
+              kind: "output.final",
+              dependsOn: ["search-arxiv"],
+              value: { stdout: { fromNode: "search-arxiv", path: "stdout" } },
+            },
           ],
         }),
       },
@@ -2410,7 +1502,9 @@ describeNative("compileWorkflowArtifact", () => {
     expect(dashboard.artifacts[0].manifest.tools).toEqual(expect.arrayContaining(["ambient_cli"]));
     expect(dashboard.artifacts[0].manifest.ambientCliCapabilities).toEqual([grant]);
     await expect(readFile(dashboard.artifacts[0].sourcePath, "utf8")).resolves.toContain("tools.ambient_cli");
-    const modelCall = store.listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id }).find((call) => call.task === "workflow.compiler");
+    const modelCall = store
+      .listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id })
+      .find((call) => call.task === "workflow.compiler");
     expect(modelCall?.output).toMatchObject({
       normalizedProgram: expect.objectContaining({
         nodes: expect.arrayContaining([expect.objectContaining({ id: "search-arxiv", tool: "ambient_cli" })]),
@@ -2473,17 +1567,21 @@ describeNative("compileWorkflowArtifact", () => {
     });
 
     expect(repairPrompts).toHaveLength(2);
-    expect(repairPrompts[0]).toContain("\"repairOperations\"");
+    expect(repairPrompts[0]).toContain('"repairOperations"');
     expect(repairPrompts[0]).toContain("ir.unavailable_tool");
     expect(repairPrompts[0]).toContain("browserSearch");
     expect(repairPrompts[1]).toContain("ir.reference_path_required");
     expect(repairPrompts[1]).toContain("/nodes/1/args/content");
-    expect(progress.map((event) => event.message)).toEqual(expect.arrayContaining([
-      "Repairing workflow program IR with typed repair operations.",
-      "Applied workflow program IR repair operations.",
-      "Workflow program IR passed static validation, codegen, and dry-run.",
-    ]));
-    expect(progress.find((event) => event.message === "Workflow program IR passed static validation, codegen, and dry-run.")?.metrics).toMatchObject({
+    expect(progress.map((event) => event.message)).toEqual(
+      expect.arrayContaining([
+        "Repairing workflow program IR with typed repair operations.",
+        "Applied workflow program IR repair operations.",
+        "Workflow program IR passed static validation, codegen, and dry-run.",
+      ]),
+    );
+    expect(
+      progress.find((event) => event.message === "Workflow program IR passed static validation, codegen, and dry-run.")?.metrics,
+    ).toMatchObject({
       repairAttemptCount: 2,
       patchOperationCount: 2,
       incrementalValidationCacheHits: 1,
@@ -2493,12 +1591,17 @@ describeNative("compileWorkflowArtifact", () => {
       loweringCacheMisses: 3,
     });
     expect(dashboard.artifacts[0].manifest.tools).toEqual(expect.arrayContaining(["browser_search", "file_write"]));
-    const modelCall = store.listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id }).find((call) => call.task === "workflow.compiler");
+    const modelCall = store
+      .listWorkflowModelCalls({ artifactId: dashboard.artifacts[0].id })
+      .find((call) => call.task === "workflow.compiler");
     expect(modelCall?.output).toMatchObject({
       normalizedProgram: expect.objectContaining({
         nodes: expect.arrayContaining([
           expect.objectContaining({ id: "search", tool: "browser_search" }),
-          expect.objectContaining({ id: "write", args: expect.objectContaining({ content: expect.objectContaining({ template: "{{results}}" }) }) }),
+          expect.objectContaining({
+            id: "write",
+            args: expect.objectContaining({ content: expect.objectContaining({ template: "{{results}}" }) }),
+          }),
         ]),
       }),
       repairHistory: [
@@ -2600,7 +1703,9 @@ describeNative("compileWorkflowArtifact", () => {
       projectPath: workspacePath,
       phase: "planned",
     });
-    const toolDescriptors = firstPartyDesktopToolDescriptors().filter((tool) => tool.name === "browser_search" || tool.name === "file_write");
+    const toolDescriptors = firstPartyDesktopToolDescriptors().filter(
+      (tool) => tool.name === "browser_search" || tool.name === "file_write",
+    );
     const progress: WorkflowCompileProgress[] = [];
     let prompt = "";
 
@@ -2631,7 +1736,10 @@ describeNative("compileWorkflowArtifact", () => {
                 kind: "tool.call",
                 tool: "file_write",
                 dependsOn: ["search"],
-                args: { path: "reports/ir-registry-fallback.md", content: { template: "{{results}}", vars: { results: { fromNode: "search" } } } },
+                args: {
+                  path: "reports/ir-registry-fallback.md",
+                  content: { template: "{{results}}", vars: { results: { fromNode: "search" } } },
+                },
               },
               { id: "final", kind: "output.final", dependsOn: ["write"], value: { path: { fromNode: "write", path: "path" } } },
             ],
@@ -2702,7 +1810,9 @@ describeNative("compileWorkflowArtifact", () => {
     expect(dashboard.artifacts).toHaveLength(1);
     expect(dashboard.artifacts[0].manifest.tools).toEqual([]);
     await expect(readFile(dashboard.artifacts[0].sourcePath, "utf8")).resolves.toContain('outputs["combine"]');
-    expect(progress.find((event) => event.message === "Workflow program IR passed static validation, codegen, and dry-run.")?.metrics).toMatchObject({
+    expect(
+      progress.find((event) => event.message === "Workflow program IR passed static validation, codegen, and dry-run.")?.metrics,
+    ).toMatchObject({
       compilerMode: "program_ir",
       incrementalValidationConcurrency: 4,
       incrementalValidationLevelCount: 2,
@@ -3034,7 +2144,7 @@ describeNative("compileWorkflowArtifact", () => {
     });
 
     expect(prompts).toHaveLength(1);
-    expect(prompts[0]).toContain("\"repairOperations\"");
+    expect(prompts[0]).toContain('"repairOperations"');
     expect(prompts[0]).toContain("Do not generate source code");
     expect(prompts[0]).toContain("ir.unknown_output_path");
     expect(dashboard.artifacts[0]).toMatchObject({
@@ -3061,7 +2171,12 @@ describeNative("compileWorkflowArtifact", () => {
             goal: "Return a file read result.",
             nodes: [
               { id: "read-source", kind: "tool.call", tool: "file_read", args: { path: "notes.md" } },
-              { id: "final-output", kind: "output.final", dependsOn: ["read-source"], value: { text: { fromNode: "read-source", path: "contents" } } },
+              {
+                id: "final-output",
+                kind: "output.final",
+                dependsOn: ["read-source"],
+                value: { text: { fromNode: "read-source", path: "contents" } },
+              },
             ],
           }),
         },
@@ -3135,7 +2250,9 @@ describeNative("compileWorkflowArtifact", () => {
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain("repair response validation error");
     expect(prompts[1]).toContain('"repairOperations"');
-    expect(progress.map((event) => event.message)).toContain("WorkflowProgramIR repair response failed deterministic validation; retrying.");
+    expect(progress.map((event) => event.message)).toContain(
+      "WorkflowProgramIR repair response failed deterministic validation; retrying.",
+    );
     expect(dashboard.artifacts[0]).toMatchObject({ status: "ready_for_preview" });
   });
 
@@ -3185,7 +2302,9 @@ describeNative("compileWorkflowArtifact", () => {
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain("maximum is 20");
     expect(prompts[1]).toContain("Return at most 20 repair operations");
-    expect(progress.find((event) => event.message === "WorkflowProgramIR repair response failed deterministic validation; retrying.")?.metrics).toMatchObject({
+    expect(
+      progress.find((event) => event.message === "WorkflowProgramIR repair response failed deterministic validation; retrying.")?.metrics,
+    ).toMatchObject({
       repairFailureClass: "too_many_operations",
       repairRetryable: true,
     });
@@ -3228,7 +2347,9 @@ describeNative("compileWorkflowArtifact", () => {
     });
 
     expect(prompts).toHaveLength(1);
-    expect(progress.map((event) => event.message)).not.toContain("WorkflowProgramIR repair response failed deterministic validation; retrying.");
+    expect(progress.map((event) => event.message)).not.toContain(
+      "WorkflowProgramIR repair response failed deterministic validation; retrying.",
+    );
     expect(dashboard.artifacts[0]).toMatchObject({ status: "ready_for_preview" });
   });
 
@@ -3262,16 +2383,26 @@ describeNative("compileWorkflowArtifact", () => {
           }),
           repairProgramIr: async (input) => {
             prompts.push(input.prompt);
-            return { repairOperations: [{ kind: "replace_with_alternative", path: "/nodes/-", value: { id: "unused", kind: "output.final", value: {} } }] };
+            return {
+              repairOperations: [
+                { kind: "replace_with_alternative", path: "/nodes/-", value: { id: "unused", kind: "output.final", value: {} } },
+              ],
+            };
           },
         },
         onProgress: (event) => progress.push(event),
       }),
     ).rejects.toBeInstanceOf(WorkflowProgramIrRepairRejectedError);
 
-    const retryEvents = progress.filter((event) => event.message === "WorkflowProgramIR repair response failed deterministic validation; retrying.");
-    const failClosedEvent = progress.find((event) => event.message === "WorkflowProgramIR repair response failed deterministic validation; failing closed.");
-    const failedEvent = progress.find((event) => event.message === "WorkflowProgramIR repair failed deterministic validation; retained diagnostics.");
+    const retryEvents = progress.filter(
+      (event) => event.message === "WorkflowProgramIR repair response failed deterministic validation; retrying.",
+    );
+    const failClosedEvent = progress.find(
+      (event) => event.message === "WorkflowProgramIR repair response failed deterministic validation; failing closed.",
+    );
+    const failedEvent = progress.find(
+      (event) => event.message === "WorkflowProgramIR repair failed deterministic validation; retained diagnostics.",
+    );
     expect(prompts).toHaveLength(1);
     expect(retryEvents).toHaveLength(0);
     expect(failClosedEvent?.metrics).toMatchObject({ repairFailureClass: "invalid_array_index", repairRetryable: false });
@@ -3283,7 +2414,11 @@ describeNative("compileWorkflowArtifact", () => {
     expect(artifact.context.repairFailure).toMatchObject({
       failureClass: "invalid_array_index",
       retryable: false,
-      rawPatch: { repairOperations: [{ kind: "replace_with_alternative", path: "/nodes/-", value: { id: "unused", kind: "output.final", value: {} } }] },
+      rawPatch: {
+        repairOperations: [
+          { kind: "replace_with_alternative", path: "/nodes/-", value: { id: "unused", kind: "output.final", value: {} } },
+        ],
+      },
     });
   });
 
@@ -3354,7 +2489,9 @@ describeNative("compileWorkflowArtifact", () => {
       },
     });
 
-    const proposedArtifact = dashboard.artifacts.find((artifact) => artifact.workflowThreadId === thread.id && artifact.id !== baseArtifact.id);
+    const proposedArtifact = dashboard.artifacts.find(
+      (artifact) => artifact.workflowThreadId === thread.id && artifact.id !== baseArtifact.id,
+    );
     const proposedRevision = store.getWorkflowRevision(revision.id);
     expect(proposedArtifact).toBeTruthy();
     expect(proposedRevision).toMatchObject({

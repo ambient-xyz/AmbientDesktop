@@ -16,7 +16,7 @@ import {
   type MutableTransientFileAuthorityRootStore,
 } from "./agentRuntimeFileAuthority";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
-import { resolvePermissionWithGrants } from "./agentRuntimePermissionsFacade";
+import { resolvePermissionWithGrants, resolvePolicyPath } from "./agentRuntimePermissionsFacade";
 import type {
   RuntimePermissionWaitFinish,
   RuntimePermissionWaitStart,
@@ -69,7 +69,9 @@ export class AgentRuntimeFileAuthorityController {
   ): Promise<boolean> {
     const thread = this.options.store.getThread(threadId);
     const actionKind = request.access === "write" ? "local_file_write" : "file_content_read";
-    const targetName = basename(request.absolutePath) || request.absolutePath;
+    const pathCheck = await resolvePolicyPath(workspace.path, request.absolutePath);
+    const authorityPath = pathCheck.canonicalPath;
+    const targetName = basename(authorityPath) || authorityPath;
     const permissionRequest: Omit<PermissionRequest, "id"> = {
       threadId,
       toolName: request.toolName,
@@ -78,8 +80,8 @@ export class AgentRuntimeFileAuthorityController {
         ? "A sub-agent needs file authority outside its current child scope. Review this in the parent thread before the child continues."
         : "Ambient needs file authority outside the current thread scope before this tool can continue.",
       detail: [
-        `Target path: ${request.absolutePath}`,
-        request.requestedPath !== request.absolutePath ? `Requested path: ${request.requestedPath}` : undefined,
+        `Target path: ${authorityPath}`,
+        request.requestedPath !== authorityPath ? `Requested path: ${request.requestedPath}` : undefined,
         `Reason: ${request.reason}`,
         thread.kind === "subagent_child" && thread.subagentRunId ? `Child run: ${thread.subagentRunId}` : undefined,
         `Thread: ${threadId}`,
@@ -88,9 +90,11 @@ export class AgentRuntimeFileAuthorityController {
       reusableScopes: ["thread", "project"] satisfies PermissionGrantScopeKind[],
       grantActionKind: actionKind,
       grantTargetKind: "path",
-      grantTargetLabel: request.absolutePath,
+      grantTargetLabel: authorityPath,
       grantConditions: {
-        path: request.absolutePath,
+        path: authorityPath,
+        canonicalPath: authorityPath,
+        requestedPath: request.requestedPath,
         access: request.access,
         source: "file-authority-adapter",
       },

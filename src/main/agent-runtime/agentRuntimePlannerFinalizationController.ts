@@ -60,9 +60,12 @@ export interface AgentRuntimePlannerFinalizationControllerOptions {
 export class AgentRuntimePlannerFinalizationController {
   constructor(private readonly options: AgentRuntimePlannerFinalizationControllerOptions) {}
 
-  async createPlannerPlanArtifactFromMessage(message: ChatMessage): Promise<AgentRuntimePlannerFinalizationResult | undefined> {
+  async createPlannerPlanArtifactFromMessage(
+    message: ChatMessage,
+    options: { startedInPlannerMode?: boolean } = {},
+  ): Promise<AgentRuntimePlannerFinalizationResult | undefined> {
     const thread = this.options.store.getThread(message.threadId);
-    if (thread.collaborationMode !== "planner") return undefined;
+    if (!(options.startedInPlannerMode ?? thread.collaborationMode === "planner")) return undefined;
     if (!message.content.trim()) return undefined;
     if (message.metadata?.kind === "planner-plan" || typeof message.metadata?.plannerPlanArtifactId === "string") return undefined;
 

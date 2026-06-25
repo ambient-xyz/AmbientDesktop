@@ -71,6 +71,46 @@ describe("registerChatRuntimeDomainIpc", () => {
     expect(deps.emitThreadUpdated).toHaveBeenCalledWith(host.readThread);
   });
 
+  it("allows thread-visible external directory context during send revalidation", async () => {
+    const externalContext = [{ path: "/tmp/shared-link", absolute: true }];
+    const canonicalExternalContext = [{ path: "/tmp/shared", absolute: true }];
+    const { deps, host, invoke, resolvedContext } = registerWithFakes({
+      resolveCanonicalLocalFilePath: (path) => path.replace("/tmp/shared-link", "/tmp/shared"),
+      localPathInsideActiveWorkspace: (path) => path.startsWith("/workspace/"),
+      localPathVisibleToThread: (path) => path === "/tmp/shared",
+    });
+    const input = {
+      ...sampleSendInput(),
+      permissionMode: "workspace",
+      context: externalContext,
+    };
+
+    await expect(invoke("message:send", input)).resolves.toBeUndefined();
+
+    expect(deps.describeWorkspaceContextReferences).toHaveBeenCalledWith("/workspace", canonicalExternalContext, { allowExternal: true });
+    expect(host.runtime.send).toHaveBeenCalledWith({ ...input, context: resolvedContext });
+  });
+
+  it("does not let one thread-visible external context path approve an unapproved send-time sibling", async () => {
+    const externalContext = [
+      { path: "/tmp/shared", absolute: true },
+      { path: "/tmp/private", absolute: true },
+    ];
+    const { deps, invoke } = registerWithFakes({
+      localPathInsideActiveWorkspace: (path) => path.startsWith("/workspace/"),
+      localPathVisibleToThread: (path) => path === "/tmp/shared",
+    });
+    const input = {
+      ...sampleSendInput(),
+      permissionMode: "workspace",
+      context: externalContext,
+    };
+
+    await expect(invoke("message:send", input)).resolves.toBeUndefined();
+
+    expect(deps.describeWorkspaceContextReferences).toHaveBeenCalledWith("/workspace", externalContext, { allowExternal: false });
+  });
+
   it("preserves active-thread state for retries and resumes existing goals", async () => {
     const currentGoal = sampleThreadGoal({ goalId: "goal-existing", tokenBudget: 2000 });
     const { deps, host, invoke } = registerWithFakes({
@@ -201,13 +241,19 @@ describe("registerChatRuntimeDomainIpc", () => {
 function registerWithFakes({
   currentGoal,
   env = {},
+  localPathInsideActiveWorkspace = (path: string) => path.startsWith("/workspace/") || path === "/workspace",
+  localPathVisibleToThread = (path: string) => path.startsWith("/workspace/") || path === "/workspace",
   messages = [sampleChatMessage({ id: "message-1" })],
+  resolveCanonicalLocalFilePath = (path: string) => path,
   thread = sampleThread(),
   validateSlashCommandSelection,
 }: {
   currentGoal?: ThreadGoal;
   env?: NodeJS.ProcessEnv;
+  localPathInsideActiveWorkspace?: (path: string) => boolean;
+  localPathVisibleToThread?: (path: string) => boolean;
   messages?: ChatMessage[];
+  resolveCanonicalLocalFilePath?: (path: string) => string;
   thread?: ThreadSummary;
   validateSlashCommandSelection?: (host: ChatRuntimeDomainHost, selection: SlashCommandSelection) => Promise<void>;
 } = {}) {
@@ -252,6 +298,9 @@ function registerWithFakes({
     activeThreadIdForHost: vi.fn(() => "thread-active"),
     createAndRecordCheckpoint: vi.fn(),
     describeWorkspaceContextReferences: vi.fn(() => resolvedContext),
+    resolveCanonicalLocalFilePath: vi.fn(resolveCanonicalLocalFilePath),
+    localPathVisibleToThread: vi.fn(localPathVisibleToThread),
+    localPathInsideActiveWorkspace: vi.fn(localPathInsideActiveWorkspace),
     emitDesktopEvent: vi.fn(),
     emitProjectScopedEvent: vi.fn(),
     emitProjectStateIfActive: vi.fn(),

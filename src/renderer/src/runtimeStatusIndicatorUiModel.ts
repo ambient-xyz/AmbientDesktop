@@ -1,5 +1,5 @@
 import { isRunStatusRunning } from "../../shared/runStatus";
-import type { RunStatus, RuntimeActivity, ThreadGoal } from "../../shared/threadTypes";
+import type { RunStatus, RuntimeActivity, RuntimeContinuationSource, ThreadGoal } from "../../shared/threadTypes";
 
 type RuntimeGoalActivity = Extract<RuntimeActivity, { kind: "goal" }>;
 
@@ -7,7 +7,7 @@ export const RUNTIME_STATUS_FINISHED_VISIBLE_MS = 5_000;
 export const GOAL_CONTINUATION_START_GRACE_MS = 8_000;
 
 export type RuntimeStatusIndicatorTone = "working" | "success" | "warning";
-export type RuntimeStatusIndicatorKind = "compaction" | "goal-continuation";
+export type RuntimeStatusIndicatorKind = "compaction" | RuntimeContinuationSource;
 
 export type RuntimeStatusIndicator = {
   id: string;
@@ -125,7 +125,9 @@ export function runtimeStatusIndicatorsAfterGoalUpdated(
 ): RuntimeStatusIndicatorsByThread {
   return updateThreadRuntimeStatusIndicators(current, goal.threadId, (existing) => {
     const continuation = existing.continuation;
-    if (!continuation || (continuation.goalId && continuation.goalId !== goal.goalId)) return existing;
+    if (!continuation || continuation.kind !== "goal-continuation" || (continuation.goalId && continuation.goalId !== goal.goalId)) {
+      return existing;
+    }
     if (goal.status === "active") {
       return {
         ...existing,
@@ -264,14 +266,16 @@ function continuationScheduledIndicator(
   now: number,
   previous?: RuntimeStatusIndicator,
 ): RuntimeStatusIndicator {
+  const source = continuationSourceForActivity(activity);
+  const content = continuationScheduledContent(source, activity.message);
   return {
-    id: `goal-continuation:${activity.goalId ?? activity.threadId}`,
+    id: `${source}:${activity.goalId ?? activity.threadId}`,
     threadId: activity.threadId,
-    kind: "goal-continuation",
+    kind: source,
     phase: "scheduled",
     tone: "working",
-    title: "Continuing goal",
-    message: activity.message || "Ambient queued an automatic continuation turn.",
+    title: content.title,
+    message: content.message,
     startedAt: previous?.startedAt ?? now,
     updatedAt: now,
     startGraceUntil: now + GOAL_CONTINUATION_START_GRACE_MS,
@@ -281,13 +285,14 @@ function continuationScheduledIndicator(
 }
 
 function continuationRunningIndicator(previous: RuntimeStatusIndicator, now: number): RuntimeStatusIndicator {
-  if (previous.kind !== "goal-continuation") return previous;
+  if (!runtimeStatusIndicatorIsContinuation(previous)) return previous;
+  const content = continuationRunningContent(previous.kind);
   return {
     ...previous,
     phase: "running",
     tone: "working",
-    title: "Continuing goal",
-    message: "Ambient is running an automatic continuation turn.",
+    title: content.title,
+    message: content.message,
     updatedAt: now,
     startGraceUntil: undefined,
     expiresAt: undefined,
@@ -300,16 +305,14 @@ function continuationFinishedIndicator(
   status: Extract<RunStatus, "idle" | "error">,
   message?: string,
 ): RuntimeStatusIndicator {
+  const source = runtimeStatusIndicatorIsContinuation(previous) ? previous.kind : "goal-continuation";
+  const content = continuationFinishedContent(source, status, message);
   return {
     ...previous,
     phase: "finished",
     tone: status === "error" ? "warning" : "success",
-    title: status === "error" ? "Continuation stopped" : "Continuation turn finished",
-    message: message || (
-      status === "error"
-        ? "The automatic continuation stopped before the run finished."
-        : "Ambient finished the automatic continuation turn."
-    ),
+    title: content.title,
+    message: content.message,
     updatedAt: now,
     startGraceUntil: undefined,
     expiresAt: now + RUNTIME_STATUS_FINISHED_VISIBLE_MS,
@@ -356,7 +359,117 @@ function goalActivityMatchesContinuation(
   activity: RuntimeGoalActivity,
   continuation: RuntimeStatusIndicator,
 ): boolean {
+  if (continuation.kind !== continuationSourceForActivity(activity)) return false;
   return !activity.goalId || !continuation.goalId || activity.goalId === continuation.goalId;
+}
+
+function continuationSourceForActivity(activity: RuntimeGoalActivity): RuntimeContinuationSource {
+  return activity.continuationSource ?? (activity.goalId ? "goal-continuation" : "post-tool-continuation");
+}
+
+function runtimeStatusIndicatorIsContinuation(indicator: RuntimeStatusIndicator): indicator is RuntimeStatusIndicator & { kind: RuntimeContinuationSource } {
+  return indicator.kind !== "compaction";
+}
+
+function continuationScheduledContent(
+  source: RuntimeContinuationSource,
+  message: string | undefined,
+): Pick<RuntimeStatusIndicator, "title" | "message"> {
+  if (source === "thread-wake") {
+    return {
+      title: "Scheduled wake",
+      message: message || "Ambient queued a scheduled wake continuation.",
+    };
+  }
+  if (source === "post-tool-continuation") {
+    return {
+      title: "Continuing after tool output",
+      message: message || "Ambient queued a continuation after tool output.",
+    };
+  }
+  if (source === "compaction-continuation") {
+    return {
+      title: "Compacting context",
+      message: message || "Ambient queued a continuation after context compaction.",
+    };
+  }
+  return {
+    title: "Continuing goal",
+    message: message || "Ambient queued an automatic goal continuation turn.",
+  };
+}
+
+function continuationRunningContent(
+  source: RuntimeContinuationSource,
+): Pick<RuntimeStatusIndicator, "title" | "message"> {
+  if (source === "thread-wake") {
+    return {
+      title: "Scheduled wake",
+      message: "Ambient is running the scheduled wake continuation.",
+    };
+  }
+  if (source === "post-tool-continuation") {
+    return {
+      title: "Continuing after tool output",
+      message: "Ambient is continuing after tool output.",
+    };
+  }
+  if (source === "compaction-continuation") {
+    return {
+      title: "Compacting context",
+      message: "Ambient is continuing after context compaction.",
+    };
+  }
+  return {
+    title: "Continuing goal",
+    message: "Ambient is running an automatic goal continuation turn.",
+  };
+}
+
+function continuationFinishedContent(
+  source: RuntimeContinuationSource,
+  status: Extract<RunStatus, "idle" | "error">,
+  message: string | undefined,
+): Pick<RuntimeStatusIndicator, "title" | "message"> {
+  const failed = status === "error";
+  if (source === "thread-wake") {
+    return {
+      title: failed ? "Scheduled wake stopped" : "Scheduled wake finished",
+      message: message || (
+        failed
+          ? "The scheduled wake continuation stopped before the run finished."
+          : "Ambient finished the scheduled wake continuation."
+      ),
+    };
+  }
+  if (source === "post-tool-continuation") {
+    return {
+      title: failed ? "Post-tool continuation stopped" : "Post-tool continuation finished",
+      message: message || (
+        failed
+          ? "The post-tool continuation stopped before the run finished."
+          : "Ambient finished continuing after tool output."
+      ),
+    };
+  }
+  if (source === "compaction-continuation") {
+    return {
+      title: failed ? "Context continuation stopped" : "Context continuation finished",
+      message: message || (
+        failed
+          ? "The context continuation stopped before the run finished."
+          : "Ambient finished continuing after context compaction."
+      ),
+    };
+  }
+  return {
+    title: failed ? "Continuation stopped" : "Continuation turn finished",
+    message: message || (
+      failed
+        ? "The automatic goal continuation stopped before the run finished."
+        : "Ambient finished the automatic goal continuation turn."
+    ),
+  };
 }
 
 function goalStatusMessage(goal: ThreadGoal): string {

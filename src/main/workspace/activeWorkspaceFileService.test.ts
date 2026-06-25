@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
+import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
+import { createLocalFolderAllowlistGrantInput } from "../permissions/localFolderAllowlistGrants";
 import {
   createActiveWorkspaceFileService,
   type ActiveWorkspaceFileStore,
@@ -12,12 +14,14 @@ import {
 
 interface FakeThread extends ActiveWorkspaceFileThread {
   id: string;
+  permissionMode: "workspace";
 }
 
 class FakeStore implements ActiveWorkspaceFileStore<FakeThread> {
   constructor(
     private readonly thread: FakeThread,
     private readonly artifactWorkspacePath: string,
+    private readonly grants: AmbientPermissionGrant[] = [],
   ) {}
 
   getThread(threadId: string): FakeThread {
@@ -27,6 +31,14 @@ class FakeStore implements ActiveWorkspaceFileStore<FakeThread> {
 
   getProjectArtifactWorkspacePath(): string {
     return this.artifactWorkspacePath;
+  }
+
+  getWorkspace(): { path: string } {
+    return { path: this.thread.workspacePath };
+  }
+
+  listPermissionGrants(): readonly AmbientPermissionGrant[] {
+    return this.grants;
   }
 }
 
@@ -39,12 +51,15 @@ function createHarness(input: {
   artifactWorkspacePath?: string;
   specialPaths?: Partial<Record<"home" | "downloads" | "desktop" | "documents", string | Error>>;
   pathExists?: (path: string) => boolean;
+  realpath?: (path: string) => string;
+  grants?: AmbientPermissionGrant[];
 } = {}) {
   const thread = {
     id: "thread-1",
     workspacePath: input.workspacePath ?? "/workspace",
+    permissionMode: "workspace" as const,
   };
-  const store = new FakeStore(thread, input.artifactWorkspacePath ?? "/workspace/.ambient-artifacts");
+  const store = new FakeStore(thread, input.artifactWorkspacePath ?? "/workspace/.ambient-artifacts", input.grants);
   const host = { store };
   const specialPaths = {
     home: "/Users/test",
@@ -65,6 +80,7 @@ function createHarness(input: {
     },
     normalizePath: (path) => path.replace(/\\/g, "/"),
     pathExists: input.pathExists ?? existsSync,
+    realpath: input.realpath ?? ((path) => path),
     createMediaUrl: (media) => `media:${media.relativePath}`,
     createOfficePreview: vi.fn(async () => undefined),
   });
@@ -112,8 +128,9 @@ describe("activeWorkspaceFileService", () => {
       const localPath = join(workspace, "docs", "brief.md");
       await writeFile(localPath, "# Brief\n\nPreview me.\n", "utf8");
       const { service } = createHarness({ workspacePath: workspace });
+      const context = service.activeWorkspaceFileContextForProjectHost();
 
-      await expect(service.readActiveLocalFilePreview(localPath, workspace)).resolves.toMatchObject({
+      await expect(service.readActiveLocalFilePreview(localPath, context)).resolves.toMatchObject({
         path: localPath,
         absolutePath: localPath,
         source: "local",
@@ -139,20 +156,64 @@ describe("activeWorkspaceFileService", () => {
     expect(() => service.resolveLocalFilePath("/tmp/missing.txt")).toThrow("Local file does not exist");
   });
 
-  it("allows previews inside workspace or safe user folders and rejects other local paths", () => {
+  it("allows previews inside workspace or thread-allowlisted folders and rejects other local paths", () => {
+    const grant = localFolderGrant("/Users/test/Downloads", "thread-1", "/workspace");
     const { service } = createHarness({
       workspacePath: "/workspace",
-      specialPaths: {
-        desktop: new Error("desktop unavailable"),
-      },
       pathExists: () => true,
+      grants: [grant],
     });
+    const context = service.activeWorkspaceFileContextForProjectHost();
 
-    expect(service.resolveLocalPreviewPath("/workspace/report.md", "/workspace")).toBe("/workspace/report.md");
-    expect(service.resolveLocalPreviewPath("/Users/test/Downloads/report.pdf", "/workspace")).toBe("/Users/test/Downloads/report.pdf");
-    expect(service.resolveLocalPreviewPath("/Users/test/Documents/report.pdf", "/workspace")).toBe("/Users/test/Documents/report.pdf");
-    expect(() => service.resolveLocalPreviewPath("/private/secret.txt", "/workspace")).toThrow(
-      "Local file preview is limited to the current workspace, Downloads, Desktop, and Documents.",
+    expect(service.resolveLocalPreviewPath("/workspace/report.md", context)).toBe("/workspace/report.md");
+    expect(service.resolveLocalPreviewPath("/Users/test/Downloads/report.pdf", context)).toBe("/Users/test/Downloads/report.pdf");
+    expect(() => service.resolveLocalPreviewPath("/Users/test/Documents/report.pdf", context)).toThrow(
+      "Local file preview is limited to the current workspace or folders explicitly allowed for this thread.",
+    );
+    expect(() => service.resolveLocalPreviewPath("/private/secret.txt", context)).toThrow(
+      "Local file preview is limited to the current workspace or folders explicitly allowed for this thread.",
     );
   });
+
+  it("does not let a thread folder allowlist grant preview symlink escapes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ambient-active-local-allowlist-"));
+    const workspace = join(root, "workspace");
+    const allowed = join(root, "allowed");
+    const outside = join(root, "outside");
+    try {
+      await mkdir(workspace);
+      await mkdir(allowed);
+      await mkdir(outside);
+      await writeFile(join(outside, "secret.txt"), "not allowed\n", "utf8");
+      await symlink(join(outside, "secret.txt"), join(allowed, "linked-secret.txt"));
+      const { service } = createHarness({
+        workspacePath: workspace,
+        grants: [localFolderGrant(allowed, "thread-1", workspace)],
+        realpath: (path) => resolve(path).includes("linked-secret.txt") ? join(outside, "secret.txt") : resolve(path),
+      });
+
+      expect(() => service.resolveLocalPreviewPath(join(allowed, "linked-secret.txt"))).toThrow(
+        "Local file preview is limited to the current workspace or folders explicitly allowed for this thread.",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
+
+function localFolderGrant(folderPath: string, threadId: string, workspacePath: string): AmbientPermissionGrant {
+  const input = createLocalFolderAllowlistGrantInput({
+    folderPath,
+    threadId,
+    workspacePath,
+    permissionMode: "workspace",
+  });
+  return {
+    id: `grant:${folderPath}`,
+    createdAt: "2026-06-23T00:00:00.000Z",
+    updatedAt: "2026-06-23T00:00:00.000Z",
+    ...input,
+    createdBy: input.createdBy ?? "user",
+    source: input.source ?? "settings",
+  };
+}

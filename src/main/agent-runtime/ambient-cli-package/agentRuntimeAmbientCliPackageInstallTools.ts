@@ -19,6 +19,7 @@ import {
   ambientCliPackageInstallApprovalDetail,
   ambientCliPackageInstallInput,
   ambientCliPackageInstallParams,
+  ambientCliPackageInstallRequiresPinnedSource,
   ambientCliPackageInstallText,
   ambientCliPackagePiCatalogInstallApprovalDetail,
   ambientCliPackagePiCatalogInstallInput,
@@ -68,6 +69,7 @@ export interface AmbientCliPackageInstallToolRegistrationOptions {
   installAmbientCliPackageSource?: (
     workspacePath: string,
     input: InstallAmbientCliPackageInput,
+    approvedPreview?: AmbientCliPackageInstallPreview,
   ) => Promise<AmbientCliPackageSummary> | AmbientCliPackageSummary;
   resolveFirstPartyPluginPermission: (input: AmbientCliPackageInstallPermissionRequest) => Promise<boolean> | boolean;
   markPluginToolsStale: () => void;
@@ -84,6 +86,7 @@ export interface AmbientCliPackagePiCatalogInstallToolRegistrationOptions {
   installAmbientCliPackagePiCatalogSource?: (
     workspacePath: string,
     source: string,
+    approvedPreview?: AmbientCliPiCatalogInstallPreview,
   ) => Promise<AmbientCliPackageSummary> | AmbientCliPackageSummary;
   hydrateFirstPartyAmbientCliPackageSummaries: (
     packageId: string,
@@ -114,6 +117,11 @@ export function registerAmbientCliPackageInstallTool(
 
       const preview = await previewInstallSource(workspace.path, installInput);
       if (!preview.installable) throw new Error(`Ambient CLI package source is not installable: ${preview.errors.join("; ")}`);
+      if (ambientCliPackageInstallRequiresPinnedSource({ ...input, preview })) {
+        throw new Error(
+          "Unpinned Ambient CLI package installs that run dependency installation require an immutable sha-pinned source.",
+        );
+      }
 
       const detail = ambientCliPackageInstallApprovalDetail(workspace, preview);
       const allowed = await options.resolveFirstPartyPluginPermission({
@@ -145,7 +153,7 @@ export function registerAmbientCliPackageInstallTool(
         },
       });
 
-      const pkg = await installPackageSource(workspace.path, installInput);
+      const pkg = await installPackageSource(workspace.path, installInput, preview);
       options.markPluginToolsStale();
       return {
         content: [{ type: "text" as const, text: installText(pkg) }],
@@ -193,6 +201,7 @@ export function registerAmbientCliPackagePiCatalogInstallTool(
         detail,
         grantTargetLabel: `Install Pi catalog CLI package ${preview.candidate?.name ?? source}`,
         grantTargetIdentity: cliPackagePiCatalogInstallGrantIdentity({ source, preview }),
+        grantConditions: piCatalogInstallRouteGrantConditions(source, preview),
         allowedReason: "Pi catalog CLI package install approved by Ambient permission grant policy.",
         deniedReason: "Pi catalog CLI package install prompt denied or timed out.",
       });
@@ -210,7 +219,7 @@ export function registerAmbientCliPackagePiCatalogInstallTool(
         },
       });
 
-      const pkg = await installCatalogSource(workspace.path, source);
+      const pkg = await installCatalogSource(workspace.path, source, preview);
       const summaryHydration = await options.hydrateFirstPartyAmbientCliPackageSummaries(pkg.id);
       options.markPluginToolsStale();
       return {
@@ -240,4 +249,16 @@ export function registerAmbientCliPackagePiCatalogInstallTool(
       };
     },
   });
+}
+
+function piCatalogInstallRouteGrantConditions(source: string, preview: AmbientCliPiCatalogInstallPreview): Record<string, unknown> {
+  const targetPackage = preview.candidate?.name ?? preview.resolution?.adapter;
+  return {
+    installRoute: {
+      routeKind: "pi-marketplace-wrapped",
+      selectedSource: source,
+      ...(targetPackage ? { targetPackage } : {}),
+      approvalBoundary: "ambient-permission-grant",
+    },
+  };
 }

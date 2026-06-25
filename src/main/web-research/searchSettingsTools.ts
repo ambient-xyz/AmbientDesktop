@@ -1,4 +1,11 @@
-import type { SearchRoutingFallback, SearchRoutingMode, SearchRoutingSettings, WebResearchProviderConfig, WebResearchProviderRole } from "../../shared/webResearchTypes";
+import type {
+  SearchRoutingFallback,
+  SearchRoutingMode,
+  SearchRoutingSettings,
+  WebResearchCapabilityProbeStatus,
+  WebResearchProviderConfig,
+  WebResearchProviderRole,
+} from "../../shared/webResearchTypes";
 import type { AmbientCliPackageCatalog, AmbientCliPackageCommand, AmbientCliPackageSummary } from "./webResearchAmbientCliFacade";
 import type { McpToolDescriptor } from "./webResearchMcpFacade";
 import { webResearchProviderConfigsFromMcpTools } from "./webResearchMcpProviderRegistry";
@@ -15,6 +22,7 @@ export interface SearchProviderCandidate {
   commandName: string;
   capabilityId: string;
   available: boolean;
+  probeStatus: WebResearchCapabilityProbeStatus;
   reason?: string;
   description?: string;
   aliases: string[];
@@ -70,7 +78,7 @@ export function webResearchProviderConfigsFromSearchCatalog(catalog: AmbientCliP
     roles: ["search"],
     status: provider.available ? "enabled" : "disabled",
     capabilityKinds: ["search"],
-    capabilityProbeStatus: provider.available ? "passed" : "failed",
+    capabilityProbeStatus: provider.probeStatus,
     capabilityProbeEvidenceRefs: [`ambient-cli:${provider.packageName}:${provider.commandName}:health`],
     ...(provider.reason ? { capabilityFailureNotes: [provider.reason] } : {}),
     privacyLabel: `Queries may be sent to ${provider.label}.`,
@@ -437,9 +445,10 @@ function searchProviderCandidates(catalog: AmbientCliPackageCatalog): SearchProv
 
 function searchProviderCandidate(pkg: AmbientCliPackageSummary, command: AmbientCliPackageCommand): SearchProviderCandidate {
   const health = commandHealth(pkg, command.name);
-  const available = pkg.installed && pkg.errors.length === 0 && health !== "failed";
+  const probeStatus = webResearchProbeStatusForHealth(health);
+  const available = pkg.installed && pkg.errors.length === 0 && health === "passed";
   const label = pkg.generated?.provider ?? pkg.name;
-  const reason = pkg.errors[0] ?? (health === "failed" ? "health check failed" : undefined);
+  const reason = pkg.errors[0] ?? (health === "failed" ? "health check failed" : health === "unknown" ? "health check not run" : undefined);
   const optionalSecretRefs = pkg.envRequirements.filter((env) => env.required).map((env) => env.name);
   const aliases = [
     pkg.id,
@@ -457,6 +466,7 @@ function searchProviderCandidate(pkg: AmbientCliPackageSummary, command: Ambient
     commandName: command.name,
     capabilityId: `ambient-cli:${pkg.name}:tool:${command.name}`,
     available,
+    probeStatus,
     optionalSecretRefs,
     ...(reason ? { reason } : {}),
     ...(command.description ?? pkg.description ? { description: command.description ?? pkg.description } : {}),
@@ -495,7 +505,11 @@ function appendDynamicProvidersBeforeBrowser(
   providerMap: Map<string, WebResearchProviderConfig>,
 ): string[] {
   const defaultOrder = WEB_RESEARCH_DEFAULT_PREFERENCES[role];
-  const existing = currentSearchOrder.length ? currentSearchOrder : defaultOrder.filter((providerId) => providerMap.has(providerId));
+  const existing = (currentSearchOrder.length ? currentSearchOrder : defaultOrder.filter((providerId) => providerMap.has(providerId)))
+    .filter((providerId) => {
+      const provider = providerMap.get(providerId);
+      return !provider || isWebResearchProviderOrderEligible(provider);
+    });
   const defaultProviderIds = new Set(defaultOrder);
   const existingPreferredDynamicProviderIds = role === "search"
     ? existing.filter((providerId) => {
@@ -507,7 +521,7 @@ function appendDynamicProvidersBeforeBrowser(
   const dynamicProviders = providers
     .filter((provider) =>
       provider.roles.includes(role) &&
-      provider.status === "enabled" &&
+      isWebResearchProviderOrderEligible(provider) &&
       !existing.includes(provider.providerId)
       && !defaultProviderIds.has(provider.providerId)
     );
@@ -532,6 +546,10 @@ function appendDynamicProvidersBeforeBrowser(
     }
   }
   return result.filter((providerId, index, list) => list.indexOf(providerId) === index);
+}
+
+function isWebResearchProviderOrderEligible(provider: WebResearchProviderConfig): boolean {
+  return provider.status === "enabled" && provider.capabilityProbeStatus !== "failed" && provider.capabilityProbeStatus !== "untested";
 }
 
 function resolveSearchProvider(input: SearchPreferenceUpdateInput, providers: SearchProviderCandidate[]): SearchProviderCandidate {
@@ -571,6 +589,8 @@ function resolveWebResearchProvider(
   }
   if (!provider.roles.includes(role)) throw new Error(`Web research provider "${provider.providerId}" does not support ${role}.`);
   if (provider.status !== "enabled") throw new Error(`Web research provider "${provider.providerId}" is ${provider.status}; enable or repair it before using it in provider order.`);
+  if (!isWebResearchProviderOrderEligible(provider))
+    throw new Error(`Web research provider "${provider.providerId}" has not passed its capability probe; refresh or repair it before using it in provider order.`);
   return provider;
 }
 
@@ -616,6 +636,11 @@ function commandHealth(pkg: AmbientCliPackageSummary, commandName: string): "pas
   return health.passed ? "passed" : "failed";
 }
 
+function webResearchProbeStatusForHealth(health: "passed" | "failed" | "unknown"): WebResearchCapabilityProbeStatus {
+  if (health === "unknown") return "untested";
+  return health;
+}
+
 function searchy(values: Array<string | undefined>): boolean {
   return values.some((value) => /\b(search|brave|web)\b/i.test(value ?? ""));
 }
@@ -649,7 +674,7 @@ function defaultCanonicalSearchOrder(providers: WebResearchProviderConfig[]): st
   const providerIds = new Set(providers.map((provider) => provider.providerId));
   const preferredDynamicProviderIds = providers
     .filter((provider) =>
-      provider.status === "enabled" &&
+      isWebResearchProviderOrderEligible(provider) &&
       provider.roles.includes("search") &&
       !WEB_RESEARCH_DEFAULT_PREFERENCES.search.includes(provider.providerId) &&
       isPreferredDynamicSearchProvider(provider)

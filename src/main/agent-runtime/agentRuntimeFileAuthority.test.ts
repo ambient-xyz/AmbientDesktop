@@ -1,10 +1,11 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
+import { createLocalFolderAllowlistGrantInput } from "../permissions/localFolderAllowlistGrants";
 import {
   childAuthorityFileRootPathsFromSnapshot,
   childAuthorityFileRootPathsForThread,
@@ -72,6 +73,36 @@ describe("agentRuntimeFileAuthority", () => {
         outsideDir,
         join(root, "transient-write"),
       ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not expose retargeted folder allowlist grants as runtime authority roots", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ambient-file-authority-retarget-"));
+    const workspacePath = join(root, "workspace");
+    const allowedPath = join(root, "allowed");
+    const outsidePath = join(root, "outside");
+    try {
+      await mkdir(workspacePath, { recursive: true });
+      await mkdir(allowedPath, { recursive: true });
+      await mkdir(outsidePath, { recursive: true });
+      const input = createLocalFolderAllowlistGrantInput({
+        folderPath: allowedPath,
+        threadId: "thread-1",
+        workspacePath,
+        permissionMode: "workspace",
+      });
+      const folderGrant = grant({
+        ...input,
+        id: "folder-grant",
+        createdBy: input.createdBy ?? "user",
+        source: input.source ?? "settings",
+      });
+      await rm(allowedPath, { recursive: true, force: true });
+      await symlink(outsidePath, allowedPath);
+
+      expect(fileAuthorityPathFromGrant(folderGrant, { id: "thread-1", workspacePath }, root, "read")).toBeUndefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -299,9 +330,13 @@ describe("agentRuntimeFileAuthority", () => {
     }, {
       fileToolAccess: (toolName) => toolName === "file_read" ? "read" : undefined,
       pathForTool: (_toolName, requestedPath) => `/policy/${requestedPath}`,
-      resolvePolicyPath: async (_workspacePath, requestedPath) => ({ absolutePath: `/absolute${requestedPath}` }),
+      resolvePolicyPath: async (_workspacePath, requestedPath) => ({
+        absolutePath: `/absolute${requestedPath}`,
+        canonicalPath: `/canonical${requestedPath}`,
+        insideWorkspace: false,
+      }),
     })).resolves.toEqual({
-      path: "/absolute/policy/README.md",
+      path: "/canonical/policy/README.md",
       actionKind: "file_content_read",
       reason: "allowed read",
     });
@@ -314,7 +349,11 @@ describe("agentRuntimeFileAuthority", () => {
     }, {
       fileToolAccess: (toolName) => toolName === "edit" ? "edit" : undefined,
       pathForTool: (_toolName, requestedPath) => requestedPath,
-      resolvePolicyPath: async (_workspacePath, requestedPath) => ({ absolutePath: `/workspace/${requestedPath}` }),
+      resolvePolicyPath: async (_workspacePath, requestedPath) => ({
+        absolutePath: `/workspace/${requestedPath}`,
+        canonicalPath: `/workspace/${requestedPath}`,
+        insideWorkspace: true,
+      }),
     })).resolves.toEqual({
       path: "/workspace/src/app.ts",
       actionKind: "local_file_write",
@@ -329,7 +368,11 @@ describe("agentRuntimeFileAuthority", () => {
     }, {
       fileToolAccess: () => undefined,
       pathForTool: (_toolName, requestedPath) => requestedPath,
-      resolvePolicyPath: async (_workspacePath, requestedPath) => ({ absolutePath: requestedPath }),
+      resolvePolicyPath: async (_workspacePath, requestedPath) => ({
+        absolutePath: requestedPath,
+        canonicalPath: requestedPath,
+        insideWorkspace: false,
+      }),
     })).resolves.toBeUndefined();
   });
 
@@ -343,9 +386,9 @@ describe("agentRuntimeFileAuthority", () => {
       grantTargetKind: "path",
       grantActionKind: "local_file_write",
       grantTargetLabel: "/fallback/path.txt",
-      grantConditions: { path: "/conditions/path.txt" },
+      grantConditions: { path: "/conditions/path.txt", canonicalPath: "/canonical/path.txt" },
     }, "allowed once")).toEqual({
-      path: "/conditions/path.txt",
+      path: "/canonical/path.txt",
       actionKind: "local_file_write",
       reason: "allowed once",
     });
@@ -416,7 +459,11 @@ describe("agentRuntimeFileAuthority", () => {
         roots,
         fileToolAccess: (toolName) => toolName === "edit" ? "edit" : undefined,
         pathForTool: (_toolName, requestedPath) => requestedPath,
-        resolvePolicyPath: async () => ({ absolutePath: outsideFile }),
+        resolvePolicyPath: async () => ({
+          absolutePath: outsideFile,
+          canonicalPath: outsideFile,
+          insideWorkspace: false,
+        }),
       });
 
       expect(roots.get("thread-1")).toEqual([

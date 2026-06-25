@@ -2,21 +2,11 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
 import { resolveAmbientFeatureFlags, type AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
-import type {
-  DesktopEvent,
-  DesktopState,
-} from "../../shared/desktopTypes";
-import type {
-  AmbientPermissionGrant,
-  PermissionMode,
-  PermissionRequest,
-} from "../../shared/permissionTypes";
+import type { DesktopState } from "../../shared/desktopTypes";
+import type { AmbientPermissionGrant, PermissionMode } from "../../shared/permissionTypes";
 import type { ChatMessage } from "../../shared/threadTypes";
 import type {
   AnswerWorkflowDiscoveryQuestionInput,
-  CancelWorkflowRunInput,
-  CompileWorkflowDebugRewriteInput,
-  CompileWorkflowPreviewInput,
   CreateWorkflowAgentFolderInput,
   CreateWorkflowAgentThreadInput,
   CreateWorkflowLabRunInput,
@@ -24,18 +14,11 @@ import type {
   InvokeWorkflowNativeToolInput,
   ListWorkflowLabRunsInput,
   MoveWorkflowAgentThreadInput,
-  RecoverWorkflowRunInput,
-  ResolveWorkflowApprovalInput,
   ResolveWorkflowRevisionInput,
   RestoreWorkflowVersionInput,
-  RevalidateWorkflowArtifactInput,
-  ReviewWorkflowArtifactInput,
-  RunWorkflowArtifactInput,
   SaveSymphonyWorkflowRecipeInput,
   StartWorkflowDiscoveryInput,
   StartWorkflowRevisionDiscoveryInput,
-  UpdateWorkflowArtifactSourceInput,
-  UpdateWorkflowConnectorGrantInput,
   UpdateWorkflowRevisionInput,
   WorkflowAgentDiscoveryResult,
   WorkflowAgentFolderSummary,
@@ -66,19 +49,9 @@ import {
   registerWorkflowAgentRevisionIpc,
   registerWorkflowAgentThreadIpc,
   registerWorkflowAgentTraceIpc,
-  registerWorkflowApprovalIpc,
-  registerWorkflowArtifactRevalidationIpc,
-  registerWorkflowArtifactReviewIpc,
-  registerWorkflowArtifactSourceIpc,
-  registerWorkflowCancelRunIpc,
-  registerWorkflowCompilePreviewIpc,
-  registerWorkflowDebugRewriteIpc,
-  registerWorkflowConnectorGrantIpc,
   registerWorkflowDashboardIpc,
   registerWorkflowLabIpc,
-  registerWorkflowRecoverRunIpc,
   registerWorkflowRecorderIpc,
-  registerWorkflowRunArtifactIpc,
   workflowAgentCapabilityIpcChannels,
   workflowAgentDiscoveryAnswerIpcChannels,
   workflowAgentDiscoveryAccessIpcChannels,
@@ -89,19 +62,9 @@ import {
   workflowAgentRevisionIpcChannels,
   workflowAgentThreadIpcChannels,
   workflowAgentTraceIpcChannels,
-  workflowApprovalIpcChannels,
-  workflowArtifactRevalidationIpcChannels,
-  workflowArtifactReviewIpcChannels,
-  workflowArtifactSourceIpcChannels,
-  workflowCancelRunIpcChannels,
-  workflowCompilePreviewIpcChannels,
-  workflowDebugRewriteIpcChannels,
-  workflowConnectorGrantIpcChannels,
   workflowDashboardIpcChannels,
   workflowLabIpcChannels,
-  workflowRecoverRunIpcChannels,
   workflowRecorderIpcChannels,
-  workflowRunArtifactIpcChannels,
   type RegisterWorkflowAgentCapabilityIpcDependencies,
   type RegisterWorkflowAgentDiscoveryAnswerIpcDependencies,
   type RegisterWorkflowAgentDiscoveryAccessIpcDependencies,
@@ -112,27 +75,10 @@ import {
   type RegisterWorkflowAgentRevisionIpcDependencies,
   type RegisterWorkflowAgentThreadIpcDependencies,
   type RegisterWorkflowAgentTraceIpcDependencies,
-  type RegisterWorkflowApprovalIpcDependencies,
-  type RegisterWorkflowArtifactRevalidationIpcDependencies,
-  type RegisterWorkflowArtifactReviewIpcDependencies,
-  type RegisterWorkflowArtifactSourceIpcDependencies,
-  type RegisterWorkflowCancelRunIpcDependencies,
-  type RegisterWorkflowCompilePreviewIpcDependencies,
-  type RegisterWorkflowDebugRewriteIpcDependencies,
-  type RegisterWorkflowConnectorGrantIpcDependencies,
   type RegisterWorkflowDashboardIpcDependencies,
   type RegisterWorkflowLabIpcDependencies,
-  type RegisterWorkflowRecoverRunIpcDependencies,
-  type RegisterWorkflowRunArtifactIpcDependencies,
 } from "./registerWorkflowIpc";
-import type {
-  CompileWorkflowArtifactInput,
-  RunWorkflowArtifactInput as WorkflowRunArtifactServiceInput,
-  WorkflowConnectorDescriptor,
-  WorkflowDebugRewriteContext,
-  WorkflowDiscoveryPolicyContext,
-  WorkflowRecoveryPlan,
-} from "./ipcWorkflowFacade";
+import type { WorkflowDiscoveryPolicyContext } from "./ipcWorkflowFacade";
 
 type IpcListener = Parameters<IpcMain["handle"]>[1];
 
@@ -216,89 +162,6 @@ interface FakeWorkflowDashboardStore {
 interface FakeWorkflowDashboardHost {
   store: FakeWorkflowDashboardStore;
   workspacePath: string;
-}
-
-interface FakeWorkflowCompileStore {
-  getWorkspace: ReturnType<typeof vi.fn<() => { statePath: string }>>;
-}
-
-interface FakeWorkflowCompileThread {
-  model: string;
-  permissionMode: PermissionMode;
-}
-
-interface FakeWorkflowDebugRewriteWorkflowThread {
-  latestVersion?: {
-    id?: string;
-  };
-}
-
-interface FakeWorkflowRunArtifactArtifact {
-  id: string;
-  status: string;
-  workflowThreadId?: string;
-}
-
-interface FakeWorkflowRecoverRunHost {
-  store: FakeWorkflowCompileStore;
-}
-
-interface FakeWorkflowApprovalStore {
-  marker: "workflow-approval-store";
-}
-
-interface FakeWorkflowApprovalHost {
-  store: FakeWorkflowApprovalStore;
-  workspacePath: string;
-}
-
-interface FakeWorkflowCancelRunStore {
-  marker: "workflow-cancel-run-store";
-}
-
-interface FakeWorkflowCancelRunHost {
-  store: FakeWorkflowCancelRunStore;
-  workspacePath: string;
-}
-
-interface FakeWorkflowArtifactReviewStore {
-  marker: "workflow-artifact-review-store";
-}
-
-interface FakeWorkflowArtifactReviewHost {
-  store: FakeWorkflowArtifactReviewStore;
-  workspacePath: string;
-}
-
-interface FakeWorkflowConnectorGrantStore {
-  marker: "workflow-connector-grant-store";
-}
-
-interface FakeWorkflowConnectorGrantHost {
-  store: FakeWorkflowConnectorGrantStore;
-  workspacePath: string;
-}
-
-interface FakeWorkflowArtifactRevalidationStore {
-  marker: "workflow-artifact-revalidation-store";
-}
-
-interface FakeWorkflowArtifactRevalidationHost {
-  store: FakeWorkflowArtifactRevalidationStore;
-  workspacePath: string;
-}
-
-interface FakeWorkflowArtifactSourceStore {
-  marker: "workflow-artifact-source-store";
-}
-
-interface FakeWorkflowArtifactSourceHost {
-  store: FakeWorkflowArtifactSourceStore;
-  workspacePath: string;
-}
-
-interface FakeWorkflowRunAbortController {
-  abort: ReturnType<typeof vi.fn<() => void>>;
 }
 
 interface FakeWorkflowAgentThreadStore {
@@ -693,79 +556,6 @@ const workflowDashboard = {
   artifacts: [],
   runs: [],
 } satisfies WorkflowDashboard;
-const workflowConnectorDescriptors = [] satisfies WorkflowConnectorDescriptor[];
-const workflowCompileProgress = {
-  compileId: "compile-1",
-  phase: "model",
-  status: "running",
-  message: "Compiling workflow",
-  current: 1,
-  total: 3,
-  createdAt: "2026-01-01T00:00:00.000Z",
-} satisfies Parameters<NonNullable<CompileWorkflowArtifactInput["onProgress"]>>[0];
-const workflowPluginRegistry = { marker: "workflow-plugin-registry" };
-const workflowPluginRegistrations: NonNullable<CompileWorkflowArtifactInput["pluginRegistrations"]> = [];
-const workflowToolDescriptors: CompileWorkflowArtifactInput["toolDescriptors"] = [];
-const workflowSearchRoutingSettings = {} satisfies NonNullable<CompileWorkflowArtifactInput["searchRoutingSettings"]>;
-const workflowRunPluginRegistry = {
-  plugins: [],
-  capabilities: [],
-  sources: [],
-  errors: [],
-  sourceNotes: [],
-} satisfies NonNullable<WorkflowRunArtifactServiceInput["pluginRegistry"]>;
-const workflowRunPluginRegistration = { marker: "workflow-plugin-registration" } as unknown as NonNullable<
-  WorkflowRunArtifactServiceInput["pluginRegistrations"]
->[number];
-const workflowRunPluginRegistrations = [workflowRunPluginRegistration] satisfies NonNullable<
-  WorkflowRunArtifactServiceInput["pluginRegistrations"]
->;
-const workflowRunConnectorRegistrations = [] satisfies NonNullable<WorkflowRunArtifactServiceInput["connectorRegistrations"]>;
-const workflowRunBrowser = { marker: "workflow-browser" } as unknown as NonNullable<WorkflowRunArtifactServiceInput["browser"]>;
-const workflowRunArtifact = {
-  id: "artifact-1",
-  status: "approved",
-  workflowThreadId: "workflow-thread-1",
-} satisfies FakeWorkflowRunArtifactArtifact;
-const workflowRecoveryPlan = {
-  artifactId: "artifact-1",
-  resumeFromRunId: "run-1",
-  recovery: {
-    action: "retry_step",
-    sourceRunId: "run-1",
-    sourceEventId: "event-1",
-    targetGraphNodeId: "node-1",
-    reason: "Retry selected graph node.",
-    createdAt: "2026-01-01T00:00:00.000Z",
-  },
-} satisfies WorkflowRecoveryPlan;
-const workflowPermissionRequest = {
-  threadId: "thread-1",
-  toolName: "workflow:test",
-  title: "Allow workflow test",
-  message: "Allow the workflow test tool.",
-  risk: "workspace-command",
-} satisfies Omit<PermissionRequest, "id">;
-const workflowDebugContext = {
-  runId: "run-1",
-  artifactId: "artifact-1",
-  workflowThreadId: "workflow-thread-1",
-  title: "Customer workflow",
-  goal: "Summarize customer notes",
-  userNotes: "Fix retry",
-  recentEvents: [],
-  modelCalls: [],
-  checkpointKeys: [],
-  source: "export async function main() {}",
-  auditReport: "Audit failed on retry.",
-} satisfies WorkflowDebugRewriteContext;
-const workflowDebugWorkflowThread = {
-  latestVersion: {
-    id: "version-1",
-  },
-} satisfies FakeWorkflowDebugRewriteWorkflowThread;
-const workflowDebugRequestedChange = "Debug and rewrite the customer workflow.";
-const workflowDebugPromptSection = "Workflow debug rewrite context.";
 
 const workflowRunDetail = {
   marker: "workflow-run-detail",
@@ -800,10 +590,7 @@ describe("registerWorkflowRecorderIpc", () => {
     await expect(invoke("workflow-recorder:stop", { threadId: "thread-1", projectId: "project-1" })).resolves.toBe(state);
 
     expect(deps.requireActiveProjectRuntimeHost).toHaveBeenCalledOnce();
-    expect(deps.requireProjectRuntimeHostForThreadAction).toHaveBeenCalledWith(
-      { threadId: "thread-1", projectId: "project-1" },
-      host,
-    );
+    expect(deps.requireProjectRuntimeHostForThreadAction).toHaveBeenCalledWith({ threadId: "thread-1", projectId: "project-1" }, host);
     expect(store.stopWorkflowRecording).toHaveBeenCalledWith("thread-1");
     expect(deps.emitProjectStateIfActive).toHaveBeenCalledWith(host, "thread-1");
   });
@@ -978,7 +765,9 @@ describe("registerWorkflowAgentRevisionIpc", () => {
   it("restores versions and emits workflow updates", async () => {
     const { deps, host, invoke } = registerRevisionWithFakes();
 
-    await expect(invoke("workflow-agents:restore-version", { versionId: "version-1", approveRestored: true })).resolves.toBe(workflowDashboard);
+    await expect(invoke("workflow-agents:restore-version", { versionId: "version-1", approveRestored: true })).resolves.toBe(
+      workflowDashboard,
+    );
 
     expect(deps.requireProjectRuntimeHostForWorkflowVersion).toHaveBeenCalledWith("version-1");
     expect(deps.restoreWorkflowVersion).toHaveBeenCalledWith(host, { versionId: "version-1", approveRestored: true });
@@ -1014,7 +803,9 @@ describe("registerWorkflowAgentRevisionIpc", () => {
   it("records revision decisions only when the status changes", async () => {
     const changed = registerRevisionWithFakes();
 
-    await expect(changed.invoke("workflow-agents:resolve-revision", { id: "revision-1", decision: "applied" })).resolves.toBe(appliedWorkflowRevision);
+    await expect(changed.invoke("workflow-agents:resolve-revision", { id: "revision-1", decision: "applied" })).resolves.toBe(
+      appliedWorkflowRevision,
+    );
 
     expect(changed.store.getWorkflowRevision).toHaveBeenCalledWith("revision-1");
     expect(changed.store.resolveWorkflowRevision).toHaveBeenCalledWith({ id: "revision-1", decision: "applied" });
@@ -1025,7 +816,9 @@ describe("registerWorkflowAgentRevisionIpc", () => {
       resolvedRevision: appliedWorkflowRevision,
     });
 
-    await expect(unchanged.invoke("workflow-agents:resolve-revision", { id: "revision-1", decision: "applied" })).resolves.toBe(appliedWorkflowRevision);
+    await expect(unchanged.invoke("workflow-agents:resolve-revision", { id: "revision-1", decision: "applied" })).resolves.toBe(
+      appliedWorkflowRevision,
+    );
     expect(unchanged.deps.recordWorkflowRevisionDecisionInChat).not.toHaveBeenCalled();
   });
 
@@ -1436,659 +1229,6 @@ describe("registerWorkflowDashboardIpc", () => {
   });
 });
 
-describe("registerWorkflowCompilePreviewIpc", () => {
-  it("registers the workflow compile-preview channels", () => {
-    const { handlers } = registerCompilePreviewWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowCompilePreviewIpcChannels]);
-  });
-
-  it("compiles previews through context, provider, plugins, and emits workflow updates", async () => {
-    const { compileWorkflowArtifact, deps, invoke, store, thread } = registerCompilePreviewWithFakes();
-    const input = {
-      userRequest: "Build a workflow",
-      workflowThreadId: "workflow-thread-1",
-      revisionId: "revision-1",
-    };
-
-    await expect(invoke("workflow:compile-preview", input)).resolves.toBe(workflowDashboard);
-
-    expect(deps.workflowCompileIpcContext).toHaveBeenCalledWith(input);
-    expect(deps.workspaceStateForThread).toHaveBeenCalledWith(thread, store);
-    expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("model-1");
-    expect(deps.pluginMcpRegistrationsForThread).toHaveBeenCalledWith(thread, store);
-    expect(deps.listPluginRegistry).toHaveBeenCalledWith("/workspace", store);
-    expect(deps.workflowToolDescriptorsFromPluginRegistry).toHaveBeenCalledWith(workflowPluginRegistry, workflowPluginRegistrations);
-    expect(deps.connectorDescriptors).toHaveBeenCalledOnce();
-    expect(deps.readSearchRoutingSettings).toHaveBeenCalledOnce();
-    expect(deps.ambientRetryPolicyFromCurrentSettings).toHaveBeenCalledWith(store);
-    expect(compileWorkflowArtifact).toHaveBeenCalledOnce();
-
-    const compileInput = compileWorkflowArtifact.mock.calls[0][0];
-    expect(compileInput).toEqual(
-      expect.objectContaining({
-        store,
-        userRequest: "Build a workflow",
-        workflowThreadId: "workflow-thread-1",
-        revisionId: "revision-1",
-        workspaceSummary: ["Workspace: Active workspace", "Path: /workspace", "Permission mode: workspace"].join("\n"),
-        toolDescriptors: workflowToolDescriptors,
-        pluginRegistrations: workflowPluginRegistrations,
-        connectorDescriptors: workflowConnectorDescriptors,
-        stateRoot: "/state",
-        model: "model-1",
-        permissionMode: "workspace",
-        searchRoutingSettings: workflowSearchRoutingSettings,
-        baseUrl: "https://provider.example",
-      }),
-    );
-    expect(compileInput.retryPolicy).toBeUndefined();
-
-    compileInput.onProgress?.(workflowCompileProgress);
-
-    expect(deps.emitWorkflowEvent).toHaveBeenCalledWith(
-      { type: "workflow-compile-progress", progress: workflowCompileProgress },
-      "/workspace",
-    );
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith("/workspace");
-  });
-
-  it("rejects invalid compile input before resolving context", async () => {
-    const { compileWorkflowArtifact, deps, invoke } = registerCompilePreviewWithFakes();
-
-    await expect(invoke("workflow:compile-preview", { userRequest: "" })).rejects.toThrow();
-
-    expect(deps.workflowCompileIpcContext).not.toHaveBeenCalled();
-    expect(deps.workspaceStateForThread).not.toHaveBeenCalled();
-    expect(compileWorkflowArtifact).not.toHaveBeenCalled();
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowDebugRewriteIpc", () => {
-  it("registers the workflow debug-rewrite channels", () => {
-    const { handlers } = registerDebugRewriteWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowDebugRewriteIpcChannels]);
-  });
-
-  it("routes visual e2e rewrite requests without resolving runtime context", async () => {
-    const { compileWorkflowArtifact, deps, invoke } = registerDebugRewriteWithFakes({ e2eEnabled: true });
-    const input = {
-      runId: "visual-run-1",
-      eventId: "event-1",
-      userNotes: " Capture visual state ",
-    };
-
-    await expect(invoke("workflow:debug-rewrite", input)).resolves.toBe(workflowDashboard);
-
-    expect(deps.emitE2eWorkflowDebugRewriteInput).toHaveBeenCalledWith({
-      runId: "visual-run-1",
-      eventId: "event-1",
-      userNotes: "Capture visual state",
-    });
-    expect(deps.readE2eWorkflowDashboard).toHaveBeenCalledOnce();
-    expect(deps.workflowDebugRewriteIpcContext).not.toHaveBeenCalled();
-    expect(compileWorkflowArtifact).not.toHaveBeenCalled();
-  });
-
-  it("compiles debug rewrites through context, provider, plugins, and records a revision", async () => {
-    const { compileWorkflowArtifact, deps, invoke, store, thread } = registerDebugRewriteWithFakes();
-    const input = {
-      runId: "run-1",
-      eventId: "event-1",
-      userNotes: " Fix retry ",
-    };
-
-    await expect(invoke("workflow:debug-rewrite", input)).resolves.toBe(workflowDashboard);
-
-    expect(deps.readE2eEnabled).toHaveBeenCalledOnce();
-    expect(deps.workflowDebugRewriteIpcContext).toHaveBeenCalledWith({
-      runId: "run-1",
-      eventId: "event-1",
-      userNotes: "Fix retry",
-    });
-    expect(deps.workflowDebugRewriteUserRequest).toHaveBeenCalledWith(workflowDebugContext);
-    expect(deps.workspaceStateForThread).toHaveBeenCalledWith(thread, store);
-    expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("model-1");
-    expect(deps.pluginMcpRegistrationsForThread).toHaveBeenCalledWith(thread, store);
-    expect(deps.listPluginRegistry).toHaveBeenCalledWith("/workspace", store);
-    expect(deps.workflowToolDescriptorsFromPluginRegistry).toHaveBeenCalledWith(workflowPluginRegistry, workflowPluginRegistrations);
-    expect(deps.connectorDescriptors).toHaveBeenCalledOnce();
-    expect(deps.readSearchRoutingSettings).toHaveBeenCalledOnce();
-    expect(deps.ambientRetryPolicyFromCurrentSettings).toHaveBeenCalledWith(store);
-    expect(deps.buildWorkflowDebugRewritePromptSection).toHaveBeenCalledWith(workflowDebugContext);
-    expect(compileWorkflowArtifact).toHaveBeenCalledOnce();
-
-    const compileInput = compileWorkflowArtifact.mock.calls[0][0];
-    expect(compileInput).toEqual(
-      expect.objectContaining({
-        store,
-        userRequest: workflowDebugRequestedChange,
-        workflowThreadId: "workflow-thread-1",
-        workspaceSummary: [
-          "Workspace: Active workspace",
-          "Path: /workspace",
-          "Permission mode: workspace",
-          "Debug rewrite failed run: run-1",
-        ].join("\n"),
-        toolDescriptors: workflowToolDescriptors,
-        pluginRegistrations: workflowPluginRegistrations,
-        connectorDescriptors: workflowConnectorDescriptors,
-        stateRoot: "/state",
-        model: "model-1",
-        permissionMode: "workspace",
-        searchRoutingSettings: workflowSearchRoutingSettings,
-        baseUrl: "https://provider.example",
-        debugRewriteContext: workflowDebugPromptSection,
-      }),
-    );
-    expect(compileInput.retryPolicy).toBeUndefined();
-
-    compileInput.onProgress?.(workflowCompileProgress);
-
-    expect(deps.emitWorkflowEvent).toHaveBeenCalledWith(
-      { type: "workflow-compile-progress", progress: workflowCompileProgress },
-      "/workspace",
-    );
-    expect(deps.createWorkflowDebugRewriteRevision).toHaveBeenCalledWith(store, workflowDebugContext, {
-      baseVersionId: "version-1",
-      requestedChange: workflowDebugRequestedChange,
-    });
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith("/workspace");
-  });
-
-  it("rejects invalid debug input before resolving context", async () => {
-    const { compileWorkflowArtifact, deps, invoke } = registerDebugRewriteWithFakes();
-
-    await expect(invoke("workflow:debug-rewrite", { runId: "" })).rejects.toThrow();
-
-    expect(deps.readE2eEnabled).not.toHaveBeenCalled();
-    expect(deps.workflowDebugRewriteIpcContext).not.toHaveBeenCalled();
-    expect(compileWorkflowArtifact).not.toHaveBeenCalled();
-    expect(deps.createWorkflowDebugRewriteRevision).not.toHaveBeenCalled();
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowApprovalIpc", () => {
-  it("registers the workflow approval channels", () => {
-    const { handlers } = registerApprovalWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowApprovalIpcChannels]);
-  });
-
-  it("resolves approvals through the run owner host and emits workflow updates", async () => {
-    const { deps, host, invoke, store } = registerApprovalWithFakes();
-
-    await expect(
-      invoke("workflow:resolve-approval", {
-        runId: "run-1",
-        approvalId: "approval-1",
-        decision: "approved",
-      }),
-    ).resolves.toBe(workflowRunDetail);
-
-    expect(deps.requireProjectRuntimeHostForWorkflowRun).toHaveBeenCalledWith("run-1");
-    expect(deps.resolveWorkflowApproval).toHaveBeenCalledWith(store, {
-      runId: "run-1",
-      approvalId: "approval-1",
-      decision: "approved",
-    });
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith(host.workspacePath);
-  });
-
-  it("rejects invalid approval input before resolving hosts", async () => {
-    const { deps, invoke } = registerApprovalWithFakes();
-
-    await expect(
-      invoke("workflow:resolve-approval", {
-        runId: "",
-        approvalId: "approval-1",
-        decision: "approved",
-      }),
-    ).rejects.toThrow();
-
-    expect(deps.requireProjectRuntimeHostForWorkflowRun).not.toHaveBeenCalled();
-    expect(deps.resolveWorkflowApproval).not.toHaveBeenCalled();
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowCancelRunIpc", () => {
-  it("registers the workflow cancel-run channels", () => {
-    const { handlers } = registerCancelRunWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowCancelRunIpcChannels]);
-  });
-
-  it("aborts active workflow runs and emits workflow updates", async () => {
-    const { controller, deps, host, invoke, store } = registerCancelRunWithFakes();
-
-    await expect(invoke("workflow:cancel-run", { runId: "run-1" })).resolves.toBe(workflowDashboard);
-
-    expect(deps.projectRuntimeHostForWorkflowRun).toHaveBeenCalledWith("run-1");
-    expect(deps.activeWorkflowRunHost).not.toHaveBeenCalled();
-    expect(deps.activeWorkflowRunController).toHaveBeenCalledWith("run-1");
-    expect(controller?.abort).toHaveBeenCalledOnce();
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith(host.workspacePath);
-    expect(deps.readWorkflowDashboard).toHaveBeenCalledWith(store);
-  });
-
-  it("returns the dashboard without emitting when no active controller is available", async () => {
-    const { deps, invoke, store } = registerCancelRunWithFakes({ controller: null });
-
-    await expect(invoke("workflow:cancel-run", { runId: "run-1" })).resolves.toBe(workflowDashboard);
-
-    expect(deps.activeWorkflowRunController).toHaveBeenCalledWith("run-1");
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-    expect(deps.readWorkflowDashboard).toHaveBeenCalledWith(store);
-  });
-
-  it("falls back to the active run host when the project run host is unavailable", async () => {
-    const { deps, host, invoke } = registerCancelRunWithFakes({ projectHost: null });
-
-    await expect(invoke("workflow:cancel-run", { runId: "run-1" })).resolves.toBe(workflowDashboard);
-
-    expect(deps.projectRuntimeHostForWorkflowRun).toHaveBeenCalledWith("run-1");
-    expect(deps.activeWorkflowRunHost).toHaveBeenCalledWith("run-1");
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith(host.workspacePath);
-  });
-
-  it("rejects invalid cancel input before resolving hosts", async () => {
-    const { deps, invoke } = registerCancelRunWithFakes();
-
-    await expect(invoke("workflow:cancel-run", { runId: "" })).rejects.toThrow();
-
-    expect(deps.projectRuntimeHostForWorkflowRun).not.toHaveBeenCalled();
-    expect(deps.activeWorkflowRunHost).not.toHaveBeenCalled();
-    expect(deps.activeWorkflowRunController).not.toHaveBeenCalled();
-    expect(deps.readWorkflowDashboard).not.toHaveBeenCalled();
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowArtifactReviewIpc", () => {
-  it("registers the workflow artifact review channels", () => {
-    const { handlers } = registerArtifactReviewWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowArtifactReviewIpcChannels]);
-  });
-
-  it("reviews artifacts through the artifact owner host and emits workflow updates", async () => {
-    const { deps, host, invoke, store } = registerArtifactReviewWithFakes();
-
-    await expect(
-      invoke("workflow:review-artifact", {
-        artifactId: "artifact-1",
-        decision: "approved",
-      }),
-    ).resolves.toBe(workflowDashboard);
-
-    expect(deps.requireProjectRuntimeHostForWorkflowArtifact).toHaveBeenCalledWith("artifact-1");
-    expect(deps.reviewWorkflowArtifact).toHaveBeenCalledWith(store, {
-      artifactId: "artifact-1",
-      decision: "approved",
-    });
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith(host.workspacePath);
-  });
-
-  it("rejects invalid review input before resolving hosts", async () => {
-    const { deps, invoke } = registerArtifactReviewWithFakes();
-
-    await expect(
-      invoke("workflow:review-artifact", {
-        artifactId: "",
-        decision: "approved",
-      }),
-    ).rejects.toThrow();
-
-    expect(deps.requireProjectRuntimeHostForWorkflowArtifact).not.toHaveBeenCalled();
-    expect(deps.reviewWorkflowArtifact).not.toHaveBeenCalled();
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowConnectorGrantIpc", () => {
-  it("registers the workflow connector grant channels", () => {
-    const { handlers } = registerConnectorGrantWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowConnectorGrantIpcChannels]);
-  });
-
-  it("updates connector grants through the artifact owner host and emits workflow updates", async () => {
-    const { deps, host, invoke, store } = registerConnectorGrantWithFakes();
-
-    await expect(
-      invoke("workflow:update-connector-grant", {
-        artifactId: "artifact-1",
-        connectorId: "gmail",
-        accountId: "account-1",
-        dataRetention: "redacted_audit",
-      }),
-    ).resolves.toBe(workflowDashboard);
-
-    expect(deps.requireProjectRuntimeHostForWorkflowArtifact).toHaveBeenCalledWith("artifact-1");
-    expect(deps.updateWorkflowConnectorGrant).toHaveBeenCalledWith(store, {
-      artifactId: "artifact-1",
-      connectorId: "gmail",
-      accountId: "account-1",
-      dataRetention: "redacted_audit",
-    });
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith(host.workspacePath);
-  });
-
-  it("rejects invalid connector grant input before resolving hosts", async () => {
-    const { deps, invoke } = registerConnectorGrantWithFakes();
-
-    await expect(
-      invoke("workflow:update-connector-grant", {
-        artifactId: "artifact-1",
-        connectorId: "gmail",
-      }),
-    ).rejects.toThrow();
-
-    expect(deps.requireProjectRuntimeHostForWorkflowArtifact).not.toHaveBeenCalled();
-    expect(deps.updateWorkflowConnectorGrant).not.toHaveBeenCalled();
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowArtifactRevalidationIpc", () => {
-  it("registers the workflow artifact revalidation channels", () => {
-    const { handlers } = registerArtifactRevalidationWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowArtifactRevalidationIpcChannels]);
-  });
-
-  it("revalidates artifacts through the artifact owner host and connector descriptors", async () => {
-    const { deps, host, invoke, store } = registerArtifactRevalidationWithFakes();
-
-    await expect(invoke("workflow:revalidate-artifact", { artifactId: "artifact-1" })).resolves.toBe(workflowDashboard);
-
-    expect(deps.requireProjectRuntimeHostForWorkflowArtifact).toHaveBeenCalledWith("artifact-1");
-    expect(deps.connectorDescriptors).toHaveBeenCalledOnce();
-    expect(deps.revalidateWorkflowArtifact).toHaveBeenCalledWith(store, { artifactId: "artifact-1" }, {
-      connectorDescriptors: workflowConnectorDescriptors,
-    });
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith(host.workspacePath);
-  });
-
-  it("rejects invalid revalidation input before resolving hosts", async () => {
-    const { deps, invoke } = registerArtifactRevalidationWithFakes();
-
-    await expect(invoke("workflow:revalidate-artifact", { artifactId: "" })).rejects.toThrow();
-
-    expect(deps.requireProjectRuntimeHostForWorkflowArtifact).not.toHaveBeenCalled();
-    expect(deps.connectorDescriptors).not.toHaveBeenCalled();
-    expect(deps.revalidateWorkflowArtifact).not.toHaveBeenCalled();
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowArtifactSourceIpc", () => {
-  it("registers the workflow artifact source channels", () => {
-    const { handlers } = registerArtifactSourceWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowArtifactSourceIpcChannels]);
-  });
-
-  it("updates artifact source through the artifact owner host and connector descriptors", async () => {
-    const { deps, host, invoke, store } = registerArtifactSourceWithFakes();
-
-    await expect(
-      invoke("workflow:update-artifact-source", {
-        artifactId: "artifact-1",
-        source: "steps:\n  - inspect workspace",
-      }),
-    ).resolves.toBe(workflowDashboard);
-
-    expect(deps.requireProjectRuntimeHostForWorkflowArtifact).toHaveBeenCalledWith("artifact-1");
-    expect(deps.connectorDescriptors).toHaveBeenCalledOnce();
-    expect(deps.updateWorkflowArtifactSource).toHaveBeenCalledWith(
-      store,
-      {
-        artifactId: "artifact-1",
-        source: "steps:\n  - inspect workspace",
-      },
-      {
-        connectorDescriptors: workflowConnectorDescriptors,
-      },
-    );
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledWith(host.workspacePath);
-  });
-
-  it("rejects invalid source input before resolving hosts", async () => {
-    const { deps, invoke } = registerArtifactSourceWithFakes();
-
-    await expect(
-      invoke("workflow:update-artifact-source", {
-        artifactId: "artifact-1",
-        source: "",
-      }),
-    ).rejects.toThrow();
-
-    expect(deps.requireProjectRuntimeHostForWorkflowArtifact).not.toHaveBeenCalled();
-    expect(deps.connectorDescriptors).not.toHaveBeenCalled();
-    expect(deps.updateWorkflowArtifactSource).not.toHaveBeenCalled();
-    expect(deps.emitWorkflowUpdated).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowRunArtifactIpc", () => {
-  it("registers the workflow run-artifact channels", () => {
-    const { handlers } = registerRunArtifactWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowRunArtifactIpcChannels]);
-  });
-
-  it("runs approved artifacts through plugins, connectors, permissions, and run lifecycle callbacks", async () => {
-    const { deps, invoke, runWorkflowArtifact, store, thread } = registerRunArtifactWithFakes();
-    const input = {
-      artifactId: "artifact-1",
-      mode: "execute",
-      runtime: "workflow",
-      runLimits: { idleTimeoutMs: 1000, maxRunMs: null },
-      userInputs: [{ requestId: "input-1", choiceId: "choice-1", text: "Use option one", data: { selected: true } }],
-    } satisfies RunWorkflowArtifactInput;
-
-    runWorkflowArtifact.mockImplementationOnce(async (runInput) => {
-      await expect(runInput.requestPermission?.(workflowPermissionRequest)).resolves.toBe(true);
-      await expect(runInput.ensurePluginTrusted?.(workflowRunPluginRegistration)).resolves.toBe(true);
-      runInput.onRunStarted?.("workflow-run-1");
-      runInput.onEvent?.();
-      return workflowDashboard;
-    });
-
-    await expect(invoke("workflow:run-artifact", input)).resolves.toBe(workflowDashboard);
-
-    expect(deps.workflowArtifactIpcContext).toHaveBeenCalledWith("artifact-1");
-    expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("model-1");
-    expect(deps.pluginMcpRegistrationsForThread).toHaveBeenCalledWith(thread, store);
-    expect(deps.listPluginRegistry).toHaveBeenCalledWith("/workspace", store);
-    expect(deps.connectorRegistrations).toHaveBeenCalledOnce();
-    expect(deps.connectorAccountAuthorizer).toHaveBeenCalledOnce();
-    expect(runWorkflowArtifact).toHaveBeenCalledOnce();
-
-    const runInput = runWorkflowArtifact.mock.calls[0][0];
-    expect(runInput).toEqual(
-      expect.objectContaining({
-        store,
-        artifactId: "artifact-1",
-        workspacePath: "/workspace",
-        permissionMode: "workspace",
-        browser: workflowRunBrowser,
-        pluginRegistrations: workflowRunPluginRegistrations,
-        pluginRegistry: workflowRunPluginRegistry,
-        pluginCaller: deps.pluginCaller,
-        connectorRegistrations: workflowRunConnectorRegistrations,
-        connectorAccountAuthorizer: undefined,
-        model: "model-1",
-        baseUrl: "https://provider.example",
-        mode: "execute",
-        runtime: "workflow",
-        runLimits: { idleTimeoutMs: 1000, maxRunMs: null },
-        userInputs: [{ requestId: "input-1", choiceId: "choice-1", text: "Use option one", data: { selected: true } }],
-      }),
-    );
-    expect(runInput.abortSignal).toBeInstanceOf(AbortSignal);
-    expect(deps.requestPermissionWithGrantRegistry).toHaveBeenCalledWith(workflowPermissionRequest, {
-      thread,
-      permissionMode: "workspace",
-      workspacePath: "/workspace",
-      workflowThreadId: "workflow-thread-1",
-      store,
-    });
-    expect(deps.ensureWorkflowPluginTrusted).toHaveBeenCalledWith(thread, workflowRunPluginRegistration, store);
-    expect(deps.rememberActiveWorkflowRun).toHaveBeenCalledWith("workflow-run-1", expect.any(AbortController), "/workspace");
-    expect(deps.emitWorkflowEvent).toHaveBeenCalledWith(
-      {
-        type: "workflow-run-started",
-        runId: "workflow-run-1",
-        artifactId: "artifact-1",
-        workflowThreadId: "workflow-thread-1",
-      },
-      "/workspace",
-    );
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledTimes(3);
-    expect(deps.forgetActiveWorkflowRunsForController).toHaveBeenCalledWith(vi.mocked(deps.rememberActiveWorkflowRun).mock.calls[0][1]);
-  });
-
-  it("rejects unapproved execute runs before resolving provider and plugins", async () => {
-    const { deps, invoke, runWorkflowArtifact } = registerRunArtifactWithFakes({
-      artifact: { ...workflowRunArtifact, status: "ready_for_preview" },
-    });
-
-    await expect(invoke("workflow:run-artifact", { artifactId: "artifact-1" })).rejects.toThrow(
-      "Approve this workflow preview before running it",
-    );
-
-    expect(deps.getAmbientProviderStatus).not.toHaveBeenCalled();
-    expect(deps.pluginMcpRegistrationsForThread).not.toHaveBeenCalled();
-    expect(runWorkflowArtifact).not.toHaveBeenCalled();
-  });
-
-  it("rejects invalid run input before resolving artifact context", async () => {
-    const { deps, invoke, runWorkflowArtifact } = registerRunArtifactWithFakes();
-
-    await expect(invoke("workflow:run-artifact", { artifactId: "", runLimits: { idleTimeoutMs: -1 } })).rejects.toThrow();
-
-    expect(deps.workflowArtifactIpcContext).not.toHaveBeenCalled();
-    expect(runWorkflowArtifact).not.toHaveBeenCalled();
-  });
-});
-
-describe("registerWorkflowRecoverRunIpc", () => {
-  it("registers the workflow recover-run channels", () => {
-    const { handlers } = registerRecoverRunWithFakes();
-
-    expect([...handlers.keys()]).toEqual([...workflowRecoverRunIpcChannels]);
-  });
-
-  it("recovers runs through the recovery plan, stale marker, plugins, permissions, and lifecycle callbacks", async () => {
-    const { deps, host, invoke, runWorkflowArtifact, store, thread } = registerRecoverRunWithFakes();
-    const input = {
-      runId: "run-1",
-      eventId: "event-1",
-      action: "retry_step",
-      graphNodeId: "node-1",
-    } satisfies RecoverWorkflowRunInput;
-
-    runWorkflowArtifact.mockImplementationOnce(async (runInput) => {
-      await expect(runInput.requestPermission?.(workflowPermissionRequest)).resolves.toBe(true);
-      await expect(runInput.ensurePluginTrusted?.(workflowRunPluginRegistration)).resolves.toBe(true);
-      runInput.onRunStarted?.("workflow-run-1");
-      runInput.onEvent?.();
-      return workflowDashboard;
-    });
-
-    await expect(invoke("workflow:recover-run", input)).resolves.toBe(workflowDashboard);
-
-    expect(deps.requireProjectRuntimeHostForWorkflowRun).toHaveBeenCalledWith("run-1");
-    expect(deps.buildWorkflowRecoveryPlan).toHaveBeenCalledWith(store, input);
-    expect(deps.workflowArtifactIpcContextForHost).toHaveBeenCalledWith(host, "artifact-1");
-    expect(deps.markStaleWorkflowRunForRecoveryIfNeeded).toHaveBeenCalledWith(store, "run-1", {
-      recoveryAction: "retry_step",
-      sourceEventId: "event-1",
-      reason: "Desktop recovery run started.",
-    });
-    expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("model-1");
-    expect(deps.pluginMcpRegistrationsForThread).toHaveBeenCalledWith(thread, store);
-    expect(deps.listPluginRegistry).toHaveBeenCalledWith("/workspace", store);
-    expect(deps.connectorRegistrations).toHaveBeenCalledOnce();
-    expect(deps.connectorAccountAuthorizer).toHaveBeenCalledOnce();
-    expect(runWorkflowArtifact).toHaveBeenCalledOnce();
-
-    const runInput = runWorkflowArtifact.mock.calls[0][0];
-    expect(runInput).toEqual(
-      expect.objectContaining({
-        store,
-        artifactId: "artifact-1",
-        workspacePath: "/workspace",
-        permissionMode: "workspace",
-        browser: workflowRunBrowser,
-        pluginRegistrations: workflowRunPluginRegistrations,
-        pluginRegistry: workflowRunPluginRegistry,
-        pluginCaller: deps.pluginCaller,
-        connectorRegistrations: workflowRunConnectorRegistrations,
-        connectorAccountAuthorizer: undefined,
-        model: "model-1",
-        baseUrl: "https://provider.example",
-        mode: "execute",
-        runtime: "automation",
-        resumeFromRunId: "run-1",
-        recovery: workflowRecoveryPlan.recovery,
-      }),
-    );
-    expect(runInput.abortSignal).toBeInstanceOf(AbortSignal);
-    expect(deps.requestPermissionWithGrantRegistry).toHaveBeenCalledWith(workflowPermissionRequest, {
-      thread,
-      permissionMode: "workspace",
-      workspacePath: "/workspace",
-      workflowThreadId: "workflow-thread-1",
-      store,
-    });
-    expect(deps.ensureWorkflowPluginTrusted).toHaveBeenCalledWith(thread, workflowRunPluginRegistration, store);
-    expect(deps.rememberActiveWorkflowRun).toHaveBeenCalledWith("workflow-run-1", expect.any(AbortController), "/workspace");
-    expect(deps.emitWorkflowEvent).toHaveBeenCalledWith(
-      {
-        type: "workflow-run-started",
-        runId: "workflow-run-1",
-        artifactId: "artifact-1",
-        workflowThreadId: "workflow-thread-1",
-      },
-      "/workspace",
-    );
-    expect(deps.emitWorkflowUpdated).toHaveBeenCalledTimes(3);
-    expect(deps.forgetActiveWorkflowRunsForController).toHaveBeenCalledWith(vi.mocked(deps.rememberActiveWorkflowRun).mock.calls[0][1]);
-  });
-
-  it("rejects unapproved recovery before marking stale or resolving provider and plugins", async () => {
-    const { deps, invoke, runWorkflowArtifact } = registerRecoverRunWithFakes({
-      artifact: { ...workflowRunArtifact, status: "ready_for_preview" },
-    });
-
-    await expect(invoke("workflow:recover-run", { runId: "run-1", eventId: "event-1", action: "retry_step" })).rejects.toThrow(
-      "Approve this workflow before recovering it",
-    );
-
-    expect(deps.markStaleWorkflowRunForRecoveryIfNeeded).not.toHaveBeenCalled();
-    expect(deps.getAmbientProviderStatus).not.toHaveBeenCalled();
-    expect(deps.pluginMcpRegistrationsForThread).not.toHaveBeenCalled();
-    expect(runWorkflowArtifact).not.toHaveBeenCalled();
-  });
-
-  it("rejects invalid recover input before resolving the run host", async () => {
-    const { deps, invoke, runWorkflowArtifact } = registerRecoverRunWithFakes();
-
-    await expect(invoke("workflow:recover-run", { runId: "", eventId: "event-1", action: "retry_step" })).rejects.toThrow();
-
-    expect(deps.requireProjectRuntimeHostForWorkflowRun).not.toHaveBeenCalled();
-    expect(deps.buildWorkflowRecoveryPlan).not.toHaveBeenCalled();
-    expect(runWorkflowArtifact).not.toHaveBeenCalled();
-  });
-});
-
 describe("registerWorkflowAgentThreadIpc", () => {
   it("registers the workflow-agent thread channels", () => {
     const { handlers } = registerAgentThreadWithFakes();
@@ -2109,7 +1249,9 @@ describe("registerWorkflowAgentThreadIpc", () => {
   it("moves workflow-agent threads through the owning host", async () => {
     const { deps, invoke, store } = registerAgentThreadWithFakes();
 
-    await expect(invoke("workflow-agents:move-thread", { threadId: "workflow-thread-1", folderId: "folder-2" })).resolves.toEqual(workflowAgentFolders);
+    await expect(invoke("workflow-agents:move-thread", { threadId: "workflow-thread-1", folderId: "folder-2" })).resolves.toEqual(
+      workflowAgentFolders,
+    );
 
     expect(deps.requireProjectRuntimeHostForWorkflowThread).toHaveBeenCalledWith("workflow-thread-1");
     expect(store.moveWorkflowAgentThread).toHaveBeenCalledWith({ threadId: "workflow-thread-1", folderId: "folder-2" });
@@ -2151,7 +1293,9 @@ describe("registerWorkflowAgentThreadIpc", () => {
   it("ensures chat threads through the owning workflow host", async () => {
     const { deps, invoke, store } = registerAgentThreadWithFakes();
 
-    await expect(invoke("workflow-agents:ensure-chat-thread", { workflowThreadId: "workflow-thread-1" })).resolves.toBe(workflowAgentThread);
+    await expect(invoke("workflow-agents:ensure-chat-thread", { workflowThreadId: "workflow-thread-1" })).resolves.toBe(
+      workflowAgentThread,
+    );
 
     expect(deps.requireProjectRuntimeHostForWorkflowThread).toHaveBeenCalledWith("workflow-thread-1");
     expect(store.ensureWorkflowAgentChatThread).toHaveBeenCalledWith("workflow-thread-1");
@@ -2160,14 +1304,18 @@ describe("registerWorkflowAgentThreadIpc", () => {
   it("lists chat messages only when the workflow has a chat thread", async () => {
     const withChat = registerAgentThreadWithFakes();
 
-    await expect(withChat.invoke("workflow-agents:list-chat-messages", { workflowThreadId: "workflow-thread-1" })).resolves.toEqual(workflowAgentMessages);
+    await expect(withChat.invoke("workflow-agents:list-chat-messages", { workflowThreadId: "workflow-thread-1" })).resolves.toEqual(
+      workflowAgentMessages,
+    );
     expect(withChat.store.getWorkflowAgentThreadSummary).toHaveBeenCalledWith("workflow-thread-1");
     expect(withChat.store.getThread).toHaveBeenCalledWith("chat-thread-1");
     expect(withChat.store.listMessages).toHaveBeenCalledWith("chat-thread-1");
 
     const withoutChat = registerAgentThreadWithFakes({ threadSummary: workflowAgentThreadWithoutChat });
 
-    await expect(withoutChat.invoke("workflow-agents:list-chat-messages", { workflowThreadId: "workflow-thread-no-chat" })).resolves.toEqual([]);
+    await expect(
+      withoutChat.invoke("workflow-agents:list-chat-messages", { workflowThreadId: "workflow-thread-no-chat" }),
+    ).resolves.toEqual([]);
     expect(withoutChat.store.getThread).not.toHaveBeenCalled();
     expect(withoutChat.store.listMessages).not.toHaveBeenCalled();
   });
@@ -2332,9 +1480,9 @@ describe("registerWorkflowAgentDiscoveryAnswerIpc", () => {
     const error = new Error("provider unavailable");
     const { deps, invoke } = registerAgentDiscoveryAnswerWithFakes({ error });
 
-    await expect(
-      invoke("workflow-agents:answer-discovery-question", { questionId: "question-1", choiceId: "choice-1" }),
-    ).rejects.toThrow(error);
+    await expect(invoke("workflow-agents:answer-discovery-question", { questionId: "question-1", choiceId: "choice-1" })).rejects.toThrow(
+      error,
+    );
 
     expect(deps.answerWorkflowDiscoveryQuestion).toHaveBeenCalledOnce();
   });
@@ -2456,7 +1604,7 @@ function registerWithFakes(options: { createdThread?: FakeThread; subagentsEnabl
       resolveAmbientFeatureFlags({
         settings: { subagents: options.subagentsEnabled ?? true },
         generatedAt: "2026-06-07T18:00:00.000Z",
-      })
+      }),
     ),
   };
   registerWorkflowRecorderIpc(deps);
@@ -2553,10 +1701,7 @@ function registerAgentNativeToolWithFakes(options: { error?: Error } = {}) {
     projectPath: "/workspace",
     workflowThreadId: "workflow-thread-1",
   };
-  const deps: RegisterWorkflowAgentNativeToolIpcDependencies<
-    FakeWorkflowAgentNativeToolStore,
-    FakeWorkflowAgentNativeToolContext
-  > = {
+  const deps: RegisterWorkflowAgentNativeToolIpcDependencies<FakeWorkflowAgentNativeToolStore, FakeWorkflowAgentNativeToolContext> = {
     handleIpc: vi.fn((channel: string, listener: IpcListener) => {
       handlers.set(channel, listener);
     }),
@@ -2597,10 +1742,7 @@ function registerAgentExplorationWithFakes(
     targetStore: store,
     projectPath: "/workspace",
   };
-  const deps: RegisterWorkflowAgentExplorationIpcDependencies<
-    FakeWorkflowAgentExplorationStore,
-    FakeWorkflowAgentExplorationContext
-  > = {
+  const deps: RegisterWorkflowAgentExplorationIpcDependencies<FakeWorkflowAgentExplorationStore, FakeWorkflowAgentExplorationContext> = {
     handleIpc: vi.fn((channel: string, listener: IpcListener) => {
       handlers.set(channel, listener);
     }),
@@ -2713,483 +1855,6 @@ function registerDashboardWithFakes() {
   };
 }
 
-function registerCompilePreviewWithFakes() {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowCompileStore = {
-    getWorkspace: vi.fn(() => ({ statePath: "/state" })),
-  };
-  const thread: FakeWorkflowCompileThread = {
-    model: "model-1",
-    permissionMode: "workspace",
-  };
-  type FakeCompilePreviewDeps = RegisterWorkflowCompilePreviewIpcDependencies<
-    FakeWorkflowCompileStore,
-    FakeWorkflowCompileThread,
-    typeof workflowPluginRegistry,
-    typeof workflowPluginRegistrations
-  >;
-  const compileWorkflowArtifact = vi.fn<FakeCompilePreviewDeps["compileWorkflowArtifact"]>(() => Promise.resolve(workflowDashboard));
-  const deps: FakeCompilePreviewDeps = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    workflowCompileIpcContext: vi.fn((_input: CompileWorkflowPreviewInput) => ({
-      targetStore: store,
-      thread,
-      projectPath: "/workspace",
-    })),
-    workspaceStateForThread: vi.fn(() => ({ name: "Active workspace", path: "/workspace" })),
-    getAmbientProviderStatus: vi.fn(() => ({ baseUrl: "https://provider.example" })),
-    pluginMcpRegistrationsForThread: vi.fn(() => Promise.resolve(workflowPluginRegistrations)),
-    listPluginRegistry: vi.fn(() => Promise.resolve(workflowPluginRegistry)),
-    workflowToolDescriptorsFromPluginRegistry: vi.fn(() => workflowToolDescriptors),
-    connectorDescriptors: vi.fn(() => workflowConnectorDescriptors),
-    readSearchRoutingSettings: vi.fn(() => workflowSearchRoutingSettings),
-    ambientRetryPolicyFromCurrentSettings: vi.fn(() => undefined),
-    compileWorkflowArtifact,
-    emitWorkflowEvent: vi.fn((_event: Extract<DesktopEvent, { type: "workflow-compile-progress" }>, _projectPath: string) => undefined),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowCompilePreviewIpc(deps);
-
-  return {
-    compileWorkflowArtifact,
-    deps,
-    handlers,
-    store,
-    thread,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerDebugRewriteWithFakes(options: { e2eEnabled?: boolean; workflowThread?: FakeWorkflowDebugRewriteWorkflowThread } = {}) {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowCompileStore = {
-    getWorkspace: vi.fn(() => ({ statePath: "/state" })),
-  };
-  const thread: FakeWorkflowCompileThread = {
-    model: "model-1",
-    permissionMode: "workspace",
-  };
-  type FakeDebugRewriteDeps = RegisterWorkflowDebugRewriteIpcDependencies<
-    FakeWorkflowCompileStore,
-    FakeWorkflowCompileThread,
-    FakeWorkflowDebugRewriteWorkflowThread,
-    typeof workflowDebugContext,
-    typeof workflowPluginRegistry,
-    typeof workflowPluginRegistrations
-  >;
-  const compileWorkflowArtifact = vi.fn<FakeDebugRewriteDeps["compileWorkflowArtifact"]>(() => Promise.resolve(workflowDashboard));
-  const deps: FakeDebugRewriteDeps = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    readE2eEnabled: vi.fn(() => options.e2eEnabled ?? false),
-    emitE2eWorkflowDebugRewriteInput: vi.fn((_input: CompileWorkflowDebugRewriteInput) => undefined),
-    readE2eWorkflowDashboard: vi.fn(() => workflowDashboard),
-    workflowDebugRewriteIpcContext: vi.fn((_input: CompileWorkflowDebugRewriteInput) => ({
-      targetStore: store,
-      thread,
-      workflowThread: options.workflowThread ?? workflowDebugWorkflowThread,
-      debugContext: workflowDebugContext,
-      projectPath: "/workspace",
-    })),
-    workflowDebugRewriteUserRequest: vi.fn(() => workflowDebugRequestedChange),
-    workspaceStateForThread: vi.fn(() => ({ name: "Active workspace", path: "/workspace" })),
-    getAmbientProviderStatus: vi.fn(() => ({ baseUrl: "https://provider.example" })),
-    pluginMcpRegistrationsForThread: vi.fn(() => Promise.resolve(workflowPluginRegistrations)),
-    listPluginRegistry: vi.fn(() => Promise.resolve(workflowPluginRegistry)),
-    workflowToolDescriptorsFromPluginRegistry: vi.fn(() => workflowToolDescriptors),
-    connectorDescriptors: vi.fn(() => workflowConnectorDescriptors),
-    readSearchRoutingSettings: vi.fn(() => workflowSearchRoutingSettings),
-    ambientRetryPolicyFromCurrentSettings: vi.fn(() => undefined),
-    buildWorkflowDebugRewritePromptSection: vi.fn(() => workflowDebugPromptSection),
-    compileWorkflowArtifact,
-    createWorkflowDebugRewriteRevision: vi.fn(),
-    emitWorkflowEvent: vi.fn((_event: Extract<DesktopEvent, { type: "workflow-compile-progress" }>, _projectPath: string) => undefined),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowDebugRewriteIpc(deps);
-
-  return {
-    compileWorkflowArtifact,
-    deps,
-    handlers,
-    store,
-    thread,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerApprovalWithFakes() {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowApprovalStore = {
-    marker: "workflow-approval-store",
-  };
-  const host: FakeWorkflowApprovalHost = {
-    store,
-    workspacePath: "/runtime-workspace",
-  };
-  const deps: RegisterWorkflowApprovalIpcDependencies<FakeWorkflowApprovalStore, FakeWorkflowApprovalHost> = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    requireProjectRuntimeHostForWorkflowRun: vi.fn(() => host),
-    resolveWorkflowApproval: vi.fn((_store: FakeWorkflowApprovalStore, _input: ResolveWorkflowApprovalInput) => workflowRunDetail),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowApprovalIpc(deps);
-
-  return {
-    deps,
-    handlers,
-    host,
-    store,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerCancelRunWithFakes(
-  options: {
-    projectHost?: FakeWorkflowCancelRunHost | null;
-    activeHost?: FakeWorkflowCancelRunHost | null;
-    controller?: FakeWorkflowRunAbortController | null;
-  } = {},
-) {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowCancelRunStore = {
-    marker: "workflow-cancel-run-store",
-  };
-  const host: FakeWorkflowCancelRunHost = {
-    store,
-    workspacePath: "/runtime-workspace",
-  };
-  const projectHost = options.projectHost === undefined ? host : options.projectHost;
-  const activeHost = options.activeHost === undefined ? host : options.activeHost;
-  const controller = options.controller === undefined ? { abort: vi.fn() } : options.controller;
-  const deps: RegisterWorkflowCancelRunIpcDependencies<FakeWorkflowCancelRunStore, FakeWorkflowCancelRunHost> = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    projectRuntimeHostForWorkflowRun: vi.fn((_runId: string) => projectHost ?? undefined),
-    activeWorkflowRunHost: vi.fn((_runId: string) => activeHost ?? undefined),
-    activeWorkflowRunController: vi.fn((_runId: string) => controller ?? undefined),
-    readWorkflowDashboard: vi.fn((_store: FakeWorkflowCancelRunStore) => workflowDashboard),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowCancelRunIpc(deps);
-
-  return {
-    controller,
-    deps,
-    handlers,
-    host,
-    store,
-    invoke: (channel: string, raw?: CancelWorkflowRunInput | unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerArtifactReviewWithFakes() {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowArtifactReviewStore = {
-    marker: "workflow-artifact-review-store",
-  };
-  const host: FakeWorkflowArtifactReviewHost = {
-    store,
-    workspacePath: "/runtime-workspace",
-  };
-  const deps: RegisterWorkflowArtifactReviewIpcDependencies<FakeWorkflowArtifactReviewStore, FakeWorkflowArtifactReviewHost> = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    requireProjectRuntimeHostForWorkflowArtifact: vi.fn(() => host),
-    reviewWorkflowArtifact: vi.fn((_store: FakeWorkflowArtifactReviewStore, _input: ReviewWorkflowArtifactInput) => workflowDashboard),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowArtifactReviewIpc(deps);
-
-  return {
-    deps,
-    handlers,
-    host,
-    store,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerConnectorGrantWithFakes() {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowConnectorGrantStore = {
-    marker: "workflow-connector-grant-store",
-  };
-  const host: FakeWorkflowConnectorGrantHost = {
-    store,
-    workspacePath: "/runtime-workspace",
-  };
-  const deps: RegisterWorkflowConnectorGrantIpcDependencies<FakeWorkflowConnectorGrantStore, FakeWorkflowConnectorGrantHost> = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    requireProjectRuntimeHostForWorkflowArtifact: vi.fn(() => host),
-    updateWorkflowConnectorGrant: vi.fn(
-      (_store: FakeWorkflowConnectorGrantStore, _input: UpdateWorkflowConnectorGrantInput) => workflowDashboard,
-    ),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowConnectorGrantIpc(deps);
-
-  return {
-    deps,
-    handlers,
-    host,
-    store,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerArtifactRevalidationWithFakes() {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowArtifactRevalidationStore = {
-    marker: "workflow-artifact-revalidation-store",
-  };
-  const host: FakeWorkflowArtifactRevalidationHost = {
-    store,
-    workspacePath: "/runtime-workspace",
-  };
-  const deps: RegisterWorkflowArtifactRevalidationIpcDependencies<
-    FakeWorkflowArtifactRevalidationStore,
-    FakeWorkflowArtifactRevalidationHost
-  > = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    requireProjectRuntimeHostForWorkflowArtifact: vi.fn(() => host),
-    revalidateWorkflowArtifact: vi.fn(
-      (
-        _store: FakeWorkflowArtifactRevalidationStore,
-        _input: RevalidateWorkflowArtifactInput,
-        _options: { connectorDescriptors: WorkflowConnectorDescriptor[] },
-      ) => workflowDashboard,
-    ),
-    connectorDescriptors: vi.fn(() => workflowConnectorDescriptors),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowArtifactRevalidationIpc(deps);
-
-  return {
-    deps,
-    handlers,
-    host,
-    store,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerArtifactSourceWithFakes() {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowArtifactSourceStore = {
-    marker: "workflow-artifact-source-store",
-  };
-  const host: FakeWorkflowArtifactSourceHost = {
-    store,
-    workspacePath: "/runtime-workspace",
-  };
-  const deps: RegisterWorkflowArtifactSourceIpcDependencies<FakeWorkflowArtifactSourceStore, FakeWorkflowArtifactSourceHost> = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    requireProjectRuntimeHostForWorkflowArtifact: vi.fn(() => host),
-    updateWorkflowArtifactSource: vi.fn(
-      (
-        _store: FakeWorkflowArtifactSourceStore,
-        _input: UpdateWorkflowArtifactSourceInput,
-        _options: { connectorDescriptors: WorkflowConnectorDescriptor[] },
-      ) => workflowDashboard,
-    ),
-    connectorDescriptors: vi.fn(() => workflowConnectorDescriptors),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowArtifactSourceIpc(deps);
-
-  return {
-    deps,
-    handlers,
-    host,
-    store,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerRunArtifactWithFakes(options: { artifact?: FakeWorkflowRunArtifactArtifact } = {}) {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowCompileStore = {
-    getWorkspace: vi.fn(() => ({ statePath: "/state" })),
-  };
-  const thread: FakeWorkflowCompileThread = {
-    model: "model-1",
-    permissionMode: "workspace",
-  };
-  const artifact = options.artifact ?? workflowRunArtifact;
-  type FakeRunArtifactDeps = RegisterWorkflowRunArtifactIpcDependencies<
-    FakeWorkflowCompileStore,
-    FakeWorkflowCompileThread,
-    typeof workflowRunBrowser,
-    FakeWorkflowRunArtifactArtifact
-  >;
-  const pluginCaller = vi.fn() as unknown as NonNullable<WorkflowRunArtifactServiceInput["pluginCaller"]>;
-  const runWorkflowArtifact = vi.fn<FakeRunArtifactDeps["runWorkflowArtifact"]>(() => Promise.resolve(workflowDashboard));
-  const deps: FakeRunArtifactDeps = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    workflowArtifactIpcContext: vi.fn((_artifactId: string) => ({
-      targetStore: store,
-      targetBrowserService: workflowRunBrowser,
-      thread,
-      artifact,
-      projectPath: "/workspace",
-    })),
-    getAmbientProviderStatus: vi.fn(() => ({ baseUrl: "https://provider.example" })),
-    pluginMcpRegistrationsForThread: vi.fn(() => Promise.resolve(workflowRunPluginRegistrations)),
-    listPluginRegistry: vi.fn(() => Promise.resolve(workflowRunPluginRegistry)),
-    requestPermissionWithGrantRegistry: vi.fn(() => Promise.resolve({ allowed: true })),
-    ensureWorkflowPluginTrusted: vi.fn(() => Promise.resolve(true)),
-    pluginCaller,
-    connectorRegistrations: vi.fn(() => workflowRunConnectorRegistrations),
-    connectorAccountAuthorizer: vi.fn(() => undefined),
-    runWorkflowArtifact,
-    rememberActiveWorkflowRun: vi.fn(),
-    forgetActiveWorkflowRunsForController: vi.fn(),
-    emitWorkflowEvent: vi.fn(),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowRunArtifactIpc(deps);
-
-  return {
-    artifact,
-    deps,
-    handlers,
-    runWorkflowArtifact,
-    store,
-    thread,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
-function registerRecoverRunWithFakes(options: { artifact?: FakeWorkflowRunArtifactArtifact; plan?: WorkflowRecoveryPlan } = {}) {
-  const handlers = new Map<string, IpcListener>();
-  const store: FakeWorkflowCompileStore = {
-    getWorkspace: vi.fn(() => ({ statePath: "/state" })),
-  };
-  const host: FakeWorkflowRecoverRunHost = {
-    store,
-  };
-  const thread: FakeWorkflowCompileThread = {
-    model: "model-1",
-    permissionMode: "workspace",
-  };
-  const artifact = options.artifact ?? workflowRunArtifact;
-  type FakeRecoverRunDeps = RegisterWorkflowRecoverRunIpcDependencies<
-    FakeWorkflowCompileStore,
-    FakeWorkflowRecoverRunHost,
-    FakeWorkflowCompileThread,
-    typeof workflowRunBrowser,
-    FakeWorkflowRunArtifactArtifact
-  >;
-  const pluginCaller = vi.fn() as unknown as NonNullable<WorkflowRunArtifactServiceInput["pluginCaller"]>;
-  const runWorkflowArtifact = vi.fn<FakeRecoverRunDeps["runWorkflowArtifact"]>(() => Promise.resolve(workflowDashboard));
-  const deps: FakeRecoverRunDeps = {
-    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
-      handlers.set(channel, listener);
-    }),
-    requireProjectRuntimeHostForWorkflowRun: vi.fn((_runId: string) => host),
-    buildWorkflowRecoveryPlan: vi.fn(() => options.plan ?? workflowRecoveryPlan),
-    workflowArtifactIpcContextForHost: vi.fn((_host: FakeWorkflowRecoverRunHost, _artifactId: string) => ({
-      targetStore: store,
-      targetBrowserService: workflowRunBrowser,
-      thread,
-      artifact,
-      projectPath: "/workspace",
-    })),
-    markStaleWorkflowRunForRecoveryIfNeeded: vi.fn(),
-    getAmbientProviderStatus: vi.fn(() => ({ baseUrl: "https://provider.example" })),
-    pluginMcpRegistrationsForThread: vi.fn(() => Promise.resolve(workflowRunPluginRegistrations)),
-    listPluginRegistry: vi.fn(() => Promise.resolve(workflowRunPluginRegistry)),
-    requestPermissionWithGrantRegistry: vi.fn(() => Promise.resolve({ allowed: true })),
-    ensureWorkflowPluginTrusted: vi.fn(() => Promise.resolve(true)),
-    pluginCaller,
-    connectorRegistrations: vi.fn(() => workflowRunConnectorRegistrations),
-    connectorAccountAuthorizer: vi.fn(() => undefined),
-    runWorkflowArtifact,
-    rememberActiveWorkflowRun: vi.fn(),
-    forgetActiveWorkflowRunsForController: vi.fn(),
-    emitWorkflowEvent: vi.fn(),
-    emitWorkflowUpdated: vi.fn(),
-  };
-  registerWorkflowRecoverRunIpc(deps);
-
-  return {
-    artifact,
-    deps,
-    handlers,
-    host,
-    runWorkflowArtifact,
-    store,
-    thread,
-    invoke: (channel: string, raw?: unknown) => {
-      const handler = handlers.get(channel);
-      expect(handler).toBeDefined();
-      if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
-    },
-  };
-}
-
 function registerRevisionWithFakes(
   options: {
     beforeRevision?: WorkflowRevisionSummary;
@@ -3216,7 +1881,9 @@ function registerRevisionWithFakes(
     requireProjectRuntimeHostForWorkflowThread: vi.fn(() => host),
     requireProjectRuntimeHostForWorkflowVersion: vi.fn(() => host),
     requireProjectRuntimeHostForWorkflowRevision: vi.fn(() => host),
-    restoreWorkflowVersion: vi.fn((_host: FakeWorkflowAgentRevisionHost, _input: RestoreWorkflowVersionInput) => Promise.resolve(workflowDashboard)),
+    restoreWorkflowVersion: vi.fn((_host: FakeWorkflowAgentRevisionHost, _input: RestoreWorkflowVersionInput) =>
+      Promise.resolve(workflowDashboard),
+    ),
     emitWorkflowUpdated: vi.fn(),
     recordWorkflowRevisionDecisionInChat: vi.fn(),
   };

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
-import type { ContextUsageSnapshot, ThreadSummary } from "../../shared/threadTypes";
+import type { ChatMessage, ContextUsageSnapshot, ThreadSummary } from "../../shared/threadTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { AgentRuntimeProviderRuntimeController } from "./agentRuntimeProviderRuntimeController";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
@@ -10,6 +10,7 @@ import {
   type AgentRuntimePromptPipelineControllerOptions,
 } from "./agentRuntimePromptPipelineControllers";
 import type { AgentRuntimeRemoteSurfaceRuntimeEventStore } from "./messaging/agentRuntimeRemoteSurfaceRuntimeEvents";
+import type { AgentRuntimePromptOutcomeControllerOptions } from "./agentRuntimePromptOutcomeController";
 import type { AgentRuntimePiSession } from "./agentRuntimeSessionFactoryController";
 import { AgentRuntimeSessionRegistry } from "./agentRuntimeSessionRegistry";
 import type { RuntimeAbortContextActiveRun } from "./runtimeAbortContext";
@@ -65,6 +66,57 @@ describe("AgentRuntime prompt pipeline controllers", () => {
     expect(controllers.fileAuthority).toBeDefined();
     expect(controllers.pluginPermissions).toBeDefined();
     expect(callbacks.currentFeatureFlagSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("forwards Planner Mode run-start snapshot options into planner finalization", async () => {
+    const activeRuns = new Map<string, RuntimeAbortContextActiveRun>();
+    const activeRunIds = new Map<string, string>();
+    const controllers = createAgentRuntimePromptPipelineControllers({
+      activeRunIds: {
+        get: (threadId) => activeRunIds.get(threadId),
+        set: (threadId, runId) => activeRunIds.set(threadId, runId),
+        delete: (threadId) => activeRunIds.delete(threadId),
+      },
+      activeRuns: {
+        has: (threadId) => activeRuns.has(threadId),
+        set: (threadId, run) => activeRuns.set(threadId, run),
+        delete: (threadId) => activeRuns.delete(threadId),
+      },
+      ambientCliSkillMountDiagnostics: new Map(),
+      callbacks: callbackStubs(),
+      features: {},
+      goalContinuations: {
+        accountFinishedGoalRun: vi.fn(),
+        scheduleGoalContinuation: vi.fn(),
+      } as unknown as AgentRuntimePromptPipelineControllerOptions["goalContinuations"],
+      localModelRuntimeManager: {} as AgentRuntimePromptPipelineControllerOptions["localModelRuntimeManager"],
+      permissionWaitControls: new Map(),
+      permissions: {
+        request: vi.fn(),
+      },
+      providerRuntime: providerRuntimeStub(),
+      remoteSurfaceRuntimeEvents: remoteSurfaceRuntimeEventsStub(),
+      sessions: new AgentRuntimeSessionRegistry<AgentRuntimePiSession>(),
+      store: storeStub(),
+      timeouts: {
+        chatPiEmptyAssistantStallTimeoutMs: 30_000,
+        defaultInterruptedToolCallRecoveryMaxRetries: 3,
+        localToolIdleTimeoutMs: () => 30_000,
+        workflowRecordingReviewStreamIdleTimeoutMs: 30_000,
+      },
+      transientFileAuthorityRoots: new Map(),
+    });
+    const finalMessage = { id: "assistant-1", threadId: "thread-1" } as ChatMessage;
+    const createPlannerPlanArtifactFromMessage = vi
+      .spyOn(controllers.plannerFinalization, "createPlannerPlanArtifactFromMessage")
+      .mockResolvedValue(undefined);
+    const promptOutcomeOptions = (controllers.promptOutcomes as unknown as {
+      options: Pick<AgentRuntimePromptOutcomeControllerOptions, "createPlannerPlanArtifactFromMessage">;
+    }).options;
+
+    await promptOutcomeOptions.createPlannerPlanArtifactFromMessage(finalMessage, { startedInPlannerMode: true });
+
+    expect(createPlannerPlanArtifactFromMessage).toHaveBeenCalledWith(finalMessage, { startedInPlannerMode: true });
   });
 });
 

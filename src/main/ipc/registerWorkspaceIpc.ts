@@ -2,7 +2,7 @@ import type { IpcMain, OpenDialogOptions, OpenDialogReturnValue } from "electron
 import { z } from "zod";
 
 import type { DesktopState } from "../../shared/desktopTypes";
-import type { PermissionMode } from "../../shared/permissionTypes";
+import type { AmbientPermissionGrant, PermissionMode, PermissionPromptResolution } from "../../shared/permissionTypes";
 import type {
   OpenLocalPathInput,
   OpenWorkspacePathInput,
@@ -39,6 +39,9 @@ export const localFileActionIpcChannels = [
   "local-file:open-path",
   "local-file:open-path-with",
 ] as const;
+export const localFolderAllowlistIpcChannels = [
+  "local-file:add-folder-allowlist",
+] as const;
 export const workspacePickContextIpcChannels = ["workspace:pick-context"] as const;
 export const workspaceSearchIpcChannels = ["workspace:search"] as const;
 export const workspacePathActionIpcChannels = [
@@ -55,6 +58,13 @@ export const workspaceGitStatusIpcChannels = [
 
 export interface WorkspaceFileContext {
   workspacePath: string;
+}
+
+export interface LocalFileActionContext extends WorkspaceFileContext {
+  threadId: string;
+  thread: {
+    permissionMode: PermissionMode;
+  };
 }
 
 export interface WorkspacePathActionContext<TargetStore = unknown> extends WorkspaceFileContext {
@@ -90,22 +100,37 @@ export interface RegisterWorkspaceFileIpcDependencies<Context extends WorkspaceF
 export interface RegisterLocalFilePreviewIpcDependencies<Context extends WorkspaceFileContext = WorkspaceFileContext> {
   handleIpc: HandleIpc;
   activeWorkspaceFileContextForProjectHost(): Context;
-  readActiveLocalFilePreview(requestedPath: string, workspacePath: string): MaybePromise<WorkspaceFileContent>;
+  readActiveLocalFilePreview(requestedPath: string, context: Context): MaybePromise<WorkspaceFileContent>;
   clearOfficePreviewRendererDiscovery(): void;
 }
 
-export interface RegisterLocalFileActionIpcDependencies {
+export interface RegisterLocalFileActionIpcDependencies<Context extends LocalFileActionContext = LocalFileActionContext> {
   handleIpc: HandleIpc;
-  resolveLocalFilePath(requestedPath: string): string;
+  activeWorkspaceFileContextForProjectHost(): Context;
+  resolveCanonicalLocalFilePath(requestedPath: string): string;
+  localPathVisibleToThread(absolutePath: string, context: Context): boolean;
+  localPathInsideActiveWorkspace(absolutePath: string, context: Context): boolean;
+  requestLocalFileOpenConfirmation(absolutePath: string, context: Context, targetId?: string): MaybePromise<PermissionPromptResolution>;
   showItemInFolder(absolutePath: string): void;
   openPath(absolutePath: string): MaybePromise<string>;
   openWorkspaceTarget(absolutePath: string, targetId?: string): MaybePromise<void>;
+}
+
+export interface RegisterLocalFolderAllowlistIpcDependencies<Context extends LocalFileActionContext = LocalFileActionContext> {
+  handleIpc: HandleIpc;
+  activeWorkspaceFileContextForProjectHost(): Context;
+  showOpenDialog(options: OpenDialogOptions): MaybePromise<WorkspaceDialogResult>;
+  resolveCanonicalLocalFilePath(requestedPath: string): string;
+  createThreadLocalFolderAllowlistGrant(folderPath: string, context: Context): MaybePromise<AmbientPermissionGrant>;
 }
 
 export interface RegisterWorkspacePickContextIpcDependencies<Context extends WorkspacePickContext = WorkspacePickContext> {
   handleIpc: HandleIpc;
   activeWorkspaceFileContextForProjectHost(): Context;
   showOpenDialog(options: OpenDialogOptions): MaybePromise<WorkspaceDialogResult>;
+  resolveCanonicalLocalFilePath(requestedPath: string): string;
+  localPathVisibleToThread(absolutePath: string, context: Context): boolean;
+  localPathInsideActiveWorkspace(absolutePath: string, context: Context): boolean;
   describeWorkspaceAbsoluteContextPaths(
     workspacePath: string,
     absolutePaths: readonly string[],
@@ -219,35 +244,76 @@ export function registerLocalFilePreviewIpc<Context extends WorkspaceFileContext
   clearOfficePreviewRendererDiscovery,
 }: RegisterLocalFilePreviewIpcDependencies<Context>): void {
   handleIpc("local-file:preview", (_event, requestedPath: string) =>
-    readActiveLocalFilePreview(requestedPath, activeWorkspaceFileContextForProjectHost().workspacePath),
+    readActiveLocalFilePreview(requestedPath, activeWorkspaceFileContextForProjectHost()),
   );
 
   handleIpc("local-file:refresh-office-preview", async (_event, requestedPath: string) => {
     const context = activeWorkspaceFileContextForProjectHost();
     clearOfficePreviewRendererDiscovery();
-    return readActiveLocalFilePreview(requestedPath, context.workspacePath);
+    return readActiveLocalFilePreview(requestedPath, context);
   });
 }
 
-export function registerLocalFileActionIpc({
+export function registerLocalFileActionIpc<Context extends LocalFileActionContext = LocalFileActionContext>({
   handleIpc,
-  resolveLocalFilePath,
+  activeWorkspaceFileContextForProjectHost,
+  resolveCanonicalLocalFilePath,
+  localPathVisibleToThread,
+  localPathInsideActiveWorkspace,
+  requestLocalFileOpenConfirmation,
   showItemInFolder,
   openPath,
   openWorkspaceTarget,
-}: RegisterLocalFileActionIpcDependencies): void {
+}: RegisterLocalFileActionIpcDependencies<Context>): void {
   handleIpc("local-file:reveal-path", (_event, requestedPath: string) => {
-    showItemInFolder(resolveLocalFilePath(localActionPathSchema.parse(requestedPath)));
+    const context = activeWorkspaceFileContextForProjectHost();
+    const resolvedPath = resolveCanonicalLocalFilePath(localActionPathSchema.parse(requestedPath));
+    if (!localPathVisibleToThread(resolvedPath, context)) {
+      throw new Error("Reveal is limited to the current workspace or folders explicitly allowed for this thread.");
+    }
+    showItemInFolder(resolvedPath);
   });
 
   handleIpc("local-file:open-path", async (_event, requestedPath: string) => {
-    const error = await openPath(resolveLocalFilePath(localActionPathSchema.parse(requestedPath)));
+    const context = activeWorkspaceFileContextForProjectHost();
+    const resolvedPath = resolveCanonicalLocalFilePath(localActionPathSchema.parse(requestedPath));
+    if (!localPathInsideActiveWorkspace(resolvedPath, context)) {
+      const confirmation = await requestLocalFileOpenConfirmation(resolvedPath, context);
+      if (!confirmation.allowed) throw new Error("Opening this local file was not approved.");
+    }
+    const error = await openPath(resolvedPath);
     if (error) throw new Error(error);
   });
 
   handleIpc("local-file:open-path-with", async (_event, raw: OpenLocalPathInput) => {
     const input = openLocalPathSchema.parse(raw);
-    await openWorkspaceTarget(resolveLocalFilePath(input.path), input.targetId);
+    const context = activeWorkspaceFileContextForProjectHost();
+    const resolvedPath = resolveCanonicalLocalFilePath(input.path);
+    if (!localPathInsideActiveWorkspace(resolvedPath, context)) {
+      const confirmation = await requestLocalFileOpenConfirmation(resolvedPath, context, input.targetId);
+      if (!confirmation.allowed) throw new Error("Opening this local file was not approved.");
+    }
+    await openWorkspaceTarget(resolvedPath, input.targetId);
+  });
+}
+
+export function registerLocalFolderAllowlistIpc<Context extends LocalFileActionContext = LocalFileActionContext>({
+  handleIpc,
+  activeWorkspaceFileContextForProjectHost,
+  showOpenDialog,
+  resolveCanonicalLocalFilePath,
+  createThreadLocalFolderAllowlistGrant,
+}: RegisterLocalFolderAllowlistIpcDependencies<Context>): void {
+  handleIpc("local-file:add-folder-allowlist", async () => {
+    const context = activeWorkspaceFileContextForProjectHost();
+    const result = await showOpenDialog({
+      title: "Add Folder to Allow List for Thread",
+      buttonLabel: "Add Folder",
+      defaultPath: context.workspacePath,
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (result.canceled || !result.filePaths[0]) return undefined;
+    return createThreadLocalFolderAllowlistGrant(resolveCanonicalLocalFilePath(result.filePaths[0]), context);
   });
 }
 
@@ -255,6 +321,9 @@ export function registerWorkspacePickContextIpc<Context extends WorkspacePickCon
   handleIpc,
   activeWorkspaceFileContextForProjectHost,
   showOpenDialog,
+  resolveCanonicalLocalFilePath,
+  localPathVisibleToThread,
+  localPathInsideActiveWorkspace,
   describeWorkspaceAbsoluteContextPaths,
 }: RegisterWorkspacePickContextIpcDependencies<Context>): void {
   handleIpc("workspace:pick-context", async (_event, raw: PickWorkspaceContextInput) => {
@@ -266,9 +335,38 @@ export function registerWorkspacePickContextIpc<Context extends WorkspacePickCon
       properties: input.kind === "file" ? ["openFile", "multiSelections"] : ["openDirectory", "multiSelections"],
     });
     if (result.canceled || result.filePaths.length === 0) return [];
-    const allowExternal = Boolean(input.allowExternal && context.thread.permissionMode === "full-access");
-    return describeWorkspaceAbsoluteContextPaths(context.workspacePath, result.filePaths, { allowExternal });
+    const canonicalFilePaths = canonicalizeSelectedContextPaths(result.filePaths);
+    const allowExternal = Boolean(
+      (input.allowExternal && context.thread.permissionMode === "full-access") ||
+        (canonicalFilePaths && selectedExternalContextVisibleToThread(canonicalFilePaths, context)),
+    );
+    return describeWorkspaceAbsoluteContextPaths(
+      context.workspacePath,
+      allowExternal && canonicalFilePaths ? canonicalFilePaths : result.filePaths,
+      { allowExternal },
+    );
   });
+
+  function canonicalizeSelectedContextPaths(selectedPaths: readonly string[]): string[] | undefined {
+    try {
+      return selectedPaths.map((selectedPath) => resolveCanonicalLocalFilePath(selectedPath));
+    } catch {
+      return undefined;
+    }
+  }
+
+  function selectedExternalContextVisibleToThread(
+    selectedPaths: readonly string[],
+    context: Context,
+  ): boolean {
+    let sawExternalPath = false;
+    for (const selectedPath of selectedPaths) {
+      if (localPathInsideActiveWorkspace(selectedPath, context)) continue;
+      sawExternalPath = true;
+      if (!localPathVisibleToThread(selectedPath, context)) return false;
+    }
+    return sawExternalPath;
+  }
 }
 
 export function registerWorkspaceSearchIpc({ handleIpc, searchWorkspace }: RegisterWorkspaceSearchIpcDependencies): void {

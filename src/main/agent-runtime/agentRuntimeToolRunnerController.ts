@@ -19,6 +19,9 @@ import {
   type AsyncLongContextJobSnapshot,
 } from "./tools/agentRuntimeAsyncLongContextJobs";
 import type {
+  AgentRuntimeThreadWakeCancelToolInput,
+  AgentRuntimeThreadWakeLifecycleToolResult,
+  AgentRuntimeThreadWakeResolveToolInput,
   AgentRuntimeThreadWakeToolInput,
   AgentRuntimeThreadWakeToolResult,
 } from "./tools/agentRuntimeAsyncBashTools";
@@ -33,6 +36,8 @@ export interface AgentRuntimeToolRunnerControllerOptions {
   asyncBashJobs: () => AgentRuntimeAsyncBashJobService;
   getRunId: (threadId: string) => string | undefined;
   scheduleThreadWake: (input: AgentRuntimeThreadWakeToolInput) => Promise<AgentRuntimeThreadWakeToolResult>;
+  cancelThreadWake: (input: AgentRuntimeThreadWakeCancelToolInput) => Promise<AgentRuntimeThreadWakeLifecycleToolResult>;
+  resolveThreadWake: (input: AgentRuntimeThreadWakeResolveToolInput) => Promise<AgentRuntimeThreadWakeLifecycleToolResult>;
   fileAuthorityRootPathsForThread: (threadId: string, access: "read" | "write") => string[];
   includeWorkspaceRootAuthorityForThread: (threadId: string) => boolean;
   requestFileAuthorityForThread: (
@@ -60,6 +65,8 @@ export class AgentRuntimeToolRunnerController {
       getRunId: () => this.options.getRunId(threadId),
       asyncBashJobs: this.options.asyncBashJobs(),
       scheduleThreadWake: (input) => this.options.scheduleThreadWake(input),
+      cancelThreadWake: (input) => this.options.cancelThreadWake(input),
+      resolveThreadWake: (input) => this.options.resolveThreadWake(input),
       getThread: () => this.options.store.getThread(threadId),
       readOnlyAllowedPaths: () => this.options.store.getProjectBoardDependencyWorkspacePathsForExecutionThread(threadId),
       readAuthorityRootPaths: () => this.options.fileAuthorityRootPathsForThread(threadId, "read"),

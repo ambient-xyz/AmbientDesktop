@@ -50,6 +50,7 @@ describe("runtime status indicators", () => {
       status: "continuing",
       message: "Continuing goal...",
       goalId: "goal-1",
+      continuationSource: "goal-continuation",
     };
     const scheduled = runtimeStatusIndicatorsAfterRuntimeActivity({}, continuingActivity, 1_000);
     const afterStaleIdle = runtimeStatusIndicatorsAfterRunStatus(scheduled, {
@@ -91,6 +92,7 @@ describe("runtime status indicators", () => {
       status: "continuing",
       message: "Continuing goal...",
       goalId: "goal-1",
+      continuationSource: "goal-continuation",
     }, 1_000);
 
     expect(pruneExpiredRuntimeStatusIndicators(
@@ -106,6 +108,7 @@ describe("runtime status indicators", () => {
       status: "continuing",
       message: "Continuing goal...",
       goalId: "goal-1",
+      continuationSource: "goal-continuation",
     }, 1_000);
     const blocked = runtimeStatusIndicatorsAfterGoalUpdated(scheduled, activeGoal({
       status: "blocked",
@@ -121,6 +124,59 @@ describe("runtime status indicators", () => {
       tone: "warning",
       title: "Goal blocked",
       message: "Needs user input.",
+    }]);
+  });
+
+  it("labels scheduled wake continuations without requiring an active goal", () => {
+    const scheduled = runtimeStatusIndicatorsAfterRuntimeActivity({}, {
+      threadId: "thread-1",
+      kind: "goal",
+      status: "continuing",
+      message: "Continuing scheduled check-in: Check progress.",
+      continuationSource: "thread-wake",
+    }, 1_000);
+
+    expect(visibleRuntimeStatusIndicatorsForThread(scheduled, "thread-1", undefined, 1_100)).toMatchObject([{
+      kind: "thread-wake",
+      phase: "scheduled",
+      title: "Scheduled wake",
+      message: "Continuing scheduled check-in: Check progress.",
+    }]);
+
+    const running = runtimeStatusIndicatorsAfterRunStatus(scheduled, {
+      threadId: "thread-1",
+      status: "starting",
+      now: 1_200,
+    });
+
+    expect(visibleRuntimeStatusIndicatorsForThread(running, "thread-1", undefined, 1_200)).toMatchObject([{
+      kind: "thread-wake",
+      phase: "running",
+      title: "Scheduled wake",
+      message: "Ambient is running the scheduled wake continuation.",
+    }]);
+
+    const afterGoalUpdate = runtimeStatusIndicatorsAfterGoalUpdated(running, activeGoal({ continuationTurns: 5 }), 1_250);
+    expect(visibleRuntimeStatusIndicatorsForThread(afterGoalUpdate, "thread-1", activeGoal({ continuationTurns: 5 }), 1_250)).toMatchObject([{
+      kind: "thread-wake",
+      continuationTurns: undefined,
+      title: "Scheduled wake",
+    }]);
+  });
+
+  it("labels generic hidden continuations as post-tool continuations instead of goals", () => {
+    const scheduled = runtimeStatusIndicatorsAfterRuntimeActivity({}, {
+      threadId: "thread-1",
+      kind: "goal",
+      status: "continuing",
+      message: "Continue the interrupted tool call from the saved partial arguments.",
+      continuationSource: "post-tool-continuation",
+    }, 1_000);
+
+    expect(visibleRuntimeStatusIndicatorsForThread(scheduled, "thread-1", undefined, 1_100)).toMatchObject([{
+      kind: "post-tool-continuation",
+      title: "Continuing after tool output",
+      message: "Continue the interrupted tool call from the saved partial arguments.",
     }]);
   });
 });

@@ -12,7 +12,7 @@ import {
 import electronUpdater from "electron-updater";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync } from "node:fs";
 import { z } from "zod";
 import packageJson from "../../package.json";
 import {
@@ -91,6 +91,7 @@ import { createAppMenuUpdateService } from "./desktop-shell/appMenuUpdateService
 import { createExternalNavigationService } from "./security/externalNavigationService";
 import { createDesktopIpcTrustService } from "./security/desktopIpcTrustService";
 import { createContainerRuntimeApplicationOpener } from "./container-runtime/containerRuntimeApplicationOpener";
+import { createLocalFolderAllowlistGrantInput } from "./permissions/localFolderAllowlistGrants";
 import { createSettingsRuntimeService } from "./settings/settingsRuntimeService";
 import { createDesktopStateEventService } from "./desktop-shell/desktopStateEventService";
 import { createDesktopStateSnapshotService } from "./desktop-shell/desktopStateSnapshotService";
@@ -685,7 +686,7 @@ const {
 } = voiceSettingsDesktopService;
 const localDeepResearchDesktopService = createLocalDeepResearchDesktopService({
   activeWorkspacePath: () => activeVoiceSttContextForProjectHost().workspacePath,
-  discoverAmbientCliCatalog: (workspacePath) => discoverAmbientCliPackages(workspacePath, { includeHealth: true }),
+  discoverAmbientCliCatalog: (workspacePath) => discoverAmbientCliPackages(workspacePath, { includeHealth: false }),
   discoverWebResearchMcpProviderTools: async (workspacePath) => {
     try {
       const { toolHive, catalog } = createMcpInstallCatalog();
@@ -1072,7 +1073,7 @@ const settingsRuntimeService = createSettingsRuntimeService<ProjectRuntimeHost>(
   saveModelProviderCredentialForSettingsImpl: saveModelProviderCredentialForSettings,
   installModelProviderEndpointForSettingsImpl: installModelProviderEndpointForSettings,
   readSecretReferenceImpl: readSecretReference,
-  discoverAmbientCliCatalogForSearchRouting: (workspacePath) => discoverAmbientCliPackages(workspacePath, { includeHealth: true }),
+  discoverAmbientCliCatalogForSearchRouting: (workspacePath) => discoverAmbientCliPackages(workspacePath, { includeHealth: false }),
   discoverMcpToolsForSearchRouting: async (workspacePath) => {
     const { toolHive, catalog } = createMcpInstallCatalog();
     const bridge = new McpToolBridge({
@@ -1487,6 +1488,7 @@ const activeWorkspaceFileService = createActiveWorkspaceFileService<ThreadSummar
   getAppPath: (name) => app.getPath(name),
   normalizePath: normalizeWorkspacePath,
   pathExists: existsSync,
+  realpath: (path) => realpathSync.native(path),
   createMediaUrl: (input) => workspaceMediaServer.createUrl(input),
   createOfficePreview: (input) => createOfficePreview(input),
 });
@@ -1494,9 +1496,22 @@ const {
   activeWorkspaceFileContextForProjectHost,
   readActiveLocalFilePreview,
   readActiveWorkspaceFile,
+  resolveCanonicalLocalFilePath,
   resolveLocalFilePath,
+  localPathInsideActiveWorkspace,
+  localPathVisibleToThread,
   workspacePathForRelativeArtifactPath,
 } = activeWorkspaceFileService;
+function createThreadLocalFolderAllowlistGrant(folderPath: string, context: ReturnType<typeof activeWorkspaceFileContextForProjectHost>) {
+  const grant = context.targetStore.createPermissionGrant(createLocalFolderAllowlistGrantInput({
+    folderPath,
+    threadId: context.threadId,
+    workspacePath: context.workspacePath,
+    permissionMode: context.thread.permissionMode,
+  }));
+  emitPermissionGrantCreated(grant, context.targetStore.getWorkspace().path);
+  return grant;
+}
 const voiceArtifactDesktopService = createVoiceArtifactDesktopService<ProjectRuntimeHost, ProjectStore>({
   activeProjectRuntimeHost: () => requireActiveProjectRuntimeHost(),
   activeStore: () => store,
@@ -1753,6 +1768,7 @@ function registerIpc(): void {
       renderHtmlToPdf: createElectronPrintToPdfRenderer(BrowserWindow),
     }),
     createGitBranch,
+    createThreadLocalFolderAllowlistGrant,
     createMainDiagnosticSource,
     createMcpInstallCatalog,
     createWorkflowDebugRewriteRevision,
@@ -1912,6 +1928,9 @@ function registerIpc(): void {
     requireProjectRuntimeHostForWorkflowVersion,
     resetProjectRuntimeAndPluginServers,
     resetRuntimeAndPluginServers,
+    resolveCanonicalLocalFilePath,
+    localPathVisibleToThread,
+    localPathInsideActiveWorkspace,
     resolveLocalFilePath,
     resolveRegisteredProjectPathForHost,
     resolveWorkflowDiscoveryAccessRequest,

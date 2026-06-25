@@ -336,6 +336,9 @@ export function createAppShellCommandActions({
         exportDiagnostics: async () => {
           await exportDiagnostics();
         },
+        addThreadFolderAllowlist: async () => {
+          await window.ambientDesktop.addLocalFolderAllowlistForThread();
+        },
         openApiKeyDialog: async () => {
           await openApiKeyDialog();
         },

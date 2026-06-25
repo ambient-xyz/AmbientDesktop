@@ -13,7 +13,14 @@ describe("createManagedDownloadToolExtension", () => {
     const service = downloadService({
       start: (input) => {
         starts.push(input);
-        return snapshot({ status: "queued", bytesReceived: 0, expectedBytes: 1024, totalBytes: 1024 });
+        return snapshot({
+          status: "queued",
+          bytesReceived: 0,
+          expectedBytes: 1024,
+          totalBytes: 1024,
+          sha256: "abc123",
+          integrityStatus: "pending-sha256",
+        });
       },
     });
 
@@ -69,6 +76,7 @@ describe("createManagedDownloadToolExtension", () => {
     }]);
     expect(result.content[0].text).toContain("Ambient managed download queued.");
     expect(result.content[0].text).toContain("Progress: queued: 0 B of 1.0 KB");
+    expect(result.content[0].text).toContain("Integrity: pending-sha256");
     expect(result.details).toMatchObject({
       runtime: "ambient-managed-download",
       toolName: "ambient_download_start",
@@ -76,6 +84,88 @@ describe("createManagedDownloadToolExtension", () => {
       jobId: "job-1",
       destinationPath: "downloads/file.bin",
     });
+  });
+
+  it("forwards quarantine download destinations for unsigned assets", async () => {
+    const registeredTools: RegisteredTool[] = [];
+    const starts: AmbientDownloadStartInput[] = [];
+    const service = downloadService({
+      start: (input) => {
+        starts.push(input);
+        return snapshot({
+          status: "queued",
+          destinationKind: "quarantine",
+          destinationPath: ".ambient/download-quarantine/model.bin",
+          integrityStatus: "unverified",
+        });
+      },
+    });
+
+    createManagedDownloadToolExtension({
+      workspace: workspace(),
+      downloadService: service,
+    })({
+      registerTool: (tool: any) => {
+        registeredTools.push(tool);
+      },
+    } as any);
+
+    const result = await tool(registeredTools, "ambient_download_start").execute("download-start", {
+      url: "https://example.com/model.bin",
+      destinationKind: "quarantine",
+      destinationPath: "model.bin",
+    });
+
+    expect(starts).toEqual([{
+      workspacePath: "/tmp/workspace",
+      url: "https://example.com/model.bin",
+      destinationPath: "model.bin",
+      destinationKind: "quarantine",
+    }]);
+    expect(result.content[0].text).toContain("Destination kind: quarantine");
+    expect(result.content[0].text).toContain("Integrity: unverified");
+    expect(result.details).toMatchObject({
+      runtime: "ambient-managed-download",
+      toolName: "ambient_download_start",
+      status: "queued",
+      destinationKind: "quarantine",
+      destinationPath: ".ambient/download-quarantine/model.bin",
+      integrityStatus: "unverified",
+    });
+  });
+
+  it("redacts redirected signed URLs from tool-visible text and details", async () => {
+    const registeredTools: RegisteredTool[] = [];
+    const service = downloadService({
+      status: () => snapshot({
+        status: "completed",
+        url: "https://downloads.example.com/model.bin",
+        finalUrl: "https://signed-cdn.example.com/model.bin?X-Amz-Credential=secret&X-Amz-Signature=signature#token",
+      }),
+    });
+
+    createManagedDownloadToolExtension({
+      workspace: workspace(),
+      downloadService: service,
+    })({
+      registerTool: (tool: any) => {
+        registeredTools.push(tool);
+      },
+    } as any);
+
+    const result = await tool(registeredTools, "ambient_download_status").execute("download-status", { jobId: "job-1" });
+    const serializedDetails = JSON.stringify(result.details);
+
+    expect(result.content[0].text).toContain("Final URL: https://signed-cdn.example.com/[redacted]");
+    expect(result.content[0].text).not.toContain("model.bin");
+    expect(result.content[0].text).not.toContain("X-Amz-Credential");
+    expect(result.content[0].text).not.toContain("signature");
+    expect(result.content[0].text).not.toContain("#token");
+    expect(serializedDetails).toContain("https://signed-cdn.example.com/[redacted]");
+    expect(serializedDetails).not.toContain("model.bin");
+    expect(serializedDetails).not.toContain("X-Amz-Credential");
+    expect(serializedDetails).not.toContain("signature");
+    expect(serializedDetails).not.toContain("#token");
   });
 
   it("forwards status, wait, and cancel requests", async () => {
@@ -121,7 +211,13 @@ describe("createManagedDownloadToolExtension", () => {
       { method: "wait", jobId: "job-1", heartbeatMs: 25, hasSignal: true },
       { method: "cancel", jobId: "job-1" },
     ]);
-    expect(statusResult.details).toMatchObject({ toolName: "ambient_download_status", status: "running", percent: 50 });
+    expect(statusResult.details).toMatchObject({
+      toolName: "ambient_download_status",
+      status: "running",
+      destinationKind: "workspace",
+      integrityStatus: "unverified",
+      percent: 50,
+    });
     expect(waitUpdates).toEqual([
       expect.objectContaining({
         content: [{ type: "text", text: "Waiting for Ambient-managed download job-1." }],
@@ -132,8 +228,19 @@ describe("createManagedDownloadToolExtension", () => {
         details: expect.objectContaining({ toolName: "ambient_download_wait", status: "running" }),
       }),
     ]);
-    expect(waitResult.details).toMatchObject({ toolName: "ambient_download_wait", status: "completed", percent: 100 });
-    expect(cancelResult.details).toMatchObject({ toolName: "ambient_download_cancel", status: "canceled" });
+    expect(waitResult.details).toMatchObject({
+      toolName: "ambient_download_wait",
+      status: "completed",
+      destinationKind: "workspace",
+      integrityStatus: "unverified",
+      percent: 100,
+    });
+    expect(cancelResult.details).toMatchObject({
+      toolName: "ambient_download_cancel",
+      status: "canceled",
+      destinationKind: "workspace",
+      integrityStatus: "unverified",
+    });
   });
 });
 
@@ -178,6 +285,7 @@ function snapshot(overrides: Partial<AmbientDownloadJobSnapshot> = {}): AmbientD
     expectedBytes: undefined,
     sha256: undefined,
     computedSha256: undefined,
+    integrityStatus: "unverified",
     resumeEnabled: true,
     resumed: false,
     attempt: 1,

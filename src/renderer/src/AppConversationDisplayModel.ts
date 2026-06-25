@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import type { ThinkingDisplayMode } from "../../shared/desktopTypes";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
-import type { ChatMessage, MessageDelivery } from "../../shared/threadTypes";
+import type { ChatMessage, MessageDelivery, RunStatus } from "../../shared/threadTypes";
 import {
   retryableFailedPromptIds,
   streamingAssistantMessageId,
@@ -113,6 +113,7 @@ export function appConversationDisplayModel({
   pendingSubmittedPrompts = [],
   plannerPlanArtifacts,
   running,
+  runStatus,
   thinkingDisplayMode,
   workspacePath,
 }: {
@@ -123,6 +124,7 @@ export function appConversationDisplayModel({
   pendingSubmittedPrompts?: PendingSubmittedPrompt[];
   plannerPlanArtifacts: PlannerPlanArtifact[] | undefined;
   running: boolean;
+  runStatus: RunStatus;
   thinkingDisplayMode: ThinkingDisplayMode;
   workspacePath?: string;
 }): AppConversationDisplayModel {
@@ -147,6 +149,7 @@ export function appConversationDisplayModel({
       messages: displayMessages,
       mode: thinkingDisplayMode,
       running,
+      runStatus,
     }),
     visibleChatMessages: visibleMessages(visibleDisplayMessages, running, thinkingDisplayMode),
     visibleRunActivityLines: visibleRunActivityLinesForThinkingDisplay(activeRunActivityLines, thinkingDisplayMode),
@@ -161,6 +164,7 @@ export function useAppConversationDisplayModel(input: {
   pendingSubmittedPrompts?: PendingSubmittedPrompt[];
   plannerPlanArtifacts: PlannerPlanArtifact[] | undefined;
   running: boolean;
+  runStatus: RunStatus;
   thinkingDisplayMode: ThinkingDisplayMode;
   workspacePath?: string;
 }): AppConversationDisplayModel {
@@ -211,8 +215,9 @@ export function useAppConversationDisplayModel(input: {
       messages: displayMessages,
       mode: input.thinkingDisplayMode,
       running: input.running,
+      runStatus: input.runStatus,
     }),
-    [input.activeRunActivityLines, displayMessages, input.thinkingDisplayMode, input.running],
+    [input.activeRunActivityLines, displayMessages, input.thinkingDisplayMode, input.running, input.runStatus],
   );
   const visibleChatMessages = useMemo(
     () => visibleMessages(visibleDisplayMessages, input.running, input.thinkingDisplayMode),

@@ -49,6 +49,7 @@ describe("AppConversationDisplayModel", () => {
       messages,
       plannerPlanArtifacts: [artifact],
       running: true,
+      runStatus: "streaming",
       thinkingDisplayMode: "transient",
     });
 
@@ -60,6 +61,18 @@ describe("AppConversationDisplayModel", () => {
     expect(model.streamingAssistantId).toBe("assistant-streaming");
     expect(model.plannerArtifactByMessageId.get("assistant-error")).toBe(artifact);
     expect(model.promptHistory).toEqual(["Retry this", "First prompt"]);
+
+    const toolPhaseModel = appConversationDisplayModel({
+      activeThreadId: "thread-1",
+      activeRunActivityLines: activityLines,
+      activeWorkspacePath: "/workspace/current",
+      messages,
+      plannerPlanArtifacts: [artifact],
+      running: true,
+      runStatus: "tool",
+      thinkingDisplayMode: "transient",
+    });
+    expect(toolPhaseModel.transientThinkingActivityLines).toEqual([]);
   });
 
   it("keeps a submitted prompt visible until the persisted user message appears", () => {

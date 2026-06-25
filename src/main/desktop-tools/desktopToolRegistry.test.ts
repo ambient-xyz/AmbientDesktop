@@ -17,6 +17,7 @@ import {
   localDeepResearchToolDescriptors,
   localRuntimeToolDescriptor,
   localRuntimeToolDescriptors,
+  managedDownloadToolDescriptor,
   mediaToolDescriptor,
   mediaToolDescriptors,
   modelStatusToolDescriptor,
@@ -47,6 +48,8 @@ describe("firstPartyDesktopToolDescriptors", () => {
       "bash_write",
       "bash_cancel",
       "thread_wake_schedule",
+      "thread_wake_cancel",
+      "thread_wake_resolve",
       "file_read",
       "local_directory_list",
       "local_file_read",
@@ -271,6 +274,18 @@ describe("firstPartyDesktopToolDescriptors", () => {
       "google_workspace_call",
       "google_workspace_materialize_file",
     ]);
+  });
+
+  it("advertises quarantine managed downloads and integrity state to Pi", () => {
+    const start = managedDownloadToolDescriptor("ambient_download_start");
+    const input = start.inputSchema as any;
+    const output = start.outputSchema as any;
+
+    expect(input.properties.destinationKind.enum).toEqual(["workspace", "managed-install", "quarantine"]);
+    expect(input.properties.sha256.description).toMatch(/Required for destinationKind=managed-install/);
+    expect(output.properties.destinationKind.enum).toEqual(["workspace", "managed-install", "quarantine"]);
+    expect(output.properties.integrityStatus.enum).toEqual(["unverified", "pending-sha256", "sha256-verified"]);
+    expect(output.required).toEqual(expect.arrayContaining(["destinationKind", "integrityStatus"]));
   });
 
   it("describes Ambient Git tools as worktree-aware first-party capabilities", () => {
@@ -548,14 +563,26 @@ describe("firstPartyDesktopToolDescriptors", () => {
       expect.arrayContaining([
         expect.stringContaining("Never route first-party Ambient CLI adapters"),
         expect.stringContaining("Do not use ambient_pi_privileged_install for first-party Ambient CLI adapters"),
+        expect.stringContaining("routeKind raw-pi-exception"),
       ]),
     );
     expect(piToolFieldsFromDescriptor(firstPartyDesktopToolDescriptors().find((tool) => tool.name === "ambient_pi_extension_install_sandboxed")!).promptGuidelines).toEqual(
       expect.arrayContaining([
         expect.stringContaining("Do not use this for ordinary Pi marketplace install requests"),
         expect.stringContaining("compatibility-only"),
+        expect.stringContaining("routeKind raw-pi-exception"),
       ]),
     );
+    expect((firstPartyDesktopToolDescriptors().find((tool) => tool.name === "ambient_pi_privileged_install")?.inputSchema as { properties?: Record<string, unknown> }).properties).toMatchObject({
+      installRoute: expect.objectContaining({
+        required: ["routeKind", "selectedSource", "approvalBoundary", "reason"],
+      }),
+    });
+    expect((firstPartyDesktopToolDescriptors().find((tool) => tool.name === "ambient_pi_extension_install_sandboxed")?.inputSchema as { properties?: Record<string, unknown> }).properties).toMatchObject({
+      installRoute: expect.objectContaining({
+        required: ["routeKind", "selectedSource", "approvalBoundary", "reason"],
+      }),
+    });
     expect(piToolFieldsFromDescriptor(browserToolDescriptor("browser_nav")).promptGuidelines).toBe(browserToolDescriptor("browser_nav").promptGuidelines);
     expect(piToolFieldsFromDescriptor(firstPartyDesktopToolDescriptors().find((tool) => tool.name === "ambient_capability_builder_repair_plan")!).promptGuidelines).toEqual(
       expect.arrayContaining([
@@ -1705,6 +1732,8 @@ describe("firstPartyDesktopToolDescriptors", () => {
       "bash_write",
       "bash_cancel",
       "thread_wake_schedule",
+      "thread_wake_cancel",
+      "thread_wake_resolve",
     ]);
     expect(asyncBashToolDescriptor("bash_start")).toMatchObject({
       sideEffects: "run-process",
@@ -1720,6 +1749,16 @@ describe("firstPartyDesktopToolDescriptors", () => {
     expect(asyncBashToolDescriptor("thread_wake_schedule")).toMatchObject({
       sideEffects: "write-workspace",
       permissionScope: "thread-continuation",
+    });
+    expect(asyncBashToolDescriptor("thread_wake_cancel")).toMatchObject({
+      sideEffects: "write-workspace",
+      permissionScope: "thread-continuation",
+      inputSchema: expect.objectContaining({ required: ["wake_id"] }),
+    });
+    expect(asyncBashToolDescriptor("thread_wake_resolve")).toMatchObject({
+      sideEffects: "write-workspace",
+      permissionScope: "thread-continuation",
+      inputSchema: expect.objectContaining({ required: ["wake_id"] }),
     });
     expect(asyncBashToolDescriptor("thread_wake_schedule").promptGuidelines).toEqual(
       expect.arrayContaining([

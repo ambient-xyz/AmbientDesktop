@@ -127,6 +127,7 @@ export function defaultWorkflowJitterMatrixTasks() {
         "vitest",
         "run",
         "src/main/workflow-program/workflowProgramCompiler.test.ts",
+        "src/main/workflow-program/workflowProgramCompilerConnectors.test.ts",
         "src/main/workflow-program/workflowProgramPathRegistry.test.ts",
         "src/main/workflow-program/workflowProgramPathRegistryJitter.test.ts",
         "src/main/workflow-program/workflowProgramOutputContracts.test.ts",

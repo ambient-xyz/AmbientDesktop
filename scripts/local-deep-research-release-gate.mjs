@@ -56,7 +56,12 @@ const report = buildLocalDeepResearchReleaseGateReport({
       "src/renderer/src/localDeepResearchUiModel.ts",
     ]),
     preload: await readText("src/preload/index.ts"),
-    providerCatalog: await readText("src/main/provider/providerCatalog.ts"),
+    providerCatalog: await readTexts([
+      "src/main/provider/providerCatalog.ts",
+      "src/main/provider/providerCatalogDeepResearchEntries.ts",
+      "src/main/desktop-tools/desktopToolRuntimeMediaDescriptors.ts",
+      "src/renderer/src/pluginUiModel.ts",
+    ]),
     plan: await readText("llamaResearchImplementation.html"),
   },
   artifacts,

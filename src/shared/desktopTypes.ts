@@ -939,6 +939,28 @@ export type DesktopEvent =
   | { type: "e2e-workflow-chat-fixture"; workflowThreadId: string; messages: ChatMessage[] }
   | { type: "error"; message: string; threadId?: string; workspacePath?: string };
 
+export interface E2ePermissionGrantResolutionProbeInput {
+  request: Omit<PermissionRequest, "id">;
+  context?: {
+    permissionMode?: PermissionMode;
+    threadId?: string;
+    workflowThreadId?: string;
+    projectPath?: string;
+    workspacePath?: string;
+  };
+  requireFreshPrompt?: boolean;
+}
+
+export interface E2ePermissionGrantResolutionProbeResult {
+  allowed: boolean;
+  decisionSource: string;
+  response: PermissionPromptResponseMode;
+  grantId?: string;
+  grantTargetHash?: string;
+  promptRequested: boolean;
+  promptRequest?: Omit<PermissionRequest, "id">;
+}
+
 export interface AmbientDesktopApi {
   bootstrap(): Promise<DesktopState>;
   setThemePreference(input: SetThemePreferenceInput): Promise<AppAppearance>;
@@ -1103,6 +1125,7 @@ export interface AmbientDesktopApi {
   refreshOfficePreview(path: string): Promise<WorkspaceFileContent>;
   previewLocalFile(path: string): Promise<WorkspaceFileContent>;
   refreshLocalOfficePreview(path: string): Promise<WorkspaceFileContent>;
+  addLocalFolderAllowlistForThread(): Promise<AmbientPermissionGrant | undefined>;
   pickWorkspaceContext(input: PickWorkspaceContextInput): Promise<WorkspaceContextReference[]>;
   revealWorkspacePath(path: string): Promise<void>;
   openWorkspacePath(path: string): Promise<void>;
@@ -1303,4 +1326,5 @@ export interface AmbientDesktopApi {
   recoverThreadContext(input: RecoverThreadContextInput): Promise<ContextUsageSnapshot>;
   onEvent(listener: (event: DesktopEvent) => void): () => void;
   emitE2eEvent?(event: DesktopEvent): Promise<void>;
+  resolveE2ePermissionGrant?(input: E2ePermissionGrantResolutionProbeInput): Promise<E2ePermissionGrantResolutionProbeResult>;
 }

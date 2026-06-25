@@ -19,6 +19,63 @@ function createController(store: ProjectStore) {
 }
 
 describe("AgentRuntimePlannerFinalizationController", () => {
+  it("uses the run-start Planner Mode snapshot when the thread mode changes before finalization", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-planner-mode-snapshot-"));
+    const store = new ProjectStore();
+    try {
+      store.openWorkspace(workspacePath);
+      const thread = store.updateThreadSettings(store.createThread("Planner mode snapshot").id, { collaborationMode: "planner" });
+      const finalMessage = store.addMessage({
+        threadId: thread.id,
+        role: "assistant",
+        content: [
+          "# Snapshot Plan",
+          "",
+          "Answer the captured decision before implementation.",
+          "",
+          "```ambient-planner-questions",
+          "{",
+          '  "questions": [',
+          "    {",
+          '      "id": "route",',
+          '      "question": "Which route should the implementation take?",',
+          '      "recommendedOptionId": "small",',
+          '      "required": true,',
+          '      "options": [',
+          '        { "id": "small", "label": "Small", "description": "Keep the first implementation narrow." },',
+          '        { "id": "broad", "label": "Broad", "description": "Cover more cases with more validation risk." }',
+          "      ]",
+          "    }",
+          "  ]",
+          "}",
+          "```",
+        ].join("\n"),
+      });
+      store.updateThreadSettings(thread.id, { collaborationMode: "agent" });
+      const controller = createController(store);
+
+      const result = await controller.createPlannerPlanArtifactFromMessage(finalMessage, { startedInPlannerMode: true });
+
+      expect(result?.eventType).toBe("created");
+      expect(result?.artifact.decisionQuestions).toEqual([
+        expect.objectContaining({
+          id: "route",
+          question: "Which route should the implementation take?",
+          recommendedOptionId: "small",
+          required: true,
+        }),
+      ]);
+      expect(result?.message.content).not.toContain("ambient-planner-questions");
+      expect(result?.message.metadata).toMatchObject({
+        kind: "planner-plan",
+        plannerPlanArtifactId: result?.artifact.id,
+      });
+    } finally {
+      store.close();
+      await rm(workspacePath, { recursive: true, force: true });
+    }
+  });
+
   it("completes the source artifact when planner finalization creates a durable artifact", async () => {
     const workspacePath = await mkdtemp(join(tmpdir(), "ambient-planner-finalization-source-"));
     const store = new ProjectStore();

@@ -420,6 +420,8 @@ export interface PiPrivilegedSecurityScan {
   npmTarball?: string;
   integrity?: string;
   shasum?: string;
+  descriptorHash: string;
+  packageTreeHash: string;
   fingerprint: string;
   resources: {
     piExtensions: string[];

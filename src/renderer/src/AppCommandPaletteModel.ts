@@ -7,6 +7,7 @@ export type AppCommandPaletteHandlers = {
   createThread: () => void | Promise<void>;
   exportActiveChat: () => void | Promise<void>;
   exportDiagnostics: () => void | Promise<void>;
+  addThreadFolderAllowlist: () => void | Promise<void>;
   openApiKeyDialog: () => void | Promise<void>;
   openMcpRuntimeSettings: () => void | Promise<void>;
   openPanel: (panel: "attachments" | "diff" | "files" | "plugins" | "search" | "settings") => void | Promise<void>;
@@ -49,6 +50,7 @@ export function createAppCommandPaletteItems({
     { id: "terminal", label: "Terminal", detail: "View", run: () => handlers.togglePanel("terminal") },
     { id: "files", label: "Files", detail: "View", run: () => handlers.togglePanel("files") },
     { id: "context", label: "Add context", detail: "Composer", run: () => handlers.openPanel("attachments") },
+    { id: "add-thread-folder-allowlist", label: "Add Folder to Allow List for Thread", detail: "Security", run: handlers.addThreadFolderAllowlist },
     { id: "diff", label: "Diff", detail: "View", run: () => handlers.togglePanel("diff") },
     { id: "plugins", label: "Plugins", detail: "View", run: () => handlers.openPanel("plugins") },
     { id: "automations", label: workflowRecorderNavLabel, detail: "View", run: handlers.openWorkflowRecordingsArea },

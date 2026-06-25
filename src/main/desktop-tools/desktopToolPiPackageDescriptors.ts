@@ -1,5 +1,36 @@
 import type { DesktopToolDescriptor } from "./desktopToolDescriptorTypes";
 
+const rawPiExceptionInstallRouteSchema = {
+  type: "object",
+  description: "Required for unwrapped raw Pi install exceptions after ambient_install_route_plan selects pi-marketplace-privileged-review. Reviewed Pi wrappers do not need this raw exception lane.",
+  properties: {
+    routeKind: {
+      type: "string",
+      enum: ["raw-pi-exception"],
+      description: "Must be raw-pi-exception for unwrapped raw Pi install side effects.",
+    },
+    selectedSource: {
+      type: "string",
+      description: "Exact source being installed; must match source.",
+    },
+    targetPackage: {
+      type: "string",
+      description: "Optional expected package name from the route or scan.",
+    },
+    approvalBoundary: {
+      type: "string",
+      enum: ["privileged-approval-required"],
+      description: "Must match the privileged review approval boundary.",
+    },
+    reason: {
+      type: "string",
+      description: "Short reason the user explicitly approved the raw Pi exception path instead of a reviewed wrapper or Capability Builder route.",
+    },
+  },
+  required: ["routeKind", "selectedSource", "approvalBoundary", "reason"],
+  additionalProperties: false,
+} as const;
+
 export const piPackageToolDescriptors: DesktopToolDescriptor[] = [
   {
     name: "ambient_pi_extension_install_sandboxed",
@@ -10,6 +41,7 @@ export const piPackageToolDescriptors: DesktopToolDescriptor[] = [
       "Do not use this for ordinary Pi marketplace install requests. First call ambient_install_route_plan, then use Ambient-owned wrapper routes or privileged review/rejection.",
       "Before using this for a pi.dev URL in a compatibility-only maintenance path, first try ambient_cli_package_install_pi_catalog. If a reviewed Ambient CLI adapter exists, use that adapter instead of this sandboxed extension lane.",
       "Use ambient_pi_extension_install_sandboxed only for explicit product-owned compatibility testing or migration of a sandboxed extension state that cannot use a wrapper route.",
+      "For an unwrapped raw exception, first call ambient_install_route_plan and pass installRoute with routeKind raw-pi-exception, selectedSource matching source, approvalBoundary privileged-approval-required, and the user-approved reason.",
       "This tool resolves pi.dev/npm metadata to a pinned Git source, copies the package into Ambient-managed state, and discovers registered tools through the compatibility host.",
       "Unknown filesystem, process, env, and network access is denied by the host; only listed allowedNetworkHosts are available.",
       "Do not use this tool for first-party Ambient CLI adapters such as pi-arxiv or youtube-transcript.",
@@ -29,6 +61,7 @@ export const piPackageToolDescriptors: DesktopToolDescriptor[] = [
           items: { type: "string" },
           description: "Optional network host allow-list for the sandboxed extension. Omit to use package defaults.",
         },
+        installRoute: rawPiExceptionInstallRouteSchema,
       },
       required: ["source"],
       additionalProperties: false,
@@ -183,6 +216,7 @@ export const piPackageToolDescriptors: DesktopToolDescriptor[] = [
     promptGuidelines: [
       "Do not use ambient_pi_privileged_install for first-party Ambient CLI adapters. Use ambient_cli_package_install_pi_catalog or installed Ambient CLI search/describe/run instead.",
       "Use ambient_pi_privileged_install only after ambient_pi_privileged_scan and user confirmation.",
+      "For an unwrapped raw exception, first call ambient_install_route_plan and pass installRoute with routeKind raw-pi-exception, selectedSource matching source, approvalBoundary privileged-approval-required, and the user-approved reason.",
       "The package is copied into Ambient-owned state and remains disabled; this Alpha path does not activate hooks or mutate Pi settings.",
       "Do not use this for tool-only packages that can use the sandboxed Pi extension path.",
       "Pass scanOrigin sandbox-fallback when installing after ambient_pi_extension_install_sandboxed reported privileged review required.",
@@ -193,6 +227,7 @@ export const piPackageToolDescriptors: DesktopToolDescriptor[] = [
       properties: {
         source: { type: "string", description: "Pi catalog URL, npm package name, npm: spec, file URL, or local package path." },
         scanOrigin: { type: "string", enum: ["explicit", "sandbox-fallback"], description: "Why this privileged install is being run. Defaults to explicit." },
+        installRoute: rawPiExceptionInstallRouteSchema,
       },
       required: ["source"],
       additionalProperties: false,

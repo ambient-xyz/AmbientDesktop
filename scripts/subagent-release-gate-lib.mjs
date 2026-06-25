@@ -1,17 +1,31 @@
-import {
-  SUBAGENT_LIVE_EVIDENCE_DECISIONS,
-} from "./subagent-live-evidence-lanes.mjs";
-import {
-  REQUIRED_LIVE_HISTORY_EVIDENCE_LABELS,
-} from "./subagent-live-history-report-lib.mjs";
+import { SUBAGENT_LIVE_EVIDENCE_DECISIONS } from "./subagent-live-evidence-lanes.mjs";
+import { REQUIRED_LIVE_HISTORY_EVIDENCE_LABELS } from "./subagent-live-history-report-lib.mjs";
 import {
   REQUIRED_DESKTOP_DOGFOOD_SCENARIOS,
   REQUIRED_DESKTOP_MATURITY_ASSERTIONS,
   REQUIRED_DESKTOP_VISUAL_ASSERTIONS,
 } from "./subagent-desktop-dogfood-evidence-contract.mjs";
+import { buildSubagentReleaseGateSourceChecks } from "./subagent-release-gate-source-checks.mjs";
 import {
-  buildSubagentReleaseGateSourceChecks,
-} from "./subagent-release-gate-source-checks.mjs";
+  callableWorkflowDogfoodArtifactCheck,
+  callableWorkflowRehydrationArtifactCheck,
+  lifecycleEdgeArtifactCheck,
+  replayDiagnosticsArtifactCheck,
+} from "./subagent-release-gate-workflow-artifact-checks.mjs";
+import {
+  allNonEmptyStrings,
+  artifactFreshness,
+  check,
+  escapeMarkdownCell,
+  nonEmptyString,
+  nonEmptyStringArray,
+  nonNegativeCount,
+  objectValue,
+  positiveInteger,
+  positiveNumber,
+  safeRelativePath,
+  secretLikeStringPaths,
+} from "./subagent-release-gate-validation-helpers.mjs";
 
 const DEFAULT_MAX_ARTIFACT_AGE_HOURS = 24;
 const REQUIRED_LIVE_HISTORY_GRADUATION_RUNS = 25;
@@ -99,6 +113,7 @@ const REQUIRED_DETERMINISTIC_TEST_FILES = [
   "src/main/callable-workflow/callableWorkflowRehydrationEvidence.test.ts",
   "src/main/subagents/subagentLifecycleEdgeEvidence.test.ts",
   "src/main/workflow-compiler/workflowCompilerService.test.ts",
+  "src/main/workflow-compiler/workflowCompilerServicePromptTransport.test.ts",
   "src/main/agent-runtime/agentRuntimeCallableWorkflowBridge.test.ts",
   "src/main/agent-runtime/agentRuntimeCallableWorkflowTools.test.ts",
   "src/main/agent-runtime/ambient-workflow/agentRuntimeAmbientWorkflowReadOnlyTools.test.ts",
@@ -142,7 +157,9 @@ const REQUIRED_DETERMINISTIC_TEST_FILES = [
   "src/main/subagents/subagentMaturity.test.ts",
   "src/main/subagents/subagentThreatModel.test.ts",
   "src/main/projectStore/projectStoreSubagentFoundation.test.ts",
+  "src/main/projectStore/projectStoreSubagentRetentionParentStop.test.ts",
   "src/main/subagents/subagentPiTools.test.ts",
+  "src/main/subagents/subagentPiToolsWaitSynthesis.test.ts",
   "src/main/subagents/subagentPiToolInput.test.ts",
   "src/main/subagents/subagentPiToolResult.test.ts",
   "src/main/subagents/subagentSpawnPreRunPlanner.test.ts",
@@ -292,11 +309,7 @@ export function buildSubagentReleaseGateReport(input = {}) {
 }
 
 function buildSubagentReleaseGateCommandChecks(scripts) {
-  return [
-    ...scriptChecks(scripts),
-    deterministicSuiteCoverageCheck(scripts),
-    liveHarnessRoutingCheck(scripts),
-  ];
+  return [...scriptChecks(scripts), deterministicSuiteCoverageCheck(scripts), liveHarnessRoutingCheck(scripts)];
 }
 
 function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAgeHours, requireLive, requireMaturityHistory }) {
@@ -325,34 +338,33 @@ function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAge
       missingPath: "test-results/subagent-live-confidence/child-authority-latest.json",
       missingRequiredIssue: "Child authority live confidence evidence is required but missing.",
       missingSkippedIssue: "Child authority live confidence evidence was skipped for this deterministic gate run.",
-      expectedMaturityAssertions: [{
-        id: "child_long_context_authority",
-        capabilities: [
-          "delegated_tool_authority",
-          "long_context_authority_roots",
-          "document_root_inheritance",
-          "secret_non_leakage",
-        ],
-      }, {
-        id: "child_file_approval_authority",
-        capabilities: [
-          "parent_approval_forwarding",
-          "child_approval_pause",
-          "parent_blocking_resume",
-          "child_scoped_approval",
-          "secret_non_leakage",
-        ],
-      }, {
-        id: "child_browser_approval_authority",
-        capabilities: [
-          "browser_authority",
-          "parent_approval_forwarding",
-          "child_approval_pause",
-          "parent_blocking_resume",
-          "child_scoped_approval",
-          "browser_approval_resume",
-        ],
-      }],
+      expectedMaturityAssertions: [
+        {
+          id: "child_long_context_authority",
+          capabilities: ["delegated_tool_authority", "long_context_authority_roots", "document_root_inheritance", "secret_non_leakage"],
+        },
+        {
+          id: "child_file_approval_authority",
+          capabilities: [
+            "parent_approval_forwarding",
+            "child_approval_pause",
+            "parent_blocking_resume",
+            "child_scoped_approval",
+            "secret_non_leakage",
+          ],
+        },
+        {
+          id: "child_browser_approval_authority",
+          capabilities: [
+            "browser_authority",
+            "parent_approval_forwarding",
+            "child_approval_pause",
+            "parent_blocking_resume",
+            "child_scoped_approval",
+            "browser_approval_resume",
+          ],
+        },
+      ],
     }),
     liveConfidenceArtifactCheck(artifacts.liveWorkflowConfidence, {
       now,
@@ -364,30 +376,35 @@ function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAge
       missingPath: "test-results/subagent-live-confidence/workflow-symphony-latest.json",
       missingRequiredIssue: "Workflow/Symphony live confidence evidence is required but missing.",
       missingSkippedIssue: "Workflow/Symphony live confidence evidence was skipped for this deterministic gate run.",
-      expectedMaturityAssertions: [{
-        id: "live_workflow_run",
-        capabilities: ["workflow_launch", "ambient_runtime_call", "artifact_link", "checkpoint_output"],
-      }, {
-        id: "broader_workflow_ui_dogfood",
-        capabilities: [
-          "broader_live_workflow_runs",
-          "workflow_agent_ui_dogfood",
-          "workflow_output_evidence",
-          "electron_workflow_dogfood",
-        ],
-      }, {
-        id: "child_mutating_workflow",
-        capabilities: [
-          "mutating_child_workflow",
-          "child_scoped_approval",
-          "isolated_child_worktree",
-          "parent_blocking_workflow",
-          "denied_workflow_scope",
-        ],
-      }, {
-        id: "workflow_task_artifact_rehydration",
-        capabilities: ["workflow_task_rehydration", "artifact_link", "checkpoint_output"],
-      }],
+      expectedMaturityAssertions: [
+        {
+          id: "live_workflow_run",
+          capabilities: ["workflow_launch", "ambient_runtime_call", "artifact_link", "checkpoint_output"],
+        },
+        {
+          id: "broader_workflow_ui_dogfood",
+          capabilities: [
+            "broader_live_workflow_runs",
+            "workflow_agent_ui_dogfood",
+            "workflow_output_evidence",
+            "electron_workflow_dogfood",
+          ],
+        },
+        {
+          id: "child_mutating_workflow",
+          capabilities: [
+            "mutating_child_workflow",
+            "child_scoped_approval",
+            "isolated_child_worktree",
+            "parent_blocking_workflow",
+            "denied_workflow_scope",
+          ],
+        },
+        {
+          id: "workflow_task_artifact_rehydration",
+          capabilities: ["workflow_task_rehydration", "artifact_link", "checkpoint_output"],
+        },
+      ],
     }),
     liveConfidenceArtifactCheck(artifacts.liveWorkflowBroaderConfidence, {
       now,
@@ -399,30 +416,35 @@ function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAge
       missingPath: "test-results/subagent-live-confidence/workflow-symphony-broader-latest.json",
       missingRequiredIssue: "Broader Workflow/Symphony live confidence evidence is required but missing.",
       missingSkippedIssue: "Broader Workflow/Symphony live confidence evidence was skipped for this deterministic gate run.",
-      expectedMaturityAssertions: [{
-        id: "live_workflow_run",
-        capabilities: ["workflow_launch", "ambient_runtime_call", "artifact_link", "checkpoint_output"],
-      }, {
-        id: "broader_workflow_ui_dogfood",
-        capabilities: [
-          "broader_live_workflow_runs",
-          "workflow_agent_ui_dogfood",
-          "workflow_output_evidence",
-          "electron_workflow_dogfood",
-        ],
-      }, {
-        id: "child_mutating_workflow",
-        capabilities: [
-          "mutating_child_workflow",
-          "child_scoped_approval",
-          "isolated_child_worktree",
-          "parent_blocking_workflow",
-          "denied_workflow_scope",
-        ],
-      }, {
-        id: "workflow_task_artifact_rehydration",
-        capabilities: ["workflow_task_rehydration", "artifact_link", "checkpoint_output"],
-      }],
+      expectedMaturityAssertions: [
+        {
+          id: "live_workflow_run",
+          capabilities: ["workflow_launch", "ambient_runtime_call", "artifact_link", "checkpoint_output"],
+        },
+        {
+          id: "broader_workflow_ui_dogfood",
+          capabilities: [
+            "broader_live_workflow_runs",
+            "workflow_agent_ui_dogfood",
+            "workflow_output_evidence",
+            "electron_workflow_dogfood",
+          ],
+        },
+        {
+          id: "child_mutating_workflow",
+          capabilities: [
+            "mutating_child_workflow",
+            "child_scoped_approval",
+            "isolated_child_worktree",
+            "parent_blocking_workflow",
+            "denied_workflow_scope",
+          ],
+        },
+        {
+          id: "workflow_task_artifact_rehydration",
+          capabilities: ["workflow_task_rehydration", "artifact_link", "checkpoint_output"],
+        },
+      ],
     }),
     liveConfidenceArtifactCheck(artifacts.liveLocalRuntimeConfidence, {
       now,
@@ -434,22 +456,28 @@ function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAge
       missingPath: "test-results/subagent-live-confidence/local-runtime-latest.json",
       missingRequiredIssue: "Local runtime live confidence evidence is required but missing.",
       missingSkippedIssue: "Local runtime live confidence evidence was skipped for this deterministic gate run.",
-      expectedMaturityAssertions: [{
-        id: "local_runtime_active_lease_stop_blocker",
-        capabilities: ["local_runtime_lease_ownership", "lease_stop_blocker"],
-      }, {
-        id: "local_runtime_untracked_safety",
-        capabilities: ["untracked_runtime_safety"],
-      }, {
-        id: "local_runtime_stale_lease_recovery",
-        capabilities: ["stale_lease_recovery"],
-      }, {
-        id: "local_runtime_provider_lifecycle",
-        capabilities: ["provider_lifecycle", "stopped_provider_display", "non_destructive_stop"],
-      }, {
-        id: "local_runtime_proof_gate",
-        capabilities: ["proof_gate_clean"],
-      }],
+      expectedMaturityAssertions: [
+        {
+          id: "local_runtime_active_lease_stop_blocker",
+          capabilities: ["local_runtime_lease_ownership", "lease_stop_blocker"],
+        },
+        {
+          id: "local_runtime_untracked_safety",
+          capabilities: ["untracked_runtime_safety"],
+        },
+        {
+          id: "local_runtime_stale_lease_recovery",
+          capabilities: ["stale_lease_recovery"],
+        },
+        {
+          id: "local_runtime_provider_lifecycle",
+          capabilities: ["provider_lifecycle", "stopped_provider_display", "non_destructive_stop"],
+        },
+        {
+          id: "local_runtime_proof_gate",
+          capabilities: ["proof_gate_clean"],
+        },
+      ],
     }),
     liveConfidenceArtifactCheck(artifacts.liveRestartRepairConfidence, {
       now,
@@ -461,25 +489,32 @@ function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAge
       missingPath: "test-results/subagent-live-confidence/restart-repair-latest.json",
       missingRequiredIssue: "Restart repair live confidence evidence is required but missing.",
       missingSkippedIssue: "Restart repair live confidence evidence was skipped for this deterministic gate run.",
-      expectedMaturityAssertions: [{
-        id: "restart_repair_runtime_event_replay",
-        capabilities: ["runtime_event_replay"],
-      }, {
-        id: "restart_repair_child_tree_repair",
-        capabilities: ["restart_rehydration", "child_thread_repair", "wait_barrier_repair"],
-      }, {
-        id: "restart_repair_mailbox_rehydration",
-        capabilities: ["parent_mailbox_replay", "mailbox_state_rehydration"],
-      }, {
-        id: "restart_repair_artifact_pointer_rehydration",
-        capabilities: ["artifact_pointer_rehydration"],
-      }, {
-        id: "restart_repair_lifecycle_edge_coverage",
-        capabilities: ["restart_edge", "stop_edge", "detach_edge", "cancel_edge", "retry_edge", "timeout_edge", "partial_result_edge"],
-      }, {
-        id: "restart_repair_synthesis_safety",
-        capabilities: ["synthesis_safety"],
-      }],
+      expectedMaturityAssertions: [
+        {
+          id: "restart_repair_runtime_event_replay",
+          capabilities: ["runtime_event_replay"],
+        },
+        {
+          id: "restart_repair_child_tree_repair",
+          capabilities: ["restart_rehydration", "child_thread_repair", "wait_barrier_repair"],
+        },
+        {
+          id: "restart_repair_mailbox_rehydration",
+          capabilities: ["parent_mailbox_replay", "mailbox_state_rehydration"],
+        },
+        {
+          id: "restart_repair_artifact_pointer_rehydration",
+          capabilities: ["artifact_pointer_rehydration"],
+        },
+        {
+          id: "restart_repair_lifecycle_edge_coverage",
+          capabilities: ["restart_edge", "stop_edge", "detach_edge", "cancel_edge", "retry_edge", "timeout_edge", "partial_result_edge"],
+        },
+        {
+          id: "restart_repair_synthesis_safety",
+          capabilities: ["synthesis_safety"],
+        },
+      ],
     }),
     liveConfidenceArtifactCheck(artifacts.liveLifecycleEdgeConfidence, {
       now,
@@ -491,31 +526,40 @@ function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAge
       missingPath: "test-results/subagent-live-confidence/lifecycle-edges-latest.json",
       missingRequiredIssue: "Lifecycle edge confidence evidence is required but missing.",
       missingSkippedIssue: "Lifecycle edge confidence evidence was skipped for this deterministic gate run.",
-      expectedMaturityAssertions: [{
-        id: "lifecycle_edge_restart",
-        capabilities: ["restart_edge"],
-      }, {
-        id: "lifecycle_edge_stop",
-        capabilities: ["stop_edge"],
-      }, {
-        id: "lifecycle_edge_detach",
-        capabilities: ["detach_edge"],
-      }, {
-        id: "lifecycle_edge_cancel",
-        capabilities: ["cancel_edge"],
-      }, {
-        id: "lifecycle_edge_retry",
-        capabilities: ["retry_edge"],
-      }, {
-        id: "lifecycle_edge_timeout",
-        capabilities: ["timeout_edge"],
-      }, {
-        id: "lifecycle_edge_partial_result",
-        capabilities: ["partial_result_edge"],
-      }, {
-        id: "lifecycle_edge_synthesis_safety",
-        capabilities: ["synthesis_safety"],
-      }],
+      expectedMaturityAssertions: [
+        {
+          id: "lifecycle_edge_restart",
+          capabilities: ["restart_edge"],
+        },
+        {
+          id: "lifecycle_edge_stop",
+          capabilities: ["stop_edge"],
+        },
+        {
+          id: "lifecycle_edge_detach",
+          capabilities: ["detach_edge"],
+        },
+        {
+          id: "lifecycle_edge_cancel",
+          capabilities: ["cancel_edge"],
+        },
+        {
+          id: "lifecycle_edge_retry",
+          capabilities: ["retry_edge"],
+        },
+        {
+          id: "lifecycle_edge_timeout",
+          capabilities: ["timeout_edge"],
+        },
+        {
+          id: "lifecycle_edge_partial_result",
+          capabilities: ["partial_result_edge"],
+        },
+        {
+          id: "lifecycle_edge_synthesis_safety",
+          capabilities: ["synthesis_safety"],
+        },
+      ],
     }),
     liveConfidenceArtifactCheck(artifacts.liveDesktopDogfoodConfidence, {
       now,
@@ -527,31 +571,36 @@ function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAge
       missingPath: "test-results/subagent-live-confidence/desktop-dogfood-latest.json",
       missingRequiredIssue: "Desktop dogfood confidence evidence is required but missing.",
       missingSkippedIssue: "Desktop dogfood confidence evidence was skipped for this deterministic gate run.",
-      expectedMaturityAssertions: [{
-        id: "desktop_dogfood_scenario_coverage",
-        capabilities: [
-          "electron_desktop_dogfood",
-          "default_collapsed_state",
-          "approval_parent_blocking",
-          "workflow_execution_parent_blocking",
-          "workflow_high_load_dogfood",
-        ],
-      }, {
-        id: "desktop_dogfood_visual_layout",
-        capabilities: ["production_ui_visibility", "layout_safety", "visual_layout_safety"],
-      }, {
-        id: "desktop_dogfood_lifecycle_edges",
-        capabilities: ["lifecycle_edge_desktop_behavior", "timeout_edge", "partial_result_edge", "retry_edge", "detach_edge"],
-      }, {
-        id: "desktop_dogfood_runtime_and_operator_controls",
-        capabilities: [
-          "local_runtime_lease_ownership",
-          "lease_stop_blocker",
-          "untracked_runtime_safety",
-          "operator_child_controls",
-          "operator_control_behavior",
-        ],
-      }],
+      expectedMaturityAssertions: [
+        {
+          id: "desktop_dogfood_scenario_coverage",
+          capabilities: [
+            "electron_desktop_dogfood",
+            "default_collapsed_state",
+            "approval_parent_blocking",
+            "workflow_execution_parent_blocking",
+            "workflow_high_load_dogfood",
+          ],
+        },
+        {
+          id: "desktop_dogfood_visual_layout",
+          capabilities: ["production_ui_visibility", "layout_safety", "visual_layout_safety"],
+        },
+        {
+          id: "desktop_dogfood_lifecycle_edges",
+          capabilities: ["lifecycle_edge_desktop_behavior", "timeout_edge", "partial_result_edge", "retry_edge", "detach_edge"],
+        },
+        {
+          id: "desktop_dogfood_runtime_and_operator_controls",
+          capabilities: [
+            "local_runtime_lease_ownership",
+            "lease_stop_blocker",
+            "untracked_runtime_safety",
+            "operator_child_controls",
+            "operator_control_behavior",
+          ],
+        },
+      ],
     }),
     harnessManifestCheck(artifacts.electronDogfoodHarnessManifest, {
       now,
@@ -576,10 +625,9 @@ function buildSubagentReleaseGateArtifactChecks({ artifacts, now, maxArtifactAge
       now,
       maxArtifactAgeHours,
       requireMaturityHistory,
-    })
+    }),
   ];
 }
-
 
 export function subagentReleaseGatePassed(report, options = {}) {
   if (!report || report.releaseDecision?.ready !== true) return false;
@@ -615,13 +663,14 @@ export function renderSubagentReleaseGateMarkdown(report) {
     "",
     "| Check | Status | Evidence | Issues |",
     "| --- | --- | --- | --- |",
-    ...report.checks.map((check) =>
-      `| ${[
-        escapeMarkdownCell(check.label),
-        check.status,
-        escapeMarkdownCell((check.evidence ?? []).join("; ")),
-        escapeMarkdownCell([...(check.issues ?? []), ...(check.warnIssues ?? [])].join("; ")),
-      ].join(" | ")} |`,
+    ...report.checks.map(
+      (check) =>
+        `| ${[
+          escapeMarkdownCell(check.label),
+          check.status,
+          escapeMarkdownCell((check.evidence ?? []).join("; ")),
+          escapeMarkdownCell([...(check.issues ?? []), ...(check.warnIssues ?? [])].join("; ")),
+        ].join(" | ")} |`,
     ),
     "",
   ];
@@ -630,22 +679,16 @@ export function renderSubagentReleaseGateMarkdown(report) {
 
 function skippedLiveEvidenceLabels(decision) {
   if (!decision || typeof decision !== "object") return SUBAGENT_LIVE_EVIDENCE_DECISIONS.map(([, label]) => label);
-  return SUBAGENT_LIVE_EVIDENCE_DECISIONS
-    .filter(([field]) => decision[field] !== false)
-    .map(([, label]) => label);
+  return SUBAGENT_LIVE_EVIDENCE_DECISIONS.filter(([field]) => decision[field] !== false).map(([, label]) => label);
 }
 
 function liveEvidenceDecisionLines(decision) {
-  return SUBAGENT_LIVE_EVIDENCE_DECISIONS.map(([field, label]) =>
-    `- ${label}: ${decision?.[field] === false ? "present" : "skipped"}`
-  );
+  return SUBAGENT_LIVE_EVIDENCE_DECISIONS.map(([field, label]) => `- ${label}: ${decision?.[field] === false ? "present" : "skipped"}`);
 }
 
 export function buildSubagentReleaseGateLiveHistoryEntry(report, options = {}) {
   const checks = Array.isArray(report?.checks) ? report.checks : [];
-  const decision = report?.releaseDecision && typeof report.releaseDecision === "object"
-    ? report.releaseDecision
-    : {};
+  const decision = report?.releaseDecision && typeof report.releaseDecision === "object" ? report.releaseDecision : {};
   const startedAt = report?.startedAt;
   const completedAt = report?.completedAt;
   return {
@@ -663,10 +706,9 @@ export function buildSubagentReleaseGateLiveHistoryEntry(report, options = {}) {
       acc[status] = (acc[status] ?? 0) + 1;
       return acc;
     }, {}),
-    liveEvidence: Object.fromEntries(SUBAGENT_LIVE_EVIDENCE_DECISIONS.map(([field, label]) => [
-      label,
-      decision[field] === false ? "present" : "skipped",
-    ])),
+    liveEvidence: Object.fromEntries(
+      SUBAGENT_LIVE_EVIDENCE_DECISIONS.map(([field, label]) => [label, decision[field] === false ? "present" : "skipped"]),
+    ),
     skippedLiveEvidence: skippedLiveEvidenceLabels(decision),
     blockingIssueCount: Array.isArray(decision.blockingIssues) ? decision.blockingIssues.length : 0,
     advisoryIssueCount: Array.isArray(decision.advisoryIssues) ? decision.advisoryIssues.length : 0,
@@ -675,9 +717,7 @@ export function buildSubagentReleaseGateLiveHistoryEntry(report, options = {}) {
 }
 
 function liveHistoryRunId(timestamp) {
-  return nonEmptyString(timestamp)
-    ? timestamp.replace(/[^a-zA-Z0-9._-]+/g, "-")
-    : `unknown-${Date.now()}`;
+  return nonEmptyString(timestamp) ? timestamp.replace(/[^a-zA-Z0-9._-]+/g, "-") : `unknown-${Date.now()}`;
 }
 
 function durationMs(startedAt, completedAt) {
@@ -702,36 +742,37 @@ function scriptChecks(scripts) {
 }
 
 function deterministicSuiteCoverageCheck(scripts) {
-  const deterministicScript = typeof scripts["test:subagents:deterministic"] === "string"
-    ? scripts["test:subagents:deterministic"]
-    : "";
-  const releaseGateScript = typeof scripts["test:subagents:release-gate"] === "string"
-    ? scripts["test:subagents:release-gate"]
-    : "";
-  const liveReleaseGateScript = typeof scripts["test:subagents:release-gate:live"] === "string"
-    ? scripts["test:subagents:release-gate:live"]
-    : "";
-  const graduationReleaseGateScript = typeof scripts["test:subagents:release-gate:graduation"] === "string"
-    ? scripts["test:subagents:release-gate:graduation"]
-    : "";
-  const workflowJitterReleaseProfileGateScript = typeof scripts["test:workflow-jitter-release-gate:release-profile"] === "string"
-    ? scripts["test:workflow-jitter-release-gate:release-profile"]
-    : "";
+  const deterministicScript = typeof scripts["test:subagents:deterministic"] === "string" ? scripts["test:subagents:deterministic"] : "";
+  const releaseGateScript = typeof scripts["test:subagents:release-gate"] === "string" ? scripts["test:subagents:release-gate"] : "";
+  const liveReleaseGateScript =
+    typeof scripts["test:subagents:release-gate:live"] === "string" ? scripts["test:subagents:release-gate:live"] : "";
+  const graduationReleaseGateScript =
+    typeof scripts["test:subagents:release-gate:graduation"] === "string" ? scripts["test:subagents:release-gate:graduation"] : "";
+  const workflowJitterReleaseProfileGateScript =
+    typeof scripts["test:workflow-jitter-release-gate:release-profile"] === "string"
+      ? scripts["test:workflow-jitter-release-gate:release-profile"]
+      : "";
   const missingTests = REQUIRED_DETERMINISTIC_TEST_FILES.filter((file) => !deterministicScript.includes(file));
   const missingDelegates = [
     ["test:subagents:release-gate", releaseGateScript],
     ["test:subagents:release-gate:live", liveReleaseGateScript],
     ["test:subagents:release-gate:graduation", graduationReleaseGateScript],
-  ].filter(([, script]) => !script.includes(DETERMINISTIC_SUITE_COMMAND)).map(([name]) => name);
-  const liveReleaseGateRunsDesktopDogfood = liveReleaseGateScript.includes("pnpm run test:subagents:desktop-dogfood")
-    || liveReleaseGateScript.includes("pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked");
+  ]
+    .filter(([, script]) => !script.includes(DETERMINISTIC_SUITE_COMMAND))
+    .map(([name]) => name);
+  const liveReleaseGateRunsDesktopDogfood =
+    liveReleaseGateScript.includes("pnpm run test:subagents:desktop-dogfood") ||
+    liveReleaseGateScript.includes("pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked");
   const missingLiveDesktopDogfood = liveReleaseGateRunsDesktopDogfood
     ? []
-    : ["test:subagents:release-gate:live must run Desktop dogfood directly or through pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked."];
+    : [
+        "test:subagents:release-gate:live must run Desktop dogfood directly or through pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked.",
+      ];
   const missingLiveReleaseGateCommands = REQUIRED_LIVE_RELEASE_GATE_COMMANDS.filter((command) => !liveReleaseGateScript.includes(command));
   const missingGraduationReleaseGateCommands = [
-    ...REQUIRED_LIVE_RELEASE_GATE_COMMANDS.filter((command) => !graduationReleaseGateScript.includes(command))
-      .map((command) => `test:subagents:release-gate:graduation must run ${command}.`),
+    ...REQUIRED_LIVE_RELEASE_GATE_COMMANDS.filter((command) => !graduationReleaseGateScript.includes(command)).map(
+      (command) => `test:subagents:release-gate:graduation must run ${command}.`,
+    ),
     ...(graduationReleaseGateScript.includes("pnpm run test:subagents:desktop-dogfood-repeat -- --require-ready")
       ? []
       : ["test:subagents:release-gate:graduation must run pnpm run test:subagents:desktop-dogfood-repeat -- --require-ready."]),
@@ -742,15 +783,17 @@ function deterministicSuiteCoverageCheck(scripts) {
       ? []
       : ["test:subagents:release-gate:graduation must run pnpm run subagents:live-history-report -- --require-ready."]),
     ...(graduationReleaseGateScript.includes("node scripts/subagent-release-gate.mjs") &&
-        graduationReleaseGateScript.includes("--require-live") &&
-        graduationReleaseGateScript.includes("--require-maturity-history")
+    graduationReleaseGateScript.includes("--require-live") &&
+    graduationReleaseGateScript.includes("--require-maturity-history")
       ? []
       : ["test:subagents:release-gate:graduation must run the release gate with --require-live and --require-maturity-history."]),
   ];
   const missingLocalRuntimeControlProof = releaseGateScript.includes(LOCAL_RUNTIME_CONTROL_PROOF_COMMAND)
     ? []
     : [`test:subagents:release-gate must run ${LOCAL_RUNTIME_CONTROL_PROOF_COMMAND}.`];
-  const missingWorkflowJitterReleaseProfileRunner = workflowJitterReleaseProfileGateScript.includes("scripts/workflow-jitter-release-profile-gate.mjs")
+  const missingWorkflowJitterReleaseProfileRunner = workflowJitterReleaseProfileGateScript.includes(
+    "scripts/workflow-jitter-release-profile-gate.mjs",
+  )
     ? []
     : [
         "test:workflow-jitter-release-gate:release-profile must use scripts/workflow-jitter-release-profile-gate.mjs so the release gate writes an artifact even when the matrix blocks.",
@@ -802,10 +845,10 @@ function liveHarnessRoutingCheck(scripts) {
       issues.push(`${name} must route live Vitest through scripts/run-live-node-test.mjs.`);
     }
   }
-  const desktopScript = typeof scripts["test:subagents:desktop-dogfood"] === "string"
-    ? scripts["test:subagents:desktop-dogfood"]
-    : "";
-  evidence.push(`test:subagents:desktop-dogfood: ${desktopScript.includes("scripts/run-electron-dogfood.mjs") ? "harnessed" : "unharnessed"}`);
+  const desktopScript = typeof scripts["test:subagents:desktop-dogfood"] === "string" ? scripts["test:subagents:desktop-dogfood"] : "";
+  evidence.push(
+    `test:subagents:desktop-dogfood: ${desktopScript.includes("scripts/run-electron-dogfood.mjs") ? "harnessed" : "unharnessed"}`,
+  );
   if (!desktopScript.includes("scripts/run-electron-dogfood.mjs")) {
     issues.push("test:subagents:desktop-dogfood must route through scripts/run-electron-dogfood.mjs.");
   }
@@ -817,655 +860,6 @@ function liveHarnessRoutingCheck(scripts) {
     evidence,
     issues,
   });
-}
-
-function replayDiagnosticsArtifactCheck(artifact, options) {
-  const issues = [];
-  if (!artifact) {
-    return check({
-      id: "artifact.replay-diagnostics",
-      area: "artifacts",
-      status: "failed",
-      label: "deterministic replay diagnostics artifact is green",
-      evidence: ["missing test-results/subagent-replay-diagnostics/latest.json"],
-      issues: ["Run pnpm run test:subagents:replay-diagnostics before the release gate."],
-    });
-  }
-  if (artifact.schemaVersion !== "ambient-subagent-replay-diagnostics-v1") {
-    issues.push(`Replay diagnostics schema is ${artifact.schemaVersion ?? "missing"}.`);
-  }
-  if (artifact.status !== "passed") issues.push(`Replay diagnostics status is ${artifact.status ?? "missing"}.`);
-  if (artifact.plan?.liveTokens !== false) issues.push("Replay diagnostics must declare liveTokens: false.");
-  if ((artifact.vitest?.failedTests ?? 0) !== 0) issues.push(`${artifact.vitest?.failedTests} replay diagnostic tests failed.`);
-  if ((artifact.vitest?.missingReplayTests ?? []).length) {
-    issues.push(`Replay diagnostics missed required tests: ${artifact.vitest.missingReplayTests.join(", ")}.`);
-  }
-  const replayEvidence = validateReplayEvidenceArtifact(artifact.replayEvidence);
-  issues.push(...replayEvidence.issues);
-  const lifecycleEdgeEvidence = isValidLifecycleEdgeArtifact(artifact.lifecycleEdgeEvidence);
-  if (!artifact.lifecycleEdgeEvidence) {
-    issues.push("Replay diagnostics must include lifecycleEdgeEvidence.");
-  } else {
-    issues.push(...lifecycleEdgeEvidence.issues);
-  }
-  const freshness = artifactFreshness(artifact.completedAt, options);
-  issues.push(...freshness.issues);
-  return check({
-    id: "artifact.replay-diagnostics",
-    area: "artifacts",
-    status: issues.length ? "failed" : "passed",
-    label: "deterministic replay diagnostics artifact is green",
-    evidence: [
-      `path: ${artifact.__artifactPath ?? "test-results/subagent-replay-diagnostics/latest.json"}`,
-      `status: ${artifact.status ?? "missing"}`,
-      `tests: ${artifact.vitest?.passedTests ?? 0}/${artifact.vitest?.totalTests ?? 0}`,
-      `runtime events: ${artifact.replayEvidence?.counts?.runtimeEvents ?? 0}`,
-      `parent mailbox events: ${artifact.replayEvidence?.counts?.parentMailboxEvents ?? 0}`,
-      `repair issues: ${artifact.replayEvidence?.counts?.restartRepairIssues ?? 0}`,
-      `rehydrated artifact pointers: ${artifact.replayEvidence?.rehydration?.resultArtifactPointers?.length ?? 0}`,
-      `lifecycle edges: ${(artifact.lifecycleEdgeEvidence?.summary?.coveredEdgeKinds ?? []).join(", ") || "missing"}`,
-      ...freshness.evidence,
-    ],
-    issues,
-  });
-}
-
-function validateReplayEvidenceArtifact(evidence) {
-  const issues = [];
-  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
-    return { issues: ["Replay diagnostics must include replayEvidence."] };
-  }
-  if (evidence.schemaVersion !== "ambient-subagent-replay-evidence-v1") {
-    issues.push(`Replay evidence schema is ${evidence.schemaVersion ?? "missing"}.`);
-  }
-  if (evidence.liveTokens !== false) issues.push("Replay evidence must declare liveTokens: false.");
-  if (!Array.isArray(evidence.runtimeEventTimeline) || evidence.runtimeEventTimeline.length === 0) {
-    issues.push("Replay evidence must include a runtimeEventTimeline.");
-  }
-  if (!Array.isArray(evidence.persistedRunEventTimeline) || evidence.persistedRunEventTimeline.length === 0) {
-    issues.push("Replay evidence must include a persistedRunEventTimeline.");
-  }
-  if (!Array.isArray(evidence.parentMailboxTimeline) || evidence.parentMailboxTimeline.length === 0) {
-    issues.push("Replay evidence must include a parentMailboxTimeline.");
-  }
-  if ((typeof evidence.counts?.parentMailboxEvents === "number" ? evidence.counts.parentMailboxEvents : 0) <= 0) {
-    issues.push("Replay evidence must include parent mailbox event counts.");
-  }
-  if (!Array.isArray(evidence.childThreads) || evidence.childThreads.length === 0) {
-    issues.push("Replay evidence must include childThreads.");
-  }
-  const expectedIssueKinds = evidence.restartRepair?.expectedIssueKinds;
-  const observedIssueKinds = evidence.restartRepair?.observedIssueKinds;
-  if (!Array.isArray(expectedIssueKinds) || expectedIssueKinds.length === 0) {
-    issues.push("Replay evidence must include expected restart repair issue kinds.");
-  }
-  if (!Array.isArray(observedIssueKinds) || observedIssueKinds.length === 0) {
-    issues.push("Replay evidence must include observed restart repair issue kinds.");
-  }
-  if (Array.isArray(expectedIssueKinds) && Array.isArray(observedIssueKinds)) {
-    const missingObserved = expectedIssueKinds.filter((kind) => !observedIssueKinds.includes(kind));
-    if (missingObserved.length) issues.push(`Replay evidence did not observe expected issue kinds: ${missingObserved.join(", ")}.`);
-  }
-  validateReplayRehydrationProof(evidence.rehydration, issues);
-  return { issues };
-}
-
-function validateReplayRehydrationProof(rehydration, issues) {
-  if (!rehydration || typeof rehydration !== "object" || Array.isArray(rehydration)) {
-    issues.push("Replay evidence must include restart rehydration proof.");
-    return;
-  }
-  if (rehydration.schemaVersion !== "ambient-subagent-restart-rehydration-proof-v1") {
-    issues.push(`Replay rehydration proof schema is ${rehydration.schemaVersion ?? "missing"}.`);
-  }
-  if (!nonEmptyStringArray(rehydration.childRunIds)) issues.push("Replay rehydration proof must include childRunIds.");
-  if (!nonEmptyStringArray(rehydration.childThreadIds)) issues.push("Replay rehydration proof must include childThreadIds.");
-  if (!nonEmptyStringArray(rehydration.parentMailboxEventIds)) issues.push("Replay rehydration proof must include parentMailboxEventIds.");
-  const mailboxStates = Array.isArray(rehydration.parentMailboxStates) ? rehydration.parentMailboxStates : [];
-  if (mailboxStates.length === 0) issues.push("Replay rehydration proof must include parentMailboxStates.");
-  for (const state of mailboxStates) {
-    if (!nonEmptyString(state?.id)) issues.push("Replay rehydration mailbox state is missing id.");
-    if (!nonEmptyString(state?.parentThreadId)) issues.push(`Replay rehydration mailbox ${state?.id ?? "unknown"} is missing parentThreadId.`);
-    if (!nonEmptyString(state?.parentRunId)) issues.push(`Replay rehydration mailbox ${state?.id ?? "unknown"} is missing parentRunId.`);
-    if (!["queued", "delivered", "consumed", "failed", "cancelled"].includes(state?.deliveryState)) {
-      issues.push(`Replay rehydration mailbox ${state?.id ?? "unknown"} has invalid deliveryState ${state?.deliveryState ?? "missing"}.`);
-    }
-    if (!nonEmptyStringArray(state?.childRunIds)) issues.push(`Replay rehydration mailbox ${state?.id ?? "unknown"} is missing childRunIds.`);
-  }
-  if (!nonEmptyStringArray(rehydration.transcriptThreadIds)) issues.push("Replay rehydration proof must include transcriptThreadIds.");
-  const artifactPointers = Array.isArray(rehydration.resultArtifactPointers) ? rehydration.resultArtifactPointers : [];
-  if (artifactPointers.length === 0) issues.push("Replay rehydration proof must include resultArtifactPointers.");
-  for (const pointer of artifactPointers) {
-    if (!nonEmptyString(pointer?.runId)) issues.push("Replay rehydration artifact pointer is missing runId.");
-    if (!nonEmptyString(pointer?.childThreadId)) issues.push(`Replay rehydration artifact pointer ${pointer?.runId ?? "unknown"} is missing childThreadId.`);
-    if (![pointer?.artifactPath, pointer?.fullOutputPath, pointer?.structuredOutputPath].some(nonEmptyString)) {
-      issues.push(`Replay rehydration artifact pointer ${pointer?.runId ?? "unknown"} is missing artifact paths.`);
-    }
-  }
-  if (!nonEmptyStringArray(rehydration.missingResultArtifactRunIds)) {
-    issues.push("Replay rehydration proof must include missingResultArtifactRunIds.");
-  }
-  const integrity = rehydration.artifactPointerIntegrity ?? {};
-  for (const field of [
-    "allResultPointersHaveRunAndThread",
-    "missingResultArtifactsDiagnosed",
-    "parentMailboxChildRefsResolved",
-    "transcriptChildRefsResolved",
-  ]) {
-    if (integrity[field] !== true) issues.push(`Replay rehydration integrity ${field} is not true.`);
-  }
-}
-
-const REQUIRED_CALLABLE_WORKFLOW_DOGFOOD_MATURITY_ASSERTIONS = [{
-  id: "workflow_launch_card_bounds",
-  capabilities: ["workflow_launch", "launch_card_bounds", "pause_resume_cancel"],
-}, {
-  id: "workflow_mutating_child_worker",
-  capabilities: ["mutating_child_workflow", "child_scoped_approval", "isolated_child_worktree"],
-}, {
-  id: "workflow_parent_blocking_completion",
-  capabilities: ["parent_blocking_workflow", "workflow_launch"],
-}, {
-  id: "workflow_denied_child_scope",
-  capabilities: ["denied_workflow_scope", "child_workflow_scope"],
-}, {
-  id: "workflow_restart_repair",
-  capabilities: ["workflow_task_rehydration", "restart_repair"],
-}];
-
-const REQUIRED_CALLABLE_WORKFLOW_REHYDRATION_MATURITY_ASSERTIONS = [{
-  id: "workflow_rehydrated_task_links",
-  capabilities: ["workflow_task_rehydration", "artifact_link"],
-}, {
-  id: "workflow_rehydrated_artifact_payload",
-  capabilities: ["artifact_link", "checkpoint_output"],
-}, {
-  id: "workflow_rehydrated_progress_usage",
-  capabilities: ["workflow_task_rehydration", "checkpoint_output"],
-}, {
-  id: "workflow_rehydrated_child_provenance",
-  capabilities: ["child_workflow_provenance", "workflow_task_rehydration"],
-}];
-
-function callableWorkflowDogfoodArtifactCheck(artifact, options) {
-  const validation = isValidCallableWorkflowDogfoodArtifact(artifact);
-  const freshness = artifactFreshness(artifact?.createdAt, options);
-  const issues = [...validation.issues, ...freshness.issues];
-  if (!artifact) {
-    return check({
-      id: "artifact.callable-workflow-dogfood",
-      area: "artifacts",
-      status: "failed",
-      label: "callable workflow mutating child dogfood proof artifact is green",
-      evidence: ["missing test-results/callable-workflow-dogfood/latest.json"],
-      issues: ["Run pnpm run test:callable-workflow-dogfood:proof before the release gate."],
-    });
-  }
-  return check({
-    id: "artifact.callable-workflow-dogfood",
-    area: "artifacts",
-    status: issues.length ? "failed" : "passed",
-    label: "callable workflow mutating child dogfood proof artifact is green",
-    evidence: [
-      `path: ${artifact.__artifactPath ?? "test-results/callable-workflow-dogfood/latest.json"}`,
-      `task: ${artifact.task?.id ?? "missing"}`,
-      `workflowRun: ${artifact.workflow?.runId ?? "missing"} ${artifact.workflow?.runStatus ?? "missing"}`,
-      `child: ${artifact.childCaller?.threadId ?? "missing"} / ${artifact.childCaller?.subagentRunId ?? "missing"}`,
-      `mutationOutput: ${artifact.mutationOutput?.kind ?? "missing"} ${artifact.mutationOutput?.stagedRelativePath ?? "missing"} parentUnchanged=${artifact.mutationOutput?.parentWorkspaceUnchanged === true}`,
-      `parentBlocking: blocked=${artifact.parentBlocking?.blockedBeforeCompletion === true} unblocked=${artifact.parentBlocking?.unblockedAfterCompletion === true}`,
-      `restartRepairObserved: ${artifact.restart?.terminalRepairObserved === true}`,
-      `maturityAssertions: ${summarizeWorkflowMaturityAssertions(artifact.maturityAssertions, REQUIRED_CALLABLE_WORKFLOW_DOGFOOD_MATURITY_ASSERTIONS)}`,
-      ...freshness.evidence,
-    ],
-    issues,
-  });
-}
-
-function isValidCallableWorkflowDogfoodArtifact(artifact) {
-  const issues = [];
-  if (!artifact) return { valid: false, issues };
-  if (artifact.schemaVersion !== "ambient-callable-workflow-dogfood-evidence-v1") {
-    issues.push(`Callable workflow dogfood schemaVersion is ${artifact.schemaVersion ?? "missing"}.`);
-  }
-  if (artifact.task?.status !== "succeeded") {
-    issues.push(`Callable workflow dogfood task status is ${artifact.task?.status ?? "missing"}.`);
-  }
-  if (artifact.task?.blocking !== true) issues.push("Callable workflow dogfood task must be blocking.");
-  if (!nonEmptyString(artifact.task?.workflowArtifactId)) issues.push("Callable workflow dogfood task is missing workflowArtifactId.");
-  if (!nonEmptyString(artifact.task?.workflowRunId)) issues.push("Callable workflow dogfood task is missing workflowRunId.");
-  if (artifact.launchCard?.present !== true) issues.push("Callable workflow dogfood launch card proof is missing.");
-  if (!["low", "medium", "high"].includes(artifact.launchCard?.riskLevel)) {
-    issues.push("Callable workflow dogfood launch card riskLevel is missing or invalid.");
-  }
-  for (const field of ["estimatedAgents", "maxFanout", "maxDepth", "estimatedTokenBudget", "estimatedLocalMemoryBytes"]) {
-    if (!positiveInteger(artifact.launchCard?.[field])) issues.push(`Callable workflow dogfood launch card is missing ${field}.`);
-  }
-  if (artifact.launchCard?.defaultCollapsed !== true) issues.push("Callable workflow dogfood launch card must be default collapsed.");
-  if (artifact.launchCard?.blocking !== true) issues.push("Callable workflow dogfood launch card must be blocking.");
-  if (artifact.launchCard?.pauseResumeCancel !== true) {
-    issues.push("Callable workflow dogfood task must expose pause/resume/cancel controls.");
-  }
-  if (!nonEmptyString(artifact.launchCard?.checkpointResume)) {
-    issues.push("Callable workflow dogfood launch card is missing checkpoint/resume text.");
-  }
-  if (!nonEmptyString(artifact.launchCard?.approvalFailureHandling)) {
-    issues.push("Callable workflow dogfood launch card is missing approval failure handling text.");
-  }
-  if (!nonEmptyStringArray(artifact.launchCard?.requirementIds)) {
-    issues.push("Callable workflow dogfood launch card is missing requirementIds.");
-  }
-  if (!nonEmptyStringArray(artifact.launchCard?.metricTemplateIds)) {
-    issues.push("Callable workflow dogfood launch card is missing metricTemplateIds.");
-  }
-  if (artifact.childCaller?.kind !== "subagent_child_thread") issues.push("Callable workflow dogfood must be child-originated.");
-  for (const field of ["threadId", "runId", "subagentRunId", "canonicalTaskPath", "parentThreadId", "parentRunId"]) {
-    if (!nonEmptyString(artifact.childCaller?.[field])) issues.push(`Callable workflow dogfood child caller is missing ${field}.`);
-  }
-  if (artifact.mutation?.mutationPolicy === "read_only") issues.push("Callable workflow dogfood must use a mutating artifact policy.");
-  if (artifact.mutation?.approvalRequired !== true) issues.push("Callable workflow dogfood must prove approvalRequired.");
-  if (artifact.mutation?.approvalSource !== "child_bridge_policy") issues.push("Callable workflow dogfood approvalSource must be child_bridge_policy.");
-  if (artifact.mutation?.approvalScope !== "this_child_thread") issues.push("Callable workflow dogfood approvalScope must be this_child_thread.");
-  if (artifact.mutation?.worktreeRequired !== true) issues.push("Callable workflow dogfood must require a worktree.");
-  if (artifact.mutation?.worktreeIsolated !== true) issues.push("Callable workflow dogfood must use an isolated worktree.");
-  if (artifact.mutation?.worktreeStatus !== "active") issues.push("Callable workflow dogfood worktreeStatus must be active.");
-  if (artifact.mutation?.worktreePathPresent !== true) issues.push("Callable workflow dogfood must prove a worktree path was present.");
-  if (artifact.mutation?.nestedFanoutRequired !== true) issues.push("Callable workflow dogfood must require nested fanout policy.");
-  if (artifact.mutation?.nestedFanoutSource !== "child_bridge_policy") issues.push("Callable workflow dogfood nestedFanoutSource must be child_bridge_policy.");
-  const mutationOutput = artifact.mutationOutput && typeof artifact.mutationOutput === "object"
-    ? artifact.mutationOutput
-    : {};
-  if (mutationOutput.kind !== "staged_file") issues.push("Callable workflow dogfood mutation output must be staged_file.");
-  if (!safeRelativePath(mutationOutput.stagedRelativePath)) {
-    issues.push("Callable workflow dogfood mutation output is missing a safe stagedRelativePath.");
-  }
-  if (!sha256Hex(mutationOutput.stagedFileSha256)) {
-    issues.push("Callable workflow dogfood mutation output is missing stagedFileSha256.");
-  }
-  if (!nonEmptyString(mutationOutput.fullArtifactPath)) {
-    issues.push("Callable workflow dogfood mutation output is missing fullArtifactPath.");
-  }
-  if (!positiveInteger(mutationOutput.fullArtifactBytes)) {
-    issues.push("Callable workflow dogfood mutation output is missing fullArtifactBytes.");
-  }
-  if (!sha256Hex(mutationOutput.fullArtifactSha256)) {
-    issues.push("Callable workflow dogfood mutation output is missing fullArtifactSha256.");
-  }
-  if (!nonEmptyString(mutationOutput.boundedPreview) || mutationOutput.boundedPreview.length > 512) {
-    issues.push("Callable workflow dogfood mutation output must include a boundedPreview.");
-  }
-  if (!positiveInteger(mutationOutput.previewBytes)) {
-    issues.push("Callable workflow dogfood mutation output is missing previewBytes.");
-  }
-  if (mutationOutput.previewTruncated !== true) {
-    issues.push("Callable workflow dogfood mutation output must prove previewTruncated.");
-  }
-  if (mutationOutput.parentWorkspaceUnchanged !== true) {
-    issues.push("Callable workflow dogfood mutation output must prove parentWorkspaceUnchanged.");
-  }
-  if (!nonEmptyString(artifact.workflow?.workflowThreadId)) issues.push("Callable workflow dogfood is missing workflowThreadId.");
-  if (artifact.workflow?.taskArtifactLinkMatches !== true) issues.push("Callable workflow dogfood artifact link must match the task.");
-  if (artifact.workflow?.taskRunLinkMatches !== true) issues.push("Callable workflow dogfood run link must match the task.");
-  if (artifact.workflow?.runStatus !== "succeeded") issues.push(`Callable workflow dogfood runStatus is ${artifact.workflow?.runStatus ?? "missing"}.`);
-  if (artifact.taskEvents?.started !== true) issues.push("Callable workflow dogfood is missing task-started event proof.");
-  if (artifact.taskEvents?.finished !== true) issues.push("Callable workflow dogfood is missing task-finished event proof.");
-  if (artifact.parentBlocking?.blockedBeforeCompletion !== true) {
-    issues.push("Callable workflow dogfood must prove parent synthesis was blocked before completion.");
-  }
-  if (artifact.parentBlocking?.unblockedAfterCompletion !== true) {
-    issues.push("Callable workflow dogfood must prove parent synthesis unblocked after completion.");
-  }
-  if (!Array.isArray(artifact.parentBlocking?.waitingTaskIds) || artifact.parentBlocking.waitingTaskIds.length === 0) {
-    issues.push("Callable workflow dogfood parent-blocking proof is missing waitingTaskIds.");
-  }
-  const allowedChoices = Array.isArray(artifact.parentBlocking?.allowedUserChoiceIds)
-    ? artifact.parentBlocking.allowedUserChoiceIds
-    : [];
-  if (!allowedChoices.includes("wait_again") || !allowedChoices.includes("cancel_parent")) {
-    issues.push("Callable workflow dogfood parent-blocking proof is missing wait/cancel choices.");
-  }
-  if (artifact.deniedScope?.denied !== true) issues.push("Callable workflow dogfood must prove denied child workflow scope.");
-  const deniedCategories = Array.isArray(artifact.deniedScope?.deniedCategoryIds) ? artifact.deniedScope.deniedCategoryIds : [];
-  const deniedTools = Array.isArray(artifact.deniedScope?.deniedToolIds) ? artifact.deniedScope.deniedToolIds : [];
-  if (!deniedCategories.includes("workflow.call")) issues.push("Callable workflow dogfood denied scope is missing workflow.call.");
-  if (!deniedTools.some((id) => typeof id === "string" && id.startsWith("callable_workflow:ambient_workflow_"))) {
-    issues.push("Callable workflow dogfood denied scope is missing exact callable workflow tool denial.");
-  }
-  const bridgeReasons = Array.isArray(artifact.deniedScope?.bridgeReasons) ? artifact.deniedScope.bridgeReasons : [];
-  for (const reasonFragment of [
-    "disabled by child role policy",
-    "requires an active isolated child worktree",
-    "nested fanout limit is exhausted",
-  ]) {
-    if (!bridgeReasons.some((reason) => typeof reason === "string" && reason.includes(reasonFragment))) {
-      issues.push(`Callable workflow dogfood denied scope is missing bridge reason: ${reasonFragment}.`);
-    }
-  }
-  if (artifact.restart?.terminalRepairObserved !== true) {
-    issues.push("Callable workflow dogfood must observe terminal workflow restart repair.");
-  }
-  if (!Array.isArray(artifact.restart?.repairedTaskIds) || artifact.restart.repairedTaskIds.length === 0) {
-    issues.push("Callable workflow dogfood restart proof is missing repaired task IDs.");
-  }
-  if (!Array.isArray(artifact.restart?.diagnosticTaskIds) || artifact.restart.diagnosticTaskIds.length === 0) {
-    issues.push("Callable workflow dogfood restart proof is missing diagnostic task IDs.");
-  }
-  validateWorkflowMaturityAssertions(
-    artifact.maturityAssertions,
-    issues,
-    "Callable workflow dogfood",
-    REQUIRED_CALLABLE_WORKFLOW_DOGFOOD_MATURITY_ASSERTIONS,
-  );
-  return { valid: issues.length === 0, issues };
-}
-
-function callableWorkflowRehydrationArtifactCheck(artifact, options) {
-  const validation = isValidCallableWorkflowRehydrationArtifact(artifact);
-  const freshness = artifactFreshness(artifact?.createdAt, options);
-  const issues = [...validation.issues, ...freshness.issues];
-  if (!artifact) {
-    return check({
-      id: "artifact.callable-workflow-rehydration",
-      area: "artifacts",
-      status: "failed",
-      label: "callable workflow restart rehydration proof artifact is green",
-      evidence: ["missing test-results/callable-workflow-rehydration/latest.json"],
-      issues: ["Run pnpm run test:callable-workflow-rehydration:proof before the release gate."],
-    });
-  }
-  return check({
-    id: "artifact.callable-workflow-rehydration",
-    area: "artifacts",
-    status: issues.length ? "failed" : "passed",
-    label: "callable workflow restart rehydration proof artifact is green",
-    evidence: [
-      `path: ${artifact.__artifactPath ?? "test-results/callable-workflow-rehydration/latest.json"}`,
-      `task: ${artifact.task?.id ?? "missing"}`,
-      `workflowRun: ${artifact.workflowRun?.id ?? "missing"} ${artifact.workflowRun?.status ?? "missing"}`,
-      `workflowThread: ${artifact.task?.workflowThreadId ?? "missing"}`,
-      `artifactSourcePath: ${artifact.artifact?.sourcePath ?? "missing"}`,
-      `artifactStatePath: ${artifact.artifact?.statePath ?? "missing"}`,
-      `artifactMutationPolicy: ${artifact.artifact?.mutationPolicy ?? "missing"}`,
-      `progressEvents: ${artifact.progressSnapshot?.eventCount ?? 0}`,
-      `modelCalls: ${artifact.usageSnapshot?.modelCallCount ?? 0}`,
-      `tokens: ${artifact.usageSnapshot?.tokenCount ?? 0}`,
-      `maturityAssertions: ${summarizeWorkflowMaturityAssertions(artifact.maturityAssertions, REQUIRED_CALLABLE_WORKFLOW_REHYDRATION_MATURITY_ASSERTIONS)}`,
-      ...freshness.evidence,
-    ],
-    issues,
-  });
-}
-
-function isValidCallableWorkflowRehydrationArtifact(artifact) {
-  const issues = [];
-  if (!artifact) return { valid: false, issues };
-  if (artifact.schemaVersion !== "ambient-callable-workflow-rehydration-evidence-v1") {
-    issues.push(`Callable workflow rehydration schemaVersion is ${artifact.schemaVersion ?? "missing"}.`);
-  }
-  if (artifact.task?.status !== "running") issues.push(`Callable workflow rehydration task status is ${artifact.task?.status ?? "missing"}.`);
-  if (artifact.task?.blocking !== true) issues.push("Callable workflow rehydration task must be blocking.");
-  for (const field of ["workflowThreadId", "workflowArtifactId", "workflowRunId"]) {
-    if (!nonEmptyString(artifact.task?.[field])) issues.push(`Callable workflow rehydration task is missing ${field}.`);
-  }
-  const rehydration = artifact.rehydration && typeof artifact.rehydration === "object" ? artifact.rehydration : {};
-  for (const field of [
-    "sameTaskId",
-    "sameArtifactId",
-    "sameRunId",
-    "workflowThreadHydrated",
-    "artifactSourcePathHydrated",
-    "artifactStatePathHydrated",
-    "artifactMutationPolicyHydrated",
-    "artifactSpecHydrated",
-    "launchCardHydrated",
-    "executionPlanHydrated",
-    "progressHydrated",
-    "usageHydrated",
-  ]) {
-    if (rehydration[field] !== true) issues.push(`Callable workflow rehydration proof is missing ${field}.`);
-  }
-  if (artifact.childCaller?.kind !== "subagent_child_thread") {
-    issues.push("Callable workflow rehydration must prove child-originated caller provenance.");
-  }
-  for (const field of ["threadId", "runId", "subagentRunId", "canonicalTaskPath", "parentThreadId", "parentRunId"]) {
-    if (!nonEmptyString(artifact.childCaller?.[field])) issues.push(`Callable workflow rehydration child caller is missing ${field}.`);
-  }
-  if (artifact.artifact?.id !== artifact.task?.workflowArtifactId) {
-    issues.push("Callable workflow rehydration task artifact link does not match artifact.");
-  }
-  if (!nonEmptyString(artifact.artifact?.workflowThreadId)) {
-    issues.push("Callable workflow rehydration artifact is missing workflowThreadId.");
-  }
-  if (!nonEmptyString(artifact.artifact?.sourcePath)) {
-    issues.push("Callable workflow rehydration artifact is missing sourcePath.");
-  }
-  if (!nonEmptyString(artifact.artifact?.statePath)) {
-    issues.push("Callable workflow rehydration artifact is missing statePath.");
-  }
-  if (!isWorkflowMutationPolicy(artifact.artifact?.mutationPolicy)) {
-    issues.push("Callable workflow rehydration artifact is missing mutationPolicy.");
-  }
-  if (!nonEmptyString(artifact.artifact?.specGoal)) {
-    issues.push("Callable workflow rehydration artifact is missing specGoal.");
-  }
-  if (artifact.artifact?.workflowThreadId !== artifact.task?.workflowThreadId) {
-    issues.push("Callable workflow rehydration workflowThreadId was not joined from the artifact.");
-  }
-  if (artifact.workflowRun?.id !== artifact.task?.workflowRunId) {
-    issues.push("Callable workflow rehydration task run link does not match workflowRun.");
-  }
-  if (artifact.workflowRun?.artifactId !== artifact.task?.workflowArtifactId) {
-    issues.push("Callable workflow rehydration workflow run does not point at the task artifact.");
-  }
-  if (artifact.workflowRun?.status !== "running") {
-    issues.push(`Callable workflow rehydration workflow run status is ${artifact.workflowRun?.status ?? "missing"}.`);
-  }
-  if (!positiveNumber(artifact.progressSnapshot?.eventCount)) issues.push("Callable workflow rehydration progress is missing eventCount.");
-  if (!positiveNumber(artifact.progressSnapshot?.modelCallCount)) issues.push("Callable workflow rehydration progress is missing modelCallCount.");
-  if (!positiveNumber(artifact.progressSnapshot?.completedStepCount)) issues.push("Callable workflow rehydration progress is missing completedStepCount.");
-  if (!nonEmptyString(artifact.progressSnapshot?.lastEventType)) issues.push("Callable workflow rehydration progress is missing lastEventType.");
-  if (!positiveNumber(artifact.usageSnapshot?.modelCallCount)) issues.push("Callable workflow rehydration usage is missing modelCallCount.");
-  if (!positiveNumber(artifact.usageSnapshot?.tokenCount)) issues.push("Callable workflow rehydration usage is missing tokenCount.");
-  if (typeof artifact.usageSnapshot?.tokenCountEstimated !== "boolean") {
-    issues.push("Callable workflow rehydration usage is missing tokenCountEstimated.");
-  }
-  if (!positiveNumber(artifact.usageSnapshot?.costMicros)) issues.push("Callable workflow rehydration usage is missing costMicros.");
-  if (typeof artifact.usageSnapshot?.costEstimated !== "boolean") {
-    issues.push("Callable workflow rehydration usage is missing costEstimated.");
-  }
-  if (artifact.taskEvents?.started !== true) issues.push("Callable workflow rehydration is missing task-started event proof.");
-  const eventTypes = Array.isArray(artifact.taskEvents?.eventTypes) ? artifact.taskEvents.eventTypes : [];
-  if (!eventTypes.includes("step.end")) issues.push("Callable workflow rehydration is missing persisted workflow progress event proof.");
-  validateWorkflowMaturityAssertions(
-    artifact.maturityAssertions,
-    issues,
-    "Callable workflow rehydration",
-    REQUIRED_CALLABLE_WORKFLOW_REHYDRATION_MATURITY_ASSERTIONS,
-  );
-  return { valid: issues.length === 0, issues };
-}
-
-function summarizeWorkflowMaturityAssertions(maturityAssertions, expectedAssertions) {
-  if (!maturityAssertions || typeof maturityAssertions !== "object" || Array.isArray(maturityAssertions)) return "missing";
-  return expectedAssertions
-    .map((expected) => `${expected.id}:${maturityAssertions[expected.id]?.status ?? "missing"}`)
-    .join(", ");
-}
-
-function validateWorkflowMaturityAssertions(maturityAssertions, issues, label, expectedAssertions) {
-  if (!maturityAssertions || typeof maturityAssertions !== "object" || Array.isArray(maturityAssertions)) {
-    issues.push(`${label} evidence is missing maturityAssertions.`);
-    return;
-  }
-
-  for (const expected of expectedAssertions) {
-    const assertion = maturityAssertions[expected.id];
-    if (!assertion || typeof assertion !== "object" || Array.isArray(assertion)) {
-      issues.push(`${label} maturity assertion ${expected.id} is missing.`);
-      continue;
-    }
-    if (assertion.id !== expected.id) {
-      issues.push(`${label} maturity assertion ${expected.id} has mismatched id ${assertion.id ?? "missing"}.`);
-    }
-    if (assertion.status !== "passed") {
-      issues.push(`${label} maturity assertion ${expected.id} status is ${assertion.status ?? "missing"}; expected passed.`);
-    }
-    if (!nonEmptyStringArray(assertion.evidence)) {
-      issues.push(`${label} maturity assertion ${expected.id} is missing readable evidence.`);
-    } else if (!assertion.evidence.every((entry) => typeof entry === "string" && /^passed: .+/.test(entry))) {
-      issues.push(`${label} maturity assertion ${expected.id} must record only passed evidence entries.`);
-    }
-    const capabilities = Array.isArray(assertion.capabilities) ? assertion.capabilities : [];
-    if (!capabilities.some(nonEmptyString)) {
-      issues.push(`${label} maturity assertion ${expected.id} is missing capabilities.`);
-    }
-    for (const capability of expected.capabilities) {
-      if (!capabilities.includes(capability)) {
-        issues.push(`${label} maturity assertion ${expected.id} is missing capability ${capability}.`);
-      }
-    }
-  }
-}
-
-function lifecycleEdgeArtifactCheck(artifact, options) {
-  const validation = isValidLifecycleEdgeArtifact(artifact);
-  const freshness = artifactFreshness(artifact?.createdAt, options);
-  const issues = [...validation.issues, ...freshness.issues];
-  if (!artifact) {
-    return check({
-      id: "artifact.lifecycle-edges",
-      area: "artifacts",
-      status: "failed",
-      label: "sub-agent lifecycle edge proof artifact is green",
-      evidence: ["missing test-results/subagent-lifecycle-edges/latest.json"],
-      issues: ["Run pnpm run test:subagents:lifecycle-edges:proof before the release gate."],
-    });
-  }
-  return check({
-    id: "artifact.lifecycle-edges",
-    area: "artifacts",
-    status: issues.length ? "failed" : "passed",
-    label: "sub-agent lifecycle edge proof artifact is green",
-    evidence: [
-      `path: ${artifact.__artifactPath ?? "test-results/subagent-lifecycle-edges/latest.json"}`,
-      `source: ${artifact.source ?? "missing"}`,
-      `parent: ${artifact.parent?.threadId ?? "missing"} / ${artifact.parent?.runId ?? "missing"}`,
-      `coveredEdges: ${(artifact.summary?.coveredEdgeKinds ?? []).join(", ") || "missing"}`,
-      `unsafeEdges: ${(artifact.summary?.unsafeEdgeIds ?? []).join(", ") || "none"}`,
-      ...freshness.evidence,
-    ],
-    issues,
-  });
-}
-
-function isValidLifecycleEdgeArtifact(artifact) {
-  const issues = [];
-  if (!artifact) return { valid: false, issues };
-  if (artifact.schemaVersion !== "ambient-subagent-lifecycle-edge-evidence-v1") {
-    issues.push(`Sub-agent lifecycle edge schemaVersion is ${artifact.schemaVersion ?? "missing"}.`);
-  }
-  if (artifact.featureFlagSnapshot?.ambientSubagentsEnabled !== true) {
-    issues.push("Sub-agent lifecycle edge proof must prove ambient.subagents was enabled.");
-  }
-  if (!nonEmptyString(artifact.parent?.threadId) || !nonEmptyString(artifact.parent?.runId)) {
-    issues.push("Sub-agent lifecycle edge proof is missing parent thread/run identity.");
-  }
-  const requiredKinds = ["restart", "stop", "detach", "cancel", "retry", "timeout", "partial_result"];
-  if (!arrayIncludesAll(artifact.summary?.requiredEdgeKinds, requiredKinds)) {
-    issues.push("Sub-agent lifecycle edge proof requiredEdgeKinds is incomplete.");
-  }
-  if (!arrayIncludesAll(artifact.summary?.coveredEdgeKinds, requiredKinds)) {
-    issues.push("Sub-agent lifecycle edge proof coveredEdgeKinds is incomplete.");
-  }
-  if (Array.isArray(artifact.summary?.missingEdgeKinds) && artifact.summary.missingEdgeKinds.length > 0) {
-    issues.push(`Sub-agent lifecycle edge proof reports missing edge kinds: ${artifact.summary.missingEdgeKinds.join(", ")}.`);
-  }
-  if (Array.isArray(artifact.summary?.unsafeEdgeIds) && artifact.summary.unsafeEdgeIds.length > 0) {
-    issues.push(`Sub-agent lifecycle edge proof reports unsafe edge ids: ${artifact.summary.unsafeEdgeIds.join(", ")}.`);
-  }
-  const edges = Array.isArray(artifact.edges) ? artifact.edges : [];
-  if (edges.length < requiredKinds.length) {
-    issues.push(`Sub-agent lifecycle edge proof has ${edges.length} edges; expected at least ${requiredKinds.length}.`);
-  }
-  for (const edge of edges) validateLifecycleEdgeArtifactRow(edge, issues);
-  return { valid: issues.length === 0, issues };
-}
-
-function validateLifecycleEdgeArtifactRow(edge, issues) {
-  const id = nonEmptyString(edge?.id) ? edge.id : "unknown";
-  const requiredKinds = ["restart", "stop", "detach", "cancel", "retry", "timeout", "partial_result"];
-  if (!requiredKinds.includes(edge?.kind)) {
-    issues.push(`Sub-agent lifecycle edge ${id} has unknown kind ${edge?.kind ?? "missing"}.`);
-    return;
-  }
-  for (const field of ["label", "parentBlockingStateBefore", "parentBlockingStateAfter"]) {
-    if (!nonEmptyString(edge?.[field])) issues.push(`Sub-agent lifecycle edge ${id} is missing ${field}.`);
-  }
-  for (const field of ["childRunIds", "childThreadIds", "observedEventIds"]) {
-    if (!nonEmptyStringArray(edge?.[field])) issues.push(`Sub-agent lifecycle edge ${id} is missing ${field}.`);
-  }
-  const safety = edge?.synthesisSafety ?? {};
-  for (const field of [
-    "parentDidNotSynthesizeUnsafeChild",
-    "resultArtifactStateExplicit",
-    "affectedChildrenNamed",
-    "decisionOrEventAttributed",
-    "visibleCollapsedThreadState",
-  ]) {
-    if (safety[field] !== true) issues.push(`Sub-agent lifecycle edge ${id} is missing synthesis safety ${field}.`);
-  }
-  if (edge.kind === "restart") {
-    const restart = edge.restart ?? {};
-    if (!nonEmptyStringArray(restart.interruptedRunIds)) issues.push(`Sub-agent lifecycle restart edge ${id} is missing interruptedRunIds.`);
-    if (!nonEmptyStringArray(restart.diagnosticRunIds)) issues.push(`Sub-agent lifecycle restart edge ${id} is missing diagnosticRunIds.`);
-    if (restart.restartRepairObserved !== true) issues.push(`Sub-agent lifecycle restart edge ${id} did not observe restart repair.`);
-    if (restart.nonResumableMarkedInterrupted !== true) issues.push(`Sub-agent lifecycle restart edge ${id} did not mark non-resumable children interrupted.`);
-  }
-  if (edge.kind === "stop") {
-    const stop = edge.stop ?? {};
-    if (!nonEmptyStringArray(stop.stoppedRunIds)) issues.push(`Sub-agent lifecycle stop edge ${id} is missing stoppedRunIds.`);
-    if (!nonEmptyStringArray(stop.siblingRunIdsUnaffected)) issues.push(`Sub-agent lifecycle stop edge ${id} is missing siblingRunIdsUnaffected.`);
-    if (stop.structuredCancellationResult !== true) issues.push(`Sub-agent lifecycle stop edge ${id} is missing structuredCancellationResult.`);
-    if (stop.capacityReleased !== true) issues.push(`Sub-agent lifecycle stop edge ${id} did not release capacity.`);
-  }
-  if (edge.kind === "detach") {
-    const detach = edge.detach ?? {};
-    if (!nonEmptyStringArray(detach.detachedRunIds)) issues.push(`Sub-agent lifecycle detach edge ${id} is missing detachedRunIds.`);
-    if (detach.detachedChildrenExcludedFromSynthesis !== true) issues.push(`Sub-agent lifecycle detach edge ${id} did not exclude detached children from synthesis.`);
-    if (detach.parentUnblockedAfterDecision !== true) issues.push(`Sub-agent lifecycle detach edge ${id} did not unblock parent after decision.`);
-    if (detach.mailboxCleanupRecorded !== true) issues.push(`Sub-agent lifecycle detach edge ${id} did not record mailbox cleanup.`);
-  }
-  if (edge.kind === "cancel") {
-    const cancel = edge.cancel ?? {};
-    if (cancel.parentCancellationRequested !== true) issues.push(`Sub-agent lifecycle cancel edge ${id} is missing parentCancellationRequested.`);
-    if (!nonEmptyStringArray(cancel.cancelledRunIds)) issues.push(`Sub-agent lifecycle cancel edge ${id} is missing cancelledRunIds.`);
-    if (cancel.cancellationCascadeRecorded !== true) issues.push(`Sub-agent lifecycle cancel edge ${id} did not record cancellation cascade.`);
-    if (cancel.parentReturnedCancelledState !== true) issues.push(`Sub-agent lifecycle cancel edge ${id} did not return parent cancelled state.`);
-  }
-  if (edge.kind === "retry") {
-    const retry = edge.retry ?? {};
-    if (!nonEmptyStringArray(retry.retryRequestedRunIds)) issues.push(`Sub-agent lifecycle retry edge ${id} is missing retryRequestedRunIds.`);
-    if (!nonEmptyStringArray(retry.retryAcceptedRunIds)) issues.push(`Sub-agent lifecycle retry edge ${id} is missing retryAcceptedRunIds.`);
-    if (!nonEmptyStringArray(retry.retryMailboxEventIds)) issues.push(`Sub-agent lifecycle retry edge ${id} is missing retryMailboxEventIds.`);
-    if (retry.parentRemainedBlocked !== true) issues.push(`Sub-agent lifecycle retry edge ${id} did not keep parent blocked.`);
-    if (retry.childSessionRestarted !== true) issues.push(`Sub-agent lifecycle retry edge ${id} did not restart the child session.`);
-  }
-  if (edge.kind === "timeout") {
-    const timeout = edge.timeout ?? {};
-    if (timeout.barrierStatus !== "timed_out") issues.push(`Sub-agent lifecycle timeout edge ${id} barrierStatus is ${timeout.barrierStatus ?? "missing"}.`);
-    if (!nonEmptyString(timeout.failurePolicy)) issues.push(`Sub-agent lifecycle timeout edge ${id} is missing failurePolicy.`);
-    if (!arrayIncludesAll(timeout.allowedUserChoiceIds, ["wait_again", "cancel_parent"])) {
-      issues.push(`Sub-agent lifecycle timeout edge ${id} is missing wait_again/cancel_parent choices.`);
-    }
-    if (timeout.noTimedOutChildSynthesis !== true) issues.push(`Sub-agent lifecycle timeout edge ${id} allowed timed-out child synthesis.`);
-  }
-  if (edge.kind === "partial_result") {
-    const partial = edge.partialResult ?? {};
-    if (partial.decision !== "continue_with_partial") issues.push(`Sub-agent lifecycle partial-result edge ${id} decision is ${partial.decision ?? "missing"}.`);
-    if (partial.partialSummaryIncluded !== true) issues.push(`Sub-agent lifecycle partial-result edge ${id} is missing partialSummaryIncluded.`);
-    if (!nonEmptyStringArray(partial.omittedChildRunIds)) issues.push(`Sub-agent lifecycle partial-result edge ${id} is missing omittedChildRunIds.`);
-    if (partial.failedChildNotSynthesized !== true) issues.push(`Sub-agent lifecycle partial-result edge ${id} did not exclude failed child output.`);
-    if (partial.parentMarkedPartial !== true) issues.push(`Sub-agent lifecycle partial-result edge ${id} did not mark parent partial.`);
-  }
 }
 
 function harnessManifestCheck(artifact, options) {
@@ -1487,9 +881,8 @@ function harnessManifestCheck(artifact, options) {
     });
   }
   const status = artifact.result?.status ?? "missing";
-  const failureIssues = status === "passed"
-    ? []
-    : [`Harness manifest ${artifact.__artifactPath ?? options.missingPath} ended with ${status}.`];
+  const failureIssues =
+    status === "passed" ? [] : [`Harness manifest ${artifact.__artifactPath ?? options.missingPath} ended with ${status}.`];
   const allIssues = [...issues, ...failureIssues];
   return check({
     id: options.id,
@@ -1578,8 +971,10 @@ function isValidLiveSmokeArtifact(artifact) {
   }
   const runtimeEvents = Array.isArray(artifact.run?.runtimeEvents) ? artifact.run.runtimeEvents : [];
   if (!runtimeEvents.some((event) => event?.type === "started")) issues.push("Live smoke artifact is missing child runtime started event.");
-  if (!runtimeEvents.some((event) => event?.type === "assistant_delta")) issues.push("Live smoke artifact is missing child assistant_delta stream event.");
-  if (!runtimeEvents.some((event) => event?.type === "completed")) issues.push("Live smoke artifact is missing child runtime completed event.");
+  if (!runtimeEvents.some((event) => event?.type === "assistant_delta"))
+    issues.push("Live smoke artifact is missing child assistant_delta stream event.");
+  if (!runtimeEvents.some((event) => event?.type === "completed"))
+    issues.push("Live smoke artifact is missing child runtime completed event.");
   if (!String(artifact.childAssistantText ?? "").includes("SUBAGENT_CHILD_DONE")) {
     issues.push("Live smoke artifact is missing the child completion sentinel.");
   }
@@ -1886,8 +1281,10 @@ function isValidDesktopDogfoodArtifact(artifact) {
   if (!safeRelativePath(artifact.mutatingWorkflowReportRelativePath)) {
     issues.push("Desktop dogfood artifact mutatingWorkflowReportRelativePath must be a safe relative path.");
   }
-  if (!nonEmptyString(artifact.mutatingWorkflowProgressMessage) ||
-      !artifact.mutatingWorkflowProgressMessage.includes("parent workspace unchanged")) {
+  if (
+    !nonEmptyString(artifact.mutatingWorkflowProgressMessage) ||
+    !artifact.mutatingWorkflowProgressMessage.includes("parent workspace unchanged")
+  ) {
     issues.push("Desktop dogfood artifact is missing readable mutatingWorkflowProgressMessage.");
   }
   if (artifact.mutatingWorkflowParentWorkspaceUnchanged !== true) {
@@ -1971,9 +1368,15 @@ function isValidDesktopDogfoodArtifact(artifact) {
   const checks = artifact.checks && typeof artifact.checks === "object" ? artifact.checks : {};
   const collapsed = checks.collapsed && typeof checks.collapsed === "object" ? checks.collapsed : {};
   if (collapsed.defaultCollapsed !== true) issues.push("Desktop dogfood collapsed state is not default-collapsed.");
-  if (collapsed.clusterAfterParentMessage !== true) issues.push("Desktop dogfood collapsed state is not anchored after the parent message.");
+  if (collapsed.clusterAfterParentMessage !== true)
+    issues.push("Desktop dogfood collapsed state is not anchored after the parent message.");
   if (collapsed.horizontalOverflowFree !== true) issues.push("Desktop dogfood collapsed state has horizontal overflow.");
-  requireLabels(collapsed.labels, ["Sub-agent threads", "2 children", "1 attention", "1 failed spawn", "Needs attention"], "collapsed", issues);
+  requireLabels(
+    collapsed.labels,
+    ["Sub-agent threads", "2 children", "1 attention", "1 failed spawn", "Needs attention"],
+    "collapsed",
+    issues,
+  );
   requireLabels(collapsed.labels, ["6 workflow tasks", "1 blocking", "1 workflow blocked"], "collapsed", issues);
 
   const expanded = checks.expanded && typeof checks.expanded === "object" ? checks.expanded : {};
@@ -1985,31 +1388,36 @@ function isValidDesktopDogfoodArtifact(artifact) {
   if (!Number.isInteger(expanded.warningToneCount) || expanded.warningToneCount < 1) {
     issues.push(`Desktop dogfood expanded state reports ${expanded.warningToneCount ?? "missing"} warning tone rows.`);
   }
-  requireLabels(expanded.labels, [
-    "Review worker",
-    "Context summarizer",
-    "Blocking: approval",
-    "Approval requested",
-    "Allow workspace write",
-    "workspace.write",
-    "This child thread",
-    "Approve child",
-    "Deny child",
-    "Waiting on child",
-    "Required all",
-    "Ask user on failure",
-    "Symphony Map-Reduce",
-    "Symphony Adversarial Debate",
-    "Symphony Imitate and Verify",
-    "Symphony Pipeline",
-    "Symphony Ensemble",
-    "Symphony Self-Healing Loop",
-    "Blocking: workflow work",
-    "Workflow blocked",
-    "Mutating child worker",
-    "Staged mutation: src/feature.txt",
-    "Parent workspace unchanged",
-  ], "expanded", issues);
+  requireLabels(
+    expanded.labels,
+    [
+      "Review worker",
+      "Context summarizer",
+      "Blocking: approval",
+      "Approval requested",
+      "Allow workspace write",
+      "workspace.write",
+      "This child thread",
+      "Approve child",
+      "Deny child",
+      "Waiting on child",
+      "Required all",
+      "Ask user on failure",
+      "Symphony Map-Reduce",
+      "Symphony Adversarial Debate",
+      "Symphony Imitate and Verify",
+      "Symphony Pipeline",
+      "Symphony Ensemble",
+      "Symphony Self-Healing Loop",
+      "Blocking: workflow work",
+      "Workflow blocked",
+      "Mutating child worker",
+      "Staged mutation: src/feature.txt",
+      "Parent workspace unchanged",
+    ],
+    "expanded",
+    issues,
+  );
   validateDesktopApprovalFlow(expanded.approvalFlow, issues);
   validateDesktopWorkflowExecution(checks.workflowExecution, issues);
   validateDesktopMutatingWorkerDogfood(checks.mutatingWorkerDogfood, issues);
@@ -2062,33 +1470,53 @@ function isValidDesktopDogfoodHistoryReport(artifact) {
   if (!positiveInteger(criteria.minDesktopDogfoodRuns)) {
     issues.push("Desktop dogfood history report criteria.minDesktopDogfoodRuns must be positive.");
   } else if (criteria.minDesktopDogfoodRuns < REQUIRED_DESKTOP_DOGFOOD_GRADUATION_RUNS) {
-    issues.push(`Desktop dogfood history report criteria.minDesktopDogfoodRuns is ${criteria.minDesktopDogfoodRuns}; expected at least ${REQUIRED_DESKTOP_DOGFOOD_GRADUATION_RUNS} for graduation.`);
+    issues.push(
+      `Desktop dogfood history report criteria.minDesktopDogfoodRuns is ${criteria.minDesktopDogfoodRuns}; expected at least ${REQUIRED_DESKTOP_DOGFOOD_GRADUATION_RUNS} for graduation.`,
+    );
   }
   if (!positiveInteger(criteria.minWorkflowHighLoadReadyRuns)) {
     issues.push("Desktop dogfood history report criteria.minWorkflowHighLoadReadyRuns must be positive.");
   } else if (criteria.minWorkflowHighLoadReadyRuns < REQUIRED_DESKTOP_DOGFOOD_GRADUATION_RUNS) {
-    issues.push(`Desktop dogfood history report criteria.minWorkflowHighLoadReadyRuns is ${criteria.minWorkflowHighLoadReadyRuns}; expected at least ${REQUIRED_DESKTOP_DOGFOOD_GRADUATION_RUNS} for graduation.`);
+    issues.push(
+      `Desktop dogfood history report criteria.minWorkflowHighLoadReadyRuns is ${criteria.minWorkflowHighLoadReadyRuns}; expected at least ${REQUIRED_DESKTOP_DOGFOOD_GRADUATION_RUNS} for graduation.`,
+    );
   }
-  if (typeof criteria.maxDesktopDogfoodFailureRate !== "number" || criteria.maxDesktopDogfoodFailureRate < 0 || criteria.maxDesktopDogfoodFailureRate > 1) {
+  if (
+    typeof criteria.maxDesktopDogfoodFailureRate !== "number" ||
+    criteria.maxDesktopDogfoodFailureRate < 0 ||
+    criteria.maxDesktopDogfoodFailureRate > 1
+  ) {
     issues.push("Desktop dogfood history report criteria.maxDesktopDogfoodFailureRate must be a rate.");
   }
   if (nonNegativeCount(summary.readyRunCount) < nonNegativeCount(criteria.minDesktopDogfoodRuns)) {
-    issues.push(`Desktop dogfood history report has ${nonNegativeCount(summary.readyRunCount)} ready runs; expected ${nonNegativeCount(criteria.minDesktopDogfoodRuns)}.`);
+    issues.push(
+      `Desktop dogfood history report has ${nonNegativeCount(summary.readyRunCount)} ready runs; expected ${nonNegativeCount(criteria.minDesktopDogfoodRuns)}.`,
+    );
   }
   if (nonNegativeCount(summary.highLoadReadyRunCount) < nonNegativeCount(criteria.minWorkflowHighLoadReadyRuns)) {
-    issues.push(`Desktop dogfood history report has ${nonNegativeCount(summary.highLoadReadyRunCount)} high-load ready runs; expected ${nonNegativeCount(criteria.minWorkflowHighLoadReadyRuns)}.`);
+    issues.push(
+      `Desktop dogfood history report has ${nonNegativeCount(summary.highLoadReadyRunCount)} high-load ready runs; expected ${nonNegativeCount(criteria.minWorkflowHighLoadReadyRuns)}.`,
+    );
   }
   if (typeof summary.failureRate !== "number" || summary.failureRate > criteria.maxDesktopDogfoodFailureRate) {
-    issues.push(`Desktop dogfood history report failureRate is ${summary.failureRate ?? "missing"}; max is ${criteria.maxDesktopDogfoodFailureRate ?? "missing"}.`);
+    issues.push(
+      `Desktop dogfood history report failureRate is ${summary.failureRate ?? "missing"}; max is ${criteria.maxDesktopDogfoodFailureRate ?? "missing"}.`,
+    );
   }
   if (nonNegativeCount(summary.readyRowsWithCompleteVisuals) < nonNegativeCount(summary.readyRunCount)) {
-    issues.push(`Desktop dogfood history report has ${nonNegativeCount(summary.readyRowsWithCompleteVisuals)}/${nonNegativeCount(summary.readyRunCount)} ready rows with complete visual assertions.`);
+    issues.push(
+      `Desktop dogfood history report has ${nonNegativeCount(summary.readyRowsWithCompleteVisuals)}/${nonNegativeCount(summary.readyRunCount)} ready rows with complete visual assertions.`,
+    );
   }
   if (nonNegativeCount(summary.readyRowsWithCompleteMaturity) < nonNegativeCount(summary.readyRunCount)) {
-    issues.push(`Desktop dogfood history report has ${nonNegativeCount(summary.readyRowsWithCompleteMaturity)}/${nonNegativeCount(summary.readyRunCount)} ready rows with complete maturity assertions.`);
+    issues.push(
+      `Desktop dogfood history report has ${nonNegativeCount(summary.readyRowsWithCompleteMaturity)}/${nonNegativeCount(summary.readyRunCount)} ready rows with complete maturity assertions.`,
+    );
   }
   if (nonNegativeCount(summary.screenshotRunCount) < nonNegativeCount(summary.readyRunCount)) {
-    issues.push(`Desktop dogfood history report has ${nonNegativeCount(summary.screenshotRunCount)}/${nonNegativeCount(summary.readyRunCount)} ready rows with screenshot evidence.`);
+    issues.push(
+      `Desktop dogfood history report has ${nonNegativeCount(summary.screenshotRunCount)}/${nonNegativeCount(summary.readyRunCount)} ready rows with screenshot evidence.`,
+    );
   }
   if (!Number.isInteger(summary.visualFailureRunCount) || summary.visualFailureRunCount < 0) {
     issues.push("Desktop dogfood history report summary.visualFailureRunCount must be a non-negative integer.");
@@ -2120,9 +1548,11 @@ function isValidDesktopDogfoodHistoryReport(artifact) {
   } else {
     for (const run of artifact.latestRuns.slice(0, 8)) {
       if (!nonEmptyString(run?.runId)) issues.push("Desktop dogfood history latestRuns entry is missing runId.");
-      if (!nonEmptyString(run?.generatedAt)) issues.push(`Desktop dogfood history latest run ${run?.runId ?? "unknown"} is missing generatedAt.`);
+      if (!nonEmptyString(run?.generatedAt))
+        issues.push(`Desktop dogfood history latest run ${run?.runId ?? "unknown"} is missing generatedAt.`);
       if (!nonEmptyString(run?.status)) issues.push(`Desktop dogfood history latest run ${run?.runId ?? "unknown"} is missing status.`);
-      if (!safeRelativePath(run?.reportPath)) issues.push(`Desktop dogfood history latest run ${run?.runId ?? "unknown"} reportPath must be a safe relative path.`);
+      if (!safeRelativePath(run?.reportPath))
+        issues.push(`Desktop dogfood history latest run ${run?.runId ?? "unknown"} reportPath must be a safe relative path.`);
     }
   }
   return { valid: issues.length === 0, issues };
@@ -2145,25 +1575,41 @@ function isValidSubagentLiveHistoryReport(artifact) {
   if (!positiveInteger(criteria.minLiveDogfoodRuns)) {
     issues.push("Sub-agent live history report criteria.minLiveDogfoodRuns must be positive.");
   } else if (criteria.minLiveDogfoodRuns < REQUIRED_LIVE_HISTORY_GRADUATION_RUNS) {
-    issues.push(`Sub-agent live history report criteria.minLiveDogfoodRuns is ${criteria.minLiveDogfoodRuns}; expected at least ${REQUIRED_LIVE_HISTORY_GRADUATION_RUNS} for graduation.`);
+    issues.push(
+      `Sub-agent live history report criteria.minLiveDogfoodRuns is ${criteria.minLiveDogfoodRuns}; expected at least ${REQUIRED_LIVE_HISTORY_GRADUATION_RUNS} for graduation.`,
+    );
   }
-  if (typeof criteria.maxLiveDogfoodFailureRate !== "number" || criteria.maxLiveDogfoodFailureRate < 0 || criteria.maxLiveDogfoodFailureRate > 1) {
+  if (
+    typeof criteria.maxLiveDogfoodFailureRate !== "number" ||
+    criteria.maxLiveDogfoodFailureRate < 0 ||
+    criteria.maxLiveDogfoodFailureRate > 1
+  ) {
     issues.push("Sub-agent live history report criteria.maxLiveDogfoodFailureRate must be a rate.");
   } else if (criteria.maxLiveDogfoodFailureRate > REQUIRED_LIVE_HISTORY_MAX_FAILURE_RATE) {
-    issues.push(`Sub-agent live history report criteria.maxLiveDogfoodFailureRate is ${criteria.maxLiveDogfoodFailureRate}; expected at most ${REQUIRED_LIVE_HISTORY_MAX_FAILURE_RATE} for graduation.`);
+    issues.push(
+      `Sub-agent live history report criteria.maxLiveDogfoodFailureRate is ${criteria.maxLiveDogfoodFailureRate}; expected at most ${REQUIRED_LIVE_HISTORY_MAX_FAILURE_RATE} for graduation.`,
+    );
   }
   if (nonNegativeCount(summary.cleanRequiredRunCount) < nonNegativeCount(criteria.minLiveDogfoodRuns)) {
-    issues.push(`Sub-agent live history report has ${nonNegativeCount(summary.cleanRequiredRunCount)} clean required-live runs; expected ${nonNegativeCount(criteria.minLiveDogfoodRuns)}.`);
+    issues.push(
+      `Sub-agent live history report has ${nonNegativeCount(summary.cleanRequiredRunCount)} clean required-live runs; expected ${nonNegativeCount(criteria.minLiveDogfoodRuns)}.`,
+    );
   }
   if (typeof summary.failureRate !== "number" || summary.failureRate > criteria.maxLiveDogfoodFailureRate) {
-    issues.push(`Sub-agent live history report failureRate is ${summary.failureRate ?? "missing"}; max is ${criteria.maxLiveDogfoodFailureRate ?? "missing"}.`);
+    issues.push(
+      `Sub-agent live history report failureRate is ${summary.failureRate ?? "missing"}; max is ${criteria.maxLiveDogfoodFailureRate ?? "missing"}.`,
+    );
   }
   if (summary.livePiSmokePassed !== true) {
     issues.push("Sub-agent live history report must include passing Ambient/Pi smoke evidence.");
   }
-  if (nonNegativeCount(summary.skippedEvidenceRunCount) > 0 &&
-      nonNegativeCount(summary.cleanRequiredRunCount) < REQUIRED_LIVE_HISTORY_GRADUATION_RUNS) {
-    issues.push(`Sub-agent live history report has ${nonNegativeCount(summary.skippedEvidenceRunCount)} skipped-evidence row(s) before graduation volume is satisfied.`);
+  if (
+    nonNegativeCount(summary.skippedEvidenceRunCount) > 0 &&
+    nonNegativeCount(summary.cleanRequiredRunCount) < REQUIRED_LIVE_HISTORY_GRADUATION_RUNS
+  ) {
+    issues.push(
+      `Sub-agent live history report has ${nonNegativeCount(summary.skippedEvidenceRunCount)} skipped-evidence row(s) before graduation volume is satisfied.`,
+    );
   }
 
   const gates = Array.isArray(artifact.gates) ? artifact.gates : [];
@@ -2284,10 +1730,14 @@ function validateLiveHistoryEvidenceLanes(lanes, minPresentRuns, issues) {
       continue;
     }
     if (nonNegativeCount(lane.presentRunCount) < minPresentRuns) {
-      issues.push(`Sub-agent live history report evidence lane ${label} has ${nonNegativeCount(lane.presentRunCount)} present row(s); expected ${minPresentRuns}.`);
+      issues.push(
+        `Sub-agent live history report evidence lane ${label} has ${nonNegativeCount(lane.presentRunCount)} present row(s); expected ${minPresentRuns}.`,
+      );
     }
     if (lane.latestStatus !== "present") {
-      issues.push(`Sub-agent live history report evidence lane ${label} latestStatus is ${lane.latestStatus ?? "missing"}; expected present.`);
+      issues.push(
+        `Sub-agent live history report evidence lane ${label} latestStatus is ${lane.latestStatus ?? "missing"}; expected present.`,
+      );
     }
   }
 }
@@ -2307,7 +1757,9 @@ function validateDesktopDogfoodHistoryScenarioCoverage(requiredScenarioCoverage,
     const readyRunCount = nonNegativeCount(row.readyRunCount);
     const runCount = nonNegativeCount(row.runCount);
     if (readyRunCount < nonNegativeCount(criteria.minDesktopDogfoodRuns)) {
-      issues.push(`Desktop dogfood history scenario ${scenarioId} has ${readyRunCount} ready runs; expected ${nonNegativeCount(criteria.minDesktopDogfoodRuns)}.`);
+      issues.push(
+        `Desktop dogfood history scenario ${scenarioId} has ${readyRunCount} ready runs; expected ${nonNegativeCount(criteria.minDesktopDogfoodRuns)}.`,
+      );
     }
     if (runCount < readyRunCount) {
       issues.push(`Desktop dogfood history scenario ${scenarioId} has runCount ${runCount} below readyRunCount ${readyRunCount}.`);
@@ -2317,9 +1769,7 @@ function validateDesktopDogfoodHistoryScenarioCoverage(requiredScenarioCoverage,
 
 function summarizeDesktopVisualAssertions(visualAssertions) {
   if (!visualAssertions || typeof visualAssertions !== "object" || Array.isArray(visualAssertions)) return "missing";
-  return REQUIRED_DESKTOP_VISUAL_ASSERTIONS
-    .map((id) => `${id}:${visualAssertions[id]?.status ?? "missing"}`)
-    .join(", ");
+  return REQUIRED_DESKTOP_VISUAL_ASSERTIONS.map((id) => `${id}:${visualAssertions[id]?.status ?? "missing"}`).join(", ");
 }
 
 function validateDesktopVisualAssertions(visualAssertions, issues) {
@@ -2360,9 +1810,9 @@ function validateDesktopVisualAssertions(visualAssertions, issues) {
 
 function summarizeDesktopMaturityAssertions(maturityAssertions) {
   if (!maturityAssertions || typeof maturityAssertions !== "object" || Array.isArray(maturityAssertions)) return "missing";
-  return REQUIRED_DESKTOP_MATURITY_ASSERTIONS
-    .map((expected) => `${expected.id}:${maturityAssertions[expected.id]?.status ?? "missing"}`)
-    .join(", ");
+  return REQUIRED_DESKTOP_MATURITY_ASSERTIONS.map(
+    (expected) => `${expected.id}:${maturityAssertions[expected.id]?.status ?? "missing"}`,
+  ).join(", ");
 }
 
 function validateDesktopMaturityAssertions(maturityAssertions, issues) {
@@ -2535,7 +1985,9 @@ function validateDesktopMutatingWorkerDogfood(mutatingWorkerDogfood, issues) {
     }
   }
   if (mutatingWorkerDogfood.criticalOverlapCount !== 0) {
-    issues.push(`Desktop dogfood mutatingWorkerDogfood reports ${mutatingWorkerDogfood.criticalOverlapCount ?? "missing"} critical overlaps.`);
+    issues.push(
+      `Desktop dogfood mutatingWorkerDogfood reports ${mutatingWorkerDogfood.criticalOverlapCount ?? "missing"} critical overlaps.`,
+    );
   }
 }
 
@@ -2562,7 +2014,9 @@ function validateDesktopWorkflowHighLoad(workflowHighLoad, issues) {
     }
   }
   if (!Number.isInteger(workflowHighLoad.workflowRowCount) || workflowHighLoad.workflowRowCount < 6) {
-    issues.push(`Desktop dogfood workflowHighLoad workflowRowCount is ${workflowHighLoad.workflowRowCount ?? "missing"}; expected at least 6.`);
+    issues.push(
+      `Desktop dogfood workflowHighLoad workflowRowCount is ${workflowHighLoad.workflowRowCount ?? "missing"}; expected at least 6.`,
+    );
   }
   if (workflowHighLoad.criticalOverlapCount !== 0) {
     issues.push(`Desktop dogfood workflowHighLoad reports ${workflowHighLoad.criticalOverlapCount ?? "missing"} critical overlaps.`);
@@ -2589,7 +2043,9 @@ function validateDesktopDeniedScopeExplanation(deniedScopeExplanation, issues) {
     }
   }
   if (deniedScopeExplanation.criticalOverlapCount !== 0) {
-    issues.push(`Desktop dogfood deniedScopeExplanation reports ${deniedScopeExplanation.criticalOverlapCount ?? "missing"} critical overlaps.`);
+    issues.push(
+      `Desktop dogfood deniedScopeExplanation reports ${deniedScopeExplanation.criticalOverlapCount ?? "missing"} critical overlaps.`,
+    );
   }
 }
 
@@ -2620,7 +2076,9 @@ function validateDesktopLifecycleEdgeVisibility(lifecycleEdgeVisibility, issues)
     }
   }
   if (lifecycleEdgeVisibility.criticalOverlapCount !== 0) {
-    issues.push(`Desktop dogfood lifecycleEdgeVisibility reports ${lifecycleEdgeVisibility.criticalOverlapCount ?? "missing"} critical overlaps.`);
+    issues.push(
+      `Desktop dogfood lifecycleEdgeVisibility reports ${lifecycleEdgeVisibility.criticalOverlapCount ?? "missing"} critical overlaps.`,
+    );
   }
 }
 
@@ -2712,7 +2170,9 @@ function validateDesktopWorkflowRehydratedNavigation(workflowRehydratedNavigatio
     }
   }
   if (workflowRehydratedNavigation.criticalOverlapCount !== 0) {
-    issues.push(`Desktop dogfood workflowRehydratedNavigation reports ${workflowRehydratedNavigation.criticalOverlapCount ?? "missing"} critical overlaps.`);
+    issues.push(
+      `Desktop dogfood workflowRehydratedNavigation reports ${workflowRehydratedNavigation.criticalOverlapCount ?? "missing"} critical overlaps.`,
+    );
   }
 }
 
@@ -2742,7 +2202,9 @@ function validateDesktopWorkflowArtifactRehydration(workflowArtifactRehydration,
     }
   }
   if (workflowArtifactRehydration.criticalOverlapCount !== 0) {
-    issues.push(`Desktop dogfood workflowArtifactRehydration reports ${workflowArtifactRehydration.criticalOverlapCount ?? "missing"} critical overlaps.`);
+    issues.push(
+      `Desktop dogfood workflowArtifactRehydration reports ${workflowArtifactRehydration.criticalOverlapCount ?? "missing"} critical overlaps.`,
+    );
   }
 }
 
@@ -2787,7 +2249,9 @@ function validateDesktopLocalRuntimeOwnership(localRuntimeOwnership, issues) {
     }
   }
   if (localRuntimeOwnership.criticalOverlapCount !== 0) {
-    issues.push(`Desktop dogfood localRuntimeOwnership reports ${localRuntimeOwnership.criticalOverlapCount ?? "missing"} critical overlaps.`);
+    issues.push(
+      `Desktop dogfood localRuntimeOwnership reports ${localRuntimeOwnership.criticalOverlapCount ?? "missing"} critical overlaps.`,
+    );
   }
 }
 
@@ -2886,10 +2350,14 @@ function validateDesktopRunningChildTranscript(childTranscript, issues) {
     issues.push("Desktop dogfood childTranscript completionEndCapVisible must be false while the child is running.");
   }
   if (!Number.isInteger(childTranscript.messageBubbleCount) || childTranscript.messageBubbleCount < 2) {
-    issues.push(`Desktop dogfood childTranscript messageBubbleCount is ${childTranscript.messageBubbleCount ?? "missing"}; expected at least 2.`);
+    issues.push(
+      `Desktop dogfood childTranscript messageBubbleCount is ${childTranscript.messageBubbleCount ?? "missing"}; expected at least 2.`,
+    );
   }
   if (!Number.isInteger(childTranscript.runtimeEventRows) || childTranscript.runtimeEventRows < 1) {
-    issues.push(`Desktop dogfood childTranscript runtimeEventRows is ${childTranscript.runtimeEventRows ?? "missing"}; expected at least 1.`);
+    issues.push(
+      `Desktop dogfood childTranscript runtimeEventRows is ${childTranscript.runtimeEventRows ?? "missing"}; expected at least 1.`,
+    );
   }
   if (childTranscript.criticalOverlapCount !== 0) {
     issues.push(`Desktop dogfood childTranscript reports ${childTranscript.criticalOverlapCount ?? "missing"} critical overlaps.`);
@@ -2926,13 +2394,19 @@ function validateDesktopCompletedChildTranscript(completedChildTranscript, issue
     issues.push("Desktop dogfood completedChildTranscript liveContinuationMarkerVisible must be false after completion.");
   }
   if (!Number.isInteger(completedChildTranscript.messageBubbleCount) || completedChildTranscript.messageBubbleCount < 1) {
-    issues.push(`Desktop dogfood completedChildTranscript messageBubbleCount is ${completedChildTranscript.messageBubbleCount ?? "missing"}; expected at least 1.`);
+    issues.push(
+      `Desktop dogfood completedChildTranscript messageBubbleCount is ${completedChildTranscript.messageBubbleCount ?? "missing"}; expected at least 1.`,
+    );
   }
   if (completedChildTranscript.criticalOverlapCount !== 0) {
-    issues.push(`Desktop dogfood completedChildTranscript reports ${completedChildTranscript.criticalOverlapCount ?? "missing"} critical overlaps.`);
+    issues.push(
+      `Desktop dogfood completedChildTranscript reports ${completedChildTranscript.criticalOverlapCount ?? "missing"} critical overlaps.`,
+    );
   }
-  if (!nonEmptyString(completedChildTranscript.completionEndCapText) ||
-      !completedChildTranscript.completionEndCapText.includes("Completion summary")) {
+  if (
+    !nonEmptyString(completedChildTranscript.completionEndCapText) ||
+    !completedChildTranscript.completionEndCapText.includes("Completion summary")
+  ) {
     issues.push("Desktop dogfood completedChildTranscript completionEndCapText must include Completion summary.");
   }
 }
@@ -2949,15 +2423,18 @@ function requireLabels(labels, expected, state, issues) {
 function liveConfidenceArtifactCheck(artifact, options) {
   const validation = isValidLiveConfidenceArtifact(artifact);
   const freshness = artifactFreshness(artifact?.completedAt ?? artifact?.startedAt, options);
-  const expectedSliceIssues = artifact && validation.valid && options.expectedSliceKind && artifact.sliceKind !== options.expectedSliceKind
-    ? [`Live confidence artifact sliceKind is ${artifact.sliceKind}; expected ${options.expectedSliceKind}.`]
-    : [];
-  const maturityAssertionIssues = artifact && options.expectedMaturityAssertions
-    ? liveConfidenceMaturityAssertionIssues(artifact, options.expectedMaturityAssertions)
-    : [];
-  const acceptanceIssues = artifact && validation.valid && artifact.status !== "passed"
-    ? [`Live confidence artifact status is ${artifact.status}; acceptance is advisory_only.`]
-    : [];
+  const expectedSliceIssues =
+    artifact && validation.valid && options.expectedSliceKind && artifact.sliceKind !== options.expectedSliceKind
+      ? [`Live confidence artifact sliceKind is ${artifact.sliceKind}; expected ${options.expectedSliceKind}.`]
+      : [];
+  const maturityAssertionIssues =
+    artifact && options.expectedMaturityAssertions
+      ? liveConfidenceMaturityAssertionIssues(artifact, options.expectedMaturityAssertions)
+      : [];
+  const acceptanceIssues =
+    artifact && validation.valid && artifact.status !== "passed"
+      ? [`Live confidence artifact status is ${artifact.status}; acceptance is advisory_only.`]
+      : [];
   const issues = [...validation.issues, ...expectedSliceIssues, ...maturityAssertionIssues, ...freshness.issues, ...acceptanceIssues];
   const id = options.id ?? "artifact.live-confidence";
   const label = options.label ?? "per-slice sub-agent live confidence evidence is present when available";
@@ -3065,7 +2542,17 @@ function isValidLiveConfidenceArtifact(artifact) {
     issues.push(`Live confidence artifact schemaVersion is ${artifact.schemaVersion ?? "missing"}.`);
   }
   if (!artifact.sliceId) issues.push("Live confidence artifact is missing sliceId.");
-  const sliceKinds = ["pi_tool_prompt", "child_authority", "workflow_symphony", "workflow_symphony_broader", "local_runtime", "restart_repair", "lifecycle_edges", "desktop_dogfood", "deterministic_only"];
+  const sliceKinds = [
+    "pi_tool_prompt",
+    "child_authority",
+    "workflow_symphony",
+    "workflow_symphony_broader",
+    "local_runtime",
+    "restart_repair",
+    "lifecycle_edges",
+    "desktop_dogfood",
+    "deterministic_only",
+  ];
   if (!sliceKinds.includes(artifact.sliceKind)) {
     issues.push(`Live confidence artifact sliceKind is ${artifact.sliceKind ?? "missing"}.`);
   }
@@ -3132,92 +2619,6 @@ function isValidLiveConfidenceArtifact(artifact) {
   return { valid: issues.length === 0, issues };
 }
 
-function secretLikeStringPaths(value) {
-  const paths = [];
-  const seen = new Set();
-  visit(value, "$");
-  return paths;
-
-  function visit(current, path) {
-    if (!current || paths.length >= 10) return;
-    if (typeof current === "string") {
-      if (looksSecretLike(current)) paths.push(path);
-      return;
-    }
-    if (typeof current !== "object" || seen.has(current)) return;
-    seen.add(current);
-    if (Array.isArray(current)) {
-      current.forEach((item, index) => visit(item, `${path}[${index}]`));
-      return;
-    }
-    for (const [key, child] of Object.entries(current)) {
-      visit(child, `${path}.${key}`);
-    }
-  }
-}
-
-function looksSecretLike(value) {
-  return /\b(?:GMI_CLOUD_API_KEY|GMI_API_KEY|AMBIENT_API_KEY)\b\s*[:=]\s*["']?[^"'\s$]{8,}/i.test(value) ||
-    /\bapi[_-]?key\b\s*[:=]\s*["']?[A-Za-z0-9_-]{16,}/i.test(value) ||
-    /\bsk-[A-Za-z0-9_-]{16,}\b/.test(value);
-}
-
-function nonEmptyString(value) {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function nonEmptyStringArray(value) {
-  return Array.isArray(value) && value.some(nonEmptyString);
-}
-
-function allNonEmptyStrings(value) {
-  return Array.isArray(value) && value.length > 0 && value.every(nonEmptyString);
-}
-
-function arrayIncludesAll(value, expected) {
-  return Array.isArray(value) && expected.every((item) => value.includes(item));
-}
-
-function isWorkflowMutationPolicy(value) {
-  return value === "read_only" || value === "staged_until_approved" || value === "apply_after_approval";
-}
-
-function positiveInteger(value) {
-  return Number.isInteger(value) && value > 0;
-}
-
-function nonNegativeCount(value) {
-  return Number.isFinite(value) && value >= 0 ? value : 0;
-}
-
-function sha256Hex(value) {
-  return typeof value === "string" && /^[a-f0-9]{64}$/i.test(value);
-}
-
-function safeRelativePath(value) {
-  return typeof value === "string" &&
-    value.length > 0 &&
-    !value.startsWith("/") &&
-    !value.split("/").some((part) => part === "" || part === "..");
-}
-
-function artifactFreshness(timestamp, options) {
-  if (!timestamp) return { evidence: ["ageHours: unknown"], issues: ["Artifact timestamp is missing."] };
-  const parsed = new Date(timestamp);
-  if (Number.isNaN(parsed.getTime())) {
-    return { evidence: [`timestamp: ${timestamp}`], issues: [`Artifact timestamp is invalid: ${timestamp}.`] };
-  }
-  const ageHours = Math.round(((options.now.getTime() - parsed.getTime()) / 3_600_000) * 100) / 100;
-  const issues = [];
-  if (ageHours > options.maxArtifactAgeHours) {
-    issues.push(`Artifact is stale: ${ageHours} hours old; max is ${options.maxArtifactAgeHours}.`);
-  }
-  if (ageHours < -0.1) {
-    issues.push(`Artifact timestamp is from the future by ${Math.abs(ageHours)} hours.`);
-  }
-  return { evidence: [`ageHours: ${ageHours}`], issues };
-}
-
 function nextSlice({ blockingIssues, advisoryIssues, requireLive }) {
   if (blockingIssues.length) {
     return "Fix the blocking sub-agent release-gate issue(s), rerun deterministic replay diagnostics, and re-run the gate before merging more maturity-sensitive behavior.";
@@ -3226,30 +2627,4 @@ function nextSlice({ blockingIssues, advisoryIssues, requireLive }) {
     return "Deterministic sub-agent release gate is green; run pnpm run test:subagents:release-gate:live before release-critical changes, and pnpm run test:subagents:release-gate:graduation before feature-flag graduation.";
   }
   return "Sub-agent maturity gate evidence is green for this policy; continue with the next scoped implementation phase from origin/main.";
-}
-
-function check(input) {
-  return {
-    id: input.id,
-    area: input.area,
-    status: input.status,
-    label: input.label,
-    evidence: input.evidence ?? [],
-    issues: input.issues ?? [],
-    warnIssues: input.warnIssues ?? [],
-  };
-}
-
-function objectValue(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-function positiveNumber(value, fallback) {
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
-function escapeMarkdownCell(value) {
-  return String(value ?? "")
-    .replaceAll("|", "\\|")
-    .replaceAll("\n", "<br>");
 }

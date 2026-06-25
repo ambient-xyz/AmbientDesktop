@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { AmbientInstallRoutePlan } from "../agentRuntimeInstallRouteFacade";
 import {
   previewAmbientCliPackagePiCatalogSource,
   type AmbientCliPiCatalogInstallPreview,
@@ -20,6 +21,11 @@ import {
   scanPiPrivilegedPackage,
   type PiPrivilegedSecurityScan,
 } from "./piPrivilegedPackages";
+import {
+  piRawInstallRouteApprovalDetail,
+  piRawInstallRouteGrantConditions,
+  requirePiRawInstallRouteMetadata,
+} from "./piRawInstallRouteMetadata";
 
 type ToolUpdateHandler = (update: {
   content: Array<{ type: "text"; text: string }>;
@@ -53,6 +59,7 @@ export interface PiExtensionSandboxPrivilegedScanUpdatedEvent {
 export interface PiExtensionSandboxInstallToolRegistrationOptions {
   workspace: WorkspaceState;
   getThread: () => ThreadSummary;
+  latestInstallRouteLane?: () => AmbientInstallRoutePlan["lane"] | undefined;
   previewAmbientCliPackagePiCatalogSource?: typeof previewAmbientCliPackagePiCatalogSource;
   previewPiExtensionSandboxInstall?: typeof previewPiExtensionSandboxInstall;
   installPiExtensionSandboxPackage?: typeof installPiExtensionSandboxPackage;
@@ -81,6 +88,12 @@ export function registerPiExtensionSandboxInstallTool(
       if (cliAdapter.installable && cliAdapter.resolution) {
         return firstPartyPiCatalogAdapterRedirectResult("ambient_pi_extension_install_sandboxed", source, cliAdapter);
       }
+      const installRoute = requirePiRawInstallRouteMetadata({
+        toolName: "ambient_pi_extension_install_sandboxed",
+        params: input,
+        source,
+        latestInstallRouteLane: options.latestInstallRouteLane,
+      });
       const allowedNetworkHosts = optionalStringArray(input.allowedNetworkHosts);
       const installInput = sandboxInstallInput(source, allowedNetworkHosts);
       const preview = await previewInstall(options.workspace.path, installInput);
@@ -121,7 +134,9 @@ export function registerPiExtensionSandboxInstallTool(
         toolName: "ambient_pi_extension_install_sandboxed",
         title: `Install sandboxed Pi extension "${preview.packageName ?? source}"?`,
         message: "Ambient wants to install a Pi extension into the sandboxed compatibility host. Tool execution remains mediated by Ambient permissions.",
-        detail,
+        detail: [detail, piRawInstallRouteApprovalDetail(installRoute)].join("\n"),
+        risk: "privileged-action",
+        requireFreshPrompt: true,
         grantTargetLabel: `Install sandboxed Pi extension ${preview.packageName ?? source}`,
         grantTargetIdentity: [
           "ambient_pi_extension_install_sandboxed",
@@ -130,6 +145,7 @@ export function registerPiExtensionSandboxInstallTool(
           preview.sha ?? "",
           preview.allowedNetworkHosts.join("\0"),
         ].join("\0"),
+        grantConditions: piRawInstallRouteGrantConditions(installRoute),
         allowedReason: "Sandboxed Pi extension install approved by Ambient permission grant policy.",
         deniedReason: "Sandboxed Pi extension install prompt denied or timed out.",
       });

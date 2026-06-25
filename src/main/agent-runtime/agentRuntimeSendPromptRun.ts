@@ -37,6 +37,7 @@ export interface AgentRuntimeSendPromptRunInput<Session extends AgentRuntimeSend
   interruptedToolCallRecoveryMaxRetries: number;
   canScheduleInterruptedToolCallRecovery: boolean;
   plannerFinalizationSources: PlannerPlanArtifact[];
+  startedInPlannerMode: boolean;
   usesDedicatedReviewSession: boolean;
   hasWorkflowPlanEditIntent: boolean;
   runGoalId?: string | undefined;
@@ -176,6 +177,7 @@ export async function runAgentRuntimeSendPromptRun<Session extends AgentRuntimeS
       sendInput: input.sendInput,
       runId: input.runId,
       runWorkspacePath: input.runWorkspacePath,
+      startedInPlannerMode: input.startedInPlannerMode,
       session,
       runtimeMessages,
       toolMessages,

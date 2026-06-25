@@ -43,7 +43,7 @@ export function ambientCliSearchText(result: AmbientCliCapabilitySearchResponse)
       item.description ? `Description: ${item.description}` : undefined,
       `Availability: ${item.availability} - ${item.availabilityReason}`,
       item.commands.length
-        ? `Commands: ${item.commands.map((command) => `${command.name} [${command.capabilityId}]${command.description ? ` (${command.description})` : ""}`).join("; ")}`
+        ? `Commands: ${item.commands.map((command) => `${command.name} [${command.capabilityId}] (${[ambientCliSearchHealthText(command.health), command.description].filter(Boolean).join("; ")})`).join("; ")}`
         : "Commands: none in this result",
       item.skills.length
         ? `Skills: ${item.skills.map((skill) => `${skill.name} [${skill.capabilityId}]${skill.description ? ` (${skill.description})` : ""}`).join("; ")}`
@@ -55,6 +55,12 @@ export function ambientCliSearchText(result: AmbientCliCapabilitySearchResponse)
   }
   if (result.results.length === 0) lines.push("No installed Ambient CLI packages matched. This search does not inspect uninstalled marketplaces.");
   return lines.filter(Boolean).join("\n");
+}
+
+function ambientCliSearchHealthText(health: "passed" | "failed" | "unknown" | undefined): string {
+  if (health === "passed") return "health passed";
+  if (health === "failed") return "health failed";
+  return "health not run";
 }
 
 function optionalString(value: unknown): string | undefined {

@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { AmbientInstallRoutePlan } from "../agentRuntimeInstallRouteFacade";
 import {
   registerPiPrivilegedClearHistoryTool,
   type PiPrivilegedClearHistoryPermissionRequest,
@@ -26,6 +27,7 @@ export type AgentRuntimePiPrivilegedPermissionRequest =
 export interface AgentRuntimePiPrivilegedToolOptions {
   workspace: WorkspaceState;
   getThread: () => ThreadSummary;
+  latestInstallRouteLane?: () => AmbientInstallRoutePlan["lane"] | undefined;
   resolveFirstPartyPluginPermission: (
     input: AgentRuntimePiPrivilegedPermissionRequest,
   ) => Promise<boolean> | boolean;
@@ -45,6 +47,7 @@ export function registerAgentRuntimePiPrivilegedTools(
   registerPiPrivilegedInstallTool(pi, {
     workspace: options.workspace,
     getThread: options.getThread,
+    latestInstallRouteLane: options.latestInstallRouteLane,
     resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
   });
 

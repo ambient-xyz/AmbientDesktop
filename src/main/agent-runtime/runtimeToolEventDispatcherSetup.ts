@@ -1,10 +1,12 @@
 import type { PermissionMode } from "../../shared/permissionTypes";
+import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
 import type { RuntimeAssistantTerminalCompletion } from "./runtimeAssistantTerminalCompletion";
 import type { RuntimeEmptyAssistantStallWatchdog } from "./runtimeEmptyAssistantStallWatchdog";
 import type { RuntimePostToolContinuationController } from "./runtimePostToolContinuationController";
 import type { RuntimePromptLifecycleControls } from "./runtimePromptLifecycleControls";
 import type { RuntimePromptRunState } from "./runtimePromptRunState";
 import type { RuntimeStreamTraceState } from "./runtimeStreamTraceState";
+import type { RuntimeTextOutputState } from "./runtimeTextOutputState";
 import type { RuntimeToolArgumentWatchdog } from "./runtimeToolArgumentWatchdog";
 import {
   createRuntimeToolEventDispatcher,
@@ -22,6 +24,8 @@ export interface RuntimeToolEventDispatcherSetupInput {
   workspacePath: string;
   permissionMode: PermissionMode;
   toolMessages: RuntimeToolMessageController;
+  runtimeMessages: Pick<RuntimeAssistantMessageController, "finishCurrentThinkingMessage">;
+  outputState: Pick<RuntimeTextOutputState, "currentThinkingFinalText">;
   toolArgumentProgress: RuntimeToolArgumentProgressController;
   toolArgumentWatchdog: Pick<RuntimeToolArgumentWatchdog, "schedule">;
   toolExecutionWatchdog: Pick<RuntimeToolExecutionWatchdog, "begin" | "mark" | "finish">;
@@ -67,6 +71,9 @@ export function createRuntimeToolEventDispatcherSetup(
     startedToolCallIds: input.startedToolCallIds,
     clearEmptyAssistantStallWatchdog: input.emptyAssistantStallWatchdog.clear,
     clearAssistantTerminalCompletion: input.assistantTerminalCompletion.clear,
+    finishActiveThinkingBeforeToolActivity: () => {
+      input.runtimeMessages.finishCurrentThinkingMessage("done", input.outputState.currentThinkingFinalText());
+    },
     markFirstToolArgumentObserved: input.streamTraceState.markFirstToolArgumentObserved,
     markFirstToolExecutionObserved: input.streamTraceState.markFirstToolExecutionObserved,
     rememberToolIntent: input.toolRecovery.rememberToolIntent,

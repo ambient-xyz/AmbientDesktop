@@ -90,7 +90,8 @@ function registerWithFakes(): {
   pullRequestUrl: string;
   resolvedPath: { absolutePath: string; realPath: string };
   workspaceContext: {
-    targetStore: { id: string };
+    targetStore: { id: string; getWorkspace: ReturnType<typeof vi.fn>; createPermissionGrant: ReturnType<typeof vi.fn>; listPermissionGrants: ReturnType<typeof vi.fn> };
+    threadId: string;
     thread: { permissionMode: string };
     workspacePath: string;
   };
@@ -106,7 +107,13 @@ function registerWithFakes(): {
   };
   const workspaceContext = {
     workspacePath: "/tmp/workspace",
-    targetStore: { id: "store-1" },
+    threadId: "thread-1",
+    targetStore: {
+      id: "store-1",
+      getWorkspace: vi.fn(() => ({ path: "/tmp/workspace" })),
+      createPermissionGrant: vi.fn(),
+      listPermissionGrants: vi.fn(() => []),
+    },
     thread: { permissionMode: "full-access" },
   };
   const gitContext = {
@@ -149,8 +156,26 @@ function registerWithFakes(): {
     readActiveWorkspaceFile: vi.fn(),
     readGitReviewForProjectHost: vi.fn(() => gitReview),
     rendererOfficePreviewService: { clearRendererDiscovery: vi.fn() },
-    resolveLocalFilePath: vi.fn((requestedPath: string) => requestedPath),
+    resolveCanonicalLocalFilePath: vi.fn((requestedPath: string) => requestedPath),
     resolveWorkspacePathForOpen: vi.fn(() => resolvedPath),
+    requestPermissionWithGrantRegistry: vi.fn(async () => ({ allowed: true, mode: "allow_once" })),
+    createThreadLocalFolderAllowlistGrant: vi.fn(() => ({
+      id: "grant-1",
+      createdAt: "2026-06-23T00:00:00.000Z",
+      updatedAt: "2026-06-23T00:00:00.000Z",
+      createdBy: "user",
+      permissionModeAtCreation: "workspace",
+      scopeKind: "thread",
+      threadId: "thread-1",
+      actionKind: "file_content_read",
+      targetKind: "path",
+      targetHash: "hash",
+      targetLabel: "/tmp/workspace",
+      source: "settings",
+      reason: "test",
+    })),
+    localPathVisibleToThread: vi.fn(() => true),
+    localPathInsideActiveWorkspace: vi.fn(() => true),
     restoreLatestGitCheckpoint: vi.fn(),
     searchWorkspace: vi.fn(() => []),
     setProjectHostActiveThreadId: vi.fn(),

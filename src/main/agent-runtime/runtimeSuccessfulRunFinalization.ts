@@ -32,6 +32,7 @@ export interface RuntimeSuccessfulRunFinalizationInput {
   threadId: string;
   runId: string;
   workspacePath: string;
+  startedInPlannerMode: boolean;
   currentAssistantMessageId: string;
   currentAssistantVisibleContent: string;
   abortRequested: boolean;
@@ -70,6 +71,7 @@ export interface RuntimeSuccessfulRunFinalizationInput {
   ) => ChatMessage;
   createPlannerPlanArtifactFromMessage: (
     message: ChatMessage,
+    options: { startedInPlannerMode: boolean },
   ) => Promise<RuntimePlannerArtifactFinalizationResult | undefined>;
   finishPlannerFinalizationSources: (
     status: Exclude<PlannerPlanFinalizationAttemptStatus, "running">,
@@ -151,7 +153,7 @@ export async function finalizeSuccessfulRuntimeRun(
   );
   const plannerArtifactResult =
     !input.abortRequested && !input.awaitingInputAfterTools && !input.emptyAssistantResponse && !parentFinalizationBlocked
-      ? await input.createPlannerPlanArtifactFromMessage(finalMessage)
+      ? await input.createPlannerPlanArtifactFromMessage(finalMessage, { startedInPlannerMode: input.startedInPlannerMode })
       : undefined;
   if (finalStatus === "error") {
     input.finishPlannerFinalizationSources("failed", { error: finalizationErrorText, workflowState: "failed" });

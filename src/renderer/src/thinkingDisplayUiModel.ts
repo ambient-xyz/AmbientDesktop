@@ -51,8 +51,9 @@ export function transientThinkingActivityLinesForDisplay<T extends ThinkingDispl
   messages: readonly ChatMessage[];
   mode: ThinkingDisplayMode;
   running: boolean;
+  runStatus: RunStatus;
 }): T[] {
-  if (input.mode !== "transient" || !input.running) return [];
+  if (input.mode !== "transient" || !input.running || input.runStatus !== "streaming") return [];
   return input.lines.filter((line) => line.kind === "thinking");
 }
 

@@ -113,6 +113,27 @@ describe("registerSlashCommandIpc", () => {
     expect(requireProjectRuntimeHostForWorkflowRecording).not.toHaveBeenCalled();
   });
 
+  it("passes catalog-mode limits through to Ambient CLI discovery", async () => {
+    const handlers = registerTestSlashCommandIpc();
+    vi.mocked(searchAmbientCliCapabilities).mockResolvedValue(emptyAmbientCliSearchResponse());
+
+    const response = await handlers.invoke("slash-commands:search", {
+      mode: "catalog",
+      limit: 80,
+      includeUnavailable: true,
+    });
+
+    expect(response).toMatchObject({
+      mode: "catalog",
+      limit: 80,
+    });
+    expect(searchAmbientCliCapabilities).toHaveBeenCalledWith("/workspace", expect.objectContaining({
+      includeUnavailable: true,
+      includeHealth: false,
+      limit: 80,
+    }));
+  });
+
   it("builds recorded callable workflow entries from the active host store", async () => {
     const listGlobalWorkflowRecordingLibrary = vi.fn(async () => [
       workflowRecording({ id: "other-workspace", title: "Other Workspace", version: 1 }),

@@ -38,6 +38,8 @@ describe("createRuntimeToolEventDispatcherSetup", () => {
     const dispatcherInput = dispatcherInputs[0]!;
     expect(dispatcherInput.clearEmptyAssistantStallWatchdog).toBe(input.emptyAssistantStallWatchdog.clear);
     expect(dispatcherInput.clearAssistantTerminalCompletion).toBe(input.assistantTerminalCompletion.clear);
+    dispatcherInput.finishActiveThinkingBeforeToolActivity();
+    expect(input.runtimeMessages.finishCurrentThinkingMessage).toHaveBeenCalledWith("done", "current thinking");
     expect(dispatcherInput.markFirstToolArgumentObserved).toBe(input.streamTraceState.markFirstToolArgumentObserved);
     expect(dispatcherInput.markFirstToolExecutionObserved).toBe(input.streamTraceState.markFirstToolExecutionObserved);
     expect(dispatcherInput.rememberToolIntent).toBe(input.toolRecovery.rememberToolIntent);
@@ -106,6 +108,12 @@ function createInput(
       applyResultUpdate: vi.fn(),
       markOpenToolMessagesFailed: vi.fn(() => 0),
       cleanupToolCall: vi.fn(),
+    },
+    runtimeMessages: {
+      finishCurrentThinkingMessage: vi.fn(),
+    },
+    outputState: {
+      currentThinkingFinalText: vi.fn(() => "current thinking"),
     },
     toolArgumentProgress: {
       current: vi.fn(() => progress),

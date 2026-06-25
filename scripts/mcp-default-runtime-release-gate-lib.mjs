@@ -368,7 +368,27 @@ function installGateSurfaceCheck(sourceFiles) {
     {
       label: "mcpServerPiTools.ts",
       text: files.mcpServerPiToolsTs,
-      terms: ["installGate", "ambient_mcp_server_install", "ambient_mcp_standard_import_install", "ambient_mcp_remote_proxy_install"],
+      terms: ["createMcpStandardImportPiToolDefinitions", "createMcpRemoteProxyPiToolDefinitions", "createMcpServerLifecyclePiToolDefinitions"],
+    },
+    {
+      label: "mcpServerPiToolSupport.ts",
+      text: files.mcpServerPiToolSupportTs,
+      terms: ["evaluateMcpServerInstallGate", "installGate"],
+    },
+    {
+      label: "mcpServerInstallPiTool.ts",
+      text: files.mcpServerInstallPiToolTs,
+      terms: ["ambient_mcp_server_install", "evaluateMcpServerInstallGate"],
+    },
+    {
+      label: "mcpStandardImportPiTools.ts",
+      text: files.mcpStandardImportPiToolsTs,
+      terms: ["ambient_mcp_standard_import_install", "evaluateMcpServerInstallGate"],
+    },
+    {
+      label: "mcpRemoteProxyPiTools.ts",
+      text: files.mcpRemoteProxyPiToolsTs,
+      terms: ["ambient_mcp_remote_proxy_install", "evaluateMcpServerInstallGate"],
     },
     {
       label: "mcpServerPiTools.test.ts",

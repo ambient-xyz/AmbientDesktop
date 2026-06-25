@@ -107,6 +107,7 @@ function configureLiveDownloadEnv(workspacePath: string): () => void {
     "AMBIENT_PI_PACKAGE_GALLERY_DISABLED",
     "AMBIENT_PI_USER_SETTINGS_PATH",
     "AMBIENT_PI_GLOBAL_PACKAGES_PATH",
+    "AMBIENT_EGRESS_ALLOW_LOCAL_HTTP",
     "GMI_CLOUD_API_KEY",
     "GMI_API_KEY",
   ] as const;
@@ -115,6 +116,7 @@ function configureLiveDownloadEnv(workspacePath: string): () => void {
   process.env.AMBIENT_PI_PACKAGE_GALLERY_DISABLED = "1";
   process.env.AMBIENT_PI_USER_SETTINGS_PATH = join(workspacePath, ".ambient-test-missing-pi-settings.json");
   process.env.AMBIENT_PI_GLOBAL_PACKAGES_PATH = join(workspacePath, ".ambient-test-missing-pi-packages.json");
+  process.env.AMBIENT_EGRESS_ALLOW_LOCAL_HTTP = "1";
   applyLiveAmbientProviderApiKeyEnv(readLiveAmbientProviderApiKey({ purpose: "live managed download smoke" }));
   return () => {
     for (const [key, value] of previous) {

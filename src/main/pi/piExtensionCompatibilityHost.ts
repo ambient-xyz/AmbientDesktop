@@ -80,7 +80,6 @@ async function runAgentOsExtensionHost(args: {
     const payloadPath = `${runnerPath}.json`;
     const payload = JSON.stringify({
       mode: args.mode,
-      extensionSource: js,
       fileName: sourcePath,
       packageLabel: basename(input.packageRoot),
       allowedNetworkHosts: input.allowedNetworkHosts ?? [],
@@ -89,11 +88,11 @@ async function runAgentOsExtensionHost(args: {
       toolName: "toolName" in input ? input.toolName : undefined,
       params: "params" in input ? input.params ?? {} : {},
     });
-    await agentOs.writeFile(runnerPath, agentOsRunnerSource());
+    await agentOs.writeFile(runnerPath, agentOsRunnerSource(js, sourcePath));
     await agentOs.writeFile(payloadPath, payload);
     const stdout: string[] = [];
     const stderr: string[] = [];
-    const child = agentOs.spawn("node", [runnerPath, payloadPath], {
+    const child = agentOs.spawn("node", ["--disallow-code-generation-from-strings", runnerPath, payloadPath], {
       env: {},
       timeout: (input.timeoutMs ?? defaultTimeoutMs) + 15_000,
     });
@@ -124,7 +123,7 @@ async function runAgentOsExtensionHost(args: {
   }
 }
 
-function agentOsRunnerSource(): string {
+function agentOsRunnerSource(extensionSource: string, fileName: string): string {
   // Keep the generated runner's CommonJS call from appearing as a literal in the Electron main bundle.
   // Electron-vite's ESM shim scans bundled source with regexes and can misread string contents.
   const nodeRequire = ["requ", "ire"].join("");
@@ -133,7 +132,30 @@ const fs = ${nodeRequire}("node:fs");
 
 const marker = ${JSON.stringify(agentOsResultMarker)};
 const realProcess = process;
-const RealFunction = Function;
+const realDefineProperty = Object.defineProperty.bind(Object);
+const realGetOwnPropertyDescriptor = Object.getOwnPropertyDescriptor.bind(Object);
+const realGetPrototypeOf = Object.getPrototypeOf.bind(Object);
+const realFreeze = Object.freeze.bind(Object);
+const realFunctionConstructor = Function;
+const realFetch = fetch;
+const realJsonStringify = globalThis.JSON.stringify.bind(globalThis.JSON);
+const realJsonParse = globalThis.JSON.parse.bind(globalThis.JSON);
+const realBufferByteLength = globalThis.Buffer.byteLength.bind(globalThis.Buffer);
+const realBufferFrom = globalThis.Buffer.from.bind(globalThis.Buffer);
+const JSON = realFreeze({ stringify: realJsonStringify, parse: realJsonParse });
+const realSetTimeout = setTimeout;
+const realClearTimeout = clearTimeout;
+const realSetInterval = setInterval;
+const realClearInterval = clearInterval;
+const realSetImmediate = typeof setImmediate === "function" ? setImmediate : undefined;
+const realClearImmediate = typeof clearImmediate === "function" ? clearImmediate : undefined;
+const extensionAsyncHandles = new Set();
+const deniedFunctionConstructorPrototypes = [
+  realFunctionConstructor.prototype,
+  realGetPrototypeOf(async function() {}).constructor.prototype,
+  realGetPrototypeOf(function*() {}).constructor.prototype,
+  realGetPrototypeOf(async function*() {}).constructor.prototype,
+];
 
 class PiExtensionHostTimeoutError extends Error {
   constructor(message) {
@@ -150,47 +172,15 @@ async function main() {
   const payloadPath = process.argv[process.argv.length - 1];
   if (!payloadPath) throw new Error("Missing AgentOS Pi extension payload path.");
   const payload = JSON.parse(fs.readFileSync(payloadPath, "utf8"));
-  const extensionSource = payload.extensionSource
-    .replace(/\bimport\s*\(/g, "__ambientDeniedImport__(")
-    .replace(/\beval\s*\(/g, "__ambientDeniedEval__(")
-    .replace(/\bFunction\s*\(/g, "__ambientDeniedFunction__(")
-    .replace(/\bfetch\s*\(/g, "__ambientPolicyFetch__(");
   const tools = [];
-  const module = { exports: {} };
-  const previousGlobals = installDeniedGlobals(payload.allowedNetworkHosts || []);
-  try {
-    const runModule = RealFunction(
-      "module",
-      "exports",
-      "require",
-      "process",
-      "__ambientPolicyFetch__",
-      "__ambientDeniedEval__",
-      "__ambientDeniedFunction__",
-      "__ambientDeniedImport__",
-      extensionSource + "\n//# sourceURL=" + payload.fileName,
-    );
-    runModule(
-      module,
-      module.exports,
-      createExtensionRequire(),
-      undefined,
-      globalThis.fetch,
-      deniedEval,
-      deniedFunction,
-      deniedImport,
-    );
-    const extension = module.exports.default ?? module.exports;
-    if (typeof extension !== "function") throw new Error("Pi extension entrypoint did not export a function.");
-    await extension({
-      registerTool(tool) {
-        if (!tool || typeof tool.name !== "string" || !tool.name.trim()) throw new Error("Pi extension registered a tool without a name.");
-        tools.push(tool);
-      },
-    });
-  } finally {
-    restoreGlobals(previousGlobals);
-  }
+  installDeniedGlobals(payload.allowedNetworkHosts || []);
+  const extension = loadExtensionModule(payload);
+  if (typeof extension !== "function") throw new Error("Pi extension entrypoint did not export a function.");
+  await extension({
+    registerTool(tool) {
+      tools.push(snapshotRegisteredTool(tool));
+    },
+  });
   if (payload.mode === "discover") {
     await emit({
       ok: true,
@@ -209,8 +199,8 @@ async function main() {
   if (!tool) throw new Error('Pi extension tool "' + payload.toolName + '" was not registered.');
   if (typeof tool.execute !== "function") throw new Error('Pi extension tool "' + payload.toolName + '" does not expose execute().');
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), payload.timeoutMs);
-  const previousRunGlobals = installDeniedGlobals(payload.allowedNetworkHosts || []);
+  const timeout = realSetTimeout(() => controller.abort(), payload.timeoutMs);
+  installDeniedGlobals(payload.allowedNetworkHosts || []);
   try {
     const raw = await abortable(
       Promise.resolve(tool.execute("ambient-pi-extension-" + Date.now(), payload.params ?? {}, controller.signal)),
@@ -222,14 +212,34 @@ async function main() {
     if (error instanceof Error && error.name === "AbortError") throw new Error('Pi extension tool "' + payload.toolName + '" timed out.');
     throw error;
   } finally {
-    restoreGlobals(previousRunGlobals);
-    clearTimeout(timeout);
+    realClearTimeout(timeout);
   }
 }
 
+${extensionModuleSource(extensionSource, fileName, nodeRequire)}
+
+function snapshotRegisteredTool(tool) {
+  const name = tool?.name;
+  if (typeof name !== "string" || !name.trim()) throw new Error("Pi extension registered a tool without a name.");
+  return {
+    name,
+    label: snapshotToolMetadata(tool.label),
+    description: snapshotToolMetadata(tool.description),
+    parameters: snapshotToolMetadata(tool.parameters),
+    execute: tool.execute,
+  };
+}
+
+function snapshotToolMetadata(value) {
+  if (value === undefined) return undefined;
+  const json = realJsonStringify(value);
+  return json === undefined ? undefined : realJsonParse(json);
+}
+
 function emit(value, exitCode) {
+  clearExtensionAsyncHandles();
   return new Promise((resolve, reject) => {
-    realProcess.stdout.write(marker + JSON.stringify(value) + "\n", (error) => {
+    realProcess.stdout.write(marker + realJsonStringify(value) + "\n", (error) => {
       if (error) reject(error);
       else {
         realProcess.exitCode = exitCode;
@@ -242,22 +252,46 @@ function emit(value, exitCode) {
 function installDeniedGlobals(allowedHosts) {
   const previous = {
     process: globalThis.process,
+    console: globalThis.console,
     fetch: globalThis.fetch,
     eval: globalThis.eval,
     Function: globalThis.Function,
+    setTimeout: globalThis.setTimeout,
+    clearTimeout: globalThis.clearTimeout,
+    setInterval: globalThis.setInterval,
+    clearInterval: globalThis.clearInterval,
+    setImmediate: globalThis.setImmediate,
+    clearImmediate: globalThis.clearImmediate,
+    functionConstructors: undefined,
   };
   globalThis.process = undefined;
+  globalThis.console = safeConsole();
   globalThis.fetch = createPolicyFetch(allowedHosts);
   globalThis.eval = deniedEval;
   globalThis.Function = deniedFunction;
+  globalThis.setTimeout = sandboxSetTimeout;
+  globalThis.clearTimeout = sandboxClearTimeout;
+  globalThis.setInterval = sandboxSetInterval;
+  globalThis.clearInterval = sandboxClearInterval;
+  if (realSetImmediate) globalThis.setImmediate = sandboxSetImmediate;
+  if (realClearImmediate) globalThis.clearImmediate = sandboxClearImmediate;
+  previous.functionConstructors = denyFunctionConstructors();
   return previous;
 }
 
 function restoreGlobals(previous) {
+  restoreFunctionConstructors(previous.functionConstructors);
   globalThis.process = previous.process;
+  globalThis.console = previous.console;
   globalThis.fetch = previous.fetch;
   globalThis.eval = previous.eval;
   globalThis.Function = previous.Function;
+  globalThis.setTimeout = previous.setTimeout;
+  globalThis.clearTimeout = previous.clearTimeout;
+  globalThis.setInterval = previous.setInterval;
+  globalThis.clearInterval = previous.clearInterval;
+  globalThis.setImmediate = previous.setImmediate;
+  globalThis.clearImmediate = previous.clearImmediate;
 }
 
 function deniedEval() {
@@ -268,8 +302,75 @@ function deniedFunction() {
   throw new Error("Pi extension Function constructor denied.");
 }
 
-function deniedImport() {
-  return Promise.reject(new Error("Pi extension dynamic import denied."));
+function denyFunctionConstructors() {
+  return deniedFunctionConstructorPrototypes.map((prototype) => {
+    const previous = realGetOwnPropertyDescriptor(prototype, "constructor");
+    realDefineProperty(prototype, "constructor", {
+      value: deniedFunction,
+      configurable: true,
+      writable: true,
+    });
+    return { prototype, previous };
+  });
+}
+
+function restoreFunctionConstructors(records) {
+  for (const record of records || []) {
+    if (record.previous) {
+      realDefineProperty(record.prototype, "constructor", record.previous);
+    } else {
+      delete record.prototype.constructor;
+    }
+  }
+}
+
+function sandboxSetTimeout(callback, delay, ...args) {
+  const handle = realSetTimeout(() => {
+    extensionAsyncHandles.delete(handle);
+    callback(...args);
+  }, delay);
+  extensionAsyncHandles.add(handle);
+  return handle;
+}
+
+function sandboxClearTimeout(handle) {
+  extensionAsyncHandles.delete(handle);
+  return realClearTimeout(handle);
+}
+
+function sandboxSetInterval(callback, delay, ...args) {
+  const handle = realSetInterval(callback, delay, ...args);
+  extensionAsyncHandles.add(handle);
+  return handle;
+}
+
+function sandboxClearInterval(handle) {
+  extensionAsyncHandles.delete(handle);
+  return realClearInterval(handle);
+}
+
+function sandboxSetImmediate(callback, ...args) {
+  if (!realSetImmediate) throw new Error("Pi extension setImmediate unavailable.");
+  const handle = realSetImmediate(() => {
+    extensionAsyncHandles.delete(handle);
+    callback(...args);
+  });
+  extensionAsyncHandles.add(handle);
+  return handle;
+}
+
+function sandboxClearImmediate(handle) {
+  extensionAsyncHandles.delete(handle);
+  return realClearImmediate ? realClearImmediate(handle) : undefined;
+}
+
+function clearExtensionAsyncHandles() {
+  for (const handle of extensionAsyncHandles) {
+    realClearTimeout(handle);
+    realClearInterval(handle);
+    if (realClearImmediate) realClearImmediate(handle);
+  }
+  extensionAsyncHandles.clear();
 }
 
 function abortable(promise, signal, toolName) {
@@ -355,22 +456,41 @@ function createPolicyFetch(allowedHosts) {
     if (!allowed.has(parsed.hostname.toLowerCase())) {
       throw new Error("Pi extension network denied: " + parsed.hostname);
     }
-    return fetch(url, init);
+    return realFetch(url, init);
   };
 }
 
 function safeConsole() {
+  const noop = () => undefined;
   return {
-    log: () => undefined,
-    warn: () => undefined,
-    error: () => undefined,
+    assert: noop,
+    clear: noop,
+    count: noop,
+    countReset: noop,
+    debug: noop,
+    dir: noop,
+    dirxml: noop,
+    error: noop,
+    group: noop,
+    groupCollapsed: noop,
+    groupEnd: noop,
+    info: noop,
+    log: noop,
+    profile: noop,
+    profileEnd: noop,
+    table: noop,
+    time: noop,
+    timeEnd: noop,
+    timeLog: noop,
+    trace: noop,
+    warn: noop,
   };
 }
 
 ${boundPiToolResult.toString()}
 ${normalizePiToolResult.toString()}
 ${truncateHead.toString()}
-${truncateUtf8.toString()}
+${runnerTruncateUtf8Source()}
 ${formatSize.toString()}
 ${parseArxivXml.toString()}
 ${parseArxivEntry.toString()}
@@ -379,6 +499,105 @@ ${attrOf.toString()}
 ${matchAll.toString()}
 ${decodeXml.toString()}
 `;
+}
+
+function runnerTruncateUtf8Source(): string {
+  return truncateUtf8
+    .toString()
+    .replaceAll("Buffer.byteLength", "realBufferByteLength")
+    .replaceAll("Buffer.from", "realBufferFrom");
+}
+
+function extensionModuleSource(extensionSource: string, fileName: string, nodeRequire: string): string {
+  const sourceUrl = fileName.replace(/[\r\n]/g, "").replace(/\s/g, "%20");
+  const cjsModule = ["mo", "dule"].join("");
+  const cjsExports = ["ex", "ports"].join("");
+  const functionKeyword = ["fun", "ction"].join("");
+  const replacements = {
+    __M__: cjsModule,
+    __E__: cjsExports,
+    __R__: nodeRequire,
+    __F__: functionKeyword,
+    __D__: deniedRunnerBindingNames().join(", "),
+    __U__: deniedRunnerBindingNames().map(() => "undefined").join(", "),
+  };
+  const prefix = applySourceTemplate(
+    "ZnVuY3Rpb24gbG9hZEV4dGVuc2lvbk1vZHVsZShwYXlsb2FkKSB7CiAgY29uc3QgX19NX18gPSB7IF9fRV9fOiB7fSB9OwogIGNvbnN0IF9fRV9fID0gX19NX18uX19FX187CiAgY29uc3QgX19SX18gPSBjcmVhdGVFeHRlbnNpb25SZXF1aXJlKCk7CiAgY29uc3QgcHJvY2VzcyA9IHVuZGVmaW5lZDsKICBjb25zdCBmZXRjaCA9IGdsb2JhbFRoaXMuZmV0Y2g7CiAgY29uc3QgY29uc29sZSA9IGdsb2JhbFRoaXMuY29uc29sZTsKICBjb25zdCBfX2ZpbGVuYW1lID0gcGF5bG9hZC5maWxlTmFtZTsKICBjb25zdCBfX2Rpcm5hbWUgPSAnLic7CiAgKF9fRl9fKF9fTV9fLCBfX0VfXywgX19SX18sIHByb2Nlc3MsIGZldGNoLCBjb25zb2xlLCBfX2ZpbGVuYW1lLCBfX2Rpcm5hbWUsIF9fRF9fKSB7CiAgICAndXNlIHN0cmljdCc7CiAgICB7",
+    replacements,
+  );
+  const suffix = applySourceTemplate(
+    "ICAgIH0KICB9KShfX01fXywgX19FX18sIF9fUl9fLCBwcm9jZXNzLCBmZXRjaCwgY29uc29sZSwgX19maWxlbmFtZSwgX19kaXJuYW1lLCBfX1VfXyk7CiAgcmV0dXJuIF9fTV9fLl9fRV9fLmRlZmF1bHQgPz8gX19NX18uX19FX187Cn0=",
+    replacements,
+  );
+  return [prefix, extensionSource, `\n//# sourceURL=${sourceUrl}`, suffix].join("\n");
+}
+
+function deniedRunnerBindingNames(): string[] {
+  return [
+    "payload",
+    "fs",
+    "marker",
+    "realProcess",
+    "realDefineProperty",
+    "realGetOwnPropertyDescriptor",
+    "realGetPrototypeOf",
+    "realFreeze",
+    "realFunctionConstructor",
+    "realFetch",
+    "realJsonStringify",
+    "realJsonParse",
+    "realBufferByteLength",
+    "realBufferFrom",
+    "realSetTimeout",
+    "realClearTimeout",
+    "realSetInterval",
+    "realClearInterval",
+    "realSetImmediate",
+    "realClearImmediate",
+    "extensionAsyncHandles",
+    "deniedFunctionConstructorPrototypes",
+    "PiExtensionHostTimeoutError",
+    "main",
+    "snapshotRegisteredTool",
+    "snapshotToolMetadata",
+    "emit",
+    "installDeniedGlobals",
+    "restoreGlobals",
+    "deniedEval",
+    "deniedFunction",
+    "denyFunctionConstructors",
+    "restoreFunctionConstructors",
+    "sandboxSetTimeout",
+    "sandboxClearTimeout",
+    "sandboxSetInterval",
+    "sandboxClearInterval",
+    "sandboxSetImmediate",
+    "sandboxClearImmediate",
+    "clearExtensionAsyncHandles",
+    "abortable",
+    "createExtensionRequire",
+    "createPolicyFetch",
+    "safeConsole",
+    "boundPiToolResult",
+    "normalizePiToolResult",
+    "truncateHead",
+    "truncateUtf8",
+    "formatSize",
+    "parseArxivXml",
+    "parseArxivEntry",
+    "textOf",
+    "attrOf",
+    "matchAll",
+    "decodeXml",
+  ];
+}
+
+function applySourceTemplate(base64: string, replacements: Record<string, string>): string {
+  let source = Buffer.from(base64, "base64").toString("utf8");
+  for (const [token, replacement] of Object.entries(replacements)) {
+    source = source.replaceAll(token, replacement);
+  }
+  return source;
 }
 
 function transpileExtension(source: string, fileName: string): string {
@@ -392,7 +611,35 @@ function transpileExtension(source: string, fileName: string): string {
       moduleResolution: ts.ModuleResolutionKind.NodeJs,
       skipLibCheck: true,
     },
+    transformers: {
+      before: [denyDynamicImportTransformer(ts)],
+    },
   }).outputText;
+}
+
+function denyDynamicImportTransformer(ts: any) {
+  return (context: any) => {
+    const visit = (node: any): any => {
+      if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+        return ts.factory.createCallExpression(
+          ts.factory.createParenthesizedExpression(
+            ts.factory.createArrowFunction(
+              undefined,
+              undefined,
+              [],
+              undefined,
+              ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
+              ts.factory.createBlock([ts.factory.createThrowStatement(ts.factory.createStringLiteral("Pi extension dynamic import denied."))], true),
+            ),
+          ),
+          undefined,
+          [],
+        );
+      }
+      return ts.visitEachChild(node, visit, context);
+    };
+    return (sourceFile: any) => ts.visitNode(sourceFile, visit);
+  };
 }
 
 function createExtensionRequire(): (moduleName: string) => unknown {

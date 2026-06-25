@@ -9,6 +9,7 @@ import {
   ensureProjectStoreColumnGroup,
   ensureProjectStoreIndex,
   ensureThreadGoalProviderStatusCheck,
+  ensureThreadWakeContinuationStatusCheck,
   migrateProjectStorePermissionModeDefaultsToWorkspace,
   PROJECT_STORE_DATA_MIGRATION_SQL,
   PROJECT_STORE_MIGRATION_COLUMN_GROUPS,
@@ -84,6 +85,7 @@ describe("project store schema bootstrap", () => {
       "artifact_draft_events",
     ]);
     expect(schemaNames(/CREATE (?:UNIQUE )?INDEX IF NOT EXISTS\s+([a-z_]+)/g)).toHaveLength(68);
+    expect(PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL).not.toMatch(/CREATE INDEX[^\n]+operation_key/i);
   });
 
   it("applies the exported bootstrap SQL through the database exec boundary", () => {
@@ -295,6 +297,15 @@ describe("project store schema bootstrap", () => {
     expect(PROJECT_STORE_MIGRATION_COLUMN_GROUPS.workflowDiscoveryFinal).toEqual([
       ["workflow_discovery_questions", "cache_checkpoint_json", "TEXT"],
       ["workflow_discovery_questions", "graph_patch_json", "TEXT"],
+    ]);
+  });
+
+  it("keeps thread wake continuation migration columns in the schema module", () => {
+    expect(PROJECT_STORE_MIGRATION_COLUMN_GROUPS.threadWakeContinuations).toEqual([
+      ["thread_wake_continuations", "operation_key", "TEXT"],
+      ["thread_wake_continuations", "supersedes_wake_ids_json", "TEXT NOT NULL DEFAULT '[]'"],
+      ["thread_wake_continuations", "resolved_at", "TEXT"],
+      ["thread_wake_continuations", "resolution_reason", "TEXT"],
     ]);
   });
 
@@ -512,6 +523,8 @@ describe("project store schema bootstrap", () => {
         "CREATE INDEX IF NOT EXISTS idx_project_board_execution_artifacts_board_card ON project_board_execution_artifacts(board_id, card_id, updated_at)",
       workflowDiscoveryQuestionsRevision:
         "CREATE INDEX IF NOT EXISTS idx_workflow_discovery_questions_revision ON workflow_discovery_questions(revision_id, question_order)",
+      threadWakeContinuationsOperation:
+        "CREATE INDEX IF NOT EXISTS idx_thread_wake_continuations_operation ON thread_wake_continuations(thread_id, operation_key, status, due_at)",
     });
   });
 
@@ -550,6 +563,9 @@ describe("project store schema bootstrap", () => {
     expect(PROJECT_STORE_SCHEMA_MIGRATION_STEPS_AFTER_PLANNER_REPAIR).toEqual([
       { kind: "columnGroup", key: "workflowDiscoveryFinal" },
       { kind: "columnGroup", key: "callableWorkflowPatternGraphs" },
+      { kind: "columnGroup", key: "threadWakeContinuations" },
+      { kind: "threadWakeContinuationStatusCheck" },
+      { kind: "index", key: "threadWakeContinuationsOperation" },
       { kind: "index", key: "workflowDiscoveryQuestionsRevision" },
     ]);
   });
@@ -621,6 +637,60 @@ describe("project store schema bootstrap", () => {
       });
       const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'thread_goals'").get() as { sql: string };
       expect(schema.sql).toContain("'provider_unavailable'");
+    } finally {
+      db.close();
+    }
+  });
+
+  it("rebuilds the thread wake continuation status check for resolved and superseded wakes", () => {
+    const db = new Database(":memory:");
+    try {
+      db.exec(`
+        CREATE TABLE threads (
+          id TEXT PRIMARY KEY
+        );
+        CREATE TABLE thread_wake_continuations (
+          id TEXT PRIMARY KEY,
+          thread_id TEXT NOT NULL,
+          due_at TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('pending', 'delivered', 'cancelled', 'failed')),
+          reason TEXT NOT NULL,
+          job_id TEXT,
+          operation_key TEXT,
+          supersedes_wake_ids_json TEXT NOT NULL DEFAULT '[]',
+          payload_json TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          delivered_at TEXT,
+          resolved_at TEXT,
+          resolution_reason TEXT,
+          error TEXT,
+          FOREIGN KEY(thread_id) REFERENCES threads(id) ON DELETE CASCADE
+        );
+        INSERT INTO threads (id) VALUES ('thread-1');
+        INSERT INTO thread_wake_continuations
+          (id, thread_id, due_at, status, reason, job_id, operation_key, supersedes_wake_ids_json,
+           payload_json, created_at, updated_at, delivered_at, resolved_at, resolution_reason, error)
+        VALUES
+          ('wake-1', 'thread-1', '2026-06-21T00:10:00.000Z', 'pending', 'Check job.',
+           'job-1', 'bash:job-1', '[]', NULL, '2026-06-21T00:00:00.000Z',
+           '2026-06-21T00:00:00.000Z', NULL, NULL, NULL, NULL);
+      `);
+      expect(() => {
+        db.prepare("UPDATE thread_wake_continuations SET status = 'superseded' WHERE id = 'wake-1'").run();
+      }).toThrow();
+
+      ensureThreadWakeContinuationStatusCheck(db);
+      ensureThreadWakeContinuationStatusCheck(db);
+
+      db.prepare("UPDATE thread_wake_continuations SET status = 'superseded' WHERE id = 'wake-1'").run();
+      expect(db.prepare("SELECT status, operation_key FROM thread_wake_continuations WHERE id = 'wake-1'").get()).toEqual({
+        status: "superseded",
+        operation_key: "bash:job-1",
+      });
+      const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'thread_wake_continuations'").get() as { sql: string };
+      expect(schema.sql).toContain("'superseded'");
+      expect(schema.sql).toContain("'resolved'");
     } finally {
       db.close();
     }

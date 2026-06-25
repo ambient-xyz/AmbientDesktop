@@ -138,14 +138,15 @@ export async function resolveFirstPartyPluginPermission(
   input: ResolveFirstPartyPluginPermissionInput,
   options: ResolveFirstPartyPluginPermissionOptions,
 ): Promise<boolean> {
-  if (input.thread.permissionMode === "full-access" && !input.requireFreshPrompt) {
+  const risk = input.risk ?? "plugin-tool";
+  if (input.thread.permissionMode === "full-access" && !input.requireFreshPrompt && risk !== "privileged-action") {
     options.emitPermissionAudit({
       threadId: input.thread.id,
       permissionMode: input.thread.permissionMode,
       toolName: input.toolName,
       allowed: true,
       detail: input.detail,
-      risk: input.risk ?? "plugin-tool",
+      risk,
       reason: "Allowed automatically by Full Access mode.",
       decisionSource: "allowed_by_full_access",
     });
@@ -199,7 +200,7 @@ export async function resolveFirstPartyPluginPermission(
     toolName: input.toolName,
     allowed: permission.allowed,
     detail: input.detail,
-    risk: input.risk ?? "plugin-tool",
+    risk,
     reason: permission.allowed ? input.allowedReason : input.deniedReason,
     decisionSource: permission.decisionSource,
     grantId: permission.grant?.id,

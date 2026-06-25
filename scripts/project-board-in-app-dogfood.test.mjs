@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 describe("project-board in-app dogfood prompt contracts", () => {
   it("does not contradict the required initial task heartbeat", async () => {
-    const source = await readFile(new URL("./project-board-in-app-dogfood.mjs", import.meta.url), "utf8");
+    const source = await readDogfoodSources();
 
     expect(source).toContain("First board action: call native `task_heartbeat`");
     expect(source).toContain("before reading files, editing files, or running shell commands");
@@ -13,7 +13,7 @@ describe("project-board in-app dogfood prompt contracts", () => {
   });
 
   it("keeps the focused pause/resume dogfood on PM Review UI controls", async () => {
-    const source = await readFile(new URL("./project-board-in-app-dogfood.mjs", import.meta.url), "utf8");
+    const source = await readDogfoodSources();
 
     expect(source).toContain("AMBIENT_PROJECT_BOARD_DOGFOOD_PAUSE_RESUME");
     expect(source).toContain("runPauseResumePlanningDogfood");
@@ -27,7 +27,7 @@ describe("project-board in-app dogfood prompt contracts", () => {
   });
 
   it("keeps the focused Start Fresh dogfood on PM Review UI controls", async () => {
-    const source = await readFile(new URL("./project-board-in-app-dogfood.mjs", import.meta.url), "utf8");
+    const source = await readDogfoodSources();
 
     expect(source).toContain("AMBIENT_PROJECT_BOARD_DOGFOOD_START_FRESH");
     expect(source).toContain("runStartFreshPlanningDogfood");
@@ -42,7 +42,7 @@ describe("project-board in-app dogfood prompt contracts", () => {
   });
 
   it("records PM Review generated-card worker task-action protocol gaps explicitly", async () => {
-    const source = await readFile(new URL("./project-board-in-app-dogfood.mjs", import.meta.url), "utf8");
+    const source = await readDogfoodSources();
 
     expect(source).toContain("terminal_task_action");
     expect(source).toContain("proof_block_complete_followup_or_handoff");
@@ -50,3 +50,14 @@ describe("project-board in-app dogfood prompt contracts", () => {
     expect(source).toContain("PM Review generated-card worker did not emit the expected project-board task action protocol");
   });
 });
+
+async function readDogfoodSources() {
+  return (
+    await Promise.all([
+      readFile(new URL("./project-board-in-app-dogfood.mjs", import.meta.url), "utf8"),
+      readFile(new URL("./project-board-in-app-dogfood-cdp-helpers.mjs", import.meta.url), "utf8"),
+      readFile(new URL("./project-board-in-app-dogfood-proof-helpers.mjs", import.meta.url), "utf8"),
+      readFile(new URL("./project-board-in-app-dogfood-scenario-helpers.mjs", import.meta.url), "utf8"),
+    ])
+  ).join("\n");
+}

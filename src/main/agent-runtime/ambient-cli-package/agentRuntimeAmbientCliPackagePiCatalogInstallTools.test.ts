@@ -45,7 +45,15 @@ describe("agentRuntimeAmbientCliPackagePiCatalogInstallTools", () => {
       title: "Install Pi catalog CLI package \"ambient-demo\"?",
       message: "Ambient wants to translate a supported Pi catalog package into an Ambient-managed CLI package. Declared commands can be run later through ambient_cli with separate approval.",
       grantTargetLabel: "Install Pi catalog CLI package ambient-demo",
-      grantTargetIdentity: "ambient_cli_package_install_pi_catalog\0@pi/demo\0sha-123",
+      grantTargetIdentity: "ambient_cli_package_install_pi_catalog\0@pi/demo\0sha-123\0deps=none\0{\"args\":[\"demo.js\"],\"command\":\"node\",\"cwd\":\"package\",\"healthCheck\":[],\"name\":\"demo\"}",
+      grantConditions: {
+        installRoute: {
+          routeKind: "pi-marketplace-wrapped",
+          selectedSource: "@pi/demo",
+          targetPackage: "ambient-demo",
+          approvalBoundary: "ambient-permission-grant",
+        },
+      },
       allowedReason: "Pi catalog CLI package install approved by Ambient permission grant policy.",
       deniedReason: "Pi catalog CLI package install prompt denied or timed out.",
     }));
@@ -64,7 +72,7 @@ describe("agentRuntimeAmbientCliPackagePiCatalogInstallTools", () => {
         status: "installing",
       },
     });
-    expect(installAmbientCliPackagePiCatalogSource).toHaveBeenCalledWith(workspace.path, "@pi/demo");
+    expect(installAmbientCliPackagePiCatalogSource).toHaveBeenCalledWith(workspace.path, "@pi/demo", preview);
     expect(hydrateFirstPartyAmbientCliPackageSummaries).toHaveBeenCalledWith("pkg-123");
     expect(markPluginToolsStale).toHaveBeenCalledOnce();
     expect(result).toEqual({

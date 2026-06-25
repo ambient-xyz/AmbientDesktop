@@ -2,7 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopEvent } from "../../shared/desktopTypes";
-import { e2eEmitEventIpcChannels } from "./registerE2eIpc";
+import { e2eEmitEventIpcChannels, e2ePermissionGrantProbeIpcChannels } from "./registerE2eIpc";
 import {
   e2eDomainIpcChannels,
   registerE2eDomainIpc,
@@ -17,6 +17,7 @@ describe("registerE2eDomainIpc", () => {
     expect([...handlers.keys()]).toEqual([...e2eDomainIpcChannels]);
     expect([...e2eDomainIpcChannels]).toEqual([
       ...e2eEmitEventIpcChannels,
+      ...e2ePermissionGrantProbeIpcChannels,
     ]);
   });
 
@@ -44,6 +45,23 @@ describe("registerE2eDomainIpc", () => {
 
     expect(deps.emitDesktopEvent).toHaveBeenCalledWith(expect.any(Object), event);
   });
+
+  it("routes E2E permission grant probes through the supplied resolver", async () => {
+    const { deps, invoke } = registerWithFakes({ enabled: true });
+    const input = {
+      request: {
+        threadId: "thread-1",
+        toolName: "google_workspace_call",
+        title: "Grant?",
+        message: "Check grant",
+        risk: "plugin-tool" as const,
+      },
+    };
+
+    await expect(invoke("e2e:resolve-permission-grant", input)).resolves.toEqual({ allowed: false, decisionSource: "denied_by_user", response: "deny", promptRequested: true });
+
+    expect(deps.resolvePermissionGrant).toHaveBeenCalledWith(input);
+  });
 });
 
 function registerWithFakes({
@@ -58,6 +76,7 @@ function registerWithFakes({
     }),
     isE2eEnabled: vi.fn(() => enabled),
     emitDesktopEvent: vi.fn(),
+    resolvePermissionGrant: vi.fn(async () => ({ allowed: false, decisionSource: "denied_by_user", response: "deny" as const, promptRequested: true })),
   };
 
   registerE2eDomainIpc(deps);

@@ -31,6 +31,8 @@ describe("registerAgentRuntimeAsyncBashTools", () => {
       "bash_write",
       "bash_cancel",
       "thread_wake_schedule",
+      "thread_wake_cancel",
+      "thread_wake_resolve",
     ]);
     expect(registeredTools.every((tool) => tool.executionMode === "sequential")).toBe(true);
   });
@@ -43,6 +45,22 @@ describe("registerAgentRuntimeAsyncBashTools", () => {
       dueAt: "2026-01-01T00:00:01.000Z",
       reason: "check job",
       jobId: "job-1",
+      operationKey: "bash:job-1",
+      supersedesWakeIds: ["wake-old"],
+    }));
+    const cancelThreadWake = vi.fn(async () => ({
+      wakeId: "wake-1",
+      threadId: "thread-1",
+      status: "cancelled",
+      reason: "Cancelled before delivery.",
+      operationKey: "bash:job-1",
+    }));
+    const resolveThreadWake = vi.fn(async () => ({
+      wakeId: "wake-1",
+      threadId: "thread-1",
+      status: "resolved",
+      reason: "job complete",
+      operationKey: "bash:job-1",
     }));
 
     registerAgentRuntimeAsyncBashTools({ registerTool: (tool: any) => registeredTools.push(tool) }, {
@@ -50,6 +68,8 @@ describe("registerAgentRuntimeAsyncBashTools", () => {
       workspacePath: "/workspace",
       asyncBashJobs: new AgentRuntimeAsyncBashJobService(),
       scheduleThreadWake,
+      cancelThreadWake,
+      resolveThreadWake,
       getPolicy: () => ({
         permissionMode: "full-access",
         workspacePath: "/workspace",
@@ -62,19 +82,31 @@ describe("registerAgentRuntimeAsyncBashTools", () => {
       after_ms: 1000,
       reason: "check job",
       job_id: "job-1",
-      payload: { next_since_seq: 2 },
+      payload: { job_kind: "bash", next_since_seq: 2 },
     }, new AbortController().signal, () => undefined);
 
     expect(scheduleThreadWake).toHaveBeenCalledWith(expect.objectContaining({
       threadId: "thread-1",
       reason: "check job",
       jobId: "job-1",
-      payload: { next_since_seq: 2 },
+      operationKey: "bash:job-1",
+      payload: { job_kind: "bash", next_since_seq: 2 },
     }));
     expect(result.content[0]).toMatchObject({
       type: "text",
       text: expect.stringContaining("wake_id: wake-1"),
     });
+    expect(toolText(result)).toContain("superseded_wake_ids: wake-old");
+
+    const cancelTool = registeredTools.find((tool) => tool.name === "thread_wake_cancel")!;
+    const cancelResult = await cancelTool.execute("call-cancel", { wake_id: "wake-1" });
+    expect(cancelThreadWake).toHaveBeenCalledWith({ threadId: "thread-1", wakeId: "wake-1" });
+    expect(toolText(cancelResult)).toContain("status: cancelled");
+
+    const resolveTool = registeredTools.find((tool) => tool.name === "thread_wake_resolve")!;
+    const resolveResult = await resolveTool.execute("call-resolve", { wake_id: "wake-1", reason: "job complete" });
+    expect(resolveThreadWake).toHaveBeenCalledWith({ threadId: "thread-1", wakeId: "wake-1", reason: "job complete" });
+    expect(toolText(resolveResult)).toContain("status: resolved");
   });
 
   it("rejects async bash reads of interrupted tool-call recovery artifacts", async () => {
@@ -109,3 +141,7 @@ describe("registerAgentRuntimeAsyncBashTools", () => {
     });
   });
 });
+
+function toolText(result: AgentToolResult<Record<string, unknown>>): string {
+  return result.content.map((part) => part.type === "text" ? part.text : "").join("\n");
+}

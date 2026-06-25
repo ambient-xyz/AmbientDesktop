@@ -2,13 +2,17 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import type { AmbientPluginAuthAccountSummary, GoogleWorkspaceAccountIdentity, GoogleWorkspaceOAuthClientImportInput, GoogleWorkspaceSetupCommand, GoogleWorkspaceSetupInput, GoogleWorkspaceSetupState, GoogleWorkspaceValidationCheck, GoogleWorkspaceValidationResult } from "../../shared/pluginTypes";
+import type { AmbientPluginAuthAccountSummary, GoogleWorkspaceOAuthClientImportInput, GoogleWorkspaceSetupCommand, GoogleWorkspaceSetupInput, GoogleWorkspaceSetupState, GoogleWorkspaceValidationResult } from "../../shared/pluginTypes";
 import { redactString } from "./googleWorkspaceDiagnosticsFacade";
 import {
   GOOGLE_WORKSPACE_CLI_OAUTH_SCOPES,
-  GoogleWorkspaceCliAdapter,
+  type GoogleWorkspaceCliAdapter,
   googleWorkspaceCliEnv,
 } from "./googleWorkspaceCliAdapter";
+import {
+  type GoogleWorkspaceCliAccountRecord,
+  validateGoogleWorkspaceSetupAccount,
+} from "./googleWorkspaceSetupValidation";
 
 export interface GoogleWorkspaceSetupServiceOptions {
   adapter: GoogleWorkspaceCliAdapter;
@@ -17,10 +21,6 @@ export interface GoogleWorkspaceSetupServiceOptions {
   spawnProcess?: typeof spawn;
   openExternal?: (url: string) => Promise<unknown> | unknown;
   now?: () => Date;
-}
-
-interface GoogleWorkspaceCliAccountRecord extends AmbientPluginAuthAccountSummary {
-  configDir: string;
 }
 
 interface GoogleWorkspaceChildExitOptions {
@@ -208,51 +208,18 @@ export class GoogleWorkspaceSetupService {
   async validate(input: { accountHint?: string } = {}): Promise<GoogleWorkspaceValidationResult> {
     const accountHint = this.resolveAccountHandle(input.accountHint);
     const configDir = this.options.adapter.configDir(accountHint);
-    const checks: GoogleWorkspaceValidationCheck[] = [];
-    const identity = await this.discoverIdentity(accountHint);
-    if (identity) checks.push({ service: "identity", label: "Account identity", ok: true });
-    checks.push(await this.runValidationCheck("gmail", "Gmail labels", () =>
-      this.options.adapter.invoke({ method: "gmail.listLabels", accountHint, options: { timeoutMs: 20_000 } }),
-    ));
-    checks.push(await this.runValidationCheck("calendar", "Calendar list", () =>
-      this.options.adapter.invoke({ method: "calendar.listCalendars", accountHint, input: { max: 1 }, options: { timeoutMs: 20_000 } }),
-    ));
-    checks.push(await this.runValidationCheck("drive", "Drive search", () =>
-      this.options.adapter.invoke({ method: "drive.search", accountHint, input: { max: 1 }, options: { timeoutMs: 20_000 } }),
-    ));
-    const duplicate = identity?.email
-      ? this.accounts.find((account) => account.email === identity.email && account.accountId !== accountHint)
-      : undefined;
-    if (duplicate) {
-      checks.push({
-        service: "identity",
-        label: "Unique account",
-        ok: false,
-        message: `${identity!.email} is already registered as ${duplicate.accountId}. Use that account handle or forget the duplicate before continuing.`,
-      });
-    }
-    const ok = checks.every((check) => check.ok);
-    const now = this.now().toISOString();
-    const previous = this.accounts.find((account) => account.accountId === accountHint);
-    const email = identity?.email ?? previous?.email;
-    const account: GoogleWorkspaceCliAccountRecord = {
-      id: `gws:${accountHint}`,
-      accountId: accountHint,
-      label: email ?? (accountHint === DEFAULT_ACCOUNT_HANDLE ? "Google Workspace CLI default account" : accountHint),
-      email,
-      status: ok ? "available" : "error",
-      grantedScopes: ["gws:gmail", "gws:calendar", "gws:drive"],
-      connectedAt: previous?.connectedAt ?? now,
-      updatedAt: now,
-      lastValidatedAt: now,
-      validationError: ok ? undefined : checks.find((check) => !check.ok)?.message,
+    const { account, result } = await validateGoogleWorkspaceSetupAccount({
+      adapter: this.options.adapter,
+      accountHint,
       configDir,
-    };
+      accounts: this.accounts,
+      now: this.now,
+    });
     this.accounts = [...this.accounts.filter((existing) => existing.accountId !== accountHint), account].sort((left, right) =>
       left.accountId.localeCompare(right.accountId),
     );
     await this.saveAccounts();
-    return { account: stripConfigDir(account), checks, identity };
+    return result;
   }
 
   private handleOutput(chunk: string, openAuthUrl: boolean): void {
@@ -410,61 +377,6 @@ export class GoogleWorkspaceSetupService {
     return outputTail;
   }
 
-  private async runValidationCheck(
-    service: GoogleWorkspaceValidationCheck["service"],
-    label: string,
-    run: () => Promise<unknown>,
-  ): Promise<GoogleWorkspaceValidationCheck> {
-    try {
-      await run();
-      return { service, label, ok: true };
-    } catch (error) {
-      return {
-        service,
-        label,
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  private async discoverIdentity(accountHint: string): Promise<GoogleWorkspaceAccountIdentity | undefined> {
-    const fromGmail = await this.tryGmailProfileIdentity(accountHint);
-    if (fromGmail) return fromGmail;
-    return this.tryDriveAboutIdentity(accountHint);
-  }
-
-  private async tryGmailProfileIdentity(accountHint: string): Promise<GoogleWorkspaceAccountIdentity | undefined> {
-    try {
-      const profile = await this.options.adapter.invoke<{ emailAddress?: unknown }>({
-        method: "gmail.getProfile",
-        accountHint,
-        options: { timeoutMs: 20_000 },
-      });
-      const email = optionalString(profile.emailAddress);
-      if (!email) return undefined;
-      return { email, source: "gmail.profile" };
-    } catch {
-      return undefined;
-    }
-  }
-
-  private async tryDriveAboutIdentity(accountHint: string): Promise<GoogleWorkspaceAccountIdentity | undefined> {
-    try {
-      const about = await this.options.adapter.invoke<{ user?: { emailAddress?: unknown; displayName?: unknown } }>({
-        method: "drive.about",
-        accountHint,
-        options: { timeoutMs: 20_000 },
-      });
-      const email = optionalString(about.user?.emailAddress);
-      const displayName = optionalString(about.user?.displayName);
-      if (!email && !displayName) return undefined;
-      return { email, displayName, source: "drive.about" };
-    } catch {
-      return undefined;
-    }
-  }
-
   private resolveAccountHandle(accountHint: string | undefined): string {
     const normalized = normalizeAccountHandle(accountHint);
     const existing = this.findAccount(normalized);
@@ -559,21 +471,12 @@ function envString(value: string | undefined): string | undefined {
   return value?.trim() || undefined;
 }
 
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
 function normalizeAccountRecord(record: GoogleWorkspaceCliAccountRecord): GoogleWorkspaceCliAccountRecord {
   return {
     ...record,
     status: record.status ?? "not_configured",
     grantedScopes: Array.isArray(record.grantedScopes) ? record.grantedScopes : [],
   };
-}
-
-function stripConfigDir(record: GoogleWorkspaceCliAccountRecord): AmbientPluginAuthAccountSummary {
-  const { configDir: _configDir, ...summary } = record;
-  return summary;
 }
 
 function isNotFound(error: unknown): boolean {

@@ -2,6 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopState } from "../../shared/desktopTypes";
+import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
 import type {
   WorkspaceContextReference,
   WorkspaceDiff,
@@ -14,8 +15,10 @@ import type {
 } from "../../shared/workspaceTypes";
 import {
   localFileActionIpcChannels,
+  localFolderAllowlistIpcChannels,
   localFilePreviewIpcChannels,
   registerLocalFileActionIpc,
+  registerLocalFolderAllowlistIpc,
   registerLocalFilePreviewIpc,
   registerWorkspaceFileIpc,
   registerWorkspaceGitStatusIpc,
@@ -30,6 +33,7 @@ import {
   workspacePickContextIpcChannels,
   workspaceSearchIpcChannels,
   type RegisterLocalFileActionIpcDependencies,
+  type RegisterLocalFolderAllowlistIpcDependencies,
   type RegisterLocalFilePreviewIpcDependencies,
   type RegisterWorkspaceFileIpcDependencies,
   type RegisterWorkspaceGitStatusIpcDependencies,
@@ -39,6 +43,7 @@ import {
   type RegisterWorkspaceSearchIpcDependencies,
   type WorkspaceFileContext,
   type WorkspaceGitStatusContext,
+  type LocalFileActionContext,
   type WorkspacePathActionContext,
   type WorkspacePickContext,
 } from "./registerWorkspaceIpc";
@@ -160,7 +165,7 @@ describe("registerLocalFilePreviewIpc", () => {
     await expect(invoke("local-file:preview", "/tmp/workspace/docs/brief.pdf")).resolves.toEqual(file);
 
     expect(deps.activeWorkspaceFileContextForProjectHost).toHaveBeenCalledOnce();
-    expect(deps.readActiveLocalFilePreview).toHaveBeenCalledWith("/tmp/workspace/docs/brief.pdf", context.workspacePath);
+    expect(deps.readActiveLocalFilePreview).toHaveBeenCalledWith("/tmp/workspace/docs/brief.pdf", context);
     expect(deps.clearOfficePreviewRendererDiscovery).not.toHaveBeenCalled();
   });
 
@@ -173,7 +178,7 @@ describe("registerLocalFilePreviewIpc", () => {
     expect(deps.clearOfficePreviewRendererDiscovery.mock.invocationCallOrder[0]).toBeLessThan(
       deps.readActiveLocalFilePreview.mock.invocationCallOrder[0],
     );
-    expect(deps.readActiveLocalFilePreview).toHaveBeenCalledWith("/tmp/workspace/docs/brief.docx", context.workspacePath);
+    expect(deps.readActiveLocalFilePreview).toHaveBeenCalledWith("/tmp/workspace/docs/brief.docx", context);
   });
 });
 
@@ -185,13 +190,24 @@ describe("registerLocalFileActionIpc", () => {
   });
 
   it("reveals a resolved local file path in the shell", async () => {
-    const { deps, invoke, resolvedPath } = registerLocalFileActionWithFakes();
+    const { context, deps, invoke, resolvedPath } = registerLocalFileActionWithFakes();
 
     await expect(invoke("local-file:reveal-path", "~/Downloads/brief.pdf")).resolves.toBeUndefined();
 
-    expect(deps.resolveLocalFilePath).toHaveBeenCalledWith("~/Downloads/brief.pdf");
+    expect(deps.resolveCanonicalLocalFilePath).toHaveBeenCalledWith("~/Downloads/brief.pdf");
+    expect(deps.localPathVisibleToThread).toHaveBeenCalledWith(resolvedPath, context);
     expect(deps.showItemInFolder).toHaveBeenCalledWith(resolvedPath);
     expect(deps.openPath).not.toHaveBeenCalled();
+  });
+
+  it("rejects reveal when the local file is not visible to the active thread", async () => {
+    const { deps, invoke } = registerLocalFileActionWithFakes({ visible: false });
+
+    await expect(invoke("local-file:reveal-path", "~/Downloads/brief.pdf")).rejects.toThrow(
+      "Reveal is limited to the current workspace or folders explicitly allowed for this thread.",
+    );
+
+    expect(deps.showItemInFolder).not.toHaveBeenCalled();
   });
 
   it("opens a resolved local file path and throws shell open errors", async () => {
@@ -199,7 +215,25 @@ describe("registerLocalFileActionIpc", () => {
 
     await expect(invoke("local-file:open-path", "~/Downloads/brief.pdf")).rejects.toThrow("No app can open this file.");
 
+    expect(deps.requestLocalFileOpenConfirmation).not.toHaveBeenCalled();
     expect(deps.openPath).toHaveBeenCalledWith(resolvedPath);
+  });
+
+  it("requires fresh confirmation before opening a local path outside the workspace", async () => {
+    const { context, deps, invoke, resolvedPath } = registerLocalFileActionWithFakes({ insideWorkspace: false });
+
+    await expect(invoke("local-file:open-path", "~/Downloads/brief.pdf")).resolves.toBeUndefined();
+
+    expect(deps.requestLocalFileOpenConfirmation).toHaveBeenCalledWith(resolvedPath, context);
+    expect(deps.openPath).toHaveBeenCalledWith(resolvedPath);
+  });
+
+  it("rejects local path opens when fresh confirmation is denied", async () => {
+    const { deps, invoke } = registerLocalFileActionWithFakes({ insideWorkspace: false, openConfirmed: false });
+
+    await expect(invoke("local-file:open-path", "~/Downloads/brief.pdf")).rejects.toThrow("Opening this local file was not approved.");
+
+    expect(deps.openPath).not.toHaveBeenCalled();
   });
 
   it("opens a resolved local file path with the selected target", async () => {
@@ -207,7 +241,7 @@ describe("registerLocalFileActionIpc", () => {
 
     await expect(invoke("local-file:open-path-with", { path: "~/Downloads/brief.pdf", targetId: "vscode" })).resolves.toBeUndefined();
 
-    expect(deps.resolveLocalFilePath).toHaveBeenCalledWith("~/Downloads/brief.pdf");
+    expect(deps.resolveCanonicalLocalFilePath).toHaveBeenCalledWith("~/Downloads/brief.pdf");
     expect(deps.openWorkspaceTarget).toHaveBeenCalledWith(resolvedPath, "vscode");
   });
 
@@ -216,8 +250,41 @@ describe("registerLocalFileActionIpc", () => {
 
     await expect(invoke("local-file:open-path-with", { path: "", targetId: "vscode" })).rejects.toThrow();
 
-    expect(deps.resolveLocalFilePath).not.toHaveBeenCalled();
+    expect(deps.resolveCanonicalLocalFilePath).not.toHaveBeenCalled();
     expect(deps.openWorkspaceTarget).not.toHaveBeenCalled();
+  });
+});
+
+describe("registerLocalFolderAllowlistIpc", () => {
+  it("registers the local folder allowlist channel", () => {
+    const { handlers } = registerLocalFolderAllowlistWithFakes();
+
+    expect([...handlers.keys()]).toEqual([...localFolderAllowlistIpcChannels]);
+  });
+
+  it("creates a thread folder allowlist grant from a selected folder", async () => {
+    const { context, deps, grant, invoke, resolvedPath } = registerLocalFolderAllowlistWithFakes();
+
+    await expect(invoke("local-file:add-folder-allowlist")).resolves.toEqual(grant);
+
+    expect(deps.showOpenDialog).toHaveBeenCalledWith({
+      title: "Add Folder to Allow List for Thread",
+      buttonLabel: "Add Folder",
+      defaultPath: context.workspacePath,
+      properties: ["openDirectory", "createDirectory"],
+    });
+    expect(deps.resolveCanonicalLocalFilePath).toHaveBeenCalledWith("/tmp/shared");
+    expect(deps.createThreadLocalFolderAllowlistGrant).toHaveBeenCalledWith(resolvedPath, context);
+  });
+
+  it("returns undefined when the allowlist folder picker is canceled", async () => {
+    const { deps, invoke } = registerLocalFolderAllowlistWithFakes({
+      dialogResult: { canceled: true, filePaths: ["/tmp/shared"] },
+    });
+
+    await expect(invoke("local-file:add-folder-allowlist")).resolves.toBeUndefined();
+
+    expect(deps.createThreadLocalFolderAllowlistGrant).not.toHaveBeenCalled();
   });
 });
 
@@ -265,6 +332,42 @@ describe("registerWorkspacePickContextIpc", () => {
       defaultPath: context.workspacePath,
       properties: ["openDirectory", "multiSelections"],
     });
+    expect(deps.describeWorkspaceAbsoluteContextPaths).toHaveBeenCalledWith(context.workspacePath, filePaths, { allowExternal: false });
+  });
+
+  it("allows thread-visible external context in workspace-mode threads", async () => {
+    const context = sampleWorkspacePickContext("workspace");
+    const references = sampleWorkspaceContextReferences();
+    const filePaths = ["/tmp/shared-link/allowed-note.md"];
+    const canonicalFilePaths = ["/tmp/shared/allowed-note.md"];
+    const { deps, invoke } = registerWorkspacePickContextWithFakes({
+      context,
+      dialogResult: { canceled: false, filePaths },
+      references,
+      resolveCanonicalLocalFilePath: (path) => path.replace("/tmp/shared-link/", "/tmp/shared/"),
+      localPathInsideActiveWorkspace: (path) => path.startsWith("/tmp/workspace/"),
+      localPathVisibleToThread: (path) => path.startsWith("/tmp/shared/"),
+    });
+
+    await expect(invoke("workspace:pick-context", { kind: "file" })).resolves.toEqual(references);
+
+    expect(deps.describeWorkspaceAbsoluteContextPaths).toHaveBeenCalledWith(context.workspacePath, canonicalFilePaths, { allowExternal: true });
+  });
+
+  it("does not let one thread-visible external context path approve an unapproved sibling", async () => {
+    const context = sampleWorkspacePickContext("workspace");
+    const references = sampleWorkspaceContextReferences();
+    const filePaths = ["/tmp/shared/allowed-note.md", "/tmp/private/secret-note.md"];
+    const { deps, invoke } = registerWorkspacePickContextWithFakes({
+      context,
+      dialogResult: { canceled: false, filePaths },
+      references,
+      localPathInsideActiveWorkspace: (path) => path.startsWith("/tmp/workspace/"),
+      localPathVisibleToThread: (path) => path.startsWith("/tmp/shared/"),
+    });
+
+    await expect(invoke("workspace:pick-context", { kind: "file" })).resolves.toEqual(references);
+
     expect(deps.describeWorkspaceAbsoluteContextPaths).toHaveBeenCalledWith(context.workspacePath, filePaths, { allowExternal: false });
   });
 
@@ -472,7 +575,7 @@ function registerWithFakes({
       const handler = handlers.get(channel);
       expect(handler).toBeDefined();
       if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve(handler({} as IpcMainInvokeEvent, raw));
+      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
     },
   };
 }
@@ -508,7 +611,7 @@ function registerWorkspaceFileWithFakes({
       const handler = handlers.get(channel);
       expect(handler).toBeDefined();
       if (!handler) throw new Error(`Missing handler for ${channel}`);
-      return Promise.resolve(handler({} as IpcMainInvokeEvent, raw));
+      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
     },
   };
 }
@@ -548,24 +651,74 @@ function registerLocalFilePreviewWithFakes({
 function registerLocalFileActionWithFakes({
   resolvedPath = "/tmp/workspace/docs/brief.pdf",
   openPathError = "",
+  visible = true,
+  insideWorkspace = true,
+  openConfirmed = true,
 }: {
   resolvedPath?: string;
   openPathError?: string;
+  visible?: boolean;
+  insideWorkspace?: boolean;
+  openConfirmed?: boolean;
+} = {}) {
+  const handlers = new Map<string, IpcListener>();
+  const context: LocalFileActionContext = sampleLocalFileActionContext();
+  const deps = {
+    handleIpc: vi.fn((channel: string, listener: IpcListener) => {
+      handlers.set(channel, listener);
+    }),
+    activeWorkspaceFileContextForProjectHost: vi.fn(() => context),
+    resolveCanonicalLocalFilePath: vi.fn(() => resolvedPath),
+    localPathVisibleToThread: vi.fn(() => visible),
+    localPathInsideActiveWorkspace: vi.fn(() => insideWorkspace),
+    requestLocalFileOpenConfirmation: vi.fn(async () => ({ allowed: openConfirmed, mode: openConfirmed ? "allow_once" as const : "deny" as const })),
+    showItemInFolder: vi.fn(),
+    openPath: vi.fn(async () => openPathError),
+    openWorkspaceTarget: vi.fn(async () => undefined),
+  } satisfies RegisterLocalFileActionIpcDependencies<LocalFileActionContext>;
+  registerLocalFileActionIpc(deps);
+
+  return {
+    context,
+    deps,
+    handlers,
+    invoke: (channel: string, raw?: unknown) => {
+      const handler = handlers.get(channel);
+      expect(handler).toBeDefined();
+      if (!handler) throw new Error(`Missing handler for ${channel}`);
+      return Promise.resolve().then(() => handler({} as IpcMainInvokeEvent, raw));
+    },
+    resolvedPath,
+  };
+}
+
+function registerLocalFolderAllowlistWithFakes({
+  context = sampleLocalFileActionContext(),
+  dialogResult = { canceled: false, filePaths: ["/tmp/shared"] },
+  grant = samplePermissionGrant(),
+  resolvedPath = "/tmp/shared-real",
+}: {
+  context?: LocalFileActionContext;
+  dialogResult?: { canceled: boolean; filePaths: string[] };
+  grant?: AmbientPermissionGrant;
+  resolvedPath?: string;
 } = {}) {
   const handlers = new Map<string, IpcListener>();
   const deps = {
     handleIpc: vi.fn((channel: string, listener: IpcListener) => {
       handlers.set(channel, listener);
     }),
-    resolveLocalFilePath: vi.fn(() => resolvedPath),
-    showItemInFolder: vi.fn(),
-    openPath: vi.fn(async () => openPathError),
-    openWorkspaceTarget: vi.fn(async () => undefined),
-  } satisfies RegisterLocalFileActionIpcDependencies;
-  registerLocalFileActionIpc(deps);
+    activeWorkspaceFileContextForProjectHost: vi.fn(() => context),
+    showOpenDialog: vi.fn(async () => dialogResult),
+    resolveCanonicalLocalFilePath: vi.fn(() => resolvedPath),
+    createThreadLocalFolderAllowlistGrant: vi.fn(async () => grant),
+  } satisfies RegisterLocalFolderAllowlistIpcDependencies<LocalFileActionContext>;
+  registerLocalFolderAllowlistIpc(deps);
 
   return {
+    context,
     deps,
+    grant,
     handlers,
     invoke: (channel: string, raw?: unknown) => {
       const handler = handlers.get(channel);
@@ -581,10 +734,16 @@ function registerWorkspacePickContextWithFakes({
   context = sampleWorkspacePickContext("workspace"),
   dialogResult = { canceled: false, filePaths: ["/tmp/workspace/src/app.ts"] },
   references = sampleWorkspaceContextReferences(),
+  resolveCanonicalLocalFilePath = (path: string) => path,
+  localPathVisibleToThread = (path: string) => path.startsWith(`${context.workspacePath}/`) || path === context.workspacePath,
+  localPathInsideActiveWorkspace = (path: string) => path.startsWith(`${context.workspacePath}/`) || path === context.workspacePath,
 }: {
   context?: WorkspacePickContext;
   dialogResult?: { canceled: boolean; filePaths: string[] };
   references?: WorkspaceContextReference[];
+  resolveCanonicalLocalFilePath?: (path: string) => string;
+  localPathVisibleToThread?: (path: string, context: WorkspacePickContext) => boolean;
+  localPathInsideActiveWorkspace?: (path: string, context: WorkspacePickContext) => boolean;
 } = {}) {
   const handlers = new Map<string, IpcListener>();
   const deps = {
@@ -593,6 +752,9 @@ function registerWorkspacePickContextWithFakes({
     }),
     activeWorkspaceFileContextForProjectHost: vi.fn(() => context),
     showOpenDialog: vi.fn(async () => dialogResult),
+    resolveCanonicalLocalFilePath: vi.fn(resolveCanonicalLocalFilePath),
+    localPathVisibleToThread: vi.fn(localPathVisibleToThread),
+    localPathInsideActiveWorkspace: vi.fn(localPathInsideActiveWorkspace),
     describeWorkspaceAbsoluteContextPaths: vi.fn(async () => references),
   } satisfies RegisterWorkspacePickContextIpcDependencies<WorkspacePickContext>;
   registerWorkspacePickContextIpc(deps);
@@ -787,6 +949,33 @@ function sampleWorkspacePickContext(permissionMode: WorkspacePickContext["thread
   return {
     workspacePath: "/tmp/workspace",
     thread: { permissionMode },
+  };
+}
+
+function sampleLocalFileActionContext(): LocalFileActionContext {
+  return {
+    threadId: "thread-1",
+    workspacePath: "/tmp/workspace",
+    thread: { permissionMode: "workspace" },
+  };
+}
+
+function samplePermissionGrant(): AmbientPermissionGrant {
+  return {
+    id: "grant-1",
+    createdAt: "2026-06-23T00:00:00.000Z",
+    updatedAt: "2026-06-23T00:00:00.000Z",
+    createdBy: "user",
+    permissionModeAtCreation: "workspace",
+    scopeKind: "thread",
+    threadId: "thread-1",
+    workspacePath: "/tmp/workspace",
+    actionKind: "file_content_read",
+    targetKind: "path",
+    targetHash: "hash",
+    targetLabel: "/tmp/shared-real",
+    source: "settings",
+    reason: "test grant",
   };
 }
 

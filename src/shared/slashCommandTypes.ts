@@ -28,6 +28,7 @@ export type SlashCommandInvocationKind =
   | "workflow-playbook"
   | "symphony-recipe"
   | "callable-workflow";
+export type SlashCommandSearchMode = "query" | "catalog";
 
 export interface SlashCommandParameterSummary {
   name: string;
@@ -54,6 +55,8 @@ export interface SlashCommandCatalogEntry {
   sourceName?: string;
   sourceVersion?: string | number;
   sourceFingerprint?: string;
+  groupKey: string;
+  groupLabel: string;
   requiresParameters: boolean;
   parameters?: SlashCommandParameterSummary[];
   score?: number;
@@ -68,20 +71,32 @@ export interface SlashCommandFeatureFlagState {
 
 export interface SlashCommandSearchInput {
   query?: string;
+  mode?: SlashCommandSearchMode;
   limit?: number;
   includeUnavailable?: boolean;
   kinds?: SlashCommandKind[];
   sourceKinds?: SlashCommandSourceKind[];
 }
 
+export interface SlashCommandSearchGroup {
+  key: string;
+  label: string;
+  startIndex: number;
+  count: number;
+  totalCount: number;
+}
+
 export interface SlashCommandSearchResponse {
   schemaVersion: typeof SLASH_COMMAND_SEARCH_SCHEMA_VERSION;
   query: string;
+  mode: SlashCommandSearchMode;
   limit: number;
   entries: SlashCommandCatalogEntry[];
   resultCount: number;
   totalEntryCount: number;
   truncated: boolean;
+  hasMore: boolean;
+  groups: SlashCommandSearchGroup[];
   catalogVersion: string;
   featureFlag: SlashCommandFeatureFlagState;
   diagnostics: string[];

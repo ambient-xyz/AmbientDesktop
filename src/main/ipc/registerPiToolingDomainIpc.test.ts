@@ -93,6 +93,10 @@ describe("registerPiToolingDomainIpc", () => {
     }));
     expect(deps.installPiPrivilegedPackage).toHaveBeenCalledWith(host.workspacePath, {
       source: "./privileged-pi",
+      reviewedScan: expect.objectContaining({
+        packageName: "privileged-pi",
+        fingerprint: "fingerprint-1",
+      }),
     });
     expect(deps.resetProjectRuntimeAndPluginServers).toHaveBeenCalledWith(host);
     expect(deps.emitPluginCatalogUpdated).toHaveBeenCalledWith(host.workspacePath);

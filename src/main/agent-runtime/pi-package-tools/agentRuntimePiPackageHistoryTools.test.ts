@@ -155,6 +155,8 @@ function privilegedScanFixture(
     source: "npm:pi-ffmpeg",
     scanOrigin: "explicit",
     packageName: "pi-ffmpeg",
+    descriptorHash: "descriptor-hash",
+    packageTreeHash: "package-tree-hash",
     fingerprint: "fingerprint",
     resources: {
       piExtensions: [],

@@ -35,6 +35,7 @@ function setup() {
   const completedTools: unknown[] = [];
   const startedToolCallIds = new Set<string>();
   const refreshBrowsersForArtifactChange = vi.fn();
+  const finishActiveThinkingBeforeToolActivity = vi.fn();
   let nextId = 1;
   const toolMessages = createRuntimeToolMessageController({
     threadId: "thread-1",
@@ -87,6 +88,7 @@ function setup() {
     startedToolCallIds,
     clearEmptyAssistantStallWatchdog: vi.fn(),
     clearAssistantTerminalCompletion: vi.fn(),
+    finishActiveThinkingBeforeToolActivity,
     markFirstToolArgumentObserved: vi.fn(),
     markFirstToolExecutionObserved: vi.fn(),
     rememberToolIntent: vi.fn((toolCallId, toolName) => intentSnapshot(toolCallId, toolName)),
@@ -109,13 +111,14 @@ function setup() {
     events,
     completedTools,
     startedToolCallIds,
+    finishActiveThinkingBeforeToolActivity,
     refreshBrowsersForArtifactChange,
   };
 }
 
 describe("createRuntimeToolEventDispatcher", () => {
   it("applies tool input events, records recovery input, upserts a preparing message, and emits a running tool event", () => {
-    const { dispatcher, toolMessages, events } = setup();
+    const { dispatcher, toolMessages, events, finishActiveThinkingBeforeToolActivity } = setup();
 
     expect(dispatcher.handle({
       kind: "tool-input-start",
@@ -127,6 +130,7 @@ describe("createRuntimeToolEventDispatcher", () => {
 
     expect(toolMessages.inputContent("tool-call-1")).toContain("public/out.txt");
     expect(toolMessages.recoveryInput("tool-call-1")).toContain("public/out.txt");
+    expect(finishActiveThinkingBeforeToolActivity).toHaveBeenCalledTimes(1);
     expect(events.map((event) => event.type)).toEqual(["message-created", "tool-event"]);
     expect(events.at(-1)).toEqual(expect.objectContaining({
       type: "tool-event",
@@ -136,7 +140,7 @@ describe("createRuntimeToolEventDispatcher", () => {
   });
 
   it("applies tool-start events, marks execution state, and updates the existing tool message", () => {
-    const { dispatcher, startedToolCallIds, events } = setup();
+    const { dispatcher, startedToolCallIds, events, finishActiveThinkingBeforeToolActivity } = setup();
     dispatcher.handle({
       kind: "tool-input-end",
       toolCallId: "tool-call-1",
@@ -154,6 +158,7 @@ describe("createRuntimeToolEventDispatcher", () => {
     }, {}, 2)).toBe(true);
 
     expect(startedToolCallIds.has("tool-call-1")).toBe(true);
+    expect(finishActiveThinkingBeforeToolActivity).toHaveBeenCalledTimes(2);
     expect(events.at(-2)).toEqual(expect.objectContaining({ type: "message-updated" }));
     expect(events.at(-1)).toEqual(expect.objectContaining({
       type: "tool-event",

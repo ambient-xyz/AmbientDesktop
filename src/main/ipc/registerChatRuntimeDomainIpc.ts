@@ -77,6 +77,15 @@ export interface ChatRuntimeDomainHost<
   runtime: Runtime;
 }
 
+export interface ChatRuntimeLocalPathContext<
+  Store extends ChatRuntimeStore = ChatRuntimeStore,
+> {
+  targetStore: Store;
+  threadId: string;
+  thread: ThreadSummary;
+  workspacePath: string;
+}
+
 export interface RegisterChatRuntimeDomainIpcDependencies<
   Host extends ChatRuntimeDomainHost = ChatRuntimeDomainHost,
 > {
@@ -94,6 +103,9 @@ export interface RegisterChatRuntimeDomainIpcDependencies<
     context: NonNullable<SendMessageIpcInput["context"]>,
     options: { allowExternal: boolean },
   ): MaybePromise<SendMessageInput["context"]>;
+  resolveCanonicalLocalFilePath(requestedPath: string): string;
+  localPathVisibleToThread(absolutePath: string, context: ChatRuntimeLocalPathContext<Host["store"]>): boolean;
+  localPathInsideActiveWorkspace(absolutePath: string, context: ChatRuntimeLocalPathContext<Host["store"]>): boolean;
   emitDesktopEvent(event: DesktopEvent): void;
   emitProjectScopedEvent(host: Host, event: { type: "thread-goal-updated"; goal: ThreadGoal }): void;
   emitProjectStateIfActive(host: Host, threadId?: string): void;
@@ -113,6 +125,9 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
   activeThreadIdForHost,
   createAndRecordCheckpoint,
   describeWorkspaceContextReferences,
+  resolveCanonicalLocalFilePath,
+  localPathVisibleToThread,
+  localPathInsideActiveWorkspace,
   emitDesktopEvent,
   emitProjectScopedEvent,
   emitProjectStateIfActive,
@@ -125,6 +140,34 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
   setProjectHostActiveThreadId,
   validateSlashCommandSelection,
 }: RegisterChatRuntimeDomainIpcDependencies<Host>): void {
+  function canonicalizeExternalContextReferences(
+    contextReferences: NonNullable<SendMessageIpcInput["context"]>,
+    context: ChatRuntimeLocalPathContext<Host["store"]>,
+  ): NonNullable<SendMessageIpcInput["context"]> | undefined {
+    let sawExternalPath = false;
+    const canonicalReferences: NonNullable<SendMessageIpcInput["context"]> = [];
+    for (const reference of contextReferences) {
+      if (!reference.absolute) {
+        canonicalReferences.push(reference);
+        continue;
+      }
+      let canonicalPath: string;
+      try {
+        canonicalPath = resolveCanonicalLocalFilePath(reference.path);
+      } catch {
+        return undefined;
+      }
+      if (localPathInsideActiveWorkspace(canonicalPath, context)) {
+        canonicalReferences.push({ ...reference, path: canonicalPath });
+        continue;
+      }
+      sawExternalPath = true;
+      if (!localPathVisibleToThread(canonicalPath, context)) return undefined;
+      canonicalReferences.push({ ...reference, path: canonicalPath });
+    }
+    return sawExternalPath ? canonicalReferences : undefined;
+  }
+
   registerMessageSendIpc({
     handleIpc,
     sendMessage: async (input, raw) => {
@@ -144,11 +187,21 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
         emitProjectStateIfActive(host, stateThreadId);
         if (!isActiveProjectRuntimeHost(host)) emitThreadUpdated(thread);
       }
+      const localPathContext: ChatRuntimeLocalPathContext<Host["store"]> = {
+        targetStore,
+        threadId: thread.id,
+        thread,
+        workspacePath: thread.workspacePath,
+      };
+      const canonicalExternalContext = input.context?.length
+        ? canonicalizeExternalContextReferences(input.context, localPathContext)
+        : undefined;
+      const allowExternalContext = input.permissionMode === "full-access" || Boolean(canonicalExternalContext);
       const context = input.context?.length
         ? await describeWorkspaceContextReferences(
             thread.workspacePath,
-            input.context,
-            { allowExternal: input.permissionMode === "full-access" },
+            canonicalExternalContext ?? input.context,
+            { allowExternal: allowExternalContext },
           )
         : undefined;
       if (input.retryOfMessageId) {

@@ -453,6 +453,8 @@ function samplePiPrivilegedScan(): PiPrivilegedSecurityScan {
     source: "npm:ambient-pi-tool",
     scanOrigin: "explicit",
     packageName: "ambient-pi-tool",
+    descriptorHash: "descriptor-hash",
+    packageTreeHash: "package-tree-hash",
     fingerprint: "fingerprint",
     resources: {
       piExtensions: [],

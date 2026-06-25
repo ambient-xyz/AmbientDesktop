@@ -86,20 +86,30 @@ describe("thinkingDisplayUiModel", () => {
     expect(visibleRunActivityLinesForThinkingDisplay(lines, "off").map((item) => item.id)).toEqual(["activity-1", "activity-3"]);
   });
 
-  it("shows transient thinking lines for the active run even after the thinking message finalizes", () => {
-    expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "transient", running: true }).map((item) => item.id)).toEqual([
+  it("shows transient thinking lines only while the active run is streaming", () => {
+    expect(
+      transientThinkingActivityLinesForDisplay({
+        lines,
+        messages,
+        mode: "transient",
+        running: true,
+        runStatus: "streaming",
+      }).map((item) => item.id),
+    ).toEqual([
       "activity-2",
       "activity-4",
     ]);
-    expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "off", running: true })).toEqual([]);
-    expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "full", running: true })).toEqual([]);
-    expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "transient", running: false })).toEqual([]);
+    expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "off", running: true, runStatus: "streaming" })).toEqual([]);
+    expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "full", running: true, runStatus: "streaming" })).toEqual([]);
+    expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "transient", running: false, runStatus: "streaming" })).toEqual([]);
+    expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "transient", running: true, runStatus: "tool" })).toEqual([]);
     expect(
       transientThinkingActivityLinesForDisplay({
         lines,
         messages: messages.map((item) => item.id === "think-2" ? { ...item, metadata: { ...item.metadata, status: "done" } } : item),
         mode: "transient",
         running: true,
+        runStatus: "streaming",
       }),
     ).toEqual([
       lines[1],

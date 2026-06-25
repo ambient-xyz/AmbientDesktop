@@ -30,6 +30,11 @@ export function formatPiPrivilegedInstallApprovalDetail(
     scan.version ? `Version: ${scan.version}` : undefined,
     `Source: ${scan.source}`,
     `Scan origin: ${scan.scanOrigin}`,
+    scan.npmTarball ? `Tarball: ${redactedPackageUrl(scan.npmTarball)}` : undefined,
+    scan.integrity ? `Integrity: ${scan.integrity}` : undefined,
+    scan.shasum ? `Shasum: ${scan.shasum}` : undefined,
+    `Descriptor hash: ${scan.descriptorHash}`,
+    `Package tree hash: ${scan.packageTreeHash}`,
     `Fingerprint: ${scan.fingerprint}`,
     `Recommendation: ${scan.recommendation}`,
     `Findings: ${scan.findings.length}`,
@@ -38,6 +43,19 @@ export function formatPiPrivilegedInstallApprovalDetail(
     "Alpha does not activate hooks, MCP servers, commands, background processes, or Pi settings changes.",
     scan.caveat,
   ].filter((line): line is string => Boolean(line)).join("\n");
+}
+
+function redactedPackageUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return value;
+  }
 }
 
 export function formatPiExtensionSandboxInstallApprovalDetail(

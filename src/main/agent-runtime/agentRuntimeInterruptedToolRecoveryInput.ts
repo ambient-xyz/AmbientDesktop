@@ -1,6 +1,6 @@
 import type { PermissionMode } from "../../shared/permissionTypes";
 import type { SendMessageInput } from "../../shared/desktopTypes";
-import type { InterruptedToolCallRecoverySnapshot, MessageDelivery } from "../../shared/threadTypes";
+import type { InterruptedToolCallRecoverySnapshot, MessageDelivery, RuntimeContinuationSource } from "../../shared/threadTypes";
 import { buildInterruptedToolCallRecoveryPrompt } from "./recovery/interruptedToolCallRecovery";
 import type { RuntimeSessionRecoveryContext } from "./agentRuntimeAssistantRetryInput";
 
@@ -27,6 +27,7 @@ export type InterruptedToolCallRecoverySendInput =
     modelContentOverride: string;
     delivery: Extract<MessageDelivery, "follow-up">;
     internal: true;
+    continuationSource: RuntimeContinuationSource;
     sessionRecovery: RuntimeSessionRecoveryContext;
     interruptedToolCallRecovery: InterruptedToolCallRecoveryState;
   };
@@ -52,6 +53,7 @@ export function buildInterruptedToolCallRecoveryInput(input: {
     delivery: "follow-up",
     preserveActiveThread: true,
     internal: true,
+    continuationSource: "post-tool-continuation",
     sessionRecovery: input.sessionRecovery,
     ...(input.baseInput.context?.length ? { context: input.baseInput.context } : {}),
     ...(input.baseInput.workflowThreadId ? { workflowThreadId: input.baseInput.workflowThreadId } : {}),

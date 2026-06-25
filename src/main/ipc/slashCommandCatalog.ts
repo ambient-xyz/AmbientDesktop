@@ -16,6 +16,7 @@ import {
   type SlashCommandFeatureFlagState,
   type SlashCommandKind,
   type SlashCommandSearchInput,
+  type SlashCommandSearchMode,
   type SlashCommandSearchResponse,
   type SlashCommandSelection,
   type SlashCommandSourceKind,
@@ -27,8 +28,16 @@ import type {
 } from "../../shared/pluginTypes";
 import type { WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
 
-const DEFAULT_SLASH_COMMAND_LIMIT = 12;
-const MAX_SLASH_COMMAND_LIMIT = 50;
+const DEFAULT_QUERY_SLASH_COMMAND_LIMIT = 12;
+const DEFAULT_CATALOG_SLASH_COMMAND_LIMIT = 80;
+const MAX_SLASH_COMMAND_LIMIT = 200;
+const BROAD_PACKAGE_ENTRY_CAP = 4;
+const BROAD_SOURCE_ENTRY_CAP: Partial<Record<SlashCommandSourceKind, number>> = {
+  "ambient-cli": 32,
+  "codex-plugin": 24,
+  "workflow-recorder": 20,
+  symphony: 12,
+};
 const MAX_PREVIEW_CHARS = 700;
 
 export interface SlashCommandCatalogSources {
@@ -107,36 +116,53 @@ interface CallableWorkflowCatalogEntry {
   exclusionReasons: string[];
 }
 
-type SlashCommandEntryDraft = Omit<SlashCommandCatalogEntry, "aliases" | "badges" | "icon" | "requiresParameters" | "searchText"> &
-  Partial<Pick<SlashCommandCatalogEntry, "aliases" | "badges" | "icon" | "requiresParameters" | "searchText">>;
+type SlashCommandEntryDraft = Omit<SlashCommandCatalogEntry, "aliases" | "badges" | "groupKey" | "groupLabel" | "icon" | "requiresParameters" | "searchText"> &
+  Partial<Pick<SlashCommandCatalogEntry, "aliases" | "badges" | "groupKey" | "groupLabel" | "icon" | "requiresParameters" | "searchText">>;
+
+interface SlashCommandQuery {
+  normalized: string;
+  tokens: string[];
+  compact: string;
+}
 
 export function buildSlashCommandSearchResponse(
   input: SlashCommandSearchInput | undefined,
   sources: SlashCommandCatalogSources,
 ): SlashCommandSearchResponse {
   const query = normalizeQuery(input?.query);
-  const limit = boundedLimit(input?.limit);
+  const mode = slashCommandSearchMode(input?.mode, query);
+  const limit = boundedLimit(input?.limit, mode);
   const includeUnavailable = Boolean(input?.includeUnavailable);
   const entries = buildSlashCommandCatalogEntries(sources);
   const kindFilter = input?.kinds?.length ? new Set(input.kinds) : undefined;
   const sourceFilter = input?.sourceKinds?.length ? new Set(input.sourceKinds) : undefined;
-  const queryTokens = query.split(/\s+/).filter(Boolean);
+  const searchQuery = slashCommandQuery(query);
   const filtered = entries
     .filter((entry) => !kindFilter || kindFilter.has(entry.kind))
     .filter((entry) => !sourceFilter || sourceFilter.has(entry.sourceKind))
     .filter((entry) => includeUnavailable || entry.availability === "available")
-    .map((entry) => ({ ...entry, score: slashCommandScore(entry, queryTokens) }))
-    .filter((entry) => queryTokens.length === 0 || (entry.score ?? 0) > 0)
+    .map((entry) => ({ ...entry, score: slashCommandScore(entry, searchQuery) }))
+    .filter((entry) => searchQuery.tokens.length === 0 || (entry.score ?? 0) > 0)
     .sort(compareSlashCommandEntries);
+  const discovered = mode === "catalog" && searchQuery.tokens.length === 0
+    ? applyBroadCatalogDiversity(filtered)
+    : filtered;
+  const pageEntries = discovered.slice(0, limit);
+  const groups = slashCommandSearchGroups(pageEntries, discovered);
+  const sourceTruncated = Boolean(sources.ambientCliCapabilities?.truncated);
+  const truncated = discovered.length > limit || sourceTruncated;
 
   return {
     schemaVersion: SLASH_COMMAND_SEARCH_SCHEMA_VERSION,
     query,
+    mode,
     limit,
-    entries: filtered.slice(0, limit),
-    resultCount: Math.min(filtered.length, limit),
+    entries: pageEntries,
+    resultCount: pageEntries.length,
     totalEntryCount: entries.length,
-    truncated: filtered.length > limit,
+    truncated,
+    hasMore: truncated,
+    groups,
     catalogVersion: slashCommandCatalogVersion(entries),
     featureFlag: slashCommandFeatureFlagState(sources.featureFlagSnapshot),
     diagnostics: sources.diagnostics ?? [],
@@ -452,7 +478,8 @@ function entry(input: SlashCommandEntryDraft): SlashCommandCatalogEntry {
   const badges = (input.badges ?? []).filter(Boolean).slice(0, 4);
   const icon = input.icon ?? "slash";
   const requiresParameters = input.requiresParameters ?? Boolean(input.parameters?.some((parameter) => parameter.required));
-  const searchText = input.searchText ?? [
+  const group = slashCommandCatalogGroup(input);
+  const searchText = input.searchText ?? searchableSlashCommandText([
     input.command,
     ...aliases,
     input.title,
@@ -462,12 +489,15 @@ function entry(input: SlashCommandEntryDraft): SlashCommandCatalogEntry {
     input.sourceKind,
     input.invocationKind,
     input.sourceName,
+    input.sourceId,
     ...badges,
-  ].filter(Boolean).join(" ").toLowerCase();
+  ]);
   return {
     ...input,
     aliases,
     badges,
+    groupKey: input.groupKey ?? group.key,
+    groupLabel: input.groupLabel ?? group.label,
     icon,
     requiresParameters,
     searchText,
@@ -571,19 +601,29 @@ function callableWorkflowDetail(candidate: CallableWorkflowCatalogEntry): string
 function compareSlashCommandEntries(left: SlashCommandCatalogEntry, right: SlashCommandCatalogEntry): number {
   return (right.score ?? 0) - (left.score ?? 0)
     || availabilityRank(left.availability) - availabilityRank(right.availability)
+    || groupRank(left.groupKey) - groupRank(right.groupKey)
     || kindRank(left.kind) - kindRank(right.kind)
     || left.title.localeCompare(right.title);
 }
 
-function slashCommandScore(entry: SlashCommandCatalogEntry, queryTokens: string[]): number {
-  if (!queryTokens.length) return sourceRank(entry.sourceKind) + availabilityBaseScore(entry.availability);
-  let score = 0;
-  for (const token of queryTokens) {
-    if (entry.command.toLowerCase().includes(token)) score += 20;
-    if (entry.title.toLowerCase().includes(token)) score += 14;
-    if (entry.aliases.some((alias) => alias.toLowerCase().includes(token))) score += 10;
-    if (entry.searchText.includes(token)) score += 4;
+function slashCommandScore(entry: SlashCommandCatalogEntry, query: SlashCommandQuery): number {
+  if (!query.tokens.length) return sourceRank(entry.sourceKind) + availabilityBaseScore(entry.availability);
+  const command = normalizeSearchText(entry.command);
+  const title = normalizeSearchText(entry.title);
+  const aliases = entry.aliases.map((alias) => normalizeSearchText(alias));
+  const searchText = entry.searchText;
+  const compactSearchText = compactSearch(searchText);
+  let score = command === query.normalized ? 40 : 0;
+  for (const token of query.tokens) {
+    let tokenScore = 0;
+    if (command.includes(token)) tokenScore = Math.max(tokenScore, 20);
+    if (title.includes(token)) tokenScore = Math.max(tokenScore, 14);
+    if (aliases.some((alias) => alias.includes(token))) tokenScore = Math.max(tokenScore, 10);
+    if (searchText.includes(token)) tokenScore = Math.max(tokenScore, 4);
+    if (tokenScore === 0) return 0;
+    score += tokenScore;
   }
+  if (query.compact.length >= 3 && compactSearchText.includes(query.compact)) score += 30;
   return score > 0 ? score + (entry.availability === "available" ? 10 : 0) : 0;
 }
 
@@ -612,6 +652,20 @@ function kindRank(kind: SlashCommandKind): number {
 function sourceRank(sourceKind: SlashCommandSourceKind): number {
   const order: SlashCommandSourceKind[] = ["builtin", "ambient-cli", "workflow-recorder", "codex-plugin", "symphony"];
   return 10 - order.indexOf(sourceKind);
+}
+
+function groupRank(groupKey: string): number {
+  const order = [
+    "builtin",
+    "ambient-cli-skill",
+    "ambient-cli-command",
+    "workflow-playbook",
+    "codex-plugin-skill",
+    "symphony-recipe",
+    "callable-workflow",
+  ];
+  const index = order.indexOf(groupKey);
+  return index >= 0 ? index : order.length;
 }
 
 function slashCommandSafePreview(entry: SlashCommandCatalogEntry): string {
@@ -666,13 +720,112 @@ function dedupeSlashCommandEntries(entries: SlashCommandCatalogEntry[]): SlashCo
   return result;
 }
 
-function boundedLimit(limit: number | undefined): number {
-  if (!Number.isFinite(limit)) return DEFAULT_SLASH_COMMAND_LIMIT;
-  return Math.max(1, Math.min(Math.floor(limit ?? DEFAULT_SLASH_COMMAND_LIMIT), MAX_SLASH_COMMAND_LIMIT));
+function boundedLimit(limit: number | undefined, mode: SlashCommandSearchMode): number {
+  const fallback = mode === "catalog" ? DEFAULT_CATALOG_SLASH_COMMAND_LIMIT : DEFAULT_QUERY_SLASH_COMMAND_LIMIT;
+  if (!Number.isFinite(limit)) return fallback;
+  return Math.max(1, Math.min(Math.floor(limit ?? fallback), MAX_SLASH_COMMAND_LIMIT));
 }
 
 function normalizeQuery(query: string | undefined): string {
-  return (query ?? "").trim().replace(/^\//, "").toLowerCase();
+  return normalizeSearchText((query ?? "").trim().replace(/^\//, ""));
+}
+
+function slashCommandSearchMode(mode: SlashCommandSearchMode | undefined, query: string): SlashCommandSearchMode {
+  if (mode) return mode;
+  return query ? "query" : "catalog";
+}
+
+function slashCommandQuery(query: string): SlashCommandQuery {
+  return {
+    normalized: query,
+    tokens: query.split(/\s+/).filter(Boolean),
+    compact: compactSearch(query),
+  };
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^\//, "")
+    .replace(/[_\-./\\]+/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function searchableSlashCommandText(values: Array<string | number | undefined>): string {
+  const rawValues = values
+    .filter((value): value is string | number => value !== undefined && value !== "")
+    .map((value) => String(value));
+  const normalized = rawValues.map((value) => normalizeSearchText(value)).filter(Boolean).join(" ");
+  return `${normalized} ${compactSearch(normalized)}`.trim();
+}
+
+function compactSearch(value: string): string {
+  return normalizeSearchText(value).replace(/\s+/g, "");
+}
+
+function applyBroadCatalogDiversity(entries: SlashCommandCatalogEntry[]): SlashCommandCatalogEntry[] {
+  const sourceCounts = new Map<SlashCommandSourceKind, number>();
+  const packageCounts = new Map<string, number>();
+  return entries.filter((entry) => {
+    if (entry.sourceKind === "builtin") return true;
+    const sourceLimit = BROAD_SOURCE_ENTRY_CAP[entry.sourceKind] ?? Number.POSITIVE_INFINITY;
+    const sourceCount = sourceCounts.get(entry.sourceKind) ?? 0;
+    if (sourceCount >= sourceLimit) return false;
+    const packageKey = slashCommandDiversityPackageKey(entry);
+    const packageCount = packageCounts.get(packageKey) ?? 0;
+    if (packageCount >= BROAD_PACKAGE_ENTRY_CAP) return false;
+    sourceCounts.set(entry.sourceKind, sourceCount + 1);
+    packageCounts.set(packageKey, packageCount + 1);
+    return true;
+  });
+}
+
+function slashCommandDiversityPackageKey(entry: SlashCommandCatalogEntry): string {
+  return `${entry.sourceKind}:${entry.sourceId ?? entry.sourceName ?? entry.groupKey}`;
+}
+
+function slashCommandSearchGroups(
+  pageEntries: SlashCommandCatalogEntry[],
+  allDiscoveredEntries: SlashCommandCatalogEntry[],
+): SlashCommandSearchResponse["groups"] {
+  const totalCounts = new Map<string, number>();
+  for (const entry of allDiscoveredEntries) totalCounts.set(entry.groupKey, (totalCounts.get(entry.groupKey) ?? 0) + 1);
+  const groups: SlashCommandSearchResponse["groups"] = [];
+  const seen = new Map<string, number>();
+  for (const entry of pageEntries) {
+    const existingIndex = seen.get(entry.groupKey);
+    if (existingIndex !== undefined) {
+      groups[existingIndex] = {
+        ...groups[existingIndex]!,
+        count: groups[existingIndex]!.count + 1,
+      };
+      continue;
+    }
+    seen.set(entry.groupKey, groups.length);
+    groups.push({
+      key: entry.groupKey,
+      label: entry.groupLabel,
+      startIndex: pageEntries.indexOf(entry),
+      count: 1,
+      totalCount: totalCounts.get(entry.groupKey) ?? 1,
+    });
+  }
+  return groups;
+}
+
+function slashCommandCatalogGroup(entry: Pick<SlashCommandCatalogEntry, "invocationKind" | "kind" | "sourceKind">): { key: string; label: string } {
+  if (entry.sourceKind === "builtin") return { key: "builtin", label: "Built-ins" };
+  if (entry.invocationKind === "ambient-cli-skill") return { key: "ambient-cli-skill", label: "Ambient CLI skills" };
+  if (entry.invocationKind === "ambient-cli-command") return { key: "ambient-cli-command", label: "Ambient CLI commands" };
+  if (entry.invocationKind === "codex-plugin-skill") return { key: "codex-plugin-skill", label: "Codex plugin skills" };
+  if (entry.invocationKind === "workflow-playbook") return { key: "workflow-playbook", label: "Workflows" };
+  if (entry.invocationKind === "symphony-recipe") return { key: "symphony-recipe", label: "Symphony recipes" };
+  if (entry.invocationKind === "callable-workflow") return { key: "callable-workflow", label: "Callable workflows" };
+  if (entry.kind === "workflow") return { key: "workflow-playbook", label: "Workflows" };
+  return { key: entry.sourceKind, label: entry.sourceKind };
 }
 
 function slug(value: string): string {

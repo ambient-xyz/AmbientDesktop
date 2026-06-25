@@ -62,10 +62,11 @@ describe("agentRuntimeAmbientCliPackageInstallTools", () => {
       "packages/demo",
       "main",
       "abc123",
+      "content-hash-123",
       "install-dependencies",
       "ambient-demo",
       "0.0.0",
-      "demo:node:demo.js:package",
+      "{\"args\":[\"demo.js\"],\"command\":\"node\",\"cwd\":\"package\",\"healthCheck\":[],\"name\":\"demo\"}",
       "demo-skill",
       "{\"metadata\":{\"a\":1,\"z\":2},\"name\":\"ambient-demo\"}",
     ].join("\0"));
@@ -83,7 +84,7 @@ describe("agentRuntimeAmbientCliPackageInstallTools", () => {
         status: "installing",
       },
     });
-    expect(installAmbientCliPackageSource).toHaveBeenCalledWith(workspace.path, input);
+    expect(installAmbientCliPackageSource).toHaveBeenCalledWith(workspace.path, input, preview);
     expect(markPluginToolsStale).toHaveBeenCalledOnce();
     expect(result).toEqual({
       content: [{ type: "text", text: ambientCliPackageInstallText(installedPackage) }],
@@ -109,7 +110,7 @@ describe("agentRuntimeAmbientCliPackageInstallTools", () => {
       dependencyInstall: undefined,
     }));
     const installAmbientCliPackageSource = vi.fn(async () => packageFixture());
-    const resolveFirstPartyPluginPermission = vi.fn(async () => true);
+    const resolveFirstPartyPluginPermission = vi.fn(async (_request: any) => true);
     const onUpdate = vi.fn();
 
     registerAmbientCliPackageInstallTool({
@@ -135,7 +136,7 @@ describe("agentRuntimeAmbientCliPackageInstallTools", () => {
     });
     expect(installAmbientCliPackageSource).toHaveBeenCalledWith("/workspace", {
       source: "local-package",
-    });
+    }, expect.any(Object));
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
       details: expect.objectContaining({
         source: "local-package",
@@ -146,6 +147,47 @@ describe("agentRuntimeAmbientCliPackageInstallTools", () => {
         installDependencies: false,
       }),
     }));
+    expect(resolveFirstPartyPluginPermission.mock.calls[0]?.[0]).not.toHaveProperty("requireFreshPrompt", true);
+  });
+
+  it("blocks unpinned installs that run dependency installation", async () => {
+    const registeredTools: Array<{ name: string; execute: (...args: any[]) => Promise<any> }> = [];
+    const resolveFirstPartyPluginPermission = vi.fn(async (_request: any) => true);
+    const installAmbientCliPackageSource = vi.fn(async () => packageFixture());
+
+    registerAmbientCliPackageInstallTool({
+      registerTool: (tool: any) => registeredTools.push(tool),
+    }, {
+      workspace: { path: "/workspace" } as any,
+      getThread: () => ({ collaborationMode: "agent" }) as any,
+      previewAmbientCliPackageInstallSource: vi.fn(async () => ({
+        ...previewFixture(),
+        sha: undefined,
+        healthChecks: [],
+        candidate: packageFixture({
+          installed: false,
+          commands: [
+            {
+              name: "demo",
+              description: "Run demo.",
+              command: "node",
+              args: ["demo.js"],
+              cwd: "package",
+              healthCheck: ["node", "demo.js", "health"],
+            },
+          ],
+        }),
+      })),
+      installAmbientCliPackageSource,
+      resolveFirstPartyPluginPermission,
+      markPluginToolsStale: vi.fn(),
+    });
+
+    await expect(registeredTools[0].execute("install", { source: "local-package", installDependencies: true })).rejects.toThrow(
+      "Unpinned Ambient CLI package installs that run dependency installation require an immutable sha-pinned source.",
+    );
+    expect(resolveFirstPartyPluginPermission).not.toHaveBeenCalled();
+    expect(installAmbientCliPackageSource).not.toHaveBeenCalled();
   });
 
   it("stops before permission and install when preview is not installable", async () => {
@@ -208,7 +250,7 @@ describe("agentRuntimeAmbientCliPackageInstallTools", () => {
     expect(installAmbientCliPackageSource).toHaveBeenCalledWith(workspace.path, {
       source,
       sha: "0123456789abcdef0123456789abcdef01234567",
-    });
+    }, expect.any(Object));
     expect(JSON.stringify(onUpdate.mock.calls)).not.toContain("secret");
   });
 
@@ -263,6 +305,7 @@ function previewFixture(): any {
     path: "packages/demo",
     ref: "main",
     sha: "abc123",
+    contentHash: "content-hash-123",
     candidate: packageFixture({ installed: false }),
     dependencyInstall: {
       manager: "npm",

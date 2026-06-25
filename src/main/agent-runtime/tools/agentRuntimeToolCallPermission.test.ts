@@ -72,6 +72,7 @@ describe("resolveAgentRuntimeToolCallPermission", () => {
         store: store as any,
         installRouteGateBlockForTool: () => undefined,
         mcpInstallShellBlockForTool: () => undefined,
+        rawPiInstallRootBlockForTool: () => undefined,
         permissionToolInput: async (_toolName, toolInput) => toolInput,
         requestPermission,
         beginPermissionWait: () => undefined,

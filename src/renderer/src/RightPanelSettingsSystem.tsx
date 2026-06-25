@@ -466,7 +466,10 @@ export function RightPanelSecuritySettingsSection({
                                 <strong>{row.actionLabel}</strong>
                                 <span>{row.riskLabel}</span>
                               </div>
-                              <small title={row.targetLabel}>{row.targetLabel}</small>
+                              <small title={row.conditionLabel ? `${row.targetLabel}\n${row.conditionLabel}` : row.targetLabel}>
+                                {row.targetLabel}
+                                {row.conditionLabel ? ` · ${row.conditionLabel}` : ""}
+                              </small>
                               <code title={row.impactLabel}>
                                 {row.statusLabel} · {row.expiryLabel} · {row.recentUseLabel} · {row.provenanceLabel}
                               </code>

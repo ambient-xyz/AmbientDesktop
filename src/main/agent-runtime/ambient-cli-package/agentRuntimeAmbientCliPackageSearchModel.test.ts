@@ -60,7 +60,7 @@ describe("agentRuntimeAmbientCliPackageSearchModel", () => {
       "Registry plugin id: registry-plugin",
       "Description: Demo package.",
       "Availability: available - ready",
-      "Commands: speak [pkg-123:command:speak] (Speak text.)",
+      "Commands: speak [pkg-123:command:speak] (health not run; Speak text.)",
       "Skills: demo-skill [pkg-123:skill:demo] (Use demo.)",
       "Missing env: none",
       "Why matched: query matched command",

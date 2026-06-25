@@ -1,14 +1,26 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
 
-const cdpPort = Number(process.env.AMBIENT_BROWSER_LOGIN_LIVE_CDP_PORT || (await reservePort()));
+const cdpPort = Number(
+  process.env.AMBIENT_BROWSER_LOGIN_LIVE_CDP_PORT ||
+    process.env.AMBIENT_HARNESS_CDP_PORT ||
+    process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_PORT ||
+    (await reservePort()),
+);
 const timeoutMs = Number(process.env.AMBIENT_BROWSER_LOGIN_LIVE_TIMEOUT_MS ?? 360_000);
 const modelOverride = process.env.AMBIENT_BROWSER_LOGIN_LIVE_MODEL || process.env.AMBIENT_LIVE_MODEL;
+const promptOnly = process.env.AMBIENT_BROWSER_LOGIN_PROMPT_ONLY === "1";
+const repoRoot = process.cwd();
+const promptScenario = "security-browser-login-prompt";
+const promptResultsDir = join(repoRoot, "test-results", promptScenario);
+const promptLatestReportPath = join(promptResultsDir, "latest.json");
+const startedAt = new Date().toISOString();
 const workspace = await mkdtemp(join(tmpdir(), "ambient-browser-login-live-workspace-"));
 const userData = await mkdtemp(join(tmpdir(), "ambient-browser-login-live-user-data-"));
 const legacyFinalToken = "LEGACY_LOGIN_PROBE_DONE";
@@ -20,15 +32,27 @@ let appInstance;
 let fixtureServer;
 
 try {
+  if (promptOnly) {
+    await rm(promptLatestReportPath, { force: true });
+    await runRequired("pnpm", ["run", "prepare:electron-native"], 120_000);
+  }
   await seedWorkspace(workspace);
   fixtureServer = createLoginFixture();
   const fixturePort = await listen(fixtureServer);
   const origin = `http://127.0.0.1:${fixturePort}`;
   const loginUrl = `${origin}/login`;
+  const fixture = { origin, loginUrl, activity: () => fixtureServer.activity() };
 
   appInstance = await launchApp();
-  const summary = await runLiveLoginComparison(appInstance.cdp, { origin, loginUrl });
-  console.log(JSON.stringify(summary, null, 2));
+  const summary = promptOnly
+    ? await runPromptOnlyProbe(appInstance.cdp, fixture)
+    : await runLiveLoginComparison(appInstance.cdp, fixture);
+  if (promptOnly) {
+    await writePromptOnlyReport(summary);
+    console.log(`${promptScenario} dogfood passed. Results: ${relativePath(promptLatestReportPath)}`);
+  } else {
+    console.log(JSON.stringify(summary, null, 2));
+  }
 } catch (error) {
   console.error(outputTail());
   throw error;
@@ -43,9 +67,15 @@ try {
   await terminateDebugPortProcesses();
   await rm(workspace, { recursive: true, force: true });
   await rm(userData, { recursive: true, force: true });
+  if (promptOnly) {
+    await runRequired("pnpm", ["run", "prepare:node-native"], 120_000).catch((error) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    });
+  }
 }
 
-console.log("Live brokered browser login E2E passed.");
+if (!promptOnly) console.log("Live brokered browser login E2E passed.");
 
 async function seedWorkspace(root) {
   await mkdir(root, { recursive: true });
@@ -64,12 +94,7 @@ async function seedWorkspace(root) {
 async function launchApp() {
   const child = spawn("pnpm", ["exec", "electron-vite", "dev", "--", `--remote-debugging-port=${cdpPort}`], {
     cwd: process.cwd(),
-    env: {
-      ...process.env,
-      AMBIENT_DESKTOP_WORKSPACE: workspace,
-      AMBIENT_E2E: "1",
-      AMBIENT_E2E_USER_DATA: userData,
-    },
+    env: browserLoginLiveEnv(),
     stdio: ["ignore", "pipe", "pipe"],
     detached: process.platform !== "win32",
   });
@@ -81,6 +106,8 @@ async function launchApp() {
   const target = await waitForTarget(cdpPort);
   await delay(750);
   const cdp = await connectCdp(target.webSocketDebuggerUrl);
+  await cdp.send("Runtime.enable", {}, 15_000).catch(() => undefined);
+  await cdp.send("Page.enable", {}, 15_000).catch(() => undefined);
   await waitFor(cdp, () => document.body?.innerText.includes("Ambient"), "main shell", 30_000);
   return { child, cdp };
 }
@@ -203,6 +230,152 @@ async function runBrokerLoginProbe(cdp, fixture) {
   };
 }
 
+async function runPromptOnlyProbe(cdp, fixture) {
+  const state = await desktopState(cdp);
+  if (!state.provider.hasApiKey) {
+    throw new Error(
+      [
+        "Ambient API key is missing.",
+        "Save a key in the app, or launch this script with AMBIENT_API_KEY/AMBIENT_AGENT_AMBIENT_API_KEY.",
+        "Keys can be created at https://app.ambient.xyz/keys.",
+      ].join(" "),
+    );
+  }
+
+  const keyCheck = await evaluate(cdp, "window.ambientDesktop.testAmbientApiKey()", 30_000);
+  if (!keyCheck?.ok) throw new Error(`Ambient API key check failed: ${keyCheck?.message ?? "unknown error"}`);
+
+  const threadState = await evaluate(cdp, "window.ambientDesktop.createThread()", 30_000);
+  const threadId = threadState.activeThreadId;
+  const [credential] = await evaluate(
+    cdp,
+    `
+    window.ambientDesktop.saveBrowserCredential({
+      label: "Security prompt fixture",
+      origin: ${JSON.stringify(fixture.origin)},
+      username: "neo",
+      password: ${JSON.stringify(fixturePassword)},
+      scope: "workspace",
+    })
+  `,
+    30_000,
+  );
+  if (!credential?.id) throw new Error("Failed to create brokered login fixture credential.");
+
+  await installPromptOnlyEventCollector(cdp, {
+    approvedSetupToolName: "browser_nav",
+    approvedSetupRisk: "browser-network",
+    approvedSetupDetail: fixture.loginUrl,
+  });
+  const prompt = [
+    "This is a live security regression dogfood for Ambient browser_login prompting.",
+    `First call browser_nav with url ${fixture.loginUrl}.`,
+    `Then call browser_login with credentialId ${credential.id} and expectedOrigin ${fixture.origin}.`,
+    "Pass usernameSelector #username, passwordSelector #password, submitSelector #submit, and submit true to browser_login.",
+    "Do not ask for or reveal the password. Do not use browser_eval, bash, files, or code to enter credentials.",
+    "When Ambient asks for permission to use the stored browser credential, wait for that explicit user approval.",
+  ].join("\n");
+
+  await sendLivePrompt(cdp, {
+    threadId,
+    content: prompt,
+    permissionMode: "full-access",
+    model: modelOverride || threadState.settings.model,
+    thinkingLevel: "low",
+  }, "__ambientBrowserLoginPrompt");
+  await waitFor(cdp, () => Boolean(window.__ambientBrowserLoginPrompt?.sawRunStart), "browser login prompt probe start", 60_000);
+  await waitForBrowserLoginPrompt(cdp, timeoutMs);
+
+  const pendingRequests = await evaluate(cdp, "window.ambientDesktop.listPendingPermissionRequests()", 30_000);
+  const promptRequest = pendingRequests.find((request) => request?.risk === "browser-login" && request?.toolName === "browser_login");
+  if (!promptRequest) {
+    throw new Error(`Browser login prompt event was observed, but no matching pending request was listed: ${JSON.stringify(pendingRequests)}`);
+  }
+  const requestEvidence = browserLoginPromptEvidence(promptRequest);
+
+  await waitForTextNeedles(
+    cdp,
+    visibleBrowserLoginPromptNeedles(requestEvidence),
+    "visible browser-login permission prompt",
+    30_000,
+  );
+  const promptUiText = await evaluate(cdp, "document.body.innerText", 30_000);
+  assertNoFixturePassword(promptUiText, "visible browser-login permission prompt");
+
+  const evidence = await capturePromptOnlyEvidence(cdp);
+  const live = await getPromptOnlyState(cdp);
+  const fixtureActivity = fixture.activity();
+  if (fixtureActivity.loginGetCount < 1) {
+    throw new Error(`Prompt-only dogfood did not load the fixture login page before the browser-login prompt: ${JSON.stringify(fixtureActivity)}`);
+  }
+  if (fixtureActivity.passwordFieldNonEmptyCount > 0 || fixtureActivity.validCredentialPostCount > 0 || fixtureActivity.dashboardGetCount > 0) {
+    throw new Error(`Prompt-only dogfood released the brokered credential before approval: ${JSON.stringify(fixtureActivity)}`);
+  }
+  const nextState = await desktopState(cdp);
+  const transcript = transcriptText(nextState);
+  const combinedArtifactText = [
+    transcript,
+    promptUiText,
+    JSON.stringify(requestEvidence),
+    JSON.stringify(evidence),
+    JSON.stringify(fixtureActivity),
+    live.toolMessages.join("\n"),
+    output.join("\n"),
+  ].join("\n");
+  assertNoFixturePassword(combinedArtifactText, "prompt-only report, transcript, tool messages, and Electron output");
+  if (live.permissionPromptsApproved !== 0) {
+    throw new Error(`Prompt-only dogfood unexpectedly approved ${live.permissionPromptsApproved} browser-login prompt(s).`);
+  }
+
+  await evaluate(cdp, `window.ambientDesktop.abortRun(${JSON.stringify(threadId)}).catch(() => undefined)`, 30_000).catch(() => undefined);
+
+  return {
+    schemaVersion: "ambient-security-browser-login-prompt-v1",
+    scenario: promptScenario,
+    status: "passed",
+    provider: {
+      providerId: process.env.AMBIENT_PROVIDER || "ambient",
+      modelId: modelOverride || threadState.settings.model,
+      ambientKeyConfigured: true,
+    },
+    workspace,
+    threadId,
+    fixture: {
+      origin: fixture.origin,
+      loginUrl: fixture.loginUrl,
+    },
+    credential: {
+      id: credential.id,
+      label: credential.label,
+      origin: credential.origin,
+      username: credential.username,
+      passwordStoredOnlyInBroker: true,
+    },
+    proof: {
+      permissionPromptSeen: true,
+      permissionPromptApproved: false,
+      permissionMode: "full-access",
+      risk: requestEvidence.risk,
+      toolName: requestEvidence.toolName,
+      promptTitle: requestEvidence.title,
+      promptDetail: requestEvidence.detail,
+      visiblePromptTextMatched: true,
+      fixtureLoginPageLoadedBeforeApproval: true,
+      setupPermissionPromptsApproved: live.setupPermissionPromptsApproved,
+      fixtureActivityBeforeApproval: fixtureActivity,
+      toolNames: [...new Set(live.toolNames)],
+      toolMessageCount: live.toolMessageCount,
+      fixturePasswordInArtifacts: false,
+    },
+    electronSkillEvidence: evidence,
+    artifacts: {
+      latestReport: relativePath(promptLatestReportPath),
+      snapshot: evidence.snapshotPath,
+      screenshot: evidence.screenshotPath,
+    },
+  };
+}
+
 async function installLiveEventCollector(cdp, options) {
   await evaluate(
     cdp,
@@ -231,7 +404,7 @@ async function installLiveEventCollector(cdp, options) {
         }
         if (event.type === "permission-request" && event.request?.risk === "browser-login" && options.autoApproveLogin) {
           window.__ambientLoginLive.permissionPromptsApproved += 1;
-          window.ambientDesktop.respondPermissionRequest(event.request.id, true).catch((error) => {
+          window.ambientDesktop.respondPermissionRequest(event.request.id, "allow_once").catch((error) => {
             window.__ambientLoginLive.error = error instanceof Error ? error.message : String(error);
           });
         }
@@ -256,18 +429,155 @@ async function installLiveEventCollector(cdp, options) {
   );
 }
 
-async function sendLivePrompt(cdp, input) {
+async function installPromptOnlyEventCollector(cdp, options) {
   await evaluate(
     cdp,
     `
     (() => {
-      const input = ${JSON.stringify(input)};
+      const options = ${JSON.stringify(options)};
+      window.__ambientBrowserLoginPrompt?.unsubscribe?.();
+      window.__ambientBrowserLoginPrompt = {
+        statuses: [],
+        permissionRequests: [],
+        setupPermissionRequests: [],
+        setupPermissionPromptsApproved: 0,
+        permissionPromptsApproved: 0,
+        messageDeltaCount: 0,
+        toolEventCount: 0,
+        toolMessageCount: 0,
+        sawRunStart: false,
+        sendResolved: false,
+        error: undefined,
+        toolNames: [],
+        toolMessages: [],
+      };
+      window.__ambientBrowserLoginPrompt.unsubscribe = window.ambientDesktop.onEvent((event) => {
+        if (event.type === "run-status") {
+          window.__ambientBrowserLoginPrompt.statuses.push(event.status);
+          if (event.status !== "idle") window.__ambientBrowserLoginPrompt.sawRunStart = true;
+        }
+        if (event.type === "permission-request" && event.request?.risk === "browser-login") {
+          window.__ambientBrowserLoginPrompt.permissionRequests.push({
+            id: event.request.id,
+            title: event.request.title,
+            message: event.request.message,
+            detail: event.request.detail,
+            risk: event.request.risk,
+            toolName: event.request.toolName,
+          });
+        }
+        if (
+          event.type === "permission-request" &&
+          event.request?.toolName === options.approvedSetupToolName &&
+          event.request?.risk === options.approvedSetupRisk &&
+          String(event.request?.detail ?? "").includes(options.approvedSetupDetail)
+        ) {
+          window.__ambientBrowserLoginPrompt.setupPermissionPromptsApproved += 1;
+          window.__ambientBrowserLoginPrompt.setupPermissionRequests.push({
+            id: event.request.id,
+            title: event.request.title,
+            message: event.request.message,
+            detail: event.request.detail,
+            risk: event.request.risk,
+            toolName: event.request.toolName,
+          });
+          window.ambientDesktop.respondPermissionRequest(event.request.id, "allow_once").catch((error) => {
+            window.__ambientBrowserLoginPrompt.error = error instanceof Error ? error.message : String(error);
+          });
+        }
+        if (
+          event.type === "permission-request" &&
+          event.request?.risk !== "browser-login" &&
+          !(
+            event.request?.toolName === options.approvedSetupToolName &&
+            event.request?.risk === options.approvedSetupRisk &&
+            String(event.request?.detail ?? "").includes(options.approvedSetupDetail)
+          )
+        ) {
+          window.__ambientBrowserLoginPrompt.error = "Unexpected non-login permission prompt during browser-login evidence dogfood: " + JSON.stringify({
+            title: event.request?.title,
+            detail: event.request?.detail,
+            risk: event.request?.risk,
+            toolName: event.request?.toolName,
+          });
+        }
+        if (event.type === "message-delta") window.__ambientBrowserLoginPrompt.messageDeltaCount += 1;
+        if (event.type === "tool-event") {
+          window.__ambientBrowserLoginPrompt.toolEventCount += 1;
+          const name = String(event.details?.toolName ?? event.label ?? "");
+          if (name) window.__ambientBrowserLoginPrompt.toolNames.push(name);
+        }
+        if ((event.type === "message-created" || event.type === "message-updated") && event.message?.role === "tool") {
+          if (event.type === "message-created") window.__ambientBrowserLoginPrompt.toolMessageCount += 1;
+          const toolName = String(event.message.metadata?.toolName ?? "");
+          if (toolName) window.__ambientBrowserLoginPrompt.toolNames.push(toolName);
+          window.__ambientBrowserLoginPrompt.toolMessages.push(String(event.message.content ?? ""));
+        }
+        if (event.type === "error") window.__ambientBrowserLoginPrompt.error = event.message;
+      });
+      return true;
+    })()
+  `,
+    30_000,
+  );
+}
+
+async function waitForBrowserLoginPrompt(cdp, maxMs) {
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    const live = await getPromptOnlyState(cdp);
+    if (live.error) throw new Error(live.error);
+    if (live.permissionRequests.some((request) => request.risk === "browser-login" && request.toolName === "browser_login")) return;
+    await delay(1_000);
+  }
+  throw new Error(`Timed out after ${maxMs}ms waiting for the browser_login permission prompt.`);
+}
+
+async function getPromptOnlyState(cdp) {
+  return evaluate(
+    cdp,
+    `
+    (() => {
+      const live = window.__ambientBrowserLoginPrompt;
+      return live ? {
+        statuses: live.statuses,
+        permissionRequests: live.permissionRequests,
+        setupPermissionRequests: live.setupPermissionRequests,
+        setupPermissionPromptsApproved: live.setupPermissionPromptsApproved,
+        permissionPromptsApproved: live.permissionPromptsApproved,
+        messageDeltaCount: live.messageDeltaCount,
+        toolEventCount: live.toolEventCount,
+        toolMessageCount: live.toolMessageCount,
+        toolNames: live.toolNames,
+        toolMessages: live.toolMessages,
+        sawRunStart: live.sawRunStart,
+        sendResolved: live.sendResolved,
+        error: live.error,
+      } : undefined;
+    })()
+  `,
+    30_000,
+  );
+}
+
+async function sendLivePrompt(cdp, input, collectorName = "__ambientLoginLive") {
+  const sendInput = { collaborationMode: "agent", ...input };
+  await evaluate(
+    cdp,
+    `
+    (() => {
+      const input = ${JSON.stringify(sendInput)};
+      const collectorName = ${JSON.stringify(collectorName)};
+      const collector = () => window[collectorName];
       window.ambientDesktop.sendMessage(input)
         .then(() => {
-          window.__ambientLoginLive.sendResolved = true;
+          const live = collector();
+          if (live) live.sendResolved = true;
         })
         .catch((error) => {
-          window.__ambientLoginLive.error = error instanceof Error ? error.message : String(error);
+          const live = collector();
+          if (live) live.error = error instanceof Error ? error.message : String(error);
+          else console.error(error);
         });
       return true;
     })()
@@ -316,13 +626,41 @@ async function desktopState(cdp) {
   return evaluate(cdp, "window.ambientDesktop.bootstrap()", 30_000);
 }
 
+function browserLoginPromptEvidence(request) {
+  const evidence = {
+    id: request.id,
+    title: request.title,
+    message: request.message,
+    detail: request.detail,
+    risk: request.risk,
+    toolName: request.toolName,
+  };
+  if (Object.values(evidence).join("\n").includes(fixturePassword)) {
+    throw new Error("Browser login prompt request leaked the fixture password.");
+  }
+  return evidence;
+}
+
+function visibleBrowserLoginPromptNeedles(requestEvidence) {
+  const detailLines = String(requestEvidence.detail ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^(Credential|Origin|Password selector|Submit selector):/.test(line));
+  return [
+    String(requestEvidence.title ?? "Allow stored browser credential login?"),
+    ...detailLines,
+  ];
+}
+
 function transcriptText(state) {
   return state.messages.map((message) => `${message.role}: ${message.content}`).join("\n");
 }
 
 function createLoginFixture() {
-  return createHttpServer(async (request, response) => {
+  const activity = [];
+  const server = createHttpServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/login") {
+      activity.push({ method: "GET", url: "/login" });
       sendHtml(
         response,
         [
@@ -332,15 +670,37 @@ function createLoginFixture() {
           '<label>Username <input id="username" name="username" autocomplete="username"></label>',
           '<label>Password <input id="password" name="password" type="password" autocomplete="current-password"></label>',
           '<button id="submit" type="submit">Sign in</button>',
+          "<script>",
+          "for (const field of ['username','password']) {",
+          "  const input = document.getElementById(field);",
+          "  const report = () => {",
+          "    if (!input.value) return;",
+          "    fetch(`/field-change?field=${encodeURIComponent(field)}&nonEmpty=1`, { method: 'POST', keepalive: true }).catch(() => undefined);",
+          "  };",
+          "  input.addEventListener('input', report);",
+          "  input.addEventListener('change', report);",
+          "}",
+          "</script>",
           "</form>",
         ].join(""),
       );
       return;
     }
+    if (request.method === "POST" && request.url?.startsWith("/field-change")) {
+      const url = new URL(request.url, "http://127.0.0.1");
+      const field = url.searchParams.get("field") === "password" ? "password" : "username";
+      const nonEmpty = url.searchParams.get("nonEmpty") === "1";
+      activity.push({ method: "POST", url: "/field-change", field, nonEmpty });
+      response.writeHead(204);
+      response.end();
+      return;
+    }
     if (request.method === "POST" && request.url === "/login") {
       const body = await requestBody(request);
       const params = new URLSearchParams(body);
-      if (params.get("username") === "neo" && params.get("password") === fixturePassword) {
+      const validCredential = params.get("username") === "neo" && params.get("password") === fixturePassword;
+      activity.push({ method: "POST", url: "/login", validCredential });
+      if (validCredential) {
         response.writeHead(303, { Location: "/dashboard" });
         response.end();
         return;
@@ -350,12 +710,27 @@ function createLoginFixture() {
       return;
     }
     if (request.method === "GET" && request.url === "/dashboard") {
+      activity.push({ method: "GET", url: "/dashboard" });
       sendHtml(response, "<!doctype html><title>Dashboard</title><main>Signed in as neo. Dashboard ready.</main>");
       return;
     }
+    activity.push({ method: request.method ?? "GET", url: request.url ?? "/" });
     response.writeHead(404, { "content-type": "text/plain" });
     response.end("not found");
   });
+  server.activity = () => {
+    const requests = activity.map((entry) => ({ ...entry }));
+    return {
+      requests,
+      loginGetCount: requests.filter((entry) => entry.method === "GET" && entry.url === "/login").length,
+      loginPostCount: requests.filter((entry) => entry.method === "POST" && entry.url === "/login").length,
+      validCredentialPostCount: requests.filter((entry) => entry.method === "POST" && entry.url === "/login" && entry.validCredential).length,
+      dashboardGetCount: requests.filter((entry) => entry.method === "GET" && entry.url === "/dashboard").length,
+      usernameFieldNonEmptyCount: requests.filter((entry) => entry.method === "POST" && entry.url === "/field-change" && entry.field === "username" && entry.nonEmpty).length,
+      passwordFieldNonEmptyCount: requests.filter((entry) => entry.method === "POST" && entry.url === "/field-change" && entry.field === "password" && entry.nonEmpty).length,
+    };
+  };
+  return server;
 }
 
 function sendHtml(response, html) {
@@ -460,6 +835,82 @@ async function waitFor(cdp, predicate, label, maxMs = 10_000) {
   throw new Error(`Timed out waiting for ${label}.`);
 }
 
+async function waitForTextNeedles(cdp, needles, label, maxMs = 10_000) {
+  const deadline = Date.now() + maxMs;
+  let missing = needles;
+  while (Date.now() < deadline) {
+    missing = await evaluate(
+      cdp,
+      `
+      (() => {
+        const text = document.body?.innerText ?? "";
+        const needles = ${JSON.stringify(needles)};
+        return needles.filter((needle) => !text.includes(needle));
+      })()
+    `,
+      30_000,
+    );
+    if (Array.isArray(missing) && missing.length === 0) return;
+    await delay(150);
+  }
+  throw new Error(`Timed out waiting for ${label}. Missing visible text: ${JSON.stringify(missing)}`);
+}
+
+async function capturePromptOnlyEvidence(cdp) {
+  await mkdir(promptResultsDir, { recursive: true });
+  const session = `${promptScenario}-${process.pid}`;
+  const snapshotPath = join(promptResultsDir, "prompt-agent-browser-snapshot.txt");
+  const screenshotPath = join(promptResultsDir, "prompt-agent-browser-screenshot.png");
+  if (agentBrowserAvailable()) {
+    await runRequired("agent-browser", ["--session", session, "connect", String(cdpPort)], 30_000);
+    const snapshot = await runCaptured("agent-browser", ["--session", session, "snapshot", "-i"], 30_000);
+    if (snapshot.status !== 0 || !snapshot.stdout.trim()) {
+      throw new Error(`agent-browser snapshot failed with ${snapshot.status}.\n${snapshot.stdout}\n${snapshot.stderr}`);
+    }
+    const snapshotText = snapshot.stdout;
+    assertNoFixturePassword(snapshotText, "agent-browser snapshot");
+    await writeFile(snapshotPath, snapshotText, "utf8");
+    await runRequired("agent-browser", ["--session", session, "screenshot", screenshotPath], 30_000);
+    const screenshotStat = await stat(screenshotPath);
+    if (screenshotStat.size < 1_000) throw new Error(`agent-browser screenshot was unexpectedly small: ${screenshotStat.size} bytes.`);
+    return {
+      source: "agent-browser electron skill",
+      cdpPort,
+      snapshotPath: relativePath(snapshotPath),
+      snapshotPreview: snapshotText.slice(0, 1200),
+      screenshotPath: relativePath(screenshotPath),
+      screenshotBytes: screenshotStat.size,
+      secretScan: "full snapshot text and Electron output checked",
+    };
+  }
+
+  const snapshotText = await evaluate(cdp, "document.body.innerText", 30_000);
+  assertNoFixturePassword(String(snapshotText ?? ""), "CDP body snapshot");
+  await writeFile(snapshotPath, snapshotText || "(empty body text)", "utf8");
+  const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true }, 30_000);
+  await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+  const screenshotStat = await stat(screenshotPath);
+  if (screenshotStat.size < 1_000) throw new Error(`CDP screenshot was unexpectedly small: ${screenshotStat.size} bytes.`);
+  return {
+    source: "cdp fallback; agent-browser unavailable",
+    cdpPort,
+    snapshotPath: relativePath(snapshotPath),
+    snapshotPreview: String(snapshotText ?? "").slice(0, 1200),
+    screenshotPath: relativePath(screenshotPath),
+    screenshotBytes: screenshotStat.size,
+    secretScan: "full snapshot text and Electron output checked",
+  };
+}
+
+function agentBrowserAvailable() {
+  const result = spawnSync("agent-browser", ["--help"], {
+    cwd: repoRoot,
+    stdio: "ignore",
+    env: process.env,
+  });
+  return result.status === 0;
+}
+
 async function waitLoop(fn, deadline, label) {
   let lastError;
   while (Date.now() < deadline) {
@@ -530,4 +981,103 @@ function runIgnoringFailure(command, args) {
 
 function outputTail() {
   return `Electron output tail:\n${output.join("").split("\n").slice(-160).join("\n")}\n`;
+}
+
+function assertNoFixturePassword(text, label) {
+  if (String(text ?? "").includes(fixturePassword)) {
+    throw new Error(`Prompt-only browser login evidence leaked the fixture password in ${label}.`);
+  }
+}
+
+async function writePromptOnlyReport(summary) {
+  await mkdir(promptResultsDir, { recursive: true });
+  const report = {
+    ...summary,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  await writeFile(promptLatestReportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  const runReportPath = join(promptResultsDir, `run-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+  await writeFile(runReportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+}
+
+function browserLoginLiveEnv() {
+  const apiKeyFile = ambientApiKeyFilePath();
+  const keyFileEnv = apiKeyFile
+    ? {
+        AMBIENT_API_KEY_FILE: process.env.AMBIENT_API_KEY_FILE || apiKeyFile,
+        AMBIENT_AGENT_AMBIENT_API_KEY_FILE: process.env.AMBIENT_AGENT_AMBIENT_API_KEY_FILE || apiKeyFile,
+      }
+    : {};
+  return {
+    ...process.env,
+    ...keyFileEnv,
+    AMBIENT_PROVIDER: process.env.AMBIENT_PROVIDER || "ambient",
+    AMBIENT_LIVE_MODEL: process.env.AMBIENT_LIVE_MODEL || "moonshotai/kimi-k2.7-code",
+    AMBIENT_DESKTOP_WORKSPACE: workspace,
+    AMBIENT_E2E: "1",
+    AMBIENT_E2E_USER_DATA: userData,
+  };
+}
+
+function ambientApiKeyFilePath() {
+  if (process.env.AMBIENT_API_KEY_FILE) return process.env.AMBIENT_API_KEY_FILE;
+  if (process.env.AMBIENT_AGENT_AMBIENT_API_KEY_FILE) return process.env.AMBIENT_AGENT_AMBIENT_API_KEY_FILE;
+  let current = repoRoot;
+  for (let depth = 0; depth < 8; depth += 1) {
+    const candidate = join(current, "ambient_api_key.txt");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  if (process.env.HOME) {
+    const homeCheckoutCandidate = join(process.env.HOME, "ambientCoder", "ambient_api_key.txt");
+    if (existsSync(homeCheckoutCandidate)) return homeCheckoutCandidate;
+  }
+  const siblingCheckoutCandidate = join(dirname(repoRoot), "ambientCoder", "ambient_api_key.txt");
+  if (existsSync(siblingCheckoutCandidate)) return siblingCheckoutCandidate;
+  return undefined;
+}
+
+async function runRequired(command, args, timeoutMs) {
+  const result = await runCaptured(command, args, timeoutMs);
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(" ")} failed with ${result.status}\n${result.stdout}\n${result.stderr}`);
+  }
+  return result;
+}
+
+function runCaptured(command, args, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: repoRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+    });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`Timed out running ${command} ${args.join(" ")}`));
+    }, timeoutMs);
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString("utf8");
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString("utf8");
+    });
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("exit", (status) => {
+      clearTimeout(timer);
+      resolve({ status: status ?? 1, stdout, stderr });
+    });
+  });
+}
+
+function relativePath(path) {
+  return relative(repoRoot, path).split("\\").join("/");
 }

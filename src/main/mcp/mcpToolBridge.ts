@@ -1,4 +1,5 @@
 import { stat } from "node:fs/promises";
+import { mcpToolArgumentValidationErrorText, mcpToolTimeoutHintForDescriptor } from "./mcpToolBridgePresentation";
 import { materializeTextOutput, materializedTextNotice, type MaterializedTextOutput } from "./mcpToolRuntimeFacade";
 import { McpInstallCatalog, type McpInstalledServerSummary } from "./mcpInstallCatalog";
 import { type ToolHiveInstalledServerState, type ToolHiveMcpToolPolicy, type ToolHiveRuntimeService } from "./mcpToolRuntimeFacade";
@@ -20,41 +21,43 @@ import {
   type McpManagedFileExchangeStagedFile,
   type McpToolCallFileInput,
 } from "./mcpManagedFileExchange";
+import { evaluateMcpAggregationReadiness, type InstalledMcpServerRecord } from "./mcpAggregationReadiness";
+import {
+  createMcpHttpClient,
+  isMcpToolError,
+  textFromMcpToolCallResult,
+  type FetchLike,
+  type McpToolBridgeActivityHandler,
+} from "./mcpHttpClient";
 
-const mcpProtocolVersion = "2024-11-05";
 const defaultMcpHttpTimeoutMs = 60_000;
 const defaultMcpToolSearchLimit = 8;
 const maxMcpToolSearchLimit = 20;
-const mcpToolSearchDescriptionPreviewChars = 240;
 const mcpToolResultPreviewChars = 12_000;
-const publicWebMcpIdleTimeoutMs = 120_000;
-const publicWebMcpMaxRunMs = 10 * 60_000;
-const heavyAnalysisMcpIdleTimeoutMs = 180_000;
-const heavyAnalysisMcpMaxRunMs = 15 * 60_000;
-const mutatingMcpIdleTimeoutMs = 120_000;
-const mutatingMcpMaxRunMs = 10 * 60_000;
-const quickMcpMaxRunMs = 120_000;
 
-export type McpToolBridgeActivitySource =
-  | "request-start"
-  | "response-headers"
-  | "response-body"
-  | "sse-connect-start"
-  | "sse-connect-headers"
-  | "sse-chunk"
-  | "sse-event"
-  | "sse-response";
-
-export interface McpToolBridgeActivity {
-  source: McpToolBridgeActivitySource;
-  operation: string;
-  endpointOrigin: string;
-  method?: string;
-  requestId?: number;
-  bytes?: number;
-}
-
-export type McpToolBridgeActivityHandler = (activity: McpToolBridgeActivity) => void;
+export { createMcpHttpClient, isMcpToolError, textFromMcpToolCallResult } from "./mcpHttpClient";
+export {
+  mcpAggregationReadinessText,
+  mcpToolArgumentValidationErrorText,
+  mcpToolCallOutputLooksLikeHtmlError,
+  mcpToolCallResultText,
+  mcpToolDescribeText,
+  mcpToolDescriptorReviewAcceptText,
+  mcpToolDescriptorReviewText,
+  mcpToolPolicyUpdatePreviewText,
+  mcpToolPolicyUpdateResultText,
+  mcpToolSearchResultsText,
+  mcpToolTimeoutHintForDescriptor,
+  validateMcpToolArguments,
+} from "./mcpToolBridgePresentation";
+export type {
+  FetchLike,
+  McpHttpClient,
+  McpHttpClientOptions,
+  McpToolBridgeActivity,
+  McpToolBridgeActivityHandler,
+  McpToolBridgeActivitySource,
+} from "./mcpHttpClient";
 
 export class McpToolRuntimePermissionBlockedError extends Error {
   readonly descriptor: McpToolDescriptor;
@@ -273,22 +276,6 @@ export interface McpToolDescriptorDriftEvent {
   reason?: string;
 }
 
-interface InstalledMcpServerRecord {
-  summary: McpInstalledServerSummary;
-  state?: ToolHiveInstalledServerState;
-}
-
-export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
-
-export interface McpHttpClientOptions {
-  fetchImpl: FetchLike;
-  timeoutMs: number;
-  maxRunMs?: number | null;
-  allowRemote?: boolean;
-  headers?: Record<string, string>;
-  onActivity?: McpToolBridgeActivityHandler;
-}
-
 export class McpToolBridge {
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
@@ -305,9 +292,7 @@ export class McpToolBridge {
     const tools = await this.discoverTools(input);
     const visibleTools = tools.filter(isVisibleMcpTool);
     if (!query) {
-      return visibleTools
-        .sort(compareMcpToolDescriptors)
-        .slice(0, limit);
+      return visibleTools.sort(compareMcpToolDescriptors).slice(0, limit);
     }
     return visibleTools
       .map((tool) => ({ tool, score: mcpToolSearchScore(tool, query) }))
@@ -341,11 +326,16 @@ export class McpToolBridge {
   async prepareToolCall(input: McpToolCallInput): Promise<McpPreparedToolCall> {
     const descriptor = await this.describeTool({ ...input, refresh: input.refresh ?? true });
     if (descriptor.reviewStatus === "needs-review") {
-      throw new Error(`MCP tool ${descriptor.name} is blocked because server ${descriptor.serverId} needs descriptor review: ${descriptor.reviewReason ?? "descriptor drift detected"}`);
+      throw new Error(
+        `MCP tool ${descriptor.name} is blocked because server ${descriptor.serverId} needs descriptor review: ${descriptor.reviewReason ?? "descriptor drift detected"}`,
+      );
     }
-    if (!descriptor.endpoint) throw new Error(`MCP tool ${descriptor.name} cannot be called because workload ${descriptor.workloadName} has no ToolHive endpoint.`);
+    if (!descriptor.endpoint)
+      throw new Error(`MCP tool ${descriptor.name} cannot be called because workload ${descriptor.workloadName} has no ToolHive endpoint.`);
     if (descriptor.policy?.callPolicy === "blocked") {
-      throw new Error(`MCP tool ${descriptor.serverId}/${descriptor.name} is blocked by Ambient tool policy${descriptor.policy.reason ? `: ${descriptor.policy.reason}` : "."}`);
+      throw new Error(
+        `MCP tool ${descriptor.serverId}/${descriptor.name} is blocked by Ambient tool policy${descriptor.policy.reason ? `: ${descriptor.policy.reason}` : "."}`,
+      );
     }
     const originalArguments = input.arguments ?? {};
     const profile = await this.options.toolHive.readInstalledServerPermissionProfile(descriptor.workloadName);
@@ -389,7 +379,8 @@ export class McpToolBridge {
     const prepared = await this.prepareToolCall(input);
     const { descriptor, arguments: toolArguments } = prepared;
     const timeoutHint = mcpToolTimeoutHintForDescriptor(descriptor, this.timeoutMs);
-    if (!descriptor.endpoint) throw new Error(`MCP tool ${descriptor.name} cannot be called because workload ${descriptor.workloadName} has no ToolHive endpoint.`);
+    if (!descriptor.endpoint)
+      throw new Error(`MCP tool ${descriptor.name} cannot be called because workload ${descriptor.workloadName} has no ToolHive endpoint.`);
     const client = createMcpHttpClient(descriptor.endpoint, {
       fetchImpl: this.fetchImpl,
       timeoutMs: timeoutHint.idleTimeoutMs,
@@ -400,7 +391,7 @@ export class McpToolBridge {
     try {
       result = await client.callTool(descriptor.name, toolArguments, input.signal);
     } catch (error) {
-      throw new Error(await mcpToolCallErrorWithFileExchangeHint(errorMessage(error), prepared.fileExchange));
+      throw new Error(await mcpToolCallErrorWithFileExchangeHint(errorMessage(error), prepared.fileExchange), { cause: error });
     }
     const text = textFromMcpToolCallResult(result);
     if (isMcpToolError(result)) {
@@ -433,28 +424,47 @@ export class McpToolBridge {
   async reviewToolDescriptors(input: McpToolDescriptorReviewInput = {}): Promise<McpToolDescriptorReview> {
     const record = selectInstalledRecord(await this.installedRecords(input), input);
     const tools = await this.toolsForInstalledServer(record, input);
-    const freshRecord = selectInstalledRecord(await this.installedRecords({
-      serverId: record.summary.serverId,
-      workloadName: record.summary.workloadName,
-    }), {
-      serverId: record.summary.serverId,
-      workloadName: record.summary.workloadName,
-    });
-    const freshTools = normalizeMcpTools(freshRecord.summary, freshRecord.state?.lastKnownToolDescriptors ?? [], freshRecord.state, this.timeoutMs);
+    const freshRecord = selectInstalledRecord(
+      await this.installedRecords({
+        serverId: record.summary.serverId,
+        workloadName: record.summary.workloadName,
+      }),
+      {
+        serverId: record.summary.serverId,
+        workloadName: record.summary.workloadName,
+      },
+    );
+    const freshTools = normalizeMcpTools(
+      freshRecord.summary,
+      freshRecord.state?.lastKnownToolDescriptors ?? [],
+      freshRecord.state,
+      this.timeoutMs,
+    );
     return descriptorReviewFromRecord(freshRecord, freshTools.length ? freshTools : tools);
   }
 
   async acceptToolDescriptorReview(input: McpToolDescriptorReviewAcceptInput): Promise<McpToolDescriptorReviewAcceptResult> {
     const record = selectInstalledRecord(await this.installedRecords(input), input);
-    const trust = await this.options.toolHive.trustInstalledServerToolDescriptors(record.summary.workloadName, input.expectedDescriptorHash);
-    const freshRecord = selectInstalledRecord(await this.installedRecords({
-      serverId: record.summary.serverId,
-      workloadName: record.summary.workloadName,
-    }), {
-      serverId: record.summary.serverId,
-      workloadName: record.summary.workloadName,
-    });
-    const tools = normalizeMcpTools(freshRecord.summary, trust.state.lastKnownToolDescriptors ?? freshRecord.state?.lastKnownToolDescriptors ?? [], trust.state, this.timeoutMs);
+    const trust = await this.options.toolHive.trustInstalledServerToolDescriptors(
+      record.summary.workloadName,
+      input.expectedDescriptorHash,
+    );
+    const freshRecord = selectInstalledRecord(
+      await this.installedRecords({
+        serverId: record.summary.serverId,
+        workloadName: record.summary.workloadName,
+      }),
+      {
+        serverId: record.summary.serverId,
+        workloadName: record.summary.workloadName,
+      },
+    );
+    const tools = normalizeMcpTools(
+      freshRecord.summary,
+      trust.state.lastKnownToolDescriptors ?? freshRecord.state?.lastKnownToolDescriptors ?? [],
+      trust.state,
+      this.timeoutMs,
+    );
     return {
       status: trust.wasReviewRequired ? "trusted" : "already-trusted",
       review: descriptorReviewFromRecord({ summary: freshRecord.summary, state: trust.state }, tools),
@@ -478,11 +488,13 @@ export class McpToolBridge {
     const updatedState = await this.options.toolHive.updateInstalledServerToolPolicy(
       preview.descriptor.workloadName,
       preview.descriptor.name,
-      input.clear ? {} : {
-        ...(input.visibility ? { visibility: input.visibility } : {}),
-        ...(input.callPolicy ? { callPolicy: input.callPolicy } : {}),
-        ...(typeof input.reason === "string" ? { reason: input.reason } : {}),
-      },
+      input.clear
+        ? {}
+        : {
+            ...(input.visibility ? { visibility: input.visibility } : {}),
+            ...(input.callPolicy ? { callPolicy: input.callPolicy } : {}),
+            ...(typeof input.reason === "string" ? { reason: input.reason } : {}),
+          },
     );
     const nextPolicy = mcpToolPolicyForName(updatedState.toolPolicies, preview.descriptor.name);
     const descriptor = {
@@ -499,124 +511,12 @@ export class McpToolBridge {
   }
 
   async evaluateAggregationReadiness(input: McpAggregationReadinessInput = {}): Promise<McpAggregationReadinessReport> {
-    const minServerCount = Math.max(2, Math.floor(input.minServerCount ?? 2));
-    const records = await this.installedRecords({});
-    const blockers: string[] = [];
-    const warnings: string[] = [];
-    const servers: McpAggregationReadinessServer[] = [];
-    const allTools: McpToolDescriptor[] = [];
-
-    for (const record of records) {
-      const serverIssues: string[] = [];
-      let tools: McpToolDescriptor[] = [];
-      try {
-        tools = await this.toolsForInstalledServer(record, { refresh: input.refresh, signal: input.signal, onActivity: input.onActivity });
-        allTools.push(...tools);
-      } catch (error) {
-        const message = errorMessage(error);
-        serverIssues.push(`tool discovery failed: ${message}`);
-        blockers.push(`${record.summary.serverId}: tool discovery failed: ${message}`);
-      }
-      const reviewStatus = record.state?.toolDescriptorReviewStatus ?? (tools.length ? "trusted" : "missing");
-      if (reviewStatus !== "trusted") {
-        const issue = reviewStatus === "needs-review"
-          ? "descriptor drift requires review before aggregation"
-          : "no trusted descriptor snapshot exists";
-        serverIssues.push(issue);
-        blockers.push(`${record.summary.serverId}: ${issue}`);
-      }
-      if (!record.summary.endpoint) {
-        serverIssues.push("no MCP endpoint is available");
-        blockers.push(`${record.summary.serverId}: no MCP endpoint is available`);
-      }
-      let profileSha256Verified: boolean | undefined;
-      try {
-        const profile = await this.options.toolHive.readInstalledServerPermissionProfile(record.summary.workloadName);
-        profileSha256Verified = profile.sha256Verified;
-        if (!profile.sha256Verified) {
-          serverIssues.push("installed ToolHive permission profile hash does not match state");
-          blockers.push(`${record.summary.serverId}: installed ToolHive permission profile hash does not match state`);
-        }
-      } catch (error) {
-        const message = errorMessage(error);
-        serverIssues.push(`permission profile unavailable: ${message}`);
-        blockers.push(`${record.summary.serverId}: permission profile unavailable: ${message}`);
-      }
-      const visibleTools = tools.filter(isVisibleMcpTool);
-      const hiddenToolCount = tools.length - visibleTools.length;
-      const blockedToolCount = visibleTools.filter((tool) => tool.policy?.callPolicy === "blocked").length;
-      const approvalRequiredToolCount = visibleTools.filter((tool) => tool.policy?.callPolicy === "approval-required").length;
-      const callableToolCount = visibleTools.length - blockedToolCount;
-      if (tools.length === 0 && !serverIssues.length) {
-        serverIssues.push("no tools are discoverable");
-        blockers.push(`${record.summary.serverId}: no tools are discoverable`);
-      } else if (callableToolCount === 0 && tools.length > 0) {
-        serverIssues.push("all visible tools are blocked or hidden");
-        warnings.push(`${record.summary.serverId}: all visible tools are blocked or hidden`);
-      }
-      servers.push({
-        serverId: record.summary.serverId,
-        workloadName: record.summary.workloadName,
-        ...(record.summary.workloadStatus ? { status: record.summary.workloadStatus } : {}),
-        ...(record.summary.endpoint ? { endpoint: record.summary.endpoint } : {}),
-        reviewStatus,
-        ...(profileSha256Verified !== undefined ? { profileSha256Verified } : {}),
-        visibleToolCount: visibleTools.length,
-        hiddenToolCount,
-        blockedToolCount,
-        approvalRequiredToolCount,
-        callableToolCount,
-        issues: serverIssues,
-      });
-    }
-
-    const callableTools = allTools.filter((tool) => isVisibleMcpTool(tool) && tool.policy?.callPolicy !== "blocked");
-    const duplicateToolNames = duplicateNames(callableTools.map((tool) => tool.name));
-    if (duplicateToolNames.length) {
-      warnings.push(`duplicate MCP tool names require server-prefixed aggregate names: ${duplicateToolNames.join(", ")}`);
-    }
-    if (records.length < minServerCount) {
-      warnings.push(`vMCP aggregation is deferred until at least ${minServerCount} installed MCP servers are stable; found ${records.length}.`);
-    }
-    const namespacePlan = callableTools
-      .sort((left, right) => left.toolRef.localeCompare(right.toolRef))
-      .map((tool) => ({
-        toolRef: tool.toolRef,
-        aggregateName: aggregateToolName(tool),
-        serverId: tool.serverId,
-        workloadName: tool.workloadName,
-        toolName: tool.name,
-        duplicateName: duplicateToolNames.includes(tool.name),
-        callPolicy: tool.policy?.callPolicy ?? "default",
-      }));
-    const visibleToolCount = allTools.filter(isVisibleMcpTool).length;
-    const blockedToolCount = allTools.filter((tool) => isVisibleMcpTool(tool) && tool.policy?.callPolicy === "blocked").length;
-    const hiddenToolCount = allTools.length - visibleToolCount;
-    const approvalRequiredToolCount = allTools.filter((tool) => isVisibleMcpTool(tool) && tool.policy?.callPolicy === "approval-required").length;
-    const status: McpAggregationReadinessReport["status"] = blockers.length
-      ? "blocked"
-      : records.length < minServerCount
-        ? "defer"
-        : "ready-for-experiment";
-    return {
-      schemaVersion: "ambient-mcp-aggregation-readiness-v1",
-      status,
-      recommendedAction: aggregationRecommendedAction(status, blockers, records.length, minServerCount),
-      serverCount: records.length,
-      minServerCount,
-      visibleToolCount,
-      callableToolCount: callableTools.length,
-      hiddenToolCount,
-      blockedToolCount,
-      approvalRequiredToolCount,
-      duplicateToolNames,
-      namespaceStrategy: "server-prefixed",
-      checks: aggregationReadinessChecks({ records, blockers, warnings, duplicateToolNames, namespacePlan, minServerCount }),
-      servers,
-      namespacePlan,
-      blockers,
-      warnings,
-    };
+    return evaluateMcpAggregationReadiness({
+      input,
+      records: await this.installedRecords({}),
+      toolsForInstalledServer: (record, searchInput) => this.toolsForInstalledServer(record, searchInput),
+      readInstalledServerPermissionProfile: (workloadName) => this.options.toolHive.readInstalledServerPermissionProfile(workloadName),
+    });
   }
 
   private async discoverTools(input: McpToolSearchInput): Promise<McpToolDescriptor[]> {
@@ -625,7 +525,7 @@ export class McpToolBridge {
     const errors: string[] = [];
     for (const record of records) {
       try {
-        tools.push(...await this.toolsForInstalledServer(record, input));
+        tools.push(...(await this.toolsForInstalledServer(record, input)));
       } catch (error) {
         const message = errorMessage(error);
         if (input.serverId || input.workloadName) throw error;
@@ -637,10 +537,7 @@ export class McpToolBridge {
   }
 
   private async installedRecords(input: McpToolSearchInput): Promise<InstalledMcpServerRecord[]> {
-    const [summaries, state] = await Promise.all([
-      this.options.catalog.listInstalledServers(),
-      this.options.toolHive.readState(),
-    ]);
+    const [summaries, state] = await Promise.all([this.options.catalog.listInstalledServers(), this.options.toolHive.readState()]);
     const stateByWorkload = new Map(state.installedServers.map((server) => [server.workloadName, server]));
     return resolveInstalledRecords(
       summaries.map((summary) => ({ summary, state: stateByWorkload.get(summary.workloadName) })),
@@ -654,7 +551,9 @@ export class McpToolBridge {
     if (!shouldRefresh) return cached;
     if (!record.summary.endpoint) {
       if (cached.length) return cached;
-      throw new Error(`ToolHive workload ${record.summary.workloadName} has no endpoint. Start the workload or run ambient_mcp_server_list for status.`);
+      throw new Error(
+        `ToolHive workload ${record.summary.workloadName} has no endpoint. Start the workload or run ambient_mcp_server_list for status.`,
+      );
     }
     const client = createMcpHttpClient(record.summary.endpoint, {
       fetchImpl: this.fetchImpl,
@@ -694,7 +593,10 @@ async function mcpToolCallErrorWithFileExchangeHint(message: string, fileExchang
     }
   }
   if (!readableStagedFiles.length) return message;
-  const paths = readableStagedFiles.slice(0, 5).map((file) => `${file.argumentPath} -> ${file.containerPath}`).join("; ");
+  const paths = readableStagedFiles
+    .slice(0, 5)
+    .map((file) => `${file.argumentPath} -> ${file.containerPath}`)
+    .join("; ");
   return [
     message,
     `Ambient diagnostic: staged host file input${readableStagedFiles.length === 1 ? "" : "s"} still exist for ${paths}, but the MCP server reported a missing or denied container path. Treat this as a ToolHive managed file exchange visibility issue. Do not retry with arbitrary host paths or unmanaged workspace paths. Repair/reinstall the Ambient-managed MCP server if diagnostics show the exchange is unhealthy; if the tool writes an output file, retry with an explicit output_path/destination argument so Ambient can pre-authorize and surface the generated artifact.`,
@@ -703,365 +605,6 @@ async function mcpToolCallErrorWithFileExchangeHint(message: string, fileExchang
 
 function mcpToolErrorLooksLikeFileVisibilityFailure(message: string): boolean {
   return /\b(?:file not found|no such file|not found|permission denied|access denied|cannot open|not readable)\b/i.test(message);
-}
-
-export function mcpToolSearchResultsText(tools: McpToolDescriptor[]): string {
-  if (!tools.length) return "No Ambient MCP tools matched. Install and start an Ambient-managed ToolHive MCP server, then search again.";
-  return [
-    `Found ${tools.length} Ambient MCP tool${tools.length === 1 ? "" : "s"}.`,
-    ...tools.map((tool) => {
-      const status = [tool.workloadStatus ? `status=${tool.workloadStatus}` : undefined, `review=${tool.reviewStatus}`].filter(Boolean).join(", ");
-      const policy = toolPolicyText(tool.policy);
-      const description = toolDescriptionPreview(tool.description);
-      return `- ${tool.toolRef}: serverId=${tool.serverId}; toolName=${tool.name}; workload=${tool.workloadName}; ${status}${policy ? `; ${policy}` : ""}.${description ? ` descriptionPreview=${JSON.stringify(description)}` : ""}`;
-    }),
-    "",
-    "Search rows intentionally include only description previews. Use ambient_mcp_tool_describe with the exact toolName plus serverId/workloadName from the selected result for the full description and input schema. The displayed toolRef is also accepted as toolName when carrying one copyable identifier is easier.",
-  ].join("\n");
-}
-
-export function mcpToolDescribeText(tool: McpToolDescriptor): string {
-  const timeoutHint = mcpToolTimeoutHintForDescriptor(tool);
-  const fileInputHints = mcpToolFileInputHints(tool.inputSchema);
-  const outputPathHints = mcpToolOutputPathHints(tool.inputSchema);
-  return [
-    `${tool.toolRef}: ${tool.description ?? "MCP tool."}`,
-    `Tool ref: ${tool.toolRef}`,
-    `Tool name: ${tool.name}`,
-    `Server id: ${tool.serverId}`,
-    `Workload: ${tool.workloadName}`,
-    tool.workloadStatus ? `Status: ${tool.workloadStatus}` : undefined,
-    tool.endpoint ? `Endpoint: ${tool.endpoint}` : undefined,
-    `Descriptor review: ${tool.reviewStatus}`,
-    `Timeout hint: idle=${timeoutHint.idleTimeoutMs}ms; maxRun=${formatMcpTimeoutMs(timeoutHint.maxRunMs)}; ${timeoutHint.reason}`,
-    tool.reviewReason ? `Review reason: ${tool.reviewReason}` : undefined,
-    tool.policy ? `Tool policy: ${toolPolicyText(tool.policy)}` : undefined,
-    tool.policy?.reason ? `Policy reason: ${tool.policy.reason}` : undefined,
-    tool.lastDiscoveredAt ? `Last discovery: ${tool.lastDiscoveredAt}` : undefined,
-    "",
-    "Input schema:",
-    JSON.stringify(tool.inputSchema ?? emptyObjectSchema(), null, 2),
-    fileInputHints.length ? "" : undefined,
-    fileInputHints.length ? "Managed file input hints:" : undefined,
-    ...fileInputHints,
-    outputPathHints.length ? "" : undefined,
-    outputPathHints.length ? "Managed output path hints:" : undefined,
-    ...outputPathHints,
-    "",
-    "Call this tool with ambient_mcp_tool_call using this exact toolName plus serverId/workloadName, or use the toolRef as toolName. Put the MCP tool input object under the top-level arguments field, for example: {\"toolName\":\"" + tool.toolRef + "\",\"arguments\":{...}}. Do not use toolInput.",
-  ].filter((line) => line !== undefined).join("\n");
-}
-
-function mcpToolFileInputHints(inputSchema: unknown): string[] {
-  const argumentPaths = mcpToolFileArgumentPaths(inputSchema);
-  if (!argumentPaths.length) return [];
-  return [
-    ...argumentPaths.slice(0, 6).map((argumentPath) =>
-      `- ${argumentPath}: if the user provides inline file-like content, call ambient_mcp_tool_call with fileInputs:[{"argumentPath":"${argumentPath}","filename":"input","content":"..."}]; Ambient stages it into the managed ToolHive exchange and rewrites arguments.${argumentPath} to the container path.`,
-    ),
-    argumentPaths.length > 6 ? `- ... ${argumentPaths.length - 6} more file-like schema fields omitted from hints.` : undefined,
-  ].filter((line): line is string => Boolean(line));
-}
-
-function mcpToolFileArgumentPaths(inputSchema: unknown, prefix = "", seen = new Set<unknown>()): string[] {
-  if (!inputSchema || typeof inputSchema !== "object" || seen.has(inputSchema)) return [];
-  seen.add(inputSchema);
-  const schema = inputSchema as Record<string, unknown>;
-  const paths: string[] = [];
-  const properties = schema.properties;
-  if (properties && typeof properties === "object" && !Array.isArray(properties)) {
-    for (const [key, value] of Object.entries(properties as Record<string, unknown>)) {
-      const path = prefix ? `${prefix}.${key}` : key;
-      if (mcpSchemaFieldLooksLikeFileArgument(key, value)) paths.push(path);
-      paths.push(...mcpToolFileArgumentPaths(value, path, seen));
-    }
-  }
-  for (const key of ["oneOf", "anyOf", "allOf"] as const) {
-    const variants = schema[key];
-    if (Array.isArray(variants)) {
-      for (const variant of variants) paths.push(...mcpToolFileArgumentPaths(variant, prefix, seen));
-    }
-  }
-  return [...new Set(paths)];
-}
-
-function mcpSchemaFieldLooksLikeFileArgument(key: string, schema: unknown): boolean {
-  if (!schema || typeof schema !== "object") return false;
-  const record = schema as Record<string, unknown>;
-  if (!mcpSchemaAllowsString(record)) return false;
-  if (mcpSchemaFieldLooksLikeOutputArgument(key, schema)) return false;
-  const haystack = [
-    key,
-    typeof record.title === "string" ? record.title : "",
-    typeof record.description === "string" ? record.description : "",
-  ].join(" ");
-  return /\b(?:file|file[_\s-]*path|filepath|file[_\s-]*name|filename|path|csv|tsv|xlsx?|jsonl?|yaml|dataset|input[_\s-]*file)\b/i.test(haystack);
-}
-
-function mcpToolOutputPathHints(inputSchema: unknown): string[] {
-  const argumentPaths = mcpToolOutputArgumentPaths(inputSchema);
-  if (!argumentPaths.length) return [];
-  return [
-    ...argumentPaths.slice(0, 6).map((argumentPath) =>
-      `- ${argumentPath}: if the MCP tool writes a file, provide a workspace-relative filename such as "result.html"; Ambient pre-creates a writable managed ToolHive exchange file, rewrites arguments.${argumentPath} to the container path, and surfaces the generated artifact. Prefer this over relying on default sibling output paths.`,
-    ),
-    argumentPaths.length > 6 ? `- ... ${argumentPaths.length - 6} more output-like schema fields omitted from hints.` : undefined,
-  ].filter((line): line is string => Boolean(line));
-}
-
-function mcpToolOutputArgumentPaths(inputSchema: unknown, prefix = "", seen = new Set<unknown>()): string[] {
-  if (!inputSchema || typeof inputSchema !== "object" || seen.has(inputSchema)) return [];
-  seen.add(inputSchema);
-  const schema = inputSchema as Record<string, unknown>;
-  const paths: string[] = [];
-  const properties = schema.properties;
-  if (properties && typeof properties === "object" && !Array.isArray(properties)) {
-    for (const [key, value] of Object.entries(properties as Record<string, unknown>)) {
-      const path = prefix ? `${prefix}.${key}` : key;
-      if (mcpSchemaFieldLooksLikeOutputArgument(key, value)) paths.push(path);
-      paths.push(...mcpToolOutputArgumentPaths(value, path, seen));
-    }
-  }
-  for (const key of ["oneOf", "anyOf", "allOf"] as const) {
-    const variants = schema[key];
-    if (Array.isArray(variants)) {
-      for (const variant of variants) paths.push(...mcpToolOutputArgumentPaths(variant, prefix, seen));
-    }
-  }
-  return [...new Set(paths)];
-}
-
-function mcpSchemaFieldLooksLikeOutputArgument(key: string, schema: unknown): boolean {
-  if (!schema || typeof schema !== "object") return false;
-  const record = schema as Record<string, unknown>;
-  if (!mcpSchemaAllowsString(record)) return false;
-  const haystack = [
-    key,
-    typeof record.title === "string" ? record.title : "",
-    typeof record.description === "string" ? record.description : "",
-  ].join(" ");
-  return /\b(?:output|output[_\s-]*path|out[_\s-]*path|output[_\s-]*file|outfile|destination|dest|save[_\s-]*(?:as|path|file)?|write[_\s-]*(?:to|path|file)?|target[_\s-]*(?:path|file)?)\b/i.test(haystack);
-}
-
-function mcpSchemaAllowsString(schema: unknown, seen = new Set<unknown>()): boolean {
-  if (!schema || typeof schema !== "object" || seen.has(schema)) return false;
-  seen.add(schema);
-  const record = schema as Record<string, unknown>;
-  const type = record.type;
-  if (type === "string" || (Array.isArray(type) && type.includes("string"))) return true;
-  for (const key of ["oneOf", "anyOf", "allOf"] as const) {
-    const variants = record[key];
-    if (Array.isArray(variants) && variants.some((variant) => mcpSchemaAllowsString(variant, seen))) return true;
-  }
-  return false;
-}
-
-export function mcpToolCallResultText(result: McpToolCallResult): string {
-  return [
-    `MCP tool ${result.descriptor.serverId}/${result.descriptor.name} completed.`,
-    mcpToolCallOutputWarning(result),
-    mcpToolManagedFileArtifactsText(result),
-    result.text,
-  ].filter(Boolean).join("\n\n");
-}
-
-function mcpToolManagedFileArtifactsText(result: McpToolCallResult): string | undefined {
-  if (!result.managedFileArtifacts?.length) return undefined;
-  return [
-    "Managed MCP file artifacts:",
-    ...result.managedFileArtifacts.map((artifact) => {
-      const location = artifact.workspacePath
-        ? artifact.workspacePath
-        : artifact.copySkippedReason
-          ? `${artifact.hostPath} (${artifact.copySkippedReason})`
-          : artifact.hostPath;
-      return `- ${artifact.filename} (${artifact.bytes} bytes): ${location} (container: ${artifact.containerPath})`;
-    }),
-  ].join("\n");
-}
-
-export function mcpToolArgumentValidationErrorText(tool: Pick<McpToolDescriptor, "toolRef" | "inputSchema">, toolArguments: Record<string, unknown>): string | undefined {
-  const validationErrors = validateMcpToolArguments(tool.inputSchema, toolArguments);
-  if (!validationErrors.length) return undefined;
-  return [
-    `MCP tool arguments failed schema validation for ${tool.toolRef}: ${validationErrors.join("; ")}.`,
-    mcpToolArgumentRepairHint(tool.inputSchema, toolArguments),
-  ].filter(Boolean).join(" ");
-}
-
-function mcpToolCallOutputWarning(result: McpToolCallResult): string | undefined {
-  if (!mcpToolCallOutputLooksLikeHtmlError(result)) return undefined;
-  return "Warning: MCP transport completed, but the tool output looks like an HTML error page. Treat this as an installed-server/tool behavior failure until a non-error smoke result is observed.";
-}
-
-export function mcpToolCallOutputLooksLikeHtmlError(result: McpToolCallResult): boolean {
-  const text = (result.output.text || result.text || "").slice(0, 16_000);
-  return looksLikeHtmlDocument(text) &&
-    /\b(?:40[034]|50[0234]|not found|forbidden|unauthorized|access denied|error page|temporarily unavailable)\b/i.test(text);
-}
-
-function looksLikeHtmlDocument(text: string): boolean {
-  return /<(?:!doctype\s+html|html|head|title|body|meta)\b/i.test(text.slice(0, 4_000));
-}
-
-export function mcpToolDescriptorReviewText(review: McpToolDescriptorReview): string {
-  return [
-    `MCP tool descriptor review for ${review.server.serverId}.`,
-    `Workload: ${review.server.workloadName}`,
-    `Status: ${review.reviewStatus}`,
-    review.reviewReason ? `Reason: ${review.reviewReason}` : undefined,
-    review.descriptorHash ? `Descriptor hash: ${review.descriptorHash}` : undefined,
-    review.lastDiscoveredAt ? `Last discovery: ${review.lastDiscoveredAt}` : undefined,
-    `Tools: ${review.tools.length}`,
-    ...review.tools.slice(0, 20).map((tool) => `- ${tool.name}${tool.policy ? ` (${toolPolicyText(tool.policy)})` : ""}${tool.description ? `: ${tool.description}` : ""}`),
-    review.tools.length > 20 ? `- ... ${review.tools.length - 20} more` : undefined,
-  ].filter((line) => line !== undefined).join("\n");
-}
-
-export function mcpToolDescriptorReviewAcceptText(result: McpToolDescriptorReviewAcceptResult): string {
-  return [
-    result.status === "trusted"
-      ? `Trusted current MCP tool descriptors for ${result.review.server.serverId}.`
-      : `MCP tool descriptors for ${result.review.server.serverId} were already trusted.`,
-    mcpToolDescriptorReviewText(result.review),
-  ].join("\n\n");
-}
-
-export function mcpToolPolicyUpdatePreviewText(preview: McpToolPolicyUpdatePreview): string {
-  return [
-    `MCP tool policy update preview for ${preview.descriptor.toolRef}.`,
-    `Status: ${preview.status}`,
-    `Server id: ${preview.descriptor.serverId}`,
-    `Workload: ${preview.descriptor.workloadName}`,
-    `Tool name: ${preview.descriptor.name}`,
-    preview.descriptor.descriptorHash ? `Descriptor hash: ${preview.descriptor.descriptorHash}` : undefined,
-    `Previous policy: ${toolPolicyText(preview.previousPolicy) || "default"}`,
-    `Next policy: ${toolPolicyText(preview.nextPolicy) || "default"}`,
-    "",
-    preview.status === "would-clear"
-      ? "This will restore the tool to the default visible/default-call policy."
-      : "This will update Ambient's app-global per-tool policy for this installed MCP server.",
-    "This does not trust descriptor drift, reinstall servers, stop workloads, or call the downstream MCP tool.",
-  ].filter((line) => line !== undefined).join("\n");
-}
-
-export function mcpToolPolicyUpdateResultText(result: McpToolPolicyUpdateResult): string {
-  return [
-    result.status === "cleared"
-      ? `Cleared Ambient MCP tool policy for ${result.descriptor.toolRef}.`
-      : `Updated Ambient MCP tool policy for ${result.descriptor.toolRef}.`,
-    `Previous policy: ${toolPolicyText(result.previousPolicy) || "default"}`,
-    `Current policy: ${toolPolicyText(result.policy) || "default"}`,
-  ].join("\n");
-}
-
-export function mcpAggregationReadinessText(report: McpAggregationReadinessReport): string {
-  return [
-    "MCP aggregation readiness.",
-    `Status: ${report.status}`,
-    `Recommended action: ${report.recommendedAction}`,
-    `Installed servers: ${report.serverCount} (minimum for aggregation experiment: ${report.minServerCount})`,
-    `Tools: visible=${report.visibleToolCount}; callable=${report.callableToolCount}; hidden=${report.hiddenToolCount}; blocked=${report.blockedToolCount}; approvalRequired=${report.approvalRequiredToolCount}`,
-    `Namespace strategy: ${report.namespaceStrategy}`,
-    report.duplicateToolNames.length ? `Duplicate tool names: ${report.duplicateToolNames.join(", ")}` : "Duplicate tool names: none",
-    "",
-    "Checks:",
-    ...report.checks.map((check) => `- ${check.status}: ${check.label} - ${check.detail}`),
-    "",
-    "Servers:",
-    ...report.servers.map((server) => {
-      const issueText = server.issues.length ? ` issues=${server.issues.join("; ")}` : "";
-      return `- ${server.serverId}: workload=${server.workloadName}; review=${server.reviewStatus}; profileHash=${server.profileSha256Verified === undefined ? "unknown" : server.profileSha256Verified ? "verified" : "mismatch"}; callableTools=${server.callableToolCount}; hidden=${server.hiddenToolCount}; blocked=${server.blockedToolCount}${issueText}`;
-    }),
-    "",
-    "Namespace preview:",
-    ...(report.namespacePlan.length
-      ? report.namespacePlan.slice(0, 25).map((item) => `- ${item.aggregateName} -> ${item.toolRef}${item.duplicateName ? " (duplicate source name)" : ""}`)
-      : ["- none"]),
-    report.namespacePlan.length > 25 ? `- ... ${report.namespacePlan.length - 25} more` : undefined,
-    "",
-    "Aggregation remains disabled in this build; keep using ambient_mcp_tool_search, ambient_mcp_tool_describe, and ambient_mcp_tool_call as the stable compact bridge.",
-  ].filter((line) => line !== undefined).join("\n");
-}
-
-export function validateMcpToolArguments(schema: unknown, value: unknown, path = "$"): string[] {
-  if (!schema || typeof schema !== "object") return [];
-  const record = schema as Record<string, unknown>;
-  if (Array.isArray(record.anyOf)) {
-    return record.anyOf.some((candidate) => validateMcpToolArguments(candidate, value, path).length === 0)
-      ? []
-      : [`${path} did not match any allowed schema`];
-  }
-  if (Array.isArray(record.oneOf)) {
-    const matches = record.oneOf.filter((candidate) => validateMcpToolArguments(candidate, value, path).length === 0).length;
-    return matches === 1 ? [] : [`${path} must match exactly one allowed schema`];
-  }
-  if (Array.isArray(record.enum) && !record.enum.includes(value)) return [`${path} must be one of ${record.enum.map(String).join(", ")}`];
-  const type = record.type;
-  if (Array.isArray(type) && !type.some((candidate) => typeof candidate === "string" && !validateType(candidate, value, path))) {
-    return [`${path} must match one of types ${type.filter((entry) => typeof entry === "string").join(", ")}`];
-  }
-  if (typeof type === "string") {
-    const typeError = validateType(type, value, path);
-    if (typeError) return [typeError];
-  }
-  if (record.type === "object" || (record.properties && value && typeof value === "object" && !Array.isArray(value))) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return [`${path} must be an object`];
-    const objectValue = value as Record<string, unknown>;
-    const properties = (record.properties && typeof record.properties === "object" ? record.properties : {}) as Record<string, unknown>;
-    const errors: string[] = [];
-    for (const required of Array.isArray(record.required) ? record.required : []) {
-      if (typeof required === "string" && objectValue[required] === undefined) errors.push(`${path}.${required} is required`);
-    }
-    for (const [key, childSchema] of Object.entries(properties)) {
-      if (objectValue[key] !== undefined) errors.push(...validateMcpToolArguments(childSchema, objectValue[key], `${path}.${key}`));
-    }
-    if (record.additionalProperties === false) {
-      for (const key of Object.keys(objectValue)) {
-        if (!Object.prototype.hasOwnProperty.call(properties, key)) errors.push(`${path}.${key} is not allowed`);
-      }
-    }
-    return errors;
-  }
-  if (record.type === "array" && Array.isArray(value) && record.items) {
-    return value.flatMap((item, index) => validateMcpToolArguments(record.items, item, `${path}[${index}]`));
-  }
-  return [];
-}
-
-function mcpToolArgumentRepairHint(schema: unknown, value: Record<string, unknown>): string | undefined {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return undefined;
-  const record = schema as Record<string, unknown>;
-  const properties = (record.properties && typeof record.properties === "object" ? record.properties : {}) as Record<string, unknown>;
-  const propertyNames = Object.keys(properties);
-  const required = (Array.isArray(record.required) ? record.required.filter((entry): entry is string => typeof entry === "string") : []);
-  if (!propertyNames.length && !required.length) return undefined;
-  const supplied = Object.keys(value);
-  const missing = required.filter((field) => value[field] === undefined);
-  const unexpected = supplied.filter((field) => !Object.prototype.hasOwnProperty.call(properties, field));
-  const hints: string[] = [];
-  if (required.length) hints.push(`expected top-level required field${required.length === 1 ? "" : "s"}: ${required.join(", ")}`);
-  if (propertyNames.length) hints.push(`allowed top-level field${propertyNames.length === 1 ? "" : "s"}: ${propertyNames.join(", ")}`);
-  if (unexpected.length) hints.push(`unexpected top-level field${unexpected.length === 1 ? "" : "s"}: ${unexpected.join(", ")}`);
-  for (const field of unexpected) {
-    const nested = value[field];
-    if (!nested || typeof nested !== "object" || Array.isArray(nested)) continue;
-    const nestedRecord = nested as Record<string, unknown>;
-    const nestedMatches = [...new Set([...required, ...missing])].filter((candidate) => nestedRecord[candidate] !== undefined);
-    if (nestedMatches.length) {
-      hints.push(`move ${nestedMatches.join(", ")} out of ${field} and pass them directly under arguments`);
-      break;
-    }
-  }
-  return hints.length ? `Repair hint: ${hints.join("; ")}.` : undefined;
-}
-
-function toolDescriptionPreview(description: string | undefined): string | undefined {
-  const normalized = description?.replace(/\s+/g, " ").trim();
-  if (!normalized) return undefined;
-  return normalized.length <= mcpToolSearchDescriptionPreviewChars
-    ? normalized
-    : `${normalized.slice(0, mcpToolSearchDescriptionPreviewChars - 1)}…`;
 }
 
 function normalizeMcpTools(
@@ -1105,107 +648,6 @@ function normalizeMcpTool(
   };
 }
 
-export function mcpToolTimeoutHintForDescriptor(
-  descriptor: Pick<McpToolDescriptor, "serverId" | "name" | "description" | "inputSchema" | "timeoutHint">,
-  defaultIdleTimeoutMs = defaultMcpHttpTimeoutMs,
-): McpToolTimeoutHint {
-  if (descriptor.timeoutHint) return descriptor.timeoutHint;
-  const idleDefault = Math.max(1, Math.floor(defaultIdleTimeoutMs));
-  const text = mcpToolTimeoutHaystack(descriptor);
-  const matchedSignals: string[] = [];
-  const matches = (signal: string, pattern: RegExp): boolean => {
-    if (!pattern.test(text)) return false;
-    matchedSignals.push(signal);
-    return true;
-  };
-  if (matches("heavy-analysis", /\b(?:ghidra|decompile|disassemble|xref|binary|reverse|analysis|analyze|index|list[_ -]?functions?|function[_ -]?graph)\b/i)) {
-    return {
-      descriptorClass: "mcp",
-      idleTimeoutMs: heavyAnalysisMcpIdleTimeoutMs,
-      maxRunMs: heavyAnalysisMcpMaxRunMs,
-      source: "descriptor",
-      reason: "Descriptor looks like a local analysis or reverse-engineering tool, so Ambient allows longer MCP idle gaps while keeping a hard cap.",
-      matchedSignals,
-    };
-  }
-  if (matches("public-web", /\b(?:scrapling|scrape|scraping|fetch|crawl|browser|web|url|urls|html|page|pages|search|extract|render)\b/i)) {
-    return {
-      descriptorClass: "mcp",
-      idleTimeoutMs: publicWebMcpIdleTimeoutMs,
-      maxRunMs: publicWebMcpMaxRunMs,
-      source: "descriptor",
-      reason: "Descriptor looks like public web retrieval or extraction, so Ambient allows slower page fetches while keeping a hard cap.",
-      matchedSignals,
-    };
-  }
-  if (matches("mutating-or-generation", /\b(?:write|create|update|delete|remove|upload|download|generate|compile|build|install|execute|run)\b/i)) {
-    return {
-      descriptorClass: "mcp",
-      idleTimeoutMs: mutatingMcpIdleTimeoutMs,
-      maxRunMs: mutatingMcpMaxRunMs,
-      source: "descriptor",
-      reason: "Descriptor looks mutating, generative, or execution-heavy, so Ambient allows a longer MCP idle window with a hard cap.",
-      matchedSignals,
-    };
-  }
-  if (matches("quick-read", /\b(?:list|status|ping|health|version|whoami|schema|capabilities)\b/i) && mcpToolRequiredPropertyCount(descriptor.inputSchema) === 0) {
-    return {
-      descriptorClass: "mcp",
-      idleTimeoutMs: idleDefault,
-      maxRunMs: quickMcpMaxRunMs,
-      source: "descriptor",
-      reason: "Descriptor looks like a quick read-only metadata probe, so Ambient keeps the default MCP idle window and adds a short hard cap.",
-      matchedSignals,
-    };
-  }
-  return {
-    descriptorClass: "mcp",
-    idleTimeoutMs: idleDefault,
-    maxRunMs: null,
-    source: "default",
-    reason: "No per-tool timeout signal matched; Ambient uses the default MCP idle timeout without a hard cap.",
-    matchedSignals,
-  };
-}
-
-function mcpToolTimeoutHaystack(
-  descriptor: Pick<McpToolDescriptor, "serverId" | "name" | "description" | "inputSchema">,
-): string {
-  return [
-    descriptor.serverId,
-    descriptor.name,
-    descriptor.description,
-    ...mcpToolSchemaTerms(descriptor.inputSchema),
-  ].filter(Boolean).join(" ").toLowerCase();
-}
-
-function mcpToolSchemaTerms(schema: unknown): string[] {
-  if (!schema || typeof schema !== "object") return [];
-  const record = schema as Record<string, unknown>;
-  const terms: string[] = [];
-  if (record.title && typeof record.title === "string") terms.push(record.title);
-  if (record.description && typeof record.description === "string") terms.push(record.description);
-  if (record.properties && typeof record.properties === "object" && !Array.isArray(record.properties)) {
-    for (const [key, value] of Object.entries(record.properties as Record<string, unknown>)) {
-      terms.push(key);
-      terms.push(...mcpToolSchemaTerms(value));
-    }
-  }
-  if (record.items) terms.push(...mcpToolSchemaTerms(record.items));
-  for (const key of ["anyOf", "oneOf", "allOf"] as const) {
-    if (Array.isArray(record[key])) {
-      for (const child of record[key]) terms.push(...mcpToolSchemaTerms(child));
-    }
-  }
-  return terms;
-}
-
-function mcpToolRequiredPropertyCount(schema: unknown): number {
-  if (!schema || typeof schema !== "object") return 0;
-  const required = (schema as Record<string, unknown>).required;
-  return Array.isArray(required) ? required.filter((value) => typeof value === "string").length : 0;
-}
-
 function mcpToolPolicyForName(
   policies: Record<string, ToolHiveMcpToolPolicy> | undefined,
   toolName: string,
@@ -1233,7 +675,12 @@ function assertPolicyUpdateInput(input: McpToolPolicyUpdateInput): void {
   if (input.visibility !== undefined && input.visibility !== "visible" && input.visibility !== "hidden") {
     throw new Error("visibility must be visible or hidden.");
   }
-  if (input.callPolicy !== undefined && input.callPolicy !== "default" && input.callPolicy !== "blocked" && input.callPolicy !== "approval-required") {
+  if (
+    input.callPolicy !== undefined &&
+    input.callPolicy !== "default" &&
+    input.callPolicy !== "blocked" &&
+    input.callPolicy !== "approval-required"
+  ) {
     throw new Error("callPolicy must be default, blocked, or approval-required.");
   }
 }
@@ -1253,104 +700,8 @@ function policySummaryFromUpdateInput(input: McpToolPolicyUpdateInput): McpToolP
   };
 }
 
-function aggregationRecommendedAction(
-  status: McpAggregationReadinessReport["status"],
-  blockers: string[],
-  serverCount: number,
-  minServerCount: number,
-): string {
-  if (status === "ready-for-experiment") {
-    return "The compact Ambient MCP bridge is stable enough for a bounded vMCP aggregation experiment. Keep aggregation disabled by default and use server-prefixed names.";
-  }
-  if (status === "blocked") {
-    return `Do not prototype vMCP aggregation yet. Resolve blocker${blockers.length === 1 ? "" : "s"}: ${blockers.slice(0, 3).join("; ")}${blockers.length > 3 ? "; ..." : ""}`;
-  }
-  return `Defer vMCP aggregation until at least ${minServerCount} installed MCP servers are stable; currently ${serverCount}. Keep using the compact search/describe/call bridge.`;
-}
-
-function aggregationReadinessChecks(input: {
-  records: InstalledMcpServerRecord[];
-  blockers: string[];
-  warnings: string[];
-  duplicateToolNames: string[];
-  namespacePlan: McpAggregationNamespacePlanItem[];
-  minServerCount: number;
-}): McpAggregationReadinessCheck[] {
-  return [
-    {
-      id: "installed-server-count",
-      label: "Multiple stable installed servers",
-      status: input.records.length >= input.minServerCount ? "passed" : "warning",
-      detail: `${input.records.length} installed server${input.records.length === 1 ? "" : "s"} found; ${input.minServerCount} required before aggregation is useful.`,
-    },
-    {
-      id: "descriptor-trust",
-      label: "Descriptor snapshots trusted",
-      status: input.blockers.some((blocker) => /descriptor|tool discovery|no tools/.test(blocker)) ? "blocked" : "passed",
-      detail: input.blockers.filter((blocker) => /descriptor|tool discovery|no tools/.test(blocker)).join("; ") || "All discoverable tool snapshots are trusted.",
-    },
-    {
-      id: "runtime-boundary",
-      label: "Runtime permission profiles verified",
-      status: input.blockers.some((blocker) => /permission profile|MCP endpoint/.test(blocker)) ? "blocked" : "passed",
-      detail: input.blockers.filter((blocker) => /permission profile|MCP endpoint/.test(blocker)).join("; ") || "Installed permission profile hashes and endpoints are available.",
-    },
-    {
-      id: "namespace-plan",
-      label: "Aggregate namespace plan",
-      status: input.namespacePlan.length ? input.duplicateToolNames.length ? "warning" : "passed" : "blocked",
-      detail: input.namespacePlan.length
-        ? input.duplicateToolNames.length
-          ? `Server-prefixed names required for duplicates: ${input.duplicateToolNames.join(", ")}.`
-          : "Server-prefixed namespace can map every callable visible tool."
-        : "No callable visible MCP tools are available for aggregation.",
-    },
-    {
-      id: "stable-bridge-first",
-      label: "Compact bridge remains primary",
-      status: "passed",
-      detail: "Aggregation status is read-only and does not register every MCP tool as a Pi tool.",
-    },
-  ];
-}
-
-function duplicateNames(names: string[]): string[] {
-  const counts = new Map<string, number>();
-  for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
-  return [...counts.entries()]
-    .filter(([, count]) => count > 1)
-    .map(([name]) => name)
-    .sort((left, right) => left.localeCompare(right));
-}
-
-function aggregateToolName(tool: McpToolDescriptor): string {
-  return `${aggregateNameSegment(tool.serverId)}__${aggregateNameSegment(tool.name)}`;
-}
-
-function aggregateNameSegment(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 80) || "mcp";
-}
-
 function isVisibleMcpTool(tool: McpToolDescriptor): boolean {
   return tool.policy?.visibility !== "hidden";
-}
-
-function toolPolicyText(policy: McpToolPolicySummary | undefined): string {
-  if (!policy) return "";
-  const parts = [
-    policy.visibility !== "visible" ? `visibility=${policy.visibility}` : undefined,
-    policy.callPolicy !== "default" ? `callPolicy=${policy.callPolicy}` : undefined,
-    policy.reason ? `reason=${policy.reason}` : undefined,
-  ].filter(Boolean);
-  return parts.length ? `policy ${parts.join(", ")}` : "";
-}
-
-function formatMcpTimeoutMs(value: number | null): string {
-  return value === null ? "none" : `${value}ms`;
 }
 
 function selectMcpTool(tools: McpToolDescriptor[], input: McpToolDescribeInput): McpToolDescriptor {
@@ -1359,14 +710,25 @@ function selectMcpTool(tools: McpToolDescriptor[], input: McpToolDescribeInput):
   const refMatches = parsedRef
     ? tools.filter((tool) => tool.name === parsedRef.toolName && mcpToolMatchesServerSelector(tool, parsedRef.serverSelector))
     : [];
-  const matches = refMatches.length ? refMatches : tools.filter((tool) => tool.name === requestedToolName || tool.toolRef === requestedToolName);
+  const matches = refMatches.length
+    ? refMatches
+    : tools.filter((tool) => tool.name === requestedToolName || tool.toolRef === requestedToolName);
   if (matches.length === 0) {
-    const scope = [input.serverId ? `serverId=${input.serverId}` : undefined, input.workloadName ? `workloadName=${input.workloadName}` : undefined].filter(Boolean).join(", ");
+    const scope = [
+      input.serverId ? `serverId=${input.serverId}` : undefined,
+      input.workloadName ? `workloadName=${input.workloadName}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(", ");
     const candidates = formatMcpToolCandidates(tools);
-    throw new Error(`No installed Ambient MCP tool named ${requestedToolName} matched${scope ? ` ${scope}` : " the selected server"}.${candidates ? ` Available tools: ${candidates}.` : ""}`);
+    throw new Error(
+      `No installed Ambient MCP tool named ${requestedToolName} matched${scope ? ` ${scope}` : " the selected server"}.${candidates ? ` Available tools: ${candidates}.` : ""}`,
+    );
   }
   if (matches.length > 1) {
-    throw new Error(`Multiple installed Ambient MCP tools matched ${requestedToolName}; use one exact toolRef as toolName or include exact serverId/workloadName. Candidates: ${formatMcpToolCandidates(matches)}.`);
+    throw new Error(
+      `Multiple installed Ambient MCP tools matched ${requestedToolName}; use one exact toolRef as toolName or include exact serverId/workloadName. Candidates: ${formatMcpToolCandidates(matches)}.`,
+    );
   }
   return matches[0];
 }
@@ -1398,10 +760,14 @@ function resolveInstalledRecordsByServerSelector(records: InstalledMcpServerReco
   const alias = selector.toLowerCase();
   const aliasMatches = records.filter((record) => installedServerAliases(record).has(alias));
   if (aliasMatches.length > 1) {
-    throw new Error(`Ambient MCP server selector ${selector} is ambiguous; use an exact serverId or workloadName. Candidates: ${formatInstalledRecordCandidates(aliasMatches)}.`);
+    throw new Error(
+      `Ambient MCP server selector ${selector} is ambiguous; use an exact serverId or workloadName. Candidates: ${formatInstalledRecordCandidates(aliasMatches)}.`,
+    );
   }
   if (aliasMatches.length === 0) {
-    throw new Error(`No installed Ambient MCP server matches selector ${selector}. Use ambient_mcp_server_list for exact serverId/workloadName values.`);
+    throw new Error(
+      `No installed Ambient MCP server matches selector ${selector}. Use ambient_mcp_server_list for exact serverId/workloadName values.`,
+    );
   }
   return aliasMatches;
 }
@@ -1413,7 +779,8 @@ function selectInstalledRecord(
   if (!input.serverId && !input.workloadName && records.length !== 1) {
     throw new Error("serverId or workloadName is required when more than one Ambient MCP server is installed.");
   }
-  if (records.length === 0) throw new Error(`No installed Ambient MCP server matches ${input.serverId ?? input.workloadName ?? "request"}.`);
+  if (records.length === 0)
+    throw new Error(`No installed Ambient MCP server matches ${input.serverId ?? input.workloadName ?? "request"}.`);
   if (records.length > 1) throw new Error("Multiple installed Ambient MCP servers matched; provide both serverId and workloadName.");
   return records[0];
 }
@@ -1481,13 +848,33 @@ function addAlias(aliases: Set<string>, value: string | undefined): void {
 
 function identityAliasTokens(value: string | undefined): string[] {
   if (!value) return [];
-  const stopWords = new Set(["ambient", "github", "gitlab", "server", "servers", "mcp", "standard", "import", "tool", "tools", "io", "com", "org", "www", "package"]);
-  return [...new Set(value
-    .trim()
-    .replace(/\.git$/i, "")
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length >= 4 && !stopWords.has(token)))];
+  const stopWords = new Set([
+    "ambient",
+    "github",
+    "gitlab",
+    "server",
+    "servers",
+    "mcp",
+    "standard",
+    "import",
+    "tool",
+    "tools",
+    "io",
+    "com",
+    "org",
+    "www",
+    "package",
+  ]);
+  return [
+    ...new Set(
+      value
+        .trim()
+        .replace(/\.git$/i, "")
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length >= 4 && !stopWords.has(token)),
+    ),
+  ];
 }
 
 function shortIdentitySegment(value: string | undefined): string | undefined {
@@ -1519,9 +906,7 @@ function normalizedSelector(value: string | undefined): string | undefined {
 }
 
 function formatInstalledRecordCandidates(records: InstalledMcpServerRecord[]): string {
-  return records
-    .map((record) => `${record.summary.serverId} (workload=${record.summary.workloadName})`)
-    .join("; ");
+  return records.map((record) => `${record.summary.serverId} (workload=${record.summary.workloadName})`).join("; ");
 }
 
 function formatMcpToolCandidates(tools: McpToolDescriptor[]): string {
@@ -1542,602 +927,6 @@ function descriptorReviewFromRecord(record: InstalledMcpServerRecord, tools: Mcp
   };
 }
 
-export interface McpHttpClient {
-  listTools(signal?: AbortSignal): Promise<unknown[]>;
-  callTool(name: string, toolArguments: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
-}
-
-export function createMcpHttpClient(endpoint: string, options: McpHttpClientOptions): McpHttpClient {
-  const parsed = new URL(endpoint);
-  return parsed.pathname.replace(/\/+$/, "").endsWith("/sse")
-    ? new SseMcpClient(endpoint, options)
-    : new StreamableHttpMcpClient(endpoint, options);
-}
-
-class StreamableHttpMcpClient implements McpHttpClient {
-  private nextId = 1;
-  private initialized = false;
-  private sessionId: string | undefined;
-
-  constructor(
-    private readonly endpoint: string,
-    private readonly options: McpHttpClientOptions,
-  ) {
-    if (!options.allowRemote) assertLoopbackMcpEndpoint(endpoint);
-  }
-
-  async listTools(signal?: AbortSignal): Promise<unknown[]> {
-    await this.initialize(signal);
-    const result = await this.request("tools/list", {}, signal);
-    if (!isRecord(result) || !Array.isArray(result.tools)) return [];
-    return result.tools;
-  }
-
-  async callTool(name: string, toolArguments: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-    await this.initialize(signal);
-    return this.request("tools/call", { name, arguments: toolArguments }, signal);
-  }
-
-  private async initialize(signal?: AbortSignal): Promise<void> {
-    if (this.initialized) return;
-    await this.request("initialize", {
-      protocolVersion: mcpProtocolVersion,
-      capabilities: {},
-      clientInfo: { name: "Ambient Desktop", version: "0.1.0" },
-    }, signal);
-    await this.notify("notifications/initialized", {}, signal);
-    this.initialized = true;
-  }
-
-  private async request(method: string, params: unknown, signal?: AbortSignal): Promise<unknown> {
-    const id = this.nextId++;
-    const envelope = await this.post({ jsonrpc: "2.0", id, method, params }, signal);
-    const response = jsonRpcEnvelopeForId(envelope, id);
-    if (!response) throw new Error(`MCP endpoint did not return a JSON-RPC response for ${method}.`);
-    if ("error" in response) throw new Error(`MCP ${method} failed: ${JSON.stringify(response.error)}`);
-    return response.result;
-  }
-
-  private async notify(method: string, params: unknown, signal?: AbortSignal): Promise<void> {
-    await this.post({ jsonrpc: "2.0", method, params }, signal);
-  }
-
-  private async post(body: unknown, signal?: AbortSignal): Promise<unknown> {
-    const controller = new AbortController();
-    const onAbort = () => controller.abort();
-    const operation = jsonRpcMethodName(body) ?? "notification";
-    const watchdog = createMcpAbortableIdleWatchdog({
-      endpoint: this.endpoint,
-      operation: `streamable-http ${operation}`,
-      timeoutMs: this.options.timeoutMs,
-      maxRunMs: this.options.maxRunMs,
-      controller,
-      onActivity: this.options.onActivity,
-    });
-    signal?.addEventListener("abort", onAbort, { once: true });
-    try {
-      const headers: Record<string, string> = {
-        ...(this.options.headers ?? {}),
-        "content-type": "application/json",
-        accept: "application/json, text/event-stream",
-      };
-      if (this.sessionId) headers["mcp-session-id"] = this.sessionId;
-      const response = await this.options.fetchImpl(this.endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      watchdog.mark("response-headers");
-      const sessionId = response.headers.get("mcp-session-id");
-      if (sessionId) this.sessionId = sessionId;
-      if (!response.ok) throw new Error(`MCP endpoint ${new URL(this.endpoint).origin} returned HTTP ${response.status}.`);
-      const text = await readResponseTextWithActivity(response, (bytes) => watchdog.mark("response-body", { bytes }));
-      if (!text.trim()) return undefined;
-      return parseMcpHttpPayload(text, response.headers.get("content-type") ?? "");
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError" && watchdog.timedOut()) throw new Error(watchdog.timeoutMessage());
-      if (error instanceof Error && error.name === "AbortError") throw new Error(`MCP endpoint ${new URL(this.endpoint).origin} request was aborted.`);
-      throw error;
-    } finally {
-      watchdog.stop();
-      signal?.removeEventListener("abort", onAbort);
-    }
-  }
-}
-
-class SseMcpClient implements McpHttpClient {
-  private nextId = 1;
-  private initialized = false;
-  private endpointUrl: URL | undefined;
-  private reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-  private readLoop: Promise<void> | undefined;
-  private pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: unknown) => void }>();
-  private endpointReady: Promise<URL>;
-  private resolveEndpoint!: (value: URL) => void;
-  private rejectEndpoint!: (error: unknown) => void;
-  private readonly activityListeners = new Set<(activity: McpToolBridgeActivity) => void>();
-
-  constructor(
-    private readonly endpoint: string,
-    private readonly options: McpHttpClientOptions,
-  ) {
-    if (!options.allowRemote) assertLoopbackMcpEndpoint(endpoint);
-    this.endpointReady = new Promise<URL>((resolve, reject) => {
-      this.resolveEndpoint = resolve;
-      this.rejectEndpoint = reject;
-    });
-  }
-
-  async listTools(signal?: AbortSignal): Promise<unknown[]> {
-    try {
-      await this.initialize(signal);
-      const result = await this.request("tools/list", {}, signal);
-      if (!isRecord(result) || !Array.isArray(result.tools)) return [];
-      return result.tools;
-    } finally {
-      await this.close();
-    }
-  }
-
-  async callTool(name: string, toolArguments: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-    try {
-      await this.initialize(signal);
-      return await this.request("tools/call", { name, arguments: toolArguments }, signal);
-    } finally {
-      await this.close();
-    }
-  }
-
-  private async initialize(signal?: AbortSignal): Promise<void> {
-    if (this.initialized) return;
-    await this.connect(signal);
-    await this.request("initialize", {
-      protocolVersion: mcpProtocolVersion,
-      capabilities: {},
-      clientInfo: { name: "Ambient Desktop", version: "0.1.0" },
-    }, signal);
-    await this.notify("notifications/initialized", {}, signal);
-    this.initialized = true;
-  }
-
-  private async connect(signal?: AbortSignal): Promise<void> {
-    if (this.readLoop) return;
-    const controller = new AbortController();
-    const onAbort = () => controller.abort();
-    const watchdog = createMcpAbortableIdleWatchdog({
-      endpoint: this.endpoint,
-      operation: "sse connect",
-      timeoutMs: this.options.timeoutMs,
-      maxRunMs: this.options.maxRunMs,
-      controller,
-      onActivity: (activity) => this.emitActivity(activity),
-      initialSource: "sse-connect-start",
-    });
-    signal?.addEventListener("abort", onAbort, { once: true });
-    try {
-      const response = await this.options.fetchImpl(this.endpoint, {
-        method: "GET",
-        headers: { ...(this.options.headers ?? {}), accept: "text/event-stream" },
-        signal: controller.signal,
-      });
-      watchdog.mark("sse-connect-headers");
-      if (!response.ok) throw new Error(`MCP SSE endpoint ${new URL(this.endpoint).origin} returned HTTP ${response.status}.`);
-      if (!response.body) throw new Error("MCP SSE endpoint did not provide a response body.");
-      this.reader = response.body.getReader();
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError" && watchdog.timedOut()) throw new Error(watchdog.timeoutMessage());
-      if (error instanceof Error && error.name === "AbortError") throw new Error(`MCP SSE endpoint ${new URL(this.endpoint).origin} request was aborted.`);
-      throw error;
-    } finally {
-      watchdog.stop();
-      signal?.removeEventListener("abort", onAbort);
-    }
-    this.readLoop = this.readSseLoop().catch((error) => {
-      this.rejectEndpoint(error);
-      for (const pending of this.pending.values()) pending.reject(error);
-      this.pending.clear();
-    });
-    this.endpointUrl = await withMcpActivityTimeout(this.endpointReady, {
-      endpoint: this.endpoint,
-      operation: "sse endpoint discovery",
-      timeoutMs: this.options.timeoutMs,
-      maxRunMs: this.options.maxRunMs,
-      registerActivityListener: (listener) => this.registerActivityListener(listener),
-    });
-  }
-
-  private async request(method: string, params: unknown, signal?: AbortSignal): Promise<unknown> {
-    const id = this.nextId++;
-    const responsePromise = this.waitForResponse(id);
-    try {
-      await this.post({ jsonrpc: "2.0", id, method, params }, signal);
-    } catch (error) {
-      this.pending.get(id)?.reject(error);
-      this.pending.delete(id);
-      await responsePromise.catch(() => undefined);
-      throw error;
-    }
-    const envelope = await responsePromise;
-    const response = jsonRpcEnvelopeForId(envelope, id);
-    if (!response) throw new Error(`MCP SSE endpoint did not return a JSON-RPC response for ${method}.`);
-    if ("error" in response) throw new Error(`MCP ${method} failed: ${JSON.stringify(response.error)}`);
-    return response.result;
-  }
-
-  private async notify(method: string, params: unknown, signal?: AbortSignal): Promise<void> {
-    await this.post({ jsonrpc: "2.0", method, params }, signal);
-  }
-
-  private async post(body: unknown, signal?: AbortSignal): Promise<void> {
-    if (!this.endpointUrl) throw new Error("MCP SSE message endpoint is not ready.");
-    const response = await this.options.fetchImpl(this.endpointUrl, {
-      method: "POST",
-      headers: { ...(this.options.headers ?? {}), "content-type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    });
-    if (!response.ok) throw new Error(`MCP SSE message endpoint ${this.endpointUrl.origin} returned HTTP ${response.status}.`);
-    void response.body?.cancel().catch(() => undefined);
-  }
-
-  private async waitForResponse(id: number): Promise<unknown> {
-    const pending = new Promise<unknown>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-    });
-    try {
-      return await withMcpActivityTimeout(pending, {
-        endpoint: this.endpoint,
-        operation: `sse response ${id}`,
-        timeoutMs: this.options.timeoutMs,
-        maxRunMs: this.options.maxRunMs,
-        method: `response-${id}`,
-        requestId: id,
-        registerActivityListener: (listener) => this.registerActivityListener(listener),
-      });
-    } finally {
-      this.pending.delete(id);
-    }
-  }
-
-  private async readSseLoop(): Promise<void> {
-    if (!this.reader) return;
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let eventName = "message";
-    let dataLines: string[] = [];
-    while (true) {
-      const { value, done } = await this.reader.read();
-      if (done) break;
-      this.emitActivity({ ...mcpActivityBase(this.endpoint, "sse stream"), source: "sse-chunk", bytes: value.byteLength });
-      buffer += decoder.decode(value, { stream: true });
-      let match: RegExpExecArray | null;
-      while ((match = /\r?\n/.exec(buffer))) {
-        const line = buffer.slice(0, match.index);
-        buffer = buffer.slice(match.index + match[0].length);
-        if (!line) {
-          this.dispatchSseEvent(eventName, dataLines.join("\n"));
-          eventName = "message";
-          dataLines = [];
-        } else if (line.startsWith("event:")) {
-          eventName = line.slice(6).trim();
-        } else if (line.startsWith("data:")) {
-          dataLines.push(line.slice(5).trimStart());
-        }
-      }
-    }
-    if (dataLines.length) this.dispatchSseEvent(eventName, dataLines.join("\n"));
-  }
-
-  private dispatchSseEvent(eventName: string, data: string): void {
-    if (!data.trim()) return;
-    this.emitActivity({ ...mcpActivityBase(this.endpoint, `sse event ${eventName}`), source: "sse-event" });
-    if (eventName === "endpoint") {
-      try {
-        const endpointUrl = new URL(data.trim(), this.endpoint);
-        if (!this.options.allowRemote) assertSameLoopbackOrigin(this.endpoint, endpointUrl.toString());
-        this.resolveEndpoint(endpointUrl);
-      } catch (error) {
-        this.rejectEndpoint(error);
-      }
-      return;
-    }
-    if (data.trim() === "[DONE]") return;
-    let parsed: unknown;
-    try {
-      parsed = parseJson(data);
-    } catch {
-      return;
-    }
-    const envelopes = Array.isArray(parsed) ? parsed : [parsed];
-    for (const envelope of envelopes) {
-      if (!isRecord(envelope) || typeof envelope.id !== "number") continue;
-      const pending = this.pending.get(envelope.id);
-      if (pending) {
-        this.emitActivity({
-          ...mcpActivityBase(this.endpoint, `sse response ${envelope.id}`),
-          source: "sse-response",
-          requestId: envelope.id,
-        });
-        pending.resolve(envelope);
-      }
-    }
-  }
-
-  private registerActivityListener(listener: (activity: McpToolBridgeActivity) => void): () => void {
-    this.activityListeners.add(listener);
-    return () => this.activityListeners.delete(listener);
-  }
-
-  private emitActivity(activity: McpToolBridgeActivity): void {
-    this.options.onActivity?.(activity);
-    for (const listener of this.activityListeners) listener(activity);
-  }
-
-  private async close(): Promise<void> {
-    for (const pending of this.pending.values()) pending.reject(new Error("MCP SSE client closed."));
-    this.pending.clear();
-    await this.reader?.cancel().catch(() => undefined);
-    await this.readLoop?.catch(() => undefined);
-  }
-}
-
-function parseMcpHttpPayload(text: string, contentType: string): unknown {
-  if (contentType.toLowerCase().includes("text/event-stream")) {
-    const messages = sseDataMessages(text).map(parseJson);
-    return messages.length === 1 ? messages[0] : messages;
-  }
-  return parseJson(text);
-}
-
-function sseDataMessages(text: string): string[] {
-  const messages: string[] = [];
-  let data: string[] = [];
-  for (const line of text.split(/\r?\n/)) {
-    if (!line.trim()) {
-      if (data.length) {
-        const message = data.join("\n").trim();
-        if (message && message !== "[DONE]") messages.push(message);
-        data = [];
-      }
-      continue;
-    }
-    if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
-  }
-  if (data.length) {
-    const message = data.join("\n").trim();
-    if (message && message !== "[DONE]") messages.push(message);
-  }
-  return messages;
-}
-
-function jsonRpcEnvelopeForId(envelope: unknown, id: number): Record<string, unknown> | undefined {
-  if (Array.isArray(envelope)) return envelope.find((entry) => isRecord(entry) && entry.id === id) as Record<string, unknown> | undefined;
-  return isRecord(envelope) && envelope.id === id ? envelope : undefined;
-}
-
-export function textFromMcpToolCallResult(result: unknown): string {
-  if (!result || typeof result !== "object") return result === undefined ? "" : String(result);
-  const record = result as Record<string, unknown>;
-  const contentText = textFromMcpContent(record.content);
-  const structuredText =
-    "structuredContent" in record && record.structuredContent !== undefined
-      ? `\n\nStructured content:\n${JSON.stringify(record.structuredContent, null, 2)}`
-      : "";
-  return `${contentText}${structuredText}`.trim() || "MCP tool completed without text.";
-}
-
-function textFromMcpContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return content === undefined ? "" : JSON.stringify(content, null, 2);
-  return content
-    .map((item) => {
-      if (!item || typeof item !== "object") return String(item);
-      const record = item as Record<string, unknown>;
-      if (record.type === "text") return typeof record.text === "string" ? record.text : "";
-      if (record.type === "image") return `[image: ${typeof record.mimeType === "string" ? record.mimeType : "image"}]`;
-      if (typeof record.uri === "string") return `[resource: ${record.uri}]`;
-      return JSON.stringify(record);
-    })
-    .filter(Boolean)
-    .join("\n");
-}
-
-export function isMcpToolError(result: unknown): boolean {
-  return Boolean(result && typeof result === "object" && (result as { isError?: unknown }).isError);
-}
-
-function validateType(type: string, value: unknown, path: string): string | undefined {
-  if (type === "object" && (!value || typeof value !== "object" || Array.isArray(value))) return `${path} must be an object`;
-  if (type === "array" && !Array.isArray(value)) return `${path} must be an array`;
-  if (type === "string" && typeof value !== "string") return `${path} must be a string`;
-  if ((type === "number" || type === "integer") && (typeof value !== "number" || !Number.isFinite(value))) return `${path} must be a number`;
-  if (type === "integer" && typeof value === "number" && !Number.isInteger(value)) return `${path} must be an integer`;
-  if (type === "boolean" && typeof value !== "boolean") return `${path} must be a boolean`;
-  if (type === "null" && value !== null) return `${path} must be null`;
-  return undefined;
-}
-
-function assertLoopbackMcpEndpoint(endpoint: string): void {
-  const parsed = new URL(endpoint);
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("ToolHive MCP endpoints must use HTTP(S).");
-  if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname)) {
-    throw new Error(`Refusing to call non-loopback ToolHive MCP endpoint ${parsed.origin}.`);
-  }
-}
-
-function assertSameLoopbackOrigin(baseEndpoint: string, messageEndpoint: string): void {
-  const base = new URL(baseEndpoint);
-  const message = new URL(messageEndpoint);
-  assertLoopbackMcpEndpoint(message.toString());
-  if (base.origin !== message.origin) {
-    throw new Error(`Refusing MCP SSE message endpoint on different origin ${message.origin}.`);
-  }
-}
-
-async function readResponseTextWithActivity(response: Response, markBodyActivity: (bytes: number) => void): Promise<string> {
-  if (!response.body) return response.text();
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      markBodyActivity(value.byteLength);
-      text += decoder.decode(value, { stream: true });
-    }
-    text += decoder.decode();
-    return text;
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-function jsonRpcMethodName(body: unknown): string | undefined {
-  return isRecord(body) && typeof body.method === "string" ? body.method : undefined;
-}
-
-function mcpActivityBase(endpoint: string, operation: string): Omit<McpToolBridgeActivity, "source"> {
-  return {
-    operation,
-    endpointOrigin: new URL(endpoint).origin,
-  };
-}
-
-function createMcpAbortableIdleWatchdog(input: {
-  endpoint: string;
-  operation: string;
-  timeoutMs: number;
-  maxRunMs?: number | null;
-  controller: AbortController;
-  onActivity?: McpToolBridgeActivityHandler;
-  initialSource?: McpToolBridgeActivitySource;
-}): {
-  mark: (source: McpToolBridgeActivitySource, details?: Partial<Pick<McpToolBridgeActivity, "bytes" | "method" | "requestId">>) => void;
-  stop: () => void;
-  timedOut: () => boolean;
-  timeoutMessage: () => string;
-} {
-  let idleTimer: ReturnType<typeof setTimeout> | undefined;
-  let maxRunTimer: ReturnType<typeof setTimeout> | undefined;
-  let timedOut = false;
-  let timeoutCause: "idle" | "max-run" | undefined;
-  let lastActivity = input.initialSource ?? "request-start";
-  const schedule = () => {
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => {
-      timedOut = true;
-      timeoutCause = "idle";
-      input.controller.abort();
-    }, input.timeoutMs);
-  };
-  const maxRunMs = positiveTimeoutMs(input.maxRunMs);
-  if (maxRunMs !== undefined) {
-    maxRunTimer = setTimeout(() => {
-      timedOut = true;
-      timeoutCause = "max-run";
-      input.controller.abort();
-    }, maxRunMs);
-  }
-  const mark = (source: McpToolBridgeActivitySource, details: Partial<Pick<McpToolBridgeActivity, "bytes" | "method" | "requestId">> = {}) => {
-    lastActivity = source;
-    input.onActivity?.({
-      ...mcpActivityBase(input.endpoint, input.operation),
-      source,
-      ...details,
-    });
-    schedule();
-  };
-  mark(input.initialSource ?? "request-start");
-  return {
-    mark,
-    stop: () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      if (maxRunTimer) clearTimeout(maxRunTimer);
-      idleTimer = undefined;
-      maxRunTimer = undefined;
-    },
-    timedOut: () => timedOut,
-    timeoutMessage: () => {
-      const origin = new URL(input.endpoint).origin;
-      if (timeoutCause === "max-run" && maxRunMs !== undefined) {
-        return `MCP endpoint ${origin} exceeded ${maxRunMs} ms max run for ${input.operation} (last activity: ${lastActivity}).`;
-      }
-      return `MCP endpoint ${origin} stalled after ${input.timeoutMs} ms without ${input.operation} activity (last activity: ${lastActivity}).`;
-    },
-  };
-}
-
-function withMcpActivityTimeout<T>(promise: Promise<T>, input: {
-  endpoint: string;
-  operation: string;
-  timeoutMs: number;
-  maxRunMs?: number | null;
-  method?: string;
-  requestId?: number;
-  registerActivityListener?: (listener: (activity: McpToolBridgeActivity) => void) => () => void;
-}): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    let idleTimer: ReturnType<typeof setTimeout> | undefined;
-    let maxRunTimer: ReturnType<typeof setTimeout> | undefined;
-    let lastActivity: McpToolBridgeActivitySource = "request-start";
-    let settled = false;
-    let unsubscribe: (() => void) | undefined;
-    const cleanup = () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      if (maxRunTimer) clearTimeout(maxRunTimer);
-      idleTimer = undefined;
-      maxRunTimer = undefined;
-      unsubscribe?.();
-      unsubscribe = undefined;
-    };
-    const settle = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      fn();
-    };
-    const reset = (activity?: McpToolBridgeActivity) => {
-      if (settled) return;
-      if (activity) lastActivity = activity.source;
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        settle(() => reject(new Error(`MCP endpoint ${new URL(input.endpoint).origin} stalled after ${input.timeoutMs} ms without ${input.operation} activity (last activity: ${lastActivity}).`)));
-      }, input.timeoutMs);
-    };
-    const maxRunMs = positiveTimeoutMs(input.maxRunMs);
-    if (maxRunMs !== undefined) {
-      maxRunTimer = setTimeout(() => {
-        settle(() => reject(new Error(`MCP endpoint ${new URL(input.endpoint).origin} exceeded ${maxRunMs} ms max run for ${input.operation} (last activity: ${lastActivity}).`)));
-      }, maxRunMs);
-    }
-    unsubscribe = input.registerActivityListener?.((activity) => {
-      reset(activity);
-    });
-    reset({
-      ...mcpActivityBase(input.endpoint, input.operation),
-      source: "request-start",
-      ...(input.method ? { method: input.method } : {}),
-      ...(input.requestId !== undefined ? { requestId: input.requestId } : {}),
-    });
-    promise.then(
-      (value) => {
-        settle(() => resolve(value));
-      },
-      (error) => {
-        settle(() => reject(error));
-      },
-    );
-  });
-}
-
-function positiveTimeoutMs(value: number | null | undefined): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-  const timeout = Math.floor(value);
-  return timeout > 0 ? timeout : undefined;
-}
-
 function normalizeSearchQuery(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
@@ -2150,12 +939,7 @@ function mcpToolSearchScore(tool: McpToolDescriptor, query: string): number {
   if (queryLooksLikePublicPageRetrieval(query, terms) && mcpToolLooksLikePublicPageRetrieval(tool, haystack)) return 750;
   const matchedTerms = terms.filter((term) => haystack.includes(term));
   if (matchedTerms.length === terms.length) return 500 + matchedTerms.length;
-  const identityHaystack = [
-    tool.toolRef,
-    tool.serverId,
-    tool.workloadName,
-    tool.name,
-  ].join(" ").toLowerCase();
+  const identityHaystack = [tool.toolRef, tool.serverId, tool.workloadName, tool.name].join(" ").toLowerCase();
   const identityMatches = terms.filter((term) => identityHaystack.includes(term));
   if (identityMatches.length > 0) return 300 + identityMatches.length * 10 + matchedTerms.length;
   if (terms.length < 4) return 0;
@@ -2169,9 +953,7 @@ function compareMcpToolDescriptors(left: McpToolDescriptor, right: McpToolDescri
 function normalizeSearchTerm(term: string): string {
   const trimmed = term.trim().toLowerCase();
   if (trimmed.length < 5) return trimmed;
-  const stemmed = trimmed
-    .replace(/(?:ing|ers|er|ed|es|s)$/u, "")
-    .replace(/e$/u, "");
+  const stemmed = trimmed.replace(/(?:ing|ers|er|ed|es|s)$/u, "").replace(/e$/u, "");
   return stemmed.length >= 4 ? stemmed : trimmed;
 }
 
@@ -2185,13 +967,13 @@ function mcpToolSearchHaystack(tool: McpToolDescriptor): string {
     tool.description ?? "",
     schemaText,
     inferredMcpToolSearchKeywords(tool, schemaText),
-  ].join(" ").toLowerCase();
+  ]
+    .join(" ")
+    .toLowerCase();
 }
 
 function searchTermsFromQuery(query: string): string[] {
-  return [
-    ...query.replace(/https?:\/\/\S+/giu, " url web page ").split(/[^a-z0-9_./:-]+/iu),
-  ]
+  return [...query.replace(/https?:\/\/\S+/giu, " url web page ").split(/[^a-z0-9_./:-]+/iu)]
     .map(normalizeSearchTerm)
     .filter((term) => term.length >= 2 && !mcpToolSearchStopWords.has(term));
 }
@@ -2233,7 +1015,22 @@ const mcpToolSearchStopWords = new Set([
 function queryLooksLikePublicPageRetrieval(query: string, terms: string[]): boolean {
   if (/https?:\/\/\S+/iu.test(query)) return true;
   const termSet = new Set(terms);
-  return ["url", "web", "page", "website", "retrieve", "retrieval", "fetch", "scrape", "extract", "content", "markdown", "html", "knowledge", "research"].some((term) => termSet.has(term));
+  return [
+    "url",
+    "web",
+    "page",
+    "website",
+    "retrieve",
+    "retrieval",
+    "fetch",
+    "scrape",
+    "extract",
+    "content",
+    "markdown",
+    "html",
+    "knowledge",
+    "research",
+  ].some((term) => termSet.has(term));
 }
 
 function mcpToolLooksLikePublicPageRetrieval(tool: McpToolDescriptor, haystack: string): boolean {
@@ -2282,14 +1079,6 @@ function collectInputSchemaSearchTerms(value: unknown, terms: string[], depth: n
 
 function emptyObjectSchema(): Record<string, unknown> {
   return { type: "object", properties: {}, additionalProperties: false };
-}
-
-function parseJson(value: string): unknown {
-  try {
-    return JSON.parse(value) as unknown;
-  } catch (error) {
-    throw new Error(`MCP endpoint returned invalid JSON: ${errorMessage(error)}`);
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

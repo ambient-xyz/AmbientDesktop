@@ -67,6 +67,7 @@ export class AgentRuntimeToolPermissionController {
       store: this.options.store,
       installRouteGateBlockForTool: (threadId, toolName) => this.options.installRouteGuard.installRouteGateBlockForTool(threadId, toolName),
       mcpInstallShellBlockForTool: (input) => this.options.installRouteGuard.mcpInstallShellBlockForTool(input),
+      rawPiInstallRootBlockForTool: (input) => this.options.installRouteGuard.rawPiInstallRootBlockForTool(input),
       permissionToolInput: (toolName, toolInput, workspace) =>
         resolvePermissionToolInput(toolName, toolInput, workspace, {
           readLocalDeepResearchReadiness: this.options.readLocalDeepResearchReadiness,

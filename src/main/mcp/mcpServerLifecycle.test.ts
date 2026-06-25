@@ -6,10 +6,7 @@ import { McpInstallCatalog } from "./mcpInstallCatalog";
 import { mcpAutowirePhase0Fixtures } from "./mcpAutowireFacade";
 import { createMcpServerPiToolDefinitions } from "./mcpServerPiTools";
 import type { ContainerRuntimeProbeResult } from "./mcpContainerRuntimeFacade";
-import {
-  MCP_AUTOWIRE_CANDIDATE_SCHEMA_VERSION,
-  type McpAutowireCandidate,
-} from "./mcpAutowireFacade";
+import { MCP_AUTOWIRE_CANDIDATE_SCHEMA_VERSION, type McpAutowireCandidate } from "./mcpAutowireFacade";
 import { mcpAutowireSixPackManagedLifecycleCandidates } from "./mcpAutowireFacade";
 import {
   ToolHiveRuntimeService,
@@ -231,7 +228,11 @@ async function runLifecycleScenario(input: {
     });
 
     const restarted = fixture.restart();
-    const restartedList = await callTool(toolByName(restarted.tools, "ambient_mcp_server_list"), `${input.label}-list-${index}-restart`, {});
+    const restartedList = await callTool(
+      toolByName(restarted.tools, "ambient_mcp_server_list"),
+      `${input.label}-list-${index}-restart`,
+      {},
+    );
     expect(textFromResult(restartedList)).toContain(input.expectedListText);
     expect(restartedList.details?.servers?.[0]).toMatchObject({
       serverId: input.expectedServerId,
@@ -287,7 +288,10 @@ async function expectInstalledState(
   });
 }
 
-async function lifecycleFixture(label: string, index: number): Promise<{
+async function lifecycleFixture(
+  label: string,
+  index: number,
+): Promise<{
   tools: ReturnType<typeof createMcpServerPiToolDefinitions>;
   service: ToolHiveRuntimeService;
   restart: () => {
@@ -300,13 +304,14 @@ async function lifecycleFixture(label: string, index: number): Promise<{
   const root = await mkdtemp(join(tmpdir(), `ambient-mcp-lifecycle-${label}-`));
   const userData = join(root, "userData");
   await mkdir(userData, { recursive: true });
+  await ensureSqliteCustomImageMountFixtures();
   const fakeThv = join(root, "thv");
   await writeFile(fakeThv, "#!/usr/bin/env sh\necho ToolHive v0.28.2\n", "utf8");
   await chmod(fakeThv, 0o755);
 
   const calls: ToolHiveCommandInvocation[] = [];
   const workloads = new Map<string, Record<string, unknown>>();
-  let nextPort = 4410 + (index * 20);
+  let nextPort = 4410 + index * 20;
   const executor: ToolHiveCommandExecutor = async (invocation) => {
     calls.push(invocation);
     const prefix = invocation.args.slice(0, 2).join(" ");
@@ -339,16 +344,17 @@ async function lifecycleFixture(label: string, index: number): Promise<{
     }
     return ok("[]");
   };
-  const makeService = () => new ToolHiveRuntimeService({
-    userDataPath: userData,
-    env: {
-      AMBIENT_TOOLHIVE_BINARY: fakeThv,
-      PATH: process.env.PATH,
-      HOME: root,
-    } as NodeJS.ProcessEnv,
-    executor,
-    now: () => new Date("2026-05-22T12:00:00.000Z"),
-  });
+  const makeService = () =>
+    new ToolHiveRuntimeService({
+      userDataPath: userData,
+      env: {
+        AMBIENT_TOOLHIVE_BINARY: fakeThv,
+        PATH: process.env.PATH,
+        HOME: root,
+      } as NodeJS.ProcessEnv,
+      executor,
+      now: () => new Date("2026-05-22T12:00:00.000Z"),
+    });
   const makeTools = (service: ToolHiveRuntimeService) => {
     const catalog = new McpInstallCatalog(service);
     return createMcpServerPiToolDefinitions({
@@ -384,6 +390,19 @@ async function lifecycleFixture(label: string, index: number): Promise<{
     runCalls: () => calls.filter((call) => call.args[0] === "run"),
     workloadCount: () => workloads.size,
   };
+}
+
+async function ensureSqliteCustomImageMountFixtures(): Promise<void> {
+  await mkdir("/tmp/ambient-sqlite-explorer-source", { recursive: true });
+  await mkdir("/tmp/ambient-sqlite-explorer-data", { recursive: true });
+  try {
+    await writeFile("/tmp/ambient-sqlite-explorer-source/sqlite_explorer.py", "# sqlite explorer lifecycle fixture\n", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+  } catch (error) {
+    if (!error || typeof error !== "object" || !("code" in error) || error.code !== "EEXIST") throw error;
+  }
 }
 
 function sourceBuiltLifecycleCandidate(): McpAutowireCandidate {
@@ -438,12 +457,14 @@ function sourceBuiltLifecycleCandidate(): McpAutowireCandidate {
       expectedTools: ["query"],
       evidenceRefs: ["source-build-review"],
     },
-    evidence: [{
-      id: "source-build-review",
-      type: "other",
-      locator: "source-built lifecycle fixture",
-      summary: "Fixture models a reviewed custom source-built OCI image produced from a pinned commit.",
-    }],
+    evidence: [
+      {
+        id: "source-build-review",
+        type: "other",
+        locator: "source-built lifecycle fixture",
+        summary: "Fixture models a reviewed custom source-built OCI image produced from a pinned commit.",
+      },
+    ],
     openQuestions: [],
     riskSummary: {
       level: "medium",
@@ -517,15 +538,18 @@ function fakeLifecycleMcpFetch(): (input: string | URL, init?: RequestInit) => P
     const response = {
       jsonrpc: "2.0",
       id: body.id,
-      result: body.method === "tools/list"
-        ? {
-            tools: [{
-              name: "query",
-              description: "Lifecycle fixture query tool.",
-              inputSchema: { type: "object", properties: {}, additionalProperties: false },
-            }],
-          }
-        : { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "lifecycle-fixture" } },
+      result:
+        body.method === "tools/list"
+          ? {
+              tools: [
+                {
+                  name: "query",
+                  description: "Lifecycle fixture query tool.",
+                  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+                },
+              ],
+            }
+          : { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "lifecycle-fixture" } },
     };
     return new Response(JSON.stringify(response), {
       status: 200,

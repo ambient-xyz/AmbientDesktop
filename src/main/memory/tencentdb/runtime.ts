@@ -1,7 +1,6 @@
 import type { AgentMemorySettings } from "../../../shared/agentMemorySettings";
 import { isAgentMemoryActiveForThread } from "../../../shared/agentMemorySettings";
 import type {
-  AgentMemoryEmbeddingDiagnostics,
   AgentMemoryContextAccountingSnapshot,
   AgentMemoryOperationStatus,
   AgentMemoryRuntimeSnapshot,
@@ -13,13 +12,12 @@ import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import { AmbientTencentMemoryHostAdapter } from "./ambientHostAdapter";
 import { AmbientTencentMemoryLlmRunnerFactory, type AmbientTencentMemoryLlmDelegate } from "./ambientLlmRunner";
 import {
-  resolveAmbientTencentMemoryEmbeddingProvider,
-  type AmbientTencentMemoryEmbeddingResolution,
   type AmbientTencentMemoryEmbeddingPrepareInput,
   type AmbientTencentMemoryEmbeddingPrepareResult,
   type AmbientTencentMemoryEmbeddingStartInput,
   type AmbientTencentMemoryEmbeddingStartResult,
 } from "./ambientEmbeddingProvider";
+import { AmbientTencentMemoryRuntimeEmbeddingController } from "./ambientMemoryEmbeddingRuntimeController";
 import { ambientTencentMemoryDefaultConfig } from "./config";
 import { ambientTencentMemoryDataDir, ensureAmbientTencentMemoryStorageSchema } from "./storage";
 import { loadAmbientReviewedTencentMemoryCore, type TencentMemoryCoreConstructorLoader } from "./optionalCore";
@@ -193,13 +191,23 @@ export class AmbientTencentDbMemoryRuntime {
   private lastRecall?: AgentMemoryOperationStatus;
   private lastCapture?: AgentMemoryOperationStatus;
   private lastSearch?: AgentMemoryOperationStatus;
-  private lastEmbedding?: AgentMemoryOperationStatus;
-  private embeddingDiagnostics?: AgentMemoryEmbeddingDiagnostics;
-  private releaseEmbeddingRuntime?: () => Promise<void>;
+  private readonly embeddingController: AmbientTencentMemoryRuntimeEmbeddingController;
   private lastContextInjection?: AgentMemoryContextAccountingSnapshot;
 
   constructor(private readonly options: AmbientTencentDbMemoryRuntimeOptions) {
     this.activeToolNames = options.activeToolNames ?? TENCENT_MEMORY_ACTIVE_TOOL_NAMES;
+    this.embeddingController = new AmbientTencentMemoryRuntimeEmbeddingController({
+      config: options.config,
+      memorySettings: options.memorySettings,
+      workspacePath: options.workspacePath,
+      listEmbeddingProviders: options.listEmbeddingProviders,
+      prepareEmbeddingProviderRuntime: options.prepareEmbeddingProviderRuntime,
+      startEmbeddingProviderRuntime: options.startEmbeddingProviderRuntime,
+      fetchEmbedding: options.fetchEmbedding,
+      logger: options.logger,
+      now: options.now,
+      onSnapshot: () => this.emitSnapshot(),
+    });
   }
 
   get sessionKey(): string {
@@ -212,9 +220,8 @@ export class AmbientTencentDbMemoryRuntime {
       threadId: this.options.threadId,
       dataDir: this.options.dataDir,
       sessionKey: this.options.sessionKey,
-      ...(this.embeddingDiagnostics ? { embedding: this.embeddingDiagnostics } : {}),
+      ...this.embeddingController.snapshot(),
       ...(this.lastInitialize ? { lastInitialize: this.lastInitialize } : {}),
-      ...(this.lastEmbedding ? { lastEmbedding: this.lastEmbedding } : {}),
       ...(this.lastRecall ? { lastRecall: this.lastRecall } : {}),
       ...(this.lastCapture ? { lastCapture: this.lastCapture } : {}),
       ...(this.lastSearch ? { lastSearch: this.lastSearch } : {}),
@@ -412,15 +419,7 @@ export class AmbientTencentDbMemoryRuntime {
         this.options.logger.warn(`TencentDB memory destroy failed: ${errorMessage(error)}`);
       }
     }
-    if (this.releaseEmbeddingRuntime) {
-      const release = this.releaseEmbeddingRuntime;
-      this.releaseEmbeddingRuntime = undefined;
-      try {
-        await release();
-      } catch (error) {
-        this.options.logger.warn(`TencentDB memory embedding runtime release failed: ${errorMessage(error)}`);
-      }
-    }
+    await this.embeddingController.release();
   }
 
   private async ensureCore(): Promise<TencentMemoryCore | undefined> {
@@ -447,7 +446,7 @@ export class AmbientTencentDbMemoryRuntime {
       return undefined;
     }
 
-    const embeddingResolution = await this.resolveEmbeddingConfig();
+    const embeddingResolution = await this.embeddingController.resolveConfig();
     const config = this.options.config ?? ambientTencentMemoryDefaultConfig({
       extractionEnabled: this.options.extractionEnabled,
       embedding: embeddingResolution.config,
@@ -489,7 +488,7 @@ export class AmbientTencentDbMemoryRuntime {
         dataDir: this.options.dataDir,
         logger: this.options.logger,
       });
-      await this.refreshEmbeddingStoreStatus(core);
+      await this.embeddingController.refreshStoreStatus(core);
       this.lastInitialize = this.status("ok", "TencentDB memory core initialized.", {
         moduleSpecifier: loadResult.moduleSpecifier,
       });
@@ -503,149 +502,6 @@ export class AmbientTencentDbMemoryRuntime {
       this.emitSnapshot();
       return undefined;
     }
-  }
-
-  private async resolveEmbeddingConfig(): Promise<AmbientTencentMemoryEmbeddingResolution> {
-    if (this.options.config) {
-      this.embeddingDiagnostics = {
-        enabled: false,
-        status: "disabled",
-        message: "TencentDB memory embedding resolution skipped because a custom memory config was supplied.",
-      };
-      this.lastEmbedding = this.status("idle", this.embeddingDiagnostics.message);
-      this.emitSnapshot();
-      return { diagnostics: this.embeddingDiagnostics };
-    }
-    const resolution = await resolveAmbientTencentMemoryEmbeddingProvider({
-      memorySettings: this.options.memorySettings,
-      workspacePath: this.options.workspacePath,
-      listEmbeddingProviders: this.options.listEmbeddingProviders,
-      prepareEmbeddingProviderRuntime: this.options.prepareEmbeddingProviderRuntime,
-      startEmbeddingProviderRuntime: this.options.startEmbeddingProviderRuntime,
-      fetchImpl: this.options.fetchEmbedding,
-      logger: this.options.logger,
-    });
-    this.releaseEmbeddingRuntime = resolution.releaseEmbeddingRuntime;
-    this.embeddingDiagnostics = resolution.diagnostics;
-    const status = resolution.diagnostics.status === "ready"
-      ? "ok"
-      : resolution.diagnostics.status === "error"
-        ? "error"
-        : resolution.diagnostics.status === "disabled"
-          ? "idle"
-          : "unavailable";
-    this.lastEmbedding = this.status(status, resolution.diagnostics.message, {
-      providerId: resolution.diagnostics.providerId,
-        modelId: resolution.diagnostics.modelId,
-        modelProfileId: resolution.diagnostics.modelProfileId,
-        dimensions: resolution.diagnostics.dimensions,
-        endpoint: resolution.diagnostics.endpoint,
-    });
-    this.emitSnapshot();
-    return resolution;
-  }
-
-  private async refreshEmbeddingStoreStatus(core: TencentMemoryCore): Promise<void> {
-    if (!this.embeddingDiagnostics || this.embeddingDiagnostics.status !== "ready") return;
-    await core.waitForStoreReady?.().catch((error) => {
-      this.options.logger.warn(`TencentDB memory store readiness check failed: ${errorMessage(error)}`);
-    });
-    const storeStatus = core.getStoreInitStatus?.();
-    if (!storeStatus) {
-      this.updateEmbeddingDiagnostics({
-        reindexStatus: "unknown",
-      });
-      return;
-    }
-    if (storeStatus.error) {
-      this.updateEmbeddingDiagnostics({
-        reindexStatus: "error",
-        lastError: storeStatus.error,
-        message: `TencentDB memory store initialization failed; vector recall will remain unavailable: ${storeStatus.error}`,
-      });
-      return;
-    }
-    if (!storeStatus.needsReindex) {
-      this.updateEmbeddingDiagnostics({
-        reindexStatus: "not_required",
-      });
-      return;
-    }
-
-    const reason = storeStatus.reindexReason ?? "embedding provider/model/dimensions changed";
-    this.updateEmbeddingDiagnostics({
-      reindexStatus: "pending",
-      message: `Ambient-managed embedding provider is ready; TencentDB vector reindex is pending: ${reason}.`,
-    });
-
-    if (!core.reindexAllEmbeddings) {
-      this.updateEmbeddingDiagnostics({
-        reindexStatus: "pending",
-        lastError: "TencentDB core does not expose reindexAllEmbeddings().",
-        message: "TencentDB vector reindex is pending, but the reviewed core does not expose a reindex hook.",
-      });
-      return;
-    }
-
-    const result = await core.reindexAllEmbeddings((progress) => {
-      this.updateEmbeddingDiagnostics({
-        reindexStatus: "partial",
-        message: `TencentDB vector reindex in progress: ${progress.layer} ${progress.done}/${progress.total}.`,
-      });
-    });
-
-    if (result.status === "complete") {
-      this.updateEmbeddingDiagnostics({
-        reindexStatus: "complete",
-        message: `TencentDB vector reindex complete: L1=${result.l1Count}, L0=${result.l0Count}.`,
-      });
-      return;
-    }
-    if (result.status === "not_required") {
-      this.updateEmbeddingDiagnostics({
-        reindexStatus: "not_required",
-        message: "TencentDB vector reindex was not required.",
-      });
-      return;
-    }
-    if (result.status === "skipped") {
-      this.updateEmbeddingDiagnostics({
-        reindexStatus: "pending",
-        lastError: result.reason ?? "TencentDB vector reindex was skipped.",
-        message: `TencentDB vector reindex is still pending: ${result.reason ?? "reindex was skipped"}.`,
-      });
-      return;
-    }
-    this.updateEmbeddingDiagnostics({
-      reindexStatus: "error",
-      lastError: result.error ?? "TencentDB vector reindex failed.",
-      message: `TencentDB vector reindex failed: ${result.error ?? "unknown error"}.`,
-    });
-  }
-
-  private updateEmbeddingDiagnostics(patch: Partial<AgentMemoryEmbeddingDiagnostics>): void {
-    if (!this.embeddingDiagnostics) return;
-    const { lastError, ...rest } = patch;
-    this.embeddingDiagnostics = {
-      ...this.embeddingDiagnostics,
-      ...rest,
-      ...(lastError !== undefined ? { lastError } : {}),
-    };
-    if (lastError === undefined && "lastError" in patch) {
-      delete this.embeddingDiagnostics.lastError;
-    }
-    this.lastEmbedding = this.status(
-      this.embeddingDiagnostics.status === "error" || this.embeddingDiagnostics.reindexStatus === "error" ? "error" : "ok",
-      this.embeddingDiagnostics.message,
-      {
-        providerId: this.embeddingDiagnostics.providerId,
-        modelId: this.embeddingDiagnostics.modelId,
-        modelProfileId: this.embeddingDiagnostics.modelProfileId,
-        dimensions: this.embeddingDiagnostics.dimensions,
-        endpoint: this.embeddingDiagnostics.endpoint,
-      },
-    );
-    this.emitSnapshot();
   }
 
   private status(

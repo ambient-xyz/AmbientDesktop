@@ -18,6 +18,15 @@ import {
 } from "./registerPluginToolingDomainIpc";
 
 type IpcListener = Parameters<IpcMain["handle"]>[1];
+type FakeProjectStore = {
+  getThread: ReturnType<typeof vi.fn>;
+  setPluginEnabled: ReturnType<typeof vi.fn>;
+  setPluginTrusted: ReturnType<typeof vi.fn>;
+};
+type FakeProjectRuntimeHost = {
+  workspacePath: string;
+  store: FakeProjectStore;
+};
 
 describe("registerPluginToolingDomainIpc", () => {
   it("registers the plugin/tooling domain channel table", () => {
@@ -44,24 +53,83 @@ describe("registerPluginToolingDomainIpc", () => {
     expect(searchRegistryServers).toHaveBeenCalledWith({ query: "browser", limit: 5 });
   });
 
+  it("routes plugin trust mutations through the active project store", async () => {
+    const { catalog, deps, host, invoke } = registerWithFakes();
+    const plugin = { pluginId: "plugin-a", name: "Plugin A" };
+
+    deps.pluginHost.readCodexPlugin.mockResolvedValue(plugin);
+
+    await expect(invoke("plugins:set-trusted", { pluginId: "plugin-a", trusted: true })).resolves.toBe(catalog);
+
+    expect(deps.pluginHost.readCodexPlugin).toHaveBeenCalledWith("/tmp/workspace", { pluginId: "plugin-a" }, { plugins: [] });
+    expect(host.store.setPluginTrusted).toHaveBeenCalledWith("plugin-a", true, "fingerprint");
+    expect(deps.codexPluginTrustFingerprint).toHaveBeenCalledWith(plugin);
+    expect(deps.resetProjectRuntimeAndPluginServers).toHaveBeenCalledWith(host);
+    expect(deps.readCodexPluginCatalog).toHaveBeenCalledWith(host.store);
+  });
+
+  it("requests approval before installing plugin dependencies", async () => {
+    const { deps, host, invoke } = registerWithFakes();
+    const plugin = {
+      pluginId: "plugin-a",
+      displayName: "Plugin A",
+      name: "plugin-a",
+      rootPath: "/tmp/workspace/.codex/plugins/plugin-a",
+      dependencyStatus: {
+        required: true,
+        installed: false,
+        installCommand: ["pnpm", "install"],
+        missingPackages: ["@example/dep"],
+      },
+    };
+    const installResult = { status: "installed" };
+
+    deps.pluginHost.readCodexPlugin.mockResolvedValue(plugin);
+    deps.permissions.request.mockResolvedValue({ allowed: true });
+    deps.pluginHost.installCodexPluginDependencies.mockResolvedValue(installResult);
+
+    await expect(invoke("plugins:install-dependencies", { pluginId: "plugin-a" })).resolves.toBe(installResult);
+
+    expect(deps.activeThreadIdForHost).toHaveBeenCalledWith(host);
+    expect(deps.permissions.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: expect.stringContaining("Missing packages: @example/dep"),
+        message: "Ambient will run this plugin's package manager install in the workspace. Lifecycle scripts are disabled.",
+        risk: "plugin-tool",
+        threadId: "thread-1",
+        title: 'Install dependencies for "Plugin A"?',
+        toolName: "plugin_dependencies_install",
+      }),
+    );
+    expect(deps.pluginHost.installCodexPluginDependencies).toHaveBeenCalledWith("/tmp/workspace", {
+      pluginId: "plugin-a",
+    });
+    expect(deps.resetProjectRuntimeAndPluginServers).toHaveBeenCalledWith(host);
+  });
+
   it("runs container runtime lifecycle through the service and emits progress", async () => {
     const { deps, invoke, lifecycleProgress, lifecycleResult } = registerWithFakes();
 
-    await expect(invoke("mcp:container-runtime-lifecycle-run", {
-      action: "restart",
-      expectedPreviewId: "docker:restart:daemon-unreachable:darwin",
-    })).resolves.toEqual({
+    await expect(
+      invoke("mcp:container-runtime-lifecycle-run", {
+        action: "restart",
+        expectedPreviewId: "docker:restart:daemon-unreachable:darwin",
+      }),
+    ).resolves.toEqual({
       ...lifecycleResult,
       logPath: "/tmp/user-data/mcp-container-runtime/lifecycle-log.json",
     });
 
-    expect(deps.runContainerRuntimeLifecycleAction).toHaveBeenCalledWith({
-      action: "restart",
-      expectedPreviewId: "docker:restart:daemon-unreachable:darwin",
-    }, expect.objectContaining({
-      getStatus: deps.probeAmbientMcpContainerRuntimeStatus,
-      onProgress: expect.any(Function),
-    }));
+    expect(deps.runContainerRuntimeLifecycleAction).toHaveBeenCalledWith(
+      {
+        action: "restart",
+        expectedPreviewId: "docker:restart:daemon-unreachable:darwin",
+      },
+      expect.objectContaining({
+        getStatus: deps.probeAmbientMcpContainerRuntimeStatus,
+        onProgress: expect.any(Function),
+      }),
+    );
     expect(deps.emitMainWindowDesktopEvent).toHaveBeenCalledWith({
       type: "mcp-container-runtime-lifecycle-progress",
       progress: lifecycleProgress,
@@ -86,22 +154,24 @@ describe("registerPluginToolingDomainIpc", () => {
 
     deps.probeAmbientMcpContainerRuntimeStatus.mockImplementation(async () => probeQueue.shift() ?? ready);
     deps.previewContainerRuntimeLifecycleAction.mockImplementation(previewContainerRuntimeLifecycleAction);
-    deps.runContainerRuntimeLifecycleAction.mockImplementation((input: AmbientMcpContainerRuntimeLifecycleRunInput, options: ContainerRuntimeLifecycleRunOptions) =>
-      runContainerRuntimeLifecycleAction(input, {
-        ...options,
-        commandRunner: async ({ command }) => {
-          commands.push(command);
-          return {
-            command,
-            stdout: "",
-            stderr: "",
-            exitCode: 0,
-            durationMs: 1,
-          };
-        },
-        pollIntervalMs: 0,
-        now: fixedLifecycleNow,
-      }));
+    deps.runContainerRuntimeLifecycleAction.mockImplementation(
+      (input: AmbientMcpContainerRuntimeLifecycleRunInput, options: ContainerRuntimeLifecycleRunOptions) =>
+        runContainerRuntimeLifecycleAction(input, {
+          ...options,
+          commandRunner: async ({ command }) => {
+            commands.push(command);
+            return {
+              command,
+              stdout: "",
+              stderr: "",
+              exitCode: 0,
+              durationMs: 1,
+            };
+          },
+          pollIntervalMs: 0,
+          now: fixedLifecycleNow,
+        }),
+    );
 
     const preview = await invoke("mcp:container-runtime-lifecycle-preview", {
       action: "restart",
@@ -114,10 +184,7 @@ describe("registerPluginToolingDomainIpc", () => {
       status: "available",
       runtime: "docker",
       expectedInterruption: expect.stringContaining("including non-Ambient containers"),
-      commands: [
-        expect.objectContaining({ exe: "/usr/bin/osascript" }),
-        expect.objectContaining({ exe: "/usr/bin/open" }),
-      ],
+      commands: [expect.objectContaining({ exe: "/usr/bin/osascript" }), expect.objectContaining({ exe: "/usr/bin/open" })],
     });
 
     const result = await invoke("mcp:container-runtime-lifecycle-run", {
@@ -127,7 +194,7 @@ describe("registerPluginToolingDomainIpc", () => {
     });
 
     expect(commands.map((command) => [command.exe, ...command.args].join(" "))).toEqual([
-      "/usr/bin/osascript -e tell application \"Docker\" to quit",
+      '/usr/bin/osascript -e tell application "Docker" to quit',
       "/usr/bin/open -a Docker",
     ]);
     expect(result).toMatchObject({
@@ -148,16 +215,31 @@ describe("registerPluginToolingDomainIpc", () => {
     ]);
     const lifecycleEvents = (deps.emitMainWindowDesktopEvent.mock.calls as Array<[unknown]>).map((call) => call[0]);
     expect(lifecycleEvents).toEqual([
-      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "previewed" }) }),
-      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "graceful-stop-started" }) }),
-      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "launch-started" }) }),
-      expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "probe-poll" }) }),
+      expect.objectContaining({
+        type: "mcp-container-runtime-lifecycle-progress",
+        progress: expect.objectContaining({ phase: "previewed" }),
+      }),
+      expect.objectContaining({
+        type: "mcp-container-runtime-lifecycle-progress",
+        progress: expect.objectContaining({ phase: "graceful-stop-started" }),
+      }),
+      expect.objectContaining({
+        type: "mcp-container-runtime-lifecycle-progress",
+        progress: expect.objectContaining({ phase: "launch-started" }),
+      }),
+      expect.objectContaining({
+        type: "mcp-container-runtime-lifecycle-progress",
+        progress: expect.objectContaining({ phase: "probe-poll" }),
+      }),
       expect.objectContaining({ type: "mcp-container-runtime-lifecycle-progress", progress: expect.objectContaining({ phase: "ready" }) }),
     ]);
-    expect(deps.writeContainerRuntimeLifecycleRedactedLog).toHaveBeenCalledWith("/tmp/user-data", expect.objectContaining({
-      status: "ready",
-      after: expect.objectContaining({ status: "ready" }),
-    }));
+    expect(deps.writeContainerRuntimeLifecycleRedactedLog).toHaveBeenCalledWith(
+      "/tmp/user-data",
+      expect.objectContaining({
+        status: "ready",
+        after: expect.objectContaining({ status: "ready" }),
+      }),
+    );
     expect(deps.installMcpDefaultCapabilityForDesktop).not.toHaveBeenCalled();
   });
 });
@@ -215,9 +297,10 @@ function lifecycleRuntimeStatus(input: {
         title: "Scrapling",
         status: input.status === "ready" ? "blocked_approval" : "blocked_runtime",
         nextAction: input.status === "ready" ? "approve-default-capability" : "install-runtime",
-        message: input.status === "ready"
-          ? "Runtime is ready. Scrapling is waiting for default capability approval."
-          : "Scrapling is blocked until the isolated runtime is ready.",
+        message:
+          input.status === "ready"
+            ? "Runtime is ready. Scrapling is waiting for default capability approval."
+            : "Scrapling is blocked until the isolated runtime is ready.",
         serverId: "io.github.d4vinci/scrapling",
         workloadName: "ambient-scrapling",
         runtimeStatus: input.status,
@@ -232,10 +315,19 @@ function registerWithFakes(): {
   catalog: { plugins: unknown[] };
   deps: RegisterPluginToolingDomainIpcDependencies;
   handlers: Map<string, IpcListener>;
-  host: { workspacePath: string; store: Record<string, unknown> };
+  host: FakeProjectRuntimeHost;
   invoke(channel: string, raw?: unknown): Promise<unknown>;
   lifecycleProgress: { phase: string };
-  lifecycleResult: { schemaVersion: string; action: string; runtime: string; status: string; reason: string; message: string; progress: Array<{ phase: string }>; durationMs: number };
+  lifecycleResult: {
+    schemaVersion: string;
+    action: string;
+    runtime: string;
+    status: string;
+    reason: string;
+    message: string;
+    progress: Array<{ phase: string }>;
+    durationMs: number;
+  };
   searchRegistryServers: ReturnType<typeof vi.fn>;
   searchResults: Array<{ id: string }>;
 } {
@@ -254,7 +346,7 @@ function registerWithFakes(): {
     progress: [lifecycleProgress],
     durationMs: 10,
   };
-  const host = {
+  const host: FakeProjectRuntimeHost = {
     workspacePath: "/tmp/workspace",
     store: {
       getThread: vi.fn(() => ({ permissionMode: "workspace" })),

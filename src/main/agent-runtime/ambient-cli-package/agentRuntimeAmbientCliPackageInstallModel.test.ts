@@ -5,6 +5,7 @@ import {
   ambientCliPackageInstallApprovalDetail,
   ambientCliPackageInstallInput,
   ambientCliPackageInstallParams,
+  ambientCliPackageInstallRequiresPinnedSource,
   ambientCliPackageInstallText,
   ambientCliPackagePiCatalogInstallApprovalDetail,
   ambientCliPackagePiCatalogInstallInput,
@@ -70,11 +71,11 @@ describe("agentRuntimeAmbientCliPackageInstallModel", () => {
     expect(cliPackagePiCatalogInstallGrantIdentity({
       source: "@pi/demo",
       preview: piCatalogPreviewFixture(),
-    })).toBe("ambient_cli_package_install_pi_catalog\0@pi/demo\0sha-123");
+    })).toBe("ambient_cli_package_install_pi_catalog\0@pi/demo\0sha-123\0deps=none\0{\"args\":[\"demo.js\"],\"command\":\"node\",\"cwd\":\"package\",\"healthCheck\":[],\"name\":\"demo\"}");
     expect(cliPackagePiCatalogInstallGrantIdentity({
       source: "@pi/demo",
       preview: { ...piCatalogPreviewFixture(), resolution: undefined },
-    })).toBe("ambient_cli_package_install_pi_catalog\0@pi/demo\0unknown");
+    })).toBe("ambient_cli_package_install_pi_catalog\0@pi/demo\0unknown\0deps=none\0{\"args\":[\"demo.js\"],\"command\":\"node\",\"cwd\":\"package\",\"healthCheck\":[],\"name\":\"demo\"}");
   });
 
   it("builds install input, approval detail, and stable grant identity", () => {
@@ -103,6 +104,7 @@ describe("agentRuntimeAmbientCliPackageInstallModel", () => {
       "Path: packages/demo",
       "Ref: main",
       "SHA: abc123",
+      "Content hash: content-hash-123",
       "Package: ambient-demo",
       "Commands: demo",
       "Skills: demo-skill",
@@ -126,10 +128,11 @@ describe("agentRuntimeAmbientCliPackageInstallModel", () => {
       "packages/demo",
       "main",
       "abc123",
+      "content-hash-123",
       "install-dependencies",
       "ambient-demo",
       "0.0.0",
-      "demo:node:demo.js:package",
+      "{\"args\":[\"demo.js\"],\"command\":\"node\",\"cwd\":\"package\",\"healthCheck\":[],\"name\":\"demo\"}",
       "demo-skill",
       "{\"metadata\":{\"a\":1,\"z\":2},\"name\":\"ambient-demo\"}",
     ].join("\0"));
@@ -146,11 +149,349 @@ describe("agentRuntimeAmbientCliPackageInstallModel", () => {
       "Package: ambient-demo",
       "Commands: demo",
       "Skills: demo-skill",
-      "Dependencies: not installed; the Ambient adapter uses only Node built-ins and fetch.",
+      "Dependencies: not installed; the reviewed Ambient adapter uses only Node built-ins and fetch.",
       "Security scan:\n- adapter source reviewed\n- no dynamic imports",
       "Health checks: 1",
       "Effect: copy reviewed package source plus a first-party Ambient CLI adapter into Ambient-managed CLI package state.",
     ].join("\n"));
+  });
+
+  it("discloses Pi catalog dependency installation before approval", () => {
+    const preview = {
+      ...piCatalogPreviewFixture(),
+      dependencyInstall: {
+        manager: "npm",
+        command: ["npm", "ci", "--ignore-scripts"],
+        cwd: "/tmp/pi-catalog-preview",
+        attempted: false,
+        passed: true,
+        skipped: true,
+        reason: "Dependency installation is not run during package preview. If approved, install runs dependencies before copying the package.",
+      },
+      resolution: {
+        ...piCatalogPreviewFixture().resolution,
+        installDependencies: true,
+      },
+    };
+
+    expect(ambientCliPackagePiCatalogInstallApprovalDetail(workspaceFixture(), preview)).toContain(
+      "Dependencies: approved install will run npm ci --ignore-scripts.",
+    );
+    expect(ambientCliPackagePiCatalogInstallApprovalDetail(workspaceFixture(), preview)).toContain(
+      "Dependency note: Dependency installation is not run during package preview. If approved, install runs dependencies before copying the package.",
+    );
+    expect(ambientCliPackagePiCatalogInstallApprovalDetail(workspaceFixture(), preview)).not.toContain(
+      "uses only Node built-ins and fetch",
+    );
+  });
+
+  it("discloses local dependency installation before approval when preview deferred it", () => {
+    const preview = {
+      ...installPreviewFixture(),
+      dependencyInstall: {
+        manager: "npm",
+        command: ["npm", "ci", "--ignore-scripts"],
+        cwd: "/workspace/packages/demo",
+        attempted: false,
+        passed: true,
+        skipped: true,
+        reason: "Dependency installation is not run during package preview. If approved, install runs dependencies before copying the package.",
+      },
+    };
+
+    const approval = ambientCliPackageInstallApprovalDetail(workspaceFixture(), preview);
+    expect(approval).toContain("Dependencies: approved install will run npm ci --ignore-scripts.");
+    expect(approval).not.toContain("Dependencies: skipped via npm ci --ignore-scripts");
+  });
+
+  it("discloses declared install-time health checks when preview did not execute them", () => {
+    const preview = {
+      ...installPreviewFixture(),
+      healthChecks: [],
+      candidate: packageFixture({
+        installed: false,
+        commands: [
+          {
+            name: "demo",
+            description: "Run demo.",
+            command: "node",
+            args: ["demo.js"],
+            cwd: "package",
+            healthCheck: ["node", "demo.js", "health"],
+          },
+        ],
+      }),
+    };
+
+    expect(ambientCliPackageInstallApprovalDetail(workspaceFixture(), preview)).toContain(
+      "Health checks: not run during preview; approved install will run 1 declared package-controlled health check before completion",
+    );
+    expect(ambientCliPackageInstallApprovalDetail(workspaceFixture(), preview)).toContain(
+      "Health check commands: demo: node demo.js health",
+    );
+    expect(
+      ambientCliPackagePiCatalogInstallApprovalDetail(workspaceFixture(), {
+        ...preview,
+        source: "@pi/demo",
+        resolution: piCatalogPreviewFixture().resolution,
+      }),
+    ).toContain(
+      "Health checks: not run during preview; approved install will run 1 declared package-controlled health check before completion",
+    );
+    expect(
+      ambientCliPackagePiCatalogInstallApprovalDetail(workspaceFixture(), {
+        ...preview,
+        source: "@pi/demo",
+        resolution: piCatalogPreviewFixture().resolution,
+      }),
+    ).toContain("Health check commands: demo: node demo.js health");
+  });
+
+  it("binds persistent install grant identities to declared health-check commands", () => {
+    const descriptor = { name: "ambient-demo" };
+    const safePreview = {
+      ...installPreviewFixture(),
+      healthChecks: [],
+      candidate: packageFixture({
+        installed: false,
+        commands: [
+          {
+            name: "demo",
+            description: "Run demo.",
+            command: "node",
+            args: ["demo.js"],
+            cwd: "package",
+            healthCheck: ["node", "demo.js", "health"],
+          },
+        ],
+      }),
+    };
+    const changedPreview = {
+      ...safePreview,
+      candidate: packageFixture({
+        installed: false,
+        commands: [
+          {
+            name: "demo",
+            description: "Run demo.",
+            command: "node",
+            args: ["demo.js"],
+            cwd: "package",
+            healthCheck: ["node", "changed-health.js"],
+          },
+        ],
+      }),
+    };
+
+    const baseInput = {
+      source: "https://example.com/repo.git",
+      path: "packages/demo",
+      ref: "main",
+      sha: "abc123",
+      descriptor,
+      installDependencies: true,
+    };
+
+    expect(cliPackageInstallGrantIdentity({ ...baseInput, preview: safePreview })).not.toBe(
+      cliPackageInstallGrantIdentity({ ...baseInput, preview: changedPreview }),
+    );
+    expect(cliPackagePiCatalogInstallGrantIdentity({
+      source: "@pi/demo",
+      preview: {
+        ...safePreview,
+        source: "@pi/demo",
+        resolution: piCatalogPreviewFixture().resolution,
+      },
+    })).not.toBe(cliPackagePiCatalogInstallGrantIdentity({
+      source: "@pi/demo",
+      preview: {
+        ...changedPreview,
+        source: "@pi/demo",
+        resolution: piCatalogPreviewFixture().resolution,
+      },
+    }));
+  });
+
+  it("binds Pi catalog install grant identities to dependency install behavior", () => {
+    const basePreview = piCatalogPreviewFixture();
+    const dependencyPreview = {
+      ...basePreview,
+      dependencyInstall: {
+        manager: "npm",
+        command: ["npm", "ci", "--ignore-scripts"],
+        cwd: "/tmp/pi-catalog-preview",
+        attempted: false,
+        passed: true,
+        skipped: true,
+      },
+      resolution: {
+        ...basePreview.resolution,
+        installDependencies: true,
+      },
+    };
+
+    expect(cliPackagePiCatalogInstallGrantIdentity({ source: "@pi/demo", preview: basePreview })).not.toBe(
+      cliPackagePiCatalogInstallGrantIdentity({ source: "@pi/demo", preview: dependencyPreview }),
+    );
+  });
+
+  it("serializes health-check grant identities without delimiter collisions", () => {
+    const descriptor = { name: "ambient-demo" };
+    const previewA = {
+      ...installPreviewFixture(),
+      candidate: packageFixture({
+        installed: false,
+        commands: [
+          {
+            name: "demo",
+            description: "Run demo.",
+            command: "node",
+            args: ["demo.js"],
+            cwd: "package",
+            healthCheck: ["node\u0001safe"],
+          },
+        ],
+      }),
+    };
+    const previewB = {
+      ...installPreviewFixture(),
+      candidate: packageFixture({
+        installed: false,
+        commands: [
+          {
+            name: "demo",
+            description: "Run demo.",
+            command: "node",
+            args: ["demo.js"],
+            cwd: "package",
+            healthCheck: ["node", "safe"],
+          },
+        ],
+      }),
+    };
+    const baseInput = {
+      source: "https://example.com/repo.git",
+      path: "packages/demo",
+      ref: "main",
+      sha: "abc123",
+      descriptor,
+      installDependencies: true,
+    };
+
+    expect(cliPackageInstallGrantIdentity({ ...baseInput, preview: previewA })).not.toBe(
+      cliPackageInstallGrantIdentity({ ...baseInput, preview: previewB }),
+    );
+  });
+
+  it("requires pinned sources for installs that run package-controlled install code", () => {
+    expect(ambientCliPackageInstallRequiresPinnedSource({
+      source: "local-package",
+      sha: undefined,
+      installDependencies: true,
+      preview: installPreviewFixture(),
+    })).toBe(true);
+    expect(ambientCliPackageInstallRequiresPinnedSource({
+      source: "local-package",
+      sha: undefined,
+      installDependencies: false,
+      preview: {
+        ...installPreviewFixture(),
+        healthChecks: [],
+        candidate: packageFixture({
+          installed: false,
+          commands: [
+            {
+              name: "demo",
+              description: "Run demo.",
+              command: "node",
+              args: ["demo.js"],
+              cwd: "package",
+              healthCheck: ["node", "demo.js", "health"],
+            },
+          ],
+        }),
+      },
+    })).toBe(false);
+    expect(ambientCliPackageInstallRequiresPinnedSource({
+      source: "https://example.com/repo.git",
+      sha: "abc123",
+      installDependencies: true,
+      preview: installPreviewFixture(),
+    })).toBe(false);
+    expect(ambientCliPackageInstallRequiresPinnedSource({
+      source: "local-package",
+      sha: undefined,
+      installDependencies: false,
+      preview: {
+        ...installPreviewFixture(),
+        healthChecks: [],
+        candidate: packageFixture({
+          installed: false,
+          source: "bundled:ambient-demo",
+          commands: [
+            {
+              name: "demo",
+              description: "Run demo.",
+              command: "node",
+              args: ["demo.js"],
+              cwd: "package",
+              healthCheck: ["node", "demo.js", "health"],
+            },
+          ],
+        }),
+      },
+    })).toBe(false);
+    expect(ambientCliPackageInstallRequiresPinnedSource({
+      source: "bundled:ambient-demo",
+      sha: undefined,
+      installDependencies: false,
+      preview: {
+        ...installPreviewFixture(),
+        healthChecks: [],
+        candidate: packageFixture({
+          installed: false,
+          source: "bundled:ambient-demo",
+          commands: [
+            {
+              name: "demo",
+              description: "Run demo.",
+              command: "node",
+              args: ["demo.js"],
+              cwd: "package",
+              healthCheck: ["node", "demo.js", "health"],
+            },
+          ],
+        }),
+      },
+    })).toBe(false);
+    expect(ambientCliPackageInstallRequiresPinnedSource({
+      source: "local-package",
+      sha: undefined,
+      installDependencies: false,
+      preview: {
+        ...installPreviewFixture(),
+        dependencyInstall: undefined,
+        healthChecks: [],
+      },
+    })).toBe(false);
+    expect(ambientCliPackageInstallRequiresPinnedSource({
+      source: "local-package",
+      sha: undefined,
+      installDependencies: true,
+      preview: {
+        ...installPreviewFixture(),
+        dependencyInstall: {
+          manager: "npm",
+          passed: true,
+          attempted: false,
+          skipped: true,
+          command: ["npm", "ci", "--ignore-scripts"],
+          cwd: "/workspace/packages/demo",
+          reason: "No package dependencies declared.",
+        },
+        healthChecks: [],
+      },
+    })).toBe(false);
   });
 
   it("formats Pi catalog install result text with hydration and security metadata", () => {
@@ -202,6 +543,7 @@ describe("agentRuntimeAmbientCliPackageInstallModel", () => {
       "Path: packages/demo",
       "Ref: main",
       "SHA: abc123",
+      "Content hash: content-hash-123",
       "Package: ambient-demo",
       "Description: Generated demo package.",
       "Commands: demo",
@@ -264,6 +606,7 @@ function installPreviewFixture(): any {
     path: "packages/demo",
     ref: "main",
     sha: "abc123",
+    contentHash: "content-hash-123",
     candidate: packageFixture({ installed: false }),
     dependencyInstall: {
       manager: "npm",

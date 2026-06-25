@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { PermissionGrantScopeKind, PermissionRisk } from "../../../shared/permissionTypes";
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { AmbientInstallRoutePlan } from "../agentRuntimeInstallRouteFacade";
 import {
   previewAmbientCliPackagePiCatalogSource,
   type AmbientCliPiCatalogInstallPreview,
@@ -15,6 +16,11 @@ import {
   type PiPrivilegedInstallSummary,
   type PiPrivilegedSecurityScan,
 } from "./piPrivilegedPackages";
+import {
+  piRawInstallRouteApprovalDetail,
+  piRawInstallRouteGrantConditions,
+  requirePiRawInstallRouteMetadata,
+} from "./piRawInstallRouteMetadata";
 
 type ToolUpdateHandler = (update: {
   content: Array<{ type: "text"; text: string }>;
@@ -41,6 +47,7 @@ export interface PiPrivilegedInstallPermissionRequest {
 export interface PiPrivilegedInstallToolRegistrationOptions {
   workspace: WorkspaceState;
   getThread: () => ThreadSummary;
+  latestInstallRouteLane?: () => AmbientInstallRoutePlan["lane"] | undefined;
   previewAmbientCliPackagePiCatalogSource?: typeof previewAmbientCliPackagePiCatalogSource;
   scanPiPrivilegedPackage?: typeof scanPiPrivilegedPackage;
   installPiPrivilegedPackage?: typeof installPiPrivilegedPackage;
@@ -67,6 +74,12 @@ export function registerPiPrivilegedInstallTool(
       if (cliAdapter.installable && cliAdapter.resolution) {
         return firstPartyPiCatalogAdapterRedirectResult("ambient_pi_privileged_install", source, cliAdapter);
       }
+      const installRoute = requirePiRawInstallRouteMetadata({
+        toolName: "ambient_pi_privileged_install",
+        params: input,
+        source,
+        latestInstallRouteLane: options.latestInstallRouteLane,
+      });
       const scan = await scanPackage({ source, scanOrigin });
       const detail = piPrivilegedInstallApprovalDetail(options.workspace, scan);
       const allowed = await options.resolveFirstPartyPluginPermission({
@@ -75,9 +88,12 @@ export function registerPiPrivilegedInstallTool(
         toolName: "ambient_pi_privileged_install",
         title: `Install privileged Pi package "${scan.packageName}" as disabled?`,
         message: "Ambient wants to copy a privileged Pi package into managed state. Alpha installs remain disabled and do not activate hooks or mutate Pi settings.",
-        detail,
+        detail: [detail, piRawInstallRouteApprovalDetail(installRoute)].join("\n"),
+        risk: "privileged-action",
+        requireFreshPrompt: true,
         grantTargetLabel: `Install privileged Pi package ${scan.packageName}`,
         grantTargetIdentity: ["ambient_pi_privileged_install", scan.packageName, scan.fingerprint].join("\0"),
+        grantConditions: piRawInstallRouteGrantConditions(installRoute),
         allowedReason: "Privileged Pi install approved by Ambient permission grant policy.",
         deniedReason: "Privileged Pi install prompt denied or timed out.",
       });
@@ -86,7 +102,7 @@ export function registerPiPrivilegedInstallTool(
         content: [{ type: "text", text: `Installing privileged Pi package "${scan.packageName}" as disabled.` }],
         details: { runtime: "pi-privileged", toolName: "ambient_pi_privileged_install", source, scanOrigin: scan.scanOrigin, packageName: scan.packageName, status: "installing" },
       });
-      const installed = await installPackage(options.workspace.path, { source, scanOrigin });
+      const installed = await installPackage(options.workspace.path, { source, scanOrigin, reviewedScan: scan });
       return {
         content: [{ type: "text" as const, text: piPrivilegedInstallText(installed) }],
         details: { runtime: "pi-privileged", toolName: "ambient_pi_privileged_install", packageId: installed.id, packageName: installed.packageName, scanOrigin: installed.scan.scanOrigin, status: installed.status },
@@ -133,6 +149,11 @@ function piPrivilegedInstallApprovalDetail(workspace: WorkspaceState, scan: PiPr
     scan.version ? `Version: ${scan.version}` : undefined,
     `Source: ${scan.source}`,
     `Scan origin: ${scan.scanOrigin}`,
+    scan.npmTarball ? `Tarball: ${redactedPackageUrl(scan.npmTarball)}` : undefined,
+    scan.integrity ? `Integrity: ${scan.integrity}` : undefined,
+    scan.shasum ? `Shasum: ${scan.shasum}` : undefined,
+    `Descriptor hash: ${scan.descriptorHash}`,
+    `Package tree hash: ${scan.packageTreeHash}`,
     `Fingerprint: ${scan.fingerprint}`,
     `Recommendation: ${scan.recommendation}`,
     `Findings: ${scan.findings.length}`,
@@ -143,6 +164,19 @@ function piPrivilegedInstallApprovalDetail(workspace: WorkspaceState, scan: PiPr
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function redactedPackageUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return value;
+  }
 }
 
 function piPrivilegedInstallText(pkg: PiPrivilegedInstallSummary): string {

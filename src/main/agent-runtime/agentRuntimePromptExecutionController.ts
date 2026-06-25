@@ -243,6 +243,8 @@ export class AgentRuntimePromptExecutionController<
       workspacePath: input.thread.workspacePath,
       permissionMode: input.thread.permissionMode,
       toolMessages: input.toolMessages,
+      runtimeMessages: input.runtimeMessages,
+      outputState: input.outputState,
       toolArgumentProgress: input.toolArgumentProgress,
       toolArgumentWatchdog: promptControllers.toolArgumentWatchdog,
       toolExecutionWatchdog: promptControllers.toolExecutionWatchdog,

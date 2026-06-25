@@ -6,6 +6,7 @@ import type { ComposerDraftStore } from "./AppComposerControls";
 import { useComposerDraftValue } from "./AppComposerControls";
 import {
   slashCommandAvailabilityLabel,
+  slashCommandCatalogNeedsRefreshEvent,
   slashCommandEntryIsSelectable,
   slashCommandGroupLabel,
   slashCommandPickerSearchInput,
@@ -34,6 +35,7 @@ export function useAppComposerSlashCommandPicker({
   }>({ status: "idle" });
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
   const [slashDismissedToken, setSlashDismissedToken] = useState("");
+  const [slashCatalogRefreshNonce, setSlashCatalogRefreshNonce] = useState(0);
   const slashRequestIdRef = useRef(0);
   const slashPopoverOpen = slashTrigger.active && slashDismissedToken !== slashTrigger.token;
   const slashCommandEntries = slashSearchState.response?.entries ?? [];
@@ -61,7 +63,16 @@ export function useAppComposerSlashCommandPicker({
         if (slashRequestIdRef.current !== requestId) return;
         setSlashSearchState({ status: "error", error: error instanceof Error ? error.message : String(error) });
       });
-  }, [slashPopoverOpen, slashTrigger.query]);
+  }, [slashPopoverOpen, slashTrigger.query, slashCatalogRefreshNonce]);
+
+  useEffect(() => {
+    if (!slashPopoverOpen) return undefined;
+    return window.ambientDesktop.onEvent((event) => {
+      if (slashCommandCatalogNeedsRefreshEvent(event)) {
+        setSlashCatalogRefreshNonce((nonce) => nonce + 1);
+      }
+    });
+  }, [slashPopoverOpen]);
 
   function chooseSlashCommand(entry: SlashCommandCatalogEntry): void {
     if (!slashCommandEntryIsSelectable(entry)) {

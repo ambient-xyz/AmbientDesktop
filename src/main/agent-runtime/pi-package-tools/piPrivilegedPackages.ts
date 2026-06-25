@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,6 +90,8 @@ export interface PiPrivilegedSecurityScan {
   npmTarball?: string;
   integrity?: string;
   shasum?: string;
+  descriptorHash: string;
+  packageTreeHash: string;
   fingerprint: string;
   resources: {
     piExtensions: string[];
@@ -147,6 +149,12 @@ export interface PiPrivilegedPackageSelector {
   packageName?: string;
 }
 
+export interface InstallPiPrivilegedPackageInput {
+  source: string;
+  scanOrigin?: "explicit" | "sandbox-fallback";
+  reviewedScan?: PiPrivilegedSecurityScan;
+}
+
 interface ResolvedPrivilegedSource {
   source: string;
   scanOrigin: "explicit" | "sandbox-fallback";
@@ -156,6 +164,8 @@ interface ResolvedPrivilegedSource {
   integrity?: string;
   shasum?: string;
 }
+
+type PackageTreeEntry = { path: string; type: "directory" | "file" };
 
 async function ensurePiPrivilegedManagedWorkspace(workspacePath: string): Promise<string> {
   await migrateWorkspaceManagedInstallPath(workspacePath, ".ambient/pi-privileged-installs");
@@ -168,12 +178,14 @@ export async function scanPiPrivilegedPackage(input: { source: string; scanOrigi
   return withPreparedPrivilegedPackage(resolved, async (packageRoot) => scanPreparedPackage(resolved, packageRoot));
 }
 
-export async function installPiPrivilegedPackage(workspacePath: string, input: { source: string; scanOrigin?: "explicit" | "sandbox-fallback" }): Promise<PiPrivilegedInstallSummary> {
+export async function installPiPrivilegedPackage(workspacePath: string, input: InstallPiPrivilegedPackageInput): Promise<PiPrivilegedInstallSummary> {
   const resolved = await resolvePrivilegedSource(input.source);
-  resolved.scanOrigin = input.scanOrigin ?? "explicit";
+  resolved.scanOrigin = input.reviewedScan?.scanOrigin ?? input.scanOrigin ?? "explicit";
+  if (input.reviewedScan) assertResolvedSourceMatchesReviewedScan(resolved, input.reviewedScan);
   const managedWorkspace = await ensurePiPrivilegedManagedWorkspace(workspacePath);
   return withPreparedPrivilegedPackage(resolved, async (packageRoot) => {
     const scan = await scanPreparedPackage(resolved, packageRoot);
+    if (input.reviewedScan) assertInstallScanMatchesReviewedScan(scan, input.reviewedScan);
     const importName = safeName(`${scan.packageName}-${scan.version ?? "pkg"}-${scan.fingerprint.slice(0, 12)}`);
     const destination = resolve(managedWorkspace, privilegedImportRoot, importName);
     if (!isPathInside(managedWorkspace, destination)) throw new Error("Resolved privileged Pi install path is outside Ambient-managed install state.");
@@ -337,39 +349,61 @@ async function resolvePrivilegedSource(source: string): Promise<ResolvedPrivileg
 }
 
 async function withPreparedPrivilegedPackage<T>(resolved: ResolvedPrivilegedSource, action: (packageRoot: string) => Promise<T>): Promise<T> {
-  if (!resolved.tarball) return action(resolved.source);
   const tempRoot = await mkdtemp(join(tmpdir(), "ambient-pi-privileged-"));
   try {
+    if (!resolved.tarball) {
+      await assertPackageRootIsDirectory(resolved.source, "source");
+      const snapshotRoot = join(tempRoot, "package");
+      await cp(resolved.source, snapshotRoot, { recursive: true, force: true, dereference: false });
+      await assertPackageRootIsDirectory(snapshotRoot, "snapshot");
+      return await action(snapshotRoot);
+    }
     const tarballPath = join(tempRoot, "package.tgz");
     const response = await fetch(resolved.tarball);
     if (!response.ok) throw new Error(`Failed to download npm tarball for "${resolved.packageName}": HTTP ${response.status}.`);
-    await writeFile(tarballPath, Buffer.from(await response.arrayBuffer()));
+    const tarballBytes = Buffer.from(await response.arrayBuffer());
+    verifyTarballIntegrity(resolved, tarballBytes);
+    await writeFile(tarballPath, tarballBytes);
     const extractRoot = join(tempRoot, "extract");
     await mkdir(extractRoot, { recursive: true });
     await execFileAsync("tar", ["-xzf", tarballPath, "-C", extractRoot], { timeout: 30_000, maxBuffer: 1024 * 1024 });
-    return await action(join(extractRoot, "package"));
+    const packageRoot = join(extractRoot, "package");
+    await assertPackageRootIsDirectory(packageRoot, "extracted package");
+    return await action(packageRoot);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
 }
 
 async function scanPreparedPackage(resolved: ResolvedPrivilegedSource, packageRoot: string): Promise<PiPrivilegedSecurityScan> {
-  const pkg = packageJsonSchema.parse(await readJson(join(packageRoot, "package.json")));
-  const files = await listFiles(packageRoot);
-  const textFiles = await readTextFiles(packageRoot, files);
+  const packageJsonText = await readFile(join(packageRoot, "package.json"), "utf8");
+  const descriptorHash = createHash("sha256").update(packageJsonText).digest("hex");
+  const pkg = packageJsonSchema.parse(JSON.parse(packageJsonText));
+  const packageTreeEntries = [{ path: "", type: "directory" as const }, ...await listPackageTreeEntries(packageRoot)];
+  const packageFiles = packageTreeEntries.filter((entry) => entry.type === "file").map((entry) => entry.path);
+  const advisoryFiles = packageFiles.filter(isAdvisoryScanFile);
+  const packageTreeHash = await hashPackageTree(packageRoot, packageTreeEntries);
+  const textFiles = await readTextFiles(packageRoot, advisoryFiles);
   const piExtensions = pkg.pi?.extensions ?? [];
   const piSkills = pkg.pi?.skills ?? [];
   const piPrompts = pkg.pi?.prompts ?? [];
   const piThemes = pkg.pi?.themes ?? [];
   const bins = typeof pkg.bin === "string" ? [pkg.bin] : Object.values(pkg.bin ?? {}).map(String);
+  validateDeclaredPackagePaths(packageRoot, [
+    ...piExtensions,
+    ...piSkills,
+    ...piPrompts,
+    ...piThemes,
+    ...bins,
+  ]);
   const mcpServers = await mcpServerNames(packageRoot);
-  const hookConfigs = files.filter((file) => /(^|[/\\])(hooks\.json|config\.toml|mcp\.json|\.mcp\.json)$/i.test(file) || /(^|[/\\])hooks[/\\]/i.test(file));
+  const hookConfigs = advisoryFiles.filter((file) => /(^|[/\\])(hooks\.json|config\.toml|mcp\.json|\.mcp\.json)$/i.test(file) || /(^|[/\\])hooks[/\\]/i.test(file));
   const combined = textFiles.map((file) => `${file.path}\n${file.content}`).join("\n");
   const extensionText = await extensionSourceText(packageRoot, piExtensions);
   const lifecycleHooks = piExtensions.length > 0 || /\bpi\.on\s*\(/.test(extensionText) || /\bpi\.on\s*\(/.test(combined);
   const commands = bins.length > 0 || /\bregisterCommand\s*\(/.test(extensionText) || /\bregisterCommand\s*\(/.test(combined);
-  const hasMcpConfig = mcpServers.length > 0 || files.some((file) => /(^|\/)(\.mcp\.json|mcp\.json)$/i.test(file));
-  const hasHostConfig = hookConfigs.length > 0 || files.some((file) => /(^|\/)(hooks\.json|config\.toml|settings\.json)$/i.test(file));
+  const hasMcpConfig = mcpServers.length > 0 || advisoryFiles.some((file) => /(^|\/)(\.mcp\.json|mcp\.json)$/i.test(file));
+  const hasHostConfig = hookConfigs.length > 0 || advisoryFiles.some((file) => /(^|\/)(hooks\.json|config\.toml|settings\.json)$/i.test(file));
   const nativeDependencies = Boolean(pkg.optionalDependencies?.["better-sqlite3"] || pkg.dependencies?.["better-sqlite3"] || /better-sqlite3|sqlite|fts5/i.test(combined));
   const riskSummary = {
     lifecycleHooks,
@@ -388,7 +422,7 @@ async function scanPreparedPackage(resolved: ResolvedPrivilegedSource, packageRo
   const findings = findingsFromRiskSummary(riskSummary, {
     lifecycleHooks: piExtensions,
     commands: [...piExtensions, ...bins],
-    mcpServers: files.filter((file) => /mcp/i.test(file)),
+    mcpServers: advisoryFiles.filter((file) => /mcp/i.test(file)),
     hostConfigMutation: hookConfigs,
     filesystemWrites: matchingFiles(textFiles, /\b(writeFile|writeFileSync|appendFile|appendFileSync|mkdir|mkdirSync|rmSync|unlink|unlinkSync|chmod|chmodSync|cpSync)\b/),
     homeDirectoryAccess: matchingFiles(textFiles, /\bhomedir\s*\(|process\.env\.HOME|process\.env\.USERPROFILE|~\/|\.claude|\.codex|\.pi/i),
@@ -400,7 +434,7 @@ async function scanPreparedPackage(resolved: ResolvedPrivilegedSource, packageRo
     dynamicCode: matchingFiles(textFiles, /\beval\s*\(|new Function|Function\s*\(|import\s*\(/),
   });
   const fingerprint = createHash("sha256")
-    .update([resolved.source, resolved.version ?? "", resolved.integrity ?? "", resolved.shasum ?? "", JSON.stringify(pkg.pi ?? {}), JSON.stringify(riskSummary)].join("\n"))
+    .update([resolved.source, resolved.version ?? "", resolved.integrity ?? "", resolved.shasum ?? "", descriptorHash, packageTreeHash, JSON.stringify(pkg.pi ?? {}), JSON.stringify(riskSummary)].join("\n"))
     .digest("hex");
   return {
     source: resolved.source,
@@ -410,9 +444,11 @@ async function scanPreparedPackage(resolved: ResolvedPrivilegedSource, packageRo
     ...(pkg.description ? { description: pkg.description } : {}),
     ...(pkg.license ? { license: pkg.license } : {}),
     ...(normalizeRepository(pkg.repository) ? { repositoryUrl: normalizeRepository(pkg.repository) } : {}),
-    ...(resolved.tarball ? { npmTarball: resolved.tarball } : {}),
+    ...(resolved.tarball ? { npmTarball: publicPackageUrl(resolved.tarball) } : {}),
     ...(resolved.integrity ? { integrity: resolved.integrity } : {}),
     ...(resolved.shasum ? { shasum: resolved.shasum } : {}),
+    descriptorHash,
+    packageTreeHash,
     fingerprint,
     resources: { piExtensions, piSkills, piPrompts, piThemes, bins, mcpServers, hookConfigs },
     riskSummary,
@@ -482,24 +518,32 @@ function selectConfigRecord(records: z.infer<typeof privilegedConfigSchema>["pac
   throw new Error("packageId or packageName is required.");
 }
 
-async function listFiles(root: string, dir = root): Promise<string[]> {
-  let entries;
+async function listPackageTreeEntries(root: string, dir = root): Promise<PackageTreeEntry[]> {
+  let dirEntries;
   try {
-    entries = await readdir(dir, { withFileTypes: true });
+    dirEntries = await readdir(dir, { withFileTypes: true });
   } catch {
     return [];
   }
-  const files: string[] = [];
-  for (const entry of entries) {
+  const treeEntries: PackageTreeEntry[] = [];
+  for (const entry of dirEntries) {
     const full = join(dir, entry.name);
+    const rel = relative(root, full).split(sep).join("/");
     if (entry.isDirectory()) {
-      if (entry.name === "node_modules" || entry.name === ".git") continue;
-      files.push(...await listFiles(root, full));
+      treeEntries.push({ path: rel, type: "directory" });
+      treeEntries.push(...await listPackageTreeEntries(root, full));
+    } else if (entry.isSymbolicLink()) {
+      throw new Error(`Privileged Pi package contains unsupported symlink: ${rel}`);
     } else if (entry.isFile()) {
-      files.push(relative(root, full).split(sep).join("/"));
+      treeEntries.push({ path: rel, type: "file" });
     }
   }
-  return files.sort();
+  return treeEntries.sort((left, right) => left.path.localeCompare(right.path) || left.type.localeCompare(right.type));
+}
+
+function isAdvisoryScanFile(file: string): boolean {
+  const parts = file.split("/");
+  return !parts.includes("node_modules") && !parts.includes(".git");
 }
 
 async function readTextFiles(root: string, files: string[]): Promise<Array<{ path: string; content: string }>> {
@@ -563,6 +607,32 @@ function matchingFiles(files: Array<{ path: string; content: string }>, pattern:
   return files.filter((file) => pattern.test(file.content)).map((file) => file.path);
 }
 
+async function hashPackageTree(root: string, entries: PackageTreeEntry[]): Promise<string> {
+  const hash = createHash("sha256");
+  for (const entry of entries) {
+    const full = entry.path ? join(root, entry.path) : root;
+    const metadata = await lstat(full);
+    hash.update(entry.type);
+    hash.update("\0");
+    hash.update(entry.path);
+    hash.update("\0");
+    hash.update(String(metadata.mode & 0o7777));
+    hash.update("\0");
+    if (entry.type === "file") {
+      hash.update(await readFile(full));
+      hash.update("\0");
+    }
+  }
+  return hash.digest("hex");
+}
+
+async function assertPackageRootIsDirectory(packageRoot: string, label: string): Promise<void> {
+  const metadata = await lstat(packageRoot);
+  if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
+    throw new Error(`Privileged Pi package ${label} must be a real directory, not a symlink or file: ${packageRoot}`);
+  }
+}
+
 function piCatalogNpmPackageName(source: string): string {
   if (source.startsWith("npm:")) return source.slice("npm:".length).trim();
   try {
@@ -577,10 +647,97 @@ function piCatalogNpmPackageName(source: string): string {
   return source;
 }
 
+function validateDeclaredPackagePaths(packageRoot: string, paths: string[]): void {
+  for (const value of paths) {
+    if (!isPathInside(packageRoot, resolve(packageRoot, value))) {
+      throw new Error(`Privileged Pi package declares a resource outside the package: ${value}`);
+    }
+  }
+}
+
 async function fetchNpmPackageMetadata(packageName: string): Promise<any> {
-  const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`);
+  const response = await fetch(`${npmRegistryUrl().replace(/\/+$/, "")}/${encodeURIComponent(packageName)}`);
   if (!response.ok) throw new Error(`Failed to fetch npm metadata for "${packageName}": HTTP ${response.status}.`);
   return response.json();
+}
+
+function npmRegistryUrl(): string {
+  return process.env.AMBIENT_NPM_REGISTRY_URL || process.env.NPM_CONFIG_REGISTRY || "https://registry.npmjs.org";
+}
+
+function publicPackageUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+function verifyTarballIntegrity(resolved: ResolvedPrivilegedSource, bytes: Buffer): void {
+  if (resolved.integrity) {
+    const accepted = resolved.integrity
+      .split(/\s+/)
+      .filter(Boolean)
+      .some((entry) => {
+        const separator = entry.indexOf("-");
+        if (separator <= 0) return false;
+        const algorithm = entry.slice(0, separator);
+        const expected = entry.slice(separator + 1);
+        try {
+          return createHash(algorithm).update(bytes).digest("base64") === expected;
+        } catch {
+          return false;
+        }
+      });
+    if (!accepted) throw new Error(`Downloaded tarball for "${resolved.packageName}" failed npm integrity verification.`);
+    return;
+  }
+  if (resolved.shasum) {
+    const actual = createHash("sha1").update(bytes).digest("hex");
+    if (actual !== resolved.shasum) throw new Error(`Downloaded tarball for "${resolved.packageName}" failed npm shasum verification.`);
+  }
+}
+
+function assertResolvedSourceMatchesReviewedScan(resolved: ResolvedPrivilegedSource, reviewed: PiPrivilegedSecurityScan): void {
+  const mismatches = [
+    identityMismatch("packageName", reviewed.packageName, resolved.packageName),
+    identityMismatch("version", reviewed.version, resolved.version),
+    identityMismatch("npmTarball", reviewed.npmTarball, publicPackageUrl(resolved.tarball)),
+    identityMismatch("integrity", reviewed.integrity, resolved.integrity),
+    identityMismatch("shasum", reviewed.shasum, resolved.shasum),
+  ].filter((mismatch): mismatch is string => Boolean(mismatch));
+  if (mismatches.length) throw new Error(privilegedPackageIdentityChangedMessage(mismatches));
+}
+
+function assertInstallScanMatchesReviewedScan(scan: PiPrivilegedSecurityScan, reviewed: PiPrivilegedSecurityScan): void {
+  const mismatches = [
+    identityMismatch("packageName", reviewed.packageName, scan.packageName),
+    identityMismatch("version", reviewed.version, scan.version),
+    identityMismatch("npmTarball", reviewed.npmTarball, scan.npmTarball),
+    identityMismatch("integrity", reviewed.integrity, scan.integrity),
+    identityMismatch("shasum", reviewed.shasum, scan.shasum),
+    identityMismatch("descriptorHash", reviewed.descriptorHash, scan.descriptorHash),
+    identityMismatch("packageTreeHash", reviewed.packageTreeHash, scan.packageTreeHash),
+    identityMismatch("fingerprint", reviewed.fingerprint, scan.fingerprint),
+  ].filter((mismatch): mismatch is string => Boolean(mismatch));
+  if (mismatches.length) throw new Error(privilegedPackageIdentityChangedMessage(mismatches));
+}
+
+function identityMismatch(field: string, reviewed: string | undefined, actual: string | undefined): string | undefined {
+  return reviewed === actual ? undefined : `${field}: reviewed=${reviewed ?? "(none)"} install=${actual ?? "(none)"}`;
+}
+
+function privilegedPackageIdentityChangedMessage(mismatches: string[]): string {
+  return [
+    "Privileged Pi package identity changed after scan; rescan before installing.",
+    ...mismatches.map((mismatch) => `- ${mismatch}`),
+  ].join("\n");
 }
 
 async function readJson(path: string): Promise<unknown> {

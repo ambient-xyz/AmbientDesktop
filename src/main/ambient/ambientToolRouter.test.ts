@@ -23,6 +23,8 @@ describe("ambient tool router", () => {
       "bash_write",
       "bash_cancel",
       "thread_wake_schedule",
+      "thread_wake_cancel",
+      "thread_wake_resolve",
       "long_context_start",
       "long_context_poll",
       "long_context_cancel",

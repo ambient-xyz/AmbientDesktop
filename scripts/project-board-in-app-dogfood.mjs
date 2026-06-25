@@ -1,17 +1,11 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import net from "node:net";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { inflateSync } from "node:zlib";
-import {
-  diffHarnessWorkspaceSnapshot,
-  snapshotHarnessWorkspace,
-  writeHarnessTraceArtifacts,
-} from "./harness-trace-artifacts.mjs";
+import { diffHarnessWorkspaceSnapshot, snapshotHarnessWorkspace, writeHarnessTraceArtifacts } from "./harness-trace-artifacts.mjs";
 import {
   latestSynthesisRunForBoard,
   latestPlanningSynthesisRunForBoard,
@@ -25,6 +19,54 @@ import {
   runningPlanningSynthesisRunForBoard,
   sqlString,
 } from "./project-board-dogfood-store.mjs";
+import {
+  clickButton,
+  clickButtonIn,
+  clickProjectBoardReviewTab,
+  connectCdpWithRetry,
+  delay,
+  evaluate,
+  fillInput,
+  findOpenPort,
+  invoke,
+  invokeDetached,
+  openProjectBoardSetup,
+  readSourceClassificationUiState,
+  selectSourceInReview,
+  selectorTextIncludesPredicate,
+  setSourceKindFromUi,
+  waitFor,
+  waitForPageTarget,
+  waitForState,
+  waitForTarget,
+} from "./project-board-in-app-dogfood-cdp-helpers.mjs";
+import {
+  analyzePng,
+  collectVisualProofArtifacts,
+  createProjectBoardDogfoodArtifactHelpers,
+  expectedCardStatusForReview,
+  expectedTaskStateForReview,
+  gitStatusForWorkspace,
+  isReadableVisualProofArtifact,
+  meaningfulPathsFromGitStatus,
+  meaningfulProofChangedPaths,
+  taskActionObservation,
+} from "./project-board-in-app-dogfood-proof-helpers.mjs";
+import {
+  answerForKickoffQuestion,
+  boardSynthesisCards,
+  duplicateTitleMetrics,
+  incrementalObservation,
+  parseJsonObject,
+  progressiveRecordCount,
+  projectBoardSourceKind,
+  proposalObservation,
+  resumedSynthesisRunForBoard,
+  selectDogfoodExecutionCard,
+  sourceForStableKey,
+  synthesisRunLoadedPreviousRecords,
+  timestampMs,
+} from "./project-board-in-app-dogfood-scenario-helpers.mjs";
 import { buildProjectBoardDogfoodReleaseGate } from "./project-board-dogfood-report.mjs";
 import { shouldUseSqliteObserverFallback } from "./project-board-dogfood-observer.mjs";
 import { requiresVisualProof } from "./project-board-dogfood-proof.mjs";
@@ -60,6 +102,7 @@ const pmReviewActivationDogfoodMode = process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_
 const pmReviewWorkCardDogfoodMode = process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_PM_REVIEW_WORK_CARD === "1";
 const sourceClassificationUiDogfoodMode = process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_SOURCE_CLASSIFICATION_UI === "1";
 const outputPath = resolve(process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_OUT || join(outputRoot, "latest.json"));
+const { captureDogfoodScreenshot } = createProjectBoardDogfoodArtifactHelpers({ runRoot });
 const output = [];
 const children = new Set();
 const observations = {
@@ -119,7 +162,9 @@ if (process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_ANALYZE_PNG) {
 try {
   const apiKey = await readAmbientApiKey();
   if (!apiKey) {
-    throw new Error("Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ambient_api_key.txt near the repo.");
+    throw new Error(
+      "Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ambient_api_key.txt near the repo.",
+    );
   }
   const focusedModeCount = [
     semanticIdleRecoveryMode,
@@ -141,7 +186,9 @@ try {
   await cp(fixtureRoot, projectRoot, { recursive: true });
   await initializeFixtureGit(projectRoot);
   projectRootSnapshot = await snapshotHarnessWorkspace(projectRoot);
-  observations.loopBreaks.push("Fixture now carries WORKFLOW.md and the dogfood copy is initialized as git so ticketized cards can prepare real worktrees.");
+  observations.loopBreaks.push(
+    "Fixture now carries WORKFLOW.md and the dogfood copy is initialized as git so ticketized cards can prepare real worktrees.",
+  );
 
   appInstance = await launchApp({ apiKey });
   const cdp = appInstance.cdp;
@@ -166,7 +213,8 @@ try {
       sourcePaths: board.sources.map((source) => source.path),
       questionCount: board.questions.length,
       skippedKickoffFinalize: true,
-      reason: "Focused semantic-idle recovery dogfood seeds a controlled partial run and must not start live synthesis from kickoff finalization.",
+      reason:
+        "Focused semantic-idle recovery dogfood seeds a controlled partial run and must not start live synthesis from kickoff finalization.",
     });
     observations.steps.push(await runSemanticIdleSectionRecoveryDogfood(cdp, board.id));
     await completeDogfoodSuccessfully();
@@ -186,7 +234,9 @@ try {
       reason:
         "Focused PM Review activation dogfood reviews the answered draft charter before kickoff finalization so full board synthesis cannot race ahead of the lightweight report.",
     });
-    observations.loopBreaks.push("Focused PM Review dogfood keeps the charter in draft while reviewing answers, then uses Generate Draft Board as the explicit activation handoff.");
+    observations.loopBreaks.push(
+      "Focused PM Review dogfood keeps the charter in draft while reviewing answers, then uses Generate Draft Board as the explicit activation handoff.",
+    );
     const pmReviewSteps = await runPmReviewActivationDogfood(cdp, board.id);
     observations.steps.push(...(Array.isArray(pmReviewSteps) ? pmReviewSteps : [pmReviewSteps]));
     await completeDogfoodSuccessfully();
@@ -216,7 +266,11 @@ try {
     await invokeDetached(cdp, "finalizeProjectBoardKickoff", { boardId: board.id }, "__projectBoardDogfoodFinalizeError");
     board = await waitForActiveBoard(cdp);
   } else {
-    await waitFor(cdp, () => document.querySelector(".project-board-workspace")?.textContent?.includes("Active board"), "active project board");
+    await waitFor(
+      cdp,
+      () => document.querySelector(".project-board-workspace")?.textContent?.includes("Active board"),
+      "active project board",
+    );
     board = await currentBoard(cdp);
   }
   observations.steps.push({
@@ -227,8 +281,14 @@ try {
     sourcePaths: board.sources.map((source) => source.path),
     questionCount: board.questions.length,
   });
-  if (board.cards.length === 0) observations.loopBreaks.push("Board activation now establishes the charter/source corpus first; PM Review proposal synthesis is responsible for creating executable candidate cards.");
-  assert(board.sources.some((source) => source.path === "WORKFLOW.md"), "Expected Build Board source scan to include WORKFLOW.md.");
+  if (board.cards.length === 0)
+    observations.loopBreaks.push(
+      "Board activation now establishes the charter/source corpus first; PM Review proposal synthesis is responsible for creating executable candidate cards.",
+    );
+  assert(
+    board.sources.some((source) => source.path === "WORKFLOW.md"),
+    "Expected Build Board source scan to include WORKFLOW.md.",
+  );
 
   if (pauseResumeDogfoodMode) {
     observations.steps.push(await runPauseResumePlanningDogfood(cdp, board.id));
@@ -374,7 +434,9 @@ try {
         reason: "In-app spaceship dogfood accepted this card to exercise proposal application.",
       });
     }
-    board = boardFromState(await invoke(cdp, "applyProjectBoardSynthesisProposal", { proposalId: proposal.id, replaceExistingDraft: true }));
+    board = boardFromState(
+      await invoke(cdp, "applyProjectBoardSynthesisProposal", { proposalId: proposal.id, replaceExistingDraft: true }),
+    );
     observations.steps.push({
       name: "apply-proposal",
       proposalId: proposal.id,
@@ -422,15 +484,22 @@ try {
       charterId: forcedBudget.charterId,
       maxRuntimeMsPerCard: forcedBudget.budgetPolicy.maxRuntimeMsPerCard,
       timing: "before-local-task-prepare",
-      reason: "Focused dogfood lowered the active charter runtime budget before starting the Local Task so product close policy, not the outer harness timeout, drives the split.",
+      reason:
+        "Focused dogfood lowered the active charter runtime budget before starting the Local Task so product close policy, not the outer harness timeout, drives the split.",
     });
     board = await currentBoard(cdp);
   }
 
   await invokeDetached(cdp, "prepareNextOrchestrationTasks", undefined, "__projectBoardDogfoodPrepareError");
-  const { board: orchestrationAfterPrepare, run: preparedRun } = await waitForPreparedOrStartedRun(cdp, ticketized.orchestrationTaskId, ticketized.title);
+  const { board: orchestrationAfterPrepare, run: preparedRun } = await waitForPreparedOrStartedRun(
+    cdp,
+    ticketized.orchestrationTaskId,
+    ticketized.title,
+  );
   preparedWorkspacePath = preparedRun.workspacePath;
-  preparedWorkspaceSnapshot = preparedWorkspacePath ? await snapshotHarnessWorkspace(preparedWorkspacePath).catch(() => undefined) : undefined;
+  preparedWorkspaceSnapshot = preparedWorkspacePath
+    ? await snapshotHarnessWorkspace(preparedWorkspacePath).catch(() => undefined)
+    : undefined;
   observations.steps.push({
     name: "prepare-local-task",
     preparedCount: orchestrationAfterPrepare.runs.filter((run) => run.status === "prepared").length,
@@ -455,7 +524,8 @@ try {
         await delay(1500);
       }
       const boardSnapshot = await readOrchestrationBoardFromStore().catch(() => undefined);
-      const partialRun = boardSnapshot?.runs?.find((candidate) => candidate.id === preparedRun.id) ?? (boundedTimeout ? error.run : undefined);
+      const partialRun =
+        boardSnapshot?.runs?.find((candidate) => candidate.id === preparedRun.id) ?? (boundedTimeout ? error.run : undefined);
       const existingPartialProof = partialRun?.proofOfWork && typeof partialRun.proofOfWork === "object" ? partialRun.proofOfWork : {};
       const partialProof = boundedTimeout
         ? {
@@ -499,7 +569,10 @@ try {
     }
     const reviewedCard = await waitForCardProofReview(cdp, ticketized.id);
     board = await currentBoard(cdp);
-    const followUpIds = new Set([...(reviewedCard?.proofReview?.followUpCardIds ?? []), ...(reviewedCard?.splitOutcome?.childCardIds ?? [])]);
+    const followUpIds = new Set([
+      ...(reviewedCard?.proofReview?.followUpCardIds ?? []),
+      ...(reviewedCard?.splitOutcome?.childCardIds ?? []),
+    ]);
     const followUps = board.cards.filter(
       (card) => followUpIds.has(card.id) || (card.sourceKind === "run_follow_up" && card.blockedBy.includes(ticketized.id)),
     );
@@ -534,7 +607,10 @@ try {
       })),
     });
     if (requireRuntimeSplit) {
-      assert(reviewedCard?.splitOutcome?.source === "runtime_budget", "Expected product runtime budget to create a runtime split outcome on the parent card.");
+      assert(
+        reviewedCard?.splitOutcome?.source === "runtime_budget",
+        "Expected product runtime budget to create a runtime split outcome on the parent card.",
+      );
       assert(followUps.length > 0, "Expected runtime split to create at least one actionable follow-up card.");
     }
     if (splitDecisionAction && reviewedCard?.splitOutcome) {
@@ -550,7 +626,12 @@ try {
         beforeStatus,
         afterStatus: resolvedParent?.splitOutcome?.status,
         parentStatus: resolvedParent?.status,
-        childCards: resolvedChildren.map((card) => ({ id: card.id, title: card.title, candidateStatus: card.candidateStatus, status: card.status })),
+        childCards: resolvedChildren.map((card) => ({
+          id: card.id,
+          title: card.title,
+          candidateStatus: card.candidateStatus,
+          status: card.status,
+        })),
       });
     }
     assert(["completed", "failed", "stalled", "canceled"].includes(terminalRun.status), `Unexpected run status ${terminalRun.status}.`);
@@ -558,16 +639,28 @@ try {
       const runtimeBudgetSplitObserved = reviewedCard?.splitOutcome?.source === "runtime_budget";
       const taskActionProtocolSatisfied =
         taskActions.count > 0 &&
-        (terminalRun.status !== "completed" || runtimeBudgetSplitObserved || taskActions.proofActionCount > 0 || taskActions.completeActionCount > 0) &&
-        (!runtimeBudgetSplitObserved || taskActions.heartbeatCount > 0 || taskActions.proofActionCount > 0 || taskActions.completeActionCount > 0) &&
-        (terminalRun.status === "completed" || taskActions.blockActionCount > 0 || taskActions.proofActionCount > 0 || taskActions.completeActionCount > 0);
+        (terminalRun.status !== "completed" ||
+          runtimeBudgetSplitObserved ||
+          taskActions.proofActionCount > 0 ||
+          taskActions.completeActionCount > 0) &&
+        (!runtimeBudgetSplitObserved ||
+          taskActions.heartbeatCount > 0 ||
+          taskActions.proofActionCount > 0 ||
+          taskActions.completeActionCount > 0) &&
+        (terminalRun.status === "completed" ||
+          taskActions.blockActionCount > 0 ||
+          taskActions.proofActionCount > 0 ||
+          taskActions.completeActionCount > 0);
       if (!taskActionProtocolSatisfied) {
         observations.loopBreaks.push(
           `Live worker did not emit the expected project-board task action protocol; observed ${JSON.stringify(taskActions.countsByAction)}.`,
         );
       }
     }
-    assert(meaningfulChangedPaths.length > 0, "Expected Local Task proof to include meaningful workspace changes outside node_modules/cache paths.");
+    assert(
+      meaningfulChangedPaths.length > 0,
+      "Expected Local Task proof to include meaningful workspace changes outside node_modules/cache paths.",
+    );
     if (visualProofRequired) {
       const readableVisualProof = visualProofArtifacts.some(isReadableVisualProofArtifact);
       if (!readableVisualProof) {
@@ -589,9 +682,18 @@ try {
       }
     }
     assert(reviewedCard?.proofReview, "Expected the executed card to record a PM proof review.");
-    assert(reviewedCard.proofReview.reviewer === "ambient_pi", `Expected live Ambient/Pi proof review, got ${reviewedCard.proofReview.reviewer ?? "missing reviewer"}.`);
-    assert(["strong", "mixed", "weak"].includes(reviewedCard.proofReview.evidenceQuality), `Expected proof review evidence quality, got ${reviewedCard.proofReview.evidenceQuality}.`);
-    assert(["close", "retry", "follow_up", "ask_user", "block"].includes(reviewedCard.proofReview.recommendedAction), `Expected proof review recommended action, got ${reviewedCard.proofReview.recommendedAction}.`);
+    assert(
+      reviewedCard.proofReview.reviewer === "ambient_pi",
+      `Expected live Ambient/Pi proof review, got ${reviewedCard.proofReview.reviewer ?? "missing reviewer"}.`,
+    );
+    assert(
+      ["strong", "mixed", "weak"].includes(reviewedCard.proofReview.evidenceQuality),
+      `Expected proof review evidence quality, got ${reviewedCard.proofReview.evidenceQuality}.`,
+    );
+    assert(
+      ["close", "retry", "follow_up", "ask_user", "block"].includes(reviewedCard.proofReview.recommendedAction),
+      `Expected proof review recommended action, got ${reviewedCard.proofReview.recommendedAction}.`,
+    );
     assert(typeof reviewedCard.proofReview.confidence === "number", "Expected proof review confidence from live Ambient/Pi judgment.");
     assert(
       reviewedCard.status === expectedCardStatusForReview(reviewedCard.proofReview.status),
@@ -700,7 +802,9 @@ async function launchApp({ apiKey }) {
 
   const target = await waitForTarget(port);
   await delay(750);
-  const browserCdp = await connectCdpWithRetry(target.webSocketDebuggerUrl, "Electron browser CDP");
+  const browserCdp = await connectCdpWithRetry(target.webSocketDebuggerUrl, "Electron browser CDP", {
+    commandTimeoutMs: cdpCommandTimeoutMs,
+  });
   const pageTarget = await waitForPageTarget(browserCdp);
   const attached = await browserCdp.send("Target.attachToTarget", {
     targetId: pageTarget.targetId,
@@ -708,72 +812,6 @@ async function launchApp({ apiKey }) {
   });
   const cdp = browserCdp.session(attached.sessionId);
   return { child, cdp };
-}
-
-function expectedCardStatusForReview(status) {
-  if (status === "done") return "done";
-  if (status === "ready_for_review") return "review";
-  return "blocked";
-}
-
-function expectedTaskStateForReview(status) {
-  if (status === "done") return "done";
-  if (status === "ready_for_review") return "needs_review";
-  if (status === "terminally_blocked") return "terminal_blocker";
-  return "needs_info";
-}
-
-function isReadableVisualProofArtifact(artifact) {
-  return artifact?.width >= 800 && artifact?.height >= 600 && artifact?.nonBlackPixels > 0 && artifact?.distinctColorCount > 1;
-}
-
-function taskActionObservation(proofOfWork) {
-  const actions = [proofOfWork?.taskToolActions, proofOfWork?.taskActions, proofOfWork?.modelTaskActions]
-    .flatMap((value) => (Array.isArray(value) ? value : []))
-    .filter((action) => action && typeof action === "object" && typeof action.action === "string" && action.action.startsWith("task_"));
-  const countsByAction = {};
-  for (const action of actions) countsByAction[action.action] = (countsByAction[action.action] ?? 0) + 1;
-  const terminalActionIndex = actions.findIndex((action) =>
-    ["task_report_proof", "task_complete", "task_block", "task_create_followup", "task_report_handoff"].includes(action.action),
-  );
-  const heartbeatIndex = actions.findIndex((action) => action.action === "task_heartbeat");
-  const terminalActions = actions.filter((action) =>
-    ["task_report_proof", "task_complete", "task_block", "task_create_followup", "task_report_handoff"].includes(action.action),
-  );
-  const onlyContextAndHeartbeat = actions.length > 0 && actions.every((action) => action.action === "task_show" || action.action === "task_heartbeat");
-  const protocolMissing = [];
-  if (actions.length === 0) protocolMissing.push("any_task_action");
-  if ((countsByAction.task_heartbeat ?? 0) <= 0) protocolMissing.push("task_heartbeat");
-  if (terminalActions.length === 0) protocolMissing.push("terminal_task_action");
-  if (onlyContextAndHeartbeat) protocolMissing.push("proof_block_complete_followup_or_handoff");
-  return {
-    count: actions.length,
-    countsByAction,
-    heartbeatCount: countsByAction.task_heartbeat ?? 0,
-    proofActionCount: countsByAction.task_report_proof ?? 0,
-    completeActionCount: countsByAction.task_complete ?? 0,
-    blockActionCount: countsByAction.task_block ?? 0,
-    followUpActionCount: countsByAction.task_create_followup ?? 0,
-    handoffActionCount: countsByAction.task_report_handoff ?? 0,
-    terminalActionCount: terminalActions.length,
-    terminalActionNames: [...new Set(terminalActions.map((action) => action.action))],
-    firstAction: actions[0]?.action,
-    onlyContextAndHeartbeat,
-    heartbeatBeforeTerminal: heartbeatIndex >= 0 && terminalActionIndex >= 0 && heartbeatIndex < terminalActionIndex,
-    protocolSatisfied: protocolMissing.length === 0,
-    protocolMissing,
-    actions: actions.map((action) => ({
-      actionId: action.actionId,
-      action: action.action,
-      createdAt: action.createdAt,
-      summary: action.summary ?? action.reason ?? action.title,
-      changedFiles: Array.isArray(action.changedFiles) ? action.changedFiles.length : 0,
-      commands: Array.isArray(action.commands) ? action.commands.length : 0,
-      screenshots: Array.isArray(action.screenshots) ? action.screenshots.length : 0,
-      visualChecks: Array.isArray(action.visualChecks) ? action.visualChecks.length : 0,
-      manualChecks: Array.isArray(action.manualChecks) ? action.manualChecks.length : 0,
-    })),
-  };
 }
 
 async function answerKickoff(cdp) {
@@ -787,24 +825,6 @@ async function answerKickoff(cdp) {
   }
   observations.steps.push({ name: "answer-kickoff", answered: board.questions.filter((question) => question.answer).length });
 }
-
-function answerForKickoffQuestion(question) {
-  const normalized = question.toLowerCase();
-  if (/\b(primary|outcome|optimize|goal)\b/.test(normalized)) {
-    return "Ship a narrow playable WebGL spaceship vertical slice with a visible ship, hazards, score, restart loop, and traceable proof.";
-  }
-  if (/\b(source|authoritative|docs|threads)\b/.test(normalized)) {
-    return "Treat README, architecture notes, gameplay notes, implementation plan, tests, and WORKFLOW.md as project-manager source material. TODO.md is low-authority scratch.";
-  }
-  if (/\b(judgment|decision|handle|executing)\b/.test(normalized)) {
-    return "When sources conflict, ask targeted PM Review questions and prefer small reversible MVP choices.";
-  }
-  if (/\b(proof|review|test|done)\b/.test(normalized)) {
-    return "Require acceptance criteria plus unit, integration, and visual/manual proof before closing project board cards.";
-  }
-  return answerForSpaceshipQuestion(question);
-}
-
 async function startRefinement(cdp, boardId, proposalId, mode) {
   const input = {
     boardId,
@@ -820,25 +840,6 @@ async function startRefinement(cdp, boardId, proposalId, mode) {
       ").catch((error) => { window.__projectBoardDogfoodRefineError = String(error && error.message ? error.message : error); });",
       "true;",
     ].join(""),
-  );
-}
-
-async function waitForPlanningRunStart(cdp, boardId, previousRunId, label, timeoutMs) {
-  return waitForState(
-    cdp,
-    async () => {
-      const detachedError = await readDetachedDogfoodError(cdp);
-      if (detachedError) throw new Error(`${label} failed before a planning run started: ${detachedError}`);
-      const board = (await readProjectBoardWithSynthesisDetails().catch(() => undefined)) ?? (await currentBoard(cdp));
-      const run = latestPlanningSynthesisRunForBoard(board, boardId, previousRunId);
-      if (run) return { board, run };
-      const latest = latestRunForBoard(board, boardId);
-      if (latest && latest.id !== previousRunId && latest.status === "running") return { board, run: latest };
-      if (board.cards.length > 0) return { board, run: undefined };
-      return undefined;
-    },
-    label,
-    timeoutMs ?? Number(process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_PLANNING_START_TIMEOUT_MS || 60_000),
   );
 }
 
@@ -881,7 +882,9 @@ async function waitForLatestPendingProposal(cdp, boardId, previousProposalId, la
 }
 
 async function waitForTerminalRun(cdp, runId) {
-  const idleTimeoutMs = Number(process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_RUN_IDLE_TIMEOUT_MS || process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_RUN_TIMEOUT_MS || 1_800_000);
+  const idleTimeoutMs = Number(
+    process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_RUN_IDLE_TIMEOUT_MS || process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_RUN_TIMEOUT_MS || 1_800_000,
+  );
   const maxElapsedMs = workerRunMaxElapsedMs;
   const startedAt = Date.now();
   let lastActivityAt = Date.now();
@@ -897,7 +900,9 @@ async function waitForTerminalRun(cdp, runId) {
     if (["completed", "failed", "stalled", "canceled"].includes(run.status)) return run;
     const idleMs = Date.now() - lastActivityAt;
     if (idleMs > idleTimeoutMs) {
-      throw new Error(`Timed out waiting for terminal Local Task run; no run progress was observed for ${idleTimeoutMs.toLocaleString()}ms.`);
+      throw new Error(
+        `Timed out waiting for terminal Local Task run; no run progress was observed for ${idleTimeoutMs.toLocaleString()}ms.`,
+      );
     }
     const elapsedMs = Date.now() - startedAt;
     if (maxElapsedMs > 0 && elapsedMs > maxElapsedMs) {
@@ -953,7 +958,10 @@ async function waitForPreparedOrStartedRun(cdp, taskId, title) {
     cdp,
     async () => {
       const board = await readOrchestrationBoardFromStore();
-      const run = board.runs.find((candidate) => candidate.taskId === taskId && ["prepared", "running", "completed", "failed", "stalled", "canceled"].includes(candidate.status));
+      const run = board.runs.find(
+        (candidate) =>
+          candidate.taskId === taskId && ["prepared", "running", "completed", "failed", "stalled", "canceled"].includes(candidate.status),
+      );
       return run ? { board, run } : undefined;
     },
     `prepared or started Local Task run for ${title}`,
@@ -1091,7 +1099,9 @@ async function waitForFreshStartSynthesisCards(boardId, runId) {
         lastActivityAt = Date.now();
       }
       if (run.status === "failed") {
-        throw new Error(`Start Fresh synthesis failed while waiting for fresh cards: ${run.error || run.events?.at(-1)?.summary || "unknown error"}`);
+        throw new Error(
+          `Start Fresh synthesis failed while waiting for fresh cards: ${run.error || run.events?.at(-1)?.summary || "unknown error"}`,
+        );
       }
       if (cards.length > 0) return { board, run, cards };
       if (run.status !== "running" && run.status !== "pause_requested") {
@@ -1210,7 +1220,9 @@ async function waitForIncrementalSynthesisMilestones(cdp, boardId, runId, label,
     }
 
     if (Date.now() - lastActivityAt > idleTimeoutMs) {
-      throw new Error(`Timed out waiting for ${label}; no synthesis progress or incremental board mutation was observed for ${idleTimeoutMs.toLocaleString()}ms.`);
+      throw new Error(
+        `Timed out waiting for ${label}; no synthesis progress or incremental board mutation was observed for ${idleTimeoutMs.toLocaleString()}ms.`,
+      );
     }
     await delay(1000);
   }
@@ -1248,92 +1260,9 @@ async function observeInitialIncrementalSynthesis(cdp, boardId, runId) {
   }
   return { firstAutoTicketizedCardId: incremental.firstTicketizedCard?.card?.id };
 }
-
-function incrementalObservation(input) {
-  const terminalRun = input.terminalRun;
-  return {
-    boardId: input.boardId,
-    runId: input.runId,
-    returnedEarly: input.returnedEarly,
-    returnReason: input.returnReason,
-    terminalStatus: terminalRun?.status,
-    terminalStage: terminalRun?.stage,
-    sourceCount: terminalRun?.sourceCount,
-    includedSourceCount: terminalRun?.includedSourceCount,
-    sourceCharCount: terminalRun?.sourceCharCount,
-    promptCharCount: terminalRun?.promptCharCount,
-    responseCharCount: terminalRun?.responseCharCount,
-    terminalCardCount: terminalRun?.cardCount,
-    progressiveRecordCount: progressiveRecordCount(terminalRun),
-    timeToFirstCardMs: input.firstCard?.elapsedMs,
-    timeToFirstTicketizedTaskMs: input.firstTicketizedCard?.elapsedMs,
-    firstCard: input.firstCard,
-    firstTicketizedCard: input.firstTicketizedCard,
-    maxBoardSynthesisCardCount: input.maxCardCount,
-    maxTicketizedCardCount: input.maxTicketizedCardCount,
-    samples: input.samples,
-  };
-}
-
-function timestampMs(value) {
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function progressiveRecordCount(run) {
-  return run?.progressiveRecordCount ?? run?.progressiveRecords?.length ?? 0;
-}
-
 function latestRunForBoard(board, boardId) {
   return latestSynthesisRunForBoard(board, boardId);
 }
-
-function resumedSynthesisRunForBoard(board, boardId, pausedRunId) {
-  return [...(board?.synthesisRuns ?? [])]
-    .filter((run) => run.boardId === boardId && run.retryOfRunId === pausedRunId)
-    .sort((left, right) => String(right.startedAt).localeCompare(String(left.startedAt)))[0];
-}
-
-function proposalObservation(name, proposal, run) {
-  return {
-    name,
-    proposalId: proposal.id,
-    cardCount: proposal.cards.length,
-    questionCount: proposal.questions.length,
-    proofCardCount: proposal.cards.filter((card) => card.acceptanceCriteria.length > 0 && Object.values(card.testPlan).some((items) => items.length > 0)).length,
-    dependencyCardCount: proposal.cards.filter((card) => card.blockedBy.length > 0).length,
-    model: proposal.model,
-    durationMs: proposal.durationMs,
-    run: run
-      ? {
-          id: run.id,
-          status: run.status,
-          stage: run.stage,
-          sourceCount: run.sourceCount,
-          includedSourceCount: run.includedSourceCount,
-          sourceCharCount: run.sourceCharCount,
-          promptCharCount: run.promptCharCount,
-          responseCharCount: run.responseCharCount,
-          cardCount: run.cardCount,
-          questionCount: run.questionCount,
-          error: run.error,
-        }
-      : undefined,
-    questions: proposal.questions,
-    cards: proposal.cards.map((card) => ({
-      sourceId: card.sourceId,
-      title: card.title,
-      candidateStatus: card.candidateStatus,
-      priority: card.priority,
-      phase: card.phase,
-      blockedBy: card.blockedBy,
-      proofKinds: Object.entries(card.testPlan)
-        .filter(([, items]) => Array.isArray(items) && items.length > 0)
-        .map(([kind]) => kind),
-    })),
-  };
-}
-
 async function captureProjectBoardMapSmoke(cdp, board) {
   await clickButton(cdp, "Map");
   await waitFor(cdp, () => document.querySelector(".project-board-map-panel") !== null, "project board map panel", 10_000);
@@ -1368,8 +1297,14 @@ async function captureProjectBoardMapSmoke(cdp, board) {
       };
     })()`,
   );
-  assert(screenshotAnalysis.width >= 1200 && screenshotAnalysis.height >= 800, `Expected large map screenshot, got ${screenshotAnalysis.width}x${screenshotAnalysis.height}.`);
-  assert(screenshotAnalysis.nonBlackRatio > 0.5 && screenshotAnalysis.distinctColorCount > 24, `Expected readable nonblank map screenshot, got ${JSON.stringify(screenshotAnalysis)}.`);
+  assert(
+    screenshotAnalysis.width >= 1200 && screenshotAnalysis.height >= 800,
+    `Expected large map screenshot, got ${screenshotAnalysis.width}x${screenshotAnalysis.height}.`,
+  );
+  assert(
+    screenshotAnalysis.nonBlackRatio > 0.5 && screenshotAnalysis.distinctColorCount > 24,
+    `Expected readable nonblank map screenshot, got ${JSON.stringify(screenshotAnalysis)}.`,
+  );
   assert(dom.cardCount >= 3, `Expected at least three map cards from the first staged planning batch, got ${dom.cardCount}.`);
   assert(dom.criticalPath.length > 0, "Expected the map smoke to render critical path copy.");
   assert(dom.phaseHeaders.length > 0, "Expected the map smoke to render phase groups.");
@@ -1397,7 +1332,10 @@ async function runSemanticIdleSectionRecoveryDogfood(cdp, boardId) {
     board.cards.some((card) => card.sourceId === "synthesis:dogfood-foundation-shell"),
     "Expected the partial dogfood run to apply the preserved Foundation card.",
   );
-  assert((seededRun.questionCount ?? 0) >= 1, "Expected the partial dogfood run to preserve the stalled-section clarification question on the synthesis run.");
+  assert(
+    (seededRun.questionCount ?? 0) >= 1,
+    "Expected the partial dogfood run to preserve the stalled-section clarification question on the synthesis run.",
+  );
 
   await waitFor(cdp, () => document.body.innerText.includes("Retry Failed Sections"), "seeded semantic-idle ledger visible", 20_000);
   await clickButtonIn(cdp, ".project-board-tabs", "History");
@@ -1421,7 +1359,9 @@ async function runSemanticIdleSectionRecoveryDogfood(cdp, boardId) {
     cdp,
     () => {
       const text = document.body.innerText.toLowerCase();
-      return text.includes("stalled section 2/2") && text.includes("semantic_idle_timeout") && text.includes("dogfood/semantic-idle-combat.md");
+      return (
+        text.includes("stalled section 2/2") && text.includes("semantic_idle_timeout") && text.includes("dogfood/semantic-idle-combat.md")
+      );
     },
     "semantic-idle progressive record preview",
     20_000,
@@ -1512,7 +1452,12 @@ async function runPauseResumePlanningDogfood(cdp, boardId) {
   });
 
   await clickProjectBoardReviewTab(cdp);
-  await waitFor(cdp, () => [...document.querySelectorAll("button")].some((button) => button.textContent?.includes("Pause Planning") && !button.disabled), "PM Review Pause Planning button", 120_000);
+  await waitFor(
+    cdp,
+    () => [...document.querySelectorAll("button")].some((button) => button.textContent?.includes("Pause Planning") && !button.disabled),
+    "PM Review Pause Planning button",
+    120_000,
+  );
   const runningScreenshot = await captureDogfoodScreenshot(cdp, "pause-resume-01-running.png");
 
   const readyToPause = await waitForState(
@@ -1566,7 +1511,10 @@ async function runPauseResumePlanningDogfood(cdp, boardId) {
   const pausedCards = boardSynthesisCards(paused.board);
   const pausedDuplicates = duplicateTitleMetrics(pausedCards);
   assert(pausedCards.length > 0, "Expected at least one rendered card to be checkpointed before pausing.");
-  assert(pausedDuplicates.duplicateCardCount === 0, `Expected no duplicate rendered cards at pause, got ${JSON.stringify(pausedDuplicates.duplicateGroups)}.`);
+  assert(
+    pausedDuplicates.duplicateCardCount === 0,
+    `Expected no duplicate rendered cards at pause, got ${JSON.stringify(pausedDuplicates.duplicateGroups)}.`,
+  );
 
   await clickButton(cdp, "Resume Planning", 60_000);
   const resumedStart = await waitForState(
@@ -1587,7 +1535,11 @@ async function runPauseResumePlanningDogfood(cdp, boardId) {
   const requireTerminalResume = process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_PAUSE_RESUME_REQUIRE_TERMINAL === "1";
   const resumedProgress =
     requireTerminalResume && (resumedStart.run.status === "running" || resumedStart.run.status === "pause_requested")
-      ? { board: await currentBoard(cdp), run: await waitForTerminalSynthesisRun(cdp, boardId, resumedStart.run.id, "resumed PM Review synthesis"), terminal: true }
+      ? {
+          board: await currentBoard(cdp),
+          run: await waitForTerminalSynthesisRun(cdp, boardId, resumedStart.run.id, "resumed PM Review synthesis"),
+          terminal: true,
+        }
       : await waitForState(
           cdp,
           async () => {
@@ -1609,18 +1561,32 @@ async function runPauseResumePlanningDogfood(cdp, boardId) {
   board = resumedProgress.board;
   let resumedRun = resumedProgress.run;
   if (requireTerminalResume) {
-    assert(resumedRun.status === "succeeded", `Expected resumed synthesis to succeed, got ${resumedRun.status}: ${resumedRun.error ?? "no error"}`);
+    assert(
+      resumedRun.status === "succeeded",
+      `Expected resumed synthesis to succeed, got ${resumedRun.status}: ${resumedRun.error ?? "no error"}`,
+    );
   }
   const resumedCards = boardSynthesisCards(board);
   const newestResumedCard = resumedCards.find((card) => !pausedCards.some((pausedCard) => pausedCard.id === card.id));
   await clickButton(cdp, "Draft Inbox");
   if (newestResumedCard?.title) {
-    await waitFor(cdp, new Function(`return document.body.innerText.includes(${JSON.stringify(newestResumedCard.title)});`), "resumed card visible in Draft Inbox", 60_000);
+    await waitFor(
+      cdp,
+      new Function(`return document.body.innerText.includes(${JSON.stringify(newestResumedCard.title)});`),
+      "resumed card visible in Draft Inbox",
+      60_000,
+    );
   }
   const resumedScreenshot = await captureDogfoodScreenshot(cdp, "pause-resume-03-resumed-draft-inbox.png");
   const resumedDuplicates = duplicateTitleMetrics(resumedCards);
-  assert(resumedCards.length >= pausedCards.length, `Expected resumed card count ${resumedCards.length} to preserve paused card count ${pausedCards.length}.`);
-  assert(resumedDuplicates.duplicateCardCount === 0, `Expected no duplicate rendered cards after resume, got ${JSON.stringify(resumedDuplicates.duplicateGroups)}.`);
+  assert(
+    resumedCards.length >= pausedCards.length,
+    `Expected resumed card count ${resumedCards.length} to preserve paused card count ${pausedCards.length}.`,
+  );
+  assert(
+    resumedDuplicates.duplicateCardCount === 0,
+    `Expected no duplicate rendered cards after resume, got ${JSON.stringify(resumedDuplicates.duplicateGroups)}.`,
+  );
 
   let cleanupPause;
   if (!requireTerminalResume && (resumedRun.status === "running" || resumedRun.status === "pause_requested")) {
@@ -1700,7 +1666,9 @@ async function startPlanningAndWaitForFirstRenderedCardWithTransientRetries(cdp,
         runStatus: latest?.status,
         error: message.slice(0, 500),
       });
-      await evaluate(cdp, "window.__projectBoardDogfoodFinalizeError = null; window.__projectBoardDogfoodRefineError = null; true;").catch(() => undefined);
+      await evaluate(cdp, "window.__projectBoardDogfoodFinalizeError = null; window.__projectBoardDogfoodRefineError = null; true;").catch(
+        () => undefined,
+      );
       await delay(Number(process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_START_FRESH_TRANSIENT_RETRY_DELAY_MS || 30_000));
       startIntent = { shouldStartNewRun: true, previousRunId, inFlightRun: undefined };
     }
@@ -1745,7 +1713,9 @@ async function waitForFirstRenderedPlanningCard(cdp, boardId, runId, label) {
       }
     }
     if (Date.now() - lastActivityAt > idleTimeoutMs) {
-      throw new Error(`Timed out waiting for ${label}; no synthesis activity was observed for ${idleTimeoutMs.toLocaleString()}ms (${lastRunSummary}).`);
+      throw new Error(
+        `Timed out waiting for ${label}; no synthesis activity was observed for ${idleTimeoutMs.toLocaleString()}ms (${lastRunSummary}).`,
+      );
     }
     await delay(1000);
   }
@@ -1773,7 +1743,12 @@ async function runStartFreshPlanningDogfood(cdp, boardId) {
   });
 
   await clickProjectBoardReviewTab(cdp);
-  await waitFor(cdp, () => [...document.querySelectorAll("button")].some((button) => button.textContent?.includes("Pause Planning") && !button.disabled), "PM Review Pause Planning button", 120_000);
+  await waitFor(
+    cdp,
+    () => [...document.querySelectorAll("button")].some((button) => button.textContent?.includes("Pause Planning") && !button.disabled),
+    "PM Review Pause Planning button",
+    120_000,
+  );
   const runningScreenshot = await captureDogfoodScreenshot(cdp, "start-fresh-01-running.png");
 
   await clickButton(cdp, "Pause Planning", 60_000);
@@ -1857,12 +1832,21 @@ async function runStartFreshPlanningDogfood(cdp, boardId) {
   const loadedPreviousRecords = synthesisRunLoadedPreviousRecords(freshRun);
   assert(!loadedPreviousRecords, "Expected Start Fresh run not to load previous progressive records.");
   assert(freshCards.length > 0, "Expected Start Fresh run to render fresh Draft Inbox cards.");
-  assert(freshDuplicates.duplicateCardCount === 0, `Expected no duplicate rendered cards after Start Fresh, got ${JSON.stringify(freshDuplicates.duplicateGroups)}.`);
+  assert(
+    freshDuplicates.duplicateCardCount === 0,
+    `Expected no duplicate rendered cards after Start Fresh, got ${JSON.stringify(freshDuplicates.duplicateGroups)}.`,
+  );
 
-  const newestFreshCard = freshCards.find((card) => !abandonedCheckpointCards.some((checkpointCard) => checkpointCard.id === card.id)) ?? freshCards[0];
+  const newestFreshCard =
+    freshCards.find((card) => !abandonedCheckpointCards.some((checkpointCard) => checkpointCard.id === card.id)) ?? freshCards[0];
   await clickButton(cdp, "Draft Inbox");
   if (newestFreshCard?.title) {
-    await waitFor(cdp, new Function(`return document.body.innerText.includes(${JSON.stringify(newestFreshCard.title)});`), "Start Fresh card visible in Draft Inbox", 60_000);
+    await waitFor(
+      cdp,
+      new Function(`return document.body.innerText.includes(${JSON.stringify(newestFreshCard.title)});`),
+      "Start Fresh card visible in Draft Inbox",
+      60_000,
+    );
   }
   const freshScreenshot = await captureDogfoodScreenshot(cdp, "start-fresh-03-fresh-draft-inbox.png");
   await clickButtonIn(cdp, ".project-board-tabs", "History");
@@ -1923,7 +1907,10 @@ async function runStartFreshPlanningDogfood(cdp, boardId) {
   const abandonedSourceIds = new Set(abandonedCheckpointCards.map((card) => card.sourceId));
   const overlappingCardIdCount = freshCards.filter((card) => abandonedCardIds.has(card.id)).length;
   const overlappingSourceIdCount = freshCards.filter((card) => abandonedSourceIds.has(card.sourceId)).length;
-  assert(overlappingCardIdCount === 0, `Expected Start Fresh cards to get new card ids, got ${overlappingCardIdCount} overlapping card id(s).`);
+  assert(
+    overlappingCardIdCount === 0,
+    `Expected Start Fresh cards to get new card ids, got ${overlappingCardIdCount} overlapping card id(s).`,
+  );
   assert(
     overlappingSourceIdCount === 0,
     `Expected Start Fresh cards to use a fresh source-id namespace, got ${overlappingSourceIdCount} overlapping source id(s).`,
@@ -1984,8 +1971,14 @@ async function runPmReviewActivationDogfood(cdp, boardId) {
   let reportProposal = reviewResult.proposal;
   assert(reviewStarted.run?.id, "Expected focused PM Review dogfood to start a lightweight charter-review run.");
   assert(reportProposal.reviewReport, "Expected lightweight PM Review proposal to include a typed reviewReport.");
-  assert(reportProposal.cards.length === 0, `Expected lightweight PM Review report to generate zero proposal cards, got ${reportProposal.cards.length}.`);
-  assert(reportProposal.reviewReport.sourceConfidence !== "unknown", "Expected live PM Review report to include non-unknown source confidence.");
+  assert(
+    reportProposal.cards.length === 0,
+    `Expected lightweight PM Review report to generate zero proposal cards, got ${reportProposal.cards.length}.`,
+  );
+  assert(
+    reportProposal.reviewReport.sourceConfidence !== "unknown",
+    "Expected live PM Review report to include non-unknown source confidence.",
+  );
   assert(reportProposal.reviewReport.gitState !== "unknown", "Expected live PM Review report to include a concrete Git state.");
   const initialReviewQuestionCount = reportProposal.questions.length;
 
@@ -2032,7 +2025,10 @@ async function runPmReviewActivationDogfood(cdp, boardId) {
     await clickProjectBoardReviewTab(cdp);
     await waitFor(
       cdp,
-      () => [...document.querySelectorAll("button")].some((button) => button.textContent?.includes("Update Charter Review") && !button.disabled),
+      () =>
+        [...document.querySelectorAll("button")].some(
+          (button) => button.textContent?.includes("Update Charter Review") && !button.disabled,
+        ),
       "Update Charter Review button after answering PM Review questions",
       60_000,
     );
@@ -2051,14 +2047,18 @@ async function runPmReviewActivationDogfood(cdp, boardId) {
     updateStarted = updateResult.started;
     updatedProposal = updateResult.proposal;
     assert(updatedProposal.reviewReport, "Expected updated lightweight PM Review proposal to include a typed reviewReport.");
-    assert(updatedProposal.cards.length === 0, `Expected updated lightweight PM Review report to keep zero proposal cards, got ${updatedProposal.cards.length}.`);
+    assert(
+      updatedProposal.cards.length === 0,
+      `Expected updated lightweight PM Review report to keep zero proposal cards, got ${updatedProposal.cards.length}.`,
+    );
     reportProposal = updatedProposal;
   }
 
   await clickProjectBoardReviewTab(cdp);
   await waitFor(
     cdp,
-    () => [...document.querySelectorAll("button")].some((button) => button.textContent?.includes("Generate Draft Board") && !button.disabled),
+    () =>
+      [...document.querySelectorAll("button")].some((button) => button.textContent?.includes("Generate Draft Board") && !button.disabled),
     "Generate Draft Board button",
     60_000,
   );
@@ -2080,7 +2080,12 @@ async function runPmReviewActivationDogfood(cdp, boardId) {
   );
   const beforeActivationRunId = latestRunForBoard(await currentBoard(cdp), boardId)?.id;
   await clickButton(cdp, "Generate Draft Board", 60_000);
-  const activationStarted = await waitForPlanningRunStart(cdp, boardId, beforeActivationRunId, "PM Review activation board-synthesis start");
+  const activationStarted = await waitForPlanningRunStart(
+    cdp,
+    boardId,
+    beforeActivationRunId,
+    "PM Review activation board-synthesis start",
+  );
   assert(activationStarted.run?.id, "Expected Generate Draft Board to start a board-synthesis run.");
 
   const activationProgress = await waitForState(
@@ -2105,9 +2110,15 @@ async function runPmReviewActivationDogfood(cdp, boardId) {
   const activationSurface = "draft_inbox";
   const generatedCards = activationProgress.cards;
   assert(generatedCards.length > 0, "Expected PM Review activation to render at least one generated Draft Inbox card.");
-  assert(activationProgress.proposal?.status === "applied", "Expected PM Review activation proposal to be applied after Draft Inbox materialization.");
+  assert(
+    activationProgress.proposal?.status === "applied",
+    "Expected PM Review activation proposal to be applied after Draft Inbox materialization.",
+  );
   const duplicateMetrics = duplicateTitleMetrics(generatedCards);
-  assert(duplicateMetrics.duplicateCardCount === 0, `Expected PM Review activation to avoid duplicate Draft Inbox cards, got ${JSON.stringify(duplicateMetrics.duplicateGroups)}.`);
+  assert(
+    duplicateMetrics.duplicateCardCount === 0,
+    `Expected PM Review activation to avoid duplicate Draft Inbox cards, got ${JSON.stringify(duplicateMetrics.duplicateGroups)}.`,
+  );
 
   const newestCard = generatedCards[0];
   await clickButton(cdp, "Draft Inbox");
@@ -2201,8 +2212,19 @@ async function startPmReviewRefinementWithTransientRetries(
     try {
       if (!skipStart) await startRefinement(cdp, boardId, proposalId, mode);
       skipStart = false;
-      const started = await waitForPlanningRunStart(cdp, boardId, lastRunId, `${startLabel}${attempt > 1 ? ` retry ${attempt}` : ""}`, startTimeoutMs);
-      const proposal = await waitForLatestPendingProposal(cdp, boardId, previousProposalId, `${proposalLabel}${attempt > 1 ? ` retry ${attempt}` : ""}`);
+      const started = await waitForPlanningRunStart(
+        cdp,
+        boardId,
+        lastRunId,
+        `${startLabel}${attempt > 1 ? ` retry ${attempt}` : ""}`,
+        startTimeoutMs,
+      );
+      const proposal = await waitForLatestPendingProposal(
+        cdp,
+        boardId,
+        previousProposalId,
+        `${proposalLabel}${attempt > 1 ? ` retry ${attempt}` : ""}`,
+      );
       return { started, proposal };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -2278,7 +2300,8 @@ async function runSourceClassificationUiDogfood(cdp, boardId) {
     async () => {
       const next = await currentBoard(cdp);
       const source = sourceForStableKey(next, target);
-      if (projectBoardSourceKind(source) === "ignored" && source.classifiedBy === "user" && source.includeInSynthesis === false) return { board: next, source };
+      if (projectBoardSourceKind(source) === "ignored" && source.classifiedBy === "user" && source.includeInSynthesis === false)
+        return { board: next, source };
       return undefined;
     },
     "refresh preserving ignored user classification",
@@ -2291,8 +2314,9 @@ async function runSourceClassificationUiDogfood(cdp, boardId) {
     () =>
       [...document.querySelectorAll("button")]
         .filter((button) => button.textContent?.includes("Refresh Sources"))
-        .some((button) => /Ignored sources stay visible|User source classifications are preserved/.test(button.getAttribute("title") || "")) ||
-      /User reclassified source|Refresh preserves user classifications/.test(document.body.innerText || ""),
+        .some((button) =>
+          /Ignored sources stay visible|User source classifications are preserved/.test(button.getAttribute("title") || ""),
+        ) || /User reclassified source|Refresh preserves user classifications/.test(document.body.innerText || ""),
     "refresh preservation copy after ignored-source refresh",
     30_000,
   );
@@ -2347,10 +2371,13 @@ async function runSourceClassificationUiDogfood(cdp, boardId) {
     ignoredIncludeInSynthesis: ignoredState.source.includeInSynthesis,
     ignoredVisibleInReview: ignoredUi.sourceReviewVisible,
     ignoredFilterVisible: ignoredUi.ignoredFilterVisible,
-    ignoredDetailExplainsExclusion: ignoredUi.detailText.includes("Visible in source inventory") || ignoredUi.detailText.includes("Ignored for synthesis"),
+    ignoredDetailExplainsExclusion:
+      ignoredUi.detailText.includes("Visible in source inventory") || ignoredUi.detailText.includes("Ignored for synthesis"),
     ignoredElaborateDisabled: ignoredUi.detailElaborateDisabled,
     refreshPreservedIgnored:
-      projectBoardSourceKind(refreshedState.source) === "ignored" && refreshedState.source.classifiedBy === "user" && refreshedState.source.includeInSynthesis === false,
+      projectBoardSourceKind(refreshedState.source) === "ignored" &&
+      refreshedState.source.classifiedBy === "user" &&
+      refreshedState.source.includeInSynthesis === false,
     refreshTitleIncludesPreservation: refreshedUi.refreshTitleIncludesPreservation || refreshedUi.refreshCopyIncludesPreservation,
     refreshCopyIncludesPreservation: refreshedUi.refreshCopyIncludesPreservation,
     reclassifiedKind: projectBoardSourceKind(includedState.source),
@@ -2376,7 +2403,8 @@ async function runPmReviewGeneratedCardWorkDogfood(cdp, boardId, generatedCards)
   let board = await currentBoard(cdp);
   const generatedCardIds = new Set(generatedCards.map((card) => card.id));
   const generatedDraftCards = board.cards.filter(
-    (card) => generatedCardIds.has(card.id) || (card.sourceKind === "board_synthesis" && card.status === "draft" && !card.orchestrationTaskId),
+    (card) =>
+      generatedCardIds.has(card.id) || (card.sourceKind === "board_synthesis" && card.status === "draft" && !card.orchestrationTaskId),
   );
   const selected = selectDogfoodExecutionCard(generatedDraftCards);
   assert(selected, "Expected a generated PM Review Draft Inbox card suitable for ticketization.");
@@ -2388,9 +2416,15 @@ async function runPmReviewGeneratedCardWorkDogfood(cdp, boardId, generatedCards)
   assert(ticketized?.orchestrationTaskId, "Expected generated PM Review Draft Inbox card to ticketize into a Local Task.");
 
   await invokeDetached(cdp, "prepareNextOrchestrationTasks", undefined, "__projectBoardDogfoodPrepareError");
-  const { board: orchestrationAfterPrepare, run: preparedRun } = await waitForPreparedOrStartedRun(cdp, ticketized.orchestrationTaskId, ticketized.title);
+  const { board: orchestrationAfterPrepare, run: preparedRun } = await waitForPreparedOrStartedRun(
+    cdp,
+    ticketized.orchestrationTaskId,
+    ticketized.title,
+  );
   preparedWorkspacePath = preparedRun.workspacePath;
-  preparedWorkspaceSnapshot = preparedWorkspacePath ? await snapshotHarnessWorkspace(preparedWorkspacePath).catch(() => undefined) : undefined;
+  preparedWorkspaceSnapshot = preparedWorkspacePath
+    ? await snapshotHarnessWorkspace(preparedWorkspacePath).catch(() => undefined)
+    : undefined;
   const step = {
     name: "pm-review-generated-card-work",
     boardId,
@@ -2434,13 +2468,19 @@ async function runPmReviewGeneratedCardWorkDogfood(cdp, boardId, generatedCards)
   }
   assert(meaningfulChangedPaths.length > 0, "Expected generated PM Review card execution to include meaningful workspace changes.");
   assert(reviewedCard?.proofReview, "Expected generated PM Review card execution to record a PM proof review.");
-  assert(reviewedCard.proofReview.reviewer === "ambient_pi", `Expected live Ambient/Pi proof review, got ${reviewedCard.proofReview.reviewer ?? "missing reviewer"}.`);
+  assert(
+    reviewedCard.proofReview.reviewer === "ambient_pi",
+    `Expected live Ambient/Pi proof review, got ${reviewedCard.proofReview.reviewer ?? "missing reviewer"}.`,
+  );
   if (visualProofRequired && !visualProofArtifacts.some(isReadableVisualProofArtifact)) {
     const proofReviewKeptOpen =
       reviewedCard.proofReview.status !== "done" &&
       reviewedCard.proofReview.recommendedAction !== "close" &&
       reviewedCard.proofReview.recommendedAction !== undefined;
-    assert(proofReviewKeptOpen, "Expected generated visual-proof card execution to create a readable visual proof artifact or stay open in PM proof review.");
+    assert(
+      proofReviewKeptOpen,
+      "Expected generated visual-proof card execution to create a readable visual proof artifact or stay open in PM proof review.",
+    );
   }
 
   return {
@@ -2467,14 +2507,6 @@ async function runPmReviewGeneratedCardWorkDogfood(cdp, boardId, generatedCards)
     })),
   };
 }
-
-function synthesisRunLoadedPreviousRecords(run) {
-  return (run?.events ?? []).some((event) => {
-    const text = `${event?.title ?? ""}\n${event?.summary ?? ""}`;
-    return /Loaded previous section records|Loaded planner-batch continuation checkpoint/i.test(text);
-  });
-}
-
 async function pauseRunningSynthesisFromUi(cdp, boardId, runId) {
   await clickProjectBoardReviewTab(cdp);
   await clickButton(cdp, "Pause Planning", 30_000).catch((error) => {
@@ -2505,71 +2537,6 @@ async function pauseRunningSynthesisFromUi(cdp, boardId, runId) {
     progressiveRecordCount: progressiveRecordCount(paused.run),
   };
 }
-
-async function captureDogfoodScreenshot(cdp, filename) {
-  const screenshotDir = join(runRoot, "screenshots");
-  await mkdir(screenshotDir, { recursive: true });
-  const screenshotPath = join(screenshotDir, filename);
-  const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
-  await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
-  const screenshotAnalysis = analyzePng(await readFile(screenshotPath));
-  assert(screenshotAnalysis.width >= 1200 && screenshotAnalysis.height >= 800, `Expected large screenshot, got ${screenshotAnalysis.width}x${screenshotAnalysis.height}.`);
-  assert(screenshotAnalysis.nonBlackRatio > 0.5 && screenshotAnalysis.distinctColorCount > 16, `Expected readable nonblank screenshot, got ${JSON.stringify(screenshotAnalysis)}.`);
-  return {
-    path: screenshotPath.replace(`${runRoot}/`, ""),
-    ...screenshotAnalysis,
-  };
-}
-
-function boardSynthesisCards(board) {
-  return (board?.cards ?? []).filter((card) => card?.sourceKind === "board_synthesis" || card?.sourceKind === "project_board_synthesis");
-}
-
-function duplicateTitleMetrics(cards) {
-  const groups = new Map();
-  for (const card of cards.filter((candidate) => candidate.status !== "archived" && candidate.candidateStatus !== "duplicate")) {
-    const key = normalizeCardTitle(card.title);
-    if (!key) continue;
-    const group = groups.get(key) ?? [];
-    group.push({
-      id: card.id,
-      title: card.title,
-      status: card.status,
-      candidateStatus: card.candidateStatus,
-    });
-    groups.set(key, group);
-  }
-  const duplicateGroups = [...groups.values()].filter((group) => group.length > 1);
-  const duplicateCardCount = duplicateGroups.reduce((sum, group) => sum + group.length - 1, 0);
-  const totalCardCount = cards.length;
-  return {
-    totalCardCount,
-    duplicateCardCount,
-    duplicateGroupCount: duplicateGroups.length,
-    duplicateCardRate: totalCardCount ? Number((duplicateCardCount / totalCardCount).toFixed(4)) : 0,
-    duplicateGroups: duplicateGroups.slice(0, 10),
-  };
-}
-
-function normalizeCardTitle(title) {
-  return String(title ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function selectDogfoodExecutionCard(cards) {
-  const draftCards = cards.filter((card) => card.status === "draft" && !card.orchestrationTaskId && hasProof(card));
-  const unblocked = draftCards.filter((card) => card.blockedBy.length === 0);
-  const candidates = unblocked.length ? unblocked : draftCards;
-  const preferred = candidates.find((card) => /proof|test|verification|app shell|canvas|nonblank|non-blank/i.test(`${card.title}\n${card.description}`));
-  return preferred ?? candidates[0];
-}
-
-function hasProof(card) {
-  return card.acceptanceCriteria.length > 0 && Object.values(card.testPlan).some((items) => Array.isArray(items) && items.length > 0);
-}
-
 async function createRuntimeSplitManualCard(cdp, boardId) {
   const before = await currentBoard(cdp);
   const beforeIds = new Set(before.cards.map((card) => card.id));
@@ -2664,629 +2631,14 @@ async function forceProjectBoardRuntimeBudget(boardId, maxRuntimeMsPerCard) {
   );
   return { charterId: row.charterId, budgetPolicy };
 }
-
-function parseJsonObject(value, fallback) {
-  if (typeof value !== "string" || !value.trim()) return fallback;
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-async function collectVisualProofArtifacts(roots) {
-  const rootList = Array.isArray(roots) ? roots : [roots];
-  const fileMap = new Map();
-  for (const root of rootList.filter(Boolean)) {
-    const screenshotRoot = join(root, ".ambient-codex", "browser", "screenshots");
-    for (const file of await listPngFiles(screenshotRoot)) {
-      fileMap.set(file.path, { ...file, root });
-    }
-  }
-  const files = [...fileMap.values()];
-  const artifacts = [];
-  for (const file of files) {
-    try {
-      artifacts.push({ path: file.path, mtimeMs: file.mtimeMs, ...analyzePng(await readFile(file.path)) });
-    } catch (error) {
-      artifacts.push({
-        path: file.path,
-        mtimeMs: file.mtimeMs,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-  return artifacts
-    .sort((left, right) => right.mtimeMs - left.mtimeMs)
-    .slice(0, 5)
-    .map(({ mtimeMs, ...artifact }) => {
-      const matchingRoot = rootList.find((root) => artifact.path.startsWith(`${root}/`));
-      return { ...artifact, path: matchingRoot ? artifact.path.replace(`${matchingRoot}/`, "") : artifact.path };
-    });
-}
-
-async function listPngFiles(root) {
-  if (!existsSync(root)) return [];
-  const files = [];
-  const entries = await readdir(root, { withFileTypes: true });
-  for (const entry of entries) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await listPngFiles(path)));
-      continue;
-    }
-    if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".png")) continue;
-    const info = await stat(path);
-    files.push({ path, mtimeMs: info.mtimeMs });
-  }
-  return files;
-}
-
-function analyzePng(buffer) {
-  const signature = "89504e470d0a1a0a";
-  if (buffer.subarray(0, 8).toString("hex") !== signature) throw new Error("Not a PNG file.");
-  let offset = 8;
-  let width;
-  let height;
-  let bitDepth;
-  let colorType;
-  const idatChunks = [];
-  while (offset < buffer.length) {
-    const length = buffer.readUInt32BE(offset);
-    const type = buffer.subarray(offset + 4, offset + 8).toString("ascii");
-    const dataStart = offset + 8;
-    const dataEnd = dataStart + length;
-    const data = buffer.subarray(dataStart, dataEnd);
-    if (type === "IHDR") {
-      width = data.readUInt32BE(0);
-      height = data.readUInt32BE(4);
-      bitDepth = data[8];
-      colorType = data[9];
-    } else if (type === "IDAT") {
-      idatChunks.push(data);
-    } else if (type === "IEND") {
-      break;
-    }
-    offset = dataEnd + 4;
-  }
-  if (!width || !height) throw new Error("PNG missing IHDR dimensions.");
-  if (bitDepth !== 8 || ![2, 6].includes(colorType)) {
-    throw new Error(`Unsupported PNG format: bitDepth=${bitDepth}, colorType=${colorType}.`);
-  }
-
-  const bytesPerPixel = colorType === 6 ? 4 : 3;
-  const rowStride = width * bytesPerPixel;
-  const raw = inflateSync(Buffer.concat(idatChunks));
-  let rawOffset = 0;
-  let previousRow = Buffer.alloc(rowStride);
-  let nonBlackPixels = 0;
-  const distinctColors = new Set();
-  for (let y = 0; y < height; y += 1) {
-    const filter = raw[rawOffset];
-    rawOffset += 1;
-    const row = Buffer.from(raw.subarray(rawOffset, rawOffset + rowStride));
-    rawOffset += rowStride;
-    unfilterPngRow(row, previousRow, bytesPerPixel, filter);
-    for (let x = 0; x < rowStride; x += bytesPerPixel) {
-      const red = row[x];
-      const green = row[x + 1];
-      const blue = row[x + 2];
-      const alpha = bytesPerPixel === 4 ? row[x + 3] : 255;
-      if (alpha > 0 && (red > 8 || green > 8 || blue > 8)) nonBlackPixels += 1;
-      if (distinctColors.size < 128) distinctColors.add(`${red},${green},${blue},${alpha}`);
-    }
-    previousRow = row;
-  }
-  const totalPixels = width * height;
-  return {
-    width,
-    height,
-    colorType,
-    totalPixels,
-    nonBlackPixels,
-    nonBlackRatio: Number((nonBlackPixels / totalPixels).toFixed(6)),
-    distinctColorCount: distinctColors.size,
-  };
-}
-
-function unfilterPngRow(row, previousRow, bytesPerPixel, filter) {
-  for (let index = 0; index < row.length; index += 1) {
-    const left = index >= bytesPerPixel ? row[index - bytesPerPixel] : 0;
-    const up = previousRow[index] ?? 0;
-    const upLeft = index >= bytesPerPixel ? previousRow[index - bytesPerPixel] : 0;
-    if (filter === 0) {
-      continue;
-    } else if (filter === 1) {
-      row[index] = (row[index] + left) & 0xff;
-    } else if (filter === 2) {
-      row[index] = (row[index] + up) & 0xff;
-    } else if (filter === 3) {
-      row[index] = (row[index] + Math.floor((left + up) / 2)) & 0xff;
-    } else if (filter === 4) {
-      row[index] = (row[index] + paethPredictor(left, up, upLeft)) & 0xff;
-    } else {
-      throw new Error(`Unsupported PNG row filter: ${filter}.`);
-    }
-  }
-}
-
-function paethPredictor(left, up, upLeft) {
-  const estimate = left + up - upLeft;
-  const leftDistance = Math.abs(estimate - left);
-  const upDistance = Math.abs(estimate - up);
-  const upLeftDistance = Math.abs(estimate - upLeft);
-  if (leftDistance <= upDistance && leftDistance <= upLeftDistance) return left;
-  if (upDistance <= upLeftDistance) return up;
-  return upLeft;
-}
-
-function meaningfulProofChangedPaths(proof) {
-  if (!proof || typeof proof !== "object") return [];
-  const paths = [];
-  const push = (value) => {
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (trimmed) paths.push(trimmed.replace(/^[MADRCU?! ]+\s+/, ""));
-      return;
-    }
-    if (!value || typeof value !== "object" || Array.isArray(value)) return;
-    if (typeof value.path === "string") paths.push(value.path.trim());
-    else if (typeof value.file === "string") paths.push(value.file.trim());
-  };
-  if (Array.isArray(proof.changedFiles)) proof.changedFiles.forEach(push);
-  if (Array.isArray(proof.gitStatus)) proof.gitStatus.forEach(push);
-  if (typeof proof.diff === "string") {
-    for (const match of proof.diff.matchAll(/^diff --git a\/(.+?) b\/(.+)$/gm)) {
-      paths.push(match[1], match[2]);
-    }
-  }
-  return [...new Set(paths.filter(isMeaningfulChangedPath))];
-}
-
-async function gitStatusForWorkspace(workspacePath) {
-  const { stdout } = await runCommand("git", ["status", "--short"], workspacePath);
-  return stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function meaningfulPathsFromGitStatus(lines) {
-  return [...new Set(lines.map((line) => line.replace(/^[MADRCU?! ]+\s+/, "")).filter(isMeaningfulChangedPath))];
-}
-
-function isMeaningfulChangedPath(path) {
-  const normalized = path.replace(/\\/g, "/").replace(/^"+|"+$/g, "").replace(/^\.\/+/, "");
-  if (!normalized) return false;
-  if (normalized.includes("/node_modules/") || normalized.startsWith("node_modules/")) return false;
-  if (normalized.includes("/.git/") || normalized.startsWith(".git/")) return false;
-  if (normalized.includes("/.ambient/") || normalized.startsWith(".ambient/")) return false;
-  if (normalized.includes("/.ambient-codex/") || normalized.startsWith(".ambient-codex/")) return false;
-  if (normalized.includes("/.vite/") || normalized.startsWith(".vite/")) return false;
-  if (/(^|\/)\.DS_Store$/.test(normalized)) return false;
-  return true;
-}
-
-function answerForSpaceshipQuestion(question) {
-  const normalized = question.toLowerCase();
-  if (/\b(arcade|inertia|thrust|control)\b/.test(normalized)) {
-    return "Use arcade keyboard controls for the MVP. Defer inertia-based thrust and touch support to later cards.";
-  }
-  if (/\b(wave|endless|spawn|pacing)\b/.test(normalized)) {
-    return "Use discrete deterministic waves for MVP proof. Endless spawning can be a later tuning card.";
-  }
-  if (/\b(score|scoring|survival)\b/.test(normalized)) {
-    return "Use survival time plus enemies destroyed for the first score model; skip multipliers and cargo-delivery scoring for now.";
-  }
-  if (/\b(collision|bounds|radius|hit)\b/.test(normalized)) {
-    return "Use simple circle bounds for ship, hazards, enemies, and shots in the MVP.";
-  }
-  if (/\b(visual|asset|ship|primitive|vector|screenshot)\b/.test(normalized)) {
-    return "Use primitive or vector-style geometry first, with a nonblank canvas screenshot/manual proof requirement.";
-  }
-  return "For the MVP, choose the smallest reversible option that produces a playable vertical slice with clear proof.";
-}
-
-async function invoke(cdp, method, input) {
-  const args = input === undefined ? "()" : `(${JSON.stringify(input)})`;
-  return evaluate(cdp, `window.ambientDesktop.${method}${args}`);
-}
-
-async function invokeDetached(cdp, method, input, errorSlot) {
-  const args = input === undefined ? "()" : `(${JSON.stringify(input)})`;
-  const slot = JSON.stringify(errorSlot);
-  return evaluate(
-    cdp,
-    [
-      `window[${slot}] = null;`,
-      `Promise.resolve(window.ambientDesktop.${method}${args}).catch((error) => {`,
-      `window[${slot}] = String(error && error.message ? error.message : error);`,
-      "});",
-      "true;",
-    ].join(""),
-  );
-}
-
-async function clickButton(cdp, label, timeoutMs = 15_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const clicked = await evaluate(
-      cdp,
-      `(() => {
-        const label = ${JSON.stringify(label)}.toLowerCase();
-        const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.toLowerCase().includes(label) && !item.disabled);
-        if (!button) return false;
-        button.click();
-        return true;
-      })()`,
-    );
-    if (clicked) return;
-    await delay(250);
-  }
-  const buttons = await evaluate(
-    cdp,
-    `[...document.querySelectorAll("button")].map((item) => item.textContent?.replace(/\\s+/g, " ").trim()).filter(Boolean).slice(0, 30)`,
-  ).catch(() => []);
-  throw new Error(`Could not find button: ${label}. Buttons: ${buttons.join(" | ")}`);
-}
-
-async function openProjectBoardSetup(cdp) {
-  const alreadyOpen = await evaluate(cdp, `Boolean(document.querySelector(".project-board-workspace"))`);
-  if (alreadyOpen) return;
-  await clickButton(cdp, "Project Board");
-  await waitFor(cdp, () => Boolean(document.querySelector(".project-board-workspace")), "project board setup opened");
-}
-
-async function clickProjectBoardReviewTab(cdp, timeoutMs = 15_000) {
-  const labels = ["PM Review", "Decisions"];
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    for (const label of labels) {
-      const clicked = await evaluate(
-        cdp,
-        `(() => {
-          const label = ${JSON.stringify(label)}.toLowerCase();
-          const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.toLowerCase().includes(label) && !item.disabled);
-          if (!button) return false;
-          button.click();
-          return true;
-        })()`,
-      );
-      if (clicked) return;
-    }
-    await delay(250);
-  }
-  const buttons = await evaluate(
-    cdp,
-    `[...document.querySelectorAll("button")].map((item) => item.textContent?.replace(/\\s+/g, " ").trim()).filter(Boolean).slice(0, 30)`,
-  ).catch(() => []);
-  throw new Error(`Could not find project board review tab (${labels.join(" / ")}). Buttons: ${buttons.join(" | ")}`);
-}
-
-async function clickButtonIn(cdp, selector, label, timeoutMs = 15_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const clicked = await evaluate(
-      cdp,
-      `(() => {
-        const root = document.querySelector(${JSON.stringify(selector)});
-        if (!root) return false;
-        const label = ${JSON.stringify(label)}.toLowerCase();
-        const button = [...root.querySelectorAll("button")].find((item) => item.textContent?.toLowerCase().includes(label) && !item.disabled);
-        if (!button) return false;
-        button.click();
-        return true;
-      })()`,
-    );
-    if (clicked) return;
-    await delay(250);
-  }
-  const buttons = await evaluate(
-    cdp,
-    `(() => {
-      const root = document.querySelector(${JSON.stringify(selector)});
-      return root ? [...root.querySelectorAll("button")].map((item) => item.textContent?.replace(/\\s+/g, " ").trim()).filter(Boolean).slice(0, 30) : [];
-    })()`,
-  ).catch(() => []);
-  throw new Error(`Could not find button ${label} inside ${selector}. Buttons: ${buttons.join(" | ")}`);
-}
-
-async function selectSourceInReview(cdp, sourceKeys, timeoutMs = 15_000) {
-  const keys = Array.isArray(sourceKeys) ? sourceKeys : [sourceKeys];
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const selected = await evaluate(
-      cdp,
-      `(() => {
-        const keys = ${JSON.stringify(keys)};
-        const review = document.querySelector(".project-board-source-review");
-        if (!review) return false;
-        const article = [...review.querySelectorAll(".project-board-source-item")].find((item) => keys.some((key) => item.innerText.includes(key)));
-        if (!article) return false;
-        article.click();
-        return true;
-      })()`,
-    );
-    if (selected) return;
-    await delay(250);
-  }
-  const sources = await evaluate(
-    cdp,
-    `(() => {
-      const review = document.querySelector(".project-board-source-review");
-      return review ? [...review.querySelectorAll(".project-board-source-item")].map((item) => item.innerText.replace(/\\s+/g, " ").trim()).slice(0, 12) : [];
-    })()`,
-  ).catch(() => []);
-  throw new Error(`Could not select source ${keys.join(" / ")}. Source Review items: ${sources.join(" | ")}`);
-}
-
-async function setSourceKindFromUi(cdp, sourceKeys, kind, timeoutMs = 15_000) {
-  const keys = Array.isArray(sourceKeys) ? sourceKeys : [sourceKeys];
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const updated = await evaluate(
-      cdp,
-      `(() => {
-        const keys = ${JSON.stringify(keys)};
-        const kind = ${JSON.stringify(kind)};
-        const review = document.querySelector(".project-board-source-review");
-        if (!review) return false;
-        const article = [...review.querySelectorAll(".project-board-source-item")].find((item) => keys.some((key) => item.innerText.includes(key)));
-        const select = article?.querySelector("select");
-        if (!select) return false;
-        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
-        if (setter) setter.call(select, kind);
-        else select.value = kind;
-        select.dispatchEvent(new Event("input", { bubbles: true }));
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-        article.click();
-        return true;
-      })()`,
-    );
-    if (updated) return;
-    await delay(250);
-  }
-  throw new Error(`Could not reclassify source ${keys.join(" / ")} to ${kind} from Source Review UI.`);
-}
-
-async function readSourceClassificationUiState(cdp, sourceKeys) {
-  const keys = Array.isArray(sourceKeys) ? sourceKeys : [sourceKeys];
-  return evaluate(
-    cdp,
-    `(() => {
-      const keys = ${JSON.stringify(keys)};
-      const review = document.querySelector(".project-board-source-review");
-      const article = review ? [...review.querySelectorAll(".project-board-source-item")].find((item) => keys.some((key) => item.innerText.includes(key))) : null;
-      const detail = document.querySelector(".project-board-source-detail");
-      const refreshButtons = [...document.querySelectorAll("button")].filter((button) => button.textContent?.includes("Refresh Sources"));
-      const detailElaborate = detail ? [...detail.querySelectorAll("button")].find((button) => button.textContent?.includes("Elaborate Cards")) : null;
-      const refreshTitle = refreshButtons.map((button) => button.getAttribute("title") || "").find(Boolean) || "";
-      const refreshTitleIncludesPreservation = refreshButtons.some((button) =>
-        /Ignored sources stay visible|User source classifications are preserved/.test(button.getAttribute("title") || "")
-      );
-      const detailText = detail?.innerText ?? "";
-      return {
-        sourceReviewVisible: Boolean(article),
-        itemText: article?.innerText ?? "",
-        detailText,
-        selectValue: article?.querySelector("select")?.value ?? null,
-        ignoredFilterVisible: Boolean(
-          review && [...review.querySelectorAll("button")].some((button) => /Ignored:\\s*[1-9]/.test(button.textContent || ""))
-        ),
-        refreshTitle,
-        refreshTitleIncludesPreservation,
-        refreshCopyIncludesPreservation:
-          refreshTitleIncludesPreservation ||
-          /User reclassified source|Refresh preserves user classifications|Ignored sources stay visible/.test(detailText),
-        detailElaborateDisabled: detailElaborate ? detailElaborate.disabled === true : null,
-      };
-    })()`,
-  );
-}
-
-async function fillInput(cdp, selector, value) {
-  const filled = await evaluate(
-    cdp,
-    `(() => {
-      const input = document.querySelector(${JSON.stringify(selector)});
-      if (!input) return false;
-      input.focus();
-      const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value")?.set;
-      setter?.call(input, ${JSON.stringify(value)});
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      return true;
-    })()`,
-  );
-  if (!filled) throw new Error(`Could not fill input: ${selector}`);
-}
-
-function sourceForStableKey(board, reference) {
-  const keys = new Set(
-    [reference.id, reference.sourceKey, reference.path, reference.threadId, reference.artifactId, reference.messageId, reference.title].filter(
-      (value) => typeof value === "string" && value.trim(),
-    ),
-  );
-  return board.sources.find((source) =>
-    [source.id, source.sourceKey, source.path, source.threadId, source.artifactId, source.messageId, source.title].some((value) => keys.has(value)),
-  );
-}
-
-function projectBoardSourceKind(source) {
-  return source?.kind ?? source?.sourceKind;
-}
-
-function selectorTextIncludesPredicate(selector, text) {
-  return new Function(`return document.querySelector(${JSON.stringify(selector)})?.textContent?.includes(${JSON.stringify(text)}) === true;`);
-}
-
-async function waitFor(cdp, predicate, label, timeoutMs = 15_000) {
-  const expression = `(${predicate.toString()})()`;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await evaluate(cdp, expression)) return;
-    await delay(150);
-  }
-  const bodyTail = await evaluate(cdp, "document.body.innerText.slice(-2000)").catch(() => "");
-  throw new Error(`Timed out waiting for ${label}.\n\nBody tail:\n${bodyTail}`);
-}
-
-async function waitForState(cdp, read, label, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const value = await read();
-    if (value) return value;
-    await delay(1000);
-  }
-  throw new Error(`Timed out waiting for ${label}.`);
-}
-
-async function evaluate(cdp, expression) {
-  const result = await cdp.send("Runtime.evaluate", {
-    expression,
-    awaitPromise: true,
-    returnByValue: true,
-  });
-  if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text ?? "Runtime.evaluate failed.");
-  }
-  return result.result?.value;
-}
-
-async function waitForTarget(cdpPort) {
-  const targetTimeoutMs = Number(process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_TARGET_TIMEOUT_MS || 0) || 120_000;
-  const deadline = Date.now() + targetTimeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetchWithTimeout(`http://127.0.0.1:${cdpPort}/json/version`, 2_000);
-      const target = await response.json();
-      if (target?.webSocketDebuggerUrl) return target;
-    } catch {
-      // App not listening yet.
-    }
-    await delay(250);
-  }
-  throw new Error(`Timed out waiting for Electron browser CDP endpoint after ${targetTimeoutMs.toLocaleString()}ms.`);
-}
-
-async function waitForPageTarget(cdp) {
-  const targetTimeoutMs = Number(process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_TARGET_TIMEOUT_MS || 0) || 120_000;
-  const deadline = Date.now() + targetTimeoutMs;
-  while (Date.now() < deadline) {
-    const targets = await cdp.send("Target.getTargets").catch(() => ({ targetInfos: [] }));
-    const pageTarget =
-      targets.targetInfos?.find((item) => item.type === "page" && !item.url.startsWith("devtools://")) ??
-      targets.targetInfos?.find((item) => item.type === "page");
-    if (pageTarget?.targetId) return pageTarget;
-    await delay(250);
-  }
-  throw new Error(`Timed out waiting for Electron page CDP target after ${targetTimeoutMs.toLocaleString()}ms.`);
-}
-
-async function fetchWithTimeout(url, timeoutMs) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function connectCdpWithRetry(url, label) {
-  const targetTimeoutMs = Number(process.env.AMBIENT_PROJECT_BOARD_DOGFOOD_TARGET_TIMEOUT_MS || 0) || 120_000;
-  const deadline = Date.now() + targetTimeoutMs;
-  let lastError;
-  while (Date.now() < deadline) {
-    let cdp;
-    try {
-      cdp = await connectCdp(url);
-      await cdp.send("Target.getTargets");
-      return cdp;
-    } catch (error) {
-      lastError = error;
-      cdp?.close();
-      await delay(500);
-    }
-  }
-  throw new Error(
-    `Timed out connecting to ${label} after ${targetTimeoutMs.toLocaleString()}ms${
-      lastError ? `: ${lastError.message}` : ""
-    }.`,
-  );
-}
-
-function connectCdp(url) {
-  return new Promise((resolve, reject) => {
-    const socket = new WebSocket(url);
-    let nextId = 1;
-    const pending = new Map();
-    let opened = false;
-    const rejectPending = (error) => {
-      for (const entry of pending.values()) entry.reject(error);
-      pending.clear();
-    };
-    const send = (method, params = {}, sessionId) => {
-      if (socket.readyState !== WebSocket.OPEN) {
-        return Promise.reject(new Error(`CDP websocket is not open for ${method}.`));
-      }
-      const id = nextId++;
-      const message = { id, method, params };
-      if (sessionId) message.sessionId = sessionId;
-      socket.send(JSON.stringify(message));
-      return new Promise((innerResolve, innerReject) => {
-        pending.set(id, { resolve: innerResolve, reject: innerReject });
-        setTimeout(() => {
-          if (!pending.has(id)) return;
-          pending.delete(id);
-          innerReject(new Error(`Timed out waiting for CDP ${method}.`));
-        }, cdpCommandTimeoutMs);
-      });
-    };
-    socket.addEventListener("open", () => {
-      opened = true;
-      resolve({
-        send,
-        session(sessionId) {
-          return {
-            send(method, params = {}) {
-              return send(method, params, sessionId);
-            },
-            close() {
-              socket.close();
-            },
-          };
-        },
-        close() {
-          socket.close();
-        },
-      });
-    });
-    socket.addEventListener("message", (event) => {
-      const message = JSON.parse(event.data);
-      if (!message.id || !pending.has(message.id)) return;
-      const entry = pending.get(message.id);
-      pending.delete(message.id);
-      if (message.error) entry.reject(new Error(message.error.message ?? "CDP error"));
-      else entry.resolve(message.result);
-    });
-    socket.addEventListener("error", () => {
-      const error = new Error("CDP websocket failed.");
-      if (!opened) reject(error);
-      rejectPending(error);
-    });
-    socket.addEventListener("close", () => {
-      const error = new Error("CDP websocket closed.");
-      if (!opened) reject(error);
-      rejectPending(error);
-    });
-  });
-}
-
 async function initializeFixtureGit(root) {
   await runCommand("git", ["init"], root);
   await runCommand("git", ["add", "."], root);
-  await runCommand("git", ["-c", "user.name=Ambient Dogfood", "-c", "user.email=dogfood@ambient.local", "commit", "-m", "Seed spaceship fixture"], root);
+  await runCommand(
+    "git",
+    ["-c", "user.name=Ambient Dogfood", "-c", "user.email=dogfood@ambient.local", "commit", "-m", "Seed spaceship fixture"],
+    root,
+  );
 }
 
 async function runCommand(command, args, cwd) {
@@ -3308,21 +2660,6 @@ async function runCommand(command, args, cwd) {
       }
       reject(new Error(`${command} ${args.join(" ")} failed with ${code}: ${stderr || stdout}`));
     });
-  });
-}
-
-async function findOpenPort() {
-  return new Promise((resolvePromise, reject) => {
-    const server = net.createServer();
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      const selected = typeof address === "object" && address ? address.port : undefined;
-      server.close(() => {
-        if (selected) resolvePromise(selected);
-        else reject(new Error("Could not allocate a CDP port."));
-      });
-    });
-    server.on("error", reject);
   });
 }
 
@@ -3368,7 +2705,13 @@ async function projectBoardHarnessWorkspaceDiff() {
   const roots = [];
   const changes = [];
   await appendPrefixedWorkspaceDiff({ label: "project-root", before: projectRootSnapshot, root: projectRoot, roots, changes });
-  await appendPrefixedWorkspaceDiff({ label: "task-workspace", before: preparedWorkspaceSnapshot, root: preparedWorkspacePath, roots, changes });
+  await appendPrefixedWorkspaceDiff({
+    label: "task-workspace",
+    before: preparedWorkspaceSnapshot,
+    root: preparedWorkspacePath,
+    roots,
+    changes,
+  });
   return { root: runRoot, roots, changes };
 }
 
@@ -3390,7 +2733,9 @@ async function appendPrefixedWorkspaceDiff({ label, before, root, roots, changes
 }
 
 async function refreshReleaseGateSummary() {
-  const board = (await readProjectBoardReleaseGateSnapshot().catch(() => undefined)) ?? (appInstance ? await currentBoard(appInstance.cdp).catch(() => undefined) : undefined);
+  const board =
+    (await readProjectBoardReleaseGateSnapshot().catch(() => undefined)) ??
+    (appInstance ? await currentBoard(appInstance.cdp).catch(() => undefined) : undefined);
   observations.releaseGate = buildProjectBoardDogfoodReleaseGate(observations, { board });
 }
 
@@ -3481,8 +2826,4 @@ async function terminateProcessTree(child) {
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
-}
-
-function delay(ms) {
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 }

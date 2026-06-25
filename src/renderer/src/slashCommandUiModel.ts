@@ -5,6 +5,7 @@ import {
   type SlashCommandSearchInput,
   type SlashCommandSelection,
 } from "../../shared/slashCommandTypes";
+import type { DesktopEvent } from "../../shared/desktopTypes";
 
 export interface SlashCommandDraftTrigger {
   active: boolean;
@@ -38,11 +39,20 @@ export function slashCommandComposerCanSubmit(draft: string, selected?: SlashCom
 
 export function slashCommandPickerSearchInput(query: string): SlashCommandSearchInput {
   const trimmed = query.trim();
+  if (!trimmed) {
+    return {
+      query,
+      mode: "catalog",
+      includeUnavailable: true,
+      limit: 80,
+    };
+  }
   return {
     query,
+    mode: "query",
     includeUnavailable: true,
-    limit: 12,
-    ...(trimmed.length >= 2 ? { kinds: ["app", "skill", "workflow", "callable-workflow"] } : {}),
+    limit: 50,
+    kinds: ["app", "skill", "workflow", "callable-workflow"],
   };
 }
 
@@ -82,10 +92,15 @@ export function slashCommandAvailabilityLabel(availability: SlashCommandAvailabi
 }
 
 export function slashCommandGroupLabel(entry: Pick<SlashCommandCatalogEntry, "kind" | "sourceKind">): string {
+  if ("groupLabel" in entry && typeof entry.groupLabel === "string" && entry.groupLabel) return entry.groupLabel;
   if (entry.kind === "app") return "App";
   if (entry.kind === "skill") return entry.sourceKind === "ambient-cli" ? "CLI Skills" : "Skills";
   if (entry.kind === "workflow") return "Workflows";
   return entry.sourceKind === "symphony" ? "Symphony" : "Callable Workflows";
+}
+
+export function slashCommandCatalogNeedsRefreshEvent(event: DesktopEvent): boolean {
+  return event.type === "plugin-catalog-updated";
 }
 
 function firstTokenLength(value: string): number {

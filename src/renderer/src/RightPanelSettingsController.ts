@@ -1,17 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { AgentMemoryClearResult } from "../../shared/agentMemoryDiagnostics";
 import type { DesktopState, ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
-import type { LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult, VoiceArtifactRetentionSummary, VoiceOnboardingHostFacts } from "../../shared/localRuntimeTypes";
+import type { LocalModelRuntimeLifecycleActionInput, LocalModelRuntimeLifecycleActionResult } from "../../shared/localRuntimeTypes";
 import type { ModelProviderCredentialSaveResult } from "../../shared/pluginTypes";
-import type { InstallModelProviderEndpointInput, InstallModelProviderEndpointResult, SaveModelProviderCredentialInput } from "../../shared/threadTypes";
-import {
-  buildFirstRunCapabilityOnboardingPrompt,
-  buildProviderCatalogCardOnboardingPrompt,
-  buildRemoteSurfaceActivationPrompt,
-  buildVoiceProviderCapabilityPrompt,
-  providerCatalogSettingsCardsForArea,
-} from "./pluginUiModel";
+import type {
+  InstallModelProviderEndpointInput,
+  InstallModelProviderEndpointResult,
+  SaveModelProviderCredentialInput,
+} from "../../shared/threadTypes";
 import type { CapabilityBuilderPromptResult } from "./AppCapabilityPromptActions";
 import {
   emptyModelProviderEndpointInstallDraft,
@@ -23,22 +20,12 @@ import {
 import type { ModelRuntimeCatalogRuntimeAction, ModelRuntimeCatalogRuntimeRow } from "./modelRuntimeCatalogUiModel";
 import { useRightPanelSettingsAgentMemoryController } from "./RightPanelSettingsAgentMemoryController";
 import { firstLine, localRuntimeLifecycleResultStatusKind, type ApiKeyStatus } from "./RightPanelSettingsRuntime";
+import {
+  useRightPanelSettingsVoiceFocusController,
+  type SettingsFocusRequest,
+  type SettingsMcpController,
+} from "./RightPanelSettingsVoiceFocusController";
 import { shortcutFromKeyboardEvent } from "./sttShortcut";
-
-const FIRST_RUN_CAPABILITY_ONBOARDING_DISMISSED_KEY = "ambient.firstRunCapabilityOnboarding.dismissed.v1";
-
-type SettingsFocusSection = "voice" | "mcp-runtime" | "search-web";
-
-type SettingsFocusRequest = {
-  section?: SettingsFocusSection;
-  nonce: number;
-};
-
-type SettingsMcpController = {
-  refreshContainerRuntimeStatus: (force?: boolean, options?: { continueDefaultCapabilitySetup?: boolean }) => Promise<void>;
-  loadInstalledServers: () => Promise<void>;
-  loadManagedDevServers: () => Promise<void>;
-};
 
 type UseRightPanelSettingsControllerInput = {
   panel: string;
@@ -66,14 +53,6 @@ type UseRightPanelSettingsControllerInput = {
   onInstallModelProviderEndpoint: (input: InstallModelProviderEndpointInput) => Promise<InstallModelProviderEndpointResult>;
   onRunLocalModelRuntimeLifecycleAction: (input: LocalModelRuntimeLifecycleActionInput) => Promise<LocalModelRuntimeLifecycleActionResult>;
 };
-
-function readInitialFirstRunCapabilityOnboardingDismissed(): boolean {
-  try {
-    return window.localStorage.getItem(FIRST_RUN_CAPABILITY_ONBOARDING_DISMISSED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 export { agentMemoryStarterEnableInputForMode } from "./RightPanelSettingsAgentMemoryController";
 
@@ -104,7 +83,9 @@ export function useRightPanelSettingsController({
   onRunLocalModelRuntimeLifecycleAction,
 }: UseRightPanelSettingsControllerInput) {
   const [permissionAuditFilter, setPermissionAuditFilter] = useState<"all" | "sandbox-fallback">("all");
-  const [modelProviderInstallDraft, setModelProviderInstallDraft] = useState<ModelProviderEndpointInstallDraft>(() => emptyModelProviderEndpointInstallDraft());
+  const [modelProviderInstallDraft, setModelProviderInstallDraft] = useState<ModelProviderEndpointInstallDraft>(() =>
+    emptyModelProviderEndpointInstallDraft(),
+  );
   const [modelProviderCredentialValue, setModelProviderCredentialValue] = useState("");
   const [modelProviderCredentialBusy, setModelProviderCredentialBusy] = useState(false);
   const [modelProviderCredentialStatus, setModelProviderCredentialStatus] = useState<ApiKeyStatus | undefined>();
@@ -112,19 +93,8 @@ export function useRightPanelSettingsController({
   const [modelProviderInstallStatus, setModelProviderInstallStatus] = useState<ApiKeyStatus | undefined>();
   const [localRuntimeLifecycleBusyId, setLocalRuntimeLifecycleBusyId] = useState<string | undefined>();
   const [localRuntimeLifecycleStatus, setLocalRuntimeLifecycleStatus] = useState<ApiKeyStatus | undefined>();
-  const [capabilityOnboardingDismissed, setCapabilityOnboardingDismissed] = useState(readInitialFirstRunCapabilityOnboardingDismissed);
-  const [capabilityOnboardingStarting, setCapabilityOnboardingStarting] = useState(false);
-  const [voiceArtifactRetention, setVoiceArtifactRetention] = useState<VoiceArtifactRetentionSummary | undefined>();
-  const [voiceArtifactRetentionLoading, setVoiceArtifactRetentionLoading] = useState(false);
-  const [voiceArtifactRetentionError, setVoiceArtifactRetentionError] = useState<string | undefined>();
-  const [voiceArtifactPruning, setVoiceArtifactPruning] = useState(false);
   const [settingsSearchQuery, setSettingsSearchQuery] = useState("");
-  const [voiceSearchQuery, setVoiceSearchQuery] = useState("");
-  const [focusedSettingsSection, setFocusedSettingsSection] = useState<SettingsFocusSection | undefined>();
   const [sttShortcutCapture, setSttShortcutCapture] = useState(false);
-  const voiceSettingsRowRef = useRef<HTMLElement | null>(null);
-  const searchWebSettingsRowRef = useRef<HTMLElement | null>(null);
-  const mcpRuntimeSettingsRowRef = useRef<HTMLElement | null>(null);
 
   const modelProviderEndpointInstall = modelProviderEndpointInstallDraftModel(modelProviderInstallDraft);
   const modelProviderCredentialSave = modelProviderCredentialSaveDraftModel(modelProviderInstallDraft, modelProviderCredentialValue);
@@ -138,10 +108,23 @@ export function useRightPanelSettingsController({
     onApplyMemorySettingsSnapshot,
     onClearAgentMemory,
   });
-
-  useEffect(() => {
-    setVoiceSearchQuery("");
-  }, [settings.voice.providerCapabilityId]);
+  const voiceFocusController = useRightPanelSettingsVoiceFocusController({
+    panel,
+    running,
+    activeThreadId,
+    activeWorkspacePath,
+    workspacePath,
+    permissionAuditRevision,
+    voiceProviderCapabilityId: settings.voice.providerCapabilityId,
+    providerCatalogCards,
+    settingsFocusRequest,
+    mcp,
+    onLoadPermissionAudit,
+    onLoadPermissionGrants,
+    onLoadVoiceProviders,
+    onStartCapabilityBuilder,
+    onHydrateSearchRoutingSettings,
+  });
 
   useEffect(() => {
     if (!sttShortcutCapture) return;
@@ -158,184 +141,13 @@ export function useRightPanelSettingsController({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [onSttSettingsChange, settings.stt, sttShortcutCapture]);
 
-  async function startVoiceProviderOnboarding() {
-    if (running) return;
-    let hostFacts: VoiceOnboardingHostFacts | undefined;
-    try {
-      hostFacts = await window.ambientDesktop.getVoiceOnboardingHostFacts();
-    } catch {
-      hostFacts = undefined;
-    }
-    const voiceCatalogCards = providerCatalogSettingsCardsForArea(providerCatalogCards, "voice-generation");
-    await onStartCapabilityBuilder(buildVoiceProviderCapabilityPrompt(hostFacts, voiceCatalogCards), true);
-  }
-
-  async function startProviderCatalogCardOnboarding(card: ProviderCatalogSettingsCard) {
-    if (running) return;
-    let hostFacts: VoiceOnboardingHostFacts | undefined;
-    try {
-      hostFacts = await window.ambientDesktop.getVoiceOnboardingHostFacts();
-    } catch {
-      hostFacts = undefined;
-    }
-    await onStartCapabilityBuilder(buildProviderCatalogCardOnboardingPrompt(card, hostFacts), true);
-  }
-
-  async function startRemoteSurfaceActivation(provider: "telegram" | "signal" | "choose") {
-    if (running) return;
-    const activityLine =
-      provider === "telegram"
-        ? "Remote Ambient Surface Telegram setup sent to Ambient."
-        : provider === "signal"
-          ? "Remote Ambient Surface Signal check sent to Ambient."
-          : "Remote Ambient Surface setup sent to Ambient.";
-    await onStartCapabilityBuilder(buildRemoteSurfaceActivationPrompt(provider), true, activityLine);
-  }
-
-  async function startFirstRunCapabilityOnboarding() {
-    if (running) return;
-    setCapabilityOnboardingStarting(true);
-    let hostFacts: VoiceOnboardingHostFacts | undefined;
-    try {
-      hostFacts = await window.ambientDesktop.getVoiceOnboardingHostFacts();
-    } catch {
-      hostFacts = undefined;
-    }
-    try {
-      await onStartCapabilityBuilder(buildFirstRunCapabilityOnboardingPrompt(hostFacts, providerCatalogCards), true);
-      setCapabilityOnboardingDismissed(false);
-      try {
-        window.localStorage.removeItem(FIRST_RUN_CAPABILITY_ONBOARDING_DISMISSED_KEY);
-      } catch {
-        // localStorage is best-effort; the entrypoint remains available for this session.
-      }
-    } finally {
-      setCapabilityOnboardingStarting(false);
-    }
-  }
-
-  function dismissFirstRunCapabilityOnboarding() {
-    setCapabilityOnboardingDismissed(true);
-    try {
-      window.localStorage.setItem(FIRST_RUN_CAPABILITY_ONBOARDING_DISMISSED_KEY, "1");
-    } catch {
-      // localStorage is best-effort; in-memory dismissal still avoids repeating this session.
-    }
-  }
-
-  function resumeFirstRunCapabilityOnboarding() {
-    setCapabilityOnboardingDismissed(false);
-    try {
-      window.localStorage.removeItem(FIRST_RUN_CAPABILITY_ONBOARDING_DISMISSED_KEY);
-    } catch {
-      // localStorage is best-effort.
-    }
-  }
-
-  async function loadVoiceArtifactRetention(providerCapabilityId = settings.voice.providerCapabilityId) {
-    setVoiceArtifactRetentionLoading(true);
-    setVoiceArtifactRetentionError(undefined);
-    try {
-      setVoiceArtifactRetention(
-        await window.ambientDesktop.inspectVoiceArtifacts({
-          threadId: activeThreadId,
-          providerCapabilityId,
-        }),
-      );
-    } catch (error) {
-      setVoiceArtifactRetentionError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setVoiceArtifactRetentionLoading(false);
-    }
-  }
-
-  async function pruneVoiceArtifactRetention() {
-    setVoiceArtifactPruning(true);
-    setVoiceArtifactRetentionError(undefined);
-    try {
-      setVoiceArtifactRetention(
-        await window.ambientDesktop.pruneVoiceArtifacts({
-          threadId: activeThreadId,
-          providerCapabilityId: settings.voice.providerCapabilityId,
-        }),
-      );
-    } catch (error) {
-      setVoiceArtifactRetentionError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setVoiceArtifactPruning(false);
-    }
-  }
-
-  useEffect(() => {
-    if (panel === "settings") {
-      void onLoadPermissionAudit();
-      void onLoadPermissionGrants();
-      void onLoadVoiceProviders();
-      void loadVoiceArtifactRetention();
-      void mcp.refreshContainerRuntimeStatus(false);
-      void mcp.loadInstalledServers();
-      void mcp.loadManagedDevServers();
-    }
-  }, [panel, workspacePath, permissionAuditRevision]);
-
-  useEffect(() => {
-    if (panel === "settings") void loadVoiceArtifactRetention();
-  }, [panel, activeThreadId, settings.voice.providerCapabilityId]);
-
-  useEffect(() => {
-    if (panel !== "settings" || settingsFocusRequest?.section !== "voice") return;
-    setFocusedSettingsSection("voice");
-    void onLoadVoiceProviders();
-    void loadVoiceArtifactRetention();
-    const scrollTimer = window.setTimeout(() => {
-      voiceSettingsRowRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-    }, 80);
-    const clearTimer = window.setTimeout(() => setFocusedSettingsSection(undefined), 2400);
-    return () => {
-      window.clearTimeout(scrollTimer);
-      window.clearTimeout(clearTimer);
-    };
-  }, [panel, settingsFocusRequest?.nonce, settingsFocusRequest?.section, activeThreadId, settings.voice.providerCapabilityId]);
-
-  useEffect(() => {
-    if (panel !== "settings" || settingsFocusRequest?.section !== "mcp-runtime") return;
-    setFocusedSettingsSection("mcp-runtime");
-    void mcp.refreshContainerRuntimeStatus(true, { continueDefaultCapabilitySetup: true });
-    void mcp.loadInstalledServers();
-    void mcp.loadManagedDevServers();
-    const scrollTimer = window.setTimeout(() => {
-      mcpRuntimeSettingsRowRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-    }, 80);
-    const clearTimer = window.setTimeout(() => setFocusedSettingsSection(undefined), 2400);
-    return () => {
-      window.clearTimeout(scrollTimer);
-      window.clearTimeout(clearTimer);
-    };
-  }, [panel, settingsFocusRequest?.nonce, settingsFocusRequest?.section, activeWorkspacePath]);
-
-  useEffect(() => {
-    if (panel !== "settings" || settingsFocusRequest?.section !== "search-web") return;
-    setFocusedSettingsSection("search-web");
-    void onHydrateSearchRoutingSettings();
-    const scrollTimer = window.setTimeout(() => {
-      searchWebSettingsRowRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-    }, 80);
-    const clearTimer = window.setTimeout(() => setFocusedSettingsSection(undefined), 2400);
-    return () => {
-      window.clearTimeout(scrollTimer);
-      window.clearTimeout(clearTimer);
-    };
-  }, [panel, settingsFocusRequest?.nonce, settingsFocusRequest?.section, activeWorkspacePath]);
-
-  useEffect(() => {
-    if (panel !== "settings") return;
-    onHydrateSearchRoutingSettings();
-  }, [panel, workspacePath]);
-
   async function saveModelProviderCredentialFromSettings() {
     const input = modelProviderCredentialSaveInputFromDraft(modelProviderInstallDraft, modelProviderCredentialValue);
     if (!input) {
-      setModelProviderCredentialStatus({ kind: "error", message: modelProviderCredentialSave.validationRows[0] ?? "Credential save input is incomplete." });
+      setModelProviderCredentialStatus({
+        kind: "error",
+        message: modelProviderCredentialSave.validationRows[0] ?? "Credential save input is incomplete.",
+      });
       return;
     }
     setModelProviderCredentialBusy(true);
@@ -358,7 +170,10 @@ export function useRightPanelSettingsController({
 
   async function installModelProviderEndpointFromSettings() {
     if (!modelProviderEndpointInstall.input) {
-      setModelProviderInstallStatus({ kind: "error", message: modelProviderEndpointInstall.validationRows[0] ?? "Endpoint probe input is incomplete." });
+      setModelProviderInstallStatus({
+        kind: "error",
+        message: modelProviderEndpointInstall.validationRows[0] ?? "Endpoint probe input is incomplete.",
+      });
       return;
     }
     setModelProviderInstallBusy(true);
@@ -373,10 +188,7 @@ export function useRightPanelSettingsController({
     }
   }
 
-  async function runLocalRuntimeLifecycleActionFromSettings(
-    row: ModelRuntimeCatalogRuntimeRow,
-    action: ModelRuntimeCatalogRuntimeAction,
-  ) {
+  async function runLocalRuntimeLifecycleActionFromSettings(row: ModelRuntimeCatalogRuntimeRow, action: ModelRuntimeCatalogRuntimeAction) {
     if (action.kind === "unload") return;
     if (!subagentsEffectiveEnabled) {
       setLocalRuntimeLifecycleStatus({
@@ -413,7 +225,7 @@ export function useRightPanelSettingsController({
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      setLocalRuntimeLifecycleBusyId((current) => current === busyId ? undefined : current);
+      setLocalRuntimeLifecycleBusyId((current) => (current === busyId ? undefined : current));
     }
   }
 
@@ -433,30 +245,11 @@ export function useRightPanelSettingsController({
     localRuntimeLifecycleBusyId,
     localRuntimeLifecycleStatus,
     ...agentMemorySettingsController,
-    firstRunCapabilityOnboardingDismissed: capabilityOnboardingDismissed,
-    firstRunCapabilityOnboardingStarting: capabilityOnboardingStarting,
-    voiceArtifactRetention,
-    voiceArtifactRetentionLoading,
-    voiceArtifactRetentionError,
-    voiceArtifactPruning,
+    ...voiceFocusController,
     settingsSearchQuery,
     setSettingsSearchQuery,
-    voiceSearchQuery,
-    setVoiceSearchQuery,
-    focusedSettingsSection,
     sttShortcutCapture,
     setSttShortcutCapture,
-    voiceSettingsRowRef,
-    searchWebSettingsRowRef,
-    mcpRuntimeSettingsRowRef,
-    startVoiceProviderOnboarding,
-    startProviderCatalogCardOnboarding,
-    startRemoteSurfaceActivation,
-    startFirstRunCapabilityOnboarding,
-    dismissFirstRunCapabilityOnboarding,
-    resumeFirstRunCapabilityOnboarding,
-    loadVoiceArtifactRetention,
-    pruneVoiceArtifactRetention,
     saveModelProviderCredentialFromSettings,
     installModelProviderEndpointFromSettings,
     runLocalRuntimeLifecycleActionFromSettings,

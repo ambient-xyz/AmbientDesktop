@@ -23,6 +23,8 @@ export interface AgentRuntimeAsyncBashToolRegistrationOptions {
   getPolicy: () => ToolRunnerPolicy;
   asyncBashJobs: AgentRuntimeAsyncBashJobService;
   scheduleThreadWake?: (input: AgentRuntimeThreadWakeToolInput) => Promise<AgentRuntimeThreadWakeToolResult>;
+  cancelThreadWake?: (input: AgentRuntimeThreadWakeCancelToolInput) => Promise<AgentRuntimeThreadWakeLifecycleToolResult>;
+  resolveThreadWake?: (input: AgentRuntimeThreadWakeResolveToolInput) => Promise<AgentRuntimeThreadWakeLifecycleToolResult>;
   interruptedToolCallRecoveryToolsAvailable?: () => boolean;
 }
 
@@ -31,6 +33,7 @@ export interface AgentRuntimeThreadWakeToolInput {
   reason: string;
   dueAt: string;
   jobId?: string;
+  operationKey?: string;
   payload?: Record<string, unknown>;
 }
 
@@ -40,6 +43,27 @@ export interface AgentRuntimeThreadWakeToolResult {
   dueAt: string;
   reason: string;
   jobId?: string;
+  operationKey?: string;
+  supersedesWakeIds: string[];
+}
+
+export interface AgentRuntimeThreadWakeCancelToolInput {
+  threadId: string;
+  wakeId: string;
+}
+
+export interface AgentRuntimeThreadWakeResolveToolInput {
+  threadId: string;
+  wakeId: string;
+  reason?: string;
+}
+
+export interface AgentRuntimeThreadWakeLifecycleToolResult {
+  wakeId: string;
+  threadId: string;
+  status: string;
+  reason?: string;
+  operationKey?: string;
 }
 
 export function registerAgentRuntimeAsyncBashTools(
@@ -142,6 +166,7 @@ export function registerAgentRuntimeAsyncBashTools(
           dueAt,
           reason: requiredString(input, "reason"),
           jobId: optionalString(input, "job_id"),
+          operationKey: optionalString(input, "operation_key") ?? defaultWakeOperationKey(optionalString(input, "job_id"), optionalRecord(input, "payload")),
           payload: optionalRecord(input, "payload"),
         });
         return {
@@ -152,6 +177,8 @@ export function registerAgentRuntimeAsyncBashTools(
               `thread_id: ${result.threadId}`,
               `due_at: ${result.dueAt}`,
               result.jobId ? `job_id: ${result.jobId}` : undefined,
+              result.operationKey ? `operation_key: ${result.operationKey}` : undefined,
+              result.supersedesWakeIds.length ? `superseded_wake_ids: ${result.supersedesWakeIds.join(", ")}` : undefined,
               `reason: ${result.reason}`,
             ].filter((line): line is string => line !== undefined).join("\n"),
           }],
@@ -163,6 +190,8 @@ export function registerAgentRuntimeAsyncBashTools(
             threadId: result.threadId,
             dueAt: result.dueAt,
             jobId: result.jobId,
+            operationKey: result.operationKey,
+            supersedesWakeIds: result.supersedesWakeIds,
           },
         };
       } catch (error) {
@@ -170,6 +199,72 @@ export function registerAgentRuntimeAsyncBashTools(
       }
     },
   });
+
+  registerDesktopTool(pi, asyncBashToolDescriptor("thread_wake_cancel"), {
+    executionMode: "sequential",
+    execute: async (_toolCallId, params) => {
+      if (!options.cancelThreadWake) {
+        return errorToolResult("thread_wake_cancel", new Error("Thread wake cancellation is unavailable."));
+      }
+      try {
+        const input = paramsRecord(params);
+        const result = await options.cancelThreadWake({
+          threadId: options.threadId,
+          wakeId: requiredString(input, "wake_id"),
+        });
+        return threadWakeLifecycleToolResult("thread_wake_cancel", result);
+      } catch (error) {
+        return errorToolResult("thread_wake_cancel", error);
+      }
+    },
+  });
+
+  registerDesktopTool(pi, asyncBashToolDescriptor("thread_wake_resolve"), {
+    executionMode: "sequential",
+    execute: async (_toolCallId, params) => {
+      if (!options.resolveThreadWake) {
+        return errorToolResult("thread_wake_resolve", new Error("Thread wake resolution is unavailable."));
+      }
+      try {
+        const input = paramsRecord(params);
+        const result = await options.resolveThreadWake({
+          threadId: options.threadId,
+          wakeId: requiredString(input, "wake_id"),
+          reason: optionalString(input, "reason"),
+        });
+        return threadWakeLifecycleToolResult("thread_wake_resolve", result);
+      } catch (error) {
+        return errorToolResult("thread_wake_resolve", error);
+      }
+    },
+  });
+}
+
+function threadWakeLifecycleToolResult(
+  toolName: string,
+  result: AgentRuntimeThreadWakeLifecycleToolResult,
+): AgentToolResult<Record<string, unknown>> {
+  return {
+    content: [{
+      type: "text",
+      text: [
+        `wake_id: ${result.wakeId}`,
+        `thread_id: ${result.threadId}`,
+        `status: ${result.status}`,
+        result.operationKey ? `operation_key: ${result.operationKey}` : undefined,
+        result.reason ? `reason: ${result.reason}` : undefined,
+      ].filter((line): line is string => line !== undefined).join("\n"),
+    }],
+    details: {
+      runtime: "ambient-thread-wake",
+      toolName,
+      status: result.status,
+      wakeId: result.wakeId,
+      threadId: result.threadId,
+      operationKey: result.operationKey,
+      reason: result.reason,
+    },
+  };
 }
 
 function snapshotToolResult(snapshot: AsyncBashJobSnapshot): AgentToolResult<Record<string, unknown>> {
@@ -229,6 +324,12 @@ function optionalRecord(input: Record<string, unknown>, key: string): Record<str
   const value = input[key];
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   return value as Record<string, unknown>;
+}
+
+function defaultWakeOperationKey(jobId: string | undefined, payload: Record<string, unknown> | undefined): string | undefined {
+  if (!jobId) return undefined;
+  const jobKind = typeof payload?.job_kind === "string" && payload.job_kind.trim() ? payload.job_kind.trim() : "bash";
+  return `${jobKind}:${jobId}`;
 }
 
 function resolveWakeDueAt(input: Record<string, unknown>): string {

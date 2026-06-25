@@ -39,6 +39,7 @@ describe("agentRuntimeGoalRuntime", () => {
       status: "continuing",
       message: "Continuing goal...",
       goalId: "goal-1",
+      continuationSource: "goal-continuation",
     });
     expect(goalRuntimeActivity({
       threadId: "thread-2",

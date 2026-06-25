@@ -16,8 +16,10 @@ import type { CallableWorkflowTaskSummary } from "../../../shared/workflowTypes"
 import {
   formatInstallRouteGateBlockedMessage,
   formatMcpInstallShellBlockedMessage,
+  formatRawPiInstallRootBlockedMessage,
   type InstallRouteGateBlock,
   type McpInstallShellBlock,
+  type RawPiInstallRootBlock,
 } from "../agentRuntimeInstallRouteGuard";
 import {
   formatPermissionBlockedMessage,
@@ -84,6 +86,11 @@ export interface AgentRuntimeToolCallPermissionOptions {
     rawToolInput: unknown;
     latestUserText: string;
   }) => McpInstallShellBlock | undefined;
+  rawPiInstallRootBlockForTool: (input: {
+    toolName: string;
+    rawToolInput: unknown;
+    permissionMode?: ThreadSummary["permissionMode"];
+  }) => RawPiInstallRootBlock | undefined;
   permissionToolInput: (toolName: string, toolInput: unknown, workspace: WorkspaceState) => Promise<unknown>;
   requestPermission: (
     request: Omit<PermissionRequest, "id">,
@@ -146,6 +153,28 @@ export async function resolveAgentRuntimeToolCallPermission(
     .listMessages(threadId)
     .filter((message) => message.role === "user")
     .at(-1)?.content ?? "";
+  const rawPiInstallRootBlock = options.rawPiInstallRootBlockForTool({
+    toolName: permissionToolName,
+    rawToolInput: permissionInput,
+    permissionMode: thread.permissionMode,
+  });
+  if (rawPiInstallRootBlock) {
+    const blockedMessage = options.store.addMessage({
+      threadId,
+      role: "tool",
+      content: formatRawPiInstallRootBlockedMessage(permissionToolName, rawPiInstallRootBlock.detail),
+      metadata: {
+        status: "error",
+        runtime: "ambient-raw-pi-install-root-guard",
+        toolName: permissionToolName,
+        runId: activeRunId(),
+        protectedRoot: rawPiInstallRootBlock.protectedRoot,
+      },
+    });
+    options.emit({ type: "message-created", message: blockedMessage });
+    return { reason: rawPiInstallRootBlock.reason };
+  }
+
   const mcpInstallShellBlock = options.mcpInstallShellBlockForTool({
     threadId,
     toolName: permissionToolName,

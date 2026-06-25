@@ -3,21 +3,16 @@ import { randomUUID } from "node:crypto";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
 import type { CreateThreadOptions, ThreadWorktreeInput } from "./projectStoreFacadeHelpers";
-import {
-  mapThreadRow,
-  mapThreadWorktreeRow,
-  type ThreadRow,
-  type ThreadWorktreeRow,
-} from "./threadMappers";
+import { mapThreadRow, type ThreadRow } from "./threadMappers";
 import type { MessageRow } from "./messageMappers";
+import {
+  ProjectStoreThreadVisibilityRepository,
+  type CreateProjectStoreThreadDefaults,
+  type ProjectStoreLastActiveThreadSettings,
+} from "./threadVisibilityRepository";
+import { ProjectStoreThreadWorktreeRepository } from "./threadWorktreeRepository";
 
-export interface CreateProjectStoreThreadDefaults {
-  permissionMode: ThreadSummary["permissionMode"];
-  collaborationMode: ThreadSummary["collaborationMode"];
-  model: ThreadSummary["model"];
-  thinkingLevel: ThreadSummary["thinkingLevel"];
-  memoryDefaultThreadEnabled: boolean;
-}
+export type { CreateProjectStoreThreadDefaults, ProjectStoreLastActiveThreadSettings } from "./threadVisibilityRepository";
 
 export type UpdateProjectStoreThreadSettingsInput = Partial<
   Pick<ThreadSummary, "permissionMode" | "collaborationMode" | "model" | "thinkingLevel" | "memoryEnabled">
@@ -25,33 +20,32 @@ export type UpdateProjectStoreThreadSettingsInput = Partial<
   piSessionFile?: string | null;
 };
 
-export interface ProjectStoreLastActiveThreadSettings {
-  getSetting(key: string, fallback: unknown): unknown;
-  setSetting(key: string, value: unknown): void;
-}
-
-const LAST_ACTIVE_THREAD_SETTING_KEY = "lastActiveThreadId";
-
 export class ProjectStoreThreadRepository {
+  private readonly visibility: ProjectStoreThreadVisibilityRepository;
+  private readonly worktrees: ProjectStoreThreadWorktreeRepository;
+
   constructor(
     private readonly db: Database.Database,
     private readonly workspacePath: string,
-  ) {}
+  ) {
+    this.visibility = new ProjectStoreThreadVisibilityRepository(db, {
+      createDefaultThread: (defaults) => {
+        this.createThread("New chat", this.workspacePath, {}, defaults);
+      },
+    });
+    this.worktrees = new ProjectStoreThreadWorktreeRepository(db);
+  }
 
   getLastActiveThreadId(settings: ProjectStoreLastActiveThreadSettings): string | undefined {
-    return this.resolveLastActiveThreadId(settings.getSetting(LAST_ACTIVE_THREAD_SETTING_KEY, ""));
+    return this.visibility.getLastActiveThreadId(settings);
   }
 
   setLastActiveThreadId(settings: ProjectStoreLastActiveThreadSettings, threadId: string): void {
-    if (!this.hasThread(threadId)) return;
-    settings.setSetting(LAST_ACTIVE_THREAD_SETTING_KEY, threadId);
+    this.visibility.setLastActiveThreadId(settings, threadId);
   }
 
   keepLastActiveThreadVisible(settings: ProjectStoreLastActiveThreadSettings, visibleThreadIds: readonly string[]): void {
-    const activeThreadId = this.getLastActiveThreadId(settings);
-    if (activeThreadId && !visibleThreadIds.includes(activeThreadId)) {
-      this.setLastActiveThreadId(settings, visibleThreadIds[0] ?? "");
-    }
+    this.visibility.keepLastActiveThreadVisible(settings, visibleThreadIds);
   }
 
   updateLastActiveThreadAfterThreadDelete(input: {
@@ -60,16 +54,7 @@ export class ProjectStoreThreadRepository {
     deletedThreadIds: readonly string[];
     replacementThreadId?: string;
   }): void {
-    if (!input.activeThreadId || !input.deletedThreadIds.includes(input.activeThreadId)) return;
-    input.settings.setSetting(LAST_ACTIVE_THREAD_SETTING_KEY, input.replacementThreadId ?? "");
-  }
-
-  private resolveLastActiveThreadId(value: unknown): string | undefined {
-    if (typeof value !== "string" || !value.trim()) return undefined;
-    const row = this.db
-      .prepare("SELECT id FROM threads WHERE id = ? AND (archived_at IS NULL OR archived_at = '')")
-      .get(value) as { id: string } | undefined;
-    return row?.id;
+    this.visibility.updateLastActiveThreadAfterThreadDelete(input);
   }
 
   archiveChats(input: {
@@ -77,24 +62,7 @@ export class ProjectStoreThreadRepository {
     defaults: CreateProjectStoreThreadDefaults;
     now?: string;
   }): number {
-    const now = input.now ?? new Date().toISOString();
-    const result = this.db
-      .prepare(
-        `UPDATE threads
-         SET archived_at = ?, updated_at = ?
-         WHERE (archived_at IS NULL OR archived_at = '')
-           AND NOT EXISTS (
-             SELECT 1 FROM orchestration_runs
-             WHERE orchestration_runs.thread_id = threads.id
-           )`,
-      )
-      .run(now, now);
-    this.ensureVisibleThread(input.defaults);
-    this.keepLastActiveThreadVisible(
-      input.settings,
-      this.listThreads().map((thread) => thread.id),
-    );
-    return Number(result.changes || 0);
+    return this.visibility.archiveChats(input);
   }
 
   archiveThread(input: {
@@ -103,62 +71,11 @@ export class ProjectStoreThreadRepository {
     defaults: CreateProjectStoreThreadDefaults;
     now?: string;
   }): number {
-    const now = input.now ?? new Date().toISOString();
-    const result = this.db
-      .prepare("UPDATE threads SET archived_at = ?, updated_at = ? WHERE id = ? AND (archived_at IS NULL OR archived_at = '')")
-      .run(now, now, input.threadId);
-    this.ensureVisibleThread(input.defaults);
-    this.keepLastActiveThreadVisible(
-      input.settings,
-      this.listThreads().map((thread) => thread.id),
-    );
-    return Number(result.changes || 0);
+    return this.visibility.archiveThread(input);
   }
 
   pruneRedundantEmptyThreads(settings: ProjectStoreLastActiveThreadSettings): number {
-    const candidates = this.db
-      .prepare(
-        `SELECT id FROM threads
-         WHERE title = 'New chat'
-           AND last_message_preview = ''
-           AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.thread_id = threads.id)
-           AND NOT EXISTS (SELECT 1 FROM runs WHERE runs.thread_id = threads.id)
-           AND NOT EXISTS (SELECT 1 FROM orchestration_runs WHERE orchestration_runs.thread_id = threads.id)
-         ORDER BY updated_at DESC, created_at DESC`,
-      )
-      .all() as Array<{ id: string }>;
-    if (candidates.length === 0) return 0;
-
-    const nonEmptyThread = this.db
-      .prepare(
-        `SELECT id FROM threads
-         WHERE NOT (
-           title = 'New chat'
-           AND last_message_preview = ''
-           AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.thread_id = threads.id)
-           AND NOT EXISTS (SELECT 1 FROM runs WHERE runs.thread_id = threads.id)
-           AND NOT EXISTS (SELECT 1 FROM orchestration_runs WHERE orchestration_runs.thread_id = threads.id)
-         )
-         LIMIT 1`,
-      )
-      .get() as { id: string } | undefined;
-    const keepId = nonEmptyThread ? undefined : candidates[0]?.id;
-    const deleteIds = candidates.map((candidate) => candidate.id).filter((id) => id !== keepId);
-    if (deleteIds.length === 0) return 0;
-
-    const activeThreadId = this.getLastActiveThreadId(settings);
-    const deleteThread = this.db.prepare("DELETE FROM threads WHERE id = ?");
-    const transaction = this.db.transaction((ids: string[]) => {
-      for (const id of ids) deleteThread.run(id);
-    });
-    transaction(deleteIds);
-    this.updateLastActiveThreadAfterThreadDelete({
-      settings,
-      activeThreadId,
-      deletedThreadIds: deleteIds,
-      replacementThreadId: keepId,
-    });
-    return deleteIds.length;
+    return this.visibility.pruneRedundantEmptyThreads(settings);
   }
 
   hasThread(threadId: string): boolean {
@@ -174,9 +91,7 @@ export class ProjectStoreThreadRepository {
   }
 
   listThreadsForStateInspection(): ThreadSummary[] {
-    const rows = this.db
-      .prepare("SELECT * FROM threads ORDER BY pinned DESC, updated_at DESC")
-      .all() as ThreadRow[];
+    const rows = this.db.prepare("SELECT * FROM threads ORDER BY pinned DESC, updated_at DESC").all() as ThreadRow[];
     return rows.map((row) => this.mapThread(row));
   }
 
@@ -208,10 +123,7 @@ export class ProjectStoreThreadRepository {
   }
 
   ensureDefaultThread(defaults: CreateProjectStoreThreadDefaults): void {
-    const row = this.db.prepare("SELECT id FROM threads WHERE archived_at IS NULL OR archived_at = '' LIMIT 1").get() as
-      | { id: string }
-      | undefined;
-    if (!row) this.createThread("New chat", this.workspacePath, {}, defaults);
+    this.visibility.ensureDefaultThread(defaults);
   }
 
   nextSubagentChildOrder(parentThreadId: string): number {
@@ -219,10 +131,6 @@ export class ProjectStoreThreadRepository {
       .prepare("SELECT COALESCE(MAX(child_order), -1) + 1 AS next_order FROM threads WHERE parent_thread_id = ?")
       .get(parentThreadId) as { next_order?: number } | undefined;
     return Math.max(0, Math.floor(row?.next_order ?? 0));
-  }
-
-  private ensureVisibleThread(defaults: CreateProjectStoreThreadDefaults): void {
-    this.ensureDefaultThread(defaults);
   }
 
   getThread(threadId: string): ThreadSummary {
@@ -283,29 +191,26 @@ export class ProjectStoreThreadRepository {
     return this.getThread(id);
   }
 
-  forkThread(input: {
-    threadId: string;
-    workspacePath: string;
-    defaults: CreateProjectStoreThreadDefaults;
-    now?: string;
-  }): ThreadSummary {
+  forkThread(input: { threadId: string; workspacePath: string; defaults: CreateProjectStoreThreadDefaults; now?: string }): ThreadSummary {
     const source = this.getThread(input.threadId);
     const now = input.now ?? new Date().toISOString();
     const fork = this.createThread(source.title, input.workspacePath, {}, input.defaults);
-    this.db.prepare(
-      `UPDATE threads
+    this.db
+      .prepare(
+        `UPDATE threads
        SET permission_mode = ?, collaboration_mode = ?, model = ?, thinking_level = ?, last_message_preview = ?, updated_at = ?, last_read_at = ?
        WHERE id = ?`,
-    ).run(
-      source.permissionMode,
-      source.collaborationMode,
-      source.model,
-      source.thinkingLevel,
-      source.lastMessagePreview,
-      now,
-      now,
-      fork.id,
-    );
+      )
+      .run(
+        source.permissionMode,
+        source.collaborationMode,
+        source.model,
+        source.thinkingLevel,
+        source.lastMessagePreview,
+        now,
+        now,
+        fork.id,
+      );
     const messages = this.db
       .prepare("SELECT role, content, created_at, metadata_json FROM messages WHERE thread_id = ? ORDER BY created_at ASC")
       .all(input.threadId) as Pick<MessageRow, "role" | "content" | "created_at" | "metadata_json">[];
@@ -330,7 +235,7 @@ export class ProjectStoreThreadRepository {
       ? (input.piSessionFile ?? null)
       : modelChanged
         ? null
-      : (current.piSessionFile ?? null);
+        : (current.piSessionFile ?? null);
     this.db
       .prepare(
         `UPDATE threads
@@ -370,17 +275,13 @@ export class ProjectStoreThreadRepository {
   markThreadUnread(threadId: string): ThreadSummary {
     const thread = this.getThread(threadId);
     const updatedMs = Date.parse(thread.updatedAt);
-    const readAt = Number.isFinite(updatedMs) && updatedMs > 0
-      ? new Date(updatedMs - 1).toISOString()
-      : "1970-01-01T00:00:00.000Z";
+    const readAt = Number.isFinite(updatedMs) && updatedMs > 0 ? new Date(updatedMs - 1).toISOString() : "1970-01-01T00:00:00.000Z";
     return this.markThreadRead(threadId, readAt);
   }
 
   updateThreadWorkspacePath(threadId: string, workspacePath: string): ThreadSummary {
     const now = new Date().toISOString();
-    this.db
-      .prepare("UPDATE threads SET workspace_path = ?, updated_at = ? WHERE id = ?")
-      .run(workspacePath, now, threadId);
+    this.db.prepare("UPDATE threads SET workspace_path = ?, updated_at = ? WHERE id = ?").run(workspacePath, now, threadId);
     return this.getThread(threadId);
   }
 
@@ -402,55 +303,18 @@ export class ProjectStoreThreadRepository {
   }
 
   getThreadWorktree(threadId: string): ThreadWorktreeSummary | undefined {
-    const row = this.db.prepare("SELECT * FROM thread_worktrees WHERE thread_id = ?").get(threadId) as
-      | ThreadWorktreeRow
-      | undefined;
-    return row ? mapThreadWorktreeRow(row) : undefined;
+    return this.worktrees.getThreadWorktree(threadId);
   }
 
   setThreadWorktree(input: ThreadWorktreeInput): ThreadWorktreeSummary {
-    const now = new Date().toISOString();
-    const createdAt = input.createdAt ?? now;
-    const updatedAt = input.updatedAt ?? now;
-    this.db
-      .prepare(
-        `INSERT INTO thread_worktrees
-          (thread_id, project_root, worktree_path, branch_name, base_ref, upstream, worktree_status, created_at, updated_at, last_checkpoint_id, error)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(thread_id) DO UPDATE SET
-          project_root = excluded.project_root,
-          worktree_path = excluded.worktree_path,
-          branch_name = excluded.branch_name,
-          base_ref = excluded.base_ref,
-          upstream = excluded.upstream,
-          worktree_status = excluded.worktree_status,
-          updated_at = excluded.updated_at,
-          last_checkpoint_id = excluded.last_checkpoint_id,
-          error = excluded.error`,
-      )
-      .run(
-        input.threadId,
-        input.projectRoot,
-        input.worktreePath,
-        input.branchName,
-        input.baseRef ?? null,
-        input.upstream ?? null,
-        input.status,
-        createdAt,
-        updatedAt,
-        input.lastCheckpointId ?? null,
-        input.error ?? null,
-      );
-    return this.getThreadWorktree(input.threadId)!;
+    return this.worktrees.setThreadWorktree(input);
   }
 
   updateThreadWorktreeCheckpoint(threadId: string, checkpointId: string): void {
-    this.db
-      .prepare("UPDATE thread_worktrees SET last_checkpoint_id = ?, updated_at = ? WHERE thread_id = ?")
-      .run(checkpointId, new Date().toISOString(), threadId);
+    this.worktrees.updateThreadWorktreeCheckpoint(threadId, checkpointId);
   }
 
   private mapThread(row: ThreadRow): ThreadSummary {
-    return mapThreadRow(row, { gitWorktree: this.getThreadWorktree(row.id) });
+    return mapThreadRow(row, { gitWorktree: this.worktrees.getThreadWorktree(row.id) });
   }
 }

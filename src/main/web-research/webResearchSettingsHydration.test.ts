@@ -86,11 +86,19 @@ function braveCatalog(): AmbientCliPackageCatalog {
             command: "node",
             args: ["./scripts/run.mjs"],
             cwd: "package",
+            healthCheck: ["node", "./scripts/run.mjs", "--health"],
           },
         ],
         envRequirements: [],
         errors: [],
-        healthChecks: [],
+        healthChecks: [
+          {
+            commandName: "search",
+            command: ["node", "./scripts/run.mjs", "--health"],
+            cwd: "/tmp/ambient-brave-search",
+            passed: true,
+          },
+        ],
         generated: {
           schemaVersion: "ambient-capability-builder-v1",
           status: "registered",

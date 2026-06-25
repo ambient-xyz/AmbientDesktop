@@ -38,6 +38,7 @@ describe("agentRuntimePiExtensionSandboxInstallTools", () => {
     const result = await registeredTools[0]!.execute("install", {
       source: "npm:pi-arxiv",
       allowedNetworkHosts: ["export.arxiv.org"],
+      installRoute: rawRoute("npm:pi-arxiv", "pi-arxiv"),
     }, undefined, onUpdate);
 
     expect(previewAmbientCliPackagePiCatalogSource).toHaveBeenCalledWith("/workspace", "npm:pi-arxiv");
@@ -64,9 +65,17 @@ describe("agentRuntimePiExtensionSandboxInstallTools", () => {
         "Tools: search_arxiv",
         "Host policy: filesystem, process, env, eval, Function, unsupported imports, and undeclared network hosts are denied.",
         "Effect: copy the pinned package into Ambient-managed Pi extension sandbox state.",
+        "Route kind: raw-pi-exception",
+        "Selected source: npm:pi-arxiv",
+        "Target package: pi-arxiv",
+        "Approval boundary: privileged-approval-required",
+        "Route reason: User explicitly approved raw Pi compatibility install.",
       ].join("\n"),
+      risk: "privileged-action",
+      requireFreshPrompt: true,
       grantTargetLabel: "Install sandboxed Pi extension pi-arxiv",
       grantTargetIdentity: "ambient_pi_extension_install_sandboxed\0npm:pi-arxiv@1.0.0\0/tmp/pi-arxiv.tgz\0sha-extension\0export.arxiv.org",
+      grantConditions: { installRoute: rawRoute("npm:pi-arxiv", "pi-arxiv") },
       allowedReason: "Sandboxed Pi extension install approved by Ambient permission grant policy.",
       deniedReason: "Sandboxed Pi extension install prompt denied or timed out.",
     }));
@@ -137,7 +146,10 @@ describe("agentRuntimePiExtensionSandboxInstallTools", () => {
       emit,
     });
 
-    const result = await registeredTools[0]!.execute("install", { source: "npm:pi-broken" }, undefined, onUpdate);
+    const result = await registeredTools[0]!.execute("install", {
+      source: "npm:pi-broken",
+      installRoute: rawRoute("npm:pi-broken", "pi-arxiv"),
+    }, undefined, onUpdate);
 
     expect(onUpdate).toHaveBeenCalledWith({
       content: [{ type: "text", text: "Sandboxed Pi extension install is blocked for npm:pi-broken; scanning privileged fallback instead." }],
@@ -244,6 +256,57 @@ describe("agentRuntimePiExtensionSandboxInstallTools", () => {
     }));
   });
 
+  it("requires raw exception route metadata before previewing unwrapped sandbox installs", async () => {
+    const registeredTools: RegisteredTool[] = [];
+    const previewPiExtensionSandboxInstall = vi.fn();
+    const scanPiPrivilegedPackage = vi.fn();
+
+    registerPiExtensionSandboxInstallTool({
+      registerTool: (tool: any) => registeredTools.push(tool),
+    }, {
+      workspace: { path: "/workspace" } as any,
+      getThread: () => ({ collaborationMode: "agent" }) as any,
+      latestInstallRouteLane: () => "pi-marketplace-privileged-review",
+      previewAmbientCliPackagePiCatalogSource: vi.fn(async () => ({ installable: false })) as any,
+      previewPiExtensionSandboxInstall,
+      installPiExtensionSandboxPackage: vi.fn(),
+      scanPiPrivilegedPackage,
+      resolveFirstPartyPluginPermission: vi.fn(),
+      emit: vi.fn(),
+    });
+
+    await expect(registeredTools[0]!.execute("install", { source: "npm:pi-custom" })).rejects.toThrow(
+      "Raw Pi install route metadata is required for ambient_pi_extension_install_sandboxed.",
+    );
+    expect(previewPiExtensionSandboxInstall).not.toHaveBeenCalled();
+    expect(scanPiPrivilegedPackage).not.toHaveBeenCalled();
+  });
+
+  it("rejects raw sandbox installs when the latest route selected a wrapper lane", async () => {
+    const registeredTools: RegisteredTool[] = [];
+    const previewPiExtensionSandboxInstall = vi.fn();
+
+    registerPiExtensionSandboxInstallTool({
+      registerTool: (tool: any) => registeredTools.push(tool),
+    }, {
+      workspace: { path: "/workspace" } as any,
+      getThread: () => ({ collaborationMode: "agent" }) as any,
+      latestInstallRouteLane: () => "pi-marketplace-generated-wrapper",
+      previewAmbientCliPackagePiCatalogSource: vi.fn(async () => ({ installable: false })) as any,
+      previewPiExtensionSandboxInstall,
+      installPiExtensionSandboxPackage: vi.fn(),
+      scanPiPrivilegedPackage: vi.fn(),
+      resolveFirstPartyPluginPermission: vi.fn(),
+      emit: vi.fn(),
+    });
+
+    await expect(registeredTools[0]!.execute("install", {
+      source: "npm:pi-custom",
+      installRoute: rawRoute("npm:pi-custom"),
+    })).rejects.toThrow("Latest ambient_install_route_plan lane must be \"pi-marketplace-privileged-review\"");
+    expect(previewPiExtensionSandboxInstall).not.toHaveBeenCalled();
+  });
+
   it("blocks sandboxed extension install in planner mode before validating input", async () => {
     const registeredTools: RegisteredTool[] = [];
     const previewAmbientCliPackagePiCatalogSource = vi.fn();
@@ -285,13 +348,26 @@ describe("agentRuntimePiExtensionSandboxInstallTools", () => {
       emit: vi.fn(),
     });
 
-    await expect(registeredTools[0]!.execute("install", { source: "npm:pi-arxiv" }, undefined, onUpdate)).rejects.toThrow(
+    await expect(registeredTools[0]!.execute("install", {
+      source: "npm:pi-arxiv",
+      installRoute: rawRoute("npm:pi-arxiv"),
+    }, undefined, onUpdate)).rejects.toThrow(
       "Sandboxed Pi extension install blocked by approval prompt.",
     );
     expect(onUpdate).not.toHaveBeenCalled();
     expect(installPiExtensionSandboxPackage).not.toHaveBeenCalled();
   });
 });
+
+function rawRoute(source: string, targetPackage?: string) {
+  return {
+    routeKind: "raw-pi-exception",
+    selectedSource: source,
+    ...(targetPackage ? { targetPackage } : {}),
+    approvalBoundary: "privileged-approval-required",
+    reason: "User explicitly approved raw Pi compatibility install.",
+  };
+}
 
 function previewFixture(overrides: Partial<PiExtensionSandboxInstallPreview> = {}): PiExtensionSandboxInstallPreview {
   return {
@@ -335,6 +411,8 @@ function scanFixture(overrides: Partial<PiPrivilegedSecurityScan> = {}): PiPrivi
     scanOrigin: "sandbox-fallback",
     packageName: "pi-arxiv",
     version: "1.0.0",
+    descriptorHash: "descriptor-hash",
+    packageTreeHash: "package-tree-hash",
     fingerprint: "fingerprint",
     resources: {
       piExtensions: ["index.ts"],

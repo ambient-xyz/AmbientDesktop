@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { PermissionRequest } from "../../shared/permissionTypes";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentToolScopeResolution } from "../../shared/subagentToolScope";
+import { createLocalFolderAllowlistGrantInput } from "../permissions/localFolderAllowlistGrants";
 import { AgentRuntimeFileAuthorityController } from "./agentRuntimeFileAuthorityController";
 import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
@@ -96,6 +97,81 @@ describe("AgentRuntimeFileAuthorityController", () => {
     } finally {
       store.close();
       await rm(workspacePath, { recursive: true, force: true });
+    }
+  });
+
+  it("does not reuse folder allowlist grants for symlink escapes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ambient-runtime-file-authority-allowlist-"));
+    const projectRoot = join(root, "project");
+    const activeWorktree = join(projectRoot, ".ambient-codex", "worktrees", "thread-1");
+    const allowedDir = join(root, "allowed");
+    const outsideDir = join(root, "outside");
+    const outsideFile = join(outsideDir, "public-note.txt");
+    const symlinkPath = join(allowedDir, "linked-note.txt");
+    const store = new ProjectStore();
+    const events: unknown[] = [];
+    try {
+      await mkdir(activeWorktree, { recursive: true });
+      await mkdir(allowedDir, { recursive: true });
+      await mkdir(outsideDir, { recursive: true });
+      await writeFile(outsideFile, "outside\n", "utf8");
+      await symlink(outsideFile, symlinkPath);
+      const canonicalOutsideFile = await realpath(outsideFile);
+      store.openWorkspace(projectRoot);
+      const created = store.createThread("folder allowlist symlink escape", activeWorktree);
+      const thread = store.updateThreadSettings(created.id, { permissionMode: "workspace" });
+      store.createPermissionGrant(createLocalFolderAllowlistGrantInput({
+        folderPath: allowedDir,
+        threadId: thread.id,
+        workspacePath: activeWorktree,
+        permissionMode: "workspace",
+      }));
+      const requestPermission = vi.fn(async () => ({ allowed: false, mode: "deny" as const }));
+      const controller = new AgentRuntimeFileAuthorityController({
+        store,
+        transientRoots: new Map(),
+        requestPermission,
+        beginPermissionWait: vi.fn(),
+        activeRunId: () => undefined,
+        emit: (event) => events.push(event),
+      });
+
+      const approved = await controller.requestForThread(thread.id, { ...store.getWorkspace(), path: activeWorktree }, {
+        access: "read",
+        toolName: "read",
+        requestedPath: symlinkPath,
+        absolutePath: symlinkPath,
+        reason: "Path is outside the current workspace authority.",
+      });
+
+      expect(approved).toBe(false);
+      expect(requestPermission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          grantActionKind: "file_content_read",
+          grantTargetKind: "path",
+          grantTargetLabel: canonicalOutsideFile,
+          grantConditions: expect.objectContaining({
+            path: canonicalOutsideFile,
+            canonicalPath: canonicalOutsideFile,
+            requestedPath: symlinkPath,
+          }),
+        }),
+        expect.anything(),
+      );
+      expect(controller.rootPathsForThread(thread.id, "read")).not.toContain(allowedDir);
+      expect(controller.rootPathsForThread(thread.id, "read")).not.toContain(symlinkPath);
+      expect(controller.rootPathsForThread(thread.id, "read")).not.toContain(canonicalOutsideFile);
+      expect(events).toContainEqual(expect.objectContaining({
+        type: "permission-audit-created",
+        entry: expect.objectContaining({
+          decision: "denied",
+          decisionSource: "denied_by_user",
+          grantId: undefined,
+        }),
+      }));
+    } finally {
+      store.close();
+      await rm(root, { recursive: true, force: true });
     }
   });
 });

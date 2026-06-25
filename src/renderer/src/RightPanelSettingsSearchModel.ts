@@ -301,44 +301,17 @@ export type RightPanelSettingsSearchTargetsInput = {
   diagnostics: DiagnosticsSearchModel;
 };
 
-export function rightPanelSettingsSearchTargets({
+function rightPanelModelAndLocalSearchTargets({
   state,
-  voiceProviderModel,
-  voiceProviderLabelMode,
-  voiceSetupHealth,
-  voiceCatalogCards,
-  voiceArtifactRetentionError,
   modelCatalogSettings,
   subagentsEffectiveEnabled,
-  sttProviderModel,
-  sttCatalogCards,
-  selectedSttMicrophoneLabel,
-  sttMicrophoneSettingsValue,
-  sttMicrophoneDevicesError,
-  sttMicTestMessage,
-  sttMicTestStatus,
-  sttShortcutDisplayLabel,
-  sttDiagnosticRows,
-  webResearchSearchStatus,
-  webResearchFetchStatus,
-  searchRoutingStatus,
-  searchRoutingDetail,
-  searchCatalogCards,
-  localDeepResearch,
-  mcpRuntime,
-  miniCpmVisionSetupMessage,
-  miniCpmVisionDiagnostics,
-  visualCatalogCards,
-  authoredVideoCatalogCards,
-  writingStyleCatalogCards,
-  googleGrantGroups,
-  grantRegistrySummary,
-  permissionAuditError,
   diagnostics,
-}: RightPanelSettingsSearchTargetsInput): SettingsSearchTarget[] {
-  const selectedVoiceProvider = voiceProviderModel.selectedProvider;
-  const selectedVoice = selectedVoiceProvider?.voices.find((voice) => voice.id === voiceProviderModel.selectedVoiceId);
-  const selectedSttProvider = sttProviderModel.selectedProvider;
+}: {
+  state: DesktopState;
+  modelCatalogSettings: ModelCatalogSettingsSearchModel;
+  subagentsEffectiveEnabled: boolean;
+  diagnostics: DiagnosticsSearchModel;
+}): SettingsSearchTarget[] {
   const persistentSubagentsEnabled = Boolean(state.settings.featureFlags?.subagents);
   const subagentsFeatureFlag = state.featureFlagSnapshot?.flags["ambient.subagents"];
   const persistentSlashCommandsEnabled = Boolean(state.settings.featureFlags?.slashCommands);
@@ -349,86 +322,10 @@ export function rightPanelSettingsSearchTargets({
   const memoryEffectiveEnabled = Boolean(memoryFeatureFlag?.enabled);
   const activeThread = state.threads.find((thread) => thread.id === state.activeThreadId);
   const contextUsage = contextUsagePresentation(state.contextUsage, state.settings.compaction);
-  const secureStorage = secureStorageStatusForSearch(state);
-  const secureStorageRepair = secureStorageRepairForSearch(state);
   const namedSecrets = namedSecretsForSearch(state);
   const modelReasoning = modelReasoningControlModel(state.settings.model, state.settings.thinkingLevel);
 
   return [
-    { id: "overview.workspace", sectionId: "overview", terms: ["workspace", state.workspace.name, state.workspace.path] },
-    { id: "overview.app", sectionId: "overview", terms: ["app", state.app.name, state.app.version, state.app.platform, state.app.arch, "pi", "build"] },
-    {
-      id: "overview.secure-storage",
-      sectionId: "overview",
-      terms: [
-        "secure storage",
-        "safe storage",
-        "keyring",
-        "keychain",
-        "dpapi",
-        "linux",
-        secureStorage.status,
-        secureStorage.status === "ready" ? secureStorage.backend : secureStorage.reason,
-        secureStorage.message,
-        secureStorageRepair.summary,
-      ],
-    },
-    { id: "overview.updates", sectionId: "overview", terms: ["updates", desktopUpdateStatusText(state.app.update), state.app.update.channel, state.app.update.feedUrl] },
-    { id: "overview.appearance", sectionId: "overview", terms: ["appearance", "theme", state.appearance.themePreference] },
-    {
-      id: "overview.core-setup",
-      sectionId: "overview",
-      terms: [
-        "core setup",
-        "first run",
-        "first-run",
-        "setup assistant",
-        "provider catalog",
-        "voice setup",
-        "speech setup",
-        "stt setup",
-        "search setup",
-        state.providerCatalog.catalogVersion,
-      ],
-    },
-    {
-      id: "overview.remote-control",
-      sectionId: "overview",
-      terms: [
-        "remote control",
-        "remote access",
-        "Remote Ambient Surface",
-        "Telegram remote control",
-        "Signal remote control",
-        "owner loop",
-        "messaging gateway",
-        "not reviewed",
-      ],
-    },
-    { id: "voice.output", sectionId: "voice", terms: ["voice output", "assistant voice", "long replies", voiceProviderModel.statusLabel, voiceProviderModel.runtimeState.label, voiceProviderModel.runtimeState.detail, voiceProviderLabelMode] },
-    {
-      id: "voice.provider",
-      sectionId: "voice",
-      terms: [
-        "voice provider",
-        "tts",
-        selectedVoiceProvider?.label,
-        selectedVoiceProvider?.capabilityId,
-        voiceProviderModel.availabilityMessage,
-        voiceProviderModel.diagnostics?.statusLabel,
-        voiceProviderModel.diagnostics?.errorLabel,
-      ],
-    },
-    ...(selectedVoiceProvider
-      ? [
-          { id: "voice.voice", sectionId: "voice", terms: ["voice", selectedVoice?.label, selectedVoice?.id, selectedVoice?.locale, selectedVoice?.style?.join(" ")] },
-          { id: "voice.format", sectionId: "voice", terms: ["format", "audio", voiceProviderModel.selectedFormat] },
-        ]
-      : []),
-    { id: "voice.playback", sectionId: "voice", terms: ["playback", "enable assistant voice", "autoplay", voiceProviderModel.enabledChecked, voiceProviderModel.autoplayChecked] },
-    { id: "voice.setup", sectionId: "voice", terms: ["setup details", "health", "provider cache", "refresh activity", "audit", voiceSetupHealth.map((item) => `${item.label} ${item.detail}`).join(" ")] },
-    { id: "voice.catalog", sectionId: "voice", terms: ["known providers", "provider catalog", "tts catalog", voiceCatalogCards.map((card) => `${card.displayName} ${card.id} ${card.recommendationSummary}`).join(" ")] },
-    { id: "voice.artifacts", sectionId: "voice", terms: ["voice artifacts", "cache limit", "cleanup", "orphaned", voiceArtifactRetentionError] },
     { id: "model-mode.model", sectionId: "model-mode", terms: ["model", ambientModelLabel(state.settings.model), state.settings.model] },
     {
       id: "model-mode.model-catalog",
@@ -625,6 +522,126 @@ export function rightPanelSettingsSearchTargets({
     { id: "model-mode.context", sectionId: "model-mode", terms: ["context", contextUsage.label, contextUsage.title] },
     { id: "model-mode.compaction", sectionId: "model-mode", terms: ["compaction", "automatic", "manual", state.settings.compaction.autoCompactionEnabled] },
     { id: "model-mode.planner", sectionId: "model-mode", terms: ["planner finalization", "auto finalize", "final plan", state.settings.planner.autoFinalize] },
+  ];
+}
+
+export function rightPanelSettingsSearchTargets({
+  state,
+  voiceProviderModel,
+  voiceProviderLabelMode,
+  voiceSetupHealth,
+  voiceCatalogCards,
+  voiceArtifactRetentionError,
+  modelCatalogSettings,
+  subagentsEffectiveEnabled,
+  sttProviderModel,
+  sttCatalogCards,
+  selectedSttMicrophoneLabel,
+  sttMicrophoneSettingsValue,
+  sttMicrophoneDevicesError,
+  sttMicTestMessage,
+  sttMicTestStatus,
+  sttShortcutDisplayLabel,
+  sttDiagnosticRows,
+  webResearchSearchStatus,
+  webResearchFetchStatus,
+  searchRoutingStatus,
+  searchRoutingDetail,
+  searchCatalogCards,
+  localDeepResearch,
+  mcpRuntime,
+  miniCpmVisionSetupMessage,
+  miniCpmVisionDiagnostics,
+  visualCatalogCards,
+  authoredVideoCatalogCards,
+  writingStyleCatalogCards,
+  googleGrantGroups,
+  grantRegistrySummary,
+  permissionAuditError,
+  diagnostics,
+}: RightPanelSettingsSearchTargetsInput): SettingsSearchTarget[] {
+  const selectedVoiceProvider = voiceProviderModel.selectedProvider;
+  const selectedVoice = selectedVoiceProvider?.voices.find((voice) => voice.id === voiceProviderModel.selectedVoiceId);
+  const selectedSttProvider = sttProviderModel.selectedProvider;
+  const secureStorage = secureStorageStatusForSearch(state);
+  const secureStorageRepair = secureStorageRepairForSearch(state);
+
+  return [
+    { id: "overview.workspace", sectionId: "overview", terms: ["workspace", state.workspace.name, state.workspace.path] },
+    { id: "overview.app", sectionId: "overview", terms: ["app", state.app.name, state.app.version, state.app.platform, state.app.arch, "pi", "build"] },
+    {
+      id: "overview.secure-storage",
+      sectionId: "overview",
+      terms: [
+        "secure storage",
+        "safe storage",
+        "keyring",
+        "keychain",
+        "dpapi",
+        "linux",
+        secureStorage.status,
+        secureStorage.status === "ready" ? secureStorage.backend : secureStorage.reason,
+        secureStorage.message,
+        secureStorageRepair.summary,
+      ],
+    },
+    { id: "overview.updates", sectionId: "overview", terms: ["updates", desktopUpdateStatusText(state.app.update), state.app.update.channel, state.app.update.feedUrl] },
+    { id: "overview.appearance", sectionId: "overview", terms: ["appearance", "theme", state.appearance.themePreference] },
+    {
+      id: "overview.core-setup",
+      sectionId: "overview",
+      terms: [
+        "core setup",
+        "first run",
+        "first-run",
+        "setup assistant",
+        "provider catalog",
+        "voice setup",
+        "speech setup",
+        "stt setup",
+        "search setup",
+        state.providerCatalog.catalogVersion,
+      ],
+    },
+    {
+      id: "overview.remote-control",
+      sectionId: "overview",
+      terms: [
+        "remote control",
+        "remote access",
+        "Remote Ambient Surface",
+        "Telegram remote control",
+        "Signal remote control",
+        "owner loop",
+        "messaging gateway",
+        "not reviewed",
+      ],
+    },
+    { id: "voice.output", sectionId: "voice", terms: ["voice output", "assistant voice", "long replies", voiceProviderModel.statusLabel, voiceProviderModel.runtimeState.label, voiceProviderModel.runtimeState.detail, voiceProviderLabelMode] },
+    {
+      id: "voice.provider",
+      sectionId: "voice",
+      terms: [
+        "voice provider",
+        "tts",
+        selectedVoiceProvider?.label,
+        selectedVoiceProvider?.capabilityId,
+        voiceProviderModel.availabilityMessage,
+        voiceProviderModel.diagnostics?.statusLabel,
+        voiceProviderModel.diagnostics?.errorLabel,
+      ],
+    },
+    ...(selectedVoiceProvider
+      ? [
+          { id: "voice.voice", sectionId: "voice", terms: ["voice", selectedVoice?.label, selectedVoice?.id, selectedVoice?.locale, selectedVoice?.style?.join(" ")] },
+          { id: "voice.format", sectionId: "voice", terms: ["format", "audio", voiceProviderModel.selectedFormat] },
+        ]
+      : []),
+    { id: "voice.playback", sectionId: "voice", terms: ["playback", "enable assistant voice", "autoplay", voiceProviderModel.enabledChecked, voiceProviderModel.autoplayChecked] },
+    { id: "voice.setup", sectionId: "voice", terms: ["setup details", "health", "provider cache", "refresh activity", "audit", voiceSetupHealth.map((item) => `${item.label} ${item.detail}`).join(" ")] },
+    { id: "voice.catalog", sectionId: "voice", terms: ["known providers", "provider catalog", "tts catalog", voiceCatalogCards.map((card) => `${card.displayName} ${card.id} ${card.recommendationSummary}`).join(" ")] },
+    { id: "voice.artifacts", sectionId: "voice", terms: ["voice artifacts", "cache limit", "cleanup", "orphaned", voiceArtifactRetentionError] },
+    ...rightPanelModelAndLocalSearchTargets({ state, modelCatalogSettings, subagentsEffectiveEnabled, diagnostics }),
     { id: "speech.input", sectionId: "speech", terms: ["speech input", "push to talk", "transcript", sttProviderModel.statusLabel] },
     { id: "speech.provider", sectionId: "speech", terms: ["speech provider", "stt", selectedSttProvider?.label, selectedSttProvider?.capabilityId, sttProviderModel.availabilityMessage, sttProviderModel.diagnostics?.statusLabel] },
     { id: "speech.catalog", sectionId: "speech", terms: ["speech provider catalog", "stt catalog", "known providers", sttCatalogCards.map((card) => `${card.displayName} ${card.id} ${card.recommendationSummary}`).join(" ")] },

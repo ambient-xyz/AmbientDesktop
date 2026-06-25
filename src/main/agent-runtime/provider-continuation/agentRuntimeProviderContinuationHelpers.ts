@@ -1,6 +1,6 @@
 import type { PermissionMode } from "../../../shared/permissionTypes";
 import type { SendMessageInput } from "../../../shared/desktopTypes";
-import type { InterruptedToolCallRecoverySnapshot, MessageDelivery, ProviderContinuationState, ProviderContinuationToolState, ToolIntentSnapshot } from "../../../shared/threadTypes";
+import type { InterruptedToolCallRecoverySnapshot, MessageDelivery, ProviderContinuationState, ProviderContinuationToolState, RuntimeContinuationSource, ToolIntentSnapshot } from "../../../shared/threadTypes";
 import type { AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agentRuntimeAssistantRetryInput";
 
 const RECOVERY_APPLY_WRITE_SUFFIX_TOOL_NAME = "recovery_apply_interrupted_write_suffix";
@@ -53,6 +53,7 @@ export type ProviderInterruptionContinuationSendInput =
     delivery: Extract<MessageDelivery, "prompt">;
     preserveActiveThread: true;
     modelContentOverride: string;
+    continuationSource: RuntimeContinuationSource;
     sessionRecovery: RuntimeSessionRecoveryContext;
     assistantFinalizationRetry: AssistantFinalizationRetryState;
   };
@@ -250,6 +251,7 @@ export function buildProviderInterruptionContinuationInput(input: {
     delivery: "prompt",
     preserveActiveThread: true,
     modelContentOverride: content,
+    continuationSource: "post-tool-continuation",
     sessionRecovery: input.sessionRecovery,
     assistantFinalizationRetry: {
       sourceUserMessageId: input.retrySourceUserMessageId,

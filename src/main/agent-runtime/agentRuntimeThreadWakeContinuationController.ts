@@ -1,5 +1,5 @@
 import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
-import type { ThreadSummary } from "../../shared/threadTypes";
+import type { ChatMessage, RuntimeContinuationSource, ThreadSummary } from "../../shared/threadTypes";
 import type {
   ScheduleThreadWakeContinuationInput,
   ThreadWakeContinuation,
@@ -11,16 +11,21 @@ export type ThreadWakeContinuationSendInput = SendMessageInput & {
   modelContentOverride?: string;
   visibleUserContent?: string;
   hiddenUserMessage?: true;
+  continuationSource?: RuntimeContinuationSource;
 };
 
 export interface AgentRuntimeThreadWakeContinuationControllerOptions {
   store: Pick<
     ProjectStore,
     | "getThread"
+    | "getThreadWakeContinuation"
     | "listPendingThreadWakeContinuations"
+    | "cancelThreadWakeContinuation"
+    | "resolveThreadWakeContinuation"
     | "markThreadWakeContinuationDelivered"
     | "markThreadWakeContinuationFailed"
     | "scheduleThreadWakeContinuation"
+    | "addMessage"
   >;
   hasActiveRun: (threadId: string) => boolean;
   send: (input: ThreadWakeContinuationSendInput) => Promise<void>;
@@ -50,7 +55,29 @@ export class AgentRuntimeThreadWakeContinuationController {
 
   schedule(input: ScheduleThreadWakeContinuationInput): ThreadWakeContinuation {
     const wake = this.options.store.scheduleThreadWakeContinuation(input);
+    for (const supersededWakeId of wake.supersedesWakeIds) {
+      const existing = this.timers.get(supersededWakeId);
+      if (!existing) continue;
+      this.clearTimeout(existing);
+      this.timers.delete(supersededWakeId);
+    }
     this.scheduleTimer(wake);
+    this.emitThreadUpdated(wake.threadId);
+    return wake;
+  }
+
+  cancel(input: { threadId: string; wakeId: string }): ThreadWakeContinuation {
+    const current = this.requireWakeForThread(input.threadId, input.wakeId);
+    const wake = this.options.store.cancelThreadWakeContinuation(current.id) ?? current;
+    this.clearTimer(wake.id);
+    this.emitThreadUpdated(wake.threadId);
+    return wake;
+  }
+
+  resolve(input: { threadId: string; wakeId: string; reason?: string }): ThreadWakeContinuation {
+    const current = this.requireWakeForThread(input.threadId, input.wakeId);
+    const wake = this.options.store.resolveThreadWakeContinuation(current.id, input.reason) ?? current;
+    this.clearTimer(wake.id);
     this.emitThreadUpdated(wake.threadId);
     return wake;
   }
@@ -62,8 +89,7 @@ export class AgentRuntimeThreadWakeContinuationController {
   }
 
   private scheduleTimer(wake: ThreadWakeContinuation, delayOverrideMs?: number): void {
-    const existing = this.timers.get(wake.id);
-    if (existing) this.clearTimeout(existing);
+    this.clearTimer(wake.id);
     const dueMs = Date.parse(wake.dueAt);
     const delayMs = delayOverrideMs ?? Math.max(0, dueMs - this.now());
     const handle = this.setTimeout(() => {
@@ -79,6 +105,16 @@ export class AgentRuntimeThreadWakeContinuationController {
   }
 
   private async deliverWakeIfIdle(wake: ThreadWakeContinuation): Promise<void> {
+    const current = this.options.store.getThreadWakeContinuation(wake.id);
+    if (!current) {
+      this.recordDroppedWakeActivity(wake, "Wake no longer exists.");
+      return;
+    }
+    if (current.status !== "pending") {
+      this.recordDroppedWakeActivity(current, droppedWakeReason(current));
+      return;
+    }
+    wake = current;
     const dueMs = Date.parse(wake.dueAt);
     if (dueMs > this.now()) {
       this.scheduleTimer(wake);
@@ -112,6 +148,7 @@ export class AgentRuntimeThreadWakeContinuationController {
       visibleUserContent: `Continuing scheduled check-in: ${wake.reason}`,
       modelContentOverride: prompt,
       hiddenUserMessage: true,
+      continuationSource: "thread-wake",
       permissionMode: thread.permissionMode,
       collaborationMode: thread.collaborationMode === "planner" ? "agent" : thread.collaborationMode,
       model: thread.model,
@@ -124,6 +161,51 @@ export class AgentRuntimeThreadWakeContinuationController {
     this.emitThreadUpdated(wake.threadId);
   }
 
+  private clearTimer(wakeId: string): void {
+    const existing = this.timers.get(wakeId);
+    if (!existing) return;
+    this.clearTimeout(existing);
+    this.timers.delete(wakeId);
+  }
+
+  private requireWakeForThread(threadId: string, wakeId: string): ThreadWakeContinuation {
+    const wake = this.options.store.getThreadWakeContinuation(wakeId);
+    if (!wake) throw new Error(`Thread wake not found: ${wakeId}`);
+    if (wake.threadId !== threadId) throw new Error(`Thread wake ${wakeId} does not belong to this thread.`);
+    return wake;
+  }
+
+  private recordDroppedWakeActivity(wake: ThreadWakeContinuation, reason: string): void {
+    const content = [
+      `Thread wake ${wake.id} skipped.`,
+      `Status: ${wake.status}`,
+      wake.operationKey ? `Operation: ${wake.operationKey}` : undefined,
+      `Reason: ${reason}`,
+    ].filter((line): line is string => line !== undefined).join("\n");
+    let message: ChatMessage | undefined;
+    try {
+      message = this.options.store.addMessage({
+        threadId: wake.threadId,
+        role: "tool",
+        content,
+        metadata: {
+          runtime: "ambient-thread-wake",
+          status: "done",
+          event: "wake-dropped",
+          wakeId: wake.id,
+          wakeStatus: wake.status,
+          operationKey: wake.operationKey,
+          resolutionReason: wake.resolutionReason,
+        },
+      });
+    } catch {
+      // Dropped-wake diagnostics should not reanimate a stale wake if the thread is gone.
+      return;
+    }
+    this.options.emit({ type: "message-created", message });
+    this.emitThreadUpdated(wake.threadId);
+  }
+
   private emitThreadUpdated(threadId: string): void {
     try {
       this.options.emit({ type: "thread-updated", thread: this.options.store.getThread(threadId) });
@@ -131,6 +213,14 @@ export class AgentRuntimeThreadWakeContinuationController {
       // Missing threads are handled by the delivery path and should not mask wake lifecycle updates.
     }
   }
+}
+
+function droppedWakeReason(wake: ThreadWakeContinuation): string {
+  if (wake.resolutionReason) return wake.resolutionReason;
+  if (wake.status === "superseded") return "Superseded by a newer wake for the same operation.";
+  if (wake.status === "cancelled") return "Cancelled before delivery.";
+  if (wake.status === "resolved") return "Resolved before delivery.";
+  return `Wake is no longer pending (${wake.status}).`;
 }
 
 function threadWakeContinuationPrompt(

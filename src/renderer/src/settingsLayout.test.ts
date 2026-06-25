@@ -14,9 +14,8 @@ const settingsAgentMemoryControllerSource = readFileSync(
   "utf8",
 );
 const settingsSearchSource = readFileSync(new URL("./RightPanelSettingsSearchModel.ts", import.meta.url), "utf8");
-const settingsCoreSource = readFileSync(new URL("./RightPanelSettingsCore.tsx", import.meta.url), "utf8");
+const settingsModelModeSource = readFileSync(new URL("./RightPanelModelModeSettingsSection.tsx", import.meta.url), "utf8");
 const rightPanelControllerGraphSource = readFileSync(new URL("./RightPanelControllerGraph.ts", import.meta.url), "utf8");
-const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const appActiveThreadModelSource = readFileSync(new URL("./AppActiveThreadModel.ts", import.meta.url), "utf8");
 const appAgentMemoryControlsSource = readFileSync(new URL("./AppAgentMemoryControls.ts", import.meta.url), "utf8");
 const appProviderRuntimeStateSource = readFileSync(new URL("./AppProviderRuntimeState.ts", import.meta.url), "utf8");
@@ -78,7 +77,7 @@ describe("settings layout", () => {
     expect(settingsRuntimeSource).toContain("subagent-replay-evidence-group");
     expect(settingsRuntimeSource).toContain("local-runtime-evidence-group");
     expect(settingsRuntimeSource).toContain("diagnostic-export-history-row");
-    expect(settingsCoreSource).toContain('label="Experimental sub-agents"');
+    expect(settingsModelModeSource).toContain('label="Experimental sub-agents"');
     expect(settingsSystemSource).toContain('label="Sub-agent maturity"');
     expect(settingsSystemSource).toContain('label="Sub-agent repair"');
     expect(settingsSystemSource).toContain('label="Sub-agent replay"');
@@ -124,8 +123,8 @@ describe("settings layout", () => {
   });
 
   it("surfaces experimental agent memory diagnostics in settings", () => {
-    expect(settingsCoreSource).toContain("AgentMemoryStarterCard");
-    expect(settingsCoreSource).toContain("Advanced controls");
+    expect(settingsModelModeSource).toContain("AgentMemoryStarterCard");
+    expect(settingsModelModeSource).toContain("Advanced controls");
     expect(settingsControllerSource).toContain("useRightPanelSettingsAgentMemoryController");
     expect(settingsControllerSource).toContain("...agentMemorySettingsController");
     expect(settingsAgentMemoryControllerSource).toContain("loadAgentMemoryStarterStatus");
@@ -154,21 +153,21 @@ describe("settings layout", () => {
       "activeThreadMemoryEnabled: Boolean(state.threads.find((thread) => thread.id === state.activeThreadId)?.memoryEnabled)",
     );
     expect(rightPanelControllerGraphSource).toContain("onApplyMemorySettingsSnapshot");
-    expect(settingsCoreSource).toContain("agentMemoryStarterPrimaryAction(status)");
-    expect(settingsCoreSource).toContain("agentMemoryStarterSetupAction(status)");
-    expect(settingsCoreSource).toContain("agentMemoryStarterRepairButtonLabel(status, setupAction)");
-    expect(settingsCoreSource).toContain("runAgentMemoryStarterAction(setupAction");
-    expect(settingsCoreSource).toContain("agentMemoryStarterOperationForAction(action)");
-    expect(settingsCoreSource).toContain('aria-label="Agent Memory mode"');
-    expect(settingsCoreSource).toContain("async function changeAgentMemoryMode");
-    expect(settingsCoreSource).toContain("await disableAgentMemoryStarterFromSettings()");
-    expect(settingsCoreSource).toContain("await enableAgentMemoryStarterFromSettings(mode)");
-    expect(settingsCoreSource).toContain("AgentMemoryPolicyDiagnostics");
-    expect(settingsCoreSource).toContain("showControls={false}");
-    expect(settingsCoreSource).toContain('actionsDisabled={memoryFlagValue === "Forced off"}');
-    expect(settingsCoreSource).toContain("disabled={busy}");
-    expect(settingsCoreSource).toContain('if (actionsDisabled && nextMode !== "disabled") return;');
-    expect(settingsCoreSource).toContain('disabled={actionsDisabled && mode !== "disabled"}');
+    expect(settingsModelModeSource).toContain("agentMemoryStarterPrimaryAction(status)");
+    expect(settingsModelModeSource).toContain("agentMemoryStarterSetupAction(status)");
+    expect(settingsModelModeSource).toContain("agentMemoryStarterRepairButtonLabel(status, setupAction)");
+    expect(settingsModelModeSource).toContain("runAgentMemoryStarterAction(setupAction");
+    expect(settingsModelModeSource).toContain("agentMemoryStarterOperationForAction(action)");
+    expect(settingsModelModeSource).toContain('aria-label="Agent Memory mode"');
+    expect(settingsModelModeSource).toContain("async function changeAgentMemoryMode");
+    expect(settingsModelModeSource).toContain("await disableAgentMemoryStarterFromSettings()");
+    expect(settingsModelModeSource).toContain("await enableAgentMemoryStarterFromSettings(mode)");
+    expect(settingsModelModeSource).toContain("AgentMemoryPolicyDiagnostics");
+    expect(settingsModelModeSource).toContain("showControls={false}");
+    expect(settingsModelModeSource).toContain('actionsDisabled={memoryFlagValue === "Forced off"}');
+    expect(settingsModelModeSource).toContain("disabled={busy}");
+    expect(settingsModelModeSource).toContain('if (actionsDisabled && nextMode !== "disabled") return;');
+    expect(settingsModelModeSource).toContain('disabled={actionsDisabled && mode !== "disabled"}');
     expect(appTopbarSource).toContain('aria-label="Memory for this thread"');
     expect(appActiveThreadModelSource).toContain('activeThread?.kind !== "subagent_child" &&');
     expect(appActiveThreadModelSource).toContain("isAmbientTencentDbMemoryEnabled(state.featureFlagSnapshot)");
@@ -176,15 +175,15 @@ describe("settings layout", () => {
     expect(appShellLayoutSource).toContain("void updateThreadSettings({ memoryEnabled: enabled });");
     expect(appShellCommandActionsSource).toContain("setState((current) => {");
     expect(appShellCommandActionsSource).toContain("current.activeThreadId === thread.id");
-    expect(settingsCoreSource).toContain("Refresh diagnostics");
-    expect(settingsCoreSource).toContain("Confirm clear");
-    expect(settingsCoreSource).toContain("agentMemoryClearStatus");
-    expect(settingsCoreSource).toContain("disabled={agentMemoryClearLoading || agentMemoryClearConfirming}");
-    expect(settingsCoreSource).toContain("AgentMemoryDiagnosticsSummary");
-    expect(settingsCoreSource).toContain("AGENT_MEMORY_PRIVACY_DISCLOSURE_LINES");
-    expect(settingsCoreSource).toContain("Memory privacy");
-    expect(settingsCoreSource).toContain("Embeddings endpoint");
-    expect(settingsCoreSource).toContain("onRunAgentMemoryEmbeddingLifecycleAction");
+    expect(settingsModelModeSource).toContain("Refresh diagnostics");
+    expect(settingsModelModeSource).toContain("Confirm clear");
+    expect(settingsModelModeSource).toContain("agentMemoryClearStatus");
+    expect(settingsModelModeSource).toContain("disabled={agentMemoryClearLoading || agentMemoryClearConfirming}");
+    expect(settingsModelModeSource).toContain("AgentMemoryDiagnosticsSummary");
+    expect(settingsModelModeSource).toContain("AGENT_MEMORY_PRIVACY_DISCLOSURE_LINES");
+    expect(settingsModelModeSource).toContain("Memory privacy");
+    expect(settingsModelModeSource).toContain("Embeddings endpoint");
+    expect(settingsModelModeSource).toContain("onRunAgentMemoryEmbeddingLifecycleAction");
     expect(rightPanelControllerGraphSource).toContain("runAgentMemoryEmbeddingLifecycleActionFromSettings");
     expect(rightPanelControllerGraphSource).toContain("settingsPane.applyAgentMemoryStarterStatus(result.starterStatus)");
     expect(rightPanelControllerGraphSource).toContain("await settingsPane.loadAgentMemoryStarterStatus()");
@@ -196,7 +195,7 @@ describe("settings layout", () => {
     expect(appAgentMemoryControlsSource).toContain(
       "agentMemoryDiagnosticsRequestSeqRef.current += 1;\n      setAgentMemoryDiagnosticsLoading(false);",
     );
-    expect(settingsCoreSource).toContain("Raw memory content");
+    expect(settingsModelModeSource).toContain("Raw memory content");
     expect(settingsPaneSource).toContain("agentMemoryDiagnostics");
     expect(settingsSearchSource).toContain("agent memory");
   });

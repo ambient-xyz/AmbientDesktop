@@ -46,6 +46,7 @@ describe("goal controls helpers", () => {
     expect(runtimeActivityVisibleForThreadGoal(otherGoal, goal)).toBe(false);
     expect(runtimeActivityVisibleForThreadGoal(continuing, pausedGoal)).toBe(false);
     expect(runtimeActivityVisibleForThreadGoal(goalActivity({ status: "paused" }), pausedGoal)).toBe(true);
+    expect(runtimeActivityVisibleForThreadGoal(goalActivity({ continuationSource: "thread-wake" }), undefined)).toBe(true);
     expect(runtimeActivityVisibleForThreadGoal({ threadId: "thread-id", kind: "browser", status: "finished", message: "Ready" }, goal)).toBe(true);
   });
 });

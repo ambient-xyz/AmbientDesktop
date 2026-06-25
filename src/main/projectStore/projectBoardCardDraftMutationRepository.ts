@@ -1,14 +1,9 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import { projectBoardOpenClarificationQuestions } from "../../shared/projectBoardClarificationDecisions";
 import { projectBoardDecisionImpactPreview } from "../../shared/projectBoardDecisionImpact";
 import type {
   ProjectBoardCard,
   ProjectBoardCardCandidateStatus,
-  ProjectBoardCardClarificationAnswer,
-  ProjectBoardCardClarificationDecision,
-  ProjectBoardCardClarificationSuggestion,
-  ProjectBoardCardTestPlan,
   ProjectBoardCardTouchedField,
   ProjectBoardSummary,
 } from "../../shared/projectBoardTypes";
@@ -16,25 +11,19 @@ import type { OrchestrationTask } from "../../shared/workflowTypes";
 import type { ProjectBoardCardMutationEventInput } from "./projectBoardCardMutationEvents";
 import {
   mapProjectBoardCardRow,
-  normalizeCardTextList,
-  normalizeProjectBoardCardTestPlan,
-  normalizeProjectBoardClarificationAnswers,
-  normalizeProjectBoardClarificationDecisions,
-  normalizeProjectBoardClarificationQuestions,
-  normalizeProjectBoardClarificationSuggestions,
-  normalizeProjectBoardSynthesisClarificationFields,
-  normalizeProjectBoardUiMockRole,
-  normalizeTaskLabels,
-  normalizeTaskReferences,
   objectiveProvenanceJson,
-  projectBoardCandidateStatusForSynthesisUpdate,
-  projectBoardCardProofCount,
-  projectBoardChangedClarificationAnswer,
   projectBoardClarificationDecisionImpactEventSummary,
   projectBoardDecisionImpactEventMetadata,
   type ProjectBoardCardStoreRow,
   type ProjectBoardStoreRow,
 } from "./projectBoardMappers";
+import {
+  buildProjectBoardCardDraftUpdateState,
+  buildProjectBoardCardPendingPiUpdateState,
+  type UpdateProjectBoardCardMutationInput,
+} from "./projectBoardCardDraftMutationState";
+
+export type { UpdateProjectBoardCardMutationInput } from "./projectBoardCardDraftMutationState";
 
 export interface ProjectStoreProjectBoardCardDraftMutationRepositoryDeps {
   listOrchestrationTasks(): OrchestrationTask[];
@@ -46,24 +35,6 @@ export interface ProjectStoreProjectBoardCardDraftMutationRepositoryDeps {
   appendProjectBoardEvent(input: ProjectBoardCardMutationEventInput): void;
   syncProjectBoardTaskBlockers(boardId: string): void;
   syncProjectBoardCardsForLinkedTasks(): void;
-}
-
-export interface UpdateProjectBoardCardMutationInput {
-  cardId: string;
-  title?: string;
-  description?: string;
-  candidateStatus?: ProjectBoardCardCandidateStatus;
-  priority?: number | null;
-  phase?: string | null;
-  labels?: string[];
-  blockedBy?: string[];
-  acceptanceCriteria?: string[];
-  testPlan?: ProjectBoardCardTestPlan;
-  sourceRefs?: string[];
-  clarificationQuestions?: string[];
-  clarificationSuggestions?: ProjectBoardCardClarificationSuggestion[];
-  clarificationAnswers?: ProjectBoardCardClarificationAnswer[];
-  clarificationDecisions?: ProjectBoardCardClarificationDecision[];
 }
 
 export class ProjectStoreProjectBoardCardDraftMutationRepository {
@@ -132,122 +103,31 @@ export class ProjectStoreProjectBoardCardDraftMutationRepository {
     if (current.orchestrationTaskId || current.status !== "draft") {
       throw new Error("Project board candidates can only be edited before ticketization.");
     }
-    const title = input.title === undefined ? current.title : input.title.trim();
-    if (!title) throw new Error("Project board card title cannot be empty.");
     const now = new Date().toISOString();
-    const description = input.description === undefined ? current.description : input.description.trim().slice(0, 4000);
-    let candidateStatus = input.candidateStatus ?? current.candidateStatus;
-    const priority =
-      input.priority === undefined
-        ? (current.priority ?? null)
-        : input.priority === null
-          ? null
-          : Math.max(0, Math.min(100, Math.round(input.priority)));
-    const phase = input.phase === undefined ? (current.phase ?? null) : input.phase?.trim() ? input.phase.trim().slice(0, 80) : null;
-    const labels = input.labels === undefined ? current.labels : normalizeTaskLabels(input.labels);
-    const blockedBy = input.blockedBy === undefined ? current.blockedBy : normalizeTaskReferences(input.blockedBy);
-    const acceptanceCriteria =
-      input.acceptanceCriteria === undefined ? current.acceptanceCriteria : normalizeCardTextList(input.acceptanceCriteria, 30);
-    const testPlan = input.testPlan === undefined ? current.testPlan : normalizeProjectBoardCardTestPlan(input.testPlan);
-    const sourceRefs = input.sourceRefs === undefined ? (current.sourceRefs ?? []) : normalizeCardTextList(input.sourceRefs, 20);
-    const clarificationQuestions =
-      input.clarificationQuestions === undefined
-        ? normalizeProjectBoardClarificationQuestions(current.clarificationQuestions ?? [], 8)
-        : normalizeProjectBoardClarificationQuestions(input.clarificationQuestions, 8);
-    const clarificationSuggestions =
-      input.clarificationSuggestions === undefined
-        ? (current.clarificationSuggestions ?? [])
-        : normalizeProjectBoardClarificationSuggestions(input.clarificationSuggestions, []);
-    const clarificationAnswers =
-      input.clarificationAnswers === undefined
-        ? (current.clarificationAnswers ?? [])
-        : normalizeProjectBoardClarificationAnswers(input.clarificationAnswers);
-    const clarificationInputsChanged =
-      input.clarificationQuestions !== undefined ||
-      input.clarificationSuggestions !== undefined ||
-      input.clarificationAnswers !== undefined ||
-      input.clarificationDecisions !== undefined ||
-      input.description !== undefined ||
-      input.acceptanceCriteria !== undefined;
-    const clarificationDecisions =
-      input.clarificationDecisions !== undefined
-        ? normalizeProjectBoardClarificationDecisions(input.clarificationDecisions, {
-            clarificationQuestions,
-            clarificationSuggestions,
-            clarificationAnswers,
-            createdAt: current.createdAt,
-            updatedAt: now,
-          })
-        : clarificationInputsChanged
-          ? normalizeProjectBoardClarificationDecisions(current.clarificationDecisions, {
-              clarificationQuestions,
-              clarificationSuggestions,
-              clarificationAnswers,
-              createdAt: current.createdAt,
-              updatedAt: now,
-            })
-          : (current.clarificationDecisions ?? []);
-    if (
-      input.candidateStatus === undefined &&
-      candidateStatus === "needs_clarification" &&
-      (!this.deps.projectBoardRequiresProofSpec(current.boardId) || projectBoardCardProofCount({ ...current, testPlan }) > 0) &&
-      projectBoardOpenClarificationQuestions({
-        clarificationDecisions,
-        clarificationQuestions,
-        clarificationSuggestions,
-        clarificationAnswers,
-        includeInlineQuestions: false,
-        limit: 8,
-      }).length === 0
-    ) {
-      candidateStatus = "ready_to_create";
-    }
-    if (candidateStatus === "ready_to_create") {
+    const draft = buildProjectBoardCardDraftUpdateState({
+      current,
+      update: input,
+      now,
+      requiresProofSpec: this.deps.projectBoardRequiresProofSpec(current.boardId),
+    });
+    if (draft.candidateStatus === "ready_to_create") {
       const nextForGates = {
         ...current,
-        blockedBy,
-        testPlan,
-        clarificationQuestions,
-        clarificationSuggestions,
-        clarificationAnswers,
-        clarificationDecisions,
+        blockedBy: draft.blockedBy,
+        testPlan: draft.testPlan,
+        clarificationQuestions: draft.clarificationQuestions,
+        clarificationSuggestions: draft.clarificationSuggestions,
+        clarificationAnswers: draft.clarificationAnswers,
+        clarificationDecisions: draft.clarificationDecisions,
       };
       this.deps.assertProjectBoardCardProofReady(nextForGates);
       this.deps.assertProjectBoardCardClarificationsResolved(nextForGates);
       this.deps.assertProjectBoardRunFollowUpStillActionable(nextForGates);
     }
-    const changedFields = [
-      title !== current.title ? "title" : undefined,
-      description !== current.description ? "description" : undefined,
-      candidateStatus !== current.candidateStatus ? "candidateStatus" : undefined,
-      priority !== (current.priority ?? null) ? "priority" : undefined,
-      phase !== (current.phase ?? null) ? "phase" : undefined,
-      JSON.stringify(labels) !== JSON.stringify(current.labels) ? "labels" : undefined,
-      JSON.stringify(blockedBy) !== JSON.stringify(current.blockedBy) ? "dependencies" : undefined,
-      JSON.stringify(acceptanceCriteria) !== JSON.stringify(current.acceptanceCriteria) ? "acceptanceCriteria" : undefined,
-      JSON.stringify(testPlan) !== JSON.stringify(current.testPlan) ? "testPlan" : undefined,
-      JSON.stringify(sourceRefs) !== JSON.stringify(current.sourceRefs ?? []) ? "sourceRefs" : undefined,
-      JSON.stringify(clarificationQuestions) !== JSON.stringify(current.clarificationQuestions ?? [])
-        ? "clarificationQuestions"
-        : undefined,
-      JSON.stringify(clarificationSuggestions) !== JSON.stringify(current.clarificationSuggestions ?? [])
-        ? "clarificationSuggestions"
-        : undefined,
-      JSON.stringify(clarificationAnswers) !== JSON.stringify(current.clarificationAnswers ?? []) ? "clarificationAnswers" : undefined,
-      JSON.stringify(clarificationDecisions) !== JSON.stringify(current.clarificationDecisions ?? [])
-        ? "clarificationDecisions"
-        : undefined,
-    ].filter((field): field is ProjectBoardCardTouchedField => Boolean(field));
-    const touchedFields =
-      changedFields.length > 0 ? [...new Set([...(current.userTouchedFields ?? []), ...changedFields])] : (current.userTouchedFields ?? []);
-    const touchedAt = changedFields.length > 0 ? now : (current.userTouchedAt ?? null);
-    const changedClarificationAnswer = changedFields.includes("clarificationAnswers")
-      ? projectBoardChangedClarificationAnswer(current.clarificationAnswers ?? [], clarificationAnswers)
-      : undefined;
-    const decisionImpact = changedClarificationAnswer
+    const decisionImpact = draft.changedClarificationAnswer
       ? projectBoardDecisionImpactPreview(this.deps.getProjectBoard(current.boardId), {
-          question: changedClarificationAnswer.question,
-          answer: changedClarificationAnswer.answer,
+          question: draft.changedClarificationAnswer.question,
+          answer: draft.changedClarificationAnswer.answer,
           answeredCardId: current.id,
         })
       : undefined;
@@ -274,45 +154,45 @@ export class ProjectStoreProjectBoardCardDraftMutationRepository {
          WHERE id = ?`,
       )
       .run(
-        title.slice(0, 180),
-        description,
-        candidateStatus,
-        priority,
-        phase,
-        JSON.stringify(labels),
-        JSON.stringify(blockedBy),
-        JSON.stringify(acceptanceCriteria),
-        JSON.stringify(testPlan),
-        JSON.stringify(sourceRefs),
-        JSON.stringify(clarificationQuestions),
-        JSON.stringify(clarificationSuggestions),
-        JSON.stringify(clarificationAnswers),
-        JSON.stringify(clarificationDecisions),
-        JSON.stringify(touchedFields),
-        touchedAt,
+        draft.title.slice(0, 180),
+        draft.description,
+        draft.candidateStatus,
+        draft.priority,
+        draft.phase,
+        JSON.stringify(draft.labels),
+        JSON.stringify(draft.blockedBy),
+        JSON.stringify(draft.acceptanceCriteria),
+        JSON.stringify(draft.testPlan),
+        JSON.stringify(draft.sourceRefs),
+        JSON.stringify(draft.clarificationQuestions),
+        JSON.stringify(draft.clarificationSuggestions),
+        JSON.stringify(draft.clarificationAnswers),
+        JSON.stringify(draft.clarificationDecisions),
+        JSON.stringify(draft.touchedFields),
+        draft.touchedAt,
         now,
         input.cardId,
       );
     this.touchBoard(current.boardId, now);
-    if (changedFields.length > 0) {
+    if (draft.changedFields.length > 0) {
       this.deps.appendProjectBoardEvent({
         boardId: current.boardId,
         kind: "card_updated",
         title: decisionImpact ? "Clarification decision answered" : "Candidate card updated",
         summary: decisionImpact
           ? projectBoardClarificationDecisionImpactEventSummary(current.title, decisionImpact)
-          : `${current.title} updated ${changedFields.join(", ")}.`,
+          : `${current.title} updated ${draft.changedFields.join(", ")}.`,
         entityKind: "project_board_card",
         entityId: current.id,
         metadata: {
           cardId: current.id,
-          changedFields,
+          changedFields: draft.changedFields,
           ...(decisionImpact ? { decisionImpact: projectBoardDecisionImpactEventMetadata(decisionImpact) } : {}),
         },
         createdAt: now,
       });
     }
-    if (changedFields.includes("candidateStatus") || changedFields.includes("dependencies")) {
+    if (draft.changedFields.includes("candidateStatus") || draft.changedFields.includes("dependencies")) {
       this.deps.syncProjectBoardTaskBlockers(current.boardId);
       this.deps.syncProjectBoardCardsForLinkedTasks();
     }
@@ -377,7 +257,8 @@ export class ProjectStoreProjectBoardCardDraftMutationRepository {
 
   resolvePiUpdate(input: { cardId: string; action: "apply" | "ignore" }): ProjectBoardCard {
     const current = this.getProjectBoardCard(input.cardId);
-    if (!current.pendingPiUpdate) return current;
+    const pendingUpdate = current.pendingPiUpdate;
+    if (!pendingUpdate) return current;
     if (current.orchestrationTaskId || current.status !== "draft") {
       throw new Error("Pi update suggestions can only be resolved before ticketization.");
     }
@@ -391,54 +272,24 @@ export class ProjectStoreProjectBoardCardDraftMutationRepository {
         summary: `${current.title} kept the user-owned card fields.`,
         entityKind: "project_board_card",
         entityId: current.id,
-        metadata: { cardId: current.id, sourceId: current.pendingPiUpdate.sourceId, action: "ignore" },
+        metadata: { cardId: current.id, sourceId: pendingUpdate.sourceId, action: "ignore" },
         createdAt: now,
       });
       return this.getProjectBoardCard(input.cardId);
     }
 
-    const update = current.pendingPiUpdate;
-    const title = update.title ?? current.title;
-    const description = update.description ?? current.description;
-    const priority = update.priority ?? current.priority ?? null;
-    const phase = update.phase ?? current.phase ?? null;
-    const labels = update.labels ?? current.labels;
-    const blockedBy = update.blockedBy ?? current.blockedBy;
-    const acceptanceCriteria = update.acceptanceCriteria ?? current.acceptanceCriteria;
-    const testPlan = update.testPlan ?? current.testPlan;
-    const sourceRefs = update.sourceRefs ?? current.sourceRefs ?? [];
-    const clarificationAnswers = normalizeProjectBoardClarificationAnswers(
-      update.clarificationAnswers ?? current.clarificationAnswers ?? [],
-    );
-    const normalizedClarification = normalizeProjectBoardSynthesisClarificationFields({
-      clarificationQuestions: update.clarificationQuestions ?? current.clarificationQuestions ?? [],
-      clarificationSuggestions: update.clarificationSuggestions ?? current.clarificationSuggestions ?? [],
-      clarificationAnswers,
-      clarificationDecisions: update.clarificationDecisions ?? current.clarificationDecisions,
-      createdAt: current.createdAt,
-      updatedAt: now,
-    });
-    const clarificationQuestions = normalizedClarification.clarificationQuestions;
-    const clarificationSuggestions = normalizedClarification.clarificationSuggestions;
-    const clarificationDecisions = normalizedClarification.clarificationDecisions;
-    const candidateStatus = update.candidateStatus
-      ? projectBoardCandidateStatusForSynthesisUpdate(update.candidateStatus, current.candidateStatus, clarificationDecisions)
-      : current.candidateStatus;
-    const objectiveProvenance = update.objectiveProvenance ?? current.objectiveProvenance;
-    const uiMockRole = update.uiMockRole ?? current.uiMockRole;
-    const requiresUiMockApproval = update.requiresUiMockApproval ?? current.requiresUiMockApproval ?? false;
-    if (candidateStatus === "ready_to_create") {
-      this.deps.assertProjectBoardCardProofReady({ ...current, testPlan });
+    const update = buildProjectBoardCardPendingPiUpdateState({ current, pendingUpdate, now });
+    if (update.candidateStatus === "ready_to_create") {
+      this.deps.assertProjectBoardCardProofReady({ ...current, testPlan: update.testPlan });
       this.deps.assertProjectBoardCardClarificationsResolved({
         ...current,
-        clarificationQuestions,
-        clarificationSuggestions,
-        clarificationAnswers,
-        clarificationDecisions,
-        candidateStatus,
+        clarificationQuestions: update.clarificationQuestions,
+        clarificationSuggestions: update.clarificationSuggestions,
+        clarificationAnswers: update.clarificationAnswers,
+        clarificationDecisions: update.clarificationDecisions,
+        candidateStatus: update.candidateStatus,
       });
     }
-    const touchedFields = [...new Set([...(current.userTouchedFields ?? []), ...update.changedFields])];
     this.db
       .prepare(
         `UPDATE project_board_cards
@@ -466,24 +317,24 @@ export class ProjectStoreProjectBoardCardDraftMutationRepository {
          WHERE id = ?`,
       )
       .run(
-        title.trim().slice(0, 180),
-        description.trim().slice(0, 4000),
-        candidateStatus,
-        priority,
-        phase?.trim() ? phase.trim().slice(0, 80) : null,
-        JSON.stringify(normalizeTaskLabels(labels)),
-        JSON.stringify(normalizeTaskReferences(blockedBy)),
-        JSON.stringify(normalizeCardTextList(acceptanceCriteria, 30)),
-        JSON.stringify(normalizeProjectBoardCardTestPlan(testPlan)),
-        JSON.stringify(normalizeCardTextList(sourceRefs, 20)),
-        JSON.stringify(normalizeProjectBoardClarificationQuestions(clarificationQuestions, 8)),
-        JSON.stringify(normalizeProjectBoardClarificationSuggestions(clarificationSuggestions, [])),
-        JSON.stringify(normalizeProjectBoardClarificationAnswers(clarificationAnswers)),
-        JSON.stringify(clarificationDecisions),
-        objectiveProvenanceJson(objectiveProvenance),
-        normalizeProjectBoardUiMockRole(uiMockRole) ?? null,
-        requiresUiMockApproval ? 1 : 0,
-        JSON.stringify(touchedFields),
+        update.title.trim().slice(0, 180),
+        update.description.trim().slice(0, 4000),
+        update.candidateStatus,
+        update.priority,
+        update.phase?.trim() ? update.phase.trim().slice(0, 80) : null,
+        JSON.stringify(update.labels),
+        JSON.stringify(update.blockedBy),
+        JSON.stringify(update.acceptanceCriteria),
+        JSON.stringify(update.testPlan),
+        JSON.stringify(update.sourceRefs),
+        JSON.stringify(update.clarificationQuestions),
+        JSON.stringify(update.clarificationSuggestions),
+        JSON.stringify(update.clarificationAnswers),
+        JSON.stringify(update.clarificationDecisions),
+        objectiveProvenanceJson(update.objectiveProvenance),
+        update.uiMockRole ?? null,
+        update.requiresUiMockApproval ? 1 : 0,
+        JSON.stringify(update.touchedFields),
         now,
         now,
         input.cardId,

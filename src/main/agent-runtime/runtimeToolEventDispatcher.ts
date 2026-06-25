@@ -55,6 +55,7 @@ export interface RuntimeToolEventDispatcherInput {
   startedToolCallIds: Set<string>;
   clearEmptyAssistantStallWatchdog: () => void;
   clearAssistantTerminalCompletion: () => void;
+  finishActiveThinkingBeforeToolActivity: () => void;
   markFirstToolArgumentObserved: () => void;
   markFirstToolExecutionObserved: () => void;
   rememberToolIntent: (
@@ -90,6 +91,7 @@ export function createRuntimeToolEventDispatcher(
   input: RuntimeToolEventDispatcherInput,
 ): RuntimeToolEventDispatcher {
   const clearToolStreamState = () => {
+    input.finishActiveThinkingBeforeToolActivity();
     input.clearEmptyAssistantStallWatchdog();
     input.clearAssistantTerminalCompletion();
   };

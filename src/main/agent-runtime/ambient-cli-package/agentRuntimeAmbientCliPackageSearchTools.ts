@@ -31,7 +31,7 @@ export function registerAmbientCliPackageSearchTool(
     executionMode: "sequential",
     execute: async (_toolCallId, params) => {
       const input = ambientCliSearchInput(params as Record<string, unknown>);
-      const result = await searchCapabilities(workspace.path, input);
+      const result = await searchCapabilities(workspace.path, { ...input, includeHealth: false });
       return {
         content: [{ type: "text" as const, text: searchText(result) }],
         details: ambientCliSearchDetails({ searchInput: input, result }),

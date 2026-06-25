@@ -9,6 +9,7 @@ export interface PermissionGrantRegistryRow {
   scopeLabel: string;
   actionLabel: string;
   targetLabel: string;
+  conditionLabel?: string;
   targetKindLabel: string;
   sourceLabel: string;
   provenanceLabel: string;
@@ -146,7 +147,7 @@ export function permissionGrantRevocationImpact(input: {
   const auditCount = input.auditEntries.filter((entry) => entry.grantId && grantIdSet.has(entry.grantId)).length;
   const scopes = Array.from(new Set(selected.map((grant) => formatScope(grant.scopeKind))));
   const actionLabels = Array.from(new Set(selected.map((grant) => formatLabel(grant.actionKind)))).slice(0, 3);
-  const targetPreview = selected.slice(0, 3).map((grant) => grant.targetLabel);
+  const targetPreview = selected.slice(0, 3).map(grantTargetWithCondition);
   const extraTargets = Math.max(0, selected.length - targetPreview.length);
   const highRiskCount = selected.filter((grant) => grantRisk(grant.actionKind) === "high").length;
   return {
@@ -174,6 +175,7 @@ function registryRow(grant: AmbientPermissionGrant, auditEntries: PermissionAudi
     scopeLabel: formatScope(grant.scopeKind),
     actionLabel: formatLabel(grant.actionKind),
     targetLabel: grant.targetLabel,
+    conditionLabel: conditionLabel(grant.conditions),
     targetKindLabel: formatLabel(grant.targetKind),
     sourceLabel: formatLabel(grant.source),
     provenanceLabel: provenanceLabel(grant),
@@ -260,7 +262,12 @@ function expiryLabel(expiresAt: string | undefined, nowMs: number): string {
 function impactLabel(grant: AmbientPermissionGrant, auditCount: number): string {
   const scope = formatScope(grant.scopeKind).toLowerCase();
   const action = formatLabel(grant.actionKind).toLowerCase();
-  return `Revoking removes ${action} access for this ${scope} grant. ${auditCount} visible reuse event${auditCount === 1 ? "" : "s"} would remain in audit history.`;
+  const conditions = conditionLabel(grant.conditions);
+  return [
+    `Revoking removes ${action} access for this ${scope} grant.`,
+    conditions ? `Grant ${conditions.toLowerCase()}.` : undefined,
+    `${auditCount} visible reuse event${auditCount === 1 ? "" : "s"} would remain in audit history.`,
+  ].filter((part): part is string => Boolean(part)).join(" ");
 }
 
 function provenanceLabel(grant: AmbientPermissionGrant): string {
@@ -311,7 +318,8 @@ function formatScope(scope: PermissionGrantScopeKind): string {
 
 function formatLabel(value: string): string {
   return value
-    .split(/[_-]+/)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[_\s-]+/)
     .filter(Boolean)
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(" ");
@@ -324,6 +332,44 @@ function formatShortDate(value: string): string {
 function compactDetail(detail: string): string {
   const compact = detail.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, 3).join(" · ") || detail.trim();
   return compact.length > 180 ? `${compact.slice(0, 177)}...` : compact;
+}
+
+function grantTargetWithCondition(grant: AmbientPermissionGrant): string {
+  const conditions = conditionLabel(grant.conditions);
+  return conditions ? `${grant.targetLabel} (${conditions})` : grant.targetLabel;
+}
+
+function conditionLabel(conditions: Record<string, unknown> | undefined): string | undefined {
+  if (!conditions || typeof conditions !== "object") return undefined;
+  const entries = Object.keys(conditions)
+    .sort()
+    .map((key) => `${formatLabel(key)}=${conditionValueLabel(conditions[key])}`)
+    .filter((entry) => entry.length > 0);
+  if (!entries.length) return undefined;
+  const shown = entries.slice(0, 4).join(" · ");
+  const extra = entries.length > 4 ? ` · +${entries.length - 4} more` : "";
+  const label = `Conditions: ${shown}${extra}`;
+  return label.length > 180 ? `${label.slice(0, 177)}...` : label;
+}
+
+function conditionValueLabel(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(conditionValueLabel).join(", ")}]`;
+  if (value && typeof value === "object") return JSON.stringify(stableConditionValue(value));
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "set";
+}
+
+function stableConditionValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableConditionValue);
+  if (!value || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(record).sort()) {
+    const item = record[key];
+    if (item !== undefined) sorted[key] = stableConditionValue(item);
+  }
+  return sorted;
 }
 
 const scopeOrder: PermissionGrantScopeKind[] = ["workflow_thread", "thread", "project", "workspace", "global_plugin"];

@@ -17,24 +17,20 @@ import {
   workflowUiDogfoodSnapshotPreflightErrorMessage,
 } from "./workflow-ui-dogfood-contract.mjs";
 import { workflowDiscoveryProgress, workflowThreadFromFolders } from "./workflow-agent-thread-ui-dogfood-lib.mjs";
+import { createWorkflowAgentThreadUiConnectorScenarios } from "./workflow-agent-thread-ui-connector-scenarios.mjs";
+import { createWorkflowAgentThreadUiLocalScenarios } from "./workflow-agent-thread-ui-local-scenarios.mjs";
+import { createWorkflowAgentThreadUiPublicScenarios } from "./workflow-agent-thread-ui-public-scenarios.mjs";
 
 const args = new Set(process.argv.slice(2));
 const keepArtifacts = args.has("--keep");
-const scenarioName =
-  valueForArg("--scenario") ||
-  process.env.AMBIENT_WORKFLOW_UI_DOGFOOD_SCENARIO ||
-  "vocabulary-quiz";
+const scenarioName = valueForArg("--scenario") || process.env.AMBIENT_WORKFLOW_UI_DOGFOOD_SCENARIO || "vocabulary-quiz";
 const planDslCompilerDogfood =
-  envFlag(process.env.AMBIENT_WORKFLOW_PLAN_DSL_COMPILER) ||
-  envFlag(process.env.AMBIENT_WORKFLOW_PLAN_DSL_ENABLED);
+  envFlag(process.env.AMBIENT_WORKFLOW_PLAN_DSL_COMPILER) || envFlag(process.env.AMBIENT_WORKFLOW_PLAN_DSL_ENABLED);
 const harnessName =
-  valueForArg("--harness") ||
-  process.env.AMBIENT_WORKFLOW_UI_DOGFOOD_HARNESS_NAME ||
-  `workflow-agent-thread-ui-dogfood/${scenarioName}`;
+  valueForArg("--harness") || process.env.AMBIENT_WORKFLOW_UI_DOGFOOD_HARNESS_NAME || `workflow-agent-thread-ui-dogfood/${scenarioName}`;
 const startedAt = new Date().toISOString();
 const harnessRunId = safeFilePart(
-  process.env.AMBIENT_WORKFLOW_UI_DOGFOOD_HARNESS_ID ||
-    `${scenarioName}-${startedAt.replace(/[:.]/g, "-")}-${process.pid}`,
+  process.env.AMBIENT_WORKFLOW_UI_DOGFOOD_HARNESS_ID || `${scenarioName}-${startedAt.replace(/[:.]/g, "-")}-${process.pid}`,
 );
 const port = Number(valueForArg("--port") || process.env.AMBIENT_WORKFLOW_UI_DOGFOOD_CDP_PORT || 9647);
 const dogfoodTimeoutMs = Number(process.env.AMBIENT_WORKFLOW_UI_DOGFOOD_TIMEOUT_MS || 1_800_000);
@@ -65,1482 +61,9 @@ let app;
 let report;
 
 const scenarios = {
-  "vocabulary-quiz": {
-    title: "Vocabulary Workflow UI Dogfood",
-    request: [
-      "Create a Workflow Agent that uses Ambient to pick one useful vocabulary word for an adult learner.",
-      "The workflow should ask the user to guess the meaning with multiple-choice or freeform input, then use the answer to produce a concise HTML study card with the definition, etymology if known, and two example sentences.",
-      "The final output must include visible section labels exactly named Definition, Etymology, and Example sentences so the evidence gate can verify the study-card contract.",
-      "Use only the selected Ambient model as the source of vocabulary knowledge.",
-      "Do not use browser, network, Workspace Inventory, Gmail, Google Drive, Google Calendar, Google Workspace, Slack, email, account connectors, external accounts, workspace files, or connector metadata for this dogfood run.",
-      "Do not write files or create workspace mutations; return the study card content in the final workflow output card.",
-    ].join(" "),
-    answerPreference: ["model only", "no connector", "no account", "no browser", "no network", "no file", "no write", "output card", "quiz", "html", "freeform", "multiple"],
-    runtimeChoicePreference: ["first option", "closest", "continue", "proceed", "submit", "answer"],
-    runtimeAnswer: "I think the first option is closest. Please continue and produce a concise study card with Definition, Etymology, and Example sentences sections.",
-    expect: {
-      minModelCalls: 1,
-      minRuntimeInputs: 1,
-      minRuntimeInputResponses: 1,
-      minOutputSignals: 1,
-      minFinalOutputChars: 120,
-      requiredFinalOutputAnyTerms: [["definition", "meaning"], ["example", "sentence"]],
-      forbiddenToolMessages: ["browser_search", "browser_nav", "browser_content", "file_read", "file_write", "google_workspace_call", "local_directory_list"],
-      forbiddenToolFamilies: ["browser_", "google."],
-    },
-    sourceExpect: {
-      requiredTerms: ["workflow.askUser", "workflow.output"],
-      forbiddenTerms: ["tools.browser_", "tools.file_read", "tools.file_write", "google_workspace_call", "local_directory_list", "workspace.inventory"],
-      manifest: {
-        forbiddenTools: ["browser_search", "browser_nav", "browser_content", "file_read", "file_write", "google_workspace_call", "local_directory_list"],
-      },
-      validationReport: {
-        status: "passed",
-        maxConnectorWriteOperationCount: 0,
-      },
-    },
-  },
-  "local-file-classifier": {
-    title: "Local File Classification Workflow UI Dogfood",
-    request: [
-      "Create a Workflow Agent that uses the file_read workflow tool directly to read these three known workspace-local files: dogfood-notes/admin.md, dogfood-notes/family-events.md, and dogfood-notes/learning.md.",
-      "The only permitted read tool is Ambient Desktop's local/workspace file_read workflow tool. Forbidden external sources: Google Drive, Google Workspace, google.drive, google_workspace_call, connector content, connector account data, cloud accounts, and external accounts.",
-      "Use those relative paths exactly; do not embed absolute temporary paths in the workflow source.",
-      "Do not use workspace.inventory, browser, search, connector metadata, connector listing, or account-backed capabilities for this scenario.",
-      "This is a plain local file classification report, not a quiz, study-card, flashcard, tutoring, lesson, or interactive_model_study_card recipe workflow.",
-      "Do not write files or create workspace mutations; return the labeled HTML in the final workflow output card.",
-      "Classify the notes into useful categories,",
-      "asks the user for qualitative feedback on the classifications, then returns a labeled HTML document.",
-      "Keep output compact, checkpoint the normalized file evidence before the Ambient call, and checkpoint the generated HTML.",
-    ].join(" "),
-    answerPreference: ["local desktop file_read", "classification report", "not study card", "not google drive", "no connector", "no recipe", "local", "file", "html", "feedback", "read only"],
-    allowDiscoveryAccessCapabilities: ["file_content"],
-    runtimeChoicePreference: ["looks good", "proceed", "approve", "approved", "continue", "as-is", "final"],
-    runtimeAnswer: "The categories look reasonable. Please keep them concise and produce the final HTML report.",
-    seedWorkspace: async (root) => {
-      const notesDir = join(root, "dogfood-notes");
-      await mkdir(notesDir, { recursive: true });
-      await writeFile(join(notesDir, "family-events.md"), "# Family events\n\nPool day, library story time, and a weekend hike.\n", "utf8");
-      await writeFile(join(notesDir, "admin.md"), "# Admin\n\nRenew parking permit, archive tax receipts, and confirm appointments.\n", "utf8");
-      await writeFile(join(notesDir, "learning.md"), "# Learning\n\nVocabulary practice, flash cards, and short reading summaries.\n", "utf8");
-    },
-    expect: {
-      minModelCalls: 1,
-      minRuntimeInputs: 1,
-      minRuntimeInputResponses: 1,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 160,
-      requiredFinalOutputAnyTerms: [["family", "events"], ["admin", "permit"], ["learning", "vocabulary"]],
-      requiredToolMessages: ["file_read"],
-      forbiddenToolMessages: ["browser_search", "browser_nav", "browser_content", "file_write"],
-      forbiddenToolFamilies: ["browser_"],
-    },
-    sourceExpect: {
-      requiredTerms: ["tools.file_read", "workflow.askUser", "workflow.output"],
-      forbiddenTerms: ["tools.browser_", "tools.file_write", "google_workspace_call"],
-      manifest: {
-        requiredTools: ["file_read"],
-        forbiddenTools: ["browser_search", "browser_nav", "browser_content", "file_write", "google_workspace_call"],
-      },
-      validationReport: {
-        status: "passed",
-        requiredValidatorIds: [
-          "workflow.program.static",
-          "workflow.program.static_budget",
-          "workflow.output.schema",
-          "workflow.program.dry_run",
-        ],
-        forbidFailedValidators: true,
-        mutationPolicy: "read_only",
-        maxConnectorWriteOperationCount: 0,
-      },
-      promptAssembly: {
-        requiredModuleIds: localFilePromptAssemblyModuleIds(),
-        forbiddenModuleFragments: ["browser", "gmail", "google-workspace", "current-data", "movie-night", "visual-analysis"],
-      },
-      compileContext: {
-        maxSelectedRecipeCount: 0,
-        requiredRejectedRecipeIds: [
-          "large_collection_summarization",
-          "interactive_model_study_card",
-          "current_web_research",
-          "metadata_first_personal_data_review",
-          "visual_batch_classification",
-          "staged_document_export",
-          "browser_item_recovery",
-        ],
-        forbiddenRecipeIds: ["large_collection_summarization", "interactive_model_study_card", "current_web_research", "staged_document_export"],
-      },
-    },
-    abstractionContract: {
-      id: "capability-only-local-file-readonly",
-      contractType: "capability-only-workflow",
-      proves: [
-        "selected desktop file capability guidance is sufficient for a simple local read workflow",
-        "typed recipes stay rejected when the request does not need collection, browser, connector, visual, or export patterns",
-        "read-only validators pass without connector grants or mutation tools",
-      ],
-      promptAssembly: {
-        requiredModuleIds: localFilePromptAssemblyModuleIds(),
-        forbiddenModuleFragments: ["browser", "gmail", "google-workspace", "current-data", "movie-night", "visual-analysis"],
-      },
-      compileContext: {
-        maxSelectedRecipeCount: 0,
-        requiredRejectedRecipeIds: [
-          "large_collection_summarization",
-          "interactive_model_study_card",
-          "current_web_research",
-          "metadata_first_personal_data_review",
-          "visual_batch_classification",
-          "staged_document_export",
-          "browser_item_recovery",
-        ],
-      },
-      validationReport: {
-        requiredValidatorIds: [
-          "workflow.program.static",
-          "workflow.program.static_budget",
-          "workflow.output.schema",
-          "workflow.program.dry_run",
-        ],
-        mutationPolicy: "read_only",
-      },
-      forbiddenPromptAssemblyMetadataFragments: ["local-file-classifier", "dogfood-notes"],
-    },
-  },
-  "downloads-document-categorization": {
-    title: "Downloads Document Categorization Workflow UI Dogfood",
-    request: [
-      `Create a read-only Workflow Agent for Project 1 that categorizes the seeded Downloads fixture directory at ${join(workspace, "Downloads")}.`,
-      "Use local_directory_list exactly once for the folder inventory with maxEntries no more than 40 and maxDepth no more than 2.",
-      "Use metadata only: file names, extensions, folder names, sizes, modified times, and skipped-entry metadata are enough for this test.",
-      "Do not call local_file_read, file_read, browser tools, Google Workspace connectors, shell/bash, or any write tool.",
-      "Carry local_directory_list.skipped into the inventory checkpoint, model input, rendered report, and final output as skippedMetadata with counts and reasons only.",
-      "Categorize the visible documents and top-level folders into up to 7 useful categories, include item examples under each category, and include an uncategorized or needs-review bucket if evidence is weak.",
-      "Mention hidden and secret-like skipped entries only as skipped/ignored metadata without exposing contents.",
-      "Return a compact final HTML or markdown report and checkpoint the normalized directory inventory before the Ambient model call.",
-    ].join(" "),
-    answerPreference: ["downloads", "metadata", "local_directory_list", "read only", "no writes", "categories"],
-    runtimeChoicePreference: ["metadata", "continue", "proceed", "approve", "looks good", "read only"],
-    runtimeAnswer: "Use metadata only, keep the categories concise, and produce the final report without reading file contents.",
-    seedWorkspace: async (root) => {
-      const downloadsDir = join(root, "Downloads");
-      await mkdir(join(downloadsDir, "Recipes"), { recursive: true });
-      await mkdir(join(downloadsDir, "Photos To Sort"), { recursive: true });
-      await mkdir(join(downloadsDir, "Receipts"), { recursive: true });
-      await writeFile(join(downloadsDir, "tax-receipts-2025.pdf"), "fixture pdf placeholder\n", "utf8");
-      await writeFile(join(downloadsDir, "family-road-trip-itinerary.md"), "# Family Road Trip\n\nFlagstaff hotels and packing checklist.\n", "utf8");
-      await writeFile(join(downloadsDir, "vocabulary-practice-notes.txt"), "Weekly vocabulary review and flash card prompts.\n", "utf8");
-      await writeFile(join(downloadsDir, "home-insurance-policy.pdf"), "fixture policy placeholder\n", "utf8");
-      await writeFile(join(downloadsDir, "budget-summary.xlsx"), "Owner,Amount\nHousehold,1200\n", "utf8");
-      await writeFile(join(downloadsDir, "Receipts", "parking-permit-receipt.txt"), "Parking permit receipt fixture.\n", "utf8");
-      await writeFile(join(downloadsDir, "Recipes", "soup-night.md"), "# Soup night\n\nGrocery notes.\n", "utf8");
-      await writeFile(join(downloadsDir, ".hidden-download-cache"), "hidden fixture\n", "utf8");
-      await writeFile(join(downloadsDir, "credentials.txt"), "secret-like fixture skipped by local_directory_list\n", "utf8");
-    },
-    expect: {
-      minModelCalls: 1,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 220,
-      requiredToolMessages: ["local_directory_list"],
-      exactToolMessageCounts: { local_directory_list: 1 },
-      forbiddenToolMessages: ["local_file_read", "file_read", "file_write", "bash", "browser_search", "browser_nav", "browser_content", "google_workspace_call"],
-      forbiddenToolFamilies: ["browser_"],
-      requiredFinalOutputTerms: ["hidden", "secret"],
-      requiredFinalOutputAnyTerms: [["finance", "tax", "receipt", "budget"], ["travel", "itinerary", "trip"], ["learning", "vocabulary"], ["household", "insurance", "home"], ["recipe", "food", "meal"], ["skipped", "ignored", "hidden", "secret"]],
-    },
-    sourceExpect: {
-      requiredTerms: ["tools.local_directory_list", "maxDepth", "maxEntries", "readPath(outputs[", "skippedMetadata"],
-      forbiddenTerms: ["tools.local_file_read", "tools.file_read", "tools.file_write", "tools.bash", "tools.browser_", "google_workspace_call"],
-    },
-  },
-  "downloads-image-categorization": {
-    title: "Downloads Image Categorization Workflow UI Dogfood",
-    permissionMode: "full-access",
-    request: [
-      `Create a read-only Workflow Agent for Project 2 that categorizes exactly 10 visible PNG images from the seeded Downloads fixture directory at ${join(workspace, "Downloads")}.`,
-      "Use local_directory_list exactly once for the folder inventory with maxEntries no more than 40 and maxDepth no more than 1.",
-      "Select only the ten visible PNG files whose names start with image-; do not analyze hidden, secret-like, non-image, or non-PNG candidates.",
-      "Use ambient_visual_analyze exactly once per selected image with task image_description, preferably in a bounded loop.map with maxItems 10 and maxConcurrency no more than 4.",
-      "Do not use filename-only or metadata-only categorization as a substitute for MiniCPM-V visual observations.",
-      "Do not call local_file_read, file_read, browser tools, Google Workspace connectors, shell/bash, ambient_visual_minicpm_setup, or any write tool.",
-      "Carry the selected image list, local_directory_list.skipped metadata, and each ambient_visual_analyze result into checkpoints, the model input, and the final output.",
-      "Return a compact final HTML or markdown table with practical categories, item assignments, visual-observation evidence, uncertainty notes, and an explicit coverage line that says whether all 10 images were analyzed.",
-    ].join(" "),
-    answerPreference: ["downloads", "images", "visual", "ambient_visual_analyze", "read only", "10", "png"],
-    runtimeChoicePreference: ["visual", "continue", "proceed", "approve", "looks good", "read only"],
-    runtimeAnswer: "Use the visual observations from ambient_visual_analyze, keep the categories concise, and clearly state coverage for all 10 selected images.",
-    seedWorkspace: async (root) => {
-      const downloadsDir = join(root, "Downloads");
-      await mkdir(downloadsDir, { recursive: true });
-      const fixtures = [
-        ["test/visual-baselines/05a-workflow-discovery.png", "image-01-workflow-discovery.png"],
-        ["test/visual-baselines/05b-workflow-agent-diagram.png", "image-02-workflow-diagram.png"],
-        ["test/visual-baselines/05c-workflow-compile-progress.png", "image-03-compile-progress.png"],
-        ["test/visual-baselines/05e-workflow-recovery-cards.png", "image-04-recovery-cards.png"],
-        ["test/visual-baselines/05f-workflow-revision-diff.png", "image-05-revision-diff.png"],
-        ["test/visual-baselines/05g-workflow-schedule-targeting.png", "image-06-schedule-targeting.png"],
-        ["test/visual-baselines/04-git-summary.png", "image-07-git-summary.png"],
-        ["test/visual-baselines/05-plugin-import-candidate.png", "image-08-plugin-import.png"],
-        ["test/visual-baselines/01a-project-board.png", "image-09-project-board.png"],
-        ["test/visual-baselines/08-browser-picker-active.png", "image-10-browser-picker.png"],
-      ];
-      for (const [source, target] of fixtures) {
-        await cp(join(process.cwd(), source), join(downloadsDir, target), { force: true });
-      }
-      await writeFile(join(downloadsDir, "zz-not-an-image.txt"), "This fixture should not be visually analyzed.\n", "utf8");
-      await writeFile(join(downloadsDir, "zz-corrupt-photo.jpg"), "not a valid image fixture\n", "utf8");
-      await writeFile(join(downloadsDir, ".hidden-camera-roll.png"), tinyPng());
-      await writeFile(join(downloadsDir, "credentials-photo.png"), tinyPng());
-    },
-    expect: {
-      minModelCalls: 1,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 320,
-      requiredToolMessages: ["local_directory_list", "ambient_visual_analyze"],
-      exactToolMessageCounts: { local_directory_list: 1, ambient_visual_analyze: 10 },
-      forbiddenToolMessages: [
-        "local_file_read",
-        "file_read",
-        "file_write",
-        "bash",
-        "browser_search",
-        "browser_nav",
-        "browser_content",
-        "google_workspace_call",
-        "ambient_visual_minicpm_setup",
-      ],
-      forbiddenToolFamilies: ["browser_"],
-      requiredFinalOutputTerms: ["10", "visual"],
-      requiredFinalOutputAnyTerms: [
-        ["workflow", "diagram", "compile", "recovery", "schedule"],
-        ["git", "branch", "review"],
-        ["plugin", "import", "package"],
-        ["project", "board", "planning"],
-        ["browser", "picker", "profile"],
-        ["coverage", "analyzed", "all 10"],
-      ],
-    },
-    sourceExpect: {
-      requiredTerms: ["tools.local_directory_list", "tools.ambient_visual_analyze", "image_description", "allowExternalMediaPaths", "readPath(outputs["],
-      forbiddenTerms: ["tools.local_file_read", "tools.file_read", "tools.file_write", "tools.bash", "tools.browser_", "google_workspace_call", "tools.ambient_visual_minicpm_setup"],
-    },
-  },
-  "gmail-300-readonly-categorization": {
-    title: "Gmail 300 Read-only Categorization Workflow UI Dogfood",
-    resumeTimeoutMs: 1_800_000,
-    request: [
-      "Create a read-only Workflow Agent for Project 3: read the latest 300 Gmail messages and categorize them into up to 7 useful read-only buckets.",
-      "Use the connected default Gmail account if one is available. If the account has fewer than 300 readable messages, continue with honest partial coverage and state the observed count.",
-      "Use connector.paginate with connectorId google.gmail and operation search, pageSize/maxResults 100, maxPages 3, maxItems 300, and dedupeKeyPath threadId.",
-      "Use connector.map with connectorId google.gmail and operation readThread over the paginated search items, maxItems 300, maxConcurrency no more than 4, and format metadata unless full bodies are absolutely needed.",
-      "Use collection.map to compact each thread to only message/thread ids, internal dates, labels, snippets, subjects/senders when present, and minimal evidence fields before model calls.",
-      "Use collection.chunk with chunks of about 25 records, model.map over chunks, and model.reduce to merge results into no more than 7 final categories.",
-      "Do not use Google Workspace raw tools, browser tools, file tools, shell/bash, Gmail draft/send/update/delete operations, attachment reads, or any write/mutation tool.",
-      "Checkpoint the page/detail/compact coverage metadata and final report. The final output must include category names, counts, example message or thread metadata, evidence provenance by message/thread id or date, coverage/skipped/partial notes, and an explicit read-only/no-mutation statement.",
-    ].join(" "),
-    answerPreference: ["gmail", "default", "read only", "300", "7", "metadata", "categories"],
-    runtimeChoicePreference: ["read only", "continue", "proceed", "approve", "metadata", "default"],
-    runtimeAnswer: "Use the connected default Gmail account, keep the workflow read-only, and continue with honest partial coverage if fewer than 300 messages are available.",
-    expect: {
-      minModelCalls: 1,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 320,
-      minConnectorEnds: 2,
-      requiredConnectorMessages: ["google.gmail.search", "google.gmail.readThread"],
-      minConnectorMessageCounts: { "google.gmail.search": 1, "google.gmail.readThread": 1 },
-      maxConnectorMessageCounts: { "google.gmail.search": 3, "google.gmail.readThread": 300 },
-      forbiddenConnectorMessages: [
-        "google.gmail.readAttachment",
-        "google.gmail.createDraft",
-        "google.gmail.updateDraft",
-        "google.gmail.deleteDraft",
-        "google.gmail.sendDraft",
-      ],
-      forbiddenConnectorFamilies: ["google.calendar.", "google.drive."],
-      forbiddenToolMessages: [
-        "local_directory_list",
-        "local_file_read",
-        "file_read",
-        "file_write",
-        "bash",
-        "browser_search",
-        "browser_nav",
-        "browser_content",
-        "google_workspace_call",
-      ],
-      forbiddenToolFamilies: ["browser_"],
-      requiredFinalOutputTerms: ["read-only"],
-      requiredFinalOutputAnyTerms: [
-        ["category", "bucket"],
-        ["count", "messages", "threads"],
-        ["example", "evidence", "provenance"],
-        ["partial", "coverage", "skipped", "observed"],
-      ],
-    },
-    sourceExpect: {
-      requiredTerms: [
-        "workflow.paginateConnector",
-        'connectorId: "google.gmail"',
-        'operation: "search"',
-        '"maxItems": 300',
-        '"maxPages": 3',
-        '"pageSize": 100',
-        '"dedupeKeyPath": "threadId"',
-        'operation: "readThread"',
-        "workflow.mapCollection",
-        "workflow.chunkCollection",
-        "workflow.mapModel",
-        "workflow.reduceModel",
-      ],
-      requiredAnyTerms: [
-        ['"maxConcurrency": 1', '"maxConcurrency": 2', '"maxConcurrency": 3', '"maxConcurrency": 4', "maxConcurrency: 1", "maxConcurrency: 2", "maxConcurrency: 3", "maxConcurrency: 4"],
-      ],
-      forbiddenTerms: [
-        "tools.local_directory_list",
-        "tools.local_file_read",
-        "tools.file_read",
-        "tools.file_write",
-        "tools.bash",
-        "tools.browser_",
-        "google_workspace_call",
-        'operation: "readAttachment"',
-        'operation: "createDraft"',
-        'operation: "updateDraft"',
-        'operation: "deleteDraft"',
-        'operation: "sendDraft"',
-        'connectorId: "google.calendar"',
-        'connectorId: "google.drive"',
-      ],
-      manifest: {
-        mutationPolicy: "read_only",
-        forbiddenTools: ["google_workspace_call", "file_write", "bash", "browser_search", "browser_nav", "browser_content"],
-        connectors: [
-          {
-            connectorId: "google.gmail",
-            requiredScopes: ["gmail.readonly"],
-            forbiddenScopes: ["gmail.compose", "gmail.send"],
-            requiredOperations: ["search", "readThread"],
-            forbiddenOperations: ["readAttachment", "createDraft", "updateDraft", "deleteDraft", "sendDraft"],
-          },
-        ],
-      },
-      validationReport: {
-        status: "passed",
-        requiredValidatorIds: [
-          "workflow.program.static",
-          "workflow.program.static_budget",
-          "workflow.connector.operation_policy",
-          "workflow.output.schema",
-          "workflow.program.dry_run",
-        ],
-        forbidFailedValidators: true,
-        mutationPolicy: "read_only",
-        maxConnectorCalls: 1000,
-        maxConnectorWriteOperationCount: 0,
-        requiredConnectorOperations: ["google.gmail.search", "google.gmail.readThread"],
-        forbiddenConnectorOperations: [
-          "google.gmail.readAttachment",
-          "google.gmail.createDraft",
-          "google.gmail.updateDraft",
-          "google.gmail.deleteDraft",
-          "google.gmail.sendDraft",
-        ],
-      },
-    },
-  },
-  "gmail-20-metadata-readonly-validation": {
-    title: "Gmail 20 Metadata Read-only Validator Workflow UI Dogfood",
-    request: [
-      "Create a small read-only Workflow Agent for Project 3: inspect the latest 20 Gmail messages using metadata only and summarize the visible themes.",
-      "Use the connected default Gmail account if one is available. If fewer than 20 readable messages are available, continue with honest partial coverage.",
-      "Use connector.paginate with connectorId google.gmail and operation search, pageSize/maxResults 20, maxPages 1, maxItems 20, and dedupeKeyPath threadId.",
-      "Do not use google.gmail.readThread, readAttachment, drafts, sends, labels mutation, browser tools, file tools, shell/bash, or Google Workspace raw tools in this workflow.",
-      "Use collection.map to keep only metadata fields such as message id, thread id, snippet, internalDate, label ids, and lightweight header metadata if present, then use one model.call for a compact summary.",
-      "Checkpoint the metadata coverage and final report. The final output must say metadata-only and read-only, include theme names, counts, example message/thread metadata, coverage/skipped/partial notes, and no write-operation claims.",
-    ].join(" "),
-    answerPreference: ["gmail", "default", "read only", "metadata", "20", "themes"],
-    runtimeChoicePreference: ["metadata", "read only", "continue", "proceed", "default"],
-    runtimeAnswer: "Use the connected default Gmail account, keep this metadata-only and read-only, and continue with partial coverage if fewer than 20 messages are available.",
-    expect: {
-      minModelCalls: 1,
-      maxModelCalls: 3,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 220,
-      minConnectorEnds: 1,
-      maxConnectorEnds: 1,
-      requiredConnectorMessages: ["google.gmail.search"],
-      exactConnectorMessageCounts: { "google.gmail.readThread": 0 },
-      maxConnectorMessageCounts: { "google.gmail.search": 1, "google.gmail.readThread": 0 },
-      requiredEvidenceContracts: ["gmail.metadata_search_only", "read_only.no_writes"],
-      forbiddenConnectorMessages: [
-        "google.gmail.readThread",
-        "google.gmail.readAttachment",
-        "google.gmail.createDraft",
-        "google.gmail.updateDraft",
-        "google.gmail.deleteDraft",
-        "google.gmail.sendDraft",
-      ],
-      forbiddenConnectorFamilies: ["google.calendar.", "google.drive."],
-      forbiddenToolMessages: [
-        "local_directory_list",
-        "local_file_read",
-        "file_read",
-        "file_write",
-        "bash",
-        "browser_search",
-        "browser_nav",
-        "browser_content",
-        "google_workspace_call",
-      ],
-      forbiddenToolFamilies: ["browser_"],
-      requiredFinalOutputAnyTerms: [
-        ["theme", "category", "bucket"],
-        ["count", "messages", "threads", "message ids", "thread ids", "message/thread"],
-        ["metadata", "snippet", "thread"],
-        ["partial", "coverage", "skipped", "observed"],
-      ],
-    },
-    sourceExpect: {
-      requiredTerms: [
-        "workflow.paginateConnector",
-        'connectorId: "google.gmail"',
-        'operation: "search"',
-        '"maxItems": 20',
-        '"maxPages": 1',
-        '"dedupeKeyPath": "threadId"',
-        "workflow.mapCollection",
-        "ambient.call",
-      ],
-      requiredAnyTerms: [['"pageSize": 20', '"maxResults": 20']],
-      forbiddenTerms: [
-        "tools.local_directory_list",
-        "tools.local_file_read",
-        "tools.file_read",
-        "tools.file_write",
-        "tools.bash",
-        "tools.browser_",
-        "google_workspace_call",
-        'operation: "readThread"',
-        'operation: "readThread"',
-        'operation: "readAttachment"',
-        'operation: "createDraft"',
-        'operation: "updateDraft"',
-        'operation: "deleteDraft"',
-        'operation: "sendDraft"',
-        'connectorId: "google.calendar"',
-        'connectorId: "google.drive"',
-      ],
-      manifest: {
-        mutationPolicy: "read_only",
-        forbiddenTools: ["google_workspace_call", "file_write", "bash", "browser_search", "browser_nav", "browser_content"],
-        connectors: [
-          {
-            connectorId: "google.gmail",
-            requiredScopes: ["gmail.readonly"],
-            forbiddenScopes: ["gmail.compose", "gmail.send"],
-            requiredOperations: ["search"],
-            forbiddenOperations: ["readThread", "readAttachment", "createDraft", "updateDraft", "deleteDraft", "sendDraft"],
-          },
-        ],
-      },
-      validationReport: {
-        status: "passed",
-        requiredValidatorIds: [
-          "workflow.program.static",
-          "workflow.program.static_budget",
-          "workflow.connector.operation_policy",
-          "workflow.output.schema",
-          "workflow.program.dry_run",
-        ],
-        forbidFailedValidators: true,
-        mutationPolicy: "read_only",
-        maxConnectorCalls: 1,
-        maxConnectorWriteOperationCount: 0,
-        requiredConnectorOperations: ["google.gmail.search"],
-        forbiddenConnectorOperations: [
-          "google.gmail.readThread",
-          "google.gmail.readAttachment",
-          "google.gmail.createDraft",
-          "google.gmail.updateDraft",
-          "google.gmail.deleteDraft",
-          "google.gmail.sendDraft",
-        ],
-      },
-      promptAssembly: planDslCompilerDogfood
-        ? {
-            requiredModuleIds: ["core-workflow-plan-dsl-semantics", "workflow-plan-dsl-selected-capabilities"],
-            forbiddenModuleFragments: ["browser", "current_web", "movie-night", "visual-analysis", "ambient-cli", "ambient_cli", "google-workspace"],
-          }
-        : {
-            requiredModuleIds: ["recipe-large_collection_summarization"],
-            forbiddenModuleIds: ["policy-recipe-gmail-metadata-first-detail-gate", "recipe-metadata_first_personal_data_review"],
-            forbiddenModuleFragments: ["browser", "current_web", "movie-night", "visual-analysis", "ambient-cli", "ambient_cli", "google-workspace"],
-          },
-      compileContext: planDslCompilerDogfood
-        ? {
-            maxSelectedRecipeCount: 2,
-          }
-        : {
-            requiredRecipeIds: ["large_collection_summarization"],
-            requiredRejectedRecipeIds: [
-              "metadata_first_personal_data_review",
-              "current_web_research",
-              "movie_night_current_showtimes",
-              "visual_batch_classification",
-              "staged_document_export",
-            ],
-            requiredPolicyImplicationIds: ["recipe.large_collection_summarization.budget"],
-            maxSelectedRecipeCount: 1,
-          },
-    },
-    abstractionContract: {
-      id: "connector-metadata-first-gmail-readonly",
-      contractType: "connector-metadata-first",
-      proves: [
-        "selected Gmail connector descriptors drive connector.paginate without raw Google Workspace fallbacks",
-        "metadata-only Gmail summarization stays on the high-level Plan DSL or large-collection metadata path while broad readThread fan-out remains forbidden",
-        "connector operation policy restricts the manifest to metadata-safe read-only search",
-        "validation reports expose connector operation and write-operation budgets",
-      ],
-      promptAssembly: planDslCompilerDogfood
-        ? {
-            requiredModuleIds: ["core-workflow-plan-dsl-semantics", "workflow-plan-dsl-selected-capabilities"],
-            forbiddenModuleFragments: ["browser", "current_web", "movie-night", "visual-analysis", "ambient-cli", "ambient_cli", "google-workspace"],
-          }
-        : {
-            requiredModuleIds: ["recipe-large_collection_summarization"],
-            forbiddenModuleIds: ["policy-recipe-gmail-metadata-first-detail-gate", "recipe-metadata_first_personal_data_review"],
-            forbiddenModuleFragments: ["browser", "current_web", "movie-night", "visual-analysis", "ambient-cli", "ambient_cli", "google-workspace"],
-          },
-      compileContext: planDslCompilerDogfood
-        ? {
-            maxSelectedRecipeCount: 2,
-          }
-        : {
-            requiredRecipeIds: ["large_collection_summarization"],
-            requiredRejectedRecipeIds: [
-              "metadata_first_personal_data_review",
-              "current_web_research",
-              "movie_night_current_showtimes",
-              "visual_batch_classification",
-              "staged_document_export",
-            ],
-            requiredPolicyImplicationIds: ["recipe.large_collection_summarization.budget"],
-            maxSelectedRecipeCount: 1,
-          },
-      manifest: {
-        mutationPolicy: "read_only",
-        connectors: [
-          {
-            connectorId: "google.gmail",
-            requiredScopes: ["gmail.readonly"],
-            forbiddenScopes: ["gmail.compose", "gmail.send"],
-            requiredOperations: ["search"],
-            forbiddenOperations: ["readThread", "readAttachment", "createDraft", "updateDraft", "deleteDraft", "sendDraft"],
-          },
-        ],
-      },
-      validationReport: {
-        requiredValidatorIds: [
-          "workflow.program.static",
-          "workflow.program.static_budget",
-          "workflow.connector.operation_policy",
-          "workflow.output.schema",
-          "workflow.program.dry_run",
-        ],
-        mutationPolicy: "read_only",
-        maxConnectorCalls: 1,
-        maxConnectorWriteOperationCount: 0,
-        requiredConnectorOperations: ["google.gmail.search"],
-        forbiddenConnectorOperations: [
-          "google.gmail.readThread",
-          "google.gmail.readAttachment",
-          "google.gmail.createDraft",
-          "google.gmail.updateDraft",
-          "google.gmail.deleteDraft",
-          "google.gmail.sendDraft",
-        ],
-      },
-      forbiddenPromptAssemblyMetadataFragments: ["gmail-20-metadata-readonly-validation"],
-    },
-  },
-  "gmail-1000-metadata-first-gate": {
-    title: "Gmail 1,000 Metadata-first Gate Workflow UI Dogfood",
-    request: [
-      "Create a read-only Workflow Agent for Project 4: categorize the latest 1,000 Gmail messages into up to 7 useful buckets using a metadata-first plan.",
-      "Use the connected default Gmail account if one is available. If fewer than 1,000 readable messages are available, continue with honest partial coverage and state the observed count.",
-      "Use connector.paginate with connectorId google.gmail and operation search, pageSize/maxResults 100, maxPages 10, maxItems 1000, and dedupeKeyPath threadId.",
-      "Do not use google.gmail.readThread, readAttachment, drafts, sends, labels mutation, browser tools, file tools, shell/bash, or Google Workspace raw tools in this workflow.",
-      "Use collection.map to keep only metadata fields such as message id, thread id, snippet, internalDate, label ids, and lightweight header metadata if present.",
-      "Use collection.chunk with chunks of about 25 records, model.map over chunks, and model.reduce with strategy tree to merge the chunk results into no more than 7 final categories.",
-      "After the metadata synthesis, include a review.input gate that asks whether a future bounded full-body follow-up should be planned for low-confidence examples. This workflow itself must remain metadata-only.",
-      "Checkpoint page, metadata, chunk, review, and final coverage. The final output must say metadata-only and read-only, include category names, counts, example message/thread metadata, evidence provenance by message/thread id or date, coverage/skipped/partial notes, and a bounded follow-up detail-read candidate list if metadata was insufficient.",
-    ].join(" "),
-    answerPreference: ["gmail", "default", "read only", "metadata", "1000", "7", "review"],
-    runtimeChoicePreference: ["metadata", "do not read", "follow-up", "no body", "continue", "proceed", "default"],
-    runtimeAnswer: "Keep this workflow metadata-only and read-only. Do not read full Gmail bodies in this run; include only a bounded follow-up detail-read candidate list if metadata is insufficient.",
-    expect: {
-      minModelCalls: 1,
-      maxModelCalls: 50,
-      minRuntimeInputs: 1,
-      minRuntimeInputResponses: 1,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 360,
-      minConnectorEnds: 1,
-      maxConnectorEnds: 10,
-      requiredConnectorMessages: ["google.gmail.search"],
-      minConnectorMessageCounts: { "google.gmail.search": 1 },
-      maxConnectorMessageCounts: { "google.gmail.search": 10, "google.gmail.readThread": 0 },
-      exactConnectorMessageCounts: { "google.gmail.readThread": 0 },
-      forbiddenConnectorMessages: [
-        "google.gmail.readThread",
-        "google.gmail.readAttachment",
-        "google.gmail.createDraft",
-        "google.gmail.updateDraft",
-        "google.gmail.deleteDraft",
-        "google.gmail.sendDraft",
-      ],
-      forbiddenConnectorFamilies: ["google.calendar.", "google.drive."],
-      forbiddenToolMessages: [
-        "local_directory_list",
-        "local_file_read",
-        "file_read",
-        "file_write",
-        "bash",
-        "browser_search",
-        "browser_nav",
-        "browser_content",
-        "google_workspace_call",
-      ],
-      forbiddenToolFamilies: ["browser_"],
-      requiredFinalOutputTerms: ["metadata-only", "read-only"],
-      requiredFinalOutputAnyTerms: [
-        ["category", "bucket"],
-        ["count", "messages", "threads"],
-        ["example", "evidence", "provenance"],
-        ["partial", "coverage", "skipped", "observed"],
-        ["follow-up", "detail-read", "approval", "review"],
-      ],
-    },
-    sourceExpect: {
-      requiredTerms: [
-        "workflow.paginateConnector",
-        'connectorId: "google.gmail"',
-        'operation: "search"',
-        '"maxItems": 1000',
-        '"maxPages": 10',
-        '"pageSize": 100',
-        '"dedupeKeyPath": "threadId"',
-        "workflow.mapCollection",
-        "workflow.chunkCollection",
-        "workflow.mapModel",
-        "workflow.reduceModel",
-        '"strategy": "tree"',
-        "workflow.askUser",
-      ],
-      forbiddenTerms: [
-        "tools.local_directory_list",
-        "tools.local_file_read",
-        "tools.file_read",
-        "tools.file_write",
-        "tools.bash",
-        "tools.browser_",
-        "google_workspace_call",
-        'operation: "readThread"',
-        'operation: "readThread"',
-        'operation: "readAttachment"',
-        'operation: "createDraft"',
-        'operation: "updateDraft"',
-        'operation: "deleteDraft"',
-        'operation: "sendDraft"',
-        'connectorId: "google.calendar"',
-        'connectorId: "google.drive"',
-      ],
-      manifest: {
-        mutationPolicy: "read_only",
-        forbiddenTools: ["google_workspace_call", "file_write", "bash", "browser_search", "browser_nav", "browser_content"],
-        connectors: [
-          {
-            connectorId: "google.gmail",
-            requiredScopes: ["gmail.readonly"],
-            forbiddenScopes: ["gmail.compose", "gmail.send"],
-            requiredOperations: ["search"],
-            forbiddenOperations: ["readThread", "readAttachment", "createDraft", "updateDraft", "deleteDraft", "sendDraft"],
-          },
-        ],
-      },
-      validationReport: {
-        status: "passed",
-        requiredValidatorIds: [
-          "workflow.program.static",
-          "workflow.program.static_budget",
-          "workflow.connector.operation_policy",
-          "workflow.output.schema",
-          "workflow.program.dry_run",
-        ],
-        forbidFailedValidators: true,
-        mutationPolicy: "read_only",
-        maxConnectorCalls: 1000,
-        maxConnectorWriteOperationCount: 0,
-        requiredConnectorOperations: ["google.gmail.search"],
-        forbiddenConnectorOperations: [
-          "google.gmail.readThread",
-          "google.gmail.readAttachment",
-          "google.gmail.createDraft",
-          "google.gmail.updateDraft",
-          "google.gmail.deleteDraft",
-          "google.gmail.sendDraft",
-        ],
-      },
-      promptAssembly: {
-        requiredModuleIds: ["recipe-metadata_first_personal_data_review", "recipe-large_collection_summarization"],
-        forbiddenModuleIds: ["policy-recipe-gmail-metadata-first-detail-gate"],
-        forbiddenModuleFragments: ["browser", "current_web", "movie-night", "visual-analysis", "ambient-cli", "ambient_cli", "google-workspace"],
-      },
-      compileContext: {
-        requiredRecipeIds: ["metadata_first_personal_data_review", "large_collection_summarization"],
-        requiredRejectedRecipeIds: ["current_web_research", "movie_night_current_showtimes", "visual_batch_classification", "staged_document_export"],
-        requiredPolicyImplicationIds: [
-          "recipe.metadata_first_personal_data_review.privacy_gate",
-          "recipe.large_collection_summarization.budget",
-        ],
-        minSelectedRecipeCount: 2,
-      },
-    },
-    abstractionContract: {
-      id: "typed-gmail-metadata-first-detail-gate",
-      contractType: "typed-personal-data-recipe",
-      proves: [
-        "large Gmail categorization uses the metadata_first_personal_data_review recipe instead of a scenario-specific policy prompt",
-        "Gmail search remains metadata-first and read-only with review-gated detail reads",
-        "unrelated browser, current-web, movie-night, visual, Ambient CLI, Google Workspace, and file-output recipes stay rejected",
-      ],
-      promptAssembly: {
-        requiredModuleIds: ["recipe-metadata_first_personal_data_review", "recipe-large_collection_summarization"],
-        forbiddenModuleIds: ["policy-recipe-gmail-metadata-first-detail-gate"],
-        forbiddenModuleFragments: ["browser", "current_web", "movie-night", "visual-analysis", "ambient-cli", "ambient_cli", "google-workspace"],
-      },
-      compileContext: {
-        requiredRecipeIds: ["metadata_first_personal_data_review", "large_collection_summarization"],
-        requiredRejectedRecipeIds: ["current_web_research", "movie_night_current_showtimes", "visual_batch_classification", "staged_document_export"],
-        requiredPolicyImplicationIds: [
-          "recipe.metadata_first_personal_data_review.privacy_gate",
-          "recipe.large_collection_summarization.budget",
-        ],
-        minSelectedRecipeCount: 2,
-      },
-      manifest: {
-        mutationPolicy: "read_only",
-        forbiddenTools: ["google_workspace_call", "file_write", "bash", "browser_search", "browser_nav", "browser_content"],
-        connectors: [
-          {
-            connectorId: "google.gmail",
-            requiredScopes: ["gmail.readonly"],
-            forbiddenScopes: ["gmail.compose", "gmail.send"],
-            requiredOperations: ["search"],
-            forbiddenOperations: ["readThread", "readAttachment", "createDraft", "updateDraft", "deleteDraft", "sendDraft"],
-          },
-        ],
-      },
-    },
-  },
-  "google-transcript-action-items": {
-    title: "Google Meeting Transcript Action Items Workflow UI Dogfood",
-    request: [
-      "Create a read-only Workflow Agent for Project 5: pull Google meeting transcripts from the last two weeks and extract action items with owners and due dates.",
-      "Use the connected default Google account if one is available. Use the explicit two-week window from 2026-05-02T00:00:00-07:00 through 2026-05-16T23:59:59-07:00 with timeZone America/Phoenix.",
-      "For this tiny smoke test, use connector.paginate with connectorId google.calendar and operation listEvents, pageSize/maxResults 20, maxPages 1, maxItems 20, singleEvents true, orderBy startTime, and fields nextPageToken,items(id,summary,start,end,htmlLink) for compact event provenance.",
-      "Use connector.paginate with connectorId google.drive and operation search, pageSize 50, maxPages 2, maxItems 100, looking for transcript-like Google Docs with query filtering mimeType = 'application/vnd.google-apps.document', and preserving file id/name/mimeType/modifiedTime/webViewLink metadata.",
-      "This is a tiny live smoke test, so use collection.map to select at most 2 candidate transcript files, then connector.map with connectorId google.drive and operation readFile over those candidates with maxItems 2, maxConcurrency no more than 2, fileId from each mapped item id, exportMimeType text/plain, and maxContentChars 1000.",
-      "Because transcript files may be long, call long_context_process with taskType extraction, maxModelCalls no more than 8, and maxOutputChars around 4000 over the Drive readFile results plus compact calendar events before the final model call.",
-      "The final model call must consume the long_context_process response and source counts only, not raw transcript file arrays or full calendar event arrays.",
-      "Do not use Google Workspace raw tools, browser tools, file tools, shell/bash, Drive write/share/copy/trash/update/create operations, Calendar create/update/delete operations, or any mutation tool.",
-      "Checkpoint calendar coverage, Drive candidate coverage, transcript read coverage, long-context routing metadata, and the final report. The final output must include action items, owners, due dates or unknowns, decisions, unresolved questions, source event/file provenance, skipped/missing transcript coverage, and an explicit read-only/no-mutation statement.",
-    ].join(" "),
-    answerPreference: ["google", "calendar", "drive", "default", "read only", "last two weeks", "action items", "transcripts"],
-    runtimeChoicePreference: ["read only", "continue", "proceed", "approve", "default", "unknown due dates"],
-    runtimeAnswer: "Use the connected default Google account, keep all Google operations read-only, preserve source provenance, and continue with honest skipped/missing transcript coverage.",
-    expect: {
-      minModelCalls: 1,
-      maxModelCalls: 3,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 420,
-      minConnectorEnds: 3,
-      maxConnectorEnds: 7,
-      requiredToolMessages: ["long_context_process"],
-      exactToolMessageCounts: { long_context_process: 1 },
-      requiredConnectorMessages: ["google.calendar.listEvents", "google.drive.search", "google.drive.readFile"],
-      minConnectorMessageCounts: { "google.calendar.listEvents": 1, "google.drive.search": 1, "google.drive.readFile": 1 },
-      maxConnectorMessageCounts: { "google.calendar.listEvents": 2, "google.drive.search": 3, "google.drive.readFile": 2 },
-      forbiddenConnectorMessages: [
-        "google.calendar.createEvent",
-        "google.calendar.updateEvent",
-        "google.calendar.deleteEvent",
-        "google.drive.createFile",
-        "google.drive.createFolder",
-        "google.drive.updateFile",
-        "google.drive.copyFile",
-        "google.drive.trashFile",
-        "google.drive.createPermission",
-        "google.drive.updatePermission",
-        "google.drive.deletePermission",
-      ],
-      forbiddenConnectorFamilies: ["google.gmail."],
-      forbiddenToolMessages: [
-        "local_directory_list",
-        "local_file_read",
-        "file_read",
-        "file_write",
-        "bash",
-        "browser_search",
-        "browser_nav",
-        "browser_content",
-        "google_workspace_call",
-      ],
-      forbiddenToolFamilies: ["browser_"],
-      requiredFinalOutputTerms: [],
-      requiredFinalOutputAnyTerms: [
-        ["read-only", "read only", "read only statement"],
-        ["action item", "action items"],
-        ["decision", "decisions"],
-        ["unresolved", "question"],
-        ["source", "provenance", "event", "file"],
-        ["skipped", "missing", "coverage", "partial"],
-      ],
-    },
-    sourceExpect: {
-      requiredTerms: [
-        "workflow.paginateConnector",
-        'connectorId: "google.calendar"',
-        'connectorId: "google.drive"',
-        'operation: "listEvents"',
-        'operation: "search"',
-        '"operation": "readFile"',
-        '"timeMin": "2026-05-02T00:00:00-07:00"',
-        '"timeMax": "2026-05-16T23:59:59-07:00"',
-        '"timeZone": "America/Phoenix"',
-        '"maxItems": 100',
-        '"maxPages": 2',
-        '"pageSize": 50',
-        '"maxItems": 2',
-        '"maxContentChars": 1000',
-        '"maxModelCalls": 8',
-        '"maxOutputChars": 4000',
-        "workflow.mapCollection",
-        "workflow.batch",
-        "tools.long_context_process",
-        "ambient.call",
-      ],
-      requiredAnyTerms: [
-        ['"maxConcurrency": 2', "maxConcurrency: 2"],
-        ['"exportMimeType": "text/plain"', "exportMimeType: \"text/plain\""],
-      ],
-      forbiddenTerms: [
-        "tools.local_directory_list",
-        "tools.local_file_read",
-        "tools.file_read",
-        "tools.file_write",
-        "tools.bash",
-        "tools.browser_",
-        "google_workspace_call",
-        'connectorId: "google.gmail"',
-        '"operation": "createEvent"',
-        '"operation": "updateEvent"',
-        '"operation": "deleteEvent"',
-        '"operation": "createFile"',
-        '"operation": "createFolder"',
-        '"operation": "updateFile"',
-        '"operation": "copyFile"',
-        '"operation": "trashFile"',
-        '"operation": "createPermission"',
-        '"operation": "updatePermission"',
-        '"operation": "deletePermission"',
-      ],
-      manifest: {
-        mutationPolicy: "read_only",
-        requiredTools: ["long_context_process"],
-        forbiddenTools: ["google_workspace_call", "file_write", "bash", "browser_search", "browser_nav", "browser_content"],
-        connectors: [
-          {
-            connectorId: "google.calendar",
-            requiredScopes: ["calendar.readonly"],
-            forbiddenScopes: ["calendar.events"],
-            requiredOperations: ["listEvents"],
-            forbiddenOperations: ["createEvent", "updateEvent", "deleteEvent"],
-          },
-          {
-            connectorId: "google.drive",
-            requiredScopes: ["drive.readonly"],
-            forbiddenScopes: ["drive.file"],
-            requiredOperations: ["search", "readFile"],
-            forbiddenOperations: [
-              "createFile",
-              "createFolder",
-              "updateFile",
-              "copyFile",
-              "trashFile",
-              "createPermission",
-              "updatePermission",
-              "deletePermission",
-            ],
-          },
-        ],
-      },
-    },
-  },
-  "scottsdale-real-estate-100-source-pdf": {
-    title: "Scottsdale Real Estate 100-source PDF Workflow UI Dogfood",
-    permissionMode: "full-access",
-    maxRetainedRunEvents: 650,
-    request: [
-      "Create a Workflow Agent for Project 6: build a Scottsdale, Arizona real estate report from 100 public web source candidates and render a PDF in my Documents folder.",
-      "Use current web evidence; do not rely on model knowledge for current market facts. Include the run date 2026-05-17 and timeZone America/Phoenix in source extraction and synthesis inputs.",
-      "Collect exactly 100 public source candidates using browser_search through tool.paginate with exactly 10 pageQueries, pageSize 10, maxItems 100, maxPages 10, itemsPath root array, queryInputPath query, pageSizeInputPath maxResults, and dedupeKeyPath url.",
-      "Search angles must cover market trends, inventory, prices, neighborhoods, migration, mortgage rates, zoning/development, short-term rental rules, schools/taxes, and comparable nearby cities.",
-      "After source collection, use collection.dedupe with keyPath url and strategy url_canonical, then collection.map to keep title, url, snippet, date or freshness, and rank.",
-      "Use collection.chunk into 10 chunks of 10, model.map over chunks for claims, statistics, citations, source dates, and source-quality extraction, then model.reduce with strategy tree, maxFanIn 5, maxLevels 2 for final synthesis.",
-      "Render a PDF report with document.render format pdf and path Documents/scottsdale-real-estate-research-report.pdf, then stage a file_write mutation for that rendered PDF. Do not write until the staged mutation is approved.",
-      "Do not use Google Workspace tools/connectors, local file reads, shell/bash, browser_nav, browser_content, or any external/cloud mutation. The only allowed write is the staged local file_write for the rendered PDF.",
-      "The final output must include the PDF artifact/path, source candidate count, unique source count, citation/source URLs or provenance, source freshness/date caveats, skipped/partial coverage if fewer than 100 candidates are usable, and an explicit staged-write approval/no-unintended-writes statement.",
-    ].join(" "),
-    answerPreference: ["scottsdale", "real estate", "100", "pdf", "documents", "current", "sources"],
-    runtimeChoicePreference: ["approve", "approved", "continue", "proceed", "looks good", "pdf", "documents"],
-    runtimeAnswer: "Approve the staged local PDF write and keep the final report source-backed, with freshness and coverage notes.",
-    expect: {
-      minModelCalls: 1,
-      maxModelCalls: 20,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 520,
-      minApprovalRequests: 1,
-      minApprovalResponses: 1,
-      minDocumentRenderEnds: 1,
-      requiredDocumentRenderFormats: ["pdf"],
-      requiredToolMessages: ["browser_search", "file_write"],
-      exactToolMessageCounts: { browser_search: 10, file_write: 1 },
-      allowedWriteToolMessages: ["file_write"],
-      forbiddenToolMessages: [
-        "local_directory_list",
-        "local_file_read",
-        "file_read",
-        "bash",
-        "browser_nav",
-        "browser_content",
-        "google_workspace_call",
-      ],
-      forbiddenToolFamilies: ["google."],
-      requiredFinalOutputTerms: ["Scottsdale", "PDF"],
-      requiredFinalOutputAnyTerms: [
-        ["real estate", "housing", "market"],
-        ["source", "sources", "citation", "citations", "provenance"],
-        ["current", "freshness", "date", "2026"],
-        ["coverage", "candidate", "unique", "partial", "skipped"],
-        ["approved", "staged", "write", "no unintended"],
-        ["Documents/scottsdale-real-estate-research-report.pdf", "scottsdale-real-estate-research-report.pdf"],
-      ],
-    },
-    sourceExpect: {
-      requiredTerms: [
-        "workflow.paginateTool",
-        "tools.browser_search",
-        '"itemsPath": ""',
-        '"queryInputPath": "query"',
-        '"pageSizeInputPath": "maxResults"',
-        '"maxItems": 100',
-        '"maxPages": 10',
-        "short term rental",
-        "workflow.dedupeCollection",
-        '"strategy": "url_canonical"',
-        "workflow.mapCollection",
-        "workflow.chunkCollection",
-        "workflow.mapModel",
-        "workflow.reduceModel",
-        '"strategy": "tree"',
-        '"maxFanIn": 5',
-        "workflow.renderDocument",
-        '"format": "pdf"',
-        "workflow.stageMutation",
-        "tools.file_write",
-        "Documents/scottsdale-real-estate-research-report.pdf",
-        "2026-05-17",
-        "America/Phoenix",
-      ],
-      requiredAnyTerms: [
-        ["Scottsdale real estate market", "Scottsdale AZ real estate market"],
-      ],
-      forbiddenTerms: [
-        "tools.local_directory_list",
-        "tools.local_file_read",
-        "tools.file_read",
-        "tools.bash",
-        "tools.browser_nav",
-        "tools.browser_content",
-        "google_workspace_call",
-        'connectorId: "google.gmail"',
-        'connectorId: "google.calendar"',
-        'connectorId: "google.drive"',
-      ],
-      manifest: {
-        mutationPolicy: "staged_until_approved",
-        requiredTools: ["browser_search", "file_write"],
-        forbiddenTools: ["google_workspace_call", "file_read", "bash", "browser_nav", "browser_content"],
-      },
-    },
-  },
-  "movie-tonight-recommendation": {
-    title: "Movie Tonight Current-data Recommendation Workflow UI Dogfood",
-    permissionMode: "full-access",
-    request: [
-      "Create a read-only Workflow Agent for Project 7: recommend whether a couple in Scottsdale, Arizona should go to a movie tonight.",
-      "Use current public web evidence; do not rely on model knowledge for currently playing movies, showtimes, reviews, ratings, runtime, venue details, parking, or travel friction. Include the run date Sunday, 2026-05-17 and timeZone America/Phoenix in source extraction and synthesis inputs.",
-      "Use browser_search through tool.paginate with exactly 4 pageQueries, pageSize 10, maxItems 40, maxPages 4, itemsPath root array, queryInputPath query, pageSizeInputPath maxResults, and dedupeKeyPath url.",
-      "The four pageQueries must cover tonight's Scottsdale showtimes/currently playing movies, reviews and ratings signals, runtime/genre/content ratings, and theater/parking/dinner/travel friction.",
-      "After source collection, use collection.dedupe with keyPath url and strategy url_canonical, then collection.map to keep title, url, snippet, date or freshness, and rank.",
-      "Use collection.chunk into 4 chunks of 10, model.map over chunks for candidate movies, showtimes, reviews/ratings, runtime, genre, theater/travel friction, citation URLs, and evidence freshness. Ask one review.input preference question before the final recommendation.",
-      "Use model.reduce with strategy tree, maxFanIn 4, maxLevels 1 to produce a go/no-go recommendation with top alternatives, confidence, tradeoffs, freshness caveats, and source URLs.",
-      "Do not use Google Workspace tools/connectors, local file reads, shell/bash, browser_nav, browser_content, file_write, document.render, or any mutation. The workflow is read-only.",
-      "The final output must include the location Scottsdale, Arizona, distinguish showtime facts from review opinions, include the date/timezone, cite or list source URLs/provenance, label freshness/uncertainty, explain skipped/partial coverage if current showtimes are unavailable, and make a clear recommendation.",
-    ].join(" "),
-    answerPreference: ["movie", "tonight", "Scottsdale", "current", "showtimes", "reviews", "balanced"],
-    runtimeChoicePreference: ["balanced", "date night", "low friction", "reviews", "proceed", "continue", "looks good"],
-    runtimeAnswer: "Use a balanced date-night preference: prioritize current showtimes, strong reviews, comfortable runtime, low travel friction, and a clear go/no-go answer.",
-    expect: {
-      minModelCalls: 1,
-      maxModelCalls: 8,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minRuntimeInputs: 1,
-      minRuntimeInputResponses: 1,
-      minFinalOutputChars: 420,
-      requiredToolMessages: ["browser_search"],
-      exactToolMessageCounts: { browser_search: 4 },
-      forbiddenToolMessages: [
-        "local_directory_list",
-        "local_file_read",
-        "file_read",
-        "file_write",
-        "bash",
-        "browser_nav",
-        "browser_content",
-        "google_workspace_call",
-      ],
-      forbiddenToolFamilies: ["google."],
-      requiredFinalOutputTerms: ["Scottsdale", "movie"],
-      requiredFinalOutputAnyTerms: [
-        ["recommend", "recommendation", "go", "no-go"],
-        ["showtime", "showtimes", "currently playing"],
-        ["review", "reviews", "rating", "ratings"],
-        ["source", "sources", "citation", "citations", "provenance", "url", "https://"],
-        ["freshness", "current", "date", "2026", "America/Phoenix"],
-        ["theater", "parking", "travel", "runtime", "genre"],
-        ["partial", "skipped", "unavailable", "uncertainty", "caveat", "coverage gap", "coverage gaps", "missing", "not available", "unconfirmed", "stale"],
-      ],
-    },
-    sourceExpect: {
-      requiredTerms: [
-        "workflow.paginateTool",
-        "tools.browser_search",
-        '"itemsPath": ""',
-        '"queryInputPath": "query"',
-        '"pageSizeInputPath": "maxResults"',
-        '"maxItems": 40',
-        '"maxPages": 4',
-        "workflow.dedupeCollection",
-        '"strategy": "url_canonical"',
-        "workflow.mapCollection",
-        "workflow.chunkCollection",
-        "workflow.mapModel",
-        "workflow.askUser",
-        "workflow.reduceModel",
-        '"strategy": "tree"',
-        '"maxFanIn": 4',
-        "2026-05-17",
-        "America/Phoenix",
-        "Scottsdale",
-      ],
-      requiredAnyTerms: [
-        ["movie showtimes", "currently playing movies", "showtimes"],
-        ["reviews", "ratings"],
-        ["parking", "travel friction", "dinner"],
-      ],
-      forbiddenTerms: [
-        "tools.local_directory_list",
-        "tools.local_file_read",
-        "tools.file_read",
-        "tools.file_write",
-        "tools.bash",
-        "tools.browser_nav",
-        "tools.browser_content",
-        "workflow.renderDocument",
-        "workflow.stageMutation",
-        "google_workspace_call",
-        'connectorId: "google.gmail"',
-        'connectorId: "google.calendar"',
-        'connectorId: "google.drive"',
-      ],
-      manifest: {
-        mutationPolicy: "read_only",
-        requiredTools: ["browser_search"],
-        forbiddenTools: ["google_workspace_call", "file_read", "file_write", "bash", "browser_nav", "browser_content"],
-      },
-      promptAssembly: {
-        requiredModuleIds: ["recipe-current_web_research", "recipe-movie_night_current_showtimes", "recipe-large_collection_summarization"],
-        forbiddenModuleIds: ["policy-recipe-movie-night-current-showtimes", "policy-policy-current-data-evidence"],
-        forbiddenModuleFragments: ["gmail", "google-workspace", "visual-analysis", "ambient-cli", "ambient_cli"],
-      },
-      compileContext: {
-        requiredRecipeIds: ["current_web_research", "movie_night_current_showtimes", "large_collection_summarization"],
-        requiredRejectedRecipeIds: ["metadata_first_personal_data_review", "visual_batch_classification", "staged_document_export"],
-        requiredPolicyImplicationIds: [
-          "recipe.current_web_research.source_evidence",
-          "recipe.movie_night_current_showtimes.preference_freshness_gate",
-          "recipe.large_collection_summarization.budget",
-        ],
-        minSelectedRecipeCount: 3,
-        minRejectedRecipeCount: 3,
-      },
-    },
-    abstractionContract: {
-      id: "typed-movie-night-current-showtimes",
-      contractType: "typed-current-data-recipe",
-      proves: [
-        "current movie-night showtimes use the movie_night_current_showtimes recipe instead of a scenario-specific policy prompt",
-        "the recipe stack preserves current web source evidence and large-collection budgeting",
-        "unrelated Gmail, Google Workspace, visual, Ambient CLI, and file-output recipes stay rejected",
-      ],
-      promptAssembly: {
-        requiredModuleIds: ["recipe-current_web_research", "recipe-movie_night_current_showtimes", "recipe-large_collection_summarization"],
-        forbiddenModuleIds: ["policy-recipe-movie-night-current-showtimes", "policy-policy-current-data-evidence"],
-        forbiddenModuleFragments: ["gmail", "google-workspace", "visual-analysis", "ambient-cli", "ambient_cli"],
-      },
-      compileContext: {
-        requiredRecipeIds: ["current_web_research", "movie_night_current_showtimes", "large_collection_summarization"],
-        requiredRejectedRecipeIds: ["metadata_first_personal_data_review", "visual_batch_classification", "staged_document_export"],
-        requiredPolicyImplicationIds: [
-          "recipe.current_web_research.source_evidence",
-          "recipe.movie_night_current_showtimes.preference_freshness_gate",
-          "recipe.large_collection_summarization.budget",
-        ],
-        minSelectedRecipeCount: 3,
-        minRejectedRecipeCount: 3,
-      },
-      manifest: {
-        mutationPolicy: "read_only",
-        requiredTools: ["browser_search"],
-        forbiddenTools: ["google_workspace_call", "file_read", "file_write", "bash", "browser_nav", "browser_content"],
-      },
-    },
-  },
-  "public-source-browser": {
-    title: "Public Source Browser Workflow UI Dogfood",
-    permissionMode: "full-access",
-    request: [
-      "Create a read-only Workflow Agent that uses the managed browser tools to read these two public source pages:",
-      "https://example.com and https://www.iana.org/help/example-domains.",
-      "Do not use browser_search; the URLs are provided. Call browser_nav and browser_content or equivalent browser read tools for the provided URLs.",
-      "Do not write files, render documents, stage mutations, create workspace mutations, use Google Workspace, use Gmail, use visual analysis, or use Ambient CLI.",
-      "Checkpoint bounded source evidence, ask the user which report tone to use, then return a compact HTML report only in the final workflow output card explaining what the pages say and why these domains exist.",
-    ].join(" "),
-    answerPreference: ["browser", "public", "source", "provided", "html", "read only", "no search", "no file", "no write", "no mutation", "output card"],
-    runtimeChoicePreference: ["concise", "technical", "compact", "proceed", "continue", "approve"],
-    runtimeAnswer: "Use a concise technical tone with one short bullet list. Keep the HTML compact and return it only in the final workflow output card; do not write or stage any file.",
-    expect: {
-      minModelCalls: 1,
-      minRuntimeInputs: 1,
-      minRuntimeInputResponses: 1,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 160,
-      requiredFinalOutputAnyTerms: [["example", "domain"], ["iana", "reserved"]],
-      requiredToolFamilies: ["browser_"],
-      requiredAnyToolMessages: [["browser_nav", "browser_content"]],
-      forbiddenToolMessages: ["browser_search", "file_read", "file_write"],
-    },
-    sourceExpect: {
-      forbiddenTerms: ["tools.file_read", "tools.file_write", "google_workspace_call", "tools.ambient_visual_analyze"],
-      manifest: {
-        mutationPolicy: "read_only",
-        requiredAnyTools: [["browser_nav", "browser_content"]],
-        forbiddenTools: ["browser_search", "file_read", "file_write", "google_workspace_call", "ambient_visual_analyze"],
-      },
-      promptAssembly: {
-        requiredModuleIds: browserSourcePromptAssemblyModuleIds(),
-        forbiddenModuleFragments: ["gmail", "google-workspace", "visual-analysis"],
-      },
-    },
-    abstractionContract: {
-      id: "capability-browser-source-readonly",
-      contractType: "selected-capability-guidance",
-      proves: [
-        "browser source workflows are explained by browser capability guidance instead of fixture-specific prompt rules",
-        "unrelated Gmail, Google Workspace, and visual guidance stays out of the prompt assembly",
-        "read-only manifests avoid file and connector mutation surfaces",
-      ],
-      promptAssembly: {
-        requiredModuleIds: browserSourcePromptAssemblyModuleIds(),
-        forbiddenModuleFragments: ["gmail", "google-workspace", "visual-analysis"],
-      },
-      manifest: {
-        mutationPolicy: "read_only",
-        forbiddenTools: ["browser_search", "file_read", "file_write", "google_workspace_call", "ambient_visual_analyze"],
-      },
-      forbiddenPromptAssemblyMetadataFragments: ["public-source-browser", "example.com", "iana.org/help/example-domains"],
-    },
-  },
-  "current-web-recipe-report": {
-    title: "Current Web Recipe Report Workflow UI Dogfood",
-    permissionMode: "full-access",
-    request: [
-      "Create a Workflow Agent that builds a small current public web research report about example domains and reserved test domains, then exports the report as a Markdown file in my Documents folder.",
-      "Use current web evidence; do not rely on model knowledge for current source claims. Include the run date 2026-05-17 and timeZone America/Phoenix in source extraction and synthesis inputs.",
-      "Collect exactly 6 public source candidates using browser_search through tool.paginate with exactly 2 pageQueries, pageSize 3, maxItems 6, maxPages 2, itemsPath root array, queryInputPath query, pageSizeInputPath maxResults, and dedupeKeyPath url.",
-      "The two pageQueries must cover IANA example domains and reserved test domains documentation.",
-      "After source collection, use collection.dedupe with keyPath url and strategy url_canonical, then collection.map to keep title, url, snippet, date or freshness, and rank.",
-      "Use collection.chunk into 2 chunks of 3, model.map over chunks for claims, source dates, citation URLs, and source-quality notes, then model.reduce with strategy tree, maxFanIn 2, maxLevels 1 for final synthesis.",
-      "Render a Markdown report with document.render format markdown and path Documents/example-domain-current-web-report.md, then stage a file_write mutation for that rendered Markdown file. Do not write until the staged mutation is approved.",
-      "Do not use Google Workspace tools/connectors, local file reads, shell/bash, browser_nav, browser_content, or any external/cloud mutation. The only allowed write is the staged local file_write for the rendered Markdown report.",
-      "The final output must include the Markdown artifact/path, source candidate count, unique source count, citation/source URLs or provenance, source freshness/date caveats, and an explicit staged-write approval/no-unintended-writes statement.",
-    ].join(" "),
-    answerPreference: ["current", "web", "source", "markdown", "documents", "staged", "example domains"],
-    runtimeChoicePreference: ["approve", "approved", "continue", "proceed", "looks good", "markdown", "documents"],
-    runtimeAnswer: "Approve the staged local Markdown write and keep the final report source-backed, concise, and explicit about freshness.",
-    expect: {
-      minModelCalls: 1,
-      maxModelCalls: 6,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 360,
-      minApprovalRequests: 1,
-      minApprovalResponses: 1,
-      minDocumentRenderEnds: 1,
-      requiredDocumentRenderFormats: ["markdown"],
-      requiredToolMessages: ["browser_search", "file_write"],
-      exactToolMessageCounts: { browser_search: 2, file_write: 1 },
-      allowedWriteToolMessages: ["file_write"],
-      forbiddenToolMessages: [
-        "local_directory_list",
-        "local_file_read",
-        "file_read",
-        "bash",
-        "browser_nav",
-        "browser_content",
-        "ambient_cli",
-        "ambient_cli_package_preview",
-        "ambient_cli_package_install",
-        "ambient_cli_package_install_pi_catalog",
-        "ambient_cli_search",
-        "ambient_cli_describe",
-        "ambient_cli_env_bind",
-        "ambient_cli_secret_request",
-        "ambient_cli_package_uninstall",
-        "google_workspace_call",
-      ],
-      forbiddenToolFamilies: ["google."],
-      requiredFinalOutputTerms: ["example", "domain", "Markdown"],
-      requiredFinalOutputAnyTerms: [
-        ["source", "sources", "citation", "citations", "provenance", "url", "https://"],
-        ["current", "freshness", "date", "2026"],
-        ["approved", "staged", "write", "no unintended"],
-        ["Documents/example-domain-current-web-report.md", "example-domain-current-web-report.md"],
-      ],
-    },
-    sourceExpect: {
-      requiredTerms: [
-        "workflow.paginateTool",
-        "tools.browser_search",
-        '"itemsPath": ""',
-        '"queryInputPath": "query"',
-        '"pageSizeInputPath": "maxResults"',
-        '"maxItems": 6',
-        '"maxPages": 2',
-        "workflow.dedupeCollection",
-        '"strategy": "url_canonical"',
-        "workflow.mapCollection",
-        "workflow.chunkCollection",
-        "workflow.mapModel",
-        "workflow.reduceModel",
-        "workflow.renderDocument",
-        '"format": "markdown"',
-        "workflow.stageMutation",
-        "tools.file_write",
-        "Documents/example-domain-current-web-report.md",
-        "2026-05-17",
-        "America/Phoenix",
-      ],
-      requiredAnyTerms: [["IANA example domains", "example domains"], ["reserved test domains", "reserved domains"]],
-      forbiddenTerms: [
-        "tools.local_directory_list",
-        "tools.local_file_read",
-        "tools.file_read",
-        "tools.bash",
-        "tools.browser_nav",
-        "tools.browser_content",
-        "tools.ambient_cli",
-        "tools.ambient_cli_package_preview",
-        "tools.ambient_cli_package_install",
-        "tools.ambient_cli_package_install_pi_catalog",
-        "tools.ambient_cli_search",
-        "tools.ambient_cli_describe",
-        "tools.ambient_cli_env_bind",
-        "tools.ambient_cli_secret_request",
-        "tools.ambient_cli_package_uninstall",
-        "google_workspace_call",
-        'connectorId: "google.gmail"',
-        'connectorId: "google.calendar"',
-        'connectorId: "google.drive"',
-      ],
-      manifest: {
-        mutationPolicy: "staged_until_approved",
-        requiredTools: ["browser_search", "file_write"],
-        forbiddenTools: [
-          "google_workspace_call",
-          "file_read",
-          "bash",
-          "browser_nav",
-          "browser_content",
-          "ambient_cli",
-          "ambient_cli_package_preview",
-          "ambient_cli_package_install",
-          "ambient_cli_package_install_pi_catalog",
-          "ambient_cli_search",
-          "ambient_cli_describe",
-          "ambient_cli_env_bind",
-          "ambient_cli_secret_request",
-          "ambient_cli_package_uninstall",
-        ],
-      },
-      promptAssembly: {
-        requiredModuleIds: currentWebRecipePromptAssemblyModuleIds(),
-        forbiddenModuleIds: [
-          "policy-policy-current-data-evidence",
-          "policy-capability-browser-user-action-intervention",
-          "policy-capability-browser-login-intervention",
-          "policy-runtime-browser-lower-level-handoff",
-          "policy-capability-browser-default-wait-behavior",
-          "policy-runtime-browser-user-action-resume",
-          "policy-capability-browser-recovery-provenance",
-        ],
-        forbiddenModuleFragments: ["gmail", "google-workspace", "visual-analysis", "ambient-cli", "ambient_cli"],
-      },
-      compileContext: {
-        requiredRecipeIds: ["current_web_research", "large_collection_summarization", "staged_document_export"],
-        requiredRejectedRecipeIds: ["metadata_first_personal_data_review", "visual_batch_classification"],
-        requiredPolicyImplicationIds: [
-          "recipe.current_web_research.source_evidence",
-          "recipe.large_collection_summarization.budget",
-          "recipe.staged_document_export.approval_gate",
-        ],
-        minSelectedRecipeCount: 3,
-        minRejectedRecipeCount: 2,
-      },
-    },
-    abstractionContract: {
-      id: "recipe-stack-current-web-staged-export",
-      contractType: "typed-recipe-stack",
-      proves: [
-        "current public research uses the current_web_research recipe instead of scenario-specific browser instructions",
-        "collection chunking and tree reduction come from the large_collection_summarization recipe",
-        "local output is protected by the staged_document_export approval gate",
-        "unrelated connector and visual recipes remain rejected",
-      ],
-      promptAssembly: {
-        requiredModuleIds: currentWebRecipePromptAssemblyModuleIds(),
-        forbiddenModuleIds: [
-          "policy-policy-current-data-evidence",
-          "policy-capability-browser-user-action-intervention",
-          "policy-capability-browser-login-intervention",
-          "policy-runtime-browser-lower-level-handoff",
-          "policy-capability-browser-default-wait-behavior",
-          "policy-runtime-browser-user-action-resume",
-          "policy-capability-browser-recovery-provenance",
-        ],
-        forbiddenModuleFragments: ["gmail", "google-workspace", "visual-analysis", "ambient-cli", "ambient_cli"],
-      },
-      compileContext: {
-        requiredRecipeIds: ["current_web_research", "large_collection_summarization", "staged_document_export"],
-        requiredRejectedRecipeIds: ["metadata_first_personal_data_review", "visual_batch_classification"],
-        requiredPolicyImplicationIds: [
-          "recipe.current_web_research.source_evidence",
-          "recipe.large_collection_summarization.budget",
-          "recipe.staged_document_export.approval_gate",
-        ],
-        minSelectedRecipeCount: 3,
-        minRejectedRecipeCount: 2,
-      },
-      manifest: {
-        mutationPolicy: "staged_until_approved",
-        requiredTools: ["browser_search", "file_write"],
-        forbiddenTools: [
-          "google_workspace_call",
-          "file_read",
-          "bash",
-          "browser_nav",
-          "browser_content",
-          "ambient_cli",
-          "ambient_cli_package_preview",
-          "ambient_cli_package_install",
-          "ambient_cli_package_install_pi_catalog",
-          "ambient_cli_search",
-          "ambient_cli_describe",
-          "ambient_cli_env_bind",
-          "ambient_cli_secret_request",
-          "ambient_cli_package_uninstall",
-        ],
-      },
-      forbiddenPromptAssemblyMetadataFragments: [
-        "current-web-recipe-report",
-        "example-domain-current-web-report",
-        "IANA example domains",
-        "reserved test domains",
-      ],
-    },
-  },
-  "flaky-browser-recovery": {
-    title: "Flaky Browser Recovery Workflow UI Dogfood",
-    permissionMode: "full-access",
-    request: [
-      "Create a read-only Workflow Agent that deliberately exercises retry and skip recovery for browser source fetching.",
-      "Use exactly these source records, in this order, in a bounded workflow.mapCollection or equivalent item-scoped loop: { id: 'example-source', url: 'https://example.com' }, { id: 'iana-source', url: 'https://www.iana.org/help/example-domains' }, and { id: 'bad-source', url: 'https://workflow-dogfood-invalid.invalid/recovery-check' }.",
-      "For each item, call browser_nav with the item URL as the item-scoped browser read. browser_nav returns compact page content and links, so it is acceptable for the final report evidence. Do not add a later browser_content loop over the active page after navigating multiple items. Do not use web search, file reads, connectors, shell, or writes.",
-      "The fetch node must have graph metadata nodeId 'fetch-sources', itemKey equal to the source id, and a retry policy that explicitly allows retrying the failed item and skipping it to continue with partial coverage.",
-      "On the first run, let the bad-source browser failure surface as a failed item instead of catching or repairing it. On recovery, respect workflow.recovery skip_item for bad-source, keep successful source evidence from fetch-sources, checkpoint partial coverage metadata, then return a compact HTML report.",
-      "The final model.call input must reference the actual fetch-sources items/results and skipped-source metadata. Do not synthesize the report from instructions alone, and do not create an empty evidence checkpoint.",
-      "The final report must clearly say partial coverage, identify bad-source as skipped or unreachable, and still explain the example.com and IANA source evidence.",
-    ].join(" "),
-    answerPreference: ["browser", "recovery", "retry", "skip", "partial", "read only", "bounded"],
-    runtimeChoicePreference: ["continue", "skip", "partial", "proceed", "approve"],
-    runtimeAnswer: "Continue with partial coverage and clearly label the skipped bad source.",
-    recovery: {
-      actions: ["retry_step", "skip_item"],
-      requiredVisibleTerms: ["Retry", "Skip"],
-    },
-    expect: {
-      minModelCalls: 1,
-      minOutputSignals: 1,
-      minCheckpoints: 1,
-      minFinalOutputChars: 180,
-      minRecoveryEvents: 4,
-      minRecoverySkippedItems: 1,
-      requiredRecoveryActions: ["retry_step", "skip_item"],
-      requiredSkippedItemKeys: ["bad-source"],
-      requiredToolFamilies: ["browser_"],
-      requiredToolMessages: ["browser_nav"],
-      forbiddenToolMessages: ["browser_search", "file_read", "file_write"],
-      requiredFinalOutputAnyTerms: [["partial coverage", "partial"], ["bad-source", "unreachable", "skipped"], ["example", "domain"], ["iana", "reserved"]],
-    },
-    sourceExpect: {
-      requiredTerms: ['"fetchResults": readPath(outputs["fetch-sources"], "items")'],
-      forbiddenTerms: ['const checkpoint_evidence_value = {  };', '"fetchResults": readPath(outputs["checkpoint-evidence"], "fetchResults")', 'tools.browser_content({  })'],
-    },
-  },
+  ...createWorkflowAgentThreadUiLocalScenarios({ workspace, planDslCompilerDogfood }),
+  ...createWorkflowAgentThreadUiConnectorScenarios({ planDslCompilerDogfood }),
+  ...createWorkflowAgentThreadUiPublicScenarios({ planDslCompilerDogfood }),
 };
 
 const scenario = scenarios[scenarioName];
@@ -1626,7 +149,9 @@ try {
   console.log(JSON.stringify(compactReport(report), null, 2));
   console.log(`Workflow Agent thread UI dogfood passed. Report: ${join(scenarioReportRoot, "latest.json")}`);
 } catch (error) {
-  const failureEvidence = app?.cdp ? await collectFailureEvidence(app.cdp).catch((evidenceError) => ({ error: String(evidenceError?.message ?? evidenceError) })) : undefined;
+  const failureEvidence = app?.cdp
+    ? await collectFailureEvidence(app.cdp).catch((evidenceError) => ({ error: String(evidenceError?.message ?? evidenceError) }))
+    : undefined;
   const errorMessageText = error instanceof Error ? error.message : String(error);
   const failureReport = {
     scenario: scenarioName,
@@ -1722,13 +247,14 @@ async function runDogfood(cdp) {
   await selectThreadInUi(cdp, thread.title);
   await captureMode(cdp, "Build", "build-after-compile");
 
-  const approvedDashboard = artifact.status === "approved"
-    ? compileDashboard
-    : await liveStep(
-        cdp,
-        "approve workflow preview",
-        `window.ambientDesktop.reviewWorkflowArtifact(${JSON.stringify({ artifactId: artifact.id, decision: "approved" })})`,
-      );
+  const approvedDashboard =
+    artifact.status === "approved"
+      ? compileDashboard
+      : await liveStep(
+          cdp,
+          "approve workflow preview",
+          `window.ambientDesktop.reviewWorkflowArtifact(${JSON.stringify({ artifactId: artifact.id, decision: "approved" })})`,
+        );
   const approvedArtifact = latestArtifactForThread(approvedDashboard, thread.id) ?? artifact;
 
   const firstRunDashboard = await liveStep(
@@ -1751,7 +277,9 @@ async function runDogfood(cdp) {
     ({ latestRun, detail } = await resumeRuntimePauses(cdp, approvedArtifact, latestRun, detail));
   }
   if (latestRun.status !== "succeeded") {
-    throw new Error(`Expected workflow run to succeed after ${scenario.recovery ? "graph recovery" : "runtime input resume"}, got ${latestRun.status}: ${latestRun.error ?? "no error"}`);
+    throw new Error(
+      `Expected workflow run to succeed after ${scenario.recovery ? "graph recovery" : "runtime input resume"}, got ${latestRun.status}: ${latestRun.error ?? "no error"}`,
+    );
   }
   const scenarioAssertions = assertScenarioEvidence(detail);
 
@@ -1793,7 +321,8 @@ async function runDogfood(cdp) {
     finishedAt: new Date().toISOString(),
     workspace,
     thread: pick(thread, ["id", "title", "phase", "status", "traceMode"]),
-    permissionMode: scenarioPermissionMode() ?? finalState.threads?.find((candidate) => candidate.id === finalState.activeThreadId)?.permissionMode,
+    permissionMode:
+      scenarioPermissionMode() ?? finalState.threads?.find((candidate) => candidate.id === finalState.activeThreadId)?.permissionMode,
     artifact: pick(approvedArtifact, ["id", "title", "status", "sourcePath"]),
     manifest: manifestEvidence(approvedArtifact.manifest),
     run: pick(latestRun, ["id", "status", "error", "reportPath", "startedAt", "updatedAt", "completedAt"]),
@@ -1824,7 +353,9 @@ async function runDogfood(cdp) {
     },
     schedule: {
       total: Array.isArray(schedules) ? schedules.length : 0,
-      forThread: Array.isArray(schedules) ? schedules.filter((schedule) => schedule.targetKind === "workflow_thread" && schedule.targetId === thread.id).length : 0,
+      forThread: Array.isArray(schedules)
+        ? schedules.filter((schedule) => schedule.targetKind === "workflow_thread" && schedule.targetId === thread.id).length
+        : 0,
     },
     graphSnapshots: Array.isArray(graphSnapshots) ? graphSnapshots.length : 0,
     uiAssertions,
@@ -1868,7 +399,9 @@ async function answerDiscoveryQuestions(cdp, initialThread, deadline) {
   }
   thread = await latestWorkflowThreadFromUi(cdp, thread);
   const progress = workflowDiscoveryProgress(thread);
-  throw new Error(`Discovery still has ${progress.unanswered} unanswered question(s) and ${progress.pendingAccessRequests} pending access request(s) after 8 rounds for thread ${thread.id}.`);
+  throw new Error(
+    `Discovery still has ${progress.unanswered} unanswered question(s) and ${progress.pendingAccessRequests} pending access request(s) after 8 rounds for thread ${thread.id}.`,
+  );
 }
 
 async function resolveDiscoveryAccessRequests(cdp, initialThread, deadline) {
@@ -1924,9 +457,7 @@ function pendingDiscoveryAccessRequests(thread) {
 function discoveryAccessResponseForScenario(request) {
   const allowedCapabilities = new Set(scenario.allowDiscoveryAccessCapabilities ?? []);
   if (allowedCapabilities.has(request.capability)) {
-    return Array.isArray(request.reusableScopes) && request.reusableScopes.includes("workflow_thread")
-      ? "always_workflow"
-      : "allow_once";
+    return Array.isArray(request.reusableScopes) && request.reusableScopes.includes("workflow_thread") ? "always_workflow" : "allow_once";
   }
   return "deny";
 }
@@ -2136,7 +667,9 @@ async function waitForRendererOperation(cdp, operationId, options) {
 
 function isProviderIdleStartError(error) {
   const message = error instanceof Error ? error.message : String(error);
-  return /without stream activity|did not start streaming|Discovery is paused until Ambient access|\b429\b|rate limit|Upstream request failed/i.test(message);
+  return /without stream activity|did not start streaming|Discovery is paused until Ambient access|\b429\b|rate limit|Upstream request failed/i.test(
+    message,
+  );
 }
 
 async function captureMode(cdp, mode, name) {
@@ -2213,13 +746,26 @@ function assertCompactMetrics({ buildMetrics, runsMetrics, schedulesMetrics }) {
     if (metric.railDisplay !== "flex") failures.push(`${metric.mode}: expected compact rail display flex, got ${metric.railDisplay}`);
     if (!metric.diagramVisible) failures.push(`${metric.mode}: persistent diagram is not visible`);
     if (metric.overflowX > 24) failures.push(`${metric.mode}: page has ${metric.overflowX}px horizontal overflow`);
-    if (metric.visibleChars > 120_000) failures.push(`${metric.mode}: page text is too large (${metric.visibleChars} chars), likely flooding UI`);
+    if (metric.visibleChars > 120_000)
+      failures.push(`${metric.mode}: page text is too large (${metric.visibleChars} chars), likely flooding UI`);
   }
   if (!buildMetrics.compileAuditVisible) failures.push("build: compile audit summary is not visible");
   if (failures.length) throw new Error(`Compact V3 UI assertions failed:\n- ${failures.join("\n- ")}`);
   return {
     passed: true,
-    modes: modes.map((metric) => pick(metric, ["mode", "rootWidth", "railDisplay", "railOverflowX", "railButtonCount", "activePanel", "overflowX", "visibleChars", "compileAuditVisible"])),
+    modes: modes.map((metric) =>
+      pick(metric, [
+        "mode",
+        "rootWidth",
+        "railDisplay",
+        "railOverflowX",
+        "railButtonCount",
+        "activePanel",
+        "overflowX",
+        "visibleChars",
+        "compileAuditVisible",
+      ]),
+    ),
   };
 }
 
@@ -2264,11 +810,7 @@ async function setNarrowWorkflowSplit(cdp) {
 }
 
 async function syncWorkflowUi(cdp, folders) {
-  await evaluate(
-    cdp,
-    `window.ambientDesktop.emitE2eEvent?.(${JSON.stringify({ type: "workflow-updated" })})`,
-    { timeoutMs: 30_000 },
-  );
+  await evaluate(cdp, `window.ambientDesktop.emitE2eEvent?.(${JSON.stringify({ type: "workflow-updated" })})`, { timeoutMs: 30_000 });
   if (folders) {
     const state = await desktopState(cdp);
     await evaluate(cdp, `window.ambientDesktop.emitE2eEvent?.(${JSON.stringify({ type: "state", state })})`, { timeoutMs: 30_000 });
@@ -2347,7 +889,9 @@ async function resumeRuntimePauses(cdp, artifact, initialRun, initialDetail) {
       continue;
     }
 
-    throw new Error(`Run ${latestRun.id} paused with status ${latestRun.status} but no unanswered workflow.input.required event or pending review item was retained.`);
+    throw new Error(
+      `Run ${latestRun.id} paused with status ${latestRun.status} but no unanswered workflow.input.required event or pending review item was retained.`,
+    );
   }
   return { latestRun, detail };
 }
@@ -2384,7 +928,9 @@ async function exerciseGraphRecovery(cdp, artifact, initialRun, initialDetail) {
   for (const [index, action] of scenario.recovery.actions.entries()) {
     const event = selectRecoveryEvent(detail, action);
     if (!event) {
-      throw new Error(`Could not find an actionable failed event for recovery action ${action}. Event tail: ${eventTail(detail).join(" | ")}`);
+      throw new Error(
+        `Could not find an actionable failed event for recovery action ${action}. Event tail: ${eventTail(detail).join(" | ")}`,
+      );
     }
     const dashboard = await liveStep(
       cdp,
@@ -2417,7 +963,9 @@ async function exerciseGraphRecovery(cdp, artifact, initialRun, initialDetail) {
       resultError: latestRun.error,
     });
     if (latestRun.status === "succeeded" && index < scenario.recovery.actions.length - 1) {
-      throw new Error(`Recovery action ${action} succeeded before all required recovery actions ran; expected ${scenario.recovery.actions.slice(index + 1).join(", ")} to remain actionable.`);
+      throw new Error(
+        `Recovery action ${action} succeeded before all required recovery actions ran; expected ${scenario.recovery.actions.slice(index + 1).join(", ")} to remain actionable.`,
+      );
     }
   }
 
@@ -2467,7 +1015,10 @@ function recoveryItemKey(event) {
 function eventTail(detail) {
   return (detail.events ?? [])
     .slice(-12)
-    .map((event) => `${event.seq}:${event.type}:${event.graphNodeId ?? event.data?.graphNodeId ?? ""}:${event.itemKey ?? event.data?.itemKey ?? ""}:${event.message ?? ""}`);
+    .map(
+      (event) =>
+        `${event.seq}:${event.type}:${event.graphNodeId ?? event.data?.graphNodeId ?? ""}:${event.itemKey ?? event.data?.itemKey ?? ""}:${event.message ?? ""}`,
+    );
 }
 
 function eventCountsByType(events) {
@@ -2551,7 +1102,8 @@ async function assertScenarioSource(artifact) {
   const expectConfig = scenario.sourceExpect ?? {};
   const abstractionContract = scenario.abstractionContract;
   if (!scenario.sourceExpect && !abstractionContract) return undefined;
-  if (!artifact.sourcePath) throw new Error(`Scenario ${scenarioName} requires generated source inspection, but artifact ${artifact.id} has no sourcePath.`);
+  if (!artifact.sourcePath)
+    throw new Error(`Scenario ${scenarioName} requires generated source inspection, but artifact ${artifact.id} has no sourcePath.`);
   const source = await readFile(artifact.sourcePath, "utf8");
   const failures = [];
   for (const term of expectConfig.requiredTerms ?? []) {
@@ -2661,13 +1213,16 @@ function assertScenarioAbstractionContract(contract, sourceAssertions, failures)
 
   if (contract.promptAssembly && !promptAssembly) failures.push(`abstraction contract ${contract.id} expected prompt assembly metadata`);
   if (contract.compileContext && !compileContext) failures.push(`abstraction contract ${contract.id} expected compile context metadata`);
-  if (contract.validationReport && !validationReport) failures.push(`abstraction contract ${contract.id} expected validation report metadata`);
+  if (contract.validationReport && !validationReport)
+    failures.push(`abstraction contract ${contract.id} expected validation report metadata`);
   if (contract.manifest && !manifest) failures.push(`abstraction contract ${contract.id} expected manifest metadata`);
 
   const promptMetadata = promptAssemblyMetadataText(promptAssembly);
   for (const fragment of contract.forbiddenPromptAssemblyMetadataFragments ?? []) {
     if (promptMetadata.includes(String(fragment).toLowerCase())) {
-      failures.push(`abstraction contract ${contract.id} prompt assembly metadata must not include fixture fragment ${JSON.stringify(fragment)}`);
+      failures.push(
+        `abstraction contract ${contract.id} prompt assembly metadata must not include fixture fragment ${JSON.stringify(fragment)}`,
+      );
     }
   }
 
@@ -2707,11 +1262,12 @@ function assertScenarioAbstractionContract(contract, sourceAssertions, failures)
       ? {
           mutationPolicy: manifest.mutationPolicy,
           tools: manifest.tools,
-          connectors: manifest.connectors?.map((connector) => ({
-            connectorId: connector.connectorId,
-            scopes: connector.scopes,
-            operations: connector.operations,
-          })) ?? [],
+          connectors:
+            manifest.connectors?.map((connector) => ({
+              connectorId: connector.connectorId,
+              scopes: connector.scopes,
+              operations: connector.operations,
+            })) ?? [],
         }
       : undefined,
   };
@@ -2808,9 +1364,7 @@ async function assertArtifactPromptAssembly(artifact, expectConfig, failures) {
     failures.push(`expected prompt assembly metadata at ${promptAssemblyPath}: ${error.message}`);
     return undefined;
   }
-  const moduleIds = Array.isArray(promptAssembly.modules)
-    ? promptAssembly.modules.map((module) => String(module.id ?? ""))
-    : [];
+  const moduleIds = Array.isArray(promptAssembly.modules) ? promptAssembly.modules.map((module) => String(module.id ?? "")) : [];
   const moduleSummaries = Array.isArray(promptAssembly.modules)
     ? promptAssembly.modules.map((module) => ({
         id: String(module.id ?? ""),
@@ -2857,7 +1411,8 @@ async function assertArtifactCompileContext(artifact, expectConfig, failures) {
   const selectedRecipeIds = Array.isArray(compileContext.selectedRecipes)
     ? compileContext.selectedRecipes.map((recipe) => String(recipe.id ?? ""))
     : [];
-  const recipeSelection = compileContext.recipeSelection && typeof compileContext.recipeSelection === "object" ? compileContext.recipeSelection : undefined;
+  const recipeSelection =
+    compileContext.recipeSelection && typeof compileContext.recipeSelection === "object" ? compileContext.recipeSelection : undefined;
   const rejectedRecipeIds = Array.isArray(recipeSelection?.rejected)
     ? recipeSelection.rejected.map((recipe) => String(recipe.id ?? ""))
     : [];
@@ -3001,7 +1556,8 @@ async function ensureScenarioPermissionMode(cdp, state) {
   const permissionMode = scenarioPermissionMode();
   if (!permissionMode) return;
   const activeThreadId = state?.activeThreadId;
-  if (!activeThreadId) throw new Error(`Scenario ${scenarioName} requires ${permissionMode} permission mode but the active thread id is unavailable.`);
+  if (!activeThreadId)
+    throw new Error(`Scenario ${scenarioName} requires ${permissionMode} permission mode but the active thread id is unavailable.`);
   const activeThread = state.threads?.find((thread) => thread.id === activeThreadId);
   if (activeThread?.permissionMode === permissionMode) return;
   await liveStep(
@@ -3139,11 +1695,9 @@ async function waitFor(cdp, predicate, description, timeoutMs = 30_000, args = [
   let lastError;
   while (Date.now() - started < timeoutMs) {
     try {
-      const result = await evaluate(
-        cdp,
-        `(${predicate.toString()})(...${JSON.stringify(args)})`,
-        { timeoutMs: Math.min(10_000, timeoutMs) },
-      );
+      const result = await evaluate(cdp, `(${predicate.toString()})(...${JSON.stringify(args)})`, {
+        timeoutMs: Math.min(10_000, timeoutMs),
+      });
       if (result) return result;
     } catch (error) {
       lastError = error;
@@ -3177,14 +1731,22 @@ async function connectCdp(url) {
   const ws = new WebSocket(url);
   await new Promise((resolvePromise, rejectPromise) => {
     const timer = setTimeout(() => rejectPromise(new Error(`Timed out connecting to ${url}`)), 15_000);
-    ws.addEventListener("open", () => {
-      clearTimeout(timer);
-      resolvePromise();
-    }, { once: true });
-    ws.addEventListener("error", (event) => {
-      clearTimeout(timer);
-      rejectPromise(new Error(`CDP websocket error: ${event.message ?? "unknown"}`));
-    }, { once: true });
+    ws.addEventListener(
+      "open",
+      () => {
+        clearTimeout(timer);
+        resolvePromise();
+      },
+      { once: true },
+    );
+    ws.addEventListener(
+      "error",
+      (event) => {
+        clearTimeout(timer);
+        rejectPromise(new Error(`CDP websocket error: ${event.message ?? "unknown"}`));
+      },
+      { once: true },
+    );
   });
   let id = 0;
   const pending = new Map();
@@ -3277,16 +1839,26 @@ function classifyDogfoodFailure(errorMessageText, failureEvidence) {
   if (/llama-server was not found|AMBIENT_MINICPM_V_LLAMA_SERVER|MiniCPM-V runtime|needs-runtime/i.test(text)) {
     return "environment/snapshot issue";
   }
-  if (/Workflow connector is not available|not_configured|connecting|expired|revoked|Google.*not configured|Gmail.*not configured|Gmail.*not available|OAuth|connector auth/i.test(text)) {
+  if (
+    /Workflow connector is not available|not_configured|connecting|expired|revoked|Google.*not configured|Gmail.*not configured|Gmail.*not available|OAuth|connector auth/i.test(
+      text,
+    )
+  ) {
     return "environment/snapshot issue";
   }
   if (/\b429\b|rate limit|did not start streaming|stream stalled|provider idle|no-stream/i.test(text)) {
     return "provider-degraded";
   }
-  if (/timed out waiting|CDP|Electron|Runtime\.evaluate|renderer poll|Could not find an actionable failed event|permission prompt/i.test(text)) {
+  if (
+    /timed out waiting|CDP|Electron|Runtime\.evaluate|renderer poll|Could not find an actionable failed event|permission prompt/i.test(text)
+  ) {
     return "test harness failure";
   }
-  if (/Scenario evidence assertions failed|generated source failed provenance gates|Expected workflow run to succeed|Compile failed|workflow run .* failed/i.test(text)) {
+  if (
+    /Scenario evidence assertions failed|generated source failed provenance gates|Expected workflow run to succeed|Compile failed|workflow run .* failed/i.test(
+      text,
+    )
+  ) {
     return "product failure";
   }
   return "unclassified";
@@ -3306,11 +1878,13 @@ function harnessReportMetadata() {
 }
 
 function safeFilePart(value) {
-  return String(value)
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 140) || "workflow-ui-dogfood-run";
+  return (
+    String(value)
+      .trim()
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 140) || "workflow-ui-dogfood-run"
+  );
 }
 
 function outputTail() {
@@ -3329,7 +1903,11 @@ function valueForArg(name) {
 }
 
 function envFlag(value) {
-  return ["1", "true", "yes", "on"].includes(String(value ?? "").trim().toLowerCase());
+  return ["1", "true", "yes", "on"].includes(
+    String(value ?? "")
+      .trim()
+      .toLowerCase(),
+  );
 }
 
 function permissionModeForValue(value) {
@@ -3341,28 +1919,6 @@ function permissionModeForValue(value) {
 
 function scenarioPermissionMode() {
   return forcedPermissionMode ?? scenario.permissionMode;
-}
-
-function browserSourcePromptAssemblyModuleIds() {
-  return planDslCompilerDogfood
-    ? ["core-workflow-plan-dsl-semantics", "workflow-plan-dsl-selected-capabilities"]
-    : ["capability-guidance-browser-source-provenance", "capability-guidance-browser-user-action-intervention"];
-}
-
-function currentWebRecipePromptAssemblyModuleIds() {
-  return planDslCompilerDogfood
-    ? ["core-workflow-plan-dsl-semantics", "workflow-plan-dsl-selected-recipes", "workflow-plan-dsl-selected-capabilities"]
-    : ["recipe-current_web_research", "recipe-large_collection_summarization", "recipe-staged_document_export"];
-}
-
-function localFilePromptAssemblyModuleIds() {
-  return planDslCompilerDogfood
-    ? ["core-workflow-plan-dsl-semantics", "workflow-plan-dsl-selected-capabilities"]
-    : ["capability-selected-desktop-tools", "dynamic-user-request"];
-}
-
-function tinyPng() {
-  return Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=", "base64");
 }
 
 function delay(ms) {

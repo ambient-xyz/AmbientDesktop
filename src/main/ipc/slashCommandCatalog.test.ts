@@ -155,6 +155,102 @@ describe("slash command catalog", () => {
     ]);
   });
 
+  it("opens a grouped scrollable catalog with diversity caps instead of a top-12 list", () => {
+    const featureFlagSnapshot = resolveAmbientFeatureFlags({ settings: { slashCommands: true } });
+    const response = buildSlashCommandSearchResponse({ mode: "catalog" }, {
+      featureFlagSnapshot,
+      pluginCatalog: codexPluginCatalog([
+        codexPlugin({
+          name: "large-plugin",
+          skills: Array.from({ length: 16 }, (_, index) => ({
+            name: `Plugin Skill ${index + 1}`,
+            path: `/plugins/large/skill-${index + 1}/SKILL.md`,
+          })),
+        }),
+        codexPlugin({
+          id: "plugin:small",
+          name: "small-plugin",
+          rootPath: "/plugins/small",
+          skills: Array.from({ length: 4 }, (_, index) => ({
+            name: `Small Skill ${index + 1}`,
+            path: `/plugins/small/skill-${index + 1}/SKILL.md`,
+          })),
+        }),
+      ]),
+      ambientCliCapabilities: ambientCliCapabilities(Array.from({ length: 6 }, (_, index) => ({
+        packageId: `pkg-${index + 1}`,
+        packageName: `cli-tools-${index + 1}`,
+        commandName: `command-${index + 1}`,
+      }))),
+      workflowRecordings: Array.from({ length: 4 }, (_, index) => workflowRecording({
+        id: `workflow-${index + 1}`,
+        title: `Workflow ${index + 1}`,
+      })),
+    });
+
+    expect(response).toMatchObject({
+      mode: "catalog",
+      limit: 80,
+      resultCount: expect.any(Number),
+      hasMore: false,
+    });
+    expect(response.entries.length).toBeGreaterThan(12);
+    expect(response.groups.map((group) => group.label)).toEqual(expect.arrayContaining([
+      "Built-ins",
+      "Ambient CLI commands",
+      "Workflows",
+      "Codex plugin skills",
+    ]));
+    expect(response.entries.filter((entry) => entry.sourceId === "plugin:large-plugin")).toHaveLength(4);
+  });
+
+  it("does not apply broad package caps to direct typed queries", () => {
+    const featureFlagSnapshot = resolveAmbientFeatureFlags({ settings: { slashCommands: true } });
+    const response = buildSlashCommandSearchResponse({ query: "plugin skill", mode: "query", limit: 20 }, {
+      featureFlagSnapshot,
+      pluginCatalog: codexPluginCatalog([
+        codexPlugin({
+          name: "large-plugin",
+          skills: Array.from({ length: 10 }, (_, index) => ({
+            name: `Plugin Skill ${index + 1}`,
+            path: `/plugins/large/skill-${index + 1}/SKILL.md`,
+          })),
+        }),
+      ]),
+    });
+
+    expect(response.mode).toBe("query");
+    expect(response.entries.filter((entry) => entry.sourceId === "plugin:large-plugin")).toHaveLength(10);
+  });
+
+  it("matches package names across dashes, underscores, slashes, and spaces", () => {
+    const featureFlagSnapshot = resolveAmbientFeatureFlags({ settings: { slashCommands: true } });
+    const response = buildSlashCommandSearchResponse({ query: "modern_to_victorian", mode: "query", limit: 10 }, {
+      featureFlagSnapshot,
+      ambientCliCapabilities: ambientCliCapabilities([{
+        packageId: "pkg-modern-victorian",
+        packageName: "modern-to-victorian",
+        commandName: "beam6_rp1.3",
+      }]),
+    });
+
+    expect(response.query).toBe("modern to victorian");
+    expect(response.entries).toEqual([
+      expect.objectContaining({
+        command: "/beam6-rp1-3",
+        sourceName: "modern-to-victorian",
+      }),
+    ]);
+    expect(buildSlashCommandSearchResponse({ query: "modern victorian", mode: "query", limit: 10 }, {
+      featureFlagSnapshot,
+      ambientCliCapabilities: ambientCliCapabilities([{
+        packageId: "pkg-modern-victorian",
+        packageName: "modern-to-victorian",
+        commandName: "beam6_rp1.3",
+      }]),
+    }).entries).toHaveLength(1);
+  });
+
   it("keeps duplicate display commands stable across broad search and narrow describe", () => {
     const featureFlagSnapshot = resolveAmbientFeatureFlags({ settings: { slashCommands: true } });
     const broadResponse = buildSlashCommandSearchResponse({ query: "audit", includeUnavailable: true, limit: 10 }, {

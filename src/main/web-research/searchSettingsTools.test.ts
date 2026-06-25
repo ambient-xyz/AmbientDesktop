@@ -135,6 +135,53 @@ describe("searchSettingsTools", () => {
     ]);
   });
 
+  it("does not mark unprobed Ambient CLI search providers as enabled", () => {
+    const catalog = braveCatalog();
+    delete catalog.packages[0].healthChecks;
+    const settings = webResearchSettingsWithAmbientCliProviderCatalog({}, catalog);
+
+    expect(webResearchProviderConfigsFromSearchCatalog(catalog)).toEqual([
+      expect.objectContaining({
+        providerId: "ambient-brave-search",
+        status: "disabled",
+        capabilityProbeStatus: "untested",
+        capabilityFailureNotes: ["health check not run"],
+      }),
+    ]);
+    expect(settings.webResearch?.preferences.search).toEqual([
+      "exa-mcp-default",
+      "ambient-browser",
+    ]);
+
+    const legacyProvider = webResearchProviderConfigsFromSearchCatalog(braveCatalog())[0];
+    const migrated = webResearchSettingsWithAmbientCliProviderCatalog({
+      webResearch: {
+        schemaVersion: "ambient-web-research-provider-stack-v1",
+        providers: [legacyProvider],
+        preferences: { search: ["ambient-brave-search", "ambient-browser"] },
+        fallbackPolicy: { allowBrowserFallback: true },
+      },
+    }, catalog);
+    expect(migrated.webResearch?.providers.find((provider) => provider.providerId === "ambient-brave-search")).toMatchObject({
+      status: "enabled",
+      capabilityProbeStatus: "untested",
+    });
+    expect(migrated.webResearch?.preferences.search).not.toContain("ambient-brave-search");
+    expect(() =>
+      planWebResearchPreferenceUpdate(
+        { role: "search", providerOrder: ["ambient-brave-search"] },
+        migrated,
+        catalog,
+      )
+    ).toThrow(/has not passed its capability probe/);
+    const reset = planWebResearchPreferenceUpdate(
+      { action: "reset_search_defaults", role: "search" },
+      migrated,
+      catalog,
+    );
+    expect(reset.nextSettings.webResearch?.preferences.search).not.toContain("ambient-brave-search");
+  });
+
   it("does not promote arbitrary search-like Ambient CLI packages into public web research providers", () => {
     const settings = webResearchSettingsWithAmbientCliProviderCatalog({}, arxivCatalog());
 

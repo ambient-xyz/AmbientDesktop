@@ -19,6 +19,7 @@ export interface RuntimePromptSuccessHandlerInput {
   threadId: string;
   runId: string;
   workspacePath: string;
+  startedInPlannerMode: boolean;
   currentAssistantMessageId: string;
   runtimeError?: string | undefined;
   abortRequested: boolean;
@@ -153,6 +154,7 @@ export async function handleRuntimePromptSuccess(
     threadId: input.threadId,
     runId: input.runId,
     workspacePath: input.workspacePath,
+    startedInPlannerMode: input.startedInPlannerMode,
     currentAssistantMessageId: input.currentAssistantMessageId,
     currentAssistantVisibleContent: input.currentAssistantVisibleContent,
     abortRequested: input.abortRequested,

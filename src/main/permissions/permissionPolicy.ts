@@ -1,8 +1,7 @@
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import type { PermissionGrantActionKind, PermissionGrantScopeKind, PermissionMode, PermissionRequest } from "../../shared/permissionTypes";
 import type { CollaborationMode } from "../../shared/threadTypes";
 import type { GoogleWorkspaceCallInput, GoogleWorkspaceMethodSideEffect, GoogleWorkspaceMethodSummary } from "../../shared/pluginTypes";
@@ -22,6 +21,8 @@ import {
   splitShellWords,
 } from "./permissionPolicyShellCommands";
 import type { ShellCommandSemanticIntentKind } from "./permissionPolicyShellCommands";
+import { getBooleanField, getStringField, permissionGrantHash } from "./permissionPolicyInputFields";
+import { classifyWorkflowToolPermission } from "./permissionPolicyWorkflowTools";
 
 export {
   classifyShellCommandSemanticIntent,
@@ -199,16 +200,19 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
         threadId: input.threadId,
         toolName: input.toolName,
         title: input.toolName === "ambient_git_commit" ? "Commit thread Git changes?" : `Finish thread Git work to ${targetBranch}?`,
-        message: input.toolName === "ambient_git_commit"
-          ? "Ambient wants to stage and commit changes in the active thread worktree."
-          : "Ambient wants to merge the active thread branch into the target branch through a worktree-aware Git workflow.",
+        message:
+          input.toolName === "ambient_git_commit"
+            ? "Ambient wants to stage and commit changes in the active thread worktree."
+            : "Ambient wants to merge the active thread branch into the target branch through a worktree-aware Git workflow.",
         detail: [
           `Operation: ${operation}`,
           `Workspace: ${input.workspacePath}`,
           input.toolName === "ambient_git_finish_to_main" ? `Target branch: ${targetBranch}` : undefined,
           input.toolName === "ambient_git_finish_to_main" ? `Push after validation: ${push ? "yes" : "no"}` : undefined,
           message ? `Message: ${message}` : undefined,
-        ].filter(Boolean).join("\n"),
+        ]
+          .filter(Boolean)
+          .join("\n"),
         risk: "workspace-command",
         reusableScopes: ["thread", "project", "workspace"],
         grantActionKind: "shell_command",
@@ -225,146 +229,8 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
     };
   }
 
-  if (input.toolName === "workflow_apply_revision") {
-    const workflowThreadId = getStringField(input.toolInput, "workflowThreadId") ?? "unknown";
-    const revisionId = getStringField(input.toolInput, "revisionId") ?? "unknown";
-    return {
-      action: "prompt",
-      request: {
-        threadId: input.threadId,
-        toolName: input.toolName,
-        title: "Apply workflow revision?",
-        message: "Ambient wants to activate a proposed Workflow Agent revision and create or select the resulting workflow version.",
-        detail: [`Workflow thread: ${workflowThreadId}`, `Revision: ${revisionId}`].join("\n"),
-        risk: "workspace-command",
-        reusableScopes: ["workflow_thread", "project", "workspace"],
-        grantActionKind: "local_file_write",
-        grantTargetKind: "tool",
-        grantTargetLabel: `workflow_apply_revision:${workflowThreadId}`,
-        grantTargetHash: permissionGrantHash("local_file_write", "tool", `workflow.apply_revision\0${workflowThreadId}`),
-        grantConditions: {
-          provider: "ambient.desktop",
-          operation: "workflow_apply_revision",
-          workflowThreadId,
-        },
-      },
-    };
-  }
-
-  if (input.toolName === "workflow_update_run_settings") {
-    const action = getStringField(input.toolInput, "action") ?? "propose_persistent";
-    if (action === "preview_foreground") return { action: "allow" };
-    const workflowThreadId = getStringField(input.toolInput, "workflowThreadId") ?? "unknown";
-    return {
-      action: "prompt",
-      request: {
-        threadId: input.threadId,
-        toolName: input.toolName,
-        title: "Update workflow run settings?",
-        message: "Ambient wants to create or apply a Workflow Agent run-settings revision.",
-        detail: [`Workflow thread: ${workflowThreadId}`, `Action: ${action}`].join("\n"),
-        risk: "workspace-command",
-        reusableScopes: ["workflow_thread", "project", "workspace"],
-        grantActionKind: "local_file_write",
-        grantTargetKind: "tool",
-        grantTargetLabel: `workflow_update_run_settings:${workflowThreadId}`,
-        grantTargetHash: permissionGrantHash("local_file_write", "tool", `workflow.update_run_settings\0${workflowThreadId}`),
-        grantConditions: {
-          provider: "ambient.desktop",
-          operation: "workflow_update_run_settings",
-          workflowThreadId,
-          action,
-        },
-      },
-    };
-  }
-
-  if (input.toolName === "workflow_restore_version") {
-    const workflowThreadId = getStringField(input.toolInput, "workflowThreadId") ?? "unknown";
-    const versionId = getStringField(input.toolInput, "versionId") ?? "unknown";
-    const approveRestored = getBooleanField(input.toolInput, "approveRestored") === true;
-    return {
-      action: "prompt",
-      request: {
-        threadId: input.threadId,
-        toolName: input.toolName,
-        title: "Restore workflow version?",
-        message: approveRestored
-          ? "Ambient wants to restore an older Workflow Agent version and approve it as latest."
-          : "Ambient wants to restore an older Workflow Agent version as a new review version.",
-        detail: [`Workflow thread: ${workflowThreadId}`, `Version: ${versionId}`, `Approve restored version: ${approveRestored ? "yes" : "no"}`].join("\n"),
-        risk: "workspace-command",
-        reusableScopes: ["workflow_thread", "project", "workspace"],
-        grantActionKind: "local_file_write",
-        grantTargetKind: "tool",
-        grantTargetLabel: `workflow_restore_version:${workflowThreadId}`,
-        grantTargetHash: permissionGrantHash("local_file_write", "tool", `workflow.restore_version\0${workflowThreadId}`),
-        grantConditions: {
-          provider: "ambient.desktop",
-          operation: "workflow_restore_version",
-          workflowThreadId,
-          approveRestored,
-        },
-      },
-    };
-  }
-
-  if (input.toolName === "workflow_run_preview") {
-    const workflowThreadId = getStringField(input.toolInput, "workflowThreadId") ?? "unknown";
-    const artifactId = getStringField(input.toolInput, "artifactId") ?? "active";
-    return {
-      action: "prompt",
-      request: {
-        threadId: input.threadId,
-        toolName: input.toolName,
-        title: "Run workflow preview?",
-        message: "Ambient wants to start a dry-run Workflow Agent preview and record trace evidence.",
-        detail: [`Workflow thread: ${workflowThreadId}`, `Artifact: ${artifactId}`, "Mode: dry_run"].join("\n"),
-        risk: "workspace-command",
-        reusableScopes: ["workflow_thread", "project", "workspace"],
-        grantActionKind: "local_file_write",
-        grantTargetKind: "tool",
-        grantTargetLabel: `workflow_run_preview:${workflowThreadId}`,
-        grantTargetHash: permissionGrantHash("local_file_write", "tool", `workflow.run_preview\0${workflowThreadId}`),
-        grantConditions: {
-          provider: "ambient.desktop",
-          operation: "workflow_run_preview",
-          workflowThreadId,
-        },
-      },
-    };
-  }
-
-  if (input.toolName === "workflow_run_version") {
-    const workflowThreadId = getStringField(input.toolInput, "workflowThreadId") ?? "unknown";
-    const artifactId = getStringField(input.toolInput, "artifactId") ?? "active";
-    const versionId = getStringField(input.toolInput, "versionId") ?? "latest";
-    const allowUnapproved = getBooleanField(input.toolInput, "allowUnapproved") === true;
-    return {
-      action: "prompt",
-      request: {
-        threadId: input.threadId,
-        toolName: input.toolName,
-        title: allowUnapproved ? "Run unapproved workflow?" : "Run workflow version?",
-        message: allowUnapproved
-          ? "Ambient wants to execute an unapproved Workflow Agent once and record an audit trail."
-          : "Ambient wants to execute the active approved Workflow Agent version.",
-        detail: [`Workflow thread: ${workflowThreadId}`, `Artifact: ${artifactId}`, `Version: ${versionId}`, `Allow unapproved: ${allowUnapproved ? "yes" : "no"}`].join("\n"),
-        risk: "workspace-command",
-        reusableScopes: ["workflow_thread", "project", "workspace"],
-        grantActionKind: "local_file_write",
-        grantTargetKind: "tool",
-        grantTargetLabel: `workflow_run_version:${workflowThreadId}`,
-        grantTargetHash: permissionGrantHash("local_file_write", "tool", `workflow.run_version\0${workflowThreadId}`),
-        grantConditions: {
-          provider: "ambient.desktop",
-          operation: "workflow_run_version",
-          workflowThreadId,
-          allowUnapproved,
-        },
-      },
-    };
-  }
+  const workflowToolDecision = classifyWorkflowToolPermission(input);
+  if (workflowToolDecision) return workflowToolDecision;
 
   if (input.toolName.startsWith("browser_")) {
     return classifyBrowserToolPermission(input);
@@ -375,8 +241,9 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
     const requestedPath = getStringField(input.toolInput, "path");
     if (!requestedPath) return { action: "allow" };
     const pathCheck = await resolvePolicyPath(input.workspacePath, permissionPolicyPathForTool(input.toolName, requestedPath));
-    if (isSecretLikePath(pathCheck.absolutePath)) {
-      const envPath = isDotEnvPath(pathCheck.absolutePath);
+    const sensitivePath = isSecretLikePath(pathCheck.canonicalPath) ? pathCheck.canonicalPath : pathCheck.absolutePath;
+    if (isSecretLikePath(sensitivePath)) {
+      const envPath = isDotEnvPath(sensitivePath);
       return {
         action: "prompt",
         request: {
@@ -386,24 +253,27 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
           message: envPath
             ? `${fileTool} wants to access an environment file. Pi may need this file to configure or run the project, but it can contain secrets.`
             : `${fileTool} wants to access a path that looks like it may contain secrets or credentials.`,
-          detail: pathCheck.absolutePath,
+          detail: sensitivePath,
           risk: "secret-path",
-          ...envPathGrantFields(input, pathCheck.absolutePath, input.toolName),
+          ...envPathGrantFields(input, sensitivePath, input.toolName),
         },
       };
     }
-    const insideProjectPath = await isInsideProjectPath(input.projectPath, pathCheck.absolutePath);
+    const insideProjectPath = await isInsideProjectPath(input.projectPath, pathCheck.canonicalPath);
     if (pathCheck.insideWorkspace) return { action: "allow" };
     if (insideProjectPath) return { action: "allow" };
-    if (fileTool === "read" && (await isInsideReadOnlyAllowedPath(input.workspacePath, pathCheck.absolutePath, input.readOnlyAllowedPaths ?? []))) {
+    if (
+      fileTool === "read" &&
+      (await isInsideReadOnlyAllowedPath(input.workspacePath, pathCheck.canonicalPath, input.readOnlyAllowedPaths ?? []))
+    ) {
       return { action: "allow" };
     }
-    if ((fileTool === "write" || fileTool === "edit") && isManagedSkillInstallPath(pathCheck.absolutePath)) {
+    if ((fileTool === "write" || fileTool === "edit") && isManagedSkillInstallPath(pathCheck.canonicalPath)) {
       return {
         action: "prompt",
         request: managedSkillInstallPrompt({
           input,
-          path: pathCheck.absolutePath,
+          path: pathCheck.canonicalPath,
           operation: input.toolName,
           commandClass: fileTool,
           reason: "Agent skill install paths live outside the active workspace and must be approved through Ambient's permission broker.",
@@ -411,7 +281,7 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
       };
     }
     const actionKind = fileTool === "read" ? "file_content_read" : "local_file_write";
-    const targetLabel = pathCheck.absolutePath;
+    const targetLabel = pathCheck.canonicalPath;
     return {
       action: "prompt",
       request: {
@@ -421,7 +291,7 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
         message: insideProjectPath
           ? `${fileTool} wants to access the project root from this thread's internal worktree.`
           : `${fileTool} wants to access a path outside ${input.workspacePath}.`,
-        detail: outsideWorkspacePathDetail(pathCheck.absolutePath),
+        detail: outsideWorkspacePathDetail(pathCheck.canonicalPath),
         risk: "outside-workspace",
         reusableScopes: ["thread", "project", "workspace"],
         grantActionKind: actionKind,
@@ -431,7 +301,9 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
         grantConditions: {
           provider: "ambient.desktop",
           operation: input.toolName,
-          path: pathCheck.absolutePath,
+          path: pathCheck.canonicalPath,
+          canonicalPath: pathCheck.canonicalPath,
+          requestedPath: pathCheck.absolutePath,
         },
       },
     };
@@ -510,18 +382,15 @@ export async function classifyToolPermission(input: PermissionPolicyInput): Prom
 }
 
 function bashWritePrompt(input: PermissionPolicyInput, command: string): PermissionDecision {
-  const risk = isNetworkCommand(command)
-    ? "network-command"
-    : isDangerousCommand(command)
-      ? "destructive-command"
-      : "workspace-command";
+  const risk = isNetworkCommand(command) ? "network-command" : isDangerousCommand(command) ? "destructive-command" : "workspace-command";
   return {
     action: "prompt",
     request: {
       threadId: input.threadId,
       toolName: input.toolName,
       title: "Allow async bash stdin write?",
-      message: "Workspace mode requires approval before sending stdin to an async shell job because writes can be split across tool calls and executed by an interactive shell.",
+      message:
+        "Workspace mode requires approval before sending stdin to an async shell job because writes can be split across tool calls and executed by an interactive shell.",
       detail: command,
       risk,
     },
@@ -575,19 +444,24 @@ async function classifyMiniCpmVisionAnalyzePermission(input: PermissionPolicyInp
   const referenceImagePath = miniCpmVisionImagePath(input.toolInput, "referenceImage", "referenceImagePath");
   const task = getStringField(input.toolInput, "task") ?? "ui_review";
   const endpointUrl = getStringField(input.toolInput, "endpointUrl");
-  const allowExternal = getBooleanField(input.toolInput, "allowExternalImagePaths") === true || getBooleanField(input.toolInput, "allowExternalMediaPaths") === true;
+  const allowExternal =
+    getBooleanField(input.toolInput, "allowExternalImagePaths") === true ||
+    getBooleanField(input.toolInput, "allowExternalMediaPaths") === true;
   const pathCheck = imagePath === "unknown" ? undefined : await resolvePolicyPath(input.workspacePath, imagePath);
   const videoPathCheck = videoPath ? await resolvePolicyPath(input.workspacePath, videoPath) : undefined;
   const referencePathCheck = referenceImagePath ? await resolvePolicyPath(input.workspacePath, referenceImagePath) : undefined;
   const outsideWorkspace = Boolean(
-    (pathCheck && !pathCheck.insideWorkspace) || (videoPathCheck && !videoPathCheck.insideWorkspace) || (referencePathCheck && !referencePathCheck.insideWorkspace),
+    (pathCheck && !pathCheck.insideWorkspace) ||
+    (videoPathCheck && !videoPathCheck.insideWorkspace) ||
+    (referencePathCheck && !referencePathCheck.insideWorkspace),
   );
   const imageDetail = videoPath
     ? [`Video: ${videoPathCheck?.absolutePath ?? videoPath}`]
     : [`Image: ${pathCheck?.absolutePath ?? imagePath}`];
   if (referenceImagePath) imageDetail.push(`Reference image: ${referencePathCheck?.absolutePath ?? referenceImagePath}`);
   if (endpointUrl) imageDetail.push(`Existing endpoint: ${endpointUrl}`);
-  const frameTimestampMs = getNumberField(input.toolInput, "frameTimestampMs") ?? getNumberField(getObjectField(input.toolInput, "video"), "frameTimestampMs");
+  const frameTimestampMs =
+    getNumberField(input.toolInput, "frameTimestampMs") ?? getNumberField(getObjectField(input.toolInput, "video"), "frameTimestampMs");
   if (videoPath && frameTimestampMs !== undefined) imageDetail.push(`Frame timestamp: ${frameTimestampMs}ms`);
   return {
     action: "prompt",
@@ -636,20 +510,27 @@ function classifyMiniCpmVisionSetupPermission(input: PermissionPolicyInput): Per
   const endpointUrl = getStringField(input.toolInput, "endpointUrl");
   const validationImagePath = getStringField(input.toolInput, "validationImagePath");
   const installRuntime = getBooleanField(input.toolInput, "installRuntime");
-  const defaultManagedDownload = action !== "validate" && action !== "uninstall" && !runtimeBinaryPath && !runtimeArchivePath && !endpointUrl && installRuntime !== false;
+  const defaultManagedDownload =
+    action !== "validate" &&
+    action !== "uninstall" &&
+    !runtimeBinaryPath &&
+    !runtimeArchivePath &&
+    !endpointUrl &&
+    installRuntime !== false;
   return {
     action: "prompt",
     request: {
       threadId: input.threadId,
       toolName: input.toolName,
       title: action === "uninstall" ? "Uninstall MiniCPM-V visual provider?" : "Set up MiniCPM-V visual provider?",
-      message: action === "uninstall"
-        ? "Ambient wants to remove the Ambient-installed MiniCPM-V package copy and managed workspace cache. User-managed llama-server binaries and model caches are preserved."
-        : runtimeArchivePath
-          ? "Ambient wants to install a pinned MiniCPM-V llama.cpp runtime archive into the workspace-managed runtime cache, verify checksums, and bind the extracted llama-server only after validation."
-          : defaultManagedDownload
-            ? "Ambient wants to download the pinned MiniCPM-V llama.cpp runtime for this macOS/Linux lane, verify archive and binary checksums, and bind the workspace-managed llama-server only after validation."
-          : "Ambient wants to install or validate the first-party MiniCPM-V visual-analysis provider.",
+      message:
+        action === "uninstall"
+          ? "Ambient wants to remove the Ambient-installed MiniCPM-V package copy and managed workspace cache. User-managed llama-server binaries and model caches are preserved."
+          : runtimeArchivePath
+            ? "Ambient wants to install a pinned MiniCPM-V llama.cpp runtime archive into the workspace-managed runtime cache, verify checksums, and bind the extracted llama-server only after validation."
+            : defaultManagedDownload
+              ? "Ambient wants to download the pinned MiniCPM-V llama.cpp runtime for this macOS/Linux lane, verify archive and binary checksums, and bind the workspace-managed llama-server only after validation."
+              : "Ambient wants to install or validate the first-party MiniCPM-V visual-analysis provider.",
       detail: [
         `Action: ${action}`,
         `Default managed runtime download: ${defaultManagedDownload ? "yes" : "no"}`,
@@ -664,7 +545,11 @@ function classifyMiniCpmVisionSetupPermission(input: PermissionPolicyInput): Per
       grantActionKind: "shell_command",
       grantTargetKind: "tool",
       grantTargetLabel: "MiniCPM-V provider setup",
-      grantTargetHash: permissionGrantHash("shell_command", "tool", `minicpm.visual.setup\0${action}\0${installRuntime ?? ""}\0${runtimeBinaryPath ?? ""}\0${runtimeArchivePath ?? ""}\0${runtimeArtifactId ?? ""}\0${endpointUrl ?? ""}\0${validationImagePath ?? ""}`),
+      grantTargetHash: permissionGrantHash(
+        "shell_command",
+        "tool",
+        `minicpm.visual.setup\0${action}\0${installRuntime ?? ""}\0${runtimeBinaryPath ?? ""}\0${runtimeArchivePath ?? ""}\0${runtimeArtifactId ?? ""}\0${endpointUrl ?? ""}\0${validationImagePath ?? ""}`,
+      ),
       grantConditions: {
         provider: "ambient.desktop",
         operation: "minicpm_visual_setup",
@@ -690,11 +575,9 @@ function classifyLocalModelRuntimeStartPermission(input: PermissionPolicyInput):
       threadId: input.threadId,
       toolName: input.toolName,
       title: "Start local model runtime?",
-      message: "Ambient wants to start a managed stopped local model runtime from persisted runtime state without installing providers or deleting caches.",
-      detail: [
-        `Runtime id: ${runtimeId}`,
-        "Ambient will re-check runtime inventory load blockers before launching a process.",
-      ].join("\n"),
+      message:
+        "Ambient wants to start a managed stopped local model runtime from persisted runtime state without installing providers or deleting caches.",
+      detail: [`Runtime id: ${runtimeId}`, "Ambient will re-check runtime inventory load blockers before launching a process."].join("\n"),
       risk: "workspace-command",
       reusableScopes: ["thread", "project", "workspace"],
       grantActionKind: "shell_command",
@@ -827,7 +710,9 @@ async function classifyPlannerModePermission(input: PermissionPolicyInput): Prom
         secretPathDetail: secretPath,
       });
     }
-    const outsidePath = command ? await findOutsideWorkspaceCommandPath(input.workspacePath, command, input.readOnlyAllowedPaths, input.projectPath) : undefined;
+    const outsidePath = command
+      ? await findOutsideWorkspaceCommandPath(input.workspacePath, command, input.readOnlyAllowedPaths, input.projectPath)
+      : undefined;
     if (outsidePath) {
       return classifyPlannerToolPermission({
         threadId: input.threadId,
@@ -917,12 +802,16 @@ function classifyGoogleWorkspaceSetupPermission(input: PermissionPolicyInput): P
           ...(resolvedAccountHint ? { resolvedAccountHint } : {}),
         })
       : undefined;
-    const actionKind = googleTarget?.actionKind ?? (sideEffect === "metadata_read" || sideEffect === "personal_content_read" ? "connector_content_read" : "remote_mutation");
+    const actionKind =
+      googleTarget?.actionKind ??
+      (sideEffect === "metadata_read" || sideEffect === "personal_content_read" ? "connector_content_read" : "remote_mutation");
     const targetKind = googleTarget?.targetKind ?? "tool";
     const targetLabel = googleTarget?.label ?? `Google Workspace ${methodId} (${grantAccountHint ?? "default"})`;
-    const targetIdentity = googleTarget?.identity ?? (method
-      ? googleWorkspaceMethodGrantIdentity(method, { methodId, ...(grantAccountHint ? { accountHint: grantAccountHint } : {}) })
-      : `google.workspace.call\0${grantAccountHint ?? "default"}\0${methodId}\0${sideEffect ?? "unknown"}`);
+    const targetIdentity =
+      googleTarget?.identity ??
+      (method
+        ? googleWorkspaceMethodGrantIdentity(method, { methodId, ...(grantAccountHint ? { accountHint: grantAccountHint } : {}) })
+        : `google.workspace.call\0${grantAccountHint ?? "default"}\0${methodId}\0${sideEffect ?? "unknown"}`);
     return {
       action: "prompt",
       request: {
@@ -937,18 +826,20 @@ function classifyGoogleWorkspaceSetupPermission(input: PermissionPolicyInput): P
         grantTargetKind: targetKind,
         grantTargetLabel: targetLabel,
         grantTargetHash: permissionGrantHash(actionKind, targetKind, targetIdentity),
-        grantConditions: googleTarget ? googleWorkspaceGrantConditions(googleTarget, {
-          operation: "method_call",
-          methodId,
-          sideEffect: sideEffect ?? "unknown",
-          requestedAccountHint: accountHint ?? "default",
-          resolvedAccountHint: resolvedAccountHint ?? grantAccountHint ?? "default",
-        }) : {
-          provider: "google.workspace.cli",
-          accountHint: grantAccountHint ?? "default",
-          methodId,
-          sideEffect: sideEffect ?? "unknown",
-        },
+        grantConditions: googleTarget
+          ? googleWorkspaceGrantConditions(googleTarget, {
+              operation: "method_call",
+              methodId,
+              sideEffect: sideEffect ?? "unknown",
+              requestedAccountHint: accountHint ?? "default",
+              resolvedAccountHint: resolvedAccountHint ?? grantAccountHint ?? "default",
+            })
+          : {
+              provider: "google.workspace.cli",
+              accountHint: grantAccountHint ?? "default",
+              methodId,
+              sideEffect: sideEffect ?? "unknown",
+            },
       },
     };
   }
@@ -969,14 +860,19 @@ function classifyGoogleWorkspaceSetupPermission(input: PermissionPolicyInput): P
 
   if (input.toolName === "google_workspace_import_oauth_client") {
     const accountHint = getStringField(input.toolInput, "accountHint");
-    const sourcePath = getStringField(input.toolInput, "path") ?? getStringField(input.toolInput, "sourcePath") ?? getStringField(input.toolInput, "filePath") ?? "unknown";
+    const sourcePath =
+      getStringField(input.toolInput, "path") ??
+      getStringField(input.toolInput, "sourcePath") ??
+      getStringField(input.toolInput, "filePath") ??
+      "unknown";
     return {
       action: "prompt",
       request: {
         threadId: input.threadId,
         toolName: input.toolName,
         title: "Import Google OAuth client JSON?",
-        message: "Ambient wants to validate and copy a downloaded Google Desktop OAuth client JSON into the managed local Google Workspace CLI config.",
+        message:
+          "Ambient wants to validate and copy a downloaded Google Desktop OAuth client JSON into the managed local Google Workspace CLI config.",
         detail: [
           accountHint ? `Account handle: ${accountHint}` : "Account handle: default",
           `Source path: ${sourcePath}`,
@@ -1034,7 +930,8 @@ function googleWorkspaceCallPromptMessage(sideEffect: GoogleWorkspaceMethodSideE
   if (sideEffect === "sharing_mutation") return "Ambient wants to call a Google API method that can change sharing or permissions.";
   if (sideEffect === "draft_write") return "Ambient wants to call a Google API method that changes a draft but does not send it.";
   if (sideEffect === "data_mutation") return "Ambient wants to call a Google API method that can mutate Google account data.";
-  if (sideEffect === "personal_content_read") return "Ambient wants to call a Google API method that can read personal Google account content.";
+  if (sideEffect === "personal_content_read")
+    return "Ambient wants to call a Google API method that can read personal Google account content.";
   return "Ambient wants to call a mediated Google Workspace API method through the local CLI.";
 }
 
@@ -1060,10 +957,12 @@ async function classifyLongContextToolPermission(input: PermissionPolicyInput): 
   const paths = getStringArrayField(input.toolInput, "workspacePaths");
   if (!paths.length) return { action: "allow" };
 
+  const outsidePaths: Array<{ absolutePath: string; canonicalPath: string }> = [];
   for (const requestedPath of paths) {
     const pathCheck = await resolvePolicyPath(input.workspacePath, requestedPath);
-    if (isSecretLikePath(pathCheck.absolutePath)) {
-      const envPath = isDotEnvPath(pathCheck.absolutePath);
+    const sensitivePath = isSecretLikePath(pathCheck.canonicalPath) ? pathCheck.canonicalPath : pathCheck.absolutePath;
+    if (isSecretLikePath(sensitivePath)) {
+      const envPath = isDotEnvPath(sensitivePath);
       return {
         action: "prompt",
         request: {
@@ -1073,32 +972,66 @@ async function classifyLongContextToolPermission(input: PermissionPolicyInput): 
           message: envPath
             ? `${input.toolName} wants to read an environment file. Pi may need this file to configure or run the project, but it can contain secrets.`
             : `${input.toolName} wants to read a path that looks like it may contain secrets or credentials.`,
-          detail: pathCheck.absolutePath,
+          detail: sensitivePath,
           risk: "secret-path",
-          ...envPathGrantFields(input, pathCheck.absolutePath, input.toolName),
+          ...envPathGrantFields(input, sensitivePath, input.toolName),
         },
       };
     }
     if (
       !pathCheck.insideWorkspace &&
-      !(await isInsideProjectPath(input.projectPath, pathCheck.absolutePath)) &&
-      !(await isInsideReadOnlyAllowedPath(input.workspacePath, pathCheck.absolutePath, input.readOnlyAllowedPaths ?? []))
+      !(await isInsideProjectPath(input.projectPath, pathCheck.canonicalPath)) &&
+      !(await isInsideReadOnlyAllowedPath(input.workspacePath, pathCheck.canonicalPath, input.readOnlyAllowedPaths ?? []))
     ) {
-      return {
-        action: "prompt",
-        request: {
-          threadId: input.threadId,
-          toolName: input.toolName,
-          title: "Allow outside-workspace long-context file access?",
-          message: `${input.toolName} wants to read a path outside ${input.workspacePath}.`,
-          detail: pathCheck.absolutePath,
-          risk: "outside-workspace",
-        },
-      };
+      outsidePaths.push({
+        absolutePath: pathCheck.absolutePath,
+        canonicalPath: pathCheck.canonicalPath,
+      });
     }
   }
 
+  if (outsidePaths.length > 0) {
+    return longContextOutsideWorkspacePrompt(input, outsidePaths);
+  }
+
   return { action: "allow" };
+}
+
+function longContextOutsideWorkspacePrompt(
+  input: PermissionPolicyInput,
+  outsidePaths: readonly { absolutePath: string; canonicalPath: string }[],
+): PermissionDecision {
+  const actionKind: PermissionGrantActionKind = "file_content_read";
+  const canonicalPaths = [...new Set(outsidePaths.map((path) => path.canonicalPath))];
+  const requestedPaths = outsidePaths.map((path) => path.absolutePath);
+  const singlePath = canonicalPaths.length === 1;
+  const targetLabel = singlePath ? canonicalPaths[0] : `${canonicalPaths.length} outside-workspace long-context paths`;
+  const targetIdentity = singlePath ? targetLabel : canonicalPaths.join("\0");
+  return {
+    action: "prompt",
+    request: {
+      threadId: input.threadId,
+      toolName: input.toolName,
+      title: "Allow outside-workspace long-context file access?",
+      message: `${input.toolName} wants to read ${singlePath ? "a path" : "paths"} outside ${input.workspacePath}.`,
+      detail: singlePath ? canonicalPaths[0] : canonicalPaths.map((path) => `Outside path: ${path}`).join("\n"),
+      risk: "outside-workspace",
+      reusableScopes: ["thread", "project", "workspace"],
+      grantActionKind: actionKind,
+      grantTargetKind: "path",
+      grantTargetLabel: targetLabel,
+      grantTargetHash: permissionGrantHash(actionKind, "path", targetIdentity),
+      grantConditions: {
+        provider: "ambient.desktop",
+        operation: input.toolName,
+        path: canonicalPaths[0],
+        canonicalPath: canonicalPaths[0],
+        paths: canonicalPaths,
+        requestedPath: requestedPaths[0],
+        requestedPaths,
+      },
+    },
+  };
 }
 
 function isLongContextReadToolName(toolName: string): boolean {
@@ -1128,7 +1061,8 @@ function classifyBrowserToolPermission(input: PermissionPolicyInput): Permission
         threadId: input.threadId,
         toolName: input.toolName,
         title: "Allow copied Chrome profile access?",
-        message: "Workspace mode requires approval before Ambient uses a copied Chrome profile that may include cookies and login sessions.",
+        message:
+          "Workspace mode requires approval before Ambient uses a copied Chrome profile that may include cookies and login sessions.",
         detail,
         risk: "browser-profile",
       },
@@ -1199,18 +1133,20 @@ export function isSecretLikePath(path: string): boolean {
 export async function resolvePolicyPath(
   workspacePath: string,
   requestedPath: string,
-): Promise<{ absolutePath: string; insideWorkspace: boolean }> {
+): Promise<{ absolutePath: string; canonicalPath: string; insideWorkspace: boolean }> {
   const absolutePath = resolvePolicyRequestedPath(workspacePath, requestedPath);
   if (!existsSync(workspacePath)) {
     const lexicalWorkspace = resolve(workspacePath);
-    return { absolutePath, insideWorkspace: isPathInside(lexicalWorkspace, absolutePath) };
+    return { absolutePath, canonicalPath: absolutePath, insideWorkspace: isPathInside(lexicalWorkspace, absolutePath) };
   }
   const realWorkspace = await safeRealpath(workspacePath);
   const anchor = nearestExistingPath(absolutePath);
   const realAnchor = anchor ? await safeRealpath(anchor) : absolutePath;
+  const canonicalPath = anchor ? resolve(realAnchor, relative(anchor, absolutePath)) : absolutePath;
   return {
     absolutePath,
-    insideWorkspace: isPathInside(realWorkspace, realAnchor),
+    canonicalPath,
+    insideWorkspace: isPathInside(realWorkspace, canonicalPath),
   };
 }
 
@@ -1285,7 +1221,8 @@ function denyManagedAuthorityPath(input: PermissionPolicyInput, detail: string):
       threadId: input.threadId,
       toolName: input.toolName,
       title: "Blocked Ambient authority state path",
-      message: "Ambient-managed authority state is not accessible to agent tools. Use approved app APIs instead of reading or mutating state files.",
+      message:
+        "Ambient-managed authority state is not accessible to agent tools. Use approved app APIs instead of reading or mutating state files.",
       detail: [detail, managedAuthorityApprovedRoute].join("\n"),
       risk: "secret-path",
     },
@@ -1303,7 +1240,8 @@ function classifyUnmanagedToolHiveCommandAccess(input: PermissionPolicyInput): P
       threadId: input.threadId,
       toolName: input.toolName,
       title: "Allow unmanaged ToolHive CLI command?",
-      message: "Ambient wants to run ToolHive directly from Bash. Managed MCP install, repair, diagnostics, and uninstall tools are the supported path for Ambient-owned MCP servers.",
+      message:
+        "Ambient wants to run ToolHive directly from Bash. Managed MCP install, repair, diagnostics, and uninstall tools are the supported path for Ambient-owned MCP servers.",
       detail: [command, unmanagedToolHiveApprovedRoute].join("\n\n"),
       risk: "workspace-command",
       reusableScopes: ["thread"],
@@ -1327,7 +1265,8 @@ function denyManagedSecretPath(input: PermissionPolicyInput, detail: string): Pe
       threadId: input.threadId,
       toolName: input.toolName,
       title: "Blocked Ambient-managed secret path",
-      message: "Ambient-managed secret files are not accessible to agent tools. Use an approved secret broker or capability-specific binding instead.",
+      message:
+        "Ambient-managed secret files are not accessible to agent tools. Use an approved secret broker or capability-specific binding instead.",
       detail: [detail, managedSecretApprovedRoute].join("\n"),
       risk: "secret-path",
     },
@@ -1355,7 +1294,9 @@ function managedSkillInstallPrompt(input: {
       `Reason: ${input.reason}`,
       managedSkillInstallerApprovedRoute,
       input.command ? `Command: ${input.command}` : undefined,
-    ].filter(Boolean).join("\n"),
+    ]
+      .filter(Boolean)
+      .join("\n"),
     risk: "outside-workspace",
     reusableScopes: ["thread", "project", "workspace"],
     grantActionKind: "local_file_write",
@@ -1401,7 +1342,11 @@ function classifyLocalDeepResearchSetupPermission(input: PermissionPolicyInput):
       grantActionKind: actionKind,
       grantTargetKind: targetKind,
       grantTargetLabel: targetLabel,
-      grantTargetHash: permissionGrantHash(actionKind, targetKind, `local.deep-research.setup\0${action}\0${modelProfileId}\0${quantization}\0${runtimeArtifactId}`),
+      grantTargetHash: permissionGrantHash(
+        actionKind,
+        targetKind,
+        `local.deep-research.setup\0${action}\0${modelProfileId}\0${quantization}\0${runtimeArtifactId}`,
+      ),
       grantConditions: {
         provider: "ambient.desktop",
         operation: "ambient_local_deep_research_setup",
@@ -1450,8 +1395,9 @@ function localDeepResearchSetupPromptDetail(input: {
       "Run ambient_local_deep_research_setup action=status first if the user needs exact model, disk, memory, or server-port facts before approving.",
     ].join("\n");
   }
-  const reasons = getArrayField(getObjectField(input.installerShape, "confirmation"), "reasons")
-    .filter((value): value is string => typeof value === "string");
+  const reasons = getArrayField(getObjectField(input.installerShape, "confirmation"), "reasons").filter(
+    (value): value is string => typeof value === "string",
+  );
   return [
     `Action: ${input.action}`,
     `Model family: ${getStringField(input.installerShape, "modelFamily") ?? "unknown"}`,
@@ -1472,7 +1418,7 @@ function localDeepResearchSetupPromptDetail(input: {
 
 function formatPermissionBytes(value: number | undefined): string {
   if (value === undefined || !Number.isFinite(value) || value < 0) return "unknown";
-  const mib = value / (1024 ** 2);
+  const mib = value / 1024 ** 2;
   if (mib < 1024) return `${mib.toFixed(1)} MiB`;
   return `${(mib / 1024).toFixed(2)} GiB`;
 }
@@ -1480,9 +1426,9 @@ function formatPermissionBytes(value: number | undefined): string {
 function isManagedSkillInstallCommand(command: string, path: string): boolean {
   if (!isManagedSkillInstallPath(path)) return false;
   const lower = command.toLowerCase();
-  return /\b(?:mkdir|cp|mv|touch|tee|install|unzip|tar)\b/.test(lower) ||
-    /\bgit\s+clone\b/.test(lower) ||
-    /(?:^|[\s])(?:>|>>)\s*/.test(lower);
+  return (
+    /\b(?:mkdir|cp|mv|touch|tee|install|unzip|tar)\b/.test(lower) || /\bgit\s+clone\b/.test(lower) || /(?:^|[\s])(?:>|>>)\s*/.test(lower)
+  );
 }
 
 function shellCommandPathPrompt(
@@ -1495,8 +1441,7 @@ function shellCommandPathPrompt(
   const pathLabel = risk === "outside-workspace" ? "Outside path" : "Sensitive path";
   const envPath = risk === "secret-path" && isDotEnvPath(path);
   const envGrantFields = envPath ? envPathGrantFields(input, path, "bash") : {};
-  const outsidePathGrantFields =
-    risk === "outside-workspace" ? outsideWorkspaceShellPathGrantFields(path, command, intent) : {};
+  const outsidePathGrantFields = risk === "outside-workspace" ? outsideWorkspaceShellPathGrantFields(path, command, intent) : {};
   const approvedRoute = risk === "outside-workspace" ? outsideWorkspaceApprovedRoute : undefined;
   if (intent === "unknown") {
     return {
@@ -1519,14 +1464,19 @@ function shellCommandPathPrompt(
   return {
     threadId: input.threadId,
     toolName: input.toolName,
-    title: risk === "outside-workspace" ? `${shellCommandIntentTitleVerb(intent)} with outside-workspace path?` : `${shellCommandIntentTitleVerb(intent)} with sensitive path?`,
+    title:
+      risk === "outside-workspace"
+        ? `${shellCommandIntentTitleVerb(intent)} with outside-workspace path?`
+        : `${shellCommandIntentTitleVerb(intent)} with sensitive path?`,
     message:
       risk === "outside-workspace"
         ? `${shellCommandIntentSubject(intent)} references a path outside ${input.workspacePath}.`
         : envPath
           ? `${shellCommandIntentSubject(intent)} references an environment file. Pi may need this file to configure or run the project, but it can contain secrets.`
           : `${shellCommandIntentSubject(intent)} references a path that looks like it may contain secrets or credentials.`,
-    detail: [`Intent: ${shellCommandIntentLabel(intent)}`, `Command: ${command}`, `${pathLabel}: ${path}`, approvedRoute].filter(Boolean).join("\n"),
+    detail: [`Intent: ${shellCommandIntentLabel(intent)}`, `Command: ${command}`, `${pathLabel}: ${path}`, approvedRoute]
+      .filter(Boolean)
+      .join("\n"),
     risk,
     ...envGrantFields,
     ...outsidePathGrantFields,
@@ -1541,7 +1491,10 @@ function outsideWorkspaceShellPathGrantFields(
   path: string,
   command: string,
   intent: ShellCommandSemanticIntentKind,
-): Pick<PermissionPrompt, "reusableScopes" | "grantActionKind" | "grantTargetKind" | "grantTargetLabel" | "grantTargetHash" | "grantConditions"> {
+): Pick<
+  PermissionPrompt,
+  "reusableScopes" | "grantActionKind" | "grantTargetKind" | "grantTargetLabel" | "grantTargetHash" | "grantConditions"
+> {
   const actionKind: PermissionGrantActionKind = "local_file_write";
   return {
     reusableScopes: ["thread", "project", "workspace"],
@@ -1563,7 +1516,10 @@ function envPathGrantFields(
   input: PermissionPolicyInput,
   path: string,
   operation: string,
-): Pick<PermissionPrompt, "reusableScopes" | "grantActionKind" | "grantTargetKind" | "grantTargetLabel" | "grantTargetHash" | "grantConditions"> {
+): Pick<
+  PermissionPrompt,
+  "reusableScopes" | "grantActionKind" | "grantTargetKind" | "grantTargetLabel" | "grantTargetHash" | "grantConditions"
+> {
   const actionKind: PermissionGrantActionKind = "secret_path_read";
   return {
     reusableScopes: standardPathReusableScopes(input),
@@ -1609,7 +1565,11 @@ async function findOutsideWorkspaceCommandPath(
   for (const candidate of extractCommandPathCandidates(command)) {
     const pathCheck = await resolvePolicyPath(workspacePath, candidate);
     if (!pathCheck.insideWorkspace && (await isInsideProjectPath(projectPath, pathCheck.absolutePath))) continue;
-    if (!pathCheck.insideWorkspace && allowReadOnlyOutsidePaths && (await isInsideReadOnlyAllowedPath(workspacePath, pathCheck.absolutePath, readOnlyAllowedPaths))) {
+    if (
+      !pathCheck.insideWorkspace &&
+      allowReadOnlyOutsidePaths &&
+      (await isInsideReadOnlyAllowedPath(workspacePath, pathCheck.absolutePath, readOnlyAllowedPaths))
+    ) {
       continue;
     }
     if (!pathCheck.insideWorkspace) return pathCheck.absolutePath;
@@ -1648,7 +1608,11 @@ function isReadOnlyShellInspectionCommand(command: string): boolean {
   const trimmed = command.trim();
   if (!trimmed) return false;
   if (/[>|;&`]/.test(trimmed) || /\$\(/.test(trimmed) || /\b(?:-exec|-delete)\b/.test(trimmed)) return false;
-  const executable = trimmed.match(/^([^\s]+)/)?.[1]?.split("/").pop() ?? "";
+  const executable =
+    trimmed
+      .match(/^([^\s]+)/)?.[1]
+      ?.split("/")
+      .pop() ?? "";
   return new Set(["cat", "ls", "find", "sed", "head", "tail", "wc", "grep", "rg", "file", "stat"]).has(executable);
 }
 
@@ -1724,7 +1688,7 @@ async function isWorkspaceScopedShellSegment(workspacePath: string, command: str
 function splitSimpleShellConjunctions(command: string): string[] | undefined {
   const segments: string[] = [];
   let current = "";
-  let quote: "'" | "\"" | undefined;
+  let quote: "'" | '"' | undefined;
   let escaped = false;
   for (let index = 0; index < command.length; index += 1) {
     const char = command[index];
@@ -1743,7 +1707,7 @@ function splitSimpleShellConjunctions(command: string): string[] | undefined {
       if (char === quote) quote = undefined;
       continue;
     }
-    if (char === "'" || char === "\"") {
+    if (char === "'" || char === '"') {
       quote = char;
       current += char;
       continue;
@@ -1897,12 +1861,6 @@ const managedSecretPathFieldNames = new Set([
   "validationImagePath",
 ]);
 
-function getStringField(input: unknown, key: string): string | undefined {
-  if (!input || typeof input !== "object" || !(key in input)) return undefined;
-  const value = (input as Record<string, unknown>)[key];
-  return typeof value === "string" ? value : undefined;
-}
-
 function getNumberField(input: unknown, key: string): number | undefined {
   if (!input || typeof input !== "object" || !(key in input)) return undefined;
   const value = (input as Record<string, unknown>)[key];
@@ -1912,7 +1870,7 @@ function getNumberField(input: unknown, key: string): number | undefined {
 function getObjectField(input: unknown, key: string): Record<string, unknown> | undefined {
   if (!input || typeof input !== "object" || !(key in input)) return undefined;
   const value = (input as Record<string, unknown>)[key];
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
 function getGoogleWorkspaceUploadField(input: unknown): { path: string; mimeType?: string } | undefined {
@@ -1935,11 +1893,13 @@ function getGoogleWorkspaceGmailDraftField(input: unknown): GoogleWorkspaceCallI
     if (!path) return [];
     const fileName = getStringField(item, "fileName")?.trim();
     const mimeType = getStringField(item, "mimeType")?.trim();
-    return [{
-      path,
-      ...(fileName ? { fileName } : {}),
-      ...(mimeType ? { mimeType } : {}),
-    }];
+    return [
+      {
+        path,
+        ...(fileName ? { fileName } : {}),
+        ...(mimeType ? { mimeType } : {}),
+      },
+    ];
   });
   return {
     ...(getStringOrStringArrayField(draft, "to") ? { to: getStringOrStringArrayField(draft, "to") } : {}),
@@ -1981,16 +1941,6 @@ function getArrayField(input: unknown, key: string): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function getBooleanField(input: unknown, key: string): boolean | undefined {
-  if (!input || typeof input !== "object" || !(key in input)) return undefined;
-  const value = (input as Record<string, unknown>)[key];
-  return typeof value === "boolean" ? value : undefined;
-}
-
-function permissionGrantHash(actionKind: string, targetKind: string, identity: string): string {
-  return createHash("sha256").update(`${actionKind}\0${targetKind}\0${identity}`).digest("hex");
-}
-
 function browserProfileModeForPolicy(input: unknown): "isolated" | "copied" {
   return getStringField(input, "profileMode") === "copied" ? "copied" : "isolated";
 }
@@ -2000,7 +1950,12 @@ function browserToolDetail(toolName: string, input: unknown): string | undefined
   if (toolName === "browser_nav" || toolName === "browser_content") return getStringField(input, "url");
   if (toolName === "browser_local_preview") return getStringField(input, "path") ?? getStringField(input, "filePath");
   if (toolName === "browser_eval") return getStringField(input, "code");
-  if (toolName === "browser_click" || toolName === "browser_get_value" || toolName === "browser_wait_for" || toolName === "browser_assert") {
+  if (
+    toolName === "browser_click" ||
+    toolName === "browser_get_value" ||
+    toolName === "browser_wait_for" ||
+    toolName === "browser_assert"
+  ) {
     return getStringField(input, "selector") ?? getStringField(input, "text");
   }
   if (toolName === "browser_pick") return getStringField(input, "prompt");

@@ -63,6 +63,7 @@ describe("registerPrivilegedActionRequestTools", () => {
       title: "Review privileged action: install_system_package?",
       risk: "privileged-action",
       reusableScopes: [],
+      requireFreshPrompt: true,
       grantTargetLabel: "Privileged action install_system_package",
       allowedReason: "Ambient privileged action handoff approved by Ambient permission grant policy.",
       deniedReason: "Ambient privileged action handoff prompt denied or timed out.",

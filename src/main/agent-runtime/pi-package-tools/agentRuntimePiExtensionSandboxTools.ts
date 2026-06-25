@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { WorkspaceState } from "../../../shared/workspaceTypes";
 import type { ThreadSummary } from "../../../shared/threadTypes";
+import type { AmbientInstallRoutePlan } from "../agentRuntimeInstallRouteFacade";
 import {
   registerPiExtensionSandboxClearHistoryTool,
   type PiExtensionSandboxClearHistoryPermissionRequest,
@@ -34,6 +35,7 @@ export type AgentRuntimePiExtensionSandboxEvent =
 export interface AgentRuntimePiExtensionSandboxToolOptions {
   workspace: WorkspaceState;
   getThread: () => ThreadSummary;
+  latestInstallRouteLane?: () => AmbientInstallRoutePlan["lane"] | undefined;
   resolveFirstPartyPluginPermission: (
     input: AgentRuntimePiExtensionSandboxPermissionRequest,
   ) => Promise<boolean> | boolean;
@@ -49,6 +51,7 @@ export function registerAgentRuntimePiExtensionSandboxTools(
   registerPiExtensionSandboxInstallTool(pi, {
     workspace: options.workspace,
     getThread: options.getThread,
+    latestInstallRouteLane: options.latestInstallRouteLane,
     resolveFirstPartyPluginPermission: options.resolveFirstPartyPluginPermission,
     emit: options.emit,
   });

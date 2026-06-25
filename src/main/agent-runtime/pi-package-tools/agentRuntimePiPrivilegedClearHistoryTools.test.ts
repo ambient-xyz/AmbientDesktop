@@ -168,6 +168,8 @@ function scanFixture(overrides: Partial<PiPrivilegedSecurityScan> = {}): PiPrivi
     source: "npm:pi-ffmpeg",
     scanOrigin: "explicit",
     packageName: "pi-ffmpeg",
+    descriptorHash: "descriptor-hash",
+    packageTreeHash: "package-tree-hash",
     fingerprint: "fingerprint",
     resources: {
       piExtensions: [],

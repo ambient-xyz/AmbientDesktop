@@ -29,6 +29,7 @@ import { registerMainWorkflowAutomationIpc } from "./registerMainWorkflowAutomat
 
 import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "../project-runtime/projectRuntimeHost";
 import type { ProjectStore } from "./ipcProjectStoreFacade";
+import { resolvePermissionWithGrants } from "../permissions/permissionGrants";
 
 type ProjectRuntimeHost = ProjectRuntimeHostContract<
   ProjectStore,
@@ -100,6 +101,41 @@ export function registerMainIpc<Host extends ProjectRuntimeHost>(deps: RegisterM
     isE2eEnabled: () => process.env.AMBIENT_E2E === "1",
     emitDesktopEvent: (event, raw) => {
       event.sender.send("desktop:event", raw);
+    },
+    resolvePermissionGrant: async (input) => {
+      const host = deps.requireActiveProjectRuntimeHost();
+      const threadId = input.context?.threadId ?? input.request.threadId ?? deps.activeThreadIdForHost(host);
+      const thread = host.store.getThread(threadId);
+      let promptRequested = false;
+      let promptRequest: typeof input.request | undefined;
+      const resolution = await resolvePermissionWithGrants({
+        store: host.store,
+        request: input.request,
+        context: {
+          permissionMode: input.context?.permissionMode ?? thread.permissionMode,
+          threadId,
+          workflowThreadId: input.context?.workflowThreadId ?? input.request.workflowThreadId,
+          projectPath: input.context?.projectPath ?? host.store.getWorkspace().path,
+          workspacePath: input.context?.workspacePath ?? input.request.workspacePath ?? thread.workspacePath,
+        },
+        requireFreshPrompt: input.requireFreshPrompt,
+        requester: {
+          request: async (request) => {
+            promptRequested = true;
+            promptRequest = request;
+            return { allowed: false, mode: "deny" };
+          },
+        },
+      });
+      return {
+        allowed: resolution.allowed,
+        decisionSource: resolution.decisionSource,
+        response: resolution.response,
+        ...(resolution.grant?.id ? { grantId: resolution.grant.id } : {}),
+        ...(resolution.grant?.targetHash ? { grantTargetHash: resolution.grant.targetHash } : {}),
+        promptRequested,
+        ...(promptRequest ? { promptRequest } : {}),
+      };
     },
   });
 }

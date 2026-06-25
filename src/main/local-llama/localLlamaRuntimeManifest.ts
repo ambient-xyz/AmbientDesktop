@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { arch as hostArch, platform as hostPlatform } from "node:os";
+import { allowLocalDevUrlEgressFromEnv, assertAllowedUrlEgress } from "../security/urlEgressPolicy";
 
 export type LocalLlamaRuntimeReleaseSupportTier = "conditional" | "experimental";
 export type LocalLlamaRuntimeReleasePinStatus = "candidate" | "pinned" | "blocked";
@@ -189,15 +190,13 @@ export function localLlamaManagedRuntimeDownloadEligibility<TArtifact extends Lo
   if (input.artifact.supportTier !== requiredSupportTier) return `${input.capabilityLabel} default managed download is limited to ${requiredSupportTier} support lanes; ${input.artifact.id} is ${input.artifact.supportTier}.`;
   const extraBlocker = input.extraPolicyBlocker?.(input.artifact);
   if (extraBlocker) return extraBlocker;
-  let parsed: URL;
   try {
-    parsed = new URL(input.artifact.sourceUrl);
-  } catch {
-    return `${input.capabilityLabel} managed runtime download URL is invalid for ${input.artifact.id}.`;
-  }
-  const localHttp = parsed.protocol === "http:" && (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost");
-  if (parsed.protocol !== "https:" && !localHttp) {
-    return `${input.capabilityLabel} managed runtime downloads require HTTPS artifact URLs: ${input.artifact.sourceUrl}`;
+    assertAllowedUrlEgress(input.artifact.sourceUrl, {
+      useCase: "managed-download",
+      allowLocalDevLoopbackHttp: allowLocalDevUrlEgressFromEnv(),
+    });
+  } catch (error) {
+    return `${input.capabilityLabel} managed runtime download URL is not allowed for ${input.artifact.id}: ${error instanceof Error ? error.message : String(error)}`;
   }
   return undefined;
 }

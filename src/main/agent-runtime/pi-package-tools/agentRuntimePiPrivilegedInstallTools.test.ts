@@ -35,6 +35,7 @@ describe("agentRuntimePiPrivilegedInstallTools", () => {
     const result = await registeredTools[0]!.execute("install", {
       source: "npm:pi-ffmpeg",
       scanOrigin: "sandbox-fallback",
+      installRoute: rawRoute("npm:pi-ffmpeg", "pi-ffmpeg"),
     }, undefined, onUpdate);
 
     expect(previewAmbientCliPackagePiCatalogSource).toHaveBeenCalledWith("/workspace", "npm:pi-ffmpeg");
@@ -54,6 +55,8 @@ describe("agentRuntimePiPrivilegedInstallTools", () => {
         "Version: 1.0.0",
         "Source: npm:pi-ffmpeg",
         "Scan origin: sandbox-fallback",
+        "Descriptor hash: descriptor-hash",
+        "Package tree hash: package-tree-hash",
         "Fingerprint: fingerprint",
         "Recommendation: privileged-review-required",
         "Findings: 1",
@@ -61,9 +64,17 @@ describe("agentRuntimePiPrivilegedInstallTools", () => {
         "Effect: copy package into Ambient-managed privileged Pi install state as disabled.",
         "Alpha does not activate hooks, MCP servers, commands, background processes, or Pi settings changes.",
         "fixture caveat",
+        "Route kind: raw-pi-exception",
+        "Selected source: npm:pi-ffmpeg",
+        "Target package: pi-ffmpeg",
+        "Approval boundary: privileged-approval-required",
+        "Route reason: User explicitly approved privileged raw Pi install.",
       ].join("\n"),
+      risk: "privileged-action",
+      requireFreshPrompt: true,
       grantTargetLabel: "Install privileged Pi package pi-ffmpeg",
       grantTargetIdentity: "ambient_pi_privileged_install\0pi-ffmpeg\0fingerprint",
+      grantConditions: { installRoute: rawRoute("npm:pi-ffmpeg", "pi-ffmpeg") },
       allowedReason: "Privileged Pi install approved by Ambient permission grant policy.",
       deniedReason: "Privileged Pi install prompt denied or timed out.",
     }));
@@ -81,6 +92,7 @@ describe("agentRuntimePiPrivilegedInstallTools", () => {
     expect(installPiPrivilegedPackage).toHaveBeenCalledWith("/workspace", {
       source: "npm:pi-ffmpeg",
       scanOrigin: "sandbox-fallback",
+      reviewedScan: scan,
     });
     expect(result).toEqual({
       content: [{
@@ -155,6 +167,53 @@ describe("agentRuntimePiPrivilegedInstallTools", () => {
     }));
   });
 
+  it("requires raw exception route metadata before scanning unwrapped privileged installs", async () => {
+    const registeredTools: RegisteredTool[] = [];
+    const scanPiPrivilegedPackage = vi.fn();
+    const installPiPrivilegedPackage = vi.fn();
+
+    registerPiPrivilegedInstallTool({
+      registerTool: (tool: any) => registeredTools.push(tool),
+    }, {
+      workspace: { path: "/workspace" } as any,
+      getThread: () => ({ collaborationMode: "agent" }) as any,
+      latestInstallRouteLane: () => "pi-marketplace-privileged-review",
+      previewAmbientCliPackagePiCatalogSource: vi.fn(async () => ({ installable: false })) as any,
+      scanPiPrivilegedPackage,
+      installPiPrivilegedPackage,
+      resolveFirstPartyPluginPermission: vi.fn(),
+    });
+
+    await expect(registeredTools[0]!.execute("install", { source: "npm:pi-ffmpeg" })).rejects.toThrow(
+      "Raw Pi install route metadata is required for ambient_pi_privileged_install.",
+    );
+    expect(scanPiPrivilegedPackage).not.toHaveBeenCalled();
+    expect(installPiPrivilegedPackage).not.toHaveBeenCalled();
+  });
+
+  it("rejects raw privileged installs when the latest route selected a wrapper lane", async () => {
+    const registeredTools: RegisteredTool[] = [];
+    const scanPiPrivilegedPackage = vi.fn();
+
+    registerPiPrivilegedInstallTool({
+      registerTool: (tool: any) => registeredTools.push(tool),
+    }, {
+      workspace: { path: "/workspace" } as any,
+      getThread: () => ({ collaborationMode: "agent" }) as any,
+      latestInstallRouteLane: () => "pi-marketplace-curated-wrapper",
+      previewAmbientCliPackagePiCatalogSource: vi.fn(async () => ({ installable: false })) as any,
+      scanPiPrivilegedPackage,
+      installPiPrivilegedPackage: vi.fn(),
+      resolveFirstPartyPluginPermission: vi.fn(),
+    });
+
+    await expect(registeredTools[0]!.execute("install", {
+      source: "npm:pi-ffmpeg",
+      installRoute: rawRoute("npm:pi-ffmpeg"),
+    })).rejects.toThrow("Latest ambient_install_route_plan lane must be \"pi-marketplace-privileged-review\"");
+    expect(scanPiPrivilegedPackage).not.toHaveBeenCalled();
+  });
+
   it("blocks privileged install in planner mode before validating input", async () => {
     const registeredTools: RegisteredTool[] = [];
     const previewAmbientCliPackagePiCatalogSource = vi.fn();
@@ -192,13 +251,26 @@ describe("agentRuntimePiPrivilegedInstallTools", () => {
       resolveFirstPartyPluginPermission: vi.fn(async () => false),
     });
 
-    await expect(registeredTools[0]!.execute("install", { source: "npm:pi-ffmpeg" }, undefined, onUpdate)).rejects.toThrow(
+    await expect(registeredTools[0]!.execute("install", {
+      source: "npm:pi-ffmpeg",
+      installRoute: rawRoute("npm:pi-ffmpeg"),
+    }, undefined, onUpdate)).rejects.toThrow(
       "Privileged Pi install blocked by approval prompt.",
     );
     expect(onUpdate).not.toHaveBeenCalled();
     expect(installPiPrivilegedPackage).not.toHaveBeenCalled();
   });
 });
+
+function rawRoute(source: string, targetPackage?: string) {
+  return {
+    routeKind: "raw-pi-exception",
+    selectedSource: source,
+    ...(targetPackage ? { targetPackage } : {}),
+    approvalBoundary: "privileged-approval-required",
+    reason: "User explicitly approved privileged raw Pi install.",
+  };
+}
 
 function packageFixture(overrides: Partial<PiPrivilegedInstallSummary> = {}): PiPrivilegedInstallSummary {
   return {
@@ -221,6 +293,8 @@ function scanFixture(overrides: Partial<PiPrivilegedSecurityScan> = {}): PiPrivi
     scanOrigin: "explicit",
     packageName: "pi-ffmpeg",
     version: "1.0.0",
+    descriptorHash: "descriptor-hash",
+    packageTreeHash: "package-tree-hash",
     fingerprint: "fingerprint",
     resources: {
       piExtensions: ["index.ts"],

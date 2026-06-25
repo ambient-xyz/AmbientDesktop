@@ -1,10 +1,8 @@
 import { createHash } from "node:crypto";
-import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import {
   ambientCliWorkspaceProviderMarkerPath,
@@ -23,14 +21,13 @@ import {
   previewAmbientCliPackagePiCatalogSource,
   previewAmbientCliPackageInstallSource,
   runAmbientCliPackageCommand,
-  saveAmbientCliPackageEnvSecret,
   searchAmbientCliCapabilities,
   setAmbientCliPackageEnvBinding,
   uninstallAmbientCliPackageSource,
   writeAmbientCliSkillSummary,
 } from "./ambientCliPackages";
+import { braveSearchOverlayDescriptor, seedCliFixture } from "./ambientCliPackagesTestSupport";
 
-const execFileAsync = promisify(execFile);
 const itLivePiCatalog = process.env.AMBIENT_PI_CATALOG_LIVE === "1" ? it : it.skip;
 
 describe("Ambient CLI packages", () => {
@@ -157,6 +154,191 @@ describe("Ambient CLI packages", () => {
       expect(uninstalled.packages).toEqual([]);
       await expect(runAmbientCliPackageCommand(workspace, { packageName: "ambient-json-cli", command: "json-pick" })).rejects.toThrow(
         'Ambient CLI package "ambient-json-cli" was not found.',
+      );
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects approved local installs when package content changes after preview", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-preview-race-"));
+    try {
+      await seedCliFixture(workspace);
+      const input = { source: "./cli-fixture" };
+      const preview = await previewAmbientCliPackageInstallSource(workspace, input);
+      await writeFile(
+        join(workspace, "cli-fixture", "bin", "json-pick.mjs"),
+        [
+          "import { readFileSync } from 'node:fs';",
+          "const [file, key] = process.argv.slice(2);",
+          "const value = JSON.parse(readFileSync(file, 'utf8'))[key];",
+          "process.stdout.write(String(value) + ' changed');",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+
+      await expect(installAmbientCliPackageSource(workspace, input, preview)).rejects.toThrow(
+        /approved ambient cli package preview no longer matches the package source content/i,
+      );
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("does not include VCS metadata in local package preview content hashes", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-preview-vcs-hash-"));
+    try {
+      await seedCliFixture(workspace);
+      await mkdir(join(workspace, "cli-fixture", ".git", "objects"), { recursive: true });
+      await writeFile(join(workspace, "cli-fixture", ".git", "config"), "clone-local config a", "utf8");
+      const first = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-fixture" });
+
+      await writeFile(join(workspace, "cli-fixture", ".git", "config"), "clone-local config b", "utf8");
+      await writeFile(join(workspace, "cli-fixture", ".git", "objects", "temp"), "clone-local object", "utf8");
+      const second = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-fixture" });
+
+      expect(first.contentHash).toBeTruthy();
+      expect(second.contentHash).toBe(first.contentHash);
+      const installed = await installAmbientCliPackageSource(workspace, { source: "./cli-fixture" });
+      expect(existsSync(join(installed.rootPath, ".git"))).toBe(false);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects package descriptors that reference ignored VCS metadata paths", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-preview-vcs-reference-"));
+    try {
+      await seedCliFixture(workspace);
+      await mkdir(join(workspace, "cli-fixture", ".git"), { recursive: true });
+      await writeFile(join(workspace, "cli-fixture", ".git", "payload.js"), "process.stdout.write('unapproved');\n", "utf8");
+      const descriptorPath = join(workspace, "cli-fixture", "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.commands["json-pick"].args = ["./.git/payload.js"];
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+
+      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-fixture" });
+
+      expect(preview.installable).toBe(false);
+      expect(preview.errors.join("\n")).toMatch(/cannot reference ignored vcs metadata path/i);
+      await expect(installAmbientCliPackageSource(workspace, { source: "./cli-fixture" })).rejects.toThrow(
+        /cannot reference ignored vcs metadata path/i,
+      );
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects package skill paths that reference ignored VCS metadata paths", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-preview-vcs-skill-reference-"));
+    try {
+      await seedCliFixture(workspace);
+      await mkdir(join(workspace, "cli-fixture", ".hg", "skills", "hidden"), { recursive: true });
+      await writeFile(
+        join(workspace, "cli-fixture", ".hg", "skills", "hidden", "SKILL.md"),
+        ["---", "name: hidden-vcs-skill", "description: Hidden ignored skill.", "---", "", "Hidden.", ""].join("\n"),
+        "utf8",
+      );
+      const descriptorPath = join(workspace, "cli-fixture", "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.skills = "./.hg/skills";
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+
+      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-fixture" });
+
+      expect(preview.installable).toBe(false);
+      expect(preview.errors.join("\n")).toMatch(/cannot reference ignored vcs metadata path/i);
+      expect(JSON.stringify(preview)).not.toContain("hidden-vcs-skill");
+      await expect(installAmbientCliPackageSource(workspace, { source: "./cli-fixture" })).rejects.toThrow(
+        /cannot reference ignored vcs metadata path/i,
+      );
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects local package previews with symlinked executable targets outside the package root", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-preview-symlink-"));
+    try {
+      await seedCliFixture(workspace);
+      await writeFile(join(workspace, "outside-tool.mjs"), "process.stdout.write('outside');\n", "utf8");
+      await rm(join(workspace, "cli-fixture", "bin", "json-pick.mjs"), { force: true });
+      await symlink(join(workspace, "outside-tool.mjs"), join(workspace, "cli-fixture", "bin", "json-pick.mjs"));
+
+      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-fixture" });
+
+      expect(preview.installable).toBe(false);
+      expect(preview.errors.join("\n")).toMatch(/ambient cli package symlinks must resolve inside the package root/i);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects local package previews with symlinks into ignored VCS metadata", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-preview-vcs-symlink-"));
+    try {
+      await seedCliFixture(workspace);
+      await mkdir(join(workspace, "cli-fixture", ".git"), { recursive: true });
+      await writeFile(join(workspace, "cli-fixture", ".git", "payload.mjs"), "process.stdout.write('ignored');\n", "utf8");
+      await rm(join(workspace, "cli-fixture", "bin", "json-pick.mjs"), { force: true });
+      await symlink("../.git/payload.mjs", join(workspace, "cli-fixture", "bin", "json-pick.mjs"));
+
+      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-fixture" });
+      expect(preview.installable).toBe(false);
+      expect(preview.errors.join("\n")).toMatch(/ambient cli package symlinks cannot target ignored vcs metadata paths/i);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects symlinked local package metadata before reading descriptor fields", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-preview-metadata-symlink-"));
+    try {
+      await seedCliFixture(workspace);
+      await writeFile(
+        join(workspace, "outside-descriptor.json"),
+        `${JSON.stringify(
+          {
+            name: "outside-secret-descriptor",
+            commands: {
+              outside: {
+                command: "node",
+                args: ["outside.js"],
+                cwd: "package",
+              },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
+      await rm(join(workspace, "cli-fixture", "ambient-cli.json"), { force: true });
+      await symlink(join(workspace, "outside-descriptor.json"), join(workspace, "cli-fixture", "ambient-cli.json"));
+
+      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-fixture" });
+
+      expect(preview.installable).toBe(false);
+      expect(preview.errors.join("\n")).toMatch(/ambient cli package symlinks must resolve inside the package root/i);
+      expect(JSON.stringify(preview)).not.toContain("outside-secret-descriptor");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects symlinked local package roots before preview and install", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-root-symlink-"));
+    try {
+      await seedCliFixture(workspace);
+      await symlink(join(workspace, "cli-fixture"), join(workspace, "cli-link"), "dir");
+
+      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-link" });
+
+      expect(preview.installable).toBe(false);
+      expect(preview.errors.join("\n")).toMatch(/ambient cli package source root cannot be a symlink/i);
+      await expect(installAmbientCliPackageSource(workspace, { source: "./cli-link" })).rejects.toThrow(
+        /ambient cli package source root cannot be a symlink/i,
       );
     } finally {
       await rm(workspace, { recursive: true, force: true });
@@ -301,6 +483,42 @@ describe("Ambient CLI packages", () => {
     } finally {
       if (originalPath === undefined) delete process.env.PATH;
       else process.env.PATH = originalPath;
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("honors health command filters during package discovery", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-health-filter-"));
+    try {
+      await seedCliFixture(workspace);
+      const installed = await installAmbientCliPackageSource(workspace, { source: "./cli-fixture" });
+      const markerPath = join(workspace, "filtered-health-marker.txt");
+      const descriptorPath = join(installed.rootPath, "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.commands["json-pick"].healthCheck = ["node", "./bin/health-marker.mjs"];
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+      await writeFile(
+        join(installed.rootPath, "bin", "health-marker.mjs"),
+        `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(markerPath)}, "executed");\nprocess.stdout.write("filtered healthy");\n`,
+        "utf8",
+      );
+
+      const skipped = await discoverAmbientCliPackages(workspace, {
+        includeHealth: true,
+        healthCommandFilter: () => false,
+      });
+      expect(existsSync(markerPath)).toBe(false);
+      expect(skipped.packages[0]?.healthChecks).toBeUndefined();
+
+      const checked = await discoverAmbientCliPackages(workspace, {
+        includeHealth: true,
+        healthCommandFilter: (_pkg, command) => command.name === "json-pick",
+      });
+      expect(existsSync(markerPath)).toBe(true);
+      expect(checked.packages[0]?.healthChecks).toEqual([
+        expect.objectContaining({ commandName: "json-pick", passed: true, stdout: "filtered healthy" }),
+      ]);
+    } finally {
       await rm(workspace, { recursive: true, force: true });
     }
   });
@@ -835,6 +1053,7 @@ describe("Ambient CLI packages", () => {
       const search = await searchAmbientCliCapabilities(workspace, {
         query: "deterministic title card authored motion video mp4",
         limit: 5,
+        includeHealth: true,
       });
       expect(search.results).toEqual(
         expect.arrayContaining([
@@ -932,6 +1151,7 @@ describe("Ambient CLI packages", () => {
       const search = await searchAmbientCliCapabilities(workspace, {
         query: "Google Nano Banana Pro Flux OpenAI hosted image generation",
         limit: 5,
+        includeHealth: true,
       });
       expect(search.results).toEqual(
         expect.arrayContaining([
@@ -1103,6 +1323,7 @@ describe("Ambient CLI packages", () => {
       const search = await searchAmbientCliCapabilities(workspace, {
         query: "TinyStyler writing style transfer profile examples",
         limit: 5,
+        includeHealth: true,
       });
       const tinystylerSearch = search.results.find((result) => result.packageName === "ambient-tinystyler");
       expect(tinystylerSearch).toMatchObject({
@@ -1908,7 +2129,11 @@ describe("Ambient CLI packages", () => {
           }),
         ]);
 
-        const youtubeSearch = await searchAmbientCliCapabilities(workspace, { query: "youtube video transcript captions", limit: 5 });
+        const youtubeSearch = await searchAmbientCliCapabilities(workspace, {
+          query: "youtube video transcript captions",
+          limit: 5,
+          includeHealth: true,
+        });
         expect(youtubeSearch.results).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
@@ -1918,7 +2143,11 @@ describe("Ambient CLI packages", () => {
           ]),
         );
 
-        const braveSearch = await searchAmbientCliCapabilities(workspace, { query: "brave search web", limit: 5 });
+        const braveSearch = await searchAmbientCliCapabilities(workspace, {
+          query: "brave search web",
+          limit: 5,
+          includeHealth: true,
+        });
         expect(braveSearch.results).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
@@ -1928,7 +2157,11 @@ describe("Ambient CLI packages", () => {
           ]),
         );
 
-        const arxivSearch = await searchAmbientCliCapabilities(workspace, { query: "arxiv paper search", limit: 5 });
+        const arxivSearch = await searchAmbientCliCapabilities(workspace, {
+          query: "arxiv paper search",
+          limit: 5,
+          includeHealth: true,
+        });
         expect(arxivSearch.results).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
@@ -1984,8 +2217,19 @@ describe("Ambient CLI packages", () => {
     try {
       await seedCliFixture(workspace);
       const installed = await installAmbientCliPackageSource(workspace, { source: "./cli-fixture" });
+      const healthMarker = join(workspace, "search-health-ran");
+      const descriptorPath = join(installed.rootPath, "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.commands["json-pick"].healthCheck = ["node", "./bin/search-health-marker.mjs"];
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+      await writeFile(
+        join(installed.rootPath, "bin", "search-health-marker.mjs"),
+        "import { writeFileSync } from 'node:fs'; import { join } from 'node:path'; writeFileSync(join(process.env.AMBIENT_WORKSPACE_PATH, 'search-health-ran'), 'ran'); process.stdout.write('healthy');\n",
+        "utf8",
+      );
+      await rm(healthMarker, { force: true });
 
-      const result = await searchAmbientCliCapabilities(workspace, { query: "json field extract", limit: 5 });
+      const result = await searchAmbientCliCapabilities(workspace, { query: "json field extract", limit: 5, includeHealth: false });
       expect(result.catalogVersion).toMatch(/^ambient-cli-v1:/);
       expect(result.truncated).toBe(false);
       expect(result.results).toEqual([
@@ -2000,7 +2244,7 @@ describe("Ambient CLI packages", () => {
               capabilityId: `${installed.id}:tool:json-pick`,
               sourceKind: "ambient-cli",
               name: "json-pick",
-              health: "passed",
+              health: "unknown",
               risk: ["run_process"],
             }),
           ],
@@ -2010,6 +2254,76 @@ describe("Ambient CLI packages", () => {
       ]);
       expect(result.results[0]?.skills[0]?.capabilityId).toContain(":skill:");
       expect(result.results[0]?.whyMatched).toEqual(expect.arrayContaining(["command:json-pick", "skill:ambient-json-cli"]));
+      expect(existsSync(healthMarker)).toBe(false);
+
+      const healthAwareResult = await searchAmbientCliCapabilities(workspace, {
+        query: "json field extract",
+        limit: 5,
+        includeHealth: true,
+      });
+      expect(healthAwareResult.results[0]?.commands[0]?.health).toBe("passed");
+      expect(healthAwareResult.results[0]?.availability).toBe("available");
+      expect(await readFile(healthMarker, "utf8")).toBe("ran");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("describes installed Ambient CLI capabilities without running health checks by default", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-describe-no-health-"));
+    try {
+      await seedCliFixture(workspace);
+      const installed = await installAmbientCliPackageSource(workspace, { source: "./cli-fixture" });
+      const healthMarker = join(workspace, "describe-health-ran");
+      const descriptorPath = join(installed.rootPath, "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.commands["json-pick"].healthCheck = ["node", "./bin/describe-health-marker.mjs"];
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+      await writeFile(
+        join(installed.rootPath, "bin", "describe-health-marker.mjs"),
+        "import { writeFileSync } from 'node:fs'; import { join } from 'node:path'; writeFileSync(join(process.env.AMBIENT_WORKSPACE_PATH, 'describe-health-ran'), 'ran'); process.stdout.write('healthy');\n",
+        "utf8",
+      );
+
+      const description = await describeAmbientCliPackage(workspace, {
+        packageName: "ambient-json-cli",
+        command: "json-pick",
+      });
+
+      expect(description.commands[0]?.health).toBe("unknown");
+      expect(existsSync(healthMarker)).toBe(false);
+      const healthAwareDescription = await describeAmbientCliPackage(
+        workspace,
+        { packageName: "ambient-json-cli", command: "json-pick" },
+        { includeHealth: true },
+      );
+      expect(healthAwareDescription.commands[0]?.health).toBe("passed");
+      expect(await readFile(healthMarker, "utf8")).toBe("ran");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("mounts Ambient CLI skills without running package health checks", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-skill-mount-no-health-"));
+    try {
+      await seedCliFixture(workspace);
+      const installed = await installAmbientCliPackageSource(workspace, { source: "./cli-fixture" });
+      const healthMarker = join(workspace, "skill-mount-health-ran");
+      const descriptorPath = join(installed.rootPath, "ambient-cli.json");
+      const descriptor = JSON.parse(await readFile(descriptorPath, "utf8"));
+      descriptor.commands["json-pick"].healthCheck = ["node", "./bin/skill-mount-health-marker.mjs"];
+      await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+      await writeFile(
+        join(installed.rootPath, "bin", "skill-mount-health-marker.mjs"),
+        "import { writeFileSync } from 'node:fs'; import { join } from 'node:path'; writeFileSync(join(process.env.AMBIENT_WORKSPACE_PATH, 'skill-mount-health-ran'), 'ran'); process.stdout.write('healthy');\n",
+        "utf8",
+      );
+
+      const skillPaths = await enabledAmbientCliSkillPaths(workspace);
+
+      expect(skillPaths).toEqual([expect.stringContaining("skills/json-cli")]);
+      expect(existsSync(healthMarker)).toBe(false);
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -2082,7 +2396,7 @@ describe("Ambient CLI packages", () => {
             name: "json-pick",
             descriptorArgs: [expect.stringContaining("json-pick.mjs")],
             cwd: "workspace",
-            health: "passed",
+            health: "unknown",
             risk: ["run_process"],
             invocation: {
               tool: "ambient_cli",
@@ -2354,15 +2668,17 @@ describe("Ambient CLI packages", () => {
     }
   });
 
-  it("blocks install when a descriptor health check fails", async () => {
+  it("defers unpinned local health checks until explicit health-enabled discovery", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-workspace-"));
     try {
       await seedCliFixture(workspace, { healthCheck: ["node", "./bin/json-pick.mjs", "missing.json", "message"] });
-      await expect(installAmbientCliPackageSource(workspace, { source: "./cli-fixture" })).rejects.toThrow(
-        'Ambient CLI package health check failed for "json-pick"',
-      );
-      await expect(readFile(join(workspace, ".ambient", "cli-packages", "packages.json"), "utf8")).rejects.toMatchObject({
-        code: "ENOENT",
+      await expect(installAmbientCliPackageSource(workspace, { source: "./cli-fixture" })).resolves.toMatchObject({
+        name: "ambient-json-cli",
+      });
+      const catalog = await discoverAmbientCliPackages(workspace, { includeHealth: true });
+      expect(catalog.packages[0]?.healthChecks?.[0]).toMatchObject({
+        commandName: "json-pick",
+        passed: false,
       });
     } finally {
       await rm(workspace, { recursive: true, force: true });
@@ -2513,8 +2829,9 @@ describe("Ambient CLI packages", () => {
     }
   });
 
-  it("binds declared env requirements from Desktop-managed workspace secret files", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-env-"));
+  it("writes descriptor overlays with a stable mode under a restrictive umask", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-overlay-mode-"));
+    const previousUmask = process.umask(0o077);
     try {
       const root = join(workspace, "brave-search");
       await mkdir(root, { recursive: true });
@@ -2523,617 +2840,21 @@ describe("Ambient CLI packages", () => {
         `${JSON.stringify({ name: "brave-search", version: "1.0.0", description: "Headless web search via Brave Search" }, null, 2)}\n`,
         "utf8",
       );
-      await writeFile(
-        join(root, "search.js"),
-        [
-          "if (!process.env.BRAVE_API_KEY) throw new Error('missing key');",
-          "process.stdout.write(process.env.BRAVE_API_KEY === 'test-brave-key' ? 'configured' : 'unexpected');",
-          "",
-        ].join("\n"),
-        "utf8",
-      );
-      await writeFile(
-        join(root, "SKILL.md"),
-        [
-          "---",
-          "name: brave-search",
-          "description: Web search and content extraction via Brave Search API.",
-          "---",
-          "",
-          "# Brave Search",
-          "",
-        ].join("\n"),
-        "utf8",
-      );
-      const descriptor = { ...braveSearchOverlayDescriptor(), env: ["BRAVE_API_KEY"] };
-
-      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./brave-search", descriptor });
-      expect(preview).toMatchObject({
-        installable: true,
-        envStatus: [expect.objectContaining({ name: "BRAVE_API_KEY", configured: false })],
-        errors: [],
-      });
-
-      await installAmbientCliPackageSource(workspace, { source: "./brave-search", descriptor });
-      await expect(runAmbientCliPackageCommand(workspace, { packageName: "brave-search", command: "search" })).rejects.toThrow(
-        "Ambient CLI package env requirements are missing: BRAVE_API_KEY",
-      );
-
-      await writeFile(join(workspace, "brave_api_key.txt"), "test-brave-key\n", "utf8");
-      await expect(
-        setAmbientCliPackageEnvBinding(workspace, {
-          packageName: "brave-search",
-          envName: "BRAVE_API_KEY",
-          filePath: "./brave_api_key.txt",
-        }),
-      ).resolves.toMatchObject({ configured: true, source: "file", filePath: "./brave_api_key.txt" });
-
-      const result = await runAmbientCliPackageCommand(workspace, { packageName: "brave-search", command: "search" });
-      expect(result.stdout).toBe("configured");
-      expect(result.stdout).not.toContain("test-brave-key");
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("saves pasted env secrets as app-managed references before binding", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-secret-"));
-    try {
-      await expect(
-        saveAmbientCliPackageEnvSecret(workspace, {
-          packageName: "brave-search",
-          envName: "BRAVE_API_KEY",
-          value: "pasted-brave-key",
-        }),
-      ).resolves.toMatchObject({
-        name: "BRAVE_API_KEY",
-        configured: true,
-        source: "managed-secret",
-        secretRef: expect.stringMatching(/^ambient-secret-ref:v1:[a-f0-9]{64}$/),
-      });
-      const bindings = JSON.parse(await readFile(join(workspace, ".ambient", "cli-packages", "env-bindings.json"), "utf8"));
-      expect(bindings.bindings).toEqual([
-        expect.objectContaining({
-          packageName: "brave-search",
-          envName: "BRAVE_API_KEY",
-          secretRef: expect.stringMatching(/^ambient-secret-ref:v1:[a-f0-9]{64}$/),
-        }),
-      ]);
-      expect(bindings.bindings[0]).not.toHaveProperty("filePath");
-      expect(existsSync(join(workspace, ".ambient", "cli-packages", "secrets"))).toBe(false);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("migrates legacy managed workspace secret files before command execution", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-legacy-secret-"));
-    try {
-      const root = join(workspace, "brave-search");
-      await mkdir(root, { recursive: true });
-      await writeFile(
-        join(root, "package.json"),
-        `${JSON.stringify({ name: "brave-search", version: "1.0.0", description: "Headless web search via Brave Search" }, null, 2)}\n`,
-        "utf8",
-      );
-      await writeFile(
-        join(root, "search.js"),
-        [
-          "if (!process.env.BRAVE_API_KEY) throw new Error('missing key');",
-          "process.stdout.write(process.env.BRAVE_API_KEY === 'legacy-brave-key' ? 'configured' : 'unexpected');",
-          "",
-        ].join("\n"),
-        "utf8",
-      );
-      await writeFile(
-        join(root, "SKILL.md"),
-        [
-          "---",
-          "name: brave-search",
-          "description: Web search and content extraction via Brave Search API.",
-          "---",
-          "",
-          "# Brave Search",
-          "",
-        ].join("\n"),
-        "utf8",
-      );
-      const descriptor = { ...braveSearchOverlayDescriptor(), env: ["BRAVE_API_KEY"] };
-      await installAmbientCliPackageSource(workspace, { source: "./brave-search", descriptor });
-
-      const legacySecretPath = join(workspace, ".ambient", "cli-packages", "secrets", "brave-search", "BRAVE_API_KEY.secret");
-      await mkdir(join(legacySecretPath, ".."), { recursive: true });
-      await writeFile(legacySecretPath, "legacy-brave-key\n", "utf8");
-      await writeFile(
-        join(workspace, ".ambient", "cli-packages", "env-bindings.json"),
-        `${JSON.stringify(
-          {
-            bindings: [
-              {
-                packageName: "brave-search",
-                envName: "BRAVE_API_KEY",
-                filePath: "./.ambient/cli-packages/secrets/brave-search/BRAVE_API_KEY.secret",
-              },
-            ],
-          },
-          null,
-          2,
-        )}\n`,
-        "utf8",
-      );
-
-      const result = await runAmbientCliPackageCommand(workspace, { packageName: "brave-search", command: "search" });
-      const bindings = JSON.parse(await readFile(join(workspace, ".ambient", "cli-packages", "env-bindings.json"), "utf8"));
-
-      expect(result.stdout).toBe("configured");
-      expect(existsSync(legacySecretPath)).toBe(false);
-      expect(bindings.bindings).toEqual([
-        expect.objectContaining({
-          packageName: "brave-search",
-          envName: "BRAVE_API_KEY",
-          secretRef: expect.stringMatching(/^ambient-secret-ref:v1:[a-f0-9]{64}$/),
-        }),
-      ]);
-      expect(bindings.bindings[0]).not.toHaveProperty("filePath");
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects Ambient CLI env bindings outside the workspace or from empty files", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-env-reject-"));
-    try {
-      await writeFile(join(workspace, "empty.txt"), "\n", "utf8");
-      await expect(
-        setAmbientCliPackageEnvBinding(workspace, {
-          packageName: "brave-search",
-          envName: "BRAVE_API_KEY",
-          filePath: "../outside.txt",
-        }),
-      ).rejects.toThrow("Ambient CLI env binding file must stay inside the workspace.");
-      await expect(
-        setAmbientCliPackageEnvBinding(workspace, {
-          packageName: "brave-search",
-          envName: "BRAVE_API_KEY",
-          filePath: "./empty.txt",
-        }),
-      ).rejects.toThrow("Ambient CLI env binding file is empty.");
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("installs lockfile-backed npm dependencies before health checks when requested", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-deps-"));
-    try {
-      const root = join(workspace, "brave-search");
-      await seedCliPackageWithLocalDependency(root);
-      const descriptor = {
-        ...braveSearchOverlayDescriptor(),
-        commands: {
-          search: {
-            command: "node",
-            args: ["./search.js"],
-            cwd: "package",
-            description: "Run Brave Search.",
-            healthCheck: ["node", "./search.js", "health"],
-          },
-        },
-      };
-
-      const missingDepsPreview = await previewAmbientCliPackageInstallSource(workspace, { source: "./brave-search", descriptor });
-      expect(missingDepsPreview).toMatchObject({
-        installable: false,
-        errors: [expect.stringContaining("Cannot find package 'ambient-helper'")],
-      });
-
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "./brave-search",
-        descriptor,
-        installDependencies: true,
-      });
-      expect(preview).toMatchObject({
-        installable: true,
-        dependencyInstall: expect.objectContaining({
-          attempted: true,
-          passed: true,
-          command: ["npm", "ci", "--ignore-scripts"],
-        }),
-        errors: [],
-      });
-
-      const installed = await installAmbientCliPackageSource(workspace, {
-        source: "./brave-search",
-        descriptor,
-        installDependencies: true,
-      });
-      const result = await runAmbientCliPackageCommand(workspace, {
-        packageName: "brave-search",
-        command: "search",
-        args: ["ambient"],
-      });
-      expect(result.stdout).toBe("formatted:ambient");
-      expect(await readFile(join(installed.rootPath, "node_modules", "ambient-helper", "index.js"), "utf8")).toContain("formatted");
-      await expect(readFile(join(root, "node_modules", "ambient-helper", "index.js"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects dependency setup for npm packages without a package lock", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-no-lock-"));
-    try {
-      const root = join(workspace, "cli-fixture");
-      await mkdir(root, { recursive: true });
-      await writeFile(
-        join(root, "package.json"),
-        `${JSON.stringify({ name: "no-lock-cli", version: "0.1.0", dependencies: { "ambient-helper": "file:./deps/ambient-helper" } }, null, 2)}\n`,
-        "utf8",
-      );
-      await writeFile(
-        join(root, "ambient-cli.json"),
-        `${JSON.stringify({ name: "no-lock-cli", commands: { noop: { command: "node", args: ["--version"], cwd: "package" } } }, null, 2)}\n`,
-        "utf8",
-      );
-
-      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./cli-fixture", installDependencies: true });
-      expect(preview).toMatchObject({
-        installable: false,
-        dependencyInstall: expect.objectContaining({
-          attempted: false,
-          passed: false,
-          reason: expect.stringContaining("Missing package-lock.json"),
-        }),
-      });
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("previews and installs pinned Git-backed CLI packages from a repository subdirectory", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-workspace-"));
-    try {
-      const repo = join(workspace, "cli-repo");
-      await seedCliFixture(repo);
-      await git(["init"], repo);
-      await git(["add", "."], repo);
-      await git(["-c", "user.name=Ambient Test", "-c", "user.email=ambient@example.test", "commit", "-m", "seed cli package"], repo);
-      const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repo });
-      const sha = String(stdout).trim();
-
-      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: repo, path: "./cli-fixture", sha });
-      expect(preview).toMatchObject({
-        source: repo,
-        path: "./cli-fixture",
-        sha,
-        installable: true,
-        candidate: expect.objectContaining({ name: "ambient-json-cli" }),
-        errors: [],
-      });
-
-      const installed = await installAmbientCliPackageSource(workspace, { source: repo, path: "./cli-fixture", sha });
-      expect(installed).toMatchObject({ name: "ambient-json-cli", installed: true });
-      expect(installed.source).toContain(".ambient/cli-packages/imported");
-
-      await writeFile(join(workspace, "payload.json"), `${JSON.stringify({ message: "git cli" })}\n`, "utf8");
-      const result = await runAmbientCliPackageCommand(workspace, {
-        packageName: "ambient-json-cli",
-        command: "json-pick",
-        args: ["payload.json", "message"],
-      });
-      expect(result.stdout?.trim()).toBe("git cli");
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects external Git helper sources before preview cloning CLI packages", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-unsafe-git-"));
-    try {
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "ext::sh -c touch /tmp/ambient-cli-ext-owned",
-        path: "./cli-fixture",
-        sha: "0123456789abcdef0123456789abcdef01234567",
-      });
-      expect(preview).toMatchObject({
-        installable: false,
-        errors: [expect.stringMatching(/external Git helper protocols are not allowed|Unsupported Git source/i)],
-      });
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("redacts credential-bearing Git sources in failed CLI package previews", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-credential-git-"));
-    try {
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "https://user:token@example.test/repo.git",
-        path: "./cli-fixture",
-        sha: "0123456789abcdef0123456789abcdef01234567",
-      });
-      expect(preview.installable).toBe(false);
-      expect(preview.source).toBe("https://example.test/repo.git");
-      expect(JSON.stringify(preview)).not.toContain("token");
-      expect(preview.errors.join("\n")).toMatch(/must not embed credentials/i);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("redacts credential-bearing Git sources in no-sha CLI package previews", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-no-sha-credential-git-"));
-    try {
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "https://user:token@example.test/repo.git",
-        path: "./cli-fixture",
-      });
-      expect(preview.installable).toBe(false);
-      expect(preview.source).toBe("https://example.test/repo.git");
-      expect(JSON.stringify(preview)).not.toContain("token");
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("does not treat Windows absolute local preview paths as credential-bearing Git URLs", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-windows-path-preview-"));
-    try {
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "C:\\workspace\\cli-fixture",
-      });
-      expect(preview.installable).toBe(false);
-      expect(preview.source).toBe("C:\\workspace\\cli-fixture");
-      expect(preview.errors.join("\n")).not.toMatch(/credentials|query strings|fragments/i);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("redacts credentials embedded in rejected helper-shaped Git preview sources", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-helper-credential-git-"));
-    try {
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "git+ext::https://user:token@example.test/repo.git",
-        path: "./cli-fixture",
-        sha: "0123456789abcdef0123456789abcdef01234567",
-      });
-      expect(preview.installable).toBe(false);
-      expect(preview.source).toBe("git+ext::https://example.test/repo.git");
-      expect(JSON.stringify(preview)).not.toContain("token");
-      expect(preview.errors.join("\n")).toMatch(/external Git helper protocols are not allowed/i);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("redacts token query strings in failed CLI package Git previews", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-query-token-git-"));
-    try {
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "https://example.test/repo.git?token=secret#access_token=also",
-        path: "./cli-fixture",
-        sha: "0123456789abcdef0123456789abcdef01234567",
-      });
-      expect(preview.installable).toBe(false);
-      expect(preview.source).toBe("https://example.test/repo.git");
-      expect(JSON.stringify(preview)).not.toContain("secret");
-      expect(JSON.stringify(preview)).not.toContain("also");
-      expect(preview.errors.join("\n")).toMatch(/must not include query strings/i);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("strips helper-wrapped Git preview query strings even without credential-shaped names", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-helper-query-git-"));
-    try {
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "git+ext::https://example.test/repo.git?auth=secret",
-        path: "./cli-fixture",
-        sha: "0123456789abcdef0123456789abcdef01234567",
-      });
-      expect(preview.installable).toBe(false);
-      expect(preview.source).toBe("git+ext::https://example.test/repo.git");
-      expect(JSON.stringify(preview)).not.toContain("secret");
-      expect(preview.errors.join("\n")).toMatch(/external Git helper protocols are not allowed/i);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("redacts helper-wrapped Git preview credentials when query strings are also present", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-helper-combined-credential-git-"));
-    try {
-      const preview = await previewAmbientCliPackageInstallSource(workspace, {
-        source: "git+ext::https://user:token@example.test/repo.git?auth=secret",
-        path: "./cli-fixture",
-        sha: "0123456789abcdef0123456789abcdef01234567",
-      });
-      expect(preview.installable).toBe(false);
-      expect(preview.source).toBe("git+ext::https://example.test/repo.git");
-      expect(JSON.stringify(preview)).not.toContain("token");
-      expect(JSON.stringify(preview)).not.toContain("secret");
-      expect(preview.errors.join("\n")).toMatch(/external Git helper protocols are not allowed/i);
-    } finally {
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("previews and installs pinned Git package subdirectories with a descriptor overlay", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "ambient-cli-git-overlay-"));
-    try {
-      const repo = join(workspace, "pi-skills");
-      const packageRoot = join(repo, "brave-search");
-      await mkdir(packageRoot, { recursive: true });
-      await writeFile(join(repo, "README.md"), "# skills\n", "utf8");
-      await writeFile(
-        join(packageRoot, "package.json"),
-        `${JSON.stringify({ name: "brave-search", version: "1.0.0", description: "Headless web search via Brave Search" }, null, 2)}\n`,
-        "utf8",
-      );
-      await writeFile(join(packageRoot, "search.js"), "process.stdout.write(process.argv.slice(2).join('|'));\n", "utf8");
-      await writeFile(
-        join(packageRoot, "SKILL.md"),
-        [
-          "---",
-          "name: brave-search",
-          "description: Web search and content extraction via Brave Search API.",
-          "---",
-          "",
-          "# Brave Search",
-          "",
-        ].join("\n"),
-        "utf8",
-      );
-      await git(["init"], repo);
-      await git(["add", "."], repo);
-      await git(["-c", "user.name=Ambient Test", "-c", "user.email=ambient@example.test", "commit", "-m", "seed brave package"], repo);
-      const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repo });
-      const sha = String(stdout).trim();
+      await writeFile(join(root, "search.js"), "process.stdout.write(`query:${process.argv.slice(2).join(' ')}`);\n", "utf8");
       const descriptor = braveSearchOverlayDescriptor();
 
-      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: repo, path: "./brave-search", sha, descriptor });
-      expect(preview).toMatchObject({
-        installable: true,
-        candidate: expect.objectContaining({ name: "brave-search", commands: [expect.objectContaining({ name: "search" })] }),
-        errors: [],
-      });
+      const preview = await previewAmbientCliPackageInstallSource(workspace, { source: "./brave-search", descriptor });
+      expect(preview).toMatchObject({ installable: true, errors: [] });
 
-      const installed = await installAmbientCliPackageSource(workspace, { source: repo, path: "./brave-search", sha, descriptor });
-      expect(installed).toMatchObject({ name: "brave-search", installed: true });
-
-      const result = await runAmbientCliPackageCommand(workspace, {
-        packageName: "brave-search",
-        command: "search",
-        args: ["git", "overlay"],
-      });
-      expect(result.stdout).toBe("git|overlay");
+      const installed = await installAmbientCliPackageSource(workspace, { source: "./brave-search", descriptor }, preview);
+      const descriptorDetails = await stat(join(installed.rootPath, "ambient-cli.json"));
+      expect(descriptorDetails.mode & 0o777).toBe(0o644);
     } finally {
+      process.umask(previousUmask);
       await rm(workspace, { recursive: true, force: true });
     }
   });
 });
-
-async function seedCliFixture(workspace: string, options: { healthCheck?: string[] } = {}): Promise<void> {
-  const root = join(workspace, "cli-fixture");
-  await mkdir(join(root, "bin"), { recursive: true });
-  await mkdir(join(root, "skills", "json-cli"), { recursive: true });
-  await writeFile(
-    join(root, "ambient-cli.json"),
-    `${JSON.stringify(
-      {
-        name: "ambient-json-cli",
-        version: "0.1.0",
-        description: "Fixture JSON CLI package.",
-        skills: "./skills",
-        commands: {
-          "json-pick": {
-            command: "node",
-            args: ["./bin/json-pick.mjs"],
-            cwd: "workspace",
-            description: "Print a top-level JSON field.",
-            healthCheck: options.healthCheck ?? ["node", "./bin/json-pick.mjs", "health.json", "message"],
-          },
-        },
-      },
-      null,
-      2,
-    )}\n`,
-    "utf8",
-  );
-  await writeFile(
-    join(root, "bin", "json-pick.mjs"),
-    [
-      "import { readFileSync } from 'node:fs';",
-      "const [file, key] = process.argv.slice(2);",
-      "const value = JSON.parse(readFileSync(file, 'utf8'))[key];",
-      "process.stdout.write(String(value));",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  await writeFile(join(root, "health.json"), `${JSON.stringify({ message: "healthy" })}\n`, "utf8");
-  await writeFile(
-    join(root, "skills", "json-cli", "SKILL.md"),
-    [
-      "---",
-      "name: ambient-json-cli",
-      "description: Use ambient_cli json-pick for JSON field extraction.",
-      "---",
-      "",
-      "Use ambient_cli.",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-}
-
-function braveSearchOverlayDescriptor(): Record<string, unknown> {
-  return {
-    name: "brave-search",
-    version: "1.0.0",
-    description: "Reviewed Brave Search CLI package.",
-    skills: "./SKILL.md",
-    commands: {
-      search: {
-        command: "node",
-        args: ["./search.js"],
-        cwd: "package",
-        description: "Run Brave Search.",
-        healthCheck: ["node", "--check", "./search.js"],
-      },
-    },
-  };
-}
-
-async function seedCliPackageWithLocalDependency(root: string): Promise<void> {
-  await mkdir(join(root, "deps", "ambient-helper"), { recursive: true });
-  await writeFile(
-    join(root, "package.json"),
-    `${JSON.stringify(
-      {
-        name: "brave-search",
-        version: "1.0.0",
-        type: "module",
-        description: "Headless web search via Brave Search",
-        dependencies: { "ambient-helper": "file:./deps/ambient-helper" },
-      },
-      null,
-      2,
-    )}\n`,
-    "utf8",
-  );
-  await writeFile(
-    join(root, "deps", "ambient-helper", "package.json"),
-    `${JSON.stringify({ name: "ambient-helper", version: "1.0.0", type: "module" }, null, 2)}\n`,
-    "utf8",
-  );
-  await writeFile(
-    join(root, "deps", "ambient-helper", "index.js"),
-    "export function format(value) { return `formatted:${value}`; }\n",
-    "utf8",
-  );
-  await writeFile(
-    join(root, "search.js"),
-    "import { format } from 'ambient-helper';\nprocess.stdout.write(format(process.argv[2] ?? ''));\n",
-    "utf8",
-  );
-  await writeFile(
-    join(root, "SKILL.md"),
-    [
-      "---",
-      "name: brave-search",
-      "description: Web search and content extraction via Brave Search API.",
-      "---",
-      "",
-      "# Brave Search",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  await execFileAsync("npm", ["install", "--package-lock-only", "--ignore-scripts"], { cwd: root, env: { ...process.env } });
-}
 
 async function readTestSecret(envName: string, fileName: string): Promise<string> {
   const fromEnv = process.env[envName]?.trim();
@@ -3153,10 +2874,6 @@ async function readTestSecret(envName: string, fileName: string): Promise<string
     if (value) return value;
   }
   throw new Error(`Set ${envName}, ${envName}_FILE, or provide ignored ${fileName} for this live Ambient CLI smoke.`);
-}
-
-async function git(args: string[], cwd: string): Promise<void> {
-  await execFileAsync("git", args, { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
 }
 
 function sha256(value: string): string {

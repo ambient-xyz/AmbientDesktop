@@ -32,6 +32,7 @@ describe("agentRuntimeAmbientCliPackageSearchTools", () => {
       query: "voice",
       limit: 5,
       includeUnavailable: true,
+      includeHealth: false,
       kind: "command",
       packageName: "ambient-demo",
       command: "speak",
@@ -69,7 +70,7 @@ describe("agentRuntimeAmbientCliPackageSearchTools", () => {
       command: "",
     });
 
-    expect(searchAmbientCliCapabilities).toHaveBeenCalledWith("/workspace", {});
+    expect(searchAmbientCliCapabilities).toHaveBeenCalledWith("/workspace", { includeHealth: false });
   });
 
   it("rejects unsupported search kinds before searching", async () => {

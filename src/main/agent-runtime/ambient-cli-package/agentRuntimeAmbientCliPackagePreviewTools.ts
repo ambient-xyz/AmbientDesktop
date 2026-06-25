@@ -63,6 +63,7 @@ export function registerAmbientCliPackagePreviewTool(
           installable: preview.installable,
           errorCount: preview.errors.length,
           healthCheckCount: preview.healthChecks.length,
+          declaredHealthCheckCount: preview.candidate?.commands.filter((command) => command.healthCheck?.length).length ?? 0,
           dependencyInstall: preview.dependencyInstall,
           envStatus: preview.envStatus,
         },

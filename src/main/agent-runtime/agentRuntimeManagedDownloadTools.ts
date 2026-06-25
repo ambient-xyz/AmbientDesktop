@@ -96,13 +96,22 @@ function managedDownloadToolUpdate(toolName: string, text: string): AgentToolRes
 }
 
 function managedDownloadSnapshotUpdate(toolName: string, snapshot: AmbientDownloadJobSnapshot): AgentToolResult<Record<string, unknown>> {
+  const toolSnapshot = managedDownloadToolSnapshot(snapshot);
   return {
     content: [{ type: "text", text: managedDownloadProgressText(snapshot) }],
     details: {
       runtime: "ambient-managed-download",
       toolName,
       status: snapshot.status,
-      download: snapshot,
+      download: toolSnapshot,
+      jobId: snapshot.jobId,
+      destinationKind: snapshot.destinationKind,
+      destinationPath: snapshot.destinationPath,
+      finalUrl: toolSnapshot.finalUrl,
+      bytesReceived: snapshot.bytesReceived,
+      totalBytes: snapshot.totalBytes,
+      percent: snapshot.percent,
+      integrityStatus: snapshot.integrityStatus,
     },
   };
 }
@@ -112,21 +121,28 @@ function managedDownloadToolResult(
   toolName: string,
   snapshot: AmbientDownloadJobSnapshot,
 ): AgentToolResult<Record<string, unknown>> {
+  const toolSnapshot = managedDownloadToolSnapshot(snapshot);
   return {
     content: [{ type: "text", text }],
     details: {
       runtime: "ambient-managed-download",
       toolName,
       status: snapshot.status,
-      download: snapshot,
+      download: toolSnapshot,
       jobId: snapshot.jobId,
+      destinationKind: snapshot.destinationKind,
       destinationPath: snapshot.destinationPath,
       absolutePath: snapshot.absolutePath,
       partPath: snapshot.partPath,
       bytesReceived: snapshot.bytesReceived,
       totalBytes: snapshot.totalBytes,
       percent: snapshot.percent,
+      integrityStatus: snapshot.integrityStatus,
+      expectedBytes: snapshot.expectedBytes,
+      sha256: snapshot.sha256,
+      computedSha256: snapshot.computedSha256,
       error: snapshot.error,
+      finalUrl: toolSnapshot.finalUrl,
     },
   };
 }
@@ -136,6 +152,9 @@ function managedDownloadText(snapshot: AmbientDownloadJobSnapshot): string {
     `Ambient managed download ${snapshot.status}.`,
     `Job id: ${snapshot.jobId}`,
     `Destination: ${snapshot.destinationPath}`,
+    `Destination kind: ${snapshot.destinationKind}`,
+    snapshot.finalUrl && snapshot.finalUrl !== snapshot.url ? `Final URL: ${redactedManagedDownloadUrl(snapshot.finalUrl)}` : undefined,
+    `Integrity: ${snapshot.integrityStatus}`,
     `Absolute path: ${snapshot.absolutePath}`,
     `Partial path: ${snapshot.partPath}`,
     `Progress: ${managedDownloadProgressText(snapshot)}`,
@@ -155,10 +174,27 @@ function managedDownloadProgressText(snapshot: AmbientDownloadJobSnapshot): stri
   return `${snapshot.status}: ${size}${percent}${speed}`;
 }
 
+function managedDownloadToolSnapshot(snapshot: AmbientDownloadJobSnapshot): AmbientDownloadJobSnapshot {
+  return {
+    ...snapshot,
+    url: redactedManagedDownloadUrl(snapshot.url),
+    ...(snapshot.finalUrl ? { finalUrl: redactedManagedDownloadUrl(snapshot.finalUrl) } : {}),
+  };
+}
+
+function redactedManagedDownloadUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    return `${url.origin}/[redacted]`;
+  } catch {
+    return value;
+  }
+}
+
 function managedDownloadStartInput(params: unknown): {
   url: string;
   destinationPath?: string;
-  destinationKind?: "workspace" | "managed-install";
+  destinationKind?: "workspace" | "managed-install" | "quarantine";
   overwrite?: boolean;
   expectedBytes?: number;
   sha256?: string;
@@ -167,10 +203,10 @@ function managedDownloadStartInput(params: unknown): {
 } {
   const input = objectRecord(params);
   const rawDestinationKind = optionalString(input.destinationKind);
-  if (rawDestinationKind && rawDestinationKind !== "workspace" && rawDestinationKind !== "managed-install") {
-    throw new Error("destinationKind must be workspace or managed-install.");
+  if (rawDestinationKind && rawDestinationKind !== "workspace" && rawDestinationKind !== "managed-install" && rawDestinationKind !== "quarantine") {
+    throw new Error("destinationKind must be workspace, managed-install, or quarantine.");
   }
-  const destinationKind = rawDestinationKind as "workspace" | "managed-install" | undefined;
+  const destinationKind = rawDestinationKind as "workspace" | "managed-install" | "quarantine" | undefined;
   return {
     url: requiredString(input, "url").trim(),
     ...(optionalString(input.destinationPath) ? { destinationPath: optionalString(input.destinationPath) } : {}),

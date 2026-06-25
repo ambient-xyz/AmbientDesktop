@@ -9,7 +9,7 @@ import type { ModelRuntimeInstalledProvider } from "../../shared/threadTypes";
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 
 function setRawStoreSetting(store: ProjectStore, key: string, value: unknown): void {
-  (store as unknown as { settings: () => { setSetting: (key: string, value: unknown) => void } }).settings().setSetting(key, value);
+  (store as unknown as { repos: { settings: () => { setSetting: (key: string, value: unknown) => void } } }).repos.settings().setSetting(key, value);
 }
 
 describeNative("ProjectStore orchestration tasks (requires Node ABI better-sqlite3 build)", () => {

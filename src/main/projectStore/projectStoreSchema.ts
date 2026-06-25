@@ -277,13 +277,17 @@ export const PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL = `
         id TEXT PRIMARY KEY,
         thread_id TEXT NOT NULL,
         due_at TEXT NOT NULL,
-        status TEXT NOT NULL CHECK(status IN ('pending', 'delivered', 'cancelled', 'failed')),
+        status TEXT NOT NULL CHECK(status IN ('pending', 'delivered', 'cancelled', 'failed', 'resolved', 'superseded')),
         reason TEXT NOT NULL,
         job_id TEXT,
+        operation_key TEXT,
+        supersedes_wake_ids_json TEXT NOT NULL DEFAULT '[]',
         payload_json TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         delivered_at TEXT,
+        resolved_at TEXT,
+        resolution_reason TEXT,
         error TEXT,
         FOREIGN KEY(thread_id) REFERENCES threads(id) ON DELETE CASCADE
       );
@@ -979,6 +983,8 @@ export const PROJECT_STORE_MIGRATION_INDEX_SQL = {
     "CREATE INDEX IF NOT EXISTS idx_project_board_execution_artifacts_board_card ON project_board_execution_artifacts(board_id, card_id, updated_at)",
   workflowDiscoveryQuestionsRevision:
     "CREATE INDEX IF NOT EXISTS idx_workflow_discovery_questions_revision ON workflow_discovery_questions(revision_id, question_order)",
+  threadWakeContinuationsOperation:
+    "CREATE INDEX IF NOT EXISTS idx_thread_wake_continuations_operation ON thread_wake_continuations(thread_id, operation_key, status, due_at)",
 } as const;
 
 export type ProjectStoreMigrationIndexKey = keyof typeof PROJECT_STORE_MIGRATION_INDEX_SQL;
@@ -1300,6 +1306,12 @@ export const PROJECT_STORE_MIGRATION_COLUMN_GROUPS = {
   callableWorkflowPatternGraphs: [
     ["callable_workflow_tasks", "pattern_graph_snapshot_json", "TEXT"],
   ],
+  threadWakeContinuations: [
+    ["thread_wake_continuations", "operation_key", "TEXT"],
+    ["thread_wake_continuations", "supersedes_wake_ids_json", "TEXT NOT NULL DEFAULT '[]'"],
+    ["thread_wake_continuations", "resolved_at", "TEXT"],
+    ["thread_wake_continuations", "resolution_reason", "TEXT"],
+  ],
 } as const;
 
 export type ProjectStoreMigrationColumnGroupKey = keyof typeof PROJECT_STORE_MIGRATION_COLUMN_GROUPS;
@@ -1307,7 +1319,8 @@ export type ProjectStoreMigrationColumnGroupKey = keyof typeof PROJECT_STORE_MIG
 export type ProjectStoreSchemaMigrationStep =
   | { kind: "columnGroup"; key: ProjectStoreMigrationColumnGroupKey }
   | { kind: "index"; key: ProjectStoreMigrationIndexKey }
-  | { kind: "threadGoalProviderStatusCheck" };
+  | { kind: "threadGoalProviderStatusCheck" }
+  | { kind: "threadWakeContinuationStatusCheck" };
 
 export const PROJECT_STORE_SCHEMA_MIGRATION_STEPS_BEFORE_ORCHESTRATION_BACKFILL: readonly ProjectStoreSchemaMigrationStep[] = [
   { kind: "columnGroup", key: "coreThreadSubagent" },
@@ -1335,6 +1348,9 @@ export const PROJECT_STORE_SCHEMA_MIGRATION_STEPS_AFTER_ORCHESTRATION_BACKFILL_B
 export const PROJECT_STORE_SCHEMA_MIGRATION_STEPS_AFTER_PLANNER_REPAIR: readonly ProjectStoreSchemaMigrationStep[] = [
   { kind: "columnGroup", key: "workflowDiscoveryFinal" },
   { kind: "columnGroup", key: "callableWorkflowPatternGraphs" },
+  { kind: "columnGroup", key: "threadWakeContinuations" },
+  { kind: "threadWakeContinuationStatusCheck" },
+  { kind: "index", key: "threadWakeContinuationsOperation" },
   { kind: "index", key: "workflowDiscoveryQuestionsRevision" },
 ] as const;
 
@@ -1347,8 +1363,10 @@ export function applyProjectStoreSchemaMigrationSteps(
       ensureProjectStoreColumnGroup(db, step.key);
     } else if (step.kind === "index") {
       ensureProjectStoreIndex(db, step.key);
-    } else {
+    } else if (step.kind === "threadGoalProviderStatusCheck") {
       ensureThreadGoalProviderStatusCheck(db);
+    } else {
+      ensureThreadWakeContinuationStatusCheck(db);
     }
   }
 }
@@ -1418,5 +1436,62 @@ export function ensureThreadGoalProviderStatusCheck(db: Database.Database): void
     FROM thread_goals;
     DROP TABLE thread_goals;
     ALTER TABLE thread_goals_status_migration RENAME TO thread_goals;
+  `);
+}
+
+export function ensureThreadWakeContinuationStatusCheck(db: Database.Database): void {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'thread_wake_continuations'").get() as
+    | { sql?: string }
+    | undefined;
+  if (!row?.sql || row.sql.includes("'superseded'")) return;
+  db.exec(`
+    DROP TABLE IF EXISTS thread_wake_continuations_status_migration;
+    CREATE TABLE thread_wake_continuations_status_migration (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL,
+      due_at TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'delivered', 'cancelled', 'failed', 'resolved', 'superseded')),
+      reason TEXT NOT NULL,
+      job_id TEXT,
+      operation_key TEXT,
+      supersedes_wake_ids_json TEXT NOT NULL DEFAULT '[]',
+      payload_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      delivered_at TEXT,
+      resolved_at TEXT,
+      resolution_reason TEXT,
+      error TEXT,
+      FOREIGN KEY(thread_id) REFERENCES threads(id) ON DELETE CASCADE
+    );
+    INSERT INTO thread_wake_continuations_status_migration
+      (id, thread_id, due_at, status, reason, job_id, operation_key, supersedes_wake_ids_json,
+       payload_json, created_at, updated_at, delivered_at, resolved_at, resolution_reason, error)
+    SELECT
+      id,
+      thread_id,
+      due_at,
+      CASE
+        WHEN status IN ('pending', 'delivered', 'cancelled', 'failed', 'resolved', 'superseded')
+          THEN status
+        ELSE 'failed'
+      END,
+      reason,
+      job_id,
+      operation_key,
+      COALESCE(supersedes_wake_ids_json, '[]'),
+      payload_json,
+      created_at,
+      updated_at,
+      delivered_at,
+      resolved_at,
+      resolution_reason,
+      error
+    FROM thread_wake_continuations;
+    DROP TABLE thread_wake_continuations;
+    ALTER TABLE thread_wake_continuations_status_migration RENAME TO thread_wake_continuations;
+    CREATE INDEX IF NOT EXISTS idx_thread_wake_continuations_pending_due ON thread_wake_continuations(status, due_at);
+    CREATE INDEX IF NOT EXISTS idx_thread_wake_continuations_thread ON thread_wake_continuations(thread_id, status, due_at);
+    CREATE INDEX IF NOT EXISTS idx_thread_wake_continuations_operation ON thread_wake_continuations(thread_id, operation_key, status, due_at);
   `);
 }

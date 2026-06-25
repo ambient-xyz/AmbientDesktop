@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -967,7 +969,7 @@ describe("discoverCodexPlugins", () => {
       expect(preview).toMatchObject({
         source: remoteRoot,
         name: "Preview fixture",
-        installableCount: 1,
+        installableCount: 0,
         errors: [],
         marketplaceSources: [
           expect.objectContaining({
@@ -992,7 +994,89 @@ describe("discoverCodexPlugins", () => {
     }
   });
 
-  it("commits a pinned Codex marketplace install source into Ambient-owned imports", async () => {
+  it("blocks loopback Codex marketplace preview URL before fetch", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
+    const previousFetch = globalThis.fetch;
+    try {
+      const fetchImpl = vi.fn(async () => new Response("should not fetch", { status: 200 }));
+      globalThis.fetch = fetchImpl as typeof fetch;
+
+      const preview = await withPluginCache(
+        "0",
+        () => previewCodexPluginInstallSource(workspace, { source: "http://127.0.0.1:43111/marketplace.json", name: "Loopback fixture" }),
+      );
+
+      expect(preview.installableCount).toBe(0);
+      expect(preview.errors.join("\n")).toMatch(/plugin-preview URL egress blocked loopback/i);
+      expect(fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = previousFetch;
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks Codex marketplace redirects into metadata endpoints before the redirected fetch", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
+    const previousFetch = globalThis.fetch;
+    try {
+      const fetchImpl = vi.fn(async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: "http://169.254.169.254/latest/meta-data" },
+        }),
+      );
+      globalThis.fetch = fetchImpl as typeof fetch;
+
+      const preview = await withPluginCache(
+        "0",
+        () => previewCodexPluginInstallSource(workspace, { source: "https://plugins.example.test/marketplace.json", name: "Redirect fixture" }),
+      );
+
+      expect(preview.installableCount).toBe(0);
+      expect(preview.errors.join("\n")).toMatch(/plugin-preview URL egress blocked (metadata|link-local)/i);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.fetch = previousFetch;
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks remote Git plugin install egress before Git reaches a loopback source URL", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
+    const remoteRoot = await mkdtemp(join(tmpdir(), "ambient-remote-marketplace-"));
+    let requestCount = 0;
+    const server = createServer((_request, response) => {
+      requestCount += 1;
+      response.writeHead(404, { "content-type": "text/plain" });
+      response.end("git endpoint should not be reached");
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Loopback Git fixture did not bind a TCP port.");
+    try {
+      const sourceUrl = `http://127.0.0.1:${address.port}/blocked.git`;
+      const marketplacePath = await seedRemoteMarketplace(remoteRoot, {
+        source: { source: "git", url: sourceUrl, sha: "a".repeat(40) },
+      });
+
+      await expect(
+        withPluginCache(
+          "0",
+          () => commitCodexPluginInstallSource(workspace, { source: remoteRoot, pluginName: "remote-helper" }),
+          marketplacePath,
+        ),
+      ).rejects.toThrow(/Remote Git installs require a local Git path or file URL/i);
+      expect(requestCount).toBe(0);
+    } finally {
+      server.close();
+      await once(server, "close");
+      await rm(workspace, { recursive: true, force: true });
+      await rm(remoteRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("commits a pinned local Git Codex marketplace install source into Ambient-owned imports", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
     const remoteRoot = await mkdtemp(join(tmpdir(), "ambient-remote-marketplace-"));
     const repo = await mkdtemp(join(tmpdir(), "ambient-remote-plugin-repo-"));
@@ -1000,17 +1084,14 @@ describe("discoverCodexPlugins", () => {
       await seedGitBackedRemotePluginRepo(repo);
       const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repo });
       const sourceSha = String(stdout).trim();
-      const sourceUrl = "https://plugins.example.test/remote-helper.git";
+      const sourceUrl = repo;
       const marketplacePath = await seedRemoteMarketplace(remoteRoot, {
         source: { source: "git-subdir", url: sourceUrl, path: "./plugins/remote-helper", sha: sourceSha },
       });
 
       const result = await withPluginCache(
         "0",
-        () =>
-          withGitUrlRewrite(sourceUrl, repo, () =>
-            commitCodexPluginInstallSource(workspace, { source: remoteRoot, pluginName: "remote-helper" }),
-          ),
+        () => commitCodexPluginInstallSource(workspace, { source: remoteRoot, pluginName: "remote-helper" }),
         marketplacePath,
       );
 
@@ -1104,7 +1185,7 @@ describe("discoverCodexPlugins", () => {
     }
   });
 
-  it("installs pinned HTTPS Git-backed remote marketplace candidates as local Codex plugin imports", async () => {
+  it("registers pinned HTTPS Git-backed remote marketplace candidates without cloning them", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
     const remoteRoot = await mkdtemp(join(tmpdir(), "ambient-remote-marketplace-"));
     const repo = await mkdtemp(join(tmpdir(), "ambient-remote-plugin-repo-"));
@@ -1120,31 +1201,21 @@ describe("discoverCodexPlugins", () => {
       const candidate = before.importCandidates.find((plugin) => plugin.name === "remote-helper");
       expect(candidate).toMatchObject({ sourceKind: "remote-marketplace", imported: false, sourceUrl, sourceSha });
 
-      await withGitUrlRewrite(sourceUrl, repo, () =>
-        withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
-      );
+      await withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath);
 
       const marketplace = JSON.parse(await readFile(join(workspace, ".agents", "plugins", "marketplace.json"), "utf8"));
       expect(marketplace.plugins[0]).toMatchObject({
         name: "remote-helper",
-        source: expect.objectContaining({ source: "local" }),
-        ambient: {
-          provenance: {
-            sourceType: "git-subdir",
-            url: sourceUrl,
-            path: "./plugins/remote-helper",
-            sha: sourceSha,
-          },
-        },
+        source: { source: "git-subdir", url: sourceUrl, path: "./plugins/remote-helper", sha: sourceSha },
       });
 
       const after = await withPluginCache("0", () => discoverCodexPlugins(workspace), marketplacePath);
       expect(after.plugins.find((plugin) => plugin.name === "remote-helper")).toMatchObject({
-        sourceKind: "workspace",
+        sourceKind: "remote-marketplace",
         sourceUrl,
         sourceSha,
-        compatibilityTier: "supported",
-        skills: [expect.objectContaining({ name: "remote-helper" })],
+        compatibilityTier: "partial",
+        skills: [],
       });
     } finally {
       await rm(workspace, { recursive: true, force: true });
@@ -1153,7 +1224,7 @@ describe("discoverCodexPlugins", () => {
     }
   });
 
-  it("installs Ambient-curated HTTPS Git marketplace candidates into local Ambient state", async () => {
+  it("registers Ambient-curated HTTPS Git marketplace candidates without cloning them", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
     const remoteRoot = await mkdtemp(join(tmpdir(), "ambient-curated-marketplace-"));
     const repo = await mkdtemp(join(tmpdir(), "ambient-curated-plugin-repo-"));
@@ -1188,37 +1259,28 @@ describe("discoverCodexPlugins", () => {
         sourceBundleChecksum: bundleChecksum,
       });
 
-      await withGitUrlRewrite(sourceUrl, repo, () =>
-        withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
-      );
+      await withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath);
 
       const marketplace = JSON.parse(await readFile(join(workspace, ".agents", "plugins", "marketplace.json"), "utf8"));
       expect(marketplace.plugins[0]).toMatchObject({
         name: "remote-helper",
-        source: expect.objectContaining({ source: "local" }),
+        source: { source: "git-subdir", url: sourceUrl, path: "./plugins/remote-helper", sha: sourceSha },
         ambient: {
-          provenance: {
-            sourceType: "git-subdir",
-            url: sourceUrl,
-            path: "./plugins/remote-helper",
-            sha: sourceSha,
-          },
           marketplace: {
             bundleChecksum,
             capabilitySummary: ["Curated HTTPS Git fixture"],
           },
         },
       });
-      expect(marketplace.plugins[0].source.path).toContain("./.ambient-codex/imported-plugins/");
 
       const after = await withPluginCache("0", () => discoverCodexPlugins(workspace), marketplacePath);
       expect(after.plugins.find((plugin) => plugin.name === "remote-helper")).toMatchObject({
-        sourceKind: "workspace",
+        sourceKind: "remote-marketplace",
         marketplaceKind: "ambient-curated",
         sourceUrl,
         sourceSha,
         sourceBundleChecksum: bundleChecksum,
-        skills: [expect.objectContaining({ name: "remote-helper" })],
+        skills: [],
       });
     } finally {
       await rm(workspace, { recursive: true, force: true });
@@ -1227,7 +1289,7 @@ describe("discoverCodexPlugins", () => {
     }
   });
 
-  it("requires pinned SHAs before installing Ambient-curated Git marketplace candidates", async () => {
+  it("registers unpinned Ambient-curated Git marketplace metadata without cloning", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
     const remoteRoot = await mkdtemp(join(tmpdir(), "ambient-curated-marketplace-"));
     try {
@@ -1250,14 +1312,21 @@ describe("discoverCodexPlugins", () => {
 
       await expect(
         withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
-      ).rejects.toThrow("Ambient curated Git plugin installs require a pinned source.sha");
+      ).resolves.toMatchObject({
+        imported: true,
+        marketplaceKind: "ambient-curated",
+        sourceUrl: "https://plugins.example.test/ambient/unpinned.git",
+        sourceRef: "main",
+        sourceSha: undefined,
+        sourceKind: "remote-marketplace",
+      });
     } finally {
       await rm(workspace, { recursive: true, force: true });
       await rm(remoteRoot, { recursive: true, force: true });
     }
   });
 
-  it("fails Ambient-curated Git installs when the pinned SHA cannot be checked out", async () => {
+  it("registers Ambient-curated Git metadata with an unreachable pinned SHA without cloning", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
     const remoteRoot = await mkdtemp(join(tmpdir(), "ambient-curated-marketplace-"));
     const repo = await mkdtemp(join(tmpdir(), "ambient-curated-plugin-repo-"));
@@ -1282,10 +1351,14 @@ describe("discoverCodexPlugins", () => {
       const candidate = catalog.importCandidates.find((plugin) => plugin.name === "remote-helper");
 
       await expect(
-        withGitUrlRewrite(sourceUrl, repo, () =>
-          withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
-        ),
-      ).rejects.toThrow(/git -C .* checkout .* failed/);
+        withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
+      ).resolves.toMatchObject({
+        imported: true,
+        marketplaceKind: "ambient-curated",
+        sourceUrl,
+        sourceSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        sourceKind: "remote-marketplace",
+      });
     } finally {
       await rm(workspace, { recursive: true, force: true });
       await rm(remoteRoot, { recursive: true, force: true });
@@ -1293,7 +1366,7 @@ describe("discoverCodexPlugins", () => {
     }
   });
 
-  it("fails Ambient-curated Git installs when the cloned plugin is missing a manifest", async () => {
+  it("registers Ambient-curated Git metadata without inspecting remote manifests", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
     const remoteRoot = await mkdtemp(join(tmpdir(), "ambient-curated-marketplace-"));
     const repo = await mkdtemp(join(tmpdir(), "ambient-curated-plugin-repo-"));
@@ -1320,10 +1393,14 @@ describe("discoverCodexPlugins", () => {
       const candidate = catalog.importCandidates.find((plugin) => plugin.name === "remote-helper");
 
       await expect(
-        withGitUrlRewrite(sourceUrl, repo, () =>
-          withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
-        ),
-      ).rejects.toThrow("Remote plugin is missing .codex-plugin/plugin.json after clone.");
+        withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
+      ).resolves.toMatchObject({
+        imported: true,
+        marketplaceKind: "ambient-curated",
+        sourceUrl,
+        sourceSha,
+        sourceKind: "remote-marketplace",
+      });
     } finally {
       await rm(workspace, { recursive: true, force: true });
       await rm(remoteRoot, { recursive: true, force: true });
@@ -1331,7 +1408,7 @@ describe("discoverCodexPlugins", () => {
     }
   });
 
-  it("fails Ambient-curated Git installs when the bundle checksum does not match", async () => {
+  it("registers Ambient-curated Git metadata without verifying remote bundle checksums", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-plugin-workspace-"));
     const remoteRoot = await mkdtemp(join(tmpdir(), "ambient-curated-marketplace-"));
     const repo = await mkdtemp(join(tmpdir(), "ambient-curated-plugin-repo-"));
@@ -1359,10 +1436,15 @@ describe("discoverCodexPlugins", () => {
       const candidate = catalog.importCandidates.find((plugin) => plugin.name === "remote-helper");
 
       await expect(
-        withGitUrlRewrite(sourceUrl, repo, () =>
-          withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
-        ),
-      ).rejects.toThrow("Remote plugin bundle checksum mismatch");
+        withPluginCache("0", () => importCodexPluginFromCache(workspace, { pluginId: candidate!.id }), marketplacePath),
+      ).resolves.toMatchObject({
+        imported: true,
+        marketplaceKind: "ambient-curated",
+        sourceUrl,
+        sourceSha,
+        sourceBundleChecksum: `sha256:${"3".repeat(64)}`,
+        sourceKind: "remote-marketplace",
+      });
     } finally {
       await rm(workspace, { recursive: true, force: true });
       await rm(remoteRoot, { recursive: true, force: true });
